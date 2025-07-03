@@ -2,7 +2,28 @@ import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-st.set_page_config(page_title="Color Powder Management")
+# 直接讀 dict
+gcp_info = st.secrets["gcp_credentials"]
+
+scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive",
+]
+credentials = ServiceAccountCredentials.from_json_keyfile_dict(
+    gcp_info, scope
+)
+
+gc = gspread.authorize(credentials)
+
+spreadsheet_key = st.text_input("Google Sheets key")
+
+if spreadsheet_key:
+    sh = gc.open_by_key(spreadsheet_key)
+    worksheet = sh.sheet1
+    data = worksheet.get_all_values()
+
+    st.write(data)
+
 
 st.title("🌈 Color Powder Management")
 
