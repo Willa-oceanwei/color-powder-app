@@ -3,3 +3,7 @@ gspread
 oauth2client
 pandas
 numpy
+
+streamlit
+gspread
+oauth2client
