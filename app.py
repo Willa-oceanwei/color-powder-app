@@ -1,7 +1,9 @@
 import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+st.title("🌈 Color Powder Management")
 
+# 1️⃣ 讀取 Secrets
 # 直接讀 dict
 gcp_info = st.secrets["gcp_credentials"]
 
@@ -23,17 +25,6 @@ if spreadsheet_key:
     data = worksheet.get_all_values()
 
     st.write(data)
-
-
-st.title("🌈 Color Powder Management")
-
-# 1️⃣ 讀取 Secrets
-if "gcp_credentials" in st.secrets:
-    gcp_info = st.secrets["gcp_credentials"]
-    project_id = gcp_info["project_id"]
-    private_key = gcp_info["private_key"]
-
-st.write("Project ID:", project_id)
 
     # 2️⃣ 建立 Google Sheets 連線
     scope = [
