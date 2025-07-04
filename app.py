@@ -1,48 +1,50 @@
+# 行 1 - 9：匯入與 Google Sheets 驗證
 import streamlit as st
 import gspread
 import json
 from oauth2client.service_account import ServiceAccountCredentials
 
-# 定義 Google Sheets 權限範圍
 scope = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive"
 ]
-
-# 讀取 Secrets 中的 JSON 字串
 gcp_info = json.loads(st.secrets["gcp"]["gcp_json"])
-
-# 建立憑證
-credentials = ServiceAccountCredentials.from_json_keyfile_dict(
-    gcp_info, scopes=scope
-)
-
-# 授權
+credentials = ServiceAccountCredentials.from_json_keyfile_dict(gcp_info, scopes=scope)
 gc = gspread.authorize(credentials)
 
-# 用 spreadsheet key 開啟
+# 行 11 - 18：開啟 Sheet 與分頁
 sheet_key = "1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk"
-
 try:
     sh = gc.open_by_key(sheet_key)
     st.success("✅ 成功開啟 Google Sheets!")
-    st.write(sh)
-
-    # 若分頁名稱叫「工作表1」
     worksheet = sh.worksheet("工作表1")
     st.success("✅ 成功開啟 Worksheet!")
-    st.write(worksheet)
 
-    # 讀取資料（改用漂亮的 DataFrame 顯示）
-    import pandas as pd
-    data = worksheet.get_all_records()
-    df = pd.DataFrame(data)
-    st.dataframe(df)
+    # 行 20：顯示標題與樣式
+    st.markdown("<h1 style='color:#0081A7;'>🎨 色粉管理系統</h1>", unsafe_allow_html=True)
 
+    # 行 22 - 40：新增色粉資料輸入表單
+    with st.form("color_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            color_code = st.text_input("色粉編號")
+            intl_code = st.text_input("國際色號")
+            origin = st.text_input("產地")
+        with col2:
+            color_type = st.selectbox("色粉類別", ["A", "B", "C"])
+            spec = st.text_input("品名規格")
+            storage = st.text_input("存放倉庫")
+        note = st.text_area("備註")
+
+        submitted = st.form_submit_button("新增色粉資料", use_container_width=True)
+        if submitted:
+            worksheet.append_row([color_code, intl_code, origin, color_type, spec, storage, note])
+            st.success("✅ 資料已新增！")
+
+    # 行 42 - 45：顯示資料表格
+    st.markdown("### 📋 色粉總表")
+    records = worksheet.get_all_records()
+    st.dataframe(records)
 
 except Exception as e:
-    st.error("發生錯誤：")
-    st.write("Exception string：", str(e))
-    st.write("Exception repr：", repr(e))
-    import traceback
-    st.code(traceback.format_exc())
+    st.error(f"發生錯誤: {e}")
