@@ -32,7 +32,7 @@ try:
             origin = st.text_input("產地")
         with col2:
             color_type = st.selectbox("色粉類別", ["A 色粉", "B 色母", "C 添加劑"])
-            spec = st.text_input("品名規格")
+            spec = st.selectbox("規格", ["A 箱", "B 袋", "C 桶"])
             storage = st.text_input("存放倉庫")
         note = st.text_area("備註")
 
