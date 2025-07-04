@@ -33,9 +33,12 @@ try:
     st.success("✅ 成功開啟 Worksheet!")
     st.write(worksheet)
 
-    # 讀取資料
+    # 讀取資料（改用漂亮的 DataFrame 顯示）
+    import pandas as pd
     data = worksheet.get_all_records()
-    st.write(data)
+    df = pd.DataFrame(data)
+    st.dataframe(df)
+
 
 except Exception as e:
     st.error("發生錯誤：")
