@@ -32,6 +32,9 @@ sheet_url = st.secrets["gcp"]["spreadsheet_url"]
 
 # 開啟 spreadsheet
 sh = gc.open_by_url="https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit?gid=0#gid=0"
+sh = gc.open_by_url(sheet_url)
+
+st.write(sh)
 
 # 假設第一個工作表
 worksheet = sh.worksheet("工作表1")
