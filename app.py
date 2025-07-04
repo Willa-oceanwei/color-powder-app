@@ -31,7 +31,7 @@ gc = gspread.authorize(credentials)
 sheet_url = st.secrets["gcp"]["spreadsheet_url"]
 
 # 開啟 spreadsheet
-sh = gc.open_by_url(sheet_url)
+sh = gc.open_by_url(https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit?gid=0#gid=0)
 
 # 假設第一個工作表
 worksheet = sh.sheet1
