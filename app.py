@@ -1,6 +1,7 @@
 import streamlit as st
 import gspread
 import json
+gcp_info = json.loads(st.secrets["gcp"]["gcp_json"])
 from oauth2client.service_account import ServiceAccountCredentials
 
 # 定義 Google Sheets 權限範圍
