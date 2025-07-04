@@ -39,7 +39,7 @@ try:
 
 except Exception as e:
     st.error("發生錯誤：")
-    st.write(str(e))               # 印出錯誤文字
-    st.code(repr(e))               # 印出 Exception 類別
+    st.write("Exception string：", str(e))
+    st.write("Exception repr：", repr(e))
     import traceback
-    st.code(traceback.format_exc()) # 印出完整 traceback
+    st.code(traceback.format_exc())
