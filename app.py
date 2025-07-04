@@ -31,8 +31,8 @@ try:
             intl_code = st.text_input("國際色號")
             origin = st.text_input("產地")
         with col2:
-            color_type = st.selectbox("色粉類別", ["A 色粉", "B 色母", "C 添加劑"])
-            spec = st.selectbox("規格", ["A 箱", "B 袋", "C 桶"])
+            color_type = st.selectbox("色粉類別", ["色粉", "色母", "添加劑"])
+            spec = st.selectbox("規格", ["箱", "袋", "桶"])
             storage = st.text_input("存放倉庫")
         note = st.text_area("備註")
 
