@@ -34,7 +34,7 @@ sheet_url = st.secrets["gcp"]["spreadsheet_url"]
 sh = gc.open_by_url="https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit?gid=0#gid=0"
 
 # 假設第一個工作表
-worksheet = 工作表1
+worksheet = sh.worksheet("工作表1")
 
 # ========== 4. 測試讀寫 ==========
 # 讀第 1 列
