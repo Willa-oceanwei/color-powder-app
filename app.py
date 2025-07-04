@@ -39,5 +39,5 @@ try:
 
 except Exception as e:
     import traceback
-    st.error(f"發生錯誤: {e}")
+    st.error(f"發生錯誤:")
     st.code(traceback.format_exc())
