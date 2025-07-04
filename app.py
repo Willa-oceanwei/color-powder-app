@@ -1,4 +1,20 @@
 import streamlit as st
+import json
+import base64
+
+# 從 secrets 抓 base64
+b64_str = st.secrets["gcp"]["gcp_json_base64"]
+
+# decode 成 JSON string
+json_str = base64.b64decode(b64_str).decode("utf-8")
+
+# parse JSON
+gcp_info = json.loads(json_str)
+
+st.write("✅ 成功讀取 GCP JSON!")
+st.json(gcp_info)
+
+import streamlit as st
 import gspread
 import json
 from oauth2client.service_account import ServiceAccountCredentials
