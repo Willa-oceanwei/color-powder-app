@@ -1,61 +1,48 @@
 import streamlit as st
 import json
 import base64
-
-# 從 secrets 抓 base64
-b64_str = st.secrets["gcp"]["gcp_json_base64"]
-
-# decode 成 JSON string
-json_str = base64.b64decode(b64_str).decode("utf-8")
-
-# parse JSON
-gcp_info = json.loads(json_str)
-
-st.write("✅ 成功讀取 GCP JSON!")
-st.json(gcp_info)
-
-import streamlit as st
 import gspread
-import json
 from oauth2client.service_account import ServiceAccountCredentials
 
-st.set_page_config(page_title="Color Powder Management")
+# ========== 1. 讀取 secrets.toml 中的 base64 json ==========
+b64_key = st.secrets["gcp"]["gcp_json_base64"]
 
-st.title("🌈 Color Powder Management")
+# decode base64 → json string
+json_str = base64.b64decode(b64_key).decode("utf-8")
 
-# 檢查 Secrets
-if "gcp" not in st.secrets:
-    st.warning("❗ 尚未設定 gcp Secrets。請到 Settings → Secrets 設定")
-    st.stop()
+# load json
+gcp_info = json.loads(json_str)
 
-try:
-    gcp_info = json.loads(st.secrets["gcp"]["gcp_json"])
-except json.JSONDecodeError as e:
-    st.error(f"❌ JSON 格式錯誤：{e}")
-    st.stop()
-
+# ========== 2. 建立憑證 ==========
 scope = [
-    "https://spreadsheets.google/feeds",
-    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
 ]
 
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(
-    gcp_info, scope
+    gcp_info,
+    scopes=scope
 )
 
+# ========== 3. 連線 Google Sheet ==========
 gc = gspread.authorize(credentials)
 
-st.success("✅ Google Sheets 已連線成功！")
+# 從 secrets 拿 spreadsheet url
+sheet_url = st.secrets["gcp"]["spreadsheet_url"]
 
-spreadsheet_key = st.text_input("請輸入 Google Sheets Key")
+# 開啟 spreadsheet
+sh = gc.open_by_url(sheet_url)
 
-if spreadsheet_key:
-    try:
-        sh = gc.open_by_key(spreadsheet_key)
-        worksheet = sh.worksheet("ColorPowder")
-        data = worksheet.get_all_values()
-        st.write("🎯 讀取到以下資料：")
-        st.dataframe(data)
-    except Exception as e:
-        st.error(f"讀取失敗：{e}")
+# 假設第一個工作表
+worksheet = sh.sheet1
 
+# ========== 4. 測試讀寫 ==========
+# 讀第 1 列
+data = worksheet.row_values(1)
+
+st.write("第 1 列資料：", data)
+
+# 寫一筆資料（例如寫到 A10, B10）
+worksheet.update("A10", [["Hello", "Streamlit"]])
+
+st.success("已更新 Google Sheet！")
