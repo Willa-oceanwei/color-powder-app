@@ -38,6 +38,8 @@ try:
     st.write(data)
 
 except Exception as e:
+    st.error("發生錯誤：")
+    st.write(str(e))               # 印出錯誤文字
+    st.code(repr(e))               # 印出 Exception 類別
     import traceback
-    st.error(f"發生錯誤:")
-    st.code(traceback.format_exc())
+    st.code(traceback.format_exc()) # 印出完整 traceback
