@@ -39,3 +39,4 @@ try:
 
 except Exception as e:
     st.error(f"發生錯誤: {e}")
+    st.code(traceback.format_exc())
