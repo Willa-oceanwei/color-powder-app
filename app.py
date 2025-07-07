@@ -113,7 +113,7 @@ for idx, row in filtered_df.iterrows():
     col1, col2, col3 = st.columns([7, 1, 1])
     with col1:
         st.write(
-            f"➡️ 色粉編號：{row['色粉編號']} ｜ 名稱：{row['名稱']} ｜ 國際色號：{row['國際色號']} ｜ "
+            f"➡️ 色粉編號：{row['色粉編號']} ｜ 色粉名稱：{row['色粉名稱']} ｜ 國際色號：{row['國際色號']} ｜ "
             f"產地：{row['產地']} ｜ 類別：{row['色粉類別']}"
         )
     with col2:
@@ -137,7 +137,7 @@ if "edit_row" in st.session_state:
     with col1:
         new_id = st.text_input("色粉編號", value=edit_row["色粉編號"])
     with col2:
-        new_name = st.text_input("名稱", value=edit_row["名稱"])
+        new_name = st.text_input("色粉名稱", value=edit_row["色粉名稱"])
     with col3:
         new_colorcode = st.text_input("國際色號", value=edit_row["國際色號"])
     with col4:
