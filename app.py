@@ -68,7 +68,7 @@ color_code = st.text_input("色粉編號")
 pantone_code = st.text_input("國際色號")
 color_name = st.text_input("色粉名稱")
 color_type = st.selectbox("色粉類別", ["色粉", "色母", "添加劑"])
-spec = st.text_input("規格")
+spec = st.selectbox("規格", ["kg", "箱", "袋"])
 origin = st.text_input("產地")
 remark = st.text_input("備註")
 
