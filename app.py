@@ -1,169 +1,131 @@
 import streamlit as st
 import gspread
-import json
 import pandas as pd
+import json
 from oauth2client.service_account import ServiceAccountCredentials
 
-# ---------- CSS 區 ----------
-st.markdown("""
-    <style>
-        div.stButton > button {
-            background-color: #0081A7;
-            color: white;
-            border-radius: 4px;
-            padding: 4px 10px;
-            font-size: 12px;
-            height: 28px;
-        }
-        .dataframe th, .dataframe td {
-            text-align: center !important;
-            vertical-align: middle !important;
-            font-size: 14px;
-        }
-        /* 刪除鍵亮藍底，白字 */
-        .delete-btn {
-            background-color: #0081A7;
-            color: white;
-            border-radius: 4px;
-            padding: 4px 10px;
-            font-size: 12px;
-            height: 28px;
-            border: none;
-            cursor: pointer;
-        }
-    </style>
-""", unsafe_allow_html=True)
+# ======== GOOGLE SHEETS AUTH ========
 
-# ---------- Google Sheets 設定 ----------
 scope = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive"
 ]
 
+# 從 secrets 抓 service account JSON
 gcp_info = json.loads(st.secrets["gcp"]["gcp_json"])
 
+# 認證
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(
     gcp_info, scopes=scope
 )
-
 gc = gspread.authorize(credentials)
 
-# 你的 Google Sheet Key
+# Google Sheets Key
 sheet_key = "1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk"
+
+# ======== LOAD SHEET ========
 
 try:
     sh = gc.open_by_key(sheet_key)
     worksheet = sh.worksheet("工作表1")
-    st.success("✅ 成功開啟 Google Sheets!")
+
+    data = worksheet.get_all_records()
+    df = pd.DataFrame(data)
+
+    st.success("✅ 成功讀取 Google Sheets!")
 
 except Exception as e:
-    st.error(f"發生錯誤：{e}")
+    st.error(f"發生錯誤: {e}")
     st.stop()
 
-# ---------- 讀取 Sheet ----------
-data = worksheet.get_all_records()
-df = pd.DataFrame(data)
-
-# ---------- 新增色粉 ----------
-st.header("➕ 新增色粉")
-
-with st.form("add_form", clear_on_submit=True):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        color_id = st.text_input("色粉編號")
-        color_name = st.text_input("色粉名稱")
-        color_type = st.selectbox("色粉類別", ["色粉", "配方", "色母", "添加劑", "其他"])
-    with col2:
-        intl_code = st.text_input("國際色號")
-        spec = st.text_input("規格")
-    with col3:
-        origin = st.text_input("產地")
-        remark = st.text_input("備註")
-
-    submit = st.form_submit_button("新增色粉")
-
-if submit:
-    worksheet.append_row([
-        color_id, intl_code, color_name,
-        color_type, spec, origin, remark
+# 如果表格是空的，建立欄位
+if df.empty:
+    df = pd.DataFrame(columns=[
+        "色粉編號", "國際色號", "色粉名稱",
+        "色粉類別", "規格", "產地", "備註"
     ])
-    st.success("✅ 已新增色粉！")
-    st.experimental_rerun()
 
-# ---------- 顯示色粉總表 ----------
-st.subheader("📄 色粉總表")
+# ======== 搜尋 ========
 
-if not df.empty:
-    for idx, row in df.iterrows():
-        bg_color = "#FED9B7" if idx % 2 == 0 else "#FDFCDC"
+st.markdown("## 🔍 搜尋色粉")
 
-        # 顯示每筆資料
+keyword = st.text_input("請輸入色粉編號")
+
+if keyword:
+    filtered_df = df[
+        df["色粉編號"].astype(str).str.contains(keyword, na=False)
+    ]
+else:
+    filtered_df = df
+
+# ======== 新增 ========
+
+st.markdown("---")
+st.markdown("## ➕ 新增色粉")
+
+# 建立欄位
+color_code = st.text_input("色粉編號")
+pantone_code = st.text_input("國際色號")
+color_name = st.text_input("色粉名稱")
+color_type = st.selectbox("色粉類別", ["有機", "無機", "其他"])
+spec = st.text_input("規格")
+origin = st.text_input("產地")
+remark = st.text_input("備註")
+
+# 檢查重複編號
+existing_codes = df["色粉編號"].astype(str).tolist()
+
+if st.button("確定新增"):
+    if color_code in existing_codes:
+        st.warning("⚠️ 色粉編號重複，請重新輸入！")
+    else:
+        new_row = [color_code, pantone_code, color_name, color_type, spec, origin, remark]
+        worksheet.append_row(new_row)
+        st.success("✅ 新增完成！請重新執行程式查看更新。")
+
+# ======== 顯示序列 ========
+
+st.markdown("---")
+st.markdown("## 📋 色粉總表")
+
+# 重新用最新 DataFrame
+if keyword:
+    display_df = filtered_df
+else:
+    display_df = df
+
+for i, row in display_df.iterrows():
+    # 用 st.columns 排版
+    cols = st.columns([10, 1, 1])
+    
+    # 資料
+    with cols[0]:
         st.markdown(
             f"""
-            <div style="
-                background-color: {bg_color};
-                padding: 8px;
+            <div style='
+                font-size: 14px;
+                text-align: center;
+                background-color: {"#FED9B7" if i % 2 == 0 else "#FDFCDC"};
+                padding: 6px;
                 border-radius: 5px;
-                margin-bottom: 4px;
-            ">
-                ➡️ <b>色粉編號：</b>{row['色粉編號']} ｜ 
-                <b>名稱：</b>{row['色粉名稱']} ｜ 
-                <b>國際色號：</b>{row['國際色號']} ｜ 
-                <b>類別：</b>{row['色粉類別']} ｜ 
-                <b>規格：</b>{row['規格']} ｜ 
-                <b>產地：</b>{row['產地']} ｜ 
-                <b>備註：</b>{row['備註']}
+            '>
+            ➡️ 色粉編號：{row.get("色粉編號", "")} ｜ 名稱：{row.get("色粉名稱", "")} ｜ 國際色號：{row.get("國際色號", "")} ｜ 
+            類別：{row.get("色粉類別", "")} ｜ 規格：{row.get("規格", "")} ｜ 產地：{row.get("產地", "")} ｜ 備註：{row.get("備註", "")}
             </div>
             """,
             unsafe_allow_html=True
         )
+    
+    # 修改按鈕
+    with cols[1]:
+        if st.button("修改", key=f"edit_{i}"):
+            st.info(f"🔧 準備修改：色粉編號 {row.get('色粉編號','')}")
+    
+    # 刪除按鈕
+    with cols[2]:
+        delete_clicked = st.button("刪除", key=f"delete_{i}")
+        if delete_clicked:
+            worksheet.delete_rows(i + 2)  # GSpread 第 2 列是第一筆資料
+            st.warning("🗑️ 已刪除！請重新執行程式查看更新。")
+            st.stop()
 
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("修改", key=f"edit_{idx}"):
-                st.session_state["edit_idx"] = idx
-                st.experimental_rerun()
-
-        with col2:
-            delete_btn = st.button("刪除", key=f"del_{idx}")
-            if delete_btn:
-                worksheet.delete_rows(idx + 2)
-                st.success("✅ 已刪除！")
-                st.experimental_rerun()
-
-# ---------- 修改功能 ----------
-if "edit_idx" in st.session_state:
-    edit_idx = st.session_state["edit_idx"]
-    row_data = df.iloc[edit_idx]
-
-    st.subheader("✏️ 修改色粉")
-
-    with st.form("edit_form"):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            color_id = st.text_input("色粉編號", value=row_data["色粉編號"])
-            color_name = st.text_input("色粉名稱", value=row_data["色粉名稱"])
-            color_type = st.selectbox("色粉類別",
-                                      ["色粉", "配方", "色母", "添加劑", "其他"],
-                                      index=["色粉", "配方", "色母", "添加劑", "其他"].index(row_data["色粉類別"]))
-        with col2:
-            intl_code = st.text_input("國際色號", value=row_data["國際色號"])
-            spec = st.text_input("規格", value=row_data["規格"])
-        with col3:
-            origin = st.text_input("產地", value=row_data["產地"])
-            remark = st.text_input("備註", value=row_data["備註"])
-
-        save = st.form_submit_button("儲存修改")
-
-    if save:
-        # 替換整行
-        worksheet.update(
-            f"A{edit_idx+2}:G{edit_idx+2}",
-            [[color_id, intl_code, color_name, color_type, spec, origin, remark]]
-        )
-        st.success("✅ 已完成修改！")
-        del st.session_state["edit_idx"]
-        st.experimental_rerun()
-
-else:
-    st.write("")  # 保持版面整齊
