@@ -4,150 +4,147 @@ import json
 import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
 
-# ---------- 基本設定 ----------
 st.set_page_config(layout="wide")
 
-# ---------- 連線 Google Sheets ----------
+# ============== GCP 認證 ===================
 scope = [
     "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive"
+    "https://www.googleapis.com/auth/drive",
 ]
-
 gcp_info = json.loads(st.secrets["gcp"]["gcp_json"])
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(
     gcp_info, scopes=scope
 )
 gc = gspread.authorize(credentials)
 
+# ============== Google Sheets 讀取 ==========
 sheet_key = "1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk"
 sh = gc.open_by_key(sheet_key)
 worksheet = sh.worksheet("工作表1")
-
-# ---------- 讀取現有資料 ----------
 data = worksheet.get_all_records()
 df = pd.DataFrame(data)
 
-# 如果是空表，先補上表頭
+# 如果表格為空，先建立欄位
 if df.empty:
     df = pd.DataFrame(columns=[
-        "色粉編號", "國際色號", "色粉名稱",
+        "色粉編號", "色粉名稱", "國際色號",
         "色粉類別", "規格", "產地", "備註"
     ])
 
-# ---------- 新增或修改邏輯 ----------
-# 記錄是否在修改模式
-if "edit_mode" not in st.session_state:
-    st.session_state.edit_mode = False
-if "editing_index" not in st.session_state:
-    st.session_state.editing_index = None
+# ============== 搜尋欄位 =======================
+st.subheader("🔍 搜尋色粉")
+search_code = st.text_input("輸入色粉編號搜尋")
 
-st.title("色粉管理系統")
+if search_code:
+    df_filtered = df[df["色粉編號"].str.contains(search_code, case=False, na=False)]
+else:
+    df_filtered = df
 
-# ---------- 新增 / 修改表單 ----------
-st.subheader("➕ 新增或修改色粉資料")
+# ============== 新增色粉 =======================
+st.divider()
+st.subheader("➕ 新增色粉")
 
-# 雙欄排版
-col1, col2 = st.columns(2)
-
+# 四欄 layout
+col1, col2, col3, col4 = st.columns(4)
 with col1:
-    powder_id = st.text_input("色粉編號", key="powder_id")
-    color_code = st.text_input("國際色號", key="color_code")
-    powder_name = st.text_input("色粉名稱", key="powder_name")
-    color_type = st.selectbox("色粉類別", ["色粉", "色母", "添加劑", "配方", "其他"], key="color_type")
-
+    new_code = st.text_input("色粉編號", key="add_code")
 with col2:
-    spec = st.selectbox("規格", ["kg", "箱", "袋", "桶", "其他"], key="spec")
-    origin = st.text_input("產地", key="origin")
-    remark = st.text_input("備註", key="remark")
-
-# ---------- 儲存按鈕 ----------
-if st.session_state.edit_mode:
-    save_label = "✅ 確定修改"
-else:
-    save_label = "✅ 新增色粉"
-
-if st.button(save_label, key="save_button"):
-    # 建立字典
-    new_data = {
-        "色粉編號": powder_id,
-        "國際色號": color_code,
-        "色粉名稱": powder_name,
-        "色粉類別": color_type,
-        "規格": spec,
-        "產地": origin,
-        "備註": remark
-    }
-    # 檢查必填
-    if powder_id == "":
-        st.warning("請輸入色粉編號。")
-    else:
-        if st.session_state.edit_mode:
-            # 修改模式
-            duplicate = df[(df["色粉編號"] == powder_id) & (df.index != st.session_state.editing_index)]
-            if not duplicate.empty:
-                st.warning("此色粉編號已存在，請重新輸入。")
-            else:
-                df.loc[st.session_state.editing_index] = new_data
-                worksheet.update(
-                    f"A{st.session_state.editing_index + 2}",
-                    [list(new_data.values())]
-                )
-                st.success("已成功修改資料！")
-                st.session_state.edit_mode = False
-                st.experimental_rerun()
-        else:
-            # 新增模式
-            if powder_id in df["色粉編號"].values:
-                st.warning("此色粉編號已存在，請重新輸入。")
-            else:
-                worksheet.append_row(list(new_data.values()))
-                st.success("新增成功！")
-                st.experimental_rerun()
-
-# ---------- 顯示色粉總表 ----------
-st.subheader("📄 色粉總表")
-
-# 產生交錯色背景
-def style_row(idx):
-    color = "#FED9B7" if idx % 2 == 0 else "#FDFCDC"
-    return [f"background-color: {color}; text-align: center;" for _ in range(len(df.columns))]
-
-if not df.empty:
-    # 加上按鈕欄位
-    df_display = df.copy()
-    df_display["操作"] = ""
-
-    for i in df_display.index:
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("✏️ 修改", key=f"edit_{i}"):
-                # 將資料帶到輸入區
-                st.session_state.edit_mode = True
-                st.session_state.editing_index = i
-                row = df.loc[i]
-                st.session_state.powder_id = row["色粉編號"]
-                st.session_state.color_code = row["國際色號"]
-                st.session_state.powder_name = row["色粉名稱"]
-                st.session_state.color_type = row["色粉類別"]
-                st.session_state.spec = row["規格"]
-                st.session_state.origin = row["產地"]
-                st.session_state.remark = row["備註"]
-                st.experimental_rerun()
-        with col2:
-            if st.button("🗑 刪除", key=f"delete_{i}"):
-                confirm = st.confirm(f"確定要刪除色粉編號 {df.loc[i, '色粉編號']} 嗎？")
-                if confirm:
-                    worksheet.delete_rows(i + 2)
-                    st.success("刪除成功！")
-                    st.experimental_rerun()
-
-    # 顯示表格
-    st.dataframe(
-        df.style.apply(style_row, axis=1).set_properties(**{
-            'text-align': 'center',
-            'font-size': '14px'
-        }),
-        use_container_width=True
+    new_name = st.text_input("色粉名稱", key="add_name")
+with col3:
+    new_int_color = st.text_input("國際色號", key="add_int_color")
+with col4:
+    new_color_type = st.selectbox(
+        "色粉類別", ["色粉", "色母", "添加劑"], key="add_color_type"
     )
-else:
-    st.info("目前無色粉資料。")
+
+col5, col6, col7, col8 = st.columns(4)
+with col5:
+    new_spec = st.selectbox("規格", ["kg", "箱", "袋"], key="add_spec")
+with col6:
+    new_origin = st.text_input("產地", key="add_origin")
+with col7:
+    new_remark = st.text_input("備註", key="add_remark")
+with col8:
+    st.write("")
+    if st.button("✅ 新增色粉", use_container_width=True, key="add_button"):
+        if new_code in df["色粉編號"].values:
+            st.error(f"⚠️ 色粉編號【{new_code}】已存在，請勿重複新增！")
+        else:
+            # 新增到 DataFrame
+            new_row = {
+                "色粉編號": new_code,
+                "色粉名稱": new_name,
+                "國際色號": new_int_color,
+                "色粉類別": new_color_type,
+                "規格": new_spec,
+                "產地": new_origin,
+                "備註": new_remark,
+            }
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            worksheet.append_row(list(new_row.values()))
+            st.success(f"✅ 已新增色粉：{new_code} - {new_name}")
+
+# ============== 批次編輯 data_editor ===========
+st.divider()
+st.subheader("📝 批次編輯色粉資料")
+
+# 用 data_editor 顯示
+edited_df = st.data_editor(
+    df_filtered,
+    use_container_width=True,
+    num_rows="dynamic",
+    key="data_editor"
+)
+
+if st.button("💾 儲存修改", use_container_width=True, key="save_button"):
+    confirm = st.confirm("⚠️ 是否確認儲存所有修改？")
+    if confirm:
+        # 這邊假設只 demo，你可以改成上傳到 Google Sheet
+        df.update(edited_df)
+        # 也可寫回 Google Sheet
+        worksheet.clear()
+        worksheet.append_row(df.columns.tolist())
+        worksheet.append_rows(df.values.tolist())
+        st.success("✅ 所有修改已儲存！")
+
+# ============== 列出所有色粉序列 ===============
+st.divider()
+st.subheader("📋 色粉總表")
+
+# 設定交錯顏色
+def style_row(row):
+    idx = row.name
+    color = "#FDFCDC" if idx % 2 == 0 else "#FED9B7"
+    return ["background-color: {}".format(color)] * len(row)
+
+# 顯示 DataFrame
+st.dataframe(
+    df.style.apply(style_row, axis=1)
+             .set_properties(**{
+                 'text-align': 'center',
+                 'font-size': '14px'
+             }),
+    use_container_width=True,
+)
+
+# 單筆修改、刪除按鈕（demo 範例）
+for i, row in df.iterrows():
+    cols = st.columns([8, 1, 1])
+    with cols[0]:
+        st.write(
+            f"➡️ {row['色粉編號']} ｜ {row['色粉名稱']} ｜ {row['國際色號']}"
+        )
+    with cols[1]:
+        if st.button("✏️ 修改", key=f"edit_{i}"):
+            st.info(f"進入【{row['色粉編號']}】修改頁面 (示範)")
+
+    with cols[2]:
+        if st.button("🗑️ 刪除", key=f"delete_{i}"):
+            confirm = st.confirm(f"⚠️ 確定要刪除【{row['色粉編號']}】嗎？")
+            if confirm:
+                df = df.drop(i).reset_index(drop=True)
+                worksheet.clear()
+                worksheet.append_row(df.columns.tolist())
+                worksheet.append_rows(df.values.tolist())
+                st.success(f"✅ 已刪除色粉編號：{row['色粉編號']}")
+                st.experimental_rerun()
