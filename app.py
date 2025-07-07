@@ -107,14 +107,30 @@ try:
 
     st.markdown("### 📋 色粉總表")
 
-    for idx, row in df.iterrows():
-        col1, col2, col3 = st.columns([7, 1, 1])
-        with col1:
-            st.write(row.to_dict())
-        with col2:
+    # 顯示橫式 DataFrame
+st.markdown("### 📋 色粉總表")
+
+if not df.empty:
+    st.dataframe(
+        df.style.set_properties(**{
+            'text-align': 'left'
+        }),
+        use_container_width=True
+    )
+else:
+    st.info("目前無任何色粉資料。")
+
+# 顯示編輯 / 刪除按鈕
+for idx, row in df.iterrows():
+    col1, col2 = st.columns([8, 2])
+    with col1:
+        st.write(f"➡️ 色粉編號：{row['色粉編號']} ｜ 國際色號：{row['國際色號']} ｜ 產地：{row['產地']} ｜ 類別：{row['色粉類別']}")
+    with col2:
+        btn1, btn2 = st.columns(2)
+        with btn1:
             if st.button("✏️ 修改", key=f"edit_{idx}"):
                 st.session_state["edit_row"] = idx
-        with col3:
+        with btn2:
             if st.button("🗑️ 刪除", key=f"delete_{idx}"):
                 worksheet.delete_rows(idx + 2)
                 st.success("✅ 已刪除資料")
