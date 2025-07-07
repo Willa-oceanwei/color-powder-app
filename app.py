@@ -42,7 +42,7 @@ except Exception as e:
 if df.empty:
     df = pd.DataFrame(columns=[
         "色粉編號", "國際色號", "色粉名稱",
-        "色粉類別", "色粉", "色母", "添加劑"
+        "色粉類別", "規格", "產地", "備註"
     ])
 
 # ======== 搜尋 ========
@@ -67,7 +67,7 @@ st.markdown("## ➕ 新增色粉")
 color_code = st.text_input("色粉編號")
 pantone_code = st.text_input("國際色號")
 color_name = st.text_input("色粉名稱")
-color_type = st.selectbox("色粉類別", ["有機", "無機", "其他"])
+color_type = st.selectbox("色粉類別", ["色粉", "色母", "添加劑"])
 spec = st.text_input("規格")
 origin = st.text_input("產地")
 remark = st.text_input("備註")
