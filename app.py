@@ -61,7 +61,7 @@ with st.form("add_form", clear_on_submit=True):
     with col1:
         new_id = st.text_input("色粉編號")
     with col2:
-        new_name = st.text_input("名稱")
+        new_name = st.text_input("色粉名稱")
     with col3:
         new_colorcode = st.text_input("國際色號")
     with col4:
