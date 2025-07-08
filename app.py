@@ -13,7 +13,7 @@ client = gspread.authorize(creds)
 SHEET_NAME = '色粉管理'
 WORKSHEET_NAME = '工作表1'
 
-sheet = client.open(SHEET_NAME)
+sheet = client.open(色粉管理)
 worksheet = sheet.worksheet(WORKSHEET_NAME)
 
 # 載入資料
