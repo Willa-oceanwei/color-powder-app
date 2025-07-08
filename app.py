@@ -9,7 +9,7 @@ from google.oauth2.service_account import Credentials
 scope = ["https://spreadsheets.google.com/feeds",
          "https://www.googleapis.com/auth/drive"]
 service_account_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
-creds = Credentials.from_service_account_info(service_account_info, scopes=scope)
+creds = Credentials.from_service_account_file("service_account.json", scopes=scope)
 
 
 # ====== 連線 Google Sheet ======
