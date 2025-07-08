@@ -1,4 +1,22 @@
 import json
+from google.oauth2 import service_account
+
+service_account_info = json.loads("""
+{
+  "type": "service_account",
+  "project_id": "color-powder-app",
+  "private_key_id": "b216c39cafed30d876ce234652422fc58e0a5a67",
+  "private_key": "-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCxA4Kc8l51AQkV\\nSN9AYeUDHJXec9dUASOtUpDcSv6mrYAG+mVMgN8kxpBpjw556n2GGfaqcerMZsmy\\n+NaYYVhd1+kVEkUD6dExJOuAgxX3hWNFsY4FgpeytPD/r/yRtSyPmBu9ABdNkXbX\\nVhjpn5aT8ZeUYbeqJ1kxK9+ZkVfq846VhyZepZ2+WbxB0IjnI+tzWid0GDaY9YcH\\n1O8TJeLIhw+rHyvai2HsAEaD3+2v/7fE94OuXsGHOB7KbNEn0dv7B0EyaNyTP60L\\neY922VruvnGOyJOx5RmQyI4cxDGh2SonxHqEpDMNKdyUNsxNz8ZXoe1TiSOX9wsT\\n6VOZJISFAgMBAAECggEAJhATaqSqP34Swi8qhFlYiYgAyPX/WBqrnYYqzJfatKQL\\nqtR2alIuyWViIbSnf/s2dRrJoeJ/gubaWb/swxTxj7JQ9h041mvVdfwSoM5vL4uQ\\n6mhQ2en4LS7/wHdK99jtpU3nrwchO6Z7F7g1gKz2j8bsGXW+rNmrselVehvY/BX6\\nJwYPj4xD90eEi6sBPf48uEfs7mXkfFCV6JKVQZD0UINJdBJLqGBgU9yhFKdkSSXn\\n+UezuYVNsHr7NC0tqTnVh+7YlHTh010Dx4jPb9l8zIGzdYbc29ThtIPaEh32Ts47\\nZ4ms20TCOszvwDlmdnQoVeAXl3a3jkTOFuFXfLcxgQKBgQDVnNKdWFoBA9adfZIp\\n5uqvimd/w2UUcAe2kIkY+/t7mlWlIAFd4ttKvJFoydonkXrIthvncU9gg696+0fK\\nRRPR6jM17AQdGbMnsXCrQ5v4QWyTXWvKhdGAZLPtcvA7ZqLMZ98PpIoRSOGXoM3+\\nk0HXyNyWCQC3jtSDZs5Rl3CJgQKBgQDUI4Xu8EEKEtJvqTdbKdCl/p4GWhwvYF2l\\nEISDSFUp2RjXvMOf0p6WpI3/yY4UQnUN9H3BaUVmnzfJ56u/vqtVLpBSJzwnyLzK\\nOiypKrLW9Afv+3eVMO59MaEXFpQF/EaGjfz2agMGVupT0Rh4WeLnFhmSpcebi2tl\\nfSqpB0pVBQKBgQCgU91MlbSwEFZzzHz5EEVTTdlS7rAeP9u6Lg+IfhCJ/BOOJVCB\\nTDT1ikTFVsNzcWCr5utYshY2xX/fGV0PtvsiUdrv/N41jUWHZEnBcbROB6TbkoHF\\n9tyAtpTJgrxGiUlljAzC6+dpA7+2k84o5hPERxExVz5/hyeAHJh8auLfgQKBgBBM\\nRl7sEGMgvRAdFQao+MG4BRYB2EZ/hdJHqZaYeQqFBlaUxwbBXLPAIrSzHHpL/Mg8\\nr2irmMxgkR2u8dACaxFZSXc2UnXQA0kaHRJGGIVRLEbwr+hDYR83L+QhNPAcyKJP\\nyE56KI9VIB2eY93jMf6FASP2HpbBqFecvSlNSRWtAoGBANJej0nJMr4BwXhkAldZ\\njda6mxuISf7c+CSmjssFClFhucnUw90ClB4Oif9BnFZCMc89hrorseDwuHqGIaZB\\nQ0bEgPixTwEgugXmUBP3IRYBBQTKZYFWz9DtSZB0knRpC+58vNpFYOQV/r+6Zfc4\\nDD4zqL9IL0RMSg5ZtFUvo2U3\\n-----END PRIVATE KEY-----\\n",
+  "client_email": "color-powder-service@color-powder-app.iam.gserviceaccount.com",
+  "client_id": "106995460808133306558",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client": "https://www.googleapis.com/robot/v1/metadata/x509/color-powder-service@color-powder-app.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
+""")
+creds = service_account.Credentials.from_service_account_info(service_account_info)
 import streamlit as st
 from google.oauth2 import service_account
 
