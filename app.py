@@ -14,7 +14,7 @@ service_account_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
 creds = Credentials.from_service_account_info(service_account_info, scopes=scope)
 
 client = gspread.authorize(creds)
-spreadsheet = client.open("你的試算表名稱")
+spreadsheet = client.open("色粉管理")
 worksheet = spreadsheet.worksheet("工作表1")
 
 # ====== 連線 Google Sheet ======
