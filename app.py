@@ -1,19 +1,21 @@
+import streamlit as st
+import pandas as pd
 import os
 import json
 from google.oauth2.service_account import Credentials
+import gspread
 
 scope = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive",
 ]
 
-# 透過環境變數取得 service account JSON 內容
 service_account_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
+creds = Credentials.from_service_account_info(service_account_info, scopes=scope)
 
-# 建立 Google 認證憑證
-creds = Credentials.from_service_account_info(
-    service_account_info, scopes=scope
-)
+client = gspread.authorize(creds)
+spreadsheet = client.open("你的試算表名稱")
+worksheet = spreadsheet.worksheet("工作表1")
 
 # ====== 連線 Google Sheet ======
 scope = ["https://spreadsheets.google.com/feeds",
