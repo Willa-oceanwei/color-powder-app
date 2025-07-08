@@ -159,52 +159,40 @@ if module == "色粉管理":
     if not show_df.empty:
         for idx, row in show_df.iterrows():
             bg_color = "#FDFCDC" if idx % 2 == 0 else "#FED9B7"
-            row_html = f"""
-                <div style="
-                    background-color:{bg_color};
-                    padding:8px;
-                    margin-bottom:4px;
-                    font-size:14px;
-                    display:flex;
-                    justify-content:space-between;
-                    align-items:center;
-                ">
-                    <div style="text-align:left;">
-                        ➡️ <b>色粉編號</b>：{row['色粉編號']} &nbsp;｜&nbsp;
-                        <b>名稱</b>：{row['名稱']} &nbsp;｜&nbsp;
-                        <b>國際色號</b>：{row['國際色號']} &nbsp;｜&nbsp;
-                        <b>色粉類別</b>：{row['色粉類別']} &nbsp;｜&nbsp;
-                        <b>規格</b>：{row['規格']} &nbsp;｜&nbsp;
-                        <b>產地</b>：{row['產地']} &nbsp;｜&nbsp;
-                        <b>備註</b>：{row['備註']}
-                    </div>
-                    <div style="display:flex; gap:10px;">
-                        <form action="" method="post">
-                            <button name="edit_{idx}" type="submit" style="
-                                background-color: #FFA500;
-                                color: white;
-                                border: none;
-                                padding: 4px 8px;
-                                border-radius: 3px;
-                                font-size: 12px;
-                                cursor: pointer;
-                            ">修改</button>
-                        </form>
-                        <form action="" method="post">
-                            <button name="delete_{idx}" type="submit" style="
-                                background-color: #007BFF;
-                                color: white;
-                                border: none;
-                                padding: 4px 8px;
-                                border-radius: 3px;
-                                font-size: 12px;
-                                cursor: pointer;
-                            ">刪除</button>
-                        </form>
-                    </div>
-                </div>
-            """
-            st.markdown(row_html, unsafe_allow_html=True)
+            with st.container():
+                col_a, col_b = st.columns([8, 2])
+                with col_a:
+                    st.markdown(
+                        f"""
+                        <div style='background-color:{bg_color};padding:8px;'>
+                            ➡️ <b>色粉編號</b>: {row['色粉編號']} ｜ 
+                            <b>名稱</b>: {row['名稱']} ｜ 
+                            <b>國際色號</b>: {row['國際色號']} ｜ 
+                            <b>色粉類別</b>: {row['色粉類別']} ｜ 
+                            <b>規格</b>: {row['規格']} ｜ 
+                            <b>產地</b>: {row['產地']} ｜ 
+                            <b>備註</b>: {row['備註']}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                with col_b:
+                    edit_clicked = st.button("修改", key=f"edit_{idx}")
+                    delete_clicked = st.button("刪除", key=f"delete_{idx}")
+                    if edit_clicked:
+                        st.info(f"點擊修改：{row['色粉編號']}")
+                        # 可放入修改邏輯
+                    if delete_clicked:
+                        confirm = st.confirm(f"⚠️ 確定要刪除【{row['色粉編號']}】嗎？")
+                        if confirm:
+                            df = df.drop(idx).reset_index(drop=True)
+                            worksheet.clear()
+                            worksheet.update(
+                                [df.columns.tolist()] +
+                                df.fillna("").astype(str).values.tolist()
+                            )
+                            st.success("已刪除。")
+                            st.experimental_rerun()
 
 else:
     st.title("🧪 配方管理模組")
