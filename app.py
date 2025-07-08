@@ -44,6 +44,8 @@ if page == "色粉管理":
     st.subheader("🔍 搜尋色粉")
     search_code = st.text_input("輸入色粉編號搜尋")
     if search_code:
+        # 統一轉成 str
+        search_code = str(search_code)
         df_filtered = df[df["色粉編號"].str.contains(search_code, case=False, na=False)]
         if df_filtered.empty:
             st.warning("⚠️ 查無此色粉編號！")
@@ -60,7 +62,8 @@ if page == "色粉管理":
     st.divider()
     st.subheader("➕ 新增 / 修改色粉")
 
-    if st.session_state.edit_mode and st.session_state.edit_index is not None:
+    # 預設值
+    if st.session_state.edit_mode and st.session_state.edit_index is not None and st.session_state.edit_index < len(df):
         current_row = df.iloc[st.session_state.edit_index]
         code_value = current_row["色粉編號"]
         name_value = current_row["色粉名稱"]
@@ -99,14 +102,13 @@ if page == "色粉管理":
             index=["kg", "箱", "袋"].index(spec_value) if spec_value else 0,
             key="spec_input")
     with col6:
-        origin = st.text_input("產地", value=origin_value, key="origin_input")
+        origin = st.text_input("產地", value=origin_value if origin_value else "", key="origin_input")
     with col7:
-        remark = st.text_input("備註", value=remark_value, key="remark_input")
+        remark = st.text_input("備註", value=remark_value if remark_value else "", key="remark_input")
     with col8:
         st.write("")
         if st.session_state.edit_mode:
             if st.button("💾 更新色粉", use_container_width=True):
-                # 檢查重複
                 if (
                     code in df["色粉編號"].values
                     and df.iloc[st.session_state.edit_index]["色粉編號"] != code
@@ -148,6 +150,7 @@ if page == "色粉管理":
     st.divider()
     st.subheader("📋 色粉清單")
 
+    # 只顯示一行行
     if not df_filtered.empty:
         for i, row in df_filtered.iterrows():
             cols = st.columns([8, 1, 1])
@@ -162,7 +165,8 @@ if page == "色粉管理":
                     st.rerun()
             with cols[2]:
                 if st.button("🗑️ 刪除", key=f"delete_{i}"):
-                    if st.button(f"⚠️ 確認刪除 {row['色粉編號']}", key=f"confirm_delete_{i}"):
+                    confirm = st.button(f"⚠️ 確認刪除 {row['色粉編號']}", key=f"confirm_delete_{i}")
+                    if confirm:
                         df = df.drop(i).reset_index(drop=True)
                         worksheet.clear()
                         worksheet.append_row(df.columns.tolist())
