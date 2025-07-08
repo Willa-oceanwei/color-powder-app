@@ -14,7 +14,7 @@ SHEET_NAME = '色粉管理'
 WORKSHEET_NAME = '工作表1'
 
 sheet = client.open(色粉管理)
-worksheet = sheet.worksheet(WORKSHEET_NAME)
+worksheet = sheet.worksheet(工作表1)
 
 # 載入資料
 data = worksheet.get_all_records()
