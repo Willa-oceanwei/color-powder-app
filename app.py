@@ -17,8 +17,7 @@ scope = ["https://spreadsheets.google.com/feeds",
          "https://www.googleapis.com/auth/drive"]
 
 # 請放你的金鑰 JSON 檔名
-creds = Credentials.from_service_account_file("service_account.json", scopes=scope)
-client = gspread.authorize(creds)
+
 
 # 請放你的 Google Sheet 名稱
 sheet = client.open("色粉管理")
