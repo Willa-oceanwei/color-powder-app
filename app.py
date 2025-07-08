@@ -1,9 +1,17 @@
-import json
 import streamlit as st
-from google.oauth2 import service_account
+import pandas as pd
+import os
+import json
+from google.oauth2.service_account import Credentials
+import gspread
 
-service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
-creds = service_account.Credentials.from_service_account_info(service_account_info)
+scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive",
+]
+
+service_account_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
+creds = Credentials.from_service_account_info(service_account_info, scopes=scope)
 
 client = gspread.authorize(creds)
 spreadsheet = client.open("色粉管理")
