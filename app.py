@@ -4,12 +4,10 @@ import json
 import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
 
-st.set_page_config(layout="wide")
-
-# ============== GCP 認證 ===================
+# ====== Google Sheets 認證 ======
 scope = [
     "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/drive"
 ]
 gcp_info = json.loads(st.secrets["gcp"]["gcp_json"])
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(
@@ -17,166 +15,200 @@ credentials = ServiceAccountCredentials.from_json_keyfile_dict(
 )
 gc = gspread.authorize(credentials)
 
-# ============== Google Sheets 讀取 ==========
 sheet_key = "1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk"
 sh = gc.open_by_key(sheet_key)
 worksheet = sh.worksheet("工作表1")
-data = worksheet.get_all_records()
-df = pd.DataFrame(data)
 
-# 統一編號為 str
-if df.empty:
-    df = pd.DataFrame(columns=[
-        "色粉編號", "色粉名稱", "國際色號",
-        "色粉類別", "規格", "產地", "備註"
-    ])
-else:
-    df["色粉編號"] = df["色粉編號"].astype(str)
+# ====== 頁面選擇 ======
+page = st.selectbox("請選擇功能", ["色粉管理", "配方管理"])
 
-# ============== 最上層選單 =====================
-page = st.sidebar.selectbox("請選擇功能", ["色粉管理", "配方管理"])
+# ====== 初始化 Session State ======
+if "edit_mode" not in st.session_state:
+    st.session_state.edit_mode = False
+if "edit_index" not in st.session_state:
+    st.session_state.edit_index = None
 
-# ============== 色粉管理 =======================
+# 預設欄位 Session State
+fields = ["code_input", "name_input", "int_color_input",
+          "color_type_input", "spec_input", "origin_input", "remark_input"]
+for f in fields:
+    st.session_state.setdefault(f, "")
+
 if page == "色粉管理":
-    st.title("🎨 色粉管理系統")
 
-    # 搜尋欄位
-    st.subheader("🔍 搜尋色粉")
-    search_code = st.text_input("輸入色粉編號搜尋")
-    if search_code:
-        # 統一轉成 str
-        search_code = str(search_code)
-        df_filtered = df[df["色粉編號"].str.contains(search_code, case=False, na=False)]
-        if df_filtered.empty:
-            st.warning("⚠️ 查無此色粉編號！")
-    else:
-        df_filtered = df
+    st.subheader("➕ 新增 / 修改 色粉資料")
 
-    # 狀態
-    if "edit_mode" not in st.session_state:
-        st.session_state.edit_mode = False
-    if "edit_index" not in st.session_state:
-        st.session_state.edit_index = None
-
-    # 新增/修改
-    st.divider()
-    st.subheader("➕ 新增 / 修改色粉")
-
-    # 預設值
-    if st.session_state.edit_mode and st.session_state.edit_index is not None and st.session_state.edit_index < len(df):
-        current_row = df.iloc[st.session_state.edit_index]
-        code_value = current_row["色粉編號"]
-        name_value = current_row["色粉名稱"]
-        int_color_value = current_row["國際色號"]
-        color_type_value = current_row["色粉類別"]
-        spec_value = current_row["規格"]
-        origin_value = current_row["產地"]
-        remark_value = current_row["備註"]
-    else:
-        code_value = ""
-        name_value = ""
-        int_color_value = ""
-        color_type_value = "色粉"
-        spec_value = "kg"
-        origin_value = ""
-        remark_value = ""
-
-    col1, col2, col3, col4 = st.columns(4)
+    # ====== 四列兩欄排版 ======
+    col1, col2 = st.columns(2)
     with col1:
-        code = st.text_input("色粉編號", value=code_value, key="code_input")
+        code = st.text_input("色粉編號", value=st.session_state.code_input)
     with col2:
-        name = st.text_input("色粉名稱", value=name_value, key="name_input")
-    with col3:
-        int_color = st.text_input("國際色號", value=int_color_value, key="int_color_input")
-    with col4:
-        color_type = st.selectbox(
-            "色粉類別", ["色粉", "色母", "添加劑"],
-            index=["色粉", "色母", "添加劑"].index(color_type_value) if color_type_value else 0,
-            key="color_type_input"
-        )
+        name = st.text_input("色粉名稱", value=st.session_state.name_input)
 
-    col5, col6, col7, col8 = st.columns(4)
+    col3, col4 = st.columns(2)
+    with col3:
+        int_color = st.text_input("國際色號", value=st.session_state.int_color_input)
+    with col4:
+        color_type = st.selectbox("色粉類別", ["色粉", "色母", "添加劑"], index=0
+                                  if st.session_state.color_type_input == "" else
+                                  ["色粉", "色母", "添加劑"].index(st.session_state.color_type_input))
+
+    col5, col6 = st.columns(2)
     with col5:
-        spec = st.selectbox(
-            "規格", ["kg", "箱", "袋"],
-            index=["kg", "箱", "袋"].index(spec_value) if spec_value else 0,
-            key="spec_input")
+        spec = st.selectbox("規格", ["kg", "箱", "袋"], index=0
+                            if st.session_state.spec_input == "" else
+                            ["kg", "箱", "袋"].index(st.session_state.spec_input))
     with col6:
-        origin = st.text_input("產地", value=origin_value if origin_value else "", key="origin_input")
+        origin = st.text_input("產地", value=st.session_state.origin_input)
+
+    col7, col8 = st.columns(2)
     with col7:
-        remark = st.text_input("備註", value=remark_value if remark_value else "", key="remark_input")
+        remark = st.text_input("備註", value=st.session_state.remark_input)
     with col8:
-        st.write("")
-        if st.session_state.edit_mode:
-            if st.button("💾 更新色粉", use_container_width=True):
-                if (
-                    code in df["色粉編號"].values
-                    and df.iloc[st.session_state.edit_index]["色粉編號"] != code
-                ):
-                    st.error(f"⚠️ 色粉編號【{code}】已存在，請勿重複！")
-                else:
-                    df.at[st.session_state.edit_index, "色粉編號"] = code
-                    df.at[st.session_state.edit_index, "色粉名稱"] = name
-                    df.at[st.session_state.edit_index, "國際色號"] = int_color
-                    df.at[st.session_state.edit_index, "色粉類別"] = color_type
-                    df.at[st.session_state.edit_index, "規格"] = spec
-                    df.at[st.session_state.edit_index, "產地"] = origin
-                    df.at[st.session_state.edit_index, "備註"] = remark
-                    worksheet.clear()
-                    worksheet.append_row(df.columns.tolist())
-                    worksheet.append_rows(df.values.tolist())
-                    st.success(f"✅ 已更新色粉：{code}")
-                    st.session_state.edit_mode = False
-                    st.rerun()
+        if st.button("🧹 清除輸入", use_container_width=True):
+            for f in fields:
+                st.session_state[f] = ""
+            st.session_state.edit_mode = False
+            st.session_state.edit_index = None
+            st.experimental_rerun()
+
+    # ====== 新增或修改按鈕 ======
+    if st.session_state.edit_mode:
+        submit_label = "✅ 更新色粉"
+    else:
+        submit_label = "➕ 新增色粉"
+
+    if st.button(submit_label, use_container_width=True):
+        # 讀取現有資料
+        data = worksheet.get_all_records()
+        df = pd.DataFrame(data)
+
+        # 防止空表
+        if df.empty:
+            df = pd.DataFrame(columns=[
+                "色粉編號", "色粉名稱", "國際色號", "色粉類別", "規格", "產地", "備註"
+            ])
+
+        # 若是新增，檢查是否重複編號
+        if not st.session_state.edit_mode:
+            if (df["色粉編號"].astype(str) == code).any():
+                st.error(f"🚫 編號 {code} 已存在，請勿重複新增！")
+            else:
+                new_row = pd.DataFrame({
+                    "色粉編號": [code],
+                    "色粉名稱": [name],
+                    "國際色號": [int_color],
+                    "色粉類別": [color_type],
+                    "規格": [spec],
+                    "產地": [origin],
+                    "備註": [remark]
+                })
+                df = pd.concat([df, new_row], ignore_index=True)
+                worksheet.update([df.columns.tolist()] + df.values.tolist())
+                st.success(f"✅ 已成功新增 {code}")
+                st.experimental_rerun()
+
         else:
-            if st.button("✅ 新增色粉", use_container_width=True):
-                if code in df["色粉編號"].values:
-                    st.error(f"⚠️ 色粉編號【{code}】已存在，請勿重複新增！")
-                else:
-                    new_row = {
-                        "色粉編號": code,
-                        "色粉名稱": name,
-                        "國際色號": int_color,
-                        "色粉類別": color_type,
-                        "規格": spec,
-                        "產地": origin,
-                        "備註": remark,
-                    }
-                    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-                    worksheet.append_row(list(new_row.values()))
-                    st.success(f"✅ 已新增色粉：{code}")
-                    st.rerun()
+            # 修改模式
+            df.loc[st.session_state.edit_index, :] = [
+                code, name, int_color, color_type, spec, origin, remark
+            ]
+            worksheet.update([df.columns.tolist()] + df.values.tolist())
+            st.success(f"✅ 已成功修改 {code}")
+            st.session_state.edit_mode = False
+            st.session_state.edit_index = None
+            for f in fields:
+                st.session_state[f] = ""
+            st.experimental_rerun()
 
     st.divider()
-    st.subheader("📋 色粉清單")
 
-    # 只顯示一行行
-    if not df_filtered.empty:
-        for i, row in df_filtered.iterrows():
-            cols = st.columns([8, 1, 1])
-            with cols[0]:
+    # ====== 搜尋色粉 ======
+    st.subheader("🔍 搜尋色粉")
+    search_code = st.text_input("請輸入色粉編號進行搜尋", key="search_code")
+
+    if st.button("搜尋色粉", use_container_width=True):
+        data = worksheet.get_all_records()
+        df = pd.DataFrame(data)
+
+        # 若色粉編號是數字，也要轉成 str 做比對
+        df["色粉編號"] = df["色粉編號"].astype(str)
+        if search_code.strip() == "":
+            st.warning("請輸入色粉編號")
+        else:
+            result = df[df["色粉編號"] == search_code.strip()]
+            if result.empty:
+                st.info(f"⚠️ 尚無編號 {search_code} 的色粉資料")
+            else:
+                st.success(f"✅ 找到編號 {search_code}！")
+                st.dataframe(result)
+
+    st.divider()
+
+    # ====== 顯示色粉總表 ======
+    st.subheader("📋 色粉總表")
+
+    data = worksheet.get_all_records()
+    df = pd.DataFrame(data)
+
+    if df.empty:
+        st.info("⚠️ 尚無色粉資料")
+    else:
+        # 序列交錯顏色 + 按鈕
+        for i, row in df.iterrows():
+            bg_color = "#FDFCDC" if i % 2 == 0 else "#FED9B7"
+            col1, col2, col3 = st.columns([8, 1, 1])
+            with col1:
                 st.markdown(
-                    f"➡️ **{row['色粉編號']}** | {row['色粉名稱']} | {row['國際色號']}"
+                    f"""
+                    <div style="
+                        background-color:{bg_color};
+                        padding:8px;
+                        border-radius:4px;
+                        font-size:14px;
+                        display: flex;
+                        justify-content: space-between;
+                    ">
+                    ➡️ <strong>{row['色粉編號']}</strong> | {row['色粉名稱']} | {row['國際色號']}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
                 )
-            with cols[1]:
-                if st.button("✏️ 修改", key=f"edit_{i}"):
+            with col2:
+                edit_key = f"edit_{i}"
+                if st.button("✏️", key=edit_key):
+                    # 帶入欄位到表單
+                    st.session_state.code_input = str(row["色粉編號"])
+                    st.session_state.name_input = row["色粉名稱"]
+                    st.session_state.int_color_input = row["國際色號"]
+                    st.session_state.color_type_input = row["色粉類別"]
+                    st.session_state.spec_input = row["規格"]
+                    st.session_state.origin_input = row["產地"]
+                    st.session_state.remark_input = row["備註"]
                     st.session_state.edit_mode = True
                     st.session_state.edit_index = i
-                    st.rerun()
-            with cols[2]:
-                if st.button("🗑️ 刪除", key=f"delete_{i}"):
-                    confirm = st.button(f"⚠️ 確認刪除 {row['色粉編號']}", key=f"confirm_delete_{i}")
+                    st.experimental_rerun()
+            with col3:
+                del_key = f"delete_{i}"
+                if st.button("🗑️", key=del_key):
+                    confirm = st.confirm(f"⚠️ 確定要刪除【{row['色粉編號']}】嗎？")
                     if confirm:
                         df = df.drop(i).reset_index(drop=True)
-                        worksheet.clear()
-                        worksheet.append_row(df.columns.tolist())
-                        worksheet.append_rows(df.values.tolist())
-                        st.success(f"✅ 已刪除色粉：{row['色粉編號']}")
-                        st.rerun()
-    else:
-        st.info("無資料可顯示")
+                        worksheet.update([df.columns.tolist()] + df.values.tolist())
+                        st.success(f"✅ 已刪除 {row['色粉編號']}")
+                        st.experimental_rerun()
 
-# ============== 配方管理 =======================
-if page == "配方管理":
-    st.title("🧪 配方管理模組")
-    st.info("此區域待開發...")
+    # ====== 按鈕 CSS 美化 ======
+    st.markdown("""
+    <style>
+    button {
+        height: 30px !important;
+        padding: 2px 8px !important;
+        font-size: 12px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+elif page == "配方管理":
+    st.subheader("🚧 配方管理模組開發中…")
+
