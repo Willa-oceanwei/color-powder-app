@@ -1,23 +1,23 @@
-import streamlit as st
-import pandas as pd
-import gspread
-from google.oauth2.service_account import Credentials
-
 import os
 import json
 from google.oauth2.service_account import Credentials
-scope = ["https://spreadsheets.google.com/feeds",
-         "https://www.googleapis.com/auth/drive"]
-service_account_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
-creds = Credentials.from_service_account_file("service_account.json", scopes=scope)
 
+scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive",
+]
+
+# 透過環境變數取得 service account JSON 內容
+service_account_info = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
+
+# 建立 Google 認證憑證
+creds = Credentials.from_service_account_info(
+    service_account_info, scopes=scope
+)
 
 # ====== 連線 Google Sheet ======
 scope = ["https://spreadsheets.google.com/feeds",
          "https://www.googleapis.com/auth/drive"]
-
-# 請放你的金鑰 JSON 檔名
-
 
 # 請放你的 Google Sheet 名稱
 sheet = client.open("色粉管理")
