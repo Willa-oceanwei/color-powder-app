@@ -176,8 +176,6 @@ if submitted:
     st.experimental_rerun()
 
 # ===========================
-# 顯示資料表
-# ===========================
 # 顯示資料序列
 # ---------------------------
 
@@ -206,7 +204,6 @@ if not filtered_df.empty:
                 國際色號: <b>{row['國際色號']}</b>&nbsp;&nbsp;&nbsp;
                 色粉類別: <b>{row['色粉類別']}</b>&nbsp;&nbsp;&nbsp;
                 包裝: <b>{row['包裝']}</b>&nbsp;&nbsp;&nbsp;
-                kg: <b>{row['kg']}</b>&nbsp;&nbsp;&nbsp;
                 備註: <b>{row['備註']}</b>&nbsp;&nbsp;&nbsp;
                 </div>
                 """,
