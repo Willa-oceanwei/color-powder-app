@@ -51,7 +51,7 @@ with tabs[0]:
             with col3:
                 st.write(row["名稱"])
             with col4:
-                st.write(row["色號"])
+                st.write(row["國際色號"])
             with col5:
                 edit_link = f"?edit={row['色粉編號']}"
                 st.markdown(
@@ -87,7 +87,7 @@ with tabs[1]:
     # 建立輸入欄位
     color_id = st.text_input("色粉編號", value=edit_data["色粉編號"] if edit_mode else "")
     color_name = st.text_input("名稱", value=edit_data["名稱"] if edit_mode else "")
-    color_code = st.text_input("色號", value=edit_data["色號"] if edit_mode else "")
+    color_code = st.text_input("國際色號", value=edit_data["國際色號"] if edit_mode else "")
 
     col_save, col_clear = st.columns([1, 1])
     with col_save:
@@ -95,7 +95,7 @@ with tabs[1]:
             # 判斷是否為修改
             if edit_mode:
                 # 修改現有資料
-                df.loc[df["色粉編號"] == edit_id, ["色粉編號", "名稱", "色號"]] = [
+                df.loc[df["色粉編號"] == edit_id, ["色粉編號", "名稱", "國際色號"]] = [
                     color_id,
                     color_name,
                     color_code,
@@ -115,7 +115,7 @@ with tabs[1]:
                     new_row = {
                         "色粉編號": color_id,
                         "名稱": color_name,
-                        "色號": color_code,
+                        "國際色號": color_code,
                     }
                     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
                     worksheet.update(
