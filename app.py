@@ -11,7 +11,7 @@ scope = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive"
 ]
-gcp_info = json.loads(st.secrets["gcp"]["gcp_json"])
+gcp_info = json.loads(st.secrets["gcp"]["gcpservice_account"])
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(gcp_info, scopes=scope)
 gc = gspread.authorize(credentials)
 sheet_key = "1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk"
