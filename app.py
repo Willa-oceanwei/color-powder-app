@@ -92,7 +92,7 @@ else:
 for i, row in filtered_df.iterrows():
     c1, c2 = st.columns(2)
     with c1:
-        if st.button(f"✏️ 修改（序號 {row['序號']}）", key=f"edit_{i}"):
+        if st.button(f"✏️ 修改（色粉編號 {row['色粉編號']}）", key=f"edit_{i}"):
             st.session_state.edit_mode = True
             st.session_state.edit_index = row["序號"]
     with c2:
