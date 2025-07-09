@@ -37,6 +37,9 @@ try:
 except:
     df = pd.DataFrame(columns=required_columns)
 
+# 強制所有欄位都轉成字串
+df = df.astype(str)
+
 # 確保欄位存在
 for col in required_columns:
     if col not in df.columns:
@@ -72,6 +75,17 @@ search_input = st.text_input(
 # 更新搜尋
 if search_input != st.session_state.search_input:
     st.session_state.search_input = search_input
+
+# ======= Search Filter =======
+if st.session_state.search_input.strip():
+    df_filtered = df[
+        df["色粉編號"].str.contains(st.session_state.search_input, case=False, na=False) |
+        df["國際色號"].str.contains(st.session_state.search_input, case=False, na=False)
+    ]
+    if df_filtered.empty:
+        st.info("🔍 查無此色粉資料")
+else:
+    df_filtered = df
 
 # ---------- New/Edit Form ----------
 st.subheader("➕ 新增 / 修改 色粉")
@@ -122,12 +136,10 @@ if save_btn:
         st.warning("⚠️ 請輸入色粉編號！")
     else:
         if st.session_state.edit_mode:
-            # 修改
             df.iloc[st.session_state.edit_index] = new_data
             st.success("✅ 色粉已更新！")
         else:
-            # 檢查重複
-            if new_data["色粉編號"] in df["色粉編號"].astype(str).values:
+            if new_data["色粉編號"] in df["色粉編號"].values:
                 st.warning("⚠️ 此色粉編號已存在，請勿重複新增！")
             else:
                 df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
@@ -140,11 +152,10 @@ if save_btn:
         except Exception as e:
             st.error(f"❌ 寫入 Google Sheet 失敗: {e}")
 
-        # Reset
         st.session_state.form_data = {col: "" for col in required_columns}
         st.session_state.edit_mode = False
         st.session_state.edit_index = None
-        st.experimental_rerun()
+        st.rerun()
 
 # ======== DELETE CONFIRM =========
 if st.session_state.show_delete_confirm:
@@ -163,39 +174,32 @@ if st.session_state.show_delete_confirm:
             st.error(f"❌ 刪除失敗: {e}")
         st.session_state.show_delete_confirm = False
         st.session_state.delete_index = None
-        st.experimental_rerun()
+        st.rerun()
     if col_no.button("否，取消"):
         st.session_state.show_delete_confirm = False
         st.session_state.delete_index = None
-        st.experimental_rerun()
-
-# ======== Search Filter =========
-if st.session_state.search_input.strip():
-    df_filtered = df[
-        df["色粉編號"].astype(str).str.contains(st.session_state.search_input, case=False, na=False) |
-        df["國際色號"].astype(str).str.contains(st.session_state.search_input, case=False, na=False)
-    ]
-    if df_filtered.empty:
-        st.info("🔍 查無此色粉資料")
-else:
-    df_filtered = df
+        st.rerun()
 
 # ======== Powder List =========
 st.subheader("📋 色粉清單")
 
 for i, row in df_filtered.iterrows():
-    cols = st.columns([2, 2, 2, 2, 2, 1, 1])
+    cols = st.columns([2, 2, 2, 2, 2, 3])
     cols[0].write(row["色粉編號"])
     cols[1].write(row["國際色號"])
     cols[2].write(row["名稱"])
     cols[3].write(row["色粉類別"])
     cols[4].write(row["包裝"])
-    if cols[5].button("✏️ 修改", key=f"edit_{i}"):
-        st.session_state.edit_mode = True
-        st.session_state.edit_index = i
-        st.session_state.form_data = row.to_dict()
-        st.experimental_rerun()
-    if cols[6].button("🗑️ 刪除", key=f"delete_{i}"):
-        st.session_state.delete_index = i
-        st.session_state.show_delete_confirm = True
-        st.experimental_rerun()
+
+    # 橫排放兩顆按鈕
+    with cols[5]:
+        col_edit, col_delete = st.columns(2)
+        if col_edit.button("✏️ 修改", key=f"edit_{i}"):
+            st.session_state.edit_mode = True
+            st.session_state.edit_index = i
+            st.session_state.form_data = row.to_dict()
+            st.rerun()
+        if col_delete.button("🗑️ 刪除", key=f"delete_{i}"):
+            st.session_state.delete_index = i
+            st.session_state.show_delete_confirm = True
+            st.rerun()
