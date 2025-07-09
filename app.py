@@ -15,7 +15,7 @@ creds = Credentials.from_service_account_info(
 )
 
 client = gspread.authorize(creds)
-gcp_info = json.loads(st.secrets["gcp"]["gcpservice_account"])
+gcp_info = json.loads(st.secrets["gcp"]["gcps_ervice_account"])
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(gcp_info, scopes=scope)
 gc = gspread.authorize(credentials)
 sheet_key = "1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk"
