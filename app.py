@@ -94,12 +94,12 @@ for i, row in filtered_df.iterrows():
     with c1:
         if st.button(f"✏️ 修改（色粉編號 {row['色粉編號']}）", key=f"edit_{i}"):
             st.session_state.edit_mode = True
-            st.session_state.edit_index = row["序號"]
+            st.session_state.edit_index = row["色粉編號"]
     with c2:
-        if st.button(f"🗑️ 刪除（序號 {row['序號']}）", key=f"delete_{i}"):
+        if st.button(f"🗑️ 刪除（色粉編號 {row['色粉編號']}）", key=f"delete_{i}"):
             confirm = st.warning(f"確定刪除色粉編號 {row['色粉編號']}？", icon="⚠️")
-            if st.button(f"再次確認刪除（序號 {row['序號']}）", key=f"confirm_delete_{i}"):
-                df.drop(index=row["序號"], inplace=True)
+            if st.button(f"再次確認刪除（色粉編號 {row['色粉編號']}）", key=f"confirm_delete_{i}"):
+                df.drop(index=row["色粉編號"], inplace=True)
                 worksheet.update([df.columns.tolist()] + df.values.tolist())
                 st.success("已刪除！")
                 st.experimental_rerun()
