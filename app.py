@@ -1,16 +1,20 @@
-import streamlit as st
-import pandas as pd
-import gspread
 import json
-from oauth2client.service_account import ServiceAccountCredentials
+import streamlit as st
+from google.oauth2.service_account import Credentials
+import gspread
 
-# ============================
-# Google Sheets 連線設定
-# ============================
-scope = [
-    "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive"
-]
+# 修正讀取 secrets
+gcp_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
+
+creds = Credentials.from_service_account_info(
+    gcp_info,
+    scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ],
+)
+
+client = gspread.authorize(creds)
 gcp_info = json.loads(st.secrets["gcp"]["gcpservice_account"])
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(gcp_info, scopes=scope)
 gc = gspread.authorize(credentials)
