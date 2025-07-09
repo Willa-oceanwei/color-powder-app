@@ -87,30 +87,6 @@ else:
     filtered_df = df
 
 # ===========================
-# 顯示資料表
-# ===========================
-if not filtered_df.empty:
-    # 加入 row_index 方便之後做修改、刪除
-    filtered_df = filtered_df.reset_index().rename(columns={"index": "序號"})
-    # 調整欄位顯示順序
-    filtered_df = filtered_df[["序號"] + required_columns]
-
-    # 加交錯底色 + 欄寬調整
-    def style_table(df):
-        return df.style\
-            .set_properties(**{
-                'text-align': 'left',
-                'white-space': 'nowrap',
-                'padding': '6px 12px',
-            })\
-            .apply(lambda x: ['background-color: #f5f5f5' if i % 2 == 0 else '' for i in range(len(x))], axis=0)
-
-    st.write("## 色粉清單")
-    st.dataframe(style_table(filtered_df), use_container_width=True)
-else:
-    st.warning("查無資料。")
-
-# ===========================
 # 編輯 / 刪除按鈕
 # ===========================
 for i, row in filtered_df.iterrows():
@@ -198,3 +174,56 @@ if submitted:
     # 寫回試算表
     worksheet.update([df.columns.tolist()] + df.values.tolist())
     st.experimental_rerun()
+
+# ===========================
+# 顯示資料表
+# ===========================
+# 顯示資料序列
+# ---------------------------
+
+st.markdown("### 📋 色粉清單")
+
+if not filtered_df.empty:
+    for i, row in filtered_df.iterrows():
+        bg_color = "#333333" if i % 2 == 0 else "#444444"
+        text_color = "#ffffff"
+
+        # 單列區塊
+        col1, col2, col3 = st.columns([10, 1, 1])
+        with col1:
+            st.markdown(
+                f"""
+                <div style='
+                    background-color: {bg_color};
+                    color: {text_color};
+                    padding: 10px;
+                    border-radius: 5px;
+                    margin-bottom: 5px;
+                    font-size: 16px;
+                '>
+                色粉編號: <b>{row['色粉編號']}</b>&nbsp;&nbsp;&nbsp;
+                名稱: <b>{row['名稱']}</b>&nbsp;&nbsp;&nbsp;
+                國際色號: <b>{row['國際色號']}</b>&nbsp;&nbsp;&nbsp;
+                色粉類別: <b>{row['色粉類別']}</b>&nbsp;&nbsp;&nbsp;
+                包裝: <b>{row['包裝']}</b>&nbsp;&nbsp;&nbsp;
+                kg: <b>{row['kg']}</b>&nbsp;&nbsp;&nbsp;
+                備註: <b>{row['備註']}</b>&nbsp;&nbsp;&nbsp;
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        with col2:
+            if st.button("修改", key=f"edit_{i}"):
+                st.query_params.clear()
+                st.query_params.update({"edit": row["色粉編號"]})
+                st.rerun()
+
+        with col3:
+            if st.button("刪除", key=f"delete_{i}"):
+                if st.confirm(f"確定要刪除色粉 {row['色粉編號']} 嗎？"):
+                    df = df[df["色粉編號"] != row["色粉編號"]]
+                    worksheet.clear()
+                    worksheet.update([df.columns.tolist()] + df.values.tolist())
+                    st.success(f"✅ 已刪除 {row['色粉編號']}")
+                    st.rerun()
