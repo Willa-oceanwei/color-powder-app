@@ -1,234 +1,109 @@
 import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
 import pandas as pd
-import json
 
-# ========== GCP SERVICE ACCOUNT ==========
-
-service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
-creds = Credentials.from_service_account_info(
-    service_account_info,
-    scopes=[
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ],
-)
-client = gspread.authorize(creds)
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
-spreadsheet = client.open_by_url(SHEET_URL)
-worksheet = spreadsheet.get_worksheet(0)
-
-# ========== INITIALIZATION ==========
-
-required_columns = [
-    "色粉編號",
-    "國際色號",
-    "名稱",
-    "色粉類別",
-    "包裝",
-    "備註",
+# 預設初始資料 (demo)
+dummy_data = [
+    {
+        "色粉編號": "C001",
+        "國際色號": "INT001",
+        "名稱": "紅色粉",
+        "色粉類別": "色粉",
+        "包裝": "袋",
+        "備註": "暫無",
+    },
+    {
+        "色粉編號": "C002",
+        "國際色號": "INT002",
+        "名稱": "藍色粉",
+        "色粉類別": "色母",
+        "包裝": "箱",
+        "備註": "特殊用途",
+    },
 ]
 
-try:
-    data = worksheet.get_all_records()
-    df = pd.DataFrame(data)
-except:
-    df = pd.DataFrame(columns=required_columns)
+# Streamlit 預設頁面設定
+st.set_page_config(
+    page_title="色粉管理系統",
+    layout="wide",
+)
 
-# 確保欄位存在
-for col in required_columns:
-    if col not in df.columns:
-        df[col] = ""
+# Title
+st.markdown("🎨 **色粉管理系統**")
 
-# 全部轉字串，避免 NaN 出錯
-for col in ["色粉編號", "國際色號"]:
-    df[col] = df[col].fillna("").astype(str)
-
-# ========== SESSION STATE DEFAULTS ==========
-
-for col in required_columns:
-    st.session_state.setdefault(f"form_{col}", "")
-
-st.session_state.setdefault("edit_mode", False)
-st.session_state.setdefault("edit_index", None)
-st.session_state.setdefault("delete_index", None)
-st.session_state.setdefault("show_delete_confirm", False)
-st.session_state.setdefault("search_input", "")
-st.session_state.setdefault("do_rerun", False)
-
-# ========== UI START ==========
-
-st.title("🎨 色粉管理系統")
-
-# 功能模組
-selected_tab = st.radio(
-    "功能模組",
+# 功能模組選單
+module = st.radio(
+    "請選擇功能模組",
     ["色粉管理", "配方管理"],
     horizontal=True,
 )
 
-if selected_tab == "配方管理":
-    st.info("🔧 配方管理開發中...")
-    st.stop()
+# === 色粉管理功能 ===
+if module == "色粉管理":
 
-# ========== SEARCH ==========
+    st.subheader("➕ 新增 / 修改 色粉")
 
-search_input = st.text_input(
-    "請輸入色粉編號或國際色號",
-    value=st.session_state["search_input"],
-    key="search_input",
-)
+    # 建立表單
+    with st.form("form_color_powder"):
+        col1, col2 = st.columns(2)
 
-# 檢索
-if search_input:
-    mask = (
-        df["色粉編號"].str.contains(search_input, case=False)
-        | df["國際色號"].str.contains(search_input, case=False)
-    )
-    df_filtered = df[mask]
-else:
-    df_filtered = df
+        with col1:
+            color_id = st.text_input("色粉編號")
+            intl_color = st.text_input("國際色號")
+            name = st.text_input("名稱")
 
-# ========== BUTTONS ==========
+        with col2:
+            powder_type = st.selectbox(
+                "色粉類別",
+                ["色粉", "色母", "添加劑"],
+            )
+            package = st.selectbox(
+                "包裝",
+                ["袋", "箱", "kg"],
+            )
+            note = st.text_input("備註")
 
-col_clear, = st.columns([1])
-if col_clear.button("清空畫面"):
-    st.session_state["search_input"] = ""
-    st.session_state["edit_mode"] = False
-    st.session_state["edit_index"] = None
-    for col in required_columns:
-        st.session_state[f"form_{col}"] = ""
-    st.session_state["do_rerun"] = True
+        # 表單按鈕
+        submitted = st.form_submit_button("✅ 儲存")
+        clear_btn = st.form_submit_button("🧹 清空畫面")
 
-# ========== NEW / EDIT FORM ==========
+        if submitted:
+            st.success("✅ 已暫存，不會實際儲存到資料庫 (範例版)")
+        elif clear_btn:
+            st.experimental_rerun()
 
-st.subheader("➕ 新增 / 修改 色粉")
+    st.divider()
 
-col1, col2 = st.columns(2)
+    st.subheader("📋 色粉清單")
 
-with col1:
-    st.session_state["form_色粉編號"] = st.text_input(
-        "色粉編號",
-        value=st.session_state["form_色粉編號"],
-        key="form_色粉編號",
-    )
+    # 模擬 DataFrame
+    df = pd.DataFrame(dummy_data)
 
-    st.session_state["form_國際色號"] = st.text_input(
-        "國際色號",
-        value=st.session_state["form_國際色號"],
-        key="form_國際色號",
-    )
+    for i, row in df.iterrows():
+        # 單行顯示
+        st.markdown(
+            f"""
+            **色粉編號**：{row["色粉編號"]}  
+            **國際色號**：{row["國際色號"]}  
+            **名稱**：{row["名稱"]}  
+            **色粉類別**：{row["色粉類別"]}  
+            **包裝**：{row["包裝"]}  
+            **備註**：{row["備註"]}
+            """,
+            unsafe_allow_html=True,
+        )
 
-    st.session_state["form_名稱"] = st.text_input(
-        "名稱",
-        value=st.session_state["form_名稱"],
-        key="form_名稱",
-    )
+        # 修改、刪除按鈕同一行
+        col_edit, col_delete = st.columns([1, 1])
+        with col_edit:
+            if st.button(f"✏️ 修改 {i}"):
+                st.info(f"點選修改：{row['色粉編號']}（此版僅顯示訊息）")
+        with col_delete:
+            if st.button(f"🗑️ 刪除 {i}"):
+                st.warning(f"點選刪除：{row['色粉編號']}（此版僅顯示訊息）")
 
-with col2:
-    st.session_state["form_色粉類別"] = st.selectbox(
-        "色粉類別",
-        ["色粉", "色母", "添加劑"],
-        index=["色粉", "色母", "添加劑"].index(
-            st.session_state["form_色粉類別"]
-        ) if st.session_state["form_色粉類別"] in ["色粉", "色母", "添加劑"] else 0,
-        key="form_色粉類別",
-    )
+        st.divider()
 
-    st.session_state["form_包裝"] = st.selectbox(
-        "包裝",
-        ["袋", "箱", "kg"],
-        index=["袋", "箱", "kg"].index(
-            st.session_state["form_包裝"]
-        ) if st.session_state["form_包裝"] in ["袋", "箱", "kg"] else 0,
-        key="form_包裝",
-    )
-
-    st.session_state["form_備註"] = st.text_input(
-        "備註",
-        value=st.session_state["form_備註"],
-        key="form_備註",
-    )
-
-# SAVE BUTTON
-if st.button("💾 儲存"):
-    new_data = {
-        col: st.session_state[f"form_{col}"] for col in required_columns
-    }
-
-    if st.session_state["edit_mode"]:
-        # 修改
-        df.iloc[st.session_state["edit_index"]] = new_data
-        st.success("✅ 已修改色粉")
-    else:
-        # 新增
-        if new_data["色粉編號"] in df["色粉編號"].values:
-            st.warning("⚠️ 此色粉編號已存在！")
-        else:
-            df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-            st.success("✅ 已新增色粉")
-
-    # 更新 Google Sheets
-    try:
-        values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
-        worksheet.update(values)
-    except Exception as e:
-        st.error(f"❌ 寫入失敗: {e}")
-
-    # 清空
-    st.session_state["edit_mode"] = False
-    st.session_state["edit_index"] = None
-    for col in required_columns:
-        st.session_state[f"form_{col}"] = ""
-    st.session_state["do_rerun"] = True
-
-# ========== DELETE CONFIRM ==========
-
-if st.session_state["show_delete_confirm"]:
-    st.warning("⚠️ 確定要刪除此筆色粉嗎？")
-    col_yes, col_no = st.columns(2)
-    if col_yes.button("是，刪除"):
-        df.drop(index=st.session_state["delete_index"], inplace=True)
-        df.reset_index(drop=True, inplace=True)
-        try:
-            values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
-            worksheet.update(values)
-            st.success("✅ 已刪除色粉！")
-        except Exception as e:
-            st.error(f"❌ 刪除失敗: {e}")
-        st.session_state["show_delete_confirm"] = False
-        st.session_state["do_rerun"] = True
-
-    if col_no.button("否，取消"):
-        st.session_state["show_delete_confirm"] = False
-        st.session_state["do_rerun"] = True
-
-# ========== POWDER LIST ==========
-
-st.subheader("📋 色粉清單")
-
-for i, row in df_filtered.iterrows():
-    cols = st.columns([2, 2, 2, 2, 2, 1, 1])
-    cols[0].write(row["色粉編號"])
-    cols[1].write(row["國際色號"])
-    cols[2].write(row["名稱"])
-    cols[3].write(row["色粉類別"])
-    cols[4].write(row["包裝"])
-
-    if cols[5].button("✏️ 修改", key=f"edit_{i}"):
-        for col in required_columns:
-            st.session_state[f"form_{col}"] = row[col]
-        st.session_state["edit_mode"] = True
-        st.session_state["edit_index"] = i
-        st.session_state["do_rerun"] = True
-
-    if cols[6].button("🗑️ 刪除", key=f"delete_{i}"):
-        st.session_state["delete_index"] = i
-        st.session_state["show_delete_confirm"] = True
-        st.session_state["do_rerun"] = True
-
-# Rerun if needed
-if st.session_state["do_rerun"]:
-    st.session_state["do_rerun"] = False
-    st.experimental_rerun()
+# === 配方管理功能 ===
+elif module == "配方管理":
+    st.subheader("⚙️ 配方管理模組")
+    st.info("此範例尚未實作配方管理功能。")
