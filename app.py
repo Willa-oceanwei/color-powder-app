@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import gspread
+import pandas as pd
 from google.oauth2 import service_account
 
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
@@ -14,6 +15,11 @@ client = gspread.authorize(creds)
 SPREADSHEET_ID = "1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk"
 sheet = client.open_by_key(SPREADSHEET_ID)
 worksheet = sheet.worksheet("工作表1")
+
+data = worksheet.get_all_records()
+df = pd.DataFrame(data)
+
+st.write(df)
 
 # ---------------------------
 # 讀取資料
