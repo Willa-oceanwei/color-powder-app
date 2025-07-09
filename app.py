@@ -1,14 +1,7 @@
-import streamlit as st
-import pandas as pd
+import json
 import gspread
 from google.oauth2 import service_account
 
-# ---------------------------
-# Google Sheet 設定
-# ---------------------------
-
-# 載入 service account json
-import json
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = service_account.Credentials.from_service_account_info(
     service_account_info,
@@ -16,8 +9,9 @@ creds = service_account.Credentials.from_service_account_info(
 )
 
 client = gspread.authorize(creds)
-SHEET_NAME = "色粉管理"
-sheet = client.open(SHEET_NAME)
+
+SPREADSHEET_ID = "1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk"
+sheet = client.open_by_key(SPREADSHEET_ID)
 worksheet = sheet.worksheet("工作表1")
 
 # ---------------------------
