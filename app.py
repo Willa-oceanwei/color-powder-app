@@ -23,7 +23,10 @@ worksheet = client.open(SHEET_NAME).sheet1
 # ========= 讀取資料 =========
 data = worksheet.get_all_records()
 df = pd.DataFrame(data)
-df.columns = df.columns.str.strip()
+
+# 如果不是空表，清理欄位名稱
+if not df.empty:
+    df.columns = df.columns.str.strip()
 
 # 保證 DataFrame 至少有所有欄位
 needed_cols = [
@@ -39,7 +42,7 @@ for col in needed_cols:
     if col not in df.columns:
         df[col] = ""
 
-# 強制所有欄位轉成字串，避免搜尋錯誤
+# 強制所有欄位轉成字串
 for col in ["色粉編號", "名稱"]:
     df[col] = df[col].astype(str)
 
@@ -110,18 +113,20 @@ row2 = st.columns(4)
 色粉編號 = row1[0].text_input("色粉編號", value=default_data["色粉編號"])
 國際色號 = row1[1].text_input("國際色號", value=default_data["國際色號"])
 名稱 = row1[2].text_input("名稱", value=default_data["名稱"])
-色粉類別 = row1[3].selectbox(
+
+# 移到下一列
+色粉類別 = row2[0].selectbox(
     "色粉類別",
     ["", "色粉", "色母", "添加劑"],
     index=0 if default_data["色粉類別"] == "" else ["", "色粉", "色母", "添加劑"].index(default_data["色粉類別"])
 )
 
-包裝 = row2[0].selectbox(
+包裝 = row2[1].selectbox(
     "包裝",
     ["", "袋", "箱", "kg"],
     index=0 if default_data["包裝"] == "" else ["", "袋", "箱", "kg"].index(default_data["包裝"])
 )
-kg = row2[1].number_input("kg", min_value=0.0, step=0.1, value=float(default_data["kg"]) if default_data["kg"] else 0.0)
+kg = row2[2].number_input("kg", min_value=0.0, step=0.1, value=float(default_data["kg"]) if default_data["kg"] else 0.0)
 備註 = row2[3].text_input("備註", value=default_data["備註"])
 
 submitted = st.button("✅ 新增 / 修改")
@@ -149,8 +154,13 @@ if submitted:
             }
             df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
 
-            worksheet.clear()
-            worksheet.update([df.columns.tolist()] + df.values.tolist())
+            # 更新工作表
+            save_df = df.fillna("").astype(str)
+            values = [save_df.columns.tolist()] + save_df.values.tolist()
+            worksheet.update(
+                f"A1:{chr(65 + len(save_df.columns)-1)}{len(save_df)+1}",
+                values
+            )
 
             st.success(f"✅ 色粉【{色粉編號}】已成功新增 / 修改！")
             st.query_params.clear()
@@ -163,8 +173,12 @@ if delete_id:
         row = row.iloc[0]
         if st.button(f"⚠️ 確定要刪除【{row['名稱']}】嗎？"):
             df = df[df["色粉編號"] != delete_id]
-            worksheet.clear()
-            worksheet.update([df.columns.tolist()] + df.values.tolist())
+            save_df = df.fillna("").astype(str)
+            values = [save_df.columns.tolist()] + save_df.values.tolist()
+            worksheet.update(
+                f"A1:{chr(65 + len(save_df.columns)-1)}{len(save_df)+1}",
+                values
+            )
             st.success(f"✅ 已刪除【{row['名稱']}】")
             st.query_params.clear()
             st.rerun()
