@@ -1,15 +1,13 @@
 import streamlit as st
+import json
 import gspread
 from google.oauth2.service_account import Credentials
-import pandas as pd
-import json
 
-# =========== GOOGLE SHEET AUTH ===========
-
-service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
+# 正確讀取 secrets
+gcp_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 
 creds = Credentials.from_service_account_info(
-    service_account_info,
+    gcp_info,
     scopes=[
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
@@ -17,6 +15,7 @@ creds = Credentials.from_service_account_info(
 )
 
 client = gspread.authorize(creds)
+
 
 # 工作表 URL
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
