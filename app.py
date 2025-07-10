@@ -85,29 +85,6 @@ def color_module():
             df_color["名稱"].str.contains(color_search_input, na=False)
         ]
 
-    # 序列
-    for i, row in filtered_df.iterrows():
-        cols = st.columns([2, 2, 2, 2, 2, 1, 1])
-        cols[0].markdown(row["色粉編號"])
-        cols[1].markdown(row["國際色號"])
-        cols[2].markdown(row["名稱"])
-        cols[3].markdown(row["色粉類別"])
-        cols[4].markdown(row["包裝"])
-        cols[5].markdown(row["備註"])
-
-        if cols[5].button("修改", key=f"edit_color_{i}"):
-            for col in ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]:
-                st.session_state[f"form_color_{col}"] = row[col]
-            st.session_state.edit_color_index = i
-            st.experimental_rerun()
-
-        if cols[6].button("刪除", key=f"delete_color_{i}"):
-            if st.confirm(f"確定要刪除色粉編號【{row['色粉編號']}】嗎？"):
-                df_color.drop(index=i, inplace=True)
-                df_color.reset_index(drop=True, inplace=True)
-                save_sheet(ws_color, df_color)
-                st.success("刪除成功！")
-                st.experimental_rerun()
 
     # 新增/修改
     cols = st.columns(2)
@@ -161,6 +138,30 @@ def color_module():
             st.session_state[f"form_color_{col}"] = ""
 
         st.experimental_rerun()
+
+         # 序列
+    for i, row in filtered_df.iterrows():
+        cols = st.columns([2, 2, 2, 2, 2, 1, 1])
+        cols[0].markdown(row["色粉編號"])
+        cols[1].markdown(row["國際色號"])
+        cols[2].markdown(row["名稱"])
+        cols[3].markdown(row["色粉類別"])
+        cols[4].markdown(row["包裝"])
+        cols[5].markdown(row["備註"])
+
+        if cols[5].button("修改", key=f"edit_color_{i}"):
+            for col in ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]:
+                st.session_state[f"form_color_{col}"] = row[col]
+            st.session_state.edit_color_index = i
+            st.experimental_rerun()
+
+        if cols[6].button("刪除", key=f"delete_color_{i}"):
+            if st.confirm(f"確定要刪除色粉編號【{row['色粉編號']}】嗎？"):
+                df_color.drop(index=i, inplace=True)
+                df_color.reset_index(drop=True, inplace=True)
+                save_sheet(ws_color, df_color)
+                st.success("刪除成功！")
+                st.experimental_rerun()
 
 # ===========================
 # 客戶名單模組
