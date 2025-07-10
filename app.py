@@ -55,7 +55,7 @@ if st.session_state.active_module == "色粉管理":
     st.title("🎨 色粉管理系統")
 
     # Sheet & DataFrame
-    worksheet = client.open_by_url(SHEET_URL_COLOR).get_worksheet(0)
+    worksheet = client.open_by_url(SHEET_URL_COLOR).get_worksheet(1)
     required_columns = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
 
     try:
@@ -111,23 +111,22 @@ if st.session_state.active_module == "色粉管理":
     col1, col2 = st.columns(2)
 
     with col1:
-        色粉編號 = st.text_input(
+   # 色粉管理
+色粉編號 = st.text_input(
     "色粉編號",
     value=st.session_state.get("form_color_色粉編號", ""),
     key="form_color_色粉編號"
-        )
-
-        st.session_state["form_color_國際色號"] = st.text_input(
-            "國際色號",
-            st.session_state["form_color_國際色號"],
-            key="form_color_國際色號",
-        )
-
-        st.session_state["form_color_名稱"] = st.text_input(
-            "名稱",
-            st.session_state["form_color_名稱"],
-            key="form_color_名稱",
-        )
+)
+國際色號 = st.text_input(
+    "國際色號",
+    value=st.session_state.get("form_color_國際色號", ""),
+    key="form_color_國際色號"
+)
+名稱 = st.text_input(
+    "名稱",
+    value=st.session_state.get("form_color_名稱", ""),
+    key="form_color_名稱"
+)
 
     with col2:
         st.session_state["form_color_色粉類別"] = st.selectbox(
@@ -240,7 +239,7 @@ if st.session_state.active_module == "客戶名單":
     st.title("👥 客戶名單管理")
 
     # Sheet & DataFrame
-    worksheet = client.open_by_url(SHEET_URL_CUSTOMER).get_worksheet(0)
+    worksheet = client.open_by_url(SHEET_URL_CUSTOMER).get_worksheet(1)
     required_columns = ["客戶編號", "客戶簡稱", "備註"]
 
     try:
