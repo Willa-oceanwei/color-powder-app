@@ -21,17 +21,21 @@ client = gspread.authorize(creds)
 spreadsheet = client.open_by_url(sheet_url)
 
 # ====== 共用工具 ======
-def load_sheet(worksheet_name, columns):
+def load_sheet(sheet_name, columns):
     try:
-        ws = spreadsheet.worksheet(worksheet_name)
-        data = ws.get_all_records()
-        df = pd.DataFrame(data)
-        if df.empty:
-            df = pd.DataFrame(columns=columns)
-    except gspread.exceptions.WorksheetNotFound:
-        ws = spreadsheet.add_worksheet(worksheet_name, rows=1000, cols=len(columns))
+        ws = spreadsheet.worksheet(sheet_name)
+    except gspread.WorksheetNotFound:
+        ws = spreadsheet.add_worksheet(sheet_name, rows=1000, cols=len(columns))
         ws.append_row(columns)
+
+    data = ws.get_all_records()
+
+    if data:
+        df = pd.DataFrame(data)
+    else:
+        # 即使空，也給欄位名稱
         df = pd.DataFrame(columns=columns)
+
     return ws, df
 
 def save_sheet(ws, df):
