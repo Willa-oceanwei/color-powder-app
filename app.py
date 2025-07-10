@@ -194,25 +194,6 @@ def customer_module():
             df_customer["客戶簡稱"].str.contains(customer_search_input, na=False)
         ]
 
-    for i, row in filtered_df.iterrows():
-        cols = st.columns([3, 3, 3, 1, 1])
-        cols[0].markdown(row["客戶編號"])
-        cols[1].markdown(row["客戶簡稱"])
-        cols[2].markdown(row["備註"])
-
-        if cols[3].button("修改", key=f"edit_customer_{i}"):
-            for col in ["客戶編號", "客戶簡稱", "備註"]:
-                st.session_state[f"form_customer_{col}"] = row[col]
-            st.session_state.edit_customer_index = i
-            st.experimental_rerun()
-
-        if cols[4].button("刪除", key=f"delete_customer_{i}"):
-            if st.confirm(f"確定要刪除客戶編號【{row['客戶編號']}】嗎？"):
-                df_customer.drop(index=i, inplace=True)
-                df_customer.reset_index(drop=True, inplace=True)
-                save_sheet(ws_customer, df_customer)
-                st.success("刪除成功！")
-                st.experimental_rerun()
 
     cols = st.columns(2)
     cols[0].text_input("客戶編號", key="form_customer_客戶編號")
@@ -245,6 +226,26 @@ def customer_module():
             st.session_state[f"form_customer_{col}"] = ""
 
         st.experimental_rerun()
+         for i, row in filtered_df.iterrows():
+        cols = st.columns([3, 3, 3, 1, 1])
+        cols[0].markdown(row["客戶編號"])
+        cols[1].markdown(row["客戶簡稱"])
+        cols[2].markdown(row["備註"])
+
+        if cols[3].button("修改", key=f"edit_customer_{i}"):
+            for col in ["客戶編號", "客戶簡稱", "備註"]:
+                st.session_state[f"form_customer_{col}"] = row[col]
+            st.session_state.edit_customer_index = i
+            st.experimental_rerun()
+
+        if cols[4].button("刪除", key=f"delete_customer_{i}"):
+            if st.confirm(f"確定要刪除客戶編號【{row['客戶編號']}】嗎？"):
+                df_customer.drop(index=i, inplace=True)
+                df_customer.reset_index(drop=True, inplace=True)
+                save_sheet(ws_customer, df_customer)
+                st.success("刪除成功！")
+                st.experimental_rerun()
+
 
 # ===========================
 # 主程式
