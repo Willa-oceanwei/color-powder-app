@@ -111,10 +111,10 @@ if st.session_state.active_module == "色粉管理":
     col1, col2 = st.columns(2)
 
     with col1:
-        st.session_state["form_color_色粉編號"] = st.text_input(
-            "色粉編號",
-            st.session_state["form_color_色粉編號"],
-            key="form_color_色粉編號",
+        色粉編號 = st.text_input(
+    "色粉編號",
+    value=st.session_state.get("form_color_色粉編號", ""),
+    key="form_color_色粉編號"
         )
 
         st.session_state["form_color_國際色號"] = st.text_input(
