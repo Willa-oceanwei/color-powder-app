@@ -1,15 +1,24 @@
+import json
 import streamlit as st
-import pandas as pd
 import gspread
 from google.oauth2 import service_account
 
-# ====== 初始化 Google Sheets 連線 ======
+# 讀 secrets
+gcp_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
+sheet_url = st.secrets["gcp"]["sheet_url"]
+
+# 建立 GSpread Client
 creds = service_account.Credentials.from_service_account_info(
-    st.secrets["gcp_service_account"],
-    scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    gcp_info,
+    scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
 )
 client = gspread.authorize(creds)
-spreadsheet = client.open_by_url(st.secrets["gcp"]["sheet_url"])
+
+# 開啟試算表
+spreadsheet = client.open_by_url(sheet_url)
 
 # ====== 共用工具 ======
 def load_sheet(worksheet_name, columns):
