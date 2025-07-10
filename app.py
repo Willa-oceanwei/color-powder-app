@@ -230,8 +230,8 @@ elif module == "客戶名單":
 
             st.session_state.edit_index_cust = None
             for col in customer_columns:
-                st.session_state[f"form_customer_{col}"] = ""
-            st.experimental_rerun()
+                st.session_state.update({f"form_customer_{col}": ""})
+                st.experimental_rerun()
 
     if st.session_state.show_delete_cust:
         st.warning("⚠️ 確定要刪除此筆客戶嗎？")
