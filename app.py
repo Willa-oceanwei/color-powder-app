@@ -172,7 +172,10 @@ elif module == "客戶名單":
     df_cust.columns = df_cust.columns.str.strip()
 
     for col in customer_columns:
-        st.session_state.setdefault(f"form_customer_{col}", "")
+        value = row[col]
+        if pd.isna(value):
+            value = ""
+        st.session_state[f"form_customer_{col}"] = str(value)
 
     st.session_state.setdefault("edit_index_cust", None)
     st.session_state.setdefault("delete_index_cust", None)
