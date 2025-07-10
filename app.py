@@ -215,7 +215,11 @@ if module == "色粉管理":
 elif module == "客戶名單":
 
     worksheet_cust = spreadsheet.get_worksheet(1)
-
+    required_columns = [
+    "客戶編號",
+    "客戶簡稱",
+    "備註",
+]
     cust_columns = ["客戶編號", "客戶簡稱", "備註"]
 
     try:
