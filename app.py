@@ -81,22 +81,33 @@ st.subheader("➕ 新增 / 修改色粉")
 col1, col2 = st.columns(2)
 
 with col1:
-    st.session_state["form_color_色粉編號"] = st.text_input(
-        "色粉編號", 
-        st.session_state["form_color_色粉編號"],
+    色粉編號 = st.text_input(
+        "色粉編號",
         key="form_color_色粉編號"
     )
-    st.session_state["form_color_國際色號"] = st.text_input(
+    
+    國際色號 = st.text_input(
         "國際色號",
-        st.session_state["form_color_國際色號"],
-        key="form_color_國際色號"
+         key="form_color_國際色號"
     )
-    st.session_state["form_color_名稱"] = st.text_input(
+    
+    名稱 = st.text_input(
         "名稱",
-        st.session_state["form_color_名稱"],
-        key="form_color_名稱"
+         key="form_color_名稱"
     )
-
+    
+    色粉類別 = st.text_input(
+        "色粉類別",
+         key="form_color_色粉類別"
+    )
+    包裝 = st.text_input(
+        "包裝",
+         key="form_color_包裝"
+    )
+    備註 = st.text_input(
+        "備註",
+         key="form_color_備註"
+    )
 with col2:
     # 色粉類別
     色粉類別選項 = ["色粉", "色母", "添加劑"]
