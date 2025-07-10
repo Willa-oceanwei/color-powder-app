@@ -4,7 +4,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # ---------- Google Sheet 設定 ----------
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/
 
 # 從 secrets 讀取 GCP json
 gcp_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
