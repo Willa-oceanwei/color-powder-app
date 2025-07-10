@@ -113,7 +113,7 @@ def color_module():
 
 # ====== 客戶名單模組 ======
 def customer_module():
-    ws_customer, df_customer = load_sheet("客戶名單", ["客戶編號", "客戶名稱", "備註"])
+    ws_customer, df_customer = load_sheet("客戶名單", ["客戶編號", "客戶簡稱", "備註"])
 
     st.header("👥 客戶名單管理")
 
