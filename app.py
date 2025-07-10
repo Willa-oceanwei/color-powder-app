@@ -23,7 +23,7 @@ client = gspread.authorize(creds)
 
 # Google Sheets URLs
 SHEET_URL_COLOR = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
-SHEET_URL_CUSTOMER = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit?gid=678274916#gid=678274916"   # 改成你的客戶工作表 gid
+SHEET_URL_CUSTOMER = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk"   # 改成你的客戶工作表 gid
 
 # -----------------------------
 # Initialize Session State
