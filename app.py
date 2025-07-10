@@ -226,7 +226,7 @@ def customer_module():
             st.session_state[f"form_customer_{col}"] = ""
 
         st.experimental_rerun()
-         for i, row in filtered_df.iterrows():
+        for i, row in filtered_df.iterrows():
         cols = st.columns([3, 3, 3, 1, 1])
         cols[0].markdown(row["客戶編號"])
         cols[1].markdown(row["客戶簡稱"])
