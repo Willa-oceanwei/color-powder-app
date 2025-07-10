@@ -7,7 +7,7 @@ from google.oauth2.service_account import Credentials
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 
 # 從 secrets 讀取 GCP json
-gcp_info = st.secrets["gcp"]["gcp_json"]
+gcp_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
     gcp_info,
     scopes=[
