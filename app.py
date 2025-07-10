@@ -1,354 +1,229 @@
 import streamlit as st
+import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
-import pandas as pd
-import json
 
-# ======== GCP SERVICE ACCOUNT =========
+# ---------- Google Sheet 設定 ----------
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 
-service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
-
+# 從 secrets 讀取 GCP json
+gcp_info = st.secrets["gcp"]["gcp_json"]
 creds = Credentials.from_service_account_info(
-    service_account_info,
+    gcp_info,
     scopes=[
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ],
 )
-
 client = gspread.authorize(creds)
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 spreadsheet = client.open_by_url(SHEET_URL)
 
-# 工作表
+# ---------- 工作表 ----------
 ws_color = spreadsheet.worksheet("色粉管理")
 ws_customer = spreadsheet.worksheet("客戶名單")
 
-# ======== 初始化 SESSION =========
-
-# 色粉管理
-required_color_cols = [
-    "色粉編號",
-    "國際色號",
-    "名稱",
-    "色粉類別",
-    "包裝",
-    "備註",
-]
-for col in required_color_cols:
-    st.session_state.setdefault(f"form_color_{col}", "")
-st.session_state.setdefault("color_edit_mode", False)
-st.session_state.setdefault("color_edit_index", None)
-st.session_state.setdefault("color_delete_index", None)
-st.session_state.setdefault("color_show_delete_confirm", False)
-st.session_state.setdefault("color_search_input", "")
-
-# 客戶名單
-required_customer_cols = [
-    "客戶編號",
-    "客戶簡稱",
-    "備註",
-]
-for col in required_customer_cols:
-    st.session_state.setdefault(f"form_customer_{col}", "")
-st.session_state.setdefault("customer_edit_mode", False)
-st.session_state.setdefault("customer_edit_index", None)
-st.session_state.setdefault("customer_delete_index", None)
-st.session_state.setdefault("customer_show_delete_confirm", False)
-st.session_state.setdefault("customer_search_input", "")
-
-# ======== 讀取 Google Sheets =========
-
-# 色粉管理
-try:
-    df_color = pd.DataFrame(ws_color.get_all_records())
-except:
-    df_color = pd.DataFrame(columns=required_color_cols)
-for col in required_color_cols:
-    if col not in df_color.columns:
-        df_color[col] = ""
-
-# 客戶名單
-try:
-    df_customer = pd.DataFrame(ws_customer.get_all_records())
-except:
-    df_customer = pd.DataFrame(columns=required_customer_cols)
-for col in required_customer_cols:
-    if col not in df_customer.columns:
-        df_customer[col] = ""
-
-# ========= SIDEBAR NAV =========
-st.sidebar.title("功能選單")
+# ---------- Streamlit 頁面選單 ----------
+st.sidebar.title("系統選單")
 page = st.sidebar.radio(
     "請選擇模組",
-    ["色粉管理", "客戶名單"],
+    ["色粉管理", "客戶名單"]
 )
 
-# =====================================
-# ========== 色粉管理 模組 ==========
-# =====================================
-
+# ========================================
+# =============== 色粉管理 ===============
+# ========================================
 if page == "色粉管理":
-    st.title("🎨 色粉管理系統")
 
-    # --- 搜尋 ---
-    color_search_input = st.text_input(
-        "🔎 搜尋色粉編號或國際色號",
-        value=st.session_state["color_search_input"],
-        key="color_search_input",
+    st.title("🎨 色粉管理")
+
+    # 讀取 Google Sheet
+    data_color = ws_color.get_all_records()
+    df_color = pd.DataFrame(data_color)
+
+    # 確保 dataframe 不為空
+    if df_color.empty:
+        df_color = pd.DataFrame(columns=["色粉編號", "色粉名稱", "色粉類別", "備註"])
+
+    # 搜尋
+    st.subheader("🔍 搜尋色粉")
+    color_search_input = st.text_input("輸入色粉編號或名稱")
+
+    df_color["色粉編號"] = df_color["色粉編號"].fillna("").astype(str)
+    df_color["色粉名稱"] = df_color["色粉名稱"].fillna("").astype(str)
+
+    if color_search_input:
+        df_color_filtered = df_color[
+            df_color["色粉編號"].str.contains(color_search_input, case=False, na=False)
+            | df_color["色粉名稱"].str.contains(color_search_input, case=False, na=False)
+        ]
+        if df_color_filtered.empty:
+            st.warning("⚠️ 查無符合的色粉資料！")
+    else:
+        df_color_filtered = df_color
+
+    # 顯示結果
+    st.dataframe(df_color_filtered)
+
+    # 新增/修改表單
+    st.subheader("📝 新增 / 修改色粉")
+
+    色粉類別_options = ["色粉", "色母", "添加劑"]
+    色粉類別 = st.session_state.get("form_color_色粉類別", "色粉")
+    if 色粉類別 not in 色粉類別_options:
+        色粉類別 = "色粉"
+
+    st.session_state["form_color_色粉類別"] = st.selectbox(
+        "色粉類別",
+        色粉類別_options,
+        index=色粉類別_options.index(色粉類別)
     )
 
-    if color_search_input.strip():
-        df_filtered = df_color[
-            df_color["色粉編號"].astype(str).str.contains(color_search_input, case=False, na=False)
-            | df_color["國際色號"].astype(str).str.contains(color_search_input, case=False, na=False)
-        ]
-        if df_filtered.empty:
-            st.warning("❗ 查無資料，請檢查搜尋關鍵字。")
-    else:
-        df_filtered = df_color
+    色粉編號 = st.text_input("色粉編號", value=st.session_state.get("form_color_色粉編號", ""))
+    色粉名稱 = st.text_input("色粉名稱", value=st.session_state.get("form_color_色粉名稱", ""))
+    備註 = st.text_input("備註", value=st.session_state.get("form_color_色粉_備註", ""))
 
-    # --- 新增 / 修改 Form ---
-    st.subheader("➕ 新增 / 修改 色粉")
+    save_color_btn = st.button("💾 儲存")
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.text_input(
-            "色粉編號",
-            value=st.session_state["form_color_色粉編號"],
-            key="form_color_色粉編號",
-        )
-        st.text_input(
-            "國際色號",
-            value=st.session_state["form_color_國際色號"],
-            key="form_color_國際色號",
-        )
-        st.text_input(
-            "名稱",
-            value=st.session_state["form_color_名稱"],
-            key="form_color_名稱",
-        )
-    with col2:
-        st.selectbox(
-            "色粉類別",
-            ["色粉", "色母", "添加劑"],
-            index=["色粉", "色母", "添加劑"].index(
-                st.session_state.get("form_color_色粉類別", "色粉")
-            ),
-            key="form_color_色粉類別",
-        )
-        st.selectbox(
-            "包裝",
-            ["袋", "箱", "kg"],
-            index=["袋", "箱", "kg"].index(
-                st.session_state.get("form_color_包裝", "袋")
-            ),
-            key="form_color_包裝",
-        )
-        st.text_input(
-            "備註",
-            value=st.session_state["form_color_備註"],
-            key="form_color_備註",
-        )
-
-    if st.button("💾 儲存 (色粉管理)"):
-        new_data = {
-            col: st.session_state[f"form_color_{col}"]
-            for col in required_color_cols
-        }
-
-        if not new_data["色粉編號"]:
-            st.error("❗ 色粉編號為必填，請輸入。")
-        elif (
-            not st.session_state["color_edit_mode"]
-            and new_data["色粉編號"] in df_color["色粉編號"].values
-        ):
-            st.error("❗ 此色粉編號已存在，請勿重複新增！")
+    if save_color_btn:
+        if not 色粉編號:
+            st.warning("⚠️ 請輸入色粉編號！")
         else:
-            if st.session_state["color_edit_mode"]:
-                df_color.iloc[st.session_state["color_edit_index"]] = new_data
-                st.success("✅ 色粉資料已更新！")
-            else:
-                df_color = pd.concat(
-                    [df_color, pd.DataFrame([new_data])],
-                    ignore_index=True,
-                )
-                st.success("✅ 新增色粉成功！")
+            new_data = {
+                "色粉編號": 色粉編號,
+                "色粉名稱": 色粉名稱,
+                "色粉類別": 色粉類別,
+                "備註": 備註,
+            }
 
-            # 寫回 Google Sheets
-            try:
-                values = [df_color.columns.tolist()] + df_color.fillna("").astype(str).values.tolist()
-                ws_color.update(values)
-            except Exception as e:
-                st.error(f"❌ 寫入 Google Sheet 失敗: {e}")
+            # 是否修改
+            edit_mode = st.session_state.get("color_edit_mode", False)
+            edit_index = st.session_state.get("color_edit_index", None)
+
+            if edit_mode and edit_index is not None:
+                df_color.iloc[edit_index] = new_data
+                ws_color.update([df_color.columns.values.tolist()] + df_color.values.tolist())
+                st.success("✅ 色粉修改完成！")
+            else:
+                # 檢查是否重複
+                if 色粉編號 in df_color["色粉編號"].values:
+                    st.warning("⚠️ 此色粉編號已存在！")
+                else:
+                    df_color = pd.concat([df_color, pd.DataFrame([new_data])], ignore_index=True)
+                    ws_color.update([df_color.columns.values.tolist()] + df_color.values.tolist())
+                    st.success("✅ 新增色粉成功！")
 
             # 清空表單
-            for col in required_color_cols:
-                st.session_state[f"form_color_{col}"] = ""
+            for key in ["form_color_色粉編號", "form_color_色粉名稱", "form_color_色粉類別", "form_color_色粉_備註"]:
+                st.session_state[key] = ""
             st.session_state["color_edit_mode"] = False
             st.experimental_rerun()
 
-    # 刪除確認
-    if st.session_state["color_show_delete_confirm"]:
-        st.warning("⚠️ 確定要刪除此筆色粉嗎？")
-        col_yes, col_no = st.columns(2)
-        if col_yes.button("是，刪除"):
-            idx = st.session_state["color_delete_index"]
-            df_color.drop(index=idx, inplace=True)
-            df_color.reset_index(drop=True, inplace=True)
-            try:
-                values = [df_color.columns.tolist()] + df_color.fillna("").astype(str).values.tolist()
-                ws_color.update(values)
-                st.success("✅ 已刪除色粉！")
-            except Exception as e:
-                st.error(f"❌ 刪除失敗: {e}")
-            st.session_state["color_show_delete_confirm"] = False
-            st.experimental_rerun()
-        if col_no.button("否，取消"):
-            st.session_state["color_show_delete_confirm"] = False
-            st.experimental_rerun()
-
-    # --- 色粉列表 ---
-    st.subheader("📋 色粉清單")
-
-    for i, row in df_filtered.iterrows():
-        cols = st.columns([2, 2, 2, 2, 2, 1, 1])
-        cols[0].write(str(row["色粉編號"]))
-        cols[1].write(str(row["國際色號"]))
-        cols[2].write(str(row["名稱"]))
-        cols[3].write(str(row["色粉類別"]))
-        cols[4].write(str(row["包裝"]))
-        if cols[5].button("✏️ 修改", key=f"color_edit_{i}"):
+    # 修改 / 刪除按鈕
+    for i, row in df_color_filtered.iterrows():
+        col1, col2 = st.columns(2)
+        if col1.button(f"✏️ 修改 {row['色粉編號']}", key=f"color_edit_{i}"):
+            st.session_state["form_color_色粉編號"] = row["色粉編號"]
+            st.session_state["form_color_色粉名稱"] = row["色粉名稱"]
+            st.session_state["form_color_色粉類別"] = row["色粉類別"]
+            st.session_state["form_color_色粉_備註"] = row["備註"]
             st.session_state["color_edit_mode"] = True
-            st.session_state["color_edit_index"] = i
-            for col in required_color_cols:
-                st.session_state[f"form_color_{col}"] = row[col]
-            st.experimental_rerun()
-        if cols[6].button("🗑️ 刪除", key=f"color_delete_{i}"):
-            st.session_state["color_delete_index"] = i
-            st.session_state["color_show_delete_confirm"] = True
+            st.session_state["color_edit_index"] = df_color.index[df_color["色粉編號"] == row["色粉編號"]].tolist()[0]
             st.experimental_rerun()
 
-# =====================================
-# ========== 客戶名單 模組 ==========
-# =====================================
+        if col2.button(f"🗑️ 刪除 {row['色粉編號']}", key=f"color_delete_{i}"):
+            confirm = st.confirm(f"確定要刪除 {row['色粉編號']} 嗎？")
+            if confirm:
+                df_color = df_color[df_color["色粉編號"] != row["色粉編號"]].reset_index(drop=True)
+                ws_color.update([df_color.columns.values.tolist()] + df_color.values.tolist())
+                st.success(f"✅ 已刪除 {row['色粉編號']}！")
+                st.experimental_rerun()
 
+# ========================================
+# =============== 客戶名單 ===============
+# ========================================
 elif page == "客戶名單":
+
     st.title("👥 客戶名單")
 
-    # --- 搜尋 ---
-    customer_search_input = st.text_input(
-        "🔎 搜尋客戶編號或客戶簡稱",
-        value=st.session_state["customer_search_input"],
-        key="customer_search_input",
-    )
+    # 讀取 Google Sheet
+    data_customer = ws_customer.get_all_records()
+    df_customer = pd.DataFrame(data_customer)
 
-    if customer_search_input.strip():
-        df_filtered = df_customer[
-            df_customer["客戶編號"].astype(str).str.contains(customer_search_input, case=False, na=False)
-            | df_customer["客戶簡稱"].astype(str).str.contains(customer_search_input, case=False, na=False)
+    # 確保 dataframe 不為空
+    if df_customer.empty:
+        df_customer = pd.DataFrame(columns=["客戶編號", "客戶簡稱", "備註"])
+
+    # 搜尋
+    st.subheader("🔍 搜尋客戶")
+    customer_search_input = st.text_input("輸入客戶編號或名稱")
+
+    df_customer["客戶編號"] = df_customer["客戶編號"].fillna("").astype(str)
+    df_customer["客戶簡稱"] = df_customer["客戶簡稱"].fillna("").astype(str)
+
+    if customer_search_input:
+        df_customer_filtered = df_customer[
+            df_customer["客戶編號"].str.contains(customer_search_input, case=False, na=False)
+            | df_customer["客戶簡稱"].str.contains(customer_search_input, case=False, na=False)
         ]
-        if df_filtered.empty:
-            st.warning("❗ 查無客戶資料，請檢查搜尋關鍵字。")
+        if df_customer_filtered.empty:
+            st.warning("⚠️ 找不到符合條件的客戶！")
     else:
-        df_filtered = df_customer
+        df_customer_filtered = df_customer
 
-    # --- 新增 / 修改 Form ---
-    st.subheader("➕ 新增 / 修改 客戶")
+    st.dataframe(df_customer_filtered)
 
-    col1, col2 = st.columns(2)
+    # 新增 / 修改表單
+    st.subheader("📝 新增 / 修改客戶")
 
-    with col1:
-        st.text_input(
-            "客戶編號",
-            value=st.session_state["form_customer_客戶編號"],
-            key="form_customer_客戶編號",
-        )
-        st.text_input(
-            "客戶簡稱",
-            value=st.session_state["form_customer_客戶簡稱"],
-            key="form_customer_客戶簡稱",
-        )
-    with col2:
-        st.text_area(
-            "備註",
-            value=st.session_state["form_customer_備註"],
-            key="form_customer_備註",
+    customer_required_columns = ["客戶編號", "客戶簡稱", "備註"]
+    form_inputs = {}
+    for col in customer_required_columns:
+        form_inputs[col] = st.text_input(
+            f"{col}",
+            value=st.session_state.get(f"form_customer_{col}", "")
         )
 
-    if st.button("💾 儲存 (客戶名單)"):
-        new_data = {
-            col: st.session_state[f"form_customer_{col}"]
-            for col in required_customer_cols
-        }
+    save_customer_btn = st.button("💾 儲存客戶")
 
-        if not new_data["客戶編號"]:
-            st.error("❗ 客戶編號為必填，請輸入。")
-        elif (
-            not st.session_state["customer_edit_mode"]
-            and new_data["客戶編號"] in df_customer["客戶編號"].values
-        ):
-            st.error("❗ 此客戶編號已存在，請勿重複新增！")
+    if save_customer_btn:
+        new_data = {col: form_inputs[col] for col in customer_required_columns}
+
+        edit_mode = st.session_state.get("customer_edit_mode", False)
+        edit_index = st.session_state.get("customer_edit_index", None)
+
+        if edit_mode and edit_index is not None:
+            for col in customer_required_columns:
+                df_customer.at[edit_index, col] = new_data[col]
+            ws_customer.update([df_customer.columns.values.tolist()] + df_customer.values.tolist())
+            st.success("✅ 客戶已更新！")
         else:
-            if st.session_state["customer_edit_mode"]:
-                df_customer.iloc[st.session_state["customer_edit_index"]] = new_data
-                st.success("✅ 客戶資料已更新！")
+            if new_data["客戶編號"] in df_customer["客戶編號"].values:
+                st.warning("⚠️ 此客戶編號已存在！")
             else:
-                df_customer = pd.concat(
-                    [df_customer, pd.DataFrame([new_data])],
-                    ignore_index=True,
-                )
+                df_customer = pd.concat([df_customer, pd.DataFrame([new_data])], ignore_index=True)
+                ws_customer.update([df_customer.columns.values.tolist()] + df_customer.values.tolist())
                 st.success("✅ 新增客戶成功！")
 
-            # 寫回 Google Sheets
-            try:
-                values = [df_customer.columns.tolist()] + df_customer.fillna("").astype(str).values.tolist()
-                ws_customer.update(values)
-            except Exception as e:
-                st.error(f"❌ 寫入 Google Sheet 失敗: {e}")
+        # 清空表單
+        for col in customer_required_columns:
+            st.session_state[f"form_customer_{col}"] = ""
+        st.session_state["customer_edit_mode"] = False
+        st.experimental_rerun()
 
-            # 清空表單
-            for col in required_customer_cols:
-                st.session_state[f"form_customer_{col}"] = ""
-            st.session_state["customer_edit_mode"] = False
-            st.experimental_rerun()
-
-    # 刪除確認
-    if st.session_state["customer_show_delete_confirm"]:
-        st.warning("⚠️ 確定要刪除此筆客戶嗎？")
-        col_yes, col_no = st.columns(2)
-        if col_yes.button("是，刪除"):
-            idx = st.session_state["customer_delete_index"]
-            df_customer.drop(index=idx, inplace=True)
-            df_customer.reset_index(drop=True, inplace=True)
-            try:
-                values = [df_customer.columns.tolist()] + df_customer.fillna("").astype(str).values.tolist()
-                ws_customer.update(values)
-                st.success("✅ 已刪除客戶！")
-            except Exception as e:
-                st.error(f"❌ 刪除失敗: {e}")
-            st.session_state["customer_show_delete_confirm"] = False
-            st.experimental_rerun()
-        if col_no.button("否，取消"):
-            st.session_state["customer_show_delete_confirm"] = False
-            st.experimental_rerun()
-
-    # --- 客戶清單 ---
-    st.subheader("📋 客戶清單")
-
-    for i, row in df_filtered.iterrows():
-        cols = st.columns([2, 2, 3, 1, 1])
-        cols[0].write(str(row["客戶編號"]))
-        cols[1].write(str(row["客戶簡稱"]))
-        cols[2].write(str(row["備註"]))
-        if cols[3].button("✏️ 修改", key=f"customer_edit_{i}"):
+    # 修改 / 刪除按鈕
+    for i, row in df_customer_filtered.iterrows():
+        col1, col2 = st.columns(2)
+        if col1.button(f"✏️ 修改 {row['客戶編號']}", key=f"customer_edit_{i}"):
+            for col in customer_required_columns:
+                st.session_state[f"form_customer_{col}"] = str(row[col]) if pd.notna(row[col]) else ""
             st.session_state["customer_edit_mode"] = True
-            st.session_state["customer_edit_index"] = i
-            for col in required_customer_cols:
-                st.session_state[f"form_customer_{col}"] = row[col]
+            st.session_state["customer_edit_index"] = df_customer.index[df_customer["客戶編號"] == row["客戶編號"]].tolist()[0]
             st.experimental_rerun()
-        if cols[4].button("🗑️ 刪除", key=f"customer_delete_{i}"):
-            st.session_state["customer_delete_index"] = i
-            st.session_state["customer_show_delete_confirm"] = True
-            st.experimental_rerun()
+
+        if col2.button(f"🗑️ 刪除 {row['客戶編號']}", key=f"customer_delete_{i}"):
+            confirm = st.confirm(f"確定要刪除 {row['客戶編號']} 嗎？")
+            if confirm:
+                df_customer = df_customer[df_customer["客戶編號"] != row["客戶編號"]].reset_index(drop=True)
+                ws_customer.update([df_customer.columns.values.tolist()] + df_customer.values.tolist())
+                st.success(f"✅ 已刪除 {row['客戶編號']}！")
+                st.experimental_rerun()
