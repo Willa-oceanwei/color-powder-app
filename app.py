@@ -50,12 +50,12 @@ if page == "色粉管理":
     color_search_input = st.text_input("輸入色粉編號或名稱")
 
     df_color["色粉編號"] = df_color["色粉編號"].fillna("").astype(str)
-    df_color["色粉名稱"] = df_color["色粉名稱"].fillna("").astype(str)
+    df_color["名稱"] = df_color["名稱"].fillna("").astype(str)
 
     if color_search_input:
         df_color_filtered = df_color[
             df_color["色粉編號"].str.contains(color_search_input, case=False, na=False)
-            | df_color["色粉名稱"].str.contains(color_search_input, case=False, na=False)
+            | df_color["名稱"].str.contains(color_search_input, case=False, na=False)
         ]
         if df_color_filtered.empty:
             st.warning("⚠️ 查無符合的色粉資料！")
