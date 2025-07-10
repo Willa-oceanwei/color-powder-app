@@ -27,7 +27,7 @@ CUSTOMER_SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66yc
 # 載入工作表
 # ===============================
 color_ws = client.open_by_url(COLOR_SHEET_URL).get_worksheet(0)
-customer_ws = client.open_by_url(CUSTOMER_SHEET_URL).get_worksheet(0)
+customer_ws = client.open_by_url(CUSTOMER_SHEET_URL).get_worksheet(1)
 
 # ===============================
 # 色粉管理模組
