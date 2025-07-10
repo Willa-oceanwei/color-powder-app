@@ -8,7 +8,7 @@ from google.oauth2.service_account import Credentials
 # Google Sheet 授權
 # ===========================
 
-# 讀取 secrets
+# 載入 GCP Service Account
 gcp_service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 scope = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -49,7 +49,6 @@ def save_sheet(ws, df):
     if not df.empty:
         ws.update([df.columns.values.tolist()] + df.values.tolist())
     else:
-        # 如果清空，至少保留表頭
         ws.update([df.columns.values.tolist()])
 
 # ===========================
@@ -85,8 +84,9 @@ def color_module():
             df_color["名稱"].str.contains(color_search_input, na=False)
         ]
 
+    # 新增/修改區塊
+    st.subheader("新增 / 修改 色粉")
 
-    # 新增/修改
     cols = st.columns(2)
     cols[0].text_input("色粉編號", key="form_color_色粉編號")
     cols[1].text_input("國際色號", key="form_color_國際色號")
@@ -124,7 +124,6 @@ def color_module():
             else:
                 st.error("修改失敗：索引超出範圍")
         else:
-            # 檢查是否已有同色粉編號
             if new_row["色粉編號"] in df_color["色粉編號"].values:
                 st.warning("此色粉編號已存在，請使用修改！")
                 return
@@ -133,35 +132,50 @@ def color_module():
         save_sheet(ws_color, df_color)
         st.success("儲存完成！")
 
-        # 清空
         for col in ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]:
             st.session_state[f"form_color_{col}"] = ""
 
         st.experimental_rerun()
 
-         # 序列
+    # 序列
+    st.subheader("色粉清單")
+
     for i, row in filtered_df.iterrows():
-        cols = st.columns([2, 2, 2, 2, 2, 1, 1])
-        cols[0].markdown(row["色粉編號"])
-        cols[1].markdown(row["國際色號"])
-        cols[2].markdown(row["名稱"])
-        cols[3].markdown(row["色粉類別"])
-        cols[4].markdown(row["包裝"])
-        cols[5].markdown(row["備註"])
-
-        if cols[5].button("修改", key=f"edit_color_{i}"):
-            for col in ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]:
-                st.session_state[f"form_color_{col}"] = row[col]
-            st.session_state.edit_color_index = i
-            st.experimental_rerun()
-
-        if cols[6].button("刪除", key=f"delete_color_{i}"):
-            if st.confirm(f"確定要刪除色粉編號【{row['色粉編號']}】嗎？"):
-                df_color.drop(index=i, inplace=True)
-                df_color.reset_index(drop=True, inplace=True)
-                save_sheet(ws_color, df_color)
-                st.success("刪除成功！")
-                st.experimental_rerun()
+        with st.container():
+            st.markdown(
+                f"""
+                **色粉編號：** {row["色粉編號"]}  
+                **國際色號：** {row["國際色號"]}  
+                **名稱：** {row["名稱"]}  
+                **色粉類別：** {row["色粉類別"]}  
+                **包裝：** {row["包裝"]}  
+                **備註：** {row["備註"]}
+                """,
+                unsafe_allow_html=True,
+            )
+            col_btn1, col_btn2 = st.columns([1, 1])
+            with col_btn1:
+                if st.button(
+                    "✏️ 修改",
+                    key=f"edit_color_{i}",
+                    help="編輯此筆資料",
+                ):
+                    for col in ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]:
+                        st.session_state[f"form_color_{col}"] = row[col]
+                    st.session_state.edit_color_index = i
+                    st.experimental_rerun()
+            with col_btn2:
+                if st.button(
+                    "🗑️ 刪除",
+                    key=f"delete_color_{i}",
+                    help="刪除此筆資料",
+                ):
+                    if st.confirm(f"確定要刪除色粉編號【{row['色粉編號']}】嗎？"):
+                        df_color.drop(index=i, inplace=True)
+                        df_color.reset_index(drop=True, inplace=True)
+                        save_sheet(ws_color, df_color)
+                        st.success("刪除成功！")
+                        st.experimental_rerun()
 
 # ===========================
 # 客戶名單模組
@@ -194,6 +208,8 @@ def customer_module():
             df_customer["客戶簡稱"].str.contains(customer_search_input, na=False)
         ]
 
+    # 新增/修改區塊
+    st.subheader("新增 / 修改 客戶")
 
     cols = st.columns(2)
     cols[0].text_input("客戶編號", key="form_customer_客戶編號")
@@ -226,26 +242,43 @@ def customer_module():
             st.session_state[f"form_customer_{col}"] = ""
 
         st.experimental_rerun()
-        for i, row in filtered_df.iterrows():
-        cols = st.columns([3, 3, 3, 1, 1])
-        cols[0].markdown(row["客戶編號"])
-        cols[1].markdown(row["客戶簡稱"])
-        cols[2].markdown(row["備註"])
 
-        if cols[3].button("修改", key=f"edit_customer_{i}"):
-            for col in ["客戶編號", "客戶簡稱", "備註"]:
-                st.session_state[f"form_customer_{col}"] = row[col]
-            st.session_state.edit_customer_index = i
-            st.experimental_rerun()
+    # 序列
+    st.subheader("客戶清單")
 
-        if cols[4].button("刪除", key=f"delete_customer_{i}"):
-            if st.confirm(f"確定要刪除客戶編號【{row['客戶編號']}】嗎？"):
-                df_customer.drop(index=i, inplace=True)
-                df_customer.reset_index(drop=True, inplace=True)
-                save_sheet(ws_customer, df_customer)
-                st.success("刪除成功！")
-                st.experimental_rerun()
-
+    for i, row in filtered_df.iterrows():
+        with st.container():
+            st.markdown(
+                f"""
+                **客戶編號：** {row["客戶編號"]}  
+                **客戶簡稱：** {row["客戶簡稱"]}  
+                **備註：** {row["備註"]}
+                """,
+                unsafe_allow_html=True,
+            )
+            col_btn1, col_btn2 = st.columns([1, 1])
+            with col_btn1:
+                if st.button(
+                    "✏️ 修改",
+                    key=f"edit_customer_{i}",
+                    help="編輯此筆資料",
+                ):
+                    for col in ["客戶編號", "客戶簡稱", "備註"]:
+                        st.session_state[f"form_customer_{col}"] = row[col]
+                    st.session_state.edit_customer_index = i
+                    st.experimental_rerun()
+            with col_btn2:
+                if st.button(
+                    "🗑️ 刪除",
+                    key=f"delete_customer_{i}",
+                    help="刪除此筆資料",
+                ):
+                    if st.confirm(f"確定要刪除客戶編號【{row['客戶編號']}】嗎？"):
+                        df_customer.drop(index=i, inplace=True)
+                        df_customer.reset_index(drop=True, inplace=True)
+                        save_sheet(ws_customer, df_customer)
+                        st.success("刪除成功！")
+                        st.experimental_rerun()
 
 # ===========================
 # 主程式
