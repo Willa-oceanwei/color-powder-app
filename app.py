@@ -108,22 +108,23 @@ if module == "色粉管理":
 
     with col2:
         色粉類別 = st.selectbox(
-            "色粉類別",
-            ["色粉", "色母", "添加劑"],
-            index=["色粉", "色母", "添加劑"].index(
-                st.session_state.get("form_color_色粉類別", "色粉")
-            ),
-            key="form_color_色粉類別"
-        )
+    "色粉類別",
+    ["色粉", "色母", "添加劑"],
+    index = ["色粉", "色母", "添加劑"].index(
+        st.session_state.get("form_color_色粉類別", "色粉")
+    ),
+    key="form_color_色粉類別"
+)
 
         包裝 = st.selectbox(
-            "包裝",
-            ["袋", "箱", "kg"],
-            index=["袋", "箱", "kg"].index(
-                st.session_state.get("form_color_包裝", "袋")
-            ),
-            key="form_color_包裝"
-        )
+    "包裝",
+    ["袋", "箱", "kg"],
+    index = ["袋", "箱", "kg"].index(
+        st.session_state.get("form_color_包裝", "袋")
+    ),
+    key="form_color_包裝"
+)
+
 
         備註 = st.text_input(
             "備註",
