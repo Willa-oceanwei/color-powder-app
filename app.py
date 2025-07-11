@@ -18,7 +18,7 @@ creds = Credentials.from_service_account_info(
 client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 spreadsheet = client.open_by_url(SHEET_URL)
-worksheet = spreadsheet.worksheet("色粉管理")
+worksheet = spreadsheet.get_worksheet(0)
 
 # ======== INITIALIZATION =========
 required_columns = [
@@ -194,6 +194,7 @@ for i, row in df_filtered.iterrows():
     cols[3].write(row["色粉類別"])
     cols[4].write(row["包裝"])
 
+    # 橫排放兩顆按鈕
     with cols[5]:
         col_edit, col_delete = st.columns(2)
         if col_edit.button("✏️ 修改", key=f"edit_{i}"):
