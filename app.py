@@ -141,6 +141,11 @@ if save_btn:
         else:
             if new_data["色粉編號"] in df["色粉編號"].values:
                 st.warning("⚠️ 此色粉編號已存在，請勿重複新增！")
+                # 立刻清空 form，避免重複新增問題
+                st.session_state.form_data = {col: "" for col in required_columns}
+                st.session_state.edit_mode = False
+                st.session_state.edit_index = None
+                st.experimental_rerun()
             else:
                 df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
                 st.success("✅ 新增色粉成功！")
@@ -172,6 +177,7 @@ if st.session_state.show_delete_confirm:
             st.success("✅ 色粉已刪除！")
         except Exception as e:
             st.error(f"❌ 刪除失敗: {e}")
+        # 清掉狀態再 rerun
         st.session_state.show_delete_confirm = False
         st.session_state.delete_index = None
         st.experimental_rerun()
@@ -198,8 +204,8 @@ for i, row in df_filtered.iterrows():
             st.session_state.edit_mode = True
             st.session_state.edit_index = i
             st.session_state.form_data = row.to_dict()
-            st.stop()          # ✅ 改成 st.stop()
+            st.experimental_rerun()
         if col_delete.button("🗑️ 刪除", key=f"delete_{i}"):
             st.session_state.delete_index = i
             st.session_state.show_delete_confirm = True
-            st.stop()          # ✅ 改成 st.stop()
+            st.experimental_rerun()
