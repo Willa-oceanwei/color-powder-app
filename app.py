@@ -73,16 +73,24 @@ def color_module():
     if "edit_color_index" not in st.session_state:
         st.session_state.edit_color_index = None
 
-    color_search_input = st.text_input(
+    if "color_search_input" not in st.session_state:
+        st.session_state.color_search_input = ""
+
+    def update_color_search():
+        st.session_state.color_search_input = st.session_state.temp_color_search
+
+    st.text_input(
         "搜尋色粉編號或名稱",
-        st.session_state.get("color_search_input", "")
+        st.session_state.color_search_input,
+        key="temp_color_search",
+        on_change=update_color_search
     )
 
     filtered_df = df_color.copy()
-    if color_search_input:
+    if st.session_state.color_search_input:
         filtered_df = df_color[
-            df_color["色粉編號"].astype(str).str.contains(color_search_input, na=False) |
-            df_color["名稱"].astype(str).str.contains(color_search_input, na=False)
+            df_color["色粉編號"].astype(str).str.contains(st.session_state.color_search_input, na=False) |
+            df_color["名稱"].astype(str).str.contains(st.session_state.color_search_input, na=False)
         ]
 
     st.subheader("新增 / 修改 色粉")
@@ -144,21 +152,24 @@ def color_module():
     else:
         for i, row in filtered_df.iterrows():
             row_filled = row.fillna("")
-            columns = st.columns([2, 2, 2, 2, 2, 2, 1, 1])
-            columns[0].markdown(f"**{row_filled['色粉編號']}**")
-            columns[1].markdown(f"{row_filled['國際色號']}")
-            columns[2].markdown(f"{row_filled['名稱']}")
-            columns[3].markdown(f"{row_filled['色粉類別']}")
-            columns[4].markdown(f"{row_filled['包裝']}")
-            columns[5].markdown(f"{row_filled['備註']}")
+            cols = st.columns([2, 2, 2, 2, 2, 2, 1, 1])
+            cols[0].markdown(f"**{row_filled['色粉編號']}**")
+            cols[1].markdown(f"{row_filled['國際色號']}")
+            cols[2].markdown(f"{row_filled['名稱']}")
+            cols[3].markdown(f"{row_filled['色粉類別']}")
+            cols[4].markdown(f"{row_filled['包裝']}")
+            cols[5].markdown(f"{row_filled['備註']}")
 
-            if columns[6].button("✏️ 修改", key=f"edit_color_{i}"):
+            if cols[6].button("✏️ 修改", key=f"edit_color_{i}"):
                 for col in ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]:
-                    st.session_state[f"form_color_{col}"] = str(row[col]) if pd.notna(row[col]) else ""
+                    try:
+                        st.session_state[f"form_color_{col}"] = str(row[col]) if pd.notna(row[col]) else ""
+                    except:
+                        st.session_state[f"form_color_{col}"] = ""
                 st.session_state.edit_color_index = i
                 st.experimental_rerun()
 
-            if columns[7].button("🗑️ 刪除", key=f"delete_color_{i}"):
+            if cols[7].button("🗑️ 刪除", key=f"delete_color_{i}"):
                 st.session_state.delete_color_index = i
                 st.session_state.delete_color_confirm = True
 
@@ -190,6 +201,7 @@ def customer_module():
         ["客戶編號", "客戶簡稱", "備註"]
     )
 
+    # 初始化 Session State
     for col in ["客戶編號", "客戶簡稱", "備註"]:
         key = f"form_customer_{col}"
         if key not in st.session_state:
@@ -198,15 +210,23 @@ def customer_module():
     if "edit_customer_index" not in st.session_state:
         st.session_state.edit_customer_index = None
 
-    customer_search_input = st.text_input(
+    if "customer_search_input" not in st.session_state:
+        st.session_state.customer_search_input = ""
+
+    def update_customer_search():
+        st.session_state.customer_search_input = st.session_state.temp_customer_search
+
+    st.text_input(
         "搜尋客戶簡稱",
-        st.session_state.get("customer_search_input", "")
+        st.session_state.customer_search_input,
+        key="temp_customer_search",
+        on_change=update_customer_search
     )
 
     filtered_df = df_customer.copy()
-    if customer_search_input:
+    if st.session_state.customer_search_input:
         filtered_df = df_customer[
-            df_customer["客戶簡稱"].astype(str).str.contains(customer_search_input, na=False)
+            df_customer["客戶簡稱"].astype(str).str.contains(st.session_state.customer_search_input, na=False)
         ]
 
     st.subheader("新增 / 修改 客戶")
@@ -257,7 +277,10 @@ def customer_module():
 
             if cols[3].button("✏️ 修改", key=f"edit_customer_{i}"):
                 for col in ["客戶編號", "客戶簡稱", "備註"]:
-                    st.session_state[f"form_customer_{col}"] = str(row[col]) if pd.notna(row[col]) else ""
+                    try:
+                        st.session_state[f"form_customer_{col}"] = str(row[col]) if pd.notna(row[col]) else ""
+                    except:
+                        st.session_state[f"form_customer_{col}"] = ""
                 st.session_state.edit_customer_index = i
                 st.experimental_rerun()
 
