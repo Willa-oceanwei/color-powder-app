@@ -4,7 +4,7 @@ from google.oauth2.service_account import Credentials
 import pandas as pd
 import json
 
-# ========= GCP =========
+# ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 
 creds = Credentials.from_service_account_info(
@@ -20,8 +20,8 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsO
 
 spreadsheet = client.open_by_url(SHEET_URL)
 
-# ========= SHEET NAMES =========
-SHEET_COLOR = "色粉總表"
+# 固定 sheet name
+SHEET_COLOR = "色粉管理"
 SHEET_CUSTOMER = "客戶名單"
 
 # ====== 確保 Worksheet 存在 ======
@@ -41,7 +41,6 @@ def load_data(ws, required_columns):
     except:
         df = pd.DataFrame(columns=required_columns)
 
-    # 確保欄位都存在
     for col in required_columns:
         if col not in df.columns:
             df[col] = ""
@@ -54,7 +53,7 @@ def save_data(ws, df):
     ws.clear()
     ws.update("A1", values)
 
-# ========= APP START =========
+# ========== APP START ==========
 st.set_page_config(page_title="色粉管理系統", layout="wide")
 st.title("🎨 色粉管理系統")
 
@@ -77,7 +76,7 @@ if menu == "色粉管理":
     ws_color = get_or_create_worksheet(SHEET_COLOR, required_columns)
     df_color = load_data(ws_color, required_columns)
 
-    # 初始化 session state
+    # 初始化 Session State
     if "form_color" not in st.session_state:
         st.session_state.form_color = {col: "" for col in required_columns}
     if "edit_index_color" not in st.session_state:
@@ -89,19 +88,22 @@ if menu == "色粉管理":
     if "search_input_color" not in st.session_state:
         st.session_state.search_input_color = ""
 
-    # 若在修改模式，填入表單
+    # 如果在修改模式 → 填入表單
     if st.session_state.edit_index_color is not None:
         row = df_color.iloc[st.session_state.edit_index_color]
         st.session_state.form_color = row.to_dict()
 
+    # --------- Search ---------
     st.subheader("🔎 搜尋色粉")
-    search_input = st.text_input(
-        "請輸入色粉編號或國際色號",
-        st.session_state.search_input_color,
-        placeholder="直接按 Enter 搜尋"
-    )
+    with st.form("search_form_color"):
+        search_input = st.text_input(
+            "請輸入色粉編號或國際色號",
+            value=st.session_state.search_input_color,
+            placeholder="直接按 Enter 搜尋"
+        )
+        search_submitted = st.form_submit_button("搜尋")
 
-    if search_input != st.session_state.search_input_color:
+    if search_submitted:
         st.session_state.search_input_color = search_input
 
     if st.session_state.search_input_color.strip():
@@ -112,6 +114,7 @@ if menu == "色粉管理":
     else:
         df_filtered = df_color
 
+    # --------- Form ---------
     st.subheader("➕ 新增 / 修改 色粉")
 
     col1, col2 = st.columns(2)
@@ -131,12 +134,13 @@ if menu == "色粉管理":
         )
 
     with col2:
+        val = st.session_state.form_color.get("色粉類別", "")
+        if val not in ["色粉", "色母", "添加劑"]:
+            val = "色粉"
         st.session_state.form_color["色粉類別"] = st.selectbox(
             "色粉類別",
             ["色粉", "色母", "添加劑"],
-            index=["色粉", "色母", "添加劑"].index(
-                st.session_state.form_color.get("色粉類別", "色粉")
-            )
+            index=["色粉", "色母", "添加劑"].index(val)
         )
 
         packaging_options = ["袋", "箱", "kg"]
@@ -179,7 +183,6 @@ if menu == "色粉管理":
             st.session_state.edit_index_color = None
             st.experimental_rerun()
 
-    # 刪除確認
     if st.session_state.show_delete_confirm_color:
         st.warning("⚠️ 確定要刪除此筆色粉嗎？")
         col_yes, col_no = st.columns(2)
@@ -218,16 +221,10 @@ if menu == "色粉管理":
 
 # ========= 客戶名單模組 =========
 elif menu == "客戶名單":
-    required_columns = [
-        "客戶編號",
-        "客戶簡稱",
-        "備註",
-    ]
-
+    required_columns = ["客戶編號", "客戶簡稱", "備註"]
     ws_customer = get_or_create_worksheet(SHEET_CUSTOMER, required_columns)
     df_customer = load_data(ws_customer, required_columns)
 
-    # session_state init
     if "form_customer" not in st.session_state:
         st.session_state.form_customer = {col: "" for col in required_columns}
     if "edit_index_customer" not in st.session_state:
@@ -244,13 +241,15 @@ elif menu == "客戶名單":
         st.session_state.form_customer = row.to_dict()
 
     st.subheader("🔎 搜尋客戶")
-    search_input = st.text_input(
-        "請輸入客戶編號或簡稱",
-        st.session_state.search_input_customer,
-        placeholder="直接按 Enter 搜尋"
-    )
+    with st.form("search_form_customer"):
+        search_input = st.text_input(
+            "請輸入客戶編號或簡稱",
+            value=st.session_state.search_input_customer,
+            placeholder="直接按 Enter 搜尋"
+        )
+        search_submitted = st.form_submit_button("搜尋")
 
-    if search_input != st.session_state.search_input_customer:
+    if search_submitted:
         st.session_state.search_input_customer = search_input
 
     if st.session_state.search_input_customer.strip():
@@ -294,13 +293,12 @@ elif menu == "客戶名單":
                 st.success("✅ 客戶已更新！")
             else:
                 if new_data["客戶編號"] in df_customer["客戶編號"].values:
-                    st.warning("⚠️ 此客戶編號已存在，請勿重複新增！")
+                    st.warning("⚠️ 此客戶編號已存在！")
                 else:
                     df_customer = pd.concat([df_customer, pd.DataFrame([new_data])], ignore_index=True)
                     st.success("✅ 新增客戶成功！")
 
             save_data(ws_customer, df_customer)
-
             st.session_state.form_customer = {col: "" for col in required_columns}
             st.session_state.edit_index_customer = None
             st.experimental_rerun()
@@ -315,7 +313,6 @@ elif menu == "客戶名單":
             save_data(ws_customer, df_customer)
             st.session_state.show_delete_confirm_customer = False
             st.session_state.delete_index_customer = None
-            st.success("✅ 已刪除！")
             st.experimental_rerun()
         if col_no.button("否，取消"):
             st.session_state.show_delete_confirm_customer = False
