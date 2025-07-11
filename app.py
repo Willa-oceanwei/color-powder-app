@@ -19,7 +19,7 @@ client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 
 spreadsheet = client.open_by_url(SHEET_URL)
-ws_color = spreadsheet.worksheet("色粉總表")
+ws_color = spreadsheet.worksheet("色粉管理")
 ws_customer = spreadsheet.worksheet("客戶名單")
 
 # ========== 初始化 session_state ==========
