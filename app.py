@@ -18,7 +18,7 @@ creds = Credentials.from_service_account_info(
 client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 spreadsheet = client.open_by_url(SHEET_URL)
-worksheet = spreadsheet.get_worksheet(0)
+worksheet = spreadsheet.worksheet("色粉管理")
 
 # ======== INITIALIZATION =========
 required_columns = [
@@ -156,7 +156,6 @@ if save_btn:
         st.session_state.edit_mode = False
         st.session_state.edit_index = None
         st.experimental_rerun()
-        st.stop()
 
 # ======== DELETE CONFIRM =========
 if st.session_state.show_delete_confirm:
@@ -176,12 +175,10 @@ if st.session_state.show_delete_confirm:
         st.session_state.show_delete_confirm = False
         st.session_state.delete_index = None
         st.experimental_rerun()
-        st.stop()
     if col_no.button("否，取消"):
         st.session_state.show_delete_confirm = False
         st.session_state.delete_index = None
         st.experimental_rerun()
-        st.stop()
 
 # ======== Powder List =========
 st.subheader("📋 色粉清單")
@@ -201,10 +198,8 @@ for i, row in df_filtered.iterrows():
             st.session_state.edit_mode = True
             st.session_state.edit_index = i
             st.session_state.form_data = row.to_dict()
-            st.experimental_rerun()
-            st.stop()
+            st.stop()          # ✅ 改成 st.stop()
         if col_delete.button("🗑️ 刪除", key=f"delete_{i}"):
             st.session_state.delete_index = i
             st.session_state.show_delete_confirm = True
-            st.experimental_rerun()
-            st.stop()
+            st.stop()          # ✅ 改成 st.stop()
