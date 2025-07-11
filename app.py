@@ -80,9 +80,19 @@ if "search_color_input" not in st.session_state:
 if "search_customer_input" not in st.session_state:
     st.session_state.search_customer_input = ""
 
+if "show_delete_color_confirm" not in st.session_state:
+    st.session_state.show_delete_color_confirm = False
+if "delete_color_index" not in st.session_state:
+    st.session_state.delete_color_index = None
+
+if "show_delete_customer_confirm" not in st.session_state:
+    st.session_state.show_delete_customer_confirm = False
+if "delete_customer_index" not in st.session_state:
+    st.session_state.delete_customer_index = None
+
 # ========= MODULE CHOICE ==========
 st.title("🎨 色粉與客戶管理系統")
-module = st.radio("請選擇模組", ["色粉管理", "客戶名單"])
+module = st.radio("請選擇模組", ["色粉管理", "客戶名單"], horizontal=True)
 
 # ==================================
 #        COLOR MODULE
@@ -161,7 +171,6 @@ if module == "色粉管理":
                     df_color = pd.concat([df_color, pd.DataFrame([new_row])], ignore_index=True)
                     st.success("✅ 新增色粉成功！")
 
-            # 儲存到 Sheet
             values = [df_color.columns.tolist()] + df_color.fillna("").astype(str).values.tolist()
             ws_color.clear()
             ws_color.update("A1", values)
@@ -169,6 +178,26 @@ if module == "色粉管理":
             st.session_state.form_color = {col: "" for col in required_color_columns}
             st.session_state.edit_color_mode = False
             st.session_state.edit_color_index = None
+            st.experimental_rerun()
+
+    # ======= 刪除確認對話框 (色粉) =======
+    if st.session_state.show_delete_color_confirm:
+        st.warning("⚠️ 確定要刪除此筆色粉嗎？")
+        col_yes, col_no = st.columns(2)
+        if col_yes.button("是，刪除"):
+            idx = st.session_state.delete_color_index
+            df_color.drop(index=idx, inplace=True)
+            df_color.reset_index(drop=True, inplace=True)
+            values = [df_color.columns.tolist()] + df_color.fillna("").astype(str).values.tolist()
+            ws_color.clear()
+            ws_color.update("A1", values)
+            st.success("✅ 已刪除色粉！")
+            st.session_state.show_delete_color_confirm = False
+            st.session_state.delete_color_index = None
+            st.experimental_rerun()
+        if col_no.button("否，取消"):
+            st.session_state.show_delete_color_confirm = False
+            st.session_state.delete_color_index = None
             st.experimental_rerun()
 
     st.subheader("📋 色粉清單")
@@ -188,12 +217,8 @@ if module == "色粉管理":
                 st.session_state.form_color = row.to_dict()
                 st.experimental_rerun()
             if col_delete.button("🗑️ 刪除", key=f"delete_color_{i}"):
-                df_color.drop(index=i, inplace=True)
-                df_color.reset_index(drop=True, inplace=True)
-                values = [df_color.columns.tolist()] + df_color.fillna("").astype(str).values.tolist()
-                ws_color.clear()
-                ws_color.update("A1", values)
-                st.success("✅ 已刪除色粉！")
+                st.session_state.show_delete_color_confirm = True
+                st.session_state.delete_color_index = i
                 st.experimental_rerun()
 
 # ==================================
@@ -264,6 +289,26 @@ if module == "客戶名單":
             st.session_state.edit_customer_index = None
             st.experimental_rerun()
 
+    # ======= 刪除確認對話框 (客戶) =======
+    if st.session_state.show_delete_customer_confirm:
+        st.warning("⚠️ 確定要刪除此筆客戶嗎？")
+        col_yes, col_no = st.columns(2)
+        if col_yes.button("是，刪除"):
+            idx = st.session_state.delete_customer_index
+            df_customer.drop(index=idx, inplace=True)
+            df_customer.reset_index(drop=True, inplace=True)
+            values = [df_customer.columns.tolist()] + df_customer.fillna("").astype(str).values.tolist()
+            ws_customer.clear()
+            ws_customer.update("A1", values)
+            st.success("✅ 已刪除客戶！")
+            st.session_state.show_delete_customer_confirm = False
+            st.session_state.delete_customer_index = None
+            st.experimental_rerun()
+        if col_no.button("否，取消"):
+            st.session_state.show_delete_customer_confirm = False
+            st.session_state.delete_customer_index = None
+            st.experimental_rerun()
+
     st.subheader("📋 客戶清單")
 
     for i, row in df_filtered.iterrows():
@@ -278,10 +323,6 @@ if module == "客戶名單":
                 st.session_state.form_customer = row.to_dict()
                 st.experimental_rerun()
             if col_delete.button("🗑️ 刪除", key=f"delete_customer_{i}"):
-                df_customer.drop(index=i, inplace=True)
-                df_customer.reset_index(drop=True, inplace=True)
-                values = [df_customer.columns.tolist()] + df_customer.fillna("").astype(str).values.tolist()
-                ws_customer.clear()
-                ws_customer.update("A1", values)
-                st.success("✅ 已刪除客戶！")
+                st.session_state.show_delete_customer_confirm = True
+                st.session_state.delete_customer_index = i
                 st.experimental_rerun()
