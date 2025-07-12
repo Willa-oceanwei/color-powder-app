@@ -30,7 +30,6 @@ required_columns = [
     "備註",
 ]
 
-# 載入資料
 try:
     data = worksheet.get_all_records()
     df = pd.DataFrame(data)
@@ -39,7 +38,6 @@ except:
 
 df = df.astype(str)
 
-# 確保欄位存在
 for col in required_columns:
     if col not in df.columns:
         df[col] = ""
@@ -59,10 +57,10 @@ if "show_delete_confirm" not in st.session_state:
     st.session_state.show_delete_confirm = False
 if "search_input" not in st.session_state:
     st.session_state.search_input = ""
-if "do_save" not in st.session_state:
-    st.session_state.do_save = False
-if "do_delete" not in st.session_state:
-    st.session_state.do_delete = False
+if "trigger_save" not in st.session_state:
+    st.session_state.trigger_save = False
+if "trigger_delete" not in st.session_state:
+    st.session_state.trigger_delete = False
 
 # ======== UI START =========
 st.title("🎨 色粉管理系統")
@@ -128,17 +126,17 @@ with col2:
         st.session_state.form_data["備註"]
     )
 
-# ======== SAVE TRIGGER =========
+# SAVE BUTTON
 if st.button("💾 儲存"):
-    st.session_state.do_save = True
+    st.session_state.trigger_save = True
     st.experimental_rerun()
 
-# ======== DELETE CONFIRM =========
+# DELETE CONFIRM
 if st.session_state.show_delete_confirm:
     st.warning("⚠️ 確定要刪除此筆色粉嗎？")
     col_yes, col_no = st.columns(2)
     if col_yes.button("是，刪除"):
-        st.session_state.do_delete = True
+        st.session_state.trigger_delete = True
         st.session_state.show_delete_confirm = False
         st.experimental_rerun()
     if col_no.button("否，取消"):
@@ -146,8 +144,8 @@ if st.session_state.show_delete_confirm:
         st.session_state.delete_index = None
         st.experimental_rerun()
 
-# ======== DO SAVE =========
-if st.session_state.do_save:
+# DO SAVE
+if st.session_state.trigger_save:
     new_data = st.session_state.form_data.copy()
 
     if new_data["色粉編號"].strip() == "":
@@ -174,11 +172,11 @@ if st.session_state.do_save:
         st.session_state.edit_mode = False
         st.session_state.edit_index = None
 
-    st.session_state.do_save = False
-    st.experimental_rerun()
+    # **在此 reset flag**
+    st.session_state.trigger_save = False
 
-# ======== DO DELETE =========
-if st.session_state.do_delete:
+# DO DELETE
+if st.session_state.trigger_delete:
     idx = st.session_state.delete_index
     if idx is not None and idx < len(df):
         df.drop(index=idx, inplace=True)
@@ -192,10 +190,9 @@ if st.session_state.do_delete:
             st.error(f"❌ 刪除失敗: {e}")
 
     st.session_state.delete_index = None
-    st.session_state.do_delete = False
-    st.experimental_rerun()
+    st.session_state.trigger_delete = False
 
-# ======== Powder List =========
+# Powder List
 st.subheader("📋 色粉清單")
 
 for i, row in df_filtered.iterrows():
