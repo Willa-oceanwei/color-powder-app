@@ -203,12 +203,6 @@ for i, row in df_filtered.iterrows():
             st.session_state.delete_index = i
             st.session_state.show_delete_confirm = True
             st.rerun()
- 1 個附件
-  • Gmail 已掃描檢查
-
-OceaN Wei <ocean700120@gmail.com>
-7月11日 週五 下午5:48 (2 天前)
-寄給 我
 
 import streamlit as st
 import gspread
