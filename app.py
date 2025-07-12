@@ -18,7 +18,7 @@ creds = Credentials.from_service_account_info(
 client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 spreadsheet = client.open_by_url(SHEET_URL)
-worksheet = spreadsheet.worksheet("色粉管理")
+worksheet = spreadsheet.get_worksheet(0)
 
 # ======== INITIALIZATION =========
 required_columns = [
@@ -30,15 +30,16 @@ required_columns = [
     "備註",
 ]
 
-# 載入資料
 try:
     data = worksheet.get_all_records()
     df = pd.DataFrame(data)
 except:
     df = pd.DataFrame(columns=required_columns)
 
+# 強制所有欄位都轉成字串
 df = df.astype(str)
 
+# 確保欄位存在
 for col in required_columns:
     if col not in df.columns:
         df[col] = ""
@@ -58,18 +59,14 @@ if "show_delete_confirm" not in st.session_state:
     st.session_state.show_delete_confirm = False
 if "search_input" not in st.session_state:
     st.session_state.search_input = ""
-
-# ========== flags =============
-# 用 flag 紀錄動作，只在結尾統一處理
-flags = [
-    "trigger_save",
-    "trigger_delete_confirm",
-    "trigger_delete_cancel",
-    "trigger_edit"
-]
-for f in flags:
-    if f not in st.session_state:
-        st.session_state[f] = False
+if "trigger_save" not in st.session_state:
+    st.session_state.trigger_save = False
+if "trigger_delete" not in st.session_state:
+    st.session_state.trigger_delete = False
+if "trigger_cancel_delete" not in st.session_state:
+    st.session_state.trigger_cancel_delete = False
+if "trigger_edit" not in st.session_state:
+    st.session_state.trigger_edit = False
 
 # ======== UI START =========
 st.title("🎨 色粉管理系統")
@@ -85,6 +82,7 @@ search_input = st.text_input(
 if search_input != st.session_state.search_input:
     st.session_state.search_input = search_input
 
+# ======= Search Filter =======
 if st.session_state.search_input.strip():
     df_filtered = df[
         df["色粉編號"].str.contains(st.session_state.search_input, case=False, na=False) |
@@ -134,19 +132,8 @@ with col2:
         st.session_state.form_data["備註"]
     )
 
-save_btn = st.button("💾 儲存")
-
-if save_btn:
+if st.button("💾 儲存"):
     st.session_state.trigger_save = True
-
-# ======== DELETE CONFIRM =========
-if st.session_state.show_delete_confirm:
-    st.warning("⚠️ 確定要刪除此筆色粉嗎？")
-    col_yes, col_no = st.columns(2)
-    if col_yes.button("是，刪除"):
-        st.session_state.trigger_delete_confirm = True
-    if col_no.button("否，取消"):
-        st.session_state.trigger_delete_cancel = True
 
 # ======== Powder List =========
 st.subheader("📋 色粉清單")
@@ -171,9 +158,16 @@ for i, row in df_filtered.iterrows():
             st.session_state.delete_index = i
             st.session_state.show_delete_confirm = True
 
-# =============================
-#    處理所有 flags
-# =============================
+# ======== DELETE CONFIRM =========
+if st.session_state.show_delete_confirm:
+    st.warning("⚠️ 確定要刪除此筆色粉嗎？")
+    col_yes, col_no = st.columns(2)
+    if col_yes.button("是，刪除"):
+        st.session_state.trigger_delete = True
+    if col_no.button("否，取消"):
+        st.session_state.trigger_cancel_delete = True
+
+# ======== ACTUAL LOGIC SECTION =========
 
 if st.session_state.trigger_save:
     new_data = st.session_state.form_data.copy()
@@ -205,7 +199,7 @@ if st.session_state.trigger_save:
     st.session_state.trigger_save = False
     st.experimental_rerun()
 
-if st.session_state.trigger_delete_confirm:
+if st.session_state.trigger_delete:
     idx = st.session_state.delete_index
     df.drop(index=idx, inplace=True)
     df.reset_index(drop=True, inplace=True)
@@ -218,15 +212,16 @@ if st.session_state.trigger_delete_confirm:
         st.error(f"❌ 刪除失敗: {e}")
     st.session_state.show_delete_confirm = False
     st.session_state.delete_index = None
-    st.session_state.trigger_delete_confirm = False
+    st.session_state.trigger_delete = False
     st.experimental_rerun()
 
-if st.session_state.trigger_delete_cancel:
+if st.session_state.trigger_cancel_delete:
     st.session_state.show_delete_confirm = False
     st.session_state.delete_index = None
-    st.session_state.trigger_delete_cancel = False
+    st.session_state.trigger_cancel_delete = False
     st.experimental_rerun()
 
 if st.session_state.trigger_edit:
+    # 編輯模式進入後，已把 form_data 填好
     st.session_state.trigger_edit = False
     st.experimental_rerun()
