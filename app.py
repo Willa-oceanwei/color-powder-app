@@ -1,4 +1,3 @@
-# ===== app.py =====
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
@@ -15,9 +14,11 @@ client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 spreadsheet = client.open_by_url(SHEET_URL)
 
-# ======== 模組選單 =========
-st.title("🎨 管理系統")
-menu = st.radio("請選擇模組", ["色粉管理", "客戶名單"])
+# ======== Sidebar 修正 =========
+with st.sidebar:
+    st.title("🎨 管理系統")
+    with st.expander("👉 點此展開 / 收合選單", expanded=True):
+        menu = st.radio("請選擇模組", ["色粉管理", "客戶名單"])
 
 # ======== 初始化 session_state =========
 def init_states(key_list):
@@ -55,7 +56,6 @@ if menu == "色粉管理":
         if col not in df.columns:
             df[col] = ""
 
-    # 搜尋功能
     st.subheader("🔎 搜尋色粉")
     search_input = st.text_input("請輸入色粉編號或國際色號", st.session_state.search_color)
     if search_input != st.session_state.search_color:
@@ -65,7 +65,6 @@ if menu == "色粉管理":
         | df["國際色號"].str.contains(st.session_state.search_color, case=False, na=False)
     ] if st.session_state.search_color.strip() else df
 
-    # 表單區塊
     st.subheader("➕ 新增 / 修改 色粉")
     col1, col2 = st.columns(2)
     with col1:
@@ -98,7 +97,6 @@ if menu == "色粉管理":
             st.session_state.edit_color_index = None
             st.rerun()
 
-    # 刪除確認
     if st.session_state.show_delete_color_confirm:
         st.warning("⚠️ 確定要刪除？")
         c1, c2 = st.columns(2)
@@ -113,7 +111,6 @@ if menu == "色粉管理":
             st.session_state.show_delete_color_confirm = False
             st.rerun()
 
-    # 清單顯示
     st.subheader("📋 色粉清單")
     for i, row in df_filtered.iterrows():
         cols = st.columns([2, 2, 2, 2, 2, 3])
@@ -210,8 +207,8 @@ elif menu == "客戶名單":
         cols[1].write(row["客戶簡稱"])
         cols[2].write(row["備註"])
         with cols[3]:
-            c1, c2 = st.columns(2)
-            if c1.button("✏️ 修改 ", key=f"edit_customer_{i}"):
+            c1, c2 = st.columns(2, gap="small")
+            if c1.button("✏️ 修改", key=f"edit_customer_{i}"):
                 st.session_state.edit_customer_index = i
                 st.session_state.form_customer = row.to_dict()
                 st.rerun()
