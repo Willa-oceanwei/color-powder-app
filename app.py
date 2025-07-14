@@ -19,7 +19,7 @@ client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 spreadsheet = client.open_by_url(SHEET_URL)
 
-# ======= MODULE SELECT =======
+# ======= 模組選擇 =======
 module = st.sidebar.selectbox(
     "請選擇模組",
     ["色粉管理", "客戶清單"]
@@ -28,6 +28,7 @@ module = st.sidebar.selectbox(
 # ======== 模組 1：色粉管理 =========
 
 if module == "色粉管理":
+
     ws_color = spreadsheet.worksheet("色粉管理")
 
     required_columns = [
@@ -52,7 +53,6 @@ if module == "色粉管理":
 
     df.columns = df.columns.str.strip()
 
-    # session state
     if "form_data" not in st.session_state:
         st.session_state.form_data = {col: "" for col in required_columns}
     if "edit_mode" not in st.session_state:
@@ -68,7 +68,6 @@ if module == "色粉管理":
 
     st.title("🎨 色粉管理系統")
 
-    # 搜尋
     st.subheader("🔎 搜尋色粉")
     search_input = st.text_input(
         "請輸入色粉編號或國際色號",
@@ -155,7 +154,8 @@ if module == "色粉管理":
 
     if st.session_state.show_delete_confirm:
         st.warning("⚠️ 確定要刪除此筆色粉嗎？")
-        if st.button("刪除"):
+        col1, col2 = st.columns(2)
+        if col1.button("是，刪除"):
             idx = st.session_state.delete_index
             df.drop(index=idx, inplace=True)
             df.reset_index(drop=True, inplace=True)
@@ -169,7 +169,7 @@ if module == "色粉管理":
             st.session_state.show_delete_confirm = False
             st.session_state.delete_index = None
             st.experimental_rerun()
-        if st.button("取消"):
+        if col2.button("取消"):
             st.session_state.show_delete_confirm = False
             st.session_state.delete_index = None
             st.experimental_rerun()
@@ -197,6 +197,7 @@ if module == "色粉管理":
 # ======== 模組 2：客戶清單 =========
 
 elif module == "客戶清單":
+
     ws_customer = spreadsheet.worksheet("客戶清單")
 
     customer_columns = ["客戶編號", "客戶簡稱", "備註"]
@@ -297,7 +298,8 @@ elif module == "客戶清單":
 
     if st.session_state.show_delete_customer_confirm:
         st.warning("⚠️ 確定要刪除此筆客戶嗎？")
-        if st.button("刪除"):
+        col1, col2 = st.columns(2)
+        if col1.button("是，刪除"):
             idx = st.session_state.delete_customer_index
             df_cust.drop(index=idx, inplace=True)
             df_cust.reset_index(drop=True, inplace=True)
@@ -311,7 +313,7 @@ elif module == "客戶清單":
             st.session_state.show_delete_customer_confirm = False
             st.session_state.delete_customer_index = None
             st.experimental_rerun()
-        if st.button("取消"):
+        if col2.button("取消"):
             st.session_state.show_delete_customer_confirm = False
             st.session_state.delete_customer_index = None
             st.experimental_rerun()
