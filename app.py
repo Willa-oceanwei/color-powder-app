@@ -201,18 +201,18 @@ elif menu == "客戶名單":
             st.rerun()
 
     st.subheader("📋 客戶清單")
-
     for i, row in df_filtered.iterrows():
-        cols = st.columns([2, 2, 3])
+        cols = st.columns([3, 3, 3, 3])
         cols[0].write(row["客戶編號"])
         cols[1].write(row["客戶簡稱"])
         cols[2].write(row["備註"])
-        with cols[2]:
-            col_edit, col_delete = st.columns(2)
-            if col_edit.button("✏️ 修改", key=f"edit_customer_{i}"):
-                st.session_state.edit_customer_mode = True
+        with cols[3]:
+            c1, c2 = st.columns(2, gap="small")
+            if c1.button("✏️ 修改", key=f"edit_customer_{i}"):
                 st.session_state.edit_customer_index = i
                 st.session_state.form_customer = row.to_dict()
-            if col_delete.button("🗑️ 刪除", key=f"delete_customer_{i}"):
+                st.rerun()
+            if c2.button("🗑️ 刪除", key=f"delete_customer_{i}"):
                 st.session_state.delete_customer_index = i
                 st.session_state.show_delete_customer_confirm = True
+                st.rerun()
