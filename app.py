@@ -213,11 +213,19 @@ elif menu == "客戶名單":
         cols[2].write(row["備註"])
         with cols[3]:
             c1, c2 = st.columns(2, gap="small")
-            if c1.button("✏️ 修改", key=f"edit_customer_{i}"):
-                st.session_state.edit_customer_index = i
-                st.session_state.form_customer = row.to_dict()
-                st.rerun()
-            if c2.button("🗑️ 刪除", key=f"delete_customer_{i}"):
-                st.session_state.delete_customer_index = i
-                st.session_state.show_delete_customer_confirm = True
-                st.rerun()
+            with c1:
+                st.markdown(f"""<div style="text-align:center;">
+                    <span style="font-size:2em;">✏️</span><br>修改
+                </div>""", unsafe_allow_html=True)
+                if st.button("", key=f"edit_customer_{i}"):
+                    st.session_state.edit_customer_index = i
+                    st.session_state.form_customer = row.to_dict()
+                    st.rerun()
+            with c2:
+                st.markdown(f"""<div style="text-align:center;">
+                    <span style="font-size:2em;">🗑️</span><br>刪除
+                </div>""", unsafe_allow_html=True)
+                if st.button("", key=f"delete_customer_{i}"):
+                    st.session_state.delete_customer_index = i
+                    st.session_state.show_delete_customer_confirm = True
+                    st.rerun()
