@@ -189,20 +189,20 @@ elif menu == "客戶名單":
             st.session_state.edit_customer_index = None
             st.rerun()
 
-    if st.session_state.show_delete_color_confirm:
-        target_row = df.iloc[st.session_state.delete_color_index]
+    if st.session_state.show_delete_customer_confirm:
+        target_row = df.iloc[st.session_state.delete_customer_index]
         target_text = f'{target_row["客戶編號"]} {target_row["客戶簡稱"]}'
         st.warning(f"⚠️ 確定要刪除 {target_text}？")
         c1, c2 = st.columns(2)
         if c1.button("刪除"):
-            df.drop(index=st.session_state.delete_color_index, inplace=True)
+            df.drop(index=st.session_state.delete_customer_index, inplace=True)
             df.reset_index(drop=True, inplace=True)
-            save_df_to_sheet(worksheet, df)
+            save_df_to_sheet(ws_customer, df)
             st.success("✅ 刪除成功！")
-            st.session_state.show_delete_color_confirm = False
+            st.session_state.show_delete_customer_confirm = False
             st.rerun()
         if c2.button("取消"):
-            st.session_state.show_delete_color_confirm = False
+            st.session_state.show_delete_customer_confirm = False
             st.rerun()
 
     st.subheader("📋 客戶清單")
