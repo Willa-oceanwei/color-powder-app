@@ -196,9 +196,9 @@ if module == "色粉管理":
 
 # ======== 模組 2：客戶清單 =========
 
-elif module == "客戶清單":
+elif module == "客戶名單":
 
-    ws_customer = spreadsheet.worksheet("客戶清單")
+    ws_customer = spreadsheet.worksheet("客戶名單")
 
     customer_columns = ["客戶編號", "客戶簡稱", "備註"]
 
