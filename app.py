@@ -191,7 +191,7 @@ elif menu == "客戶名單":
 
     if st.session_state.show_delete_color_confirm:
         target_row = df.iloc[st.session_state.delete_color_index]
-        target_text = f'{target_row["色粉編號"]} {target_row["名稱"]}'
+        target_text = f'{target_row["客戶編號"]} {target_row["客戶簡稱"]}'
         st.warning(f"⚠️ 確定要刪除 {target_text}？")
         c1, c2 = st.columns(2)
         if c1.button("刪除"):
