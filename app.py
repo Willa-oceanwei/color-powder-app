@@ -9,11 +9,23 @@ import json
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
     service_account_info,
-    scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"],
+    scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ],
 )
 client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
-spreadsheet = client.open_by_url(SHEET_URL)
+
+# ======== 建立 Spreadsheet 物件 (避免重複連線) =========
+if "spreadsheet" not in st.session_state:
+    try:
+        st.session_state["spreadsheet"] = client.open_by_url(SHEET_URL)
+    except Exception as e:
+        st.error(f"❗ 無法連線 Google Sheet：{e}")
+        st.stop()
+
+spreadsheet = st.session_state["spreadsheet"]
 
 # ======== Sidebar 修正 =========
 with st.sidebar:
