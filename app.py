@@ -1,3 +1,4 @@
+# ===== app.py =====
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
@@ -120,7 +121,7 @@ if menu == "色粉管理":
         cols[3].write(row["色粉類別"])
         cols[4].write(row["包裝"])
         with cols[5]:
-            c1, c2 = st.columns(2)
+            c1, c2 = st.columns(2, gap="small")
             if c1.button("✏️ 修改", key=f"edit_color_{i}"):
                 st.session_state.edit_color_index = i
                 st.session_state.form_color = row.to_dict()
