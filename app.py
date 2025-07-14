@@ -66,6 +66,9 @@ if menu == "色粉管理":
         | df["國際色號"].str.contains(st.session_state.search_color, case=False, na=False)
     ] if st.session_state.search_color.strip() else df
 
+    if st.session_state.search_color.strip() and df_filtered.empty:
+    st.warning("❗ 查無符合的色粉編號")
+
     st.subheader("➕ 新增 / 修改 色粉")
     col1, col2 = st.columns(2)
     with col1:
@@ -161,6 +164,9 @@ elif menu == "客戶名單":
         df["客戶編號"].str.contains(st.session_state.search_customer, case=False, na=False)
         | df["客戶簡稱"].str.contains(st.session_state.search_customer, case=False, na=False)
     ] if st.session_state.search_customer.strip() else df
+
+    if st.session_state.search_customer.strip() and df_filtered.empty:
+    st.warning("❗ 查無符合的客戶編號或簡稱")
 
     st.subheader("➕ 新增 / 修改 客戶")
     col1, col2 = st.columns(2)
