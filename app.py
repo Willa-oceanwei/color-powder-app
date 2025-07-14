@@ -67,7 +67,7 @@ if menu == "色粉管理":
     ] if st.session_state.search_color.strip() else df
 
     if st.session_state.search_color.strip() and df_filtered.empty:
-    st.warning("❗ 查無符合的色粉編號")
+        st.warning("❗ 查無符合的色粉編號")
 
     st.subheader("➕ 新增 / 修改 色粉")
     col1, col2 = st.columns(2)
@@ -166,7 +166,7 @@ elif menu == "客戶名單":
     ] if st.session_state.search_customer.strip() else df
 
     if st.session_state.search_customer.strip() and df_filtered.empty:
-    st.warning("❗ 查無符合的客戶編號或簡稱")
+        st.warning("❗ 查無符合的客戶編號或簡稱")
 
     st.subheader("➕ 新增 / 修改 客戶")
     col1, col2 = st.columns(2)
