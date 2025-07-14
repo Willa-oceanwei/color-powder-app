@@ -214,12 +214,12 @@ elif menu == "客戶名單":
         with cols[3]:
             c1, c2 = st.columns(2, gap="small")
             with c1:
-                if st.button("✏️\n修改", key=f"edit_color_{i}"):
-                    st.session_state.edit_color_index = i
-                    st.session_state.form_color = row.to_dict()
+                if st.button("✏️\n修改", key=f"edit_customer_{i}"):
+                    st.session_state.edit_customer_index = i
+                    st.session_state.form_customer = row.to_dict()
                     st.rerun()
             with c2:
                 if st.button("🗑️\n刪除", key=f"delete_color_{i}"):
-                    st.session_state.delete_color_index = i
-                    st.session_state.show_delete_color_confirm = True
+                    st.session_state.delete_customer_index = i
+                    st.session_state.show_delete_customer_confirm = True
                     st.rerun()
