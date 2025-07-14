@@ -215,7 +215,7 @@ elif menu == "客戶名單":
             c1, c2 = st.columns(2, gap="small")
             with c1:
                 st.markdown(f"""<div style="text-align:center;">
-                    <span style="font-size:2em;">✏️</span><br>修改
+                    <span style="font-size:2em;">✏️</span><br>改
                 </div>""", unsafe_allow_html=True)
                 if st.button("", key=f"edit_customer_{i}"):
                     st.session_state.edit_customer_index = i
@@ -223,7 +223,7 @@ elif menu == "客戶名單":
                     st.rerun()
             with c2:
                 st.markdown(f"""<div style="text-align:center;">
-                    <span style="font-size:2em;">🗑️</span><br>刪除
+                    <span style="font-size:2em;">🗑️</span><br>除
                 </div>""", unsafe_allow_html=True)
                 if st.button("", key=f"delete_customer_{i}"):
                     st.session_state.delete_customer_index = i
