@@ -209,7 +209,7 @@ elif menu == "客戶名單":
         cols[0].write(row["客戶編號"])
         cols[1].write(row["客戶簡稱"])
         cols[2].write(row["備註"])
-        with cols[5]:
+        with cols[3]:
             c1, c2 = st.columns(2)
             if c1.button("✏️ 修改 ", key=f"edit_customer_{i}"):
                 st.session_state.edit_customer_index = i
