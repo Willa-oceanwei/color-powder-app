@@ -15,7 +15,7 @@ client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 spreadsheet = client.open_by_url(SHEET_URL)
 
-# ======== Sidebar =========
+# ======== Sidebar 修正 =========
 with st.sidebar:
     st.title("🎨 管理系統")
     with st.expander("👉 點此展開 / 收合選單", expanded=True):
@@ -99,9 +99,7 @@ if menu == "色粉管理":
             st.rerun()
 
     if st.session_state.show_delete_color_confirm:
-        target_row = df.iloc[st.session_state.delete_color_index]
-        target_text = f'{target_row["色粉編號"]} {target_row["名稱"]}'
-        st.warning(f"⚠️ 確定要刪除 {target_text}？")
+        st.warning("⚠️ 確定要刪除？")
         c1, c2 = st.columns(2)
         if c1.button("刪除"):
             df.drop(index=st.session_state.delete_color_index, inplace=True)
@@ -124,16 +122,14 @@ if menu == "色粉管理":
         cols[4].write(row["包裝"])
         with cols[5]:
             c1, c2 = st.columns(2, gap="small")
-            with c1:
-                if st.button("✏️\n修改", key=f"edit_color_{i}"):
-                    st.session_state.edit_color_index = i
-                    st.session_state.form_color = row.to_dict()
-                    st.rerun()
-            with c2:
-                if st.button("🗑️\n刪除", key=f"delete_color_{i}"):
-                    st.session_state.delete_color_index = i
-                    st.session_state.show_delete_color_confirm = True
-                    st.rerun()
+            if c1.button("✏️ 修改", key=f"edit_color_{i}"):
+                st.session_state.edit_color_index = i
+                st.session_state.form_color = row.to_dict()
+                st.rerun()
+            if c2.button("🗑️ 刪除", key=f"delete_color_{i}"):
+                st.session_state.delete_color_index = i
+                st.session_state.show_delete_color_confirm = True
+                st.rerun()
 
 # ======== 客戶名單 =========
 elif menu == "客戶名單":
@@ -192,9 +188,7 @@ elif menu == "客戶名單":
             st.rerun()
 
     if st.session_state.show_delete_customer_confirm:
-        target_row = df.iloc[st.session_state.delete_customer_index]
-        target_text = f'{target_row["客戶編號"]} {target_row["客戶簡稱"]}'
-        st.warning(f"⚠️ 確定要刪除 {target_text}？")
+        st.warning("⚠️ 確定要刪除？")
         c1, c2 = st.columns(2)
         if c1.button("刪除"):
             df.drop(index=st.session_state.delete_customer_index, inplace=True)
@@ -215,13 +209,11 @@ elif menu == "客戶名單":
         cols[2].write(row["備註"])
         with cols[3]:
             c1, c2 = st.columns(2, gap="small")
-            with c1:
-                if st.button("✏️\n修改", key=f"edit_customer_{i}"):
-                    st.session_state.edit_customer_index = i
-                    st.session_state.form_customer = row.to_dict()
-                    st.rerun()
-            with c2:
-                if st.button("🗑️\n刪除", key=f"delete_customer_{i}"):
-                    st.session_state.delete_customer_index = i
-                    st.session_state.show_delete_customer_confirm = True
-                    st.rerun()
+            if c1.button("✏️ 修改", key=f"edit_customer_{i}"):
+                st.session_state.edit_customer_index = i
+                st.session_state.form_customer = row.to_dict()
+                st.rerun()
+            if c2.button("🗑️ 刪除", key=f"delete_customer_{i}"):
+                st.session_state.delete_customer_index = i
+                st.session_state.show_delete_customer_confirm = True
+                st.rerun()
