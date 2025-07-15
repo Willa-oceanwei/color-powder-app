@@ -376,7 +376,7 @@ elif menu == "配方管理":
         )
 
     # 比例欄位 (修正單位顯示)
-    col_ratio_1, col_colon, col_ratio_2, col_ratio_3 = st.columns([2.5, 0.5, 2, 6])
+    col_ratio_1, col_colon, col_ratio_2, col_ratio_3 = st.columns([2.5, 0.5, 2, 5])
     with col_ratio_1:
         st.session_state.form_recipe["比例1"] = st.text_input(
             "比例欄位1", st.session_state.form_recipe["比例1"], label_visibility="collapsed"
