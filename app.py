@@ -291,12 +291,13 @@ elif menu == "客戶名單":
     # ... 你的客戶名單程式保留不動
     pass
 
+# ================== 配方管理模組 ==================
 if menu == "配方管理":
     ws_recipe = spreadsheet.worksheet("配方管理")
     ws_customer = spreadsheet.worksheet("客戶名單")
     ws_color = spreadsheet.worksheet("色粉管理")
 
-    # 初始化欄位
+    # 欄位定義
     recipe_cols = [
         "配方編號", "顏色", "客戶編號", "配方類別", "狀態", "原始配方",
         "色粉類別", "計量單位", "Pantone色號",
@@ -313,110 +314,116 @@ if menu == "配方管理":
         "合計類別", "建檔時間"
     ]
 
-    init_states([
-        "form_recipe", "edit_recipe_index", "delete_recipe_index", "show_delete_recipe_confirm",
-        "search_recipe", "search_pantone", "search_customer"
-    ])
+    init_states(["form_recipe", "edit_recipe_index", "delete_recipe_index", "show_delete_recipe_confirm", "search_recipe", "search_pantone", "search_customer"])
     for col in recipe_cols:
         st.session_state.form_recipe.setdefault(col, "")
 
+    # 讀取現有配方
     df_recipe = pd.DataFrame(ws_recipe.get_all_records()) if ws_recipe.get_all_records() else pd.DataFrame(columns=recipe_cols)
     df_recipe = df_recipe.astype(str)
 
     # ===== 搜尋區塊 =====
     st.subheader("🗃️ 配方搜尋🔎")
     c1, c2, c3 = st.columns(3)
-    with c1:
-        st.session_state.search_recipe = st.text_input("配方編號搜尋", st.session_state.search_recipe)
-    with c2:
-        st.session_state.search_pantone = st.text_input("Pantone色號搜尋", st.session_state.search_pantone)
-    with c3:
-        st.session_state.search_customer = st.text_input("客戶編號/名稱搜尋", st.session_state.search_customer)
+    st.session_state.search_recipe = c1.text_input("配方編號搜尋", st.session_state.search_recipe)
+    st.session_state.search_pantone = c2.text_input("Pantone色號搜尋", st.session_state.search_pantone)
+    st.session_state.search_customer = c3.text_input("客戶編號/名稱搜尋", st.session_state.search_customer)
 
-    if st.session_state.search_customer.strip():
-        customer_df = pd.DataFrame(ws_customer.get_all_records())
-        match = customer_df[
-            customer_df["客戶編號"].str.contains(st.session_state.search_customer, case=False, na=False) |
-            customer_df["客戶簡稱"].str.contains(st.session_state.search_customer, case=False, na=False)
-        ]
-        customer_codes = match["客戶編號"].unique().tolist()
-    else:
-        customer_codes = []
+    # 執行搜尋
+    filtered = df_recipe.copy()
+    if st.session_state.search_recipe:
+        filtered = filtered[filtered["配方編號"].str.contains(st.session_state.search_recipe, case=False, na=False)]
+    if st.session_state.search_pantone:
+        filtered = filtered[filtered["Pantone色號"].str.contains(st.session_state.search_pantone, case=False, na=False)]
+    if st.session_state.search_customer:
+        ws_customer_data = pd.DataFrame(ws_customer.get_all_records())
+        match_customers = ws_customer_data[
+            ws_customer_data["客戶編號"].str.contains(st.session_state.search_customer, case=False, na=False) |
+            ws_customer_data["客戶簡稱"].str.contains(st.session_state.search_customer, case=False, na=False)
+        ]["客戶編號"].unique().tolist()
+        filtered = filtered[filtered["客戶編號"].isin(match_customers)]
 
-    filtered = df_recipe[
-        df_recipe["配方編號"].str.contains(st.session_state.search_recipe, case=False, na=False) &
-        df_recipe["Pantone色號"].str.contains(st.session_state.search_pantone, case=False, na=False) &
-        (df_recipe["客戶編號"].isin(customer_codes) if customer_codes else True)
-    ] if st.session_state.search_recipe or st.session_state.search_pantone or customer_codes else pd.DataFrame()
-
-    if (st.session_state.search_recipe or st.session_state.search_pantone or customer_codes) and filtered.empty:
+    if (st.session_state.search_recipe or st.session_state.search_pantone or st.session_state.search_customer) and filtered.empty:
         st.warning("❗ 查無符合的配方")
 
     # ===== 新增 / 修改區塊 =====
     st.subheader("📝 新增 / 修改配方")
     c1, c2, c3 = st.columns(3)
-    st.session_state.form_recipe["配方編號"] = c1.text_input("配方編號", st.session_state.form_recipe["配方編號"])
-    st.session_state.form_recipe["顏色"] = c2.text_input("顏色", st.session_state.form_recipe["顏色"])
-    c3.text_input("客戶編號", key="form_recipe.客戶編號", placeholder="輸入後顯示建議")
+    c1.text_input("配方編號", key="form_recipe.配方編號")
+    c2.text_input("顏色", key="form_recipe.顏色")
 
-    # 客戶選擇提示
-    if st.session_state.form_recipe["客戶編號"]:
+    # 客戶編號輸入 (預設空白，模糊搜尋)
+    customer_code_input = c3.text_input(
+        "客戶編號 / 客戶簡稱 (輸入後出現建議)", 
+        value=st.session_state.form_recipe["客戶編號"]
+    )
+    st.session_state.form_recipe["客戶編號"] = customer_code_input
+
+    if customer_code_input:
         customer_df = pd.DataFrame(ws_customer.get_all_records())
         suggestions = customer_df[
-            customer_df["客戶編號"].str.contains(st.session_state.form_recipe["客戶編號"], case=False, na=False) |
-            customer_df["客戶簡稱"].str.contains(st.session_state.form_recipe["客戶編號"], case=False, na=False)
+            customer_df["客戶編號"].str.contains(customer_code_input, case=False, na=False) |
+            customer_df["客戶簡稱"].str.contains(customer_code_input, case=False, na=False)
         ]
         if not suggestions.empty:
             st.info("建議名單：")
-            st.write(suggestions[["客戶編號", "客戶簡稱"]])
+            st.dataframe(suggestions[["客戶編號", "客戶簡稱"]])
 
     c4, c5, c6 = st.columns(3)
-    st.session_state.form_recipe["配方類別"] = c4.selectbox("配方類別", ["原始配方", "附加配方"], index=["原始配方", "附加配方"].index(st.session_state.form_recipe["配方類別"]) if st.session_state.form_recipe["配方類別"] else 0)
-    st.session_state.form_recipe["狀態"] = c5.selectbox("狀態", ["啟用", "停用"], index=["啟用", "停用"].index(st.session_state.form_recipe["狀態"]) if st.session_state.form_recipe["狀態"] else 0)
-    st.session_state.form_recipe["原始配方"] = c6.text_input("原始配方", st.session_state.form_recipe["原始配方"])
+    c4.selectbox("配方類別", ["原始配方", "附加配方"], key="form_recipe.配方類別")
+    c5.selectbox("狀態", ["啟用", "停用"], key="form_recipe.狀態")
+    c6.text_input("原始配方", key="form_recipe.原始配方")
 
     c7, c8, c9 = st.columns(3)
-    st.session_state.form_recipe["色粉類別"] = c7.selectbox("色粉類別", ["配方", "色母", "色粉", "添加劑", "其他"])
-    st.session_state.form_recipe["計量單位"] = c8.selectbox("計量單位", ["包", "桶", "kg", "其他"])
-    st.session_state.form_recipe["Pantone色號"] = c9.text_input("Pantone色號", st.session_state.form_recipe["Pantone色號"])
+    c7.selectbox("色粉類別", ["配方", "色母", "色粉", "添加劑", "其他"], key="form_recipe.色粉類別")
+    c8.selectbox("計量單位", ["包", "桶", "kg", "其他"], key="form_recipe.計量單位")
+    c9.text_input("Pantone色號", key="form_recipe.Pantone色號")
 
-    colr1, colr2, colr3 = st.columns([3,3,2])
-    st.session_state.form_recipe["比例1"] = colr1.text_input("比例1", st.session_state.form_recipe["比例1"])
-    st.session_state.form_recipe["比例2"] = colr2.text_input("比例2", st.session_state.form_recipe["比例2"])
-    st.session_state.form_recipe["比例3"] = colr3.text_input("比例3", st.session_state.form_recipe["比例3"])
-    st.text("比例格式: (欄位1)：(欄位2)        (欄位3) g/kg")
+    # 比例排版 (欄位1)：(欄位2)   (欄位3) g/kg
+    colr1, col_mid, colr2, colr3 = st.columns([2,1,2,1])
+    colr1.text_input("", key="form_recipe.比例1", placeholder="比例欄位1")
+    col_mid.markdown("<p style='margin-top:38px;'>：</p>", unsafe_allow_html=True)
+    colr2.text_input("", key="form_recipe.比例2", placeholder="比例欄位2")
+    colr3.markdown("<p style='margin-top:38px;'>g/kg</p>", unsafe_allow_html=True)
 
-    st.session_state.form_recipe["備註"] = st.text_input("備註", st.session_state.form_recipe["備註"])
+    st.text_input("備註", key="form_recipe.備註")
 
     c10, c11 = st.columns(2)
-    st.session_state.form_recipe["色粉淨重"] = c10.text_input("色粉淨重", st.session_state.form_recipe["色粉淨重"])
-    st.session_state.form_recipe["淨重單位"] = c11.selectbox("淨重單位", ["g", "kg"], index=["g", "kg"].index(st.session_state.form_recipe["淨重單位"]) if st.session_state.form_recipe["淨重單位"] else 0)
+    c10.text_input("色粉淨重", key="form_recipe.色粉淨重")
+    c11.selectbox("單位", ["g", "kg"], key="form_recipe.淨重單位")
 
+    # 色粉表頭
+    header = st.columns([1, 4, 4, 1])
+    header[0].markdown("")
+    header[1].markdown("**色粉編號**")
+    header[2].markdown("**色粉重量**")
+    header[3].markdown("")
+
+    # 色粉編號 + 重量
     color_df = pd.DataFrame(ws_color.get_all_records())
     total_powder = 0
-    st.markdown("**色粉資料**")
-    cols_header = st.columns([1,4,4,1])
-    cols_header[1].markdown("**色粉編號**")
-    cols_header[2].markdown("**色粉重量**")
-    for idx in range(1,9):
-        row = st.columns([1,4,4,1])
+    for idx in range(1, 9):
+        row = st.columns([1, 4, 4, 1])
         row[0].write(f"色粉{idx}")
-        st.session_state.form_recipe[f"色粉{idx}_編號"] = row[1].text_input("", st.session_state.form_recipe[f"色粉{idx}_編號"], key=f"粉編_{idx}")
-        st.session_state.form_recipe[f"色粉{idx}_重量"] = row[2].text_input("", st.session_state.form_recipe[f"色粉{idx}_重量"], key=f"粉重_{idx}")
+        code = row[1].text_input("", key=f"form_recipe.色粉{idx}_編號", placeholder=f"色粉{idx}編號")
+        weight = row[2].text_input("", key=f"form_recipe.色粉{idx}_重量", placeholder=f"色粉{idx}重量")
         row[3].write(st.session_state.form_recipe["淨重單位"])
-        code = st.session_state.form_recipe[f"色粉{idx}_編號"]
+
         if code and code not in color_df["色粉編號"].values:
             st.warning(f"❗ 色粉編號 {code} 尚未建檔！")
         try:
-            total_powder += float(st.session_state.form_recipe[f"色粉{idx}_重量"] or "0")
+            total_powder += float(weight)
         except:
             pass
 
-    c_sum1, c_sum2 = st.columns([1,2])
-    st.session_state.form_recipe["合計類別"] = c_sum1.selectbox("合計類別", ["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9"])
-    diff = float(st.session_state.form_recipe["色粉淨重"] or "0") - total_powder
-    c_sum2.write(f"合計：{diff:.2f} {st.session_state.form_recipe['淨重單位']}")
+    # 合計區塊
+    col_sum1, col_sum2 = st.columns([1, 3])
+    col_sum1.selectbox("合計類別", ["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9"], key="form_recipe.合計類別")
+    net = float(st.session_state.form_recipe["色粉淨重"] or 0)
+    diff = net - total_powder
+    col_sum2.write(f"合計自動計算：{diff} {st.session_state.form_recipe['淨重單位']}")
 
+    # 儲存
     if st.button("💾 儲存配方"):
         new_data = st.session_state.form_recipe.copy()
         if not new_data["配方編號"]:
@@ -433,10 +440,11 @@ if menu == "配方管理":
             st.rerun()
 
     # ===== 配方清單序列 =====
-    if not filtered.empty:
-        st.subheader("📋 配方清單")
-        for i, row in filtered.iterrows():
-            cols = st.columns([2,2,2,2,2,1,1])
+    st.subheader("📋 配方清單")
+    show_data = filtered if not filtered.empty else df_recipe
+    if not show_data.empty:
+        for i, row in show_data.iterrows():
+            cols = st.columns([2, 2, 2, 2, 2, 1, 1])
             cols[0].write(row["配方編號"])
             cols[1].write(row["顏色"])
             cols[2].write(row["客戶編號"])
