@@ -500,3 +500,7 @@ if menu == "配方管理":
         if c2.button("否"):
             st.session_state.show_delete_recipe_confirm = False
             st.rerun()
+            
+        if st.button("清除 session"):
+            st.session_state.clear()
+            st.experimental_rerun()
