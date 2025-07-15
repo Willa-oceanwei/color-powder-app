@@ -327,7 +327,7 @@ if menu == "配方管理":
     df_recipe = df_recipe.astype(str)
 
     # ===== 搜尋區塊 =====
-    st.subheader("🗃️ 配方搜尋🔎")
+    st.subheader("🧪 配方搜尋🔎")
     c1, c2, c3 = st.columns(3)
     with c1:
         st.session_state.search_recipe = st.text_input("配方編號搜尋", st.session_state.search_recipe)
