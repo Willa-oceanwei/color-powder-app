@@ -69,7 +69,7 @@ if menu == "色粉管理":
         if col not in df.columns:
             df[col] = ""
 
-    st.subheader("📜  搜尋色粉🔎")
+    st.subheader("📜  色粉搜尋🔎")
     search_input = st.text_input("請輸入色粉編號或國際色號", st.session_state.search_color)
     if search_input != st.session_state.search_color:
         st.session_state.search_color = search_input
@@ -168,7 +168,7 @@ elif menu == "客戶名單":
         if col not in df.columns:
             df[col] = ""
 
-    st.subheader("🗿  搜尋客戶🔎")
+    st.subheader("🗿  客戶搜尋🔎")
     search_input = st.text_input("請輸入客戶編號或簡稱", st.session_state.search_customer)
     if search_input != st.session_state.search_customer:
         st.session_state.search_customer = search_input
