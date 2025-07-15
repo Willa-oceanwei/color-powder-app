@@ -262,12 +262,6 @@ client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 spreadsheet = client.open_by_url(SHEET_URL)
 
-# ======== Sidebar =========
-with st.sidebar:
-    st.title("🎨 管理系統")
-    with st.expander("👉 點此展開 / 收合選單", expanded=True):
-        menu = st.radio("請選擇模組", ["色粉管理", "客戶名單", "配方管理"])
-
 # ======== 初始化 session_state =========
 def init_states(key_list):
     for key in key_list:
