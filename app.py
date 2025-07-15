@@ -446,8 +446,10 @@ elif menu == "配方管理":
     with col1:
         st.session_state.form_recipe["淨重"] = st.text_input("色粉淨重", st.session_state.form_recipe["淨重"])
     with col2:
-        st.session_state.form_recipe["淨重單位"] = st.selectbox("單位", ["g", "kg"],
-            index=["g", "kg"].index(st.session_state.form_recipe["淨重單位"]) if st.session_state.form_recipe["淨重單位"] else 0
+        st.session_state.form_recipe["淨重單位"] = st.selectbox(
+            "單位", ["g", "kg"],
+            index=["g", "kg"].index(st.session_state.form_recipe["淨重單位"]) if st.session_state.form_recipe["淨重單位"] else 0,
+            key="recipe_unit_select"
         )
 
     # 色粉1~8
