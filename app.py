@@ -31,7 +31,7 @@ spreadsheet = st.session_state["spreadsheet"]
 with st.sidebar:
     st.title("🎨 管理系統")
     with st.expander("👉 點此展開 / 收合選單", expanded=True):
-        menu = st.radio("請選擇模組", ["色粉管理", "客戶名單"])
+        menu = st.radio("請選擇模組", ["色粉管理", "客戶名單", "配方管理"])
 
 # ======== 初始化 session_state =========
 def init_states(key_list):
@@ -241,3 +241,206 @@ elif menu == "客戶名單":
                     st.session_state.delete_customer_index = i
                     st.session_state.show_delete_customer_confirm = True
                     st.rerun()
+
+elif menu == "配方管理":
+
+    # 建立或取得 worksheet
+    try:
+        ws_recipe = spreadsheet.worksheet("配方管理")
+    except:
+        ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
+
+    # 配方所有欄位
+    columns = [
+        "配方編號", "顏色", "客戶編號", "配方類別", "狀態", "原始配方",
+        "色粉類別", "計量單位", "Pantone色號",
+        "色粉淨重", "色粉1", "色粉2", "色粉3", "色粉4", "色粉5", "色粉6", "色粉7", "色粉8",
+        "合計類別", "備註", "建檔時間"
+    ]
+
+    init_states([
+        "form_recipe", "edit_recipe_index", "delete_recipe_index", "show_delete_recipe_confirm",
+        "search_recipe_code", "search_pantone", "search_customer_recipe"
+    ])
+
+    for col in columns:
+        st.session_state.form_recipe.setdefault(col, "")
+
+    # 載入資料
+    try:
+        df = pd.DataFrame(ws_recipe.get_all_records())
+    except:
+        df = pd.DataFrame(columns=columns)
+    df = df.astype(str)
+    for col in columns:
+        if col not in df.columns:
+            df[col] = ""
+
+    # ---------- 搜尋區 ----------
+    st.subheader("🔎 配方搜尋")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.session_state.search_recipe_code = st.text_input(
+            "輸入配方編號", st.session_state.search_recipe_code
+        )
+    with col2:
+        st.session_state.search_pantone = st.text_input(
+            "輸入 Pantone 色號", st.session_state.search_pantone
+        )
+    with col3:
+        st.session_state.search_customer_recipe = st.text_input(
+            "輸入客戶編號或名稱", st.session_state.search_customer_recipe
+        )
+
+    conditions = []
+
+    if st.session_state.search_recipe_code.strip():
+        conditions.append(df["配方編號"].str.contains(st.session_state.search_recipe_code, case=False, na=False))
+    if st.session_state.search_pantone.strip():
+        conditions.append(df["Pantone色號"].str.contains(st.session_state.search_pantone, case=False, na=False))
+    if st.session_state.search_customer_recipe.strip():
+        conditions.append(
+            df["客戶編號"].str.contains(st.session_state.search_customer_recipe, case=False, na=False)
+        )
+
+    if conditions:
+        mask = conditions[0]
+        for cond in conditions[1:]:
+            mask &= cond
+        df_filtered = df[mask]
+        if df_filtered.empty:
+            st.warning("❗ 查無符合的配方資料")
+    else:
+        df_filtered = pd.DataFrame()
+
+    # ---------- 新增/修改區 ----------
+    st.subheader("➕ 新增 / 修改 配方")
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.session_state.form_recipe["配方編號"] = st.text_input(
+            "配方編號", st.session_state.form_recipe["配方編號"]
+        )
+        st.session_state.form_recipe["配方類別"] = st.selectbox(
+            "配方類別", ["原始配方", "附加配方"],
+            index=["原始配方", "附加配方"].index(st.session_state.form_recipe["配方類別"])
+            if st.session_state.form_recipe["配方類別"] in ["原始配方", "附加配方"] else 0
+        )
+        st.session_state.form_recipe["色粉類別"] = st.selectbox(
+            "色粉類別", ["配方", "色母", "色粉", "添加劑", "其他"],
+            index=["配方", "色母", "色粉", "添加劑", "其他"].index(st.session_state.form_recipe["色粉類別"])
+            if st.session_state.form_recipe["色粉類別"] in ["配方", "色母", "色粉", "添加劑", "其他"] else 0
+        )
+    with c2:
+        st.session_state.form_recipe["顏色"] = st.text_input(
+            "顏色", st.session_state.form_recipe["顏色"]
+        )
+        st.session_state.form_recipe["狀態"] = st.selectbox(
+            "狀態", ["啟用", "停用"],
+            index=["啟用", "停用"].index(st.session_state.form_recipe["狀態"])
+            if st.session_state.form_recipe["狀態"] in ["啟用", "停用"] else 0
+        )
+        st.session_state.form_recipe["計量單位"] = st.selectbox(
+            "計量單位", ["包", "桶", "kg", "其他"],
+            index=["包", "桶", "kg", "其他"].index(st.session_state.form_recipe["計量單位"])
+            if st.session_state.form_recipe["計量單位"] in ["包", "桶", "kg", "其他"] else 0
+        )
+    with c3:
+        st.session_state.form_recipe["客戶編號"] = st.text_input(
+            "客戶編號", st.session_state.form_recipe["客戶編號"]
+        )
+        st.session_state.form_recipe["原始配方"] = st.text_input(
+            "原始配方", st.session_state.form_recipe["原始配方"]
+        )
+        st.session_state.form_recipe["Pantone色號"] = st.text_input(
+            "Pantone色號", st.session_state.form_recipe["Pantone色號"]
+        )
+
+    st.session_state.form_recipe["色粉淨重"] = st.text_input(
+        "色粉淨重", st.session_state.form_recipe["色粉淨重"]
+    )
+
+    # 色粉1~8
+    powder_cols = st.columns(3)
+    for i in range(1, 9):
+        with powder_cols[(i-1) % 3]:
+            st.session_state.form_recipe[f"色粉{i}"] = st.text_input(
+                f"色粉{i}", st.session_state.form_recipe[f"色粉{i}"]
+            )
+
+    st.session_state.form_recipe["合計類別"] = st.selectbox(
+        "合計類別", ["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9"],
+        index=0
+    )
+
+    st.session_state.form_recipe["備註"] = st.text_area(
+        "備註", st.session_state.form_recipe["備註"]
+    )
+
+    # 儲存
+    if st.button("💾 儲存"):
+        new_data = st.session_state.form_recipe.copy()
+
+        # 檢查配方編號
+        if new_data["配方編號"].strip() == "":
+            st.warning("⚠️ 請輸入配方編號！")
+        elif new_data["配方類別"] == "附加配方" and new_data["原始配方"].strip() == "":
+            st.warning("⚠️ 附加配方必須填寫原始配方！")
+        else:
+            if st.session_state.edit_recipe_index is None:
+                # 新增
+                if new_data["配方編號"] in df["配方編號"].values:
+                    st.warning("⚠️ 此配方編號已存在！")
+                else:
+                    new_data["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+                    st.success("✅ 新增成功！")
+            else:
+                # 修改
+                df.iloc[st.session_state.edit_recipe_index] = new_data
+                st.success("✅ 配方已更新！")
+
+            save_df_to_sheet(ws_recipe, df)
+            st.session_state.form_recipe = {col: "" for col in columns}
+            st.session_state.edit_recipe_index = None
+            st.rerun()
+
+    # ---------- 刪除確認 ----------
+    if st.session_state.show_delete_recipe_confirm:
+        target_row = df.iloc[st.session_state.delete_recipe_index]
+        target_text = f'{target_row["配方編號"]}'
+        st.warning(f"⚠️ 確定要刪除配方 {target_text}？")
+        c1, c2 = st.columns(2)
+        if c1.button("刪除"):
+            df.drop(index=st.session_state.delete_recipe_index, inplace=True)
+            df.reset_index(drop=True, inplace=True)
+            save_df_to_sheet(ws_recipe, df)
+            st.success("✅ 刪除成功！")
+            st.session_state.show_delete_recipe_confirm = False
+            st.rerun()
+        if c2.button("取消"):
+            st.session_state.show_delete_recipe_confirm = False
+            st.rerun()
+
+    # ---------- 清單區 ----------
+    if not df_filtered.empty:
+        st.subheader("📋 配方清單序列")
+        for i, row in df_filtered.iterrows():
+            cols = st.columns([2, 3, 2, 3, 2])
+            cols[0].write(row["配方編號"])
+            cols[1].write(f'{row["客戶編號"]}')
+            cols[2].write(row["顏色"])
+            cols[3].write(row["Pantone色號"])
+            cols[4].write(row["建檔時間"])
+            with cols[4]:
+                c1, c2 = st.columns(2, gap="small")
+                if c1.button("✏️ 改", key=f"edit_recipe_{i}"):
+                    st.session_state.edit_recipe_index = i
+                    st.session_state.form_recipe = row.to_dict()
+                    st.rerun()
+                if c2.button("🗑️ 刪", key=f"delete_recipe_{i}"):
+                    st.session_state.delete_recipe_index = i
+                    st.session_state.show_delete_recipe_confirm = True
+                    st.rerun()
+
