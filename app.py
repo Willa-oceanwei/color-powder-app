@@ -69,7 +69,7 @@ if menu == "色粉管理":
         if col not in df.columns:
             df[col] = ""
 
-    st.subheader("📜 🔎 搜尋色粉")
+    st.subheader("📜  搜尋色粉🔎")
     search_input = st.text_input("請輸入色粉編號或國際色號", st.session_state.search_color)
     if search_input != st.session_state.search_color:
         st.session_state.search_color = search_input
@@ -168,7 +168,7 @@ elif menu == "客戶名單":
         if col not in df.columns:
             df[col] = ""
 
-    st.subheader("🗿 🔎 搜尋客戶")
+    st.subheader("🗿  搜尋客戶🔎")
     search_input = st.text_input("請輸入客戶編號或簡稱", st.session_state.search_customer)
     if search_input != st.session_state.search_customer:
         st.session_state.search_customer = search_input
@@ -291,7 +291,7 @@ elif menu == "配方管理":
             df_recipe[col] = ""
 
     # ======= 搜尋 =======
-    st.subheader("🎯 🔎 配方搜尋")
+    st.subheader("🎯  配方搜尋🔎")
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -374,10 +374,24 @@ elif menu == "配方管理":
 
     # 第四列 - 比例
     st.markdown("#### 比例 (可空白)")
-    col10, col11, col12 = st.columns(3)
-    st.session_state.form_recipe["比例1"] = col10.text_input("比例欄位1", st.session_state.form_recipe["比例1"])
-    st.session_state.form_recipe["比例2"] = col11.text_input("比例欄位2", st.session_state.form_recipe["比例2"])
-    st.session_state.form_recipe["比例3"] = col12.text_input("比例欄位3", st.session_state.form_recipe["比例3"])
+
+    col_ratio_1, col_colon, col_ratio_2, col_ratio_3, col_unit = st.columns([3, 0.5, 3, 3, 1])
+
+    with col_ratio_1:
+        st.session_state.form_recipe["比例1"] = st.text_input("比例欄位1", st.session_state.form_recipe["比例1"], label_visibility="collapsed")
+
+    with col_colon:
+        st.markdown("<p style='text-align:center; font-weight:bold;'>:</p>", unsafe_allow_html=True)
+
+    with col_ratio_2:
+        st.session_state.form_recipe["比例2"] = st.text_input("比例欄位2", st.session_state.form_recipe["比例2"], label_visibility="collapsed")
+
+    with col_ratio_3:
+        st.session_state.form_recipe["比例3"] = st.text_input("比例欄位3", st.session_state.form_recipe["比例3"], label_visibility="collapsed")
+
+    with col_unit:
+        st.markdown(f"<p style='text-align:left;'>{st.session_state.form_recipe['淨重單位'] or 'g/kg'}</p>", unsafe_allow_html=True)
+
 
     # 備註
     st.session_state.form_recipe["備註"] = st.text_area("備註", st.session_state.form_recipe["備註"])
