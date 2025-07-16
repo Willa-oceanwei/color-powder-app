@@ -277,9 +277,16 @@ elif menu == "配方管理":
     if st.session_state.form_recipe is None:
         st.session_state.form_recipe = {col: "" for col in columns}
 
-    # ===== 資料讀取 (請改成你的讀法) =====
-    # 假設用空 DataFrame 模擬
-    df = pd.DataFrame(columns=columns)
+    # 讀取表單
+    try:
+        df = pd.DataFrame(ws_recipe.get_all_records())
+    except:
+        df = pd.DataFrame(columns=columns)
+
+    df = df.astype(str)
+    for col in columns:
+        if col not in df.columns:
+            df[col] = ""
 
     # ===== 搜尋區塊 =====
     st.subheader("🎯 配方搜尋 🔎")
