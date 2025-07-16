@@ -398,8 +398,11 @@ if customer_input:
     mask2 = df_customer["客戶簡稱"].str.contains(customer_input, case=False, na=False)
     suggestions = (df_customer[mask1 | mask2]["combo"]).tolist()
 
-if suggestions:
-    selected = c3.selectbox("選擇客戶", [""] + suggestions, index=0)
+if len(suggestions) == 1:
+    selected = suggestions[0]
+    st.session_state.form_recipe["客戶編號"] = selected.split(" - ")[0]
+elif suggestions:
+    selected = c3.selectbox("請選擇客戶", [""] + suggestions, key="customer_select")
     if selected:
         code = selected.split(" - ")[0]
         st.session_state.form_recipe["客戶編號"] = code
