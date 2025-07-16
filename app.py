@@ -524,7 +524,7 @@ elif menu == "配方管理":
         cols[6].write("操作")
 
         for i, row in df_filtered.iterrows():
-            c = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
+            c = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 2])
             c[0].write(row["配方編號"])
             c[1].write(row["顏色"])
             c[2].write(row["客戶編號"])
