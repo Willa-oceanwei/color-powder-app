@@ -532,12 +532,12 @@ elif menu == "配方管理":
             c[4].write(row["Pantone色號"])
             c[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row["建檔時間"] else "")
             with c[6]:
-                col_edit, col_del = st.columns(2)
-                if col_edit.button("✏️ 改", key=f"edit_{i}"):
+                col_edit, col_del = st.columns(4)
+                if col_edit.button("✏️改", key=f"edit_{i}"):
                     st.session_state.edit_recipe_index = i
                     st.session_state.form_recipe = row.to_dict()
                     st.rerun()
-                if col_del.button("🗑️ 改", key=f"delete_{i}"):
+                if col_del.button("🗑️改", key=f"delete_{i}"):
                     st.session_state.delete_recipe_index = i
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
