@@ -540,10 +540,10 @@ if not filtered.empty:
         cols[3].write(custname.values[0] if not custname.empty else "")
         cols[4].write(row["Pantone色號"])
         cols[5].write(row["建檔時間"])
-        if cols[6].button("✏️改", key=f"edit_{i}"):
+        if cols[5].button("✏️改", key=f"edit_{i}"):
             st.session_state.form_recipe = row.to_dict()
             st.experimental_rerun()
-        if cols[7].button("🗑️刪", key=f"delete_{i}"):
+        if cols[6].button("🗑️刪", key=f"delete_{i}"):
             df_recipe.drop(index=i, inplace=True)
             df_recipe.reset_index(drop=True, inplace=True)
             save_df_to_sheet(ws_recipe, df_recipe)
