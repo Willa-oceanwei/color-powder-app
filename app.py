@@ -533,11 +533,11 @@ elif menu == "配方管理":
             c[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row["建檔時間"] else "")
             with c[6]:
                 col_edit, col_del = st.columns(2)
-                if col_edit.button("✏️", key=f"edit_{i}"):
+                if col_edit.button("✏️\n改", key=f"edit_{i}"):
                     st.session_state.edit_recipe_index = i
                     st.session_state.form_recipe = row.to_dict()
                     st.rerun()
-                if col_del.button("🗑️", key=f"delete_{i}"):
+                if col_del.button("🗑️\n刪", key=f"delete_{i}"):
                     st.session_state.delete_recipe_index = i
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
