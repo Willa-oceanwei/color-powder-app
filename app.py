@@ -330,11 +330,7 @@ elif menu == "配方管理":
     with col3:
         # 客戶編號模糊搜尋
         input_val = st.session_state.form_recipe["客戶編號"]
-        
-        suggestions = customer_df[
-            customer_df["客戶編號"].str.contains(input_val, case=False, na=False) |
-            customer_df["客戶名稱"].str.contains(input_val, case=False, na=False)
-        ]
+       
         options = [""] + (suggestions["客戶編號"] + " - " + suggestions["客戶名稱"]).tolist()
         selected = st.selectbox("客戶編號", options, index=options.index(input_val) if input_val in options else 0)
         if selected:
