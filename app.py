@@ -328,13 +328,25 @@ elif menu == "配方管理":
     with col2:
         st.session_state.form_recipe["顏色"] = st.text_input("顏色", st.session_state.form_recipe["顏色"])
     with col3:
-        # 客戶編號模糊搜尋
-        input_val = st.session_state.form_recipe["客戶編號"]
-        options = [""] + (suggestions["客戶編號"] + " - " + suggestions["客戶名稱"]).tolist()
-        selected = st.selectbox("客戶編號", options, index=options.index(input_val) if input_val in options else 0)
+        search_input = st.session_state.form_recipe["客戶編號"]
+        suggestions = []
+        if search_input:
+            suggestions = customer_df[
+                customer_df["客戶編號"].str.contains(search_input, case=False, na=False) |
+                customer_df["客戶簡稱"].str.contains(search_input, case=False, na=False)
+            ]
+            options = ["{} - {}".format(r["客戶編號"], r["客戶簡稱"]) for _, r in suggestions.iterrows()]
+        else:
+            options = []
+
+        selected = st.selectbox(
+            "客戶編號 (輸入編號或簡稱)",
+            [""] + options,
+            index=0
+        )
         if selected:
             st.session_state.form_recipe["客戶編號"] = selected.split(" - ")[0]
-            st.session_state.form_recipe["客戶名稱"] = selected.split(" - ")[1] if " - " in selected else ""
+            st.session_state.form_recipe["客戶名稱"] = selected.split(" - ")[1]
 
     # 第二排
     col1, col2, col3 = st.columns(3)
