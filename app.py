@@ -284,7 +284,7 @@ elif menu == "配方管理":
             df[col] = ""
 
     # --- 搜尋區塊 ---
-    st.subheader("🎯 配方搜尋🔎")
+    st.subheader("🎯🗃️ 配方搜尋🔎")
 
     col1, col2, col3 = st.columns(3)
     with col1:
