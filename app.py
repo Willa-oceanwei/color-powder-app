@@ -446,13 +446,6 @@ elif menu == "配方管理":
             st.write("合計差額: 計算錯誤")
 
     # ===== 儲存 =====
-    if st.button("💾 儲存"):
-        # 檢查色粉是否存在
-        for i in range(1, 9):
-            粉號 = st.session_state.form_recipe[f"色粉編號{i}"]
-            if 粉號 and 粉號 not in color_df["色粉編號"].values:
-                st.warning(f"❗ 色粉編號 {粉號} 尚未建檔！")
-                st.stop()
     # 儲存按鈕
     if st.button("💾 儲存"):
         new_data = st.session_state.form_recipe.copy()
