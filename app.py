@@ -390,13 +390,13 @@ if menu == "配方管理":
     # 比例橫排
     col1, col_colon, col2, col3, col_unit = st.columns([3, 1, 3, 3, 1])
     with col1:
-        st.session_state.form_recipe["比例1"] = st.text_input("", st.session_state.form_recipe["比例1"], key="ratio2_input", label_visibility="collapsed")
+        st.session_state.form_recipe["比例1"] = st.text_input("", st.session_state.form_recipe["比例1"], key="ratio1_input", label_visibility="collapsed")
     with col_colon:
         st.markdown("<p style='text-align:center;'>:</p>", unsafe_allow_html=True)
     with col2:
         st.session_state.form_recipe["比例2"] = st.text_input("", st.session_state.form_recipe["比例2"], key="ratio2_input", label_visibility="collapsed")
     with col3:
-        st.session_state.form_recipe["比例3"] = st.text_input("", st.session_state.form_recipe["比例3"], key="ratio2_input", label_visibility="collapsed")
+        st.session_state.form_recipe["比例3"] = st.text_input("", st.session_state.form_recipe["比例3"], key="ratio3_input", label_visibility="collapsed")
     with col_unit:
         unit = st.session_state.form_recipe["淨重單位"] or "g/kg"
         st.markdown(f"<p style='text-align:left;'>{unit}</p>", unsafe_allow_html=True)
