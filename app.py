@@ -437,8 +437,8 @@ elif menu == "配方管理":
     with col1:
         st.session_state.form_recipe["合計類別"] = st.selectbox(
             "合計類別",
-            ["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9"],
-            index=["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9"].index(
+            ["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9", "無"],
+            index=["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9", " "].index(
                 st.session_state.form_recipe["合計類別"]
             ) if st.session_state.form_recipe["合計類別"] else 0
         )
