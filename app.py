@@ -242,6 +242,8 @@ elif menu == "客戶名單":
                     st.session_state.show_delete_customer_confirm = True
                     st.rerun()
 
+# 頁籤選擇
+menu = st.sidebar.selectbox("選單", ["首頁", "配方管理"])
 
 import streamlit as st
 import pandas as pd
