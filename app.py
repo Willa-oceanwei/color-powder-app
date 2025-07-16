@@ -243,7 +243,7 @@ elif menu == "客戶名單":
                     st.rerun()
 
 # 頁籤選擇
-menu = st.sidebar.selectbox("選單", ["首頁", "配方管理"], key="sidebar_menu"))
+menu = st.sidebar.selectbox("選單", ["首頁", "配方管理"], key="sidebar_menu")
 
 import streamlit as st
 import pandas as pd
