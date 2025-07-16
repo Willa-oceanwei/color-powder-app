@@ -331,19 +331,6 @@ elif menu == "配方管理":
     # 第一排
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.session_state.form_recipe["配方編號"] = st.text_input(
-            "配方編號", 
-            st.session_state.form_recipe["配方編號"],
-            key="form_配方編號"
-        )
-    with col2:
-        st.session_state.form_recipe["顏色"] = st.text_input(
-            "顏色", 
-            st.session_state.form_recipe["顏色"],
-            key="form_顏色"
-        )
-    col1, col2, col3 = st.columns(3)
-    with col1:
         st.session_state.form_recipe["配方編號"] = st.text_input("配方編號", st.session_state.form_recipe["配方編號"])
     with col2:
         st.session_state.form_recipe["顏色"] = st.text_input("顏色", st.session_state.form_recipe["顏色"])
