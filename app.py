@@ -394,7 +394,7 @@ elif menu == "配方管理":
         )
 
     # 比例橫排
-    col1, col_colon, col2, col3, col_unit = st.columns([3, 1, 3, 3, 3])
+    col1, col_colon, col2, col3, col_unit = st.columns([3, 1, 3, 3, 1])
     with col1:
         st.session_state.form_recipe["比例1"] = st.text_input("", st.session_state.form_recipe["比例1"], key="ratio1_input", label_visibility="collapsed")
     with col_colon:
