@@ -488,10 +488,13 @@ elif menu == "配方管理":
         unit = st.session_state.form_recipe["淨重單位"] or "g/kg"
         col4.write(unit)
 
-        # 驗證是否建檔
-       粉號 = st.session_state.form_recipe[f"色粉編號{i}"]
-       if 粉號 and 粉號 not in color_df["色粉編號"].values:
-        　 st.warning(f"❗ 色粉編號 {粉號} 尚未建檔！")
+     if st.button("💾 儲存"):
+    # 檢查色粉是否建檔
+    for i in range(1, 9):
+        粉號 = st.session_state.form_recipe[f"色粉編號{i}"]
+        if 粉號 and 粉號 not in color_df["色粉編號"].values:
+            st.warning(f"❗ 色粉編號 {粉號} 尚未建檔！")
+            st.stop()
 
     # 計算合計差
     try:
