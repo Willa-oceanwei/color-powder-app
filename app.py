@@ -453,9 +453,46 @@ elif menu == "配方管理":
             if 粉號 and 粉號 not in color_df["色粉編號"].values:
                 st.warning(f"❗ 色粉編號 {粉號} 尚未建檔！")
                 st.stop()
+    # 儲存按鈕
+    if st.button("💾 儲存"):
+        new_data = st.session_state.form_recipe.copy()
+        if new_data["配方編號"].strip() == "":
+            st.warning("⚠️ 請輸入配方編號！")
+        elif new_data["配方類別"] == "附加配方" and new_data["原始配方"].strip() == "":
+            st.warning("⚠️ 附加配方必須填寫原始配方！")
+        else:
+            if st.session_state.edit_recipe_index is not None:
+                df.iloc[st.session_state.edit_recipe_index] = new_data
+                st.success("✅ 配方已更新！")
+            else:
+                if new_data["配方編號"] in df["配方編號"].values:
+                    st.warning("⚠️ 此配方編號已存在！")
+                else:
+                    new_data["建檔時間"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+                    df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+                    st.success("✅ 新增成功！")
 
-        # TODO: 加入寫入 Spreadsheet 的程式
-        st.success("✅ 已儲存 (模擬)")
+            save_df_to_sheet(ws_recipe, df)
+            st.session_state.form_recipe = {col: "" for col in columns}
+            st.session_state.edit_recipe_index = None
+            st.rerun()
+
+    # 刪除確認
+    if st.session_state.show_delete_recipe_confirm:
+        target_row = df.iloc[st.session_state.delete_recipe_index]
+        target_text = f'{target_row["配方編號"]}'
+        st.warning(f"⚠️ 確定要刪除 {target_text}？")
+        c1, c2 = st.columns(2)
+        if c1.button("是"):
+            df.drop(index=st.session_state.delete_recipe_index, inplace=True)
+            df.reset_index(drop=True, inplace=True)
+            save_df_to_sheet(ws_recipe, df)
+            st.success("✅ 刪除成功！")
+            st.session_state.show_delete_recipe_confirm = False
+            st.rerun()
+        if c2.button("否"):
+            st.session_state.show_delete_recipe_confirm = False
+            st.rerun()
 
     # ===== 配方清單 =====
     if not df_filtered.empty:
