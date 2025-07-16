@@ -454,6 +454,7 @@ elif menu == "配方管理":
     with col_unit:
         st.markdown("g/kg")
 
+
     # 淨重 + 單位
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -489,8 +490,8 @@ elif menu == "配方管理":
 
         # 驗證是否建檔
        粉號 = st.session_state.form_recipe[f"色粉編號{i}"]
-        if 粉號 and 粉號 not in color_df["色粉編號"].values:
-            st.warning(f"❗ 色粉編號 {粉號} 尚未建檔！")
+       if 粉號 and 粉號 not in color_df["色粉編號"].values:
+        　 st.warning(f"❗ 色粉編號 {粉號} 尚未建檔！")
 
     # 計算合計差
     try:
