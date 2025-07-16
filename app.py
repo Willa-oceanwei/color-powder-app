@@ -291,31 +291,6 @@ elif menu == "客戶名單":
     # ... 你的客戶名單程式保留不動
     pass
 
-import streamlit as st
-import pandas as pd
-from google.oauth2 import service_account
-import gspread
-
-# 認證與初始化
-SHEET_URL = "https://docs.google.com/spreadsheets/d/你的sheetID/edit#gid=0"
-
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = service_account.Credentials.from_service_account_info(
-    st.secrets["gcp_service_account"],
-    scopes=scope
-)
-client = gspread.authorize(creds)
-spreadsheet = client.open_by_url(SHEET_URL)
-
-# 初始化
-def init_states(keys):
-    for k in keys:
-        if k not in st.session_state:
-            st.session_state[k] = None if "index" in k or "show" in k else ""
-
-# ======= 選單 =======
-menu = st.radio("請選擇模組", ["色粉管理", "客戶名單", "配方管理"])
-
 # ======= 配方管理 =======
 if menu == "配方管理":
     ws_recipe = spreadsheet.worksheet("配方管理")
