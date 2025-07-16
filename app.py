@@ -407,6 +407,8 @@ elif menu == "配方管理":
         unit = st.session_state.form_recipe["淨重單位"] or "g/kg"
         st.markdown(f"<p style='text-align:left;'>{unit}</p>", unsafe_allow_html=True)
 
+    st.text_input("備註", key="form_recipe.備註")
+
     # 淨重
     col1, col2 = st.columns(2)
     with col1:
