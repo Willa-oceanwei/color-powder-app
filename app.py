@@ -292,6 +292,10 @@ elif menu == "客戶名單":
     pass
 
 # ======= 配方管理 =======
+import streamlit as st
+
+st.write(st.secrets)
+
 if menu == "配方管理":
     ws_recipe = spreadsheet.worksheet("配方管理")
     ws_customer = spreadsheet.worksheet("客戶名單")
