@@ -242,24 +242,13 @@ elif menu == "客戶名單":
                     st.session_state.show_delete_customer_confirm = True
                     st.rerun()
 
-import streamlit as st
-import pandas as pd
+elif menu == "配方管理":
 
-# 假設你已經做好 gspread 連線
-# 以下是範例連線
-# from gspread_pandas import Spread
-# spread = Spread(...)
+    try:
+        ws_recipe = spreadsheet.worksheet("配方管理")
+    except:
+        ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
 
-# 範例 color_df 模擬資料 (請改成你的 color_df 讀取)
-color_df = pd.DataFrame({
-    "色粉編號": ["C001", "C002", "C003"]
-})
-
-# 頁籤選擇
-menu = st.sidebar.selectbox("選單", ["首頁", "配方管理"])
-
-if menu == "配方管理":
-    # ===== 初始化 =====
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
         "原始配方", "色粉類別", "計量單位", "Pantone色號",
