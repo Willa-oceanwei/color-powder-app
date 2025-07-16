@@ -330,9 +330,7 @@ elif menu == "配方管理":
     with col3:
         # 客戶編號模糊搜尋
         input_val = st.session_state.form_recipe["客戶編號"]
-        # 範例客戶資料
-        customer_df = pd.DataFrame({
-        })
+        
         suggestions = customer_df[
             customer_df["客戶編號"].str.contains(input_val, case=False, na=False) |
             customer_df["客戶名稱"].str.contains(input_val, case=False, na=False)
