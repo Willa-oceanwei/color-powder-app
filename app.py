@@ -525,7 +525,7 @@ elif menu == "配方管理":
                     st.session_state.edit_recipe_index = i
                     st.session_state.form_recipe = row.to_dict()
                     st.rerun()
-             with c[7]:       
+            with c[7]:       
                 if col_del.button("🗑️刪", key=f"delete_{i}"):
                     st.session_state.delete_recipe_index = i
                     st.session_state.show_delete_recipe_confirm = True
