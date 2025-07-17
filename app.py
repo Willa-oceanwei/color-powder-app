@@ -325,6 +325,30 @@ elif menu == "配方管理":
 
     # ===== 新增 / 修改區塊 =====
     st.subheader("➕ 新增 / 修改配方")
+    # ===== 新增配方區塊 =====
+    st.markdown("### ➕ 新增配方")
+
+    if "form_recipe" not in st.session_state:
+        st.session_state.form_recipe = {"客戶編號": "", "客戶名稱": ""}
+
+    search_input = st.text_input("輸入客戶編號或簡稱", value=st.session_state.form_recipe["客戶編號"])
+
+    # 模糊搜尋邏輯
+    suggestions = customer_df[
+        customer_df["客戶編號"].str.contains(search_input, case=False, na=False) |
+        customer_df["客戶簡稱"].str.contains(search_input, case=False, na=False)
+    ]
+    options = ["{} - {}".format(r["客戶編號"], r["客戶簡稱"]) for _, r in suggestions.iterrows()] if not suggestions.empty else []
+
+    selected = st.selectbox("選擇客戶", [""] + options, index=0)
+
+    if selected:
+        code, name = selected.split(" - ")
+        st.session_state.form_recipe["客戶編號"] = code
+        st.session_state.form_recipe["客戶名稱"] = name
+
+    st.text_input("已選客戶編號", value=st.session_state.form_recipe["客戶編號"], disabled=True)
+    st.text_input("已選客戶名稱", value=st.session_state.form_recipe["客戶名稱"], disabled=True)
     
     # --- 客戶名單讀一次，減少呼叫 ---
     try:
