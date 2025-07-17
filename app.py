@@ -325,13 +325,6 @@ elif menu == "配方管理":
 
     # ===== 新增 / 修改區塊 =====
     st.subheader("➕ 新增 / 修改配方")
-    
-    # --- 客戶名單讀一次，減少呼叫 ---
-    try:
-        ws_customer = spreadsheet.worksheet("客戶名單")
-        customer_df = pd.DataFrame(ws_customer.get_all_records())
-    except:
-        customer_df = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
 
     # 第一排
     col1, col2, col3 = st.columns(3)
