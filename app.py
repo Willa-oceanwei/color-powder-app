@@ -543,5 +543,5 @@ if st.session_state.search_recipe_code or st.session_state.search_customer_code:
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
 
-    else:
+　 else:
         st.write("尚未搜尋或無資料。")
