@@ -339,12 +339,12 @@ elif menu == "配方管理":
         suggestions = []
         if search_input:
             suggestions = customer_df[
-                customer_df["客戶編號"].str.contains(search_input, case=False, na=False) |
-                customer_df["客戶簡稱"].str.contains(search_input, case=False, na=False)
-            ]
-            options = ["{} - {}".format(r["客戶編號"], r["客戶簡稱"]) for _, r in suggestions.iterrows()]
+              customer_df["客戶編號"].str.contains(search_input, case=False, na=False) |
+              customer_df["客戶簡稱"].str.contains(search_input, case=False, na=False)
+           ]
+           options = ["{} - {}".format(r["客戶編號"], r["客戶簡稱"]) for _, r in suggestions.iterrows()]
         else:
-            options = []
+           options = []
 
         selected = st.selectbox(
             "客戶編號 (輸入編號或簡稱)",
