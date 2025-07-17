@@ -506,11 +506,11 @@ elif menu == "配方管理":
 
     # 顯示配方清單，只在有搜尋條件時才顯示
     if st.session_state.search_recipe_code.strip() != "":
-    st.markdown("### 🔍 搜尋結果")
+      　st.markdown("### 🔍 搜尋結果")
         
-    # 篩選清單資料（舉例用 df_recipes，請依實際變數替換）
-    filtered_df = df_recipes[df_recipes["配方編號"].str.contains(st.session_state.search_recipe_code.strip())]
-    st.dataframe(filtered_df)
+   　　 # 篩選清單資料（舉例用 df_recipes，請依實際變數替換）
+  　　  filtered_df = df_recipes[df_recipes["配方編號"].str.contains(st.session_state.search_recipe_code.strip())]
+   　　 st.dataframe(filtered_df)
 
         # 標題
         cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
