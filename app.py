@@ -327,7 +327,7 @@ elif menu == "配方管理":
     st.subheader("➕ 新增 / 修改配方")
 
     with st.form("add_recipe_form", clear_on_submit=True):
-    form_cols = st.columns([1.5, 1.5, 1.5, 1.5])
+        form_cols = st.columns([1.5, 1.5, 1.5, 1.5])
     
     # 第一列：配方編號、顏色、客戶編號模糊搜尋、Pantone
     recipe_code = form_cols[0].text_input("配方編號", key="new_recipe_code")
