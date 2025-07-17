@@ -342,6 +342,13 @@ elif menu == "配方管理":
     with col3:
         search_input = st.session_state.form_recipe["客戶編號"]
         suggestions = []
+    with st.form("recipe_form", clear_on_submit=False):
+        customer_input = st.text_input("客戶編號", key="客戶編號")
+
+        suggestions = df_customer[df_customer["客戶編號"].str.contains(customer_input, case=False, na=False)]
+        options = ["{} - {}".format(r["客戶編號"], r["客戶簡稱"]) for _, r in suggestions.iterrows()]
+
+        selected_customer = st.selectbox("建議名單", options) if options else ""
     if search_input:
         suggestions = customer_df[
             customer_df["客戶編號"].str.contains(search_input, case=False, na=False) |
