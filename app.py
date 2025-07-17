@@ -298,6 +298,11 @@ elif menu == "配方管理":
     with col3:
         st.session_state.search_customer = st.text_input("客戶編號/名稱搜尋", st.session_state.search_customer or "")
 
+    if st.button("清除搜尋條件"):
+    st.session_state.search_state = {"recipe": "", "customer": ""}
+    st.rerun()
+
+
     # 篩選
     df_filtered = df.copy()
     if st.session_state.search_recipe_code:
