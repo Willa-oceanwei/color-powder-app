@@ -499,8 +499,6 @@ elif menu == "配方管理":
             st.rerun()
 
 # ===== 配方清單 =====
-search_recipe_code = st.text_input("🔍 搜尋配方編號", key="search_recipe_code")
-search_customer_code = st.text_input("🔍 搜尋客戶編號", key="search_customer_code")
 
 # ===== 清單顯示區塊（僅在搜尋時顯示）=====
 if search_recipe_code.strip() or search_customer_code.strip():
