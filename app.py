@@ -242,27 +242,12 @@ elif menu == "客戶名單":
                     st.session_state.show_delete_customer_confirm = True
                     st.rerun()
 
-import streamlit as st
-import pandas as pd
-import gspread
-from google.oauth2 import service_account
-from datetime import datetime
-import time
-from functools import lru_cache
+elif menu == "配方管理":
 
-# GCP 金鑰
-credentials = service_account.Credentials.from_service_account_info(
-    st.secrets["gcp_service_account"],
-    scopes=["https://www.googleapis.com/auth/spreadsheets"]
-)
-client = gspread.authorize(credentials)
-
-# Google Sheet 設定
-SHEET_URL = st.secrets["sheet_url"]
-sh = client.open_by_url(SHEET_URL)
-sheet_recipe = sh.worksheet("配方清單")
-sheet_powder = sh.worksheet("色粉總表")
-sheet_client = sh.worksheet("工作表2")
+    try:
+        ws_recipe = spreadsheet.worksheet("配方管理")
+    except:
+        ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
 
 # 預設配方欄位
 RECIPE_COLUMNS = ["客戶編號", "客戶簡稱", "配方名稱", "建檔時間", "原始配方編號",
