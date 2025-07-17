@@ -498,19 +498,21 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = False
             st.rerun()
 
-    # ===== 配方清單 =====
-    if not df_filtered.empty:
-        st.subheader("📋 配方清單序列")
-    # 假設你原本有一個搜尋欄位如下
-    search_recipe_code = st.text_input("搜尋配方編號", key="search_recipe_code")
+# ===== 配方清單 =====
+search_recipe_code = st.text_input("🔍 搜尋配方編號", key="search_recipe_code")
+search_customer_code = st.text_input("🔍 搜尋客戶編號", key="search_customer_code")
 
-    # 顯示配方清單，只在有搜尋條件時才顯示
-    if st.session_state.search_配方編號 or st.session_state.search_客戶編號:
-   　　 st.markdown("### 🔍 搜尋結果")
-        
-   　　 # 篩選清單資料（舉例用 df_recipes，請依實際變數替換）
-  　　  filtered_df = df_recipes[df_recipes["配方編號"].str.contains(st.session_state.search_recipe_code.strip())]
-   　　 st.dataframe(filtered_df)
+# 顯示配方清單，只在有搜尋條件時才顯示
+if st.session_state.search_recipe_code or st.session_state.search_customer_code:
+    st.markdown("### 🔍 搜尋結果")
+
+    # 篩選條件（依實際欄位名稱修改）
+    filtered_df = df_recipes[
+        df_recipes["配方編號"].str.contains(st.session_state.search_recipe_code.strip(), na=False) &
+        df_recipes["客戶編號"].str.contains(st.session_state.search_customer_code.strip(), na=False)
+    ]
+
+    st.dataframe(filtered_df)
 
         # 標題
         cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
