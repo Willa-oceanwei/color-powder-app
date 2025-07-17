@@ -499,6 +499,9 @@ elif menu == "配方管理":
             st.rerun()
 
 # ===== 配方清單 =====
+# 從 session_state 取得搜尋字串（預設為空）
+search_recipe_code = st.session_state.get("search_recipe_code", "")
+search_customer_code = st.session_state.get("search_customer_code", "")
 
 # ===== 清單顯示區塊（僅在搜尋時顯示）=====
 if search_recipe_code.strip() or search_customer_code.strip():
