@@ -349,10 +349,10 @@ elif menu == "配方管理":
                 customer_df["客戶簡稱"].str.contains(search_input, case=False, na=False)
             ]
             options = ["{} - {}".format(r["客戶編號"], r["客戶簡稱"]) for _, r in suggestions.iterrows()]
-        else:
+         else:
             options = []
 
-        selected = st.selectbox(
+         selected = st.selectbox(
             "客戶編號 (輸入編號或簡稱)",
             [""] + options,
             index=0
