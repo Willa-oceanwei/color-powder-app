@@ -325,9 +325,7 @@ elif menu == "配方管理":
 
     # ===== 新增 / 修改區塊 =====
     st.subheader("➕ 新增 / 修改配方")
-    # ===== 新增配方區塊 =====
-    st.markdown("### ➕ 新增配方")
-
+    
     if "form_recipe" not in st.session_state:
         st.session_state.form_recipe = {"客戶編號": "", "客戶名稱": ""}
 
