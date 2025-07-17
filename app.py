@@ -326,42 +326,31 @@ elif menu == "配方管理":
     # ===== 新增 / 修改區塊 =====
     st.subheader("➕ 新增 / 修改配方")
 
-    # 第一排
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.session_state.form_recipe["配方編號"] = st.text_input("配方編號", st.session_state.form_recipe["配方編號"])
-    with col2:
-        st.session_state.form_recipe["顏色"] = st.text_input("顏色", st.session_state.form_recipe["顏色"])
-    with col3:
-        search_input = st.session_state.form_recipe["客戶編號"]
-        suggestions = []
+    with st.form("add_recipe_form", clear_on_submit=True):
+    form_cols = st.columns([1.5, 1.5, 1.5])
     
-    # ========== 客戶欄位：模糊搜尋下拉選單 ==========
-    keyword = st.session_state.form_recipe.get("客戶搜尋", "")
-    keyword = col1.text_input("🔍 客戶搜尋", value=keyword, key="form_recipe_客戶搜尋")
+    # 第一列：配方編號、顏色、客戶編號模糊搜尋、Pantone
+    recipe_code = form_cols[0].text_input("配方編號", key="new_recipe_code")
+    color = form_cols[1].text_input("顏色", key="new_color")
 
-    # 模糊搜尋名單
-    if keyword.strip():
+    # 客戶模糊搜尋整合 ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+    customer_input = form_cols[2].text_input("客戶編號 / 名稱", key="new_customer_input")
+
+    # 建立建議清單（模糊搜尋）
+    if customer_input:
         suggestions = df_customers[
-            df_customers["客戶編號"].str.contains(keyword, case=False, na=False) |
-            df_customers["客戶簡稱"].str.contains(keyword, case=False, na=False)
+            df_customers["客戶編號"].str.contains(customer_input, case=False, na=False) |
+            df_customers["客戶簡稱"].str.contains(customer_input, case=False, na=False)
         ]
-        options = ["{} - {}".format(r["客戶編號"], r["客戶簡稱"]) for _, r in suggestions.iterrows()]
     else:
-        options = []
+        suggestions = df_customers.copy()
 
-    # 顯示下拉選單（若有建議名單）
-    selected = col1.selectbox("請選擇客戶", options, index=0 if options else None, key="form_recipe_客戶選擇", placeholder="請輸入客戶關鍵字")
+    # 組成下拉選項：客戶編號 - 客戶簡稱
+    options = ["{} - {}".format(r["客戶編號"], r["客戶簡稱"]) for _, r in suggestions.iterrows()]
+    options.insert(0, "請選擇")
 
-    # 更新 session_state
-    if selected:
-        code, name = selected.split(" - ")
-        st.session_state.form_recipe["客戶編號"] = code.strip()
-        st.session_state.form_recipe["客戶名稱"] = name.strip()
-    else:
-        st.session_state.form_recipe["客戶編號"] = ""
-        st.session_state.form_recipe["客戶名稱"] = ""
-        
+    selected_customer = form_cols[3].selectbox("選擇客戶", options, key="selected_customer")
+
     # 第二排
     col1, col2, col3 = st.columns(3)
     with col1:
