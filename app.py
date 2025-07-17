@@ -502,19 +502,18 @@ elif menu == "配方管理":
 search_recipe_code = st.text_input("🔍 搜尋配方編號", key="search_recipe_code")
 search_customer_code = st.text_input("🔍 搜尋客戶編號", key="search_customer_code")
 
-# 顯示配方清單，只在有搜尋條件時才顯示
+# 有任一搜尋條件時才顯示清單
 if st.session_state.search_recipe_code or st.session_state.search_customer_code:
     st.markdown("### 🔍 搜尋結果")
 
-    # 篩選條件（依實際欄位名稱修改）
+    # 篩選資料
     filtered_df = df_recipes[
         df_recipes["配方編號"].str.contains(st.session_state.search_recipe_code.strip(), na=False) &
         df_recipes["客戶編號"].str.contains(st.session_state.search_customer_code.strip(), na=False)
     ]
 
-    st.dataframe(filtered_df)
-
-        # 標題
+    if not filtered_df.empty:
+        # 標題列
         cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
         cols[0].write("配方編號")
         cols[1].write("顏色")
@@ -524,7 +523,7 @@ if st.session_state.search_recipe_code or st.session_state.search_customer_code:
         cols[5].write("日期")
         cols[6].write("操作")
 
-        for i, row in df_filtered.iterrows():
+        for i, row in filtered_df.iterrows():
             c = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
             c[0].write(row["配方編號"])
             c[1].write(row["顏色"])
@@ -532,6 +531,7 @@ if st.session_state.search_recipe_code or st.session_state.search_customer_code:
             c[3].write(row["客戶名稱"])
             c[4].write(row["Pantone色號"])
             c[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row["建檔時間"] else "")
+
             with c[6]:
                 col_edit, col_del = st.columns(2)
                 if col_edit.button("✏️改", key=f"edit_{i}"):
@@ -542,6 +542,7 @@ if st.session_state.search_recipe_code or st.session_state.search_customer_code:
                     st.session_state.delete_recipe_index = i
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
-
-　 else:
-        st.write("尚未搜尋或無資料。")
+    else:
+        st.info("查無符合條件的配方。")
+else:
+    st.write("請輸入搜尋條件以顯示配方清單。")
