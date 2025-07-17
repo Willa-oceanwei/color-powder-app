@@ -499,18 +499,15 @@ elif menu == "配方管理":
             st.rerun()
 
 # ===== 配方清單 =====
-# 從 session_state 取得搜尋字串（預設為空）
-search_recipe_code = st.session_state.get("search_recipe_code", "")
-search_customer_code = st.session_state.get("search_customer_code", "")
-
-# ===== 清單顯示區塊（僅在搜尋時顯示）=====
-if search_recipe_code.strip() or search_customer_code.strip():
+# 僅在搜尋條件存在時顯示
+if (
+    st.session_state.search_recipe_code.strip()
+    or st.session_state.search_customer.strip()
+    or st.session_state.search_pantone.strip()
+):
     st.markdown("### 📋 搜尋結果清單")
 
-    filtered_df = df_recipes[
-        df_recipes["配方編號"].str.contains(search_recipe_code.strip(), na=False) &
-        df_recipes["客戶編號"].str.contains(search_customer_code.strip(), na=False)
-    ]
+    filtered_df = df_filtered.copy()
 
     if not filtered_df.empty:
         header = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1.2, 0.8, 0.8])
@@ -530,16 +527,20 @@ if search_recipe_code.strip() or search_customer_code.strip():
             cols[2].write(row["客戶編號"])
             cols[3].write(row["客戶名稱"])
             cols[4].write(row["Pantone色號"])
-            cols[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row["建檔時間"] else "")
+            cols[5].write(
+                pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d")
+                if row["建檔時間"]
+                else ""
+            )
             with cols[6]:
                 if st.button("🗑️", key=f"delete_{i}"):
-                    st.session_state.delete_recipe_index = i
+                    st.session_state.delete_recipe_index = df.index.get_loc(row.name)
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
             with cols[7]:
                 if st.button("✏️", key=f"edit_{i}"):
-                    st.session_state.edit_recipe_index = i
+                    st.session_state.edit_recipe_index = df.index.get_loc(row.name)
                     st.session_state.form_recipe = row.to_dict()
                     st.rerun()
     else:
-        st.info("查無資料")
+        st.info("❗ 查無符合的配方")
