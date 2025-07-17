@@ -289,15 +289,14 @@ elif menu == "配方管理":
             df[col] = ""
 
     # ===== 搜尋區塊 =====
-    with st.expander("🔍 搜尋配方"):
-        st.session_state.search_state["配方編號"] = st.text_input("配方編號", value=st.session_state.search_state["配方編號"])
-        st.session_state.search_state["客戶編號"] = st.text_input("客戶編號", value=st.session_state.search_state["客戶編號"])
-        st.session_state.search_state["Pantone色號"] = st.text_input("客戶編號", value=st.session_state.search_state["Pantone色號"])
-
-
-    search_recipe_code = st.session_state.search_state["配方編號"].strip()
-    search_customer_code = st.session_state.search_state["客戶編號"].strip()
-    search_recipe_code = st.session_state.search_state["配方編號"].strip()
+    st.subheader("🎯 配方搜尋 🔎")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.session_state.search_recipe_code = st.text_input("配方搜尋", st.session_state.search_recipe_code or "")
+    with col2:
+        st.session_state.search_pantone = st.text_input("Pantone色號搜尋", st.session_state.search_pantone or "")
+    with col3:
+        st.session_state.search_customer = st.text_input("客戶編號/名稱搜尋", st.session_state.search_customer or "")
 
     # 篩選
     df_filtered = df.copy()
