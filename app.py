@@ -512,7 +512,7 @@ elif menu == "配方管理":
         cols[6].write("操作")
 
         for i, row in df_filtered.iterrows():
-            c = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
+            c = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1, 1])
             c[0].write(row["配方編號"])
             c[1].write(row["顏色"])
             c[2].write(row["客戶編號"])
@@ -525,6 +525,7 @@ elif menu == "配方管理":
                     st.session_state.edit_recipe_index = i
                     st.session_state.form_recipe = row.to_dict()
                     st.rerun()
+             with c[7]:       
                 if col_del.button("🗑️刪", key=f"delete_{i}"):
                     st.session_state.delete_recipe_index = i
                     st.session_state.show_delete_recipe_confirm = True
