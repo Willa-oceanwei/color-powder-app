@@ -343,23 +343,31 @@ elif menu == "配方管理":
         search_input = st.session_state.form_recipe["客戶編號"]
         suggestions = []
     
-    if search_input:
-            suggestions = customer_df[
-                customer_df["客戶編號"].str.contains(search_input, case=False, na=False) |
-                customer_df["客戶簡稱"].str.contains(search_input, case=False, na=False)
-            ]
-            options = ["{} - {}".format(r["客戶編號"], r["客戶簡稱"]) for _, r in suggestions.iterrows()]
-         else:
-            options = []
+    # ========== 客戶欄位：模糊搜尋下拉選單 ==========
+    keyword = st.session_state.form_recipe.get("客戶搜尋", "")
+    keyword = col1.text_input("🔍 客戶搜尋", value=keyword, key="form_recipe_客戶搜尋")
 
-         selected = st.selectbox(
-            "客戶編號 (輸入編號或簡稱)",
-            [""] + options,
-            index=0
-        )
-        if selected:
-            st.session_state.form_recipe["客戶編號"] = selected.split(" - ")[0]
-            st.session_state.form_recipe["客戶名稱"] = selected.split(" - ")[1]
+    # 模糊搜尋名單
+    if keyword.strip():
+        suggestions = df_customers[
+            df_customers["客戶編號"].str.contains(keyword, case=False, na=False) |
+            df_customers["客戶簡稱"].str.contains(keyword, case=False, na=False)
+        ]
+        options = ["{} - {}".format(r["客戶編號"], r["客戶簡稱"]) for _, r in suggestions.iterrows()]
+    else:
+        options = []
+
+    # 顯示下拉選單（若有建議名單）
+    selected = col1.selectbox("請選擇客戶", options, index=0 if options else None, key="form_recipe_客戶選擇", placeholder="請輸入客戶關鍵字")
+
+    # 更新 session_state
+    if selected:
+        code, name = selected.split(" - ")
+        st.session_state.form_recipe["客戶編號"] = code.strip()
+        st.session_state.form_recipe["客戶名稱"] = name.strip()
+    else:
+        st.session_state.form_recipe["客戶編號"] = ""
+        st.session_state.form_recipe["客戶名稱"] = ""
         
     # 第二排
     col1, col2, col3 = st.columns(3)
