@@ -246,7 +246,7 @@ elif menu == "配方管理":
 
     try:
         ws_recipe = spreadsheet.worksheet("配方管理")
-    except:
+    except gspread.exceptions.WorksheetNotFound:
         ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
 
     columns = [
