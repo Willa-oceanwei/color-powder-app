@@ -302,19 +302,19 @@ elif menu == "配方管理":
 
     # ========== 🔍 搜尋輸入欄位 ==========
     with st.form("search_form"):
-        cols = st.columns([2, 2, 1])
+        cols = st.columns([2, 2, 3])
         with cols[0]:
             recipe_code_input = st.text_input("🔍 搜尋配方編號", value=st.session_state.search_state["recipe_code"])
         with cols[1]:
             customer_code_input = st.text_input("🔍 搜尋客戶編號", value=st.session_state.search_state["customer_code"])
         with cols[2]:
-            submitted = st.form_submit_button("搜尋")
+            recipe_code_input = st.text_input("🔍 搜尋配方編號", value=st.session_state.search_state["recipe_code"])
 
     # 儲存搜尋條件並標記觸發
     if submitted:
     st.session_state.search_state["recipe_code"] = recipe_code_input.strip()
     st.session_state.search_state["customer_code"] = customer_code_input.strip()
-    st.session_state.search_state["trigger"] = True
+    st.session_state.search_state["recipe_code"] = recipe_code_input.strip()
     st.rerun()
 
     # 搜尋空結果提示
