@@ -516,7 +516,7 @@ if search_recipe_code.strip() or search_customer_code.strip():
         st.warning("查無資料")
     else:
 
-    # 標題列
+        # 標題列
     header_cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 0.7, 0.7])
     header_cols[0].markdown("**配方編號**")
     header_cols[1].markdown("**顏色**")
@@ -524,7 +524,7 @@ if search_recipe_code.strip() or search_customer_code.strip():
     header_cols[3].markdown("**客戶名稱**")
     header_cols[4].markdown("**Pantone**")
     header_cols[5].markdown("**建檔日**")
-    header_cols[6].markdown("**刪除**")
+    header_cols[6].markdown("**刪除**")  
     header_cols[7].markdown("**修改**")
 
     for i, row in df_filtered.iterrows():
