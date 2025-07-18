@@ -558,21 +558,28 @@ elif menu == "配方管理":
             hide_index=True,
         )
 
-        # 選擇想要操作的配方編號
         selected_recipe = st.selectbox("選擇配方編號進行修改或刪除", options=display_df["配方編號"].tolist())
 
         col1, col2 = st.columns(2)
+        triggered = False
+
         if col1.button("✏️ 修改"):
             idx = df_filtered.index[df_filtered["配方編號"] == selected_recipe][0]
             st.session_state.edit_recipe_index = idx
             st.session_state.form_recipe = df_filtered.loc[idx].to_dict()
-            st.experimental_rerun()
+            triggered = True
 
         if col2.button("🗑️ 刪除"):
             idx = df_filtered.index[df_filtered["配方編號"] == selected_recipe][0]
             st.session_state.delete_recipe_index = idx
             st.session_state.show_delete_recipe_confirm = True
-            st.experimental_rerun()
+            triggered = True
+
+        if triggered:
+            try:
+                st.experimental_rerun()
+            except AttributeError:
+                st.rerun()
 
     else:
         st.info("查無符合條件的配方。")
