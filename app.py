@@ -508,45 +508,46 @@ elif menu == "配方管理":
     if search_recipe_code or search_customer_code:
         st.markdown("### 🔍 搜尋結果")
 
-    # 篩選資料（注意欄位名稱必須與你的資料一致）
-    df_filtered = df_recipes[
-    df_recipes["配方編號"].str.contains(search_recipe_code, na=False) &
-    df_recipes["客戶編號"].str.contains(search_customer_code, na=False)
-    ]
+        # 篩選資料（注意欄位名稱必須與你的資料一致）
+        df_filtered = df_recipes[
+        df_recipes["配方編號"].str.contains(search_recipe_code, na=False) &
+        df_recipes["客戶編號"].str.contains(search_customer_code, na=False)
+        ]
 
     if not df_filtered.empty:
         st.subheader("📋 配方清單序列")
-    # 標題列
-    cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
-    cols[0].write("配方編號")
-    cols[1].write("顏色")
-    cols[2].write("客戶編號")
-    cols[3].write("客戶名稱")
-    cols[4].write("Pantone")
-    cols[5].write("日期")
-    cols[6].write("操作")
+        # 標題列
+        cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
+        cols[0].write("配方編號")
+        cols[1].write("顏色")
+        cols[2].write("客戶編號")
+        cols[3].write("客戶名稱")
+        cols[4].write("Pantone")
+        cols[5].write("日期")
+        cols[6].write("操作")
 
-    # 資料列
-    for i, row in df_filtered.iterrows():
-        c = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
-        c[0].write(row["配方編號"])
-        c[1].write(row["顏色"])
-        c[2].write(row["客戶編號"])
-        c[3].write(row["客戶名稱"])
-        c[4].write(row["Pantone色號"])
-        c[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row["建檔時間"] else "")
+        # 資料列
+        for i, row in df_filtered.iterrows():
+            c = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
+            c[0].write(row["配方編號"])
+            c[1].write(row["顏色"])
+            c[2].write(row["客戶編號"])
+            c[3].write(row["客戶名稱"])
+            c[4].write(row["Pantone色號"])
+            c[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row["建檔時間"] else "")
 
-    with c[6]:
-    col_edit, col_del = st.columns(2)
-    if col_edit.button("✏️改", key=f"edit_{i}"):
-       st.session_state.edit_recipe_index = i
-       st.session_state.form_recipe = row.to_dict()
-       st.rerun()
-    if col_del.button("🗑️刪", key=f"delete_{i}"):
-       st.session_state.delete_recipe_index = i
-       st.session_state.show_delete_recipe_confirm = True
-       st.rerun()
+            with c[6]:
+                col_edit, col_del = st.columns(2)
+                if col_edit.button("✏️改", key=f"edit_{i}"):
+                    st.session_state.edit_recipe_index = i
+                    st.session_state.form_recipe = row.to_dict()
+                    st.rerun()
+                if col_del.button("🗑️刪", key=f"delete_{i}"):
+                    st.session_state.delete_recipe_index = i
+                    st.session_state.show_delete_recipe_confirm = True
+                    st.rerun()
     else:
         st.write("查無符合資料。")
-  else:
+else:
     st.write("尚未搜尋或無資料。")
+
