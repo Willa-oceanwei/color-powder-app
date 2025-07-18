@@ -312,10 +312,10 @@ elif menu == "配方管理":
 
     # 儲存搜尋條件並標記觸發
     if submitted:
-    st.session_state.search_state["recipe_code"] = recipe_code_input.strip()
-    st.session_state.search_state["customer_code"] = customer_code_input.strip()
-    st.session_state.search_state["recipe_code"] = recipe_code_input.strip()
-    st.rerun()
+        st.session_state.search_state["recipe_code"] = recipe_code_input.strip()
+        st.session_state.search_state["customer_code"] = customer_code_input.strip()
+        st.session_state.search_state["recipe_code"] = recipe_code_input.strip()
+        st.rerun()
 
     # 搜尋空結果提示
     if (st.session_state.search_recipe_code or st.session_state.search_pantone or st.session_state.search_customer) and df_filtered.empty:
