@@ -545,46 +545,33 @@ elif menu == "配方管理":
         ].copy()
 
     if not df_filtered.empty:
-        # 格式化日期欄位
         df_filtered["建檔日期"] = pd.to_datetime(df_filtered["建檔時間"], errors="coerce").dt.strftime("%y/%m/%d")
-
-        # 建立展示欄位
         display_df = df_filtered[[
             "配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "建檔日期"
-        ]].copy()
+        ]]
 
-        # 新增互動用欄位，初始False
-        display_df["刪除"] = False
-        display_df["修改"] = False
-
-        # 使用st.data_editor顯示清單，用ButtonColumn取代手動建立修改刪除按鈕
-        edited = st.data_editor(
+        st.data_editor(
             display_df,
             use_container_width=True,
             disabled=["配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "建檔日期"],
-            column_config={
-                "刪除": st.column_config.ButtonColumn("🗑️ 刪除", help="刪除此配方", type="secondary"),
-                "修改": st.column_config.ButtonColumn("✏️ 修改", help="修改此配方", type="primary"),
-            },
             key="recipe_table_editor",
             hide_index=True,
         )
 
-        # 旗標避免多次rerun
-        triggered = False
-        
-        for i, row in edited.iterrows():
-            if not triggered:
-                if row["刪除"]:
-                    st.session_state.delete_recipe_index = df_filtered.index[i]
-                    st.session_state.show_delete_recipe_confirm = True
-                    triggered = True
-                elif row["修改"]:
-                    st.session_state.edit_recipe_index = df_filtered.index[i]
-                    st.session_state.form_recipe = df_filtered.iloc[i].to_dict()
-                    triggered = True
+        # 選擇想要操作的配方編號
+        selected_recipe = st.selectbox("選擇配方編號進行修改或刪除", options=display_df["配方編號"].tolist())
 
-        if triggered:
+        col1, col2 = st.columns(2)
+        if col1.button("✏️ 修改"):
+            idx = df_filtered.index[df_filtered["配方編號"] == selected_recipe][0]
+            st.session_state.edit_recipe_index = idx
+            st.session_state.form_recipe = df_filtered.loc[idx].to_dict()
+            st.experimental_rerun()
+
+        if col2.button("🗑️ 刪除"):
+            idx = df_filtered.index[df_filtered["配方編號"] == selected_recipe][0]
+            st.session_state.delete_recipe_index = idx
+            st.session_state.show_delete_recipe_confirm = True
             st.experimental_rerun()
 
     else:
