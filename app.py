@@ -392,11 +392,17 @@ elif menu == "配方管理":
 
     # 第二排
     col1, col2, col3 = st.columns(3)
+    options = ["原始配方", "附加配方"]
+    value = st.session_state.form_recipe.get("配方類別", "原始配方")
+    if value not in options:
+        value = "原始配方"
+    index = options.index(value)
+
     with col1:
         st.session_state.form_recipe["配方類別"] = st.selectbox(
             "配方類別",
-            ["原始配方", "附加配方"],
-            index=["原始配方", "附加配方"].index(st.session_state.form_recipe.get("配方類別", "原始配方")),
+            options,
+            index=index,
             key="form_recipe_配方類別"
         )
     with col2:
