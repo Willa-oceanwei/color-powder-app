@@ -516,7 +516,7 @@ if search_recipe_code or search_customer_code:
 
     if not df_filtered.empty:
         st.subheader("📋 配方清單序列")
-        
+
         # 標題列
         cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
         cols[0].write("配方編號")
@@ -535,7 +535,10 @@ if search_recipe_code or search_customer_code:
             c[2].write(row["客戶編號"])
             c[3].write(row["客戶名稱"])
             c[4].write(row["Pantone色號"])
-            c[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row.get("建檔時間") else "")
+            try:
+                c[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row.get("建檔時間") else "")
+            except Exception:
+                c[5].write("")
 
             # 操作區：改與刪
             with c[6]:
@@ -550,4 +553,3 @@ if search_recipe_code or search_customer_code:
                     st.rerun()
     else:
         st.info("查無符合條件的配方。")
-
