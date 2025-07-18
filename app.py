@@ -512,6 +512,9 @@ if search_recipe_code.strip() or search_customer_code.strip():
         df_recipes["配方編號"].str.contains(search_recipe_code.strip(), na=False) &
         df_recipes["客戶編號"].str.contains(search_customer_code.strip(), na=False)
     ]
+    if df_filtered.empty:
+        st.warning("查無資料")
+    else:
 
     # 標題列
     header_cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 0.7, 0.7])
