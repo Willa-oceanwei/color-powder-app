@@ -314,16 +314,13 @@ elif menu == "配方管理":
 
     # 篩選資料
     df_filtered = df.copy()
-    if st.session_state.search_recipe_code:
-    df_filtered = df_filtered[
-        df_filtered["配方編號"].str.contains(st.session_state.search_recipe_code, case=False, na=False)
+    if st.session_state.search_recipe_code:df_filtered = df_filtered 
+        [df_filtered["配方編號"].str.contains(st.session_state.search_recipe_code, case=False, na=False)
     ]
-    if st.session_state.search_pantone:
-    df_filtered = df_filtered[
+    if st.session_state.search_pantone:df_filtered = df_filtered[
         df_filtered["Pantone色號"].str.contains(st.session_state.search_pantone, case=False, na=False)
     ]
-    if st.session_state.search_customer:
-    df_filtered = df_filtered[
+    if st.session_state.search_customer:df_filtered = df_filtered[
         df_filtered["客戶編號"].str.contains(st.session_state.search_customer, case=False, na=False) |
         df_filtered["客戶名稱"].str.contains(st.session_state.search_customer, case=False, na=False)
     ]
