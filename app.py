@@ -503,6 +503,13 @@ elif menu == "配方管理":
     if not df_filtered.empty:
         st.subheader("📋 配方清單序列")
         # 標題
+    if search_recipe_code.strip() or search_customer_code.strip():
+        st.markdown("### 📋 搜尋結果清單")
+
+        filtered_df = df_recipes[
+        df_recipes["配方編號"].str.contains(search_recipe_code.strip(), na=False) &
+        df_recipes["客戶編號"].str.contains(search_customer_code.strip(), na=False)
+    ]
         cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
         cols[0].write("配方編號")
         cols[1].write("顏色")
