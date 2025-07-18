@@ -303,32 +303,38 @@ elif menu == "配方管理":
     # ========== 🔍 搜尋輸入欄位 ==========
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.session_state.search_recipe_code = st.text_input("配方搜尋", st.session_state.search_recipe_code or "")
+        search_recipe_code = st.text_input("配方搜尋", value=st.session_state.get("search_recipe_code", ""))
+        st.session_state.search_recipe_code = search_recipe_code
     with col2:
-        st.session_state.search_pantone = st.text_input("Pantone色號搜尋", st.session_state.search_pantone or "")
+        search_pantone = st.text_input("Pantone色號搜尋", value=st.session_state.get("search_pantone", ""))
+        st.session_state.search_pantone = search_pantone
     with col3:
-        st.session_state.search_customer = st.text_input("客戶編號/名稱搜尋", st.session_state.search_customer or "")
+        search_customer = st.text_input("客戶編號/名稱搜尋", value=st.session_state.get("search_customer", ""))
+        st.session_state.search_customer = search_customer
 
-    # 篩選
+    # 篩選資料
     df_filtered = df.copy()
     if st.session_state.search_recipe_code:
-        df_filtered = df_filtered[
-            df_filtered["配方編號"].str.contains(st.session_state.search_recipe_code, case=False, na=False)
-        ]
+    df_filtered = df_filtered[
+        df_filtered["配方編號"].str.contains(st.session_state.search_recipe_code, case=False, na=False)
+    ]
     if st.session_state.search_pantone:
-        df_filtered = df_filtered[
-            df_filtered["Pantone色號"].str.contains(st.session_state.search_pantone, case=False, na=False)
-        ]
+    df_filtered = df_filtered[
+        df_filtered["Pantone色號"].str.contains(st.session_state.search_pantone, case=False, na=False)
+    ]
     if st.session_state.search_customer:
-        df_filtered = df_filtered[
-            df_filtered["客戶編號"].str.contains(st.session_state.search_customer, case=False, na=False) |
-            df_filtered["客戶名稱"].str.contains(st.session_state.search_customer, case=False, na=False)
-        ]
+    df_filtered = df_filtered[
+        df_filtered["客戶編號"].str.contains(st.session_state.search_customer, case=False, na=False) |
+        df_filtered["客戶名稱"].str.contains(st.session_state.search_customer, case=False, na=False)
+    ]
 
-    # 搜尋空結果提示
-    if (st.session_state.search_recipe_code or st.session_state.search_pantone or st.session_state.search_customer) and df_filtered.empty:
+    # 顯示結果或警告
+    if not df_filtered.empty:
+    st.dataframe(df_filtered)
+    else:
+    if st.session_state.search_recipe_code or st.session_state.search_pantone or st.session_state.search_customer:
         st.warning("❗ 查無符合的配方")
-
+        
     # ===== 新增 / 修改區塊 =====
     st.subheader("➕ 新增 / 修改配方")
     
