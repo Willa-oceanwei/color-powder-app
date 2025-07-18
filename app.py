@@ -296,29 +296,26 @@ elif menu == "配方管理":
 
     # ===== 搜尋區塊 =====
     st.subheader("🎯 配方搜尋 🔎")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.session_state.search_recipe_code = st.text_input("配方搜尋", st.session_state.search_recipe_code or "")
-    with col2:
-        st.session_state.search_pantone = st.text_input("Pantone色號搜尋", st.session_state.search_pantone or "")
-    with col3:
-        st.session_state.search_customer = st.text_input("客戶編號/名稱搜尋", st.session_state.search_customer or "")
+    # ========== 🔍 初始化搜尋狀態 ==========
+    if "search_state" not in st.session_state:
+    st.session_state.search_state = {"recipe_code": "", "customer_code": "", "trigger": False}
 
-    # 篩選
-    df_filtered = df.copy()
-    if st.session_state.search_recipe_code:
-        df_filtered = df_filtered[
-            df_filtered["配方編號"].str.contains(st.session_state.search_recipe_code, case=False, na=False)
-        ]
-    if st.session_state.search_pantone:
-        df_filtered = df_filtered[
-            df_filtered["Pantone色號"].str.contains(st.session_state.search_pantone, case=False, na=False)
-        ]
-    if st.session_state.search_customer:
-        df_filtered = df_filtered[
-            df_filtered["客戶編號"].str.contains(st.session_state.search_customer, case=False, na=False) |
-            df_filtered["客戶名稱"].str.contains(st.session_state.search_customer, case=False, na=False)
-        ]
+    # ========== 🔍 搜尋輸入欄位 ==========
+    with st.form("search_form"):
+        cols = st.columns([2, 2, 1])
+        with cols[0]:
+            recipe_code_input = st.text_input("🔍 搜尋配方編號", value=st.session_state.search_state["recipe_code"])
+        with cols[1]:
+            customer_code_input = st.text_input("🔍 搜尋客戶編號", value=st.session_state.search_state["customer_code"])
+        with cols[2]:
+            submitted = st.form_submit_button("搜尋")
+
+    # 儲存搜尋條件並標記觸發
+    if submitted:
+    st.session_state.search_state["recipe_code"] = recipe_code_input.strip()
+    st.session_state.search_state["customer_code"] = customer_code_input.strip()
+    st.session_state.search_state["trigger"] = True
+    st.rerun()
 
     # 搜尋空結果提示
     if (st.session_state.search_recipe_code or st.session_state.search_pantone or st.session_state.search_customer) and df_filtered.empty:
