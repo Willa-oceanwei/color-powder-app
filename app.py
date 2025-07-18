@@ -308,7 +308,7 @@ elif menu == "配方管理":
         with cols[1]:
             customer_code_input = st.text_input("🔍 搜尋客戶編號", value=st.session_state.search_state["customer_code"])
         with cols[2]:
-            recipe_code_input = st.text_input("🔍 搜尋配方編號", value=st.session_state.search_state["recipe_code"])
+            recipe_code_input = st.text_input("🔍 搜尋Pantone編號", value=st.session_state.search_state["recipe_code"])
 
     # 儲存搜尋條件並標記觸發
     if submitted:
