@@ -252,7 +252,7 @@ def safe_rerun():
     except AttributeError:
         st.rerun()
 
-elif menu == "配方管理":
+if menu == "配方管理":
     # 載入「客戶名單」資料
     ws_customer = spreadsheet.worksheet("客戶名單")
     df_customers = pd.DataFrame(ws_customer.get_all_records())
