@@ -528,7 +528,7 @@ if search_recipe_code.strip() or search_customer_code.strip():
     header_cols[7].markdown("**修改**")
 
     for i, row in df_filtered.iterrows():
-        row_cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 0.7, 0.7])
+        row_cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 0.6, 0.6])
         row_cols[0].write(row["配方編號"])
         row_cols[1].write(row["顏色"])
         row_cols[2].write(row["客戶編號"])
