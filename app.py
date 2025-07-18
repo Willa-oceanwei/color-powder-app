@@ -363,20 +363,32 @@ elif menu == "配方管理":
     # 第一排
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.session_state.form_recipe["配方編號"] = st.text_input("配方編號", st.session_state.form_recipe["配方編號"])
+        st.session_state.form_recipe["配方編號"] = st.text_input(
+            "配方編號",
+            value=st.session_state.form_recipe.get("配方編號", ""),
+            key="form_recipe_配方編號"
+        )
     with col2:
-        st.session_state.form_recipe["顏色"] = st.text_input("顏色", st.session_state.form_recipe["顏色"])
+        st.session_state.form_recipe["顏色"] = st.text_input(
+            "顏色",
+            value=st.session_state.form_recipe.get("顏色", ""),
+            key="form_recipe_顏色"
+        )
     with col3:
-        selected_customer = st.selectbox("客戶編號", options=[""] + customer_options, 
-                                         index=0, key="selected_customer")
-        if selected_customer:
-           客戶編號, 客戶簡稱 = selected_customer.split(" - ")
-        else:
-            客戶編號 = ""
-            客戶簡稱 = ""
-        
-        st.session_state.form_recipe["客戶編號"] = 客戶編號
-        st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
+        selected_customer = st.selectbox(
+            "客戶編號",
+            options=[""] + customer_options,
+            index=(customer_options.index(default_customer_str) + 1) if default_customer_str else 0,
+            key="form_recipe_selected_customer"
+        )
+    if selected_customer:
+        客戶編號, 客戶簡稱 = selected_customer.split(" - ")
+    else:
+        客戶編號 = ""
+        客戶簡稱 = ""
+
+    st.session_state.form_recipe["客戶編號"] = 客戶編號
+    st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
 
     # 第二排
     col1, col2, col3 = st.columns(3)
@@ -384,36 +396,48 @@ elif menu == "配方管理":
         st.session_state.form_recipe["配方類別"] = st.selectbox(
             "配方類別",
             ["原始配方", "附加配方"],
-            index=["原始配方", "附加配方"].index(st.session_state.form_recipe["配方類別"]) if st.session_state.form_recipe["配方類別"] else 0
+            index=["原始配方", "附加配方"].index(st.session_state.form_recipe.get("配方類別", "原始配方")),
+            key="form_recipe_配方類別"
         )
     with col2:
         st.session_state.form_recipe["狀態"] = st.selectbox(
             "狀態",
             ["啟用", "停用"],
-            index=["啟用", "停用"].index(st.session_state.form_recipe["狀態"]) if st.session_state.form_recipe["狀態"] else 0
+            index=["啟用", "停用"].index(st.session_state.form_recipe.get("狀態", "啟用")),
+            key="form_recipe_狀態"
         )
     with col3:
         st.session_state.form_recipe["原始配方"] = st.text_input(
-            "原始配方", st.session_state.form_recipe["原始配方"]
+            "原始配方",
+            value=st.session_state.form_recipe.get("原始配方", ""),
+            key="form_recipe_原始配方"
         )
 
     # 第三排
     col1, col2, col3 = st.columns(3)
     with col1:
         st.session_state.form_recipe["色粉類別"] = st.selectbox(
-            "色粉類別", ["配方", "色母", "色粉", "添加劑", "其他"],
-            index=["配方", "色母", "色粉", "添加劑", "其他"].index(st.session_state.form_recipe["色粉類別"])
-            if st.session_state.form_recipe["色粉類別"] else 0
+            "色粉類別",
+            ["配方", "色母", "色粉", "添加劑", "其他"],
+            index=["配方", "色母", "色粉", "添加劑", "其他"].index(
+        st.session_state.form_recipe.get("色粉類別", "配方")
+        ),
+        key="form_recipe_色粉類別"
         )
     with col2:
         st.session_state.form_recipe["計量單位"] = st.selectbox(
-            "計量單位", ["包", "桶", "kg", "其他"],
-            index=["包", "桶", "kg", "其他"].index(st.session_state.form_recipe["計量單位"])
-            if st.session_state.form_recipe["計量單位"] else 0
+            "計量單位",
+            ["包", "桶", "kg", "其他"],
+            index=["包", "桶", "kg", "其他"].index(
+        st.session_state.form_recipe.get("計量單位", "包")
+        ),
+        key="form_recipe_計量單位"
         )
     with col3:
         st.session_state.form_recipe["Pantone色號"] = st.text_input(
-            "Pantone色號", st.session_state.form_recipe["Pantone色號"]
+            "Pantone色號",
+            value=st.session_state.form_recipe.get("Pantone色號", ""),
+            key="form_recipe_Pantone色號"
         )
 
     # 比例橫排
