@@ -314,6 +314,11 @@ elif menu == "配方管理":
         )
         st.session_state.search_state["配方編號"] = val_recipe_code
         reset_btn = st.button("🔄 清除")
+        def safe_rerun():
+            try:
+                st.experimental_rerun()
+        except AttributeError:
+                st.rerun()
         if reset_btn:
             # 按下清除時清空所有搜尋欄位，且清空 text_input 值
             st.session_state.search_state = {
