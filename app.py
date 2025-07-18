@@ -243,6 +243,12 @@ elif menu == "客戶名單":
                     st.rerun()
 
 elif menu == "配方管理":
+    # 載入「客戶名單」資料（假設來自 Google Sheet 工作表2）
+    ws_customer = spreadsheet.worksheet("工作表2")
+    df_customers = pd.DataFrame(ws_customer.get_all_records())
+
+    # 建立「客戶選單」選項，例如：["C001 - 三商行", "C002 - 光陽"]
+    customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in df_customers.iterrows()]
 
     try:
         ws_recipe = spreadsheet.worksheet("配方管理")
