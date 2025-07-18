@@ -242,9 +242,6 @@ elif menu == "客戶名單":
                     st.session_state.show_delete_customer_confirm = True
                     st.rerun()
 #
-import streamlit as st
-import pandas as pd
-
 # 定義安全 rerun 函數，兼容多版本 Streamlit
 def safe_rerun():
     try:
