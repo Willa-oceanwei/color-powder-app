@@ -299,7 +299,7 @@ elif menu == "配方管理":
 
     # 初始化
     if "search_state" not in st.session_state:
-        st.session_state.search_state = {
+         st.session_state.search_state = {
             "配方編號": "",
             "客戶編號": ""
         }
@@ -308,8 +308,8 @@ elif menu == "配方管理":
         "配方搜尋", value=st.session_state.search_state["配方編號"]
 　　)
 
-　　st.session_state.search_customer = st.text_input(
-　　　　"客戶編號/名稱搜尋", value=st.session_state.search_state["客戶編號"]
+    st.session_state.search_customer = st.text_input(
+        "客戶編號/名稱搜尋", value=st.session_state.search_state["客戶編號"]
 　　)
 
     col1, col2, col3 = st.columns(3)
