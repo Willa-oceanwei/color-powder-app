@@ -296,6 +296,11 @@ elif menu == "配方管理":
 
     # ===== 搜尋區塊 =====
     st.subheader("🎯 配方搜尋 🔎")
+
+    if "search_state" not in st.session_state:
+    st.session_state.search_state = {"配方編號": ""}
+    st.session_state.search_recipe_code = st.text_input("配方搜尋", value=st.session_state.search_state["配方編號"])
+
     col1, col2, col3 = st.columns(3)
     with col1:
         st.session_state.search_recipe_code = st.text_input("配方搜尋", value=st.session_state.search_state["配方編號"])
