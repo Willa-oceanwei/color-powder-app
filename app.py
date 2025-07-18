@@ -544,42 +544,50 @@ elif menu == "配方管理":
             df["客戶編號"].fillna("").str.contains(search_customer_code, na=False, case=False)
         ].copy()
 
-        if not df_filtered.empty:
-            df_filtered["建檔日期"] = pd.to_datetime(df_filtered["建檔時間"], errors="coerce").dt.strftime("%y/%m/%d")
+    if not df_filtered.empty:
+        df_filtered["建檔日期"] = pd.to_datetime(df_filtered["建檔時間"], errors="coerce").dt.strftime("%y/%m/%d")
 
-            display_df = df_filtered[[
-                "配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "建檔日期"
-            ]].copy()
+        display_df = df_filtered[[
+            "配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "建檔日期"
+        ]].copy()
 
-            # 新增刪除及修改欄位初始化為 False
-            display_df["刪除"] = False
-            display_df["修改"] = False
+        display_df["刪除"] = False
+        display_df["修改"] = False
 
-            # 使用 st.data_editor 顯示並設置 button columns
-            edited = st.data_editor(
-                display_df,
-                use_container_width=True,
-                disabled=["配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "建檔日期"],
-                column_config={
-                    "刪除": st.column_config.ButtonColumn("🗑️ 刪除", help="刪除此配方"),
-                    "修改": st.column_config.ButtonColumn("✏️ 修改", help="修改此配方")
-                },
-                key="recipe_table_editor",
-                hide_index=True,
-            )
+        edited = st.data_editor(
+            display_df,
+            use_container_width=True,
+            disabled=["配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "建檔日期"],
+            column_config={
+                "刪除": st.column_config.ButtonColumn(
+                    "🗑️ 刪除",
+                    help="刪除此配方",
+                    type="secondary"
+                ),
+                "修改": st.column_config.ButtonColumn(
+                    "✏️ 修改",
+                    help="修改此配方",
+                    type="primary"
+                ),
+            },
+            key="recipe_table_editor",
+            hide_index=True,
+        )
 
-            triggered = False
-            for i, row in edited.iterrows():
-                if row["刪除"] and not triggered:
+        triggered = False
+        for i, row in edited.iterrows():
+            if not triggered:
+                if row["刪除"]:
                     st.session_state.delete_recipe_index = df_filtered.index[i]
                     st.session_state.show_delete_recipe_confirm = True
                     triggered = True
-                elif row["修改"] and not triggered:
+                elif row["修改"]:
                     st.session_state.edit_recipe_index = df_filtered.index[i]
                     st.session_state.form_recipe = df_filtered.iloc[i].to_dict()
                     triggered = True
 
-            if triggered:
-                st.experimental_rerun()
-        else:
-            st.info("查無符合條件的配方。")
+        if triggered:
+            st.experimental_rerun()
+
+    else:
+        st.info("查無符合條件的配方。")
