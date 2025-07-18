@@ -498,25 +498,16 @@ elif menu == "配方管理":
     st.session_state.form_recipe["客戶編號"] = 客戶編號
     st.session_state.form_recipe["客戶名稱"] = 客戶簡稱   
     
-    # ===== 配方清單 =====
+    # ====== 配方搜尋區塊 ======
+    st.markdown("### 🔍 配方搜尋")
+    col1, col2 = st.columns(2)
+    search_recipe_code = col1.text_input("🔍 配方編號", key="search_recipe_code")
+    search_customer_code = col2.text_input("🔍 客戶編號", key="search_customer_code")
 
-    # 搜尋條件
-    search_recipe_code = st.session_state.get("search_recipe_code", "").strip()
-    search_customer_code = st.session_state.get("search_customer_code", "").strip()
-
-    # 僅在搜尋條件不為空時執行
-    if search_recipe_code or search_customer_code:
-        st.markdown("### 🔍 搜尋結果")
-
-        # 篩選資料（注意欄位名稱必須與你的資料一致）
-        df_filtered = df_recipes[
-        df_recipes["配方編號"].str.contains(search_recipe_code, na=False) &
-        df_recipes["客戶編號"].str.contains(search_customer_code, na=False)
-        ]
-
+# ===== 配方清單 =====
     if not df_filtered.empty:
         st.subheader("📋 配方清單序列")
-        # 標題列
+        # 標題
         cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
         cols[0].write("配方編號")
         cols[1].write("顏色")
@@ -526,7 +517,6 @@ elif menu == "配方管理":
         cols[5].write("日期")
         cols[6].write("操作")
 
-        # 資料列
         for i, row in df_filtered.iterrows():
             c = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
             c[0].write(row["配方編號"])
@@ -535,7 +525,6 @@ elif menu == "配方管理":
             c[3].write(row["客戶名稱"])
             c[4].write(row["Pantone色號"])
             c[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row["建檔時間"] else "")
-
             with c[6]:
                 col_edit, col_del = st.columns(2)
                 if col_edit.button("✏️改", key=f"edit_{i}"):
@@ -546,7 +535,6 @@ elif menu == "配方管理":
                     st.session_state.delete_recipe_index = i
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
+
     else:
-        st.write("查無符合資料。")
-else:
-    st.write("尚未搜尋或無資料。")
+        st.write("尚未搜尋或無資料。")
