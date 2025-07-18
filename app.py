@@ -503,7 +503,10 @@ elif menu == "配方管理":
         if c2.button("否"):
             st.session_state.show_delete_recipe_confirm = False
             st.rerun()
-
+            
+    st.session_state.form_recipe["客戶編號"] = 客戶編號
+    st.session_state.form_recipe["客戶名稱"] = 客戶簡稱   
+    
     # ===== 配方清單 =====
 
     # 搜尋條件
