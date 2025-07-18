@@ -506,7 +506,7 @@ elif menu == "配方管理":
 
     # ====== 配方清單（僅當有搜尋條件時顯示）======
     if search_recipe_code.strip() or search_customer_code.strip():
-    df_filtered = df_recipes.copy()
+        df_filtered = df_recipes.copy()
 
     # 模糊搜尋條件
     if search_recipe_code.strip():
