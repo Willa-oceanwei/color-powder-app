@@ -501,10 +501,10 @@ elif menu == "配方管理":
     
     # ===== 配方清單 =====
     def safe_rerun():
-    try:
-        st.experimental_rerun()
+        try:
+            st.experimental_rerun()
     except AttributeError:
-        st.rerun()
+            st.rerun()
 
     search_recipe_code = st.session_state.get("search_recipe_code", "").strip()
     search_customer_code = st.session_state.get("search_customer_code", "").strip()
