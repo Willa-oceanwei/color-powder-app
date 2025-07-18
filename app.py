@@ -305,7 +305,7 @@ elif menu == "配方管理":
         }
 
     st.session_state.search_recipe_code = st.text_input(
-    　　"配方搜尋", value=st.session_state.search_state["配方編號"]
+        "配方搜尋", value=st.session_state.search_state["配方編號"]
 　　)
 
 　　st.session_state.search_customer = st.text_input(
