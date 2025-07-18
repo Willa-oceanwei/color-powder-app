@@ -244,7 +244,7 @@ elif menu == "客戶名單":
 
 elif menu == "配方管理":
     # 載入「客戶名單」資料（假設來自 Google Sheet 工作表2）
-    ws_customer = spreadsheet.worksheet("色粉管理")
+    ws_customer = spreadsheet.worksheet("客戶名單")
     df_customers = pd.DataFrame(ws_customer.get_all_records())
 
     # 建立「客戶選單」選項，例如：["C001 - 三商行", "C002 - 光陽"]
