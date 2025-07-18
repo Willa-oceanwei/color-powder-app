@@ -277,9 +277,16 @@ elif menu == "配方管理":
     if st.session_state.form_recipe is None:
         st.session_state.form_recipe = {col: "" for col in columns}
 
-    # ===== 資料讀取 (請改成你的讀法) =====
-    # 假設用空 DataFrame 模擬
-    df = pd.DataFrame(columns=columns)
+    # 讀取表單
+    try:
+        df = pd.DataFrame(ws_recipe.get_all_records())
+    except:
+        df = pd.DataFrame(columns=columns)
+
+    df = df.astype(str)
+    for col in columns:
+        if col not in df.columns:
+            df[col] = ""
 
     # ===== 搜尋區塊 =====
     st.subheader("🎯 配方搜尋 🔎")
@@ -313,30 +320,53 @@ elif menu == "配方管理":
 
     # ===== 新增 / 修改區塊 =====
     st.subheader("➕ 新增 / 修改配方")
+    
+    # --- 客戶名單讀一次，減少呼叫 ---
+    try:
+        ws_customer = spreadsheet.worksheet("客戶名單")
+        customer_df = pd.DataFrame(ws_customer.get_all_records())
+    except:
+        customer_df = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
 
     # 第一排
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.session_state.form_recipe["配方編號"] = st.text_input(
+            "配方編號", 
+            st.session_state.form_recipe["配方編號"],
+            key="form_配方編號"
+        )
+    with col2:
+        st.session_state.form_recipe["顏色"] = st.text_input(
+            "顏色", 
+            st.session_state.form_recipe["顏色"],
+            key="form_顏色"
+        )
     col1, col2, col3 = st.columns(3)
     with col1:
         st.session_state.form_recipe["配方編號"] = st.text_input("配方編號", st.session_state.form_recipe["配方編號"])
     with col2:
         st.session_state.form_recipe["顏色"] = st.text_input("顏色", st.session_state.form_recipe["顏色"])
     with col3:
-        # 客戶編號模糊搜尋
-        input_val = st.session_state.form_recipe["客戶編號"]
-        # 範例客戶資料
-        customer_df = pd.DataFrame({
-            "客戶編號": ["RA01", "RB02", "RC03"],
-            "客戶名稱": ["日光", "晨曦", "遠東"]
-        })
-        suggestions = customer_df[
-            customer_df["客戶編號"].str.contains(input_val, case=False, na=False) |
-            customer_df["客戶名稱"].str.contains(input_val, case=False, na=False)
-        ]
-        options = [""] + (suggestions["客戶編號"] + " - " + suggestions["客戶名稱"]).tolist()
-        selected = st.selectbox("客戶編號", options, index=options.index(input_val) if input_val in options else 0)
+        search_input = st.session_state.form_recipe["客戶編號"]
+        suggestions = []
+        if search_input:
+            suggestions = customer_df[
+                customer_df["客戶編號"].str.contains(search_input, case=False, na=False) |
+                customer_df["客戶簡稱"].str.contains(search_input, case=False, na=False)
+            ]
+            options = ["{} - {}".format(r["客戶編號"], r["客戶簡稱"]) for _, r in suggestions.iterrows()]
+        else:
+            options = []
+
+        selected = st.selectbox(
+            "客戶編號 (輸入編號或簡稱)",
+            [""] + options,
+            index=0
+        )
         if selected:
             st.session_state.form_recipe["客戶編號"] = selected.split(" - ")[0]
-            st.session_state.form_recipe["客戶名稱"] = selected.split(" - ")[1] if " - " in selected else ""
+            st.session_state.form_recipe["客戶名稱"] = selected.split(" - ")[1]
 
     # 第二排
     col1, col2, col3 = st.columns(3)
@@ -439,16 +469,46 @@ elif menu == "配方管理":
             st.write("合計差額: 計算錯誤")
 
     # ===== 儲存 =====
+    # 儲存按鈕
     if st.button("💾 儲存"):
-        # 檢查色粉是否存在
-        for i in range(1, 9):
-            粉號 = st.session_state.form_recipe[f"色粉編號{i}"]
-            if 粉號 and 粉號 not in color_df["色粉編號"].values:
-                st.warning(f"❗ 色粉編號 {粉號} 尚未建檔！")
-                st.stop()
+        new_data = st.session_state.form_recipe.copy()
+        if new_data["配方編號"].strip() == "":
+            st.warning("⚠️ 請輸入配方編號！")
+        elif new_data["配方類別"] == "附加配方" and new_data["原始配方"].strip() == "":
+            st.warning("⚠️ 附加配方必須填寫原始配方！")
+        else:
+            if st.session_state.edit_recipe_index is not None:
+                df.iloc[st.session_state.edit_recipe_index] = new_data
+                st.success("✅ 配方已更新！")
+            else:
+                if new_data["配方編號"] in df["配方編號"].values:
+                    st.warning("⚠️ 此配方編號已存在！")
+                else:
+                    new_data["建檔時間"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+                    df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+                    st.success("✅ 新增成功！")
 
-        # TODO: 加入寫入 Spreadsheet 的程式
-        st.success("✅ 已儲存 (模擬)")
+            save_df_to_sheet(ws_recipe, df)
+            st.session_state.form_recipe = {col: "" for col in columns}
+            st.session_state.edit_recipe_index = None
+            st.rerun()
+
+    # 刪除確認
+    if st.session_state.show_delete_recipe_confirm:
+        target_row = df.iloc[st.session_state.delete_recipe_index]
+        target_text = f'{target_row["配方編號"]}'
+        st.warning(f"⚠️ 確定要刪除 {target_text}？")
+        c1, c2 = st.columns(2)
+        if c1.button("是"):
+            df.drop(index=st.session_state.delete_recipe_index, inplace=True)
+            df.reset_index(drop=True, inplace=True)
+            save_df_to_sheet(ws_recipe, df)
+            st.success("✅ 刪除成功！")
+            st.session_state.show_delete_recipe_confirm = False
+            st.rerun()
+        if c2.button("否"):
+            st.session_state.show_delete_recipe_confirm = False
+            st.rerun()
 
     # ===== 配方清單 =====
     if not df_filtered.empty:
@@ -477,7 +537,7 @@ elif menu == "配方管理":
                     st.session_state.edit_recipe_index = i
                     st.session_state.form_recipe = row.to_dict()
                     st.rerun()
-                if col_del.button("🗑️刪", key=f"delete_{i}"):
+                if col_del.button("🗑️改", key=f"delete_{i}"):
                     st.session_state.delete_recipe_index = i
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
