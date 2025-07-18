@@ -405,13 +405,15 @@ elif menu == "配方管理":
             index=index,
             key="form_recipe_配方類別"
         )
-    with col2:
-        st.session_state.form_recipe["狀態"] = st.selectbox(
-            "狀態",
-            ["啟用", "停用"],
-            index=["啟用", "停用"].index(st.session_state.form_recipe.get("狀態", "啟用")),
-            key="form_recipe_狀態"
-        )
+    options = ["啟用", "停用"]
+    value = st.session_state.form_recipe.get("狀態", "")
+    if value not in options:
+        value = "啟用"
+    index = options.index(value)
+
+    st.session_state.form_recipe["狀態"] = st.selectbox(
+        "狀態", options, index=index, key="form_recipe_狀態"
+    )
     with col3:
         st.session_state.form_recipe["原始配方"] = st.text_input(
             "原始配方",
