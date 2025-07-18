@@ -504,6 +504,10 @@ elif menu == "配方管理":
     search_recipe_code = col1.text_input("🔍 配方編號", key="search_recipe_code")
     search_customer_code = col2.text_input("🔍 客戶編號", key="search_customer_code")
 
+    # 僅在搜尋條件不為空時執行
+    if search_recipe_code or search_customer_code:
+        st.markdown("### 🔍 搜尋結果")
+
     # ===== 配方清單 =====
     if not df_filtered.empty:
         st.subheader("📋 配方清單序列")
