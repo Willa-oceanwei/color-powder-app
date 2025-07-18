@@ -508,11 +508,7 @@ elif menu == "配方管理":
     if search_recipe_code or search_customer_code:
         st.markdown("### 🔍 搜尋結果")
 
-        # 篩選資料（注意欄位名稱必須與你的資料一致）
-        df_filtered = df_recipes[
-        df_recipes["配方編號"].str.contains(search_recipe_code, na=False) &
-        df_recipes["客戶編號"].str.contains(search_customer_code, na=False)
-        ]
+        
 
     if not df_filtered.empty:
         st.subheader("📋 配方清單序列")
