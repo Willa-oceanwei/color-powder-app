@@ -299,11 +299,11 @@ elif menu == "配方管理":
     col1, col2, col3 = st.columns(3)
     with col1:
         st.session_state.search_recipe_code = st.text_input("配方搜尋", st.session_state.search_recipe_code or "")
+        reset_btn = st.button("🔄 清除")
     with col2:
         st.session_state.search_pantone = st.text_input("Pantone色號搜尋", st.session_state.search_pantone or "")
     with col3:
         st.session_state.search_customer = st.text_input("客戶編號/名稱搜尋", st.session_state.search_customer or "")
-        reset_btn = st.button("🔄 清除")
 
     # 篩選
     df_filtered = df.copy()
