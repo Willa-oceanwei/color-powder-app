@@ -508,11 +508,11 @@ elif menu == "配方管理":
     if search_recipe_code.strip() or search_customer_code.strip():
         df_filtered = df_recipes.copy()
 
-    # 模糊搜尋條件
-    if search_recipe_code.strip():
-        df_filtered = df_filtered[df_filtered["配方編號"].str.contains(search_recipe_code.strip(), na=False)]
-    if search_customer_code.strip():
-        df_filtered = df_filtered[df_filtered["客戶編號"].str.contains(search_customer_code.strip(), na=False)]
+        # 模糊搜尋條件
+        if search_recipe_code.strip():
+            df_filtered = df_filtered[df_filtered["配方編號"].str.contains(search_recipe_code.strip(), na=False)]
+        if search_customer_code.strip():
+            df_filtered = df_filtered[df_filtered["客戶編號"].str.contains(search_customer_code.strip(), na=False)]
 
     st.markdown("### 📋 搜尋結果清單")
 
