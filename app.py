@@ -500,6 +500,9 @@ elif menu == "配方管理":
     st.session_state.form_recipe["客戶名稱"] = 客戶簡稱   
     
 # ===== 清單顯示區塊（僅在搜尋時顯示） =====
+    search_recipe_code = st.session_state.search_state["配方編號"].strip()
+    search_customer_code = st.session_state.search_state["客戶編號"].strip()
+    
     if search_recipe_code.strip() or search_customer_code.strip():
         st.markdown("### 📋 搜尋結果清單")
 
