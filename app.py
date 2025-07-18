@@ -510,7 +510,7 @@ elif menu == "配方管理":
     search_customer_code = st.session_state.get("search_customer_code", "").strip()
 
     if search_recipe_code or search_customer_code:
-    st.markdown("### 🔍 搜尋結果")
+        st.markdown("### 🔍 搜尋結果")
 
     # 篩選資料（依你實際 df 來源修改）
     df_filtered = df[
