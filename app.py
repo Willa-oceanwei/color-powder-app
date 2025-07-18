@@ -300,10 +300,10 @@ elif menu == "配方管理":
     with col1:
         st.session_state.search_recipe_code = st.text_input("配方搜尋", st.session_state.search_recipe_code or "")
         reset_btn = st.button("🔄 清除")
-        if st.button("🔄 清除"):
-           for key in st.session_state.keys():
-               if key.startswith("search_") or key.startswith("form_"):
-                   st.session_state[key] = ""
+            if st.button("🔄 清除"):
+               for key in st.session_state.keys():
+                   if key.startswith("search_") or key.startswith("form_"):
+                       st.session_state[key] = ""
     with col2:
         st.session_state.search_pantone = st.text_input("Pantone色號搜尋", st.session_state.search_pantone or "")
     with col3:
