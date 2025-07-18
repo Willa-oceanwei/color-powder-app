@@ -550,5 +550,5 @@ if search_recipe_code or search_customer_code:
                     st.rerun()
     else:
         st.info("查無符合條件的配方。")
-else:
-    st.info("請輸入搜尋條件以顯示配方清單。")
+ else:
+     st.info("請輸入搜尋條件以顯示配方清單。")
