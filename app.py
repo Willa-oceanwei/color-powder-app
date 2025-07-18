@@ -498,43 +498,42 @@ elif menu == "配方管理":
     st.session_state.form_recipe["客戶編號"] = 客戶編號
     st.session_state.form_recipe["客戶名稱"] = 客戶簡稱   
     
-    # ====== 配方搜尋區塊 ======
-    st.markdown("### 🔍 配方搜尋")
-    col1, col2 = st.columns(2)
-    search_recipe_code = col1.text_input("🔍 配方編號", key="search_recipe_code")
-    search_customer_code = col2.text_input("🔍 客戶編號", key="search_customer_code")
+    # ====== 📋 配方清單區塊 ======
 
-    # ====== 配方清單（僅當有搜尋條件時顯示）======
-    if search_recipe_code.strip() or search_customer_code.strip():
-        df_filtered = df_recipes.copy()
+search_recipe_code = st.text_input("🔍 搜尋配方編號", key="search_recipe_code")
+search_customer_code = st.text_input("🔍 搜尋客戶編號", key="search_customer_code")
 
-        # 模糊搜尋條件
-        if search_recipe_code.strip():
-            df_filtered = df_filtered[df_filtered["配方編號"].str.contains(search_recipe_code.strip(), na=False)]
-        if search_customer_code.strip():
-            df_filtered = df_filtered[df_filtered["客戶編號"].str.contains(search_customer_code.strip(), na=False)]
-
+# 當任一搜尋欄位有值才顯示清單
+if search_recipe_code.strip() or search_customer_code.strip():
     st.markdown("### 📋 搜尋結果清單")
 
-    # 表頭列
-    header_cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1.2, 0.8, 0.8])
-    header_cols[0].write("配方編號")
-    header_cols[1].write("顏色")
-    header_cols[2].write("客戶編號")
-    header_cols[3].write("客戶名稱")
-    header_cols[4].write("Pantone色號")
-    header_cols[5].write("建檔日期")
-    header_cols[6].write("刪除")
-    header_cols[7].write("修改")
+    # 過濾清單
+    df_filtered = df_recipes[
+        df_recipes["配方編號"].str.contains(search_recipe_code.strip(), na=False) &
+        df_recipes["客戶編號"].str.contains(search_customer_code.strip(), na=False)
+    ]
+
+    # 標題列
+    header_cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 0.7, 0.7])
+    header_cols[0].markdown("**配方編號**")
+    header_cols[1].markdown("**顏色**")
+    header_cols[2].markdown("**客戶編號**")
+    header_cols[3].markdown("**客戶名稱**")
+    header_cols[4].markdown("**Pantone**")
+    header_cols[5].markdown("**建檔日**")
+    header_cols[6].markdown("**刪除**")
+    header_cols[7].markdown("**修改**")
 
     for i, row in df_filtered.iterrows():
-        row_cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1.2, 0.8, 0.8])
+        row_cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 0.7, 0.7])
         row_cols[0].write(row["配方編號"])
         row_cols[1].write(row["顏色"])
         row_cols[2].write(row["客戶編號"])
         row_cols[3].write(row["客戶名稱"])
         row_cols[4].write(row["Pantone色號"])
-        row_cols[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row["建檔時間"] else "")
+        row_cols[5].write(
+            pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row["建檔時間"] else ""
+        )
         with row_cols[6]:
             if st.button("🗑️", key=f"delete_{i}"):
                 st.session_state.delete_recipe_index = i
@@ -546,5 +545,4 @@ elif menu == "配方管理":
                 st.session_state.form_recipe = row.to_dict()
                 st.rerun()
 else:
-    # 若無任何搜尋條件，完全不顯示清單區
-    pass
+    st.info("請輸入搜尋條件以顯示配方清單。")
