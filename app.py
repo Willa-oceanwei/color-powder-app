@@ -504,7 +504,7 @@ elif menu == "配方管理":
     search_recipe_code = col1.text_input("🔍 配方編號", key="search_recipe_code")
     search_customer_code = col2.text_input("🔍 客戶編號", key="search_customer_code")
 
-# ===== 配方清單 =====
+    # ===== 配方清單 =====
     if not df_filtered.empty:
         st.subheader("📋 配方清單序列")
         # 標題
@@ -531,7 +531,7 @@ elif menu == "配方管理":
                     st.session_state.edit_recipe_index = i
                     st.session_state.form_recipe = row.to_dict()
                     st.rerun()
-                if col_del.button("🗑️刪", key=f"delete_{i}"):
+                if col_del.button("🗑️改", key=f"delete_{i}"):
                     st.session_state.delete_recipe_index = i
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
