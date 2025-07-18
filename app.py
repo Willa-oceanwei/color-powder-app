@@ -501,7 +501,7 @@ elif menu == "配方管理":
     
 # ===== 清單顯示區塊（僅在搜尋時顯示） =====
     if search_recipe_code.strip() or search_customer_code.strip():
-       st.markdown("### 📋 搜尋結果清單")
+        st.markdown("### 📋 搜尋結果清單")
 
     # 篩選條件（僅使用 str.contains() 並忽略空值）
     df_filtered = df_recipes[
