@@ -298,7 +298,7 @@ elif menu == "配方管理":
     st.subheader("🎯 配方搜尋 🔎")
     # ========== 🔍 初始化搜尋狀態 ==========
     if "search_state" not in st.session_state:
-    st.session_state.search_state = {"recipe_code": "", "customer_code": "", "trigger": False}
+    st.session_state.search_state = {"recipe_code": "", "customer_code": "", "recipe_code": ""}
 
     # ========== 🔍 搜尋輸入欄位 ==========
     with st.form("search_form"):
