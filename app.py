@@ -331,19 +331,6 @@ elif menu == "配方管理":
     # 第一排
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.session_state.form_recipe["配方編號"] = st.text_input(
-            "配方編號", 
-            st.session_state.form_recipe["配方編號"],
-            key="form_配方編號"
-        )
-    with col2:
-        st.session_state.form_recipe["顏色"] = st.text_input(
-            "顏色", 
-            st.session_state.form_recipe["顏色"],
-            key="form_顏色"
-        )
-    col1, col2, col3 = st.columns(3)
-    with col1:
         st.session_state.form_recipe["配方編號"] = st.text_input("配方編號", st.session_state.form_recipe["配方編號"])
     with col2:
         st.session_state.form_recipe["顏色"] = st.text_input("顏色", st.session_state.form_recipe["顏色"])
@@ -420,6 +407,8 @@ elif menu == "配方管理":
         unit = st.session_state.form_recipe["淨重單位"] or "g/kg"
         st.markdown(f"<p style='text-align:left;'>{unit}</p>", unsafe_allow_html=True)
 
+    st.text_input("備註", key="form_recipe.備註")
+
     # 淨重
     col1, col2 = st.columns(2)
     with col1:
@@ -450,8 +439,8 @@ elif menu == "配方管理":
     with col1:
         st.session_state.form_recipe["合計類別"] = st.selectbox(
             "合計類別",
-            ["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9"],
-            index=["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9"].index(
+            ["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9", "無"],
+            index=["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9", " "].index(
                 st.session_state.form_recipe["合計類別"]
             ) if st.session_state.form_recipe["合計類別"] else 0
         )
@@ -537,7 +526,7 @@ elif menu == "配方管理":
                     st.session_state.edit_recipe_index = i
                     st.session_state.form_recipe = row.to_dict()
                     st.rerun()
-                if col_del.button("🗑️改", key=f"delete_{i}"):
+                if col_del.button("🗑️刪", key=f"delete_{i}"):
                     st.session_state.delete_recipe_index = i
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
