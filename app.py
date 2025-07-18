@@ -499,24 +499,18 @@ elif menu == "配方管理":
     st.session_state.form_recipe["客戶名稱"] = 客戶簡稱   
     
 # ===== 配方清單 =====
+if st.session_state.search_state.get("trigger", False):
+    st.markdown("### 📋 搜尋結果清單")
 
-# 取得搜尋條件（來自 session_state）
-search_recipe_code = st.session_state.get("search_recipe_code", "").strip()
-search_customer_code = st.session_state.get("search_customer_code", "").strip()
-
-# 僅在有輸入搜尋條件時才進行過濾與顯示
-if search_recipe_code or search_customer_code:
-    st.markdown("### 🔍 搜尋結果")
-
-    # 篩選條件（注意欄位名稱需正確）
-    df_filtered = df_recipes[
-        df_recipes["配方編號"].str.contains(search_recipe_code, na=False) &
-        df_recipes["客戶編號"].str.contains(search_customer_code, na=False)
+    # 資料篩選
+    filtered_df = df_recipes[
+        df_recipes["配方編號"].str.contains(st.session_state.search_state["recipe_code"], na=False) &
+        df_recipes["客戶編號"].str.contains(st.session_state.search_state["customer_code"], na=False)
     ]
 
-    if not df_filtered.empty:
-        st.subheader("📋 配方清單序列")
-
+    if filtered_df.empty:
+        st.info("查無符合的配方資料。")
+    else:
         # 標題列
         cols = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
         cols[0].write("配方編號")
@@ -524,23 +518,18 @@ if search_recipe_code or search_customer_code:
         cols[2].write("客戶編號")
         cols[3].write("客戶名稱")
         cols[4].write("Pantone色號")
-        cols[5].write("建檔日期")
+        cols[5].write("日期")
         cols[6].write("操作")
 
-        # 每一列資料
-        for i, row in df_filtered.iterrows():
+        # 清單列
+        for i, row in filtered_df.iterrows():
             c = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1, 1])
             c[0].write(row["配方編號"])
             c[1].write(row["顏色"])
             c[2].write(row["客戶編號"])
             c[3].write(row["客戶名稱"])
             c[4].write(row["Pantone色號"])
-            try:
-                c[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row.get("建檔時間") else "")
-            except Exception:
-                c[5].write("")
-
-            # 操作區：改與刪
+            c[5].write(pd.to_datetime(row["建檔時間"]).strftime("%y/%m/%d") if row["建檔時間"] else "")
             with c[6]:
                 col_edit, col_del = st.columns(2)
                 if col_edit.button("✏️改", key=f"edit_{i}"):
@@ -551,5 +540,3 @@ if search_recipe_code or search_customer_code:
                     st.session_state.delete_recipe_index = i
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
-    else:
-        st.info("查無符合條件的配方。")
