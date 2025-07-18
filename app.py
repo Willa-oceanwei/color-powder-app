@@ -334,6 +334,31 @@ elif menu == "配方管理":
         customer_df = pd.DataFrame(ws_customer.get_all_records())
     except:
         customer_df = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
+    # 建立「客戶選單」選項，格式： 'C001 - 三商行'
+    customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in customer_df.iterrows()]
+
+    # 找目前表單中客戶編號對應的完整選項字串，方便 selectbox 預設值使用
+    current_customer_code = st.session_state.form_recipe.get("客戶編號", "")
+    default_customer_str = ""
+    for opt in customer_options:
+        if opt.startswith(current_customer_code + " -"):
+            default_customer_str = opt
+            break
+    selected_customer = st.selectbox(
+        "客戶編號",
+        options=[""] + customer_options,
+        index=(customer_options.index(default_customer_str) + 1) if default_customer_str else 0,
+        key="selected_customer"
+    )
+    if selected_customer:
+        客戶編號, 客戶簡稱 = selected_customer.split(" - ")
+    else:
+        客戶編號 = ""
+        客戶簡稱 = ""
+
+    st.session_state.form_recipe["客戶編號"] = 客戶編號
+    st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
+
 
     # 第一排
     col1, col2, col3 = st.columns(3)
