@@ -509,58 +509,40 @@ elif menu == "配方管理":
     search_recipe_code = st.session_state.get("search_recipe_code", "").strip()
     search_customer_code = st.session_state.get("search_customer_code", "").strip()
 
-    # 僅在搜尋條件不為空時繼續
     if search_recipe_code or search_customer_code:
-        st.markdown("### 🔍 搜尋結果")
+    st.markdown("### 🔍 搜尋結果")
 
-    # 篩選資料 (你這邊自行調整df來源)
+    # 篩選資料（依你實際 df 來源修改）
     df_filtered = df[
         df["配方編號"].str.contains(search_recipe_code, case=False, na=False) &
         df["客戶編號"].str.contains(search_customer_code, case=False, na=False)
     ].copy()
 
     if not df_filtered.empty:
-        # 新增方便呈現的日期欄
-        df_filtered["日期"] = pd.to_datetime(df_filtered["建檔時間"], errors="coerce").dt.strftime("%y/%m/%d")
+        # 顯示資料表（純展示，不可編輯）
+        display_df = df_filtered.copy()
+        display_df["建檔時間"] = pd.to_datetime(display_df["建檔時間"], errors="coerce").dt.strftime("%y/%m/%d")
+        st.dataframe(display_df[[
+            "配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "建檔時間"
+        ]], use_container_width=True)
 
-        # 擷取需要顯示欄位
-        display_df = df_filtered[[
-            "配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "日期"
-        ]].copy()
+        # 選擇要操作的配方編號
+        selected_code = st.selectbox("選擇配方編號", options=display_df["配方編號"].tolist())
 
-        # 新增「修改」與「刪除」按鈕欄，初始為 False (未點擊)
-        display_df["修改"] = False
-        display_df["刪除"] = False
+        # 找原始 df 的索引
+        selected_idx = df.index[df["配方編號"] == selected_code][0]
 
-        edited = st.data_editor(
-            display_df,
-            use_container_width=True,
-            disabled=["配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "日期"],
-            column_config={
-                "刪除": st.column_config.ButtonColumn("🗑️ 刪除", help="刪除此配方", type="secondary"),
-                "修改": st.column_config.ButtonColumn("✏️ 修改", help="修改此配方", type="primary"),
-            },
-            key="recipe_table_editor",
-            hide_index=True,
-        )
-
-        triggered = False
-        for i, row in edited.iterrows():
-            if not triggered:
-                if row["刪除"]:
-                    st.session_state.delete_recipe_index = df_filtered.index[i]
-                    st.session_state.show_delete_recipe_confirm = True
-                    triggered = True
-                elif row["修改"]:
-                    st.session_state.edit_recipe_index = df_filtered.index[i]
-                    st.session_state.form_recipe = df_filtered.loc[df_filtered.index[i]].to_dict()
-                    triggered = True
-
-        if triggered:
+        col1, col2 = st.columns(2)
+        if col1.button("✏️ 修改"):
+            st.session_state.edit_recipe_index = selected_idx
+            st.session_state.form_recipe = df.loc[selected_idx].to_dict()
             safe_rerun()
-
+        if col2.button("🗑️ 刪除"):
+            st.session_state.delete_recipe_index = selected_idx
+            st.session_state.show_delete_recipe_confirm = True
+            safe_rerun()
     else:
-        st.write("查無符合資料。")
+        st.info("查無符合資料。")
 
 else:
-    st.write("尚未搜尋或無資料。")
+    st.write("尚未輸入搜尋條件或無資料。")
