@@ -499,10 +499,7 @@ elif menu == "配方管理":
             st.rerun()
 
     # ===== 配方清單 =====
-    # ===== 配方清單 =====
-    search_recipe_code = st.text_input("🔍 搜尋配方編號", key="search_recipe_code")
-    search_customer_code = st.text_input("🔍 搜尋客戶編號", key="search_customer_code")
-
+    
     # 顯示配方清單，只在有搜尋條件時才顯示
     if st.session_state.search_recipe_code or st.session_state.search_customer_code:
         st.markdown("### 🔍 搜尋結果")
