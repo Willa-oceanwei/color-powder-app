@@ -303,7 +303,7 @@ elif menu == "配方管理":
     with col2:
         st.session_state.search_pantone = st.text_input("Pantone色號搜尋", value=st.session_state.search_state["配方編號"]
     with col3:
-        st.session_state.search_customer = st.text_input("客戶編號/名稱搜尋", value=st.session_state.search_state["配方編號"]
+        st.session_state.search_customer = st.text_input("客戶編號/名稱搜尋", value=st.session_state.search_state["客戶編號"]
 
     # 篩選
     df_filtered = df.copy()
