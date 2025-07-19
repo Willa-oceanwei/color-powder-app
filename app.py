@@ -437,14 +437,18 @@ elif menu == "配方管理":
             index=index,
             key="form_recipe_色粉類別"
         )
+    options = ["包", "桶", "kg", "其他"]
+    value = st.session_state.form_recipe.get("計量單位", options[0])
+    if value not in options:
+        value = options[0]
+    index = options.index(value)
+
     with col2:
         st.session_state.form_recipe["計量單位"] = st.selectbox(
             "計量單位",
-            ["包", "桶", "kg", "其他"],
-            index=["包", "桶", "kg", "其他"].index(
-        st.session_state.form_recipe.get("計量單位", "包")
-        ),
-        key="form_recipe_計量單位"
+            options,
+            index=index,
+            key="form_recipe_計量單位"
         )
     with col3:
         st.session_state.form_recipe["Pantone色號"] = st.text_input(
