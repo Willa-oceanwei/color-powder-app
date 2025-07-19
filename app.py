@@ -423,14 +423,19 @@ elif menu == "配方管理":
 
     # 第三排
     col1, col2, col3 = st.columns(3)
+    options = ["配方", "色母", "色粉", "添加劑", "其他"]
+    value = st.session_state.form_recipe.get("色粉類別", options[0])  # 預設"配方"
+
+    if value not in options:
+        value = options[0]
+    index = options.index(value)
+
     with col1:
         st.session_state.form_recipe["色粉類別"] = st.selectbox(
             "色粉類別",
-            ["配方", "色母", "色粉", "添加劑", "其他"],
-            index=["配方", "色母", "色粉", "添加劑", "其他"].index(
-        st.session_state.form_recipe.get("色粉類別", "配方")
-        ),
-        key="form_recipe_色粉類別"
+            options,
+            index=index,
+            key="form_recipe_色粉類別"
         )
     with col2:
         st.session_state.form_recipe["計量單位"] = st.selectbox(
