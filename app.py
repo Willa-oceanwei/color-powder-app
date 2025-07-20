@@ -360,7 +360,7 @@ elif menu == "配方管理":
     st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
 
 
-    # 第一橫列
+    # 第一排
     col1, col2, col3 = st.columns(3)
     with col1:
         st.session_state.form_recipe["配方編號"] = st.text_input(
@@ -381,47 +381,14 @@ elif menu == "配方管理":
             index=(customer_options.index(default_customer_str) + 1) if default_customer_str else 0,
             key="form_recipe_selected_customer"
         )
-        if selected_customer:
-            客戶編號, 客戶簡稱 = selected_customer.split(" - ")
-        else:
-            客戶編號 = ""
-            客戶簡稱 = ""
-        st.session_state.form_recipe["客戶編號"] = 客戶編號
-        st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
+    if selected_customer:
+        客戶編號, 客戶簡稱 = selected_customer.split(" - ")
+    else:
+        客戶編號 = ""
+        客戶簡稱 = ""
 
-# 第二橫列
-col4, col5, col6 = st.columns(3)
-with col4:
-    options_配方類別 = ["原始配方", "附加配方"]
-    value_配方類別 = st.session_state.form_recipe.get("配方類別", options_配方類別[0])
-    if value_配方類別 not in options_配方類別:
-        value_配方類別 = options_配方類別[0]
-    index_配方類別 = options_配方類別.index(value_配方類別)
-    st.session_state.form_recipe["配方類別"] = st.selectbox(
-        "配方類別",
-        options_配方類別,
-        index=index_配方類別,
-        key="form_recipe_配方類別"
-    )
-with col5:
-    options_狀態 = ["啟用", "停用"]
-    value_狀態 = st.session_state.form_recipe.get("狀態", options_狀態[0])
-    if value_狀態 not in options_狀態:
-        value_狀態 = options_狀態[0]
-    index_狀態 = options_狀態.index(value_狀態)
-    st.session_state.form_recipe["狀態"] = st.selectbox(
-        "狀態",
-        options_狀態,
-        index=index_狀態,
-        key="form_recipe_狀態"
-    )
-with col6:
-    st.session_state.form_recipe["原始配方"] = st.text_input(
-        "原始配方",
-        value=st.session_state.form_recipe.get("原始配方", ""),
-        key="form_recipe_原始配方"
-    )
-
+    st.session_state.form_recipe["客戶編號"] = 客戶編號
+    st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
 
     # 第二排
     col1, col2, col3 = st.columns(3)
