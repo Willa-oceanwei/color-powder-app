@@ -560,8 +560,9 @@ elif menu == "配方管理":
             st.experimental_rerun()
         except AttributeError:
             st.rerun()
-            
-
+    search_recipe_code = (st.session_state.get("search_recipe_code") or "").strip()
+    search_customer_code = (st.session_state.get("search_customer_code") or "").strip()
+      
     # ==== 搜尋條件（只要任一有填就搜尋） ====
     if search_recipe_code or search_customer_code:
         st.markdown("### 🔍 搜尋結果")
