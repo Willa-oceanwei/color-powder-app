@@ -299,7 +299,6 @@ elif menu == "配方管理":
     col1, col2, col3 = st.columns(3)
     with col1:
         st.session_state.search_recipe_code = st.text_input("配方搜尋", st.session_state.search_recipe_code or "")
-        reset_btn = st.button("🔄 清除")
         if st.button("🔄 清除"):
             # 清空搜尋條件
             st.session_state.search_recipe_code = ""
@@ -337,7 +336,6 @@ elif menu == "配方管理":
             st.session_state.edit_recipe_index = None
             st.session_state.delete_recipe_index = None
             st.session_state.show_delete_recipe_confirm = False
-
             st.rerun()  # 重新整理畫面
     with col2:
         st.session_state.search_pantone = st.text_input("Pantone色號搜尋", st.session_state.search_pantone or "")
