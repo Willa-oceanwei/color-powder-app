@@ -561,14 +561,11 @@ elif menu == "配方管理":
     recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
     st.write("debug", customer_kw, recipe_kw)  # debug用
 
-
-    # 初始化一次（必須放filter前）
     df_filtered = df.copy()
 
-    # 條件都針對目前已過濾的df_filtered疊加下去
-    if search_recipe_code:
+    if recipe_kw:
         df_filtered = df_filtered[
-            df_filtered["配方編號"].str.contains(search_recipe_code, case=False, na=False)
+            df_filtered["配方編號"].str.contains(recipe_kw, case=False, na=False)
         ]
     if customer_kw:
         df_filtered = df_filtered[
@@ -582,8 +579,6 @@ elif menu == "配方管理":
 
     if not df_filtered.empty:
         st.dataframe(df_filtered[existing_cols], use_container_width=True)
-
-        # 下拉、編輯、刪除等互動（這裡縮排跟上面 if 對齊，不要再縮進 else）
         code_list = df_filtered["配方編號"].dropna().tolist()
         if code_list:
             selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code")
