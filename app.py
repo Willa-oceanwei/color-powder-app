@@ -302,16 +302,13 @@ elif menu == "配方管理":
     
     st.subheader("🔎 配方關鍵字搜尋")
     col1, col2 = st.columns([4,1])
-
     with col1:
-        search_keyword = st.text_input(
-            "搜尋配方/Pantone/客戶", key="search_keyword"
-        )
+        search_keyword = st.text_input("搜尋配方/Pantone/客戶", key="search_keyword" )
     with col2:
         st.button("🔄 清除", on_click=lambda: st.session_state.update({"search_keyword": ""}))
 
     # 下方過濾的 DataFrame
-    keyword = (st.session_state.get("search_keyword") or "").strip()
+    keyword = (st.session_state.get("search_keyword") or "")
     if keyword:
         df_filtered = df[
             df["配方編號"].str.contains(keyword, case=False, na=False) |
