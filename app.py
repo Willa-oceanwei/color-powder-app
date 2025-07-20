@@ -297,19 +297,18 @@ elif menu == "配方管理":
     # ===== 搜尋區塊 =====
     st.subheader("🎯 配方搜尋 🔎")
     import streamlit as st
-
+    def clear_search():
+        st.session_state["search_keyword"] = ""
+    
     st.subheader("🔎 配方關鍵字搜尋")
     col1, col2 = st.columns([4,1])
+
     with col1:
         search_keyword = st.text_input(
-            "關鍵字搜尋",
-            value=st.session_state.get("search_keyword", ""),
-            key="search_keyword"
+            "搜尋", key="search_keyword"
         )
     with col2:
-        if st.button("🔄 清除"):
-            st.session_state["search_keyword"] = ""
-            st.experimental_rerun()
+        st.button("🔄 清除", on_click=clear_search)
 
     # 下方過濾的 DataFrame
     keyword = (st.session_state.get("search_keyword") or "").strip()
