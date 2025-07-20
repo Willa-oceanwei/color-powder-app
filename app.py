@@ -553,10 +553,9 @@ elif menu == "配方管理":
     st.session_state.form_recipe["客戶編號"] = 客戶編號
     st.session_state.form_recipe["客戶名稱"] = 客戶簡稱   
     
-    #---配方清單---
     import streamlit as st
 
-    # 先取得搜尋條件
+    #---配方清單----
     search_customer = st.text_input("搜尋客戶名稱或編號", key="search_customer")
     customer_kw = (st.session_state.get("search_customer") or "").strip()
     search_recipe_code = (st.session_state.get("search_recipe_code") or "").strip()
@@ -564,18 +563,16 @@ elif menu == "配方管理":
     # 先一律定義 df_filtered
     df_filtered = df.copy()
 
-    # 有任一搜尋條件就過濾
+    # 每個條件都只針對目前「已篩掉」的df_filtered繼續下去！(AND)
     if search_recipe_code:
         df_filtered = df_filtered[
             df_filtered["配方編號"].str.contains(search_recipe_code, case=False, na=False)
         ]
     if customer_kw:
-        df_filtered = df[
-            df["客戶名稱"].str.contains(customer_kw, case=False, na=False) | 
-            df["客戶編號"].str.contains(customer_kw, case=False, na=False)
+        df_filtered = df_filtered[
+            df_filtered["客戶名稱"].str.contains(customer_kw, case=False, na=False) | 
+            df_filtered["客戶編號"].str.contains(customer_kw, case=False, na=False)
         ]
-    else:
-        df_filtered = df.copy()
 
     st.subheader("📦 配方清單")
     st.write("🔎 Debug >> df_filtered.head():")
@@ -608,9 +605,3 @@ elif menu == "配方管理":
             st.info("🟦 沒有可選的配方編號")
     else:
         st.info("查無符合條件的配方。")
-
-        
-  
-
-
-
