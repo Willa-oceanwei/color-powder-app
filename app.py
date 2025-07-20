@@ -298,10 +298,10 @@ elif menu == "配方管理":
     import streamlit as st
 
     # -- UI區 --
-    st.subheader("🔎 配方關鍵字搜尋")
+    st.subheader("🔎 配方搜尋")
     col1, col2 = st.columns([4, 1])
     with col1:
-        search_keyword = st.text_input("搜尋配方/Pantone/客戶", key="search_keyword")
+        search_keyword = st.text_input("搜尋配方編號 / Pantone / 客戶", key="search_keyword")
     with col2:
         st.button("🔄 清除", on_click=lambda: st.session_state.update({"search_keyword": ""}))
 
@@ -310,10 +310,8 @@ elif menu == "配方管理":
         advanced_pantone = st.text_input("Pantone色號", key="advanced_pantone")
         advanced_customer = st.text_input("客戶編號/名稱", key="advanced_customer")
 
-    # ---- 只初始化一次、保留原本所有欄位！！----
+    # 2. filter 區，只初始化一次
     df_filtered = df.copy()
-
-    # -- 進階搜尋（複合AND） filter 設計 --
     if advanced_recipe:
         df_filtered = df_filtered[df_filtered["配方編號"].str.contains(advanced_recipe, case=False, na=False)]
     if advanced_pantone:
@@ -323,8 +321,6 @@ elif menu == "配方管理":
             df_filtered["客戶編號"].str.contains(advanced_customer, case=False, na=False) |
             df_filtered["客戶名稱"].str.contains(advanced_customer, case=False, na=False)
         ]
-
-    # -- 主搜尋欄，只在進階都沒填時 OR 配方清單四欄模糊查 --
     if not (advanced_recipe or advanced_pantone or advanced_customer):
         keyword = (search_keyword or "").strip()
         if keyword:
@@ -334,11 +330,18 @@ elif menu == "配方管理":
                 df_filtered["客戶編號"].str.contains(keyword, case=False, na=False) |
                 df_filtered["客戶名稱"].str.contains(keyword, case=False, na=False)
             ]
-        # 沒關鍵字，可以不動，df_filtered 保持 df.copy() 全顯
 
-    # -- 到這裡資料已經正確 filter，所有欄位都還在 --
-    show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-    existing_cols = [col for col in show_cols if col in df_filtered.columns]
+        # -- 主搜尋欄，只在進階都沒填時 OR 配方清單四欄模糊查 --
+        if not (advanced_recipe or advanced_pantone or advanced_customer):
+            keyword = (search_keyword or "").strip()
+            if keyword:
+                df_filtered = df_filtered[
+                    df_filtered["配方編號"].str.contains(keyword, case=False, na=False) |
+                    df_filtered["Pantone色號"].str.contains(keyword, case=False, na=False) |
+                    df_filtered["客戶編號"].str.contains(keyword, case=False, na=False) |
+                    df_filtered["客戶名稱"].str.contains(keyword, case=False, na=False)
+                ]
+        # 沒關鍵字，可以不動，df_filtered 保持 df.copy() 全顯
     
     st.subheader("➕ 新增 / 修改配方")
 
