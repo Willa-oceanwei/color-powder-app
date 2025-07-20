@@ -297,7 +297,6 @@ elif menu == "配方管理":
 
     import streamlit as st
 
-    st.subheader("🔎 配方關鍵字搜尋")
     # -- UI區 --
     st.subheader("🔎 配方關鍵字搜尋")
     col1, col2 = st.columns([4, 1])
