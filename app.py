@@ -563,30 +563,27 @@ elif menu == "配方管理":
     customer_kw = (st.session_state.get("search_customer") or "").strip()
     search_recipe_code = (st.session_state.get("search_recipe_code") or "").strip()
 
-    # 先一律定義 df_filtered
+    # 只初始化一次！
     df_filtered = df.copy()
 
-    # 每個條件都只針對目前「已篩掉」的df_filtered繼續下去！(AND)
     if search_recipe_code:
         df_filtered = df_filtered[
-            df_filtered["配方編號"].str.contains(search_recipe_code, case=False, na=False)
+           df_filtered["配方編號"].str.contains(search_recipe_code, case=False, na=False)
         ]
     if customer_kw:
         df_filtered = df_filtered[
-            df_filtered["客戶名稱"].str.contains(customer_kw, case=False, na=False) | 
+            df_filtered["客戶名稱"].str.contains(customer_kw, case=False, na=False) |
             df_filtered["客戶編號"].str.contains(customer_kw, case=False, na=False)
         ]
 
     st.subheader("📦 配方清單")
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-    df_filtered = df.copy()
+    existing_cols = [col for col in show_cols if col in df_filtered.columns]
 
     if not df_filtered.empty:
-        existing_cols = [col for col in show_cols if col in df_filtered.columns]
         st.dataframe(df_filtered[existing_cols], use_container_width=True)
-    else:
-        st.info("查無符合條件的配方。")
 
+    # 下拉、編輯、刪除等互動，都用這份過濾後的 df_filtered
         code_list = df_filtered["配方編號"].dropna().tolist()
         if code_list:
             selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code")
@@ -607,4 +604,6 @@ elif menu == "配方管理":
                 st.error(f"❗ 資料選擇錯誤：{e}")
         else:
             st.info("🟦 沒有可選的配方編號")
+    else:
+        st.info("查無符合條件的配方。")
     
