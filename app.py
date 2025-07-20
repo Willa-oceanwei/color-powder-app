@@ -338,7 +338,7 @@ elif menu == "配方管理":
         current_customer_code = st.session_state.form_recipe.get("客戶編號", "")
         default_customer_str = ""
     for opt in customer_options:
-        if opt.startswith(current_customer_code + " -"):
+    if opt.startswith(current_customer_code + " -"):
             default_customer_str = opt
             break
 
