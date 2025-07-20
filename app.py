@@ -328,48 +328,48 @@ elif menu == "配方管理":
     st.subheader("➕ 新增 / 修改配方")
 
 # =================== 客戶名單選單與預設值 ===================
-try:
-    ws_customer = spreadsheet.worksheet("客戶名單")
-    customer_df = pd.DataFrame(ws_customer.get_all_records())
-except:
-    customer_df = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
-customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in customer_df.iterrows()]
+    try:
+        ws_customer = spreadsheet.worksheet("客戶名單")
+        customer_df = pd.DataFrame(ws_customer.get_all_records())
+    except:
+        customer_df = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
+        customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in customer_df.iterrows()]
 
-current_customer_code = st.session_state.form_recipe.get("客戶編號", "")
-default_customer_str = ""
-for opt in customer_options:
-    if opt.startswith(current_customer_code + " -"):
-        default_customer_str = opt
-        break
+        current_customer_code = st.session_state.form_recipe.get("客戶編號", "")
+        default_customer_str = ""
+    for opt in customer_options:
+        if opt.startswith(current_customer_code + " -"):
+            default_customer_str = opt
+            break
 
 # ============= 第一排 =============
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.session_state.form_recipe["配方編號"] = st.text_input(
-        "配方編號",
-        value=st.session_state.form_recipe.get("配方編號", ""),
-        key="form_recipe_配方編號"
-    )
-with col2:
-    st.session_state.form_recipe["顏色"] = st.text_input(
-        "顏色",
-        value=st.session_state.form_recipe.get("顏色", ""),
-        key="form_recipe_顏色"
-    )
-with col3:
-    selected_customer = st.selectbox(
-        "客戶編號",
-        options=[""] + customer_options,
-        index=(customer_options.index(default_customer_str) + 1) if default_customer_str else 0,
-        key="form_recipe_selected_customer"
-    )
-    if selected_customer:
-        客戶編號, 客戶簡稱 = selected_customer.split(" - ")
-    else:
-        客戶編號 = ""
-        客戶簡稱 = ""
-    st.session_state.form_recipe["客戶編號"] = 客戶編號
-    st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.session_state.form_recipe["配方編號"] = st.text_input(
+            "配方編號",
+            value=st.session_state.form_recipe.get("配方編號", ""),
+            key="form_recipe_配方編號"
+        )
+    with col2:
+        st.session_state.form_recipe["顏色"] = st.text_input(
+            "顏色",
+            value=st.session_state.form_recipe.get("顏色", ""),
+            key="form_recipe_顏色"
+        )
+    with col3:
+        selected_customer = st.selectbox(
+            "客戶編號",
+            options=[""] + customer_options,
+            index=(customer_options.index(default_customer_str) + 1) if default_customer_str else 0,
+            key="form_recipe_selected_customer"
+        )
+        if selected_customer:
+            客戶編號, 客戶簡稱 = selected_customer.split(" - ")
+        else:
+            客戶編號 = ""
+            客戶簡稱 = ""
+        st.session_state.form_recipe["客戶編號"] = 客戶編號
+        st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
 
 # ============= 第二排 =============
 col4, col5, col6 = st.columns(3)
