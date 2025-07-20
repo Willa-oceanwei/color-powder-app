@@ -298,27 +298,23 @@ elif menu == "配方管理":
     import streamlit as st
 
     st.subheader("🔎 配方關鍵字搜尋")
+    # -- UI區 --
+    st.subheader("🔎 配方關鍵字搜尋")
     col1, col2 = st.columns([4, 1])
     with col1:
         search_keyword = st.text_input("搜尋配方/Pantone/客戶", key="search_keyword")
     with col2:
         st.button("🔄 清除", on_click=lambda: st.session_state.update({"search_keyword": ""}))
 
-    # -- 進階搜尋 --
     with st.expander("展開進階搜尋"):
         advanced_recipe = st.text_input("配方編號", key="advanced_recipe")
         advanced_pantone = st.text_input("Pantone色號", key="advanced_pantone")
         advanced_customer = st.text_input("客戶編號/名稱", key="advanced_customer")
 
+    # ---- 只初始化一次、保留原本所有欄位！！----
     df_filtered = df.copy()
-    
-    # 保證主表格/schema乾淨，不補「UI上」的檢索欄名
-    
-    cols_needed = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-    existing_cols = [col for col in cols_needed if col in df_filtered.columns]
-    
-    
-    # 進階搜尋 AND 邏輯
+
+    # -- 進階搜尋（複合AND） filter 設計 --
     if advanced_recipe:
         df_filtered = df_filtered[df_filtered["配方編號"].str.contains(advanced_recipe, case=False, na=False)]
     if advanced_pantone:
@@ -329,7 +325,7 @@ elif menu == "配方管理":
             df_filtered["客戶名稱"].str.contains(advanced_customer, case=False, na=False)
         ]
 
-    # 無進階條件才用主關鍵字
+    # -- 主搜尋欄，只在進階都沒填時 OR 配方清單四欄模糊查 --
     if not (advanced_recipe or advanced_pantone or advanced_customer):
         keyword = (search_keyword or "").strip()
         if keyword:
@@ -339,14 +335,11 @@ elif menu == "配方管理":
                 df_filtered["客戶編號"].str.contains(keyword, case=False, na=False) |
                 df_filtered["客戶名稱"].str.contains(keyword, case=False, na=False)
             ]
-        else:
-            # 沒有搜尋，全部顯示
-           df_filtered = df
+        # 沒關鍵字，可以不動，df_filtered 保持 df.copy() 全顯
 
-    # ------- 結果提示 -------
-    if ((search_keyword or advanced_recipe or advanced_pantone or advanced_customer) and df_filtered.empty):
-        st.warning("❗ 查無符合的配方")
-
+    # -- 到這裡資料已經正確 filter，所有欄位都還在 --
+    show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
+    existing_cols = [col for col in show_cols if col in df_filtered.columns]
     
     st.subheader("➕ 新增 / 修改配方")
 
@@ -582,6 +575,8 @@ elif menu == "配方管理":
 
     if not df_filtered.empty:
         st.dataframe(df_filtered[existing_cols], use_container_width=True)
+    else:
+        st.info("查無符合條件的配方。")
 
     # 下拉、編輯、刪除等互動，都用這份過濾後的 df_filtered
         code_list = df_filtered["配方編號"].dropna().tolist()
