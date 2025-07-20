@@ -560,6 +560,7 @@ elif menu == "配方管理":
             st.experimental_rerun()
         except AttributeError:
             st.rerun()
+            
 
     # ==== 搜尋條件（只要任一有填就搜尋） ====
     if search_recipe_code or search_customer_code:
