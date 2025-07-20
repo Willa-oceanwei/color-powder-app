@@ -560,10 +560,10 @@ elif menu == "配方管理":
     customer_kw = (st.session_state.get("search_customer") or "").strip()
     recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
     # ======= 這邊加 debug ==========
-    st.write('df.shape', df.shape)
-    st.write('df.columns', df.columns.tolist())
-    st.write('df.head()', df.head())
-    st.write('df_filtered.shape', df_filtered.shape)
+    st.write("recipe_kw:", recipe_kw, "customer_kw:", customer_kw)
+    st.write("配方編號 example:", df["配方編號"].tolist())
+    st.write("客戶名稱 example:", df["客戶名稱"].tolist())
+    st.write("df_filtered.shape:", df_filtered.shape)
     # ===============================
     df_filtered = df.copy()
 
