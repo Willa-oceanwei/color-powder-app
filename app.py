@@ -575,8 +575,7 @@ elif menu == "配方管理":
         ]
 
     st.subheader("📦 配方清單")
-    st.write("🔎 Debug >> df_filtered.head():")
-    st.write(df_filtered.head())
+    
 
     if not df_filtered.empty:
         show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
