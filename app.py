@@ -325,137 +325,105 @@ elif menu == "配方管理":
     if (st.session_state.search_recipe_code or st.session_state.search_pantone or st.session_state.search_customer) and df_filtered.empty:
         st.warning("❗ 查無符合的配方")
 
-    # ===== 新增 / 修改區塊 =====
     st.subheader("➕ 新增 / 修改配方")
-    
-    # --- 客戶名單讀一次，減少呼叫 ---
-    try:
-        ws_customer = spreadsheet.worksheet("客戶名單")
-        customer_df = pd.DataFrame(ws_customer.get_all_records())
-    except:
-        customer_df = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
-    # 建立「客戶選單」選項，格式： 'C001 - 三商行'
-    customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in customer_df.iterrows()]
 
-    # 找目前表單中客戶編號對應的完整選項字串，方便 selectbox 預設值使用
-    current_customer_code = st.session_state.form_recipe.get("客戶編號", "")
-    default_customer_str = ""
-    for opt in customer_options:
-        if opt.startswith(current_customer_code + " -"):
-            default_customer_str = opt
-            break
+# =================== 客戶名單選單與預設值 ===================
+try:
+    ws_customer = spreadsheet.worksheet("客戶名單")
+    customer_df = pd.DataFrame(ws_customer.get_all_records())
+except:
+    customer_df = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
+customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in customer_df.iterrows()]
+
+current_customer_code = st.session_state.form_recipe.get("客戶編號", "")
+default_customer_str = ""
+for opt in customer_options:
+    if opt.startswith(current_customer_code + " -"):
+        default_customer_str = opt
+        break
+
+# ============= 第一排 =============
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.session_state.form_recipe["配方編號"] = st.text_input(
+        "配方編號",
+        value=st.session_state.form_recipe.get("配方編號", ""),
+        key="form_recipe_配方編號"
+    )
+with col2:
+    st.session_state.form_recipe["顏色"] = st.text_input(
+        "顏色",
+        value=st.session_state.form_recipe.get("顏色", ""),
+        key="form_recipe_顏色"
+    )
+with col3:
     selected_customer = st.selectbox(
         "客戶編號",
         options=[""] + customer_options,
         index=(customer_options.index(default_customer_str) + 1) if default_customer_str else 0,
-        key="selected_customer"
+        key="form_recipe_selected_customer"
     )
     if selected_customer:
         客戶編號, 客戶簡稱 = selected_customer.split(" - ")
     else:
         客戶編號 = ""
         客戶簡稱 = ""
-
     st.session_state.form_recipe["客戶編號"] = 客戶編號
     st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
 
-
-    # 第一排
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.session_state.form_recipe["配方編號"] = st.text_input(
-            "配方編號",
-            value=st.session_state.form_recipe.get("配方編號", ""),
-            key="form_recipe_配方編號"
-        )
-    with col2:
-        st.session_state.form_recipe["顏色"] = st.text_input(
-            "顏色",
-            value=st.session_state.form_recipe.get("顏色", ""),
-            key="form_recipe_顏色"
-        )
-    with col3:
-        selected_customer = st.selectbox(
-            "客戶編號",
-            options=[""] + customer_options,
-            index=(customer_options.index(default_customer_str) + 1) if default_customer_str else 0,
-            key="form_recipe_selected_customer"
-        )
-    if selected_customer:
-        客戶編號, 客戶簡稱 = selected_customer.split(" - ")
-    else:
-        客戶編號 = ""
-        客戶簡稱 = ""
-
-    st.session_state.form_recipe["客戶編號"] = 客戶編號
-    st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
-
-    # 第二排
-    col1, col2, col3 = st.columns(3)
-    options = ["原始配方", "附加配方"]
-    value = st.session_state.form_recipe.get("配方類別", "原始配方")
-    if value not in options:
-        value = "原始配方"
-    index = options.index(value)
-
-    with col1:
-        st.session_state.form_recipe["配方類別"] = st.selectbox(
-            "配方類別",
-            options,
-            index=index,
-            key="form_recipe_配方類別"
-        )
-    options = ["啟用", "停用"]
-    value = st.session_state.form_recipe.get("狀態", "")
-    if value not in options:
-        value = "啟用"
-    index = options.index(value)
-
+# ============= 第二排 =============
+col4, col5, col6 = st.columns(3)
+with col4:
+    配方類別_options = ["原始配方", "附加配方"]
+    v = st.session_state.form_recipe.get("配方類別", 配方類別_options[0])
+    if v not in 配方類別_options:
+        v = 配方類別_options[0]
+    idx = 配方類別_options.index(v)
+    st.session_state.form_recipe["配方類別"] = st.selectbox(
+        "配方類別", 配方類別_options, index=idx, key="form_recipe_配方類別"
+    )
+with col5:
+    狀態_options = ["啟用", "停用"]
+    v = st.session_state.form_recipe.get("狀態", 狀態_options[0])
+    if v not in 狀態_options:
+        v = 狀態_options[0]
+    idx = 狀態_options.index(v)
     st.session_state.form_recipe["狀態"] = st.selectbox(
-        "狀態", options, index=index, key="form_recipe_狀態"
+        "狀態", 狀態_options, index=idx, key="form_recipe_狀態"
     )
-    with col3:
-        st.session_state.form_recipe["原始配方"] = st.text_input(
-            "原始配方",
-            value=st.session_state.form_recipe.get("原始配方", ""),
-            key="form_recipe_原始配方"
-        )
+with col6:
+    st.session_state.form_recipe["原始配方"] = st.text_input(
+        "原始配方",
+        value=st.session_state.form_recipe.get("原始配方", ""),
+        key="form_recipe_原始配方"
+    )
 
-    # 第三排
-    col1, col2, col3 = st.columns(3)
-    options = ["配方", "色母", "色粉", "添加劑", "其他"]
-    value = st.session_state.form_recipe.get("色粉類別", options[0])  # 預設"配方"
-
-    if value not in options:
-        value = options[0]
-    index = options.index(value)
-
-    with col1:
-        st.session_state.form_recipe["色粉類別"] = st.selectbox(
-            "色粉類別",
-            options,
-            index=index,
-            key="form_recipe_色粉類別"
-        )
-    options = ["包", "桶", "kg", "其他"]
-    value = st.session_state.form_recipe.get("計量單位", options[0])
-    if value not in options:
-        value = options[0]
-    index = options.index(value)
-
-    with col2:
-        st.session_state.form_recipe["計量單位"] = st.selectbox(
-            "計量單位",
-            options,
-            index=index,
-            key="form_recipe_計量單位"
-        )
-    with col3:
-        st.session_state.form_recipe["Pantone色號"] = st.text_input(
-            "Pantone色號",
-            value=st.session_state.form_recipe.get("Pantone色號", ""),
-            key="form_recipe_Pantone色號"
-        )
+# ============= 第三排 =============
+col7, col8, col9 = st.columns(3)
+with col7:
+    色粉類別_options = ["配方", "色母", "色粉", "添加劑", "其他"]
+    v = st.session_state.form_recipe.get("色粉類別", 色粉類別_options[0])
+    if v not in 色粉類別_options:
+        v = 色粉類別_options[0]
+    idx = 色粉類別_options.index(v)
+    st.session_state.form_recipe["色粉類別"] = st.selectbox(
+        "色粉類別", 色粉類別_options, index=idx, key="form_recipe_色粉類別"
+    )
+with col8:
+    計量單位_options = ["包", "桶", "kg", "其他"]
+    v = st.session_state.form_recipe.get("計量單位", 計量單位_options[0])
+    if v not in 計量單位_options:
+        v = 計量單位_options[0]
+    idx = 計量單位_options.index(v)
+    st.session_state.form_recipe["計量單位"] = st.selectbox(
+        "計量單位", 計量單位_options, index=idx, key="form_recipe_計量單位"
+    )
+with col9:
+    st.session_state.form_recipe["Pantone色號"] = st.text_input(
+        "Pantone色號",
+        value=st.session_state.form_recipe.get("Pantone色號", ""),
+        key="form_recipe_Pantone色號"
+    )
 
     # 比例橫排
     col1, col_colon, col2, col3, col_unit = st.columns([2, 1, 2, 2, 1])
