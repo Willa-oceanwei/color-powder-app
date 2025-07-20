@@ -579,6 +579,7 @@ elif menu == "配方管理":
 
     st.subheader("📦 配方清單")
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
+    df_filtered = df.copy()
 
     if not df_filtered.empty:
         existing_cols = [col for col in show_cols if col in df_filtered.columns]
