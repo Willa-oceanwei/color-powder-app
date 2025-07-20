@@ -575,13 +575,12 @@ elif menu == "配方管理":
 
     st.write("df_filtered.shape", df_filtered.shape)  # 應該有變動
 
-    # 4. 唯一的主顯示區
+    # ---------- 主清單顯示區 ----------
     st.subheader("📦 配方清單")
-    show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-    existing_cols = [col for col in show_cols if col in df_filtered.columns]
-
     if not df_filtered.empty:
         st.dataframe(df_filtered[existing_cols], use_container_width=True)
+
+        # 下拉功能
         code_list = df_filtered["配方編號"].dropna().tolist()
         if code_list:
             selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code")
