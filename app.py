@@ -553,20 +553,16 @@ elif menu == "配方管理":
     
     import streamlit as st
 
-    #---配方清單區----
-    search_customer = st.text_input("搜尋客戶名稱或編號", key="search_customer")
     search_recipe_code = st.text_input("搜尋配方編號", key="search_recipe_code")
+    search_customer = st.text_input("搜尋客戶名稱或編號", key="search_customer")
 
-    customer_kw = (st.session_state.get("search_customer") or "").strip()
+    # 只用 session_state 取值做過濾！
     recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
-    # ======= 這邊加 debug ==========
-    st.write("recipe_kw:", recipe_kw, "customer_kw:", customer_kw)
-    st.write("配方編號 example:", df["配方編號"].tolist())
-    st.write("客戶名稱 example:", df["客戶名稱"].tolist())
-    st.write("df_filtered.shape:", df_filtered.shape)
-    # ===============================
-    df_filtered = df.copy()
+    customer_kw = (st.session_state.get("search_customer") or "").strip()
 
+    st.write("debug", recipe_kw, customer_kw)  # 你輸入什麼，馬上會顯示 session_state 目前內容！
+
+    df_filtered = df.copy()
     if recipe_kw:
         df_filtered = df_filtered[
             df_filtered["配方編號"].str.contains(recipe_kw, case=False, na=False)
@@ -576,6 +572,16 @@ elif menu == "配方管理":
             df_filtered["客戶名稱"].str.contains(customer_kw, case=False, na=False) |
             df_filtered["客戶編號"].str.contains(customer_kw, case=False, na=False)
         ]
+    st.write("df_filtered.shape", df_filtered.shape)  # 應該會變動
+
+    show_cols = [...]  # 你的主欄位
+    existing_cols = [col for col in show_cols if col in df_filtered.columns]
+
+    if not df_filtered.empty:
+        st.dataframe(df_filtered[existing_cols])
+    else:
+        st.info("查無符合條件的配方。")
+
 
     st.subheader("📦 配方清單")
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
