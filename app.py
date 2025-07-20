@@ -344,12 +344,7 @@ elif menu == "配方管理":
     if ((search_keyword or advanced_recipe or advanced_pantone or advanced_customer) and df_filtered.empty):
         st.warning("❗ 查無符合的配方")
 
-    # ======= 搜尋清單展示區（放在頁面下方的「清單區」）=======
-    st.subheader("📦 配方清單")
-    st.dataframe(df_filtered)
-
-
-
+    
     st.subheader("➕ 新增 / 修改配方")
 
 # =================== 客戶名單選單與預設值 ===================
@@ -610,3 +605,10 @@ elif menu == "配方管理":
 
     else:
         st.write("尚未輸入搜尋條件或無資料。")
+        
+        # ======= 搜尋清單展示區（放在頁面下方的「清單區」）=======
+    st.subheader("📦 配方清單")
+    st.dataframe(df_filtered)
+
+
+
