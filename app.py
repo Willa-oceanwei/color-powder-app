@@ -371,17 +371,17 @@ elif menu == "配方管理":
         st.session_state.form_recipe["客戶編號"] = 客戶編號
         st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
 
-# ============= 第二排 =============
-col4, col5, col6 = st.columns(3)
-with col4:
-    配方類別_options = ["原始配方", "附加配方"]
-    v = st.session_state.form_recipe.get("配方類別", 配方類別_options[0])
-    if v not in 配方類別_options:
-        v = 配方類別_options[0]
-    idx = 配方類別_options.index(v)
-    st.session_state.form_recipe["配方類別"] = st.selectbox(
-        "配方類別", 配方類別_options, index=idx, key="form_recipe_配方類別"
-    )
+    # ============= 第二排 =============
+    col4, col5, col6 = st.columns(3)
+    with col4:
+        配方類別_options = ["原始配方", "附加配方"]
+        v = st.session_state.form_recipe.get("配方類別", 配方類別_options[0])
+        if v not in 配方類別_options:
+            v = 配方類別_options[0]
+        idx = 配方類別_options.index(v)
+        st.session_state.form_recipe["配方類別"] = st.selectbox(
+            "配方類別", 配方類別_options, index=idx, key="form_recipe_配方類別"
+        )
 with col5:
     狀態_options = ["啟用", "停用"]
     v = st.session_state.form_recipe.get("狀態", 狀態_options[0])
