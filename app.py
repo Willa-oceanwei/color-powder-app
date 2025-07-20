@@ -294,22 +294,42 @@ elif menu == "配方管理":
         if col not in df.columns:
             df[col] = ""
 
-    # ===== 搜尋區塊 =====
-    st.subheader("🎯 配方搜尋 🔎")
     import streamlit as st
-    def clear_search():
-        st.session_state["search_keyword"] = ""
-    
+
     st.subheader("🔎 配方關鍵字搜尋")
-    col1, col2 = st.columns([4,1])
+    col1, col2 = st.columns([4, 1])
     with col1:
-        search_keyword = st.text_input("搜尋配方/Pantone/客戶", key="search_keyword" )
+        search_keyword = st.text_input("搜尋配方/Pantone/客戶", key="search_keyword")
     with col2:
         st.button("🔄 清除", on_click=lambda: st.session_state.update({"search_keyword": ""}))
 
-    # 下方過濾的 DataFrame
-    keyword = (st.session_state.get("search_keyword") or "").strip()
-    if keyword:
+    # 進階搜尋欄
+    with st.expander("展開進階搜尋"):
+        advanced_recipe = st.text_input("配方編號", key="advanced_recipe")
+        advanced_pantone = st.text_input("Pantone色號", key="advanced_pantone")
+        advanced_customer = st.text_input("客戶編號/名稱", key="advanced_customer")
+
+    # --------- 單一來源，正確 df_filtered only ---------
+    df_filtered = df.copy()
+
+    if advanced_recipe or advanced_pantone or advanced_customer:
+        # 進階搜尋（多欄複合）
+        if advanced_recipe:
+            df_filtered = df_filtered[
+                df_filtered["配方編號"].str.contains(advanced_recipe, case=False, na=False)
+            ]
+        if advanced_pantone:
+            df_filtered = df_filtered[
+                df_filtered["Pantone色號"].str.contains(advanced_pantone, case=False, na=False)
+            ]
+        if advanced_customer:
+            df_filtered = df_filtered[
+                df_filtered["客戶編號"].str.contains(advanced_customer, case=False, na=False) |
+                df_filtered["客戶名稱"].str.contains(advanced_customer, case=False, na=False)
+            ]
+     elif search_keyword:
+        # 只要沒開進階搜尋，才用主關鍵字全欄 OR 搜尋
+        keyword = search_keyword.strip()
         df_filtered = df[
             df["配方編號"].str.contains(keyword, case=False, na=False) |
             df["Pantone色號"].str.contains(keyword, case=False, na=False) |
@@ -317,50 +337,20 @@ elif menu == "配方管理":
             df["客戶名稱"].str.contains(keyword, case=False, na=False)
         ]
     else:
+        # 沒有搜尋，全部顯示
         df_filtered = df
-    
-    if search_keyword and df_filtered.empty:
-        st.warning("❗ 查無符合的配方")
-
-    # ------- 進階搜尋欄展開/收合 -------
-    with st.expander("展開進階搜尋"):
-        advanced_recipe = st.text_input("配方編號", "")
-        advanced_pantone = st.text_input("Pantone色號", "")
-        advanced_customer = st.text_input("客戶編號/名稱", "")
-
-    # ------- 篩選結果 -------
-    df_filtered = df.copy()
-
-    # 先進階搜尋（已輸入進階任何一格時，就以 AND 條件處理各自欄位）
-    if advanced_recipe:
-        df_filtered = df_filtered[df_filtered["配方編號"].str.contains(advanced_recipe, case=False, na=False)]
-    if advanced_pantone:
-        df_filtered = df_filtered[df_filtered["Pantone色號"].str.contains(advanced_pantone, case=False, na=False)]
-    if advanced_customer:
-        df_filtered = df_filtered[
-            df_filtered["客戶編號"].str.contains(advanced_customer, case=False, na=False) |
-            df_filtered["客戶名稱"].str.contains(advanced_customer, case=False, na=False)
-        ]
-
-    # 如果沒填進階搜尋，用主搜尋欄模糊配對全部欄位（OR 條件，包含全部主要欄）
-    if not (advanced_recipe or advanced_pantone or advanced_customer):
-        if search_keyword:
-            df_filtered = df_filtered[
-                df_filtered["配方編號"].str.contains(search_keyword, case=False, na=False) |
-                df_filtered["Pantone色號"].str.contains(search_keyword, case=False, na=False) |
-                df_filtered["客戶編號"].str.contains(search_keyword, case=False, na=False) |
-                df_filtered["客戶名稱"].str.contains(search_keyword, case=False, na=False)
-            ]
 
     # ------- 結果提示 -------
     if ((search_keyword or advanced_recipe or advanced_pantone or advanced_customer) and df_filtered.empty):
         st.warning("❗ 查無符合的配方")
 
-    # 你可繼續顯示搜尋結果
-    # st.dataframe(df_filtered)
+    # ======= 搜尋清單展示區（放在頁面下方的「清單區」）=======
+    st.subheader("📦 配方清單")
+    st.dataframe(df_filtered)
 
 
-    st.subheader("➕ 新增 / 修改配方")
+
+        st.subheader("➕ 新增 / 修改配方")
 
 # =================== 客戶名單選單與預設值 ===================
     try:
