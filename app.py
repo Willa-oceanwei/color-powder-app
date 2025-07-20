@@ -305,10 +305,10 @@ elif menu == "配方管理":
 
     with col1:
         search_keyword = st.text_input(
-            "搜尋", key="search_keyword"
+            "搜尋配方/Pantone/客戶", key="search_keyword"
         )
     with col2:
-        st.button("🔄 清除", on_click=clear_search)
+        st.button("🔄 清除", on_click==lambda: st.session_state.update({"search_keyword": ""}))
 
     # 下方過濾的 DataFrame
     keyword = (st.session_state.get("search_keyword") or "").strip()
@@ -321,6 +321,7 @@ elif menu == "配方管理":
         ]
     else:
         df_filtered = df
+    st.dataframe(df_filtered)    
 
     if search_keyword and df_filtered.empty:
         st.warning("❗ 查無符合的配方")
