@@ -310,7 +310,7 @@ elif menu == "配方管理":
         advanced_customer = st.text_input("客戶編號/名稱", key="advanced_customer")
     
     # 保證主表格/schema乾淨，不補「UI上」的檢索欄名
-    df_filtered = df[show_cols].copy() if all(col in df.columns for col in show_cols) else df.copy()
+    
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [col for col in show_cols if col in df.columns]
 
