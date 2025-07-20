@@ -296,34 +296,48 @@ elif menu == "配方管理":
 
     # ===== 搜尋區塊 =====
     st.subheader("🎯 配方搜尋 🔎")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.session_state.search_recipe_code = st.text_input("配方搜尋", st.session_state.search_recipe_code or "")
-        reset_btn = st.button("🔄 清除")
-    with col2:
-        st.session_state.search_pantone = st.text_input("Pantone色號搜尋", st.session_state.search_pantone or "")
-    with col3:
-        st.session_state.search_customer = st.text_input("客戶編號/名稱搜尋", st.session_state.search_customer or "")
+    import streamlit as st
 
-    # 篩選
+    st.subheader("🔎 配方關鍵字搜尋")
+    search_keyword = st.text_input("請輸入品名、配方編號、Pantone色號、客戶名稱…")
+
+    # ------- 進階搜尋欄展開/收合 -------
+    with st.expander("展開進階搜尋"):
+        advanced_recipe = st.text_input("配方編號", "")
+        advanced_pantone = st.text_input("Pantone色號", "")
+        advanced_customer = st.text_input("客戶編號/名稱", "")
+
+    # ------- 篩選結果 -------
     df_filtered = df.copy()
-    if st.session_state.search_recipe_code:
+
+    # 先進階搜尋（已輸入進階任何一格時，就以 AND 條件處理各自欄位）
+    if advanced_recipe:
+        df_filtered = df_filtered[df_filtered["配方編號"].str.contains(advanced_recipe, case=False, na=False)]
+    if advanced_pantone:
+        df_filtered = df_filtered[df_filtered["Pantone色號"].str.contains(advanced_pantone, case=False, na=False)]
+    if advanced_customer:
         df_filtered = df_filtered[
-            df_filtered["配方編號"].str.contains(st.session_state.search_recipe_code, case=False, na=False)
-        ]
-    if st.session_state.search_pantone:
-        df_filtered = df_filtered[
-            df_filtered["Pantone色號"].str.contains(st.session_state.search_pantone, case=False, na=False)
-        ]
-    if st.session_state.search_customer:
-        df_filtered = df_filtered[
-            df_filtered["客戶編號"].str.contains(st.session_state.search_customer, case=False, na=False) |
-            df_filtered["客戶名稱"].str.contains(st.session_state.search_customer, case=False, na=False)
+            df_filtered["客戶編號"].str.contains(advanced_customer, case=False, na=False) |
+            df_filtered["客戶名稱"].str.contains(advanced_customer, case=False, na=False)
         ]
 
-    # 搜尋空結果提示
-    if (st.session_state.search_recipe_code or st.session_state.search_pantone or st.session_state.search_customer) and df_filtered.empty:
+    # 如果沒填進階搜尋，用主搜尋欄模糊配對全部欄位（OR 條件，包含全部主要欄）
+    if not (advanced_recipe or advanced_pantone or advanced_customer):
+        if search_keyword:
+            df_filtered = df_filtered[
+                df_filtered["配方編號"].str.contains(search_keyword, case=False, na=False) |
+                df_filtered["Pantone色號"].str.contains(search_keyword, case=False, na=False) |
+                df_filtered["客戶編號"].str.contains(search_keyword, case=False, na=False) |
+                df_filtered["客戶名稱"].str.contains(search_keyword, case=False, na=False)
+            ]
+
+    # ------- 結果提示 -------
+    if ((search_keyword or advanced_recipe or advanced_pantone or advanced_customer) and df_filtered.empty):
         st.warning("❗ 查無符合的配方")
+
+    # 你可繼續顯示搜尋結果
+    # st.dataframe(df_filtered)
+
 
     st.subheader("➕ 新增 / 修改配方")
 
