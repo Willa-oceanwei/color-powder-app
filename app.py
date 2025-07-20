@@ -299,7 +299,34 @@ elif menu == "配方管理":
     import streamlit as st
 
     st.subheader("🔎 配方關鍵字搜尋")
-    search_keyword = st.text_input("請輸入品名、配方編號、Pantone色號、客戶名稱…")
+    col1, col2 = st.columns([4,1])
+    with col1:
+        search_keyword = st.text_input(
+        "搜尋（可輸入配方編號、Pantone、客戶）", 
+        value=st.session_state.get("search_keyword", "")
+        )
+    with col2:
+        if st.button("🔄 清除"):
+            search_keyword = ""
+            st.session_state["search_keyword"] = ""
+            st.experimental_rerun()
+
+    # 儲存最新 keyword 狀態
+    st.session_state["search_keyword"] = search_keyword
+
+    # 篩選
+    if search_keyword:
+        df_filtered = df[
+            df["配方編號"].str.contains(search_keyword, case=False, na=False) |
+            df["Pantone色號"].str.contains(search_keyword, case=False, na=False) |
+            df["客戶編號"].str.contains(search_keyword, case=False, na=False) |
+            df["客戶名稱"].str.contains(search_keyword, case=False, na=False)
+        ]
+    else:
+        df_filtered = df  # 或你預設的全部
+
+    if search_keyword and df_filtered.empty:
+        st.warning("❗ 查無符合的配方")
 
     # ------- 進階搜尋欄展開/收合 -------
     with st.expander("展開進階搜尋"):
