@@ -243,6 +243,7 @@ elif menu == "客戶名單":
                     st.rerun()
 
 elif menu == "配方管理":
+    
     # 載入「客戶名單」資料（假設來自 Google Sheet 工作表2）
     ws_customer = spreadsheet.worksheet("客戶名單")
     df_customers = pd.DataFrame(ws_customer.get_all_records())
@@ -311,9 +312,10 @@ elif menu == "配方管理":
     
     # 保證主表格/schema乾淨，不補「UI上」的檢索欄名
     
-    show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-    existing_cols = [col for col in show_cols if col in df.columns]
-
+    cols_needed = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
+    existing_cols = [col for col in cols_needed if col in df_filtered.columns]
+    df_filtered = df_filtered[existing_cols].copy()
+    
     # 進階搜尋 AND 邏輯
     if advanced_recipe:
         df_filtered = df_filtered[df_filtered["配方編號"].str.contains(advanced_recipe, case=False, na=False)]
