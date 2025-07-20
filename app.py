@@ -327,7 +327,7 @@ elif menu == "配方管理":
                 df_filtered["客戶編號"].str.contains(advanced_customer, case=False, na=False) |
                 df_filtered["客戶名稱"].str.contains(advanced_customer, case=False, na=False)
             ]
-     elif search_keyword:
+    elif search_keyword:
         # 只要沒開進階搜尋，才用主關鍵字全欄 OR 搜尋
         keyword = search_keyword.strip()
         df_filtered = df[
