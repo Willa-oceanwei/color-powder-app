@@ -335,8 +335,8 @@ elif menu == "配方管理":
         customer_df = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
         customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in customer_df.iterrows()]
 
-        current_customer_code = st.session_state.form_recipe.get("客戶編號", "")
-        default_customer_str = ""
+    current_customer_code = st.session_state.form_recipe.get("客戶編號", "")
+    default_customer_str = ""
     for opt in customer_options:
         if opt.startswith(current_customer_code + " -"):
             default_customer_str = opt
