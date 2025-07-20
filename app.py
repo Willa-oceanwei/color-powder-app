@@ -559,6 +559,7 @@ elif menu == "配方管理":
     # 先取得搜尋條件
     search_customer = st.text_input("搜尋客戶名稱或編號", key="search_customer")
     customer_kw = (st.session_state.get("search_customer") or "").strip()
+    search_recipe_code = (st.session_state.get("search_recipe_code") or "").strip()
 
     # 先一律定義 df_filtered
     df_filtered = df.copy()
