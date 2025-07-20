@@ -308,7 +308,7 @@ elif menu == "配方管理":
             "搜尋配方/Pantone/客戶", key="search_keyword"
         )
     with col2:
-        st.button("🔄 清除", on_click==lambda: st.session_state.update({"search_keyword": ""}))
+        st.button("🔄 清除", on_click=lambda: st.session_state.update({"search_keyword": ""}))
 
     # 下方過濾的 DataFrame
     keyword = (st.session_state.get("search_keyword") or "").strip()
