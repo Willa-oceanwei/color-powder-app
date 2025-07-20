@@ -557,8 +557,8 @@ elif menu == "配方管理":
     import streamlit as st
 
     # 先取得搜尋條件
-    search_recipe_code = (st.session_state.get("search_recipe_code") or "").strip()
-    search_customer_code = (st.session_state.get("search_customer_code") or "").strip()
+    search_customer = st.text_input("搜尋客戶名稱或編號", key="search_customer")
+    customer_kw = (st.session_state.get("search_customer") or "").strip()
 
     # 先一律定義 df_filtered
     df_filtered = df.copy()
@@ -568,10 +568,13 @@ elif menu == "配方管理":
         df_filtered = df_filtered[
             df_filtered["配方編號"].str.contains(search_recipe_code, case=False, na=False)
         ]
-    if search_customer_code:
-        df_filtered = df_filtered[
-            df_filtered["客戶編號"].str.contains(search_customer_code, case=False, na=False)
+    if customer_kw:
+        df_filtered = df[
+            df["客戶名稱"].str.contains(customer_kw, case=False, na=False) | 
+            df["客戶編號"].str.contains(customer_kw, case=False, na=False)
         ]
+    else:
+    df_filtered = df.copy()
 
     st.subheader("📦 配方清單")
     st.write("🔎 Debug >> df_filtered.head():")
