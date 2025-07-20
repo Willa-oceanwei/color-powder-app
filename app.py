@@ -585,6 +585,7 @@ elif menu == "配方管理":
 
     if not df_filtered.empty:
         show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
+        existing_cols = [col for col in show_cols if col in df_filtered.columns]
         show_cols = [c for c in show_cols if c in df_filtered.columns]
         st.dataframe(df_filtered[show_cols], use_container_width=True)
 
