@@ -600,9 +600,9 @@ elif menu == "配方管理":
 
     if search_recipe_code or search_customer_code:
     # （假設這裡過濾 df 得到 df_filtered）
-    if not df_filtered.empty:
-        selected_code = st.selectbox("選擇配方編號", df_filtered["配方編號"].tolist())
-        st.dataframe(df_filtered[["配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "建檔時間"]], use_container_width=True)
+        if not df_filtered.empty:
+            selected_code = st.selectbox("選擇配方編號", df_filtered["配方編號"].tolist())
+            st.dataframe(df_filtered[["配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "建檔時間"]], use_container_width=True)
 
         col1, col2 = st.columns(2)
         if col1.button("✏️ 修改"):
