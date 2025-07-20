@@ -598,7 +598,7 @@ elif menu == "配方管理":
         # 選擇要操作的配方編號
         selected_code = st.selectbox("選擇配方編號", options=display_df["配方編號"].tolist())
 
-if search_recipe_code or search_customer_code:
+    if search_recipe_code or search_customer_code:
     # （假設這裡過濾 df 得到 df_filtered）
     if not df_filtered.empty:
         selected_code = st.selectbox("選擇配方編號", df_filtered["配方編號"].tolist())
