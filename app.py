@@ -559,8 +559,12 @@ elif menu == "配方管理":
 
     customer_kw = (st.session_state.get("search_customer") or "").strip()
     recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
-    st.write("debug", customer_kw, recipe_kw)  # debug用
-
+    # ======= 這邊加 debug ==========
+    st.write('df.shape', df.shape)
+    st.write('df.columns', df.columns.tolist())
+    st.write('df.head()', df.head())
+    st.write('df_filtered.shape', df_filtered.shape)
+    # ===============================
     df_filtered = df.copy()
 
     if recipe_kw:
