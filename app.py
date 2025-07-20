@@ -574,7 +574,7 @@ elif menu == "配方管理":
             df["客戶編號"].str.contains(customer_kw, case=False, na=False)
         ]
     else:
-    df_filtered = df.copy()
+        df_filtered = df.copy()
 
     st.subheader("📦 配方清單")
     st.write("🔎 Debug >> df_filtered.head():")
