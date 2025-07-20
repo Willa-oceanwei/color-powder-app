@@ -316,7 +316,7 @@ elif menu == "配方管理":
     
     cols_needed = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [col for col in cols_needed if col in df_filtered.columns]
-    df_filtered = df_filtered[existing_cols].copy()
+    
     
     # 進階搜尋 AND 邏輯
     if advanced_recipe:
