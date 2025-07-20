@@ -553,17 +553,19 @@ elif menu == "配方管理":
     
     import streamlit as st
 
-    #---配方清單----
+    #---配方清單區----
     search_customer = st.text_input("搜尋客戶名稱或編號", key="search_customer")
     customer_kw = (st.session_state.get("search_customer") or "").strip()
-    search_recipe_code = (st.session_state.get("search_recipe_code") or "").strip()
+    search_recipe_code = st.text_input("搜尋配方編號", key="search_recipe_code")
+    search_recipe_code = (search_recipe_code or "").strip()
 
-    # 只初始化一次！
+    # 初始化一次（必須放filter前）
     df_filtered = df.copy()
 
+    # 條件都針對目前已過濾的df_filtered疊加下去
     if search_recipe_code:
         df_filtered = df_filtered[
-           df_filtered["配方編號"].str.contains(search_recipe_code, case=False, na=False)
+            df_filtered["配方編號"].str.contains(search_recipe_code, case=False, na=False)
         ]
     if customer_kw:
         df_filtered = df_filtered[
@@ -577,10 +579,8 @@ elif menu == "配方管理":
 
     if not df_filtered.empty:
         st.dataframe(df_filtered[existing_cols], use_container_width=True)
-    else:
-        st.info("查無符合條件的配方。")
 
-    # 下拉、編輯、刪除等互動，都用這份過濾後的 df_filtered
+        # 下拉、編輯、刪除等互動（這裡縮排跟上面 if 對齊，不要再縮進 else）
         code_list = df_filtered["配方編號"].dropna().tolist()
         if code_list:
             selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code")
@@ -601,4 +601,5 @@ elif menu == "配方管理":
                 st.error(f"❗ 資料選擇錯誤：{e}")
         else:
             st.info("🟦 沒有可選的配方編號")
-   
+    else:
+        st.info("查無符合條件的配方。")
