@@ -586,12 +586,6 @@ elif menu == "配方管理":
     else:
         st.info("查無符合條件的配方。")
 
-    if not df_filtered.empty:
-        show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-        existing_cols = [col for col in show_cols if col in df_filtered.columns]
-        
-        st.dataframe(df_filtered[show_cols], use_container_width=True)
-
         code_list = df_filtered["配方編號"].dropna().tolist()
         if code_list:
             selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code")
