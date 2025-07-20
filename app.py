@@ -309,6 +309,8 @@ elif menu == "配方管理":
         advanced_recipe = st.text_input("配方編號", key="advanced_recipe")
         advanced_pantone = st.text_input("Pantone色號", key="advanced_pantone")
         advanced_customer = st.text_input("客戶編號/名稱", key="advanced_customer")
+
+    df_filtered = df.copy()
     
     # 保證主表格/schema乾淨，不補「UI上」的檢索欄名
     
