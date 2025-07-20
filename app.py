@@ -299,44 +299,7 @@ elif menu == "配方管理":
     col1, col2, col3 = st.columns(3)
     with col1:
         st.session_state.search_recipe_code = st.text_input("配方搜尋", st.session_state.search_recipe_code or "")
-        if st.button("🔄 清除"):
-            # 清空搜尋條件
-            st.session_state.search_recipe_code = ""
-            st.session_state.search_customer_code = ""
-
-            # 清空新增配方資料
-            st.session_state.form_recipe = {
-                "配方編號": "",
-                "顏色": "",
-                "客戶編號": "",
-                "配方類別": "原始配方",
-                "狀態": "啟用",
-                "原始配方": "",
-                "色粉類別": "配方",
-                "計量單位": "包",
-                "Pantone色號": "",
-                "比例1": "",
-                "比例2": "",
-                "比例3": "",
-                "備註": "",
-                "淨重": "",
-                "淨重單位": "g",
-                "色粉編號1": "", "色粉重量1": "",
-                "色粉編號2": "", "色粉重量2": "",
-                "色粉編號3": "", "色粉重量3": "",
-                "色粉編號4": "", "色粉重量4": "",
-                "色粉編號5": "", "色粉重量5": "",
-                "色粉編號6": "", "色粉重量6": "",
-                "色粉編號7": "", "色粉重量7": "",
-                "色粉編號8": "", "色粉重量8": "",
-                "合計類別": "",
-            }
-
-            # 若有編輯索引，也一併清除
-            st.session_state.edit_recipe_index = None
-            st.session_state.delete_recipe_index = None
-            st.session_state.show_delete_recipe_confirm = False
-            st.rerun()  # 重新整理畫面
+        reset_btn = st.button("🔄 清除")
     with col2:
         st.session_state.search_pantone = st.text_input("Pantone色號搜尋", st.session_state.search_pantone or "")
     with col3:
