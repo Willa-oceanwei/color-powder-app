@@ -321,8 +321,7 @@ elif menu == "配方管理":
         ]
     else:
         df_filtered = df
-    st.dataframe(df_filtered)    
-
+    
     if search_keyword and df_filtered.empty:
         st.warning("❗ 查無符合的配方")
 
