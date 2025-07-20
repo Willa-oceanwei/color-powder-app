@@ -569,6 +569,7 @@ elif menu == "配方管理":
     st.session_state.form_recipe["客戶名稱"] = 客戶簡稱   
     
     # ===== 配方清單 =====
+
     def safe_rerun():
         try:
             st.experimental_rerun()
@@ -578,43 +579,44 @@ elif menu == "配方管理":
     search_recipe_code = (st.session_state.get("search_recipe_code") or "").strip()
     search_customer_code = (st.session_state.get("search_customer_code") or "").strip()
 
+    # ==== 搜尋條件（只要任一有填就搜尋） ====
     if search_recipe_code or search_customer_code:
         st.markdown("### 🔍 搜尋結果")
+        # 篩選資料
+        df_filtered = df[
+            df["配方編號"].str.contains(search_recipe_code, case=False, na=False) &
+            df["客戶編號"].str.contains(search_customer_code, case=False, na=False)
+        ].copy()
 
-    # 篩選資料（依你實際 df 來源修改）
-    df_filtered = df[
-        df["配方編號"].str.contains(search_recipe_code, case=False, na=False) &
-        df["客戶編號"].str.contains(search_customer_code, case=False, na=False)
-    ].copy()
-
-    if not df_filtered.empty:
-        # 顯示資料表（純展示，不可編輯）
-        display_df = df_filtered.copy()
-        display_df["建檔時間"] = pd.to_datetime(display_df["建檔時間"], errors="coerce").dt.strftime("%y/%m/%d")
-        st.dataframe(display_df[[
-            "配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "建檔時間"
-        ]], use_container_width=True)
-
-        # 選擇要操作的配方編號
-        selected_code = st.selectbox("選擇配方編號", options=display_df["配方編號"].tolist())
-
-    if search_recipe_code or search_customer_code:
-    # （假設這裡過濾 df 得到 df_filtered）
         if not df_filtered.empty:
-            selected_code = st.selectbox("選擇配方編號", df_filtered["配方編號"].tolist())
-            st.dataframe(df_filtered)
+            # 顯示結果表
+            display_df = df_filtered.copy()
+            display_df["建檔時間"] = pd.to_datetime(display_df["建檔時間"], errors="coerce").dt.strftime("%y/%m/%d")
+            st.dataframe(
+                display_df[["配方編號", "顏色", "客戶編號", "客戶名稱", "Pantone色號", "建檔時間"]],
+                use_container_width=True
+            )
 
-        col1, col2 = st.columns(2)
-        if col1.button("✏️ 修改"):
-            st.session_state.edit_recipe_index = selected_idx
-            st.session_state.form_recipe = df.loc[selected_idx].to_dict()
-            safe_rerun()
-        if col2.button("🗑️ 刪除"):
-            st.session_state.delete_recipe_index = selected_idx
-            st.session_state.show_delete_recipe_confirm = True
-            safe_rerun()
+            # 下拉選單選編輯對象
+            selected_code = st.selectbox("選擇配方編號", list(display_df["配方編號"]))
+
+            # 找出這筆 selected_code 的 dataframe index
+            selected_idx = df.index[df["配方編號"] == selected_code][0]
+
+            # 操作按鈕
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✏️ 修改", key="edit_btn"):
+                    st.session_state.edit_recipe_index = selected_idx
+                    st.session_state.form_recipe = df.loc[selected_idx].to_dict()
+                    safe_rerun()
+            with col2:
+                if st.button("🗑️ 刪除", key="del_btn"):
+                    st.session_state.delete_recipe_index = selected_idx
+                    st.session_state.show_delete_recipe_confirm = True
+                    safe_rerun()
+        else:
+            st.info("查無符合資料。")
+
     else:
-        st.info("查無符合資料。")
-
-else:
-    st.write("尚未輸入搜尋條件或無資料。")
+        st.write("尚未輸入搜尋條件或無資料。")
