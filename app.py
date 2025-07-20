@@ -553,15 +553,16 @@ elif menu == "配方管理":
     
     import streamlit as st
 
+    # 1. 搜尋欄，設好 key
     search_recipe_code = st.text_input("搜尋配方編號", key="search_recipe_code")
     search_customer = st.text_input("搜尋客戶名稱或編號", key="search_customer")
 
-    # 只用 session_state 取值做過濾！
+    # 2. 只用 session_state 取值做過濾！
     recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
     customer_kw = (st.session_state.get("search_customer") or "").strip()
+    st.write("debug:", recipe_kw, customer_kw)  # 看你打了什麼
 
-    st.write("debug", recipe_kw, customer_kw)  # 你輸入什麼，馬上會顯示 session_state 目前內容！
-
+    # 3. 單一唯一 filter
     df_filtered = df.copy()
     if recipe_kw:
         df_filtered = df_filtered[
@@ -572,17 +573,10 @@ elif menu == "配方管理":
             df_filtered["客戶名稱"].str.contains(customer_kw, case=False, na=False) |
             df_filtered["客戶編號"].str.contains(customer_kw, case=False, na=False)
         ]
-    st.write("df_filtered.shape", df_filtered.shape)  # 應該會變動
 
-    show_cols = [...]  # 你的主欄位
-    existing_cols = [col for col in show_cols if col in df_filtered.columns]
+    st.write("df_filtered.shape", df_filtered.shape)  # 應該有變動
 
-    if not df_filtered.empty:
-        st.dataframe(df_filtered[existing_cols])
-    else:
-        st.info("查無符合條件的配方。")
-
-
+    # 4. 唯一的主顯示區
     st.subheader("📦 配方清單")
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [col for col in show_cols if col in df_filtered.columns]
