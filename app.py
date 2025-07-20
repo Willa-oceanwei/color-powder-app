@@ -312,30 +312,31 @@ elif menu == "配方管理":
     # --------- 單一來源，正確 df_filtered only ---------
     df_filtered = df.copy()
 
-    if advanced_recipe or advanced_pantone or advanced_customer:
-        # 進階搜尋（多欄複合）
-        if advanced_recipe:
+    if st.session_state.get("advanced_recipe"):
+        df_filtered = df_filtered[
+            df_filtered["配方編號"].str.contains(st.session_state["advanced_recipe"], case=False, na=False)
+    ]
+    if st.session_state.get("advanced_pantone"):
+        df_filtered = df_filtered[
+            df_filtered["Pantone色號"].str.contains(st.session_state["advanced_pantone"], case=False, na=False)
+    ]
+    if st.session_state.get("advanced_customer"):
+        df_filtered = df_filtered[
+            df_filtered["客戶編號"].str.contains(st.session_state["advanced_customer"], case=False, na=False) |
+            df_filtered["客戶名稱"].str.contains(st.session_state["advanced_customer"], case=False, na=False)
+    ]
+
+    # 如果進階搜尋全沒填，才用主要搜尋 keyword（主要採 OR，四欄都可模糊配對）
+    if not (st.session_state.get("advanced_recipe") or st.session_state.get("advanced_pantone") or st.session_state.get("advanced_customer")):
+        keyword = (st.session_state.get("search_keyword") or "").strip()
+        if keyword:
             df_filtered = df_filtered[
-                df_filtered["配方編號"].str.contains(advanced_recipe, case=False, na=False)
+                df_filtered["配方編號"].str.contains(keyword, case=False, na=False) |
+                df_filtered["Pantone色號"].str.contains(keyword, case=False, na=False) |
+                df_filtered["客戶編號"].str.contains(keyword, case=False, na=False) |
+                df_filtered["客戶名稱"].str.contains(keyword, case=False, na=False)
             ]
-        if advanced_pantone:
-            df_filtered = df_filtered[
-                df_filtered["Pantone色號"].str.contains(advanced_pantone, case=False, na=False)
-            ]
-        if advanced_customer:
-            df_filtered = df_filtered[
-                df_filtered["客戶編號"].str.contains(advanced_customer, case=False, na=False) |
-                df_filtered["客戶名稱"].str.contains(advanced_customer, case=False, na=False)
-            ]
-    elif search_keyword:
-        # 只要沒開進階搜尋，才用主關鍵字全欄 OR 搜尋
-        keyword = search_keyword.strip()
-        df_filtered = df[
-            df["配方編號"].str.contains(keyword, case=False, na=False) |
-            df["Pantone色號"].str.contains(keyword, case=False, na=False) |
-            df["客戶編號"].str.contains(keyword, case=False, na=False) |
-            df["客戶名稱"].str.contains(keyword, case=False, na=False)
-        ]
+
     else:
         # 沒有搜尋，全部顯示
         df_filtered = df
