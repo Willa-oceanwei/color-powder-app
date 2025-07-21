@@ -360,8 +360,13 @@ elif menu == "配方管理":
         ]
 
     if pantone_kw:
+        pantone_kw_clean = pantone_kw.strip().replace(" ", "").upper()
         df_filtered = df_filtered[
-            df_filtered["Pantone色號"].astype(str).str.strip().str.contains(pantone_kw, case=False, na=False)
+            df_filtered["Pantone色號"].notna() &  # 排除 NaN
+            (df_filtered["Pantone色號"].astype(str).str.strip() != "") &  # 排除空字串
+            df_filtered["Pantone色號"]
+                .astype(str).str.replace(" ", "").str.upper()
+                .str.contains(pantone_kw_clean, na=False)
         ]
         
          
