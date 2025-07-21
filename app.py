@@ -609,8 +609,9 @@ elif menu == "配方管理":
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [col for col in show_cols if col in df_filtered.columns]
 
-    st.write(f"篩選後筆數：{len(df_filtered)}")
-    st.write(f"顯示欄位：{existing_cols}")
+    st.write("df_filtered 預覽：", df_filtered.head())
+    st.write("existing_cols：", existing_cols)
+    st.write("df_filtered shape：", df_filtered.shape)
 
     if not df_filtered.empty and existing_cols:
         # ✅ 顯示表格（已正確用 df_filtered）
