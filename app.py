@@ -323,12 +323,7 @@ elif menu == "配方管理":
     with col3:
         search_pantone_top = st.text_input("Pantone色號", key="search_pantone_top")
 
-    if st.button("同步搜尋欄位內容到下方"):
-        st.session_state["search_recipe_code_bottom"] = st.session_state.get("search_recipe_code_top", "")
-        st.session_state["search_customer_bottom"] = st.session_state.get("search_customer_top", "")
-        st.session_state["search_pantone_bottom"] = st.session_state.get("search_pantone_top", "")
-        st.rerun()
-
+    
         
     st.subheader("➕ 新增 / 修改配方")
 
