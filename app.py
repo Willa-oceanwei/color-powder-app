@@ -303,7 +303,6 @@ elif menu == "配方管理":
         except:
             df = pd.DataFrame(columns=columns)
 
-        df = pd.DataFrame(ws_recipe.get_all_records())
         df = df.astype(str)
         for col in columns:
             if col not in df.columns:
