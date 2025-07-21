@@ -348,9 +348,6 @@ elif menu == "配方管理":
         ]
     if pantone_kw:
         df_filtered = df_filtered[df_filtered["Pantone色號"].str.contains(pantone_kw, case=False, na=False)]
-    # 顯示 debug
-    st.write("Pantone 搜尋關鍵字：", pantone_kw)
-    st.write("df 欄位：", df_filtered.columns.tolist())
     
     st.subheader("➕ 新增 / 修改配方")
 
