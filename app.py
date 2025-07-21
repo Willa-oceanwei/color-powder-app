@@ -333,9 +333,7 @@ elif menu == "配方管理":
     df_filtered = df[mask]
 
     st.write(f"🎯 篩選後筆數：{df_filtered.shape[0]}")
-menu = st.sidebar.selectbox("選擇功能", ["首頁", "配方管理", "其他功能"])
-if menu == "配方管理":
-    
+
  
     st.subheader("➕ 新增 / 修改配方")
 
