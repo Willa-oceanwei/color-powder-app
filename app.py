@@ -323,7 +323,7 @@ elif menu == "配方管理":
     with col2:
         st.text_input("客戶名稱或編號", key="search_customer")
     with col3:
-        st.text_input("Pantone 色號", key="search_pantone")
+        st.text_input("Pantone色號", key="search_pantone")
 
     # --- 🔄 清除按鈕 ---
     if st.button("🔄 清除搜尋條件"):
