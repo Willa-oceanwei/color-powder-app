@@ -334,8 +334,8 @@ elif menu == "配方管理":
 
     # 讀取目前輸入的搜尋條件
     recipe_kw = st.session_state.get("search_recipe_code", "").strip()
-    customer_kw = st.session_state.get("search_customer", "").strip()
-    pantone_kw = st.session_state.get("search_pantone", "").strip()
+    color_kw = st.session_state.get("search_color_name", "").strip()
+    client_kw = st.session_state.get("search_client_code", "").strip()
 
     # 3. 套用篩選條件
     df_filtered = df.copy()
