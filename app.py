@@ -610,13 +610,13 @@ elif menu == "配方管理":
     existing_cols = [col for col in show_cols if col in df_filtered.columns]
 
     if not df_filtered.empty and existing_cols:
-    st.dataframe(df_filtered[existing_cols], use_container_width=True)
+        st.dataframe(df_filtered[existing_cols], use_container_width=True)
 
-    st.write("df_filtered 預覽：", df_filtered.head())
-    st.write("existing_cols：", existing_cols)
-    st.write("df_filtered shape：", df_filtered.shape)
-    st.write("🔍 除錯：df_filtered 正文內容")
-    st.write(df_filtered)
+        st.write("df_filtered 預覽：", df_filtered.head())
+        st.write("existing_cols：", existing_cols)
+        st.write("df_filtered shape：", df_filtered.shape)
+        st.write("🔍 除錯：df_filtered 正文內容")
+        st.write(df_filtered)
 
     if not df_filtered.empty and existing_cols:
         # ✅ 顯示表格（已正確用 df_filtered）
