@@ -576,8 +576,6 @@ elif menu == "配方管理":
             df_filtered["客戶編號"].str.contains(customer_kw, case=False, na=False)
         ]
 
-    st.write("df_filtered.shape", df_filtered.shape)  # 應該有變動
-
     # 3. 唯一的主顯示區
     # --- 📦 主清單顯示區 ---
     st.subheader("📦 配方清單")
