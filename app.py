@@ -345,17 +345,24 @@ elif menu == "配方管理":
         })
         st.write("📋 Pantone色號 範例值：", df["Pantone色號"].dropna().unique().tolist()[:10])    
 
-    # --- ✅ 篩選邏輯 ---
     df_filtered = df.copy()
+
     if recipe_kw:
-        df_filtered = df_filtered[df_filtered["配方編號"].str.contains(recipe_kw, case=False, na=False)]
+        df_filtered = df_filtered[
+            df_filtered["配方編號"].astype(str).str.strip().str.contains(recipe_kw, case=False, na=False)
+        ]
+        
+    # --- ✅ 篩選邏輯 ---
     if customer_kw:
         df_filtered = df_filtered[
-            df_filtered["客戶名稱"].str.contains(customer_kw, case=False, na=False) |
-            df_filtered["客戶編號"].str.contains(customer_kw, case=False, na=False)
+            df_filtered["客戶名稱"].astype(str).str.strip().str.contains(customer_kw, case=False, na=False) |
+            df_filtered["客戶編號"].astype(str).str.strip().str.contains(customer_kw, case=False, na=False)
         ]
+
     if pantone_kw:
-        df_filtered = df_filtered[df_filtered["Pantone色號"].str.contains(pantone_kw, case=False, na=False)]
+        df_filtered = df_filtered[
+            df_filtered["Pantone色號"].astype(str).str.strip().str.contains(pantone_kw, case=False, na=False)
+        ]
     
     st.subheader("➕ 新增 / 修改配方")
 
