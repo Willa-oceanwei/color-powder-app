@@ -581,23 +581,34 @@ elif menu == "配方管理":
     st.session_state.form_recipe["客戶編號"] = 客戶編號
     st.session_state.form_recipe["客戶名稱"] = 客戶簡稱   
     
-    import streamlit as st
+    import pandas as pd
 
-    # 1. 只用 session_state 取值做過濾！
-    recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
-    customer_kw = (st.session_state.get("search_customer") or "").strip()
-    
-    # 2. 單一唯一 filter
+    # 從 session_state 取得搜尋字串（如果有輸入）
+    recipe_kw = (st.session_state.get("recipe_kw") or "").strip()
+    customer_kw = (st.session_state.get("customer_kw") or "").strip()
+    pantone_kw = (st.session_state.get("pantone_kw") or "").strip()
+
+    # 原始資料
     df_filtered = df.copy()
+
+    # 初始化布林遮罩（全部為 True）
+    mask = pd.Series(True, index=df.index)
+
+    # 依條件逐項過濾（多條件 AND）
     if recipe_kw:
-        df_filtered = df_filtered[
-            df_filtered["配方編號"].str.contains(recipe_kw, case=False, na=False)
-        ]
+        mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
+
     if customer_kw:
-        df_filtered = df_filtered[
-            df_filtered["客戶名稱"].str.contains(customer_kw, case=False, na=False) |
-            df_filtered["客戶編號"].str.contains(customer_kw, case=False, na=False)
-        ]
+        mask &= (
+            df["客戶名稱"].astype(str).str.contains(customer_kw, case=False, na=False) |
+            df["客戶編號"].astype(str).str.contains(customer_kw, case=False, na=False)
+        )
+
+    if pantone_kw:
+        mask &= df["Pantone色號"].astype(str).str.contains(pantone_kw, case=False, na=False)
+
+    # 套用遮罩，完成篩選
+    df_filtered = df[mask]
 
     # 3. 唯一的主顯示區
     # --- 📦 主清單顯示區 ---
