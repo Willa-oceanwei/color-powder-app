@@ -314,21 +314,21 @@ elif menu == "配方管理":
     
     st.subheader("🎯配方管理系統")
 
-    st.subheader("🔎 搜尋配方（上方）")
+    st.subheader("上方搜尋區")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.text_input("配方編號", key="search_recipe_code")
+        search_recipe_top = st.text_input("配方編號", key="search_recipe_code_top")
     with col2:
-        st.text_input("客戶名稱或編號", key="search_customer")
+        search_customer_top = st.text_input("客戶名稱或編號", key="search_customer_top")
     with col3:
-        st.text_input("Pantone色號", key="search_pantone")
+        search_pantone_top = st.text_input("Pantone色號", key="search_pantone_top")
 
-    # 上方清除按鈕（key 不同即可避免衝突）
-    if st.button("🔄 清除搜尋條件（上方）", key="clear_btn_top"):
-        for key in ["search_recipe_code", "search_customer", "search_pantone"]:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.rerun()
+    if st.button("同步搜尋欄位內容到下方"):
+        st.session_state["search_recipe_code_bottom"] = st.session_state.get("search_recipe_code_top", "")
+        st.session_state["search_customer_bottom"] = st.session_state.get("search_customer_top", "")
+        st.session_state["search_pantone_bottom"] = st.session_state.get("search_pantone_top", "")
+        st.experimental_rerun()
+
         
     st.subheader("➕ 新增 / 修改配方")
 
@@ -575,21 +575,21 @@ elif menu == "配方管理":
     # 3. 唯一的主顯示區
     # --- 🔍 搜尋列區塊 ---
 
-    st.subheader("🔎 搜尋配方（下方）")
+    st.subheader("下方搜尋區")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.text_input("配方編號", key="search_recipe_code")
+        search_recipe_bottom = st.text_input("配方編號", key="search_recipe_code_bottom")
     with col2:
-        st.text_input("客戶名稱或編號", key="search_customer")
+        search_customer_bottom = st.text_input("客戶名稱或編號", key="search_customer_bottom")
     with col3:
-        st.text_input("Pantone色號", key="search_pantone")
+        search_pantone_bottom = st.text_input("Pantone色號", key="search_pantone_bottom")
 
-    # 下方清除按鈕 key 也不同
-    if st.button("🔄 清除搜尋條件（下方）", key="clear_btn_bottom"):
-        for key in ["search_recipe_code", "search_customer", "search_pantone"]:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.rerun()
+    # 用這組輸入的資料做搜尋
+    search_recipe = search_recipe_bottom or search_recipe_top
+    search_customer = search_customer_bottom or search_customer_top
+    search_pantone = search_pantone_bottom or search_pantone_top
+
+    st.write(f"搜尋條件：配方編號={search_recipe}, 客戶名稱={search_customer}, Pantone={search_pantone}")
 
     # 取搜尋關鍵字
     recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
