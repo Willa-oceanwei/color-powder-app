@@ -327,7 +327,7 @@ elif menu == "配方管理":
         st.session_state["search_recipe_code_bottom"] = st.session_state.get("search_recipe_code_top", "")
         st.session_state["search_customer_bottom"] = st.session_state.get("search_customer_top", "")
         st.session_state["search_pantone_bottom"] = st.session_state.get("search_pantone_top", "")
-        st.experimental_rerun()
+        st.rerun()
 
         
     st.subheader("➕ 新增 / 修改配方")
