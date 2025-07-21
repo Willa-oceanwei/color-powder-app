@@ -319,25 +319,13 @@ elif menu == "配方管理":
     # 建立三欄搜尋欄位（綁定 key）
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.text_input("配方編號", key="top_search_recipe_code")
+        recipe_kw = st.text_input("配方編號").strip()
     with col2:
-        st.text_input("客戶名稱或編號", key="top_search_customer")
+        customer_kw = st.text_input("客戶名稱或編號").strip()
     with col3:
-        st.text_input("Pantone 色號", key="top_search_pantone")
+        pantone_kw = st.text_input("Pantone 色號").strip()
 
-    # 🔄 清除搜尋條件（改為 del，而非直接賦空值）
-    if st.button("🔄 清除搜尋條件"):
-        for key in ["top_search_recipe_code", "top_search_customer", "top_search_pantone"]:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.rerun()
-
-    # 安全地讀取 session_state 的值
-    recipe_kw = st.session_state.get("top_search_recipe_code", "").strip()
-    customer_kw = st.session_state.get("top_search_customer", "").strip()
-    pantone_kw = st.session_state.get("top_search_pantone", "").strip()
-
-    # 🔎 過濾資料
+    # 3. 套用篩選條件
     df_filtered = df.copy()
     if recipe_kw:
         df_filtered = df_filtered[df_filtered["配方編號"].str.contains(recipe_kw, case=False, na=False)]
@@ -347,7 +335,7 @@ elif menu == "配方管理":
             df_filtered["客戶編號"].str.contains(customer_kw, case=False, na=False)
         ]
     if pantone_kw:
-       df_filtered = df_filtered[df_filtered["Pantone色號"].str.contains(pantone_kw, case=False, na=False)]
+        df_filtered = df_filtered[df_filtered["Pantone色號"].str.contains(pantone_kw, case=False, na=False)]
     
     st.subheader("➕ 新增 / 修改配方")
 
