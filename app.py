@@ -562,8 +562,7 @@ elif menu == "配方管理":
     # 1. 只用 session_state 取值做過濾！
     recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
     customer_kw = (st.session_state.get("search_customer") or "").strip()
-    st.write("debug:", recipe_kw, customer_kw)  # 看你打了什麼
-
+    
     # 2. 單一唯一 filter
     df_filtered = df.copy()
     if recipe_kw:
