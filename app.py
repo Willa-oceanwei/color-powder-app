@@ -353,6 +353,12 @@ elif menu == "配方管理":
         ]
         
     # --- ✅ 篩選邏輯 ---
+    # 🔍 初始化條件遮罩
+    if df.empty:
+        df_filtered = df.copy()  # 若原始資料為空，直接回傳空表
+    else:
+        mask = pd.Series(True, index=df.index)
+        
     # 🔍 配方編號
     if recipe_kw:
         mask &= df["配方編號"].astype(str).str.strip().str.contains(recipe_kw, case=False, na=False)
