@@ -299,28 +299,30 @@ elif menu == "配方管理":
 
     # -- UI區 --
     # --- 🔍 搜尋列區塊（頁面最上方） ---
+    # --- 🔍 搜尋列區塊（頁面最上方） ---
     st.subheader("🔎 搜尋配方")
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        recipe_kw = st.text_input("配方編號").strip()
+        st.text_input("配方編號", key="top_search_recipe_code")
     with col2:
-        customer_kw = st.text_input("客戶名稱或編號").strip()
+        st.text_input("客戶名稱或編號", key="top_search_customer")
     with col3:
-        pantone_kw = st.text_input("Pantone 色號").strip()
+        st.text_input("Pantone 色號", key="top_search_pantone")
 
+    # 🔄 清除按鈕
     if st.button("🔄 清除搜尋條件"):
         st.session_state["top_search_recipe_code"] = ""
         st.session_state["top_search_customer"] = ""
         st.session_state["top_search_pantone"] = ""
         st.rerun()
 
+    # 正確地從 session_state 讀取值
     recipe_kw = st.session_state.get("top_search_recipe_code", "").strip()
     customer_kw = st.session_state.get("top_search_customer", "").strip()
     pantone_kw = st.session_state.get("top_search_pantone", "").strip()
-    
+
     df_filtered = df.copy()
-    
     if recipe_kw:
         df_filtered = df_filtered[df_filtered["配方編號"].str.contains(recipe_kw, case=False, na=False)]
     if customer_kw:
