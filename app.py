@@ -318,6 +318,7 @@ elif menu == "配方管理":
 
     # 建立三欄搜尋欄位（綁定 key）
     col1, col2, col3 = st.columns(3)
+
     with col1:
         st.text_input("配方編號", key="search_recipe_code")
     with col2:
@@ -325,19 +326,19 @@ elif menu == "配方管理":
     with col3:
         st.text_input("Pantone 色號", key="search_pantone")
 
-     # 🔄 清除搜尋條件（刪除 session_state 內的 key 並重新載入）
+    # 🔄 清除搜尋條件（刪除 session_state 內的 key 並重新載入）
     if st.button("🔄 清除搜尋條件"):
         for key in ["search_recipe_code", "search_customer", "search_pantone"]:
             if key in st.session_state:
                 del st.session_state[key]
         st.rerun()
 
-    # 讀取目前輸入的搜尋條件
+    # ✅ 正確取得搜尋關鍵字
     recipe_kw = st.session_state.get("search_recipe_code", "").strip()
-    color_kw = st.session_state.get("search_color_name", "").strip()
-    client_kw = st.session_state.get("search_client_code", "").strip()
+    customer_kw = st.session_state.get("search_customer", "").strip()
+    pantone_kw = st.session_state.get("search_pantone", "").strip()
 
-    # 3. 套用篩選條件
+    # ✅ 進行篩選
     df_filtered = df.copy()
     if recipe_kw:
         df_filtered = df_filtered[df_filtered["配方編號"].str.contains(recipe_kw, case=False, na=False)]
