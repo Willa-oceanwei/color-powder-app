@@ -332,10 +332,15 @@ elif menu == "配方管理":
         st.rerun()
     
     # --- ✅ 搜尋條件處理 ---
-    ecipe_kw = st.session_state.get("search_recipe_code", "").strip()
-    customer_kw = st.session_state.get("search_customer", "").strip()
-    pantone_kw = st.session_state.get("search_pantone", "").strip()
-    
+    recipe_kw = st.session_state["search_recipe_code"] if "search_recipe_code" in st.session_state else ""
+    customer_kw = st.session_state["search_customer"] if "search_customer" in st.session_state else ""
+    pantone_kw = st.session_state["search_pantone"] if "search_pantone" in st.session_state else ""
+
+    # 去除空白字元
+    recipe_kw = recipe_kw.strip()
+    customer_kw = customer_kw.strip()
+    pantone_kw = pantone_kw.strip()
+ 
     # 初始化布林遮罩（全部為 True）
     mask = pd.Series(True, index=df.index)
 
