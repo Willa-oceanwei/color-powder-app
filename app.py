@@ -347,9 +347,6 @@ elif menu == "配方管理":
 
     df_filtered = df.copy()
 
-         
-    st.write("🎯 篩選後筆數：", df_filtered.shape[0])
-
     if recipe_kw:
         df_filtered = df_filtered[
             df_filtered["配方編號"].astype(str).str.strip().str.contains(recipe_kw, case=False, na=False)
@@ -366,6 +363,10 @@ elif menu == "配方管理":
         df_filtered = df_filtered[
             df_filtered["Pantone色號"].astype(str).str.strip().str.contains(pantone_kw, case=False, na=False)
         ]
+        
+         
+    st.write("🎯 篩選後筆數：", df_filtered.shape[0])
+
     
     st.subheader("➕ 新增 / 修改配方")
 
