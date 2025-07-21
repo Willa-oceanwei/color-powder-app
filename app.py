@@ -314,7 +314,7 @@ elif menu == "配方管理":
     
     st.subheader("🎯配方管理系統")
 
-    st.subheader("上方搜尋區")
+    st.subheader("🔎上方搜尋區")
     col1, col2, col3 = st.columns(3)
     with col1:
         search_recipe_top = st.text_input("配方編號", key="search_recipe_code_top")
@@ -570,7 +570,7 @@ elif menu == "配方管理":
     # 3. 唯一的主顯示區
     # --- 🔍 搜尋列區塊 ---
 
-    st.subheader("下方搜尋區")
+    st.subheader("🔎下方搜尋區")
     col1, col2, col3 = st.columns(3)
     with col1:
         search_recipe_bottom = st.text_input("配方編號", key="search_recipe_code_bottom")
