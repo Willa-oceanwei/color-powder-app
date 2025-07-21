@@ -589,8 +589,6 @@ elif menu == "配方管理":
     search_customer = search_customer_bottom or search_customer_top
     search_pantone = search_pantone_bottom or search_pantone_top
 
-    st.write(f"搜尋條件：配方編號={search_recipe}, 客戶名稱={search_customer}, Pantone={search_pantone}")
-
     # 取搜尋關鍵字
     recipe_kw = (st.session_state.get("search_recipe_code_bottom") or st.session_state.get("search_recipe_code_top") or "").strip()
     customer_kw = (st.session_state.get("search_customer_bottom") or st.session_state.get("search_customer_top") or "").strip()
