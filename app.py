@@ -242,15 +242,48 @@ elif menu == "客戶名單":
                     st.session_state.show_delete_customer_confirm = True
                     st.rerun()
 
-elif menu == "配方管理":
-    
-    # 載入「客戶名單」資料（假設來自 Google Sheet 工作表2）
+import streamlit as st
+import pandas as pd
+
+def init_states(columns):
+    """
+    初始化 session_state，確保需要的變數都有預設值，
+    字串搜尋鍵為空字串，其他則為 None 或空字典。
+    """
+    keys_str = ["search_recipe_code", "search_customer", "search_pantone"]
+    keys_other = ["form_recipe", "edit_recipe_index", "delete_recipe_index", "show_delete_recipe_confirm"]
+
+    for k in keys_str:
+        if k not in st.session_state:
+            st.session_state[k] = ""
+    for k in keys_other:
+        if k not in st.session_state:
+            st.session_state[k] = None
+    # form_recipe 初始化成包含所有欄位的空字串字典
+    if st.session_state.form_recipe is None:
+        st.session_state.form_recipe = {col: "" for col in columns}
+
+def load_or_init_df(ws_recipe, columns):
+    """
+    從 Google Sheet 讀取資料或初始化空的 DataFrame。
+    """
+    try:
+        df = pd.DataFrame(ws_recipe.get_all_records())
+    except:
+        df = pd.DataFrame(columns=columns)
+    df = df.astype(str)
+    for col in columns:
+        if col not in df.columns:
+            df[col] = ""
+    return df
+
+def配方管理頁面(spreadsheet):
+    # 載入客戶名單
     ws_customer = spreadsheet.worksheet("客戶名單")
     df_customers = pd.DataFrame(ws_customer.get_all_records())
-
-    # 建立「客戶選單」選項，例如：["C001 - 三商行", "C002 - 光陽"]
     customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in df_customers.iterrows()]
 
+    # 取得或建立配方管理工作表
     try:
         ws_recipe = spreadsheet.worksheet("配方管理")
     except:
@@ -265,42 +298,16 @@ elif menu == "配方管理":
         "合計類別", "建檔時間"
     ]
 
-    def init_states():
-        keys_str = ["search_recipe_code", "search_customer", "search_pantone"]
-        keys_other = ["form_recipe", "edit_recipe_index", "delete_recipe_index", "show_delete_recipe_confirm"]
-        for k in keys_str:
-            if k not in st.session_state:
-                st.session_state[k] = ""
-        for k in keys_other:
-            if k not in st.session_state:
-                st.session_state[k] = None
+    # 初始化 session_state
+    init_states(columns)
 
-        if st.session_state.form_recipe is None:
-            st.session_state.form_recipe = {col: "" for col in columns}
-
-    init_states()
-
-    # 初始化或讀取 df
-    def load_or_init_df():
-        try:
-            df = pd.DataFrame(ws_recipe.get_all_records())
-        except:
-            df = pd.DataFrame(columns=columns)
-        df = df.astype(str)
-        for col in columns:
-            if col not in df.columns:
-                df[col] = ""
-        return df
-
+    # 讀取或初始化配方資料
     if "df" not in st.session_state:
-        st.session_state.df = load_or_init_df()
-
+        st.session_state.df = load_or_init_df(ws_recipe, columns)
     df = st.session_state.df
-        
-    # --- 🔍 搜尋列區塊（頁面最上方） ---
-    # --- 搜尋列 ---
-    st.subheader("🔎 搜尋配方")
 
+    # UI - 搜尋區塊
+    st.subheader("🔎 搜尋配方")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.text_input("配方編號", key="search_recipe_code")
@@ -315,17 +322,17 @@ elif menu == "配方管理":
         st.experimental_rerun()
 
     # 取得搜尋字串
-    recipe_kw = (st.session_state.search_recipe_code or "").strip()
-    customer_kw = (st.session_state.search_customer or "").strip()
-    pantone_kw = (st.session_state.search_pantone or "").strip()
+    recipe_kw = st.session_state.search_recipe_code.strip()
+    customer_kw = st.session_state.search_customer.strip()
+    pantone_kw = st.session_state.search_pantone.strip()
 
-    # 篩選功能，建立布林遮罩
+    # 篩選資料
     mask = pd.Series(True, index=df.index)
     if recipe_kw:
         mask &= df["配方編號"].str.contains(recipe_kw, case=False, na=False)
     if customer_kw:
         mask &= (df["客戶名稱"].str.contains(customer_kw, case=False, na=False) |
-             df["客戶編號"].str.contains(customer_kw, case=False, na=False))
+                 df["客戶編號"].str.contains(customer_kw, case=False, na=False))
     if pantone_kw:
         pantone_kw_clean = pantone_kw.replace(" ", "").upper()
         mask &= df["Pantone色號"].str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
