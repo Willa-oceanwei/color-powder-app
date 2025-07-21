@@ -344,13 +344,6 @@ elif menu == "配方管理":
             "pantone_kw": pantone_kw,
         })
         st.write("📋 Pantone色號 範例值：", df["Pantone色號"].dropna().unique().tolist()[:10])    
-
-    df_filtered = df.copy()
-
-    if recipe_kw:
-        df_filtered = df_filtered[
-            df_filtered["配方編號"].astype(str).str.strip().str.contains(recipe_kw, case=False, na=False)
-        ]
         
     # --- ✅ 篩選邏輯 ---
     # 🔍 初始化條件遮罩
