@@ -332,10 +332,10 @@ elif menu == "配方管理":
                 del st.session_state[key]
         st.rerun()
 
-    # --- ✅ 再去抓取搜尋關鍵字（保證 key 已初始化） ---
-    recipe_kw = str(st.session_state.get("search_recipe_code", "")).strip()
-    customer_kw = str(st.session_state.get("search_customer", "")).strip()
-    pantone_kw = str(st.session_state.get("search_pantone", "")).strip()
+    # --- ✅ 抓取搜尋關鍵字（保證 key 已初始化 & 避免 None 被轉成 "None"） ---
+    recipe_kw = str(st.session_state.get("search_recipe_code") or "").strip()
+    customer_kw = str(st.session_state.get("search_customer") or "").strip()
+    pantone_kw = str(st.session_state.get("search_pantone") or "").strip()
 
     with st.expander("🧪 偵錯工具", expanded=False):
         st.write("🔍 搜尋條件：", {
