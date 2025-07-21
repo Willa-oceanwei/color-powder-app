@@ -588,7 +588,7 @@ elif menu == "配方管理":
                         st.session_state.delete_recipe_index = selected_idx
                         st.session_state.show_delete_recipe_confirm = True
                         st.rerun()
-             except Exception as e:
+            except Exception as e:
                 st.error(f"❗ 資料選擇錯誤：{e}")
         else:
             st.info("🟦 沒有可選的配方編號")
