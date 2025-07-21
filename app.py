@@ -572,7 +572,7 @@ elif menu == "配方管理":
         st.dataframe(df_filtered[existing_cols], use_container_width=True)
 
         code_list = df_filtered["配方編號"].dropna().tolist()
-         if code_list:
+        if code_list:
             selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code")
             try:
                 selected_idx = df[df["配方編號"] == selected_code].index[0]
