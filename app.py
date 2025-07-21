@@ -564,7 +564,7 @@ elif menu == "配方管理":
         for key in ["search_recipe_code", "search_customer", "search_pantone"]:
             if key in st.session_state:
                 del st.session_state[key]
-        st.experimental_rerun()
+        st.rerun()
 
     # 取搜尋關鍵字
     recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
