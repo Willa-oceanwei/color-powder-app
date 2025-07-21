@@ -606,39 +606,36 @@ elif menu == "配方管理":
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [col for col in show_cols if col in df_filtered.columns]
 
-    if not df_filtered.empty:
-        st.write("📊 顯示欄位：", existing_cols)
+    st.write(f"篩選後筆數：{len(df_filtered)}")
+    st.write(f"顯示欄位：{existing_cols}")
 
-       # ✅ 表格正確使用篩選後的 df_filtered
+    if not df_filtered.empty and existing_cols:
         st.dataframe(df_filtered[existing_cols], use_container_width=True)
 
-        # ✅ 用篩選後的資料建立選單
         code_list = df_filtered["配方編號"].dropna().tolist()
         if code_list:
-            if len(code_list) == 1:
+             if len(code_list) == 1:
                 selected_code = code_list[0]
                 st.info(f"🔹 自動選取唯一配方編號：{selected_code}")
             else:
                 selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code")
 
             try:
-                # ✅ 正確用篩選後資料找 index
                 selected_idx = df_filtered[df_filtered["配方編號"] == selected_code].index[0]
 
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("✏️ 修改", key="edit_btn"):
-                        # ✅ 若你需要回原始 df 處理資料，這裡才做對應
                         df_idx = df[df["配方編號"] == selected_code].index[0]
                         st.session_state.edit_recipe_index = df_idx
                         st.session_state.form_recipe = df.loc[df_idx].to_dict()
-                        st.rerun()
+                        st.experimental_rerun()
                 with col2:
                     if st.button("🗑️ 刪除", key="del_btn"):
                         df_idx = df[df["配方編號"] == selected_code].index[0]
                         st.session_state.delete_recipe_index = df_idx
                         st.session_state.show_delete_recipe_confirm = True
-                        st.rerun()
+                        st.experimental_rerun()
             except Exception as e:
                 st.error(f"❗ 資料選擇錯誤：{e}")
         else:
