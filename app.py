@@ -353,21 +353,30 @@ elif menu == "配方管理":
         ]
         
     # --- ✅ 篩選邏輯 ---
-    if customer_kw:
-        df_filtered = df_filtered[
-            df_filtered["客戶名稱"].astype(str).str.strip().str.contains(customer_kw, case=False, na=False) |
-            df_filtered["客戶編號"].astype(str).str.strip().str.contains(customer_kw, case=False, na=False)
-        ]
+    # 🔍 配方編號
+    if recipe_kw:
+        mask &= df["配方編號"].astype(str).str.strip().str.contains(recipe_kw, case=False, na=False)
 
+    # 🔍 客戶名稱或編號
+    if customer_kw:
+        mask &= (
+            df["客戶名稱"].astype(str).str.strip().str.contains(customer_kw, case=False, na=False) |
+            df["客戶編號"].astype(str).str.strip().str.contains(customer_kw, case=False, na=False)
+        )
+
+    # 🔍 Pantone 色號
     if pantone_kw:
         pantone_kw_clean = pantone_kw.strip().replace(" ", "").upper()
-        df_filtered = df_filtered[
-            df_filtered["Pantone色號"].notna() &  # 排除 NaN
-            (df_filtered["Pantone色號"].astype(str).str.strip() != "") &  # 排除空字串
-            df_filtered["Pantone色號"]
+        mask &= (
+            df["Pantone色號"].notna() &
+            (df["Pantone色號"].astype(str).str.strip() != "") &
+            df["Pantone色號"]
                 .astype(str).str.replace(" ", "").str.upper()
                 .str.contains(pantone_kw_clean, na=False)
-        ]
+        )
+
+    # ✅ 應用條件遮罩
+    df_filtered = df[mask]
         
          
     st.write("🎯 篩選後筆數：", df_filtered.shape[0])
