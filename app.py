@@ -337,7 +337,7 @@ elif menu == "配方管理":
     customer_kw = str(st.session_state.get("search_customer", "")).strip()
     pantone_kw = str(st.session_state.get("search_pantone", "")).strip()
 
-     with st.expander("🧪 偵錯工具", expanded=False):
+    with st.expander("🧪 偵錯工具", expanded=False):
         st.write("🔍 搜尋條件：", {
             "recipe_kw": recipe_kw,
             "customer_kw": customer_kw,
