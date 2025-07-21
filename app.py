@@ -277,7 +277,7 @@ def load_or_init_df(ws_recipe, columns):
             df[col] = ""
     return df
 
-def配方管理頁面(spreadsheet):
+    def配方管理頁面(spreadsheet):
     # 載入客戶名單
     ws_customer = spreadsheet.worksheet("客戶名單")
     df_customers = pd.DataFrame(ws_customer.get_all_records())
