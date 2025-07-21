@@ -303,13 +303,13 @@ elif menu == "配方管理":
         except:
             df = pd.DataFrame(columns=columns)
 
+        df = pd.DataFrame(ws_recipe.get_all_records())
         df = df.astype(str)
         for col in columns:
             if col not in df.columns:
                 df[col] = ""
+        st.session_state.df = df# 儲存進 session_state
     
-        st.session_state.df = df  # 儲存進 session_state
-
     # ✅ 後續操作都從 session_state 中抓資料
     df = st.session_state.df
     
