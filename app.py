@@ -332,36 +332,35 @@ elif menu == "配方管理":
         st.rerun()
     
     # --- ✅ 搜尋條件處理 ---
-    recipe_kw = str(st.session_state.get("search_recipe_code") or "").strip()
-    customer_kw = str(st.session_state.get("search_customer") or "").strip()
-    pantone_kw = str(st.session_state.get("search_pantone") or "").strip()
-  
-    # --- ✅ 遮罩處理 ---
-    if df.empty:
-        df_filtered = df.copy()
-    else:
-        mask = pd.Series(True, index=df.index)
+    recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
+    customer_kw = (st.session_state.get("search_customer") or "").strip()
+    pantone_kw = (st.session_state.get("search_pantone") or "").strip()
 
-        if recipe_kw:
-            mask &= df["配方編號"].astype(str).str.strip().str.contains(recipe_kw, case=False, na=False)
+    # 初始化布林遮罩（全部為 True）
+    mask = pd.Series(True, index=df.index)
 
-        if customer_kw:
-            mask &= (
-                df["客戶名稱"].astype(str).str.strip().str.contains(customer_kw, case=False, na=False) |
-                df["客戶編號"].astype(str).str.strip().str.contains(customer_kw, case=False, na=False)
-            )
+    # 依條件逐項過濾（多條件 AND）
+    if recipe_kw:
+        mask &= df["配方編號"].astype(str).str.strip().str.contains(recipe_kw, case=False, na=False)
 
-        if pantone_kw:
-            pantone_kw_clean = pantone_kw.strip().replace(" ", "").upper()
-            mask &= (
-                df["Pantone色號"].notna() &
-                (df["Pantone色號"].astype(str).str.strip() != "") &
-                df["Pantone色號"]
-                    .astype(str).str.replace(" ", "").str.upper()
-                    .str.contains(pantone_kw_clean, na=False)
-            )
+    if customer_kw:
+        mask &= (
+            df["客戶名稱"].astype(str).str.strip().str.contains(customer_kw, case=False, na=False) |
+            df["客戶編號"].astype(str).str.strip().str.contains(customer_kw, case=False, na=False)
+        )
 
-        df_filtered = df[mask]
+    if pantone_kw:
+        pantone_kw_clean = pantone_kw.replace(" ", "").upper()
+        mask &= (
+            df["Pantone色號"].notna() &
+            (df["Pantone色號"].astype(str).str.strip() != "") &
+            df["Pantone色號"]
+                .astype(str).str.replace(" ", "").str.upper()
+                .str.contains(pantone_kw_clean, na=False)
+        )
+
+    # 套用遮罩，完成篩選
+    df_filtered = df[mask]
         
          
     st.write("🎯 篩選後筆數：", df_filtered.shape[0])
