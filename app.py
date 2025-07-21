@@ -562,7 +562,7 @@ elif menu == "配方管理":
     st.write("df_filtered.shape", df_filtered.shape)  # 應該有變動
 
     # 3. 唯一的主顯示區
-    # --- 📦 配方清單 ---
+    # --- 📦 主清單顯示區 ---
     st.subheader("📦 配方清單")
 
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
@@ -571,25 +571,26 @@ elif menu == "配方管理":
     if not df_filtered.empty:
         st.dataframe(df_filtered[existing_cols], use_container_width=True)
 
-        # 顯示選擇欄位
         code_list = df_filtered["配方編號"].dropna().tolist()
-        selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code")
+         if code_list:
+            selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code")
+            try:
+                selected_idx = df[df["配方編號"] == selected_code].index[0]
 
-        try:
-            selected_idx = df[df["配方編號"] == selected_code].index[0]
-
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("✏️ 修改", key="edit_btn"):
-                    st.session_state.edit_recipe_index = selected_idx
-                    st.session_state.form_recipe = df.loc[selected_idx].to_dict()
-                    st.rerun()
-            with col2:
-                if st.button("🗑️ 刪除", key="del_btn"):
-                    st.session_state.delete_recipe_index = selected_idx
-                    st.session_state.show_delete_recipe_confirm = True
-                    st.rerun()
-        except Exception as e:
-            st.error(f"❗ 資料選擇錯誤：{e}")
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("✏️ 修改", key="edit_btn"):
+                        st.session_state.edit_recipe_index = selected_idx
+                        st.session_state.form_recipe = df.loc[selected_idx].to_dict()
+                        st.rerun()
+                with col2:
+                    if st.button("🗑️ 刪除", key="del_btn"):
+                        st.session_state.delete_recipe_index = selected_idx
+                        st.session_state.show_delete_recipe_confirm = True
+                        st.rerun()
+             except Exception as e:
+                st.error(f"❗ 資料選擇錯誤：{e}")
+        else:
+            st.info("🟦 沒有可選的配方編號")
     else:
-        st.info("🟦 查無符合條件的配方。")
+        st.info("查無符合條件的配方。")
