@@ -298,20 +298,21 @@ elif menu == "配方管理":
     import streamlit as st
 
     if "df" not in st.session_state:
-    try:
-        df = pd.DataFrame(ws_recipe.get_all_records())
-    except:
-        df = pd.DataFrame(columns=columns)
+        try:
+            df = pd.DataFrame(ws_recipe.get_all_records())
+        except:
+            df = pd.DataFrame(columns=columns)
 
-    df = df.astype(str)
-    for col in columns:
-        if col not in df.columns:
-            df[col] = ""
+        df = df.astype(str)
+        for col in columns:
+            if col not in df.columns:
+                df[col] = ""
     
-    st.session_state.df = df  # 儲存進 session_state
+        st.session_state.df = df  # 儲存進 session_state
 
-# ✅ 後續操作都從 session_state 中抓資料
-df = st.session_state.df
+    # ✅ 後續操作都從 session_state 中抓資料
+    df = st.session_state.df
+    
     # --- 🔍 搜尋列區塊（頁面最上方） ---
     st.subheader("🔎 搜尋配方")
 
