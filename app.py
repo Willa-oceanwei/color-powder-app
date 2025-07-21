@@ -592,16 +592,18 @@ elif menu == "配方管理":
     st.write(f"搜尋條件：配方編號={search_recipe}, 客戶名稱={search_customer}, Pantone={search_pantone}")
 
     # 取搜尋關鍵字
-    recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
-    customer_kw = (st.session_state.get("search_customer") or "").strip()
-    pantone_kw = (st.session_state.get("search_pantone") or "").strip()
+    recipe_kw = (st.session_state.get("search_recipe_code_bottom") or st.session_state.get("search_recipe_code_top") or "").strip()
+    customer_kw = (st.session_state.get("search_customer_bottom") or st.session_state.get("search_customer_top") or "").strip()
+    pantone_kw = (st.session_state.get("search_pantone_bottom") or st.session_state.get("search_pantone_top") or "").strip()
+
+    st.write(f"搜尋條件：配方編號={recipe_kw}, 客戶名稱={customer_kw}, Pantone={pantone_kw}")
 
     # 篩選
     mask = pd.Series(True, index=df.index)
     if recipe_kw:
         mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
     if customer_kw:
-        mask &= (
+       mask &= (
             df["客戶名稱"].astype(str).str.contains(customer_kw, case=False, na=False) |
             df["客戶編號"].astype(str).str.contains(customer_kw, case=False, na=False)
         )
