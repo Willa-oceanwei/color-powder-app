@@ -315,6 +315,7 @@ elif menu == "配方管理":
     # --- 🔍 搜尋列區塊（頁面最上方） ---
     # --- 搜尋列 ---
     st.subheader("🔎 搜尋配方")
+
     col1, col2, col3 = st.columns(3)
     with col1:
         st.text_input("配方編號", key="search_recipe_code")
@@ -323,44 +324,32 @@ elif menu == "配方管理":
     with col3:
         st.text_input("Pantone色號", key="search_pantone")
 
-    # 清除搜尋條件
     if st.button("🔄 清除搜尋條件"):
         for key in ["search_recipe_code", "search_customer", "search_pantone"]:
-            if key in st.session_state:
-                del st.session_state[key]
+            st.session_state[key] = ""
         st.experimental_rerun()
 
-    # 取搜尋關鍵字
-    recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
-    customer_kw = (st.session_state.get("search_customer") or "").strip()
-    pantone_kw = (st.session_state.get("search_pantone") or "").strip()
+    # 取得搜尋字串
+    recipe_kw = (st.session_state.search_recipe_code or "").strip()
+    customer_kw = (st.session_state.search_customer or "").strip()
+    pantone_kw = (st.session_state.search_pantone or "").strip()
 
-    # 篩選
+    # 篩選功能，建立布林遮罩
     mask = pd.Series(True, index=df.index)
     if recipe_kw:
-        mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
+        mask &= df["配方編號"].str.contains(recipe_kw, case=False, na=False)
     if customer_kw:
-        mask &= (
-            df["客戶名稱"].astype(str).str.contains(customer_kw, case=False, na=False) |
-            df["客戶編號"].astype(str).str.contains(customer_kw, case=False, na=False)
-        )
+        mask &= (df["客戶名稱"].str.contains(customer_kw, case=False, na=False) |
+             df["客戶編號"].str.contains(customer_kw, case=False, na=False))
     if pantone_kw:
         pantone_kw_clean = pantone_kw.replace(" ", "").upper()
-        mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
+        mask &= df["Pantone色號"].str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
 
     df_filtered = df[mask]
 
-    st.write("🎯 篩選後筆數：", df_filtered.shape[0])
-
-    # 顯示篩選後表格
-    show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-    existing_cols = [col for col in show_cols if col in df_filtered.columns]
-
-    if not df_filtered.empty and existing_cols:
-        st.dataframe(df_filtered[existing_cols], use_container_width=True)
-    else:
-        st.info("查無符合條件的配方。")
-     
+    st.write(f"🎯 篩選後筆數：{df_filtered.shape[0]}")
+    
+ 
     st.subheader("➕ 新增 / 修改配方")
 
 # =================== 客戶名單選單與預設值 ===================
