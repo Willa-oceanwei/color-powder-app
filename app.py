@@ -316,6 +316,13 @@ elif menu == "配方管理":
     # ✅ 後續操作都從 session_state 中抓資料
     df = st.session_state.df
     
+    if "search_recipe_code" not in st.session_state:
+        st.session_state.search_recipe_code = ""
+    if "search_customer" not in st.session_state:
+        st.session_state.search_customer = ""
+    if "search_pantone" not in st.session_state:
+        st.session_state.search_pantone = ""
+        
     # --- 🔍 搜尋列區塊（頁面最上方） ---
     # --- 搜尋列 ---
     st.subheader("🔎 搜尋配方")
