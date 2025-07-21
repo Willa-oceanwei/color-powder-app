@@ -309,19 +309,18 @@ elif menu == "配方管理":
     with col3:
         pantone_kw = st.text_input("Pantone 色號").strip()
 
-    # 🔄 清除按鈕（放在欄位下方或另外一排）
     if st.button("🔄 清除搜尋條件"):
         st.session_state["top_search_recipe_code"] = ""
         st.session_state["top_search_customer"] = ""
         st.session_state["top_search_pantone"] = ""
         st.rerun()
 
-    # 👉 這邊讀取欄位值並篩選
-    recipe_kw = (st.session_state.get("top_search_recipe_code") or "").strip()
-    customer_kw = (st.session_state.get("top_search_customer") or "").strip()
-    pantone_kw = (st.session_state.get("top_search_pantone") or "").strip()
-
+    recipe_kw = st.session_state.get("top_search_recipe_code", "").strip()
+    customer_kw = st.session_state.get("top_search_customer", "").strip()
+    pantone_kw = st.session_state.get("top_search_pantone", "").strip()
+    
     df_filtered = df.copy()
+    
     if recipe_kw:
         df_filtered = df_filtered[df_filtered["配方編號"].str.contains(recipe_kw, case=False, na=False)]
     if customer_kw:
