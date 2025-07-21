@@ -265,72 +265,37 @@ elif menu == "配方管理":
         "合計類別", "建檔時間"
     ]
 
-    def init_states(keys):
-        for k in keys:
+    def init_states():
+        keys_str = ["search_recipe_code", "search_customer", "search_pantone"]
+        keys_other = ["form_recipe", "edit_recipe_index", "delete_recipe_index", "show_delete_recipe_confirm"]
+        for k in keys_str:
             if k not in st.session_state:
-                # 對搜尋條件及字串變數改用空字串初始化
-                if k in ["search_recipe_code", "search_pantone", "search_customer"]:
-                    st.session_state[k] = ""
-                else:
-                    st.session_state[k] = None
+                st.session_state[k] = ""
+        for k in keys_other:
+            if k not in st.session_state:
+                st.session_state[k] = None
 
-    init_states([
-        "form_recipe",
-        "edit_recipe_index",
-        "delete_recipe_index",
-        "show_delete_recipe_confirm",
-        "search_recipe_code",
-        "search_pantone",
-        "search_customer"
-    ])
+        if st.session_state.form_recipe is None:
+            st.session_state.form_recipe = {col: "" for col in columns}
 
-    # 初始 form_recipe
-    if st.session_state.form_recipe is None:
-        st.session_state.form_recipe = {col: "" for col in columns}
+    init_states()
 
-    # 讀取表單
-    try:
-        df = pd.DataFrame(ws_recipe.get_all_records())
-    except:
-        df = pd.DataFrame(columns=columns)
-
-    df = df.astype(str)
-    for col in columns:
-        if col not in df.columns:
-            df[col] = ""
-
-    import streamlit as st
-
-    if "df" not in st.session_state:
+    # 初始化或讀取 df
+    def load_or_init_df():
         try:
             df = pd.DataFrame(ws_recipe.get_all_records())
         except:
             df = pd.DataFrame(columns=columns)
-
         df = df.astype(str)
         for col in columns:
             if col not in df.columns:
                 df[col] = ""
-        st.session_state.df = df# 儲存進 session_state
-    
-    # ✅ 後續操作都從 session_state 中抓資料
-    df = st.session_state.df
-    
-    if "search_recipe_code" not in st.session_state:
-        st.session_state.search_recipe_code = ""
-    if "search_customer" not in st.session_state:
-        st.session_state.search_customer = ""
-    if "search_pantone" not in st.session_state:
-        st.session_state.search_pantone = ""
-        
-def init_session_state():
-    # 如果搜尋字串 session_state 不存在，就設定初始空字串
-    for key in ["search_recipe_code", "search_customer", "search_pantone"]:
-        if key not in st.session_state:
-            st.session_state[key] = ""
+        return df
 
-def main():
-    init_session_state()
+    if "df" not in st.session_state:
+        st.session_state.df = load_or_init_df()
+
+    df = st.session_state.df
         
     # --- 🔍 搜尋列區塊（頁面最上方） ---
     # --- 搜尋列 ---
