@@ -612,6 +612,8 @@ elif menu == "配方管理":
     st.write("df_filtered 預覽：", df_filtered.head())
     st.write("existing_cols：", existing_cols)
     st.write("df_filtered shape：", df_filtered.shape)
+    st.write("🔍 除錯：df_filtered 正文內容")
+    st.write(df_filtered)
 
     if not df_filtered.empty and existing_cols:
         # ✅ 顯示表格（已正確用 df_filtered）
