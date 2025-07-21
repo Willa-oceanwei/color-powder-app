@@ -313,6 +313,23 @@ elif menu == "配方管理":
     df = st.session_state.df
     
     st.subheader("🎯配方管理系統")
+
+    st.subheader("🔎 搜尋配方（上方）")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.text_input("配方編號", key="search_recipe_code")
+    with col2:
+        st.text_input("客戶名稱或編號", key="search_customer")
+    with col3:
+        st.text_input("Pantone色號", key="search_pantone")
+
+    # 上方清除按鈕（key 不同即可避免衝突）
+    if st.button("🔄 清除搜尋條件（上方）", key="clear_btn_top"):
+        for key in ["search_recipe_code", "search_customer", "search_pantone"]:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
+        
     st.subheader("➕ 新增 / 修改配方")
 
 # =================== 客戶名單選單與預設值 ===================
@@ -558,7 +575,7 @@ elif menu == "配方管理":
     # 3. 唯一的主顯示區
     # --- 🔍 搜尋列區塊 ---
 
-    st.subheader("🔎 搜尋配方")
+    st.subheader("🔎 搜尋配方（下方）")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.text_input("配方編號", key="search_recipe_code")
@@ -567,8 +584,8 @@ elif menu == "配方管理":
     with col3:
         st.text_input("Pantone色號", key="search_pantone")
 
-    # 清除搜尋條件
-    if st.button("🔄 清除搜尋條件"):
+    # 下方清除按鈕 key 也不同
+    if st.button("🔄 清除搜尋條件（下方）", key="clear_btn_bottom"):
         for key in ["search_recipe_code", "search_customer", "search_pantone"]:
             if key in st.session_state:
                 del st.session_state[key]
