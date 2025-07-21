@@ -331,8 +331,6 @@ elif menu == "配方管理":
             if key in st.session_state:
                 del st.session_state[key]
         st.rerun()
-        
-    st.write("🎯 篩選後筆數：", df_filtered.shape[0])
     
     # --- ✅ 抓取搜尋關鍵字（保證 key 已初始化 & 避免 None 被轉成 "None"） ---
     recipe_kw = str(st.session_state.get("search_recipe_code") or "").strip()
@@ -348,6 +346,9 @@ elif menu == "配方管理":
         st.write("📋 Pantone色號 範例值：", df["Pantone色號"].dropna().unique().tolist()[:10])    
 
     df_filtered = df.copy()
+
+         
+    st.write("🎯 篩選後筆數：", df_filtered.shape[0])
 
     if recipe_kw:
         df_filtered = df_filtered[
