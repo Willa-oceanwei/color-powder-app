@@ -303,11 +303,11 @@ elif menu == "配方管理":
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.text_input("配方編號", key="top_search_recipe_code")
+        recipe_kw = st.text_input("配方編號", value=st.session_state.get("top_search_recipe_code", ""), key="top_search_recipe_code")
     with col2:
-        st.text_input("客戶名稱或編號", key="top_search_customer")
+        customer_kw = st.text_input("客戶名稱或編號", value=st.session_state.get("top_search_customer", ""), key="top_search_customer")
     with col3:
-        st.text_input("Pantone 色號", key="top_search_pantone")
+        pantone_kw = st.text_input("Pantone 色號", value=st.session_state.get("top_search_pantone", ""), key="top_search_pantone")
 
     # 🔄 清除按鈕
     if st.button("🔄 清除搜尋條件"):
