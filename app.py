@@ -316,12 +316,11 @@ elif menu == "配方管理":
         st.session_state["top_search_pantone"] = ""
         st.rerun()
 
-    # 對應的取值邏輯
+    # 👉 這邊讀取欄位值並篩選
     recipe_kw = (st.session_state.get("top_search_recipe_code") or "").strip()
     customer_kw = (st.session_state.get("top_search_customer") or "").strip()
     pantone_kw = (st.session_state.get("top_search_pantone") or "").strip()
 
-    # 👉 篩選處理
     df_filtered = df.copy()
     if recipe_kw:
         df_filtered = df_filtered[df_filtered["配方編號"].str.contains(recipe_kw, case=False, na=False)]
@@ -329,14 +328,10 @@ elif menu == "配方管理":
         df_filtered = df_filtered[
             df_filtered["客戶名稱"].str.contains(customer_kw, case=False, na=False) |
             df_filtered["客戶編號"].str.contains(customer_kw, case=False, na=False)
-    ]
+        ]
     if pantone_kw:
         df_filtered = df_filtered[df_filtered["Pantone色號"].str.contains(pantone_kw, case=False, na=False)]
   
-    # 除錯用
-    st.write("debug:", recipe_kw, customer_kw, pantone_kw)
-    st.write("df_filtered.shape", df_filtered.shape)
-    
     st.subheader("➕ 新增 / 修改配方")
 
 # =================== 客戶名單選單與預設值 ===================
@@ -546,10 +541,6 @@ elif menu == "配方管理":
     st.session_state.form_recipe["客戶名稱"] = 客戶簡稱   
     
     import streamlit as st
-
-    # 1. 搜尋欄，設好 key
-    search_recipe_code = st.text_input("搜尋配方編號", key="search_recipe_code")
-    search_customer = st.text_input("搜尋客戶名稱或編號", key="search_customer")
 
     # 2. 只用 session_state 取值做過濾！
     recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
