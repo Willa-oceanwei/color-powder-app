@@ -478,25 +478,33 @@ elif menu == "配方管理":
 
     # ===== 儲存 =====
     # 儲存按鈕
-    if st.button("💾 儲存"):
-        new_data = st.session_state.form_recipe.copy()
-        if new_data["配方編號"].strip() == "":
-            st.warning("⚠️ 請輸入配方編號！")
-        elif new_data["配方類別"] == "附加配方" and new_data["原始配方"].strip() == "":
-            st.warning("⚠️ 附加配方必須填寫原始配方！")
-        else:
-            if st.session_state.edit_recipe_index is not None:
-                df.iloc[st.session_state.edit_recipe_index] = new_data
-                st.success("✅ 配方已更新！")
+    col_save, col_clear = st.columns([1,1])
+    with col_save:
+        if st.button("💾 儲存"):
+            new_data = st.session_state.form_recipe.copy()
+            if new_data["配方編號"].strip() == "":
+                st.warning("⚠️ 請輸入配方編號！")
+            elif new_data["配方類別"] == "附加配方" and new_data["原始配方"].strip() == "":
+                st.warning("⚠️ 附加配方必須填寫原始配方！")
             else:
-                if new_data["配方編號"] in df["配方編號"].values:
-                    st.warning("⚠️ 此配方編號已存在！")
+                if st.session_state.edit_recipe_index is not None:
+                    df.iloc[st.session_state.edit_recipe_index] = new_data
+                    st.success("✅ 配方已更新！")
                 else:
-                    new_data["建檔時間"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
-                    df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-                    st.success("✅ 新增成功！")
+                    if new_data["配方編號"] in df["配方編號"].values:
+                        st.warning("⚠️ 此配方編號已存在！")
+                    else:
+                        new_data["建檔時間"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+                        df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+                        st.success("✅ 新增成功！")
 
-            save_df_to_sheet(ws_recipe, df)
+                save_df_to_sheet(ws_recipe, df)
+                st.session_state.form_recipe = {col: "" for col in columns}
+                st.session_state.edit_recipe_index = None
+                st.rerun()
+    with col_clear:
+        if st.button("🧹 清除表單"):
+            # 把所有表單欄位值設回空字串或預設值
             st.session_state.form_recipe = {col: "" for col in columns}
             st.session_state.edit_recipe_index = None
             st.rerun()
