@@ -312,9 +312,8 @@ elif menu == "配方管理":
     # ✅ 後續操作都從 session_state 中抓資料
     df = st.session_state.df
     
-    st.subheader("🎯配方管理系統")
+    st.subheader("🎯配方管理 搜尋🔎")
 
-    st.subheader("🔎上方搜尋區")
     col1, col2, col3 = st.columns(3)
     with col1:
         search_recipe_top = st.text_input("配方編號", key="search_recipe_code_top")
