@@ -616,8 +616,10 @@ elif menu == "配方管理":
     st.write(f"顯示欄位：{existing_cols}")
 
     if not df_filtered.empty and existing_cols:
+        # ✅ 顯示表格（已正確用 df_filtered）
         st.dataframe(df_filtered[existing_cols], use_container_width=True)
 
+        # ✅ 建立選單
         code_list = df_filtered["配方編號"].dropna().tolist()
         if code_list:
             if len(code_list) == 1:
