@@ -268,7 +268,11 @@ elif menu == "配方管理":
     def init_states(keys):
         for k in keys:
             if k not in st.session_state:
-                st.session_state[k] = None
+                # 對搜尋條件及字串變數改用空字串初始化
+                if k in ["search_recipe_code", "search_pantone", "search_customer"]:
+                    st.session_state[k] = ""
+                else:
+                    st.session_state[k] = None
 
     init_states([
         "form_recipe",
