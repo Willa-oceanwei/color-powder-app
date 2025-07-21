@@ -323,6 +323,15 @@ elif menu == "配方管理":
     if "search_pantone" not in st.session_state:
         st.session_state.search_pantone = ""
         
+def init_session_state():
+    # 如果搜尋字串 session_state 不存在，就設定初始空字串
+    for key in ["search_recipe_code", "search_customer", "search_pantone"]:
+        if key not in st.session_state:
+            st.session_state[key] = ""
+
+def main():
+    init_session_state()
+        
     # --- 🔍 搜尋列區塊（頁面最上方） ---
     # --- 搜尋列 ---
     st.subheader("🔎 搜尋配方")
