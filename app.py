@@ -332,17 +332,9 @@ elif menu == "配方管理":
         st.rerun()
     
     # --- ✅ 搜尋條件處理 ---
-    customer_kw = st.session_state["search_customer"] if "search_customer" in st.session_state else ""
-    customer_kw = customer_kw or ""  # 避免 None
-    customer_kw = customer_kw.strip()
-    
-    recipe_kw = st.session_state["search_recipe_code"] if "search_recipe_code" in st.session_state else ""
-    recipe_kw = recipe_kw or ""
-    recipe_kw = recipe_kw.strip()
-
-    pantone_kw = st.session_state["search_pantone"] if "search_pantone" in st.session_state else ""
-    pantone_kw = pantone_kw or ""
-    pantone_kw = pantone_kw.strip()
+    recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
+    customer_kw = (st.session_state.get("search_customer") or "").strip()
+    pantone_kw = (st.session_state.get("search_pantone") or "").strip()
 
     # 去除空白字元
     recipe_kw = recipe_kw.strip()
