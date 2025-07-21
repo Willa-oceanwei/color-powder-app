@@ -312,55 +312,7 @@ elif menu == "配方管理":
     # ✅ 後續操作都從 session_state 中抓資料
     df = st.session_state.df
     
-    # --- 🔍 搜尋列區塊（頁面最上方） ---
-    # --- 搜尋列 ---
-    st.subheader("🔎 搜尋配方")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.text_input("配方編號", key="search_recipe_code")
-    with col2:
-        st.text_input("客戶名稱或編號", key="search_customer")
-    with col3:
-        st.text_input("Pantone色號", key="search_pantone")
-
-    # 清除搜尋條件
-    if st.button("🔄 清除搜尋條件"):
-        for key in ["search_recipe_code", "search_customer", "search_pantone"]:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.experimental_rerun()
-
-    # 取搜尋關鍵字
-    recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
-    customer_kw = (st.session_state.get("search_customer") or "").strip()
-    pantone_kw = (st.session_state.get("search_pantone") or "").strip()
-
-    # 篩選
-    mask = pd.Series(True, index=df.index)
-    if recipe_kw:
-        mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
-    if customer_kw:
-        mask &= (
-            df["客戶名稱"].astype(str).str.contains(customer_kw, case=False, na=False) |
-            df["客戶編號"].astype(str).str.contains(customer_kw, case=False, na=False)
-        )
-    if pantone_kw:
-        pantone_kw_clean = pantone_kw.replace(" ", "").upper()
-        mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
-
-    df_filtered = df[mask]
-
-    st.write("🎯 篩選後筆數：", df_filtered.shape[0])
-
-    # 顯示篩選後表格
-    show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-    existing_cols = [col for col in show_cols if col in df_filtered.columns]
-
-    if not df_filtered.empty and existing_cols:
-        st.dataframe(df_filtered[existing_cols], use_container_width=True)
-    else:
-        st.info("查無符合條件的配方。")
-     
+    
     st.subheader("➕ 新增 / 修改配方")
 
 # =================== 客戶名單選單與預設值 ===================
@@ -596,53 +548,52 @@ elif menu == "配方管理":
     df_filtered = df[mask]
 
     # 3. 唯一的主顯示區
-    # --- 📦 主清單顯示區 ---
-    st.subheader("📦 配方清單")
-    
+    # --- 🔍 搜尋列區塊 ---
+    # --- 搜尋列 ---
+    st.subheader("🔎 搜尋配方")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.text_input("配方編號", key="search_recipe_code")
+    with col2:
+        st.text_input("客戶名稱或編號", key="search_customer")
+    with col3:
+        st.text_input("Pantone色號", key="search_pantone")
+
+    # 清除搜尋條件
+    if st.button("🔄 清除搜尋條件"):
+        for key in ["search_recipe_code", "search_customer", "search_pantone"]:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.experimental_rerun()
+
+    # 取搜尋關鍵字
+    recipe_kw = (st.session_state.get("search_recipe_code") or "").strip()
+    customer_kw = (st.session_state.get("search_customer") or "").strip()
+    pantone_kw = (st.session_state.get("search_pantone") or "").strip()
+
+    # 篩選
+    mask = pd.Series(True, index=df.index)
+    if recipe_kw:
+        mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
+    if customer_kw:
+        mask &= (
+            df["客戶名稱"].astype(str).str.contains(customer_kw, case=False, na=False) |
+            df["客戶編號"].astype(str).str.contains(customer_kw, case=False, na=False)
+        )
+    if pantone_kw:
+        pantone_kw_clean = pantone_kw.replace(" ", "").upper()
+        mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
+
+    df_filtered = df[mask]
+
+    st.write("🎯 篩選後筆數：", df_filtered.shape[0])
+
+    # 顯示篩選後表格
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [col for col in show_cols if col in df_filtered.columns]
 
     if not df_filtered.empty and existing_cols:
         st.dataframe(df_filtered[existing_cols], use_container_width=True)
-
-        st.write("df_filtered 預覽：", df_filtered.head())
-        st.write("existing_cols：", existing_cols)
-        st.write("df_filtered shape：", df_filtered.shape)
-        st.write("🔍 除錯：df_filtered 正文內容")
-        st.write(df_filtered)
-
-    if not df_filtered.empty and existing_cols:
-        # ✅ 顯示表格（已正確用 df_filtered）
-        st.dataframe(df_filtered[existing_cols], use_container_width=True)
-
-        # ✅ 建立選單
-        code_list = df_filtered["配方編號"].dropna().tolist()
-        if code_list:
-            if len(code_list) == 1:
-                selected_code = code_list[0]
-                st.info(f"🔹 自動選取唯一配方編號：{selected_code}")
-            else:
-                selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code")
-
-            try:
-                selected_idx = df_filtered[df_filtered["配方編號"] == selected_code].index[0]
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("✏️ 修改", key="edit_btn"):
-                        df_idx = df[df["配方編號"] == selected_code].index[0]
-                        st.session_state.edit_recipe_index = df_idx
-                        st.session_state.form_recipe = df.loc[df_idx].to_dict()
-                        st.experimental_rerun()
-                with col2:
-                    if st.button("🗑️ 刪除", key="del_btn"):
-                        df_idx = df[df["配方編號"] == selected_code].index[0]
-                        st.session_state.delete_recipe_index = df_idx
-                        st.session_state.show_delete_recipe_confirm = True
-                        st.experimental_rerun()
-            except Exception as e:
-                st.error(f"❗ 資料選擇錯誤：{e}")
-        else:
-            st.info("🟦 沒有可選的配方編號")
     else:
         st.info("查無符合條件的配方。")
+     
