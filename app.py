@@ -333,7 +333,7 @@ elif menu == "配方管理":
         st.rerun()
 
     # --- ✅ 再去抓取搜尋關鍵字（保證 key 已初始化） ---
-    recipe_kw = st.session_state.get("search_recipe_code", "").strip()
+    recipe_kw = str(st.session_state.get("search_recipe_code", "")).strip()
     customer_kw = st.session_state.get("search_customer", "").strip()
     pantone_kw = st.session_state.get("search_pantone", "").strip()
 
