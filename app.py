@@ -583,9 +583,6 @@ elif menu == "配方管理":
     customer_kw = (st.session_state.get("customer_kw") or "").strip()
     pantone_kw = (st.session_state.get("pantone_kw") or "").strip()
 
-    # 原始資料
-    df_filtered = df.copy()
-
     # 初始化布林遮罩（全部為 True）
     mask = pd.Series(True, index=df.index)
 
