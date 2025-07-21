@@ -301,26 +301,27 @@ elif menu == "配方管理":
     # --- 🔍 搜尋列區塊（頁面最上方） ---
     st.subheader("🔎 搜尋配方")
 
+    # 初始化 session_state 預設值，避免首次進入時報錯
+    for key in ["top_search_recipe_code", "top_search_customer", "top_search_pantone"]:
+        if key not in st.session_state:
+            st.session_state[key] = ""
+
     col1, col2, col3 = st.columns(3)
     with col1:
-        recipe_kw = st.text_input("配方編號", value=st.session_state.get("top_search_recipe_code", ""), key="top_search_recipe_code")
+        recipe_kw = st.text_input("配方編號", value=st.session_state["top_search_recipe_code"], key="top_search_recipe_code")
     with col2:
-        customer_kw = st.text_input("客戶名稱或編號", value=st.session_state.get("top_search_customer", ""), key="top_search_customer")
+        customer_kw = st.text_input("客戶名稱或編號", value=st.session_state["top_search_customer"], key="top_search_customer")
     with col3:
-        pantone_kw = st.text_input("Pantone 色號", value=st.session_state.get("top_search_pantone", ""), key="top_search_pantone")
+        pantone_kw = st.text_input("Pantone 色號", value=st.session_state["top_search_pantone"], key="top_search_pantone")
 
-    # 🔄 清除按鈕
+    # 🔄 清除搜尋條件
     if st.button("🔄 清除搜尋條件"):
         st.session_state["top_search_recipe_code"] = ""
         st.session_state["top_search_customer"] = ""
         st.session_state["top_search_pantone"] = ""
         st.rerun()
 
-    # 正確地從 session_state 讀取值
-    recipe_kw = st.session_state.get("top_search_recipe_code", "").strip()
-    customer_kw = st.session_state.get("top_search_customer", "").strip()
-    pantone_kw = st.session_state.get("top_search_pantone", "").strip()
-
+    # 資料過濾
     df_filtered = df.copy()
     if recipe_kw:
         df_filtered = df_filtered[df_filtered["配方編號"].str.contains(recipe_kw, case=False, na=False)]
@@ -331,8 +332,7 @@ elif menu == "配方管理":
         ]
     if pantone_kw:
         df_filtered = df_filtered[df_filtered["Pantone色號"].str.contains(pantone_kw, case=False, na=False)]
-  
-    st.subheader("➕ 新增 / 修改配方")
+        st.subheader("➕ 新增 / 修改配方")
 
 # =================== 客戶名單選單與預設值 ===================
     try:
