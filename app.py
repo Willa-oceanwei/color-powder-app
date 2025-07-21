@@ -324,6 +324,13 @@ elif menu == "配方管理":
         st.text_input("客戶名稱或編號", key="search_customer")
     with col3:
         st.text_input("Pantone色號", key="search_pantone")
+    with st.expander("🧪 偵錯工具", expanded=False):
+        st.write("🔍 搜尋條件：", {
+            "recipe_kw": recipe_kw,
+            "customer_kw": customer_kw,
+            "pantone_kw": pantone_kw,
+        })
+        st.write("📋 Pantone色號 範例值：", df["Pantone色號"].dropna().unique().tolist()[:10])    
 
     # --- 🔄 清除按鈕 ---
     if st.button("🔄 清除搜尋條件"):
