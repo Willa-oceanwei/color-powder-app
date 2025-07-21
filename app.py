@@ -602,7 +602,7 @@ elif menu == "配方管理":
     existing_cols = [col for col in show_cols if col in df_filtered.columns]
 
     if not df_filtered.empty:
-        st.dataframe(df_filtered, use_container_width=True)
+        st.dataframe(df_filtered[existing_cols], use_container_width=True)
 
         code_list = df_filtered["配方編號"].dropna().tolist()
         if code_list:
