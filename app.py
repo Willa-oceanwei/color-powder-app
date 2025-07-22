@@ -310,6 +310,36 @@ elif menu == "配方管理":
         st.session_state.df = df# 儲存進 session_state
     
     # ✅ 後續操作都從 session_state 中抓資料
+
+    -------
+    st.markdown(
+    """
+    <style>
+    /* 區塊間增加上下 margin */
+    .block-margin {
+        margin-top: 24px;
+        margin-bottom: 24px;
+    }
+    /* 表格標題樣式 */
+    .section-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: #4A90E2;
+        margin-bottom: 12px;
+    }
+    /* 分頁控制按鈕上下距離 */
+    .pagination-controls {
+        margin-top: 16px;
+        margin-bottom: 16px;
+    }
+    /* 調整 info、warning 提示字體大小 */
+    .stAlert {
+        font-size: 16px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
     df = st.session_state.df
     
     st.subheader("🎯配方搜尋🔎")
