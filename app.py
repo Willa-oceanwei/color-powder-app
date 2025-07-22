@@ -30,7 +30,7 @@ spreadsheet = st.session_state["spreadsheet"]
 # ======== Sidebar 修正 =========
 with st.sidebar:
     st.title("🌈配方管理系統")
-    with st.expander("👉 點此展開 / 收合選單", expanded=True):
+    with st.expander("📌 點此展開 / 收合選單", expanded=True):
         menu = st.radio("請選擇模組", ["色粉管理", "客戶名單", "配方管理", "生產單"])
 
 # ======== 初始化 session_state =========
