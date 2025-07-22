@@ -318,17 +318,15 @@ elif menu == "配方管理":
     <style>
     .big-title {
         font-size: 35px;   /* 字體大小 */
-        font-weight: bold;  /* 字體顏色 */
-        color: #F9DC5C; /* 加粗 */
+        font-weight: bold;  /*加粗 */
+        color: #F9DC5C; /* 字體顏色 */
         margin-bottom: 20px; /* 下方間距 */
     }
     </style>
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="big-title">🎯配方搜尋🔎</div>', unsafe_allow_html=True)
-    
-    st.subheader("🎯配方搜尋🔎")
-
+  
     col1, col2, col3 = st.columns(3)
     with col1:
         search_recipe_top = st.text_input("配方編號", key="search_recipe_code_top")
