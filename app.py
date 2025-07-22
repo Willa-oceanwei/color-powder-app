@@ -317,9 +317,9 @@ elif menu == "配方管理":
     st.markdown("""
     <style>
     .big-title {
-        font-size: 40px;
+        font-size: 35px;
         font-weight: 700;
-        color: #3366CC;
+        color: #F9DC5C;
         margin-bottom: 20px;
     }
     </style>
