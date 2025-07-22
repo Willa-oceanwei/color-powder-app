@@ -567,24 +567,21 @@ elif menu == "配方管理":
     df_filtered = df[mask]
 
     # --- 🔍 搜尋列區塊 ---
-    st.subheader("🔎下方搜尋區")
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        search_recipe_bottom = st.text_input("配方編號", key="search_recipe_code_bottom")
-    with col2:
-        search_customer_bottom = st.text_input("客戶名稱或編號", key="search_customer_bottom")
-    with col3:
-        search_pantone_bottom = st.text_input("Pantone色號", key="search_pantone_bottom")
-
-    # 取搜尋關鍵字（可加上你原本的search_recipe_top、search_customer_top等等）
-    recipe_kw = (st.session_state.get("search_recipe_code_bottom") or "").strip()
-    customer_kw = (st.session_state.get("search_customer_bottom") or "").strip()
-    pantone_kw = (st.session_state.get("search_pantone_bottom") or "").strip()
-
-    st.write(f"搜尋條件：配方編號={recipe_kw}, 客戶名稱={customer_kw}, Pantone={pantone_kw}")
-
-    # 篩選
+    # 1. 搜尋條件放入可折疊區塊
+    with st.expander("🔎 搜尋條件 (點擊展開/收合)", expanded=False):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            search_recipe = st.text_input("配方編號", key="search_recipe_code_bottom")
+        with col2:
+            search_customer = st.text_input("客戶名稱或編號", key="search_customer_bottom")
+        with col3:
+        search_pantone = st.text_input("Pantone色號", key="search_pantone_bottom")
+    
+    # 2. 篩選資料
+    recipe_kw = (search_recipe or "").strip()
+    customer_kw = (search_customer or "").strip()
+    pantone_kw = (search_pantone or "").strip()
+   
     mask = pd.Series(True, index=df.index)
     if recipe_kw:
         mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
@@ -598,87 +595,84 @@ elif menu == "配方管理":
         mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
 
     df_filtered = df[mask]
-
-    st.write("🎯 篩選後筆數：", df_filtered.shape[0])
-
-    # --- 分頁設定 ---
-    limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
     total_rows = df_filtered.shape[0]
+
+    st.markdown(f"🎯 **篩選後筆數：{total_rows}**")
+
+    # 3. 分頁設定與初始化
+    limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
     total_pages = max((total_rows - 1) // limit + 1, 1)
 
-    # 初始化分頁 page
     if "page" not in st.session_state:
         st.session_state.page = 1
 
-    # 搜尋條件改變時，分頁回到1
     search_id = (recipe_kw, customer_kw, pantone_kw)
     if "last_search_id" not in st.session_state or st.session_state.last_search_id != search_id:
         st.session_state.page = 1
         st.session_state.last_search_id = search_id
 
+    # 計算目前頁面資料起迄索引
     start_idx = (st.session_state.page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
 
-    # 欄位選擇（同你原本想要顯示的欄位）
+    # 4. 顯示資料表格區 (獨立塊)
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [c for c in show_cols if c in df_filtered.columns]
 
-    # 顯示分頁資料表
+    st.markdown("---")  # 分隔線
+
     if not df_filtered.empty and existing_cols:
         st.dataframe(page_data[existing_cols], use_container_width=True)
     else:
         st.info("查無符合條件的配方。")
 
-    # 分頁控制按鈕與跳頁欄位
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
+    # 5. 配方編號選擇 + 修改／刪除 按鈕群組，使用 columns 水平排列
+    code_list = page_data["配方編號"].dropna().tolist()
 
-    with col1:
+    st.markdown("---")  # 分隔線
+
+    cols = st.columns([3, 1, 1])  # 配方編號下拉+修改+刪除 按鈕
+    with cols[0]:
+        if code_list:
+            if len(code_list) == 1:
+                selected_code = code_list[0]
+                st.info(f"🔹 自動選取唯一配方編號：{selected_code}")
+            else:
+                selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code_page")
+        else:
+            selected_code = None
+            st.info("🟦 沒有可選的配方編號")
+
+    with cols[1]:
+        if selected_code and st.button("✏️ 修改", key="edit_btn"):
+            df_idx = df[df["配方編號"] == selected_code].index[0]
+            st.session_state.edit_recipe_index = df_idx
+            st.session_state.form_recipe = df.loc[df_idx].to_dict()
+            st.rerun()
+
+    with cols[2]:
+        if selected_code and st.button("🗑️ 刪除", key="del_btn"):
+            df_idx = df[df["配方編號"] == selected_code].index[0]
+            st.session_state.delete_recipe_index = df_idx
+            st.session_state.show_delete_recipe_confirm = True
+            st.rerun()
+
+    # 6. 分頁控制按鈕 & 跳頁輸入欄，置於頁面底部並排
+    cols_page = st.columns([1,1,1,2])
+    with cols_page[0]:
         if st.button("回到首頁"):
             st.session_state.page = 1
-    with col2:
+    with cols_page[1]:
         if st.button("上一頁") and st.session_state.page > 1:
-            st.session_state.page -= 1
-    with col3:
+           st.session_state.page -= 1
+    with cols_page[2]:
         if st.button("下一頁") and st.session_state.page < total_pages:
             st.session_state.page += 1
-    with col4:
+    with cols_page[3]:
         input_page = st.number_input("跳至頁碼", 1, total_pages, st.session_state.page)
         if input_page != st.session_state.page:
             st.session_state.page = input_page
 
-    # 取當頁配方編號清單
-    code_list = page_data["配方編號"].dropna().tolist()
-
-    if code_list:
-        if len(code_list) == 1:
-            selected_code = code_list[0]
-            st.info(f"🔹 自動選取唯一配方編號：{selected_code}")
-        else:
-            selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code_page")
-
-        try:
-            selected_idx = df_filtered[df_filtered["配方編號"] == selected_code].index[0]
-
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("✏️ 修改", key="edit_btn"):
-                    df_idx = df[df["配方編號"] == selected_code].index[0]
-                    st.session_state.edit_recipe_index = df_idx
-                    st.session_state.form_recipe = df.loc[df_idx].to_dict()
-                    st.rerun()
-
-            with col2:
-                if st.button("🗑️ 刪除", key="del_btn"):
-                    df_idx = df[df["配方編號"] == selected_code].index[0]
-                    st.session_state.delete_recipe_index = df_idx
-                    st.session_state.show_delete_recipe_confirm = True
-                    st.rerun()
-
-        except Exception as e:
-            st.error(f"❗ 資料選擇錯誤：{e}")
-    else:
-        st.info("🟦 沒有可選的配方編號")
-
-    # 分頁狀態說明
-    st.write(f"目前第 {st.session_state.page} / {total_pages} 頁．共 {total_rows} 筆（篩選後）")
+    # 7. 分頁資訊顯示
+    st.markdown(f"目前第 **{st.session_state.page}** / **{total_pages}** 頁，總筆數：{total_rows}")
