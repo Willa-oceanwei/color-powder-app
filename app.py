@@ -569,14 +569,14 @@ elif menu == "配方管理":
     # --- 🔍 搜尋列區塊 ---
     # --- 1. 兩組搜尋輸入欄位 ---
     with st.expander("🔎 上方搜尋條件", expanded=True):
-        search_recipe_top = st.text_input("配方編號(上方)", key="search_recipe_top")
-        search_customer_top = st.text_input("客戶名稱或編號(上方)", key="search_customer_top")
-        search_pantone_top = st.text_input("Pantone色號(上方)", key="search_pantone_top")
+        search_recipe_top = st.text_input("配方編號(上方)", key="search_recipe_top_unique")
+        search_customer_top = st.text_input("客戶名稱或編號(上方)", key="search_customer_top_unique")
+        search_pantone_top = st.text_input("Pantone色號(上方)", key="search_pantone_top_unique")
 
     with st.expander("🔎 下方搜尋條件", expanded=False):
-        search_recipe_bottom = st.text_input("配方編號(下方)", key="search_recipe_code_bottom")
-        search_customer_bottom = st.text_input("客戶名稱或編號(下方)", key="search_customer_bottom")
-        search_pantone_bottom = st.text_input("Pantone色號(下方)", key="search_pantone_bottom")
+        search_recipe_bottom = st.text_input("配方編號(下方)", key="search_recipe_bottom_unique")
+        search_customer_bottom = st.text_input("客戶名稱或編號(下方)", key="search_customer_bottom_unique")
+        search_pantone_bottom = st.text_input("Pantone色號(下方)", key="search_pantone_bottom_unique")
 
     # --- 2. 取得並整合搜尋條件 ---
     def clean_kw(kw):
