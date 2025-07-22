@@ -567,106 +567,81 @@ elif menu == "配方管理":
     df_filtered = df[mask]
 
     # --- 🔍 搜尋列區塊 ---
-    # 1. 搜尋條件放入可折疊區塊
-    with st.expander("🔎 搜尋條件 (點擊展開/收合)", expanded=False):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            search_recipe = st.text_input("配方編號", key="search_recipe_code_bottom")
-        with col2:
-            search_customer = st.text_input("客戶名稱或編號", key="search_customer_bottom")
-        with col3:
-            search_pantone = st.text_input("Pantone色號", key="search_pantone_bottom")
-    
-    # 2. 篩選資料
-    recipe_kw = (search_recipe or "").strip()
-    customer_kw = (search_customer or "").strip()
-    pantone_kw = (search_pantone or "").strip()
-   
-    mask = pd.Series(True, index=df.index)
-    if recipe_kw:
-        mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
-    if customer_kw:
-        mask &= (
-            df["客戶名稱"].astype(str).str.contains(customer_kw, case=False, na=False) |
-            df["客戶編號"].astype(str).str.contains(customer_kw, case=False, na=False)
-        )
-    if pantone_kw:
-        pantone_kw_clean = pantone_kw.replace(" ", "").upper()
-        mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
-
-    df_filtered = df[mask]
-    total_rows = df_filtered.shape[0]
-
-    st.markdown(f"🎯 **篩選後筆數：{total_rows}**")
-    # --- 搜尋輸入區 ---
-
-    with st.expander("🔎 上方搜尋條件", expanded=False):
+    # --- 1. 兩組搜尋輸入欄位 ---
+    with st.expander("🔎 上方搜尋條件", expanded=True):
         search_recipe_top = st.text_input("配方編號(上方)", key="search_recipe_top")
         search_customer_top = st.text_input("客戶名稱或編號(上方)", key="search_customer_top")
         search_pantone_top = st.text_input("Pantone色號(上方)", key="search_pantone_top")
 
     with st.expander("🔎 下方搜尋條件", expanded=False):
-        search_recipe_bottom = st.text_input("配方編號(下方)", key="search_recipe_bottom")
+        search_recipe_bottom = st.text_input("配方編號(下方)", key="search_recipe_code_bottom")
         search_customer_bottom = st.text_input("客戶名稱或編號(下方)", key="search_customer_bottom")
         search_pantone_bottom = st.text_input("Pantone色號(下方)", key="search_pantone_bottom")
 
-    # 取並列使用的搜尋條件（以 or 寫法合併兩組同欄位）
+    # --- 2. 取得並整合搜尋條件 ---
+    def clean_kw(kw):
+        return (kw or "").strip()
 
-    def contains_or(series, kw1, kw2, case=False):
-        cond1 = series.astype(str).str.contains(kw1, case=case, na=False) if kw1 else pd.Series(False, index=series.index)
-        cond2 = series.astype(str).str.contains(kw2, case=case, na=False) if kw2 else pd.Series(False, index=series.index)
-        return cond1 | cond2
+    recipe_kw_top = clean_kw(search_recipe_top)
+    customer_kw_top = clean_kw(search_customer_top)
+    pantone_kw_top = clean_kw(search_pantone_top).replace(" ", "").upper()
 
+    recipe_kw_bottom = clean_kw(search_recipe_bottom)
+    customer_kw_bottom = clean_kw(search_customer_bottom)
+    pantone_kw_bottom = clean_kw(search_pantone_bottom).replace(" ", "").upper()
+
+    # --- 3. 篩選資料 ---
     mask = pd.Series(True, index=df.index)
 
-    # 配方編號欄位，兩組任一條件成立
-    if search_recipe_top or search_recipe_bottom:
-        mask &= contains_or(df["配方編號"], search_recipe_top, search_recipe_bottom, case=False)
+    # 配方編號（top 或 bottom 任一匹配）
+    if recipe_kw_top or recipe_kw_bottom:
+        mask &= df["配方編號"].astype(str).str.contains(recipe_kw_top, case=False, na=False) | \
+                df["配方編號"].astype(str).str.contains(recipe_kw_bottom, case=False, na=False)
 
-    # 客戶名稱或客戶編號欄位，兩組任一條件成立（且名和編號間用 or）
-    if search_customer_top or search_customer_bottom:
-        cond_top = (df["客戶名稱"].astype(str).str.contains(search_customer_top, case=False, na=False) |
-                    df["客戶編號"].astype(str).str.contains(search_customer_top, case=False, na=False)) if search_customer_top else pd.Series(False, index=df.index)
-        cond_bottom = (df["客戶名稱"].astype(str).str.contains(search_customer_bottom, case=False, na=False) |
-                       df["客戶編號"].astype(str).str.contains(search_customer_bottom, case=False, na=False)) if search_customer_bottom else pd.Series(False, index=df.index)
+    # 客戶名稱或編號（top 或 bottom 任一匹配）
+    if customer_kw_top or customer_kw_bottom:
+        cond_top = df["客戶名稱"].astype(str).str.contains(customer_kw_top, case=False, na=False) | \
+                   df["客戶編號"].astype(str).str.contains(customer_kw_top, case=False, na=False) if customer_kw_top else pd.Series(False, index=df.index)
+        cond_bottom = df["客戶名稱"].astype(str).str.contains(customer_kw_bottom, case=False, na=False) | \
+                      df["客戶編號"].astype(str).str.contains(customer_kw_bottom, case=False, na=False) if customer_kw_bottom else pd.Series(False, index=df.index)
         mask &= cond_top | cond_bottom
 
-    # Pantone色號欄位，同理，先將字串標準化（去空白大寫）
-    def pantone_clean(s):
-        return s.astype(str).str.replace(" ", "").str.upper()
+    # Pantone色號（top 或 bottom 任一匹配，且標準化處理）
+    def pantone_clean(col):
+        return col.astype(str).str.replace(" ", "").str.upper()
 
-    pantone_top = (search_pantone_top or "").replace(" ", "").upper()
-    pantone_bottom = (search_pantone_bottom or "").replace(" ", "").upper()
-    if pantone_top or pantone_bottom:
-        mask &= (pantone_clean(df["Pantone色號"]).str.contains(pantone_top, na=False) |
-                 pantone_clean(df["Pantone色號"]).str.contains(pantone_bottom, na=False))
+    df_pantone_clean = pantone_clean(df["Pantone色號"])
+    if pantone_kw_top or pantone_kw_bottom:
+        cond_top = df_pantone_clean.str.contains(pantone_kw_top, na=False) if pantone_kw_top else pd.Series(False, index=df.index)
+        cond_bottom = df_pantone_clean.str.contains(pantone_kw_bottom, na=False) if pantone_kw_bottom else pd.Series(False, index=df.index)
+        mask &= cond_top | cond_bottom
 
     df_filtered = df[mask]
-    
+    total_rows = df_filtered.shape[0]
 
-    # 3. 分頁設定與初始化
+    st.markdown(f"🎯 **篩選後筆數：{total_rows}**")
+
+    # --- 4. 分頁及顯示(跟你原程式接續即可) ---
     limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
     total_pages = max((total_rows - 1) // limit + 1, 1)
 
     if "page" not in st.session_state:
         st.session_state.page = 1
 
-    search_id = (recipe_kw, customer_kw, pantone_kw)
+    search_id = (recipe_kw_top, customer_kw_top, pantone_kw_top,
+                 recipe_kw_bottom, customer_kw_bottom, pantone_kw_bottom)
     if "last_search_id" not in st.session_state or st.session_state.last_search_id != search_id:
-        st.session_state.page = 1
-        st.session_state.last_search_id = search_id
-
-    # 計算目前頁面資料起迄索引
+       st.session_state.page = 1
+       st.session_state.last_search_id = search_id
+    
     start_idx = (st.session_state.page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
 
-    # 4. 顯示資料表格區 (獨立塊)
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [c for c in show_cols if c in df_filtered.columns]
 
-    st.markdown("---")  # 分隔線
-
+    st.markdown("---")
     if not df_filtered.empty and existing_cols:
         st.dataframe(page_data[existing_cols], use_container_width=True)
     else:
