@@ -666,14 +666,14 @@ elif menu == "配方管理":
                     df_idx = df[df["配方編號"] == selected_code].index[0]
                     st.session_state.edit_recipe_index = df_idx
                     st.session_state.form_recipe = df.loc[df_idx].to_dict()
-                    st.experimental_rerun()
+                    st.rerun()
 
             with col2:
                 if st.button("🗑️ 刪除", key="del_btn"):
                     df_idx = df[df["配方編號"] == selected_code].index[0]
                     st.session_state.delete_recipe_index = df_idx
                     st.session_state.show_delete_recipe_confirm = True
-                    st.experimental_rerun()
+                    st.rerun()
 
         except Exception as e:
             st.error(f"❗ 資料選擇錯誤：{e}")
