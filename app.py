@@ -575,7 +575,7 @@ elif menu == "配方管理":
         with col2:
             search_customer = st.text_input("客戶名稱或編號", key="search_customer_bottom")
         with col3:
-        search_pantone = st.text_input("Pantone色號", key="search_pantone_bottom")
+            search_pantone = st.text_input("Pantone色號", key="search_pantone_bottom")
     
     # 2. 篩選資料
     recipe_kw = (search_recipe or "").strip()
