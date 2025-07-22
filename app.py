@@ -598,6 +598,51 @@ elif menu == "配方管理":
     total_rows = df_filtered.shape[0]
 
     st.markdown(f"🎯 **篩選後筆數：{total_rows}**")
+    # --- 搜尋輸入區 ---
+
+    with st.expander("🔎 上方搜尋條件", expanded=False):
+        search_recipe_top = st.text_input("配方編號(上方)", key="search_recipe_top")
+        search_customer_top = st.text_input("客戶名稱或編號(上方)", key="search_customer_top")
+        search_pantone_top = st.text_input("Pantone色號(上方)", key="search_pantone_top")
+
+    with st.expander("🔎 下方搜尋條件", expanded=False):
+        search_recipe_bottom = st.text_input("配方編號(下方)", key="search_recipe_bottom")
+        search_customer_bottom = st.text_input("客戶名稱或編號(下方)", key="search_customer_bottom")
+        search_pantone_bottom = st.text_input("Pantone色號(下方)", key="search_pantone_bottom")
+
+    # 取並列使用的搜尋條件（以 or 寫法合併兩組同欄位）
+
+    def contains_or(series, kw1, kw2, case=False):
+        cond1 = series.astype(str).str.contains(kw1, case=case, na=False) if kw1 else pd.Series(False, index=series.index)
+        cond2 = series.astype(str).str.contains(kw2, case=case, na=False) if kw2 else pd.Series(False, index=series.index)
+        return cond1 | cond2
+
+    mask = pd.Series(True, index=df.index)
+
+    # 配方編號欄位，兩組任一條件成立
+    if search_recipe_top or search_recipe_bottom:
+        mask &= contains_or(df["配方編號"], search_recipe_top, search_recipe_bottom, case=False)
+
+    # 客戶名稱或客戶編號欄位，兩組任一條件成立（且名和編號間用 or）
+    if search_customer_top or search_customer_bottom:
+        cond_top = (df["客戶名稱"].astype(str).str.contains(search_customer_top, case=False, na=False) |
+                    df["客戶編號"].astype(str).str.contains(search_customer_top, case=False, na=False)) if search_customer_top else pd.Series(False, index=df.index)
+        cond_bottom = (df["客戶名稱"].astype(str).str.contains(search_customer_bottom, case=False, na=False) |
+                       df["客戶編號"].astype(str).str.contains(search_customer_bottom, case=False, na=False)) if search_customer_bottom else pd.Series(False, index=df.index)
+        mask &= cond_top | cond_bottom
+
+    # Pantone色號欄位，同理，先將字串標準化（去空白大寫）
+    def pantone_clean(s):
+        return s.astype(str).str.replace(" ", "").str.upper()
+
+    pantone_top = (search_pantone_top or "").replace(" ", "").upper()
+    pantone_bottom = (search_pantone_bottom or "").replace(" ", "").upper()
+    if pantone_top or pantone_bottom:
+        mask &= (pantone_clean(df["Pantone色號"]).str.contains(pantone_top, na=False) |
+                 pantone_clean(df["Pantone色號"]).str.contains(pantone_bottom, na=False))
+
+    df_filtered = df[mask]
+    
 
     # 3. 分頁設定與初始化
     limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
