@@ -607,21 +607,24 @@ elif menu == "配方管理":
 
     st.write("🎯 篩選後筆數：", df_filtered.shape[0])
 
-    # 3. 分頁設定與初始化
+    # --- 分頁設定 ---
     limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
+    total_rows = df_filtered.shape[0]
     total_pages = max((total_rows - 1) // limit + 1, 1)
-    if total_rows is None or limit is None or limit == 0:
-        total_pages = 1
-    else:
-        total_pages = max((total_rows - 1) // limit + 1, 1)
 
+    # 初始化分頁 page
     if "page" not in st.session_state:
         st.session_state.page = 1
 
+    # 搜尋條件改變時，分頁回到1
     search_id = (recipe_kw, customer_kw, pantone_kw)
     if "last_search_id" not in st.session_state or st.session_state.last_search_id != search_id:
         st.session_state.page = 1
         st.session_state.last_search_id = search_id
+
+    start_idx = (st.session_state.page - 1) * limit
+    end_idx = start_idx + limit
+    page_data = df_filtered.iloc[start_idx:end_idx]
 
     # 計算目前頁面資料起迄索引
     start_idx = (st.session_state.page - 1) * limit
