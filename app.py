@@ -68,8 +68,21 @@ if menu == "色粉管理":
     for col in required_columns:
         if col not in df.columns:
             df[col] = ""
+#-----
+    st.markdown("""
+    <style>
+    .big-title {
+        font-size: 35px;   /* 字體大小 */
+        font-weight: bold;  /*加粗 */
+        color: #0099cc; /* 字體顏色 */
+        margin-bottom: 20px; /* 下方間距 */
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    st.subheader("📜  色粉搜尋🔎")
+    st.markdown('<div class="big-title">📜色粉搜尋🔎</div>', unsafe_allow_html=True)
+#---
+
     search_input = st.text_input("請輸入色粉編號或國際色號", st.session_state.search_color)
     if search_input != st.session_state.search_color:
         st.session_state.search_color = search_input
@@ -180,8 +193,7 @@ elif menu == "客戶名單":
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="big-title">🗿客戶搜尋🔎</div>', unsafe_allow_html=True)
-    
-    st.subheader("🗿客戶搜尋🔎")
+  
     search_input = st.text_input("請輸入客戶編號或簡稱", st.session_state.search_customer)
     if search_input != st.session_state.search_customer:
         st.session_state.search_customer = search_input
