@@ -311,7 +311,7 @@ elif menu == "配方管理":
     
     # ✅ 後續操作都從 session_state 中抓資料
 
-    -------
+    #-------
     df = st.session_state.df
 
     st.markdown("""
