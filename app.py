@@ -317,10 +317,10 @@ elif menu == "配方管理":
     st.markdown("""
     <style>
     .big-title {
-        font-size: 35px;
-        font-weight: 700;
-        color: #F9DC5C;
-        margin-bottom: 20px;
+        font-size: 35px;   /* 字體大小 */
+        font-weight: #ffcc66;  /* 字體顏色 */
+        color: #F9DC5C; /* 加粗 */
+        margin-bottom: 20px; /* 下方間距 */
     }
     </style>
     """, unsafe_allow_html=True)
