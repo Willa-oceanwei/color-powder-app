@@ -318,7 +318,7 @@ elif menu == "配方管理":
     <style>
     .big-title {
         font-size: 35px;   /* 字體大小 */
-        font-weight: #ffcc66;  /* 字體顏色 */
+        font-weight: bold;  /* 字體顏色 */
         color: #F9DC5C; /* 加粗 */
         margin-bottom: 20px; /* 下方間距 */
     }
