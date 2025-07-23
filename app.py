@@ -742,6 +742,7 @@ elif menu == "生產單管理":
     df_recipe = df_recipe.astype(str)
 
     from pathlib import Path
+    from datetime import datetime
 
     # --- 0. 初始化資料 ---
     df_recipe = pd.DataFrame(ws_recipe.get_all_records()).astype(str)
