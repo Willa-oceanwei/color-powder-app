@@ -198,8 +198,8 @@ elif menu == "客戶名單":
     if search_input != st.session_state.search_customer:
         st.session_state.search_customer = search_input
     df_filtered = df[
-        df["客戶編號"].str.contains(st.session_state.search_customer, case=False, na=False)
-        | df["客戶簡稱"].str.contains(st.session_state.search_customer, case=False, na=False)
+        df["客戶編號"].str.contains(st.session_state.search_customer, case=False, na=False) |
+        df["客戶簡稱"].str.contains(st.session_state.search_customer, case=False, na=False)
     ] if st.session_state.search_customer.strip() else df
 
     if st.session_state.search_customer.strip() and df_filtered.empty:
