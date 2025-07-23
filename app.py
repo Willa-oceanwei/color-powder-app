@@ -900,29 +900,12 @@ elif menu == "生產單管理":
         })
         st.dataframe(df_colorants, use_container_width=True)
 
-        # 👉 儲存時將完整資料收錄進 order
         c1, c2 = st.columns(2)
         with c1:
             if st.button("✅ 確定"):
-                new_order = st.session_state.new_order
+                order = st.session_state.new_order
 
-                # 合併到本地 df_order 資料框
-                df_order = pd.concat([df_order, pd.DataFrame([new_order])], ignore_index=True)
-                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-
-                # ✅ 寫入 Google 試算表 ws_order（欄位順序與 df_order 一致）
-                try:
-                    ws_order.append_row([new_order.get(col, "") for col in df_order.columns])
-                except Exception as e:
-                    st.error(f"寫入 Google 試算表失敗：{e}")
-
-                st.success(f"生產單 {new_order['生產單號']} 已儲存")
-                st.session_state.show_confirm_panel = False
-                st.session_state.new_order = None
-                st.rerun()
-                
-    　　　　　　 df_order = pd.concat([df_order, pd.DataFrame([st.session_state.new_order])], ignore_index=True)
-    　　　　　　 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                # 補充 order 欄位資料（假設 color, pantone, unit, prod_time, weights, counts, remark, colorants 事先已定義）
                 order["顏色"] = color
                 order["Pantone 色號"] = pantone
                 order["計量單位"] = unit
@@ -942,19 +925,28 @@ elif menu == "生產單管理":
 
                 # 確保 df_order 有這些欄位
                 required_fields = ["Pantone 色號", "計量單位", "生產時間", "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
-                                   "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4", "備註"] + \
-                                  [f"色粉{i+1}" for i in range(8)] + ["色粉合計"]
+                           "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4", "備註"] + \
+                          [f"色粉{i+1}" for i in range(8)] + ["色粉合計"]
+
                 for field in required_fields:
                     if field not in df_order.columns:
                         df_order[field] = ""
 
+                # 合併並存檔
                 df_order = pd.concat([df_order, pd.DataFrame([order])], ignore_index=True)
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                ws_order.append_row([order.get(col, "") for col in df_order.columns])
+
+                # 寫入 Google 試算表
+                try:
+                    ws_order.append_row([order.get(col, "") for col in df_order.columns])
+                except Exception as e:
+                    st.error(f"寫入 Google 試算表失敗：{e}")
+
                 st.success(f"生產單 {order['生產單號']} 已儲存")
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order = None
-                st.rerun()  # ✅ 改為新版 rerun()
+                st.rerun()
+
         with c2:
             if st.button("❌ 取消"):
                 st.session_state.show_confirm_panel = False
