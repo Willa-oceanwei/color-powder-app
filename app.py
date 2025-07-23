@@ -731,28 +731,30 @@ elif menu == "配方管理":
     st.markdown(f"目前第 **{st.session_state.page}** / **{total_pages}** 頁，總筆數：{total_rows}")
 
 
-    import streamlit as st
-    import pandas as pd
-    from datetime import datetime
+    # --- 生產單分頁 ----------------------------------------------------
+elif menu == "生產單管理":
+    st.markdown("## 🧾 生產單建立")
+
+    # 載入工作表
+    ws_recipe = spreadsheet.worksheet("配方管理")
+    ws_order = spreadsheet.worksheet("生產單")
+    df_recipe = pd.DataFrame(ws_recipe.get_all_records())
+    df_recipe = df_recipe.astype(str)
+
+    st.subheader("🧾 生產單管理")
+
     from pathlib import Path
 
-    # ---------- 初始化資料 ----------
-    order_dir = Path("data")
-    order_dir.mkdir(exist_ok=True)
-    order_file = order_dir / "df_order.csv"
+    # --- 0. 初始化資料 ---
+    df_recipe = pd.DataFrame(ws_recipe.get_all_records()).astype(str)
 
-    # 模擬配方資料，實務可換成你的資料來源
-    df_recipe = pd.DataFrame([
-        {"配方編號":"51107", "客戶名稱":"藍 活揚", "狀態":"啟用", "顏色":"藍"},
-        {"配方編號":"51107-1", "客戶名稱":"藍 活揚", "狀態":"啟用", "顏色":"淺藍"},
-        {"配方編號":"51108", "客戶名稱":"紅 火焰", "狀態":"啟用", "顏色":"紅"},
-    ], dtype=str)
-
+    order_file = Path("data/df_order.csv")
     if order_file.exists():
-        df_order = pd.read_csv(order_file, dtype=str)
+    df_order = pd.read_csv(order_file, dtype=str)
     else:
-        df_order = pd.DataFrame(columns=["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱",
-                                     "包裝重量", "包裝份數", "建立時間"])
+    df_order = pd.DataFrame(columns=["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量", "包裝份數", "建立時間"])
+
+    df_order.fillna("", inplace=True)
 
     # 初始化 st.session_state
     if "order_page" not in st.session_state:
