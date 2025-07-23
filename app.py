@@ -741,8 +741,6 @@ elif menu == "生產單管理":
     df_recipe = pd.DataFrame(ws_recipe.get_all_records())
     df_recipe = df_recipe.astype(str)
 
-    st.subheader("🧾 生產單管理")
-
     from pathlib import Path
 
     # --- 0. 初始化資料 ---
