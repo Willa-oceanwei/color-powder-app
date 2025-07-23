@@ -822,7 +822,9 @@ elif menu == "生產單管理":
             else:
                 now = datetime.now()
                 new_id = now.strftime("%Y%m%d") + "-" + f"{len(df_order)+1:03}"
-                st.session_state.new_order = {
+            
+                # ✅ 這邊先定義 new_entry
+                new_entry = {
                     "生產單號": new_id,
                     "生產日期": now.strftime("%Y-%m-%d"),
                     "配方編號": recipe["配方編號"],
@@ -830,7 +832,9 @@ elif menu == "生產單管理":
                     "客戶名稱": recipe.get("客戶名稱", ""),
                     "建立時間": now.strftime("%Y-%m-%d %H:%M:%S")
                 }
-                # 安全取得色粉1~8欄位值
+
+                # ✅ 接著再處理色粉欄位補齊
+                import pandas as pd
                 colorant_total = 0
                 for i in range(1, 9):
                     key = f"色粉{i}"
@@ -843,7 +847,10 @@ elif menu == "生產單管理":
                     colorant_total += val_float
 
                 new_entry["色粉合計"] = round(colorant_total, 2)
-           
+
+                # ⬇ 最後進入狀態儲存
+                st.session_state.new_order = new_entry
+                st.session_state.show_confirm_panel = True    
 
     # ---------- 新增後欄位填寫區塊 ----------
 
