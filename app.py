@@ -734,7 +734,15 @@ elif menu == "配方管理":
     # --- 生產單分頁 ---
     import streamlit as st
 
-    st.write("🚀 程式開始執行")
+    # 載入工作表
+    ws_recipe = spreadsheet.worksheet("配方管理")
+    ws_order = spreadsheet.worksheet("生產單")
+    df_recipe = pd.DataFrame(ws_recipe.get_all_records())
+    df_recipe = df_recipe.astype(str)
+
+    # 初始化 session_state
+    if "order_data" not in st.session_state:
+        st.session_state.order_data = {}
 
     st.subheader("🧾 生產單管理")
 
