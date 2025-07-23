@@ -920,7 +920,7 @@ elif menu == "生產單管理":
 
         # 取配方管理表中「合計類別」欄位（字串轉浮點數）
         try:
-            total_quantity = float(recipe_row.get("合計", 0))
+            total_category = recipe_row.get("合計類別", "")
         except:
             total_quantity = 0.0
 
