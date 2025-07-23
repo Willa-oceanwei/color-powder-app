@@ -904,7 +904,7 @@ elif menu == "生產單管理":
         c1, c2 = st.columns(2)
         with c1:
             if st.button("✅ 確定"):
-   　　　　　　 new_order = st.session_state.new_order
+   　　　　　　　new_order = st.session_state.new_order
 
     　　　　# 合併到本地 df_order 資料框
     　　　　df_order = pd.concat([df_order, pd.DataFrame([new_order])], ignore_index=True)
