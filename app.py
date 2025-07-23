@@ -750,9 +750,9 @@ elif menu == "生產單管理":
 
     order_file = Path("data/df_order.csv")
     if order_file.exists():
-    df_order = pd.read_csv(order_file, dtype=str)
+        df_order = pd.read_csv(order_file, dtype=str)
     else:
-    df_order = pd.DataFrame(columns=["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量", "包裝份數", "建立時間"])
+        df_order = pd.DataFrame(columns=["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量", "包裝份數", "建立時間"])
 
     df_order.fillna("", inplace=True)
 
