@@ -905,24 +905,22 @@ elif menu == "生產單管理":
         # 取得色粉重量（浮點數）
         colorant_weights = []
         for i in range(8):
-            w = recipe_row.get(f"色粉重量{i+1}", "0")
             try:
-                w_float = float(w)
+                val = float(recipe_row.get(f"色粉重量{i+1}", "0"))
             except:
-                w_float = 0.0
-            colorant_weights.append(w_float)
+                val = 0.0
+            colorant_weights.append(val)
 
         # 加總色粉重量
         total_weight = round(sum(colorant_weights), 2)
 
-        # 顯示用資料框架
-        import pandas as pd
         df_colorants = pd.DataFrame({
             "色粉編號": colorant_ids,
-            "用量 (g)": colorant_weights + [total_weight]  # 最後一列放總量
+            "用量 (g)": colorant_weights
         })
 
         st.dataframe(df_colorants, use_container_width=True)
+        st.write(f"色粉總量：{total_weight} 克")
 
         c1, c2 = st.columns(2)
         with c1:
