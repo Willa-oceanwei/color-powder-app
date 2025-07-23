@@ -733,11 +733,11 @@ elif menu == "配方管理":
 
     import streamlit as st
 
-    menu = st.sidebar.selectbox("功能選單", ["配方管理", "生產單管理", "報表查詢"])
+    menu = st.sidebar.selectbox("功能選單", ["色粉管理", "客戶名單", "配方管理", "生產單"])
 
     st.write("目前選單 menu 值為：", menu)
 
-    if menu == "生產單管理":
+    if menu == "生產單":
         st.subheader("✅ 生產單管理頁面載入成功")
     else:
         st.info("請從側邊欄選擇『生產單管理』")
