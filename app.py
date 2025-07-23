@@ -936,6 +936,8 @@ elif menu == "生產單管理":
                 order[f"色粉{i}"] = str(val_float)
             order["色粉合計"] = round(sum(colorants), 2)
                 
+                # ✅ 製作 row_data
+                header = list(df_order.columns)
                 row_data = [order.get(col, "") for col in header]
                 try:
                     ws_order.append_row(row_data)
@@ -951,11 +953,7 @@ elif menu == "生產單管理":
                 for field in required_fields:
                     if field not in df_order.columns:
                         df_order[field] = ""
-                        
-                # ✅ 製作 row_data
-                header = list(df_order.columns)
-                row_data = [order.get(col, "") for col in header]
-
+           
                 # ✅ 寫入 Google Sheet
                 try:
                     ws_order.append_row(row_data)
