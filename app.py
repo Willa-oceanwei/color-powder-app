@@ -745,12 +745,14 @@ elif menu == "生產單管理":
     ws_order = spreadsheet.worksheet("生產單")
     df_recipe = pd.DataFrame(ws_recipe.get_all_records()).astype(str)
 
-    order_file = Path("data/df_order.csv")
+    order_dir = Path("data")
+    os.makedirs(order_dir, exist_ok=True)  # 確保 data 資料夾存在
+    order_file = order_dir / "df_order.csv"
+
     if order_file.exists():
         df_order = pd.read_csv(order_file, dtype=str)
     else:
         df_order = pd.DataFrame(columns=["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量", "包裝份數", "建立時間"])
-    df_order.fillna("", inplace=True)
 
     st.subheader("🧾 生產單管理")
 
