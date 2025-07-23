@@ -743,8 +743,9 @@ elif menu == "配方管理":
     # 初始化 session_state
     if "order_data" not in st.session_state:
         st.session_state.order_data = {}
-
-    st.subheader("🧾 生產單管理")
+        
+elif menu == "生產單管理":
+    st.markdown("## 🧾 生產單建立")
 
     # --- 匯入生產單資料 ---
     order_file = Path("data/df_order.csv")
