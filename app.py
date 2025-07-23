@@ -742,6 +742,18 @@ elif menu == "生產單管理":
     ws_order = spreadsheet.worksheet("生產單")
     df_recipe = pd.DataFrame(ws_recipe.get_all_records()).astype(str)
 
+    # 欄位標題
+    header = list(df_order.columns)
+
+    # 檢查欄位是否已存在，若無則寫入
+    existing_values = ws_order.get_all_values()
+    if len(existing_values) == 0:
+        ws_order.append_row(header)
+
+# 寫入新資料列
+row_data = [order.get(col, "") for col in header]
+ws_order.append_row(row_data)
+
     from pathlib import Path
     from datetime import datetime
 
