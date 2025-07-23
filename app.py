@@ -769,10 +769,6 @@ elif menu == "生產單管理":
     if len(existing_values) == 0:
         ws_order.append_row(header)
 
-    # 寫入新資料列
-    row_data = [order.get(col, "") for col in header]
-    ws_order.append_row(row_data)
-
     # 初始化 session_state
     for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "show_confirm_panel"]:
         if key not in st.session_state:
@@ -932,6 +928,12 @@ elif menu == "生產單管理":
                     order[f"色粉{i+1}"] = colorants[i]
                 order["色粉合計"] = sum(colorants)
 
+                try:
+                    ws_order.append_row(row_data)
+                except Exception as e:
+                    st.error(f"❌ 寫入失敗：{e}")
+                    st.stop()
+
                 # 確保 df_order 有這些欄位
                 required_fields = ["Pantone 色號", "計量單位", "生產時間", "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
                            "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4", "備註"] + \
@@ -940,16 +942,20 @@ elif menu == "生產單管理":
                 for field in required_fields:
                     if field not in df_order.columns:
                         df_order[field] = ""
-
-                # 合併並存檔
+                        
+                # 寫入 Google 試算表
+                row_data = [order.get(col, "") for col in header]
+                try:
+                    ws_order.append_row(row_data)
+                except Exception as e:
+                    st.error(f"❌ 寫入失敗：{e}")
+                    st.stop()
+                    
+                # 寫入本地 CSV
                 df_order = pd.concat([df_order, pd.DataFrame([order])], ignore_index=True)
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
 
-                # 寫入 Google 試算表
-                try:
-                    ws_order.append_row([order.get(col, "") for col in df_order.columns])
-                except Exception as e:
-                    st.error(f"寫入 Google 試算表失敗：{e}")
+                st.success(f"生產單 {order['生產單號']} 已儲存")
 
                 st.success(f"生產單 {order['生產單號']} 已儲存")
                 st.session_state.show_confirm_panel = False
