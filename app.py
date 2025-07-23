@@ -885,7 +885,7 @@ elif menu == "生產單管理":
         with c6:
             color = st.text_input("顏色", value=order.get("顏色", ""))
         with c7:
-            pantone = st.text_input("國際色號", value=recipe_row.get("Pantone 色號", ""))
+            pantone = st.text_input("Pantone色號", value=recipe_row.get("Pantone 色號", ""))
         with c8:
             prod_time = st.text_input("生產時間", value=datetime.now().strftime("%Y-%m-%d %H:%M"))
 
