@@ -825,65 +825,81 @@ elif menu == "生產單管理":
     if st.session_state.show_confirm_panel and st.session_state.new_order:
         st.markdown("---")
         st.subheader("新增生產單詳情填寫")
-        order = st.session_state.new_order
 
+        order = st.session_state.new_order
+        recipe_row = df_recipe[df_recipe["配方編號"] == order["配方編號"]].iloc[0]
+
+        # 四欄資料列
         c1, c2, c3, c4 = st.columns(4)
         with c1:
             st.text_input("生產單號", value=order["生產單號"], disabled=True)
         with c2:
             st.text_input("配方編號", value=order["配方編號"], disabled=True)
         with c3:
-            customer_code = st.text_input("客戶編號", value="")
+            st.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True)
         with c4:
             st.text_input("客戶名稱", value=order["客戶名稱"], disabled=True)
 
         c5, c6, c7, c8 = st.columns(4)
+        unit = recipe_row.get("計量單位", "kg")
         with c5:
-            unit = st.selectbox("計量單位", ["kg", "包", "桶"], key="unit")
+            st.text_input("計量單位", value=unit, disabled=True)
         with c6:
             color = st.text_input("顏色", value=order.get("顏色", ""))
         with c7:
-            pantone = st.text_input("國際色號", value="")
+            pantone = st.text_input("國際色號", value=recipe_row.get("Pantone 色號", ""))
         with c8:
             prod_time = st.text_input("生產時間", value=datetime.now().strftime("%Y-%m-%d %H:%M"))
 
-        # 包裝重量/份數欄位（單位顯示）
         st.markdown("**包裝重量與份數**")
         w1, w2, w3, w4 = st.columns(4)
         weights = [w.text_input(f"包裝{i+1}重量 ({unit})", value="") for i, w in enumerate([w1, w2, w3, w4])]
         p1, p2, p3, p4 = st.columns(4)
-        counts = [p.text_input(f"包裝{i+1}份數 ({unit})", value="") for i, p in enumerate([p1, p2, p3, p4])]
+        counts = [p.text_input(f"包裝{i+1}份數", value="") for i, p in enumerate([p1, p2, p3, p4])]
 
         remark = st.text_area("備註", value="", height=60)
 
-        # 顯示色粉1~8與合計
+        # 🎨 色粉配方顯示 (鎖定)
         st.markdown("### 🎨 色粉配方")
-        recipe_code = order["配方編號"]
-        df_row = df_recipe[df_recipe["配方編號"] == recipe_code]
-        if not df_row.empty:
-            row = df_row.iloc[0]
-            colorants = [float(row.get(f"色粉{i+1}", "0") or 0) for i in range(8)]
-            df_colorants = pd.DataFrame({
-                "色粉項目": [f"色粉{i+1}" for i in range(8)] + ["合計"],
-                "用量 (g)": colorants + [sum(colorants)]
-            })
-            st.dataframe(df_colorants, use_container_width=True)
+        colorants = [float(recipe_row.get(f"色粉{i+1}", "0") or 0) for i in range(8)]
+        df_colorants = pd.DataFrame({
+            "色粉項目": [f"色粉{i+1}" for i in range(8)] + ["合計"],
+            "用量 (g)": colorants + [sum(colorants)]
+        })
+        st.dataframe(df_colorants, use_container_width=True)
 
-        # 確認 / 取消按鈕
+        # 👉 儲存時將完整資料收錄進 order
         c1, c2 = st.columns(2)
         with c1:
             if st.button("✅ 確定"):
+                order["顏色"] = color
+                order["Pantone 色號"] = pantone
+                order["計量單位"] = unit
+                order["生產時間"] = prod_time
+                order["包裝重量1"] = weights[0]
+                order["包裝重量2"] = weights[1]
+                order["包裝重量3"] = weights[2]
+                order["包裝重量4"] = weights[3]
+                order["包裝份數1"] = counts[0]
+                order["包裝份數2"] = counts[1]
+                order["包裝份數3"] = counts[2]
+                order["包裝份數4"] = counts[3]
+                order["備註"] = remark
+                for i in range(8):
+                    order[f"色粉{i+1}"] = colorants[i]
+                order["色粉合計"] = sum(colorants)
+
                 df_order = pd.concat([df_order, pd.DataFrame([order])], ignore_index=True)
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                 st.success(f"生產單 {order['生產單號']} 已儲存")
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order = None
-                st.rerun()
+                st.rerun()  # ✅ 改為新版 rerun()
         with c2:
             if st.button("❌ 取消"):
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order = None
-                st.experimental_rerun()
+                st.rerun()
 
 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
