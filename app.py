@@ -781,11 +781,22 @@ elif menu == "生產單管理":
         else:
             filtered = df_recipe.copy()
 
-        options = filtered.apply(lambda r: f"{r['配方編號']} | {r['客戶名稱']}", axis=1).tolist()
-        select_options = ["請選擇"] + options if options else ["請選擇"]
-        selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
-        selected_option = selected_label if selected_label != "請選擇" else None
-        if not options:
+        # 建立選單選項顯示名稱
+        def format_option(r):
+            label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
+            if r.get("配方類別", "") == "附加配方":
+                label += "（附加配方）"
+            return label
+
+        # 生成下拉選單選項
+        if not filtered.empty:
+            options = filtered.apply(format_option, axis=1).tolist()
+            default_option = options[0] if len(options) == 1 else "請選擇"
+            select_options = [default_option] if default_option != "請選擇" else ["請選擇"] + options
+            selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
+            selected_option = None if selected_label == "請選擇" else selected_label
+        else:
+            selected_option = None
             st.info("無法取得任何符合的配方")
 
     if add_btn:
