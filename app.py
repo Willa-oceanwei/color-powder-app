@@ -782,7 +782,9 @@ elif menu == "生產單管理":
             filtered = df_recipe.copy()
 
         options = filtered.apply(lambda r: f"{r['配方編號']} | {r['客戶名稱']}", axis=1).tolist()
-        selected_option = st.selectbox("選擇配方", options, key="selected_recipe") if options else None
+        select_options = ["請選擇"] + options if options else ["請選擇"]
+        selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
+        selected_option = selected_label if selected_label != "請選擇" else None
         if not options:
             st.info("無法取得任何符合的配方")
 
