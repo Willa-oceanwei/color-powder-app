@@ -830,14 +830,19 @@ elif menu == "生產單管理":
                     "客戶名稱": recipe.get("客戶名稱", ""),
                     "建立時間": now.strftime("%Y-%m-%d %H:%M:%S")
                 }
+                # 安全取得色粉1~8欄位值
+                colorant_total = 0
                 for i in range(1, 9):
-                    val = recipe[f"色粉{i}"] if f"色粉{i}" in recipe else ""
-                    new_entry[f"色粉{i}"] = val
+                    key = f"色粉{i}"
+                    val = recipe[key] if key in recipe and pd.notna(recipe[key]) else "0"
+                    try:
+                        val_float = float(val)
+                    except:
+                        val_float = 0.0
+                    new_entry[key] = val
+                    colorant_total += val_float
 
-                new_entry["色粉合計"] = sum([
-                    float(recipe[f"色粉{i}"]) if f"色粉{i}" in recipe and str(recipe[f"色粉{i}"]).replace('.', '', 1).isdigit() else 0
-                    for i in range(1, 9)
-                ])
+                new_entry["色粉合計"] = round(colorant_total, 2)
            
 
     # ---------- 新增後欄位填寫區塊 ----------
