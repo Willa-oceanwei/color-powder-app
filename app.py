@@ -756,6 +756,7 @@ elif menu == "生產單":
     with col2:
         if st.button("＋新增生產單"):
             st.session_state.show_create_form = True
+     st.write("目前 df_order 欄位：", df_order.columns.tolist())
 
     # 若未點選新增，顯示歷史清單分頁
     if not st.session_state.show_create_form:
