@@ -766,8 +766,6 @@ elif menu == "生產單管理":
     if "show_confirm_panel" not in st.session_state:
         st.session_state.show_confirm_panel = False
 
-    st.title("生產單管理系統")
-
     # ---------- 搜尋及新增區 ----------
     st.subheader("🔎 配方搜尋與新增生產單")
 
