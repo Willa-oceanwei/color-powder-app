@@ -921,8 +921,8 @@ elif menu == "生產單管理":
                 st.session_state.new_order = None
                 st.rerun()
                 
-    　　　　　　df_order = pd.concat([df_order, pd.DataFrame([st.session_state.new_order])], ignore_index=True)
-    　　　　　　df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+    　　　　　　 df_order = pd.concat([df_order, pd.DataFrame([st.session_state.new_order])], ignore_index=True)
+    　　　　　　 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                 order["顏色"] = color
                 order["Pantone 色號"] = pantone
                 order["計量單位"] = unit
