@@ -848,10 +848,9 @@ elif menu == "生產單管理":
                         val_float = float(val)
                     except:
                         val_float = 0.0
-                    new_entry[key] = val
+                    new_entry[key] = f"{val_float:.2f}"   # 轉成標準字串格式
                     colorant_total += val_float
-
-                new_entry["色粉合計"] = round(colorant_total, 2)
+                new_entry["色粉合計"] = f"{colorant_total:.2f}"
 
                 # ⬇ 最後進入狀態儲存
                 st.session_state.new_order = new_entry
@@ -936,25 +935,16 @@ elif menu == "生產單管理":
                     order[f"色粉{i}"] = str(val_float)
                 order["色粉合計"] = round(sum(colorants), 2)
                 
-                # ✅ 製作 row_data
+                # ✅ 製作 row_data+寫入 Google Sheet
                 header = list(df_order.columns)
                 row_data = [order.get(col, "") for col in header]
+                
                 try:
                     ws_order.append_row(row_data)
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
                     st.stop()
-                # 產生資料列
-                header = list(df_order.columns)
-                row_data = [order.get(col, "") for col in header]
-
-                # 寫入 Google Sheet
-                try:
-                    ws_order.append_row(row_data)
-                except Exception as e:
-                    st.error(f"❌ 寫入 Google 試算表失敗：{e}")
-                    st.stop()
-
+                
                 # 本地 CSV 更新
                 df_order = pd.concat([df_order, pd.DataFrame([order])], ignore_index=True)
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
