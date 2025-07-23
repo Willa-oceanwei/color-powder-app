@@ -924,9 +924,17 @@ elif menu == "生產單管理":
                 order["包裝份數3"] = counts[2]
                 order["包裝份數4"] = counts[3]
                 order["備註"] = remark
-                for i in range(8):
-                    order[f"色粉{i+1}"] = colorants[i]
-                order["色粉合計"] = sum(colorants)
+                # ✅ 補齊 色粉1～8 與合計
+                colorants = []
+                for i in range(1, 9):
+                    val = order.get(f"色粉{i}", "0")
+                try:
+                    val_float = float(val)
+                except:
+                    val_float = 0.0
+                colorants.append(val_float)
+                order[f"色粉{i}"] = str(val_float)
+            order["色粉合計"] = round(sum(colorants), 2)
                 
                 row_data = [order.get(col, "") for col in header]
                 try:
@@ -944,12 +952,15 @@ elif menu == "生產單管理":
                     if field not in df_order.columns:
                         df_order[field] = ""
                         
-                # 寫入 Google 試算表
+                # ✅ 製作 row_data
+                header = list(df_order.columns)
                 row_data = [order.get(col, "") for col in header]
+
+                # ✅ 寫入 Google Sheet
                 try:
                     ws_order.append_row(row_data)
                 except Exception as e:
-                    st.error(f"❌ 寫入失敗：{e}")
+                    st.error(f"❌ 寫入 Google 試算表失敗：{e}")
                     st.stop()
                     
                 # 寫入本地 CSV
