@@ -732,6 +732,7 @@ elif menu == "配方管理":
 
 
     # --- 生產單分頁 ----------------------------------------------------
+    df_order = pd.read_csv("data/df_order.csv", dtype=str) if Path("data/df_order.csv").exists() else pd.DataFrame(...)
 elif menu == "生產單管理":
     st.markdown("## 🧾 生產單建立")
 
@@ -745,6 +746,8 @@ elif menu == "生產單管理":
     from datetime import datetime
 
     # --- 初始化資料 ---
+    # --- 強制重新讀入最新資料 ---
+    df_order = pd.read_csv(order_file, dtype=str) if order_file.exists() else pd.DataFrame(columns=[...])
     order_file = Path("data/df_order.csv")
     if order_file.exists():
         df_order = pd.read_csv(order_file, dtype=str)
@@ -888,6 +891,14 @@ elif menu == "生產單管理":
                 for i in range(8):
                     order[f"色粉{i+1}"] = colorants[i]
                 order["色粉合計"] = sum(colorants)
+
+                # 確保 df_order 有這些欄位
+                required_fields = ["Pantone 色號", "計量單位", "生產時間", "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
+                                   "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4", "備註"] + \
+                                  [f"色粉{i+1}" for i in range(8)] + ["色粉合計"]
+                for field in required_fields:
+                    if field not in df_order.columns:
+                        df_order[field] = ""
 
                 df_order = pd.concat([df_order, pd.DataFrame([order])], ignore_index=True)
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
