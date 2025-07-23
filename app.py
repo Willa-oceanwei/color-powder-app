@@ -787,7 +787,10 @@ elif menu == "生產單":
 
         today_str = pd.Timestamp.now().strftime("%Y%m%d")
         existing_orders = pd.DataFrame(ws_order.get_all_records())
-        order_count = existing_orders[existing_orders["生產單號"].str.startswith(today_str) if not existing_orders.empty else False].shape[0]
+        if not existing_orders.empty and "生產單號" in existing_orders.columns:
+            order_count = existing_orders[existing_orders["生產單號"].str.startswith(today_str)].shape[0]
+        else:
+            order_count = 0
         order_no = f"{today_str}-{order_count+1:03d}"
 
         col1, col2 = st.columns(2)
