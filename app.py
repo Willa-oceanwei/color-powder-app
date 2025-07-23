@@ -979,10 +979,7 @@ elif menu == "生產單管理":
                     order[key] = f"{val_float:.2f}"  # 確保是格式化字串
                 order["色粉合計"] = f"{sum(colorants):.2f}"
 
-                st.write("欄位順序:", header)
-                st.write("寫入資料長度:", len(row_data))
-                st.write("寫入資料內容:", row_data)
-                
+    
                 # 建立寫入Google Sheets資料列
                 header = list(df_order.columns)
                 row_data = [order.get(col, "") for col in header]
