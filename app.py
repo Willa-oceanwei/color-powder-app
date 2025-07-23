@@ -732,6 +732,9 @@ elif menu == "配方管理":
 
 
     # --- 生產單分頁 ---
+    import streamlit as st
+
+    
 
     st.subheader("🧾 生產單管理")
 
