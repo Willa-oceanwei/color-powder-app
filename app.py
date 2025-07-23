@@ -848,7 +848,7 @@ elif menu == "配方管理":
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order = None
                 st.experimental_rerun()
-       with c3:
+        with c3:
             if st.button("🖨 列印"):
                 st.info(f"進入生產單 {st.session_state.new_order['生產單號']} 的列印頁面 (此處請自行實作列印功能)")
         with c4:
