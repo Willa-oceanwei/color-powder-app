@@ -750,31 +750,26 @@ elif menu == "生產單管理":
 
     from pathlib import Path
     
-    # --- 匯入生產單資料 ---
+    # --- 0. 初始化資料 ---
+    df_recipe = pd.DataFrame(ws_recipe.get_all_records()).astype(str)
+
     order_file = Path("data/df_order.csv")
     if order_file.exists():
         df_order = pd.read_csv(order_file, dtype=str)
     else:
         df_order = pd.DataFrame(columns=["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量", "包裝份數", "建立時間"])
 
-    # --- 建立時間欄位補全（防止 None）---
-    if "建立時間" not in df_order.columns:
-        df_order["建立時間"] = ""
-
     df_order.fillna("", inplace=True)
- 
-    # --- 搜尋與新增區塊 ---
-    st.markdown("### 🔍 搜尋／新增生產單")
 
+    # --- 1. 搜尋與新增 ---
     search_input = st.text_input("請輸入配方編號或客戶名稱：")
-    col_btn1, col_btn2 = st.columns([1, 1])
-
-    with col_btn1:
+    col1, col2 = st.columns([1, 1])
+    with col1:
         do_search = st.button("🔍 搜尋")
-    with col_btn2:
+    with col2:
         do_add = st.button("➕ 新增")
 
-    # --- 搜尋處理（模糊搜尋）---
+    # --- 2. 搜尋結果處理 ---
     if do_search and search_input:
         df_filtered = df_order[
             df_order["配方編號"].str.contains(search_input, case=False, na=False) |
@@ -783,76 +778,73 @@ elif menu == "生產單管理":
     else:
         df_filtered = df_order.copy()
 
-    # --- 新增處理（從配方資料抓取）---
+    # --- 3. 新增處理 ---
     if do_add and search_input:
-        matched_recipes = df[
+        matched_recipes = df_recipe[
             df_recipe["配方編號"].str.contains(search_input, case=False, na=False) |
             df_recipe["客戶名稱"].str.contains(search_input, case=False, na=False)
         ]
-
         if matched_recipes.empty:
-            st.warning("查無符合的配方資料，無法新增生產單。")
+            st.warning("查無符合的配方資料")
         elif matched_recipes.shape[0] == 1:
             recipe = matched_recipes.iloc[0]
-
-            if str(recipe.get("狀態", "")) == "停用":
-                st.error("此配方已停用，無法建立生產單。")
+            if recipe.get("狀態") == "停用":
+                st.error("此配方已停用")
             else:
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 new_order_id = datetime.now().strftime("%Y%m%d") + "-" + f"{df_order.shape[0]+1:03}"
-                new_order = {
-                    "生產單號": new_order_id,
-                    "生產日期": datetime.now().strftime("%Y-%m-%d"),
-                    "配方編號": recipe["配方編號"],
-                    "顏色": recipe.get("顏色", ""),
-                    "客戶名稱": recipe.get("客戶名稱", ""),
-                    "包裝重量": "",
-                    "包裝份數": "",
-                    "建立時間": now
+                new_row = {
+                   "生產單號": new_order_id,
+                   "生產日期": datetime.now().strftime("%Y-%m-%d"),
+                   "配方編號": recipe["配方編號"],
+                   "顏色": recipe.get("顏色", ""),
+                   "客戶名稱": recipe.get("客戶名稱", ""),
+                   "包裝重量": "",
+                   "包裝份數": "",
+                   "建立時間": now
                 }
-                df_order.loc[len(df_order)] = new_order
+                df_order.loc[len(df_order)] = new_row
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                 st.success(f"✅ 生產單 {new_order_id} 已儲存")
+                df_filtered = df_order.copy()  # ← 新增後要重新顯示清單
         else:
-            st.info("請輸入更明確的配方編號或客戶名稱（符合多筆結果）")
+            st.info("請輸入更精確的配方編號或客戶名稱")
 
-        # --- 顯示生產單列表（含分頁）---
-        st.markdown("---")
-        st.subheader("📄 生產單清單")
+    # --- 4. 顯示分頁表格 ---
+    st.markdown("---")
+    st.subheader("📄 生產單清單")
 
-        limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
-        total_rows = df_filtered.shape[0]
-        total_pages = max((total_rows - 1) // limit + 1, 1)
+    limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
+    total_rows = df_filtered.shape[0]
+    total_pages = max((total_rows - 1) // limit + 1, 1)
 
-        if "order_page" not in st.session_state:
+    if "order_page" not in st.session_state:
+        st.session_state.order_page = 1
+
+    start_idx = (st.session_state.order_page - 1) * limit
+    end_idx = start_idx + limit
+    page_data = df_filtered.iloc[start_idx:end_idx]
+
+    show_cols = ["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間"]
+    if not page_data.empty:
+        st.dataframe(page_data[show_cols], use_container_width=True)
+    else:
+        st.info("查無符合的生產單")
+
+    # --- 分頁控制 ---
+    cols_page = st.columns([1, 1, 1, 2])
+    with cols_page[0]:
+        if st.button("首頁"):
             st.session_state.order_page = 1
+    with cols_page[1]:
+        if st.button("上一頁") and st.session_state.order_page > 1:
+            t.session_state.order_page -= 1
+    with cols_page[2]:
+        if st.button("下一頁") and st.session_state.order_page < total_pages:
+            st.session_state.order_page += 1
+    with cols_page[3]:
+        jump = st.number_input("跳至頁碼", 1, total_pages, value=st.session_state.order_page)
+        if jump != st.session_state.order_page:
+            st.session_state.order_page = jump
 
-        start_idx = (st.session_state.order_page - 1) * limit
-        end_idx = start_idx + limit
-        page_data = df_filtered.iloc[start_idx:end_idx]
-
-        show_cols = ["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間"]
-        existing_cols = [c for c in show_cols if c in page_data.columns]
-
-        if not page_data.empty:
-            st.dataframe(page_data[existing_cols], use_container_width=True)
-        else:
-            st.info("查無生產單資料")
-
-        # --- 分頁控制 ---
-        cols_page = st.columns([1, 1, 1, 2])
-        with cols_page[0]:
-            if st.button("首頁"):
-                st.session_state.order_page = 1
-        with cols_page[1]:
-            if st.button("上一頁") and st.session_state.order_page > 1:
-                st.session_state.order_page -= 1
-        with cols_page[2]:
-            if st.button("下一頁") and st.session_state.order_page < total_pages:
-                st.session_state.order_page += 1
-        with cols_page[3]:
-            jump = st.number_input("跳至頁碼", min_value=1, max_value=total_pages, value=st.session_state.order_page)
-            if jump != st.session_state.order_page:
-                st.session_state.order_page = jump
-
-        st.caption(f"第 {st.session_state.order_page} / {total_pages} 頁，共 {total_rows} 筆資料")
+    st.caption(f"第 {st.session_state.order_page} / {total_pages} 頁，共 {total_rows} 筆")
