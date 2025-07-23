@@ -747,7 +747,14 @@ elif menu == "生產單管理":
 
     # --- 初始化資料 ---
     # --- 強制重新讀入最新資料 ---
-    df_order = pd.read_csv(order_file, dtype=str) if order_file.exists() else pd.DataFrame(columns=[...])
+    df_order = pd.read_csv(order_file, dtype=str) if order_file.exists() else pd.DataFrame(columns=[
+        "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
+        "Pantone 色號", "計量單位", "生產時間",
+        "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
+        "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
+        "備註",
+        "色粉1", "色粉2", "色粉3", "色粉4", "色粉5", "色粉6", "色粉7", "色粉8", "色粉合計"
+    ])
     order_file = Path("data/df_order.csv")
     if order_file.exists():
         df_order = pd.read_csv(order_file, dtype=str)
