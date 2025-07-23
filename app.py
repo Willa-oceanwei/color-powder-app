@@ -923,17 +923,19 @@ elif menu == "生產單管理":
                 order["包裝份數3"] = counts[2]
                 order["包裝份數4"] = counts[3]
                 order["備註"] = remark
+                
                 # ✅ 補齊 色粉1～8 與合計
                 colorants = []
                 for i in range(1, 9):
-                    val = order.get(f"色粉{i}", "0")
+                    key = f"色粉{i}"
+                    val = order.get(key, "0")
                     try:
                         val_float = float(val)
                     except:
                         val_float = 0.0
                     colorants.append(val_float)
-                    order[f"色粉{i}"] = str(val_float)
-                order["色粉合計"] = round(sum(colorants), 2)
+                    order[key] = f"{val_float:.2f}"  # 確保是格式化字串
+                order["色粉合計"] = f"{sum(colorants):.2f}"
                 
                 # ✅ 製作 row_data+寫入 Google Sheet
                 header = list(df_order.columns)
