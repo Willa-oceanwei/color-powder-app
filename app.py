@@ -928,13 +928,13 @@ elif menu == "生產單管理":
                 colorants = []
                 for i in range(1, 9):
                     val = order.get(f"色粉{i}", "0")
-                try:
-                    val_float = float(val)
-                except:
-                    val_float = 0.0
-                colorants.append(val_float)
-                order[f"色粉{i}"] = str(val_float)
-            order["色粉合計"] = round(sum(colorants), 2)
+                    try:
+                        val_float = float(val)
+                    except:
+                        val_float = 0.0
+                    colorants.append(val_float)
+                    order[f"色粉{i}"] = str(val_float)
+                order["色粉合計"] = round(sum(colorants), 2)
                 
                 # ✅ 製作 row_data
                 header = list(df_order.columns)
@@ -944,33 +944,25 @@ elif menu == "生產單管理":
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
                     st.stop()
+                # 產生資料列
+                header = list(df_order.columns)
+                row_data = [order.get(col, "") for col in header]
 
-                # 確保 df_order 有這些欄位
-                required_fields = ["Pantone 色號", "計量單位", "生產時間", "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
-                           "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4", "備註"] + \
-                          [f"色粉{i+1}" for i in range(8)] + ["色粉合計"]
-
-                for field in required_fields:
-                    if field not in df_order.columns:
-                        df_order[field] = ""
-           
-                # ✅ 寫入 Google Sheet
+                # 寫入 Google Sheet
                 try:
                     ws_order.append_row(row_data)
                 except Exception as e:
                     st.error(f"❌ 寫入 Google 試算表失敗：{e}")
                     st.stop()
-                    
-                # 寫入本地 CSV
-                df_order = pd.concat([df_order, pd.DataFrame([order])], ignore_index=True)
-                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
 
-                st.success(f"生產單 {order['生產單號']} 已儲存")
+                 # 本地 CSV 更新
+                 df_order = pd.concat([df_order, pd.DataFrame([order])], ignore_index=True)
+                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
 
-                st.success(f"生產單 {order['生產單號']} 已儲存")
-                st.session_state.show_confirm_panel = False
-                st.session_state.new_order = None
-                st.rerun()
+                 st.success(f"生產單 {order['生產單號']} 已儲存")
+                 st.session_state.show_confirm_panel = False
+                 st.session_state.new_order = None
+                 st.rerun()
 
         with c2:
             if st.button("❌ 取消"):
