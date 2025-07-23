@@ -731,7 +731,7 @@ elif menu == "配方管理":
     st.markdown(f"目前第 **{st.session_state.page}** / **{total_pages}** 頁，總筆數：{total_rows}")
 
 
-elif menu == "生產單管理":
+elif menu == "生產單":
     st.markdown("## 🧾 生產單建立")
 
     # 載入工作表
