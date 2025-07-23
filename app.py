@@ -766,6 +766,8 @@ elif menu == "配方管理":
     if "order_page" not in st.session_state:
         st.session_state.order_page = 1
 
+    st.write("目前選單 menu 值為：", menu)
+
     # --- 搜尋與新增區塊 ---
     st.markdown("### 🔍 搜尋／新增生產單")
 
