@@ -899,11 +899,29 @@ elif menu == "生產單管理":
 
         # 🎨 色粉配方顯示 (鎖定)
         st.markdown("### 🎨 色粉配方")
+        # 取得色粉編號（字串）
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+
+        # 取得色粉重量（浮點數）
+        colorant_weights = []
+        for i in range(8):
+            w = recipe_row.get(f"色粉重量{i+1}", "0")
+            try:
+                w_float = float(w)
+            except:
+                w_float = 0.0
+            colorant_weights.append(w_float)
+
+        # 加總色粉重量
+        total_weight = round(sum(colorant_weights), 2)
+
+        # 顯示用資料框架
+        import pandas as pd
         df_colorants = pd.DataFrame({
-            "色粉項目": [f"色粉編號{i+1}" for i in range(8)] + ["合計"],
-            "用量 (g)": colorants + [sum(colorants)]
+            "色粉編號": colorant_ids,
+            "用量 (g)": colorant_weights + [total_weight]  # 最後一列放總量
         })
+
         st.dataframe(df_colorants, use_container_width=True)
 
         c1, c2 = st.columns(2)
