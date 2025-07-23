@@ -955,14 +955,14 @@ elif menu == "生產單管理":
                     st.error(f"❌ 寫入 Google 試算表失敗：{e}")
                     st.stop()
 
-                 # 本地 CSV 更新
-                 df_order = pd.concat([df_order, pd.DataFrame([order])], ignore_index=True)
-                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                # 本地 CSV 更新
+                df_order = pd.concat([df_order, pd.DataFrame([order])], ignore_index=True)
+                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
 
-                 st.success(f"生產單 {order['生產單號']} 已儲存")
-                 st.session_state.show_confirm_panel = False
-                 st.session_state.new_order = None
-                 st.rerun()
+                st.success(f"生產單 {order['生產單號']} 已儲存")
+                st.session_state.show_confirm_panel = False
+                st.session_state.new_order = None
+                st.rerun()
 
         with c2:
             if st.button("❌ 取消"):
