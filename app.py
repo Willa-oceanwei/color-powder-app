@@ -731,7 +731,20 @@ elif menu == "配方管理":
     st.markdown(f"目前第 **{st.session_state.page}** / **{total_pages}** 頁，總筆數：{total_rows}")
 
 
-    # --- 生產單分頁 ---
+    # --- 生產單分頁 ----------------------------------------------------
+elif menu == "生產單管理":
+    st.markdown("## 🧾 生產單建立")
+
+    # 載入工作表
+    ws_recipe = spreadsheet.worksheet("配方管理")
+    ws_order = spreadsheet.worksheet("生產單")
+    df_recipe = pd.DataFrame(ws_recipe.get_all_records())
+    df_recipe = df_recipe.astype(str)
+
+    # 初始化 session_state
+    if "order_data" not in st.session_state:
+        st.session_state.order_data = {}
+    
 
     st.subheader("🧾 生產單管理")
 
