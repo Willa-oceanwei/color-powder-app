@@ -904,6 +904,25 @@ elif menu == "生產單管理":
         c1, c2 = st.columns(2)
         with c1:
             if st.button("✅ 確定"):
+   　　　　　　 new_order = st.session_state.new_order
+
+    　　　　# 合併到本地 df_order 資料框
+    　　　　df_order = pd.concat([df_order, pd.DataFrame([new_order])], ignore_index=True)
+    　　　　df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+
+   　　　　 # ✅ 寫入 Google 試算表 ws_order（欄位順序與 df_order 一致）
+   　　　　 try:
+       　　　　 ws_order.append_row([new_order.get(col, "") for col in df_order.columns])
+   　　　　 except Exception as e:
+       　　　　 st.error(f"寫入 Google 試算表失敗：{e}")
+
+    　　　　st.success(f"生產單 {new_order['生產單號']} 已儲存")
+   　　　　 st.session_state.show_confirm_panel = False
+    　　　　st.session_state.new_order = None
+   　　　　 st.rerun()
+                
+    　　　　　　df_order = pd.concat([df_order, pd.DataFrame([st.session_state.new_order])], ignore_index=True)
+    　　　　　　df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                 order["顏色"] = color
                 order["Pantone 色號"] = pantone
                 order["計量單位"] = unit
