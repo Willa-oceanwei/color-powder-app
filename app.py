@@ -764,6 +764,8 @@ elif menu == "生產單管理":
     ws_order = spreadsheet.worksheet("生產單")
     df_recipe = pd.DataFrame(ws_recipe.get_all_records()).astype(str)
 
+    st.write("配方管理欄位清單：", df_recipe.columns.tolist())
+
     # 檢查欄位是否已存在，若無則寫入
     existing_values = ws_order.get_all_values()
     if len(existing_values) == 0:
