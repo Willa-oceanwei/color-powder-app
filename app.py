@@ -899,9 +899,9 @@ elif menu == "生產單管理":
 
         # 🎨 色粉配方顯示 (鎖定)
         st.markdown("### 🎨 色粉配方")
-        colorants = [float(recipe_row.get(f"色粉{i+1}", "0") or 0) for i in range(8)]
+        colorants = [float(recipe_row.get(f"色粉編號{i+1}", "0") or 0) for i in range(8)]
         df_colorants = pd.DataFrame({
-            "色粉項目": [f"色粉{i+1}" for i in range(8)] + ["合計"],
+            "色粉項目": [f"色粉編號{i+1}" for i in range(8)] + ["合計"],
             "用量 (g)": colorants + [sum(colorants)]
         })
         st.dataframe(df_colorants, use_container_width=True)
@@ -929,7 +929,7 @@ elif menu == "生產單管理":
                 # ✅ 補齊 色粉1～8 與合計
                 colorants = []
                 for i in range(1, 9):
-                    key = f"色粉{i}"
+                    key = f"色粉編號{i}"
                     val = order.get(key, "0")
                     try:
                         val_float = float(val)
