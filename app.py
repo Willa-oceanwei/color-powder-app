@@ -731,47 +731,52 @@ elif menu == "配方管理":
     st.markdown(f"目前第 **{st.session_state.page}** / **{total_pages}** 頁，總筆數：{total_rows}")
 
 
-    # --- 生產單分頁 ---
     import streamlit as st
+    import pandas as pd
+    from datetime import datetime
+    from pathlib import Path
 
-    # 載入工作表
-    ws_recipe = spreadsheet.worksheet("配方管理")
-    ws_order = spreadsheet.worksheet("生產單")
-    df_recipe = pd.DataFrame(ws_recipe.get_all_records())
-    df_recipe = df_recipe.astype(str)
-
-    # 初始化 session_state
-    if "order_data" not in st.session_state:
-        st.session_state.order_data = {}
-        
-elif menu == "生產單管理":
+    # 只在 menu 為 生產單管理 時執行
+    if menu == "生產單管理":
     st.markdown("## 🧾 生產單建立")
 
-    # --- 匯入生產單資料 ---
+    # 載入 Google 試算表工作表（配方與生產單）
+    ws_recipe = spreadsheet.worksheet("配方管理")
+    ws_order = spreadsheet.worksheet("生產單")
+    df_recipe = pd.DataFrame(ws_recipe.get_all_records()).astype(str)
+
+    # --- 匯入本地生產單 CSV 檔案 ---
     order_file = Path("data/df_order.csv")
     if order_file.exists():
         df_order = pd.read_csv(order_file, dtype=str)
     else:
-        df_order = pd.DataFrame(columns=["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量", "包裝份數", "建立時間"])
+        df_order = pd.DataFrame(columns=[
+            "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱",
+            "包裝重量", "包裝份數", "建立時間"
+        ])
 
-    # --- 建立時間欄位補全（防止 None）---
+    # 確保欄位存在與無空值
     if "建立時間" not in df_order.columns:
         df_order["建立時間"] = ""
-
     df_order.fillna("", inplace=True)
+
+    # 初始化 session_state
+    if "order_data" not in st.session_state:
+        st.session_state.order_data = {}
+    if "order_page" not in st.session_state:
+        st.session_state.order_page = 1
 
     # --- 搜尋與新增區塊 ---
     st.markdown("### 🔍 搜尋／新增生產單")
 
     search_input = st.text_input("請輸入配方編號或客戶名稱：")
     col_btn1, col_btn2 = st.columns([1, 1])
-
     with col_btn1:
         do_search = st.button("🔍 搜尋")
     with col_btn2:
         do_add = st.button("➕ 新增")
 
-    # --- 搜尋處理（模糊搜尋）---
+    # --- 搜尋處理 ---
     if do_search and search_input:
         df_filtered = df_order[
             df_order["配方編號"].str.contains(search_input, case=False, na=False) |
@@ -780,19 +785,18 @@ elif menu == "生產單管理":
     else:
         df_filtered = df_order.copy()
 
-    # --- 新增處理（從配方資料抓取）---
+    # --- 新增處理 ---
     if do_add and search_input:
-        matched_recipes = df[
-            df["配方編號"].str.contains(search_input, case=False, na=False) |
-            df["客戶名稱"].str.contains(search_input, case=False, na=False)
+        matched_recipes = df_recipe[
+            df_recipe["配方編號"].str.contains(search_input, case=False, na=False) |
+            df_recipe["客戶名稱"].str.contains(search_input, case=False, na=False)
         ]
 
         if matched_recipes.empty:
             st.warning("查無符合的配方資料，無法新增生產單。")
         elif matched_recipes.shape[0] == 1:
             recipe = matched_recipes.iloc[0]
-
-            if str(recipe.get("狀態", "")) == "停用":
+            if str(recipe.get("狀態", "")).strip() == "停用":
                 st.error("此配方已停用，無法建立生產單。")
             else:
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -800,20 +804,20 @@ elif menu == "生產單管理":
                 new_order = {
                     "生產單號": new_order_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
-                    "配方編號": recipe["配方編號"],
+                    "配方編號": recipe.get("配方編號", ""),
                     "顏色": recipe.get("顏色", ""),
                     "客戶名稱": recipe.get("客戶名稱", ""),
                     "包裝重量": "",
                     "包裝份數": "",
                     "建立時間": now
-                }  
+                }
                 df_order.loc[len(df_order)] = new_order
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                 st.success(f"✅ 生產單 {new_order_id} 已儲存")
         else:
             st.info("請輸入更明確的配方編號或客戶名稱（符合多筆結果）")
 
-    # --- 顯示生產單列表（含分頁）---
+    # --- 顯示清單與分頁 ---
     st.markdown("---")
     st.subheader("📄 生產單清單")
 
@@ -821,9 +825,7 @@ elif menu == "生產單管理":
     total_rows = df_filtered.shape[0]
     total_pages = max((total_rows - 1) // limit + 1, 1)
 
-    if "order_page" not in st.session_state:
-        st.session_state.order_page = 1
-
+    # 分頁索引
     start_idx = (st.session_state.order_page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
