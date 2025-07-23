@@ -735,6 +735,8 @@ elif menu == "配方管理":
 
     st.subheader("🧾 生產單管理")
 
+    from pathlib import Path
+    
     # --- 匯入生產單資料 ---
     order_file = Path("data/df_order.csv")
     if order_file.exists():
