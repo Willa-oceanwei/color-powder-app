@@ -927,7 +927,8 @@ elif menu == "生產單管理":
                 for i in range(8):
                     order[f"色粉{i+1}"] = colorants[i]
                 order["色粉合計"] = sum(colorants)
-
+                
+                row_data = [order.get(col, "") for col in header]
                 try:
                     ws_order.append_row(row_data)
                 except Exception as e:
