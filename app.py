@@ -831,11 +831,13 @@ elif menu == "生產單管理":
                     "建立時間": now.strftime("%Y-%m-%d %H:%M:%S")
                 }
                 for i in range(1, 9):
-                    new_entry[f"色粉{i}"] = recipe.get(f"色粉{i}", "")
-                new_entry["色粉合計"] = sum([float(recipe.get(f"色粉{i}", "0") or 0) for i in range(1, 9)])
+                    val = recipe[f"色粉{i}"] if f"色粉{i}" in recipe else ""
+                    new_entry[f"色粉{i}"] = val
 
-                st.session_state.show_confirm_panel = True
-                st.session_state.new_order = new_entry
+                new_entry["色粉合計"] = sum([
+                    float(recipe[f"色粉{i}"]) if f"色粉{i}" in recipe and str(recipe[f"色粉{i}"]).replace('.', '', 1).isdigit() else 0
+                    for i in range(1, 9)
+                ])
            
 
     # ---------- 新增後欄位填寫區塊 ----------
