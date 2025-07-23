@@ -810,31 +810,55 @@ elif menu == "生產單管理":
                 st.session_state.show_confirm_panel = True
 
     # ---------- 新增後欄位填寫區塊 ----------
+
     if st.session_state.show_confirm_panel and st.session_state.new_order:
         st.markdown("---")
         st.subheader("新增生產單詳情填寫")
         order = st.session_state.new_order
 
         c1, c2, c3, c4 = st.columns(4)
-        st.text_input("生產單號", value=order["生產單號"], disabled=True, key="order_id")
-        st.text_input("配方編號", value=order["配方編號"], disabled=True, key="recipe_code")
-        customer_code = st.text_input("客戶編號", value="")
-        st.text_input("客戶名稱", value=order["客戶名稱"], disabled=True)
+        with c1:
+            st.text_input("生產單號", value=order["生產單號"], disabled=True)
+        with c2:
+            st.text_input("配方編號", value=order["配方編號"], disabled=True)
+        with c3:
+            customer_code = st.text_input("客戶編號", value="")
+        with c4:
+            st.text_input("客戶名稱", value=order["客戶名稱"], disabled=True)
 
         c5, c6, c7, c8 = st.columns(4)
-        unit = st.selectbox("計量單位", ["kg", "包", "桶"], key="unit")
-        color = st.text_input("顏色", value=order.get("顏色", ""))
-        pantone = st.text_input("國際色號", value="")
-        prod_time = st.text_input("生產時間", value=datetime.now().strftime("%Y-%m-%d %H:%M"))
+        with c5:
+            unit = st.selectbox("計量單位", ["kg", "包", "桶"], key="unit")
+        with c6:
+            color = st.text_input("顏色", value=order.get("顏色", ""))
+        with c7:
+            pantone = st.text_input("國際色號", value="")
+        with c8:
+            prod_time = st.text_input("生產時間", value=datetime.now().strftime("%Y-%m-%d %H:%M"))
 
+        # 包裝重量/份數欄位（單位顯示）
         st.markdown("**包裝重量與份數**")
         w1, w2, w3, w4 = st.columns(4)
-        weight = [st.text_input(f"包裝{i+1}重量 ({unit})", value="") for i in range(4)]
+        weights = [w.text_input(f"包裝{i+1}重量 ({unit})", value="") for i, w in enumerate([w1, w2, w3, w4])]
         p1, p2, p3, p4 = st.columns(4)
-        count = [st.text_input(f"包裝{i+1}份數 ({unit})", value="") for i in range(4)]
+        counts = [p.text_input(f"包裝{i+1}份數 ({unit})", value="") for i, p in enumerate([p1, p2, p3, p4])]
 
         remark = st.text_area("備註", value="", height=60)
 
+        # 顯示色粉1~8與合計
+        st.markdown("### 🎨 色粉配方")
+        recipe_code = order["配方編號"]
+        df_row = df_recipe[df_recipe["配方編號"] == recipe_code]
+        if not df_row.empty:
+            row = df_row.iloc[0]
+            colorants = [float(row.get(f"色粉{i+1}", "0") or 0) for i in range(8)]
+            df_colorants = pd.DataFrame({
+                "色粉項目": [f"色粉{i+1}" for i in range(8)] + ["合計"],
+                "用量 (g)": colorants + [sum(colorants)]
+            })
+            st.dataframe(df_colorants, use_container_width=True)
+
+        # 確認 / 取消按鈕
         c1, c2 = st.columns(2)
         with c1:
             if st.button("✅ 確定"):
@@ -849,6 +873,7 @@ elif menu == "生產單管理":
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order = None
                 st.experimental_rerun()
+
 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
