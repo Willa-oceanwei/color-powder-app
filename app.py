@@ -745,6 +745,8 @@ elif menu == "生產單管理":
     from pathlib import Path
     from datetime import datetime
 
+    order_file = Path("data/df_order.csv")
+
     # --- 初始化資料 ---
     # --- 強制重新讀入最新資料 ---
     df_order = pd.read_csv(order_file, dtype=str) if order_file.exists() else pd.DataFrame(columns=[
