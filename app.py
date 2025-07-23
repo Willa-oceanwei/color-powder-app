@@ -899,7 +899,7 @@ elif menu == "生產單管理":
 
         # 🎨 色粉配方顯示 (鎖定)
         st.markdown("### 🎨 色粉配方")
-        colorants = [float(recipe_row.get(f"色粉編號{i+1}", "0") or 0) for i in range(8)]
+        colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         df_colorants = pd.DataFrame({
             "色粉項目": [f"色粉編號{i+1}" for i in range(8)] + ["合計"],
             "用量 (g)": colorants + [sum(colorants)]
