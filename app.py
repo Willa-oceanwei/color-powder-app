@@ -920,7 +920,7 @@ elif menu == "生產單管理":
 
         # 取配方管理表中「合計類別」欄位（字串轉浮點數）
         try:
-            total_category = recipe_row.get("合計類別", "")
+            total_category = recipe_row.get("合計類別", "")  # 字串
         except:
             total_quantity = 0.0
 
@@ -935,7 +935,7 @@ elif menu == "生產單管理":
 
         # 顯示合計與淨重（可用Markdown格式化）
         st.markdown(f"""
-        - **合計類別：** {total_quantity} g  
+        - **合計類別：** {total_category}
         - **淨重：** {net_weight} g
         """)
 
