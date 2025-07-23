@@ -918,7 +918,7 @@ elif menu == "生產單管理":
             "用量 (g)": colorant_weights
         })
 
-        # 取配方管理表中「合計」欄位（字串轉浮點數）
+        # 取配方管理表中「合計類別」欄位（字串轉浮點數）
         try:
             total_quantity = float(recipe_row.get("合計", 0))
         except:
@@ -935,7 +935,7 @@ elif menu == "生產單管理":
 
         # 顯示合計與淨重（可用Markdown格式化）
         st.markdown(f"""
-        - **合計：** {total_quantity} g  
+        - **合計類別：** {total_quantity} g  
         - **淨重：** {net_weight} g
         """)
 
