@@ -911,6 +911,7 @@ elif menu == "生產單管理":
 
                 df_order = pd.concat([df_order, pd.DataFrame([order])], ignore_index=True)
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                ws_order.append_row([order.get(col, "") for col in df_order.columns])
                 st.success(f"生產單 {order['生產單號']} 已儲存")
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order = None
