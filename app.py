@@ -933,12 +933,19 @@ elif menu == "生產單管理":
         # 顯示 DataFrame
         st.dataframe(df_colorants, use_container_width=True)
 
-        # 顯示合計與淨重（可用Markdown格式化）
-        st.markdown(f"""
-        - **合計類別：** {total_category}
-        - **淨重：** {net_weight} g
-        """)
+        col1, col2 = st.columns(2)
 
+        with col1:
+            total_category = recipe_row.get("合計類別", "")
+            st.markdown(f"**合計類別：** {total_category}")
+
+        with col2:
+            try:
+                net_weight = float(recipe_row.get("淨重", 0))
+            except:
+                net_weight = 0.0
+            st.markdown(f"**淨重：** {net_weight} g")
+        
         c1, c2 = st.columns(2)
         with c1:
             if st.button("✅ 確定"):
