@@ -755,9 +755,7 @@ elif menu == "生產單":
         st.text_input("輸入配方編號或客戶名稱", key="search_order_kw")
     with col2:
         if st.button("＋新增生產單"):
-            st.session_state.show_create_form = True
-            
-    st.write("目前 df_order 欄位：", df_order.columns.tolist())
+            st.session_state.show_create_form = True          
 
     # 若未點選新增，顯示歷史清單分頁
     if not st.session_state.show_create_form:
