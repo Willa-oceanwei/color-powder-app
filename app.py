@@ -735,9 +735,10 @@ elif menu == "配方管理":
 
     menu = st.sidebar.selectbox("功能選單", ["色粉管理", "客戶名單", "配方管理", "生產單"])
 
+    # ======== 主頁面內容 =========
     st.write("目前選單 menu 值為：", menu)
 
     if menu == "生產單":
         st.subheader("✅ 生產單管理頁面載入成功")
     else:
-        st.info("請從側邊欄選擇『生產單管理』")
+        st.info("請從側邊欄選擇『生產單』")
