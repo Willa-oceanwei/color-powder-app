@@ -1002,7 +1002,7 @@ elif menu == "生產單管理":
                 st.success(f"生產單 {order['生產單號']} 已儲存於本地 CSV")
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order = None
-                st.experimental_rerun()
+                st.rerun()
 
         with c2:
             if st.button("❌ 取消"):
