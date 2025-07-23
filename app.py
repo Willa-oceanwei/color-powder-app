@@ -786,8 +786,8 @@ elif menu == "生產單管理":
     # --- 新增處理（從配方資料抓取）---
     if do_add and search_input:
         matched_recipes = df[
-            df["配方編號"].str.contains(search_input, case=False, na=False) |
-            df["客戶名稱"].str.contains(search_input, case=False, na=False)
+            df_recipe["配方編號"].str.contains(search_input, case=False, na=False) |
+            df_recipe["客戶名稱"].str.contains(search_input, case=False, na=False)
         ]
 
         if matched_recipes.empty:
