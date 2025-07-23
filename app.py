@@ -801,43 +801,43 @@ elif menu == "配方管理":
         else:
             st.info("請輸入更明確的配方編號或客戶名稱（符合多筆結果）")
 
-    # --- 顯示生產單列表（含分頁）---
-    st.markdown("---")
-    st.subheader("📄 生產單清單")
+        # --- 顯示生產單列表（含分頁）---
+        st.markdown("---")
+        st.subheader("📄 生產單清單")
 
-    limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
-    total_rows = df_filtered.shape[0]
-    total_pages = max((total_rows - 1) // limit + 1, 1)
+        limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
+        total_rows = df_filtered.shape[0]
+        total_pages = max((total_rows - 1) // limit + 1, 1)
 
-    if "order_page" not in st.session_state:
-        st.session_state.order_page = 1
-
-    start_idx = (st.session_state.order_page - 1) * limit
-    end_idx = start_idx + limit
-    page_data = df_filtered.iloc[start_idx:end_idx]
-
-    show_cols = ["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間"]
-    existing_cols = [c for c in show_cols if c in page_data.columns]
-
-    if not page_data.empty:
-        st.dataframe(page_data[existing_cols], use_container_width=True)
-    else:
-        st.info("查無生產單資料")
-
-    # --- 分頁控制 ---
-    cols_page = st.columns([1, 1, 1, 2])
-    with cols_page[0]:
-        if st.button("首頁"):
+        if "order_page" not in st.session_state:
             st.session_state.order_page = 1
-    with cols_page[1]:
-        if st.button("上一頁") and st.session_state.order_page > 1:
-            st.session_state.order_page -= 1
-    with cols_page[2]:
-        if st.button("下一頁") and st.session_state.order_page < total_pages:
-            st.session_state.order_page += 1
-    with cols_page[3]:
-        jump = st.number_input("跳至頁碼", min_value=1, max_value=total_pages, value=st.session_state.order_page)
-        if jump != st.session_state.order_page:
-            st.session_state.order_page = jump
 
-    st.caption(f"第 {st.session_state.order_page} / {total_pages} 頁，共 {total_rows} 筆資料")
+        start_idx = (st.session_state.order_page - 1) * limit
+        end_idx = start_idx + limit
+        page_data = df_filtered.iloc[start_idx:end_idx]
+
+        show_cols = ["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間"]
+        existing_cols = [c for c in show_cols if c in page_data.columns]
+
+        if not page_data.empty:
+            st.dataframe(page_data[existing_cols], use_container_width=True)
+        else:
+            st.info("查無生產單資料")
+
+        # --- 分頁控制 ---
+        cols_page = st.columns([1, 1, 1, 2])
+        with cols_page[0]:
+            if st.button("首頁"):
+                st.session_state.order_page = 1
+        with cols_page[1]:
+            if st.button("上一頁") and st.session_state.order_page > 1:
+                st.session_state.order_page -= 1
+        with cols_page[2]:
+            if st.button("下一頁") and st.session_state.order_page < total_pages:
+                st.session_state.order_page += 1
+        with cols_page[3]:
+            jump = st.number_input("跳至頁碼", min_value=1, max_value=total_pages, value=st.session_state.order_page)
+            if jump != st.session_state.order_page:
+                st.session_state.order_page = jump
+
+        st.caption(f"第 {st.session_state.order_page} / {total_pages} 頁，共 {total_rows} 筆資料")
