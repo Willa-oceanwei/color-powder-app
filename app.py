@@ -750,9 +750,9 @@ elif menu == "生產單管理":
     if len(existing_values) == 0:
         ws_order.append_row(header)
 
-# 寫入新資料列
-row_data = [order.get(col, "") for col in header]
-ws_order.append_row(row_data)
+    # 寫入新資料列
+    row_data = [order.get(col, "") for col in header]
+    ws_order.append_row(row_data)
 
     from pathlib import Path
     from datetime import datetime
