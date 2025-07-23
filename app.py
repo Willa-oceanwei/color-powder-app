@@ -736,14 +736,33 @@ elif menu == "配方管理":
 elif menu == "生產單管理":
     st.markdown("## 🧾 生產單建立")
 
+    # 🔹 匯入套件 & 檔案路徑
+    from pathlib import Path
+    from datetime import datetime
+
+    order_file = Path("data/df_order.csv")
+
+    # --- 初始化資料 ---
+    if order_file.exists():
+        df_order = pd.read_csv(order_file, dtype=str)
+    else:
+        df_order = pd.DataFrame(columns=[
+            "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
+            "Pantone 色號", "計量單位", "生產時間",
+            "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
+            "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
+            "備註",
+            "色粉1", "色粉2", "色粉3", "色粉4", "色粉5", "色粉6", "色粉7", "色粉8", "色粉合計"
+        ])
+    df_order.fillna("", inplace=True)
+
+    # 欄位標題
+    header = list(df_order.columns)
 
     # 載入工作表
     ws_recipe = spreadsheet.worksheet("配方管理")
     ws_order = spreadsheet.worksheet("生產單")
     df_recipe = pd.DataFrame(ws_recipe.get_all_records()).astype(str)
-
-    # 欄位標題
-    header = list(df_order.columns)
 
     # 檢查欄位是否已存在，若無則寫入
     existing_values = ws_order.get_all_values()
@@ -753,28 +772,6 @@ elif menu == "生產單管理":
     # 寫入新資料列
     row_data = [order.get(col, "") for col in header]
     ws_order.append_row(row_data)
-
-    from pathlib import Path
-    from datetime import datetime
-
-    order_file = Path("data/df_order.csv")
-
-    # --- 初始化資料 ---
-    # --- 強制重新讀入最新資料 ---
-    df_order = pd.read_csv(order_file, dtype=str) if order_file.exists() else pd.DataFrame(columns=[
-        "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
-        "Pantone 色號", "計量單位", "生產時間",
-        "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
-        "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
-        "備註",
-        "色粉1", "色粉2", "色粉3", "色粉4", "色粉5", "色粉6", "色粉7", "色粉8", "色粉合計"
-    ])
-    order_file = Path("data/df_order.csv")
-    if order_file.exists():
-        df_order = pd.read_csv(order_file, dtype=str)
-    else:
-        df_order = pd.DataFrame(columns=["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量", "包裝份數", "建立時間"])
-    df_order.fillna("", inplace=True)
 
     # 初始化 session_state
     for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "show_confirm_panel"]:
