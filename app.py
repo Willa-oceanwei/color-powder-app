@@ -989,8 +989,8 @@ elif menu == "生產單管理":
                 net_weight = 0.0
             st.markdown(f"**淨重：** {net_weight} g")
         
-        c1, c2 = st.columns(2)
-        with c1:
+        btn1, btn2, btn3, btn4 = st.columns(4)
+        with btn1:
             if st.button("✅ 確定"):
                 order = st.session_state.new_order
                 from datetime import datetime, timedelta
@@ -1057,13 +1057,28 @@ elif menu == "生產單管理":
                 st.session_state.new_order = None
                 st.rerun()
 
-        with c2:
+        with btn2:
+            if st.button("🖨️ 列印"):
+                if not st.session_state.get("new_order_saved"):
+                    st.warning("⚠️ 請先按『確定』儲存生產單後再列印")
+                else:
+                    st.session_state.page = "列印畫面"  # 👉 你自訂的頁面切換狀態
+                    st.rerun()
+
+        with btn3:
             if st.button("❌ 取消"):
-                st.session_state.show_confirm_panel = False
                 st.session_state.new_order = None
+                st.session_state.show_confirm_panel = False
+                st.session_state.new_order_saved = False
                 st.rerun()
 
-
+        with btn4:
+            if st.button("🔙 返回"):
+                st.session_state.new_order = None
+                st.session_state.show_confirm_panel = False
+                st.session_state.new_order_saved = False
+                st.rerun()
+                
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📄 生產單清單")
