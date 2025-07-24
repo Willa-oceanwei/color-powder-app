@@ -739,10 +739,13 @@ elif menu == "生產單管理":
     # 🔹 匯入套件 & 檔案路徑
     from pathlib import Path
     from datetime import datetime
-    import pytz
+    from datetime import datetime, timedelta
 
-    tz = pytz.timezone("Asia/Taipei")
-    now_tw = datetime.now(tz)  # ✅ 確保是 timezone-aware datetime
+    # 取得目前 UTC 時間並手動加 8 小時 = 台灣時間
+    now_utc = datetime.utcnow()
+    now_tw = now_utc + timedelta(hours=8)
+
+    # 加入單引號防止 Google Sheets 自動轉格式
     prod_time = "'" + now_tw.strftime("%Y-%m-%d %H:%M:%S")
     
     order_file = Path("data/df_order.csv")
@@ -970,6 +973,11 @@ elif menu == "生產單管理":
         with c1:
             if st.button("✅ 確定"):
                 order = st.session_state.new_order
+                from datetime import datetime, timedelta
+
+                now_utc = datetime.utcnow()
+                now_tw = now_utc + timedelta(hours=8)
+                prod_time = "'" + now_tw.strftime("%Y-%m-%d %H:%M:%S")
 
                 # 補充 order 欄位資料（假設 color, pantone, unit, prod_time, weights, counts, remark, colorants 事先已定義）
                 order["顏色"] = color
