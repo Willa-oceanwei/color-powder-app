@@ -742,7 +742,8 @@ elif menu == "生產單管理":
     import pytz
 
     tz = pytz.timezone("Asia/Taipei")
-    prod_time = "'" + datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")  # ✅ 加單引號防止 Google Sheets 自動轉時區
+    now_tw = datetime.now(tz)  # ✅ 確保是 timezone-aware datetime
+    prod_time = "'" + now_tw.strftime("%Y-%m-%d %H:%M:%S")
     
     order_file = Path("data/df_order.csv")
 
