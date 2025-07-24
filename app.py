@@ -1137,6 +1137,7 @@ elif menu == "生產單管理":
 
         return " + ".join(results) if results else ""
 
+
     # ✅ 加入出貨數量欄位
     page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
 
