@@ -738,9 +738,12 @@ elif menu == "生產單管理":
 
     # 🔹 匯入套件 & 檔案路徑
     from pathlib import Path
-    from datetime import datetime, timedelta
+    from datetime import datetime
+    import pytz
 
-    prod_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+    # 台灣時區
+    tz = pytz.timezone('Asia/Taipei')
+    prod_time = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
 
     order_file = Path("data/df_order.csv")
 
