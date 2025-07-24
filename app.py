@@ -772,7 +772,12 @@ elif menu == "生產單管理":
         st.stop()
 
     # 📄 將配方資料轉為 DataFrame
-    df_recipe = pd.DataFrame(ws_recipe.get_all_records()).astype(str)
+    try:
+        values = ws_recipe.get("A1:Z100")
+        df_recipe = pd.DataFrame(values[1:], columns=values[0]).astype(str)
+    except Exception as e:
+        st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
+        st.stop()
 
     st.write("配方管理欄位清單：", df_recipe.columns.tolist())
     sheet_names = [s.title for s in spreadsheet.worksheets()]
