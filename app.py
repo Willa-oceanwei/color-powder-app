@@ -1165,7 +1165,7 @@ elif menu == "生產單管理":
     # ✅ 下拉選單顯示多欄位資訊（供後續操作使用）
     options = [
         f"{row['生產單號']} / {row['配方編號']} / {row['顏色']} / {row['客戶名稱']}"
-        for _, row in df_order.iterrows()
+        for _, row in df_filtered.iterrows()
     ]
     selected_option = st.selectbox("選擇生產單", options, key="selected_order_code")
     selected_code = selected_option.split(" / ")[0] if selected_option else ""
