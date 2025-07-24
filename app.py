@@ -992,7 +992,7 @@ elif menu == "生產單管理":
                 # 寫入 Google Sheets
                 try:
                     # 決定下一筆要寫入的列
-                    next_row = ws_order.get_last_row() + 1
+                    next_row = len(ws_order.get_all_values()) + 1
                     # 寫入整列（從 A 欄起）
                     ws_order.update(f"A{next_row}", [row_data])
                     st.success(f"生產單 {order['生產單號']} 已成功存入 Google Sheets")
