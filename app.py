@@ -862,17 +862,29 @@ elif menu == "生產單管理":
             if recipe.get("狀態") == "停用":
                 st.error("此配方已停用，無法新增生產單")
             else:
-                now = datetime.now()
-                new_id = now.strftime("%Y%m%d") + "-" + f"{len(df_order)+1:03}"
-            
-                # ✅ 這邊先定義 new_entry
+                # ✅ 正確建立生產單號
+                try:
+                    values = ws_order.get_all_values()
+                    df_all_orders = pd.DataFrame(values[1:], columns=values[0]) if values else pd.DataFrame()
+                except:
+                    df_all_orders = df_order
+
+                today_str = datetime.now().strftime("%Y%m%d")
+                if not df_all_orders.empty and "生產單號" in df_all_orders.columns:
+                    count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
+                else:
+                    count_today = 0
+
+                new_id = f"{today_str}-{count_today + 1:03}"
+
+                # ✅ 建立 new_entry
                 new_entry = {
                     "生產單號": new_id,
-                    "生產日期": now.strftime("%Y-%m-%d"),
+                    "生產日期": datetime.now().strftime("%Y-%m-%d"),
                     "配方編號": recipe["配方編號"],
                     "顏色": recipe.get("顏色", ""),
                     "客戶名稱": recipe.get("客戶名稱", ""),
-                    "建立時間": now.strftime("%Y-%m-%d %H:%M:%S")
+                    "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
                 }
 
                 # ✅ 接著再處理色粉欄位補齊
