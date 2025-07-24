@@ -738,11 +738,12 @@ elif menu == "生產單管理":
 
     # 🔹 匯入套件 & 檔案路徑
     from pathlib import Path
+    from datetime import datetime
     import pytz
 
     tz = pytz.timezone("Asia/Taipei")
-    prod_time = datetime.now(tz).strftime("'%Y-%m-%d %H:%M:%S")  # 前面加上單引號
-
+    prod_time = "'" + datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")  # ✅ 加單引號防止 Google Sheets 自動轉時區
+    
     order_file = Path("data/df_order.csv")
 
     # --- 初始化資料 ---
