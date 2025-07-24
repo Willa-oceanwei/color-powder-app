@@ -984,7 +984,7 @@ elif menu == "生產單管理":
     
                 # 建立寫入Google Sheets資料列
                 header = list(df_order.columns)
-                row_data = [order.get(col, "") for col in header]
+                row_data = [order.get(col, "").strip() if order.get(col) else "" for col in header]
 
                 # 印出除錯用
                 st.write("寫入 Google Sheets 的資料列：", row_data)
