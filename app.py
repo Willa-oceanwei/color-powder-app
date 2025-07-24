@@ -1138,6 +1138,8 @@ elif menu == "生產單管理":
 
 
     # ✅ 加入出貨數量欄位
+    page_data = page_data.copy()
+    # 加入出貨數量欄位
     page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
 
     # ✅ 顯示欄位與順序
