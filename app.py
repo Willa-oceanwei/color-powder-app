@@ -1050,6 +1050,7 @@ elif menu == "生產單管理":
                         st.session_state.df_order = df_order  # 更新 session_state
 
                         # ✅ 記錄儲存狀態，不 rerun
+                        st.session_state.df_order = df_order
                         st.session_state.new_order_saved = True
                         st.success(f"✅ 生產單 {order['生產單號']} 已成功儲存！可繼續列印或返回")
                     
