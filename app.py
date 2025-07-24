@@ -991,7 +991,7 @@ elif menu == "生產單管理":
 
     
                 # 建立寫入Google Sheets資料列
-                header = list(df_order.columns)
+                header = [col for col in df_order.columns if col and str(col).strip() != ""]
                 row_data = [order.get(col, "").strip() if order.get(col) else "" for col in header]
 
                 # 印出除錯用
