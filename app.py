@@ -1169,20 +1169,6 @@ elif menu == "生產單管理":
     selected_code = selected_option.split(" / ")[0] if selected_option else ""
 
     # ✅ 修改刪除功能併入清單區塊
-    st.markdown("---")
-    st.subheader("⚙ 修改 / 刪除生產單")
-    codes = df_order["生產單號"].tolist()
-    cols_mod = st.columns([3, 1, 1])
-    selected_code = cols_mod[0].selectbox("選擇生產單號", codes, key="selected_order_code")
-    if cols_mod[1].button("✏️ 修改"):
-        st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code].iloc[0].to_dict()
-        st.session_state.show_edit_panel = True
-    if cols_mod[2].button("🗑️ 刪除"):
-        df_order = df_order[df_order["生產單號"] != selected_code]
-        df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-        st.success(f"已刪除生產單 {selected_code}")
-        st.rerun()
-
     if st.session_state.show_edit_panel and st.session_state.editing_order:
         st.subheader(f"修改生產單 {selected_code}")
         edit = st.session_state.editing_order
