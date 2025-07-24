@@ -732,37 +732,49 @@ elif menu == "配方管理":
 
 
     # --- 生產單分頁 ----------------------------------------------------
-    df_order = pd.read_csv("data/df_order.csv", dtype=str) if Path("data/df_order.csv").exists() else pd.DataFrame(...)
 elif menu == "生產單管理":
     st.markdown("## 🧾 生產單建立")
 
-    # 🔹 匯入套件 & 檔案路徑
     from pathlib import Path
-    from datetime import datetime
     from datetime import datetime, timedelta
+    import pandas as pd
 
-    # 取得目前 UTC 時間並手動加 8 小時 = 台灣時間
-    now_utc = datetime.utcnow()
-    now_tw = now_utc + timedelta(hours=8)
-
-    # 加入單引號防止 Google Sheets 自動轉格式
-    prod_time = "'" + now_tw.strftime("%Y-%m-%d %H:%M:%S")
-    
+    # ✅ 本地 CSV 路徑
     order_file = Path("data/df_order.csv")
 
-    # --- 初始化資料 ---
-    if order_file.exists():
-        df_order = pd.read_csv(order_file, dtype=str)
-    else:
-        df_order = pd.DataFrame(columns=[
-            "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
-            "Pantone 色號", "計量單位", "生產時間",
-            "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
-            "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
-            "備註",
-            "色粉編號1", "色粉編號2", "色粉編號3", "色粉編號4", "色粉編號5", "色粉編號6", "色粉編號7", "色粉編號8", "色粉合計"
-        ])
-    df_order.fillna("", inplace=True)
+    # ✅ 嘗試從 Google Sheets 載入生產單工作表
+    try:
+        ws_order = spreadsheet.worksheet("生產單")
+    except Exception as e:
+        st.error(f"❌ 無法讀取『生產單』工作表：{e}")
+        st.stop()
+
+    # ✅ 初始化 df_order（優先使用 Google Sheets，再 fallback 到本地）
+    if "df_order" not in st.session_state:
+        try:
+            values = ws_order.get_all_values()
+            if values:
+                st.session_state.df_order = pd.DataFrame(values[1:], columns=values[0]).astype(str)
+            else:
+                st.session_state.df_order = pd.DataFrame(columns=[
+                    "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
+                    "Pantone 色號", "計量單位", "生產時間",
+                    "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
+                    "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
+                    "備註",
+                    "色粉編號1", "色粉編號2", "色粉編號3", "色粉編號4",
+                    "色粉編號5", "色粉編號6", "色粉編號7", "色粉編號8", "色粉合計"
+                ])
+        except Exception as e:
+            if order_file.exists():
+                st.warning("⚠️ 無法連線 Google Sheets，改用本地 CSV")
+                st.session_state.df_order = pd.read_csv(order_file, dtype=str).fillna("")
+            else:
+                st.error(f"❌ 無法讀取生產單資料：{e}")
+                st.stop()
+
+    # ✅ 後續統一使用 df_order
+    df_order = st.session_state.df_order
 
     # 欄位標題
     header = list(df_order.columns)
