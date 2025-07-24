@@ -863,11 +863,7 @@ elif menu == "生產單管理":
                 st.error("此配方已停用，無法新增生產單")
             else:
                 # ✅ 正確建立生產單號
-                try:
-                    values = ws_order.get_all_values()
-                    df_all_orders = pd.DataFrame(values[1:], columns=values[0]) if values else pd.DataFrame()
-                except:
-                    df_all_orders = df_order
+                df_all_orders = st.session_state.df_order.copy()
 
                 today_str = datetime.now().strftime("%Y%m%d")
                 if not df_all_orders.empty and "生產單號" in df_all_orders.columns:
