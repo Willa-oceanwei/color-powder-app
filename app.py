@@ -1113,11 +1113,13 @@ elif menu == "生產單管理":
         multipliers = {"包": 25, "桶": 100, "kg": 1}
         unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
 
-        category = ""
-        category_series = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
-        if not category_series.empty:
-            category = category_series.values[0]
-
+        # 找色粉類別，如果找不到就預設空字串
+        try:
+            category = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"].values
+            category = category[0] if len(category) > 0 else ""
+        except Exception:
+            category = ""
+            
         if unit == "kg" and category == "色母":
             multiplier = 100
             label = "K"
