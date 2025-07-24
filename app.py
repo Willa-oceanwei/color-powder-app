@@ -1078,8 +1078,11 @@ elif menu == "生產單管理":
                 st.rerun()
                 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
+    # ---------- 📄 生產單清單 ----------
+
     st.markdown("---")
     st.subheader("📄 生產單清單")
+
     search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input", value="")
 
     if search_order.strip():
@@ -1093,21 +1096,57 @@ elif menu == "生產單管理":
         df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
         df_filtered = df_order.sort_values(by="建立時間", ascending=False)
 
+    # ✅ 分頁處理
     limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
     total_rows = len(df_filtered)
     total_pages = max((total_rows - 1) // limit + 1, 1)
 
     st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
     start_idx = (st.session_state.order_page - 1) * limit
-    page_data = df_filtered.iloc[start_idx:start_idx + limit]
+    page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
+
+    # ✅ 出貨數量欄位計算函數
+    def calculate_shipment(row):
+        unit = row.get("計量單位", "").strip()
+        formula_id = row.get("配方編號", "").strip()
+        multipliers = {"包": 25, "桶": 100, "kg": 1}
+        unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
+
+        category = df_recipe[df_recipe["配方編號"] == formula_id].get("色粉類別")
+        category = category.values[0] if not category.empty else ""
+
+        if unit == "kg" and category == "色母":
+            multiplier = 100
+            label = "K"
+        else:
+            multiplier = multipliers.get(unit, 1)
+            label = unit_labels.get(unit, "")
+
+        results = []
+        for i in range(1, 5):
+            try:
+                weight = float(row.get(f"包裝重量{i}", 0))
+                count = int(float(row.get(f"包裝份數{i}", 0)))
+                if weight > 0 and count > 0:
+                    show_weight = int(weight * multiplier) if label == "K" else weight
+                    results.append(f"{show_weight}{label}*{count}")
+            except:
+                continue
+
+        return " + ".join(results) if results else ""
+
+    # ✅ 加入出貨數量欄位
+    page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
+
+    # ✅ 顯示欄位與順序
+    show_cols = ["生產日期", "生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]
 
     if not page_data.empty:
-        st.dataframe(
-            page_data[["生產日期", "生產單號", "配方編號", "顏色", "客戶名稱", "建立時間"]]
-        )
+        st.dataframe(page_data[show_cols], use_container_width=True, hide_index=True)
     else:
         st.info("查無符合的生產單")
 
+    # ✅ 分頁控制列
     cols_page = st.columns([1, 1, 1, 2])
     if cols_page[0].button("首頁"):
         st.session_state.order_page = 1
@@ -1120,6 +1159,14 @@ elif menu == "生產單管理":
         st.session_state.order_page = jump_page
 
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
+
+    # ✅ 下拉選單顯示多欄位資訊（供後續操作使用）
+    options = [
+        f"{row['生產單號']} / {row['配方編號']} / {row['顏色']} / {row['客戶名稱']}"
+        for _, row in df_order.iterrows()
+    ]
+    selected_option = st.selectbox("選擇生產單", options, key="selected_order_code")
+    selected_code = selected_option.split(" / ")[0] if selected_option else ""
 
     # ✅ 修改刪除功能併入清單區塊
     st.markdown("---")
