@@ -759,9 +759,15 @@ elif menu == "生產單管理":
     # 欄位標題
     header = list(df_order.columns)
 
-    # 載入工作表
-    ws_recipe = spreadsheet.worksheet("配方管理")
-    ws_order = spreadsheet.worksheet("生產單")
+    # 📦 嘗試載入 Google Sheets 的工作表
+    try:
+        ws_recipe = spreadsheet.worksheet("配方管理")
+        ws_order = spreadsheet.worksheet("生產單")
+    except Exception as e:
+        st.error(f"❌ 無法載入工作表：{e}")
+        st.stop()
+
+    # 📄 將配方資料轉為 DataFrame
     df_recipe = pd.DataFrame(ws_recipe.get_all_records()).astype(str)
 
     st.write("配方管理欄位清單：", df_recipe.columns.tolist())
