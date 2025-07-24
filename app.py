@@ -1113,8 +1113,8 @@ elif menu == "生產單管理":
         multipliers = {"包": 25, "桶": 100, "kg": 1}
         unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
 
-        category = df_recipe[df_recipe["配方編號"] == formula_id].get("色粉類別")
-        category = category.values[0] if not category.empty else ""
+        category = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
+        category = category.values[0] if len(category) > 0 else ""
 
         if unit == "kg" and category == "色母":
             multiplier = 100
