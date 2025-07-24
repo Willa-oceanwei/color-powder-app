@@ -758,7 +758,7 @@ elif menu == "生產單管理":
             else:
                 st.session_state.df_order = pd.DataFrame(columns=[
                     "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
-                    "Pantone 色號", "計量單位", "生產時間",
+                    "Pantone 色號", "計量單位", "原料",
                     "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
                     "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
                     "備註",
@@ -922,7 +922,7 @@ elif menu == "生產單管理":
         with c7:
             pantone = st.text_input("Pantone色號", value=recipe_row.get("Pantone色號", ""))
         with c8:
-            prod_time = st.text_input("生產時間", value=datetime.now().strftime("%Y-%m-%d %H:%M"))
+            raw_material = st.text_input("原料", value="")
 
         st.markdown("**包裝重量與份數**")
         w1, w2, w3, w4 = st.columns(4)
@@ -996,6 +996,7 @@ elif menu == "生產單管理":
                 order["Pantone 色號"] = pantone
                 order["計量單位"] = unit
                 order["建立時間"] = prod_time
+                order["原料"] = raw_material
                 order["包裝重量1"] = weights[0]
                 order["包裝重量2"] = weights[1]
                 order["包裝重量3"] = weights[2]
