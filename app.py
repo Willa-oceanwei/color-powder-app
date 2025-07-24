@@ -991,71 +991,69 @@ elif menu == "生產單管理":
         
         btn1, btn2, btn3, btn4 = st.columns(4)
         with btn1:
-            if st.button("✅ 確定"):
-                order = st.session_state.new_order
-                from datetime import datetime, timedelta
+            if st.session_state.get("new_order_saved"):
+                st.warning("⚠️ 此生產單已儲存，請直接列印或返回")
+            else:
+                if st.button("✅ 確定"):
+                    order = st.session_state.new_order
+                    from datetime import datetime, timedelta
 
-                now_utc = datetime.utcnow()
-                now_tw = now_utc + timedelta(hours=8)
-                prod_time = "'" + now_tw.strftime("%Y-%m-%d %H:%M:%S")
+                    now_utc = datetime.utcnow()
+                    now_tw = now_utc + timedelta(hours=8)
+                    prod_time = "'" + now_tw.strftime("%Y-%m-%d %H:%M:%S")
 
-                # 補充 order 欄位資料（假設 color, pantone, unit, prod_time, weights, counts, remark, colorants 事先已定義）
-                order["顏色"] = color
-                order["Pantone 色號"] = pantone
-                order["計量單位"] = unit
-                order["建立時間"] = prod_time
-                order["原料"] = raw_material
-                order["包裝重量1"] = weights[0]
-                order["包裝重量2"] = weights[1]
-                order["包裝重量3"] = weights[2]
-                order["包裝重量4"] = weights[3]
-                order["包裝份數1"] = counts[0]
-                order["包裝份數2"] = counts[1]
-                order["包裝份數3"] = counts[2]
-                order["包裝份數4"] = counts[3]
-                order["備註"] = remark
+                    # 補充 order 欄位資料（假設 color, pantone, unit, prod_time, weights, counts, remark, colorants 事先已定義）
+                    order["顏色"] = color
+                    order["Pantone 色號"] = pantone
+                    order["計量單位"] = unit
+                    order["建立時間"] = prod_time
+                    order["原料"] = raw_material
+                    order["包裝重量1"] = weights[0]
+                    order["包裝重量2"] = weights[1]
+                    order["包裝重量3"] = weights[2]
+                    order["包裝重量4"] = weights[3]
+                    order["包裝份數1"] = counts[0]
+                    order["包裝份數2"] = counts[1]
+                    order["包裝份數3"] = counts[2]
+                    order["包裝份數4"] = counts[3]
+                    order["備註"] = remark
                 
-                # ✅ 補齊 色粉1～8 與合計
-                colorants = []
-                for i in range(1, 9):
-                    key = f"色粉編號{i}"
-                    val = order.get(key, "0")
-                    try:
-                        val_float = float(val)
-                    except:
-                        val_float = 0.0
-                    colorants.append(val_float)
-                    order[key] = f"{val_float:.2f}"  # 確保是格式化字串
-                order["色粉合計"] = f"{sum(colorants):.2f}"
+                    # ✅ 補齊 色粉1～8 與合計
+                    colorants = []
+                    for i in range(1, 9):
+                        key = f"色粉編號{i}"
+                        val = order.get(key, "0")
+                        try:
+                            val_float = float(val)
+                        except:
+                            val_float = 0.0
+                        colorants.append(val_float)
+                        order[key] = f"{val_float:.2f}"  # 確保是格式化字串
+                    order["色粉合計"] = f"{sum(colorants):.2f}"
 
     
-                # 建立寫入Google Sheets資料列
-                header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                row_data = [order.get(col, "").strip() if order.get(col) else "" for col in header]
+                    # 建立寫入Google Sheets資料列
+                    header = [col for col in df_order.columns if col and str(col).strip() != ""]
+                    row_data = [order.get(col, "").strip() if order.get(col) else "" for col in header]
 
-                # 印出除錯用
-                st.write("寫入 Google Sheets 的資料列：", row_data)
+                    # 寫入 Google Sheets
+                    try:
+                        # 決定下一筆要寫入的列
+                        next_row = len(ws_order.get_all_values()) + 1
+                        ws_order.update(f"A{next_row}", [row_data])
 
-                # 寫入 Google Sheets
-                try:
-                    # 決定下一筆要寫入的列
-                    next_row = len(ws_order.get_all_values()) + 1
-                    # 寫入整列（從 A 欄起）
-                    ws_order.update(f"A{next_row}", [row_data])
-                    st.success(f"生產單 {order['生產單號']} 已成功存入 Google Sheets")
-                except Exception as e:
-                    st.error(f"❌ 寫入 Google Sheets 失敗：{e}")
-                    st.stop()
+                        # 🔸 寫入本地 CSV
+                        df_new = pd.DataFrame([order], columns=df_order.columns)
+                        df_order = pd.concat([df_order, df_new], ignore_index=True)
+                        df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                        st.session_state.df_order = df_order  # 更新 session_state
 
-                # 更新本地 CSV
-                df_new = pd.DataFrame([order], columns=df_order.columns)
-                df_order = pd.concat([df_order, df_new], ignore_index=True)
-                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-
-                st.success(f"生產單 {order['生產單號']} 已儲存於本地 CSV")
-                st.session_state.show_confirm_panel = False
-                st.session_state.new_order = None
-                st.rerun()
+                        # ✅ 記錄儲存狀態，不 rerun
+                        st.session_state.new_order_saved = True
+                        st.success(f"✅ 生產單 {order['生產單號']} 已成功儲存！可繼續列印或返回")
+                    
+                    except Exception as e:
+                        st.error(f"❌ 寫入失敗：{e}")
 
         with btn2:
             if st.button("🖨️ 列印"):
