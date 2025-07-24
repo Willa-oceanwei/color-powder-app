@@ -983,7 +983,6 @@ elif menu == "生產單管理":
                 order["顏色"] = color
                 order["Pantone 色號"] = pantone
                 order["計量單位"] = unit
-                order["生產時間"] = prod_time
                 order["建立時間"] = prod_time
                 order["包裝重量1"] = weights[0]
                 order["包裝重量2"] = weights[1]
