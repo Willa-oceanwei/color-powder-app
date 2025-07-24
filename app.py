@@ -774,6 +774,7 @@ elif menu == "生產單管理":
                 st.stop()
 
     # ✅ 後續統一使用 df_order
+    df_order = pd.read_csv(order_file)
     df_order = st.session_state.df_order
 
     # 欄位標題
