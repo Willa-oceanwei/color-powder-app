@@ -824,10 +824,10 @@ def render_print_page():
     st.markdown("</div>", unsafe_allow_html=True)
 
     # 🔙 返回鍵
-    if st.button("🔙 返回清單"):
-        st.session_state.page = "清單"
-        st.session_state.print_order_code = None
-        st.rerun()
+if st.button("🔙 返回清單"):
+    st.session_state.page = "清單"
+    st.session_state.print_order_code = None
+    st.rerun()
 
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
