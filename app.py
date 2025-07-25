@@ -1163,28 +1163,16 @@ elif menu == "生產單管理":
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
 
     # ✅ 修改刪除功能併入清單區塊
-    st.markdown("---")
-    st.subheader("⚙ 生產單修改 / 刪除")
-    
+   
     codes = df_order["生產單號"].tolist()
-    cols_mod = st.columns([3,1,1])
+    cols_mod = st.columns([1,1])
+    
     with cols_mod[0]:
-        options = []
-        code_to_id = {}
-        for idx, row in df_order.iterrows():
-            label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色', '')} / {row.get('客戶名稱', '')}"
-            options.append(label)
-            code_to_id[label] = row["生產單號"]
-
-        selected_label = st.selectbox("選擇生產單號", options, key="selected_order_code_edit_list")
-        selected_code_edit = code_to_id.get(selected_label)
-                            
-    with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
             st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code_edit].iloc[0].to_dict()
             st.session_state.show_edit_panel = True
     
-    with cols_mod[2]:
+    with cols_mod[1]:
         if st.button("🗑️ 刪除", key="delete_button_1") and selected_code_edit:
             df_order = df_order[df_order["生產單號"] != selected_code_edit]
             df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
