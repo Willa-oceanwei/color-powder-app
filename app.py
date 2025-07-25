@@ -1166,15 +1166,7 @@ elif menu == "生產單管理":
 
         selected_label = st.selectbox("選擇生產單號", options, key="selected_order_code_edit")
         selected_code_edit = code_to_id.get(selected_label)
-                                            
-# 2. 在 selectbox 中顯示 options
-with cols_mod[0]:
-    selected_label = st.selectbox("選擇生產單號", options, key="selected_order_code_edit")
-
-# 3. 根據選擇的 label 取得生產單號
-selected_code_edit = code_to_id.get(selected_label)
-
-    
+                            
     with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
             st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code_edit].iloc[0].to_dict()
