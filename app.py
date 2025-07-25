@@ -1116,7 +1116,7 @@ elif menu == "生產單管理":
     st.write("Lengths:", len(shipment_series), len(page_data))
     page_data["出貨數量"] = shipment_series
     
-    # ✅ 出貨數量欄位計算函數
+# ✅ 出貨數量欄位計算函數（請放在主程式前面）
 def calculate_shipment(row):
     try:
         unit = row.get("計量單位", "").strip()
