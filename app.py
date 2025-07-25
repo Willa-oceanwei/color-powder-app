@@ -1165,12 +1165,22 @@ if search_order.strip():
         df_order["顏色"].str.contains(search_order, case=False, na=False)
     ]
 else:
-    df_order.columns = df_order.columns.map(lambda x: str(x).strip())
-    df_order["建立時間"].replace("", pd.NA, inplace=True)
-    df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
-
-    # ✅ 按建立時間排序
-    df_filtered = df_order.sort_values(by="建立時間", ascending=False)
+    if df_order is not None and not df_order.empty:
+        try:
+            df_order.columns = df_order.columns.map(lambda x: str(x).strip())
+            if "建立時間" in df_order.columns:
+                df_order["建立時間"] = df_order["建立時間"].astype(str).str.strip("'").replace("", pd.NA)
+                df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
+                df_filtered = df_order.sort_values(by="建立時間", ascending=False)
+            else:
+                st.warning("⚠️『建立時間』欄位不存在，無法排序")
+                df_filtered = df_order.copy()
+        except Exception as e:
+            st.error(f"❌ 處理建立時間欄位錯誤：{e}")
+            df_filtered = df_order.copy()
+    else:
+        st.warning("⚠️ df_order 資料為空或未正確載入")
+        df_filtered = pd.DataFrame()
 
 # ✅ 分頁處理
 limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
@@ -1214,6 +1224,8 @@ options = [
 ]
 selected_option = st.selectbox("選擇生產單", options, key="selected_order_code")
 selected_code = selected_option.split(" / ")[0] if selected_option else ""
+
+# 其餘部分維持原有邏輯...
 
 # ✅ 修改刪除功能併入清單區塊
 if st.session_state.show_edit_panel and st.session_state.editing_order:
