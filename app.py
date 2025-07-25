@@ -1165,10 +1165,15 @@ elif menu == "生產單管理":
             if st.button("下一頁", key="edit_panel_next_page") and st.session_state.order_page < total_pages:
                 st.session_state.order_page += 1
         with cols_page[3]:
-            jump_page = st.number_input("跳至頁碼", 1, total_pages, st.session_state.order_page)
+            jump_page = st.number_input(
+                "跳至頁碼", 
+                min_value=1, 
+                max_value=total_pages, 
+                value=st.session_state.order_page, 
+                key="jump_page_order_list"  # 這裡正確放置 key
+            )
             if jump_page != st.session_state.order_page:
                 st.session_state.order_page = jump_page
-                key="jump_page_order_list"
 
         st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
 
