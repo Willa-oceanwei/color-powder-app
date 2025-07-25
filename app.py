@@ -1061,6 +1061,46 @@ elif menu == "生產單管理":
                 st.session_state.new_order_saved = False
                 st.rerun()
 
+    #---- # ✅ 出貨數量欄位計算函數（請務必放在主程式前段，無縮排）
+def calculate_shipment(row):
+    try:
+        unit = str(row.get("計量單位", "")).strip()
+        formula_id = str(row.get("配方編號", "")).strip()
+        multipliers = {"包": 25, "桶": 100, "kg": 1}
+        unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
+
+        if not formula_id:
+            return ""
+
+        try:
+            matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
+            category = matched.values[0] if not matched.empty else ""
+        except Exception:
+            category = ""
+
+        if unit == "kg" and category == "色母":
+            multiplier = 100
+            label = "K"
+        else:
+            multiplier = multipliers.get(unit, 1)
+            label = unit_labels.get(unit, "")
+
+        results = []
+        for i in range(1, 5):
+            try:
+                weight = float(row.get(f"包裝重量{i}", 0))
+                count = int(float(row.get(f"包裝份數{i}", 0)))
+                if weight > 0 and count > 0:
+                    show_weight = int(weight * multiplier) if label == "K" else weight
+                    results.append(f"{show_weight}{label}*{count}")
+            except Exception:
+                continue
+
+        return " + ".join(results) if results else ""
+    except Exception as e:
+        st.error(f"calculate_shipment error at row index {row.name}: {e}")
+        st.write(row)
+        return ""
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📄 生產單清單")
