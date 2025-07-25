@@ -1108,6 +1108,7 @@ elif menu == "生產單管理":
 
     # 在這裡加上印出欄位的除錯訊息
     st.write("page_data columns:", page_data.columns)
+    st.write("page_data preview:", page_data.head())
     
     # 在這裡做出貨數量計算並加入欄位
     shipment_series = page_data.apply(calculate_shipment, axis=1)
@@ -1155,6 +1156,7 @@ def calculate_shipment(row):
         st.error(f"calculate_shipment error at row index {row.name}: {e}")
         st.write(row)
         return ""
+
 
     # ✅ 加入出貨數量欄位
     page_data = page_data.copy()
