@@ -1391,7 +1391,7 @@ def render_print_page():
     </style>
     """, unsafe_allow_html=True)
 
-    order = st.session_state.new_order
+    order = st.session_state.get("new_order")
     if not order:
         st.warning("⚠️ 找不到生產單資料")
         return
@@ -1470,11 +1470,12 @@ with btn1:
 
 with btn2:
     if st.button("🖨️ 列印"):
-        if not st.session_state.get("new_order_saved"):
-            st.warning("⚠️ 請先儲存生產單後再列印")
+        if not st.session_state.get("new_order"):
+            st.warning("⚠️ 找不到生產單資料，請先新增或選取")
         else:
             st.session_state.page = "列印畫面"
             st.rerun()
+
 
 with btn3:
     if st.button("🔙 返回"):
