@@ -774,6 +774,11 @@ elif menu == "生產單管理":
                 st.stop()
 
     # ✅ 後續統一使用 df_order
+    @st.cache_data(ttl=60)  # 快取 60 秒（避免每次刷新都重新抓資料）
+    def load_order_sheet():
+        return read_google_sheet("生產單")  # 呼叫你原本讀取 Google Sheets 的函式
+
+    df_order = load_order_sheet()  # 實際取得快取後的資料
     df_order = st.session_state.df_order
 
     # 欄位標題
@@ -1202,5 +1207,59 @@ if st.session_state.show_edit_panel and st.session_state.editing_order:
             st.rerun()
         else:
             st.error("找不到該筆生產單資料")
+              if st.button("上一頁") and st.session_state.order_page >1:
+               st.session_state.order_page -= 1
+        with cols_page[2]:
+            if st.button("下一頁") and st.session_state.order_page < total_pages:
+                st.session_state.order_page += 1
+        with cols_page[3]:
+            jump_page = st.number_input("跳至頁碼", 1, total_pages, st.session_state.order_page)
+            if jump_page != st.session_state.order_page:
+                st.session_state.order_page = jump_page
 
-# 其他 UI（刪除 / 選單 等）照你原本邏輯放即可
+        st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
+
+        # ---------- 生產單修改及刪除 ----------
+        codes = df_order["生產單號"].tolist()
+        cols_mod = st.columns([3,1,1])
+        with cols_mod[0]:
+            selected_code = st.selectbox("選擇生產單號", codes, key="selected_order_code")
+
+        with cols_mod[1]:
+            if st.button("✏️ 修改") and selected_code:
+                st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code].iloc[0].to_dict()
+                st.session_state.show_edit_panel = True
+
+        with cols_mod[2]:
+            if st.button("🗑️ 刪除") and selected_code:
+                df_order = df_order[df_order["生產單號"] != selected_code]
+                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                st.success(f"已刪除生產單 {selected_code}")
+                st.experimental_rerun()
+
+        # 修改表單面板
+        if st.session_state.show_edit_panel and st.session_state.editing_order:
+            st.markdown("---")
+            st.subheader(f"修改生產單 {st.session_state.editing_order['生產單號']}")
+
+            edit_order = st.session_state.editing_order
+            new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱",""))
+            new_color = st.text_input("顏色", value=edit_order.get("顏色",""))
+            new_packing_weight = st.text_input("包裝重量", value=edit_order.get("包裝重量",""))
+            new_packing_count = st.text_input("包裝份數", value=edit_order.get("包裝份數",""))
+
+            if st.button("儲存修改"):
+                idx = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
+                if idx:
+                    idx = idx[0]
+                    df_order.at[idx, "客戶名稱"] = new_customer
+                    df_order.at[idx, "顏色"] = new_color
+                    df_order.at[idx, "包裝重量"] = new_packing_weight
+                    df_order.at[idx, "包裝份數"] = new_packing_count
+                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                    st.success("修改已儲存")
+                    st.session_state.show_edit_panel = False
+                    st.session_state.editing_order = None
+                    st.experimental_rerun()
+                else:
+                    st.error("找不到該筆生產單資料")
