@@ -1426,4 +1426,4 @@ with cols_mod[2]:
         df_order = df_order[df_order["生產單號"] != selected_code]
         df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
         st.success(f"已刪除生產單 {selected_code}")
-        st.experimental_rerun()
+        st.rerun()
