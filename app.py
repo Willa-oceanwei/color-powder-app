@@ -1192,7 +1192,7 @@ elif menu == "生產單管理":
                 st.session_state.show_edit_panel = True
 
         with cols_mod[2]:
-            if st.button("🗑️ 刪除") and selected_code:
+            if st.button("🗑️ 刪除", key="delete_button_1") and selected_code:
                 df_order = df_order[df_order["生產單號"] != selected_code]
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                 st.success(f"已刪除生產單 {selected_code}")
