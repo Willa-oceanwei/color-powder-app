@@ -1161,6 +1161,10 @@ else:
     df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
     df_filtered = df_order.sort_values(by="建立時間", ascending=False)
 
+st.write(type(df_order))
+st.write(df_order)
+st.write(df_order.columns)
+
 # ✅ 分頁處理
 limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
 total_rows = len(df_filtered)
