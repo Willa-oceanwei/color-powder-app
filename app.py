@@ -774,15 +774,17 @@ elif menu == "生產單管理":
                 st.stop()
 
     # 讀取 Google Sheet 的基礎函式
-def read_google_sheet(sheet_name):
-    worksheet = spreadsheet.worksheet(sheet_name)
-    data = worksheet.get_all_records()
-    return pd.DataFrame(data)
+    def read_google_sheet(sheet_name):
+        worksheet = spreadsheet.worksheet(sheet_name)
+        data = worksheet.get_all_records()
+        return pd.DataFrame(data)
 
     # 使用快取包裝讀取函式，避免頻繁請求
     @st.cache_data(ttl=60)
     def load_order_sheet():
         return read_google_sheet("生產單")
+
+    order_file = Path("data/df_order.csv")
 
     # 初始化 df_order
     if "df_order" not in st.session_state:
