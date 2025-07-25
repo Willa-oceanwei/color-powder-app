@@ -1175,19 +1175,19 @@ def calculate_shipment(row):
 st.markdown("---")
 st.subheader("📄 生產單清單")
 #---
-    st.markdown("""
-    <style>
-    .big-title {
-        font-size: 26px;   /* 字體大小 */
-        font-weight: bold;  /*加粗 */
-        color: #ff3366; /* 字體顏色 */
-        margin-bottom: 20px; /* 下方間距 */
-    }
-    </style>
-    """, unsafe_allow_html=True)
+st.markdown("""
+<style>
+.big-title {
+    font-size: 26px;   /* 字體大小 */
+    font-weight: bold;  /*加粗 */
+    color: #ff3366; /* 字體顏色 */
+    margin-bottom: 20px; /* 下方間距 */
+}
+</style>
+""", unsafe_allow_html=True)
 
-    st.markdown('<div class="big-title">生產清單🔎</div>', unsafe_allow_html=True)
-    #---
+st.markdown('<div class="big-title">生產清單🔎</div>', unsafe_allow_html=True)
+#---
 
 # 👇 放在這裡
 for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "new_order_saved"]:
