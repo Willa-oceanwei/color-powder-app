@@ -1113,7 +1113,7 @@ elif menu == "生產單管理":
     page_data["出貨數量"] = shipment_series
     
     # ✅ 出貨數量欄位計算函數
-    def calculate_shipment(row):
+def calculate_shipment(row):
         unit = row.get("計量單位", "").strip()
         formula_id = row.get("配方編號", "").strip()
     
