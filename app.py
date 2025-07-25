@@ -1125,9 +1125,14 @@ elif menu == "生產單管理":
     start_idx = (st.session_state.order_page - 1) * limit
     page_data = df_filtered.iloc[start_idx:start_idx + limit]
 
+    # 在這裡做出貨數量計算並加入欄位
+    shipment_series = page_data.apply(calculate_shipment, axis=1)
+    page_data["出貨數量"] = shipment_series
+
+
     if not page_data.empty:
         st.dataframe(
-            page_data[["生產日期", "生產單號", "配方編號", "顏色", "客戶名稱", "建立時間"]]
+            page_data[["生產日期", "生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]]
         )
     else:
         st.info("查無符合的生產單")
