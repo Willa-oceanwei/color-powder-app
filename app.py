@@ -773,19 +773,30 @@ elif menu == "生產單管理":
                 st.error(f"❌ 無法讀取生產單資料：{e}")
                 st.stop()
 
-    # ✅ 讀取 Google Sheet 的基礎函式
-    def read_google_sheet(sheet_name):
-        worksheet = spreadsheet.worksheet(sheet_name)
-        data = worksheet.get_all_records()
-        return pd.DataFrame(data)
+    # 讀取 Google Sheet 的基礎函式
+def read_google_sheet(sheet_name):
+    worksheet = spreadsheet.worksheet(sheet_name)
+    data = worksheet.get_all_records()
+    return pd.DataFrame(data)
 
-        
-    # ✅ 後續統一使用 df_order
-    @st.cache_data(ttl=60)  # 快取 60 秒（避免每次刷新都重新抓資料）
+    # 使用快取包裝讀取函式，避免頻繁請求
+    @st.cache_data(ttl=60)
     def load_order_sheet():
-        return read_google_sheet("生產單")  # 呼叫你原本讀取 Google Sheets 的函式
-    # ✅ 主程式中取得資料（最多每 60 秒讀一次）
-    df_order = load_order_sheet()# 實際取得快取後的資料
+        return read_google_sheet("生產單")
+
+    # 初始化 df_order
+    if "df_order" not in st.session_state:
+        try:
+            st.session_state.df_order = load_order_sheet()
+        except Exception as e:
+            if order_file.exists():
+                st.warning("⚠️ 無法連線 Google Sheets，改用本地 CSV")
+                st.session_state.df_order = pd.read_csv(order_file, dtype=str).fillna("")
+            else:
+                st.error(f"❌ 無法讀取生產單資料：{e}")
+                st.stop()
+
+    # 之後統一使用 st.session_state.df_order
     df_order = st.session_state.df_order
 
     # 欄位標題
