@@ -1152,7 +1152,8 @@ def calculate_shipment(row):
 
         return " + ".join(results) if results else ""
     except Exception as e:
-        st.write(f"calculate_shipment outer error: {e}")
+        st.error(f"calculate_shipment error at row index {row.name}: {e}")
+        st.write(row)
         return ""
 
     # ✅ 加入出貨數量欄位
