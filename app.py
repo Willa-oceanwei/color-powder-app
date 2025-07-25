@@ -1107,62 +1107,6 @@ elif menu == "生產單管理":
 
     # ✅ 修改刪除功能併入清單區塊
     st.markdown("---")
-    st.subheader("⚙ 修改 / 刪除生產單")
-    codes = df_order["生產單號"].tolist()
-    cols_mod = st.columns([3, 1, 1])
-    selected_code = cols_mod[0].selectbox("選擇生產單號", codes, key="selected_order_code")
-    if cols_mod[1].button("✏️ 修改"):
-        st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code].iloc[0].to_dict()
-        st.session_state.show_edit_panel = True
-    if cols_mod[2].button("🗑️ 刪除"):
-        df_order = df_order[df_order["生產單號"] != selected_code]
-        df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-        st.success(f"已刪除生產單 {selected_code}")
-        st.rerun()
-
-    if st.session_state.show_edit_panel and st.session_state.editing_order:
-        st.subheader(f"修改生產單 {selected_code}")
-        edit = st.session_state.editing_order
-        new_customer = st.text_input("客戶名稱", value=edit.get("客戶名稱", ""))
-        new_color = st.text_input("顏色", value=edit.get("顏色", ""))
-        new_weight = st.text_input("包裝重量", value=edit.get("包裝重量", ""))
-        new_count = st.text_input("包裝份數", value=edit.get("包裝份數", ""))
-        if st.button("儲存修改"):
-            idx = df_order.index[df_order["生產單號"] == selected_code].tolist()
-            if idx:
-                i = idx[0]
-                df_order.at[i, "客戶名稱"] = new_customer
-                df_order.at[i, "顏色"] = new_color
-                df_order.at[i, "包裝重量"] = new_weight
-                df_order.at[i, "包裝份數"] = new_count
-                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                st.success("修改已儲存")
-                st.session_state.show_edit_panel = False
-                st.session_state.editing_order = None
-                st.experimental_rerun()
-            else:
-                st.error("找不到該筆生產單資料")
-
-            if st.button("上一頁") and st.session_state.order_page >1:
-               st.session_state.order_page -= 1
-        with cols_page[2]:
-            if st.button("下一頁", key="edit_panel_next_page") and st.session_state.order_page < total_pages:
-                st.session_state.order_page += 1
-        with cols_page[3]:
-            jump_page = st.number_input(
-                "跳至頁碼", 
-                min_value=1, 
-                max_value=total_pages, 
-                value=st.session_state.order_page, 
-                key="jump_page_order_list"  # 這裡正確放置 key
-            )
-            if jump_page != st.session_state.order_page:
-                st.session_state.order_page = jump_page
-
-        st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
-
-        # ---------- 生產單修改及刪除 ----------
-        st.markdown("---")
     st.subheader("⚙ 生產單修改 / 刪除")
     
     codes = df_order["生產單號"].tolist()
@@ -1228,7 +1172,6 @@ elif menu == "生產單管理":
                 st.success("修改已儲存")
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.error("找不到該筆生產單資料")
-
