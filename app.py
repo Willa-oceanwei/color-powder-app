@@ -1086,6 +1086,8 @@ elif menu == "生產單管理":
     # 輸入欄位
     customer = st.text_input("客戶名稱", value=default_客戶名稱)
     color = st.text_input("顏色", value=default_顏色)
+    配方選單 = df_recipe["配方編號"].dropna().astype(str).tolist()
+    
     配方編號 = st.selectbox(
         "配方編號", 
         options=配方選單, 
