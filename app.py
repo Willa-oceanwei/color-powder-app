@@ -1105,7 +1105,13 @@ elif menu == "生產單管理":
     st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
     start_idx = (st.session_state.order_page - 1) * limit
     page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
-
+    
+    # 在這裡做出貨數量計算並加入欄位
+    shipment_series = page_data.apply(calculate_shipment, axis=1)
+    st.write("shipment_series head:", shipment_series.head())
+    st.write("Lengths:", len(shipment_series), len(page_data))
+    page_data["出貨數量"] = shipment_series
+    
     # ✅ 出貨數量欄位計算函數
     def calculate_shipment(row):
         unit = row.get("計量單位", "").strip()
