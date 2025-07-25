@@ -1155,6 +1155,11 @@ def calculate_shipment(row):
 st.markdown("---")
 st.subheader("📄 生產單清單")
 
+# 👇 放在這裡
+for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "new_order_saved"]:
+    if key not in st.session_state:
+        st.session_state[key] = None if key != "order_page" else 1
+
 # ✅ 初始化分頁狀態
 if "order_page" not in st.session_state:
     st.session_state.order_page = 1
