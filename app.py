@@ -1187,7 +1187,7 @@ elif menu == "生產單管理":
             selected_code_edit = st.selectbox("選擇生產單號", codes, key="selected_order_code_edit")
 
         with cols_mod[1]:
-            if st.button("✏️ 修改") and selected_code:
+            if st.button("✏️ 修改", key="edit_button_1") and selected_code:
                 st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code].iloc[0].to_dict()
                 st.session_state.show_edit_panel = True
 
