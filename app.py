@@ -1173,7 +1173,6 @@ def calculate_shipment(row):
 # ---------- 📄 生產單清單 ----------
 
 st.markdown("---")
-st.subheader("📄 生產單清單")
 #---
 st.markdown("""
 <style>
@@ -1186,7 +1185,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="big-title">生產清單🔎</div>', unsafe_allow_html=True)
+st.markdown('<div class="big-title">📋生產清單🔎</div>', unsafe_allow_html=True)
 #---
 
 # 👇 放在這裡
