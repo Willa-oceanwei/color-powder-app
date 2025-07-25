@@ -1157,14 +1157,16 @@ elif menu == "生產單管理":
     codes = df_order["生產單號"].tolist()
     cols_mod = st.columns([3,1,1])
     with cols_mod[0]:
- # 1. 用 df_order 建立選項顯示字串
-options = []
-code_to_id = {}  # 用來從字串還原生產單號
-for idx, row in df_order.iterrows():
-    label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色', '')} / {row.get('客戶名稱', '')}"
-    options.append(label)
-    code_to_id[label] = row["生產單號"]  # key 是顯示字串，value 是生產單號
+        options = []
+        code_to_id = {}
+        for idx, row in df_order.iterrows():
+            label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色', '')} / {row.get('客戶名稱', '')}"
+            options.append(label)
+            code_to_id[label] = row["生產單號"]
 
+        selected_label = st.selectbox("選擇生產單號", options, key="selected_order_code_edit")
+        selected_code_edit = code_to_id.get(selected_label
+                                            
 # 2. 在 selectbox 中顯示 options
 with cols_mod[0]:
     selected_label = st.selectbox("選擇生產單號", options, key="selected_order_code_edit")
