@@ -1155,6 +1155,9 @@ def calculate_shipment(row):
 st.markdown("---")
 st.subheader("📄 生產單清單")
 
+# 確保使用最新資料
+df_order = st.session_state.df_order
+
 search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input", value="")
 
 if search_order.strip():
