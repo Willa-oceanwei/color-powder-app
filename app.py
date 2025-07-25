@@ -775,10 +775,10 @@ elif menu == "生產單管理":
 
     # ✅ 讀取 Google Sheet 的基礎函式
     def read_google_sheet(sheet_name):
-        sh = gc.open_by_key(SPREADSHEET_ID)
-        worksheet = sh.worksheet(sheet_name)
+        worksheet = spreadsheet.worksheet(sheet_name)
         data = worksheet.get_all_records()
         return pd.DataFrame(data)
+
         
     # ✅ 後續統一使用 df_order
     @st.cache_data(ttl=60)  # 快取 60 秒（避免每次刷新都重新抓資料）
