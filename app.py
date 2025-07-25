@@ -1162,7 +1162,7 @@ elif menu == "生產單管理":
             if st.button("上一頁") and st.session_state.order_page >1:
                st.session_state.order_page -= 1
         with cols_page[2]:
-            if st.button("下一頁") and st.session_state.order_page < total_pages:
+            if st.button("下一頁", key="edit_panel_next_page") and st.session_state.order_page < total_pages:
                 st.session_state.order_page += 1
         with cols_page[3]:
             jump_page = st.number_input("跳至頁碼", 1, total_pages, st.session_state.order_page)
