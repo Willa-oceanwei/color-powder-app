@@ -804,8 +804,8 @@ elif menu == "生產單管理":
     # ✅ 整理欄位與建立時間欄位
     if df_order is not None and not df_order.empty:
         df_order.columns = df_order.columns.map(lambda x: str(x).strip())
-        df_order["建立時間"] = df_order["建立時間"].str.strip("'")  # 去掉單引號
-        df_order["建立時間"].replace("", pd.NA, inplace=True)
+        df_order["建立時間"] = df_order["建立時間"].astype(str).str.strip("'")
+        df_order["建立時間"].replace("", pd.NaT, inplace=True)
         df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
     else:
         st.warning("df_order 資料是空的或無法讀取")
