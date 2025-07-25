@@ -1182,12 +1182,14 @@ elif menu == "生產單管理":
             except Exception as e:
                 st.error(f"Google Sheets 刪除錯誤：{e}")
 
-    # 本地 DataFrame 刪除並存檔
-    df_order = df_order[df_order["生產單號"] != selected_code_edit]
-    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-    st.success(f"已刪除生產單 {selected_code_edit}（本地資料）")
-
-    st.rerun()
+            # 本地 DataFrame 刪除並存檔
+            df_order = df_order[df_order["生產單號"] != selected_code_edit]
+            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+            st.success(f"已刪除生產單 {selected_code_edit}（本地資料）")
+        
+            # 清除選擇狀態，避免刪除後持續執行刪除動作
+            st.session_state.selected_order_code_edit = None
+            st.rerun()
 
     if st.session_state.show_edit_panel and st.session_state.editing_order:
         st.markdown("---")
@@ -1258,7 +1260,8 @@ elif menu == "生產單管理":
                 # 清理狀態及重新整理畫面
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
-                st.experimental_rerun()
+                st.session_state.selected_order_code_edit = None  # 加上清理選擇
+                st.rerun()
             else:
                 st.error("找不到該筆生產單資料")
 
