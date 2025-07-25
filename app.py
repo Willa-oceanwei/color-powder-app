@@ -1189,7 +1189,7 @@ elif menu == "生產單管理":
         
             # 清除選擇狀態，避免刪除後持續執行刪除動作
             if "selected_order_code_edit" not in st.session_state:
-            st.session_state.selected_order_code_edit = None
+                st.session_state.selected_order_code_edit = None
             st.rerun()
 
     if st.session_state.show_edit_panel and st.session_state.editing_order:
