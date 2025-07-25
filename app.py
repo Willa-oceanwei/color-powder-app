@@ -1146,6 +1146,15 @@ def calculate_shipment(row):
 st.markdown("---")
 st.subheader("📄 生產單清單")
 
+# ✅ 整理欄位與建立時間欄位
+if df_order is not None and not df_order.empty:
+    df_order.columns = df_order.columns.map(lambda x: str(x).strip())
+    df_order["建立時間"] = df_order["建立時間"].str.strip("'")  # 去掉單引號
+    df_order["建立時間"].replace("", pd.NA, inplace=True)
+    df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
+else:
+    st.warning("df_order 資料是空的或無法讀取")
+
 search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input", value="")
 
 if search_order.strip():
@@ -1159,11 +1168,9 @@ else:
     df_order.columns = df_order.columns.astype(str).str.strip()
     df_order["建立時間"].replace("", pd.NA, inplace=True)
     df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
-    df_filtered = df_order.sort_values(by="建立時間", ascending=False)
 
-st.write(type(df_order))
-st.write(df_order)
-st.write(df_order.columns)
+    # ✅ 按建立時間排序
+    df_filtered = df_order.sort_values(by="建立時間", ascending=False)
 
 # ✅ 分頁處理
 limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
