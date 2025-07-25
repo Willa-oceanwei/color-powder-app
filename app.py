@@ -1149,8 +1149,6 @@ page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
 
 # 在這裡做出貨數量計算並加入欄位
 shipment_series = page_data.apply(calculate_shipment, axis=1)
-st.write("shipment_series head:", shipment_series.head())
-st.write("Lengths:", len(shipment_series), len(page_data))
 page_data["出貨數量"] = shipment_series
 
 # ✅ 顯示欄位與順序
