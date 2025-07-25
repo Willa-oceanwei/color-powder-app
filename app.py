@@ -860,7 +860,7 @@ elif menu == "生產單管理":
             st.session_state[key] = None if key != "order_page" else 1
 
     # ---------- 搜尋及新增區 ----------
-    st.subheader("🔎 配方搜尋與新增生產單")
+    
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4, 1, 1])
         with col1:
