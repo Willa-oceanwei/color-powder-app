@@ -1114,8 +1114,8 @@ elif menu == "生產單管理":
     
     # ✅ 出貨數量欄位計算函數
 def calculate_shipment(row):
-        unit = row.get("計量單位", "").strip()
-        formula_id = row.get("配方編號", "").strip()
+    unit = row.get("計量單位", "").strip()
+    formula_id = row.get("配方編號", "").strip()
     
     # 定義包裝單位乘數與顯示標籤
     multipliers = {"包": 25, "桶": 100, "kg": 1}
@@ -1154,6 +1154,7 @@ def calculate_shipment(row):
             continue
     
     return " + ".join(results) if results else ""
+
 
 
     # ✅ 加入出貨數量欄位
