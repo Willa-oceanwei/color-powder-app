@@ -1188,6 +1188,7 @@ elif menu == "生產單管理":
             st.success(f"已刪除生產單 {selected_code_edit}（本地資料）")
         
             # 清除選擇狀態，避免刪除後持續執行刪除動作
+            if "selected_order_code_edit" not in st.session_state:
             st.session_state.selected_order_code_edit = None
             st.rerun()
 
