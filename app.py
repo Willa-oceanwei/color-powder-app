@@ -1411,32 +1411,19 @@ if st.session_state.show_edit_panel and st.session_state.editing_order:
 
 
 # ---------- 生產單操作列（修改 / 刪除 / 列印） ----------
-cols_mod = st.columns([1, 1, 1])
-with cols_mod[0]:
-    if st.button("✏️ 修改") and selected_code:
-        match = df_order[df_order["生產單號"] == selected_code]
-        if not match.empty:
-            st.session_state.editing_order = match.iloc[0].to_dict()
-            st.session_state.new_order = st.session_state.editing_order.copy()
-            st.session_state.page = "新增"
-            st.rerun()
-        else:
-            st.warning("找不到該筆生產單")
+codes = df_order["生產單號"].tolist()
+cols_mod = st.columns([3,1,1])
+    with cols_mod[0]:
+        selected_code = st.selectbox("選擇生產單號", codes, key="selected_order_code")
 
-with cols_mod[1]:
-    if st.button("🗑️ 刪除") and selected_code:
-        df_order = df_order[df_order["生產單號"] != selected_code]
-        df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-        st.session_state.df_order = df_order  # ✅ 更新 session_state
-        st.success(f"✅ 已刪除生產單 {selected_code}")
-        st.rerun()
+    with cols_mod[1]:
+        if st.button("✏️ 修改") and selected_code:
+            st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code].iloc[0].to_dict()
+            st.session_state.show_edit_panel = True
 
-with cols_mod[2]:
-    if st.button("🖨️ 列印") and selected_code:
-        match = df_order[df_order["生產單號"] == selected_code]
-        if not match.empty:
-            st.session_state.new_order = match.iloc[0].to_dict()
-            st.session_state.page = "列印畫面"
-            st.rerun()
-        else:
-            st.warning("⚠️ 找不到該筆生產單")
+    with cols_mod[2]:
+        if st.button("🗑️ 刪除") and selected_code:
+            df_order = df_order[df_order["生產單號"] != selected_code]
+            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+            st.success(f"已刪除生產單 {selected_code}")
+             st.experimental_rerun()
