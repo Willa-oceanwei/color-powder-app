@@ -1114,48 +1114,43 @@ elif menu == "生產單管理":
     
     # ✅ 出貨數量欄位計算函數
 def calculate_shipment(row):
-    unit = row.get("計量單位", "").strip()
-    formula_id = row.get("配方編號", "").strip()
-    
-    # 定義包裝單位乘數與顯示標籤
-    multipliers = {"包": 25, "桶": 100, "kg": 1}
-    unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
-    
-    # 若配方編號為空，直接回傳空字串
-    if not formula_id:
-        return ""
-    
-    # 取得配方色粉類別（存在 df_recipe 且為可讀取狀態）
     try:
-        matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
-        category = matched.values[0] if not matched.empty else ""
-    except Exception:
-        category = ""
-    
-    # 根據單位及類別決定倍率和單位標籤
-    if unit == "kg" and category == "色母":
-        multiplier = 100
-        label = "K"
-    else:
-        multiplier = multipliers.get(unit, 1)
-        label = unit_labels.get(unit, "")
-    
-    results = []
-    for i in range(1, 5):
+        unit = row.get("計量單位", "").strip()
+        formula_id = row.get("配方編號", "").strip()
+        multipliers = {"包": 25, "桶": 100, "kg": 1}
+        unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
+
+        if not formula_id:
+            return ""
+
         try:
-            weight = float(row.get(f"包裝重量{i}", 0))
-            count = int(float(row.get(f"包裝份數{i}", 0)))
-            # 只有重量和份數都大於0時才加入結果
-            if weight > 0 and count > 0:
-                show_weight = int(weight * multiplier) if label == "K" else weight
-                results.append(f"{show_weight}{label}*{count}")
+            matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
+            category = matched.values[0] if not matched.empty else ""
         except Exception:
-            # 包裝重量、份數欄位轉換失敗時跳過
-            continue
-    
-    return " + ".join(results) if results else ""
+            category = ""
 
+        if unit == "kg" and category == "色母":
+            multiplier = 100
+            label = "K"
+        else:
+            multiplier = multipliers.get(unit, 1)
+            label = unit_labels.get(unit, "")
 
+        results = []
+        for i in range(1, 5):
+            try:
+                weight = float(row.get(f"包裝重量{i}", 0))
+                count = int(float(row.get(f"包裝份數{i}", 0)))
+                if weight > 0 and count > 0:
+                    show_weight = int(weight * multiplier) if label == "K" else weight
+                    results.append(f"{show_weight}{label}*{count}")
+            except Exception:
+                continue
+
+        return " + ".join(results) if results else ""
+    except Exception as e:
+        st.write(f"calculate_shipment outer error: {e}")
+        return ""
 
     # ✅ 加入出貨數量欄位
     page_data = page_data.copy()
