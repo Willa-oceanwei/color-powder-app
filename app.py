@@ -1082,8 +1082,8 @@ elif menu == "生產單管理":
     # ✅ 出貨數量欄位計算函數（請務必放在主程式前段，無縮排）
 def calculate_shipment(row):
     try:
-        unit = row.get("計量單位", "").strip()
-        formula_id = row.get("配方編號", "").strip()
+        unit = str(row.get("計量單位", "")).strip()
+        formula_id = str(row.get("配方編號", "")).strip()
         multipliers = {"包": 25, "桶": 100, "kg": 1}
         unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
 
@@ -1146,10 +1146,6 @@ total_pages = max((total_rows - 1) // limit + 1, 1)
 st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
 start_idx = (st.session_state.order_page - 1) * limit
 page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
-
-# 在這裡加上印出欄位的除錯訊息
-st.write("page_data columns:", page_data.columns)
-st.write("page_data preview:", page_data.head())
 
 # 在這裡做出貨數量計算並加入欄位
 shipment_series = page_data.apply(calculate_shipment, axis=1)
