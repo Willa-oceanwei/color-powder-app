@@ -904,14 +904,14 @@ elif menu == "生產單管理":
     # ---------- 新增後欄位填寫區塊 ----------
 
     if st.session_state.show_confirm_panel and st.session_state.new_order:
-    st.markdown("---")
-    st.subheader("新增生產單詳情填寫")
+        st.markdown("---")
+        st.subheader("新增生產單詳情填寫")
 
-    from datetime import datetime, timedelta
+        from datetime import datetime, timedelta
 
-    order = st.session_state.new_order
-    recipe_row = df_recipe[df_recipe["配方編號"] == order["配方編號"]].iloc[0]
-    unit = recipe_row.get("計量單位", "kg")
+        order = st.session_state.new_order
+        recipe_row = df_recipe[df_recipe["配方編號"] == order["配方編號"]].iloc[0]
+        unit = recipe_row.get("計量單位", "kg")
 
     # 四欄資料 - 不可編輯
     c1, c2, c3, c4 = st.columns(4)
