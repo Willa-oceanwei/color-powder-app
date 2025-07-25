@@ -1226,24 +1226,25 @@ if st.session_state.show_edit_panel and st.session_state.editing_order:
 
         st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
 
-        # ---------- 生產單修改及刪除 ----------
-        codes = df_order["生產單號"].tolist()
-        cols_mod = st.columns([3,1,1])
-        with cols_mod[0]:
-            selected_code = st.selectbox("選擇生產單號", codes, key="selected_order_code")
+# ---------- 生產單修改及刪除 ----------
+codes = df_order["生產單號"].tolist()
+cols_mod = st.columns([3, 1, 1])
 
-        with cols_mod[1]:
-            if st.button("✏️ 修改") and selected_code:
-                st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code].iloc[0].to_dict()
-                st.session_state.show_edit_panel = True
+with cols_mod[0]:
+    selected_code = st.selectbox("選擇生產單號", codes, key="selected_order_code")
 
-        with cols_mod[2]:
-            if st.button("🗑️ 刪除") and selected_code:
-                df_order = df_order[df_order["生產單號"] != selected_code]
-                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                st.success(f"已刪除生產單 {selected_code}")
-                st.experimental_rerun()
+with cols_mod[1]:
+    if st.button("✏️ 修改") and selected_code:
+        st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code].iloc[0].to_dict()
+        st.session_state.show_edit_panel = True
 
+with cols_mod[2]:
+    if st.button("🗑️ 刪除") and selected_code:
+        df_order = df_order[df_order["生產單號"] != selected_code]
+        df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+        st.success(f"已刪除生產單 {selected_code}")
+        st.rerun()
+        
         # 修改表單面板
         if st.session_state.show_edit_panel and st.session_state.editing_order:
             st.markdown("---")
