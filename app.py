@@ -799,6 +799,15 @@ def read_google_sheet(sheet_name):
     # 之後統一使用 st.session_state.df_order
     df_order = st.session_state.df_order
 
+    # ✅ 整理欄位與建立時間欄位
+    if df_order is not None and not df_order.empty:
+        df_order.columns = df_order.columns.map(lambda x: str(x).strip())
+        df_order["建立時間"] = df_order["建立時間"].str.strip("'")  # 去掉單引號
+        df_order["建立時間"].replace("", pd.NA, inplace=True)
+        df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
+    else:
+        st.warning("df_order 資料是空的或無法讀取")
+
     # 欄位標題
     header = list(df_order.columns)
 
@@ -1145,15 +1154,6 @@ def calculate_shipment(row):
 
 st.markdown("---")
 st.subheader("📄 生產單清單")
-
-# ✅ 整理欄位與建立時間欄位
-if df_order is not None and not df_order.empty:
-    df_order.columns = df_order.columns.map(lambda x: str(x).strip())
-    df_order["建立時間"] = df_order["建立時間"].str.strip("'")  # 去掉單引號
-    df_order["建立時間"].replace("", pd.NA, inplace=True)
-    df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
-else:
-    st.warning("df_order 資料是空的或無法讀取")
 
 search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input", value="")
 
