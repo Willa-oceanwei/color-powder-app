@@ -730,6 +730,104 @@ elif menu == "配方管理":
     # 7. 分頁資訊顯示
     st.markdown(f"目前第 **{st.session_state.page}** / **{total_pages}** 頁，總筆數：{total_rows}")
 
+# ✅ 統一列印畫面函式（支援新建立或舊資料列印）
+def render_print_page():
+    import streamlit as st
+    import pandas as pd
+
+    st.markdown("""
+    <style>
+    .print-box {
+        font-size: 16px;
+        font-family: 'Courier New', monospace;
+        padding: 20px;
+        border: 1px dashed gray;
+        width: 450px;
+        background-color: #fff;
+    }
+    .divider {
+        border-top: 2px solid black;
+        margin: 10px 0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ✅ 依來源選取 order 資料
+    if st.session_state.get("new_order") and st.session_state.get("new_order_saved"):
+        order = st.session_state["new_order"]
+    elif st.session_state.get("print_order_code"):
+        code = st.session_state["print_order_code"]
+        df_order = st.session_state["df_order"]
+        match = df_order[df_order["生產單號"] == code]
+        if match.empty:
+            st.warning("⚠️ 找不到該筆生產單")
+            return
+        order = match.iloc[0].to_dict()
+    else:
+        st.warning("⚠️ 找不到任何生產單資料")
+        return
+
+    # 取得配方資料
+    formula_id = order.get("配方編號", "")
+    df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
+    recipe_match = df_recipe[df_recipe["配方編號"] == formula_id]
+    if recipe_match.empty:
+        st.warning("⚠️ 找不到對應配方資料")
+        return
+    recipe = recipe_match.iloc[0]
+
+    # 計算倍率（取包裝重量1）
+    try:
+        unit = order.get("計量單位", "kg")
+        weight1 = float(order.get("包裝重量1", 0))
+        count1 = float(order.get("包裝份數1", 0))
+        base_unit = 25 if unit == "包" else 100 if unit == "桶" else 1
+        ratio = weight1
+        label = "K" if unit in ["包", "桶"] else "kg"
+        show_title = f"{int(weight1 * base_unit)}{label} X {int(count1)}"
+    except:
+        ratio = 1
+        show_title = ""
+
+    # 色粉配方列表
+    powders = []
+    for i in range(1, 9):
+        cid = recipe.get(f"色粉編號{i}", "")
+        qty = recipe.get(f"色粉重量{i}", "")
+        if cid and str(cid).strip():
+            try:
+                qty = float(qty) * ratio
+            except:
+                qty = 0
+            powders.append((cid, round(qty)))
+
+    # 顯示列印畫面
+    remark = order.get("備註", "")
+    now_str = order.get("建立時間", "")
+
+    st.markdown("<div class='print-box'>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style='text-align:center;'>生產單</div>
+    {now_str}<br>
+    編號: {order.get('生產單號', '')}　顏色: {order.get('顏色', '')}　國際色號 {order.get('Pantone 色號', '')}<br>
+    色粉\\包裝方式 一 : {show_title}<br>
+    """, unsafe_allow_html=True)
+
+    for cid, qty in powders:
+        st.markdown(f"{cid}　　{qty}")
+
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
+    st.markdown(f"{recipe.get('合計類別', '')}　　{recipe.get('淨重', '')}")
+
+    if remark:
+        st.markdown(f"<br>備註：{remark}")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # 🔙 返回鍵
+    if st.button("🔙 返回清單"):
+        st.session_state.page = "清單"
+        st.session_state.print_order_code = None
+        st.rerun()
 
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
@@ -1356,130 +1454,3 @@ with cols_mod[2]:
             st.experimental_rerun()
         else:
             st.error("找不到該筆生產單資料")
-            
-#--------------------
-# ✅ 第 1 區：引入與初始化
-import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta
-
-# 假設這是你事先的配方與訂單資料
-# df_recipe = ...
-# df_order = ...
-
-# 初始化 session_state
-for key in ["page", "new_order", "new_order_saved"]:
-    if key not in st.session_state:
-        st.session_state[key] = None
-
-# ✅ 第 2 區：顯示列印畫面（若有）
-def render_print_page():
-    st.markdown("""
-    <style>
-    .print-box {
-        font-size: 16px;
-        font-family: 'Courier New', monospace;
-        padding: 20px;
-        border: 1px dashed gray;
-        width: 450px;
-        background-color: #fff;
-    }
-    .divider {
-        border-top: 2px solid black;
-        margin: 10px 0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    order = st.session_state.get("new_order")
-    if not order:
-        st.warning("⚠️ 找不到生產單資料")
-        return
-
-    formula_id = order.get("配方編號", "")
-    recipe = df_recipe[df_recipe["配方編號"] == formula_id].iloc[0]
-
-    # ⬇️ 計算倍率（以包裝1為例）
-    try:
-        unit = order.get("計量單位", "kg")
-        weight1 = float(order.get("包裝重量1", 0))
-        count1 = float(order.get("包裝份數1", 0))
-        base_unit = 25 if unit == "包" else 100 if unit == "桶" else 1
-        ratio = weight1
-        label = "K" if unit in ["包", "桶"] else "kg"
-        show_title = f"{int(weight1 * base_unit)}{label} X {int(count1)}"
-    except:
-        ratio = 1
-        show_title = ""
-
-    # 色粉資料
-    powders = []
-    for i in range(1, 9):
-        cid = recipe.get(f"色粉編號{i}", "")
-        qty = recipe.get(f"色粉重量{i}", "")
-        if cid and str(cid).strip():
-            try:
-                qty = float(qty) * ratio
-            except:
-                qty = 0
-            powders.append((cid, round(qty)))
-
-    remark = order.get("備註", "")
-    now_str = order.get("建立時間", "")
-
-    # 顯示列印內容
-    st.markdown("<div class='print-box'>", unsafe_allow_html=True)
-    st.markdown(f"""
-    <div style='text-align:center;'>生產單</div>
-    {now_str}<br>
-    編號: {order.get('生產單號', '')}　顏色: {order.get('顏色', '')}　國際色號 {order.get('Pantone 色號', '')}<br>
-    色粉\包裝方式 一 : {show_title}<br>
-    """, unsafe_allow_html=True)
-
-    for cid, qty in powders:
-        st.markdown(f"{cid}　　{qty}")
-
-    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-    st.markdown(f"{recipe.get('合計類別', '')}　　{recipe.get('淨重', '')}")
-
-    if remark:
-        st.markdown(f"<br>備註：{remark}")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    if st.button("🔙 返回清單"):
-        st.session_state.page = "清單"
-        st.rerun()
-
-if st.session_state.page == "列印畫面":
-    render_print_page()
-    st.stop()
-
-# ✅ 第 3 區：主畫面區域（例如清單、新增、搜尋...）
-st.title("📦 生產單管理")
-
-# 這裡開始寫清單區、新增、搜尋、新增詳情輸入區（略）
-
-# ✅ 第 4 區：新增詳情輸入完成後的操作
-btn1, btn2, btn3 = st.columns(3)
-with btn1:
-    if st.button("✅ 確定"):
-        # ✅ 儲存 order 資料到 Google Sheets / CSV（略）
-        st.session_state.new_order_saved = True
-        st.success("✅ 生產單已儲存")
-
-with btn2:
-    if st.button("🖨️ 列印"):
-        if not st.session_state.get("new_order"):
-            st.warning("⚠️ 找不到生產單資料，請先新增或選取")
-        else:
-            st.session_state.page = "列印畫面"
-            st.rerun()
-
-
-with btn3:
-    if st.button("🔙 返回"):
-        st.session_state.new_order = None
-        st.session_state.new_order_saved = False
-        st.rerun()
-
