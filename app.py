@@ -1125,6 +1125,18 @@ elif menu == "生產單管理":
     start_idx = (st.session_state.order_page - 1) * limit
     page_data = df_filtered.iloc[start_idx:start_idx + limit]
 
+    # 使用篩選後與分頁後的 df 產生下拉選單選項，確保一致性
+    options = []
+    code_to_id = {}
+    for idx, row in page_data.iterrows():
+        label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色', '')} / {row.get('客戶名稱', '')}"
+        options.append(label)
+        code_to_id[label] = row["生產單號"]
+
+selected_label = st.selectbox("選擇生產單號", options, key="selected_order_code_edit")
+selected_code_edit = code_to_id.get(selected_label)
+
+
     # 在這裡做出貨數量計算並加入欄位
     shipment_series = page_data.apply(calculate_shipment, axis=1)
     page_data["出貨數量"] = shipment_series
