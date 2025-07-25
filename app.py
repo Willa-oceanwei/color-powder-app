@@ -1168,6 +1168,7 @@ elif menu == "生產單管理":
             jump_page = st.number_input("跳至頁碼", 1, total_pages, st.session_state.order_page)
             if jump_page != st.session_state.order_page:
                 st.session_state.order_page = jump_page
+                key="jump_page_order_list"
 
         st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
 
