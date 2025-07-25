@@ -1182,6 +1182,7 @@ elif menu == "生產單管理":
 
         order = st.session_state.new_order
         recipe_row = df_recipe[df_recipe["配方編號"] == order["配方編號"]].iloc[0]
+        配方選單 = df_recipe["配方編號"].dropna().astype(str).tolist()
 
         # 四欄資料列
         c1, c2, c3, c4 = st.columns(4)
