@@ -1196,10 +1196,23 @@ elif menu == "生產單管理":
         default_配方編號 = ""
 
     # 🟡 表單輸入欄位（共用）
-    客戶名稱 = st.text_input("客戶名稱", value=default_客戶名稱)
-    顏色 = st.text_input("顏色", value=default_顏色)
-    配方選單 = df_recipe["配方編號"].tolist()
-    配方編號 = st.selectbox("配方編號", 配方選單, index=配方選單.index(default_配方編號) if default_配方編號 in 配方選單 else 0)
+    客戶名稱 = st.text_input("客戶名稱", value=default_客戶名稱, key="form_客戶名稱")
+    顏色 = st.text_input("顏色", value=default_顏色, key="form_顏色")
+    配方編號 = st.selectbox("配方編號", 配方選單,
+                          index=配方選單.index(default_配方編號) if default_配方編號 in 配方選單 else 0,
+                          key="form_配方編號")
+    計量單位 = st.selectbox("計量單位", ["包", "桶", "kg"],
+                      index=["包", "桶", "kg"].index(default_計量單位) if default_計量單位 in ["包", "桶", "kg"] else 0,
+                      key="form_計量單位")
+    包裝重量1 = st.text_input("包裝重量1", value=default_包裝重量1, key="form_包裝重量1")
+    包裝重量2 = st.text_input("包裝重量2", value=default_包裝重量2, key="form_包裝重量2")
+    包裝重量3 = st.text_input("包裝重量3", value=default_包裝重量3, key="form_包裝重量3")
+    包裝重量4 = st.text_input("包裝重量4", value=default_包裝重量4, key="form_包裝重量4")
+    包裝份數1 = st.text_input("包裝份數1", value=default_包裝份數1, key="form_包裝份數1")
+    包裝份數2 = st.text_input("包裝份數2", value=default_包裝份數2, key="form_包裝份數2")
+    包裝份數3 = st.text_input("包裝份數3", value=default_包裝份數3, key="form_包裝份數3")
+    包裝份數4 = st.text_input("包裝份數4", value=default_包裝份數4, key="form_包裝份數4")
+    備註 = st.text_area("備註", value=default_備註, key="form_備註")
 
     # ✅ 組成 new_order 並放入 session
     new_order = {
