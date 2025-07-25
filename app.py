@@ -736,6 +736,8 @@ elif menu == "生產單管理":
     st.markdown("## 🧾 生產單建立")
 
     from pathlib import Path
+    data_dir = Path("data")
+    data_dir.mkdir(parents=True, exist_ok=True)
     from datetime import datetime, timedelta
     import pandas as pd
 
@@ -1070,9 +1072,11 @@ elif menu == "生產單管理":
 
                     # 寫入 Google Sheets
                     try:
-                        # 決定下一筆要寫入的列
+                        # Google Sheets 更新語法
                         next_row = len(ws_order.get_all_values()) + 1
-                        ws_order.update(f"A{next_row}", [row_data])
+                        ws_order.update(f"A{next_row}:Z{next_row}", [row_data])  # 範圍完整定義
+                    except Exception as e:
+                        st.error(f"❌ Google Sheets 寫入失敗：{e}")
 
                         # 🔸 寫入本地 CSV
                         df_new = pd.DataFrame([order], columns=df_order.columns)
