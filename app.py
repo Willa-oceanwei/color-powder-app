@@ -1178,13 +1178,67 @@ elif menu == "生產單管理":
         st.experimental_rerun()
 
     
+    # --- 新增／修改：輸入區塊與儲存 ---
     if st.session_state.show_confirm_panel and st.session_state.new_order:
-        st.markdown("---")
-        st.subheader("新增生產單詳情填寫")
 
-        order = st.session_state.new_order
-        recipe_row = df_recipe[df_recipe["配方編號"] == order["配方編號"]].iloc[0]
-        配方選單 = df_recipe["配方編號"].dropna().astype(str).tolist()
+        st.markdown("---")
+        st.subheader("📄 新增 / 修改 生產單詳情")
+
+    # 🟡 帶入預設值（若為修改模式）
+    if st.session_state.get("editing_order"):
+        edit_data = st.session_state.editing_order
+        default_客戶名稱 = edit_data.get("客戶名稱", "")
+        default_顏色 = edit_data.get("顏色", "")
+        default_配方編號 = edit_data.get("配方編號", "")
+    else:
+        default_客戶名稱 = ""
+        default_顏色 = ""
+        default_配方編號 = ""
+
+    # 🟡 表單輸入欄位（共用）
+    客戶名稱 = st.text_input("客戶名稱", value=default_客戶名稱)
+    顏色 = st.text_input("顏色", value=default_顏色)
+    配方選單 = df_recipe["配方編號"].tolist()
+    配方編號 = st.selectbox("配方編號", 配方選單, index=配方選單.index(default_配方編號) if default_配方編號 in 配方選單 else 0)
+
+    # ✅ 組成 new_order 並放入 session
+    new_order = {
+        "客戶名稱": 客戶名稱,
+        "顏色": 顏色,
+        "配方編號": 配方編號,
+    }
+    st.session_state.new_order.update(new_order)
+
+    # ✅ 儲存按鈕
+    if st.button("✅ 確定"):
+        if st.session_state.get("editing_order"):
+            # 修改模式：更新原有資料
+            edit_order_code = st.session_state.editing_order.get("生產單號")
+            idxs = df_order.index[df_order["生產單號"] == edit_order_code].tolist()
+            if idxs:
+                idx = idxs[0]
+                for k, v in new_order.items():
+                    df_order.at[idx, k] = v
+                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                st.success(f"✅ 已修改生產單 {edit_order_code}")
+            else:
+                st.error("❌ 找不到欲修改的生產單資料")
+        else:
+            # 新增模式：產生生產單號並新增
+            new_code = generate_order_code(df_order)  # ⬅️ 這個函式請確認你有定義好
+            new_order["生產單號"] = new_code
+            new_order["建立時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            df_order = pd.concat([df_order, pd.DataFrame([new_order])], ignore_index=True)
+            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+            st.success(f"✅ 已新增生產單 {new_code}")
+
+        # 清除狀態
+        st.session_state.new_order = None
+        st.session_state.show_confirm_panel = False
+        st.session_state.editing_order = None
+        st.session_state.show_edit_panel = False
+        st.session_state.df_order = df_order  # 更新狀態資料
+        st.rerun()
 
         # 四欄資料列
         c1, c2, c3, c4 = st.columns(4)
