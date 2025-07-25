@@ -186,7 +186,7 @@ elif menu == "客戶名單":
     .big-title {
         font-size: 35px;   /* 字體大小 */
         font-weight: bold;  /*加粗 */
-        color: #ffcc66; /* 字體顏色 */
+        color: #0099cc; /* 字體顏色 */
         margin-bottom: 20px; /* 下方間距 */
     }
     </style>
@@ -730,126 +730,12 @@ elif menu == "配方管理":
     # 7. 分頁資訊顯示
     st.markdown(f"目前第 **{st.session_state.page}** / **{total_pages}** 頁，總筆數：{total_rows}")
 
-# ✅ 統一列印畫面函式（支援新建立或舊資料列印）
-def render_print_page():
-    import streamlit as st
-    import pandas as pd
-
-    st.markdown("""
-    <style>
-    .print-box {
-        font-size: 16px;
-        font-family: 'Courier New', monospace;
-        padding: 20px;
-        border: 1px dashed gray;
-        width: 450px;
-        background-color: #fff;
-    }
-    .divider {
-        border-top: 2px solid black;
-        margin: 10px 0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ✅ 依來源選取 order 資料
-    if st.session_state.get("new_order") and st.session_state.get("new_order_saved"):
-        order = st.session_state["new_order"]
-    elif st.session_state.get("print_order_code"):
-        code = st.session_state["print_order_code"]
-        df_order = st.session_state["df_order"]
-        match = df_order[df_order["生產單號"] == code]
-        if match.empty:
-            st.warning("⚠️ 找不到該筆生產單")
-            return
-        order = match.iloc[0].to_dict()
-    else:
-        st.warning("⚠️ 找不到任何生產單資料")
-        return
-
-    # 取得配方資料
-    formula_id = order.get("配方編號", "")
-    df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
-    recipe_match = df_recipe[df_recipe["配方編號"] == formula_id]
-    if recipe_match.empty:
-        st.warning("⚠️ 找不到對應配方資料")
-        return
-    recipe = recipe_match.iloc[0]
-
-    # 計算倍率（取包裝重量1）
-    try:
-        unit = order.get("計量單位", "kg")
-        weight1 = float(order.get("包裝重量1", 0))
-        count1 = float(order.get("包裝份數1", 0))
-        base_unit = 25 if unit == "包" else 100 if unit == "桶" else 1
-        ratio = weight1
-        label = "K" if unit in ["包", "桶"] else "kg"
-        show_title = f"{int(weight1 * base_unit)}{label} X {int(count1)}"
-    except:
-        ratio = 1
-        show_title = ""
-
-    # 色粉配方列表
-    powders = []
-    for i in range(1, 9):
-        cid = recipe.get(f"色粉編號{i}", "")
-        qty = recipe.get(f"色粉重量{i}", "")
-        if cid and str(cid).strip():
-            try:
-                qty = float(qty) * ratio
-            except:
-                qty = 0
-            powders.append((cid, round(qty)))
-
-    # 顯示列印畫面
-    remark = order.get("備註", "")
-    now_str = order.get("建立時間", "")
-
-    st.markdown("<div class='print-box'>", unsafe_allow_html=True)
-    st.markdown(f"""
-    <div style='text-align:center;'>生產單</div>
-    {now_str}<br>
-    編號: {order.get('生產單號', '')}　顏色: {order.get('顏色', '')}　國際色號 {order.get('Pantone 色號', '')}<br>
-    色粉\\包裝方式 一 : {show_title}<br>
-    """, unsafe_allow_html=True)
-
-    for cid, qty in powders:
-        st.markdown(f"{cid}　　{qty}")
-
-    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
-    st.markdown(f"{recipe.get('合計類別', '')}　　{recipe.get('淨重', '')}")
-
-    if remark:
-        st.markdown(f"<br>備註：{remark}")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # 🔙 返回鍵
-if st.button("🔙 返回清單"):
-    st.session_state.page = "清單"
-    st.session_state.print_order_code = None
-    st.rerun()
 
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
-    
-    #---
-    st.markdown("""
-    <style>
-    .big-title {
-        font-size: 35px;   /* 字體大小 */
-        font-weight: bold;  /*加粗 */
-        color: #ff3366; /* 字體顏色 */
-        margin-bottom: 20px; /* 下方間距 */
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="big-title">🚀生產單搜尋/新增🔎</div>', unsafe_allow_html=True)
-    #---
+    st.markdown("## 🧾 生產單建立")
 
     from pathlib import Path
-    data_dir = Path("data")
-    data_dir.mkdir(parents=True, exist_ok=True)
     from datetime import datetime, timedelta
     import pandas as pd
 
@@ -887,42 +773,8 @@ elif menu == "生產單管理":
                 st.error(f"❌ 無法讀取生產單資料：{e}")
                 st.stop()
 
-    # 讀取 Google Sheet 的基礎函式
-    def read_google_sheet(sheet_name):
-        worksheet = spreadsheet.worksheet(sheet_name)
-        data = worksheet.get_all_records()
-        return pd.DataFrame(data)
-
-    # 使用快取包裝讀取函式，避免頻繁請求
-    @st.cache_data(ttl=60)
-    def load_order_sheet():
-        return read_google_sheet("生產單")
-
-    order_file = Path("data/df_order.csv")
-
-    # 初始化 df_order
-    if "df_order" not in st.session_state:
-        try:
-            st.session_state.df_order = load_order_sheet()
-        except Exception as e:
-            if order_file.exists():
-                st.warning("⚠️ 無法連線 Google Sheets，改用本地 CSV")
-                st.session_state.df_order = pd.read_csv(order_file, dtype=str).fillna("")
-            else:
-                st.error(f"❌ 無法讀取生產單資料：{e}")
-                st.stop()
-
-    # 之後統一使用 st.session_state.df_order
+    # ✅ 後續統一使用 df_order
     df_order = st.session_state.df_order
-
-    # ✅ 整理欄位與建立時間欄位
-    if df_order is not None and not df_order.empty:
-        df_order.columns = df_order.columns.map(lambda x: str(x).strip())
-        df_order["建立時間"] = df_order["建立時間"].astype(str).str.strip("'")
-        df_order["建立時間"].replace("", pd.NaT, inplace=True)
-        df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
-    else:
-        st.warning("df_order 資料是空的或無法讀取")
 
     # 欄位標題
     header = list(df_order.columns)
@@ -945,7 +797,9 @@ elif menu == "生產單管理":
 
     df_recipe = st.session_state.df_recipe
 
+    st.write("配方管理欄位清單：", df_recipe.columns.tolist())
     sheet_names = [s.title for s in spreadsheet.worksheets()]
+    st.write("目前工作表列表：", sheet_names)
 
     # 檢查欄位是否已存在，若無則寫入
     existing_values = ws_order.get_all_values()
@@ -956,13 +810,9 @@ elif menu == "生產單管理":
     for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "show_confirm_panel"]:
         if key not in st.session_state:
             st.session_state[key] = None if key != "order_page" else 1
-            
-    if st.session_state.get("page") == "列印畫面":
-        render_print_page()   # ⬅️ 執行你剛剛完成的列印畫面函數
-        st.stop()             # ⛔ 停止往下跑，避免畫面混進清單區
 
     # ---------- 搜尋及新增區 ----------
-    
+    st.subheader("🔎 配方搜尋與新增生產單")
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4, 1, 1])
         with col1:
@@ -1188,11 +1038,9 @@ elif menu == "生產單管理":
 
                     # 寫入 Google Sheets
                     try:
-                        # Google Sheets 更新語法
+                        # 決定下一筆要寫入的列
                         next_row = len(ws_order.get_all_values()) + 1
-                        ws_order.update(f"A{next_row}:Z{next_row}", [row_data])  # 範圍完整定義
-                    except Exception as e:
-                        st.error(f"❌ Google Sheets 寫入失敗：{e}")
+                        ws_order.update(f"A{next_row}", [row_data])
 
                         # 🔸 寫入本地 CSV
                         df_new = pd.DataFrame([order], columns=df_order.columns)
@@ -1201,9 +1049,8 @@ elif menu == "生產單管理":
                         st.session_state.df_order = df_order  # 更新 session_state
 
                         # ✅ 記錄儲存狀態，不 rerun
-                        st.session_state.df_order = df_order
                         st.session_state.new_order_saved = True
-                        st.success(f"✅ 生產單 {order['生產單號']} 已儲！")
+                        st.success(f"✅ 生產單 {order['生產單號']} 已成功儲存！可繼續列印或返回")
                     
                     except Exception as e:
                         st.error(f"❌ 寫入失敗：{e}")
@@ -1231,89 +1078,20 @@ elif menu == "生產單管理":
                 st.rerun()
                 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
-    # ✅ 出貨數量欄位計算函數（請務必放在主程式前段，無縮排）
-def calculate_shipment(row):
-    try:
-        unit = str(row.get("計量單位", "")).strip()
-        formula_id = str(row.get("配方編號", "")).strip()
-        multipliers = {"包": 25, "桶": 100, "kg": 1}
-        unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
+    st.markdown("---")
+    st.subheader("📄 生產單清單")
+    search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input", value="")
 
-        if not formula_id:
-            return ""
-
-        try:
-            matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
-            category = matched.values[0] if not matched.empty else ""
-        except Exception:
-            category = ""
-
-        if unit == "kg" and category == "色母":
-            multiplier = 100
-            label = "K"
-        else:
-            multiplier = multipliers.get(unit, 1)
-            label = unit_labels.get(unit, "")
-
-        results = []
-        for i in range(1, 5):
-            try:
-                weight = float(row.get(f"包裝重量{i}", 0))
-                count = int(float(row.get(f"包裝份數{i}", 0)))
-                if weight > 0 and count > 0:
-                    show_weight = int(weight * multiplier) if label == "K" else weight
-                    results.append(f"{show_weight}{label}*{count}")
-            except Exception:
-                continue
-
-        return " + ".join(results) if results else ""
-    except Exception as e:
-        st.error(f"calculate_shipment error at row index {row.name}: {e}")
-        st.write(row)
-        return ""
-
-# ---------- 📄 生產單清單 ----------
-
-st.markdown("---")
-#---
-st.markdown("""
-<style>
-.big-title {
-    font-size: 26px;   /* 字體大小 */
-    font-weight: bold;  /*加粗 */
-    color: #ff3366; /* 字體顏色 */
-    margin-bottom: 20px; /* 下方間距 */
-}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown('<div class="big-title">📋生產清單🔎</div>', unsafe_allow_html=True)
-#---
-
-# 👇 放在這裡
-for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "new_order_saved"]:
-    if key not in st.session_state:
-        st.session_state[key] = None if key != "order_page" else 1
-
-# ✅ 初始化分頁狀態
-if "order_page" not in st.session_state:
-    st.session_state.order_page = 1
-
-# 確保使用最新資料
-df_order = st.session_state.df_order
-
-search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input", value="")
-
-if search_order.strip():
+    if search_order.strip():
         df_filtered = df_order[
             df_order["生產單號"].str.contains(search_order, case=False, na=False) |
             df_order["配方編號"].str.contains(search_order, case=False, na=False) |
             df_order["客戶名稱"].str.contains(search_order, case=False, na=False) |
             df_order["顏色"].str.contains(search_order, case=False, na=False)
         ]
-else:
-    df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
-    df_filtered = df_order.sort_values(by="建立時間", ascending=False)
+    else:
+        df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
+        df_filtered = df_order.sort_values(by="建立時間", ascending=False)
 
     limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
     total_rows = len(df_filtered)
@@ -1394,7 +1172,9 @@ else:
         st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
 
         # ---------- 生產單修改及刪除 ----------
-    
+        st.markdown("---")
+        st.subheader("⚙ 生產單修改 / 刪除")
+
         codes = df_order["生產單號"].tolist()
         cols_mod = st.columns([3,1,1])
         with cols_mod[0]:
@@ -1438,5 +1218,3 @@ else:
                     st.experimental_rerun()
                 else:
                     st.error("找不到該筆生產單資料")
-
-       
