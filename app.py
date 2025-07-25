@@ -773,12 +773,19 @@ elif menu == "生產單管理":
                 st.error(f"❌ 無法讀取生產單資料：{e}")
                 st.stop()
 
+    # ✅ 讀取 Google Sheet 的基礎函式
+    def read_google_sheet(sheet_name):
+        sh = gc.open_by_key(SPREADSHEET_ID)
+        worksheet = sh.worksheet(sheet_name)
+        data = worksheet.get_all_records()
+        return pd.DataFrame(data)
+        
     # ✅ 後續統一使用 df_order
     @st.cache_data(ttl=60)  # 快取 60 秒（避免每次刷新都重新抓資料）
     def load_order_sheet():
         return read_google_sheet("生產單")  # 呼叫你原本讀取 Google Sheets 的函式
-
-    df_order = load_order_sheet()  # 實際取得快取後的資料
+    # ✅ 主程式中取得資料（最多每 60 秒讀一次）
+    df_order = load_order_sheet()# 實際取得快取後的資料
     df_order = st.session_state.df_order
 
     # 欄位標題
