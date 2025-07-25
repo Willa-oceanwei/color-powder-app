@@ -1202,7 +1202,7 @@ elif menu == "生產單管理":
         with c5:
             st.text_input("計量單位", value=unit, disabled=True)
         with c6:
-            color = st.text_input("顏色", value=order.get("顏色", ""))
+            color = st.text_input("顏色", value=order.get("顏色", ""), key="color_input_edit")
         with c7:
             pantone = st.text_input("Pantone色號", value=recipe_row.get("Pantone色號", ""))
         with c8:
