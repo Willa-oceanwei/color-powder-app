@@ -1105,6 +1105,9 @@ elif menu == "生產單管理":
     st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
     start_idx = (st.session_state.order_page - 1) * limit
     page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
+
+    # 在這裡加上印出欄位的除錯訊息
+    st.write("page_data columns:", page_data.columns)
     
     # 在這裡做出貨數量計算並加入欄位
     shipment_series = page_data.apply(calculate_shipment, axis=1)
