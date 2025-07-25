@@ -1163,48 +1163,72 @@ elif menu == "生產單管理":
 
         # ---------- 生產單修改及刪除 ----------
         st.markdown("---")
-        st.subheader("⚙ 生產單修改 / 刪除")
-
-        codes = df_order["生產單號"].tolist()
-        cols_mod = st.columns([3,1,1])
-        with cols_mod[0]:
-            selected_code_edit = st.selectbox("選擇生產單號", codes, key="selected_order_code_edit")
-
-        with cols_mod[1]:
-            if st.button("✏️ 修改", key="edit_button_1") and selected_code:
-                st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code].iloc[0].to_dict()
-                st.session_state.show_edit_panel = True
-
-        with cols_mod[2]:
-            if st.button("🗑️ 刪除", key="delete_button_1") and selected_code:
-                df_order = df_order[df_order["生產單號"] != selected_code]
+    st.subheader("⚙ 生產單修改 / 刪除")
+    
+    codes = df_order["生產單號"].tolist()
+    cols_mod = st.columns([3,1,1])
+    with cols_mod[0]:
+        selected_code_edit = st.selectbox("選擇生產單號", codes, key="selected_order_code_edit")
+    
+    with cols_mod[1]:
+        if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
+            st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code_edit].iloc[0].to_dict()
+            st.session_state.show_edit_panel = True
+    
+    with cols_mod[2]:
+        if st.button("🗑️ 刪除", key="delete_button_1") and selected_code_edit:
+            df_order = df_order[df_order["生產單號"] != selected_code_edit]
+            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+            st.success(f"已刪除生產單 {selected_code_edit}")
+            st.experimental_rerun()
+    
+    if st.session_state.show_edit_panel and st.session_state.editing_order:
+        st.markdown("---")
+        st.subheader(f"修改生產單 {st.session_state.editing_order['生產單號']}")
+    
+        edit_order = st.session_state.editing_order
+    
+        new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""), key="edit_customer_name")
+        new_color = st.text_input("顏色", value=edit_order.get("顏色", ""), key="edit_color")
+    
+        # 包裝重量 1~4
+        pack_weights_cols = st.columns(4)
+        new_packing_weights = []
+        for i in range(1,5):
+            new_weight = pack_weights_cols[i-1].text_input(
+                f"包裝重量{i}", value=edit_order.get(f"包裝重量{i}", ""), key=f"edit_packing_weight_{i}"
+            )
+            new_packing_weights.append(new_weight)
+    
+        # 包裝份數 1~4
+        pack_counts_cols = st.columns(4)
+        new_packing_counts = []
+        for i in range(1,5):
+            new_count = pack_counts_cols[i-1].text_input(
+                f"包裝份數{i}", value=edit_order.get(f"包裝份數{i}", ""), key=f"edit_packing_count_{i}"
+            )
+            new_packing_counts.append(new_count)
+    
+        new_remark = st.text_area("備註", value=edit_order.get("備註", ""), key="edit_remark")
+    
+        if st.button("儲存修改", key="save_edit_button"):
+            idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
+            if idx_list:
+                idx = idx_list[0]
+                df_order.at[idx, "客戶名稱"] = new_customer
+                df_order.at[idx, "顏色"] = new_color
+    
+                for i in range(4):
+                    df_order.at[idx, f"包裝重量{i+1}"] = new_packing_weights[i]
+                    df_order.at[idx, f"包裝份數{i+1}"] = new_packing_counts[i]
+    
+                df_order.at[idx, "備註"] = new_remark
+    
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                st.success(f"已刪除生產單 {selected_code}")
+                st.success("修改已儲存")
+                st.session_state.show_edit_panel = False
+                st.session_state.editing_order = None
                 st.experimental_rerun()
+            else:
+                st.error("找不到該筆生產單資料")
 
-        # 修改表單面板
-        if st.session_state.show_edit_panel and st.session_state.editing_order:
-            st.markdown("---")
-            st.subheader(f"修改生產單 {st.session_state.editing_order['生產單號']}")
-
-            edit_order = st.session_state.editing_order
-            new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱",""), key="edit_customer_name")
-            new_color = st.text_input("顏色", value=edit_order.get("顏色",""))
-            new_packing_weight = st.text_input("包裝重量", value=edit_order.get("包裝重量",""))
-            new_packing_count = st.text_input("包裝份數", value=edit_order.get("包裝份數",""))
-
-            if st.button("儲存修改"):
-                idx = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
-                if idx:
-                    idx = idx[0]
-                    df_order.at[idx, "客戶名稱"] = new_customer
-                    df_order.at[idx, "顏色"] = new_color
-                    df_order.at[idx, "包裝重量"] = new_packing_weight
-                    df_order.at[idx, "包裝份數"] = new_packing_count
-                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                    st.success("修改已儲存")
-                    st.session_state.show_edit_panel = False
-                    st.session_state.editing_order = None
-                    st.experimental_rerun()
-                else:
-                    st.error("找不到該筆生產單資料")
