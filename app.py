@@ -1155,6 +1155,10 @@ def calculate_shipment(row):
 st.markdown("---")
 st.subheader("📄 生產單清單")
 
+# ✅ 初始化分頁狀態
+if "order_page" not in st.session_state:
+    st.session_state.order_page = 1
+
 # 確保使用最新資料
 df_order = st.session_state.df_order
 
