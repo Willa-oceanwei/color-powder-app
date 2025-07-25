@@ -733,7 +733,21 @@ elif menu == "配方管理":
 
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
-    st.markdown("## 🧾 生產單建立")
+    
+    #---
+    st.markdown("""
+    <style>
+    .big-title {
+        font-size: 35px;   /* 字體大小 */
+        font-weight: bold;  /*加粗 */
+        color: #ff3366; /* 字體顏色 */
+        margin-bottom: 20px; /* 下方間距 */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="big-title">🚀生產單搜尋/新增🔎</div>', unsafe_allow_html=True)
+    #---
 
     from pathlib import Path
     data_dir = Path("data")
