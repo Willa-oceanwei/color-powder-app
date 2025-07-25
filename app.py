@@ -1136,7 +1136,7 @@ elif menu == "生產單管理":
                 count = int(float(row.get(f"包裝份數{i}", 0)))
                 if weight > 0 and count > 0:
                     show_weight = int(weight * multiplier) if label == "K"
-   else weight
+    else weight
                     results.append(f"{show_weight}{label}*{count}")
             except Exception:
                 continue
