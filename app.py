@@ -1165,7 +1165,7 @@ if search_order.strip():
         df_order["顏色"].str.contains(search_order, case=False, na=False)
     ]
 else:
-    df_order.columns = df_order.columns.astype(str).str.strip()
+    df_order.columns = df_order.columns.map(lambda x: str(x).strip())
     df_order["建立時間"].replace("", pd.NA, inplace=True)
     df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
 
