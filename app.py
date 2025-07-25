@@ -1052,206 +1052,13 @@ elif menu == "生產單管理":
                 st.session_state.show_confirm_panel = True    
 
     # ---------- 新增後欄位填寫區塊 ----------
-    # 先設定預設值，如果是修改，則從 session_state.editing_order 讀資料
-    if st.session_state.get("editing_order"):
-        edit_data = st.session_state.editing_order
-        default_客戶名稱 = edit_data.get("客戶名稱", "")
-        default_顏色 = edit_data.get("顏色", "")
-        default_配方編號 = edit_data.get("配方編號", "")
-        default_計量單位 = edit_data.get("計量單位", "")
-        default_包裝重量1 = edit_data.get("包裝重量1", "")
-        default_包裝重量2 = edit_data.get("包裝重量2", "")
-        default_包裝重量3 = edit_data.get("包裝重量3", "")
-        default_包裝重量4 = edit_data.get("包裝重量4", "")
-        default_包裝份數1 = edit_data.get("包裝份數1", "")
-        default_包裝份數2 = edit_data.get("包裝份數2", "")
-        default_包裝份數3 = edit_data.get("包裝份數3", "")
-        default_包裝份數4 = edit_data.get("包裝份數4", "")
-        default_備註 = edit_data.get("備註", "")
-    else:
-        default_客戶名稱 = ""
-        default_顏色 = ""
-        default_配方編號 = ""
-        default_計量單位 = ""
-        default_包裝重量1 = ""
-        default_包裝重量2 = ""
-        default_包裝重量3 = ""
-        default_包裝重量4 = ""
-        default_包裝份數1 = ""
-        default_包裝份數2 = ""
-        default_包裝份數3 = ""
-        default_包裝份數4 = ""
-        default_備註 = ""
 
-    # 輸入欄位
-    customer = st.text_input("客戶名稱", value=default_客戶名稱)
-    color = st.text_input("顏色", value=default_顏色)
-    配方選單 = df_recipe["配方編號"].dropna().astype(str).tolist()
-    
-    配方編號 = st.selectbox(
-        "配方編號", 
-        options=配方選單, 
-        index=配方選單.index(default_配方編號) if default_配方編號 in 配方選單 else 0
-    )
-    計量單位 = st.selectbox(
-        "計量單位", 
-        options=["包", "桶", "kg"], 
-        index=["包", "桶", "kg"].index(default_計量單位) if default_計量單位 in ["包", "桶", "kg"] else 0
-    )
-
-    col_w1, col_w2, col_w3, col_w4 = st.columns(4)
-    with col_w1:
-        包裝重量1 = st.text_input("包裝重量1", value=default_包裝重量1)
-    with col_w2:
-        包裝重量2 = st.text_input("包裝重量2", value=default_包裝重量2)
-    with col_w3:
-        包裝重量3 = st.text_input("包裝重量3", value=default_包裝重量3)
-    with col_w4:
-        包裝重量4 = st.text_input("包裝重量4", value=default_包裝重量4)
-
-    col_c1, col_c2, col_c3, col_c4 = st.columns(4)
-    with col_c1:
-        包裝份數1 = st.text_input("包裝份數1", value=default_包裝份數1)
-    with col_c2:
-        包裝份數2 = st.text_input("包裝份數2", value=default_包裝份數2)
-    with col_c3:
-        包裝份數3 = st.text_input("包裝份數3", value=default_包裝份數3)
-    with col_c4:
-        包裝份數4 = st.text_input("包裝份數4", value=default_包裝份數4)
-
-    備註 = st.text_area("備註", value=default_備註)
-
-    # 儲存按鈕
-    if st.button("確定儲存"):
-        # 準備要寫入的資料列(dict)
-        new_order = {
-            "客戶名稱": customer,
-            "顏色": color,
-            "配方編號": 配方編號,
-            "計量單位": 計量單位,
-            "包裝重量1": 包裝重量1,
-            "包裝重量2": 包裝重量2,
-            "包裝重量3": 包裝重量3,
-            "包裝重量4": 包裝重量4,
-            "包裝份數1": 包裝份數1,
-            "包裝份數2": 包裝份數2,
-            "包裝份數3": 包裝份數3,
-            "包裝份數4": 包裝份數4,
-            "備註": 備註,
-        }
-
-        # 判斷是新增或修改
-        if st.session_state.get("editing_order"):
-            # 修改模式：找到原本生產單號的 index，更新該筆資料
-            edit_order_code = st.session_state.editing_order.get("生產單號")
-            idxs = df_order.index[df_order["生產單號"] == edit_order_code].tolist()
-            if idxs:
-                idx = idxs[0]
-                for k, v in new_order.items():
-                    df_order.at[idx, k] = v
-                # 若有其他欄位像是日期或生產單號可更新也在這裡操作
-                # 你可以視需要自行補充
-                st.success(f"已修改生產單 {edit_order_code}")
-            else:
-                st.error("找不到欲修改的生產單資料")
-        else:
-            # 新增模式：建立新的生產單號（可依你規則生成）
-            # 範例：用日期+流水號（你需替換成你的邏輯）
-            import datetime
-            today_str = datetime.datetime.now().strftime("%Y%m%d")
-            existing_codes_today = [code for code in df_order["生產單號"] if code.startswith(today_str)]
-            new_number = len(existing_codes_today) + 1
-            new_order_code = f"{today_str}{new_number:03d}"
-            new_order["生產單號"] = new_order_code
-            new_order["建立時間"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            df_order = df_order.append(new_order, ignore_index=True)
-            st.success(f"已新增生產單 {new_order_code}")
-
-        # 寫回 CSV / Google Sheet
-        df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-        #若有同步 Google Sheet 程式碼也在這裡執行（視你實作而定）
-
-        # 清除修改狀態，回到新增模式
-        st.session_state.editing_order = None
-
-        # 重整頁面更新清單
-        st.experimental_rerun()
-
-    
-    # --- 新增／修改：輸入區塊與儲存 ---
     if st.session_state.show_confirm_panel and st.session_state.new_order:
-
         st.markdown("---")
-        st.subheader("📄 新增 / 修改 生產單詳情")
+        st.subheader("新增生產單詳情填寫")
 
-    # 🟡 帶入預設值（若為修改模式）
-    if st.session_state.get("editing_order"):
-        edit_data = st.session_state.editing_order
-        default_客戶名稱 = edit_data.get("客戶名稱", "")
-        default_顏色 = edit_data.get("顏色", "")
-        default_配方編號 = edit_data.get("配方編號", "")
-    else:
-        default_客戶名稱 = ""
-        default_顏色 = ""
-        default_配方編號 = ""
-
-    # 🟡 表單輸入欄位（共用）
-    客戶名稱 = st.text_input("客戶名稱", value=default_客戶名稱, key="form_客戶名稱")
-    顏色 = st.text_input("顏色", value=default_顏色, key="form_顏色")
-    配方編號 = st.selectbox("配方編號", 配方選單,
-                          index=配方選單.index(default_配方編號) if default_配方編號 in 配方選單 else 0,
-                          key="form_配方編號")
-    計量單位 = st.selectbox("計量單位", ["包", "桶", "kg"],
-                      index=["包", "桶", "kg"].index(default_計量單位) if default_計量單位 in ["包", "桶", "kg"] else 0,
-                      key="form_計量單位")
-    包裝重量1 = st.text_input("包裝重量1", value=default_包裝重量1, key="form_包裝重量1")
-    包裝重量2 = st.text_input("包裝重量2", value=default_包裝重量2, key="form_包裝重量2")
-    包裝重量3 = st.text_input("包裝重量3", value=default_包裝重量3, key="form_包裝重量3")
-    包裝重量4 = st.text_input("包裝重量4", value=default_包裝重量4, key="form_包裝重量4")
-    包裝份數1 = st.text_input("包裝份數1", value=default_包裝份數1, key="form_包裝份數1")
-    包裝份數2 = st.text_input("包裝份數2", value=default_包裝份數2, key="form_包裝份數2")
-    包裝份數3 = st.text_input("包裝份數3", value=default_包裝份數3, key="form_包裝份數3")
-    包裝份數4 = st.text_input("包裝份數4", value=default_包裝份數4, key="form_包裝份數4")
-    備註 = st.text_area("備註", value=default_備註, key="form_備註")
-
-    # ✅ 組成 new_order 並放入 session
-    new_order = {
-        "客戶名稱": 客戶名稱,
-        "顏色": 顏色,
-        "配方編號": 配方編號,
-    }
-    st.session_state.new_order.update(new_order)
-
-    # ✅ 儲存按鈕
-    if st.button("✅ 確定"):
-        if st.session_state.get("editing_order"):
-            # 修改模式：更新原有資料
-            edit_order_code = st.session_state.editing_order.get("生產單號")
-            idxs = df_order.index[df_order["生產單號"] == edit_order_code].tolist()
-            if idxs:
-                idx = idxs[0]
-                for k, v in new_order.items():
-                    df_order.at[idx, k] = v
-                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                st.success(f"✅ 已修改生產單 {edit_order_code}")
-            else:
-                st.error("❌ 找不到欲修改的生產單資料")
-        else:
-            # 新增模式：產生生產單號並新增
-            new_code = generate_order_code(df_order)  # ⬅️ 這個函式請確認你有定義好
-            new_order["生產單號"] = new_code
-            new_order["建立時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            df_order = pd.concat([df_order, pd.DataFrame([new_order])], ignore_index=True)
-            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-            st.success(f"✅ 已新增生產單 {new_code}")
-
-        # 清除狀態
-        st.session_state.new_order = None
-        st.session_state.show_confirm_panel = False
-        st.session_state.editing_order = None
-        st.session_state.show_edit_panel = False
-        st.session_state.df_order = df_order  # 更新狀態資料
-        st.rerun()
+        order = st.session_state.new_order
+        recipe_row = df_recipe[df_recipe["配方編號"] == order["配方編號"]].iloc[0]
 
         # 四欄資料列
         c1, c2, c3, c4 = st.columns(4)
@@ -1269,7 +1076,7 @@ elif menu == "生產單管理":
         with c5:
             st.text_input("計量單位", value=unit, disabled=True)
         with c6:
-            color = st.text_input("顏色", value=order.get("顏色", ""), key="color_input_edit")
+            color = st.text_input("顏色", value=order.get("顏色", ""))
         with c7:
             pantone = st.text_input("Pantone色號", value=recipe_row.get("Pantone色號", ""))
         with c8:
@@ -1602,6 +1409,24 @@ if st.session_state.show_edit_panel and st.session_state.editing_order:
 
         st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
 
+# ---------- 生產單修改及刪除 ----------
+codes = df_order["生產單號"].tolist()
+cols_mod = st.columns([3, 1, 1])
+
+with cols_mod[0]:
+    selected_code = st.selectbox("選擇生產單號", codes, key="selected_order_code_action")
+
+with cols_mod[1]:
+    if st.button("✏️ 修改") and selected_code:
+        st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code].iloc[0].to_dict()
+        st.session_state.show_edit_panel = True
+
+with cols_mod[2]:
+    if st.button("🗑️ 刪除") and selected_code:
+        df_order = df_order[df_order["生產單號"] != selected_code]
+        df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+        st.success(f"已刪除生產單 {selected_code}")
+        st.rerun()
 # ---------- 生產單操作列（修改 / 刪除 / 列印） ----------
 cols_mod = st.columns([1, 1, 1])
 with cols_mod[0]:
