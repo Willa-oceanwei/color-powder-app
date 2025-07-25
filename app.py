@@ -1184,7 +1184,7 @@ elif menu == "生產單管理":
         codes = df_order["生產單號"].tolist()
         cols_mod = st.columns([3,1,1])
         with cols_mod[0]:
-            selected_code = st.selectbox("選擇生產單號", codes, key="selected_order_code")
+            selected_code_edit = st.selectbox("選擇生產單號", codes, key="selected_order_code_edit")
 
         with cols_mod[1]:
             if st.button("✏️ 修改") and selected_code:
