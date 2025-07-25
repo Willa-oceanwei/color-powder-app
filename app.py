@@ -1172,15 +1172,15 @@ elif menu == "生產單管理":
     
     with cols_mod[1]:
         if st.button("🗑️ 刪除", key="delete_button_1") and selected_code_edit:
-        try:
-            cell = ws_order.find(selected_code_edit)
-            if cell:
-                ws_order.delete_row(cell.row)
-                st.success(f"Google Sheets 已刪除生產單 {selected_code_edit}")
-            else:
-                st.warning("Google Sheets 找不到該筆生產單，無法刪除")
-        except Exception as e:
-            st.error(f"Google Sheets 刪除錯誤：{e}")
+            try:
+                cell = ws_order.find(selected_code_edit)
+                if cell:
+                    ws_order.delete_row(cell.row)
+                    st.success(f"Google Sheets 已刪除生產單 {selected_code_edit}")
+                else:
+                    st.warning("Google Sheets 找不到該筆生產單，無法刪除")
+            except Exception as e:
+                st.error(f"Google Sheets 刪除錯誤：{e}")
 
     # 本地 DataFrame 刪除並存檔
     df_order = df_order[df_order["生產單號"] != selected_code_edit]
