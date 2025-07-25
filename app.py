@@ -1108,24 +1108,20 @@ elif menu == "生產單管理":
 
     # ✅ 出貨數量欄位計算函數
     def calculate_shipment(row):
-        unit = row.get("計量單位", "").strip()
-        formula_id = row.get("配方編號", "").strip()
-        multipliers = {"包": 25, "桶": 100, "kg": 1}
-        unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
+    unit = row.get("計量單位", "").strip()
+    formula_id = row.get("配方編號", "").strip()
+    multipliers = {"包": 25, "桶": 100, "kg": 1}
+    unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
 
-        # 如果配方編號是空，直接回傳空字串避免報錯
         if not formula_id:
             return ""
 
-        # 嘗試取得色粉類別，找不到就設為空字串
-        category = ""
         try:
             matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
-            if not matched.empty:
-                category = matched.values[0]
+            category = matched.values[0] if not matched.empty else ""
         except Exception:
             category = ""
-            
+
         if unit == "kg" and category == "色母":
             multiplier = 100
             label = "K"
@@ -1141,11 +1137,10 @@ elif menu == "生產單管理":
                 if weight > 0 and count > 0:
                     show_weight = int(weight * multiplier) if label == "K" else weight
                     results.append(f"{show_weight}{label}*{count}")
-            except:
+            except Exception:
                 continue
 
         return " + ".join(results) if results else ""
-
 
     # ✅ 加入出貨數量欄位
     page_data = page_data.copy()
