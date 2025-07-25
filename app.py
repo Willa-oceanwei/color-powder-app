@@ -1204,7 +1204,7 @@ elif menu == "生產單管理":
             st.subheader(f"修改生產單 {st.session_state.editing_order['生產單號']}")
 
             edit_order = st.session_state.editing_order
-            new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱",""))
+            new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱",""), key="edit_customer_name")
             new_color = st.text_input("顏色", value=edit_order.get("顏色",""))
             new_packing_weight = st.text_input("包裝重量", value=edit_order.get("包裝重量",""))
             new_packing_count = st.text_input("包裝份數", value=edit_order.get("包裝份數",""))
