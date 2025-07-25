@@ -797,10 +797,8 @@ elif menu == "生產單管理":
 
     df_recipe = st.session_state.df_recipe
 
-    st.write("配方管理欄位清單：", df_recipe.columns.tolist())
     sheet_names = [s.title for s in spreadsheet.worksheets()]
-    st.write("目前工作表列表：", sheet_names)
-
+    
     # 檢查欄位是否已存在，若無則寫入
     existing_values = ws_order.get_all_values()
     if len(existing_values) == 0:
