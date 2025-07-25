@@ -1172,11 +1172,23 @@ elif menu == "生產單管理":
     
     with cols_mod[1]:
         if st.button("🗑️ 刪除", key="delete_button_1") and selected_code_edit:
-            df_order = df_order[df_order["生產單號"] != selected_code_edit]
-            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-            st.success(f"已刪除生產單 {selected_code_edit}")
-            st.rerun()
-    
+        try:
+            cell = ws_order.find(selected_code_edit)
+            if cell:
+                ws_order.delete_row(cell.row)
+                st.success(f"Google Sheets 已刪除生產單 {selected_code_edit}")
+            else:
+                st.warning("Google Sheets 找不到該筆生產單，無法刪除")
+        except Exception as e:
+            st.error(f"Google Sheets 刪除錯誤：{e}")
+
+    # 本地 DataFrame 刪除並存檔
+    df_order = df_order[df_order["生產單號"] != selected_code_edit]
+    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+    st.success(f"已刪除生產單 {selected_code_edit}（本地資料）")
+
+    st.rerun()
+
     if st.session_state.show_edit_panel and st.session_state.editing_order:
         st.markdown("---")
         st.subheader(f"修改生產單 {st.session_state.editing_order['生產單號']}")
@@ -1210,19 +1222,43 @@ elif menu == "生產單管理":
             idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
             if idx_list:
                 idx = idx_list[0]
+        
+                # 更新本地 DataFrame
                 df_order.at[idx, "客戶名稱"] = new_customer
                 df_order.at[idx, "顏色"] = new_color
-    
                 for i in range(4):
                     df_order.at[idx, f"包裝重量{i+1}"] = new_packing_weights[i]
                     df_order.at[idx, f"包裝份數{i+1}"] = new_packing_counts[i]
-    
                 df_order.at[idx, "備註"] = new_remark
-    
+        
+                # 同步更新 Google Sheets
+                try:
+                    cell = ws_order.find(edit_order["生產單號"])
+                    if cell:
+                        row_idx = cell.row
+        
+                        # 取得更新後的一整列資料 (依 df_order 欄位順序)
+                        row_data = df_order.loc[idx].fillna("").astype(str).tolist()
+        
+                        # 計算右邊界欄位字母，假設欄數不超過26 (A~Z)
+                        last_col_letter = chr(65 + len(row_data) - 1)  # 65是A的ASCII碼
+        
+                        ws_order.update(f"A{row_idx}:{last_col_letter}{row_idx}", [row_data])
+        
+                        st.success("Google Sheets 同步更新成功")
+                    else:
+                        st.warning("Google Sheets 找不到該筆生產單，未同步更新")
+                except Exception as e:
+                    st.error(f"Google Sheets 更新錯誤：{e}")
+        
+                # 更新本地 CSV 檔案
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                st.success("修改已儲存")
+                st.success("本地資料已更新，修改已儲存")
+        
+                # 清理狀態及重新整理畫面
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.error("找不到該筆生產單資料")
+
