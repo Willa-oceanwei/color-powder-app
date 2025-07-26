@@ -763,6 +763,7 @@ elif menu == "生產單管理":
 
     # ✅ 本地 CSV 路徑
     order_file = Path("data/df_order.csv")
+    st.write("CSV 檔案完整路徑：", order_file.resolve())
 
     # ✅ 嘗試從 Google Sheets 載入生產單工作表
     try:
