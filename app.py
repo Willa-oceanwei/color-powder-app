@@ -1377,7 +1377,10 @@ elif menu == "生產單管理":
         st.session_state.order_page = jump_page
 
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
-
+    
+    # 呼叫 apply 並加入欄位
+    shipment_series = page_data.apply(calculate_shipment, axis=1)
+    page_data["出貨數量"] = shipment_series
 
     # ✅ 修改刪除功能併入清單區塊
     codes = df_order["生產單號"].tolist()
