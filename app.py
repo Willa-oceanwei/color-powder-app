@@ -1084,8 +1084,8 @@ if page == "新增生產單":
         if recipe_rows.empty:
             st.error(f"找不到配方編號：{order['配方編號']}")
             st.stop()
-            recipe_row = recipe_rows.iloc[0]
-            unit = recipe_row.get("計量單位", "kg")
+        recipe_row = recipe_rows.iloc[0]
+        unit = recipe_row.get("計量單位", "kg")
         
             # 四欄資料 - 不可編輯
             c1, c2, c3, c4 = st.columns(4)
@@ -1185,16 +1185,16 @@ if page == "新增生產單":
             </html>
             """
             return html_content
-
-    
+        
         import urllib.parse
         print_html = generate_print_page_content(order, recipe_row)
         encoded_html = urllib.parse.quote(print_html)
-    
+        
         st.markdown(
             f"[👉 點此開啟列印頁面（新分頁，會自動叫出列印）](data:text/html;charset=utf-8,{encoded_html})",
             unsafe_allow_html=True
-         )
+        )
+
     
          # 按鈕區塊
         btn1, btn2, btn3, btn4 = st.columns(4)
@@ -1275,7 +1275,6 @@ if page == "新增生產單":
                 st.session_state.new_order_saved = False
                 st.experimental_rerun()
 
-    # ---------- 生產單清單 + 修改 / 刪除 ----------
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📄 生產單清單")
