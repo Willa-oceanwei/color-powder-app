@@ -1202,7 +1202,7 @@ elif menu == "生產單管理":
         df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
         df_filtered = df_order.sort_values(by="建立時間", ascending=False)
 
-    limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
+    limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0, key="selectbox_order_limit")
     total_rows = len(df_filtered)
     total_pages = max((total_rows - 1) // limit + 1, 1)
 
