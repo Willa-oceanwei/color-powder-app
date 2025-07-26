@@ -1184,14 +1184,17 @@ elif menu == "生產單管理":
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
 
     # ✅ 修改刪除功能併入清單區塊
-   
     codes = df_order["生產單號"].tolist()
-    cols_mod = st.columns([1,1])
+    cols_mod = st.columns([1, 1])
     
     with cols_mod[0]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
-            st.session_state.editing_order = df_order[df_order["生產單號"] == selected_code_edit].iloc[0].to_dict()
-            st.session_state.show_edit_panel = True
+            row = df_order[df_order["生產單號"] == selected_code_edit]
+            if not row.empty:
+                st.session_state.editing_order = row.iloc[0].to_dict()
+                st.session_state.show_edit_panel = True
+            else:
+                st.warning("找不到該筆生產單")
     
     with cols_mod[1]:
         if st.button("🗑️ 刪除", key="delete_button_1") and selected_code_edit:
@@ -1199,28 +1202,27 @@ elif menu == "生產單管理":
                 cell = ws_order.find(selected_code_edit)
                 if cell:
                     ws_order.delete_rows(cell.row)
-                    st.success(f"Google Sheets 已刪除生產單 {selected_code_edit}")
+                    st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
                 else:
-                    st.warning("Google Sheets 找不到該筆生產單，無法刪除")
+                    st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
             except Exception as e:
                 st.error(f"Google Sheets 刪除錯誤：{e}")
-        
-            # 刪除本地資料
+    
+            # ✅ 同步刪除本地資料
             df_order = df_order[df_order["生產單號"] != selected_code_edit]
             df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-            st.success(f"已刪除生產單 {selected_code_edit}（本地資料）")
-        
-            # ✅ 清除狀態（在 rerun 前完成）
+            st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
+    
+            # ✅ 清除狀態再 rerun
             st.session_state.selected_order_code_edit = None
             st.session_state.show_edit_panel = False
             st.session_state.editing_order = None
-        
-            # ✅ 最後才 rerun
             st.rerun()
-
+    
+    # ✅ 顯示修改面板
     if st.session_state.show_edit_panel and st.session_state.editing_order:
         st.markdown("---")
-        st.subheader(f"修改生產單 {st.session_state.editing_order['生產單號']}")
+        st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
     
         edit_order = st.session_state.editing_order
     
@@ -1230,20 +1232,20 @@ elif menu == "生產單管理":
         # 包裝重量 1~4
         pack_weights_cols = st.columns(4)
         new_packing_weights = []
-        for i in range(1,5):
-            new_weight = pack_weights_cols[i-1].text_input(
+        for i in range(1, 5):
+            weight = pack_weights_cols[i - 1].text_input(
                 f"包裝重量{i}", value=edit_order.get(f"包裝重量{i}", ""), key=f"edit_packing_weight_{i}"
             )
-            new_packing_weights.append(new_weight)
+            new_packing_weights.append(weight)
     
         # 包裝份數 1~4
         pack_counts_cols = st.columns(4)
         new_packing_counts = []
-        for i in range(1,5):
-            new_count = pack_counts_cols[i-1].text_input(
+        for i in range(1, 5):
+            count = pack_counts_cols[i - 1].text_input(
                 f"包裝份數{i}", value=edit_order.get(f"包裝份數{i}", ""), key=f"edit_packing_count_{i}"
             )
-            new_packing_counts.append(new_count)
+            new_packing_counts.append(count)
     
         new_remark = st.text_area("備註", value=edit_order.get("備註", ""), key="edit_remark")
     
@@ -1251,16 +1253,16 @@ elif menu == "生產單管理":
             idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
             if idx_list:
                 idx = idx_list[0]
-        
-                # 更新本地 DataFrame
+    
+                # ✅ 更新本地 DataFrame
                 df_order.at[idx, "客戶名稱"] = new_customer
                 df_order.at[idx, "顏色"] = new_color
                 for i in range(4):
-                    df_order.at[idx, f"包裝重量{i+1}"] = new_packing_weights[i]
-                    df_order.at[idx, f"包裝份數{i+1}"] = new_packing_counts[i]
+                    df_order.at[idx, f"包裝重量{i + 1}"] = new_packing_weights[i]
+                    df_order.at[idx, f"包裝份數{i + 1}"] = new_packing_counts[i]
                 df_order.at[idx, "備註"] = new_remark
-        
-                # 同步更新 Google Sheets
+    
+                # ✅ 同步更新 Google Sheets
                 try:
                     cell = ws_order.find(edit_order["生產單號"])
                     if cell:
@@ -1268,20 +1270,20 @@ elif menu == "生產單管理":
                         row_data = df_order.loc[idx].fillna("").astype(str).tolist()
                         last_col_letter = chr(65 + len(row_data) - 1)
                         ws_order.update(f"A{row_idx}:{last_col_letter}{row_idx}", [row_data])
-                        st.success("Google Sheets 同步更新成功")
+                        st.success("✅ Google Sheets 同步更新成功")
                     else:
-                        st.warning("Google Sheets 找不到該筆生產單，未同步更新")
+                        st.warning("⚠️ Google Sheets 找不到該筆生產單，未更新")
                 except Exception as e:
                     st.error(f"Google Sheets 更新錯誤：{e}")
-        
-                # 更新本地 CSV 檔案
+    
+                # ✅ 寫入本地檔案
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                st.success("本地資料已更新，修改已儲存")
-        
-                # 清理狀態及重新整理畫面
+                st.success("✅ 本地資料更新成功，修改已儲存")
+    
+                # ✅ 清理狀態
                 st.session_state.selected_order_code_edit = None
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
-                st.experimental_rerun()
+                st.rerun()
             else:
-                st.error("找不到該筆生產單資料")
+                st.error("⚠️ 找不到該筆生產單資料")
