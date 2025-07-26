@@ -1283,9 +1283,8 @@ elif menu == "生產單管理":
                 # 清空狀態
                 st.session_state.selected_order_code_edit = None
                 st.session_state.show_edit_panel = False
-                st.session_state.editing_order = None                
-                # 重整頁面
-                st.rerun()
+                st.session_state.editing_order = None
+                st.rerun() 
             else:
                 st.error("找不到該筆生產單資料")
 
