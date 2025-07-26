@@ -1311,76 +1311,51 @@ elif menu == "生產單管理":
     selected_code_edit = code_to_id.get(selected_label)
 
 
-    # 在這裡做出貨數量計算並加入欄位
-    shipment_series = page_data.apply(calculate_shipment, axis=1)
-    page_data["出貨數量"] = shipment_series
     def calculate_shipment(row):
-        try:
-            # 你的原本邏輯
-            unit = str(row.get("計量單位", "")).strip()
-            formula_id = str(row.get("配方編號", "")).strip()
-            multipliers = {"包": 25, "桶": 100, "kg": 1}
-            unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
-    
-            if not formula_id:
-                return ""
-    
-            try:
-                matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
-                category = matched.values[0] if not matched.empty else ""
-            except Exception:
-                category = ""
-    
-            if unit == "kg" and category == "色母":
-                multiplier = 100
-                label = "K"
-            else:
-                multiplier = multipliers.get(unit, 1)
-                label = unit_labels.get(unit, "")
-    
-            results = []
-            for i in range(1, 5):
-                try:
-                    weight = float(row.get(f"包裝重量{i}", 0))
-                    count = int(float(row.get(f"包裝份數{i}", 0)))
-                    if weight > 0 and count > 0:
-                        show_weight = int(weight * multiplier) if label == "K" else weight
-                        results.append(f"{show_weight}{label}*{count}")
-                except Exception:
-                    continue
-    
-            return " + ".join(results) if results else ""
-    
-        except Exception as e:
-            st.error(f"calculate_shipment error at row index {row.name}: {e}")
-            st.write(row)
+    try:
+        unit = str(row.get("計量單位", "")).strip()
+        formula_id = str(row.get("配方編號", "")).strip()
+        multipliers = {"包": 25, "桶": 100, "kg": 1}
+        unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
+
+        if not formula_id:
             return ""
 
-    if not page_data.empty:
-        st.dataframe(
-            page_data[["生產日期", "生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]],
-            use_container_width=True,
-            hide_index=True
-        )
-    else:
-        st.info("查無符合的生產單")
+        try:
+            matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
+            category = matched.values[0] if not matched.empty else ""
+        except Exception:
+            category = ""
 
-    cols_page = st.columns([1, 1, 1, 2])
-    if cols_page[0].button("首頁"):
-        st.session_state.order_page = 1
-    if cols_page[1].button("上一頁") and st.session_state.order_page > 1:
-        st.session_state.order_page -= 1
-    if cols_page[2].button("下一頁") and st.session_state.order_page < total_pages:
-        st.session_state.order_page += 1
-    jump_page = cols_page[3].number_input("跳至頁碼", 1, total_pages, st.session_state.order_page)
-    if jump_page != st.session_state.order_page:
-        st.session_state.order_page = jump_page
+        if unit == "kg" and category == "色母":
+            multiplier = 100
+            label = "K"
+        else:
+            multiplier = multipliers.get(unit, 1)
+            label = unit_labels.get(unit, "")
 
-    st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
-    
-    # 呼叫 apply 並加入欄位
-    shipment_series = page_data.apply(calculate_shipment, axis=1)
-    page_data["出貨數量"] = shipment_series
+        results = []
+        for i in range(1, 5):
+            try:
+                weight = float(row.get(f"包裝重量{i}", 0))
+                count = int(float(row.get(f"包裝份數{i}", 0)))
+                if weight > 0 and count > 0:
+                    show_weight = int(weight * multiplier) if label == "K" else weight
+                    results.append(f"{show_weight}{label}*{count}")
+            except Exception:
+                continue
+
+        return " + ".join(results) if results else ""
+
+    except Exception as e:
+        st.error(f"calculate_shipment error at row index {row.name}: {e}")
+        st.write(row)
+        return ""
+
+# 先定義完函式後，再呼叫 apply 並賦值欄位
+shipment_series = page_data.apply(calculate_shipment, axis=1)
+page_data["出貨數量"] = shipment_series
+
 
     # ✅ 修改刪除功能併入清單區塊
     codes = df_order["生產單號"].tolist()
