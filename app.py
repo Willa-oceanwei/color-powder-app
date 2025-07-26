@@ -1026,7 +1026,7 @@ elif menu == "生產單管理":
         btn1, btn2, btn3, btn4 = st.columns(4)
         with btn1:
             if st.session_state.get("new_order_saved"):
-                st.warning("⚠️ 此生產單已儲存，請直接列印或返回")
+                st.warning("⚠️ 生產單已存")
             else:
                 if st.button("✅ 確定", key="confirm_save"):
                     # 更新 order 字典欄位
@@ -1076,7 +1076,7 @@ elif menu == "生產單管理":
                         st.session_state.df_order = df_order  # 更新 session_state
     
                         st.session_state.new_order_saved = True
-                        st.success(f"✅ 生產單 {order['生產單號']} 已成功儲存！可繼續列印或返回")
+                        st.success(f"✅ 生產單 {order['生產單號']} 已存！")
                     except Exception as e:
                         st.error(f"❌ 寫入失敗：{e}")
     
