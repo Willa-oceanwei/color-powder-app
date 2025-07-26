@@ -1277,7 +1277,9 @@ elif menu == "生產單管理":
         
                 # 清理狀態及重新整理畫面
                 if "selected_order_code_edit" not in st.session_state:
-                    st.session_state.selected_order_code_edit = None              
+                    st.session_state.selected_order_code_edit = None
+                else:
+                    st.session_state.selected_order_code_edit = None 
                 # 清空狀態
                 st.session_state.selected_order_code_edit = None
                 st.session_state.show_edit_panel = False
