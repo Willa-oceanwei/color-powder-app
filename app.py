@@ -1249,18 +1249,6 @@ elif menu == "生產單管理":
 
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
 
-    cols_page = st.columns([1, 1, 1, 2])
-    if cols_page[0].button("首頁", key="btn_home"):
-        st.session_state.order_page = 1
-    if cols_page[1].button("上一頁", key="btn_prev") and st.session_state.order_page > 1:
-        st.session_state.order_page -= 1
-    if cols_page[2].button("下一頁", key="btn_next") and st.session_state.order_page < total_pages:
-        st.session_state.order_page += 1
-    jump_page = cols_page[3].number_input("跳至頁碼", 1, total_pages, st.session_state.order_page, key="jump_page_input")
-    if jump_page != st.session_state.order_page:
-        st.session_state.order_page = jump_page
-
-    st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
 
     # ✅ 修改刪除功能併入清單區塊
     codes = df_order["生產單號"].tolist()
