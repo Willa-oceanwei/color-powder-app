@@ -1185,12 +1185,69 @@ elif menu == "生產單管理":
     page_data["出貨數量"] = shipment_series
 
 
+     # ---------- 生產單清單 + 修改 / 刪除 ----------
+    st.markdown("---")
+    st.subheader("📄 生產單清單")
+    
+    search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input", value="")
+
+    if search_order.strip():
+        df_filtered = df_order[
+            df_order["生產單號"].str.contains(search_order, case=False, na=False) |
+            df_order["配方編號"].str.contains(search_order, case=False, na=False) |
+            df_order["客戶名稱"].str.contains(search_order, case=False, na=False) |
+            df_order["顏色"].str.contains(search_order, case=False, na=False)
+        ]
+    else:
+        df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
+        df_filtered = df_order.sort_values(by="建立時間", ascending=False)
+
+    limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
+    total_rows = len(df_filtered)
+    total_pages = max((total_rows - 1) // limit + 1, 1)
+
+    st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
+    start_idx = (st.session_state.order_page - 1) * limit
+    page_data = df_filtered.iloc[start_idx:start_idx + limit]
+
+    # 使用篩選後與分頁後的 df 產生下拉選單選項，確保一致性
+    options = []
+    code_to_id = {}
+    for idx, row in page_data.iterrows():
+        label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色', '')} / {row.get('客戶名稱', '')}"
+        options.append(label)
+        code_to_id[label] = row["生產單號"]
+
+    selected_label = st.selectbox("選擇生產單號", options, key="selected_order_code_edit")
+    selected_code_edit = code_to_id.get(selected_label)
+
+
+    # 在這裡做出貨數量計算並加入欄位
+    shipment_series = page_data.apply(calculate_shipment, axis=1)
+    page_data["出貨數量"] = shipment_series
+
+
     if not page_data.empty:
         st.dataframe(
-            page_data[["生產日期", "生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]]
+            page_data[["生產日期", "生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]],
+            use_container_width=True,
+            hide_index=True
         )
     else:
         st.info("查無符合的生產單")
+
+    cols_page = st.columns([1, 1, 1, 2])
+    if cols_page[0].button("首頁"):
+        st.session_state.order_page = 1
+    if cols_page[1].button("上一頁") and st.session_state.order_page > 1:
+        st.session_state.order_page -= 1
+    if cols_page[2].button("下一頁") and st.session_state.order_page < total_pages:
+        st.session_state.order_page += 1
+    jump_page = cols_page[3].number_input("跳至頁碼", 1, total_pages, st.session_state.order_page)
+    if jump_page != st.session_state.order_page:
+        st.session_state.order_page = jump_page
+
+    st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
 
     cols_page = st.columns([1, 1, 1, 2])
     if cols_page[0].button("首頁"):
