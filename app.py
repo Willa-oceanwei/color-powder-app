@@ -1276,11 +1276,12 @@ if page == "新增生產單":
                 st.experimental_rerun()
 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
+    # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📄 生產單清單")
     
     search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input_order_page", value="")
-
+    
     # 初始化 order_page
     if "order_page" not in st.session_state:
         st.session_state.order_page = 1
@@ -1299,25 +1300,27 @@ if page == "新增生產單":
         df_filtered = df_order.sort_values(by="建立時間", ascending=False)
     
     limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0, key="selectbox_order_limit")
+    
     total_rows = len(df_filtered)
     total_pages = max((total_rows - 1) // limit + 1, 1)
-
+    
+    # 修正 order_page 範圍，避免超出
     st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
     start_idx = (st.session_state.order_page - 1) * limit
-    page_data = df_filtered.iloc[start_idx:start_idx + limit]
-
-    # 使用篩選後與分頁後的 df 產生下拉選單選項，確保一致性
+    page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()  # 使用 copy 避免警告
+    
+    # 產生下拉選單選項，保持與分頁資料對應
     options = []
     code_to_id = {}
     for idx, row in page_data.iterrows():
         label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色', '')} / {row.get('客戶名稱', '')}"
         options.append(label)
         code_to_id[label] = row["生產單號"]
-
+    
     selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
     selected_code_edit = code_to_id.get(selected_label)
-
-
+    
+    
     def calculate_shipment(row):
         try:
             unit = str(row.get("計量單位", "")).strip()
@@ -1359,12 +1362,41 @@ if page == "新增生產單":
             st.write(row)
             return ""
     
-    # 先定義完函式後，再呼叫 apply 並賦值欄位
-    shipment_series = page_data.apply(calculate_shipment, axis=1)
-    page_data["出貨數量"] = shipment_series
-
-
-    # ✅ 修改刪除功能併入清單區塊
+    # 計算出貨數量並加入新欄位
+    if not page_data.empty:
+        shipment_series = page_data.apply(calculate_shipment, axis=1)
+        page_data["出貨數量"] = shipment_series
+    
+        # 顯示表格
+        st.dataframe(
+            page_data[["生產日期", "生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]],
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("查無符合的生產單")
+    
+    # 分頁控制列（始終顯示）
+    cols_page = st.columns([1, 1, 1, 2])
+    if cols_page[0].button("首頁"):
+        st.session_state.order_page = 1
+        st.experimental_rerun()
+    if cols_page[1].button("上一頁") and st.session_state.order_page > 1:
+        st.session_state.order_page -= 1
+        st.experimental_rerun()
+    if cols_page[2].button("下一頁") and st.session_state.order_page < total_pages:
+        st.session_state.order_page += 1
+        st.experimental_rerun()
+    
+    jump_page = cols_page[3].number_input("跳至頁碼", 1, total_pages, st.session_state.order_page)
+    if jump_page != st.session_state.order_page:
+        st.session_state.order_page = jump_page
+        st.experimental_rerun()
+    
+    st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
+    
+    
+    # 修改 & 刪除功能區塊
     codes = df_order["生產單號"].tolist()
     cols_mod = st.columns([1, 1])
     
@@ -1389,20 +1421,21 @@ if page == "新增生產單":
             except Exception as e:
                 st.error(f"Google Sheets 刪除錯誤：{e}")
     
-            # ✅ 同步刪除本地資料
+            # 同步刪除本地資料
             df_order = df_order[df_order["生產單號"] != selected_code_edit]
             df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
             st.session_state.df_order = df_order
             st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
     
-            # ✅ 清除狀態再 rerun
+            # 清理狀態並重新整理
             st.session_state.pop("selected_order_code_edit", None)
             st.session_state.show_edit_panel = False
             st.session_state.editing_order = None
-            st.rerun()
+            st.experimental_rerun()
     
-    # ✅ 顯示修改面板
-    if st.session_state.show_edit_panel and st.session_state.editing_order:
+    
+    # 顯示修改面板
+    if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
         st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
     
@@ -1435,16 +1468,16 @@ if page == "新增生產單":
             idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
             if idx_list:
                 idx = idx_list[0]
-        
-                # ✅ 更新本地 DataFrame
+    
+                # 更新本地 DataFrame
                 df_order.at[idx, "客戶名稱"] = new_customer
                 df_order.at[idx, "顏色"] = new_color
                 for i in range(4):
                     df_order.at[idx, f"包裝重量{i + 1}"] = new_packing_weights[i]
                     df_order.at[idx, f"包裝份數{i + 1}"] = new_packing_counts[i]
                 df_order.at[idx, "備註"] = new_remark
-        
-                # ✅ 同步更新 Google Sheets
+    
+                # 同步更新 Google Sheets
                 try:
                     cell = ws_order.find(edit_order["生產單號"])
                     if cell:
@@ -1457,16 +1490,16 @@ if page == "新增生產單":
                         st.warning("⚠️ Google Sheets 找不到該筆生產單，未更新")
                 except Exception as e:
                     st.error(f"Google Sheets 更新錯誤：{e}")
-        
-                # ✅ 寫入本地檔案
+    
+                # 寫入本地檔案
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                 st.session_state.df_order = df_order
                 st.success("✅ 本地資料更新成功，修改已儲存")
-        
-                # ✅ 清理狀態
+    
+                # 清理狀態並即時刷新
                 st.session_state.pop("selected_order_code_edit", None)
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.error("⚠️ 找不到該筆生產單資料")
