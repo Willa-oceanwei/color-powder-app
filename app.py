@@ -1218,7 +1218,7 @@ elif menu == "生產單管理":
         options.append(label)
         code_to_id[label] = row["生產單號"]
 
-    selected_label = st.selectbox("選擇生產單號", options, key="selected_order_code_edit")
+    selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
     selected_code_edit = code_to_id.get(selected_label)
 
 
