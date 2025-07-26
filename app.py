@@ -1260,9 +1260,9 @@ if page == "新增生產單":
                 else:
                     st.info("請點擊上方連結，打開列印頁面並使用瀏覽器列印功能（Ctrl+P）")
     
-         with btn3:
+        with btn3:
             if st.button("❌ 取消", key="cancel_button"):
-                 st.session_state.new_order = None
+                st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
                 st.experimental_rerun()
