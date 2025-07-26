@@ -924,16 +924,23 @@ elif menu == "生產單管理":
 
     # ---------- 新增後欄位填寫區塊 ----------
 
+    # ---------- 新增後欄位填寫區塊 ----------
+
     if st.session_state.show_confirm_panel and st.session_state.new_order:
         st.markdown("---")
         st.subheader("新增生產單詳情填寫")
-
+    
         from datetime import datetime, timedelta
-
+    
         order = st.session_state.new_order
-        recipe_row = df_recipe[df_recipe["配方編號"] == order["配方編號"]].iloc[0]
+        # 防呆查找配方
+        recipe_rows = df_recipe[df_recipe["配方編號"] == order["配方編號"]]
+        if recipe_rows.empty:
+            st.error(f"找不到配方編號：{order['配方編號']}")
+            st.stop()
+        recipe_row = recipe_rows.iloc[0]
         unit = recipe_row.get("計量單位", "kg")
-
+    
         # 四欄資料 - 不可編輯
         c1, c2, c3, c4 = st.columns(4)
         with c1:
@@ -944,7 +951,7 @@ elif menu == "生產單管理":
             st.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True, key="customer_id")
         with c4:
             st.text_input("客戶名稱", value=order["客戶名稱"], disabled=True, key="customer_name")
-
+    
         # 四欄資料 - 可編輯
         c5, c6, c7, c8 = st.columns(4)
         with c5:
@@ -955,7 +962,7 @@ elif menu == "生產單管理":
             pantone = st.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="pantone")
         with c8:
             raw_material = st.text_input("原料", value=order.get("原料", ""), key="raw_material")
-
+    
         st.markdown("**包裝重量與份數**")
         w1, w2, w3, w4 = st.columns(4)
         weights = [
@@ -1046,8 +1053,8 @@ elif menu == "生產單管理":
                     row_data = [order.get(col, "").strip() if order.get(col) else "" for col in header]
     
                     try:
-                        next_row = len(ws_order.get_all_values()) + 1
-                        ws_order.update(f"A{next_row}", [row_data])
+                        # 改成使用 append_row 避免 get_all_values
+                        ws_order.append_row(row_data)
     
                         # 本地 CSV 同步更新
                         df_new = pd.DataFrame([order], columns=df_order.columns)
@@ -1081,6 +1088,7 @@ elif menu == "生產單管理":
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
                 st.rerun()
+
 
     #---- # ✅ 出貨數量欄位計算函數（請務必放在主程式前段，無縮排）
     def calculate_shipment(row):
