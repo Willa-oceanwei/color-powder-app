@@ -1275,23 +1275,29 @@ if page == "新增生產單":
                 st.session_state.new_order_saved = False
                 st.experimental_rerun()
 
-     # ---------- 生產單清單 + 修改 / 刪除 ----------
+    # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📄 生產單清單")
     
     search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input_order_page", value="")
 
+    # 初始化 order_page
+    if "order_page" not in st.session_state:
+        st.session_state.order_page = 1
+    
+    # 篩選條件
     if search_order.strip():
-        df_filtered = df_order[
-            df_order["生產單號"].str.contains(search_order, case=False, na=False) |
-            df_order["配方編號"].str.contains(search_order, case=False, na=False) |
-            df_order["客戶名稱"].str.contains(search_order, case=False, na=False) |
-            df_order["顏色"].str.contains(search_order, case=False, na=False)
-        ]
+        mask = (
+            df_order["生產單號"].astype(str).str.contains(search_order, case=False, na=False) |
+            df_order["配方編號"].astype(str).str.contains(search_order, case=False, na=False) |
+            df_order["客戶名稱"].astype(str).str.contains(search_order, case=False, na=False) |
+            df_order["顏色"].astype(str).str.contains(search_order, case=False, na=False)
+        )
+        df_filtered = df_order[mask]
     else:
         df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
         df_filtered = df_order.sort_values(by="建立時間", ascending=False)
-
+    
     limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0, key="selectbox_order_limit")
     total_rows = len(df_filtered)
     total_pages = max((total_rows - 1) // limit + 1, 1)
