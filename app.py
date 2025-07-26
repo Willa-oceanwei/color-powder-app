@@ -51,6 +51,20 @@ def init_states(key_list):
                 st.session_state[key] = None
             elif key == "order_page":
                 st.session_state[key] = 1
+            else:
+                # 預設給 None 或可調整為適合型態的預設值
+                st.session_state[key] = None
+
+# 主程式呼叫範例
+keys_to_init = [
+    "selected_order_code_edit",
+    "editing_order",
+    "show_edit_panel",
+    "search_order_input",
+    "order_page",
+]
+
+init_states(keys_to_init)
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
