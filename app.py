@@ -1201,7 +1201,7 @@ if page == "新增生產單":
         with btn1:
             if st.session_state.get("new_order_saved"):
                  st.warning("⚠️ 生產單已存")
-             else:
+            else:
                 if st.button("✅ 確定", key="confirm_save"):
                     # 同步更新 order 字典欄位
                     order["顏色"] = st.session_state.color
