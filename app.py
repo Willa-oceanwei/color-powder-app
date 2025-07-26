@@ -1281,27 +1281,6 @@ elif menu == "生產單管理":
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📄 生產單清單")
-    
-    search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input", value="")
-
-    if search_order.strip():
-        df_filtered = df_order[
-            df_order["生產單號"].str.contains(search_order, case=False, na=False) |
-            df_order["配方編號"].str.contains(search_order, case=False, na=False) |
-            df_order["客戶名稱"].str.contains(search_order, case=False, na=False) |
-            df_order["顏色"].str.contains(search_order, case=False, na=False)
-        ]
-    else:
-        df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
-        df_filtered = df_order.sort_values(by="建立時間", ascending=False)
-
-    limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0)
-    total_rows = len(df_filtered)
-    total_pages = max((total_rows - 1) // limit + 1, 1)
-
-    st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
-    start_idx = (st.session_state.order_page - 1) * limit
-    page_data = df_filtered.iloc[start_idx:start_idx + limit]
 
     # 使用篩選後與分頁後的 df 產生下拉選單選項，確保一致性
     options = []
