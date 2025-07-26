@@ -45,6 +45,12 @@ def init_states(key_list):
                 st.session_state[key] = False
             elif key.startswith("search"):
                 st.session_state[key] = ""
+            elif key == "selected_order_code_edit":
+                st.session_state[key] = None
+            elif key == "editing_order":
+                st.session_state[key] = None
+            elif key == "order_page":
+                st.session_state[key] = 1
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
