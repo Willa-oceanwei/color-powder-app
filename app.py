@@ -938,10 +938,6 @@ elif menu == "生產單管理":
     # ===== 自訂函式：產生生產單列印格式 =====
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
         unit = recipe_row.get("計量單位", "kg")
-
-        # 在這裡印出 content，方便除錯
-        st.text("列印內容預覽:")
-        st.text(content if content else "(空白或 None)")       
     
         # 取色粉資料
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
@@ -1155,6 +1151,11 @@ if page == "新增生產單":
         # --------------- 新增：列印專用 HTML 生成函式 ---------------
         def generate_print_page_content(order, recipe_row):
             content = generate_production_order_print(order, recipe_row)
+
+            # 在這裡印出 content，方便除錯
+            st.text("列印內容預覽:")
+            st.text(content if content else "(空白或 None)")       
+        
             html_content = f"""
             <html>
             <head>
