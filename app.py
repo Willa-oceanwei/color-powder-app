@@ -1233,7 +1233,7 @@ if page == "新增生產單":
                             val_float = 0.0
                         colorants.append(val_float)
                         order[key] = f"{val_float:.2f}"
-                     order["色粉合計"] = f"{sum(colorants):.2f}"
+                        order["色粉合計"] = f"{sum(colorants):.2f}"
     
                     # 寫入 Google Sheets
                     header = [col for col in df_order.columns if col and str(col).strip() != ""]
