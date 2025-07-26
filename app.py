@@ -1189,7 +1189,7 @@ elif menu == "生產單管理":
     st.markdown("---")
     st.subheader("📄 生產單清單")
     
-    search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input", value="")
+    search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input_order_page", value="")
 
     if search_order.strip():
         df_filtered = df_order[
