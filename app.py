@@ -1099,7 +1099,7 @@ if page == "新增生產單":
             st.text_input("客戶名稱", value=order["客戶名稱"], disabled=True, key="customer_name")
         
         # 四欄資料 - 可編輯
-            c5, c6, c7, c8 = st.columns(4)
+        c5, c6, c7, c8 = st.columns(4)
         with c5:
             st.text_input("計量單位", value=unit, disabled=True, key="unit")
         with c6:
