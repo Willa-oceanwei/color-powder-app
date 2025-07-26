@@ -1087,75 +1087,75 @@ if page == "新增生產單":
         recipe_row = recipe_rows.iloc[0]
         unit = recipe_row.get("計量單位", "kg")
         
-            # 四欄資料 - 不可編輯
-            c1, c2, c3, c4 = st.columns(4)
-            with c1:
-                st.text_input("生產單號", value=order["生產單號"], disabled=True, key="order_no")
-            with c2:
-                st.text_input("配方編號", value=order["配方編號"], disabled=True, key="recipe_id")
-            with c3:
-                st.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True, key="customer_id")
-            with c4:
-                st.text_input("客戶名稱", value=order["客戶名稱"], disabled=True, key="customer_name")
+        # 四欄資料 - 不可編輯
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.text_input("生產單號", value=order["生產單號"], disabled=True, key="order_no")
+        with c2:
+            st.text_input("配方編號", value=order["配方編號"], disabled=True, key="recipe_id")
+        with c3:
+            st.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True, key="customer_id")
+        with c4:
+            st.text_input("客戶名稱", value=order["客戶名稱"], disabled=True, key="customer_name")
         
-            # 四欄資料 - 可編輯
+        # 四欄資料 - 可編輯
             c5, c6, c7, c8 = st.columns(4)
-            with c5:
-                st.text_input("計量單位", value=unit, disabled=True, key="unit")
-            with c6:
-                color = st.text_input("顏色", value=order.get("顏色", ""), key="color")
-            with c7:
-                pantone = st.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="pantone")
-            with c8:
-                raw_material = st.text_input("原料", value=order.get("原料", ""), key="raw_material")
+        with c5:
+            st.text_input("計量單位", value=unit, disabled=True, key="unit")
+        with c6:
+            color = st.text_input("顏色", value=order.get("顏色", ""), key="color")
+        with c7:
+            pantone = st.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="pantone")
+        with c8:
+            raw_material = st.text_input("原料", value=order.get("原料", ""), key="raw_material")
         
-            st.markdown("**包裝重量與份數**")
-            w1, w2, w3, w4 = st.columns(4)
-            weights = [
-                w1.text_input(f"包裝 1 重量 ({unit})", value=order.get("包裝重量1", ""), key="weight1"),
-                w2.text_input(f"包裝 2 重量 ({unit})", value=order.get("包裝重量2", ""), key="weight2"),
-                w3.text_input(f"包裝 3 重量 ({unit})", value=order.get("包裝重量3", ""), key="weight3"),
-                w4.text_input(f"包裝 4 重量 ({unit})", value=order.get("包裝重量4", ""), key="weight4"),
-             ]
+        st.markdown("**包裝重量與份數**")
+        w1, w2, w3, w4 = st.columns(4)
+        weights = [
+            w1.text_input(f"包裝 1 重量 ({unit})", value=order.get("包裝重量1", ""), key="weight1"),
+            w2.text_input(f"包裝 2 重量 ({unit})", value=order.get("包裝重量2", ""), key="weight2"),
+            w3.text_input(f"包裝 3 重量 ({unit})", value=order.get("包裝重量3", ""), key="weight3"),
+            w4.text_input(f"包裝 4 重量 ({unit})", value=order.get("包裝重量4", ""), key="weight4"),
+        ]
         
-            p1, p2, p3, p4 = st.columns(4)
-            counts = [
-                p1.text_input("包裝 1 份數", value=order.get("包裝份數1", ""), key="count1"),
-                p2.text_input("包裝 2 份數", value=order.get("包裝份數2", ""), key="count2"),
-                p3.text_input("包裝 3 份數", value=order.get("包裝份數3", ""), key="count3"),
-                p4.text_input("包裝 4 份數", value=order.get("包裝份數4", ""), key="count4"),
-            ]
+        p1, p2, p3, p4 = st.columns(4)
+        counts = [
+            p1.text_input("包裝 1 份數", value=order.get("包裝份數1", ""), key="count1"),
+            p2.text_input("包裝 2 份數", value=order.get("包裝份數2", ""), key="count2"),
+            p3.text_input("包裝 3 份數", value=order.get("包裝份數3", ""), key="count3"),
+            p4.text_input("包裝 4 份數", value=order.get("包裝份數4", ""), key="count4"),
+        ]
         
-            # 備註
-            remark = st.text_area("備註", value=order.get("備註", ""), height=60, key="remark")
+        # 備註
+        remark = st.text_area("備註", value=order.get("備註", ""), height=60, key="remark")
         
-            # 🎨 色粉配方顯示（鎖定）
-            st.markdown("### 🎨 色粉配方")
-            colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-            colorant_weights = []
-            for i in range(8):
-                val = recipe_row.get(f"色粉重量{i+1}", "0")
-                try:
-                    val_float = float(val)
-                except:
-                    val_float = 0.0
-                colorant_weights.append(val_float)
-            df_colorants = pd.DataFrame({
-                "色粉編號": colorant_ids,
-                "用量 (g)": colorant_weights
-            })
-            st.dataframe(df_colorants, use_container_width=True)
+        # 🎨 色粉配方顯示（鎖定）
+        st.markdown("### 🎨 色粉配方")
+        colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+        colorant_weights = []
+        for i in range(8):
+            val = recipe_row.get(f"色粉重量{i+1}", "0")
+            try:
+                val_float = float(val)
+            except:
+                val_float = 0.0
+            colorant_weights.append(val_float)
+        df_colorants = pd.DataFrame({
+            "色粉編號": colorant_ids,
+            "用量 (g)": colorant_weights
+         })
+        st.dataframe(df_colorants, use_container_width=True)
         
-            col1, col2 = st.columns(2)
-            with col1:
-                total_category = recipe_row.get("合計類別", "")
-                st.markdown(f"**合計類別：** {total_category}")
-            with col2:
-                try:
-                    net_weight = float(recipe_row.get("淨重", 0))
-                except:
-                    net_weight = 0.0
-                st.markdown(f"**淨重：** {net_weight} g")
+        col1, col2 = st.columns(2)
+        with col1:
+            total_category = recipe_row.get("合計類別", "")
+            st.markdown(f"**合計類別：** {total_category}")
+        with col2:
+            try:
+                 net_weight = float(recipe_row.get("淨重", 0))
+            except:
+                net_weight = 0.0
+            st.markdown(f"**淨重：** {net_weight} g")
     
         # --------------- 新增：列印專用 HTML 生成函式 ---------------
         def generate_print_page_content(order, recipe_row):
