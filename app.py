@@ -213,10 +213,16 @@ elif menu == "客戶名單":
     search_input = st.text_input("請輸入客戶編號或簡稱", st.session_state.search_customer)
     if search_input != st.session_state.search_customer:
         st.session_state.search_customer = search_input
-    df_filtered = df[
-        df["客戶編號"].str.contains(st.session_state.search_customer, case=False, na=False) |
-        df["客戶簡稱"].str.contains(st.session_state.search_customer, case=False, na=False)
-    ] if st.session_state.search_customer.strip() else df
+    
+    search = st.session_state.search_customer.strip()
+    
+    if search:
+        df_filtered = df[
+            df["客戶編號"].str.contains(search, case=False, na=False) |
+            df["客戶簡稱"].str.contains(search, case=False, na=False)
+        ]
+    else:
+        df_filtered = df
 
     if st.session_state.search_customer.strip() and df_filtered.empty:
         st.warning("❗ 查無符合的客戶編號或簡稱")
