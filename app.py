@@ -34,15 +34,16 @@ with st.sidebar:
         menu = st.radio("請選擇模組", ["色粉管理", "客戶名單", "配方管理", "生產單管理"])
 
 # ======== 初始化 session_state =========
-def init_states():
-    keys_to_init = [
-        "selected_order_code_edit",
-        "editing_order",
-        "show_edit_panel",
-        "search_order_input",
-        "order_page",
-    ]
-    for key in keys_to_init:
+def init_states(keys=None):
+    if keys is None:
+        keys = [
+            "selected_order_code_edit",
+            "editing_order",
+            "show_edit_panel",
+            "search_order_input",
+            "order_page",
+        ]
+    for key in keys:
         if key not in st.session_state:
             if key.startswith("form_"):
                 st.session_state[key] = {}
@@ -57,8 +58,9 @@ def init_states():
             else:
                 st.session_state[key] = None
 
-# 一定要最先呼叫
+# ✅ 初始只處理生產單頁用的 key
 init_states()
+
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
