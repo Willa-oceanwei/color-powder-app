@@ -1166,25 +1166,26 @@ if page == "新增生產單":
                 <title>生產單列印</title>
                 <style>
                     body {{
-                        background: white;
-                        color: black;
-                        font-family: monospace;
-                        white-space: pre-wrap;
+                        background: white; 
+                        color: black; 
+                        font-family: monospace; 
+                        white-space: pre-wrap; 
                         padding: 20px;
-                     }}
-                 </style>
+                    }}
+                </style>
             </head>
             <body>
             <pre>{content}</pre>
             <script>
-                 window.onload = function() {{
+                window.onload = function() {{
                     window.print();
-                 }}
-             </script>
-             </body>
-             </html>
-             """
-             return html_content
+                }}
+            </script>
+            </body>
+            </html>
+            """
+            return html_content
+
     
         import urllib.parse
         print_html = generate_print_page_content(order, recipe_row)
