@@ -1245,8 +1245,8 @@ if page == "新增生產單":
                         # 本地 CSV 同步更新
                         df_new = pd.DataFrame([order], columns=df_order.columns)
                         df_order = pd.concat([df_order, df_new], ignore_index=True)
-                         df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                         st.session_state.df_order = df_order
+                        df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                        st.session_state.df_order = df_order
     
                         st.session_state.new_order_saved = True
                         st.success(f"✅ 生產單 {order['生產單號']} 已存！")
