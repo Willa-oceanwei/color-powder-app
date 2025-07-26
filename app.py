@@ -755,7 +755,20 @@ elif menu == "配方管理":
 
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
-    st.markdown("## 🧾 生產單建立")
+    
+    st.markdown("""
+    <style>
+    .big-title {
+        font-size: 35px;   /* 字體大小 */
+        font-weight: bold;  /*加粗 */
+        color: #ff3366; /* 字體顏色 */
+        margin-bottom: 20px; /* 下方間距 */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="big-title">🚀生產單建立</div>', unsafe_allow_html=True)
+    
 
     from pathlib import Path
     from datetime import datetime, timedelta
@@ -1133,6 +1146,7 @@ elif menu == "生產單管理":
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📄 生產單清單")
+    
     search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input", value="")
 
     if search_order.strip():
