@@ -1253,9 +1253,9 @@ if page == "新增生產單":
                     except Exception as e:
                         st.error(f"❌ 寫入失敗：{e}")
     
-         with btn2:
+        with btn2:
             if st.button("🖨️ 列印", key="print_button"):
-                 if not st.session_state.get("new_order_saved"):
+                if not st.session_state.get("new_order_saved"):
                     st.warning("⚠️ 請先按『確定』儲存生產單後再列印")
                 else:
                     st.info("請點擊上方連結，打開列印頁面並使用瀏覽器列印功能（Ctrl+P）")
