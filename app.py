@@ -1259,10 +1259,12 @@ elif menu == "生產單管理":
                 st.success("本地資料已更新，修改已儲存")
         
                 # 清理狀態及重新整理畫面
-                st.session_state.show_edit_panel = False
-                st.session_state.editing_order = None
+                # 先確保變數已初始化
                 if "selected_order_code_edit" not in st.session_state:
-                    st.session_state.selected_order_code_edit = None  # 加上清理選擇
+                    st.session_state.selected_order_code_edit = None
+                # 清理為 None（無選擇）
+                st.session_state.selected_order_code_edit = None              
+                # 重新整理頁面
                 st.rerun()
             else:
                 st.error("找不到該筆生產單資料")
