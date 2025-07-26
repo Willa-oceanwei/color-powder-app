@@ -1196,7 +1196,8 @@ elif menu == "生產單管理":
     with cols_mod[1]:
         if st.button("🗑️ 刪除", key="delete_button_1") and selected_code_edit:
             try:
-                cell = ws_order.find(selected_code_edit)
+                # 強制將生產單號轉成 str 做比對，避免找不到
+                cell = ws_order.find(str(selected_code_edit))
                 if cell:
                     ws_order.delete_row(cell.row)
                     st.success(f"Google Sheets 已刪除生產單 {selected_code_edit}")
@@ -1204,15 +1205,14 @@ elif menu == "生產單管理":
                     st.warning("Google Sheets 找不到該筆生產單，無法刪除")
             except Exception as e:
                 st.error(f"Google Sheets 刪除錯誤：{e}")
-
+    
             # 本地 DataFrame 刪除並存檔
             df_order = df_order[df_order["生產單號"] != selected_code_edit]
             df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
             st.success(f"已刪除生產單 {selected_code_edit}（本地資料）")
-        
-            # 清除選擇狀態，避免刪除後持續執行刪除動作
-            if "selected_order_code_edit" not in st.session_state:
-                st.session_state.selected_order_code_edit = None
+    
+            # 清除選擇狀態
+            st.session_state.selected_order_code_edit = None
             st.rerun()
 
     if st.session_state.show_edit_panel and st.session_state.editing_order:
