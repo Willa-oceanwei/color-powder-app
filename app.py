@@ -1160,7 +1160,7 @@ if page == "新增生產單":
         # --------------- 新增：列印專用 HTML 生成函式 ---------------
         def generate_print_page_content(order, recipe_row):
             content = generate_production_order_print(order, recipe_row)
-               html_content = f"""
+            html_content = f"""
             <html>
             <head>
                 <title>生產單列印</title>
