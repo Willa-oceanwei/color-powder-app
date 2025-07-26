@@ -1072,21 +1072,21 @@ elif menu == "生產單管理":
     
     # ---------- 新增後欄位填寫區塊 ----------
     # ===== 主流程頁面切換 =====
-    page = st.session_state.get("page", "新增生產單")
+page = st.session_state.get("page", "新增生產單")
 
-    if page == "新增生產單":
-        if st.session_state.show_confirm_panel and st.session_state.new_order:
-            st.markdown("---")
-            st.subheader("新增生產單詳情填寫")
-    
-            order = st.session_state.new_order
-            recipe_rows = df_recipe[df_recipe["配方編號"] == order["配方編號"]]
-            if recipe_rows.empty:
-                st.error(f"找不到配方編號：{order['配方編號']}")
-                st.stop()
+if page == "新增生產單":
+    if st.session_state.show_confirm_panel and st.session_state.new_order:
+        st.markdown("---")
+        st.subheader("新增生產單詳情填寫")
+        
+        order = st.session_state.new_order
+        recipe_rows = df_recipe[df_recipe["配方編號"] == order["配方編號"]]
+        if recipe_rows.empty:
+            st.error(f"找不到配方編號：{order['配方編號']}")
+            st.stop()
             recipe_row = recipe_rows.iloc[0]
             unit = recipe_row.get("計量單位", "kg")
-    
+        
             # 四欄資料 - 不可編輯
             c1, c2, c3, c4 = st.columns(4)
             with c1:
@@ -1097,7 +1097,7 @@ elif menu == "生產單管理":
                 st.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True, key="customer_id")
             with c4:
                 st.text_input("客戶名稱", value=order["客戶名稱"], disabled=True, key="customer_name")
-    
+        
             # 四欄資料 - 可編輯
             c5, c6, c7, c8 = st.columns(4)
             with c5:
@@ -1108,7 +1108,7 @@ elif menu == "生產單管理":
                 pantone = st.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="pantone")
             with c8:
                 raw_material = st.text_input("原料", value=order.get("原料", ""), key="raw_material")
-    
+        
             st.markdown("**包裝重量與份數**")
             w1, w2, w3, w4 = st.columns(4)
             weights = [
@@ -1116,8 +1116,8 @@ elif menu == "生產單管理":
                 w2.text_input(f"包裝 2 重量 ({unit})", value=order.get("包裝重量2", ""), key="weight2"),
                 w3.text_input(f"包裝 3 重量 ({unit})", value=order.get("包裝重量3", ""), key="weight3"),
                 w4.text_input(f"包裝 4 重量 ({unit})", value=order.get("包裝重量4", ""), key="weight4"),
-            ]
-    
+             ]
+        
             p1, p2, p3, p4 = st.columns(4)
             counts = [
                 p1.text_input("包裝 1 份數", value=order.get("包裝份數1", ""), key="count1"),
@@ -1125,10 +1125,10 @@ elif menu == "生產單管理":
                 p3.text_input("包裝 3 份數", value=order.get("包裝份數3", ""), key="count3"),
                 p4.text_input("包裝 4 份數", value=order.get("包裝份數4", ""), key="count4"),
             ]
-    
+        
             # 備註
             remark = st.text_area("備註", value=order.get("備註", ""), height=60, key="remark")
-    
+        
             # 🎨 色粉配方顯示（鎖定）
             st.markdown("### 🎨 色粉配方")
             colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
@@ -1145,7 +1145,7 @@ elif menu == "生產單管理":
                 "用量 (g)": colorant_weights
             })
             st.dataframe(df_colorants, use_container_width=True)
-    
+        
             col1, col2 = st.columns(2)
             with col1:
                 total_category = recipe_row.get("合計類別", "")
@@ -1157,122 +1157,122 @@ elif menu == "生產單管理":
                     net_weight = 0.0
                 st.markdown(f"**淨重：** {net_weight} g")
     
-            # --------------- 新增：列印專用 HTML 生成函式 ---------------
-            def generate_print_page_content(order, recipe_row):
-                content = generate_production_order_print(order, recipe_row)
-                html_content = f"""
-                <html>
-                <head>
-                    <title>生產單列印</title>
-                    <style>
-                        body {{
-                            background: white;
-                            color: black;
-                            font-family: monospace;
-                            white-space: pre-wrap;
-                            padding: 20px;
-                        }}
-                    </style>
-                </head>
-                <body>
-                <pre>{content}</pre>
-                <script>
-                    window.onload = function() {{
-                        window.print();
-                    }}
-                </script>
-                </body>
-                </html>
-                """
-                return html_content
+        # --------------- 新增：列印專用 HTML 生成函式 ---------------
+        def generate_print_page_content(order, recipe_row):
+            content = generate_production_order_print(order, recipe_row)
+               html_content = f"""
+            <html>
+            <head>
+                <title>生產單列印</title>
+                <style>
+                    body {{
+                        background: white;
+                        color: black;
+                        font-family: monospace;
+                        white-space: pre-wrap;
+                        padding: 20px;
+                     }}
+                 </style>
+            </head>
+            <body>
+            <pre>{content}</pre>
+            <script>
+                 window.onload = function() {{
+                    window.print();
+                 }}
+             </script>
+             </body>
+             </html>
+             """
+             return html_content
     
-            import urllib.parse
-            print_html = generate_print_page_content(order, recipe_row)
-            encoded_html = urllib.parse.quote(print_html)
+        import urllib.parse
+        print_html = generate_print_page_content(order, recipe_row)
+        encoded_html = urllib.parse.quote(print_html)
     
-            st.markdown(
-                f"[👉 點此開啟列印頁面（新分頁，會自動叫出列印）](data:text/html;charset=utf-8,{encoded_html})",
-                unsafe_allow_html=True
-            )
+        st.markdown(
+            f"[👉 點此開啟列印頁面（新分頁，會自動叫出列印）](data:text/html;charset=utf-8,{encoded_html})",
+            unsafe_allow_html=True
+         )
     
-            # 按鈕區塊
-            btn1, btn2, btn3, btn4 = st.columns(4)
+         # 按鈕區塊
+        btn1, btn2, btn3, btn4 = st.columns(4)
     
-            with btn1:
-                if st.session_state.get("new_order_saved"):
-                    st.warning("⚠️ 生產單已存")
-                else:
-                    if st.button("✅ 確定", key="confirm_save"):
-                        # 同步更新 order 字典欄位
-                        order["顏色"] = st.session_state.color
-                        order["Pantone 色號"] = st.session_state.pantone
-                        order["計量單位"] = unit
-                        order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-                        order["原料"] = st.session_state.raw_material
+        with btn1:
+            if st.session_state.get("new_order_saved"):
+                 st.warning("⚠️ 生產單已存")
+             else:
+                if st.button("✅ 確定", key="confirm_save"):
+                    # 同步更新 order 字典欄位
+                    order["顏色"] = st.session_state.color
+                    order["Pantone 色號"] = st.session_state.pantone
+                    order["計量單位"] = unit
+                    order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+                    order["原料"] = st.session_state.raw_material
     
-                        order["包裝重量1"] = st.session_state.weight1
-                        order["包裝重量2"] = st.session_state.weight2
-                        order["包裝重量3"] = st.session_state.weight3
-                        order["包裝重量4"] = st.session_state.weight4
+                    order["包裝重量1"] = st.session_state.weight1
+                    order["包裝重量2"] = st.session_state.weight2
+                    order["包裝重量3"] = st.session_state.weight3
+                    order["包裝重量4"] = st.session_state.weight4
     
-                        order["包裝份數1"] = st.session_state.count1
-                        order["包裝份數2"] = st.session_state.count2
-                        order["包裝份數3"] = st.session_state.count3
-                        order["包裝份數4"] = st.session_state.count4
+                    order["包裝份數1"] = st.session_state.count1
+                    order["包裝份數2"] = st.session_state.count2
+                    order["包裝份數3"] = st.session_state.count3
+                    order["包裝份數4"] = st.session_state.count4
     
-                        order["備註"] = st.session_state.remark
+                    order["備註"] = st.session_state.remark
     
-                        # 補齊「色粉1～8」與合計
-                        colorants = []
-                        for i in range(1, 9):
-                            key = f"色粉編號{i}"
-                            val = order.get(key, "0")
-                            try:
-                                val_float = float(val)
-                            except:
-                                val_float = 0.0
-                            colorants.append(val_float)
-                            order[key] = f"{val_float:.2f}"
-                        order["色粉合計"] = f"{sum(colorants):.2f}"
-    
-                        # 寫入 Google Sheets
-                        header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                        row_data = [order.get(col, "").strip() if order.get(col) else "" for col in header]
-    
+                     # 補齊「色粉1～8」與合計
+                    colorants = []
+                    for i in range(1, 9):
+                        key = f"色粉編號{i}"
+                        val = order.get(key, "0")
                         try:
-                            ws_order.append_row(row_data)
+                            val_float = float(val)
+                        except:
+                            val_float = 0.0
+                        colorants.append(val_float)
+                        order[key] = f"{val_float:.2f}"
+                     order["色粉合計"] = f"{sum(colorants):.2f}"
     
-                            # 本地 CSV 同步更新
-                            df_new = pd.DataFrame([order], columns=df_order.columns)
-                            df_order = pd.concat([df_order, df_new], ignore_index=True)
-                            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                            st.session_state.df_order = df_order
+                    # 寫入 Google Sheets
+                    header = [col for col in df_order.columns if col and str(col).strip() != ""]
+                    row_data = [order.get(col, "").strip() if order.get(col) else "" for col in header]
     
-                            st.session_state.new_order_saved = True
-                            st.success(f"✅ 生產單 {order['生產單號']} 已存！")
-                        except Exception as e:
-                            st.error(f"❌ 寫入失敗：{e}")
+                     try:
+                        ws_order.append_row(row_data)
     
-            with btn2:
-                if st.button("🖨️ 列印", key="print_button"):
-                    if not st.session_state.get("new_order_saved"):
-                        st.warning("⚠️ 請先按『確定』儲存生產單後再列印")
-                    else:
-                        st.info("請點擊上方連結，打開列印頁面並使用瀏覽器列印功能（Ctrl+P）")
+                        # 本地 CSV 同步更新
+                        df_new = pd.DataFrame([order], columns=df_order.columns)
+                        df_order = pd.concat([df_order, df_new], ignore_index=True)
+                         df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                         st.session_state.df_order = df_order
     
-            with btn3:
-                if st.button("❌ 取消", key="cancel_button"):
-                    st.session_state.new_order = None
-                    st.session_state.show_confirm_panel = False
-                    st.session_state.new_order_saved = False
-                    st.experimental_rerun()
+                        st.session_state.new_order_saved = True
+                        st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+                    except Exception as e:
+                        st.error(f"❌ 寫入失敗：{e}")
     
-            with btn4:
-                if st.button("🔙 返回", key="back_button"):
-                    st.session_state.new_order = None
-                    st.session_state.show_confirm_panel = False
-                    st.session_state.new_order_saved = False
-                    st.experimental_rerun()
+         with btn2:
+            if st.button("🖨️ 列印", key="print_button"):
+                 if not st.session_state.get("new_order_saved"):
+                    st.warning("⚠️ 請先按『確定』儲存生產單後再列印")
+                else:
+                    st.info("請點擊上方連結，打開列印頁面並使用瀏覽器列印功能（Ctrl+P）")
+    
+         with btn3:
+            if st.button("❌ 取消", key="cancel_button"):
+                 st.session_state.new_order = None
+                st.session_state.show_confirm_panel = False
+                st.session_state.new_order_saved = False
+                st.experimental_rerun()
+    
+        with btn4:
+            if st.button("🔙 返回", key="back_button"):
+                st.session_state.new_order = None
+                st.session_state.show_confirm_panel = False
+                st.session_state.new_order_saved = False
+                st.experimental_rerun()
 
      # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
