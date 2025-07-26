@@ -1199,7 +1199,7 @@ elif menu == "生產單管理":
                 # 強制將生產單號轉成 str 做比對，避免找不到
                 cell = ws_order.find(str(selected_code_edit))
                 if cell:
-                    ws_order.delete_row(cell.row)
+                    ws_order.delete_rows(cell.row)
                     st.success(f"Google Sheets 已刪除生產單 {selected_code_edit}")
                 else:
                     st.warning("Google Sheets 找不到該筆生產單，無法刪除")
