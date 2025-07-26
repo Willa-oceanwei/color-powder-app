@@ -1138,7 +1138,8 @@ if page == "新增生產單":
             })
         st.markdown("### 🎨 色粉配方")
         st.dataframe(st.session_state["df_colorants_cache"], use_container_width=True)
-
+        
+        st.write("DEBUG recipe_row:", recipe_row)
         col1, col2 = st.columns(2)
         col1.markdown(f"**合計類別：** {recipe_row.get('合計類別', '')}")
         try:
