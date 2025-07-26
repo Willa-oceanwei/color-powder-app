@@ -1084,14 +1084,14 @@ if page == "新增生產單":
         # 配方快取（避免每次都查）
         recipe_id = order.get("配方編號", "")
         recipe_row = st.session_state.get("recipe_row_cache")
-        if not recipe_row or recipe_row["配方編號"] != recipe_id:
+        if recipe_row is None or recipe_row.get("配方編號", None) != recipe_id:
             matched = df_recipe[df_recipe["配方編號"] == recipe_id]
             if matched.empty:
                 st.error(f"找不到配方編號：{recipe_id}")
                 st.stop()
             recipe_row = matched.iloc[0]
             st.session_state["recipe_row_cache"] = recipe_row
-
+        
         unit = recipe_row.get("計量單位", "kg")
 
         # 不可編輯欄位
