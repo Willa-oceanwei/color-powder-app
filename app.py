@@ -1205,16 +1205,17 @@ elif menu == "生產單管理":
             except Exception as e:
                 st.error(f"Google Sheets 刪除錯誤：{e}")
         
-            # 刪除本地 DataFrame 並儲存
+            # 刪除本地資料
             df_order = df_order[df_order["生產單號"] != selected_code_edit]
             df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
             st.success(f"已刪除生產單 {selected_code_edit}（本地資料）")
-    
-            # ✅ 清除狀態（一定要在 rerun 前執行）
+        
+            # ✅ 清除狀態（在 rerun 前完成）
             st.session_state.selected_order_code_edit = None
             st.session_state.show_edit_panel = False
             st.session_state.editing_order = None
         
+            # ✅ 最後才 rerun
             st.rerun()
 
     if st.session_state.show_edit_panel and st.session_state.editing_order:
