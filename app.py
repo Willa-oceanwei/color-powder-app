@@ -1262,7 +1262,7 @@ elif menu == "生產單管理":
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
                 if "selected_order_code_edit" not in st.session_state:
-                st.session_state.selected_order_code_edit = None  # 加上清理選擇
+                    st.session_state.selected_order_code_edit = None  # 加上清理選擇
                 st.rerun()
             else:
                 st.error("找不到該筆生產單資料")
