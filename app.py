@@ -1256,15 +1256,9 @@ elif menu == "生產單管理":
                     cell = ws_order.find(edit_order["生產單號"])
                     if cell:
                         row_idx = cell.row
-        
-                        # 取得更新後的一整列資料 (依 df_order 欄位順序)
                         row_data = df_order.loc[idx].fillna("").astype(str).tolist()
-        
-                        # 計算右邊界欄位字母，假設欄數不超過26 (A~Z)
-                        last_col_letter = chr(65 + len(row_data) - 1)  # 65是A的ASCII碼
-        
+                        last_col_letter = chr(65 + len(row_data) - 1)
                         ws_order.update(f"A{row_idx}:{last_col_letter}{row_idx}", [row_data])
-        
                         st.success("Google Sheets 同步更新成功")
                     else:
                         st.warning("Google Sheets 找不到該筆生產單，未同步更新")
@@ -1276,15 +1270,9 @@ elif menu == "生產單管理":
                 st.success("本地資料已更新，修改已儲存")
         
                 # 清理狀態及重新整理畫面
-                if "selected_order_code_edit" not in st.session_state:
-                    st.session_state.selected_order_code_edit = None
-                else:
-                    st.session_state.selected_order_code_edit = None 
-                # 清空狀態
                 st.session_state.selected_order_code_edit = None
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
-                st.rerun() 
+                st.experimental_rerun()
             else:
                 st.error("找不到該筆生產單資料")
-
