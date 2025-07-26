@@ -1110,11 +1110,16 @@ if page == "新增生產單":
 
         # 包裝重量與份數（避免用 dict.get() 多次呼叫）
         st.markdown("**包裝重量與份數**")
-        for i in range(1, 5):
-            col_w, col_c = st.columns(2)
-            col_w.text_input(f"包裝 {i} 重量 ({unit})", key=f"weight{i}", value=order.get(f"包裝重量{i}", ""))
-            col_c.text_input(f"包裝 {i} 份數", key=f"count{i}", value=order.get(f"包裝份數{i}", ""))
-
+        # 四欄直式排列：包裝重量 1~4
+        w_cols = st.columns(4)
+        for i in range(4):
+            w_cols[i].text_input(f"包裝 {i+1} 重量", key=f"weight{i+1}", value=order.get(f"包裝重量{i+1}", ""))
+        
+        # 四欄直式排列：包裝份數 1~4
+        c_cols = st.columns(4)
+        for i in range(4):
+            c_cols[i].text_input(f"包裝 {i+1} 份數", key=f"count{i+1}", value=order.get(f"包裝份數{i+1}", ""))
+          
         # 備註
         st.text_area("備註", key="remark", value=order.get("備註", ""), height=60)
 
