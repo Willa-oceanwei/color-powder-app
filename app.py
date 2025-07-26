@@ -1211,10 +1211,11 @@ elif menu == "生產單管理":
             # ✅ 同步刪除本地資料
             df_order = df_order[df_order["生產單號"] != selected_code_edit]
             df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+            st.session_state.df_order = df_order
             st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
     
             # ✅ 清除狀態再 rerun
-            st.session_state.selected_order_code_edit = None
+            st.session_state.pop("selected_order_code_edit", None)
             st.session_state.show_edit_panel = False
             st.session_state.editing_order = None
             st.rerun()
@@ -1253,7 +1254,7 @@ elif menu == "生產單管理":
             idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
             if idx_list:
                 idx = idx_list[0]
-    
+        
                 # ✅ 更新本地 DataFrame
                 df_order.at[idx, "客戶名稱"] = new_customer
                 df_order.at[idx, "顏色"] = new_color
@@ -1261,7 +1262,7 @@ elif menu == "生產單管理":
                     df_order.at[idx, f"包裝重量{i + 1}"] = new_packing_weights[i]
                     df_order.at[idx, f"包裝份數{i + 1}"] = new_packing_counts[i]
                 df_order.at[idx, "備註"] = new_remark
-    
+        
                 # ✅ 同步更新 Google Sheets
                 try:
                     cell = ws_order.find(edit_order["生產單號"])
@@ -1275,13 +1276,14 @@ elif menu == "生產單管理":
                         st.warning("⚠️ Google Sheets 找不到該筆生產單，未更新")
                 except Exception as e:
                     st.error(f"Google Sheets 更新錯誤：{e}")
-    
+        
                 # ✅ 寫入本地檔案
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                st.session_state.df_order = df_order
                 st.success("✅ 本地資料更新成功，修改已儲存")
-    
+        
                 # ✅ 清理狀態
-                st.session_state.selected_order_code_edit = None
+                st.session_state.pop("selected_order_code_edit", None)
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
                 st.rerun()
