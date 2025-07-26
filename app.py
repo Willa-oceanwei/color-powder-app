@@ -1127,6 +1127,23 @@ elif menu == "生產單管理":
                 p3.text_input("包裝 3 份數", value=order.get("包裝份數3", ""), key="count3"),
                 p4.text_input("包裝 4 份數", value=order.get("包裝份數4", ""), key="count4"),
             ]
+    if page == "列印畫面":
+        st.header("🖨️ 生產單列印預覽")
+        order = st.session_state.new_order  # 確保這裡正確存取訂單資料
+        # 你先前篩選 recipe_row 的邏輯可以複製過來，或存到 st.session_state 裡
+        recipe_rows = df_recipe[df_recipe["配方編號"] == order["配方編號"]]
+        if recipe_rows.empty:
+            st.error(f"找不到配方編號：{order['配方編號']}")
+            st.stop()
+        recipe_row = recipe_rows.iloc[0]
+    
+        preview_text = generate_production_order_print(order, recipe_row)
+        st.text(preview_text)
+        st.info("請使用瀏覽器列印功能（Ctrl+P）進行列印。")
+    
+        if st.button("🔙 返回", key="back_to_main"):
+            st.session_state.page = "新增生產單"
+            st.rerun()
         
             remark = st.text_area("備註", value=order.get("備註", ""), height=60, key="remark")
         
