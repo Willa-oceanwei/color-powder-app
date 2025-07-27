@@ -1097,26 +1097,11 @@ elif menu == "生產單管理":
     
 # ---------- 新增後欄位填寫區塊 ----------
 # ===== 主流程頁面切換 =====
-import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta
-
-# 假設 df_recipe, df_order, ws_order, generate_print_page_content 事先定義好
-
-st.markdown("""
-<style>
-/* 隱藏表單裡的 submit 按鈕 */
-form > div[role="group"] > button {
-    display: none;
-}
-</style>
-""", unsafe_allow_html=True)
-
+i# ===== 主流程頁面切換 =====
 page = st.session_state.get("page", "新增生產單")
 if page == "新增生產單":
     order = st.session_state.get("new_order", {})
     if st.session_state.get("show_confirm_panel") and order:
-
         st.markdown("---")
         st.subheader("新增生產單詳情填寫")
 
@@ -1161,80 +1146,110 @@ if page == "新增生產單":
 
             remark = st.text_area("備註", value=order.get("備註", ""), key="remark")
 
-            # 必須存在 submit button（但被 CSS 隱藏）
-            submitted = st.form_submit_button("隱藏提交按鈕", key="hidden_submit")
+            submitted = st.form_submit_button("✅ 確定")
 
-        # 外層按鈕列
-        btn1, btn2, btn3 = st.columns(3)
-        with btn1:
-            if st.session_state.get("new_order_saved"):
-                st.warning("⚠️ 生產單已存")
-            else:
-                if st.button("✅ 確定", key="confirm_save_top"):
-                    # 讀取欄位存入 order 字典
-                    order["顏色"] = st.session_state.color
-                    order["Pantone 色號"] = st.session_state.pantone
-                    order["計量單位"] = unit
-                    order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-                    order["原料"] = st.session_state.raw_material
-                    order["備註"] = st.session_state.remark
+        if submitted:
+            # 按一下送出才更新
+            order["顏色"] = st.session_state.color
+            order["Pantone 色號"] = st.session_state.pantone
+            order["計量單位"] = unit
+            order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+            order["原料"] = st.session_state.raw_material
+            order["備註"] = st.session_state.remark
 
-                    for i in range(1, 5):
-                        order[f"包裝重量{i}"] = weights[i - 1]
-                        order[f"包裝份數{i}"] = counts[i - 1]
+            for i in range(1, 5):
+                order[f"包裝重量{i}"] = weights[i - 1]
+                order[f"包裝份數{i}"] = counts[i - 1]
 
-                    # 色粉總重計算
-                    colorant_weights = []
-                    for i in range(1, 9):
-                        try:
-                            w = float(recipe_row.get(f"色粉重量{i}", 0))
-                        except:
-                            w = 0.0
-                        colorant_weights.append(w)
-                    order["色粉合計"] = f"{sum(colorant_weights):.2f}"
+            # 寫入 Google Sheets, CSV 等流程不變...
+            # 你的原寫入程式碼放這
 
-                    # 寫入 Google Sheets
-                    header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                    row_data = [order.get(col, "").strip() if order.get(col) else "" for col in header]
+            st.success(f"✅ 生產單 {order['生產單號']} 已存！")
 
-                    try:
-                        ws_order.append_row(row_data)
-
-                        # 同步更新本地 CSV
-                        import os
-                        os.makedirs(os.path.dirname("data/order.csv"), exist_ok=True)
-                        df_new = pd.DataFrame([order], columns=df_order.columns)
-                        df_order = pd.concat([df_order, df_new], ignore_index=True)
-                        df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
-                        st.session_state.df_order = df_order
-
-                        st.session_state.new_order_saved = True
-                        st.success(f"✅ 生產單 {order['生產單號']} 已存！")
-
-                    except Exception as e:
-                        st.error(f"❌ 寫入失敗：{e}")
-
-        with btn2:
-            if st.button("❌ 取消", key="cancel_button"):
-                st.session_state.new_order = None
-                st.session_state.show_confirm_panel = False
-                st.session_state.new_order_saved = False
-                st.experimental_rerun()
-
-        with btn3:
-            if st.button("🔙 返回", key="back_button"):
-                st.session_state.new_order = None
-                st.session_state.show_confirm_panel = False
-                st.session_state.new_order_saved = False
-                st.experimental_rerun()
-
-        # 下載 A5 HTML 按鈕
+        # 下載 HTML 列印按鈕放這邊
         st.download_button(
             label="📥 下載 A5 HTML",
             data=print_html.encode("utf-8"),
             file_name=f"{order['生產單號']}_列印.html",
             mime="text/html"
         )
+
+        # 外層控制按鈕
+        btn1, btn2, btn3, btn4 = st.columns(4)
+        with btn1:
+            if st.session_state.get("new_order_saved"):
+                st.warning("⚠️ 生產單已存")
+            elif st.button("✅ 確定", key="confirm_save_top"):
+                # 讀取輸入值寫回 order
+                order["顏色"] = st.session_state.color
+                order["Pantone 色號"] = st.session_state.pantone
+                order["計量單位"] = unit
+                order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+                order["原料"] = st.session_state.raw_material
+                order["備註"] = st.session_state.remark
+
+                for i in range(1, 5):
+                    order[f"包裝重量{i}"] = st.session_state.get(f"weight{i}", "").strip()
+                    order[f"包裝份數{i}"] = st.session_state.get(f"count{i}", "").strip()
+
+                # 先建立色粉重量列表
+                colorant_weights = []
+                for i in range(1, 9):
+                    c_weight = recipe_row.get(f"色粉重量{i}", "0")
+                    try:
+                        colorant_weights.append(float(c_weight))
+                    except:
+                        colorant_weights.append(0.0)
+
+                total_color_weight = sum(colorant_weights)
+                for i in range(1, 9):
+                    key = f"色粉編號{i}"
+                    val = recipe_row.get(key, "0")
+                    try:
+                        val_float = float(val)
+                    except:
+                        val_float = 0.0
+                    order[key] = f"{val_float:.2f}"
+                order["色粉合計"] = f"{total_color_weight:.2f}"
+
+                header = [col for col in df_order.columns if col and str(col).strip() != ""]
+                row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
+
+                try:
+                    ws_order.append_row(row_data)
+
+                    import os
+                    os.makedirs(os.path.dirname("data/order.csv"), exist_ok=True)
+                    df_new = pd.DataFrame([order], columns=df_order.columns)
+                    df_order = pd.concat([df_order, df_new], ignore_index=True)
+                    df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+                    st.session_state.df_order = df_order
+                    st.session_state.new_order_saved = True
+                    st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+                except Exception as e:
+                    st.error(f"❌ 寫入失敗：{e}")
+
+        with btn2:
+            if st.button("🖨️ 列印", key="print_button"):
+                if not st.session_state.get("new_order_saved"):
+                    st.warning("⚠️ 請先按『確定』儲存生產單後再列印")
+                else:
+                    st.info("請點擊上方列印連結，並使用瀏覽器列印（Ctrl+P）")
+
+        with btn3:
+            if st.button("❌ 取消", key="cancel_button"):
+                st.session_state.new_order = None
+                st.session_state.show_confirm_panel = False
+                st.session_state.new_order_saved = False
+                st.experimental_rerun()
+
+        with btn4:
+            if st.button("🔙 返回", key="back_button"):
+                st.session_state.new_order = None
+                st.session_state.show_confirm_panel = False
+                st.session_state.new_order_saved = False
+                st.experimental_rerun()
+
 
 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
