@@ -1182,7 +1182,7 @@ if page == "新增生產單":
             
             col1, col2 = st.columns(2)
             with col1:
-            df_recipe.columns = df_recipe.columns.str.strip()
+                df_recipe.columns = df_recipe.columns.str.strip()
 
             col1, col2 = st.columns(2)
             with col1:
