@@ -1451,7 +1451,10 @@ if page == "新增生產單":
 
         # 在這裡印出 content，方便除錯
         st.text("列印內容預覽:")
-        st.write(content if content else "(空白或 None)")    
+        try:
+            st.write(content if content else "(空白或 None)")
+        except Exception as e:
+            st.error(f"印出 content 發生錯誤：{e}")   
     
         edit_order = st.session_state.editing_order
     
