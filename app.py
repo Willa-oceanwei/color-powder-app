@@ -1226,21 +1226,21 @@ if page == "新增生產單":
             # 寫入 Google Sheets
             header = [col for col in df_order.columns if col and str(col).strip() != ""]
             row_data = [order.get(col, "").strip() if order.get(col) else "" for col in header]
-
-            try:
+    
+             try:
                 ws_order.append_row(row_data)
 
-                # 同步更新本地 CSV
-                import os
-                os.makedirs(os.path.dirname("data/order.csv"), exist_ok=True)
-                import pandas as pd
-                df_new = pd.DataFrame([order], columns=df_order.columns)
-                df_order = pd.concat([df_order, df_new], ignore_index=True)
-                df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
-                st.session_state.df_order = df_order
+            # 同步更新本地 CSV
+            import os
+            os.makedirs(os.path.dirname("data/order.csv"), exist_ok=True)
+            import pandas as pd
+            df_new = pd.DataFrame([order], columns=df_order.columns)
+            df_order = pd.concat([df_order, df_new], ignore_index=True)
+            df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+            st.session_state.df_order = df_order
 
-                st.session_state.new_order_saved = True
-                st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+            st.session_state.new_order_saved = True
+            st.success(f"✅ 生產單 {order['生產單號']} 已存！")
 
             except Exception as e:
                 st.error(f"❌ 寫入失敗：{e}")
