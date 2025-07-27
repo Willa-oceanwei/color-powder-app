@@ -1139,9 +1139,13 @@ if page == "新增生產單":
         st.markdown("### 🎨 色粉配方")
         st.dataframe(st.session_state["df_colorants_cache"], use_container_width=True)
         
-        st.write("DEBUG recipe_row:", recipe_row)
+        # ✅ 顯示合計類別與淨重
         col1, col2 = st.columns(2)
-        col1.markdown(f"**合計類別：** {recipe_row.get('合計類別', '')}")
+        
+        total_category = recipe_row.get("合計類別", "")
+        if pd.isna(total_category) or not str(total_category).strip():
+            total_category = "(無)"
+        col1.markdown(f"**合計類別：** {total_category}")
         try:
             net_weight = float(recipe_row.get("淨重", 0))
         except:
@@ -1191,6 +1195,13 @@ if page == "新增生產單":
             unsafe_allow_html=True
         )
 
+        # ✅ 下載 HTML 按鈕
+        st.download_button(
+            label="📄 下載列印 HTML",
+            data=print_html.encode("utf-8"),
+            file_name=f"{order['生產單號']}_print.html",
+            mime="text/html"
+        )
     
          # 按鈕區塊
         btn1, btn2, btn3, btn4 = st.columns(4)
@@ -1239,11 +1250,14 @@ if page == "新增生產單":
                     try:
                         ws_order.append_row(row_data)
     
-                        # 本地 CSV 同步更新
+                        # ✅ 本地 CSV 同步更新
+                        order_file = "data/order.csv"
+                        os.makedirs(os.path.dirname(order_file), exist_ok=True)
                         df_new = pd.DataFrame([order], columns=df_order.columns)
                         df_order = pd.concat([df_order, df_new], ignore_index=True)
                         df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                         st.session_state.df_order = df_order
+
     
                         st.session_state.new_order_saved = True
                         st.success(f"✅ 生產單 {order['生產單號']} 已存！")
