@@ -1174,7 +1174,7 @@ if page == "新增生產單":
         )
 
         # 外層控制按鈕
-        btn1, btn2, btn3, btn4 = st.columns(4)
+        btn1, btn2, btn3 = st.columns(3)
         with btn1:
             if st.session_state.get("new_order_saved"):
                 st.warning("⚠️ 生產單已存")
@@ -1229,20 +1229,13 @@ if page == "新增生產單":
                     st.error(f"❌ 寫入失敗：{e}")
 
         with btn2:
-            if st.button("🖨️ 列印", key="print_button"):
-                if not st.session_state.get("new_order_saved"):
-                    st.warning("⚠️ 請先按『確定』儲存生產單後再列印")
-                else:
-                    st.info("請點擊上方列印連結，並使用瀏覽器列印（Ctrl+P）")
-
-        with btn3:
             if st.button("❌ 取消", key="cancel_button"):
                 st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
                 st.experimental_rerun()
 
-        with btn4:
+        with btn3:
             if st.button("🔙 返回", key="back_button"):
                 st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
