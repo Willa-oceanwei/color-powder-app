@@ -1136,31 +1136,31 @@ if page == "新增生產單":
             pantone = c7.text_input("Pantone 色號", key="pantone", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")))
             raw_material = c8.text_input("原料", key="raw_material", value=order.get("原料", ""))
 
-            # 包裝重量與份數欄位（預設為0.0與0，前端顯示為空白：用format調了number_input欄位）
+            # 包裝重量與份數欄位
             st.markdown("**包裝重量與份數**")
             w_cols = st.columns(4)
             c_cols = st.columns(4)
 
+            # 包裝重量與份數欄位（預設為空白）
             for i in range(4):
-                # 預設使用order中值，若空或不合理則用0
                 raw_weight = order.get(f"包裝重量{i+1}", "")
                 try:
-                    weight_val = float(raw_weight) if raw_weight.strip() != "" else 0.0
+                    weight_val = float(raw_weight) if str(raw_weight).strip() != "" else None
                 except:
-                    weight_val = 0.0
+                    weight_val = None
                 st.session_state[f"weight{i+1}"] = w_cols[i].number_input(
                     f"包裝重量{i+1}", min_value=0.0, step=0.01, value=weight_val, format="%.2f"
                 )
-
+            
                 raw_count = order.get(f"包裝份數{i+1}", "")
                 try:
-                    count_val = int(float(raw_count)) if raw_count.strip() != "" else 0
+                    count_val = int(float(raw_count)) if str(raw_count).strip() != "" else None
                 except:
-                    count_val = 0
+                    count_val = None
                 st.session_state[f"count{i+1}"] = c_cols[i].number_input(
                     f"包裝份數{i+1}", min_value=0, step=1, value=count_val
                 )
-
+                
             # 備註欄
             remark = st.text_area("備註", key="remark", value=order.get("備註", ""), height=60)
 
@@ -1183,27 +1183,36 @@ if page == "新增生產單":
             total_category = recipe_row.get("合計類別", "")
             if pd.isna(total_category) or not str(total_category).strip():
                 total_category = "(無)"
-
+            
             try:
                 net_weight = float(recipe_row.get("淨重", 0))
             except:
                 net_weight = 0.0
-
+            
             col1, col2 = st.columns(2)
             with col1:
-                total_category = recipe_row.get("合計類別", "")
                 st.markdown(f"**合計類別：** {total_category}")
             with col2:
-                try:
-                    net_weight = float(recipe_row.get("淨重", 0))
-                except:
-                    net_weight = 0.0
                 st.markdown(f"**淨重：** {net_weight} g")
 
-            # **移除新增頁內表格下的儲存按鈕，改用form submit button**
-            submitted = st.form_submit_button("✅ 確定")
-
-        if submitted:
+        # 最外層按鈕區塊中的「✅ 確定」按下後觸發邏輯：
+        if st.session_state.get("new_order_saved") is not True:
+            if st.button("✅ 確定", key="confirm_save_top"):
+                # 更新 order 字典
+                order["顏色"] = st.session_state.color
+                order["Pantone 色號"] = st.session_state.pantone
+                order["計量單位"] = unit
+                order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+                order["原料"] = st.session_state.raw_material
+        
+                for i in range(1, 5):
+                    weight_val = st.session_state.get(f"weight{i}")
+                    count_val = st.session_state.get(f"count{i}")
+                    order[f"包裝重量{i}"] = f"{weight_val:.2f}" if weight_val is not None else ""
+                    order[f"包裝份數{i}"] = str(count_val) if count_val is not None else ""
+        
+                order["備註"] = st.session_state.remark
+                
             # 更新 order 字典
             order["顏色"] = st.session_state.color
             order["Pantone 色號"] = st.session_state.pantone
@@ -1218,7 +1227,7 @@ if page == "新增生產單":
 
             order["備註"] = st.session_state.remark
 
-            # 直接從配方資料中補齊色粉編號，並計算色粉合計（配方管理的色粉總和）
+            # 補齊色粉與合計
             total_color_weight = sum(colorant_weights)
             for i in range(1, 9):
                 key = f"色粉編號{i}"
@@ -1232,15 +1241,16 @@ if page == "新增生產單":
 
             # 寫入 Google Sheets
             header = [col for col in df_order.columns if col and str(col).strip() != ""]
-            row_data = [order.get(col, "").strip() if order.get(col) else "" for col in header]
+            row_data = [
+                str(order.get(col, "")).strip() if order.get(col) is not None else ""
+                for col in header
+            ]
     
             try:
                 ws_order.append_row(row_data)
-
+    
                 # 同步更新本地 CSV
-                import os
                 os.makedirs(os.path.dirname("data/order.csv"), exist_ok=True)
-                import pandas as pd
                 df_new = pd.DataFrame([order], columns=df_order.columns)
                 df_order = pd.concat([df_order, df_new], ignore_index=True)
                 df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
@@ -1250,7 +1260,7 @@ if page == "新增生產單":
                 st.success(f"✅ 生產單 {order['生產單號']} 已存！")
     
             except Exception as e:
-                    st.error(f"❌ 寫入失敗：{e}")
+                st.error(f"❌ 寫入失敗：{e}")
 
         # 列印、取消、返回按鈕區塊
         btn1, btn2, btn3, btn4 = st.columns(4)
