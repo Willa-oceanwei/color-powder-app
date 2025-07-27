@@ -1097,7 +1097,6 @@ elif menu == "生產單管理":
     
 # ---------- 新增後欄位填寫區塊 ----------
 # ===== 主流程頁面切換 =====
-page = st.session_state.get("page", "新增生產單")
 if page == "新增生產單":
     order = st.session_state.get("new_order", {})
     if st.session_state.get("show_confirm_panel") and order:
@@ -1254,7 +1253,7 @@ if page == "新增生產單":
             else:
                 # 按鈕功能改成觸發 rerun 讓表單重新顯示提交按鈕
                 if st.button("✅ 確定", key="confirm_save_top"):
-                    st.rerun()
+                    st.experimental_rerun()
 
         with btn2:
             if st.button("🖨️ 列印", key="print_button"):
@@ -1268,14 +1267,14 @@ if page == "新增生產單":
                 st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
-                st.rerun()
+                st.experimental_rerun()
 
         with btn4:
             if st.button("🔙 返回", key="back_button"):
                 st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
-                st.rerun()
+                st.experimental_rerun()
 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
