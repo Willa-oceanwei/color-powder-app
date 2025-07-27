@@ -1162,6 +1162,8 @@ if page == "新增生產單":
                 "用量 (g)": colorant_weights
             })
 
+            st.write("⚙️ Debug 合計類別：", recipe_row.keys())
+            
             try:
                 total_category = str(recipe_row.get("合計類別", "")).strip()
                 st.markdown(f"**合計類別：** {total_category}")
