@@ -1191,6 +1191,15 @@ if page == "新增生產單":
                     order[f"包裝重量{i}"] = st.session_state.get(f"weight{i}", "").strip()
                     order[f"包裝份數{i}"] = st.session_state.get(f"count{i}", "").strip()
 
+                # 先建立色粉重量列表
+                colorant_weights = []
+                for i in range(1, 9):
+                    c_weight = recipe_row.get(f"色粉重量{i}", "0")
+                    try:
+                        colorant_weights.append(float(c_weight))
+                    except:
+                        colorant_weights.append(0.0)
+
                 total_color_weight = sum(colorant_weights)
                 for i in range(1, 9):
                     key = f"色粉編號{i}"
