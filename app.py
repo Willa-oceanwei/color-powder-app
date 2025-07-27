@@ -1299,7 +1299,7 @@ if page == "新增生產單":
         df_filtered = df_order[mask]
     else:
         df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
-        df_filtered = df_order.sort_values(by="建立時間", ascending=False)
+        df_filtered = df_order.sort_values(by=["建立時間", "生產單號"], ascending=[False, False])
     
     limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0, key="selectbox_order_limit")
     
@@ -1311,7 +1311,7 @@ if page == "新增生產單":
     start_idx = (st.session_state.order_page - 1) * limit
     page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()  # 使用 copy 避免警告
     
-    # 產生下拉選單選項，保持與分頁資料對應
+    # 產生下拉選單選項
     options = []
     code_to_id = {}
     for idx, row in page_data.iterrows():
@@ -1322,7 +1322,7 @@ if page == "新增生產單":
     selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
     selected_code_edit = code_to_id.get(selected_label)
     
-    
+    # 計算出貨數量
     def calculate_shipment(row):
         try:
             unit = str(row.get("計量單位", "")).strip()
@@ -1364,21 +1364,20 @@ if page == "新增生產單":
             st.write(row)
             return ""
     
-    # 計算出貨數量並加入新欄位
+    # 計算出貨數量並顯示表格（不顯示生產日期）
     if not page_data.empty:
         shipment_series = page_data.apply(calculate_shipment, axis=1)
         page_data["出貨數量"] = shipment_series
     
-        # 顯示表格
         st.dataframe(
-            page_data[["生產日期", "生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]],
+            page_data[["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]],
             use_container_width=True,
             hide_index=True
         )
     else:
         st.info("查無符合的生產單")
     
-    # 分頁控制列（始終顯示）
+    # 分頁控制列
     cols_page = st.columns([1, 1, 1, 2])
     if cols_page[0].button("首頁"):
         st.session_state.order_page = 1
@@ -1397,11 +1396,8 @@ if page == "新增生產單":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
-    
-    # 修改 & 刪除功能區塊
-    codes = df_order["生產單號"].tolist()
+    # 修改 / 刪除按鈕
     cols_mod = st.columns([1, 1])
-    
     with cols_mod[0]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
             row = df_order[df_order["生產單號"] == selected_code_edit]
@@ -1423,13 +1419,11 @@ if page == "新增生產單":
             except Exception as e:
                 st.error(f"Google Sheets 刪除錯誤：{e}")
     
-            # 同步刪除本地資料
             df_order = df_order[df_order["生產單號"] != selected_code_edit]
             df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
             st.session_state.df_order = df_order
             st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
     
-            # 清理狀態並重新整理
             st.session_state.pop("selected_order_code_edit", None)
             st.session_state.show_edit_panel = False
             st.session_state.editing_order = None
@@ -1446,75 +1440,64 @@ if page == "新增生產單":
         new_color = st.text_input("顏色", value=edit_order.get("顏色", ""), key="edit_color")
     
         pack_weights_cols = st.columns(4)
-        new_packing_weights = [
-            pack_weights_cols[i - 1].text_input(f"包裝重量{i}", value=edit_order.get(f"包裝重量{i}", ""), key=f"edit_packing_weight_{i}")
-            for i in range(1, 5)
-        ]
+        new_packing_weights = []
+        for i in range(1, 5):
+            weight = pack_weights_cols[i - 1].text_input(
+                f"包裝重量{i}", value=edit_order.get(f"包裝重量{i}", ""), key=f"edit_packing_weight_{i}"
+            )
+            new_packing_weights.append(weight)
     
         pack_counts_cols = st.columns(4)
-        new_packing_counts = [
-            pack_counts_cols[i - 1].text_input(f"包裝份數{i}", value=edit_order.get(f"包裝份數{i}", ""), key=f"edit_packing_count_{i}")
-            for i in range(1, 5)
-        ]
+        new_packing_counts = []
+        for i in range(1, 5):
+            count = pack_counts_cols[i - 1].text_input(
+                f"包裝份數{i}", value=edit_order.get(f"包裝份數{i}", ""), key=f"edit_packing_count_{i}"
+            )
+            new_packing_counts.append(count)
     
         new_remark = st.text_area("備註", value=edit_order.get("備註", ""), key="edit_remark")
- 
-        # 🔍 列印內容預覽（嚴謹寫法）
-        recipe_id = edit_order.get("配方編號", "")
-        recipe_rows = df_recipe[df_recipe["配方編號"] == recipe_id]
-        
-        if recipe_rows.empty:
-            st.warning(f"⚠️ 找不到配方編號：{recipe_id}")
-        else:
-            recipe_row = recipe_rows.iloc[0]
-            print_html = generate_print_page_content(edit_order, recipe_row)
-        
-            import urllib.parse
-            encoded_html = urllib.parse.quote(print_html)
-        
-            st.markdown(
-                f"[👉 點此開啟列印頁面（新分頁，會自動叫出列印）](data:text/html;charset=utf-8,{encoded_html})",
-                unsafe_allow_html=True,
-            )
-            st.download_button(
-                label="📄 下載列印 HTML",
-                data=print_html.encode("utf-8"),
-                file_name=f"{edit_order['生產單號']}_print.html",
-                mime="text/html"
-            )
-
     
-        if st.button("儲存修改", key="save_edit_button"):
-            idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
-            if idx_list:
-                idx = idx_list[0]
-                df_order.at[idx, "客戶名稱"] = new_customer
-                df_order.at[idx, "顏色"] = new_color
-                for i in range(4):
-                    df_order.at[idx, f"包裝重量{i + 1}"] = new_packing_weights[i]
-                    df_order.at[idx, f"包裝份數{i + 1}"] = new_packing_counts[i]
-                df_order.at[idx, "備註"] = new_remark
+        # 儲存 / 返回 按鈕列
+        cols_save = st.columns([1, 1])
+        with cols_save[0]:
+            if st.button("💾 儲存修改", key="save_edit_button"):
+                idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
+                if idx_list:
+                    idx = idx_list[0]
+                    df_order.at[idx, "客戶名稱"] = new_customer
+                    df_order.at[idx, "顏色"] = new_color
+                    for i in range(4):
+                        df_order.at[idx, f"包裝重量{i + 1}"] = new_packing_weights[i]
+                        df_order.at[idx, f"包裝份數{i + 1}"] = new_packing_counts[i]
+                    df_order.at[idx, "備註"] = new_remark
     
-                try:
-                    cell = ws_order.find(edit_order["生產單號"])
-                    if cell:
-                        row_idx = cell.row
-                        row_data = df_order.loc[idx].fillna("").astype(str).tolist()
-                        last_col_letter = chr(65 + len(row_data) - 1)
-                        ws_order.update(f"A{row_idx}:{last_col_letter}{row_idx}", [row_data])
-                        st.success("✅ Google Sheets 同步更新成功")
-                    else:
-                        st.warning("⚠️ Google Sheets 找不到該筆生產單，未更新")
-                except Exception as e:
-                    st.error(f"Google Sheets 更新錯誤：{e}")
+                    try:
+                        cell = ws_order.find(edit_order["生產單號"])
+                        if cell:
+                            row_idx = cell.row
+                            row_data = df_order.loc[idx].fillna("").astype(str).tolist()
+                            last_col_letter = chr(65 + len(row_data) - 1)
+                            ws_order.update(f"A{row_idx}:{last_col_letter}{row_idx}", [row_data])
+                            st.success("✅ Google Sheets 同步更新成功")
+                        else:
+                            st.warning("⚠️ Google Sheets 找不到該筆生產單，未更新")
+                    except Exception as e:
+                        st.error(f"Google Sheets 更新錯誤：{e}")
     
-                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                st.session_state.df_order = df_order
-                st.success("✅ 本地資料更新成功，修改已儲存")
+                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                    st.session_state.df_order = df_order
+                    st.success("✅ 本地資料更新成功，修改已儲存")
     
-                st.session_state.pop("selected_order_code_edit", None)
+                    st.session_state.pop("selected_order_code_edit", None)
+                    st.session_state.show_edit_panel = False
+                    st.session_state.editing_order = None
+                    st.rerun()
+                else:
+                    st.error("⚠️ 找不到該筆生產單資料")
+    
+        with cols_save[1]:
+            if st.button("↩️ 返回"):
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
                 st.rerun()
-            else:
-                st.error("⚠️ 找不到該筆生產單資料")
+    
