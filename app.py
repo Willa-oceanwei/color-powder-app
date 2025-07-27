@@ -1190,8 +1190,15 @@ if page == "新增生產單":
                 net_weight = 0.0
 
             col1, col2 = st.columns(2)
-            col1.markdown(f"**合計類別：** {total_category}")
-            col2.markdown(f"**淨重：** {net_weight} g")
+            with col1:
+                total_category = recipe_row.get("合計類別", "")
+                st.markdown(f"**合計類別：** {total_category}")
+            with col2:
+                try:
+                    net_weight = float(recipe_row.get("淨重", 0))
+                except:
+                    net_weight = 0.0
+                st.markdown(f"**淨重：** {net_weight} g")
 
             # **移除新增頁內表格下的儲存按鈕，改用form submit button**
             submitted = st.form_submit_button("✅ 確定")
