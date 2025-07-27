@@ -1230,20 +1230,20 @@ if page == "新增生產單":
             try:
                 ws_order.append_row(row_data)
 
-            # 同步更新本地 CSV
-            import os
-            os.makedirs(os.path.dirname("data/order.csv"), exist_ok=True)
-            import pandas as pd
-            df_new = pd.DataFrame([order], columns=df_order.columns)
-            df_order = pd.concat([df_order, df_new], ignore_index=True)
-            df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
-            st.session_state.df_order = df_order
-
-            st.session_state.new_order_saved = True
-            st.success(f"✅ 生產單 {order['生產單號']} 已存！")
-
+                # 同步更新本地 CSV
+                import os
+                os.makedirs(os.path.dirname("data/order.csv"), exist_ok=True)
+                import pandas as pd
+                df_new = pd.DataFrame([order], columns=df_order.columns)
+                df_order = pd.concat([df_order, df_new], ignore_index=True)
+                df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+                st.session_state.df_order = df_order
+    
+                st.session_state.new_order_saved = True
+                st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+    
             except Exception as e:
-                st.error(f"❌ 寫入失敗：{e}")
+                    st.error(f"❌ 寫入失敗：{e}")
 
         # 列印、取消、返回按鈕區塊
         btn1, btn2, btn3, btn4 = st.columns(4)
