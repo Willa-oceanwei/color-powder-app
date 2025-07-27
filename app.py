@@ -1097,7 +1097,6 @@ elif menu == "生產單管理":
     
 # ---------- 新增後欄位填寫區塊 ----------
 # ===== 主流程頁面切換 =====
-page = st.session_state.get("page", "新增生產單")
 if page == "新增生產單":
     order = st.session_state.get("new_order", {})
     if st.session_state.get("show_confirm_panel") and order:
@@ -1127,26 +1126,21 @@ if page == "新增生產單":
         # 可編輯欄位
         c5, c6, c7, c8 = st.columns(4)
         c5.text_input("計量單位", value=unit, disabled=True)
-        st.session_state.color = c6.text_input("顏色", value=order.get("顏色", ""), key="color")
-        st.session_state.pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="pantone")
-        st.session_state.raw_material = c8.text_input("原料", value=order.get("原料", ""), key="raw_material")
+        c6.text_input("顏色", value=order.get("顏色", ""), key="color")
+        c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="pantone")
+        c8.text_input("原料", value=order.get("原料", ""), key="raw_material")
 
-        # 包裝重量與份數（使用 text_input）
+        # 包裝重量與份數（text_input）
         st.markdown("**包裝重量與份數**")
         w_cols = st.columns(4)
         c_cols = st.columns(4)
-
         for i in range(1, 5):
-            st.session_state[f"weight{i}"] = w_cols[i - 1].text_input(
-                f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"weight{i}"
-            )
-            st.session_state[f"count{i}"] = c_cols[i - 1].text_input(
-                f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"count{i}"
-            )
+            w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"weight{i}")
+            c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"count{i}")
 
-        st.session_state.remark = st.text_area("備註", value=order.get("備註", ""), key="remark")
+        st.text_area("備註", value=order.get("備註", ""), key="remark")
 
-        # 色粉表
+        # 色粉配方表格
         colorant_ids = []
         colorant_weights = []
         for i in range(1, 9):
@@ -1177,7 +1171,7 @@ if page == "新增生產單":
         with col2:
             st.markdown(f"**淨重：** {net_weight} g")
 
-        # 🔽 HTML下載按鈕
+        # 下載 HTML 列印按鈕
         st.download_button(
             label="📥 下載 A5 HTML",
             data=print_html.encode("utf-8"),
@@ -1185,12 +1179,13 @@ if page == "新增生產單":
             mime="text/html"
         )
 
-        # 外部控制按鈕區塊
+        # 外層控制按鈕
         btn1, btn2, btn3, btn4 = st.columns(4)
         with btn1:
             if st.session_state.get("new_order_saved"):
                 st.warning("⚠️ 生產單已存")
             elif st.button("✅ 確定", key="confirm_save_top"):
+                # 讀取輸入值寫回 order
                 order["顏色"] = st.session_state.color
                 order["Pantone 色號"] = st.session_state.pantone
                 order["計量單位"] = unit
@@ -1199,10 +1194,8 @@ if page == "新增生產單":
                 order["備註"] = st.session_state.remark
 
                 for i in range(1, 5):
-                    weight_val = st.session_state.get(f"weight{i}", "").strip()
-                    count_val = st.session_state.get(f"count{i}", "").strip()
-                    order[f"包裝重量{i}"] = weight_val
-                    order[f"包裝份數{i}"] = count_val
+                    order[f"包裝重量{i}"] = st.session_state.get(f"weight{i}", "").strip()
+                    order[f"包裝份數{i}"] = st.session_state.get(f"count{i}", "").strip()
 
                 total_color_weight = sum(colorant_weights)
                 for i in range(1, 9):
@@ -1215,11 +1208,12 @@ if page == "新增生產單":
                     order[key] = f"{val_float:.2f}"
                 order["色粉合計"] = f"{total_color_weight:.2f}"
 
-                # 寫入 Google Sheets 與 CSV
                 header = [col for col in df_order.columns if col and str(col).strip() != ""]
                 row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
+
                 try:
                     ws_order.append_row(row_data)
+
                     import os
                     os.makedirs(os.path.dirname("data/order.csv"), exist_ok=True)
                     df_new = pd.DataFrame([order], columns=df_order.columns)
@@ -1243,14 +1237,15 @@ if page == "新增生產單":
                 st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
-                st.rerun()
+                st.experimental_rerun()
 
         with btn4:
             if st.button("🔙 返回", key="back_button"):
                 st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
-                st.rerun()
+                st.experimental_rerun()
+
 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
