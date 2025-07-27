@@ -1103,9 +1103,9 @@ from datetime import datetime, timedelta
 
 # 假設 df_recipe, df_order, ws_order, generate_print_page_content 事先定義好
 
-# CSS 隱藏表單內 submit button
 st.markdown("""
 <style>
+/* 隱藏表單裡的 submit 按鈕 */
 form > div[role="group"] > button {
     display: none;
 }
