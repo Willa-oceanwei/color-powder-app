@@ -1118,6 +1118,8 @@ if page == "新增生產單":
             st.session_state["recipe_row_cache"] = recipe_row
 
         unit = recipe_row.get("計量單位", "kg")
+        # 列印 HTML 預覽
+        print_html = generate_print_page_content(order, recipe_row)
 
         with st.form("new_order_detail_form"):
             # 不可編輯欄位
