@@ -1193,6 +1193,9 @@ if page == "新增生產單":
                 except:
                     net_weight = 0.0
                 st.markdown(f"**淨重：** {net_weight} g")
+                
+                # ✅ 補上表單提交按鈕
+                submitted = st.form_submit_button("💾 儲存生產單")
 
         if submitted:
             # 按一下送出才更新
