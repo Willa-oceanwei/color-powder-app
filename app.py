@@ -1241,14 +1241,14 @@ if page == "新增生產單":
                 st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
-                st.experimental_rerun()
+                st.rerun()
 
         with btn4:
             if st.button("🔙 返回", key="back_button"):
                 st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
-                st.experimental_rerun()
+                st.rerun()
 
 
 
