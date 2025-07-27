@@ -1097,6 +1097,7 @@ elif menu == "生產單管理":
     
 # ---------- 新增後欄位填寫區塊 ----------
 # ===== 主流程頁面切換 =====
+page = st.session_state.get("page", "新增生產單")
 if page == "新增生產單":
     order = st.session_state.get("new_order", {})
     if st.session_state.get("show_confirm_panel") and order:
