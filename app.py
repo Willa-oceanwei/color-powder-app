@@ -1064,10 +1064,18 @@ elif menu == "生產單管理":
     
         # 合計列印
         total_line_vals = []
+        try:
+            net_weight = float(recipe_row.get("淨重", 0))
+        except:
+            net_weight = 0.0
+        
         for i in range(4):
-            multiplier = multipliers[i]
-            total = sum([w * multiplier if multiplier > 0 else 0 for w in colorant_weights])
-            total_line_vals.append(f"{total:.2f}".rstrip('0').rstrip('.') if total != 0 else "")
+            try:
+                multiplier = multipliers[i]
+                result = net_weight * multiplier if multiplier > 0 else 0
+                total_line_vals.append(f"{result:.2f}".rstrip('0').rstrip('.') if result != 0 else "")
+            except:
+                total_line_vals.append("")
         lines.append("合計     " + "    ".join([f"{v:>10}" for v in total_line_vals]))
         lines.append("")
     
@@ -1198,25 +1206,19 @@ if page == "新增生產單":
 
         # ✅ 表單送出後處理邏輯（寫入資料）
         if submitted:
+            # 更新基本欄位
             order["顏色"] = st.session_state.color
             order["Pantone 色號"] = st.session_state.pantone
             order["計量單位"] = unit
             order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
             order["原料"] = st.session_state.raw_material
             order["備註"] = st.session_state.remark
+        
             for i in range(1, 5):
                 order[f"包裝重量{i}"] = st.session_state.get(f"weight{i}", "").strip()
                 order[f"包裝份數{i}"] = st.session_state.get(f"count{i}", "").strip()
-
-            colorant_weights = []
-            for i in range(1, 9):
-                c_weight = recipe_row.get(f"色粉重量{i}", "0")
-                try:
-                    colorant_weights.append(float(c_weight))
-                except:
-                    colorant_weights.append(0.0)
-
-            total_color_weight = sum(colorant_weights)
+        
+            # ✅ 取得色粉編號（這段你可能也有）
             for i in range(1, 9):
                 key = f"色粉編號{i}"
                 val = recipe_row.get(key, "0")
@@ -1225,13 +1227,40 @@ if page == "新增生產單":
                 except:
                     val_float = 0.0
                 order[key] = f"{val_float:.2f}"
-            order["色粉合計"] = f"{total_color_weight:.2f}"
-
+        
+            # ✅ 新的色粉合計邏輯
+            try:
+                net_weight = float(recipe_row.get("淨重", 0))
+            except:
+                net_weight = 0.0
+        
+            color_weight_list = []
+            total_category = str(recipe_row.get("合計類別", "")).strip()
+        
+            for i in range(1, 5):
+                try:
+                    w_str = st.session_state.get(f"weight{i}", "").strip()
+                    weight = float(w_str) if w_str else 0.0
+                    result = net_weight * weight
+                    if weight > 0:
+                        color_weight_list.append({
+                            "項次": i,
+                            "重量": weight,
+                            "結果": result
+                        })
+                except:
+                    continue
+        
+            order["色粉合計清單"] = color_weight_list
+            order["色粉合計類別"] = total_category
+        
+            # ➕ 寫入 Google Sheets、CSV 等流程
             header = [col for col in df_order.columns if col and str(col).strip() != ""]
             row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
-
+        
             try:
                 ws_order.append_row(row_data)
+        
                 import os
                 os.makedirs(os.path.dirname("data/order.csv"), exist_ok=True)
                 df_new = pd.DataFrame([order], columns=df_order.columns)
