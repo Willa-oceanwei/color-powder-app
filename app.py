@@ -1156,36 +1156,28 @@ if page == "新增生產單":
         # --------------- 新增：列印專用 HTML 生成函式 ---------------
         def generate_print_page_content(order, recipe_row):
             content = generate_production_order_print(order, recipe_row)
-
-            # 在這裡印出 content，方便除錯
-            st.text("列印內容預覽:")
-            st.text(content if content else "(空白或 None)")       
-        
-            html_content = f"""
+            html = f"""
             <html>
             <head>
+                <meta charset="utf-8">
                 <title>生產單列印</title>
                 <style>
-                    body {{
-                        background: white; 
-                        color: black; 
-                        font-family: monospace; 
-                        white-space: pre-wrap; 
-                        padding: 20px;
-                    }}
+                    body {{ font-family: Arial, sans-serif; padding: 40px; }}
+                    pre {{ white-space: pre-wrap; font-size: 16px; }}
                 </style>
+                <script>
+                    window.onload = function() {{
+                        window.print();
+                    }}
+                </script>
             </head>
             <body>
-            <pre>{content}</pre>
-            <script>
-                window.onload = function() {{
-                    window.print();
-                }}
-            </script>
+                <pre>{content}</pre>
             </body>
             </html>
             """
-            return html_content
+            return html
+
         
         import urllib.parse
         print_html = generate_print_page_content(order, recipe_row)
