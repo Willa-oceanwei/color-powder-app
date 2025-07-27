@@ -1145,7 +1145,7 @@ if page == "新增生產單":
 
             remark = st.text_area("備註", value=order.get("備註", ""), key="remark")
 
-            submitted = st.form_submit_button("✅ 確定")
+            submitted = st.form_submit_button("hidden_submit", key="hidden_submit", help="hidden", visible=False)
 
         if submitted:
             # 按一下送出才更新
