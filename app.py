@@ -1478,6 +1478,7 @@ if page == "新增生產單":
         print_html = generate_print_page_content(edit_order, recipe_row)
     
         import urllib.parse
+        print_html = generate_print_page_content(edit_order, recipe_row)
         encoded_html = urllib.parse.quote(print_html)
     
         st.markdown(
