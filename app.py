@@ -1443,43 +1443,53 @@ if page == "新增生產單":
             st.session_state.editing_order = None
             st.rerun()
     
-    
     # 顯示修改面板
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
         st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
-            
+    
         edit_order = st.session_state.editing_order
     
         new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""), key="edit_customer_name")
         new_color = st.text_input("顏色", value=edit_order.get("顏色", ""), key="edit_color")
     
-        # 包裝重量 1~4
         pack_weights_cols = st.columns(4)
-        new_packing_weights = []
-        for i in range(1, 5):
-            weight = pack_weights_cols[i - 1].text_input(
-                f"包裝重量{i}", value=edit_order.get(f"包裝重量{i}", ""), key=f"edit_packing_weight_{i}"
-            )
-            new_packing_weights.append(weight)
+        new_packing_weights = [
+            pack_weights_cols[i - 1].text_input(f"包裝重量{i}", value=edit_order.get(f"包裝重量{i}", ""), key=f"edit_packing_weight_{i}")
+            for i in range(1, 5)
+        ]
     
-        # 包裝份數 1~4
         pack_counts_cols = st.columns(4)
-        new_packing_counts = []
-        for i in range(1, 5):
-            count = pack_counts_cols[i - 1].text_input(
-                f"包裝份數{i}", value=edit_order.get(f"包裝份數{i}", ""), key=f"edit_packing_count_{i}"
-            )
-            new_packing_counts.append(count)
+        new_packing_counts = [
+            pack_counts_cols[i - 1].text_input(f"包裝份數{i}", value=edit_order.get(f"包裝份數{i}", ""), key=f"edit_packing_count_{i}")
+            for i in range(1, 5)
+        ]
     
         new_remark = st.text_area("備註", value=edit_order.get("備註", ""), key="edit_remark")
+    
+        # 🔍 列印內容預覽
+        recipe_rows = df_recipe[df_recipe["配方編號"] == edit_order.get("配方編號", "")]
+        recipe_row = recipe_rows.iloc[0] if not recipe_rows.empty else {}
+        content = generate_production_order_print(edit_order, recipe_row)
+        if content:
+            import urllib.parse
+            print_html = generate_print_page_content(edit_order, recipe_row)
+            encoded_html = urllib.parse.quote(print_html)
+            st.markdown(
+                f"[👉 點此開啟列印頁面（新分頁，會自動叫出列印）](data:text/html;charset=utf-8,{encoded_html})",
+                unsafe_allow_html=True
+            )
+            st.download_button(
+                label="📄 下載列印 HTML",
+                data=print_html.encode("utf-8"),
+                file_name=f"{edit_order['生產單號']}_print.html",
+                mime="text/html"
+            )
     
         if st.button("儲存修改", key="save_edit_button"):
             idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
             if idx_list:
                 idx = idx_list[0]
-    
-                # 更新本地 DataFrame
                 df_order.at[idx, "客戶名稱"] = new_customer
                 df_order.at[idx, "顏色"] = new_color
                 for i in range(4):
@@ -1487,7 +1497,6 @@ if page == "新增生產單":
                     df_order.at[idx, f"包裝份數{i + 1}"] = new_packing_counts[i]
                 df_order.at[idx, "備註"] = new_remark
     
-                # 同步更新 Google Sheets
                 try:
                     cell = ws_order.find(edit_order["生產單號"])
                     if cell:
@@ -1501,12 +1510,10 @@ if page == "新增生產單":
                 except Exception as e:
                     st.error(f"Google Sheets 更新錯誤：{e}")
     
-                # 寫入本地檔案
                 df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                 st.session_state.df_order = df_order
                 st.success("✅ 本地資料更新成功，修改已儲存")
     
-                # 清理狀態並即時刷新
                 st.session_state.pop("selected_order_code_edit", None)
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
