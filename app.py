@@ -851,11 +851,14 @@ elif menu == "生產單管理":
     if "df_recipe" not in st.session_state:
         try:
             values = ws_recipe.get("A1:Z100")
-            st.session_state.df_recipe = pd.DataFrame(values[1:], columns=values[0]).astype(str)
+            df_temp = pd.DataFrame(values[1:], columns=values[0]).astype(str)
+            # 立刻清理欄位名稱空白
+            df_temp.columns = df_temp.columns.str.strip()
+            st.session_state.df_recipe = df_temp
         except Exception as e:
             st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
             st.stop()
-
+    
     df_recipe = st.session_state.df_recipe
 
     sheet_names = [s.title for s in spreadsheet.worksheets()]
