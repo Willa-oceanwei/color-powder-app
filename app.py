@@ -1458,7 +1458,8 @@ if page == "新增生產單":
             st.write(content if content else "(空白或 None)")
         except Exception as e:
             st.error(f"印出 content 發生錯誤：{e}")
-                edit_order = st.session_state.editing_order
+            
+        edit_order = st.session_state.editing_order
     
         new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""), key="edit_customer_name")
         new_color = st.text_input("顏色", value=edit_order.get("顏色", ""), key="edit_color")
