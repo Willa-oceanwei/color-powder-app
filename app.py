@@ -1143,7 +1143,7 @@ if page == "新增生產單":
                 except:
                     weight_val = None
                 st.session_state[f"weight{i+1}"] = w_cols[i].number_input(
-                    f"包裝重量{i+1}", min_value=0.0, step=0.01, value=weight_val, format="%.2f"
+                    f"包裝重量{i+1}", min_value=0.0, step=1.0, value=weight_val, format="%g"
                 )
 
                 raw_count = order.get(f"包裝份數{i+1}", "")
@@ -1171,9 +1171,11 @@ if page == "新增生產單":
             st.markdown("### 🎨 色粉配方")
             st.dataframe(df_colorants, use_container_width=True)
 
+            # ✅ 合計類別正確取得
             total_category = recipe_row.get("合計類別", "")
             if pd.isna(total_category) or not str(total_category).strip():
                 total_category = "(無)"
+
             try:
                 net_weight = float(recipe_row.get("淨重", 0))
             except:
@@ -1185,10 +1187,10 @@ if page == "新增生產單":
             with col2:
                 st.markdown(f"**淨重：** {net_weight} g")
 
-            # 加一顆無作用的 submit button 防止錯誤
+            # 隱藏提交按鈕防錯
             st.form_submit_button(label="", disabled=True)
 
-        # 外部四顆主控按鈕
+        # ---- 外部控制按鈕區塊 ----
         btn1, btn2, btn3, btn4 = st.columns(4)
 
         with btn1:
@@ -1203,10 +1205,10 @@ if page == "新增生產單":
                     order["原料"] = st.session_state.raw_material
 
                     for i in range(1, 5):
-                        weight_val = st.session_state.get(f"weight{i}", None)
+                        weight_val = st.session_state.get(f"weight{i}")
                         order[f"包裝重量{i}"] = f"{weight_val:.2f}" if weight_val is not None else ""
 
-                        count_val = st.session_state.get(f"count{i}", None)
+                        count_val = st.session_state.get(f"count{i}")
                         order[f"包裝份數{i}"] = str(count_val) if count_val is not None else ""
 
                     order["備註"] = st.session_state.remark
@@ -1222,7 +1224,7 @@ if page == "新增生產單":
                         order[key] = f"{val_float:.2f}"
                     order["色粉合計"] = f"{total_color_weight:.2f}"
 
-                    # 寫入 Google Sheets
+                    # ✅ 寫入 Google Sheet 與 CSV
                     header = [col for col in df_order.columns if col and str(col).strip() != ""]
                     row_data = [
                         str(order.get(col, "")).strip() if order.get(col) is not None else ""
@@ -1263,6 +1265,7 @@ if page == "新增生產單":
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
                 st.rerun()
+
 
 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
