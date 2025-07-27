@@ -1256,7 +1256,7 @@ if page == "新增生產單":
             else:
                 if st.button("✅ 確定", key="confirm_save_top"):
                     # 按鈕事件建議直接呼叫先前同樣的儲存邏輯或使用 rerun 觸發 submit 按鈕
-                    st.experimental_rerun()
+                    st.rerun()
 
         with btn2:
             if st.button("🖨️ 列印", key="print_button"):
@@ -1270,14 +1270,14 @@ if page == "新增生產單":
                 st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
-                st.experimental_rerun()
+                st.rerun()
 
         with btn4:
             if st.button("🔙 返回", key="back_button"):
                 st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
-                st.experimental_rerun()
+                st.rerun()
 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
