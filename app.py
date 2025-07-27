@@ -1163,7 +1163,8 @@ if page == "新增生產單":
             })
 
             try:
-                total_category = recipe_row.get("合計類別", "")
+                total_category = str(recipe_row.get("合計類別", "")).strip()
+                st.markdown(f"**合計類別：** {total_category}")
             except:
                 total_quantity = 0.0
 
@@ -1173,9 +1174,11 @@ if page == "新增生產單":
                 net_weight = 0.0
 
             st.dataframe(df_colorants, use_container_width=True)
+            
             col1, col2 = st.columns(2)
             with col1:
-                st.markdown(f"**合計類別：** {total_category}")
+                total_category = str(recipe_row.get("合計類別", "")).strip()
+                st.markdown(f"**合計類別：{total_category}**")
             with col2:
                 st.markdown(f"**淨重：** {net_weight} g")
 
