@@ -1158,8 +1158,8 @@ if page == "新增生產單":
             order["備註"] = st.session_state.remark
 
             for i in range(1, 5):
-                order[f"包裝重量{i}"] = weights[i - 1]
-                order[f"包裝份數{i}"] = counts[i - 1]
+                order[f"包裝重量{i}"] = st.session_state.get(f"weight{i}", "")
+                order[f"包裝份數{i}"] = st.session_state.get(f"count{i}", "")
 
             # 寫入 Google Sheets, CSV 等流程不變...
             # 你的原寫入程式碼放這
