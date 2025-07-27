@@ -1146,6 +1146,34 @@ if page == "新增生產單":
 
             remark = st.text_area("備註", value=order.get("備註", ""), key="remark")
 
+            # 🎨 色粉配方顯示（鎖定）
+        st.markdown("### 🎨 色粉配方")
+        colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+        colorant_weights = []
+        for i in range(8):
+            val = recipe_row.get(f"色粉重量{i+1}", "0")
+            try:
+                val_float = float(val)
+            except:
+                val_float = 0.0
+            colorant_weights.append(val_float)
+        df_colorants = pd.DataFrame({
+            "色粉編號": colorant_ids,
+            "用量 (g)": colorant_weights
+        })
+        st.dataframe(df_colorants, use_container_width=True)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            total_category = recipe_row.get("合計類別", "")
+            st.markdown(f"**合計類別：** {total_category}")
+        with col2:
+            try:
+                net_weight = float(recipe_row.get("淨重", 0))
+            except:
+                net_weight = 0.0
+            st.markdown(f"**淨重：** {net_weight} g")
+        
             submitted = st.form_submit_button("✅ 確定")
 
         if submitted:
