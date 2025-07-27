@@ -1466,18 +1466,23 @@ if page == "新增生產單":
         ]
     
         new_remark = st.text_area("備註", value=edit_order.get("備註", ""), key="edit_remark")
-    
-        # 🔍 列印內容預覽
-        recipe_rows = df_recipe[df_recipe["配方編號"] == edit_order.get("配方編號", "")]
-        recipe_row = recipe_rows.iloc[0] if not recipe_rows.empty else {}
-        content = generate_production_order_print(edit_order, recipe_row)
-        if content:
-            import urllib.parse
+ 
+        # 🔍 列印內容預覽（嚴謹寫法）
+        recipe_id = edit_order.get("配方編號", "")
+        recipe_rows = df_recipe[df_recipe["配方編號"] == recipe_id]
+        
+        if recipe_rows.empty:
+            st.warning(f"⚠️ 找不到配方編號：{recipe_id}")
+        else:
+            recipe_row = recipe_rows.iloc[0]
             print_html = generate_print_page_content(edit_order, recipe_row)
+        
+            import urllib.parse
             encoded_html = urllib.parse.quote(print_html)
+        
             st.markdown(
                 f"[👉 點此開啟列印頁面（新分頁，會自動叫出列印）](data:text/html;charset=utf-8,{encoded_html})",
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
             st.download_button(
                 label="📄 下載列印 HTML",
@@ -1485,6 +1490,7 @@ if page == "新增生產單":
                 file_name=f"{edit_order['生產單號']}_print.html",
                 mime="text/html"
             )
+
     
         if st.button("儲存修改", key="save_edit_button"):
             idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
