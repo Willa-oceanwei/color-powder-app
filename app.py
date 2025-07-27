@@ -1179,8 +1179,17 @@ if page == "新增生產單":
             
             col1, col2 = st.columns(2)
             with col1:
-                total_category = str(recipe_row.get("合計類別", "")).strip()
-                st.markdown(f"**合計類別：{total_category}**")
+            # 讀取後確保欄名乾淨
+            df_recipe.columns = df_recipe.columns.str.strip()
+            
+            # 取值時加上檢查
+            total_category = recipe_row.get("合計類別", "")
+            if total_category is None:
+                total_category = ""
+            total_category = str(total_category).strip()
+            
+            # 顯示
+            st.markdown(f"**合計類別：{total_category}**"
             with col2:
                 st.markdown(f"**淨重：** {net_weight} g")
 
