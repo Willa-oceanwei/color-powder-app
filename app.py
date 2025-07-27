@@ -1146,7 +1146,7 @@ if page == "新增生產單":
         total_category = recipe_row.get("合計類別", "")
         if pd.isna(total_category) or not str(total_category).strip():
             total_category = "(無)"
-        col1.markdown(f"**合計類別：** {total_category}")
+        st.markdown(f"**合計類別：** {total_category}")
         try:
             net_weight = float(recipe_row.get("淨重", 0))
         except:
