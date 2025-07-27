@@ -1097,7 +1097,6 @@ elif menu == "生產單管理":
     
 # ---------- 新增後欄位填寫區塊 ----------
 # ===== 主流程頁面切換 =====
-# ===== 主流程頁面切換 =====
 page = st.session_state.get("page", "新增生產單")
 if page == "新增生產單":
     order = st.session_state.get("new_order", {})
@@ -1146,35 +1145,54 @@ if page == "新增生產單":
 
             remark = st.text_area("備註", value=order.get("備註", ""), key="remark")
 
-            # 🎨 色粉配方顯示（鎖定）
-        st.markdown("### 🎨 色粉配方")
-        colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-        colorant_weights = []
-        for i in range(8):
-            val = recipe_row.get(f"色粉重量{i+1}", "0")
+            # 🎨 色粉配方顯示 (鎖定)
+            st.markdown("### 🎨 色粉配方")
+            # 取得色粉編號（字串）
+            colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+    
+            # 取得色粉重量（浮點數）
+            colorant_weights = []
+            for i in range(8):
+                val = recipe_row.get(f"色粉重量{i+1}", "0")
+                try:
+                    val_float = float(val)
+                except:
+                    val_float = 0.0
+                colorant_weights.append(val_float)
+    
+            # 顯示的 DataFrame
+            df_colorants = pd.DataFrame({
+                "色粉編號": colorant_ids,
+                "用量 (g)": colorant_weights
+            })
+    
+            # 取配方管理表中「合計類別」欄位（字串轉浮點數）
             try:
-                val_float = float(val)
+                total_category = recipe_row.get("合計類別", "")  # 字串
             except:
-                val_float = 0.0
-            colorant_weights.append(val_float)
-        df_colorants = pd.DataFrame({
-            "色粉編號": colorant_ids,
-            "用量 (g)": colorant_weights
-        })
-        st.dataframe(df_colorants, use_container_width=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            total_category = recipe_row.get("合計類別", "")
-            st.markdown(f"**合計類別：** {total_category}")
-        with col2:
+                total_quantity = 0.0
+    
+            # 取「淨重」欄位
             try:
                 net_weight = float(recipe_row.get("淨重", 0))
             except:
                 net_weight = 0.0
-            st.markdown(f"**淨重：** {net_weight} g")
-        
-            submitted = st.form_submit_button("✅ 確定")
+    
+            # 顯示 DataFrame
+            st.dataframe(df_colorants, use_container_width=True)
+    
+            col1, col2 = st.columns(2)
+    
+            with col1:
+                total_category = recipe_row.get("合計類別", "")
+                st.markdown(f"**合計類別：** {total_category}")
+    
+            with col2:
+                try:
+                    net_weight = float(recipe_row.get("淨重", 0))
+                except:
+                    net_weight = 0.0
+                st.markdown(f"**淨重：** {net_weight} g")
 
         if submitted:
             # 按一下送出才更新
