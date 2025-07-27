@@ -1184,25 +1184,24 @@ if page == "新增生產單":
                 mime="text/html"
             )
             # 按鈕區塊
-            btn1, btn2, btn3, btn4 = st.columns(4)
-    
+            btn1, btn2, btn3, btn4 = st.columns(4)    
             with btn1:
                 if st.session_state.get("new_order_saved"):
                      st.warning("⚠️ 生產單已存")
                 else:
                     if st.button("✅ 確定", key="confirm_save"):
-                # 更新 order 字典欄位
-                order["顏色"] = st.session_state.color
-                order["Pantone 色號"] = st.session_state.pantone
-                order["計量單位"] = unit
-                order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-                order["原料"] = st.session_state.raw_material
+                    # 更新 order 字典欄位
+                    order["顏色"] = st.session_state.color
+                    order["Pantone 色號"] = st.session_state.pantone
+                    order["計量單位"] = unit
+                    order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+                    order["原料"] = st.session_state.raw_material
     
                 for i in range(1, 5):
                     order[f"包裝重量{i}"] = st.session_state.get(f"weight{i}", "")
                     order[f"包裝份數{i}"] = st.session_state.get(f"count{i}", "")
     
-                order["備註"] = st.session_state.remark
+                    order["備註"] = st.session_state.remark
     
                 # 補齊色粉欄位與合計
                 colorants = []
