@@ -1448,16 +1448,6 @@ if page == "新增生產單":
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
         st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
-
-        # 在這裡印出 content，方便除錯
-        st.text("列印內容預覽:")
-        content = generate_production_order_print(order, recipe_row)
-        try:
-            st.write("DEBUG content type:", type(content))
-            st.write("DEBUG content value:", repr(content))
-            st.write(content if content else "(空白或 None)")
-        except Exception as e:
-            st.error(f"印出 content 發生錯誤：{e}")
             
         edit_order = st.session_state.editing_order
     
