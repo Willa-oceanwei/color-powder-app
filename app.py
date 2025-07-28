@@ -1024,9 +1024,6 @@ elif menu == "生產單管理":
                         if keyword in col:
                             return row[col]
                     return ""
-
-                recipe_row = filtered.iloc[idx]
-                recipe_row.index = recipe_row.index.str.strip()  # 🔑 確保沒有欄位名稱空格
             
                 # 建立 new_entry
                 new_entry = {
@@ -1036,12 +1033,11 @@ elif menu == "生產單管理":
                     "顏色": recipe.get("顏色", ""),
                     "客戶名稱": recipe.get("客戶名稱", ""),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "備註": recipe_row.get("備註", ""),  
-                    "色粉合計類別": recipe_row.get("合計類別", ""),  
+                    "備註": find_col_like(recipe, "備註"),
+                    "色粉合計類別": find_col_like(recipe, "合計類別"),
                 }
-                
-                st.write("✅ 備註來自配方:", recipe_row.get("備註", "無"))
-                st.write("✅ 合計類別來自配方:", recipe_row.get("合計類別", "無"))
+                st.write("🔍 recipe keys:", recipe.keys())
+                st.write("new_entry:", new_entry)
                 st.write("✅ 最終 new_entry:", new_entry)
 
                 # ✅ 接著再處理色粉欄位補齊
@@ -1175,8 +1171,7 @@ elif menu == "生產單管理":
                 total_line_vals.append(f"{result:.2f}".rstrip('0').rstrip('.') if result != 0 else "")
             except:
                 total_line_vals.append("")
-        total_category = order.get("色粉合計類別", "") or recipe_row.get("合計類別", "")
-        lines.append(f"合計類別: {total_category}")
+        lines.append(f"合計類別: {order.get('色粉合計類別', '')}")
         lines.append("合計     " + "    ".join([f"{v:>10}" for v in total_line_vals]))
         lines.append("")
     
@@ -1261,9 +1256,9 @@ if page == "新增生產單":
                 weights.append(w)
                 counts.append(c)
 
-            remark_default = order.get("備註", "")  # ✅ 直接從 order 拿
+            remark_default = order.get("備註") or recipe_row.get("備註", "")
             remark = st.text_area("備註", value=remark_default, key="remark")
-            
+
             # 🎨 色粉配方顯示 (鎖定)
             st.markdown("### 🎨 色粉配方")
             colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
@@ -1282,8 +1277,8 @@ if page == "新增生產單":
             })
             
             try:
-                total_category = order.get("色粉合計類別", "") or recipe_row.get("合計類別", "")
-                st.markdown(f"**合計類別：{total_category}**")
+                total_category = str(recipe_row.get("合計類別", "")).strip()
+                st.markdown(f"**合計類別：** {total_category}")
             except:
                 total_quantity = 0.0
 
