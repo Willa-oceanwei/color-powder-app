@@ -349,6 +349,7 @@ elif menu == "配方管理":
         "合計類別", "重要提醒", "備註", "建檔時間"
     ]
 
+    st.write("🔍 form_recipe keys:", list(fr.keys()))
     order_file = Path("data/df_recipe.csv")
 
     # 載入 Google Sheets
