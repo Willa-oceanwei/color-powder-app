@@ -450,7 +450,7 @@ elif menu == "配方管理":
         "比例1", "比例2", "比例3", "淨重", "淨重單位",
         *[f"色粉編號{i}" for i in range(1,9)],
         *[f"色粉重量{i}" for i in range(1,9)],
-        "合計類別", "備註", "建檔時間"
+        "合計類別", "重要提醒", "備註", "建檔時間"
     ]
     
     # 初始化 state 變數
@@ -577,6 +577,10 @@ elif menu == "配方管理":
             fr["計量單位"] = st.selectbox("計量單位", 計量單位_options, index=idx, key="form_recipe_計量單位")
         with col9:
             fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號", ""), key="form_recipe_Pantone色號")
+
+        # 新增一行「重要提醒」欄位
+        st.text_input("重要提醒", key="form_recipe_重要提醒", value=fr.get("重要提醒", ""))
+        fr["重要提醒"] = st.session_state.get("form_recipe_重要提醒", "")
     
         # 比例區
         col1, col_colon, col2, col3, col_unit = st.columns([2,1,2,2,1])
@@ -620,10 +624,7 @@ elif menu == "配方管理":
         # 合計類別與差額計算
         col1, col2 = st.columns(2)
         with col1:
-            合計類別選項 = ["LA", "MA", "CA", "流動劑", "滑粉", "其他", "料", "T9", "無"]
-            current_total_cat = fr.get("合計類別", "無")
-            idx = 合計類別選項.index(current_total_cat) if current_total_cat in 合計類別選項 else 0
-            fr["合計類別"] = st.selectbox("合計類別", 合計類別選項, index=idx, key="form_recipe_合計類別")
+                fr["合計類別"] = st.text_input("合計類別", value=fr.get("合計類別", ""), key="form_recipe_合計類別")
         with col2:
             try:
                 net_w = float(fr.get("淨重", "0") or "0")
@@ -643,6 +644,8 @@ elif menu == "配方管理":
             elif fr["配方類別"] == "附加配方" and fr.get("原始配方", "").strip() == "":
                 st.warning("⚠️ 附加配方必須填寫原始配方！")
             else:
+                st.session_state.form_recipe["重要提醒"] = fr.get("重要提醒", "")
+                st.session_state.form_recipe["合計類別"] = fr.get("合計類別", "")
                 # 匯入更新 DataFrame（新增或編輯）
                 if st.session_state.edit_recipe_index is not None:
                     df.iloc[st.session_state.edit_recipe_index] = pd.Series(fr)
