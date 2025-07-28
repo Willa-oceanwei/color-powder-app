@@ -1335,6 +1335,12 @@ if page == "新增生產單":
                 st.error(f"❌ 寫入失敗：{e}")
 
         # 產生列印 HTML 內容（字串）
+        # 假設這裡是某個流程中
+        print("order:", order)
+        print("recipe_row:", recipe_row)
+                
+        print_html = generate_print_page_content(order, recipe_row)
+
         # 如果沒有附加配方，呼叫無附加配方的版本
         html = generate_print_page_content(order, recipe_row)
         
