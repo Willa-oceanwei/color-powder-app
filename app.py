@@ -679,6 +679,26 @@ elif menu == "配方管理":
     # 初始化布林遮罩（全部為 True）
     mask = pd.Series(True, index=df.index)
 
+    # 初始化搜尋關鍵字，避免KeyError或型態錯誤
+    for key in ["recipe_kw", "customer_kw", "pantone_kw"]:
+        if key not in st.session_state:
+            st.session_state[key] = ""
+    
+    recipe_kw = st.session_state.get("recipe_kw", "")
+    if not isinstance(recipe_kw, str):
+        recipe_kw = ""
+    recipe_kw = recipe_kw.strip()
+    
+    customer_kw = st.session_state.get("customer_kw", "")
+    if not isinstance(customer_kw, str):
+        customer_kw = ""
+    customer_kw = customer_kw.strip()
+    
+    pantone_kw = st.session_state.get("pantone_kw", "")
+    if not isinstance(pantone_kw, str):
+        pantone_kw = ""
+    pantone_kw = pantone_kw.strip()
+
     # 依條件逐項過濾（多條件 AND）
     if recipe_kw:
         mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
