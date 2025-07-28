@@ -492,6 +492,7 @@ elif menu == "配方管理":
                 st.write(f"合計差額: {net - total:.2f} g/kg")
             except:
                 st.write("合計差額: 計算錯誤")
+        st.write("🔍 form_recipe keys:", list(fr.keys()))
 
         submitted = st.form_submit_button("💾 儲存配方")
 
@@ -526,7 +527,6 @@ elif menu == "配方管理":
                 st.session_state.edit_recipe_index = None
                 st.rerun()
 
-                st.write("🔍 form_recipe keys:", list(fr.keys()))
 
     # 刪除確認
     if st.session_state.show_delete_recipe_confirm:
