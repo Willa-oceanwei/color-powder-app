@@ -649,8 +649,9 @@ elif menu == "配方管理":
                 except Exception as e:
                     st.error(f"❌ 儲存失敗：{e}")
                     st.stop()
-    
-                st.session_state.df = df
+
+                st.session_state.df = df # 更新本頁的 session_state
+                st.success(f"✅ 配方 {fr['配方編號']} 成功更新/新增！")
                 st.session_state.form_recipe = {col: "" for col in columns}
                 st.session_state.edit_recipe_index = None
                 st.rerun()
