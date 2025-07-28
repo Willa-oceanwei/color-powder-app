@@ -315,6 +315,7 @@ elif menu == "客戶名單":
                     st.rerun()
 
 elif menu == "配方管理":
+
     
     # 載入「客戶名單」資料（假設來自 Google Sheet 工作表2）
     ws_customer = spreadsheet.worksheet("客戶名單")
@@ -640,10 +641,13 @@ elif menu == "配方管理":
                 # 儲存回 Google Sheets 與本地 CSV
                 def save_df_to_sheet(worksheet, df_to_save):
                     worksheet.clear()  # 先清空整張表
-                    worksheet.update([df_to_save.columns.values.tolist()] + df_to_save.values.tolist())
-    
+                    # 確保 column order 和 df_to_save 一致，避免錯位
+                    ordered_cols_df = df_to_save[columns] if all(col in df_to_save.columns for col in columns) else df_to_save
+                    worksheet.update([ordered_cols_df.columns.values.tolist()] + ordered_cols_df.values.tolist())
+                
                 try:
                     save_df_to_sheet(ws_recipe, df)
+                    order_file = Path("data/df_recipe.csv") # 確保這裡是正確的 CSV 路徑
                     order_file.parent.mkdir(parents=True, exist_ok=True)
                     df.to_csv(order_file, index=False, encoding="utf-8-sig")
                 except Exception as e:
@@ -652,12 +656,18 @@ elif menu == "配方管理":
 
                 st.session_state.df = df # 更新本頁的 session_state
                 st.success(f"✅ 配方 {fr['配方編號']} 成功更新/新增！")
+                
+                # ====== 在配方管理頁面成功儲存後，設定生產單頁面的刷新旗標 ======
+                # 這個旗標的名稱要和生產單頁面使用的完全一致
+                st.session_state.reload_df_recipe = True 
+                st.write("DEBUG: 配方管理頁面已設定 st.session_state.reload_df_recipe = True")
+
                 st.session_state.form_recipe = {col: "" for col in columns}
                 st.session_state.edit_recipe_index = None
                 st.rerun()
 
 
-    # 刪除確認
+    # 刪除確認 (保持原樣)
     if st.session_state.show_delete_recipe_confirm:
         target_row = df.iloc[st.session_state.delete_recipe_index]
         target_text = f'{target_row["配方編號"]}'
@@ -670,6 +680,10 @@ elif menu == "配方管理":
             save_df_to_sheet(ws_recipe, df)
             st.success("✅ 刪除成功！")
             st.session_state.show_delete_recipe_confirm = False
+            
+            # ====== 刪除成功後，也設定刷新旗標 ======
+            st.session_state.reload_df_recipe = True
+            st.write("DEBUG: 配方管理頁面刪除後，設定 st.session_state.reload_df_recipe = True")
             st.rerun()
     
         if c2.button("否"):
@@ -722,21 +736,16 @@ elif menu == "配方管理":
     st.subheader("🔎下方搜尋區")
     col1, col2, col3 = st.columns(3)
     with col1:
-        search_recipe_bottom = st.text_input("配方編號", key="search_recipe_code_bottom")
+        search_recipe_bottom = st.text_input("配方編號", value=st.session_state.get("search_recipe_code_bottom", ""), key="search_recipe_code_bottom")
     with col2:
-        search_customer_bottom = st.text_input("客戶名稱或編號", key="search_customer_bottom")
+        search_customer_bottom = st.text_input("客戶名稱或編號", value=st.session_state.get("search_customer_bottom", ""), key="search_customer_bottom")
     with col3:
-        search_pantone_bottom = st.text_input("Pantone色號", key="search_pantone_bottom")
+        search_pantone_bottom = st.text_input("Pantone色號", value=st.session_state.get("search_pantone_bottom", ""), key="search_pantone_bottom")
 
-    # 用這組輸入的資料做搜尋
-    search_recipe = search_recipe_bottom or search_recipe_top
-    search_customer = search_customer_bottom or search_customer_top
-    search_pantone = search_pantone_bottom or search_pantone_top
-
-    # 取搜尋關鍵字
-    recipe_kw = (st.session_state.get("search_recipe_code_bottom") or st.session_state.get("search_recipe_code_top") or "").strip()
-    customer_kw = (st.session_state.get("search_customer_bottom") or st.session_state.get("search_customer_top") or "").strip()
-    pantone_kw = (st.session_state.get("search_pantone_bottom") or st.session_state.get("search_pantone_top") or "").strip()
+    # 取搜尋關鍵字 (現在直接從 Streamlit widgets 的 key 中取)
+    recipe_kw = search_recipe_bottom.strip()
+    customer_kw = search_customer_bottom.strip()
+    pantone_kw = search_pantone_bottom.strip()
 
     st.write(f"搜尋條件：配方編號={recipe_kw}, 客戶名稱={customer_kw}, Pantone={pantone_kw}")
 
@@ -745,7 +754,7 @@ elif menu == "配方管理":
     if recipe_kw:
         mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
     if customer_kw:
-       mask &= (
+        mask &= (
             df["客戶名稱"].astype(str).str.contains(customer_kw, case=False, na=False) |
             df["客戶編號"].astype(str).str.contains(customer_kw, case=False, na=False)
         )
@@ -757,16 +766,14 @@ elif menu == "配方管理":
 
     st.write("🎯 篩選後筆數：", df_filtered.shape[0])
 
-    # --- 分頁設定 ---
+    # --- 分頁設定 --- (保持原樣)
     limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
     total_rows = df_filtered.shape[0]
     total_pages = max((total_rows - 1) // limit + 1, 1)
 
-    # 初始化分頁 page
     if "page" not in st.session_state:
         st.session_state.page = 1
 
-    # 搜尋條件改變時，分頁回到1
     search_id = (recipe_kw, customer_kw, pantone_kw)
     if "last_search_id" not in st.session_state or st.session_state.last_search_id != search_id:
         st.session_state.page = 1
@@ -776,13 +783,8 @@ elif menu == "配方管理":
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
 
-    # 計算目前頁面資料起迄索引
-    start_idx = (st.session_state.page - 1) * limit
-    end_idx = start_idx + limit
-    page_data = df_filtered.iloc[start_idx:end_idx]
-
-    # 4. 顯示資料表格區 (獨立塊)
-    show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
+    # 4. 顯示資料表格區 (獨立塊) (保持原樣)
+    show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號", "合計類別", "備註"] # 確保顯示這些欄位
     existing_cols = [c for c in show_cols if c in df_filtered.columns]
 
     st.markdown("---")  # 分隔線
@@ -792,7 +794,7 @@ elif menu == "配方管理":
     else:
         st.info("查無符合條件的配方。")
 
-    # 5. 配方編號選擇 + 修改／刪除 按鈕群組，使用 columns 水平排列
+    # 5. 配方編號選擇 + 修改／刪除 按鈕群組 (保持原樣)
     code_list = page_data["配方編號"].dropna().tolist()
 
     st.markdown("---")  # 分隔線
@@ -823,7 +825,7 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
 
-    # 6. 分頁控制按鈕 & 跳頁輸入欄，置於頁面底部並排
+    # 6. 分頁控制按鈕 & 跳頁輸入欄 (保持原樣)
     cols_page = st.columns([1,1,1,2])
     with cols_page[0]:
         if st.button("回到首頁"):
@@ -839,9 +841,8 @@ elif menu == "配方管理":
         if input_page != st.session_state.page:
             st.session_state.page = input_page
 
-    # 7. 分頁資訊顯示
+    # 7. 分頁資訊顯示 (保持原樣)
     st.markdown(f"目前第 **{st.session_state.page}** / **{total_pages}** 頁，總筆數：{total_rows}")
-
 
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
@@ -1047,32 +1048,40 @@ elif menu == "生產單管理":
                 }
                 st.write("DEBUG: new_entry before final assignment:", new_entry)
                 
-                # 色粉欄位計算
+                # 色粉欄位計算 (保持原樣)
                 colorant_total = 0
                 for i in range(1, 9):
-                    key = f"色粉{i}"
-                    val = recipe_dict.get(key, "0")
+                    key_id = f"色粉編號{i}" # 確保這裡是 色粉編號
+                    key_weight = f"色粉重量{i}" # 確保這裡是 色粉重量
+                    
+                    # 從 recipe_dict 中獲取值
+                    id_val = recipe_dict.get(key_id, "")
+                    weight_val = recipe_dict.get(key_weight, "0")
+                    
                     try:
-                        val_float = float(val)
-                    except:
-                        val_float = 0.0
-                    new_entry[key] = f"{val_float:.2f}"
-                    colorant_total += val_float
-                new_entry["色粉合計"] = f"{colorant_total:.2f}"
-    
-                st.write("DEBUG: recipe_dict keys:", list(recipe_dict.keys())) # <-- 新增這行
-                st.write("DEBUG: recipe_dict full content:", recipe_dict) # <-- 新增這行
-                
-                st.write("📋 最終 new_entry:", new_entry)
-                st.dataframe(filtered)
-                filtered.to_csv("debug_filtered.csv", index=False)
-                st.info("已匯出filtered資料到debug_filtered.csv")
-    
+                        weight_float = float(weight_val)
+                    except ValueError: # 處理轉換失敗的情況
+                        weight_float = 0.0
+                        st.warning(f"⚠️ 色粉重量 {key_weight} 無法轉換為數字，將設為 0。原始值：'{weight_val}'")
+
+                    new_entry[key_id] = id_val # 將編號也加入 new_entry
+                    new_entry[key_weight] = f"{weight_float:.2f}" # 將重量加入 new_entry
+                    colorant_total += weight_float
+                new_entry["色粉合計"] = f"{colorant_total:.2f}" # 確保這個欄位名稱和 df_order 的 column 匹配
+
+                # 補充可能缺少的欄位，避免 KeyError
+                # 在這裡確保 new_entry 包含了 df_order header 中所有的欄位，並給予預設值
+                for col_name in header:
+                    if col_name not in new_entry:
+                        new_entry[col_name] = "" # 或其他合理的預設值
+
+                st.write("📋 最終 new_entry:", new_entry) # 再次強調這裡的輸出
+                # st.dataframe(filtered) # 這行可以移掉，因為上面已經顯示過了
+                # filtered.to_csv("debug_filtered.csv", index=False) # 這行可以暫時移除，避免每次都寫入
+
                 st.session_state.new_order = new_entry
                 st.session_state.recipe_row_cache = recipe_dict
                 st.session_state.show_confirm_panel = True
-
-
 
     # ===== 自訂函式：產生生產單列印格式 =====
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
