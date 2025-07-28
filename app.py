@@ -66,8 +66,7 @@ init_states()
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
     print("🟢 使用新版 generate_production_order_print()")
-    print("函式位置：", id(generate_production_order_print))
-    raise Exception("我真的是新版！")  # 加上這句讓它強制報錯
+    
     unit = recipe_row.get("計量單位", "kg")
 
     # 取色粉資料
@@ -179,7 +178,54 @@ def generate_production_order_print(order, recipe_row, additional_recipe_row=Non
     lines.append(f"備註 : {order.get('備註', '')}")
 
     return "\n".join(lines)
-
+    
+def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
+    # 先呼叫你的內容產生函式，這是字串列印內容
+    content = generate_production_order_print(order, recipe_row, additional_recipe_row)
+    
+    # HTML 結構，將純文字內容用 <pre> 保持格式，並用 CSS 定義版型
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="zh-Hant">
+    <head>
+        <meta charset="utf-8" />
+        <title>生產單列印</title>
+        <style>
+            @media print {{
+                body {{
+                    margin: 20mm;
+                }}
+            }}
+            body {{
+                font-family: 'Courier New', monospace;
+                padding: 40px;
+                font-size: 16px;
+                line-height: 1.5;
+            }}
+            .title {{
+                text-align: center;
+                font-size: 28px;
+                font-weight: bold;
+                margin-bottom: 20px;
+            }}
+            pre {{
+                white-space: pre-wrap; /* 支援換行 */
+                word-wrap: break-word;
+            }}
+        </style>
+        <script>
+            window.onload = function() {{
+                window.print();
+            }}
+        </script>
+    </head>
+    <body>
+        <div class="title">生產單</div>
+        <pre>{content}</pre>
+    </body>
+    </html>
+    """
+    return html
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
