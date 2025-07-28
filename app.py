@@ -5,6 +5,7 @@ from google.oauth2.service_account import Credentials
 import pandas as pd
 import os
 import json
+import time
 
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
@@ -86,6 +87,12 @@ def generate_print_page_content(order, recipe_row):
     </html>
     """
     return html
+
+# --- 「模擬耗時的資料處理和 HTML 生成」的函數 ---
+# 這個函數會在點擊下載按鈕時被呼叫
+def generate_production_order_html(order_data: dict) -> str:
+    st.info("--- 正在生成 HTML 內容 (耗時操作模擬) ---")
+    time.sleep(2) # 模擬耗時的計算或資料查詢
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
