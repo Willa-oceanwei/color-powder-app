@@ -1011,6 +1011,8 @@ elif menu == "生產單管理":
                     "色粉合計類別": recipe.get("合計類別", ""),
                 }
 
+                st.write("new_entry:", new_entry)
+
                 # ✅ 接著再處理色粉欄位補齊
                 import pandas as pd
                 colorant_total = 0
@@ -1024,6 +1026,7 @@ elif menu == "生產單管理":
                     new_entry[key] = f"{val_float:.2f}"   # 轉成標準字串格式
                     colorant_total += val_float
                 new_entry["色粉合計"] = f"{colorant_total:.2f}"
+                new_entry["色粉合計類別"] = recipe.get("合計類別", "")
 
                 # ⬇ 最後進入狀態儲存
                 st.session_state.new_order = new_entry
