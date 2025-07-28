@@ -1140,6 +1140,7 @@ elif menu == "生產單管理":
                 total_line_vals.append(f"{result:.2f}".rstrip('0').rstrip('.') if result != 0 else "")
             except:
                 total_line_vals.append("")
+        lines.append(f"合計類別: {order.get('色粉合計類別', '')}")
         lines.append("合計     " + "    ".join([f"{v:>10}" for v in total_line_vals]))
         lines.append("")
     
