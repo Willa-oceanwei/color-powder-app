@@ -1046,6 +1046,7 @@ elif menu == "生產單管理":
                 st.write("備註欄位內容:", new_entry["備註"])
                 st.write("合計類別欄位內容:", new_entry["色粉合計類別"])
                 st.write("✅ 最終 new_entry:", new_entry)
+                st.write("filtered 欄位：", filtered.columns.tolist())
     
                 # 處理色粉欄位（你原本的）
                 import pandas as pd
