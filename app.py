@@ -1010,7 +1010,7 @@ elif menu == "生產單管理":
             idx = options.index(selected_option)
             recipe = filtered.iloc[idx]
     
-            if recipe.get("狀態") == "停用":
+            if recipe.get("狀態", "") == "停用":
                 st.error("此配方已停用，無法新增生產單")
             else:
                 # 生產單號建立
@@ -1019,29 +1019,31 @@ elif menu == "生產單管理":
                 count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0] if not df_all_orders.empty else 0
                 new_id = f"{today_str}-{count_today + 1:03}"
     
-                # ✅ 建立 new_entry
+                # 將 recipe 轉成 dict，欄位名稱清理確保一致
+                recipe_dict = recipe.to_dict()
+    
+                # 建立 new_entry
                 new_entry = {
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
-                    "配方編號": recipe["配方編號"],
-                    "顏色": recipe.get("顏色", ""),
-                    "客戶名稱": recipe.get("客戶名稱", ""),
+                    "配方編號": recipe_dict.get("配方編號", ""),
+                    "顏色": recipe_dict.get("顏色", ""),
+                    "客戶名稱": recipe_dict.get("客戶名稱", ""),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "備註": recipe.get("備註", ""),  # ✅ 從 recipe 取得
-                    "色粉合計類別": recipe.get("合計類別", ""),  # ✅ 從 recipe 取得
+                    "備註": recipe_dict.get("備註", ""),
+                    "色粉合計類別": recipe_dict.get("合計類別", ""),
                 }
     
                 st.write("📋 備註欄位內容:", new_entry["備註"])
                 st.write("📋 合計類別欄位內容:", new_entry["色粉合計類別"])
                 st.write("✅ 最終 new_entry:", new_entry)
-                st.write(recipe.index.tolist())
+                st.write(recipe_dict.keys())
     
-                # ✅ 處理色粉欄位
-                import pandas as pd
+                # 處理色粉欄位
                 colorant_total = 0
                 for i in range(1, 9):
                     key = f"色粉{i}"
-                    val = recipe.get(key, "0")
+                    val = recipe_dict.get(key, "0")
                     try:
                         val_float = float(val)
                     except:
@@ -1050,9 +1052,9 @@ elif menu == "生產單管理":
                     colorant_total += val_float
                 new_entry["色粉合計"] = f"{colorant_total:.2f}"
     
-                # ✅ 儲存狀態
+                # 儲存狀態
                 st.session_state.new_order = new_entry
-                st.session_state.recipe_row_cache = recipe  # ⚠ 用 recipe，不是 recipe_row
+                st.session_state.recipe_row_cache = recipe_dict
                 st.session_state.show_confirm_panel = True
 
 
