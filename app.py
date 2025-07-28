@@ -1015,6 +1015,8 @@ elif menu == "生產單管理":
             recipe_dict = recipe.to_dict()
             
             st.write("🔍 recipe keys:", recipe.index.tolist())
+            st.write("📋 配方資料預覽：")
+            st.dataframe(df_recipe[df_recipe["配方編號"] == recipe["配方編號"]])
     
             # 確認欄位名稱和值
             st.write("recipe_dict keys:", list(recipe_dict.keys()))
