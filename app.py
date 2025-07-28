@@ -1382,7 +1382,7 @@ if page == "新增生產單":
                     continue
         
             order["色粉合計清單"] = color_weight_list
-            order["色粉合計類別"] = total_category
+            order["合計類別"] = total_category
         
             # ➕ 寫入 Google Sheets、CSV 等流程
             header = [col for col in df_order.columns if col and str(col).strip() != ""]
