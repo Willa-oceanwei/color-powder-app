@@ -1024,6 +1024,9 @@ elif menu == "生產單管理":
                         if keyword in col:
                             return row[col]
                     return ""
+
+                recipe_row = filtered.iloc[idx]
+                recipe_row.index = recipe_row.index.str.strip()  # 🔑 確保沒有欄位名稱空格
             
                 # 建立 new_entry
                 new_entry = {
@@ -1033,16 +1036,13 @@ elif menu == "生產單管理":
                     "顏色": recipe.get("顏色", ""),
                     "客戶名稱": recipe.get("客戶名稱", ""),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "備註": recipe.get("備註", ""),  # ✅ 正確帶入配方的備註
-                    "色粉合計類別": recipe.get("合計類別", ""),  # ✅ 正確帶入合計類別
+                    "備註": recipe_row.get("備註", ""),  
+                    "色粉合計類別": recipe_row.get("合計類別", ""),  
                 }
-                st.write("🔍 recipe keys:", recipe.keys())
-                st.write("new_entry:", new_entry)
-                st.write("✅ 最終 new_entry:", new_entry)
-                st.write("🔎 當前選到的配方：")
-                st.write(recipe)
-                st.write("📋 備註來自配方:", recipe.get("備註"))
-                st.write("📋 合計類別來自配方:", recipe.get("合計類別"))
+                
+                st.write("✅ 備註來自配方:", recipe_row.get("備註", "無"))
+                st.write("✅ 合計類別來自配方:", recipe_row.get("合計類別", "無"))
+                st.write("✅ 最終 new_entry:", new_entry
 
                 # ✅ 接著再處理色粉欄位補齊
                 import pandas as pd
