@@ -913,12 +913,31 @@ elif menu == "生產單管理":
         st.stop()
 
     if "df_recipe" not in st.session_state:
-        try:
-            values = ws_recipe.get("A1:Z100")
+    try:
+        values = ws_recipe.get("A1:Z100") # 或者 ws_recipe.get_all_values()
+        if values:
             df_temp = pd.DataFrame(values[1:], columns=values[0]).astype(str)
-            # 立刻清理欄位名稱空白
-            df_temp.columns = df_temp.columns.str.strip()
-            st.session_state.df_recipe = df_temp
+            df_temp.columns = df_temp.columns.str.strip() # 再次確認清理
+            # 再次清理欄位名稱，移除所有非字母數字下劃線的字元 (這一步可以進一步排除隱藏字元問題)
+            df_temp.columns = df_temp.columns.str.replace(r'[^\w]', '', regex=True) 
+        else:
+            df_temp = pd.DataFrame(columns=[
+                "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
+                "Pantone 色號", "計量單位", "原料",
+                "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
+                "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
+                "備註", # 確保這裡有
+                "色粉編號1", "色粉編號2", "色粉編號3", "色粉編號4",
+                "色粉編號5", "色粉編號6", "色粉編號7", "色粉編號8", "色粉合計",
+                "合計類別" # 確保這裡有
+            ])
+
+        st.session_state.df_recipe = df_temp
+        st.write("--- DEBUG INFO (生產單管理) ---")
+        st.write("✅ df_recipe 載入後欄位:", st.session_state.df_recipe.columns.tolist())
+        st.write("✅ df_recipe 前幾行資料:", st.session_state.df_recipe.head())
+
+            
         except Exception as e:
             st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
             st.stop()
@@ -926,19 +945,6 @@ elif menu == "生產單管理":
     df_recipe = st.session_state.df_recipe
 
     sheet_names = [s.title for s in spreadsheet.worksheets()]
-
-    if "df_recipe" not in st.session_state:
-        try:
-            values = ws_recipe.get("A1:Z100")
-            df_temp = pd.DataFrame(values[1:], columns=values[0]).astype(str)
-            # 立刻清理欄位名稱空白
-            df_temp.columns = df_temp.columns.str.strip()
-            st.session_state.df_recipe = df_temp
-        except Exception as e:
-            st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
-            st.stop()
-
-    df_recipe = st.session_state.df_recipe
 
     # 補充欄位（若缺少就新增空欄）
     if "備註" not in df_recipe.columns:
