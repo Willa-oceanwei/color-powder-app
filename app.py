@@ -980,6 +980,10 @@ elif menu == "生產單管理":
                 ]
         else:
             filtered = df_recipe.copy()
+            filtered.columns = filtered.columns.str.strip()
+            filtered = filtered.rename_axis(None)
+            備註 = recipe.get("備註") or recipe.get(" 備註") or recipe.get("備註 ") or ""
+            合計類別 = recipe.get("合計類別") or recipe.get(" 合計類別") or recipe.get("合計類別 ") or ""
 
         # 建立選單選項顯示名稱
         def format_option(r):
