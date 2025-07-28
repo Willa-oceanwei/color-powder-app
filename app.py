@@ -1006,7 +1006,7 @@ elif menu == "生產單管理":
                     "配方編號": recipe["配方編號"],
                     "顏色": recipe.get("顏色", ""),
                     "客戶名稱": recipe.get("客戶名稱", ""),
-                    "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+                    "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
                     "備註": recipe.get("備註", ""),
                 }
 
