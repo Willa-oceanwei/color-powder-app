@@ -1022,9 +1022,6 @@ elif menu == "生產單管理":
             idx = options.index(selected_option)
             recipe = filtered.iloc[idx]
             recipe_dict = recipe.to_dict()
-            
-            st.write("DEBUG: recipe_dict keys:", list(recipe_dict.keys())) # <-- 新增這行
-            st.write("DEBUG: recipe_dict full content:", recipe_dict) # <-- 新增這行
     
             # 確認欄位名稱和值
             st.write("recipe_dict keys:", list(recipe_dict.keys()))
@@ -1063,6 +1060,9 @@ elif menu == "生產單管理":
                     colorant_total += val_float
                 new_entry["色粉合計"] = f"{colorant_total:.2f}"
     
+                st.write("DEBUG: recipe_dict keys:", list(recipe_dict.keys())) # <-- 新增這行
+                st.write("DEBUG: recipe_dict full content:", recipe_dict) # <-- 新增這行
+                
                 st.write("📋 最終 new_entry:", new_entry)
                 st.dataframe(filtered)
                 filtered.to_csv("debug_filtered.csv", index=False)
