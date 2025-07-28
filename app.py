@@ -407,9 +407,6 @@ elif menu == "配方管理":
     with col3:
         search_pantone_top = st.text_input("Pantone色號", key="search_pantone_top")
 
-    
-        
-    st.subheader("➕ 新增 / 修改配方")
 
 # =================== 客戶名單選單與預設值 ===================
     import streamlit as st
