@@ -1195,6 +1195,11 @@ if page == "新增生產單":
                 st.error(f"找不到配方編號：{recipe_id}")
                 st.stop()
             recipe_row = matched.iloc[0]
+            # ✅ 清除 recipe_row 的欄位名稱空白
+            recipe_row.index = recipe_row.index.str.strip()
+            
+            st.write("✅ recipe_row keys:", recipe_row.index.tolist())
+            
             st.session_state["recipe_row_cache"] = recipe_row
 
         unit = recipe_row.get("計量單位", "kg")
