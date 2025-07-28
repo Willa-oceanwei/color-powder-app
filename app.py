@@ -1011,6 +1011,7 @@ elif menu == "生產單管理":
                     "色粉合計類別": recipe.get("合計類別", ""),
                 }
 
+                st.write("🔍 recipe keys:", recipe.keys())
                 st.write("new_entry:", new_entry)
 
                 # ✅ 接著再處理色粉欄位補齊
