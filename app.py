@@ -1004,14 +1004,18 @@ elif menu == "生產單管理":
             st.warning("請先選擇配方")
         else:
             idx = options.index(selected_option)
-            recipe = filtered.iloc[idx]  # 這裡的 recipe 已經包含完整欄位
-            
+            recipe = filtered.iloc[idx]
+    
             if recipe.get("狀態") == "停用":
                 st.error("此配方已停用，無法新增生產單")
             else:
-                # 生產單號建立...
-                new_id = ...
+                # 生產單號建立
+                today_str = datetime.now().strftime("%Y%m%d")
+                df_all_orders = st.session_state.df_order.copy()
+                count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0] if not df_all_orders.empty else 0
+                new_id = f"{today_str}-{count_today + 1:03}"
     
+                # ✅ 建立 new_entry
                 new_entry = {
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
@@ -1019,33 +1023,33 @@ elif menu == "生產單管理":
                     "顏色": recipe.get("顏色", ""),
                     "客戶名稱": recipe.get("客戶名稱", ""),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "備註": recipe.get("備註", ""),  # 直接從 recipe 取
-                    "色粉合計類別": recipe.get("合計類別", ""),  # 直接從 recipe 取
+                    "備註": recipe.get("備註", ""),  # ✅ 從 recipe 取得
+                    "色粉合計類別": recipe.get("合計類別", ""),  # ✅ 從 recipe 取得
                 }
-                
-        
-                    st.write("備註欄位內容:", new_entry["備註"])
-                    st.write("合計類別欄位內容:", new_entry["色粉合計類別"])
-                    st.write("✅ 最終 new_entry:", new_entry)
-                    st.write("filtered 欄位：", filtered.columns.tolist())
-        
-                    # 處理色粉欄位（你原本的）
-                    import pandas as pd
-                    colorant_total = 0
-                    for i in range(1, 9):
-                        key = f"色粉{i}"
-                        val = recipe.get(key) if key in recipe and pd.notna(recipe[key]) else "0"
-                        try:
-                            val_float = float(val)
-                        except:
-                            val_float = 0.0
-                        new_entry[key] = f"{val_float:.2f}"
-                        colorant_total += val_float
-                    new_entry["色粉合計"] = f"{colorant_total:.2f}"
     
+                st.write("📋 備註欄位內容:", new_entry["備註"])
+                st.write("📋 合計類別欄位內容:", new_entry["色粉合計類別"])
+                st.write("✅ 最終 new_entry:", new_entry)
+    
+                # ✅ 處理色粉欄位
+                import pandas as pd
+                colorant_total = 0
+                for i in range(1, 9):
+                    key = f"色粉{i}"
+                    val = recipe.get(key, "0")
+                    try:
+                        val_float = float(val)
+                    except:
+                        val_float = 0.0
+                    new_entry[key] = f"{val_float:.2f}"
+                    colorant_total += val_float
+                new_entry["色粉合計"] = f"{colorant_total:.2f}"
+    
+                # ✅ 儲存狀態
                 st.session_state.new_order = new_entry
-                st.session_state.recipe_row_cache = recipe_row
+                st.session_state.recipe_row_cache = recipe  # ⚠ 用 recipe，不是 recipe_row
                 st.session_state.show_confirm_panel = True
+
 
     # ===== 自訂函式：產生生產單列印格式 =====
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
