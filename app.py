@@ -1014,14 +1014,11 @@ elif menu == "生產單管理":
             recipe = filtered.iloc[idx]
             recipe_dict = recipe.to_dict()
             
-            st.write("🔍 recipe keys:", recipe.index.tolist())
-            st.write("📋 配方資料預覽：")
-            st.dataframe(df_recipe[df_recipe["配方編號"] == recipe["配方編號"]])
+            st.write("DEBUG: recipe_dict keys:", list(recipe_dict.keys())) # <-- 新增這行
+            st.write("DEBUG: recipe_dict full content:", recipe_dict) # <-- 新增這行
     
             # 確認欄位名稱和值
             st.write("recipe_dict keys:", list(recipe_dict.keys()))
-            st.write("🔍 recipe keys:", recipe.index.tolist())
-            st.write("📄 recipe values:", recipe.to_dict())
             st.write(filtered.head())
     
             if recipe_dict.get("狀態", "") == "停用":
@@ -1040,9 +1037,10 @@ elif menu == "生產單管理":
                     "客戶名稱": recipe_dict.get("客戶名稱", ""),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
                     "備註": recipe_dict.get("備註", ""),
-                    "色粉合計類別": recipe_dict.get("合計類別", ""),
+                    "合計類別": recipe_dict.get("合計類別", ""),
                 }
-    
+                st.write("DEBUG: new_entry before final assignment:", new_entry)
+                
                 # 色粉欄位計算
                 colorant_total = 0
                 for i in range(1, 9):
