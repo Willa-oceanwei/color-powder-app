@@ -911,32 +911,34 @@ elif menu == "生產單管理":
     except Exception as e:
         st.error(f"❌ 無法載入工作表：{e}")
         st.stop()
+        
+    # ====== 新增這一段強制重新載入邏輯 ======
+    # 當 Streamlit 應用程式開始，或需要刷新 df_recipe 時，設置一個旗標
+    if "reload_df_recipe" not in st.session_state:
+        st.session_state.reload_df_recipe = True
 
-    if "df_recipe" not in st.session_state:
-    try:
-        values = ws_recipe.get("A1:Z100") # 或者 ws_recipe.get_all_values()
-        if values:
-            df_temp = pd.DataFrame(values[1:], columns=values[0]).astype(str)
-            df_temp.columns = df_temp.columns.str.strip() # 再次確認清理
-            # 再次清理欄位名稱，移除所有非字母數字下劃線的字元 (這一步可以進一步排除隱藏字元問題)
-            df_temp.columns = df_temp.columns.str.replace(r'[^\w]', '', regex=True) 
-        else:
-            df_temp = pd.DataFrame(columns=[
-                "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
-                "Pantone 色號", "計量單位", "原料",
-                "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
-                "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
-                "備註", # 確保這裡有
-                "色粉編號1", "色粉編號2", "色粉編號3", "色粉編號4",
-                "色粉編號5", "色粉編號6", "色粉編號7", "色粉編號8", "色粉合計",
-                "合計類別" # 確保這裡有
-            ])
-
-        st.session_state.df_recipe = df_temp
-        st.write("--- DEBUG INFO (生產單管理) ---")
-        st.write("✅ df_recipe 載入後欄位:", st.session_state.df_recipe.columns.tolist())
-        st.write("✅ df_recipe 前幾行資料:", st.session_state.df_recipe.head())
-
+    # 只有當 session_state 中沒有 df_recipe 或者 reload_df_recipe 為 True 時才從 Google Sheets 載入
+    if "df_recipe" not in st.session_state or st.session_state.reload_df_recipe:
+        try:
+            values = ws_recipe.get("A1:Z100") # 或者使用 get_all_values()
+            if values:
+                df_temp = pd.DataFrame(values[1:], columns=values[0]).astype(str)
+                df_temp.columns = df_temp.columns.str.strip().str.replace(r'[^\w]', '', regex=True) # 徹底清理
+            else:
+                df_temp = pd.DataFrame(columns=[
+                    "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
+                    "原始配方", "色粉類別", "計量單位", "Pantone色號",
+                    "比例1", "比例2", "比例3", "淨重", "淨重單位",
+                    *[f"色粉編號{i}" for i in range(1,9)],
+                    *[f"色粉重量{i}" for i in range(1,9)],
+                    "合計類別", "備註", "建檔時間"
+                ])
+            st.session_state.df_recipe = df_temp
+            st.session_state.reload_df_recipe = False # 載入完畢後設置為 False
+            st.write("DEBUG: **df_recipe 已從 Google Sheets 重新載入。**")
+            st.write("DEBUG: df_recipe 載入並清理後的欄位：", st.session_state.df_recipe.columns.tolist()) 
+            st.write("DEBUG: df_recipe 載入並清理後的資料頭部：")
+            st.dataframe(st.session_state.df_recipe.head()) # 檢查這裡的備註和合計類別是否有值！
             
         except Exception as e:
             st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
