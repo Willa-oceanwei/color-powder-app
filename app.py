@@ -1041,109 +1041,81 @@ elif menu == "生產單管理":
                 val = 0.0
             colorant_weights.append(val)
     
-        # 包裝重量欄位
-        packing_weights = []
-        for i in range(1,5):
-            try:
-                val = float(order.get(f"包裝重量{i}", 0))
-            except:
-                val = 0.0
-            packing_weights.append(val)
+        # 包裝重量與份數
+        packing_weights = [float(order.get(f"包裝重量{i}", 0)) for i in range(1, 5)]
+        packing_counts = [float(order.get(f"包裝份數{i}", 0)) for i in range(1, 5)]
     
-        # 包裝份數欄位（不影響倍數，只顯示）
-        packing_counts = []
-        for i in range(1,5):
-            try:
-                val = float(order.get(f"包裝份數{i}", 0))
-            except:
-                val = 0.0
-            packing_counts.append(val)
+        multipliers = packing_weights  # 倍數來自重量，不含份數
     
-        # 計算色粉倍率（只依包裝重量影響）
-        # 生產單倍數 = 包裝重量 * 份數，但你說只用包裝重量影響倍數，份數不影響倍數
-        # 因此倍數 = 包裝重量
-        multipliers = packing_weights
-    
-        # 建立輸出字串
+        # 開始列印內容
         lines = []
     
-        # 標題與基本資訊
-        lines.append(f"生產單")
-        lines.append(f"編號：{order.get('生產單號', '')}    顏色：{order.get('顏色', '')}    比例：{order.get('比例', '')} g/kg    國際色號：{order.get('Pantone 色號', '')}    建立時間：{order.get('建立時間', '')}")
+        # ====== 標題（置中） ======
+        title = "生產單"
+        lines.append(title.center(80))  # 置中對齊
+    
+        # ====== 基本資訊列 ======
+        lines.append(
+            f"配方編號：{recipe_row.get('配方編號', '')}    顏色：{order.get('顏色', '')}    比例：{order.get('比例', '')} g/kg    國際色號：{order.get('Pantone 色號', '')}    {order.get('建立時間', '')}"
+        )
         lines.append("")
     
-        # 包裝重量及份數顯示 (包裝 1 : 25K * 1)
+        # ====== 包裝資訊列 ======
         pack_line = []
         for i in range(4):
             w = packing_weights[i]
             c = packing_counts[i]
             if w > 0 or c > 0:
-                # 重量顯示
-                unit_str = ""
                 if unit == "包":
-                    # 1包 = 25kg
                     real_w = w * 25
                     unit_str = f"{real_w:.0f}K"
                 elif unit == "桶":
-                    # 1桶 = 100kg
                     real_w = w * 100
                     unit_str = f"{real_w:.0f}K"
                 else:
-                    # kg 單位，直接顯示 kg
                     real_w = w
                     unit_str = f"{real_w:.2f}kg"
-    
                 pack_line.append(f"包裝{i+1}：{unit_str} * {int(c) if c.is_integer() else c}")
-            else:
-                pack_line.append("")
-    
-        lines.append("    ".join([p for p in pack_line if p != ""]))
+        lines.append("    ".join(pack_line))
         lines.append("")
     
-        # 色粉欄位列印
-        # 首行是色粉編號
-        header_line = []
+        # ====== 色粉重量列印區 ======
+        header_cols = [f"{'':<10}"]
         for i in range(4):
-            # 生產單倍數依包裝重量（乘法倍數）
-            multiplier = multipliers[i]
-            if multiplier > 0:
-                header_line.append(f"{int(multiplier) if multiplier.is_integer() else multiplier}")
-            else:
-                header_line.append("")
-        lines.append("    ".join(header_line))
+            m = multipliers[i]
+            header_cols.append(f"{int(m) if m.is_integer() else m:>10}" if m > 0 else f"{'':>10}")
+        lines.append("".join(header_cols))  # 倍數作為欄位標題
     
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            line_vals = []
+            row = [f"{c_id:<10}"]
             for i in range(4):
-                multiplier = multipliers[i]
-                val = colorant_weights[idx] * multiplier if multiplier > 0 else 0
-                line_vals.append(f"{val:.2f}".rstrip('0').rstrip('.') if val != 0 else "")
-            line_str = f"{c_id:<10}" + "    ".join([f"{v:>10}" for v in line_vals])
-            lines.append(line_str)
+                val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
+                val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val != 0 else ""
+                row.append(f"{val_str:>10}")
+            lines.append("".join(row))
     
-        # 合計分隔線（只有色粉和合計中間要）
-        lines.append("＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿")
+        # ====== 合計橫線 ======
+        lines.append("".ljust(60, '＿'))
     
-        # 合計列印
-        total_line_vals = []
+        # ====== 合計列 ======
         try:
             net_weight = float(recipe_row.get("淨重", 0))
         except:
             net_weight = 0.0
-        
+    
+        total_line_vals = []
         for i in range(4):
             try:
-                multiplier = multipliers[i]
-                result = net_weight * multiplier if multiplier > 0 else 0
+                result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
                 total_line_vals.append(f"{result:.2f}".rstrip('0').rstrip('.') if result != 0 else "")
             except:
                 total_line_vals.append("")
         lines.append("合計     " + "    ".join([f"{v:>10}" for v in total_line_vals]))
         lines.append("")
     
-        # 附加配方 (如果有)
+        # ====== 附加配方區塊（如果有） ======
         if additional_recipe_row is not None:
             lines.append("附加配方")
             add_colorant_ids = [additional_recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
@@ -1154,21 +1126,22 @@ elif menu == "生產單管理":
                 except:
                     val = 0.0
                 add_colorant_weights.append(val)
+    
             for idx, c_id in enumerate(add_colorant_ids):
                 if not c_id:
                     continue
-                line_vals = []
+                row = [f"{c_id:<10}"]
                 for i in range(4):
-                    multiplier = multipliers[i]
-                    val = add_colorant_weights[idx] * multiplier if multiplier > 0 else 0
-                    line_vals.append(f"{val:.2f}".rstrip('0').rstrip('.') if val != 0 else "")
-                line_str = f"{c_id:<10}" + "    ".join([f"{v:>10}" for v in line_vals])
-                lines.append(line_str)
+                    val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
+                    val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val != 0 else ""
+                    row.append(f"{val_str:>10}")
+                lines.append("".join(row))
     
         lines.append("")
         lines.append(f"備註 : {order.get('備註', '')}")
     
         return "\n".join(lines)
+
     
 # ---------- 新增後欄位填寫區塊 ----------
 # ===== 主流程頁面切換 =====
