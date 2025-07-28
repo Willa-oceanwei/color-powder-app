@@ -635,7 +635,7 @@ elif menu == "配方管理":
     
                 # 儲存回 Google Sheets 與本地 CSV
                 def save_df_to_sheet(worksheet, df_to_save):
-                    worksheet.resize(rows=len(df_to_save)+1, cols=len(df_to_save.columns))
+                    worksheet.clear()  # 先清空整張表
                     worksheet.update([df_to_save.columns.values.tolist()] + df_to_save.values.tolist())
     
                 try:
