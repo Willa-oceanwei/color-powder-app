@@ -64,16 +64,32 @@ def init_states(keys=None):
 init_states()
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
-def generate_print_page_content(order, recipe_row):
-    content = generate_production_order_print(order, recipe_row)
+def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
+    content = generate_production_order_print(order, recipe_row, additional_recipe_row)
     html = f"""
     <html>
     <head>
         <meta charset="utf-8">
         <title>生產單列印</title>
         <style>
-            body {{ font-family: Arial, sans-serif; padding: 40px; }}
-            pre {{ white-space: pre-wrap; font-size: 16px; }}
+            @media print {{
+                body {{ margin: 10mm; }}
+            }}
+            body {{
+                font-family: 'Courier New', monospace;
+                padding: 40px;
+                line-height: 1.6;
+                font-size: 16px;
+            }}
+            .title {{
+                text-align: center;
+                font-size: 24px;
+                font-weight: bold;
+                margin-bottom: 20px;
+            }}
+            pre {{
+                white-space: pre;
+            }}
         </style>
         <script>
             window.onload = function() {{
@@ -82,17 +98,12 @@ def generate_print_page_content(order, recipe_row):
         </script>
     </head>
     <body>
+        <div class="title">生產單</div>
         <pre>{content}</pre>
     </body>
     </html>
     """
     return html
-
-# --- 「模擬耗時的資料處理和 HTML 生成」的函數 ---
-# 這個函數會在點擊下載按鈕時被呼叫
-def generate_production_order_html(order_data: dict) -> str:
-    st.info("--- 正在生成 HTML 內容 (耗時操作模擬) ---")
-    time.sleep(2) # 模擬耗時的計算或資料查詢
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
