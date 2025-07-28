@@ -646,25 +646,30 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = False
             st.rerun()
             
-    selected_customer = st.selectbox(
-        "客戶編號",
-         options=[""] + customer_options,
-        index=(customer_options.index(default_customer_str) + 1) if default_customer_str else 0,
-         key="form_recipe_selected_customer"
-    )
-    
-    if selected_customer and " - " in selected_customer:
-        客戶編號, 客戶簡稱 = selected_customer.split(" - ")
+    if default_customer_str in customer_options:
+        default_index = customer_options.index(default_customer_str) + 1  # 因為 options 前面多一個空字串
     else:
-        客戶編號 = ""
-        客戶簡稱 = ""
+        default_index = 0
     
     selected_customer = st.selectbox(
         "客戶編號",
         options=[""] + customer_options,
-        index=(customer_options.index(default_customer_str) + 1) if default_customer_str in customer_options else 0,
+        index=default_index,
         key="form_recipe_selected_customer"
     )
+        
+        if selected_customer and " - " in selected_customer:
+            客戶編號, 客戶簡稱 = selected_customer.split(" - ")
+        else:
+            客戶編號 = ""
+            客戶簡稱 = ""
+        
+        selected_customer = st.selectbox(
+            "客戶編號",
+            options=[""] + customer_options,
+            index=(customer_options.index(default_customer_str) + 1) if default_customer_str in customer_options else 0,
+            key="form_recipe_selected_customer"
+        )
     
     if selected_customer and " - " in selected_customer:
         客戶編號, 客戶簡稱 = selected_customer.split(" - ")
