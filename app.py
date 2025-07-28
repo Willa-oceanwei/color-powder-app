@@ -1197,7 +1197,8 @@ if page == "新增生產單":
             recipe_row = matched.iloc[0]
             # ✅ 清除 recipe_row 的欄位名稱空白
             recipe_row.index = recipe_row.index.str.strip()
-            
+
+            st.write("recipe_row 欄位列表：", list(recipe_row.index))
             st.write("✅ recipe_row keys:", recipe_row.index.tolist())
             
             st.session_state["recipe_row_cache"] = recipe_row
