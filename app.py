@@ -985,6 +985,10 @@ elif menu == "生產單管理":
             "備註": recipe["備註"] if "備註" in recipe else "",
             "色粉合計類別": recipe["合計類別"] if "合計類別" in recipe else "",
 
+        st.write("recipe_dict keys:", list(recipe_dict.keys()))
+        st.write("備註欄位的值:", repr(recipe_dict.get("備註")))
+        st.write("合計類別欄位的值:", repr(recipe_dict.get("合計類別"))
+
         # 建立選單選項顯示名稱
         def format_option(r):
             label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
