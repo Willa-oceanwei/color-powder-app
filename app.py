@@ -690,7 +690,7 @@ elif menu == "配方管理":
         "客戶編號",
         options=[""] + customer_options,
         index=default_index,
-        key="form_recipe_selected_customer"
+        key="form_recipe_selected_customer_edit"
     )
     if selected_customer and " - " in selected_customer:
         客戶編號, 客戶簡稱 = selected_customer.split(" - ")
