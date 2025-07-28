@@ -1019,17 +1019,19 @@ elif menu == "生產單管理":
     
                 new_id = f"{today_str}-{count_today + 1:03}"
     
-                # ✅ 正確找出 df_recipe 中該筆資料（因為 filtered 可能被 selectbox label 破壞順序）
+                # 這裡一定要從 df_recipe 抓該筆，才能拿到完整欄位
                 recipe_id = recipe.get("配方編號", "")
-                recipe_row = df_recipe[df_recipe["配方編號"] == recipe_id].copy()
-                recipe_row.columns = recipe_row.columns.str.strip()
-                if recipe_row.empty:
-                    st.error("❌ 無法在 df_recipe 找到該配方")
+                recipe_row_df = df_recipe[df_recipe["配方編號"] == recipe_id]
+                if recipe_row_df.empty:
+                    st.error(f"找不到配方編號 {recipe_id} 的資料")
                     st.stop()
-                recipe_row = recipe_row.iloc[0]
-                recipe_row.index = recipe_row.index.str.strip()
+                recipe_row = recipe_row_df.iloc[0]
     
-                # ✅ 建立 new_entry
+                # 修正欄位名稱及索引空白問題
+                recipe_row.index = recipe_row.index.str.strip()
+                # 如果需要，也可修正欄位名稱：
+                df_recipe.columns = df_recipe.columns.str.strip()
+    
                 new_entry = {
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
@@ -1041,11 +1043,11 @@ elif menu == "生產單管理":
                     "色粉合計類別": recipe_row.get("合計類別", ""),
                 }
     
-                st.write("📋 備註來自配方:", recipe_row.get("備註", "無"))
-                st.write("📋 合計類別來自配方:", recipe_row.get("合計類別", "無"))
+                st.write("備註欄位內容:", new_entry["備註"])
+                st.write("合計類別欄位內容:", new_entry["色粉合計類別"])
                 st.write("✅ 最終 new_entry:", new_entry)
     
-                # ✅ 色粉加總處理（你原本的）
+                # 處理色粉欄位（你原本的）
                 import pandas as pd
                 colorant_total = 0
                 for i in range(1, 9):
@@ -1061,7 +1063,7 @@ elif menu == "生產單管理":
     
                 st.session_state.new_order = new_entry
                 st.session_state.recipe_row_cache = recipe_row
-                st.session_state.show_confirm_panel = True    
+                st.session_state.show_confirm_panel = True
 
     # ===== 自訂函式：產生生產單列印格式 =====
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
