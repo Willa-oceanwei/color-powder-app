@@ -1018,8 +1018,8 @@ elif menu == "生產單管理":
     
             # 確認欄位名稱和值
             st.write("recipe_dict keys:", list(recipe_dict.keys()))
-            st.write("備註欄位的值:", repr(recipe_dict.get("備註")))
-            st.write("合計類別欄位的值:", repr(recipe_dict.get("合計類別")))
+            st.write("🔍 recipe keys:", recipe.index.tolist())
+            st.write("📄 recipe values:", recipe.to_dict())
             st.write(filtered.head())
     
             if recipe_dict.get("狀態", "") == "停用":
