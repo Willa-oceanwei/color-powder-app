@@ -65,6 +65,8 @@ init_states()
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
+    print("🟢 使用新版 generate_production_order_print()")
+    raise Exception("我真的是新版！")  # 加上這句讓它強制報錯
     unit = recipe_row.get("計量單位", "kg")
 
     # 取色粉資料
