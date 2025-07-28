@@ -1013,6 +1013,7 @@ elif menu == "生產單管理":
             idx = options.index(selected_option)
             recipe = filtered.iloc[idx]
             recipe_dict = recipe.to_dict()
+            st.write("🔍 recipe keys:", recipe.index.tolist())
     
             # 確認欄位名稱和值
             st.write("recipe_dict keys:", list(recipe_dict.keys()))
