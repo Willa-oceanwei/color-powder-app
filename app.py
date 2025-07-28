@@ -1014,10 +1014,10 @@ elif menu == "生產單管理":
             recipe = filtered.iloc[idx]
             recipe_dict = recipe.to_dict()
     
-            # 可打印欄位確認
-            st.write("recipe 欄位名稱:", list(recipe_dict.keys()))
-            st.write("recipe 備註:", recipe_dict.get("備註"))
-            st.write("recipe 合計類別:", recipe_dict.get("合計類別"))
+            # 確認欄位名稱和值
+            st.write("recipe_dict keys:", list(recipe_dict.keys()))
+            st.write("備註欄位的值:", repr(recipe_dict.get("備註")))
+            st.write("合計類別欄位的值:", repr(recipe_dict.get("合計類別")))
             st.write(filtered.head())
     
             if recipe_dict.get("狀態", "") == "停用":
@@ -1035,11 +1035,11 @@ elif menu == "生產單管理":
                     "顏色": recipe_dict.get("顏色", ""),
                     "客戶名稱": recipe_dict.get("客戶名稱", ""),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "備註": recipe_dict.get("備註", ""),               # 從 dict 取值
-                    "色粉合計類別": recipe_dict.get("合計類別", ""),    # 從 dict 取值
+                    "備註": recipe_dict.get("備註", ""),
+                    "色粉合計類別": recipe_dict.get("合計類別", ""),
                 }
     
-                # 處理色粉欄位
+                # 色粉欄位計算
                 colorant_total = 0
                 for i in range(1, 9):
                     key = f"色粉{i}"
@@ -1052,10 +1052,9 @@ elif menu == "生產單管理":
                     colorant_total += val_float
                 new_entry["色粉合計"] = f"{colorant_total:.2f}"
     
-                # 顯示 new_entry 確認資料
                 st.write("📋 最終 new_entry:", new_entry)
+                st.dataframe(filtered)
     
-                # 儲存
                 st.session_state.new_order = new_entry
                 st.session_state.recipe_row_cache = recipe_dict
                 st.session_state.show_confirm_panel = True
