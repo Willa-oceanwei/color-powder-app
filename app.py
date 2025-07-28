@@ -1000,12 +1000,12 @@ elif menu == "生產單管理":
                 new_id = f"{today_str}-{count_today + 1:03}"
 
                 def find_col_like(row, keyword):
-                    for col in row.index:
-                        if keyword in col:
-                            return row[col]
-                    return ""
-
-                # ✅ 建立 new_entry
+                for col in row.index:
+                    if keyword in col:
+                        return row[col]
+                return ""
+            
+                # 建立 new_entry
                 new_entry = {
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
@@ -1013,10 +1013,9 @@ elif menu == "生產單管理":
                     "顏色": recipe.get("顏色", ""),
                     "客戶名稱": recipe.get("客戶名稱", ""),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "備註": recipe_row["備註"] if "備註" in recipe_row.index else "",
-                    "色粉合計類別": recipe_row["合計類別"] if "合計類別" in recipe_row.index else "",
+                    "備註": find_col_like(recipe, "備註"),
+                    "色粉合計類別": find_col_like(recipe, "合計類別"),
                 }
-
                 st.write("🔍 recipe keys:", recipe.keys())
                 st.write("new_entry:", new_entry)
                 st.write("✅ 最終 new_entry:", new_entry)
@@ -1034,8 +1033,7 @@ elif menu == "生產單管理":
                     new_entry[key] = f"{val_float:.2f}"   # 轉成標準字串格式
                     colorant_total += val_float
                 new_entry["色粉合計"] = f"{colorant_total:.2f}"
-                new_entry["色粉合計類別"] = recipe.get("合計類別", "")
-
+            
                 # ⬇ 最後進入狀態儲存
                 st.session_state.new_order = new_entry
                 st.session_state.show_confirm_panel = True    
