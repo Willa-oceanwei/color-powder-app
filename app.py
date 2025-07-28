@@ -631,23 +631,26 @@ elif menu == "配方管理":
 
     # 刪除確認
     if st.session_state.show_delete_recipe_confirm:
-        target_row = df.iloc[st.session_state.delete_recipe_index]
-        target_text = f'{target_row["配方編號"]}'
-        st.warning(f"⚠️ 確定要刪除 {target_text}？")
-        c1, c2 = st.columns(2)
-        if c1.button("是"):
-            df.drop(index=st.session_state.delete_recipe_index, inplace=True)
-            df.reset_index(drop=True, inplace=True)
-            save_df_to_sheet(ws_recipe, df)
-            st.success("✅ 刪除成功！")
-            st.session_state.show_delete_recipe_confirm = False
-            st.rerun()
-        if c2.button("否"):
-            st.session_state.show_delete_recipe_confirm = False
-            st.rerun()
-            
+    target_row = df.iloc[st.session_state.delete_recipe_index]
+    target_text = f'{target_row["配方編號"]}'
+    st.warning(f"⚠️ 確定要刪除 {target_text}？")
+
+    c1, c2 = st.columns(2)
+    if c1.button("是"):
+        df.drop(index=st.session_state.delete_recipe_index, inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        save_df_to_sheet(ws_recipe, df)
+        st.success("✅ 刪除成功！")
+        st.session_state.show_delete_recipe_confirm = False
+        st.experimental_rerun()
+
+    if c2.button("否"):
+        st.session_state.show_delete_recipe_confirm = False
+        st.experimental_rerun()
+
+    # --------- 客戶選單 ---------
     if default_customer_str in customer_options:
-        default_index = customer_options.index(default_customer_str) + 1  # 因為 options 前面多一個空字串
+        default_index = customer_options.index(default_customer_str) + 1
     else:
         default_index = 0
     
@@ -657,26 +660,13 @@ elif menu == "配方管理":
         index=default_index,
         key="form_recipe_selected_customer"
     )
-        
-    if selected_customer and " - " in selected_customer:
-         客戶編號, 客戶簡稱 = selected_customer.split(" - ")
-     else:
-        客戶編號 = ""
-        客戶簡稱 = ""
-        
-    selected_customer = st.selectbox(
-        "客戶編號",
-        options=[""] + customer_options,
-        index=(customer_options.index(default_customer_str) + 1) if default_customer_str in customer_options else 0,
-        key="form_recipe_selected_customer"
-    )
     
     if selected_customer and " - " in selected_customer:
         客戶編號, 客戶簡稱 = selected_customer.split(" - ")
     else:
         客戶編號 = ""
         客戶簡稱 = ""
-
+    
     st.session_state.form_recipe["客戶編號"] = 客戶編號
     st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
         
