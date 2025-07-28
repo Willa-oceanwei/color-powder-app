@@ -180,10 +180,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_row=Non
     return "\n".join(lines)
     
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
-    # 先呼叫你的內容產生函式，這是字串列印內容
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
-    
-    # HTML 結構，將純文字內容用 <pre> 保持格式，並用 CSS 定義版型
     html = f"""
     <!DOCTYPE html>
     <html lang="zh-Hant">
@@ -209,7 +206,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
                 margin-bottom: 20px;
             }}
             pre {{
-                white-space: pre-wrap; /* 支援換行 */
+                white-space: pre-wrap;
                 word-wrap: break-word;
             }}
         </style>
@@ -226,6 +223,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     </html>
     """
     return html
+
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
@@ -1138,6 +1136,12 @@ elif menu == "生產單管理":
                     count_today = 0
 
                 new_id = f"{today_str}-{count_today + 1:03}"
+
+                # 假設這裡是某個流程中
+                print("order:", order)
+                print("recipe_row:", recipe_row)
+                
+                print_html = generate_print_page_content(order, recipe_row)
 
                 # ✅ 建立 new_entry
                 new_entry = {
