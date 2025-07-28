@@ -649,10 +649,14 @@ elif menu == "配方管理":
             st.experimental_rerun()
 
     # --------- 客戶選單 ---------
+    # 先確保customer_options與default_customer_str有值
+    customer_options = customer_options if isinstance(customer_options, list) else []
+    
+    default_customer_str = default_customer_str if isinstance(default_customer_str, str) else ""
+    
+    default_index = 0
     if default_customer_str in customer_options:
         default_index = customer_options.index(default_customer_str) + 1
-    else:
-        default_index = 0
     
     selected_customer = st.selectbox(
         "客戶編號",
@@ -660,7 +664,6 @@ elif menu == "配方管理":
         index=default_index,
         key="form_recipe_selected_customer"
     )
-    
     if selected_customer and " - " in selected_customer:
         客戶編號, 客戶簡稱 = selected_customer.split(" - ")
     else:
