@@ -1000,7 +1000,6 @@ elif menu == "生產單管理":
             st.info("無法取得任何符合的配方")
 
     if add_btn:
-        if add_btn:
         if not selected_option:
             st.warning("請先選擇配方")
         else:
@@ -1062,7 +1061,7 @@ elif menu == "生產單管理":
     
                 st.session_state.new_order = new_entry
                 st.session_state.recipe_row_cache = recipe_row
-                st.session_state.show_confirm_panel = True
+                st.session_state.show_confirm_panel = True    
 
     # ===== 自訂函式：產生生產單列印格式 =====
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
