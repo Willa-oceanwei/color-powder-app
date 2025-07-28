@@ -1137,12 +1137,7 @@ elif menu == "生產單管理":
 
                 new_id = f"{today_str}-{count_today + 1:03}"
 
-                # 假設這裡是某個流程中
-                print("order:", order)
-                print("recipe_row:", recipe_row)
                 
-                print_html = generate_print_page_content(order, recipe_row)
-
                 # ✅ 建立 new_entry
                 new_entry = {
                     "生產單號": new_id,
