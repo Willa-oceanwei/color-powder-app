@@ -578,8 +578,8 @@ elif menu == "配方管理":
         with col9:
             fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號", ""), key="form_recipe_Pantone色號")
 
-        # 新增一行「重要提醒」欄位
-        st.text_input("重要提醒", key="form_recipe_重要提醒", value=fr.get("重要提醒", ""))
+        # 新增一行「重要提醒」欄位 (✅ 修正：將回傳值賦予 fr["重要提醒"])
+        fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒", ""), key="form_recipe_重要提醒_input")
         
         # 比例區
         col1, col_colon, col2, col3, col_unit = st.columns([2,1,2,2,1])
