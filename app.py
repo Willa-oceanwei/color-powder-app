@@ -654,6 +654,16 @@ elif menu == "配方管理":
     
     default_customer_str = default_customer_str if isinstance(default_customer_str, str) else ""
     
+    # 先嘗試從 session_state 取得，沒有就設空字串
+    default_customer_str = ""
+    if "form_recipe" in st.session_state and st.session_state.form_recipe:
+        default_customer_str = st.session_state.form_recipe.get("客戶編號", "")
+        
+    # 如果型態不是字串就給空字串（防呆）
+    if not isinstance(default_customer_str, str):
+        default_customer_str = ""
+    
+    # 預設索引給初值 0
     default_index = 0
     if default_customer_str in customer_options:
         default_index = customer_options.index(default_customer_str) + 1
