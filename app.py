@@ -676,42 +676,6 @@ elif menu == "配方管理":
             st.rerun()
 
     # --------- 客戶選單 ---------
-    # 先從 session_state 取得，預設為空字串
-    default_customer_str = ""
-    if "form_recipe" in st.session_state and st.session_state.form_recipe:
-        default_customer_str = st.session_state.form_recipe.get("客戶編號", "")
-    
-    # 型態防呆，確保是字串
-    if not isinstance(default_customer_str, str):
-        default_customer_str = ""
-    
-    # 確定預設索引，避免 .index() 找不到而掉錯誤
-    default_index = 0
-    if default_customer_str in customer_options:
-        default_index = customer_options.index(default_customer_str) + 1
-    
-    selected_customer = st.selectbox(
-        "客戶編號",
-        options=[""] + customer_options,
-        index=default_index,
-        key="form_recipe_selected_customer_edit"
-    )
-    if selected_customer and " - " in selected_customer:
-        客戶編號, 客戶簡稱 = selected_customer.split(" - ")
-    else:
-        客戶編號 = ""
-        客戶簡稱 = ""
-    
-    st.session_state.form_recipe["客戶編號"] = 客戶編號
-    st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
-        
-    import pandas as pd
-
-    # 從 session_state 取得搜尋字串（如果有輸入）
-    recipe_kw = (st.session_state.get("recipe_kw") or "").strip()
-    customer_kw = (st.session_state.get("customer_kw") or "").strip()
-    pantone_kw = (st.session_state.get("pantone_kw") or "").strip()
-
     # 初始化布林遮罩（全部為 True）
     mask = pd.Series(True, index=df.index)
 
