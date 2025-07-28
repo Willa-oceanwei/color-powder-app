@@ -658,18 +658,18 @@ elif menu == "配方管理":
         key="form_recipe_selected_customer"
     )
         
-        if selected_customer and " - " in selected_customer:
-            客戶編號, 客戶簡稱 = selected_customer.split(" - ")
-        else:
-            客戶編號 = ""
-            客戶簡稱 = ""
+    if selected_customer and " - " in selected_customer:
+         客戶編號, 客戶簡稱 = selected_customer.split(" - ")
+     else:
+        客戶編號 = ""
+        客戶簡稱 = ""
         
-        selected_customer = st.selectbox(
-            "客戶編號",
-            options=[""] + customer_options,
-            index=(customer_options.index(default_customer_str) + 1) if default_customer_str in customer_options else 0,
-            key="form_recipe_selected_customer"
-        )
+    selected_customer = st.selectbox(
+        "客戶編號",
+        options=[""] + customer_options,
+        index=(customer_options.index(default_customer_str) + 1) if default_customer_str in customer_options else 0,
+        key="form_recipe_selected_customer"
+    )
     
     if selected_customer and " - " in selected_customer:
         客戶編號, 客戶簡稱 = selected_customer.split(" - ")
