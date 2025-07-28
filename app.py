@@ -1039,6 +1039,8 @@ elif menu == "生產單管理":
                 st.write("🔍 recipe keys:", recipe.keys())
                 st.write("new_entry:", new_entry)
                 st.write("✅ 最終 new_entry:", new_entry)
+                st.write("🔎 當前選到的配方：")
+                st.write(recipe)
                 st.write("📋 備註來自配方:", recipe.get("備註"))
                 st.write("📋 合計類別來自配方:", recipe.get("合計類別"))
 
