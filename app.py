@@ -482,19 +482,42 @@ elif menu == "配方管理":
     st.subheader("➕ 新增 / 修改配方")
     
     with st.form("recipe_form"):
-    
-        # 預設值來自 st.session_state.form_recipe
-        fr = st.session_state.form_recipe  # 簡稱方便使用
-    
-        # 第一排
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            fr["配方編號"] = st.text_input("配方編號", value=fr.get("配方編號", ""), key="form_recipe_配方編號")
-        with col2:
-            fr["顏色"] = st.text_input("顏色", value=fr.get("顏色", ""), key="form_recipe_顏色")
-        with col3:
-            fr["客戶編號"] = st.text_input("客戶編號", value=fr.get("客戶編號", ""), key="form_recipe_客戶編號")
-    
+
+    fr = st.session_state.form_recipe
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        fr["配方編號"] = st.text_input("配方編號", value=fr.get("配方編號", ""), key="form_recipe_配方編號")
+    with col2:
+        fr["顏色"] = st.text_input("顏色", value=fr.get("顏色", ""), key="form_recipe_顏色")
+    with col3:
+        # 預設值找相符字串
+        default_customer_str = ""
+        if fr.get("客戶編號"):
+            for opt in customer_options:
+                if opt.startswith(fr["客戶編號"]):
+                    default_customer_str = opt
+                    break
+
+        default_index = 0
+        if default_customer_str in customer_options:
+            default_index = customer_options.index(default_customer_str) + 1
+
+        selected_customer = st.selectbox(
+            "客戶編號",
+            options=[""] + customer_options,
+            index=default_index,
+            key="form_recipe_selected_customer"
+        )
+
+        if selected_customer and " - " in selected_customer:
+            客戶編號, 客戶簡稱 = selected_customer.split(" - ", 1)
+        else:
+            客戶編號, 客戶簡稱 = "", ""
+
+        fr["客戶編號"] = 客戶編號
+        fr["客戶名稱"] = 客戶簡稱
+   
         # 第二排
         col4, col5, col6 = st.columns(3)
         with col4:
