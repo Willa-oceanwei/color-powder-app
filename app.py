@@ -982,7 +982,7 @@ elif menu == "生產單管理":
             filtered = df_recipe.copy()
         
         filtered.columns = filtered.columns.str.strip()  # 一定要做這步
-        filtered = filtered.rename_axis(None)
+        filtered = filtered.applymap(lambda x: x.strip() if isinstance(x, str) else x)
 
         st.write("filtered 篩選結果：")
         st.write(filtered.head())
