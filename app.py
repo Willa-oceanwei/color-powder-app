@@ -1255,14 +1255,12 @@ if page == "新增生產單":
             st.dataframe(df_colorants, use_container_width=True)
             
             col1, col2 = st.columns(2)
-            with col1:
-                df_recipe.columns = df_recipe.columns.str.strip()
-
+            # 🔄 顯示合計類別與淨重（合併版）
             col1, col2 = st.columns(2)
+            
             with col1:
-                total_category = recipe_row.get("合計類別", "")
-                if total_category is None:
-                    total_category = ""
+                # ✅ 顯示合計類別（優先取 order，其次 recipe_row）
+                total_category = order.get("色粉合計類別") or recipe_row.get("合計類別", "")
                 total_category = str(total_category).strip()
                 st.markdown(f"**合計類別：{total_category}**")
             
