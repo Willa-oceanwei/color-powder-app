@@ -1042,7 +1042,7 @@ elif menu == "生產單管理":
                 
                 st.write("✅ 備註來自配方:", recipe_row.get("備註", "無"))
                 st.write("✅ 合計類別來自配方:", recipe_row.get("合計類別", "無"))
-                st.write("✅ 最終 new_entry:", new_entry
+                st.write("✅ 最終 new_entry:", new_entry)
 
                 # ✅ 接著再處理色粉欄位補齊
                 import pandas as pd
