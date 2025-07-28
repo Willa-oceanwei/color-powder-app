@@ -580,8 +580,7 @@ elif menu == "配方管理":
 
         # 新增一行「重要提醒」欄位
         st.text_input("重要提醒", key="form_recipe_重要提醒", value=fr.get("重要提醒", ""))
-        fr["重要提醒"] = st.session_state.get("form_recipe_重要提醒", "")
-    
+        
         # 比例區
         col1, col_colon, col2, col3, col_unit = st.columns([2,1,2,2,1])
         with col1:
