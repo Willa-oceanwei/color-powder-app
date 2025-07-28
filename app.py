@@ -517,6 +517,10 @@ elif menu == "配方管理":
     
             fr["客戶編號"] = 客戶編號
             fr["客戶名稱"] = 客戶簡稱
+
+            # **確保寫回 session_state**
+            st.session_state.form_recipe["客戶編號"] = 客戶編號
+            st.session_state.form_recipe["客戶名稱"] = 客戶簡稱
    
         # 第二排
         col4, col5, col6 = st.columns(3)
