@@ -1154,7 +1154,8 @@ if page == "新增生產單":
                 weights.append(w)
                 counts.append(c)
 
-            remark = st.text_area("備註", value=order.get("備註", ""), key="remark")
+            remark_default = order.get("備註") or recipe_row.get("備註", "")
+            remark = st.text_area("備註", value=remark_default, key="remark")
 
             # 🎨 色粉配方顯示 (鎖定)
             st.markdown("### 🎨 色粉配方")
