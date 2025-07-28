@@ -1329,6 +1329,10 @@ if page == "新增生產單":
             except Exception as e:
                 st.error(f"❌ 寫入失敗：{e}")
 
+        # 產生列印 HTML 內容（字串）
+        html = generate_print_page_content(order, recipe_row)
+        html = generate_print_page_content(order, recipe_row, additional_recipe_row)
+
         # 📥 下載列印 HTML
         st.download_button(
             label="📥 下載 A5 HTML",
