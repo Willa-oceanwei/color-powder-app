@@ -1000,67 +1000,69 @@ elif menu == "生產單管理":
             st.info("無法取得任何符合的配方")
 
     if add_btn:
+        if add_btn:
         if not selected_option:
             st.warning("請先選擇配方")
         else:
             idx = options.index(selected_option)
             recipe = filtered.iloc[idx]
+    
             if recipe.get("狀態") == "停用":
                 st.error("此配方已停用，無法新增生產單")
             else:
-                # ✅ 正確建立生產單號
                 df_all_orders = st.session_state.df_order.copy()
-
+    
                 today_str = datetime.now().strftime("%Y%m%d")
                 if not df_all_orders.empty and "生產單號" in df_all_orders.columns:
                     count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
                 else:
                     count_today = 0
-
+    
                 new_id = f"{today_str}-{count_today + 1:03}"
-
-                def find_col_like(row, keyword):
-                    for col in row.index:
-                        if keyword in col:
-                            return row[col]
-                    return ""
-
-                recipe_row = filtered.iloc[idx]
-                recipe_row.index = recipe_row.index.str.strip()  # 🔑 確保沒有欄位名稱空格
-            
-                # 建立 new_entry
+    
+                # ✅ 正確找出 df_recipe 中該筆資料（因為 filtered 可能被 selectbox label 破壞順序）
+                recipe_id = recipe.get("配方編號", "")
+                recipe_row = df_recipe[df_recipe["配方編號"] == recipe_id].copy()
+                recipe_row.columns = recipe_row.columns.str.strip()
+                if recipe_row.empty:
+                    st.error("❌ 無法在 df_recipe 找到該配方")
+                    st.stop()
+                recipe_row = recipe_row.iloc[0]
+                recipe_row.index = recipe_row.index.str.strip()
+    
+                # ✅ 建立 new_entry
                 new_entry = {
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
-                    "配方編號": recipe["配方編號"],
-                    "顏色": recipe.get("顏色", ""),
-                    "客戶名稱": recipe.get("客戶名稱", ""),
+                    "配方編號": recipe_row.get("配方編號", ""),
+                    "顏色": recipe_row.get("顏色", ""),
+                    "客戶名稱": recipe_row.get("客戶名稱", ""),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "備註": recipe_row.get("備註", ""),  
-                    "色粉合計類別": recipe_row.get("合計類別", ""),  
+                    "備註": recipe_row.get("備註", ""),
+                    "色粉合計類別": recipe_row.get("合計類別", ""),
                 }
-                
-                st.write("✅ 備註來自配方:", recipe_row.get("備註", "無"))
-                st.write("✅ 合計類別來自配方:", recipe_row.get("合計類別", "無"))
+    
+                st.write("📋 備註來自配方:", recipe_row.get("備註", "無"))
+                st.write("📋 合計類別來自配方:", recipe_row.get("合計類別", "無"))
                 st.write("✅ 最終 new_entry:", new_entry)
-
-                # ✅ 接著再處理色粉欄位補齊
+    
+                # ✅ 色粉加總處理（你原本的）
                 import pandas as pd
                 colorant_total = 0
                 for i in range(1, 9):
                     key = f"色粉{i}"
-                    val = recipe[key] if key in recipe and pd.notna(recipe[key]) else "0"
+                    val = recipe.get(key) if key in recipe and pd.notna(recipe[key]) else "0"
                     try:
                         val_float = float(val)
                     except:
                         val_float = 0.0
-                    new_entry[key] = f"{val_float:.2f}"   # 轉成標準字串格式
+                    new_entry[key] = f"{val_float:.2f}"
                     colorant_total += val_float
                 new_entry["色粉合計"] = f"{colorant_total:.2f}"
-            
-                # ⬇ 最後進入狀態儲存
+    
                 st.session_state.new_order = new_entry
-                st.session_state.show_confirm_panel = True    
+                st.session_state.recipe_row_cache = recipe_row
+                st.session_state.show_confirm_panel = True
 
     # ===== 自訂函式：產生生產單列印格式 =====
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
