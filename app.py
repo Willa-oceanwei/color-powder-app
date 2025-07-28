@@ -1054,6 +1054,8 @@ elif menu == "生產單管理":
     
                 st.write("📋 最終 new_entry:", new_entry)
                 st.dataframe(filtered)
+                filtered.to_csv("debug_filtered.csv", index=False)
+                st.info("已匯出filtered資料到debug_filtered.csv")
     
                 st.session_state.new_order = new_entry
                 st.session_state.recipe_row_cache = recipe_dict
