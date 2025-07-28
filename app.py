@@ -1033,8 +1033,8 @@ elif menu == "生產單管理":
                     "顏色": recipe.get("顏色", ""),
                     "客戶名稱": recipe.get("客戶名稱", ""),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "備註": find_col_like(recipe, "備註"),
-                    "色粉合計類別": find_col_like(recipe, "合計類別"),
+                    "備註": recipe.get("備註", ""),  # ✅ 正確帶入配方的備註
+                    "色粉合計類別": recipe.get("合計類別", ""),  # ✅ 正確帶入合計類別
                 }
                 st.write("🔍 recipe keys:", recipe.keys())
                 st.write("new_entry:", new_entry)
