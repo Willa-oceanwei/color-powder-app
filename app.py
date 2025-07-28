@@ -1009,14 +1009,13 @@ elif menu == "生產單管理":
         else:
             idx = options.index(selected_option)
             recipe = filtered.iloc[idx]
-    
-            # 確認欄位名稱無誤，且轉 dict 方便取值
             recipe_dict = recipe.to_dict()
-            
+    
             # 可打印欄位確認
             st.write("recipe 欄位名稱:", list(recipe_dict.keys()))
             st.write("recipe 備註:", recipe_dict.get("備註"))
             st.write("recipe 合計類別:", recipe_dict.get("合計類別"))
+            st.write(filtered.head())
     
             if recipe_dict.get("狀態", "") == "停用":
                 st.error("此配方已停用，無法新增生產單")
