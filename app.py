@@ -64,150 +64,31 @@ def init_states(keys=None):
 init_states()
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
-def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
-    print("🟢 使用新版 generate_production_order_print()")
-    
-    unit = recipe_row.get("計量單位", "kg")
-
-    # 取色粉資料
-    colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-    colorant_weights = []
-    for i in range(8):
-        try:
-            val = float(recipe_row.get(f"色粉重量{i+1}", 0))
-        except:
-            val = 0.0
-        colorant_weights.append(val)
-
-    # 包裝重量與份數
-    packing_weights = [float(order.get(f"包裝重量{i}", 0)) for i in range(1, 5)]
-    packing_counts = [float(order.get(f"包裝份數{i}", 0)) for i in range(1, 5)]
-
-    multipliers = packing_weights  # 倍數來自重量，不含份數
-
-    # 開始列印內容
-    lines = []
-
-    # ====== 標題（置中） ======
-    lines.append("生產單".center(80))
-
-    # ====== 基本資訊列 ======
-    lines.append(
-        f"配方編號：{recipe_row.get('配方編號', '')}    顏色：{order.get('顏色', '')}    比例：{order.get('比例', '')} g/kg    國際色號：{order.get('Pantone 色號', '')}    {order.get('建立時間', '')}"
-    )
-    lines.append("")
-
-    # ====== 包裝資訊列 ======
-    pack_line = []
-    for i in range(4):
-        w = packing_weights[i]
-        c = packing_counts[i]
-        if w > 0 or c > 0:
-            if unit == "包":
-                real_w = w * 25
-                unit_str = f"{real_w:.0f}K"
-            elif unit == "桶":
-                real_w = w * 100
-                unit_str = f"{real_w:.0f}K"
-            else:
-                real_w = w
-                unit_str = f"{real_w:.2f}kg"
-            pack_line.append(f"包裝{i+1}：{unit_str} * {int(c) if c.is_integer() else c}")
-    lines.append("    ".join(pack_line))
-    lines.append("")
-
-    # ====== 色粉重量列印區 ======
-    header_cols = [f"{'':<10}"]
-    for i in range(4):
-        m = multipliers[i]
-        header_cols.append(f"{int(m) if m.is_integer() else m:>10}" if m > 0 else f"{'':>10}")
-    lines.append("".join(header_cols))  # 倍數作為欄位標題
-
-    for idx, c_id in enumerate(colorant_ids):
-        if not c_id:
-            continue
-        row = [f"{c_id:<10}"]
-        for i in range(4):
-            val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val != 0 else ""
-            row.append(f"{val_str:>10}")
-        lines.append("".join(row))
-
-    # ====== 合計橫線 ======
-    lines.append("".ljust(60, '＿'))
-
-    # ====== 合計列 ======
-    try:
-        net_weight = float(recipe_row.get("淨重", 0))
-    except:
-        net_weight = 0.0
-
-    total_line_vals = []
-    for i in range(4):
-        try:
-            result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-            total_line_vals.append(f"{result:.2f}".rstrip('0').rstrip('.') if result != 0 else "")
-        except:
-            total_line_vals.append("")
-    lines.append("合計     " + "    ".join([f"{v:>10}" for v in total_line_vals]))
-    lines.append("")
-
-    # ====== 附加配方區塊（如果有） ======
-    if additional_recipe_row is not None:
-        lines.append("附加配方")
-        add_colorant_ids = [additional_recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-        add_colorant_weights = []
-        for i in range(8):
-            try:
-                val = float(additional_recipe_row.get(f"色粉重量{i+1}", 0))
-            except:
-                val = 0.0
-            add_colorant_weights.append(val)
-
-        for idx, c_id in enumerate(add_colorant_ids):
-            if not c_id:
-                continue
-            row = [f"{c_id:<10}"]
-            for i in range(4):
-                val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
-                val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val != 0 else ""
-                row.append(f"{val_str:>10}")
-            lines.append("".join(row))
-
-    lines.append("")
-    lines.append(f"備註 : {order.get('備註', '')}")
-
-    return "\n".join(lines)
-    
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
     html = f"""
-    <!DOCTYPE html>
-    <html lang="zh-Hant">
+    <html>
     <head>
-        <meta charset="utf-8" />
+        <meta charset="utf-8">
         <title>生產單列印</title>
         <style>
             @media print {{
-                body {{
-                    margin: 20mm;
-                }}
+                body {{ margin: 10mm; }}
             }}
             body {{
                 font-family: 'Courier New', monospace;
                 padding: 40px;
+                line-height: 1.6;
                 font-size: 16px;
-                line-height: 1.5;
             }}
             .title {{
                 text-align: center;
-                font-size: 28px;
+                font-size: 24px;
                 font-weight: bold;
                 margin-bottom: 20px;
             }}
             pre {{
-                white-space: pre-wrap;
-                word-wrap: break-word;
+                white-space: pre;
             }}
         </style>
         <script>
@@ -223,7 +104,6 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     </html>
     """
     return html
-
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
@@ -1137,7 +1017,6 @@ elif menu == "生產單管理":
 
                 new_id = f"{today_str}-{count_today + 1:03}"
 
-                
                 # ✅ 建立 new_entry
                 new_entry = {
                     "生產單號": new_id,
@@ -1165,6 +1044,122 @@ elif menu == "生產單管理":
                 # ⬇ 最後進入狀態儲存
                 st.session_state.new_order = new_entry
                 st.session_state.show_confirm_panel = True    
+
+    # ===== 自訂函式：產生生產單列印格式 =====
+    def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
+        unit = recipe_row.get("計量單位", "kg")
+    
+        # 取色粉資料
+        colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+        colorant_weights = []
+        for i in range(8):
+            try:
+                val = float(recipe_row.get(f"色粉重量{i+1}", 0))
+            except:
+                val = 0.0
+            colorant_weights.append(val)
+    
+        # 包裝重量與份數
+        packing_weights = [float(order.get(f"包裝重量{i}", 0)) for i in range(1, 5)]
+        packing_counts = [float(order.get(f"包裝份數{i}", 0)) for i in range(1, 5)]
+    
+        multipliers = packing_weights  # 倍數來自重量，不含份數
+    
+        # 開始列印內容
+        lines = []
+    
+        # ====== 標題（置中） ======
+        title = "生產單"
+        lines.append(title.center(80))  # 置中對齊
+    
+        # ====== 基本資訊列 ======
+        lines.append(
+            f"配方編號：{recipe_row.get('配方編號', '')}    顏色：{order.get('顏色', '')}    比例：{order.get('比例', '')} g/kg    國際色號：{order.get('Pantone 色號', '')}    {order.get('建立時間', '')}"
+        )
+        lines.append("")
+    
+        # ====== 包裝資訊列 ======
+        pack_line = []
+        for i in range(4):
+            w = packing_weights[i]
+            c = packing_counts[i]
+            if w > 0 or c > 0:
+                if unit == "包":
+                    real_w = w * 25
+                    unit_str = f"{real_w:.0f}K"
+                elif unit == "桶":
+                    real_w = w * 100
+                    unit_str = f"{real_w:.0f}K"
+                else:
+                    real_w = w
+                    unit_str = f"{real_w:.2f}kg"
+                pack_line.append(f"包裝{i+1}：{unit_str} * {int(c) if c.is_integer() else c}")
+        lines.append("    ".join(pack_line))
+        lines.append("")
+    
+        # ====== 色粉重量列印區 ======
+        header_cols = [f"{'':<10}"]
+        for i in range(4):
+            m = multipliers[i]
+            header_cols.append(f"{int(m) if m.is_integer() else m:>10}" if m > 0 else f"{'':>10}")
+        lines.append("".join(header_cols))  # 倍數作為欄位標題
+    
+        for idx, c_id in enumerate(colorant_ids):
+            if not c_id:
+                continue
+            row = [f"{c_id:<10}"]
+            for i in range(4):
+                val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
+                val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val != 0 else ""
+                row.append(f"{val_str:>10}")
+            lines.append("".join(row))
+    
+        # ====== 合計橫線 ======
+        lines.append("".ljust(60, '＿'))
+    
+        # ====== 合計列 ======
+        try:
+            net_weight = float(recipe_row.get("淨重", 0))
+        except:
+            net_weight = 0.0
+    
+        total_line_vals = []
+        for i in range(4):
+            try:
+                result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
+                total_line_vals.append(f"{result:.2f}".rstrip('0').rstrip('.') if result != 0 else "")
+            except:
+                total_line_vals.append("")
+        lines.append("合計     " + "    ".join([f"{v:>10}" for v in total_line_vals]))
+        lines.append("")
+    
+        # ====== 附加配方區塊（如果有） ======
+        if additional_recipe_row is not None:
+            lines.append("附加配方")
+            add_colorant_ids = [additional_recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+            add_colorant_weights = []
+            for i in range(8):
+                try:
+                    val = float(additional_recipe_row.get(f"色粉重量{i+1}", 0))
+                except:
+                    val = 0.0
+                add_colorant_weights.append(val)
+    
+            for idx, c_id in enumerate(add_colorant_ids):
+                if not c_id:
+                    continue
+                row = [f"{c_id:<10}"]
+                for i in range(4):
+                    val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
+                    val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val != 0 else ""
+                    row.append(f"{val_str:>10}")
+                lines.append("".join(row))
+    
+        lines.append("")
+        lines.append(f"備註 : {order.get('備註', '')}")
+    
+        return "\n".join(lines)
+
 
     
 # ---------- 新增後欄位填寫區塊 ----------
@@ -1314,7 +1309,7 @@ if page == "新增生產單":
                     continue
         
             order["色粉合計清單"] = color_weight_list
-            order["合計類別"] = total_category
+            order["色粉合計類別"] = total_category
         
             # ➕ 寫入 Google Sheets、CSV 等流程
             header = [col for col in df_order.columns if col and str(col).strip() != ""]
@@ -1334,23 +1329,10 @@ if page == "新增生產單":
             except Exception as e:
                 st.error(f"❌ 寫入失敗：{e}")
 
-        # 產生列印 HTML 內容（字串）
-        # 假設這裡是某個流程中
-        print("order:", order)
-        print("recipe_row:", recipe_row)
-                
-        print_html = generate_print_page_content(order, recipe_row)
-
-        # 如果沒有附加配方，呼叫無附加配方的版本
-        html = generate_print_page_content(order, recipe_row)
-        
-        # 如果有附加配方，就用這行
-        # html = generate_print_page_content(order, recipe_row, additional_recipe_row)
-        
-        # 下載按鈕
+        # 📥 下載列印 HTML
         st.download_button(
             label="📥 下載 A5 HTML",
-            data=html.encode("utf-8"),                   # 用剛產生的 html 變數
+            data=print_html.encode("utf-8"),
             file_name=f"{order['生產單號']}_列印.html",
             mime="text/html"
         )
