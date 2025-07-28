@@ -1000,10 +1000,10 @@ elif menu == "生產單管理":
                 new_id = f"{today_str}-{count_today + 1:03}"
 
                 def find_col_like(row, keyword):
-                for col in row.index:
-                    if keyword in col:
-                        return row[col]
-                return ""
+                    for col in row.index:
+                        if keyword in col:
+                            return row[col]
+                    return ""
             
                 # 建立 new_entry
                 new_entry = {
