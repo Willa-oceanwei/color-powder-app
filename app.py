@@ -649,21 +649,16 @@ elif menu == "配方管理":
             st.experimental_rerun()
 
     # --------- 客戶選單 ---------
-    # 先確保customer_options與default_customer_str有值
-    customer_options = customer_options if isinstance(customer_options, list) else []
-    
-    default_customer_str = default_customer_str if isinstance(default_customer_str, str) else ""
-    
-    # 先嘗試從 session_state 取得，沒有就設空字串
+    # 先從 session_state 取得，預設為空字串
     default_customer_str = ""
     if "form_recipe" in st.session_state and st.session_state.form_recipe:
         default_customer_str = st.session_state.form_recipe.get("客戶編號", "")
-        
-    # 如果型態不是字串就給空字串（防呆）
+    
+    # 型態防呆，確保是字串
     if not isinstance(default_customer_str, str):
         default_customer_str = ""
     
-    # 預設索引給初值 0
+    # 確定預設索引，避免 .index() 找不到而掉錯誤
     default_index = 0
     if default_customer_str in customer_options:
         default_index = customer_options.index(default_customer_str) + 1
