@@ -1330,13 +1330,16 @@ if page == "新增生產單":
                 st.error(f"❌ 寫入失敗：{e}")
 
         # 產生列印 HTML 內容（字串）
+        # 如果沒有附加配方，呼叫無附加配方的版本
         html = generate_print_page_content(order, recipe_row)
-        html = generate_print_page_content(order, recipe_row, additional_recipe_row)
-
-        # 📥 下載列印 HTML
+        
+        # 如果有附加配方，就用這行
+        # html = generate_print_page_content(order, recipe_row, additional_recipe_row)
+        
+        # 下載按鈕
         st.download_button(
             label="📥 下載 A5 HTML",
-            data=print_html.encode("utf-8"),
+            data=html.encode("utf-8"),                   # 用剛產生的 html 變數
             file_name=f"{order['生產單號']}_列印.html",
             mime="text/html"
         )
