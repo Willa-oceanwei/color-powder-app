@@ -1007,8 +1007,8 @@ elif menu == "生產單管理":
                     "顏色": recipe.get("顏色", ""),
                     "客戶名稱": recipe.get("客戶名稱", ""),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "備註": recipe_row.get("備註", ""),
-                    "色粉合計類別": recipe_row.get("合計類別", ""),
+                    "備註": recipe_row["備註"] if "備註" in recipe_row.index else "",
+                    "色粉合計類別": recipe_row["合計類別"] if "合計類別" in recipe_row.index else "",
                 }
 
                 st.write("🔍 recipe keys:", recipe.keys())
