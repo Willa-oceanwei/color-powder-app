@@ -626,7 +626,7 @@ elif menu == "配方管理":
                 st.session_state.df = df
                 st.session_state.form_recipe = {col: "" for col in columns}
                 st.session_state.edit_recipe_index = None
-                st.experimental_rerun()
+                st.rerun()
 
 
     # 刪除確認
@@ -642,11 +642,11 @@ elif menu == "配方管理":
             save_df_to_sheet(ws_recipe, df)
             st.success("✅ 刪除成功！")
             st.session_state.show_delete_recipe_confirm = False
-            st.experimental_rerun()
+            st.rerun()
     
         if c2.button("否"):
             st.session_state.show_delete_recipe_confirm = False
-            st.experimental_rerun()
+            st.rerun()
 
     # --------- 客戶選單 ---------
     # 先從 session_state 取得，預設為空字串
