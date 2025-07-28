@@ -926,7 +926,27 @@ elif menu == "生產單管理":
     df_recipe = st.session_state.df_recipe
 
     sheet_names = [s.title for s in spreadsheet.worksheets()]
-    
+
+    if "df_recipe" not in st.session_state:
+        try:
+            values = ws_recipe.get("A1:Z100")
+            df_temp = pd.DataFrame(values[1:], columns=values[0]).astype(str)
+            # 立刻清理欄位名稱空白
+            df_temp.columns = df_temp.columns.str.strip()
+            st.session_state.df_recipe = df_temp
+        except Exception as e:
+            st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
+            st.stop()
+
+    df_recipe = st.session_state.df_recipe
+
+    # 補充欄位（若缺少就新增空欄）
+    if "備註" not in df_recipe.columns:
+        df_recipe["備註"] = ""
+
+    if "合計類別" not in df_recipe.columns:
+        df_recipe["合計類別"] = ""
+
     # 檢查欄位是否已存在，若無則寫入
     existing_values = ws_order.get_all_values()
     if len(existing_values) == 0:
