@@ -349,7 +349,6 @@ elif menu == "配方管理":
         "合計類別", "重要提醒", "備註", "建檔時間"
     ]
 
-    st.write("🔍 form_recipe keys:", list(fr.keys()))
     order_file = Path("data/df_recipe.csv")
 
     # 載入 Google Sheets
@@ -527,6 +526,7 @@ elif menu == "配方管理":
                 st.session_state.edit_recipe_index = None
                 st.rerun()
 
+                st.write("🔍 form_recipe keys:", list(fr.keys()))
 
     # 刪除確認
     if st.session_state.show_delete_recipe_confirm:
