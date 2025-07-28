@@ -1004,63 +1004,44 @@ elif menu == "生產單管理":
             st.warning("請先選擇配方")
         else:
             idx = options.index(selected_option)
-            recipe = filtered.iloc[idx]
-    
+            recipe = filtered.iloc[idx]  # 這裡的 recipe 已經包含完整欄位
+            
             if recipe.get("狀態") == "停用":
                 st.error("此配方已停用，無法新增生產單")
             else:
-                df_all_orders = st.session_state.df_order.copy()
-    
-                today_str = datetime.now().strftime("%Y%m%d")
-                if not df_all_orders.empty and "生產單號" in df_all_orders.columns:
-                    count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
-                else:
-                    count_today = 0
-    
-                new_id = f"{today_str}-{count_today + 1:03}"
-    
-                # 這裡一定要從 df_recipe 抓該筆，才能拿到完整欄位
-                recipe_id = recipe.get("配方編號", "")
-                recipe_row_df = df_recipe[df_recipe["配方編號"] == recipe_id]
-                if recipe_row_df.empty:
-                    st.error(f"找不到配方編號 {recipe_id} 的資料")
-                    st.stop()
-                recipe_row = recipe_row_df.iloc[0]
-    
-                # 修正欄位名稱及索引空白問題
-                recipe_row.index = recipe_row.index.str.strip()
-                # 如果需要，也可修正欄位名稱：
-                df_recipe.columns = df_recipe.columns.str.strip()
+                # 生產單號建立...
+                new_id = ...
     
                 new_entry = {
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
-                    "配方編號": recipe_row.get("配方編號", ""),
-                    "顏色": recipe_row.get("顏色", ""),
-                    "客戶名稱": recipe_row.get("客戶名稱", ""),
+                    "配方編號": recipe["配方編號"],
+                    "顏色": recipe.get("顏色", ""),
+                    "客戶名稱": recipe.get("客戶名稱", ""),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "備註": recipe_row.get("備註", ""),
-                    "色粉合計類別": recipe_row.get("合計類別", ""),
+                    "備註": recipe.get("備註", ""),  # 直接從 recipe 取
+                    "色粉合計類別": recipe.get("合計類別", ""),  # 直接從 recipe 取
                 }
-    
-                st.write("備註欄位內容:", new_entry["備註"])
-                st.write("合計類別欄位內容:", new_entry["色粉合計類別"])
-                st.write("✅ 最終 new_entry:", new_entry)
-                st.write("filtered 欄位：", filtered.columns.tolist())
-    
-                # 處理色粉欄位（你原本的）
-                import pandas as pd
-                colorant_total = 0
-                for i in range(1, 9):
-                    key = f"色粉{i}"
-                    val = recipe.get(key) if key in recipe and pd.notna(recipe[key]) else "0"
-                    try:
-                        val_float = float(val)
-                    except:
-                        val_float = 0.0
-                    new_entry[key] = f"{val_float:.2f}"
-                    colorant_total += val_float
-                new_entry["色粉合計"] = f"{colorant_total:.2f}"
+                
+        
+                    st.write("備註欄位內容:", new_entry["備註"])
+                    st.write("合計類別欄位內容:", new_entry["色粉合計類別"])
+                    st.write("✅ 最終 new_entry:", new_entry)
+                    st.write("filtered 欄位：", filtered.columns.tolist())
+        
+                    # 處理色粉欄位（你原本的）
+                    import pandas as pd
+                    colorant_total = 0
+                    for i in range(1, 9):
+                        key = f"色粉{i}"
+                        val = recipe.get(key) if key in recipe and pd.notna(recipe[key]) else "0"
+                        try:
+                            val_float = float(val)
+                        except:
+                            val_float = 0.0
+                        new_entry[key] = f"{val_float:.2f}"
+                        colorant_total += val_float
+                    new_entry["色粉合計"] = f"{colorant_total:.2f}"
     
                 st.session_state.new_order = new_entry
                 st.session_state.recipe_row_cache = recipe_row
