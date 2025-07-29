@@ -331,6 +331,8 @@ elif menu == "客戶名單":
                     st.session_state.delete_customer_index = i
                     st.session_state.show_delete_customer_confirm = True
                     st.rerun()
+                    
+st.warning("🧪 測試訊息：程式碼已更新")
 
 elif menu == "配方管理":
 
