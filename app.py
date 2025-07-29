@@ -66,6 +66,7 @@ init_states()
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
+    created_time = order.get("建立時間", "")
     html = f"""
     <html>
     <head>
@@ -78,15 +79,23 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             }}
             body {{
                 font-family: 'Courier New', monospace;
-                font-size: 20px; /* ✅ 放大字體填滿 A5 */
+                font-size: 18px; /* ✅ 適合 A5 字體大小 */
                 line-height: 1.8;
                 white-space: pre;
+                position: relative;
             }}
             .title {{
                 text-align: center;
-                font-size: 28px;
+                font-size: 26px;
                 font-weight: bold;
-                margin-bottom: 20px;
+                margin-bottom: 10px;
+            }}
+            .timestamp {{
+                position: absolute;
+                top: 10px;
+                right: 20px;
+                font-size: 12px;
+                color: #333;
             }}
             pre {{
                 white-space: pre-wrap;
@@ -99,6 +108,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
         </script>
     </head>
     <body>
+        <div class="timestamp">{created_time}</div>
         <div class="title">生產單</div>
         <pre>{content}</pre>
     </body>
@@ -905,10 +915,11 @@ elif menu == "生產單管理":
                 st.session_state.new_order = new_entry
                 st.session_state.show_confirm_panel = True    
 
-    # ===== 自訂函式：產生生產單列印格式 =====  
+    # ===== 自訂函式：產生生產單列印格式 =====      
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
         unit = recipe_row.get("計量單位", "kg")
-        ratio = recipe_row.get("比例3", "")  # ✅ 抓配方管理「比例3」
+        ratio = recipe_row.get("比例3", "")
+        total_label = recipe_row.get("合計類別", "")  # ✅ 合計列標籤使用此欄位
     
         # 色粉資料
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
@@ -920,22 +931,20 @@ elif menu == "生產單管理":
                 val = 0.0
             colorant_weights.append(val)
     
-        # 包裝重量與份數
+        # 包裝資料
         packing_weights = [float(order.get(f"包裝重量{i}", 0)) for i in range(1, 5)]
         packing_counts = [float(order.get(f"包裝份數{i}", 0)) for i in range(1, 5)]
-    
-        multipliers = packing_weights  # 倍數（不含份數）
+        multipliers = packing_weights
     
         lines = []
     
         # ====== 標題 ======
         lines.append("生產單".center(80))
     
-        # ====== 基本資訊列 ======
+        # ====== 基本資料列（不含時間）======
         lines.append(
             f"配方編號：{recipe_row.get('配方編號', '')}    顏色：{order.get('顏色', '')}    比例：{ratio} g/kg    國際色號：{order.get('Pantone 色號', '')}"
         )
-        lines.append(f"建立時間：{order.get('建立時間', '')}")
         lines.append("")
     
         # ====== 包裝資訊列 ======
@@ -958,12 +967,7 @@ elif menu == "生產單管理":
         lines.append("    ".join(pack_line))
         lines.append("")
     
-        # ====== 色粉重量列印區 ======
-        header_cols = [f"{'色粉':<10}"]
-        for m in multipliers:
-            header_cols.append(f"{int(m) if m.is_integer() else m:>10}" if m > 0 else f"{'':>10}")
-        lines.append("".join(header_cols))  # 倍數作為欄位標題
-    
+        # ====== 色粉列印區（不含色粉標題列） ======
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
@@ -974,8 +978,8 @@ elif menu == "生產單管理":
                 row.append(f"{val_str:>10}")
             lines.append("".join(row))
     
-        # ====== 合計橫線與內容 ======
-        lines.append("".ljust(60, '＿'))
+        # ====== 合計列 ======
+        lines.append("".ljust(60, '＿'))  # 橫線
     
         try:
             net_weight = float(recipe_row.get("淨重", 0))
@@ -989,7 +993,7 @@ elif menu == "生產單管理":
                 total_vals.append(f"{result:.2f}".rstrip('0').rstrip('.') if result != 0 else "")
             except:
                 total_vals.append("")
-        lines.append("合計".ljust(10) + "".join([f"{v:>10}" for v in total_vals]))
+        lines.append(f"{total_label:<10}" + "".join([f"{v:>10}" for v in total_vals]))
         lines.append("")
     
         # ====== 附加配方（如有） ======
@@ -1016,12 +1020,8 @@ elif menu == "生產單管理":
     
         lines.append("")
         lines.append(f"備註：{order.get('備註', '')}")
-    
         return "\n".join(lines)
-
-
-
-    
+  
 # ---------- 新增後欄位填寫區塊 ----------
 # ===== 主流程頁面切換 =====
 page = st.session_state.get("page", "新增生產單")
