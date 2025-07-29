@@ -331,8 +331,6 @@ elif menu == "客戶名單":
                     st.session_state.delete_customer_index = i
                     st.session_state.show_delete_customer_confirm = True
                     st.rerun()
-                    
-st.warning("🧪 測試訊息：程式碼已更新")
 
 elif menu == "配方管理":
 
@@ -450,24 +448,8 @@ elif menu == "配方管理":
         with col9:
             fr["Pantone色號"] = st.text_input("Pantone色號", fr["Pantone色號"], key="form_recipe_Pantone色號")
 
-        # --- 重要提醒欄位（防呆版） ---
-        st.markdown("🟨 嘗試顯示『重要提醒』欄位")
-        
-        # 自動補上欄位
-        if "重要提醒" not in fr:
-            fr["重要提醒"] = ""
-        
-        try:
-            fr["重要提醒"] = st.text_input("重要提醒", value=fr["重要提醒"], key="form_recipe_重要提醒")
-        except Exception as e:
-            st.error(f"❌ 顯示『重要提醒』欄位錯誤：{e}")
-        
-        # 顯示目前所有欄位 key，幫助 debug
-        st.caption(f"🔑 現在 form_recipe 欄位 keys: {list(fr.keys())}")
-        
-        # 顯示目前所有欄位 key，幫助 debug
-        st.caption(f"🔑 現在 form_recipe 欄位 keys: {list(fr.keys())}")
-        
+        fr["重要提醒"] = st.text_input("重要提醒", value=fr["重要提醒"], key="form_recipe_重要提醒")
+
         colr1, colon, colr2, colr3, unit = st.columns([2, 1, 2, 2, 1])
         with colr1:
             fr["比例1"] = st.text_input("", fr["比例1"], key="ratio1", label_visibility="collapsed")
