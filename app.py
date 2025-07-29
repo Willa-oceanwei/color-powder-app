@@ -599,6 +599,11 @@ elif menu == "配方管理":
     with col3:
         search_pantone_bottom = st.text_input("Pantone色號", key="search_pantone_bottom")
 
+    # 先初始化 top 欄位變數
+    search_recipe_top = ""
+    search_customer_top = ""
+    search_pantone_top = ""
+
     # 用這組輸入的資料做搜尋
     search_recipe = search_recipe_bottom or search_recipe_top
     search_customer = search_customer_bottom or search_customer_top
