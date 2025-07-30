@@ -932,7 +932,7 @@ elif menu == "生產單管理":
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
     
         powder_label_width = 8   # 色粉代號寬度
-        col_width = 18           # 每一數值欄寬
+        col_width = 20           # 每一數值欄寬
         indent = " " * 16         # 包裝列縮排
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
