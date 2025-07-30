@@ -79,23 +79,21 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             }}}}
             body {{{{
                 font-family: 'Courier New', monospace;
-                font-size: 24px;
+                font-size: 19px; /* 調高至 19px,字體大小明顯放大*/
                 line-height: 1.6;
                 white-space: pre;
-                position: relative;
             }}}}
             .title {{{{
-                text-align: center;
-                font-size: 32px;
+                text-align: left;
+                font-size: 28px;
                 font-weight: bold;
                 margin-bottom: 2px;
+                padding-left: 50px;  /* 加這行讓它右移 */
             }}}}
             .timestamp {{{{
-                position: absolute;
-                top: 10px;
-                right: 20px;
                 font-size: 12px;
                 color: #333;
+                padding-left: 50px;  /* 同樣右移 */
             }}}}
             pre {{{{
                 white-space: pre-wrap;
@@ -968,7 +966,7 @@ elif menu == "生產單管理":
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            row = [f"{c_id:<10}"]
+            row = [f"{c_id:<8}"]
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
