@@ -965,16 +965,19 @@ elif menu == "生產單管理":
                 pack_line.append(f"{text:<{col_width}}")
         lines.append(packing_indent + "".join(pack_line))
     
-        # 色粉列 (左邊代號固定寬度，右邊數字欄縮排+縮窄)
+        # 色粉列 (代號固定寬度，整列縮排和包裝列一樣)
+        color_indent = packing_indent  # 跟包裝列同縮排
+        
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            row = [numbers_indent + c_id.ljust(powder_label_width)]  # 左側代號往右縮排點數字欄的縮排一致
+            row = [color_indent + c_id.ljust(powder_label_width)]
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
                 row.append(f"<b>{val_str:>{col_width}}</b>")
             lines.append("".join(row))
+
     
         # === 橫線 ===
         total_line_width = powder_label_width + col_width * 4
@@ -990,8 +993,9 @@ elif menu == "生產單管理":
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
             total_line_vals.append(val_str)
+        # 合計列
         lines.append(
-            numbers_indent +
+            color_indent +
             total_type.ljust(powder_label_width) +
             "".join([f"<b>{v:>{col_width}}</b>" for v in total_line_vals])
         )
