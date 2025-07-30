@@ -938,9 +938,6 @@ elif menu == "生產單管理":
     
         lines = []
     
-        # ====== 標題 ======
-        lines.append("生產單".center(80))
-    
         # ====== 基本資料列（不含時間）======
         lines.append(
             f"配方編號：{recipe_row.get('配方編號', '')}    顏色：{order.get('顏色', '')}    比例：{ratio} g/kg    國際色號：{order.get('Pantone 色號', '')}"
