@@ -931,8 +931,8 @@ elif menu == "生產單管理":
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
     
         powder_label_width = 8    # 色粉代號欄位寬度
-        col_width = 23            # 每一個重量欄位寬度
-        indent = " " * 22         # 包裝列縮排
+        col_width = 20            # 每一個重量欄位寬度
+        indent = " " * 25         # 包裝列縮排
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
@@ -975,14 +975,17 @@ elif menu == "生產單管理":
         powder_label_width = 5   # ← 色粉代號欄寬，從 8 縮小到 6，讓整排向左
         col_width = 23          # ← 每一數值欄寬（保持原設定不動）
         # === 色粉列 ===
+        fixed_left = 12   # ← 色粉代號區塊固定寬度，不受文字長短影響
+        col_width = 25   # ← 每個重量欄位寬度
+        
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            row = [f"{c_id:<{powder_label_width}}"]
+            row = [c_id.ljust(fixed_left)]  # ← 重點：固定寬度欄位
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
-                row.append(f"{val_str:>{col_width}}")
+                row.append(f"{val_str:>{col_width}}")  # 右邊數值欄位對齊
             lines.append("".join(row))
     
         # === 橫線 ===
@@ -999,7 +1002,10 @@ elif menu == "生產單管理":
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
             total_line_vals.append(val_str)
-        lines.append(f"{total_type:<{powder_label_width - 5}}" + "".join([f"{v:>{col_width}}" for v in total_line_vals]))
+        lines.append(
+            total_type.ljust(fixed_left) +  # ← 跟上面色粉代號區一致
+            "".join([f"{v:>{col_width}}" for v in total_line_vals])
+        )
     
         # === 附加配方 ===
         if additional_recipe_row:
