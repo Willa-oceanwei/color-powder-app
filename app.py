@@ -992,13 +992,18 @@ elif menu == "生產單管理":
             net_weight = float(recipe_row.get("淨重", 0))
         except:
             net_weight = 0.0
+        
         total_line_vals = []
         for i in range(4):
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
             total_line_vals.append(val_str)
-        lines.append(f"{total_type:<{powder_label_width}}" + "".join([f"{v:>{col_width}}" for v in total_line_vals]))
-    
+        
+        lines.append(
+            f"{total_type:<{powder_label_width}}" +
+            "".join([f"{v:>{col_width}}" for v in total_line_vals])
+        )
+  
         # === 附加配方（可選） ===
         if additional_recipe_row:
             lines.append("")
