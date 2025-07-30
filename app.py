@@ -86,12 +86,12 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
                 font-size: 28px;
                 font-weight: bold;
                 margin-bottom: 2px;
-                padding-left: 50px;
+                padding-left: 70px;
             }
             .timestamp {
                 font-size: 12px;
                 color: #333;
-                padding-left: 50px;
+                padding-left: 70px;
             }
             pre {
                 white-space: pre-wrap;
@@ -969,7 +969,7 @@ elif menu == "生產單管理":
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            row = [f"{c_id:<6}"]
+            row = [f"{c_id:<4}"]
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
@@ -991,7 +991,7 @@ elif menu == "生產單管理":
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
             total_line_vals.append(val_str)
     
-        lines.append(f"{total_type:<8}" + "".join([f"{v:>{col_width}}" for v in total_line_vals]))
+        lines.append(f"{total_type:<4}" + "".join([f"{v:>{col_width}}" for v in total_line_vals]))
         lines.append("")
     
         # 附加配方區
