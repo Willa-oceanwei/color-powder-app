@@ -1463,7 +1463,7 @@ if page == "新增生產單":
                     # st.session_state.show_edit_panel = False
                     # st.session_state.editing_order = None
     
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("⚠️ 找不到該筆生產單資料")
     
