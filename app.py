@@ -925,7 +925,7 @@ elif menu == "生產單管理":
     
         powder_label_width = 12   # 色粉代號欄位寬度固定
         pack_col_width = 14       # 包裝列每個欄位寬度（固定不動）
-        number_col_width = 12     # 數字列每個欄位寬度（可調）
+        number_col_width = 14     # 數字列每個欄位寬度（可調）
         adjusted_col_width = number_col_width - 2 
         
         packing_indent = " " * 14  # 包裝列縮排，固定
