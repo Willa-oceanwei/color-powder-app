@@ -73,10 +73,10 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
         <meta charset="utf-8">
         <title>生產單列印</title>
         <style>
-            @page {{{{
+            @page {{
                 size: A5 landscape;
                 margin: 10mm;
-            }}}}
+            }}
             body {{{{
                 margin: 0;
             }}}}
