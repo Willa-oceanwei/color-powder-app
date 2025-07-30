@@ -948,12 +948,15 @@ elif menu == "生產單管理":
         recipe_id = recipe_row.get('配方編號', '')
         color = order.get('顏色', '')
         pantone = order.get('Pantone 色號', '')
-        info_line = f"配方編號：{recipe_id:<8}    顏色：{color:<4}     比例：{ratio} g/kg     國際色號：{pantone}"
+        info_line = f"配方編號：{recipe_id:<8}    顏色：{color:<4}        比例：{ratio} g/kg     國際色號：{pantone}"
         lines.append(info_line)
         lines.append("")
     
         # === 包裝列 ===
+        indent = " " * 16
+        col_width = 10
         pack_line = []
+        
         for i in range(4):
             w = packing_weights[i]
             c = packing_counts[i]
@@ -967,11 +970,14 @@ elif menu == "生產單管理":
                 else:
                     real_w = w
                     unit_str = f"{real_w:.2f}kg"
-                count_str = f"{int(c) if c.is_integer() else c}"
+                
+                # ✅ 安全轉換份數格式（整數不加小數）
+                count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
-        
-                # ✅ 就在這裡組合欄位寬度（靠左對齊）
-                pack_line.append(f"{text:<{col_width}}")  # ← 這一行你寫在這裡
+                pack_line.append(f"{text:<{col_width}}")  # 可改 ^ 置中或 < 靠左
+
+        lines.append(indent + "".join(pack_line))  # ✅ 輸出整列包裝資訊
+
     
         # === 色粉列 ===
         for idx, c_id in enumerate(colorant_ids):
@@ -986,7 +992,7 @@ elif menu == "生產單管理":
     
         # === 分隔線 ===
         total_line_width = powder_label_width + col_width * 4
-        lines.append("＿" * 45) 
+        lines.append("＿" * 38) 
     
         # === 合計列 ===
         try:
