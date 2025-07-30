@@ -954,7 +954,7 @@ elif menu == "生產單管理":
     
         # === 包裝列 ===
         indent = " " * 20
-        col_width = 15
+        col_width = 18
         pack_line = []
         
         for i in range(4):
@@ -992,7 +992,7 @@ elif menu == "生產單管理":
     
         # === 分隔線 ===
         total_line_width = powder_label_width + col_width * 4
-        lines.append("＿" * 30) 
+        lines.append("＿" * 32) 
     
         # === 合計列 ===
         try:
