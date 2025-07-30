@@ -966,7 +966,7 @@ elif menu == "生產單管理":
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            row = [f"{c_id:<8}"]
+            row = [f"{c_id:<6}"]
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
@@ -988,7 +988,7 @@ elif menu == "生產單管理":
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
             total_line_vals.append(val_str)
     
-        lines.append(f"{total_type:<10}" + "".join([f"{v:>{col_width}}" for v in total_line_vals]))
+        lines.append(f"{total_type:<8}" + "".join([f"{v:>{col_width}}" for v in total_line_vals]))
         lines.append("")
     
         # 附加配方區
