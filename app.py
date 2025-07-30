@@ -73,31 +73,33 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
         <meta charset="utf-8">
         <title>生產單列印</title>
         <style>
-            @page {{{{
-                size: A5 landscape;
-                margin: 10mm;
-            }}}}
-            body {{{{
-                font-family: 'Courier New', monospace;
-                font-size: 19px; /* 調高至 19px,字體大小明顯放大*/
-                line-height: 1.6;
-                white-space: pre;
-            }}}}
-            .title {{{{
-                text-align: left;
-                font-size: 28px;
-                font-weight: bold;
-                margin-bottom: 2px;
-                padding-left: 50px;  /* 加這行讓它右移 */
-            }}}}
-            .timestamp {{{{
-                font-size: 12px;
-                color: #333;
-                padding-left: 50px;  /* 同樣右移 */
-            }}}}
-            pre {{{{
-                white-space: pre-wrap;
-            }}}}
+            <style>
+                @page {
+                    size: A5 landscape;
+                    margin: 10mm;
+                }
+                body {
+                    margin: 0;
+                }
+                .title {
+                    text-align: left;
+                    font-size: 28px;
+                    font-weight: bold;
+                    margin-bottom: 2px;
+                    padding-left: 50px;
+                }
+                .timestamp {
+                    font-size: 12px;
+                    color: #333;
+                    padding-left: 50px;
+                }
+                pre {
+                    white-space: pre-wrap;
+                    font-size: 19px;  /* ✅ 真正會改變列印區字體大小 */
+                    font-family: 'Courier New', monospace;
+                    line-height: 1.6;
+                }
+  
         </style>
         <script>
             window.onload = function() {{
