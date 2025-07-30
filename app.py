@@ -923,10 +923,11 @@ elif menu == "生產單管理":
         ratio = recipe_row.get("比例3", "")
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
     
-        powder_label_width = 12   # 色粉代號固定寬度，不縮排
-        col_width = 14            # 每個重量欄位寬度
-        packing_indent = " " * 14  # 包裝列固定縮排
-        numbers_indent = " " * 0  # 數字區縮排，可調整微移，控制對齊
+        powder_label_width = 12   # 色粉代號固定寬度，不動
+        col_width = 18            # 每個重量欄位寬度（可調）
+        adjusted_col_width = col_width - 4  # 用來微調數字欄位寬度（向左移4格）
+        packing_indent = " " * 14  # 包裝列縮排，固定
+        numbers_indent = " " * 2   # 數字區縮排，可調整左右
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
@@ -945,7 +946,7 @@ elif menu == "生產單管理":
         lines.append(info_line)
         lines.append("")
     
-        # 包裝列（固定縮排）
+        # 包裝列（固定不動）
         pack_line = []
         for i in range(4):
             w = packing_weights[i]
@@ -965,36 +966,38 @@ elif menu == "生產單管理":
                 pack_line.append(f"{text:<{col_width}}")
         lines.append(packing_indent + "".join(pack_line))
     
-        # 色粉列（代號靠左不縮排，數字欄縮排）
-        # 假設col_width是原本的欄位寬度
-        col_width = 14  # 原本欄位寬度
-        
-        # 調整成靠右，欄位寬度變窄2，數字往左移2格
-        adjusted_col_width = col_width - 6
-        
-        # 色粉列改成：
+        # 色粉列（左側色粉代號固定，右側數字欄縮排並用 adjusted_col_width）
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            row = [c_id.ljust(powder_label_width)]  # 色粉代號固定欄位寬度，靠左
+            row = [c_id.ljust(powder_label_width)]  # 色粉代號不縮排，固定左對齊
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
-                # 用更窄欄位，靠右填充，數字會往左靠近
-                row.append(f"{val_str:>{adjusted_col_width}}")
-            lines.append("".join(row))
+                row.append(f"<b>{val_str:>{adjusted_col_width}}</b>")  # 數字加粗並向左微移
+            lines.append(numbers_indent + "".join(row))
     
         # 橫線
-        total_line_width = powder_label_width + col_width * 4
-        lines.append("＿" * 32)
+        total_line_width = powder_label_width + adjusted_col_width * 4 + len(numbers_indent)
+        lines.append("＿" * total_line_width)
     
-        # 合計列同理：
+        # 合計列
+        try:
+            net_weight = float(recipe_row.get("淨重", 0))
+        except:
+            net_weight = 0.0
+        total_line_vals = []
+        for i in range(4):
+            result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
+            val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
+            total_line_vals.append(val_str)
         lines.append(
+            numbers_indent +
             total_type.ljust(powder_label_width) +
-            "".join([f"{v:>{adjusted_col_width}}" for v in total_line_vals])
+            "".join([f"<b>{v:>{adjusted_col_width}}</b>" for v in total_line_vals])
         )
     
-        # 附加配方（有的話）
+        # 附加配方（如果有）
         if additional_recipe_row:
             lines.append("")
             lines.append("附加配方")
@@ -1007,13 +1010,14 @@ elif menu == "生產單管理":
                 for i in range(4):
                     val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                     val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
-                    row.append(numbers_indent + f"<b>{val_str:>{col_width}}</b>")
-                lines.append("".join(row))
+                    row.append(f"<b>{val_str:>{adjusted_col_width}}</b>")
+                lines.append(numbers_indent + "".join(row))
     
         lines.append("")
         lines.append(f"備註 : {order.get('備註', '')}")
     
         return "\n".join(lines)
+
           
 # ---------- 新增後欄位填寫區塊 ----------
 # ===== 主流程頁面切換 =====
