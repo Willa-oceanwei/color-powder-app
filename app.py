@@ -74,37 +74,32 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
         <title>生產單列印</title>
         <style>
             @page {{{{
-            size: A5 landscape;
-            margin: 10mm;
-        }}}}
-        body {{{{
-            font-family: 'Courier New', monospace;
-            font-size: 15px;
-            line-height: 1.6;
-            white-space: pre;
-            position: relative;
-        }}}}
-        .title {{{{
-            text-align: center;
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 2px;
-        }}}}
-        .timestamp {{{{
-            position: absolute;
-            top: 10px;
-            right: 20px;
-            font-size: 12px;
-            color: #333;
-        }}}}
-        pre {{{{
-            white-space: pre-wrap;
-        }}}}
-    </style>
-
-            pre {{
+                size: A5 landscape;
+                margin: 10mm;
+            }}}}
+            body {{{{
+                font-family: 'Courier New', monospace;
+                font-size: 15px;
+                line-height: 1.6;
+                white-space: pre;
+                position: relative;
+            }}}}
+            .title {{{{
+                text-align: center;
+                font-size: 22px;
+                font-weight: bold;
+                margin-bottom: 2px;
+            }}}}
+            .timestamp {{{{
+                position: absolute;
+                top: 10px;
+                right: 20px;
+                font-size: 12px;
+                color: #333;
+            }}}}
+            pre {{{{
                 white-space: pre-wrap;
-            }}
+            }}}}
         </style>
         <script>
             window.onload = function() {{
