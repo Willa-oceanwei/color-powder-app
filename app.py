@@ -83,7 +83,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             }
             .title {
                 text-align: center;
-                font-size: 28px;
+                font-size: 24px;
                 margin-bottom: 2px;
             }
             .timestamp {
@@ -976,7 +976,8 @@ elif menu == "生產單管理":
             lines.append("".join(row))
     
         # === 橫線 ===
-        lines.append("＿" * (powder_label_width + col_width * 4))
+        total_line_width = powder_label_width + col_width * 4
+        lines.append("＿" * 32)
     
         # === 合計列 ===
         try:
