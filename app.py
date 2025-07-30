@@ -954,7 +954,7 @@ elif menu == "生產單管理":
     
         # === 包裝列 ===
         indent = " " * 20
-        col_width = 18
+        col_width = 20
         pack_line = []
         
         for i in range(4):
