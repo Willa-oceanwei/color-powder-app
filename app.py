@@ -932,7 +932,7 @@ elif menu == "生產單管理":
     
         powder_label_width = 8    # 色粉代號欄位寬度
         col_width = 23            # 每一個重量欄位寬度
-        indent = " " * 18         # 包裝列縮排
+        indent = " " * 22         # 包裝列縮排
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
@@ -972,7 +972,7 @@ elif menu == "生產單管理":
         lines.append(indent + "".join(pack_line))
 
         
-        powder_label_width = 6   # ← 色粉代號欄寬，從 8 縮小到 6，讓整排向左
+        powder_label_width = 5   # ← 色粉代號欄寬，從 8 縮小到 6，讓整排向左
         col_width = 23          # ← 每一數值欄寬（保持原設定不動）
         # === 色粉列 ===
         for idx, c_id in enumerate(colorant_ids):
@@ -999,7 +999,7 @@ elif menu == "生產單管理":
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
             total_line_vals.append(val_str)
-        lines.append(f"{total_type:<{powder_label_width - 3}}" + "".join([f"{v:>{col_width}}" for v in total_line_vals]))
+        lines.append(f"{total_type:<{powder_label_width - 5}}" + "".join([f"{v:>{col_width}}" for v in total_line_vals]))
     
         # === 附加配方 ===
         if additional_recipe_row:
