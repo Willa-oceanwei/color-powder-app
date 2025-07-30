@@ -926,11 +926,10 @@ elif menu == "生產單管理":
         powder_label_width = 12   # 色粉代號欄位寬度固定
         pack_col_width = 14       # 包裝列每個欄位寬度（固定不動）
         number_col_width = 12     # 數字列每個欄位寬度（可調）
-        adjusted_col_width = number_col_width - 2
+        adjusted_col_width = number_col_width - 2 
         
         packing_indent = " " * 14  # 包裝列縮排，固定
         numbers_indent = " " * 0   # 數字列縮排，可以調整左右位置
-        row.append(f"<b>{val_str:>{adjusted_col_width}}</b>")  # 減少欄寬，讓數字往左靠近
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
@@ -977,9 +976,9 @@ elif menu == "生產單管理":
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
-                row.append(f"<b>{val_str:>{adjusted_col_width}}</b>")  # 用 number_col_width 控制數字寬度，加粗
+                row.append(f"<b>{val_str:>{adjusted_col_width}}</b>")  # ✅ 放這裡才對
             lines.append(numbers_indent + "".join(row))
-    
+            
         # === 橫線 ===
         total_line_width = powder_label_width + number_col_width * 4
         lines.append("＿" * 32)
