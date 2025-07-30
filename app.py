@@ -79,14 +79,14 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             }}}}
             body {{{{
                 font-family: 'Courier New', monospace;
-                font-size: 22px;
+                font-size: 24px;
                 line-height: 1.6;
                 white-space: pre;
                 position: relative;
             }}}}
             .title {{{{
                 text-align: center;
-                font-size: 26px;
+                font-size: 32px;
                 font-weight: bold;
                 margin-bottom: 2px;
             }}}}
@@ -961,8 +961,8 @@ elif menu == "生產單管理":
                     unit_str = f"{real_w:.2f}kg"
                 count_str = f"{int(c) if c.is_integer() else c}"
                 pack_line.append(f"包裝{i+1}：{unit_str} × {count_str}".ljust(col_width))
-        lines.append("".join(pack_line))
-        lines.append("")
+        indent = " " * 10  # ← 這裡決定右移幾格
+        lines.append(indent + "".join(pack_line))
     
         # 色粉列（上方是倍數）
         for idx, c_id in enumerate(colorant_ids):
