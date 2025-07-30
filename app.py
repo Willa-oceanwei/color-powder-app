@@ -84,7 +84,6 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             .title {
                 text-align: center;
                 font-size: 28px;
-                font-weight: bold;
                 margin-bottom: 2px;
             }
             .timestamp {
