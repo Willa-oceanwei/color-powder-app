@@ -74,7 +74,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
         <title>生產單列印</title>
         <style>
             @page {{
-                size: A5 portrait;
+                size: A5 landscape;
                 margin: 10mm;
             }}
             body {{
