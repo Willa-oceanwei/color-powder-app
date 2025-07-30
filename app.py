@@ -1450,6 +1450,7 @@ if page == "新增生產單":
                         st.error(f"Google Sheets 更新錯誤：{e}")
     
                     # 寫入本地檔案
+                    os.makedirs(os.path.dirname(order_file), exist_ok=True)
                     df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
                     st.success("✅ 本地資料更新成功，修改已儲存")
