@@ -972,13 +972,14 @@ elif menu == "生產單管理":
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            row = [c_id.ljust(powder_label_width)]
+            row = [c_id.ljust(powder_label_width)]  # 左側代號靠左
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
-                row.append(f"<b>{val_str:>{adjusted_col_width}}</b>")  # ✅ 放這裡才對
-            lines.append(numbers_indent + "".join(row))
-            
+                row.append(f"<b>{val_str:>{adjusted_col_width}}</b>")
+            lines.append(numbers_indent + "".join(row))  # 縮排 + 整行組合
+        
+                    
         # === 橫線 ===
         total_line_width = powder_label_width + number_col_width * 4
         lines.append("＿" * 32)
@@ -993,12 +994,13 @@ elif menu == "生產單管理":
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
             total_line_vals.append(val_str)
+        
         lines.append(
             numbers_indent +
             total_type.ljust(powder_label_width) +
-            "".join([f"<b>{v:>{number_col_width}}</b>" for v in total_line_vals])
+            "".join([f"<b>{v:>{adjusted_col_width}}</b>" for v in total_line_vals])
         )
-    
+  
         # === 附加配方（有的話）===
         if additional_recipe_row:
             lines.append("")
