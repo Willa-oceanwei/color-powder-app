@@ -67,42 +67,43 @@ init_states()
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
     created_time = order.get("建立時間", "")
-    html = f"""
+
+    html_template = """
     <html>
     <head>
         <meta charset="utf-8">
         <title>生產單列印</title>
         <style>
-            @page {{{{
+            @page {
                 size: A5 landscape;
                 margin: 10mm;
-            }}}}
-            body {{{{
+            }
+            body {
                 margin: 0;
-            }}}}
-            .title {{{{
+            }
+            .title {
                 text-align: left;
                 font-size: 28px;
                 font-weight: bold;
                 margin-bottom: 2px;
                 padding-left: 50px;
-            }}}}
-            .timestamp {{{{
+            }
+            .timestamp {
                 font-size: 12px;
                 color: #333;
                 padding-left: 50px;
-            }}}}
-            pre {{{{
+            }
+            pre {
                 white-space: pre-wrap;
                 font-size: 19px;
                 font-family: 'Courier New', monospace;
                 line-height: 1.6;
-            }}}}
+            }
         </style>
         <script>
-            window.onload = function() {{
+            window.onload = function() {
                 window.print();
-            }}
+            }
         </script>
     </head>
     <body>
@@ -112,6 +113,8 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     </body>
     </html>
     """
+
+    html = html_template.replace("{created_time}", created_time).replace("{content}", content)
     return html
 
 # ======== 共用儲存函式 =========
