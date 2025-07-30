@@ -970,7 +970,10 @@ elif menu == "生產單管理":
                 text = f"{unit_str} × {count_str}"
                 pack_line.append(f"{text:<{col_width}}")
         lines.append(indent + "".join(pack_line))
-    
+
+        
+        powder_label_width = 6   # ← 色粉代號欄寬，從 8 縮小到 6，讓整排向左
+        col_width = 23          # ← 每一數值欄寬（保持原設定不動）
         # === 色粉列 ===
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
@@ -996,7 +999,7 @@ elif menu == "生產單管理":
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
             total_line_vals.append(val_str)
-        lines.append(f"{total_type:<{powder_label_width}}" + "".join([f"{v:>{col_width}}" for v in total_line_vals]))
+        lines.append(f"{total_type:<{powder_label_width - 3}}" + "".join([f"{v:>{col_width}}" for v in total_line_vals]))
     
         # === 附加配方 ===
         if additional_recipe_row:
