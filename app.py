@@ -924,8 +924,9 @@ elif menu == "生產單管理":
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
     
         powder_label_width = 12   # 色粉代號固定欄位寬度
-        col_width = 12            # 每個重量欄位寬度
-        indent = " " * 14         # 包裝列縮排
+        col_width = 14            # 每個重量欄位寬度(色粉及合計重量)
+        packing_indent = " " * 14  # 包裝列縮排，固定，不動
+        numbers_indent = " " * 8  # 這是色粉及合計數字的縮排
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
@@ -944,7 +945,7 @@ elif menu == "生產單管理":
         lines.append(info_line)
         lines.append("")
     
-        # === 包裝列 ===
+        # 包裝列(固定不動)
         pack_line = []
         for i in range(4):
             w = packing_weights[i]
@@ -962,13 +963,13 @@ elif menu == "生產單管理":
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
                 pack_line.append(f"{text:<{col_width}}")
-        lines.append(indent + "".join(pack_line))
+        lines.append(packing_indent + "".join(pack_line))
     
-        # === 色粉列 ===
+        # 色粉列 (左邊代號固定寬度，右邊數字欄縮排+縮窄)
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            row = [c_id.ljust(powder_label_width)]
+            row = [numbers_indent + c_id.ljust(powder_label_width)]  # 左側代號往右縮排點數字欄的縮排一致
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
@@ -990,6 +991,7 @@ elif menu == "生產單管理":
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
             total_line_vals.append(val_str)
         lines.append(
+            numbers_indent +
             total_type.ljust(powder_label_width) +
             "".join([f"<b>{v:>{col_width}}</b>" for v in total_line_vals])
         )
