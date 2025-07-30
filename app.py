@@ -89,8 +89,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
                 margin-bottom: 5px;
             }
             .title {
-                font-size: 28px;
-                font-weight: bold;
+                font-size: 26px;
                 text-align: center;
                 margin: 0;
             }
