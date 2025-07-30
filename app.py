@@ -925,7 +925,7 @@ elif menu == "生產單管理":
     
         powder_label_width = 12   # 色粉代號固定寬度，不動
         col_width = 18            # 每個重量欄位寬度（可調）
-        adjusted_col_width = col_width - 4  # 用來微調數字欄位寬度（向左移4格）
+        adjusted_col_width = col_width - 10  # 用來微調數字欄位寬度（向左移4格）
         packing_indent = " " * 14  # 包裝列縮排，固定
         numbers_indent = " " * 2   # 數字區縮排，可調整左右
     
@@ -978,8 +978,8 @@ elif menu == "生產單管理":
             lines.append(numbers_indent + "".join(row))
     
         # 橫線
-        total_line_width = powder_label_width + adjusted_col_width * 4 + len(numbers_indent)
-        lines.append("＿" * total_line_width)
+        total_line_width = powder_label_width + col_width * 4
+        lines.append("＿" * 32)
     
         # 合計列
         try:
