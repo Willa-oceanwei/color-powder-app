@@ -66,8 +66,8 @@ init_states()
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
-    created_time = str(order.get("建立時間", ""))
-    
+    created_time = order.get("建立時間", "")
+
     html_template = """
     <html>
     <head>
@@ -81,29 +81,24 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             body {
                 margin: 0;
             }
-            .title-block {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                flex-direction: column;
-                margin-bottom: 5px;
-            }
             .title {
-                font-size: 26px;
                 text-align: center;
-                margin: 0;
+                font-size: 28px;
+                font-weight: bold;
+                margin-bottom: 2px;
             }
             .timestamp {
                 font-size: 12px;
                 color: #333;
                 text-align: center;
-                margin: 0;
+                margin-bottom: 10px;
             }
             pre {
                 white-space: pre-wrap;
-                font-size: 21px;  /* 原本是 19px */
-                font-family: Arial, 'Courier New', monospace; /* 英數字會優先用 Arial */
-                line-height: 1.6;
+                font-family: 'Courier New', Courier, monospace; /* ← 這裡設定等寬字體 */
+                font-size: 18px;      /* 可依需求調整字體大小 */
+                line-height: 1.5;     /* 行距 */
+                margin-left: 25px;    /* 可根據需求調整整體左縮排 */
             }
         </style>
         <script>
@@ -113,17 +108,16 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
         </script>
     </head>
     <body>
-        <div class="title-block">
-            <div class="title">生產單</div>
-            <div class="timestamp">{created_time}</div>
-        </div>
+        <div class="timestamp">{created_time}</div>
+        <div class="title">生產單</div>
         <pre>{content}</pre>
     </body>
     </html>
     """
 
-    html = html_template.replace("{created_time}", created_time).replace("{content}", str(content))
+    html = html_template.replace("{created_time}", created_time).replace("{content}", content)
     return html
+
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
