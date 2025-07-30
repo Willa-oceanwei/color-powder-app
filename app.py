@@ -110,7 +110,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     <body>
         <div class="timestamp">{created_time}</div>
         <div class="title">生產單</div>
-        <pre>{content}</pre>
+        <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 18px; line-height: 1.5;"><code>{content}</code></pre>
     </body>
     </html>
     """
@@ -926,7 +926,7 @@ elif menu == "生產單管理":
     
         powder_label_width = 8    # 色粉代號欄位寬度
         col_width = 18            # 每一個重量欄位寬度
-        indent = " " * 25         # 包裝列縮排
+        indent = " " * 15         # 包裝列縮排
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
@@ -966,17 +966,16 @@ elif menu == "生產單管理":
         lines.append(indent + "".join(pack_line))
 
         # === 色粉列 ===
-        fixed_left = 12   # ← 色粉代號區塊固定寬度，不受文字長短影響
-        col_width = 18   # ← 每個重量欄位寬度
-        
+        fixed_left = 12   # 色粉代號固定欄位寬度
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            row = [c_id.ljust(fixed_left)]  # ← 重點：固定寬度欄位
+            row = [c_id.ljust(fixed_left)]
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
-                row.append(f"{val_str:>{col_width}}")  # 右邊數值欄位對齊
+                # 數字加粗：
+                row.append(f"<b>{val_str:>{col_width}}</b>")
             lines.append("".join(row))
     
         # === 橫線 ===
