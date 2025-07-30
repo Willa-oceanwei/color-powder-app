@@ -965,7 +965,7 @@ elif menu == "生產單管理":
                     real_w = w
                     unit_str = f"{real_w:.2f}kg"
                 count_str = f"{int(c) if c.is_integer() else c}"
-                pack_line.append(f"{'包裝'+str(i+1):<8}：{unit_str:<6} × {count_str}")
+                pack_line.append(f"包裝{i+1}：{unit_str} × {count_str}")
         lines.append("    ".join(pack_line))
         lines.append("")
     
