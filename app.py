@@ -984,8 +984,8 @@ elif menu == "生產單管理":
     
         # === 橫線 ===
         total_line_width = powder_label_width + col_width * 4
-        lines.append("＿" * (total_line_width - 4))  # 避免超長
-    
+        lines.append("＿" * 32) 
+        
         # === 合計列 ===
         try:
             net_weight = float(recipe_row.get("淨重", 0))
