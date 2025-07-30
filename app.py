@@ -73,10 +73,10 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
         <meta charset="utf-8">
         <title>生產單列印</title>
         <style>
-            @page {{
+            @page {{{{
                 size: A5 landscape;
                 margin: 10mm;
-            }}
+            }}}}
             body {{{{
                 margin: 0;
             }}}}
@@ -113,7 +113,6 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     </html>
     """
     return html
-
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
