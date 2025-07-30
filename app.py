@@ -981,7 +981,7 @@ elif menu == "生產單管理":
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
                 row.append(f"{val_str:>{col_width}}")
-            lines.append(f"{total_type:<{powder_label_width}}" + "".join([...]))  # 合計列對齊色粉代碼欄
+            lines.append(f"{total_type:<{powder_label_width}}" + "".join([f"{v:>{col_width}}" for v in total_line_vals]))  # 合計列對齊色粉代碼欄
     
         # === 分隔線（四欄寬度 + 粉號欄） ===
         total_line_width = powder_label_width + col_width * 4
