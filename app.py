@@ -931,7 +931,7 @@ elif menu == "生產單管理":
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
     
         powder_label_width = 8    # 色粉代號欄位寬度
-        col_width = 16            # 每一個重量欄位寬度
+        col_width = 18            # 每一個重量欄位寬度
         indent = " " * 25         # 包裝列縮排
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
@@ -973,7 +973,7 @@ elif menu == "生產單管理":
 
         # === 色粉列 ===
         fixed_left = 12   # ← 色粉代號區塊固定寬度，不受文字長短影響
-        col_width = 16   # ← 每個重量欄位寬度
+        col_width = 18   # ← 每個重量欄位寬度
         
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
