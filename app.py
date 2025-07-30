@@ -926,7 +926,7 @@ elif menu == "生產單管理":
         powder_label_width = 12   # 色粉代號固定寬度，不縮排
         col_width = 14            # 每個重量欄位寬度
         packing_indent = " " * 14  # 包裝列固定縮排
-        numbers_indent = " " * 2  # 數字區縮排，可調整微移，控制對齊
+        numbers_indent = " " * 0  # 數字區縮排，可調整微移，控制對齊
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
