@@ -73,30 +73,34 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
         <meta charset="utf-8">
         <title>生產單列印</title>
         <style>
-            @page {
-                size: A5 landscape;
-                margin: 10mm;
-            }
-            body {
-                font-family: 'Courier New', monospace;
-                font-size: 15px; /* ⬅️ 先縮小，確保不超頁 */
-                line-height: 1.6;
-                white-space: pre;
-                position: relative;
-            }
-            .title {
-                text-align: center;
-                font-size: 22px;
-                font-weight: bold;
-                margin-bottom: 2px;  /* ⬅️ 間距縮小 */
-            }
-            .timestamp {
-                position: absolute;
-                top: 10px;
-                right: 20px;
-                font-size: 12px; /* ⬅️字體大小 */
-                color: #333;
-            }
+            @page {{{{
+            size: A5 landscape;
+            margin: 10mm;
+        }}}}
+        body {{{{
+            font-family: 'Courier New', monospace;
+            font-size: 15px;
+            line-height: 1.6;
+            white-space: pre;
+            position: relative;
+        }}}}
+        .title {{{{
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 2px;
+        }}}}
+        .timestamp {{{{
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 12px;
+            color: #333;
+        }}}}
+        pre {{{{
+            white-space: pre-wrap;
+        }}}}
+    </style>
 
             pre {{
                 white-space: pre-wrap;
