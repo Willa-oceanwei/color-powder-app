@@ -66,8 +66,8 @@ init_states()
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
-    created_time = order.get("建立時間", "")
-
+    created_time = str(order.get("建立時間", ""))
+    
     html_template = """
     <html>
     <head>
@@ -123,7 +123,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     </html>
     """
 
-    html = html_template.replace("{created_time}", created_time).replace("{content}", content)
+    html = html_template.replace("{created_time}", created_time).replace("{content}", str(content))
     return html
 
 # ======== 共用儲存函式 =========
