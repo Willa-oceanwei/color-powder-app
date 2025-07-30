@@ -924,12 +924,12 @@ elif menu == "生產單管理":
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
     
         powder_label_width = 12   # 色粉代號欄位寬度固定
-        pack_col_width = 12       # 包裝列每個欄位寬度（固定不動）
-        number_col_width = 18     # 數字列每個欄位寬度（可調）
+        pack_col_width = 14       # 包裝列每個欄位寬度（固定不動）
+        number_col_width = 12     # 數字列每個欄位寬度（可調）
         
         packing_indent = " " * 14  # 包裝列縮排，固定
         numbers_indent = " " * 0   # 數字列縮排，可以調整左右位置
-        adjusted_col_width = number_col_width - 2  # 減少欄寬，讓數字往左靠近
+        row.append(f"<b>{val_str:>{adjusted_col_width}}</b>")  # 減少欄寬，讓數字往左靠近
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
