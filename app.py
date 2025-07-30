@@ -114,6 +114,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     """
     return html
 
+
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
     values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
