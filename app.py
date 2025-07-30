@@ -102,8 +102,8 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             }
             pre {
                 white-space: pre-wrap;
-                font-size: 19px;
-                font-family: 'Courier New', monospace;
+                font-size: 21px;  /* 原本是 19px */
+                font-family: Arial, 'Courier New', monospace; /* 英數字會優先用 Arial */
                 line-height: 1.6;
             }
         </style>
@@ -933,7 +933,7 @@ elif menu == "生產單管理":
     
         powder_label_width = 8   # 色粉代號寬度
         col_width = 11           # 每一數值欄位寬度
-        indent = " " * 6         # 包裝列縮排
+        indent = " " * 8         # 包裝列縮排
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
@@ -948,7 +948,7 @@ elif menu == "生產單管理":
         recipe_id = recipe_row.get('配方編號', '')
         color = order.get('顏色', '')
         pantone = order.get('Pantone 色號', '')
-        info_line = f"配方編號：{recipe_id:<8}  顏色：{color:<4}  比例：{ratio} g/kg  國際色號：{pantone}"
+        info_line = f"配方編號：{recipe_id:<8}  顏色：{color:<4}  比例：{ratio} g/kg   國際色號：{pantone}"
         lines.append(info_line)
         lines.append("")
     
@@ -981,11 +981,11 @@ elif menu == "生產單管理":
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
                 row.append(f"{val_str:>{col_width}}")
-            lines.append("".join(row))
+            lines.append(f"{total_type:<{powder_label_width}}" + "".join([...]))  # 合計列對齊色粉代碼欄
     
         # === 分隔線（四欄寬度 + 粉號欄） ===
         total_line_width = powder_label_width + col_width * 4
-        lines.append("".ljust(total_line_width, '＿'))
+        lines.append("".ljust(total_line_width - 4, '＿'))  # ← 減少寬度
     
         # === 合計列（補上粉號欄寬） ===
         try:
@@ -1013,7 +1013,7 @@ elif menu == "生產單管理":
                     val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                     val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
                     row.append(f"{val_str:>{col_width}}")
-                lines.append("".join(row))
+                lines.append(f"{total_type:<{powder_label_width}}" + "".join([...]))  # 合計列對齊色粉代碼欄
     
         lines.append("")
         lines.append(f"備註 : {order.get('備註', '')}")
@@ -1206,8 +1206,6 @@ if page == "新增生產單":
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
                 st.rerun()
-
-
 
 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
