@@ -979,7 +979,7 @@ elif menu == "生產單管理":
             lines.append(numbers_indent + "".join(row))
     
         # === 橫線 ===
-        total_line_width = powder_label_width + col_width * 4
+        total_line_width = powder_label_width + number_col_width * 4
         lines.append("＿" * 32)
     
         # === 合計列 ===
