@@ -933,7 +933,7 @@ elif menu == "生產單管理":
     
         powder_label_width = 8   # 色粉代號寬度
         col_width = 14           # 每一數值欄寬
-        indent = " " * 12         # 包裝列縮排
+        indent = " " * 16         # 包裝列縮排
     
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
@@ -948,7 +948,7 @@ elif menu == "生產單管理":
         recipe_id = recipe_row.get('配方編號', '')
         color = order.get('顏色', '')
         pantone = order.get('Pantone 色號', '')
-        info_line = f"配方編號：{recipe_id:<8}   顏色：{color:<4}   比例：{ratio} g/kg    國際色號：{pantone}"
+        info_line = f"配方編號：{recipe_id:<8}    顏色：{color:<4}     比例：{ratio} g/kg     國際色號：{pantone}"
         lines.append(info_line)
         lines.append("")
     
@@ -985,7 +985,7 @@ elif menu == "生產單管理":
     
         # === 分隔線 ===
         total_line_width = powder_label_width + col_width * 4
-        lines.append("".ljust(total_line_width - 10, '＿'))
+        lines.append("".ljust(total_line_width - 2, '＿'))
     
         # === 合計列 ===
         try:
