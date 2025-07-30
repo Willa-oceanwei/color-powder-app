@@ -79,7 +79,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             }}}}
             body {{{{
                 font-family: 'Courier New', monospace;
-                font-size: 15px;
+                font-size: 18px;
                 line-height: 1.6;
                 white-space: pre;
                 position: relative;
