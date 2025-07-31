@@ -927,7 +927,7 @@ elif menu == "生產單管理":
         pack_col_width = 14       # 包裝列每個欄位寬度（固定不動）
         number_col_width = 6      # 每個數字欄位寬度（數字本身寬度）
         base_offset = 0           # 微調整體左右位置
-        column_offsets = [1, 9, 8, 8]
+        column_offsets = [1, 8.5, 9, 8]
     
         packing_indent = " " * 14  # 包裝列縮排
         lines = []
@@ -975,12 +975,12 @@ elif menu == "生產單管理":
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
-                padding = " " * max(0, column_offsets[i])
+                padding = " " * max(0, int(round(column_offsets[i])))
                 row += padding + f"<b>{val_str:>{number_col_width}}</b>"
             lines.append(row)
     
         # === 橫線 ===
-        lines.append("＿" * 34)
+        lines.append("＿" * 35)
     
         # === 合計列 ===
         try:
@@ -991,7 +991,7 @@ elif menu == "生產單管理":
         for i in range(4):
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
-            padding = " " * max(0, column_offsets[i])
+            padding = " " * max(0, int(round(column_offsets[i])))
             total_line += padding + f"<b>{val_str:>{number_col_width}}</b>"
         lines.append(total_line)
 
@@ -1008,7 +1008,7 @@ elif menu == "生產單管理":
                 for i in range(4):
                     val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                     val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
-                    padding = " " * max(0, column_offsets[i])
+                    padding = " " * max(0, int(round(column_offsets[i])))
                     row += padding + f"<b>{val_str:>{number_col_width}}</b>"
                 lines.append(row)
     
