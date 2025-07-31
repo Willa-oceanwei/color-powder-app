@@ -1018,9 +1018,9 @@ elif menu == "生產單管理":
                     "客戶名稱": recipe.get("客戶名稱", ""),
                     "Pantone 色號": recipe.get("Pantone色號", ""),
                     "計量單位": recipe.get("計量單位", ""),
-                    "備註": recipe.get("備註", ""),
-                    "重要提醒": recipe.get("重要提醒", ""),
-                    "合計類別": recipe.get("合計類別", "")
+                    "備註": str(recipe.get("備註", "")).strip(),
+                    "重要提醒": str(recipe.get("重要提醒", "")).strip(),
+                    "合計類別": str(recipe.get("合計類別", "")).strip(),
                 }
 
                 # ✅ 寫入色粉欄位（最多 8 筆，超過略過）
