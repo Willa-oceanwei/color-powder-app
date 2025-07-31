@@ -88,9 +88,11 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             }
             .timestamp {
                 font-size: 12px;
-                color: #333;
+                color: #000;  /* ← 改成純黑 */
                 text-align: center;
-                margin-bottom: 2px;  /* 建立時間與生產單標題距離縮小 */
+                margin-bottom: 2px;
+                font-family: Arial, Helvetica, sans-serif;
+                font-weight: normal;
             }
             pre {
                 white-space: pre-wrap;
