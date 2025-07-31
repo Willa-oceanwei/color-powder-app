@@ -986,9 +986,6 @@ elif menu == "生產單管理":
         # === 橫線 ===
         lines.append("＿" * 32)
     
-        # === 合計列 ===      
-        lines.append("＿" * 60)
-        
         try:
             net_weight = float(recipe_row.get("淨重", 0))
         except:
