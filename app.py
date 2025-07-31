@@ -888,44 +888,67 @@ elif menu == "生產單管理":
             else:
                 # ✅ 正確建立生產單號
                 df_all_orders = st.session_state.df_order.copy()
-
                 today_str = datetime.now().strftime("%Y%m%d")
-                if not df_all_orders.empty and "生產單號" in df_all_orders.columns:
-                    count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
-                else:
-                    count_today = 0
-
+                count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
                 new_id = f"{today_str}-{count_today + 1:03}"
 
-                # ✅ 建立 new_entry
+                # ✅ 查找附加配方
+                附加配方 = df_recipe[
+                    (df_recipe["配方類別"] == "附加配方") &
+                    (df_recipe["原始配方"] == recipe["配方編號"])
+                ]
+
+                # ✅ 色粉合併處理：主配方 + 附加配方
+                all_colorants = []
+                for i in range(1, 9):
+                    id_key = f"色粉編號{i}"
+                    wt_key = f"色粉重量{i}"
+                    id_val = recipe.get(id_key, "")
+                    wt_val = recipe.get(wt_key, "")
+                    if id_val or wt_val:
+                        all_colorants.append((id_val, wt_val))
+
+                for _, sub in 附加配方.iterrows():
+                    for i in range(1, 9):
+                        id_key = f"色粉編號{i}"
+                        wt_key = f"色粉重量{i}"
+                        id_val = sub.get(id_key, "")
+                        wt_val = sub.get(wt_key, "")
+                        if id_val or wt_val:
+                            all_colorants.append((id_val, wt_val))
+
+                # ✅ 建立生產單資料
                 new_entry = {
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
-                    "配方編號": recipe["配方編號"],
+                    "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
+                    "配方編號": recipe.get("配方編號", ""),
                     "顏色": recipe.get("顏色", ""),
                     "客戶名稱": recipe.get("客戶名稱", ""),
-                    "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+                    "Pantone 色號": recipe.get("Pantone色號", ""),
+                    "計量單位": recipe.get("計量單位", ""),
                     "備註": recipe.get("備註", ""),
                     "重要提醒": recipe.get("重要提醒", ""),
+                    "合計類別": recipe.get("合計類別", "")
                 }
 
-                # ✅ 接著再處理色粉欄位補齊
-                import pandas as pd
+                # ✅ 寫入色粉欄位（最多 8 筆，超過略過）
                 colorant_total = 0
-                for i in range(1, 9):
-                    key = f"色粉{i}"
-                    val = recipe[key] if key in recipe and pd.notna(recipe[key]) else "0"
+                for i in range(8):
+                    id_val, wt_val = all_colorants[i] if i < len(all_colorants) else ("", "")
+                    new_entry[f"色粉編號{i+1}"] = id_val
                     try:
-                        val_float = float(val)
+                        wt = float(wt_val) if wt_val else 0
                     except:
-                        val_float = 0.0
-                    new_entry[key] = f"{val_float:.2f}"   # 轉成標準字串格式
-                    colorant_total += val_float
+                        wt = 0
+                    colorant_total += wt
+                    new_entry[f"色粉重量{i+1}"] = f"{wt:.2f}" if wt else ""
+
                 new_entry["色粉合計"] = f"{colorant_total:.2f}"
 
-                # ⬇ 最後進入狀態儲存
+                # ✅ 存入 session 狀態
                 st.session_state.new_order = new_entry
-                st.session_state.show_confirm_panel = True    
+                st.session_state.show_confirm_panel = True   
 
     # ===== 自訂函式：產生生產單列印格式 =====      
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
