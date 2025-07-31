@@ -358,6 +358,97 @@ elif menu == "配方管理":
     import pandas as pd
     import streamlit as st
 
+    # 載入「客戶名單」資料（假設來自 Google Sheet 工作表2）
+    ws_customer = spreadsheet.worksheet("客戶名單")
+    df_customers = pd.DataFrame(ws_customer.get_all_records())
+
+    # 建立「客戶選單」選項，例如：["C001 - 三商行", "C002 - 光陽"]
+    customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in df_customers.iterrows()]
+
+    try:
+        ws_recipe = spreadsheet.worksheet("配方管理")
+    except:
+        ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
+
+    columns = [
+        "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
+        "原始配方", "色粉類別", "計量單位", "Pantone色號",
+        "比例1", "比例2", "比例3", "淨重", "淨重單位",
+        *[f"色粉編號{i}" for i in range(1,9)],
+        *[f"色粉重量{i}" for i in range(1,9)],
+        "合計類別", "建檔時間"
+    ]
+
+    def init_states(keys):
+        for k in keys:
+            if k not in st.session_state:
+                st.session_state[k] = None
+
+    init_states([
+        "form_recipe",
+        "edit_recipe_index",
+        "delete_recipe_index",
+        "show_delete_recipe_confirm",
+        "search_recipe_code",
+        "search_pantone",
+        "search_customer"
+    ])
+
+    # 初始 form_recipe
+    if st.session_state.form_recipe is None:
+        st.session_state.form_recipe = {col: "" for col in columns}
+
+    # 讀取表單
+    try:
+        df = pd.DataFrame(ws_recipe.get_all_records())
+    except:
+        df = pd.DataFrame(columns=columns)
+
+    df = df.astype(str)
+    for col in columns:
+        if col not in df.columns:
+            df[col] = ""
+
+    import streamlit as st
+
+    if "df" not in st.session_state:
+        try:
+            df = pd.DataFrame(ws_recipe.get_all_records())
+        except:
+            df = pd.DataFrame(columns=columns)
+
+        df = df.astype(str)
+        for col in columns:
+            if col not in df.columns:
+                df[col] = ""
+        st.session_state.df = df# 儲存進 session_state
+    
+    # ✅ 後續操作都從 session_state 中抓資料
+
+    #-------
+    df = st.session_state.df
+
+    st.markdown("""
+    <style>
+    .big-title {
+        font-size: 35px;   /* 字體大小 */
+        font-weight: bold;  /*加粗 */
+        color: #F9DC5C; /* 字體顏色 */
+        margin-bottom: 20px; /* 下方間距 */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="big-title">🎯配方搜尋🔎</div>', unsafe_allow_html=True)
+  
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        search_recipe_top = st.text_input("配方編號", key="search_recipe_code_top")
+    with col2:
+        search_customer_top = st.text_input("客戶名稱或編號", key="search_customer_top")
+    with col3:
+        search_pantone_top = st.text_input("Pantone色號", key="search_pantone_top")
+
     # === 欄位定義 ===
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
