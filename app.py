@@ -927,7 +927,7 @@ elif menu == "生產單管理":
         pack_col_width = 14       # 包裝列每個欄位寬度（固定不動）
         number_col_width = 6      # 每個數字欄位寬度（數字本身寬度）
         base_offset = 0           # 微調整體左右位置
-        column_offsets = [-1, 6, 11, 16]
+        column_offsets = [-1, 7, 11, 13]
     
         packing_indent = " " * 14  # 包裝列縮排
         lines = []
