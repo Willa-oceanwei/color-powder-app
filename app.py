@@ -986,8 +986,14 @@ elif menu == "生產單管理":
         # === 橫線 ===
         lines.append("＿" * 32)
     
-        # === 合計列 ===
+        # === 合計列 ===      
         lines.append("＿" * 60)
+        
+        try:
+            net_weight = float(recipe_row.get("淨重", 0))
+        except:
+            net_weight = 0.0
+        
         total_line = ["合計".ljust(powder_label_width)]
         for i in range(4):
             val = net_weight * multipliers[i] if multipliers[i] > 0 else 0
@@ -995,7 +1001,7 @@ elif menu == "生產單管理":
             padding = " " * column_offsets[i]
             total_line.append(f"{padding}<b>{val_str}</b>")
         lines.append("".join(total_line))
-    
+            
         # === 附加配方（如果有）===
         if additional_recipe_row:
             lines.append("")
