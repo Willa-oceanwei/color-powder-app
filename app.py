@@ -1182,6 +1182,14 @@ if page == "新增生產單":
             color = c6.text_input("顏色", value=order.get("顏色", ""), key="color")
             pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="pantone")
             raw_material = c8.text_input("原料", value=order.get("原料", ""), key="raw_material")
+            # 📌 顯示「重要提醒」與「合計類別」（只顯示不可編輯）
+            important_note = recipe_row.get("重要提醒", "")
+            total_category = str(recipe_row.get("合計類別", "")).strip()
+            
+            if important_note:
+                st.markdown(f"**⚠️ 重要提醒：** `{important_note}`")
+            if total_category:
+                st.markdown(f"**🧮 合計類別：** `{total_category}`")
 
             st.markdown("**包裝重量與份數**")
             w_cols = st.columns(4)
