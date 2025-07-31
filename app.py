@@ -995,26 +995,26 @@ elif menu == "生產單管理":
             total_line += padding + f"<b>{val_str:>{number_col_width}}</b>"
         lines.append(total_line)
 
-    # === 附加配方（如果有）===
-    if additional_recipe_row:
+        # === 附加配方（如果有）===
+        if additional_recipe_row:
+            lines.append("")
+            lines.append("附加配方")
+            add_colorant_ids = [additional_recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+            add_colorant_weights = [float(additional_recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
+            for idx, c_id in enumerate(add_colorant_ids):
+                if not c_id:
+                    continue
+                row = c_id.ljust(powder_label_width)
+                for i in range(4):
+                    val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
+                    val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
+                    padding = " " * column_offsets[i]
+                    row += padding + f"<b>{val_str:>{number_col_width}}</b>"
+                lines.append(row)
+    
         lines.append("")
-        lines.append("附加配方")
-        add_colorant_ids = [additional_recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-        add_colorant_weights = [float(additional_recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
-        for idx, c_id in enumerate(add_colorant_ids):
-            if not c_id:
-                continue
-            row = c_id.ljust(powder_label_width)
-            for i in range(4):
-                val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
-                val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
-                padding = " " * column_offsets[i]
-                row += padding + f"<b>{val_str:>{number_col_width}}</b>"
-            lines.append(row)
-
-    lines.append("")
-    lines.append(f"備註 : {order.get('備註', '')}")
-    return "\n".join(lines)
+        lines.append(f"備註 : {order.get('備註', '')}")
+        return "\n".join(lines)
 
           
 # ---------- 新增後欄位填寫區塊 ----------
