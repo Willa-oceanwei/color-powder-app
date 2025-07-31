@@ -95,7 +95,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             pre {
                 white-space: pre-wrap;
                 font-family: 'Courier New', Courier, monospace;
-                font-size: 20px;
+                font-size: 22px;
                 line-height: 1.4;
                 margin-left: 25px;
                 margin-top: 0px;
@@ -932,7 +932,7 @@ elif menu == "生產單管理":
         number_col_width = 6      # 每個數字欄位寬度（數字本身寬度）
         base_offset = 0           # 微調整體左右位置
         column_offsets = [1, 8.5, 8.5, 8.8] #色粉列偏移
-        total_offsets = [-2, 7.5, 7.45, 9.4] #合計類偏移
+        total_offsets = [-2, 7.5, 7.45, 9.45] #合計類偏移
     
         packing_indent = " " * 14  # 包裝列縮排
         lines = []
