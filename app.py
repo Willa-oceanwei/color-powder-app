@@ -1263,6 +1263,8 @@ if page == "新增生產單":
             order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
             order["原料"] = st.session_state.raw_material
             order["備註"] = st.session_state.remark
+            order["重要提醒"] = st.session_state.important_note
+            order["合計類別"] = st.session_state.total_category
         
             for i in range(1, 5):
                 order[f"包裝重量{i}"] = st.session_state.get(f"weight{i}", "").strip()
