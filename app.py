@@ -970,6 +970,8 @@ elif menu == "生產單管理":
         lines.append(packing_indent + "".join(pack_line))
     
         # === 色粉列 ===
+        column_offsets = [12, 22, 33, 44]  # 每欄的數字縮排，根據 X 的實際位置設定
+        # 色粉列
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
@@ -978,24 +980,21 @@ elif menu == "生產單管理":
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
                 padding = " " * column_offsets[i]
-                row.append(f"<b>{padding}{val_str}</b>")
-            lines.append(numbers_indent + "".join(row))
-    
+                row.append(f"{padding}<b>{val_str}</b>")
+            lines.append("".join(row))
+        
         # === 橫線 ===
         lines.append("＿" * 32)
     
         # === 合計列 ===
-        try:
-            net_weight = float(recipe_row.get("淨重", 0))
-        except:
-            net_weight = 0.0
-        total_line_vals = []
+        lines.append("＿" * 60)
+        total_line = ["合計".ljust(powder_label_width)]
         for i in range(4):
-            result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
+            val = net_weight * multipliers[i] if multipliers[i] > 0 else 0
+            val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
             padding = " " * column_offsets[i]
-            total_line_vals.append(f"<b>{padding}{val_str}</b>")
-        lines.append(numbers_indent + total_type.ljust(powder_label_width) + "".join(total_line_vals))
+            total_line.append(f"{padding}<b>{val_str}</b>")
+        lines.append("".join(total_line))
     
         # === 附加配方（如果有）===
         if additional_recipe_row:
