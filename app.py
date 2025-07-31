@@ -942,7 +942,7 @@ elif menu == "生產單管理":
         recipe_id = recipe_row.get('配方編號', '')
         color = order.get('顏色', '')
         pantone = order.get('Pantone 色號', '')
-        info_line = f"配方編號：{recipe_id:<8}    顏色：{color:<4}    比例：{ratio} g/kg    國際色號：{pantone}"
+        info_line = f"配方編號：<b>{recipe_id:<8}</b>    顏色：{color:<4}    比例：{ratio} g/kg    國際色號：{pantone}"
         lines.append(info_line)
         lines.append("")
     
