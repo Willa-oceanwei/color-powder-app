@@ -65,10 +65,6 @@ init_states()
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
-    if order is not None and recipe_row is not None:
-        print_html = generate_print_page_content(order, recipe_row)
-    else:
-        st.warning("⚠️ 請先選擇一筆生產單與配方資料再列印。")
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
     created_time = order.get("建立時間", "")
 
