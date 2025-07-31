@@ -919,10 +919,6 @@ elif menu == "生產單管理":
 
     # ===== 自訂函式：產生生產單列印格式 =====      
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
-        if order is None:
-            return "⚠️ 找不到生產單資料，無法列印。"
-        if recipe_row is None:
-            return "⚠️ 找不到配方資料，無法列印。"
         unit = recipe_row.get("計量單位", "kg")
         ratio = recipe_row.get("比例3", "")
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
