@@ -98,11 +98,11 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
                 font-size: 18px;
                 line-height: 1.4;
                 margin-left: 25px;
-                margin-top: 0px;  /* 縮小 pre 區與標題的距離 */
-            }
-            b {
-                font-weight: bold;
-            }
+                margin-top: 0px;
+        }
+        b {
+            font-weight: bold;
+        }
         </style>
         <script>
             window.onload = function() {
@@ -981,7 +981,7 @@ elif menu == "生產單管理":
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
                 padding = " " * max(0, int(round(column_offsets[i])))
-                row += padding + f"<b>{val_str:>{number_col_width}}</b>"
+                row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
             lines.append(row)
     
         # === 橫線 ===
@@ -997,7 +997,7 @@ elif menu == "生產單管理":
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
             padding = " " * max(0, int(round(total_offsets[i])))  
-            total_line += padding + f"<b>{val_str:>{number_col_width}}</b>"
+            total_line += padding + f"<b class='total-num'>{val_str:>{number_col_width}}</b>"
         lines.append(total_line)
 
         # === 附加配方（如果有）===
