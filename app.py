@@ -1110,21 +1110,21 @@ elif menu == "生產單管理":
         # ✅ 包裝倍率（通常來自 packing_weights）
         multipliers = packing_weights
             
-                # === 橫線 ===
-                lines.append("＿" * 30)
+        # === 橫線 ===
+        lines.append("＿" * 30)
             
-                # === 合計列 ===
-                try:
-                    net_weight = float(recipe_row.get("淨重", 0))
-                except:
-                    net_weight = 0.0
-                total_line = total_type.ljust(powder_label_width)
-                for i in range(4):
-                    result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-                    val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
-                    padding = " " * max(0, int(round(total_offsets[i])))  
-                    total_line += padding + f"<b class='total-num'>{val_str:>{number_col_width}}</b>"
-                lines.append(total_line)
+        # === 合計列 ===
+        try:
+            net_weight = float(recipe_row.get("淨重", 0))
+        except:
+            net_weight = 0.0
+        total_line = total_type.ljust(powder_label_width)
+        for i in range(4):
+            result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
+            val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
+            padding = " " * max(0, int(round(total_offsets[i])))  
+            total_line += padding + f"<b class='total-num'>{val_str:>{number_col_width}}</b>"
+        lines.append(total_line)
 
         # === 附加配方（如果有）===
         if additional_recipe_row:
