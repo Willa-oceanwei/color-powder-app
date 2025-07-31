@@ -931,8 +931,8 @@ elif menu == "生產單管理":
         pack_col_width = 11       # 包裝列每個欄位寬度（固定不動）
         number_col_width = 6      # 每個數字欄位寬度（數字本身寬度）
         base_offset = 0           # 微調整體左右位置
-        column_offsets = [1, 5, 5, 5.3] #色粉列偏移
-        total_offsets = [-2, 5, 5, 6.45] #合計類偏移
+        column_offsets = [1, 5, 5, 5.5] #色粉列偏移
+        total_offsets = [-2, 5, 4.8, 5.5] #合計類偏移
     
         packing_indent = " " * 14  # 包裝列縮排
         lines = []
@@ -942,7 +942,7 @@ elif menu == "生產單管理":
         recipe_id = recipe_row.get('配方編號', '')
         color = order.get('顏色', '')
         pantone = order.get('Pantone 色號', '')
-        info_line = f"配方編號：<b>{recipe_id:<8}</b>顏色：{color:<4} 比例：{ratio} g/kg  Pantone：{pantone}"
+        info_line = f"編號：<b>{recipe_id:<8}</b>顏色：{color:<4} 比例：{ratio} g/kg  Pantone：{pantone}"
         lines.append(info_line)
         lines.append("")
     
