@@ -985,7 +985,7 @@ elif menu == "生產單管理":
             lines.append(row)
     
         # === 橫線 ===
-        lines.append("＿" * 35)
+        lines.append("＿" * 36)
     
         # === 合計列 ===
         try:
