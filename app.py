@@ -65,6 +65,10 @@ init_states()
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
+    if order is not None and recipe_row is not None:
+        print_html = generate_print_page_content(order, recipe_row)
+    else:
+        st.warning("⚠️ 請先選擇一筆生產單與配方資料再列印。")
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
     created_time = order.get("建立時間", "")
 
@@ -919,8 +923,10 @@ elif menu == "生產單管理":
 
     # ===== 自訂函式：產生生產單列印格式 =====      
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
-        if order is None or recipe_row is None:
-            return "⚠️ 找不到列印資料。"
+        if order is None:
+            return "⚠️ 找不到生產單資料，無法列印。"
+        if recipe_row is None:
+            return "⚠️ 找不到配方資料，無法列印。"
         unit = recipe_row.get("計量單位", "kg")
         ratio = recipe_row.get("比例3", "")
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
