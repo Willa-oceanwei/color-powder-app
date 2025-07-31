@@ -95,7 +95,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             pre {
                 white-space: pre-wrap;
                 font-family: 'Courier New', Courier, monospace;
-                font-size: 22px;
+                font-size: 20px;
                 line-height: 1.4;
                 margin-left: 25px;
                 margin-top: 0px;
@@ -113,7 +113,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     <body>
         <div class="timestamp">{created_time}</div>
         <div class="title">生產單</div>
-        <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 18px; line-height: 1.5;"><code>{content}</code></pre>
+        <pre><code>{content}</code></pre>
     </body>
     </html>
     """
