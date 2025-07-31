@@ -928,11 +928,11 @@ elif menu == "生產單管理":
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
     
         powder_label_width = 12   # 色粉代號欄位寬度固定
-        pack_col_width = 12       # 包裝列每個欄位寬度（固定不動）
+        pack_col_width = 10       # 包裝列每個欄位寬度（固定不動）
         number_col_width = 6      # 每個數字欄位寬度（數字本身寬度）
         base_offset = 0           # 微調整體左右位置
-        column_offsets = [1, 8.5, 8.5, 8.8] #色粉列偏移
-        total_offsets = [-2, 7.5, 7.45, 9.45] #合計類偏移
+        column_offsets = [1, 7, 8.5, 8.8] #色粉列偏移
+        total_offsets = [-2, 6, 7.45, 9.45] #合計類偏移
     
         packing_indent = " " * 14  # 包裝列縮排
         lines = []
@@ -985,7 +985,7 @@ elif menu == "生產單管理":
             lines.append(row)
     
         # === 橫線 ===
-        lines.append("＿" * 36)
+        lines.append("＿" * 32)
     
         # === 合計列 ===
         try:
