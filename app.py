@@ -928,7 +928,7 @@ elif menu == "生產單管理":
         number_col_width = 6      # 每個數字欄位寬度（數字本身寬度）
         base_offset = 0           # 微調整體左右位置
         column_offsets = [1, 8.5, 8.5, 8.8] #色粉列偏移
-        total_offsets = [1, 8.5, 8.5, 8.8] #合計類偏移
+        total_offsets = [-1, 6.5, 6.5, 6.8] #合計類偏移
     
         packing_indent = " " * 14  # 包裝列縮排
         lines = []
