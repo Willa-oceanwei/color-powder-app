@@ -925,19 +925,11 @@ elif menu == "生產單管理":
     
         powder_label_width = 12   # 色粉代號欄位寬度固定
         pack_col_width = 14       # 包裝列每個欄位寬度（固定不動）
+        number_col_width = 6      # 每個數字欄位寬度（數字本身寬度）
+        base_offset = 0           # 微調整體左右位置
+        column_offsets = [base_offset + i * (pack_col_width + 1) for i in range(4)]
     
-        packing_indent = " " * 14  # 包裝列縮排，固定
-        numbers_indent = " " * 0   # 數字列縮排
-    
-        # 自訂每欄的左邊 padding，使對齊包裝列的 X
-        column_offsets = [2, 6, 10, 14]  # 依你需求微調
-    
-        colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-        colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
-        packing_weights = [float(order.get(f"包裝重量{i}", 0)) for i in range(1, 5)]
-        packing_counts = [float(order.get(f"包裝份數{i}", 0)) for i in range(1, 5)]
-        multipliers = packing_weights
-    
+        packing_indent = " " * 14  # 包裝列縮排
         lines = []
         lines.append("")
     
@@ -950,6 +942,8 @@ elif menu == "生產單管理":
         lines.append("")
     
         # === 包裝列 ===
+        packing_weights = [float(order.get(f"包裝重量{i}", 0)) for i in range(1, 5)]
+        packing_counts = [float(order.get(f"包裝份數{i}", 0)) for i in range(1, 5)]
         pack_line = []
         for i in range(4):
             w = packing_weights[i]
@@ -970,56 +964,58 @@ elif menu == "生產單管理":
         lines.append(packing_indent + "".join(pack_line))
     
         # === 色粉列 ===
-        column_offsets = [12, 22, 33, 44]  # 每欄的數字縮排，根據 X 的實際位置設定
-        # 色粉列
+        colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+        colorant_weights = [float(recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
+        multipliers = packing_weights
+    
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            row = [c_id.ljust(powder_label_width)]
+            row = c_id.ljust(powder_label_width)
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
                 padding = " " * column_offsets[i]
-                row.append(f"{padding}<b>{val_str}</b>")
-            lines.append("".join(row))
-        
+                row += padding + f"<b>{val_str:>{number_col_width}}</b>"
+            lines.append(row)
+    
         # === 橫線 ===
         lines.append("＿" * 32)
     
+        # === 合計列 ===
         try:
             net_weight = float(recipe_row.get("淨重", 0))
         except:
             net_weight = 0.0
-        
-        total_line = ["合計".ljust(powder_label_width)]
+        total_line = total_type.ljust(powder_label_width)
         for i in range(4):
-            val = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
+            result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
+            val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
             padding = " " * column_offsets[i]
-            total_line.append(f"{padding}<b>{val_str}</b>")
-        lines.append("".join(total_line))
-            
-        # === 附加配方（如果有）===
-        if additional_recipe_row:
-            lines.append("")
-            lines.append("附加配方")
-            add_colorant_ids = [additional_recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-            add_colorant_weights = [float(additional_recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
-            for idx, c_id in enumerate(add_colorant_ids):
-                if not c_id:
-                    continue
-                row = [c_id.ljust(powder_label_width)]
-                for i in range(4):
-                    val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
-                    val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
-                    padding = " " * column_offsets[i]
-                    row.append(f"<b>{padding}{val_str}</b>")
-                lines.append(numbers_indent + "".join(row))
-    
+            total_line += padding + f"<b>{val_str:>{number_col_width}}</b>"
+        lines.append(total_line)
+
+    # === 附加配方（如果有）===
+    if additional_recipe_row:
         lines.append("")
-        lines.append(f"備註 : {order.get('備註', '')}")
-    
-        return "\n".join(lines)
+        lines.append("附加配方")
+        add_colorant_ids = [additional_recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+        add_colorant_weights = [float(additional_recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
+        for idx, c_id in enumerate(add_colorant_ids):
+            if not c_id:
+                continue
+            row = c_id.ljust(powder_label_width)
+            for i in range(4):
+                val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
+                val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
+                padding = " " * column_offsets[i]
+                row += padding + f"<b>{val_str:>{number_col_width}}</b>"
+            lines.append(row)
+
+    lines.append("")
+    lines.append(f"備註 : {order.get('備註', '')}")
+    return "\n".join(lines)
+
           
 # ---------- 新增後欄位填寫區塊 ----------
 # ===== 主流程頁面切換 =====
