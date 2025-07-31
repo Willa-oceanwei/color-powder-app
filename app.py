@@ -976,7 +976,7 @@ elif menu == "生產單管理":
         for idx, c_id in enumerate(colorant_ids):
             if not c_id:
                 continue
-            row = c_id.ljust(powder_label_width)
+            row = f"<b>{c_id.ljust(powder_label_width)}</b>"
             for i in range(4):
                 val = colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
@@ -1009,7 +1009,7 @@ elif menu == "生產單管理":
             for idx, c_id in enumerate(add_colorant_ids):
                 if not c_id:
                     continue
-                row = c_id.ljust(powder_label_width)
+                row = f"<b>{c_id.ljust(powder_label_width)}</b>"
                 for i in range(4):
                     val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
                     val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
