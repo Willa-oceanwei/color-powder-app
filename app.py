@@ -84,20 +84,24 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             .title {
                 text-align: center;
                 font-size: 24px;
-                margin-bottom: 2px;
+                margin-bottom: -4px; /* 生產單與配方欄縮近 */
             }
             .timestamp {
                 font-size: 12px;
                 color: #333;
                 text-align: center;
-                margin-bottom: 10px;
+                margin-bottom: 2px;  /* 建立時間與生產單標題距離縮小 */
             }
             pre {
                 white-space: pre-wrap;
-                font-family: 'Courier New', Courier, monospace; /* ← 這裡設定等寬字體 */
-                font-size: 18px;      /* 可依需求調整字體大小 */
-                line-height: 1.5;     /* 行距 */
-                margin-left: 25px;    /* 可根據需求調整整體左縮排 */
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 18px;
+                line-height: 1.4;
+                margin-left: 25px;
+                margin-top: 0px;  /* 縮小 pre 區與標題的距離 */
+            }
+            b {
+                font-weight: bold;
             }
         </style>
         <script>
