@@ -1185,6 +1185,13 @@ if page == "新增生產單":
             # 📌 顯示「重要提醒」與「合計類別」（只顯示不可編輯）
             important_note = recipe_row.get("重要提醒", "")
             total_category = str(recipe_row.get("合計類別", "")).strip()
+            # 📌 補上「重要提醒」、「合計類別」、「備註」
+            c9, c10 = st.columns(2)
+            c9.text_input("重要提醒", value=order.get("重要提醒", recipe_row.get("重要提醒", "")), key="important_note")
+            c10.text_input("合計類別", value=order.get("合計類別", recipe_row.get("合計類別", "")), key="total_category")
+            
+            remark_default = order.get("備註") or recipe_row.get("備註", "")
+            st.text_area("備註", value=remark_default, key="remark")
             
             if important_note:
                 st.markdown(f"**⚠️ 重要提醒：** `{important_note}`")
