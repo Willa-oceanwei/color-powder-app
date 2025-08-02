@@ -1151,8 +1151,9 @@ elif menu == "生產單管理":
 # ===== 主流程頁面切換 =====
 page = st.session_state.get("page", "新增生產單")
 if page == "新增生產單":
-    order = st.session_state.get("new_order", {})
-
+    order = st.session_state.get("new_order")
+    if order is None or not isinstance(order, dict):
+        order = {}
     recipe_id = order.get("配方編號", "")
     recipe_row = st.session_state.get("recipe_row_cache")
     if recipe_row is None or recipe_row.get("配方編號", None) != recipe_id:
