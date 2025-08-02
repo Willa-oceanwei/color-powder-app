@@ -1223,7 +1223,7 @@ elif menu == "生產單管理":
                         st.text_input(f"色粉編號{i}", value=recipe_row.get(f"色粉編號{i}", ""), disabled=True, key=f"form_color_id_{i}")
                     with 色粉重量欄:
                         st.text_input(f"色粉重量{i}", value=recipe_row.get(f"色粉重量{i}", ""), disabled=True, key=f"form_color_weight_{i}")
-    
+                   
                 submitted = st.form_submit_button("💾 儲存生產單")
     
             if submitted:
@@ -1238,22 +1238,34 @@ elif menu == "生產單管理":
                     order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
                     order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
     
+                # 儲存色粉編號與重量
                 for i in range(1, 9):
-                    key = f"色粉編號{i}"
-                    order[key] = recipe_row.get(key, "")
-    
+                    key_id = f"色粉編號{i}"
+                    key_weight = f"色粉重量{i}"
+                    order[key_id] = recipe_row.get(key_id, "")
+                    order[key_weight] = recipe_row.get(key_weight, "")
+                
+                # 追加這一行，記錄淨重
+                order["淨重"] = recipe_row.get("淨重", "")
+                
+                # 計算色粉合計
                 net_weight = float(recipe_row.get("淨重", 0))
                 color_weight_list = []
                 for i in range(1, 5):
                     try:
-                        w_str = st.session_state.get(f"weight{i}", "").strip()
+                        w_str = st.session_state.get(f"form_weight{i}", "").strip()
                         weight = float(w_str) if w_str else 0.0
                         if weight > 0:
-                            color_weight_list.append({"項次": i, "重量": weight, "結果": net_weight * weight})
+                            color_weight_list.append({
+                                "項次": i,
+                                "重量": weight,
+                                "結果": net_weight * weight
+                            })
                     except:
                         continue
                 order["色粉合計清單"] = color_weight_list
                 order["色粉合計類別"] = recipe_row.get("合計類別", "")
+
     
                 header = [col for col in df_order.columns if col and str(col).strip() != ""]
                 row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
