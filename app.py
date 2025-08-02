@@ -1165,11 +1165,12 @@ elif menu == "生產單管理":
         else:
             recipe_row = None
         
-        # 帶入重要提醒、合計類別、備註到 order（只在 order 沒值時）
-        if recipe_row is not None:
+        if recipe_row and isinstance(recipe_row, dict):
             for field in ["重要提醒", "合計類別", "備註"]:
                 if not order.get(field):
                     order[field] = recipe_row.get(field, "")
+        else:
+            recipe_row = None  # 確保後續不會用錯
     
         # 如果三個欄位為空，才自動帶入
         if not order.get("重要提醒"):
