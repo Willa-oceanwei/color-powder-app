@@ -1164,22 +1164,16 @@ elif menu == "生產單管理":
             st.session_state["recipe_row_cache"] = recipe_row
         else:
             recipe_row = None
-        
+    
+        # 只有當 order 裡該欄位是空才帶入，且 recipe_row 不為 None 才帶入
         if recipe_row is not None:
             for field in ["重要提醒", "合計類別", "備註"]:
                 if not order.get(field):
                     order[field] = recipe_row.get(field, "")
-                    
-        # 如果三個欄位為空，才自動帶入
-        if not order.get("重要提醒"):
-            order["重要提醒"] = recipe_row.get("重要提醒", "")
-        if not order.get("合計類別"):
-            order["合計類別"] = recipe_row.get("合計類別", "")
-        if not order.get("備註"):
-            order["備註"] = recipe_row.get("備註", "")
     
         st.session_state.new_order = order
         st.session_state.show_confirm_panel = True
+
     
         # 只有在 show_confirm_panel 時才顯示表單區塊
         if st.session_state.get("show_confirm_panel"):
