@@ -1160,16 +1160,16 @@ elif menu == "生產單管理":
         # 取得配方資料
         matched = df_recipe[df_recipe["配方編號"] == recipe_id]
         if not matched.empty:
-            recipe_row = matched.iloc[0].to_dict()
+            recipe_row = matched.iloc[0].to_dict()  # 轉成 dict
             st.session_state["recipe_row_cache"] = recipe_row
         else:
             recipe_row = None
-    
+        
         if recipe_row is not None:
             for field in ["重要提醒", "合計類別", "備註"]:
                 if not order.get(field):
                     order[field] = recipe_row.get(field, "")
-            
+                    
         # 如果三個欄位為空，才自動帶入
         if not order.get("重要提醒"):
             order["重要提醒"] = recipe_row.get("重要提醒", "")
