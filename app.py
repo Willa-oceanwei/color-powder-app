@@ -1149,46 +1149,43 @@ elif menu == "生產單管理":
           
 # ---------- 新增後欄位填寫區塊 ----------
 # ===== 主流程頁面切換 =====
-# ===== 主流程頁面切換 =====
 page = st.session_state.get("page", "新增生產單")
 if page == "新增生產單":
     order = st.session_state.get("new_order")
     if order is None or not isinstance(order, dict):
         order = {}
 
-    # 先嘗試用 order 的配方編號
     recipe_id = order.get("配方編號", "")
 
-    # 如果 order 沒配方編號，改用空字串，但不阻止流程
-    if not recipe_id:
-        recipe_id = ""  # 或可改成你預設的配方編號
-
-    # 取得配方資料
-    matched = df_recipe[df_recipe["配方編號"] == recipe_id]
-    if matched.empty:
-        if recipe_id:
+    # 空配方編號不顯示錯誤且不阻斷流程
+    if recipe_id:
+        matched = df_recipe[df_recipe["配方編號"] == recipe_id]
+        if matched.empty:
             st.error(f"找不到配方編號：{recipe_id}")
-        # recipe_id 空白時不直接中斷，改用 None
-        recipe_row = None
+            recipe_row = None
+        else:
+            recipe_row = matched.iloc[0]
+            st.session_state["recipe_row_cache"] = recipe_row
     else:
-        recipe_row = matched.iloc[0]
-        st.session_state["recipe_row_cache"] = recipe_row
+        recipe_row = None  # 先不找資料，避免錯誤提示
 
-    # 如果 recipe_row 有資料，且 order 裡這三欄是空的，帶入預設值
+    # 如果 recipe_row 有資料，且 order 沒填這些欄位，帶入預設
     if recipe_row is not None:
-        if not order.get("重要提醒"):
-            order["重要提醒"] = recipe_row.get("重要提醒", "")
-        if not order.get("合計類別"):
-            order["合計類別"] = recipe_row.get("合計類別", "")
-        if not order.get("備註"):
-            order["備註"] = recipe_row.get("備註", "")
+        changed = False
+        for key in ["重要提醒", "合計類別", "備註"]:
+            if not order.get(key):
+                order[key] = recipe_row.get(key, "")
+                changed = True
+        if changed:
+            st.session_state["new_order"] = order  # 寫回 session_state，讓 UI 讀取到
 
     st.markdown("---")
     st.subheader("新增生產單詳情填寫")
 
-    recipe_id = order.get("配方編號", "")
+    # 以下依舊從 recipe_row_cache 取值
     recipe_row = st.session_state.get("recipe_row_cache")
-    if recipe_row is None or recipe_row.get("配方編號", None) != recipe_id:
+
+    if recipe_id and (recipe_row is None or recipe_row.get("配方編號", None) != recipe_id):
         matched = df_recipe[df_recipe["配方編號"] == recipe_id]
         if matched.empty:
             st.error(f"找不到配方編號：{recipe_id}")
