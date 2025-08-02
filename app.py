@@ -1154,27 +1154,37 @@ if page == "新增生產單":
     order = st.session_state.get("new_order")
     if order is None or not isinstance(order, dict):
         order = {}
+
+    # 先嘗試用 order 的配方編號
     recipe_id = order.get("配方編號", "")
-    recipe_row = st.session_state.get("recipe_row_cache")
-    if recipe_row is None or recipe_row.get("配方編號", None) != recipe_id:
-        matched = df_recipe[df_recipe["配方編號"] == recipe_id]
-        if matched.empty:
+
+    # 如果 order 沒配方編號，改用某個預設值或從別處取得（例如 UI 輸入或預設）
+    # 這裡先用空字串，但不阻止流程
+    if not recipe_id:
+        recipe_id = ""  # 或可改成你預設的配方編號
+
+    # 取得配方資料
+    matched = df_recipe[df_recipe["配方編號"] == recipe_id]
+    if matched.empty:
+        if recipe_id:
             st.error(f"找不到配方編號：{recipe_id}")
-            st.stop()
+        # 但如果 recipe_id 空白，不直接中斷，改用空資料表或提示
+        recipe_row = None
+    else:
         recipe_row = matched.iloc[0]
         st.session_state["recipe_row_cache"] = recipe_row
 
-    # 確保 recipe_row 已有值，才設定 order 的預設欄位
-    if not order:
-        order = {
-            "重要提醒": recipe_row.get("重要提醒", ""),
-            "合計類別": recipe_row.get("合計類別", ""),
-            "備註": recipe_row.get("備註", "")
-        }
+    # 如果 recipe_row 有資料，且 order 裡這三欄是空的，帶入預設值
+    if recipe_row is not None:
+        if not order.get("重要提醒"):
+            order["重要提醒"] = recipe_row.get("重要提醒", "")
+        if not order.get("合計類別"):
+            order["合計類別"] = recipe_row.get("合計類別", "")
+        if not order.get("備註"):
+            order["備註"] = recipe_row.get("備註", "")
 
-    if st.session_state.get("show_confirm_panel") and order:
-        st.markdown("---")
-        st.subheader("新增生產單詳情填寫")
+    st.markdown("---")
+    st.subheader("新增生產單詳情填寫")
 
         recipe_id = order.get("配方編號", "")
         recipe_row = st.session_state.get("recipe_row_cache")
