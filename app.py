@@ -1182,26 +1182,19 @@ if page == "新增生產單":
             color = c6.text_input("顏色", value=order.get("顏色", ""), key="color")
             pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="pantone")
             raw_material = c8.text_input("原料", value=order.get("原料", ""), key="raw_material")
-            # 📌 顯示「重要提醒」與「合計類別」（只顯示不可編輯）
-            important_note = recipe_row.get("重要提醒", "")
-            total_category = str(recipe_row.get("合計類別", "")).strip()
-            # 📌 補上「重要提醒」、「合計類別」、「備註」
+        
+            # 👉 顯示「重要提醒」、「合計類別」、「備註」
             c9, c10 = st.columns(2)
-            c9.text_input("重要提醒", value=order.get("重要提醒", recipe_row.get("重要提醒", "")), key="important_note")
-            c10.text_input("合計類別", value=order.get("合計類別", recipe_row.get("合計類別", "")), key="total_category")
-            
+            important_note = c9.text_input("重要提醒", value=order.get("重要提醒", recipe_row.get("重要提醒", "")), key="important_note")
+            total_category = c10.text_input("合計類別", value=order.get("合計類別", recipe_row.get("合計類別", "")), key="total_category")
+        
             remark_default = order.get("備註") or recipe_row.get("備註", "")
-            st.text_area("備註", value=remark_default, key="remark")
-            
-            if important_note:
-                st.markdown(f"**⚠️ 重要提醒：** `{important_note}`")
-            if total_category:
-                st.markdown(f"**🧮 合計類別：** `{total_category}`")
-
+            remark = st.text_area("備註", value=remark_default, key="remark_text")
+        
             st.markdown("**包裝重量與份數**")
             w_cols = st.columns(4)
             c_cols = st.columns(4)
-
+        
             weights = []
             counts = []
             for i in range(1, 5):
@@ -1209,9 +1202,9 @@ if page == "新增生產單":
                 c = c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"count{i}")
                 weights.append(w)
                 counts.append(c)
+        
+            submitted = st.form_submit_button("💾 儲存生產單")
 
-            remark_default = order.get("備註") or recipe_row.get("備註", "")
-            remark = st.text_area("備註", value=remark_default, key="remark_text")
 
             # 🎨 色粉配方顯示 (鎖定)
             st.markdown("### 🎨 色粉配方")
