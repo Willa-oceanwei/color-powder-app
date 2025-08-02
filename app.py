@@ -1277,16 +1277,7 @@ elif menu == "生產單管理":
                         st.session_state.new_order_saved = False
                         st.rerun()
     
-    # 清單顯示在流程區塊外，始終顯示
-    if "df_order" in st.session_state and not st.session_state.df_order.empty:
-        st.markdown("---")
-        st.subheader("📋 生產單清單")
-        st.dataframe(st.session_state.df_order, use_container_width=True)
-    else:
-        st.info("目前沒有生產單資料")
-
     
-
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📄 生產單清單")
