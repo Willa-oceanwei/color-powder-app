@@ -1179,17 +1179,16 @@ if page == "新增生產單":
         with st.form("order_detail_form"):
             c5, c6, c7, c8 = st.columns(4)
             c5.text_input("計量單位", value=unit, disabled=True)
-            color = c6.text_input("顏色", value=order.get("顏色", ""), key="color")
-            pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="pantone")
-            raw_material = c8.text_input("原料", value=order.get("原料", ""), key="raw_material")
+            color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color")
+            pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone")
+            raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
         
-            # 👉 顯示「重要提醒」、「合計類別」、「備註」
             c9, c10 = st.columns(2)
-            important_note = c9.text_input("重要提醒", value=order.get("重要提醒", recipe_row.get("重要提醒", "")), key="important_note")
-            total_category = c10.text_input("合計類別", value=order.get("合計類別", recipe_row.get("合計類別", "")), key="total_category")
+            important_note = c9.text_input("重要提醒", value=order.get("重要提醒", recipe_row.get("重要提醒", "")), key="form_important_note")
+            total_category = c10.text_input("合計類別", value=order.get("合計類別", recipe_row.get("合計類別", "")), key="form_total_category")
         
             remark_default = order.get("備註") or recipe_row.get("備註", "")
-            remark = st.text_area("備註", value=remark_default, key="remark_text")
+            remark = st.text_area("備註", value=remark_default, key="form_remark")
         
             st.markdown("**包裝重量與份數**")
             w_cols = st.columns(4)
@@ -1198,12 +1197,13 @@ if page == "新增生產單":
             weights = []
             counts = []
             for i in range(1, 5):
-                w = w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"weight{i}")
-                c = c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"count{i}")
+                w = w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}")
+                c = c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}")
                 weights.append(w)
                 counts.append(c)
         
             submitted = st.form_submit_button("💾 儲存生產單")
+
 
 
             # 🎨 色粉配方顯示 (鎖定)
@@ -1256,19 +1256,16 @@ if page == "新增生產單":
 
         # ✅ 表單送出後處理邏輯（寫入資料）
         if submitted:
-            # 更新基本欄位
-            order["顏色"] = st.session_state.color
-            order["Pantone 色號"] = st.session_state.pantone
-            order["計量單位"] = unit
-            order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-            order["原料"] = st.session_state.raw_material
-            order["備註"] = st.session_state.remark_text
-            order["重要提醒"] = st.session_state.important_note
-            order["合計類別"] = st.session_state.total_category
+            order["顏色"] = st.session_state.form_color
+            order["Pantone 色號"] = st.session_state.form_pantone
+            order["原料"] = st.session_state.form_raw_material
+            order["備註"] = st.session_state.form_remark
+            order["重要提醒"] = st.session_state.form_important_note
+            order["合計類別"] = st.session_state.form_total_category
         
             for i in range(1, 5):
-                order[f"包裝重量{i}"] = st.session_state.get(f"weight{i}", "").strip()
-                order[f"包裝份數{i}"] = st.session_state.get(f"count{i}", "").strip()
+                order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
+                order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
         
             # ✅ 取得色粉編號（這段你可能也有）
             for i in range(1, 9):
