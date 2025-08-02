@@ -67,8 +67,8 @@ init_states()
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
      if recipe_row is None:
         recipe_row = {}
-    # 呼叫 generate_production_order_print 時傳入已處理的 recipe_row
-    return generate_production_order_print(order, recipe_row, additional_recipe_row)
+        # 呼叫 generate_production_order_print 時傳入已處理的 recipe_row
+     return generate_production_order_print(order, recipe_row, additional_recipe_row)
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
     created_time = order.get("建立時間", "")
 
