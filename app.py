@@ -1258,8 +1258,8 @@ if page == "新增生產單":
             with col2:
                 st.markdown(f"**淨重：** {net_weight} g")
 
-        # ✅ 加入表單送出按鈕
-        submitted = st.form_submit_button("💾 儲存生產單")
+            # ✅ 加入表單送出按鈕
+            submitted = st.form_submit_button("💾 儲存生產單")
 
         # ✅ 表單送出後處理邏輯（寫入資料）
         if submitted:
