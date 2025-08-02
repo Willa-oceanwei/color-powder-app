@@ -1177,7 +1177,7 @@ elif menu == "生產單管理":
     
         # 搜尋或配方存在時才顯示新增生產單表單
         if st.session_state.get("show_confirm_panel"):
-            unit = recipe_row.get("計量單位", "kg")
+            unit = recipe_row.get("計量單位", "kg") if recipe_row else "kg"
             print_html = generate_print_page_content(order, recipe_row)
     
             st.markdown("---")
