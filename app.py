@@ -1194,9 +1194,6 @@ elif menu == "生產單管理":
             with st.form("order_detail_form"):
                 c5, c6, c7, c8 = st.columns(4)
                 c5.text_input("計量單位", value=unit, disabled=True)
-                c9a, c9b = st.columns(2)
-                c9a.text_input("淨重", value=recipe_row.get("淨重", ""), disabled=True)
-                c9b.text_input("淨重單位", value=recipe_row.get("淨重單位", "kg"), disabled=True)
                 color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color")
                 pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone")
                 raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
@@ -1226,6 +1223,7 @@ elif menu == "生產單管理":
                         st.text_input(f"色粉編號{i}", value=recipe_row.get(f"色粉編號{i}", ""), disabled=True, key=f"form_color_id_{i}")
                     with 色粉重量欄:
                         st.text_input(f"色粉重量{i}", value=recipe_row.get(f"色粉重量{i}", ""), disabled=True, key=f"form_color_weight_{i}")
+                    st.write(f"🔢 配方淨重：{recipe_row.get('淨重', '')} {recipe_row.get('淨重單位', '')}")
                    
                 submitted = st.form_submit_button("💾 儲存生產單")
     
@@ -1248,9 +1246,7 @@ elif menu == "生產單管理":
                     order[key_id] = recipe_row.get(key_id, "")
                     order[key_weight] = recipe_row.get(key_weight, "")
                 
-                # 儲存淨重資訊
-                order["淨重"] = recipe_row.get("淨重", "").strip()
-                order["淨重單位"] = recipe_row.get("淨重單位", "kg").strip()
+    
                 
                 # 計算色粉合計
                 net_weight = float(recipe_row.get("淨重", 0))
