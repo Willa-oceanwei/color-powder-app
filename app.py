@@ -1152,12 +1152,25 @@ elif menu == "生產單管理":
 page = st.session_state.get("page", "新增生產單")
 if page == "新增生產單":
     order = st.session_state.get("new_order", {})
+
+    recipe_id = order.get("配方編號", "")
+    recipe_row = st.session_state.get("recipe_row_cache")
+    if recipe_row is None or recipe_row.get("配方編號", None) != recipe_id:
+        matched = df_recipe[df_recipe["配方編號"] == recipe_id]
+        if matched.empty:
+            st.error(f"找不到配方編號：{recipe_id}")
+            st.stop()
+        recipe_row = matched.iloc[0]
+        st.session_state["recipe_row_cache"] = recipe_row
+
+    # 確保 recipe_row 已有值，才設定 order 的預設欄位
     if not order:
         order = {
             "重要提醒": recipe_row.get("重要提醒", ""),
             "合計類別": recipe_row.get("合計類別", ""),
             "備註": recipe_row.get("備註", "")
         }
+
     if st.session_state.get("show_confirm_panel") and order:
         st.markdown("---")
         st.subheader("新增生產單詳情填寫")
