@@ -1278,12 +1278,7 @@ elif menu == "生產單管理":
                     st.session_state.show_confirm_panel = False
                     st.session_state.new_order_saved = False
                     st.experimental_rerun()
-    
-    # 頁面最底部放清單表格
-    if "df_order" in st.session_state and not st.session_state.df_order.empty:
-        st.dataframe(st.session_state.df_order, use_container_width=True)
-    else:
-        st.info("目前沒有生產單資料")
+
     
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
