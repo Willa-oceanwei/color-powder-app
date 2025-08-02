@@ -1162,18 +1162,17 @@ elif menu == "生產單管理":
         if not matched.empty:
             recipe_row = matched.iloc[0].to_dict()  # 轉成 dict
             st.session_state["recipe_row_cache"] = recipe_row
-            show_confirm_panel = True if recipe_id else False
         else:
             recipe_row = None
-            show_confirm_panel = False
     
         # 只有當 order 裡該欄位是空才帶入，且 recipe_row 不為 None 才帶入
         if recipe_row is not None:
             for field in ["重要提醒", "合計類別", "備註"]:
-                if not order.get(field):  # 只有空才會帶入
+                if not order.get(field):  # order 裡如果沒有值才帶入
                     order[field] = recipe_row.get(field, "")
-
+    
         st.session_state.new_order = order
+
         st.session_state.show_confirm_panel = show_confirm_panel
     
         # 搜尋或配方存在時才顯示新增生產單表單
