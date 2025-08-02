@@ -65,12 +65,13 @@ init_states()
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
-     if recipe_row is None:
+    if recipe_row is None:
         recipe_row = {}
-        # 呼叫 generate_production_order_print 時傳入已處理的 recipe_row
-     return generate_production_order_print(order, recipe_row, additional_recipe_row)
+    # 呼叫 generate_production_order_print 時傳入已處理的 recipe_row
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
     created_time = order.get("建立時間", "")
+    # 假設你要回傳 content，或做其他事情
+    return content
 
     html_template = """
     <html>
