@@ -1211,7 +1211,7 @@ if page == "新增生產單":
                 counts.append(c)
 
             remark_default = order.get("備註") or recipe_row.get("備註", "")
-            remark = st.text_area("備註", value=remark_default, key="remark")
+            remark = st.text_area("備註", value=remark_default, key="remark_text")
 
             # 🎨 色粉配方顯示 (鎖定)
             st.markdown("### 🎨 色粉配方")
@@ -1258,8 +1258,8 @@ if page == "新增生產單":
             with col2:
                 st.markdown(f"**淨重：** {net_weight} g")
 
-            # ✅ 加入表單送出按鈕
-            submitted = st.form_submit_button("💾 儲存生產單")
+        # ✅ 加入表單送出按鈕
+        submitted = st.form_submit_button("💾 儲存生產單")
 
         # ✅ 表單送出後處理邏輯（寫入資料）
         if submitted:
@@ -1269,7 +1269,7 @@ if page == "新增生產單":
             order["計量單位"] = unit
             order["建立時間"] = "'" + (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
             order["原料"] = st.session_state.raw_material
-            order["備註"] = st.session_state.remark
+            order["備註"] = st.session_state.remark_text
             order["重要提醒"] = st.session_state.important_note
             order["合計類別"] = st.session_state.total_category
         
