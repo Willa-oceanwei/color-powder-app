@@ -1170,9 +1170,9 @@ elif menu == "生產單管理":
         # 只有當 order 裡該欄位是空才帶入，且 recipe_row 不為 None 才帶入
         if recipe_row is not None:
             for field in ["重要提醒", "合計類別", "備註"]:
-                if not order.get(field):
+                if not order.get(field):  # 只有空才會帶入
                     order[field] = recipe_row.get(field, "")
-    
+
         st.session_state.new_order = order
         st.session_state.show_confirm_panel = show_confirm_panel
     
@@ -1194,6 +1194,9 @@ elif menu == "生產單管理":
             with st.form("order_detail_form"):
                 c5, c6, c7, c8 = st.columns(4)
                 c5.text_input("計量單位", value=unit, disabled=True)
+                c9a, c9b = st.columns(2)
+                c9a.text_input("淨重", value=recipe_row.get("淨重", ""), disabled=True)
+                c9b.text_input("淨重單位", value=recipe_row.get("淨重單位", "kg"), disabled=True)
                 color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color")
                 pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone")
                 raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
@@ -1245,8 +1248,9 @@ elif menu == "生產單管理":
                     order[key_id] = recipe_row.get(key_id, "")
                     order[key_weight] = recipe_row.get(key_weight, "")
                 
-                # 追加這一行，記錄淨重
-                order["淨重"] = recipe_row.get("淨重", "")
+                # 儲存淨重資訊
+                order["淨重"] = recipe_row.get("淨重", "").strip()
+                order["淨重單位"] = recipe_row.get("淨重單位", "kg").strip()
                 
                 # 計算色粉合計
                 net_weight = float(recipe_row.get("淨重", 0))
