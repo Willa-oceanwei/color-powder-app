@@ -1152,6 +1152,12 @@ elif menu == "生產單管理":
 page = st.session_state.get("page", "新增生產單")
 if page == "新增生產單":
     order = st.session_state.get("new_order", {})
+    if not order:
+        order = {
+            "重要提醒": recipe_row.get("重要提醒", ""),
+            "合計類別": recipe_row.get("合計類別", ""),
+            "備註": recipe_row.get("備註", "")
+        }
     if st.session_state.get("show_confirm_panel") and order:
         st.markdown("---")
         st.subheader("新增生產單詳情填寫")
