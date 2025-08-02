@@ -1198,11 +1198,11 @@ elif menu == "生產單管理":
                 raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
     
                 c9, c10 = st.columns(2)
-                important_note = c9.text_input("重要提醒", value=order.get("重要提醒", recipe_row.get("重要提醒", "")), key="form_important_note")
-                total_category = c10.text_input("合計類別", value=order.get("合計類別", recipe_row.get("合計類別", "")), key="form_total_category")
-    
-                remark_default = order.get("備註") or recipe_row.get("備註", "")
+                important_note = c9.text_input("重要提醒", value=order.get("重要提醒", ""), key="form_important_note")
+                total_category = c10.text_input("合計類別", value=order.get("合計類別", ""), key="form_total_category")
+                remark_default = order.get("備註", "")
                 remark = st.text_area("備註", value=remark_default, key="form_remark")
+
     
                 st.markdown("**包裝重量與份數**")
                 w_cols = st.columns(4)
