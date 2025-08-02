@@ -1165,8 +1165,11 @@ elif menu == "生產單管理":
         recipe_row = matched.iloc[0] if not matched.empty else None
         
         # 如果找不到 recipe_row，不要立即中斷（避免影響其他流程）
-        if recipe_row:
-            # 將配方中的「重要提醒 / 合計類別 / 備註」預設填入 order
+        matched = df_recipe[df_recipe["配方編號"] == recipe_id]
+        recipe_row = matched.iloc[0] if not matched.empty else None
+        
+        # 修正的安全判斷方式
+        if recipe_row is not None:
             if not order.get("重要提醒"):
                 order["重要提醒"] = recipe_row.get("重要提醒", "")
             if not order.get("合計類別"):
@@ -1174,7 +1177,6 @@ elif menu == "生產單管理":
             if not order.get("備註"):
                 order["備註"] = recipe_row.get("備註", "")
         else:
-            # 如果 recipe_id 有填但沒找到，這時再提示
             if recipe_id:
                 st.warning(f"⚠️ 找不到配方編號：{recipe_id}")
     
