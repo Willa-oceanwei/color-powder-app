@@ -65,6 +65,10 @@ init_states()
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
+     if recipe_row is None:
+        recipe_row = {}
+    # 呼叫 generate_production_order_print 時傳入已處理的 recipe_row
+    return generate_production_order_print(order, recipe_row, additional_recipe_row)
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
     created_time = order.get("建立時間", "")
 
@@ -1043,6 +1047,8 @@ elif menu == "生產單管理":
 
     # ===== 自訂函式：產生生產單列印格式 =====      
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
+        if recipe_row is None:
+            recipe_row = {}
         unit = recipe_row.get("計量單位", "kg")
         ratio = recipe_row.get("比例3", "")
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
@@ -1163,7 +1169,7 @@ elif menu == "生產單管理":
             recipe_row = matched.iloc[0].to_dict()  # 轉成 dict
             st.session_state["recipe_row_cache"] = recipe_row
         else:
-            recipe_row = None
+            recipe_row = {}  # 改成空 dict，避免 None
     
         # 只有當 order 裡該欄位是空才帶入，且 recipe_row 不為 None 才帶入
         if recipe_row is not None:
