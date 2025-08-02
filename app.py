@@ -1350,6 +1350,11 @@ if page == "新增生產單":
         mime="text/html"
     )
 
+    if "df_order" in st.session_state and not st.session_state.df_order.empty:
+        st.dataframe(st.session_state.df_order, use_container_width=True)
+    else:
+        st.info("目前沒有生產單資料")
+
     # 其他控制按鈕（除了儲存按鈕外）
     btn1, btn2 = st.columns(2)
     with btn1:
