@@ -1186,18 +1186,18 @@ if page == "新增生產單":
     st.markdown("---")
     st.subheader("新增生產單詳情填寫")
 
-        recipe_id = order.get("配方編號", "")
-        recipe_row = st.session_state.get("recipe_row_cache")
-        if recipe_row is None or recipe_row.get("配方編號", None) != recipe_id:
-            matched = df_recipe[df_recipe["配方編號"] == recipe_id]
-            if matched.empty:
-                st.error(f"找不到配方編號：{recipe_id}")
-                st.stop()
-            recipe_row = matched.iloc[0]
-            st.session_state["recipe_row_cache"] = recipe_row
+    recipe_id = order.get("配方編號", "")
+    recipe_row = st.session_state.get("recipe_row_cache")
+    if recipe_row is None or recipe_row.get("配方編號", None) != recipe_id:
+        matched = df_recipe[df_recipe["配方編號"] == recipe_id]
+        if matched.empty:
+            st.error(f"找不到配方編號：{recipe_id}")
+            st.stop()
+        recipe_row = matched.iloc[0]
+        st.session_state["recipe_row_cache"] = recipe_row
 
-        unit = recipe_row.get("計量單位", "kg")
-        print_html = generate_print_page_content(order, recipe_row)
+    unit = recipe_row.get("計量單位", "kg")
+    print_html = generate_print_page_content(order, recipe_row)
 
         # 不可編輯欄位
         c1, c2, c3, c4 = st.columns(4)
