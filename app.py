@@ -1223,7 +1223,8 @@ elif menu == "生產單管理":
                         st.text_input(f"色粉編號{i}", value=recipe_row.get(f"色粉編號{i}", ""), disabled=True, key=f"form_color_id_{i}")
                     with 色粉重量欄:
                         st.text_input(f"色粉重量{i}", value=recipe_row.get(f"色粉重量{i}", ""), disabled=True, key=f"form_color_weight_{i}")
-                    st.write(f"🔢 配方淨重：{recipe_row.get('淨重', '')} {recipe_row.get('淨重單位', '')}")
+                    with 色粉重量欄:
+                        st.markdown(f"🔢 <div style='text-align:right; font-size:16px;'>配方淨重：{recipe_row.get('淨重', '')} {recipe_row.get('淨重單位', '')}</div>", unsafe_allow_html=True)
                    
                 submitted = st.form_submit_button("💾 儲存生產單")
     
