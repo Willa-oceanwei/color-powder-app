@@ -1155,39 +1155,38 @@ if page == "新增生產單":
     if order is None or not isinstance(order, dict):
         order = {}
 
+    # 先嘗試用 order 的配方編號
     recipe_id = order.get("配方編號", "")
 
-    # 空配方編號不顯示錯誤且不阻斷流程
-    if recipe_id:
-        matched = df_recipe[df_recipe["配方編號"] == recipe_id]
-        if matched.empty:
-            st.error(f"找不到配方編號：{recipe_id}")
-            recipe_row = None
-        else:
-            recipe_row = matched.iloc[0]
-            st.session_state["recipe_row_cache"] = recipe_row
-    else:
-        recipe_row = None  # 先不找資料，避免錯誤提示
+    # 如果 order 沒配方編號，改用空字串（不阻止流程）
+    if not recipe_id:
+        recipe_id = ""
 
-    # 如果 recipe_row 有資料，且 order 沒填這些欄位，帶入預設
-    if recipe_row is not None:
-        unit = recipe_row.get("計量單位", "kg")
+    # 取得配方資料
+    matched = df_recipe[df_recipe["配方編號"] == recipe_id]
+    if matched.empty:
+        if recipe_id:
+            st.error(f"找不到配方編號：{recipe_id}")
+        recipe_row = None
     else:
-        unit = "kg"
-        for key in ["重要提醒", "合計類別", "備註"]:
-            if not order.get(key):
-                order[key] = recipe_row.get(key, "")
-                changed = True
-        if changed:
-            st.session_state["new_order"] = order  # 寫回 session_state，讓 UI 讀取到
+        recipe_row = matched.iloc[0]
+        st.session_state["recipe_row_cache"] = recipe_row
+
+    # 帶入預設重要提醒、合計類別、備註（前提 recipe_row 不為 None）
+    if recipe_row is not None:
+        if not order.get("重要提醒"):
+            order["重要提醒"] = recipe_row.get("重要提醒", "")
+        if not order.get("合計類別"):
+            order["合計類別"] = recipe_row.get("合計類別", "")
+        if not order.get("備註"):
+            order["備註"] = recipe_row.get("備註", "")
 
     st.markdown("---")
     st.subheader("新增生產單詳情填寫")
 
-    # 以下依舊從 recipe_row_cache 取值
+    recipe_id = order.get("配方編號", "")
     recipe_row = st.session_state.get("recipe_row_cache")
-
-    if recipe_id and (recipe_row is None or recipe_row.get("配方編號", None) != recipe_id):
+    if recipe_row is None or recipe_row.get("配方編號", None) != recipe_id:
         matched = df_recipe[df_recipe["配方編號"] == recipe_id]
         if matched.empty:
             st.error(f"找不到配方編號：{recipe_id}")
@@ -1195,28 +1194,28 @@ if page == "新增生產單":
         recipe_row = matched.iloc[0]
         st.session_state["recipe_row_cache"] = recipe_row
 
-    unit = recipe_row.get("計量單位", "kg")
-    print_html = generate_print_page_content(order, recipe_row)
+    unit = recipe_row.get("計量單位", "kg") if recipe_row is not None else "kg"
+    print_html = generate_print_page_content(order, recipe_row) if recipe_row is not None else ""
 
     # 不可編輯欄位
     c1, c2, c3, c4 = st.columns(4)
     c1.text_input("生產單號", value=order.get("生產單號", ""), disabled=True)
     c2.text_input("配方編號", value=order.get("配方編號", ""), disabled=True)
-    c3.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True)
+    c3.text_input("客戶編號", value=recipe_row.get("客戶編號", "") if recipe_row is not None else "", disabled=True)
     c4.text_input("客戶名稱", value=order.get("客戶名稱", ""), disabled=True)
 
     with st.form("order_detail_form"):
         c5, c6, c7, c8 = st.columns(4)
         c5.text_input("計量單位", value=unit, disabled=True)
         color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color")
-        pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone")
+        pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "") if recipe_row is not None else ""), key="form_pantone")
         raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
 
         c9, c10 = st.columns(2)
-        important_note = c9.text_input("重要提醒", value=order.get("重要提醒", recipe_row.get("重要提醒", "")), key="form_important_note")
-        total_category = c10.text_input("合計類別", value=order.get("合計類別", recipe_row.get("合計類別", "")), key="form_total_category")
+        important_note = c9.text_input("重要提醒", value=order.get("重要提醒", recipe_row.get("重要提醒", "") if recipe_row is not None else ""), key="form_important_note")
+        total_category = c10.text_input("合計類別", value=order.get("合計類別", recipe_row.get("合計類別", "") if recipe_row is not None else ""), key="form_total_category")
 
-        remark_default = order.get("備註") or recipe_row.get("備註", "")
+        remark_default = order.get("備註") or (recipe_row.get("備註", "") if recipe_row is not None else "")
         remark = st.text_area("備註", value=remark_default, key="form_remark")
 
         st.markdown("**包裝重量與份數**")
@@ -1235,10 +1234,10 @@ if page == "新增生產單":
 
         # 🎨 色粉配方顯示 (鎖定)
         st.markdown("### 🎨 色粉配方")
-        colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+        colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") if recipe_row is not None else "" for i in range(8)]
         colorant_weights = []
         for i in range(8):
-            val = recipe_row.get(f"色粉重量{i+1}", "0")
+            val = recipe_row.get(f"色粉重量{i+1}", "0") if recipe_row is not None else "0"
             try:
                 val_float = float(val)
             except:
@@ -1251,13 +1250,13 @@ if page == "新增生產單":
         })
 
         try:
-            total_category = str(recipe_row.get("合計類別", "")).strip()
+            total_category = str(recipe_row.get("合計類別", "")).strip() if recipe_row is not None else ""
             st.markdown(f"**合計類別：** {total_category}")
         except:
             total_quantity = 0.0
 
         try:
-            net_weight = float(recipe_row.get("淨重", 0))
+            net_weight = float(recipe_row.get("淨重", 0)) if recipe_row is not None else 0.0
         except:
             net_weight = 0.0
 
@@ -1269,7 +1268,7 @@ if page == "新增生產單":
 
         col1, col2 = st.columns(2)
         with col1:
-            total_category = recipe_row.get("合計類別", "")
+            total_category = recipe_row.get("合計類別", "") if recipe_row is not None else ""
             if total_category is None:
                 total_category = ""
             total_category = str(total_category).strip()
@@ -1291,24 +1290,22 @@ if page == "新增生產單":
             order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
             order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
 
-        # 取得色粉編號
+        # 取得色粉編號（有檢查 recipe_row 是否為 None）
         for i in range(1, 9):
             key = f"色粉編號{i}"
-            val = recipe_row.get(key, "0")
-            try:
-                val_float = float(val)
-            except:
-                val_float = 0.0
-            order[key] = f"{val_float:.2f}"
+            if recipe_row is not None:
+                order[key] = recipe_row.get(key, "")
+            else:
+                order[key] = ""
 
         # 新的色粉合計邏輯
         try:
-            net_weight = float(recipe_row.get("淨重", 0))
+            net_weight = float(recipe_row.get("淨重", 0)) if recipe_row is not None else 0.0
         except:
             net_weight = 0.0
 
         color_weight_list = []
-        total_category = str(recipe_row.get("合計類別", "")).strip()
+        total_category = str(recipe_row.get("合計類別", "")).strip() if recipe_row is not None else ""
 
         for i in range(1, 5):
             try:
@@ -1348,12 +1345,12 @@ if page == "新增生產單":
     # 下載列印 HTML
     st.download_button(
         label="📥 下載 A5 HTML",
-        data=print_html.encode("utf-8"),
-        file_name=f"{order['生產單號']}_列印.html",
+        data=print_html.encode("utf-8") if print_html else b"",
+        file_name=f"{order.get('生產單號', 'unknown')}_列印.html",
         mime="text/html"
     )
 
-    # 其他控制按鈕
+    # 其他控制按鈕（除了儲存按鈕外）
     btn1, btn2 = st.columns(2)
     with btn1:
         if st.session_state.get("new_order_saved"):
