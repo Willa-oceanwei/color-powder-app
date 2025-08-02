@@ -1171,7 +1171,9 @@ if page == "新增生產單":
 
     # 如果 recipe_row 有資料，且 order 沒填這些欄位，帶入預設
     if recipe_row is not None:
-        changed = False
+        unit = recipe_row.get("計量單位", "kg")
+    else:
+        unit = "kg"
         for key in ["重要提醒", "合計類別", "備註"]:
             if not order.get(key):
                 order[key] = recipe_row.get(key, "")
