@@ -1155,7 +1155,7 @@ elif menu == "生產單管理":
         if order is None or not isinstance(order, dict):
             order = {}
     
-        recipe_id = order.get("配方編號", "")
+        recipe_id = order.get("配方編號", "").strip()
     
         # 取得配方資料
         matched = df_recipe[df_recipe["配方編號"] == recipe_id]
@@ -1164,14 +1164,11 @@ elif menu == "生產單管理":
             st.session_state["recipe_row_cache"] = recipe_row
         else:
             recipe_row = None
-        
+    
         if recipe_row is not None:
             for field in ["重要提醒", "合計類別", "備註"]:
                 if not order.get(field):
-                    try:
-                        order[field] = recipe_row[field]
-                    except Exception:
-                        order[field] = ""
+                    order[field] = recipe_row.get(field, "")
             
         # 如果三個欄位為空，才自動帶入
         if not order.get("重要提醒"):
