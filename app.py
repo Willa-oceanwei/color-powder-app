@@ -1157,22 +1157,30 @@ elif menu == "生產單管理":
     
         recipe_id = order.get("配方編號", "")
     
-        # 嘗試取得配方資料
+        # 取得配方資料
         matched = df_recipe[df_recipe["配方編號"] == recipe_id]
         if not matched.empty:
             recipe_row = matched.iloc[0].to_dict()
             st.session_state["recipe_row_cache"] = recipe_row
+        else:
+            recipe_row = None
+        
+        # 帶入重要提醒、合計類別、備註到 order（只在 order 沒值時）
+        if recipe_row is not None:
+            for field in ["重要提醒", "合計類別", "備註"]:
+                if not order.get(field):
+                    order[field] = recipe_row.get(field, "")
     
-            # 如果三個欄位為空，才自動帶入
-            if not order.get("重要提醒"):
-                order["重要提醒"] = recipe_row.get("重要提醒", "")
-            if not order.get("合計類別"):
-                order["合計類別"] = recipe_row.get("合計類別", "")
-            if not order.get("備註"):
-                order["備註"] = recipe_row.get("備註", "")
+        # 如果三個欄位為空，才自動帶入
+        if not order.get("重要提醒"):
+            order["重要提醒"] = recipe_row.get("重要提醒", "")
+        if not order.get("合計類別"):
+            order["合計類別"] = recipe_row.get("合計類別", "")
+        if not order.get("備註"):
+            order["備註"] = recipe_row.get("備註", "")
     
-            st.session_state.new_order = order
-            st.session_state.show_confirm_panel = True
+        st.session_state.new_order = order
+        st.session_state.show_confirm_panel = True
     
         # 只有在 show_confirm_panel 時才顯示表單區塊
         if st.session_state.get("show_confirm_panel"):
@@ -1214,6 +1222,14 @@ elif menu == "生產單管理":
                     c = c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}")
                     weights.append(w)
                     counts.append(c)
+                    
+                st.markdown("### 色粉用量（編號與重量）")
+                色粉編號欄, 色粉重量欄 = st.columns(2)
+                for i in range(1, 9):
+                    with 粉編號欄:
+                        st.text_input(f"色粉編號{i}", value=recipe_row.get(f"色粉編號{i}", ""), disabled=True, key=f"form_color_id_{i}")
+                    with 粉重量欄:
+                        st.text_input(f"色粉重量{i}", value=recipe_row.get(f"色粉重量{i}", ""), disabled=True, key=f"form_color_weight_{i}")
     
                 submitted = st.form_submit_button("💾 儲存生產單")
     
@@ -1266,16 +1282,16 @@ elif menu == "生產單管理":
                     mime="text/html"
                 )
     
-                btn1, btn2 = st.columns(2)
-                with btn1:
-                    if st.session_state.get("new_order_saved"):
-                        st.warning("⚠️ 生產單已存")
-                with btn2:
-                    if st.button("🔙 返回", key="back_button"):
-                        st.session_state.new_order = None
-                        st.session_state.show_confirm_panel = False
-                        st.session_state.new_order_saved = False
-                        st.rerun()
+            btn1, btn2 = st.columns(2)
+            with btn1:
+                if st.session_state.get("new_order_saved"):
+                    st.warning("⚠️ 生產單已存")
+            with btn2:
+                if st.button("🔙 返回", key="back_button"):
+                    st.session_state.new_order = None
+                    st.session_state.show_confirm_panel = False
+                    st.session_state.new_order_saved = False
+                    st.rerun()
     
     
     # ---------- 生產單清單 + 修改 / 刪除 ----------
