@@ -1226,9 +1226,9 @@ elif menu == "生產單管理":
                 st.markdown("### 色粉用量（編號與重量）")
                 色粉編號欄, 色粉重量欄 = st.columns(2)
                 for i in range(1, 9):
-                    with 粉編號欄:
+                    with 色粉編號欄:
                         st.text_input(f"色粉編號{i}", value=recipe_row.get(f"色粉編號{i}", ""), disabled=True, key=f"form_color_id_{i}")
-                    with 粉重量欄:
+                    with 色粉重量欄:
                         st.text_input(f"色粉重量{i}", value=recipe_row.get(f"色粉重量{i}", ""), disabled=True, key=f"form_color_weight_{i}")
     
                 submitted = st.form_submit_button("💾 儲存生產單")
