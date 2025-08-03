@@ -1169,7 +1169,11 @@ elif menu == "生產單管理":
         matched = df_recipe[df_recipe["配方編號"] == recipe_id]
         if not matched.empty:
             recipe_row = matched.iloc[0].to_dict()
-            recipe_row = {k.strip(): ("" if v is None else v) for k, v in recipe_row.items()}
+            # 清理欄位名稱及欄位值，確保都轉成乾淨字串且避免 None/NaN
+            recipe_row = {
+                k.strip(): ("" if v is None or pd.isna(v) else str(v))
+                for k, v in recipe_row.items()
+            }
             st.session_state["recipe_row_cache"] = recipe_row
             show_confirm_panel = True  # 有配方資料，顯示新增生產單區塊
         else:
