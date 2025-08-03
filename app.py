@@ -1387,11 +1387,15 @@ elif menu == "生產單管理":
             if not 附加配方.empty:
                 additional_recipe_row = 附加配方.iloc[0].to_dict()
             
-            print_html = generate_print_page_content(order, recipe_row, additional_recipe_row)
+            print_html = generate_print_page_content(
+                st.session_state.new_order,
+                recipe_row,
+                st.session_state.new_order.get("附加配方")
+            )
             st.download_button(
                 label="📥 下載 A5 HTML",
                 data=print_html.encode("utf-8"),
-                file_name=f"{order['生產單號']}_列印.html",
+                file_name=f"{st.session_state.new_order['生產單號']}_列印.html",
                 mime="text/html"
             )
             
