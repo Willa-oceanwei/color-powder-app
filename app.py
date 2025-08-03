@@ -1014,11 +1014,6 @@ elif menu == "生產單管理":
                         if id_val or wt_val:
                             all_colorants.append((id_val, wt_val))
 
-                st.write("建立生產單時讀到的配方資料：", {
-                    "備註": recipe.get("備註", "<無>"),
-                    "重要提醒": recipe.get("重要提醒", "<無>"),
-                    "合計類別": recipe.get("合計類別", "<無>"),
-                })
                 
                 # ✅ 建立生產單資料
                 new_entry = {
