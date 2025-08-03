@@ -65,12 +65,15 @@ def init_states(keys=None):
 init_states()
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
-def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
+def generate_print_page_content(order, recipe_row, additional_recipe_rows=None):
     if recipe_row is None:
         recipe_row = {}
 
-    # 呼叫產生純文字列印內容函式
-    content = generate_production_order_print(order, recipe_row, additional_recipe_row)
+    # 如果只有一筆 dict，包成 list
+    if additional_recipe_rows is not None and not isinstance(additional_recipe_rows, list):
+        additional_recipe_rows = [additional_recipe_rows]
+
+    content = generate_production_order_print(order, recipe_row, additional_recipe_rows)
     created_time = order.get("建立時間", "")
 
     html_template = """
@@ -1017,10 +1020,9 @@ elif menu == "生產單管理":
                         (df_recipe["配方類別"] == "附加配方") &
                         (df_recipe["原始配方"] == main_recipe_code)
                     ]
-        
+                    
                     if not 附加配方.empty:
-                        additional_recipe_row = 附加配方.iloc[0].to_dict()
-                        order["附加配方"] = additional_recipe_row  # 一定要存入 order
+                        order["附加配方"] = 附加配方.to_dict(orient="records")  # 可能有多筆，存成 list of dict
                     else:
                         order["附加配方"] = None
         
@@ -1062,7 +1064,7 @@ elif menu == "生產單管理":
                     st.session_state.show_confirm_panel = True   
 
     # ===== 自訂函式：產生生產單列印格式 =====      
-    def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
+    def generate_production_order_print(order, recipe_row, additional_recipe_rows=None):
         if recipe_row is None:
             recipe_row = {}
     
@@ -1158,37 +1160,35 @@ elif menu == "生產單管理":
             total_line += padding + f"<b class='total-num'>{val_str:>{number_col_width}}</b>"
         lines.append(total_line)
     
-        # 附加配方列印
-        # === 附加配方（如果有）===
-        if additional_recipe_row:
-            lines.append("")  # 空一行分隔
-            lines.append("附加配方色粉")
-            add_colorant_ids = [additional_recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-            add_colorant_weights = []
-            for i in range(8):
+        # 多筆附加配方列印
+        if additional_recipe_rows and isinstance(additional_recipe_rows, list):
+            for idx, sub in enumerate(additional_recipe_rows, 1):
+                lines.append("")
+                lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
+                add_ids = [sub.get(f"色粉編號{i+1}", "") for i in range(8)]
+                add_weights = []
+                for i in range(8):
+                    try:
+                        val = float(sub.get(f"色粉重量{i+1}", 0) or 0)
+                    except:
+                        val = 0.0
+                    add_weights.append(val)
+                for i in range(8):
+                    c_id = add_ids[i]
+                    if not c_id:
+                        continue
+                    row = f"<b>{c_id.ljust(powder_label_width)}</b>"
+                    for j in range(4):
+                        val = add_weights[i] * multipliers[j] if multipliers[j] > 0 else 0
+                        val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
+                        padding = " " * max(0, int(round(column_offsets[j])))
+                        row += padding + f"<b>{val_str:>{number_col_width}}</b>"
+                    lines.append(row)
                 try:
-                    val = float(additional_recipe_row.get(f"色粉重量{i+1}", 0) or 0)
+                    add_net_weight = float(sub.get("淨重", 0))
                 except:
-                    val = 0.0
-                add_colorant_weights.append(val)
-            for idx, c_id in enumerate(add_colorant_ids):
-                if not c_id:
-                    continue
-                c_id_str = str(c_id or "")
-                row = f"<b>{c_id_str.ljust(powder_label_width)}</b>"
-                for i in range(4):
-                    val = add_colorant_weights[idx] * multipliers[i] if multipliers[i] > 0 else 0
-                    val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
-                    padding = " " * max(0, int(round(column_offsets[i])))
-                    row += padding + f"<b>{val_str:>{number_col_width}}</b>"
-                lines.append(row)
-    
-            # 附加配方淨重
-            try:
-                add_net_weight = float(additional_recipe_row.get("淨重", 0))
-            except:
-                add_net_weight = 0.0
-            lines.append(f"\n附加配方淨重: {add_net_weight:.2f} {additional_recipe_row.get('淨重單位', '')}")
+                    add_net_weight = 0.0
+                lines.append(f"附加淨重: {add_net_weight:.2f} {sub.get('淨重單位', '')}")
     
         lines.append("")
         lines.append(f"備註 : {order.get('備註', '')}")
@@ -1360,7 +1360,7 @@ elif menu == "生產單管理":
             print_html = generate_print_page_content(
                 order,
                 recipe_row,
-                order.get("附加配方")
+                order.get("附加配方")  # 這裡會是 list of dict 或 None
             )
             st.download_button(
                 label="📥 下載 A5 HTML",
