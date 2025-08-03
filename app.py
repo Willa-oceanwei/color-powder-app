@@ -944,15 +944,18 @@ elif menu == "生產單管理":
 
         # 模糊搜尋
         if search_text:
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
+            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
+            search_text = search_text.strip()
+        
             if exact:
                 filtered = df_recipe[
                     (df_recipe["配方編號"] == search_text) | (df_recipe["客戶名稱"] == search_text)
                 ]
             else:
                 filtered = df_recipe[
-                    df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
-                    df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
-                    search_text = search_text.strip()
+                    df_recipe["配方編號"].str.contains(search_text, case=False, na=False) |
+                    df_recipe["客戶名稱"].str.contains(search_text, case=False, na=False)
                 ]
         else:
             filtered = df_recipe.copy()
