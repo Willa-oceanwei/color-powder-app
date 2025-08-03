@@ -1338,7 +1338,7 @@ elif menu == "生產單管理":
                     st.session_state.new_order = None
                     st.session_state.show_confirm_panel = False
                     st.session_state.new_order_saved = False
-                    st.experimental_rerun()
+                    st.rerun()
 
     
     # ---------- 生產單清單 + 修改 / 刪除 ----------
