@@ -67,11 +67,10 @@ init_states()
 def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
     if recipe_row is None:
         recipe_row = {}
-    # 呼叫 generate_production_order_print 時傳入已處理的 recipe_row
+
+    # 呼叫產生純文字列印內容函式
     content = generate_production_order_print(order, recipe_row, additional_recipe_row)
     created_time = order.get("建立時間", "")
-    # 假設你要回傳 content，或做其他事情
-    return content
 
     html_template = """
     <html>
@@ -93,7 +92,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
             }
             .timestamp {
                 font-size: 12px;
-                color: #000;  /* ← 改成純黑 */
+                color: #000;  /* 改成純黑 */
                 text-align: center;
                 margin-bottom: 2px;
                 font-family: Arial, Helvetica, sans-serif;
@@ -106,10 +105,10 @@ def generate_print_page_content(order, recipe_row, additional_recipe_row=None):
                 line-height: 1.4;
                 margin-left: 25px;
                 margin-top: 0px;
-        }
-        b {
-            font-weight: normal;
-        }
+            }
+            b {
+                font-weight: normal;
+            }
         </style>
         <script>
             window.onload = function() {
