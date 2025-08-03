@@ -1132,6 +1132,20 @@ elif menu == "生產單管理":
             
         # === 橫線 ===
         lines.append("＿" * 30)
+
+        # === 色粉列輸出（新增這段）===
+        for idx in range(8):
+            c_id = colorant_ids[idx]
+            c_weight = colorant_weights[idx]
+            if not c_id:
+                continue
+            row = f"<b>{c_id.ljust(powder_label_width)}</b>"
+            for i in range(4):
+                val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
+                val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
+                padding = " " * max(0, int(round(column_offsets[i])))
+                row += padding + f"<b>{val_str:>{number_col_width}}</b>"
+            lines.append(row)
             
         # === 合計列 ===
         try:
