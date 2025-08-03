@@ -1174,11 +1174,9 @@ elif menu == "生產單管理":
             recipe_row = {}  # 空 dict 避免 None
             show_confirm_panel = False  # 無配方資料，不顯示新增生產單區塊
         
-        # 只有當 order 裡該欄位是空才帶入，且 recipe_row 不為空 dict 才帶入
-        if recipe_row:
-            for field in ["重要提醒", "合計類別", "備註"]:
-                if not order.get(field):  # order 裡如果沒有值才帶入
-                    order[field] = recipe_row.get(field, "")
+        # 強制帶入配方欄位值，避免原本 order 已有空字串導致沒更新
+        for field in ["重要提醒", "合計類別", "備註"]:
+            order[field] = recipe_row.get(field, "")
         
         st.session_state.new_order = order
         st.session_state.show_confirm_panel = show_confirm_panel
