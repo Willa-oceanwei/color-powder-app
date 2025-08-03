@@ -1393,6 +1393,12 @@ elif menu == "生產單管理":
                     st.session_state.show_confirm_panel = False
                     st.session_state.new_order_saved = False
                     st.rerun()
+            # 在適合的地方（比如剛存完生產單，或操作區塊）放一個下載按鈕
+            if st.session_state.get("new_order_saved"):
+                html_content = generate_print_page_content(order, recipe_row, additional_recipe_row)
+                b64 = base64.b64encode(html_content.encode("utf-8")).decode()
+                href = f'<a href="data:text/html;base64,{b64}" download="生產單.html">📥 下載生產單 HTML (A5列印)</a>'
+                st.markdown(href, unsafe_allow_html=True)
 
     
     # ---------- 生產單清單 + 修改 / 刪除 ----------
