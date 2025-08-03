@@ -1005,7 +1005,7 @@ elif menu == "生產單管理":
                     count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
                     new_id = f"{today_str}-{count_today + 1:03}"
                     
-                    # ✅ 查找附加配方（修正版）
+                    # 查找附加配方（修正版）
                     main_recipe_code = recipe_row.get("配方編號", "").strip()
                     附加配方 = df_recipe[
                         (df_recipe["配方類別"] == "附加配方") &
@@ -1014,6 +1014,9 @@ elif menu == "生產單管理":
                     additional_recipe_row = None
                     if not 附加配方.empty:
                         additional_recipe_row = 附加配方.iloc[0].to_dict()
+                        new_entry["附加配方"] = additional_recipe_row
+                    else:
+                        new_entry["附加配方"] = None
 
                 # ✅ 色粉合併處理：主配方 + 附加配方
                 all_colorants = []
