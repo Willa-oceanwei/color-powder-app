@@ -989,8 +989,8 @@ elif menu == "生產單管理":
                 if idx is None:
                     st.error("選擇的配方不在搜尋結果中")
                     st.stop()
-                recipe = filtered.iloc[idx]
-            recipe_row = st.session_state.get("recipe_row_cache", {})
+                recipe_row = filtered.iloc[idx].to_dict()
+                if recipe_row.get("狀態") == "停用":
             if recipe_row.get("狀態") == "停用":
                 st.warning("⚠️ 此配方已停用，請勿使用")
             else:
@@ -1031,14 +1031,14 @@ elif menu == "生產單管理":
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "配方編號": recipe.get("配方編號", ""),
-                    "顏色": recipe.get("顏色", ""),
-                    "客戶名稱": recipe.get("客戶名稱", ""),
-                    "Pantone 色號": recipe.get("Pantone色號", ""),
-                    "計量單位": recipe.get("計量單位", ""),
-                    "備註": str(recipe.get("備註", "")).strip(),
-                    "重要提醒": str(recipe.get("重要提醒", "")).strip(),
-                    "合計類別": str(recipe.get("合計類別", "")).strip(),
+                    "配方編號": recipe_row.get("配方編號", ""),
+                    "顏色": recipe_row.get("顏色", ""),
+                    "客戶名稱": recipe_row.get("客戶名稱", ""),
+                    "Pantone 色號": recipe_row.get("Pantone色號", ""),
+                    "計量單位": recipe_row.get("計量單位", ""),
+                    "備註": str(recipe_row.get("備註", "")).strip(),
+                    "重要提醒": str(recipe_row.get("重要提醒", "")).strip(),
+                    "合計類別": str(recipe_row.get("合計類別", "")).strip(),
                 }
 
 
