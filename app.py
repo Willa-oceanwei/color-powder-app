@@ -1166,6 +1166,15 @@ elif menu == "生產單管理":
         lines.append(total_line)
 
         # === 附加配方（如果有）===
+        main_code = recipe_row.get("配方編號", "").strip()
+        st.write(f"主配方編號: {main_code}")
+        
+        附加配方 = df_recipe[
+            (df_recipe["配方類別"] == "附加配方") &
+            (df_recipe["原始配方"] == main_code)
+        ]
+        
+        st.write(f"附加配方筆數: {len(附加配方)}")
         if additional_recipe_row:
             lines.append("")
             lines.append("附加配方")
