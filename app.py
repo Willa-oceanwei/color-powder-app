@@ -981,29 +981,34 @@ elif menu == "生產單管理":
             if not selected_option:
                 st.warning("請先選擇配方")
             else:
-                # 用 more robust 找 index
+                # 安全處理 idx
+                idx = None
                 for i, opt in enumerate(options):
                     if opt == selected_label:
                         idx = i
                         break
+        
                 if idx is None:
                     st.error("選擇的配方不在搜尋結果中")
                     st.stop()
+        
                 recipe_row = filtered.iloc[idx].to_dict()
+        
                 if recipe_row.get("狀態") == "停用":
                     st.warning("⚠️ 此配方已停用，請勿使用")
-            else:
-                # ✅ 正確建立生產單號
-                df_all_orders = st.session_state.df_order.copy()
-                today_str = datetime.now().strftime("%Y%m%d")
-                count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
-                new_id = f"{today_str}-{count_today + 1:03}"
-
-                # ✅ 查找附加配方
-                附加配方 = df_recipe[
-                    (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"] == recipe_row.get("配方編號", ""))
-                ]
+                    st.stop()
+                else:
+                    # ✅ 正確建立生產單號
+                    df_all_orders = st.session_state.df_order.copy()
+                    today_str = datetime.now().strftime("%Y%m%d")
+                    count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
+                    new_id = f"{today_str}-{count_today + 1:03}"
+        
+                    # ✅ 查找附加配方
+                    附加配方 = df_recipe[
+                        (df_recipe["配方類別"] == "附加配方") &
+                        (df_recipe["原始配方"] == recipe_row.get("配方編號", ""))
+                    ]
 
                 # ✅ 色粉合併處理：主配方 + 附加配方
                 all_colorants = []
