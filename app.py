@@ -6,6 +6,7 @@ import pandas as pd
 import os
 import json
 import time
+import base64
 
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
