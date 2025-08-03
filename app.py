@@ -914,7 +914,7 @@ elif menu == "生產單管理":
             df_temp.fillna("", inplace=True)
             df_temp = df_temp.astype(str)
             st.write("讀取後配方資料欄位名稱：", df_temp.columns.tolist())
-            st.write("讀取後配方資料範例：", df_temp.head(3))
+            
             st.session_state.df_recipe = df_temp
         except Exception as e:
             st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
