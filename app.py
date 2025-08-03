@@ -1297,8 +1297,9 @@ elif menu == "生產單管理":
                         continue
                 order["色粉合計清單"] = color_weight_list
                 order["色粉合計類別"] = recipe_row.get("合計類別", "")
+                
 
-    
+                # ➕ 寫入 Google Sheets、CSV 等流程
                 header = [col for col in df_order.columns if col and str(col).strip() != ""]
                 row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
                 try:
@@ -1311,6 +1312,14 @@ elif menu == "生產單管理":
                     st.success(f"✅ 生產單 {order['生產單號']} 已存！")
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
+
+            # 📥 下載列印 HTML
+            st.download_button(
+                label="📥 下載 A5 HTML",
+                data=print_html.encode("utf-8"),
+                file_name=f"{order['生產單號']}_列印.html",
+                mime="text/html"
+            )
     
             btn1, btn2 = st.columns(2)
             with btn1:
