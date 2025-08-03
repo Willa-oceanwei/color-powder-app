@@ -1177,21 +1177,17 @@ elif menu == "生產單管理":
         if not matched.empty:
             recipe_row = matched.iloc[0].to_dict()
             # 清理欄位名稱及欄位值，確保都轉成乾淨字串且避免 None/NaN
-            recipe_row = matched.iloc[0].to_dict()
             recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
-            st.write("recipe_row 重要欄位：", {k: recipe_row.get(k, "<無>") for k in ["合計類別", "備註", "重要提醒"]})
             st.session_state["recipe_row_cache"] = recipe_row
             show_confirm_panel = True  # 有配方資料，顯示新增生產單區塊
         else:
             recipe_row = {}  # 空 dict 避免 None
             show_confirm_panel = False  # 無配方資料，不顯示新增生產單區塊
-        
+    
         # 強制帶入配方欄位值，避免原本 order 已有空字串導致沒更新
         for field in ["合計類別", "備註", "重要提醒"]:
             order[field] = recipe_row.get(field, "")
             
-        st.write("帶入後的 order：", order)
-        st.write("recipe_row 重要欄位：", {k: recipe_row.get(k, "") for k in ["備註", "重要提醒", "合計類別"]})
         st.write("配方該筆重要欄位：", {
             "備註": recipe_row.get("備註", "<無>"),
             "重要提醒": recipe_row.get("重要提醒", "<無>"),
