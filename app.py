@@ -1102,7 +1102,10 @@ elif menu == "生產單管理":
             float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
             for i in range(1, 5)
         ]
-        packing_counts = [float(order.get(f"包裝份數{i}", 0)) for i in range(1, 5)]
+        packing_counts = [
+            float(order.get(f"包裝份數{i}", 0)) if str(order.get(f"包裝份數{i}", "")).replace(".", "", 1).isdigit() else 0
+            for i in range(1, 5)
+        ]
         pack_line = []
         for i in range(4):
             w = packing_weights[i]
