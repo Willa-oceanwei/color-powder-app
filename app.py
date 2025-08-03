@@ -908,14 +908,12 @@ elif menu == "生產單管理":
 
     if "df_recipe" not in st.session_state:
         try:
-            values = ws_recipe.get("A1:Z100")
-            df_temp = pd.DataFrame(values[1:], columns=values[0])
+            records = ws_recipe.get_all_records()
+            df_temp = pd.DataFrame(records)
             df_temp.columns = df_temp.columns.str.strip()
             df_temp.fillna("", inplace=True)
-            df_temp = df_temp.astype(str)
-            st.write("讀取後配方資料欄位名稱：", df_temp.columns.tolist())
-            
             st.session_state.df_recipe = df_temp
+            st.write("配方管理資料載入成功，前幾筆資料:", df_temp.head())
         except Exception as e:
             st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
             st.stop()
