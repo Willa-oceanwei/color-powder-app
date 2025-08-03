@@ -1372,6 +1372,16 @@ elif menu == "生產單管理":
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
 
+            # 在此先找附加配方
+            main_recipe_code = recipe_row.get("配方編號", "").strip()
+            附加配方 = df_recipe[
+                (df_recipe["配方類別"] == "附加配方") &
+                (df_recipe["原始配方"] == main_recipe_code)
+            ]
+            additional_recipe_row = None
+            if not 附加配方.empty:
+                additional_recipe_row = 附加配方.iloc[0].to_dict()
+            
             print_html = generate_print_page_content(order, recipe_row, additional_recipe_row)
             st.download_button(
                 label="📥 下載 A5 HTML",
@@ -1379,7 +1389,7 @@ elif menu == "生產單管理":
                 file_name=f"{order['生產單號']}_列印.html",
                 mime="text/html"
             )
-    
+            
             btn1, btn2 = st.columns(2)
             with btn1:
                 if st.session_state.get("new_order_saved"):
@@ -1390,23 +1400,23 @@ elif menu == "生產單管理":
                     st.session_state.show_confirm_panel = False
                     st.session_state.new_order_saved = False
                     st.rerun()
-            # 在適合的地方（比如剛存完生產單，或操作區塊）放一個下載按鈕
+            
+            # 另一個下載連結（選擇性）
             if st.session_state.get("new_order_saved"):
                 html_content = generate_print_page_content(order, recipe_row, additional_recipe_row)
                 b64 = base64.b64encode(html_content.encode("utf-8")).decode()
                 href = f'<a href="data:text/html;base64,{b64}" download="生產單.html">📥 下載生產單 HTML (A5列印)</a>'
                 st.markdown(href, unsafe_allow_html=True)
-
-    
-    # ---------- 生產單清單 + 修改 / 刪除 ----------
-    st.markdown("---")
-    st.subheader("📄 生產單清單")
-    
-    search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input_order_page", value="")
-    
-    # 初始化 order_page
-    if "order_page" not in st.session_state:
-        st.session_state.order_page = 1
+                
+                # ---------- 生產單清單 + 修改 / 刪除 ----------
+                st.markdown("---")
+                st.subheader("📄 生產單清單")
+                
+                search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input_order_page", value="")
+                
+                # 初始化 order_page
+                if "order_page" not in st.session_state:
+                    st.session_state.order_page = 1
     
     # 篩選條件
     if search_order.strip():
