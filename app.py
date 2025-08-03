@@ -1167,7 +1167,8 @@ elif menu == "生產單管理":
         # 取得配方資料
         matched = df_recipe[df_recipe["配方編號"] == recipe_id]
         if not matched.empty:
-            recipe_row = matched.iloc[0].to_dict()  # 轉成 dict
+            recipe_row = matched.iloc[0].to_dict()
+            recipe_row = {k.strip(): ("" if v is None else v) for k, v in recipe_row.items()}
             st.session_state["recipe_row_cache"] = recipe_row
             show_confirm_panel = True  # 有配方資料，顯示新增生產單區塊
         else:
@@ -1176,7 +1177,7 @@ elif menu == "生產單管理":
         
         # 強制帶入配方欄位值，避免原本 order 已有空字串導致沒更新
         if recipe_row:
-            for field in ["重要提醒", "合計類別", "備註"]:
+            for field in ["備註", "重要提醒", "合計類別"]:
                 order[field] = recipe_row.get(field, "")
 
         st.write("帶入後的生產單資料：", order)
