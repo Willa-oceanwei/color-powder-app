@@ -1421,6 +1421,7 @@ elif menu == "生產單管理":
                     st.session_state.order_page = 1
     
     # 篩選條件
+    search_order = st.text_input("搜尋訂單、配方、客戶名稱、顏色", value="", key="search_order")
     if search_order.strip():
         mask = (
             df_order["生產單號"].astype(str).str.contains(search_order, case=False, na=False) |
