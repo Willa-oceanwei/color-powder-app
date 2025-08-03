@@ -1130,9 +1130,6 @@ elif menu == "生產單管理":
         # ✅ 包裝倍率（通常來自 packing_weights）
         multipliers = packing_weights
             
-        # === 橫線 ===
-        lines.append("＿" * 30)
-
         # === 色粉列輸出（新增這段）===
         for idx in range(8):
             c_id = colorant_ids[idx]
@@ -1147,6 +1144,9 @@ elif menu == "生產單管理":
                 row += padding + f"<b>{val_str:>{number_col_width}}</b>"
             lines.append(row)
             
+        # === 橫線 ===
+        lines.append("＿" * 30)
+           
         # === 合計列 ===
         try:
             net_weight = float(recipe_row.get("淨重", 0))
