@@ -1168,18 +1168,18 @@ elif menu == "生產單管理":
         lines.append(total_line)
     
         # 附加配方列印
+        # === 附加配方（如果有）===
         if additional_recipe_row:
-            lines.append("")
-            lines.append("附加配方色粉用量")
+            lines.append("")  # 空一行分隔
+            lines.append("附加配方色粉")
             add_colorant_ids = [additional_recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
             add_colorant_weights = []
             for i in range(8):
                 try:
-                    val = float(additional_recipe_row.get(f"色粉重量{i+1}", "") or 0)
+                    val = float(additional_recipe_row.get(f"色粉重量{i+1}", 0) or 0)
                 except:
                     val = 0.0
                 add_colorant_weights.append(val)
-    
             for idx, c_id in enumerate(add_colorant_ids):
                 if not c_id:
                     continue
