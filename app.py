@@ -1180,6 +1180,7 @@ elif menu == "生產單管理":
                 order[field] = recipe_row.get(field, "")
 
         st.write("帶入後的生產單資料：", order)
+        st.write("recipe_row 重要欄位：", {k: recipe_row.get(k, "") for k in ["備註", "重要提醒", "合計類別"]})
         
         st.session_state.new_order = order
         st.session_state.show_confirm_panel = show_confirm_panel
