@@ -1268,24 +1268,24 @@ elif menu == "生產單管理":
                     unsafe_allow_html=True
                 )
                 # --- 新增：附加配方色粉顯示 ---
-                    附加配方 = df_recipe[
-                        (df_recipe["配方類別"] == "附加配方") &
-                        (df_recipe["原始配方"] == recipe_row.get("配方編號", ""))
-                    ]
-                    if not 附加配方.empty:
-                        st.markdown("### 附加配方色粉用量（編號與重量）")
-                        idx = 1
-                        for _, sub in 附加配方.iterrows():
-                            st.markdown(f"#### 附加配方：{sub.get('配方編號', '')}")
-                            add_color_id_col, add_color_wt_col = st.columns(2)
-                            for i in range(1, 9):
-                                with add_color_id_col:
-                                    st.text_input(f"附加色粉編號_{idx}_{i}", value=sub.get(f"色粉編號{i}", ""), disabled=True, key=f"form_add_color_id_{idx}_{i}")
-                                with add_color_wt_col:
-                                    st.text_input(f"附加色粉重量_{idx}_{i}", value=sub.get(f"色粉重量{i}", ""), disabled=True, key=f"form_add_color_wt_{idx}_{i}")
-                            idx += 1
-                    else:
-                        st.info("無附加配方色粉")
+                附加配方 = df_recipe[
+                    (df_recipe["配方類別"] == "附加配方") &
+                    (df_recipe["原始配方"] == recipe_row.get("配方編號", ""))
+                 ]
+                if not 附加配方.empty:
+                    st.markdown("### 附加配方色粉用量（編號與重量）")
+                    idx = 1
+                    for _, sub in 附加配方.iterrows():
+                        st.markdown(f"#### 附加配方：{sub.get('配方編號', '')}")
+                        add_color_id_col, add_color_wt_col = st.columns(2)
+                        for i in range(1, 9):
+                            with add_color_id_col:
+                                st.text_input(f"附加色粉編號_{idx}_{i}", value=sub.get(f"色粉編號{i}", ""), disabled=True, key=f"form_add_color_id_{idx}_{i}")
+                            with add_color_wt_col:
+                                st.text_input(f"附加色粉重量_{idx}_{i}", value=sub.get(f"色粉重量{i}", ""), disabled=True, key=f"form_add_color_wt_{idx}_{i}")
+                        idx += 1
+                else:
+                    st.info("無附加配方色粉")
 
                    
                 submitted = st.form_submit_button("💾 儲存生產單")
