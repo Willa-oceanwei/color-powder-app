@@ -990,8 +990,9 @@ elif menu == "生產單管理":
                     st.error("選擇的配方不在搜尋結果中")
                     st.stop()
                 recipe = filtered.iloc[idx]
-            if recipe_row is not None and recipe_row.get("狀態") == "停用":
-                st.error("此配方已停用，無法新增生產單")
+            recipe_row = st.session_state.get("recipe_row_cache", {})
+            if recipe_row.get("狀態") == "停用":
+                st.warning("⚠️ 此配方已停用，請勿使用")
             else:
                 # ✅ 正確建立生產單號
                 df_all_orders = st.session_state.df_order.copy()
