@@ -1015,8 +1015,8 @@ elif menu == "生產單管理":
                 for i in range(1, 9):
                     id_key = f"色粉編號{i}"
                     wt_key = f"色粉重量{i}"
-                    id_val = recipe.get(id_key, "")
-                    wt_val = recipe.get(wt_key, "")
+                    id_val = recipe_row.get(id_key, "")
+                    wt_val = recipe_row.get(wt_key, "")
                     if id_val or wt_val:
                         all_colorants.append((id_val, wt_val))
 
