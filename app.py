@@ -942,11 +942,12 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
 
-        if search_text.strip():
+        # 模糊搜尋
+        if search_text:
             if exact:
                 filtered = df_recipe[
                     (df_recipe["配方編號"] == search_text) | (df_recipe["客戶名稱"] == search_text)
-             ]
+                ]
             else:
                 filtered = df_recipe[
                     df_recipe["配方編號"].str.contains(search_text, case=False, na=False) |
@@ -973,12 +974,20 @@ elif menu == "生產單管理":
             selected_option = None
             st.info("無法取得任何符合的配方")
 
-    if add_btn:
-        if not selected_option:
-            st.warning("請先選擇配方")
-        else:
-            idx = options.index(selected_option)
-            recipe = filtered.iloc[idx]
+        if add_btn:
+            if not selected_option:
+                st.warning("請先選擇配方")
+            else:
+                # 用 more robust 找 index
+                idx = None
+                for i, opt in enumerate(options):
+                    if opt == selected_option:
+                        idx = i
+                        break
+                if idx is None:
+                    st.error("選擇的配方不在搜尋結果中")
+                    st.stop()
+                recipe = filtered.iloc[idx]
             if recipe.get("狀態") == "停用":
                 st.error("此配方已停用，無法新增生產單")
             else:
