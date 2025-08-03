@@ -1006,15 +1006,13 @@ elif menu == "生產單管理":
                     
                     # ✅ 查找附加配方（修正版）
                     main_recipe_code = recipe_row.get("配方編號", "").strip()
-                    
-                    # 確保欄位為字串並去除空白（避免因空格導致比對失敗）
-                    df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
-                    df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).str.strip()
-                    
                     附加配方 = df_recipe[
                         (df_recipe["配方類別"] == "附加配方") &
                         (df_recipe["原始配方"] == main_recipe_code)
                     ]
+                    additional_recipe_row = None
+                    if not 附加配方.empty:
+                        additional_recipe_row = 附加配方.iloc[0].to_dict()
 
                 # ✅ 色粉合併處理：主配方 + 附加配方
                 all_colorants = []
