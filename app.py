@@ -980,9 +980,8 @@ elif menu == "生產單管理":
                 st.warning("請先選擇配方")
             else:
                 # 用 more robust 找 index
-                idx = None
                 for i, opt in enumerate(options):
-                    if opt == selected_option:
+                    if opt == selected_label:
                         idx = i
                         break
                 if idx is None:
