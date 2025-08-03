@@ -1380,18 +1380,17 @@ elif menu == "生產單管理":
                     st.session_state.new_order_saved = False
                     st.experimental_rerun()
                 
-                # ---------- 生產單清單 + 修改 / 刪除 ----------
-                st.markdown("---")
-                st.subheader("📄 生產單清單")
+    # ---------- 生產單清單 + 修改 / 刪除 ----------
+    st.markdown("---")
+    st.subheader("📄 生產單清單")
                 
-                search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input_order_page", value="")
+    search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input_order_page", value="")
                 
-                # 初始化 order_page
-                if "order_page" not in st.session_state:
-                    st.session_state.order_page = 1
+    # 初始化 order_page
+    if "order_page" not in st.session_state:
+        st.session_state.order_page = 1
     
     # 篩選條件
-    search_order = st.text_input("搜尋訂單、配方、客戶名稱、顏色", value="", key="search_order")
     if search_order.strip():
         mask = (
             df_order["生產單號"].astype(str).str.contains(search_order, case=False, na=False) |
