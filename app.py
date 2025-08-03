@@ -607,8 +607,7 @@ elif menu == "配方管理":
                 st.write(f"合計差額: {net - total:.2f} g/kg")
             except:
                 st.write("合計差額: 計算錯誤")
-        st.write("🔍 form_recipe keys:", list(fr.keys()))
-
+        
         submitted = st.form_submit_button("💾 儲存配方")
 
         if submitted:
