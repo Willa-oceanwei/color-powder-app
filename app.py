@@ -1372,8 +1372,7 @@ elif menu == "生產單管理":
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
 
-            print_html = generate_print_page_content(order, recipe_row)
-            # 📥 下載列印 HTML
+            print_html = generate_print_page_content(order, recipe_row, additional_recipe_row)
             st.download_button(
                 label="📥 下載 A5 HTML",
                 data=print_html.encode("utf-8"),
