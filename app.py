@@ -1074,30 +1074,17 @@ elif menu == "生產單管理":
     def generate_production_order_print(order, recipe_row, additional_recipe_row=None):
         if recipe_row is None:
             recipe_row = {}
+    
         unit = recipe_row.get("計量單位", "kg")
         ratio = recipe_row.get("比例3", "")
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
     
-        powder_label_width = 12   # 色粉代號欄位寬度固定
-        pack_col_width = 11       # 包裝列每個欄位寬度（固定不動）
-        number_col_width = 6      # 每個數字欄位寬度（數字本身寬度）
-        base_offset = 0           # 微調整體左右位置
-        column_offsets = [1, 5, 5, 5.5] #色粉列偏移
-        total_offsets = [1.3, 5, 5, 6] #合計類偏移
+        powder_label_width = 12
+        pack_col_width = 11
+        number_col_width = 6
+        column_offsets = [1, 5, 5, 5.5]
+        total_offsets = [1.3, 5, 5, 6]
     
-        packing_indent = " " * 14  # 包裝列縮排
-        lines = []
-        lines.append("")
-    
-        # === 配方資訊列 ===
-        recipe_id = recipe_row.get('配方編號', '')
-        color = order.get('顏色', '')
-        pantone = order.get('Pantone 色號', '')
-        info_line = f"編號：<b>{recipe_id:<8}</b>顏色：{color:<4}   比例：{ratio} g/kg   Pantone：{pantone}"
-        lines.append(info_line)
-        lines.append("")
-    
-        # === 包裝列 ===
         packing_weights = [
             float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
             for i in range(1, 5)
@@ -1106,6 +1093,19 @@ elif menu == "生產單管理":
             float(order.get(f"包裝份數{i}", 0)) if str(order.get(f"包裝份數{i}", "")).replace(".", "", 1).isdigit() else 0
             for i in range(1, 5)
         ]
+    
+        lines = []
+        lines.append("")
+    
+        # 配方資訊列
+        recipe_id = recipe_row.get('配方編號', '')
+        color = order.get('顏色', '')
+        pantone = order.get('Pantone 色號', '')
+        info_line = f"編號：<b>{recipe_id:<8}</b>顏色：{color:<4}   比例：{ratio} g/kg   Pantone：{pantone}"
+        lines.append(info_line)
+        lines.append("")
+    
+        # 包裝列
         pack_line = []
         for i in range(4):
             w = packing_weights[i]
@@ -1123,18 +1123,11 @@ elif menu == "生產單管理":
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
                 pack_line.append(f"{text:<{pack_col_width}}")
+        packing_indent = " " * 14
         lines.append(packing_indent + "".join(pack_line))
     
-        # === 色粉列 ===
-        # ✅ 先確認 recipe_row 是否為 None
-        if recipe_row is None:
-            st.error("❌ 找不到配方資料")
-            st.stop()
-        
-        # ✅ 色粉編號（可保留 .get，也可用 []）
+        # 主配方色粉列
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-        
-        # ✅ 色粉重量（轉 float 並防呆）
         colorant_weights = []
         for i in range(8):
             try:
@@ -1143,11 +1136,9 @@ elif menu == "生產單管理":
             except:
                 val = 0.0
             colorant_weights.append(val)
-        
-        # ✅ 包裝倍率（通常來自 packing_weights）
+    
         multipliers = packing_weights
-            
-        # === 色粉列輸出（新增這段）===
+    
         for idx in range(8):
             c_id = colorant_ids[idx]
             c_weight = colorant_weights[idx]
@@ -1160,11 +1151,10 @@ elif menu == "生產單管理":
                 padding = " " * max(0, int(round(column_offsets[i])))
                 row += padding + f"<b>{val_str:>{number_col_width}}</b>"
             lines.append(row)
-            
-        # === 橫線 ===
+    
         lines.append("＿" * 30)
-           
-        # === 合計列 ===
+    
+        # 合計列
         try:
             net_weight = float(recipe_row.get("淨重", 0))
         except:
@@ -1173,25 +1163,23 @@ elif menu == "生產單管理":
         for i in range(4):
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
-            padding = " " * max(0, int(round(total_offsets[i])))  
+            padding = " " * max(0, int(round(total_offsets[i])))
             total_line += padding + f"<b class='total-num'>{val_str:>{number_col_width}}</b>"
         lines.append(total_line)
-
-        # === 附加配方（如果有）===
-        main_code = recipe_row.get("配方編號", "").strip()
-        st.write(f"主配方編號: {main_code}")
-        
-        附加配方 = df_recipe[
-            (df_recipe["配方類別"] == "附加配方") &
-            (df_recipe["原始配方"] == main_code)
-        ]
-        
-        st.write(f"附加配方筆數: {len(附加配方)}")
+    
+        # 附加配方列印
         if additional_recipe_row:
             lines.append("")
-            lines.append("附加配方")
+            lines.append("附加配方色粉用量")
             add_colorant_ids = [additional_recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-            add_colorant_weights = [float(additional_recipe_row.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
+            add_colorant_weights = []
+            for i in range(8):
+                try:
+                    val = float(additional_recipe_row.get(f"色粉重量{i+1}", "") or 0)
+                except:
+                    val = 0.0
+                add_colorant_weights.append(val)
+    
             for idx, c_id in enumerate(add_colorant_ids):
                 if not c_id:
                     continue
@@ -1202,10 +1190,18 @@ elif menu == "生產單管理":
                     padding = " " * max(0, int(round(column_offsets[i])))
                     row += padding + f"<b>{val_str:>{number_col_width}}</b>"
                 lines.append(row)
-            
-                lines.append("")
-                lines.append(f"備註 : {order.get('備註', '')}")
-                return "\n".join(lines)
+    
+            # 附加配方淨重
+            try:
+                add_net_weight = float(additional_recipe_row.get("淨重", 0))
+            except:
+                add_net_weight = 0.0
+            lines.append(f"\n附加配方淨重: {add_net_weight:.2f} {additional_recipe_row.get('淨重單位', '')}")
+    
+        lines.append("")
+        lines.append(f"備註 : {order.get('備註', '')}")
+    
+        return "\n".join(lines)
           
     # ---------- 新增後欄位填寫區塊 ----------
     # ===== 主流程頁面切換 =====
