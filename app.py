@@ -1202,10 +1202,10 @@ elif menu == "生產單管理":
                     padding = " " * max(0, int(round(column_offsets[i])))
                     row += padding + f"<b>{val_str:>{number_col_width}}</b>"
                 lines.append(row)
-    
-        lines.append("")
-        lines.append(f"備註 : {order.get('備註', '')}")
-        return "\n".join(lines)
+            
+                lines.append("")
+                lines.append(f"備註 : {order.get('備註', '')}")
+                return "\n".join(lines)
           
     # ---------- 新增後欄位填寫區塊 ----------
     # ===== 主流程頁面切換 =====
@@ -1305,6 +1305,20 @@ elif menu == "生產單管理":
                             with add_color_wt_col:
                                 st.text_input(f"附加色粉重量_{idx}_{i}", value=sub.get(f"色粉重量{i}", ""), disabled=True, key=f"form_add_color_wt_{idx}_{i}")
                         idx += 1
+                
+                    # ✅ 附加配方總淨重顯示（只在有附加配方時顯示）
+                    total_net = 0
+                    for _, sub in 附加配方.iterrows():
+                        try:
+                            total_net += float(sub.get("淨重", 0))
+                        except:
+                            continue
+                
+                    unit = 附加配方.iloc[0].get("淨重單位", "")
+                    st.markdown(
+                        f"<div style='text-align:right; font-size:16px;'>📦 附加配方總淨重：{total_net:.2f} {unit}</div>",
+                        unsafe_allow_html=True
+                    )
                 else:
                     st.info("無附加配方色粉")
 
