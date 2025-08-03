@@ -1098,7 +1098,10 @@ elif menu == "生產單管理":
         lines.append("")
     
         # === 包裝列 ===
-        packing_weights = [float(order.get(f"包裝重量{i}", 0)) for i in range(1, 5)]
+        packing_weights = [
+            float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
+            for i in range(1, 5)
+        ]
         packing_counts = [float(order.get(f"包裝份數{i}", 0)) for i in range(1, 5)]
         pack_line = []
         for i in range(4):
@@ -1324,7 +1327,6 @@ elif menu == "生產單管理":
                     order[key_id] = recipe_row.get(key_id, "")
                     order[key_weight] = recipe_row.get(key_weight, "")
                 
-    
                 
                 # 計算色粉合計
                 net_weight = float(recipe_row.get("淨重", 0))
