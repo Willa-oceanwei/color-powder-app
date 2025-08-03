@@ -990,7 +990,7 @@ elif menu == "生產單管理":
                     st.error("選擇的配方不在搜尋結果中")
                     st.stop()
                 recipe = filtered.iloc[idx]
-            if recipe.get("狀態") == "停用":
+            if recipe is not None and recipe.get("狀態") == "停用":
                 st.error("此配方已停用，無法新增生產單")
             else:
                 # ✅ 正確建立生產單號
