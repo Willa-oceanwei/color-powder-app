@@ -1206,12 +1206,6 @@ elif menu == "生產單管理":
         # 強制帶入配方欄位值，避免原本 order 已有空字串導致沒更新
         for field in ["合計類別", "備註", "重要提醒"]:
             order[field] = recipe_row.get(field, "")
-            
-        st.write("配方該筆重要欄位：", {
-            "備註": recipe_row.get("備註", "<無>"),
-            "重要提醒": recipe_row.get("重要提醒", "<無>"),
-            "合計類別": recipe_row.get("合計類別", "<無>")
-        })
         
         st.session_state.new_order = order
         st.session_state.show_confirm_panel = show_confirm_panel
