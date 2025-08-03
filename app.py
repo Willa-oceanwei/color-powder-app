@@ -991,8 +991,7 @@ elif menu == "生產單管理":
                     st.stop()
                 recipe_row = filtered.iloc[idx].to_dict()
                 if recipe_row.get("狀態") == "停用":
-            if recipe_row.get("狀態") == "停用":
-                st.warning("⚠️ 此配方已停用，請勿使用")
+                    st.warning("⚠️ 此配方已停用，請勿使用")
             else:
                 # ✅ 正確建立生產單號
                 df_all_orders = st.session_state.df_order.copy()
