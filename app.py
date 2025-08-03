@@ -1014,9 +1014,8 @@ elif menu == "生產單管理":
                     additional_recipe_row = None
                     if not 附加配方.empty:
                         additional_recipe_row = 附加配方.iloc[0].to_dict()
-                        new_entry["附加配方"] = additional_recipe_row
                     else:
-                        new_entry["附加配方"] = None
+                        additional_recipe_row = None
 
                 # ✅ 色粉合併處理：主配方 + 附加配方
                 all_colorants = []
@@ -1038,7 +1037,7 @@ elif menu == "生產單管理":
                             all_colorants.append((id_val, wt_val))
 
                 
-                # ✅ 建立生產單資料
+                # 建立生產單資料
                 new_entry = {
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
@@ -1051,6 +1050,7 @@ elif menu == "生產單管理":
                     "備註": str(recipe_row.get("備註", "")).strip(),
                     "重要提醒": str(recipe_row.get("重要提醒", "")).strip(),
                     "合計類別": str(recipe_row.get("合計類別", "")).strip(),
+                    "附加配方": additional_recipe_row,   # <- 這裡放附加配方
                 }
 
 
