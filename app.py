@@ -1014,8 +1014,9 @@ elif menu == "生產單管理":
                     additional_recipe_row = None
                     if not 附加配方.empty:
                         additional_recipe_row = 附加配方.iloc[0].to_dict()
+                        order["附加配方"] = additional_recipe_row  # 一定要存入 order
                     else:
-                        additional_recipe_row = None
+                        order["附加配方"] = None
 
                 # ✅ 色粉合併處理：主配方 + 附加配方
                 all_colorants = []
@@ -1287,11 +1288,13 @@ elif menu == "生產單管理":
                     f"<div style='text-align:right; font-size:16px; margin-top:-10px;'>🔢 配方淨重：{recipe_row.get('淨重', '')} {recipe_row.get('淨重單位', '')}</div>",
                     unsafe_allow_html=True
                 )
+                
                 # --- 新增：附加配方色粉顯示 ---
                 附加配方 = df_recipe[
                     (df_recipe["配方類別"] == "附加配方") &
                     (df_recipe["原始配方"] == recipe_row.get("配方編號", ""))
                  ]
+                
                 if not 附加配方.empty:
                     st.markdown("### 附加配方色粉用量（編號與重量）")
                     idx = 1
@@ -1388,14 +1391,14 @@ elif menu == "生產單管理":
                 additional_recipe_row = 附加配方.iloc[0].to_dict()
             
             print_html = generate_print_page_content(
-                st.session_state.new_order,
+                order,
                 recipe_row,
-                st.session_state.new_order.get("附加配方")
+                order.get("附加配方")
             )
             st.download_button(
                 label="📥 下載 A5 HTML",
                 data=print_html.encode("utf-8"),
-                file_name=f"{st.session_state.new_order['生產單號']}_列印.html",
+                file_name=f"{order['生產單號']}_列印.html",
                 mime="text/html"
             )
             
@@ -1412,7 +1415,7 @@ elif menu == "生產單管理":
             
             # 另一個下載連結（選擇性）
             if st.session_state.get("new_order_saved"):
-                html_content = generate_print_page_content(order, recipe_row, additional_recipe_row)
+                html_content = generate_print_page_content(order, recipe_row, order.get("附加配方"))
                 b64 = base64.b64encode(html_content.encode("utf-8")).decode()
                 href = f'<a href="data:text/html;base64,{b64}" download="生產單.html">📥 下載生產單 HTML (A5列印)</a>'
                 st.markdown(href, unsafe_allow_html=True)
