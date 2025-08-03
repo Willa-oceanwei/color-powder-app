@@ -1003,7 +1003,7 @@ elif menu == "生產單管理":
                 # ✅ 查找附加配方
                 附加配方 = df_recipe[
                     (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"] == recipe["配方編號"])
+                    (df_recipe["原始配方"] == recipe_row.get("配方編號", ""))
                 ]
 
                 # ✅ 色粉合併處理：主配方 + 附加配方
