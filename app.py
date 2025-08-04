@@ -1242,10 +1242,24 @@ elif menu == "生產單管理":
                     with col2:
                         color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}") for i in range(1, 9)}
                         st.write("色粉重量", color_wts)
+
+        # 加在抓出 additional_recipes 後
+        if not additional_recipes.empty:
+            additional_recipe_list = []
+            for idx, row in additional_recipes.iterrows():
+                row_dict = row.to_dict()
+                clean_dict = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row_dict.items()}
+                additional_recipe_list.append(clean_dict)
+            
+            # ✅ 將清單寫入 order（這是最重要的一行）
+            order["附加配方"] = additional_recipe_list
+        else:
+            order["附加配方"] = []  # 空陣列，避免列印錯誤
         
-        st.session_state.new_order = order
-        st.session_state.show_confirm_panel = show_confirm_panel
-    
+                
+                st.session_state.new_order = order
+                st.session_state.show_confirm_panel = show_confirm_panel
+            
         # 搜尋或配方存在時才顯示新增生產單表單
         if st.session_state.get("show_confirm_panel"):
             unit = recipe_row.get("計量單位", "kg") if recipe_row else "kg"
