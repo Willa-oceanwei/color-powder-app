@@ -1094,8 +1094,8 @@ elif menu == "生產單管理":
         powder_label_width = 12
         pack_col_width = 11
         number_col_width = 6
-        column_offsets = [1, 5, 5, 5.5]
-        total_offsets = [1.3, 5, 5, 6]
+        column_offsets = [1, 5, 5.3, 5.5]
+        total_offsets = [1.3, 5, 5.3, 6]
     
         packing_weights = [
             float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
