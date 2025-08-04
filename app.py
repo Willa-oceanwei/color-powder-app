@@ -151,6 +151,7 @@ def save_df_to_sheet(ws, df):
     ws.clear()
     ws.update("A1", values)
 
+menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 # ======== 色粉管理 =========
 if menu == "色粉管理":
     worksheet = spreadsheet.worksheet("色粉管理")
