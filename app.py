@@ -915,7 +915,6 @@ elif menu == "生產單管理":
             df_temp.columns = df_temp.columns.str.strip()
             df_temp.fillna("", inplace=True)
             st.session_state.df_recipe = df_temp
-            st.write("配方管理資料載入成功")
         except Exception as e:
             st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
             st.stop()
