@@ -1313,30 +1313,29 @@ elif menu == "生產單管理":
                     unsafe_allow_html=True
                 )
                 
-                # --- 新增：附加配方色粉顯示 ---
-                附加配方 = order.get("附加配方")
-                if 附加配方:
+                附加配方清單 = order.get("附加配方", [])
+                if 附加配方清單:
                     st.markdown("### 附加配方色粉用量（編號與重量）")
-                    st.markdown(f"#### 附加配方：{附加配方.get('配方編號', '')}")
-                    add_color_id_col, add_color_wt_col = st.columns(2)
-                    for i in range(1, 9):
-                        with add_color_id_col:
-                            st.text_input(f"附加色粉編號_{i}", value=附加配方.get(f"色粉編號{i}", ""), disabled=True, key=f"form_add_color_id_{i}")
-                        with add_color_wt_col:
-                            st.text_input(f"附加色粉重量_{i}", value=附加配方.get(f"色粉重量{i}", ""), disabled=True, key=f"form_add_color_wt_{i}")
-                    
-                    # 顯示附加配方淨重
-                    try:
-                        total_net = float(附加配方.get("淨重", 0))
-                    except:
-                        total_net = 0
-                    unit = 附加配方.get("淨重單位", "")
-                    st.markdown(
-                        f"<div style='text-align:right; font-size:16px;'>📦 附加配方淨重：{total_net:.2f} {unit}</div>",
-                        unsafe_allow_html=True
-                    )
-                else:
-                    st.info("無附加配方色粉")
+                    for idx, 附加配方 in enumerate(附加配方清單, 1):
+                        st.markdown(f"#### 附加配方 {idx}：{附加配方.get('配方編號', '')}")
+                        col1, col2 = st.columns(2)
+                        for i in range(1, 9):
+                            with col1:
+                                st.text_input(f"附加色粉編號_{idx}_{i}", value=附加配方.get(f"色粉編號{i}", ""), disabled=True, key=f"form_add_color_id_{idx}_{i}")
+                            with col2:
+                                st.text_input(f"附加色粉重量_{idx}_{i}", value=附加配方.get(f"色粉重量{i}", ""), disabled=True, key=f"form_add_color_wt_{idx}_{i}")
+                
+                        # 顯示附加配方淨重
+                        try:
+                            total_net = float(附加配方.get("淨重", 0))
+                        except:
+                            total_net = 0
+                        unit = 附加配方.get("淨重單位", "")
+                        st.markdown(
+                            f"<div style='text-align:right; font-size:16px;'>📦 附加配方淨重：{total_net:.2f} {unit}</div>",
+                            unsafe_allow_html=True
+                        )
+
         
                 submitted = st.form_submit_button("💾 儲存生產單")
         
