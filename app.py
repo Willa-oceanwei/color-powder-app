@@ -1070,7 +1070,7 @@ elif menu == "生產單管理":
                     st.session_state.show_confirm_panel = True   
 
     # ===== 自訂函式：產生生產單列印格式 =====      
-    def generate_production_order_print(order, recipe_row, additional_recipe_rows=None):
+    def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
         if recipe_row is None:
             recipe_row = {}
     
@@ -1170,7 +1170,11 @@ elif menu == "生產單管理":
         if additional_recipe_rows and isinstance(additional_recipe_rows, list):
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 lines.append("")
-                lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
+                # ✅ 根據參數決定是否顯示附加配方編號
+                if show_additional_ids:
+                    lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
+                else:
+                    lines.append(f"附加配方 {idx}")
                 add_ids = [sub.get(f"色粉編號{i+1}", "") for i in range(8)]
                 add_weights = []
                 for i in range(8):
