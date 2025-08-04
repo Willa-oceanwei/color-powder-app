@@ -544,6 +544,11 @@ elif menu == "配方管理":
 
     st.subheader("➕ 新增 / 修改配方")
 
+    # ➕ 按鈕新增欄位（最多 8 列）
+    if st.session_state.num_powder_rows < 8:
+        if st.button("➕ 新增色粉列"):
+            st.session_state.num_powder_rows += 1
+
     with st.form("recipe_form"):
 
         col1, col2, col3 = st.columns(3)
@@ -633,10 +638,6 @@ elif menu == "配方管理":
             with c4:
                 st.markdown(fr.get("淨重單位", ""), unsafe_allow_html=True)
 
-        # ➕ 按鈕新增欄位（最多 8 列）
-        if st.session_state.num_powder_rows < 8:
-            if st.button("➕ 新增色粉列"):
-                st.session_state.num_powder_rows += 1
 
         col1, col2 = st.columns(2)
         with col1:
