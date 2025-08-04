@@ -298,7 +298,7 @@ elif menu == "客戶名單":
     if search_input != st.session_state.search_customer:
         st.session_state.search_customer = search_input
     
-    search = st.session_state.search_customer.strip()
+    search = (st.session_state.search_customer or "").strip()
     
     if search:
         df_filtered = df[
