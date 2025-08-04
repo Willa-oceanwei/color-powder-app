@@ -1013,19 +1013,19 @@ elif menu == "生產單管理":
                     today_str = datetime.now().strftime("%Y%m%d")
                     count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
                     new_id = f"{today_str}-{count_today + 1:03}"
-        
-                    # 查找附加配方（修正版）
+                    
+                    # ✅ 查找附加配方（修正版）
                     main_recipe_code = recipe_row.get("配方編號", "").strip()
+                    
+                    # 確保欄位為字串並去除空白（避免因空格導致比對失敗）
+                    df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
+                    df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).str.strip()
+                    
                     附加配方 = df_recipe[
                         (df_recipe["配方類別"] == "附加配方") &
                         (df_recipe["原始配方"] == main_recipe_code)
                     ]
-                    
-                    if not 附加配方.empty:
-                        order["附加配方"] = 附加配方.to_dict(orient="records")  # 可能有多筆，存成 list of dict
-                    else:
-                        order["附加配方"] = None
-        
+      
                     # 色粉合併處理：主配方 + 附加配方
                     all_colorants = []
                     for i in range(1, 9):
