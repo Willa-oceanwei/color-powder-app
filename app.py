@@ -1317,13 +1317,13 @@ elif menu == "生產單管理":
                         st.markdown(f"#### 附加配方 {idx}：{附加配方.get('配方編號', '')}")
                         col1, col2 = st.columns(2)
                         for i in range(1, 9):
-                            color_id = 附加配方.get(f"色粉編號{i}", "").strip()
-                            color_wt = 附加配方.get(f"色粉重量{i}", "").strip()
-                            if color_id or color_wt:
-                                with col1:
-                                    st.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}")
-                                with col2:
-                                    st.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}")
+                            color_id = recipe_row.get(f"色粉編號{i}", "").strip()
+                            color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
+                            if color_id or color_wt:  # ✅ 只有有內容的欄位才顯示
+                                with 色粉編號欄:
+                                    st.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_color_id_{i}")
+                                with 色粉重量欄:
+                                    st.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_color_weight_{i}")
                 
                         # 顯示附加配方淨重
                         try:
