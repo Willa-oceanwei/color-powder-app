@@ -1184,11 +1184,6 @@ elif menu == "生產單管理":
                         padding = " " * max(0, int(round(column_offsets[j])))
                         row += padding + f"<b>{val_str:>{number_col_width}}</b>"
                     lines.append(row)
-                try:
-                    add_net_weight = float(sub.get("淨重", 0))
-                except:
-                    add_net_weight = 0.0
-                lines.append(f"附加淨重: {add_net_weight:.2f} {sub.get('淨重單位', '')}")
     
         lines.append("")
         lines.append(f"備註 : {order.get('備註', '')}")
