@@ -1752,7 +1752,7 @@ elif menu == "生產單管理":
                 st.experimental_rerun()
 
 # ===== 匯入配方備份檔案 =====
-if page == "匯入備份":
+if st.session_state.menu == "匯入備份":
     st.title("📥 匯入配方備份 Excel")
     
     def load_recipe_backup_excel(file):
