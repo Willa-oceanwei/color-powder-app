@@ -608,6 +608,12 @@ elif menu == "配方管理":
         
         st.markdown("### 色粉設定")
         
+        # 初始化顯示列數
+        if "num_powder_rows" not in st.session_state:
+            st.session_state.num_powder_rows = 5  # 預設顯示 5 列
+        
+        st.markdown("### 色粉設定")
+        
         # 顯示目前列數的色粉欄位
         for i in range(1, st.session_state.num_powder_rows + 1):
             color_id = fr.get(f"色粉編號{i}", "").strip()
@@ -626,11 +632,11 @@ elif menu == "配方管理":
                 )
             with c4:
                 st.markdown(fr.get("淨重單位", ""), unsafe_allow_html=True)
-        
+
         # ➕ 按鈕新增欄位（最多 8 列）
         if st.session_state.num_powder_rows < 8:
             if st.button("➕ 新增色粉列"):
-                st.session_state.num_powder_rows += 1)
+                st.session_state.num_powder_rows += 1
 
         col1, col2 = st.columns(2)
         with col1:
