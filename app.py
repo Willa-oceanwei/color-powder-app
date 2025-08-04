@@ -1175,7 +1175,6 @@ elif menu == "生產單管理":
         if additional_recipe_rows and isinstance(additional_recipe_rows, list):
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 lines.append("")
-                # ✅ 根據參數決定是否顯示附加配方編號
                 if show_additional_ids:
                     lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
                 else:
@@ -1204,6 +1203,7 @@ elif menu == "生產單管理":
         lines.append(f"備註 : {order.get('備註', '')}")
     
         return "\n".join(lines)
+
           
     # ---------- 新增後欄位填寫區塊 ----------
     # ===== 主流程頁面切換 =====
