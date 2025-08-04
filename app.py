@@ -1406,18 +1406,26 @@ elif menu == "生產單管理":
                     st.error(f"❌ 寫入失敗：{e}")
         
             # 產生列印 HTML 按鈕
+            # ✅ 加入 checkbox 讓使用者決定是否顯示附加配方編號
+            show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
+            
+            # 產生列印 HTML
             print_html = generate_print_page_content(
                 order,
                 recipe_row,
-                order.get("附加配方")  # 這裡會是 list of dict 或 None
+                order.get("附加配方"),
+                show_additional_ids=show_ids  # ✅ 傳入使用者選項
             )
+            
+            # 下載按鈕
             st.download_button(
                 label="📥 下載 A5 HTML",
                 data=print_html.encode("utf-8"),
                 file_name=f"{order['生產單號']}_列印.html",
                 mime="text/html"
             )
-        
+            
+            # 兩個按鈕區：提示已儲存／返回
             btn1, btn2 = st.columns(2)
             with btn1:
                 if st.session_state.get("new_order_saved"):
