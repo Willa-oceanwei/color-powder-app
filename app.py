@@ -448,6 +448,18 @@ elif menu == "配方管理":
 
     #-------
     df = st.session_state.df
+    # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
+    try:
+        ws_powder = spreadsheet.worksheet("色粉管理")
+        df_powders = pd.DataFrame(ws_powder.get_all_records())
+        if "色粉編號" not in df_powders.columns:
+            st.error("❌ 色粉管理表缺少『色粉編號』欄位")
+            existing_powders = set()
+        else:
+            existing_powders = set(df_powders["色粉編號"].dropna().astype(str).str.strip().unique())
+    except Exception as e:
+        st.warning(f"⚠️ 無法載入色粉管理：{e}")
+        existing_powders = set()
 
     st.markdown("""
     <style>
