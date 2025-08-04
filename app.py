@@ -1751,34 +1751,34 @@ elif menu == "生產單管理":
                 st.session_state.editing_order = None
                 st.experimental_rerun()
 
-     # ===== 匯入配方備份檔案 =====
-    if page == "匯入備份":
-        st.title("📥 匯入配方備份 Excel")
+# ===== 匯入配方備份檔案 =====
+if page == "匯入備份":
+    st.title("📥 匯入配方備份 Excel")
     
-        def load_recipe_backup_excel(file):
-            try:
-                df = pd.read_excel(file)
-                df.columns = df.columns.str.strip()
-                df = df.dropna(how='all')
-                df = df.fillna("")
+    def load_recipe_backup_excel(file):
+        try:
+            df = pd.read_excel(file)
+            df.columns = df.columns.str.strip()
+            df = df.dropna(how='all')
+            df = df.fillna("")
     
-                # 檢查必要欄位
-                required_columns = ["配方編號", "顏色", "客戶編號", "色粉編號1"]
-                missing = [col for col in required_columns if col not in df.columns]
-                if missing:
-                    raise ValueError(f"缺少必要欄位：{missing}")
+            # 檢查必要欄位
+            required_columns = ["配方編號", "顏色", "客戶編號", "色粉編號1"]
+            missing = [col for col in required_columns if col not in df.columns]
+            if missing:
+                raise ValueError(f"缺少必要欄位：{missing}")
     
-                return df
-            except Exception as e:
-                st.error(f"❌ 備份檔讀取失敗：{e}")
-                return None
+            return df
+        except Exception as e:
+            st.error(f"❌ 備份檔讀取失敗：{e}")
+            return None
     
-        uploaded_file = st.file_uploader("請上傳備份 Excel (.xlsx)", type=["xlsx"], key="upload_backup")
-        if uploaded_file:
-            df_uploaded = load_recipe_backup_excel(uploaded_file)
-            if df_uploaded is not None:
-                st.session_state.df_recipe = df_uploaded
-                st.success("✅ 成功匯入備份檔！")
-                st.dataframe(df_uploaded.head())
+    uploaded_file = st.file_uploader("請上傳備份 Excel (.xlsx)", type=["xlsx"], key="upload_backup")
+    if uploaded_file:
+        df_uploaded = load_recipe_backup_excel(uploaded_file)
+        if df_uploaded is not None:
+            st.session_state.df_recipe = df_uploaded
+            st.success("✅ 成功匯入備份檔！")
+            st.dataframe(df_uploaded.head())
 
                 
