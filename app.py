@@ -1321,9 +1321,9 @@ elif menu == "生產單管理":
                             color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
                             if color_id or color_wt:  # ✅ 只有有內容的欄位才顯示
                                 with 色粉編號欄:
-                                    st.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_color_id_{i}")
+                                    st.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}")
                                 with 色粉重量欄:
-                                    st.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_color_weight_{i}")
+                                    st.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}")
                 
                         # 顯示附加配方淨重
                         try:
