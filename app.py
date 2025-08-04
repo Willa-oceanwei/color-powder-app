@@ -65,7 +65,7 @@ def init_states(keys=None):
 init_states()
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
-def generate_print_page_content(order, recipe_row, additional_recipe_rows=None):
+def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
         recipe_row = {}
 
@@ -73,7 +73,13 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None):
     if additional_recipe_rows is not None and not isinstance(additional_recipe_rows, list):
         additional_recipe_rows = [additional_recipe_rows]
 
-    content = generate_production_order_print(order, recipe_row, additional_recipe_rows)
+    # ✅ 傳入 show_additional_ids 給產生列印內容的函式
+    content = generate_production_order_print(
+        order,
+        recipe_row,
+        additional_recipe_rows,
+        show_additional_ids=show_additional_ids  # 👈 新增參數
+    )
     created_time = order.get("建立時間", "")
 
     html_template = """
@@ -92,11 +98,11 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None):
             .title {
                 text-align: center;
                 font-size: 24px;
-                margin-bottom: -4px; /* 生產單與配方欄縮近 */
+                margin-bottom: -4px;
             }
             .timestamp {
                 font-size: 12px;
-                color: #000;  /* 改成純黑 */
+                color: #000;
                 text-align: center;
                 margin-bottom: 2px;
                 font-family: Arial, Helvetica, sans-serif;
@@ -130,7 +136,6 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None):
 
     html = html_template.replace("{created_time}", created_time).replace("{content}", content)
     return html
-
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
