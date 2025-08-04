@@ -641,17 +641,22 @@ elif menu == "配方管理":
             except:
                 st.write("合計差額: 計算錯誤")
     
-        # 提交按鈕與新增列按鈕
-        col_save, col_add = st.columns([3, 1])
-        
-        with col_save:
-            submitted = st.form_submit_button("💾 儲存配方")
-        
-        with col_add:
-            if st.session_state.num_powder_rows < 8:
-                if st.form_submit_button("➕ 新增色粉列", key="add_powder_row_btn"):
-                    st.session_state.num_powder_rows += 1
-                    st.experimental_rerun()  # 新增完立即顯示新的列
+        # 👉 將兩個提交按鈕與新增列按鈕按鈕並排放在表單內最後
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        action = st.form_submit_button("💾 儲存配方")
+    with col2:
+        add_powder = st.form_submit_button("➕ 新增色粉列")
+
+# 👉 表單外部處理按鈕的動作
+if add_powder:
+    if st.session_state.num_powder_rows < 8:
+        st.session_state.num_powder_rows += 1
+        st.experimental_rerun()
+
+if action:
+    # 執行儲存邏輯
+    pass  # ← 你原本的儲存處理邏輯
 
         if submitted:
             if fr["配方編號"].strip() == "":
