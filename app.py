@@ -650,56 +650,48 @@ elif menu == "配方管理":
 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
-        # 檢查必要欄位
+        # ✅ 先檢查未建檔色粉
+        missing_powders = []
+        for i in range(1, st.session_state.num_powder_rows + 1):
+            pid = fr.get(f"色粉編號{i}", "").strip()
+            if pid and pid not in existing_powders:
+                missing_powders.append(pid)
+    
+        if missing_powders:
+            st.warning(f"⚠️ 以下色粉尚未建檔：{', '.join(missing_powders)}")
+            st.stop()
+    
+        # 👉 儲存配方邏輯...
         if fr["配方編號"].strip() == "":
             st.warning("⚠️ 請輸入配方編號！")
         elif fr["配方類別"] == "附加配方" and fr["原始配方"].strip() == "":
             st.warning("⚠️ 附加配方必須填寫原始配方！")
         else:
-            # ✅ 檢查色粉編號是否都存在
-            existing_powders = set()
-            for i in range(1, 9):
-                colname = f"色粉編號{i}"
-                if colname in df.columns:
-                    existing_powders.update(df[colname].dropna().unique())
-            
-            missing_powders = []
-            for i in range(1, st.session_state.num_powder_rows + 1):
-                pid = fr.get(f"色粉編號{i}", "").strip()
-                if pid and pid not in existing_powders:
-                    missing_powders.append(pid)
-            
-            if missing_powders:
-                st.warning(f"⚠️ 以下色粉尚未建檔：{', '.join(missing_powders)}")
-                st.stop()  # 中斷儲存
-
+            if st.session_state.edit_recipe_index is not None:
+                df.iloc[st.session_state.edit_recipe_index] = pd.Series(fr)
+                st.success(f"✅ 配方 {fr['配方編號']} 已更新！")
             else:
-                if st.session_state.edit_recipe_index is not None:
-                    df.iloc[st.session_state.edit_recipe_index] = pd.Series(fr)
-                    st.success(f"✅ 配方 {fr['配方編號']} 已更新！")
+                if fr["配方編號"] in df["配方編號"].values:
+                    st.warning("⚠️ 此配方編號已存在！")
                 else:
-                    if fr["配方編號"] in df["配方編號"].values:
-                        st.warning("⚠️ 此配方編號已存在！")
-                        st.stop()
-                    else:
-                        fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        df = pd.concat([df, pd.DataFrame([fr])], ignore_index=True)
-                        st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
+                    fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    df = pd.concat([df, pd.DataFrame([fr])], ignore_index=True)
+                    st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
     
-                try:
-                    ws_recipe.clear()
-                    ws_recipe.update([df.columns.tolist()] + df.values.tolist())
-                    order_file.parent.mkdir(parents=True, exist_ok=True)
-                    df.to_csv(order_file, index=False, encoding="utf-8-sig")
-                except Exception as e:
-                    st.error(f"❌ 儲存失敗：{e}")
-                    st.stop()
+            try:
+                ws_recipe.clear()
+                ws_recipe.update([df.columns.tolist()] + df.values.tolist())
+                order_file.parent.mkdir(parents=True, exist_ok=True)
+                df.to_csv(order_file, index=False, encoding="utf-8-sig")
+            except Exception as e:
+                st.error(f"❌ 儲存失敗：{e}")
+                st.stop()
     
-                st.session_state.df = df
-                st.session_state.form_recipe = {col: "" for col in columns}
-                st.session_state.edit_recipe_index = None
-                st.rerun()
-    
+            st.session_state.df = df
+            st.session_state.form_recipe = {col: "" for col in columns}
+            st.session_state.edit_recipe_index = None
+            st.rerun()
+  
     # === 處理新增色粉列 ===
     if add_powder:
         if st.session_state.num_powder_rows < 8:
