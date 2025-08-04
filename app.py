@@ -31,21 +31,25 @@ if "spreadsheet" not in st.session_state:
 spreadsheet = st.session_state["spreadsheet"]
 
 # ======== Sidebar 修正 =========
+import streamlit as st  # 放檔案頂端一次
+
+menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "匯入備份"]
+
+# 初始化 session_state.menu
+if "menu" not in st.session_state:
+    st.session_state.menu = "生產單管理"
+
 with st.sidebar:
     st.title("🌈配方管理系統")
     with st.expander("🎏 展開 / 收合選單", expanded=True):
-        menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "匯入備份"]
         current_index = menu_options.index(st.session_state.menu) if st.session_state.menu in menu_options else 0
 
         selected_menu = st.radio(
             "請選擇模組",
             menu_options,
-            index=current_index
+            index=current_index,
+            key="menu"  # 這會自動更新 st.session_state.menu
         )
-
-        # 只在選項不同時更新，避免不必要重繪
-        if selected_menu != st.session_state.menu:
-            st.session_state.menu = selected_menu
 
 # ======== 初始化 session_state =========
 def init_states(keys=None):
