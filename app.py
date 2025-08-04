@@ -44,6 +44,8 @@ with st.sidebar:
         )
         st.session_state.menu = menu  # 把選擇的存回 session_state
 
+
+
 # ======== 初始化 session_state =========
 def init_states(keys=None):
     if keys is None:
@@ -71,6 +73,37 @@ def init_states(keys=None):
 
 # ✅ 初始只處理生產單頁用的 key
 init_states()
+import pandas as pd
+import streamlit as st
+
+def load_recipe_backup_excel(file):
+    try:
+        df = pd.read_excel(file)
+        df.columns = df.columns.str.strip()
+        df = df.dropna(how='all')
+        df = df.fillna("")
+
+        # 檢查必要欄位
+        required_columns = ["配方編號", "顏色", "客戶編號", "色粉編號1"]
+        missing = [col for col in required_columns if col not in df.columns]
+        if missing:
+            raise ValueError(f"缺少必要欄位：{missing}")
+
+        return df
+    except Exception as e:
+        st.error(f"❌ 備份檔讀取失敗：{e}")
+        return None
+
+# ===== Streamlit 主區塊 =====
+st.title("📦 匯入配方備份檔案")
+
+uploaded_file = st.file_uploader("請上傳備份 Excel (.xlsx)", type=["xlsx"])
+if uploaded_file:
+    df_uploaded = load_recipe_backup_excel(uploaded_file)
+    if df_uploaded is not None:
+        st.session_state.df_recipe = df_uploaded
+        st.success("✅ 成功匯入備份檔！")
+        st.dataframe(df_uploaded.head())
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
