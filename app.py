@@ -590,15 +590,22 @@ elif menu == "配方管理":
             fr["淨重單位"] = st.selectbox("單位", options, index=options.index(fr["淨重單位"] or "g"), key="form_recipe_淨重單位")
 
         for i in range(1, 9):
-            c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
-            with c1:
-                st.write(f"色粉{i}")
-            with c2:
-                fr[f"色粉編號{i}"] = st.text_input(f"色粉編號{i}", fr[f"色粉編號{i}"], key=f"form_recipe_色粉編號{i}")
-            with c3:
-                fr[f"色粉重量{i}"] = st.text_input(f"色粉重量{i}", fr[f"色粉重量{i}"], key=f"form_recipe_色粉重量{i}")
-            with c4:
-                st.markdown(fr["淨重單位"], unsafe_allow_html=True)
+            color_id = fr.get(f"色粉編號{i}", "").strip()
+            color_wt = fr.get(f"色粉重量{i}", "").strip()
+            if color_id or color_wt:  # ✅ 至少有一欄有內容時才顯示
+                c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
+                with c1:
+                    st.write(f"色粉{i}")
+                with c2:
+                    fr[f"色粉編號{i}"] = st.text_input(
+                        f"色粉編號{i}", value=color_id, key=f"form_recipe_色粉編號{i}"
+                    )
+                with c3:
+                    fr[f"色粉重量{i}"] = st.text_input(
+                        f"色粉重量{i}", value=color_wt, key=f"form_recipe_色粉重量{i}"
+                    )
+                with c4:
+                    st.markdown(fr.get("淨重單位", ""), unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
