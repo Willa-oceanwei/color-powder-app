@@ -499,11 +499,18 @@ elif menu == "配方管理":
     except:
         st.error("無法載入客戶名單")
 
+    import gspread
+    from gspread.exceptions import WorksheetNotFound, APIError
+    
     try:
         ws_recipe = spreadsheet.worksheet("配方管理")
-    except:
-        ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
-
+    except WorksheetNotFound:
+        try:
+            ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
+        except APIError as e:
+            st.error(f"❌ 無法建立工作表：{e}")
+            st.stop()
+            
     # 初始化 session_state
     def init_states(keys):
         for k in keys:
