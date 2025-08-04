@@ -657,15 +657,22 @@ elif menu == "配方管理":
             st.warning("⚠️ 附加配方必須填寫原始配方！")
         else:
             # ✅ 檢查色粉編號是否都存在
-            existing_powders = set(df["色粉編號"].dropna().unique())
+            existing_powders = set()
+            for i in range(1, 9):
+                colname = f"色粉編號{i}"
+                if colname in df.columns:
+                    existing_powders.update(df[colname].dropna().unique())
+            
             missing_powders = []
             for i in range(1, st.session_state.num_powder_rows + 1):
                 pid = fr.get(f"色粉編號{i}", "").strip()
                 if pid and pid not in existing_powders:
                     missing_powders.append(pid)
-    
+            
             if missing_powders:
                 st.warning(f"⚠️ 以下色粉尚未建檔：{', '.join(missing_powders)}")
+                st.stop()  # 中斷儲存
+
             else:
                 if st.session_state.edit_recipe_index is not None:
                     df.iloc[st.session_state.edit_recipe_index] = pd.Series(fr)
