@@ -532,17 +532,22 @@ elif menu == "配方管理":
 
     df = st.session_state.df
 
-    # 初始化表單欄位
+    # ===== 初始化欄位 =====
     if st.session_state.form_recipe is None or st.session_state.form_recipe == {}:
         st.session_state.form_recipe = {col: "" for col in columns}
     else:
         for col in columns:
             if col not in st.session_state.form_recipe:
                 st.session_state.form_recipe[col] = ""
-
+    
     fr = st.session_state.form_recipe
 
+    # ✅ 初始化顯示色粉列數
+    if "num_powder_rows" not in st.session_state:
+        st.session_state.num_powder_rows = 5
+
     st.subheader("➕ 新增 / 修改配方")
+
 
     # ➕ 按鈕新增欄位（最多 8 列）
     if st.session_state.num_powder_rows < 8:
@@ -606,12 +611,6 @@ elif menu == "配方管理":
         with col2:
             options = ["g", "kg"]
             fr["淨重單位"] = st.selectbox("單位", options, index=options.index(fr["淨重單位"] or "g"), key="form_recipe_淨重單位")
-
-        # 初始化顯示列數
-        if "num_powder_rows" not in st.session_state:
-            st.session_state.num_powder_rows = 5  # 預設顯示 5 列
-        
-        st.markdown("### 色粉設定")
         
         # 初始化顯示列數
         if "num_powder_rows" not in st.session_state:
