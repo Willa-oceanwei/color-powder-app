@@ -612,10 +612,6 @@ elif menu == "配方管理":
             options = ["g", "kg"]
             fr["淨重單位"] = st.selectbox("單位", options, index=options.index(fr["淨重單位"] or "g"), key="form_recipe_淨重單位")
         
-        # 初始化顯示列數
-        if "num_powder_rows" not in st.session_state:
-            st.session_state.num_powder_rows = 5  # 預設顯示 5 列
-        
         st.markdown("### 色粉設定")
         
         # 顯示目前列數的色粉欄位
