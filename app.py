@@ -1146,6 +1146,7 @@ elif menu == "生產單管理":
 
                     st.session_state["new_order"] = order
                     st.session_state["show_confirm_panel"] = True
+                    st.rerun()
                     
     # ===== 自訂函式：產生生產單列印格式 =====      
     def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
