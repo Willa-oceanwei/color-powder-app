@@ -1340,6 +1340,8 @@ elif menu == "生產單管理":
                 
         st.session_state.new_order = order
         st.session_state.show_confirm_panel = show_confirm_panel
+
+        st.write("show_confirm_panel currently:", st.session_state.get("show_confirm_panel"))
             
         # 搜尋或配方存在時才顯示新增生產單表單
         if st.session_state.get("show_confirm_panel"):
