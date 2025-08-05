@@ -1493,7 +1493,7 @@ elif menu == "生產單管理":
             )
             
             # 下載按鈕         
-            col1, col2, col3 = st.columns([1, 6, 1])
+            col1, col2, col3 = st.columns([3, 1, 3])
             with col1:
                 st.download_button(
                     label="📥 下載 A5 HTML",
