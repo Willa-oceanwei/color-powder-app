@@ -652,7 +652,9 @@ elif menu == "配方管理":
         # 合計顯示
         col1, col2 = st.columns(2)
         with col1:
-            fr["合計類別"] = st.text_input("合計類別", value=fr["合計類別"], key="form_recipe_合計類別")
+            category_options = ["LA", "MA", "S流動劑", "CA", "T9", "原料", "無", "其他"]
+            default = fr["合計類別"] if fr["合計類別"] in category_options else category_options[0]
+            fr["合計類別"] = st.selectbox("合計類別", category_options, index=category_options.index(default), key="form_recipe_合計類別")
         with col2:
             try:
                 net = float(fr["淨重"] or "0")
