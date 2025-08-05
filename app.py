@@ -1222,7 +1222,7 @@ elif menu == "生產單管理":
             c_weight = colorant_weights[idx]
             if not c_id:
                 continue
-            row = f"<b>{c_id.ljust(powder_label_width)}</b>"
+            row = f"<b>{str(c_id or '').ljust(powder_label_width)}</b>"
             for i in range(4):
                 val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
