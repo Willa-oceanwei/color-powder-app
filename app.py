@@ -579,33 +579,21 @@ elif menu == "配方管理":
         with col2:
             fr["顏色"] = st.text_input("顏色", value=fr["顏色"], key="form_recipe_顏色")
         with col3:
-            default_customer = next((opt for opt in customer_options if opt.startswith(fr["客戶編號"])), "")
-            index = customer_options.index(default_customer) + 1 if default_customer else 0
-            # 根據目前欄位帶入的客戶編號找預設選項（如果找不到就預設空白）
-            default_customer = next(
-                (opt for opt in customer_options if opt.startswith(fr.get("客戶編號", ""))), ""
-            )
-            
-            # 計算預設 index（有找到就 +1，否則 0 表示選空白）
-            index = 0
-            if default_customer:
-                try:
-                    index = customer_options.index(default_customer) + 1  # +1 因為前面加了 ""
-                except ValueError:
-                    index = 0
-            
-            # 下拉選單顯示
-            selected = st.selectbox(
-                "客戶編號",
-                [""] + customer_options,
-                index=index,
-                key="form_recipe_selected_customer"
-            )
-            
-            # 拆解選到的內容填入欄位（若為空白就設空字串）
-            客戶編號, 客戶簡稱 = selected.split(" - ", 1) if " - " in selected else ("", "")
-            fr["客戶編號"] = 客戶編號
-            fr["客戶名稱"] = 客戶簡稱
+            options = [""] + customer_options
+        # 判斷 session_state 裡是否已有客戶編號值
+        default_value = ""
+        if fr["客戶編號"]:
+            matched_opt = next((opt for opt in customer_options if opt.startswith(fr["客戶編號"])), "")
+            if matched_opt:
+                default_value = matched_opt
+        
+        index = options.index(default_value) if default_value in options else 0
+        
+        selected = st.selectbox("客戶編號", options, index=index, key="form_recipe_selected_customer")
+        
+        客戶編號, 客戶簡稱 = selected.split(" - ", 1) if " - " in selected else ("", "")
+        fr["客戶編號"] = 客戶編號
+        fr["客戶名稱"] = 客戶簡稱
     
         # 配方設定
         col4, col5, col6 = st.columns(3)
