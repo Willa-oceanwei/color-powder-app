@@ -1033,7 +1033,7 @@ elif menu == "生產單管理":
             add_btn = st.form_submit_button("➕ 新增")
             
             if add_btn:
-            if not selected_option:
+                if not selected_option:
                 st.warning("請先選擇配方")
             else:
                 # 安全處理 idx
