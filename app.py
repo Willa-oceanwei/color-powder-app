@@ -308,7 +308,8 @@ elif menu == "客戶名單":
     else:
         df_filtered = df
 
-    if st.session_state.search_customer.strip() and df_filtered.empty:
+    search_customer = st.session_state.get("search_customer")
+    if isinstance(search_customer, str) and search_customer.strip() and df_filtered.empty:
         st.warning("❗ 查無符合的客戶編號或簡稱")
 
     st.subheader("➕ 新增 / 修改 客戶")
