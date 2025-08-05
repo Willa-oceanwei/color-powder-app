@@ -1298,10 +1298,11 @@ elif menu == "生產單管理":
             # 清理欄位名稱及欄位值，確保都轉成乾淨字串且避免 None/NaN
             recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
             st.session_state["recipe_row_cache"] = recipe_row
-            show_confirm_panel = True  # 有配方資料，顯示新增生產單區塊
         else:
             recipe_row = {}  # 空 dict 避免 None
-            show_confirm_panel = False  # 無配方資料，不顯示新增生產單區塊
+    
+        # 這裡從 session_state 讀取 show_confirm_panel，避免被覆蓋
+        show_confirm_panel = st.session_state.get("show_confirm_panel", False)
     
         # 強制帶入配方欄位值，避免原本 order 已有空字串導致沒更新
         for field in ["合計類別", "備註", "重要提醒"]:
