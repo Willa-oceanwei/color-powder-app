@@ -880,9 +880,19 @@ elif menu == "配方管理":
 
     st.markdown("---")  # 分隔線
 
+    # ✅ 補這段在這裡
+    top_has_input = any([
+        st.session_state.get("search_recipe_code_top"),
+        st.session_state.get("search_customer_top"),
+        st.session_state.get("search_pantone_top")
+    ])
+    if top_has_input and df_filtered.empty:
+        st.info("⚠️ 查無符合條件的配方（來自上方搜尋）")
+
+    # ✅ 原本的查無資料提示保留給下方搜尋
     if not df_filtered.empty and existing_cols:
         st.dataframe(page_data[existing_cols], use_container_width=True)
-    else:
+    elif not top_has_input:
         st.info("查無符合條件的配方。")
 
     # 5. 配方編號選擇 + 修改／刪除 按鈕群組，使用 columns 水平排列
