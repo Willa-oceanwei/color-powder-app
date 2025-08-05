@@ -1040,8 +1040,14 @@ elif menu == "生產單管理":
             st.session_state[key] = None if key != "order_page" else 1
 
     # ---------- 搜尋及新增區 ----------
+    def format_option(r):
+        label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
+        if r.get("配方類別", "") == "附加配方":
+            label += "（附加配方）"
+        return label
+        
     st.subheader("🔎 配方搜尋與新增生產單")
-    
+
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4, 1, 1])
         with col1:
@@ -1051,7 +1057,8 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
     
-        # 模糊搜尋
+        selected_option = None
+    
         if search_text:
             df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
             df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
@@ -1066,31 +1073,30 @@ elif menu == "生產單管理":
                     df_recipe["配方編號"].str.contains(search_text, case=False, na=False) |
                     df_recipe["客戶名稱"].str.contains(search_text, case=False, na=False)
                 ]
+    
+            if not filtered.empty:
+                options = filtered.apply(format_option, axis=1).tolist()
+                default_option = options[0] if len(options) == 1 else "請選擇"
+                select_options = [default_option] if default_option != "請選擇" else ["請選擇"] + options
+                selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
+                selected_option = None if selected_label == "請選擇" else selected_label
+            else:
+                filtered = pd.DataFrame()  # 空
+                # 這裡先不顯示訊息，等按新增時再提示
         else:
             filtered = df_recipe.copy()
-    
-        # 建立選單選項顯示名稱
-        def format_option(r):
-            label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
-            if r.get("配方類別", "") == "附加配方":
-                label += "（附加配方）"
-            return label
-    
-        # 生成下拉選單選項
-        if not filtered.empty:
             options = filtered.apply(format_option, axis=1).tolist()
-            default_option = options[0] if len(options) == 1 else "請選擇"
-            select_options = [default_option] if default_option != "請選擇" else ["請選擇"] + options
+            select_options = ["請選擇"] + options
             selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
             selected_option = None if selected_label == "請選擇" else selected_label
-        else:
-            selected_option = None
-            st.info("無法取得任何符合的配方")
     
         # ➕ 新增邏輯（按鈕按下後才執行）
         if add_btn:
             if not selected_option:
-                st.warning("請先選擇配方")
+                if search_text:
+                    st.warning("❗ 無法取得任何符合的配方，請重新確認配方編號")
+                else:
+                    st.warning("⚠️ 請先選擇配方")
             else:
                 idx = None
                 for i, opt in enumerate(options):
