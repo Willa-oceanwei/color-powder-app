@@ -1144,8 +1144,6 @@ elif menu == "生產單管理":
                         "合計類別": str(recipe_row.get("合計類別", "")).strip(),
                     })
 
-                    st.success("✅ 成功建立生產單")
-                 
                     st.session_state["new_order"] = order
                     st.session_state["show_confirm_panel"] = True
                     
