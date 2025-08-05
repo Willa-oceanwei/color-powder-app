@@ -579,21 +579,21 @@ elif menu == "配方管理":
         with col2:
             fr["顏色"] = st.text_input("顏色", value=fr["顏色"], key="form_recipe_顏色")
         with col3:
-            options = [""] + customer_options
-            # 判斷 session_state 裡是否已有客戶編號值
-            default_value = ""
-            if fr["客戶編號"]:
-                matched_opt = next((opt for opt in customer_options if opt.startswith(fr["客戶編號"])), "")
-                if matched_opt:
-                    default_value = matched_opt
+            # 只在第一次載入時清空，避免每次rerun都清空
+            if st.session_state.get("init_customer_select_done") is None:
+                fr["客戶編號"] = ""
+                fr["客戶名稱"] = ""
+                st.session_state["init_customer_select_done"] = True
             
-            index = options.index(default_value) if default_value in options else 0
+            options = [""] + customer_options
+            
+            index = 0  # 強制預設空白
             
             selected = st.selectbox("客戶編號", options, index=index, key="form_recipe_selected_customer")
-        
-        客戶編號, 客戶簡稱 = selected.split(" - ", 1) if " - " in selected else ("", "")
-        fr["客戶編號"] = 客戶編號
-        fr["客戶名稱"] = 客戶簡稱
+            
+            客戶編號, 客戶簡稱 = selected.split(" - ", 1) if " - " in selected else ("", "")
+            fr["客戶編號"] = 客戶編號
+            fr["客戶名稱"] = 客戶簡稱
     
         # 配方設定
         col4, col5, col6 = st.columns(3)
