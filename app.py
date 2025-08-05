@@ -1491,20 +1491,22 @@ elif menu == "生產單管理":
                 show_additional_ids=show_ids  # ✅ 傳入使用者選項
             )
             
-            # 下載按鈕
-            st.download_button(
-                label="📥 下載 A5 HTML",
-                data=print_html.encode("utf-8"),
-                file_name=f"{order['生產單號']}_列印.html",
-                mime="text/html"
-            )
+            # 下載按鈕         
+            col1, col2, col3 = st.columns([1, 6, 1])
+            with col1:
+                st.download_button(
+                    label="📥 下載 A5 HTML",
+                    data=print_html.encode("utf-8"),
+                    file_name=f"{order['生產單號']}_列印.html",
+                    mime="text/html"
+                )
             
-            # 一個按鈕區：提示已儲存／返回
-            if st.button("🔙 返回", key="back_button"):
-                st.session_state.new_order = None
-                st.session_state.show_confirm_panel = False
-                st.session_state.new_order_saved = False
-                st.experimental_rerun()
+            with col3:
+                if st.button("🔙 返回", key="back_button"):
+                    st.session_state.new_order = None
+                    st.session_state.show_confirm_panel = False
+                    st.session_state.new_order_saved = False
+                    st.rerun()
                             
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
