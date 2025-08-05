@@ -1244,7 +1244,7 @@ elif menu == "生產單管理":
             row = f"<b>{str(c_id or '').ljust(powder_label_width)}</b>"
             for i in range(4):
                 val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
-                val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
+                val_str = f"{val:.3f}".rstrip('0').rstrip('.') if val else ""
                 padding = " " * max(0, int(round(column_offsets[i])))
                 row += padding + f"<b>{val_str:>{number_col_width}}</b>"
             lines.append(row)
@@ -1259,7 +1259,7 @@ elif menu == "生產單管理":
         total_line = total_type.ljust(powder_label_width)
         for i in range(4):
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = f"{result:.2f}".rstrip('0').rstrip('.') if result else ""
+            val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
             padding = " " * max(0, int(round(total_offsets[i])))
             total_line += padding + f"<b class='total-num'>{val_str:>{number_col_width}}</b>"
         lines.append(total_line)
@@ -1287,7 +1287,7 @@ elif menu == "生產單管理":
                     row = f"<b>{c_id.ljust(powder_label_width)}</b>"
                     for j in range(4):
                         val = add_weights[i] * multipliers[j] if multipliers[j] > 0 else 0
-                        val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
+                        val_str = f"{val:.3f}".rstrip('0').rstrip('.') if val else ""
                         padding = " " * max(0, int(round(column_offsets[j])))
                         row += padding + f"<b>{val_str:>{number_col_width}}</b>"
                     lines.append(row)
