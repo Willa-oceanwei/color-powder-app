@@ -665,10 +665,12 @@ elif menu == "配方管理":
                 st.write("合計差額: 計算錯誤")
     
         # 👉 將兩個提交按鈕與新增列按鈕按鈕並排放在表單內最後
-        col1, col2 = st.columns([3, 1])
+        col1, col2, col3 = st.columns([3, 2, 2])
         with col1:
             submitted = st.form_submit_button("💾 儲存配方")
         with col2:
+            clear_fields = st.form_submit_button("🧹 清空欄位")
+        with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
@@ -740,6 +742,11 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = False
             st.rerun()
 
+    if clear_fields:
+        st.session_state.form_recipe = {col: "" for col in columns}
+        st.session_state.edit_recipe_index = None
+        st.rerun()
+    
     # --------- 客戶選單 ---------
     # 初始化布林遮罩（全部為 True）
     mask = pd.Series(True, index=df.index)
