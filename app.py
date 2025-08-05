@@ -1031,6 +1031,33 @@ elif menu == "生產單管理":
             exact = st.checkbox("精確搜尋", key="exact_search")
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
+            
+            if add_btn:
+            if not selected_option:
+                st.warning("請先選擇配方")
+            else:
+                # 安全處理 idx
+                idx = None
+                for i, opt in enumerate(options):
+                    if opt == selected_label:
+                        idx = i
+                        break
+        
+                if idx is None:
+                    st.error("選擇的配方不在搜尋結果中")
+                    st.stop()
+        
+                recipe_row = filtered.iloc[idx].to_dict()
+        
+                if recipe_row.get("狀態") == "停用":
+                    st.warning("⚠️ 此配方已停用，請勿使用")
+                    st.stop()
+                else:
+                    # 取得或建立 order dict
+                    order = st.session_state.get("new_order")
+                    if order is None or not isinstance(order, dict):
+                        order = {}
+                        st.session_state["new_order"] = order
 
         # 模糊搜尋
         if search_text:
@@ -1068,32 +1095,7 @@ elif menu == "生產單管理":
             selected_option = None
             st.info("無法取得任何符合的配方")
 
-        if add_btn:
-            if not selected_option:
-                st.warning("請先選擇配方")
-            else:
-                # 安全處理 idx
-                idx = None
-                for i, opt in enumerate(options):
-                    if opt == selected_label:
-                        idx = i
-                        break
         
-                if idx is None:
-                    st.error("選擇的配方不在搜尋結果中")
-                    st.stop()
-        
-                recipe_row = filtered.iloc[idx].to_dict()
-        
-                if recipe_row.get("狀態") == "停用":
-                    st.warning("⚠️ 此配方已停用，請勿使用")
-                    st.stop()
-                else:
-                    # 取得或建立 order dict
-                    order = st.session_state.get("new_order")
-                    if order is None or not isinstance(order, dict):
-                        order = {}
-                        st.session_state["new_order"] = order
         
                     # ✅ 正確建立生產單號
                     df_all_orders = st.session_state.df_order.copy()
