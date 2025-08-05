@@ -1034,7 +1034,7 @@ elif menu == "生產單管理":
             
             if add_btn:
                 if not selected_option:
-                st.warning("請先選擇配方")
+                    st.warning("請先選擇配方")
             else:
                 # 安全處理 idx
                 idx = None
