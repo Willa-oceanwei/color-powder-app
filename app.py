@@ -1145,8 +1145,7 @@ elif menu == "生產單管理":
                     })
 
                     st.success("✅ 成功建立生產單")
-                    st.write("建立的資料：", order)
-    
+                 
                     st.session_state["new_order"] = order
                     st.session_state["show_confirm_panel"] = True
                     st.write("新增按鈕按下了，show_confirm_panel:", st.session_state.get("show_confirm_panel"))
