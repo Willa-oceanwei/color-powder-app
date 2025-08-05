@@ -1023,9 +1023,6 @@ elif menu == "生產單管理":
 
     # ---------- 搜尋及新增區 ----------
     st.subheader("🔎 配方搜尋與新增生產單")
-
-    st.success("✅ 成功建立生產單")
-    st.write("建立的資料：", order)
     
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4, 1, 1])
@@ -1146,6 +1143,9 @@ elif menu == "生產單管理":
                         "重要提醒": str(recipe_row.get("重要提醒", "")).strip(),
                         "合計類別": str(recipe_row.get("合計類別", "")).strip(),
                     })
+
+                    st.success("✅ 成功建立生產單")
+                    st.write("建立的資料：", order)
     
                     st.session_state["new_order"] = order
                     st.session_state["show_confirm_panel"] = True
