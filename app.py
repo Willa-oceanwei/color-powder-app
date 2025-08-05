@@ -1503,7 +1503,7 @@ elif menu == "生產單管理":
             btn1, btn2 = st.columns(2)
             with btn1:
                 if st.session_state.get("new_order_saved"):
-                    st.warning("⚠️ 生產單已存")
+                    
             with btn2:
                 if st.button("🔙 返回", key="back_button"):
                     st.session_state.new_order = None
