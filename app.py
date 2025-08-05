@@ -795,6 +795,14 @@ elif menu == "配方管理":
 
     # 套用遮罩，完成篩選
     df_filtered = df[mask]
+    # 若有輸入上方欄位且搜尋結果為空，顯示提示
+    top_has_input = any([
+        st.session_state.get("search_recipe_code_top"),
+        st.session_state.get("search_customer_top"),
+        st.session_state.get("search_pantone_top")
+    ])
+    if top_has_input and df_filtered.empty:
+        st.info("查無符合條件的配方。")
 
     # 3. 唯一的主顯示區
     # --- 🔍 搜尋列區塊 ---
