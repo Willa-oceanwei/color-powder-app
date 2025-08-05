@@ -802,7 +802,7 @@ elif menu == "配方管理":
         st.session_state.get("search_pantone_top")
     ])
     if top_has_input and df_filtered.empty:
-        st.info("查無符合條件的配方。")
+        st.info("❗ 查無符合條件的配方。")
 
     # 3. 唯一的主顯示區
     # --- 🔍 搜尋列區塊 ---
