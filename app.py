@@ -1499,18 +1499,13 @@ elif menu == "生產單管理":
                 mime="text/html"
             )
             
-            # 兩個按鈕區：提示已儲存／返回
-            btn1, btn2 = st.columns(2)
-            with btn1:
-                if st.session_state.get("new_order_saved"):
-                    st.warning("⚠️ 生產單已存")
-            with btn2:
-                if st.button("🔙 返回", key="back_button"):
-                    st.session_state.new_order = None
-                    st.session_state.show_confirm_panel = False
-                    st.session_state.new_order_saved = False
-                    st.rerun()
-                
+            # 一個按鈕區：提示已儲存／返回
+            if st.button("🔙 返回", key="back_button"):
+                st.session_state.new_order = None
+                st.session_state.show_confirm_panel = False
+                st.session_state.new_order_saved = False
+                st.experimental_rerun()
+                            
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📄 生產單清單")
