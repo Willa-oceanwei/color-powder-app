@@ -137,7 +137,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     <body>
         <div class="timestamp">{created_time}</div>
         <div class="title">生產單</div>
-        <pre style="font-family: 'Courier New', Courier, monospace; font-size: 20px;">
+        <pre style="font-family: 'Courier New', monospace; font-size: 20px; line-height: 1.4;">
     {content}
         </pre>
     </body>
