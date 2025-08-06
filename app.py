@@ -93,7 +93,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     html_template = """
     <html>
     <head>
-        <meta charset="utf-8">
+        <meta charset="utf-8" />
         <title>生產單列印</title>
         <style>
             @page {
@@ -117,15 +117,12 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
                 font-weight: normal;
             }
             pre {
-                white-space: pre-wrap;
-                font-family: 'Courier New', Courier, monospace;
-                font-size: 22px;
+                white-space: pre;
+                font-family: 'Courier New', monospace;
+                font-size: 20px;
                 line-height: 1.4;
                 margin-left: 25px;
-                margin-top: 0px;
-            }
-            b {
-                font-weight: normal;
+                margin-top: 0;
             }
         </style>
         <script>
@@ -137,7 +134,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     <body>
         <div class="timestamp">{created_time}</div>
         <div class="title">生產單</div>
-        <pre style="font-family: 'Courier New', monospace; font-size: 20px; line-height: 1.4;">
+        <pre>
     {content}
         </pre>
     </body>
