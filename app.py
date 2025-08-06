@@ -91,6 +91,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     created_time = str(order.get("建立時間", "") or "")
 
     html_template = """
+    <html>
     <head>
         <meta charset="utf-8">
         <title>生產單列印</title>
@@ -101,11 +102,16 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
             }
             body {
                 margin: 0;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 22px;
+                line-height: 1.4;
             }
             .title {
                 text-align: center;
                 font-size: 24px;
                 margin-bottom: -4px;
+                font-family: Arial, Helvetica, sans-serif;
+                font-weight: normal;
             }
             .timestamp {
                 font-size: 12px;
@@ -115,11 +121,8 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
                 font-family: Arial, Helvetica, sans-serif;
                 font-weight: normal;
             }
-            pre, code {
+            pre {
                 white-space: pre-wrap;
-                font-family: 'Courier New', Courier, monospace;
-                font-size: 22px;
-                line-height: 1.4;
                 margin-left: 25px;
                 margin-top: 0px;
             }
@@ -136,7 +139,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     <body>
         <div class="timestamp">{created_time}</div>
         <div class="title">生產單</div>
-        <pre><code>{content}</code></pre>
+        <pre>{content}</pre>
     </body>
     </html>
     """
