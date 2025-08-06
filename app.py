@@ -1293,7 +1293,7 @@ elif menu == "生產單管理":
                 text = f"{unit_str} × {count_str}"
                 pack_line.append(f"{text:<{pack_col_width}}")
         packing_indent = " " * 14
-        lines.append(packing_indent + "".join(pack_line))
+        lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
     
         # 主配方色粉列
         for idx in range(8):
@@ -1312,7 +1312,7 @@ elif menu == "生產單管理":
                 row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
             lines.append(row)
         
-            lines.append("＿" * 30)
+        lines.append("＿" * 30)
     
         # 合計列
         total_line = f"<b>{total_type.ljust(powder_label_width)}</b>"
