@@ -1308,16 +1308,17 @@ elif menu == "生產單管理":
     
         lines.append("＿" * 30)
     
-        # 合計列
+        # 合計列（純文字對齊版本）
         try:
             net_weight = float(recipe_row.get("淨重", 0))
         except:
             net_weight = 0.0
         
+        # 如果是「無」，用對齊空白字串；否則就輸出合計類別
         if total_type == "無":
-            total_type_display = "<span style='font-size:14px;'>&nbsp;&nbsp;&nbsp;&nbsp;無</span>"
+            total_type_display = " " * powder_label_width
         else:
-            total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
+            total_type_display = total_type.ljust(powder_label_width)
         
         total_line = total_type_display
         for i in range(4):
