@@ -118,7 +118,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
             pre, code {
                 white-space: pre-wrap;
                 font-family: 'Courier New', Courier, monospace;
-                font-size: 22px;
+                font-size: 23px;
                 line-height: 1.4;
                 margin-left: 25px;
                 margin-top: 0px;
