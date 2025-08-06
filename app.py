@@ -114,7 +114,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
                 font-weight: normal;
             }
             .timestamp {
-                font-size: 16px;
+                font-size: 20px;
                 color: #000;
                 text-align: center;
                 margin-bottom: 2px;
