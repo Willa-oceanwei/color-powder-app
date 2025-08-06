@@ -706,12 +706,10 @@ elif menu == "配方管理":
         # 清空綁定的 session_state key（form_recipe_開頭、ratio開頭的所有）
         for key in list(st.session_state.keys()):
             if key.startswith("form_recipe_") or key.startswith("ratio"):
-                st.session_state[key] = ""
-    
-        # 清空綁定的 session_state key（form_recipe_開頭、ratio開頭的所有）
-        for key in list(st.session_state.keys()):
-            if key.startswith("form_recipe_") or key.startswith("ratio"):
-                st.session_state[key] = ""
+                try:
+                    st.session_state[key] = ""
+                except Exception as e:
+                    print(f"⚠️ 無法清空 {key}: {e}")
         
         # 清空客戶選擇（若該 key 已存在）
         if "form_recipe_selected_customer" in st.session_state:
