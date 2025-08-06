@@ -1796,10 +1796,6 @@ elif menu == "生產單管理":
         print_html = generate_print_page_content(edit_order, recipe_row)
         encoded_html = urllib.parse.quote(print_html)
     
-        st.markdown(
-            f"[👉 點此開啟列印頁面（新分頁，會自動叫出列印）](data:text/html;charset=utf-8,{encoded_html})",
-            unsafe_allow_html=True,
-        )
         st.download_button(
             label="📄 下載列印 HTML",
             data=print_html.encode("utf-8"),
