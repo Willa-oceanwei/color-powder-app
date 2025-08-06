@@ -1266,7 +1266,9 @@ elif menu == "生產單管理":
             row = f"<b>{str(c_id or '').ljust(powder_label_width)}</b>"
             for i in range(4):
                 val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
-                val_str = f"{val:.3f}".rstrip('0').rstrip('.') if val else ""
+                val_str = (
+                    str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
+                ) if val else ""
                 padding = " " * max(0, int(round(column_offsets[i])))
                 row += padding + f"<b>{val_str:>{number_col_width}}</b>"
             lines.append(row)
