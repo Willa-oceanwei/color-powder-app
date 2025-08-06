@@ -982,6 +982,14 @@ elif menu == "生產單管理":
     from pathlib import Path
     from datetime import datetime, timedelta
     import pandas as pd
+    from pathlib import Path
+    import os
+    
+    # 建立資料夾（若尚未存在）
+    Path("data").mkdir(parents=True, exist_ok=True)
+    
+    # 正確指定本地備份檔名
+    order_file = Path("data/df_order.csv")
 
     # ✅ 嘗試從 Google Sheets 載入生產單工作表
     try:
