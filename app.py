@@ -1279,6 +1279,7 @@ elif menu == "生產單管理":
         lines.append(packing_indent + "".join(pack_line))
     
         # 主配方色粉列
+        # ✅ 主配方色粉列（等寬、不使用 HTML tag）
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = []
         for i in range(8):
@@ -1288,22 +1289,22 @@ elif menu == "生產單管理":
             except:
                 val = 0.0
             colorant_weights.append(val)
-    
+        
         multipliers = packing_weights
-    
+        
         for idx in range(8):
             c_id = colorant_ids[idx]
             c_weight = colorant_weights[idx]
             if not c_id:
                 continue
-            row = f"<b>{str(c_id or '').ljust(powder_label_width)}</b>"
+            row = str(c_id or '').ljust(powder_label_width)  # ❌ 不加 <b>
             for i in range(4):
                 val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = (
                     str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
                 ) if val else ""
                 padding = " " * max(0, int(round(column_offsets[i])))
-                row += padding + f"{val_str:>{number_col_width}}"
+                row += padding + f"{val_str:>{number_col_width}}"  # ❌ 不加 <b>
             lines.append(row)
     
         lines.append("＿" * 30)
@@ -1348,7 +1349,7 @@ elif menu == "生產單管理":
                     c_id = add_ids[i]
                     if not c_id:
                         continue
-                    row = f"<b>{c_id.ljust(powder_label_width)}</b>"
+                    row = c_id.ljust(powder_label_width)
                     for j in range(4):
                         val = add_weights[i] * multipliers[j] if multipliers[j] > 0 else 0
                         val_str = (
