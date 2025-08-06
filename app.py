@@ -708,12 +708,18 @@ elif menu == "配方管理":
             if key.startswith("form_recipe_") or key.startswith("ratio"):
                 st.session_state[key] = ""
     
-        # 清空客戶選擇（若需要）
-        st.session_state["form_recipe_selected_customer"] = ""
-    
-        # 清空色粉行數，回復預設 (假設你是用這個管理色粉列數)
+        # 清空綁定的 session_state key（form_recipe_開頭、ratio開頭的所有）
+        for key in list(st.session_state.keys()):
+            if key.startswith("form_recipe_") or key.startswith("ratio"):
+                st.session_state[key] = ""
+        
+        # 清空客戶選擇（若該 key 已存在）
+        if "form_recipe_selected_customer" in st.session_state:
+            st.session_state["form_recipe_selected_customer"] = ""
+
+        # 清空色粉行數
         st.session_state.num_powder_rows = 1
-    
+            
         # 重新整理頁面
         st.rerun()
     
