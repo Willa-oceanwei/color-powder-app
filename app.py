@@ -1324,7 +1324,7 @@ elif menu == "生產單管理":
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
             padding = " " * max(0, int(round(total_offsets[i])))
-            total_line += padding + f"<b class='total-num'>{val_str:>{number_col_width}}</b>"
+            total_line += padding + f"{val_str:>{number_col_width}}"
         lines.append(total_line)
            
         # 多筆附加配方列印
