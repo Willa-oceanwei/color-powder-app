@@ -698,6 +698,31 @@ elif menu == "配方管理":
         with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
 
+    # ----- 按鈕事件處理 -----
+    if clear_fields:
+        # 清空 fr 內所有欄位
+        for key in list(fr.keys()):
+            fr[key] = ""
+    
+        # 清空綁定的 session_state key（form_recipe_開頭、ratio開頭的所有）
+        for key in list(st.session_state.keys()):
+            if key.startswith("form_recipe_") or key.startswith("ratio"):
+                st.session_state[key] = ""
+    
+        # 清空客戶選擇（若需要）
+        st.session_state["form_recipe_selected_customer"] = ""
+    
+        # 清空色粉行數，回復預設 (假設你是用這個管理色粉列數)
+        st.session_state.num_powder_rows = 1
+    
+        # 重新整理頁面
+        st.rerun()
+    
+    if add_powder:
+        st.session_state.num_powder_rows = st.session_state.num_powder_rows + 1
+        st.rerun()
+
+
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
         # ✅ 先檢查未建檔色粉
