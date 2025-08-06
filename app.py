@@ -1231,13 +1231,13 @@ elif menu == "生產單管理":
             if w > 0 or c > 0:
                 if unit == "包":
                     real_w = w * 25
-                    unit_str = f"{real_w:.1f}K"
+                    unit_str = str(int(real_w)) + "K" if real_w.is_integer() else f"{real_w:.1f}K"
                 elif unit == "桶":
                     real_w = w * 100
-                    unit_str = f"{real_w:.1f}K"
+                    unit_str = str(int(real_w)) + "K" if real_w.is_integer() else f"{real_w:.1f}K"
                 else:
                     real_w = w
-                    unit_str = f"{real_w:.2f}kg"
+                    unit_str = str(int(real_w)) + "kg" if real_w.is_integer() else f"{real_w:.2f}kg"         
                     
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
