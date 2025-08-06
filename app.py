@@ -1243,6 +1243,24 @@ elif menu == "生產單管理":
             float(order.get(f"包裝份數{i}", 0)) if str(order.get(f"包裝份數{i}", "")).replace(".", "", 1).isdigit() else 0
             for i in range(1, 5)
         ]
+
+        # 這裡初始化 colorant_ids 和 colorant_weights
+        colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+        colorant_weights = []
+        for i in range(8):
+            try:
+                val_str = recipe_row.get(f"色粉重量{i+1}", "") or "0"
+                val = float(val_str)
+            except:
+                val = 0.0
+            colorant_weights.append(val)
+    
+        multipliers = packing_weights
+    
+        try:
+            net_weight = float(recipe_row.get("淨重", 0))
+        except:
+            net_weight = 0.0
     
         lines = []
         lines.append("")
