@@ -1626,18 +1626,19 @@ elif menu == "生產單管理":
         df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
         df_filtered = df_order.sort_values(by="建立時間", ascending=False)
     
-    limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0, key="selectbox_order_limit")
+    cols_top = st.columns([5, 1])
+    with cols_top[1]:
+        limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0, key="selectbox_order_limit")
     
+    # 計算分頁資訊（依 limit）
     total_rows = len(df_filtered)
     total_pages = max((total_rows - 1) // limit + 1, 1)
-    
-    # 修正 order_page 範圍，避免超出
     st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
     start_idx = (st.session_state.order_page - 1) * limit
-    page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()  # 使用 copy 避免警告
-    
-    # 產生下拉選單選項，依建立時間由近到遠排序
+    page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
     page_data = page_data.sort_values(by="建立時間", ascending=False)
+    
+    # 準備選項
     options = []
     code_to_id = {}
     for idx, row in page_data.iterrows():
@@ -1645,8 +1646,10 @@ elif menu == "生產單管理":
         options.append(label)
         code_to_id[label] = row["生產單號"]
     
-    selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
-    selected_code_edit = code_to_id.get(selected_label)
+    # 再來 render 選單（放在左邊）
+    with cols_top[0]:
+        selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
+
     
     def calculate_shipment(row):
         try:
