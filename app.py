@@ -88,7 +88,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
         additional_recipe_rows,
         show_additional_ids=show_additional_ids  # 👈 新增參數
     )
-    created_time = order.get("建立時間", "")
+    created_time = str(order.get("建立時間", "") or "")
 
     html_template = """
     <html>
