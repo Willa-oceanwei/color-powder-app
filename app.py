@@ -710,15 +710,19 @@ elif menu == "配方管理":
                     st.session_state[key] = ""
                 except Exception as e:
                     print(f"⚠️ 無法清空 {key}: {e}")
-        
-        # 清空客戶選擇（若該 key 已存在）
-        st.session_state.pop("form_recipe_selected_customer", None)
-        # 清空色粉行數
-        st.session_state.num_powder_rows = 1
+    
+        # 清空客戶選擇（確保 key 存在才處理）
+        if "form_recipe_selected_customer" in st.session_state:
+            st.session_state["form_recipe_selected_customer"] = ""
+    
+        # 清空色粉行數，回復預設
+        st.session_state["num_powder_rows"] = 1
+    
+        # 重新整理頁面
         st.rerun()
     
     if add_powder:
-        st.session_state.num_powder_rows = st.session_state.num_powder_rows + 1
+        st.session_state["num_powder_rows"] += 1
         st.rerun()
 
 
