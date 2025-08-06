@@ -1362,7 +1362,7 @@ elif menu == "生產單管理":
         lines.append("")
         lines.append(f"備註 : {order.get('備註', '')}")
     
-        return "\n".join(lines)
+        return "<br>".join(lines)
 
           
     # ---------- 新增後欄位填寫區塊 ----------
