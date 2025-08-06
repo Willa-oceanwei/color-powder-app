@@ -1257,6 +1257,7 @@ elif menu == "生產單管理":
     
         multipliers = packing_weights
     
+        # 合計列
         try:
             net_weight = float(recipe_row.get("淨重", 0))
         except:
@@ -1314,8 +1315,13 @@ elif menu == "生產單管理":
         
         lines.append("＿" * 30)
     
-        # 合計列
-        total_line = f"<b>{total_type.ljust(powder_label_width)}</b>"
+        # 若合計類別是 "無"，就顯示空白但保留寬度
+        if total_type == "無":
+            total_type_display = f"<b>{' '.ljust(powder_label_width)}</b>"
+        else:
+            total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
+        
+        total_line = total_type_display
         for i in range(4):
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
