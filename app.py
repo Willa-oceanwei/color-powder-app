@@ -124,7 +124,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
                 margin-top: 0px;
             }
             b.num {
-                font-weight: normal;
+                font-weight: bold;
             }
         </style>
         <script>
