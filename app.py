@@ -662,9 +662,25 @@ elif menu == "配方管理":
         # 合計顯示
         col1, col2 = st.columns(2)
         with col1:
-            category_options = ["LA", "MA", "S流動劑", "CA", "T9", "原料", "無", "其他"]
-            default = fr["合計類別"] if fr["合計類別"] in category_options else category_options[0]
-            fr["合計類別"] = st.selectbox("合計類別", category_options, index=category_options.index(default), key="form_recipe_合計類別")
+            category_options = ["LA", "MA", "S流動劑", "CA", "T9", "原料", "\u2002", "其他"]
+            
+            # 將原本的 "無" 對應到 "\u2002"
+            default_raw = fr.get("合計類別", "")
+            default = "\u2002" if default_raw == "無" else default_raw
+            if default not in category_options:
+                default = category_options[0]
+            
+            fr["合計類別"] = st.selectbox(
+                "合計類別",
+                category_options,
+                index=category_options.index(default),
+                key="form_recipe_合計類別"
+            )
+        
+            # 若選的是 "\u2002"，儲存時還是當作 "無"
+            if fr["合計類別"] == "\u2002":
+                fr["合計類別"] = "無"
+
         with col2:
             try:
                 net = float(fr["淨重"] or "0")
