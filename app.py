@@ -1313,14 +1313,22 @@ elif menu == "生產單管理":
             net_weight = float(recipe_row.get("淨重", 0))
         except:
             net_weight = 0.0
-        total_line = total_type.ljust(powder_label_width)
+        
+        # 判斷要不要用小字體的 span 顯示
+        if total_type == "無":
+            total_line = f"<span style='display:inline-block; width:{powder_label_width}ch; font-size:10px; text-align:center;'>{total_type}</span>"
+        else:
+            total_line = total_type.ljust(powder_label_width)
+        
+        # 加入 4 欄數值
         for i in range(4):
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
             padding = " " * max(0, int(round(total_offsets[i])))
             total_line += padding + f"<b class='total-num'>{val_str:>{number_col_width}}</b>"
+        
         lines.append(total_line)
-    
+           
         # 多筆附加配方列印
         if additional_recipe_rows and isinstance(additional_recipe_rows, list):
             for idx, sub in enumerate(additional_recipe_rows, 1):
