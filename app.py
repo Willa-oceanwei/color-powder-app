@@ -137,9 +137,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     <body>
         <div class="timestamp">{created_time}</div>
         <div class="title">生產單</div>
-        <div class="content">
-            {content}
-        </div>
+        <pre><code>{content}</code></pre>
     </body>
     </html>
     """
