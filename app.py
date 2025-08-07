@@ -1169,7 +1169,7 @@ elif menu == "生產單管理":
                 new_id = f"{today_str}-{count_today + 1:03}"
         
                 # ✅ 查找附加配方
-                main_recipe_code = recipe_row.get("配方編號", "").strip()
+                main_recipe_code = selected_row.get("配方編號", "").strip()
                 df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
                 df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).str.strip()
                 附加配方 = df_recipe[
