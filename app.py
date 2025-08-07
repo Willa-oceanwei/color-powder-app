@@ -1143,7 +1143,7 @@ elif menu == "生產單管理":
         
         selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
  
-        selected_label = st.selectbox("選擇配方", select_options, key=""search_add_form_selected_recipe"")
+        selected_label = st.selectbox("選擇配方", select_options, key="search_add_form_selected_recipe")
     
     # 選擇後從 session_state 拿資料
     selected_row = st.session_state.get("option_map", {}).get(selected_label)
