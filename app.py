@@ -1321,9 +1321,9 @@ elif menu == "生產單管理":
                 pack_line.append(f"{text:<{pack_col_width}}")
 
         if pack_line:  # 有包裝列才加入
-        pack_line_str = "   ".join(pack_line)  # 三個空格隔開
-        lines.append(pack_line_str)
-        
+            pack_line_str = "   ".join(pack_line)  # 三個空格隔開
+            lines.append(pack_line_str)
+            
         # 主配方色粉列
         for idx in range(8):
             c_id = colorant_ids[idx]
