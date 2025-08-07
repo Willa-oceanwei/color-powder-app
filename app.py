@@ -1110,7 +1110,7 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
     
-        # 根據搜尋條件篩選
+        # 資料預處理及篩選
         if search_text:
             df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
             df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
@@ -1128,62 +1128,54 @@ elif menu == "生產單管理":
         else:
             filtered = df_recipe.copy()
     
-        # 加 .copy() 避免修改原df
+        # 確保修改不影響原始資料
         filtered = filtered.copy()
     
-        # 篩選邏輯不變，只是要複製模式避免副作用
-        filtered = filtered.copy()
-        
-        # 篩選並產生選項
+        # 產生配方清單與對應字典
         if not filtered.empty:
-            filtered = filtered.copy()
             filtered["label"] = filtered.apply(format_option, axis=1)
             option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
             select_options = list(option_map.keys())
         else:
             option_map = {}
             select_options = []
-        
-        # 如果沒符合配方就用「（無符合配方）」
+    
         if not select_options:
+            # 搜尋無結果時，顯示「無符合配方」
             select_options = ["（無符合配方）"]
-        
-        # 不加「請選擇」，直接用第一筆有效配方為預設選項
-        selected_label = st.selectbox(
-            "選擇配方",
-            select_options,
-            index=0,
-            key="search_add_form_selected_recipe"
-        )
-        
-        # 判斷有效選擇
-        if selected_label == "（無符合配方）":
+        else:
+            # 有結果時，在清單前加提示字串「請選擇」
+            select_options = ["請選擇"] + select_options
+    
+        # 下拉選單，預設選中「請選擇」
+        selected_label = st.selectbox("選擇配方", select_options, index=0, key="search_add_form_selected_recipe")
+    
+        # 判定選擇有效配方
+        if selected_label in ("請選擇", "（無符合配方）"):
             selected_row = None
         else:
             selected_row = option_map.get(selected_label)
-        
-        # 顯示除錯訊息（可移除）
-        st.write("selected_label:", selected_label)
-        st.write("selected_row:", selected_row)
-        
-        # 新增按鈕邏輯
-        if add_btn:
-            if selected_label == "（無符合配方）" or not selected_row:
-                st.warning("請先選擇有效配方")
-            else:
-                if selected_row.get("狀態") == "停用":
-                    st.warning("⚠️ 此配方已停用，請勿使用")
-                    st.stop()
-                else:
-                    order = st.session_state.get("new_order")
-                    if order is None or not isinstance(order, dict):
-                        order = {}
     
+    if add_btn:
+        if selected_label in ("請選擇", "（無符合配方）") or not selected_row:
+            st.warning("請先選擇有效配方")
+        else:
+            if selected_row.get("狀態") == "停用":
+                st.warning("⚠️ 此配方已停用，請勿使用")
+                st.stop()
+            else:
+                # 取得或初始化新訂單物件
+                order = st.session_state.get("new_order")
+                if order is None or not isinstance(order, dict):
+                    order = {}
+    
+                # 產生新的生產單號
                 df_all_orders = st.session_state.df_order.copy()
                 today_str = datetime.now().strftime("%Y%m%d")
                 count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
                 new_id = f"{today_str}-{count_today + 1:03}"
     
+                # 查找附加配方
                 main_recipe_code = selected_row.get("配方編號", "").strip()
                 df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
                 df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).str.strip()
@@ -1192,6 +1184,7 @@ elif menu == "生產單管理":
                     (df_recipe["原始配方"] == main_recipe_code)
                 ]
     
+                # 整合色粉
                 all_colorants = []
                 for i in range(1, 9):
                     id_key = f"色粉編號{i}"
@@ -1210,6 +1203,7 @@ elif menu == "生產單管理":
                         if id_val or wt_val:
                             all_colorants.append((id_val, wt_val))
     
+                # 設定訂單詳細資料
                 order.update({
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
@@ -1226,8 +1220,9 @@ elif menu == "生產單管理":
     
                 st.session_state["new_order"] = order
                 st.session_state["show_confirm_panel"] = True
+    
+                # 重新執行應用（Streamlit 1.18+ 建議用 st.experimental_rerun）
                 st.rerun()
-
                         
     # ===== 自訂函式：產生生產單列印格式 =====      
     def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
