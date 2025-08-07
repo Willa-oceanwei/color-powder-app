@@ -1247,6 +1247,8 @@ elif menu == "生產單管理":
     def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
         if recipe_row is None:
             recipe_row = {}
+
+        category = order.get("色粉類別", "").strip()  # 確保先賦值
     
         unit = recipe_row.get("計量單位", "kg")
         ratio = recipe_row.get("比例3", "")
