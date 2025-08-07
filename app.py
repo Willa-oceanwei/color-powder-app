@@ -664,7 +664,7 @@ elif menu == "配方管理":
         # 合計顯示
         col1, col2 = st.columns(2)
         with col1:
-            category_options = ["LA", "MA", "S流動劑", "CA", "T9", "原料", "\u2002", "其他"]
+            category_options = ["LA", "MA", "S流動劑", "CA", "T9", "料", "\u2002", "其他"]
             
             # 將原本的 "無" 對應到 "\u2002"
             default_raw = fr.get("合計類別", "")
@@ -1253,6 +1253,9 @@ elif menu == "生產單管理":
         unit = recipe_row.get("計量單位", "kg")
         ratio = recipe_row.get("比例3", "")
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
+        # ✅ 舊資料相容處理：「原料」統一轉成「料」
+        if total_type == "原料":
+            total_type = "料"
     
         powder_label_width = 12
         pack_col_width = 11
@@ -1548,7 +1551,7 @@ elif menu == "生產單管理":
             if submitted:
                 order["顏色"] = st.session_state.form_color
                 order["Pantone 色號"] = st.session_state.form_pantone
-                order["原料"] = st.session_state.form_raw_material
+                order["料"] = st.session_state.form_raw_material
                 order["備註"] = st.session_state.form_remark
                 order["重要提醒"] = st.session_state.form_important_note
                 order["合計類別"] = st.session_state.form_total_category
