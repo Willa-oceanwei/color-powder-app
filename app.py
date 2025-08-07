@@ -1099,9 +1099,9 @@ elif menu == "生產單管理":
         if r.get("配方類別", "") == "附加配方":
             label += "（附加配方）"
         return label
-        
+    
     st.subheader("🔎 配方搜尋與新增生產單")
-
+    
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4, 1, 1])
         with col1:
@@ -1111,7 +1111,7 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
     
-        selected_option = None
+        selected_row = None  # 最後選到的配方資料
     
         if search_text:
             df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
@@ -1127,22 +1127,18 @@ elif menu == "生產單管理":
                     df_recipe["配方編號"].str.contains(search_text, case=False, na=False) |
                     df_recipe["客戶名稱"].str.contains(search_text, case=False, na=False)
                 ]
-    
-            if not filtered.empty:
-                options = filtered.apply(format_option, axis=1).tolist()
-                default_option = options[0] if len(options) == 1 else "請選擇"
-                select_options = [default_option] if default_option != "請選擇" else ["請選擇"] + options
-                selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
-                selected_option = None if selected_label == "請選擇" else selected_label
-            else:
-                filtered = pd.DataFrame()  # 空
-                # 這裡先不顯示訊息，等按新增時再提示
         else:
             filtered = df_recipe.copy()
-            options = filtered.apply(format_option, axis=1).tolist()
-            select_options = ["請選擇"] + options
+    
+        if not filtered.empty:
+            filtered["label"] = filtered.apply(format_option, axis=1)
+            option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
+            select_options = ["請選擇"] + list(option_map.keys())
             selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
-            selected_option = None if selected_label == "請選擇" else selected_label
+            selected_row = option_map.get(selected_label)
+        else:
+            selected_label = st.selectbox("選擇配方", ["請選擇"], key="selected_recipe")
+            selected_row = None  # 明確設定為 None 方便後續判斷
     
         # ➕ 新增邏輯（按鈕按下後才執行）
         if add_btn:
