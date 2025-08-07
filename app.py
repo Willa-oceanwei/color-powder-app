@@ -1354,13 +1354,12 @@ elif menu == "生產單管理":
         
         # 合計列
         if total_type == "":
-            total_type_display = f"<b>{' '.ljust(powder_label_width)}</b>"
+            total_type_display = f"<b>{' '.ljust(powder_label_width)}</b>"  # 空白，不顯示文字
         else:
             total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
-    
+        
         total_line = total_type_display
         for i in range(4):
-            # 差額計算
             result = (net_weight - total_colorant_weight) * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
             padding = " " * max(0, int(round(total_offsets[i])))
