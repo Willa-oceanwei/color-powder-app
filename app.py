@@ -1234,6 +1234,7 @@ elif menu == "生產單管理":
                     "備註": str(selected_row.get("備註", "")).strip(),
                     "重要提醒": str(selected_row.get("重要提醒", "")).strip(),
                     "合計類別": str(selected_row.get("合計類別", "")).strip(),
+                    "色粉類別": selected_row.get("色粉類別", "").strip(),
                 })
     
                 st.session_state["new_order"] = order
