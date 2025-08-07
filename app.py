@@ -1156,7 +1156,7 @@ elif menu == "生產單管理":
             if selected_row.get("狀態") == "停用":
                 st.warning("⚠️ 此配方已停用，請勿使用")
                 st.stop()
-             else:
+            else:
                 # 取得或建立 order dict
                 order = st.session_state.get("new_order")
                 if order is None or not isinstance(order, dict):
