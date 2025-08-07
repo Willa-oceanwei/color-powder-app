@@ -1140,33 +1140,32 @@ elif menu == "生產單管理":
         if not select_options:
             select_options = ["（無符合配方）"]
         
-        select_options = ["請選擇"] + select_options  # 在選項前加一個"請選擇"
+        # 加一個提示選項在最前面
+        select_options = ["請選擇"] + select_options
+        
         selected_label = st.selectbox("選擇配方", select_options, index=0, key="search_add_form_selected_recipe")
         
-        if not filtered.empty:
-            # 你後續使用 selected_label 拿資料的邏輯
-            selected_row = st.session_state["option_map"].get(selected_label)
-        else:
+        # 正確判斷是否為有效配方
+        if selected_label in ("請選擇", "（無符合配方）"):
             selected_row = None
-    
-    # 選擇後從 session_state 拿資料
-    selected_row = st.session_state.get("option_map", {}).get(selected_label)
-    
+        else:
+            selected_row = st.session_state["option_map"].get(selected_label)
+
     # ➕ 新增邏輯（按鈕按下後才執行）
     if add_btn:
         if selected_label in ("請選擇", "（無符合配方）") or not selected_row:
             st.warning("請先選擇有效配方")
         else:
+            # 以下是你的正常新增邏輯
             if selected_row.get("狀態") == "停用":
                 st.warning("⚠️ 此配方已停用，請勿使用")
                 st.stop()
             else:
-                # 取得或建立 order dict
                 order = st.session_state.get("new_order")
                 if order is None or not isinstance(order, dict):
                     order = {}
     
-                # 建立生產單號
+                # 產生訂單號碼
                 df_all_orders = st.session_state.df_order.copy()
                 today_str = datetime.now().strftime("%Y%m%d")
                 count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
