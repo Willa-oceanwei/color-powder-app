@@ -1344,7 +1344,16 @@ elif menu == "生產單管理":
             lines.append("＿" * 30)
                     
         # 合計列
-        if total_type == "無":
+        total_type = recipe_row.get("合計類別", "").strip()
+
+        # 舊資料相容處理 + 顯示邏輯修正
+        if total_type in ("無", "", "\u2002"):
+            total_type = ""  # 不顯示
+        elif total_type == "原料":
+            total_type = "料"  # 替換舊值
+        
+        # 合計列
+        if total_type == "":
             total_type_display = f"<b>{' '.ljust(powder_label_width)}</b>"
         else:
             total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
