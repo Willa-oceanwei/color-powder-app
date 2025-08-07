@@ -1305,22 +1305,23 @@ elif menu == "生產單管理":
             w = packing_weights[i]
             c = packing_counts[i]
             if w > 0 or c > 0:
-                if unit == "包":
-                    real_w = w * 25
-                    unit_str = str(int(real_w)) + "K" if real_w.is_integer() else f"{real_w:.1f}K"
-                elif unit == "桶":
+                if unit == "桶":
                     real_w = w * 100
+                    unit_str = str(int(real_w)) + "K" if real_w.is_integer() else f"{real_w:.1f}K"
+                elif unit == "包":
+                    real_w = w * 25
                     unit_str = str(int(real_w)) + "K" if real_w.is_integer() else f"{real_w:.1f}K"
                 else:
                     real_w = w
                     unit_str = str(int(real_w)) + "kg" if real_w.is_integer() else f"{real_w:.2f}kg"
+        
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
                 pack_line.append(f"{text:<{pack_col_width}}")
         
         packing_indent = " " * 14
         lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
-                    
+                            
         # 主配方色粉列
         for idx in range(8):
             c_id = colorant_ids[idx]
