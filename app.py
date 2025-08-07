@@ -1311,14 +1311,17 @@ elif menu == "生產單管理":
                 # 特例：色母類別 + w==1 時，強制 real_w=100
                 if category == "色母" and w == 1:
                     real_w = 100
+                    unit_str = "100kg"
                 elif unit == "包":
                     real_w = w * 25
+                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
                 elif unit == "桶":
                     real_w = w * 100
+                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
                 else:
                     real_w = w
-
-                unit_str = f"{int(w)} kg" if w == int(w) else f"{w:.2f} kg"
+                    unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
+        
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
                 pack_line.append(f"{text:<{pack_col_width}}")
