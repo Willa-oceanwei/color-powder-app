@@ -1147,25 +1147,32 @@ elif menu == "生產單管理":
             # 有結果時，在清單前加提示字串「請選擇」
             select_options = ["請選擇"] + select_options
     
-        # === 自動選擇 or 顯示提示 ===
-        if len(option_map) == 1:
-            # 只有一筆符合時，自動選取該配方
-            selected_label = list(option_map.keys())[0]
-            selected_row = option_map[selected_label]
-            st.success(f"已自動選取：{selected_label}")
-        elif len(option_map) > 1:
-            # 多筆符合 → 不顯示下拉選單，請使用更精確的搜尋詞
-            selected_row = None
-            selected_label = None
-            st.warning("請先選擇有效配方（符合多筆，請使用更精確的關鍵字）")
-            st.write("符合的配方如下：")
-            for label in option_map.keys():
-                st.markdown(f"- {label}")
-        else:
+        # === 判斷搜尋結果 ===
+        if len(option_map) == 0:
             # 無符合資料
             selected_row = None
             selected_label = None
             st.warning("查無符合的配方")
+        
+        elif len(option_map) == 1:
+            # 只有一筆符合時，自動選取該配方
+            selected_label = list(option_map.keys())[0]
+            selected_row = option_map[selected_label]
+            st.success(f"已自動選取：{selected_label}")
+        
+        else:
+            # 多筆符合時，顯示下拉選單讓使用者選擇
+            selected_label = st.selectbox(
+                "選擇配方",
+                ["請選擇"] + list(option_map.keys()),
+                index=0,
+                key="search_add_form_selected_recipe"
+            )
+        
+            if selected_label == "請選擇":
+                selected_row = None
+            else:
+                selected_row = option_map.get(selected_label)
     
     if add_btn:
         if selected_label in ("請選擇", "（無符合配方）") or not selected_row:
