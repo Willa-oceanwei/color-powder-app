@@ -1131,25 +1131,34 @@ elif menu == "生產單管理":
         # 加 .copy() 避免修改原df
         filtered = filtered.copy()
     
+        # 篩選邏輯不變，只是要複製模式避免副作用
+        filtered = filtered.copy()
+        
         if not filtered.empty:
             filtered["label"] = filtered.apply(format_option, axis=1)
-            st.session_state["option_map"] = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
-            select_options = list(st.session_state["option_map"].keys())
+            option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
         else:
-            st.session_state["option_map"] = {}
-            select_options = []
-    
+            option_map = {}
+        
+        select_options = list(option_map.keys())
+        
         if not select_options:
             select_options = ["（無符合配方）"]
-    
+        
+        # 最前面加提示用項目
         select_options = ["請選擇"] + select_options
-    
+        
         selected_label = st.selectbox("選擇配方", select_options, index=0, key="search_add_form_selected_recipe")
-    
+        
         if selected_label in ("請選擇", "（無符合配方）"):
             selected_row = None
         else:
-            selected_row = st.session_state["option_map"].get(selected_label)
+            selected_row = option_map.get(selected_label)
+        
+        # 可暫時除錯印出狀態
+        st.write("selected_label:", selected_label)
+        st.write("selected_row:", selected_row)
+        st.write("option_map keys:", list(option_map.keys()))
     
     if add_btn:
         if selected_label in ("請選擇", "（無符合配方）") or not selected_row:
