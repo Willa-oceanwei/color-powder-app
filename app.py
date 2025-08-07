@@ -1234,6 +1234,7 @@ elif menu == "生產單管理":
                     "備註": str(selected_row.get("備註", "")).strip(),
                     "重要提醒": str(selected_row.get("重要提醒", "")).strip(),
                     "合計類別": str(selected_row.get("合計類別", "")).strip(),
+                    "色粉類別": selected_row.get("色粉類別", "").strip(),
                 })
     
                 st.session_state["new_order"] = order
@@ -1302,21 +1303,20 @@ elif menu == "生產單管理":
             w = packing_weights[i]
             c = packing_counts[i]
             if w > 0 or c > 0:
-                if unit == "包":
+                # 特例：色母類別 + w==1 時，強制 real_w=100
+                if category == "色母" and w == 1:
+                    real_w = 100
+                elif unit == "包":
                     real_w = w * 25
-                    unit_str = str(int(real_w)) + "K" if real_w.is_integer() else f"{real_w:.1f}K"
                 elif unit == "桶":
                     real_w = w * 100
-                    unit_str = str(int(real_w)) + "K" if real_w.is_integer() else f"{real_w:.1f}K"
                 else:
                     real_w = w
-                    unit_str = str(int(real_w)) + "kg" if real_w.is_integer() else f"{real_w:.2f}kg"         
-                    
+        
+                unit_str = str(int(real_w)) + "K" if real_w.is_integer() else f"{real_w:.1f}K"
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
                 pack_line.append(f"{text:<{pack_col_width}}")
-        packing_indent = " " * 14
-        lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
     
         # 主配方色粉列
         for idx in range(8):
@@ -1335,15 +1335,20 @@ elif menu == "生產單管理":
                 row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
             lines.append(row)
         
-        lines.append("＿" * 30)
-    
+        # 橫線：只有非色母類別才顯示
+        category = (order.get("色粉類別") or "").strip()
+        if category != "色母":
+            lines.append("＿" * 30)
+                    
         # 若合計類別是 "無"，就顯示空白但保留寬度
+        # 合計列
         if total_type == "無":
             total_type_display = f"<b>{' '.ljust(powder_label_width)}</b>"
         else:
             total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
-        
+    
         total_line = total_type_display
+
         for i in range(4):
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
             val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
