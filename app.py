@@ -1340,8 +1340,7 @@ elif menu == "生產單管理":
         category = (order.get("色粉類別") or "").strip()
         if category != "色母":
             lines.append("＿" * 30)
-        st.write(order)
-                
+                    
         # 合計列
         if total_type == "無":
             total_type_display = f"<b>{' '.ljust(powder_label_width)}</b>"
