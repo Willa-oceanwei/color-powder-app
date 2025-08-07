@@ -696,36 +696,23 @@ elif menu == "配方管理":
         with col1:
             submitted = st.form_submit_button("💾 儲存配方")
         with col2:
-            clear_fields = st.form_submit_button("🧹 清空欄位")
+            back_to_home = st.form_submit_button("↩️ 返回首頁")
         with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
-
-    # ----- 按鈕事件處理 -----
-    if clear_fields:
-        # 清空 fr 內所有欄位
-        for key in list(fr.keys()):
-            fr[key] = ""
-    
-        # 清空綁定的 session_state key（form_recipe_開頭、ratio開頭的所有）
-        for key in list(st.session_state.keys()):
-            if key.startswith("form_recipe_") or key.startswith("ratio"):
-                try:
-                    st.session_state[key] = ""
-                except Exception as e:
-                    print(f"⚠️ 無法清空 {key}: {e}")
-    
-        # 清空客戶選單 key（若存在）
-        st.session_state.pop("form_recipe_selected_customer", None)
-    
-        # 色粉列數重設
-        st.session_state["num_powder_rows"] = 1
-    
-        # 重新整理頁面
-        st.rerun()
-    
-    if add_powder:
-        st.session_state["num_powder_rows"] += 1
-        st.rerun()
+        
+        # 按鈕事件
+        if back_to_home:
+            for key in list(st.session_state.keys()):
+                if key.startswith("form_recipe_") or key.startswith("ratio") or key.startswith("powder_"):
+                    st.session_state.pop(key, None)
+            st.session_state["num_powder_rows"] = 1
+            st.session_state["page"] = "首頁"  # 如果你有用這種方式切頁
+            st.rerun()
+        
+            
+            if add_powder:
+                st.session_state["num_powder_rows"] += 1
+                st.rerun()
 
 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
