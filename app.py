@@ -1131,13 +1131,18 @@ elif menu == "生產單管理":
     
         if not filtered.empty:
             filtered["label"] = filtered.apply(format_option, axis=1)
-            # 把 option_map 存到 session_state，確保後續可用
             st.session_state["option_map"] = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
-            select_options = ["請選擇"] + list(st.session_state["option_map"].keys())
+            select_options = list(st.session_state["option_map"].keys())
         else:
             st.session_state["option_map"] = {}
-            select_options = ["請選擇"]
-    
+            select_options = []
+        
+        # 如果選單空，就用空字串或提示。
+        if not select_options:
+            select_options = ["（無符合配方）"]
+        
+        selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
+ 
         selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
     
     # 選擇後從 session_state 拿資料
@@ -1145,11 +1150,8 @@ elif menu == "生產單管理":
     
     # ➕ 新增邏輯（按鈕按下後才執行）
     if add_btn:
-        if not selected_row:
-            if search_text:
-                st.warning("❗ 無法取得任何符合的配方，請重新確認配方編號")
-            else:
-                st.warning("⚠️ 請先選擇配方")
+        if selected_label in ("請選擇", "（無符合配方）") or not selected_row:
+            st.warning("請先選擇有效配方")
         else:
             st.success(f"✅ 成功載入配方：{selected_row['配方編號']}")
     
@@ -1161,7 +1163,11 @@ elif menu == "生產單管理":
                 order = st.session_state.get("new_order")
                 if order is None or not isinstance(order, dict):
                     order = {}
-    
+
+    st.write("selected_label:", selected_label)
+    st.write("selected_row:", selected_row)
+    st.write("option_map keys:", list(st.session_state.get("option_map", {}).keys()))
+        
                 # 建立生產單號
                 df_all_orders = st.session_state.df_order.copy()
                 today_str = datetime.now().strftime("%Y%m%d")
