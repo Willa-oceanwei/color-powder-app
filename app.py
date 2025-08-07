@@ -1133,18 +1133,20 @@ elif menu == "生產單管理":
             filtered["label"] = filtered.apply(format_option, axis=1)
             st.session_state["option_map"] = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
             select_options = list(st.session_state["option_map"].keys())
-            
-            selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
         else:
             st.session_state["option_map"] = {}
-            st.text("請先輸入配方編號或客戶名稱進行搜尋")
-            selected_label = None
+            select_options = []
         
-        # 如果選單空，就用空字串或提示。
         if not select_options:
             select_options = ["（無符合配方）"]
         
         selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
+        
+        if not filtered.empty:
+            # 你後續使用 selected_label 拿資料的邏輯
+            selected_row = st.session_state["option_map"].get(selected_label)
+        else:
+            selected_row = None
     
     # 選擇後從 session_state 拿資料
     selected_row = st.session_state.get("option_map", {}).get(selected_label)
