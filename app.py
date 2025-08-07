@@ -784,7 +784,7 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = False
             st.rerun()
 
-    if clear_fields:
+    if back_to_home:
         st.session_state.form_recipe = {col: "" for col in columns}
         st.session_state.edit_recipe_index = None
         st.rerun()
