@@ -1252,7 +1252,7 @@ elif menu == "生產單管理":
     
         unit = recipe_row.get("計量單位", "kg")
         ratio = recipe_row.get("比例3", "")
-        total_type = recipe_row.get("合計類別", "").strip() or "合計"
+        total_type = recipe_row.get("合計類別", "").strip()
         # ✅ 舊資料相容處理：「原料」統一轉成「料」
         if total_type == "原料":
             total_type = "料"
