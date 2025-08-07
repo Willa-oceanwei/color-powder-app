@@ -1336,7 +1336,7 @@ elif menu == "生產單管理":
             lines.append(row)
     
         # 橫線：只有非色母類別才顯示
-        if category != "色母":
+        if category.strip() != "色母":
             lines.append("＿" * 30)
     
         # 合計列
