@@ -1308,6 +1308,16 @@ elif menu == "生產單管理":
             w = packing_weights[i]
             c = packing_counts[i]
             if w > 0 or c > 0:
+                # 特例：色母類別 + w==1 時，強制 real_w=100
+                if category == "色母" and w == 1:
+                    real_w = 100
+                elif unit == "包":
+                    real_w = w * 25
+                elif unit == "桶":
+                    real_w = w * 100
+                else:
+                    real_w = w
+
                 unit_str = f"{int(w)} kg" if w == int(w) else f"{w:.2f} kg"
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
