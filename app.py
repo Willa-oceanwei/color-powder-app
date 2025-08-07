@@ -1134,35 +1134,42 @@ elif menu == "生產單管理":
         # 篩選邏輯不變，只是要複製模式避免副作用
         filtered = filtered.copy()
         
+        # 篩選並產生選項
         if not filtered.empty:
+            filtered = filtered.copy()
             filtered["label"] = filtered.apply(format_option, axis=1)
             option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
+            select_options = list(option_map.keys())
         else:
             option_map = {}
+            select_options = []
         
-        select_options = list(option_map.keys())
-        
+        # 如果沒符合配方就用「（無符合配方）」
         if not select_options:
             select_options = ["（無符合配方）"]
         
-        # 最前面加提示用項目
-        select_options = ["請選擇"] + select_options
+        # 不加「請選擇」，直接用第一筆有效配方為預設選項
+        selected_label = st.selectbox(
+            "選擇配方",
+            select_options,
+            index=0,
+            key="search_add_form_selected_recipe"
+        )
         
-        selected_label = st.selectbox("選擇配方", select_options, index=0, key="search_add_form_selected_recipe")
-        
-        if selected_label in ("請選擇", "（無符合配方）"):
+        # 判斷有效選擇
+        if selected_label == "（無符合配方）":
             selected_row = None
         else:
             selected_row = option_map.get(selected_label)
         
-        # 可暫時除錯印出狀態
+        # 顯示除錯訊息（可移除）
         st.write("selected_label:", selected_label)
         st.write("selected_row:", selected_row)
-        st.write("option_map keys:", list(option_map.keys()))
-    
-    if add_btn:
-        if selected_label in ("請選擇", "（無符合配方）") or not selected_row:
-            st.warning("請先選擇有效配方")
+        
+        # 新增按鈕邏輯
+        if add_btn:
+            if selected_label == "（無符合配方）" or not selected_row:
+                st.warning("請先選擇有效配方")
         else:
             if selected_row.get("狀態") == "停用":
                 st.warning("⚠️ 此配方已停用，請勿使用")
