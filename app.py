@@ -1336,9 +1336,10 @@ elif menu == "生產單管理":
             lines.append(row)
     
         # 橫線：只有非色母類別才顯示
-        if category.strip() != "色母":
-            lines.append("＿" * 30)
-    
+        category = (order.get("類別") or "").strip()
+            if category != "色母":
+                lines.append("＿" * 30)
+                
         # 合計列
         if total_type == "無":
             total_type_display = f"<b>{' '.ljust(powder_label_width)}</b>"
