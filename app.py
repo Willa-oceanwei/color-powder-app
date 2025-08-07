@@ -1157,10 +1157,6 @@ elif menu == "生產單管理":
                 st.warning("⚠️ 此配方已停用，請勿使用")
                 st.stop()
             else:
-                st.write("selected_label:", selected_label)
-                st.write("selected_row:", selected_row)
-                st.write("option_map keys:", list(st.session_state.get("option_map", {}).keys()))
-    
                 # 取得或建立 order dict
                 order = st.session_state.get("new_order")
                 if order is None or not isinstance(order, dict):
