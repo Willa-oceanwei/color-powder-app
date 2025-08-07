@@ -664,7 +664,7 @@ elif menu == "配方管理":
         # 合計顯示
         col1, col2 = st.columns(2)
         with col1:
-            category_options = ["LA", "MA", "S流動劑", "CA", "T9", "料", "\u2002", "其他"]
+            category_options = ["LA", "MA", "S流動劑", "CA", "T9", "原料", "\u2002", "其他"]
             
             # 將原本的 "無" 對應到 "\u2002"
             default_raw = fr.get("合計類別", "")
@@ -1037,7 +1037,7 @@ elif menu == "生產單管理":
             else:
                 st.session_state.df_order = pd.DataFrame(columns=[
                     "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
-                    "Pantone 色號", "計量單位", "料",
+                    "Pantone 色號", "計量單位", "原料",
                     "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
                     "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
                     "重要提醒",
@@ -1251,8 +1251,6 @@ elif menu == "生產單管理":
         unit = recipe_row.get("計量單位", "kg")
         ratio = recipe_row.get("比例3", "")
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
-        if total_type == "原料":
-            total_type = "料"
         category = order.get("類別", "").strip()
     
         powder_label_width = 12
@@ -1343,33 +1341,20 @@ elif menu == "生產單管理":
         if category != "色母":
             lines.append("＿" * 30)
                     
-        # 合計類別取得與相容處理
-        total_type = recipe_row.get("合計類別", "").strip()
-        if total_type == "原料":
-            total_type = "料"
-        elif total_type in ("無", "", "\u2002"):
-            total_type = ""  # 不顯示任何文字
-        
-        # 顯示用欄位（保證一定有值）
-        powder_label_width = 12  # 根據你前面定義的寬度調整
-        total_type_display = f"<b>{total_type.ljust(powder_label_width) if total_type else ' '.ljust(powder_label_width)}</b>"
-        
-        # 合計數值列
-        def format_val(val):
-            if val == 0:
-                return "0"
-            else:
-                return f"{val:.3f}".rstrip('0').rstrip('.')
-        
+        # 合計列
+        if total_type == "無":
+            total_type_display = f"<b>{' '.ljust(powder_label_width)}</b>"
+        else:
+            total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
+    
         total_line = total_type_display
         for i in range(4):
+            # 差額計算
             result = (net_weight - total_colorant_weight) * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = format_val(result)
+            val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
             padding = " " * max(0, int(round(total_offsets[i])))
             total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-        
-        # ⬅️ 最後只 append 一次，放這裡就好
-        lines.append(total_line)                       
+        lines.append(total_line)
     
         # 附加配方列印
         if additional_recipe_rows and isinstance(additional_recipe_rows, list):
@@ -1488,7 +1473,7 @@ elif menu == "生產單管理":
                 c5.text_input("計量單位", value=unit, disabled=True)
                 color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color")
                 pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone")
-                raw_material = c8.text_input("料", value=order.get("料", ""), key="form_raw_material")
+                raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
         
                 c9, c10 = st.columns(2)
                 important_note = c9.text_input("重要提醒", value=order.get("重要提醒", ""), key="form_important_note")
@@ -1558,7 +1543,7 @@ elif menu == "生產單管理":
             if submitted:
                 order["顏色"] = st.session_state.form_color
                 order["Pantone 色號"] = st.session_state.form_pantone
-                order["料"] = st.session_state.form_raw_material
+                order["原料"] = st.session_state.form_raw_material
                 order["備註"] = st.session_state.form_remark
                 order["重要提醒"] = st.session_state.form_important_note
                 order["合計類別"] = st.session_state.form_total_category
