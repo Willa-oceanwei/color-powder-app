@@ -1353,15 +1353,17 @@ elif menu == "生產單管理":
             total_type = "料"  # 替換舊值
         
         # 合計列
-        if total_type == "":
-            total_type_display = f"<b>{' '.ljust(powder_label_width)}</b>"  # 空白，不顯示文字
-        else:
-            total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
+        def format_val(val):
+            if val == 0:
+                return "0"
+            else:
+                # 格式化到小數點後3位，然後去除多餘的0和小數點
+                return f"{val:.3f}".rstrip('0').rstrip('.')
         
         total_line = total_type_display
         for i in range(4):
             result = (net_weight - total_colorant_weight) * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result is not None else ""
+            val_str = format_val(result)
             padding = " " * max(0, int(round(total_offsets[i])))
             total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
         lines.append(total_line)
