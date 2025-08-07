@@ -1308,23 +1308,14 @@ elif menu == "生產單管理":
             w = packing_weights[i]
             c = packing_counts[i]
             if w > 0 or c > 0:
-                if unit == "桶":
-                    real_w = w * 100
-                    unit_str = str(int(real_w)) + "K" if real_w.is_integer() else f"{real_w:.1f}K"
-                elif unit == "包":
-                    real_w = w * 25
-                    unit_str = str(int(real_w)) + "K" if real_w.is_integer() else f"{real_w:.1f}K"
-                else:
-                    real_w = w
-                    unit_str = str(int(real_w)) + "kg" if real_w.is_integer() else f"{real_w:.2f}kg"
-        
+                unit_str = f"{int(w)} kg" if w == int(w) else f"{w:.2f} kg"
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
                 pack_line.append(f"{text:<{pack_col_width}}")
         
         packing_indent = " " * 14
         lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
-                            
+                                    
         # 主配方色粉列
         for idx in range(8):
             c_id = colorant_ids[idx]
@@ -1351,16 +1342,25 @@ elif menu == "生產單管理":
         # 合計列
         if total_type == "無":
             total_type_display = f"<b>{' '.ljust(powder_label_width)}</b>"
+        elif category == "色母":
+            total_type_display = f"<b>{'料'.ljust(powder_label_width)}</b>"
         else:
             total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
-    
+        
         total_line = total_type_display
-
+        
         for i in range(4):
-            result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
+            result = 0
+            if category == "色母":
+                pigment_total = sum(colorant_weights)
+                result = (net_weight - pigment_total) * multipliers[i] if multipliers[i] > 0 else 0
+            else:
+                result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
+        
             val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
             padding = " " * max(0, int(round(total_offsets[i])))
             total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+        
         lines.append(total_line)
            
         # 多筆附加配方列印
