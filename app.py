@@ -1361,7 +1361,7 @@ elif menu == "生產單管理":
         total_line = total_type_display
         for i in range(4):
             result = (net_weight - total_colorant_weight) * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
+            val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result is not None else ""
             padding = " " * max(0, int(round(total_offsets[i])))
             total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
         lines.append(total_line)
