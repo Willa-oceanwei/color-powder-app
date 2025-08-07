@@ -702,9 +702,9 @@ elif menu == "配方管理":
 
     # ----- 按鈕事件處理 -----
     if clear_fields:
-    # 清空 fr 內所有欄位值
-    for key in list(fr.keys()):
-        fr[key] = ""
+        # 清空 fr 內所有欄位值
+        for key in list(fr.keys()):
+            fr[key] = ""
 
     # 清空 session_state 中對應的 key
     for key in list(st.session_state.keys()):
