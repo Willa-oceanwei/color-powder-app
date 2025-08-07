@@ -1111,8 +1111,7 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
     
-        selected_row = None  # 最後選到的配方資料
-    
+        # 根據搜尋條件篩選
         if search_text:
             df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
             df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
@@ -1132,13 +1131,17 @@ elif menu == "生產單管理":
     
         if not filtered.empty:
             filtered["label"] = filtered.apply(format_option, axis=1)
-            option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
-            select_options = ["請選擇"] + list(option_map.keys())
-            selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
-            selected_row = option_map.get(selected_label)
+            # 把 option_map 存到 session_state，確保後續可用
+            st.session_state["option_map"] = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
+            select_options = ["請選擇"] + list(st.session_state["option_map"].keys())
         else:
-            selected_label = st.selectbox("選擇配方", ["請選擇"], key="selected_recipe")
-            selected_row = None  # 明確設定為 None 方便後續判斷
+            st.session_state["option_map"] = {}
+            select_options = ["請選擇"]
+    
+        selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
+    
+    # 選擇後從 session_state 拿資料
+    selected_row = st.session_state.get("option_map", {}).get(selected_label)
     
         # ➕ 新增邏輯（按鈕按下後才執行）
         if add_btn:
@@ -1148,9 +1151,9 @@ elif menu == "生產單管理":
                 else:
                     st.warning("⚠️ 請先選擇配方")
             else:
-                recipe_row = selected_row  # 直接用選到的 row
-                
-                if recipe_row.get("狀態") == "停用":
+                st.success(f"✅ 成功載入配方：{selected_row['配方編號']}")
+        
+                if selected_row.get("狀態") == "停用":
                     st.warning("⚠️ 此配方已停用，請勿使用")
                     st.stop()
                 else:
