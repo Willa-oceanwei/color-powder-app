@@ -1140,7 +1140,8 @@ elif menu == "生產單管理":
         if not select_options:
             select_options = ["（無符合配方）"]
         
-        selected_label = st.selectbox("選擇配方", select_options, key="selected_recipe")
+        select_options = ["請選擇"] + select_options  # 在選項前加一個"請選擇"
+        selected_label = st.selectbox("選擇配方", select_options, index=0, key="search_add_form_selected_recipe")
         
         if not filtered.empty:
             # 你後續使用 selected_label 拿資料的邏輯
