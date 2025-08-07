@@ -1170,14 +1170,14 @@ elif menu == "生產單管理":
         if add_btn:
             if selected_label == "（無符合配方）" or not selected_row:
                 st.warning("請先選擇有效配方")
-        else:
-            if selected_row.get("狀態") == "停用":
-                st.warning("⚠️ 此配方已停用，請勿使用")
-                st.stop()
             else:
-                order = st.session_state.get("new_order")
-                if order is None or not isinstance(order, dict):
-                    order = {}
+                if selected_row.get("狀態") == "停用":
+                    st.warning("⚠️ 此配方已停用，請勿使用")
+                    st.stop()
+                else:
+                    order = st.session_state.get("new_order")
+                    if order is None or not isinstance(order, dict):
+                        order = {}
     
                 df_all_orders = st.session_state.df_order.copy()
                 today_str = datetime.now().strftime("%Y%m%d")
