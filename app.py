@@ -1142,7 +1142,7 @@ elif menu == "生產單管理":
     
         # ➕ 新增邏輯（按鈕按下後才執行）
         if add_btn:
-            if not selected_option:
+            if not selected_row:
                 if search_text:
                     st.warning("❗ 無法取得任何符合的配方，請重新確認配方編號")
                 else:
