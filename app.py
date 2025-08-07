@@ -1309,9 +1309,9 @@ elif menu == "生產單管理":
             c = packing_counts[i]
             if w > 0 or c > 0:
                 # 特例：色母類別 + w==1 時，強制 real_w=100
-                if category == "色母" and w == 1:
-                    real_w = 100
-                    unit_str = "100kg"
+                if category == "色母":
+                    real_w = w * 100
+                    unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
                 elif unit == "包":
                     real_w = w * 25
                     unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
