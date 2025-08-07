@@ -1148,18 +1148,8 @@ elif menu == "生產單管理":
                 else:
                     st.warning("⚠️ 請先選擇配方")
             else:
-                idx = None
-                for i, opt in enumerate(options):
-                    if opt == selected_label:
-                        idx = i
-                        break
-    
-                if idx is None:
-                    st.error("選擇的配方不在搜尋結果中")
-                    st.stop()
-    
-                recipe_row = filtered.iloc[idx].to_dict()
-    
+                recipe_row = selected_row  # 直接用選到的 row
+                
                 if recipe_row.get("狀態") == "停用":
                     st.warning("⚠️ 此配方已停用，請勿使用")
                     st.stop()
@@ -1168,13 +1158,13 @@ elif menu == "生產單管理":
                     order = st.session_state.get("new_order")
                     if order is None or not isinstance(order, dict):
                         order = {}
-    
+        
                     # ✅ 建立生產單號
                     df_all_orders = st.session_state.df_order.copy()
                     today_str = datetime.now().strftime("%Y%m%d")
                     count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
                     new_id = f"{today_str}-{count_today + 1:03}"
-    
+        
                     # ✅ 查找附加配方
                     main_recipe_code = recipe_row.get("配方編號", "").strip()
                     df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
@@ -1183,7 +1173,7 @@ elif menu == "生產單管理":
                         (df_recipe["配方類別"] == "附加配方") &
                         (df_recipe["原始配方"] == main_recipe_code)
                     ]
-    
+        
                     # 整合色粉
                     all_colorants = []
                     for i in range(1, 9):
@@ -1193,7 +1183,7 @@ elif menu == "生產單管理":
                         wt_val = recipe_row.get(wt_key, "")
                         if id_val or wt_val:
                             all_colorants.append((id_val, wt_val))
-    
+        
                     for _, sub in 附加配方.iterrows():
                         for i in range(1, 9):
                             id_key = f"色粉編號{i}"
@@ -1202,7 +1192,7 @@ elif menu == "生產單管理":
                             wt_val = sub.get(wt_key, "")
                             if id_val or wt_val:
                                 all_colorants.append((id_val, wt_val))
-    
+        
                     # 設定到 order 中
                     order.update({
                         "生產單號": new_id,
@@ -1217,10 +1207,11 @@ elif menu == "生產單管理":
                         "重要提醒": str(recipe_row.get("重要提醒", "")).strip(),
                         "合計類別": str(recipe_row.get("合計類別", "")).strip(),
                     })
-
+        
                     st.session_state["new_order"] = order
                     st.session_state["show_confirm_panel"] = True
                     st.rerun()
+
                     
     # ===== 自訂函式：產生生產單列印格式 =====      
     def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
