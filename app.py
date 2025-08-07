@@ -1164,10 +1164,10 @@ elif menu == "生產單管理":
                 if order is None or not isinstance(order, dict):
                     order = {}
 
-    st.write("selected_label:", selected_label)
-    st.write("selected_row:", selected_row)
-    st.write("option_map keys:", list(st.session_state.get("option_map", {}).keys()))
-        
+            st.write("selected_label:", selected_label)
+            st.write("selected_row:", selected_row)
+            st.write("option_map keys:", list(st.session_state.get("option_map", {}).keys()))
+                
                 # 建立生產單號
                 df_all_orders = st.session_state.df_order.copy()
                 today_str = datetime.now().strftime("%Y%m%d")
