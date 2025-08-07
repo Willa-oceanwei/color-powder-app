@@ -1369,13 +1369,7 @@ elif menu == "生產單管理":
             total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
         
         # ⬅️ 最後只 append 一次，放這裡就好
-        lines.append(total_line)
-                for i in range(4):
-                    result = (net_weight - total_colorant_weight) * multipliers[i] if multipliers[i] > 0 else 0
-                    val_str = format_val(result)
-                    padding = " " * max(0, int(round(total_offsets[i])))
-                    total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-                lines.append(total_line)
+        lines.append(total_line)                       
     
         # 附加配方列印
         if additional_recipe_rows and isinstance(additional_recipe_rows, list):
