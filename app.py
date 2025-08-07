@@ -664,7 +664,7 @@ elif menu == "配方管理":
         # 合計顯示
         col1, col2 = st.columns(2)
         with col1:
-            category_options = ["LA", "MA", "S流動劑", "CA", "T9", "原料", "\u2002", "其他"]
+            category_options = ["LA", "MA", "S流動劑", "CA", "T9", "料", "\u2002", "其他"]
             
             # 將原本的 "無" 對應到 "\u2002"
             default_raw = fr.get("合計類別", "")
@@ -1251,6 +1251,8 @@ elif menu == "生產單管理":
         unit = recipe_row.get("計量單位", "kg")
         ratio = recipe_row.get("比例3", "")
         total_type = recipe_row.get("合計類別", "").strip() or "合計"
+        if total_type == "原料":
+            total_type = "料"
         category = order.get("類別", "").strip()
     
         powder_label_width = 12
