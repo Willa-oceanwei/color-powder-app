@@ -1213,6 +1213,13 @@ elif menu == "生產單管理":
                     "Pantone 色號": selected_row.get("Pantone色號", ""),
                     "計量單位": selected_row.get("計量單位", ""),
                     "備註": str(selected_row.get("備註", "")).strip(),
+                    "重要提醒": str(selected_row.get("重要提醒", "")).strip(),
+                    "合計類別": str(selected_row.get("合計類別", "")).strip(),
+                })
+    
+                st.session_state["new_order"] = order
+                st.session_state["show_confirm_panel"] = True
+                st.rerun()
                         
     # ===== 自訂函式：產生生產單列印格式 =====      
     def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
