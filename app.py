@@ -1337,8 +1337,8 @@ elif menu == "生產單管理":
     
         # 橫線：只有非色母類別才顯示
         category = (order.get("類別") or "").strip()
-            if category != "色母":
-                lines.append("＿" * 30)
+        if category != "色母":
+            lines.append("＿" * 30)
         st.write(order)
                 
         # 合計列
