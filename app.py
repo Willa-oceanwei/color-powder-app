@@ -1130,6 +1130,7 @@ elif menu == "生產單管理":
             filtered = df_recipe.copy()
     
         if not filtered.empty:
+            filtered = filtered.copy()
             filtered["label"] = filtered.apply(format_option, axis=1)
             st.session_state["option_map"] = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
             select_options = list(st.session_state["option_map"].keys())
