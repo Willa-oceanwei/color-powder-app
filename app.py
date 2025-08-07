@@ -1351,10 +1351,9 @@ elif menu == "生產單管理":
         if category != "色母":
             lines.append("＿" * 30)
                     
-        # 若合計類別是 "無"，就顯示空白但保留寬度
         # 合計列
         if total_type == "無":
-            total_type_display = f"<b>{' '.ljust(powder_label_width)}</b>"
+            total_type_display = f"<b>{'共'.ljust(powder_label_width)}</b>"
         elif category == "色母":
             total_type_display = f"<b>{'料'.ljust(powder_label_width)}</b>"
         else:
