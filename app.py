@@ -1037,7 +1037,7 @@ elif menu == "生產單管理":
             else:
                 st.session_state.df_order = pd.DataFrame(columns=[
                     "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
-                    "Pantone 色號", "計量單位", "原料",
+                    "Pantone 色號", "計量單位", "料",
                     "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
                     "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
                     "重要提醒",
@@ -1475,7 +1475,7 @@ elif menu == "生產單管理":
                 c5.text_input("計量單位", value=unit, disabled=True)
                 color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color")
                 pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone")
-                raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
+                raw_material = c8.text_input("料", value=order.get("料", ""), key="form_raw_material")
         
                 c9, c10 = st.columns(2)
                 important_note = c9.text_input("重要提醒", value=order.get("重要提醒", ""), key="form_important_note")
@@ -1545,7 +1545,7 @@ elif menu == "生產單管理":
             if submitted:
                 order["顏色"] = st.session_state.form_color
                 order["Pantone 色號"] = st.session_state.form_pantone
-                order["原料"] = st.session_state.form_raw_material
+                order["料"] = st.session_state.form_raw_material
                 order["備註"] = st.session_state.form_remark
                 order["重要提醒"] = st.session_state.form_important_note
                 order["合計類別"] = st.session_state.form_total_category
