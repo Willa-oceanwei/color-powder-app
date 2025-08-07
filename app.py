@@ -1151,8 +1151,6 @@ elif menu == "生產單管理":
         if selected_label in ("請選擇", "（無符合配方）") or not selected_row:
             st.warning("請先選擇有效配方")
         else:
-            st.success(f"✅ 成功載入配方：{selected_row['配方編號']}")
-    
             if selected_row.get("狀態") == "停用":
                 st.warning("⚠️ 此配方已停用，請勿使用")
                 st.stop()
