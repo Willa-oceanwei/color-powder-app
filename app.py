@@ -1343,21 +1343,22 @@ elif menu == "生產單管理":
         if category != "色母":
             lines.append("＿" * 30)
                     
-        # 合計列
+        # 合計類別取得與相容處理
         total_type = recipe_row.get("合計類別", "").strip()
-
-        # 舊資料相容處理 + 顯示邏輯修正
-        if total_type in ("無", "", "\u2002"):
-            total_type = ""  # 不顯示
-        elif total_type == "原料":
-            total_type = "料"  # 替換舊值
+        if total_type == "原料":
+            total_type = "料"
+        elif total_type in ("無", "", "\u2002"):
+            total_type = ""  # 不顯示任何文字
         
-        # 合計列
+        # 顯示用欄位（保證一定有值）
+        powder_label_width = 12  # 根據你前面定義的寬度調整
+        total_type_display = f"<b>{total_type.ljust(powder_label_width) if total_type else ' '.ljust(powder_label_width)}</b>"
+        
+        # 合計數值列
         def format_val(val):
             if val == 0:
                 return "0"
             else:
-                # 格式化到小數點後3位，然後去除多餘的0和小數點
                 return f"{val:.3f}".rstrip('0').rstrip('.')
         
         total_line = total_type_display
@@ -1366,7 +1367,15 @@ elif menu == "生產單管理":
             val_str = format_val(result)
             padding = " " * max(0, int(round(total_offsets[i])))
             total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+        
+        # ⬅️ 最後只 append 一次，放這裡就好
         lines.append(total_line)
+                for i in range(4):
+                    result = (net_weight - total_colorant_weight) * multipliers[i] if multipliers[i] > 0 else 0
+                    val_str = format_val(result)
+                    padding = " " * max(0, int(round(total_offsets[i])))
+                    total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+                lines.append(total_line)
     
         # 附加配方列印
         if additional_recipe_rows and isinstance(additional_recipe_rows, list):
