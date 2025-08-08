@@ -731,29 +731,32 @@ elif menu == "配方管理":
         if clear_fields:
             keys_to_clear = [k for k in st.session_state.keys() if k.startswith("form_recipe_") or k.startswith("ratio")]
         
-            for key in keys_to_clear:
-                # selectbox 相關欄位要用預設選項，避免賦空字串錯誤
-                if key == "form_recipe_配方類別":
-                    st.session_state[key] = "原始配方"
-                elif key == "form_recipe_狀態":
-                    st.session_state[key] = "啟用"
-                elif key == "form_recipe_色粉類別":
-                    st.session_state[key] = "配方"
-                elif key == "form_recipe_計量單位":
-                    st.session_state[key] = "包"
-                elif key == "form_recipe_淨重單位":
-                    st.session_state[key] = "g"
-                elif key == "form_recipe_合計類別":
-                    st.session_state[key] = "無"
-                else:
-                    st.session_state[key] = ""
+            # 預設值映射 (針對 selectbox 的 key)
+            default_values = {
+                "form_recipe_配方類別": "原始配方",
+                "form_recipe_狀態": "啟用",
+                "form_recipe_色粉類別": "配方",
+                "form_recipe_計量單位": "包",
+                "form_recipe_淨重單位": "g",
+                "form_recipe_合計類別": "無"
+            }
         
-            # 清空 fr dict 內容
-            if "fr" in st.session_state:
+            for key in keys_to_clear:
+                if key in default_values:
+                    # 只在 key 存在於 session_state 時賦值，避免錯誤
+                    if key in st.session_state:
+                        st.session_state[key] = default_values[key]
+                else:
+                    if key in st.session_state:
+                        st.session_state[key] = ""
+        
+            # 清空 fr dict 內容（確保是 dict 才操作）
+            if "fr" in st.session_state and isinstance(st.session_state.fr, dict):
                 for k in st.session_state.fr.keys():
                     st.session_state.fr[k] = ""
         
             st.experimental_rerun()
+
     
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
