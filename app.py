@@ -711,7 +711,7 @@ elif menu == "配方管理":
         st.session_state.form_recipe["淨重單位"] = "g"
         st.session_state.form_recipe["合計類別"] = "無"
         st.session_state.num_powder_rows = 5
-        st.experimental_rerun()
+        st.rerun()
     
     if add_powder:
         st.session_state.num_powder_rows = st.session_state.get("num_powder_rows", 5) + 1
