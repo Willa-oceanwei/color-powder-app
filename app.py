@@ -729,10 +729,10 @@ elif menu == "配方管理":
             add_powder = st.form_submit_button("➕ 新增色粉列")
         
         if clear_fields:
-            # 清空綁定表單欄位的 key
-            keys_to_clear = [k for k in st.session_state.keys() if k.startswith("form_recipe_") or k.startswith("ratio")]
-            for key in keys_to_clear:
-                st.session_state[key] = ""
+            # 只重置你自己定義的字典欄位，避免直接操作 widget key
+            if "fr" in st.session_state:
+                for k in st.session_state.fr.keys():
+                    st.session_state.fr[k] = ""
         
             # 重置 fr 字典（儲存所有欄位值）
             st.session_state.fr = {
@@ -759,13 +759,11 @@ elif menu == "配方管理":
                 st.session_state.fr[f"色粉編號{i}"] = ""
                 st.session_state.fr[f"色粉重量{i}"] = ""
         
-            # 重置色粉列數
             st.session_state.num_powder_rows = 5
-            # 重置初始化客戶選單標記
             st.session_state["init_customer_select_done"] = None
         
             st.experimental_rerun()
-        
+                
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
         # ✅ 先檢查未建檔色粉
