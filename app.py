@@ -616,6 +616,9 @@ elif menu == "配方管理":
     
     # ===== 表單開始 =====
     with st.form("recipe_form"):
+        submitted = st.form_submit_button("儲存")
+        clear_fields = st.form_submit_button("清空")
+        
         # 基本欄位
         col1, col2, col3 = st.columns(3)
         with col1:
