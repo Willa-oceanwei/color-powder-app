@@ -708,7 +708,7 @@ elif menu == "配方管理":
                 if key.startswith("form_recipe_") or key.startswith("ratio"):
                     st.session_state.pop(key, None)
         
-            st.experimental_rerun()
+            st.rerun()
     
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
