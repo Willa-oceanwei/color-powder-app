@@ -702,12 +702,13 @@ elif menu == "配方管理":
         
         if clear_fields:
             for key in fr.keys():
-                fr[key] = ""   
+                fr[key] = ""
+        
             for key in list(st.session_state.keys()):
                 if key.startswith("form_recipe_") or key.startswith("ratio"):
-                    st.session_state[key] = ""
-            
-            st.rerun()
+                    st.session_state.pop(key, None)
+        
+            st.experimental_rerun()
     
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
