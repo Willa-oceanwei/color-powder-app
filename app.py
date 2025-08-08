@@ -700,17 +700,8 @@ elif menu == "配方管理":
         with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
     
-    # 按鈕事件判斷（form 外面）
     if clear_fields:
-        columns = [
-            "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方",
-            "色粉類別", "計量單位", "Pantone色號", "重要提醒", "比例1", "比例2", "比例3",
-            "備註", "淨重", "淨重單位", "合計類別"
-        ]
-        for i in range(1, 9):
-            columns.append(f"色粉編號{i}")
-            columns.append(f"色粉重量{i}")
-    
+        # 清空欄位並重設預設
         st.session_state.form_recipe = {col: "" for col in columns}
         st.session_state.form_recipe["配方類別"] = "原始配方"
         st.session_state.form_recipe["狀態"] = "啟用"
@@ -724,9 +715,9 @@ elif menu == "配方管理":
     if add_powder:
         st.session_state.num_powder_rows = st.session_state.get("num_powder_rows", 5) + 1
         st.experimental_rerun()
-    
-    # 頁面底部除錯輸出
-    st.write("目前表單內容：", fr)
+        
+        # 頁面底部除錯輸出
+        st.write("目前表單內容：", fr)
              
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
