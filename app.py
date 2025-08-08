@@ -607,7 +607,7 @@ elif menu == "配方管理":
                     st.session_state[k] = ""
     
     init_keys()
-    
+
     # 表單開始
     with st.form("recipe_form"):
         col1, col2, col3 = st.columns(3)
@@ -630,20 +630,20 @@ elif menu == "配方管理":
         col4, col5, col6 = st.columns(3)
         with col4:
             options = ["原始配方", "附加配方"]
-            st.selectbox("配方類別", options, index=options.index(st.session_state["form_recipe_配方類別"]), key="form_recipe_配方類別")
+            st.selectbox("配方類別", options, index=options.index(st.session_state.get("form_recipe_配方類別", options[0])), key="form_recipe_配方類別")
         with col5:
             options = ["啟用", "停用"]
-            st.selectbox("狀態", options, index=options.index(st.session_state["form_recipe_狀態"]), key="form_recipe_狀態")
+            st.selectbox("狀態", options, index=options.index(st.session_state.get("form_recipe_狀態", options[0])), key="form_recipe_狀態")
         with col6:
             st.text_input("原始配方", key="form_recipe_原始配方")
     
         col7, col8, col9 = st.columns(3)
         with col7:
             options = ["配方", "色母", "色粉", "添加劑", "其他"]
-            st.selectbox("色粉類別", options, index=options.index(st.session_state["form_recipe_色粉類別"]), key="form_recipe_色粉類別")
+            st.selectbox("色粉類別", options, index=options.index(st.session_state.get("form_recipe_色粉類別", options[0])), key="form_recipe_色粉類別")
         with col8:
             options = ["包", "桶", "kg", "其他"]
-            st.selectbox("計量單位", options, index=options.index(st.session_state["form_recipe_計量單位"]), key="form_recipe_計量單位")
+            st.selectbox("計量單位", options, index=options.index(st.session_state.get("form_recipe_計量單位", options[0])), key="form_recipe_計量單位")
         with col9:
             st.text_input("Pantone色號", key="form_recipe_Pantone色號")
     
@@ -668,10 +668,10 @@ elif menu == "配方管理":
             st.text_input("色粉淨重", key="form_recipe_淨重")
         with col2:
             options = ["g", "kg"]
-            st.selectbox("單位", options, index=options.index(st.session_state["form_recipe_淨重單位"]), key="form_recipe_淨重單位")
+            st.selectbox("單位", options, index=options.index(st.session_state.get("form_recipe_淨重單位", "g")), key="form_recipe_淨重單位")
     
         st.markdown("### 色粉設定")
-        for i in range(1, st.session_state.num_powder_rows + 1):
+        for i in range(1, st.session_state.get("num_powder_rows", 5) + 1):
             c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
             with c1:
                 st.write(f"色粉{i}")
@@ -680,21 +680,20 @@ elif menu == "配方管理":
             with c3:
                 st.text_input(f"色粉重量{i}", key=f"form_recipe_色粉重量{i}")
             with c4:
-                st.markdown(st.session_state["form_recipe_淨重單位"], unsafe_allow_html=True)
+                st.markdown(st.session_state.get("form_recipe_淨重單位", ""), unsafe_allow_html=True)
     
         col1, col2 = st.columns(2)
         with col1:
             category_options = ["LA", "MA", "S流動劑", "CA", "T9", "料", "\u2002", "其他"]
-            default_raw = st.session_state["form_recipe_合計類別"]
+            default_raw = st.session_state.get("form_recipe_合計類別", "無")
             default = "\u2002" if default_raw == "無" else default_raw
             if default not in category_options:
                 default = category_options[0]
-            
-            fr_合計類別 = st.selectbox(
+    
+            st.selectbox(
                 "合計類別",
                 category_options,
-                # 用 value 參數設定預設值
-                value=default,
+                index=category_options.index(default),
                 key="form_recipe_合計類別"
             )
         with col2:
@@ -713,6 +712,7 @@ elif menu == "配方管理":
         with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
     
+    # 按鈕判斷，必須在 form 外面判斷，這裡要用 if ... elif ... 避免同時判斷多個 True
     if clear_fields:
         keys_to_clear = [
             "form_recipe_配方編號", "form_recipe_顏色",
@@ -730,18 +730,22 @@ elif menu == "配方管理":
         for k in keys_to_clear:
             st.session_state[k] = ""
     
-        # 重設色粉列數量
-        st.session_state.num_powder_rows = 5
+        st.session_state["num_powder_rows"] = 5
         st.experimental_rerun()
     
-    # 頁面底部方便檢視目前 session_state 內容（debug用）
+    elif submitted:
+        st.success("已儲存配方！")
+        # 這裡放你儲存資料的程式碼
+    
+    elif add_powder:
+        st.session_state["num_powder_rows"] = st.session_state.get("num_powder_rows", 5) + 1
+        st.experimental_rerun()
+    
+    # debug 輸出
     st.write("目前表單內容：")
-    for k in sorted(st.session_state.keys()):
-        if k.startswith("form_recipe_") or k in ["客戶編號", "客戶名稱"]:
-            st.write(f"{k}: {st.session_state[k]}")
-        
-        # 方便除錯，印出當前資料
-        st.write("目前表單內容：", fr)
+    keys = [k for k in st.session_state.keys() if k.startswith("form_recipe_")] + ["客戶編號", "客戶名稱"]
+    for k in sorted(keys):
+        st.write(f"{k}: {st.session_state.get(k)}")
                 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
