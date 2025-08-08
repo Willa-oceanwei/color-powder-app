@@ -574,150 +574,130 @@ elif menu == "配方管理":
 
     import streamlit as st
 
-    # 初始化 session_state.fr
-    if "fr" not in st.session_state:
-        st.session_state.fr = {
-            "配方編號": "",
-            "顏色": "",
-            "客戶編號": "",
-            "客戶名稱": "",
-            "配方類別": "原始配方",
-            "狀態": "啟用",
-            "原始配方": "",
-            "色粉類別": "配方",
-            "計量單位": "包",
-            "Pantone色號": "",
-            "重要提醒": "",
-            "比例1": "",
-            "比例2": "",
-            "比例3": "",
-            "備註": "",
-            "淨重": "",
-            "淨重單位": "g",
-            "合計類別": "無",
-        }
+    # 初始化清空用，避免第一次沒有key
+    def init_keys():
+        keys = [
+            "form_recipe_配方編號", "form_recipe_顏色",
+            "form_recipe_selected_customer",
+            "form_recipe_配方類別", "form_recipe_狀態", "form_recipe_原始配方",
+            "form_recipe_色粉類別", "form_recipe_計量單位", "form_recipe_Pantone色號",
+            "form_recipe_重要提醒", "ratio1", "ratio2", "ratio3",
+            "form_recipe_備註", "form_recipe_淨重", "form_recipe_淨重單位",
+            "form_recipe_合計類別"
+        ]
         for i in range(1, 9):
-            st.session_state.fr[f"色粉編號{i}"] = ""
-            st.session_state.fr[f"色粉重量{i}"] = ""
+            keys.append(f"form_recipe_色粉編號{i}")
+            keys.append(f"form_recipe_色粉重量{i}")
     
-    if "num_powder_rows" not in st.session_state:
-        st.session_state.num_powder_rows = 5
+        for k in keys:
+            if k not in st.session_state:
+                if k in ["form_recipe_配方類別"]:
+                    st.session_state[k] = "原始配方"
+                elif k in ["form_recipe_狀態"]:
+                    st.session_state[k] = "啟用"
+                elif k in ["form_recipe_色粉類別"]:
+                    st.session_state[k] = "配方"
+                elif k in ["form_recipe_計量單位"]:
+                    st.session_state[k] = "包"
+                elif k in ["form_recipe_淨重單位"]:
+                    st.session_state[k] = "g"
+                elif k in ["form_recipe_合計類別"]:
+                    st.session_state[k] = "無"
+                else:
+                    st.session_state[k] = ""
     
-    if "init_customer_select_done" not in st.session_state:
-        st.session_state["init_customer_select_done"] = None
-    
-    fr = st.session_state.fr
-    
-    # 假設你有這個客戶選項清單
-    customer_options = [
-        "001 - 客戶A",
-        "002 - 客戶B",
-        "003 - 客戶C",
-    ]
+    init_keys()
     
     # 表單開始
     with st.form("recipe_form"):
-        # 基本欄位
         col1, col2, col3 = st.columns(3)
         with col1:
-            fr["配方編號"] = st.text_input("配方編號", value=fr.get("配方編號", ""), key="form_recipe_配方編號")
+            st.text_input("配方編號", key="form_recipe_配方編號")
         with col2:
-            fr["顏色"] = st.text_input("顏色", value=fr.get("顏色", ""), key="form_recipe_顏色")
+            st.text_input("顏色", key="form_recipe_顏色")
         with col3:
-            if st.session_state.get("init_customer_select_done") is None:
-                fr["客戶編號"] = ""
-                fr["客戶名稱"] = ""
-                st.session_state["init_customer_select_done"] = True
-    
             options = [""] + customer_options
-            index = 0  # 強制預設空白
-            selected = st.selectbox("客戶編號", options, index=index, key="form_recipe_selected_customer")
+            selected = st.selectbox("客戶編號", options, index=0, key="form_recipe_selected_customer")
     
-            客戶編號, 客戶簡稱 = selected.split(" - ", 1) if " - " in selected else ("", "")
-            fr["客戶編號"] = 客戶編號
-            fr["客戶名稱"] = 客戶簡稱
+            # 拆分客戶編號與名稱並存到 session_state
+            if " - " in selected:
+                c_no, c_name = selected.split(" - ", 1)
+            else:
+                c_no, c_name = "", ""
+            st.session_state["客戶編號"] = c_no
+            st.session_state["客戶名稱"] = c_name
     
-        # 配方設定
         col4, col5, col6 = st.columns(3)
         with col4:
             options = ["原始配方", "附加配方"]
-            fr["配方類別"] = st.selectbox("配方類別", options, index=options.index(fr.get("配方類別") or options[0]), key="form_recipe_配方類別")
+            st.selectbox("配方類別", options, index=options.index(st.session_state["form_recipe_配方類別"]), key="form_recipe_配方類別")
         with col5:
             options = ["啟用", "停用"]
-            fr["狀態"] = st.selectbox("狀態", options, index=options.index(fr.get("狀態") or options[0]), key="form_recipe_狀態")
+            st.selectbox("狀態", options, index=options.index(st.session_state["form_recipe_狀態"]), key="form_recipe_狀態")
         with col6:
-            fr["原始配方"] = st.text_input("原始配方", fr.get("原始配方", ""), key="form_recipe_原始配方")
+            st.text_input("原始配方", key="form_recipe_原始配方")
     
         col7, col8, col9 = st.columns(3)
         with col7:
             options = ["配方", "色母", "色粉", "添加劑", "其他"]
-            fr["色粉類別"] = st.selectbox("色粉類別", options, index=options.index(fr.get("色粉類別") or options[0]), key="form_recipe_色粉類別")
+            st.selectbox("色粉類別", options, index=options.index(st.session_state["form_recipe_色粉類別"]), key="form_recipe_色粉類別")
         with col8:
             options = ["包", "桶", "kg", "其他"]
-            fr["計量單位"] = st.selectbox("計量單位", options, index=options.index(fr.get("計量單位") or options[0]), key="form_recipe_計量單位")
+            st.selectbox("計量單位", options, index=options.index(st.session_state["form_recipe_計量單位"]), key="form_recipe_計量單位")
         with col9:
-            fr["Pantone色號"] = st.text_input("Pantone色號", fr.get("Pantone色號", ""), key="form_recipe_Pantone色號")
+            st.text_input("Pantone色號", key="form_recipe_Pantone色號")
     
-        fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒", ""), key="form_recipe_重要提醒")
+        st.text_input("重要提醒", key="form_recipe_重要提醒")
     
         colr1, colon, colr2, colr3, unit = st.columns([2, 1, 2, 2, 1])
         with colr1:
-            fr["比例1"] = st.text_input("", fr.get("比例1", ""), key="ratio1", label_visibility="collapsed")
+            st.text_input("", key="ratio1", label_visibility="collapsed")
         with colon:
             st.markdown(":", unsafe_allow_html=True)
         with colr2:
-            fr["比例2"] = st.text_input("", fr.get("比例2", ""), key="ratio2", label_visibility="collapsed")
+            st.text_input("", key="ratio2", label_visibility="collapsed")
         with colr3:
-            fr["比例3"] = st.text_input("", fr.get("比例3", ""), key="ratio3", label_visibility="collapsed")
+            st.text_input("", key="ratio3", label_visibility="collapsed")
         with unit:
             st.markdown("g/kg", unsafe_allow_html=True)
     
-        fr["備註"] = st.text_area("備註", value=fr.get("備註", ""), key="form_recipe_備註")
+        st.text_area("備註", key="form_recipe_備註")
     
         col1, col2 = st.columns(2)
         with col1:
-            fr["淨重"] = st.text_input("色粉淨重", fr.get("淨重", ""), key="form_recipe_淨重")
+            st.text_input("色粉淨重", key="form_recipe_淨重")
         with col2:
             options = ["g", "kg"]
-            fr["淨重單位"] = st.selectbox("單位", options, index=options.index(fr.get("淨重單位") or "g"), key="form_recipe_淨重單位")
+            st.selectbox("單位", options, index=options.index(st.session_state["form_recipe_淨重單位"]), key="form_recipe_淨重單位")
     
-        # 色粉欄位區
         st.markdown("### 色粉設定")
         for i in range(1, st.session_state.num_powder_rows + 1):
-            color_id = fr.get(f"色粉編號{i}", "").strip()
-            color_wt = fr.get(f"色粉重量{i}", "").strip()
-    
             c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
             with c1:
                 st.write(f"色粉{i}")
             with c2:
-                fr[f"色粉編號{i}"] = st.text_input(f"色粉編號{i}", value=color_id, key=f"form_recipe_色粉編號{i}")
+                st.text_input(f"色粉編號{i}", key=f"form_recipe_色粉編號{i}")
             with c3:
-                fr[f"色粉重量{i}"] = st.text_input(f"色粉重量{i}", value=color_wt, key=f"form_recipe_色粉重量{i}")
+                st.text_input(f"色粉重量{i}", key=f"form_recipe_色粉重量{i}")
             with c4:
-                st.markdown(fr.get("淨重單位", ""), unsafe_allow_html=True)
+                st.markdown(st.session_state["form_recipe_淨重單位"], unsafe_allow_html=True)
     
-        # 合計顯示
         col1, col2 = st.columns(2)
         with col1:
             category_options = ["LA", "MA", "S流動劑", "CA", "T9", "料", "\u2002", "其他"]
-            default_raw = fr.get("合計類別", "")
+            default_raw = st.session_state["form_recipe_合計類別"]
             default = "\u2002" if default_raw == "無" else default_raw
             if default not in category_options:
                 default = category_options[0]
-            fr["合計類別"] = st.selectbox("合計類別", category_options, index=category_options.index(default), key="form_recipe_合計類別")
-            if fr["合計類別"] == "\u2002":
-                fr["合計類別"] = "無"
-    
+            st.selectbox("合計類別", category_options, index=category_options.index(default), key="form_recipe_合計類別")
         with col2:
             try:
-                net = float(fr.get("淨重") or "0")
-                total = sum(float(fr.get(f"色粉重量{i}") or "0") for i in range(1, 9))
+                net = float(st.session_state.get("form_recipe_淨重") or 0)
+                total = sum(float(st.session_state.get(f"form_recipe_色粉重量{i}") or 0) for i in range(1, 9))
                 st.write(f"合計差額: {net - total:.2f} g/kg")
-            except:
+            except Exception:
                 st.write("合計差額: 計算錯誤")
     
-        # 表單底部三個按鈕
         col1, col2, col3 = st.columns([3, 2, 2])
         with col1:
             submitted = st.form_submit_button("💾 儲存配方")
@@ -727,38 +707,34 @@ elif menu == "配方管理":
             add_powder = st.form_submit_button("➕ 新增色粉列")
     
     if clear_fields:
-        # 直接重新初始化 fr 字典
-        st.session_state.fr = {
-            "配方編號": "",
-            "顏色": "",
-            "客戶編號": "",
-            "客戶名稱": "",
-            "配方類別": "原始配方",
-            "狀態": "啟用",
-            "原始配方": "",
-            "色粉類別": "配方",
-            "計量單位": "包",
-            "Pantone色號": "",
-            "重要提醒": "",
-            "比例1": "",
-            "比例2": "",
-            "比例3": "",
-            "備註": "",
-            "淨重": "",
-            "淨重單位": "g",
-            "合計類別": "無",
-        }
+        keys_to_clear = [
+            "form_recipe_配方編號", "form_recipe_顏色",
+            "form_recipe_selected_customer",
+            "form_recipe_配方類別", "form_recipe_狀態", "form_recipe_原始配方",
+            "form_recipe_色粉類別", "form_recipe_計量單位", "form_recipe_Pantone色號",
+            "form_recipe_重要提醒", "ratio1", "ratio2", "ratio3",
+            "form_recipe_備註", "form_recipe_淨重", "form_recipe_淨重單位",
+            "form_recipe_合計類別"
+        ]
         for i in range(1, 9):
-            st.session_state.fr[f"色粉編號{i}"] = ""
-            st.session_state.fr[f"色粉重量{i}"] = ""
+            keys_to_clear.append(f"form_recipe_色粉編號{i}")
+            keys_to_clear.append(f"form_recipe_色粉重量{i}")
     
+        for k in keys_to_clear:
+            st.session_state[k] = ""
+    
+        # 重設色粉列數量
         st.session_state.num_powder_rows = 5
-        st.session_state["init_customer_select_done"] = None
+        st.experimental_rerun()
     
-        st.rerun()
-    
-    # 方便除錯，印出當前資料
-    st.write("目前表單內容：", fr)
+    # 頁面底部方便檢視目前 session_state 內容（debug用）
+    st.write("目前表單內容：")
+    for k in sorted(st.session_state.keys()):
+        if k.startswith("form_recipe_") or k in ["客戶編號", "客戶名稱"]:
+            st.write(f"{k}: {st.session_state[k]}")
+        
+        # 方便除錯，印出當前資料
+        st.write("目前表單內容：", fr)
                 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
