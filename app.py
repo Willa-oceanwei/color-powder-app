@@ -764,8 +764,7 @@ elif menu == "配方管理":
             # 重置初始化客戶選單標記
             st.session_state["init_customer_select_done"] = None
         
-            st.rerun()
-
+            st.experimental_rerun()
         
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
