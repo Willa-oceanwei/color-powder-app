@@ -630,75 +630,35 @@ elif menu == "配方管理":
             if current not in options:
                 current = options[0]
             fr["配方類別"] = st.selectbox("配方類別", options, index=options.index(current), key="form_recipe_配方類別")
+        
         with col5:
             options = ["啟用", "停用"]
             current = fr.get("狀態", options[0])
+            if current not in options:
+                current = options[0]
             fr["狀態"] = st.selectbox("狀態", options, index=options.index(current), key="form_recipe_狀態")
-        with col6:
-            fr["原始配方"] = st.text_input("原始配方", value=fr.get("原始配方", ""), key="form_recipe_原始配方")
-    
-        col7, col8, col9 = st.columns(3)
+        
         with col7:
             options = ["配方", "色母", "色粉", "添加劑", "其他"]
             current = fr.get("色粉類別", options[0])
+            if current not in options:
+                current = options[0]
             fr["色粉類別"] = st.selectbox("色粉類別", options, index=options.index(current), key="form_recipe_色粉類別")
+        
         with col8:
             options = ["包", "桶", "kg", "其他"]
             current = fr.get("計量單位", options[0])
+            if current not in options:
+                current = options[0]
             fr["計量單位"] = st.selectbox("計量單位", options, index=options.index(current), key="form_recipe_計量單位")
-        with col9:
-            fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號", ""), key="form_recipe_Pantone色號")
-    
-        fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒", ""), key="form_recipe_重要提醒")
-    
-        colr1, colon, colr2, colr3, unit = st.columns([2, 1, 2, 2, 1])
-        with colr1:
-            fr["比例1"] = st.text_input("", value=fr.get("比例1", ""), key="ratio1", label_visibility="collapsed")
-        with colon:
-            st.markdown(":", unsafe_allow_html=True)
-        with colr2:
-            fr["比例2"] = st.text_input("", value=fr.get("比例2", ""), key="ratio2", label_visibility="collapsed")
-        with colr3:
-            fr["比例3"] = st.text_input("", value=fr.get("比例3", ""), key="ratio3", label_visibility="collapsed")
-        with unit:
-            st.markdown("g/kg", unsafe_allow_html=True)
-    
-        fr["備註"] = st.text_area("備註", value=fr.get("備註", ""), key="form_recipe_備註")
-    
-        col1, col2 = st.columns(2)
-        with col1:
-            fr["淨重"] = st.text_input("色粉淨重", value=fr.get("淨重", ""), key="form_recipe_淨重")
-        with col2:
-            options = ["g", "kg"]
-            current = fr.get("淨重單位", options[0])
-            fr["淨重單位"] = st.selectbox("單位", options, index=options.index(current), key="form_recipe_淨重單位")
-    
-        st.markdown("### 色粉設定")
-        for i in range(1, st.session_state.num_powder_rows + 1):
-            c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
-            with c1:
-                st.write(f"色粉{i}")
-            with c2:
-                fr[f"色粉編號{i}"] = st.text_input(f"色粉編號{i}", value=fr.get(f"色粉編號{i}", ""), key=f"form_recipe_色粉編號{i}")
-            with c3:
-                fr[f"色粉重量{i}"] = st.text_input(f"色粉重量{i}", value=fr.get(f"色粉重量{i}", ""), key=f"form_recipe_色粉重量{i}")
-            with c4:
-                st.markdown(fr.get("淨重單位", ""), unsafe_allow_html=True)
-    
-        col1, col2 = st.columns(2)
+        
         with col1:
             category_options = ["LA", "MA", "S流動劑", "CA", "T9", "料", "\u2002", "其他"]
-            default_raw = fr.get("合計類別", "無")
-            default = "\u2002" if default_raw == "無" else default_raw
-            if default not in category_options:
-                default = category_options[0]
-    
-            fr["合計類別"] = st.selectbox(
-                "合計類別",
-                category_options,
-                index=category_options.index(default),
-                key="form_recipe_合計類別"
-            )
+            current_raw = fr.get("合計類別", "無")
+            current = "\u2002" if current_raw == "無" else current_raw
+            if current not in category_options:
+                current = category_options[0]
+            fr["合計類別"] = st.selectbox("合計類別", category_options, index=category_options.index(current), key="form_recipe_合計類別")
         with col2:
             try:
                 net = float(fr.get("淨重") or 0)
