@@ -701,7 +701,7 @@ elif menu == "配方管理":
         with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
         
-        if clear_fields:
+        if back_to_home:
             keep_keys = {
                 "num_powder_rows",
                 "page",
