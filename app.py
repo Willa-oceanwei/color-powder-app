@@ -697,15 +697,21 @@ elif menu == "配方管理":
             submitted = st.form_submit_button("💾 儲存配方")
         with col2:
             add_powder = st.form_submit_button("➕ 新增色粉列")
-    
-    # 表單外判斷按鈕事件
-    if add_powder:
-        st.session_state.num_powder_rows = st.session_state.get("num_powder_rows", 5) + 1
-        st.rerun()
-    
-    if submitted:
-        # 儲存邏輯示範
-        st.success("配方已儲存！")
+        
+        # 控制避免重複 rerun 的 flag
+        if "add_powder_clicked" not in st.session_state:
+            st.session_state.add_powder_clicked = False
+        
+        if add_powder and not st.session_state.add_powder_clicked:
+            st.session_state.num_powder_rows = st.session_state.get("num_powder_rows", 5) + 1
+            st.session_state.add_powder_clicked = True
+            st.experimental_rerun()
+        elif submitted:
+            # 儲存邏輯示範
+            st.success("配方已儲存！")
+        else:
+            # 其他情況重置 flag
+            st.session_state.add_powder_clicked = False
 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
