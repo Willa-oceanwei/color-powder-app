@@ -693,29 +693,41 @@ elif menu == "配方管理":
                 st.write("合計差額: 計算錯誤")
     
         # 按鈕區
-        col1, col2, col3 = st.columns([3, 2, 2])
-        with col1:
-            submitted = st.form_submit_button("💾 儲存配方")
-        with col2:
-            clear_fields = st.form_submit_button("🧹 清空欄位")
-        with col3:
-            add_powder = st.form_submit_button("➕ 新增色粉列")
-    
-    if clear_fields:
-        # 清空所有欄位，並重設預設值
-        st.session_state.form_recipe = {col: "" for col in columns}
-        st.session_state.form_recipe["配方類別"] = "原始配方"
-        st.session_state.form_recipe["狀態"] = "啟用"
-        st.session_state.form_recipe["色粉類別"] = "配方"
-        st.session_state.form_recipe["計量單位"] = "包"
-        st.session_state.form_recipe["淨重單位"] = "g"
-        st.session_state.form_recipe["合計類別"] = "無"
-        st.session_state.num_powder_rows = 5
-        st.rerun()
-    
-    if add_powder:
-        st.session_state.num_powder_rows = st.session_state.get("num_powder_rows", 5) + 1
-        st.experimental_rerun()
+        columns = [
+            "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方",
+            "色粉類別", "計量單位", "Pantone色號", "重要提醒", "比例1", "比例2", "比例3",
+            "備註", "淨重", "淨重單位", "合計類別"
+        ]
+        for i in range(1, 9):
+            columns.append(f"色粉編號{i}")
+            columns.append(f"色粉重量{i}")
+        
+        # 在表單內只有按鈕
+        with st.form("recipe_form"):
+            # ... 其他欄位 ...
+            col1, col2, col3 = st.columns([3, 2, 2])
+            with col1:
+                submitted = st.form_submit_button("💾 儲存配方")
+            with col2:
+                clear_fields = st.form_submit_button("🧹 清空欄位")
+            with col3:
+                add_powder = st.form_submit_button("➕ 新增色粉列")
+        
+        # 在表單外判斷按鈕事件，呼叫 rerun()
+        if clear_fields:
+            st.session_state.form_recipe = {col: "" for col in columns}
+            st.session_state.form_recipe["配方類別"] = "原始配方"
+            st.session_state.form_recipe["狀態"] = "啟用"
+            st.session_state.form_recipe["色粉類別"] = "配方"
+            st.session_state.form_recipe["計量單位"] = "包"
+            st.session_state.form_recipe["淨重單位"] = "g"
+            st.session_state.form_recipe["合計類別"] = "無"
+            st.session_state.num_powder_rows = 5
+            st.experimental_rerun()
+        
+        if add_powder:
+            st.session_state.num_powder_rows = st.session_state.get("num_powder_rows", 5) + 1
+            st.experimental_rerun()
     
     # 頁面底部除錯輸出
     st.write("目前表單內容：", fr)
