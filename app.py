@@ -716,7 +716,9 @@ elif menu == "配方管理":
         elif add_powder:
             st.session_state["num_powder_rows"] += 1
             st.rerun()
-
+            
+        st.write(list(st.session_state.keys()))
+    
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
         # ✅ 先檢查未建檔色粉
