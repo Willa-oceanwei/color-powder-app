@@ -729,9 +729,8 @@ elif menu == "配方管理":
             add_powder = st.form_submit_button("➕ 新增色粉列")
         
         if clear_fields:
-            keys_to_clear = [k for k in st.session_state.keys() if k.startswith("form_recipe_") or k.startswith("ratio")]
+            keys_to_clear = [k for k in st.session_state.keys() if (k.startswith("form_recipe_") or k.startswith("ratio")) and k in st.session_state]
         
-            # 預設值映射 (針對 selectbox 的 key)
             default_values = {
                 "form_recipe_配方類別": "原始配方",
                 "form_recipe_狀態": "啟用",
@@ -743,12 +742,9 @@ elif menu == "配方管理":
         
             for key in keys_to_clear:
                 if key in default_values:
-                    # 只在 key 存在於 session_state 時賦值，避免錯誤
-                    if key in st.session_state:
-                        st.session_state[key] = default_values[key]
+                    st.session_state[key] = default_values[key]
                 else:
-                    if key in st.session_state:
-                        st.session_state[key] = ""
+                    st.session_state[key] = ""
         
             # 清空 fr dict 內容（確保是 dict 才操作）
             if "fr" in st.session_state and isinstance(st.session_state.fr, dict):
@@ -756,7 +752,6 @@ elif menu == "配方管理":
                     st.session_state.fr[k] = ""
         
             st.experimental_rerun()
-
     
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
