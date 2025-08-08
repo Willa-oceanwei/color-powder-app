@@ -700,8 +700,7 @@ elif menu == "配方管理":
         with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
         
-        # 按鈕事件
-        if clear_fields:  # 這裡改成 clear_fields
+        if clear_fields:
             keep_keys = {
                 "num_powder_rows",
                 "page",
@@ -712,11 +711,9 @@ elif menu == "配方管理":
                 "df_recipe",
                 "spreadsheet"
             }
-        
             for key in list(st.session_state.keys()):
                 if key not in keep_keys:
                     st.session_state.pop(key, None)
-        
             st.rerun()
         
         if add_powder:
