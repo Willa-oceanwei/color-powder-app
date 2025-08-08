@@ -696,29 +696,26 @@ elif menu == "配方管理":
         with col1:
             submitted = st.form_submit_button("💾 儲存配方")
         with col2:
-            back_to_home = st.form_submit_button("↩️ 返回首頁")
+            clear_fields = st.form_submit_button("↩️ 清空欄位")
         with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
         
         # 按鈕事件
-        if back_to_home:
-            # 只清空新增配方的相關欄位
+        if clear_fields:
+            # 清空新增配方相關欄位，但不改色粉列數
             for key in list(st.session_state.keys()):
                 if (
-                    key.startswith("form_recipe_")  # 配方欄位
-                    or key.startswith("ratio")      # 比例欄位
-                    or key.startswith("powder_")    # 色粉資料欄位
-                    or key in ["selected_customer", "備註", "淨重", "單位"]  # 其他欄位
+                    key.startswith("form_recipe_")
+                    or key.startswith("ratio")
+                    or key.startswith("powder_")
+                    or key in ["selected_customer", "備註", "淨重", "單位"]
                 ):
                     st.session_state.pop(key, None)
-        
-            # 保留原本的色粉列數，不重設
             st.rerun()
         
-        if add_powder:
+        elif add_powder:
             st.session_state["num_powder_rows"] += 1
             st.rerun()
-
 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
