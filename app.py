@@ -627,6 +627,8 @@ elif menu == "配方管理":
         with col4:
             options = ["原始配方", "附加配方"]
             current = fr.get("配方類別", options[0])
+            if current not in options:
+                current = options[0]
             fr["配方類別"] = st.selectbox("配方類別", options, index=options.index(current), key="form_recipe_配方類別")
         with col5:
             options = ["啟用", "停用"]
