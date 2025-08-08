@@ -565,6 +565,7 @@ elif menu == "配方管理":
                 st.session_state.form_recipe[col] = ""
     
     fr = st.session_state.form_recipe
+    st.text_input("配方編號", value=fr.get("配方編號", ""), key="form_recipe_配方編號")
     
     # ✅ 初始化顯示色粉列數（只寫一次）
     if "num_powder_rows" not in st.session_state:
@@ -585,6 +586,7 @@ elif menu == "配方管理":
         st.session_state.form_recipe["合計類別"] = "無"
     
     fr = st.session_state.form_recipe
+    st.text_input("配方編號", value=fr.get("配方編號", ""), key="form_recipe_配方編號")
 
     # 表單開始
     with st.form("recipe_form"):
@@ -692,38 +694,31 @@ elif menu == "配方管理":
     
     # 按鈕判斷，必須在 form 外面判斷，這裡要用 if ... elif ... 避免同時判斷多個 True
     if clear_fields:
-        keys_to_clear = [
-            "form_recipe_配方編號", "form_recipe_顏色",
-            "form_recipe_selected_customer",
-            "form_recipe_配方類別", "form_recipe_狀態", "form_recipe_原始配方",
-            "form_recipe_色粉類別", "form_recipe_計量單位", "form_recipe_Pantone色號",
-            "form_recipe_重要提醒", "ratio1", "ratio2", "ratio3",
-            "form_recipe_備註", "form_recipe_淨重", "form_recipe_淨重單位",
-            "form_recipe_合計類別"
+        columns = [
+            "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方",
+            "色粉類別", "計量單位", "Pantone色號", "重要提醒", "比例1", "比例2", "比例3",
+            "備註", "淨重", "淨重單位", "合計類別"
         ]
         for i in range(1, 9):
-            keys_to_clear.append(f"form_recipe_色粉編號{i}")
-            keys_to_clear.append(f"form_recipe_色粉重量{i}")
+            columns.append(f"色粉編號{i}")
+            columns.append(f"色粉重量{i}")
     
-        for k in keys_to_clear:
-            st.session_state[k] = ""
-    
-        st.session_state["num_powder_rows"] = 5
+        st.session_state.form_recipe = {col: "" for col in columns}
+        # 設定預設值
+        st.session_state.form_recipe["配方類別"] = "原始配方"
+        st.session_state.form_recipe["狀態"] = "啟用"
+        st.session_state.form_recipe["色粉類別"] = "配方"
+        st.session_state.form_recipe["計量單位"] = "包"
+        st.session_state.form_recipe["淨重單位"] = "g"
+        st.session_state.form_recipe["合計類別"] = "無"
+        
         st.experimental_rerun()
-    
-    elif submitted:
-        st.success("已儲存配方！")
-        # 這裡放你儲存資料的程式碼
-    
-    elif add_powder:
-        st.session_state["num_powder_rows"] = st.session_state.get("num_powder_rows", 5) + 1
-        st.experimental_rerun()
-    
-    # debug 輸出
-    st.write("目前表單內容：")
-    keys = [k for k in st.session_state.keys() if k.startswith("form_recipe_")] + ["客戶編號", "客戶名稱"]
-    for k in sorted(keys):
-        st.write(f"{k}: {st.session_state.get(k)}")
+        
+        # debug 輸出
+        st.write("目前表單內容：")
+        keys = [k for k in st.session_state.keys() if k.startswith("form_recipe_")] + ["客戶編號", "客戶名稱"]
+        for k in sorted(keys):
+            st.write(f"{k}: {st.session_state.get(k)}")
                 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
