@@ -564,9 +564,6 @@ elif menu == "配方管理":
             if col not in st.session_state.form_recipe:
                 st.session_state.form_recipe[col] = ""
     
-    fr = st.session_state.form_recipe
-    st.text_input("配方編號", value=fr.get("配方編號", ""), key="form_recipe_配方編號")
-    
     # ✅ 初始化顯示色粉列數（只寫一次）
     if "num_powder_rows" not in st.session_state:
         st.session_state.num_powder_rows = 5
