@@ -776,9 +776,9 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = False
             st.rerun()
 
-    if clear_fields:
-        st.session_state.form_recipe = {col: "" for col in columns}
-        st.session_state.edit_recipe_index = None
+    # 按鈕事件判斷（form 外）
+    if add_powder:
+        st.session_state.num_powder_rows = st.session_state.get("num_powder_rows", 5) + 1
         st.rerun()
     
     # --------- 客戶選單 ---------
