@@ -727,35 +727,35 @@ elif menu == "配方管理":
             add_powder = st.form_submit_button("➕ 新增色粉列")
     
     if clear_fields:
-    # 直接重新初始化 fr 字典
-    st.session_state.fr = {
-        "配方編號": "",
-        "顏色": "",
-        "客戶編號": "",
-        "客戶名稱": "",
-        "配方類別": "原始配方",
-        "狀態": "啟用",
-        "原始配方": "",
-        "色粉類別": "配方",
-        "計量單位": "包",
-        "Pantone色號": "",
-        "重要提醒": "",
-        "比例1": "",
-        "比例2": "",
-        "比例3": "",
-        "備註": "",
-        "淨重": "",
-        "淨重單位": "g",
-        "合計類別": "無",
-    }
-    for i in range(1, 9):
-        st.session_state.fr[f"色粉編號{i}"] = ""
-        st.session_state.fr[f"色粉重量{i}"] = ""
-
-    st.session_state.num_powder_rows = 5
-    st.session_state["init_customer_select_done"] = None
-
-    st.rerun()
+        # 直接重新初始化 fr 字典
+        st.session_state.fr = {
+            "配方編號": "",
+            "顏色": "",
+            "客戶編號": "",
+            "客戶名稱": "",
+            "配方類別": "原始配方",
+            "狀態": "啟用",
+            "原始配方": "",
+            "色粉類別": "配方",
+            "計量單位": "包",
+            "Pantone色號": "",
+            "重要提醒": "",
+            "比例1": "",
+            "比例2": "",
+            "比例3": "",
+            "備註": "",
+            "淨重": "",
+            "淨重單位": "g",
+            "合計類別": "無",
+        }
+        for i in range(1, 9):
+            st.session_state.fr[f"色粉編號{i}"] = ""
+            st.session_state.fr[f"色粉重量{i}"] = ""
+    
+        st.session_state.num_powder_rows = 5
+        st.session_state["init_customer_select_done"] = None
+    
+        st.rerun()
     
     # 方便除錯，印出當前資料
     st.write("目前表單內容：", fr)
