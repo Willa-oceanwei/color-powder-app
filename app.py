@@ -729,8 +729,8 @@ elif menu == "配方管理":
             add_powder = st.form_submit_button("➕ 新增色粉列")
         
         if clear_fields:
-        # 清空整個 session_state，注意這會清掉所有狀態
-        st.session_state.clear()
+            # 清空整個 session_state，注意這會清掉所有狀態
+            st.session_state.clear()
     
         # 重新初始化 fr 和必要欄位預設值
         st.session_state.fr = {
