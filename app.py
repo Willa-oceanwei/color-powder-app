@@ -573,30 +573,20 @@ elif menu == "配方管理":
     st.subheader("➕ 新增 / 修改配方")   
 
     # ===== 初始化欄位 =====
+    # 初始化 fr 字典
     if "fr" not in st.session_state or not st.session_state.fr:
-        st.session_state.fr = {
-            "配方編號": "",
-            "顏色": "",
-            "客戶編號": "",
-            "客戶名稱": "",
-            "配方類別": "原始配方",  # 依需求給預設值
-            "狀態": "啟用",
-            "原始配方": "",
-            "色粉類別": "配方",
-            "計量單位": "包",
-            "Pantone色號": "",
-            "重要提醒": "",
-            "比例1": "",
-            "比例2": "",
-            "比例3": "",
-            "備註": "",
-            "淨重": "",
-            "淨重單位": "g",
-            "合計類別": "無",
-        }
+        st.session_state.fr = {col: "" for col in columns}
+        # 預設值
+        st.session_state.fr["配方類別"] = "原始配方"
+        st.session_state.fr["狀態"] = "啟用"
+        st.session_state.fr["計量單位"] = "包"
+        st.session_state.fr["淨重單位"] = "g"
+        st.session_state.fr["合計類別"] = "無"
+        # 初始化色粉欄位
         for i in range(1, 9):
             st.session_state.fr[f"色粉編號{i}"] = ""
             st.session_state.fr[f"色粉重量{i}"] = ""
+
     
     fr = st.session_state.fr
     
@@ -735,35 +725,24 @@ elif menu == "配方管理":
                 for k in st.session_state.fr.keys():
                     st.session_state.fr[k] = ""
         
-            # 重置 fr 字典（儲存所有欄位值）
-            st.session_state.fr = {
-                "配方編號": "",
-                "顏色": "",
-                "客戶編號": "",
-                "客戶名稱": "",
-                "配方類別": "原始配方",
-                "狀態": "啟用",
-                "原始配方": "",
-                "色粉類別": "配方",
-                "計量單位": "包",
-                "Pantone色號": "",
-                "重要提醒": "",
-                "比例1": "",
-                "比例2": "",
-                "比例3": "",
-                "備註": "",
-                "淨重": "",
-                "淨重單位": "g",
-                "合計類別": "無",
-            }
-            for i in range(1, 9):
-                st.session_state.fr[f"色粉編號{i}"] = ""
-                st.session_state.fr[f"色粉重量{i}"] = ""
+            if clear_fields:
+                # 重新初始化 fr 狀態，清空所有欄位
+                st.session_state.fr = {col: "" for col in columns}
+                st.session_state.fr["配方類別"] = "原始配方"
+                st.session_state.fr["狀態"] = "啟用"
+                st.session_state.fr["計量單位"] = "包"
+                st.session_state.fr["淨重單位"] = "g"
+                st.session_state.fr["合計類別"] = "無"
+                for i in range(1, 9):
+                    st.session_state.fr[f"色粉編號{i}"] = ""
+                    st.session_state.fr[f"色粉重量{i}"] = ""
+                st.session_state.num_powder_rows = 5
+                st.session_state["init_customer_select_done"] = None
         
-            st.session_state.num_powder_rows = 5
-            st.session_state["init_customer_select_done"] = None
+                st.experimental_rerun()
         
-            st.experimental_rerun()
+        # 你也可以在頁面底部印出當前資料方便除錯
+        st.write("目前表單內容：", fr)
                 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
