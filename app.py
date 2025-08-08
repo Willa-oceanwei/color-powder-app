@@ -724,24 +724,24 @@ elif menu == "配方管理":
         with col1:
             submitted = st.form_submit_button("💾 儲存配方")
         with col2:
-            back_to_home = st.form_submit_button("↩️ 返回首頁")
+            clear_fields = st.form_submit_button("🧹 清空欄位")
         with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
-    
-        if back_to_home:
-            # 清空綁定欄位的 session_state key
+        
+        if clear_fields:
             keys_to_clear = [k for k in st.session_state.keys() if k.startswith("form_recipe_") or k.startswith("ratio")]
             for key in keys_to_clear:
                 st.session_state[key] = ""
-    
-            # 清空fr裡面的欄位（下一次rerun時會使用這個旗標做清空）
-            st.session_state["clear_fr_fields"] = True
-    
-            # 不改色粉列數，維持原本數量
-    
+        
+            if "fr" in st.session_state:
+                for k in st.session_state.fr.keys():
+                    st.session_state.fr[k] = ""
+        
             st.experimental_rerun()
-    
+        
         if add_powder:
+            if "num_powder_rows" not in st.session_state:
+                st.session_state.num_powder_rows = 5
             st.session_state.num_powder_rows += 1
             st.experimental_rerun()
     
