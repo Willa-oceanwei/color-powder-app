@@ -869,49 +869,48 @@ elif menu == "配方管理":
     if recipe_kw:
         mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
     if customer_kw:
-       mask &= (
+        mask &= (
             df["客戶名稱"].astype(str).str.contains(customer_kw, case=False, na=False) |
             df["客戶編號"].astype(str).str.contains(customer_kw, case=False, na=False)
         )
     if pantone_kw:
         pantone_kw_clean = pantone_kw.replace(" ", "").upper()
         mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
-
+    
     df_filtered = df[mask]
-
-    st.write("🎯 篩選後筆數：", df_filtered.shape[0])
-
+    
+    # 篩選後筆數與每頁顯示筆數放一排
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        st.markdown(f"🎯 **篩選後筆數：** {df_filtered.shape[0]}")
+    with col2:
+        limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
+    
     # --- 分頁設定 ---
-    limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
     total_rows = df_filtered.shape[0]
     total_pages = max((total_rows - 1) // limit + 1, 1)
-
+    
     # 初始化分頁 page
     if "page" not in st.session_state:
         st.session_state.page = 1
-
+    
     # 搜尋條件改變時，分頁回到1
     search_id = (recipe_kw, customer_kw, pantone_kw)
     if "last_search_id" not in st.session_state or st.session_state.last_search_id != search_id:
         st.session_state.page = 1
         st.session_state.last_search_id = search_id
-        
+    
     if "page" not in st.session_state or not isinstance(st.session_state.page, int):
         st.session_state.page = 1
     
     start_idx = (st.session_state.page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
-
-    # 計算目前頁面資料起迄索引
-    start_idx = (st.session_state.page - 1) * limit
-    end_idx = start_idx + limit
-    page_data = df_filtered.iloc[start_idx:end_idx]
-
-    # 4. 顯示資料表格區 (獨立塊)
+    
+    # 顯示資料表格區
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [c for c in show_cols if c in df_filtered.columns]
-
+    
     st.markdown("---")  # 分隔線
 
     # ✅ 補這段在這裡
