@@ -730,19 +730,29 @@ elif menu == "配方管理":
         
         if clear_fields:
             keys_to_clear = [k for k in st.session_state.keys() if k.startswith("form_recipe_") or k.startswith("ratio")]
-            for key in keys_to_clear:
-                st.session_state[key] = ""
         
+            for key in keys_to_clear:
+                # selectbox 相關欄位要用預設選項，避免賦空字串錯誤
+                if key == "form_recipe_配方類別":
+                    st.session_state[key] = "原始配方"
+                elif key == "form_recipe_狀態":
+                    st.session_state[key] = "啟用"
+                elif key == "form_recipe_色粉類別":
+                    st.session_state[key] = "配方"
+                elif key == "form_recipe_計量單位":
+                    st.session_state[key] = "包"
+                elif key == "form_recipe_淨重單位":
+                    st.session_state[key] = "g"
+                elif key == "form_recipe_合計類別":
+                    st.session_state[key] = "無"
+                else:
+                    st.session_state[key] = ""
+        
+            # 清空 fr dict 內容
             if "fr" in st.session_state:
                 for k in st.session_state.fr.keys():
                     st.session_state.fr[k] = ""
         
-            st.experimental_rerun()
-        
-        if add_powder:
-            if "num_powder_rows" not in st.session_state:
-                st.session_state.num_powder_rows = 5
-            st.session_state.num_powder_rows += 1
             st.experimental_rerun()
     
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
