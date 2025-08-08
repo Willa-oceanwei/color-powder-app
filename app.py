@@ -752,7 +752,7 @@ elif menu == "配方管理":
     
     if add_powder:
         st.session_state.num_powder_rows += 1
-        st.experimental_rerun()
+        st.rerun()
     
     # 方便除錯，印出當前資料
     st.write("目前表單內容：", fr)
