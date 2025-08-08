@@ -572,17 +572,18 @@ elif menu == "配方管理":
     
     st.subheader("➕ 新增 / 修改配方")   
 
-    if "fr" not in st.session_state:
+    # ===== 初始化欄位 =====
+    if "fr" not in st.session_state or not st.session_state.fr:
         st.session_state.fr = {
             "配方編號": "",
             "顏色": "",
             "客戶編號": "",
             "客戶名稱": "",
-            "配方類別": "",
-            "狀態": "",
+            "配方類別": "原始配方",  # 依需求給預設值
+            "狀態": "啟用",
             "原始配方": "",
-            "色粉類別": "",
-            "計量單位": "",
+            "色粉類別": "配方",
+            "計量單位": "包",
             "Pantone色號": "",
             "重要提醒": "",
             "比例1": "",
@@ -590,17 +591,17 @@ elif menu == "配方管理":
             "比例3": "",
             "備註": "",
             "淨重": "",
-            "淨重單位": "",
+            "淨重單位": "g",
             "合計類別": "無",
         }
         for i in range(1, 9):
             st.session_state.fr[f"色粉編號{i}"] = ""
             st.session_state.fr[f"色粉重量{i}"] = ""
-
+    
+    fr = st.session_state.fr
+    
     if "num_powder_rows" not in st.session_state:
         st.session_state.num_powder_rows = 5
-   
-    fr = st.session_state.fr  # 你要確保最前面已經初始化過 st.session_state.fr 是 dict
 
     # ===== 表單開始 =====
     with st.form("recipe_form"):
@@ -762,7 +763,7 @@ elif menu == "配方管理":
             st.session_state.num_powder_rows = 5
             st.session_state["init_customer_select_done"] = None
         
-            st.rerun()
+            st.experimental_rerun()
                 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
