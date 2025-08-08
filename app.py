@@ -897,7 +897,10 @@ elif menu == "配方管理":
     if "last_search_id" not in st.session_state or st.session_state.last_search_id != search_id:
         st.session_state.page = 1
         st.session_state.last_search_id = search_id
-
+        
+    if "page" not in st.session_state or not isinstance(st.session_state.page, int):
+        st.session_state.page = 1
+    
     start_idx = (st.session_state.page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
