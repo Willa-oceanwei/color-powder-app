@@ -596,6 +596,15 @@ elif menu == "配方管理":
         "淨重單位": "g",
         "合計類別": "無",
     }
+    columns = [
+    "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方",
+    "色粉類別", "計量單位", "Pantone色號", "重要提醒", "比例1", "比例2", "比例3",
+    "備註", "淨重", "淨重單位", "合計類別"
+]
+    for i in range(1, 9):
+        columns.append(f"色粉編號{i}")
+        columns.append(f"色粉重量{i}")
+
     for i in range(1, 9):
         st.session_state.fr[f"色粉編號{i}"] = ""
         st.session_state.fr[f"色粉重量{i}"] = ""
