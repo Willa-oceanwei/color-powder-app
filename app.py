@@ -762,7 +762,7 @@ elif menu == "配方管理":
             st.session_state.num_powder_rows = 5
             st.session_state["init_customer_select_done"] = None
         
-            st.experimental_rerun()
+            st.rerun()
                 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
