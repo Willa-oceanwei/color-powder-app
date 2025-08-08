@@ -702,14 +702,22 @@ elif menu == "配方管理":
         
         # 按鈕事件
         if back_to_home:
-            st.session_state.clear()           # 全部清掉
-            st.session_state["page"] = "首頁"   # 回首頁
-            st.session_state["num_powder_rows"] = 1  # 色粉列重設
-            st.rerun()  
-           
-            if add_powder:
-                st.session_state["num_powder_rows"] += 1
-                st.rerun()
+            # 只清空新增配方的相關欄位
+            for key in list(st.session_state.keys()):
+                if (
+                    key.startswith("form_recipe_")  # 配方欄位
+                    or key.startswith("ratio")      # 比例欄位
+                    or key.startswith("powder_")    # 色粉資料欄位
+                    or key in ["selected_customer", "備註", "淨重", "單位"]  # 其他欄位
+                ):
+                    st.session_state.pop(key, None)
+        
+            # 保留原本的色粉列數，不重設
+            st.rerun()
+        
+        if add_powder:
+            st.session_state["num_powder_rows"] += 1
+            st.rerun()
 
 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
