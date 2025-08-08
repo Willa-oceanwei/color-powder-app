@@ -575,38 +575,16 @@ elif menu == "配方管理":
     import streamlit as st
 
     # 初始化清空用，避免第一次沒有key
-    def init_keys():
-        keys = [
-            "form_recipe_配方編號", "form_recipe_顏色",
-            "form_recipe_selected_customer",
-            "form_recipe_配方類別", "form_recipe_狀態", "form_recipe_原始配方",
-            "form_recipe_色粉類別", "form_recipe_計量單位", "form_recipe_Pantone色號",
-            "form_recipe_重要提醒", "ratio1", "ratio2", "ratio3",
-            "form_recipe_備註", "form_recipe_淨重", "form_recipe_淨重單位",
-            "form_recipe_合計類別"
-        ]
-        for i in range(1, 9):
-            keys.append(f"form_recipe_色粉編號{i}")
-            keys.append(f"form_recipe_色粉重量{i}")
+    if "form_recipe" not in st.session_state or not st.session_state.form_recipe:
+        st.session_state.form_recipe = {col: "" for col in columns}
+        st.session_state.form_recipe["配方類別"] = "原始配方"
+        st.session_state.form_recipe["狀態"] = "啟用"
+        st.session_state.form_recipe["色粉類別"] = "配方"
+        st.session_state.form_recipe["計量單位"] = "包"
+        st.session_state.form_recipe["淨重單位"] = "g"
+        st.session_state.form_recipe["合計類別"] = "無"
     
-        for k in keys:
-            if k not in st.session_state:
-                if k in ["form_recipe_配方類別"]:
-                    st.session_state[k] = "原始配方"
-                elif k in ["form_recipe_狀態"]:
-                    st.session_state[k] = "啟用"
-                elif k in ["form_recipe_色粉類別"]:
-                    st.session_state[k] = "配方"
-                elif k in ["form_recipe_計量單位"]:
-                    st.session_state[k] = "包"
-                elif k in ["form_recipe_淨重單位"]:
-                    st.session_state[k] = "g"
-                elif k in ["form_recipe_合計類別"]:
-                    st.session_state[k] = "無"
-                else:
-                    st.session_state[k] = ""
-    
-    init_keys()
+    fr = st.session_state.form_recipe
 
     # 表單開始
     with st.form("recipe_form"):
