@@ -702,14 +702,11 @@ elif menu == "配方管理":
         
         # 按鈕事件
         if back_to_home:
-            for key in list(st.session_state.keys()):
-                if key.startswith("form_recipe_") or key.startswith("ratio") or key.startswith("powder_"):
-                    st.session_state.pop(key, None)
-            st.session_state["num_powder_rows"] = 1
-            st.session_state["page"] = "首頁"  # 如果你有用這種方式切頁
-            st.rerun()
-        
-            
+            st.session_state.clear()           # 全部清掉
+            st.session_state["page"] = "首頁"   # 回首頁
+            st.session_state["num_powder_rows"] = 1  # 色粉列重設
+            st.rerun()  
+           
             if add_powder:
                 st.session_state["num_powder_rows"] += 1
                 st.rerun()
