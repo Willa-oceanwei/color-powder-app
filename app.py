@@ -689,7 +689,14 @@ elif menu == "配方管理":
             default = "\u2002" if default_raw == "無" else default_raw
             if default not in category_options:
                 default = category_options[0]
-            st.selectbox("合計類別", category_options, index=category_options.index(default), key="form_recipe_合計類別")
+            
+            fr_合計類別 = st.selectbox(
+                "合計類別",
+                category_options,
+                # 用 value 參數設定預設值
+                value=default,
+                key="form_recipe_合計類別"
+            )
         with col2:
             try:
                 net = float(st.session_state.get("form_recipe_淨重") or 0)
