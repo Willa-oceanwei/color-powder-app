@@ -572,27 +572,27 @@ elif menu == "配方管理":
     
     st.subheader("➕ 新增 / 修改配方")   
     
+    fr = st.session_state.fr  # 你要確保最前面已經初始化過 st.session_state.fr 是 dict
+
     # ===== 表單開始 =====
     with st.form("recipe_form"):
         # 基本欄位
         col1, col2, col3 = st.columns(3)
         with col1:
-            fr["配方編號"] = st.text_input("配方編號", value=fr["配方編號"], key="form_recipe_配方編號")
+            fr["配方編號"] = st.text_input("配方編號", value=fr.get("配方編號", ""), key="form_recipe_配方編號")
         with col2:
-            fr["顏色"] = st.text_input("顏色", value=fr["顏色"], key="form_recipe_顏色")
+            fr["顏色"] = st.text_input("顏色", value=fr.get("顏色", ""), key="form_recipe_顏色")
         with col3:
-            # 只在第一次載入時清空，避免每次rerun都清空
+            # 只在第一次載入時清空，避免每次 rerun 都清空
             if st.session_state.get("init_customer_select_done") is None:
                 fr["客戶編號"] = ""
                 fr["客戶名稱"] = ""
                 st.session_state["init_customer_select_done"] = True
-            
+    
             options = [""] + customer_options
-            
             index = 0  # 強制預設空白
-            
             selected = st.selectbox("客戶編號", options, index=index, key="form_recipe_selected_customer")
-            
+    
             客戶編號, 客戶簡稱 = selected.split(" - ", 1) if " - " in selected else ("", "")
             fr["客戶編號"] = 客戶編號
             fr["客戶名稱"] = 客戶簡稱
@@ -601,45 +601,45 @@ elif menu == "配方管理":
         col4, col5, col6 = st.columns(3)
         with col4:
             options = ["原始配方", "附加配方"]
-            fr["配方類別"] = st.selectbox("配方類別", options, index=options.index(fr["配方類別"] or options[0]), key="form_recipe_配方類別")
+            fr["配方類別"] = st.selectbox("配方類別", options, index=options.index(fr.get("配方類別") or options[0]), key="form_recipe_配方類別")
         with col5:
             options = ["啟用", "停用"]
-            fr["狀態"] = st.selectbox("狀態", options, index=options.index(fr["狀態"] or options[0]), key="form_recipe_狀態")
+            fr["狀態"] = st.selectbox("狀態", options, index=options.index(fr.get("狀態") or options[0]), key="form_recipe_狀態")
         with col6:
-            fr["原始配方"] = st.text_input("原始配方", fr["原始配方"], key="form_recipe_原始配方")
+            fr["原始配方"] = st.text_input("原始配方", fr.get("原始配方", ""), key="form_recipe_原始配方")
     
         col7, col8, col9 = st.columns(3)
         with col7:
             options = ["配方", "色母", "色粉", "添加劑", "其他"]
-            fr["色粉類別"] = st.selectbox("色粉類別", options, index=options.index(fr["色粉類別"] or options[0]), key="form_recipe_色粉類別")
+            fr["色粉類別"] = st.selectbox("色粉類別", options, index=options.index(fr.get("色粉類別") or options[0]), key="form_recipe_色粉類別")
         with col8:
             options = ["包", "桶", "kg", "其他"]
-            fr["計量單位"] = st.selectbox("計量單位", options, index=options.index(fr["計量單位"] or options[0]), key="form_recipe_計量單位")
+            fr["計量單位"] = st.selectbox("計量單位", options, index=options.index(fr.get("計量單位") or options[0]), key="form_recipe_計量單位")
         with col9:
-            fr["Pantone色號"] = st.text_input("Pantone色號", fr["Pantone色號"], key="form_recipe_Pantone色號")
+            fr["Pantone色號"] = st.text_input("Pantone色號", fr.get("Pantone色號", ""), key="form_recipe_Pantone色號")
     
-        fr["重要提醒"] = st.text_input("重要提醒", value=fr["重要提醒"], key="form_recipe_重要提醒")
+        fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒", ""), key="form_recipe_重要提醒")
     
         colr1, colon, colr2, colr3, unit = st.columns([2, 1, 2, 2, 1])
         with colr1:
-            fr["比例1"] = st.text_input("", fr["比例1"], key="ratio1", label_visibility="collapsed")
+            fr["比例1"] = st.text_input("", fr.get("比例1", ""), key="ratio1", label_visibility="collapsed")
         with colon:
             st.markdown(":", unsafe_allow_html=True)
         with colr2:
-            fr["比例2"] = st.text_input("", fr["比例2"], key="ratio2", label_visibility="collapsed")
+            fr["比例2"] = st.text_input("", fr.get("比例2", ""), key="ratio2", label_visibility="collapsed")
         with colr3:
-            fr["比例3"] = st.text_input("", fr["比例3"], key="ratio3", label_visibility="collapsed")
+            fr["比例3"] = st.text_input("", fr.get("比例3", ""), key="ratio3", label_visibility="collapsed")
         with unit:
             st.markdown("g/kg", unsafe_allow_html=True)
     
-        fr["備註"] = st.text_area("備註", value=fr["備註"], key="form_recipe_備註")
+        fr["備註"] = st.text_area("備註", value=fr.get("備註", ""), key="form_recipe_備註")
     
         col1, col2 = st.columns(2)
         with col1:
-            fr["淨重"] = st.text_input("色粉淨重", fr["淨重"], key="form_recipe_淨重")
+            fr["淨重"] = st.text_input("色粉淨重", fr.get("淨重", ""), key="form_recipe_淨重")
         with col2:
             options = ["g", "kg"]
-            fr["淨重單位"] = st.selectbox("單位", options, index=options.index(fr["淨重單位"] or "g"), key="form_recipe_淨重單位")
+            fr["淨重單位"] = st.selectbox("單位", options, index=options.index(fr.get("淨重單位") or "g"), key="form_recipe_淨重單位")
     
         # ✅ 色粉欄位區
         st.markdown("### 色粉設定")
@@ -665,28 +665,28 @@ elif menu == "配方管理":
         col1, col2 = st.columns(2)
         with col1:
             category_options = ["LA", "MA", "S流動劑", "CA", "T9", "料", "\u2002", "其他"]
-            
+    
             # 將原本的 "無" 對應到 "\u2002"
             default_raw = fr.get("合計類別", "")
             default = "\u2002" if default_raw == "無" else default_raw
             if default not in category_options:
                 default = category_options[0]
-            
+    
             fr["合計類別"] = st.selectbox(
                 "合計類別",
                 category_options,
                 index=category_options.index(default),
                 key="form_recipe_合計類別"
             )
-        
+    
             # 若選的是 "\u2002"，儲存時還是當作 "無"
             if fr["合計類別"] == "\u2002":
                 fr["合計類別"] = "無"
-
+    
         with col2:
             try:
-                net = float(fr["淨重"] or "0")
-                total = sum(float(fr[f"色粉重量{i}"] or "0") for i in range(1, 9))
+                net = float(fr.get("淨重") or "0")
+                total = sum(float(fr.get(f"色粉重量{i}") or "0") for i in range(1, 9))
                 st.write(f"合計差額: {net - total:.2f} g/kg")
             except:
                 st.write("合計差額: 計算錯誤")
@@ -696,18 +696,25 @@ elif menu == "配方管理":
         with col1:
             submitted = st.form_submit_button("💾 儲存配方")
         with col2:
-            clear_fields = st.form_submit_button("↩️ 清空欄位")  # 改成清空欄位
+            back_to_home = st.form_submit_button("↩️ 返回首頁")
         with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
-        
-        if clear_fields:
-            for key in fr.keys():
-                fr[key] = ""
-        
-            for key in list(st.session_state.keys()):
-                if key.startswith("form_recipe_") or key.startswith("ratio"):
-                    st.session_state.pop(key, None)
-        
+    
+        if back_to_home:
+            # 清空綁定欄位的 session_state key
+            keys_to_clear = [k for k in st.session_state.keys() if k.startswith("form_recipe_") or k.startswith("ratio")]
+            for key in keys_to_clear:
+                st.session_state[key] = ""
+    
+            # 清空fr裡面的欄位（下一次rerun時會使用這個旗標做清空）
+            st.session_state["clear_fr_fields"] = True
+    
+            # 不改色粉列數，維持原本數量
+    
+            st.experimental_rerun()
+    
+        if add_powder:
+            st.session_state.num_powder_rows += 1
             st.experimental_rerun()
     
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
