@@ -701,7 +701,7 @@ elif menu == "配方管理":
     # 表單外判斷按鈕事件
     if add_powder:
         st.session_state.num_powder_rows = st.session_state.get("num_powder_rows", 5) + 1
-        st.experimental_rerun()
+        st.rerun()
     
     if submitted:
         # 儲存邏輯示範
