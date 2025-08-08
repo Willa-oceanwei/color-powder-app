@@ -693,10 +693,11 @@ elif menu == "配方管理":
     
         # 👉 將兩個提交按鈕與新增列按鈕按鈕並排放在表單內最後
         col1, col2, col3 = st.columns([3, 2, 2])
+        col1, col2, col3 = st.columns([3, 2, 2])
         with col1:
             submitted = st.form_submit_button("💾 儲存配方")
         with col2:
-            clear_fields = st.form_submit_button("↩️ 清空欄位")
+            back_to_home = st.form_submit_button("↩️ 返回首頁")  # 這裡定義 back_to_home
         with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
         
