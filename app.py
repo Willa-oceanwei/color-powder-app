@@ -693,32 +693,20 @@ elif menu == "配方管理":
     
         # 👉 將兩個提交按鈕與新增列按鈕按鈕並排放在表單內最後
         col1, col2, col3 = st.columns([3, 2, 2])
-        col1, col2, col3 = st.columns([3, 2, 2])
         with col1:
             submitted = st.form_submit_button("💾 儲存配方")
         with col2:
-            back_to_home = st.form_submit_button("↩️ 返回首頁")  # 這裡定義 back_to_home
+            clear_fields = st.form_submit_button("↩️ 清空欄位")  # 改成清空欄位
         with col3:
             add_powder = st.form_submit_button("➕ 新增色粉列")
         
-        if back_to_home:
-            keep_keys = {
-                "num_powder_rows",
-                "page",
-                "menu",
-                "order_page",
-                "df",
-                "df_order",
-                "df_recipe",
-                "spreadsheet"
-            }
+        if clear_fields:
+            for key in fr.keys():
+                fr[key] = ""   
             for key in list(st.session_state.keys()):
-                if key not in keep_keys:
-                    st.session_state.pop(key, None)
-            st.rerun()
-        
-        if add_powder:
-            st.session_state["num_powder_rows"] += 1
+                if key.startswith("form_recipe_") or key.startswith("ratio"):
+                    st.session_state[key] = ""
+            
             st.rerun()
     
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
