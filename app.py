@@ -729,32 +729,39 @@ elif menu == "配方管理":
             add_powder = st.form_submit_button("➕ 新增色粉列")
         
         if clear_fields:
-            # 要清空的 session_state key，包含所有 form_recipe_ 和 ratio 開頭的 key
-            keys_to_clear = [k for k in st.session_state.keys() if k.startswith("form_recipe_") or k.startswith("ratio")]
-        
-            # selectbox 預設值對應（用來還原 selectbox 的預設狀態）
-            default_values = {
-                "form_recipe_配方類別": "原始配方",
-                "form_recipe_狀態": "啟用",
-                "form_recipe_色粉類別": "配方",
-                "form_recipe_計量單位": "包",
-                "form_recipe_淨重單位": "g",
-                "form_recipe_合計類別": "無"
-            }
-        
-            for key in keys_to_clear:
-                if key in default_values:
-                    if key in st.session_state:
-                        st.session_state[key] = default_values[key]
-                else:
-                    if key in st.session_state:
-                        st.session_state[key] = ""
-        
-            # 清空 fr dict 內容（用整個新的 dict 取代，避免原地修改）
-            if "fr" in st.session_state and isinstance(st.session_state.fr, dict):
-                st.session_state.fr = {k: "" for k in st.session_state.fr.keys()}
-        
-            st.experimental_rerun()
+        # 清空整個 session_state，注意這會清掉所有狀態
+        st.session_state.clear()
+    
+        # 重新初始化 fr 和必要欄位預設值
+        st.session_state.fr = {
+            "配方編號": "",
+            "顏色": "",
+            "客戶編號": "",
+            "客戶名稱": "",
+            "配方類別": "原始配方",
+            "狀態": "啟用",
+            "原始配方": "",
+            "色粉類別": "配方",
+            "計量單位": "包",
+            "Pantone色號": "",
+            "重要提醒": "",
+            "比例1": "",
+            "比例2": "",
+            "比例3": "",
+            "備註": "",
+            "淨重": "",
+            "淨重單位": "g",
+            "合計類別": "無",
+        }
+        for i in range(1, 9):
+            st.session_state.fr[f"色粉編號{i}"] = ""
+            st.session_state.fr[f"色粉重量{i}"] = ""
+    
+        st.session_state.num_powder_rows = 5
+        st.session_state["init_customer_select_done"] = None
+    
+        st.experimental_rerun()
+
         
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
     if submitted:
