@@ -454,13 +454,12 @@ elif menu == "配方管理":
     df = st.session_state.df
     # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
     def clean_powder_id(x):
-        s = str(x)
-        s = s.replace('\u3000', '').replace(' ', '').strip().upper()
-        # 如果是純數字且長度不足4，自動補足前導0到4位
+        s = str(x).replace('\u3000', '').replace(' ', '').strip().upper()
         if s.isdigit() and len(s) < 4:
             s = s.zfill(4)
         return s
     
+    # 讀取色粉管理清單
     try:
         ws_powder = spreadsheet.worksheet("色粉管理")
         df_powders = pd.DataFrame(ws_powder.get_all_records())
@@ -468,21 +467,17 @@ elif menu == "配方管理":
             st.error("❌ 色粉管理表缺少『色粉編號』欄位")
             existing_powders = set()
         else:
-            existing_powders = set(
-                df_powders["色粉編號"]
-                .astype(str)
-                .map(lambda x: x.strip().replace('\u3000', '').upper())
-                .unique()
-            )
+            existing_powders = set(df_powders["色粉編號"].map(clean_powder_id).unique())
+            st.write("已建檔色粉清單", sorted(existing_powders))
     except Exception as e:
         st.warning(f"⚠️ 無法載入色粉管理：{e}")
         existing_powders = set()
-
-    # 讀取時印出檢查
-    for x in df_powders["色粉編號"]:
-        s_orig = str(x)
-        s_clean = clean_powder_id(x)
-        st.write(f"原始值: {s_orig}，清理後: {s_clean}")
+    
+        # 讀取時印出檢查
+        for x in df_powders["色粉編號"]:
+            s_orig = str(x)
+            s_clean = clean_powder_id(x)
+            st.write(f"原始值: {s_orig}，清理後: {s_clean}")
         
     st.markdown("""
     <style>
@@ -752,13 +747,10 @@ elif menu == "配方管理":
         missing_powders = []
         for i in range(1, st.session_state.num_powder_rows + 1):
             pid_raw = fr.get(f"色粉編號{i}", "")
-            pid = str(pid_raw).strip().replace('\u3000', '').upper()
-            if pid.isdigit() and len(pid) < 4:
-                pid = pid.zfill(4)
-            
+            pid = clean_powder_id(pid_raw)
             if pid and pid not in existing_powders:
                 missing_powders.append(pid_raw)
-        
+    
         if missing_powders:
             st.warning(f"⚠️ 以下色粉尚未建檔：{', '.join(missing_powders)}")
             st.stop()
