@@ -478,8 +478,11 @@ elif menu == "配方管理":
         st.warning(f"⚠️ 無法載入色粉管理：{e}")
         existing_powders = set()
 
+    # 讀取時印出檢查
     for x in df_powders["色粉編號"]:
-        st.write(f"原始值: {x}，轉成字串後: '{str(x)}'")
+        s_orig = str(x)
+        s_clean = clean_powder_id(x)
+        st.write(f"原始值: {s_orig}，清理後: {s_clean}")
         
     st.markdown("""
     <style>
