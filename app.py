@@ -454,8 +454,10 @@ elif menu == "配方管理":
     df = st.session_state.df
     # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
     def clean_powder_id(x):
-        s = str(x).replace('\u3000', '').replace(' ', '').strip().upper()
-        return s
+        if pd.isna(x):
+            return ""
+        x = str(x).strip().replace('\u3000', '').replace(' ', '')  # 去除空白與全形空白
+        return x
     
     # 讀取色粉管理清單
     try:
