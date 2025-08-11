@@ -455,11 +455,8 @@ elif menu == "配方管理":
     # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
     def clean_powder_id(x):
         s = str(x)
-        s = s.replace('\u3000', '')  # 全形空白
-        s = s.replace(' ', '')       # 半形空白
-        s = s.strip()                # 去除首尾空白
-        s = s.upper()
-        # 若是純數字且長度小於4，自動補前導0到4位
+        s = s.replace('\u3000', '').replace(' ', '').strip().upper()
+        # 如果是純數字且長度不足4，自動補足前導0到4位
         if s.isdigit() and len(s) < 4:
             s = s.zfill(4)
         return s
@@ -744,13 +741,7 @@ elif menu == "配方管理":
             # 其他情況重置 flag
             st.session_state.add_powder_clicked = False
 
-    # === 表單提交後的處理邏輯（要在 form 區塊外） ===
-    # 先把 existing_powders 全部轉成字串，去空白
-    existing_powders_str = {str(x).strip() for x in existing_powders}
-    
-    # 表單提交時檢查
-    st.write("已建檔色粉清單", sorted(existing_powders))
-    
+    # === 表單提交後的處理邏輯（要在 form 區塊外） ===    
     existing_powders_str = {str(x).strip().upper() for x in existing_powders if str(x).strip() != ""}
     st.write("已建檔色粉清單", sorted(existing_powders_str))
     
@@ -759,7 +750,10 @@ elif menu == "配方管理":
         for i in range(1, st.session_state.num_powder_rows + 1):
             pid_raw = fr.get(f"色粉編號{i}", "")
             pid = str(pid_raw).strip().replace('\u3000', '').upper()
-            if pid and pid not in existing_powders_str:
+            if pid.isdigit() and len(pid) < 4:
+                pid = pid.zfill(4)
+            
+            if pid and pid not in existing_powders:
                 missing_powders.append(pid_raw)
         
         if missing_powders:
