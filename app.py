@@ -1198,6 +1198,9 @@ elif menu == "生產單管理":
                 # 主要配方編號清理
                 main_recipe_code_raw = selected_row.get("配方編號", "")
                 main_recipe_code = clean_powder_id(main_recipe_code_raw)
+                # 確保主配方編號為字串且不會自動轉成int
+                main_recipe_code_str = str(main_recipe_code).zfill(4)
+
 
                 # 查找附加配方 (使用清理欄位比對)
                 df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
