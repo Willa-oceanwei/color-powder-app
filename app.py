@@ -463,6 +463,9 @@ elif menu == "配方管理":
         if s.isdigit() and len(s) < 4:
             s = s.zfill(4)
         return s
+
+    for x in df_powders["色粉編號"]:
+        st.write(f"原始值: {x}，轉成字串後: '{str(x)}'")
     
     try:
         ws_powder = spreadsheet.worksheet("色粉管理")
