@@ -453,6 +453,17 @@ elif menu == "配方管理":
     #-------
     df = st.session_state.df
     # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
+    def clean_powder_id(x):
+        s = str(x)
+        s = s.replace('\u3000', '')  # 全形空白
+        s = s.replace(' ', '')       # 半形空白
+        s = s.strip()                # 去除首尾空白
+        s = s.upper()
+        # 若是純數字且長度小於4，自動補前導0到4位
+        if s.isdigit() and len(s) < 4:
+            s = s.zfill(4)
+        return s
+    
     try:
         ws_powder = spreadsheet.worksheet("色粉管理")
         df_powders = pd.DataFrame(ws_powder.get_all_records())
