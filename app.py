@@ -468,7 +468,7 @@ elif menu == "配方管理":
             existing_powders = set()
         else:
             existing_powders = set(df_powders["色粉編號"].map(clean_powder_id).unique())
-            st.write("已建檔色粉清單", sorted(existing_powders))
+            
     except Exception as e:
         st.warning(f"⚠️ 無法載入色粉管理：{e}")
         existing_powders = set()
