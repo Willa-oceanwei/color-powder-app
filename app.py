@@ -472,12 +472,6 @@ elif menu == "配方管理":
     except Exception as e:
         st.warning(f"⚠️ 無法載入色粉管理：{e}")
         existing_powders = set()
-    
-        # 讀取時印出檢查
-        for x in df_powders["色粉編號"]:
-            s_orig = str(x)
-            s_clean = clean_powder_id(x)
-            st.write(f"原始值: {s_orig}，清理後: {s_clean}")
         
     st.markdown("""
     <style>
@@ -741,8 +735,7 @@ elif menu == "配方管理":
 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===    
     existing_powders_str = {str(x).strip().upper() for x in existing_powders if str(x).strip() != ""}
-    st.write("已建檔色粉清單", sorted(existing_powders_str))
-    
+   
     if submitted:
         missing_powders = []
         for i in range(1, st.session_state.num_powder_rows + 1):
