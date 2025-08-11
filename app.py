@@ -735,6 +735,8 @@ elif menu == "配方管理":
     existing_powders_str = {str(x).strip() for x in existing_powders}
     
     # 表單提交時檢查
+    st.write("已建檔色粉清單", sorted(existing_powders))
+    
     if submitted:
         missing_powders = []
         for i in range(1, st.session_state.num_powder_rows + 1):
