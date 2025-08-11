@@ -460,11 +460,16 @@ elif menu == "配方管理":
             st.error("❌ 色粉管理表缺少『色粉編號』欄位")
             existing_powders = set()
         else:
-            existing_powders = set(df_powders["色粉編號"].dropna().astype(str).str.strip().unique())
+            existing_powders = set(
+                df_powders["色粉編號"]
+                .astype(str)
+                .map(lambda x: x.strip().replace('\u3000', '').upper())
+                .unique()
+            )
     except Exception as e:
         st.warning(f"⚠️ 無法載入色粉管理：{e}")
         existing_powders = set()
-
+        
     st.markdown("""
     <style>
     .big-title {
@@ -729,13 +734,14 @@ elif menu == "配方管理":
     # 先把 existing_powders 全部轉成字串，去空白
     existing_powders_str = {str(x).strip() for x in existing_powders}
     
+    # 表單提交時檢查
     if submitted:
-        # ✅ 檢查未建檔色粉
         missing_powders = []
         for i in range(1, st.session_state.num_powder_rows + 1):
-            pid = str(fr.get(f"色粉編號{i}", "")).strip()
-            if pid and pid not in existing_powders_str:
-                missing_powders.append(pid)
+            pid_raw = fr.get(f"色粉編號{i}", "")
+            pid = str(pid_raw).strip().replace('\u3000', '').upper()
+            if pid and pid not in existing_powders:
+                missing_powders.append(pid_raw)  # 原始輸入給使用者看
     
         if missing_powders:
             st.warning(f"⚠️ 以下色粉尚未建檔：{', '.join(missing_powders)}")
