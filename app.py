@@ -455,8 +455,6 @@ elif menu == "配方管理":
     # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
     def clean_powder_id(x):
         s = str(x).replace('\u3000', '').replace(' ', '').strip().upper()
-        if s.isdigit() and len(s) < 4:
-            s = s.zfill(4)
         return s
     
     # 讀取色粉管理清單
