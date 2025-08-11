@@ -737,14 +737,17 @@ elif menu == "配方管理":
     # 表單提交時檢查
     st.write("已建檔色粉清單", sorted(existing_powders))
     
+    existing_powders_str = {str(x).strip().upper() for x in existing_powders if str(x).strip() != ""}
+    st.write("已建檔色粉清單", sorted(existing_powders_str))
+    
     if submitted:
         missing_powders = []
         for i in range(1, st.session_state.num_powder_rows + 1):
             pid_raw = fr.get(f"色粉編號{i}", "")
             pid = str(pid_raw).strip().replace('\u3000', '').upper()
-            if pid and pid not in existing_powders:
-                missing_powders.append(pid_raw)  # 原始輸入給使用者看
-    
+            if pid and pid not in existing_powders_str:
+                missing_powders.append(pid_raw)
+        
         if missing_powders:
             st.warning(f"⚠️ 以下色粉尚未建檔：{', '.join(missing_powders)}")
             st.stop()
