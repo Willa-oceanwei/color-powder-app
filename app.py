@@ -726,12 +726,15 @@ elif menu == "配方管理":
             st.session_state.add_powder_clicked = False
 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===
+    # 先把 existing_powders 全部轉成字串，去空白
+    existing_powders_str = {str(x).strip() for x in existing_powders}
+    
     if submitted:
-        # ✅ 先檢查未建檔色粉
+        # ✅ 檢查未建檔色粉
         missing_powders = []
         for i in range(1, st.session_state.num_powder_rows + 1):
-            pid = fr.get(f"色粉編號{i}", "").strip()
-            if pid and pid not in existing_powders:
+            pid = str(fr.get(f"色粉編號{i}", "")).strip()
+            if pid and pid not in existing_powders_str:
                 missing_powders.append(pid)
     
         if missing_powders:
