@@ -1001,7 +1001,6 @@ elif menu == "配方管理":
     st.markdown(f"目前第 **{st.session_state.page}** / **{total_pages}** 頁，總筆數：{total_rows}")
 
 
-    # --- 生產單分頁 ----------------------------------------------------
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
     
@@ -1063,9 +1062,19 @@ elif menu == "生產單管理":
             else:
                 st.error(f"❌ 無法讀取生產單資料：{e}")
                 st.stop()
-
+    # **在這裡做配方編號的清理，統一格式**
+    def clean_powder_id(x):
+        x = str(x).strip()
+        if x == "" or pd.isna(x):
+            return ""
+        return x.zfill(4)  # 固定 4 碼，必要時可改
+    
+    # 清理配方編號欄位
+    st.session_state.df_order["配方編號"] = st.session_state.df_order["配方編號"].map(clean_powder_id)
+    
+    # 後續使用
     df_order = st.session_state.df_order
-
+    
     header = list(df_order.columns)
 
     try:
