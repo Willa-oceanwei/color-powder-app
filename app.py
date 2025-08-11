@@ -583,7 +583,7 @@ elif menu == "配方管理":
     st.subheader("➕ 新增 / 修改配方")
     
     with st.form("recipe_form"):
-    # 基本欄位
+        # 基本欄位
         col1, col2, col3 = st.columns(3)
         with col1:
             fr["配方編號"] = st.text_input("配方編號", value=fr.get("配方編號", ""), key="form_recipe_配方編號")
@@ -591,14 +591,26 @@ elif menu == "配方管理":
             fr["顏色"] = st.text_input("顏色", value=fr.get("顏色", ""), key="form_recipe_顏色")
         with col3:
             options = [""] + customer_options  
-            selected = st.selectbox("客戶編號", options, index=options.index(fr.get("客戶編號", "")) if fr.get("客戶編號", "") else 0, key="form_recipe_selected_customer")
+            cust_value = fr.get("客戶編號", "")
+            
+            # 防止 ValueError，如果值不存在於 options，預設選第一個
+            index = options.index(cust_value) if cust_value in options else 0
+            
+            selected = st.selectbox(
+                "客戶編號",
+                options,
+                index=index,
+                key="form_recipe_selected_customer"
+            )
+    
             if " - " in selected:
                 c_no, c_name = selected.split(" - ", 1)
             else:
                 c_no, c_name = "", ""
+    
             fr["客戶編號"] = c_no
             fr["客戶名稱"] = c_name
-    
+   
         # 配方類別、狀態、原始配方
         col4, col5, col6 = st.columns(3)
         with col4:
