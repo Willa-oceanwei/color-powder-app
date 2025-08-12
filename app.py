@@ -1206,9 +1206,15 @@ elif menu == "生產單管理":
     elif len(option_map) == 1:
         selected_label = list(option_map.keys())[0]
         selected_row = option_map[selected_label]
-        if selected_row and search_text.strip():
-            selected_row["配方編號"] = search_text.strip()
-        st.success(f"已自動選取：{selected_label}")
+    
+        # 用原始輸入的編號取代顯示
+        parts = selected_label.split(" | ", 1)  # ['757', '透明藍 | 龍鋒']
+        if len(parts) > 1:
+            display_label = f"{search_text.strip()} | {parts[1]}"
+        else:
+            display_label = search_text.strip()
+    
+        st.success(f"已自動選取：{display_label}")
     else:
         selected_label = st.selectbox(
             "選擇配方",
