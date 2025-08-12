@@ -1037,6 +1037,9 @@ elif menu == "生產單管理":
         if x.isdigit() and len(x) < 4:
             x = x.zfill(4)
         return x.upper()
+        
+    def normalize_search_text(text):
+        return fix_leading_zero(clean_powder_id(text))
     
     # 先嘗試取得 Google Sheet 兩個工作表 ws_recipe、ws_order
     try:
@@ -1134,6 +1137,20 @@ elif menu == "生產單管理":
         st.stop()
     
     df_recipe = st.session_state.df_recipe
+
+    def clean_powder_id(x):
+        if pd.isna(x) or x == "":
+            return ""
+        return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
+    
+    def fix_leading_zero(x):
+        x = str(x).strip()
+        if x.isdigit() and len(x) < 4:
+            x = x.zfill(4)
+        return x.upper()
+    
+    def normalize_search_text(text):
+        return fix_leading_zero(clean_powder_id(text))
     
     # Streamlit UI 搜尋表單
     st.subheader("🔎 配方搜尋與新增生產單")
@@ -1146,24 +1163,23 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
     
-        # 使用標準化輸入字串
         search_text_normalized = normalize_search_text(search_text)
+        search_text_upper = search_text.strip().upper()
     
         if search_text_normalized:
             if exact:
                 filtered = df_recipe[
                     (df_recipe["配方編號"] == search_text_normalized) |
-                    (df_recipe["客戶名稱"].str.upper() == search_text_normalized.upper())
+                    (df_recipe["客戶名稱"].str.upper() == search_text_upper)
                 ]
             else:
                 filtered = df_recipe[
                     df_recipe["配方編號"].str.contains(search_text_normalized, case=False, na=False) |
-                    df_recipe["客戶名稱"].str.contains(search_text_normalized, case=False, na=False)
+                    df_recipe["客戶名稱"].str.contains(search_text_upper, case=False, na=False)
                 ]
+            filtered = filtered.copy()
         else:
             filtered = df_recipe.copy()
-    
-    filtered = filtered.copy()  # 避免 SettingWithCopyWarning
     
     # 建立搜尋結果標籤與選項
     def format_option(r):
