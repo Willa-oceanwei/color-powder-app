@@ -1588,7 +1588,10 @@ elif menu == "生產單管理":
                     c = c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}")
                     weights.append(w)
                     counts.append(c)
-        
+
+                st.write("主配方資料:", recipe_row)
+                st.write("order['附加配方']:", order.get("附加配方", []))
+                                
                 # --- 主配方區塊 ---
                 st.markdown("### 色粉用量（編號與重量）")
                 色粉編號欄, 色粉重量欄 = st.columns(2)
