@@ -1046,15 +1046,24 @@ elif menu == "生產單管理":
         df_recipe = pd.DataFrame(records)
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
+    
+        def clean_powder_id(x):
+            if pd.isna(x) or x == "":
+                return ""
+            return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
+    
         if "配方編號" in df_recipe.columns:
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
+            df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id)
+        if "客戶名稱" in df_recipe.columns:
+            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
         if "原始配方" in df_recipe.columns:
-            df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).map(clean_powder_id)
+            df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
+    
         st.session_state.df_recipe = df_recipe
     except Exception as e:
         st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
         st.stop()
-
+    
     # 載入生產單表
     try:
         existing_values = ws_order.get_all_values()
@@ -1084,7 +1093,7 @@ elif menu == "生產單管理":
         else:
             st.error(f"❌ 無法讀取生產單資料：{e}")
             st.stop()
-
+    
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
 
