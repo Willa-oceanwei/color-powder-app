@@ -1104,12 +1104,19 @@ elif menu == "生產單管理":
             label += "（附加配方）"
         return label
 
+    def clean_powder_id(x):
+        if pd.isna(x) or x == "":
+            return ""
+        x = str(x).strip().replace('\u3000', '').replace(' ', '').upper()
+        return x
+    
+    # 這裡才呼叫函式
     search_text = clean_powder_id(search_text)
     st.write("搜尋字串（已清理）:", search_text)
     st.write("配方管理表的配方編號範例：", df_recipe["配方編號"].head(10).tolist())
-
+    
     st.subheader("🔎 配方搜尋與新增生產單")
-
+    
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4,1,1])
         with col1:
@@ -1118,12 +1125,12 @@ elif menu == "生產單管理":
             exact = st.checkbox("精確搜尋", key="exact_search")
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
-
+    
         if search_text:
             search_text = clean_powder_id(search_text)
             df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
             df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
-
+    
             if exact:
                 filtered = df_recipe[
                     (df_recipe["配方編號"] == search_text) |
@@ -1136,15 +1143,15 @@ elif menu == "生產單管理":
                 ]
         else:
             filtered = df_recipe.copy()
-
+    
         filtered = filtered.copy()
-
+    
         if not filtered.empty:
             filtered["label"] = filtered.apply(format_option, axis=1)
             option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
         else:
             option_map = {}
-
+    
         if not option_map:
             st.warning("查無符合的配方")
             selected_row = None
