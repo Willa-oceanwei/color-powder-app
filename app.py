@@ -1495,17 +1495,18 @@ elif menu == "生產單管理":
         if order is None or not isinstance(order, dict):
             order = {}
     
-        recipe_id = order.get("配方編號", "").strip()
-    
-        # 取得配方資料
-        matched = df_recipe[df_recipe["配方編號"] == recipe_id]
+        recipe_id_raw = order.get("配方編號", "").strip()
+
+        recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
+        
+        matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
+        
         if not matched.empty:
             recipe_row = matched.iloc[0].to_dict()
-            # 清理欄位名稱及欄位值，確保都轉成乾淨字串且避免 None/NaN
             recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
             st.session_state["recipe_row_cache"] = recipe_row
         else:
-            recipe_row = {}  # 空 dict 避免 None
+            recipe_row = {}
     
         # 這裡從 session_state 讀取 show_confirm_panel，避免被覆蓋
         show_confirm_panel = st.session_state.get("show_confirm_panel", False)
