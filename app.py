@@ -1108,6 +1108,20 @@ elif menu == "生產單管理":
     
     st.subheader("🔎 配方搜尋與新增生產單")
     
+    # 確保 df_order 存在
+    if "df_order" not in st.session_state or not isinstance(st.session_state.df_order, pd.DataFrame):
+        st.session_state.df_order = pd.DataFrame()
+    
+    df_order = st.session_state.df_order.copy()
+    
+    # 清理欄位
+    if "建立時間" in df_order.columns:
+        df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
+    
+    if "配方編號" in df_order.columns:
+        df_order["配方編號"] = df_order["配方編號"].map(clean_powder_id)
+    
+    # 搜尋區塊
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4, 1, 1])
         with col1:
@@ -1117,14 +1131,12 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
     
-        # ✅ 搜尋字串先清理
+        # 對輸入值也做清理，確保 0 開頭能匹配
         if search_text:
             search_text = clean_powder_id(search_text)
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
+            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
     
-        df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
-        df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
-    
-        if search_text:
             if exact:
                 filtered = df_recipe[
                     (df_recipe["配方編號"] == search_text) |
@@ -1143,20 +1155,13 @@ elif menu == "生產單管理":
         if not filtered.empty:
             filtered["label"] = filtered.apply(format_option, axis=1)
             option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
-            select_options = list(option_map.keys())
         else:
             option_map = {}
-            select_options = []
     
-        if not select_options:
-            select_options = ["（無符合配方）"]
-        else:
-            select_options = ["請選擇"] + select_options
-    
-        if len(option_map) == 0:
+        if not option_map:
+            st.warning("查無符合的配方")
             selected_row = None
             selected_label = None
-            st.warning("查無符合的配方")
         elif len(option_map) == 1:
             selected_label = list(option_map.keys())[0]
             selected_row = option_map[selected_label]
