@@ -1053,10 +1053,17 @@ elif menu == "生產單管理":
     
         def fix_leading_zero(x):
             x = str(x).strip()
+            # 如果全是數字且長度小於4，補足4位前導零
             if x.isdigit() and len(x) < 4:
-                x = x.zfill(4)  # 補足4位，不足補0
+                x = x.zfill(4)
             return x.upper()
-    
+        
+        # 先清理再補零
+        if "配方編號" in df_recipe.columns:
+            df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id).map(fix_leading_zero)
+        
+        st.write("標準化後配方編號範例:", df_recipe["配方編號"].head(20).tolist())
+            
         if "配方編號" in df_recipe.columns:
             df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id).map(fix_leading_zero)
         if "客戶名稱" in df_recipe.columns:
