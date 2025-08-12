@@ -868,10 +868,6 @@ elif menu == "配方管理":
     with col3:
         search_pantone_bottom = st.text_input("Pantone色號", key="search_pantone_bottom")
 
-    st.write("搜尋字串（已清理）:", search_text_clean)
-    st.write("df_recipe['配方編號'] dtype:", df_recipe["配方編號"].dtype)
-    st.write("df_recipe['配方編號'] 範例:", df_recipe["配方編號"].head(20).tolist())
-
     # 先初始化 top 欄位變數
     search_recipe_top = ""
     search_customer_top = ""
@@ -1206,6 +1202,10 @@ elif menu == "生產單管理":
             selected_row = None
         else:
             selected_row = option_map.get(selected_label)
+
+    st.write("搜尋字串（已清理）:", search_text_clean)
+    st.write("df_recipe['配方編號'] dtype:", df_recipe["配方編號"].dtype)
+    st.write("df_recipe['配方編號'] 範例:", df_recipe["配方編號"].head(20).tolist())
     
     if add_btn:
         if selected_label is None or selected_label == "請選擇" or selected_label == "（無符合配方）":
