@@ -1025,12 +1025,19 @@ elif menu == "生產單管理":
 
     order_file = Path("data/df_order.csv")
 
-    # 清理函式：去除空白、全形空白，並保持原輸入，不補零
+    # 清理函式：去除空白、全形空白，轉大寫
     def clean_powder_id(x):
-        if pd.isna(x):
+        if pd.isna(x) or x == "":
             return ""
         return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
-
+    
+    # 補足前導零（僅針對純數字且長度<4的字串）
+    def fix_leading_zero(x):
+        x = str(x).strip()
+        if x.isdigit() and len(x) < 4:
+            x = x.zfill(4)
+        return x.upper()
+    
     # 先嘗試取得 Google Sheet 兩個工作表 ws_recipe、ws_order
     try:
         ws_recipe = spreadsheet.worksheet("配方管理")
@@ -1038,7 +1045,7 @@ elif menu == "生產單管理":
     except Exception as e:
         st.error(f"❌ 無法載入工作表：{e}")
         st.stop()
-
+    
     # 載入配方管理表
     try:
         records = ws_recipe.get_all_records()
@@ -1046,25 +1053,8 @@ elif menu == "生產單管理":
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
     
-        def clean_powder_id(x):
-            if pd.isna(x) or x == "":
-                return ""
-            return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
-    
-        def fix_leading_zero(x):
-            x = str(x).strip()
-            # 如果全是數字且長度小於4，補足4位前導零
-            if x.isdigit() and len(x) < 4:
-                x = x.zfill(4)
-            return x.upper()
-        
-        # 先清理再補零
         if "配方編號" in df_recipe.columns:
-            df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id).map(fix_leading_zero)
-        
-        st.write("標準化後配方編號範例:", df_recipe["配方編號"].head(20).tolist())
-            
-        if "配方編號" in df_recipe.columns:
+            # 先清理再補零
             df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id).map(fix_leading_zero)
         if "客戶名稱" in df_recipe.columns:
             df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
@@ -1082,7 +1072,6 @@ elif menu == "生產單管理":
         if existing_values:
             df_order = pd.DataFrame(existing_values[1:], columns=existing_values[0]).astype(str)
         else:
-            # 空資料，先寫入標題列
             header = [
                 "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
                 "Pantone 色號", "計量單位", "原料",
@@ -1097,7 +1086,6 @@ elif menu == "生產單管理":
             df_order = pd.DataFrame(columns=header)
         st.session_state.df_order = df_order
     except Exception as e:
-        # 無法連線時讀本地 CSV
         if order_file.exists():
             st.warning("⚠️ 無法連線 Google Sheets，改用本地 CSV")
             df_order = pd.read_csv(order_file, dtype=str).fillna("")
