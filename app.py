@@ -1228,14 +1228,6 @@ elif menu == "生產單管理":
             selected_row = None
         else:
             selected_row = option_map.get(selected_label)
-
-    st.write("搜尋字串（已清理）:", search_text_normalized)
-    st.write("df_recipe['配方編號'] dtype:", df_recipe["配方編號"].dtype)
-    st.write("df_recipe['配方編號'] 範例:", df_recipe["配方編號"].head(20).tolist())
-    # 印出配方編號中有 '757' 的資料，確認是否有 0757 這筆
-    print(df_recipe[df_recipe["配方編號"].str.contains("757")])    
-    # 或印出所有配方編號，看看真的有沒有 0757
-    print(df_recipe["配方編號"].unique())
     
     if add_btn:
         if selected_label is None or selected_label == "請選擇" or selected_label == "（無符合配方）":
