@@ -1214,7 +1214,7 @@ elif menu == "生產單管理":
         else:
             selected_row = option_map.get(selected_label)
 
-    st.write("搜尋字串（已清理）:", search_text_clean)
+    st.write("搜尋字串（已清理）:", search_text_normalized)
     st.write("df_recipe['配方編號'] dtype:", df_recipe["配方編號"].dtype)
     st.write("df_recipe['配方編號'] 範例:", df_recipe["配方編號"].head(20).tolist())
     
