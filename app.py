@@ -450,15 +450,31 @@ elif menu == "配方管理":
     
     # ✅ 後續操作都從 session_state 中抓資料
 
-    #-------
-    df = st.session_state.df
-    # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
-    def clean_powder_id(x):
-        if pd.isna(x):
-            return ""
-        x = str(x).strip().replace('\u3000', '').replace(' ', '')  # 去除空白與全形空白
-        return x
+    try:
+        ws_recipe = spreadsheet.worksheet("配方管理")
+        df_recipe = pd.DataFrame(ws_recipe.get_all_records())
     
+        if "配方編號" not in df_recipe.columns:
+            st.error("❌ 配方管理表缺少『配方編號』欄位")
+            df_recipe = pd.DataFrame()
+        else:
+            df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id)
+    
+        st.session_state.df_recipe = df_recipe
+    
+    except Exception as e:
+        st.error(f"讀取『配方管理』工作表失敗：{e}")
+        st.session_state.df_recipe = pd.DataFrame()
+    
+        #-------
+        df = st.session_state.df
+        # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
+        def clean_powder_id(x):
+            if pd.isna(x):
+                return ""
+            x = str(x).strip().replace('\u3000', '').replace(' ', '')  # 去除空白與全形空白
+            return x
+        
     # 讀取色粉管理清單
     try:
         ws_powder = spreadsheet.worksheet("色粉管理")
