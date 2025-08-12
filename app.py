@@ -1159,7 +1159,7 @@ elif menu == "生產單管理":
             add_btn = st.form_submit_button("➕ 新增")
     
         # 搜尋前清理輸入字串（大寫+去空白）
-        search_text_clean = clean_powder_id(search_text)
+        search_text_clean = fix_leading_zero(clean_powder_id(search_text))
     
         if search_text_clean:
             # 確保配方編號與客戶名稱都轉為字串
