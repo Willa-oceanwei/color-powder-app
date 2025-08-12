@@ -1238,6 +1238,12 @@ elif menu == "生產單管理":
     
     # 顯示選單給使用者挑選
     selected_label = st.selectbox("選擇配方", options=["請選擇"] + list(option_map.keys()))
+    if selected_label in option_map:
+        selected_row = option_map[selected_label]
+        selected_recipe_code = selected_row.get("配方編號", "")
+    else:
+        selected_row = None
+        selected_recipe_code = None
     
     if add_btn:
         if selected_label is None or selected_label == "請選擇" or selected_label == "（無符合配方）":
