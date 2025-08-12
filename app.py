@@ -1228,22 +1228,6 @@ elif menu == "生產單管理":
             selected_row = None
         else:
             selected_row = option_map.get(selected_label)
-
-    # 搜尋完後建立選項給使用者選擇
-    if not filtered.empty:
-        filtered["label"] = filtered.apply(format_option, axis=1)
-        option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
-    else:
-        option_map = {}
-    
-    # 顯示選單給使用者挑選
-    selected_label = st.selectbox("選擇配方", options=["請選擇"] + list(option_map.keys()))
-    if selected_label in option_map:
-        selected_row = option_map[selected_label]
-        selected_recipe_code = selected_row.get("配方編號", "")
-    else:
-        selected_row = None
-        selected_recipe_code = None
     
     if add_btn:
         if selected_label is None or selected_label == "請選擇" or selected_label == "（無符合配方）":
@@ -1298,7 +1282,7 @@ elif menu == "生產單管理":
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "配方編號": selected_recipe_code,  # 用正確完整配方編號，不是搜尋字串
+                    "配方編號": search_text_original,
                     "顏色": selected_row.get("顏色", ""),
                     "客戶名稱": selected_row.get("客戶名稱", ""),
                     "Pantone 色號": selected_row.get("Pantone色號", ""),
@@ -1569,7 +1553,7 @@ elif menu == "生產單管理":
             # 不可編輯欄位
             c1, c2, c3, c4 = st.columns(4)
             c1.text_input("生產單號", value=order.get("生產單號", ""), disabled=True)
-            c2.text_input("配方編號", value=recipe_row.get("配方編號", order.get("配方編號", "")), disabled=True)
+            c2.text_input("配方編號", value=order.get("配方編號", ""), disabled=True)
             c3.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True)
             c4.text_input("客戶名稱", value=order.get("客戶名稱", ""), disabled=True)
         
