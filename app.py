@@ -1137,16 +1137,21 @@ elif menu == "生產單管理":
     st.write("搜尋字串（已清理）:", search_text_clean)
     st.write("配方管理表的配方編號範例：", df_recipe["配方編號"].head(10).tolist())
     
-    if exact:
-        filtered = df_recipe[
-            (df_recipe["配方編號"] == search_text_clean) |
-            (df_recipe["客戶名稱"] == search_text_clean)
-        ]
+    search_text_clean = clean_powder_id(search_text)
+
+    if search_text_clean:
+        if exact:
+            filtered = df_recipe[
+                (df_recipe["配方編號"] == search_text_clean) |
+                (df_recipe["客戶名稱"].str.lower() == search_text_clean.lower())
+            ]
+        else:
+            filtered = df_recipe[
+                df_recipe["配方編號"].str.contains(search_text_clean, case=False, na=False) |
+                df_recipe["客戶名稱"].str.contains(search_text_clean, case=False, na=False)
+            ]
     else:
-        filtered = df_recipe[
-            df_recipe["配方編號"].str.contains(search_text_clean, case=False, na=False) |
-            df_recipe["客戶名稱"].str.contains(search_text_clean, case=False, na=False)
-        ]
+        filtered = df_recipe.copy()
     
     filtered = filtered.copy()  # 建議保留，避免後續操作警告
     
