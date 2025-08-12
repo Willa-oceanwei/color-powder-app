@@ -1155,16 +1155,14 @@ elif menu == "生產單管理":
             df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
     
             if exact:
-                # 精確比對，配方編號比對用大寫清理後字串，客戶名稱忽略大小寫比對
                 filtered = df_recipe[
-                    (df_recipe["配方編號"] == search_text_clean) |
-                    (df_recipe["客戶名稱"].str.lower() == search_text_clean.lower())
+                    (df_recipe["配方編號"] == search_text_normalized) |
+                    (df_recipe["客戶名稱"].str.upper() == search_text_normalized.upper())
                 ]
             else:
-                # 模糊比對，配方編號及客戶名稱都不區分大小寫包含字串
                 filtered = df_recipe[
-                    df_recipe["配方編號"].str.contains(search_text_clean, case=False, na=False) |
-                    df_recipe["客戶名稱"].str.contains(search_text_clean, case=False, na=False)
+                    df_recipe["配方編號"].str.contains(search_text_normalized, case=False, na=False) |
+                    df_recipe["客戶名稱"].str.contains(search_text_normalized, case=False, na=False)
                 ]
         else:
             filtered = df_recipe.copy()
