@@ -1167,10 +1167,8 @@ elif menu == "生產單管理":
         search_text_upper = search_text.strip().upper()
     
         if search_text_normalized:
-            # 建立標準化後的臨時欄位
             df_recipe["_配方編號標準"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
-            search_text_upper = search_text.strip().upper()
-        
+            
             if exact:
                 filtered = df_recipe[
                     (df_recipe["_配方編號標準"] == search_text_normalized) |
@@ -1182,7 +1180,7 @@ elif menu == "生產單管理":
                     df_recipe["客戶名稱"].str.contains(search_text.strip(), case=False, na=False)
                 ]
             filtered = filtered.copy()
-            filtered.drop(columns=["_配方編號標準"], inplace=True)  # 清掉臨時欄
+            filtered.drop(columns=["_配方編號標準"], inplace=True)
         else:
             filtered = df_recipe.copy()
     
