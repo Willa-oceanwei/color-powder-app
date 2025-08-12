@@ -19,7 +19,7 @@ st.markdown(
     }
     /* 滑鼠指到項目背景色 */
     div[role="listbox"] > div:hover {
-        background-color: #ffcccc !important;
+        background-color: #444444 !important;
         color: white !important;
     }
     </style>
