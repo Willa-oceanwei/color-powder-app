@@ -12,15 +12,16 @@ import base64
 st.markdown(
     """
     <style>
-    /* 被選中項目背景色 */
+    /* 選中項目背景色 */
     div[role="listbox"] > div[aria-selected="true"] {
-        background-color: #666666 !important;
-        color: white !important;
+        background-color: #999999 !important;  /* 淺灰 */
+        color: black !important;               /* 文字改黑色較醒目 */
+        font-weight: bold;
     }
     /* 滑鼠指到項目背景色 */
     div[role="listbox"] > div:hover {
-        background-color: #444444 !important;
-        color: white !important;
+        background-color: #bbbbbb !important;  /* 再淺一點的灰 */
+        color: black !important;
     }
     </style>
     """,
