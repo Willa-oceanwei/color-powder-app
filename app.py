@@ -541,26 +541,25 @@ elif menu == "配方管理":
         "df"
     ])
 
-    # 載入資料
-    if st.session_state.df is None:
-        try:
-            values = ws_recipe.get_all_values()
-            if len(values) > 1:
-                df_loaded = pd.DataFrame(values[1:], columns=values[0]).astype(str)
-            else:
-                df_loaded = pd.DataFrame(columns=columns)
-        except:
-            if order_file.exists():
-                df_loaded = pd.read_csv(order_file, dtype=str).fillna("")
-            else:
-                df_loaded = pd.DataFrame(columns=columns)
-        for col in columns:
-            if col not in df_loaded.columns:
-                df_loaded[col] = ""
-        st.session_state.df = df_loaded
-
+    # 讀取原始資料(純字串)
+    values = ws_recipe.get_all_values()
+    if len(values) > 1:
+        df_loaded = pd.DataFrame(values[1:], columns=values[0])
+    else:
+        df_loaded = pd.DataFrame(columns=columns)
+    
+    # 補齊缺少欄位
+    for col in columns:
+        if col not in df_loaded.columns:
+            df_loaded[col] = ""
+    
+    # 清理配方編號（保持字串格式且不轉成數字）
+    if "配方編號" in df_loaded.columns:
+        df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map(clean_powder_id)
+    
+    st.session_state.df = df_loaded
+    
     df = st.session_state.df
-
     
     # ===== 初始化欄位 =====
     import streamlit as st
