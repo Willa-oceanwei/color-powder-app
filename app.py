@@ -1163,7 +1163,7 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
     
-        search_text_normalized = normalize_search_text(search_text)
+        search_text_normalized = fix_leading_zero(search_text.strip())
         search_text_upper = search_text.strip().upper()
     
         if search_text_normalized:
