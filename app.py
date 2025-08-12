@@ -1058,7 +1058,7 @@ elif menu == "生產單管理":
     
         if "配方編號" in df_recipe.columns:
             # 先清理再補零
-            df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id).map(fix_leading_zero)
+            df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
         if "客戶名稱" in df_recipe.columns:
             df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
         if "原始配方" in df_recipe.columns:
