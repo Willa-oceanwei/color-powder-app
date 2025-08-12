@@ -1141,11 +1141,13 @@ elif menu == "生產單管理":
 
     if search_text_clean:
         if exact:
+            # 精確搜尋，完全比對
             filtered = df_recipe[
                 (df_recipe["配方編號"] == search_text_clean) |
                 (df_recipe["客戶名稱"].str.lower() == search_text_clean.lower())
             ]
         else:
+            # 模糊搜尋，部分包含
             filtered = df_recipe[
                 df_recipe["配方編號"].str.contains(search_text_clean, case=False, na=False) |
                 df_recipe["客戶名稱"].str.contains(search_text_clean, case=False, na=False)
