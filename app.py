@@ -1265,7 +1265,7 @@ elif menu == "生產單管理":
                     (df_recipe["原始配方"] == main_recipe_code)
                 ]
     
-                # 整合色粉
+                # 整合色粉：先加入主配方色粉
                 all_colorants = []
                 for i in range(1, 9):
                     id_key = f"色粉編號{i}"
@@ -1275,6 +1275,7 @@ elif menu == "生產單管理":
                     if id_val or wt_val:
                         all_colorants.append((id_val, wt_val))
     
+                # 加入附加配方色粉
                 for _, sub in 附加配方.iterrows():
                     for i in range(1, 9):
                         id_key = f"色粉編號{i}"
@@ -1284,7 +1285,7 @@ elif menu == "生產單管理":
                         if id_val or wt_val:
                             all_colorants.append((id_val, wt_val))
     
-                # 設定訂單詳細資料
+                # 設定訂單詳細資料（先更新其他欄位）
                 order.update({
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
@@ -1299,6 +1300,18 @@ elif menu == "生產單管理":
                     "合計類別": str(selected_row.get("合計類別", "")).strip(),
                     "色粉類別": selected_row.get("色粉類別", "").strip(),
                 })
+    
+                # 用 all_colorants 填入色粉編號與重量欄位
+                for i in range(1, 9):
+                    id_key = f"色粉編號{i}"
+                    wt_key = f"色粉重量{i}"
+                    if i <= len(all_colorants):
+                        id_val, wt_val = all_colorants[i-1]
+                        order[id_key] = id_val
+                        order[wt_key] = wt_val
+                    else:
+                        order[id_key] = ""
+                        order[wt_key] = ""
     
                 st.session_state["new_order"] = order
                 st.session_state["show_confirm_panel"] = True
