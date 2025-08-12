@@ -1104,6 +1104,10 @@ elif menu == "生產單管理":
             label += "（附加配方）"
         return label
 
+    search_text = clean_powder_id(search_text)
+    st.write("搜尋字串（已清理）:", search_text)
+    st.write("配方管理表的配方編號範例：", df_recipe["配方編號"].head(10).tolist())
+
     st.subheader("🔎 配方搜尋與新增生產單")
 
     with st.form("search_add_form", clear_on_submit=False):
