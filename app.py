@@ -1162,7 +1162,8 @@ elif menu == "生產單管理":
             exact = st.checkbox("精確搜尋", key="exact_search")
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
-    
+       
+        search_text_original = search_text.strip()
         search_text_normalized = fix_leading_zero(search_text.strip())
         search_text_upper = search_text.strip().upper()
     
