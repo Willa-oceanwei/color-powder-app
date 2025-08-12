@@ -1290,7 +1290,7 @@ elif menu == "生產單管理":
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                    "配方編號": selected_row.get("配方編號", ""),
+                    "配方編號": search_text_original,
                     "顏色": selected_row.get("顏色", ""),
                     "客戶名稱": selected_row.get("客戶名稱", ""),
                     "Pantone 色號": selected_row.get("Pantone色號", ""),
