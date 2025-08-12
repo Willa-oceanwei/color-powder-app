@@ -722,7 +722,7 @@ elif menu == "配方管理":
         if add_powder and not st.session_state.add_powder_clicked:
             st.session_state.num_powder_rows = st.session_state.get("num_powder_rows", 5) + 1
             st.session_state.add_powder_clicked = True
-            st.experimental_rerun()
+            st.rerun()
         elif submitted:
             # 儲存邏輯示範
             st.success("配方已儲存！")
