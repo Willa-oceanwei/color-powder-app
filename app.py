@@ -1091,26 +1091,7 @@ elif menu == "生產單管理":
             st.stop()
     
     df_recipe = st.session_state.df_recipe
-    # 搜尋時也清理
-    if search_text:
-        search_text = clean_powder_id(search_text)
-        df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
-        df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
     
-        if exact:
-            filtered = df_recipe[
-                (df_recipe["配方編號"] == search_text) |
-                (df_recipe["客戶名稱"] == search_text)
-            ]
-        else:
-            filtered = df_recipe[
-                df_recipe["配方編號"].str.contains(search_text, case=False, na=False) |
-                df_recipe["客戶名稱"].str.contains(search_text, case=False, na=False)
-            ]
-    else:
-        filtered = df_recipe.copy()
-
-
     existing_values = ws_order.get_all_values()
     if len(existing_values) == 0:
         ws_order.append_row(header)
@@ -1136,14 +1117,18 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
     
+        # ✅ 搜尋字串先清理
         if search_text:
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
-            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
-            search_text = search_text.strip()
+            search_text = clean_powder_id(search_text)
     
+        df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
+        df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
+    
+        if search_text:
             if exact:
                 filtered = df_recipe[
-                    (df_recipe["配方編號"] == search_text) | (df_recipe["客戶名稱"] == search_text)
+                    (df_recipe["配方編號"] == search_text) |
+                    (df_recipe["客戶名稱"] == search_text)
                 ]
             else:
                 filtered = df_recipe[
@@ -1187,7 +1172,7 @@ elif menu == "生產單管理":
                 selected_row = None
             else:
                 selected_row = option_map.get(selected_label)
-    
+        
     if add_btn:
         if selected_label in ("請選擇", "（無符合配方）") or not selected_row:
             st.warning("請先選擇有效配方")
