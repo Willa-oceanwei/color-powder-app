@@ -1066,41 +1066,50 @@ elif menu == "生產單管理":
                 st.stop()
     # **在這裡做配方編號的清理，統一格式**
     def clean_powder_id(x):
-        x = str(x).strip()
-        if x == "" or pd.isna(x):
+        if pd.isna(x):
             return ""
-        return x.zfill(4)  # 固定 4 碼，必要時可改
+        x = str(x).strip().replace('\u3000', '').replace(' ', '')
+        return x  # 不補零，保留原輸入
     
-    # 清理配方編號欄位
-    st.session_state.df_order["配方編號"] = st.session_state.df_order["配方編號"].map(clean_powder_id)
-    
-    # 後續使用
-    df_order = st.session_state.df_order
-    
-    header = list(df_order.columns)
-
-    try:
-        ws_recipe = spreadsheet.worksheet("配方管理")
-        ws_order = spreadsheet.worksheet("生產單")
-    except Exception as e:
-        st.error(f"❌ 無法載入工作表：{e}")
-        st.stop()
-
+    # 讀配方管理
     if "df_recipe" not in st.session_state:
         try:
             records = ws_recipe.get_all_records()
             df_temp = pd.DataFrame(records)
             df_temp.columns = df_temp.columns.str.strip()
             df_temp.fillna("", inplace=True)
-            # 新增清理欄位，避免配方編號不一致問題
-            df_temp["配方編號_clean"] = df_temp["配方編號"].map(clean_powder_id)
-            df_temp["原始配方_clean"] = df_temp["原始配方"].map(clean_powder_id)
+    
+            # 強制轉字串再清理
+            if "配方編號" in df_temp.columns:
+                df_temp["配方編號"] = df_temp["配方編號"].astype(str).map(clean_powder_id)
+            if "原始配方" in df_temp.columns:
+                df_temp["原始配方"] = df_temp["原始配方"].astype(str).map(clean_powder_id)
+    
             st.session_state.df_recipe = df_temp
         except Exception as e:
             st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
             st.stop()
-
+    
     df_recipe = st.session_state.df_recipe
+    # 搜尋時也清理
+    if search_text:
+        search_text = clean_powder_id(search_text)
+        df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
+        df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
+    
+        if exact:
+            filtered = df_recipe[
+                (df_recipe["配方編號"] == search_text) |
+                (df_recipe["客戶名稱"] == search_text)
+            ]
+        else:
+            filtered = df_recipe[
+                df_recipe["配方編號"].str.contains(search_text, case=False, na=False) |
+                df_recipe["客戶名稱"].str.contains(search_text, case=False, na=False)
+            ]
+    else:
+        filtered = df_recipe.copy()
+
 
     existing_values = ws_order.get_all_values()
     if len(existing_values) == 0:
