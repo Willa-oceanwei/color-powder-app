@@ -1051,8 +1051,14 @@ elif menu == "生產單管理":
                 return ""
             return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
     
+        def fix_leading_zero(x):
+            x = str(x).strip()
+            if x.isdigit() and len(x) < 4:
+                x = x.zfill(4)  # 補足4位，不足補0
+            return x.upper()
+    
         if "配方編號" in df_recipe.columns:
-            df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id)
+            df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id).map(fix_leading_zero)
         if "客戶名稱" in df_recipe.columns:
             df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
         if "原始配方" in df_recipe.columns:
@@ -1095,7 +1101,7 @@ elif menu == "生產單管理":
     
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
-
+    
     # 轉換時間欄位與配方編號欄清理
     if "建立時間" in df_order.columns:
         df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
