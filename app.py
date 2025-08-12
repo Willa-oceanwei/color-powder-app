@@ -1397,7 +1397,7 @@ elif menu == "生產單管理":
                     
         # 合計列
         if total_type == "" or total_type == "無":
-            total_type_display = f"<b>{'共'.ljust(powder_label_width)}</b>"
+            total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
         elif category == "色母":
             total_type_display = f"<b>{'料'.ljust(powder_label_width)}</b>"
         else:
