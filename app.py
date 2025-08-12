@@ -1563,7 +1563,7 @@ elif menu == "生產單管理":
             # 不可編輯欄位
             c1, c2, c3, c4 = st.columns(4)
             c1.text_input("生產單號", value=order.get("生產單號", ""), disabled=True)
-            c2.text_input("配方編號", value=order.get("配方編號", ""), disabled=True)
+            c2.text_input("配方編號", value=recipe_row.get("配方編號", order.get("配方編號", "")), disabled=True)
             c3.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True)
             c4.text_input("客戶名稱", value=order.get("客戶名稱", ""), disabled=True)
         
