@@ -1205,10 +1205,13 @@ elif menu == "生產單管理":
         selected_label = None
     elif len(option_map) == 1:
         selected_label = list(option_map.keys())[0]
-        selected_row = option_map[selected_label]
+        selected_row = option_map[selected_label].copy()  # 複製，避免修改原資料
+        
+        # 加上原始輸入編號欄位
+        selected_row["配方編號_原始"] = search_text.strip()
     
-        # 用原始輸入的編號取代顯示
-        parts = selected_label.split(" | ", 1)  # ['757', '透明藍 | 龍鋒']
+        # 顯示用標籤
+        parts = selected_label.split(" | ", 1)
         if len(parts) > 1:
             display_label = f"{search_text.strip()} | {parts[1]}"
         else:
