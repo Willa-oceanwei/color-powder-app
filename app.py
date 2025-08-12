@@ -449,23 +449,7 @@ elif menu == "配方管理":
         st.session_state.df = df# 儲存進 session_state
     
     # ✅ 後續操作都從 session_state 中抓資料
-
-    try:
-        ws_recipe = spreadsheet.worksheet("配方管理")
-        df_recipe = pd.DataFrame(ws_recipe.get_all_records())
-    
-        if "配方編號" not in df_recipe.columns:
-            st.error("❌ 配方管理表缺少『配方編號』欄位")
-            df_recipe = pd.DataFrame()
-        else:
-            df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id)
-    
-        st.session_state.df_recipe = df_recipe
-    
-    except Exception as e:
-        st.error(f"讀取『配方管理』工作表失敗：{e}")
-        st.session_state.df_recipe = pd.DataFrame()
-    
+  
         #-------
         df = st.session_state.df
         # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
@@ -1051,10 +1035,20 @@ elif menu == "生產單管理":
 
     # 載入 Google Sheets 生產單工作表
     try:
-        ws_order = spreadsheet.worksheet("生產單")
+        ws_recipe = spreadsheet.worksheet("配方管理")
+        df_recipe = pd.DataFrame(ws_recipe.get_all_records())
+    
+        if "配方編號" not in df_recipe.columns:
+            st.error("❌ 配方管理表缺少『配方編號』欄位")
+            df_recipe = pd.DataFrame()
+        else:
+            df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id)
+    
+        st.session_state.df_recipe = df_recipe
+    
     except Exception as e:
-        st.error(f"❌ 無法讀取『生產單』工作表：{e}")
-        st.stop()
+        st.error(f"讀取『配方管理』工作表失敗：{e}")
+        st.session_state.df_recipe = pd.DataFrame()
 
     if "df_order" not in st.session_state:
         try:
