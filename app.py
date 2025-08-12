@@ -1114,14 +1114,29 @@ elif menu == "生產單管理":
             label += "（附加配方）"
         return label
     
+    # 先定義清理函式
     def clean_powder_id(x):
         if pd.isna(x) or x == "":
             return ""
-        x = str(x).strip().replace('\u3000', '').replace(' ', '').upper()
-        return x
+        return str(x).strip().upper()  # 去除空白+轉大寫
     
+    # 載入配方管理表時做清理（載入區塊示範）
+    try:
+        records = ws_recipe.get_all_records()
+        df_recipe = pd.DataFrame(records)
+        df_recipe.columns = df_recipe.columns.str.strip()
+        df_recipe.fillna("", inplace=True)
+        if "配方編號" in df_recipe.columns:
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
+        st.session_state.df_recipe = df_recipe
+    except Exception as e:
+        st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
+        st.stop()
+    
+    df_recipe = st.session_state.df_recipe
+    
+    # Streamlit UI 搜尋表單
     st.subheader("🔎 配方搜尋與新增生產單")
-    
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4,1,1])
         with col1:
@@ -1131,33 +1146,37 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
     
-    # 在表單外用清理後的字串進行搜尋
-    search_text_clean = clean_powder_id(search_text)
+        # 搜尋前清理輸入字串（大寫+去空白）
+        search_text_clean = clean_powder_id(search_text)
     
-    st.write("搜尋字串（已清理）:", search_text_clean)
-    st.write("配方管理表的配方編號範例：", df_recipe["配方編號"].head(10).tolist())
+        if search_text_clean:
+            # 確保配方編號與客戶名稱都轉為字串
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
+            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
     
-    search_text_clean = clean_powder_id(search_text)
-
-    if search_text_clean:
-        if exact:
-            # 精確搜尋，完全比對
-            filtered = df_recipe[
-                (df_recipe["配方編號"] == search_text_clean) |
-                (df_recipe["客戶名稱"].str.lower() == search_text_clean.lower())
-            ]
+            if exact:
+                # 精確比對，配方編號比對用大寫清理後字串，客戶名稱忽略大小寫比對
+                filtered = df_recipe[
+                    (df_recipe["配方編號"] == search_text_clean) |
+                    (df_recipe["客戶名稱"].str.lower() == search_text_clean.lower())
+                ]
+            else:
+                # 模糊比對，配方編號及客戶名稱都不區分大小寫包含字串
+                filtered = df_recipe[
+                    df_recipe["配方編號"].str.contains(search_text_clean, case=False, na=False) |
+                    df_recipe["客戶名稱"].str.contains(search_text_clean, case=False, na=False)
+                ]
         else:
-            # 模糊搜尋，部分包含
-            filtered = df_recipe[
-                df_recipe["配方編號"].str.contains(search_text_clean, case=False, na=False) |
-                df_recipe["客戶名稱"].str.contains(search_text_clean, case=False, na=False)
-            ]
-    else:
-        filtered = df_recipe.copy()
+            filtered = df_recipe.copy()
     
-    filtered = filtered.copy()  # 建議保留，避免後續操作警告
+        filtered = filtered.copy()  # 防止 SettingWithCopyWarning
     
-    st.write("搜尋結果：", filtered)
+    # 建立搜尋結果標籤與選項
+    def format_option(r):
+        label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
+        if r.get("配方類別", "") == "附加配方":
+            label += "（附加配方）"
+        return label
     
     if not filtered.empty:
         filtered["label"] = filtered.apply(format_option, axis=1)
@@ -1184,7 +1203,6 @@ elif menu == "生產單管理":
             selected_row = None
         else:
             selected_row = option_map.get(selected_label)
-
     
     if add_btn:
         if selected_label is None or selected_label == "請選擇" or selected_label == "（無符合配方）":
