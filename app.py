@@ -1228,6 +1228,16 @@ elif menu == "生產單管理":
             selected_row = None
         else:
             selected_row = option_map.get(selected_label)
+
+    # 搜尋完後建立選項給使用者選擇
+    if not filtered.empty:
+        filtered["label"] = filtered.apply(format_option, axis=1)
+        option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
+    else:
+        option_map = {}
+    
+    # 顯示選單給使用者挑選
+    selected_label = st.selectbox("選擇配方", options=["請選擇"] + list(option_map.keys()))
     
     if add_btn:
         if selected_label is None or selected_label == "請選擇" or selected_label == "（無符合配方）":
