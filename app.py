@@ -1206,6 +1206,8 @@ elif menu == "生產單管理":
     elif len(option_map) == 1:
         selected_label = list(option_map.keys())[0]
         selected_row = option_map[selected_label]
+        if selected_row and search_text.strip():
+            selected_row["配方編號"] = search_text.strip()
         st.success(f"已自動選取：{selected_label}")
     else:
         selected_label = st.selectbox(
