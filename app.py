@@ -8,34 +8,25 @@ import json
 import time
 import base64
 
-# 自訂 CSS，針對指定 key 的 selectbox 項目做樣式調整
+# 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
 st.markdown(
     """
     <style>
-    /* 只針對 key 為 myselect 的 selectbox */
+    /* 選中項目背景色 */
     .st-key-myselect [data-baseweb="option"][aria-selected="true"] {
-        background-color: #999999 !important;  /* 選中項目淺灰 */
-        color: black !important;               /* 文字改黑色 */
+        background-color: #999999 !important;  /* 淺灰 */
+        color: black !important;
         font-weight: bold;
     }
+    /* 滑鼠滑過項目背景色 */
     .st-key-myselect [data-baseweb="option"]:hover {
-        background-color: #bbbbbb !important;  /* 滑鼠 hover 項目更淺灰 */
+        background-color: #bbbbbb !important;  /* 更淺灰 */
         color: black !important;
     }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
-
-# 建立帶有 key 的 selectbox
-option = st.selectbox(
-    "請選擇一個選項（背景色已自訂）",
-    ["選項 A", "選項 B", "選項 C"],
-    key="myselect"
-)
-
-st.write(f"你選擇的是: {option}")
-
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
