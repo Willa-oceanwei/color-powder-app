@@ -1146,14 +1146,10 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
     
-        # 搜尋前清理輸入字串（大寫+去空白）
-        search_text_clean = fix_leading_zero(clean_powder_id(search_text))
+        # 使用標準化輸入字串
+        search_text_normalized = normalize_search_text(search_text)
     
-        if search_text_clean:
-            # 確保配方編號與客戶名稱都轉為字串
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
-            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
-    
+        if search_text_normalized:
             if exact:
                 filtered = df_recipe[
                     (df_recipe["配方編號"] == search_text_normalized) |
@@ -1167,7 +1163,7 @@ elif menu == "生產單管理":
         else:
             filtered = df_recipe.copy()
     
-        filtered = filtered.copy()  # 防止 SettingWithCopyWarning
+    filtered = filtered.copy()  # 避免 SettingWithCopyWarning
     
     # 建立搜尋結果標籤與選項
     def format_option(r):
