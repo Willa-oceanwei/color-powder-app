@@ -1092,28 +1092,23 @@ elif menu == "生產單管理":
         df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
     if "配方編號" in df_order.columns:
         df_order["配方編號"] = df_order["配方編號"].map(clean_powder_id)
-
+    
     # 初始化 session_state 用的 key
     for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "show_confirm_panel"]:
         if key not in st.session_state:
             st.session_state[key] = None if key != "order_page" else 1
-
+    
     def format_option(r):
         label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
         if r.get("配方類別", "") == "附加配方":
             label += "（附加配方）"
         return label
-
+    
     def clean_powder_id(x):
         if pd.isna(x) or x == "":
             return ""
         x = str(x).strip().replace('\u3000', '').replace(' ', '').upper()
         return x
-    
-    # 這裡才呼叫函式
-    search_text = clean_powder_id(search_text)
-    st.write("搜尋字串（已清理）:", search_text)
-    st.write("配方管理表的配方編號範例：", df_recipe["配方編號"].head(10).tolist())
     
     st.subheader("🔎 配方搜尋與新增生產單")
     
@@ -1126,51 +1121,56 @@ elif menu == "生產單管理":
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
     
-        if search_text:
-            search_text = clean_powder_id(search_text)
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
-            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
+    # 在表單外用清理後的字串進行搜尋
+    search_text_clean = clean_powder_id(search_text)
     
-            if exact:
-                filtered = df_recipe[
-                    (df_recipe["配方編號"] == search_text) |
-                    (df_recipe["客戶名稱"] == search_text)
-                ]
-            else:
-                filtered = df_recipe[
-                    df_recipe["配方編號"].str.contains(search_text, case=False, na=False) |
-                    df_recipe["客戶名稱"].str.contains(search_text, case=False, na=False)
-                ]
+    st.write("搜尋字串（已清理）:", search_text_clean)
+    st.write("配方管理表的配方編號範例：", df_recipe["配方編號"].head(10).tolist())
+    
+    if search_text_clean:
+        df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
+        df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
+    
+        if exact:
+            filtered = df_recipe[
+                (df_recipe["配方編號"] == search_text_clean) |
+                (df_recipe["客戶名稱"] == search_text_clean)
+            ]
         else:
-            filtered = df_recipe.copy()
+            filtered = df_recipe[
+                df_recipe["配方編號"].str.contains(search_text_clean, case=False, na=False) |
+                df_recipe["客戶名稱"].str.contains(search_text_clean, case=False, na=False)
+            ]
+    else:
+        filtered = df_recipe.copy()
     
-        filtered = filtered.copy()
+    filtered = filtered.copy()
     
-        if not filtered.empty:
-            filtered["label"] = filtered.apply(format_option, axis=1)
-            option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
-        else:
-            option_map = {}
+    if not filtered.empty:
+        filtered["label"] = filtered.apply(format_option, axis=1)
+        option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
+    else:
+        option_map = {}
     
-        if not option_map:
-            st.warning("查無符合的配方")
+    if not option_map:
+        st.warning("查無符合的配方")
+        selected_row = None
+        selected_label = None
+    elif len(option_map) == 1:
+        selected_label = list(option_map.keys())[0]
+        selected_row = option_map[selected_label]
+        st.success(f"已自動選取：{selected_label}")
+    else:
+        selected_label = st.selectbox(
+            "選擇配方",
+            ["請選擇"] + list(option_map.keys()),
+            index=0,
+            key="search_add_form_selected_recipe"
+        )
+        if selected_label == "請選擇":
             selected_row = None
-            selected_label = None
-        elif len(option_map) == 1:
-            selected_label = list(option_map.keys())[0]
-            selected_row = option_map[selected_label]
-            st.success(f"已自動選取：{selected_label}")
         else:
-            selected_label = st.selectbox(
-                "選擇配方",
-                ["請選擇"] + list(option_map.keys()),
-                index=0,
-                key="search_add_form_selected_recipe"
-            )
-            if selected_label == "請選擇":
-                selected_row = None
-            else:
-                selected_row = option_map.get(selected_label)
+            selected_row = option_map.get(selected_label)
 
     
     if add_btn:
