@@ -8,6 +8,20 @@ import json
 import time
 import base64
 
+# 一開始就放入自訂 CSS，確保整個頁面生效
+st.markdown(
+    """
+    <style>
+    /* 下拉選單打開時，被選中的選項背景色 */
+    div[role="listbox"] > div[aria-selected="true"] {
+        background-color: #ffcccc !important;  /* 你要的深灰 */
+        color: white !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
