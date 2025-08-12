@@ -8,6 +8,8 @@ import json
 import time
 import base64
 
+streamlit --version
+
 # 一開始就放入自訂 CSS，確保整個頁面生效
 st.markdown(
     """
