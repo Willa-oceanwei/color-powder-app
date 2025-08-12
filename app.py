@@ -1474,6 +1474,7 @@ elif menu == "生產單管理":
                     lines.append(row)
     
         lines.append("")
+        lines.append("")  # 多加這一行，讓備註往下多空一行
         lines.append(f"備註 : {order.get('備註', '')}")
     
         return "<br>".join(lines)
