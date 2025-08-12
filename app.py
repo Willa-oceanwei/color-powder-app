@@ -1018,6 +1018,7 @@ elif menu == "生產單管理":
 
     from pathlib import Path
     from datetime import datetime
+    from datetime import datetime, timedelta
     import pandas as pd
 
     # 建立資料夾（若尚未存在）
@@ -1127,24 +1128,20 @@ elif menu == "生產單管理":
     st.write("搜尋字串（已清理）:", search_text_clean)
     st.write("配方管理表的配方編號範例：", df_recipe["配方編號"].head(10).tolist())
     
-    if search_text_clean:
-        df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
-        df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
-    
-        if exact:
-            filtered = df_recipe[
-                (df_recipe["配方編號"] == search_text_clean) |
-                (df_recipe["客戶名稱"] == search_text_clean)
-            ]
-        else:
-            filtered = df_recipe[
-                df_recipe["配方編號"].str.contains(search_text_clean, case=False, na=False) |
-                df_recipe["客戶名稱"].str.contains(search_text_clean, case=False, na=False)
-            ]
+    if exact:
+        filtered = df_recipe[
+            (df_recipe["配方編號"] == search_text_clean) |
+            (df_recipe["客戶名稱"] == search_text_clean)
+        ]
     else:
-        filtered = df_recipe.copy()
+        filtered = df_recipe[
+            df_recipe["配方編號"].str.contains(search_text_clean, case=False, na=False) |
+            df_recipe["客戶名稱"].str.contains(search_text_clean, case=False, na=False)
+        ]
     
-    filtered = filtered.copy()
+    filtered = filtered.copy()  # 建議保留，避免後續操作警告
+    
+    st.write("搜尋結果：", filtered)
     
     if not filtered.empty:
         filtered["label"] = filtered.apply(format_option, axis=1)
