@@ -12,9 +12,14 @@ import base64
 st.markdown(
     """
     <style>
-    /* 下拉選單打開時，被選中的選項背景色 */
+    /* 被選中項目背景色 */
     div[role="listbox"] > div[aria-selected="true"] {
-        background-color: #ffcccc !important;  /* 你要的深灰 */
+        background-color: #666666 !important;
+        color: white !important;
+    }
+    /* 滑鼠指到項目背景色 */
+    div[role="listbox"] > div:hover {
+        background-color: #ffcccc !important;
         color: white !important;
     }
     </style>
