@@ -1866,6 +1866,10 @@ elif menu == "生產單管理":
     cols_top = st.columns([5, 1])
     with cols_top[0]:
         selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
+    # ==== 選擇生產單後初始化 order_dict ====
+    order_dict = None
+    recipe_row = None
+    附加配方資料 = []
     
     if selected_label:
         selected_code_edit = code_to_id[selected_label]
