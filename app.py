@@ -951,13 +951,12 @@ elif menu == "配方管理":
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [c for c in show_cols if c in page_data.columns]
     
-    # 先複製一個新的 DataFrame，保證索引被重置
     display_df = page_data[existing_cols].copy()
+    
+    # 方法1: 用 st.dataframe 並重置索引
     display_df.reset_index(drop=True, inplace=True)
-    
-    # Streamlit 顯示
     st.dataframe(display_df, use_container_width=True)
-    
+        
     st.markdown("---")  # 分隔線
 
     # ✅ 補這段在這裡
