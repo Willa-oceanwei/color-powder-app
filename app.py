@@ -1722,11 +1722,11 @@ elif menu == "生產單管理":
             show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
             
             # 產生列印 HTML
-            print_html = generate_print_page_content(
-                order,
+            print_html = generate_production_order_print(
+                order_dict,
                 recipe_row,
-                order.get("附加配方"),
-                show_additional_ids=show_ids  # ✅ 傳入使用者選項
+                附加配方資料,
+                show_additional_ids=show_ids
             )
             
             # 下載按鈕         
