@@ -979,9 +979,7 @@ elif menu == "配方管理":
     
     # --- 配方編號選擇 + 修改/刪除 ---
     code_list = page_data["配方編號"].dropna().tolist()
-    
-    st.markdown("---")  # 分隔線
-    
+        
     cols = st.columns([3, 1, 1])  # 配方編號下拉+修改+刪除 按鈕
     with cols[0]:
         if code_list:
