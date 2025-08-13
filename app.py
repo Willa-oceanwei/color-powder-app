@@ -1025,10 +1025,10 @@ elif menu == "配方管理":
         if st.button("回到首頁"):
             st.session_state.page = 1
     with cols_page[1]:
-        if st.button("上一頁", key="prev_page") and st.session_state.page > 1:
+        if st.button("上一頁", key="table_prev_page") and st.session_state.page > 1:
             st.session_state.page -= 1
     with cols_page[2]:
-        if st.button("下一頁", key="next_page") and st.session_state.page < total_pages:
+        if st.button("下一頁", key="table_next_page") and st.session_state.page < total_pages:
             st.session_state.page += 1
     with cols_page[3]:
         input_page = st.number_input("跳至頁碼", 1, total_pages, st.session_state.page)
