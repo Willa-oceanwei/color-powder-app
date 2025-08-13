@@ -1938,8 +1938,6 @@ elif menu == "生產單管理":
                         mime="text/html",
                         key=f"download_a5_{selected_code_edit}"
                     )
-    )
-
     
     with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
