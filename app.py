@@ -952,7 +952,7 @@ elif menu == "配方管理":
     existing_cols = [c for c in show_cols if c in df_filtered.columns]
 
     # 重設索引並隱藏左側序列
-    st.dataframe(df_filtered[existing_cols].reset_index(drop=True))
+    st.dataframe(page_data[existing_cols].reset_index(drop=True))
     
     st.markdown("---")  # 分隔線
 
