@@ -933,6 +933,10 @@ elif menu == "配方管理":
     total_pages = max((total_rows - 1) // limit + 1, 1)
     
     # 初始化分頁 page
+    total_rows = df_filtered.shape[0]
+    total_pages = max((total_rows - 1) // limit + 1, 1)
+    
+    # 初始化分頁 page
     if "page" not in st.session_state:
         st.session_state.page = 1
     
@@ -942,35 +946,30 @@ elif menu == "配方管理":
         st.session_state.page = 1
         st.session_state.last_search_id = search_id
     
-    # 確保 page 是整數
-    if "page" not in st.session_state or not isinstance(st.session_state.page, int):
-        st.session_state.page = 1
-    
-    # 計算分頁範圍
     start_idx = (st.session_state.page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
     
-    # 顯示資料表格區（隱藏索引）
+    # 顯示資料表格區（只顯示分頁資料，隱藏索引）
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [c for c in show_cols if c in page_data.columns]
     
     display_df = page_data[existing_cols].copy()
-    display_df.reset_index(drop=True, inplace=True)  # 確保索引從0開始，但 st.table 不會顯示
+    display_df.reset_index(drop=True, inplace=True)
     
-    st.table(display_df)  # 用 st.table 完全不顯示索引
+    st.dataframe(display_df, use_container_width=True)
     
-    # 分頁控制按鈕
+    # --- 分頁按鈕 ---
     col1, col2, col3 = st.columns([1,2,1])
     with col1:
-        if st.button("上一頁") and st.session_state.page > 1:
+        if st.button("上一頁", key="prev_page") and st.session_state.page > 1:
             st.session_state.page -= 1
             st.experimental_rerun()
     with col3:
-        if st.button("下一頁") and st.session_state.page < total_pages:
+        if st.button("下一頁", key="next_page") and st.session_state.page < total_pages:
             st.session_state.page += 1
             st.experimental_rerun()
-    
+        
     st.markdown(f"第 {st.session_state.page} 頁 / 共 {total_pages} 頁")
     st.markdown("---")  # 分隔線
     
