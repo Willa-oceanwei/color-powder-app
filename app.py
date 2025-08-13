@@ -982,7 +982,7 @@ elif menu == "配方管理":
     
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
     
-        st.markdown("---")  # 分隔線
+    st.markdown("---")  # 分隔線
     
     # ✅ 補這段在這裡
     top_has_input = any([
