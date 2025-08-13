@@ -1767,7 +1767,7 @@ elif menu == "生產單管理":
     page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
     page_data = page_data.sort_values(by="建立時間", ascending=False)
     
-    # 準備選項
+    # 產生選單與映射
     options = []
     code_to_id = {}
     for idx, row in page_data.iterrows():
@@ -1775,57 +1775,64 @@ elif menu == "生產單管理":
         options.append(label)
         code_to_id[label] = row["生產單號"]
     
-    # 再來 render 選單（放在左邊）
+    # 選單選擇（放左邊）
     with cols_top[0]:
         selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
     
-    def calculate_shipment(row):
-        try:
-            unit = str(row.get("計量單位", "")).strip()
-            formula_id = str(row.get("配方編號", "")).strip()
-            multipliers = {"包": 25, "桶": 100, "kg": 1}
-            unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
-    
-            if not formula_id:
-                return ""
-    
-            try:
-                matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
-                category = matched.values[0] if not matched.empty else ""
-            except Exception:
-                category = ""
-    
-            if unit == "kg" and category == "色母":
-                multiplier = 100
-                label = "K"
-            else:
-                multiplier = multipliers.get(unit, 1)
-                label = unit_labels.get(unit, "")
-    
-            results = []
-            for i in range(1, 5):
-                try:
-                    weight = float(row.get(f"包裝重量{i}", 0))
-                    count = int(float(row.get(f"包裝份數{i}", 0)))
-                    if weight > 0 and count > 0:
-                        show_weight = int(weight * multiplier) if label == "K" else weight
-                        results.append(f"{show_weight}{label}*{count}")
-                except Exception:
-                    continue
-    
-            return " + ".join(results) if results else ""
-    
-        except Exception as e:
-            st.error(f"calculate_shipment error at row index {row.name}: {e}")
-            st.write(row)
-            return ""
+    # 選擇生產單後同步設定 session_state
+    if selected_label:
+        selected_order_code = code_to_id[selected_label]
+        st.session_state.selected_code_edit = selected_order_code
+    else:
+        st.session_state.selected_code_edit = None
     
     # 計算出貨數量並加入新欄位
     if not page_data.empty:
+        def calculate_shipment(row):
+            try:
+                unit = str(row.get("計量單位", "")).strip()
+                formula_id = str(row.get("配方編號", "")).strip()
+                multipliers = {"包": 25, "桶": 100, "kg": 1}
+                unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
+    
+                if not formula_id:
+                    return ""
+    
+                try:
+                    matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
+                    category = matched.values[0] if not matched.empty else ""
+                except Exception:
+                    category = ""
+    
+                if unit == "kg" and category == "色母":
+                    multiplier = 100
+                    label = "K"
+                else:
+                    multiplier = multipliers.get(unit, 1)
+                    label = unit_labels.get(unit, "")
+    
+                results = []
+                for i in range(1, 5):
+                    try:
+                        weight = float(row.get(f"包裝重量{i}", 0))
+                        count = int(float(row.get(f"包裝份數{i}", 0)))
+                        if weight > 0 and count > 0:
+                            show_weight = int(weight * multiplier) if label == "K" else weight
+                            results.append(f"{show_weight}{label}*{count}")
+                    except Exception:
+                        continue
+    
+                return " + ".join(results) if results else ""
+    
+            except Exception as e:
+                st.error(f"calculate_shipment error at row index {row.name}: {e}")
+                st.write(row)
+                return ""
+    
         shipment_series = page_data.apply(calculate_shipment, axis=1)
         page_data["出貨數量"] = shipment_series
     
-        # 顯示表格（去除生產日期欄位）
+        # 顯示表格
         st.dataframe(
             page_data[["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]],
             use_container_width=True,
@@ -1834,7 +1841,7 @@ elif menu == "生產單管理":
     else:
         st.info("查無符合的生產單")
     
-    # 分頁控制列（始終顯示）
+    # 分頁控制列
     cols_page = st.columns([1, 1, 1, 2])
     if cols_page[0].button("首頁"):
         st.session_state.order_page = 1
@@ -1853,37 +1860,27 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
-    # ====== A5 HTML 下載功能 ======
-    if selected_label:
-        selected_order_code = code_to_id[selected_label]
-        order_row = df_order[df_order["生產單號"] == selected_order_code]
-    
-        if not order_row.empty:
-            order_dict = order_row.iloc[0].to_dict()
-    
-            # 找到對應配方資料
-            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
-            if not recipe_rows.empty:
-                recipe_row = recipe_rows.iloc[0]
-                
-                # 生成 A5 列印 HTML
-                print_html = generate_print_page_content(order_dict, recipe_row)
-    
-                # 下載按鈕
-                st.download_button(
-                    label="📥 下載 A5 HTML",
-                    data=print_html.encode("utf-8"),
-                    file_name=f"{order_dict['生產單號']}_A5列印.html",
-                    mime="text/html"
-                )
-            else:
-                st.warning(f"找不到配方資料：{order_dict['配方編號']}")
-        
-    # 修改 & 刪除功能區塊
-    codes = df_order["生產單號"].tolist()
-    cols_mod = st.columns([1, 1])
+    # 修改 / 刪除 / A5 下載三欄按鈕橫排
+    cols_mod = st.columns([1, 1, 1])
+    selected_code_edit = st.session_state.get("selected_code_edit", None)
     
     with cols_mod[0]:
+        if selected_code_edit:
+            order_row = df_order[df_order["生產單號"] == selected_code_edit]
+            if not order_row.empty:
+                order_dict = order_row.iloc[0].to_dict()
+                recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
+                if not recipe_rows.empty:
+                    recipe_row = recipe_rows.iloc[0]
+                    print_html = generate_print_page_content(order_dict, recipe_row)
+                    st.download_button(
+                        label="📥 下載 A5 HTML",
+                        data=print_html.encode("utf-8"),
+                        file_name=f"{order_dict['生產單號']}_A5列印.html",
+                        mime="text/html"
+                    )
+    
+    with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
             row = df_order[df_order["生產單號"] == selected_code_edit]
             if not row.empty:
@@ -1892,7 +1889,7 @@ elif menu == "生產單管理":
             else:
                 st.warning("找不到該筆生產單")
     
-    with cols_mod[1]:
+    with cols_mod[2]:
         if st.button("🗑️ 刪除", key="delete_button_1") and selected_code_edit:
             try:
                 cell = ws_order.find(selected_code_edit)
@@ -1911,16 +1908,15 @@ elif menu == "生產單管理":
             st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
     
             # 清理狀態並重新整理
-            st.session_state.pop("selected_order_code_edit", None)
+            st.session_state.pop("selected_code_edit", None)
             st.session_state.show_edit_panel = False
             st.session_state.editing_order = None
-            st.rerun()
+            st.experimental_rerun()
     
-    # 顯示修改面板
+    # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
         st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
-    
         edit_order = st.session_state.editing_order
     
         new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""), key="edit_customer_name")
@@ -1946,7 +1942,7 @@ elif menu == "生產單管理":
     
         new_remark = st.text_area("備註", value=edit_order.get("備註", ""), key="edit_remark")
     
-        # 先取得對應配方資料
+        # 取得對應配方資料
         recipe_id = edit_order.get("配方編號", "")
         recipe_rows = df_recipe[df_recipe["配方編號"] == recipe_id]
         if recipe_rows.empty:
@@ -1956,10 +1952,6 @@ elif menu == "生產單管理":
     
         # 產生 HTML 預覽內容
         print_html = generate_print_page_content(edit_order, recipe_row)
-    
-        import urllib.parse
-        print_html = generate_print_page_content(edit_order, recipe_row)
-        encoded_html = urllib.parse.quote(print_html)
     
         st.download_button(
             label="📄 下載列印 HTML",
@@ -2008,7 +2000,7 @@ elif menu == "生產單管理":
                     # st.session_state.show_edit_panel = False
                     # st.session_state.editing_order = None
     
-                    st.rerun()
+                    st.experimental_rerun()
                 else:
                     st.error("⚠️ 找不到該筆生產單資料")
     
@@ -2017,6 +2009,7 @@ elif menu == "生產單管理":
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
                 st.experimental_rerun()
+
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
