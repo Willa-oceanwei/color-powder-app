@@ -1747,7 +1747,7 @@ elif menu == "生產單管理":
     st.markdown("---")
     st.subheader("📑 生產單記錄表")
                 
-    search_order = st.text_input("搜尋生產單 (生產單號 配方編號 客戶名稱 顏色)", key="search_order_input_order_page", value="")
+    search_order = st.text_input("搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)", key="search_order_input_order_page", value="")
                 
     # 初始化 order_page
     if "order_page" not in st.session_state:
