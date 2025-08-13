@@ -1232,9 +1232,9 @@ elif menu == "生產單管理":
         # 顯示標籤（用真實配方編號）
         parts = selected_label.split(" | ", 1)
         if len(parts) > 1:
-            display_label = f"{true_formula_id} | {parts[1]}"
+            display_label = f"{selected_row['配方編號']} | {parts[1]}"
         else:
-            display_label = true_formula_id
+            display_label = selected_row['配方編號']
     
         st.success(f"已自動選取：{display_label}")
     else:
