@@ -1744,7 +1744,6 @@ elif menu == "生產單管理":
                     st.session_state.new_order_saved = False
                     st.rerun()
                             
-    # ---------- 生產單清單 + 修改 / 刪除 / 列印 ----------
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📑 生產單記錄表")
@@ -1867,10 +1866,10 @@ elif menu == "生產單管理":
     with cols_top[0]:
         selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
         
-# ==== 選擇生產單後初始化 order_dict ====
-order_dict = {}
-recipe_row = {}
-附加配方資料 = []
+    # ==== 選擇生產單後初始化 order_dict ====
+    order_dict = {}
+    recipe_row = {}
+    附加配方資料 = []
     
     if selected_label:
         selected_code_edit = code_to_id[selected_label]
