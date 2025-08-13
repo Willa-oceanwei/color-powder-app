@@ -926,38 +926,29 @@ elif menu == "配方管理":
     with col2:
         limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
     
-    
-    # ===== 分頁設定 =====
-    limit = 10  # 每頁顯示列數，可調整
+    # ===== 分頁顯示 =====
+    limit = 10
     total_rows = df_filtered.shape[0]
     total_pages = max((total_rows - 1) // limit + 1, 1)
     
-    # 初始化分頁 page
     if "page" not in st.session_state:
         st.session_state.page = 1
     
-    # 搜尋條件改變時，分頁回到1
-    search_id = (recipe_kw, customer_kw, pantone_kw)
-    if "last_search_id" not in st.session_state or st.session_state.last_search_id != search_id:
-        st.session_state.page = 1
-        st.session_state.last_search_id = search_id
-    
-    # 計算分頁範圍
+    # 分頁索引
     start_idx = (st.session_state.page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
     
-    # --- 顯示資料表格 ---
+    # 顯示表格（唯一一次）
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [c for c in show_cols if c in page_data.columns]
     
     if not page_data.empty:
-        display_df = page_data[existing_cols].reset_index(drop=True)  # 隱藏左側序列
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        st.dataframe(page_data[existing_cols].reset_index(drop=True), use_container_width=True, hide_index=True)
     else:
         st.info("查無符合的配方")
     
-    # --- 分頁控制列 ---
+    # 分頁控制列（按鍵唯一 key）
     cols_page = st.columns([1, 1, 1, 2])
     if cols_page[0].button("首頁", key="first_page"):
         st.session_state.page = 1
@@ -975,7 +966,8 @@ elif menu == "配方管理":
         st.experimental_rerun()
     
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
-    st.markdown("---")  # 分隔線
+    st.markdown("---")
+
     
     # ✅ 補這段在這裡
     top_has_input = any([
