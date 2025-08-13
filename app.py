@@ -1885,54 +1885,54 @@ elif menu == "生產單管理":
     selected_code_edit = st.session_state.get("selected_code_edit", None)
     
     with cols_mod[0]:
-    if selected_code_edit:
-        order_row = df_order[df_order["生產單號"] == selected_code_edit]
-        if not order_row.empty:
-            order_dict = order_row.iloc[0].to_dict()
-
-            # --- 處理主配方資料 ---
-            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
-            if not recipe_rows.empty:
-                recipe_row = recipe_rows.iloc[0].to_dict()
-
-                # ✅ 將所有欄位轉字串，空值轉 ""
-                recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
-                order_dict = {k: ("" if v is None or pd.isna(v) else str(v)) for k, v in order_dict.items()}
-
-                # ✅ checkbox 控制是否顯示附加配方編號
-                show_ids = st.checkbox(
-                    "列印時顯示附加配方編號",
-                    value=True,
-                    key=f"show_ids_{selected_code_edit}"
-                )
-
-                # --- 處理附加配方型態 ---
-                import ast
-                附加配方資料 = order_dict.get("附加配方", [])
-                if isinstance(附加配方資料, str):
-                    try:
-                        附加配方資料 = ast.literal_eval(附加配方資料)
-                        if not isinstance(附加配方資料, list):
+        if selected_code_edit:
+            order_row = df_order[df_order["生產單號"] == selected_code_edit]
+            if not order_row.empty:
+                order_dict = order_row.iloc[0].to_dict()
+    
+                # --- 處理主配方資料 ---
+                recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
+                if not recipe_rows.empty:
+                    recipe_row = recipe_rows.iloc[0].to_dict()
+    
+                    # ✅ 將所有欄位轉字串，空值轉 ""
+                    recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
+                    order_dict = {k: ("" if v is None or pd.isna(v) else str(v)) for k, v in order_dict.items()}
+    
+                    # ✅ checkbox 控制是否顯示附加配方編號
+                    show_ids = st.checkbox(
+                        "列印時顯示附加配方編號",
+                        value=True,
+                        key=f"show_ids_{selected_code_edit}"
+                    )
+    
+                    # --- 處理附加配方型態 ---
+                    import ast
+                    附加配方資料 = order_dict.get("附加配方", [])
+                    if isinstance(附加配方資料, str):
+                        try:
+                            附加配方資料 = ast.literal_eval(附加配方資料)
+                            if not isinstance(附加配方資料, list):
+                                附加配方資料 = []
+                        except:
                             附加配方資料 = []
-                    except:
-                        附加配方資料 = []
-
-                # --- 產生 HTML ---
-                print_html = generate_print_page_content(
-                    order_dict,
-                    recipe_row,
-                    附加配方資料,
-                    show_additional_ids=show_ids
-                )
-
-                # ✅ 下載按鈕，key 加入生產單號避免重複
-                st.download_button(
-                    label="📥 下載 A5 HTML",
-                    data=print_html.encode("utf-8"),
-                    file_name=f"{order_dict['生產單號']}_列印.html",
-                    mime="text/html",
-                    key=f"download_a5_{selected_code_edit}"
-                )
+    
+                    # --- 產生 HTML ---
+                    print_html = generate_print_page_content(
+                        order_dict,
+                        recipe_row,
+                        附加配方資料,
+                        show_additional_ids=show_ids
+                    )
+    
+                    # ✅ 下載按鈕，key 加入生產單號避免重複
+                    st.download_button(
+                        label="📥 下載 A5 HTML",
+                        data=print_html.encode("utf-8"),
+                        file_name=f"{order_dict['生產單號']}_列印.html",
+                        mime="text/html",
+                        key=f"download_a5_{selected_code_edit}"
+                    )
 
     
     with cols_mod[1]:
