@@ -1886,17 +1886,41 @@ elif menu == "生產單管理":
     
     with cols_mod[0]:
         if selected_code_edit:
+            # 取得完整 order_dict
             order_row = df_order[df_order["生產單號"] == selected_code_edit]
             if not order_row.empty:
                 order_dict = order_row.iloc[0].to_dict()
+    
+                # 取得主配方資料
                 recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
                 if not recipe_rows.empty:
                     recipe_row = recipe_rows.iloc[0]
-                    print_html = generate_print_page_content(order_dict, recipe_row)
+    
+                    # 取得附加配方清單
+                    additional_recipes = df_recipe[
+                        (df_recipe["配方類別"] == "附加配方") &
+                        (df_recipe["原始配方"] == order_dict["配方編號"])
+                    ]
+                    order_dict["附加配方"] = [
+                        {k: ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
+                        for _, row in additional_recipes.iterrows()
+                    ]
+    
+                    # 列印時可加 checkbox 選擇是否顯示附加配方編號
+                    show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
+    
+                    # 產生 HTML
+                    print_html = generate_print_page_content(
+                        order_dict,
+                        recipe_row,
+                        order_dict.get("附加配方"),
+                        show_additional_ids=show_ids
+                    )
+    
                     st.download_button(
                         label="📥 下載 A5 HTML",
                         data=print_html.encode("utf-8"),
-                        file_name=f"{order_dict['生產單號']}_A5列印.html",
+                        file_name=f"{order_dict['生產單號']}_列印.html",
                         mime="text/html"
                     )
     
