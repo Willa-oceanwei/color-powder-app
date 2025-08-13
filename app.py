@@ -932,7 +932,7 @@ elif menu == "配方管理":
     total_rows = df_filtered.shape[0]
     total_pages = max((total_rows - 1) // limit + 1, 1)
     
-    # 初始化分頁 page
+    # --- 分頁設定 ---
     total_rows = df_filtered.shape[0]
     total_pages = max((total_rows - 1) // limit + 1, 1)
     
@@ -950,28 +950,39 @@ elif menu == "配方管理":
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
     
-    # 顯示分頁資料（只顯示這個表格）
+    # --- 顯示資料表格 ---
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-    existing_cols = [c for c in page_data.columns if c in show_cols]
+    existing_cols = [c for c in show_cols if c in page_data.columns]
     
-    display_df = page_data[existing_cols].copy()
+    if not page_data.empty:
+        st.dataframe(
+            page_data[existing_cols],
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("查無符合的配方")
     
-    # 使用 st.table 取消左側序列
-    st.table(display_df)
+    # --- 分頁控制列 ---
+    cols_page = st.columns([1, 1, 1, 2])
+    if cols_page[0].button("首頁", key="first_page"):
+        st.session_state.page = 1
+        st.experimental_rerun()
+    if cols_page[1].button("上一頁", key="prev_page") and st.session_state.page > 1:
+        st.session_state.page -= 1
+        st.experimental_rerun()
+    if cols_page[2].button("下一頁", key="next_page") and st.session_state.page < total_pages:
+        st.session_state.page += 1
+        st.experimental_rerun()
     
-    # --- 分頁按鈕 ---
-    col1, col2, col3 = st.columns([1,2,1])
-    with col1:
-        if st.button("上一頁", key="prev_page") and st.session_state.page > 1:
-            st.session_state.page -= 1
-            st.experimental_rerun()
-    with col3:
-        if st.button("下一頁", key="next_page") and st.session_state.page < total_pages:
-            st.session_state.page += 1
-            st.experimental_rerun()
-        
-    st.markdown(f"第 {st.session_state.page} 頁 / 共 {total_pages} 頁")
-    st.markdown("---")  # 分隔線
+    jump_page = cols_page[3].number_input("跳至頁碼", 1, total_pages, st.session_state.page, key="jump_page")
+    if jump_page != st.session_state.page:
+        st.session_state.page = jump_page
+        st.experimental_rerun()
+    
+    st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
+    
+        st.markdown("---")  # 分隔線
     
     # ✅ 補這段在這裡
     top_has_input = any([
