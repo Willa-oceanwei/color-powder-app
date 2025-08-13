@@ -950,6 +950,9 @@ elif menu == "配方管理":
     # 顯示資料表格區
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [c for c in show_cols if c in df_filtered.columns]
+
+    # 重設索引並隱藏左側序列
+    st.dataframe(df_filtered[existing_cols].reset_index(drop=True))
     
     st.markdown("---")  # 分隔線
 
