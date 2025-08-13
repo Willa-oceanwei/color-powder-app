@@ -922,7 +922,7 @@ elif menu == "配方管理":
     # 篩選後筆數與每頁顯示筆數放一排
     col1, col2 = st.columns([1, 1])
     with col1:
-        st.markdown(f"🎯🧺 **篩選後筆數：** {df_filtered.shape[0]}")
+        st.markdown(f"🎯🧺🗃️ **篩選後筆數：** {df_filtered.shape[0]}")
     with col2:
         limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
     
