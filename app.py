@@ -1224,16 +1224,17 @@ elif menu == "生產單管理":
     elif len(option_map) == 1:
         selected_label = list(option_map.keys())[0]
         selected_row = option_map[selected_label].copy()  # 複製，避免修改原資料
-        
-        # 加上原始輸入編號欄位
-        selected_row["配方編號_原始"] = search_text.strip()
     
-        # 顯示用標籤
+        # 直接用搜尋結果的真實配方編號帶入，不用用輸入字串
+        true_formula_id = selected_row["配方編號"]
+        selected_row["配方編號_原始"] = true_formula_id
+    
+        # 顯示標籤（用真實配方編號）
         parts = selected_label.split(" | ", 1)
         if len(parts) > 1:
-            display_label = f"{search_text.strip()} | {parts[1]}"
+            display_label = f"{true_formula_id} | {parts[1]}"
         else:
-            display_label = search_text.strip()
+            display_label = true_formula_id
     
         st.success(f"已自動選取：{display_label}")
     else:
@@ -1247,6 +1248,10 @@ elif menu == "生產單管理":
             selected_row = None
         else:
             selected_row = option_map.get(selected_label)
+            if selected_label == "請選擇":
+                selected_row = None
+            else:
+                selected_row = option_map.get(selected_label)
     
     if add_btn:
         if selected_label is None or selected_label == "請選擇" or selected_label == "（無符合配方）":
