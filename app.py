@@ -960,7 +960,14 @@ elif menu == "配方管理":
         st.session_state.page += 1
         st.experimental_rerun()
     
-    jump_page = cols_page[3].number_input("跳至頁碼", 1, total_pages, st.session_state.page, key="jump_page")
+    jump_page = cols_page[3].number_input(
+    "",  # 不顯示文字
+    1, 
+    total_pages, 
+    st.session_state.page, 
+    key="jump_page",
+    label_visibility="collapsed"  # 連 label 空位也隱藏
+    )
     if jump_page != st.session_state.page:
         st.session_state.page = jump_page
         st.experimental_rerun()
