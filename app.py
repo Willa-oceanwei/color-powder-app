@@ -1890,7 +1890,9 @@ elif menu == "生產單管理":
         if selected_code_edit:
             order_row = df_order[df_order["生產單號"] == selected_code_edit]
             if not order_row.empty:
+                # 轉成字典
                 order_dict = order_row.iloc[0].to_dict()
+                order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
     
                 # --- 處理主配方資料 ---
                 recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
