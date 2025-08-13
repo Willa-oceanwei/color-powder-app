@@ -925,6 +925,7 @@ elif menu == "配方管理":
         st.markdown(f"🎯 **篩選後筆數：** {df_filtered.shape[0]}")
     with col2:
         limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
+    st.write(f"配方編號：{recipe_kw}　＆ 客戶名稱：{customer_kw}　＆ Pantone：{pantone_kw}")
     
     # ===== 分頁顯示 =====
     limit = 10
