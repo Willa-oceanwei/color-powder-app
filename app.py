@@ -1785,7 +1785,7 @@ elif menu == "生產單管理":
     start_idx = (st.session_state.order_page - 1) * limit
     page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
     
-    # 計算出貨數量（可選擇封裝成函式 calculate_shipment）
+    # 計算出貨數量
     def calculate_shipment(row):
         try:
             unit = str(row.get("計量單位", "")).strip()
@@ -1854,7 +1854,7 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
-    # ---------- 選擇生產單號後才初始化 order_dict 和列印 ----------
+    # ---------- 選擇生產單號後初始化 order_dict 和列印 ----------
     options = []
     code_to_id = {}
     for idx, row in page_data.iterrows():
@@ -1862,14 +1862,15 @@ elif menu == "生產單管理":
         options.append(label)
         code_to_id[label] = row["生產單號"]
     
-    cols_top = st.columns([5, 1])
-    with cols_top[0]:
+    cols_top_select = st.columns([5, 1])
+    with cols_top_select[0]:
         selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
-        
-    # ==== 選擇生產單後初始化 order_dict ====
+    
+    # 預先初始化
     order_dict = {}
     recipe_row = {}
     附加配方資料 = []
+    selected_code_edit = None
     
     if selected_label:
         selected_code_edit = code_to_id[selected_label]
@@ -1884,67 +1885,63 @@ elif menu == "生產單管理":
                 recipe_row = recipe_rows.iloc[0].to_dict()
                 recipe_row = {k: "" if v is None or pd.isna(v) else str(v) for k, v in recipe_row.items()}
     
-                # 附加配方
-                import ast
-                additional_recipe_rows = order_dict.get("附加配方") or []
-                if isinstance(additional_recipe_rows, str):
-                    try:
-                        additional_recipe_rows = ast.literal_eval(additional_recipe_rows)
-                        if not isinstance(additional_recipe_rows, list):
-                            additional_recipe_rows = []
-                    except:
-                        additional_recipe_rows = []
+            # 附加配方
+            import ast
+            附加配方資料 = order_dict.get("附加配方") or []
+            if isinstance(附加配方資料, str):
+                try:
+                    附加配方資料 = ast.literal_eval(附加配方資料)
+                    if not isinstance(附加配方資料, list):
+                        附加配方資料 = []
+                except:
+                    附加配方資料 = []
     
-                # 列印 checkbox
-                show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
+    # ---------- 列印 / 修改 / 刪除按鈕 ----------
+    cols_mod = st.columns([1, 1, 1])
     
-                # 產生列印 HTML
-                print_html = generate_print_page_content(
-                    order_dict,
-                    recipe_row,
-                    additional_recipe_rows=additional_recipe_rows,
-                    show_additional_ids=show_ids
-                )
+    if selected_code_edit:
+        with cols_mod[0]:
+            # 列印 HTML 按鈕
+            show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
+            print_html = generate_print_page_content(
+                order_dict, recipe_row, additional_recipe_rows=附加配方資料, show_additional_ids=show_ids
+            )
+            st.download_button(
+                "📥 下載列印 HTML",
+                data=print_html.encode("utf-8"),
+                file_name=f"{order_dict['生產單號']}_列印.html",
+                mime="text/html"
+            )
     
-                st.download_button(
-                    "📥 下載列印 HTML",
-                    data=print_html.encode("utf-8"),
-                    file_name=f"{order_dict['生產單號']}_列印.html",
-                    mime="text/html"
-                )
-   
-    with cols_mod[1]:
-        if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
-            row = df_order[df_order["生產單號"] == selected_code_edit]
-            if not row.empty:
-                st.session_state.editing_order = row.iloc[0].to_dict()
+        with cols_mod[1]:
+            # 修改按鈕
+            if st.button("✏️ 修改") and selected_code_edit:
+                st.session_state.editing_order = order_dict
                 st.session_state.show_edit_panel = True
-            else:
-                st.warning("找不到該筆生產單")
     
-    with cols_mod[2]:
-        if st.button("🗑️ 刪除", key="delete_button_1") and selected_code_edit:
-            try:
-                cell = ws_order.find(selected_code_edit)
-                if cell:
-                    ws_order.delete_rows(cell.row)
-                    st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
-                else:
-                    st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
-            except Exception as e:
-                st.error(f"Google Sheets 刪除錯誤：{e}")
+        with cols_mod[2]:
+            # 刪除按鈕
+            if st.button("🗑️ 刪除") and selected_code_edit:
+                try:
+                    cell = ws_order.find(selected_code_edit)
+                    if cell:
+                        ws_order.delete_rows(cell.row)
+                        st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
+                    else:
+                        st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
+                except Exception as e:
+                    st.error(f"Google Sheets 刪除錯誤：{e}")
     
-            # 同步刪除本地資料
-            df_order = df_order[df_order["生產單號"] != selected_code_edit]
-            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-            st.session_state.df_order = df_order
-            st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
+                # 同步刪除本地資料
+                df_order = df_order[df_order["生產單號"] != selected_code_edit]
+                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                st.session_state.df_order = df_order
+                st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
     
-            # 清理狀態並重新整理
-            st.session_state.pop("selected_code_edit", None)
-            st.session_state.show_edit_panel = False
-            st.session_state.editing_order = None
-            st.experimental_rerun()
+                # 清理狀態並重新整理
+                st.session_state.pop("selected_code_edit", None)
+                st.session_state.show_edit_panel
+
     
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
