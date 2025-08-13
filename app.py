@@ -948,7 +948,7 @@ elif menu == "配方管理":
     else:
         st.info("查無符合的配方（分頁結果）")
     
-    # 分頁控制列（按鍵唯一 key）
+    # --- 分頁控制列（按鍵唯一 key）---
     cols_page = st.columns([1, 1, 1, 2])
     if cols_page[0].button("首頁", key="first_page"):
         st.session_state.page = 1
@@ -976,13 +976,12 @@ elif menu == "配方管理":
     ])
     if top_has_input and df_filtered.empty:
         st.info("⚠️ 查無符合條件的配方（來自上方搜尋）")
-
     
-    # 5. 配方編號選擇 + 修改／刪除 按鈕群組，使用 columns 水平排列
+    # --- 配方編號選擇 + 修改/刪除 ---
     code_list = page_data["配方編號"].dropna().tolist()
     
     st.markdown("---")  # 分隔線
-
+    
     cols = st.columns([3, 1, 1])  # 配方編號下拉+修改+刪除 按鈕
     with cols[0]:
         if code_list:
@@ -994,40 +993,20 @@ elif menu == "配方管理":
         else:
             selected_code = None
             st.info("🟦 沒有可選的配方編號")
-
+    
     with cols[1]:
         if selected_code and st.button("✏️ 修改", key="edit_btn"):
             df_idx = df[df["配方編號"] == selected_code].index[0]
             st.session_state.edit_recipe_index = df_idx
             st.session_state.form_recipe = df.loc[df_idx].to_dict()
             st.rerun()
-
+    
     with cols[2]:
         if selected_code and st.button("🗑️ 刪除", key="del_btn"):
             df_idx = df[df["配方編號"] == selected_code].index[0]
             st.session_state.delete_recipe_index = df_idx
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
-
-    # 6. 分頁控制按鈕 & 跳頁輸入欄，置於頁面底部並排
-    cols_page = st.columns([1,1,1,2])
-    with cols_page[0]:
-        if st.button("回到首頁"):
-            st.session_state.page = 1
-    with cols_page[1]:
-        if st.button("上一頁", key="table_prev_page") and st.session_state.page > 1:
-            st.session_state.page -= 1
-    with cols_page[2]:
-        if st.button("下一頁", key="table_next_page") and st.session_state.page < total_pages:
-            st.session_state.page += 1
-    with cols_page[3]:
-        input_page = st.number_input("跳至頁碼", 1, total_pages, st.session_state.page)
-        if input_page != st.session_state.page:
-            st.session_state.page = input_page
-
-    # 7. 分頁資訊顯示
-    st.markdown(f"目前第 **{st.session_state.page}** / **{total_pages}** 頁，總筆數：{total_rows}")
-
 
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
