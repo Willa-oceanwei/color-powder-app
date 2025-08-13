@@ -1770,7 +1770,7 @@ elif menu == "生產單管理":
     
     cols_top = st.columns([5, 1])
     with cols_top[1]:
-        limit = st.selectbox("每頁顯示筆數", [10, 20, 50], index=0, key="selectbox_order_limit")
+        limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 75, 100], index=0, key="selectbox_order_limit")
     
     # 計算分頁資訊（依 limit）
     total_rows = len(df_filtered)
