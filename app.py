@@ -1880,7 +1880,6 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
-    # --- 修改 / 刪除 / A5 下載三欄按鈕橫排 ---
     cols_mod = st.columns([1, 1, 1])
     selected_code_edit = st.session_state.get("selected_code_edit", None)
     
@@ -1899,6 +1898,10 @@ elif menu == "生產單管理":
                     recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
                     order_dict = {k: ("" if v is None or pd.isna(v) else str(v)) for k, v in order_dict.items()}
     
+                    # ✅ **修正重點：若色粉類別缺失，從配方資料補上**
+                    if not order_dict.get("色粉類別"):
+                        order_dict["色粉類別"] = recipe_row.get("色粉類別", "")
+    
                     # ✅ checkbox 控制是否顯示附加配方編號
                     show_ids = st.checkbox(
                         "列印時顯示附加配方編號",
@@ -1916,18 +1919,18 @@ elif menu == "生產單管理":
                                 附加配方資料 = []
                         except:
                             附加配方資料 = []
-
+    
                     st.write(f"DEBUG 類別: {order_dict.get('色粉類別')!r}")
     
                     # --- 產生 HTML ---
-                    print_html = generate_print_page_content(
+                    print_html = generate_production_order_print(
                         order_dict,
                         recipe_row,
-                        附加配方資料,
+                        additional_recipe_rows=附加配方資料,
                         show_additional_ids=show_ids
                     )
     
-                    # ✅ 下載按鈕，key 加入生產單號避免重複
+                    # ✅ 下載按鈕
                     st.download_button(
                         label="📥 下載 A5 HTML",
                         data=print_html.encode("utf-8"),
@@ -1935,6 +1938,7 @@ elif menu == "生產單管理":
                         mime="text/html",
                         key=f"download_a5_{selected_code_edit}"
                     )
+    )
 
     
     with cols_mod[1]:
