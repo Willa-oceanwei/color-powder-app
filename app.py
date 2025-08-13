@@ -1856,7 +1856,14 @@ elif menu == "生產單管理":
         st.session_state.order_page += 1
         st.experimental_rerun()
     
-    jump_page = cols_page[3].number_input("跳至頁碼", 1, total_pages, st.session_state.order_page)
+    jump_page = cols_page[3].number_input(
+        "",  # 不顯示文字
+        min_value=1,
+        max_value=total_pages,
+        value=st.session_state.order_page,
+        key="jump_page",
+        label_visibility="collapsed"  # 隱藏標籤
+    )
     if jump_page != st.session_state.order_page:
         st.session_state.order_page = jump_page
         st.experimental_rerun()
