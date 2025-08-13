@@ -950,12 +950,14 @@ elif menu == "配方管理":
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
     
-    # 顯示資料表格區（只顯示分頁資料，隱藏索引）
+    # 顯示資料表格區（分頁 + 無序列）
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-    existing_cols = [c for c in show_cols if c in page_data.columns]
+    existing_cols = [c for c in page_data.columns if c in show_cols]
     
     display_df = page_data[existing_cols].copy()
-    display_df.reset_index(drop=True, inplace=True)
+    
+    # 用 st.table 取代 st.dataframe，不顯示左側行號
+    st.table(display_df)
     
     st.dataframe(display_df, use_container_width=True)
     
