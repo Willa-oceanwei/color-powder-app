@@ -1937,17 +1937,34 @@ elif menu == "生產單管理":
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
         st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
-        edit_order = st.session_state.editing_order
-    
-        new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""), key="edit_customer_name")
-        new_color = st.text_input("顏色", value=edit_order.get("顏色", ""), key="edit_color")
+        
+        order_no = st.session_state.editing_order["生產單號"]
+        
+        # 從 df_order 取得最新 row
+        order_row = df_order[df_order["生產單號"] == order_no]
+        if order_row.empty:
+            st.warning(f"找不到生產單號：{order_no}")
+            st.stop()
+        order_dict = order_row.iloc[0].to_dict()  # 統一欄位格式
+        
+        # 取得對應配方資料
+        recipe_id = order_dict.get("配方編號", "")
+        recipe_rows = df_recipe[df_recipe["配方編號"] == recipe_id]
+        if recipe_rows.empty:
+            st.warning(f"找不到配方編號：{recipe_id}")
+            st.stop()
+        recipe_row = recipe_rows.iloc[0]
+        
+        # 表單編輯欄位
+        new_customer = st.text_input("客戶名稱", value=order_dict.get("客戶名稱", ""), key="edit_customer_name")
+        new_color = st.text_input("顏色", value=order_dict.get("顏色", ""), key="edit_color")
     
         # 包裝重量 1~4
         pack_weights_cols = st.columns(4)
         new_packing_weights = []
         for i in range(1, 5):
             weight = pack_weights_cols[i - 1].text_input(
-                f"包裝重量{i}", value=edit_order.get(f"包裝重量{i}", ""), key=f"edit_packing_weight_{i}"
+                f"包裝重量{i}", value=order_dict.get(f"包裝重量{i}", ""), key=f"edit_packing_weight_{i}"
             )
             new_packing_weights.append(weight)
     
@@ -1956,30 +1973,22 @@ elif menu == "生產單管理":
         new_packing_counts = []
         for i in range(1, 5):
             count = pack_counts_cols[i - 1].text_input(
-                f"包裝份數{i}", value=edit_order.get(f"包裝份數{i}", ""), key=f"edit_packing_count_{i}"
+                f"包裝份數{i}", value=order_dict.get(f"包裝份數{i}", ""), key=f"edit_packing_count_{i}"
             )
             new_packing_counts.append(count)
     
-        new_remark = st.text_area("備註", value=edit_order.get("備註", ""), key="edit_remark")
+        new_remark = st.text_area("備註", value=order_dict.get("備註", ""), key="edit_remark")
     
-        # 取得對應配方資料
-        recipe_id = edit_order.get("配方編號", "")
-        recipe_rows = df_recipe[df_recipe["配方編號"] == recipe_id]
-        if recipe_rows.empty:
-            st.warning(f"找不到配方編號：{recipe_id}")
-            st.stop()
-        recipe_row = recipe_rows.iloc[0]
-    
-        # 產生 HTML 預覽內容
-        print_html = generate_print_page_content(edit_order, recipe_row)
+        # ✅ 產生 A5 HTML（和三欄按鈕列完全一致）
+        print_html = generate_print_page_content(order_dict, recipe_row)
     
         st.download_button(
             label="📄 下載列印 HTML",
             data=print_html.encode("utf-8"),
-            file_name=f"{edit_order['生產單號']}_print.html",
+            file_name=f"{order_dict['生產單號']}_print.html",
             mime="text/html"
         )
-    
+        
         cols_edit = st.columns([1, 1, 1])
     
         with cols_edit[0]:
