@@ -1916,6 +1916,8 @@ elif menu == "生產單管理":
                                 附加配方資料 = []
                         except:
                             附加配方資料 = []
+
+                    st.write(f"DEBUG 類別: {order_dict.get('色粉類別')!r}")
     
                     # --- 產生 HTML ---
                     print_html = generate_print_page_content(
