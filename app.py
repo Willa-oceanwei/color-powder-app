@@ -1907,7 +1907,11 @@ elif menu == "生產單管理":
                     ]
     
                     # 列印時可加 checkbox 選擇是否顯示附加配方編號
-                    show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
+                    show_ids = st.checkbox(
+                        "列印時顯示附加配方編號",
+                        value=True,
+                        key=f"show_ids_{selected_code_edit}"
+                    )
     
                     # 產生 HTML
                     print_html = generate_print_page_content(
