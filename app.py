@@ -946,7 +946,7 @@ elif menu == "配方管理":
     if not page_data.empty:
         st.dataframe(page_data[existing_cols].reset_index(drop=True), use_container_width=True, hide_index=True)
     else:
-        st.info("查無符合的配方")
+        st.info("查無符合的配方（分頁結果）")
     
     # 分頁控制列（按鍵唯一 key）
     cols_page = st.columns([1, 1, 1, 2])
@@ -967,9 +967,8 @@ elif menu == "配方管理":
     
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
     st.markdown("---")
-
     
-    # ✅ 補這段在這裡
+    # 顯示上方搜尋沒有資料的提示
     top_has_input = any([
         st.session_state.get("search_recipe_code_top"),
         st.session_state.get("search_customer_top"),
@@ -977,12 +976,7 @@ elif menu == "配方管理":
     ])
     if top_has_input and df_filtered.empty:
         st.info("⚠️ 查無符合條件的配方（來自上方搜尋）")
-    
-    # ✅ 原本的查無資料提示保留給下方搜尋
-    if not df_filtered.empty and existing_cols:
-        st.dataframe(page_data[existing_cols], use_container_width=True)
-    elif not top_has_input:
-        st.info("查無符合條件的配方。")
+
     
     # 5. 配方編號選擇 + 修改／刪除 按鈕群組，使用 columns 水平排列
     code_list = page_data["配方編號"].dropna().tolist()
