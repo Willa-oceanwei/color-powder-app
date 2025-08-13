@@ -926,7 +926,9 @@ elif menu == "配方管理":
     with col2:
         limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 100], index=0)
     
-    # --- 分頁設定 ---
+    
+    # ===== 分頁設定 =====
+    limit = 10  # 每頁顯示列數，可調整
     total_rows = df_filtered.shape[0]
     total_pages = max((total_rows - 1) // limit + 1, 1)
     
@@ -940,44 +942,57 @@ elif menu == "配方管理":
         st.session_state.page = 1
         st.session_state.last_search_id = search_id
     
+    # 確保 page 是整數
     if "page" not in st.session_state or not isinstance(st.session_state.page, int):
         st.session_state.page = 1
     
+    # 計算分頁範圍
     start_idx = (st.session_state.page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
     
-    # 顯示資料表格區（分頁 + 隱藏索引）
+    # 顯示資料表格區（隱藏索引）
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
     existing_cols = [c for c in show_cols if c in page_data.columns]
     
     display_df = page_data[existing_cols].copy()
+    display_df.reset_index(drop=True, inplace=True)  # 確保索引從0開始，但 st.table 不會顯示
     
-    # 方法1: 用 st.dataframe 並重置索引
-    display_df.reset_index(drop=True, inplace=True)
-    st.dataframe(display_df, use_container_width=True)
-        
+    st.table(display_df)  # 用 st.table 完全不顯示索引
+    
+    # 分頁控制按鈕
+    col1, col2, col3 = st.columns([1,2,1])
+    with col1:
+        if st.button("上一頁") and st.session_state.page > 1:
+            st.session_state.page -= 1
+            st.experimental_rerun()
+    with col3:
+        if st.button("下一頁") and st.session_state.page < total_pages:
+            st.session_state.page += 1
+            st.experimental_rerun()
+    
+    st.markdown(f"第 {st.session_state.page} 頁 / 共 {total_pages} 頁")
     st.markdown("---")  # 分隔線
-
-    # ✅ 補這段在這裡
-    top_has_input = any([
-        st.session_state.get("search_recipe_code_top"),
-        st.session_state.get("search_customer_top"),
-        st.session_state.get("search_pantone_top")
-    ])
-    if top_has_input and df_filtered.empty:
-        st.info("⚠️ 查無符合條件的配方（來自上方搜尋）")
-
-    # ✅ 原本的查無資料提示保留給下方搜尋
-    if not df_filtered.empty and existing_cols:
-        st.dataframe(page_data[existing_cols], use_container_width=True)
-    elif not top_has_input:
-        st.info("查無符合條件的配方。")
-
-    # 5. 配方編號選擇 + 修改／刪除 按鈕群組，使用 columns 水平排列
-    code_list = page_data["配方編號"].dropna().tolist()
-
-    st.markdown("---")  # 分隔線
+    
+        # ✅ 補這段在這裡
+        top_has_input = any([
+            st.session_state.get("search_recipe_code_top"),
+            st.session_state.get("search_customer_top"),
+            st.session_state.get("search_pantone_top")
+        ])
+        if top_has_input and df_filtered.empty:
+            st.info("⚠️ 查無符合條件的配方（來自上方搜尋）")
+    
+        # ✅ 原本的查無資料提示保留給下方搜尋
+        if not df_filtered.empty and existing_cols:
+            st.dataframe(page_data[existing_cols], use_container_width=True)
+        elif not top_has_input:
+            st.info("查無符合條件的配方。")
+    
+        # 5. 配方編號選擇 + 修改／刪除 按鈕群組，使用 columns 水平排列
+        code_list = page_data["配方編號"].dropna().tolist()
+    
+        st.markdown("---")  # 分隔線
 
     cols = st.columns([3, 1, 1])  # 配方編號下拉+修改+刪除 按鈕
     with cols[0]:
