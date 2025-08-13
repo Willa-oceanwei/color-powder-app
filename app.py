@@ -932,10 +932,6 @@ elif menu == "配方管理":
     total_rows = df_filtered.shape[0]
     total_pages = max((total_rows - 1) // limit + 1, 1)
     
-    # --- 分頁設定 ---
-    total_rows = df_filtered.shape[0]
-    total_pages = max((total_rows - 1) // limit + 1, 1)
-    
     # 初始化分頁 page
     if "page" not in st.session_state:
         st.session_state.page = 1
@@ -946,6 +942,7 @@ elif menu == "配方管理":
         st.session_state.page = 1
         st.session_state.last_search_id = search_id
     
+    # 計算分頁範圍
     start_idx = (st.session_state.page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
@@ -955,11 +952,8 @@ elif menu == "配方管理":
     existing_cols = [c for c in show_cols if c in page_data.columns]
     
     if not page_data.empty:
-        st.dataframe(
-            page_data[existing_cols],
-            use_container_width=True,
-            hide_index=True
-        )
+        display_df = page_data[existing_cols].reset_index(drop=True)  # 隱藏左側序列
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
     else:
         st.info("查無符合的配方")
     
@@ -981,7 +975,6 @@ elif menu == "配方管理":
         st.experimental_rerun()
     
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
-    
     st.markdown("---")  # 分隔線
     
     # ✅ 補這段在這裡
