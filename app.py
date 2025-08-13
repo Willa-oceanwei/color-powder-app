@@ -1880,53 +1880,47 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
-    # 修改 / 刪除 / A5 下載三欄按鈕橫排
+    # --- 修改 / 刪除 / A5 下載三欄按鈕橫排 ---
     cols_mod = st.columns([1, 1, 1])
     selected_code_edit = st.session_state.get("selected_code_edit", None)
     
     with cols_mod[0]:
         if selected_code_edit:
-            # 取得完整 order_dict
             order_row = df_order[df_order["生產單號"] == selected_code_edit]
             if not order_row.empty:
                 order_dict = order_row.iloc[0].to_dict()
     
-                # 取得主配方資料
+                # --- 處理主配方資料 ---
                 recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
                 if not recipe_rows.empty:
-                    recipe_row = recipe_rows.iloc[0]
+                    recipe_row = recipe_rows.iloc[0].to_dict()
     
-                    # 取得附加配方清單
-                    additional_recipes = df_recipe[
-                        (df_recipe["配方類別"] == "附加配方") &
-                        (df_recipe["原始配方"] == order_dict["配方編號"])
-                    ]
-                    order_dict["附加配方"] = [
-                        {k: ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
-                        for _, row in additional_recipes.iterrows()
-                    ]
+                    # ✅ 將所有欄位轉字串，空值轉 ""
+                    recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
+                    order_dict = {k: ("" if v is None or pd.isna(v) else str(v)) for k, v in order_dict.items()}
     
-                    # 列印時可加 checkbox 選擇是否顯示附加配方編號
+                    # ✅ checkbox 控制是否顯示附加配方編號
                     show_ids = st.checkbox(
                         "列印時顯示附加配方編號",
                         value=True,
                         key=f"show_ids_{selected_code_edit}"
                     )
     
-                    # 產生 HTML
+                    # --- 產生 HTML ---
                     print_html = generate_print_page_content(
                         order_dict,
                         recipe_row,
-                        order_dict.get("附加配方"),
+                        order_dict.get("附加配方", []),
                         show_additional_ids=show_ids
                     )
     
+                    # ✅ 下載按鈕，key 加入生產單號避免重複
                     st.download_button(
                         label="📥 下載 A5 HTML",
                         data=print_html.encode("utf-8"),
                         file_name=f"{order_dict['生產單號']}_列印.html",
                         mime="text/html",
-                        key=f"download_a5_{selected_code_edit}"  # ✅ 唯一 key
+                        key=f"download_a5_{selected_code_edit}"
                     )
     
     with cols_mod[1]:
