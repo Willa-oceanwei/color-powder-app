@@ -947,11 +947,10 @@ elif menu == "配方管理":
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx]
     
-    # 顯示資料表格區
+    # 顯示資料表格區（使用分頁資料並隱藏索引）
     show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-    existing_cols = [c for c in show_cols if c in df_filtered.columns]
-
-    # 重設索引並隱藏左側序列
+    existing_cols = [c for c in show_cols if c in page_data.columns]  # 用 page_data 而不是 df_filtered
+    
     st.dataframe(page_data[existing_cols].reset_index(drop=True))
     
     st.markdown("---")  # 分隔線
