@@ -1890,7 +1890,6 @@ elif menu == "生產單管理":
             order_row = df_order[df_order["生產單號"] == selected_code_edit]
             if not order_row.empty:
                 order_dict = order_row.iloc[0].to_dict()
-                # 將 None 轉空字串
                 order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
         
                 recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
@@ -1909,10 +1908,10 @@ elif menu == "生產單管理":
                         except:
                             附加配方資料 = []
         
-                    # checkbox 控制
+                    # ✅ checkbox 控制
                     show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
         
-                    # ✅ 這裡才呼叫列印
+                    # 生成列印 HTML
                     print_html = generate_print_page_content(
                         order_dict,
                         recipe_row,
@@ -1920,13 +1919,13 @@ elif menu == "生產單管理":
                         show_additional_ids=show_ids
                     )
         
+                    # 下載按鈕
                     st.download_button(
                         "📥 下載列印 HTML",
                         data=print_html.encode("utf-8"),
                         file_name=f"{order_dict['生產單號']}_列印.html",
                         mime="text/html"
                     )
-
     
     with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
