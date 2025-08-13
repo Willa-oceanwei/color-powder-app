@@ -902,7 +902,7 @@ elif menu == "配方管理":
     customer_kw = (st.session_state.get("search_customer_bottom") or st.session_state.get("search_customer_top") or "").strip()
     pantone_kw = (st.session_state.get("search_pantone_bottom") or st.session_state.get("search_pantone_top") or "").strip()
 
-    st.write(f"搜尋條件：配方編號={recipe_kw}, 客戶名稱={customer_kw}, Pantone={pantone_kw}")
+    st.write(f"配方編號：{recipe_kw}, 客戶名稱：{customer_kw}, Pantone：{pantone_kw}")
 
     # 篩選
     mask = pd.Series(True, index=df.index)
