@@ -1747,6 +1747,12 @@ elif menu == "生產單管理":
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📑 生產單記錄表")
+
+     # 預先初始化
+    order_dict = {}
+    recipe_row = {}
+    附加配方資料 = []
+    selected_code_edit = None
     
     search_order = st.text_input(
         "搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)",
@@ -1865,12 +1871,6 @@ elif menu == "生產單管理":
     cols_top_select = st.columns([5, 1])
     with cols_top_select[0]:
         selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
-    
-    # 預先初始化
-    order_dict = {}
-    recipe_row = {}
-    附加配方資料 = []
-    selected_code_edit = None
     
     if selected_label:
         selected_code_edit = code_to_id[selected_label]
