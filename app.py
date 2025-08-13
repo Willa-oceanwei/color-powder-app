@@ -1853,6 +1853,32 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
+    # ====== A5 HTML 下載功能 ======
+    if selected_label:
+        selected_order_code = code_to_id[selected_label]
+        order_row = df_order[df_order["生產單號"] == selected_order_code]
+    
+        if not order_row.empty:
+            order_dict = order_row.iloc[0].to_dict()
+    
+            # 找到對應配方資料
+            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
+            if not recipe_rows.empty:
+                recipe_row = recipe_rows.iloc[0]
+                
+                # 生成 A5 列印 HTML
+                print_html = generate_print_page_content(order_dict, recipe_row)
+    
+                # 下載按鈕
+                st.download_button(
+                    label="📥 下載 A5 HTML",
+                    data=print_html.encode("utf-8"),
+                    file_name=f"{order_dict['生產單號']}_A5列印.html",
+                    mime="text/html"
+                )
+            else:
+                st.warning(f"找不到配方資料：{order_dict['配方編號']}")
+        
     # 修改 & 刪除功能區塊
     codes = df_order["生產單號"].tolist()
     cols_mod = st.columns([1, 1])
