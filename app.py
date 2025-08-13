@@ -977,7 +977,7 @@ elif menu == "配方管理":
     )
     if jump_page != st.session_state.page:
         st.session_state.page = jump_page
-        st.experimental_rerun()
+        st.rerun()
     
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
     st.markdown("---")
