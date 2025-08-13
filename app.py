@@ -1926,6 +1926,7 @@ elif menu == "生產單管理":
                         data=print_html.encode("utf-8"),
                         file_name=f"{order_dict['生產單號']}_列印.html",
                         mime="text/html"
+                        key=f"download_a5_{selected_code_edit}"  # ✅ 唯一 key
                     )
     
     with cols_mod[1]:
