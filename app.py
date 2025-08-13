@@ -1747,12 +1747,13 @@ elif menu == "生產單管理":
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📑 生產單記錄表")
-
-     # 預先初始化
+    
+    # 預先初始化
     order_dict = {}
     recipe_row = {}
-    附加配方資料 = []
+    additional_recipe_rows = []
     selected_code_edit = None
+    selected_label = None
     
     search_order = st.text_input(
         "搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)",
@@ -1776,7 +1777,7 @@ elif menu == "生產單管理":
     else:
         df_filtered = df_order.copy()
     
-    # 轉換建立時間
+    # 轉換建立時間並排序
     df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
     df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
@@ -1822,7 +1823,7 @@ elif menu == "生產單管理":
                 except:
                     continue
             return " + ".join(results) if results else ""
-        except Exception as e:
+        except:
             return ""
     
     page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
@@ -1861,12 +1862,6 @@ elif menu == "生產單管理":
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
     # ---------- 選擇生產單號後才初始化 order_dict 和列印 ----------
-    order_dict = {}
-    recipe_row = {}
-    additional_recipe_rows = []
-    selected_code_edit = None
-    
-    # 建立選單映射
     options = []
     code_to_id = {}
     for idx, row in page_data.iterrows():
@@ -1874,9 +1869,12 @@ elif menu == "生產單管理":
         options.append(label)
         code_to_id[label] = row["生產單號"]
     
-    cols_top = st.columns([5, 1])
-    with cols_top[0]:
+    cols_top2 = st.columns([5, 1, 1])
+    with cols_top2[0]:
         selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
+    
+    # 建立修改與刪除按鈕的 cols_mod
+    cols_mod = cols_top2[1:]
     
     if selected_label:
         selected_code_edit = code_to_id[selected_label]
@@ -1885,7 +1883,6 @@ elif menu == "生產單管理":
         order_row = df_order[df_order["生產單號"] == selected_code_edit]
         if not order_row.empty:
             order_dict = order_row.iloc[0].to_dict()
-            # 將 None 轉空字串
             order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
     
             # 取得主配方資料
@@ -1915,23 +1912,23 @@ elif menu == "生產單管理":
                 additional_recipe_rows=additional_recipe_rows,
                 show_additional_ids=show_ids
             )
-
-        # 下載按鈕
-        st.download_button(
-            "📥 下載列印 HTML",
-            data=print_html.encode("utf-8"),
-            file_name=f"{order_dict['生產單號']}_列印.html",
-            mime="text/html"
-        )
     
-        with cols_mod[1]:
-            # 修改按鈕
+            # 下載按鈕
+            st.download_button(
+                "📥 下載列印 HTML",
+                data=print_html.encode("utf-8"),
+                file_name=f"{order_dict['生產單號']}_列印.html",
+                mime="text/html"
+            )
+    
+        # 修改按鈕
+        with cols_mod[0]:
             if st.button("✏️ 修改") and selected_code_edit:
                 st.session_state.editing_order = order_dict
                 st.session_state.show_edit_panel = True
     
-        with cols_mod[2]:
-            # 刪除按鈕
+        # 刪除按鈕
+        with cols_mod[1]:
             if st.button("🗑️ 刪除") and selected_code_edit:
                 try:
                     cell = ws_order.find(selected_code_edit)
@@ -1951,7 +1948,10 @@ elif menu == "生產單管理":
     
                 # 清理狀態並重新整理
                 st.session_state.pop("selected_code_edit", None)
-                st.session_state.show_edit_panel
+                st.session_state.show_edit_panel = False
+                st.session_state.editing_order = None
+                st.experimental_rerun()
+
 
     
     # 修改面板（如果有啟動）
