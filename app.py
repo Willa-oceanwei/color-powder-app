@@ -1936,15 +1936,20 @@ elif menu == "生產單管理":
                         st.error(f"產生列印 HTML 發生錯誤: {e}")
                         print_html = ""
     
-                    # ✅ 下載按鈕
-                    if print_html:
-                        st.download_button(
-                            label="📥 下載 A5 HTML",
-                            data=print_html.encode("utf-8"),
-                            file_name=f"{order_dict['生產單號']}_列印.html",
-                            mime="text/html",
-                            key=f"download_a5_{selected_code_edit}"
-                        )
+                    # ✅ 產生列印 HTML（套用完整 A5 格式）
+                    print_html = generate_print_page_content(
+                        order_dict,
+                        recipe_row,
+                        additional_recipe_rows=附加配方資料,
+                        show_additional_ids=show_ids
+                    )
+                    st.download_button(
+                        label="📥 下載 A5 HTML",
+                        data=print_html.encode("utf-8"),
+                        file_name=f"{order_dict['生產單號']}_列印.html",
+                        mime="text/html",
+                        key=f"download_a5_{selected_code_edit}"
+                    )
                 else:
                     st.warning("找不到對應的配方資料。")
             else:
