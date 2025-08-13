@@ -1890,33 +1890,27 @@ elif menu == "生產單管理":
         if selected_code_edit:
             order_row = df_order[df_order["生產單號"] == selected_code_edit]
             if not order_row.empty:
-                # 轉成字典
                 order_dict = order_row.iloc[0].to_dict()
                 order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
-    
-                # --- 處理主配方資料 ---
+        
                 recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
                 if not recipe_rows.empty:
                     recipe_row = recipe_rows.iloc[0].to_dict()
-    
-                    # ✅ 將所有欄位轉字串，空值轉 ""
-                    recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
-                    order_dict = {k: ("" if v is None or pd.isna(v) else str(v)) for k, v in order_dict.items()}
-    
-                    # ✅ **修正重點：若色粉類別缺失，從配方資料補上**
+                    recipe_row = {k: "" if v is None or pd.isna(v) else str(v) for k, v in recipe_row.items()}
+        
+                    # 補上色粉類別
                     if not order_dict.get("色粉類別"):
                         order_dict["色粉類別"] = recipe_row.get("色粉類別", "")
-    
-                    # ✅ checkbox 控制是否顯示附加配方編號
+        
                     show_ids = st.checkbox(
                         "列印時顯示附加配方編號",
                         value=True,
                         key=f"show_ids_{selected_code_edit}"
                     )
-    
-                    # --- 處理附加配方型態 ---
+        
+                    # 附加配方
                     import ast
-                    附加配方資料 = order_dict.get("附加配方", [])
+                    附加配方資料 = order_dict.get("附加配方") or []
                     if isinstance(附加配方資料, str):
                         try:
                             附加配方資料 = ast.literal_eval(附加配方資料)
@@ -1924,18 +1918,15 @@ elif menu == "生產單管理":
                                 附加配方資料 = []
                         except:
                             附加配方資料 = []
-    
-                    st.write(f"DEBUG 類別: {order_dict.get('色粉類別')!r}")
-    
-                    # --- 產生 HTML ---
+        
+                    # ✅ 產生列印 HTML（使用新函式）
                     print_html = generate_production_order_print(
                         order_dict,
                         recipe_row,
                         additional_recipe_rows=附加配方資料,
                         show_additional_ids=show_ids
                     )
-    
-                    # ✅ 下載按鈕
+        
                     st.download_button(
                         label="📥 下載 A5 HTML",
                         data=print_html.encode("utf-8"),
