@@ -1748,10 +1748,9 @@ elif menu == "生產單管理":
     st.markdown("---")
     st.subheader("📑 生產單記錄表")
     
-    # 搜尋欄位
     search_order = st.text_input(
-        "搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)",
-        key="search_order_input_order_page",
+        "搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)", 
+        key="search_order_input_order_page", 
         value=""
     )
     
@@ -1759,8 +1758,7 @@ elif menu == "生產單管理":
     if "order_page" not in st.session_state:
         st.session_state.order_page = 1
     
-    # 篩選資料
-    df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
+    # 篩選條件
     if search_order.strip():
         mask = (
             df_order["生產單號"].astype(str).str.contains(search_order, case=False, na=False) |
@@ -1772,48 +1770,111 @@ elif menu == "生產單管理":
     else:
         df_filtered = df_order.copy()
     
+    df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
     df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
-    # 分頁設定
-    cols_top = st.columns([5, 1])
-    with cols_top[1]:
-        limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 75, 100], index=0, key="selectbox_order_limit")
-    
+    # 計算分頁
+    limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 75, 100], index=0, key="selectbox_order_limit")
     total_rows = len(df_filtered)
     total_pages = max((total_rows - 1) // limit + 1, 1)
     st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
     start_idx = (st.session_state.order_page - 1) * limit
     page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
     
-    # 選單選擇
+    # 計算出貨數量
+    def calculate_shipment(row):
+        try:
+            unit = str(row.get("計量單位", "")).strip()
+            formula_id = str(row.get("配方編號", "")).strip()
+            multipliers = {"包": 25, "桶": 100, "kg": 1}
+            unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
+            if not formula_id:
+                return ""
+            try:
+                matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
+                category = matched.values[0] if not matched.empty else ""
+            except:
+                category = ""
+            if unit == "kg" and category == "色母":
+                multiplier = 100
+                label = "K"
+            else:
+                multiplier = multipliers.get(unit, 1)
+                label = unit_labels.get(unit, "")
+            results = []
+            for i in range(1, 5):
+                try:
+                    weight = float(row.get(f"包裝重量{i}", 0))
+                    count = int(float(row.get(f"包裝份數{i}", 0)))
+                    if weight > 0 and count > 0:
+                        show_weight = int(weight * multiplier) if label == "K" else weight
+                        results.append(f"{show_weight}{label}*{count}")
+                except:
+                    continue
+            return " + ".join(results) if results else ""
+        except:
+            return ""
+    
+    page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
+    
+    # 顯示表格
+    if not page_data.empty:
+        st.dataframe(
+            page_data[["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]],
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("查無符合的生產單")
+    
+    # 分頁控制
+    cols_page = st.columns([1, 1, 1, 2])
+    if cols_page[0].button("首頁"):
+        st.session_state.order_page = 1
+        st.experimental_rerun()
+    if cols_page[1].button("上一頁") and st.session_state.order_page > 1:
+        st.session_state.order_page -= 1
+        st.experimental_rerun()
+    if cols_page[2].button("下一頁") and st.session_state.order_page < total_pages:
+        st.session_state.order_page += 1
+        st.experimental_rerun()
+    jump_page = cols_page[3].number_input(
+        "",
+        min_value=1,
+        max_value=total_pages,
+        value=st.session_state.order_page,
+        key="jump_page",
+        label_visibility="collapsed"
+    )
+    if jump_page != st.session_state.order_page:
+        st.session_state.order_page = jump_page
+        st.rerun()
+    
+    st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
+    
+    # ---------- 選擇生產單號後初始化 order_dict + 列印按鈕 ----------
     options = [
-        f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色','')} / {row.get('客戶名稱','')}"
-        for _, row in page_data.iterrows()
+        f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色', '')} / {row.get('客戶名稱', '')}"
+        for idx, row in page_data.iterrows()
     ]
-    code_to_id = {label: row["生產單號"] for label, (_, row) in zip(options, page_data.iterrows())}
+    code_to_id = {opt: row["生產單號"] for opt, (_, row) in zip(options, page_data.iterrows())}
     
-    with cols_top[0]:
-        selected_label = st.selectbox("選擇生產單號", [""] + options, key="select_order_for_edit_from_list")
+    selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
+    selected_code_edit = code_to_id.get(selected_label, None)
+    st.session_state.selected_code_edit = selected_code_edit
     
-    # --- 修改 / 刪除 / 列印下載三欄按鈕 ---
-    cols_mod = st.columns([1, 1, 1])
-    selected_code_edit = st.session_state.get("selected_code_edit", None)
-    
-    # 確認有選擇生產單
     if selected_code_edit:
         order_row = df_order[df_order["生產單號"] == selected_code_edit]
         if not order_row.empty:
             order_dict = order_row.iloc[0].to_dict()
-            # 將 None 或 NaN 轉空字串
             order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
     
+            # 主配方
             recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
-            recipe_row = {}
-            if not recipe_rows.empty:
-                recipe_row = recipe_rows.iloc[0].to_dict()
-                recipe_row = {k: "" if v is None or pd.isna(v) else str(v) for k, v in recipe_row.items()}
+            recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
+            recipe_row = {k: "" if v is None or pd.isna(v) else str(v) for k, v in recipe_row.items()}
     
-            # 附加配方資料
+            # 附加配方
             import ast
             additional_recipe_rows = order_dict.get("附加配方") or []
             if isinstance(additional_recipe_rows, str):
@@ -1824,35 +1885,25 @@ elif menu == "生產單管理":
                 except:
                     additional_recipe_rows = []
     
-            # 第一欄：修改
-            with cols_mod[0]:
-                if st.button("✏️ 修改生產單"):
-                    st.session_state.new_order = order_dict
-                    st.session_state.show_confirm_panel = False
-                    st.rerun()
+            # checkbox 控制是否顯示附加配方編號
+            show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
     
-            # 第二欄：刪除
-            with cols_mod[1]:
-                if st.button("🗑️ 刪除生產單"):
-                    st.session_state.selected_code_edit_to_delete = selected_code_edit
-                    st.session_state.show_confirm_panel = False
-                    st.rerun()
+            # 產生列印 HTML
+            print_html = generate_print_page_content(
+                order_dict,
+                recipe_row,
+                additional_recipe_rows=additional_recipe_rows,
+                show_additional_ids=show_ids
+            )
     
-            # 第三欄：列印 / 下載 HTML
-            with cols_mod[2]:
-                show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
-                print_html = generate_print_page_content(
-                    order_dict,
-                    recipe_row,
-                    additional_recipe_rows=additional_recipe_rows,
-                    show_additional_ids=show_ids
-                )
-                st.download_button(
-                    "📥 下載列印 HTML",
-                    data=print_html.encode("utf-8"),
-                    file_name=f"{order_dict['生產單號']}_列印.html",
-                    mime="text/html"
-                )
+            # 下載按鈕
+            st.download_button(
+                "📥 下載列印 HTML",
+                data=print_html.encode("utf-8"),
+                file_name=f"{order_dict['生產單號']}_列印.html",
+                mime="text/html"
+            )
+
 
     
     with cols_mod[1]:
