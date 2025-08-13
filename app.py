@@ -1795,44 +1795,58 @@ elif menu == "生產單管理":
     with cols_top[0]:
         selected_label = st.selectbox("選擇生產單號", [""] + options, key="select_order_for_edit_from_list")
     
-    # 只在選擇生產單號後初始化 order_dict
-    if selected_label:
-        selected_code_edit = code_to_id[selected_label]
+    # --- 修改 / 刪除 / 列印下載三欄按鈕 ---
+    cols_mod = st.columns([1, 1, 1])
+    selected_code_edit = st.session_state.get("selected_code_edit", None)
+    
+    # 確認有選擇生產單
+    if selected_code_edit:
         order_row = df_order[df_order["生產單號"] == selected_code_edit]
         if not order_row.empty:
             order_dict = order_row.iloc[0].to_dict()
-            # 將 None 轉空字串
+            # 將 None 或 NaN 轉空字串
             order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
     
-            # 取得主配方
             recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
+            recipe_row = {}
             if not recipe_rows.empty:
                 recipe_row = recipe_rows.iloc[0].to_dict()
                 recipe_row = {k: "" if v is None or pd.isna(v) else str(v) for k, v in recipe_row.items()}
     
-                # 處理附加配方
-                import ast
-                附加配方資料 = order_dict.get("附加配方") or []
-                if isinstance(附加配方資料, str):
-                    try:
-                        附加配方資料 = ast.literal_eval(附加配方資料)
-                        if not isinstance(附加配方資料, list):
-                            附加配方資料 = []
-                    except:
-                        附加配方資料 = []
+            # 附加配方資料
+            import ast
+            additional_recipe_rows = order_dict.get("附加配方") or []
+            if isinstance(additional_recipe_rows, str):
+                try:
+                    additional_recipe_rows = ast.literal_eval(additional_recipe_rows)
+                    if not isinstance(additional_recipe_rows, list):
+                        additional_recipe_rows = []
+                except:
+                    additional_recipe_rows = []
     
-                # ✅ checkbox 控制是否顯示附加配方編號
+            # 第一欄：修改
+            with cols_mod[0]:
+                if st.button("✏️ 修改生產單"):
+                    st.session_state.new_order = order_dict
+                    st.session_state.show_confirm_panel = False
+                    st.rerun()
+    
+            # 第二欄：刪除
+            with cols_mod[1]:
+                if st.button("🗑️ 刪除生產單"):
+                    st.session_state.selected_code_edit_to_delete = selected_code_edit
+                    st.session_state.show_confirm_panel = False
+                    st.rerun()
+    
+            # 第三欄：列印 / 下載 HTML
+            with cols_mod[2]:
                 show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
-    
-                # 產生列印 HTML
                 print_html = generate_print_page_content(
                     order_dict,
                     recipe_row,
-                    additional_recipe_rows=附加配方資料,
+                    additional_recipe_rows=additional_recipe_rows,
                     show_additional_ids=show_ids
                 )
-    
-                # 下載按鈕
                 st.download_button(
                     "📥 下載列印 HTML",
                     data=print_html.encode("utf-8"),
