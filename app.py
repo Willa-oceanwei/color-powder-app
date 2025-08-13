@@ -1887,31 +1887,18 @@ elif menu == "生產單管理":
     
     with cols_mod[0]:
         if selected_code_edit:
-            # 嘗試取得該生產單資料
             order_row = df_order[df_order["生產單號"] == selected_code_edit]
             if not order_row.empty:
-                # 轉成字典
                 order_dict = order_row.iloc[0].to_dict()
+                # 將 None 轉空字串
                 order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
-    
-                # 取得主配方資料
+        
                 recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
                 if not recipe_rows.empty:
                     recipe_row = recipe_rows.iloc[0].to_dict()
                     recipe_row = {k: "" if v is None or pd.isna(v) else str(v) for k, v in recipe_row.items()}
-    
-                    # 補上色粉類別，如果 order_dict 缺失
-                    if not order_dict.get("色粉類別"):
-                        order_dict["色粉類別"] = recipe_row.get("色粉類別", "")
-    
-                    # ✅ checkbox 控制是否顯示附加配方編號
-                    show_ids = st.checkbox(
-                        "列印時顯示附加配方編號",
-                        value=True,
-                        key=f"show_ids_{selected_code_edit}"
-                    )
-    
-                    # 處理附加配方
+        
+                    # 附加配方
                     import ast
                     附加配方資料 = order_dict.get("附加配方") or []
                     if isinstance(附加配方資料, str):
@@ -1921,39 +1908,24 @@ elif menu == "生產單管理":
                                 附加配方資料 = []
                         except:
                             附加配方資料 = []
-    
-                    # --- 產生列印 HTML（使用最新函式）
-                    try:
-                        print_html = generate_production_order_print(
-                            order_dict,
-                            recipe_row,
-                            additional_recipe_rows=附加配方資料,
-                            show_additional_ids=show_ids
-                        )
-                    except Exception as e:
-                        st.error(f"產生列印 HTML 發生錯誤: {e}")
-                        print_html = ""
-    
-                    # ✅ 產生列印 HTML（套用完整 A5 格式）
+        
+                    # checkbox 控制
+                    show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
+        
+                    # ✅ 這裡才呼叫列印
                     print_html = generate_print_page_content(
                         order_dict,
                         recipe_row,
                         additional_recipe_rows=附加配方資料,
                         show_additional_ids=show_ids
                     )
+        
                     st.download_button(
-                        label="📥 下載 A5 HTML",
+                        "📥 下載列印 HTML",
                         data=print_html.encode("utf-8"),
                         file_name=f"{order_dict['生產單號']}_列印.html",
-                        mime="text/html",
-                        key=f"download_a5_{selected_code_edit}"
+                        mime="text/html"
                     )
-                else:
-                    st.warning("找不到對應的配方資料。")
-            else:
-                st.warning("找不到對應的生產單資料。")
-        else:
-            st.info("請先選擇生產單號。")
 
     
     with cols_mod[1]:
