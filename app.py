@@ -954,28 +954,32 @@ elif menu == "配方管理":
         st.info("查無符合的配方（分頁結果）")
     
     # --- 分頁控制列（按鍵唯一 key）---
-    cols_page = st.columns([1, 1, 1, 2])
+    cols_page = st.columns([1, 1, 1, 1])  # 四等分，最後一欄放跳頁
+    
     if cols_page[0].button("首頁", key="first_page"):
         st.session_state.page = 1
         st.experimental_rerun()
+    
     if cols_page[1].button("上一頁", key="prev_page") and st.session_state.page > 1:
         st.session_state.page -= 1
         st.experimental_rerun()
+    
     if cols_page[2].button("下一頁", key="next_page") and st.session_state.page < total_pages:
         st.session_state.page += 1
         st.experimental_rerun()
     
-    jump_page = cols_page[3].number_input(
-    "",  # 不顯示文字
-    1, 
-    total_pages, 
-    st.session_state.page, 
-    key="jump_page",
-    label_visibility="collapsed"  # 連 label 空位也隱藏
-    )
-    if jump_page != st.session_state.page:
-        st.session_state.page = jump_page
-        st.rerun()
+    with cols_page[3]:
+        jump_page = st.number_input(
+            "",  # 不顯示文字
+            min_value=1,
+            max_value=total_pages,
+            value=st.session_state.page,
+            key="jump_page",
+            label_visibility="collapsed"  # 連 label 空位也隱藏
+        )
+        if jump_page != st.session_state.page:
+            st.session_state.page = jump_page
+            st.rerun()
     
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
     st.markdown("---")
