@@ -1505,12 +1505,16 @@ elif menu == "生產單管理":
             order[field] = recipe_row.get(field, "")
 
         # 取得附加配方清單（原始配方 == 主配方編號 且 配方類別 == "附加配方"）
+        recipe_id = order_dict.get("配方編號", "").strip()
+        
         # 只有 recipe_id 有值才處理附加配方邏輯
         if recipe_id:
             additional_recipes = df_recipe[
                 (df_recipe["配方類別"] == "附加配方") &
                 (df_recipe["原始配方_標準"] == recipe_id)
             ]
+        else:
+            additional_recipes = pd.DataFrame()
         
             if additional_recipes.empty:
                 st.info("無附加配方")
