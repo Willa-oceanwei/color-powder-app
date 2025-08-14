@@ -1830,53 +1830,38 @@ elif menu == "生產單管理":
             order_row = df_order[df_order["生產單號"] == selected_code_edit]
             if not order_row.empty:
                 order_dict = order_row.iloc[0].to_dict()
+    
+                # 取得主配方資料
                 recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
-                if not recipe_rows.empty:
-                    recipe_row = recipe_rows.iloc[0]
+                recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
     
-                    # ---------- 針對清單 A5 下載，處理色母 100K ----------
-                    multipliers = {"包": 25, "桶": 100, "kg": 1}
-                    unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
-                    unit = str(order_dict.get("計量單位", "kg"))
-                    category = str(recipe_row.get("色粉類別", ""))
+                # === 色母特殊處理 ===
+                category = str(recipe_row.get("合計類別", "")).strip()
+                is_color_master = category == "色母"
+                if is_color_master:
+                    # 色母包裝重量1固定為 1（後續列印函式會自動換算 100K）
+                    if str(order_dict.get("包裝重量1", "")).strip() in ["", "0"]:
+                        order_dict["包裝重量1"] = 1
     
-                    display_weights = []
-                    for i in range(1, 5):
-                        try:
-                            weight = float(order_dict.get(f"包裝重量{i}", 0) or 0)
-                            count = int(float(order_dict.get(f"包裝份數{i}", 0) or 0))
-                            if weight > 0 and count > 0:
-                                if unit == "kg" and category == "色母":
-                                    display_weights.append(f"100K*{count}")
-                                else:
-                                    multiplier = multipliers.get(unit, 1)
-                                    label = unit_labels.get(unit, "")
-                                    show_weight = int(weight * multiplier) if label == "K" else weight
-                                    display_weights.append(f"{show_weight}{label}*{count}")
-                        except Exception:
-                            continue
-                    order_dict["包裝顯示"] = " + ".join(display_weights)
-    
-                    # ---------- 產生列印 HTML（只影響清單 A5 下載） ----------
-                    try:
-                        print_html = generate_print_page_content(
-                            order=order_dict,
-                            recipe_row=recipe_row,
-                            additional_recipe_rows=order_dict.get("附加配方", []),
-                            show_additional_ids=True
-                        )
-                    except Exception as e:
-                        st.error(f"❌ 產生列印內容失敗：{e}")
-                        print_html = ""
-    
-                    # 下載按鈕
-                    st.download_button(
-                        label="📥 下載 A5 HTML",
-                        data=print_html.encode("utf-8"),
-                        file_name=f"{order_dict['生產單號']}_A5列印.html",
-                        mime="text/html"
+                # 產生列印 HTML（只影響清單 A5 下載）
+                try:
+                    print_html = generate_print_page_content(
+                        order=order_dict,
+                        recipe_row=recipe_row,
+                        additional_recipe_rows=order_dict.get("附加配方", []),
+                        show_additional_ids=True
                     )
-
+                except Exception as e:
+                    st.error(f"❌ 產生列印內容失敗：{e}")
+                    print_html = ""
+    
+                # 下載按鈕
+                st.download_button(
+                    label="📥 下載 A5 HTML",
+                    data=print_html.encode("utf-8"),
+                    file_name=f"{order_dict['生產單號']}_A5列印.html",
+                    mime="text/html"
+                )
     
     with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
