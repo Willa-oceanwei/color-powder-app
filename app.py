@@ -1247,15 +1247,14 @@ elif menu == "生產單管理":
             st.warning("⚠️ 此配方已停用，請勿使用")
             st.stop()
         else:
-            # 取得或初始化新訂單物件
-            order = st.session_state.get("new_order", {})
-    
-            # 產生新的生產單號
-            df_all_orders = st.session_state.df_order.copy()
+            # 初始化 order
+            order = {}
             today_str = datetime.now().strftime("%Y%m%d")
+            df_all_orders = st.session_state.df_order.copy()
             count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
             new_id = f"{today_str}-{count_today + 1:03}"
     
+            # 寫入主配方欄位
             order["生產單號"] = new_id
             order["生產日期"] = datetime.now().strftime("%Y-%m-%d")
             order["建立時間"] = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
@@ -1267,6 +1266,28 @@ elif menu == "生產單管理":
             order["備註"] = str(selected_row.get("備註", "")).strip()
             order["重要提醒"] = str(selected_row.get("重要提醒", "")).strip()
             order["合計類別"] = str(selected_row.get("合計類別", "")).strip()
+
+            # ----------------- 附加配方 -----------------
+            df_recipe_safe = st.session_state.df_recipe.copy()
+            if "原始配方" not in df_recipe_safe.columns:
+                df_recipe_safe["原始配方"] = ""
+            df_recipe_safe["_原始配方標準"] = df_recipe_safe["原始配方"].map(lambda x: fix_leading_zero(clean_powder_id(str(x))))
+            main_recipe_code = fix_leading_zero(clean_powder_id(order["配方編號"]))
+    
+            additional_recipes = df_recipe_safe[
+                (df_recipe_safe["配方類別"] == "附加配方") &
+                (df_recipe_safe["_原始配方標準"] == main_recipe_code)
+            ]
+    
+            order["附加配方"] = [
+                {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
+                for _, row in additional_recipes.iterrows()
+            ]
+    
+            # 存回 session_state，並顯示表單
+            st.session_state.new_order = order
+            st.session_state.show_confirm_panel = True
+            st.rerun()
     
             # ----------------- 附加配方（安全版） -----------------
             matched_additional = pd.DataFrame()  # 預設空 DataFrame
