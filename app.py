@@ -1802,14 +1802,11 @@ elif menu == "生產單管理":
                 if not recipe_rows.empty:
                     recipe_row = recipe_rows.iloc[0]
     
-                    # 先處理包裝數量顯示，針對色母做調整
+                    # ---------- 針對清單 A5 下載，處理色母 100K ----------
                     multipliers = {"包": 25, "桶": 100, "kg": 1}
                     unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
                     unit = str(order_dict.get("計量單位", "kg"))
-                    try:
-                        category = str(recipe_row.get("色粉類別", ""))
-                    except Exception:
-                        category = ""
+                    category = str(recipe_row.get("色粉類別", ""))
     
                     display_weights = []
                     for i in range(1, 5):
@@ -1818,7 +1815,6 @@ elif menu == "生產單管理":
                             count = int(float(order_dict.get(f"包裝份數{i}", 0) or 0))
                             if weight > 0 and count > 0:
                                 if unit == "kg" and category == "色母":
-                                    # 色母固定顯示 100K
                                     display_weights.append(f"100K*{count}")
                                 else:
                                     multiplier = multipliers.get(unit, 1)
@@ -1829,13 +1825,13 @@ elif menu == "生產單管理":
                             continue
                     order_dict["包裝顯示"] = " + ".join(display_weights)
     
-                    # 產生列印 HTML（只用這裡的 A5）
+                    # ---------- 產生列印 HTML ----------
                     try:
                         print_html = generate_print_page_content(
                             order=order_dict,
                             recipe_row=recipe_row,
                             additional_recipe_rows=order_dict.get("附加配方", []),
-                            show_additional_ids=True  # 如果需要可改為 checkbox 控制
+                            show_additional_ids=True
                         )
                     except Exception as e:
                         st.error(f"❌ 產生列印內容失敗：{e}")
