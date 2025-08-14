@@ -1578,7 +1578,7 @@ elif menu == "生產單管理":
         if st.session_state.get("show_confirm_panel"):
             html = generate_print_page_content(
                 order=st.session_state["new_order"],
-                recipe_row=selected_row,
+                recipe_row=st.session_state.get("new_order_main", {}),
                 additional_recipe_rows=st.session_state.get("new_order_additional", []),
                 show_additional_ids=True
             )
