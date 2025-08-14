@@ -1640,23 +1640,28 @@ elif menu == "生產單管理":
         
             # ---------- 寫入 Google Sheets ----------
             try:
-                sheet_columns = ["生產單號", "配方編號", "顏色", "Pantone 色號", "原料",
-                                 "重要提醒", "合計類別", "備註",
-                                 "包裝重量1","包裝份數1","包裝重量2","包裝份數2",
-                                 "包裝重量3","包裝份數3","包裝重量4","包裝份數4",
-                                 "建立時間"]  # 按你的 Sheet 欄位順序補齊
-            
-                values = [str(order.get(col, "")) for col in sheet_columns]
-            
-                cell = ws_order.find(order["生產單號"])
-                if cell:
-                    ws_order.update_row(cell.row, values)
-                else:
-                    ws_order.append_row(values)
-            
-                st.success(f"✅ 生產單 {order.get('生產單號','')} 已更新完成並寫入 Google Sheets")
-            except Exception as e:
-                st.error(f"Google Sheets 寫入錯誤：{e}")
+                sheet_columns = [
+                    "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間", 
+                    "Pantone 色號", "計量單位", "原料", 
+                    "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4", 
+                    "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4", 
+                    "備註", "合計類別", "淨重"
+                ]
+                
+                try:
+                    # 找到對應的 row
+                    cell = ws_order.find(order["生產單號"])
+                    # 依照欄位順序組 list
+                    values_to_write = [str(order.get(col, "")) for col in sheet_columns]
+                
+                    if cell:
+                        ws_order.update_row(cell.row, values_to_write)
+                    else:
+                        ws_order.append_row(values_to_write)
+                
+                    st.success(f"✅ 生產單 {order.get('生產單號','')} 已更新完成並寫入 Google Sheets")
+                except Exception as e:
+                    st.error(f"Google Sheets 寫入錯誤：{e}")
     
         # 下載列印 HTML
         show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
