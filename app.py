@@ -1725,10 +1725,10 @@ elif menu == "生產單管理":
             show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
             
             # 產生列印 HTML
-            print_html = generate_print_page_content(
+            print_html = generate_production_order_print(
                 order,
                 recipe_row,
-                order.get("附加配方", [])  # 已經是 list of dict
+                additional_recipe_rows=order.get("附加配方", [])
             )
             
             # 下載按鈕         
