@@ -1619,7 +1619,7 @@ elif menu == "生產單管理":
             print_html = generate_print_page_content(
                 order=order_safe,
                 recipe_row=recipe_row_safe,
-                additional_recipes=additional_recipes_safe
+                additional_recipe_rows=additional_recipes_safe  # ✅ 改這裡
             )
         except Exception as e:
             st.error(f"❌ 產生列印內容失敗：{e}")
