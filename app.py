@@ -1333,7 +1333,7 @@ elif menu == "生產單管理":
     
                 # 存進 session
                 st.session_state["new_order"] = order
-                st.session_state["附加配方資料"] = 附加配方.to_dict("records")  # 👈 存起來方便後面使用
+                st.session_state["附加配方資料"] = additional_recipes.to_dict("records")
                 st.session_state["show_confirm_panel"] = True
     
                 # 重新執行應用
