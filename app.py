@@ -1072,7 +1072,7 @@ elif menu == "生產單管理":
         st.error(f"❌ 無法載入工作表：{e}")
         st.stop()
     
-    # ---------- 載入配方管理表 (安全版) ----------
+    # ---------- 載入配方管理表 ----------
     try:
         records = ws_recipe.get_all_records()
         df_recipe = pd.DataFrame(records)
@@ -1087,13 +1087,14 @@ elif menu == "生產單管理":
         if "原始配方" in df_recipe.columns:
             df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
     
-        recipe_id_str = str(recipe_id)  # 避免非字串比較
-
+        # 建立標準化欄位
         if "原始配方_標準" not in df_recipe.columns:
-            df_recipe["原始配方_標準"] = ""
-        df_recipe["原始配方_標準"] = df_recipe["原始配方_標準"].astype(str)    
-        matched_additional = df_recipe[df_recipe["原始配方_標準"] == recipe_id_str]
-        
+            if "原始配方" in df_recipe.columns:
+                df_recipe["原始配方_標準"] = df_recipe["原始配方"].map(lambda x: fix_leading_zero(str(x)))
+            else:
+                df_recipe["原始配方_標準"] = ""
+    
+        df_recipe["原始配方_標準"] = df_recipe["原始配方_標準"].astype(str)
         st.session_state.df_recipe = df_recipe
     
     except Exception as e:
