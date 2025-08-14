@@ -1648,40 +1648,40 @@ elif menu == "生產單管理":
                     "備註", "合計類別", "淨重"
                 ]
                 
-                try:
-                    # 找到對應的 row
-                    cell = ws_order.find(order["生產單號"])
-                    # 依照欄位順序組 list
-                    values_to_write = [str(order.get(col, "")) for col in sheet_columns]
-                
-                    if cell:
-                        ws_order.update_row(cell.row, values_to_write)
-                    else:
-                        ws_order.append_row(values_to_write)
-                
-                    st.success(f"✅ 生產單 {order.get('生產單號','')} 已更新完成並寫入 Google Sheets")
-                except Exception as e:
-                    st.error(f"Google Sheets 寫入錯誤：{e}")
+                cell = ws_order.find(order["生產單號"])
+                values_to_write = [str(order.get(col, "")) for col in sheet_columns]
+            
+                if cell:
+                    ws_order.update_row(cell.row, values_to_write)
+                else:
+                    ws_order.append_row(values_to_write)
+            
+                # 更新 session_state，確保下載列印時資料完整
+                st.session_state["new_order"] = order
+            
+                st.success(f"✅ 生產單 {order.get('生產單號','')} 已更新完成並寫入 Google Sheets")
+            except Exception as e:
+                st.error(f"Google Sheets 寫入錯誤：{e}")
     
-        # 下載列印 HTML
-        show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
-        st.download_button(
-            label="📥 下載 A5 HTML",
-            data=generate_print_page_content(
-                order=st.session_state["new_order"],
-                recipe_row=recipe_row,
-                additional_recipe_rows=st.session_state["new_order"].get("附加配方", []),
-                show_additional_ids=True
-            ).encode("utf-8"),
-            file_name=f"{st.session_state['new_order']['生產單號']}_列印.html",
-            mime="text/html"
-        )
+            # 下載列印 HTML
+            show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
+            st.download_button(
+                label="📥 下載 A5 HTML",
+                data=generate_print_page_content(
+                    order=st.session_state["new_order"],
+                    recipe_row=recipe_row,
+                    additional_recipe_rows=st.session_state["new_order"].get("附加配方", []),
+                    show_additional_ids=True
+                ).encode("utf-8"),
+                file_name=f"{st.session_state['new_order']['生產單號']}_列印.html",
+                mime="text/html"
+            )
     
-        if st.button("🔙 返回", key="back_button"):
-            st.session_state.new_order = None
-            st.session_state.show_confirm_panel = False
-            st.session_state.new_order_saved = False
-            st.rerun()
+            if st.button("🔙 返回", key="back_button"):
+                st.session_state.new_order = None
+                st.session_state.show_confirm_panel = False
+                st.session_state.new_order_saved = False
+                st.rerun()
                             
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
