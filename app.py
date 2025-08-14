@@ -1074,11 +1074,19 @@ elif menu == "生產單管理":
     
     # 載入配方管理表
     try:
+        # 載入配方管理表
         records = ws_recipe.get_all_records()
         df_recipe = pd.DataFrame(records)
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
-        df_recipe["原始配方_標準"] = df_recipe["原始配方"].map(lambda x: fix_leading_zero(clean_powder_id(str(x))))
+        
+        # 只在欄位存在時才新增標準化欄位
+        if "原始配方" in df_recipe.columns:
+            df_recipe["原始配方_標準"] = df_recipe["原始配方"].map(
+                lambda x: fix_leading_zero(clean_powder_id(str(x)))
+            )
+        else:
+            df_recipe["原始配方_標準"] = ""
     
         if "配方編號" in df_recipe.columns:
             # 先清理再補零
@@ -1089,6 +1097,7 @@ elif menu == "生產單管理":
             df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
     
         st.session_state.df_recipe = df_recipe
+        
     except Exception as e:
         st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
         st.stop()
