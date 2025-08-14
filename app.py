@@ -1844,10 +1844,11 @@ elif menu == "生產單管理":
                     # ---------- 產生列印 HTML ----------
                     try:
                         print_html = generate_print_page_content(
-                            order=order_dict,
+                            order=order_dict,  # order_dict["包裝顯示"] 已經是色母處理過的
                             recipe_row=recipe_row,
                             additional_recipe_rows=order_dict.get("附加配方", []),
-                            show_additional_ids=True
+                            show_additional_ids=True,
+                            use_display_weight=True  # 假設函式內加一個 flag，優先使用 order["包裝顯示"]
                         )
                     except Exception as e:
                         st.error(f"❌ 產生列印內容失敗：{e}")
