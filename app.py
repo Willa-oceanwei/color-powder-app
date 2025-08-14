@@ -1301,7 +1301,7 @@ elif menu == "生產單管理":
                         if id_val or wt_val:
                             all_colorants.append((id_val, wt_val))
     
-                # 設定訂單詳細資料（先更新其他欄位）
+                # 設定訂單詳細資料
                 order.update({
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
@@ -1329,10 +1329,12 @@ elif menu == "生產單管理":
                         order[id_key] = ""
                         order[wt_key] = ""
     
+                # 存進 session
                 st.session_state["new_order"] = order
+                st.session_state["附加配方資料"] = 附加配方.to_dict("records")  # 👈 存起來方便後面使用
                 st.session_state["show_confirm_panel"] = True
     
-                # 重新執行應用（Streamlit 1.18+ 建議用 st.experimental_rerun）
+                # 重新執行應用
                 st.rerun()
                         
     # ===== 自訂函式：產生生產單列印格式 =====      
