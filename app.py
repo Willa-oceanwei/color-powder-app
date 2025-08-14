@@ -1278,8 +1278,9 @@ elif menu == "生產單管理":
                 df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).str.strip()
                 附加配方 = df_recipe[
                     (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"] == main_recipe_code)
+                    (df_recipe["原始配方_標準"] == main_recipe_code)
                 ]
+                order["附加配方"] = [row.to_dict() for _, row in 附加配方.iterrows()]
     
                 # 整合色粉：先加入主配方色粉
                 all_colorants = []
