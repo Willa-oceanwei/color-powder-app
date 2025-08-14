@@ -1344,25 +1344,22 @@ elif menu == "生產單管理":
     def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
         if recipe_row is None:
             recipe_row = {}
-
-        category = order.get("色粉類別", "").strip()  # 確保先賦值
     
-        unit = recipe_row.get("計量單位", "kg")
-        ratio = recipe_row.get("比例3", "")
+        # ===== 初始化 =====
+        lines = []  # 儲存列印每行內容
         total_type = recipe_row.get("合計類別", "").strip()
-        # ✅ 舊資料相容處理：「原料」統一轉成「料」
         if total_type == "原料":
             total_type = "料"
-        # ---- 橫線判斷 ----
+    
+        category = order.get("色粉類別", "").strip()  # 可留作其他用途
+        unit = recipe_row.get("計量單位", "kg")
+        ratio = recipe_row.get("比例3", "")
+    
+        # ---- 橫線判斷：非色母才顯示 ----
         if total_type != "色母":
             lines.append("＿" * 30)
     
-        powder_label_width = 12
-        pack_col_width = 11
-        number_col_width = 6
-        column_offsets = [1, 5, 5, 5]
-        total_offsets = [1.3, 5, 5, 5]
-    
+        # ===== 包裝重量與份數 =====
         packing_weights = [
             float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
             for i in range(1, 5)
@@ -1371,8 +1368,8 @@ elif menu == "生產單管理":
             float(order.get(f"包裝份數{i}", 0)) if str(order.get(f"包裝份數{i}", "")).replace(".", "", 1).isdigit() else 0
             for i in range(1, 5)
         ]
-
-        # 這裡初始化 colorant_ids 和 colorant_weights
+    
+        # ===== 色粉編號與重量 =====
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = []
         for i in range(8):
@@ -1383,16 +1380,11 @@ elif menu == "生產單管理":
                 val = 0.0
             colorant_weights.append(val)
     
-        multipliers = packing_weights
-    
-        # 合計列
+        # ===== 合計列淨重 =====
         try:
             net_weight = float(recipe_row.get("淨重", 0))
         except:
             net_weight = 0.0
-    
-        lines = []
-        lines.append("")
     
         # 配方資訊列
         recipe_id = recipe_row.get('配方編號', '')
