@@ -1282,6 +1282,8 @@ elif menu == "生產單管理":
                     {k: ("" if v is None else str(v)) for k, v in row.to_dict().items()}
                     for _, row in additional_recipes.iterrows()
                 ]
+                
+                st.session_state["new_order_additional"] = additional_recipes.to_dict(orient="records")
     
                 # 整合色粉：先加入主配方色粉
                 all_colorants = []
