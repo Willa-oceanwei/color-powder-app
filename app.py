@@ -1640,11 +1640,20 @@ elif menu == "生產單管理":
         
             # ---------- 寫入 Google Sheets ----------
             try:
+                sheet_columns = ["生產單號", "配方編號", "顏色", "Pantone 色號", "原料",
+                                 "重要提醒", "合計類別", "備註",
+                                 "包裝重量1","包裝份數1","包裝重量2","包裝份數2",
+                                 "包裝重量3","包裝份數3","包裝重量4","包裝份數4",
+                                 "建立時間"]  # 按你的 Sheet 欄位順序補齊
+            
+                values = [str(order.get(col, "")) for col in sheet_columns]
+            
                 cell = ws_order.find(order["生產單號"])
                 if cell:
-                    ws_order.update_row(cell.row, list(order.values()))
+                    ws_order.update_row(cell.row, values)
                 else:
-                    ws_order.append_row(list(order.values()))
+                    ws_order.append_row(values)
+            
                 st.success(f"✅ 生產單 {order.get('生產單號','')} 已更新完成並寫入 Google Sheets")
             except Exception as e:
                 st.error(f"Google Sheets 寫入錯誤：{e}")
