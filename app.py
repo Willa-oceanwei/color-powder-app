@@ -1842,7 +1842,7 @@ elif menu == "生產單管理":
                     print_html = generate_print_page_content(
                         order=order_dict,
                         recipe_row=recipe_row,
-                        additional_recipe_rows=additional_recipes,
+                        additional_recipe_rows=order_dict.get("附加配方", []),
                         show_additional_ids=True
                     )
                 except Exception as e:
@@ -1852,7 +1852,7 @@ elif menu == "生產單管理":
                 st.download_button(
                     label="📥 下載 A5 HTML",
                     data=print_html.encode("utf-8"),
-                    file_name=f"{order['生產單號']}_A5列印.html",
+                    file_name=f"{order_dict['生產單號']}_A5列印.html",
                     mime="text/html"
                 )
             
