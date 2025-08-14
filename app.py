@@ -1072,7 +1072,7 @@ elif menu == "生產單管理":
         st.error(f"❌ 無法載入工作表：{e}")
         st.stop()
     
-    # 載入配方管理表
+    # ---------- 載入配方管理表 (安全版) ----------
     try:
         records = ws_recipe.get_all_records()
         df_recipe = pd.DataFrame(records)
@@ -1094,8 +1094,11 @@ elif menu == "生產單管理":
                     lambda x: fix_leading_zero(str(x))
                 )
             else:
-                # 如果原始配方欄位不存在，先建立空欄位
+                # 如果連原始配方都不存在，建立空欄位
                 df_recipe["原始配方_標準"] = ""
+    
+        # 強制轉為字串，避免比較錯誤
+        df_recipe["原始配方_標準"] = df_recipe["原始配方_標準"].astype(str)
     
         st.session_state.df_recipe = df_recipe
     
