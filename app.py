@@ -1580,15 +1580,21 @@ elif menu == "生產單管理":
 
     # 搜尋或配方存在時才顯示新增生產單表單
     if st.session_state.get("show_confirm_panel"):
+        # 安全取得 session_state
         recipe_row = st.session_state.get("recipe_row_cache", {})
         order = st.session_state.get("new_order", {})
         unit = recipe_row.get("計量單位", "kg") if recipe_row else "kg"
     
+        # 確保附加配方是 list
+        additional_recipes = order.get("附加配方")
+        if additional_recipes is None:
+            additional_recipes = []
+    
         # 產生列印內容（可選）
         print_html = generate_print_page_content(
-            order=order,
-            recipe_row=recipe_row,
-            additional_recipes=order.get("附加配方", [])
+            order=order if isinstance(order, dict) else {},
+            recipe_row=recipe_row if isinstance(recipe_row, dict) else {},
+            additional_recipes=additional_recipes if isinstance(additional_recipes, list) else []
         )
     
         st.markdown("---")
