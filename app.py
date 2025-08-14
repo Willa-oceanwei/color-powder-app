@@ -1635,6 +1635,7 @@ elif menu == "生產單管理":
                 order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "")
                 order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "")
         
+            # ✅ 更新 session_state
             st.session_state["new_order"] = order
         
             # ---------- 寫入 Google Sheets ----------
