@@ -1497,11 +1497,10 @@ elif menu == "生產單管理":
             order = {}
     
         recipe_id_raw = order.get("配方編號", "").strip()
-
         recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
-        
+    
         matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
-        
+    
         if not matched.empty:
             recipe_row = matched.iloc[0].to_dict()
             recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
@@ -1509,21 +1508,30 @@ elif menu == "生產單管理":
         else:
             recipe_row = {}
     
-        # 這裡從 session_state 讀取 show_confirm_panel，避免被覆蓋
+        # 讀取 show_confirm_panel，避免被覆蓋
         show_confirm_panel = st.session_state.get("show_confirm_panel", False)
     
-        # 強制帶入配方欄位值，避免原本 order 已有空字串導致沒更新
+        # 強制帶入配方欄位值
         for field in ["合計類別", "備註", "重要提醒"]:
             order[field] = recipe_row.get(field, "")
-
-        # 取得附加配方清單（原始配方 == 主配方編號 且 配方類別 == "附加配方"）
-        additional_recipes = pd.DataFrame()  # 預設為空 DataFrame
+    
+        # ----------------- 附加配方（安全版） -----------------
+        additional_recipes = pd.DataFrame()  # 預設空 DataFrame
         if recipe_id:
-            additional_recipes = df_recipe[
-                (df_recipe["配方類別"] == "附加配方") &
-                (df_recipe["原始配方_標準"] == recipe_id)
+            df_recipe_safe = df_recipe.copy()
+            # 確保原始配方欄位存在
+            if "原始配方" not in df_recipe_safe.columns:
+                df_recipe_safe["原始配方"] = ""
+            # 臨時標準化欄位
+            df_recipe_safe["_原始配方標準"] = df_recipe_safe["原始配方"].map(
+                lambda x: fix_leading_zero(clean_powder_id(str(x)))
+            )
+            main_recipe_code = fix_leading_zero(clean_powder_id(recipe_id))
+            additional_recipes = df_recipe_safe[
+                (df_recipe_safe["配方類別"] == "附加配方") &
+                (df_recipe_safe["_原始配方標準"] == main_recipe_code)
             ]
-        
+    
         # 顯示附加配方清單
         if additional_recipes.empty:
             st.info("無附加配方")
@@ -1532,7 +1540,6 @@ elif menu == "生產單管理":
             for idx, row in additional_recipes.iterrows():
                 with st.expander(f"附加配方：{row['配方編號']} - {row['顏色']}"):
                     st.write(row)
-                    # 可進一步分欄顯示色粉編號與色粉重量
                     col1, col2 = st.columns(2)
                     with col1:
                         color_ids = {f"色粉編號{i}": row.get(f"色粉編號{i}") for i in range(1, 9)}
@@ -1540,29 +1547,29 @@ elif menu == "生產單管理":
                     with col2:
                         color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}") for i in range(1, 9)}
                         st.write("色粉重量", color_wts)
-        
+    
         # ✅ 寫入 order["附加配方"]
         order["附加配方"] = [
             {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
             for _, row in additional_recipes.iterrows()
-        ]    
-                
+        ]
+    
         st.session_state.new_order = order
         st.session_state.show_confirm_panel = show_confirm_panel
-            
-        # 搜尋或配方存在時才顯示新增生產單表單
-        if st.session_state.get("show_confirm_panel"):
-            recipe_row = st.session_state.get("recipe_row_cache", {})
-            unit = recipe_row.get("計量單位", "kg") if recipe_row else "kg"
-            
-            print_html = generate_print_page_content(
-                order=st.session_state["new_order"],
-                recipe_row=recipe_row,
-                additional_recipes=st.session_state["new_order"].get("附加配方", [])
-            )
-            
-            st.markdown("---")
-            st.subheader("新增生產單詳情填寫")
+
+    # 搜尋或配方存在時才顯示新增生產單表單
+    if st.session_state.get("show_confirm_panel"):
+        recipe_row = st.session_state.get("recipe_row_cache", {})
+        unit = recipe_row.get("計量單位", "kg") if recipe_row else "kg"
+
+        print_html = generate_print_page_content(
+            order=st.session_state["new_order"],
+            recipe_row=recipe_row,
+            additional_recipes=st.session_state["new_order"].get("附加配方", [])
+        )
+
+        st.markdown("---")
+        st.subheader("新增生產單詳情填寫")
             
             # 不可編輯欄位
             c1, c2, c3, c4 = st.columns(4)
