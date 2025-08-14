@@ -1096,6 +1096,7 @@ elif menu == "生產單管理":
         if "原始配方" in df_recipe.columns:
             df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
     
+        # 取得主配方編號（order 必須已定義）
         main_recipe_code_raw = order.get("配方編號", "")
         main_recipe_code = fix_leading_zero(clean_powder_id(main_recipe_code_raw))
         matched_additional = df_recipe[df_recipe["原始配方_標準"] == main_recipe_code]
