@@ -1839,7 +1839,7 @@ elif menu == "生產單管理":
                 category = str(recipe_row.get("合計類別", "")).strip()
                 is_color_master = category == "色母"
                 if is_color_master:
-                    # 色母包裝重量1固定為 1（後續列印函式會自動換算 100K）
+                    # 色母包裝重量1固定為 1（列印函式會自動換算 100K）
                     if str(order_dict.get("包裝重量1", "")).strip() in ["", "0"]:
                         order_dict["包裝重量1"] = 1
     
@@ -1849,7 +1849,8 @@ elif menu == "生產單管理":
                         order=order_dict,
                         recipe_row=recipe_row,
                         additional_recipe_rows=order_dict.get("附加配方", []),
-                        show_additional_ids=True
+                        show_additional_ids=True,
+                        remove_lines=is_color_master  # 色母時移除橫線
                     )
                 except Exception as e:
                     st.error(f"❌ 產生列印內容失敗：{e}")
@@ -1862,6 +1863,7 @@ elif menu == "生產單管理":
                     file_name=f"{order_dict['生產單號']}_A5列印.html",
                     mime="text/html"
                 )
+
     
     with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
