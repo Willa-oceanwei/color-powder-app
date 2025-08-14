@@ -1317,6 +1317,7 @@ elif menu == "生產單管理":
                     "重要提醒": str(selected_row.get("重要提醒", "")).strip(),
                     "合計類別": str(selected_row.get("合計類別", "")).strip(),
                     "色粉類別": selected_row.get("色粉類別", "").strip(),
+                    "附加配方列表": 附加配方.to_dict(orient="records")  
                 })
     
                 # 用 all_colorants 填入色粉編號與重量欄位
