@@ -1256,16 +1256,29 @@ elif menu == "生產單管理":
             count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
             new_id = f"{today_str}-{count_today + 1:03}"
             
-            # 查找附加配方（主配方編號標準化比對）
-            main_recipe_code = fix_leading_zero(selected_row.get("配方編號", ""))
-            df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
-            df_recipe["原始配方_標準"] = df_recipe["原始配方"].map(
-                lambda x: fix_leading_zero(str(x))
-            )
-            附加配方 = df_recipe[
-                (df_recipe["配方類別"] == "附加配方") &
-                (df_recipe["原始配方_標準"] == main_recipe_code)
+            # 確認 order 與配方編號存在
+            order = st.session_state.get("new_order", {})
+            recipe_id = order.get("配方編號", "").strip()
+            
+            matched_additional = []
+            
+            if recipe_id:
+                # 確保 df_recipe 已載入並有標準化欄位
+                df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
+                if "原始配方_標準" not in df_recipe.columns:
+                    df_recipe["原始配方_標準"] = ""
+                df_recipe["原始配方_標準"] = df_recipe["原始配方_標準"].astype(str)
+                
+                recipe_id_str = fix_leading_zero(clean_powder_id(recipe_id))
+                matched_additional = df_recipe[df_recipe["原始配方_標準"] == recipe_id_str]
+            
+            # 將結果存回 session_state
+            st.session_state.df_recipe = df_recipe
+            order["附加配方"] = [
+                {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
+                for _, row in matched_additional.iterrows()
             ]
+            st.session_state.new_order = order
             
             # 整合色粉編號與重量
             all_colorants = []
