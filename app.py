@@ -1078,6 +1078,7 @@ elif menu == "生產單管理":
         df_recipe = pd.DataFrame(records)
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
+        df_recipe["原始配方_標準"] = df_recipe["原始配方"].map(lambda x: fix_leading_zero(clean_powder_id(str(x))))
     
         if "配方編號" in df_recipe.columns:
             # 先清理再補零
