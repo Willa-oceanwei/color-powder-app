@@ -1507,211 +1507,117 @@ elif menu == "生產單管理":
         lines.append(f"備註 : {order.get('備註', '')}")
     
         return "<br>".join(lines)
-
           
     # ---------- 新增後欄位填寫區塊 ----------
     # ===== 主流程頁面切換 =====
     page = st.session_state.get("page", "新增生產單")
     if page == "新增生產單":
-        order = st.session_state.get("new_order")
-        if order is None or not isinstance(order, dict):
-            order = {}
-    
-        recipe_id_raw = order.get("配方編號", "").strip()
-        recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
-    
-        matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
-    
-        if not matched.empty:
-            recipe_row = matched.iloc[0].to_dict()
-            recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
-            st.session_state["recipe_row_cache"] = recipe_row
-        else:
-            recipe_row = {}
-    
-        # 讀取 show_confirm_panel，避免被覆蓋
-        show_confirm_panel = st.session_state.get("show_confirm_panel", False)
-    
-        # 強制帶入配方欄位值
-        for field in ["合計類別", "備註", "重要提醒"]:
-            order[field] = recipe_row.get(field, "")
-    
-        # ----------------- 附加配方（安全版） -----------------
-        additional_recipes = pd.DataFrame()  # 預設空 DataFrame
-        if recipe_id:
-            df_recipe_safe = df_recipe.copy()
-            # 確保原始配方欄位存在
-            if "原始配方" not in df_recipe_safe.columns:
-                df_recipe_safe["原始配方"] = ""
-            # 臨時標準化欄位
-            df_recipe_safe["_原始配方標準"] = df_recipe_safe["原始配方"].map(
-                lambda x: fix_leading_zero(clean_powder_id(str(x)))
-            )
-            main_recipe_code = fix_leading_zero(clean_powder_id(recipe_id))
-            additional_recipes = df_recipe_safe[
-                (df_recipe_safe["配方類別"] == "附加配方") &
-                (df_recipe_safe["_原始配方標準"] == main_recipe_code)
-            ]
-    
-        # 顯示附加配方清單
-        if additional_recipes.empty:
-            st.info("無附加配方")
-        else:
-            st.subheader(f"附加配方清單（共 {len(additional_recipes)} 筆）")
-            for idx, row in additional_recipes.iterrows():
-                with st.expander(f"附加配方：{row['配方編號']} - {row['顏色']}"):
-                    st.write(row)
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        color_ids = {f"色粉編號{i}": row.get(f"色粉編號{i}") for i in range(1, 9)}
-                        st.write("色粉編號", color_ids)
-                    with col2:
-                        color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}") for i in range(1, 9)}
-                        st.write("色粉重量", color_wts)
-    
-        # ✅ 寫入 order["附加配方"]
-        order["附加配方"] = [
-            {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
-            for _, row in additional_recipes.iterrows()
-        ]
-    
-        st.session_state.new_order = order
-        st.session_state.show_confirm_panel = show_confirm_panel
-
-    # 搜尋或配方存在時才顯示新增生產單表單
-    if st.session_state.get("show_confirm_panel"):
-        # 安全取得 session_state
-        recipe_row = st.session_state.get("recipe_row_cache", {})
         order = st.session_state.get("new_order", {})
-        unit = recipe_row.get("計量單位", "kg") if recipe_row else "kg"
-    
-        # 確保附加配方是 list
-        additional_recipes = order.get("附加配方")
-        if additional_recipes is None:
-            additional_recipes = []
-    
-        # 確保 order、recipe_row、附加配方都是 dict/list
-        order_safe = order if isinstance(order, dict) else {}
-        recipe_row_safe = recipe_row if isinstance(recipe_row, dict) else {}
-        additional_recipes_safe = order_safe.get("附加配方", [])
-        if not isinstance(additional_recipes_safe, list):
-            additional_recipes_safe = []
+        recipe_row = st.session_state.get("recipe_row_cache", {})
+        show_confirm_panel = st.session_state.get("show_confirm_panel", False)
         
-        # 補充 order 欄位
-        for key in ["生產單號", "配方編號", "顏色", "客戶名稱", "Pantone 色號", "計量單位", "備註", "重要提醒", "合計類別"]:
-            order_safe.setdefault(key, "")
-        
-        # 補充主配方色粉欄位
-        for i in range(1, 9):
-            recipe_row_safe.setdefault(f"色粉編號{i}", "")
-            recipe_row_safe.setdefault(f"色粉重量{i}", "")
-        
-        # 補充附加配方欄位
-        for add in additional_recipes_safe:
+        # ----------------- 顯示新增生產單表單 -----------------
+        if show_confirm_panel:
+            unit = recipe_row.get("計量單位", "kg") if recipe_row else "kg"
+            
+            # 補全 order 欄位
+            for key in ["生產單號", "配方編號", "顏色", "客戶名稱", "Pantone 色號", 
+                        "計量單位", "備註", "重要提醒", "合計類別"]:
+                order.setdefault(key, "")
+            
+            # 補全主配方色粉欄位
             for i in range(1, 9):
-                add.setdefault(f"色粉編號{i}", "")
-                add.setdefault(f"色粉重量{i}", "")
-            add.setdefault("淨重", 0)
-            add.setdefault("淨重單位", "")
-        
-        # 安全呼叫列印函式
-        try:
-            print_html = generate_print_page_content(
-                order=order_safe,
-                recipe_row=recipe_row_safe,
-                additional_recipe_rows=additional_recipes_safe  # ✅ 改這裡
-            )
-        except Exception as e:
-            st.error(f"❌ 產生列印內容失敗：{e}")
-            print_html = ""
-    
-        st.markdown("---")
-        st.subheader("新增生產單詳情填寫")
-        
-        # 不可編輯欄位
-        c1, c2, c3, c4 = st.columns(4)
-        c1.text_input("生產單號", value=order.get("生產單號", ""), disabled=True)
-        c2.text_input("配方編號", value=order.get("配方編號", ""), disabled=True)
-        c3.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True)
-        c4.text_input("客戶名稱", value=order.get("客戶名稱", ""), disabled=True)
-    
-        with st.form("order_detail_form"):
-            # 基本欄位
-            c5, c6, c7, c8 = st.columns(4)
-            c5.text_input("計量單位", value=unit, disabled=True)
-            color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color")
-            pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone")
-            raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
-    
-            # 重要提醒 / 合計類別 / 備註
-            c9, c10 = st.columns(2)
-            important_note = c9.text_input("重要提醒", value=order.get("重要提醒", ""), key="form_important_note")
-            total_category = c10.text_input("合計類別", value=order.get("合計類別", ""), key="form_total_category")
-            remark_default = order.get("備註", "")
-            remark = st.text_area("備註", value=remark_default, key="form_remark")
-    
-            # 包裝重量與份數
-            st.markdown("**包裝重量與份數**")
-            w_cols = st.columns(4)
-            c_cols = st.columns(4)
-            for i in range(1, 5):
-                w_cols[i-1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}")
-                c_cols[i-1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}")
-    
-            # 主配方色粉顯示
-            st.markdown("### 色粉用量（編號與重量）")
-            col_id, col_wt = st.columns(2)
-            for i in range(1, 9):
-                color_id = recipe_row.get(f"色粉編號{i}", "").strip()
-                color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
-                if color_id or color_wt:
-                    with col_id:
-                        st.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}")
-                    with col_wt:
-                        st.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}")
-    
-            # 主配方淨重
-            st.markdown(
-                f"<div style='text-align:right; font-size:16px; margin-top:-10px;'>🔢 配方淨重：{recipe_row.get('淨重', '')} {recipe_row.get('淨重單位', '')}</div>",
-                unsafe_allow_html=True
-            )
-    
-            # 附加配方色粉顯示
+                recipe_row.setdefault(f"色粉編號{i}", "")
+                recipe_row.setdefault(f"色粉重量{i}", "")
+            
+            # 補全附加配方欄位
             additional_list = order.get("附加配方", [])
-            if additional_list:
-                st.markdown("### 附加配方色粉用量（編號與重量）")
-                for idx, add_recipe in enumerate(additional_list, 1):
-                    st.markdown(f"#### 附加配方 {idx}")
-                    col1, col2 = st.columns(2)
-                    for i in range(1, 9):
-                        color_id = add_recipe.get(f"色粉編號{i}", "").strip()
-                        color_wt = add_recipe.get(f"色粉重量{i}", "").strip()
-                        if color_id or color_wt:
-                            with col1:
-                                st.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}")
-                            with col2:
-                                st.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}")
-                    
-                    # 顯示附加配方淨重
-                    try:
-                        total_net = float(add_recipe.get("淨重", 0))
-                    except:
-                        total_net = 0
-                    unit = add_recipe.get("淨重單位", "")
-                    st.markdown(
-                        f"<div style='text-align:right; font-size:16px;'>📦 附加配方淨重：{total_net:.2f} {unit}</div>",
-                        unsafe_allow_html=True
-                    )
-    
-            submitted = st.form_submit_button("💾 儲存生產單")
-        
-            if submitted:
-                order = st.session_state.get("new_order", {})
-                if not order:
-                    st.error("❌ 找不到訂單資料，無法儲存")
-                    st.stop()
+            if not isinstance(additional_list, list):
+                additional_list = []
+            for add in additional_list:
+                for i in range(1, 9):
+                    add.setdefault(f"色粉編號{i}", "")
+                    add.setdefault(f"色粉重量{i}", "")
+                add.setdefault("淨重", 0)
+                add.setdefault("淨重單位", "")
+            
+            st.markdown("---")
+            st.subheader("新增生產單詳情填寫")
+            
+            # 不可編輯欄位
+            c1, c2, c3, c4 = st.columns(4)
+            c1.text_input("生產單號", value=order.get("生產單號", ""), disabled=True)
+            c2.text_input("配方編號", value=order.get("配方編號", ""), disabled=True)
+            c3.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True)
+            c4.text_input("客戶名稱", value=order.get("客戶名稱", ""), disabled=True)
+            
+            # ===== 表單 =====
+            with st.form("order_detail_form"):
+                # 基本欄位
+                c5, c6, c7, c8 = st.columns(4)
+                c5.text_input("計量單位", value=unit, disabled=True)
+                color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color")
+                pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone")
+                raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
                 
-                # 更新基本欄位
+                # 重要提醒 / 合計類別 / 備註
+                c9, c10 = st.columns(2)
+                important_note = c9.text_input("重要提醒", value=order.get("重要提醒", ""), key="form_important_note")
+                total_category = c10.text_input("合計類別", value=order.get("合計類別", ""), key="form_total_category")
+                remark = st.text_area("備註", value=order.get("備註", ""), key="form_remark")
+                
+                # 包裝重量與份數
+                st.markdown("**包裝重量與份數**")
+                w_cols = st.columns(4)
+                c_cols = st.columns(4)
+                for i in range(1, 5):
+                    w_cols[i-1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}")
+                    c_cols[i-1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}")
+                
+                # 主配方色粉顯示
+                st.markdown("### 色粉用量（編號與重量）")
+                col_id, col_wt = st.columns(2)
+                for i in range(1, 9):
+                    color_id = recipe_row.get(f"色粉編號{i}", "").strip()
+                    color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
+                    if color_id or color_wt:
+                        with col_id:
+                            st.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}")
+                        with col_wt:
+                            st.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}")
+                
+                # 主配方淨重
+                st.markdown(
+                    f"<div style='text-align:right; font-size:16px; margin-top:-10px;'>🔢 配方淨重：{recipe_row.get('淨重', '')} {recipe_row.get('淨重單位', '')}</div>",
+                    unsafe_allow_html=True
+                )
+                
+                # 附加配方色粉顯示
+                if additional_list:
+                    st.markdown("### 附加配方色粉用量（編號與重量）")
+                    for idx, add_recipe in enumerate(additional_list, 1):
+                        st.markdown(f"#### 附加配方 {idx}")
+                        col1, col2 = st.columns(2)
+                        for i in range(1, 9):
+                            color_id = add_recipe.get(f"色粉編號{i}", "").strip()
+                            color_wt = add_recipe.get(f"色粉重量{i}", "").strip()
+                            if color_id or color_wt:
+                                with col1:
+                                    st.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}")
+                                with col2:
+                                    st.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}")
+                        total_net = float(add_recipe.get("淨重", 0) or 0)
+                        unit = add_recipe.get("淨重單位", "")
+                        st.markdown(
+                            f"<div style='text-align:right; font-size:16px;'>📦 附加配方淨重：{total_net:.2f} {unit}</div>",
+                            unsafe_allow_html=True
+                        )
+                
+                submitted = st.form_submit_button("💾 儲存生產單")
+            
+            # ===== 表單外：處理儲存 & 列印 & 下載 & 返回 =====
+            if submitted:
+                # 更新 order
                 order.update({
                     "顏色": st.session_state.get("form_color", ""),
                     "Pantone 色號": st.session_state.get("form_pantone", ""),
@@ -1720,72 +1626,45 @@ elif menu == "生產單管理":
                     "合計類別": st.session_state.get("form_total_category", ""),
                     "備註": st.session_state.get("form_remark", "")
                 })
-                
-                # 更新包裝重量與份數
                 for i in range(1, 5):
                     order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "")
                     order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "")
                 
-                # ✅ 重新整理主配方色粉資料（只讀取有值的欄位）
-                recipe_row = st.session_state.get("recipe_row_cache", {})
+                # 主配方色粉
                 for i in range(1, 9):
                     order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
                     order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
                 
-                # 附加配方色粉也保持一致
-                additional_list = order.get("附加配方", [])
-                for idx, add_recipe in enumerate(additional_list, 1):
-                    for i in range(1, 9):
-                        add_recipe[f"色粉編號{i}"] = add_recipe.get(f"色粉編號{i}", "")
-                        add_recipe[f"色粉重量{i}"] = add_recipe.get(f"色粉重量{i}", "")
-                
-                # 寫回 session_state
-                st.session_state["new_order"] = order
-                
+                st.session_state.new_order = order
                 st.success(f"✅ 生產單 {order.get('生產單號','')} 已更新完成")
-        
-                # ➕ 寫入 Google Sheets、CSV 等流程
-                header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
-                try:
-                    ws_order.append_row(row_data)
-                    df_new = pd.DataFrame([order], columns=df_order.columns)
-                    df_order = pd.concat([df_order, df_new], ignore_index=True)
-                    df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
-                    st.session_state.df_order = df_order
-                    st.session_state.new_order_saved = True
-                    st.success(f"✅ 生產單 {order['生產單號']} 已存！")
-                except Exception as e:
-                    st.error(f"❌ 寫入失敗：{e}")
-        
-            # 產生列印 HTML 按鈕
-            # ✅ 加入 checkbox 讓使用者決定是否顯示附加配方編號
-            show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
             
-            # 產生列印 HTML
-            print_html = generate_print_page_content(
-                order,
-                recipe_row,
-                order.get("附加配方"),
-                show_additional_ids=show_ids  # ✅ 傳入使用者選項
+            # 列印與下載
+            show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
+            try:
+                print_html = generate_print_page_content(
+                    order=order,
+                    recipe_row=recipe_row,
+                    additional_recipe_rows=order.get("附加配方", []),
+                    show_additional_ids=show_ids
+                )
+            except Exception as e:
+                st.error(f"❌ 產生列印內容失敗：{e}")
+                print_html = ""
+            
+            # 下載 HTML
+            st.download_button(
+                label="📥 下載 A5 HTML",
+                data=print_html.encode("utf-8"),
+                file_name=f"{order.get('生產單號','')}_列印.html",
+                mime="text/html"
             )
             
-            # 下載按鈕         
-            col1, col2, col3 = st.columns([3, 1, 3])
-            with col1:
-                st.download_button(
-                    label="📥 下載 A5 HTML",
-                    data=print_html.encode("utf-8"),
-                    file_name=f"{order['生產單號']}_列印.html",
-                    mime="text/html"
-                )
-            
-            with col3:
-                if st.button("🔙 返回", key="back_button"):
-                    st.session_state.new_order = None
-                    st.session_state.show_confirm_panel = False
-                    st.session_state.new_order_saved = False
-                    st.rerun()
+            # 返回按鈕
+            if st.button("🔙 返回", key="back_button"):
+                st.session_state.new_order = None
+                st.session_state.show_confirm_panel = False
+                st.session_state.new_order_saved = False
+                st.rerun()
                             
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
