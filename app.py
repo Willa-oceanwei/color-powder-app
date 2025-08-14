@@ -1508,15 +1508,12 @@ elif menu == "生產單管理":
         recipe_id = order_dict.get("配方編號", "").strip()
         
         # 只有 recipe_id 有值才處理附加配方邏輯
-        additional_recipes = pd.DataFrame()
-        if recipe_id and not df_recipe.empty:
-            try:
-                additional_recipes = df_recipe[
-                    (df_recipe["配方類別"].astype(str) == "附加配方") &
-                    (df_recipe["原始配方_標準"].astype(str) == str(recipe_id))
-                ]
-            except Exception as e:
-                print(f"取得附加配方時發生錯誤: {e}")
+        additional_recipes = pd.DataFrame()  # 預設為空 DataFrame
+        if recipe_id:
+            additional_recipes = df_recipe[
+                (df_recipe["配方類別"] == "附加配方") &
+                (df_recipe["原始配方_標準"] == recipe_id)
+            ]
         else:
             additional_recipes = pd.DataFrame()
         
