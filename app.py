@@ -1840,7 +1840,7 @@ elif menu == "生產單管理":
     
                 try:
                     print_html = generate_print_page_content(
-                        order=order,
+                        order=order_dict,
                         recipe_row=recipe_row,
                         additional_recipe_rows=additional_recipes,
                         show_additional_ids=True
