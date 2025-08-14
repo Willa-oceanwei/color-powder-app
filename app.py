@@ -1643,18 +1643,18 @@ elif menu == "生產單管理":
                 附加配方清單 = order.get("附加配方", [])
                 if 附加配方清單:
                     st.markdown("### 附加配方色粉用量（編號與重量）")
-                    for idx, 附加配方 in enumerate(附加配方清單, 1):
+                    for idx, add_recipe in enumerate(order.get("附加配方", []), 1):
                         st.markdown(f"#### 附加配方 {idx}")
                         col1, col2 = st.columns(2)
                         for i in range(1, 9):
-                            color_id = 附加配方.get(f"色粉編號{i}", "").strip()
-                            color_wt = 附加配方.get(f"色粉重量{i}", "").strip()
-                            if color_id or color_wt:  # ✅ 有內容才顯示
+                            color_id = add_recipe.get(f"色粉編號{i}", "")
+                            color_wt = add_recipe.get(f"色粉重量{i}", "")
+                            if color_id or color_wt:
                                 with col1:
                                     st.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}")
                                 with col2:
                                     st.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}")
-                
+                                    
                         # 顯示附加配方淨重
                         try:
                             total_net = float(附加配方.get("淨重", 0))
