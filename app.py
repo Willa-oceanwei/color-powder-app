@@ -1539,7 +1539,7 @@ elif menu == "生產單管理":
         if recipe_id:
             additional_recipes = df_recipe[
                 (df_recipe["配方類別"] == "附加配方") &
-                (df_recipe["原始配方"] == recipe_id)
+                (df_recipe["原始配方_標準"] == recipe_id)
             ]
         
             if additional_recipes.empty:
