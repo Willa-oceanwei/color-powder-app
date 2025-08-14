@@ -1573,7 +1573,7 @@ elif menu == "生產單管理":
             print_html = generate_print_page_content(
                 order,
                 recipe_row,
-                附加配方.to_dict("records")  # DataFrame → list of dict
+                order.get("附加配方", [])
             )
         
             st.markdown("---")
