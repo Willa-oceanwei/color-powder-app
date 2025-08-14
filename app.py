@@ -1351,7 +1351,7 @@ elif menu == "生產單管理":
         if total_type == "原料":
             total_type = "料"
     
-        category = order.get("色粉類別", "").strip()  # 可留作其他用途
+        category = order.get("色粉類別", "").strip()
         unit = recipe_row.get("計量單位", "kg")
         ratio = recipe_row.get("比例3", "")
     
@@ -1371,8 +1371,6 @@ elif menu == "生產單管理":
             float(order.get(f"包裝份數{i}", 0)) if str(order.get(f"包裝份數{i}", "")).replace(".", "", 1).isdigit() else 0
             for i in range(1, 5)
         ]
-    
-        # multipliers 用包裝重量
         multipliers = packing_weights
     
         # ===== 色粉編號與重量 =====
@@ -1392,7 +1390,7 @@ elif menu == "生產單管理":
         except:
             net_weight = 0.0
     
-        # ---- 橫線判斷：非色母才顯示 ----
+        # ---- 非色母橫線 ----
         if total_type != "色母":
             lines.append("＿" * 30)
     
@@ -1505,7 +1503,7 @@ elif menu == "生產單管理":
     
         # ===== 備註 =====
         lines.append("")
-        lines.append("")  # 多空一行
+        lines.append("")
         lines.append(f"備註 : {order.get('備註', '')}")
     
         return "<br>".join(lines)
@@ -1828,38 +1826,36 @@ elif menu == "生產單管理":
     
     with cols_mod[0]:
         if selected_code_edit:
-            # 取得選中的生產單
             order_row = df_order[df_order["生產單號"] == selected_code_edit]
             if not order_row.empty:
                 order_dict = order_row.iloc[0].to_dict()
-    
                 recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
                 recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
-                
-                # === 色母特殊處理 ===
+    
+                # 色母特殊處理：包裝重量1固定為 1（原邏輯）
                 category = str(recipe_row.get("合計類別", "")).strip()
                 is_color_master = category == "色母"
-                if is_color_master:
-                    # 將包裝重量1設為 1，後續函式會自動換算 100K
-                    if str(order_dict.get("包裝重量1", "")).strip() in ["", "0"]:
-                        order_dict["包裝重量1"] = 1
-                    # 將 flag 加入 recipe_row，用來告訴函式不要畫橫線
-                    recipe_row["remove_lines"] = True
-                else:
-                    recipe_row["remove_lines"] = False
-                
-                # 產生列印 HTML（只影響清單 A5 下載）
+                if is_color_master and str(order_dict.get("包裝重量1", "")).strip() in ["", "0"]:
+                    order_dict["包裝重量1"] = 1
+    
                 try:
                     print_html = generate_print_page_content(
                         order=order_dict,
                         recipe_row=recipe_row,
-                        additional_recipe_rows=order_dict.get("附加配方", [])
+                        additional_recipe_rows=order_dict.get("附加配方", []),
+                        show_additional_ids=True
                     )
                 except Exception as e:
                     st.error(f"❌ 產生列印內容失敗：{e}")
                     print_html = ""
-
     
+                st.download_button(
+                    label="📥 下載 A5 HTML",
+                    data=print_html.encode("utf-8"),
+                    file_name=f"{order_dict['生產單號']}_A5列印.html",
+                    mime="text/html"
+                )
+            
     with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
             row = df_order[df_order["生產單號"] == selected_code_edit]
