@@ -1570,7 +1570,11 @@ elif menu == "生產單管理":
         # 搜尋或配方存在時才顯示新增生產單表單
         if st.session_state.get("show_confirm_panel"):
             unit = recipe_row.get("計量單位", "kg") if recipe_row else "kg"
-            print_html = generate_print_page_content(order, recipe_row, order.get("附加配方"))
+            print_html = generate_print_page_content(
+                order,
+                recipe_row,
+                st.session_state.get("selected_additional_recipes", [])  # 改這裡
+            )
         
             st.markdown("---")
             st.subheader("新增生產單詳情填寫")
