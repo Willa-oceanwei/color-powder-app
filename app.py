@@ -1286,8 +1286,8 @@ elif menu == "生產單管理":
     
             # 存回 session_state，並顯示表單
             st.session_state.new_order = order
+            st.session_state.recipe_row_cache = selected_row  # 保存主配方資料
             st.session_state.show_confirm_panel = True
-            st.rerun()
     
             # ----------------- 附加配方（安全版） -----------------
             matched_additional = pd.DataFrame()  # 預設空 DataFrame
