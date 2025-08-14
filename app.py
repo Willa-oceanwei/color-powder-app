@@ -1505,41 +1505,35 @@ elif menu == "生產單管理":
             order[field] = recipe_row.get(field, "")
 
         # 取得附加配方清單（原始配方 == 主配方編號 且 配方類別 == "附加配方"）
-        recipe_id = order_dict.get("配方編號", "").strip()
-        
-        # 只有 recipe_id 有值才處理附加配方邏輯
         additional_recipes = pd.DataFrame()  # 預設為空 DataFrame
         if recipe_id:
             additional_recipes = df_recipe[
                 (df_recipe["配方類別"] == "附加配方") &
                 (df_recipe["原始配方_標準"] == recipe_id)
             ]
-        else:
-            additional_recipes = pd.DataFrame()
         
-            if additional_recipes.empty:
-                st.info("無附加配方")
-            else:
-                st.subheader(f"附加配方清單（共 {len(additional_recipes)} 筆）")
-                for idx, row in additional_recipes.iterrows():
-                    with st.expander(f"附加配方：{row['配方編號']} - {row['顏色']}"):
-                        st.write(row)
-                        # 可進一步分欄顯示色粉編號與色粉重量
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            color_ids = {f"色粉編號{i}": row.get(f"色粉編號{i}") for i in range(1, 9)}
-                            st.write("色粉編號", color_ids)
-                        with col2:
-                            color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}") for i in range(1, 9)}
-                            st.write("色粉重量", color_wts)
-        
-            # ✅ 寫入 order["附加配方"]
-            order["附加配方"] = [
-                {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
-                for _, row in additional_recipes.iterrows()
-            ]
+        # 顯示附加配方清單
+        if additional_recipes.empty:
+            st.info("無附加配方")
         else:
-            order["附加配方"] = []  # 空配方時預設為空 list    
+            st.subheader(f"附加配方清單（共 {len(additional_recipes)} 筆）")
+            for idx, row in additional_recipes.iterrows():
+                with st.expander(f"附加配方：{row['配方編號']} - {row['顏色']}"):
+                    st.write(row)
+                    # 可進一步分欄顯示色粉編號與色粉重量
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        color_ids = {f"色粉編號{i}": row.get(f"色粉編號{i}") for i in range(1, 9)}
+                        st.write("色粉編號", color_ids)
+                    with col2:
+                        color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}") for i in range(1, 9)}
+                        st.write("色粉重量", color_wts)
+        
+        # ✅ 寫入 order["附加配方"]
+        order["附加配方"] = [
+            {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
+            for _, row in additional_recipes.iterrows()
+        ]    
                 
         st.session_state.new_order = order
         st.session_state.show_confirm_panel = show_confirm_panel
