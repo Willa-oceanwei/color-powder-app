@@ -1811,6 +1811,7 @@ elif menu == "生產單管理":
     
     with cols_mod[0]:
         if selected_code_edit:
+            # 取得選中的生產單
             order_row = df_order[df_order["生產單號"] == selected_code_edit]
             if not order_row.empty:
                 order_dict = order_row.iloc[0].to_dict()
@@ -1841,25 +1842,26 @@ elif menu == "生產單管理":
                             continue
                     order_dict["包裝顯示"] = " + ".join(display_weights)
     
-                    # ---------- 產生列印 HTML ----------
+                    # ---------- 產生列印 HTML（只影響清單 A5 下載） ----------
                     try:
                         print_html = generate_print_page_content(
-                            order=order_dict,  # order_dict["包裝顯示"] 已經是色母處理過的
+                            order=order_dict,
                             recipe_row=recipe_row,
                             additional_recipe_rows=order_dict.get("附加配方", []),
-                            show_additional_ids=True,
-                            use_display_weight=True  # 假設函式內加一個 flag，優先使用 order["包裝顯示"]
+                            show_additional_ids=True
                         )
                     except Exception as e:
                         st.error(f"❌ 產生列印內容失敗：{e}")
                         print_html = ""
     
+                    # 下載按鈕
                     st.download_button(
                         label="📥 下載 A5 HTML",
                         data=print_html.encode("utf-8"),
                         file_name=f"{order_dict['生產單號']}_A5列印.html",
                         mime="text/html"
                     )
+
     
     with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
