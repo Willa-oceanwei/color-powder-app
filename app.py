@@ -1241,7 +1241,6 @@ elif menu == "生產單管理":
             selected_row = None if selected_label in ("請選擇", "（無符合配方）") else option_map.get(selected_label)
     
     if add_btn:
-        if add_btn:
         if selected_label in ("請選擇", "（無符合配方）") or not selected_row:
             st.warning("請先選擇有效配方")
         elif selected_row.get("狀態") == "停用":
