@@ -1087,15 +1087,11 @@ elif menu == "生產單管理":
         if "原始配方" in df_recipe.columns:
             df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
     
-        # 安全取得附加配方
         recipe_id_str = str(recipe_id)  # 避免非字串比較
-        
-        # 確保欄位存在，且都是字串
+
         if "原始配方_標準" not in df_recipe.columns:
             df_recipe["原始配方_標準"] = ""
-        df_recipe["原始配方_標準"] = df_recipe["原始配方_標準"].astype(str)
-        
-        # 比對取得附加配方
+        df_recipe["原始配方_標準"] = df_recipe["原始配方_標準"].astype(str)    
         matched_additional = df_recipe[df_recipe["原始配方_標準"] == recipe_id_str]
         
         st.session_state.df_recipe = df_recipe
