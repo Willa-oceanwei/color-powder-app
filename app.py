@@ -1087,19 +1087,17 @@ elif menu == "生產單管理":
         if "原始配方" in df_recipe.columns:
             df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
     
-        # 建立原始配方_標準欄位，避免 KeyError
+        # 安全取得附加配方
+        recipe_id_str = str(recipe_id)  # 避免非字串比較
+        
+        # 確保欄位存在，且都是字串
         if "原始配方_標準" not in df_recipe.columns:
-            if "原始配方" in df_recipe.columns:
-                df_recipe["原始配方_標準"] = df_recipe["原始配方"].map(
-                    lambda x: fix_leading_zero(str(x))
-                )
-            else:
-                # 如果連原始配方都不存在，建立空欄位
-                df_recipe["原始配方_標準"] = ""
-    
-        # 強制轉為字串，避免比較錯誤
+            df_recipe["原始配方_標準"] = ""
         df_recipe["原始配方_標準"] = df_recipe["原始配方_標準"].astype(str)
-    
+        
+        # 比對取得附加配方
+        matched_additional = df_recipe[df_recipe["原始配方_標準"] == recipe_id_str]
+        
         st.session_state.df_recipe = df_recipe
     
     except Exception as e:
