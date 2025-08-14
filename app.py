@@ -1569,15 +1569,18 @@ elif menu == "生產單管理":
                 
         st.session_state.new_order = order
         st.session_state.show_confirm_panel = show_confirm_panel
-            
-        # 搜尋或配方存在時才顯示新增生產單表單
+        st.session_state["new_order_additional"] = 附加配方.to_dict(orient="records")
+    
+        import streamlit.components.v1 as components
+
         if st.session_state.get("show_confirm_panel"):
-            unit = recipe_row.get("計量單位", "kg") if recipe_row else "kg"
-            print_html = generate_print_page_content(
-                order,
-                recipe_row,
-                order.get("附加配方", [])
+            html = generate_print_page_content(
+                order=st.session_state["new_order"],
+                recipe_row=selected_row,
+                additional_recipe_rows=st.session_state.get("new_order_additional", []),
+                show_additional_ids=True
             )
+            components.html(html, height=800)
         
             st.markdown("---")
             st.subheader("新增生產單詳情填寫")
