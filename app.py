@@ -1090,8 +1090,8 @@ elif menu == "生產單管理":
                 # 沒有原始配方欄位也要建一個空欄，避免 KeyError
                 df_recipe["原始配方_標準"] = ""
         
-        # 之後再做比對
-        matched_additional = df_recipe[df_recipe["原始配方_標準"] == main_recipe_code]
+                # 之後再做比對
+                matched_additional = df_recipe[df_recipe["原始配方_標準"] == main_recipe_code]
 
     print(df_recipe.columns.tolist())
     
