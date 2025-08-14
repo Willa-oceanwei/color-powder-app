@@ -1845,12 +1845,10 @@ elif menu == "生產單管理":
     
                 # 產生列印 HTML（只影響清單 A5 下載）
                 try:
-                    print_html = generate_print_page_content(
+                    print_html = generate_production_order_print(
                         order=order_dict,
                         recipe_row=recipe_row,
-                        additional_recipe_rows=order_dict.get("附加配方", []),
-                        show_additional_ids=True,
-                        remove_lines=is_color_master  # 色母時移除橫線
+                        additional_recipe_rows=order_dict.get("附加配方", [])
                     )
                 except Exception as e:
                     st.error(f"❌ 產生列印內容失敗：{e}")
