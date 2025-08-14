@@ -1294,7 +1294,7 @@ elif menu == "生產單管理":
                         all_colorants.append((id_val, wt_val))
     
                 # 加入附加配方色粉
-                for _, sub in 附加配方.iterrows():
+                for _, sub in additional_recipes.iterrows():
                     for i in range(1, 9):
                         id_key = f"色粉編號{i}"
                         wt_key = f"色粉重量{i}"
