@@ -1274,11 +1274,13 @@ elif menu == "生產單管理":
     
                 # 查找附加配方
                 main_recipe_code = selected_row.get("配方編號", "").strip()
-                df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
-                df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).str.strip()
-                附加配方 = df_recipe[
+                additional_recipes = df_recipe[
                     (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"] == main_recipe_code)
+                    (df_recipe["原始配方"].map(lambda x: str(x).strip()) == main_recipe_code)
+                ]
+                order["附加配方"] = [
+                    {k: ("" if v is None else str(v)) for k, v in row.to_dict().items()}
+                    for _, row in additional_recipes.iterrows()
                 ]
     
                 # 整合色粉：先加入主配方色粉
