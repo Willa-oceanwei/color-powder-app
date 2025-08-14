@@ -1840,19 +1840,19 @@ elif menu == "生產單管理":
     
                 try:
                     print_html = generate_print_page_content(
-                        order=order_dict,
+                        order=order,
                         recipe_row=recipe_row,
-                        additional_recipe_rows=order_dict.get("附加配方", []),
+                        additional_recipe_rows=additional_recipes,
                         show_additional_ids=True
                     )
                 except Exception as e:
                     st.error(f"❌ 產生列印內容失敗：{e}")
                     print_html = ""
-    
+                
                 st.download_button(
                     label="📥 下載 A5 HTML",
                     data=print_html.encode("utf-8"),
-                    file_name=f"{order_dict['生產單號']}_A5列印.html",
+                    file_name=f"{order['生產單號']}_A5列印.html",
                     mime="text/html"
                 )
             
