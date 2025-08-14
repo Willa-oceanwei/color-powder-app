@@ -1353,6 +1353,9 @@ elif menu == "生產單管理":
         # ✅ 舊資料相容處理：「原料」統一轉成「料」
         if total_type == "原料":
             total_type = "料"
+        # ---- 橫線判斷 ----
+        if total_type != "色母":
+            lines.append("＿" * 30)
     
         powder_label_width = 12
         pack_col_width = 11
@@ -1831,21 +1834,24 @@ elif menu == "生產單管理":
             if not order_row.empty:
                 order_dict = order_row.iloc[0].to_dict()
     
-                # 取得主配方資料
                 recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
                 recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
-    
+                
                 # === 色母特殊處理 ===
                 category = str(recipe_row.get("合計類別", "")).strip()
                 is_color_master = category == "色母"
                 if is_color_master:
-                    # 色母包裝重量1固定為 1（列印函式會自動換算 100K）
+                    # 將包裝重量1設為 1，後續函式會自動換算 100K
                     if str(order_dict.get("包裝重量1", "")).strip() in ["", "0"]:
                         order_dict["包裝重量1"] = 1
-    
+                    # 將 flag 加入 recipe_row，用來告訴函式不要畫橫線
+                    recipe_row["remove_lines"] = True
+                else:
+                    recipe_row["remove_lines"] = False
+                
                 # 產生列印 HTML（只影響清單 A5 下載）
                 try:
-                    print_html = generate_production_order_print(
+                    print_html = generate_print_page_content(
                         order=order_dict,
                         recipe_row=recipe_row,
                         additional_recipe_rows=order_dict.get("附加配方", [])
@@ -1853,14 +1859,6 @@ elif menu == "生產單管理":
                 except Exception as e:
                     st.error(f"❌ 產生列印內容失敗：{e}")
                     print_html = ""
-    
-                # 下載按鈕
-                st.download_button(
-                    label="📥 下載 A5 HTML",
-                    data=print_html.encode("utf-8"),
-                    file_name=f"{order_dict['生產單號']}_A5列印.html",
-                    mime="text/html"
-                )
 
     
     with cols_mod[1]:
