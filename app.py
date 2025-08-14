@@ -1345,6 +1345,7 @@ elif menu == "生產單管理":
         if recipe_row is None:
             recipe_row = {}
 
+        print(f"色粉類別: '{category}', 包裝重量1: {packing_weights[0]}")
         category = order.get("色粉類別", "").strip()  # 確保先賦值
     
         unit = recipe_row.get("計量單位", "kg")
