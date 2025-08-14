@@ -1590,29 +1590,40 @@ elif menu == "生產單管理":
         if additional_recipes is None:
             additional_recipes = []
     
-        # 確保 order、recipe_row、附加配方都有預設值
+        # 確保 order、recipe_row、附加配方都是 dict/list
         order_safe = order if isinstance(order, dict) else {}
         recipe_row_safe = recipe_row if isinstance(recipe_row, dict) else {}
-        additional_recipes_safe = additional_recipes if isinstance(additional_recipes, list) else []
+        additional_recipes_safe = order_safe.get("附加配方", [])
+        if not isinstance(additional_recipes_safe, list):
+            additional_recipes_safe = []
         
-        # 主要欄位預設值
+        # 補充 order 欄位
         for key in ["生產單號", "配方編號", "顏色", "客戶名稱", "Pantone 色號", "計量單位", "備註", "重要提醒", "合計類別"]:
             order_safe.setdefault(key, "")
         
-        # 附加配方欄位預設
-        for idx, add in enumerate(additional_recipes_safe):
+        # 補充主配方色粉欄位
+        for i in range(1, 9):
+            recipe_row_safe.setdefault(f"色粉編號{i}", "")
+            recipe_row_safe.setdefault(f"色粉重量{i}", "")
+        
+        # 補充附加配方欄位
+        for add in additional_recipes_safe:
             for i in range(1, 9):
                 add.setdefault(f"色粉編號{i}", "")
                 add.setdefault(f"色粉重量{i}", "")
             add.setdefault("淨重", 0)
             add.setdefault("淨重單位", "")
         
-        # 產生列印內容
-        print_html = generate_print_page_content(
-            order=order_safe,
-            recipe_row=recipe_row_safe,
-            additional_recipes=additional_recipes_safe
-        )
+        # 安全呼叫列印函式
+        try:
+            print_html = generate_print_page_content(
+                order=order_safe,
+                recipe_row=recipe_row_safe,
+                additional_recipes=additional_recipes_safe
+            )
+        except Exception as e:
+            st.error(f"❌ 產生列印內容失敗：{e}")
+            print_html = ""
     
         st.markdown("---")
         st.subheader("新增生產單詳情填寫")
