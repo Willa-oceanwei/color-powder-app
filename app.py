@@ -1345,7 +1345,6 @@ elif menu == "生產單管理":
         if recipe_row is None:
             recipe_row = {}
 
-        print(f"色粉類別: '{category}', 包裝重量1: {packing_weights[0]}")
         category = order.get("色粉類別", "").strip()  # 確保先賦值
     
         unit = recipe_row.get("計量單位", "kg")
@@ -1369,6 +1368,8 @@ elif menu == "生產單管理":
             float(order.get(f"包裝份數{i}", 0)) if str(order.get(f"包裝份數{i}", "")).replace(".", "", 1).isdigit() else 0
             for i in range(1, 5)
         ]
+
+        print(f"色粉類別: '{category}', 包裝重量1: {packing_weights[0]}")
 
         # 這裡初始化 colorant_ids 和 colorant_weights
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
