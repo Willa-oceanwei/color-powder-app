@@ -1728,8 +1728,7 @@ elif menu == "生產單管理":
             print_html = generate_print_page_content(
                 order,
                 recipe_row,
-                order.get("附加配方"),
-                show_additional_ids=show_ids  # ✅ 傳入使用者選項
+                order.get("附加配方", [])  # 已經是 list of dict
             )
             
             # 下載按鈕         
