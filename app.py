@@ -1801,7 +1801,46 @@ elif menu == "生產單管理":
                 recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
                 if not recipe_rows.empty:
                     recipe_row = recipe_rows.iloc[0]
-                    print_html = generate_print_page_content(order_dict, recipe_row)
+    
+                    # 先處理包裝數量顯示，針對色母做調整
+                    multipliers = {"包": 25, "桶": 100, "kg": 1}
+                    unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
+                    unit = str(order_dict.get("計量單位", "kg"))
+                    try:
+                        category = str(recipe_row.get("色粉類別", ""))
+                    except Exception:
+                        category = ""
+    
+                    display_weights = []
+                    for i in range(1, 5):
+                        try:
+                            weight = float(order_dict.get(f"包裝重量{i}", 0) or 0)
+                            count = int(float(order_dict.get(f"包裝份數{i}", 0) or 0))
+                            if weight > 0 and count > 0:
+                                if unit == "kg" and category == "色母":
+                                    # 色母固定顯示 100K
+                                    display_weights.append(f"100K*{count}")
+                                else:
+                                    multiplier = multipliers.get(unit, 1)
+                                    label = unit_labels.get(unit, "")
+                                    show_weight = int(weight * multiplier) if label == "K" else weight
+                                    display_weights.append(f"{show_weight}{label}*{count}")
+                        except Exception:
+                            continue
+                    order_dict["包裝顯示"] = " + ".join(display_weights)
+    
+                    # 產生列印 HTML（只用這裡的 A5）
+                    try:
+                        print_html = generate_print_page_content(
+                            order=order_dict,
+                            recipe_row=recipe_row,
+                            additional_recipe_rows=order_dict.get("附加配方", []),
+                            show_additional_ids=True  # 如果需要可改為 checkbox 控制
+                        )
+                    except Exception as e:
+                        st.error(f"❌ 產生列印內容失敗：{e}")
+                        print_html = ""
+    
                     st.download_button(
                         label="📥 下載 A5 HTML",
                         data=print_html.encode("utf-8"),
