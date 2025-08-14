@@ -1268,19 +1268,31 @@ elif menu == "生產單管理":
             order["重要提醒"] = str(selected_row.get("重要提醒", "")).strip()
             order["合計類別"] = str(selected_row.get("合計類別", "")).strip()
     
-            # ----------------- 附加配方 -----------------
+            # ----------------- 附加配方（安全版） -----------------
             matched_additional = pd.DataFrame()  # 預設空 DataFrame
             recipe_id = order.get("配方編號", "").strip()
             if recipe_id:
                 df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
-                if "原始配方_標準" not in df_recipe.columns:
-                    df_recipe["原始配方_標準"] = ""
-                df_recipe["原始配方_標準"] = df_recipe["原始配方_標準"].astype(str)
-                recipe_id_str = fix_leading_zero(clean_powder_id(recipe_id))
-                matched_additional = df_recipe[df_recipe["原始配方_標準"] == recipe_id_str]
-    
-            # 將結果存回 session_state
-            st.session_state.df_recipe = df_recipe
+                
+                # 確保有原始配方欄位
+                if "原始配方" not in df_recipe.columns:
+                    df_recipe["原始配方"] = ""
+                
+                # 建立臨時標準化欄位，不改原始資料
+                df_recipe["_原始配方標準"] = df_recipe["原始配方"].map(
+                    lambda x: fix_leading_zero(clean_powder_id(str(x)))
+                )
+                
+                # 標準化主配方編號
+                main_recipe_code = fix_leading_zero(clean_powder_id(recipe_id))
+                
+                # 取出附加配方
+                matched_additional = df_recipe[
+                    (df_recipe["配方類別"] == "附加配方") &
+                    (df_recipe["_原始配方標準"] == main_recipe_code)
+                ]
+            
+            # 寫入 order
             order["附加配方"] = [
                 {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
                 for _, row in matched_additional.iterrows()
