@@ -1078,28 +1078,20 @@ elif menu == "生產單管理":
         df_recipe = pd.DataFrame(records)
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
-        
-        # 先確認欄位存在
-        if "原始配方_標準" not in df_recipe.columns:
-            if "原始配方" in df_recipe.columns:
-                df_recipe["原始配方_標準"] = df_recipe["原始配方"].map(
-                    lambda x: fix_leading_zero(clean_powder_id(str(x)))
-                )
-            else:
-                df_recipe["原始配方_標準"] = ""  # 空欄防止 KeyError
     
-        # 清理其他欄位
+        # 清理主要欄位
         if "配方編號" in df_recipe.columns:
-            df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
+            df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x))))
         if "客戶名稱" in df_recipe.columns:
             df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
         if "原始配方" in df_recipe.columns:
             df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
     
-        # 取得主配方編號（order 必須已定義）
-        main_recipe_code_raw = order.get("配方編號", "")
-        main_recipe_code = fix_leading_zero(clean_powder_id(main_recipe_code_raw))
-        matched_additional = df_recipe[df_recipe["原始配方_標準"] == main_recipe_code]
+        # 建立原始配方_標準欄位，避免 KeyError
+        if "原始配方_標準" not in df_recipe.columns:
+            df_recipe["原始配方_標準"] = df_recipe.get("原始配方", "").map(
+                lambda x: fix_leading_zero(str(x))
+            )
     
         st.session_state.df_recipe = df_recipe
     
@@ -1190,7 +1182,7 @@ elif menu == "生產單管理":
     def normalize_search_text(text):
         return fix_leading_zero(clean_powder_id(text))
     
-    # Streamlit UI 搜尋表單
+    # Streamlit UI 搜尋表單==========================
     st.subheader("🔎 配方搜尋與新增生產單")
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4,1,1])
