@@ -1089,9 +1089,13 @@ elif menu == "生產單管理":
     
         # 建立原始配方_標準欄位，避免 KeyError
         if "原始配方_標準" not in df_recipe.columns:
-            df_recipe["原始配方_標準"] = df_recipe.get("原始配方", "").map(
-                lambda x: fix_leading_zero(str(x))
-            )
+            if "原始配方" in df_recipe.columns:
+                df_recipe["原始配方_標準"] = df_recipe["原始配方"].map(
+                    lambda x: fix_leading_zero(str(x))
+                )
+            else:
+                # 如果原始配方欄位不存在，先建立空欄位
+                df_recipe["原始配方_標準"] = ""
     
         st.session_state.df_recipe = df_recipe
     
