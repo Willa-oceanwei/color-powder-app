@@ -1396,58 +1396,6 @@ elif menu == "生產單管理":
         st.session_state.show_confirm_panel = True
         st.success(f"✅ 已建立新生產單：{new_id}")
         st.rerun()
-
-    
-            # ----------------- 附加配方（安全版） -----------------
-            matched_additional = pd.DataFrame()  # 預設空 DataFrame
-            recipe_id = order.get("配方編號", "").strip()
-            if recipe_id:
-                df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
-                
-                # 確保有原始配方欄位
-                if "原始配方" not in df_recipe.columns:
-                    df_recipe["原始配方"] = ""
-                
-                # 建立臨時標準化欄位，不改原始資料
-                df_recipe["_原始配方標準"] = df_recipe["原始配方"].map(
-                    lambda x: fix_leading_zero(clean_powder_id(str(x)))
-                )
-                
-                # 標準化主配方編號
-                main_recipe_code = fix_leading_zero(clean_powder_id(recipe_id))
-                
-                # 取出附加配方
-                matched_additional = df_recipe[
-                    (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["_原始配方標準"] == main_recipe_code)
-                ]
-            
-            # 寫入 order
-            order["附加配方"] = [
-                {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
-                for _, row in matched_additional.iterrows()
-            ]
-    
-            # ----------------- 整合色粉編號與重量 -----------------
-            all_colorants = []
-            for i in range(1, 9):
-                id_key = f"色粉編號{i}"
-                wt_key = f"色粉重量{i}"
-                id_val = selected_row.get(id_key, "")
-                wt_val = selected_row.get(wt_key, "")
-                if id_val or wt_val:
-                    all_colorants.append((id_val, wt_val))
-            for _, sub in matched_additional.iterrows():
-                for i in range(1, 9):
-                    id_key = f"色粉編號{i}"
-                    wt_key = f"色粉重量{i}"
-                    id_val = sub.get(id_key, "")
-                    wt_val = sub.get(wt_key, "")
-                    if id_val or wt_val:
-                        all_colorants.append((id_val, wt_val))
-    
-            st.session_state.new_order = order
-            st.rerun()
                         
     # ===== 自訂函式：產生生產單列印格式 =====      
     def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
