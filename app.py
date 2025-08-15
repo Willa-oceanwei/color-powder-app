@@ -1506,6 +1506,18 @@ elif menu == "生產單管理":
             float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
             for i in range(1, 5)
         ]
+        
+        # 產生列印用的包裝重量顯示
+        packing_weights_display = []
+        for w in packing_weights:
+            if category == "色母":
+                # 色母：公斤 × 100 + "K"
+                display = f"{w * 100:.0f}K" if w > 0 else ""
+            else:
+                # 色粉：公斤 × 配方倍數 (ratio)
+                display = f"{w * float(ratio):.2f}" if w > 0 else ""
+            packing_weights_display.append(display)
+        
         packing_counts = [
             float(order.get(f"包裝份數{i}", 0)) if str(order.get(f"包裝份數{i}", "")).replace(".", "", 1).isdigit() else 0
             for i in range(1, 5)
