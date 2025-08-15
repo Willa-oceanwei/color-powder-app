@@ -1482,17 +1482,15 @@ elif menu == "生產單管理":
             st.session_state.new_order = order
             st.rerun()
                         
-    # ===== 自訂函式：產生生產單列印格式 =====      
+    # ===== 自訂函式：產生生產單列印格式 =====
     def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
         if recipe_row is None:
             recipe_row = {}
-
-        category = order.get("色粉類別", "").strip()  # 確保先賦值
     
+        category = (order.get("色粉類別") or "").strip()  # 確保先賦值
         unit = recipe_row.get("計量單位", "kg")
         ratio = recipe_row.get("比例3", "")
         total_type = recipe_row.get("合計類別", "").strip()
-        # ✅ 舊資料相容處理：「原料」統一轉成「料」
         if total_type == "原料":
             total_type = "料"
     
@@ -1502,71 +1500,55 @@ elif menu == "生產單管理":
         column_offsets = [1, 5, 5, 5]
         total_offsets = [1.3, 5, 5, 5]
     
-        packing_weights = [
-            float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
-            for i in range(1, 5)
-        ]
-        
-        # 產生列印用的包裝重量顯示
+        # 取得包裝重量與份數
         packing_weights = []
         packing_counts = []
-        
         for i in range(1, 5):
-            # 安全轉換浮點數，避免 isdigit() 導致 "0.5" 讀錯
             try:
                 w = float(order.get(f"包裝重量{i}", 0))
             except:
                 w = 0
             packing_weights.append(w)
-        
             try:
                 c = float(order.get(f"包裝份數{i}", 0))
             except:
                 c = 0
             packing_counts.append(c)
-        
-        # 產生列印用的包裝重量顯示
+    
+        # 包裝列顯示
         packing_weights_display = []
         for w in packing_weights:
             if category == "色母":
-                # 色母：公斤 × 100 + "K"
                 display = f"{w * 100:.0f}K" if w > 0 else ""
             else:
-                # 色粉：公斤 × 配方倍數 (ratio)
                 try:
                     ratio_val = float(ratio)
                 except:
                     ratio_val = 1
                 display = f"{w * ratio_val:.2f}" if w > 0 else ""
             packing_weights_display.append(display)
-        
-        # debug
-        print(f"色粉類別: '{category}', packing_weights: {packing_weights}, packing_weights_display: {packing_weights_display}, packing_counts: {packing_counts}")
-        print(f"category='{category}', packing_weights={packing_weights}, display={packing_weights_display}")
-
-        # 這裡初始化 colorant_ids 和 colorant_weights
+    
+        # 色粉列使用 multipliers
+        multipliers = []
+        for w in packing_weights:
+            if category == "色母":
+                multipliers.append(1)  # 色母列色粉不再放大
+            else:
+                try:
+                    multipliers.append(w * float(ratio))
+                except:
+                    multipliers.append(w)
+    
+        # 初始化色粉資料
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = []
         for i in range(8):
             try:
-                val_str = recipe_row.get(f"色粉重量{i+1}", "") or "0"
-                val = float(val_str)
+                val = float(recipe_row.get(f"色粉重量{i+1}", "0"))
             except:
-                val = 0.0
+                val = 0
             colorant_weights.append(val)
     
-        # multipliers 用於色粉列與合計列
-        multipliers = []
-        for w in packing_weights:
-            if category == "色母":
-                multipliers.append(w * 100)  # 色母：公斤 × 100
-            else:
-                try:
-                    multipliers.append(w * float(ratio))  # 色粉：公斤 × 配方倍數
-                except:
-                    multipliers.append(w)
-    
-        # 合計列
         try:
             net_weight = float(recipe_row.get("淨重", 0))
         except:
@@ -1592,10 +1574,9 @@ elif menu == "生產單管理":
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{display} × {count_str}"
                 pack_line.append(f"{text:<{pack_col_width}}")
-        
         packing_indent = " " * 14
         lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
-                                            
+    
         # 主配方色粉列
         for idx in range(8):
             c_id = colorant_ids[idx]
@@ -1605,19 +1586,15 @@ elif menu == "生產單管理":
             row = f"<b>{str(c_id or '').ljust(powder_label_width)}</b>"
             for i in range(4):
                 val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
-                val_str = (
-                    str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                ) if val else ""
+                val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.') if val else ""
                 padding = " " * max(0, int(round(column_offsets[i])))
-                # 數字用加 class 的 <b> 包起來
                 row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
             lines.append(row)
-        
+    
         # 橫線：只有非色母類別才顯示
-        category = (order.get("色粉類別") or "").strip()
         if category != "色母":
             lines.append("＿" * 30)
-                    
+    
         # 合計列
         if total_type == "" or total_type == "無":
             total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
@@ -1625,23 +1602,19 @@ elif menu == "生產單管理":
             total_type_display = f"<b>{'料'.ljust(powder_label_width)}</b>"
         else:
             total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
-        
+    
         total_line = total_type_display
-        
         for i in range(4):
-            result = 0
             if category == "色母":
                 pigment_total = sum(colorant_weights)
-                result = (net_weight - pigment_total) * multipliers[i] if multipliers[i] > 0 else 0
+                result = net_weight - pigment_total
             else:
                 result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-        
             val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
             padding = " " * max(0, int(round(total_offsets[i])))
             total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-        
         lines.append(total_line)
-           
+    
         # 多筆附加配方列印
         if additional_recipe_rows and isinstance(additional_recipe_rows, list):
             for idx, sub in enumerate(additional_recipe_rows, 1):
@@ -1665,15 +1638,13 @@ elif menu == "生產單管理":
                     row = c_id.ljust(powder_label_width)
                     for j in range(4):
                         val = add_weights[i] * multipliers[j] if multipliers[j] > 0 else 0
-                        val_str = (
-                            str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                        ) if val else ""
+                        val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.') if val else ""
                         padding = " " * max(0, int(round(column_offsets[j])))
                         row += padding + f"<b>{val_str:>{number_col_width}}</b>"
                     lines.append(row)
     
         lines.append("")
-        lines.append("")  # 多加這一行，讓備註往下多空一行
+        lines.append("")  # 多加一行，讓備註往下多空一行
         lines.append(f"備註 : {order.get('備註', '')}")
     
         return "<br>".join(lines)
