@@ -1572,21 +1572,21 @@ elif menu == "生產單管理":
     
         # ===== 主配方色粉列 =====
         for idx in range(8):
-        c_id = str(colorant_ids[idx] or "").strip()
-        c_weight = colorant_weights[idx]
-        if not c_id or c_weight == 0:
-            continue
-        row = f"<b>{c_id.ljust(powder_label_width)}</b>"
-        for i in range(4):
-            if category == "色母":
-                val = c_weight * packing_weights[i] if packing_weights[i] > 0 else 0
-            else:
-                val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.') if val else ""
-            padding = " " * max(0, int(round(column_offsets[i])))
-            row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-        lines.append(row)
-        print(f"DEBUG 色粉 {c_id}: {row}")  # debug
+            c_id = str(colorant_ids[idx] or "").strip()
+            c_weight = colorant_weights[idx]
+            if not c_id or c_weight == 0:
+                continue
+            row = f"<b>{c_id.ljust(powder_label_width)}</b>"
+            for i in range(4):
+                if category == "色母":
+                    val = c_weight * packing_weights[i] if packing_weights[i] > 0 else 0
+                else:
+                    val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
+                val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.') if val else ""
+                padding = " " * max(0, int(round(column_offsets[i])))
+                row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+            lines.append(row)
+            print(f"DEBUG 色粉 {c_id}: {row}")  # debug
         
         # 橫線：只有非色母類別才顯示
         if category != "色母":
