@@ -122,12 +122,11 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     lines.append(f"<span style='font-size:20px;'>編號：<b>{recipe_id:<8}</b>顏色：{color:<4}   比例：{ratio} g/kg   Pantone：{pantone}</span>")
     lines.append("")
 
-    # --- 包裝列 + multipliers ---
+    # --- 3. 包裝列 + multipliers ---
     pack_line = []
     packing_indent = " " * 14
     unit = str(order_clean.get("計量單位", "kg")).strip()
     multipliers = []  # 由迴圈填入換算後重量
-
     pack_col_width = 11  # 可視需要調整
 
     for i in range(4):
@@ -168,20 +167,17 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
 
     lines.append(f"<b>{packing_indent + ' '.join(pack_line)}</b>")
 
-    # --- 主配方色粉列 ---
+    # --- 4. 主配方色粉列 ---
     powder_label_width = 12
     number_col_width = 6
     column_offsets = [2, 2, 2, 2]
 
-    colorant_total = 0
     for idx in range(8):
         c_id = recipe_clean.get(f"色粉編號{idx+1}", "")
         if not c_id:
             continue
         c_id_str = str(c_id).ljust(powder_label_width)
         val = recipe_clean.get(f"色粉重量{idx+1}", 0)
-        if val:
-            colorant_total += val
         row = c_id_str
         for i in range(4):
             val_mult = val * multipliers[i] if val else 0
@@ -190,7 +186,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
             row += offset + f"<b class='num'>{val_str:>{number_col_width}}</b>"
         lines.append(row)
 
-    # --- 色粉類別橫線 + 合計列 ---
+    # --- 5. 色粉類別橫線 + 合計列 ---
     if category == "色粉":
         lines.append("＿" * 30)
         total_type = recipe_clean.get("合計類別", "").strip()
@@ -203,7 +199,6 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
 
         total_line = total_type_display
         net_weight = recipe_clean["淨重"]
-        number_col_width = 6
         total_offsets = [1, 5, 5, 5]
         for i in range(4):
             val_mult = net_weight * multipliers[i] if multipliers[i] > 0 else 0
