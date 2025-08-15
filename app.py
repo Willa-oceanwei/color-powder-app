@@ -1962,29 +1962,32 @@ with cols_mod[0]:
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         edit_order = st.session_state.editing_order
+        st.markdown("---")
+        st.subheader(f"✏️ 修改生產單 {edit_order['生產單號']}")
     
-        with st.form("edit_order_form"):
-            st.markdown("---")
-            st.subheader(f"✏️ 修改生產單 {edit_order['生產單號']}")
-    
-            new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""))
-            new_color = st.text_input("顏色", value=edit_order.get("顏色", ""))
+        # 使用 container 寬版
+        with st.container():
+            # 客戶名稱與顏色
+            col_customer, col_color = st.columns([3, 3])
+            new_customer = col_customer.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""))
+            new_color = col_color.text_input("顏色", value=edit_order.get("顏色", ""))
     
             # 包裝重量 1~4
-            pack_weights_cols = st.columns(4)
+            pack_weights_cols = st.columns([2, 2, 2, 2])
             new_packing_weights = [
                 pack_weights_cols[i].text_input(f"包裝重量{i+1}", value=edit_order.get(f"包裝重量{i+1}", ""))
                 for i in range(4)
             ]
     
             # 包裝份數 1~4
-            pack_counts_cols = st.columns(4)
+            pack_counts_cols = st.columns([2, 2, 2, 2])
             new_packing_counts = [
                 pack_counts_cols[i].text_input(f"包裝份數{i+1}", value=edit_order.get(f"包裝份數{i+1}", ""))
                 for i in range(4)
             ]
     
-            new_remark = st.text_area("備註", value=edit_order.get("備註", ""))
+            # 備註欄
+            new_remark = st.text_area("備註", value=edit_order.get("備註", ""), height=100)
     
         # 取得對應配方資料
         recipe_id = edit_order.get("配方編號", "")
@@ -1996,7 +1999,6 @@ with cols_mod[0]:
     
         # 產生 HTML 預覽內容
         print_html = generate_print_page_content(edit_order, recipe_row)
-    
         st.download_button(
             label="📄 下載列印 HTML",
             data=print_html.encode("utf-8"),
@@ -2004,20 +2006,19 @@ with cols_mod[0]:
             mime="text/html"
         )
     
-        cols_edit = st.columns([1, 1, 1])
-    
+        # 儲存 & 返回按鈕（寬版）
+        cols_edit = st.columns([2, 1])
         with cols_edit[0]:
             if st.button("儲存修改", key="save_edit_button"):
                 idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
                 if idx_list:
                     idx = idx_list[0]
-    
                     # 更新本地 DataFrame
                     df_order.at[idx, "客戶名稱"] = new_customer
                     df_order.at[idx, "顏色"] = new_color
                     for i in range(4):
-                        df_order.at[idx, f"包裝重量{i + 1}"] = new_packing_weights[i]
-                        df_order.at[idx, f"包裝份數{i + 1}"] = new_packing_counts[i]
+                        df_order.at[idx, f"包裝重量{i+1}"] = new_packing_weights[i]
+                        df_order.at[idx, f"包裝份數{i+1}"] = new_packing_counts[i]
                     df_order.at[idx, "備註"] = new_remark
     
                     # 同步更新 Google Sheets
@@ -2040,10 +2041,6 @@ with cols_mod[0]:
                     st.session_state.df_order = df_order
                     st.success("✅ 本地資料更新成功，修改已儲存")
     
-                    # 不關閉編輯面板，方便繼續預覽或再修改
-                    # st.session_state.show_edit_panel = False
-                    # st.session_state.editing_order = None
-    
                     st.experimental_rerun()
                 else:
                     st.error("⚠️ 找不到該筆生產單資料")
@@ -2053,7 +2050,6 @@ with cols_mod[0]:
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
                 st.experimental_rerun()
-
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
