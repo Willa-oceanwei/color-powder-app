@@ -1608,7 +1608,7 @@ elif menu == "生產單管理":
         
         # ---------- 下載列印 HTML ----------
         try:
-            print_html = generate_production_order_print_integrated(
+            print_html = generate_print_page_content(
                 order=order,
                 recipe_row=st.session_state.get("recipe_row_cache", {}),
                 additional_recipe_rows=order.get("附加配方", []),
@@ -1770,7 +1770,6 @@ elif menu == "生產單管理":
     
     # ------------------ 清單列表 A5（色粉/色母處理） ------------------
     with cols_mod[0]:
-        html_data = ""
         if selected_code_edit:
             order_row = df_order[df_order["生產單號"] == selected_code_edit]
             if not order_row.empty:
@@ -1779,7 +1778,8 @@ elif menu == "生產單管理":
                 if not recipe_rows.empty:
                     recipe_row = recipe_rows.iloc[0]
                     try:
-                        html_data, _ = generate_production_order_print_integrated(
+                        # ✅ 使用完整 HTML 生成函式
+                        html_data = generate_print_page_content(
                             order=order_dict,
                             recipe_row=recipe_row,
                             additional_recipe_rows=order_dict.get("附加配方", []),
@@ -1788,7 +1788,7 @@ elif menu == "生產單管理":
                     except Exception as e:
                         st.error(f"❌ 產生列印內容失敗：{e}")
                         html_data = ""
-                        
+        
         st.download_button(
             label="📥 下載清單列表 A5 HTML",
             data=str(html_data or "").encode("utf-8"),
