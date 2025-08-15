@@ -1452,7 +1452,6 @@ elif menu == "生產單管理":
             st.rerun()
           
     # ---------- 新增後欄位填寫區塊 ----------
-    # ===== 主流程頁面切換 =====
     if st.session_state.get("show_confirm_panel"):
     
         # 安全取得 session_state
@@ -1558,13 +1557,13 @@ elif menu == "生產單管理":
     
                     # 附加配方淨重
                     total_net = float(add_recipe.get("淨重", 0) or 0)
-                    unit = add_recipe.get("淨重單位", "")
-                    st.markdown(f"<div style='text-align:right; font-size:16px;'>📦 附加配方淨重：{total_net:.2f} {unit}</div>", unsafe_allow_html=True)
+                    unit_add = add_recipe.get("淨重單位", "")
+                    st.markdown(f"<div style='text-align:right; font-size:16px;'>📦 附加配方淨重：{total_net:.2f} {unit_add}</div>", unsafe_allow_html=True)
     
             # ---------- Submit Button ----------
             submitted = st.form_submit_button("💾 儲存生產單")
     
-        # ---------- 表單外：下載 & 返回 ----------
+        # ---------- 儲存資料到 session_state ----------
         if submitted:
             # 更新 order
             order.update({
@@ -1578,9 +1577,9 @@ elif menu == "生產單管理":
             for i in range(1, 5):
                 order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "")
                 order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "")
-        
+    
             st.session_state["new_order"] = order
-        
+    
             # ---------- 寫入 Google Sheets ----------
             try:
                 sheet_columns = [
@@ -1590,18 +1589,74 @@ elif menu == "生產單管理":
                     "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4", 
                     "備註", "合計類別", "淨重"
                 ]
-                
+    
                 cell = ws_order.find(order["生產單號"])
                 values_to_write = [str(order.get(col, "")) for col in sheet_columns]
-            
+    
                 if cell:
                     ws_order.update_row(cell.row, values_to_write)
                 else:
                     ws_order.append_row(values_to_write)
-            
+    
                 st.success(f"✅ 生產單 {order.get('生產單號','')} 已更新完成並寫入 Google Sheets")
             except Exception as e:
                 st.error(f"Google Sheets 寫入錯誤：{e}")
+    
+        # ---------- 安全列印 HTML下載 ----------
+        try:
+            print_html = generate_production_order_print_integrated(
+                order=order,
+                recipe_row=recipe_row,
+                additional_recipe_rows=additional_recipes,
+                show_additional_ids=True
+            )
+        except Exception as e:
+            st.error(f"❌ 產生列印內容失敗：{e}")
+            print_html = ""
+    
+        st.download_button(
+            label="📥 下載列印 HTML",
+            data=str(print_html or "").encode("utf-8"),
+            file_name=f"{order.get('生產單號','')}_print.html",
+            mime="text/html"
+        )
+
+    # ---------- 下載清單列表 A5 HTML ----------
+    try:
+        html_data_a5 = generate_production_order_print_integrated(
+            order=st.session_state.get("new_order", order),
+            recipe_row=recipe_row,
+            additional_recipe_rows=st.session_state.get("new_order", order).get("附加配方", []),
+            show_additional_ids=True
+        )
+    except Exception as e:
+        st.error(f"❌ 產生列印內容失敗：{e}")
+        html_data_a5 = ""
+
+    st.download_button(
+        label="📥 下載清單列表 A5 HTML",
+        data=str(html_data_a5 or "").encode("utf-8"),
+        file_name=f"{order.get('生產單號','')}_A5_列表列印.html",
+        mime="text/html
+
+# ---------- 下載清單列表 A5 HTML ----------
+try:
+    html_data_a5 = generate_production_order_print_integrated(
+        order=st.session_state.get("new_order", order),
+        recipe_row=recipe_row,
+        additional_recipe_rows=st.session_state.get("new_order", order).get("附加配方", []),
+        show_additional_ids=True
+    )
+except Exception as e:
+    st.error(f"❌ 產生列印內容失敗：{e}")
+    html_data_a5 = ""
+
+st.download_button(
+    label="📥 下載清單列表 A5 HTML",
+    data=str(html_data_a5 or "").encode("utf-8"),
+    file_name=f"{selected_code_edit}_A5_列表列印.html" if selected_code_edit else "A5_列表列印.html",
+    mime="text/html"
+)
         
             # ---------- 下載原本 A5 HTML ----------
             try:
