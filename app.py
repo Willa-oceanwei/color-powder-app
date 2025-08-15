@@ -2001,54 +2001,47 @@ def render_production_order_buttons(
         st.info("請先選擇生產單")
         return
 
-    # Debug
-    st.write("Debug selected_code_edit:", selected_code_edit)
-    st.write("Debug df_order 生產單號列表:", df_order["生產單號"].tolist())
-
     cols_mod = st.columns([1, 1, 1])
-
-    # ---------- 下載 A5 HTML ----------
-    with cols_mod[0]:
-        order_row = df_order[df_order["生產單號"].astype(str) == str(selected_code_edit)]
-        if order_row.empty:
-            st.info(f"❌ 找不到生產單號 {selected_code_edit}")
-        else:
-            order_dict = order_row.iloc[0].to_dict()
-            recipe_rows = df_recipe[df_recipe["配方編號"].astype(str) == str(order_dict.get("配方編號", ""))]
-            if recipe_rows.empty:
-                st.info(f"❌ 找不到配方編號 {order_dict.get('配方編號', '')}")
-            else:
-                recipe_row = recipe_rows.iloc[0]
-                category = str(recipe_row.get("色粉類別", "")).strip()
-
-                try:
-                    if category == "色母":
-                        print_html = generate_print_page_content_a5_special(
-                            order=order_dict,
-                            recipe_row=recipe_row,
-                            additional_recipe_rows=order_dict.get("附加配方", []),
-                            show_additional_ids=True
+    selected_code_edit = st.session_state.get("selected_code_edit", None)
+    
+    # 僅在生產單分頁渲染
+    if current_page == "生產單管理":
+        # ---------- 清單列表 A5（有色母特殊處理） ----------
+        with cols_mod[0]:
+            if selected_code_edit:
+                order_row = df_order[df_order["生產單號"] == selected_code_edit]
+                if not order_row.empty:
+                    order_dict = order_row.iloc[0].to_dict()
+                    recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
+                    if not recipe_rows.empty:
+                        recipe_row = recipe_rows.iloc[0]
+    
+                        category = recipe_row.get("色粉類別", "").strip()
+                        try:
+                            if category == "色母":
+                                print_html = generate_print_page_content_a5_special(
+                                    order=order_dict,
+                                    recipe_row=recipe_row,
+                                    additional_recipe_rows=order_dict.get("附加配方", []),
+                                    show_additional_ids=True
+                                )
+                            else:
+                                print_html = generate_print_page_content(
+                                    order=order_dict,
+                                    recipe_row=recipe_row,
+                                    additional_recipe_rows=order_dict.get("附加配方", []),
+                                    show_additional_ids=True
+                                )
+                        except Exception as e:
+                            st.error(f"❌ 產生列印內容失敗：{e}")
+                            print_html = ""
+    
+                        st.download_button(
+                            label="📥 下載清單列表 A5 HTML",
+                            data=print_html.encode("utf-8"),
+                            file_name=f"{order_dict['生產單號']}_A5_列表列印.html",
+                            mime="text/html"
                         )
-                    else:
-                        print_html = generate_print_page_content(
-                            order=order_dict,
-                            recipe_row=recipe_row,
-                            additional_recipe_rows=order_dict.get("附加配方", []),
-                            show_additional_ids=True
-                        )
-                except Exception as e:
-                    st.error(f"❌ 產生列印內容失敗：{e}")
-                    print_html = ""
-
-                if print_html:
-                    st.download_button(
-                        label="📥 下載清單列表 A5 HTML",
-                        data=print_html.encode("utf-8"),
-                        file_name=f"{order_dict['生產單號']}_A5_列表列印.html",
-                        mime="text/html"
-                    )
-                else:
-                    st.info("⚠️ 尚未產生列印內容")
 
     # ---------- 修改 ----------
     with cols_mod[1]:
