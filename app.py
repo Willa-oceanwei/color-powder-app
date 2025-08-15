@@ -1965,72 +1965,50 @@ elif menu == "生產單管理":
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
     # 修改 / 刪除 / A5 下載三欄按鈕橫排
-    cols_mod = st.columns([1, 1, 1])
-    selected_code_edit = st.session_state.get("selected_code_edit", None)
-    
-    with cols_mod[0]:
-        if selected_code_edit:
-            # 取得選中的生產單
-            order_row = df_order[df_order["生產單號"] == selected_code_edit]
-            if not order_row.empty:
-                order_dict = order_row.iloc[0].to_dict()
-                recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
-                if not recipe_rows.empty:
-                    recipe_row = recipe_rows.iloc[0]
-    
-                    # ---------- 針對清單 A5 下載，處理色母特殊情況 ----------
-                    multipliers = {"包": 25, "桶": 100, "kg": 1}
-                    unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
-                    unit = str(order_dict.get("計量單位", "kg"))
-                    category = str(recipe_row.get("色粉類別", ""))
-    
-                    display_weights = []
-                    for i in range(1, 5):
-                        try:
-                            weight = float(order_dict.get(f"包裝重量{i}", 0) or 0)
-                            count = int(float(order_dict.get(f"包裝份數{i}", 0) or 0))
-                            if weight > 0 and count > 0:
-                                # 色粉類別為「色母」時，包裝重量1固定顯示 100K，其他欄位照常
-                                if category == "色母" and i == 1:
-                                    display_weights.append(f"100K*{count}")
-                                else:
-                                    multiplier = multipliers.get(unit, 1)
-                                    label = unit_labels.get(unit, "")
-                                    show_weight = int(weight * multiplier) if label == "K" else weight
-                                    display_weights.append(f"{show_weight}{label}*{count}")
-                        except Exception:
-                            continue
-                    order_dict["包裝顯示"] = " + ".join(display_weights)
-    
-                    # ---------- 產生列印 HTML（只影響清單 A5 下載） ----------
-                    try:
-                        if category == "色母":
-                            # 清單列表 A5 專用色母函式
-                            print_html = generate_print_page_content_a5_special(
-                                order=order_dict,
-                                recipe_row=recipe_row,
-                                additional_recipe_rows=order_dict.get("附加配方", []),
-                                show_additional_ids=True
-                            )
-                        else:
-                            # 一般情況走原本函式
-                            print_html = generate_print_page_content(
-                                order=order_dict,
-                                recipe_row=recipe_row,
-                                additional_recipe_rows=order_dict.get("附加配方", []),
-                                show_additional_ids=True
-                            )
-                    except Exception as e:
-                        st.error(f"❌ 產生列印內容失敗：{e}")
-                        print_html = ""
-    
-                    # ---------- 下載按鈕 ----------
-                    st.download_button(
-                        label="📥 下載 A5 HTML",
-                        data=print_html.encode("utf-8"),
-                        file_name=f"{order_dict['生產單號']}_A5列印.html",
-                        mime="text/html"
-                    )
+    # ---------- 修改 / 刪除 / A5 下載三欄按鈕橫排 ----------
+cols_mod = st.columns([1, 1, 1])
+selected_code_edit = st.session_state.get("selected_code_edit", None)
+
+# ------------------ 清單列表 A5（有色母特殊處理） ------------------
+with cols_mod[0]:
+    if selected_code_edit:
+        # 取得選中的生產單
+        order_row = df_order[df_order["生產單號"] == selected_code_edit]
+        if not order_row.empty:
+            order_dict = order_row.iloc[0].to_dict()
+            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
+            if not recipe_rows.empty:
+                recipe_row = recipe_rows.iloc[0]
+
+                # 針對色母特殊處理，其他包裝列照舊
+                category = recipe_row.get("色粉類別", "").strip()
+
+                try:
+                    if category == "色母":
+                        print_html = generate_print_page_content_a5_special(
+                            order=order_dict,
+                            recipe_row=recipe_row,
+                            additional_recipe_rows=order_dict.get("附加配方", []),
+                            show_additional_ids=True
+                        )
+                    else:
+                        print_html = generate_print_page_content(
+                            order=order_dict,
+                            recipe_row=recipe_row,
+                            additional_recipe_rows=order_dict.get("附加配方", []),
+                            show_additional_ids=True
+                        )
+                except Exception as e:
+                    st.error(f"❌ 產生列印內容失敗：{e}")
+                    print_html = ""
+
+                # 下載按鈕
+                st.download_button(
+                    label="📥 下載清單列表 A5 HTML",
+                    data=print_html.encode("utf-8"),
+                    file_name=f"{order_dict['生產單號']}_A5_列表列印.html",
+                    mime="text/html"
+                )
     
     with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
