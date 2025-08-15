@@ -1967,27 +1967,26 @@ with cols_mod[0]:
     
         # 使用 container 寬版
         with st.container():
-            # 客戶名稱與顏色
-            col_customer, col_color = st.columns([3, 3])
-            new_customer = col_customer.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""))
-            new_color = col_color.text_input("顏色", value=edit_order.get("顏色", ""))
-    
-            # 包裝重量 1~4
-            pack_weights_cols = st.columns([2, 2, 2, 2])
-            new_packing_weights = [
-                pack_weights_cols[i].text_input(f"包裝重量{i+1}", value=edit_order.get(f"包裝重量{i+1}", ""))
-                for i in range(4)
-            ]
-    
-            # 包裝份數 1~4
-            pack_counts_cols = st.columns([2, 2, 2, 2])
-            new_packing_counts = [
-                pack_counts_cols[i].text_input(f"包裝份數{i+1}", value=edit_order.get(f"包裝份數{i+1}", ""))
-                for i in range(4)
-            ]
-    
-            # 備註欄
-            new_remark = st.text_area("備註", value=edit_order.get("備註", ""), height=100)
+        col_customer, col_color = st.columns([1, 1])
+        new_customer = col_customer.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""))
+        new_color = col_color.text_input("顏色", value=edit_order.get("顏色", ""))
+
+        # 包裝重量 1~4（四欄等寬）
+        pack_weights_cols = st.columns([1, 1, 1, 1])
+        new_packing_weights = [
+            pack_weights_cols[i].text_input(f"包裝重量{i+1}", value=edit_order.get(f"包裝重量{i+1}", ""))
+            for i in range(4)
+        ]
+
+        # 包裝份數 1~4（四欄等寬）
+        pack_counts_cols = st.columns([1, 1, 1, 1])
+        new_packing_counts = [
+            pack_counts_cols[i].text_input(f"包裝份數{i+1}", value=edit_order.get(f"包裝份數{i+1}", ""))
+            for i in range(4)
+        ]
+
+        # 備註欄
+        new_remark = st.text_area("備註", value=edit_order.get("備註", ""), height=100)
     
         # 取得對應配方資料
         recipe_id = edit_order.get("配方編號", "")
