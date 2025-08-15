@@ -1961,32 +1961,30 @@ with cols_mod[0]:
     
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
-        st.markdown("---")
-        st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
         edit_order = st.session_state.editing_order
     
-        new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""), key="edit_customer_name")
-        new_color = st.text_input("顏色", value=edit_order.get("顏色", ""), key="edit_color")
+        with st.form("edit_order_form"):
+            st.markdown("---")
+            st.subheader(f"✏️ 修改生產單 {edit_order['生產單號']}")
     
-        # 包裝重量 1~4
-        pack_weights_cols = st.columns(4)
-        new_packing_weights = []
-        for i in range(1, 5):
-            weight = pack_weights_cols[i - 1].text_input(
-                f"包裝重量{i}", value=edit_order.get(f"包裝重量{i}", ""), key=f"edit_packing_weight_{i}"
-            )
-            new_packing_weights.append(weight)
+            new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""))
+            new_color = st.text_input("顏色", value=edit_order.get("顏色", ""))
     
-        # 包裝份數 1~4
-        pack_counts_cols = st.columns(4)
-        new_packing_counts = []
-        for i in range(1, 5):
-            count = pack_counts_cols[i - 1].text_input(
-                f"包裝份數{i}", value=edit_order.get(f"包裝份數{i}", ""), key=f"edit_packing_count_{i}"
-            )
-            new_packing_counts.append(count)
+            # 包裝重量 1~4
+            pack_weights_cols = st.columns(4)
+            new_packing_weights = [
+                pack_weights_cols[i].text_input(f"包裝重量{i+1}", value=edit_order.get(f"包裝重量{i+1}", ""))
+                for i in range(4)
+            ]
     
-        new_remark = st.text_area("備註", value=edit_order.get("備註", ""), key="edit_remark")
+            # 包裝份數 1~4
+            pack_counts_cols = st.columns(4)
+            new_packing_counts = [
+                pack_counts_cols[i].text_input(f"包裝份數{i+1}", value=edit_order.get(f"包裝份數{i+1}", ""))
+                for i in range(4)
+            ]
+    
+            new_remark = st.text_area("備註", value=edit_order.get("備註", ""))
     
         # 取得對應配方資料
         recipe_id = edit_order.get("配方編號", "")
