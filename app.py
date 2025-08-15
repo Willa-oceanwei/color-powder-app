@@ -1512,7 +1512,7 @@ elif menu == "生產單管理":
         packing_counts = [safe_float(order.get(f"包裝份數{i}", 0)) for i in range(1, 5)]
     
         # 這裡初始化 colorant_ids 和 colorant_weights
-        colorant_ids = [(recipe_row.get(f"色粉編號{i+1}") or "").strip() for i in range(8)]
+        colorant_ids = [str(recipe_row.get(f"色粉編號{i+1}", "") or "").strip() for i in range(8)]
         colorant_weights = [safe_float(recipe_row.get(f"色粉重量{i+1}", 0)) for i in range(8)]
     
         multipliers = packing_weights
@@ -1625,7 +1625,7 @@ elif menu == "生產單管理":
                     lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
                 else:
                     lines.append(f"附加配方 {idx}")
-                add_ids = [(sub.get(f"色粉編號{i+1}") or "").strip() for i in range(8)]
+                add_ids = [str(sub.get(f"色粉編號{i+1}", "") or "").strip() for i in range(8)]
                 add_weights = [safe_float(sub.get(f"色粉重量{i+1}", 0)) for i in range(8)]
                 for i in range(8):
                     c_id = add_ids[i]
