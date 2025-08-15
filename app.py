@@ -1603,42 +1603,47 @@ elif menu == "生產單管理":
                 st.error(f"Google Sheets 寫入錯誤：{e}")
     
         # ---------- 安全列印 HTML下載 ----------
+        order = st.session_state.get("new_order", {})
+        st.session_state.new_order = order  # 確保 session_state 有值
+        
+        # ---------- 下載列印 HTML ----------
         try:
             print_html = generate_production_order_print_integrated(
                 order=order,
-                recipe_row=recipe_row,
-                additional_recipe_rows=additional_recipes,
+                recipe_row=st.session_state.get("recipe_row_cache", {}),
+                additional_recipe_rows=order.get("附加配方", []),
                 show_additional_ids=True
             )
         except Exception as e:
             st.error(f"❌ 產生列印內容失敗：{e}")
             print_html = ""
-    
+        
         st.download_button(
             label="📥 下載列印 HTML",
             data=str(print_html or "").encode("utf-8"),
             file_name=f"{order.get('生產單號','')}_print.html",
             mime="text/html"
         )
-
-    # ---------- 下載清單列表 A5 HTML ----------
-    try:
-        html_data_a5 = generate_production_order_print_integrated(
-            order=st.session_state.get("new_order", order),
-            recipe_row=recipe_row,
-            additional_recipe_rows=st.session_state.get("new_order", order).get("附加配方", []),
-            show_additional_ids=True
+        
+        # ---------- 下載清單列表 A5 HTML ----------
+        try:
+            html_data_a5 = generate_production_order_print_integrated(
+                order=st.session_state.new_order,
+                recipe_row=st.session_state.get("recipe_row_cache", {}),
+                additional_recipe_rows=st.session_state.new_order.get("附加配方", []),
+                show_additional_ids=True
+            )
+        except Exception as e:
+            st.error(f"❌ 產生列印內容失敗：{e}")
+            html_data_a5 = ""
+        
+        st.download_button(
+            label="📥 下載清單列表 A5 HTML",
+            data=str(html_data_a5 or "").encode("utf-8"),
+            file_name=f"{st.session_state.new_order.get('生產單號','')}_A5_列表列印.html",
+            mime="text/html"
         )
-    except Exception as e:
-        st.error(f"❌ 產生列印內容失敗：{e}")
-        html_data_a5 = ""
-
-    st.download_button(
-        label="📥 下載清單列表 A5 HTML",
-        data=str(html_data_a5 or "").encode("utf-8"),
-        file_name = f"{st.session_state.get('new_order', {}).get('生產單號','')}_A5_列表列印.html",
-        mime="text/html"
-    )
+            
 
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
