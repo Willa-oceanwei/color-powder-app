@@ -1990,7 +1990,7 @@ elif menu == "生產單管理":
                             weight = float(order_dict.get(f"包裝重量{i}", 0) or 0)
                             count = int(float(order_dict.get(f"包裝份數{i}", 0) or 0))
                             if weight > 0 and count > 0:
-                                # 色粉類別為「色母」時，包裝重量1固定顯示 100K
+                                # 色粉類別為「色母」時，包裝重量1固定顯示 100K，其他欄位照常
                                 if category == "色母" and i == 1:
                                     display_weights.append(f"100K*{count}")
                                 else:
@@ -2005,6 +2005,7 @@ elif menu == "生產單管理":
                     # ---------- 產生列印 HTML（只影響清單 A5 下載） ----------
                     try:
                         if category == "色母":
+                            # 清單列表 A5 專用色母函式
                             print_html = generate_print_page_content_a5_special(
                                 order=order_dict,
                                 recipe_row=recipe_row,
@@ -2012,6 +2013,7 @@ elif menu == "生產單管理":
                                 show_additional_ids=True
                             )
                         else:
+                            # 一般情況走原本函式
                             print_html = generate_print_page_content(
                                 order=order_dict,
                                 recipe_row=recipe_row,
@@ -2022,7 +2024,7 @@ elif menu == "生產單管理":
                         st.error(f"❌ 產生列印內容失敗：{e}")
                         print_html = ""
     
-                    # 下載按鈕
+                    # ---------- 下載按鈕 ----------
                     st.download_button(
                         label="📥 下載 A5 HTML",
                         data=print_html.encode("utf-8"),
