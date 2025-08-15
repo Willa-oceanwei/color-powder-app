@@ -166,41 +166,36 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     html = html_template.replace("{created_time}", created_time).replace("{content}", content)
     return html
 
-# ===== 專用函式：清單 A5 色母特殊列印（固定寬字型，保留間距） =====
+# ===== 專用函式：清單 A5 色母特殊列印 =====
 def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
         recipe_row = {}
 
-    lines = []  # 儲存每行內容
-    ratio = recipe_row.get("比例3", "")
-    total_type = recipe_row.get("合計類別", "").strip()
-    if total_type == "原料":
-        total_type = "料"
+    lines = []
 
-    category = recipe_row.get("色粉類別", "").strip()
-
-    # ===== 配方資訊列 =====
+    # 配方資訊
     recipe_id = recipe_row.get('配方編號', '')
     color = order.get('顏色', '')
     pantone = order.get('Pantone 色號', '')
-    info_line = f"編號：{recipe_id:<8} 顏色：{color:<4} 比例：{ratio} g/kg Pantone：{pantone}"
-    lines.append(info_line)
+    ratio = recipe_row.get('比例3', '')
+    lines.append(f"<span style='font-size:20px;'>編號：<b>{recipe_id:<8}</b>顏色：{color:<4}   比例：{ratio} g/kg   Pantone：{pantone}</span>")
     lines.append("")
 
     # ===== 包裝列 =====
     pack_line = []
     for i in range(4):
-        weight = float(order.get(f"包裝重量{i+1}", 0) or 0)
+        weight = 100 if i == 0 else float(order.get(f"包裝重量{i+1}", 0) or 0)  # 色母固定顯示 100K
         count = float(order.get(f"包裝份數{i+1}", 0) or 0)
-        if i == 0 and category == "色母" and weight > 0 and count > 0:
-            pack_line.append(f"100K × {int(count)}")
-        elif weight > 0 and count > 0:
-            pack_line.append(f"{int(weight)}kg × {int(count)}")
+        if weight > 0 and count > 0:
+            if i == 0:
+                display_str = f"100K × {int(count)}"
+            else:
+                display_str = f"{int(weight)}kg × {int(count)}"
+            pack_line.append(display_str)
     packing_indent = " " * 14
-    lines.append(packing_indent + "  ".join(pack_line))
-    lines.append("")
+    lines.append(f"<b>{packing_indent + ' '.join(pack_line)}</b>")
 
-    # ===== 主配方色粉列 =====
+    # ===== 主配方色粉列（保留間距，空欄不顯示0） =====
     powder_label_width = 12
     number_col_width = 6
     column_offsets = [2, 2, 2, 2]
@@ -224,21 +219,23 @@ def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_
             row += offset + f"{val_strs[col_idx]:>{number_col_width}}"
         lines.append(row)
 
-    # ---- 色母去掉橫線 ----
-    if category != "色母":
-        lines.append("＿" * 30)
+    # ===== 去掉橫線 =====
+    # 色母專用，不加橫線
 
     # ===== 合計列 =====
-    total_type_display = total_type.ljust(powder_label_width)
+    total_type = recipe_row.get("合計類別", "").strip()
+    if total_type == "原料":
+        total_type = "料"
     try:
         net_weight = float(recipe_row.get("淨重", 0))
     except:
         net_weight = 0.0
+    total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
     total_line = total_type_display
     for i in range(4):
-        val_str = f"{int(net_weight) if net_weight.is_integer() else net_weight:.3f}".rstrip('0').rstrip('.') if net_weight else ""
-        offset = " " * column_offsets[i]
-        total_line += offset + f"{val_str:>{number_col_width}}"
+        val_str = str(int(net_weight)) if net_weight.is_integer() else f"{net_weight:.3f}".rstrip('0').rstrip('.')
+        padding = " " * column_offsets[i]
+        total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
     lines.append(total_line)
 
     # ===== 多筆附加配方列印 =====
@@ -251,23 +248,21 @@ def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_
                 lines.append(f"附加配方 {idx}")
             for i in range(8):
                 c_id = sub.get(f"色粉編號{i+1}", "")
-                val = sub.get(f"色粉重量{i+1}", "")
-                if not c_id or val in [None, "", 0, 0.0]:
+                if not c_id:
                     continue
-                c_id_str = str(c_id).ljust(powder_label_width)
-                val_float = float(val)
-                val_str = str(int(val_float)) if val_float.is_integer() else f"{val_float:.3f}".rstrip('0').rstrip('.')
-                row = c_id_str
+                row = str(c_id).ljust(powder_label_width)
+                val = sub.get(f"色粉重量{i+1}", "")
+                val_str = str(int(float(val))) if val not in [None, "", 0, 0.0] else ""
                 for col_idx in range(4):
                     offset = " " * column_offsets[col_idx]
-                    row += offset + (f"{val_str:>{number_col_width}}" if col_idx == 0 else " " * number_col_width)
+                    row += offset + f"<b class='num'>{val_str:>{number_col_width}}</b>" if col_idx==0 else offset + " " * number_col_width
                 lines.append(row)
 
     # ===== 備註 =====
     lines.append("")
     lines.append(f"備註 : {order.get('備註', '')}")
 
-    # ===== 生成 HTML =====
+    # ===== HTML 模板 =====
     created_time = str(order.get("建立時間", "") or "")
     html_template = f"""
     <html>
@@ -282,50 +277,38 @@ def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_
             body {{
                 margin: 0;
                 font-family: 'Courier New', Courier, monospace;
-                font-size: 20px;
+                font-size: 22px;
                 line-height: 1.4;
             }}
-            pre {{
-                white-space: pre;
-                font-family: 'Courier New', Courier, monospace;
+            .title {{
+                text-align: center;
+                font-size: 24px;
+                margin-bottom: -4px;
+                font-family: Arial, Helvetica, sans-serif;
+                font-weight: normal;
+            }}
+            .timestamp {{
                 font-size: 20px;
+                color: #000;
+                text-align: center;
+                margin-bottom: 2px;
+                font-family: Arial, Helvetica, sans-serif;
+                font-weight: normal;
+            }}
+            b.num {{
+                font-weight: normal;
             }}
         </style>
         <script>
-            window.onload = function() {{ window.print(); }}
+            window.onload = function() {{
+                window.print();
+            }}
         </script>
-    </head>
-    <body>
-        <div>{created_time}</div>
-        <div style="text-align:center; font-size:24px; font-family:Arial, Helvetica, sans-serif;">生產單</div>
-        <pre>{chr(10).join(lines)}</pre>
-    </body>
-    </html>
-    """
-    return html
-
-    # ---------- 包 HTML 樣式 ----------
-    content = "<br>".join(lines)
-    created_time = str(order.get("建立時間", "") or "")
-    html_template = f"""
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>生產單列印</title>
-        <style>
-            @page {{ size: A5 landscape; margin:10mm; }}
-            body {{ margin:0; font-family:'Courier New', Courier, monospace; font-size:22px; line-height:1.4; }}
-            .title {{ text-align:center; font-size:24px; margin-bottom:-4px; font-family:Arial, Helvetica, sans-serif; font-weight:normal; }}
-            .timestamp {{ font-size:20px; color:#000; text-align:center; margin-bottom:2px; font-family:Arial, Helvetica, sans-serif; font-weight:normal; }}
-            pre {{ white-space:pre-wrap; margin-left:25px; margin-top:0px; }}
-            b.num {{ font-weight: normal; }}
-        </style>
-        <script>window.onload=function(){{window.print();}}</script>
     </head>
     <body>
         <div class="timestamp">{created_time}</div>
         <div class="title">生產單</div>
-        <pre>{content}</pre>
+        <pre>{"\n".join(lines)}</pre>
     </body>
     </html>
     """
