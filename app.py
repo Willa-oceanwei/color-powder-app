@@ -92,7 +92,7 @@ def init_states(keys=None):
                 st.session_state[key] = None
 
 # ===== 修正版自訂函式：產生生產單列印格式（色粉/色母換算正確） =====
-def generate_production_order_print_fixed(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+def generate_production_order_print_integrated(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
         recipe_row = {}
 
