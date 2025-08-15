@@ -1976,6 +1976,7 @@ def render_order_selectbox(df_order):
 
     def update_selected_code():
         st.session_state.selected_code_edit = st.session_state.select_order_for_edit
+        st.experimental_rerun()  # 立即刷新頁面，使 A5 下載區更新
 
     st.selectbox(
         "選擇生產單號",
@@ -1996,17 +1997,17 @@ def render_production_order_buttons(df_order, df_recipe, ws_order=None, order_fi
 
     # ---------- A5 下載 ----------
     with cols_mod[0]:
-        order_row = df_order[df_order["生產單號"] == selected_code_edit]
+        order_row = df_order[df_order["生產單號"].astype(str) == str(selected_code_edit)]
         if order_row.empty:
             st.info(f"❌ 找不到生產單號 {selected_code_edit}")
         else:
             order_dict = order_row.iloc[0].to_dict()
-            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
+            recipe_rows = df_recipe[df_recipe["配方編號"].astype(str) == str(order_dict["配方編號"])]
             if recipe_rows.empty:
                 st.info(f"❌ 找不到配方編號 {order_dict['配方編號']}")
             else:
                 recipe_row = recipe_rows.iloc[0]
-                category = recipe_row.get("色粉類別", "").strip()
+                category = str(recipe_row.get("色粉類別", "")).strip()
                 try:
                     if category == "色母":
                         print_html = generate_print_page_content_a5_special(
@@ -2036,7 +2037,7 @@ def render_production_order_buttons(df_order, df_recipe, ws_order=None, order_fi
     # ---------- 修改 ----------
     with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1"):
-            row = df_order[df_order["生產單號"] == selected_code_edit]
+            row = df_order[df_order["生產單號"].astype(str) == str(selected_code_edit)]
             if not row.empty:
                 st.session_state.editing_order = row.iloc[0].to_dict()
                 st.session_state.show_edit_panel = True
@@ -2060,17 +2061,19 @@ def render_production_order_buttons(df_order, df_recipe, ws_order=None, order_fi
             except Exception as e:
                 st.error(f"Google Sheets 刪除錯誤：{e}")
 
-            df_order = df_order[df_order["生產單號"] != selected_code_edit]
+            # 同步刪除本地 CSV
+            df_order = df_order[df_order["生產單號"].astype(str) != str(selected_code_edit)]
             df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
             st.session_state.df_order = df_order
             st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
 
+            # 清理狀態
             st.session_state.pop("selected_code_edit", None)
             st.session_state.show_edit_panel = False
             st.session_state.editing_order = None
             st.experimental_rerun()
 
-# ---------- 使用範例 ----------
+# ---------- 生產單管理頁渲染 ----------
 if current_page == "生產單管理":
     render_order_selectbox(st.session_state.df_order)
     render_production_order_buttons(
@@ -2080,53 +2083,52 @@ if current_page == "生產單管理":
         order_file=order_file
     )
 
-    
-    # 修改面板（如果有啟動）
+    # ---------- 修改面板 ----------
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
         st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
         edit_order = st.session_state.editing_order
-    
+
         new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""), key="edit_customer_name")
         new_color = st.text_input("顏色", value=edit_order.get("顏色", ""), key="edit_color")
-    
+
         # 包裝重量 1~4
         pack_weights_cols = st.columns(4)
-        new_packing_weights = []
-        for i in range(1, 5):
-            weight = pack_weights_cols[i - 1].text_input(
+        new_packing_weights = [
+            pack_weights_cols[i-1].text_input(
                 f"包裝重量{i}", value=edit_order.get(f"包裝重量{i}", ""), key=f"edit_packing_weight_{i}"
             )
-            new_packing_weights.append(weight)
-    
+            for i in range(1,5)
+        ]
+
         # 包裝份數 1~4
         pack_counts_cols = st.columns(4)
-        new_packing_counts = []
-        for i in range(1, 5):
-            count = pack_counts_cols[i - 1].text_input(
+        new_packing_counts = [
+            pack_counts_cols[i-1].text_input(
                 f"包裝份數{i}", value=edit_order.get(f"包裝份數{i}", ""), key=f"edit_packing_count_{i}"
             )
-            new_packing_counts.append(count)
-    
+            for i in range(1,5)
+        ]
+
         new_remark = st.text_area("備註", value=edit_order.get("備註", ""), key="edit_remark")
-    
-        # 取得對應配方資料
+
+        # 取得配方資料
         recipe_id = edit_order.get("配方編號", "")
-        recipe_rows = df_recipe[df_recipe["配方編號"] == recipe_id]
+        recipe_rows = st.session_state.df_recipe[st.session_state.df_recipe["配方編號"] == recipe_id]
         if recipe_rows.empty:
             st.warning(f"找不到配方編號：{recipe_id}")
             st.stop()
         recipe_row = recipe_rows.iloc[0]
-    
+
         # 產生 HTML 預覽內容
         print_html = generate_print_page_content(edit_order, recipe_row)
-    
         st.download_button(
             label="📄 下載列印 HTML",
             data=print_html.encode("utf-8"),
             file_name=f"{edit_order['生產單號']}_print.html",
             mime="text/html"
         )
+
     
         cols_edit = st.columns([1, 1, 1])
     
