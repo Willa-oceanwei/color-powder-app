@@ -1544,6 +1544,7 @@ elif menu == "生產單管理":
         lines.append("")
     
         # ===== 包裝列 =====
+        pack_line = []
         for i in range(4):
             w = packing_weights[i]
             c = packing_counts[i]
