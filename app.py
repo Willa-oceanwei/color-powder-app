@@ -1555,7 +1555,16 @@ elif menu == "生產單管理":
                 val = 0.0
             colorant_weights.append(val)
     
-        multipliers = packing_weights
+        # multipliers 用於色粉列與合計列
+        multipliers = []
+        for w in packing_weights:
+            if category == "色母":
+                multipliers.append(w * 100)  # 色母：公斤 × 100
+            else:
+                try:
+                    multipliers.append(w * float(ratio))  # 色粉：公斤 × 配方倍數
+                except:
+                    multipliers.append(w)
     
         # 合計列
         try:
