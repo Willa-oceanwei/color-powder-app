@@ -102,15 +102,14 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     order_clean = copy.deepcopy(order)
     recipe_clean = copy.deepcopy(recipe_row)
 
-    # --- 1. 數值轉換 ---
-    for i in range(1, 5):
-        order_clean[f"包裝重量{i}"] = float(order.get(f"包裝重量{i}", 0) or 0)
-        order_clean[f"包裝份數{i}"] = float(order.get(f"包裝份數{i}", 0) or 0)
-    for i in range(1, 9):
-        recipe_clean[f"色粉重量{i}"] = float(recipe_row.get(f"色粉重量{i}", 0) or 0)
-    recipe_clean["淨重"] = float(recipe_row.get("淨重", 0) or 0)
+    # --- 數值轉換 ---
+    packing_weights = [float(order.get(f"包裝重量{i}", 0) or 0) for i in range(1, 5)]
+    packing_counts = [float(order.get(f"包裝份數{i}", 0) or 0) for i in range(1, 5)]
+    colorant_weights = [float(recipe_row.get(f"色粉重量{i}", 0) or 0) for i in range(1, 9)]
+    colorant_ids = [recipe_row.get(f"色粉編號{i}", "") for i in range(1, 9)]
+    net_weight = float(recipe_row.get("淨重", 0) or 0)
 
-    # --- 2. 基本資訊 ---
+    # --- 基本資訊 ---
     category = (order_clean.get("色粉類別") or "").strip()
     recipe_id = recipe_clean.get('配方編號', '')
     color = order_clean.get('顏色', '')
@@ -122,110 +121,104 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     lines.append(f"<span style='font-size:20px;'>編號：<b>{recipe_id:<8}</b>顏色：{color:<4}   比例：{ratio} g/kg   Pantone：{pantone}</span>")
     lines.append("")
 
-    # --- 3. 包裝列 + multipliers ---
+    # --- 包裝列 + multipliers ---
     pack_line = []
     packing_indent = " " * 14
     unit = str(order_clean.get("計量單位", "kg")).strip()
-    multipliers = []  # 由迴圈填入換算後重量
-    pack_col_width = 11  # 可視需要調整
+    multipliers = []
 
+    pack_col_width = 11
     for i in range(4):
-        w = order_clean[f"包裝重量{i+1}"]
-        c = order_clean[f"包裝份數{i+1}"]
+        w = packing_weights[i]
+        c = packing_counts[i]
         if w <= 0 or c <= 0:
             multipliers.append(0)
             continue
 
+        # 計算換算後重量
         if category == "色母":
-            if w == 1:
-                unit_str = "100K"
-                multipliers.append(1)
-            else:
-                real_w = w * 100
-                unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
-                multipliers.append(w)
+            real_w = w * 100
+            unit_str = f"{int(real_w) if real_w==int(real_w) else real_w:.1f}K"
+            multipliers.append(w)
         elif category == "色粉":
             if unit == "包":
                 real_w = w * 25
-                unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.2f}K"
-                multipliers.append(real_w)
+                unit_str = f"{int(real_w) if real_w==int(real_w) else real_w:.1f}K"
             elif unit == "桶":
                 real_w = w * 100
-                unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.2f}K"
-                multipliers.append(real_w)
+                unit_str = f"{int(real_w) if real_w==int(real_w) else real_w:.1f}K"
             else:  # kg
                 real_w = w
-                unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
-                multipliers.append(real_w)
+                unit_str = f"{int(real_w) if real_w==int(real_w) else real_w:.2f}kg"
+            multipliers.append(real_w)
         else:
             real_w = w
-            unit_str = f"{int(real_w)}" if real_w == int(real_w) else f"{real_w:.2f}"
+            unit_str = f"{int(real_w) if real_w==int(real_w) else real_w:.2f}"
             multipliers.append(real_w)
 
-        count_str = str(int(c)) if c == int(c) else str(c)
-        pack_line.append(f"{unit_str} × {count_str}")
+        count_str = str(int(c)) if c.is_integer() else str(c)
+        text = f"{unit_str} × {count_str}"
+        pack_line.append(f"{text:<{pack_col_width}}")
 
     lines.append(f"<b>{packing_indent + ' '.join(pack_line)}</b>")
 
-    # --- 4. 主配方色粉列 ---
+    # --- 主配方色粉列 ---
     powder_label_width = 12
     number_col_width = 6
     column_offsets = [2, 2, 2, 2]
 
     for idx in range(8):
-        c_id = recipe_clean.get(f"色粉編號{idx+1}", "")
-        if not c_id:
+        c_id = colorant_ids[idx]
+        val = colorant_weights[idx]
+        if not c_id or val == 0:
             continue
-        c_id_str = str(c_id).ljust(powder_label_width)
-        val = recipe_clean.get(f"色粉重量{idx+1}", 0)
-        row = c_id_str
+        row = f"{c_id.ljust(powder_label_width)}"
         for i in range(4):
-            val_mult = val * multipliers[i] if val else 0
+            val_mult = val * multipliers[i] if multipliers[i] else 0
             val_str = str(int(val_mult)) if val_mult.is_integer() else f"{val_mult:.3f}".rstrip('0').rstrip('.') if val_mult else ""
             offset = " " * column_offsets[i]
             row += offset + f"<b class='num'>{val_str:>{number_col_width}}</b>"
         lines.append(row)
 
-    # --- 5. 色粉類別橫線 + 合計列 ---
+    # --- 橫線 ---
     if category == "色粉":
-        lines.append("＿" * 30)
-        total_type = recipe_clean.get("合計類別", "").strip()
-        if total_type == "原料":
-            total_type = "料"
-        if not total_type:
-            total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
-        else:
-            total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
+        lines.append("-" * max(60, len(packing_indent + ' '.join(pack_line))))
 
-        total_line = total_type_display
-        net_weight = recipe_clean["淨重"]
-        total_offsets = [1, 5, 5, 5]
-        for i in range(4):
-            val_mult = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = str(int(val_mult)) if val_mult.is_integer() else f"{val_mult:.3f}".rstrip('0').rstrip('.')
-            padding = " " * max(0, int(round(total_offsets[i])))
-            total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-        lines.append(total_line)
+    # --- 合計列 ---
+    total_type = recipe_clean.get("合計類別", "").strip() or "料"
+    total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
+    total_line = total_type_display
+    for i in range(4):
+        if multipliers[i] == 0:
+            val_mult = 0
+        elif category == "色母":
+            val_mult = (net_weight - sum(colorant_weights)) * multipliers[i]
+        else:  # 色粉
+            val_mult = net_weight * multipliers[i]
+        val_str = str(int(val_mult)) if val_mult.is_integer() else f"{val_mult:.3g}" if val_mult else ""
+        total_line += " " + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+    lines.append(total_line)
 
-    # --- 6. 附加配方列印 ---
-    if additional_recipe_rows:
+    # --- 附加配方列印 ---
+    if additional_recipe_rows and isinstance(additional_recipe_rows, list):
         for idx, sub in enumerate(additional_recipe_rows, 1):
             lines.append("")
             if show_additional_ids:
                 lines.append(f"附加配方 {idx}：{sub.get('配方編號','')}")
             else:
                 lines.append(f"附加配方 {idx}")
-            for i in range(1, 9):
-                c_id = sub.get(f"色粉編號{i}", "")
-                if not c_id:
+            add_ids = [sub.get(f"色粉編號{i+1}", "") for i in range(8)]
+            add_weights = [float(sub.get(f"色粉重量{i+1}", 0) or 0) for i in range(8)]
+            for j in range(8):
+                c_id = add_ids[j]
+                val = add_weights[j]
+                if not c_id or val == 0:
                     continue
-                c_id_str = str(c_id).ljust(powder_label_width)
-                val = float(sub.get(f"色粉重量{i}", 0) or 0)
-                row = c_id_str
-                for j in range(4):
-                    val_mult = val * multipliers[j] if multipliers[j] else 0
+                row = c_id.ljust(powder_label_width)
+                for k in range(4):
+                    val_mult = val * multipliers[k] if multipliers[k] else 0
                     val_str = str(int(val_mult)) if val_mult.is_integer() else f"{val_mult:.3f}".rstrip('0').rstrip('.') if val_mult else ""
-                    offset = " " * column_offsets[j]
+                    offset = " " * column_offsets[k]
                     row += offset + f"<b class='num'>{val_str:>{number_col_width}}</b>"
                 lines.append(row)
 
