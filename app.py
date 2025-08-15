@@ -1542,7 +1542,7 @@ elif menu == "生產單管理":
         
         # debug
         print(f"色粉類別: '{category}', packing_weights: {packing_weights}, packing_weights_display: {packing_weights_display}, packing_counts: {packing_counts}")
-
+        print(f"category='{category}', packing_weights={packing_weights}, display={packing_weights_display}")
 
         # 這裡初始化 colorant_ids 和 colorant_weights
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
