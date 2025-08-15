@@ -2089,8 +2089,19 @@ if st.session_state.menu == "生產單管理":
         st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
         edit_order = st.session_state.editing_order
 
-        new_customer = st.text_input("客戶名稱", value=edit_order.get("客戶名稱", ""), key="edit_customer_name")
-        new_color = st.text_input("顏色", value=edit_order.get("顏色", ""), key="edit_color")
+        col1, col2 = st.columns(2)
+        with col1:
+            new_customer = st.text_input(
+                "客戶名稱",
+                value=edit_order.get("客戶名稱", ""),
+                key="edit_customer_name"
+            )
+        with col2:
+            new_color = st.text_input(
+                "顏色",
+                value=edit_order.get("顏色", ""),
+                key="edit_color"
+            )
 
         # 包裝重量 1~4
         pack_weights_cols = st.columns(4)
