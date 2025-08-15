@@ -211,13 +211,18 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     if additional_recipe_rows is not None and not isinstance(additional_recipe_rows, list):
         additional_recipe_rows = [additional_recipe_rows]
 
-    # ✅ 傳入 show_additional_ids 給產生列印內容的函式
-    content = generate_production_order_print(
-        order,
-        recipe_row,
-        additional_recipe_rows,
-        show_additional_ids=show_additional_ids  # 👈 新增參數
-    )
+    # ✅ 使用 integrated 版本產生列印內容
+    try:
+        content, _ = generate_production_order_print_integrated(
+            order=order,
+            recipe_row=recipe_row,
+            additional_recipe_rows=additional_recipe_rows,
+            show_additional_ids=show_additional_ids
+        )
+    except Exception as e:
+        content = ""
+        print(f"generate_production_order_print_integrated error: {e}")
+
     created_time = str(order.get("建立時間", "") or "")
 
     html_template = """
