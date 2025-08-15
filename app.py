@@ -1638,7 +1638,8 @@ elif menu == "生產單管理":
         data=str(html_data_a5 or "").encode("utf-8"),
         file_name=f"{order.get('生產單號','')}_A5_列表列印.html",
         mime="text/html"
-
+    )
+    
 # ---------- 下載清單列表 A5 HTML ----------
 try:
     html_data_a5 = generate_production_order_print_integrated(
