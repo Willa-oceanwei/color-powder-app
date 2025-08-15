@@ -2119,16 +2119,6 @@ if st.session_state.menu == "生產單管理":
             st.warning(f"找不到配方編號：{recipe_id}")
             st.stop()
         recipe_row = recipe_rows.iloc[0]
-
-        # 產生 HTML 預覽內容
-        print_html = generate_print_page_content(edit_order, recipe_row)
-        st.download_button(
-            label="📄 下載列印 HTML",
-            data=print_html.encode("utf-8"),
-            file_name=f"{edit_order['生產單號']}_print.html",
-            mime="text/html"
-        )
-
     
         cols_edit = st.columns([1, 1, 1])
     
