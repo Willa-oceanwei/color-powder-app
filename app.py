@@ -1767,45 +1767,32 @@ cols_mod = st.columns([1, 1, 1])
 selected_code_edit = st.session_state.get("selected_code_edit", None)
 
 # ------------------ 清單列表 A5（有色母特殊處理） ------------------
-with cols_mod[0]:
-    if selected_code_edit:
-        # 取得選中的生產單
-        order_row = df_order[df_order["生產單號"] == selected_code_edit]
-        if not order_row.empty:
-            order_dict = order_row.iloc[0].to_dict()
-            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
-            if not recipe_rows.empty:
-                recipe_row = recipe_rows.iloc[0]
-
-                # 針對色母特殊處理，其他包裝列照舊
-                category = recipe_row.get("色粉類別", "").strip()
-
-                try:
-                    if category == "色母":
-                        print_html = generate_print_page_content_a5_special(
+    with cols_mod[0]:
+        if selected_code_edit:
+            order_row = df_order[df_order["生產單號"] == selected_code_edit]
+            if not order_row.empty:
+                order_dict = order_row.iloc[0].to_dict()
+                recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
+                if not recipe_rows.empty:
+                    recipe_row = recipe_rows.iloc[0]
+    
+                    try:
+                        print_html, _ = generate_production_order_print_integrated(
                             order=order_dict,
                             recipe_row=recipe_row,
                             additional_recipe_rows=order_dict.get("附加配方", []),
                             show_additional_ids=True
                         )
-                    else:
-                        print_html = generate_print_page_content(
-                            order=order_dict,
-                            recipe_row=recipe_row,
-                            additional_recipe_rows=order_dict.get("附加配方", []),
-                            show_additional_ids=True
-                        )
-                except Exception as e:
-                    st.error(f"❌ 產生列印內容失敗：{e}")
-                    print_html = ""
-
-                # 下載按鈕
-                st.download_button(
-                    label="📥 下載清單列表 A5 HTML",
-                    data=print_html.encode("utf-8"),
-                    file_name=f"{order_dict['生產單號']}_A5_列表列印.html",
-                    mime="text/html"
-                )
+                    except Exception as e:
+                        st.error(f"❌ 產生列印內容失敗：{e}")
+                        print_html = ""
+    
+                    st.download_button(
+                        label="📥 下載清單列表 A5 HTML",
+                        data=print_html.encode("utf-8"),
+                        file_name=f"{order_dict['生產單號']}_A5_列表列印.html",
+                        mime="text/html"
+                    )
     
     with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
