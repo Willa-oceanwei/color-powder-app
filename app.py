@@ -1836,19 +1836,20 @@ elif menu == "生產單管理":
                 if not recipe_rows.empty:
                     recipe_row = recipe_rows.iloc[0]
     
-                    # ---------- 針對清單 A5 下載，處理色母 100K ----------
+                    # ---------- 針對清單 A5 下載，處理色母特殊情況 ----------
                     multipliers = {"包": 25, "桶": 100, "kg": 1}
                     unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
                     unit = str(order_dict.get("計量單位", "kg"))
                     category = str(recipe_row.get("色粉類別", ""))
-    
+                    
                     display_weights = []
                     for i in range(1, 5):
                         try:
                             weight = float(order_dict.get(f"包裝重量{i}", 0) or 0)
                             count = int(float(order_dict.get(f"包裝份數{i}", 0) or 0))
                             if weight > 0 and count > 0:
-                                if unit == "kg" and category == "色母":
+                                # 色粉類別為「色母」時，包裝重量1固定顯示 100K，且其他橫線可由列印函式控制
+                                if category == "色母" and i == 1:
                                     display_weights.append(f"100K*{count}")
                                 else:
                                     multiplier = multipliers.get(unit, 1)
@@ -1858,19 +1859,29 @@ elif menu == "生產單管理":
                         except Exception:
                             continue
                     order_dict["包裝顯示"] = " + ".join(display_weights)
-    
+                    
                     # ---------- 產生列印 HTML（只影響清單 A5 下載） ----------
                     try:
-                        print_html = generate_print_page_content(
-                            order=order_dict,
-                            recipe_row=recipe_row,
-                            additional_recipe_rows=order_dict.get("附加配方", []),
-                            show_additional_ids=True
-                        )
+                        # 如果色粉類別為「色母」，傳參數 remove_lines=True 給專用函式
+                        if category == "色母":
+                            print_html = generate_print_page_content_a5_special(
+                                order=order_dict,
+                                recipe_row=recipe_row,
+                                additional_recipe_rows=order_dict.get("附加配方", []),
+                                show_additional_ids=True,
+                                remove_lines=True
+                            )
+                        else:
+                            print_html = generate_print_page_content(
+                                order=order_dict,
+                                recipe_row=recipe_row,
+                                additional_recipe_rows=order_dict.get("附加配方", []),
+                                show_additional_ids=True
+                            )
                     except Exception as e:
                         st.error(f"❌ 產生列印內容失敗：{e}")
                         print_html = ""
-    
+                    
                     # 下載按鈕
                     st.download_button(
                         label="📥 下載 A5 HTML",
