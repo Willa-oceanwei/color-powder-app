@@ -2074,7 +2074,7 @@ def render_production_order_buttons(df_order, df_recipe, ws_order=None, order_fi
             st.experimental_rerun()
 
 # ---------- 生產單管理頁渲染 ----------
-if current_page == "生產單管理":
+if st.session_state.menu == "生產單管理":
     render_order_selectbox(st.session_state.df_order)
     render_production_order_buttons(
         st.session_state.df_order,
