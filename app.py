@@ -1137,33 +1137,61 @@ elif menu == "配方管理":
         st.info("⚠️ 查無符合條件的配方（來自上方搜尋）")
     
     # --- 配方編號選擇 + 修改/刪除 ---
-    code_list = page_data["配方編號"].dropna().tolist()
-        
-    cols = st.columns([3, 1, 1])  # 配方編號下拉+修改+刪除 按鈕
+    import pandas as pd
+    import streamlit as st
+    
+    # ---------- 載入配方資料 ----------
+    df_recipe = st.session_state.get("df_recipe")
+    if df_recipe is None:
+        try:
+            df_recipe = pd.read_csv(recipe_file, dtype=str)  # recipe_file 需事先定義
+            st.session_state.df_recipe = df_recipe
+        except Exception as e:
+            st.error(f"❌ 無法載入配方資料：{e}")
+            df_recipe = pd.DataFrame()
+    
+    # ---------- 配方編號選擇 + 修改/刪除 ----------
+    code_list = df_recipe["配方編號"].dropna().tolist()
+    
+    cols = st.columns([3, 1, 1])  # 配方編號下拉 + 修改 + 刪除按鈕
+    
     with cols[0]:
         if code_list:
             if len(code_list) == 1:
                 selected_code = code_list[0]
                 st.info(f"🔹 自動選取唯一配方編號：{selected_code}")
             else:
-                selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code_page")
+                selected_code = st.selectbox(
+                    "選擇配方編號", code_list, key="select_recipe_code_page"
+                )
+            st.session_state.selected_recipe_edit = selected_code
         else:
             selected_code = None
+            st.session_state.selected_recipe_edit = None
             st.info("🟦 沒有可選的配方編號")
     
     with cols[1]:
         if selected_code and st.button("✏️ 修改", key="edit_btn"):
-            df_idx = df[df["配方編號"] == selected_code].index[0]
-            st.session_state.edit_recipe_index = df_idx
-            st.session_state.form_recipe = df.loc[df_idx].to_dict()
-            st.rerun()
+            df_idx = df_recipe[df_recipe["配方編號"] == selected_code].index
+            if len(df_idx) > 0:
+                df_idx = df_idx[0]
+                st.session_state.edit_recipe_index = df_idx
+                st.session_state.form_recipe = df_recipe.loc[df_idx].to_dict()
+                st.session_state.show_edit_recipe_panel = True
+                st.experimental_rerun()
+            else:
+                st.warning("⚠️ 找不到該筆配方資料")
     
     with cols[2]:
         if selected_code and st.button("🗑️ 刪除", key="del_btn"):
-            df_idx = df[df["配方編號"] == selected_code].index[0]
-            st.session_state.delete_recipe_index = df_idx
-            st.session_state.show_delete_recipe_confirm = True
-            st.rerun()
+            df_idx = df_recipe[df_recipe["配方編號"] == selected_code].index
+            if len(df_idx) > 0:
+                df_idx = df_idx[0]
+                st.session_state.delete_recipe_index = df_idx
+                st.session_state.show_delete_recipe_confirm = True
+                st.experimental_rerun()
+            else:
+                st.warning("⚠️ 找不到該筆配方資料")
 
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
