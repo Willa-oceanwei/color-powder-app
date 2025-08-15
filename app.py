@@ -1767,7 +1767,7 @@ cols_mod = st.columns([1, 1, 1])
 selected_code_edit = st.session_state.get("selected_code_edit", None)
 
 # ------------------ 清單列表 A5（有色母特殊處理） ------------------
-    with cols_mod[0]:
+with cols_mod[0]:
         if selected_code_edit:
             order_row = df_order[df_order["生產單號"] == selected_code_edit]
             if not order_row.empty:
@@ -1825,7 +1825,7 @@ selected_code_edit = st.session_state.get("selected_code_edit", None)
             st.session_state.pop("selected_code_edit", None)
             st.session_state.show_edit_panel = False
             st.session_state.editing_order = None
-            st.experimental_rerun()
+            st.experimental_rerun()    
     
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
