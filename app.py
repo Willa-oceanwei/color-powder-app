@@ -1804,15 +1804,27 @@ elif menu == "生產單管理":
                 st.error(f"Google Sheets 寫入錯誤：{e}")
         
             # ---------- 下載原本 A5 HTML ----------
-            st.download_button(
-                label="📥 下載原始 A5 HTML",
-                data=generate_print_page_content(
+            category = recipe_row.get("色粉類別", "")
+
+            if category == "色母":
+                html_data = generate_print_page_content_a5_special(
                     order=st.session_state["new_order"],
                     recipe_row=recipe_row,
                     additional_recipe_rows=st.session_state["new_order"].get("附加配方", []),
                     show_additional_ids=True
-                ).encode("utf-8"),
-                file_name=f"{st.session_state['new_order']['生產單號']}_A5原始列印.html",
+                )
+            else:
+                html_data = generate_print_page_content(
+                    order=st.session_state["new_order"],
+                    recipe_row=recipe_row,
+                    additional_recipe_rows=st.session_state["new_order"].get("附加配方", []),
+                    show_additional_ids=True
+                )
+            
+            st.download_button(
+                label="📥 下載 A5 HTML",
+                data=html_data.encode("utf-8"),
+                file_name=f"{st.session_state['new_order']['生產單號']}_A5列印.html",
                 mime="text/html"
             )
                             
