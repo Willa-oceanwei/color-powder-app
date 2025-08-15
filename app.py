@@ -1543,16 +1543,14 @@ elif menu == "生產單管理":
         lines.append(info_line)
         lines.append("")
     
-        # 包裝列
-        pack_line = []
+        # ===== 包裝列 =====
         for i in range(4):
             w = packing_weights[i]
             c = packing_counts[i]
             if w > 0 or c > 0:
-                # 特例：色母類別 + w==1 時，強制 real_w=100
                 if category == "色母":
                     real_w = w * 100
-                    unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
+                    unit_str = f"{int(real_w)}K"  # ✅ 色母用 K
                 elif unit == "包":
                     real_w = w * 25
                     unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
@@ -1566,25 +1564,29 @@ elif menu == "生產單管理":
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
                 pack_line.append(f"{text:<{pack_col_width}}")
-        
-        packing_indent = " " * 14
-        lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
                                     
-        # 主配方色粉列
+        # ===== 主配方色粉列 =====
         for idx in range(8):
             c_id = colorant_ids[idx]
             c_weight = colorant_weights[idx]
             if not c_id:
                 continue
+        
             row = f"<b>{str(c_id or '').ljust(powder_label_width)}</b>"
             for i in range(4):
-                val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
+                if category == "色母":
+                    # ✅ 色母用 包裝重量 × 色粉重量
+                    val = c_weight * packing_weights[i] if packing_weights[i] > 0 else 0
+                else:
+                    # ✅ 非色母保留原本計算
+                    val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
+        
                 val_str = (
                     str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
                 ) if val else ""
                 padding = " " * max(0, int(round(column_offsets[i])))
-                # 數字用加 class 的 <b> 包起來
                 row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+        
             lines.append(row)
         
         # 橫線：只有非色母類別才顯示
