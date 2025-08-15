@@ -1483,7 +1483,7 @@ elif menu == "生產單管理":
             st.rerun()
                         
     # ===== 自訂函式：產生生產單列印格式 =====      
-    def generate_production_order_print_colorant(order, recipe_row):
+    def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
         if recipe_row is None:
             recipe_row = {}
     
