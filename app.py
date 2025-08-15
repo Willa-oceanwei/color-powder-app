@@ -1615,6 +1615,7 @@ elif menu == "生產單管理":
                 st.error(f"❌ 產生列印內容失敗：{e}")
                 html_data = ""
             
+            html_data = print_html  # 確保 html_data 有值
             st.download_button(
                 label="📥 下載清單列表 A5 HTML",
                 data=(html_data or "").encode("utf-8"),
