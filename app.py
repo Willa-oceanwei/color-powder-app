@@ -1984,8 +1984,8 @@ elif menu == "生產單管理":
                     multipliers = {"包": 25, "桶": 100, "kg": 1}
                     unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
                     unit = str(order_dict.get("計量單位", "kg"))
-                    category = str(recipe_row.get("色粉類別", "")).strip()
-                    
+                    category = str(recipe_row.get("色粉類別", ""))
+    
                     display_weights = []
                     for i in range(1, 5):
                         try:
@@ -2007,16 +2007,13 @@ elif menu == "生產單管理":
                     # ---------- 產生列印 HTML（只影響清單 A5 下載） ----------
                     try:
                         if category == "色母":
-                            # 色母專用列印，去掉橫線
                             print_html = generate_print_page_content_a5_special(
                                 order=order_dict,
                                 recipe_row=recipe_row,
                                 additional_recipe_rows=order_dict.get("附加配方", []),
-                                show_additional_ids=True,
-                                remove_lines=True
+                                show_additional_ids=True
                             )
                         else:
-                            # 一般列印
                             print_html = generate_print_page_content(
                                 order=order_dict,
                                 recipe_row=recipe_row,
