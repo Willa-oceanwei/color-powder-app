@@ -167,146 +167,95 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     return html
 
 # ===== 專用函式：清單 A5 色母特殊列印 =====
-def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True, remove_lines=False):
+def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True, remove_lines=True):
     if recipe_row is None:
         recipe_row = {}
 
-    lines = []  # 儲存列印每行內容
-    total_type = recipe_row.get("合計類別", "").strip()
-    if total_type == "原料":
-        total_type = "料"
+    # 如果只有一筆 dict，包成 list
+    if additional_recipe_rows is not None and not isinstance(additional_recipe_rows, list):
+        additional_recipe_rows = [additional_recipe_rows]
 
+    # 產生原本內容
+    content = generate_production_order_print(
+        order,
+        recipe_row,
+        additional_recipe_rows,
+        show_additional_ids=show_additional_ids
+    )
+
+    # 色母特殊處理：包裝重量1固定顯示 100K
     category = recipe_row.get("色粉類別", "").strip()
-    unit = recipe_row.get("計量單位", "kg")
-    ratio = recipe_row.get("比例3", "")
+    if category == "色母":
+        # 取出原本包裝顯示行
+        import re
+        # 將包裝重量1改成 100K
+        def replace_first_pack(match):
+            parts = match.group(0).split("×")
+            if len(parts) >= 2:
+                return f"100K×{parts[1]}"
+            return match.group(0)
+        content = re.sub(r'\d+(\.\d+)?[Kkg]*\s*×\s*\d+', replace_first_pack, content, count=1)
+        # 去掉橫線
+        content = content.replace("＿", "")
 
-    # 欄位寬度
-    powder_label_width = 12
-    pack_col_width = 11
-    number_col_width = 6
-    column_offsets = [1, 5, 5, 5]
-    total_offsets = [1.3, 5, 5, 5]
+    created_time = str(order.get("建立時間", "") or "")
 
-    # 包裝重量與份數
-    packing_weights = [
-        100 if i == 0 else float(order.get(f"包裝重量{i+1}", 0) or 0)  # 色母固定包裝重量1 = 100
-        for i in range(4)
-    ]
-    packing_counts = [
-        float(order.get(f"包裝份數{i+1}", 0) or 0)
-        for i in range(4)
-    ]
+    html_template = """
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>生產單列印</title>
+        <style>
+            @page {
+                size: A5 landscape;
+                margin: 10mm;
+            }
+            body {
+                margin: 0;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 22px;
+                line-height: 1.4;
+            }
+            .title {
+                text-align: center;
+                font-size: 24px;
+                margin-bottom: -4px;
+                font-family: Arial, Helvetica, sans-serif;
+                font-weight: normal;
+            }
+            .timestamp {
+                font-size: 20px;
+                color: #000;
+                text-align: center;
+                margin-bottom: 2px;
+                font-family: Arial, Helvetica, sans-serif;
+                font-weight: normal;
+            }
+            pre {
+                white-space: pre-wrap;
+                margin-left: 25px;
+                margin-top: 0px;
+            }
+            b.num {
+                font-weight: normal;
+            }
+        </style>
+        <script>
+            window.onload = function() {
+                window.print();
+            }
+        </script>
+    </head>
+    <body>
+        <div class="timestamp">{created_time}</div>
+        <div class="title">生產單</div>
+        <pre>{content}</pre>
+    </body>
+    </html>
+    """
 
-    multipliers = packing_weights
-
-    # 色粉編號與重量
-    colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-    colorant_weights = []
-    for i in range(8):
-        try:
-            val_str = recipe_row.get(f"色粉重量{i+1}", "") or "0"
-            val = float(val_str)
-        except:
-            val = 0.0
-        colorant_weights.append(val)
-
-    # 合計列淨重
-    try:
-        net_weight = float(recipe_row.get("淨重", 0))
-    except:
-        net_weight = 0.0
-
-    # ===== 配方資訊列 =====
-    recipe_id = recipe_row.get('配方編號', '')
-    color = order.get('顏色', '')
-    pantone = order.get('Pantone 色號', '')
-    info_line = f"<span style='font-size:20px;'>編號：<b>{recipe_id:<8}</b>顏色：{color:<4}   比例：{ratio} g/kg   Pantone：{pantone}</span>"
-    lines.append(info_line)
-    lines.append("")
-
-    # ===== 包裝列 =====
-    pack_line = []
-    for i in range(4):
-        w = packing_weights[i]
-        c = packing_counts[i]
-        if w > 0 or c > 0:
-            if i == 0:  # 色母固定包裝重量1
-                real_w = 100
-                unit_str = f"{int(real_w)}K"
-            else:
-                real_w = w
-                unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
-
-            count_str = str(int(c)) if c == int(c) else str(c)
-            text = f"{unit_str} × {count_str}"
-            pack_line.append(f"{text:<{pack_col_width}}")
-
-    packing_indent = " " * 14
-    lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
-
-    # ===== 主配方色粉列 =====
-    for idx in range(8):
-        c_id = colorant_ids[idx]
-        c_weight = colorant_weights[idx]
-        if not c_id:
-            continue
-        row = f"<b>{str(c_id or '').ljust(powder_label_width)}</b>"
-        for i in range(4):
-            val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = (
-                str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-            ) if val else ""
-            padding = " " * max(0, int(round(column_offsets[i])))
-            row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-        lines.append(row)
-
-    # ---- 非色母橫線，這裡色母專用就去掉橫線 ----
-    if not remove_lines:
-        lines.append("＿" * 30)
-
-    # ===== 合計列 =====
-    if total_type == "" or total_type == "無":
-        total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
-    else:
-        total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
-
-    total_line = total_type_display
-    for i in range(4):
-        result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-        val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
-        padding = " " * max(0, int(round(total_offsets[i])))
-        total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-    lines.append(total_line)
-
-    # ===== 多筆附加配方列印 =====
-    if additional_recipe_rows and isinstance(additional_recipe_rows, list):
-        for idx, sub in enumerate(additional_recipe_rows, 1):
-            lines.append("")
-            if show_additional_ids:
-                lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
-            else:
-                lines.append(f"附加配方 {idx}")
-            add_ids = [sub.get(f"色粉編號{i+1}", "") for i in range(8)]
-            add_weights = []
-            for i in range(8):
-                try:
-                    val = float(sub.get(f"色粉重量{i+1}", 0) or 0)
-                except:
-                    val = 0.0
-                add_weights.append(val)
-            for i in range(8):
-                c_id = add_ids[i]
-                if not c_id:
-                    continue
-                row = c_id.ljust(powder_label_width)
-                for j in range(4):
-                    val = add_weights[i] * multipliers[j] if multipliers[j] > 0 else 0
-                    val_str = (
-                        str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                    ) if val else ""
-                    padding = " " * max(0, int(round(column_offsets[j])))
-                    row += padding + f"<b>{val_str:>{number_col_width}}</b>"
-                lines.append(row)
+    html = html_template.replace("{created_time}", created_time).replace("{content}", content)
+    return html
 
     # ===== 備註 =====
     lines.append("")
@@ -314,7 +263,6 @@ def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_
     lines.append(f"備註 : {order.get('備註', '')}")
 
     return "<br>".join(lines)
-
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
