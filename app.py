@@ -1625,26 +1625,6 @@ elif menu == "生產單管理":
             mime="text/html"
         )
         
-        # ---------- 下載清單列表 A5 HTML ----------
-        try:
-            html_data_a5 = generate_production_order_print_integrated(
-                order=st.session_state.new_order,
-                recipe_row=st.session_state.get("recipe_row_cache", {}),
-                additional_recipe_rows=st.session_state.new_order.get("附加配方", []),
-                show_additional_ids=True
-            )
-        except Exception as e:
-            st.error(f"❌ 產生列印內容失敗：{e}")
-            html_data_a5 = ""
-        
-        st.download_button(
-            label="📥 下載清單列表 A5 HTML",
-            data=str(html_data_a5 or "").encode("utf-8"),
-            file_name=f"{st.session_state.new_order.get('生產單號','')}_A5_列表列印.html",
-            mime="text/html"
-        )
-            
-
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📑 生產單記錄表")
