@@ -227,19 +227,31 @@ def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_
     total_type = recipe_row.get("合計類別", "").strip()
     if total_type == "原料":
         total_type = "料"
+    
+    # 計算剩餘淨重：總淨重 - 色粉1~8總和
     try:
         net_weight = float(recipe_row.get("淨重", 0))
     except:
         net_weight = 0.0
-
-    # 合計列顯示：總淨重 - 色粉總和
+    
+    colorant_total = 0
+    for idx in range(8):
+        val = recipe_row.get(f"色粉重量{idx+1}", "")
+        if val not in [None, "", 0, 0.0]:
+            colorant_total += float(val)
+    
     remaining_weight = net_weight - colorant_total
     remaining_str = str(int(remaining_weight)) if remaining_weight.is_integer() else f"{remaining_weight:.3f}".rstrip('0').rstrip('.')
-
-    total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
-    total_line = total_type_display + " " * 8 + f"<b class='num'>{remaining_str:>{number_col_width}}</b>"
+    
+    # 對齊設定
+    total_type_width = 12  # 與色粉編號欄位寬度一致
+    number_col_width = 6   # 與色粉數值欄位一致
+    packing_indent = " " * 14  # 與包裝列對齊
+    
+    total_type_display = f"<b>{total_type.ljust(total_type_width)}</b>"
+    total_line = f"{packing_indent}{total_type_display}  {remaining_str:>{number_col_width}}"
+    
     lines.append(total_line)
-
     # ===== 備註 =====
     lines.append("")
     lines.append(f"備註 : {order.get('備註', '')}")
