@@ -1068,7 +1068,7 @@ elif menu == "配方管理":
     with col2:
         limit = st.selectbox(
             "",  # 不顯示文字
-            options=[10, 20, 50, 100],
+            options=[5, 10, 20, 50, 100],
             index=0,
             key="limit_per_page"
         )
