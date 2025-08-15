@@ -1396,7 +1396,7 @@ elif menu == "生產單管理":
             count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
             new_id = f"{today_str}-{count_today + 1:03}"
     
-            # 寫入主配方欄位
+            # 主配方欄位
             order["生產單號"] = new_id
             order["生產日期"] = datetime.now().strftime("%Y-%m-%d")
             order["建立時間"] = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
@@ -1408,7 +1408,13 @@ elif menu == "生產單管理":
             order["備註"] = str(selected_row.get("備註", "")).strip()
             order["重要提醒"] = str(selected_row.get("重要提醒", "")).strip()
             order["合計類別"] = str(selected_row.get("合計類別", "")).strip()
-
+    
+            # ----------------- 新增包裝重量與份數 -----------------
+            # 這裡假設你有四個輸入欄位給使用者輸入包裝重量與份數
+            for i in range(1, 5):
+                order[f"包裝重量{i}"] = float(selected_row.get(f"包裝重量{i}", 0))  # 如果沒有使用者輸入，預設 0
+                order[f"包裝份數{i}"] = float(selected_row.get(f"包裝份數{i}", 0))
+    
             # ----------------- 附加配方 -----------------
             df_recipe_safe = st.session_state.df_recipe.copy()
             if "原始配方" not in df_recipe_safe.columns:
@@ -1416,20 +1422,23 @@ elif menu == "生產單管理":
             df_recipe_safe["_原始配方標準"] = df_recipe_safe["原始配方"].map(lambda x: fix_leading_zero(clean_powder_id(str(x))))
             main_recipe_code = fix_leading_zero(clean_powder_id(order["配方編號"]))
     
-            additional_recipes = df_recipe_safe[
+            matched_additional = df_recipe_safe[
                 (df_recipe_safe["配方類別"] == "附加配方") &
                 (df_recipe_safe["_原始配方標準"] == main_recipe_code)
             ]
     
+            # 寫入 order["附加配方"]
             order["附加配方"] = [
                 {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
-                for _, row in additional_recipes.iterrows()
+                for _, row in matched_additional.iterrows()
             ]
     
-            # 存回 session_state，並顯示表單
+            # ----------------- 確保列印函式能取得完整主配方色粉資料 -----------------
             st.session_state.new_order = order
             st.session_state.recipe_row_cache = selected_row  # 保存主配方資料
             st.session_state.show_confirm_panel = True
+    
+            st.rerun()
     
             # ----------------- 附加配方（安全版） -----------------
             matched_additional = pd.DataFrame()  # 預設空 DataFrame
@@ -1778,18 +1787,18 @@ elif menu == "生產單管理":
         
             # ---------- 下載原本 A5 HTML ----------
             category = recipe_row.get("色粉類別", "")
-
+            
             if category == "色母":
                 html_data = generate_print_page_content_a5_special(
                     order=st.session_state["new_order"],
-                    recipe_row=recipe_row,
+                    recipe_row=st.session_state["recipe_row_cache"],
                     additional_recipe_rows=st.session_state["new_order"].get("附加配方", []),
                     show_additional_ids=True
                 )
             else:
                 html_data = generate_print_page_content(
                     order=st.session_state["new_order"],
-                    recipe_row=recipe_row,
+                    recipe_row=st.session_state["recipe_row_cache"],
                     additional_recipe_rows=st.session_state["new_order"].get("附加配方", []),
                     show_additional_ids=True
                 )
