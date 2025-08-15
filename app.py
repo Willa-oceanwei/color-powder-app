@@ -1383,104 +1383,94 @@ elif menu == "生產單管理":
             selected_row = None if selected_label in ("請選擇", "（無符合配方）") else option_map.get(selected_label)
     
     if add_btn:
-        if selected_label in ("請選擇", "（無符合配方）") or not selected_row:
+        if selected_label is None or selected_label == "請選擇" or selected_label == "（無符合配方）":
             st.warning("請先選擇有效配方")
-        elif selected_row.get("狀態") == "停用":
-            st.warning("⚠️ 此配方已停用，請勿使用")
-            st.stop()
         else:
-            # 初始化 order
-            order = {}
-            today_str = datetime.now().strftime("%Y%m%d")
-            df_all_orders = st.session_state.df_order.copy()
-            count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
-            new_id = f"{today_str}-{count_today + 1:03}"
+            if selected_row.get("狀態") == "停用":
+                st.warning("⚠️ 此配方已停用，請勿使用")
+                st.stop()
+            else:
+                # 初始化新訂單
+                order = st.session_state.get("new_order", {})
+                if not isinstance(order, dict):
+                    order = {}
     
-            # 寫入主配方欄位
-            order["生產單號"] = new_id
-            order["生產日期"] = datetime.now().strftime("%Y-%m-%d")
-            order["建立時間"] = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-            order["配方編號"] = selected_row.get("配方編號", "")
-            order["顏色"] = selected_row.get("顏色", "")
-            order["客戶名稱"] = selected_row.get("客戶名稱", "")
-            order["Pantone 色號"] = selected_row.get("Pantone色號", "")
-            order["計量單位"] = selected_row.get("計量單位", "")
-            order["備註"] = str(selected_row.get("備註", "")).strip()
-            order["重要提醒"] = str(selected_row.get("重要提醒", "")).strip()
-            order["合計類別"] = str(selected_row.get("合計類別", "")).strip()
-
-            # ----------------- 附加配方 -----------------
-            df_recipe_safe = st.session_state.df_recipe.copy()
-            if "原始配方" not in df_recipe_safe.columns:
-                df_recipe_safe["原始配方"] = ""
-            df_recipe_safe["_原始配方標準"] = df_recipe_safe["原始配方"].map(lambda x: fix_leading_zero(clean_powder_id(str(x))))
-            main_recipe_code = fix_leading_zero(clean_powder_id(order["配方編號"]))
+                # 生成新生產單號
+                df_all_orders = st.session_state.df_order.copy()
+                today_str = datetime.now().strftime("%Y%m%d")
+                count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
+                new_id = f"{today_str}-{count_today + 1:03}"
     
-            additional_recipes = df_recipe_safe[
-                (df_recipe_safe["配方類別"] == "附加配方") &
-                (df_recipe_safe["_原始配方標準"] == main_recipe_code)
-            ]
-    
-            order["附加配方"] = [
-                {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
-                for _, row in additional_recipes.iterrows()
-            ]
-    
-            # 存回 session_state，並顯示表單
-            st.session_state.new_order = order
-            st.session_state.recipe_row_cache = selected_row  # 保存主配方資料
-            st.session_state.show_confirm_panel = True
-    
-            # ----------------- 附加配方（安全版） -----------------
-            matched_additional = pd.DataFrame()  # 預設空 DataFrame
-            recipe_id = order.get("配方編號", "").strip()
-            if recipe_id:
-                df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
-                
-                # 確保有原始配方欄位
-                if "原始配方" not in df_recipe.columns:
-                    df_recipe["原始配方"] = ""
-                
-                # 建立臨時標準化欄位，不改原始資料
-                df_recipe["_原始配方標準"] = df_recipe["原始配方"].map(
-                    lambda x: fix_leading_zero(clean_powder_id(str(x)))
-                )
-                
-                # 標準化主配方編號
-                main_recipe_code = fix_leading_zero(clean_powder_id(recipe_id))
-                
-                # 取出附加配方
-                matched_additional = df_recipe[
+                # 查找附加配方
+                main_recipe_code = str(selected_row.get("配方編號", "")).strip()
+                df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
+                df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).str.strip()
+                附加配方 = df_recipe[
                     (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["_原始配方標準"] == main_recipe_code)
+                    (df_recipe["原始配方"] == main_recipe_code)
                 ]
-            
-            # 寫入 order
-            order["附加配方"] = [
-                {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
-                for _, row in matched_additional.iterrows()
-            ]
     
-            # ----------------- 整合色粉編號與重量 -----------------
-            all_colorants = []
-            for i in range(1, 9):
-                id_key = f"色粉編號{i}"
-                wt_key = f"色粉重量{i}"
-                id_val = selected_row.get(id_key, "")
-                wt_val = selected_row.get(wt_key, "")
-                if id_val or wt_val:
-                    all_colorants.append((id_val, wt_val))
-            for _, sub in matched_additional.iterrows():
+                # 整合色粉：主配方 + 附加配方
+                all_colorants = []
                 for i in range(1, 9):
                     id_key = f"色粉編號{i}"
                     wt_key = f"色粉重量{i}"
-                    id_val = sub.get(id_key, "")
-                    wt_val = sub.get(wt_key, "")
+                    id_val = selected_row.get(id_key, "")
+                    wt_val = selected_row.get(wt_key, 0)
                     if id_val or wt_val:
                         all_colorants.append((id_val, wt_val))
     
-            st.session_state.new_order = order
-            st.rerun()
+                for _, sub in 附加配方.iterrows():
+                    for i in range(1, 9):
+                        id_key = f"色粉編號{i}"
+                        wt_key = f"色粉重量{i}"
+                        id_val = sub.get(id_key, "")
+                        wt_val = sub.get(wt_key, 0)
+                        if id_val or wt_val:
+                            all_colorants.append((id_val, wt_val))
+    
+                # 填入訂單詳細欄位
+                order.update({
+                    "生產單號": new_id,
+                    "生產日期": datetime.now().strftime("%Y-%m-%d"),
+                    "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
+                    "配方編號": selected_row.get("配方編號", ""),
+                    "顏色": selected_row.get("顏色", ""),
+                    "客戶名稱": selected_row.get("客戶名稱", ""),
+                    "Pantone 色號": selected_row.get("Pantone色號", ""),
+                    "計量單位": selected_row.get("計量單位", ""),
+                    "備註": str(selected_row.get("備註", "")).strip(),
+                    "重要提醒": str(selected_row.get("重要提醒", "")).strip(),
+                    "合計類別": str(selected_row.get("合計類別", "")).strip(),
+                    "色粉類別": selected_row.get("色粉類別", "").strip(),
+                })
+    
+                # 填入包裝重量與份數 (測試值可先固定)
+                test_weights = [0.5, 1, 2, 0]
+                test_counts = [1, 1, 1, 0]
+                for i in range(1, 5):
+                    order[f"包裝重量{i}"] = float(order.get(f"包裝重量{i}", test_weights[i-1]))
+                    order[f"包裝份數{i}"] = float(order.get(f"包裝份數{i}", test_counts[i-1]))
+    
+                # 填入色粉編號與重量
+                for i in range(1, 9):
+                    id_key = f"色粉編號{i}"
+                    wt_key = f"色粉重量{i}"
+                    if i <= len(all_colorants):
+                        id_val, wt_val = all_colorants[i-1]
+                        order[id_key] = id_val or ""
+                        try:
+                            order[wt_key] = float(wt_val)
+                        except:
+                            order[wt_key] = 0
+                    else:
+                        order[id_key] = ""
+                        order[wt_key] = 0
+    
+                st.session_state["new_order"] = order
+                st.session_state["show_confirm_panel"] = True
+    
+                st.rerun()
                               
     # ===== 自訂函式：產生生產單列印格式 =====
     def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
