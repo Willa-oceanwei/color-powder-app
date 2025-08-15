@@ -1165,7 +1165,7 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
 
-    # --- 生產單分頁 ----------------------------------------------------
+# --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
     st.markdown("""
     <style>
@@ -1181,69 +1181,64 @@ elif menu == "生產單管理":
     st.markdown('<div class="big-title">🚀生產單建立</div>', unsafe_allow_html=True)
 
     from pathlib import Path
-    from datetime import datetime
     from datetime import datetime, timedelta
     import pandas as pd
 
     # 建立資料夾（若尚未存在）
     Path("data").mkdir(parents=True, exist_ok=True)
-
     order_file = Path("data/df_order.csv")
 
-    # 清理函式：去除空白、全形空白，轉大寫
+    # ----------------- 工具函式 -----------------
     def clean_powder_id(x):
         if pd.isna(x) or x == "":
             return ""
         return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
-    
-    # 補足前導零（僅針對純數字且長度<4的字串）
+
     def fix_leading_zero(x):
         x = str(x).strip()
         if x.isdigit() and len(x) < 4:
             x = x.zfill(4)
         return x.upper()
-        
+
     def normalize_search_text(text):
         return fix_leading_zero(clean_powder_id(text))
-    
-    # 先嘗試取得 Google Sheet 兩個工作表 ws_recipe、ws_order
+
+    def format_option(r):
+        label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
+        if r.get("配方類別", "") == "附加配方":
+            label += "（附加配方）"
+        return label
+
+    # ----------------- 讀取 Google Sheet -----------------
     try:
         ws_recipe = spreadsheet.worksheet("配方管理")
         ws_order = spreadsheet.worksheet("生產單")
     except Exception as e:
         st.error(f"❌ 無法載入工作表：{e}")
         st.stop()
-    
+
     # ---------- 載入配方管理表 ----------
     try:
-        records = ws_recipe.get_all_records()
-        df_recipe = pd.DataFrame(records)
+        df_recipe = pd.DataFrame(ws_recipe.get_all_records())
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
-    
-        # 清理主要欄位
         if "配方編號" in df_recipe.columns:
             df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x))))
         if "客戶名稱" in df_recipe.columns:
             df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
         if "原始配方" in df_recipe.columns:
             df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
-    
-        # 建立標準化欄位
+
         if "原始配方_標準" not in df_recipe.columns:
-            if "原始配方" in df_recipe.columns:
-                df_recipe["原始配方_標準"] = df_recipe["原始配方"].map(lambda x: fix_leading_zero(str(x)))
-            else:
-                df_recipe["原始配方_標準"] = ""
-    
+            df_recipe["原始配方_標準"] = df_recipe["原始配方"].map(lambda x: fix_leading_zero(str(x)))
         df_recipe["原始配方_標準"] = df_recipe["原始配方_標準"].astype(str)
         st.session_state.df_recipe = df_recipe
-    
+
     except Exception as e:
         st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
         st.stop()
-    
-    # 載入生產單表
+
+    # ---------- 載入生產單表 ----------
     try:
         existing_values = ws_order.get_all_values()
         if existing_values:
@@ -1270,65 +1265,17 @@ elif menu == "生產單管理":
         else:
             st.error(f"❌ 無法讀取生產單資料：{e}")
             st.stop()
-    
+
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
-    
-    # 轉換時間欄位與配方編號欄清理
-    if "建立時間" in df_order.columns:
-        df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
-    if "配方編號" in df_order.columns:
-        df_order["配方編號"] = df_order["配方編號"].map(clean_powder_id)
-    
-    # 初始化 session_state 用的 key
+
+    # ---------- 初始化 session_state ----------
     for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "show_confirm_panel"]:
         if key not in st.session_state:
             st.session_state[key] = None if key != "order_page" else 1
-    
-    def format_option(r):
-        label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
-        if r.get("配方類別", "") == "附加配方":
-            label += "（附加配方）"
-        return label
-    
-    # 先定義清理函式
-    def clean_powder_id(x):
-        if pd.isna(x) or x == "":
-            return ""
-        return str(x).strip().upper()  # 去除空白+轉大寫
-    
-    # 載入配方管理表時做清理（載入區塊示範）
-    try:
-        records = ws_recipe.get_all_records()
-        df_recipe = pd.DataFrame(records)
-        df_recipe.columns = df_recipe.columns.str.strip()
-        df_recipe.fillna("", inplace=True)
-        if "配方編號" in df_recipe.columns:
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
-        st.session_state.df_recipe = df_recipe
-    except Exception as e:
-        st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
-        st.stop()
-    
-    df_recipe = st.session_state.df_recipe
 
-    def clean_powder_id(x):
-        if pd.isna(x) or x == "":
-            return ""
-        return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
-    
-    def fix_leading_zero(x):
-        x = str(x).strip()
-        if x.isdigit() and len(x) < 4:
-            x = x.zfill(4)
-        return x.upper()
-    
-    def normalize_search_text(text):
-        return fix_leading_zero(clean_powder_id(text))
-    
-    # Streamlit UI 搜尋表單==========================
+    # ==================== Streamlit UI: 搜尋 & 新增 ====================
     st.subheader("🔎 配方搜尋與新增生產單")
-
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4, 1, 1])
         with col1:
@@ -1337,16 +1284,12 @@ elif menu == "生產單管理":
             exact = st.checkbox("精確搜尋", key="exact_search")
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
-    
-        # 資料預處理
-        df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
-        df_recipe["客戶名稱"] = df_recipe["客戶名稱"].astype(str)
+
         search_text = search_text.strip()
-    
         if search_text:
             if exact:
                 filtered = df_recipe[
-                    (df_recipe["配方編號"] == search_text) | 
+                    (df_recipe["配方編號"] == search_text) |
                     (df_recipe["客戶名稱"] == search_text)
                 ]
             else:
@@ -1356,10 +1299,8 @@ elif menu == "生產單管理":
                 ]
         else:
             filtered = df_recipe.copy()
-    
-        filtered = filtered.copy()  # 確保不修改原始 df
-    
-        # 產生選項
+
+        filtered = filtered.copy()
         if not filtered.empty:
             filtered["label"] = filtered.apply(format_option, axis=1)
             option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
@@ -1367,8 +1308,7 @@ elif menu == "生產單管理":
         else:
             option_map = {}
             select_options = ["（無符合配方）"]
-    
-        # 單筆自動選取
+
         if len(option_map) == 1:
             selected_label = list(option_map.keys())[0]
             selected_row = option_map[selected_label]
@@ -1381,55 +1321,82 @@ elif menu == "生產單管理":
                 key="search_add_form_selected_recipe"
             )
             selected_row = None if selected_label in ("請選擇", "（無符合配方）") else option_map.get(selected_label)
-    
+
+    # ==================== 新增按鈕事件 ====================
     if add_btn:
         if selected_label in ("請選擇", "（無符合配方）") or not selected_row:
             st.warning("請先選擇有效配方")
+            st.stop()
         elif selected_row.get("狀態") == "停用":
             st.warning("⚠️ 此配方已停用，請勿使用")
             st.stop()
-        else:
-            # 初始化 order
-            order = {}
-            today_str = datetime.now().strftime("%Y%m%d")
-            df_all_orders = st.session_state.df_order.copy()
-            count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
-            new_id = f"{today_str}-{count_today + 1:03}"
     
-            # 寫入主配方欄位
-            order["生產單號"] = new_id
-            order["生產日期"] = datetime.now().strftime("%Y-%m-%d")
-            order["建立時間"] = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-            order["配方編號"] = selected_row.get("配方編號", "")
-            order["顏色"] = selected_row.get("顏色", "")
-            order["客戶名稱"] = selected_row.get("客戶名稱", "")
-            order["Pantone 色號"] = selected_row.get("Pantone色號", "")
-            order["計量單位"] = selected_row.get("計量單位", "")
-            order["備註"] = str(selected_row.get("備註", "")).strip()
-            order["重要提醒"] = str(selected_row.get("重要提醒", "")).strip()
-            order["合計類別"] = str(selected_row.get("合計類別", "")).strip()
+        # ---------- 初始化 order ----------
+        order = {}
+        today_str = datetime.now().strftime("%Y%m%d")
+        df_all_orders = st.session_state.df_order.copy()
+        count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
+        new_id = f"{today_str}-{count_today + 1:03}"
+    
+        # ---------- 主配方欄位 ----------
+        order["生產單號"] = new_id
+        order["生產日期"] = datetime.now().strftime("%Y-%m-%d")
+        order["建立時間"] = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+        order["配方編號"] = selected_row.get("配方編號", "")
+        order["顏色"] = selected_row.get("顏色", "")
+        order["客戶名稱"] = selected_row.get("客戶名稱", "")
+        order["Pantone 色號"] = selected_row.get("Pantone色號", "")
+        order["計量單位"] = selected_row.get("計量單位", "")
+        order["備註"] = str(selected_row.get("備註", "")).strip()
+        order["重要提醒"] = str(selected_row.get("重要提醒", "")).strip()
+        order["合計類別"] = str(selected_row.get("合計類別", "")).strip()
+    
+        # ---------- 附加配方安全版 ----------
+        df_recipe_safe = st.session_state.df_recipe.copy()
+        if "原始配方" not in df_recipe_safe.columns:
+            df_recipe_safe["原始配方"] = ""
+        df_recipe_safe["_原始配方標準"] = df_recipe_safe["原始配方"].map(
+            lambda x: fix_leading_zero(clean_powder_id(str(x)))
+        )
+        main_recipe_code = fix_leading_zero(clean_powder_id(order["配方編號"]))
+        matched_additional = df_recipe_safe[
+            (df_recipe_safe["配方類別"] == "附加配方") &
+            (df_recipe_safe["_原始配方標準"] == main_recipe_code)
+        ]
+        order["附加配方"] = [
+            {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
+            for _, row in matched_additional.iterrows()
+        ]
+    
+        # ---------- 整合色粉編號與重量 ----------
+        all_colorants = []
+        # 主配方
+        for i in range(1, 9):
+            id_key = f"色粉編號{i}"
+            wt_key = f"色粉重量{i}"
+            id_val = selected_row.get(id_key, "")
+            wt_val = selected_row.get(wt_key, "")
+            if id_val or wt_val:
+                all_colorants.append((id_val, wt_val))
+        # 附加配方
+        for _, sub in matched_additional.iterrows():
+            for i in range(1, 9):
+                id_key = f"色粉編號{i}"
+                wt_key = f"色粉重量{i}"
+                id_val = sub.get(id_key, "")
+                wt_val = sub.get(wt_key, "")
+                if id_val or wt_val:
+                    all_colorants.append((id_val, wt_val))
+        
+        order["色粉列表"] = all_colorants  # 可用於列印或計算合計
+    
+        # ---------- 寫回 session_state ----------
+        st.session_state.new_order = order
+        st.session_state.recipe_row_cache = selected_row
+        st.session_state.show_confirm_panel = True
+        st.success(f"✅ 已建立新生產單：{new_id}")
+        st.rerun()
 
-            # ----------------- 附加配方 -----------------
-            df_recipe_safe = st.session_state.df_recipe.copy()
-            if "原始配方" not in df_recipe_safe.columns:
-                df_recipe_safe["原始配方"] = ""
-            df_recipe_safe["_原始配方標準"] = df_recipe_safe["原始配方"].map(lambda x: fix_leading_zero(clean_powder_id(str(x))))
-            main_recipe_code = fix_leading_zero(clean_powder_id(order["配方編號"]))
-    
-            additional_recipes = df_recipe_safe[
-                (df_recipe_safe["配方類別"] == "附加配方") &
-                (df_recipe_safe["_原始配方標準"] == main_recipe_code)
-            ]
-    
-            order["附加配方"] = [
-                {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
-                for _, row in additional_recipes.iterrows()
-            ]
-    
-            # 存回 session_state，並顯示表單
-            st.session_state.new_order = order
-            st.session_state.recipe_row_cache = selected_row  # 保存主配方資料
-            st.session_state.show_confirm_panel = True
     
             # ----------------- 附加配方（安全版） -----------------
             matched_additional = pd.DataFrame()  # 預設空 DataFrame
