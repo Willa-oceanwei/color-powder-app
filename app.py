@@ -201,21 +201,29 @@ def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_
     packing_indent = " " * 14
     lines.append(f"<b>{packing_indent + ' '.join(pack_line)}</b>")
 
-    # ===== 主配方色粉列（不乘100，空欄位不顯示0） =====
-    powder_label_width = 12
-    number_col_width = 6
+    # ===== 主配方色粉列（保留格式間距，空欄不顯示0） =====
+    powder_label_width = 12  # 色粉編號欄位寬度
+    number_col_width = 6     # 數值欄位寬度
+    column_offsets = [2, 2, 2, 2]  # 各包裝列偏移空格，可調整間距
+    
     for idx in range(8):
         c_id = recipe_row.get(f"色粉編號{idx+1}", "")
         if not c_id:
             continue
-        c_id_str = str(c_id)  # 轉字串，避免 int.ljust 錯誤
+        c_id_str = str(c_id).ljust(powder_label_width)
         val = recipe_row.get(f"色粉重量{idx+1}", "")
         if val in [None, "", 0, 0.0]:
-            val_str = ""
+            val_strs = [""] * 4
         else:
             val_float = float(val)
             val_str = str(int(val_float)) if val_float.is_integer() else f"{val_float:.3f}".rstrip('0').rstrip('.')
-        row = f"<b>{c_id_str.ljust(powder_label_width)}</b><b class='num'>{val_str:>{number_col_width}}</b>"
+            val_strs = [val_str] + [""] * 3  # 只顯示在第一欄，其他欄留空
+    
+        # 依照 column_offsets 調整間距
+        row = c_id_str
+        for col_idx in range(4):
+            offset = " " * column_offsets[col_idx]
+            row += offset + f"{val_strs[col_idx]:>{number_col_width}}"
         lines.append(row)
 
     # ---- 非色母橫線 ----
