@@ -249,7 +249,7 @@ def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_
     packing_indent = " " * 14  # 與包裝列對齊
     
     total_type_display = f"<b>{total_type.ljust(total_type_width)}</b>"
-    total_line = f"{packing_indent}{total_type_display}  {remaining_str:>{number_col_width}}"
+    total_line = f"{total_type_display}{' ' * 3}{remaining_str:>{number_col_width}}"
     
     lines.append(total_line)
     # ===== 備註 =====
