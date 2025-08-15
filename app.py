@@ -187,7 +187,7 @@ def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_
 
     # 包裝重量與份數
     packing_weights = [
-        100 if i == 0 else float(order.get(f"包裝重量{i+1}", 0) or 0)  # 色母固定包裝重量1 = 100
+        100 if i == 0 else float(order.get(f"包裝重量{i+1}", 0) or 0)  # 色母顯示 100K
         for i in range(4)
     ]
     packing_counts = [
@@ -228,19 +228,14 @@ def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_
         w = packing_weights[i]
         c = packing_counts[i]
         if w > 0 or c > 0:
-            if i == 0:  # 色母固定包裝重量1
-                real_w = 100
-                unit_str = f"{int(real_w)}K"
+            if i == 0:  # 色母固定顯示 100K
+                text = f"100K × {int(c)}"
             else:
-                real_w = w
-                unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
-
-            count_str = str(int(c)) if c == int(c) else str(c)
-            text = f"{unit_str} × {count_str}"
-            pack_line.append(f"{text}")
-
+                text = f"{int(w)}kg × {int(c)}"
+            pack_line.append(f"{text:<11}")  # 固定欄寬對齊
+    
     packing_indent = " " * 14
-    lines.append(f"<b>{packing_indent + ' '.join(pack_line)}</b>")
+    lines.append(f"<b>{packing_indent}{''.join(pack_line)}</b>")
 
     # ===== 主配方色粉列 =====
     for idx in range(8):
