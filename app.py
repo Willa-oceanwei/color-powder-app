@@ -1486,10 +1486,11 @@ elif menu == "生產單管理":
     
         # ---------- 列印 HTML（安全呼叫） ----------
         try:
-            print_html = generate_print_page_content(
+            print_html = generate_production_order_print_integrated(
                 order=order,
                 recipe_row=recipe_row,
-                additional_recipe_rows=additional_recipes
+                additional_recipe_rows=additional_recipes,
+                show_additional_ids=True
             )
         except Exception as e:
             st.error(f"❌ 產生列印內容失敗：{e}")
