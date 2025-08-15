@@ -1763,69 +1763,69 @@ elif menu == "生產單管理":
     
     # 修改 / 刪除 / A5 下載三欄按鈕橫排
     # ---------- 修改 / 刪除 / A5 下載三欄按鈕橫排 ----------
-cols_mod = st.columns([1, 1, 1])
-selected_code_edit = st.session_state.get("selected_code_edit", None)
-
-# ------------------ 清單列表 A5（有色母特殊處理） ------------------
-with cols_mod[0]:
-        if selected_code_edit:
-            order_row = df_order[df_order["生產單號"] == selected_code_edit]
-            if not order_row.empty:
-                order_dict = order_row.iloc[0].to_dict()
-                recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
-                if not recipe_rows.empty:
-                    recipe_row = recipe_rows.iloc[0]
+    cols_mod = st.columns([1, 1, 1])
+    selected_code_edit = st.session_state.get("selected_code_edit", None)
     
-                    try:
-                        print_html, _ = generate_production_order_print_integrated(
-                            order=order_dict,
-                            recipe_row=recipe_row,
-                            additional_recipe_rows=order_dict.get("附加配方", []),
-                            show_additional_ids=True
+    # ------------------ 清單列表 A5（有色母特殊處理） ------------------
+    with cols_mod[0]:
+            if selected_code_edit:
+                order_row = df_order[df_order["生產單號"] == selected_code_edit]
+                if not order_row.empty:
+                    order_dict = order_row.iloc[0].to_dict()
+                    recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
+                    if not recipe_rows.empty:
+                        recipe_row = recipe_rows.iloc[0]
+        
+                        try:
+                            print_html, _ = generate_production_order_print_integrated(
+                                order=order_dict,
+                                recipe_row=recipe_row,
+                                additional_recipe_rows=order_dict.get("附加配方", []),
+                                show_additional_ids=True
+                            )
+                        except Exception as e:
+                            st.error(f"❌ 產生列印內容失敗：{e}")
+                            print_html = ""
+        
+                        st.download_button(
+                            label="📥 下載清單列表 A5 HTML",
+                            data=print_html.encode("utf-8"),
+                            file_name=f"{order_dict['生產單號']}_A5_列表列印.html",
+                            mime="text/html"
                         )
-                    except Exception as e:
-                        st.error(f"❌ 產生列印內容失敗：{e}")
-                        print_html = ""
-    
-                    st.download_button(
-                        label="📥 下載清單列表 A5 HTML",
-                        data=print_html.encode("utf-8"),
-                        file_name=f"{order_dict['生產單號']}_A5_列表列印.html",
-                        mime="text/html"
-                    )
-    
+        
     with cols_mod[1]:
-        if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
-            row = df_order[df_order["生產單號"] == selected_code_edit]
-            if not row.empty:
-                st.session_state.editing_order = row.iloc[0].to_dict()
-                st.session_state.show_edit_panel = True
-            else:
-                st.warning("找不到該筆生產單")
-    
-    with cols_mod[2]:
-        if st.button("🗑️ 刪除", key="delete_button_1") and selected_code_edit:
-            try:
-                cell = ws_order.find(selected_code_edit)
-                if cell:
-                    ws_order.delete_rows(cell.row)
-                    st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
+            if st.button("✏️ 修改", key="edit_button_1") and selected_code_edit:
+                row = df_order[df_order["生產單號"] == selected_code_edit]
+                if not row.empty:
+                    st.session_state.editing_order = row.iloc[0].to_dict()
+                    st.session_state.show_edit_panel = True
                 else:
-                    st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
-            except Exception as e:
-                st.error(f"Google Sheets 刪除錯誤：{e}")
-    
-            # 同步刪除本地資料
-            df_order = df_order[df_order["生產單號"] != selected_code_edit]
-            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-            st.session_state.df_order = df_order
-            st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
-    
-            # 清理狀態並重新整理
-            st.session_state.pop("selected_code_edit", None)
-            st.session_state.show_edit_panel = False
-            st.session_state.editing_order = None
-            st.experimental_rerun()    
+                    st.warning("找不到該筆生產單")
+        
+    with cols_mod[2]:
+            if st.button("🗑️ 刪除", key="delete_button_1") and selected_code_edit:
+                try:
+                    cell = ws_order.find(selected_code_edit)
+                    if cell:
+                        ws_order.delete_rows(cell.row)
+                        st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
+                    else:
+                        st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
+                except Exception as e:
+                    st.error(f"Google Sheets 刪除錯誤：{e}")
+        
+                # 同步刪除本地資料
+                df_order = df_order[df_order["生產單號"] != selected_code_edit]
+                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                st.session_state.df_order = df_order
+                st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
+        
+                # 清理狀態並重新整理
+                st.session_state.pop("selected_code_edit", None)
+                st.session_state.show_edit_panel = False
+                st.session_state.editing_order = None
+                st.experimental_rerun()        
     
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
