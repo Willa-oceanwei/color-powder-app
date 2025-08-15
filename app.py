@@ -1482,7 +1482,6 @@ elif menu == "生產單管理":
             st.session_state.new_order = order
             st.rerun()
             
-    from some_module import generate_production_order_print                    
     # ===== 自訂函式：產生生產單列印格式 =====      
     # ===== 整合版：新增生產單 A5 列印 =====
     def generate_production_order_print_integrated(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
