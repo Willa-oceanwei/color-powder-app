@@ -1508,6 +1508,24 @@ elif menu == "生產單管理":
         ]
         
         # 產生列印用的包裝重量顯示
+        packing_weights = []
+        packing_counts = []
+        
+        for i in range(1, 5):
+            # 安全轉換浮點數，避免 isdigit() 導致 "0.5" 讀錯
+            try:
+                w = float(order.get(f"包裝重量{i}", 0))
+            except:
+                w = 0
+            packing_weights.append(w)
+        
+            try:
+                c = float(order.get(f"包裝份數{i}", 0))
+            except:
+                c = 0
+            packing_counts.append(c)
+        
+        # 產生列印用的包裝重量顯示
         packing_weights_display = []
         for w in packing_weights:
             if category == "色母":
@@ -1515,15 +1533,16 @@ elif menu == "生產單管理":
                 display = f"{w * 100:.0f}K" if w > 0 else ""
             else:
                 # 色粉：公斤 × 配方倍數 (ratio)
-                display = f"{w * float(ratio):.2f}" if w > 0 else ""
+                try:
+                    ratio_val = float(ratio)
+                except:
+                    ratio_val = 1
+                display = f"{w * ratio_val:.2f}" if w > 0 else ""
             packing_weights_display.append(display)
         
-        packing_counts = [
-            float(order.get(f"包裝份數{i}", 0)) if str(order.get(f"包裝份數{i}", "")).replace(".", "", 1).isdigit() else 0
-            for i in range(1, 5)
-        ]
+        # debug
+        print(f"色粉類別: '{category}', packing_weights: {packing_weights}, packing_weights_display: {packing_weights_display}, packing_counts: {packing_counts}")
 
-        print(f"色粉類別: '{category}', 包裝重量1: {packing_weights[0]}")
 
         # 這裡初始化 colorant_ids 和 colorant_weights
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
