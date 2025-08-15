@@ -214,7 +214,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
                 val = add_weights[j]
                 if not c_id or val == 0:
                     continue
-                row = c_id.ljust(powder_label_width)
+                row = str(c_id).ljust(powder_label_width)
                 for k in range(4):
                     val_mult = val * multipliers[k] if multipliers[k] else 0
                     val_str = str(int(val_mult)) if val_mult.is_integer() else f"{val_mult:.3f}".rstrip('0').rstrip('.') if val_mult else ""
