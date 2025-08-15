@@ -1495,6 +1495,19 @@ elif menu == "生產單管理":
         # ✅ 舊資料相容處理：「原料」統一轉成「料」
         if total_type == "原料":
             total_type = "料"
+
+        # 🔍 Debug 印出原始資料
+        print("=== DEBUG ORDER ===")
+        for i in range(1, 5):
+            print(f"包裝重量{i}:", order.get(f"包裝重量{i}"))
+            print(f"包裝份數{i}:", order.get(f"包裝份數{i}"))
+        print("色粉類別:", category)
+        print("計量單位:", unit)
+        print("=== DEBUG RECIPE ===")
+        for i in range(1, 9):
+            print(f"色粉編號{i}:", recipe_row.get(f"色粉編號{i}"))
+            print(f"色粉重量{i}:", recipe_row.get(f"色粉重量{i}"))
+        print("====================")
     
         powder_label_width = 12
         pack_col_width = 11
