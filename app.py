@@ -1965,31 +1965,45 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
-# ---------- 修改 / 刪除 / A5 下載三欄按鈕橫排 ----------
+# ---------- 生產單三欄按鈕區塊（A5下載/修改/刪除） ----------
 import streamlit as st
 import pandas as pd
+import os
 
 def render_production_order_buttons(
     df_order: pd.DataFrame,
     df_recipe: pd.DataFrame,
     selected_code_edit: str,
     ws_order=None,
-    order_file=None
+    order_file=None,
+    current_page=None
 ):
+    """
+    僅在生產單分頁使用的三欄按鈕區塊：
+    - 下載清單列表 A5 HTML
+    - 修改
+    - 刪除（同步 Google Sheets + 本地 CSV）
+    """
+    # 僅在生產單分頁渲染
+    if current_page != "生產單管理":
+        return
+
     print_html = ""  # 初始化
 
-    # 檢查資料
+    # 基本資料檢查
     if df_order.empty or "生產單號" not in df_order.columns:
         st.warning("❌ 尚未載入生產單資料或欄位錯誤")
         return
-
     if df_recipe.empty or "配方編號" not in df_recipe.columns:
         st.warning("❌ 尚未載入配方資料或欄位錯誤")
         return
-
     if not selected_code_edit:
         st.info("請先選擇生產單")
         return
+
+    # Debug
+    st.write("Debug selected_code_edit:", selected_code_edit)
+    st.write("Debug df_order 生產單號列表:", df_order["生產單號"].tolist())
 
     cols_mod = st.columns([1, 1, 1])
 
@@ -2026,12 +2040,15 @@ def render_production_order_buttons(
                     st.error(f"❌ 產生列印內容失敗：{e}")
                     print_html = ""
 
-                st.download_button(
-                    label="📥 下載清單列表 A5 HTML",
-                    data=print_html.encode("utf-8"),
-                    file_name=f"{order_dict['生產單號']}_A5_列表列印.html",
-                    mime="text/html"
-                )
+                if print_html:
+                    st.download_button(
+                        label="📥 下載清單列表 A5 HTML",
+                        data=print_html.encode("utf-8"),
+                        file_name=f"{order_dict['生產單號']}_A5_列表列印.html",
+                        mime="text/html"
+                    )
+                else:
+                    st.info("⚠️ 尚未產生列印內容")
 
     # ---------- 修改 ----------
     with cols_mod[1]:
@@ -2062,6 +2079,7 @@ def render_production_order_buttons(
 
             # 同步刪除本地資料
             df_order = df_order[df_order["生產單號"].astype(str) != str(selected_code_edit)]
+            os.makedirs(os.path.dirname(order_file), exist_ok=True)
             df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
             st.session_state.df_order = df_order
             st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
