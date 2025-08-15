@@ -1881,12 +1881,28 @@ elif menu == "生產單管理":
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
 import pandas as pd
+import traceback
+import streamlit as st
 
-# ---------- 確認 df_order ----------
+# ---------- 取得或載入生產單資料 ----------
 df_order = st.session_state.get("df_order")
 if df_order is None:
-    st.warning("❌ 生產單資料尚未載入")
-    df_order = pd.DataFrame()
+    try:
+        df_order = pd.read_csv(order_file, dtype=str)  # order_file 需事先定義
+        st.session_state.df_order = df_order
+    except Exception as e:
+        st.error(f"❌ 無法載入生產單資料：{e}")
+        df_order = pd.DataFrame()
+
+# ---------- 取得或載入配方資料 ----------
+df_recipe = st.session_state.get("df_recipe")
+if df_recipe is None:
+    try:
+        df_recipe = pd.read_csv(recipe_file, dtype=str)  # recipe_file 需事先定義
+        st.session_state.df_recipe = df_recipe
+    except Exception as e:
+        st.error(f"❌ 無法載入配方資料：{e}")
+        df_recipe = pd.DataFrame()
 
 selected_code_edit = st.session_state.get("selected_code_edit", None)
 
@@ -1901,7 +1917,10 @@ with cols_mod[0]:
             order_dict = order_row.iloc[0].to_dict()
 
             # 安全取得 recipe_row
-            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
+            recipe_rows = pd.DataFrame()
+            if not df_recipe.empty and "配方編號" in df_recipe.columns:
+                recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
+
             if not recipe_rows.empty:
                 recipe_row = recipe_rows.iloc[0]
                 category = str(recipe_row.get("色粉類別", "")).strip()
@@ -1922,7 +1941,6 @@ with cols_mod[0]:
                             show_additional_ids=True
                         )
                 except Exception as e:
-                    import traceback
                     st.error(f"❌ 產生列印內容失敗：{e}\n{traceback.format_exc()}")
                     print_html = ""
 
