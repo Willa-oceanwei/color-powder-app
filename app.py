@@ -1970,83 +1970,73 @@ import streamlit as st
 import pandas as pd
 import os
 
-def render_production_order_buttons(
-    df_order: pd.DataFrame,
-    df_recipe: pd.DataFrame,
-    selected_code_edit: str,
-    ws_order=None,
-    order_file=None,
-    current_page=None
-):
-    """
-    僅在生產單分頁使用的三欄按鈕區塊：
-    - 下載清單列表 A5 HTML
-    - 修改
-    - 刪除（同步 Google Sheets + 本地 CSV）
-    """
-    # 僅在生產單分頁渲染
-    if current_page != "生產單管理":
-        return
+# ---------- 選單區 ----------
+def render_order_selectbox(df_order):
+    options = df_order["生產單號"].astype(str).tolist() if not df_order.empty else []
 
-    print_html = ""  # 初始化
+    def update_selected_code():
+        st.session_state.selected_code_edit = st.session_state.select_order_for_edit
 
-    # 基本資料檢查
-    if df_order.empty or "生產單號" not in df_order.columns:
-        st.warning("❌ 尚未載入生產單資料或欄位錯誤")
-        return
-    if df_recipe.empty or "配方編號" not in df_recipe.columns:
-        st.warning("❌ 尚未載入配方資料或欄位錯誤")
-        return
-    if not selected_code_edit:
+    st.selectbox(
+        "選擇生產單號",
+        options=[""] + options,
+        key="select_order_for_edit",
+        on_change=update_selected_code
+    )
+
+# ---------- 三欄按鈕區 ----------
+def render_production_order_buttons(df_order, df_recipe, ws_order=None, order_file=None):
+    selected_code_edit = st.session_state.get("selected_code_edit", None)
+    if not selected_code_edit or df_order.empty or df_recipe.empty:
         st.info("請先選擇生產單")
         return
 
-    cols_mod = st.columns([1, 1, 1])
-    selected_code_edit = st.session_state.get("selected_code_edit", None)
-    
-    # 僅在生產單分頁渲染
-    if current_page == "生產單管理":
-        # ---------- 清單列表 A5（有色母特殊處理） ----------
-        with cols_mod[0]:
-            if selected_code_edit:
-                order_row = df_order[df_order["生產單號"] == selected_code_edit]
-                if not order_row.empty:
-                    order_dict = order_row.iloc[0].to_dict()
-                    recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
-                    if not recipe_rows.empty:
-                        recipe_row = recipe_rows.iloc[0]
-    
-                        category = recipe_row.get("色粉類別", "").strip()
-                        try:
-                            if category == "色母":
-                                print_html = generate_print_page_content_a5_special(
-                                    order=order_dict,
-                                    recipe_row=recipe_row,
-                                    additional_recipe_rows=order_dict.get("附加配方", []),
-                                    show_additional_ids=True
-                                )
-                            else:
-                                print_html = generate_print_page_content(
-                                    order=order_dict,
-                                    recipe_row=recipe_row,
-                                    additional_recipe_rows=order_dict.get("附加配方", []),
-                                    show_additional_ids=True
-                                )
-                        except Exception as e:
-                            st.error(f"❌ 產生列印內容失敗：{e}")
-                            print_html = ""
-    
-                        st.download_button(
-                            label="📥 下載清單列表 A5 HTML",
-                            data=print_html.encode("utf-8"),
-                            file_name=f"{order_dict['生產單號']}_A5_列表列印.html",
-                            mime="text/html"
+    cols_mod = st.columns([1,1,1])
+    print_html = ""
+
+    # ---------- A5 下載 ----------
+    with cols_mod[0]:
+        order_row = df_order[df_order["生產單號"] == selected_code_edit]
+        if order_row.empty:
+            st.info(f"❌ 找不到生產單號 {selected_code_edit}")
+        else:
+            order_dict = order_row.iloc[0].to_dict()
+            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict["配方編號"]]
+            if recipe_rows.empty:
+                st.info(f"❌ 找不到配方編號 {order_dict['配方編號']}")
+            else:
+                recipe_row = recipe_rows.iloc[0]
+                category = recipe_row.get("色粉類別", "").strip()
+                try:
+                    if category == "色母":
+                        print_html = generate_print_page_content_a5_special(
+                            order=order_dict,
+                            recipe_row=recipe_row,
+                            additional_recipe_rows=order_dict.get("附加配方", []),
+                            show_additional_ids=True
                         )
+                    else:
+                        print_html = generate_print_page_content(
+                            order=order_dict,
+                            recipe_row=recipe_row,
+                            additional_recipe_rows=order_dict.get("附加配方", []),
+                            show_additional_ids=True
+                        )
+                except Exception as e:
+                    st.error(f"❌ 產生列印內容失敗：{e}")
+                    print_html = ""
+
+                st.download_button(
+                    label="📥 下載清單列表 A5 HTML",
+                    data=print_html.encode("utf-8"),
+                    file_name=f"{order_dict['生產單號']}_A5_列表列印.html",
+                    mime="text/html"
+                )
 
     # ---------- 修改 ----------
     with cols_mod[1]:
         if st.button("✏️ 修改", key="edit_button_1"):
-            row = df_order[df_order["生產單號"].astype(str) == str(selected_code_edit)]
+            row = df_order[df_order["生產單號"] == selected_code_edit]
             if not row.empty:
                 st.session_state.editing_order = row.iloc[0].to_dict()
                 st.session_state.show_edit_panel = True
@@ -2070,18 +2060,26 @@ def render_production_order_buttons(
             except Exception as e:
                 st.error(f"Google Sheets 刪除錯誤：{e}")
 
-            # 同步刪除本地資料
-            df_order = df_order[df_order["生產單號"].astype(str) != str(selected_code_edit)]
-            os.makedirs(os.path.dirname(order_file), exist_ok=True)
+            df_order = df_order[df_order["生產單號"] != selected_code_edit]
             df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
             st.session_state.df_order = df_order
             st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
 
-            # 清理狀態並重新整理
             st.session_state.pop("selected_code_edit", None)
             st.session_state.show_edit_panel = False
             st.session_state.editing_order = None
             st.experimental_rerun()
+
+# ---------- 使用範例 ----------
+if current_page == "生產單管理":
+    render_order_selectbox(st.session_state.df_order)
+    render_production_order_buttons(
+        st.session_state.df_order,
+        st.session_state.df_recipe,
+        ws_order=ws_order,
+        order_file=order_file
+    )
+
     
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
