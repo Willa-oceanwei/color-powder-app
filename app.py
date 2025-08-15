@@ -1961,6 +1961,7 @@ with cols_mod[0]:
     
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
+        col_edit, _ = st.columns([8, 0.01])
         edit_order = st.session_state.editing_order
         st.markdown("---")
         st.subheader(f"✏️ 修改生產單 {edit_order['生產單號']}")
