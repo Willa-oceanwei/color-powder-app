@@ -1656,29 +1656,9 @@ elif menu == "生產單管理":
         label="📥 下載清單列表 A5 HTML",
         data=str(html_data_a5 or "").encode("utf-8"),
         file_name=f"{order.get('生產單號','')}_A5_列表列印.html",
-        mime="text/html
+        mime="text/html"
     )
 
-# ---------- 下載原本 A5 HTML ----------
-try:
-    html_data = generate_production_order_print_integrated(
-                    order=st.session_state["new_order"],
-                    recipe_row=recipe_row,
-                    additional_recipe_rows=st.session_state["new_order"].get("附加配方", []),
-                    show_additional_ids=True
-                )
-            except Exception as e:
-                st.error(f"❌ 產生列印內容失敗：{e}")
-                html_data = ""
-            
-            st.download_button(
-                label="📥 下載清單列表 A5 HTML",
-                data=(print_html or "").encode("utf-8"),
-                file_name=f"{selected_code_edit}_A5_列表列印.html" if selected_code_edit else "A5_列表列印.html",
-                mime="text/html"
-            )            
-            
-                            
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📑 生產單記錄表")
@@ -1842,9 +1822,10 @@ try:
                     except Exception as e:
                         st.error(f"❌ 產生列印內容失敗：{e}")
                         html_data = ""
+                        
         st.download_button(
             label="📥 下載清單列表 A5 HTML",
-            data=html_data.encode("utf-8"),
+            data=str(html_data or "").encode("utf-8"),
             file_name=f"{selected_code_edit}_A5_列表列印.html" if selected_code_edit else "A5_列表列印.html",
             mime="text/html"
         )
@@ -1871,11 +1852,13 @@ try:
                     st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
             except Exception as e:
                 st.error(f"Google Sheets 刪除錯誤：{e}")
+                
             # 同步刪除本地資料
             df_order = df_order[df_order["生產單號"] != selected_code_edit]
             df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
             st.session_state.df_order = df_order
             st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
+            
             # 清理狀態
             st.session_state.pop("selected_code_edit", None)
             st.session_state.show_edit_panel = False
@@ -1915,19 +1898,6 @@ try:
             st.warning(f"找不到配方編號：{recipe_id}")
             st.stop()
         recipe_row = recipe_rows.iloc[0]
-    
-        # 預覽列印 HTML
-        preview_html = ""
-        try:
-            preview_html, _ = generate_production_order_print_integrated(
-                order=edit_order,
-                recipe_row=recipe_row,
-                additional_recipe_rows=edit_order.get("附加配方", []),
-                show_additional_ids=True
-            )
-        except Exception as e:
-            st.error(f"❌ 產生列印內容失敗：{e}")
-            preview_html = ""
     
         st.download_button(
             label="📄 下載列印 HTML",
