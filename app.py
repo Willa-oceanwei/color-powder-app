@@ -1616,9 +1616,9 @@ elif menu == "生產單管理":
                 html_data = ""
             
             st.download_button(
-                label="📥 下載 A5 HTML",
-                data=html_data.encode("utf-8"),
-                file_name=f"{st.session_state['new_order']['生產單號']}_A5列印.html",
+                label="📥 下載清單列表 A5 HTML",
+                data=(html_data or "").encode("utf-8"),
+                file_name=f"{selected_code_edit}_A5_列表列印.html" if selected_code_edit else "A5_列表列印.html",
                 mime="text/html"
             )
                             
