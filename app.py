@@ -208,13 +208,14 @@ def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_
         c_id = recipe_row.get(f"色粉編號{idx+1}", "")
         if not c_id:
             continue
+        c_id_str = str(c_id)  # 轉字串，避免 int.ljust 錯誤
         val = recipe_row.get(f"色粉重量{idx+1}", "")
         if val in [None, "", 0, 0.0]:
             val_str = ""
         else:
             val_float = float(val)
             val_str = str(int(val_float)) if val_float.is_integer() else f"{val_float:.3f}".rstrip('0').rstrip('.')
-        row = f"<b>{c_id.ljust(powder_label_width)}</b><b class='num'>{val_str:>{number_col_width}}</b>"
+        row = f"<b>{c_id_str.ljust(powder_label_width)}</b><b class='num'>{val_str:>{number_col_width}}</b>"
         lines.append(row)
 
     # ---- 非色母橫線 ----
@@ -242,13 +243,14 @@ def generate_print_page_content_a5_special(order, recipe_row, additional_recipe_
                 c_id = sub.get(f"色粉編號{i+1}", "")
                 if not c_id:
                     continue
+                c_id_str = str(c_id)
                 val = sub.get(f"色粉重量{i+1}", "")
                 if val in [None, "", 0, 0.0]:
                     val_str = ""
                 else:
                     val_float = float(val)
                     val_str = str(int(val_float)) if val_float.is_integer() else f"{val_float:.3f}".rstrip('0').rstrip('.')
-                row = f"<b>{c_id.ljust(powder_label_width)}</b><b class='num'>{val_str:>{number_col_width}}</b>"
+                row = f"<b>{c_id_str.ljust(powder_label_width)}</b><b class='num'>{val_str:>{number_col_width}}</b>"
                 lines.append(row)
 
     # ===== 備註 =====
