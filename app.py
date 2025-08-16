@@ -91,6 +91,13 @@ def init_states(keys=None):
             else:
                 st.session_state[key] = None
 
+# ===== 安全轉數字 =====
+def safe_float(val):
+    try:
+        return float(str(val).strip()) if val not in [None, ""] else 0.0
+    except:
+        return 0.0
+
 # ===== 整合版自訂函式：新增生產單 A5 列印（含安全格式化） =====
 def generate_production_order_print_integrated(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     import copy
