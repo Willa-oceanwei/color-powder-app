@@ -226,7 +226,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
                         row += offset + f"<b class='num'>{val_str:>{number_col_width}}</b>"
                     lines.append(row)
                     
-                    return "\n".join(lines)
+     return "\n".join(lines)
 
 # --------------- 外層 HTML 包裝函式（安全列印下載） ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
