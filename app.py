@@ -118,6 +118,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     powder_label_width = 12
     number_col_width = 8
     pack_col_width = 12
+    column_offsets = [2, 2, 2, 2] 
 
     # ---------- 取得基本資訊 ----------
     recipe_id = recipe_row.get("配方編號", "")
