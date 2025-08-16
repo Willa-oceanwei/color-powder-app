@@ -233,50 +233,50 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None):
         additional_recipe_rows=additional_recipe_rows
     )
     created_time = order.get("建立時間", "")
-    html_template = """
+    html_template = f"""
     <html>
     <head>
         <meta charset="utf-8">
         <title>生產單列印</title>
         <style>
-            @page {
+            @page {{
                 size: A5 landscape;
                 margin: 10mm;
-            }
-            body {
+            }}
+            body {{
                 margin: 0;
                 font-family: 'Courier New', Courier, monospace;
                 font-size: 22px;
                 line-height: 1.4;
-            }
-            .title {
+            }}
+            .title {{
                 text-align: center;
                 font-size: 24px;
                 margin-bottom: -4px;
                 font-family: Arial, Helvetica, sans-serif;
                 font-weight: normal;
-            }
-            .timestamp {
+            }}
+            .timestamp {{
                 font-size: 20px;
                 color: #000;
                 text-align: center;
                 margin-bottom: 2px;
                 font-family: Arial, Helvetica, sans-serif;
                 font-weight: normal;
-            }
-            pre {
+            }}
+            pre {{
                 white-space: pre-wrap;
                 margin-left: 25px;
                 margin-top: 0px;
-            }
-            b.num {
+            }}
+            b.num {{
                 font-weight: normal;
-            }
+            }}
         </style>
         <script>
-            window.onload = function() {
+            window.onload = function() {{
                 window.print();
-            }
+            }}
         </script>
     </head>
     <body>
