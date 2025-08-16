@@ -204,7 +204,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
         lines.append(row)
 
     # --- 4. 色粉類別橫線 ---
-    if category != "色母":
+    if category == "配方":
         lines.append("＿" * 30)
 
     # --- 5. 合計列 ---
