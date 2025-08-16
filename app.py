@@ -133,7 +133,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     # --- 2. 包裝列 + multipliers ---
     pack_line = []
     multipliers = []
-    unit = str(order_clean.get("計量單位","kg")).strip()
+    unit = str(order_clean.get("計量單位", "kg")).strip()
     packing_indent = " " * 14
 
     for w, c in zip(packing_weights, packing_counts):
@@ -141,30 +141,29 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
             multipliers.append(0)
             continue
 
-        # multipliers 用於後續計算，不影響文字顯示
+        # multipliers 計算使用原始 w
         if category == "色母":
             multipliers.append(w)
             real_w = w * 100 if w != 1 else 100
             unit_str = f"{int(real_w)}K" if real_w.is_integer() else f"{real_w:.1f}K"
         elif category == "色粉":
-            if unit=="包":
+            if unit == "包":
+                multipliers.append(w * 25)
                 real_w = w * 25
                 unit_str = f"{int(real_w)}K" if real_w.is_integer() else f"{real_w:.1f}K"
-                multipliers.append(real_w)
-            elif unit=="桶":
+            elif unit == "桶":
+                multipliers.append(w * 100)
                 real_w = w * 100
                 unit_str = f"{int(real_w)}K" if real_w.is_integer() else f"{real_w:.1f}K"
-                multipliers.append(real_w)
             else:
+                multipliers.append(w)
                 real_w = w
                 unit_str = f"{int(real_w)}kg" if real_w.is_integer() else f"{real_w:.2f}kg"
-                multipliers.append(real_w)
         else:
+            multipliers.append(w)
             real_w = w
             unit_str = f"{int(real_w)}" if real_w.is_integer() else f"{real_w:.2f}"
-            multipliers.append(real_w)
 
-        # 包裝列文字顯示
         count_str = str(int(c)) if c.is_integer() else str(c)
         pack_line.append(f"{unit_str} × {count_str}")
 
@@ -187,16 +186,16 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
         lines.append(row)
 
     # --- 4. 色粉類別橫線 ---
-    if category=="色粉":
+    if category=="色母":
         lines.append("＿" * 30)
 
     # --- 5. 合計列 ---
-    total_type = recipe_clean.get("合計類別","").strip() or "料"
+    total_type = recipe_clean.get("合計類別", "").strip() or "料"
     total_line = f"<b>{total_type.ljust(powder_label_width)}</b>"
 
     for m in multipliers:
         if m:
-            if category=="色母":
+            if category == "色母":
                 pigment_total = sum(colorant_weights)
                 result = (net_weight - pigment_total) * m
             else:
