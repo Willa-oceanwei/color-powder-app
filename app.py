@@ -1719,14 +1719,6 @@ elif menu == "生產單管理":
             # ✅ 加入 checkbox 讓使用者決定是否顯示附加配方編號
             show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
             
-            # 產生列印 HTML
-            print_html = generate_print_page_content(
-                order=order,
-                recipe_row=recipe_row,
-                additional_recipe_rows=order.get("附加配方", []),
-                show_additional_ids=show_ids
-            )
-            
             # 下載按鈕         
             col1, col2, col3 = st.columns([3, 1, 3])
             with col1:
@@ -1917,20 +1909,22 @@ elif menu == "生產單管理":
                 )
     
             # 3個按鈕橫排
-            btn_cols = st.columns([1,1,1])
-            with btn_cols[0]:
-                st.download_button(
+            # 按鈕橫排（下載列印、修改、刪除）
+            btn_cols = st.columns([1, 1, 1])
+            if selected_code_edit:
+                # 下載列印
+                btn_cols[0].download_button(
                     "📥 下載列印 HTML",
                     data=print_html.encode("utf-8"),
                     file_name=f"{order_dict['生產單號']}_列印.html",
                     mime="text/html"
                 )
-            with btn_cols[1]:
-                if st.button("✏️ 修改") and selected_code_edit:
+                # 修改
+                if btn_cols[1].button("✏️ 修改"):
                     st.session_state.editing_order = order_dict
                     st.session_state.show_edit_panel = True
-            with btn_cols[2]:
-                if st.button("🗑️ 刪除") and selected_code_edit:
+                # 刪除
+                if btn_cols[2].button("🗑️ 刪除"):
                     try:
                         cell = ws_order.find(selected_code_edit)
                         if cell:
@@ -1940,11 +1934,10 @@ elif menu == "生產單管理":
                             st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
                     except Exception as e:
                         st.error(f"Google Sheets 刪除錯誤：{e}")
-                        
-                    # 同步刪除本地資料
-                    df_order = df_order[df_order["生產單號"] != selected_code_edit]
-                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                    st.session_state.df_order = df_order
+                                # 同步刪除本地資料
+                                df_order = df_order[df_order["生產單號"] != selected_code_edit]
+                                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                                st.session_state.df_order = df_order
     
                     # 清理狀態並重新整理
                     st.session_state.pop("selected_code_edit", None)
@@ -2001,13 +1994,6 @@ elif menu == "生產單管理":
     
         # ✅ 產生 A5 HTML（和三欄按鈕列完全一致）
         print_html = generate_print_page_content(order_dict, recipe_row)
-    
-        st.download_button(
-            label="📄 下載列印 HTML",
-            data=print_html.encode("utf-8"),
-            file_name=f"{order_dict['生產單號']}_print.html",
-            mime="text/html"
-        )
         
         cols_edit = st.columns([1, 1, 1])
     
