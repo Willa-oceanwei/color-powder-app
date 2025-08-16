@@ -128,7 +128,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     lines.append(f"編號：{recipe_id}  顏色：{color}  比例：{ratio} g/kg  Pantone：{pantone}")
 
     # ---------- 包裝列（顯示用文字） ----------
-     pack_line = []
+    pack_line = []
     unit = str(order.get("計量單位") or recipe_row.get("計量單位", "包"))
     for i in range(1, 5):
         w = safe_float(order.get(f"包裝重量{i}", 0))
