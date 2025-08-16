@@ -148,7 +148,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
         c_wt = recipe_row.get(f"色粉重量{idx}", "")
         if not c_id and not c_wt:
             continue
-        row = f"<b>{c_id.ljust(powder_label_width)}</b>"
+        row = f"<b>{str(c_id).ljust(powder_label_width)}</b>"
         try:
             weight_val = float(c_wt or 0)
         except:
@@ -166,7 +166,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
             c_wt = add.get(f"色粉重量{idx}", "")
             if not c_id and not c_wt:
                 continue
-            row = f"<b>{c_id.ljust(powder_label_width)}</b>"
+            row = f"<b>{str(c_id).ljust(powder_label_width)}</b>"
             try:
                 weight_val = float(c_wt or 0)
             except:
@@ -193,7 +193,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
         except:
             continue
 
-    total_line = (order.get("合計類別") or recipe_row.get("合計類別", "無")).ljust(powder_label_width)
+    total_line = str(order.get("合計類別") or recipe_row.get("合計類別", "無")).ljust(powder_label_width)
     for i in range(4):
         val = (net_weight - total_color_weight) * multipliers[i] if multipliers[i] > 0 else 0
         val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
