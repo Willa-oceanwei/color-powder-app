@@ -1721,9 +1721,9 @@ elif menu == "生產單管理":
             
             # 產生列印 HTML
             print_html = generate_print_page_content(
-                order=order_dict,
+                order=order,
                 recipe_row=recipe_row,
-                additional_recipe_rows=additional_recipe_rows,
+                additional_recipe_rows=order.get("附加配方", []),
                 show_additional_ids=show_ids
             )
             
