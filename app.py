@@ -119,14 +119,21 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     number_col_width = 8
     pack_col_width = 12
 
+    # ---------- 取得基本資訊 ----------
+    recipe_id = recipe_row.get("配方編號", "")
+    color = recipe_row.get("顏色", "")
+    ratio = recipe_row.get("比例", "")
+    pantone = order.get("Pantone 色號") or recipe_row.get("Pantone色號", "")
+
+    lines.append(f"編號：{recipe_id}  顏色：{color}  比例：{ratio} g/kg  Pantone：{pantone}")
+
     # ---------- 包裝列（顯示用文字） ----------
-    pack_line = []
+     pack_line = []
     unit = str(order.get("計量單位") or recipe_row.get("計量單位", "包"))
     for i in range(1, 5):
         w = safe_float(order.get(f"包裝重量{i}", 0))
         c = safe_float(order.get(f"包裝份數{i}", 0))
         if w > 0 or c > 0:
-            # 顯示文字，不影響計算
             if unit == "包":
                 real_w_str = f"{w*25:.2f}".rstrip('0').rstrip('.') + "K"
             elif unit == "桶":
@@ -138,43 +145,85 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     if pack_line:
         lines.append(" " * 14 + "".join(pack_line))
 
-    # ---------- 計算 multipliers（僅用包裝重量做乘法計算） ----------
+    # ---------- multipliers（僅用包裝重量做乘法計算） ----------
     multipliers = []
     for i in range(1, 5):
         w = safe_float(order.get(f"包裝重量{i}", 0))
-        multipliers.append(w)  # 僅用包裝重量
+        multipliers.append(w)
 
-    # ---------- 色粉合計 ----------
-    net_weight = safe_float(recipe_row.get("淨重", 0))  # 配方淨重
-    total_color_line = f"{'色粉合計'.ljust(powder_label_width)}"
+    # ---------- 主配方色粉列 ----------
+    colorant_total = 0
+    for idx in range(1, 9):
+        c_id = recipe_row.get(f"色粉編號{idx}", "")
+        c_wt = safe_float(recipe_row.get(f"色粉重量{idx}", 0))
+        if not c_id and c_wt == 0:
+            continue
+        if c_wt:
+            colorant_total += c_wt
+        row = str(c_id).ljust(powder_label_width)
+        for i in range(4):
+            val = c_wt * multipliers[i] if c_wt else 0
+            val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
+            row += f"{val_str:>{number_col_width}}"
+        lines.append(row)
+
+    # ---------- 附加配方色粉列 ----------
+    for add in additional_recipe_rows:
+        lines.append("")  # 空行分隔
+        if show_additional_ids:
+            lines.append(f"附加配方：{add.get('配方編號','')}")
+        else:
+            lines.append("附加配方")
+        for idx in range(1, 9):
+            c_id = add.get(f"色粉編號{idx}", "")
+            c_wt = safe_float(add.get(f"色粉重量{idx}", 0))
+            if not c_id and c_wt == 0:
+                continue
+            row = str(c_id).ljust(powder_label_width)
+            for i in range(4):
+                val = c_wt * multipliers[i] if c_wt else 0
+                val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
+                row += f"{val_str:>{number_col_width}}"
+            lines.append(row)
+
+    # ---------- 色粉合計（淨重 × 包裝重量） ----------
+    net_weight = safe_float(recipe_row.get("淨重", 0))
+    total_color_line = "色粉合計".ljust(powder_label_width)
     for m in multipliers:
         val = net_weight * m
         val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
         total_color_line += f"{val_str:>{number_col_width}}"
     lines.append(total_color_line)
 
-    # ---------- 色母合計 ----------
-    total_color_weight = 0.0
-    for i in range(1, 9):
-        total_color_weight += safe_float(recipe_row.get(f"色粉重量{i}", 0))
-    for add in additional_recipe_rows:
-        for i in range(1, 9):
-            total_color_weight += safe_float(add.get(f"色粉重量{i}", 0))
-
-    total_colorant_line = f"{'色母合計'.ljust(powder_label_width)}"
+    # ---------- 色母合計（淨重 - 色粉總重） × 包裝重量 ----------
+    total_colorant_line = "色母合計".ljust(powder_label_width)
     for m in multipliers:
-        val = (net_weight - total_color_weight) * m
+        val = (net_weight - colorant_total) * m
         val_str = f"{val:.2f}".rstrip('0').rstrip('.') if val else ""
         total_colorant_line += f"{val_str:>{number_col_width}}"
     lines.append(total_colorant_line)
 
-    # ---------- Pantone ----------
-    pantone = order.get("Pantone 色號") or recipe_row.get("Pantone色號", "")
-    if pantone:
-        lines.append(f"Pantone: {pantone}")
-
-    return "\n".join(lines)
-
+    # --- 6. 附加配方列印 ---
+        if additional_recipe_rows:
+            for idx, sub in enumerate(additional_recipe_rows, 1):
+                lines.append("")
+                if show_additional_ids:
+                    lines.append(f"附加配方 {idx}：{sub.get('配方編號','')}")
+                else:
+                    lines.append(f"附加配方 {idx}")
+                for i in range(1, 9):
+                    c_id = sub.get(f"色粉編號{i}", "")
+                    if not c_id:
+                        continue
+                    c_id_str = str(c_id).ljust(powder_label_width)
+                    val = float(sub.get(f"色粉重量{i}", 0) or 0)
+                    row = c_id_str
+                    for j in range(4):
+                        val_mult = val * multipliers[j] if val else 0
+                        val_str = str(int(val_mult)) if val_mult.is_integer() else f"{val_mult:.3f}".rstrip('0').rstrip('.') if val_mult else ""
+                        offset = " " * column_offsets[j]
+                        row += offset + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+                    lines.append(row)
 
 # --------------- 外層 HTML 包裝函式（安全列印下載） ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None):
@@ -184,27 +233,56 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None):
         additional_recipe_rows=additional_recipe_rows
     )
     created_time = order.get("建立時間", "")
-    html_template = f"""
+    html_template = """
     <html>
     <head>
         <meta charset="utf-8">
         <title>生產單列印</title>
         <style>
-            @page {{ size: A5 landscape; margin: 10mm; }}
-            body {{ margin: 0; }}
-            .title {{ text-align: center; font-size: 24px; margin-bottom: -4px; font-family: Arial, Helvetica, sans-serif; }}
-            .timestamp {{ font-size: 12px; color: #000; text-align: center; margin-bottom: 2px; font-family: Arial, Helvetica, sans-serif; font-weight: normal; }}
-            pre {{ white-space: pre-wrap; font-family: 'Courier New', Courier, monospace; font-size: 22px; line-height: 1.4; margin-left: 25px; margin-top: 0px; }}
-            b {{ font-weight: normal; }}
+            @page {
+                size: A5 landscape;
+                margin: 10mm;
+            }
+            body {
+                margin: 0;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 22px;
+                line-height: 1.4;
+            }
+            .title {
+                text-align: center;
+                font-size: 24px;
+                margin-bottom: -4px;
+                font-family: Arial, Helvetica, sans-serif;
+                font-weight: normal;
+            }
+            .timestamp {
+                font-size: 20px;
+                color: #000;
+                text-align: center;
+                margin-bottom: 2px;
+                font-family: Arial, Helvetica, sans-serif;
+                font-weight: normal;
+            }
+            pre {
+                white-space: pre-wrap;
+                margin-left: 25px;
+                margin-top: 0px;
+            }
+            b.num {
+                font-weight: normal;
+            }
         </style>
         <script>
-            window.onload = function() {{ window.print(); }}
+            window.onload = function() {
+                window.print();
+            }
         </script>
     </head>
     <body>
         <div class="timestamp">{created_time}</div>
         <div class="title">生產單</div>
-        <pre><code>{content}</code></pre>
+        <pre>{content}</pre>
     </body>
     </html>
     """
