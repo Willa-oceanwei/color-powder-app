@@ -226,13 +226,15 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
                     lines.append(row)
 
 # --------------- 外層 HTML 包裝函式（安全列印下載） ---------------
-def generate_print_page_content(order, recipe_row, additional_recipe_rows=None):
+def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     content = generate_production_order_print_integrated(
         order=order,
         recipe_row=recipe_row,
-        additional_recipe_rows=additional_recipe_rows
+        additional_recipe_rows=additional_recipe_rows,
+        show_additional_ids=show_additional_ids
     )
     created_time = order.get("建立時間", "")
+
     html_template = f"""
     <html>
     <head>
@@ -287,7 +289,6 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None):
     </html>
     """
     return html_template
-
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
