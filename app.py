@@ -92,6 +92,7 @@ def init_states(keys=None):
                 st.session_state[key] = None
 
 # ===== 安全轉數字 =====
+# ===== 安全轉數字 =====
 def safe_float(val):
     try:
         return float(str(val).strip()) if val not in [None, ""] else 0.0
@@ -109,28 +110,10 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     recipe_clean = copy.deepcopy(recipe_row)
 
     # --- 1. 數值轉換 ---
-    packing_weights = []
-    packing_counts = []
-    for i in range(1, 5):
-        try:
-            packing_weights.append(float(order_clean.get(f"包裝重量{i}", 0) or 0))
-        except:
-            packing_weights.append(0)
-        try:
-            packing_counts.append(float(order_clean.get(f"包裝份數{i}", 0) or 0))
-        except:
-            packing_counts.append(0)
-
-    colorant_weights = []
-    for i in range(1, 9):
-        try:
-            colorant_weights.append(float(recipe_clean.get(f"色粉重量{i}", 0) or 0))
-        except:
-            colorant_weights.append(0)
-    try:
-        net_weight = float(recipe_clean.get("淨重", 0) or 0)
-    except:
-        net_weight = 0
+    packing_weights = [safe_float(order_clean.get(f"包裝重量{i}", 0)) for i in range(1, 5)]
+    packing_counts = [safe_float(order_clean.get(f"包裝份數{i}", 0)) for i in range(1, 5)]
+    colorant_weights = [safe_float(recipe_clean.get(f"色粉重量{i}", 0)) for i in range(1, 9)]
+    net_weight = safe_float(recipe_clean.get("淨重", 0))
 
     category = (order_clean.get("色粉類別") or "").strip()
     recipe_id = recipe_clean.get('配方編號', '')
@@ -139,10 +122,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     ratio = recipe_clean.get('比例3', '')
 
     powder_label_width = 12
-    pack_col_width = 11
     number_col_width = 6
-    column_offsets = [2, 2, 2, 2]
-    total_offsets = [1.3, 5, 5, 5]
 
     lines = []
     lines.append("")
@@ -196,11 +176,8 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
         row = str(c_id).ljust(powder_label_width)
         for m in multipliers:
             val_mult = val * m if m else 0
-            if not val_mult:
-                val_str = ""
-            else:
-                val_str = str(int(val_mult)) if float(val_mult).is_integer() else f"{val_mult:.3f}".rstrip("0").rstrip(".")
-            row += " " * 2 + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+            val_str = "" if val_mult == 0 else str(int(val_mult)) if float(val_mult).is_integer() else f"{val_mult:.3f}".rstrip("0").rstrip(".")
+            row += "  " + f"<b class='num'>{val_str:>{number_col_width}}</b>"
         lines.append(row)
 
     # --- 4. 色粉類別橫線 ---
@@ -209,28 +186,20 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
 
     # --- 5. 合計列 ---
     total_type = recipe_clean.get("合計類別", "").strip() or "料"
-    total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
-    total_line = total_type_display
+    total_line = f"<b>{total_type.ljust(powder_label_width)}</b>"
+    pigment_total = sum(colorant_weights) if category == "色母" else 0
 
     for m in multipliers:
         if m:
-            if category == "色母":
-                pigment_total = sum(colorant_weights)
-                result = (net_weight - pigment_total) * m
-            else:
-                result = net_weight * m
+            result = (net_weight - pigment_total) * m if category == "色母" else net_weight * m
         else:
             result = 0
-
-        if not result:
-            val_str = ""
-        else:
-            val_str = str(int(result)) if float(result).is_integer() else f"{result:.3f}".rstrip("0").rstrip(".")
-        total_line += " " * 5 + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+        val_str = "" if result == 0 else str(int(result)) if float(result).is_integer() else f"{result:.3f}".rstrip("0").rstrip(".")
+        total_line += "     " + f"<b class='num'>{val_str:>{number_col_width}}</b>"
 
     lines.append(total_line)
 
-    # --- 6. 附加配方列印 ---
+    # --- 6. 附加配方列印 (不變) ---
     if additional_recipe_rows and isinstance(additional_recipe_rows, list):
         for idx, sub in enumerate(additional_recipe_rows, 1):
             lines.append("")
@@ -246,11 +215,8 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
                 row = str(c_id).ljust(powder_label_width)
                 for m in multipliers:
                     val_mult = val * m if m else 0
-                    if not val_mult:
-                        val_str = ""
-                    else:
-                        val_str = str(int(val_mult)) if float(val_mult).is_integer() else f"{val_mult:.3f}".rstrip("0").rstrip(".")
-                    row += " " * 2 + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+                    val_str = "" if val_mult == 0 else str(int(val_mult)) if float(val_mult).is_integer() else f"{val_mult:.3f}".rstrip("0").rstrip(".")
+                    row += "  " + f"<b class='num'>{val_str:>{number_col_width}}</b>"
                 lines.append(row)
 
     lines.append("")
@@ -258,6 +224,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     lines.append(f"備註 : {order_clean.get('備註','')}")
 
     return "<br>".join(lines), None
+
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
