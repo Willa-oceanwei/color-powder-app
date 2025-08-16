@@ -1784,7 +1784,7 @@ elif menu == "生產單管理":
     # 分頁計算
     cols_top = st.columns([5, 1])
     with cols_top[1]:
-        limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 75, 100], index=0, key="selectbox_order_limit")
+        limit = st.selectbox("　", [10, 20, 50, 75, 100], index=0, key="selectbox_order_limit")
     
     total_rows = len(df_filtered)
     total_pages = max((total_rows - 1) // limit + 1, 1)
