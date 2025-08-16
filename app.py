@@ -1520,7 +1520,7 @@ elif menu == "生產單管理":
         
         # ---------- 下載列印 HTML ----------
         try:
-            print_html = generate_print_page_content(
+            print_html = generate_production_order_print_integrated(
                 order=order,
                 recipe_row=st.session_state.get("recipe_row_cache", {}),
                 additional_recipe_rows=order.get("附加配方", []),
