@@ -204,7 +204,7 @@ def generate_production_order_print_integrated(order, recipe_row, additional_rec
     lines.append(total_colorant_line)
 
     # --- 6. 附加配方列印 ---
-        if additional_recipe_rows:
+    if additional_recipe_rows:
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 lines.append("")
                 if show_additional_ids:
