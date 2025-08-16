@@ -1965,7 +1965,7 @@ elif menu == "生產單管理":
         recipe_row = recipe_rows.iloc[0]
         
         # 表單編輯欄位-三欄橫排：客戶名稱 / 配方編號 / 顏色
-        cols_info = st.columns([3, 2, 2])
+        cols_info = st.columns([2, 3, 3])
         
         with cols_info[0]:
             new_customer = st.text_input(
