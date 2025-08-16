@@ -1878,74 +1878,69 @@ elif menu == "生產單管理":
         st.session_state.limit = limit  # 同步到 session_state
     
     # 修改/刪除/列印
-    # 按鈕橫排（下載列印、修改、刪除）
-    with cols_ops[2]:
-        if selected_code_edit:
-            # 取得資料
-            order_row = df_order[df_order["生產單號"] == selected_code_edit]
-            if not order_row.empty:
-                order_dict = order_row.iloc[0].to_dict()
-                order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
+    if selected_code_edit:
+        # 取得資料
+        order_row = df_order[df_order["生產單號"] == selected_code_edit]
+        if not order_row.empty:
+            order_dict = order_row.iloc[0].to_dict()
+            order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
     
-                recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
-                recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
+            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
+            recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
     
-                import ast
-                additional_recipe_rows = order_dict.get("附加配方") or []
-                if isinstance(additional_recipe_rows, str):
-                    try:
-                        additional_recipe_rows = ast.literal_eval(additional_recipe_rows)
-                        if not isinstance(additional_recipe_rows, list):
-                            additional_recipe_rows = []
-                    except:
+            import ast
+            additional_recipe_rows = order_dict.get("附加配方") or []
+            if isinstance(additional_recipe_rows, str):
+                try:
+                    additional_recipe_rows = ast.literal_eval(additional_recipe_rows)
+                    if not isinstance(additional_recipe_rows, list):
                         additional_recipe_rows = []
+                except:
+                    additional_recipe_rows = []
     
-                show_ids = st.checkbox("列印時顯示附加配方編號", value=True, key="show_ids_checkbox")
-                print_html = generate_print_page_content(
-                    order=order_dict,
-                    recipe_row=recipe_row,
-                    additional_recipe_rows=additional_recipe_rows,
-                    show_additional_ids=show_ids
-                )
+            show_ids = st.checkbox("列印時顯示附加配方編號", value=True, key="show_ids_checkbox")
+            print_html = generate_print_page_content(
+                order=order_dict,
+                recipe_row=recipe_row,
+                additional_recipe_rows=additional_recipe_rows,
+                show_additional_ids=show_ids
+            )
     
-            # 3個按鈕橫排
-            # 按鈕橫排（下載列印、修改、刪除）
-            btn_cols = st.columns([1, 1, 1])
-            if selected_code_edit:
-                # 下載列印
-                btn_cols[0].download_button(
-                    "📥 下載列印 HTML",
-                    data=print_html.encode("utf-8"),
-                    file_name=f"{order_dict['生產單號']}_列印.html",
-                    mime="text/html"
-                )
-                # 修改
-                if btn_cols[1].button("✏️ 修改"):
-                    st.session_state.editing_order = order_dict
-                    st.session_state.show_edit_panel = True
-                # 刪除
-                if btn_cols[2].button("🗑️ 刪除"):
-                    try:
-                        cell = ws_order.find(selected_code_edit)
-                        if cell:
-                            ws_order.delete_rows(cell.row)
-                            st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
-                        else:
-                            st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
-                    except Exception as e:
-                        st.error(f"Google Sheets 刪除錯誤：{e}")
-                        
-                    # 同步刪除本地資料
-                    df_order = df_order[df_order["生產單號"] != selected_code_edit]
-                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                    st.session_state.df_order = df_order
+        # 3個按鈕橫排
+        btn_cols = st.columns([1, 1, 1])
+        # 下載列印
+        btn_cols[0].download_button(
+            "📥 下載列印 HTML",
+            data=print_html.encode("utf-8"),
+            file_name=f"{order_dict['生產單號']}_列印.html",
+            mime="text/html"
+        )
+        # 修改
+        if btn_cols[1].button("✏️ 修改"):
+            st.session_state.editing_order = order_dict
+            st.session_state.show_edit_panel = True
+        # 刪除
+        if btn_cols[2].button("🗑️ 刪除"):
+            try:
+                cell = ws_order.find(selected_code_edit)
+                if cell:
+                    ws_order.delete_rows(cell.row)
+                    st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
+                else:
+                    st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
+            except Exception as e:
+                st.error(f"Google Sheets 刪除錯誤：{e}")
+                
+            # 同步刪除本地資料
+            df_order = df_order[df_order["生產單號"] != selected_code_edit]
+            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+            st.session_state.df_order = df_order
     
-                    # 清理狀態並重新整理
-                    st.session_state.pop("selected_code_edit", None)
-                    st.session_state.show_edit_panel = False
-                    st.session_state.editing_order = None
-                    st.experimental_rerun()
-
+            # 清理狀態並重新整理
+            st.session_state.pop("selected_code_edit", None)
+            st.session_state.show_edit_panel = False
+            st.session_state.editing_order = None
+            st.experimental_rerun()
     
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
