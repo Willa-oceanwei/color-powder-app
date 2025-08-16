@@ -99,7 +99,10 @@ def safe_float(val):
         return 0.0
 
 # ===== 整合版自訂函式：新增生產單 A5 列印（含包裝列、色粉/色母合計） =====
-def generate_production_order_print_integrated(order, recipe_row, additional_recipe_rows=None):
+def generate_production_order_print_integrated(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+    if additional_recipe_rows is None:
+        additional_recipe_rows = []
+    ...
     """
     生成生產單列印內容，包含：
     - 包裝列（顯示文字）
