@@ -1934,10 +1934,11 @@ elif menu == "生產單管理":
                             st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
                     except Exception as e:
                         st.error(f"Google Sheets 刪除錯誤：{e}")
-                                # 同步刪除本地資料
-                                df_order = df_order[df_order["生產單號"] != selected_code_edit]
-                                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                                st.session_state.df_order = df_order
+                        
+                    # 同步刪除本地資料
+                    df_order = df_order[df_order["生產單號"] != selected_code_edit]
+                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                    st.session_state.df_order = df_order
     
                     # 清理狀態並重新整理
                     st.session_state.pop("selected_code_edit", None)
