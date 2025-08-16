@@ -1886,6 +1886,7 @@ elif menu == "生產單管理":
         st.session_state.limit = limit  # 同步到 session_state
     
     # 修改/刪除/列印
+    # 按鈕橫排（下載列印、修改、刪除）
     with cols_ops[2]:
         if selected_code_edit:
             # 取得資料
@@ -1914,38 +1915,42 @@ elif menu == "生產單管理":
                     additional_recipe_rows=additional_recipe_rows,
                     show_additional_ids=show_ids
                 )
+    
+            # 3個按鈕橫排
+            btn_cols = st.columns([1,1,1])
+            with btn_cols[0]:
                 st.download_button(
                     "📥 下載列印 HTML",
                     data=print_html.encode("utf-8"),
                     file_name=f"{order_dict['生產單號']}_列印.html",
                     mime="text/html"
                 )
+            with btn_cols[1]:
+                if st.button("✏️ 修改") and selected_code_edit:
+                    st.session_state.editing_order = order_dict
+                    st.session_state.show_edit_panel = True
+            with btn_cols[2]:
+                if st.button("🗑️ 刪除") and selected_code_edit:
+                    try:
+                        cell = ws_order.find(selected_code_edit)
+                        if cell:
+                            ws_order.delete_rows(cell.row)
+                            st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
+                        else:
+                            st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
+                    except Exception as e:
+                        st.error(f"Google Sheets 刪除錯誤：{e}")
+                        
+                    # 同步刪除本地資料
+                    df_order = df_order[df_order["生產單號"] != selected_code_edit]
+                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                    st.session_state.df_order = df_order
     
-            if st.button("✏️ 修改") and selected_code_edit:
-                st.session_state.editing_order = order_dict
-                st.session_state.show_edit_panel = True
-    
-            if st.button("🗑️ 刪除") and selected_code_edit:
-                try:
-                    cell = ws_order.find(selected_code_edit)
-                    if cell:
-                        ws_order.delete_rows(cell.row)
-                        st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
-                    else:
-                        st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
-                except Exception as e:
-                    st.error(f"Google Sheets 刪除錯誤：{e}")
-    
-                # 本地同步刪除
-                df_order = df_order[df_order["生產單號"] != selected_code_edit]
-                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                st.session_state.df_order = df_order
-    
-                # 清理狀態
-                st.session_state.pop("selected_code_edit", None)
-                st.session_state.show_edit_panel = False
-                st.session_state.editing_order = None
-                st.experimental_rerun()
+                    # 清理狀態並重新整理
+                    st.session_state.pop("selected_code_edit", None)
+                    st.session_state.show_edit_panel = False
+                    st.session_state.editing_order = None
+                    st.experimental_rerun()
 
     
     # 修改面板（如果有啟動）
