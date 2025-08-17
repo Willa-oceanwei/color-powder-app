@@ -2004,7 +2004,7 @@ elif menu == "生產單管理":
             colorant_weights.append(val)
     
         for idx in range(8):
-            c_id = colorant_ids[idx]
+            c_id = str(colorant_ids[idx] or "")  # 確保是字串
             c_weight = colorant_weights[idx]
             if not c_id:
                 continue
@@ -2074,7 +2074,7 @@ elif menu == "生產單管理":
                     add_weights.append(val)
         
                 for i in range(8):
-                    c_id = add_ids[i]
+                    c_id = str(add_ids[i] or "")  # 確保是字串
                     if not c_id:
                         continue
                     row = f"{c_id.ljust(powder_label_width)}"
