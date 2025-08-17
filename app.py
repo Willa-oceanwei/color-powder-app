@@ -2069,7 +2069,7 @@ elif menu == "生產單管理":
         st.session_state.show_preview = False
     
     # ---------- 按鈕區塊 ----------
-    btn_cols = st.columns([1, 1, 1, 1])
+    btn_cols = st.columns([1, 1, 1])
     
     # 下載列印
     btn_cols[0].download_button(
@@ -2104,10 +2104,6 @@ elif menu == "生產單管理":
         st.session_state.show_edit_panel = False
         st.session_state.editing_order = None
         st.rerun()
-    
-    # 預覽按鈕
-    if btn_cols[3].button("👀 預覽"):
-        st.session_state.show_preview = not st.session_state.show_preview
     
     # ---------- 顯示預覽 expander ----------
     with st.expander("📝 生產單預覽", expanded=st.session_state.show_preview):
