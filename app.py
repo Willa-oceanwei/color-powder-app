@@ -1905,56 +1905,71 @@ elif menu == "生產單管理":
                 additional_recipe_rows=additional_recipe_rows,
                 show_additional_ids=show_ids
             )
-    
-        # 3個按鈕橫排（改成4個：下載列印 / 修改 / 刪除 / 預覽）
-        btn_cols = st.columns([1, 1, 1, 1])
-        
-        # 下載列印
-        btn_cols[0].download_button(
-            "📥 下載列印 HTML",
-            data=print_html.encode("utf-8"),
-            file_name=f"{order_dict['生產單號']}_列印.html",
-            mime="text/html"
+
+    # ---------- 預覽函式 ----------
+    def show_order_preview(order, recipe_row, additional_recipe_rows=None):
+        # 產生內容（避免字黏在一起）
+        preview_text = generate_production_order_print(
+            order,
+            recipe_row,
+            additional_recipe_rows,
+            show_additional_ids=True
         )
-        
-        # 修改
-        if btn_cols[1].button("✏️ 修改"):
-            st.session_state.editing_order = order_dict
-            st.session_state.show_edit_panel = True
-        
-        # 刪除
-        if btn_cols[2].button("🗑️ 刪除"):
-            try:
-                cell = ws_order.find(selected_code_edit)
-                if cell:
-                    ws_order.delete_rows(cell.row)
-                    st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
-                else:
-                    st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
-            except Exception as e:
-                st.error(f"Google Sheets 刪除錯誤：{e}")
-        
-        # 預覽
-        if btn_cols[3].button("👀 預覽"):
-            preview_html = generate_production_order_print(
-                order_dict,
-                recipe_row,
-                additional_recipe_rows,
-                show_additional_ids=True
-            )
-            with st.expander("📝 生產單預覽", expanded=True):
-                st.markdown(preview_html, unsafe_allow_html=True)
-                
-            # 同步刪除本地資料
-            df_order = df_order[df_order["生產單號"] != selected_code_edit]
-            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-            st.session_state.df_order = df_order
     
-            # 清理狀態並重新整理
-            st.session_state.pop("selected_code_edit", None)
-            st.session_state.show_edit_panel = False
-            st.session_state.editing_order = None
-            st.rerun()
+        # 用 expander 包起來，並保持展開狀態
+        with st.expander("📝 生產單預覽", expanded=st.session_state.get("show_preview", False)):
+            st.markdown(preview_text, unsafe_allow_html=True)
+
+
+    # ---------- 按鈕區塊 ----------
+    if "show_preview" not in st.session_state:
+        st.session_state.show_preview = False
+    
+    btn_cols = st.columns([1, 1, 1, 1])
+    
+    # 下載列印
+    btn_cols[0].download_button(
+        "📥 下載列印 HTML",
+        data=print_html.encode("utf-8"),
+        file_name=f"{order_dict['生產單號']}_列印.html",
+        mime="text/html"
+    )
+    
+    # 修改
+    if btn_cols[1].button("✏️ 修改"):
+        st.session_state.editing_order = order_dict
+        st.session_state.show_edit_panel = True
+    
+    # 刪除
+    if btn_cols[2].button("🗑️ 刪除"):
+        try:
+            cell = ws_order.find(selected_code_edit)
+            if cell:
+                ws_order.delete_rows(cell.row)
+                st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
+            else:
+                st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
+        except Exception as e:
+            st.error(f"Google Sheets 刪除錯誤：{e}")
+    
+        # 🔹同步刪除本地資料（只在刪除時執行）
+        df_order = df_order[df_order["生產單號"] != selected_code_edit]
+        df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+        st.session_state.df_order = df_order
+    
+        # 清理狀態並重新整理
+        st.session_state.pop("selected_code_edit", None)
+        st.session_state.show_edit_panel = False
+        st.session_state.editing_order = None
+        st.rerun()
+    
+    # 預覽（切換狀態）
+    if btn_cols[3].button("👀 預覽"):
+        st.session_state.show_preview = not st.session_state.show_preview
+    
+    # 顯示預覽區塊
+    if st.session_state.show_preview:
+        show_order_preview(order_dict, recipe_row, additional_recipe_rows)
     
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
