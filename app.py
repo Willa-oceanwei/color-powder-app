@@ -1986,16 +1986,15 @@ elif menu == "生產單管理":
                     real_w = w
                     unit_str = f"{real_w:.2f}kg"
                 count_str = str(int(c)) if c == int(c) else str(c)
+                # ✅ 固定寬度格式化
                 text = f"{unit_str} × {count_str}"
                 pack_line.append(f"{text:<{pack_col_width}}")
-                
-        # ✅ 這裡加入固定寬度格式化
-        text = f"{unit_str} × {count_str}"
-        pack_line.append(f"{text:<{pack_col_width}}")
         
-        lines.append(packing_indent + "".join(pack_line))
+        packing_indent = " " * 14
+        pack_line_str = "".join([str(x) for x in pack_line])
+        lines.append(packing_indent + pack_line_str)
         lines.append("")
-    
+            
         # ---------------- 主配方色粉列 ----------------
         colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
         colorant_weights = []
