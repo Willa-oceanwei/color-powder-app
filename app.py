@@ -1904,7 +1904,11 @@ elif menu == "生產單管理":
                     additional_recipe_rows = []
     
             # checkbox 控制是否顯示附加配方編號
-            show_ids = st.checkbox("列印時顯示附加配方編號", value=True, key="show_ids_checkbox")
+            show_ids = st.checkbox(
+                "列印時顯示附加配方編號",
+                value=True,
+                key=f"show_ids_checkbox_{selected_code_edit}"
+            )
             
             # 先生成 HTML 內容
             print_html = generate_print_page_content(
@@ -1915,7 +1919,7 @@ elif menu == "生產單管理":
             ) 
             
             # ---------- ✅ 按鈕橫排 ----------
-            cols_mod = st.columns([1, 1, 1])  # 三等分欄位
+            cols_mod = st.columns([2, 1, 1])  # 三等分欄位
             
             # 下載按鈕
             with cols_mod[0]:
