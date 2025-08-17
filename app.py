@@ -2147,7 +2147,7 @@ elif menu == "生產單管理":
         else:
             total_type_display = total_type
         
-       total_line = "料".ljust(powder_label_width)
+        total_line = "料".ljust(powder_label_width)
         if category == "色母":
             try:
                 net_weight = float(recipe_row.get("淨重", 0))
