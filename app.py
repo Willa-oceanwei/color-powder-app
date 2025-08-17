@@ -1924,7 +1924,7 @@ elif menu == "生產單管理":
         # ---------- ✅ 預覽區塊 ----------
         def generate_production_order_preview(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
             """
-            專門給 Streamlit 預覽用的純文字版本（無 <b> / <span> 等 HTML 標籤）
+            專門給 Streamlit 預覽用的純文字版本（保留換行，對齊用）
             """
             html_text = generate_production_order_print(
                 order,
@@ -1932,10 +1932,11 @@ elif menu == "生產單管理":
                 additional_recipe_rows=additional_recipe_rows,
                 show_additional_ids=show_additional_ids
             )
-            # 去掉所有 HTML 標籤
-            plain_text = re.sub(r"<.*?>", "", html_text)
-            return plain_text
-        
+            # 將 <br> 換成 \n
+            text_with_newlines = html_text.replace("<br>", "\n")
+            # 去掉其他 HTML 標籤
+            plain_text = re.sub(r"<.*?>", "", text_with_newlines)
+            return plain_text    
         
         # ---------- ✅ 預覽區塊 ----------
         preview_text = generate_production_order_preview(
