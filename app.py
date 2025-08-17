@@ -2139,7 +2139,7 @@ elif menu == "生產單管理":
     
     # ---------- 顯示預覽 expander ----------
     with st.expander("📝 生產單預覽", expanded=st.session_state.show_preview):
-        preview_text = generate_order_preview_text(order_dict, recipe_row, additional_recipe_rows)
+        preview_text = generate_production_order_print(order_dict, recipe_row, additional_recipe_rows)
         st.markdown(preview_text, unsafe_allow_html=True)
     
     # 修改面板（如果有啟動）
