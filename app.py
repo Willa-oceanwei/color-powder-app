@@ -1924,7 +1924,7 @@ elif menu == "生產單管理":
         # ---------- ✅ 預覽區塊 ----------
         def generate_production_order_preview(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
             """
-            專門給 Streamlit 預覽用的純文字版本（保留換行，對齊用）
+            專門給 Streamlit 預覽用的純文字版本（保留換行與對齊）
             """
             html_text = generate_production_order_print(
                 order,
@@ -1932,13 +1932,14 @@ elif menu == "生產單管理":
                 additional_recipe_rows=additional_recipe_rows,
                 show_additional_ids=show_additional_ids
             )
-            # 將 <br> 換成 \n
+            # 1. 將 <br> 換成換行符號
             text_with_newlines = html_text.replace("<br>", "\n")
-            # 去掉其他 HTML 標籤
+            # 2. 移除其他 HTML 標籤
             plain_text = re.sub(r"<.*?>", "", text_with_newlines)
-            return plain_text    
+            return plain_text.strip()
         
-        # ---------- ✅ 預覽區塊 ----------
+        
+        # 使用預覽
         preview_text = generate_production_order_preview(
             order_dict,
             recipe_row,
