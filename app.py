@@ -2076,7 +2076,7 @@ elif menu == "生產單管理":
             if st.button("返回", key="return_button"):
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
-                st.experimental_rerun()
+                st.rerun()
 
 
 # ===== 匯入配方備份檔案 =====
