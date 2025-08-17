@@ -1904,7 +1904,15 @@ elif menu == "生產單管理":
     
             # checkbox 控制是否顯示附加配方編號
             show_ids = st.checkbox("列印時顯示附加配方編號", value=True, key="show_ids_checkbox")
-    
+
+            # 先生成 HTML 內容
+            print_html = generate_print_page_content(
+                order_dict,
+                recipe_row,
+                additional_recipe_rows=additional_recipe_rows,
+                show_additional_ids=show_ids
+            ) 
+
             # 下載按鈕
             st.download_button(
                 "📥 下載列印 HTML",
