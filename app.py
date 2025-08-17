@@ -1800,6 +1800,7 @@ elif menu == "生產單管理":
     
     with cols_actions[3]:
         limit = st.selectbox("顯示筆數", limit_options, index=0, key="selectbox_order_limit")
+        show_ids = st.checkbox("列印附加配方編號", value=True, key="show_ids_checkbox")
     
     total_pages = max((total_rows - 1) // limit + 1, 1)
     st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
