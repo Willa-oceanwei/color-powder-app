@@ -2006,6 +2006,25 @@ elif menu == "生產單管理":
             multipliers.append(real_w)
         
         # ---------------- 包裝列 ----------------
+        # ---------------- 計算倍數 multipliers ----------------
+        multipliers = []
+        for i in range(4):
+            w = packing_weights[i]
+            if w == 0:
+                multipliers.append(0)
+                continue
+            if category == "色母":
+                real_w = 1  # 色粉計算不受包裝列影響，保持原數值 1
+            else:
+                if unit == "包":
+                    real_w = w * 25
+                elif unit == "桶":
+                    real_w = w * 100
+                else:
+                    real_w = w
+            multipliers.append(real_w)
+        
+        # ---------------- 包裝列 ----------------
         pack_line = []
         for i in range(4):
             w = packing_weights[i]
@@ -2034,6 +2053,62 @@ elif menu == "生產單管理":
         packing_indent = " " * 14
         lines.append(packing_indent + "".join(pack_line))
         lines.append("")
+        
+        # ---------------- 主配方色粉列 ----------------
+        for idx in range(8):
+            c_id = colorant_ids[idx]
+            c_weight = colorant_weights[idx]
+            if not c_id:
+                continue
+            row = f"{c_id.ljust(powder_label_width)}"
+            for i in range(4):
+                val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
+                if val == 0:
+                    val_str = ""  # 空值代替0
+                else:
+                    val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
+                padding = " " * max(0, int(round(column_offsets[i])))
+                row += padding + f"{val_str.rjust(number_col_width)}"
+            lines.append(row)
+        
+        # ---------------- 橫線（非色母） ----------------
+        if category != "色母":
+            lines.append("＿" * 50)
+        
+        # ---------------- 計算 total_type_display ----------------
+        if total_type == "" or total_type == "無":
+            total_type_display = "="
+        elif category == "色母":
+            total_type_display = "料"
+        else:
+            total_type_display = total_type
+        
+        # ---------------- 合計列 ----------------
+        if total_type == "" or total_type == "無":
+            total_type_display = "="
+        elif category == "色母":
+            total_type_display = "料"
+        else:
+            total_type_display = total_type
+        
+        total_line = total_type_display.ljust(powder_label_width)
+        if category == "色母":
+            try:
+                net_weight = float(recipe_row.get("淨重", 0))
+            except:
+                net_weight = 0.0
+            pigment_total = sum(colorant_weights)  # 色粉1~8總重
+            total_line = "料".ljust(powder_label_width)
+            for i in range(4):
+                result = net_weight - pigment_total  # 色母合計
+                if result == 0:
+                    val_str = ""
+                else:
+                    val_str = f"{int(result)}" if result == int(result) else f"{result:.2f}"
+                padding = " " * max(0, int(round(total_offsets[i])))
+                total_line += padding + f"<b class='total-num'>{val_str:>{number_col_width}}</b>"
+            lines.append(total_line)
+            lines.append("")
         
         # ---------------- 主配方色粉列 ----------------
         for idx in range(8):
