@@ -2016,6 +2016,7 @@ elif menu == "生產單管理":
                         unit_str = "100K"
                     else:
                         real_w = w * 100
+                        # 小數點後若為 0 去掉
                         unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.2f}K"
                 elif unit == "包":
                     real_w = w * 25
@@ -2078,12 +2079,10 @@ elif menu == "生產單管理":
                 total_line = "料".ljust(powder_label_width)
                 pigment_total = sum(colorant_weights)
                 for i in range(4):
-                    # 色母合計 = 淨重 - 色粉總重（淨重為配方管理輸入值）
                     result = net_weight - pigment_total
-                    val_str = f"{int(result)}" if result == int(result) else f"{result:.2f}"
-                    # 空值或 0 不顯示
-                    if result == 0:
-                        val_str = ""
+                    val_str = ""
+                    if result != 0:
+                        val_str = f"{int(result)}" if result == int(result) else f"{result:.2f}"
                     padding = " " * max(0, int(round(total_offsets[i])))
                     total_line += padding + f"{val_str.rjust(number_col_width)}"
                 lines.append(total_line)
