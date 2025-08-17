@@ -2011,15 +2011,21 @@ elif menu == "生產單管理":
             c = packing_counts[i]
             if w > 0 or c > 0:
                 if category == "色母":
-                    unit_str = "100K" if w == 1 else f"{int(w*100) if w*100==int(w*100) else w*100:.1f}K"
+                    real_w = 100 if w == 1 else w * 100
+                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:g}K"
                 elif unit == "包":
-                    unit_str = f"{int(w*25) if w*25==int(w*25) else w*25:.1f}K"
+                    real_w = w * 25
+                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:g}K"
                 elif unit == "桶":
-                    unit_str = f"{int(w*100) if w*100==int(w*100) else w*100:.1f}K"
+                    real_w = w * 100
+                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:g}K"
                 else:
-                    unit_str = f"{int(w) if w==int(w) else w:.2f}kg"
+                    real_w = w
+                    unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:g}kg"
+        
                 count_str = str(int(c)) if c == int(c) else str(c)
-                pack_line.append(f"{unit_str} × {count_str}".ljust(pack_col_width))
+                text = f"{unit_str} × {count_str}"
+                pack_line.append(f"{text:<{pack_col_width}}")
         
         packing_indent = " " * 14
         lines.append(packing_indent + "".join(pack_line))
