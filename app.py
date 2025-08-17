@@ -1988,7 +1988,11 @@ elif menu == "生產單管理":
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
                 pack_line.append(f"{text:<{pack_col_width}}")
-        packing_indent = " " * 14
+                
+        # ✅ 這裡加入固定寬度格式化
+        text = f"{unit_str} × {count_str}"
+        pack_line.append(f"{text:<{pack_col_width}}")
+        
         lines.append(packing_indent + "".join(pack_line))
         lines.append("")
     
@@ -2031,14 +2035,13 @@ elif menu == "生產單管理":
             net_weight = 0.0
         
         if category == "色母":
-            pigment_total = sum(colorant_weights)  # 色粉總重
+            pigment_total = sum(colorant_weights)
             total_line = "料".ljust(powder_label_width)
             for i in range(4):
-                # 每個包裝倍數計算： (淨重 - 色粉總重) × multipliers[i]
                 result = (net_weight - pigment_total) * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = "" if result == 0 else f"{int(result)}" if result == int(result) else f"{result:.2f}"
                 padding = " " * max(0, int(round(total_offsets[i])))
-                total_line += padding + f"<b class='total-num'>{val_str:>{number_col_width}}</b>"
+                total_line += padding + f"{val_str:>{number_col_width}}"
         else:
             total_type_display = total_type.strip() or "="
             total_line = total_type_display.ljust(powder_label_width)
@@ -2046,7 +2049,7 @@ elif menu == "生產單管理":
                 result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
                 val_str = "" if result == 0 else f"{int(result)}" if result == int(result) else f"{result:.2f}"
                 padding = " " * max(0, int(round(total_offsets[i])))
-                total_line += padding + f"<b class='total-num'>{val_str:>{number_col_width}}</b>"
+                total_line += padding + f"{val_str:>{number_col_width}}"
         
         lines.append(total_line)
         lines.append("")
