@@ -1905,20 +1905,26 @@ elif menu == "生產單管理":
             # checkbox 控制是否顯示附加配方編號
             show_ids = st.checkbox("列印時顯示附加配方編號", value=True, key="show_ids_checkbox")
     
-            # 產生列印 HTML
-            print_html = generate_print_page_content(
-                order=order_dict,
-                recipe_row=recipe_row,
-                additional_recipe_rows=additional_recipe_rows,
-                show_additional_ids=show_ids
-            )
-    
             # 下載按鈕
             st.download_button(
                 "📥 下載列印 HTML",
                 data=print_html.encode("utf-8"),
                 file_name=f"{order_dict['生產單號']}_列印.html",
                 mime="text/html"
+            )
+        # ---------- ✅ 預覽區塊 ----------
+        # 這裡改用純文字格式顯示（monospace 對齊）
+        preview_text = generate_production_order_print(
+            order_dict,
+            recipe_row,
+            additional_recipe_rows=additional_recipe_rows,
+            show_additional_ids=show_ids
+        )
+        
+        with st.expander("🔍 生產單預覽", expanded=False):
+            st.markdown(
+                f"<pre style='font-family:Courier New, monospace;'>{preview_text}</pre>",
+                unsafe_allow_html=True
             )
     
         # 修改按鈕
@@ -2000,15 +2006,6 @@ elif menu == "生產單管理":
     
         new_remark = st.text_area("備註", value=order_dict.get("備註", ""), key="edit_remark")
     
-        # ✅ 產生 A5 HTML（和三欄按鈕列完全一致）
-        print_html = generate_print_page_content(order_dict, recipe_row)
-    
-        st.download_button(
-            label="📄 下載列印 HTML",
-            data=print_html.encode("utf-8"),
-            file_name=f"{order_dict['生產單號']}_print.html",
-            mime="text/html"
-        )
         
         cols_edit = st.columns([1, 1, 1])
     
