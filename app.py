@@ -2034,7 +2034,10 @@ elif menu == "生產單管理":
             row = f"{c_id.ljust(powder_label_width)}"
             for i in range(4):
                 val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
-                val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.') if val else ""
+                if val == 0:
+                    val_str = ""  # 空值代替0
+                else:
+                    val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
                 padding = " " * max(0, int(round(column_offsets[i])))
                 row += padding + f"{val_str.rjust(number_col_width)}"
             lines.append(row)
@@ -2059,11 +2062,13 @@ elif menu == "生產單管理":
                 result = (net_weight - pigment_total) * multipliers[i] if multipliers[i] > 0 else 0
             else:
                 result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
+            if result == 0:
+                val_str = ""  # 空值代替0
+            else:
+                val_str = f"{result:.3f}".rstrip('0').rstrip('.')
             padding = " " * max(0, int(round(total_offsets[i])))
             total_line += padding + f"{val_str.rjust(number_col_width)}"
         lines.append(total_line)
-        lines.append("")
         
         # ---------------- 附加配方 ----------------
         if additional_recipe_rows and isinstance(additional_recipe_rows, list):
@@ -2088,7 +2093,10 @@ elif menu == "生產單管理":
                     row = f"{c_id.ljust(powder_label_width)}"
                     for j in range(4):
                         val = add_weights[i] * multipliers[j] if multipliers[j] > 0 else 0
-                        val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.') if val else ""
+                        if val == 0:
+                            val_str = ""  # 空值代替0
+                        else:
+                            val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
                         padding = " " * max(0, int(round(column_offsets[j])))
                         row += padding + f"{val_str.rjust(number_col_width)}"
                     lines.append(row)
