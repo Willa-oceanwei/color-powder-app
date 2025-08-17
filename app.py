@@ -2080,7 +2080,13 @@ elif menu == "生產單管理":
                 result = (net_weight - pigment_total) * multipliers[i] if multipliers[i] > 0 else 0
             else:
                 result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-            val_str = str(int(result)) if float(result).is_integer() else f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
+        
+            # 只顯示非零數值
+            if result:
+                val_str = str(int(result)) if float(result).is_integer() else f"{result:.3f}".rstrip('0').rstrip('.')
+            else:
+                val_str = ""
+        
             padding = " " * max(0, int(round(total_offsets[i])))
             total_line += padding + f"{val_str.rjust(number_col_width)}"
         lines.append(total_line)
