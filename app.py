@@ -2007,34 +2007,34 @@ elif menu == "生產單管理":
         
         # ---------------- 包裝列 ----------------
         pack_line = []
-            for i in range(4):
-                w = packing_weights[i]
-                c = packing_counts[i]
-                if w > 0 or c > 0:
-                    # 僅影響文字顯示
-                    if category == "色母":
-                        if w == 1:
-                            unit_str = "100K"
-                        else:
-                            unit_val = w * 100
-                            unit_str = f"{int(unit_val)}K" if unit_val == int(unit_val) else f"{unit_val:.1f}K"
-                    elif unit == "包":
-                        unit_val = w * 25
-                        unit_str = f"{int(unit_val)}K" if unit_val == int(unit_val) else f"{unit_val:.1f}K"
-                    elif unit == "桶":
+        for i in range(4):
+            w = packing_weights[i]
+            c = packing_counts[i]
+            if w > 0 or c > 0:
+                # 僅影響文字顯示
+                if category == "色母":
+                    if w == 1:
+                        unit_str = "100K"
+                    else:
                         unit_val = w * 100
                         unit_str = f"{int(unit_val)}K" if unit_val == int(unit_val) else f"{unit_val:.1f}K"
-                    else:
-                        unit_val = w
-                        unit_str = f"{int(unit_val)}kg" if unit_val == int(unit_val) else f"{unit_val:.2f}kg"
-            
-                    count_str = str(int(c)) if c == int(c) else str(c)
-                    text = f"{unit_str} × {count_str}"
-                    pack_line.append(f"{text:<{pack_col_width}}")
-            
-            packing_indent = " " * 14
-            lines.append(packing_indent + "".join(pack_line))
-            lines.append("")
+                elif unit == "包":
+                    unit_val = w * 25
+                    unit_str = f"{int(unit_val)}K" if unit_val == int(unit_val) else f"{unit_val:.1f}K"
+                elif unit == "桶":
+                    unit_val = w * 100
+                    unit_str = f"{int(unit_val)}K" if unit_val == int(unit_val) else f"{unit_val:.1f}K"
+                else:
+                    unit_val = w
+                    unit_str = f"{int(unit_val)}kg" if unit_val == int(unit_val) else f"{unit_val:.2f}kg"
+        
+                count_str = str(int(c)) if c == int(c) else str(c)
+                text = f"{unit_str} × {count_str}"
+                pack_line.append(f"{text:<{pack_col_width}}")
+        
+        packing_indent = " " * 14
+        lines.append(packing_indent + "".join(pack_line))
+        lines.append("")
         
         # ---------------- 主配方色粉列 ----------------
         for idx in range(8):
