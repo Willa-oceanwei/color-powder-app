@@ -7,6 +7,7 @@ import os
 import json
 import time
 import base64
+import re
 
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
 st.markdown(
@@ -1920,6 +1921,22 @@ elif menu == "生產單管理":
                 file_name=f"{order_dict['生產單號']}_列印.html",
                 mime="text/html"
             )
+        # ---------- ✅ 預覽區塊 ----------
+        def generate_production_order_preview(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+            """
+            專門給 Streamlit 預覽用的純文字版本（無 <b> / <span> 等 HTML 標籤）
+            """
+            html_text = generate_production_order_print(
+                order,
+                recipe_row,
+                additional_recipe_rows=additional_recipe_rows,
+                show_additional_ids=show_additional_ids
+            )
+            # 去掉所有 HTML 標籤
+            plain_text = re.sub(r"<.*?>", "", html_text)
+            return plain_text
+        
+        
         # ---------- ✅ 預覽區塊 ----------
         preview_text = generate_production_order_preview(
             order_dict,
