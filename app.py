@@ -2012,11 +2012,11 @@ elif menu == "生產單管理":
             c = packing_counts[i]
             if w > 0 or c > 0:
                 if category == "色母":
+                    # 色母特殊處理：w==1 -> 100K，其餘 w*100，去掉小數0
                     if w == 1:
                         unit_str = "100K"
                     else:
                         real_w = w * 100
-                        # 小數點後若為 0 去掉
                         unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.2f}K"
                 elif unit == "包":
                     real_w = w * 25
@@ -2077,11 +2077,13 @@ elif menu == "生產單管理":
         for i in range(4):
             if category == "色母":
                 total_line = "料".ljust(powder_label_width)
-                pigment_total = sum(colorant_weights)
+                pigment_total = sum(colorant_weights)  # 色粉1~8總重
                 for i in range(4):
+                    # 色母合計 = 淨重 - 色粉總重
                     result = net_weight - pigment_total
-                    val_str = ""
-                    if result != 0:
+                    if result == 0:
+                        val_str = ""
+                    else:
                         val_str = f"{int(result)}" if result == int(result) else f"{result:.2f}"
                     padding = " " * max(0, int(round(total_offsets[i])))
                     total_line += padding + f"{val_str.rjust(number_col_width)}"
