@@ -1986,7 +1986,7 @@ elif menu == "生產單管理":
         info_line = f"編號：{recipe_id:<8} 顏色：{color:<4}   比例：{ratio} g/kg   Pantone：{pantone}"
         lines.append(info_line)
         lines.append("")
-
+        
         # ---------------- 計算倍數 multipliers ----------------
         multipliers = []
         for i in range(4):
@@ -2003,7 +2003,7 @@ elif menu == "生產單管理":
             else:
                 real_w = w
             multipliers.append(real_w)
-    
+        
         # ---------------- 包裝列 ----------------
         pack_line = []
         for i in range(4):
@@ -2011,29 +2011,20 @@ elif menu == "生產單管理":
             c = packing_counts[i]
             if w > 0 or c > 0:
                 if category == "色母":
-                    if w == 1:
-                        unit_str = "100K"
-                    else:
-                        real_w = w * 100
-                        unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
+                    unit_str = "100K" if w == 1 else f"{int(w*100) if w*100==int(w*100) else w*100:.1f}K"
                 elif unit == "包":
-                    real_w = w * 25
-                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
+                    unit_str = f"{int(w*25) if w*25==int(w*25) else w*25:.1f}K"
                 elif unit == "桶":
-                    real_w = w * 100
-                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
+                    unit_str = f"{int(w*100) if w*100==int(w*100) else w*100:.1f}K"
                 else:
-                    real_w = w
-                    unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
-        
+                    unit_str = f"{int(w) if w==int(w) else w:.2f}kg"
                 count_str = str(int(c)) if c == int(c) else str(c)
-                text = f"{unit_str} × {count_str}"
-                pack_line.append(f"{text:<{pack_col_width}}")
+                pack_line.append(f"{unit_str} × {count_str}".ljust(pack_col_width))
         
         packing_indent = " " * 14
         lines.append(packing_indent + "".join(pack_line))
         lines.append("")
-            
+        
         # ---------------- 主配方色粉列 ----------------
         for idx in range(8):
             c_id = colorant_ids[idx]
@@ -2047,11 +2038,19 @@ elif menu == "生產單管理":
                 padding = " " * max(0, int(round(column_offsets[i])))
                 row += padding + f"{val_str.rjust(number_col_width)}"
             lines.append(row)
-    
+        
         # ---------------- 橫線（非色母） ----------------
         if category != "色母":
             lines.append("＿" * 50)
-    
+        
+        # ---------------- 計算 total_type_display ----------------
+        if total_type == "" or total_type == "無":
+            total_type_display = "="
+        elif category == "色母":
+            total_type_display = "料"
+        else:
+            total_type_display = total_type
+        
         # ---------------- 合計列 ----------------
         total_line = total_type_display.ljust(powder_label_width)
         for i in range(4):
@@ -2065,7 +2064,7 @@ elif menu == "生產單管理":
             total_line += padding + f"{val_str.rjust(number_col_width)}"
         lines.append(total_line)
         lines.append("")
-    
+        
         # ---------------- 附加配方 ----------------
         if additional_recipe_rows and isinstance(additional_recipe_rows, list):
             for idx, sub in enumerate(additional_recipe_rows, 1):
