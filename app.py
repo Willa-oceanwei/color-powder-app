@@ -1946,7 +1946,10 @@ elif menu == "生產單管理":
         )
         
         with st.expander("🔍 生產單預覽", expanded=False):
-            st.text(preview_text)  # 保證等寬字體，對齊正常
+            st.markdown(
+                f"<pre style='font-family:Courier New, monospace; white-space: pre-wrap;'>{preview_text}</pre>",
+                unsafe_allow_html=True
+            )
     
         # 修改按鈕
         with cols_mod[0]:
