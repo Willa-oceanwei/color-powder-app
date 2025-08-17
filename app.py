@@ -1719,6 +1719,14 @@ elif menu == "生產單管理":
             # ✅ 加入 checkbox 讓使用者決定是否顯示附加配方編號
             show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
             
+            # 產生列印 HTML
+            print_html = generate_print_page_content(
+                order=order,
+                recipe_row=recipe_row,
+                additional_recipe_rows=order.get("附加配方", []),
+                show_additional_ids=show_ids
+            )
+            
             # 下載按鈕         
             col1, col2, col3 = st.columns([3, 1, 3])
             with col1:
@@ -1737,7 +1745,6 @@ elif menu == "生產單管理":
                     st.rerun()
                             
     # ---------- 生產單清單 + 修改 / 刪除 ----------
-    # ---------- 生產單清單 + 搜尋 + 分頁 + 修改 / 刪除 ----------
     st.markdown("---")
     st.subheader("📑 生產單記錄表")
     
@@ -1748,7 +1755,6 @@ elif menu == "生產單管理":
     selected_code_edit = None
     selected_label = None
     
-    # 搜尋欄位
     search_order = st.text_input(
         "搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)",
         key="search_order_input_order_page",
@@ -1759,13 +1765,7 @@ elif menu == "生產單管理":
     if "order_page" not in st.session_state:
         st.session_state.order_page = 1
     
-    # 每頁顯示筆數（先給一個預設值，避免 total_pages 計算出錯）
-    if "limit" not in st.session_state:
-        st.session_state.limit = 10
-    
-    limit = st.session_state.limit
-    
-    # 篩選資料
+    # 篩選條件
     if search_order.strip():
         mask = (
             df_order["生產單號"].astype(str).str.contains(search_order, case=False, na=False) |
@@ -1782,6 +1782,10 @@ elif menu == "生產單管理":
     df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
     # 分頁計算
+    cols_top = st.columns([5, 1])
+    with cols_top[1]:
+        limit = st.selectbox("　", [10, 20, 50, 75, 100], index=0, key="selectbox_order_limit")
+    
     total_rows = len(df_filtered)
     total_pages = max((total_rows - 1) // limit + 1, 1)
     st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
@@ -1800,7 +1804,7 @@ elif menu == "生產單管理":
             try:
                 matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
                 category = matched.values[0] if not matched.empty else ""
-            except:
+            except Exception:
                 category = ""
             if unit == "kg" and category == "色母":
                 multiplier = 100
@@ -1831,7 +1835,7 @@ elif menu == "生產單管理":
         hide_index=True
     )
     
-    # ---------- 分頁控制列 ----------
+    # 分頁控制列
     cols_page = st.columns([1, 1, 1, 2])
     if cols_page[0].button("首頁"):
         st.session_state.order_page = 1
@@ -1857,7 +1861,7 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
-    # ---------- 選擇生產單號 + 每頁顯示筆數 + 修改/刪除按鈕 ----------
+    # ---------- 選擇生產單號後才初始化 order_dict 和列印 ----------
     options = []
     code_to_id = {}
     for idx, row in page_data.iterrows():
@@ -1865,29 +1869,29 @@ elif menu == "生產單管理":
         options.append(label)
         code_to_id[label] = row["生產單號"]
     
-    cols_ops = st.columns([7, 3, 3])
-    
-    # 選擇生產單號
-    with cols_ops[0]:
+    cols_top2 = st.columns([5, 1, 1])
+    with cols_top2[0]:
         selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
-        selected_code_edit = code_to_id.get(selected_label)
     
-    # 每頁顯示筆數
-    with cols_ops[1]:
-        limit = st.selectbox("每頁顯示筆數", [10, 20, 50, 75, 100], index=[10, 20, 50, 75, 100].index(limit), key="selectbox_order_limit")
-        st.session_state.limit = limit  # 同步到 session_state
+    # 建立修改與刪除按鈕的 cols_mod
+    cols_mod = cols_top2[1:]
     
-    # 修改/刪除/列印
-    if selected_code_edit:
-        # 取得資料
+    if selected_label:
+        selected_code_edit = code_to_id[selected_label]
+    
+        # 取得生產單資料
         order_row = df_order[df_order["生產單號"] == selected_code_edit]
         if not order_row.empty:
             order_dict = order_row.iloc[0].to_dict()
             order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
     
+            # 取得主配方資料
             recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
-            recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
+            if not recipe_rows.empty:
+                recipe_row = recipe_rows.iloc[0].to_dict()
+                recipe_row = {k: "" if v is None or pd.isna(v) else str(v) for k, v in recipe_row.items()}
     
+            # 處理附加配方
             import ast
             additional_recipe_rows = order_dict.get("附加配方") or []
             if isinstance(additional_recipe_rows, str):
@@ -1898,270 +1902,57 @@ elif menu == "生產單管理":
                 except:
                     additional_recipe_rows = []
     
+            # checkbox 控制是否顯示附加配方編號
             show_ids = st.checkbox("列印時顯示附加配方編號", value=True, key="show_ids_checkbox")
+    
+            # 產生列印 HTML
             print_html = generate_print_page_content(
                 order=order_dict,
                 recipe_row=recipe_row,
                 additional_recipe_rows=additional_recipe_rows,
                 show_additional_ids=show_ids
             )
+    
+            # 下載按鈕
+            st.download_button(
+                "📥 下載列印 HTML",
+                data=print_html.encode("utf-8"),
+                file_name=f"{order_dict['生產單號']}_列印.html",
+                mime="text/html"
+            )
+    
+        # 修改按鈕
+        with cols_mod[0]:
+            if st.button("✏️ 修改") and selected_code_edit:
+                st.session_state.editing_order = order_dict
+                st.session_state.show_edit_panel = True
+    
+        # 刪除按鈕
+        with cols_mod[1]:
+            if st.button("🗑️ 刪除") and selected_code_edit:
+                try:
+                    cell = ws_order.find(selected_code_edit)
+                    if cell:
+                        ws_order.delete_rows(cell.row)
+                        st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
+                    else:
+                        st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
+                except Exception as e:
+                    st.error(f"Google Sheets 刪除錯誤：{e}")
+    
+                # 同步刪除本地資料
+                df_order = df_order[df_order["生產單號"] != selected_code_edit]
+                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                st.session_state.df_order = df_order
+                st.success(f"✅ 本地資料也已刪除生產單 {selected_code_edit}")
+    
+                # 清理狀態並重新整理
+                st.session_state.pop("selected_code_edit", None)
+                st.session_state.show_edit_panel = False
+                st.session_state.editing_order = None
+                st.experimental_rerun()
 
-    # ---------- 預覽函式 ----------
-    import streamlit as st
-    # ---------- 預覽函式 ----------
-    def generate_order_preview_text(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
-        """
-        生成生產單預覽文字（純文字 + markdown，用 monospace 顯示對齊）
-        支援自動對齊包裝列和色母倍數，附加配方正確抓取。
-        """
-        if recipe_row is None:
-            recipe_row = {}
-    
-        # 確保附加配方是 list
-        if additional_recipe_rows is not None and not isinstance(additional_recipe_rows, list):
-            additional_recipe_rows = [additional_recipe_rows]
-    
-        # 初始化
-        lines = []
-    
-        # 參數設定
-        powder_label_width = 12
-        pack_col_width = 15  # 增加寬度，方便對齊色母倍數
-        number_col_width = 6
-        column_offsets = [1, 5, 5, 5]
-        total_offsets = [1.3, 5, 5, 5]
-    
-        # 色粉類別
-        category = (order.get("色粉類別") or "").strip()
-        unit = recipe_row.get("計量單位", "kg")
-        ratio = recipe_row.get("比例3", "")
-        total_type = recipe_row.get("合計類別", "").strip()
-        if total_type == "原料":
-            total_type = "料"
-    
-        # 包裝重量與份數
-        packing_weights = [
-            float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
-            for i in range(1, 5)
-        ]
-        packing_counts = [
-            float(order.get(f"包裝份數{i}", 0)) if str(order.get(f"包裝份數{i}", "")).replace(".", "", 1).isdigit() else 0
-            for i in range(1, 5)
-        ]
-    
-        # 計算每個倍數（依單位轉換）
-        multipliers = []
-        for i, w in enumerate(packing_weights):
-            if category == "色母":
-                val = 100 if w == 1 else w * 100
-            elif unit == "包":
-                val = w * 25
-            elif unit == "桶":
-                val = w * 100
-            else:
-                val = w
-            multipliers.append(val)
-    
-        # 色粉編號與重量
-        colorant_ids = [str(recipe_row.get(f"色粉編號{i+1}", "") or "") for i in range(8)]
-        colorant_weights = []
-        for i in range(8):
-            try:
-                val_str = recipe_row.get(f"色粉重量{i+1}", "") or "0"
-                val = float(val_str)
-            except:
-                val = 0.0
-            colorant_weights.append(val)
-    
-        # 淨重
-        try:
-            net_weight = float(recipe_row.get("淨重", 0))
-        except:
-            net_weight = 0.0
-    
-        # ---------------- 配方資訊列 ----------------
-        recipe_id = recipe_row.get('配方編號', '')
-        color = order.get('顏色', '')
-        pantone = order.get('Pantone 色號', '')
-        info_line = f"編號：{recipe_id:<8} 顏色：{color:<4}   比例：{ratio} g/kg   Pantone：{pantone}"
-        lines.append(info_line)
-        lines.append("")
-        
-        # ---------------- 計算倍數 multipliers ----------------
-        multipliers = []
-        for i in range(4):
-            w = packing_weights[i]
-            if w == 0:
-                multipliers.append(0)
-                continue
-            if category == "色母":
-                real_w = 100 if w == 1 else w * 100
-            elif unit == "包":
-                real_w = w * 25
-            elif unit == "桶":
-                real_w = w * 100
-            else:
-                real_w = w
-            multipliers.append(real_w)
-        
-        # ---------------- 包裝列 ----------------
-        pack_line = []
-        for i in range(4):
-            w = packing_weights[i]
-            c = packing_counts[i]
-            if w > 0 or c > 0:
-                if category == "色母":
-                    real_w = 100 if w == 1 else w * 100
-                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:g}K"
-                elif unit == "包":
-                    real_w = w * 25
-                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:g}K"
-                elif unit == "桶":
-                    real_w = w * 100
-                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:g}K"
-                else:
-                    real_w = w
-                    unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:g}kg"
-        
-                count_str = str(int(c)) if c == int(c) else str(c)
-                text = f"{unit_str} × {count_str}"
-                pack_line.append(f"{text:<{pack_col_width}}")
-        
-        packing_indent = " " * 14
-        lines.append(packing_indent + "".join(pack_line))
-        lines.append("")
-        
-        # ---------------- 主配方色粉列 ----------------
-        for idx in range(8):
-            c_id = colorant_ids[idx]
-            c_weight = colorant_weights[idx]
-            if not c_id:
-                continue
-            row = f"{c_id.ljust(powder_label_width)}"
-            for i in range(4):
-                val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
-                if val == 0:
-                    val_str = ""  # 空值代替0
-                else:
-                    val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                padding = " " * max(0, int(round(column_offsets[i])))
-                row += padding + f"{val_str.rjust(number_col_width)}"
-            lines.append(row)
-        
-        # ---------------- 橫線（非色母） ----------------
-        if category != "色母":
-            lines.append("＿" * 50)
-        
-        # ---------------- 計算 total_type_display ----------------
-        if total_type == "" or total_type == "無":
-            total_type_display = "="
-        elif category == "色母":
-            total_type_display = "料"
-        else:
-            total_type_display = total_type
-        
-        # ---------------- 合計列 ----------------
-        total_line = total_type_display.ljust(powder_label_width)
-        for i in range(4):
-            if category == "色母":
-                pigment_total = sum(colorant_weights)
-                result = (net_weight - pigment_total) * multipliers[i] if multipliers[i] > 0 else 0
-            else:
-                result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-            if result == 0:
-                val_str = ""  # 空值代替0
-            else:
-                val_str = f"{result:.3f}".rstrip('0').rstrip('.')
-            padding = " " * max(0, int(round(total_offsets[i])))
-            total_line += padding + f"{val_str.rjust(number_col_width)}"
-        lines.append(total_line)
-        
-        # ---------------- 附加配方 ----------------
-        if additional_recipe_rows and isinstance(additional_recipe_rows, list):
-            for idx, sub in enumerate(additional_recipe_rows, 1):
-                lines.append("")
-                if show_additional_ids:
-                    lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
-                else:
-                    lines.append(f"附加配方 {idx}")
-                add_ids = [sub.get(f"色粉編號{i+1}", "") for i in range(8)]
-                add_weights = []
-                for i in range(8):
-                    try:
-                        val = float(sub.get(f"色粉重量{i+1}", 0) or 0)
-                    except:
-                        val = 0.0
-                    add_weights.append(val)
-                for i in range(8):
-                    c_id = add_ids[i]
-                    if not c_id:
-                        continue
-                    row = f"{c_id.ljust(powder_label_width)}"
-                    for j in range(4):
-                        val = add_weights[i] * multipliers[j] if multipliers[j] > 0 else 0
-                        if val == 0:
-                            val_str = ""  # 空值代替0
-                        else:
-                            val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                        padding = " " * max(0, int(round(column_offsets[j])))
-                        row += padding + f"{val_str.rjust(number_col_width)}"
-                    lines.append(row)
-    
-        # ---------------- 備註 ----------------
-        lines.append("")
-        lines.append(f"備註 : {order.get('備註', '')}")
-        lines.append("")
-    
-        # 用 Markdown monospace 包起來
-        preview_text = "```\n" + "\n".join(lines) + "\n```"
-        return preview_text
 
-    
-    # ---------- 初始化 session_state ----------
-    if "show_preview" not in st.session_state:
-        st.session_state.show_preview = False
-    
-    # ---------- 按鈕區塊 ----------
-    btn_cols = st.columns([1, 1, 1])
-    
-    # 下載列印
-    btn_cols[0].download_button(
-        "📥 下載列印 HTML",
-        data=print_html.encode("utf-8"),
-        file_name=f"{order_dict['生產單號']}_列印.html",
-        mime="text/html"
-    )
-    
-    # 修改
-    if btn_cols[1].button("✏️ 修改"):
-        st.session_state.editing_order = order_dict
-        st.session_state.show_edit_panel = True
-    
-    # 刪除
-    if btn_cols[2].button("🗑️ 刪除"):
-        try:
-            cell = ws_order.find(selected_code_edit)
-            if cell:
-                ws_order.delete_rows(cell.row)
-                st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
-            else:
-                st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
-        except Exception as e:
-            st.error(f"Google Sheets 刪除錯誤：{e}")
-    
-        df_order = df_order[df_order["生產單號"] != selected_code_edit]
-        df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-        st.session_state.df_order = df_order
-    
-        st.session_state.pop("selected_code_edit", None)
-        st.session_state.show_edit_panel = False
-        st.session_state.editing_order = None
-        st.rerun()
-    
-    # ---------- 顯示預覽 expander ----------
-    with st.expander("📝 生產單預覽", expanded=st.session_state.show_preview):
-        preview_text = generate_order_preview_text(order_dict, recipe_row, additional_recipe_rows)
-        st.markdown(preview_text, unsafe_allow_html=True)
     
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
@@ -2185,29 +1976,9 @@ elif menu == "生產單管理":
             st.stop()
         recipe_row = recipe_rows.iloc[0]
         
-        # 表單編輯欄位-三欄橫排：客戶名稱 / 配方編號 / 顏色
-        cols_info = st.columns([2, 3, 3])
-        
-        with cols_info[0]:
-            new_customer = st.text_input(
-                "客戶名稱", 
-                value=order_dict.get("客戶名稱", ""), 
-                key="edit_customer_name"
-            )
-        
-        with cols_info[1]:
-            new_recipe_id = st.text_input(
-                "配方編號", 
-                value=order_dict.get("配方編號", ""), 
-                key="edit_recipe_id"
-            )
-        
-        with cols_info[2]:
-            new_color = st.text_input(
-                "顏色", 
-                value=order_dict.get("顏色", ""), 
-                key="edit_color"
-            )
+        # 表單編輯欄位
+        new_customer = st.text_input("客戶名稱", value=order_dict.get("客戶名稱", ""), key="edit_customer_name")
+        new_color = st.text_input("顏色", value=order_dict.get("顏色", ""), key="edit_color")
     
         # 包裝重量 1~4
         pack_weights_cols = st.columns(4)
@@ -2231,6 +2002,13 @@ elif menu == "生產單管理":
     
         # ✅ 產生 A5 HTML（和三欄按鈕列完全一致）
         print_html = generate_print_page_content(order_dict, recipe_row)
+    
+        st.download_button(
+            label="📄 下載列印 HTML",
+            data=print_html.encode("utf-8"),
+            file_name=f"{order_dict['生產單號']}_print.html",
+            mime="text/html"
+        )
         
         cols_edit = st.columns([1, 1, 1])
     
@@ -2280,7 +2058,7 @@ elif menu == "生產單管理":
             if st.button("返回", key="return_button"):
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
-                st.rerun()
+                st.experimental_rerun()
 
 
 # ===== 匯入配方備份檔案 =====
