@@ -2054,11 +2054,16 @@ elif menu == "生產單管理":
         # ---------------- 附加配方列（非色母才顯示） ----------------
         if category != "色母" and additional_recipe_rows and isinstance(additional_recipe_rows, list):
             for idx, sub in enumerate(additional_recipe_rows, 1):
+                # 避免主配方重複列印
+                if sub.get("配方編號") == recipe_row.get("配方編號"):
+                    continue
+        
                 lines.append("")
                 if show_additional_ids:
                     lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
                 else:
                     lines.append(f"附加配方 {idx}")
+        
                 add_ids = [sub.get(f"色粉編號{i+1}", "") for i in range(8)]
                 add_weights = []
                 for i in range(8):
@@ -2067,6 +2072,7 @@ elif menu == "生產單管理":
                     except:
                         val = 0.0
                     add_weights.append(val)
+        
                 for i in range(8):
                     c_id = add_ids[i]
                     if not c_id:
@@ -2078,8 +2084,6 @@ elif menu == "生產單管理":
                         padding = " " * max(0, int(round(column_offsets[j])))
                         row += padding + f"{val_str.rjust(number_col_width)}"
                     lines.append(row)
-            if sub.get("配方編號") == recipe_row.get("配方編號"):
-                continue  # 避免主配方重複加入
     
         lines.append("")
         lines.append(f"備註 : {order.get('備註', '')}")
