@@ -1943,7 +1943,7 @@ elif menu == "生產單管理":
         multipliers = packing_weights
     
         # 色粉編號與重量
-        colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
+        colorant_ids = [str(recipe_row.get(f"色粉編號{i+1}", "") or '') for i in range(8)]
         colorant_weights = []
         for i in range(8):
             try:
