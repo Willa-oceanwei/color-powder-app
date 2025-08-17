@@ -1954,7 +1954,7 @@ elif menu == "生產單管理":
             st.session_state.pop("selected_code_edit", None)
             st.session_state.show_edit_panel = False
             st.session_state.editing_order = None
-            st.experimental_rerun()
+            st.rerun()
     
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
