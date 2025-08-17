@@ -1921,8 +1921,7 @@ elif menu == "生產單管理":
                 mime="text/html"
             )
         # ---------- ✅ 預覽區塊 ----------
-        # 這裡改用純文字格式顯示（monospace 對齊）
-        preview_text = generate_production_order_print(
+        preview_text = generate_production_order_preview(
             order_dict,
             recipe_row,
             additional_recipe_rows=additional_recipe_rows,
@@ -1930,10 +1929,7 @@ elif menu == "生產單管理":
         )
         
         with st.expander("🔍 生產單預覽", expanded=False):
-            st.markdown(
-                f"<pre style='font-family:Courier New, monospace;'>{preview_text}</pre>",
-                unsafe_allow_html=True
-            )
+            st.text(preview_text)  # 保證等寬字體，對齊正常
     
         # 修改按鈕
         with cols_mod[0]:
