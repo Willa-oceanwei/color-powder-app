@@ -1922,25 +1922,27 @@ elif menu == "生產單管理":
                 mime="text/html"
             )
         # ---------- ✅ 預覽區塊 ----------
-        def generate_production_order_preview(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+        def generate_order_preview_text(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
             """
-            專門給 Streamlit 預覽用的純文字版本（保留換行與對齊）
+            生成生產單預覽文字（純文字 + markdown，用 monospace 對齊）
             """
+            # 先呼叫原本的列印函式
             html_text = generate_production_order_print(
                 order,
                 recipe_row,
                 additional_recipe_rows=additional_recipe_rows,
                 show_additional_ids=show_additional_ids
             )
-            # 1. 將 <br> 換成換行符號
+            # 將 <br> 換成換行符號
             text_with_newlines = html_text.replace("<br>", "\n")
-            # 2. 移除其他 HTML 標籤
+            # 移除其他 HTML 標籤
             plain_text = re.sub(r"<.*?>", "", text_with_newlines)
-            return plain_text.strip()
+            # 用 Markdown code block 包起來
+            preview_text = "```\n" + plain_text.strip() + "\n```"
+            return preview_text
         
-        
-        # 使用預覽
-        preview_text = generate_production_order_preview(
+        # ---------- 顯示預覽 ----------
+        preview_text = generate_order_preview_text(
             order_dict,
             recipe_row,
             additional_recipe_rows=additional_recipe_rows,
@@ -1948,7 +1950,7 @@ elif menu == "生產單管理":
         )
         
         with st.expander("🔍 生產單預覽", expanded=False):
-            st.text(preview_text)   # 直接用 st.text，而不是 markdown
+            st.markdown(preview_text)  # Markdown code block 會自動 monospace 對齊
     
         # 修改按鈕
         with cols_mod[0]:
