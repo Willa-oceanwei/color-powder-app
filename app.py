@@ -1782,26 +1782,12 @@ elif menu == "生產單管理":
     df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
     df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
-    # ---------- 分頁計算 ----------
+    # 分頁計算
+    cols_top = st.columns([5, 1])
+    with cols_top[1]:
+        limit = st.selectbox("　", [10, 20, 50, 75, 100], index=0, key="selectbox_order_limit")
+    
     total_rows = len(df_filtered)
-    st.session_state.order_page = max(1, st.session_state.get("order_page", 1))
-    limit_options = [10, 20, 50, 75, 100]
-    
-    # ---------- 選擇生產單號後才初始化 order_dict 和列印 ----------
-    options = []
-    code_to_id = {}
-    for idx, row in df_filtered.iterrows():
-        label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色', '')} / {row.get('客戶名稱', '')}"
-        options.append(label)
-        code_to_id[label] = row["生產單號"]
-    
-    # ---------- 四個功能橫排: 下載 / 修改 / 刪除 / 分頁 ----------
-    cols_actions = st.columns([1, 1, 1, 2])  # 前三個按鈕等寬，分頁下拉寬一些
-    
-    with cols_actions[3]:
-        limit = st.selectbox("顯示筆數", limit_options, index=0, key="selectbox_order_limit")
-        show_ids = st.checkbox("列印附加配方編號", value=True, key="show_ids_checkbox")
-    
     total_pages = max((total_rows - 1) // limit + 1, 1)
     st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
     start_idx = (st.session_state.order_page - 1) * limit
@@ -1876,35 +1862,112 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
-    # ---------- 橫排前面三個按鈕: 下載 / 修改 / 刪除 ----------
-    with cols_actions[0]:
-        if selected_label:  # 確認已選擇生產單
+    # ---------- 選擇生產單號後才初始化 order_dict 和列印 ----------
+    options = []
+    code_to_id = {}
+    for idx, row in page_data.iterrows():
+        label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色', '')} / {row.get('客戶名稱', '')}"
+        options.append(label)
+        code_to_id[label] = row["生產單號"]
+    
+    cols_top2 = st.columns([5, 1, 1])
+    with cols_top2[0]:
+        selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
+    
+    # 建立修改與刪除按鈕的 cols_mod
+    cols_mod = cols_top2[1:]
+    
+    if selected_label:
+        selected_code_edit = code_to_id[selected_label]
+    
+        # 取得生產單資料
+        order_row = df_order[df_order["生產單號"] == selected_code_edit]
+        if not order_row.empty:
+            order_dict = order_row.iloc[0].to_dict()
+            order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
+    
+            # 取得主配方資料
+            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
+            if not recipe_rows.empty:
+                recipe_row = recipe_rows.iloc[0].to_dict()
+                recipe_row = {k: "" if v is None or pd.isna(v) else str(v) for k, v in recipe_row.items()}
+    
+            # 處理附加配方
+            import ast
+            additional_recipe_rows = order_dict.get("附加配方") or []
+            if isinstance(additional_recipe_rows, str):
+                try:
+                    additional_recipe_rows = ast.literal_eval(additional_recipe_rows)
+                    if not isinstance(additional_recipe_rows, list):
+                        additional_recipe_rows = []
+                except:
+                    additional_recipe_rows = []
+    
+            # checkbox 控制是否顯示附加配方編號
+            show_ids = st.checkbox("列印時顯示附加配方編號", value=True, key="show_ids_checkbox")
+
+            # 先生成 HTML 內容
             print_html = generate_print_page_content(
-                order_dict, recipe_row, additional_recipe_rows, show_ids
-            )
+                order_dict,
+                recipe_row,
+                additional_recipe_rows=additional_recipe_rows,
+                show_additional_ids=show_ids
+            ) 
+
+            # 下載按鈕
             st.download_button(
-                "📥 下載 HTML",
+                "📥 下載列印 HTML",
                 data=print_html.encode("utf-8"),
                 file_name=f"{order_dict['生產單號']}_列印.html",
                 mime="text/html"
             )
+        # ---------- ✅ 預覽區塊 ----------
+        def generate_order_preview_text(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+            """
+            生成生產單預覽文字（純文字 + markdown，用 monospace 對齊）
+            """
+            # 先呼叫原本的列印函式
+            html_text = generate_production_order_print(
+                order,
+                recipe_row,
+                additional_recipe_rows=additional_recipe_rows,
+                show_additional_ids=show_additional_ids
+            )
+            # 將 <br> 換成換行符號
+            text_with_newlines = html_text.replace("<br>", "\n")
+            # 移除其他 HTML 標籤
+            plain_text = re.sub(r"<.*?>", "", text_with_newlines)
+            # 用 Markdown code block 包起來
+            preview_text = "```\n" + plain_text.strip() + "\n```"
+            return preview_text
+        
+        # ---------- 顯示預覽 ----------
+        preview_text = generate_order_preview_text(
+            order_dict,
+            recipe_row,
+            additional_recipe_rows=additional_recipe_rows,
+            show_additional_ids=show_ids
+        )
+        
+        with st.expander("🔍 生產單預覽", expanded=False):
+            st.markdown(preview_text)  # Markdown code block 會自動 monospace 對齊
     
-    with cols_actions[1]:
-        if selected_label:
-            if st.button("✏️ 修改"):
+        # 修改按鈕
+        with cols_mod[0]:
+            if st.button("✏️ 修改") and selected_code_edit:
                 st.session_state.editing_order = order_dict
                 st.session_state.show_edit_panel = True
     
-    with cols_actions[2]:
-        if selected_label:
-            if st.button("🗑️ 刪除"):
+        # 刪除按鈕
+        with cols_mod[1]:
+            if st.button("🗑️ 刪除") and selected_code_edit:
                 try:
                     cell = ws_order.find(selected_code_edit)
                     if cell:
                         ws_order.delete_rows(cell.row)
-                        st.success(f"✅ 已刪除生產單 {selected_code_edit}")
+                        st.success(f"✅ 已從 Google Sheets 刪除生產單 {selected_code_edit}")
                     else:
-                        st.warning("⚠️ Google Sheets 找不到該筆生產單")
+                        st.warning("⚠️ Google Sheets 找不到該筆生產單，無法刪除")
                 except Exception as e:
                     st.error(f"Google Sheets 刪除錯誤：{e}")
     
