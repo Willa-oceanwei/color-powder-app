@@ -1878,7 +1878,7 @@ elif menu == "生產單管理":
     
     # ---------- 橫排前面三個按鈕: 下載 / 修改 / 刪除 ----------
     with cols_actions[0]:
-        if selected_label := st.session_state.get("select_order_for_edit_from_list"):
+        if selected_label:  # 確認已選擇生產單
             print_html = generate_print_page_content(
                 order_dict, recipe_row, additional_recipe_rows, show_ids
             )
