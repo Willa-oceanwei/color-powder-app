@@ -2011,22 +2011,21 @@ elif menu == "生產單管理":
             w = packing_weights[i]
             c = packing_counts[i]
             if w > 0 or c > 0:
-                # 僅影響文字顯示
                 if category == "色母":
                     if w == 1:
                         unit_str = "100K"
                     else:
-                        unit_val = w * 100
-                        unit_str = f"{int(unit_val)}K" if unit_val == int(unit_val) else f"{unit_val:.1f}K"
+                        real_w = w * 100
+                        unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.2f}K"
                 elif unit == "包":
-                    unit_val = w * 25
-                    unit_str = f"{int(unit_val)}K" if unit_val == int(unit_val) else f"{unit_val:.1f}K"
+                    real_w = w * 25
+                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.2f}K"
                 elif unit == "桶":
-                    unit_val = w * 100
-                    unit_str = f"{int(unit_val)}K" if unit_val == int(unit_val) else f"{unit_val:.1f}K"
+                    real_w = w * 100
+                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.2f}K"
                 else:
-                    unit_val = w
-                    unit_str = f"{int(unit_val)}kg" if unit_val == int(unit_val) else f"{unit_val:.2f}kg"
+                    real_w = w
+                    unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
         
                 count_str = str(int(c)) if c == int(c) else str(c)
                 text = f"{unit_str} × {count_str}"
@@ -2076,21 +2075,19 @@ elif menu == "生產單管理":
         total_line = total_type_display.ljust(powder_label_width)
         for i in range(4):
             if category == "色母":
+                total_line = "料".ljust(powder_label_width)
                 pigment_total = sum(colorant_weights)
-                result = (net_weight - pigment_total) * multipliers[i] if multipliers[i] > 0 else 0
-            else:
-                result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-        
-            # 只顯示非零數值
-            if result:
-                val_str = str(int(result)) if float(result).is_integer() else f"{result:.3f}".rstrip('0').rstrip('.')
-            else:
-                val_str = ""
-        
-            padding = " " * max(0, int(round(total_offsets[i])))
-            total_line += padding + f"{val_str.rjust(number_col_width)}"
-        lines.append(total_line)
-        lines.append("")
+                for i in range(4):
+                    # 色母合計 = 淨重 - 色粉總重（淨重為配方管理輸入值）
+                    result = net_weight - pigment_total
+                    val_str = f"{int(result)}" if result == int(result) else f"{result:.2f}"
+                    # 空值或 0 不顯示
+                    if result == 0:
+                        val_str = ""
+                    padding = " " * max(0, int(round(total_offsets[i])))
+                    total_line += padding + f"{val_str.rjust(number_col_width)}"
+                lines.append(total_line)
+                lines.append("")
         
         # ---------------- 附加配方 ----------------
         if category != "色母" and additional_recipe_rows and isinstance(additional_recipe_rows, list):
