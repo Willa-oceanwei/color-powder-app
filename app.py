@@ -1782,16 +1782,84 @@ elif menu == "生產單管理":
     df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
     df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
-    # 分頁計算
-    cols_top = st.columns([5, 1])
-    with cols_top[1]:
-        limit = st.selectbox("　", [10, 20, 50, 75, 100], index=0, key="selectbox_order_limit")
+    # [下拉選單：每頁筆數] 先定義
+    cols_page = st.columns([1, 1, 1, 2, 1.5])
     
+    # [首頁]
+    with cols_page[0]:
+        if st.button("首頁"):
+            st.session_state.order_page = 1
+            st.rerun()
+    
+    # [上一頁]
+    with cols_page[1]:
+        if st.button("上一頁") and st.session_state.order_page > 1:
+            st.session_state.order_page -= 1
+            st.rerun()
+    
+    # [下一頁]
+    with cols_page[2]:
+        if st.button("下一頁") and st.session_state.order_page < total_pages:
+            st.session_state.order_page += 1
+            st.rerun()
+    
+    # [跳頁輸入框 + 顯示目前頁數/總頁數]
+    with cols_page[3]:
+        jump_col1, jump_col2 = st.columns([2, 1])
+        with jump_col1:
+            jump_page = st.number_input(
+                "",
+                min_value=1,
+                max_value=1,  # 先給暫時值，稍後會更新
+                value=st.session_state.get("order_page", 1),
+                key="jump_page",
+                label_visibility="collapsed"
+            )
+        with jump_col2:
+            st.markdown(
+                f"<div style='margin-top:8px;'>第 {st.session_state.get('order_page', 1)} / ? 頁</div>",
+                unsafe_allow_html=True
+            )
+    
+    # [下拉選單：每頁筆數]
+    with cols_page[4]:
+        limit = st.selectbox(
+            "",
+            [10, 20, 50, 75, 100],
+            index=0,
+            key="selectbox_order_limit",
+            label_visibility="collapsed"
+        )
+    
+    # ---- limit 確定之後，再計算 total_pages / page_data ----
     total_rows = len(df_filtered)
     total_pages = max((total_rows - 1) // limit + 1, 1)
-    st.session_state.order_page = max(1, min(st.session_state.order_page, total_pages))
+    st.session_state.order_page = max(1, min(st.session_state.get("order_page", 1), total_pages))
     start_idx = (st.session_state.order_page - 1) * limit
     page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
+    
+    # 更新輸入框最大值與頁數顯示
+    st.session_state.jump_page = min(st.session_state.order_page, total_pages)
+    with cols_page[3]:
+        jump_col1, jump_col2 = st.columns([2, 1])
+        with jump_col1:
+            jump_page = st.number_input(
+                "",
+                min_value=1,
+                max_value=total_pages,
+                value=st.session_state.order_page,
+                key="jump_page",
+                label_visibility="collapsed"
+            )
+        with jump_col2:
+            st.markdown(
+                f"<div style='margin-top:8px;'>第 {st.session_state.order_page} / {total_pages} 頁</div>",
+                unsafe_allow_html=True
+            )
+    
+    if jump_page != st.session_state.order_page:
+        st.session_state.order_page = jump_page
+        st.rerun()
     
     # 計算出貨數量
     def calculate_shipment(row):
@@ -1835,30 +1903,6 @@ elif menu == "生產單管理":
         use_container_width=True,
         hide_index=True
     )
-    
-    # 分頁控制列
-    cols_page = st.columns([1, 1, 1, 2])
-    if cols_page[0].button("首頁"):
-        st.session_state.order_page = 1
-        st.experimental_rerun()
-    if cols_page[1].button("上一頁") and st.session_state.order_page > 1:
-        st.session_state.order_page -= 1
-        st.experimental_rerun()
-    if cols_page[2].button("下一頁") and st.session_state.order_page < total_pages:
-        st.session_state.order_page += 1
-        st.experimental_rerun()
-    
-    jump_page = cols_page[3].number_input(
-        "",
-        min_value=1,
-        max_value=total_pages,
-        value=st.session_state.order_page,
-        key="jump_page",
-        label_visibility="collapsed"
-    )
-    if jump_page != st.session_state.order_page:
-        st.session_state.order_page = jump_page
-        st.rerun()
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     
