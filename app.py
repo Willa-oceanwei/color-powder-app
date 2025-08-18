@@ -1856,17 +1856,26 @@ elif menu == "生產單管理":
     
     # 分頁數筆數選擇（下拉選單）
     with cols_page[4]:
+        options_list = [5, 10, 20, 50, 75, 100]
+        # 取得當前值，如果不在 options_list 裡就預設為 10
+        current_limit = st.session_state.get("selectbox_order_limit", 10)
+        if current_limit not in options_list:
+            current_limit = 10
+    
         new_limit = st.selectbox(
             label=" ",  # 空白標籤，不會占用高度
-            options=[5, 10, 20, 50, 75, 100],
-            index=[10, 20, 50, 75, 100].index(st.session_state.selectbox_order_limit),
+            options=options_list,
+            index=options_list.index(current_limit),
             key="selectbox_order_limit",
             label_visibility="collapsed"
         )
+    
+        # 如果改變了每頁筆數，跳回首頁並刷新
         if new_limit != st.session_state.selectbox_order_limit:
             st.session_state.selectbox_order_limit = new_limit
-            st.session_state.order_page = 1  # 選擇新筆數後跳回首頁
-            st.experimental_rerun()
+            st.session_state.order_page = 1
+            st.rerun()
+            st.rerun()
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     st.markdown("---")
