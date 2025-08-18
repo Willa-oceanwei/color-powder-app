@@ -2052,6 +2052,11 @@ elif menu == "生產單管理":
             if abs(x - int(x)) < 1e-9:
                 return str(int(x))
             return f"{x:g}"
+
+        # 備註列
+        note_text = str(recipe_row.get("備註","")).strip()
+        if note_text:
+            html_text += f"備註 : {note_text}<br><br>"  # ✅ 這裡多加一個 <br> 空一行
     
         # 色母/色粉區（下方）排版
         category_colorant = str(recipe_row.get("色粉類別","")).strip()
