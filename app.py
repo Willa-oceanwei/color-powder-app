@@ -2091,10 +2091,16 @@ elif menu == "生產單管理":
             # 色母合計列
             total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
             total_line_colorant = "料".ljust(12)
-            for w in pack_weights_display:
+            
+            # 自訂每欄寬度（第一欄偏左，第二欄偏右）
+            col_widths = [8, 16, 12, 12]  # 可依實際欄位數調整
+            
+            for idx, w in enumerate(pack_weights_display):
                 if w > 0:
                     val = total_colorant * w
-                    total_line_colorant += str(int(val)).rjust(5)  # 將寬度改小，數字會向左移
+                    width = col_widths[idx] if idx < len(col_widths) else 12
+                    total_line_colorant += str(int(val)).rjust(width)
+            
             html_text += total_line_colorant + "<br>"
     
         # 轉為純文字（保留對齊）
