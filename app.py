@@ -2055,11 +2055,15 @@ elif menu == "生產單管理":
                     net = float(sub.get("淨重", 0) or 0)
                 except Exception:
                     net = 0.0
-                cells = []
-                for m in multipliers:
+                total_line = total_label.ljust(powder_label_width)
+
+                # 每個倍數欄位增加與主配方相同的 padding
+                for idx, m in enumerate(multipliers):
                     val = net * m
-                    cells.append(fmt_num(val).rjust(number_col_width))
-                html_text += total_label.ljust(powder_label_width) + "".join(cells) + "<br>"
+                    padding = " " * max(0, int(round(column_offsets[idx])))  # 參考主配方的 column_offsets
+                    total_line += padding + fmt_num(val).rjust(number_col_width)
+                
+                html_text += total_line + "<br>"
 
         # 轉為純文字（保留對齊）
         text_with_newlines = html_text.replace("<br>", "\n")
