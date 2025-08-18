@@ -1991,23 +1991,50 @@ elif menu == "生產單管理":
             
             st.write("order_dict 附加配方欄位:", order_dict.get("附加配方編號列表"))
             # ---------- ✅ 預覽區塊 ----------
-            def generate_order_preview_text(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+            def generate_order_preview_text(order, recipe_row, df_recipe, df_order, show_additional_ids=True):
+                # 先生成主配方 HTML
                 html_text = generate_production_order_print(
                     order,
                     recipe_row,
-                    additional_recipe_rows=additional_recipe_rows,
+                    additional_recipe_rows=None,
                     show_additional_ids=show_additional_ids
                 )
+            
+                # ----- 抓附加配方資料 -----
+                main_code = order.get("配方編號")
+                if main_code:
+                    additional_df = df_order[
+                        (df_order["主配方編號"] == main_code) &
+                        (df_order["類型"] == "附加配方")
+                    ]
+                    additional_recipe_rows = df_recipe[df_recipe["配方編號"].isin(additional_df["配方編號"])].to_dict("records")
+                else:
+                    additional_recipe_rows = []
+            
+                # ----- 將附加配方加進 HTML -----
+                if additional_recipe_rows:
+                    html_text += "<br>=== 附加配方 ===<br>"
+                    for idx, sub in enumerate(additional_recipe_rows, 1):
+                        html_text += f"附加配方 {idx}：{sub.get('配方編號', '')}<br>"
+                        for i in range(1, 9):  # 假設色粉1~8
+                            c_id = sub.get(f"色粉編號{i}", "")
+                            weight = sub.get(f"色粉重量{i}", "")
+                            if c_id and weight:
+                                html_text += f"{c_id}: {weight}<br>"
+            
+                # ----- 轉成純文字供 Markdown 預覽 -----
                 text_with_newlines = html_text.replace("<br>", "\n")
                 plain_text = re.sub(r"<.*?>", "", text_with_newlines)
                 preview_text = "```\n" + plain_text.strip() + "\n```"
                 return preview_text
             
+            # 呼叫預覽
             preview_text = generate_order_preview_text(
                 order_dict,
                 recipe_row,
-                additional_recipe_rows=additional_recipe_rows,
-                show_additional_ids=show_ids
+                df_recipe,
+                df_order,
+                show_additional_ids=True
             )
             
             with st.expander("🔍 生產單預覽", expanded=False):
