@@ -1934,9 +1934,10 @@ elif menu == "生產單管理":
                         html_text += row_text + "<br>"
     
                 # 顯示合計 = 附加配方淨重
-                if total_weight > 0:
-                    html_text += f"{'淨重'.ljust(powder_label_width)}{total_weight:>{number_col_width}}<br>"
-    
+                net_weight = sub.get("淨重", "")
+                if net_weight:
+                    html_text += f"{'淨重'.ljust(powder_label_width)}{net_weight:>{number_col_width}}<br>"
+                    
         # 將 HTML <br> 轉換成純文字換行
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
