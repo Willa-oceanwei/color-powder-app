@@ -1987,7 +1987,7 @@ elif menu == "生產單管理":
         main_code = str(order.get("配方編號", "")).strip()
         if main_code:
             additional_recipe_rows = df_recipe[
-                (df_recipe["配方類型"] == "附加配方") &
+                (df_recipe["配方類別"] == "附加配方") &
                 (df_recipe["原始配方"].astype(str).str.strip() == main_code)
             ].to_dict("records")
         else:
