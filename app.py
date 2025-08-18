@@ -2066,14 +2066,13 @@ elif menu == "生產單管理":
                 html_text += total_line + "<br>"
 
         #  =====色母專用格式化函式（獨立變數）===== 
-        # 1. 格式化函式：小數點為0則顯示整數
         def fmt_num_colorant(x: float) -> str:
             if abs(x - int(x)) < 1e-9:
                 return str(int(x))
             return f"{x:g}"
-        
-        # 2. 判斷是否為色母
-        category_colorant = str(recipe_row.get("色粉類別","")).strip()
+    
+        # 判斷是否為色母
+        category_colorant = str(recipe_row.get("配方類別","")).strip()
         if category_colorant == "色母":
             # 包裝重量 (純顯示)
             packing_weights_colorant = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
@@ -2084,7 +2083,7 @@ elif menu == "生產單管理":
                     pack_line_colorant.append(f"{val}K × {w:g}")
             if pack_line_colorant:  # 顯示在色粉列下方
                 html_text += " " * 14 + "  ".join(pack_line_colorant) + "<br>"
-        
+    
             # 色粉列（乘上包裝倍數）
             colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
             powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
@@ -2096,23 +2095,20 @@ elif menu == "生產單管理":
                             val = wgt * pw
                             line += fmt_num_colorant(val).rjust(7)
                     html_text += line + "<br>"
-        
+    
             # 色母合計列 (淨重 - 色粉1~8)
-            colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
-            net_colorant = float(recipe_row.get("淨重",0) or 0)
-            total_colorant = net_colorant - sum(colorant_weights)
-        
+            total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
             total_line_colorant = "料".ljust(12)
             for w in packing_weights_colorant:
                 if w > 0:
                     val = total_colorant * w
                     total_line_colorant += fmt_num_colorant(val).rjust(7)
             html_text += total_line_colorant + "<br>"
-                
+    
         # 轉為純文字（保留對齊）
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
-        return "```\n" + plain_text.strip() + "\n```"  # ✅ 一定要 return
+        return "```\n" + plain_text.strip() + "\n```"
         
     # ------------------- 顯示預覽 -------------------
     if selected_label and selected_label != "無資料":
