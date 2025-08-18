@@ -1158,34 +1158,40 @@ elif menu == "配方管理":
     else:
         st.info("查無符合的配方（分頁結果）")
     
-    # ===== 分頁控制列（按鈕 + 下拉頁碼）=====
+    # ===== 分頁控制列（按鈕 + 輸入跳頁）=====
     cols_page = st.columns([1, 1, 1, 2])
+    
     with cols_page[0]:
         if st.button("首頁", key="first_page"):
             st.session_state.page = 1
             st.experimental_rerun()
+    
     with cols_page[1]:
         if st.button("上一頁", key="prev_page") and st.session_state.page > 1:
             st.session_state.page -= 1
             st.experimental_rerun()
+    
     with cols_page[2]:
         if st.button("下一頁", key="next_page") and st.session_state.page < total_pages:
             st.session_state.page += 1
             st.experimental_rerun()
+    
     with cols_page[3]:
-        selected_page = st.selectbox(
+        # 輸入跳頁
+        jump_page = st.number_input(
             "",  # 不顯示文字
-            options=list(range(1, total_pages + 1)),
-            index=st.session_state.page - 1,
-            key="select_page"
+            min_value=1,
+            max_value=total_pages,
+            value=st.session_state.page,
+            key="jump_page",
+            label_visibility="collapsed"  # 隱藏標籤，位置上移
         )
-        if selected_page != st.session_state.page:
-            st.session_state.page = selected_page
+        if jump_page != st.session_state.page:
+            st.session_state.page = jump_page
             st.experimental_rerun()
     
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
     st.markdown("---")
-
     
     # 顯示上方搜尋沒有資料的提示
     top_has_input = any([
