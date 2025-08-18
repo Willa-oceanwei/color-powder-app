@@ -234,6 +234,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                 lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
             else:
                 lines.append(f"附加配方 {idx}")
+    
             add_ids = [sub.get(f"色粉編號{i+1}", "") for i in range(8)]
             add_weights = []
             for i in range(8):
@@ -242,6 +243,8 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                 except:
                     val = 0.0
                 add_weights.append(val)
+    
+            # 色粉列
             for i in range(8):
                 c_id = add_ids[i]
                 if not c_id:
@@ -256,6 +259,29 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                     row += padding + f"<b>{val_str:>{number_col_width}}</b>"
                 lines.append(row)
     
+            # ✅ 合計列 (附加配方專用)
+            sub_total_type = sub.get("合計類別", "")
+            sub_net_weight = float(sub.get("淨重", 0) or 0)
+            
+            if sub_total_type == "" or sub_total_type == "無":
+                sub_total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
+            elif category == "色母":
+                sub_total_type_display = f"<b>{'料'.ljust(powder_label_width)}</b>"
+            else:
+                sub_total_type_display = f"<b>{sub_total_type.ljust(powder_label_width)}</b>"
+            
+            sub_total_line = sub_total_type_display
+            for j in range(4):
+                val = sub_net_weight * multipliers[j] if multipliers[j] > 0 else 0
+                val_str = (
+                    str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
+                ) if val else ""
+                padding = " " * max(0, int(round(column_offsets[j])))
+                sub_total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+            
+            lines.append(sub_total_line)
+
+        
     lines.append("")
     lines.append("")  # 多加這一行，讓備註往下多空一行
     lines.append(f"備註 : {order.get('備註', '')}")
