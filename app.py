@@ -1882,9 +1882,9 @@ elif menu == "生產單管理":
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
         """
-        生成生產單文字預覽，包括主配方與多筆附加配方，色粉重量自動加 K/kg 並對齊。
+        生成生產單文字預覽，包括主配方與附加配方（透過配方編號 + 判斷）。
         """
-        # 主配方 HTML
+        # 1️⃣ 先產生主配方 HTML
         html_text = generate_production_order_print(
             order,
             recipe_row,
@@ -1892,51 +1892,31 @@ elif menu == "生產單管理":
             show_additional_ids=show_additional_ids
         )
     
-        # 附加配方
+        # 2️⃣ 抓附加配方
         main_code = order.get("配方編號")
         additional_recipe_rows = []
         if main_code:
-            additional_recipe_rows = df_recipe[df_recipe["配方編號"].str.startswith(f"{main_code}+")]
-            additional_recipe_rows = additional_recipe_rows.to_dict("records")
+            # 假設附加配方編號規則：主配方 + "+"
+            additional_recipe_rows = df_recipe[
+                df_recipe["配方編號"].str.startswith(f"{main_code}+")
+            ].to_dict("records")
     
+        # 3️⃣ 將附加配方加進 HTML
         if additional_recipe_rows:
             html_text += "<br>=== 附加配方 ===<br>"
-            multipliers = {"包": 25, "桶": 100, "kg": 1}
-            unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
-            number_col_width = 5
-            powder_label_width = 8
-    
-            main_unit = str(recipe_row.get("計量單位", "包")).strip()
-            multiplier = multipliers.get(main_unit, 1)
-            label = unit_labels.get(main_unit, "")
-    
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 if show_additional_ids:
                     html_text += f"附加配方 {idx}：{sub.get('配方編號', '')}<br>"
                 else:
                     html_text += f"附加配方 {idx}<br>"
-    
-                # 色粉 1~8
+                # 假設色粉 1~8
                 for i in range(1, 9):
                     c_id = sub.get(f"色粉編號{i}", "")
-                    try:
-                        weight = float(sub.get(f"色粉重量{i}", 0) or 0)
-                    except:
-                        weight = 0
-                    category = str(sub.get("色粉類別", "配方")).strip()
-    
-                    if main_unit == "kg" and category == "色母":
-                        show_weight = int(weight * 100)
-                        show_label = "K"
-                    else:
-                        show_weight = int(weight * multiplier) if label == "K" else weight
-                        show_label = label
-    
+                    weight = sub.get(f"色粉重量{i}", "")
                     if c_id and weight:
-                        row = c_id.ljust(powder_label_width) + f"{show_weight:>{number_col_width}}{show_label}"
-                        html_text += row + "<br>"
+                        html_text += f"{c_id}: {weight}<br>"
     
-        # HTML -> 純文字
+        # 4️⃣ 將 HTML 轉成純文字，保留換行
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         preview_text = "```\n" + plain_text.strip() + "\n```"
@@ -1944,7 +1924,12 @@ elif menu == "生產單管理":
         return preview_text
     
     # ------------------- 顯示預覽 -------------------
-    preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=True)
+    preview_text = generate_order_preview_text(
+        order_dict,
+        recipe_row,
+        show_additional_ids=True
+    )
+    
     with st.expander("🔍 生產單預覽", expanded=False):
         st.markdown(preview_text)
 
