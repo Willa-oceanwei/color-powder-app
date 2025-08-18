@@ -2070,14 +2070,14 @@ elif menu == "生產單管理":
             if abs(x - int(x)) < 1e-9:
                 return str(int(x))
             return f"{x:g}"
-    
+        
         # 判斷是否為色母
         if str(recipe_row.get("配方類別","")).strip() == "色母":
             # 獨立變數：包裝重量與包裝份數
             pack_weights = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
             pack_counts  = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
         
-            # 產生顯示文字
+            # 產生顯示文字（以 100K 為基準）
             pack_line = []
             for w, c in zip(pack_weights, pack_counts):
                 if w > 0 and c > 0:
