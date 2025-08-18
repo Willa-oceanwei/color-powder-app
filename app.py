@@ -2050,7 +2050,7 @@ elif menu == "生產單管理":
                 html_text += ("―" * line_len) + "<br>"
     
                 # 合計列：名稱 = 合計類別；數值 = 淨重 × 各倍數
-                total_label = str(sub.get("合計類別", "合計") or "合計")
+                total_label = str(sub.get("合計類別", "=") or "=")
                 try:
                     net = float(sub.get("淨重", 0) or 0)
                 except Exception:
