@@ -1878,8 +1878,7 @@ elif menu == "生產單管理":
             st.rerun()
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
-    st.markdown("---")
-
+    
     # ------------------- 選擇生產單號 -------------------
     options = []
     code_to_id = {}
