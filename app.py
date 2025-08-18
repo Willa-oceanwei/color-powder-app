@@ -1906,64 +1906,83 @@ elif menu == "生產單管理":
             show_additional_ids=show_additional_ids
         )
     
-        # 附加配方
-        main_code = str(order.get("配方編號","")).strip()
-        additional_recipe_rows = []
+        # 取得附加配方（主配方編號 +）
+        main_code = str(order.get("配方編號", "")).strip()
         if main_code:
             additional_recipe_rows = df_recipe[
                 df_recipe["配方編號"].astype(str).str.strip().str.startswith(f"{main_code}+")
             ].to_dict("records")
-        
+        else:
+            additional_recipe_rows = []
+    
         if additional_recipe_rows:
-            html_text += "<br>=== 附加配方 ===<br>"
-            powder_label_width = 12  # 色粉編號欄寬
-            number_col_width = 6     # 數值欄寬
-        
-            # 取得主配方的包裝倍數
+            # 從「主配方的生產單」抓包裝重量作為倍數欄
             multipliers = []
-            for i in range(1, 5):
-                w = recipe_row.get(f"包裝重量{i}", 0)
+            for j in range(1, 5):
                 try:
-                    multipliers.append(float(w))
-                except:
-                    multipliers.append(1.0)
-            multipliers = [m if m > 0 else 0 for m in multipliers]
-        
+                    w = float(order.get(f"包裝重量{j}", 0) or 0)
+                except Exception:
+                    w = 0
+                if w > 0:
+                    multipliers.append(w)
+            if not multipliers:
+                multipliers = [1.0]  # 沒填就至少一欄
+    
+            # 版面設定（與主配方風格一致）
+            powder_label_width = 12
+            number_col_width = 7
+    
+            def fmt_num(x: float) -> str:
+                # 整數不顯示小數；非整數用最精簡格式
+                if abs(x - int(x)) < 1e-9:
+                    return str(int(x))
+                return f"{x:g}"
+    
+            html_text += "<br>=== 附加配方 ===<br>"
+    
             for idx, sub in enumerate(additional_recipe_rows, 1):
-                html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>" if show_additional_ids else f"附加配方 {idx}<br>"
-        
-                # 生成每個色粉列
+                # 標題行
+                if show_additional_ids:
+                    html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>"
+                else:
+                    html_text += f"附加配方 {idx}<br>"
+    
+                # 各色粉列（依倍數輸出多欄）
                 for i in range(1, 9):
-                    c_id = str(sub.get(f"色粉編號{i}", "") or "")
+                    c_id = str(sub.get(f"色粉編號{i}", "") or "").strip()
                     try:
-                        weight = float(sub.get(f"色粉重量{i}", 0) or 0)
-                    except:
-                        weight = 0
-        
-                    if c_id and weight > 0:
-                        row_text = c_id.ljust(powder_label_width)
-                        # 將每個包裝倍數乘上色粉重量生成多欄
+                        base_w = float(sub.get(f"色粉重量{i}", 0) or 0)
+                    except Exception:
+                        base_w = 0.0
+    
+                    if c_id and base_w > 0:
+                        cells = []
                         for m in multipliers:
-                            if m > 0:
-                                display_weight = weight * m
-                                if display_weight == int(display_weight):
-                                    display_weight = int(display_weight)
-                                row_text += f"{display_weight:>{number_col_width}}"
-                        html_text += row_text + "<br>"
-        
-                # 橫線
-                line_length = powder_label_width + number_col_width * len([m for m in multipliers if m>0])
-                html_text += "―" * line_length + "<br>"
-        
-                # 合計文字與淨重
-                total_label = str(sub.get("合計類別", "淨重"))
-                net_weight = sub.get("淨重", "")
-                html_text += f"{total_label.ljust(powder_label_width)}{net_weight:>{number_col_width}}<br>"
-            
-                # 將 HTML <br> 轉換成純文字換行
-                text_with_newlines = html_text.replace("<br>", "\n")
-                plain_text = re.sub(r"<.*?>", "", text_with_newlines)
-                return "```\n" + plain_text.strip() + "\n```"
+                            val = base_w * m
+                            cells.append(fmt_num(val).rjust(number_col_width))
+                        row = c_id.ljust(powder_label_width) + "".join(cells)
+                        html_text += row + "<br>"
+    
+                # 橫線（寬度 = 左欄 + 數字欄×欄數）
+                line_len = powder_label_width + number_col_width * len(multipliers)
+                html_text += ("―" * line_len) + "<br>"
+    
+                # 合計列：名稱 = 合計類別；數值 = 淨重 × 各倍數
+                total_label = str(sub.get("合計類別", "合計") or "合計")
+                try:
+                    net = float(sub.get("淨重", 0) or 0)
+                except Exception:
+                    net = 0.0
+                cells = []
+                for m in multipliers:
+                    val = net * m
+                    cells.append(fmt_num(val).rjust(number_col_width))
+                html_text += total_label.ljust(powder_label_width) + "".join(cells) + "<br>"
+
+    # 轉為純文字（保留對齊）
+    text_with_newlines = html_text.replace("<br>", "\n")
+    plain_text = re.sub(r"<.*?>", "", text_with_newlines)
+    return "```\n" + plain_text.strip() + "\n```"
 
     # ------------------- 顯示預覽 -------------------
     if selected_label and selected_label != "無資料":
