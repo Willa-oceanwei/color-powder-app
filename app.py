@@ -1991,9 +1991,14 @@ elif menu == "生產單管理":
             
             st.write("order_dict 附加配方欄位:", order_dict.get("附加配方編號列表"))
             st.write(df_order.columns.tolist())
+            
+            import re
             # ---------- ✅ 預覽區塊 ----------
-            def generate_order_preview_text(order, recipe_row, df_recipe, df_order, show_additional_ids=True):
-                # 先生成主配方 HTML
+            def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
+                """
+                生成生產單文字預覽，包括主配方與附加配方（透過配方編號 + 判斷）。
+                """
+                # 1️⃣ 先產生主配方 HTML
                 html_text = generate_production_order_print(
                     order,
                     recipe_row,
@@ -2001,40 +2006,41 @@ elif menu == "生產單管理":
                     show_additional_ids=show_additional_ids
                 )
             
-                # ----- 抓附加配方資料 -----
+                # 2️⃣ 抓附加配方
                 main_code = order.get("配方編號")
+                additional_recipe_rows = []
                 if main_code:
-                    additional_df = df_order[
-                        (df_order["類型"] == "附加配方") &
-                        (df_order["原始配方"] == main_code)
-                    ]
-                    additional_recipe_rows = df_recipe[df_recipe["配方編號"].isin(additional_df["配方編號"])].to_dict("records")
-                else:
-                    additional_recipe_rows = []
-                            
-                # ----- 將附加配方加進 HTML -----
+                    # 假設附加配方編號規則：主配方 + "+"
+                    additional_recipe_rows = df_recipe[
+                        df_recipe["配方編號"].str.startswith(f"{main_code}+")
+                    ].to_dict("records")
+            
+                # 3️⃣ 將附加配方加進 HTML
                 if additional_recipe_rows:
                     html_text += "<br>=== 附加配方 ===<br>"
                     for idx, sub in enumerate(additional_recipe_rows, 1):
-                        html_text += f"附加配方 {idx}：{sub.get('配方編號', '')}<br>"
-                        for i in range(1, 9):  # 假設色粉1~8
+                        if show_additional_ids:
+                            html_text += f"附加配方 {idx}：{sub.get('配方編號', '')}<br>"
+                        else:
+                            html_text += f"附加配方 {idx}<br>"
+                        # 假設色粉 1~8
+                        for i in range(1, 9):
                             c_id = sub.get(f"色粉編號{i}", "")
                             weight = sub.get(f"色粉重量{i}", "")
                             if c_id and weight:
                                 html_text += f"{c_id}: {weight}<br>"
             
-                # ----- 轉成純文字供 Markdown 預覽 -----
+                # 4️⃣ 將 HTML 轉成純文字，保留換行
                 text_with_newlines = html_text.replace("<br>", "\n")
                 plain_text = re.sub(r"<.*?>", "", text_with_newlines)
                 preview_text = "```\n" + plain_text.strip() + "\n```"
+            
                 return preview_text
             
             # 呼叫預覽
             preview_text = generate_order_preview_text(
                 order_dict,
                 recipe_row,
-                df_recipe,
-                df_order,
                 show_additional_ids=True
             )
             
