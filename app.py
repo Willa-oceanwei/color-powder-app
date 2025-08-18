@@ -1129,7 +1129,7 @@ elif menu == "配方管理":
         limit = st.selectbox(
             "",  # 不顯示文字
             options=[5, 10, 20, 50, 100],
-            index=1,  # 預設選中 10（因為 index 從 0 開始，5 在 index 0）
+            index=0,  # 預設選中 10（因為 index 從 0 開始，5 在 index 0）
             key="limit_per_page"
         )
     
