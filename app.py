@@ -2048,52 +2048,49 @@ elif menu == "生產單管理":
                 html_text += total_line + "<br>"
     
         # 4️⃣ 色母專用預覽（獨立變數，不影響其他邏輯）
-        if str(recipe_row.get("色粉類別","")).strip() == "色母":
-            # 100K 基準，只做文字顯示
-            pack_line_colorant = []
-            for idx in range(1, 5):
-                try:
-                    w = float(order.get(f"包裝重量{idx}", 0) or 0)
-                    c = int(order.get(f"包裝份數{idx}", 1) or 1)
-                except Exception:
-                    w, c = 0, 1
-                if w > 0:
-                    val = int(100 * w)
-                    pack_line_colorant.append(f"{val}K × {c}")
-            if pack_line_colorant:
-                html_text += "<br>色母包裝列（預覽）: " + "  ".join(pack_line_colorant) + "<br>"
+        def fmt_num_colorant(x: float) -> str:
+            if abs(x - int(x)) < 1e-9:
+                return str(int(x))
+            return f"{x:g}"
     
-            # 色母色粉列（乘上包裝份數，僅為預覽，不改計算）
-            colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
-            powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
-            for pid, wgt in zip(powder_ids, colorant_weights):
-                if pid and wgt > 0:
-                    line = pid.ljust(6)
-                    for idx in range(1, 5):
-                        try:
-                            c = int(order.get(f"包裝份數{idx}", 1) or 1)
-                        except Exception:
-                            c = 1
-                        if c > 0:
-                            val = wgt * c
-                            line += f"{val:g}".rjust(7)
-                    html_text += line + "<br>"
+        category_colorant = str(recipe_row.get("色粉類別", "")).strip()
+        if category_colorant == "色母":
+            # 包裝列（文字顯示）
+            pack_weights_display = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
+            pack_counts_display  = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
+            
+            pack_line = []
+            for w, c in zip(pack_weights_display, pack_counts_display):
+                if w > 0 and c > 0:
+                    val = int(w * 100)  # 基準 100K × 包裝重量
+                    pack_line.append(f"{val}K × {fmt_num_colorant(c)}")
+            
+            if pack_line:
+                html_text += " " * 14 + "  ".join(pack_line) + "<br>"
     
-            # 色母合計列（淨重 - 色粉1~8，僅預覽）
-            net_colorant = float(recipe_row.get("淨重",0) or 0)
-            total_colorant = net_colorant - sum(colorant_weights)
-            total_line_colorant = "料".ljust(12)
-            for idx in range(1, 5):
-                try:
-                    c = int(order.get(f"包裝份數{idx}", 1) or 1)
-                except Exception:
-                    c = 1
-                if c > 0:
-                    val = total_colorant * c
-                    total_line_colorant += f"{val:g}".rjust(7)
-            html_text += total_line_colorant + "<br>"
+        # 色粉列計算（仍乘上包裝倍數）
+        packing_weights_colorant = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
+        colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
+        powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
+        for pid, wgt in zip(powder_ids, colorant_weights):
+            if pid and wgt > 0:
+                line = pid.ljust(6)
+                for pw in packing_weights_colorant:
+                    if pw > 0:
+                        val = wgt * pw
+                        line += fmt_num_colorant(val).rjust(7)
+                html_text += line + "<br>"
     
-        # 5️⃣ 轉為純文字（保留對齊）
+        # 色母合計列 (淨重 - 色粉1~8)
+        total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
+        total_line_colorant = "料".ljust(12)
+        for w in packing_weights_colorant:
+            if w > 0:
+                val = total_colorant * w
+                total_line_colorant += fmt_num_colorant(val).rjust(7)
+        html_text += total_line_colorant + "<br>"
+    
+        # 轉為純文字（保留對齊）
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
