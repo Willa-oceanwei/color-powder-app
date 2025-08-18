@@ -1836,13 +1836,16 @@ elif menu == "生產單管理":
     start_idx = (st.session_state.order_page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx].copy()
+
+    # ===== 計算出貨數量 =====
+    if not page_data.empty:
+        page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
     
     # ===== 顯示表格 =====
     display_cols = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]
-    existing_cols = [c for c in display_cols if c in page_data.columns]
-    if not page_data.empty and existing_cols:
+    if not page_data.empty:
         st.dataframe(
-            page_data[existing_cols].reset_index(drop=True),
+            page_data[display_cols].reset_index(drop=True),
             use_container_width=True,
             hide_index=True
         )
