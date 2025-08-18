@@ -1839,7 +1839,6 @@ elif menu == "生產單管理":
     page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
     
     # 更新輸入框最大值與頁數顯示
-    st.session_state.jump_page = min(st.session_state.order_page, total_pages)
     with cols_page[3]:
         jump_col1, jump_col2 = st.columns([2, 1])
         with jump_col1:
