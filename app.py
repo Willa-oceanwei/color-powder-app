@@ -2089,26 +2089,26 @@ elif menu == "生產單管理":
         # 下方色粉列計算，如果需要乘倍數，用新的變數或重新定義
         packing_weights_colorant = pack_weights_display  # 確保下方有變數
     
-            # 色粉列（乘上包裝倍數）
-            colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
-            powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
-            for pid, wgt in zip(powder_ids, colorant_weights):
-                if pid and wgt > 0:
-                    line = pid.ljust(6)
-                    for pw in packing_weights_colorant:
-                        if pw > 0:
-                            val = wgt * pw
-                            line += fmt_num_colorant(val).rjust(7)
-                    html_text += line + "<br>"
+        # 色粉列（乘上包裝倍數）
+        colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
+        powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
+        for pid, wgt in zip(powder_ids, colorant_weights):
+            if pid and wgt > 0:
+                line = pid.ljust(6)
+                for pw in packing_weights_colorant:
+                    if pw > 0:
+                        val = wgt * pw
+                        line += fmt_num_colorant(val).rjust(7)
+                html_text += line + "<br>"
     
-            # 色母合計列 (淨重 - 色粉1~8)
-            total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
-            total_line_colorant = "料".ljust(12)
-            for w in packing_weights_colorant:
-                if w > 0:
-                    val = total_colorant * w
-                    total_line_colorant += fmt_num_colorant(val).rjust(7)
-            html_text += total_line_colorant + "<br>"
+        # 色母合計列 (淨重 - 色粉1~8)
+        total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
+        total_line_colorant = "料".ljust(12)
+        for w in packing_weights_colorant:
+            if w > 0:
+                val = total_colorant * w
+                total_line_colorant += fmt_num_colorant(val).rjust(7)
+        html_text += total_line_colorant + "<br>"
     
         # 轉為純文字（保留對齊）
         text_with_newlines = html_text.replace("<br>", "\n")
