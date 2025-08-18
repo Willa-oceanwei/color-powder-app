@@ -1992,6 +1992,11 @@ elif menu == "生產單管理":
             st.write("order_dict 附加配方欄位:", order_dict.get("附加配方編號列表"))
             st.write(df_order.columns.tolist())
             
+            # 1️⃣ 下拉選單
+            cols_page = st.columns([1,1,1,2,1.5])
+            with cols_page[4]:
+                limit = st.selectbox("", [10,20,50,75,100], key="selectbox_order_limit")
+                
             import re
             # ---------- ✅ 預覽區塊 ----------
             def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
