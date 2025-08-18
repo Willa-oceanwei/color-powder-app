@@ -2036,7 +2036,7 @@ elif menu == "生產單管理":
                 df_order,
                 show_additional_ids=True
             )
-            
+            st.write(df_order.columns.tolist())
             with st.expander("🔍 生產單預覽", expanded=False):
                 st.markdown(preview_text)
     
