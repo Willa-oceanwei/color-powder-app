@@ -1920,24 +1920,25 @@ elif menu == "生產單管理":
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>" if show_additional_ids else f"附加配方 {idx}<br>"
     
-                total_weight = 0
                 for i in range(1, 9):
                     c_id = str(sub.get(f"色粉編號{i}", "") or "")
                     try:
                         weight = float(sub.get(f"色粉重量{i}", 0) or 0)
                     except:
                         weight = 0
-    
+                
                     if c_id and weight > 0:
-                        total_weight += weight
                         row_text = c_id.ljust(powder_label_width) + f"{weight:>{number_col_width}}"
                         html_text += row_text + "<br>"
-    
-                # 顯示合計 = 附加配方淨重
+                
+                # 顯示橫線
+                line_length = powder_label_width + number_col_width
+                html_text += "―" * line_length + "<br>"
+                
+                # 顯示淨重
                 net_weight = sub.get("淨重", "")
                 if net_weight:
-                    line = "―" * 10 
-                    html_text += f"{'淨重'.ljust(powder_label_width)}{line}{net_weight:>{number_col_width}}<br>"
+                    html_text += f"{'淨重'.ljust(powder_label_width)}{net_weight:>{number_col_width}}<br>"
                     
         # 將 HTML <br> 轉換成純文字換行
         text_with_newlines = html_text.replace("<br>", "\n")
