@@ -1898,6 +1898,7 @@ elif menu == "生產單管理":
     
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
+        # 先處理主配方列印
         html_text = generate_production_order_print(
             order,
             recipe_row,
@@ -1915,15 +1916,13 @@ elif menu == "生產單管理":
     
         if additional_recipe_rows:
             html_text += "<br>=== 附加配方 ===<br>"
-            multipliers = {"包": 25, "桶": 100, "kg": 1}
-            unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
             number_col_width = 5
             powder_label_width = 8
-            main_unit = str(recipe_row.get("計量單位", "包")).strip()
-            multiplier = multipliers.get(main_unit, 1)
-            label = unit_labels.get(main_unit, "")
+    
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>" if show_additional_ids else f"附加配方 {idx}<br>"
+                
+                # 逐一顯示色粉資料
                 for i in range(1, 9):
                     c_id = str(sub.get(f"色粉編號{i}", "") or "")
                     try:
@@ -1931,23 +1930,19 @@ elif menu == "生產單管理":
                     except:
                         weight = 0
                     category = str(sub.get("色粉類別", "配方")).strip()
-                
-                    # 色母 kg 轉 K
-                    if main_unit == "kg" and category == "色母":
-                        show_weight = int(weight * 100)
-                        show_label = "K"
-                    else:
-                        show_weight = int(weight * multiplier) if label == "K" else weight
-                        show_label = label
-                
-                    if c_id and weight:
+    
+                    # 附加配方的包、桶、kg 不再套用乘法，原始數值顯示
+                    if weight > 0:
+                        show_weight = weight
+                        show_label = "K" if category == "色母" and sub.get("計量單位", "").strip() == "kg" else sub.get("計量單位", "").strip()
                         row_text = c_id.ljust(powder_label_width) + f"{show_weight:>{number_col_width}}{show_label}"
                         html_text += row_text + "<br>"
     
+        # 將 HTML <br> 轉換成純文字換行
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
-    
+        
     # ------------------- 顯示預覽 -------------------
     if selected_label and selected_label != "無資料":
         selected_code_edit = code_to_id[selected_label]
