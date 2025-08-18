@@ -2094,7 +2094,7 @@ elif menu == "生產單管理":
             for w in pack_weights_display:
                 if w > 0:
                     val = total_colorant * w
-                    total_line_colorant += str(int(val)).rjust(8)  # 將寬度改小，數字會向左移
+                    total_line_colorant += str(int(val)).rjust(5)  # 將寬度改小，數字會向左移
             html_text += total_line_colorant + "<br>"
     
         # 轉為純文字（保留對齊）
