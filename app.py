@@ -2071,9 +2071,6 @@ elif menu == "生產單管理":
             if abs(x - int(x)) < 1e-9:
                 return str(int(x))
             return f"{x:g}"
-            
-        # 主配方抬頭
-        html_text += f"編號：{order.get('配方編號','')}  顏色：{order.get('顏色','')}  比例：{order.get('比例','')}  Pantone：{order.get('Pantone','')}<br>"
         
         # 2. 判斷是否為色母
         category_colorant = str(recipe_row.get("色粉類別","")).strip()
