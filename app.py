@@ -1122,25 +1122,17 @@ elif menu == "配方管理":
     df_filtered = df[mask]
     
     # ===== 篩選後筆數 + 每頁顯示筆數 =====
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.markdown(f"🧺 **篩選後筆數：** {df_filtered.shape[0]}")
-    with col2:
-        limit = st.selectbox(
-            "",  # 不顯示文字
-            options=[5, 10, 20, 50, 100],
-            index=0,  # 預設選中 10（因為 index 從 0 開始，5 在 index 0）
-            key="limit_per_page"
-        )
+    col1.markdown(f"🧺 **篩選後筆數：** {df_filtered.shape[0]}")
     
     # ===== 計算分頁 =====
     total_rows = df_filtered.shape[0]
+    limit = st.session_state.get("limit_per_page", 5)
     total_pages = max((total_rows - 1) // limit + 1, 1)
     
     if "page" not in st.session_state:
         st.session_state.page = 1
     if st.session_state.page > total_pages:
-        st.session_state.page = total_pages  # 避免頁碼超過總頁數
+        st.session_state.page = total_pages
     
     # ===== 分頁索引 =====
     start_idx = (st.session_state.page - 1) * limit
@@ -1158,8 +1150,8 @@ elif menu == "配方管理":
     else:
         st.info("查無符合的配方（分頁結果）")
     
-    # ===== 分頁控制列（按鈕 + 輸入跳頁）=====
-    cols_page = st.columns([1, 1, 1, 1])
+    # ===== 分頁控制列（按鈕 + 輸入跳頁 + 每頁筆數）=====
+    cols_page = st.columns([1, 1, 1, 2, 1])  # 五欄：首頁 / 上一頁 / 下一頁 / 跳頁 / 每頁筆數
     
     with cols_page[0]:
         if st.button("🏠首頁", key="first_page"):
@@ -1189,6 +1181,15 @@ elif menu == "配方管理":
         if jump_page != st.session_state.page:
             st.session_state.page = jump_page
             st.experimental_rerun()
+    
+    with cols_page[4]:
+        # 每頁顯示筆數選單
+        limit = st.selectbox(
+            "",  # 不顯示文字
+            options=[5, 10, 20, 50, 100],
+            index=[5, 10, 20, 50, 100].index(st.session_state.get("limit_per_page", 5)),
+            key="limit_per_page"
+        )
     
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
         
