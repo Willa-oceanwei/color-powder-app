@@ -1922,18 +1922,21 @@ elif menu == "生產單管理":
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>" if show_additional_ids else f"附加配方 {idx}<br>"
                 for i in range(1, 9):
-                    c_id = sub.get(f"色粉編號{i}", "")
+                    c_id = str(sub.get(f"色粉編號{i}", "") or "")
                     try:
                         weight = float(sub.get(f"色粉重量{i}", 0) or 0)
                     except:
                         weight = 0
                     category = str(sub.get("色粉類別", "配方")).strip()
+                
+                    # 色母 kg 轉 K
                     if main_unit == "kg" and category == "色母":
                         show_weight = int(weight * 100)
                         show_label = "K"
                     else:
                         show_weight = int(weight * multiplier) if label == "K" else weight
                         show_label = label
+                
                     if c_id and weight:
                         row_text = c_id.ljust(powder_label_width) + f"{show_weight:>{number_col_width}}{show_label}"
                         html_text += row_text + "<br>"
