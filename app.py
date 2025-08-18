@@ -1863,20 +1863,28 @@ elif menu == "生產單管理":
     else:
         st.info("查無符合的資料（分頁結果）")
     
-    # ===== 分頁控制列（按鈕 + 下拉頁碼）=====
+    # ===== 分頁控制列（完整橫排）（按鈕 + 下拉頁碼）, =====
     cols_page = st.columns([1, 1, 1, 2, 1.5])
+    
+    # 首頁
     with cols_page[0]:
         if st.button("首頁", key="first_page"):
             st.session_state.order_page = 1
             st.experimental_rerun()
+    
+    # 上一頁
     with cols_page[1]:
         if st.button("上一頁", key="prev_page") and st.session_state.order_page > 1:
             st.session_state.order_page -= 1
             st.experimental_rerun()
+    
+    # 下一頁
     with cols_page[2]:
         if st.button("下一頁", key="next_page") and st.session_state.order_page < total_pages:
             st.session_state.order_page += 1
             st.experimental_rerun()
+    
+    # 輸入跳頁
     with cols_page[3]:
         jump_page = st.number_input(
             "",
@@ -1889,16 +1897,16 @@ elif menu == "生產單管理":
         if jump_page != st.session_state.order_page:
             st.session_state.order_page = jump_page
             st.experimental_rerun()
+    
+    # 分頁數筆數選擇（下拉選單）
     with cols_page[4]:
-        selected_page = st.selectbox(
+        limit = st.selectbox(
             "",  # 不顯示文字
-            options=list(range(1, total_pages + 1)),
-            index=st.session_state.order_page - 1,
-            key="select_page"
+            options=[10, 20, 50, 75, 100],
+            index=0,
+            key="selectbox_order_limit"
         )
-        if selected_page != st.session_state.order_page:
-            st.session_state.order_page = selected_page
-            st.experimental_rerun()
+
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     st.markdown("---")
