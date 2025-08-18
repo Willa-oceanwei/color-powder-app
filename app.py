@@ -258,7 +258,11 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                     padding = " " * max(0, int(round(column_offsets[j])))
                     row += padding + f"<b>{val_str:>{number_col_width}}</b>"
                 lines.append(row)
-    
+
+            # 橫線：加在附加配方合計列上方
+            line_length = powder_label_width + sum([number_col_width + int(round(column_offsets[j])) for j in range(4)])
+            lines.append("―" * line_length)
+   
             # ✅ 合計列 (附加配方專用)
             sub_total_type = sub.get("合計類別", "")
             sub_net_weight = float(sub.get("淨重", 0) or 0)
