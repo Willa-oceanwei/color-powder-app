@@ -1979,10 +1979,10 @@ elif menu == "生產單管理":
                     cells.append(fmt_num(val).rjust(number_col_width))
                 html_text += total_label.ljust(powder_label_width) + "".join(cells) + "<br>"
 
-    # 轉為純文字（保留對齊）
-    text_with_newlines = html_text.replace("<br>", "\n")
-    plain_text = re.sub(r"<.*?>", "", text_with_newlines)
-    return "```\n" + plain_text.strip() + "\n```"
+        # 轉為純文字（保留對齊）
+        text_with_newlines = html_text.replace("<br>", "\n")
+        plain_text = re.sub(r"<.*?>", "", text_with_newlines)
+        return "```\n" + plain_text.strip() + "\n```"
 
     # ------------------- 顯示預覽 -------------------
     if selected_label and selected_label != "無資料":
