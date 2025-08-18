@@ -1785,7 +1785,7 @@ elif menu == "生產單管理":
     # ---- limit 下拉選單要先定義（因為會影響 total_pages）----
     total_rows = len(df_filtered)
     
-    cols_page = st.columns([1, 1, 1, 2, 1.5])
+    cols_page = st.columns([1, 1, 1, 2, 1])
     
     # [下拉選單：每頁筆數]
     with cols_page[4]:
