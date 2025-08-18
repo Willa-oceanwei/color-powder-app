@@ -2081,17 +2081,17 @@ elif menu == "生產單管理":
                 if w > 0:
                     val = int(w * 100)  # 100K 基準
                     pack_line_colorant.append(f"{val}K")
-            html_text += " " * 14 + "  ".join(pack_line_colorant) + "<br>"
-                        
+            if pack_line_colorant:  # ✅ 先顯示在色粉列下方
+                html_text += " " * 14 + "  ".join(pack_line_colorant) + "<br>"
+        
             # 色母合計列
             colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
             net_colorant = float(recipe_row.get("淨重",0))
             total_colorant = net_colorant - sum(colorant_weights)
-                        
+            
             total_line_colorant = "料".ljust(12)
             for w in packing_weights_colorant:
                 if w > 0:
-                    # 顯示乘上對應包裝重量倍數
                     val = total_colorant * w
                     total_line_colorant += fmt_num_colorant(val).rjust(7)
             html_text += total_line_colorant + "<br>"          
