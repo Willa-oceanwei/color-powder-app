@@ -2061,8 +2061,8 @@ elif menu == "生產單管理":
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
 
-    print("main_code:", repr(main_code))
-    print("找到的附加配方:", [r['配方編號'] for r in additional_recipe_rows])
+        print("main_code:", repr(main_code))
+        print("找到的附加配方:", [r['配方編號'] for r in additional_recipe_rows])
 
     # ------------------- 顯示預覽 -------------------
     if selected_label and selected_label != "無資料":
