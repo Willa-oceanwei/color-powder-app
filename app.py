@@ -2004,7 +2004,7 @@ elif menu == "生產單管理":
                 main_code = order.get("配方編號")
                 if main_code:
                     additional_df = df_order[
-                        (df_order["配方類別"] == "附加配方") &
+                        (df_order["類型"] == "附加配方") &
                         (df_order["原始配方"] == main_code)
                     ]
                     additional_recipe_rows = df_recipe[df_recipe["配方編號"].isin(additional_df["配方編號"])].to_dict("records")
