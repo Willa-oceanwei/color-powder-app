@@ -2074,16 +2074,16 @@ elif menu == "生產單管理":
         # 判斷是否為色母
         category_colorant = str(recipe_row.get("配方類別","")).strip()
         if category_colorant == "色母":
-            # 包裝重量 (純顯示，不影響計算)
+            # 獨立變數：包裝重量與包裝份數
             packing_weights_colorant = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
-            packing_counts_colorant = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
-            
+            packing_counts_colorant  = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
+        
             pack_line_colorant = []
             for w, cnt in zip(packing_weights_colorant, packing_counts_colorant):
                 if w > 0 and cnt > 0:
-                    val = int(100 * w)  # 基準 100K
+                    val = int(100 * w)  # 100K 基準
                     pack_line_colorant.append(f"{val}K × {fmt_num_colorant(cnt)}")
-            
+        
             if pack_line_colorant:
                 html_text += " " * 14 + "  ".join(pack_line_colorant) + "<br>"
     
