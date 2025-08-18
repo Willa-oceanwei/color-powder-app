@@ -1159,7 +1159,7 @@ elif menu == "配方管理":
         st.info("查無符合的配方（分頁結果）")
     
     # ===== 分頁控制列（按鈕 + 輸入跳頁）=====
-    cols_page = st.columns([1, 1, 1, 2])
+    cols_page = st.columns([1, 1, 1, 1])
     
     with cols_page[0]:
         if st.button("🏠首頁", key="first_page"):
