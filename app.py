@@ -2053,42 +2053,44 @@ elif menu == "生產單管理":
                 return str(int(x))
             return f"{x:g}"
     
-        category_colorant = str(recipe_row.get("色粉類別", "")).strip()
+        # 色母/色粉區（下方）排版
+        category_colorant = str(recipe_row.get("色粉類別","")).strip()
         if category_colorant == "色母":
-            # 包裝列（文字顯示）
+            # 包裝列（純顯示）
             pack_weights_display = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
             pack_counts_display  = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
             
             pack_line = []
             for w, c in zip(pack_weights_display, pack_counts_display):
                 if w > 0 and c > 0:
-                    val = int(w * 100)  # 基準 100K × 包裝重量
-                    pack_line.append(f"{val}K × {fmt_num_colorant(c)}")
+                    val = int(w * 100)  # 基準值 100K
+                    pack_line.append(f"{val}K × {int(c)}")
             
             if pack_line:
                 html_text += " " * 14 + "  ".join(pack_line) + "<br>"
-    
-        # 色粉列計算（仍乘上包裝倍數）
-        packing_weights_colorant = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
-        colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
-        powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
-        for pid, wgt in zip(powder_ids, colorant_weights):
-            if pid and wgt > 0:
-                line = pid.ljust(6)
-                for pw in packing_weights_colorant:
-                    if pw > 0:
-                        val = wgt * pw
-                        line += fmt_num_colorant(val).rjust(7)
-                html_text += line + "<br>"
-    
-        # 色母合計列 (淨重 - 色粉1~8)
-        total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
-        total_line_colorant = "料".ljust(12)
-        for w in packing_weights_colorant:
-            if w > 0:
-                val = total_colorant * w
-                total_line_colorant += fmt_num_colorant(val).rjust(7)
-        html_text += total_line_colorant + "<br>"
+            
+            # 色粉列
+            colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
+            powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
+            
+            number_col_width = 12  # 對齊寬度
+            for pid, wgt in zip(powder_ids, colorant_weights):
+                if pid and wgt > 0:
+                    line = pid.ljust(6)
+                    for w in pack_weights_display:
+                        if w > 0:
+                            val = wgt * w  # 色粉乘上包裝重量
+                            line += str(int(val)).rjust(number_col_width)
+                    html_text += line + "<br>"
+            
+            # 色母合計列
+            total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
+            total_line_colorant = "料".ljust(12)
+            for w in pack_weights_display:
+                if w > 0:
+                    val = total_colorant * w
+                    total_line_colorant += str(int(val)).rjust(number_col_width)
+            html_text += total_line_colorant + "<br>"
     
         # 轉為純文字（保留對齊）
         text_with_newlines = html_text.replace("<br>", "\n")
