@@ -1787,52 +1787,32 @@ elif menu == "生產單管理":
     import streamlit as st
     import pandas as pd
     
-    # ------------------- 分頁設定 -------------------
-    cols_page = st.columns([1,1,1,2,1.5])
-    with cols_page[4]:
-        limit = st.selectbox("", [10,20,50,75,100], key="selectbox_order_limit")
+    # ===== 篩選後筆數 + 每頁顯示筆數 =====
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.markdown(f"🧺 **篩選後筆數：** {len(df_filtered)}")
+    with col2:
+        limit = st.selectbox(
+            "",  # 不顯示文字
+            options=[10, 20, 50, 75, 100],
+            index=0,
+            key="selectbox_order_limit"
+        )
     
+    # ===== 計算分頁 =====
     total_rows = len(df_filtered)
     total_pages = max((total_rows - 1) // limit + 1, 1)
-    st.session_state.order_page = max(1, min(st.session_state.get("order_page", 1), total_pages))
+    if "order_page" not in st.session_state:
+        st.session_state.order_page = 1
+    if st.session_state.order_page > total_pages:
+        st.session_state.order_page = total_pages
+    
+    # ===== 分頁索引 =====
     start_idx = (st.session_state.order_page - 1) * limit
-    page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
+    end_idx = start_idx + limit
+    page_data = df_filtered.iloc[start_idx:end_idx].copy()
     
-    # ------------------- 分頁控制列 -------------------
-    cols_page = st.columns([1,1,1,2,1.5])
-    with cols_page[0]:
-        if st.button("首頁"):
-            st.session_state.order_page = 1
-            st.rerun()
-    with cols_page[1]:
-        if st.button("上一頁") and st.session_state.order_page > 1:
-            st.session_state.order_page -= 1
-            st.rerun()
-    with cols_page[2]:
-        if st.button("下一頁") and st.session_state.order_page < total_pages:
-            st.session_state.order_page += 1
-            st.rerun()
-    with cols_page[3]:
-        jump_col1, jump_col2 = st.columns([1, 1])
-        with jump_col1:
-            jump_page = st.number_input(
-                "",
-                min_value=1,
-                max_value=total_pages,
-                value=st.session_state.order_page,
-                key="jump_page",
-                label_visibility="collapsed"
-            )
-        with jump_col2:
-            st.markdown(
-                f"<div style='margin-top:5px; white-space:nowrap;'>第 {st.session_state.order_page} / {total_pages} 頁</div>",
-                unsafe_allow_html=True
-            )
-    if jump_page != st.session_state.order_page:
-        st.session_state.order_page = jump_page
-        st.rerun()
-    
-    # ------------------- 出貨數量計算 -------------------
+    # ===== 計算出貨數量 =====
     def calculate_shipment(row):
         try:
             unit = str(row.get("計量單位", "")).strip()
@@ -1866,15 +1846,62 @@ elif menu == "生產單管理":
         except:
             return ""
     
-    page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
+    if not page_data.empty:
+        page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
+    else:
+        page_data["出貨數量"] = ""
     
-    # ------------------- 顯示表格 -------------------
-    st.dataframe(
-        page_data[["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]],
-        use_container_width=True,
-        hide_index=True
-    )
+    # ===== 顯示表格 =====
+    display_cols = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]
+    existing_cols = [c for c in display_cols if c in page_data.columns]
+    if not page_data.empty and existing_cols:
+        st.dataframe(
+            page_data[existing_cols].reset_index(drop=True),
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("查無符合的資料（分頁結果）")
+    
+    # ===== 分頁控制列（按鈕 + 下拉頁碼）=====
+    cols_page = st.columns([1, 1, 1, 2, 1.5])
+    with cols_page[0]:
+        if st.button("首頁", key="first_page"):
+            st.session_state.order_page = 1
+            st.experimental_rerun()
+    with cols_page[1]:
+        if st.button("上一頁", key="prev_page") and st.session_state.order_page > 1:
+            st.session_state.order_page -= 1
+            st.experimental_rerun()
+    with cols_page[2]:
+        if st.button("下一頁", key="next_page") and st.session_state.order_page < total_pages:
+            st.session_state.order_page += 1
+            st.experimental_rerun()
+    with cols_page[3]:
+        jump_page = st.number_input(
+            "",
+            min_value=1,
+            max_value=total_pages,
+            value=st.session_state.order_page,
+            key="jump_page",
+            label_visibility="collapsed"
+        )
+        if jump_page != st.session_state.order_page:
+            st.session_state.order_page = jump_page
+            st.experimental_rerun()
+    with cols_page[4]:
+        selected_page = st.selectbox(
+            "",  # 不顯示文字
+            options=list(range(1, total_pages + 1)),
+            index=st.session_state.order_page - 1,
+            key="select_page"
+        )
+        if selected_page != st.session_state.order_page:
+            st.session_state.order_page = selected_page
+            st.experimental_rerun()
+    
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
+    st.markdown("---")
     
     # ------------------- 選擇生產單號 -------------------
     options = []
