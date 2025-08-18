@@ -1897,11 +1897,11 @@ elif menu == "生產單管理":
         st.info("查無符合的資料（分頁結果）")
     
     # ===== 分頁控制列（五個橫排） =====
-    cols_page = st.columns([1, 1, 1, 2, 1.5])
+    cols_page = st.columns([1, 2, 2, 2, 1])
     
     # 首頁
     with cols_page[0]:
-        if st.button("🛖首頁", key="first_page"):
+        if st.button("🏠首頁", key="first_page"):
             st.session_state.order_page = 1
             st.experimental_rerun()
     
