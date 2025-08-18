@@ -2093,7 +2093,7 @@ elif menu == "生產單管理":
             total_line_colorant = "料".ljust(12)
             
             # 自訂每欄寬度（第一欄偏左，第二欄偏右）
-            col_widths = [5, 12.5, 12, 12]  # 可依實際欄位數調整
+            col_widths = [5, 12, 12, 12]  # 可依實際欄位數調整
             
             for idx, w in enumerate(pack_weights_display):
                 if w > 0:
