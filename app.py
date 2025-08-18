@@ -1936,7 +1936,7 @@ elif menu == "生產單管理":
                 # 顯示合計 = 附加配方淨重
                 net_weight = sub.get("淨重", "")
                 if net_weight:
-                    line = "―" * number_col_width  # 或 "_" * number_col_width
+                    line = "―" * line = "―" * 10
                     html_text += f"{'淨重'.ljust(powder_label_width)}{net_weight:>{number_col_width}}<br>"
                     
         # 將 HTML <br> 轉換成純文字換行
