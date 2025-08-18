@@ -1993,8 +1993,8 @@ elif menu == "生產單管理":
             additional_recipe_rows = []
 
         # ✅ Debug：檢查抓到的附加配方
-        print("main_code:", repr(main_code))
-        print("找到的附加配方:", [r['配方編號'] for r in additional_recipe_rows])
+        st.write("main_code:", repr(main_code))
+        st.write("找到的附加配方:", [r['配方編號'] for r in additional_recipe_rows])
     
         if additional_recipe_rows:
             # 從「主配方的生產單」抓包裝重量作為倍數欄
