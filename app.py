@@ -1943,7 +1943,12 @@ elif menu == "生產單管理":
                 # 顯示淨重
                 net_weight = sub.get("淨重", "")
                 if net_weight:
-                    html_text += f"{'淨重'.ljust(powder_label_width)}{net_weight:>{number_col_width}}<br>"
+                    try:
+                        net_weight_val = float(net_weight)
+                        display_net_weight = int(net_weight_val) if net_weight_val == int(net_weight_val) else net_weight_val
+                    except:
+                        display_net_weight = net_weight
+                    html_text += f"{'淨重'.ljust(powder_label_width)}{display_net_weight:>{number_col_width}}<br>"
     
         # 將 HTML <br> 轉換成純文字換行
         text_with_newlines = html_text.replace("<br>", "\n")
