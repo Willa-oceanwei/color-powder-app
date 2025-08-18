@@ -1898,7 +1898,7 @@ elif menu == "生產單管理":
     
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
-        # 先處理主配方列印
+        # 主配方
         html_text = generate_production_order_print(
             order,
             recipe_row,
@@ -1908,57 +1908,59 @@ elif menu == "生產單管理":
     
         # 附加配方
         main_code = order.get("配方編號")
-        additional_recipe_rows = []
         if main_code:
             additional_recipe_rows = df_recipe[
                 df_recipe["配方編號"].str.startswith(f"{main_code}+")
             ].to_dict("records")
+        else:
+            additional_recipe_rows = []
     
         if additional_recipe_rows:
             html_text += "<br>=== 附加配方 ===<br>"
-            number_col_width = 5
             powder_label_width = 8
+            number_col_width = 5
     
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>" if show_additional_ids else f"附加配方 {idx}<br>"
-                
-                # 逐一顯示色粉資料
+    
+                total_weight = 0
                 for i in range(1, 9):
                     c_id = str(sub.get(f"色粉編號{i}", "") or "")
                     try:
                         weight = float(sub.get(f"色粉重量{i}", 0) or 0)
                     except:
                         weight = 0
-                    category = str(sub.get("色粉類別", "配方")).strip()
     
-                    # 附加配方的包、桶、kg 不再套用乘法，原始數值顯示
-                    if weight > 0:
-                        show_weight = weight
-                        show_label = "K" if category == "色母" and sub.get("計量單位", "").strip() == "kg" else sub.get("計量單位", "").strip()
-                        row_text = c_id.ljust(powder_label_width) + f"{show_weight:>{number_col_width}}{show_label}"
+                    if c_id and weight > 0:
+                        total_weight += weight
+                        row_text = c_id.ljust(powder_label_width) + f"{weight:>{number_col_width}}"
                         html_text += row_text + "<br>"
+    
+                # 顯示合計
+                if total_weight > 0:
+                    html_text += f"{'合計'.ljust(powder_label_width)}{total_weight:>{number_col_width}}<br>"
     
         # 將 HTML <br> 轉換成純文字換行
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
+            
+        # ------------------- 顯示預覽 -------------------
+        if selected_label and selected_label != "無資料":
+            selected_code_edit = code_to_id[selected_label]
+            order_row = df_order[df_order["生產單號"] == selected_code_edit]
+            if not order_row.empty:
+                order_dict = order_row.iloc[0].to_dict()
+                order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
         
-    # ------------------- 顯示預覽 -------------------
-    if selected_label and selected_label != "無資料":
-        selected_code_edit = code_to_id[selected_label]
-        order_row = df_order[df_order["生產單號"] == selected_code_edit]
-        if not order_row.empty:
-            order_dict = order_row.iloc[0].to_dict()
-            order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
-    
-            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號","")]
-            recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
-    
-            show_ids = st.checkbox("列印時顯示附加配方編號", value=True, key=f"show_ids_checkbox_{selected_code_edit}")
-    
-            preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
-            with st.expander("🔍 生產單預覽", expanded=False):
-                st.markdown(preview_text)
+                recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號","")]
+                recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
+        
+                show_ids = st.checkbox("列印時顯示附加配方編號", value=True, key=f"show_ids_checkbox_{selected_code_edit}")
+        
+                preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
+                with st.expander("🔍 生產單預覽", expanded=False):
+                    st.markdown(preview_text)
 
     
     # 修改面板（如果有啟動）
