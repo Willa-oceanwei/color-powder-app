@@ -1860,7 +1860,7 @@ elif menu == "生產單管理":
         # 取得當前值，如果不在 options_list 裡就預設為 10
         current_limit = st.session_state.get("selectbox_order_limit", 5)
         if current_limit not in options_list:
-            current_limit = 10
+            current_limit = 5
     
         new_limit = st.selectbox(
             label=" ",  # 空白標籤，不會占用高度
@@ -1908,11 +1908,12 @@ elif menu == "生產單管理":
     
         # 附加配方
         main_code = str(order.get("配方編號","")).strip()
-        additional_recipe_rows = []
         if main_code:
             additional_recipe_rows = df_recipe[
                 df_recipe["配方編號"].astype(str).str.strip().str.startswith(f"{main_code}+")
             ].to_dict("records")
+        else:
+            additional_recipe_rows = []
     
         if additional_recipe_rows:
             html_text += "<br>=== 附加配方 ===<br>"
@@ -1922,7 +1923,18 @@ elif menu == "生產單管理":
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>" if show_additional_ids else f"附加配方 {idx}<br>"
     
-                # 列出色粉
+                # 附加配方倍數：取包裝重量1~4的第一個大於0的
+                multiplier = 1
+                for i in range(1, 5):
+                    try:
+                        w = float(sub.get(f"包裝重量{i}", 0) or 0)
+                        if w > 0:
+                            multiplier = w
+                            break
+                    except:
+                        continue
+    
+                total_weight = 0
                 for i in range(1, 9):
                     c_id = str(sub.get(f"色粉編號{i}", "") or "")
                     try:
@@ -1931,24 +1943,30 @@ elif menu == "生產單管理":
                         weight = 0
     
                     if c_id and weight > 0:
-                        # 如果是整數，去掉小數點
-                        display_weight = int(weight) if weight == int(weight) else weight
-                        row_text = c_id.ljust(powder_label_width) + f"{display_weight:>{number_col_width}}"
+                        weight_display = weight * multiplier
+                        total_weight += weight_display
+                        # 小數點為0就顯示整數
+                        if weight_display.is_integer():
+                            weight_str = str(int(weight_display))
+                        else:
+                            weight_str = f"{weight_display:.1f}"
+                        row_text = c_id.ljust(powder_label_width) + f"{weight_str:>{number_col_width}}"
                         html_text += row_text + "<br>"
     
                 # 橫線
                 line_length = powder_label_width + number_col_width
                 html_text += "―" * line_length + "<br>"
     
-                # 顯示淨重
-                net_weight = sub.get("淨重", "")
-                if net_weight:
-                    try:
-                        net_weight_val = float(net_weight)
-                        display_net_weight = int(net_weight_val) if net_weight_val == int(net_weight_val) else net_weight_val
-                    except:
-                        display_net_weight = net_weight
-                    html_text += f"{'淨重'.ljust(powder_label_width)}{display_net_weight:>{number_col_width}}<br>"
+                # 顯示合計 = 附加配方合計類別
+                total_label = str(sub.get("合計類別", "")) or "合計"
+                if total_weight > 0:
+                    # 小數點為0就顯示整數
+                    if total_weight.is_integer():
+                        total_weight_str = str(int(total_weight))
+                    else:
+                        total_weight_str = f"{total_weight:.1f}"
+                    html_text += f"{total_label.ljust(powder_label_width)}{total_weight_str:>{number_col_width}}<br>"
+
     
         # 將 HTML <br> 轉換成純文字換行
         text_with_newlines = html_text.replace("<br>", "\n")
