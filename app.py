@@ -1983,11 +1983,12 @@ elif menu == "生產單管理":
             show_additional_ids=show_additional_ids
         )
     
-        # 取得附加配方（主配方編號 +）
+        # 取得附加配方（依原始配方匹配主配方編號）
         main_code = str(order.get("配方編號", "")).strip()
         if main_code:
             additional_recipe_rows = df_recipe[
-                df_recipe["配方編號"].astype(str).str.strip().str.startswith(f"{main_code}+")
+                (df_recipe["配方類型"] == "附加配方") &
+                (df_recipe["原始配方"].astype(str).str.strip() == main_code)
             ].to_dict("records")
         else:
             additional_recipe_rows = []
