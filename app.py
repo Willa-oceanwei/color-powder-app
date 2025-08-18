@@ -1948,6 +1948,32 @@ elif menu == "生產單管理":
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
 
+    # ------------------- 顯示預覽 -------------------
+    if selected_label and selected_label != "無資料":
+        selected_code_edit = code_to_id[selected_label]
+        order_row = df_order[df_order["生產單號"] == selected_code_edit]
+        if not order_row.empty:
+            order_dict = order_row.iloc[0].to_dict()
+            order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
+    
+            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號","")]
+            recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
+    
+            # checkbox 狀態
+            show_ids_key = f"show_ids_checkbox_{selected_code_edit}"
+            if show_ids_key not in st.session_state:
+                st.session_state[show_ids_key] = True
+    
+            show_ids = st.checkbox(
+                "列印時顯示附加配方編號",
+                value=st.session_state[show_ids_key],
+                key=show_ids_key
+            )
+    
+            preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
+            with st.expander("🔍 生產單預覽", expanded=False):
+                st.markdown(preview_text)
+
     
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
