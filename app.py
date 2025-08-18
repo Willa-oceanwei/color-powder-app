@@ -1101,16 +1101,7 @@ elif menu == "配方管理":
             index=0,
             key="limit_per_page"
         )
-    # ===== 顯示表格 =====
-    show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-    existing_cols = [c for c in show_cols if c in page_data.columns]
     
-    if not page_data.empty:
-        st.dataframe(page_data[existing_cols].reset_index(drop=True),
-                     use_container_width=True,
-                     hide_index=True)
-    else:
-        st.info("查無符合的配方（分頁結果）")
     # ===== 計算分頁 =====
     total_rows = df_filtered.shape[0]
     total_pages = max((total_rows - 1) // limit + 1, 1)
