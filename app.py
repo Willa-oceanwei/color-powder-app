@@ -2065,6 +2065,36 @@ elif menu == "生產單管理":
                 
                 html_text += total_line + "<br>"
 
+        # 色母專用格式化函式
+        def fmt_num_colorant(x: float) -> str:
+            if abs(x - int(x)) < 1e-9:
+                return str(int(x))
+            return f"{x:g}"
+                
+        # ===== 色母包裝列（純顯示） =====
+        if category == "色母":
+                # 包裝重量 (純顯示)
+                packing_weights_colorant = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
+                pack_line_colorant = []
+                for w in packing_weights_colorant:
+                    if w > 0:
+                        val = int(w * 100)  # 100K 基準
+                        pack_line_colorant.append(f"{val}K")
+                html_text += " " * 14 + "  ".join(pack_line_colorant) + "<br>"
+            
+                # 色母合計列
+                colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
+                net_colorant = float(recipe_row.get("淨重",0))
+                total_colorant = net_colorant - sum(colorant_weights)
+            
+                total_line_colorant = "料".ljust(12)
+                for w in packing_weights_colorant:
+                    if w > 0:
+                        # 顯示乘上對應包裝重量倍數
+                        val = int(total_colorant * w)
+                        total_line_colorant += f"{val:>7}"
+                html_text += total_line_colorant + "<br>"    
+
         # 轉為純文字（保留對齊）
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
