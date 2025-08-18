@@ -1819,7 +1819,7 @@ elif menu == "生產單管理":
     
     # ---- 初始化 limit 下拉選單（只用在下方分頁列） ----
     if "selectbox_order_limit" not in st.session_state:
-        st.session_state.selectbox_order_limit = 10  # 預設每頁 10 筆
+        st.session_state.selectbox_order_limit = 5  # 預設每頁 5 筆
     
     # ===== 計算分頁 =====
     total_rows = len(df_filtered)
