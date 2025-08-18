@@ -1824,19 +1824,19 @@ elif menu == "生產單管理":
     
     # 首頁
     with cols_page[0]:
-        if st.button("首頁", key="first_page"):
+        if st.button("🛖首頁", key="first_page"):
             st.session_state.order_page = 1
             st.experimental_rerun()
     
     # 上一頁
     with cols_page[1]:
-        if st.button("上一頁", key="prev_page") and st.session_state.order_page > 1:
+        if st.button("🔼上一頁", key="prev_page") and st.session_state.order_page > 1:
             st.session_state.order_page -= 1
             st.experimental_rerun()
     
     # 下一頁
     with cols_page[2]:
-        if st.button("下一頁", key="next_page") and st.session_state.order_page < total_pages:
+        if st.button("🔽下一頁", key="next_page") and st.session_state.order_page < total_pages:
             st.session_state.order_page += 1
             st.experimental_rerun()
     
