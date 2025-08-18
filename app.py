@@ -1857,10 +1857,11 @@ elif menu == "生產單管理":
     # 分頁數筆數選擇（下拉選單）
     with cols_page[4]:
         new_limit = st.selectbox(
-            "",  # 不顯示文字
-            options=[10, 20, 50, 75, 100],
+            label=" ",  # 空白標籤，不會占用高度
+            options=[5, 10, 20, 50, 75, 100],
             index=[10, 20, 50, 75, 100].index(st.session_state.selectbox_order_limit),
-            key="selectbox_order_limit"
+            key="selectbox_order_limit",
+            label_visibility="collapsed"
         )
         if new_limit != st.session_state.selectbox_order_limit:
             st.session_state.selectbox_order_limit = new_limit
