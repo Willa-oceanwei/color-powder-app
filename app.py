@@ -1787,9 +1787,16 @@ elif menu == "生產單管理":
     import streamlit as st
     import pandas as pd
     
+    # ---- 初始化 limit 下拉選單（只用在下方分頁列） ----
+    if "selectbox_order_limit" not in st.session_state:
+        st.session_state.selectbox_order_limit = 10  # 預設每頁 10 筆
+    
     # ===== 計算分頁 =====
     total_rows = len(df_filtered)
+    limit = st.session_state.selectbox_order_limit
     total_pages = max((total_rows - 1) // limit + 1, 1)
+    
+    # 初始化或限制頁碼
     if "order_page" not in st.session_state:
         st.session_state.order_page = 1
     if st.session_state.order_page > total_pages:
@@ -1799,45 +1806,6 @@ elif menu == "生產單管理":
     start_idx = (st.session_state.order_page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx].copy()
-    
-    # ===== 計算出貨數量 =====
-    def calculate_shipment(row):
-        try:
-            unit = str(row.get("計量單位", "")).strip()
-            formula_id = str(row.get("配方編號", "")).strip()
-            multipliers = {"包": 25, "桶": 100, "kg": 1}
-            unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
-            if not formula_id:
-                return ""
-            try:
-                matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
-                category = matched.values[0] if not matched.empty else ""
-            except Exception:
-                category = ""
-            if unit == "kg" and category == "色母":
-                multiplier = 100
-                label = "K"
-            else:
-                multiplier = multipliers.get(unit, 1)
-                label = unit_labels.get(unit, "")
-            results = []
-            for i in range(1, 5):
-                try:
-                    weight = float(row.get(f"包裝重量{i}", 0))
-                    count = int(float(row.get(f"包裝份數{i}", 0)))
-                    if weight > 0 and count > 0:
-                        show_weight = int(weight * multiplier) if label == "K" else weight
-                        results.append(f"{show_weight}{label}*{count}")
-                except:
-                    continue
-            return " + ".join(results) if results else ""
-        except:
-            return ""
-    
-    if not page_data.empty:
-        page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
-    else:
-        page_data["出貨數量"] = ""
     
     # ===== 顯示表格 =====
     display_cols = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]
@@ -1851,7 +1819,7 @@ elif menu == "生產單管理":
     else:
         st.info("查無符合的資料（分頁結果）")
     
-    # ===== 分頁控制列（完整橫排）（按鈕 + 下拉頁碼）, =====
+    # ===== 分頁控制列（五個橫排） =====
     cols_page = st.columns([1, 1, 1, 2, 1.5])
     
     # 首頁
@@ -1888,17 +1856,20 @@ elif menu == "生產單管理":
     
     # 分頁數筆數選擇（下拉選單）
     with cols_page[4]:
-        limit = st.selectbox(
+        new_limit = st.selectbox(
             "",  # 不顯示文字
             options=[10, 20, 50, 75, 100],
-            index=0,
+            index=[10, 20, 50, 75, 100].index(st.session_state.selectbox_order_limit),
             key="selectbox_order_limit"
         )
-
+        if new_limit != st.session_state.selectbox_order_limit:
+            st.session_state.selectbox_order_limit = new_limit
+            st.session_state.order_page = 1  # 選擇新筆數後跳回首頁
+            st.experimental_rerun()
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     st.markdown("---")
-    
+
     # ------------------- 選擇生產單號 -------------------
     options = []
     code_to_id = {}
