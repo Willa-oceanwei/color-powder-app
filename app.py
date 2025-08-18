@@ -1898,17 +1898,13 @@ elif menu == "生產單管理":
     
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
-        html_text = f"主配方：{order.get('配方編號','')} / {order.get('顏色','')}<br>"
-    
-        # 主配方色粉
-        for i in range(1, 9):
-            c_id = str(recipe_row.get(f"色粉編號{i}", "") or "")
-            try:
-                weight = float(recipe_row.get(f"色粉重量{i}", 0) or 0)
-            except:
-                weight = 0
-            if c_id and weight > 0:
-                html_text += f"{c_id} {weight}<br>"
+        # 主配方（使用原函式生成，保持合計顯示）
+        html_text = generate_production_order_print(
+            order,
+            recipe_row,
+            additional_recipe_rows=None,
+            show_additional_ids=show_additional_ids
+        )
     
         # 附加配方
         main_code = str(order.get("配方編號","")).strip()
@@ -1923,6 +1919,7 @@ elif menu == "生產單管理":
     
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>" if show_additional_ids else f"附加配方 {idx}<br>"
+    
                 total_weight = 0
                 for i in range(1, 9):
                     c_id = str(sub.get(f"色粉編號{i}", "") or "")
@@ -1936,12 +1933,15 @@ elif menu == "生產單管理":
                         row_text = c_id.ljust(powder_label_width) + f"{weight:>{number_col_width}}"
                         html_text += row_text + "<br>"
     
+                # 顯示合計 = 附加配方淨重
                 if total_weight > 0:
-                    html_text += f"{'合計'.ljust(powder_label_width)}{total_weight:>{number_col_width}}<br>"
+                    html_text += f"{'淨重'.ljust(powder_label_width)}{total_weight:>{number_col_width}}<br>"
     
+        # 將 HTML <br> 轉換成純文字換行
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
+
     
     # ------------------- 顯示預覽 -------------------
     if selected_label and selected_label != "無資料":
