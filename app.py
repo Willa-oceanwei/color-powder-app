@@ -203,7 +203,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         lines.append("＿" * 30)
                     
     # 合計列
-    total_offsets = [1, 5, 5, 6]  # 第一欄前空 2、第二欄前空 4、依此類推
+    total_offsets = [1, 5, 5, 5]  # 第一欄前空 2、第二欄前空 4、依此類推
     if total_type == "" or total_type == "無":
         total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
     elif category == "色母":
