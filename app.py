@@ -2070,31 +2070,35 @@ elif menu == "生產單管理":
             if abs(x - int(x)) < 1e-9:
                 return str(int(x))
             return f"{x:g}"
-                        
+        
         # ===== 色母包裝列（純顯示） =====
-        category_colorant = str(recipe_row.get("色粉類別","")).strip()
+        category_colorant = str(recipe_row.get("色粉類別", "")).strip()
         if category_colorant == "色母":
             # 包裝重量 (純顯示)
             packing_weights_colorant = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
             pack_line_colorant = []
-            for w in packing_weights_colorant:
+            for idx, w in enumerate(packing_weights_colorant, 1):
                 if w > 0:
-                    val = int(w * 100)  # 100K 基準
-                    pack_line_colorant.append(f"{val}K")
-            if pack_line_colorant:  # ✅ 先顯示在色粉列下方
+                    # 基準值 100K，乘上包裝重量，顯示 × 包裝份數
+                    count = int(order.get(f"包裝份數{idx}", 1) or 1)
+                    val = int(w * 100)
+                    pack_line_colorant.append(f"{val}K × {count}")
+            if pack_line_colorant:
                 html_text += " " * 14 + "  ".join(pack_line_colorant) + "<br>"
         
             # 色母合計列
             colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
-            net_colorant = float(recipe_row.get("淨重",0))
+            net_colorant = float(recipe_row.get("淨重",0) or 0)
             total_colorant = net_colorant - sum(colorant_weights)
-            
-            total_line_colorant = "料".ljust(12)
+        
+            total_label = str(recipe_row.get("合計類別", "合計") or "合計")
+            total_line_colorant = total_label.ljust(12)
             for w in packing_weights_colorant:
                 if w > 0:
                     val = total_colorant * w
                     total_line_colorant += fmt_num_colorant(val).rjust(7)
-            html_text += total_line_colorant + "<br>"          
+            html_text += total_line_colorant + "<br>"
+                 
 
         # 轉為純文字（保留對齊）
         text_with_newlines = html_text.replace("<br>", "\n")
