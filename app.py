@@ -1990,6 +1990,7 @@ elif menu == "生產單管理":
                         st.error(f"刪除錯誤：{e}")
             
             st.write("order_dict 附加配方欄位:", order_dict.get("附加配方編號列表"))
+            st.write(df_order.columns.tolist())
             # ---------- ✅ 預覽區塊 ----------
             def generate_order_preview_text(order, recipe_row, df_recipe, df_order, show_additional_ids=True):
                 # 先生成主配方 HTML
@@ -2036,7 +2037,7 @@ elif menu == "生產單管理":
                 df_order,
                 show_additional_ids=True
             )
-            st.write(df_order.columns.tolist())
+            
             with st.expander("🔍 生產單預覽", expanded=False):
                 st.markdown(preview_text)
     
@@ -2136,7 +2137,6 @@ elif menu == "生產單管理":
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
                 st.rerun()
-
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
