@@ -2056,7 +2056,7 @@ elif menu == "生產單管理":
                 # 每個倍數欄位增加與主配方相同的 padding
                 for idx, m in enumerate(multipliers):
                     val = net * m
-                    padding = " " * max(0, int(round(column_offsets[idx])))  # 參考主配方的 column_offsets
+                    padding = " " * max(0, int(round(column_offsets[j])))
                     total_line += padding + fmt_num(val).rjust(number_col_width)
                 
                 html_text += total_line + "<br>"
