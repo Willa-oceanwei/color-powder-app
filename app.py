@@ -1881,7 +1881,15 @@ elif menu == "生產單管理":
         use_container_width=True,
         hide_index=True
     )
-    
+
+    # 選擇生產單號
+    selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
+    if selected_label:
+        selected_code_edit = code_to_id[selected_label]
+        order_row = df_order[df_order["生產單號"] == selected_code_edit].iloc[0]
+        order_dict = order_row.to_dict()
+        recipe_row = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號")].iloc[0].to_dict()
+        
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
         """
