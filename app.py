@@ -1819,7 +1819,7 @@ elif menu == "生產單管理":
             st.rerun()
     # 跳頁輸入 + 顯示目前頁數
     with cols_page[3]:
-        jump_col1, jump_col2 = st.columns([2,1])
+        jump_col1, jump_col2 = st.columns([1, 1])  # 兩欄改為均分，避免擠到換行
         with jump_col1:
             jump_page = st.number_input(
                 "",
@@ -1830,7 +1830,10 @@ elif menu == "生產單管理":
                 label_visibility="collapsed"
             )
         with jump_col2:
-            st.markdown(f"<div style='margin-top:8px;'>第 {st.session_state.order_page} / {total_pages} 頁</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div style='margin-top:5px; white-space:nowrap;'>第 {st.session_state.order_page} / {total_pages} 頁</div>",
+                unsafe_allow_html=True
+            )
     
     if jump_page != st.session_state.order_page:
         st.session_state.order_page = jump_page
