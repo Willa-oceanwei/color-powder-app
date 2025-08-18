@@ -2060,10 +2060,11 @@ elif menu == "生產單管理":
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
-
+        
+        # ✅ Debug：檢查抓到的附加配方
         print("main_code:", repr(main_code))
         print("找到的附加配方:", [r['配方編號'] for r in additional_recipe_rows])
-
+        
     # ------------------- 顯示預覽 -------------------
     if selected_label and selected_label != "無資料":
         selected_code_edit = code_to_id[selected_label]
