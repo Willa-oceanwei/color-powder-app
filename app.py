@@ -1997,7 +1997,7 @@ elif menu == "生產單管理":
             # ---- 版面設定（與主配方風格一致） ----
             powder_label_width = 12
             number_col_width = 7
-            column_offsets_add = [0, 3, 3, 3]  # 用於附加配方合計列
+            column_offsets_add = [0, 2, 2, 2]  # 用於附加配方合計列
             # 從「主配方的生產單」抓包裝重量作為倍數欄
             multipliers = []
             for j in range(1, 5):
