@@ -1931,7 +1931,9 @@ elif menu == "生產單管理":
                         weight = 0
     
                     if c_id and weight > 0:
-                        row_text = c_id.ljust(powder_label_width) + f"{weight:>{number_col_width}}"
+                        # 如果是整數，去掉小數點
+                        display_weight = int(weight) if weight == int(weight) else weight
+                        row_text = c_id.ljust(powder_label_width) + f"{display_weight:>{number_col_width}}"
                         html_text += row_text + "<br>"
     
                 # 橫線
