@@ -1908,43 +1908,39 @@ elif menu == "生產單管理":
     
         # 附加配方
         main_code = str(order.get("配方編號","")).strip()
-        additional_recipe_rows = df_recipe[
-            df_recipe["配方編號"].astype(str).str.strip().str.startswith(f"{main_code}+")
-        ].to_dict("records")
-    
         if additional_recipe_rows:
             html_text += "<br>=== 附加配方 ===<br>"
-            powder_label_width = 8
-            number_col_width = 5
-    
+            powder_label_width = 12  # 色粉編號欄寬
+            number_col_width = 6     # 數值欄寬
+        
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>" if show_additional_ids else f"附加配方 {idx}<br>"
-    
+        
                 for i in range(1, 9):
                     c_id = str(sub.get(f"色粉編號{i}", "") or "")
                     try:
                         weight = float(sub.get(f"色粉重量{i}", 0) or 0)
                     except:
                         weight = 0
-                
+        
                     if c_id and weight > 0:
+                        # 對齊顯示
                         row_text = c_id.ljust(powder_label_width) + f"{weight:>{number_col_width}}"
                         html_text += row_text + "<br>"
-                
-                # 顯示橫線
+        
+                # 橫線
                 line_length = powder_label_width + number_col_width
                 html_text += "―" * line_length + "<br>"
-                
+        
                 # 顯示淨重
                 net_weight = sub.get("淨重", "")
                 if net_weight:
                     html_text += f"{'淨重'.ljust(powder_label_width)}{net_weight:>{number_col_width}}<br>"
-                    
-        # 將 HTML <br> 轉換成純文字換行
-        text_with_newlines = html_text.replace("<br>", "\n")
-        plain_text = re.sub(r"<.*?>", "", text_with_newlines)
-        return "```\n" + plain_text.strip() + "\n```"
-
+                            
+                # 將 HTML <br> 轉換成純文字換行
+                text_with_newlines = html_text.replace("<br>", "\n")
+                plain_text = re.sub(r"<.*?>", "", text_with_newlines)
+                return "```\n" + plain_text.strip() + "\n```"
     
     # ------------------- 顯示預覽 -------------------
     if selected_label and selected_label != "無資料":
