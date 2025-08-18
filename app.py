@@ -2072,20 +2072,20 @@ elif menu == "生產單管理":
             return f"{x:g}"
     
         # 判斷是否為色母
-        category_colorant = str(recipe_row.get("配方類別","")).strip()
         if str(recipe_row.get("配方類別","")).strip() == "色母":
-            # 完全獨立變數：包裝重量與包裝份數
-            preview_pack_weights = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
-            preview_pack_counts  = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
+            # 獨立變數：包裝重量與包裝份數
+            pack_weights = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
+            pack_counts  = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
         
-            pack_line_preview = []
-            for w, cnt in zip(preview_pack_weights, preview_pack_counts):
-                if w > 0 and cnt > 0:
-                    val = int(w * 100)  # 換算成 K 值
-                    pack_line_preview.append(f"{val}K × {fmt_num_colorant(cnt)}")
+            # 產生顯示文字
+            pack_line = []
+            for w, c in zip(pack_weights, pack_counts):
+                if w > 0 and c > 0:
+                    val = int(w * 100)  # 換算成 K
+                    pack_line.append(f"{val}K × {fmt_num_colorant(c)}")
         
-            if pack_line_preview:
-                html_text += " " * 14 + "  ".join(pack_line_preview) + "<br>"
+            if pack_line:
+                html_text += " " * 14 + "  ".join(pack_line) + "<br>"
     
             # 色粉列（乘上包裝倍數）
             colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
