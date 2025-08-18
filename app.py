@@ -1923,7 +1923,7 @@ elif menu == "生產單管理":
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>" if show_additional_ids else f"附加配方 {idx}<br>"
     
-                # 附加配方倍數：取包裝重量1~4的第一個大於0的
+                # 取得色粉倍數：檢查包裝重量1~4，第一個大於0的作為倍數
                 multiplier = 1
                 for i in range(1, 5):
                     try:
@@ -1934,7 +1934,7 @@ elif menu == "生產單管理":
                     except:
                         continue
     
-                total_weight = 0
+                # 顯示色粉
                 for i in range(1, 9):
                     c_id = str(sub.get(f"色粉編號{i}", "") or "")
                     try:
@@ -1944,7 +1944,6 @@ elif menu == "生產單管理":
     
                     if c_id and weight > 0:
                         weight_display = weight * multiplier
-                        total_weight += weight_display
                         # 小數點為0就顯示整數
                         if weight_display.is_integer():
                             weight_str = str(int(weight_display))
@@ -1957,16 +1956,16 @@ elif menu == "生產單管理":
                 line_length = powder_label_width + number_col_width
                 html_text += "―" * line_length + "<br>"
     
-                # 顯示合計 = 附加配方合計類別
+                # 顯示合計 = 合計類別文字 + 淨重欄位值
                 total_label = str(sub.get("合計類別", "")) or "合計"
-                if total_weight > 0:
-                    # 小數點為0就顯示整數
-                    if total_weight.is_integer():
-                        total_weight_str = str(int(total_weight))
+                net_weight = sub.get("淨重", "")
+                if net_weight:
+                    # 小數點處理
+                    if isinstance(net_weight, float) and net_weight.is_integer():
+                        net_weight_str = str(int(net_weight))
                     else:
-                        total_weight_str = f"{total_weight:.1f}"
-                    html_text += f"{total_label.ljust(powder_label_width)}{total_weight_str:>{number_col_width}}<br>"
-
+                        net_weight_str = str(net_weight)
+                    html_text += f"{total_label.ljust(powder_label_width)}{net_weight_str:>{number_col_width}}<br>"
     
         # 將 HTML <br> 轉換成純文字換行
         text_with_newlines = html_text.replace("<br>", "\n")
