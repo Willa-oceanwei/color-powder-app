@@ -1783,12 +1783,11 @@ elif menu == "生產單管理":
     df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
     # ---- limit 下拉選單要先定義（因為會影響 total_pages）----
+    import re
     import streamlit as st
     import pandas as pd
-    import re
     
-    # ------------------- 分頁計算 -------------------
-    # 先取得 limit（每頁筆數）
+    # ------------------- 分頁設定 -------------------
     cols_page = st.columns([1,1,1,2,1.5])
     with cols_page[4]:
         limit = st.selectbox("", [10,20,50,75,100], key="selectbox_order_limit")
@@ -1801,25 +1800,20 @@ elif menu == "生產單管理":
     
     # ------------------- 分頁控制列 -------------------
     cols_page = st.columns([1,1,1,2,1.5])
-    
-    # 首頁
     with cols_page[0]:
         if st.button("首頁"):
             st.session_state.order_page = 1
             st.rerun()
-    # 上一頁
     with cols_page[1]:
         if st.button("上一頁") and st.session_state.order_page > 1:
             st.session_state.order_page -= 1
             st.rerun()
-    # 下一頁
     with cols_page[2]:
         if st.button("下一頁") and st.session_state.order_page < total_pages:
             st.session_state.order_page += 1
             st.rerun()
-    # 跳頁輸入 + 顯示目前頁數
     with cols_page[3]:
-        jump_col1, jump_col2 = st.columns([1, 1])  # 兩欄改為均分，避免擠到換行
+        jump_col1, jump_col2 = st.columns([1, 1])
         with jump_col1:
             jump_page = st.number_input(
                 "",
@@ -1834,12 +1828,11 @@ elif menu == "生產單管理":
                 f"<div style='margin-top:5px; white-space:nowrap;'>第 {st.session_state.order_page} / {total_pages} 頁</div>",
                 unsafe_allow_html=True
             )
-    
     if jump_page != st.session_state.order_page:
         st.session_state.order_page = jump_page
         st.rerun()
     
-    # ------------------- 計算出貨數量 -------------------
+    # ------------------- 出貨數量計算 -------------------
     def calculate_shipment(row):
         try:
             unit = str(row.get("計量單位", "")).strip()
@@ -1881,21 +1874,27 @@ elif menu == "生產單管理":
         use_container_width=True,
         hide_index=True
     )
-
-    # 選擇生產單號
-    selected_label = st.selectbox("選擇生產單號", options, key="select_order_for_edit_from_list")
-    if selected_label:
-        selected_code_edit = code_to_id[selected_label]
-        order_row = df_order[df_order["生產單號"] == selected_code_edit].iloc[0]
-        order_dict = order_row.to_dict()
-        recipe_row = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號")].iloc[0].to_dict()
-        
+    st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
+    
+    # ------------------- 選擇生產單號 -------------------
+    options = []
+    code_to_id = {}
+    if not page_data.empty:
+        for idx, row in page_data.iterrows():
+            label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色','')} / {row.get('客戶名稱','')}"
+            options.append(label)
+            code_to_id[label] = row["生產單號"]
+    
+    cols_top2 = st.columns([5, 1, 1])
+    with cols_top2[0]:
+        selected_label = st.selectbox(
+            "選擇生產單號",
+            options or ["無資料"],
+            key="select_order_for_edit_from_list"
+        )
+    
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
-        """
-        生成生產單文字預覽，包括主配方與附加配方（透過配方編號 + 判斷）。
-        """
-        # 1️⃣ 先產生主配方 HTML
         html_text = generate_production_order_print(
             order,
             recipe_row,
@@ -1903,46 +1902,62 @@ elif menu == "生產單管理":
             show_additional_ids=show_additional_ids
         )
     
-        # 2️⃣ 抓附加配方
+        # 附加配方
         main_code = order.get("配方編號")
         additional_recipe_rows = []
         if main_code:
-            # 假設附加配方編號規則：主配方 + "+"
             additional_recipe_rows = df_recipe[
                 df_recipe["配方編號"].str.startswith(f"{main_code}+")
             ].to_dict("records")
     
-        # 3️⃣ 將附加配方加進 HTML
         if additional_recipe_rows:
             html_text += "<br>=== 附加配方 ===<br>"
+            multipliers = {"包": 25, "桶": 100, "kg": 1}
+            unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
+            number_col_width = 5
+            powder_label_width = 8
+            main_unit = str(recipe_row.get("計量單位", "包")).strip()
+            multiplier = multipliers.get(main_unit, 1)
+            label = unit_labels.get(main_unit, "")
             for idx, sub in enumerate(additional_recipe_rows, 1):
-                if show_additional_ids:
-                    html_text += f"附加配方 {idx}：{sub.get('配方編號', '')}<br>"
-                else:
-                    html_text += f"附加配方 {idx}<br>"
-                # 假設色粉 1~8
+                html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>" if show_additional_ids else f"附加配方 {idx}<br>"
                 for i in range(1, 9):
                     c_id = sub.get(f"色粉編號{i}", "")
-                    weight = sub.get(f"色粉重量{i}", "")
+                    try:
+                        weight = float(sub.get(f"色粉重量{i}", 0) or 0)
+                    except:
+                        weight = 0
+                    category = str(sub.get("色粉類別", "配方")).strip()
+                    if main_unit == "kg" and category == "色母":
+                        show_weight = int(weight * 100)
+                        show_label = "K"
+                    else:
+                        show_weight = int(weight * multiplier) if label == "K" else weight
+                        show_label = label
                     if c_id and weight:
-                        html_text += f"{c_id}: {weight}<br>"
+                        row_text = c_id.ljust(powder_label_width) + f"{show_weight:>{number_col_width}}{show_label}"
+                        html_text += row_text + "<br>"
     
-        # 4️⃣ 將 HTML 轉成純文字，保留換行
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
-        preview_text = "```\n" + plain_text.strip() + "\n```"
-    
-        return preview_text
+        return "```\n" + plain_text.strip() + "\n```"
     
     # ------------------- 顯示預覽 -------------------
-    preview_text = generate_order_preview_text(
-        order_dict,
-        recipe_row,
-        show_additional_ids=True
-    )
+    if selected_label and selected_label != "無資料":
+        selected_code_edit = code_to_id[selected_label]
+        order_row = df_order[df_order["生產單號"] == selected_code_edit]
+        if not order_row.empty:
+            order_dict = order_row.iloc[0].to_dict()
+            order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
     
-    with st.expander("🔍 生產單預覽", expanded=False):
-        st.markdown(preview_text)
+            recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號","")]
+            recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
+    
+            show_ids = st.checkbox("列印時顯示附加配方編號", value=True, key=f"show_ids_checkbox_{selected_code_edit}")
+    
+            preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
+            with st.expander("🔍 生產單預覽", expanded=False):
+                st.markdown(preview_text)
 
     
     # 修改面板（如果有啟動）
