@@ -1994,6 +1994,10 @@ elif menu == "生產單管理":
             additional_recipe_rows = []
     
         if additional_recipe_rows:
+            # ---- 版面設定（與主配方風格一致） ----
+            powder_label_width = 12
+            number_col_width = 7
+            column_offsets_add = [1, 5, 5, 5]  # 用於附加配方合計列
             # 從「主配方的生產單」抓包裝重量作為倍數欄
             multipliers = []
             for j in range(1, 5):
@@ -2056,7 +2060,7 @@ elif menu == "生產單管理":
                 # 每個倍數欄位增加與主配方相同的 padding
                 for idx, m in enumerate(multipliers):
                     val = net * m
-                    padding = " " * max(0, int(round(column_offsets[idx])))  # ✅ 改成 idx
+                    padding = " " * max(0, int(round(column_offsets_add[idx])))
                     total_line += padding + fmt_num(val).rjust(number_col_width)
                 
                 html_text += total_line + "<br>"
