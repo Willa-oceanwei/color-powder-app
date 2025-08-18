@@ -1836,16 +1836,60 @@ elif menu == "生產單管理":
     start_idx = (st.session_state.order_page - 1) * limit
     end_idx = start_idx + limit
     page_data = df_filtered.iloc[start_idx:end_idx].copy()
-
+    
+    # ===== 定義 calculate_shipment 函式 =====
+    def calculate_shipment(row):
+        try:
+            unit = str(row.get("計量單位", "")).strip()
+            formula_id = str(row.get("配方編號", "")).strip()
+            multipliers = {"包": 25, "桶": 100, "kg": 1}
+            unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
+    
+            if not formula_id:
+                return ""
+    
+            try:
+                matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
+                category = matched.values[0] if not matched.empty else ""
+            except Exception:
+                category = ""
+    
+            if unit == "kg" and category == "色母":
+                multiplier = 100
+                label = "K"
+            else:
+                multiplier = multipliers.get(unit, 1)
+                label = unit_labels.get(unit, "")
+    
+            results = []
+            for i in range(1, 5):
+                try:
+                    weight = float(row.get(f"包裝重量{i}", 0))
+                    count = int(float(row.get(f"包裝份數{i}", 0)))
+                    if weight > 0 and count > 0:
+                        show_weight = int(weight * multiplier) if label == "K" else weight
+                        results.append(f"{show_weight}{label}*{count}")
+                except Exception:
+                    continue
+    
+            return " + ".join(results) if results else ""
+    
+        except Exception as e:
+            st.error(f"calculate_shipment error at row index {row.name}: {e}")
+            st.write(row)
+            return ""
+    
     # ===== 計算出貨數量 =====
     if not page_data.empty:
         page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
     
     # ===== 顯示表格 =====
     display_cols = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]
-    if not page_data.empty:
+    existing_cols = [c for c in display_cols if c in page_data.columns]
+    
+    if not page_data.empty and existing_cols:
         st.dataframe(
-            page_data[display_cols].reset_index(drop=True),
+            page_data[existing_cols].reset_index(drop=True),
             use_container_width=True,
             hide_index=True
         )
