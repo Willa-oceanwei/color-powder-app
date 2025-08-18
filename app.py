@@ -2065,53 +2065,53 @@ elif menu == "生產單管理":
                 
                 html_text += total_line + "<br>"
 
-        # 色母專用格式化函式
+        #  =====色母專用格式化函式（獨立變數）===== 
+        # 1. 格式化函式：小數點為0則顯示整數
         def fmt_num_colorant(x: float) -> str:
             if abs(x - int(x)) < 1e-9:
                 return str(int(x))
             return f"{x:g}"
+            
+        # 主配方抬頭
+        html_text += f"編號：{order.get('配方編號','')}  顏色：{order.get('顏色','')}  比例：{order.get('比例','')}  Pantone：{order.get('Pantone','')}<br>"
         
-        # 假設 order 和 recipe_row 已存在
-        category_colorant = str(recipe_row.get("色粉類別", "")).strip()
+        # 2. 判斷是否為色母
+        category_colorant = str(recipe_row.get("色粉類別","")).strip()
         if category_colorant == "色母":
-            # 包裝重量 (純顯示)
+            
+            # 包裝重量 (純顯示，基準100K)
             packing_weights_colorant = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
             pack_line_colorant = []
-            pack_multiplier = []
-            for w, idx in zip(packing_weights_colorant, range(1,5)):
+            for w in packing_weights_colorant:
                 if w > 0:
                     val = int(w * 100)  # 100K 基準
-                    count = int(float(order.get(f"包裝份數{idx}",1)))  # 包裝份數
-                    pack_line_colorant.append(f"{val}K × {count}")
-                    pack_multiplier.append(w * count)
+                    pack_line_colorant.append(f"{val}K × {fmt_num_colorant(w)}")
             if pack_line_colorant:
-                html_text += "包裝列: " + "  ".join(pack_line_colorant) + "<br>"
+                html_text += " " * 14 + "  ".join(pack_line_colorant) + "<br>"
         
-            # 色粉列（依倍數顯示）
-            for i in range(1, 9):
-                c_id = str(recipe_row.get(f"色粉編號{i}", "") or "").strip()
-                try:
-                    base_w = float(recipe_row.get(f"色粉重量{i}", 0) or 0)
-                except Exception:
-                    base_w = 0.0
-                if c_id and base_w > 0:
-                    cells = []
-                    for m in pack_multiplier:
-                        val = base_w * m
-                        cells.append(fmt_num_colorant(val).rjust(7))
-                    row = c_id.ljust(12) + "".join(cells)
-                    html_text += row + "<br>"
-        
-            # 色母合計列
+            # 色粉列（乘上包裝倍數）
             colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
+            powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
+            for pid, wgt in zip(powder_ids, colorant_weights):
+                if pid and wgt > 0:
+                    line = pid.ljust(6)
+                    for pw in packing_weights_colorant:
+                        if pw > 0:
+                            val = wgt * pw
+                            line += fmt_num_colorant(val).rjust(7)
+                    html_text += line + "<br>"
+        
+            # 色母合計列 (淨重 - 色粉1~8)
             net_colorant = float(recipe_row.get("淨重",0))
             total_colorant = net_colorant - sum(colorant_weights)
-            total_line_colorant = str(recipe_row.get("合計類別","合計")).ljust(12)
-            for m in pack_multiplier:
-                val = total_colorant * m
-                total_line_colorant += fmt_num_colorant(val).rjust(7)
+            total_label = str(recipe_row.get("合計類別","合計") or "合計")
+            total_line_colorant = total_label.ljust(6)
+            for pw in packing_weights_colorant:
+                if pw > 0:
+                    val = total_colorant * pw
+                    total_line_colorant += fmt_num_colorant(val).rjust(7)
             html_text += total_line_colorant + "<br>"
-        
+                
         # 轉為純文字（保留對齊）
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
