@@ -1898,7 +1898,7 @@ elif menu == "生產單管理":
     
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
-        # 主配方
+        # 主配方（使用原函式生成，保持合計顯示）
         html_text = generate_production_order_print(
             order,
             recipe_row,
@@ -1908,21 +1908,21 @@ elif menu == "生產單管理":
     
         # 附加配方
         main_code = str(order.get("配方編號","")).strip()
+        additional_recipe_rows = []
         if main_code:
             additional_recipe_rows = df_recipe[
                 df_recipe["配方編號"].astype(str).str.strip().str.startswith(f"{main_code}+")
             ].to_dict("records")
-        else:
-            additional_recipe_rows = []
     
         if additional_recipe_rows:
             html_text += "<br>=== 附加配方 ===<br>"
-            powder_label_width = 12
-            number_col_width = 6
+            powder_label_width = 12  # 色粉編號欄寬
+            number_col_width = 6     # 數值欄寬
     
             for idx, sub in enumerate(additional_recipe_rows, 1):
                 html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>" if show_additional_ids else f"附加配方 {idx}<br>"
     
+                # 列出色粉
                 for i in range(1, 9):
                     c_id = str(sub.get(f"色粉編號{i}", "") or "")
                     try:
