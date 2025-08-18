@@ -1183,13 +1183,14 @@ elif menu == "配方管理":
             st.experimental_rerun()
     
     with cols_page[4]:
-        # 每頁顯示筆數選單
-        limit = st.selectbox(
-            "",  # 不顯示文字
-            options=[5, 10, 20, 50, 100],
-            index=[5, 10, 20, 50, 100].index(st.session_state.get("limit_per_page", 5)),
-            key="limit_per_page"
-        )
+    # 每頁顯示筆數選單
+    limit = st.selectbox(
+        "",
+        options=[5, 10, 20, 50, 100],
+        index=[5, 10, 20, 50, 100].index(st.session_state.get("limit_per_page", 5)),
+        key="limit_per_page",
+        label_visibility="collapsed"  # 隱藏標籤，減少上方空白
+    )
     
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
         
