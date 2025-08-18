@@ -1782,8 +1782,26 @@ elif menu == "生產單管理":
     df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
     df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
-    # [下拉選單：每頁筆數] 先定義
+    # ---- limit 下拉選單要先定義（因為會影響 total_pages）----
+    total_rows = len(df_filtered)
+    
     cols_page = st.columns([1, 1, 1, 2, 1.5])
+    
+    # [下拉選單：每頁筆數]
+    with cols_page[4]:
+        limit = st.selectbox(
+            "",
+            [10, 20, 50, 75, 100],
+            index=0,
+            key="selectbox_order_limit",
+            label_visibility="collapsed"
+        )
+    
+    # ---- limit 確定之後，再計算 total_pages / page_data ----
+    total_pages = max((total_rows - 1) // limit + 1, 1)
+    st.session_state.order_page = max(1, min(st.session_state.get("order_page", 1), total_pages))
+    start_idx = (st.session_state.order_page - 1) * limit
+    page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
     
     # [首頁]
     with cols_page[0]:
@@ -1810,41 +1828,6 @@ elif menu == "生產單管理":
             jump_page = st.number_input(
                 "",
                 min_value=1,
-                max_value=1,  # 先給暫時值，稍後會更新
-                value=st.session_state.get("order_page", 1),
-                key="jump_page",
-                label_visibility="collapsed"
-            )
-        with jump_col2:
-            st.markdown(
-                f"<div style='margin-top:8px;'>第 {st.session_state.get('order_page', 1)} / ? 頁</div>",
-                unsafe_allow_html=True
-            )
-    
-    # [下拉選單：每頁筆數]
-    with cols_page[4]:
-        limit = st.selectbox(
-            "",
-            [10, 20, 50, 75, 100],
-            index=0,
-            key="selectbox_order_limit",
-            label_visibility="collapsed"
-        )
-    
-    # ---- limit 確定之後，再計算 total_pages / page_data ----
-    total_rows = len(df_filtered)
-    total_pages = max((total_rows - 1) // limit + 1, 1)
-    st.session_state.order_page = max(1, min(st.session_state.get("order_page", 1), total_pages))
-    start_idx = (st.session_state.order_page - 1) * limit
-    page_data = df_filtered.iloc[start_idx:start_idx + limit].copy()
-    
-    # 更新輸入框最大值與頁數顯示
-    with cols_page[3]:
-        jump_col1, jump_col2 = st.columns([2, 1])
-        with jump_col1:
-            jump_page = st.number_input(
-                "",
-                min_value=1,
                 max_value=total_pages,
                 value=st.session_state.order_page,
                 key="jump_page",
@@ -1860,7 +1843,7 @@ elif menu == "生產單管理":
         st.session_state.order_page = jump_page
         st.rerun()
     
-    # 計算出貨數量
+    # ---- 計算出貨數量 ----
     def calculate_shipment(row):
         try:
             unit = str(row.get("計量單位", "")).strip()
@@ -1896,7 +1879,7 @@ elif menu == "生產單管理":
     
     page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
     
-    # 顯示表格
+    # ---- 顯示表格 ----
     st.dataframe(
         page_data[["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]],
         use_container_width=True,
