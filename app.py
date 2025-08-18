@@ -1787,18 +1787,6 @@ elif menu == "生產單管理":
     import streamlit as st
     import pandas as pd
     
-    # ===== 篩選後筆數 + 每頁顯示筆數 =====
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.markdown(f"🧺 **篩選後筆數：** {len(df_filtered)}")
-    with col2:
-        limit = st.selectbox(
-            "",  # 不顯示文字
-            options=[10, 20, 50, 75, 100],
-            index=0,
-            key="selectbox_order_limit"
-        )
-    
     # ===== 計算分頁 =====
     total_rows = len(df_filtered)
     total_pages = max((total_rows - 1) // limit + 1, 1)
