@@ -1989,7 +1989,7 @@ elif menu == "生產單管理":
                     except Exception as e:
                         st.error(f"刪除錯誤：{e}")
             
-            st.write("📌 Debug 附加配方：", additional_recipe_rows)
+            st.write("order_dict 附加配方欄位:", order_dict.get("附加配方編號列表"))
             # ---------- ✅ 預覽區塊 ----------
             def generate_order_preview_text(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
                 html_text = generate_production_order_print(
