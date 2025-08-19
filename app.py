@@ -915,7 +915,7 @@ elif menu == "配方管理":
         # 合計類別與合計差額
         col1, col2 = st.columns(2)
         with col1:
-            category_options = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他"]
+            category_options = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他", "PE"]
             default_raw = fr.get("合計類別", "無")
             default = "\u2002" if default_raw == "無" else default_raw
             if default not in category_options:
