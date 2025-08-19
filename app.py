@@ -1166,7 +1166,7 @@ elif menu == "配方管理":
     with cols_page[2]:
         if st.button("🔽下一頁", key="next_page") and st.session_state.page < total_pages:
             st.session_state.page += 1
-            st.experimental_rerun()
+            st.rerun()
     
     with cols_page[3]:
         # 輸入跳頁
