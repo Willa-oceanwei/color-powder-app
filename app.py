@@ -649,7 +649,6 @@ elif menu == "配方管理":
     if recipe_file.exists():
         df_recipe = pd.read_csv(recipe_file, dtype=str)
         st.session_state.df_recipe = df_recipe
-        st.write("df_recipe 型態：", type(df_recipe))
     else:
         st.warning("❌ df_recipe CSV 不存在，建立空 DataFrame")
         df_recipe = pd.DataFrame(columns=columns)
