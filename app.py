@@ -1231,38 +1231,39 @@ elif menu == "配方管理":
             st.session_state.delete_recipe_index = df_idx
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
-    # ------------------- 配方預覽函式 -------------------
-    def generate_recipe_preview_text(recipe_row):
+   
+    # ---------- 配方專用：預覽文字函式 ----------
+    def generate_recipe_preview_text(recipe, additional_recipe_rows=None, show_additional_ids=True):
         """
-        給單一配方 (recipe_row: dict)，產生 Markdown 預覽文字
+        專門給【配方管理】使用的預覽函式
+        不會影響生產單的 generate_order_preview_text
         """
-        if not recipe_row:
-            return "```\n⚠️ 無可顯示的配方資料\n```"
-    
+        # 這裡完整複製生產單預覽邏輯，只是把 order 換成 recipe
+        # 色母條件 / 附加配方 / 備註 都保留
         lines = []
-        lines.append(f"📌 配方編號：{recipe_row.get('配方編號','')}")
-        lines.append(f"顏色：{recipe_row.get('顏色','')}")
-        lines.append(f"客戶：{recipe_row.get('客戶名稱','')} ({recipe_row.get('客戶編號','')})")
-        lines.append(f"Pantone：{recipe_row.get('Pantone色號','')}")
-        lines.append(f"配方類別：{recipe_row.get('配方類別','')}")
-        lines.append("")
     
-        # 顯示色粉組成
-        for i in range(1, 9):
-            pid = str(recipe_row.get(f"色粉編號{i}", "") or "").strip()
-            wgt = recipe_row.get(f"色粉重量{i}", "")
-            if pid and wgt not in (None, "", 0, "0"):
-                lines.append(f"{pid:<10} {wgt}")
+        # ===== 主配方 =====
+        lines.append(generate_production_order_print(recipe, recipe, None, show_additional_ids))
     
-        # 備註、合計
-        if recipe_row.get("合計類別"):
-            lines.append(f"合計類別：{recipe_row.get('合計類別','')}")
-        if recipe_row.get("淨重"):
-            lines.append(f"淨重：{recipe_row.get('淨重','')}")
-        if recipe_row.get("備註"):
-            lines.append(f"備註：{recipe_row.get('備註','')}")
+        # ===== 附加配方 =====
+        if additional_recipe_rows:
+            for add in additional_recipe_rows:
+                lines.append("--- 附加配方 ---")
+                lines.append(generate_production_order_print(recipe, add, None, show_additional_ids))
     
-        return "```\n" + "\n".join(lines) + "\n```"
+        # ===== 備註 =====
+        if recipe.get("備註"):
+            lines.append("")
+            lines.append(f"📌 備註：{recipe['備註']}")
+    
+        # ===== 色母條件 =====
+        if recipe.get("色粉類別") == "色母":
+            lines.append("")
+            lines.append("⚠️ 此配方為【色母】，請注意計算邏輯。")
+    
+        preview_text = "```\n" + "\n".join(lines) + "\n```"
+        return preview_text
+
 
     # ------------------- 顯示配方預覽 -------------------
     if selected_code:
