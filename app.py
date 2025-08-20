@@ -1246,10 +1246,15 @@ elif menu == "配方管理":
         lines.append(generate_production_order_print(recipe, recipe, None, show_additional_ids))
     
         # ===== 附加配方 =====
-        if additional_recipe_rows:
-            for add in additional_recipe_rows:
-                lines.append("--- 附加配方 ---")
-                lines.append(generate_production_order_print(recipe, add, None, show_additional_ids))
+        if additional_recipe_rows is None:
+            main_code = str(recipe.get("配方編號","")).strip()
+            if main_code:
+                additional_recipe_rows = df_recipe[
+                    (df_recipe["配方類別"]=="附加配方") &
+                    (df_recipe["原始配方"].astype(str).str.strip()==main_code)
+                ].to_dict("records")
+            else:
+                additional_recipe_rows = []
     
         # ===== 備註 =====
         if recipe.get("備註"):
