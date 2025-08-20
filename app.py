@@ -1378,6 +1378,7 @@ elif menu == "配方管理":
             # ✅ 生成配方預覽文字
             preview_text_recipe = generate_recipe_preview_text(
                 recipe_row_preview,
+                df_recipe,  # ✅ 必須加上 df_recipe
                 show_additional_ids=st.session_state.get(f"show_ids_checkbox_{selected_code}", True)
             )
             
