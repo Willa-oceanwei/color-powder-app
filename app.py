@@ -1244,7 +1244,7 @@ elif menu == "配方管理":
 
     import pandas as pd
     import re
-
+    
     def safe_str(val):
         if val is None or pd.isna(val):
             return ""
@@ -1263,7 +1263,7 @@ elif menu == "配方管理":
         # 小數點為 0 就顯示整數，否則保留原值
         if abs(x - int(x)) < 1e-9:
             return str(int(x))
-        return f"{x:g}"
+        return f"{x:g}""
    
     # ---------- 函式：生成配方預覽文字 ----------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
@@ -1278,13 +1278,12 @@ elif menu == "配方管理":
         # 主配方色粉列
         colorant_weights = [safe_float(recipe_row.get(f"色粉重量{i}",0)) for i in range(1,9)]
         powder_ids = [safe_str(recipe_row.get(f"色粉編號{i}","")) for i in range(1,9)]
-    
         for pid, wgt in zip(powder_ids, colorant_weights):
             if pid and wgt > 0:
                 html_text += pid.ljust(12) + fmt_num(wgt) + "\n"
     
         # 主配方合計列
-        total_label = safe_str(recipe_row.get("合計類別","="))
+        total_label = safe_str(recipe_row.get("合計類別","=")) or "="
         net_weight = safe_float(recipe_row.get("淨重",0))
         if net_weight > 0:
             html_text += "_"*40 + "\n"
@@ -1295,7 +1294,7 @@ elif menu == "配方管理":
         if note:
             html_text += f"備註 : {note}\n"
     
-        # 附加配方
+        # ---------- 附加配方 ----------
         main_code = safe_str(order.get("配方編號",""))
         if main_code:
             additional_recipe_rows = df_recipe[
@@ -1321,21 +1320,25 @@ elif menu == "配方管理":
                         html_text += pid.ljust(12) + fmt_num(wgt) + "\n"
     
                 # 附加配方合計
-                total_label_sub = safe_str(sub.get("合計類別","="))
+                total_label_sub = safe_str(sub.get("合計類別","=")) or "="
                 net_sub = safe_float(sub.get("淨重",0))
                 if net_sub > 0:
                     html_text += "_"*40 + "\n"
                     html_text += total_label_sub.ljust(12) + fmt_num(net_sub) + "\n"
     
-        # 色母專用（單獨列示，不乘 100）
+        # ---------- 色母專用（單獨列示，不乘 100） ----------
         if safe_str(recipe_row.get("色粉類別"))=="色母":
             html_text += "\n色母專用預覽：\n"
             pack_weights_display = [safe_float(order.get(f"包裝重量{i}",0)) for i in range(1,5)]
             pack_counts_display  = [safe_float(order.get(f"包裝份數{i}",0)) for i in range(1,5)]
+    
+            # 包裝列
+            pack_line = []
             for w, c in zip(pack_weights_display, pack_counts_display):
                 if w>0 and c>0:
-                    html_text += f"{w}K × {int(c)}  "
-            html_text += "\n"
+                    pack_line.append(f"{fmt_num(w)}K × {int(c)}")
+            if pack_line:
+                html_text += "  ".join(pack_line) + "\n"
     
             # 色粉列
             for pid, wgt in zip(powder_ids, colorant_weights):
@@ -1343,7 +1346,7 @@ elif menu == "配方管理":
                     line = pid.ljust(6)
                     for w in pack_weights_display:
                         if w>0:
-                            val = wgt * w
+                            val = wgt * w  # 不再乘 100
                             line += fmt_num(val).rjust(12)
                     html_text += line + "\n"
     
@@ -1355,7 +1358,10 @@ elif menu == "配方管理":
                     total_line_colorant += fmt_num(total_colorant * w).rjust(12)
             html_text += total_line_colorant + "\n"
     
-        return "```\n" + html_text.strip() + "\n```"
+        # 轉為純文字，保留對齊
+        text_with_newlines = html_text.replace("<br>", "\n")
+        plain_text = re.sub(r"<.*?>", "", text_with_newlines)
+        return "```\n" + plain_text.strip() + "\n```"
 
     # ---------- 配方預覽顯示 ----------
     if selected_code and "配方編號" in df_recipe.columns:
