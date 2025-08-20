@@ -1219,20 +1219,39 @@ elif menu == "配方管理":
         )
     
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
-        
-    # 顯示上方搜尋沒有資料的提示
+
+    # ===== 統一訊息判斷（新增區塊） =====
     top_has_input = any([
         st.session_state.get("search_recipe_code_top"),
         st.session_state.get("search_customer_top"),
         st.session_state.get("search_pantone_top")
     ])
-    if top_has_input and df_filtered.empty:
-        st.info("⚠️ 查無符合條件的配方（來自上方搜尋）")
     
-    # --- 配方編號選擇 + 修改/刪除 ---
-    code_list = page_data["配方編號"].dropna().tolist()
-        
-    cols = st.columns([3, 1, 1])  # 配方編號下拉+修改+刪除 按鈕
+    code_list = page_data["配方編號"].dropna().tolist() if not page_data.empty else []
+    
+    display_message = None
+    display_type = "info"
+    
+    if df_recipe.empty:
+        display_message = "⚠️ 配方資料尚未載入"
+        display_type = "warning"
+    elif top_has_input and df_filtered.empty:
+        display_message = "⚠️ 查無符合條件的配方（來自上方搜尋）"
+    elif page_data.empty:
+        display_message = "查無符合的配方（分頁結果）"
+    elif not code_list:
+        display_message = "🟦 沒有可選的配方編號"
+    
+    if display_message:
+        if display_type == "warning":
+            st.warning(display_message)
+        elif display_type == "error":
+            st.error(display_message)
+        else:
+            st.info(display_message)
+    
+    # ===== 配方編號下拉 + 修改/刪除 =====
+    cols = st.columns([3, 1, 1])
     with cols[0]:
         if code_list:
             if len(code_list) == 1:
@@ -1242,7 +1261,6 @@ elif menu == "配方管理":
                 selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code_page")
         else:
             selected_code = None
-            st.info("🟦 沒有可選的配方編號")
     
     with cols[1]:
         if selected_code and st.button("✏️ 修改", key="edit_btn"):
