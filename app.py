@@ -723,6 +723,11 @@ elif menu == "配方管理":
     with col3:
         search_pantone_top = st.text_input("Pantone色號", key="search_pantone_top")
 
+    # --- 偵測輸入是否存在 ---
+    if search_recipe_top:  # 如果輸入不空
+        if search_recipe_top not in df_recipe["配方編號"].values:
+            st.warning(f"⚠️ 配方編號 {search_recipe_top} 尚未建檔")
+
     # === 欄位定義 ===
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
@@ -1234,8 +1239,7 @@ elif menu == "配方管理":
                 selected_code = code_list[0]
                 st.info(f"🔹 自動選取唯一配方編號：{selected_code}")
             else:
-                # 下拉不顯示標籤，讓它跟按鈕同一排
-                selected_code = st.selectbox("", code_list, key="select_recipe_code_page")
+                selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code_page")
         else:
             selected_code = None
             st.info("🟦 沒有可選的配方編號")
