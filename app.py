@@ -819,98 +819,67 @@ elif menu == "配方管理":
     st.subheader("➕ 新增 / 修改配方")
     
     with st.form("recipe_form"):
-    # -------- 基本欄位 --------
+        # 基本欄位
         col1, col2, col3 = st.columns(3)
         with col1:
-            fr["配方編號"] = st.text_input(
-                "編號",
-                value=fr.get("配方編號", ""),
-                key="form_recipe_配方編號"
-            )
+            fr["配方編號"] = st.text_input("配方編號", value=fr.get("配方編號", ""), key="form_recipe_配方編號")
         with col2:
-            fr["顏色"] = st.text_input(
-                "顏色",
-                value=fr.get("顏色", ""),
-                key="form_recipe_顏色"
-            )
+            fr["顏色"] = st.text_input("顏色", value=fr.get("顏色", ""), key="form_recipe_顏色")
         with col3:
             options = [""] + customer_options  
             cust_value = fr.get("客戶編號", "")
+            
+            # 防止 ValueError，如果值不存在於 options，預設選第一個
             index = options.index(cust_value) if cust_value in options else 0
+            
             selected = st.selectbox(
-                "客戶",
+                "客戶編號",
                 options,
                 index=index,
                 key="form_recipe_selected_customer"
             )
+    
             if " - " in selected:
                 c_no, c_name = selected.split(" - ", 1)
             else:
                 c_no, c_name = "", ""
+    
             fr["客戶編號"] = c_no
             fr["客戶名稱"] = c_name
-    
-        # -------- 配方類別 / 狀態 / 原始配方 --------
+   
+        # 配方類別、狀態、原始配方
         col4, col5, col6 = st.columns(3)
         with col4:
             options = ["原始配方", "附加配方"]
             current = fr.get("配方類別", options[0])
             if current not in options:
                 current = options[0]
-            fr["配方類別"] = st.selectbox(
-                "類別",
-                options,
-                index=options.index(current),
-                key="form_recipe_配方類別"
-            )
+            fr["配方類別"] = st.selectbox("配方類別", options, index=options.index(current), key="form_recipe_配方類別")
         with col5:
             options = ["啟用", "停用"]
             current = fr.get("狀態", options[0])
             if current not in options:
                 current = options[0]
-            fr["狀態"] = st.selectbox(
-                "狀態",
-                options,
-                index=options.index(current),
-                key="form_recipe_狀態"
-            )
+            fr["狀態"] = st.selectbox("狀態", options, index=options.index(current), key="form_recipe_狀態")
         with col6:
-            fr["原始配方"] = st.text_input(
-                "原始配方",
-                value=fr.get("原始配方", ""),
-                key="form_recipe_原始配方"
-            )
+            fr["原始配方"] = st.text_input("原始配方", value=fr.get("原始配方", ""), key="form_recipe_原始配方")
     
-        # -------- 色粉類別 / 計量單位 / Pantone色號 --------
+        # 色粉類別、計量單位、Pantone 色號
         col7, col8, col9 = st.columns(3)
         with col7:
             options = ["配方", "色母", "色粉", "添加劑", "其他"]
             current = fr.get("色粉類別", options[0])
             if current not in options:
                 current = options[0]
-            fr["色粉類別"] = st.selectbox(
-                "色粉類別",
-                options,
-                index=options.index(current),
-                key="form_recipe_色粉類別"
-            )
+            fr["色粉類別"] = st.selectbox("色粉類別", options, index=options.index(current), key="form_recipe_色粉類別")
         with col8:
             options = ["包", "桶", "kg", "其他"]
             current = fr.get("計量單位", options[0])
             if current not in options:
                 current = options[0]
-            fr["計量單位"] = st.selectbox(
-                "計量單位",
-                options,
-                index=options.index(current),
-                key="form_recipe_計量單位"
-            )
+            fr["計量單位"] = st.selectbox("計量單位", options, index=options.index(current), key="form_recipe_計量單位")
         with col9:
-            fr["Pantone色號"] = st.text_input(
-                "Pantone色號",
-                value=fr.get("Pantone色號", ""),
-                key="form_recipe_Pantone色號"
-            )
+            fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號", ""), key="form_recipe_Pantone色號")
     
         # 重要提醒、比例1-3
         fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒", ""), key="form_recipe_重要提醒")
@@ -1144,8 +1113,10 @@ elif menu == "配方管理":
     recipe_kw = (st.session_state.get("search_recipe_code_bottom") or st.session_state.get("search_recipe_code_top") or "").strip()
     customer_kw = (st.session_state.get("search_customer_bottom") or st.session_state.get("search_customer_top") or "").strip()
     pantone_kw = (st.session_state.get("search_pantone_bottom") or st.session_state.get("search_pantone_top") or "").strip()
-   
-    # ===== 篩選 =====
+
+    st.write(f"📌配方編號：{recipe_kw}　＆ 客戶名稱：{customer_kw}　＆ Pantone：{pantone_kw}")
+
+    # 篩選
     mask = pd.Series(True, index=df.index)
     if recipe_kw:
         mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
@@ -1160,19 +1131,8 @@ elif menu == "配方管理":
     
     df_filtered = df[mask]
     
-    # ===== 篩選後筆數 + 條件顯示 一橫排 =====
-    col1, col2 = st.columns([4, 2])   # 左寬右窄
-
-    with col1:
-        st.markdown(
-            f"""<pre style="font-family:monospace; margin:0;">
-    📌 配方編號：{recipe_kw or '－'} ｜ 客戶名稱：{customer_kw or '－'} ｜ Pantone：{pantone_kw or '－'}
-    </pre>""",
-            unsafe_allow_html=True
-        )
-    
-    with col2:
-        st.markdown(f"🧺 **篩選後筆數：** {df_filtered.shape[0]}")
+    # ===== 篩選後筆數 + 每頁顯示筆數 =====
+    col1.markdown(f"🧺 **篩選後筆數：** {df_filtered.shape[0]}")
     
     # ===== 計算分頁 =====
     total_rows = df_filtered.shape[0]
@@ -1255,17 +1215,7 @@ elif menu == "配方管理":
     
     # --- 配方編號選擇 + 修改/刪除 ---
     code_list = page_data["配方編號"].dropna().tolist()
-    
-    # 隱藏 selectbox 的 label，讓下拉上移
-    st.markdown(
-        """
-        <style>
-        .stSelectbox>label {display: none;}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-    
+        
     cols = st.columns([3, 1, 1])  # 配方編號下拉+修改+刪除 按鈕
     with cols[0]:
         if code_list:
@@ -1273,25 +1223,24 @@ elif menu == "配方管理":
                 selected_code = code_list[0]
                 st.info(f"🔹 自動選取唯一配方編號：{selected_code}")
             else:
-                selected_code = st.selectbox("", code_list, key="select_recipe_code_page")
+                selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code_page")
         else:
             selected_code = None
             st.info("🟦 沒有可選的配方編號")
-        
-        with cols[1]:
-            if selected_code and st.button("✏️ 修改", key="edit_btn"):
-                df_idx = df[df["配方編號"] == selected_code].index[0]
-                st.session_state.edit_recipe_index = df_idx
-                st.session_state.form_recipe = df.loc[df_idx].to_dict()
-                st.rerun()
-        
-        with cols[2]:
-            if selected_code and st.button("🗑️ 刪除", key="del_btn"):
-                df_idx = df[df["配方編號"] == selected_code].index[0]
-                st.session_state.delete_recipe_index = df_idx
-                st.session_state.show_delete_recipe_confirm = True
-                st.rerun()
-                
+    
+    with cols[1]:
+        if selected_code and st.button("✏️ 修改", key="edit_btn"):
+            df_idx = df[df["配方編號"] == selected_code].index[0]
+            st.session_state.edit_recipe_index = df_idx
+            st.session_state.form_recipe = df.loc[df_idx].to_dict()
+            st.rerun()
+    
+    with cols[2]:
+        if selected_code and st.button("🗑️ 刪除", key="del_btn"):
+            df_idx = df[df["配方編號"] == selected_code].index[0]
+            st.session_state.delete_recipe_index = df_idx
+            st.session_state.show_delete_recipe_confirm = True
+            st.rerun()
 
     import pandas as pd
     import re
