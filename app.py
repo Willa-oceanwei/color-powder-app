@@ -1365,9 +1365,9 @@ elif menu == "配方管理":
             recipe_row_preview = df_selected.iloc[0].to_dict()
             
             # ✅ 生成配方預覽文字
-            preview_text_recipe = generate_recipe_preview_text(
-                recipe_row_preview,
-                df_recipe,  # ✅ 必須加上 df_recipe
+            preview_text_recipe = generate_order_preview_text(
+                order=recipe_row_preview,       # 預覽專用，可以直接把主配方 dict 當 order
+                recipe_row=recipe_row_preview,
                 show_additional_ids=st.session_state.get(f"show_ids_checkbox_{selected_code}", True)
             )
             
