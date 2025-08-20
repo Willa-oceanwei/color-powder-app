@@ -1347,8 +1347,8 @@ elif menu == "配方管理":
             total_line_colorant = "料".ljust(12)
             total_line_colorant += "  ".join([fmt_num(total_colorant)] * len(pack_weights_display))
             html_text += total_line_colorant + "\n"
-            
-    　　return "```\n" + html_text.strip() + "\n```"
+    
+        return "```\n" + html_text.strip() + "\n```"
 
     # ---------- 配方預覽顯示 ----------
     if selected_code and "配方編號" in df_recipe.columns:
