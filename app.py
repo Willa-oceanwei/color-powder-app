@@ -1333,16 +1333,18 @@ elif menu == "配方管理":
         if safe_str(recipe_row.get("色粉類別"))=="色母":
             html_text += "\n色母專用預覽：\n"
         
-            # 色粉列，一直列顯示
+            # 色粉列，一直列顯示，增加間距
             for pid, wgt in zip(powder_ids, colorant_weights):
                 if pid and wgt > 0:
-                    html_text += f"{pid.ljust(6)}{fmt_num(wgt)}\n"
+                    html_text += f"{pid.ljust(8)}{fmt_num(wgt).rjust(8)}\n"  # pid 左對齊8個字元，數值右對齊8個字元
         
             # 色母合計（靠左顯示）
             total_colorant = net_weight - sum(colorant_weights)
-            html_text += f"料  {fmt_num(total_colorant)}\n"
-            
-                return "```\n" + html_text.strip() + "\n```"
+            if total_colorant > 0:
+                html_text += f"{'料'.ljust(8)}{fmt_num(total_colorant).rjust(8)}\n"
+    
+        # 統一返回
+        return "```\n" + html_text.strip() + "\n```"
 
     # ---------- 配方預覽顯示 ----------
     if selected_code and "配方編號" in df_recipe.columns:
