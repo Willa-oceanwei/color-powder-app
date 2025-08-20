@@ -1274,6 +1274,7 @@ elif menu == "配方管理":
         html_text += f"顏色：{safe_str(recipe_row.get('顏色'))}  "
         proportions = " / ".join([safe_str(recipe_row.get(f"比例{i}", "")) for i in range(1,4) if safe_str(recipe_row.get(f"比例{i}", ""))])
         html_text += f"比例：{proportions}  "
+        html_text += f"計量單位：{safe_str(recipe_row.get('計量單位',''))}  "
         html_text += f"Pantone：{safe_str(recipe_row.get('Pantone色號',''))}\n\n"
     
         # 主配方色粉列
@@ -1328,27 +1329,20 @@ elif menu == "配方管理":
                     html_text += "_"*40 + "\n"
                     html_text += total_label_sub.ljust(12) + fmt_num(net_sub) + "\n"
         
-        # 色母專用（固定顯示，不乘包裝重量）
+        # 色母專用（固定顯示，不乘包裝重量，一直列）
         if safe_str(recipe_row.get("色粉類別"))=="色母":
             html_text += "\n色母專用預覽：\n"
         
-            # 固定顯示 4 個包裝（預覽）
-            pack_weights_display = [100, 100, 100, 100]
-            
-            # 色粉列水平排列
+            # 色粉列，一直列顯示
             for pid, wgt in zip(powder_ids, colorant_weights):
                 if pid and wgt > 0:
-                    line = pid.ljust(6)
-                    line += "  ".join([fmt_num(wgt)] * len(pack_weights_display))
-                    html_text += line + "\n"
+                    html_text += f"{pid.ljust(6)}{fmt_num(wgt)}\n"
         
-            # 色母合計
+            # 色母合計（靠左顯示）
             total_colorant = net_weight - sum(colorant_weights)
-            total_line_colorant = "料".ljust(12)
-            total_line_colorant += "  ".join([fmt_num(total_colorant)] * len(pack_weights_display))
-            html_text += total_line_colorant + "\n"
-    
-        return "```\n" + html_text.strip() + "\n```"
+            html_text += f"料  {fmt_num(total_colorant)}\n"
+            
+                return "```\n" + html_text.strip() + "\n```"
 
     # ---------- 配方預覽顯示 ----------
     if selected_code and "配方編號" in df_recipe.columns:
