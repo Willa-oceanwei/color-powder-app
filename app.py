@@ -1243,43 +1243,29 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
    
-    # ------------------- 配方專用：列印函式 -------------------
-    def generate_recipe_print(recipe_dict_local, additional_recipe_rows_local=None, show_additional_ids_local=True):
-        # 直接複製 generate_production_order_print 邏輯即可
-        return generate_production_order_print(
-            recipe_dict_local,
-            recipe_dict_local,
-            additional_recipe_rows_local,
-            show_additional_ids_local
-        )
-    
-    st.write(type(df_recipe))  # 確認 df_recipe 是 DataFrame
-    st.write(df_recipe.head())
-    
-    # ------------------- 配方專用：預覽函式 -------------------
+    # ---------- 函式：生成配方預覽文字 ----------
     def generate_recipe_preview_text(recipe_row_local, df_recipe_local, show_additional_ids_local=True):
         import re
-    
+
         html_text = ""
-    
-        # ===== 1️⃣ 主配方文字 =====
+
+        # 主配方文字
         html_text += f"配方編號：{recipe_row_local.get('配方編號','')}  顏色：{recipe_row_local.get('顏色','')}<br>"
         html_text += f"客戶：{recipe_row_local.get('客戶名稱','')} ({recipe_row_local.get('客戶編號','')})<br>"
         html_text += f"重要提醒：{recipe_row_local.get('重要提醒','')}<br>"
         html_text += f"備註：{recipe_row_local.get('備註','')}<br>"
         html_text += f"合計類別：{recipe_row_local.get('合計類別','')}<br>"
         html_text += "---<br>"
-    
-        # ===== 2️⃣ 附加配方 =====
+
+        # 附加配方
         main_code = str(recipe_row_local.get("配方編號","")).strip()
+        additional_recipe_rows_local = []
         if main_code:
             additional_recipe_rows_local = df_recipe_local[
                 (df_recipe_local["配方類別"] == "附加配方") &
                 (df_recipe_local["原始配方"].astype(str).str.strip() == main_code)
             ].to_dict("records")
-        else:
-            additional_recipe_rows_local = []
-    
+
         if additional_recipe_rows_local:
             html_text += "<br>=== 附加配方 ===<br>"
             powder_label_width = 12
@@ -1290,7 +1276,7 @@ elif menu == "配方管理":
                     html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>"
                 else:
                     html_text += f"附加配方 {idx}<br>"
-    
+
                 for i in range(1,9):
                     c_id = str(sub.get(f"色粉編號{i}", "") or "").strip()
                     try:
@@ -1304,7 +1290,7 @@ elif menu == "配方管理":
                             cells.append(str(int(val)).rjust(number_col_width))
                         row = c_id.ljust(powder_label_width) + "".join(cells)
                         html_text += row + "<br>"
-    
+
                 total_label = str(sub.get("合計類別","=") or "=")
                 try:
                     net = float(sub.get("淨重",0) or 0)
@@ -1314,68 +1300,35 @@ elif menu == "配方管理":
                 for m in multipliers:
                     total_line += str(int(net*m)).rjust(number_col_width)
                 html_text += total_line + "<br>"
-    
-        # ===== 3️⃣ 色母 / 備註 =====
+
+        # 色母 / 備註
         note_text = str(recipe_row_local.get("備註","")).strip()
         if note_text:
             html_text += f"備註 : {note_text}<br><br>"
-    
-        if str(recipe_row_local.get("色粉類別","")).strip() == "色母":
-            pack_weights = [float(recipe_row_local.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
-            pack_counts  = [float(recipe_row_local.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
-            pack_line = []
-            for w,c in zip(pack_weights, pack_counts):
-                if w>0 and c>0:
-                    val = int(w*100)
-                    pack_line.append(f"{val}K × {int(c)}")
-            if pack_line:
-                html_text += " " * 14 + "  ".join(pack_line) + "<br>"
-    
-            colorant_weights = [float(recipe_row_local.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
-            powder_ids = [str(recipe_row_local.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
-            number_col_width = 12
-            for pid,wgt in zip(powder_ids,colorant_weights):
-                if pid and wgt>0:
-                    line = pid.ljust(6)
-                    for w in pack_weights:
-                        if w>0:
-                            line += str(int(wgt*w)).rjust(number_col_width)
-                    html_text += line + "<br>"
-    
-            total_colorant = float(recipe_row_local.get("淨重",0) or 0) - sum(colorant_weights)
-            total_line_colorant = "料".ljust(12)
-            col_widths = [5,12,12,12]
-            for idx,w in enumerate(pack_weights):
-                if w>0:
-                    val = total_colorant*w
-                    width = col_widths[idx] if idx < len(col_widths) else 12
-                    total_line_colorant += str(int(val)).rjust(width)
-            html_text += total_line_colorant + "<br>"
-    
+
         text_with_newlines = html_text.replace("<br>","\n")
         plain_text = re.sub(r"<.*?>","",text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
-    
-        
-        # ---------- 顯示配方預覽 ----------
-        if selected_code and "配方編號" in df_recipe.columns:
-            df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
-            if not df_selected.empty:
-                recipe_row_local = df_selected.iloc[0].to_dict()
-                # ✅ 生成配方預覽
-                preview_recipe_text_local = generate_recipe_preview_text(
-                    recipe_row_local,
-                    df_recipe
-                )
-                with st.expander("👀 配方預覽", expanded=False):
-                    st.markdown(preview_recipe_text_local)
-            else:
-                st.info(f"查無配方編號 {selected_code} 的資料")
-        else:
-            st.warning("配方資料尚未載入或選擇的配方編號無效")
-            st.write(type(df_recipe))  # 應該是 <class 'pandas.core.frame.DataFrame'>
-            st.write(df_recipe.head())
 
+    # ---------- 顯示配方預覽 ----------
+    selected_code = st.text_input("輸入配方編號以預覽", value="")
+    df_recipe = st.session_state.df_recipe
+
+    if selected_code and "配方編號" in df_recipe.columns:
+        df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
+        if not df_selected.empty:
+            recipe_row_local = df_selected.iloc[0].to_dict()
+            preview_recipe_text_local = generate_recipe_preview_text(recipe_row_local, df_recipe)
+            with st.expander("👀 配方預覽", expanded=False):
+                st.markdown(preview_recipe_text_local)
+        else:
+            st.info(f"查無配方編號 {selected_code} 的資料")
+    else:
+        if selected_code:
+            st.warning("配方資料尚未載入或選擇的配方編號無效")
+            st.write(type(df_recipe))
+            st.write(df_recipe.head())
+    
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
     st.markdown("""
