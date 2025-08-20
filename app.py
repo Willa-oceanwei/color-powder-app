@@ -1335,7 +1335,9 @@ elif menu == "配方管理":
     def generate_recipe_print(recipe_dict, additional_recipe_rows_recipe=None, show_additional_ids_recipe=True):
         # 直接複製 generate_production_order_print 邏輯即可，使用獨立變數名稱
         return generate_production_order_print(recipe_dict, recipe_dict, additional_recipe_rows_recipe, show_additional_ids_recipe)
-       
+
+    st.write(type(df_recipe))  # 應該是 <class 'pandas.core.frame.DataFrame'>
+    st.write(df_recipe.head())
     # ---------- 顯示配方預覽 ----------
     if selected_code and "配方編號" in df_recipe.columns:
         df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
