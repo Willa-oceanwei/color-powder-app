@@ -2139,7 +2139,7 @@ elif menu == "生產單管理":
             )
     
             preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
-            with st.expander("🔍 生產單預覽", expanded=False):
+            with st.expander("👀 生產單預覽", expanded=False):
                 st.markdown(preview_text)
 
     
