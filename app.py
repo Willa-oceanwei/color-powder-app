@@ -1272,8 +1272,9 @@ elif menu == "配方管理":
         # 主配方基本資訊
         html_text += f"編號：{safe_str(recipe_row.get('配方編號'))}  "
         html_text += f"顏色：{safe_str(recipe_row.get('顏色'))}  "
-        html_text += f"比例：{safe_str(recipe_row.get('比例',''))}  "
-        html_text += f"Pantone：{safe_str(recipe_row.get('Pantone',''))}\n\n"
+        proportions = " / ".join([safe_str(recipe_row.get(f"比例{i}", "")) for i in range(1,4) if safe_str(recipe_row.get(f"比例{i}", ""))])
+        html_text += f"比例：{proportions}  "
+        html_text += f"Pantone：{safe_str(recipe_row.get('Pantone色號',''))}\n\n"
     
         # 主配方色粉列
         colorant_weights = [safe_float(recipe_row.get(f"色粉重量{i}",0)) for i in range(1,9)]
@@ -1330,29 +1331,24 @@ elif menu == "配方管理":
         # 色母專用（固定顯示，不乘包裝重量）
         if safe_str(recipe_row.get("色粉類別"))=="色母":
             html_text += "\n色母專用預覽：\n"
-            pack_weights_display = [100, 100, 100, 100]  # 固定 100K
-            pack_counts_display  = [1, 1, 1, 1]        # 固定 1
-    
-            for w, c in zip(pack_weights_display, pack_counts_display):
-                html_text += f"{w}K × {c}  "
-            html_text += "\n"
-    
-            # 色粉列
+        
+            # 固定顯示 4 個包裝（預覽）
+            pack_weights_display = [100, 100, 100, 100]
+            
+            # 色粉列水平排列
             for pid, wgt in zip(powder_ids, colorant_weights):
-                if pid and wgt>0:
+                if pid and wgt > 0:
                     line = pid.ljust(6)
-                    for _ in pack_weights_display:
-                        line += fmt_num(wgt).rjust(12)
+                    line += "  ".join([fmt_num(wgt)] * len(pack_weights_display))
                     html_text += line + "\n"
-    
+        
             # 色母合計
             total_colorant = net_weight - sum(colorant_weights)
             total_line_colorant = "料".ljust(12)
-            for _ in pack_weights_display:
-                total_line_colorant += fmt_num(total_colorant).rjust(12)
+            total_line_colorant += "  ".join([fmt_num(total_colorant)] * len(pack_weights_display))
             html_text += total_line_colorant + "\n"
-    
-        return "```\n" + html_text.strip() + "\n```"
+            
+    　　return "```\n" + html_text.strip() + "\n```"
 
     # ---------- 配方預覽顯示 ----------
     if selected_code and "配方編號" in df_recipe.columns:
