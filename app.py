@@ -644,6 +644,17 @@ elif menu == "配方管理":
     if st.session_state.form_recipe is None:
         st.session_state.form_recipe = {col: "" for col in columns}
 
+    # -------✅ 讀取 df_recipe CSV--------
+    recipe_file = Path("data/df_recipe.csv")
+    if recipe_file.exists():
+        df_recipe = pd.read_csv(recipe_file, dtype=str)
+        st.session_state.df_recipe = df_recipe
+        st.write("df_recipe 型態：", type(df_recipe))
+    else:
+        st.warning("❌ df_recipe CSV 不存在，建立空 DataFrame")
+        df_recipe = pd.DataFrame(columns=columns)
+        st.session_state.df_recipe = df_recipe
+
     # 讀取表單
     try:
         df = pd.DataFrame(ws_recipe.get_all_records())
