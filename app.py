@@ -1231,6 +1231,46 @@ elif menu == "配方管理":
             st.session_state.delete_recipe_index = df_idx
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
+    # ------------------- 配方預覽函式 -------------------
+    def generate_recipe_preview_text(recipe_row):
+        """
+        給單一配方 (recipe_row: dict)，產生 Markdown 預覽文字
+        """
+        if not recipe_row:
+            return "```\n⚠️ 無可顯示的配方資料\n```"
+    
+        lines = []
+        lines.append(f"📌 配方編號：{recipe_row.get('配方編號','')}")
+        lines.append(f"顏色：{recipe_row.get('顏色','')}")
+        lines.append(f"客戶：{recipe_row.get('客戶名稱','')} ({recipe_row.get('客戶編號','')})")
+        lines.append(f"Pantone：{recipe_row.get('Pantone色號','')}")
+        lines.append(f"配方類別：{recipe_row.get('配方類別','')}")
+        lines.append("")
+    
+        # 顯示色粉組成
+        for i in range(1, 9):
+            pid = str(recipe_row.get(f"色粉編號{i}", "") or "").strip()
+            wgt = recipe_row.get(f"色粉重量{i}", "")
+            if pid and wgt not in (None, "", 0, "0"):
+                lines.append(f"{pid:<10} {wgt}")
+    
+        # 備註、合計
+        if recipe_row.get("合計類別"):
+            lines.append(f"合計類別：{recipe_row.get('合計類別','')}")
+        if recipe_row.get("淨重"):
+            lines.append(f"淨重：{recipe_row.get('淨重','')}")
+        if recipe_row.get("備註"):
+            lines.append(f"備註：{recipe_row.get('備註','')}")
+    
+        return "```\n" + "\n".join(lines) + "\n```"
+
+    # ------------------- 顯示配方預覽 -------------------
+    if selected_code:
+        recipe_row = df[df["配方編號"] == selected_code].iloc[0].to_dict()
+        preview_recipe_text = generate_recipe_preview_text(recipe_row)
+        with st.expander("👀 配方預覽", expanded=False):
+            st.markdown(preview_recipe_text)
+    
 
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
