@@ -1263,7 +1263,7 @@ elif menu == "配方管理":
         # 小數點為 0 就顯示整數，否則保留原值
         if abs(x - int(x)) < 1e-9:
             return str(int(x))
-        return f"{x:g}""
+        return f"{x:g}"
    
     # ---------- 函式：生成配方預覽文字 ----------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
