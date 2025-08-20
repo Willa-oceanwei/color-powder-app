@@ -1232,42 +1232,116 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
    
-    # ---------- 配方專用：預覽文字函式 ----------
-    def generate_recipe_preview_text(recipe, additional_recipe_rows=None, show_additional_ids=True):
-        """
-        專門給【配方管理】使用的預覽函式
-        不會影響生產單的 generate_order_preview_text
-        """
-        # 這裡完整複製生產單預覽邏輯，只是把 order 換成 recipe
-        # 色母條件 / 附加配方 / 備註 都保留
-        lines = []
+    # ------------------- 配方專用預覽函式 -------------------
+    def generate_recipe_preview_text(recipe_row, show_additional_ids=True):
+        import re
     
-        # ===== 主配方 =====
-        lines.append(generate_production_order_print(recipe, recipe, None, show_additional_ids))
+        # 1️⃣ 主配方文字
+        html_text = generate_recipe_print(recipe_row, additional_recipe_rows=None, show_additional_ids=show_additional_ids)
     
-        # ===== 附加配方 =====
-        if additional_recipe_rows is None:
-            main_code = str(recipe.get("配方編號","")).strip()
-            if main_code:
-                additional_recipe_rows = df_recipe[
-                    (df_recipe["配方類別"]=="附加配方") &
-                    (df_recipe["原始配方"].astype(str).str.strip()==main_code)
-                ].to_dict("records")
-            else:
-                additional_recipe_rows = []
+        # 2️⃣ 附加配方
+        main_code = str(recipe_row.get("配方編號", "")).strip()
+        if main_code:
+            additional_recipe_rows = df_recipe[
+                (df_recipe["配方類別"] == "附加配方") &
+                (df_recipe["原始配方"].astype(str).str.strip() == main_code)
+            ].to_dict("records")
+        else:
+            additional_recipe_rows = []
     
-        # ===== 備註 =====
-        if recipe.get("備註"):
-            lines.append("")
-            lines.append(f"📌 備註：{recipe['備註']}")
+        if additional_recipe_rows:
+            powder_label_width = 12
+            number_col_width = 7
+            multipliers = [1.0]  # 可依需要調整
+            html_text += "<br>=== 附加配方 ===<br>"
+            if additional_recipe_rows is None:
+                main_code = str(recipe.get("配方編號","")).strip()
+                if main_code:
+                    additional_recipe_rows = df_recipe[
+                        (df_recipe["配方類別"]=="附加配方") &
+                        (df_recipe["原始配方"].astype(str).str.strip()==main_code)
+                    ].to_dict("records")
+                else:
+                    additional_recipe_rows = []
     
-        # ===== 色母條件 =====
-        if recipe.get("色粉類別") == "色母":
-            lines.append("")
-            lines.append("⚠️ 此配方為【色母】，請注意計算邏輯。")
+            for idx, sub in enumerate(additional_recipe_rows, 1):
+                if show_additional_ids:
+                    html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>"
+                else:
+                    html_text += f"附加配方 {idx}<br>"
     
-        preview_text = "```\n" + "\n".join(lines) + "\n```"
-        return preview_text
+                for i in range(1, 9):
+                    c_id = str(sub.get(f"色粉編號{i}", "") or "").strip()
+                    try:
+                        base_w = float(sub.get(f"色粉重量{i}", 0) or 0)
+                    except Exception:
+                        base_w = 0.0
+    
+                    if c_id and base_w > 0:
+                        cells = []
+                        for m in multipliers:
+                            val = base_w * m
+                            cells.append(str(int(val)).rjust(number_col_width))
+                        row = c_id.ljust(powder_label_width) + "".join(cells)
+                        html_text += row + "<br>"
+    
+                total_label = str(sub.get("合計類別", "=") or "=")
+                try:
+                    net = float(sub.get("淨重", 0) or 0)
+                except Exception:
+                    net = 0.0
+                total_line = total_label.ljust(powder_label_width)
+                for m in multipliers:
+                    total_line += str(int(net * m)).rjust(number_col_width)
+                html_text += total_line + "<br>"
+    
+        # 3️⃣ 色母 / 備註
+        note_text = str(recipe_row.get("備註", "")).strip()
+        if note_text:
+            html_text += f"備註 : {note_text}<br><br>"
+    
+        if str(recipe_row.get("色粉類別", "")).strip() == "色母":
+            pack_weights = [float(recipe_row.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
+            pack_counts = [float(recipe_row.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
+            pack_line = []
+            for w, c in zip(pack_weights, pack_counts):
+                if w > 0 and c > 0:
+                    val = int(w * 100)
+                    pack_line.append(f"{val}K × {int(c)}")
+            if pack_line:
+                html_text += " " * 14 + "  ".join(pack_line) + "<br>"
+    
+            colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
+            powder_ids = [str(recipe_row.get(f"色粉編號{i}", "") or "").strip() for i in range(1,9)]
+            number_col_width = 12
+            for pid, wgt in zip(powder_ids, colorant_weights):
+                if pid and wgt > 0:
+                    line = pid.ljust(6)
+                    for w in pack_weights:
+                        if w > 0:
+                            line += str(int(wgt * w)).rjust(number_col_width)
+                    html_text += line + "<br>"
+    
+            total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
+            total_line_colorant = "料".ljust(12)
+            col_widths = [5, 12, 12, 12]
+            for idx, w in enumerate(pack_weights):
+                if w > 0:
+                    val = total_colorant * w
+                    width = col_widths[idx] if idx < len(col_widths) else 12
+                    total_line_colorant += str(int(val)).rjust(width)
+            html_text += total_line_colorant + "<br>"
+    
+        text_with_newlines = html_text.replace("<br>", "\n")
+        plain_text = re.sub(r"<.*?>", "", text_with_newlines)
+        return "```\n" + plain_text.strip() + "\n```"
+
+
+    # ------------------- 配方專用列印函式 -------------------
+    def generate_recipe_print(recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+        # 完全複製 generate_production_order_print 邏輯即可
+        return generate_production_order_print(recipe_row, recipe_row, additional_recipe_rows, show_additional_ids)
+
 
 
     # ------------------- 顯示配方預覽 -------------------
