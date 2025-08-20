@@ -1232,7 +1232,7 @@ elif menu == "配方管理":
                 selected_code = code_list[0]
                 st.info(f"🔹 自動選取唯一配方編號：{selected_code}")
             else:
-                selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code_page")
+                selected_code = st.selectbox("", code_list, key="select_recipe_code_page")
         else:
             selected_code = None
             st.info("🟦 沒有可選的配方編號")
