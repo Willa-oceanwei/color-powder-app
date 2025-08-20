@@ -1214,6 +1214,7 @@ elif menu == "配方管理":
         st.info("⚠️ 查無符合條件的配方（來自上方搜尋）")
     
     # --- 配方編號選擇 + 修改/刪除 ---
+    code_list = page_data["配方編號"].dropna().tolist()
     # 隱藏 selectbox 的 label，讓下拉上移
     st.markdown(
         """
