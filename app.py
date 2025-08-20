@@ -1130,7 +1130,7 @@ elif menu == "配方管理":
     df_filtered = df[mask]
     
     # ===== 篩選後筆數 + 條件顯示 一橫排 =====
-    col1, col2 = st.columns([4, 1])   # 左寬右窄
+    col1, col2 = st.columns([4, 2])   # 左寬右窄
 
     with col1:
         st.markdown(
