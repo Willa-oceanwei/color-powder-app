@@ -1232,106 +1232,109 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
    
-    # ------------------- 配方專用：預覽函式 -------------------
-    def generate_recipe_preview(recipe_row, show_additional_ids=True):
+    
+    # ------------------- 配方專用：預覽文字函式 -------------------
+    def generate_recipe_preview_text(recipe_dict, df_recipe_all, show_additional_ids_recipe=True):
         import re
     
         # 1️⃣ 主配方文字
-        html_text = generate_recipe_print(recipe_row, additional_recipe_rows=None, show_additional_ids=show_additional_ids)
+        html_text_recipe = generate_recipe_print(recipe_dict, additional_recipe_rows_recipe=None, show_additional_ids_recipe=show_additional_ids_recipe)
     
-        # 2️⃣ 自動抓附加配方
-        main_code = str(recipe_row.get("配方編號", "")).strip()
-        if main_code:
-            additional_recipe_rows = df_recipe[
-                (df_recipe["配方類別"] == "附加配方") &
-                (df_recipe["原始配方"].astype(str).str.strip() == main_code)
+        # 2️⃣ 附加配方
+        main_code_recipe = str(recipe_dict.get("配方編號", "")).strip()
+        if main_code_recipe:
+            additional_recipe_rows_recipe = df_recipe_all[
+                (df_recipe_all["配方類別"] == "附加配方") &
+                (df_recipe_all["原始配方"].astype(str).str.strip() == main_code_recipe)
             ].to_dict("records")
         else:
-            additional_recipe_rows = []
+            additional_recipe_rows_recipe = []
     
-        # 3️⃣ 顯示附加配方
-        if additional_recipe_rows:
-            powder_label_width = 12
-            number_col_width = 7
-            multipliers = [1.0]
+        if additional_recipe_rows_recipe:
+            powder_label_width_recipe = 12
+            number_col_width_recipe = 7
+            multipliers_recipe = [1.0]  # 可依需要調整
     
-            html_text += "<br>=== 附加配方 ===<br>"
+            html_text_recipe += "<br>=== 附加配方 ===<br>"
     
-            for idx, sub in enumerate(additional_recipe_rows, 1):
-                if show_additional_ids:
-                    html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>"
+            for idx_recipe, sub_recipe in enumerate(additional_recipe_rows_recipe, 1):
+                if show_additional_ids_recipe:
+                    html_text_recipe += f"附加配方 {idx_recipe}：{sub_recipe.get('配方編號','')}<br>"
                 else:
-                    html_text += f"附加配方 {idx}<br>"
+                    html_text_recipe += f"附加配方 {idx_recipe}<br>"
     
-                for i in range(1, 9):
-                    c_id = str(sub.get(f"色粉編號{i}", "") or "").strip()
+                for i_recipe in range(1, 9):
+                    c_id_recipe = str(sub_recipe.get(f"色粉編號{i_recipe}", "") or "").strip()
                     try:
-                        base_w = float(sub.get(f"色粉重量{i}", 0) or 0)
+                        base_w_recipe = float(sub_recipe.get(f"色粉重量{i_recipe}", 0) or 0)
                     except Exception:
-                        base_w = 0.0
+                        base_w_recipe = 0.0
     
-                    if c_id and base_w > 0:
-                        cells = [str(int(base_w * m)).rjust(number_col_width) for m in multipliers]
-                        row = c_id.ljust(powder_label_width) + "".join(cells)
-                        html_text += row + "<br>"
+                    if c_id_recipe and base_w_recipe > 0:
+                        cells_recipe = []
+                        for m_recipe in multipliers_recipe:
+                            val_recipe = base_w_recipe * m_recipe
+                            cells_recipe.append(str(int(val_recipe)).rjust(number_col_width_recipe))
+                        row_recipe = c_id_recipe.ljust(powder_label_width_recipe) + "".join(cells_recipe)
+                        html_text_recipe += row_recipe + "<br>"
     
-                total_label = str(sub.get("合計類別", "=") or "=")
+                total_label_recipe = str(sub_recipe.get("合計類別", "=") or "=")
                 try:
-                    net = float(sub.get("淨重", 0) or 0)
+                    net_recipe = float(sub_recipe.get("淨重", 0) or 0)
                 except Exception:
-                    net = 0.0
-                total_line = total_label.ljust(powder_label_width)
-                for m in multipliers:
-                    total_line += str(int(net * m)).rjust(number_col_width)
-                html_text += total_line + "<br>"
+                    net_recipe = 0.0
+                total_line_recipe = total_label_recipe.ljust(powder_label_width_recipe)
+                for m_recipe in multipliers_recipe:
+                    total_line_recipe += str(int(net_recipe * m_recipe)).rjust(number_col_width_recipe)
+                html_text_recipe += total_line_recipe + "<br>"
     
-        # 4️⃣ 色母 / 備註
-        note_text = str(recipe_row.get("備註", "")).strip()
-        if note_text:
-            html_text += f"備註 : {note_text}<br><br>"
+        # 3️⃣ 備註
+        note_text_recipe = str(recipe_dict.get("備註", "")).strip()
+        if note_text_recipe:
+            html_text_recipe += f"備註 : {note_text_recipe}<br><br>"
     
-        if str(recipe_row.get("色粉類別", "")).strip() == "色母":
-            pack_weights = [float(recipe_row.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
-            pack_counts = [float(recipe_row.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
-            pack_line = []
-            for w, c in zip(pack_weights, pack_counts):
-                if w > 0 and c > 0:
-                    val = int(w * 100)
-                    pack_line.append(f"{val}K × {int(c)}")
-            if pack_line:
-                html_text += " " * 14 + "  ".join(pack_line) + "<br>"
+        # 4️⃣ 色母條件
+        if str(recipe_dict.get("色粉類別", "")).strip() == "色母":
+            pack_weights_recipe = [float(recipe_dict.get(f"包裝重量{i}", 0) or 0) for i in range(1,5)]
+            pack_counts_recipe = [float(recipe_dict.get(f"包裝份數{i}", 0) or 0) for i in range(1,5)]
+            pack_line_recipe = []
+            for w_recipe, c_recipe in zip(pack_weights_recipe, pack_counts_recipe):
+                if w_recipe > 0 and c_recipe > 0:
+                    val_recipe = int(w_recipe * 100)
+                    pack_line_recipe.append(f"{val_recipe}K × {int(c_recipe)}")
+            if pack_line_recipe:
+                html_text_recipe += " " * 14 + "  ".join(pack_line_recipe) + "<br>"
     
-            colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
-            powder_ids = [str(recipe_row.get(f"色粉編號{i}", "") or "").strip() for i in range(1,9)]
-            number_col_width = 12
-            for pid, wgt in zip(powder_ids, colorant_weights):
-                if pid and wgt > 0:
-                    line = pid.ljust(6)
-                    for w in pack_weights:
-                        if w > 0:
-                            line += str(int(wgt * w)).rjust(number_col_width)
-                    html_text += line + "<br>"
+            colorant_weights_recipe = [float(recipe_dict.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
+            powder_ids_recipe = [str(recipe_dict.get(f"色粉編號{i}", "") or "").strip() for i in range(1,9)]
+            number_col_width_recipe = 12
+            for pid_recipe, wgt_recipe in zip(powder_ids_recipe, colorant_weights_recipe):
+                if pid_recipe and wgt_recipe > 0:
+                    line_recipe = pid_recipe.ljust(6)
+                    for w_recipe in pack_weights_recipe:
+                        if w_recipe > 0:
+                            line_recipe += str(int(wgt_recipe * w_recipe)).rjust(number_col_width_recipe)
+                    html_text_recipe += line_recipe + "<br>"
     
-            total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
-            total_line_colorant = "料".ljust(12)
-            col_widths = [5, 12, 12, 12]
-            for idx, w in enumerate(pack_weights):
-                if w > 0:
-                    val = total_colorant * w
-                    width = col_widths[idx] if idx < len(col_widths) else 12
-                    total_line_colorant += str(int(val)).rjust(width)
-            html_text += total_line_colorant + "<br>"
+            total_colorant_recipe = float(recipe_dict.get("淨重",0) or 0) - sum(colorant_weights_recipe)
+            total_line_colorant_recipe = "料".ljust(12)
+            col_widths_recipe = [5, 12, 12, 12]
+            for idx_r, w_recipe in enumerate(pack_weights_recipe):
+                if w_recipe > 0:
+                    val_recipe = total_colorant_recipe * w_recipe
+                    width_recipe = col_widths_recipe[idx_r] if idx_r < len(col_widths_recipe) else 12
+                    total_line_colorant_recipe += str(int(val_recipe)).rjust(width_recipe)
+            html_text_recipe += total_line_colorant_recipe + "<br>"
     
         # 轉為純文字
-        text_with_newlines = html_text.replace("<br>", "\n")
-        plain_text = re.sub(r"<.*?>", "", text_with_newlines)
-        return "```\n" + plain_text.strip() + "\n```"
+        text_with_newlines_recipe = html_text_recipe.replace("<br>", "\n")
+        plain_text_recipe = re.sub(r"<.*?>", "", text_with_newlines_recipe)
+        return "```\n" + plain_text_recipe.strip() + "\n```"
     
-    
-    # ---------- 配方專用列印函式 ----------
-    def generate_recipe_print(recipe_row, additional_recipe_rows=None, show_additional_ids=True):
-        # 直接複製生產單列印邏輯即可
-        return generate_production_order_print(recipe_row, recipe_row, additional_recipe_rows, show_additional_ids)
+    # ------------------- 配方專用：列印函式 -------------------
+    def generate_recipe_print(recipe_dict, additional_recipe_rows_recipe=None, show_additional_ids_recipe=True):
+        # 直接複製 generate_production_order_print 邏輯即可，使用獨立變數名稱
+        return generate_production_order_print(recipe_dict, recipe_dict, additional_recipe_rows_recipe, show_additional_ids_recipe)
        
     # ---------- 顯示配方預覽 ----------
     if selected_code:
