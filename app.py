@@ -1233,7 +1233,7 @@ elif menu == "配方管理":
             st.rerun()
    
     # ------------------- 配方專用：預覽函式 -------------------
-    def generate_recipe_preview_text(recipe_row, df_recipe, show_additional_ids=True):
+    def generate_recipe_preview(recipe_row, show_additional_ids=True):
         import re
     
         # 1️⃣ 主配方文字
@@ -1249,10 +1249,12 @@ elif menu == "配方管理":
         else:
             additional_recipe_rows = []
     
+        # 3️⃣ 顯示附加配方
         if additional_recipe_rows:
             powder_label_width = 12
             number_col_width = 7
-            multipliers = [1.0]  # 可依需求調整
+            multipliers = [1.0]
+    
             html_text += "<br>=== 附加配方 ===<br>"
     
             for idx, sub in enumerate(additional_recipe_rows, 1):
@@ -1269,10 +1271,7 @@ elif menu == "配方管理":
                         base_w = 0.0
     
                     if c_id and base_w > 0:
-                        cells = []
-                        for m in multipliers:
-                            val = base_w * m
-                            cells.append(str(int(val)).rjust(number_col_width))
+                        cells = [str(int(base_w * m)).rjust(number_col_width) for m in multipliers]
                         row = c_id.ljust(powder_label_width) + "".join(cells)
                         html_text += row + "<br>"
     
@@ -1286,7 +1285,7 @@ elif menu == "配方管理":
                     total_line += str(int(net * m)).rjust(number_col_width)
                 html_text += total_line + "<br>"
     
-        # 3️⃣ 色母 / 備註
+        # 4️⃣ 色母 / 備註
         note_text = str(recipe_row.get("備註", "")).strip()
         if note_text:
             html_text += f"備註 : {note_text}<br><br>"
@@ -1323,22 +1322,23 @@ elif menu == "配方管理":
                     total_line_colorant += str(int(val)).rjust(width)
             html_text += total_line_colorant + "<br>"
     
-        # 4️⃣ 轉為 Markdown 預覽
+        # 轉為純文字
         text_with_newlines = html_text.replace("<br>", "\n")
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
     
     
-    # ------------------- 配方專用列印函式 -------------------
+    # ---------- 配方專用列印函式 ----------
     def generate_recipe_print(recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+        # 直接複製生產單列印邏輯即可
         return generate_production_order_print(recipe_row, recipe_row, additional_recipe_rows, show_additional_ids)
-    # ------------------- 顯示配方預覽 -------------------
+       
+    # ---------- 顯示配方預覽 ----------
     if selected_code:
-        recipe_row = df[df["配方編號"] == selected_code].iloc[0].to_dict()
-        preview_recipe_text = generate_recipe_preview_text(recipe_row, df_recipe)
+        recipe_row = df_recipe[df_recipe["配方編號"] == selected_code].iloc[0].to_dict()
+        preview_recipe_text = generate_recipe_preview(recipe_row)
         with st.expander("👀 配方預覽", expanded=False):
-            st.markdown(preview_recipe_text)
-    
+            st.markdown(preview_recipe_text)        
 
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
