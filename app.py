@@ -1114,9 +1114,7 @@ elif menu == "配方管理":
     customer_kw = (st.session_state.get("search_customer_bottom") or st.session_state.get("search_customer_top") or "").strip()
     pantone_kw = (st.session_state.get("search_pantone_bottom") or st.session_state.get("search_pantone_top") or "").strip()
 
-    st.write(f"📌配方編號：{recipe_kw}　＆ 客戶名稱：{customer_kw}　＆ Pantone：{pantone_kw}")
-
-    # 篩選
+    # ===== 篩選 =====
     mask = pd.Series(True, index=df.index)
     if recipe_kw:
         mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
@@ -1131,8 +1129,21 @@ elif menu == "配方管理":
     
     df_filtered = df[mask]
     
-    # ===== 篩選後筆數 + 每頁顯示筆數 =====
-    col1.markdown(f"🧺 **篩選後筆數：** {df_filtered.shape[0]}")
+    # ===== 篩選後筆數 + 條件顯示 一橫排 =====
+    col1, col2 = st.columns([4, 1])   # 左寬右窄
+    
+    with col1:
+        st.markdown(
+            f"""
+            <pre style="font-family:monospace; margin:0;">
+    📌 配方編號：{recipe_kw or '－'} ｜ 客戶名稱：{customer_kw or '－'} ｜ Pantone：{pantone_kw or '－'}
+            </pre>
+            """,
+            unsafe_allow_html=True
+        )
+    
+    with col2:
+        st.markdown(f"🧺 **篩選後筆數：** {df_filtered.shape[0]}")
     
     # ===== 計算分頁 =====
     total_rows = df_filtered.shape[0]
