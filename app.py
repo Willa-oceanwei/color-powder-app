@@ -1337,7 +1337,7 @@ elif menu == "配方管理":
         return generate_production_order_print(recipe_dict, recipe_dict, additional_recipe_rows_recipe, show_additional_ids_recipe)
        
     # ---------- 顯示配方預覽 ----------
-    if selected_code:
+    if selected_code and "配方編號" in df_recipe.columns:
         df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
         if not df_selected.empty:
             recipe_row = df_selected.iloc[0].to_dict()
@@ -1345,7 +1345,9 @@ elif menu == "配方管理":
             with st.expander("👀 配方預覽", expanded=False):
                 st.markdown(preview_recipe_text)
         else:
-            st.info(f"查無配方編號 {selected_code} 的資料")    
+            st.info(f"查無配方編號 {selected_code} 的資料")
+    else:
+        st.warning("配方資料尚未載入或選擇的配方編號無效")    
 
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
