@@ -819,55 +819,98 @@ elif menu == "配方管理":
     st.subheader("➕ 新增 / 修改配方")
     
     with st.form("recipe_form"):
-        # 基本欄位
+    # -------- 基本欄位 --------
         col1, col2, col3 = st.columns(3)
         with col1:
-            fr["配方編號"] = st.text_input("編號", value=fr.get("配方編號",""), key="form_recipe_配方編號")
+            fr["配方編號"] = st.text_input(
+                "編號",
+                value=fr.get("配方編號", ""),
+                key="form_recipe_配方編號"
+            )
         with col2:
-            fr["顏色"] = st.text_input("顏色", value=fr.get("顏色",""), key="form_recipe_顏色")
+            fr["顏色"] = st.text_input(
+                "顏色",
+                value=fr.get("顏色", ""),
+                key="form_recipe_顏色"
+            )
         with col3:
-            options = [""] + customer_options
-            cust_value = fr.get("客戶編號","")
+            options = [""] + customer_options  
+            cust_value = fr.get("客戶編號", "")
             index = options.index(cust_value) if cust_value in options else 0
-            selected = st.selectbox("客戶", options, index=index, key="form_recipe_selected_customer",
-                                    format_func=lambda x: x.split(" - ")[0] if " - " in x else x)
-            c_no, c_name = selected.split(" - ", 1) if " - " in selected else ("","")
-            fr["客戶編號"], fr["客戶名稱"] = c_no, c_name
-   
-        # 配方類別、狀態、原始配方
+            selected = st.selectbox(
+                "客戶",
+                options,
+                index=index,
+                key="form_recipe_selected_customer"
+            )
+            if " - " in selected:
+                c_no, c_name = selected.split(" - ", 1)
+            else:
+                c_no, c_name = "", ""
+            fr["客戶編號"] = c_no
+            fr["客戶名稱"] = c_name
+    
+        # -------- 配方類別 / 狀態 / 原始配方 --------
         col4, col5, col6 = st.columns(3)
         with col4:
             options = ["原始配方", "附加配方"]
             current = fr.get("配方類別", options[0])
             if current not in options:
                 current = options[0]
-            fr["配方類別"] = st.selectbox("配方類別", options, index=options.index(current), key="form_recipe_配方類別")
+            fr["配方類別"] = st.selectbox(
+                "類別",
+                options,
+                index=options.index(current),
+                key="form_recipe_配方類別"
+            )
         with col5:
             options = ["啟用", "停用"]
             current = fr.get("狀態", options[0])
             if current not in options:
                 current = options[0]
-            fr["狀態"] = st.selectbox("狀態", options, index=options.index(current), key="form_recipe_狀態")
+            fr["狀態"] = st.selectbox(
+                "狀態",
+                options,
+                index=options.index(current),
+                key="form_recipe_狀態"
+            )
         with col6:
-            fr["原始配方"] = st.text_input("原始配方", value=fr.get("原始配方", ""), key="form_recipe_原始配方")
+            fr["原始配方"] = st.text_input(
+                "原始配方",
+                value=fr.get("原始配方", ""),
+                key="form_recipe_原始配方"
+            )
     
-        # 色粉類別、計量單位、Pantone 色號
+        # -------- 色粉類別 / 計量單位 / Pantone色號 --------
         col7, col8, col9 = st.columns(3)
         with col7:
             options = ["配方", "色母", "色粉", "添加劑", "其他"]
             current = fr.get("色粉類別", options[0])
             if current not in options:
                 current = options[0]
-            fr["色粉類別"] = st.selectbox("色粉類別", options, index=options.index(current), key="form_recipe_色粉類別")
+            fr["色粉類別"] = st.selectbox(
+                "色粉類別",
+                options,
+                index=options.index(current),
+                key="form_recipe_色粉類別"
+            )
         with col8:
             options = ["包", "桶", "kg", "其他"]
             current = fr.get("計量單位", options[0])
             if current not in options:
                 current = options[0]
-            fr["計量單位"] = st.selectbox("計量單位", options, index=options.index(current), key="form_recipe_計量單位")
+            fr["計量單位"] = st.selectbox(
+                "計量單位",
+                options,
+                index=options.index(current),
+                key="form_recipe_計量單位"
+            )
         with col9:
-            fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號", ""), key="form_recipe_Pantone色號")
-
+            fr["Pantone色號"] = st.text_input(
+                "Pantone色號",
+                value=fr.get("Pantone色號", ""),
+                key="form_recipe_Pantone色號"
+            )
     
         # 重要提醒、比例1-3
         fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒", ""), key="form_recipe_重要提醒")
