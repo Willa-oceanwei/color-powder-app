@@ -1356,24 +1356,26 @@ elif menu == "配方管理":
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
 
-    # ---------- 顯示配方預覽 ----------
-    selected_code = st.text_input("輸入配方編號以預覽", value="")
-    df_recipe = st.session_state.df_recipe
-
+    # ---------- 配方預覽顯示 ----------
     if selected_code and "配方編號" in df_recipe.columns:
         df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
         if not df_selected.empty:
-            recipe_row_local = df_selected.iloc[0].to_dict()
-            preview_recipe_text_local = generate_recipe_preview_text(recipe_row_local, df_recipe)
+            # 取第一筆主配方
+            recipe_row_preview = df_selected.iloc[0].to_dict()
+            
+            # ✅ 生成配方預覽文字
+            preview_text_recipe = generate_recipe_preview_text(
+                recipe_row_preview,
+                show_additional_ids=st.session_state.get(f"show_ids_checkbox_{selected_code}", True)
+            )
+            
+            # 可收合的預覽區
             with st.expander("👀 配方預覽", expanded=False):
-                st.markdown(preview_recipe_text_local)
+                st.markdown(preview_text_recipe)
         else:
             st.info(f"查無配方編號 {selected_code} 的資料")
     else:
-        if selected_code:
-            st.warning("配方資料尚未載入或選擇的配方編號無效")
-            st.write(type(df_recipe))
-            st.write(df_recipe.head())
+        st.warning("配方資料尚未載入或選擇的配方編號無效")
     
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
