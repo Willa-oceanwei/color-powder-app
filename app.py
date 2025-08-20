@@ -1341,7 +1341,8 @@ elif menu == "配方管理":
             # 色母合計（靠左顯示）
             total_colorant = net_weight - sum(colorant_weights)
             if total_colorant > 0:
-                html_text += f"{'料'.ljust(8)}{fmt_num(total_colorant).rjust(8)}\n"
+                category = safe_str(recipe_row.get("合計類別", "料"))  # 預設顯示料
+                html_text += f"{category.ljust(8)}{fmt_num(total_colorant).rjust(8)}\n"
     
         # 統一返回
         return "```\n" + html_text.strip() + "\n```"
