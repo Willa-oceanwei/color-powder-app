@@ -1223,6 +1223,8 @@ elif menu == "配方管理":
     ])
     if top_has_input and df_filtered.empty:
         st.info("⚠️ 查無符合條件的配方（來自上方搜尋）")
+
+    st.markdown("#### 選擇配方編號")
     
     # --- 配方編號選擇 + 修改/刪除 ---
     code_list = page_data["配方編號"].dropna().tolist()
