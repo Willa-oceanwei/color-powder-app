@@ -1322,12 +1322,12 @@ elif menu == "配方管理":
                         html_text += pid.ljust(12) + fmt_num(wgt) + "\n"
     
                 # 附加配方合計
-                total_label_sub = safe_str(sub.get("合計類別","="))
+                total_label_sub = safe_str(sub.get("合計類別","=")) or "="
                 net_sub = safe_float(sub.get("淨重",0))
                 if net_sub > 0:
                     html_text += "_"*40 + "\n"
                     html_text += total_label_sub.ljust(12) + fmt_num(net_sub) + "\n"
-    
+        
         # 色母專用（固定顯示，不乘包裝重量）
         if safe_str(recipe_row.get("色粉類別"))=="色母":
             html_text += "\n色母專用預覽：\n"
