@@ -1637,22 +1637,18 @@ elif menu == "生產單管理":
                 today_str = datetime.now().strftime("%Y%m%d")
                 count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
                 new_id = f"{today_str}-{count_today + 1:03}"
-    
-                # 查找附加配方
+                
+               # 查找附加配方
                 order_dict = st.session_state.get("new_order", {})
-                
-                # 取得配方編號
                 selected_code = str(order_dict.get("配方編號", "")).strip()
-                
-                # 在 df_recipe 找到對應配方列
                 if selected_code:
                     recipe_match = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == selected_code]
-                    if not recipe_match.empty:
-                        recipe_row = recipe_match.iloc[0].to_dict()
-                    else:
-                        recipe_row = {}
+                    recipe_row = recipe_match.iloc[0].to_dict() if not recipe_match.empty else {}
                 else:
                     recipe_row = {}
+                order = st.session_state.get("new_order", {})
+                if not isinstance(order, dict):
+                    order = {}
                 
                 # 取得主配方代碼
                 main_recipe_code = str(recipe_row.get("配方編號", "")).strip()
