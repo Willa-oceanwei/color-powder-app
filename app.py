@@ -596,39 +596,55 @@ elif menu == "客戶名單":
                     st.session_state.delete_customer_index = i
                     st.session_state.show_delete_customer_confirm = True
                     st.rerun()
-
+                    
+# =====配方管理=====
 elif menu == "配方管理":
-
     from pathlib import Path
     from datetime import datetime
     import pandas as pd
     import streamlit as st
+    import gspread
+    from google.oauth2.service_account import Credentials
+    import json
 
-    # 載入「客戶名單」資料（假設來自 Google Sheet 工作表2）
-    ws_customer = spreadsheet.worksheet("客戶名單")
-    df_customers = pd.DataFrame(ws_customer.get_all_records())
+    # ====== Google Sheet 授權 ======
+    service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
+    creds = Credentials.from_service_account_info(
+        service_account_info,
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ],
+    )
+    client = gspread.authorize(creds)
+    SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 
-    # 建立「客戶選單」選項，例如：["C001 - 三商行", "C002 - 光陽"]
-    customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in df_customers.iterrows()]
-
-    try:
-        ws_recipe = spreadsheet.worksheet("配方管理")
-    except:
-        ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
-
+    # ===== 欄位定義 =====
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
         "原始配方", "色粉類別", "計量單位", "Pantone色號",
         "比例1", "比例2", "比例3", "淨重", "淨重單位",
         *[f"色粉編號{i}" for i in range(1,9)],
         *[f"色粉重量{i}" for i in range(1,9)],
-        "合計類別", "建檔時間"
+        "合計類別", "備註", "重要提醒", "建檔時間"
     ]
 
-    def init_states(keys):
+    # ===== 初始化 session_state =====
+    def init_states(keys=None):
+        if keys is None:
+            keys = []
         for k in keys:
             if k not in st.session_state:
-                st.session_state[k] = None
+                if k.startswith("form_"):
+                    st.session_state[k] = {}
+                elif k.startswith("edit_") or k.startswith("delete_"):
+                    st.session_state[k] = None
+                elif k.startswith("show_"):
+                    st.session_state[k] = False
+                elif k.startswith("search"):
+                    st.session_state[k] = ""
+                else:
+                    st.session_state[k] = None
 
     init_states([
         "form_recipe",
@@ -637,77 +653,56 @@ elif menu == "配方管理":
         "show_delete_recipe_confirm",
         "search_recipe_code",
         "search_pantone",
-        "search_customer"
+        "search_customer",
+        "df_recipe",
+        "df"
     ])
 
-    # 初始 form_recipe
-    if st.session_state.form_recipe is None:
+    # ===== 初始 form_recipe =====
+    if not st.session_state.form_recipe:
         st.session_state.form_recipe = {col: "" for col in columns}
 
-    # -------✅ 讀取 df_recipe，優先從 Google Sheet--------
-    try:
-        sheet = client.open_by_url(SHEET_URL).sheet1   # 這裡抓第一個工作表
-        data = sheet.get_all_records()
-        if data:
-            df_recipe = pd.DataFrame(data)
-        else:
-            df_recipe = pd.DataFrame(columns=["配方編號", "客戶名稱", "顏色", "合計類別", "備註", "重要提醒"])
-        st.session_state.df_recipe = df_recipe
-        # st.success("✅ 已成功從 Google Sheet 載入配方資料")  # ✅ 成功時不跳通知
-    
-    except Exception as e:
-        st.warning(f"⚠️ 無法從 Google Sheet 載入，改用本地 CSV: {e}")
-        recipe_file = Path("data/df_recipe.csv")
-        if recipe_file.exists():
-            df_recipe = pd.read_csv(recipe_file, dtype=str)
-        else:
-            df_recipe = pd.DataFrame(columns=["配方編號", "客戶名稱", "顏色", "合計類別", "備註", "重要提醒"])
-        st.session_state.df_recipe = df_recipe        
+    # ===== 讀取 df_recipe：優先本地 CSV，必要時讀 Google Sheet =====
+    recipe_file = Path("data/df_recipe.csv")
+    df_recipe = pd.DataFrame(columns=columns)
 
-    # 讀取表單
+    if recipe_file.exists():
+        df_recipe = pd.read_csv(recipe_file, dtype=str)
+    else:
+        # CSV 不存在再試 Google Sheet
+        try:
+            sheet = client.open_by_url(SHEET_URL).sheet1
+            data = sheet.get_all_records()
+            df_recipe = pd.DataFrame(data) if data else pd.DataFrame(columns=columns)
+            df_recipe.to_csv(recipe_file, index=False, encoding="utf-8-sig")
+        except Exception as e:
+            st.warning(f"⚠️ 無法從 Google Sheet 載入，建立空 DataFrame: {e}")
+
+    st.session_state.df_recipe = df_recipe
+
+    # ===== 讀取配方管理工作表 =====
     try:
+        ws_recipe = client.open_by_url(SHEET_URL).worksheet("配方管理")
         df = pd.DataFrame(ws_recipe.get_all_records())
     except:
         df = pd.DataFrame(columns=columns)
 
+    # 補齊缺少欄位
     df = df.astype(str)
     for col in columns:
         if col not in df.columns:
             df[col] = ""
 
-    import streamlit as st
+    st.session_state.df = df
 
-    if "df" not in st.session_state:
-        try:
-            df = pd.DataFrame(ws_recipe.get_all_records())
-        except:
-            df = pd.DataFrame(columns=columns)
-
-        df = df.astype(str)
-        for col in columns:
-            if col not in df.columns:
-                df[col] = ""
-        st.session_state.df = df# 儲存進 session_state
-    
-    # ✅ 後續操作都從 session_state 中抓資料
-
-    #-------
-    df = st.session_state.df
-    # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
+    # ===== 載入「色粉管理」的色粉清單 =====
     def clean_powder_id(x):
-        s = str(x).replace('\u3000', '').replace(' ', '').strip().upper()
-        return s
-    
-    # 讀取色粉管理清單
+        return str(x).replace('\u3000','').replace(' ','').strip().upper()
+
     try:
-        ws_powder = spreadsheet.worksheet("色粉管理")
+        ws_powder = client.open_by_url(SHEET_URL).worksheet("色粉管理")
         df_powders = pd.DataFrame(ws_powder.get_all_records())
-        if "色粉編號" not in df_powders.columns:
-            st.error("❌ 色粉管理表缺少『色粉編號』欄位")
-            existing_powders = set()
-        else:
-            existing_powders = set(df_powders["色粉編號"].map(clean_powder_id).unique())
-            
+        existing_powders = set(df_powders["色粉編號"].map(clean_powder_id).unique()) if "色粉編號" in df_powders.columns else set()
     except Exception as e:
         st.warning(f"⚠️ 無法載入色粉管理：{e}")
         existing_powders = set()
