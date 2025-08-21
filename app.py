@@ -2148,6 +2148,7 @@ elif menu == "生產單管理":
             show_additional_ids=show_additional_ids
         )
         # 先檢查附加配方資料
+        main_code = str(order.get("配方編號", "")).strip()
         row = df_recipe[df_recipe["配方編號"] == "51107-1"]
         st.write("原始配方欄位值:", row["原始配方"].tolist())
         st.write("repr 顯示不可見字元:", [repr(x) for x in row["原始配方"].tolist()])
