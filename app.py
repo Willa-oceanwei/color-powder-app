@@ -207,7 +207,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     if total_type == "" or total_type == "無":
         total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
     elif category == "色母":
-        total_type_display = f"<b><span style='font-size:20.5px;'>{'料'.ljust(powder_label_width)}</span></b>"
+        total_type_display = f"<b>{'料'.ljust(powder_label_width)}</b>"
     else:
         total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
         
@@ -644,16 +644,6 @@ elif menu == "配方管理":
     if st.session_state.form_recipe is None:
         st.session_state.form_recipe = {col: "" for col in columns}
 
-    # -------✅ 讀取 df_recipe CSV--------
-    recipe_file = Path("data/df_recipe.csv")
-    if recipe_file.exists():
-        df_recipe = pd.read_csv(recipe_file, dtype=str)
-        st.session_state.df_recipe = df_recipe
-    else:
-        st.warning("❌ df_recipe CSV 不存在，建立空 DataFrame")
-        df_recipe = pd.DataFrame(columns=columns)
-        st.session_state.df_recipe = df_recipe
-
     # 讀取表單
     try:
         df = pd.DataFrame(ws_recipe.get_all_records())
@@ -925,32 +915,12 @@ elif menu == "配方管理":
         # 合計類別與合計差額
         col1, col2 = st.columns(2)
         with col1:
-            category_options = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他", "PE"]
-
-            # 優先抓 recipe_row，有值才用
-            default = "料"
-            # 1️⃣ 優先用 recipe_row，如果存在且有值
-            if 'recipe_row' in locals() and recipe_row is not None:
-                # 如果是 dict
-                if isinstance(recipe_row, dict):
-                    default = str(recipe_row.get("合計類別", "")).strip()
-                # 如果是 Pandas Series
-                elif hasattr(recipe_row, "__getitem__") and "合計類別" in recipe_row:
-                    default = str(recipe_row["合計類別"]).strip()
-            
-            # 2️⃣ 如果 default 不合法，fallback 到 fr，再 fallback "料"
-            if not default or default.upper() not in [x.upper() for x in category_options]:
-                default = str(fr.get("合計類別", "") or "料").strip()
-            
-            # 找到對應 index（忽略大小寫）
-            default_index = next((i for i, x in enumerate(category_options) if x.upper() == default.upper()), 0)
-            
-            fr["合計類別"] = st.selectbox(
-                "合計類別",
-                category_options,
-                index=default_index,
-                key="form_recipe_合計類別"
-            )
+            category_options = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他"]
+            default_raw = fr.get("合計類別", "無")
+            default = "\u2002" if default_raw == "無" else default_raw
+            if default not in category_options:
+                default = category_options[0]
+            fr["合計類別"] = st.selectbox("合計類別", category_options, index=category_options.index(default), key="form_recipe_合計類別")
         with col2:
             try:
                 net = float(fr.get("淨重") or 0)
@@ -1196,7 +1166,7 @@ elif menu == "配方管理":
     with cols_page[2]:
         if st.button("🔽下一頁", key="next_page") and st.session_state.page < total_pages:
             st.session_state.page += 1
-            st.rerun()
+            st.experimental_rerun()
     
     with cols_page[3]:
         # 輸入跳頁
@@ -1262,133 +1232,6 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
 
-    import pandas as pd
-    import re
-    
-    def safe_str(val):
-        if val is None or pd.isna(val):
-            return ""
-        return str(val).strip()
-    
-    def safe_float(val):
-        try:
-            f = float(val)
-            if pd.isna(f):
-                return 0.0
-            return f
-        except:
-            return 0.0
-    
-    def fmt_num(x):
-        # 小數點為 0 就顯示整數，否則保留原值
-        if abs(x - int(x)) < 1e-9:
-            return str(int(x))
-        return f"{x:g}"
-   
-    # ---------- 函式：生成配方預覽文字 ----------
-    def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
-        html_text = ""
-    
-        # 主配方基本資訊
-        html_text += f"編號：{safe_str(recipe_row.get('配方編號'))}  "
-        html_text += f"顏色：{safe_str(recipe_row.get('顏色'))}  "
-        proportions = " / ".join([safe_str(recipe_row.get(f"比例{i}", "")) for i in range(1,4) if safe_str(recipe_row.get(f"比例{i}", ""))])
-        html_text += f"比例：{proportions}  "
-        html_text += f"計量單位：{safe_str(recipe_row.get('計量單位',''))}  "
-        html_text += f"Pantone：{safe_str(recipe_row.get('Pantone色號',''))}\n\n"
-    
-        # 主配方色粉列
-        colorant_weights = [safe_float(recipe_row.get(f"色粉重量{i}",0)) for i in range(1,9)]
-        powder_ids = [safe_str(recipe_row.get(f"色粉編號{i}","")) for i in range(1,9)]
-    
-        for pid, wgt in zip(powder_ids, colorant_weights):
-            if pid and wgt > 0:
-                html_text += pid.ljust(12) + fmt_num(wgt) + "\n"
-    
-        # 主配方合計列
-        total_label = safe_str(recipe_row.get("合計類別","="))
-        net_weight = safe_float(recipe_row.get("淨重",0))
-        if net_weight > 0:
-            html_text += "_"*40 + "\n"
-            html_text += total_label.ljust(12) + fmt_num(net_weight) + "\n"
-    
-        # 備註列
-        note = safe_str(recipe_row.get("備註"))
-        if note:
-            html_text += f"備註 : {note}\n"
-    
-        # 附加配方
-        main_code = safe_str(order.get("配方編號",""))
-        if main_code:
-            additional_recipe_rows = df_recipe[
-                (df_recipe["配方類別"]=="附加配方") &
-                (df_recipe["原始配方"].astype(str).str.strip() == main_code)
-            ].to_dict("records")
-        else:
-            additional_recipe_rows = []
-    
-        if additional_recipe_rows:
-            html_text += "\n=== 附加配方 ===\n"
-            for idx, sub in enumerate(additional_recipe_rows,1):
-                if show_additional_ids:
-                    html_text += f"附加配方 {idx}：{safe_str(sub.get('配方編號'))}\n"
-                else:
-                    html_text += f"附加配方 {idx}\n"
-    
-                # 色粉列
-                sub_colorant_weights = [safe_float(sub.get(f"色粉重量{i}",0)) for i in range(1,9)]
-                sub_powder_ids = [safe_str(sub.get(f"色粉編號{i}","")) for i in range(1,9)]
-                for pid, wgt in zip(sub_powder_ids, sub_colorant_weights):
-                    if pid and wgt > 0:
-                        html_text += pid.ljust(12) + fmt_num(wgt) + "\n"
-    
-                # 附加配方合計
-                total_label_sub = safe_str(sub.get("合計類別","=")) or "="
-                net_sub = safe_float(sub.get("淨重",0))
-                if net_sub > 0:
-                    html_text += "_"*40 + "\n"
-                    html_text += total_label_sub.ljust(12) + fmt_num(net_sub) + "\n"
-        
-        # 色母專用（固定顯示，不乘包裝重量，一直列）
-        if safe_str(recipe_row.get("色粉類別"))=="色母":
-            html_text += "\n色母專用預覽：\n"
-        
-            # 色粉列，一直列顯示，增加間距
-            for pid, wgt in zip(powder_ids, colorant_weights):
-                if pid and wgt > 0:
-                    html_text += f"{pid.ljust(8)}{fmt_num(wgt).rjust(8)}\n"  # pid 左對齊8個字元，數值右對齊8個字元
-        
-            # 色母合計（靠左顯示）
-            total_colorant = net_weight - sum(colorant_weights)
-            if total_colorant > 0:
-                category = safe_str(recipe_row.get("合計類別", "料"))  # 預設顯示料
-                html_text += f"{category.ljust(8)}{fmt_num(total_colorant).rjust(8)}\n"
-    
-        # 統一返回
-        return "```\n" + html_text.strip() + "\n```"
-
-    # ---------- 配方預覽顯示 ----------
-    if selected_code and "配方編號" in df_recipe.columns:
-        df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
-        if not df_selected.empty:
-            # 取第一筆主配方
-            recipe_row_preview = df_selected.iloc[0].to_dict()
-            
-            # ✅ 生成配方預覽文字
-            preview_text_recipe = generate_order_preview_text(
-                order=recipe_row_preview,       # 預覽專用，可以直接把主配方 dict 當 order
-                recipe_row=recipe_row_preview,
-                show_additional_ids=st.session_state.get(f"show_ids_checkbox_{selected_code}", True)
-            )
-            
-            # 可收合的預覽區
-            with st.expander("👀 配方預覽", expanded=False):
-                st.markdown(preview_text_recipe)
-        else:
-            st.info(f"查無配方編號 {selected_code} 的資料")
-    else:
-        st.warning("配方資料尚未載入或選擇的配方編號無效")
-    
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
     st.markdown("""
@@ -1542,7 +1385,7 @@ elif menu == "生產單管理":
         return fix_leading_zero(clean_powder_id(text))
     
     # Streamlit UI 搜尋表單
-    st.markdown("#### 🔎 配方搜尋與新增生產單") 
+    st.subheader("🔎 配方搜尋與新增生產單")
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4,1,1])
         with col1:
@@ -1833,9 +1676,9 @@ elif menu == "生產單管理":
                 # --- 附加配方區塊 ---
                 附加配方清單 = order.get("附加配方", [])
                 if 附加配方清單:
-                    st.markdown("##### 附加配方色粉用量（編號與重量）")
+                    st.markdown("### 附加配方色粉用量（編號與重量）")
                     for idx, 附加配方 in enumerate(附加配方清單, 1):
-                        st.markdown(f"##### 附加配方 {idx}")
+                        st.markdown(f"#### 附加配方 {idx}")
                         col1, col2 = st.columns(2)
                         for i in range(1, 9):
                             color_id = 附加配方.get(f"色粉編號{i}", "").strip()
@@ -1913,7 +1756,7 @@ elif menu == "生產單管理":
         
             # 產生列印 HTML 按鈕
             # ✅ 加入 checkbox 讓使用者決定是否顯示附加配方編號
-            show_ids = st.checkbox("列印時顯示附加配方編號", value=False)
+            show_ids = st.checkbox("列印時顯示附加配方編號", value=True)
             
             # 產生列印 HTML
             print_html = generate_print_page_content(
@@ -2147,13 +1990,7 @@ elif menu == "生產單管理":
             additional_recipe_rows=None,
             show_additional_ids=show_additional_ids
         )
-        # 先檢查附加配方資料
-        additional_recipe_rows = df_recipe[
-            (df_recipe["配方類別"].astype(str).str.strip().str.lower() == "附加配方") &
-            (df_recipe["原始配方"].astype(str).str.strip() == main_code)
-        ]
-        st.write("附加配方資料:", additional_recipe_rows)
-           
+    
         # 2️⃣ 取得附加配方（保留原本邏輯）
         main_code = str(order.get("配方編號", "")).strip()
         if main_code:
@@ -2302,7 +2139,7 @@ elif menu == "生產單管理":
             )
     
             preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
-            with st.expander("👀 生產單預覽", expanded=False):
+            with st.expander("🔍 生產單預覽", expanded=False):
                 st.markdown(preview_text)
 
     
