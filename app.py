@@ -1833,9 +1833,9 @@ elif menu == "生產單管理":
                 # --- 附加配方區塊 ---
                 附加配方清單 = order.get("附加配方", [])
                 if 附加配方清單:
-                    st.markdown("### 附加配方色粉用量（編號與重量）")
+                    st.markdown("##### 附加配方色粉用量（編號與重量）")
                     for idx, 附加配方 in enumerate(附加配方清單, 1):
-                        st.markdown(f"#### 附加配方 {idx}")
+                        st.markdown(f"##### 附加配方 {idx}")
                         col1, col2 = st.columns(2)
                         for i in range(1, 9):
                             color_id = 附加配方.get(f"色粉編號{i}", "").strip()
