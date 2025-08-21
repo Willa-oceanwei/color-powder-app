@@ -727,12 +727,9 @@ elif menu == "配方管理":
         search_customer_top = st.text_input("客戶名稱或編號", key="search_customer_top")
     with col3:
         search_pantone_top = st.text_input("Pantone色號", key="search_pantone_top")
-
-    # --- 偵測輸入是否存在 ---預設值確保是空字串
-    search_recipe_top = st.text_input("輸入配方編號", value="").strip()
     
     # --- 偵測輸入是否存在 ---
-    if search_recipe_top != "":  # 真的有輸入才檢查
+    if search_recipe_top.strip() != "":  # 真的有輸入才檢查
         if search_recipe_top not in df_recipe["配方編號"].astype(str).values:
             st.warning(f"⚠️ 配方編號 {search_recipe_top} 尚未建檔")
 
