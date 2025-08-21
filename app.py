@@ -1387,7 +1387,7 @@ elif menu == "配方管理":
         return "```\n" + html_text.strip() + "\n```"
 
     # ---------- 配方預覽顯示 ----------
-    if selected_code and "配方編號" in df_recipe.columns:
+    if selected_code not in (None, "") and "配方編號" in df_recipe.columns:
         df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
         if not df_selected.empty:
             # 取第一筆主配方
@@ -1395,7 +1395,7 @@ elif menu == "配方管理":
             
             # ✅ 生成配方預覽文字
             preview_text_recipe = generate_order_preview_text(
-                order=recipe_row_preview,       # 預覽專用，可以直接把主配方 dict 當 order
+                order=recipe_row_preview,       
                 recipe_row=recipe_row_preview,
                 show_additional_ids=st.session_state.get(f"show_ids_checkbox_{selected_code}", True)
             )
@@ -1405,8 +1405,8 @@ elif menu == "配方管理":
                 st.markdown(preview_text_recipe)
         else:
             st.info(f"查無配方編號 {selected_code} 的資料")
-    elif selected_code:
-        st.warning("選擇的配方編號無效")
+    
+    # 如果 selected_code 為空，剛刷新頁面，什麼也不顯示
     
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
