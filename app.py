@@ -2210,12 +2210,6 @@ elif menu == "生產單管理":
                 key=show_ids_key
             )
     
-            show_ids = st.checkbox(
-                "列印時顯示附加配方編號",
-                value=st.session_state[show_ids_key],
-                key=show_ids_key
-            )
-    
             preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
             with st.expander("👀 生產單預覽", expanded=False):
                 st.markdown(preview_text)
