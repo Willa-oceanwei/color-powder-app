@@ -110,6 +110,8 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     number_col_width = 6
     column_offsets = [1, 5, 5, 5]
     total_offsets = [1.3, 5, 5, 5]
+
+    print(f"category={category!r}, w={w!r}")
     
     packing_weights = [
         float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
