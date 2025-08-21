@@ -926,13 +926,16 @@ elif menu == "配方管理":
         col1, col2 = st.columns(2)
         with col1:
             category_options = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他", "PE"]
-            ## 先抓 recipe_row
-            cat = recipe_row.get("合計類別", "").strip()
-            if not cat or cat.upper() not in [x.upper() for x in category_options]:
-                cat = "料"  # 只在 recipe_row 無效時 fallback
+
+            # 優先抓 recipe_row，有值才用
+            default = recipe_row.get("合計類別", "").strip()
+            if not default or default.upper() not in [x.upper() for x in category_options]:
+                # fallback fr 裡的值
+                default = fr.get("合計類別", "").strip() or "料"
             
-            # selectbox 預設
-            default_index = next((i for i, x in enumerate(category_options) if x.upper() == cat.upper()), 0)
+            # 找到對應 index（忽略大小寫）
+            default_index = next((i for i, x in enumerate(category_options) if x.upper() == default.upper()), 0)
+            
             fr["合計類別"] = st.selectbox(
                 "合計類別",
                 category_options,
