@@ -1620,6 +1620,7 @@ elif menu == "生產單管理":
             selected_row = option_map.get(selected_label)
     
     if add_btn:
+        order_dict = st.session_state.get("new_order", {})
         if selected_label is None or selected_label == "請選擇" or selected_label == "（無符合配方）":
             st.warning("請先選擇有效配方")
         else:
@@ -1628,7 +1629,6 @@ elif menu == "生產單管理":
                 st.stop()
             else:
                 # 取得或初始化新訂單物件
-                order = st.session_state.get("new_order")
                 if order is None or not isinstance(order, dict):
                     order = {}
     
@@ -1639,18 +1639,22 @@ elif menu == "生產單管理":
                 new_id = f"{today_str}-{count_today + 1:03}"
     
                 # 查找附加配方
-                selected_code = order_dict.get("配方編號", "")
-                recipe_row = None
+                order_dict = st.session_state.get("new_order", {})
+                
+                # 取得配方編號
+                selected_code = str(order_dict.get("配方編號", "")).strip()
+                
+                # 在 df_recipe 找到對應配方列
                 if selected_code:
-                    recipe_match = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == str(selected_code).strip()]
+                    recipe_match = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == selected_code]
                     if not recipe_match.empty:
-                        recipe_row = recipe_match.iloc[0]  # Series
-                if recipe_row is not None:
-                    if not isinstance(recipe_row, dict):
-                        recipe_row = recipe_row.to_dict()
+                        recipe_row = recipe_match.iloc[0].to_dict()
+                    else:
+                        recipe_row = {}
                 else:
                     recipe_row = {}
-                    
+                
+                # 取得主配方代碼
                 main_recipe_code = str(recipe_row.get("配方編號", "")).strip()
     
                 # 整合色粉：先加入主配方色粉
