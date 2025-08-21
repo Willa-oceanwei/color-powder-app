@@ -1405,8 +1405,8 @@ elif menu == "配方管理":
                 st.markdown(preview_text_recipe)
         else:
             st.info(f"查無配方編號 {selected_code} 的資料")
-    else:
-        st.warning("配方資料尚未載入或選擇的配方編號無效")
+    elif selected_code:
+        st.warning("選擇的配方編號無效")
     
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
