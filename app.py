@@ -2202,7 +2202,13 @@ elif menu == "生產單管理":
             # checkbox 狀態
             show_ids_key = f"show_ids_checkbox_{selected_code_edit}"
             if show_ids_key not in st.session_state:
-                st.session_state[show_ids_key] = True
+                st.session_state[show_ids_key] = False  # ✅ 預設不勾選
+            
+            show_ids = st.checkbox(
+                "列印時顯示附加配方編號",
+                value=st.session_state[show_ids_key],
+                key=show_ids_key
+            )
     
             show_ids = st.checkbox(
                 "列印時顯示附加配方編號",
