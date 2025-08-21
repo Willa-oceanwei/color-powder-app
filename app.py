@@ -2224,18 +2224,20 @@ elif menu == "生產單管理":
                 except Exception:
                     net = 0.0
                 
-                # 生成橫線（整行長度 = powder_label_width + number_col_width * len(multipliers)）
+                # 1️⃣ 生成橫線（整行寬度）
                 line_len = powder_label_width + number_col_width * len(multipliers)
-                html_text += "```\n" + "＿" * line_len + "\n"  # 或用 "―"
+                html_text += "```\n" + "＿" * line_len + "\n"
                 
-                # 生成合計列
+                # 2️⃣ 生成合計文字列
                 total_label = str(sub.get("合計類別", "=") or "=")
                 total_line = total_label.ljust(powder_label_width)
                 for idx, m in enumerate(multipliers):
                     val = net * m
                     total_line += fmt_num(val).rjust(number_col_width)
+                
+                # 3️⃣ Markdown code block 結尾
                 html_text += total_line + "\n```\n<br>"
-    
+                    
         # 4️⃣ 色母專用預覽（獨立變數，不影響其他邏輯）
         def fmt_num_colorant(x: float) -> str:
             if abs(x - int(x)) < 1e-9:
