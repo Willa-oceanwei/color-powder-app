@@ -1713,50 +1713,51 @@ elif menu == "生產單管理":
         order = st.session_state.get("new_order", {})
         recipe_row = st.session_state.get("recipe_row_cache", {})
     
-        # 主配方色粉
-        st.subheader("主配方色粉")
-        col_id, col_wt = st.columns(2)
-        for i in range(1, 9):
-            color_id = recipe_row.get(f"色粉編號{i}", "")
-            color_wt = recipe_row.get(f"色粉重量{i}", "")
-            if color_id or color_wt:
-                with col_id:
-                    st.text_input(f"色粉編號{i}", value=color_id, disabled=True)
-                with col_wt:
-                    st.text_input(f"色粉重量{i}", value=color_wt, disabled=True)
+        with st.form("order_detail_form"):
+            # 主配方色粉
+            st.subheader("主配方色粉")
+            col_id, col_wt = st.columns(2)
+            for i in range(1, 9):
+                color_id = recipe_row.get(f"色粉編號{i}", "")
+                color_wt = recipe_row.get(f"色粉重量{i}", "")
+                if color_id or color_wt:
+                    with col_id:
+                        st.text_input(f"色粉編號{i}", value=color_id, disabled=True)
+                    with col_wt:
+                        st.text_input(f"色粉重量{i}", value=color_wt, disabled=True)
     
-        # 附加配方色粉
-        附加配方清單 = order.get("附加配方", [])
-        if 附加配方清單:
-            st.subheader(f"附加配方色粉（共 {len(附加配方清單)} 筆）")
-            for idx, add_recipe in enumerate(附加配方清單, 1):
-                st.markdown(f"#### 附加配方 {idx}: {add_recipe.get('配方編號','')} - {add_recipe.get('顏色','')}")
-                col1, col2 = st.columns(2)
-                
-                for i in range(1, 9):
-                    color_id = add_recipe.get(f"色粉編號{i}", "")
-                    color_wt = add_recipe.get(f"色粉重量{i}", "")
-                    if color_id or color_wt:
-                        with col1:
-                            st.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True)
-                        with col2:
-                            st.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True)
+            # 附加配方色粉
+            附加配方清單 = order.get("附加配方", [])
+            if 附加配方清單:
+                st.subheader(f"附加配方色粉（共 {len(附加配方清單)} 筆）")
+                for idx, add_recipe in enumerate(附加配方清單, 1):
+                    st.markdown(f"#### 附加配方 {idx}: {add_recipe.get('配方編號','')} - {add_recipe.get('顏色','')}")
+                    col1, col2 = st.columns(2)
     
-                # 顯示附加配方淨重
-                try:
-                    total_net = float(add_recipe.get("淨重", 0))
-                except:
-                    total_net = 0
-                unit = add_recipe.get("淨重單位", recipe_row.get("淨重單位", "kg"))
-                st.markdown(
-                    f"<div style='text-align:right; font-size:16px;'>📦 附加配方淨重：{total_net:.2f} {unit}</div>",
-                    unsafe_allow_html=True
-                )
+                    for i in range(1, 9):
+                        color_id = add_recipe.get(f"色粉編號{i}", "")
+                        color_wt = add_recipe.get(f"色粉重量{i}", "")
+                        if color_id or color_wt:
+                            with col1:
+                                st.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True)
+                            with col2:
+                                st.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True)
     
-        # --- 儲存生產單按鈕 ---
-        submitted = st.form_submit_button("💾 儲存生產單")
-        if submitted:
-            st.success("生產單已儲存！")
+                    # 顯示附加配方淨重
+                    try:
+                        total_net = float(add_recipe.get("淨重", 0))
+                    except:
+                        total_net = 0
+                    unit = add_recipe.get("淨重單位", recipe_row.get("淨重單位", "kg"))
+                    st.markdown(
+                        f"<div style='text-align:right; font-size:16px;'>📦 附加配方淨重：{total_net:.2f} {unit}</div>",
+                        unsafe_allow_html=True
+                    )
+    
+            # --- 儲存生產單按鈕 ---
+            submitted = st.form_submit_button("💾 儲存生產單")
+            if submitted:
+                st.success("生產單已儲存！")
         
             if submitted:
                 order["顏色"] = st.session_state.form_color
