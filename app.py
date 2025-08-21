@@ -1620,7 +1620,7 @@ elif menu == "生產單管理":
             selected_row = option_map.get(selected_label)
             
     if add_btn:
-            if not selected_option:
+            if not selected_row:
                 st.warning("請先選擇配方")
             else:
                 # 安全處理 idx
@@ -2140,6 +2140,9 @@ elif menu == "生產單管理":
     
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
+        main_code = ""
+        if recipe_row and isinstance(recipe_row, dict):
+            main_code = str(recipe_row.get("配方編號") or recipe_row.get("原始配方") or "").strip()
         # 1️⃣ 先生成主配方文字（不改 generate_production_order_print）
         html_text = generate_production_order_print(
             order,
