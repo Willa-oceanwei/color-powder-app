@@ -1671,7 +1671,7 @@ elif menu == "生產單管理":
                 st.info("無附加配方")
             else:
                 st.markdown(
-                    f"<div style='font-size:16px; font-weight:normal;'>附加配方清單（共 {len(additional_recipes)} 筆）</div>",
+                    f"<div style='font-size:14px; font-weight:normal;'>附加配方清單（共 {len(additional_recipes)} 筆）</div>",
                     unsafe_allow_html=True
                 )
                 for idx, row in additional_recipes.iterrows():
