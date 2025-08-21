@@ -730,8 +730,11 @@ elif menu == "配方管理":
 
     # --- 偵測輸入是否存在 ---
     if search_recipe_top:  # 如果輸入不空
-        if search_recipe_top not in df_recipe["配方編號"].values:
-            st.warning(f"⚠️ 配方編號 {search_recipe_top} 尚未建檔")
+        if "配方編號" in df_recipe.columns:
+            if search_recipe_top not in df_recipe["配方編號"].values:
+                st.warning(f"⚠️ 配方編號 {search_recipe_top} 尚未建檔")
+        else:
+            st.error("⚠️ df_recipe 缺少『配方編號』欄位，請檢查資料來源")
 
     # === 欄位定義 ===
     columns = [
