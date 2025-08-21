@@ -1747,7 +1747,7 @@ elif menu == "生產單管理":
                             total_net = float(附加配方.get("淨重", 0))
                         except:
                             total_net = 0
-                        unit = 附加配方.get("淨重單位", "")
+                        unit = recipe_row.get("淨重單位", "kg")
                         st.markdown(
                             f"<div style='text-align:right; font-size:16px;'>📦 附加配方淨重：{total_net:.2f} {unit}</div>",
                             unsafe_allow_html=True
