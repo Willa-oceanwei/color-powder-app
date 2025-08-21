@@ -926,11 +926,24 @@ elif menu == "配方管理":
         col1, col2 = st.columns(2)
         with col1:
             category_options = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他", "PE"]
-            default_raw = fr.get("合計類別", "無")
-            default = "\u2002" if default_raw == "無" else default_raw
-            if default not in category_options:
-                default = category_options[0]
-            fr["合計類別"] = st.selectbox("合計類別", category_options, index=category_options.index(default), key="form_recipe_合計類別")
+        
+            # 先從 recipe_row 取得
+            cat = recipe_row.get("合計類別", "").strip()
+            if not cat or cat.upper() not in [x.upper() for x in category_options]:
+                cat = "料"  # fallback
+        
+            # 再從 fr 取得，決定 selectbox 預設值
+            default_raw = fr.get("合計類別", "")
+            default = default_raw.strip() if default_raw else cat  # 如果沒填就用 cat
+            # 找到對應 index（忽略大小寫）
+            default_index = next((i for i, x in enumerate(category_options) if x.upper() == default.upper()), 0)
+        
+            fr["合計類別"] = st.selectbox(
+                "合計類別",
+                category_options,
+                index=default_index,
+                key="form_recipe_合計類別"
+            )
         with col2:
             try:
                 net = float(fr.get("淨重") or 0)
