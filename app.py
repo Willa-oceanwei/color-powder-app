@@ -1540,6 +1540,8 @@ elif menu == "生產單管理":
                 label += "（附加配方）"
             return label
 
+        print(filtered.columns.tolist())
+        
         # 生成下拉選單選項
         if not filtered.empty:
             options = filtered.apply(format_option, axis=1).tolist()
