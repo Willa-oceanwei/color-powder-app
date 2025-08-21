@@ -719,7 +719,7 @@ elif menu == "配方管理":
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="big-title">🎯配方搜尋🔎</div>', unsafe_allow_html=True)
-  
+
     col1, col2, col3 = st.columns(3)
     with col1:
         search_recipe_top = st.text_input("配方編號", key="search_recipe_code_top")
@@ -729,7 +729,7 @@ elif menu == "配方管理":
         search_pantone_top = st.text_input("Pantone色號", key="search_pantone_top")
     
     # --- 偵測輸入是否存在 ---
-    if search_recipe_top.strip() != "":  # 真的有輸入才檢查
+    if search_recipe_top.strip():  # 真的有輸入才檢查
         if search_recipe_top not in df_recipe["配方編號"].astype(str).values:
             st.warning(f"⚠️ 配方編號 {search_recipe_top} 尚未建檔")
 
