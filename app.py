@@ -156,38 +156,30 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         w = packing_weights[i]
         c = packing_counts[i]
         if w > 0 or c > 0:
+            # 特例：色母類別 + w==1 時，強制 real_w=100
             if category == "色母":
-                real_w = w * 100  # 色母基準
-                unit_str = f"{int(real_w)}K"
+                if w == 1:
+                    unit_str = "100K"
+                else:
+                    real_w = w * 100
+                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
             elif unit == "包":
                 real_w = w * 25
-                unit_str = f"{int(real_w)}K"
+                unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
             elif unit == "桶":
                 real_w = w * 100
-                unit_str = f"{int(real_w)}K"
+                unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
             else:
                 real_w = w
-                unit_str = f"{int(real_w)}kg"
-    
-            count_str = str(int(c)) if c == int(c) else str(c)
-            pack_line.append(f"{unit_str} × {count_str}")
-    
-    if pack_line:
-        packing_indent = " " * 14
-        lines.append(f"<b>{packing_indent + ' '.join(pack_line)}</b>")
-    
-    # multipliers 也改
-    multipliers = []
-    for w in packing_weights:
-        if category == "色母":
-            multipliers.append(w * 100)  # 色母乘 100
-        else:
-            multipliers.append(w)
-
-    # 橫線：只有非色母才顯示
-    if category != "色母":
-        lines.append("＿" * 30)
+                unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
         
+            count_str = str(int(c)) if c == int(c) else str(c)
+            text = f"{unit_str} × {count_str}"
+            pack_line.append(f"{text:<{pack_col_width}}")
+        
+    packing_indent = " " * 14
+    lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
+                                    
     # 主配方色粉列
     for idx in range(8):
         c_id = colorant_ids[idx]
@@ -204,33 +196,35 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             # 數字用加 class 的 <b> 包起來
             row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
         lines.append(row)
-
-    
-    # 橫線：色母不顯示
-    # if category != "色母":
-    #     lines.append("＿" * 30)
-    
+        
+    # 橫線：只有非色母類別才顯示
+    category = (order.get("色粉類別") or "").strip()
+    if category != "色母":
+        lines.append("＿" * 30)
+                    
     # 合計列
-    total_offsets = [1, 5, 5, 5]
+    total_offsets = [1, 5, 5, 5]  # 第一欄前空 2、第二欄前空 4、依此類推
     if total_type == "" or total_type == "無":
         total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
     elif category == "色母":
         total_type_display = f"<b>{'料'.ljust(powder_label_width)}</b>"
     else:
         total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
-    
+        
     total_line = total_type_display
+        
     for i in range(4):
+        result = 0
         if category == "色母":
             pigment_total = sum(colorant_weights)
             result = (net_weight - pigment_total) * multipliers[i] if multipliers[i] > 0 else 0
         else:
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-    
+        
         val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
         padding = " " * max(0, int(round(total_offsets[i])))
         total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-    
+        
     lines.append(total_line)
            
     # 多筆附加配方列印
@@ -298,7 +292,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     lines.append(f"備註 : {order.get('備註', '')}")
     
     return "<br>".join(lines)
-
+           
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
