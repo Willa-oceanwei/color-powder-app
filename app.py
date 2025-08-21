@@ -1732,6 +1732,7 @@ elif menu == "生產單管理":
             for idx, add_recipe in enumerate(附加配方清單, 1):
                 st.markdown(f"#### 附加配方 {idx}: {add_recipe.get('配方編號','')} - {add_recipe.get('顏色','')}")
                 col1, col2 = st.columns(2)
+                
                 for i in range(1, 9):
                     color_id = add_recipe.get(f"色粉編號{i}", "")
                     color_wt = add_recipe.get(f"色粉重量{i}", "")
@@ -1740,20 +1741,22 @@ elif menu == "生產單管理":
                             st.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True)
                         with col2:
                             st.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True)
-
-                
-                        # 顯示附加配方淨重
-                        try:
-                            total_net = float(附加配方.get("淨重", 0))
-                        except:
-                            total_net = 0
-                        unit = recipe_row.get("淨重單位", "kg")
-                        st.markdown(
-                            f"<div style='text-align:right; font-size:16px;'>📦 附加配方淨重：{total_net:.2f} {unit}</div>",
-                            unsafe_allow_html=True
-                        )
-  
-                submitted = st.form_submit_button("💾 儲存生產單")
+    
+                # 顯示附加配方淨重
+                try:
+                    total_net = float(add_recipe.get("淨重", 0))
+                except:
+                    total_net = 0
+                unit = add_recipe.get("淨重單位", recipe_row.get("淨重單位", "kg"))
+                st.markdown(
+                    f"<div style='text-align:right; font-size:16px;'>📦 附加配方淨重：{total_net:.2f} {unit}</div>",
+                    unsafe_allow_html=True
+                )
+    
+        # --- 儲存生產單按鈕 ---
+        submitted = st.form_submit_button("💾 儲存生產單")
+        if submitted:
+            st.success("生產單已儲存！"))
         
             if submitted:
                 order["顏色"] = st.session_state.form_color
