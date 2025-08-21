@@ -157,17 +157,17 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         c = packing_counts[i]
         if w > 0 or c > 0:
             if category == "色母":
-                real_w = w * 100  # 色母基準：1=100K
-                unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
+                real_w = w * 100  # 色母基準
+                unit_str = f"{int(real_w)}K"
             elif unit == "包":
                 real_w = w * 25
-                unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
+                unit_str = f"{int(real_w)}K"
             elif unit == "桶":
                 real_w = w * 100
-                unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
+                unit_str = f"{int(real_w)}K"
             else:
                 real_w = w
-                unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
+                unit_str = f"{int(real_w)}kg"
     
             count_str = str(int(c)) if c == int(c) else str(c)
             pack_line.append(f"{unit_str} × {count_str}")
@@ -175,6 +175,14 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     if pack_line:
         packing_indent = " " * 14
         lines.append(f"<b>{packing_indent + ' '.join(pack_line)}</b>")
+    
+    # multipliers 也改
+    multipliers = []
+    for w in packing_weights:
+        if category == "色母":
+            multipliers.append(w * 100)  # 色母乘 100
+        else:
+            multipliers.append(w)
 
     # 主配方色粉列
     for idx in range(8):
