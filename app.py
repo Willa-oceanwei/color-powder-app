@@ -175,6 +175,24 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     if pack_line:
         packing_indent = " " * 14
         lines.append(f"<b>{packing_indent + ' '.join(pack_line)}</b>")
+
+    # 主配方色粉列
+    for idx in range(8):
+        c_id = colorant_ids[idx]
+        c_weight = colorant_weights[idx]
+        if not c_id:
+            continue
+        row = f"<b>{str(c_id or '').ljust(powder_label_width)}</b>"
+        for i in range(4):
+            val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
+            val_str = (
+                str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
+            ) if val else ""
+            padding = " " * max(0, int(round(column_offsets[i])))
+            # 數字用加 class 的 <b> 包起來
+            row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+        lines.append(row)
+
     
     # 橫線：色母不顯示
     # if category != "色母":
