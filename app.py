@@ -925,15 +925,14 @@ elif menu == "配方管理":
         # 合計類別與合計差額
         col1, col2 = st.columns(2)
         with col1:
-            # 先從 recipe_row 取得，如果沒有再從 fr fallback
-            default = recipe_row.get("合計類別", "").strip()
-            if not default or default.upper() not in [x.upper() for x in category_options]:
-                default = fr.get("合計類別", "").strip() or "料"  # fr 裡有就用 fr，沒有就用料
-        
-            # 找到對應 index（忽略大小寫）
-            default_index = next((i for i, x in enumerate(category_options) if x.upper() == default.upper()), 0)
-        
-            # selectbox
+            category_options = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他", "PE"]
+            ## 先抓 recipe_row
+            cat = recipe_row.get("合計類別", "").strip()
+            if not cat or cat.upper() not in [x.upper() for x in category_options]:
+                cat = "料"  # 只在 recipe_row 無效時 fallback
+            
+            # selectbox 預設
+            default_index = next((i for i, x in enumerate(category_options) if x.upper() == cat.upper()), 0)
             fr["合計類別"] = st.selectbox(
                 "合計類別",
                 category_options,
