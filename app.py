@@ -203,7 +203,6 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         lines.append("＿" * 30)
                     
     # 合計列
-    total_offsets = [1, 5, 5, 5]  # 第一欄前空 2、第二欄前空 4、依此類推
     if total_type == "" or total_type == "無":
         total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
     elif category == "色母":
@@ -1122,17 +1121,25 @@ elif menu == "配方管理":
     df_filtered = df[mask]
     
     # ===== 篩選後筆數 + 每頁顯示筆數 =====
-    col1.markdown(f"🧺 **篩選後筆數：** {df_filtered.shape[0]}")
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.markdown(f"🧺 **篩選後筆數：** {df_filtered.shape[0]}")
+    with col2:
+        limit = st.selectbox(
+            "",  # 不顯示文字
+            options=[5, 10, 20, 50, 100],
+            index=1,  # 預設選中 10（因為 index 從 0 開始，5 在 index 0）
+            key="limit_per_page"
+        )
     
     # ===== 計算分頁 =====
     total_rows = df_filtered.shape[0]
-    limit = st.session_state.get("limit_per_page", 5)
     total_pages = max((total_rows - 1) // limit + 1, 1)
     
     if "page" not in st.session_state:
         st.session_state.page = 1
     if st.session_state.page > total_pages:
-        st.session_state.page = total_pages
+        st.session_state.page = total_pages  # 避免頁碼超過總頁數
     
     # ===== 分頁索引 =====
     start_idx = (st.session_state.page - 1) * limit
@@ -1150,50 +1157,35 @@ elif menu == "配方管理":
     else:
         st.info("查無符合的配方（分頁結果）")
     
-    # ===== 分頁控制列（按鈕 + 輸入跳頁 + 每頁筆數）=====
-    cols_page = st.columns([1, 1, 1, 2, 1])  # 五欄：首頁 / 上一頁 / 下一頁 / 跳頁 / 每頁筆數
-    
+    # ===== 分頁控制列（按鈕 + 下拉頁碼）=====
+    cols_page = st.columns([1, 1, 1, 2])
     with cols_page[0]:
-        if st.button("🏠首頁", key="first_page"):
+        if st.button("首頁", key="first_page"):
             st.session_state.page = 1
             st.experimental_rerun()
-    
     with cols_page[1]:
-        if st.button("🔼上一頁", key="prev_page") and st.session_state.page > 1:
+        if st.button("上一頁", key="prev_page") and st.session_state.page > 1:
             st.session_state.page -= 1
             st.experimental_rerun()
-    
     with cols_page[2]:
-        if st.button("🔽下一頁", key="next_page") and st.session_state.page < total_pages:
+        if st.button("下一頁", key="next_page") and st.session_state.page < total_pages:
             st.session_state.page += 1
             st.experimental_rerun()
-    
     with cols_page[3]:
-        # 輸入跳頁
-        jump_page = st.number_input(
+        selected_page = st.selectbox(
             "",  # 不顯示文字
-            min_value=1,
-            max_value=total_pages,
-            value=st.session_state.page,
-            key="jump_page",
-            label_visibility="collapsed"  # 隱藏標籤，位置上移
+            options=list(range(1, total_pages + 1)),
+            index=st.session_state.page - 1,
+            key="select_page"
         )
-        if jump_page != st.session_state.page:
-            st.session_state.page = jump_page
+        if selected_page != st.session_state.page:
+            st.session_state.page = selected_page
             st.experimental_rerun()
     
-    with cols_page[4]:
-        # 每頁顯示筆數選單
-        limit = st.selectbox(
-            "",
-            options=[5, 10, 20, 50, 100],
-            index=[5, 10, 20, 50, 100].index(st.session_state.get("limit_per_page", 5)),
-            key="limit_per_page",
-            label_visibility="collapsed"  # 隱藏標籤，減少上方空白
-        )
-    
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
-        
+    st.markdown("---")
+
+    
     # 顯示上方搜尋沒有資料的提示
     top_has_input = any([
         st.session_state.get("search_recipe_code_top"),
