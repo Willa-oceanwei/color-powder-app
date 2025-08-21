@@ -2226,48 +2226,47 @@ elif menu == "生產單管理":
         # 色母/色粉區（下方）排版
         category_colorant = str(recipe_row.get("色粉類別","")).strip()
         if category_colorant == "色母":
-            # 包裝列與色粉列（Markdown 對齊）
+            # 包裝列（純顯示）
             pack_weights_display = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
             pack_counts_display  = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
-            colorant_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
-            colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
-        
-            pid_width = 12    # 第一欄寬度
-            val_width = 8     # 數字欄寬
-            lines = []
-        
-            # 包裝列
+            
             pack_line = []
             for w, c in zip(pack_weights_display, pack_counts_display):
                 if w > 0 and c > 0:
                     val = int(w * 100)  # 基準值 100K
                     pack_line.append(f"{val}K × {int(c)}")
+            
             if pack_line:
-                lines.append(" " * 14 + "  ".join(pack_line))
-        
+                html_text += " " * 14 + "  ".join(pack_line) + "<br>"
+            
             # 色粉列
-            for pid, wgt in zip(colorant_ids, colorant_weights):
+            colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
+            powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
+            
+            number_col_width = 12  # 對齊寬度
+            for pid, wgt in zip(powder_ids, colorant_weights):
                 if pid and wgt > 0:
-                    line = pid.ljust(pid_width)
+                    line = pid.ljust(6)
                     for w in pack_weights_display:
                         if w > 0:
-                            val = wgt * w
-                            line += str(int(val)).rjust(val_width)
-                    lines.append(line)
-        
+                            val = wgt * w  # 色粉乘上包裝重量
+                            line += str(int(val)).rjust(number_col_width)
+                    html_text += line + "<br>"
+            
             # 色母合計列
             total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
-            total_line_colorant = "料".ljust(pid_width)
-            for w in pack_weights_display:
+            total_line_colorant = "料".ljust(12)
+            
+            # 自訂每欄寬度（第一欄偏左，第二欄偏右）
+            col_widths = [5, 12, 12, 12]  # 可依實際欄位數調整
+            
+            for idx, w in enumerate(pack_weights_display):
                 if w > 0:
                     val = total_colorant * w
-                    total_line_colorant += str(int(val)).rjust(val_width)
-            lines.append(total_line_colorant)
-        
-            # 最後生成 Markdown
-            markdown_preview = "```\n" + "\n".join(lines) + "\n```"
-            html_text += markdown_preview
-
+                    width = col_widths[idx] if idx < len(col_widths) else 12
+                    total_line_colorant += str(int(val)).rjust(width)
+            
+            html_text += total_line_colorant + "<br>"
     
         # 轉為純文字（保留對齊）
         text_with_newlines = html_text.replace("<br>", "\n")
