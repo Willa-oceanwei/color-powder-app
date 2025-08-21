@@ -653,7 +653,7 @@ elif menu == "配方管理":
         else:
             df_recipe = pd.DataFrame(columns=["配方編號", "客戶名稱", "顏色", "合計類別", "備註", "重要提醒"])
         st.session_state.df_recipe = df_recipe
-        st.success("✅ 已成功從 Google Sheet 載入配方資料")
+        # st.success("✅ 已成功從 Google Sheet 載入配方資料")  # ✅ 成功時不跳通知
     
     except Exception as e:
         st.warning(f"⚠️ 無法從 Google Sheet 載入，改用本地 CSV: {e}")
