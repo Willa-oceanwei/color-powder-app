@@ -156,10 +156,13 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         w = packing_weights[i]
         c = packing_counts[i]
         if w > 0 or c > 0:
+            # 特例：色母類別 + w==1 時，強制 real_w=100
             if category == "色母":
-                # 色母統一基準：1 = 100K，不管 w 是多少
-                real_w = w * 100
-                unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
+                if w == 1:
+                    unit_str = "100K"
+                else:
+                    real_w = w * 100
+                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
             elif unit == "包":
                 real_w = w * 25
                 unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
@@ -169,13 +172,6 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             else:
                 real_w = w
                 unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
-    
-            count_str = str(int(c)) if c == int(c) else str(c)
-            text = f"{unit_str} × {count_str}"
-            pack_line.append(f"{text:<{pack_col_width}}")
-            
-        packing_indent = " " * 14
-        lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
                                     
     # 主配方色粉列
     for idx in range(8):
