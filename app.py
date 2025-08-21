@@ -1639,6 +1639,12 @@ elif menu == "生產單管理":
                 new_id = f"{today_str}-{count_today + 1:03}"
     
                 # 查找附加配方
+                selected_code = order_dict.get("配方編號", "")
+                recipe_row = None
+                if selected_code:
+                    recipe_match = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == str(selected_code).strip()]
+                    if not recipe_match.empty:
+                        recipe_row = recipe_match.iloc[0]  # Series
                 if recipe_row is not None:
                     if not isinstance(recipe_row, dict):
                         recipe_row = recipe_row.to_dict()
