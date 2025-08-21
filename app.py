@@ -928,7 +928,10 @@ elif menu == "配方管理":
             category_options = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他", "PE"]
 
             # 優先抓 recipe_row，有值才用
-            default = recipe_row.get("合計類別", "").strip()
+            if recipe_row is None:
+                default = "料"
+            else:
+                default = recipe_row.get("合計類別", "").strip()
             if not default or default.upper() not in [x.upper() for x in category_options]:
                 # fallback fr 裡的值
                 default = fr.get("合計類別", "").strip() or "料"
