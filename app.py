@@ -928,13 +928,19 @@ elif menu == "配方管理":
             category_options = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他", "PE"]
 
             # 優先抓 recipe_row，有值才用
-            if recipe_row is None:
-                default = "料"
-            else:
-                default = recipe_row.get("合計類別", "").strip()
+            default = "料"
+            # 1️⃣ 優先用 recipe_row，如果存在且有值
+            if 'recipe_row' in locals() and recipe_row is not None:
+                # 如果是 dict
+                if isinstance(recipe_row, dict):
+                    default = str(recipe_row.get("合計類別", "")).strip()
+                # 如果是 Pandas Series
+                elif hasattr(recipe_row, "__getitem__") and "合計類別" in recipe_row:
+                    default = str(recipe_row["合計類別"]).strip()
+            
+            # 2️⃣ 如果 default 不合法，fallback 到 fr，再 fallback "料"
             if not default or default.upper() not in [x.upper() for x in category_options]:
-                # fallback fr 裡的值
-                default = fr.get("合計類別", "").strip() or "料"
+                default = str(fr.get("合計類別", "") or "料").strip()
             
             # 找到對應 index（忽略大小寫）
             default_index = next((i for i, x in enumerate(category_options) if x.upper() == default.upper()), 0)
