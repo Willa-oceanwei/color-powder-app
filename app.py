@@ -184,6 +184,10 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         else:
             multipliers.append(w)
 
+    # 橫線：只有非色母才顯示
+    if category != "色母":
+        lines.append("＿" * 30)
+        
     # 主配方色粉列
     for idx in range(8):
         c_id = colorant_ids[idx]
