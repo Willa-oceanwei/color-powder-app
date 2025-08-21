@@ -644,15 +644,35 @@ elif menu == "配方管理":
     if st.session_state.form_recipe is None:
         st.session_state.form_recipe = {col: "" for col in columns}
 
-    # -------✅ 讀取 df_recipe CSV--------
+    # -------✅ 讀取 df_recipe（CSV + Google Sheet）--------
     recipe_file = Path("data/df_recipe.csv")
+    
+    columns = [
+        "配方編號", "客戶編號", "客戶名稱", "顏色", "比例", "Pantone",
+        "重要提醒", "合計類別", "備註",
+        "色粉1", "色粉2", "色粉3", "色粉4", "色粉5", "色粉6", "色粉7", "色粉8"
+    ]
+
+    # 嘗試從 CSV 讀取
     if recipe_file.exists():
         df_recipe = pd.read_csv(recipe_file, dtype=str)
-        st.session_state.df_recipe = df_recipe
     else:
-        st.warning("❌ df_recipe CSV 不存在，建立空 DataFrame")
+        st.warning("⚠️ df_recipe CSV 不存在，將建立空 DataFrame")
         df_recipe = pd.DataFrame(columns=columns)
-        st.session_state.df_recipe = df_recipe
+    
+    # 嘗試從 Google Sheet 讀取
+    try:
+        sheet_url = "你的 Google Sheet CSV 匯出網址"  # ⚠️ 換成實際網址
+        df_sheet = pd.read_csv(sheet_url, dtype=str)
+        # 以 Google Sheet 為最新資料，覆蓋 CSV
+        df_recipe = df_sheet
+        df_recipe.to_csv(recipe_file, index=False, encoding="utf-8-sig")
+    except Exception as e:
+        st.error(f"無法從 Google Sheet 載入，僅使用本地 CSV: {e}")
+    
+    # 存入 session
+    st.session_state.df_recipe = df_recipe
+    
 
     # 讀取表單
     try:
