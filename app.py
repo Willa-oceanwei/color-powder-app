@@ -2221,6 +2221,19 @@ elif menu == "生產單管理":
                         html_text += row + "<br>"
     
                 total_label = str(sub.get("合計類別", "=") or "=")
+                # 1️⃣ 生成上方橫線
+                line = "─" * len(total_label)
+                
+                # 2️⃣ 建立 total_line，把橫線加在文字上方
+                total_line = line + "\n" + total_label.ljust(powder_label_width)
+                
+                # 3️⃣ 計算對應 multipliers 的數字
+                for idx, m in enumerate(multipliers):
+                    val = net * m
+                    total_line += fmt_num(val).rjust(number_col_width)
+                
+                # 4️⃣ 用 Markdown code block 保持數字對齊
+                html_text += "```\n" + total_line + "\n```<br>"
                 try:
                     net = float(sub.get("淨重", 0) or 0)
                 except Exception:
