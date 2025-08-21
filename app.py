@@ -1625,7 +1625,7 @@ elif menu == "生產單管理":
             else:
                 # 安全處理 idx
                 idx = None
-                for i, opt in enumerate(options):
+                for i, opt in enumerate(filtered["label"]):
                     if opt == selected_label:
                         idx = i
                         break
