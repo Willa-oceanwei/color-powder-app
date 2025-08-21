@@ -1639,10 +1639,14 @@ elif menu == "生產單管理":
                 new_id = f"{today_str}-{count_today + 1:03}"
     
                 # 查找附加配方
-                main_recipe_code = str(selected_row.get("原始配方", "")).strip()
+                def safe_get_code(row, prefer="原始配方"):
+                    code = row.get(prefer) or row.get("配方編號") or ""
+                    return str(code).strip()
+                main_code = safe_get_code(recipe_row)
+
                 附加配方 = df_recipe[
                     (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
-                    (df_recipe["原始配方"].astype(str).str.strip() == main_recipe_code)
+                    (df_recipe["原始配方"].astype(str).str.strip() == main_code)
                 ]
     
                 # 整合色粉：先加入主配方色粉
