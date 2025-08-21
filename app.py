@@ -1535,7 +1535,7 @@ elif menu == "生產單管理":
         return fix_leading_zero(clean_powder_id(text))
     
     # Streamlit UI 搜尋表單
-    st.subheader("🔎 配方搜尋與新增生產單")
+    st.markdown("#### 🔎 配方搜尋與新增生產單") 
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4,1,1])
         with col1:
