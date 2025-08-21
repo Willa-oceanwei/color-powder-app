@@ -1658,14 +1658,18 @@ elif menu == "生產單管理":
                 new_id = f"{today_str}-{count_today + 1:03}"
     
                 # 查找附加配方
-                main_recipe_code = selected_row.get("配方編號", "").strip()
-                df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
-                df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).str.strip()
+                main_recipe_code = fix_leading_zero(clean_powder_id(selected_row.get("配方編號", "").strip()))
                 附加配方 = df_recipe[
-                    (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"] == main_recipe_code)
+                    (df_recipe["配方類別"].str.strip() == "附加配方") &
+                    (df_recipe["原始配方"].map(lambda x: fix_leading_zero(str(x).strip())) == main_recipe_code)
                 ]
-    
+                
+                # ✅ 寫入附加配方完整資料
+                order["附加配方"] = [
+                    {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
+                    for _, row in 附加配方.iterrows()
+                ]
+                
                 # 整合色粉：先加入主配方色粉
                 all_colorants = []
                 for i in range(1, 9):
@@ -1675,8 +1679,8 @@ elif menu == "生產單管理":
                     wt_val = selected_row.get(wt_key, "")
                     if id_val or wt_val:
                         all_colorants.append((id_val, wt_val))
-    
-                # 加入附加配方色粉
+                
+                # 再加入附加配方色粉
                 for _, sub in 附加配方.iterrows():
                     for i in range(1, 9):
                         id_key = f"色粉編號{i}"
@@ -1685,8 +1689,8 @@ elif menu == "生產單管理":
                         wt_val = sub.get(wt_key, "")
                         if id_val or wt_val:
                             all_colorants.append((id_val, wt_val))
-    
-                # 設定訂單詳細資料（先更新其他欄位）
+                
+                # 設定訂單詳細資料
                 order.update({
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
@@ -1701,8 +1705,8 @@ elif menu == "生產單管理":
                     "合計類別": str(selected_row.get("合計類別", "")).strip(),
                     "色粉類別": selected_row.get("色粉類別", "").strip(),
                 })
-    
-                # 用 all_colorants 填入色粉編號與重量欄位
+                
+                # 填入色粉欄位
                 for i in range(1, 9):
                     id_key = f"色粉編號{i}"
                     wt_key = f"色粉重量{i}"
@@ -1713,11 +1717,12 @@ elif menu == "生產單管理":
                     else:
                         order[id_key] = ""
                         order[wt_key] = ""
-    
+                
+                # ✅ 更新 session_state
                 st.session_state["new_order"] = order
                 st.session_state["show_confirm_panel"] = True
-    
-                # 重新執行應用（Streamlit 1.18+ 建議用 st.experimental_rerun）
+                
+                # 重新執行
                 st.rerun()              
     
     # ---------- 新增後欄位填寫區塊 ----------
