@@ -110,8 +110,6 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     number_col_width = 6
     column_offsets = [1, 5, 5, 5]
     total_offsets = [1.3, 5, 5, 5]
-
-    print(f"category={category!r}, w={w!r}")
     
     packing_weights = [
         float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
@@ -157,6 +155,8 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     for i in range(4):
         w = packing_weights[i]
         c = packing_counts[i]
+        print(f"category={category!r}, w={w!r}, type(w)={type(w)}, type(category)={type(category)}")
+
         if w > 0 or c > 0:
             # 特例：色母類別 + w==1 時，強制 real_w=100
             if category == "色母":
