@@ -1828,6 +1828,7 @@ if menu == "生產單管理":
                     "計量單位": recipe_row.get("計量單位", ""),
                     "原料": recipe_row.get("料", ""),
                 })
+                st.session_state.new_order = order
             
                 # ➕ 寫入 Google Sheets、CSV
                 try:
