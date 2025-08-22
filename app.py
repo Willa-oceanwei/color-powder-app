@@ -1846,13 +1846,13 @@ if menu == "生產單管理":
             
                     st.session_state.saved_order_id = new_id
                     st.success(f"✅ 生產單 {new_id} 已存！")
-            
-                    # 顯示下載按鈕
+                    
+                    # 🔹 立即生成列印 HTML + 下載按鈕
                     print_html = generate_print_page_content(
                         order=new_order_data,
                         recipe_row=recipe_row,
                         additional_recipe_rows=additional_recipes,
-                        show_additional_ids=False  # 或使用 checkbox
+                        show_additional_ids=False
                     )
                     
                     col1, col2, col3 = st.columns([3, 1, 3])
@@ -1860,7 +1860,7 @@ if menu == "生產單管理":
                         st.download_button(
                             label="📥 下載 A5 HTML",
                             data=print_html.encode("utf-8"),
-                            file_name=f"{new_order_data['生產單號']}_列印.html",
+                            file_name=f"{new_id}_列印.html",
                             mime="text/html"
                         )
                     
