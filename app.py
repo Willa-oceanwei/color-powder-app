@@ -1969,30 +1969,13 @@ if menu == "生產單管理":
     existing_cols = [c for c in display_cols if c in page_data.columns]
     
     if not page_data.empty and existing_cols:
-        for idx, row in page_data.iterrows():
-            # 分成三欄: 下拉選單 / 資料顯示 / 修改按鈕
-            cols = st.columns([2, 4, 1])
-            
-            with cols[0]:
-                selected_code = st.selectbox(
-                    "",
-                    options=[row["生產單號"]],
-                    key=f"select_order_{idx}"
-                )
-            
-            with cols[1]:
-                st.write({c: row[c] for c in existing_cols if c != "生產單號"})
-            
-            with cols[2]:
-                if st.button("修改", key=f"edit_order_{row['生產單號']}"):
-                    # 帶入 form_order 也帶入 new_order
-                    st.session_state.form_order = {k: ("" if pd.isna(v) else str(v)) for k, v in row.items()}
-                    st.session_state.new_order = st.session_state.form_order.copy()  # 新增暫存
-                    st.session_state.edit_flag = True  # 標記為修改模式
-                    st.session_state.mode_order = "form"
-                    st.rerun()
-                else:
-                    st.info("查無符合的資料（分頁結果）")
+        st.dataframe(
+            page_data[existing_cols].reset_index(drop=True),
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("查無符合的資料（分頁結果）")
     
     # ===== 分頁控制列 =====
     cols_page = st.columns([2, 2, 2, 2, 1])
