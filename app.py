@@ -1809,18 +1809,18 @@ if menu == "生產單管理":
                 new_order_data["色粉合計清單"] = color_weight_list
                 new_order_data["色粉合計類別"] = recipe_row.get("合計類別", "")
                 
-                from datetime import datetime
-                today_str = datetime.now().strftime("%Y%m%d")  # 例如 "20250822"
+                from datetime import datetime, timedelta
+                today_str = datetime.now().strftime("%Y%m%d")
                 today_orders = df_order[df_order["生產單號"].str.startswith(today_str)]
                 
-                if today_orders.empty:  # ✅ DataFrame.empty 判斷是否為空
+                if today_orders.empty:
                     seq = 1
                 else:
-                    # 從已有生產單號取序號部分
                     last_seq = today_orders["生產單號"].str.split("-").str[1].astype(int).max()
                     seq = last_seq + 1
                 
-                new_id = f"{today_str}-{seq:03d}"  # 例如 "20250822-001"
+                new_id = f"{today_str}-{seq:03d}"
+                new_order_data["生產單號"] = new_id
                 
                 # 🔹 確保所有必要欄位都有值
                 new_order_data.update({
@@ -1852,24 +1852,25 @@ if menu == "生產單管理":
                         order=new_order_data,
                         recipe_row=recipe_row,
                         additional_recipe_rows=additional_recipes,
-                        show_additional_ids=st.session_state.get("show_additional_ids", False)
+                        show_additional_ids=False  # 或使用 checkbox
                     )
+                    
                     col1, col2, col3 = st.columns([3, 1, 3])
                     with col1:
                         st.download_button(
                             label="📥 下載 A5 HTML",
                             data=print_html.encode("utf-8"),
-                            file_name=f"{new_id}_列印.html",
+                            file_name=f"{new_order_data['生產單號']}_列印.html",
                             mime="text/html"
                         )
-            
+                    
                     with col3:
                         if st.button("🔙 返回", key="back_button"):
                             st.session_state.new_order = None
                             st.session_state.show_confirm_panel = False
                             st.session_state.new_order_saved = False
                             st.session_state.saved_order_id = None
-                            st.rerun()
+                            st.experimental_rerun()
             
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
