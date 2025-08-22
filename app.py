@@ -2309,101 +2309,33 @@ elif menu == "生產單管理":
 
     
     # 修改面板（如果有啟動）
-    if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
-        st.markdown("---")
-        st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
-        
-        order_no = st.session_state.editing_order["生產單號"]
-        
-        # 從 df_order 取得最新 row
-        order_row = df_order[df_order["生產單號"] == order_no]
-        if order_row.empty:
-            st.warning(f"找不到生產單號：{order_no}")
-            st.stop()
-        order_dict = order_row.iloc[0].to_dict()  # 統一欄位格式
-        
-        # 取得對應配方資料
-        recipe_id = order_dict.get("配方編號", "")
-        recipe_rows = df_recipe[df_recipe["配方編號"] == recipe_id]
-        if recipe_rows.empty:
-            st.warning(f"找不到配方編號：{recipe_id}")
-            st.stop()
-        recipe_row = recipe_rows.iloc[0]
-        
-        # 表單編輯欄位
-        new_customer = st.text_input("客戶名稱", value=order_dict.get("客戶名稱", ""), key="edit_customer_name")
-        new_color = st.text_input("顏色", value=order_dict.get("顏色", ""), key="edit_color")
-    
-        # 包裝重量 1~4
-        pack_weights_cols = st.columns(4)
-        new_packing_weights = []
-        for i in range(1, 5):
-            weight = pack_weights_cols[i - 1].text_input(
-                f"包裝重量{i}", value=order_dict.get(f"包裝重量{i}", ""), key=f"edit_packing_weight_{i}"
+    if not df_order.empty:
+        # 下拉選單 + 刪除按鈕
+        cols = st.columns([3, 1])  # 兩欄：下拉、刪除
+        with cols[0]:
+            selected_label = st.selectbox(
+                "選擇生產單",
+                options=["無資料"] + df_order["生產單號"].tolist()
             )
-            new_packing_weights.append(weight)
+        with cols[1]:
+            if st.button("🗑️ 刪除", key="delete_order_btn") and selected_label != "無資料":
+                # 刪除 DataFrame 中該筆資料
+                df_order = df_order[df_order["生產單號"] != selected_label]
     
-        # 包裝份數 1~4
-        pack_counts_cols = st.columns(4)
-        new_packing_counts = []
-        for i in range(1, 5):
-            count = pack_counts_cols[i - 1].text_input(
-                f"包裝份數{i}", value=order_dict.get(f"包裝份數{i}", ""), key=f"edit_packing_count_{i}"
-            )
-            new_packing_counts.append(count)
+                # 同步更新 Google Sheets
+                try:
+                    ws_order.clear()
+                    ws_order.update([df_order.columns.values.tolist()] + df_order.values.tolist())
+                    st.success(f"✅ 已刪除生產單 {selected_label}，並更新 Google Sheets")
+                except Exception as e:
+                    st.error(f"⚠️ Google Sheets 更新錯誤：{e}")
     
-        new_remark = st.text_area("備註", value=order_dict.get("備註", ""), key="edit_remark")
+                # 寫入本地 CSV
+                os.makedirs(os.path.dirname(order_file), exist_ok=True)
+                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                st.session_state.df_order = df_order
     
-        
-        cols_edit = st.columns([1, 1, 1])
-    
-        with cols_edit[0]:
-            if st.button("儲存修改", key="save_edit_button"):
-                idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
-                if idx_list:
-                    idx = idx_list[0]
-    
-                    # 更新本地 DataFrame
-                    df_order.at[idx, "客戶名稱"] = new_customer
-                    df_order.at[idx, "顏色"] = new_color
-                    for i in range(4):
-                        df_order.at[idx, f"包裝重量{i + 1}"] = new_packing_weights[i]
-                        df_order.at[idx, f"包裝份數{i + 1}"] = new_packing_counts[i]
-                    df_order.at[idx, "備註"] = new_remark
-    
-                    # 同步更新 Google Sheets
-                    try:
-                        cell = ws_order.find(edit_order["生產單號"])
-                        if cell:
-                            row_idx = cell.row
-                            row_data = df_order.loc[idx].fillna("").astype(str).tolist()
-                            last_col_letter = chr(65 + len(row_data) - 1)
-                            ws_order.update(f"A{row_idx}:{last_col_letter}{row_idx}", [row_data])
-                            st.success("✅ Google Sheets 同步更新成功")
-                        else:
-                            st.warning("⚠️ Google Sheets 找不到該筆生產單，未更新")
-                    except Exception as e:
-                        st.error(f"Google Sheets 更新錯誤：{e}")
-    
-                    # 寫入本地檔案
-                    os.makedirs(os.path.dirname(order_file), exist_ok=True)
-                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                    st.session_state.df_order = df_order
-                    st.success("✅ 本地資料更新成功，修改已儲存")
-    
-                    # 不關閉編輯面板，方便繼續預覽或再修改
-                    # st.session_state.show_edit_panel = False
-                    # st.session_state.editing_order = None
-    
-                    st.experimental_rerun()
-                else:
-                    st.error("⚠️ 找不到該筆生產單資料")
-    
-        with cols_edit[1]:
-            if st.button("返回", key="return_button"):
-                st.session_state.show_edit_panel = False
-                st.session_state.editing_order = None
-                st.rerun()
+                st.experimental_rerun()  # 刷新頁面，下拉選單會自動更新
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
