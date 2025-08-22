@@ -1474,21 +1474,17 @@ elif menu == "生產單管理":
                 "色粉編號5", "色粉編號6", "色粉編號7", "色粉編號8", "色粉合計",
                 "合計類別"
             ]
+            ws_order.append_row(header)
             df_order = pd.DataFrame(columns=header)
-        
-        # 確保 '建立時間' 欄位存在
-        if "建立時間" not in df_order.columns:
-            df_order["建立時間"] = ""
-        
-        # 將建立時間轉成 datetime（安全處理缺失值）
-        df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
-        
-        # 按建立時間排序
-        df_order = df_order.sort_values(by="建立時間", ascending=False).reset_index(drop=True)
-    
+        st.session_state.df_order = df_order
     except Exception as e:
-        st.error(f"讀取生產單表失敗: {e}")
-        df_order = pd.DataFrame()  # 空 DataFrame 以防後續程式報錯
+        if order_file.exists():
+            st.warning("⚠️ 無法連線 Google Sheets，改用本地 CSV")
+            df_order = pd.read_csv(order_file, dtype=str).fillna("")
+            st.session_state.df_order = df_order
+        else:
+            st.error(f"❌ 無法讀取生產單資料：{e}")
+            st.stop()
     
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
