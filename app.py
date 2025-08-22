@@ -1836,22 +1836,17 @@ if menu == "生產單管理":
             
                 # ➕ 寫入 Google Sheets、CSV
                 try:
-                    # ✅ 寫入 Google Sheets
+                    # 寫入 Google Sheets + CSV
                     header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                    row_data = [str(new_order_data.get(col, "")).strip() for col in header]
-                    ws_order.append_row(row_data)
-                
-                    # ✅ 更新本地 DataFrame
-                    df_new = pd.DataFrame([new_order_data], columns=df_order.columns)
-                    df_order = pd.concat([df_order, df_new], ignore_index=True)
+                    ws_order.append_row([str(new_order_data.get(col, "")) for col in header])
+                    df_order = pd.concat([df_order, pd.DataFrame([new_order_data], columns=df_order.columns)], ignore_index=True)
                     df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
-                
-                    # 標記剛存檔的生產單號
-                    st.session_state.saved_order_id = new_order_data["生產單號"]
-                    st.success(f"✅ 生產單 {new_order_data['生產單號']} 已存！")
-                
-                    # 🔹 顯示下載按鈕 + 返回
+            
+                    st.session_state.saved_order_id = new_id
+                    st.success(f"✅ 生產單 {new_id} 已存！")
+            
+                    # 顯示下載按鈕
                     print_html = generate_print_page_content(
                         order=new_order_data,
                         recipe_row=recipe_row,
@@ -1863,10 +1858,10 @@ if menu == "生產單管理":
                         st.download_button(
                             label="📥 下載 A5 HTML",
                             data=print_html.encode("utf-8"),
-                            file_name=f"{new_order_data['生產單號']}_列印.html",
+                            file_name=f"{new_id}_列印.html",
                             mime="text/html"
                         )
-                
+            
                     with col3:
                         if st.button("🔙 返回", key="back_button"):
                             st.session_state.new_order = None
@@ -1874,7 +1869,7 @@ if menu == "生產單管理":
                             st.session_state.new_order_saved = False
                             st.session_state.saved_order_id = None
                             st.rerun()
-                
+            
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
 
