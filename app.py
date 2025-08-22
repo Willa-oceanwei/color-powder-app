@@ -1391,6 +1391,7 @@ elif menu == "配方管理":
     
 # ---------------- 生產單初始化 ----------------
 if "form_order" not in st.session_state or not st.session_state.form_order:
+    order_columns = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]
     st.session_state.form_order = {col: "" for col in order_columns}  # order_columns: 生產單欄位清單
     st.session_state.form_order["狀態"] = "啟用"
     st.session_state.form_order["單位"] = "kg"
