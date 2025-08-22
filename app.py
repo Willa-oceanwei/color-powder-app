@@ -1973,14 +1973,8 @@ elif menu == "生產單管理":
     else:
         df_filtered = df_order.copy()
     
-    if "建立時間" not in df_filtered.columns:
-        df_filtered["建立時間"] = pd.NaT
-        st.warning("'建立時間' 欄位不存在，已自動建立空欄位")
-    
-    # 轉換為 datetime（安全）
+    # 轉換建立時間並排序
     df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
-    
-    # 按建立時間排序（由新到舊）
     df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
     # ---- limit 下拉選單要先定義（因為會影響 total_pages）----
@@ -2127,6 +2121,22 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     st.markdown(" ")
+    # ------------------- 選擇生產單號 -------------------
+    options = []
+    code_to_id = {}
+    if not page_data.empty:
+        for idx, row in page_data.iterrows():
+            label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色','')} / {row.get('客戶名稱','')}"
+            options.append(label)
+            code_to_id[label] = row["生產單號"]
+    
+    cols_top2 = st.columns([5, 1, 1])
+    with cols_top2[0]:
+        selected_label = st.selectbox(
+            "選擇生產單號",
+            options or ["無資料"],
+            key="select_order_for_edit_from_list"
+        )
     
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
@@ -2271,53 +2281,9 @@ elif menu == "生產單管理":
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
         
-    # ------------------- 顯示預覽 + 修改/刪除 -------------------
+    # ------------------- 顯示預覽 -------------------
     if selected_label and selected_label != "無資料":
         selected_code_edit = code_to_id[selected_label]
-    
-        cols = st.columns([3, 1, 1])  # 三欄：下拉、修改、刪除
-        with cols[0]:
-            selected_label = st.selectbox(
-                "選擇生產單",
-                options=["無資料"] + list(code_to_id.keys()),
-                index=0 if not selected_label else list(code_to_id.keys()).index(selected_label) + 1
-            )
-    
-        with cols[1]:
-            if st.button("✏️ 修改", key="edit_order_btn") and selected_label != "無資料":
-                selected_code_edit = code_to_id[selected_label]
-                order_row = df_order[df_order["生產單號"] == selected_code_edit]
-                if not order_row.empty:
-                    order_dict = order_row.iloc[0].to_dict()
-                    st.session_state["editing_order"] = order_dict
-                    st.session_state["show_edit_panel"] = True
-                    st.experimental_rerun()  # 立即刷新，顯示編輯面板
-    
-        with cols[2]:
-            if st.button("🗑️ 刪除", key="delete_order_btn") and selected_label != "無資料":
-                selected_code_delete = code_to_id[selected_label]
-                df_order = df_order[df_order["生產單號"] != selected_code_delete]
-
-            # --- 存回 Google Sheet（整表覆蓋） ---
-            try:
-                df_order_str = df_order.fillna("").astype(str)
-                values = [df_order_str.columns.tolist()] + df_order_str.values.tolist()
-                ws_order.clear()  # 清空原表
-                ws_order.update("A1", values)
-                st.success(f"✅ 已刪除生產單 {selected_code_delete} 並同步 Google Sheet")
-            except Exception as e:
-                st.error(f"刪除生產單時 Google Sheet 更新錯誤：{e}")
-            
-            st.session_state.df_order = df_order
-            st.experimental_rerun()  # 刷新頁面，更新下拉選單
-
-
-            # --- 存回 Google Sheet ---
-            ws_order.clear()  # 清空原本工作表
-            ws_order.update([df_order.columns.values.tolist()] + df_order.values.tolist())
-            st.success(f"已刪除生產單 {selected_code_delete}")
-    
-        # 查詢生產單 & 配方
         order_row = df_order[df_order["生產單號"] == selected_code_edit]
         if not order_row.empty:
             order_dict = order_row.iloc[0].to_dict()
@@ -2346,16 +2312,24 @@ elif menu == "生產單管理":
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
         st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
-    
+        
         order_no = st.session_state.editing_order["生產單號"]
-    
+        
         # 從 df_order 取得最新 row
         order_row = df_order[df_order["生產單號"] == order_no]
         if order_row.empty:
             st.warning(f"找不到生產單號：{order_no}")
             st.stop()
-        order_dict = order_row.iloc[0].to_dict()
-    
+        order_dict = order_row.iloc[0].to_dict()  # 統一欄位格式
+        
+        # 取得對應配方資料
+        recipe_id = order_dict.get("配方編號", "")
+        recipe_rows = df_recipe[df_recipe["配方編號"] == recipe_id]
+        if recipe_rows.empty:
+            st.warning(f"找不到配方編號：{recipe_id}")
+            st.stop()
+        recipe_row = recipe_rows.iloc[0]
+        
         # 表單編輯欄位
         new_customer = st.text_input("客戶名稱", value=order_dict.get("客戶名稱", ""), key="edit_customer_name")
         new_color = st.text_input("顏色", value=order_dict.get("顏色", ""), key="edit_color")
@@ -2380,11 +2354,12 @@ elif menu == "生產單管理":
     
         new_remark = st.text_area("備註", value=order_dict.get("備註", ""), key="edit_remark")
     
+        
         cols_edit = st.columns([1, 1, 1])
     
         with cols_edit[0]:
-            if st.button("💾 儲存修改", key="save_edit_button"):
-                idx_list = df_order.index[df_order["生產單號"] == order_no].tolist()
+            if st.button("儲存修改", key="save_edit_button"):
+                idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
                 if idx_list:
                     idx = idx_list[0]
     
@@ -2396,34 +2371,36 @@ elif menu == "生產單管理":
                         df_order.at[idx, f"包裝份數{i + 1}"] = new_packing_counts[i]
                     df_order.at[idx, "備註"] = new_remark
     
-                    # ✅ 同步更新 Google Sheets（自動依欄位順序更新）
+                    # 同步更新 Google Sheets
                     try:
-                        cell = ws_order.find(order_no)
+                        cell = ws_order.find(edit_order["生產單號"])
                         if cell:
                             row_idx = cell.row
-                            # 取出 Google Sheet 的欄位名稱
-                            sheet_headers = ws_order.row_values(1)
-                            # 依照欄位順序組裝更新的 row
-                            row_data = [str(df_order.at[idx, col]) if col in df_order.columns else "" for col in sheet_headers]
-                            ws_order.update(f"A{row_idx}", [row_data])
+                            row_data = df_order.loc[idx].fillna("").astype(str).tolist()
+                            last_col_letter = chr(65 + len(row_data) - 1)
+                            ws_order.update(f"A{row_idx}:{last_col_letter}{row_idx}", [row_data])
                             st.success("✅ Google Sheets 同步更新成功")
                         else:
                             st.warning("⚠️ Google Sheets 找不到該筆生產單，未更新")
                     except Exception as e:
                         st.error(f"Google Sheets 更新錯誤：{e}")
     
-                    # ✅ 寫入本地檔案
+                    # 寫入本地檔案
                     os.makedirs(os.path.dirname(order_file), exist_ok=True)
                     df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
                     st.success("✅ 本地資料更新成功，修改已儲存")
     
-                    st.rerun()
+                    # 不關閉編輯面板，方便繼續預覽或再修改
+                    # st.session_state.show_edit_panel = False
+                    # st.session_state.editing_order = None
+    
+                    st.experimental_rerun()
                 else:
                     st.error("⚠️ 找不到該筆生產單資料")
     
         with cols_edit[1]:
-            if st.button("⬅️ 返回", key="return_button"):
+            if st.button("返回", key="return_button"):
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
                 st.rerun()
