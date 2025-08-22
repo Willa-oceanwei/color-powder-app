@@ -1613,6 +1613,7 @@ if menu == "生產單管理":
         order = st.session_state.get("new_order")
         if order is None or not isinstance(order, dict):
             order = {}
+            st.session_state.new_order = order  # ✅ 立即存回 session_state
     
         recipe_id_raw = order.get("配方編號", "").strip()
 
