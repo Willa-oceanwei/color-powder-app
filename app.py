@@ -1813,7 +1813,6 @@ if menu == "生產單管理":
                 today_orders = df_order[df_order["生產單號"].str.startswith(today_str)]
                 seq = 1 if today_orders.empty else today_orders["生產單號"].str.split("-").str[1].astype(int).max() + 1
                 new_id = f"{today_str}-{seq:03d}"
-                new_order_data["生產單號"] = new_id
             
                 # 🔹 確保所有必要欄位都有值
                 new_order_data.update({
