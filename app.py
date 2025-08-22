@@ -1808,7 +1808,9 @@ if menu == "生產單管理":
                         continue
                 new_order_data["色粉合計清單"] = color_weight_list
                 new_order_data["色粉合計類別"] = recipe_row.get("合計類別", "")
-            
+                
+                from datetime import datetime
+                new_id = f"{datetime.now():%y%m%d%H%M%S}"  # 範例：用時間生成唯一單號
                 # 🔹 確保所有必要欄位都有值
                 new_order_data.update({
                     "生產單號": new_order_data.get("生產單號", new_id),
