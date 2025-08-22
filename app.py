@@ -1810,7 +1810,18 @@ if menu == "生產單管理":
                 new_order_data["色粉合計類別"] = recipe_row.get("合計類別", "")
                 
                 from datetime import datetime
-                new_id = f"{datetime.now():%y%m%d%H%M%S}"  # 範例：用時間生成唯一單號
+                today_str = datetime.now().strftime("%Y%m%d")  # 例如 "20250822"
+                # 找今天已有的最大序號
+                today_orders = df_order[df_order["生產單號"].str.startswith(today_str)]
+                if today_orders.empty:
+                    seq = 1
+                else:
+                    # 從已有生產單號取序號部分
+                    last_seq = today_orders["生產單號"].str.split("-").str[1].astype(int).max()
+                    seq = last_seq + 1
+                
+                new_id = f"{today_str}-{seq:03d}"  # 例如 "20250822-001"
+                
                 # 🔹 確保所有必要欄位都有值
                 new_order_data.update({
                     "生產單號": new_order_data.get("生產單號", new_id),
