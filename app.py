@@ -2123,43 +2123,44 @@ elif menu == "生產單管理":
     st.markdown(" ")
     
     # ------------------- 選擇生產單號 -------------------
-    options = []
-    code_to_id = {}
-    if not df_order.empty:
-        cols = st.columns([5, 1])  # 下拉選單 + 刪除按鈕
+    if not df_filtered.empty:
+        # 生成下拉選單選項
+        options = ["無資料"] + df_filtered["生產單號"].tolist()
+        code_to_id = {code: code for code in df_filtered["生產單號"].tolist()}
+    
+        cols = st.columns([5, 1])  # 兩欄：下拉、刪除
         with cols[0]:
             selected_label = st.selectbox(
                 "選擇生產單號",
-                options=["無資料"] + df_order["生產單號"].tolist(),
-                index=0
+                options=options,
+                index=1 if len(options) > 1 else 0
             )
     
         with cols[1]:
-            if st.button("🗑️ 刪除", key="delete_order_btn") and selected_label != "無資料":
-                confirm = st.confirm(f"確定要刪除生產單 {selected_label} 嗎？")
-                if confirm:
+            if selected_label != "無資料":
+                confirm_delete = st.checkbox(f"確認刪除 {selected_label}", key="confirm_delete_checkbox")
+                if st.button("🗑️ 刪除", key="delete_order_btn") and confirm_delete:
+                    selected_code_delete = code_to_id[selected_label]
+    
                     # 刪除 DataFrame 中該筆資料
-                    df_order = df_order[df_order["生產單號"] != selected_label]
+                    df_order = df_order[df_order["生產單號"] != selected_code_delete]
     
-                    # 更新 session state
-                    st.session_state.df_order = df_order
-    
-                    # 同步更新 Google Sheets
+                    # 同步更新 Google Sheets（單筆刪除）
                     try:
-                        cell = ws_order.find(selected_label)
+                        cell = ws_order.find(selected_code_delete)
                         if cell:
                             ws_order.delete_rows(cell.row)
-                            st.success(f"✅ 已刪除生產單 {selected_label}，並更新 Google Sheets")
+                            st.success(f"✅ 已刪除生產單 {selected_code_delete}，並更新 Google Sheets")
                         else:
-                            st.warning("⚠️ Google Sheets 找不到該筆生產單，僅刪除本地資料")
+                            st.warning(f"⚠️ Google Sheets 找不到該筆生產單 {selected_code_delete}")
                     except Exception as e:
                         st.error(f"⚠️ Google Sheets 更新錯誤：{e}")
     
                     # 寫入本地 CSV
                     os.makedirs(os.path.dirname(order_file), exist_ok=True)
                     df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                    st.session_state.df_order = df_order
     
-                    # 刷新頁面，下拉選單自動更新
                     st.rerun()
     
     # ------------------- 預覽函式 -------------------
