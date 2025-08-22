@@ -1814,22 +1814,20 @@ if menu == "生產單管理":
                 row_data = [str(new_order_data.get(col, "")).strip() if new_order_data.get(col) is not None else "" for col in header]
                 try:
                     ws_order.append_row(row_data)
-                    df_new = pd.DataFrame([order], columns=df_order.columns)
+                    df_new = pd.DataFrame([new_order_data], columns=df_order.columns)
                     df_order = pd.concat([df_order, df_new], ignore_index=True)
                     df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
-                    st.session_state.new_order_saved = True
-                    st.success(f"✅ 生產單 {order['生產單號']} 已存！")
             
-                    # ➡ 儲存完回列表模式
-                    st.session_state.mode_order = "list"
-                    st.session_state.show_confirm_panel = False
-                    st.session_state.new_order = None
-                    st.session_state.edit_flag = False
-                    st.rerun()
+                    # 標記為剛存檔的生產單
+                    st.session_state.saved_order_id = new_order_data["生產單號"]
+                    st.success(f"✅ 生產單 {new_order_data['生產單號']} 已存！")
             
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
+                        
+                            except Exception as e:
+                                st.error(f"❌ 寫入失敗：{e}")
         
             # 產生列印 HTML 按鈕
             # ✅ 加入 checkbox 讓使用者決定是否顯示附加配方編號
@@ -1844,21 +1842,26 @@ if menu == "生產單管理":
             )
             
             # 下載按鈕         
-            col1, col2, col3 = st.columns([3, 1, 3])
-            with col1:
-                st.download_button(
-                    label="📥 下載 A5 HTML",
-                    data=print_html.encode("utf-8"),
-                    file_name=f"{order['生產單號']}_列印.html",
-                    mime="text/html"
-                )
-            
-            with col3:
-                if st.button("🔙 返回", key="back_button"):
-                    st.session_state.new_order = None
-                    st.session_state.show_confirm_panel = False
-                    st.session_state.new_order_saved = False
-                    st.rerun()
+            if st.session_state.get("saved_order_id"):
+                order_id = st.session_state.saved_order_id
+                print_html = generate_print_page_content(order_id)
+                
+                col1, col2, col3 = st.columns([3, 1, 3])
+                with col1:
+                    st.download_button(
+                        label="📥 下載 A5 HTML",
+                        data=print_html.encode("utf-8"),
+                        file_name=f"{order_id}_列印.html",
+                        mime="text/html"
+                    )
+                
+                with col3:
+                    if st.button("🔙 返回", key="back_button"):
+                        st.session_state.saved_order_id = None
+                        st.session_state.new_order = None
+                        st.session_state.show_confirm_panel = False
+                        st.session_state.new_order_saved = False
+                        st.rerun()
                             
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     if st.session_state.mode_order == "list":
