@@ -1811,18 +1811,26 @@ if menu == "生產單管理":
             
                 # ➕ 寫入 Google Sheets、CSV 等流程
                 header = [col for col in df_order.columns if col and str(col).strip() != ""]
+                # 先建立每個欄位對應的值，確保欄位對齊
                 row_data = [str(new_order_data.get(col, "")).strip() if new_order_data.get(col) is not None else "" for col in header]
+                
                 try:
+                    # Google Sheets 更新
                     ws_order.append_row(row_data)
-                    df_new = pd.DataFrame([new_order_data], columns=df_order.columns)
+                
+                    # 建立新的 DataFrame 並合併到 df_order
+                    df_new = pd.DataFrame([row_data], columns=header)
                     df_order = pd.concat([df_order, df_new], ignore_index=True)
-                    df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+                
+                    # 存本地 CSV
+                    os.makedirs(os.path.dirname(order_file), exist_ok=True)
+                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
-            
+                
                     # 標記為剛存檔的生產單
-                    st.session_state.saved_order_id = new_order_data["生產單號"]
-                    st.success(f"✅ 生產單 {new_order_data['生產單號']} 已存！")
-            
+                    st.session_state.saved_order_id = new_order_data.get("生產單號", "")
+                    st.success(f"✅ 生產單 {st.session_state.saved_order_id} 已存！")
+                
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
                         
