@@ -2121,22 +2121,6 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     st.markdown(" ")
-    # ------------------- 選擇生產單號 -------------------
-    options = []
-    code_to_id = {}
-    if not page_data.empty:
-        for idx, row in page_data.iterrows():
-            label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色','')} / {row.get('客戶名稱','')}"
-            options.append(label)
-            code_to_id[label] = row["生產單號"]
-    
-    cols_top2 = st.columns([5, 1, 1])
-    with cols_top2[0]:
-        selected_label = st.selectbox(
-            "選擇生產單號",
-            options or ["無資料"],
-            key="select_order_for_edit_from_list"
-        )
     
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
@@ -2281,7 +2265,7 @@ elif menu == "生產單管理":
         plain_text = re.sub(r"<.*?>", "", text_with_newlines)
         return "```\n" + plain_text.strip() + "\n```"
         
-    # ------------------- 顯示預覽 -------------------
+    # ------------------- 顯示預覽 + 修改/刪除 -------------------
     if selected_label and selected_label != "無資料":
         selected_code_edit = code_to_id[selected_label]
     
@@ -2292,19 +2276,35 @@ elif menu == "生產單管理":
                 options=["無資料"] + list(code_to_id.keys()),
                 index=0 if not selected_label else list(code_to_id.keys()).index(selected_label) + 1
             )
-        
+    
         with cols[1]:
             if st.button("✏️ 修改", key="edit_order_btn") and selected_label != "無資料":
                 selected_code_edit = code_to_id[selected_label]
                 order_row = df_order[df_order["生產單號"] == selected_code_edit]
                 if not order_row.empty:
                     order_dict = order_row.iloc[0].to_dict()
-                    st.session_state["edit_order"] = order_dict   # 🔹 放進 session，等下帶入表單
-        
+                    st.session_state["editing_order"] = order_dict
+                    st.session_state["show_edit_panel"] = True
+                    st.experimental_rerun()  # 立即刷新，顯示編輯面板
+    
         with cols[2]:
             if st.button("🗑️ 刪除", key="delete_order_btn") and selected_label != "無資料":
                 selected_code_delete = code_to_id[selected_label]
-                df_order = df_order[df_order["生產單號"] != selected_code_delete]  # 刪除 DataFrame 裡的資料
+                df_order = df_order[df_order["生產單號"] != selected_code_delete]
+
+            # --- 存回 Google Sheet（整表覆蓋） ---
+            try:
+                df_order_str = df_order.fillna("").astype(str)
+                values = [df_order_str.columns.tolist()] + df_order_str.values.tolist()
+                ws_order.clear()  # 清空原表
+                ws_order.update("A1", values)
+                st.success(f"✅ 已刪除生產單 {selected_code_delete} 並同步 Google Sheet")
+            except Exception as e:
+                st.error(f"刪除生產單時 Google Sheet 更新錯誤：{e}")
+            
+            st.session_state.df_order = df_order
+            st.experimental_rerun()  # 刷新頁面，更新下拉選單
+
 
                 # --- 存回 Google Sheet ---
                 ws_order.clear()  # 清空原本工作表
