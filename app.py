@@ -1777,10 +1777,12 @@ if menu == "生產單管理":
                     "合計類別": st.session_state.form_total_category,
                 }
             
+                # 包裝重量與份數
                 for i in range(1, 5):
                     new_order_data[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
                     new_order_data[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
             
+                # 色粉資料
                 for i in range(1, 9):
                     key_id = f"色粉編號{i}"
                     key_weight = f"色粉重量{i}"
@@ -1804,23 +1806,17 @@ if menu == "生產單管理":
                         continue
                 new_order_data["色粉合計清單"] = color_weight_list
                 new_order_data["色粉合計類別"] = recipe_row.get("合計類別", "")
-                
+            
+                # 生成新生產單號
                 from datetime import datetime, timedelta
                 today_str = datetime.now().strftime("%Y%m%d")
                 today_orders = df_order[df_order["生產單號"].str.startswith(today_str)]
-                
-                if today_orders.empty:
-                    seq = 1
-                else:
-                    last_seq = today_orders["生產單號"].str.split("-").str[1].astype(int).max()
-                    seq = last_seq + 1
-                
+                seq = 1 if today_orders.empty else today_orders["生產單號"].str.split("-").str[1].astype(int).max() + 1
                 new_id = f"{today_str}-{seq:03d}"
                 new_order_data["生產單號"] = new_id
-                
+            
                 # 🔹 確保所有必要欄位都有值
                 new_order_data.update({
-                    "生產單號": new_order_data.get("生產單號", new_id),
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
                     "配方編號": recipe_row.get("配方編號", ""),
@@ -1830,20 +1826,21 @@ if menu == "生產單管理":
                     "計量單位": recipe_row.get("計量單位", ""),
                     "原料": recipe_row.get("料", ""),
                 })
-                st.session_state.new_order = order
+            
+                # 存到 session_state
+                st.session_state.new_order = new_order_data
             
                 # ➕ 寫入 Google Sheets、CSV
                 try:
-                    # 寫入 Google Sheets + CSV
                     header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                    row_data = [str(order.get(col, "")) for col in header]
+                    row_data = [str(new_order_data.get(col, "")) for col in header]
                     ws_order.append_row(row_data)
-                    df_order = pd.concat([df_order, pd.DataFrame([order], columns=df_order.columns)], ignore_index=True)
+                    df_order = pd.concat([df_order, pd.DataFrame([new_order_data], columns=df_order.columns)], ignore_index=True)
                     df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
                     st.session_state.new_order_saved = True
-                    st.success(f"✅ 生產單 {order['生產單號']} 已存！")
-                    
+                    st.success(f"✅ 生產單 {new_order_data['生產單號']} 已存！")
+            
                     # 🔹 立即生成列印 HTML + 下載按鈕
                     print_html = generate_print_page_content(
                         order=new_order_data,
@@ -1851,26 +1848,25 @@ if menu == "生產單管理":
                         additional_recipe_rows=additional_recipes,
                         show_additional_ids=False
                     )
-                    
+            
                     col1, col2, col3 = st.columns([3, 1, 3])
                     with col1:
                         st.download_button(
                             label="📥 下載 A5 HTML",
                             data=print_html.encode("utf-8"),
-                            file_name=f"{order['生產單號']}_列印.html",
+                            file_name=f"{new_order_data['生產單號']}_列印.html",
                             mime="text/html"
                         )
-                    
+            
                     with col3:
-                        with col3:
-                            if st.button("🔙 返回", key="back_button"):
-                                st.session_state.new_order = None
-                                st.session_state.show_confirm_panel = False
-                                st.session_state.new_order_saved = False
-                                st.experimental_rerun()
+                        if st.button("🔙 返回", key="back_button"):
+                            st.session_state.new_order = None
+                            st.session_state.show_confirm_panel = False
+                            st.session_state.new_order_saved = False
+                            st.experimental_rerun()
             
                 except Exception as e:
-                    st.error(f"❌ 寫入失敗：{e}")
+                    st.error(f"❌ 儲存生產單失敗: {e}")
 
                             
     # ---------- 生產單清單 + 修改 / 刪除 ----------
