@@ -1826,73 +1826,48 @@ if menu == "生產單管理":
             
                 # ➕ 寫入 Google Sheets、CSV
                 try:
-                    header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                    row_data = [str(new_order_data.get(col, "")).strip() for col in header]
+                # ✅ 寫入 Google Sheets
+                header = [col for col in df_order.columns if col and str(col).strip() != ""]
+                row_data = [str(new_order_data.get(col, "")).strip() for col in header]
+                ws_order.append_row(row_data)
             
-                    ws_order.append_row(row_data)  # Google Sheets
-                    df_new = pd.DataFrame([new_order_data], columns=df_order.columns)
-                    df_order = pd.concat([df_order, df_new], ignore_index=True)
-                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                    st.session_state.df_order = df_order
+                # ✅ 更新本地 DataFrame
+                df_new = pd.DataFrame([new_order_data], columns=df_order.columns)
+                df_order = pd.concat([df_order, df_new], ignore_index=True)
+                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                st.session_state.df_order = df_order
             
-                    # 標記剛存檔的生產單號
-                    st.session_state.saved_order_id = new_order_data["生產單號"]
-                    st.success(f"✅ 生產單 {new_order_data['生產單號']} 已存！")
+                # 標記剛存檔的生產單號
+                st.session_state.saved_order_id = new_order_data["生產單號"]
+                st.success(f"✅ 生產單 {new_order_data['生產單號']} 已存！")
             
-                    # 🔹 顯示下載按鈕
-                    print_html = generate_print_page_content(new_order_data, recipe_row, additional_recipes)
-                    col1, col2, col3 = st.columns([3, 1, 3])
-                    with col1:
-                        st.download_button(
-                            label="📥 下載 A5 HTML",
-                            data=print_html.encode("utf-8"),
-                            file_name=f"{new_order_data['生產單號']}_列印.html",
-                            mime="text/html"
-                        )
-            
-                    with col3:
-                        if st.button("🔙 返回", key="back_button"):
-                            st.session_state.new_order = None
-                            st.session_state.show_confirm_panel = False
-                            st.session_state.new_order_saved = False
-                            st.rerun()
-            
-                except Exception as e:
-                    st.error(f"❌ 寫入失敗：{e}")
-                        
-            # 產生列印 HTML 按鈕
-            # ✅ 加入 checkbox 讓使用者決定是否顯示附加配方編號
-            show_ids = st.checkbox("列印時顯示附加配方編號", value=False)
-            
-            # 產生列印 HTML
-            print_html = generate_print_page_content(
-                order=order,
-                recipe_row=recipe_row,
-                additional_recipe_rows=order.get("附加配方", []),
-                show_additional_ids=show_ids
-            )
-            
-            # 下載按鈕         
-            if st.session_state.get("saved_order_id"):
-                order_id = st.session_state.saved_order_id
-                print_html = generate_print_page_content(order_id)
-                
+                # 🔹 顯示下載按鈕 + 返回
+                print_html = generate_print_page_content(
+                    order=new_order_data,
+                    recipe_row=recipe_row,
+                    additional_recipe_rows=additional_recipes,
+                    show_additional_ids=st.session_state.get("show_additional_ids", False)
+                )
                 col1, col2, col3 = st.columns([3, 1, 3])
                 with col1:
                     st.download_button(
                         label="📥 下載 A5 HTML",
                         data=print_html.encode("utf-8"),
-                        file_name=f"{order_id}_列印.html",
+                        file_name=f"{new_order_data['生產單號']}_列印.html",
                         mime="text/html"
                     )
-                
+            
                 with col3:
                     if st.button("🔙 返回", key="back_button"):
-                        st.session_state.saved_order_id = None
                         st.session_state.new_order = None
                         st.session_state.show_confirm_panel = False
                         st.session_state.new_order_saved = False
+                        st.session_state.saved_order_id = None
                         st.rerun()
+            
+            except Exception as e:
+                st.error(f"❌ 寫入失敗：{e}")
+
                             
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     if st.session_state.mode_order == "list":
