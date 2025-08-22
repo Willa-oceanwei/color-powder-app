@@ -2024,7 +2024,7 @@ if menu == "生產單管理":
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     st.markdown(" ")
         
-    # ------------------- 選擇生產單號 -------------------
+    # ------------------- 選擇生產單號 + 修改/刪除 -------------------
     options = []
     code_to_id = {}
     if not page_data.empty:
@@ -2041,6 +2041,37 @@ if menu == "生產單管理":
             key="select_order_for_edit_from_list"
         )
     
+    # 取得選中的生產單號
+    order_id = code_to_id.get(selected_label, None) if selected_label != "無資料" else None
+    
+    if order_id:
+        with cols_top2[1]:
+            if st.button("修改", key=f"edit_{order_id}"):
+                row = df_order[df_order["生產單號"] == order_id].iloc[0]
+                st.session_state.form_order = {k: ("" if pd.isna(v) else str(v)) for k, v in row.items()}
+    
+                recipe_id = row.get("配方編號", "")
+                if not df_recipe[df_recipe["配方編號"] == recipe_id].empty:
+                    st.session_state.form_recipe = df_recipe[df_recipe["配方編號"] == recipe_id].iloc[0].to_dict()
+                else:
+                    st.warning(f"找不到配方編號：{recipe_id}")
+    
+                st.session_state.editing_order = order_id
+                st.session_state.mode_order = "form"
+                st.experimental_rerun()
+    
+        with cols_top2[2]:
+            if st.button("刪除", key=f"delete_{order_id}"):
+                idx_list = df_order.index[df_order["生產單號"] == order_id].tolist()
+                if idx_list:
+                    idx = idx_list[0]
+                    df_order.drop(idx, inplace=True)
+                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                    st.session_state.df_order = df_order
+                    st.success(f"✅ 已刪除生產單：{order_id}")
+                    st.experimental_rerun()
+                else:
+                    st.error("⚠️ 找不到該筆生產單資料")
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
         main_code = ""
@@ -2209,48 +2240,6 @@ if menu == "生產單管理":
             preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
             with st.expander("👀 生產單預覽", expanded=False):
                 st.markdown(preview_text)
-
-    # ===== 修改 + 刪除按鈕 =====
-    for idx, row in page_data.iterrows():
-        order_id = row["生產單號"]
-    
-        # 分三欄：下拉選單 / 資料顯示 / 按鈕
-        cols = st.columns([2, 4, 1])
-    
-        with cols[0]:
-            st.selectbox("", options=[order_id], key=f"select_order_{idx}")
-    
-        with cols[1]:
-            st.write({c: row[c] for c in display_cols if c != "生產單號"})
-    
-        with cols[2]:
-            # 修改按鈕：直接切換回新增/修改模式
-            if st.button("修改", key=f"edit_{order_id}"):
-                st.session_state.form_order = {k: ("" if pd.isna(v) else str(v)) for k, v in row.items()}
-    
-                # 對應配方資料
-                recipe_id = row.get("配方編號", "")
-                if not df_recipe[df_recipe["配方編號"] == recipe_id].empty:
-                    st.session_state.form_recipe = df_recipe[df_recipe["配方編號"] == recipe_id].iloc[0].to_dict()
-                else:
-                    st.warning(f"找不到配方編號：{recipe_id}")
-    
-                st.session_state.editing_order = order_id
-                st.session_state.mode_order = "form"
-                st.experimental_rerun()
-    
-            # 刪除按鈕
-            if st.button("刪除", key=f"delete_{order_id}"):
-                idx_list = df_order.index[df_order["生產單號"] == order_id].tolist()
-                if idx_list:
-                    idx = idx_list[0]
-                    df_order.drop(idx, inplace=True)
-                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                    st.session_state.df_order = df_order
-                    st.success(f"✅ 已刪除生產單：{order_id}")
-                    st.experimental_rerun()
-                else:
-                    st.error("⚠️ 找不到該筆生產單資料")
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
