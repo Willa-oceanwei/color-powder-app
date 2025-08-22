@@ -1586,6 +1586,7 @@ if menu == "生產單管理":
             df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).str.strip()
             additional_recipes = df_recipe[(df_recipe["配方類別"]=="附加配方") & (df_recipe["原始配方"]==main_recipe_code)]
 
+            order = {}
             order.update({
                 "生產單號": new_id,
                 "生產日期": datetime.now().strftime("%Y-%m-%d"),
