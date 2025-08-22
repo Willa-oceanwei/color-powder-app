@@ -2285,20 +2285,31 @@ elif menu == "生產單管理":
     if selected_label and selected_label != "無資料":
         selected_code_edit = code_to_id[selected_label]
     
-        cols = st.columns([3, 1, 1])  # 左邊放下拉，右邊放按鈕
+        cols = st.columns([3, 1, 1])  # 三欄：下拉、修改、刪除
         with cols[0]:
-            st.markdown(f"**已選擇生產單：** {selected_label}")
+            selected_label = st.selectbox(
+                "選擇生產單",
+                options=["無資料"] + list(code_to_id.keys()),
+                index=0 if not selected_label else list(code_to_id.keys()).index(selected_label) + 1
+            )
+        
         with cols[1]:
-            if st.button("✏️ 修改", key=f"edit_{selected_code_edit}"):
-                st.session_state["mode"] = "edit_order"
-                st.session_state["edit_order_id"] = selected_code_edit
-                st.rerun()
+            if st.button("✏️ 修改", key="edit_order_btn") and selected_label != "無資料":
+                selected_code_edit = code_to_id[selected_label]
+                order_row = df_order[df_order["生產單號"] == selected_code_edit]
+                if not order_row.empty:
+                    order_dict = order_row.iloc[0].to_dict()
+                    st.session_state["edit_order"] = order_dict   # 🔹 放進 session，等下帶入表單
+        
         with cols[2]:
-            if st.button("🗑️ 刪除", key=f"delete_{selected_code_edit}"):
-                df_order = df_order[df_order["生產單號"] != selected_code_edit]
-                save_order_data(df_order)  # 你的函式：存回 Google Sheet / CSV
-                st.success(f"已刪除生產單 {selected_code_edit}")
-                st.rerun()
+            if st.button("🗑️ 刪除", key="delete_order_btn") and selected_label != "無資料":
+                selected_code_delete = code_to_id[selected_label]
+                df_order = df_order[df_order["生產單號"] != selected_code_delete]  # 刪除 DataFrame 裡的資料
+
+                # --- 存回 Google Sheet ---
+                ws_order.clear()  # 清空原本工作表
+                ws_order.update([df_order.columns.values.tolist()] + df_order.values.tolist())
+                st.success(f"已刪除生產單 {selected_code_delete}")
     
         # 查詢生產單 & 配方
         order_row = df_order[df_order["生產單號"] == selected_code_edit]
@@ -2329,24 +2340,16 @@ elif menu == "生產單管理":
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
         st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
-        
+    
         order_no = st.session_state.editing_order["生產單號"]
-        
+    
         # 從 df_order 取得最新 row
         order_row = df_order[df_order["生產單號"] == order_no]
         if order_row.empty:
             st.warning(f"找不到生產單號：{order_no}")
             st.stop()
-        order_dict = order_row.iloc[0].to_dict()  # 統一欄位格式
-        
-        # 取得對應配方資料
-        recipe_id = order_dict.get("配方編號", "")
-        recipe_rows = df_recipe[df_recipe["配方編號"] == recipe_id]
-        if recipe_rows.empty:
-            st.warning(f"找不到配方編號：{recipe_id}")
-            st.stop()
-        recipe_row = recipe_rows.iloc[0]
-        
+        order_dict = order_row.iloc[0].to_dict()
+    
         # 表單編輯欄位
         new_customer = st.text_input("客戶名稱", value=order_dict.get("客戶名稱", ""), key="edit_customer_name")
         new_color = st.text_input("顏色", value=order_dict.get("顏色", ""), key="edit_color")
@@ -2371,12 +2374,11 @@ elif menu == "生產單管理":
     
         new_remark = st.text_area("備註", value=order_dict.get("備註", ""), key="edit_remark")
     
-        
         cols_edit = st.columns([1, 1, 1])
     
         with cols_edit[0]:
-            if st.button("儲存修改", key="save_edit_button"):
-                idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
+            if st.button("💾 儲存修改", key="save_edit_button"):
+                idx_list = df_order.index[df_order["生產單號"] == order_no].tolist()
                 if idx_list:
                     idx = idx_list[0]
     
@@ -2388,36 +2390,34 @@ elif menu == "生產單管理":
                         df_order.at[idx, f"包裝份數{i + 1}"] = new_packing_counts[i]
                     df_order.at[idx, "備註"] = new_remark
     
-                    # 同步更新 Google Sheets
+                    # ✅ 同步更新 Google Sheets（自動依欄位順序更新）
                     try:
-                        cell = ws_order.find(edit_order["生產單號"])
+                        cell = ws_order.find(order_no)
                         if cell:
                             row_idx = cell.row
-                            row_data = df_order.loc[idx].fillna("").astype(str).tolist()
-                            last_col_letter = chr(65 + len(row_data) - 1)
-                            ws_order.update(f"A{row_idx}:{last_col_letter}{row_idx}", [row_data])
+                            # 取出 Google Sheet 的欄位名稱
+                            sheet_headers = ws_order.row_values(1)
+                            # 依照欄位順序組裝更新的 row
+                            row_data = [str(df_order.at[idx, col]) if col in df_order.columns else "" for col in sheet_headers]
+                            ws_order.update(f"A{row_idx}", [row_data])
                             st.success("✅ Google Sheets 同步更新成功")
                         else:
                             st.warning("⚠️ Google Sheets 找不到該筆生產單，未更新")
                     except Exception as e:
                         st.error(f"Google Sheets 更新錯誤：{e}")
     
-                    # 寫入本地檔案
+                    # ✅ 寫入本地檔案
                     os.makedirs(os.path.dirname(order_file), exist_ok=True)
                     df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
                     st.success("✅ 本地資料更新成功，修改已儲存")
     
-                    # 不關閉編輯面板，方便繼續預覽或再修改
-                    # st.session_state.show_edit_panel = False
-                    # st.session_state.editing_order = None
-    
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("⚠️ 找不到該筆生產單資料")
     
         with cols_edit[1]:
-            if st.button("返回", key="return_button"):
+            if st.button("⬅️ 返回", key="return_button"):
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
                 st.rerun()
