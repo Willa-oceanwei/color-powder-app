@@ -2166,7 +2166,7 @@ elif menu == "生產單管理":
     
                     # 清除確認狀態並刷新
                     st.session_state.pop("confirm_delete", None)
-                    st.experimental_rerun()
+                    st.rerun()
     
     with cols_top2[2]:
         if selected_label != "無資料":
