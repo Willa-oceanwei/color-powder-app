@@ -2121,6 +2121,7 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     st.markdown(" ")
+    
     # ------------------- 選擇生產單號 -------------------
     options = []
     code_to_id = {}
@@ -2137,6 +2138,44 @@ elif menu == "生產單管理":
             options or ["無資料"],
             key="select_order_for_edit_from_list"
         )
+    
+    with cols_top2[1]:
+        if selected_label != "無資料":
+            if st.session_state.get("confirm_delete") != selected_label:
+                if st.button("🗑️ 刪除", key="delete_order_btn"):
+                    st.session_state["confirm_delete"] = selected_label
+            else:
+                st.warning(f"⚠️ 確定要刪除生產單 {selected_label} 嗎？")
+                if st.button("確認刪除", key="confirm_delete_btn"):
+                    selected_code_delete = code_to_id[selected_label]
+                    # 刪除 DataFrame
+                    df_order = df_order[df_order["生產單號"] != selected_code_delete]
+    
+                    # 更新 Google Sheets
+                    try:
+                        ws_order.clear()
+                        ws_order.update([df_order.columns.values.tolist()] + df_order.values.tolist())
+                        st.success(f"✅ 已刪除生產單 {selected_code_delete}，並更新 Google Sheets")
+                    except Exception as e:
+                        st.error(f"⚠️ Google Sheets 更新錯誤：{e}")
+    
+                    # 寫入本地 CSV
+                    os.makedirs(os.path.dirname(order_file), exist_ok=True)
+                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                    st.session_state.df_order = df_order
+    
+                    # 清除確認狀態並刷新
+                    st.session_state.pop("confirm_delete", None)
+                    st.experimental_rerun()
+    
+    with cols_top2[2]:
+        if selected_label != "無資料":
+            if st.button("✏️ 修改", key="edit_order_btn"):
+                selected_code_edit = code_to_id[selected_label]
+                order_row = df_order[df_order["生產單號"] == selected_code_edit]
+                if not order_row.empty:
+                    order_dict = order_row.iloc[0].to_dict()
+                    st.session_state["edit_order"] = order_dict  # 放進 session，帶入修改面板
     
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
@@ -2306,36 +2345,6 @@ elif menu == "生產單管理":
             preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
             with st.expander("👀 生產單預覽", expanded=False):
                 st.markdown(preview_text)
-
-    
-    # 修改面板（如果有啟動）
-    if not df_order.empty:
-        # 下拉選單 + 刪除按鈕
-        cols = st.columns([3, 1])  # 兩欄：下拉、刪除
-        with cols[0]:
-            selected_label = st.selectbox(
-                "選擇生產單",
-                options=["無資料"] + df_order["生產單號"].tolist()
-            )
-        with cols[1]:
-            if st.button("🗑️ 刪除", key="delete_order_btn") and selected_label != "無資料":
-                # 刪除 DataFrame 中該筆資料
-                df_order = df_order[df_order["生產單號"] != selected_label]
-    
-                # 同步更新 Google Sheets
-                try:
-                    ws_order.clear()
-                    ws_order.update([df_order.columns.values.tolist()] + df_order.values.tolist())
-                    st.success(f"✅ 已刪除生產單 {selected_label}，並更新 Google Sheets")
-                except Exception as e:
-                    st.error(f"⚠️ Google Sheets 更新錯誤：{e}")
-    
-                # 寫入本地 CSV
-                os.makedirs(os.path.dirname(order_file), exist_ok=True)
-                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                st.session_state.df_order = df_order
-    
-                st.experimental_rerun()  # 刷新頁面，下拉選單會自動更新
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
