@@ -1861,8 +1861,8 @@ if menu == "生產單管理":
                             
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     if st.session_state.mode_order == "list":
-    st.markdown("---")
-    st.subheader("📑 生產單記錄表")
+        st.markdown("---")
+        st.subheader("📑 生產單記錄表")
     
     # 預先初始化
     order_dict = {}
