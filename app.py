@@ -2061,13 +2061,24 @@ elif menu == "生產單管理":
     
     if not page_data.empty and existing_cols:
         for idx, row in page_data.iterrows():
-            cols = st.columns([6,1])
+            # 分成三欄: 下拉選單 / 資料顯示 / 修改按鈕
+            cols = st.columns([2, 4, 1])
+            
             with cols[0]:
-                st.write(row[existing_cols].to_dict())
+                selected_code = st.selectbox(
+                    "",
+                    options=[row["生產單號"]],
+                    key=f"select_order_{idx}"
+                )
+            
             with cols[1]:
+                st.write({c: row[c] for c in existing_cols if c != "生產單號"})
+            
+            with cols[2]:
                 if st.button("修改", key=f"edit_order_{row['生產單號']}"):
                     # 帶入 session_state
-                    st.session_state.form_order = {k: ("" if pd.isna(v) else str(v)) for k, v in row.items()}
+                    st.session_state.new_order = {k: ("" if pd.isna(v) else str(v)) for k, v in row.items()}
+                    st.session_state.edit_flag = True  # 多存的旗標
                     st.session_state.mode_order = "form"
                     st.rerun()
     else:
