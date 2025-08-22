@@ -2306,10 +2306,10 @@ elif menu == "生產單管理":
             st.experimental_rerun()  # 刷新頁面，更新下拉選單
 
 
-                # --- 存回 Google Sheet ---
-                ws_order.clear()  # 清空原本工作表
-                ws_order.update([df_order.columns.values.tolist()] + df_order.values.tolist())
-                st.success(f"已刪除生產單 {selected_code_delete}")
+            # --- 存回 Google Sheet ---
+            ws_order.clear()  # 清空原本工作表
+            ws_order.update([df_order.columns.values.tolist()] + df_order.values.tolist())
+            st.success(f"已刪除生產單 {selected_code_delete}")
     
         # 查詢生產單 & 配方
         order_row = df_order[df_order["生產單號"] == selected_code_edit]
