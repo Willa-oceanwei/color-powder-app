@@ -1580,12 +1580,11 @@ if menu == "生產單管理":
                 st.warning("⚠️ 此配方已停用，請勿使用")
                 st.stop()
 
-            order = st.session_state.get("new_order", {})
-            df_all_orders = st.session_state.df_order.copy()
             today_str = datetime.now().strftime("%Y%m%d")
-            count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
-            new_id = f"{today_str}-{count_today+1:03}"
-
+            count_today = df_order[df_order["生產單號"].str.startswith(today_str)].shape[0]
+            new_id = f"{today_str}-{count_today + 1:03}"
+            order["生產單號"] = new_id
+            
             # 附加配方
             main_recipe_code = recipe_row.get("配方編號","").strip()
             df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
@@ -1839,13 +1838,13 @@ if menu == "生產單管理":
                 try:
                     # 寫入 Google Sheets + CSV
                     header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                    ws_order.append_row([str(new_order_data.get(col, "")) for col in header])
-                    df_order = pd.concat([df_order, pd.DataFrame([new_order_data], columns=df_order.columns)], ignore_index=True)
-                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                    row_data = [str(order.get(col, "")) for col in header]
+                    ws_order.append_row(row_data)
+                    df_order = pd.concat([df_order, pd.DataFrame([order], columns=df_order.columns)], ignore_index=True)
+                    df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
-            
-                    st.session_state.saved_order_id = new_id
-                    st.success(f"✅ 生產單 {new_id} 已存！")
+                    st.session_state.new_order_saved = True
+                    st.success(f"✅ 生產單 {order['生產單號']} 已存！")
                     
                     # 🔹 立即生成列印 HTML + 下載按鈕
                     print_html = generate_print_page_content(
@@ -1860,17 +1859,17 @@ if menu == "生產單管理":
                         st.download_button(
                             label="📥 下載 A5 HTML",
                             data=print_html.encode("utf-8"),
-                            file_name=f"{new_id}_列印.html",
+                            file_name=f"{order['生產單號']}_列印.html",
                             mime="text/html"
                         )
                     
                     with col3:
-                        if st.button("🔙 返回", key="back_button"):
-                            st.session_state.new_order = None
-                            st.session_state.show_confirm_panel = False
-                            st.session_state.new_order_saved = False
-                            st.session_state.saved_order_id = None
-                            st.experimental_rerun()
+                        with col3:
+                            if st.button("🔙 返回", key="back_button"):
+                                st.session_state.new_order = None
+                                st.session_state.show_confirm_panel = False
+                                st.session_state.new_order_saved = False
+                                st.experimental_rerun()
             
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
