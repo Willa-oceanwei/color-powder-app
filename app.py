@@ -1579,11 +1579,6 @@ if menu == "生產單管理":
             if recipe_row.get("狀態")=="停用":
                 st.warning("⚠️ 此配方已停用，請勿使用")
                 st.stop()
-
-            today_str = datetime.now().strftime("%Y%m%d")
-            count_today = df_order[df_order["生產單號"].str.startswith(today_str)].shape[0]
-            new_id = f"{today_str}-{count_today + 1:03}"
-            order["生產單號"] = new_id
             
             # 附加配方
             main_recipe_code = recipe_row.get("配方編號","").strip()
