@@ -2123,12 +2123,16 @@ elif menu == "生產單管理":
     st.markdown(" ")
     
     # ------------------- 選擇生產單號 -------------------
-    if not df_filtered.empty:
+    f not df_filtered.empty:
         # 生成下拉選單選項
-        options = ["無資料"] + df_filtered["生產單號"].tolist()
-        code_to_id = {code: code for code in df_filtered["生產單號"].tolist()}
+        options = ["無資料"]
+        code_to_id = {}
+        for idx, row in df_filtered.iterrows():
+            label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色','')} / {row.get('客戶名稱','')}"
+            options.append(label)
+            code_to_id[label] = row["生產單號"]  # 對應實際生產單號
     
-        cols = st.columns([5, 1])  # 兩欄：下拉、刪除
+        cols = st.columns([5, 2])  # 兩欄：下拉、刪除
         with cols[0]:
             selected_label = st.selectbox(
                 "選擇生產單號",
