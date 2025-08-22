@@ -2123,7 +2123,7 @@ elif menu == "生產單管理":
     st.markdown(" ")
     
     # ------------------- 選擇生產單號 -------------------
-    f not df_filtered.empty:
+    if not df_filtered.empty:
         # 生成下拉選單選項
         options = ["無資料"]
         code_to_id = {}
