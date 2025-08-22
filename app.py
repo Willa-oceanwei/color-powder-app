@@ -1771,68 +1771,93 @@ if menu == "生產單管理":
                 submitted = st.form_submit_button("💾 儲存生產單")
         
             if submitted:
-                # 先把 form 資料整理進一個 dict
-                new_order_data = {
-                    "顏色": st.session_state.form_color,
-                    "Pantone 色號": st.session_state.form_pantone,
-                    "料": st.session_state.form_raw_material,
-                    "備註": st.session_state.form_remark,
-                    "重要提醒": st.session_state.form_important_note,
-                    "合計類別": st.session_state.form_total_category,
-                }
-            
-                for i in range(1, 5):
-                    new_order_data[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
-                    new_order_data[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
-            
-                for i in range(1, 9):
-                    key_id = f"色粉編號{i}"
-                    key_weight = f"色粉重量{i}"
-                    new_order_data[key_id] = recipe_row.get(key_id, "")
-                    new_order_data[key_weight] = recipe_row.get(key_weight, "")
-            
-                # 計算色粉合計
-                net_weight = float(recipe_row.get("淨重", 0))
-                color_weight_list = []
-                for i in range(1, 5):
-                    try:
-                        w_str = st.session_state.get(f"form_weight{i}", "").strip()
-                        weight = float(w_str) if w_str else 0.0
-                        if weight > 0:
-                            color_weight_list.append({
-                                "項次": i,
-                                "重量": weight,
-                                "結果": net_weight * weight
-                            })
-                    except:
-                        continue
-                new_order_data["色粉合計清單"] = color_weight_list
-                new_order_data["色粉合計類別"] = recipe_row.get("合計類別", "")
-            
-                # ➕ 寫入 Google Sheets、CSV 等流程
-                header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                # 先建立每個欄位對應的值，確保欄位對齊
-                row_data = [str(new_order_data.get(col, "")).strip() if new_order_data.get(col) is not None else "" for col in header]
-                
+            if submitted:
+            # 先把表單資料整理進 dict
+            new_order_data = {
+                "顏色": st.session_state.form_color,
+                "Pantone 色號": st.session_state.form_pantone,
+                "料": st.session_state.form_raw_material,
+                "備註": st.session_state.form_remark,
+                "重要提醒": st.session_state.form_important_note,
+                "合計類別": st.session_state.form_total_category,
+            }
+        
+            for i in range(1, 5):
+                new_order_data[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
+                new_order_data[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
+        
+            for i in range(1, 9):
+                key_id = f"色粉編號{i}"
+                key_weight = f"色粉重量{i}"
+                new_order_data[key_id] = recipe_row.get(key_id, "")
+                new_order_data[key_weight] = recipe_row.get(key_weight, "")
+        
+            # 計算色粉合計
+            net_weight = float(recipe_row.get("淨重", 0))
+            color_weight_list = []
+            for i in range(1, 5):
                 try:
-                    # Google Sheets 更新
-                    ws_order.append_row(row_data)
-                
-                    # 建立新的 DataFrame 並合併到 df_order
-                    df_new = pd.DataFrame([row_data], columns=header)
-                    df_order = pd.concat([df_order, df_new], ignore_index=True)
-                
-                    # 存本地 CSV
-                    os.makedirs(os.path.dirname(order_file), exist_ok=True)
-                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                    st.session_state.df_order = df_order
-                
-                    # 標記為剛存檔的生產單
-                    st.session_state.saved_order_id = new_order_data.get("生產單號", "")
-                    st.success(f"✅ 生產單 {st.session_state.saved_order_id} 已存！")
-                
-                except Exception as e:
-                    st.error(f"❌ 寫入失敗：{e}")
+                    w_str = st.session_state.get(f"form_weight{i}", "").strip()
+                    weight = float(w_str) if w_str else 0.0
+                    if weight > 0:
+                        color_weight_list.append({
+                            "項次": i,
+                            "重量": weight,
+                            "結果": net_weight * weight
+                        })
+                except:
+                    continue
+            new_order_data["色粉合計清單"] = color_weight_list
+            new_order_data["色粉合計類別"] = recipe_row.get("合計類別", "")
+        
+            # 🔹 確保所有必要欄位都有值
+            new_order_data.update({
+                "生產單號": new_order_data.get("生產單號", new_id),
+                "生產日期": datetime.now().strftime("%Y-%m-%d"),
+                "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
+                "配方編號": recipe_row.get("配方編號", ""),
+                "顏色": recipe_row.get("顏色", ""),
+                "客戶名稱": recipe_row.get("客戶名稱", ""),
+                "Pantone 色號": recipe_row.get("Pantone色號", ""),
+                "計量單位": recipe_row.get("計量單位", ""),
+                "原料": recipe_row.get("料", ""),
+            })
+        
+            # ➕ 寫入 Google Sheets、CSV
+            try:
+                header = [col for col in df_order.columns if col and str(col).strip() != ""]
+                row_data = [str(new_order_data.get(col, "")).strip() for col in header]
+        
+                ws_order.append_row(row_data)  # Google Sheets
+                df_new = pd.DataFrame([new_order_data], columns=df_order.columns)
+                df_order = pd.concat([df_order, df_new], ignore_index=True)
+                df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                st.session_state.df_order = df_order
+        
+                # 標記剛存檔的生產單號
+                st.session_state.saved_order_id = new_order_data["生產單號"]
+                st.success(f"✅ 生產單 {new_order_data['生產單號']} 已存！")
+        
+                # 🔹 顯示下載按鈕
+                print_html = generate_print_page_content(new_order_data, recipe_row, additional_recipes)
+                col1, col2, col3 = st.columns([3, 1, 3])
+                with col1:
+                    st.download_button(
+                        label="📥 下載 A5 HTML",
+                        data=print_html.encode("utf-8"),
+                        file_name=f"{new_order_data['生產單號']}_列印.html",
+                        mime="text/html"
+                    )
+        
+                with col3:
+                    if st.button("🔙 返回", key="back_button"):
+                        st.session_state.new_order = None
+                        st.session_state.show_confirm_panel = False
+                        st.session_state.new_order_saved = False
+                        st.rerun()
+        
+            except Exception as e:
+                st.error(f"❌ 寫入失敗：{e}")
                         
             # 產生列印 HTML 按鈕
             # ✅ 加入 checkbox 讓使用者決定是否顯示附加配方編號
