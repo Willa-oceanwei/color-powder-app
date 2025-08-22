@@ -1871,25 +1871,26 @@ elif menu == "生產單管理":
                 submitted = st.form_submit_button("💾 儲存生產單")
         
             if submitted:
-                order["顏色"] = st.session_state.form_color
-                order["Pantone 色號"] = st.session_state.form_pantone
-                order["料"] = st.session_state.form_raw_material
-                order["備註"] = st.session_state.form_remark
-                order["重要提醒"] = st.session_state.form_important_note
-                order["合計類別"] = st.session_state.form_total_category
-        
+                # 先把 form 資料整理進一個 dict
+                new_order_data = {
+                    "顏色": st.session_state.form_color,
+                    "Pantone 色號": st.session_state.form_pantone,
+                    "料": st.session_state.form_raw_material,
+                    "備註": st.session_state.form_remark,
+                    "重要提醒": st.session_state.form_important_note,
+                    "合計類別": st.session_state.form_total_category,
+                }
+            
                 for i in range(1, 5):
-                    order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
-                    order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
-        
-                # 儲存色粉編號與重量
+                    new_order_data[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
+                    new_order_data[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
+            
                 for i in range(1, 9):
                     key_id = f"色粉編號{i}"
                     key_weight = f"色粉重量{i}"
-                    order[key_id] = recipe_row.get(key_id, "")
-                    order[key_weight] = recipe_row.get(key_weight, "")
-        
-        
+                    new_order_data[key_id] = recipe_row.get(key_id, "")
+                    new_order_data[key_weight] = recipe_row.get(key_weight, "")
+            
                 # 計算色粉合計
                 net_weight = float(recipe_row.get("淨重", 0))
                 color_weight_list = []
@@ -1905,20 +1906,24 @@ elif menu == "生產單管理":
                             })
                     except:
                         continue
-                order["色粉合計清單"] = color_weight_list
-                order["色粉合計類別"] = recipe_row.get("合計類別", "")
-        
+                new_order_data["色粉合計清單"] = color_weight_list
+                new_order_data["色粉合計類別"] = recipe_row.get("合計類別", "")
+            
                 # ➕ 寫入 Google Sheets、CSV 等流程
                 header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
+                row_data = [str(new_order_data.get(col, "")).strip() if new_order_data.get(col) is not None else "" for col in header]
                 try:
                     ws_order.append_row(row_data)
-                    df_new = pd.DataFrame([order], columns=df_order.columns)
+                    df_new = pd.DataFrame([new_order_data], columns=df_order.columns)
                     df_order = pd.concat([df_order, df_new], ignore_index=True)
                     df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+            
+                    # ✅ 同步更新 session_state
                     st.session_state.df_order = df_order
+                    st.session_state.new_order = new_order_data       # 存到 new_order
+                    st.session_state.edit_flag = False                # 新增模式，可改成 True 若需要
                     st.session_state.new_order_saved = True
-                    st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+                    st.success(f"✅ 生產單 {new_order_data['生產單號']} 已存！")
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
         
