@@ -1973,8 +1973,14 @@ elif menu == "生產單管理":
     else:
         df_filtered = df_order.copy()
     
-    # 轉換建立時間並排序
+    if "建立時間" not in df_filtered.columns:
+        df_filtered["建立時間"] = pd.NaT
+        st.warning("'建立時間' 欄位不存在，已自動建立空欄位")
+    
+    # 轉換為 datetime（安全）
     df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
+    
+    # 按建立時間排序（由新到舊）
     df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
     # ---- limit 下拉選單要先定義（因為會影響 total_pages）----
