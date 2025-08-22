@@ -1401,7 +1401,7 @@ if "mode_order" not in st.session_state:
 fo = st.session_state.form_order    
 
 # --- 生產單分頁 ----------------------------------------------------
-elif menu == "生產單管理":
+if menu == "生產單管理":
     st.markdown("""
     <style>
     .big-title {
