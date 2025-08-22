@@ -1811,11 +1811,12 @@ if menu == "生產單管理":
                 
                 from datetime import datetime
                 today_str = datetime.now().strftime("%Y%m%d")  # 例如 "20250822"
-                # 找今天已有的最大序號
                 today_orders = df_order[df_order["生產單號"].str.startswith(today_str)]
-                if today_orders.empty:  # ✅ 正確
+                
+                if today_orders.empty:  # ✅ DataFrame.empty 判斷是否為空
                     seq = 1
                 else:
+                    # 從已有生產單號取序號部分
                     last_seq = today_orders["生產單號"].str.split("-").str[1].astype(int).max()
                     seq = last_seq + 1
                 
