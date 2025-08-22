@@ -1984,14 +1984,14 @@ if menu == "生產單管理":
             
             with cols[2]:
                 if st.button("修改", key=f"edit_order_{row['生產單號']}"):
-                # 帶入 form_order 也帶入 new_order
-                st.session_state.form_order = {k: ("" if pd.isna(v) else str(v)) for k, v in row.items()}
-                st.session_state.new_order = st.session_state.form_order.copy()  # 新增暫存
-                st.session_state.edit_flag = True  # 標記為修改模式
-                st.session_state.mode_order = "form"
-                st.rerun()
-            else:
-                st.info("查無符合的資料（分頁結果）")
+                    # 帶入 form_order 也帶入 new_order
+                    st.session_state.form_order = {k: ("" if pd.isna(v) else str(v)) for k, v in row.items()}
+                    st.session_state.new_order = st.session_state.form_order.copy()  # 新增暫存
+                    st.session_state.edit_flag = True  # 標記為修改模式
+                    st.session_state.mode_order = "form"
+                    st.rerun()
+                else:
+                    st.info("查無符合的資料（分頁結果）")
     
     # ===== 分頁控制列 =====
     cols_page = st.columns([2, 2, 2, 2, 1])
