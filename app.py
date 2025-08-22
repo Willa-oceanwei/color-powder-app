@@ -2284,6 +2284,23 @@ elif menu == "生產單管理":
     # ------------------- 顯示預覽 -------------------
     if selected_label and selected_label != "無資料":
         selected_code_edit = code_to_id[selected_label]
+    
+        cols = st.columns([3, 1, 1])  # 左邊放下拉，右邊放按鈕
+        with cols[0]:
+            st.markdown(f"**已選擇生產單：** {selected_label}")
+        with cols[1]:
+            if st.button("✏️ 修改", key=f"edit_{selected_code_edit}"):
+                st.session_state["mode"] = "edit_order"
+                st.session_state["edit_order_id"] = selected_code_edit
+                st.rerun()
+        with cols[2]:
+            if st.button("🗑️ 刪除", key=f"delete_{selected_code_edit}"):
+                df_order = df_order[df_order["生產單號"] != selected_code_edit]
+                save_order_data(df_order)  # 你的函式：存回 Google Sheet / CSV
+                st.success(f"已刪除生產單 {selected_code_edit}")
+                st.rerun()
+    
+        # 查詢生產單 & 配方
         order_row = df_order[df_order["生產單號"] == selected_code_edit]
         if not order_row.empty:
             order_dict = order_row.iloc[0].to_dict()
