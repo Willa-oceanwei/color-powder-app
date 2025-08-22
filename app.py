@@ -2210,41 +2210,47 @@ if menu == "生產單管理":
             with st.expander("👀 生產單預覽", expanded=False):
                 st.markdown(preview_text)
 
+    # ===== 修改 + 刪除按鈕 =====
+    for idx, row in page_data.iterrows():
+        order_id = row["生產單號"]
     
-    # 修改面板（如果有啟動）
-    if st.button("修改", key=f"edit_{order_id}"):
-        # 取得選中的訂單 row
-        order_row = df_order[df_order["生產單號"] == order_id].iloc[0].to_dict()
-        
-        # 將資料存到 session_state，供新增/修改頁面使用
-        st.session_state.form_order = {k: ("" if pd.isna(v) else str(v)) for k, v in order_row.items()}
-        
-        # 取得對應配方資料
-        recipe_id = order_row.get("配方編號", "")
-        if not df_recipe[df_recipe["配方編號"] == recipe_id].empty:
-            recipe_row = df_recipe[df_recipe["配方編號"] == recipe_id].iloc[0]
-            st.session_state.form_recipe = recipe_row.to_dict()
-        else:
-            st.warning(f"找不到配方編號：{recipe_id}")
-        
-        # 設定編輯狀態
-        st.session_state.editing_order = order_id
-        st.session_state.mode_order = "form"  # 切換回新增/修改頁面
-        
-        st.experimental_rerun()
+        # 分三欄：下拉選單 / 資料顯示 / 按鈕
+        cols = st.columns([2, 4, 1])
     
-    # ------------------- 刪除 -------------------
-    if st.button("刪除", key=f"delete_{order_id}"):
-        idx_list = df_order.index[df_order["生產單號"] == order_id].tolist()
-        if idx_list:
-            idx = idx_list[0]
-            df_order.drop(idx, inplace=True)
-            df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-            st.session_state.df_order = df_order
-            st.success(f"✅ 已刪除生產單：{order_id}")
-            st.experimental_rerun()
-        else:
-            st.error("⚠️ 找不到該筆生產單資料")
+        with cols[0]:
+            st.selectbox("", options=[order_id], key=f"select_order_{idx}")
+    
+        with cols[1]:
+            st.write({c: row[c] for c in display_cols if c != "生產單號"})
+    
+        with cols[2]:
+            # 修改按鈕：直接切換回新增/修改模式
+            if st.button("修改", key=f"edit_{order_id}"):
+                st.session_state.form_order = {k: ("" if pd.isna(v) else str(v)) for k, v in row.items()}
+    
+                # 對應配方資料
+                recipe_id = row.get("配方編號", "")
+                if not df_recipe[df_recipe["配方編號"] == recipe_id].empty:
+                    st.session_state.form_recipe = df_recipe[df_recipe["配方編號"] == recipe_id].iloc[0].to_dict()
+                else:
+                    st.warning(f"找不到配方編號：{recipe_id}")
+    
+                st.session_state.editing_order = order_id
+                st.session_state.mode_order = "form"
+                st.experimental_rerun()
+    
+            # 刪除按鈕
+            if st.button("刪除", key=f"delete_{order_id}"):
+                idx_list = df_order.index[df_order["生產單號"] == order_id].tolist()
+                if idx_list:
+                    idx = idx_list[0]
+                    df_order.drop(idx, inplace=True)
+                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
+                    st.session_state.df_order = df_order
+                    st.success(f"✅ 已刪除生產單：{order_id}")
+                    st.experimental_rerun()
+                else:
+                    st.error("⚠️ 找不到該筆生產單資料")
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
