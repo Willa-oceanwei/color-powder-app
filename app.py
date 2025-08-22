@@ -1389,7 +1389,18 @@ elif menu == "配方管理":
     else:
         st.warning("配方資料尚未載入或選擇的配方編號無效")
     
-    # --- 生產單分頁 ----------------------------------------------------
+# ---------------- 生產單初始化 ----------------
+if "form_order" not in st.session_state or not st.session_state.form_order:
+    st.session_state.form_order = {col: "" for col in order_columns}  # order_columns 請換成你生產單用的欄位清單
+    st.session_state.form_order["狀態"] = "啟用"   # 預設值
+    st.session_state.form_order["單位"] = "kg"    # 你生產單需要的預設值自己加
+    
+if "mode_order" not in st.session_state:
+    st.session_state.mode_order = "list"   # 預設顯示清單
+
+fo = st.session_state.form_order    
+
+# --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
     st.markdown("""
     <style>
@@ -1941,6 +1952,7 @@ elif menu == "生產單管理":
                     st.rerun()
                             
     # ---------- 生產單清單 + 修改 / 刪除 ----------
+    if st.session_state.mode_order == "list":
     st.markdown("---")
     st.subheader("📑 生產單記錄表")
     
@@ -1977,11 +1989,6 @@ elif menu == "生產單管理":
     df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
     df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
-    # ---- limit 下拉選單要先定義（因為會影響 total_pages）----
-    import re
-    import streamlit as st
-    import pandas as pd
-    
     # ---- 初始化 limit 下拉選單（只用在下方分頁列） ----
     if "selectbox_order_limit" not in st.session_state:
         st.session_state.selectbox_order_limit = 5  # 預設每頁 5 筆
@@ -2009,23 +2016,23 @@ elif menu == "生產單管理":
             formula_id = str(row.get("配方編號", "")).strip()
             multipliers = {"包": 25, "桶": 100, "kg": 1}
             unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
-    
+
             if not formula_id:
                 return ""
-    
+
             try:
                 matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
                 category = matched.values[0] if not matched.empty else ""
             except Exception:
                 category = ""
-    
+
             if unit == "kg" and category == "色母":
                 multiplier = 100
                 label = "K"
             else:
                 multiplier = multipliers.get(unit, 1)
                 label = unit_labels.get(unit, "")
-    
+
             results = []
             for i in range(1, 5):
                 try:
@@ -2036,9 +2043,9 @@ elif menu == "生產單管理":
                         results.append(f"{show_weight}{label}*{count}")
                 except Exception:
                     continue
-    
+
             return " + ".join(results) if results else ""
-    
+
         except Exception as e:
             st.error(f"calculate_shipment error at row index {row.name}: {e}")
             st.write(row)
@@ -2048,41 +2055,39 @@ elif menu == "生產單管理":
     if not page_data.empty:
         page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
     
-    # ===== 顯示表格 =====
+    # ===== 顯示表格 + 修改按鈕 =====
     display_cols = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]
     existing_cols = [c for c in display_cols if c in page_data.columns]
     
     if not page_data.empty and existing_cols:
-        st.dataframe(
-            page_data[existing_cols].reset_index(drop=True),
-            use_container_width=True,
-            hide_index=True
-        )
+        for idx, row in page_data.iterrows():
+            cols = st.columns([6,1])
+            with cols[0]:
+                st.write(row[existing_cols].to_dict())
+            with cols[1]:
+                if st.button("修改", key=f"edit_order_{row['生產單號']}"):
+                    # 帶入 session_state
+                    st.session_state.form_order = {k: ("" if pd.isna(v) else str(v)) for k, v in row.items()}
+                    st.session_state.mode_order = "form"
+                    st.rerun()
     else:
         st.info("查無符合的資料（分頁結果）")
     
-    # ===== 分頁控制列（五個橫排） =====
+    # ===== 分頁控制列 =====
     cols_page = st.columns([2, 2, 2, 2, 1])
     
-    # 首頁
     with cols_page[0]:
         if st.button("🏠首頁", key="first_page"):
             st.session_state.order_page = 1
-            st.experimental_rerun()
-    
-    # 上一頁
+            st.rerun()
     with cols_page[1]:
         if st.button("🔼上一頁", key="prev_page") and st.session_state.order_page > 1:
             st.session_state.order_page -= 1
-            st.experimental_rerun()
-    
-    # 下一頁
+            st.rerun()
     with cols_page[2]:
         if st.button("🔽下一頁", key="next_page") and st.session_state.order_page < total_pages:
             st.session_state.order_page += 1
-            st.experimental_rerun()
-    
-    # 輸入跳頁
+            st.rerun()
     with cols_page[3]:
         jump_page = st.number_input(
             "",
@@ -2094,33 +2099,27 @@ elif menu == "生產單管理":
         )
         if jump_page != st.session_state.order_page:
             st.session_state.order_page = jump_page
-            st.experimental_rerun()
-    
-    # 分頁數筆數選擇（下拉選單）
+            st.rerun()
     with cols_page[4]:
         options_list = [5, 10, 20, 50, 75, 100]
-        # 取得當前值，如果不在 options_list 裡就預設為 10
         current_limit = st.session_state.get("selectbox_order_limit", 5)
         if current_limit not in options_list:
             current_limit = 5
-    
         new_limit = st.selectbox(
-            label=" ",  # 空白標籤，不會占用高度
+            label=" ",
             options=options_list,
             index=options_list.index(current_limit),
             key="selectbox_order_limit",
             label_visibility="collapsed"
         )
-    
-        # 如果改變了每頁筆數，跳回首頁並刷新
         if new_limit != st.session_state.selectbox_order_limit:
             st.session_state.selectbox_order_limit = new_limit
             st.session_state.order_page = 1
             st.rerun()
-            st.rerun()
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     st.markdown(" ")
+        
     # ------------------- 選擇生產單號 -------------------
     options = []
     code_to_id = {}
@@ -2309,9 +2308,11 @@ elif menu == "生產單管理":
 
     
     # 修改面板（如果有啟動）
-    if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
-        st.markdown("---")
-        st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
+    if st.button("修改", key=f"edit_{order_id}"):
+        order_row = df_order[df_order["生產單號"] == order_id].iloc[0].to_dict()
+        st.session_state.form_order = {k: ("" if pd.isna(v) else str(v)) for k, v in order_row.items()}
+        st.session_state.mode_order = "form"
+        st.rerun()
         
         order_no = st.session_state.editing_order["生產單號"]
         
