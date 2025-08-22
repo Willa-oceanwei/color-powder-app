@@ -1826,9 +1826,6 @@ if menu == "生產單管理":
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
                         
-                            except Exception as e:
-                                st.error(f"❌ 寫入失敗：{e}")
-        
             # 產生列印 HTML 按鈕
             # ✅ 加入 checkbox 讓使用者決定是否顯示附加配方編號
             show_ids = st.checkbox("列印時顯示附加配方編號", value=False)
