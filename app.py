@@ -1816,6 +1816,7 @@ if menu == "生產單管理":
             
                 # 🔹 確保所有必要欄位都有值
                 new_order_data.update({
+                    "生產單號": new_id, 
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
                     "配方編號": recipe_row.get("配方編號", ""),
