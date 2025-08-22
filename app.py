@@ -1767,7 +1767,11 @@ if menu == "生產單管理":
                 submitted = st.form_submit_button("💾 儲存生產單")
         
             if submitted:
-                # 先把表單資料整理進 dict
+                if recipe_row is None or df_order is None:
+                    st.error("資料尚未準備好")
+                    st.stop()
+            
+                # 整理表單資料
                 new_order_data = {
                     "顏色": st.session_state.form_color,
                     "Pantone 色號": st.session_state.form_pantone,
@@ -1793,30 +1797,27 @@ if menu == "生產單管理":
                 net_weight = float(recipe_row.get("淨重", 0))
                 color_weight_list = []
                 for i in range(1, 5):
-                    try:
-                        w_str = st.session_state.get(f"form_weight{i}", "").strip()
-                        weight = float(w_str) if w_str else 0.0
-                        if weight > 0:
-                            color_weight_list.append({
-                                "項次": i,
-                                "重量": weight,
-                                "結果": net_weight * weight
-                            })
-                    except:
-                        continue
+                    w_str = st.session_state.get(f"form_weight{i}", "").strip()
+                    weight = float(w_str) if w_str else 0.0
+                    if weight > 0:
+                        color_weight_list.append({
+                            "項次": i,
+                            "重量": weight,
+                            "結果": net_weight * weight
+                        })
                 new_order_data["色粉合計清單"] = color_weight_list
                 new_order_data["色粉合計類別"] = recipe_row.get("合計類別", "")
             
                 # 生成新生產單號
                 from datetime import datetime, timedelta
                 today_str = datetime.now().strftime("%Y%m%d")
-                today_orders = df_order[df_order["生產單號"].str.startswith(today_str)]
+                today_orders = df_order[df_order["生產單號"].str.startswith(today_str)] if "生產單號" in df_order.columns else pd.DataFrame()
                 seq = 1 if today_orders.empty else today_orders["生產單號"].str.split("-").str[1].astype(int).max() + 1
                 new_id = f"{today_str}-{seq:03d}"
             
-                # 🔹 確保所有必要欄位都有值
+                # 更新必要欄位
                 new_order_data.update({
-                    "生產單號": new_id, 
+                    "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
                     "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
                     "配方編號": recipe_row.get("配方編號", ""),
@@ -1827,7 +1828,7 @@ if menu == "生產單管理":
                     "原料": recipe_row.get("料", ""),
                 })
             
-                # 存到 session_state
+                # 存入 session_state
                 st.session_state.new_order = new_order_data
             
                 # ➕ 寫入 Google Sheets、CSV
