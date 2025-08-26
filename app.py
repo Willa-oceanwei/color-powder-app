@@ -618,18 +618,20 @@ elif menu == "配方管理":
         s = str(x).replace('\u3000', '').replace(' ', '').strip().upper()
         return s
     
-    # 讀取色粉管理清單
     try:
         ws_powder = spreadsheet.worksheet("色粉管理")
         df_powders = pd.DataFrame(ws_powder.get_all_records())
+        
+        # 如果欄位不存在就建立空 DataFrame
         if "色粉編號" not in df_powders.columns:
-            st.error("❌ 色粉管理表缺少『色粉編號』欄位")
-            existing_powders = set()
-        else:
-            existing_powders = set(df_powders["色粉編號"].map(clean_powder_id).unique())
-            
+            st.warning("❌ 色粉管理表缺少『色粉編號』欄位，建立空清單")
+            df_powders["色粉編號"] = ""
+        
+        # 清理空值並建立 existing_powders
+        existing_powders = {clean_powder_id(x) for x in df_powders["色粉編號"] if str(x).strip() != ""}
+        
     except Exception as e:
-        st.warning(f"⚠️ 無法載入色粉管理：{e}")
+        st.warning(f"⚠️ 無法載入色粉管理，建立空清單：{e}")
         existing_powders = set()
         
     st.markdown("""
