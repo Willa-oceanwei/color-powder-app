@@ -108,7 +108,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     number_col_width = 12
 
     # 每欄數值前的空格數，可為正、0 或負
-    column_offsets = [0, 2, 2, 3]
+    column_offsets = [-1, 2, 2, 3]
 
     # 取得包裝重量和份數
     packing_weights = [float(order.get(f"包裝重量{i}", 0) or 0) for i in range(1, 5)]
