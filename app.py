@@ -1571,38 +1571,46 @@ elif menu == "生產單管理":
         # 強制帶入配方欄位值，避免原本 order 已有空字串導致沒更新
         for field in ["合計類別", "備註", "重要提醒"]:
             order[field] = recipe_row.get(field, "")
-
-        # 取得附加配方清單（原始配方 == 主配方編號 且 配方類別 == "附加配方"）
+        
         # 只有 recipe_id 有值才處理附加配方邏輯
         if recipe_id:
-            additional_recipes = df_recipe[
-                (df_recipe["配方類別"] == "附加配方") &
-                (df_recipe["原始配方"] == recipe_id)
-            ]
+            # ---------- 安全取得附加配方 ----------
+            def get_additional_recipes(df, main_recipe_code):
+                df = df.copy()
+                df["配方類別"] = df["配方類別"].astype(str).str.strip()
+                df["原始配方"] = df["原始配方"].astype(str).str.strip()
+                main_code = str(main_recipe_code).strip()
+                return df[(df["配方類別"] == "附加配方") & (df["原始配方"] == main_code)]
+        
+            additional_recipes = get_additional_recipes(df_recipe, recipe_id)
         
             if additional_recipes.empty:
                 st.info("無附加配方")
+                order["附加配方"] = []
             else:
-                st.markdown(f"<span style='font-size:14px;'>附加配方清單（共 {len(additional_recipes)} 筆）</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size:14px; font-weight:bold;'>附加配方清單（共 {len(additional_recipes)} 筆）</span>", unsafe_allow_html=True)
+        
                 for idx, row in additional_recipes.iterrows():
-                    with st.expander(f"附加配方：{row['配方編號']} - {row['顏色']}"):
-                        st.write(row)
-                        # 可進一步分欄顯示色粉編號與色粉重量
+                    with st.expander(f"附加配方：{row.get('配方編號', '')} - {row.get('顏色', '')}"):
+                        st.write(row)  # 可顯示完整欄位，也可以選擇只顯示必要欄位
+        
+                        # 分欄顯示色粉編號與色粉重量
                         col1, col2 = st.columns(2)
                         with col1:
-                            color_ids = {f"色粉編號{i}": row.get(f"色粉編號{i}") for i in range(1, 9)}
+                            color_ids = {f"色粉編號{i}": row.get(f"色粉編號{i}", "") for i in range(1, 9)}
                             st.write("色粉編號", color_ids)
                         with col2:
-                            color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}") for i in range(1, 9)}
+                            color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}", "") for i in range(1, 9)}
                             st.write("色粉重量", color_wts)
         
-            # ✅ 寫入 order["附加配方"]
-            order["附加配方"] = [
-                {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
-                for _, row in additional_recipes.iterrows()
-            ]
+                # ---------- 寫入 order["附加配方"] ----------
+                order["附加配方"] = [
+                    {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
+                    for _, row in additional_recipes.iterrows()
+                ]
         else:
-            order["附加配方"] = []  # 空配方時預設為空 list    
+            order["附加配方"] = []  # 空配方時預設為空 list
+ 
                 
         st.session_state.new_order = order
         st.session_state.show_confirm_panel = show_confirm_panel
