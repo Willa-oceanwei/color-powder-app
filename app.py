@@ -153,7 +153,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         
             count_str = str(int(c)) if c == int(c) else str(c)
             text = f"{unit_str} × {count_str}"
-            pack_line.append(f"{text:<{pack_col_width}}")
+            pack_col_width = 14
 
     if pack_line:
         lines.append(" " * 14 + "  ".join(pack_line))
