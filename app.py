@@ -522,13 +522,13 @@ elif menu == "配方管理":
     from datetime import datetime
     from pathlib import Path
 
-    recipe_file = Path("df_recipe.csv")
-    if recipe_file.exists():
-        df_recipe = pd.read_csv(recipe_file)
-    else:
-        df_recipe = pd.DataFrame(columns=["配方編號", "色粉編號", "比例", "客戶名稱"])
-        st.warning("❌ df_recipe CSV 不存在，建立空 DataFrame")
-
+    # 假設 CSV 不存在
+    df_recipe = pd.DataFrame(columns=["配方編號", "顏色", "客戶編號"])
+    
+    # 建立 mask
+    mask = pd.Series(True, index=df_recipe.index)
+    print(mask)
+    
     # === 欄位定義 ===
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
