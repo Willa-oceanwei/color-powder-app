@@ -1336,51 +1336,45 @@ elif menu == "配方管理":
     
         return "```\n" + html_text.strip() + "\n```"
     
+    
     from pathlib import Path
     import pandas as pd
     import streamlit as st
     
-    df_recipe = None
-    
     # ---------- 載入配方資料 ----------
-    try:
-        ws_recipe = spreadsheet.worksheet("配方管理")
-        df_recipe = pd.DataFrame(ws_recipe.get_all_records())
-        if df_recipe.empty:
-            st.warning("⚠️ Google Sheet『配方資料』是空的")
-        else:
-            st.success(f"✅ 從 Google Sheet 載入配方資料，共 {len(df_recipe)} 筆")
-    except Exception as e:
-        st.error(f"Google Sheet 載入失敗：配方資料 ({e})")
-    
-    # ---------- 嘗試載入 CSV ----------
-    csv_path = Path("data/df_recipe.csv")
-    if (df_recipe is None or df_recipe.empty) and csv_path.exists():
+    if "df_recipe" not in st.session_state:
+        df_recipe = pd.DataFrame()
         try:
             ws_recipe = spreadsheet.worksheet("配方管理")
             df_recipe = pd.DataFrame(ws_recipe.get_all_records())
             if df_recipe.empty:
-                st.warning("⚠️ Google Sheet『配方資料』是空的")
+                st.warning("⚠️ Google Sheet『配方管理』是空的")
             else:
                 st.success(f"✅ 從 Google Sheet 載入配方資料，共 {len(df_recipe)} 筆")
         except Exception as e:
-            st.error(f"❌ Google Sheet 載入失敗：配方資料 ({e})")
-            # 👉 補這行，確保 df_recipe 至少是一個空的 DataFrame
-            df_recipe = pd.DataFrame()
-
-    # ---------- 配方預覽顯示 ----------
-    if 'df_recipe' in locals() and isinstance(df_recipe, pd.DataFrame) and not df_recipe.empty:
-        if selected_code and "配方編號" in df_recipe.columns:
-            df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
-            if not df_selected.empty:
-                recipe_row_preview = df_selected.iloc[0].to_dict()
-                preview_text_recipe = generate_order_preview_text(order, recipe_row_preview)
-                st.markdown(preview_text_recipe, unsafe_allow_html=True)
-        else:
-            st.warning("⚠️ 尚未選擇配方編號")
+            st.warning(f"⚠️ Google Sheet 載入失敗，改讀 CSV ({e})")
+            csv_path = Path("data/df_recipe.csv")
+            if csv_path.exists():
+                df_recipe = pd.read_csv(csv_path)
+                if df_recipe.empty:
+                    st.warning("⚠️ CSV『df_recipe.csv』存在但沒有資料")
+                else:
+                    st.success(f"✅ 從 CSV 載入配方資料，共 {len(df_recipe)} 筆")
+            else:
+                st.error("❌ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
+        st.session_state.df_recipe = df_recipe
     else:
-        st.error("❌ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
-
+        df_recipe = st.session_state.df_recipe
+    
+    # ---------- 配方下拉選單 ----------
+    if not df_recipe.empty:
+        selected_code = st.selectbox(
+            "選擇配方編號",
+            options=df_recipe["配方編號"].tolist() if "配方編號" in df_recipe.columns else [],
+            index=0 if not df_recipe.empty else None
+        )
+    else:
+        st.warning("⚠️ 尚無配方資料可選")
         
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
