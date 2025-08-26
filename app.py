@@ -803,6 +803,7 @@ elif menu == "配方管理":
             st.session_state.add_powder_clicked = False
 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===    
+    st.write("existing_powders =", existing_powders)
     existing_powders_str = {
         str(x).strip().upper()
         for x in existing_powders
