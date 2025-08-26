@@ -973,7 +973,7 @@ elif menu == "配方管理":
     st.write(f"📌配方編號：{recipe_kw}　＆ 客戶名稱：{customer_kw}　＆ Pantone：{pantone_kw}")
 
     # 篩選
-    mask = pd.Series(True, index=df.index)
+    mask = pd.Series(True, index=df_recipe.index)
     if recipe_kw:
         mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
     if customer_kw:
