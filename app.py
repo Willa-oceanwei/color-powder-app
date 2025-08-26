@@ -1227,20 +1227,26 @@ elif menu == "配方管理":
         st.info("⚠️ 查無符合條件的配方（來自上方搜尋）")
     
     # --- 配方編號選擇 + 修改/刪除 ---
-    code_list = page_data["配方編號"].dropna().tolist()
+    cols = st.columns([3, 1, 1])  # 下拉 + 修改 + 刪除
+    selected_code = None  # 預設
     
-    cols = st.columns([1, 1])  # 配方編號下拉+修改+刪除按鈕
-    
-    with cols[0]:
-        if selected_code and st.button("✏️ 修改", key="edit_btn"):
-            df_idx = df[df["配方編號"] == selected_code].index[0]
-            st.session_state.edit_recipe_index = df_idx
-            st.session_state.form_recipe = df.loc[df_idx].to_dict()
-            st.rerun()
+    if not df_recipe.empty and "配方編號" in df_recipe.columns:
+        df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
+        selected_code = st.selectbox(
+            "選擇配方編號",
+            options=df_recipe["配方編號"].tolist(),
+        )
     
     with cols[1]:
+        if selected_code and st.button("✏️ 修改", key="edit_btn"):
+            df_idx = df_recipe[df_recipe["配方編號"] == selected_code].index[0]
+            st.session_state.edit_recipe_index = df_idx
+            st.session_state.form_recipe = df_recipe.loc[df_idx].to_dict()
+            st.rerun()
+    
+    with cols[2]:
         if selected_code and st.button("🗑️ 刪除", key="del_btn"):
-            df_idx = df[df["配方編號"] == selected_code].index[0]
+            df_idx = df_recipe[df_recipe["配方編號"] == selected_code].index[0]
             st.session_state.delete_recipe_index = df_idx
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
