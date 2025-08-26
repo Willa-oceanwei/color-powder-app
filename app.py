@@ -1344,7 +1344,7 @@ elif menu == "配方管理":
     
     # ---------- 載入配方資料 ----------
     try:
-        ws_recipe = spreadsheet.worksheet("配方資料")
+        ws_recipe = spreadsheet.worksheet("配方管理")
         df_recipe = pd.DataFrame(ws_recipe.get_all_records())
         if df_recipe.empty:
             st.warning("⚠️ Google Sheet『配方資料』是空的")
