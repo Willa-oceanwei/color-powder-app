@@ -1370,19 +1370,17 @@ elif menu == "配方管理":
         st.error("❌ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
 
     # ---------- 配方預覽顯示 ----------
-    if not df_recipe.empty and "配方編號" in df_recipe.columns:
-        if selected_code:
+    if 'df_recipe' in locals() and isinstance(df_recipe, pd.DataFrame) and not df_recipe.empty:
+        if selected_code and "配方編號" in df_recipe.columns:
             df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
             if not df_selected.empty:
                 recipe_row_preview = df_selected.iloc[0].to_dict()
                 preview_text_recipe = generate_order_preview_text(order, recipe_row_preview)
                 st.markdown(preview_text_recipe, unsafe_allow_html=True)
-            else:
-                st.warning("找不到對應的配方")
         else:
-            st.info("請先選擇配方編號")
+            st.warning("⚠️ 尚未選擇配方編號")
     else:
-        st.warning("配方資料尚未載入")
+        st.error("❌ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
 
         
     # --- 生產單分頁 ----------------------------------------------------
