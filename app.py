@@ -598,33 +598,53 @@ elif menu == "客戶名單":
                     st.rerun()
 
 elif menu == "配方管理":
-
     from pathlib import Path
     from datetime import datetime
     import pandas as pd
     import streamlit as st
 
-    # 載入「客戶名單」資料（假設來自 Google Sheet 工作表2）
-    ws_customer = spreadsheet.worksheet("客戶名單")
-    df_customers = pd.DataFrame(ws_customer.get_all_records())
+    # ------------------- 配方資料初始化 -------------------
+    def load_recipe_data():
+        """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
+        try:
+            ws_recipe = spreadsheet.worksheet("配方資料")
+            df_loaded = pd.DataFrame(ws_recipe.get_all_records())
+            if not df_loaded.empty:
+                return df_loaded
+        except Exception as e:
+            st.warning(f"Google Sheet 載入失敗：{e}")
 
-    # 建立「客戶選單」選項，例如：["C001 - 三商行", "C002 - 光陽"]
-    customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in df_customers.iterrows()]
+        # ✅ 回退 CSV
+        order_file = Path("data/df_recipe.csv")
+        if order_file.exists():
+            try:
+                df_csv = pd.read_csv(order_file)
+                if not df_csv.empty:
+                    return df_csv
+            except Exception as e:
+                st.error(f"CSV 載入失敗：{e}")
 
-    try:
-        ws_recipe = spreadsheet.worksheet("配方管理")
-    except:
-        ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
+        # ✅ 都失敗時，回傳空 df
+        return pd.DataFrame()
 
+    # 嘗試從 session_state 讀取
+    if "df" not in st.session_state or st.session_state.df.empty:
+        st.session_state.df = load_recipe_data()
+
+    # ✅ 統一使用 df_recipe 變數
+    df_recipe = st.session_state.df
+
+    # 預期欄位
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
         "原始配方", "色粉類別", "計量單位", "Pantone色號",
         "比例1", "比例2", "比例3", "淨重", "淨重單位",
-        *[f"色粉編號{i}" for i in range(1,9)],
-        *[f"色粉重量{i}" for i in range(1,9)],
+        *[f"色粉編號{i}" for i in range(1, 9)],
+        *[f"色粉重量{i}" for i in range(1, 9)],
         "合計類別", "建檔時間"
     ]
 
+    # 初始化 session_state 需要的變數
     def init_states(keys):
         for k in keys:
             if k not in st.session_state:
@@ -644,6 +664,9 @@ elif menu == "配方管理":
     if st.session_state.form_recipe is None:
         st.session_state.form_recipe = {col: "" for col in columns}
 
+    # ✅ 如果還是空的，顯示提示
+    if df_recipe.empty:
+        st.error("⚠️ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
     # 讀取表單
     try:
         df = pd.DataFrame(ws_recipe.get_all_records())
@@ -1314,29 +1337,17 @@ elif menu == "配方管理":
         return "```\n" + html_text.strip() + "\n```"
     
     # ---------- 配方預覽顯示 ----------
-    if 'df_recipe' in globals() and "配方編號" in df_recipe.columns:
-        # 若沒選編號，預設選第一個
-        if not selected_code and code_list:
-            selected_code = code_list[0]
-    
+    if not df_recipe.empty and "配方編號" in df_recipe.columns:
         if selected_code:
-            selected_code_str = str(selected_code).strip()
-            df_selected = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == selected_code_str]
-    
+            df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
             if not df_selected.empty:
                 recipe_row_preview = df_selected.iloc[0].to_dict()
-    
-                # order_dict 一定要有配方編號，避免附加配方抓不到
-                order_dict = recipe_row_preview.copy()
-                order_dict["配方編號"] = recipe_row_preview.get("配方編號","")
-    
-                preview_text = generate_recipe_preview_text(order_dict, recipe_row_preview)
-                with st.expander("👀 配方預覽", expanded=False):
-                    st.markdown(preview_text)
+                preview_text_recipe = generate_order_preview_text(order, recipe_row_preview)
+                st.markdown(preview_text_recipe, unsafe_allow_html=True)
             else:
-                st.info(f"查無配方編號 {selected_code_str} 的資料")
+                st.warning("找不到對應的配方")
         else:
-            st.warning("尚未選擇配方編號")
+            st.info("請先選擇配方編號")
     else:
         st.warning("配方資料尚未載入")
 
