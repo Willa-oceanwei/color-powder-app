@@ -171,7 +171,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         # 只有有份數與重量才顯示
         if w > 0 and c > 0:
             if category == "色母":
-                # 色母顯示基準：w * 100 => XXXK
+                # 色母要用「kg → K」換算（3kg → 300K）
                 real_w = w * 100
                 unit_str = f"{int(real_w)}K"
             elif unit == "包":
@@ -227,7 +227,8 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         result = 0
         if category == "色母":
             pigment_total = sum(colorant_weights)
-            result = (net_weight - pigment_total) * packing_weights[i] if packing_weights[i] > 0 else 0
+            # 料 = 淨重 - 色粉總和，不需要再縮放
+            result = net_weight - pigment_total
         else:
             result = net_weight * packing_weights[i] if packing_weights[i] > 0 else 0
         
