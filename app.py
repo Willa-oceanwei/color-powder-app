@@ -171,7 +171,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         # 只有有份數與重量才顯示
         if w > 0 and c > 0:
             if category == "色母":
-                # 色母：kg → K，例如 3kg → 300K
+                # 色母：kg → K，例如 1kg → 100K
                 real_w = w * 100
                 unit_str = f"{int(real_w)}K"
             elif unit == "包":
@@ -215,7 +215,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         lines.append("＿" * 30)
     
     # -------------------------------
-    # 合計列（色母專用修正：料 = 淨重 - 色粉總和）
+    # 合計列（色母專用修正：料 = 淨重 - 色粉總和，不乘包裝重量）
     # -------------------------------
     if total_type == "" or total_type == "無":
         total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
