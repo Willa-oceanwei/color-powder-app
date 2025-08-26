@@ -1394,25 +1394,25 @@ elif menu == "配方管理":
     # ---------- 配方預覽顯示 ----------
     if selected_code and "配方編號" in df_recipe.columns:
         df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
-        if not df_selected.empty:
-            # 取第一筆主配方
-            recipe_row_preview = df_selected.iloc[0].to_dict()
-            
-            # ✅ 生成配方預覽文字
-            preview_text_recipe = generate_order_preview_text(
-                order=recipe_row_preview,       # 預覽專用，可以直接把主配方 dict 當 order
-                recipe_row=recipe_row_preview,
-                show_additional_ids=st.session_state.get(f"show_ids_checkbox_{selected_code}", True)
-            )
-            
-            # 可收合的預覽區
-            with st.expander("👀 配方預覽", expanded=False):
-                st.markdown(preview_text_recipe)
+        if not df_recipe.empty and selected_code:
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).str.strip()
+            selected_code = str(selected_code).strip()
+        
+            df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
+            if not df_selected.empty:
+                recipe_row_preview = df_selected.iloc[0].to_dict()
+                preview_text_recipe = generate_order_preview_text(
+                    order=recipe_row_preview,
+                    recipe_row=recipe_row_preview,
+                    show_additional_ids=st.session_state.get(f"show_ids_checkbox_{selected_code}", True)
+                )
+                with st.expander("👀 配方預覽", expanded=False):
+                    st.markdown(preview_text_recipe)
+            else:
+                st.info(f"查無配方編號 {selected_code} 的資料")
         else:
-            st.info(f"查無配方編號 {selected_code} 的資料")
-    else:
-        st.warning("配方資料尚未載入或選擇的配方編號無效")
-    
+            st.warning("配方資料尚未載入或選擇的配方編號無效")
+            
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
     
