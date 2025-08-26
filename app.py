@@ -1367,14 +1367,29 @@ elif menu == "配方管理":
         df_recipe = st.session_state.df_recipe
     
     # ---------- 配方下拉選單 ----------
-    if not df_recipe.empty:
+    if not df_recipe.empty and "配方編號" in df_recipe.columns:
+        # 確保全轉字串避免型別不一致
+        df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
         selected_code = st.selectbox(
             "選擇配方編號",
-            options=df_recipe["配方編號"].tolist() if "配方編號" in df_recipe.columns else [],
-            index=0 if not df_recipe.empty else None
+            options=df_recipe["配方編號"].tolist(),
         )
+    
+        # ---------- 配方預覽顯示 ----------
+        if selected_code:
+            df_selected = df_recipe[df_recipe["配方編號"].astype(str) == selected_code]
+            if not df_selected.empty:
+                recipe_row_preview = df_selected.iloc[0].to_dict()
+                preview_text_recipe = generate_order_preview_text(order, recipe_row_preview)
+                if preview_text_recipe:  # 確保不是空字串
+                    st.markdown(preview_text_recipe, unsafe_allow_html=True)
+                else:
+                    st.warning("⚠️ 預覽函式回傳為空")
+            else:
+                st.warning("⚠️ 選擇的配方不存在")
     else:
         st.warning("⚠️ 尚無配方資料可選")
+
         
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
