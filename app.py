@@ -1229,33 +1229,22 @@ elif menu == "配方管理":
     # --- 配方編號選擇 + 修改/刪除 ---
     code_list = page_data["配方編號"].dropna().tolist()
     
-    cols = st.columns([3, 1, 1])  # 配方編號下拉+修改+刪除按鈕
-    with cols[0]:
-        if code_list:
-            if len(code_list) == 1:
-                selected_code = code_list[0]
-                st.info(f"🔹 自動選取唯一配方編號：{selected_code}")
-            else:
-                selected_code = st.selectbox("選擇配方編號", code_list, key="select_recipe_code_page")
-        else:
-            selected_code = None
-            st.info("🟦 沒有可選的配方編號")
+    cols = st.columns([1, 1])  # 配方編號下拉+修改+刪除按鈕
     
-    with cols[1]:
+    with cols[0]:
         if selected_code and st.button("✏️ 修改", key="edit_btn"):
             df_idx = df[df["配方編號"] == selected_code].index[0]
             st.session_state.edit_recipe_index = df_idx
             st.session_state.form_recipe = df.loc[df_idx].to_dict()
             st.rerun()
     
-    with cols[2]:
+    with cols[1]:
         if selected_code and st.button("🗑️ 刪除", key="del_btn"):
             df_idx = df[df["配方編號"] == selected_code].index[0]
             st.session_state.delete_recipe_index = df_idx
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
     
-
     # ---------- 函式：生成配方預覽文字 ----------
     def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
         html_text = ""
@@ -1366,29 +1355,27 @@ elif menu == "配方管理":
     else:
         df_recipe = st.session_state.df_recipe
     
-    # ---------- 配方下拉選單 ----------
+    # ---------- 配方下拉選單 + 預覽 ----------
+    df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
+    
     if not df_recipe.empty and "配方編號" in df_recipe.columns:
-        # 確保全轉字串避免型別不一致
         df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
         selected_code = st.selectbox(
             "選擇配方編號",
             options=df_recipe["配方編號"].tolist(),
+            key="select_recipe_code_page"
         )
     
-        # ---------- 配方預覽顯示 ----------
         if selected_code:
-            df_selected = df_recipe[df_recipe["配方編號"].astype(str) == selected_code]
+            df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
             if not df_selected.empty:
                 recipe_row_preview = df_selected.iloc[0].to_dict()
-                preview_text_recipe = generate_order_preview_text(order, recipe_row_preview)
-                if preview_text_recipe:  # 確保不是空字串
-                    st.markdown(preview_text_recipe, unsafe_allow_html=True)
-                else:
-                    st.warning("⚠️ 預覽函式回傳為空")
+                preview_text_recipe = generate_recipe_preview_text(order, recipe_row_preview)
+                st.markdown(preview_text_recipe, unsafe_allow_html=True)
             else:
                 st.warning("⚠️ 選擇的配方不存在")
     else:
-        st.warning("⚠️ 尚無配方資料可選")
+        st.info("🟦 沒有可選的配方編號")
 
         
     # --- 生產單分頁 ----------------------------------------------------
