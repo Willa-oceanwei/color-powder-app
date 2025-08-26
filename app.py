@@ -1244,31 +1244,6 @@ elif menu == "配方管理":
     def fmt_num(val):
         return f"{val:.2f}" if isinstance(val, (int, float)) else str(val)
     
-    # ---------- 載入配方資料 ----------
-    if "df_recipe" not in st.session_state:
-        df_recipe = pd.DataFrame()
-        try:
-            ws_recipe = spreadsheet.worksheet("配方管理")
-            df_recipe = pd.DataFrame(ws_recipe.get_all_records())
-            if df_recipe.empty:
-                st.warning("⚠️ Google Sheet『配方管理』是空的")
-            else:
-                st.success(f"✅ 從 Google Sheet 載入配方資料，共 {len(df_recipe)} 筆")
-        except Exception as e:
-            st.warning(f"⚠️ Google Sheet 載入失敗，改讀 CSV ({e})")
-            csv_path = Path("data/df_recipe.csv")
-            if csv_path.exists():
-                df_recipe = pd.read_csv(csv_path)
-                if df_recipe.empty:
-                    st.warning("⚠️ CSV『df_recipe.csv』存在但沒有資料")
-                else:
-                    st.success(f"✅ 從 CSV 載入配方資料，共 {len(df_recipe)} 筆")
-            else:
-                st.error("❌ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
-        st.session_state.df_recipe = df_recipe
-    else:
-        df_recipe = st.session_state.df_recipe
-    
     # ---------- 函式：生成配方預覽 ----------
     def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
         html_text = ""
