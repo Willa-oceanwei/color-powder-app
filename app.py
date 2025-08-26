@@ -2060,10 +2060,10 @@ elif menu == "生產單管理":
         if recipe_row and isinstance(recipe_row, dict):
             main_code = str(recipe_row.get("配方編號") or recipe_row.get("原始配方") or "").strip()
         # 1️⃣ 先生成主配方文字（不改 generate_production_order_print）
-        html_text = generate_production_order_print(
-            order,
-            recipe_row,
-            additional_recipe_rows=None,
+        html_text = generate_print_page_content(
+            order=order,
+            recipe_row=recipe_row,
+            additional_recipe_rows=additional_recipe_rows or [],
             show_additional_ids=show_additional_ids
         )
         # 先檢查附加配方資料
