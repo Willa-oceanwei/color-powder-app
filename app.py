@@ -1232,7 +1232,7 @@ elif menu == "配方管理":
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
     
-    
+
     # ---------- 函式：生成配方預覽文字 ----------
     def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
         html_text = ""
@@ -1313,48 +1313,33 @@ elif menu == "配方管理":
     
         return "```\n" + html_text.strip() + "\n```"
     
-    
     # ---------- 配方預覽顯示 ----------
-    if selected_code and 'df_recipe' in globals() and "配方編號" in df_recipe.columns:
-        # 1️⃣ 統一欄位型態
-        df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).str.strip()
-        selected_code_str = str(selected_code).strip()
+    if 'df_recipe' in globals() and "配方編號" in df_recipe.columns:
+        # 若沒選編號，預設選第一個
+        if not selected_code and code_list:
+            selected_code = code_list[0]
     
-        # 2️⃣ debug（可暫時保留，確認讀到資料）
-        st.write("🔹 selected_code:", selected_code_str)
-        st.write("🔹 配方編號列表:", df_recipe["配方編號"].tolist())
+        if selected_code:
+            selected_code_str = str(selected_code).strip()
+            df_selected = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == selected_code_str]
     
-        # 3️⃣ 過濾選定配方
-        df_selected = df_recipe[df_recipe["配方編號"] == selected_code_str]
+            if not df_selected.empty:
+                recipe_row_preview = df_selected.iloc[0].to_dict()
     
-        if not df_selected.empty:
-            recipe_row_preview = df_selected.iloc[0].to_dict()
+                # order_dict 一定要有配方編號，避免附加配方抓不到
+                order_dict = recipe_row_preview.copy()
+                order_dict["配方編號"] = recipe_row_preview.get("配方編號","")
     
-            # 4️⃣ Session State checkbox
-            show_ids_key = f"show_ids_checkbox_{selected_code_str}"
-            if show_ids_key not in st.session_state:
-                st.session_state[show_ids_key] = True
-    
-            show_ids = st.checkbox(
-                "列印時顯示附加配方編號",
-                value=st.session_state[show_ids_key],
-                key=show_ids_key
-            )
-    
-            # 5️⃣ 生成預覽文字
-            preview_text_recipe = generate_recipe_preview_text(
-                order=recipe_row_preview,
-                recipe_row=recipe_row_preview,
-                show_additional_ids=show_ids
-            )
-    
-            # 6️⃣ 顯示
-            with st.expander("👀 配方預覽", expanded=False):
-                st.markdown(preview_text_recipe)
+                preview_text = generate_recipe_preview_text(order_dict, recipe_row_preview)
+                with st.expander("👀 配方預覽", expanded=False):
+                    st.markdown(preview_text)
+            else:
+                st.info(f"查無配方編號 {selected_code_str} 的資料")
         else:
-            st.info(f"查無配方編號 {selected_code_str} 的資料")
+            st.warning("尚未選擇配方編號")
     else:
-        st.warning("配方資料尚未載入或尚無選擇的配方編號")
+        st.warning("配方資料尚未載入")
+
         
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
