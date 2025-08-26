@@ -527,6 +527,14 @@ elif menu == "配方管理":
     import gspread
     from gspread.exceptions import WorksheetNotFound, APIError
     from datetime import datetime
+    from pathlib import Path
+
+    recipe_file = Path("df_recipe.csv")
+    if recipe_file.exists():
+        df_recipe = pd.read_csv(recipe_file)
+    else:
+        df_recipe = pd.DataFrame(columns=["配方編號", "色粉編號", "比例", "客戶名稱"])
+        st.warning("❌ df_recipe CSV 不存在，建立空 DataFrame")
 
     # === 欄位定義 ===
     columns = [
@@ -803,12 +811,15 @@ elif menu == "配方管理":
             st.session_state.add_powder_clicked = False
 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===    
-    st.write("existing_powders =", existing_powders)
-    existing_powders_str = {
-        str(x).strip().upper()
-        for x in existing_powders
-        if x is not None and str(x).strip() != "" and str(x).lower() != "nan"
-    }   
+    if df_recipe is None or df_recipe.empty or "色粉編號" not in df_recipe.columns:
+        existing_powders_str = set()
+    else:
+        existing_powders = df_recipe["色粉編號"].dropna().unique().tolist()
+        existing_powders_str = {
+            str(x).strip().upper()
+            for x in existing_powders
+            if x is not None and str(x).strip() != "" and str(x).lower() != "nan"
+        }
     if submitted:
         missing_powders = []
         for i in range(1, st.session_state.num_powder_rows + 1):
