@@ -93,19 +93,21 @@ def init_states(keys=None):
                 st.session_state[key] = None
   
 # ===== 自訂函式：產生生產單列印格式 =====      
+import re
+
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=False):
     html_text = ""
 
-    # 主配方
+    # 取得主配方編號與淨重
     main_code = str(order.get("配方編號", "")).strip()
     net_weight = float(recipe_row.get("淨重", 0) or 0)
     category = str(order.get("色粉類別") or recipe_row.get("色粉類別","")).strip()
 
     # 包裝重量與份數
     pack_weights = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
-    pack_counts = [int(float(order.get(f"包裝份數{i}",0) or 0)) for i in range(1,5)]
+    pack_counts  = [int(float(order.get(f"包裝份數{i}",0) or 0)) for i in range(1,5)]
 
-    # --- 色母專用 ---
+    # ------------------- 色母專用 -------------------
     if category == "色母":
         # 包裝列
         pack_line = []
@@ -132,21 +134,22 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
                         line += str(val).rjust(number_col_width)
                 html_text += line + "<br>"
 
-        # 合計列
+        # 色母合計列
         total_colorant = net_weight - sum(float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9))
         total_line = "料".ljust(12)
-        for w, c in zip(pack_weights, pack_counts):
-            if w > 0 and c > 0:
-                total_line += str(int(total_colorant)).rjust(number_col_width)
+        for w in pack_weights:
+            if w > 0:
+                val = int(total_colorant * w)
+                total_line += str(val).rjust(number_col_width)
         html_text += "＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿<br>"
         html_text += total_line + "<br>"
 
-    # 備註
+    # ------------------- 備註 -------------------
     note_text = str(recipe_row.get("備註","")).strip()
     if note_text:
         html_text += f"<br>備註 : {note_text}<br><br>"
 
-    # 附加配方
+    # ------------------- 附加配方 -------------------
     if additional_recipe_rows:
         multipliers = [w for w in pack_weights if w > 0] or [1]
         html_text += "<br>=== 附加配方 ===<br>"
@@ -181,10 +184,11 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
                 total_line += str(val).rjust(number_col_width)
             html_text += total_line + "<br>"
 
-    # 轉成純文字
+    # ------------------- 轉成純文字 -------------------
     plain_text = html_text.replace("<br>", "\n")
     plain_text = re.sub(r"<.*?>", "", plain_text)
     return "```\n" + plain_text.strip() + "\n```"
+
 
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
