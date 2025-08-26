@@ -639,7 +639,7 @@ elif menu == "配方管理":
     
     st.subheader("➕ 新增 / 修改配方")
     
-    with st.form("recipe_form"):
+    with st.form("recipe_form_main"):
         # 基本欄位
         col1, col2, col3 = st.columns(3)
         with col1:
