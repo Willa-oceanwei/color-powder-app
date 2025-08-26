@@ -1829,6 +1829,7 @@ elif menu == "生產單管理":
                         f"<div style='text-align:right; font-size:16px; font-weight:bold; margin-bottom:10px;'>合計: {total_category}</div>",
                         unsafe_allow_html=True
                     )
+
                 
                 # --- 附加配方區塊 ---
                 附加配方清單 = order.get("附加配方", [])
