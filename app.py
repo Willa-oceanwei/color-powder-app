@@ -105,15 +105,10 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 
     powder_label_width = 12
     number_col_width = 12
-    column_offsets = [1, 5, 5, 5]
 
     # 取得包裝重量和份數
-    packing_weights = [
-        float(order.get(f"包裝重量{i}", 0) or 0) for i in range(1, 5)
-    ]
-    packing_counts = [
-        float(order.get(f"包裝份數{i}", 0) or 0) for i in range(1, 5)
-    ]
+    packing_weights = [float(order.get(f"包裝重量{i}", 0) or 0) for i in range(1, 5)]
+    packing_counts = [float(order.get(f"包裝份數{i}", 0) or 0) for i in range(1, 5)]
     multipliers = packing_weights
 
     # 色粉資料
@@ -153,9 +148,11 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         if pid and wgt > 0:
             row = pid.ljust(powder_label_width)
             for m in multipliers:
-                val = wgt * m if m > 0 else 0
-                val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                row += val_str.rjust(number_col_width)
+                if m > 0:
+                    val = wgt * m
+                    if val:  # 只顯示非零
+                        val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
+                        row += val_str.rjust(number_col_width)
             lines.append(row)
 
     # 橫線（非色母才加）
@@ -163,19 +160,14 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         lines.append("＿" * 30)
 
     # 合計列
-    if category == "色母":
-        total_line = "料".ljust(powder_label_width)
-        pigment_total = sum(colorant_weights)
-        for m in multipliers:
-            val = (net_weight - pigment_total) * m if m > 0 else 0
-            val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-            total_line += val_str.rjust(number_col_width)
-    else:
-        total_line = (total_type or "=").ljust(powder_label_width)
-        for m in multipliers:
-            val = net_weight * m if m > 0 else 0
-            val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-            total_line += val_str.rjust(number_col_width)
+    total_line = ("料" if category == "色母" else (total_type or "=")).ljust(powder_label_width)
+    pigment_total = sum(colorant_weights) if category == "色母" else 0
+    for m in multipliers:
+        if m > 0:
+            val = (net_weight - pigment_total) * m if category == "色母" else net_weight * m
+            if val:  # 只顯示非零
+                val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
+                total_line += val_str.rjust(number_col_width)
     lines.append(total_line)
 
     # 附加配方
@@ -193,18 +185,23 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                 if pid and wgt > 0:
                     row = pid.ljust(powder_label_width)
                     for m in multipliers:
-                        val = wgt * m if m > 0 else 0
-                        val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                        row += val_str.rjust(number_col_width)
+                        if m > 0:
+                            val = wgt * m
+                            if val:  # 只顯示非零
+                                val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
+                                row += val_str.rjust(number_col_width)
                     lines.append(row)
+
             # 附加配方合計列
             sub_total_type = sub.get("合計類別", "=")
             sub_net_weight = float(sub.get("淨重", 0) or 0)
-            sub_total_line = (sub_total_type if category != "色母" else "料").ljust(powder_label_width)
+            sub_total_line = ("料" if category == "色母" else sub_total_type).ljust(powder_label_width)
             for m in multipliers:
-                val = sub_net_weight * m if m > 0 else 0
-                val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                sub_total_line += val_str.rjust(number_col_width)
+                if m > 0:
+                    val = sub_net_weight * m
+                    if val:  # 只顯示非零
+                        val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
+                        sub_total_line += val_str.rjust(number_col_width)
             lines.append(sub_total_line)
 
     lines.append("")
