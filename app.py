@@ -604,6 +604,12 @@ elif menu == "配方管理":
     import streamlit as st
 
     # ------------------- 配方資料初始化 -------------------
+    # 初始化 session_state
+    if "df_recipe" not in st.session_state:
+        st.session_state.df_recipe = pd.DataFrame()
+    if "trigger_load_recipe" not in st.session_state:
+        st.session_state.trigger_load_recipe = False
+    
     def load_recipe_data():
         """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
         try:
@@ -613,8 +619,8 @@ elif menu == "配方管理":
                 return df_loaded
         except Exception as e:
             st.warning(f"Google Sheet 載入失敗：{e}")
-
-        # ✅ 回退 CSV
+    
+        # 回退 CSV
         order_file = Path("data/df_recipe.csv")
         if order_file.exists():
             try:
@@ -623,16 +629,21 @@ elif menu == "配方管理":
                     return df_csv
             except Exception as e:
                 st.error(f"CSV 載入失敗：{e}")
-
-        # ✅ 都失敗時，回傳空 df
+    
+        # 都失敗時，回傳空 df
         return pd.DataFrame()
-
-    # 嘗試從 session_state 讀取
-    if "df" not in st.session_state or st.session_state.df.empty:
-        st.session_state.df = load_recipe_data()
-
-    # ✅ 統一使用 df_recipe 變數
-    df_recipe = st.session_state.df
+    
+    # 觸發載入按鈕
+    if st.button("載入配方資料"):
+        st.session_state.trigger_load_recipe = True
+        st.session_state.df_recipe = load_recipe_data()
+        if st.session_state.df_recipe.empty:
+            st.warning("⚠️ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
+        else:
+            st.success(f"✅ 成功載入 {len(st.session_state.df_recipe)} 筆配方資料")
+    
+    # 統一使用 df_recipe
+    df_recipe = st.session_state.df_recipe
 
     # 預期欄位
     columns = [
