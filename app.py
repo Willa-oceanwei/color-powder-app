@@ -91,6 +91,7 @@ def init_states(keys=None):
                 st.session_state[key] = 1
             else:
                 st.session_state[key] = None
+  
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
@@ -150,25 +151,23 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     lines.append(info_line)
     lines.append("")
     
-    # 包裝列
+    # -------------------------------
+    # 包裝列（修正版：色母用 w*100K）
+    # -------------------------------
     pack_line = []
     for i in range(4):
         w = packing_weights[i]
         c = packing_counts[i]
-        if w > 0 or c > 0:
-            # 特例：色母類別 + w==1 時，強制 real_w=100
+        if w > 0 and c > 0:
             if category == "色母":
-                if w == 1:
-                    unit_str = "100K"
-                else:
-                    real_w = w * 100
-                    unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
+                real_w = w * 100
+                unit_str = f"{int(real_w)}K"
             elif unit == "包":
                 real_w = w * 25
-                unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
+                unit_str = f"{int(real_w)}K"
             elif unit == "桶":
                 real_w = w * 100
-                unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
+                unit_str = f"{int(real_w)}K"
             else:
                 real_w = w
                 unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
@@ -178,7 +177,8 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             pack_line.append(f"{text:<{pack_col_width}}")
         
     packing_indent = " " * 14
-    lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
+    if pack_line:
+        lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
                                     
     # 主配方色粉列
     for idx in range(8):
@@ -193,7 +193,6 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                 str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
             ) if val else ""
             padding = " " * max(0, int(round(column_offsets[i])))
-            # 數字用加 class 的 <b> 包起來
             row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
         lines.append(row)
         
@@ -202,8 +201,9 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     if category != "色母":
         lines.append("＿" * 30)
                     
-    # 合計列
-    total_offsets = [1, 5, 5, 5]  # 第一欄前空 2、第二欄前空 4、依此類推
+    # -------------------------------
+    # 合計列（修正版：色母用 (淨重-色粉總和) × w）
+    # -------------------------------
     if total_type == "" or total_type == "無":
         total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
     elif category == "色母":
@@ -217,9 +217,9 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         result = 0
         if category == "色母":
             pigment_total = sum(colorant_weights)
-            result = (net_weight - pigment_total) * multipliers[i] if multipliers[i] > 0 else 0
+            result = (net_weight - pigment_total) * packing_weights[i] if packing_weights[i] > 0 else 0
         else:
-            result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
+            result = net_weight * packing_weights[i] if packing_weights[i] > 0 else 0
         
         val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
         padding = " " * max(0, int(round(total_offsets[i])))
@@ -227,7 +227,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         
     lines.append(total_line)
            
-    # 多筆附加配方列印
+    # --- 下面附加配方部分不變 ---
     if additional_recipe_rows and isinstance(additional_recipe_rows, list):
         for idx, sub in enumerate(additional_recipe_rows, 1):
             lines.append("")
@@ -252,7 +252,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                     continue
                 row = c_id.ljust(powder_label_width)
                 for j in range(4):
-                    val = add_weights[i] * multipliers[j] if multipliers[j] > 0 else 0
+                    val = add_weights[i] * packing_weights[j] if packing_weights[j] > 0 else 0
                     val_str = (
                         str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
                     ) if val else ""
@@ -277,7 +277,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             
             sub_total_line = sub_total_type_display
             for j in range(4):
-                val = sub_net_weight * multipliers[j] if multipliers[j] > 0 else 0
+                val = sub_net_weight * packing_weights[j] if packing_weights[j] > 0 else 0
                 val_str = (
                     str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
                 ) if val else ""
