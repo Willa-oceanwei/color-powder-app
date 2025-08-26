@@ -599,6 +599,7 @@ elif menu == "客戶名單":
                     
 # =====配方管理=====
 elif menu == "配方管理":
+    import os
     from pathlib import Path
     from datetime import datetime
     import pandas as pd
@@ -607,7 +608,10 @@ elif menu == "配方管理":
     from google.oauth2.service_account import Credentials
     import json
 
-    # ====== Google Sheet 授權 ======
+    # ===== 確保資料夾存在 =====
+    os.makedirs("data", exist_ok=True)
+
+    # ===== Google Sheet 授權 =====
     service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
     creds = Credentials.from_service_account_info(
         service_account_info,
@@ -654,11 +658,10 @@ elif menu == "配方管理":
         "search_recipe_code",
         "search_pantone",
         "search_customer",
-        "df_recipe",
-        "df"
+        "df_recipe"
     ])
 
-    # ===== 初始 form_recipe =====
+    # ===== 初始化 form_recipe =====
     if not st.session_state.form_recipe:
         st.session_state.form_recipe = {col: "" for col in columns}
 
@@ -674,6 +677,8 @@ elif menu == "配方管理":
             sheet = client.open_by_url(SHEET_URL).sheet1
             data = sheet.get_all_records()
             df_recipe = pd.DataFrame(data) if data else pd.DataFrame(columns=columns)
+            # 安全寫入 CSV
+            os.makedirs("data", exist_ok=True)
             df_recipe.to_csv(recipe_file, index=False, encoding="utf-8-sig")
         except Exception as e:
             st.warning(f"⚠️ 無法從 Google Sheet 載入，建立空 DataFrame: {e}")
