@@ -1337,16 +1337,12 @@ elif menu == "配方管理":
     
     
     # ---------- 配方預覽顯示 ----------
-    if selected_code and "配方編號" in df_recipe.columns:
-        df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
-        if not df_recipe.empty:
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).str.strip()
-            selected_code = str(selected_code).strip()
-            df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
-    
+    if 'df_recipe' in locals() and selected_code:
+        if "配方編號" in df_recipe.columns:
+            df_selected = df_recipe[df_recipe["配方編號"] == str(selected_code).strip()]
             if not df_selected.empty:
                 recipe_row_preview = df_selected.iloc[0].to_dict()
-                preview_text_recipe = generate_recipe_preview_text(
+                preview_text_recipe = generate_order_preview_text(
                     order=recipe_row_preview,
                     recipe_row=recipe_row_preview,
                     show_additional_ids=st.session_state.get(f"show_ids_checkbox_{selected_code}", True)
@@ -1356,8 +1352,10 @@ elif menu == "配方管理":
             else:
                 st.info(f"查無配方編號 {selected_code} 的資料")
         else:
-            st.warning("配方資料尚未載入或選擇的配方編號無效")      
-
+            st.warning("df_recipe 尚未包含 '配方編號' 欄位")
+    else:
+        st.warning("配方資料尚未載入或尚無選擇的配方編號")
+        
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
     st.markdown("""
