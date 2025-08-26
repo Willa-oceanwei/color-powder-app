@@ -91,6 +91,7 @@ def init_states(keys=None):
                 st.session_state[key] = 1
             else:
                 st.session_state[key] = None
+                
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
