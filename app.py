@@ -91,7 +91,8 @@ def init_states(keys=None):
                 st.session_state[key] = 1
             else:
                 st.session_state[key] = None
-# ===== 自訂函式：產生生產單列印格式 =====      
+
+# ===== 自訂函式：產生生產單列印格式（可微調數值位置） =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
         recipe_row = {}
@@ -105,6 +106,9 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 
     powder_label_width = 12
     number_col_width = 12
+
+    # 每欄數值前的空格數，可自行調整
+    column_offsets = [0, 4, 4, 4]
 
     # 取得包裝重量和份數
     packing_weights = [float(order.get(f"包裝重量{i}", 0) or 0) for i in range(1, 5)]
@@ -147,12 +151,13 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     for pid, wgt in zip(colorant_ids, colorant_weights):
         if pid and wgt > 0:
             row = pid.ljust(powder_label_width)
-            for m in multipliers:
+            for i, m in enumerate(multipliers):
                 if m > 0:
                     val = wgt * m
                     if val:  # 只顯示非零
                         val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                        row += val_str.rjust(number_col_width)
+                        padding = " " * column_offsets[i]
+                        row += padding + val_str.rjust(number_col_width)
             lines.append(row)
 
     # 橫線（非色母才加）
@@ -162,12 +167,13 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     # 合計列
     total_line = ("料" if category == "色母" else (total_type or "=")).ljust(powder_label_width)
     pigment_total = sum(colorant_weights) if category == "色母" else 0
-    for m in multipliers:
+    for i, m in enumerate(multipliers):
         if m > 0:
             val = (net_weight - pigment_total) * m if category == "色母" else net_weight * m
-            if val:  # 只顯示非零
+            if val:
                 val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                total_line += val_str.rjust(number_col_width)
+                padding = " " * column_offsets[i]
+                total_line += padding + val_str.rjust(number_col_width)
     lines.append(total_line)
 
     # 附加配方
@@ -184,24 +190,26 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             for pid, wgt in zip(add_ids, add_weights):
                 if pid and wgt > 0:
                     row = pid.ljust(powder_label_width)
-                    for m in multipliers:
+                    for i, m in enumerate(multipliers):
                         if m > 0:
                             val = wgt * m
-                            if val:  # 只顯示非零
+                            if val:
                                 val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                                row += val_str.rjust(number_col_width)
+                                padding = " " * column_offsets[i]
+                                row += padding + val_str.rjust(number_col_width)
                     lines.append(row)
 
             # 附加配方合計列
             sub_total_type = sub.get("合計類別", "=")
             sub_net_weight = float(sub.get("淨重", 0) or 0)
             sub_total_line = ("料" if category == "色母" else sub_total_type).ljust(powder_label_width)
-            for m in multipliers:
+            for i, m in enumerate(multipliers):
                 if m > 0:
                     val = sub_net_weight * m
-                    if val:  # 只顯示非零
+                    if val:
                         val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                        sub_total_line += val_str.rjust(number_col_width)
+                        padding = " " * column_offsets[i]
+                        sub_total_line += padding + val_str.rjust(number_col_width)
             lines.append(sub_total_line)
 
     lines.append("")
