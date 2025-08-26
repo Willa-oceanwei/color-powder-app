@@ -107,8 +107,8 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     powder_label_width = 12
     number_col_width = 12
 
-    # 每欄數值前的空格數，可自行調整
-    column_offsets = [-2, 2, 2, 3]
+    # 每欄數值前的空格數，可為正、0 或負
+    column_offsets = [0, 2, 2, 3]
 
     # 取得包裝重量和份數
     packing_weights = [float(order.get(f"包裝重量{i}", 0) or 0) for i in range(1, 5)]
@@ -123,6 +123,27 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         net_weight = float(recipe_row.get("淨重", 0) or 0)
     except:
         net_weight = 0
+
+    # 小工具：把 val 加到 row，支援 offset 負值（負值會從 row 尾端刪除空白）
+    def append_with_offset(row: str, val: float, offset: int) -> str:
+        # val 期望是數字且非零
+        if not val:
+            return row
+        fv = float(val)
+        if abs(fv - int(fv)) < 1e-9:
+            val_str = str(int(fv))
+        else:
+            val_str = f"{fv:.3f}".rstrip('0').rstrip('.')
+        if offset >= 0:
+            row += " " * offset + val_str.rjust(number_col_width)
+        else:
+            # offset < 0 => 從 row 尾端刪除最多 -offset 個空白（只刪空白）
+            to_remove = -offset
+            while to_remove > 0 and row.endswith(" "):
+                row = row[:-1]
+                to_remove -= 1
+            row += val_str.rjust(number_col_width)
+        return row
 
     lines = []
     lines.append("")
@@ -155,9 +176,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                 if m > 0:
                     val = wgt * m
                     if val:  # 只顯示非零
-                        val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                        padding = " " * column_offsets[i]
-                        row += padding + val_str.rjust(number_col_width)
+                        row = append_with_offset(row, val, column_offsets[i] if i < len(column_offsets) else 0)
             lines.append(row)
 
     # 橫線（非色母才加）
@@ -171,9 +190,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         if m > 0:
             val = (net_weight - pigment_total) * m if category == "色母" else net_weight * m
             if val:
-                val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                padding = " " * column_offsets[i]
-                total_line += padding + val_str.rjust(number_col_width)
+                total_line = append_with_offset(total_line, val, column_offsets[i] if i < len(column_offsets) else 0)
     lines.append(total_line)
 
     # 附加配方
@@ -194,9 +211,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                         if m > 0:
                             val = wgt * m
                             if val:
-                                val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                                padding = " " * column_offsets[i]
-                                row += padding + val_str.rjust(number_col_width)
+                                row = append_with_offset(row, val, column_offsets[i] if i < len(column_offsets) else 0)
                     lines.append(row)
 
             # 附加配方合計列
@@ -207,9 +222,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                 if m > 0:
                     val = sub_net_weight * m
                     if val:
-                        val_str = str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-                        padding = " " * column_offsets[i]
-                        sub_total_line += padding + val_str.rjust(number_col_width)
+                        sub_total_line = append_with_offset(sub_total_line, val, column_offsets[i] if i < len(column_offsets) else 0)
             lines.append(sub_total_line)
 
     lines.append("")
