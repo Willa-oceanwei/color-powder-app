@@ -2068,7 +2068,7 @@ elif menu == "生產單管理":
             additional_recipe_rows=additional_recipe_rows,
             show_additional_ids=show_additional_ids
         )
-            # 1️⃣ 先生成主配方文字（不改 generate_production_order_print）
+        # 1️⃣ 先生成主配方文字（不改 generate_production_order_print）
             html_text = generate_print_page_content(
                 order=order,
                 recipe_row=recipe_row,
@@ -2079,133 +2079,132 @@ elif menu == "生產單管理":
             additional_recipe_rows = df_recipe[
                 (df_recipe["配方類別"].astype(str).str.strip().str.lower() == "附加配方") &
                 (df_recipe["原始配方"].astype(str).str.strip() == main_code)
-            ]
-               
-            # 2️⃣ 取得附加配方（保留原本邏輯）
-            main_code = str(order.get("配方編號", "")).strip()
-            if main_code:
-                additional_recipe_rows = df_recipe[
-                    (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"].astype(str).str.strip() == main_code)
-                ].to_dict("records")
-            else:
-                additional_recipe_rows = []
-        
-            # 3️⃣ 附加配方顯示
-            if additional_recipe_rows:
-                powder_label_width = 12
-                number_col_width = 7
-                multipliers = []
-                for j in range(1, 5):
-                    try:
-                        w = float(order.get(f"包裝重量{j}", 0) or 0)
-                    except Exception:
-                        w = 0
-                    if w > 0:
-                        multipliers.append(w)
-                if not multipliers:
-                    multipliers = [1.0]
-        
-                def fmt_num(x: float) -> str:
+            ]          
+        # 2️⃣ 取得附加配方（保留原本邏輯）
+                main_code = str(order.get("配方編號", "")).strip()
+                if main_code:
+                    additional_recipe_rows = df_recipe[
+                        (df_recipe["配方類別"] == "附加配方") &
+                        (df_recipe["原始配方"].astype(str).str.strip() == main_code)
+                    ].to_dict("records")
+                else:
+                    additional_recipe_rows = []
+            
+                # 3️⃣ 附加配方顯示
+                if additional_recipe_rows:
+                    powder_label_width = 12
+                    number_col_width = 7
+                    multipliers = []
+                    for j in range(1, 5):
+                        try:
+                            w = float(order.get(f"包裝重量{j}", 0) or 0)
+                        except Exception:
+                            w = 0
+                        if w > 0:
+                            multipliers.append(w)
+                    if not multipliers:
+                        multipliers = [1.0]
+            
+                    def fmt_num(x: float) -> str:
+                        if abs(x - int(x)) < 1e-9:
+                            return str(int(x))
+                        return f"{x:g}"
+            
+                    html_text += "<br>=== 附加配方 ===<br>"
+            
+                    for idx, sub in enumerate(additional_recipe_rows, 1):
+                        if show_additional_ids:
+                            html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>"
+                        else:
+                            html_text += f"附加配方 {idx}<br>"
+            
+                        for i in range(1, 9):
+                            c_id = str(sub.get(f"色粉編號{i}", "") or "").strip()
+                            try:
+                                base_w = float(sub.get(f"色粉重量{i}", 0) or 0)
+                            except Exception:
+                                base_w = 0.0
+            
+                            if c_id and base_w > 0:
+                                cells = []
+                                for m in multipliers:
+                                    val = base_w * m
+                                    cells.append(fmt_num(val).rjust(number_col_width))
+                                row = c_id.ljust(powder_label_width) + "".join(cells)
+                                html_text += row + "<br>"
+            
+                        total_label = str(sub.get("合計類別", "=") or "=")
+                        try:
+                            net = float(sub.get("淨重", 0) or 0)
+                        except Exception:
+                            net = 0.0
+                        total_line = total_label.ljust(powder_label_width)
+                        for idx, m in enumerate(multipliers):
+                            val = net * m
+                            total_line += fmt_num(val).rjust(number_col_width)
+                        html_text += total_line + "<br>"
+            
+                # 4️⃣ 色母專用預覽（獨立變數，不影響其他邏輯）
+                def fmt_num_colorant(x: float) -> str:
                     if abs(x - int(x)) < 1e-9:
                         return str(int(x))
                     return f"{x:g}"
         
-                html_text += "<br>=== 附加配方 ===<br>"
-        
-                for idx, sub in enumerate(additional_recipe_rows, 1):
-                    if show_additional_ids:
-                        html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>"
-                    else:
-                        html_text += f"附加配方 {idx}<br>"
-        
-                    for i in range(1, 9):
-                        c_id = str(sub.get(f"色粉編號{i}", "") or "").strip()
-                        try:
-                            base_w = float(sub.get(f"色粉重量{i}", 0) or 0)
-                        except Exception:
-                            base_w = 0.0
-        
-                        if c_id and base_w > 0:
-                            cells = []
-                            for m in multipliers:
-                                val = base_w * m
-                                cells.append(fmt_num(val).rjust(number_col_width))
-                            row = c_id.ljust(powder_label_width) + "".join(cells)
-                            html_text += row + "<br>"
-        
-                    total_label = str(sub.get("合計類別", "=") or "=")
-                    try:
-                        net = float(sub.get("淨重", 0) or 0)
-                    except Exception:
-                        net = 0.0
-                    total_line = total_label.ljust(powder_label_width)
-                    for idx, m in enumerate(multipliers):
-                        val = net * m
-                        total_line += fmt_num(val).rjust(number_col_width)
-                    html_text += total_line + "<br>"
-        
-            # 4️⃣ 色母專用預覽（獨立變數，不影響其他邏輯）
-            def fmt_num_colorant(x: float) -> str:
-                if abs(x - int(x)) < 1e-9:
-                    return str(int(x))
-                return f"{x:g}"
-    
-            # 備註列
-            note_text = str(recipe_row.get("備註","")).strip()
-            if note_text:
-                html_text += f"備註 : {note_text}<br><br>"  # ✅ 這裡多加一個 <br> 空一行
-        
-            # 色母/色粉區（下方）排版
-            category_colorant = str(recipe_row.get("色粉類別","")).strip()
-            if category_colorant == "色母":
-                # 包裝列（純顯示）
-                pack_weights_display = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
-                pack_counts_display  = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
-                
-                pack_line = []
-                for w, c in zip(pack_weights_display, pack_counts_display):
-                    if w > 0 and c > 0:
-                        val = int(w * 100)  # 基準值 100K
-                        pack_line.append(f"{val}K × {int(c)}")
-                
-                if pack_line:
-                    html_text += " " * 14 + "  ".join(pack_line) + "<br>"
-                
-                # 色粉列
-                colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
-                powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
-                
-                number_col_width = 12  # 對齊寬度
-                for pid, wgt in zip(powder_ids, colorant_weights):
-                    if pid and wgt > 0:
-                        line = pid.ljust(6)
-                        for w in pack_weights_display:
-                            if w > 0:
-                                val = wgt * w  # 色粉乘上包裝重量
-                                line += str(int(val)).rjust(number_col_width)
-                        html_text += line + "<br>"
-                
-                # 色母合計列
-                total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
-                total_line_colorant = "料".ljust(12)
-                
-                # 自訂每欄寬度（第一欄偏左，第二欄偏右）
-                col_widths = [5, 12, 12, 12]  # 可依實際欄位數調整
-                
-                for idx, w in enumerate(pack_weights_display):
-                    if w > 0:
-                        val = total_colorant * w
-                        width = col_widths[idx] if idx < len(col_widths) else 12
-                        total_line_colorant += str(int(val)).rjust(width)
-                
-                html_text += total_line_colorant + "<br>"
-        
-                # 轉為純文字（保留對齊）
-                text_with_newlines = html_text.replace("<br>", "\n")
-                plain_text = re.sub(r"<.*?>", "", text_with_newlines)
-                return "```\n" + plain_text.strip() + "\n```"
-        
+                # 備註列
+                note_text = str(recipe_row.get("備註","")).strip()
+                if note_text:
+                    html_text += f"備註 : {note_text}<br><br>"  # ✅ 這裡多加一個 <br> 空一行
+            
+                # 色母/色粉區（下方）排版
+                category_colorant = str(recipe_row.get("色粉類別","")).strip()
+                if category_colorant == "色母":
+                    # 包裝列（純顯示）
+                    pack_weights_display = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
+                    pack_counts_display  = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
+                    
+                    pack_line = []
+                    for w, c in zip(pack_weights_display, pack_counts_display):
+                        if w > 0 and c > 0:
+                            val = int(w * 100)  # 基準值 100K
+                            pack_line.append(f"{val}K × {int(c)}")
+                    
+                    if pack_line:
+                        html_text += " " * 14 + "  ".join(pack_line) + "<br>"
+                    
+                    # 色粉列
+                    colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
+                    powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
+                    
+                    number_col_width = 12  # 對齊寬度
+                    for pid, wgt in zip(powder_ids, colorant_weights):
+                        if pid and wgt > 0:
+                            line = pid.ljust(6)
+                            for w in pack_weights_display:
+                                if w > 0:
+                                    val = wgt * w  # 色粉乘上包裝重量
+                                    line += str(int(val)).rjust(number_col_width)
+                            html_text += line + "<br>"
+                    
+                    # 色母合計列
+                    total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
+                    total_line_colorant = "料".ljust(12)
+                    
+                    # 自訂每欄寬度（第一欄偏左，第二欄偏右）
+                    col_widths = [5, 12, 12, 12]  # 可依實際欄位數調整
+                    
+                    for idx, w in enumerate(pack_weights_display):
+                        if w > 0:
+                            val = total_colorant * w
+                            width = col_widths[idx] if idx < len(col_widths) else 12
+                            total_line_colorant += str(int(val)).rjust(width)
+                    
+                    html_text += total_line_colorant + "<br>"
+            
+                    # 轉為純文字（保留對齊）
+                    text_with_newlines = html_text.replace("<br>", "\n")
+                    plain_text = re.sub(r"<.*?>", "", text_with_newlines)
+                    return "```\n" + plain_text.strip() + "\n```"
+            
     # ------------------- 顯示預覽 -------------------
     if selected_label and selected_label != "無資料":
         selected_code_edit = code_to_id[selected_label]
