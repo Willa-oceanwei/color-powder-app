@@ -1076,6 +1076,7 @@ elif menu == "配方管理":
 
     # 篩選
     mask = pd.Series(True, index=df_recipe.index)
+    df_filtered = df_recipe[mask]
     if recipe_kw:
         mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
     if customer_kw:
