@@ -91,7 +91,6 @@ def init_states(keys=None):
                 st.session_state[key] = 1
             else:
                 st.session_state[key] = None
-                
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
@@ -2122,51 +2121,23 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     st.markdown(" ")
-    
     # ------------------- 選擇生產單號 -------------------
-    if not df_filtered.empty:
-        # 生成下拉選單選項
-        options = ["無資料"]
-        code_to_id = {}
-        for idx, row in df_filtered.iterrows():
+    options = []
+    code_to_id = {}
+    if not page_data.empty:
+        for idx, row in page_data.iterrows():
             label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色','')} / {row.get('客戶名稱','')}"
             options.append(label)
-            code_to_id[label] = row["生產單號"]  # 對應實際生產單號
+            code_to_id[label] = row["生產單號"]
     
-        cols = st.columns([5, 2])  # 兩欄：下拉、刪除
-        with cols[0]:
-            selected_label = st.selectbox(
-                "選擇生產單號",
-                options=options,
-                index=1 if len(options) > 1 else 0
-            )
+    cols_top2 = st.columns([5, 1, 1])
+    with cols_top2[0]:
+        selected_label = st.selectbox(
+            "選擇生產單號",
+            options or ["無資料"],
+            key="select_order_for_edit_from_list"
+        )
     
-        with cols[1]:
-            if selected_label != "無資料":
-                confirm_delete = st.checkbox(f"確認刪除 {selected_label}", key="confirm_delete_checkbox")
-                if st.button("🗑️ 刪除", key="delete_order_btn") and confirm_delete:
-                    selected_code_delete = code_to_id[selected_label]
-    
-                    # 刪除 DataFrame 中該筆資料
-                    df_order = df_order[df_order["生產單號"] != selected_code_delete]
-    
-                    # 同步更新 Google Sheets（單筆刪除）
-                    try:
-                        cell = ws_order.find(selected_code_delete)
-                        if cell:
-                            ws_order.delete_rows(cell.row)
-                            st.success(f"✅ 已刪除生產單 {selected_code_delete}，並更新 Google Sheets")
-                        else:
-                            st.warning(f"⚠️ Google Sheets 找不到該筆生產單 {selected_code_delete}")
-                    except Exception as e:
-                        st.error(f"⚠️ Google Sheets 更新錯誤：{e}")
-    
-                    # 寫入本地 CSV
-                    os.makedirs(os.path.dirname(order_file), exist_ok=True)
-                    df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
-                    st.session_state.df_order = df_order
-    
-                    st.rerun()
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
         main_code = ""
