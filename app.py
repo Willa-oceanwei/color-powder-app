@@ -1205,8 +1205,8 @@ elif menu == "配方管理":
     
     # --- 配方編號選擇 + 修改/刪除 ---
     code_list = page_data["配方編號"].dropna().tolist()
-        
-    cols = st.columns([3, 1, 1])  # 配方編號下拉+修改+刪除 按鈕
+    
+    cols = st.columns([3, 1, 1])  # 配方編號下拉+修改+刪除按鈕
     with cols[0]:
         if code_list:
             if len(code_list) == 1:
@@ -1231,30 +1231,8 @@ elif menu == "配方管理":
             st.session_state.delete_recipe_index = df_idx
             st.session_state.show_delete_recipe_confirm = True
             st.rerun()
-
-    import pandas as pd
-    import re
     
-    def safe_str(val):
-        if val is None or pd.isna(val):
-            return ""
-        return str(val).strip()
     
-    def safe_float(val):
-        try:
-            f = float(val)
-            if pd.isna(f):
-                return 0.0
-            return f
-        except:
-            return 0.0
-    
-    def fmt_num(x):
-        # 小數點為 0 就顯示整數，否則保留原值
-        if abs(x - int(x)) < 1e-9:
-            return str(int(x))
-        return f"{x:g}"
-   
     # ---------- 函式：生成配方預覽文字 ----------
     def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
         html_text = ""
@@ -1292,7 +1270,7 @@ elif menu == "配方管理":
     
         # 附加配方
         main_code = safe_str(order.get("配方編號",""))
-        if main_code:
+        if main_code and 'df_recipe' in globals():
             additional_recipe_rows = df_recipe[
                 (df_recipe["配方類別"]=="附加配方") &
                 (df_recipe["原始配方"].astype(str).str.strip() == main_code)
@@ -1337,29 +1315,40 @@ elif menu == "配方管理":
     
     
     # ---------- 配方預覽顯示 ----------
-    if selected_code and "配方編號" in df_recipe.columns:
+    if selected_code and 'df_recipe' in globals() and "配方編號" in df_recipe.columns:
         # 1️⃣ 統一欄位型態
         df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).str.strip()
         selected_code_str = str(selected_code).strip()
     
-        # 2️⃣ debug
+        # 2️⃣ debug（可暫時保留，確認讀到資料）
         st.write("🔹 selected_code:", selected_code_str)
         st.write("🔹 配方編號列表:", df_recipe["配方編號"].tolist())
     
         # 3️⃣ 過濾選定配方
-        df_selected = df_recipe[df_recipe["配方編號"].isin([selected_code_str])]
+        df_selected = df_recipe[df_recipe["配方編號"] == selected_code_str]
     
         if not df_selected.empty:
             recipe_row_preview = df_selected.iloc[0].to_dict()
     
-            # 4️⃣ 生成預覽文字
-            preview_text_recipe = generate_order_preview_text(
-                order=recipe_row_preview,
-                recipe_row=recipe_row_preview,
-                show_additional_ids=st.session_state.get(f"show_ids_checkbox_{selected_code_str}", True)
+            # 4️⃣ Session State checkbox
+            show_ids_key = f"show_ids_checkbox_{selected_code_str}"
+            if show_ids_key not in st.session_state:
+                st.session_state[show_ids_key] = True
+    
+            show_ids = st.checkbox(
+                "列印時顯示附加配方編號",
+                value=st.session_state[show_ids_key],
+                key=show_ids_key
             )
     
-            # 5️⃣ 顯示
+            # 5️⃣ 生成預覽文字
+            preview_text_recipe = generate_recipe_preview_text(
+                order=recipe_row_preview,
+                recipe_row=recipe_row_preview,
+                show_additional_ids=show_ids
+            )
+    
+            # 6️⃣ 顯示
             with st.expander("👀 配方預覽", expanded=False):
                 st.markdown(preview_text_recipe)
         else:
