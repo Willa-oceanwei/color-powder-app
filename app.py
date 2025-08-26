@@ -1540,10 +1540,10 @@ elif menu == "生產單管理":
 
         # 建立選單選項顯示名稱
         def format_option(r):
-            label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
-            if r.get("配方類別", "") == "附加配方":
-                label += "（附加配方）"
-            return label
+            code = r.get('配方編號', '')
+            color = r.get('顏色', '')
+            customer = r.get('客戶名稱', '')
+            return f"{code} | {color} | {customer}"
 
         # 生成下拉選單選項
         if not filtered.empty:
@@ -1555,7 +1555,6 @@ elif menu == "生產單管理":
         else:
             selected_option = None
             st.info("無法取得任何符合的配方")
-
         if add_btn:
             if not selected_option:
                 st.warning("請先選擇配方")
