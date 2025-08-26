@@ -207,7 +207,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     if total_type == "" or total_type == "無":
         total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
     elif category == "色母":
-        total_type_display = f"<b>{'料'.ljust(powder_label_width)}</b>"
+        total_type_display = f"<b>{'':<{powder_label_width-1}}<span style='font-size:12px'>料</span></b>"
     else:
         total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
         
