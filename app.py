@@ -803,8 +803,11 @@ elif menu == "配方管理":
             st.session_state.add_powder_clicked = False
 
     # === 表單提交後的處理邏輯（要在 form 區塊外） ===    
-    existing_powders_str = {str(x).strip().upper() for x in existing_powders if str(x).strip() != ""}
-   
+    existing_powders_str = {
+        str(x).strip().upper()
+        for x in existing_powders
+        if x is not None and str(x).strip() != "" and str(x).lower() != "nan"
+    }   
     if submitted:
         missing_powders = []
         for i in range(1, st.session_state.num_powder_rows + 1):
