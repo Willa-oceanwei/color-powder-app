@@ -2145,7 +2145,7 @@ elif menu == "生產單管理":
         )
     
     with cols_top2[1]:
-        if st.button("刪除", key="delete_order_btn"):
+        if st.button("🗑️刪除", key="delete_order_btn"):
             if selected_label and selected_label in code_to_id:
                 order_id = code_to_id[selected_label]
     
@@ -2329,7 +2329,7 @@ elif menu == "生產單管理":
             )
     
             preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
-            with st.expander("🔍 生產單預覽", expanded=False):
+            with st.expander("👀 生產單預覽", expanded=False):
                 st.markdown(preview_text)
 
     
