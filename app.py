@@ -2323,7 +2323,7 @@ elif menu == "生產單管理":
                 st.session_state[show_ids_key] = True
     
             show_ids = st.checkbox(
-                "列印時顯示附加配方編號",
+                "預覽時顯示附加配方編號",
                 value=st.session_state[show_ids_key],
                 key=show_ids_key
             )
