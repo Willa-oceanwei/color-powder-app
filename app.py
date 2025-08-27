@@ -1252,9 +1252,13 @@ elif menu == "配方管理":
         except:
             return 0
     
-    def fmt_num(val):
-        return f"{val:.2f}" if isinstance(val, (int, float)) else str(val)
+    def fmt_num(val, digits=2):
+        try:
+            num = float(val)
+        except (TypeError, ValueError):
+            return "0"
     
+        return f"{num:.{digits}f}".rstrip("0").rstrip(".")    
     # ---------- 函式：生成配方預覽 ----------
     def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
         html_text = ""
