@@ -2112,6 +2112,7 @@ elif menu == "生產單管理":
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
     st.markdown(" ")
+    
     # ------------------- 選擇生產單號 -------------------
     options = []
     code_to_id = {}
@@ -2121,13 +2122,40 @@ elif menu == "生產單管理":
             options.append(label)
             code_to_id[label] = row["生產單號"]
     
-    cols_top2 = st.columns([5, 1, 1])
+    cols_top2 = st.columns([5, 1])
     with cols_top2[0]:
         selected_label = st.selectbox(
             "選擇生產單號",
             options or ["無資料"],
             key="select_order_for_edit_from_list"
         )
+    
+    with cols_top2[1]:
+        if st.button("刪除", key="delete_order_btn"):
+            if selected_label and selected_label in code_to_id:
+                order_id = code_to_id[selected_label]
+    
+                # 確認視窗
+                st.session_state["delete_target_id"] = order_id
+                st.session_state["show_delete_confirm"] = True
+    
+    # 確認刪除
+    if st.session_state.get("show_delete_confirm", False):
+        order_id = st.session_state["delete_target_id"]
+        st.warning(f"⚠️ 確定要刪除生產單 {order_id}？")
+    
+        c1, c2 = st.columns(2)
+        if c1.button("是", key="confirm_delete_yes"):
+            # 刪除資料
+            page_data = page_data[page_data["生產單號"] != order_id]
+            save_df_to_sheet(ws_orders, page_data)  # <-- 這裡依你的實際儲存函式改
+            st.success("✅ 刪除成功！")
+            st.session_state["show_delete_confirm"] = False
+            st.rerun()
+    
+        if c2.button("否", key="confirm_delete_no"):
+            st.session_state["show_delete_confirm"] = False
+            st.rerun()
     
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
