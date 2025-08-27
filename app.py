@@ -1375,7 +1375,12 @@ elif menu == "配方管理":
                 {"配方編號": recipe_row_preview.get("配方編號")}, 
                 recipe_row_preview
             )
-            st.markdown(preview_text_recipe, unsafe_allow_html=True)
+            # 展開狀態根據搜尋結果自動判斷
+            auto_expand = False
+            if 'df_filtered' in locals() and len(df_filtered) == 1:
+                auto_expand = True  # 唯一筆搜尋結果就自動展開
+            with st.expander("👀 配方預覽", expanded=auto_expand):
+                st.markdown(preview_text_recipe, unsafe_allow_html=True)
     else:
         st.info("🟦 沒有可選的配方編號")
 
