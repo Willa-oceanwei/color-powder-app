@@ -2045,7 +2045,7 @@ elif menu == "生產單管理":
         st.info("查無符合的資料（分頁結果）")
     
     # ===== 分頁控制列（五個橫排） =====
-    cols_page = st.columns([2, 2, 2, 2, 1])
+    cols_page = st.columns([2, 2, 2, 2, 2])
     
     # 首頁
     with cols_page[0]:
