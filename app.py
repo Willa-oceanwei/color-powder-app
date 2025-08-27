@@ -1330,38 +1330,42 @@ elif menu == "配方管理":
     # ---------- 配方下拉選單 + 修改/刪除 + 預覽 ----------
     if not df_recipe.empty and "配方編號" in df_recipe.columns:
         df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
+    
         cols = st.columns([3, 1, 1])  # 下拉 + 修改 + 刪除
-        selected_code = st.selectbox("選擇配方編號", options=df_recipe["配方編號"].tolist(), key="select_recipe_code_page")
+        with cols[0]:
+            selected_index = st.selectbox(
+                "選擇配方",
+                options=df_recipe.index,
+                format_func=lambda i: f"{df_recipe.at[i, '配方編號']} | {df_recipe.at[i, '顏色']} | {df_recipe.at[i, '客戶名稱']}",
+                key="select_recipe_code_page"
+            )
+        selected_code = df_recipe.at[selected_index, "配方編號"] if selected_index is not None else None
     
         # 修改按鈕
         with cols[1]:
             if selected_code and st.button("✏️ 修改", key="edit_btn"):
-                df_idx = df_recipe[df_recipe["配方編號"] == selected_code].index[0]
-                st.session_state.edit_recipe_index = df_idx
-                st.session_state.form_recipe = df_recipe.loc[df_idx].to_dict()
+                st.session_state.edit_recipe_index = selected_index
+                st.session_state.form_recipe = df_recipe.loc[selected_index].to_dict()
                 st.rerun()
+    
         # 刪除按鈕
         with cols[2]:
             if selected_code and st.button("🗑️ 刪除", key="del_btn"):
-                df_idx = df_recipe[df_recipe["配方編號"] == selected_code].index[0]
-                st.session_state.delete_recipe_index = df_idx
+                st.session_state.delete_recipe_index = selected_index
                 st.session_state.show_delete_recipe_confirm = True
                 st.rerun()
-        
+    
         # 預覽 Markdown
         if selected_code:
-            df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
-            if not df_selected.empty:
-                recipe_row_preview = df_selected.iloc[0].to_dict()
-                preview_text_recipe = generate_recipe_preview_text(
-                    {"配方編號": recipe_row_preview.get("配方編號")}, 
-                    recipe_row_preview
-                )
-                st.markdown(preview_text_recipe, unsafe_allow_html=True)
-            else:
-                st.warning("⚠️ 選擇的配方不存在")
+            recipe_row_preview = df_recipe.loc[selected_index].to_dict()
+            preview_text_recipe = generate_recipe_preview_text(
+                {"配方編號": recipe_row_preview.get("配方編號")}, 
+                recipe_row_preview
+            )
+            st.markdown(preview_text_recipe, unsafe_allow_html=True)
     else:
         st.info("🟦 沒有可選的配方編號")
+
 
         
     # --- 生產單分頁 ----------------------------------------------------
