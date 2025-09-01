@@ -2101,10 +2101,30 @@ elif menu == "生產單管理":
             st.session_state.order_page = jump_page
             st.experimental_rerun()
     
-    # 分頁數筆數選擇（下拉選單）
+    # ------------------- 刪除生產單工具函式 -------------------
+    def delete_order_by_id(ws, order_id):
+        """直接刪除 Google Sheet 中的某一筆生產單"""
+        all_values = ws.get_all_records()
+        df = pd.DataFrame(all_values)
+    
+        if df.empty:
+            return False
+    
+        # 找到目標列
+        target_idx = df.index[df["生產單號"] == order_id].tolist()
+        if not target_idx:
+            return False
+    
+        # gspread 是 1-based row index，+2 是因為第1列是標題，第2列才是資料
+        row_number = target_idx[0] + 2
+        ws.delete_rows(row_number)
+        return True
+    
+    
+    # ------------------- 分頁數筆數選擇（下拉選單） -------------------
     with cols_page[4]:
         options_list = [5, 10, 20, 50, 75, 100]
-        # 取得當前值，如果不在 options_list 裡就預設為 10
+        # 取得當前值，如果不在 options_list 裡就預設為 5
         current_limit = st.session_state.get("selectbox_order_limit", 5)
         if current_limit not in options_list:
             current_limit = 5
@@ -2121,7 +2141,6 @@ elif menu == "生產單管理":
         if new_limit != st.session_state.selectbox_order_limit:
             st.session_state.selectbox_order_limit = new_limit
             st.session_state.order_page = 1
-            st.rerun()
             st.rerun()
     
     st.caption(f"頁碼 {st.session_state.order_page} / {total_pages}，總筆數 {total_rows}")
@@ -2148,26 +2167,29 @@ elif menu == "生產單管理":
         if st.button("🗑️刪除", key="delete_order_btn"):
             if selected_label and selected_label in code_to_id:
                 order_id = code_to_id[selected_label]
-    
                 # 確認視窗
                 st.session_state["delete_target_id"] = order_id
+                st.session_state["delete_target_label"] = selected_label
                 st.session_state["show_delete_confirm"] = True
     
-    # 確認刪除
+    # ------------------- 確認刪除 -------------------
     if st.session_state.get("show_delete_confirm", False):
         order_id = st.session_state["delete_target_id"]
-        st.warning(f"⚠️ 確定要刪除生產單 {order_id}？")
+        order_label = st.session_state.get("delete_target_label", order_id)
+    
+        st.warning(f"⚠️ 確定要刪除生產單？\n\n👉 {order_label}")
     
         c1, c2 = st.columns(2)
-        if c1.button("是", key="confirm_delete_yes"):
-            # 刪除資料
-            page_data = page_data[page_data["生產單號"] != order_id]
-            save_df_to_sheet(ws_orders, page_data)  # <-- 這裡依你的實際儲存函式改
-            st.success("✅ 刪除成功！")
+        if c1.button("✅ 是，刪除", key="confirm_delete_yes"):
+            deleted = delete_order_by_id(ws_orders, order_id)
+            if deleted:
+                st.success(f"✅ 已刪除 {order_label}")
+            else:
+                st.error("❌ 找不到該生產單，刪除失敗")
             st.session_state["show_delete_confirm"] = False
             st.rerun()
     
-        if c2.button("否", key="confirm_delete_no"):
+        if c2.button("取消", key="confirm_delete_no"):
             st.session_state["show_delete_confirm"] = False
             st.rerun()
     
