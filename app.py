@@ -2099,7 +2099,7 @@ elif menu == "生產單管理":
         )
         if jump_page != st.session_state.order_page:
             st.session_state.order_page = jump_page
-            st.experimental_rerun()
+            st.rerun()
     
     # ------------------- 刪除生產單工具函式 -------------------
     def delete_order_by_id(ws, order_id):
