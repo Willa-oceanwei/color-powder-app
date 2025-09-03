@@ -2085,7 +2085,7 @@ elif menu == "生產單管理":
     with cols_page[2]:
         if st.button("🔽下一頁", key="next_page") and st.session_state.order_page < total_pages:
             st.session_state.order_page += 1
-            st.experimental_rerun()
+            st.rerun()
     
     # 輸入跳頁
     with cols_page[3]:
