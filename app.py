@@ -374,12 +374,32 @@ def save_df_to_sheet(ws, df):
     ws.clear()
     ws.update("A1", values)
 
+def init_states(keys):
+    """
+    初始化 session_state 中的變數
+    - 如果 key 需要 dict，預設為 {}
+    - 否則預設為 ""
+    """
+    dict_keys = {"form_color", "form_recipe", "order"}  # 這些一定要是 dict
+    
+    for k in keys:
+        if k not in st.session_state:
+            if k in dict_keys:
+                st.session_state[k] = {}
+            else:
+                st.session_state[k] = ""
+
+# ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
+
 # ======== 色粉管理 =========
 if menu == "色粉管理":
     worksheet = spreadsheet.worksheet("色粉管理")
     required_columns = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
+
+    # form_color 現在一定是 dict，不會再報錯
     init_states(["form_color", "edit_color_index", "delete_color_index", "show_delete_color_confirm", "search_color"])
+
     for col in required_columns:
         st.session_state.form_color.setdefault(col, "")
 
@@ -387,6 +407,7 @@ if menu == "色粉管理":
         df = pd.DataFrame(worksheet.get_all_records())
     except:
         df = pd.DataFrame(columns=required_columns)
+
     df = df.astype(str)
     for col in required_columns:
         if col not in df.columns:
