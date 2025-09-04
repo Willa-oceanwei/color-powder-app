@@ -2530,7 +2530,7 @@ if menu == "交叉查詢區":
                 })
 
             df_result = pd.DataFrame(results)
-            st.dataframe(df_result, use_container_width=True)
+            st.dataframe(df_result.reset_index(drop=True), use_container_width=True)
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
