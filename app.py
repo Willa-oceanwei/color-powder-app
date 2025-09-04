@@ -2530,6 +2530,8 @@ if menu == "交叉查詢區":
                 })
 
             df_result = pd.DataFrame(results)
+            if "index" in df_result.columns:
+                df_result = df_result.drop(columns=["index"])
             st.dataframe(df_result.reset_index(drop=True), use_container_width=True)
 
 # ===== 匯入配方備份檔案 =====
