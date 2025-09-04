@@ -2535,7 +2535,7 @@ if menu == "交叉查詢區":
                     for i in range(1, 9)
                     if str(recipe[f"色粉編號{i}"]).strip()
                 ]
-                powder_str = ",".join(powders)
+                powder_str = "、".join(powders)
 
                 results.append({
                     "最後生產時間": last_date,
