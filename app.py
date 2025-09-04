@@ -2539,11 +2539,10 @@ if menu == "交叉查詢區":
             if not df_result.empty:
                 # 按最後生產時間排序（由近到遠）
                 df_result = df_result.sort_values(by="最後生產時間", ascending=False)
-                # 將索引欄清空
-                df_result.index = [""] * len(df_result)
-                # 將時間欄位格式化為 YYYY-MM-DD
+                # 格式化最後生產時間
                 df_result["最後生產時間"] = df_result["最後生產時間"].dt.strftime("%Y-%m-%d").fillna("")
 
+            # 顯示互動排序表格（不加空白欄）
             st.dataframe(df_result, use_container_width=True)
 
 
