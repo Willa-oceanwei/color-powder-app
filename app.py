@@ -511,15 +511,26 @@ elif menu == "客戶名單":
         ws_customer = spreadsheet.worksheet("客戶名單")
     except:
         ws_customer = spreadsheet.add_worksheet("客戶名單", rows=100, cols=10)
+
     columns = ["客戶編號", "客戶簡稱", "備註"]
-    init_states(["form_customer", "edit_customer_index", "delete_customer_index", "show_delete_customer_confirm", "search_customer"])
+
+    # 安全初始化 form_customer
+    if "form_customer" not in st.session_state or not isinstance(st.session_state.form_customer, dict):
+        st.session_state.form_customer = {}
+
+    # 初始化其他 session_state 變數
+    init_states(["edit_customer_index", "delete_customer_index", "show_delete_customer_confirm", "search_customer"])
+
+    # 確保所有欄位都有 key
     for col in columns:
         st.session_state.form_customer.setdefault(col, "")
 
+    # 載入 Google Sheet 資料
     try:
         df = pd.DataFrame(ws_customer.get_all_records())
     except:
         df = pd.DataFrame(columns=columns)
+
     df = df.astype(str)
     for col in columns:
         if col not in df.columns:
