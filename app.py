@@ -2479,7 +2479,6 @@ menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
 if menu == "交叉查詢區":
     import pandas as pd
 
-    # 假設 df_recipe, df_order 已經載入在 session_state
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
     df_order = st.session_state.get("df_order", pd.DataFrame())
 
@@ -2497,7 +2496,6 @@ if menu == "交叉查詢區":
         if val.strip():
             inputs.append(val.strip())
 
-    # 查詢按鈕
     if st.button("查詢") and inputs:
         # 篩選符合的配方
         mask = df_recipe.apply(
@@ -2516,13 +2514,9 @@ if menu == "交叉查詢區":
             for _, recipe in matched.iterrows():
                 # 找最近的生產日期
                 orders = df_order[df_order["配方編號"] == recipe["配方編號"]]
-                last_date = ""
+                last_date = pd.NaT
                 if not orders.empty:
                     last_date = pd.to_datetime(orders["生產日期"], errors="coerce").max()
-                    if pd.notnull(last_date):
-                        last_date = last_date.strftime("%Y-%m-%d")
-                    else:
-                        last_date = ""
 
                 # 色粉組成
                 powders = [
@@ -2542,9 +2536,13 @@ if menu == "交叉查詢區":
 
             df_result = pd.DataFrame(results)
 
-            # 移除前面 0~9 索引（安全處理空 DataFrame）
             if not df_result.empty:
+                # 按最後生產時間排序（由近到遠）
+                df_result = df_result.sort_values(by="最後生產時間", ascending=False)
+                # 將索引欄清空
                 df_result.index = [""] * len(df_result)
+                # 將時間欄位格式化為 YYYY-MM-DD
+                df_result["最後生產時間"] = df_result["最後生產時間"].dt.strftime("%Y-%m-%d").fillna("")
 
             st.dataframe(df_result, use_container_width=True)
 
