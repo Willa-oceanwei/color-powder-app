@@ -2484,7 +2484,10 @@ if menu == "交叉查詢區":
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
     df_order = st.session_state.get("df_order", pd.DataFrame())
 
-    st.header("🔎 交叉查詢：依色粉編號查配方")
+    st.markdown(
+    '<h1 style="font-size:32px; font-family:Arial; color:#1f77b4;">🔎 交叉查詢：依色粉編號查配方</h1>',
+    unsafe_allow_html=True
+    )
 
     # 輸入最多四個色粉編號
     cols = st.columns(4)
