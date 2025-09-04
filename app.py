@@ -2529,10 +2529,8 @@ if menu == "交叉查詢區":
                     "色粉組成": powder_str
                 })
 
-            df_result = pd.DataFrame(results)
-            if "index" in df_result.columns:
-                df_result = df_result.drop(columns=["index"])
-            st.dataframe(df_result.reset_index(drop=True), use_container_width=True)
+            df_result.index = [""] * len(df_result)  # 將索引都改成空字串
+            st.dataframe(df_result, use_container_width=True)
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
