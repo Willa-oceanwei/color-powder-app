@@ -2485,7 +2485,7 @@ if menu == "交叉查詢區":
     df_order = st.session_state.get("df_order", pd.DataFrame())
 
     st.markdown(
-    '<h1 style="font-size:32px; font-family:Arial; color:#1f77b4;">🔎 交叉查詢：依色粉編號查配方</h1>',
+    '<h1 style="font-size:24px; font-family:Arial; color:#1f77b4;">🔎 交叉查詢：依色粉編號查配方</h1>',
     unsafe_allow_html=True
     )
 
