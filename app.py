@@ -2474,58 +2474,60 @@ elif menu == "生產單管理":
                 st.rerun()
 
 # ========交叉查詢區=========
-import streamlit as st
-import pandas as pd
+menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
 
-# 假設 df_recipe, df_order 已經載入在 session_state
-df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
-df_order = st.session_state.get("df_order", pd.DataFrame())
+# ======== 交叉查詢分頁 =========
+if menu == "交叉查詢區":
+    import pandas as pd
 
-st.header("🔎 交叉查詢：依色粉編號查配方")
+    # 假設 df_recipe, df_order 已經載入在 session_state
+    df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
+    df_order = st.session_state.get("df_order", pd.DataFrame())
 
-# 輸入最多四個色粉編號
-cols = st.columns(4)
-inputs = []
-for i in range(4):
-    val = cols[i].text_input(f"色粉編號{i+1}", key=f"cross_color_{i}")
-    if val.strip():
-        inputs.append(val.strip())
+    st.header("🔎 交叉查詢：依色粉編號查配方")
 
-if st.button("查詢") and inputs:
-    # 篩選符合的配方
-    mask = df_recipe.apply(
-        lambda row: all(inp in row[[f"色粉編號{i}" for i in range(1, 9)]].astype(str).tolist() 
-                        for inp in inputs),
-        axis=1
-    )
-    matched = df_recipe[mask].copy()
+    # 輸入最多四個色粉編號
+    cols = st.columns(4)
+    inputs = []
+    for i in range(4):
+        val = cols[i].text_input(f"色粉編號{i+1}", key=f"cross_color_{i}")
+        if val.strip():
+            inputs.append(val.strip())
 
-    if matched.empty:
-        st.warning("⚠️ 找不到符合的配方")
-    else:
-        results = []
-        for _, recipe in matched.iterrows():
-            # 找最近的生產日期
-            orders = df_order[df_order["配方編號"] == recipe["配方編號"]]
-            last_date = ""
-            if not orders.empty:
-                last_date = orders["生產日期"].max()
+    if st.button("查詢") and inputs:
+        # 篩選符合的配方
+        mask = df_recipe.apply(
+            lambda row: all(inp in row[[f"色粉編號{i}" for i in range(1, 9)]].astype(str).tolist() 
+                            for inp in inputs),
+            axis=1
+        )
+        matched = df_recipe[mask].copy()
 
-            # 色粉組成
-            powders = [str(recipe[f"色粉編號{i}"]) for i in range(1, 9) if str(recipe[f"色粉編號{i}"]).strip()]
-            powder_str = ",".join(powders)
+        if matched.empty:
+            st.warning("⚠️ 找不到符合的配方")
+        else:
+            results = []
+            for _, recipe in matched.iterrows():
+                # 找最近的生產日期
+                orders = df_order[df_order["配方編號"] == recipe["配方編號"]]
+                last_date = ""
+                if not orders.empty:
+                    last_date = pd.to_datetime(orders["生產日期"], errors="coerce").max().strftime("%Y-%m-%d")
 
-            results.append({
-                "最後生產時間": last_date,
-                "配方編號": recipe["配方編號"],
-                "顏色": recipe["顏色"],
-                "客戶名稱": recipe["客戶名稱"],
-                "色粉組成": powder_str
-            })
+                # 色粉組成
+                powders = [str(recipe[f"色粉編號{i}"]).strip() for i in range(1, 9) if str(recipe[f"色粉編號{i}"]).strip()]
+                powder_str = ",".join(powders)
 
-        df_result = pd.DataFrame(results)
-        st.dataframe(df_result, use_container_width=True)
+                results.append({
+                    "最後生產時間": last_date,
+                    "配方編號": recipe["配方編號"],
+                    "顏色": recipe["顏色"],
+                    "客戶名稱": recipe["客戶名稱"],
+                    "色粉組成": powder_str
+                })
 
+            df_result = pd.DataFrame(results)
+            st.dataframe(df_result, use_container_width=True)
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
