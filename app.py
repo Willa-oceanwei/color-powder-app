@@ -2473,10 +2473,9 @@ elif menu == "生產單管理":
                 st.session_state.editing_order = None
                 st.rerun()
 
-# ========交叉查詢區=========
+# ======== 交叉查詢分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
 
-# ======== 交叉查詢分頁 =========
 if menu == "交叉查詢區":
     import pandas as pd
 
@@ -2484,9 +2483,10 @@ if menu == "交叉查詢區":
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
     df_order = st.session_state.get("df_order", pd.DataFrame())
 
+    # 標題（自訂字體大小、顏色）
     st.markdown(
-    '<h1 style="font-size:24px; font-family:Arial; color:#1f77b4;">🔎 交叉查詢：依色粉編號查配方</h1>',
-    unsafe_allow_html=True
+        '<h1 style="font-size:24px; font-family:Arial; color:#1f77b4;">🔎 交叉查詢：依色粉編號查配方</h1>',
+        unsafe_allow_html=True
     )
 
     # 輸入最多四個色粉編號
@@ -2497,11 +2497,14 @@ if menu == "交叉查詢區":
         if val.strip():
             inputs.append(val.strip())
 
+    # 查詢按鈕
     if st.button("查詢") and inputs:
         # 篩選符合的配方
         mask = df_recipe.apply(
-            lambda row: all(inp in row[[f"色粉編號{i}" for i in range(1, 9)]].astype(str).tolist() 
-                            for inp in inputs),
+            lambda row: all(
+                inp in row[[f"色粉編號{i}" for i in range(1, 9)]].astype(str).tolist() 
+                for inp in inputs
+            ),
             axis=1
         )
         matched = df_recipe[mask].copy()
@@ -2515,10 +2518,18 @@ if menu == "交叉查詢區":
                 orders = df_order[df_order["配方編號"] == recipe["配方編號"]]
                 last_date = ""
                 if not orders.empty:
-                    last_date = pd.to_datetime(orders["生產日期"], errors="coerce").max().strftime("%Y-%m-%d")
+                    last_date = pd.to_datetime(orders["生產日期"], errors="coerce").max()
+                    if pd.notnull(last_date):
+                        last_date = last_date.strftime("%Y-%m-%d")
+                    else:
+                        last_date = ""
 
                 # 色粉組成
-                powders = [str(recipe[f"色粉編號{i}"]).strip() for i in range(1, 9) if str(recipe[f"色粉編號{i}"]).strip()]
+                powders = [
+                    str(recipe[f"色粉編號{i}"]).strip()
+                    for i in range(1, 9)
+                    if str(recipe[f"色粉編號{i}"]).strip()
+                ]
                 powder_str = ",".join(powders)
 
                 results.append({
@@ -2529,8 +2540,14 @@ if menu == "交叉查詢區":
                     "色粉組成": powder_str
                 })
 
-            df_result.index = [""] * len(df_result)  # 將索引都改成空字串
+            df_result = pd.DataFrame(results)
+
+            # 移除前面 0~9 索引（安全處理空 DataFrame）
+            if not df_result.empty:
+                df_result.index = [""] * len(df_result)
+
             st.dataframe(df_result, use_container_width=True)
+
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
