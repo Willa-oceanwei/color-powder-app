@@ -2577,9 +2577,9 @@ if menu == "交叉查詢區":
     def format_usage(val):
         if val >= 1000:
             kg = val / 1000
-            return f"{int(kg) if kg == int(kg) else kg:.2f} kg"
+            return f"{int(kg) if kg.is_integer() else kg:.2f} kg"
         else:
-            return f"{int(val) if val == int(val) else val:.2f} g"
+            return f"{int(val) if val.is_integer() else val:.2f} g"
 
     if st.button("查詢用量", key="btn_powder_usage") and powder_inputs:
         results = []
