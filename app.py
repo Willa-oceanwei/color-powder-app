@@ -2610,8 +2610,21 @@ if menu == "交叉查詢區":
                 # 計算用量
                 usage = 0
                 for j in range(1, 5):
-                    pack_w = float(order[f"包裝重量{j}"]) if f"包裝重量{j}" in order else 0
-                    pack_n = float(order[f"包裝份數{j}"]) if f"包裝份數{j}" in order else 0
+                    # 先取值，若欄位不存在就 0
+                    w_val = order[f"包裝重量{j}"] if f"包裝重量{j}" in order else 0
+                    n_val = order[f"包裝份數{j}"] if f"包裝份數{j}" in order else 0
+                
+                    # 轉 float，若失敗就用 0
+                    try:
+                        pack_w = float(w_val)
+                    except (ValueError, TypeError):
+                        pack_w = 0
+                
+                    try:
+                        pack_n = float(n_val)
+                    except (ValueError, TypeError):
+                        pack_n = 0
+                
                     usage += powder_weight * pack_w * pack_n
     
                 order_date = order["生產日期"]
