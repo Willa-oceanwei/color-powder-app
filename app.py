@@ -2610,8 +2610,8 @@ if menu == "交叉查詢區":
                 # 計算用量
                 usage = 0
                 for j in range(1, 5):
-                    pack_w = float(order.get(f"包裝重量{j}", 0))
-                    pack_n = float(order.get(f"包裝份數{j}", 0))
+                    pack_w = float(order[f"包裝重量{j}"]) if f"包裝重量{j}" in order else 0
+                    pack_n = float(order[f"包裝份數{j}"]) if f"包裝份數{j}" in order else 0
                     usage += powder_weight * pack_w * pack_n
     
                 order_date = order["生產日期"]
