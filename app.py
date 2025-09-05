@@ -2770,7 +2770,10 @@ if menu == "交叉查詢區":
 
         # 使用 Styler 加粗總用量行
         def highlight_total(s):
-            return ['font-weight: bold; background-color: #f9f9f9' if v == '總用量' else '' for v in s]
+            return [
+                'font-weight: bold; background-color: #333333; color: white' if v == '總用量' else ''
+                for v in s
+            ]
 
         styled = df_usage.style.apply(highlight_total, subset=["來源區間"])
         st.dataframe(styled, use_container_width=True)
