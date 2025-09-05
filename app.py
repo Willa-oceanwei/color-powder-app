@@ -2575,7 +2575,6 @@ if menu == "交叉查詢區":
     end_date = col2.date_input("結束日期")
 
     def format_usage(val):
-        """格式化用量，若小數點後為 0 則隱藏"""
         if val >= 1000:
             kg = val / 1000
             return f"{int(kg) if kg == int(kg) else kg:.2f} kg"
