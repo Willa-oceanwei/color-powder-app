@@ -2557,7 +2557,7 @@ if menu == "交叉查詢區":
 
     # ---------------- 第二段：色粉用量查詢 ----------------
     st.markdown(
-        '<h1 style="font-size:24px; font-family:Arial; color:#ff7f0e;">📦 色粉用量查詢（依日期區間）</h1>',
+        '<h1 style="font-size:24px; font-family:Arial; color:#ff7f0e;">🧮 色粉用量查詢（依日期區間）</h1>',
         unsafe_allow_html=True
     )
 
