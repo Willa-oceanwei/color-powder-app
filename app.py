@@ -2575,7 +2575,7 @@ if menu == "交叉查詢區":
     cols = st.columns(4)
     inputs = []
     for i in range(4):
-        val = cols[i].text_input(f"色粉編號{i+1}", key=f"cross_color_{i}")
+        val = cols[i].text_input(f"色粉編號{i+1}", key=f"cross_recipe_color_{i}")
         if val.strip():
             inputs.append(val.strip())
 
