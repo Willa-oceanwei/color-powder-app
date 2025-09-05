@@ -2574,6 +2574,16 @@ if menu == "交叉查詢區":
     start_date = col1.date_input("開始日期")
     end_date = col2.date_input("結束日期")
 
+    def format_usage(value):
+        """格式化用量，整數隱藏小數點0"""
+        if value >= 1000:
+            kg = value / 1000
+            s = f"{kg:.2f}".rstrip("0").rstrip(".")
+            return f"{s}kg"
+        else:
+            s = f"{value:.2f}".rstrip("0").rstrip(".")
+            return f"{s}g"
+
     if st.button("查詢用量", key="btn_powder_usage") and powder_inputs:
         results = []
         df_order = st.session_state.get("df_order", pd.DataFrame()).copy()
@@ -2756,10 +2766,14 @@ if menu == "交叉查詢區":
                 "附加配方來源": ""
             })
 
-        # 顯示表格（互動排序由 st.dataframe 提供）
         df_usage = pd.DataFrame(results)
-        st.dataframe(df_usage.reset_index(drop=True), use_container_width=True)
 
+        # 使用 Styler 加粗總用量行
+        def highlight_total(s):
+            return ['font-weight: bold; background-color: #f9f9f9' if v == '總用量' else '' for v in s]
+
+        styled = df_usage.style.apply(highlight_total, subset=["來源區間"])
+        st.dataframe(styled, use_container_width=True)
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
