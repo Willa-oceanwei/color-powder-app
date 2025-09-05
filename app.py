@@ -2495,7 +2495,7 @@ if menu == "交叉查詢區":
 
     # ---------------- 第一段：交叉查詢 ----------------
     st.markdown(
-        '<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">♻️ 交叉查詢：依色粉編號查配方</h1>',
+        '<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">♻️ 依色粉編號查配方</h1>',
         unsafe_allow_html=True
     )
 
@@ -2557,7 +2557,7 @@ if menu == "交叉查詢區":
 
     # ---------------- 第二段：色粉用量查詢 ----------------
     st.markdown(
-        '<h2 style="font-size:24px; font-family:Arial; color:#dbd818;">🧮 色粉用量查詢（依日期區間）</h2>',
+        '<h2 style="font-size:24px; font-family:Arial; color:#dbd818;">🧮 色粉用量查詢</h2>',
         unsafe_allow_html=True
     )
     
