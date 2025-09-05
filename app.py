@@ -2574,15 +2574,13 @@ if menu == "交叉查詢區":
     start_date = col1.date_input("開始日期")
     end_date = col2.date_input("結束日期")
 
-    def format_usage(value):
-        """格式化用量，整數隱藏小數點0"""
-        if value >= 1000:
-            kg = value / 1000
-            s = f"{kg:.2f}".rstrip("0").rstrip(".")
-            return f"{s}kg"
+    def format_usage(val):
+        """格式化用量，若小數點後為 0 則隱藏"""
+        if val >= 1000:
+            kg = val / 1000
+            return f"{int(kg) if kg == int(kg) else kg:.2f} kg"
         else:
-            s = f"{value:.2f}".rstrip("0").rstrip(".")
-            return f"{s}g"
+            return f"{int(val) if val == int(val) else val:.2f} g"
 
     if st.button("查詢用量", key="btn_powder_usage") and powder_inputs:
         results = []
@@ -2744,7 +2742,7 @@ if menu == "交叉查詢區":
                 else:
                     date_disp = f"{disp_start.strftime('%Y/%m/%d')}~{disp_end.strftime('%m/%d')}"
 
-                usage_disp = f"{usage_g/1000:.2f} kg" if usage_g >= 1000 else f"{usage_g:.2f} g"
+                usage_disp = format_usage(usage_g)
                 main_src = ", ".join(sorted(data["main_recipes"])) if data["main_recipes"] else ""
                 add_src  = ", ".join(sorted(data["additional_recipes"])) if data["additional_recipes"] else ""
 
@@ -2757,7 +2755,7 @@ if menu == "交叉查詢區":
                 })
 
             # 5) 總用量（always append）
-            total_disp = f"{total_usage_g/1000:.2f} kg" if total_usage_g >= 1000 else f"{total_usage_g:.2f} g"
+            total_disp = format_usage(total_usage_g)
             results.append({
                 "色粉編號": powder_id,
                 "來源區間": "總用量",
