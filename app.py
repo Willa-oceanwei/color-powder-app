@@ -2560,6 +2560,14 @@ if menu == "交叉查詢區":
         '<h1 style="font-size:24px; font-family:Arial; color:#ff7f0e;">🧮 色粉用量查詢（依日期區間）</h1>',
         unsafe_allow_html=True
     )
+    
+    # 輸入最多四個色粉編號
+    cols = st.columns(4)
+    powder_inputs = []
+    for i in range(4):
+        val = cols[i].text_input(f"色粉編號{i+1}", key=f"usage_color_{i}")
+        if val.strip():
+            powder_inputs.append(val.strip())
 
     # 日期範圍選擇
     col1, col2 = st.columns(2)
