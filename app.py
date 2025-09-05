@@ -2579,77 +2579,98 @@ if menu == "交叉查詢區":
         df_order = st.session_state.get("df_order", pd.DataFrame()).copy()
         df_recipe = st.session_state.get("df_recipe", pd.DataFrame()).copy()
 
-        # 安全補齊配方欄位
+        # 確保欄位存在，避免 KeyError
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
-        for col in powder_cols + ["配方編號", "配方類別", "原始配方", "顏色", "客戶名稱", "配方名稱"]:
-            if col not in df_recipe.columns:
-                df_recipe[col] = ""
+        for c in powder_cols + ["配方編號", "配方類別", "原始配方", "配方名稱", "顏色", "客戶名稱"]:
+            if c not in df_recipe.columns:
+                df_recipe[c] = ""
 
-        # 生產日期轉時間
         if "生產日期" in df_order.columns:
             df_order["生產日期"] = pd.to_datetime(df_order["生產日期"], errors="coerce")
         else:
             df_order["生產日期"] = pd.NaT
 
-        # 小工具：組合顯示用的配方名稱
-        def get_recipe_display_name(rec: dict) -> str:
+        # 小工具：將 recipe dict 轉成顯示名稱（若有配方名稱用配方名稱，否則用編號+顏色）
+        def recipe_display_name(rec: dict) -> str:
             name = str(rec.get("配方名稱", "")).strip()
             if name:
                 return name
             rid = str(rec.get("配方編號", "")).strip()
             color = str(rec.get("顏色", "")).strip()
-            cust  = str(rec.get("客戶名稱", "")).strip()
-            parts = [p for p in [color, cust] if p]
-            return f"{rid} ({' / '.join(parts)})" if parts else rid
+            cust = str(rec.get("客戶名稱", "")).strip()
+            if color or cust:
+                parts = [p for p in [color, cust] if p]
+                return f"{rid} ({' / '.join(parts)})"
+            return rid
 
-        # 依每個輸入的色粉編號分別統計
         for powder_id in powder_inputs:
             total_usage_g = 0.0
-            # 月度累計：usage（克）、recipes（來源配方名稱集合）
-            monthly_usage = {}  # { 'YYYY/MM': {'usage': float, 'recipes': set()} }
+            monthly_usage = {}   # e.g. { 'YYYY/MM': { 'usage': float, 'main_recipes': set(), 'additional_recipes': set() } }
 
-            # 1) 先掃配方管理，找出所有含該色粉的配方（主/附）
+            # 1) 先從配方管理找出「候選配方」(任何一個色粉欄有包含此 powder_id)
             if not df_recipe.empty:
-                has_powder_mask = df_recipe[powder_cols].astype(str).apply(
-                    lambda row: powder_id in row.values, axis=1
-                )
-                recipe_candidates = df_recipe[has_powder_mask]
-                candidate_ids = set(recipe_candidates["配方編號"].astype(str))
+                mask = df_recipe[powder_cols].astype(str).apply(lambda row: powder_id in row.values, axis=1)
+                recipe_candidates = df_recipe[mask].copy()
+                candidate_ids = set(recipe_candidates["配方編號"].astype(str).tolist())
             else:
+                recipe_candidates = pd.DataFrame()
                 candidate_ids = set()
 
-            # 2) 過濾生產單日期區間、且生產日期有效
+            # 2) 過濾生產單日期區間（只取有效日期）
             orders_in_range = df_order[
                 (df_order["生產日期"].notna()) &
                 (df_order["生產日期"] >= pd.to_datetime(start_date)) &
                 (df_order["生產日期"] <= pd.to_datetime(end_date))
             ]
 
+            # 3) 逐筆檢查訂單（保留原有過濾邏輯：只處理該訂單的主配方與其附加配方）
             for _, order in orders_in_range.iterrows():
-                main_recipe_id = str(order.get("配方編號", "")).strip()
-                if not main_recipe_id:
+                order_recipe_id = str(order.get("配方編號", "")).strip()
+                if not order_recipe_id:
                     continue
 
-                # 3) 找主配方 + 附加配方（附加配方=配方類別為「附加配方」且原始配方=主配方編號）
+                # 取得主配方（若存在）與其附加配方
                 recipe_rows = []
-
-                main_df = df_recipe[df_recipe["配方編號"].astype(str) == main_recipe_id]
+                main_df = df_recipe[df_recipe["配方編號"].astype(str) == order_recipe_id]
                 if not main_df.empty:
                     recipe_rows.append(main_df.iloc[0].to_dict())
-
                 add_df = df_recipe[
                     (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"].astype(str) == main_recipe_id)
+                    (df_recipe["原始配方"].astype(str) == order_recipe_id)
                 ]
-                recipe_rows.extend(add_df.to_dict("records"))
+                if not add_df.empty:
+                    recipe_rows.extend(add_df.to_dict("records"))
 
-                # 4) 計算該筆訂單中此色粉的用量（主/附都要算）
-                order_usage = 0.0
-                usage_sources = set()
+                # 計算這張訂單中，該 powder_id 的用量（會檢查每個配方是否包含 powder_id，且該配方需在候選清單中）
+                # 若同一張單多個配方包含 powder_id，會將各配方的貢獻加總
+                order_total_for_powder = 0.0
+                sources_main = set()
+                sources_add = set()
+
+                # 先算出該訂單的包裝總份 (= sum(pack_w * pack_n) )
+                packs_total = 0.0
+                for j in range(1, 5):
+                    w_key = f"包裝重量{j}"
+                    n_key = f"包裝份數{j}"
+                    w_val = order[w_key] if w_key in order.index else 0
+                    n_val = order[n_key] if n_key in order.index else 0
+                    try:
+                        pack_w = float(w_val or 0)
+                    except (ValueError, TypeError):
+                        pack_w = 0.0
+                    try:
+                        pack_n = float(n_val or 0)
+                    except (ValueError, TypeError):
+                        pack_n = 0.0
+                    packs_total += pack_w * pack_n
+
+                if packs_total <= 0:
+                    # 如果這張訂單沒有實際包裝份數（皆為0），就跳過（因為不會產生用量）
+                    continue
 
                 for rec in recipe_rows:
                     rec_id = str(rec.get("配方編號", "")).strip()
-                    # 必須同時滿足：這個配方在候選清單內，且真的含有該色粉
+                    # 只有當該配方在候選清單裡（也就是配方管理確認含該色粉）才計算
                     if rec_id not in candidate_ids:
                         continue
 
@@ -2663,77 +2684,82 @@ if menu == "交叉查詢區":
                     except (ValueError, TypeError):
                         powder_weight = 0.0
 
-                    # 包裝加總：Σ(包裝重量k * 包裝份數k)
-                    packs_total = 0.0
-                    for j in range(1, 5):
-                        w_key = f"包裝重量{j}"
-                        n_key = f"包裝份數{j}"
-                        w_val = order[w_key] if w_key in order.index else 0
-                        n_val = order[n_key] if n_key in order.index else 0
-                        try:
-                            pack_w = float(w_val or 0)
-                        except (ValueError, TypeError):
-                            pack_w = 0.0
-                        try:
-                            pack_n = float(n_val or 0)
-                        except (ValueError, TypeError):
-                            pack_n = 0.0
-                        packs_total += pack_w * pack_n
+                    if powder_weight <= 0:
+                        continue
 
-                    # 色粉用量（克）= 配方中該色粉重量(克/份) * 生產包裝總份量（依你規則）
-                    order_usage += powder_weight * packs_total
-                    usage_sources.add(get_recipe_display_name(rec))
+                    # 用量 (g) = 色粉重量 * packs_total
+                    contrib = powder_weight * packs_total
+                    order_total_for_powder += contrib
+                    # 記錄來源
+                    disp_name = recipe_display_name(rec)
+                    if str(rec.get("配方類別", "")).strip() == "附加配方":
+                        sources_add.add(disp_name)
+                    else:
+                        sources_main.add(disp_name)
 
-                if order_usage <= 0:
+                if order_total_for_powder <= 0:
                     continue
 
-                    # 5) 累計到月份（同時記下來源配方）
-                    od = order["生產日期"]  # 已保證非 NaT
-                    month_key = od.strftime("%Y/%m")
-                    if month_key not in monthly_usage:
-                        monthly_usage[month_key] = {
-                            "usage": 0,
-                            "days": [],                 # 👈 把 days 加回來
-                            "main_recipes": [],
-                            "additional_recipes": []
-                        }
-                    monthly_usage[month_key]["usage"] += order_usage
-                    monthly_usage[month_key]["recipes"].update(usage_sources)
+                # 累計到月份
+                od = order["生產日期"]
+                if pd.isna(od):
+                    continue
+                month_key = od.strftime("%Y/%m")
+                if month_key not in monthly_usage:
+                    monthly_usage[month_key] = {"usage": 0.0, "main_recipes": set(), "additional_recipes": set()}
 
-                    total_usage_g += order_usage
+                monthly_usage[month_key]["usage"] += order_total_for_powder
+                monthly_usage[month_key]["main_recipes"].update(sources_main)
+                monthly_usage[month_key]["additional_recipes"].update(sources_add)
+                total_usage_g += order_total_for_powder
 
-                # 6) 將每月用量輸出到結果（日期區間按「輸入的起迄日」切分）
-                rows = []
-                for month_key, data in monthly_usage.items():
-                    usage_g = data["usage"]
-                    usage_str = f"{usage_g:.1f}g" if usage_g < 1000 else f"{usage_g/1000:.2f}kg"
-                    days_range = ""
-                    if data["days"]:
-                        min_day, max_day = min(data["days"]), max(data["days"])
-                        if min_day == 1 and max_day >= 28:  # 判斷完整月份
-                            days_range = f"{month_key}"
-                        else:
-                            days_range = f"{month_key}/{min_day}~{month_key}/{max_day}"
+            # 4) 輸出每月用量（日期區間使用輸入 start/end 與該月份交集，整月顯示 YYYY/MM，否則顯示 YYYY/MM/DD~MM/DD）
+            #    只輸出用量>0 的月份
+            months_sorted = sorted(monthly_usage.keys())
+            for month in months_sorted:
+                data = monthly_usage[month]
+                usage_g = data["usage"]
+                if usage_g <= 0:
+                    continue
 
-                    rows.append({
-                        "來源區間": days_range,
-                        "月用量": usage_str,
-                        "主配方來源": ", ".join(set(data.get("main_recipes", []))),
-                        "附加配方來源": ", ".join(set(data.get("additional_recipes", [])))
-                    })
+                # 利用 pd.Period 計算該月份的第一天/最後一天
+                per = pd.Period(month, freq="M")
+                month_start = per.start_time.date()
+                month_end = per.end_time.date()
+                disp_start = max(start_date, month_start)
+                disp_end = min(end_date, month_end)
 
-                # 總用量
-                total_str = f"{total_usage_g:.1f}g" if total_usage_g < 1000 else f"{total_usage_g/1000:.2f}kg"
-                rows.append({
-                    "來源區間": "總用量",
-                    "月用量": total_str,
-                    "主配方來源": "",
-                    "附加配方來源": ""
+                if (disp_start == month_start) and (disp_end == month_end):
+                    date_disp = month
+                else:
+                    date_disp = f"{disp_start.strftime('%Y/%m/%d')}~{disp_end.strftime('%m/%d')}"
+
+                usage_disp = f"{usage_g/1000:.2f} kg" if usage_g >= 1000 else f"{usage_g:.2f} g"
+                main_src = ", ".join(sorted(data["main_recipes"])) if data["main_recipes"] else ""
+                add_src  = ", ".join(sorted(data["additional_recipes"])) if data["additional_recipes"] else ""
+
+                results.append({
+                    "色粉編號": powder_id,
+                    "來源區間": date_disp,
+                    "月用量": usage_disp,
+                    "主配方來源": main_src,
+                    "附加配方來源": add_src
                 })
 
-                # 轉成 DataFrame 顯示
-                df_result = pd.DataFrame(rows)
-                st.dataframe(df_result)
+            # 5) 總用量（always append）
+            total_disp = f"{total_usage_g/1000:.2f} kg" if total_usage_g >= 1000 else f"{total_usage_g:.2f} g"
+            results.append({
+                "色粉編號": powder_id,
+                "來源區間": "總用量",
+                "月用量": total_disp,
+                "主配方來源": "",
+                "附加配方來源": ""
+            })
+
+        # 顯示表格（互動排序由 st.dataframe 提供）
+        df_usage = pd.DataFrame(results)
+        st.dataframe(df_usage.reset_index(drop=True), use_container_width=True)
+
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
