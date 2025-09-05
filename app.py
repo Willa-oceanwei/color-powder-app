@@ -2605,7 +2605,7 @@ if menu == "交叉查詢區":
                 recipe_rows = []
 
                 # 主配方
-                main_recipe = df_recipe[df_recipe["配方編號"] == main_recipe_id]
+                main_recipe = df_recipe.loc[df_recipe.get("配方編號", pd.Series()) == main_recipe_id]
                 if not main_recipe.empty:
                     recipe_rows.append(main_recipe.iloc[0].to_dict())
 
