@@ -2556,7 +2556,6 @@ if menu == "交叉查詢區":
             st.dataframe(df_result, use_container_width=True)
 
     # ---------------- 第二段：色粉用量查詢 ----------------
-    # ---------------- 第二段：色粉用量查詢 ----------------
     st.markdown(
         '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🧮 色粉用量查詢</h2>',
         unsafe_allow_html=True
@@ -2688,48 +2687,53 @@ if menu == "交叉查詢區":
                 if order_usage <= 0:
                     continue
 
-                # 5) 累計到月份（同時記下來源配方）
-                od = order["生產日期"]  # 已保證非 NaT
-                month_key = od.strftime("%Y/%m")
-                if month_key not in monthly_usage:
-                    monthly_usage[month_key] = {"usage": 0.0, "recipes": set()}
-                monthly_usage[month_key]["usage"] += order_usage
-                monthly_usage[month_key]["recipes"].update(usage_sources)
+                    # 5) 累計到月份（同時記下來源配方）
+                    od = order["生產日期"]  # 已保證非 NaT
+                    month_key = od.strftime("%Y/%m")
+                    if month_key not in monthly_usage:
+                        monthly_usage[month_key] = {
+                            "usage": 0,
+                            "days": [],                 # 👈 把 days 加回來
+                            "main_recipes": [],
+                            "additional_recipes": []
+                        }
+                    monthly_usage[month_key]["usage"] += order_usage
+                    monthly_usage[month_key]["recipes"].update(usage_sources)
 
-                total_usage_g += order_usage
+                    total_usage_g += order_usage
 
-            # 6) 將每月用量輸出到結果（日期區間按「輸入的起迄日」切分）
-            rows = []
-            for month_key, data in monthly_usage.items():
-                usage_g = data["usage"]
-                usage_str = f"{usage_g:.1f}g" if usage_g < 1000 else f"{usage_g/1000:.2f}kg"
-                days_range = ""
-                if data["days"]:
-                    min_day, max_day = min(data["days"]), max(data["days"])
-                    if min_day == 1 and max_day >= 28:  # 判斷完整月份
-                        days_range = f"{month_key}"
-                    else:
-                        days_range = f"{month_key}/{min_day}~{month_key}/{max_day}"
+                # 6) 將每月用量輸出到結果（日期區間按「輸入的起迄日」切分）
+                rows = []
+                for month_key, data in monthly_usage.items():
+                    usage_g = data["usage"]
+                    usage_str = f"{usage_g:.1f}g" if usage_g < 1000 else f"{usage_g/1000:.2f}kg"
+                    days_range = ""
+                    if data["days"]:
+                        min_day, max_day = min(data["days"]), max(data["days"])
+                        if min_day == 1 and max_day >= 28:  # 判斷完整月份
+                            days_range = f"{month_key}"
+                        else:
+                            days_range = f"{month_key}/{min_day}~{month_key}/{max_day}"
 
+                    rows.append({
+                        "來源區間": days_range,
+                        "月用量": usage_str,
+                        "主配方來源": ", ".join(set(data.get("main_recipes", []))),
+                        "附加配方來源": ", ".join(set(data.get("additional_recipes", [])))
+                    })
+
+                # 總用量
+                total_str = f"{total_usage_g:.1f}g" if total_usage_g < 1000 else f"{total_usage_g/1000:.2f}kg"
                 rows.append({
-                    "來源區間": days_range,
-                    "月用量": usage_str,
-                    "主配方來源": ", ".join(set(data.get("main_recipes", []))),
-                    "附加配方來源": ", ".join(set(data.get("additional_recipes", [])))
+                    "來源區間": "總用量",
+                    "月用量": total_str,
+                    "主配方來源": "",
+                    "附加配方來源": ""
                 })
 
-            # 總用量
-            total_str = f"{total_usage_g:.1f}g" if total_usage_g < 1000 else f"{total_usage_g/1000:.2f}kg"
-            rows.append({
-                "來源區間": "總用量",
-                "月用量": total_str,
-                "主配方來源": "",
-                "附加配方來源": ""
-            })
-
-            # 轉成 DataFrame 顯示
-            df_result = pd.DataFrame(rows)
-            st.dataframe(df_result)
+                # 轉成 DataFrame 顯示
+                df_result = pd.DataFrame(rows)
+                st.dataframe(df_result)
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
