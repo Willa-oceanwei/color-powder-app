@@ -2582,107 +2582,95 @@ if menu == "交叉查詢區":
         df_order["生產日期"] = pd.to_datetime(df_order["生產日期"], errors="coerce")
     
         for powder_id in powder_inputs:
+            total_usage_g = 0
+            monthly_usage = {}  # key: 月份，value: {"usage": float, "days": [int]}
+            
             # 過濾日期區間
             orders_in_range = df_order[
                 (df_order["生產日期"] >= pd.to_datetime(start_date)) &
                 (df_order["生產日期"] <= pd.to_datetime(end_date))
             ]
     
-            total_usage_g = 0
-            monthly_usage = {}  # key: (月, 起始日, 結束日)
-    
             for _, order in orders_in_range.iterrows():
                 main_recipe_id = order["配方編號"]
     
-                # 找主配方
+                # 取得主配方
                 recipe_rows = []
                 main_recipe = df_recipe[df_recipe["配方編號"] == main_recipe_id]
                 if not main_recipe.empty:
                     recipe_rows.append(main_recipe.iloc[0])
-                    
-                # 找附加配方
+    
+                # 取得附加配方
                 additional_recipes = df_recipe[
                     (df_recipe["配方類別"] == "附加配方") &
                     (df_recipe["原始配方"] == main_recipe_id)
                 ]
                 recipe_rows.extend(additional_recipes.to_dict("records"))
-        
-                # 檢查是否使用該色粉
-                powder_columns = [f"色粉編號{i}" for i in range(1, 9)]
-                powder_values = [str(recipe.get(col, "")) for col in powder_columns]
-                if powder_id not in powder_values:
-                    continue
-                
-                idx = powder_values.index(powder_id) + 1
-                try:
-                    powder_weight = float(recipe.get(f"色粉重量{idx}", 0))
-                except:
-                    powder_weight = 0
-
-                # 計算主配方 + 附加配方用量
+    
+                # 計算該筆訂單中此色粉的用量（主配方 + 附加配方）
+                order_usage = 0
                 for recipe in recipe_rows:
                     powder_columns = [f"色粉編號{i}" for i in range(1, 9)]
-                    if powder_id not in recipe[powder_columns].astype(str).tolist():
+                    powder_values = [str(recipe[col]) if col in recipe else "" for col in powder_columns]
+                    if powder_id not in powder_values:
                         continue
-                    # 色粉重量
-                    idx = recipe[powder_columns].astype(str).tolist().index(powder_id) + 1
+                    idx = powder_values.index(powder_id) + 1
                     try:
-                        powder_weight = float(recipe.get(f"色粉重量{idx}", 0))
+                        powder_weight = float(recipe[f"色粉重量{idx}"]) if f"色粉重量{idx}" in recipe else 0
                     except:
                         powder_weight = 0
-
-                    # 計算用量
-                    usage = 0
+    
+                    # 計算包裝用量
                     for j in range(1, 5):
                         w_val = order[f"包裝重量{j}"] if f"包裝重量{j}" in order else 0
                         n_val = order[f"包裝份數{j}"] if f"包裝份數{j}" in order else 0
-
                         try:
                             pack_w = float(w_val)
                         except (ValueError, TypeError):
                             pack_w = 0
-
                         try:
                             pack_n = float(n_val)
                         except (ValueError, TypeError):
                             pack_n = 0
-
-                        usage += powder_weight * pack_w * pack_n
-
-                    order_date = order["生產日期"]
-                    month_key = order_date.strftime("%Y/%m")
-                    day_str = order_date.day
-
-                    if month_key not in monthly_usage:
-                        monthly_usage[month_key] = {"usage": 0, "days": []}
-                    monthly_usage[month_key]["usage"] += usage
-                    monthly_usage[month_key]["days"].append(day_str)
-                    total_usage_g += usage
-
-            # 將每月用量轉換 g → kg 並顯示精準日期
+                        order_usage += powder_weight * pack_w * pack_n
+    
+                if order_usage == 0:
+                    continue
+    
+                # 累積月用量
+                order_date = order["生產日期"]
+                month_key = order_date.strftime("%Y/%m")
+                day = order_date.day
+                if month_key not in monthly_usage:
+                    monthly_usage[month_key] = {"usage": 0, "days": []}
+                monthly_usage[month_key]["usage"] += order_usage
+                monthly_usage[month_key]["days"].append(day)
+                total_usage_g += order_usage
+    
+            # 將每月用量轉換 g → kg 並顯示日期範圍
             for month, data in sorted(monthly_usage.items()):
                 usage_g = data["usage"]
                 days = sorted(data["days"])
                 first_day = days[0]
                 last_day = days[-1]
                 days_in_month = pd.Period(month).days_in_month
-
+    
                 if first_day == 1 and last_day == days_in_month:
                     date_disp = month  # 整個月
                 else:
                     date_disp = f"{month}/{first_day:02d}~{month}/{last_day:02d}"  # 部分日期
-
+    
                 if usage_g >= 1000:
                     usage_disp = f"{usage_g/1000:.2f} kg"
                 else:
                     usage_disp = f"{usage_g:.2f} g"
-
+    
                 results.append({
                     "色粉編號": powder_id,
                     "日期區間": date_disp,
                     "用量": usage_disp
                 })
-
+    
             # 總用量
             if total_usage_g >= 1000:
                 total_disp = f"{total_usage_g/1000:.2f} kg"
@@ -2693,7 +2681,7 @@ if menu == "交叉查詢區":
                 "日期區間": "總用量",
                 "用量": total_disp
             })
-
+    
         df_usage = pd.DataFrame(results)
         st.dataframe(df_usage.reset_index(drop=True), use_container_width=True)
 
