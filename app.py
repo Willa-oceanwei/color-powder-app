@@ -2585,44 +2585,50 @@ if menu == "交叉查詢區":
             total_usage_g = 0
             monthly_usage = {}  # key: 月份，value: {"usage": float, "days": [int]}
 
-            # ---- 先篩選配方管理中包含此色粉的配方 ----
-            powder_columns = [f"色粉編號{i}" for i in range(1, 9)]
-            df_candidate_recipes = df_recipe[df_recipe[powder_columns].apply(lambda row: powder_id in row.astype(str).tolist(), axis=1)]
+            # 1️⃣ 先掃配方管理找出所有可能使用該色粉的配方編號
+            recipe_candidates = df_recipe[
+                df_recipe[[f"色粉編號{i}" for i in range(1, 9)]].astype(str).apply(lambda row: powder_id in row.values, axis=1)
+            ]
+            candidate_ids = set(recipe_candidates["配方編號"].astype(str).tolist())
 
-            # ---- 過濾日期區間的生產單 ----
+            # 2️⃣ 過濾生產單日期區間
             orders_in_range = df_order[
                 (df_order["生產日期"] >= pd.to_datetime(start_date)) &
                 (df_order["生產日期"] <= pd.to_datetime(end_date))
             ]
 
             for _, order in orders_in_range.iterrows():
-                order_date = order["生產日期"]
+                order_recipe_id = str(order["配方編號"])
 
-                # 取得該筆生產單的色粉
-                order_powders = [str(order.get(col, "")) for col in powder_columns]
-
-                if powder_id not in order_powders:
-                    continue  # 生產單未使用此色粉
-
-                main_recipe_id = order["配方編號"]
-
-                # 找候選配方中符合此生產單的配方（主配方或附加配方）
-                candidate_recipes_for_order = df_candidate_recipes[
-                    (df_candidate_recipes["配方編號"] == main_recipe_id) |
-                    ((df_candidate_recipes["配方類別"] == "附加配方") & (df_candidate_recipes["原始配方"] == main_recipe_id))
+                # 3️⃣ 只保留生產單的配方或其附加配方在候選清單內
+                # 取得主配方與附加配方
+                recipe_rows = []
+                # 主配方
+                main_recipe = df_recipe[df_recipe["配方編號"] == order_recipe_id]
+                if not main_recipe.empty:
+                    recipe_rows.append(main_recipe.iloc[0])
+                # 附加配方
+                additional_recipes = df_recipe[
+                    (df_recipe["配方類別"] == "附加配方") &
+                    (df_recipe["原始配方"] == order_recipe_id)
                 ]
+                recipe_rows.extend(additional_recipes.to_dict("records"))
 
-                if candidate_recipes_for_order.empty:
-                    continue  # 沒有符合的候選配方
-
-                # 計算該筆訂單中此色粉的用量
+                # 計算該筆訂單中此色粉的用量（只要配方或附加配方在候選清單且生產單有使用）
                 order_usage = 0
-                source_recipes = []
-                for _, recipe in candidate_recipes_for_order.iterrows():
-                    recipe_powders = [str(recipe.get(col, "")) for col in powder_columns]
-                    if powder_id not in recipe_powders:
+                usage_sources = []  # 記錄用量來源配方編號
+
+                for recipe in recipe_rows:
+                    recipe_id = str(recipe["配方編號"])
+                    powder_columns = [f"色粉編號{i}" for i in range(1, 9)]
+                    powder_values = [str(recipe.get(col, "")) for col in powder_columns]
+
+                    if powder_id not in powder_values:
                         continue
-                    idx = recipe_powders.index(powder_id) + 1
+                    if recipe_id not in candidate_ids:
+                        continue  # 不在候選清單，不計算
+
+                    idx = powder_values.index(powder_id) + 1
                     try:
                         powder_weight = float(recipe.get(f"色粉重量{idx}", 0))
                     except:
@@ -2642,7 +2648,7 @@ if menu == "交叉查詢區":
                             pack_n = 0
                         order_usage += powder_weight * pack_w * pack_n
 
-                    source_recipes.append(recipe["配方編號"])
+                    usage_sources.append(recipe_id)
 
                 if order_usage == 0:
                     continue
