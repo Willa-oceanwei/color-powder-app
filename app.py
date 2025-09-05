@@ -2774,14 +2774,14 @@ if menu == "交叉查詢區":
 
         df_usage = pd.DataFrame(results)
 
-        # 使用 Styler 加粗總用量行
-        def highlight_total(s):
+        def highlight_total_row(s):
+            # 只有總用量那行才套用
             return [
-                'font-weight: bold; background-color: #333333; color: white' if v == '總用量' else ''
-                for v in s
+                'font-weight: bold; background-color: #333333; color: white' if s.name in df_usage.index and df_usage.loc[s.name, "來源區間"] == "總用量" and col in ["色粉編號", "來源區間", "月用量"] else ''
+                for col in s.index
             ]
 
-        styled = df_usage.style.apply(highlight_total, subset=["來源區間"])
+        styled = df_usage.style.apply(highlight_total_row, axis=1)
         st.dataframe(styled, use_container_width=True)
 
 # ===== 匯入配方備份檔案 =====
