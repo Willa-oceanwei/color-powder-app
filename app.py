@@ -2644,7 +2644,7 @@ elif menu == "色粉用量查詢":
     cols = st.columns(4)
     powder_inputs = []
     for i in range(4):
-        val = cols[i].text_input(f"色粉編號{i+1}", key=f"powder_usage_{i}")
+        val = cols[i].text_input(f"色粉編號{i+1}", key=f"cross_color2recipe_{i}")
         if val.strip():
             powder_inputs.append(val.strip())
 
