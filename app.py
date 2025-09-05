@@ -2603,14 +2603,16 @@ if menu == "交叉查詢區":
                 # 3️⃣ 只保留生產單的配方或其附加配方在候選清單內
                 # 取得主配方與附加配方
                 recipe_rows = []
+
                 # 主配方
-                main_recipe = df_recipe[df_recipe["配方編號"] == order_recipe_id]
+                main_recipe = df_recipe[df_recipe["配方編號"] == main_recipe_id]
                 if not main_recipe.empty:
-                    recipe_rows.append(main_recipe.iloc[0])
+                    recipe_rows.append(main_recipe.iloc[0].to_dict())
+
                 # 附加配方
                 additional_recipes = df_recipe[
                     (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"] == order_recipe_id)
+                    (df_recipe["原始配方"] == main_recipe_id)
                 ]
                 recipe_rows.extend(additional_recipes.to_dict("records"))
 
@@ -2668,9 +2670,9 @@ if menu == "交叉查詢區":
                 monthly_usage[month_key]["days"].append(day)
                 # 記錄來源配方名稱（主配方 + 附加配方）對應這筆訂單
                 monthly_usage[month_key]["recipes"].extend([
-                    r.get("配方名稱", "") if isinstance(r, dict) else r["配方名稱"]
+                    r.get("配方名稱", "")
                     for r in recipe_rows
-                    if powder_id in [str(r.get(f"色粉編號{i}", "")) if isinstance(r, dict) else str(r[f"色粉編號{i}"]) for i in range(1, 9)]
+                    if powder_id in [str(r.get(f"色粉編號{i}", "")) for i in range(1, 9)]
                 ])
                 total_usage_g += order_usage
 
