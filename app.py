@@ -2609,8 +2609,15 @@ if menu == "交叉查詢區":
         
                 # 檢查是否使用該色粉
                 powder_columns = [f"色粉編號{i}" for i in range(1, 9)]
-                if powder_id not in recipe[powder_columns].astype(str).tolist():
+                powder_values = [str(recipe.get(col, "")) for col in powder_columns]
+                if powder_id not in powder_values:
                     continue
+                
+                idx = powder_values.index(powder_id) + 1
+                try:
+                    powder_weight = float(recipe.get(f"色粉重量{idx}", 0))
+                except:
+                    powder_weight = 0
 
                 # 計算主配方 + 附加配方用量
                 for recipe in recipe_rows:
