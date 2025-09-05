@@ -2654,17 +2654,21 @@ if menu == "交叉查詢區":
                     continue
 
                 # 累積月用量
+                order_date = order["生產日期"]
+                if pd.isna(order_date):
+                    continue  # 沒有日期就跳過
+
+                # 用於累計月用量
                 month_key = order_date.strftime("%Y/%m")
                 day = order_date.day
                 if month_key not in monthly_usage:
-                    monthly_usage[month_key] = {"usage": 0, "days": []}
+                    monthly_usage[month_key] = {"usage": 0, "days": [], "recipes": []}
+
                 monthly_usage[month_key]["usage"] += order_usage
                 monthly_usage[month_key]["days"].append(day)
+                # 記錄來源配方名稱（主配方 + 附加配方）對應這筆訂單
+                monthly_usage[month_key]["recipes"].extend([r["配方名稱"] for r in recipe_rows if powder_id in [str(r.get(f"色粉編號{i}", "")) for i in range(1, 9)]])
                 total_usage_g += order_usage
-
-                # 可選：每筆訂單來源配方
-                # 如果想逐筆顯示來源配方，可以加在結果裡，例如
-                # 這裡先不加進表格，只統計用量
 
             # 將每月用量轉換 g → kg 並顯示日期範圍
             for month, data in sorted(monthly_usage.items()):
