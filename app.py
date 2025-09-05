@@ -2577,9 +2577,16 @@ if menu == "交叉查詢區":
     def format_usage(val):
         if val >= 1000:
             kg = val / 1000
-            return f"{int(kg) if kg.is_integer() else kg:.2f} kg"
+            # 若小數部分 = 0 就顯示整數
+            if round(kg, 2) == int(kg):
+                return f"{int(kg)} kg"
+            else:
+                return f"{kg:.2f} kg"
         else:
-            return f"{int(val) if val.is_integer() else val:.2f} g"
+            if round(val, 2) == int(val):
+                return f"{int(val)} g"
+            else:
+                return f"{val:.2f} g"
 
     if st.button("查詢用量", key="btn_powder_usage") and powder_inputs:
         results = []
