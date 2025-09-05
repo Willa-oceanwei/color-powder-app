@@ -2667,7 +2667,11 @@ if menu == "交叉查詢區":
                 monthly_usage[month_key]["usage"] += order_usage
                 monthly_usage[month_key]["days"].append(day)
                 # 記錄來源配方名稱（主配方 + 附加配方）對應這筆訂單
-                monthly_usage[month_key]["recipes"].extend([r["配方名稱"] for r in recipe_rows if powder_id in [str(r.get(f"色粉編號{i}", "")) for i in range(1, 9)]])
+                monthly_usage[month_key]["recipes"].extend([
+                    r.get("配方名稱", "") if isinstance(r, dict) else r["配方名稱"]
+                    for r in recipe_rows
+                    if powder_id in [str(r.get(f"色粉編號{i}", "")) if isinstance(r, dict) else str(r[f"色粉編號{i}"]) for i in range(1, 9)]
+                ])
                 total_usage_g += order_usage
 
             # 將每月用量轉換 g → kg 並顯示日期範圍
