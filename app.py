@@ -2697,7 +2697,7 @@ if menu == "交叉查詢區":
                     "色粉編號": powder_id,
                     "日期區間": date_disp,
                     "用量": usage_disp,
-                    "來源配方": ", ".join(set(data["recipes"]))  # 顯示來源配方名稱
+                    "來源配方": ", ".join(set(data["recipes"]))  # 加這一行
                 })
 
             # 總用量
