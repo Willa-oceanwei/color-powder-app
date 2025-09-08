@@ -2795,6 +2795,20 @@ if menu == "交叉查詢區":
     rank_start = col1.date_input("開始日期（排行榜）")
     rank_end = col2.date_input("結束日期（排行榜）")
 
+    def format_usage(val):
+        """g -> kg/g，去除小數點多餘零"""
+        if val >= 1000:
+            kg = val / 1000
+            if round(kg, 2) == int(kg):
+                return f"{int(kg)} kg"
+            else:
+                return f"{kg:.2f} kg"
+        else:
+            if round(val, 2) == int(val):
+                return f"{int(val)} g"
+            else:
+                return f"{val:.2f} g"
+
     if st.button("生成排行榜", key="btn_powder_rank"):
         df_order = st.session_state.get("df_order", pd.DataFrame()).copy()
         df_recipe = st.session_state.get("df_recipe", pd.DataFrame()).copy()
@@ -2817,7 +2831,7 @@ if menu == "交叉查詢區":
             (df_order["生產日期"] <= pd.to_datetime(rank_end))
         ]
 
-        usage_dict = {}
+        pigment_usage = {}
 
         # 計算所有色粉用量
         for _, order in orders_in_range.iterrows():
@@ -2868,35 +2882,23 @@ if menu == "交叉查詢區":
 
                     if pid and pw > 0:
                         contrib = pw * packs_total
-                        usage_dict[pid] = usage_dict.get(pid, 0.0) + contrib
+                        pigment_usage[pid] = pigment_usage.get(pid, 0.0) + contrib
 
         # 生成 DataFrame 排序
         df_rank = pd.DataFrame([
-            {"色粉編號": k, "總用量(g)": v} for k, v in usage_dict.items()
+            {"色粉編號": k, "總用量": format_usage(v)} for k, v in pigment_usage.items()
         ])
-        df_rank = df_rank.sort_values(by="總用量(g)", ascending=False).reset_index(drop=True)
+        # 由高到低排序
+        df_rank = df_rank.sort_values(
+            by="總用量",
+            ascending=False,
+            key=lambda col: col.str.replace("[^0-9.]", "", regex=True).astype(float)
+        ).reset_index(drop=True)
 
-        # === 用量格式化函式 ===
-        def format_usage(val):
-            if val >= 1000:
-                kg = val / 1000
-                return f"{int(kg)} kg" if kg.is_integer() else f"{kg:.2f} kg"
-            else:
-                return f"{int(val)} g" if val.is_integer() else f"{val:.2f} g"
-
-        # === 排行榜統計 ===
-        df_rank = pd.DataFrame(list(pigment_usage.items()), columns=["色粉編號", "總用量"])
-        df_rank = df_rank.sort_values("總用量", ascending=False).reset_index(drop=True)
-
-        # 套用格式化顯示
-        df_rank["總用量"] = df_rank["總用量"].apply(format_usage)
-
-        # 顯示表格
-        st.subheader("色粉用量排行榜")
         st.dataframe(df_rank, use_container_width=True)
 
-        # 提供下載 CSV
-        csv = df_rank.to_csv(index=False, encoding="utf-8-sig")
+        # 下載 CSV（原始數字）
+        csv = pd.DataFrame(list(pigment_usage.items()), columns=["色粉編號", "總用量(g)"]).to_csv(index=False, encoding="utf-8-sig")
         st.download_button(
             label="⬇️ 下載排行榜 CSV",
             data=csv,
