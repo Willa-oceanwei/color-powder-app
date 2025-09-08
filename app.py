@@ -2784,6 +2784,8 @@ if menu == "交叉查詢區":
         styled = df_usage.style.apply(highlight_total_row, axis=1)
         st.dataframe(styled, use_container_width=True)
 
+    st.markdown("---")  # 分隔線
+
     # ---------------- 第三段：色粉用量排行榜 ----------------
     st.markdown(
         '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🏆 色粉用量排行榜</h2>',
