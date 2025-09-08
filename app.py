@@ -2872,11 +2872,21 @@ if menu == "交叉查詢區":
 
         # 生成 DataFrame 排序
         df_rank = pd.DataFrame([
-            {"色粉編號": k, "總用量": format_usage(v)} for k, v in usage_dict.items()
+            {"色粉編號": k, "總用量(g)": v} for k, v in usage_dict.items()
         ])
-        df_rank = df_rank.sort_values(by="總用量", ascending=False, key=lambda col: col.str.replace("[^0-9.]", "", regex=True).astype(float))
+        df_rank = df_rank.sort_values(by="總用量(g)", ascending=False).reset_index(drop=True)
 
-        st.dataframe(df_rank, use_container_width=True)
+        # 樣式：前3名加粗/上色
+        def highlight_top3(s):
+            styles = []
+            if s.name < 3:  # 前三名
+                styles = ["font-weight: bold; background-color: #ffb347; color: black"] * len(s)
+            else:
+                styles = [""] * len(s)
+            return styles
+
+        styled_rank = df_rank.style.apply(highlight_top3, axis=1)
+        st.dataframe(styled_rank, use_container_width=True)
 
         # 提供下載 CSV
         csv = df_rank.to_csv(index=False, encoding="utf-8-sig")
@@ -2886,7 +2896,6 @@ if menu == "交叉查詢區":
             file_name=f"powder_rank_{rank_start}_{rank_end}.csv",
             mime="text/csv"
         )
-
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
