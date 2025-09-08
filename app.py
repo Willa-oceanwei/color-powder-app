@@ -2884,17 +2884,17 @@ if menu == "交叉查詢區":
                         contrib = pw * packs_total
                         pigment_usage[pid] = pigment_usage.get(pid, 0.0) + contrib
 
-        # 生成 DataFrame 排序
+        # 生成 DataFrame（先保留純數字 g，用來排序）
         df_rank = pd.DataFrame([
-            {"色粉編號": k, "總用量": format_usage(v)} for k, v in pigment_usage.items()
+            {"色粉編號": k, "總用量_g": v} for k, v in pigment_usage.items()
         ])
-        # 由高到低排序
-        df_rank = df_rank.sort_values(
-            by="總用量",
-            ascending=False,
-            key=lambda col: col.str.replace("[^0-9.]", "", regex=True).astype(float)
-        ).reset_index(drop=True)
 
+        # 先由高到低排序
+        df_rank = df_rank.sort_values("總用量_g", ascending=False).reset_index(drop=True)
+        # 再格式化成 g 或 kg 顯示
+        df_rank["總用量"] = df_rank["總用量_g"].map(format_usage)
+        # 只保留要顯示的欄位
+        df_rank = df_rank[["色粉編號", "總用量"]]
         st.dataframe(df_rank, use_container_width=True)
 
         # 下載 CSV（原始數字）
