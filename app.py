@@ -2876,17 +2876,24 @@ if menu == "交叉查詢區":
         ])
         df_rank = df_rank.sort_values(by="總用量(g)", ascending=False).reset_index(drop=True)
 
-        # 樣式：前3名加粗/上色
-        def highlight_top3(s):
-            styles = []
-            if s.name < 3:  # 前三名
-                styles = ["font-weight: bold; background-color: #ffb347; color: black"] * len(s)
+        # === 用量格式化函式 ===
+        def format_usage(val):
+            if val >= 1000:
+                kg = val / 1000
+                return f"{int(kg)} kg" if kg.is_integer() else f"{kg:.2f} kg"
             else:
-                styles = [""] * len(s)
-            return styles
+                return f"{int(val)} g" if val.is_integer() else f"{val:.2f} g"
 
-        styled_rank = df_rank.style.apply(highlight_top3, axis=1)
-        st.dataframe(styled_rank, use_container_width=True)
+        # === 排行榜統計 ===
+        df_rank = pd.DataFrame(list(pigment_usage.items()), columns=["色粉編號", "總用量"])
+        df_rank = df_rank.sort_values("總用量", ascending=False).reset_index(drop=True)
+
+        # 套用格式化顯示
+        df_rank["總用量"] = df_rank["總用量"].apply(format_usage)
+
+        # 顯示表格
+        st.subheader("色粉用量排行榜")
+        st.dataframe(df_rank, use_container_width=True)
 
         # 提供下載 CSV
         csv = df_rank.to_csv(index=False, encoding="utf-8-sig")
