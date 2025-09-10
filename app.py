@@ -416,7 +416,7 @@ if menu == "色粉管理":
     st.markdown("""
     <style>
     .big-title {
-        font-size: 35px;   /* 字體大小 */
+        font-size: 30px;   /* 字體大小 */
         font-weight: bold;  /*加粗 */
         color: #0099cc; /* 字體顏色 */
         margin-bottom: 20px; /* 下方間距 */
