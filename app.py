@@ -946,7 +946,7 @@ elif menu == "配方管理":
                 current = options[0]
             fr["淨重單位"] = st.selectbox("單位", options, index=options.index(current), key="form_recipe_淨重單位")
     
-        # CSS：縮小輸入框高度及上下間距
+        # CSS：縮小輸入框高度及上下間距，並壓縮 columns 間距
         st.markdown("""
         <style>
         /* 調整輸入框高度與 padding */
@@ -964,11 +964,18 @@ elif menu == "配方管理":
 
         /* 調整 columns row 的 gap */
         [data-testid="stVerticalBlock"] > div[style*="gap"] {
-            gap: 0px !important;
+            gap: 0px !important;        /* 列間距 */
             margin-bottom: 0px !important;
+        }
+
+        /* 調整 columns 裡 row container padding */
+        section[data-testid="stHorizontalBlock"] {
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
         }
         </style>
         """, unsafe_allow_html=True)
+
         # 色粉設定多列
         st.markdown("#### 色粉設定")
         fr = st.session_state.form_recipe
