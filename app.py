@@ -1439,7 +1439,7 @@ elif menu == "配方管理":
                 recipe_row_preview
             )
 
-            cols_preview = st.columns([6, 0.5, .0.5])  # 預覽 + 修改 + 刪除
+            cols_preview = st.columns([6, 0.5, 0.5])  # 預覽 + 修改 + 刪除
             with cols_preview[0]:
                 auto_expand = False
                 if 'df_filtered' in locals() and len(df_filtered) == 1:
