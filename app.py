@@ -1201,14 +1201,14 @@ elif menu == "配方管理":
     <div id="recipe-table" style="display: flex; align-items: center; gap: 10px;">
         <h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📑配方記錄表</h2>
         <a href="#recipe-create" style="
-            background-color:#2196F3;
-            color:white;
+            background-color: var(--background-color);  /* 跟隨亮/暗模式 */
+            color: var(--text-color);                  /* 跟隨亮/暗模式 */
             padding:4px 10px;
             border-radius:6px;
             text-decoration:none;
             font-size:14px;
             font-family:Arial;
-        ">⬆ 回到建立</a>
+        ">⬆ 回到配方建立</a>
     </div>
     """, unsafe_allow_html=True)
 
