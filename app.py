@@ -2262,27 +2262,6 @@ elif menu == "生產單管理":
             options or ["無資料"],
             key="select_order_for_edit_from_list"
         )
-
-    # ------------------- 確認刪除 -------------------
-    if st.session_state.get("show_delete_confirm", False):
-        order_id = st.session_state["delete_target_id"]
-        order_label = st.session_state.get("delete_target_label", order_id)
-    
-        st.warning(f"⚠️ 確定要刪除生產單？\n\n👉 {order_label}")
-    
-        c1, c2 = st.columns(2)
-        if c1.button("✅ 是，刪除", key="confirm_delete_yes"):
-            deleted = delete_order_by_id(ws_orders, order_id)
-            if deleted:
-                st.success(f"✅ 已刪除 {order_label}")
-            else:
-                st.error("❌ 找不到該生產單，刪除失敗")
-            st.session_state["show_delete_confirm"] = False
-            st.rerun()
-    
-        if c2.button("取消", key="confirm_delete_no"):
-            st.session_state["show_delete_confirm"] = False
-            st.rerun()
     
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
@@ -2456,8 +2435,27 @@ elif menu == "生產單管理":
                     st.session_state["delete_target_label"] = selected_label
                     st.session_state["show_delete_confirm"] = True
 
-
+            # ------------------- 確認刪除 -------------------
+            if st.session_state.get("show_delete_confirm", False):
+                order_id = st.session_state["delete_target_id"]
+                order_label = st.session_state.get("delete_target_label", order_id)
     
+                st.warning(f"⚠️ 確定要刪除生產單？\n\n👉 {order_label}")
+    
+                c1, c2 = st.columns(2)
+                if c1.button("✅ 是，刪除", key="confirm_delete_yes"):
+                    deleted = delete_order_by_id(ws_orders, order_id)
+                    if deleted:
+                        st.success(f"✅ 已刪除 {order_label}")
+                    else:
+                        st.error("❌ 找不到該生產單，刪除失敗")
+                    st.session_state["show_delete_confirm"] = False
+                    st.rerun()
+    
+                if c2.button("取消", key="confirm_delete_no"):
+                    st.session_state["show_delete_confirm"] = False
+                    st.rerun()
+
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
