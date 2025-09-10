@@ -949,35 +949,43 @@ elif menu == "配方管理":
         # 色粉設定多列
         st.markdown("### 色粉設定")
         fr = st.session_state.form_recipe
+        num_powders = st.session_state.get("num_powder_rows", 5)
 
-        # 調整 text_input 高度的 CSS
+        # CSS：縮小輸入框高度和上下間距
         st.markdown("""
         <style>
+        /* 輸入框本身高度與 padding */
         div.stTextInput > div > div > input {
-            padding: 4px 8px !important;
+            padding: 4px 6px !important;
             height: 28px !important;
             font-size: 14px;
+        }
+        /* 輸入框外層上下間距 */
+        div.stTextInput {
+            margin-top: 2px !important;
+            margin-bottom: 2px !important;
         }
         </style>
         """, unsafe_allow_html=True)
 
-        for i in range(1, st.session_state.get("num_powder_rows", 5) + 1):
-            c1, c2 = st.columns([2.5, 2.5])
-    
-            # 色粉編號
-            fr[f"色粉編號{i}"] = c1.text_input(
+        # 將所有色粉欄位橫向排列
+        cols = st.columns(num_powders * 2)  # 每個色粉兩欄：編號、重量
+        for i in range(num_powders):
+            c1 = cols[i*2]
+            c2 = cols[i*2 + 1]
+
+            fr[f"色粉編號{i+1}"] = c1.text_input(
                 "",  
-                value=fr.get(f"色粉編號{i}", ""), 
-                placeholder=f"色粉{i}編號",
-                key=f"form_recipe_色粉編號{i}"
+                value=fr.get(f"色粉編號{i+1}", ""), 
+                placeholder=f"色粉{i+1}編號",
+                key=f"form_recipe_色粉編號{i+1}"
             )
 
-            # 色粉重量
-            fr[f"色粉重量{i}"] = c2.text_input(
+            fr[f"色粉重量{i+1}"] = c2.text_input(
                 "",  
-                value=fr.get(f"色粉重量{i}", ""), 
+                value=fr.get(f"色粉重量{i+1}", ""), 
                 placeholder="重量",
-                key=f"form_recipe_色粉重量{i}"
+                key=f"form_recipe_色粉重量{i+1}"
             )
     
         # 合計類別與合計差額
