@@ -1133,7 +1133,7 @@ elif menu == "配方管理":
     st.markdown("---")  # 分隔線
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🔎搜尋區</h2>',
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🔎配方搜尋</h2>',
         unsafe_allow_html=True
     )
 
