@@ -1161,10 +1161,7 @@ elif menu == "配方管理":
         pantone_kw_clean = pantone_kw.replace(" ", "").upper()
         mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
     
-    df_filtered = df[mask]
-    
-    # ===== 篩選後筆數 + 每頁顯示筆數 =====
-    col1.markdown(f"🧺 **篩選後筆數：** {df_filtered.shape[0]}")
+    df_filtered = df[mask]    
     
     # ===== 計算分頁 =====
     total_rows = df_filtered.shape[0]
