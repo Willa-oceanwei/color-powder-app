@@ -954,7 +954,7 @@ elif menu == "配方管理":
         with colr1:
             fr["比例1"] = st.text_input("", value=fr.get("比例1", ""), key="ratio1", label_visibility="collapsed")
         with colon:
-            st.markdown('<span style="margin-left:12px;">:</span>', unsafe_allow_html=True)
+            st.markdown('<span style="margin-left:18px;">:</span>', unsafe_allow_html=True)
         with colr2:
             fr["比例2"] = st.text_input("", value=fr.get("比例2", ""), key="ratio2", label_visibility="collapsed")
         with colr3:
