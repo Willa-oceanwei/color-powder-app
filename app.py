@@ -982,7 +982,7 @@ elif menu == "配方管理":
         /* 調整輸入框高度與 padding */
         div.stTextInput > div > div > input {
             padding: 2px 6px !important;
-            height: 24px !important;
+            height: 28px !important;
             font-size: 18px;
         }
 
