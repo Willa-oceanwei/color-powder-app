@@ -951,15 +951,15 @@ elif menu == "配方管理":
         <style>
         /* 輸入框本身高度與 padding */
         div.stTextInput > div > div > input {
-            padding: 4px 6px !important;
-            height: 28px !important;
+            padding: 4px 6px !important; /* ↑ 這裡的 padding 影響輸入框內文字與邊框距離 */
+            height: 28px !important;     /* ↑ 這裡控制輸入框本身高度，影響欄位上下間距 */
             font-size: 14px;
         }
 
         /* text_input 外層上下間距 */
         div.stTextInput {
-            margin-top: 2px !important;
-            margin-bottom: 2px !important;
+            margin-top: 1px !important;      /* ↑ 調整這裡可以改變欄位上方間距 */
+            margin-bottom: 1px !important;   /* ↑ 調整這裡可以改變欄位下方間距 */
         }
         </style>
         """, unsafe_allow_html=True)
