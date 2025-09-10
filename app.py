@@ -969,11 +969,11 @@ elif menu == "配方管理":
         }
         </style>
         """, unsafe_allow_html=True)
-                # 色粉設定多列
-                st.markdown("### 色粉設定")
-                fr = st.session_state.form_recipe
-                for i in range(1, st.session_state.get("num_powder_rows", 5) + 1):
-                    c1, c2 = st.columns([2.5, 2.5])
+            # 色粉設定多列
+            st.markdown("### 色粉設定")
+            fr = st.session_state.form_recipe
+            for i in range(1, st.session_state.get("num_powder_rows", 5) + 1):
+                c1, c2 = st.columns([2.5, 2.5])
     
             # 色粉編號
             fr[f"色粉編號{i}"] = c1.text_input(
