@@ -776,7 +776,21 @@ elif menu == "配方管理":
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="big-title">🎯配方建立</div>', unsafe_allow_html=True)
+    # 🎯 配方建立（加上 id 與跳轉按鈕）
+    st.markdown("""
+    <div id="recipe-create" style="display: flex; align-items: center; gap: 10px;">
+        <div class="big-title">🎯配方建立</div>
+        <a href="#recipe-table" style="
+            background-color:#4CAF50;
+            color:white;
+            padding:4px 10px;
+            border-radius:6px;
+            text-decoration:none;
+            font-size:14px;
+            font-family:Arial;
+        ">➡ 跳到記錄表</a>
+    </div>
+    """, unsafe_allow_html=True)
   
     # === 欄位定義 ===
     columns = [
