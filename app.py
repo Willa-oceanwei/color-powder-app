@@ -1259,7 +1259,9 @@ elif menu == "配方管理":
         )
     
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
-        
+
+    st.markdown("---")  # 分隔線
+     
     # 顯示上方搜尋沒有資料的提示
     top_has_input = any([
         st.session_state.get("search_recipe_code_top"),
