@@ -776,7 +776,7 @@ elif menu == "配方管理":
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="big-title">🎯配方建立🔎</div>', unsafe_allow_html=True)
+    st.markdown('<div class="big-title">🎯配方建立</div>', unsafe_allow_html=True)
   
     # === 欄位定義 ===
     columns = [
@@ -1458,7 +1458,7 @@ elif menu == "生產單管理":
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="big-title">🚀生產單建立</div>', unsafe_allow_html=True)
+    st.markdown('<div class="big-title">🚀🛸生產單建立</div>', unsafe_allow_html=True)
 
     from pathlib import Path
     from datetime import datetime
