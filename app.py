@@ -1439,7 +1439,7 @@ elif menu == "配方管理":
                 recipe_row_preview
             )
 
-            cols_preview = st.columns([6, 0.5, 0.5])  # 預覽 + 修改 + 刪除
+            cols_preview = st.columns([6, 0.7, 0.7])  # 預覽 + 修改 + 刪除
             with cols_preview[0]:
                 auto_expand = False
                 if 'df_filtered' in locals() and len(df_filtered) == 1:
@@ -1448,13 +1448,13 @@ elif menu == "配方管理":
                     st.markdown(preview_text_recipe, unsafe_allow_html=True)
 
             with cols_preview[1]:
-                if st.button("✏️ 改", key="edit_btn"):
+                if st.button("✏️ ", key="edit_btn"):
                     st.session_state.edit_recipe_index = selected_index
                     st.session_state.form_recipe = df_recipe.loc[selected_index].to_dict()
                     st.rerun()
 
             with cols_preview[2]:
-                if st.button("🗑️ 刪", key="del_btn"):
+                if st.button("🗑️ ", key="del_btn"):
                     st.session_state.delete_recipe_index = selected_index
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
