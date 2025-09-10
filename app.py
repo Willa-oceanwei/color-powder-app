@@ -788,7 +788,7 @@ elif menu == "配方管理":
             text-decoration:none;
             font-size:14px;
             font-family:Arial;
-        ">⇩ 跳到記錄表</a>
+        ">⬇ 跳到記錄表</a>
     </div>
     """, unsafe_allow_html=True)
   
