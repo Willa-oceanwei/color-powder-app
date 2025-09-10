@@ -1448,13 +1448,13 @@ elif menu == "配方管理":
                     st.markdown(preview_text_recipe, unsafe_allow_html=True)
 
             with cols_preview[1]:
-                if st.button("✏️ 修改", key="edit_btn"):
+                if st.button("✏️ 改", key="edit_btn"):
                     st.session_state.edit_recipe_index = selected_index
                     st.session_state.form_recipe = df_recipe.loc[selected_index].to_dict()
                     st.rerun()
 
             with cols_preview[2]:
-                if st.button("🗑️ 刪除", key="del_btn"):
+                if st.button("🗑️ 刪", key="del_btn"):
                     st.session_state.delete_recipe_index = selected_index
                     st.session_state.show_delete_recipe_confirm = True
                     st.rerun()
