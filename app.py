@@ -950,7 +950,7 @@ elif menu == "配方管理":
         st.markdown("### 色粉設定")
         fr = st.session_state.form_recipe
         for i in range(1, st.session_state.get("num_powder_rows", 5) + 1):
-                st.markdown(f'<div style="margin-bottom:4px">', unsafe_allow_html=True)  # 調整下方間距
+                st.markdown(f'<div style="margin-bottom:2px">', unsafe_allow_html=True)  # 調整下方間距
                 c1, c2 = st.columns([2.5, 2.5])
     
                 # 色粉編號
