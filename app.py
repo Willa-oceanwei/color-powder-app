@@ -1194,10 +1194,23 @@ elif menu == "配方管理":
     # 3. --- 🔍 搜尋列區塊 ---    
     st.markdown("---")  # 分隔線
 
-    st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📑配方記錄表</h2>',
-        unsafe_allow_html=True
-    )
+    # 📑 配方記錄表（加上跳轉回去的按鈕）
+    st.markdown("---")  # 分隔線
+
+    st.markdown("""
+    <div id="recipe-table" style="display: flex; align-items: center; gap: 10px;">
+        <h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📑配方記錄表</h2>
+        <a href="#recipe-create" style="
+            background-color:#2196F3;
+            color:white;
+            padding:4px 10px;
+            border-radius:6px;
+            text-decoration:none;
+            font-size:14px;
+            font-family:Arial;
+        ">⬆ 回到建立</a>
+    </div>
+    """, unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
     with col1:
