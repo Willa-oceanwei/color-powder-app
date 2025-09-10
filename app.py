@@ -968,9 +968,6 @@ elif menu == "配方管理":
                 key=f"form_recipe_色粉重量{i}"
             )
     
-            # 單位顯示
-            c3.markdown(fr.get("淨重單位", ""), unsafe_allow_html=True)
-    
         # 合計類別與合計差額
         col1, col2 = st.columns(2)
         with col1:
