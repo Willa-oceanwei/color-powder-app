@@ -1420,31 +1420,15 @@ elif menu == "配方管理":
             only_code = df_filtered.iloc[0]["配方編號"]
             default_index = df_recipe.index[df_recipe["配方編號"] == only_code][0]
     
-        # 先放 CSS，隱藏 label 並微調間距
-        st.markdown("""
-        <style>
-        div.stSelectbox > label {
-            display: none;          /* 隱藏 label */
-            height: 0px !important; /* 高度歸零 */
-            margin: 0px !important;
-            padding: 0px !important;
-        }
-        div.stSelectbox {
-            margin-top: -5px !important;   /* 上方微調 */
-            margin-bottom: -5px !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)     
-        
         cols = st.columns([3, 1, 1])  # 下拉 + 修改 + 刪除
         with cols[0]:
             selected_index = st.selectbox(
-            "",  # 空字串就不顯示 label
-            options=df_recipe.index,
-            format_func=lambda i: f"{df_recipe.at[i, '配方編號']} | {df_recipe.at[i, '顏色']} | {df_recipe.at[i, '客戶名稱']}",
-            key="select_recipe_code_page",
-            index=df_recipe.index.get_loc(default_index) if default_index is not None else 0
-        )
+                "選擇配方",
+                options=df_recipe.index,
+                format_func=lambda i: f"{df_recipe.at[i, '配方編號']} | {df_recipe.at[i, '顏色']} | {df_recipe.at[i, '客戶名稱']}",
+                key="select_recipe_code_page",
+                index=df_recipe.index.get_loc(default_index) if default_index is not None else 0
+            )
     
         selected_code = df_recipe.at[selected_index, "配方編號"] if selected_index is not None else None
     
