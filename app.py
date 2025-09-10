@@ -958,8 +958,8 @@ elif menu == "配方管理":
 
         /* 調整 text_input 外層 margin */
         div.stTextInput {
-            margin-top: -4px !important;
-            margin-bottom: -4px !important;
+            margin-top: -6px !important;
+            margin-bottom: -6px !important;
         }
 
         /* 調整 columns row 的 gap */
