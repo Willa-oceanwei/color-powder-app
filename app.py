@@ -2451,7 +2451,7 @@ elif menu == "生產單管理":
                     st.markdown(preview_text, unsafe_allow_html=True)
 
             with cols_preview_order[1]:
-                if st.button("🗑️ 刪除", key="delete_order_btn"):
+                if st.button("🗑️ 刪", key="delete_order_btn"):
                     st.session_state["delete_target_id"] = selected_code_edit
                     st.session_state["delete_target_label"] = selected_label
                     st.session_state["show_delete_confirm"] = True
