@@ -438,7 +438,11 @@ if menu == "色粉管理":
     if st.session_state.search_color.strip() and df_filtered.empty:
         st.warning("❗ 查無符合的色粉編號")
 
-    st.subheader("➕ 新增 / 修改 色粉")
+    st.markdown(
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">➕新增色粉</h2>',
+        unsafe_allow_html=True
+    )
+
     col1, col2 = st.columns(2)
     with col1:
         st.session_state.form_color["色粉編號"] = st.text_input("色粉編號", st.session_state.form_color["色粉編號"])
@@ -486,7 +490,11 @@ if menu == "色粉管理":
             st.session_state.show_delete_color_confirm = False
             st.rerun()
 
-    st.subheader("📋 色粉清單")
+    st.markdown(
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📋色粉清單</h2>',
+        unsafe_allow_html=True
+    )
+
     for i, row in df_filtered.iterrows():
         cols = st.columns([2, 2, 2, 2, 2, 3])
         cols[0].write(row["色粉編號"])
@@ -496,11 +504,11 @@ if menu == "色粉管理":
         cols[4].write(row["包裝"])
         with cols[5]:
             c1, c2 = st.columns(2, gap="small")
-            if c1.button("✏️ 修改", key=f"edit_color_{i}"):
+            if c1.button("✏️ 改", key=f"edit_color_{i}"):
                 st.session_state.edit_color_index = i
                 st.session_state.form_color = row.to_dict()
                 st.rerun()
-            if c2.button("🗑️ 刪除", key=f"delete_color_{i}"):
+            if c2.button("🗑️ 刪", key=f"delete_color_{i}"):
                 st.session_state.delete_color_index = i
                 st.session_state.show_delete_color_confirm = True
                 st.rerun()
@@ -567,7 +575,11 @@ elif menu == "客戶名單":
     if isinstance(search_customer, str) and search_customer.strip() and df_filtered.empty:
         st.warning("❗ 查無符合的客戶編號或簡稱")
 
-    st.subheader("➕ 新增 / 修改 客戶")
+    st.markdown(
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🔧 新增客戶</h2>',
+        unsafe_allow_html=True
+    )
+
     col1, col2 = st.columns(2)
     with col1:
         st.session_state.form_customer["客戶編號"] = st.text_input("客戶編號", st.session_state.form_customer["客戶編號"])
@@ -610,7 +622,11 @@ elif menu == "客戶名單":
             st.session_state.show_delete_customer_confirm = False
             st.rerun()
 
-    st.subheader("📋 客戶清單")
+    st.markdown(
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📋 客戶清單</h2>',
+        unsafe_allow_html=True
+    )
+
     for i, row in df_filtered.iterrows():
         cols = st.columns([3, 3, 3, 3])
         cols[0].write(row["客戶編號"])
