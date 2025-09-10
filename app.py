@@ -418,7 +418,7 @@ if menu == "色粉管理":
     .big-title {
         font-size: 30px;   /* 字體大小 */
         font-weight: bold;  /*加粗 */
-        color: #0099cc; /* 字體顏色 */
+        color: #dbd818; /* 字體顏色 */
         margin-bottom: 20px; /* 下方間距 */
     }
     </style>
@@ -549,7 +549,7 @@ elif menu == "客戶名單":
     .big-title {
         font-size: 30px;   /* 字體大小 */
         font-weight: bold;  /*加粗 */
-        color: #0099cc; /* 字體顏色 */
+        color: #dbd818; /* 字體顏色 */
         margin-bottom: 20px; /* 下方間距 */
     }
     </style>
@@ -1452,7 +1452,7 @@ elif menu == "生產單管理":
     .big-title {
         font-size: 30px;
         font-weight: bold;
-        color: #ff3366;
+        color: #F9DC5C;
         margin-bottom: 20px;
     }
     </style>
