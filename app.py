@@ -2239,11 +2239,13 @@ elif menu == "生產單管理":
 
     
     st.markdown("---")  # 分隔線
+    
     # ------------------- 選擇生產單號 -------------------
     st.markdown(
         '<h2 style="font-size:20px; font-family:Arial; color:#dbd818;">🛠️ 生產單刪除</h2>',
         unsafe_allow_html=True
     )
+
     options = []
     code_to_id = {}
     if not page_data.empty:
@@ -2251,15 +2253,16 @@ elif menu == "生產單管理":
             label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色','')} / {row.get('客戶名稱','')}"
             options.append(label)
             code_to_id[label] = row["生產單號"]
-    
-    cols_top2 = st.columns([5, 1])
+
+    # ---------- 同一橫列 Columns ----------
+    cols_top2 = st.columns([5, 0.7])  # 下拉 + 刪除按鈕
     with cols_top2[0]:
         selected_label = st.selectbox(
             "選擇生產單號",
             options or ["無資料"],
             key="select_order_for_edit_from_list"
         )
-    
+
     with cols_top2[1]:
         if st.button("🗑️刪除", key="delete_order_btn"):
             if selected_label and selected_label in code_to_id:
