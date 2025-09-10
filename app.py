@@ -760,7 +760,7 @@ elif menu == "配方管理":
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="big-title">🎯配方管理🔎</div>', unsafe_allow_html=True)
+    st.markdown('<div class="big-title">🎯配方建立🔎</div>', unsafe_allow_html=True)
   
     # === 欄位定義 ===
     columns = [
@@ -854,12 +854,7 @@ elif menu == "配方管理":
         st.session_state.num_powder_rows = 5
     
     fr = st.session_state.form_recipe
-    
-    st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">➕ 新增配方</h2>',
-        unsafe_allow_html=True
-    )
-    
+        
     with st.form("recipe_form"):
         # 基本欄位
         col1, col2, col3 = st.columns(3)
@@ -1234,6 +1229,11 @@ elif menu == "配方管理":
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
 
     st.markdown("---")  # 分隔線
+
+    st.markdown(
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🔧 配方修改/刪除</h2>',
+        unsafe_allow_html=True
+    )
     
     # --- 配方下拉 + 修改/刪除 + 預覽 ---
     from pathlib import Path
