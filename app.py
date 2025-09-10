@@ -576,7 +576,7 @@ elif menu == "客戶名單":
         st.warning("❗ 查無符合的客戶編號或簡稱")
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🔧 新增客戶</h2>',
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">➕新增客戶</h2>',
         unsafe_allow_html=True
     )
 
