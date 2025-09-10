@@ -1132,7 +1132,11 @@ elif menu == "配方管理":
     
     st.markdown("---")  # 分隔線
 
-    st.subheader("🔎下方搜尋區")
+    st.markdown(
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🔎搜尋區</h2>',
+        unsafe_allow_html=True
+    )
+
     col1, col2, col3 = st.columns(3)
     with col1:
         search_recipe_bottom = st.text_input("配方編號", key="search_recipe_code_bottom")
