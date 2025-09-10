@@ -872,7 +872,10 @@ elif menu == "配方管理":
     
     fr = st.session_state.form_recipe
     
-    st.subheader("➕ 新增 / 修改配方")
+    st.markdown(
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">➕ 新增配方</h2>',
+        unsafe_allow_html=True
+    )
     
     with st.form("recipe_form"):
         # 基本欄位
