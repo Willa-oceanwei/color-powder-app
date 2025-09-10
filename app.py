@@ -769,16 +769,8 @@ elif menu == "配方管理":
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="big-title">🎯配方搜尋🔎</div>', unsafe_allow_html=True)
+    st.markdown('<div class="big-title">🎯配方管理🔎</div>', unsafe_allow_html=True)
   
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        search_recipe_top = st.text_input("配方編號", key="search_recipe_code_top")
-    with col2:
-        search_customer_top = st.text_input("客戶名稱或編號", key="search_customer_top")
-    with col3:
-        search_pantone_top = st.text_input("Pantone色號", key="search_pantone_top")
-
     # === 欄位定義 ===
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
@@ -1159,19 +1151,9 @@ elif menu == "配方管理":
         search_pantone_bottom = st.text_input("Pantone色號", key="search_pantone_bottom")
 
     # 先初始化 top 欄位變數
-    search_recipe_top = ""
-    search_customer_top = ""
-    search_pantone_top = ""
-
-    # 用這組輸入的資料做搜尋
-    search_recipe = search_recipe_bottom or search_recipe_top
-    search_customer = search_customer_bottom or search_customer_top
-    search_pantone = search_pantone_bottom or search_pantone_top
-
-    # 取搜尋關鍵字
-    recipe_kw = (st.session_state.get("search_recipe_code_bottom") or st.session_state.get("search_recipe_code_top") or "").strip()
-    customer_kw = (st.session_state.get("search_customer_bottom") or st.session_state.get("search_customer_top") or "").strip()
-    pantone_kw = (st.session_state.get("search_pantone_bottom") or st.session_state.get("search_pantone_top") or "").strip()
+    recipe_kw = st.session_state.get("search_recipe_code_bottom", "").strip()
+    customer_kw = st.session_state.get("search_customer_bottom", "").strip()
+    pantone_kw = st.session_state.get("search_pantone_bottom", "").strip()
 
     st.write(f"📌配方編號：{recipe_kw}　│ 客戶名稱：{customer_kw}　│ Pantone：{pantone_kw}")
 
@@ -1264,15 +1246,6 @@ elif menu == "配方管理":
     st.caption(f"頁碼 {st.session_state.page} / {total_pages}，總筆數 {total_rows}")
 
     st.markdown("---")  # 分隔線
-     
-    # 顯示上方搜尋沒有資料的提示
-    top_has_input = any([
-        st.session_state.get("search_recipe_code_top"),
-        st.session_state.get("search_customer_top"),
-        st.session_state.get("search_pantone_top")
-    ])
-    if top_has_input and df_filtered.empty:
-        st.info("⚠️ 查無符合條件的配方（來自上方搜尋）")
     
     # --- 配方下拉 + 修改/刪除 + 預覽 ---
     from pathlib import Path
