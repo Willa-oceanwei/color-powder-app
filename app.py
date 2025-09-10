@@ -952,14 +952,14 @@ elif menu == "配方管理":
         /* 調整輸入框高度與 padding */
         div.stTextInput > div > div > input {
             padding: 2px 6px !important;
-            height: 22px !important;
+            height: 24px !important;
             font-size: 14px;
         }
 
         /* 調整 text_input 外層 margin */
         div.stTextInput {
-            margin-top: -8px !important;
-            margin-bottom: -8px !important;
+            margin-top: -10px !important;
+            margin-bottom: -10px !important;
         }
 
         /* 調整 columns row 的 gap */
