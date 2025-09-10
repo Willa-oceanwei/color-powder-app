@@ -949,26 +949,31 @@ elif menu == "配方管理":
         # CSS：縮小輸入框高度及上下間距
         st.markdown("""
         <style>
-        /* 輸入框本身高度與 padding */
+        /* 調整輸入框高度與 padding */
         div.stTextInput > div > div > input {
-            padding: 4px 6px !important; /* ↑ 這裡的 padding 影響輸入框內文字與邊框距離 */
-            height: 28px !important;     /* ↑ 這裡控制輸入框本身高度，影響欄位上下間距 */
+            padding: 2px 6px !important;
+            height: 22px !important;
             font-size: 14px;
         }
 
-        /* text_input 外層上下間距 */
+        /* 調整 text_input 外層 margin */
         div.stTextInput {
-            margin-top: 0px !important;      /* ↑ 調整這裡可以改變欄位上方間距 */
-            margin-bottom: 0px !important;   /* ↑ 調整這裡可以改變欄位下方間距 */
+            margin-top: 0px !important;
+            margin-bottom: 0px !important;
+        }
+
+        /* 調整 columns row 的 gap */
+        [data-testid="stVerticalBlock"] > div[style*="gap"] {
+            gap: 0px !important;
+            margin-bottom: 0px !important;
         }
         </style>
         """, unsafe_allow_html=True)
-
-        # 色粉設定多列
-        st.markdown("### 色粉設定")
-        fr = st.session_state.form_recipe
-        for i in range(1, st.session_state.get("num_powder_rows", 5) + 1):
-            c1, c2 = st.columns([2.5, 2.5])
+                # 色粉設定多列
+                st.markdown("### 色粉設定")
+                fr = st.session_state.form_recipe
+                for i in range(1, st.session_state.get("num_powder_rows", 5) + 1):
+                    c1, c2 = st.columns([2.5, 2.5])
     
             # 色粉編號
             fr[f"色粉編號{i}"] = c1.text_input(
