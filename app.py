@@ -665,15 +665,6 @@ elif menu == "配方管理":
         # 都失敗時，回傳空 df
         return pd.DataFrame()
     
-    # 觸發載入按鈕
-    if st.button("載入配方資料"):
-        st.session_state.trigger_load_recipe = True
-        st.session_state.df_recipe = load_recipe_data()
-        if st.session_state.df_recipe.empty:
-            st.warning("⚠️ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
-        else:
-            st.success(f"✅ 成功載入 {len(st.session_state.df_recipe)} 筆配方資料")
-    
     # 統一使用 df_recipe
     df_recipe = st.session_state.df_recipe
 
