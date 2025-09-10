@@ -1127,9 +1127,7 @@ elif menu == "配方管理":
     if top_has_input and df_filtered.empty:
         st.info("❗ 查無符合條件的配方。")
 
-    # 3. 唯一的主顯示區
-    # --- 🔍 搜尋列區塊 ---
-    
+    # 3. --- 🔍 搜尋列區塊 ---    
     st.markdown("---")  # 分隔線
 
     st.markdown(
@@ -1149,8 +1147,6 @@ elif menu == "配方管理":
     recipe_kw = st.session_state.get("search_recipe_code_bottom", "").strip()
     customer_kw = st.session_state.get("search_customer_bottom", "").strip()
     pantone_kw = st.session_state.get("search_pantone_bottom", "").strip()
-
-    st.write(f"📌配方編號：{recipe_kw}　│ 客戶名稱：{customer_kw}　│ Pantone：{pantone_kw}")
 
     # 篩選
     mask = pd.Series(True, index=df.index)
