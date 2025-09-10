@@ -1412,53 +1412,77 @@ elif menu == "配方管理":
     # ---------- 配方下拉選單 + 修改/刪除 + 預覽 ----------
     if not df_recipe.empty and "配方編號" in df_recipe.columns:
         df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
-    
+
         # ---------- 自動選單邏輯 ----------
-        # 如果搜尋結果 df_filtered 只有一筆，就直接選定那筆
         default_index = None
         if 'df_filtered' in locals() and len(df_filtered) == 1:
             only_code = df_filtered.iloc[0]["配方編號"]
             default_index = df_recipe.index[df_recipe["配方編號"] == only_code][0]
-    
+
+        # ---------- CSS 調整 ----------
+        st.markdown("""
+        <style>
+        /* 隱藏 selectbox label 並上移 */
+        div.stSelectbox > label {
+            display: none;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        div.stSelectbox {
+            margin-top: -5px !important;
+            margin-bottom: -5px !important;
+        }
+
+        /* button 高度統一，跟 selectbox 對齊 */
+        div.stButton > button {
+            padding: 4px 10px !important;
+            height: 36px !important;
+            font-size: 14px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # ---------- 同一橫列 Columns ----------
         cols = st.columns([3, 1, 1])  # 下拉 + 修改 + 刪除
         with cols[0]:
             selected_index = st.selectbox(
-                "選擇配方",
+                "",  # 空 label
                 options=df_recipe.index,
                 format_func=lambda i: f"{df_recipe.at[i, '配方編號']} | {df_recipe.at[i, '顏色']} | {df_recipe.at[i, '客戶名稱']}",
                 key="select_recipe_code_page",
                 index=df_recipe.index.get_loc(default_index) if default_index is not None else 0
             )
-    
+
         selected_code = df_recipe.at[selected_index, "配方編號"] if selected_index is not None else None
-    
+
         # 修改按鈕
         with cols[1]:
             if selected_code and st.button("✏️ 修改", key="edit_btn"):
                 st.session_state.edit_recipe_index = selected_index
                 st.session_state.form_recipe = df_recipe.loc[selected_index].to_dict()
                 st.rerun()
-    
+
         # 刪除按鈕
         with cols[2]:
             if selected_code and st.button("🗑️ 刪除", key="del_btn"):
                 st.session_state.delete_recipe_index = selected_index
                 st.session_state.show_delete_recipe_confirm = True
                 st.rerun()
-    
+
         # 預覽 Markdown
         if selected_code:
             recipe_row_preview = df_recipe.loc[selected_index].to_dict()
             preview_text_recipe = generate_recipe_preview_text(
-                {"配方編號": recipe_row_preview.get("配方編號")}, 
+                {"配方編號": recipe_row_preview.get("配方編號")},
                 recipe_row_preview
             )
-            # 展開狀態根據搜尋結果自動判斷
             auto_expand = False
             if 'df_filtered' in locals() and len(df_filtered) == 1:
-                auto_expand = True  # 唯一筆搜尋結果就自動展開
+                auto_expand = True
             with st.expander("👀 配方預覽", expanded=auto_expand):
                 st.markdown(preview_text_recipe, unsafe_allow_html=True)
+
     else:
         st.info("🟦 沒有可選的配方編號")
 
@@ -1467,9 +1491,14 @@ elif menu == "配方管理":
     if st.button("📥 重新載入配方資料"):
         st.session_state.df_recipe = load_recipe_data()
         st.success("配方資料已重新載入！")
-        st.experimental_rerun()  # 重新載入頁面，更新資料
-
-        
+        st.experimental_rerun()
+        # 頁面最下方手動載入按鈕
+        st.markdown("---")
+        if st.button("📥 重新載入配方資料"):
+            st.session_state.df_recipe = load_recipe_data()
+            st.success("配方資料已重新載入！")
+            st.experimental_rerun()  # 重新載入頁面，更新資料
+            
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
     st.markdown("""
