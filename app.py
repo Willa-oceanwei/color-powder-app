@@ -781,8 +781,8 @@ elif menu == "配方管理":
     <div id="recipe-create" style="display: flex; align-items: center; gap: 10px;">
         <div class="big-title">🎯配方建立</div>
         <a href="#recipe-table" style="
-            background-color:#4CAF50;
-            color:white;
+            background-color:#f0f2f6;   /* 灰底 */
+            color:#31333F;             /* 深灰字 */
             padding:4px 10px;
             border-radius:6px;
             text-decoration:none;
