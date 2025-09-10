@@ -62,7 +62,7 @@ with st.sidebar:
     st.title("🌈配方管理系統")
     with st.expander("🎏 展開 / 收合選單", expanded=True):
         selected_menu = st.radio(
-            "請選擇模組",
+            "🪁請選擇模組",
             menu_options,
             key="menu"  # 會直接讀寫 st.session_state.menu
         )
@@ -1181,7 +1181,7 @@ elif menu == "配方管理":
     st.markdown("---")  # 分隔線
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🔎配方搜尋</h2>',
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📑配方記錄表</h2>',
         unsafe_allow_html=True
     )
 
