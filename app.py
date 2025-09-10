@@ -2528,10 +2528,11 @@ if menu == "交叉查詢區":
             results = []
             for _, recipe in matched.iterrows():
                 # 找最近的生產日期
-                orders = df_order[df_order["配方編號"] == recipe["配方編號"]]
+                orders = df_order[df_order["配方編號"].astype(str) == str(recipe["配方編號"])]
                 last_date = pd.NaT
-                if not orders.empty:
-                    last_date = pd.to_datetime(orders["生產日期"], errors="coerce").max()
+                if not orders.empty and "生產日期" in orders.columns:
+                    orders["生產日期"] = pd.to_datetime(orders["生產日期"], errors="coerce")
+                    last_date = orders["生產日期"].max()
 
                 # 色粉組成
                 powders = [
@@ -2554,8 +2555,11 @@ if menu == "交叉查詢區":
             if not df_result.empty:
                 # 按最後生產時間排序（由近到遠）
                 df_result = df_result.sort_values(by="最後生產時間", ascending=False)
-                # 格式化最後生產時間
-                df_result["最後生產時間"] = df_result["最後生產時間"].dt.strftime("%Y-%m-%d").fillna("")
+
+                # 格式化最後生產時間（避免 NaT 顯示成 NaT）
+                df_result["最後生產時間"] = df_result["最後生產時間"].apply(
+                    lambda x: x.strftime("%Y-%m-%d") if pd.notnull(x) else ""
+                )
 
             st.dataframe(df_result, use_container_width=True)
 
