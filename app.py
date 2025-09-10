@@ -949,21 +949,24 @@ elif menu == "配方管理":
         # 色粉設定多列
         st.markdown("### 色粉設定")
         for i in range(1, st.session_state.get("num_powder_rows", 5) + 1):
-            c1, c2, c3, c4 = st.columns([1, 3, 3, 1])
-            with c2:
-                fr[f"色粉編號{i}"] = st.text_input(
-                    f"色粉編號{i}", 
-                    value=fr.get(f"色粉編號{i}", ""), 
-                    key=f"form_recipe_色粉編號{i}"
-                )
-            with c3:
-                fr[f"色粉重量{i}"] = st.text_input(
-                    f"色粉重量{i}", 
-                    value=fr.get(f"色粉重量{i}", ""), 
-                    key=f"form_recipe_色粉重量{i}"
-                )
-            with c4:
-                st.markdown(fr.get("淨重單位", ""), unsafe_allow_html=True)
+            c1, c2, c3 = st.columns([2.5, 2.5, 1])
+    
+            # 色粉編號
+            fr[f"色粉編號{i}"] = c1.text_input(
+                value=fr.get(f"色粉編號{i}", ""), 
+                placeholder=f"色粉{i}編號",
+                key=f"form_recipe_色粉編號{i}"
+            )
+    
+            # 色粉重量
+            fr[f"色粉重量{i}"] = c2.text_input(
+                value=fr.get(f"色粉重量{i}", ""), 
+                placeholder="重量",
+                key=f"form_recipe_色粉重量{i}"
+            )
+    
+            # 單位顯示
+            c3.markdown(fr.get("淨重單位", ""), unsafe_allow_html=True)
     
         # 合計類別與合計差額
         col1, col2 = st.columns(2)
