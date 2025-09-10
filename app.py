@@ -978,6 +978,7 @@ elif menu == "配方管理":
                 value=fr.get(f"色粉重量{i}", ""), 
                 placeholder="重量",
                 key=f"form_recipe_色粉重量{i}"
+            )
     
         # 合計類別與合計差額
         col1, col2 = st.columns(2)
