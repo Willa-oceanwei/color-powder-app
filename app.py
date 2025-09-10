@@ -2502,9 +2502,9 @@ if menu == "交叉查詢區":
     )
 
     # 輸入最多四個色粉編號
-    cols = st.columns(4)
+    cols = st.columns(5)
     inputs = []
-    for i in range(4):
+    for i in range(5):
         val = cols[i].text_input(f"色粉編號{i+1}", key=f"cross_color_{i}")
         if val.strip():
             inputs.append(val.strip())
