@@ -1423,12 +1423,12 @@ elif menu == "配方管理":
         cols = st.columns([3, 1, 1])  # 下拉 + 修改 + 刪除
         with cols[0]:
             selected_index = st.selectbox(
-                "選擇配方",
-                options=df_recipe.index,
-                format_func=lambda i: f"{df_recipe.at[i, '配方編號']} | {df_recipe.at[i, '顏色']} | {df_recipe.at[i, '客戶名稱']}",
-                key="select_recipe_code_page",
-                index=df_recipe.index.get_loc(default_index) if default_index is not None else 0
-            )
+            "",  # 空字串就不顯示 label
+            options=df_recipe.index,
+            format_func=lambda i: f"{df_recipe.at[i, '配方編號']} | {df_recipe.at[i, '顏色']} | {df_recipe.at[i, '客戶名稱']}",
+            key="select_recipe_code_page",
+            index=df_recipe.index.get_loc(default_index) if default_index is not None else 0
+        )
     
         selected_code = df_recipe.at[selected_index, "配方編號"] if selected_index is not None else None
     
