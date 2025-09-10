@@ -2263,15 +2263,6 @@ elif menu == "生產單管理":
             key="select_order_for_edit_from_list"
         )
 
-    with cols_top2[1]:
-        if st.button("🗑️刪除", key="delete_order_btn"):
-            if selected_label and selected_label in code_to_id:
-                order_id = code_to_id[selected_label]
-                # 確認視窗
-                st.session_state["delete_target_id"] = order_id
-                st.session_state["delete_target_label"] = selected_label
-                st.session_state["show_delete_confirm"] = True
-    
     # ------------------- 確認刪除 -------------------
     if st.session_state.get("show_delete_confirm", False):
         order_id = st.session_state["delete_target_id"]
@@ -2432,27 +2423,39 @@ elif menu == "生產單管理":
     if selected_label and selected_label != "無資料":
         selected_code_edit = code_to_id[selected_label]
         order_row = df_order[df_order["生產單號"] == selected_code_edit]
+
         if not order_row.empty:
             order_dict = order_row.iloc[0].to_dict()
             order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
-    
+
             recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號","")]
             recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
-    
+
             # checkbox 狀態
             show_ids_key = f"show_ids_checkbox_{selected_code_edit}"
             if show_ids_key not in st.session_state:
                 st.session_state[show_ids_key] = True
-    
+
             show_ids = st.checkbox(
                 "預覽時顯示附加配方編號",
                 value=st.session_state[show_ids_key],
                 key=show_ids_key
             )
-    
+
             preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
-            with st.expander("👀 生產單預覽", expanded=False):
-                st.markdown(preview_text)
+
+            # ---------- 同一橫排 Columns：左邊預覽，右邊刪除按鈕 ----------
+            cols_preview_order = st.columns([6, 0.7])
+            with cols_preview_order[0]:
+                with st.expander("👀 生產單預覽", expanded=False):
+                    st.markdown(preview_text, unsafe_allow_html=True)
+
+            with cols_preview_order[1]:
+                if st.button("🗑️ 刪除", key="delete_order_btn"):
+                    st.session_state["delete_target_id"] = selected_code_edit
+                    st.session_state["delete_target_label"] = selected_label
+                    st.session_state["show_delete_confirm"] = True
+
 
     
     # 修改面板（如果有啟動）
