@@ -951,16 +951,38 @@ elif menu == "配方管理":
         # 重要提醒、比例1-3
         fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒", ""), key="form_recipe_重要提醒")
         colr1, colon, colr2, colr3, unit = st.columns([2, 1, 2, 2, 1])
+
         with colr1:
             fr["比例1"] = st.text_input("", value=fr.get("比例1", ""), key="ratio1", label_visibility="collapsed")
+
         with colon:
-            st.markdown('<span style="margin-left:30px; font-weight:bold; font-size:18px;">:</span>', unsafe_allow_html=True)
+            st.markdown(
+                """
+                <div style="
+                    display:flex;
+                    justify-content:center;
+                    align-items:center;
+                    font-weight:bold;
+                    font-size:16px;
+                    height:36px;  /* 跟 text_input 高度一致 */
+                    ">
+                    :
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
         with colr2:
             fr["比例2"] = st.text_input("", value=fr.get("比例2", ""), key="ratio2", label_visibility="collapsed")
+
         with colr3:
             fr["比例3"] = st.text_input("", value=fr.get("比例3", ""), key="ratio3", label_visibility="collapsed")
+
         with unit:
-            st.markdown("g/kg", unsafe_allow_html=True)
+            st.markdown(
+                '<div style="display:flex; justify-content:center; align-items:center; height:36px;">g/kg</div>',
+                unsafe_allow_html=True
+            )
     
         # 備註
         fr["備註"] = st.text_area("備註", value=fr.get("備註", ""), key="form_recipe_備註")
