@@ -1208,7 +1208,7 @@ elif menu == "配方管理":
             text-decoration:none;
             font-size:14px;
             font-family:Arial;
-        ">⬆ 回到配方建立</a>
+        ">⬆ 回頁首</a>
     </div>
     """, unsafe_allow_html=True)
 
