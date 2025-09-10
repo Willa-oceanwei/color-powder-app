@@ -958,8 +958,8 @@ elif menu == "配方管理":
 
         /* text_input 外層上下間距 */
         div.stTextInput {
-            margin-top: 1px !important;      /* ↑ 調整這裡可以改變欄位上方間距 */
-            margin-bottom: 1px !important;   /* ↑ 調整這裡可以改變欄位下方間距 */
+            margin-top: 0px !important;      /* ↑ 調整這裡可以改變欄位上方間距 */
+            margin-bottom: 0px !important;   /* ↑ 調整這裡可以改變欄位下方間距 */
         }
         </style>
         """, unsafe_allow_html=True)
