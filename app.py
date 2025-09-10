@@ -1000,7 +1000,7 @@ elif menu == "配方管理":
 
         /* 調整 columns 裡 row container padding */
         section[data-testid="stHorizontalBlock"] {
-            padding-top: 0px !important;
+            padding-top: -2px !important;
             padding-bottom: -2px !important;
         }
         </style>
