@@ -62,7 +62,7 @@ with st.sidebar:
     st.title("🌈配方管理系統")
     with st.expander("🎏 展開 / 收合選單", expanded=True):
         selected_menu = st.radio(
-            "🪁請選擇模組",
+            "請選擇模組🪁",
             menu_options,
             key="menu"  # 會直接讀寫 st.session_state.menu
         )
