@@ -959,7 +959,12 @@ elif menu == "配方管理":
 
         with col_colon:
             st.markdown(
-                "<div style='text-align:center; font-size:18px; font-weight:bold; line-height:36px;'>:</div>",
+                """
+                <div style="display:flex; justify-content:center; align-items:center;
+                            font-size:18px; font-weight:bold; height:36px;">
+                    :
+                </div>
+                """,
                 unsafe_allow_html=True
             )
 
@@ -975,7 +980,12 @@ elif menu == "配方管理":
 
         with col_unit:
             st.markdown(
-                "<div style='text-align:left; font-size:16px; line-height:36px;'>g/kg</div>",
+                """
+                <div style="display:flex; justify-content:flex-start; align-items:center;
+                            font-size:16px; height:36px;">
+                    g/kg
+                </div>
+                """,
                 unsafe_allow_html=True
             )
     
@@ -999,14 +1009,14 @@ elif menu == "配方管理":
         /* 調整輸入框高度與 padding */
         div.stTextInput > div > div > input {
             padding: 2px 6px !important;
-            height: 30px !important;
-            font-size: 18px;
+            height: 36px !important;
+            font-size: 16px;
         }
 
         /* 調整 text_input 外層 margin */
         div.stTextInput {
-            margin-top: -5px !important;
-            margin-bottom: -5px !important;
+            margin-top: 0px !important;
+            margin-bottom: 0px !important;
         }
 
         /* 調整 columns row 的 gap */
