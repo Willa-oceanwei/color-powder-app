@@ -950,48 +950,32 @@ elif menu == "配方管理":
     
         # 重要提醒、比例1-3
         fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒", ""), key="form_recipe_重要提醒")
-        colr1, colon, colr2, colr3, unit = st.columns([2, 1, 2, 2, 1])
+        colr1, col_colon, colr2, colr3, col_unit = st.columns([2, 0.5, 2, 2, 1])
 
         with colr1:
-            fr["比例1"] = st.text_input("", value=fr.get("比例1", ""), key="ratio1", label_visibility="collapsed")
+            fr["比例1"] = st.text_input(
+                "", value=fr.get("比例1", ""), key="ratio1", label_visibility="collapsed"
+            )
 
-        with colon:
+        with col_colon:
             st.markdown(
-                """
-                <div style="
-                    display:flex;
-                    justify-content:center;
-                    align-items:center;
-                    font-weight:bold;
-                    font-size:16px;
-                    height:36px;  /* 跟 text_input 高度一致 */
-                    ">
-                    :
-                </div>
-                """,
+                "<div style='text-align:center; font-size:18px; font-weight:bold; line-height:36px;'>:</div>",
                 unsafe_allow_html=True
             )
 
         with colr2:
-            fr["比例2"] = st.text_input("", value=fr.get("比例2", ""), key="ratio2", label_visibility="collapsed")
+            fr["比例2"] = st.text_input(
+                "", value=fr.get("比例2", ""), key="ratio2", label_visibility="collapsed"
+            )
 
         with colr3:
-            fr["比例3"] = st.text_input("", value=fr.get("比例3", ""), key="ratio3", label_visibility="collapsed")
+            fr["比例3"] = st.text_input(
+                "", value=fr.get("比例3", ""), key="ratio3", label_visibility="collapsed"
+            )
 
-        with unit:
+        with col_unit:
             st.markdown(
-                """
-                <div style="
-                    display:flex;
-                    justify-content:center;
-                    align-items:center;
-                    height:30px;   /* 跟 text_input 高度一致 */
-                    margin-top: 4px;  /* 微調往上，對齊 baseline */
-                    font-size: 16px;
-                ">
-                    g/kg
-                </div>
-                """,
+                "<div style='text-align:left; font-size:16px; line-height:36px;'>g/kg</div>",
                 unsafe_allow_html=True
             )
     
