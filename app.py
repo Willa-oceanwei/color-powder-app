@@ -980,7 +980,18 @@ elif menu == "配方管理":
 
         with unit:
             st.markdown(
-                '<div style="display:flex; justify-content:center; align-items:center; height:36px;">g/kg</div>',
+                """
+                <div style="
+                    display:flex;
+                    justify-content:center;
+                    align-items:center;
+                    height:30px;   /* 跟 text_input 高度一致 */
+                    margin-top: 4px;  /* 微調往上，對齊 baseline */
+                    font-size: 16px;
+                ">
+                    g/kg
+                </div>
+                """,
                 unsafe_allow_html=True
             )
     
