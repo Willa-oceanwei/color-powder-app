@@ -1116,7 +1116,7 @@ elif menu == "配方管理":
             st.warning("⚠️ 附加配方必須填寫原始配方！")
         else:
             if st.session_state.edit_recipe_index is not None:
-                df.iloc[st.session_state.edit_recipe_index] = pd.Series(fr)
+                df.iloc[st.session_state.edit_recipe_index] = pd.Series(fr, index=df.columns)
                 st.success(f"✅ 配方 {fr['配方編號']} 已更新！")
             else:
                 if fr["配方編號"] in df["配方編號"].values:
