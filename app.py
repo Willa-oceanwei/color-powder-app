@@ -200,7 +200,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     # 橫線：只有非色母類別才顯示
     category = (order.get("色粉類別") or "").strip()
     if category != "色母":
-        lines.append("＿" * 30)
+        lines.append("＿" * 28)
                     
     # 合計列
     total_offsets = [1, 5, 5, 5]  # 第一欄前空 2、第二欄前空 4、依此類推
