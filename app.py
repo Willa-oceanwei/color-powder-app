@@ -2591,7 +2591,7 @@ if menu == "交叉查詢區":
 
     # ---------------- 第一段：交叉查詢 ----------------
     st.markdown(
-        '<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">♻️ 依色粉編號查配方</h1>',
+        '<h1 style="font-size:22px; font-family:Arial; color:#dbd818;">♻️ 依色粉編號查配方</h1>',
         unsafe_allow_html=True
     )
 
