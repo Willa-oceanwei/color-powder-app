@@ -171,7 +171,8 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                 unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
             else:
                 real_w = w
-                unit_str = f"{int(real_w)}kg" if real_w == int(real_w) else f"{real_w:.2f}kg"
+                # 轉成字串後去掉多餘的 0 和小數點
+                unit_str = f"{real_w:.2f}".rstrip("0").rstrip(".") + "kg"
         
             count_str = str(int(c)) if c == int(c) else str(c)
             text = f"{unit_str} × {count_str}"
