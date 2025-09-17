@@ -2493,10 +2493,13 @@ elif menu == "生產單管理":
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
-        st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
+        st.markdown(
+            f"<p style='font-size:22px; font-weight:bold; color:#333;'>✏️ 修改生產單 {st.session_state.editing_order['生產單號']}</p>",
+            unsafe_allow_html=True
+        )
 
         # 🔽 在這裡插入一行說明
-        st.caption("💡 ：『儲存修改』僅同步更新至 Google Sheets；若需列印，請刪除本筆並重建新生產單。")
+        st.caption("‼️：『儲存修改』僅同步更新至 Google Sheets；若需列印，請刪除本筆並重建新生產單。")
         
         order_no = st.session_state.editing_order["生產單號"]
         
