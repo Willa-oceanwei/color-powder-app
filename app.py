@@ -2459,12 +2459,12 @@ elif menu == "生產單管理":
             with cols_preview_order[1]:
                 col_btn1, col_btn2 = st.columns(2)  # 再切兩欄放「修改」和「刪除」
                 with col_btn1:
-                    if st.button("✏️ 修改", key="edit_order_btn"):
+                    if st.button("✏️ ", key="edit_order_btn"):
                         st.session_state["show_edit_panel"] = True
                         st.session_state["editing_order"] = order_dict
                         st.rerun()
                 with col_btn2:
-                    if st.button("🗑️ 刪除", key="delete_order_btn"):
+                    if st.button("🗑️ ", key="delete_order_btn"):
                         st.session_state["delete_target_id"] = selected_code_edit
                         st.session_state["delete_target_label"] = selected_label
                         st.session_state["show_delete_confirm"] = True
@@ -2513,8 +2513,11 @@ elif menu == "生產單管理":
         recipe_row = recipe_rows.iloc[0]
         
         # 表單編輯欄位
-        new_customer = st.text_input("客戶名稱", value=order_dict.get("客戶名稱", ""), key="edit_customer_name")
-        new_color = st.text_input("顏色", value=order_dict.get("顏色", ""), key="edit_color")
+        col_cust, col_color = st.columns(2)  # 建立兩欄
+        with col_cust:
+            new_customer = st.text_input("客戶名稱", value=order_dict.get("客戶名稱", ""), key="edit_customer_name")
+        with col_color:
+            new_color = st.text_input("顏色", value=order_dict.get("顏色", ""), key="edit_color")
     
         # 包裝重量 1~4
         pack_weights_cols = st.columns(4)
