@@ -2451,16 +2451,23 @@ elif menu == "生產單管理":
             preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
 
             # ---------- 同一橫排 Columns：左邊預覽，右邊刪除按鈕 ----------
-            cols_preview_order = st.columns([6, 0.7])
+            cols_preview_order = st.columns([6, 1.2])  # 右邊留寬一點
             with cols_preview_order[0]:
                 with st.expander("👀 生產單預覽", expanded=False):
                     st.markdown(preview_text, unsafe_allow_html=True)
 
             with cols_preview_order[1]:
-                if st.button("🗑️ ", key="delete_order_btn"):
-                    st.session_state["delete_target_id"] = selected_code_edit
-                    st.session_state["delete_target_label"] = selected_label
-                    st.session_state["show_delete_confirm"] = True
+                col_btn1, col_btn2 = st.columns(2)  # 再切兩欄放「修改」和「刪除」
+                with col_btn1:
+                    if st.button("✏️ 修改", key="edit_order_btn"):
+                        st.session_state["show_edit_panel"] = True
+                        st.session_state["editing_order"] = order_dict
+                        st.rerun()
+                with col_btn2:
+                    if st.button("🗑️ 刪除", key="delete_order_btn"):
+                        st.session_state["delete_target_id"] = selected_code_edit
+                        st.session_state["delete_target_label"] = selected_label
+                        st.session_state["show_delete_confirm"] = True
 
             # ------------------- 確認刪除 -------------------
             if st.session_state.get("show_delete_confirm", False):
