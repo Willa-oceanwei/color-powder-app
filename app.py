@@ -2494,7 +2494,7 @@ elif menu == "生產單管理":
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
         st.markdown(
-            f"<p style='font-size:22px; font-weight:bold; color:#F9DC5C;'>✏️ 修改生產單 {st.session_state.editing_order['生產單號']}</p>",
+            f"<p style='font-size:22px; font-weight:bold; color:#fceca6;'>✏️ 修改生產單 {st.session_state.editing_order['生產單號']}</p>",
             unsafe_allow_html=True
         )
 
