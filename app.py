@@ -461,7 +461,7 @@ if menu == "色粉管理":
             st.warning("⚠️ 請輸入色粉編號！")
         else:
             if st.session_state.edit_color_index is not None:
-                df.iloc[st.session_state.edit_color_index] = new_data
+                df.iloc[st.session_state.edit_color_index] = pd.Series(new_data, index=df.columns)
                 st.success("✅ 色粉已更新！")
             else:
                 if new_data["色粉編號"] in df["色粉編號"].values:
