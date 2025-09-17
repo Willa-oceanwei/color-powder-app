@@ -2550,33 +2550,34 @@ elif menu == "生產單管理":
         cols_edit = st.columns([1, 1, 1])
     
         with cols_edit[0]:
-            if st.button("儲存修改", key="save_edit_button"):
-                idx_list = df_order.index[df_order["生產單號"] == edit_order["生產單號"]].tolist()
+            if st.button("💾 儲存修改", key="save_edit_button"):
+                idx_list = df_order.index[df_order["生產單號"] == order_no].tolist()
+
                 if idx_list:
                     idx = idx_list[0]
-    
-                    # 更新本地 DataFrame
+
+                    # === 更新本地 DataFrame ===
                     df_order.at[idx, "客戶名稱"] = new_customer
                     df_order.at[idx, "顏色"] = new_color
                     for i in range(4):
                         df_order.at[idx, f"包裝重量{i + 1}"] = new_packing_weights[i]
                         df_order.at[idx, f"包裝份數{i + 1}"] = new_packing_counts[i]
                     df_order.at[idx, "備註"] = new_remark
-    
-                    # 同步更新 Google Sheets
+
+                    # === 同步更新 Google Sheets ===
                     try:
-                        cell = ws_order.find(edit_order["生產單號"])
+                        cell = ws_order.find(order_no)
                         if cell:
                             row_idx = cell.row
                             row_data = df_order.loc[idx].fillna("").astype(str).tolist()
                             last_col_letter = chr(65 + len(row_data) - 1)
                             ws_order.update(f"A{row_idx}:{last_col_letter}{row_idx}", [row_data])
-                            st.success("✅ Google Sheets 同步更新成功")
+                            st.success(f"✅ 生產單 {order_no} 已更新並同步！")
                         else:
                             st.warning("⚠️ Google Sheets 找不到該筆生產單，未更新")
                     except Exception as e:
                         st.error(f"Google Sheets 更新錯誤：{e}")
-    
+
                     # 寫入本地檔案
                     os.makedirs(os.path.dirname(order_file), exist_ok=True)
                     df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
