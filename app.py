@@ -2269,7 +2269,7 @@ elif menu == "生產單管理":
     
     # ------------------- 選擇生產單號 -------------------
     st.markdown(
-        '<h2 style="font-size:20px; font-family:Arial; color:#F9DC5C;">🛠️ 生產單刪除</h2>',
+        '<h2 style="font-size:20px; font-family:Arial; color:#F9DC5C;">🛠️ 生產單修改/刪除</h2>',
         unsafe_allow_html=True
     )
 
@@ -2494,6 +2494,9 @@ elif menu == "生產單管理":
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
         st.subheader(f"✏️ 修改生產單 {st.session_state.editing_order['生產單號']}")
+
+        # 🔽 在這裡插入一行說明
+        st.caption("💡 ：『儲存修改』僅同步更新至 Google Sheets；若需列印，請刪除本筆並重建新生產單。")
         
         order_no = st.session_state.editing_order["生產單號"]
         
