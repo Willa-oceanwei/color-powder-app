@@ -3086,13 +3086,22 @@ if menu == "Pantone色號表":
             unsafe_allow_html=True
         )
 
-    search_code = st.text_input("輸入 Pantone 色號查詢")
+    search_code = st.text_input("輸入 Pantone 色號進行查詢")
 
     if search_code:
-        df_result = df_pantone[df_pantone["Pantone色號"].astype(str).str.contains(search_code, case=False, na=False)]
-        show_pantone_table(df_result, f"查詢結果：{search_code}")
-    else:
-        show_pantone_table(df_pantone, "全部 Pantone 色號表")
+        # 篩選符合的資料
+        df_result = df_pantone[df_pantone["Pantone色號"].str.contains(search_code, case=False, na=False)]
+
+        if df_result.empty:
+            st.warning("❌ 查無資料")
+        else:
+            st.success(f"✅ 找到 {len(df_result)} 筆符合資料")
+
+            # 重設索引去掉序號
+            df_result_reset = df_result.reset_index(drop=True)
+
+            # 所有欄位文字向左對齊
+            st.dataframe(df_result_reset.style.set_properties(**{"text-align": "left"}))
 
 
 # ===== 匯入配方備份檔案 =====
