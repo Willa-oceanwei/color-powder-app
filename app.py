@@ -3089,11 +3089,29 @@ if menu == "Pantone色號表":
                     ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
                     st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
                     
-    # === 查詢區塊 ===
-    st.markdown(
-            '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢Pantone色號</h1>',
-            unsafe_allow_html=True
+    # ====== 全域函式 ======
+    def show_pantone_table(df, title="Pantone 色號表"):
+        """統一顯示 Pantone 色號表：去掉序號、文字左對齊"""
+        st.subheader(title)
+    
+        # 如果 df 是 None 或不是 DataFrame，直接顯示空訊息
+        if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+            st.info("⚠️ 目前沒有資料")
+            return
+    
+        # 轉成 DataFrame，重置 index，所有欄位轉字串
+        df_reset = pd.DataFrame(df).reset_index(drop=True).astype(str)
+    
+        st.dataframe(
+            df_reset.style.set_properties(**{"text-align": "left"}), 
+            use_container_width=True
         )
+
+    # ====== 查詢區塊 ======
+    st.markdown(
+        '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢Pantone色號</h1>',
+        unsafe_allow_html=True
+    )
 
     search_code = st.text_input("輸入 Pantone 色號進行查詢")
 
@@ -3105,13 +3123,11 @@ if menu == "Pantone色號表":
             st.warning("❌ 查無資料")
         else:
             st.success(f"✅ 找到 {len(df_result)} 筆符合資料")
-
-            # 確保都是 DataFrame，所有欄位轉字串
-            df_reset = pd.DataFrame(df).reset_index(drop=True).astype(str)   
-            st.dataframe(
-                df_reset.style.set_properties(**{"text-align": "left"}), 
-                use_container_width=True
-            )
+            # 呼叫全域函式顯示表格
+            show_pantone_table(df_result, f"查詢結果：{search_code}")
+    else:
+        # 查詢欄空白時顯示全部
+        show_pantone_table(df_pantone, "全部 Pantone 色號表")
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
