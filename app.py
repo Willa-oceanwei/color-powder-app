@@ -461,13 +461,15 @@ if menu == "色粉管理":
             st.warning("⚠️ 請輸入色粉編號！")
         else:
             if st.session_state.edit_color_index is not None:
-                df.iloc[st.session_state.edit_color_index] = pd.Series(new_data, index=df.columns)
+                idx = st.session_state.edit_color_index
+                for col in df.columns:
+                    df.at[idx, col] = new_data.get(col, "")  # 保證每欄都有值
                 st.success("✅ 色粉已更新！")
             else:
                 if new_data["色粉編號"] in df["色粉編號"].values:
                     st.warning("⚠️ 此色粉編號已存在！")
                 else:
-                    df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+                    df = pd.concat([df, pd.DataFrame([new_data], columns=df.columns)], ignore_index=True)
                     st.success("✅ 新增成功！")
             save_df_to_sheet(worksheet, df)
             st.session_state.form_color = {col: "" for col in required_columns}
