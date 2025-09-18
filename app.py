@@ -3128,21 +3128,39 @@ if menu == "Pantone色號表":
         unsafe_allow_html=True
     )
 
+    # 查詢輸入框
     search_code = st.text_input("輸入 Pantone 色號進行查詢")
 
+    # 控制是否顯示表格
+    show_table = False
+
+    # 使用者輸入查詢就顯示表格
     if search_code:
-        # 篩選符合的資料
-        df_result = df_pantone[df_pantone["Pantone色號"].str.contains(search_code, case=False, na=False)]
+        show_table = True
 
-        if df_result.empty:
-            st.warning("❌ 查無資料")
+    # 新增按鈕提交後，也可以設定 show_table = True
+    if submitted:
+        if not pantone_code or not formula_id:
+            st.error("❌ Pantone 色號與配方編號必填")
         else:
-            # 不顯示標題，直接表格
-            show_pantone_table(df_result, title="")
-    else:
-        # 查詢欄空白時顯示全部
-        show_pantone_table(df_pantone, "全部 Pantone 色號表")
+            # 檢查是否在配方管理
+            if formula_id in df_recipe["配方編號"].astype(str).values:
+                st.warning(f"⚠️ 配方編號 {formula_id} 已存在於『配方管理』，不新增")
+            # 檢查是否在 Pantone 色號表
+            elif formula_id in df_pantone["配方編號"].astype(str).values:
+                st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
+            else:
+                ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
+                st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
+                show_table = True
 
+    # 顯示表格（只有在 show_table=True 時）
+    if show_table:
+        if search_code:
+            df_result = df_pantone[df_pantone["Pantone色號"].str.contains(search_code, case=False, na=False)]
+            show_pantone_table(df_result, title="")
+        else:
+            show_pantone_table(df_pantone, title="")
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
     st.title("📥 匯入配方備份 Excel")
