@@ -3102,10 +3102,7 @@ if menu == "Pantone色號表":
         # 轉成 DataFrame，重置 index，所有欄位轉字串
         df_reset = pd.DataFrame(df).reset_index(drop=True).astype(str)
     
-        st.dataframe(
-            df_reset.style.set_properties(**{"text-align": "left"}), 
-            use_container_width=True
-        )
+        st.table(df_reset)
 
     # ====== 查詢區塊 ======
     st.markdown(
