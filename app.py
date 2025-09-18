@@ -3041,7 +3041,7 @@ st.markdown(
         '<h1 style="font-size:22px; font-family:Arial; color:#dbd818;">🍭 Pantone色號表</h1>',
         unsafe_allow_html=True
     )
-
+st.write("Pantone表欄位實際名稱：", df_pantone.columns.tolist())
 # === 新增區塊（2 欄一列） ===
 with st.form("add_pantone"):
     col1, col2 = st.columns(2)
