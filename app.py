@@ -3110,7 +3110,7 @@ if menu == "Pantone色號表":
             df_result_reset = df_result.reset_index(drop=True)
 
             # 所有欄位文字向左對齊
-            st.dataframe(df_result_reset.style.set_properties(**{"text-align": "left"}))
+            st.dataframe(df_result.style.set_properties(**{"text-align": "left"}))
 
 
 # ===== 匯入配方備份檔案 =====
