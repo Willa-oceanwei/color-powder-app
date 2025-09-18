@@ -53,7 +53,7 @@ spreadsheet = st.session_state["spreadsheet"]
 # ======== Sidebar 修正 =========
 import streamlit as st
 
-menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "交叉查詢區", "匯入備份"]
+menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "交叉查詢區", "Pantone色號表", "匯入備份"]
 
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
@@ -3025,6 +3025,45 @@ if menu == "交叉查詢區":
             file_name=f"powder_rank_{rank_start}_{rank_end}.csv",
             mime="text/csv"
         )
+
+#-----Pantone 色號表-------
+import streamlit as st
+import pandas as pd
+
+# 讀取 Google Sheets
+ws_pantone = spreadsheet.worksheet("Pantone色號表")
+df_pantone = pd.DataFrame(ws_pantone.get_all_records())
+
+ws_recipe = spreadsheet.worksheet("配方管理")
+df_recipe = pd.DataFrame(ws_recipe.get_all_records())
+
+st.title("🎨 Pantone 色號表")
+
+# === 新增一筆資料 ===
+with st.form("add_pantone"):
+    pantone_code = st.text_input("Pantone色號")
+    formula_id = st.text_input("配方編號")
+    customer = st.text_input("客戶名稱")
+    material_no = st.text_input("料號")
+
+    submitted = st.form_submit_button("新增")
+
+    if submitted:
+        if not pantone_code or not formula_id:
+            st.error("❌ Pantone色號與配方編號必填")
+        else:
+            # 檢查配方編號是否存在於配方管理
+            if formula_id in df_recipe["配方編號"].astype(str).values:
+                st.warning(f"⚠️ 配方編號 {formula_id} 已存在於『配方管理』")
+
+            # 檢查是否已經存在於 Pantone色號表
+            elif formula_id in df_pantone["配方編號"].astype(str).values:
+                st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone色號表裡")
+            else:
+                # 新增進 Pantone色號表
+                ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
+                st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
+
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
