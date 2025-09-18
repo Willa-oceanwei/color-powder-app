@@ -3060,12 +3060,20 @@ if menu == "Pantone色號表":
     
     # === 新增區塊（2 欄一列） ===
     with st.form("add_pantone"):
-        pantone_code = st.text_input("Pantone 色號")
-        formula_id = st.text_input("配方編號")
-        customer = st.text_input("客戶名稱")
-        material_no = st.text_input("料號")
-        submitted = st.form_submit_button("➕ 新增")
-
+        col1, col2 = st.columns(2)
+    
+        with col1:
+            pantone_code = st.text_input("Pantone 色號")
+        with col2:
+            formula_id = st.text_input("配方編號")
+        
+        col3, col4 = st.columns(2)
+        with col3:
+            customer = st.text_input("客戶名稱")
+        with col4:
+            material_no = st.text_input("料號")
+    
+    submitted = st.form_submit_button("➕ 新增")
         if submitted:
             if not pantone_code or not formula_id:
                 st.error("❌ Pantone 色號與配方編號必填")
