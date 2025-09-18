@@ -3038,7 +3038,7 @@ ws_recipe = spreadsheet.worksheet("配方管理")
 df_recipe = pd.DataFrame(ws_recipe.get_all_records())
 
 st.markdown(
-        '<h1 style="font-size:22px; font-family:Arial; color:#dbd818;">🍭 Pantone色號表</h1>',
+        '<h1 style="font-size:22px; font-family:Arial; color:#e9e774;">🍭 Pantone色號表</h1>',
         unsafe_allow_html=True
     )
 
