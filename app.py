@@ -3041,7 +3041,7 @@ st.markdown(
         '<h1 style="font-size:22px; font-family:Arial; color:#dbd818;">🍭 Pantone色號表</h1>',
         unsafe_allow_html=True
     )
-st.write("Pantone表欄位實際名稱：", df_pantone.columns.tolist())
+
 # 嘗試讀取 Pantone色號表
 try:
     ws_pantone = spreadsheet.worksheet("Pantone色號表")
@@ -3055,6 +3055,7 @@ if df_pantone.empty:
     ws_pantone.clear()
     ws_pantone.append_row(["Pantone色號", "配方編號", "客戶名稱", "料號"])
     df_pantone = pd.DataFrame(columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
+    
 # === 新增區塊（2 欄一列） ===
 with st.form("add_pantone"):
     col1, col2 = st.columns(2)
