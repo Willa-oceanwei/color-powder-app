@@ -3061,7 +3061,6 @@ if menu == "Pantone色號表":
     # === 新增區塊（2 欄一列） ===
     with st.form("add_pantone"):
         col1, col2 = st.columns(2)
-    
         with col1:
             pantone_code = st.text_input("Pantone 色號")
         with col2:
@@ -3073,21 +3072,23 @@ if menu == "Pantone色號表":
         with col4:
             material_no = st.text_input("料號")
     
-    submitted = st.form_submit_button("➕ 新增")
+        # 按鈕必須在 form 內
+        submitted = st.form_submit_button("➕ 新增")
+    
         if submitted:
             if not pantone_code or not formula_id:
                 st.error("❌ Pantone 色號與配方編號必填")
             else:
-                # 檢查是否在配方管理
+                # 單向檢查配方管理
                 if formula_id in df_recipe["配方編號"].astype(str).values:
                     st.warning(f"⚠️ 配方編號 {formula_id} 已存在於『配方管理』，不新增")
-                # 檢查是否在 Pantone 色號表
+                # 檢查 Pantone 色號表內是否重複
                 elif formula_id in df_pantone["配方編號"].astype(str).values:
                     st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
                 else:
                     ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
                     st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
-
+                    
     # === 查詢區塊 ===
     st.markdown(
             '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢Pantone色號</h1>',
