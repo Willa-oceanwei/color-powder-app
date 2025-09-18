@@ -3042,6 +3042,19 @@ st.markdown(
         unsafe_allow_html=True
     )
 st.write("Pantone表欄位實際名稱：", df_pantone.columns.tolist())
+# 嘗試讀取 Pantone色號表
+try:
+    ws_pantone = spreadsheet.worksheet("Pantone色號表")
+except:
+    ws_pantone = spreadsheet.add_worksheet(title="Pantone色號表", rows=100, cols=4)
+
+df_pantone = pd.DataFrame(ws_pantone.get_all_records())
+
+# 如果表格是空的，補上欄位名稱
+if df_pantone.empty:
+    ws_pantone.clear()
+    ws_pantone.append_row(["Pantone色號", "配方編號", "客戶名稱", "料號"])
+    df_pantone = pd.DataFrame(columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
 # === 新增區塊（2 欄一列） ===
 with st.form("add_pantone"):
     col1, col2 = st.columns(2)
