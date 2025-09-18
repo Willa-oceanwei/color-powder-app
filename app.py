@@ -3106,12 +3106,12 @@ if menu == "Pantone色號表":
         else:
             st.success(f"✅ 找到 {len(df_result)} 筆符合資料")
 
-            df_reset = df.reset_index(drop=True).astype(str)
+            # 確保都是 DataFrame，所有欄位轉字串
+            df_reset = pd.DataFrame(df).reset_index(drop=True).astype(str)   
             st.dataframe(
                 df_reset.style.set_properties(**{"text-align": "left"}), 
                 use_container_width=True
             )
-
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
