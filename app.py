@@ -3025,7 +3025,10 @@ if menu == "交叉查詢區":
             mime="text/csv"
         )
 
-    #-----Pantone 色號表-------
+# ======== Pantone色號分頁 =========
+menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
+
+if menu == "Pantone色號表":
     import streamlit as st
     import pandas as pd
 
