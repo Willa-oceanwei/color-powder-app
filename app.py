@@ -390,6 +390,19 @@ def init_states(keys):
             else:
                 st.session_state[k] = ""
 
+#----
+def show_pantone_table(df, title="Pantone 色號表"):
+    """統一顯示 Pantone 色號表：去掉序號、文字左對齊"""
+    st.subheader(title)
+    if df.empty:
+        st.info("⚠️ 目前沒有資料")
+    else:
+        df_reset = df.reset_index(drop=True)  # 去掉原本的 index
+        st.dataframe(
+            df_reset.style.set_properties(**{"text-align": "left"}), 
+            use_container_width=True
+        )
+
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
@@ -3058,31 +3071,23 @@ if df_pantone.empty:
     
 # === 新增區塊（2 欄一列） ===
 with st.form("add_pantone"):
-    col1, col2 = st.columns(2)
-
-    with col1:
-        pantone_code = st.text_input("Pantone 色號")
-        customer = st.text_input("客戶名稱")
-    with col2:
-        formula_id = st.text_input("配方編號")
-        material_no = st.text_input("料號")
-
-    submitted = st.form_submit_button("新增")
+    pantone_code = st.text_input("Pantone 色號")
+    formula_id = st.text_input("配方編號")
+    customer = st.text_input("客戶名稱")
+    material_no = st.text_input("料號")
+    submitted = st.form_submit_button("➕ 新增")
 
     if submitted:
         if not pantone_code or not formula_id:
             st.error("❌ Pantone 色號與配方編號必填")
         else:
-            # 檢查是否存在於配方管理（禁止新增）
+            # 檢查是否在配方管理
             if formula_id in df_recipe["配方編號"].astype(str).values:
-                st.error(f"❌ 配方編號 {formula_id} 已存在於『配方管理』，禁止新增到 Pantone 色號表")
-
-            # 檢查 Pantone色號表本身是否重複
+                st.warning(f"⚠️ 配方編號 {formula_id} 已存在於『配方管理』，不新增")
+            # 檢查是否在 Pantone 色號表
             elif formula_id in df_pantone["配方編號"].astype(str).values:
                 st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
-
             else:
-                # 允許新增
                 ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
                 st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
 
@@ -3092,16 +3097,13 @@ st.markdown(
         unsafe_allow_html=True
     )
 
-search_code = st.text_input("輸入 Pantone 色號進行查詢")
+search_code = st.text_input("輸入 Pantone 色號查詢")
 
 if search_code:
-    df_result = df_pantone[df_pantone["Pantone色號"].str.contains(search_code, case=False, na=False)]
-
-    if df_result.empty:
-        st.warning("❌ 查無資料")
-    else:
-        st.success(f"✅ 找到 {len(df_result)} 筆符合資料")
-        st.dataframe(df_result)
+    df_result = df_pantone[df_pantone["Pantone色號"].astype(str).str.contains(search_code, case=False, na=False)]
+    show_pantone_table(df_result, f"查詢結果：{search_code}")
+else:
+    show_pantone_table(df_pantone, "全部 Pantone 色號表")
 
 
 # ===== 匯入配方備份檔案 =====
