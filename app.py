@@ -3073,7 +3073,7 @@ if menu == "Pantone色號表":
         with col4:
             material_no = st.text_input("料號")
     
-    submitted = st.form_submit_button("➕ 新增")
+     submitted = st.form_submit_button("➕ 新增")
         if submitted:
             if not pantone_code or not formula_id:
                 st.error("❌ Pantone 色號與配方編號必填")
