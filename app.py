@@ -3104,6 +3104,24 @@ if menu == "Pantone色號表":
     
         st.table(df_reset)
 
+    # ======== Pantone色號查詢區塊 =========
+    st.markdown(
+        """
+        <style>
+        /* 查詢框下方距離縮小 */
+        div.stTextInput {
+            margin-bottom: 0.2rem !important;
+        }
+        /* 表格上方和下方距離縮小 */
+        div[data-testid="stTable"] {
+            margin-top: 0.2rem !important;
+            margin-bottom: 0.2rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     # ====== 查詢區塊 ======
     st.markdown(
         '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢Pantone色號</h1>',
