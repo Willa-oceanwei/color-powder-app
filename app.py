@@ -3043,8 +3043,6 @@ st.markdown(
     )
 
 # === 新增區塊（2 欄一列） ===
-st.subheader("➕ 新增 Pantone 色號")
-
 with st.form("add_pantone"):
     col1, col2 = st.columns(2)
 
