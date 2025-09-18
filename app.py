@@ -3122,8 +3122,8 @@ if menu == "Pantone色號表":
         if df_result.empty:
             st.warning("❌ 查無資料")
         else:
-            # 直接顯示表格，不再顯示筆數訊息
-            show_pantone_table(df_result, f"查詢結果：{search_code}")
+            # 不顯示標題，直接表格
+            show_pantone_table(df_result, title="")
     else:
         # 查詢欄空白時顯示全部
         show_pantone_table(df_pantone, "全部 Pantone 色號表")
