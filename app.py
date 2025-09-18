@@ -3073,15 +3073,16 @@ with st.form("add_pantone"):
         if not pantone_code or not formula_id:
             st.error("❌ Pantone 色號與配方編號必填")
         else:
-            # 檢查配方管理是否已有相同配方編號
+            # 檢查是否存在於配方管理（禁止新增）
             if formula_id in df_recipe["配方編號"].astype(str).values:
-                st.warning(f"⚠️ 配方編號 {formula_id} 已存在於『配方管理』")
+                st.error(f"❌ 配方編號 {formula_id} 已存在於『配方管理』，禁止新增到 Pantone 色號表")
 
-            # 檢查 Pantone 色號表內是否重複
-            if formula_id in df_pantone["配方編號"].astype(str).values:
+            # 檢查 Pantone色號表本身是否重複
+            elif formula_id in df_pantone["配方編號"].astype(str).values:
                 st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
+
             else:
-                # 新增到 Pantone 色號表（僅影響這張表）
+                # 允許新增
                 ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
                 st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
 
