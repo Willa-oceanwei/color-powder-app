@@ -3072,7 +3072,10 @@ with st.form("add_pantone"):
                 st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
 
 # === 查詢區塊 ===
-st.subheader("🔍 查詢 Pantone 色號")
+st.markdown(
+        '<h1 style="font-size:22px; font-family:Arial; color:#dbd818;">🔍 查詢Pantone色號</h1>',
+        unsafe_allow_html=True
+    )
 
 search_code = st.text_input("輸入 Pantone 色號進行查詢")
 
