@@ -3106,11 +3106,11 @@ if menu == "Pantone色號表":
         else:
             st.success(f"✅ 找到 {len(df_result)} 筆符合資料")
 
-            # 重設索引去掉序號
-            df_result_reset = df_result.reset_index(drop=True)
-
-            # 所有欄位文字向左對齊
-            st.dataframe(df_result.style.set_properties(**{"text-align": "left"}))
+            df_reset = df.reset_index(drop=True).astype(str)
+            st.dataframe(
+                df_reset.style.set_properties(**{"text-align": "left"}), 
+                use_container_width=True
+            )
 
 
 # ===== 匯入配方備份檔案 =====
