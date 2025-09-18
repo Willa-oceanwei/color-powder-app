@@ -3124,7 +3124,6 @@ if menu == "Pantone色號表":
         else:
             st.success(f"✅ 找到 {len(df_result)} 筆符合資料")
             # 呼叫全域函式顯示表格
-            show_pantone_table(df_result, f"查詢結果：{search_code}")
     else:
         # 查詢欄空白時顯示全部
         show_pantone_table(df_pantone, "全部 Pantone 色號表")
