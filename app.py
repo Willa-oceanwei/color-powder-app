@@ -3172,16 +3172,22 @@ if menu == "庫存區":
         if not ini_powder.strip():
             st.warning("⚠️ 請輸入色粉編號！")
         else:
-            # 檢查是否已有初始庫存
-            exist_mask = (df_stock["類型"]=="初始") & (df_stock["色粉編號"]==ini_powder.strip())
+            # 安全檢查 exist_mask
+            if not df_stock.empty:
+                exist_mask = (df_stock["類型"]=="初始") & (df_stock["色粉編號"]==ini_powder.strip())
+            else:
+                exist_mask = pd.Series([], dtype=bool)
+
             if exist_mask.any():
                 if st.confirm(f"已有色粉 {ini_powder} 的初始庫存，是否覆蓋？"):
                     df_stock.loc[exist_mask, ["日期","數量","單位","備註"]] = [ini_date, ini_qty, ini_unit, ini_note]
                 else:
                     st.info("已取消覆蓋")
             else:
-                new_row = {"類型":"初始","色粉編號":ini_powder.strip(),"日期":ini_date,"數量":ini_qty,"單位":ini_unit,"備註":ini_note}
+                new_row = {"類型":"初始","色粉編號":ini_powder.strip(),
+                           "日期":ini_date,"數量":ini_qty,"單位":ini_unit,"備註":ini_note}
                 df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
+
             # 寫回 Sheet
             ws_stock.clear()
             ws_stock.update([df_stock.columns.values.tolist()] + df_stock.values.tolist())
