@@ -3158,6 +3158,10 @@ if menu == "庫存區":
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
     df_order = st.session_state.get("df_order", pd.DataFrame())
 
+    # 打開工作簿 & 工作表
+    sh = client.open("色粉管理")          # Google Sheet 名稱
+    ws_stock = sh.worksheet("庫存記錄")    # 對應工作表名稱
+    
     # ---------- 讀取資料 ----------
     df_stock = pd.DataFrame(ws_stock.get_all_records())
     st.session_state.df_stock = df_stock
@@ -3171,7 +3175,7 @@ if menu == "庫存區":
     st.session_state.df_stock = df_stock
 
     # 初始化庫存與進貨資料
-    # ================= 初始庫存設定 =================
+    # ---------- 初始庫存設定 ----------
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 初始庫存設定</h2>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     ini_powder = col1.text_input("色粉編號", key="ini_color")
@@ -3193,17 +3197,18 @@ if menu == "庫存區":
             if exist_mask.any():
                 if st.confirm(f"已有色粉 {ini_powder} 的初始庫存，是否覆蓋？"):
                     df_stock.loc[exist_mask, ["日期","數量","單位","備註"]] = [ini_date, ini_qty, ini_unit, ini_note]
+                    st.success("✅ 初始庫存已覆蓋")
                 else:
                     st.info("已取消覆蓋")
             else:
                 new_row = {"類型":"初始","色粉編號":ini_powder.strip(),
                            "日期":ini_date,"數量":ini_qty,"單位":ini_unit,"備註":ini_note}
                 df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
+                st.success("✅ 初始庫存已新增")
 
             # 寫回 Sheet
             ws_stock.clear()
             ws_stock.update([df_stock.columns.values.tolist()] + df_stock.values.tolist())
-            st.success("✅ 初始庫存已儲存")
 
     st.markdown("---")
 
