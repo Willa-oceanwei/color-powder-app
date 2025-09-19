@@ -3158,6 +3158,18 @@ if menu == "庫存區":
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
     df_order = st.session_state.get("df_order", pd.DataFrame())
 
+    # ---------- 讀取資料 ----------
+    df_stock = pd.DataFrame(ws_stock.get_all_records())
+    st.session_state.df_stock = df_stock
+
+    # 讀取資料
+    records = ws_stock.get_all_records()
+    if records:
+        df_stock = pd.DataFrame(records)
+    else:
+        df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
+    st.session_state.df_stock = df_stock
+
     # 初始化庫存與進貨資料
     # ================= 初始庫存設定 =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 初始庫存設定</h2>', unsafe_allow_html=True)
