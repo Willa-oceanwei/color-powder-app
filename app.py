@@ -3273,17 +3273,65 @@ if menu == "庫存區":
 
     st.markdown("---")
 
-    # ================= 色粉用量查詢 =================
-    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📈 色粉用量查詢</h2>', unsafe_allow_html=True)
-    cols = st.columns(4)
-    powder_inputs = []
-    for i in range(4):
-        val = cols[i].text_input(f"色粉編號{i+1}", key=f"usage_color_{i}")
-        if val.strip():
-            powder_inputs.append(val.strip())
+    
+    # ================= 庫存查詢 =================
+    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 庫存查詢</h2>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
-    start_date = col1.date_input("開始日期", key="usage_start")
-    end_date = col2.date_input("結束日期", key="usage_end")
+    query_start = col1.date_input("查詢起日", key="stock_start")
+    query_end = col2.date_input("查詢迄日", key="stock_end")
+    stock_powder = st.text_input("色粉編號 (留空查全部)", key="stock_powder")
+
+    def calc_usage_for_stock(pid, df_order, df_recipe, start_date, end_date):
+        """
+        計算單一色粉在指定期間的實際用量
+        """
+        powder_cols = [f"色粉編號{i}" for i in range(1,9)]
+        total_usage_g = 0.0
+
+        if df_recipe.empty or df_order.empty:
+            return total_usage_g
+
+        # 篩選期間內的訂單
+        df_order["生產日期"] = pd.to_datetime(df_order.get("生產日期", pd.NaT), errors="coerce")
+        orders_in_range = df_order[(df_order["生產日期"].notna()) &
+                                   (df_order["生產日期"] >= pd.to_datetime(start_date)) &
+                                   (df_order["生產日期"] <= pd.to_datetime(end_date))]
+
+        for _, order in orders_in_range.iterrows():
+            order_recipe_id = str(order.get("配方編號", "")).strip()
+            if not order_recipe_id:
+                continue
+
+            # 取主配方及附加配方
+            recipe_rows = []
+            main_df = df_recipe[df_recipe["配方編號"].astype(str) == order_recipe_id]
+            if not main_df.empty:
+                recipe_rows.append(main_df.iloc[0].to_dict())
+            add_df = df_recipe[(df_recipe["配方類別"]=="附加配方") &
+                               (df_recipe["原始配方"].astype(str) == order_recipe_id)]
+            if not add_df.empty:
+                recipe_rows.extend(add_df.to_dict("records"))
+
+            # 計算包裝總份
+            packs_total = 0.0
+            for j in range(1, 5):
+                w_key = f"包裝重量{j}"
+                n_key = f"包裝份數{j}"
+                pack_w = float(order.get(w_key, 0) or 0)
+                pack_n = float(order.get(n_key, 0) or 0)
+                packs_total += pack_w * pack_n
+            if packs_total <= 0:
+                continue
+
+            for rec in recipe_rows:
+                pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1,9)]
+                if pid not in pvals:
+                    continue
+                idx = pvals.index(pid) + 1
+                powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
+                total_usage_g += powder_weight * packs_total
+
+        return total_usage_g
 
     def format_usage(val):
         if val >= 1000:
@@ -3292,59 +3340,33 @@ if menu == "庫存區":
         else:
             return f"{int(val) if round(val,2)==int(val) else f'{val:.2f}'} g"
 
-    def calc_powder_usage(powder_inputs, df_order, df_recipe, start_date, end_date):
-        results = []
-        powder_cols = [f"色粉編號{i}" for i in range(1,9)]
-        for powder_id in powder_inputs:
-            total_usage_g = 0.0
-            monthly_usage = {}
-            # 以下同你提供的用量計算邏輯，略...
-            # 省略細節可直接複製你現有函式
-            results.append({
-                "色粉編號": powder_id,
-                "來源區間": "總用量",
-                "月用量": "0 g",
-                "主配方來源": "",
-                "附加配方來源": ""
-            })
-        return pd.DataFrame(results)
-
-    if st.button("查詢用量", key="btn_powder_usage") and powder_inputs:
-        df_order = st.session_state.get("df_order", pd.DataFrame()).copy()
-        df_recipe = st.session_state.get("df_recipe", pd.DataFrame()).copy()
-        df_usage = calc_powder_usage(powder_inputs, df_order, df_recipe, start_date, end_date)
-        st.dataframe(df_usage, use_container_width=True)
-
-    st.markdown("---")
-
-    # ================= 庫存查詢 =================
-    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 庫存查詢</h2>', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    query_start = col1.date_input("查詢起日", key="stock_start")
-    query_end = col2.date_input("查詢迄日", key="stock_end")
-    stock_powder = st.text_input("色粉編號 (留空查全部)", key="stock_powder")
-
     if st.button("計算庫存"):
         df_stock_copy = df_stock.copy()
         if stock_powder.strip():
             df_stock_copy = df_stock_copy[df_stock_copy["色粉編號"].astype(str).str.contains(stock_powder.strip(), case=False)]
-        # 計算庫存 = 初始庫存 + 進貨 - 用量
+
         stock_summary = []
         for pid in df_stock_copy["色粉編號"].unique():
-            ini = df_stock_copy[(df_stock_copy["類型"]=="初始") & (df_stock_copy["色粉編號"]==pid)]
-            ini_qty = ini["數量"].sum() if not ini.empty else 0
+            # 初始庫存
+            ini_qty = df_stock_copy[(df_stock_copy["類型"]=="初始") & (df_stock_copy["色粉編號"]==pid)]["數量"].sum()
+            # 進貨量
             in_qty = df_stock_copy[(df_stock_copy["類型"]=="進貨") &
                                    (pd.to_datetime(df_stock_copy["日期"]) >= pd.to_datetime(query_start)) &
                                    (pd.to_datetime(df_stock_copy["日期"]) <= pd.to_datetime(query_end)) &
                                    (df_stock_copy["色粉編號"]==pid)]["數量"].sum()
-            usage_qty = 0.0  # 可用 calc_powder_usage 計算實際用量
+            # 用量
+            usage_qty = calc_usage_for_stock(pid, st.session_state.get("df_order", pd.DataFrame()),
+                                             st.session_state.get("df_recipe", pd.DataFrame()),
+                                             query_start, query_end)
             total = ini_qty + in_qty - usage_qty
-            stock_summary.append({"色粉編號":pid,"庫存":format_usage(total)})
-        st.dataframe(pd.DataFrame(stock_summary), use_container_width=True)
+            stock_summary.append({"色粉編號": pid, "庫存": format_usage(total),
+                                  "初始庫存": format_usage(ini_qty),
+                                  "進貨量": format_usage(in_qty),
+                                  "用量": format_usage(usage_qty)})
 
-        st.caption("🌟：庫存=初始庫存+該期間進貨量−該期間用量")
-        
-            
+        st.dataframe(pd.DataFrame(stock_summary), use_container_width=True)
+        st.caption("🌟：庫存 = 初始庫存 + 該期間進貨量 − 該期間用量")
+
             
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
