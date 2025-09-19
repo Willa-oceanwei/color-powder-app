@@ -3243,7 +3243,9 @@ if menu == "庫存區":
             # ---- 寫回 Sheet 前先轉日期為字串 ----
             df_to_upload = df_stock.copy()
             if "日期" in df_to_upload.columns:
-                df_to_upload["日期"] = df_to_upload["日期"].apply(lambda x: x.strftime("%Y/%m/%d") if pd.notna(x) else "")
+                # 將日期轉成 datetime，再格式化成字串
+                df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce").dt.strftime("%Y/%m/%d")
+                df_to_upload["日期"] = df_to_upload["日期"].fillna("")  # 轉換失敗就空字串
 
             ws_stock.clear()
             ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
