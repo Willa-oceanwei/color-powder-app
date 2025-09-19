@@ -3168,7 +3168,7 @@ if menu == "庫存區":
     df_stock_init = st.session_state.df_stock_init
 
     st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#18a1db;">📦 進貨新增</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 進貨新增</h2>',
         unsafe_allow_html=True
     )
 
@@ -3188,7 +3188,7 @@ if menu == "庫存區":
 
     # ------------------- 2. 進貨查詢 -------------------
     st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#18a1db;">🔍 進貨查詢</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🔍 進貨查詢</h2>',
         unsafe_allow_html=True
     )
     col1, col2, col3 = st.columns(3)
@@ -3211,7 +3211,7 @@ if menu == "庫存區":
 
     # ------------------- 3. 色粉初始設定 -------------------
     st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#18a1db;">⚙️ 色粉初始設定</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">⚙️ 色粉初始設定</h2>',
         unsafe_allow_html=True
     )
     col1, col2 = st.columns(2)
@@ -3238,7 +3238,7 @@ if menu == "庫存區":
 
     # ------------------- 4. 庫存查詢 -------------------
     st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#18a1db;">🚨 庫存查詢</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🚨 庫存查詢</h2>',
         unsafe_allow_html=True
     )
 
