@@ -3425,46 +3425,47 @@ if menu == "庫存區":
         e_dt = pd.to_datetime(query_end)
 
         # --- 計算期初庫存字典 ---
+        # ---------- 計算期初庫存 ----------
+        s_dt = pd.to_datetime(query_start)
+        e_dt = pd.to_datetime(query_end)
+
         ini_dict = {}
         for pid in df_stock_copy["色粉編號"].unique():
-            df_pid = df_stock_copy[df_stock_copy["色粉編號"].astype(str) == pid]
+            pid = str(pid)
+            df_pid = df_stock_copy[df_stock_copy["色粉編號"].astype(str) == pid].copy()
+            # 期初 = 查詢起日之前的「初始」+「進貨」
             ini_qty_g = df_pid[df_pid["日期"] < s_dt]["數量_g"].sum()
             ini_dict[pid] = ini_qty_g
 
-        # --- 彈窗核對期初庫存 ---
-        if "ini_confirmed" not in st.session_state:
-            st.session_state.ini_confirmed = False
-
-        with st.modal("核對期初庫存", key="modal_ini"):
-            st.write("請確認各色粉的期初庫存 (g)，可直接修改：")
+        # ---------- 核對期初庫存 (兼容舊版) ----------
+        with st.expander("🔍 核對期初庫存 (可修改)", expanded=True):
+            st.write("請確認各色粉的期初庫存 (g)，若不正確可直接修改：")
             updated_ini = {}
             for pid, qty in ini_dict.items():
+                # number_input 支援浮點數
                 new_qty = st.number_input(f"{pid} 期初庫存 (g)", value=qty, step=1.0)
                 updated_ini[pid] = new_qty
 
-            if st.button("確認期初庫存", key="confirm_ini_modal"):
-                st.session_state.ini_confirmed = True
-                st.session_state.ini_dict = updated_ini
-                st.success("✅ 期初庫存已確認，開始計算區間庫存")
-
-        # --- 真正計算區間庫存（只在確認後執行） ---
-        if st.session_state.ini_confirmed:
+        # 點擊按鈕確認後才進行區間庫存計算
+        if st.button("✅ 確認期初庫存並計算區間庫存"):
+            ini_dict = updated_ini
             stock_summary = []
+
             for pid in df_stock_copy["色粉編號"].unique():
-                df_pid = df_stock_copy[df_stock_copy["色粉編號"].astype(str) == pid]
+                pid = str(pid)
+                df_pid = df_stock_copy[df_stock_copy["色粉編號"].astype(str) == pid].copy()
 
-                # 使用使用者確認的期初庫存
-                ini_qty_g = st.session_state.ini_dict.get(pid, 0)
+                # -------- 期初庫存 --------
+                ini_qty_g = ini_dict.get(pid, 0)
 
-                # 區間進貨
+                # -------- 區間進貨 --------
                 interval_mask = (df_pid["日期"] >= s_dt) & (df_pid["日期"] <= e_dt)
                 in_qty_g = df_pid[interval_mask & (df_pid["類型"] == "進貨")]["數量_g"].sum()
-                in_qty_g += df_pid[interval_mask & (df_pid["類型"] == "初始")]["數量_g"].sum()
 
-                # 區間用量
+                # -------- 區間用量 --------
                 usage_qty_g = calc_usage_for_stock(pid, df_order, df_recipe, s_dt, e_dt)
 
-                # 期末庫存
+                # -------- 期末庫存 --------
                 final_g = ini_qty_g + in_qty_g - usage_qty_g
 
                 stock_summary.append({
@@ -3476,7 +3477,7 @@ if menu == "庫存區":
                 })
 
             st.dataframe(pd.DataFrame(stock_summary), use_container_width=True)
-            st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量")
+            st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
            
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
