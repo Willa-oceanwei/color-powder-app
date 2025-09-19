@@ -3413,7 +3413,6 @@ if menu == "庫存區":
 
         # 轉換 df_stock 的日期與數量（以便計算）
         df_stock_copy["日期"] = pd.to_datetime(df_stock_copy["日期"], errors="coerce")
-        # 把數量轉成數值並產生數量_g 欄位
         df_stock_copy["數量"] = pd.to_numeric(df_stock_copy["數量"], errors="coerce").fillna(0)
         df_stock_copy["數量_g"] = [
             to_grams(q, u) for q, u in zip(df_stock_copy["數量"], df_stock_copy["單位"])
@@ -3423,7 +3422,6 @@ if menu == "庫存區":
         if stock_powder.strip():
             df_stock_copy = df_stock_copy[df_stock_copy["色粉編號"].astype(str).str.contains(stock_powder.strip(), case=False)]
 
-        # 逐一色粉計算期初 / 區間進貨 / 用量 / 期末
         stock_summary = []
         s_dt = pd.to_datetime(query_start)
         e_dt = pd.to_datetime(query_end)
@@ -3432,19 +3430,24 @@ if menu == "庫存區":
             pid = str(pid)
             df_pid = df_stock_copy[df_stock_copy["色粉編號"].astype(str) == pid].copy()
 
-            # 期初 = 查詢起日之前的所有「初始」與「進貨」(date < start) 的數量_g 總和
-            ini_qty_g = df_pid[df_pid["日期"] < s_dt]["數量_g"].sum()
+            # ---------- 期初庫存 ----------
+            # 查詢起日前的初始 + 進貨累計
+            ini_qty_g = df_pid[
+                (df_pid["日期"] < s_dt) &
+                (df_pid["類型"].isin(["初始","進貨"]))
+            ]["數量_g"].sum()
 
-            # 區間進貨 = 查詢區間內（start <= date <= end）的所有「進貨」 + 若有「初始」在區間內也算入區間新增
-            in_mask = (df_pid["日期"] >= s_dt) & (df_pid["日期"] <= e_dt)
-            in_qty_g = df_pid[in_mask & (df_pid["類型"] == "進貨")]["數量_g"].sum()
-            # 把落在期間內的「初始」也視為區間內新增（你希望在查詢期間內新增的初始會自動累加）
-            in_qty_g += df_pid[in_mask & (df_pid["類型"] == "初始")]["數量_g"].sum()
+            # ---------- 區間進貨 ----------
+            in_qty_g = df_pid[
+                (df_pid["日期"] >= s_dt) &
+                (df_pid["日期"] <= e_dt) &
+                (df_pid["類型"] == "進貨")
+            ]["數量_g"].sum()
 
-            # 用量 (g)：呼叫正確的 calc_usage_for_stock（傳入原始 df_order, df_recipe）
+            # ---------- 區間用量 ----------
             usage_qty_g = calc_usage_for_stock(pid, df_order, df_recipe, s_dt, e_dt)
 
-            # 期末 = 期初 + 區間進貨 - 區間用量
+            # ---------- 期末庫存 ----------
             final_g = ini_qty_g + in_qty_g - usage_qty_g
 
             stock_summary.append({
@@ -3452,9 +3455,7 @@ if menu == "庫存區":
                 "期初庫存": format_usage(ini_qty_g),
                 "區間進貨": format_usage(in_qty_g),
                 "區間用量": format_usage(usage_qty_g),
-                "期末庫存": format_usage(final_g),
-                # 若你希望看原始 g 值可加：
-                # "期初_g": ini_qty_g, "進貨_g": in_qty_g, "用量_g": usage_qty_g, "期末_g": final_g
+                "期末庫存": format_usage(final_g)
             })
 
         st.dataframe(pd.DataFrame(stock_summary), use_container_width=True)
