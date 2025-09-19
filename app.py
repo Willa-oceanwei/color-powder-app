@@ -3216,10 +3216,7 @@ if menu == "庫存區":
             st.dataframe(df_result, use_container_width=True)
         else:
             st.info("ℹ️ 沒有符合條件的進貨資料")
-    else:
-        st.write("👉 請輸入條件後按下『查詢』")
-
-
+    
     # ------------------- 3. 色粉初始設定 -------------------
     st.markdown(
         '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">⚙️ 色粉初始設定</h2>',
