@@ -3186,6 +3186,8 @@ if menu == "庫存區":
         else:
             st.warning("⚠️ 請輸入色粉編號與正確數量")
 
+    st.markdown("---")  # 分隔線
+
     # ------------------- 2. 進貨查詢 -------------------
     st.markdown(
         '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🔍 進貨查詢</h2>',
@@ -3216,6 +3218,8 @@ if menu == "庫存區":
             st.dataframe(df_result, use_container_width=True)
         else:
             st.info("ℹ️ 沒有符合條件的進貨資料")
+
+    st.markdown("---")  # 分隔線
     
     # ------------------- 3. 色粉初始設定 -------------------
     st.markdown(
@@ -3243,6 +3247,8 @@ if menu == "庫存區":
 
     if not st.session_state.df_stock_init.empty:
         st.dataframe(st.session_state.df_stock_init, use_container_width=True)
+
+    st.markdown("---")  # 分隔線
 
     # ------------------- 4. 庫存查詢 -------------------
     st.markdown(
