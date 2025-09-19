@@ -3205,13 +3205,30 @@ if menu == "庫存區":
     in_note = st.text_input("備註", key="in_note")
 
     if st.button("新增進貨"):
-        if not in_powder.strip():
+        in_powder = str(in_powder).strip()  # 確保是字串
+        if not in_powder:
             st.warning("⚠️ 請輸入色粉編號！")
         else:
-            new_row = {"類型":"進貨","色粉編號":in_powder.strip(),"日期":in_date,"數量":in_qty,"單位":in_unit,"備註":in_note}
+            # 確保 df_stock 是 DataFrame
+            if df_stock is None or not isinstance(df_stock, pd.DataFrame):
+                df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
+
+            new_row = {
+                "類型": "進貨",
+                "色粉編號": in_powder,
+                "日期": in_date,
+                "數量": in_qty,
+                "單位": in_unit,
+                "備註": in_note
+            }
+
             df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
+            st.session_state["df_stock"] = df_stock  # 更新 session_state
+
+            # 寫回 Google Sheet
             ws_stock.clear()
             ws_stock.update([df_stock.columns.values.tolist()] + df_stock.values.tolist())
+
             st.success("✅ 進貨紀錄已新增")
 
     st.markdown("---")
