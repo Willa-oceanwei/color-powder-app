@@ -3271,7 +3271,7 @@ if menu == "庫存區":
     col1, col2 = st.columns(2)
     query_start = col1.date_input("查詢起日", key="stock_start")
     query_end = col2.date_input("查詢迄日", key="stock_end")
-    stock_powder = st.text_input("色粉編號 (留空查全部)", key="stock_powder")
+    stock_powder = st.text_input("色粉編號 (未輸入可查全部)", key="stock_powder")
 
     # --------- 庫存區模組 ---------
     # 工具：把 qty+unit 轉成 g
