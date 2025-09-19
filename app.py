@@ -3198,7 +3198,7 @@ if menu == "庫存區":
     search_end = col3.date_input("進貨日期(迄)", key="search_in_end")
 
     # 查詢按鈕
-    if st.button("📌 查詢"):
+    if st.button("查詢"):
         df_result = st.session_state.df_stock.copy()
 
         if search_code.strip():
