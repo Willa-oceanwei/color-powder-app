@@ -3255,7 +3255,7 @@ if menu == "庫存區":
     st.markdown("---")
 
     # ================= 色粉用量查詢 =================
-    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🧮 色粉用量查詢</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📈 色粉用量查詢</h2>', unsafe_allow_html=True)
     cols = st.columns(4)
     powder_inputs = []
     for i in range(4):
