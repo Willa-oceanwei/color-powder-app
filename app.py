@@ -3175,7 +3175,7 @@ if menu == "庫存區":
     st.session_state.df_stock = df_stock
 
     # 初始化庫存與進貨資料
-    # ---------- 初始庫存設定 ----------
+    # ================= 初始庫存設定 =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 初始庫存設定</h2>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     ini_powder = col1.text_input("色粉編號", key="ini_color")
@@ -3197,58 +3197,57 @@ if menu == "庫存區":
             if exist_mask.any():
                 if st.confirm(f"已有色粉 {ini_powder} 的初始庫存，是否覆蓋？"):
                     df_stock.loc[exist_mask, ["日期","數量","單位","備註"]] = [ini_date, ini_qty, ini_unit, ini_note]
-                    st.success("✅ 初始庫存已覆蓋")
                 else:
                     st.info("已取消覆蓋")
             else:
-                new_row = {"類型":"初始","色粉編號":ini_powder.strip(),
-                           "日期":ini_date,"數量":ini_qty,"單位":ini_unit,"備註":ini_note}
+                new_row = {"類型":"初始",
+                           "色粉編號":ini_powder.strip(),
+                           "日期":ini_date,
+                           "數量":ini_qty,
+                           "單位":ini_unit,
+                           "備註":ini_note}
                 df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
-                st.success("✅ 初始庫存已新增")
 
-            # 寫回 Sheet
+            # ---- 寫回 Google Sheet 前先轉日期為字串 ----
+            df_to_upload = df_stock.copy()
+            if "日期" in df_to_upload.columns:
+                df_to_upload["日期"] = df_to_upload["日期"].apply(lambda x: x.strftime("%Y/%m/%d") if pd.notna(x) else "")
+
             ws_stock.clear()
-            ws_stock.update([df_stock.columns.values.tolist()] + df_stock.values.tolist())
+            ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
+            st.success("✅ 初始庫存已儲存")
 
     st.markdown("---")
 
     # ================= 進貨新增 =================
-    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📥 進貨新增</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📥 進貨新增</h2>', unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
     in_powder = col1.text_input("色粉編號", key="in_color")
-    in_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="in_qty")
-    in_unit = col3.selectbox("單位", ["g","kg"], key="in_unit")
+    in_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="in_qty_add")
+    in_unit = col3.selectbox("單位", ["g", "kg"], key="in_unit_add")
     in_date = col4.date_input("進貨日期", value=datetime.today(), key="in_date")
     in_note = st.text_input("備註", key="in_note")
 
     if st.button("新增進貨"):
-        in_powder = str(in_powder).strip()  # 確保是字串
-        if not in_powder:
+        if not in_powder.strip():
             st.warning("⚠️ 請輸入色粉編號！")
         else:
-            # 先從 session_state 取得，若沒有就建立空 DataFrame
-            df_stock = st.session_state.get("df_stock", pd.DataFrame(
-                columns=["類型","色粉編號","日期","數量","單位","備註"]
-            ))
-
-            new_row = {
-                "類型": "進貨",
-                "色粉編號": in_powder,
-                "日期": in_date,
-                "數量": in_qty,
-                "單位": in_unit,
-                "備註": in_note
-            }
-
+            new_row = {"類型":"進貨",
+                       "色粉編號":in_powder.strip(),
+                       "日期":in_date,
+                       "數量":in_qty,
+                       "單位":in_unit,
+                       "備註":in_note}
             df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
-            st.session_state["df_stock"] = df_stock  # 更新 session_state
 
-            # 寫回 Google Sheet
+            # ---- 寫回 Sheet 前先轉日期為字串 ----
+            df_to_upload = df_stock.copy()
+            if "日期" in df_to_upload.columns:
+                df_to_upload["日期"] = df_to_upload["日期"].apply(lambda x: x.strftime("%Y/%m/%d") if pd.notna(x) else "")
+
             ws_stock.clear()
-            ws_stock.update([df_stock.columns.values.tolist()] + df_stock.values.tolist())
-
+            ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
             st.success("✅ 進貨紀錄已新增")
-
     st.markdown("---")
 
     # ================= 進貨查詢 =================
