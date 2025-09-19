@@ -3191,23 +3191,35 @@ if menu == "庫存區":
         '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🔍 進貨查詢</h2>',
         unsafe_allow_html=True
     )
+
     col1, col2, col3 = st.columns(3)
     search_code = col1.text_input("色粉編號", key="search_in_code")
     search_start = col2.date_input("進貨日期(起)", key="search_in_start")
     search_end = col3.date_input("進貨日期(迄)", key="search_in_end")
 
-    df_result = st.session_state.df_stock.copy()
-    if search_code.strip():
-        df_result = df_result[df_result["色粉編號"].astype(str).str.contains(search_code.strip(), case=False)]
-    df_result = df_result[
-        (pd.to_datetime(df_result["進貨日期"]) >= pd.to_datetime(search_start)) &
-        (pd.to_datetime(df_result["進貨日期"]) <= pd.to_datetime(search_end))
-    ]
+    # 判斷是否有輸入查詢條件（編號或日期有變動才查詢）
+    has_condition = search_code.strip() or search_start or search_end
 
-    if not df_result.empty:
-        st.dataframe(df_result, use_container_width=True)
+    if has_condition:
+        df_result = st.session_state.df_stock.copy()
+
+        if search_code.strip():
+            df_result = df_result[
+                df_result["色粉編號"].astype(str).str.contains(search_code.strip(), case=False)
+            ]
+
+        if search_start and search_end:
+            df_result = df_result[
+                (pd.to_datetime(df_result["進貨日期"]) >= pd.to_datetime(search_start)) &
+                (pd.to_datetime(df_result["進貨日期"]) <= pd.to_datetime(search_end))
+            ]
+
+        if not df_result.empty:
+            st.dataframe(df_result, use_container_width=True)
+        else:
+            st.info("ℹ️ 沒有符合條件的進貨資料")
     else:
-        st.info("ℹ️ 沒有符合條件的進貨資料")
+        st.write("👉 請輸入條件開始查詢")
 
     # ------------------- 3. 色粉初始設定 -------------------
     st.markdown(
