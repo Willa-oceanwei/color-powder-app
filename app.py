@@ -3168,12 +3168,11 @@ if menu == "庫存區":
     df_stock_init = st.session_state.df_stock_init
 
     st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#18a1db;">📦 庫存管理</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#18a1db;">📦 進貨新增</h2>',
         unsafe_allow_html=True
     )
 
     # ------------------- 1. 進貨新增 -------------------
-    st.subheader("📥 進貨新增")
     col1, col2, col3 = st.columns(3)
     in_code = col1.text_input("色粉編號", key="in_code")
     in_qty = col2.number_input("進貨數量 (g)", min_value=0.0, step=1.0, key="in_qty")
@@ -3188,7 +3187,10 @@ if menu == "庫存區":
             st.warning("⚠️ 請輸入色粉編號與正確數量")
 
     # ------------------- 2. 進貨查詢 -------------------
-    st.subheader("🔍 進貨查詢")
+    st.markdown(
+        '<h2 style="font-size:22px; font-family:Arial; color:#18a1db;">🔍 進貨查詢</h2>',
+        unsafe_allow_html=True
+    )
     col1, col2, col3 = st.columns(3)
     search_code = col1.text_input("色粉編號", key="search_in_code")
     search_start = col2.date_input("進貨日期(起)", key="search_in_start")
@@ -3208,7 +3210,10 @@ if menu == "庫存區":
         st.info("ℹ️ 沒有符合條件的進貨資料")
 
     # ------------------- 3. 色粉初始設定 -------------------
-    st.subheader("⚙️ 色粉初始設定")
+    st.markdown(
+        '<h2 style="font-size:22px; font-family:Arial; color:#18a1db;">⚙️ 色粉初始設定</h2>',
+        unsafe_allow_html=True
+    )
     col1, col2 = st.columns(2)
     init_code = col1.text_input("色粉編號", key="init_code")
     init_qty = col2.number_input("起始庫存量 (g)", min_value=0.0, step=1.0, key="init_qty")
@@ -3232,7 +3237,10 @@ if menu == "庫存區":
         st.dataframe(st.session_state.df_stock_init, use_container_width=True)
 
     # ------------------- 4. 庫存查詢 -------------------
-    st.subheader("🚥 庫存查詢")
+    st.markdown(
+        '<h2 style="font-size:22px; font-family:Arial; color:#18a1db;">🚨 庫存查詢</h2>',
+        unsafe_allow_html=True
+    )
 
     col1, col2, col3 = st.columns(3)
     query_code = col1.text_input("色粉編號", key="query_code")
