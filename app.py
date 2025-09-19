@@ -3149,7 +3149,6 @@ if menu == "Pantone色號表":
             show_pantone_table(df_pantone, title="")
 
 # ======== 庫存區分頁 =========
-# ======== 庫存區分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
 
 if menu == "庫存區":
@@ -3219,7 +3218,7 @@ if menu == "庫存區":
     st.markdown("---")
 
     # ================= 進貨新增 =================
-    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📥 進貨新增</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
     in_powder = col1.text_input("色粉編號", key="in_color")
     in_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="in_qty_add")
