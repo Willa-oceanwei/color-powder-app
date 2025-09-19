@@ -3275,6 +3275,14 @@ if menu == "庫存區":
     stock_powder = st.text_input("色粉編號 (留空查全部)", key="stock_powder")
 
     def calc_usage_for_stock(powder_id, df_order, df_recipe, start_date, end_date):
+        # --- 確保日期格式正確 ---
+        df_order = df_order.copy()
+        if "生產日期" in df_order.columns:
+            df_order["生產日期"] = pd.to_datetime(df_order["生產日期"], errors="coerce")
+        else:
+            return 0.0, {}
+            
+        # 候選配方    
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
         total_usage_g = 0.0
 
