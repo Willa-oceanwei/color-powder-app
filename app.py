@@ -3305,6 +3305,9 @@ if menu == "庫存區":
             total = ini_qty + in_qty - usage_qty
             stock_summary.append({"色粉編號":pid,"庫存":format_usage(total)})
         st.dataframe(pd.DataFrame(stock_summary), use_container_width=True)
+
+        st.caption("🌟：庫存=初始庫存+該期間進貨量−該期間用量")
+        
             
             
 # ===== 匯入配方備份檔案 =====
