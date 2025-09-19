@@ -3355,9 +3355,13 @@ if menu == "庫存區":
                                    (pd.to_datetime(df_stock_copy["日期"]) <= pd.to_datetime(query_end)) &
                                    (df_stock_copy["色粉編號"]==pid)]["數量"].sum()
             # 用量
-            usage_qty = calc_usage_for_stock(pid, st.session_state.get("df_order", pd.DataFrame()),
-                                             st.session_state.get("df_recipe", pd.DataFrame()),
-                                             query_start, query_end)
+            usage_qty = calc_usage_for_stock(
+                pid,
+                st.session_state.get("df_order", pd.DataFrame()),
+                st.session_state.get("df_recipe", pd.DataFrame()),
+                query_start,
+                query_end
+            )
             total = ini_qty + in_qty - usage_qty
             stock_summary.append({"色粉編號": pid, "庫存": format_usage(total),
                                   "初始庫存": format_usage(ini_qty),
