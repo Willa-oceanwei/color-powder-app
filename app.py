@@ -3209,9 +3209,10 @@ if menu == "庫存區":
         if not in_powder:
             st.warning("⚠️ 請輸入色粉編號！")
         else:
-            # 確保 df_stock 是 DataFrame
-            if df_stock is None or not isinstance(df_stock, pd.DataFrame):
-                df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
+            # 先從 session_state 取得，若沒有就建立空 DataFrame
+            df_stock = st.session_state.get("df_stock", pd.DataFrame(
+                columns=["類型","色粉編號","日期","數量","單位","備註"]
+            ))
 
             new_row = {
                 "類型": "進貨",
