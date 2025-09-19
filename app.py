@@ -3361,28 +3361,41 @@ if menu == "庫存區":
 
         stock_summary = []
         for pid in df_stock_copy["色粉編號"].unique():
-            # 初始庫存 g
-            ini = df_stock_copy[(df_stock_copy["類型"]=="初始") & (df_stock_copy["色粉編號"]==pid)]
-            ini_qty = sum([float(x)*1000 if str(unit).lower()=="kg" else float(x) for x, unit in zip(ini["數量"], ini["單位"])])
-            # 進貨量 g
-            in_stock = df_stock_copy[(df_stock_copy["類型"]=="進貨") &
-                                     (pd.to_datetime(df_stock_copy["日期"]) >= pd.to_datetime(query_start)) &
-                                     (pd.to_datetime(df_stock_copy["日期"]) <= pd.to_datetime(query_end)) &
-                                     (df_stock_copy["色粉編號"]==pid)]
-            in_qty = sum([float(x)*1000 if str(unit).lower()=="kg" else float(x) for x, unit in zip(in_stock["數量"], in_stock["單位"])])
-            # 用量 g
+            # --- 全部庫存紀錄 (轉 g) ---
+            df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
+            df_pid["數量_g"] = [
+                float(x) * 1000 if str(unit).lower() == "kg" else float(x)
+                for x, unit in zip(df_pid["數量"], df_pid["單位"])
+            ]
+            df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce")
+
+            # --- 期初庫存 = 查詢起日之前所有紀錄總和 ---
+            ini_qty = df_pid[df_pid["日期"] < pd.to_datetime(query_start)]["數量_g"].sum()
+
+            # --- 區間進貨 ---
+            in_qty = df_pid[
+                (df_pid["類型"] == "進貨") &
+                (df_pid["日期"] >= pd.to_datetime(query_start)) &
+                (df_pid["日期"] <= pd.to_datetime(query_end))
+            ]["數量_g"].sum()
+
+            # --- 用量 ---
             usage_qty = calc_usage_for_stock(pid, df_order, df_recipe, query_start, query_end)
-            total = ini_qty + in_qty - usage_qty
+
+            # --- 期末庫存 ---
+            final_qty = ini_qty + in_qty - usage_qty
+
             stock_summary.append({
                 "色粉編號": pid,
-                "庫存": format_usage(total),
-                "初始庫存": format_usage(ini_qty),
+                "期初庫存": format_usage(ini_qty),
                 "進貨量": format_usage(in_qty),
-                "用量": format_usage(usage_qty)
+                "用量": format_usage(usage_qty),
+                "期末庫存": format_usage(final_qty)
             })
 
         st.dataframe(pd.DataFrame(stock_summary), use_container_width=True)
-        st.caption("🌟：庫存 = 初始庫存 + 該期間進貨量 − 該期間用量")
+        st.caption("🌟：期末庫存 = 期初庫存 + 區間進貨 − 區間用量")
+
 
             
 # ===== 匯入配方備份檔案 =====
