@@ -3197,10 +3197,8 @@ if menu == "庫存區":
     search_start = col2.date_input("進貨日期(起)", key="search_in_start")
     search_end = col3.date_input("進貨日期(迄)", key="search_in_end")
 
-    # 判斷是否有輸入查詢條件（編號或日期有變動才查詢）
-    has_condition = search_code.strip() or search_start or search_end
-
-    if has_condition:
+    # 查詢按鈕
+    if st.button("📌 查詢"):
         df_result = st.session_state.df_stock.copy()
 
         if search_code.strip():
@@ -3219,7 +3217,8 @@ if menu == "庫存區":
         else:
             st.info("ℹ️ 沒有符合條件的進貨資料")
     else:
-        st.write("👉 請輸入條件開始查詢")
+        st.write("👉 請輸入條件後按下『查詢』")
+
 
     # ------------------- 3. 色粉初始設定 -------------------
     st.markdown(
