@@ -53,7 +53,7 @@ spreadsheet = st.session_state["spreadsheet"]
 # ======== Sidebar 修正 =========
 import streamlit as st
 
-menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "交叉查詢區", "Pantone色號表", "匯入備份"]
+menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
 
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
@@ -3147,6 +3147,8 @@ if menu == "Pantone色號表":
             show_pantone_table(df_result, title="")
         else:
             show_pantone_table(df_pantone, title="")
+
+
             
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
