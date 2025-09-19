@@ -3140,22 +3140,6 @@ if menu == "Pantone色號表":
     if search_code:
         show_table = True
 
-    # 新增按鈕提交後，也可以設定 show_table = True
-    if submitted:
-        if not pantone_code or not formula_id:
-            st.error("❌ Pantone 色號與配方編號必填")
-        else:
-            # 檢查是否在配方管理
-            if formula_id in df_recipe["配方編號"].astype(str).values:
-                st.warning(f"⚠️ 配方編號 {formula_id} 已存在於『配方管理』，不新增")
-            # 檢查是否在 Pantone 色號表
-            elif formula_id in df_pantone["配方編號"].astype(str).values:
-                st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
-            else:
-                ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
-                st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
-                show_table = True
-
     # 顯示表格（只有在 show_table=True 時）
     if show_table:
         if search_code:
@@ -3163,6 +3147,7 @@ if menu == "Pantone色號表":
             show_pantone_table(df_result, title="")
         else:
             show_pantone_table(df_pantone, title="")
+            
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
     st.title("📥 匯入配方備份 Excel")
