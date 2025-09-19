@@ -3414,9 +3414,7 @@ if menu == "庫存區":
         # 轉換 df_stock 的日期與數量（以便計算）
         df_stock_copy["日期"] = pd.to_datetime(df_stock_copy["日期"], errors="coerce")
         df_stock_copy["數量"] = pd.to_numeric(df_stock_copy["數量"], errors="coerce").fillna(0)
-        df_stock_copy["數量_g"] = [
-            to_grams(q, u) for q, u in zip(df_stock_copy["數量"], df_stock_copy["單位"])
-        ]
+        df_stock_copy["數量_g"] = [to_grams(q, u) for q, u in zip(df_stock_copy["數量"], df_stock_copy["單位"])]
 
         # 篩選目標色粉
         if stock_powder.strip():
@@ -3430,24 +3428,20 @@ if menu == "庫存區":
             pid = str(pid)
             df_pid = df_stock_copy[df_stock_copy["色粉編號"].astype(str) == pid].copy()
 
-            # ---------- 期初庫存 ----------
-            # 查詢起日前的初始 + 進貨累計
-            ini_qty_g = df_pid[
-                (df_pid["日期"] < s_dt) &
-                (df_pid["類型"].isin(["初始","進貨"]))
-            ]["數量_g"].sum()
+            # -------- 期初庫存 --------
+            # 查詢起日前的初始 + 進貨
+            ini_mask = df_pid["日期"] < s_dt
+            ini_qty_g = df_pid[ini_mask]["數量_g"].sum()
 
-            # ---------- 區間進貨 ----------
-            in_qty_g = df_pid[
-                (df_pid["日期"] >= s_dt) &
-                (df_pid["日期"] <= e_dt) &
-                (df_pid["類型"] == "進貨")
-            ]["數量_g"].sum()
+            # -------- 區間進貨 --------
+            # 只算查詢期間內的進貨
+            interval_mask = (df_pid["日期"] >= s_dt) & (df_pid["日期"] <= e_dt)
+            in_qty_g = df_pid[interval_mask & (df_pid["類型"] == "進貨")]["數量_g"].sum()
 
-            # ---------- 區間用量 ----------
+            # -------- 區間用量 --------
             usage_qty_g = calc_usage_for_stock(pid, df_order, df_recipe, s_dt, e_dt)
 
-            # ---------- 期末庫存 ----------
+            # -------- 期末庫存 --------
             final_g = ini_qty_g + in_qty_g - usage_qty_g
 
             stock_summary.append({
@@ -3455,7 +3449,7 @@ if menu == "庫存區":
                 "期初庫存": format_usage(ini_qty_g),
                 "區間進貨": format_usage(in_qty_g),
                 "區間用量": format_usage(usage_qty_g),
-                "期末庫存": format_usage(final_g)
+                "期末庫存": format_usage(final_g),
             })
 
         st.dataframe(pd.DataFrame(stock_summary), use_container_width=True)
