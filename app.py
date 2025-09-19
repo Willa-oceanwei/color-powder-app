@@ -3430,9 +3430,9 @@ if menu == "庫存區":
 
             # -------- 期初庫存 --------
             # 查詢起日前的初始 + 進貨
-            ini_mask = df_pid["日期"] < s_dt
+            ini_mask = (df_pid["類型"] == "初始") & (df_pid["日期"] <= s_dt)
             ini_qty_g = df_pid[ini_mask]["數量_g"].sum()
-
+            
             # -------- 區間進貨 --------
             # 只算查詢期間內的進貨
             interval_mask = (df_pid["日期"] >= s_dt) & (df_pid["日期"] <= e_dt)
