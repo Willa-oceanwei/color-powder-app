@@ -424,7 +424,10 @@ if menu == "色粉管理":
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="big-title">🎰色粉搜尋</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🎰色粉搜尋</h2>',
+        unsafe_allow_html=True
+    )
 #---
 
     search_input = st.text_input("請輸入色粉編號或國際色號", st.session_state.search_color)
@@ -557,7 +560,10 @@ elif menu == "客戶名單":
     </style>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="big-title">🗿客戶搜尋</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🗿客戶搜尋</h2>',
+        unsafe_allow_html=True
+    )
   
     search_input = st.text_input("請輸入客戶編號或簡稱", st.session_state.search_customer)
     if search_input != st.session_state.search_customer:
