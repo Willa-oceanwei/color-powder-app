@@ -1898,7 +1898,7 @@ elif menu == "生產單管理":
             print_html = generate_print_page_content(order, recipe_row, order.get("附加配方"))
         
             st.markdown("---")
-            st.markdown("<span style='font-size:18px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
+            st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
         
             # 不可編輯欄位
             c1, c2, c3, c4 = st.columns(4)
