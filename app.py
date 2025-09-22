@@ -1933,7 +1933,7 @@ elif menu == "生產單管理":
                     counts.append(c)
                                 
                 # --- 主配方區塊 ---
-                st.markdown("#### 色粉用量（編號與重量）")
+                st.markdown("##### 色粉用量（編號與重量）")
                 色粉編號欄, 色粉重量欄 = st.columns(2)
                 for i in range(1, 9):
                     color_id = recipe_row.get(f"色粉編號{i}", "").strip()
