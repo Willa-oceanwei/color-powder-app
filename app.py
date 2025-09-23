@@ -66,15 +66,17 @@ if "menu" not in st.session_state:
 # ----------------- 自訂 CSS -----------------
 st.markdown("""
 <style>
+/* 側邊欄背景加深 */
 section[data-testid="stSidebar"] {
-    background-color: #1e293b;
+    background-color: #111827;  /* 更深的底色 */
     padding: 10px;
 }
 
+/* 按鈕樣式 */
 .sidebar-btn {
     display: block;
     padding: 10px 14px;
-    margin: 4px 0;
+    margin: 6px 0;   /* 統一上下間距 */
     border-radius: 6px;
     text-align: left;
     font-size: 15px;
@@ -83,11 +85,18 @@ section[data-testid="stSidebar"] {
     border: none;
     width: 100%;
     cursor: pointer;
+    white-space: nowrap;  /* 不換行 */
+    overflow: hidden;
+    text-overflow: ellipsis;  /* 文字超長顯示省略號 */
     transition: background-color 0.2s;
 }
+
+/* hover 效果 */
 .sidebar-btn:hover {
-    background-color: #334155;
+    background-color: #1f2937;
 }
+
+/* 選中效果 */
 .sidebar-btn.active {
     background-color: #3b82f6;
     font-weight: bold;
@@ -102,11 +111,11 @@ with st.sidebar:
         is_active = "active" if st.session_state.menu == option else ""
         if st.button(option, key=option, help=option):
             st.session_state.menu = option
-        # 用 st.markdown 加上 active 樣式
+        # 用 markdown 來加上 active class
         if is_active:
             st.markdown(f"""
             <style>
-            button[kind="primary"][data-testid="{option}"] {{
+            button[data-testid="{option}"] {{
                 background-color: #3b82f6 !important;
                 font-weight: bold;
             }}
@@ -130,6 +139,7 @@ elif st.session_state.menu == "庫存區":
     st.info("這裡是庫存區頁面")
 elif st.session_state.menu == "匯入備份":
     st.info("這裡是匯入備份頁面")
+
 
 
 # ===== 自訂函式：產生生產單列印格式 =====      
