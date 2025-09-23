@@ -71,31 +71,25 @@ section[data-testid="stSidebar"] {
     padding: 10px;
 }
 
-/* 隱藏 radio input */
-div[role="radiogroup"] > label > input {
-    display: none;
-}
-
-/* 用 span 做按鈕 */
-div[role="radiogroup"] > label > span {
+.sidebar-btn {
     display: block;
     padding: 10px 14px;
-    border-radius: 6px;
     margin: 4px 0;
-    cursor: pointer;
+    border-radius: 6px;
+    text-align: left;
     font-size: 15px;
     color: white;
+    background-color: transparent;
+    border: none;
+    width: 100%;
+    cursor: pointer;
     transition: background-color 0.2s;
 }
-
-/* hover 效果 */
-div[role="radiogroup"] > label > span:hover {
+.sidebar-btn:hover {
     background-color: #334155;
 }
-
-/* 選中效果 */
-div[role="radiogroup"] > label > input:checked + span {
-    background-color: #3b82f6 !important;
+.sidebar-btn.active {
+    background-color: #3b82f6;
     font-weight: bold;
 }
 </style>
@@ -104,15 +98,20 @@ div[role="radiogroup"] > label > input:checked + span {
 # ----------------- 側邊欄選單 -----------------
 with st.sidebar:
     st.title("🌈配方管理系統")
-    selected_menu = st.radio(
-        "請選擇模組🪁",
-        menu_options,
-        index=menu_options.index(st.session_state.menu)
-    )
-    st.session_state.menu = selected_menu
-
-# ----------------- 主內容 -----------------
-st.write(f"📌 你目前選擇的是：**{st.session_state.menu}**")
+    for option in menu_options:
+        is_active = "active" if st.session_state.menu == option else ""
+        if st.button(option, key=option, help=option):
+            st.session_state.menu = option
+        # 用 st.markdown 加上 active 樣式
+        if is_active:
+            st.markdown(f"""
+            <style>
+            button[kind="primary"][data-testid="{option}"] {{
+                background-color: #3b82f6 !important;
+                font-weight: bold;
+            }}
+            </style>
+            """, unsafe_allow_html=True)
 
 # ----------------- 分頁內容範例 -----------------
 if st.session_state.menu == "色粉管理":
