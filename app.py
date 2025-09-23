@@ -66,19 +66,11 @@ if "menu" not in st.session_state:
 # --- 自訂 CSS ---
 st.markdown("""
 <style>
-/* 整個 sidebar */
 section[data-testid="stSidebar"] {
-    background-color: #1e293b; /* 深色背景 */
+    background-color: #1e293b;
     color: white;
     padding: 10px;
 }
-
-/* Sidebar 標題 */
-section[data-testid="stSidebar"] h1 {
-    color: white !important;
-}
-
-/* 選單按鈕 */
 .sidebar-btn {
     display: block;
     padding: 10px 14px;
@@ -94,10 +86,10 @@ section[data-testid="stSidebar"] h1 {
     text-align: left;
 }
 .sidebar-btn:hover {
-    background-color: #334155; /* 滑過淺灰藍 */
+    background-color: #334155;
 }
 .sidebar-btn.active {
-    background-color: #3b82f6;  /* 選中藍底 */
+    background-color: #3b82f6;
     font-weight: bold;
 }
 </style>
@@ -108,17 +100,14 @@ with st.sidebar:
     st.title("🌈配方管理系統")
 
     for option in menu_options:
-        if st.session_state.menu == option:
-            st.markdown(f"<div class='sidebar-btn active'>{option}</div>", unsafe_allow_html=True)
-        else:
-            if st.button(option, key=f"btn_{option}"):
-                st.session_state.menu = option
-            else:
-                st.markdown(f"<div class='sidebar-btn'>{option}</div>", unsafe_allow_html=True)
+        is_active = st.session_state.menu == option
+        button_label = f"<div class='sidebar-btn {'active' if is_active else ''}'>{option}</div>"
+
+        if st.button(button_label, key=f"btn_{option}", use_container_width=True):
+            st.session_state.menu = option
 
 # --- 主內容 ---
 st.write(f"📌 你目前選擇的是：**{st.session_state.menu}**")
-
 
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
