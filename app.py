@@ -51,6 +51,7 @@ if "spreadsheet" not in st.session_state:
 spreadsheet = st.session_state["spreadsheet"]
 
 # ======== Sidebar 修正 =========
+# ======== Sidebar 修正 =========
 import streamlit as st
 
 menu_options = [
@@ -67,8 +68,9 @@ st.markdown("""
 <style>
 /* 整個 sidebar */
 section[data-testid="stSidebar"] {
-    background-color: #1e293b;
+    background-color: #1e293b; /* 深色背景 */
     color: white;
+    padding: 10px;
 }
 
 /* Sidebar 標題 */
@@ -76,20 +78,23 @@ section[data-testid="stSidebar"] h1 {
     color: white !important;
 }
 
-/* 側邊選單按鈕 */
+/* 選單按鈕 */
 .sidebar-btn {
     display: block;
     padding: 10px 14px;
-    margin: 2px 0;
+    margin: 4px 0;
     border-radius: 6px;
     text-decoration: none;
     color: white;
     background-color: transparent;
     cursor: pointer;
     font-size: 15px;
+    border: none;
+    width: 100%;
+    text-align: left;
 }
 .sidebar-btn:hover {
-    background-color: #334155;
+    background-color: #334155; /* 滑過淺灰藍 */
 }
 .sidebar-btn.active {
     background-color: #3b82f6;  /* 選中藍底 */
@@ -98,10 +103,9 @@ section[data-testid="stSidebar"] h1 {
 </style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar 區塊 ---
+# --- Sidebar 選單 ---
 with st.sidebar:
     st.title("🌈配方管理系統")
-    st.write("### 🎏 模組選單")
 
     for option in menu_options:
         if st.session_state.menu == option:
@@ -109,10 +113,8 @@ with st.sidebar:
         else:
             if st.button(option, key=f"btn_{option}"):
                 st.session_state.menu = option
-            st.markdown(
-                f"<div class='sidebar-btn'>{option}</div>", 
-                unsafe_allow_html=True
-            )
+            else:
+                st.markdown(f"<div class='sidebar-btn'>{option}</div>", unsafe_allow_html=True)
 
 # --- 主內容 ---
 st.write(f"📌 你目前選擇的是：**{st.session_state.menu}**")
