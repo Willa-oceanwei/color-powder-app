@@ -1251,11 +1251,6 @@ elif menu == "配方管理":
     if add_powder:
         st.session_state.num_powder_rows = st.session_state.get("num_powder_rows", 5) + 1
         st.rerun()
-
-    # ------------------- 配方列表 -------------------
-    with st.expander("📋 配方列表", expanded=True):
-        st.dataframe(st.session_state.df)
-
     
     # --------- 客戶選單 ---------
     # 初始化布林遮罩（全部為 True）
