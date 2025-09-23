@@ -54,8 +54,8 @@ spreadsheet = st.session_state["spreadsheet"]
 import streamlit as st
 
 menu_options = [
-    "色粉管理", "客戶名單", "配方管理", 
-    "生產單管理", "交叉查詢區", 
+    "色粉管理", "客戶名單", "配方管理",
+    "生產單管理", "交叉查詢區",
     "Pantone色號表", "庫存區", "匯入備份"
 ]
 
@@ -67,42 +67,32 @@ st.markdown("""
 <style>
 /* 整個 sidebar */
 section[data-testid="stSidebar"] {
-    background-color: #1e293b;  /* 深色背景 */
+    background-color: #1e293b;
     color: white;
 }
 
 /* Sidebar 標題 */
-section[data-testid="stSidebar"] .css-1d391kg, 
-section[data-testid="stSidebar"] h1, 
-section[data-testid="stSidebar"] h2, 
-section[data-testid="stSidebar"] h3 {
+section[data-testid="stSidebar"] h1 {
     color: white !important;
 }
 
-/* Radio group 容器 */
-div[role="radiogroup"] {
-    display: flex;
-    flex-direction: column;
-}
-
-/* 每個選項 */
-div[role="radiogroup"] > label {
-    background-color: transparent;
+/* 側邊選單按鈕 */
+.sidebar-btn {
+    display: block;
     padding: 10px 14px;
     margin: 2px 0;
     border-radius: 6px;
+    text-decoration: none;
+    color: white;
+    background-color: transparent;
     cursor: pointer;
-    color: white !important;
+    font-size: 15px;
 }
-
-/* 滑過效果 */
-div[role="radiogroup"] > label:hover {
+.sidebar-btn:hover {
     background-color: #334155;
 }
-
-/* 被選中的效果 */
-div[role="radiogroup"] > label[data-baseweb="radio"]:has(input:checked) {
-    background-color: #3b82f6; /* 藍色反白 */
+.sidebar-btn.active {
+    background-color: #3b82f6;  /* 選中藍底 */
     font-weight: bold;
 }
 </style>
@@ -111,15 +101,21 @@ div[role="radiogroup"] > label[data-baseweb="radio"]:has(input:checked) {
 # --- Sidebar 區塊 ---
 with st.sidebar:
     st.title("🌈配方管理系統")
-    with st.expander("🎏 展開 / 收合選單", expanded=True):
-        selected_menu = st.radio(
-            "請選擇模組🪁",
-            menu_options,
-            key="menu"  # 直接讀寫 st.session_state.menu
-        )
+    st.write("### 🎏 模組選單")
+
+    for option in menu_options:
+        if st.session_state.menu == option:
+            st.markdown(f"<div class='sidebar-btn active'>{option}</div>", unsafe_allow_html=True)
+        else:
+            if st.button(option, key=f"btn_{option}"):
+                st.session_state.menu = option
+            st.markdown(
+                f"<div class='sidebar-btn'>{option}</div>", 
+                unsafe_allow_html=True
+            )
 
 # --- 主內容 ---
-st.wri
+st.write(f"📌 你目前選擇的是：**{st.session_state.menu}**")
 
 
 # ===== 自訂函式：產生生產單列印格式 =====      
