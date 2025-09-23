@@ -102,7 +102,8 @@ section[data-testid="stSidebar"] {
 
 # ----------------- 側邊欄選單 -----------------
 with st.sidebar:
-    st.title("🌈配方管理系統")
+    with st.sidebar:
+    st.markdown('<h1 style="font-size:22px; color:white;">🌈配方管理系統</h1>', unsafe_allow_html=True)
     for option in menu_options:
         is_active = "active" if st.session_state.menu == option else ""
         clicked = st.button(option, key=option)
