@@ -1563,7 +1563,7 @@ elif menu == "生產單管理":
     st.markdown("""
     <style>
     .big-title {
-        font-size: 30px;
+        font-size: 22px;
         font-weight: bold;
         color: #F9DC5C;
         margin-bottom: 20px;
