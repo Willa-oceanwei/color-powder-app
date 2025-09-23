@@ -78,7 +78,7 @@ section[data-testid="stSidebar"] {
     margin: 4px 0;        /* 按鈕之間間距統一 */
     border-radius: 6px;
     text-align: left;
-    font-size: 16px;
+    font-size: 14px;
     color: white;
     background-color: transparent;
     border: none;
