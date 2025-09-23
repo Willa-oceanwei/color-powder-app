@@ -53,54 +53,83 @@ spreadsheet = st.session_state["spreadsheet"]
 # ======== Sidebar 修正 =========
 import streamlit as st
 
-menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
-
-# 預設值
-if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
-
 # --- CSS 樣式 ---
 st.markdown("""
 <style>
-.sidebar .sidebar-content {
-    background-color: #1e293b; /* 側邊欄背景 */
+/* 整體排版：左側固定選單 + 右側主畫面 */
+.main-container {
+    display: flex;
+    flex-direction: row;
+}
+
+/* 側邊欄 */
+.sidebar-custom {
+    width: 240px;
+    background-color: #1e293b;
     color: white;
+    padding: 20px 10px;
+    height: 100vh;  /* 撐滿整頁高度 */
 }
+
+/* 側邊欄標題 */
 .sidebar-title {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: bold;
-    margin-bottom: 12px;
+    margin-bottom: 20px;
 }
+
+/* 選單 */
 .menu-item {
-    padding: 8px 12px;
+    padding: 10px 14px;
     border-radius: 6px;
+    margin: 4px 0;
     cursor: pointer;
-    margin: 3px 0;
 }
 .menu-item:hover {
-    background-color: #334155; /* hover 亮一點 */
+    background-color: #334155;
 }
-.menu-item.selected {
-    background-color: #3b82f6; /* 藍色反白 */
+.menu-item.active {
+    background-color: #3b82f6;
     font-weight: bold;
+}
+
+/* 主內容區塊 */
+.content {
+    flex: 1;
+    padding: 30px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 側邊選單 ---
-with st.sidebar:
-    st.markdown('<div class="sidebar-title">🌈 配方管理系統</div>', unsafe_allow_html=True)
+# --- 預設選單 ---
+if "menu" not in st.session_state:
+    st.session_state.menu = "系統設定"
 
-    for option in menu_options:
-        selected_class = "selected" if st.session_state.menu == option else ""
-        # 這裡用 button 來觸發選單切換
-        if st.button(option, key=f"menu_{option}"):
-            st.session_state.menu = option
-        # 這裡顯示反白樣式
-        st.markdown(f"<div class='menu-item {selected_class}'>{option}</div>", unsafe_allow_html=True)
+menu_options = ["儀表板", "課程管理", "出席管理", "學生管理", "訂單管理", "客戶關係", "報表統計", "系統設定"]
 
-# --- 主畫面 ---
-st.title(f"目前選擇：{st.session_state.menu}")
+# --- 側邊欄 + 主內容 ---
+st.markdown('<div class="main-container">', unsafe_allow_html=True)
+
+# 側邊欄
+st.markdown('<div class="sidebar-custom">', unsafe_allow_html=True)
+st.markdown('<div class="sidebar-title">OpenERP 管理系統</div>', unsafe_allow_html=True)
+
+for option in menu_options:
+    active_class = "active" if st.session_state.menu == option else ""
+    if st.button(option, key=f"menu_{option}"):
+        st.session_state.menu = option
+    st.markdown(f"<div class='menu-item {active_class}'>{option}</div>", unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)  # sidebar 結束
+
+# 主內容
+st.markdown('<div class="content">', unsafe_allow_html=True)
+st.title(f"📌 {st.session_state.menu}")
+st.write("這裡放主要的內容區塊")
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)  # main-container 結束
+
 
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
