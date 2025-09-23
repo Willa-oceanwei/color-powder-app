@@ -55,46 +55,53 @@ import streamlit as st
 
 menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
 
+# 預設值
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 
+# --- CSS 樣式 ---
+st.markdown("""
+<style>
+.sidebar .sidebar-content {
+    background-color: #1e293b; /* 側邊欄背景 */
+    color: white;
+}
+.sidebar-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 12px;
+}
+.menu-item {
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin: 3px 0;
+}
+.menu-item:hover {
+    background-color: #334155; /* hover 亮一點 */
+}
+.menu-item.selected {
+    background-color: #3b82f6; /* 藍色反白 */
+    font-weight: bold;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# --- 側邊選單 ---
 with st.sidebar:
-    st.title("🌈配方管理系統")
+    st.markdown('<div class="sidebar-title">🌈 配方管理系統</div>', unsafe_allow_html=True)
 
     for option in menu_options:
-        if st.session_state.menu == option:
-            # 選到的按鈕：藍底白字
-            if st.button(f"✅ {option}", key=f"menu_{option}", help="目前選擇", use_container_width=True):
-                st.session_state.menu = option
-        else:
-            # 沒選到的：灰底
-            if st.button(option, key=f"menu_{option}", use_container_width=True):
-                st.session_state.menu = option
+        selected_class = "selected" if st.session_state.menu == option else ""
+        # 這裡用 button 來觸發選單切換
+        if st.button(option, key=f"menu_{option}"):
+            st.session_state.menu = option
+        # 這裡顯示反白樣式
+        st.markdown(f"<div class='menu-item {selected_class}'>{option}</div>", unsafe_allow_html=True)
 
-# ======== 初始化 session_state =========
-def init_states(keys=None):
-    if keys is None:
-        keys = [
-            "selected_order_code_edit",
-            "editing_order",
-            "show_edit_panel",
-            "search_order_input",
-            "order_page",
-        ]
-    for key in keys:
-        if key not in st.session_state:
-            if key.startswith("form_"):
-                st.session_state[key] = {}
-            elif key.startswith("edit_") or key.startswith("delete_"):
-                st.session_state[key] = None
-            elif key.startswith("show_"):
-                st.session_state[key] = False
-            elif key.startswith("search"):
-                st.session_state[key] = ""
-            elif key == "order_page":
-                st.session_state[key] = 1
-            else:
-                st.session_state[key] = None
+# --- 主畫面 ---
+st.title(f"目前選擇：{st.session_state.menu}")
+
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
