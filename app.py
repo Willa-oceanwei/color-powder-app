@@ -53,6 +53,7 @@ spreadsheet = st.session_state["spreadsheet"]
 # ======== Sidebar 修正 =========
 import streamlit as st
 
+# ----------------- 選單項目 -----------------
 menu_options = [
     "色粉管理", "客戶名單", "配方管理",
     "生產單管理", "交叉查詢區",
@@ -62,65 +63,73 @@ menu_options = [
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 
-# --- 自訂 CSS ---
+# ----------------- 自訂 CSS -----------------
 st.markdown("""
 <style>
+/* 側邊欄背景 */
 section[data-testid="stSidebar"] {
     background-color: #1e293b;
-    color: white;
     padding: 10px;
 }
-.sidebar-btn {
-    display: block;
-    padding: 10px 14px;
-    margin: 4px 0;
-    border-radius: 6px;
-    text-decoration: none;
-    color: white;
+
+/* radio 選單外觀 */
+div[role="radiogroup"] > label {
     background-color: transparent;
+    padding: 10px 14px;
+    border-radius: 6px;
+    display: block;
+    margin: 4px 0;
+    color: white;
     cursor: pointer;
     font-size: 15px;
-    border: none;
-    width: 100%;
-    text-align: left;
 }
-.sidebar-btn:hover {
+
+/* hover 效果 */
+div[role="radiogroup"] > label:hover {
     background-color: #334155;
 }
-.sidebar-btn.active {
-    background-color: #3b82f6;
+
+/* 選中效果 */
+div[role="radiogroup"] > label > input:checked + span {
+    background-color: #3b82f6 !important;
     font-weight: bold;
+    color: white !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar 選單 ---
+# ----------------- 側邊欄選單 -----------------
 with st.sidebar:
     st.title("🌈配方管理系統")
+    # st.radio 自動支援 session_state
+    selected_menu = st.radio(
+        "請選擇模組🪁",
+        menu_options,
+        index=menu_options.index(st.session_state.menu)
+    )
+    st.session_state.menu = selected_menu
 
-    for option in menu_options:
-        is_active = "active" if st.session_state.menu == option else ""
-        # 用 markdown 當作按鈕，onclick 觸發時更新 session_state
-        if st.markdown(
-            f"<div class='sidebar-btn {is_active}' onclick=\"window.parent.postMessage({{isStreamlitMessage:true,type:'SET_MENU',menu:'{option}'}}, '*')\">{option}</div>",
-            unsafe_allow_html=True
-        ):
-            pass
-
-# --- JS 監聽訊息，更新 session_state ---
-st.markdown("""
-<script>
-window.addEventListener("message", (event) => {
-    if (event.data.type === "SET_MENU") {
-        const menu = event.data.menu;
-        window.parent.postMessage({isStreamlitMessage:true, type:"streamlit:setComponentValue", key:"menu", value:menu}, "*");
-    }
-});
-</script>
-""", unsafe_allow_html=True)
-
-# --- 主內容 ---
+# ----------------- 主內容 -----------------
 st.write(f"📌 你目前選擇的是：**{st.session_state.menu}**")
+
+# ----------------- 分頁內容範例 -----------------
+if st.session_state.menu == "色粉管理":
+    st.info("這裡是色粉管理頁面")
+elif st.session_state.menu == "客戶名單":
+    st.info("這裡是客戶名單頁面")
+elif st.session_state.menu == "配方管理":
+    st.info("這裡是配方管理頁面")
+elif st.session_state.menu == "生產單管理":
+    st.info("這裡是生產單管理頁面")
+elif st.session_state.menu == "交叉查詢區":
+    st.info("這裡是交叉查詢區頁面")
+elif st.session_state.menu == "Pantone色號表":
+    st.info("這裡是Pantone色號表頁面")
+elif st.session_state.menu == "庫存區":
+    st.info("這裡是庫存區頁面")
+elif st.session_state.menu == "匯入備份":
+    st.info("這裡是匯入備份頁面")
+
 
 
 # ===== 自訂函式：產生生產單列印格式 =====      
