@@ -51,7 +51,6 @@ if "spreadsheet" not in st.session_state:
 spreadsheet = st.session_state["spreadsheet"]
 
 # ======== Sidebar 修正 =========
-# ======== Sidebar 修正 =========
 import streamlit as st
 
 menu_options = [
@@ -100,14 +99,29 @@ with st.sidebar:
     st.title("🌈配方管理系統")
 
     for option in menu_options:
-        is_active = st.session_state.menu == option
-        button_label = f"<div class='sidebar-btn {'active' if is_active else ''}'>{option}</div>"
+        is_active = "active" if st.session_state.menu == option else ""
+        # 用 markdown 當作按鈕，onclick 觸發時更新 session_state
+        if st.markdown(
+            f"<div class='sidebar-btn {is_active}' onclick=\"window.parent.postMessage({{isStreamlitMessage:true,type:'SET_MENU',menu:'{option}'}}, '*')\">{option}</div>",
+            unsafe_allow_html=True
+        ):
+            pass
 
-        if st.button(button_label, key=f"btn_{option}", use_container_width=True):
-            st.session_state.menu = option
+# --- JS 監聽訊息，更新 session_state ---
+st.markdown("""
+<script>
+window.addEventListener("message", (event) => {
+    if (event.data.type === "SET_MENU") {
+        const menu = event.data.menu;
+        window.parent.postMessage({isStreamlitMessage:true, type:"streamlit:setComponentValue", key:"menu", value:menu}, "*");
+    }
+});
+</script>
+""", unsafe_allow_html=True)
 
 # --- 主內容 ---
 st.write(f"📌 你目前選擇的是：**{st.session_state.menu}**")
+
 
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
