@@ -60,12 +60,16 @@ if "menu" not in st.session_state:
 
 with st.sidebar:
     st.title("🌈配方管理系統")
-    with st.expander("🎏 展開 / 收合選單", expanded=True):
-        selected_menu = st.radio(
-            "請選擇模組🪁",
-            menu_options,
-            key="menu"  # 會直接讀寫 st.session_state.menu
-        )
+
+    for option in menu_options:
+        if st.session_state.menu == option:
+            # 選到的按鈕：藍底白字
+            if st.button(f"✅ {option}", key=f"menu_{option}", help="目前選擇", use_container_width=True):
+                st.session_state.menu = option
+        else:
+            # 沒選到的：灰底
+            if st.button(option, key=f"menu_{option}", use_container_width=True):
+                st.session_state.menu = option
 
 # ======== 初始化 session_state =========
 def init_states(keys=None):
