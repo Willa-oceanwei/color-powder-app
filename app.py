@@ -58,10 +58,11 @@ main_menu = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
 sub_menus = {
     "配方管理": ["新增配方", "配方查詢", "配方修改/刪除"],
     "生產單管理": ["新增生產單", "生產單查詢", "列印生產單"],
-    "色粉管理": ["色粉管理"],  # 單頁也可以當作子選單
+    "色粉管理": ["色粉管理"],
     "客戶名單": ["客戶名單"]
 }
 
+# 初始化 session_state
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 
@@ -69,15 +70,13 @@ if "menu" not in st.session_state:
 st.markdown("""
 <style>
 section[data-testid="stSidebar"] {
-    background-color: #111827; /* 更深的底色 */
+    background-color: #111827;
     padding: 10px;
 }
-
-/* 統一按鈕樣式 */
 .sidebar-btn {
     display: block;
-    padding: 12px 16px;  /* 上下左右間距統一 */
-    margin: 4px 0;        /* 按鈕之間間距統一 */
+    padding: 12px 16px;
+    margin: 4px 0;
     border-radius: 6px;
     text-align: left;
     font-size: 14px;
@@ -88,13 +87,9 @@ section[data-testid="stSidebar"] {
     cursor: pointer;
     transition: background-color 0.2s;
 }
-
-/* 滑鼠移到整個按鈕亮 */
 .sidebar-btn:hover {
     background-color: #334155;
 }
-
-/* 選中按鈕反白 */
 .sidebar-btn.active {
     background-color: #3b82f6;
     font-weight: bold;
@@ -102,16 +97,18 @@ section[data-testid="stSidebar"] {
 </style>
 """, unsafe_allow_html=True)
 
-# ----------------- 側邊欄選單 -----------------
-with st.sidebar:
-    with st.sidebar:
-        st.markdown('<h1 style="font-size:22px; color:white;">🌈配方管理系統</h1>', unsafe_allow_html=True)
-    for option in menu_options:
+# ----------------- 側邊欄按鈕 -----------------
+st.sidebar.markdown('<h1 style="font-size:22px; color:white;">🌈配方管理系統</h1>', unsafe_allow_html=True)
+
+for main in main_menu:
+    # 判斷是否有子選單
+    options = sub_menus.get(main, [main])
+    for option in options:
         is_active = "active" if st.session_state.menu == option else ""
-        clicked = st.button(option, key=option)
+        clicked = st.sidebar.button(option, key=option)
         if clicked:
             st.session_state.menu = option
-        # 用 markdown 加上 active 樣式
+        # 加上 active 樣式
         if is_active:
             st.markdown(f"""
             <style>
@@ -122,23 +119,9 @@ with st.sidebar:
             </style>
             """, unsafe_allow_html=True)
 
-# ----------------- 分頁內容範例 -----------------
-if st.session_state.menu == "色粉管理":
-    st.info("這裡是色粉管理頁面")
-elif st.session_state.menu == "客戶名單":
-    st.info("這裡是客戶名單頁面")
-elif st.session_state.menu == "配方管理":
-    st.info("這裡是配方管理頁面")
-elif st.session_state.menu == "生產單管理":
-    st.info("這裡是生產單管理頁面")
-elif st.session_state.menu == "交叉查詢區":
-    st.info("這裡是交叉查詢區頁面")
-elif st.session_state.menu == "Pantone色號表":
-    st.info("這裡是Pantone色號表頁面")
-elif st.session_state.menu == "庫存區":
-    st.info("這裡是庫存區頁面")
-elif st.session_state.menu == "匯入備份":
-    st.info("這裡是匯入備份頁面")
+# ----------------- 分頁內容 -----------------
+
+st.info(f"這裡是 {st.session_state.menu} 頁面")
 
 # ===== 在最上方定義函式 =====
 def set_form_style():
