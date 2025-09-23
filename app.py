@@ -544,7 +544,7 @@ if menu == "色粉管理":
             st.rerun()
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📋色粉清單</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋色粉清單</h2>',
         unsafe_allow_html=True
     )
 
@@ -1280,7 +1280,7 @@ elif menu == "配方管理":
 
     st.markdown("""
     <div id="recipe-table" style="display: flex; align-items: center; gap: 10px;">
-        <h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📑配方記錄表</h2>
+        <h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📑配方記錄表</h2>
         <a href="#recipe-create" style="
             background-color: var(--background-color);  /* 跟隨亮/暗模式 */
             color: var(--text-color);                  /* 跟隨亮/暗模式 */
