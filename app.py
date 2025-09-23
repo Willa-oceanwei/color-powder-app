@@ -66,26 +66,30 @@ if "menu" not in st.session_state:
 # ----------------- 自訂 CSS -----------------
 st.markdown("""
 <style>
-/* 側邊欄背景 */
 section[data-testid="stSidebar"] {
     background-color: #1e293b;
     padding: 10px;
 }
 
-/* radio 選單外觀 */
-div[role="radiogroup"] > label {
-    background-color: transparent;
+/* 隱藏 radio input */
+div[role="radiogroup"] > label > input {
+    display: none;
+}
+
+/* 用 span 做按鈕 */
+div[role="radiogroup"] > label > span {
+    display: block;
     padding: 10px 14px;
     border-radius: 6px;
-    display: block;
     margin: 4px 0;
-    color: white;
     cursor: pointer;
     font-size: 15px;
+    color: white;
+    transition: background-color 0.2s;
 }
 
 /* hover 效果 */
-div[role="radiogroup"] > label:hover {
+div[role="radiogroup"] > label > span:hover {
     background-color: #334155;
 }
 
@@ -93,7 +97,6 @@ div[role="radiogroup"] > label:hover {
 div[role="radiogroup"] > label > input:checked + span {
     background-color: #3b82f6 !important;
     font-weight: bold;
-    color: white !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -101,7 +104,6 @@ div[role="radiogroup"] > label > input:checked + span {
 # ----------------- 側邊欄選單 -----------------
 with st.sidebar:
     st.title("🌈配方管理系統")
-    # st.radio 自動支援 session_state
     selected_menu = st.radio(
         "請選擇模組🪁",
         menu_options,
@@ -129,7 +131,6 @@ elif st.session_state.menu == "庫存區":
     st.info("這裡是庫存區頁面")
 elif st.session_state.menu == "匯入備份":
     st.info("這裡是匯入備份頁面")
-
 
 
 # ===== 自訂函式：產生生產單列印格式 =====      
