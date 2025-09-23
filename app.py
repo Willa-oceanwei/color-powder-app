@@ -53,49 +53,37 @@ spreadsheet = st.session_state["spreadsheet"]
 # ======== Sidebar 修正 =========
 import streamlit as st
 
-# ---------------- 選單設定 ----------------
-main_menu = ["色粉管理", "客戶名單", "配方管理", "生產單管理",
-             "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
-sub_menus = {
-    "配方管理": ["新增配方", "配方查詢", "配方預覽/修改/刪除"],
-    "生產單管理": ["新增生產單", "生產單查詢", "修改/刪除生產單"]
+menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
+                "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
+
+if "menu" not in st.session_state:
+    st.session_state.menu = "生產單管理"
+
+# 自訂 CSS：改按鈕字體大小
+st.markdown("""
+<style>
+/* Sidebar 標題字體大小 */
+.sidebar .css-1d391kg h1 {
+    font-size: 24px !important;
 }
 
-# ---------------- 初始化 session_state ----------------
-if "main_selected" not in st.session_state:
-    st.session_state.main_selected = None
-if "sub_selected" not in st.session_state:
-    st.session_state.sub_selected = None
+/* Sidebar 按鈕字體大小 */
+div.stButton > button {
+    font-size: 14px !important;
+    padding: 8px 12px !important;  /* 可調整上下左右間距 */
+    text-align: left;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# ---------------- 左側兩欄分層選單 ----------------
-col1, col2, col3 = st.columns([1,1,4])  # 左:主選單, 中:子選單, 右:內容
+with st.sidebar:
+    # 標題
+    st.markdown('<h1 style="font-size:22px;">🌈配方管理系統</h1>', unsafe_allow_html=True)
 
-with col1:
-    st.write("### 主選單")
-    for main in main_menu:
-        if st.button(main, key=f"main_{main}"):
-            st.session_state.main_selected = main
-            st.session_state.sub_selected = None  # 等子選單選擇
-
-with col2:
-    if st.session_state.main_selected and st.session_state.main_selected in sub_menus:
-        st.write("### 子選單")
-        for sub in sub_menus[st.session_state.main_selected]:
-            if st.button(sub, key=f"sub_{sub}"):
-                st.session_state.sub_selected = sub
-    elif st.session_state.main_selected:
-        st.write("### 子選單")
-        st.info("無子選單，直接進入頁面")
-
-# ---------------- 右側內容區 ----------------
-with col3:
-    st.write("### 內容頁面")
-    if st.session_state.sub_selected:
-        st.info(f"這裡是 {st.session_state.sub_selected} 頁面")
-    elif st.session_state.main_selected:
-        st.info(f"這裡是 {st.session_state.main_selected} 頁面")
-    else:
-        st.info("請選擇主選單")
+    for option in menu_options:
+        label = f"✅ {option}" if st.session_state.menu == option else option
+        if st.button(label, key=f"menu_{option}", use_container_width=True):
+            st.session_state.menu = option
 
 
 # ===== 在最上方定義函式 =====
