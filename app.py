@@ -3541,17 +3541,17 @@ if menu == "庫存區":
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
     st.markdown("""
-        <style>
-        .custom-title {
-            font-size: 22px;      /* ← 改這裡調整大小 */
-            font-weight: bold;     /* 粗體 */
-            color: #F9DC5C;       /* 顏色，可改 */
-            margin-bottom: 20px;  /* 底部間距 */
-        }
-        </style>
-        """, unsafe_allow_html=True)
+    <style>
+    .custom-title {
+        font-size: 22px;      /* ← 改這裡調整大小 */
+        font-weight: bold;     /* 粗體 */
+        color: #F9DC5C;       /* 顏色，可改 */
+        margin-bottom: 20px;  /* 底部間距 */
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-        st.markdown('<div class="custom-title">📥 匯入配方備份 Excel</div>', unsafe_allow_html=True)
+    st.markdown('<div class="custom-title">📥 匯入配方備份 Excel</div>', unsafe_allow_html=True)
     
     def load_recipe_backup_excel(file):
         try:
