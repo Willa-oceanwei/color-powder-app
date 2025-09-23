@@ -63,88 +63,45 @@ sub_menus = {
 }
 
 # ----------------- 初始化 session_state -----------------
-if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"  # 預設頁面
 if "main_selected" not in st.session_state:
-    st.session_state.main_selected = None  # 預設展開的主選單
+    st.session_state.main_selected = None
+if "sub_selected" not in st.session_state:
+    st.session_state.sub_selected = None
 
-# ----------------- 自訂 CSS -----------------
-st.markdown("""
-<style>
-section[data-testid="stSidebar"] {
-    background-color: #111827;
-    padding: 10px;
-}
-.sidebar-btn {
-    display: block;
-    padding: 8px 16px;
-    margin: 2px 0;
-    border-radius: 6px;
-    text-align: left;
-    font-size: 14px;
-    color: white;
-    background-color: transparent;
-    border: none;
-    width: 100%;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-.sidebar-btn:hover {
-    background-color: #334155;
-}
-.sidebar-btn.active {
-    background-color: #3b82f6;
-    font-weight: bold;
-}
-.sidebar-sub {
-    padding-left: 20px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ----------------- 側邊欄 -----------------
-st.sidebar.markdown('<h1 style="font-size:22px; color:white;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
-
+# ----------------- Sidebar：主選單 -----------------
+st.sidebar.title("📋 系統選單")
 for main in main_menu:
-    # 主選單按鈕
-    is_main_active = "active" if st.session_state.main_selected == main else ""
-    clicked_main = st.sidebar.button(main, key=f"main_{main}")
-    if clicked_main:
-        st.session_state.main_selected = main  # 展開主選單
-        # 如果這個主選單沒有子選單，直接切換頁面
+    clicked = st.sidebar.button(main, key=f"main_{main}")
+    if clicked:
+        st.session_state.main_selected = main
+        # 如果沒有子選單，直接選擇為頁面
         if main not in sub_menus:
-            st.session_state.menu = main
+            st.session_state.sub_selected = main
+        else:
+            st.session_state.sub_selected = None  # 等待選擇子選單
 
-    # 套用 active 樣式
-    if is_main_active:
-        st.markdown(f"""
-        <style>
-        div.stButton button[data-testid="main_{main}"] {{
-            background-color: #3b82f6 !important;
-            font-weight: bold;
-        }}
-        </style>
-        """, unsafe_allow_html=True)
+# ----------------- 右側主頁面 -----------------
+st.header("🌈 配方管理系統")
 
-    # 如果有子選單，且這個主選單被選中，顯示子選單
-    if main in sub_menus and st.session_state.main_selected == main:
-        for sub in sub_menus[main]:
-            is_sub_active = "active" if st.session_state.menu == sub else ""
-            clicked_sub = st.sidebar.button(sub, key=f"sub_{sub}")
-            if clicked_sub:
-                st.session_state.menu = sub
-            if is_sub_active:
-                st.markdown(f"""
-                <style>
-                div.stButton button[data-testid="sub_{sub}"] {{
-                    background-color: #3b82f6 !important;
-                    font-weight: bold;
-                }}
-                </style>
-                """, unsafe_allow_html=True)
+# 如果有選主選單
+if st.session_state.main_selected:
+    main = st.session_state.main_selected
+    st.subheader(f"主選單：{main}")
 
-# ----------------- 右側頁面內容 -----------------
-st.info(f"這裡是 {st.session_state.menu} 頁面")
+    # 如果有子選單
+    if main in sub_menus:
+        # 在右側頁面顯示子選單
+        sub = st.radio("請選擇子選單", sub_menus[main],
+                       index=0 if st.session_state.sub_selected is None else sub_menus[main].index(st.session_state.sub_selected))
+        st.session_state.sub_selected = sub
+    else:
+        sub = main
+        st.session_state.sub_selected = sub
+
+    # 顯示頁面內容
+    st.info(f"這裡是 {sub} 頁面")
+else:
+    st.info("請從左側選擇主選單")
 
 # ===== 在最上方定義函式 =====
 def set_form_style():
