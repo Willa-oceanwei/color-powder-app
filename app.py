@@ -54,17 +54,19 @@ spreadsheet = st.session_state["spreadsheet"]
 import streamlit as st
 
 # ----------------- 選單項目 -----------------
-main_menu = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
+main_menu = ["色粉管理", "客戶名單", "配方管理", "生產單管理",
+             "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
+
 sub_menus = {
-    "配方管理": ["新增配方", "配方查詢", "配方修改/刪除"],
-    "生產單管理": ["新增生產單", "生產單查詢", "列印生產單"],
-    "色粉管理": ["色粉管理"],
-    "客戶名單": ["客戶名單"]
+    "配方管理": ["新增配方", "配方查詢", "配方預覽/修改/刪除"],
+    "生產單管理": ["新增生產單", "生產單查詢", "修改/刪除生產單"]
 }
 
-# 初始化 session_state
+# ----------------- 初始化 session_state -----------------
 if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
+    st.session_state.menu = "生產單管理"  # 預設頁面
+if "main_selected" not in st.session_state:
+    st.session_state.main_selected = None  # 預設展開的主選單
 
 # ----------------- 自訂 CSS -----------------
 st.markdown("""
@@ -75,8 +77,8 @@ section[data-testid="stSidebar"] {
 }
 .sidebar-btn {
     display: block;
-    padding: 12px 16px;
-    margin: 4px 0;
+    padding: 8px 16px;
+    margin: 2px 0;
     border-radius: 6px;
     text-align: left;
     font-size: 14px;
@@ -94,33 +96,54 @@ section[data-testid="stSidebar"] {
     background-color: #3b82f6;
     font-weight: bold;
 }
+.sidebar-sub {
+    padding-left: 20px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ----------------- 側邊欄按鈕 -----------------
-st.sidebar.markdown('<h1 style="font-size:22px; color:white;">🌈配方管理系統</h1>', unsafe_allow_html=True)
+# ----------------- 側邊欄 -----------------
+st.sidebar.markdown('<h1 style="font-size:22px; color:white;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
 
 for main in main_menu:
-    # 判斷是否有子選單
-    options = sub_menus.get(main, [main])
-    for option in options:
-        is_active = "active" if st.session_state.menu == option else ""
-        clicked = st.sidebar.button(option, key=option)
-        if clicked:
-            st.session_state.menu = option
-        # 加上 active 樣式
-        if is_active:
-            st.markdown(f"""
-            <style>
-            div.stButton button[data-testid="{option}"] {{
-                background-color: #3b82f6 !important;
-                font-weight: bold;
-            }}
-            </style>
-            """, unsafe_allow_html=True)
+    # 主選單按鈕
+    is_main_active = "active" if st.session_state.main_selected == main else ""
+    clicked_main = st.sidebar.button(main, key=f"main_{main}")
+    if clicked_main:
+        st.session_state.main_selected = main  # 展開主選單
+        # 如果這個主選單沒有子選單，直接切換頁面
+        if main not in sub_menus:
+            st.session_state.menu = main
 
-# ----------------- 分頁內容 -----------------
+    # 套用 active 樣式
+    if is_main_active:
+        st.markdown(f"""
+        <style>
+        div.stButton button[data-testid="main_{main}"] {{
+            background-color: #3b82f6 !important;
+            font-weight: bold;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
 
+    # 如果有子選單，且這個主選單被選中，顯示子選單
+    if main in sub_menus and st.session_state.main_selected == main:
+        for sub in sub_menus[main]:
+            is_sub_active = "active" if st.session_state.menu == sub else ""
+            clicked_sub = st.sidebar.button(sub, key=f"sub_{sub}")
+            if clicked_sub:
+                st.session_state.menu = sub
+            if is_sub_active:
+                st.markdown(f"""
+                <style>
+                div.stButton button[data-testid="sub_{sub}"] {{
+                    background-color: #3b82f6 !important;
+                    font-weight: bold;
+                }}
+                </style>
+                """, unsafe_allow_html=True)
+
+# ----------------- 右側頁面內容 -----------------
 st.info(f"這裡是 {st.session_state.menu} 頁面")
 
 # ===== 在最上方定義函式 =====
