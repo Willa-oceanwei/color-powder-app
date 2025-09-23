@@ -138,6 +138,32 @@ elif st.session_state.menu == "庫存區":
 elif st.session_state.menu == "匯入備份":
     st.info("這裡是匯入備份頁面")
 
+# ===== 在最上方定義函式 =====
+def set_form_style():
+    st.markdown("""
+    <style>
+    /* text_input placeholder */
+    div.stTextInput > div > div > input::placeholder {
+        color: #999999;
+        font-size: 13px;
+    }
+
+    /* selectbox placeholder */
+    div.stSelectbox > div > div > div.css-1wa3eu0-placeholder {
+        color: #999999;
+        font-size: 13px;
+    }
+
+    /* selectbox 選中後文字 */
+    div.stSelectbox > div > div > div.css-1uccc91-singleValue {
+        font-size: 14px;
+        color: #000000;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ===== 呼叫一次，套用全程式 =====
+set_form_style()
 
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
