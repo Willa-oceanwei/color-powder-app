@@ -54,11 +54,13 @@ spreadsheet = st.session_state["spreadsheet"]
 import streamlit as st
 
 # ----------------- 選單項目 -----------------
-menu_options = [
-    "色粉管理", "客戶名單", "配方管理",
-    "生產單管理", "交叉查詢區",
-    "Pantone色號表", "庫存區", "匯入備份"
-]
+main_menu = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
+sub_menus = {
+    "配方管理": ["新增配方", "配方查詢", "配方修改/刪除"],
+    "生產單管理": ["新增生產單", "生產單查詢", "列印生產單"],
+    "色粉管理": ["色粉管理"],  # 單頁也可以當作子選單
+    "客戶名單": ["客戶名單"]
+}
 
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
