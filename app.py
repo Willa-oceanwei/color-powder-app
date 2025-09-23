@@ -53,55 +53,50 @@ spreadsheet = st.session_state["spreadsheet"]
 # ======== Sidebar 修正 =========
 import streamlit as st
 
-# ----------------- 選單項目 -----------------
+# ---------------- 選單設定 ----------------
 main_menu = ["色粉管理", "客戶名單", "配方管理", "生產單管理",
              "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
-
 sub_menus = {
     "配方管理": ["新增配方", "配方查詢", "配方預覽/修改/刪除"],
     "生產單管理": ["新增生產單", "生產單查詢", "修改/刪除生產單"]
 }
 
-# ----------------- 初始化 session_state -----------------
+# ---------------- 初始化 session_state ----------------
 if "main_selected" not in st.session_state:
     st.session_state.main_selected = None
 if "sub_selected" not in st.session_state:
     st.session_state.sub_selected = None
 
-# ----------------- Sidebar：主選單 -----------------
-st.sidebar.title("📋 系統選單")
-for main in main_menu:
-    clicked = st.sidebar.button(main, key=f"main_{main}")
-    if clicked:
-        st.session_state.main_selected = main
-        # 如果沒有子選單，直接選擇為頁面
-        if main not in sub_menus:
-            st.session_state.sub_selected = main
-        else:
-            st.session_state.sub_selected = None  # 等待選擇子選單
+# ---------------- 左側兩欄分層選單 ----------------
+col1, col2, col3 = st.columns([1,1,4])  # 左:主選單, 中:子選單, 右:內容
 
-# ----------------- 右側主頁面 -----------------
-st.header("🌈 配方管理系統")
+with col1:
+    st.write("### 主選單")
+    for main in main_menu:
+        if st.button(main, key=f"main_{main}"):
+            st.session_state.main_selected = main
+            st.session_state.sub_selected = None  # 等子選單選擇
 
-# 如果有選主選單
-if st.session_state.main_selected:
-    main = st.session_state.main_selected
-    st.subheader(f"主選單：{main}")
+with col2:
+    if st.session_state.main_selected and st.session_state.main_selected in sub_menus:
+        st.write("### 子選單")
+        for sub in sub_menus[st.session_state.main_selected]:
+            if st.button(sub, key=f"sub_{sub}"):
+                st.session_state.sub_selected = sub
+    elif st.session_state.main_selected:
+        st.write("### 子選單")
+        st.info("無子選單，直接進入頁面")
 
-    # 如果有子選單
-    if main in sub_menus:
-        # 在右側頁面顯示子選單
-        sub = st.radio("請選擇子選單", sub_menus[main],
-                       index=0 if st.session_state.sub_selected is None else sub_menus[main].index(st.session_state.sub_selected))
-        st.session_state.sub_selected = sub
+# ---------------- 右側內容區 ----------------
+with col3:
+    st.write("### 內容頁面")
+    if st.session_state.sub_selected:
+        st.info(f"這裡是 {st.session_state.sub_selected} 頁面")
+    elif st.session_state.main_selected:
+        st.info(f"這裡是 {st.session_state.main_selected} 頁面")
     else:
-        sub = main
-        st.session_state.sub_selected = sub
+        st.info("請選擇主選單")
 
-    # 顯示頁面內容
-    st.info(f"這裡是 {sub} 頁面")
-else:
-    st.info("請從左側選擇主選單")
 
 # ===== 在最上方定義函式 =====
 def set_form_style():
