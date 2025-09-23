@@ -66,37 +66,33 @@ if "menu" not in st.session_state:
 # ----------------- 自訂 CSS -----------------
 st.markdown("""
 <style>
-/* 側邊欄背景加深 */
 section[data-testid="stSidebar"] {
-    background-color: #111827;  /* 更深的底色 */
+    background-color: #111827; /* 更深的底色 */
     padding: 10px;
 }
 
-/* 按鈕樣式 */
+/* 統一按鈕樣式 */
 .sidebar-btn {
     display: block;
-    padding: 10px 14px;
-    margin: 6px 0;   /* 統一上下間距 */
+    padding: 12px 16px;  /* 上下左右間距統一 */
+    margin: 4px 0;        /* 按鈕之間間距統一 */
     border-radius: 6px;
     text-align: left;
-    font-size: 15px;
+    font-size: 16px;
     color: white;
     background-color: transparent;
     border: none;
     width: 100%;
     cursor: pointer;
-    white-space: nowrap;  /* 不換行 */
-    overflow: hidden;
-    text-overflow: ellipsis;  /* 文字超長顯示省略號 */
     transition: background-color 0.2s;
 }
 
-/* hover 效果 */
+/* 滑鼠移到整個按鈕亮 */
 .sidebar-btn:hover {
-    background-color: #1f2937;
+    background-color: #334155;
 }
 
-/* 選中效果 */
+/* 選中按鈕反白 */
 .sidebar-btn.active {
     background-color: #3b82f6;
     font-weight: bold;
@@ -109,13 +105,14 @@ with st.sidebar:
     st.title("🌈配方管理系統")
     for option in menu_options:
         is_active = "active" if st.session_state.menu == option else ""
-        if st.button(option, key=option, help=option):
+        clicked = st.button(option, key=option)
+        if clicked:
             st.session_state.menu = option
-        # 用 markdown 來加上 active class
+        # 用 markdown 加上 active 樣式
         if is_active:
             st.markdown(f"""
             <style>
-            button[data-testid="{option}"] {{
+            div.stButton button[data-testid="{option}"] {{
                 background-color: #3b82f6 !important;
                 font-weight: bold;
             }}
@@ -139,7 +136,6 @@ elif st.session_state.menu == "庫存區":
     st.info("這裡是庫存區頁面")
 elif st.session_state.menu == "匯入備份":
     st.info("這裡是匯入備份頁面")
-
 
 
 # ===== 自訂函式：產生生產單列印格式 =====      
