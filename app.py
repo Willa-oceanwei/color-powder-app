@@ -473,7 +473,7 @@ if menu == "色粉管理":
     """, unsafe_allow_html=True)
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🎰色粉搜尋</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🎰色粉搜尋</h2>',
         unsafe_allow_html=True
     )
 #---
@@ -490,7 +490,7 @@ if menu == "色粉管理":
         st.warning("❗ 查無符合的色粉編號")
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">➕新增色粉</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">➕新增色粉</h2>',
         unsafe_allow_html=True
     )
 
@@ -609,7 +609,7 @@ elif menu == "客戶名單":
     """, unsafe_allow_html=True)
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🗿客戶搜尋</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🗿客戶搜尋</h2>',
         unsafe_allow_html=True
     )
   
@@ -632,7 +632,7 @@ elif menu == "客戶名單":
         st.warning("❗ 查無符合的客戶編號或簡稱")
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">➕新增客戶</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">➕新增客戶</h2>',
         unsafe_allow_html=True
     )
 
@@ -679,7 +679,7 @@ elif menu == "客戶名單":
             st.rerun()
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📋 客戶清單</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 客戶清單</h2>',
         unsafe_allow_html=True
     )
 
