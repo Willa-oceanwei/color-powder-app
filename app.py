@@ -2469,18 +2469,19 @@ elif menu == "生產單管理":
     with cols_top2[0]:
         # 如果 page_data 不空，顯示下拉列表；否則提示無資料
         options_index = page_data.index if not page_data.empty else []
-        if options_index:
-            selected_index2 = st.selectbox(
-                "選擇生產單號",
-                options=options_index,
-                format_func=lambda i: f"{page_data.at[i, '生產單號']} | {page_data.at[i, '配方編號']} | {page_data.at[i, '顏色']} | {page_data.at[i, '客戶名稱']}",
-                key="select_order_for_edit_from_list",
-                index=0
-            )
-            selected_code_edit = page_data.at[selected_index2, "生產單號"]
-        else:
-            st.info("⚠️ 沒有可選的生產單")
-            selected_code_edit = None
+      
+    if len(options_index) > 0:
+        selected_index2 = st.selectbox(
+            "選擇生產單號",
+            options=options_index,
+            format_func=lambda i: f"{page_data.at[i, '生產單號']} | {page_data.at[i, '配方編號']} | {page_data.at[i, '顏色']} | {page_data.at[i, '客戶名稱']}",
+            key="select_order_for_edit_from_list",
+            index=0
+        )
+        selected_code_edit = page_data.at[selected_index2, "生產單號"]
+    else:
+        st.info("⚠️ 沒有可選的生產單")
+        selected_code_edit = None
 
     
     # ------------------- 預覽函式 -------------------
