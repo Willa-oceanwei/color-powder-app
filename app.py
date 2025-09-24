@@ -1549,11 +1549,7 @@ elif menu == "配方管理":
             # 清空表單
             st.session_state.form_recipe = {col: "" for col in df_recipe.columns}
             st.session_state.edit_recipe_index = None
-            st.experimental_rerun()
-
-    # ----------------- 顯示配方表格 -----------------
-    st.subheader("📊 配方總覽")
-    st.dataframe(st.session_state.df_recipe)
+            st.rerun()
 
 
     # 頁面最下方手動載入按鈕
