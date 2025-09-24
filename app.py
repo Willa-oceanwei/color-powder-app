@@ -2440,32 +2440,29 @@ elif menu == "生產單管理":
     
     st.markdown("---")  # 分隔線
     
-    # ------------------- 生產單搜尋與選擇 -------------------
+    # ------------------- 選擇生產單號 -------------------
     st.markdown(
         '<h2 style="font-size:20px; font-family:Arial; color:#F9DC5C;">🛠️ 生產單修改/刪除</h2>',
         unsafe_allow_html=True
     )
 
-    # ---------- 同一橫列 Columns：下拉 + 刪除按鈕 ----------
-    cols_top2 = st.columns([5, 0.7])
-    with cols_top2[0]:
-        # 如果 page_data 不空，顯示下拉列表；否則提示無資料
-        options_index = page_data.index if not page_data.empty else []
-      
-    if len(options_index) > 0:
-        selected_index2 = st.selectbox(
-            "選擇生產單號",
-            options=options_index,
+    if not page_data.empty:
+        # 預設選第一筆
+        default_index = page_data.index[0]
+
+        selected_index = st.selectbox(
+            "選擇生產單",
+            options=page_data.index,  # 用索引作為選項
             format_func=lambda i: f"{page_data.at[i, '生產單號']} | {page_data.at[i, '配方編號']} | {page_data.at[i, '顏色']} | {page_data.at[i, '客戶名稱']}",
-            key="select_order_for_edit_from_list",
-            index=0
+            key="select_order_code_page",
+            index=page_data.index.get_loc(default_index) if default_index in page_data.index else 0
         )
-        selected_code_edit = page_data.at[selected_index2, "生產單號"]
+
+        selected_code_edit = page_data.at[selected_index, "生產單號"]
     else:
         st.info("⚠️ 沒有可選的生產單")
-        selected_code_edit = None
-
-    
+        selected_index, selected_code_edit = None, None
+        
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
         # 1️⃣ 先生成主配方文字（不改 generate_production_order_print）
