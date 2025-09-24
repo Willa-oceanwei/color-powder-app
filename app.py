@@ -824,7 +824,7 @@ elif menu == "配方管理":
     st.markdown("""
     <style>
     .big-title {
-        font-size: 30px;   /* 字體大小 */
+        font-size: 24px;   /* 字體大小 */
         font-weight: bold;  /*加粗 */
         color: #F9DC5C; /* 字體顏色 */
         margin-bottom: 20px; /* 下方間距 */
