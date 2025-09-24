@@ -1583,7 +1583,7 @@ elif menu == "配方管理":
                     current = f"{cust_id} - {cust_name}" if cust_id else ""
 
                     index = options.index(current) if current in options else 0
-                    selected = st.selectbox("客戶編號", options, index=index, key="form_recipe_selected_customer")
+                    selected = st.selectbox("客戶編號", options, index=index, key="edit_recipe_selected_customer")
                     
                     if " - " in selected:
                         c_no, c_name = selected.split(" - ", 1)
