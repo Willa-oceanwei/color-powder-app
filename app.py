@@ -902,17 +902,29 @@ elif menu == "配方管理":
     ] + [f"色粉編號{i}" for i in range(1, 9)] + [f"色粉重量{i}" for i in range(1, 9)]
     
     # 初始化 session_state
-    if "form_recipe" not in st.session_state or not st.session_state.form_recipe:
+    # 初始化 session_state
+    if "form_recipe" not in st.session_state:
         st.session_state.form_recipe = {col: "" for col in columns}
-        st.session_state.form_recipe["配方類別"] = "原始配方"
-        st.session_state.form_recipe["狀態"] = "啟用"
-        st.session_state.form_recipe["色粉類別"] = "配方"
-        st.session_state.form_recipe["計量單位"] = "包"
-        st.session_state.form_recipe["淨重單位"] = "g"
-        st.session_state.form_recipe["合計類別"] = "無"
+    if "edit_recipe_index" not in st.session_state:
+        st.session_state.edit_recipe_index = None
     if "num_powder_rows" not in st.session_state:
         st.session_state.num_powder_rows = 5
-    
+
+    # 只有在「新增模式」才設定預設值
+    if st.session_state.edit_recipe_index is None:
+        if not st.session_state.form_recipe.get("配方類別"):
+            st.session_state.form_recipe["配方類別"] = "原始配方"
+        if not st.session_state.form_recipe.get("狀態"):
+            st.session_state.form_recipe["狀態"] = "啟用"
+        if not st.session_state.form_recipe.get("色粉類別"):
+            st.session_state.form_recipe["色粉類別"] = "配方"
+        if not st.session_state.form_recipe.get("計量單位"):
+            st.session_state.form_recipe["計量單位"] = "包"
+        if not st.session_state.form_recipe.get("淨重單位"):
+            st.session_state.form_recipe["淨重單位"] = "g"
+        if not st.session_state.form_recipe.get("合計類別"):
+            st.session_state.form_recipe["合計類別"] = "無"
+
     fr = st.session_state.form_recipe
         
     with st.form("recipe_form"):
