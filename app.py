@@ -2468,7 +2468,7 @@ elif menu == "生產單管理":
     with cols_top2[0]:
         selected_label = st.selectbox(
             "選擇生產單號",
-            options or ["無資料"],
+            page_data.index if not page_data.empty else ["無資料"],
             key="select_order_for_edit_from_list"
         )
     
