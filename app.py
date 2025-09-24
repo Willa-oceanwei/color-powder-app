@@ -1537,7 +1537,7 @@ elif menu == "配方管理":
                     st.session_state.edit_recipe_index = selected_index
                     st.session_state.form_recipe = df_recipe.loc[selected_index].to_dict()
                     st.session_state.show_recipe_form = True  # 新增這行
-                    st.experimental_rerun()  # 重新渲染頁面
+                    st.rerun()  # 重新渲染頁面
 
             with cols_preview[2]:
                 if st.button("🗑️ ", key=f"del_btn_{selected_index}"):
