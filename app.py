@@ -51,21 +51,69 @@ if "spreadsheet" not in st.session_state:
 spreadsheet = st.session_state["spreadsheet"]
 
 # ======== Sidebar 修正 =========
+# ======== Sidebar 修正 =========
 import streamlit as st
 
-menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
+menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
+                "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
 
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 
+# 自訂 CSS：改按鈕字體大小
+st.markdown("""
+<style>
+/* Sidebar 標題字體大小 */
+.sidebar .css-1d391kg h1 {
+    font-size: 24px !important;
+}
+
+/* Sidebar 按鈕字體大小 */
+div.stButton > button {
+    font-size: 14px !important;
+    padding: 8px 12px !important;  /* 可調整上下左右間距 */
+    text-align: left;
+}
+</style>
+""", unsafe_allow_html=True)
+
 with st.sidebar:
-    st.title("🌈配方管理系統")
-    with st.expander("🎏 展開 / 收合選單", expanded=True):
-        selected_menu = st.radio(
-            "請選擇模組🪁",
-            menu_options,
-            key="menu"  # 會直接讀寫 st.session_state.menu
-        )
+    # 標題
+    st.markdown('<h1 style="font-size:22px;">🌈配方管理系統</h1>', unsafe_allow_html=True)
+
+    for option in menu_options:
+        label = f"✅ {option}" if st.session_state.menu == option else option
+        if st.button(label, key=f"menu_{option}", use_container_width=True):
+            st.session_state.menu = option
+
+
+# ===== 在最上方定義函式 =====
+def set_form_style():
+    st.markdown("""
+    <style>
+    /* text_input placeholder */
+    div.stTextInput > div > div > input::placeholder {
+        color: #999999;
+        font-size: 13px;
+    }
+
+    /* selectbox placeholder */
+    div.stSelectbox > div > div > div.css-1wa3eu0-placeholder {
+        color: #999999;
+        font-size: 13px;
+    }
+
+    /* selectbox 選中後文字 */
+    div.stSelectbox > div > div > div.css-1uccc91-singleValue {
+        font-size: 14px;
+        color: #000000;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ===== 呼叫一次，套用全程式 =====
+set_form_style()
+
 
 # ======== 初始化 session_state =========
 def init_states(keys=None):
