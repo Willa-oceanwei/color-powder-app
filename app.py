@@ -2440,19 +2440,37 @@ elif menu == "生產單管理":
     
     st.markdown("---")  # 分隔線
     
-    # ------------------- 選擇生產單號 -------------------
+    # ------------------- 生產單搜尋與選擇 -------------------
     st.markdown(
         '<h2 style="font-size:20px; font-family:Arial; color:#F9DC5C;">🛠️ 生產單修改/刪除</h2>',
         unsafe_allow_html=True
     )
 
+    # 搜尋輸入框
+    keyword = st.text_input("🔍 輸入配方編號 / 客戶名稱 / 生產單號 / 顏色 來搜尋").strip()
+
+    # 篩選資料
+    filtered_data = page_data.copy()
+    if keyword:
+        mask = (
+            page_data["生產單號"].astype(str).str.contains(keyword, case=False) |
+            page_data["配方編號"].astype(str).str.contains(keyword, case=False) |
+            page_data.get("顏色", "").astype(str).str.contains(keyword, case=False) |
+            page_data.get("客戶名稱", "").astype(str).str.contains(keyword, case=False)
+        )
+        filtered_data = page_data[mask]
+
+    # 準備下拉選單 options
     options = []
     code_to_id = {}
-    if not page_data.empty:
-        for idx, row in page_data.iterrows():
+    if not filtered_data.empty:
+        for _, row in filtered_data.iterrows():
             label = f"{row['生產單號']} / {row['配方編號']} / {row.get('顏色','')} / {row.get('客戶名稱','')}"
             options.append(label)
             code_to_id[label] = row["生產單號"]
+
+    # 顯示下拉選單
+    selected = st.selectbox("選擇生產單", options) if options else None
 
     # ---------- 同一橫列 Columns ----------
     cols_top2 = st.columns([5, 0.7])  # 下拉 + 刪除按鈕
