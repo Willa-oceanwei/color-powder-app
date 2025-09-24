@@ -949,26 +949,24 @@ elif menu == "配方管理":
         with col2:
             fr["顏色"] = st.text_input("顏色", value=fr.get("顏色", ""), key="form_recipe_顏色")
         with col3:
-            options = [""] + customer_options  
-            cust_value = fr.get("客戶編號", "")
-            
-            # 防止 ValueError，如果值不存在於 options，預設選第一個
-            index = options.index(cust_value) if cust_value in options else 0
-            
+            options = [""] + customer_options  # 例如 ["001 - 客戶A", "002 - 客戶B"]
+
+            # 組合成目前的顯示值
+            current = f"{fr.get('客戶編號','')} - {fr.get('客戶名稱','')}" if fr.get("客戶編號") else ""
+            index = options.index(current) if current in options else 0
+
             selected = st.selectbox(
                 "客戶編號",
                 options,
                 index=index,
                 key="form_recipe_selected_customer"
             )
-    
-            if " - " in selected:
+
+            # 只有在選了有效選項時才更新
+            if selected and " - " in selected:
                 c_no, c_name = selected.split(" - ", 1)
-            else:
-                c_no, c_name = "", ""
-    
-            fr["客戶編號"] = c_no
-            fr["客戶名稱"] = c_name
+                fr["客戶編號"] = c_no.strip()
+                fr["客戶名稱"] = c_name.strip()
    
         # 配方類別、狀態、原始配方
         col4, col5, col6 = st.columns(3)
