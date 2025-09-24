@@ -1530,7 +1530,7 @@ elif menu == "配方管理":
     # ----------------- 表單 -----------------
     st.subheader("🖊️ 配方表單")
 
-    with st.form("recipe_form"):
+    with st.form(""recipe_form_edit"):
         for col in df_recipe.columns:
             st.session_state.form_recipe[col] = st.text_input(col, value=st.session_state.form_recipe.get(col, ""))
 
