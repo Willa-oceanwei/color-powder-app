@@ -2441,28 +2441,10 @@ elif menu == "生產單管理":
     st.markdown("---")  # 分隔線
     
     # ------------------- 生產單搜尋與選擇 -------------------
-    # ------------------- 生產單搜尋與選擇 -------------------
     st.markdown(
         '<h2 style="font-size:20px; font-family:Arial; color:#F9DC5C;">🛠️ 生產單修改/刪除</h2>',
         unsafe_allow_html=True
     )
-
-    if not page_data.empty:
-        # 預設選第一筆
-        default_index = page_data.index[0]
-
-        selected_index = st.selectbox(
-            "選擇生產單",
-            options=page_data.index,
-            format_func=lambda i: f"{page_data.at[i, '生產單號']} | {page_data.at[i, '配方編號']} | {page_data.at[i, '顏色']} | {page_data.at[i, '客戶名稱']}",
-            key="select_order_code_page",
-            index=page_data.index.get_loc(default_index) if default_index in page_data.index else 0
-        )
-
-        selected_code_edit = page_data.at[selected_index, "生產單號"]
-    else:
-        st.info("⚠️ 沒有可選的生產單")
-        selected_index, selected_code_edit = None, None
 
     # ---------- 同一橫列 Columns：下拉 + 刪除按鈕 ----------
     cols_top2 = st.columns([5, 0.7])
