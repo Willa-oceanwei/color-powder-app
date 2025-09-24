@@ -1527,6 +1527,35 @@ elif menu == "配方管理":
         else:
             st.info("🟦 沒有可選的配方編號")
 
+    # ----------------- 表單 -----------------
+    st.subheader("🖊️ 配方表單")
+
+    with st.form("recipe_form"):
+        for col in df_recipe.columns:
+            st.session_state.form_recipe[col] = st.text_input(col, value=st.session_state.form_recipe.get(col, ""))
+
+        submitted = st.form_submit_button("💾 儲存")
+        if submitted:
+            if st.session_state.edit_recipe_index is None:
+                # 新增模式
+                df_recipe = pd.concat([df_recipe, pd.DataFrame([st.session_state.form_recipe])], ignore_index=True)
+                st.success("✅ 新增配方成功")
+            else:
+                # 修改模式
+                df_recipe.iloc[st.session_state.edit_recipe_index] = pd.Series(st.session_state.form_recipe)
+                st.success("✅ 修改配方成功")
+
+            st.session_state.df_recipe = df_recipe
+            # 清空表單
+            st.session_state.form_recipe = {col: "" for col in df_recipe.columns}
+            st.session_state.edit_recipe_index = None
+            st.experimental_rerun()
+
+    # ----------------- 顯示配方表格 -----------------
+    st.subheader("📊 配方總覽")
+    st.dataframe(st.session_state.df_recipe)
+
+
     # 頁面最下方手動載入按鈕
     st.markdown("---")
     if st.button("📥 重新載入配方資料"):
