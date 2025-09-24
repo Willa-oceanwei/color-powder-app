@@ -2447,23 +2447,21 @@ elif menu == "生產單管理":
     )
 
     if not page_data.empty:
-        # 預設選第一筆
         default_index = page_data.index[0]
 
-        # 使用索引作為 selectbox options，方便搜尋並保持唯一對應
         selected_index = st.selectbox(
-            "選擇生產單號",
-            options=page_data.index,
+            "選擇生產單",
+            options=page_data.index,  # 用索引
             format_func=lambda i: f"{page_data.at[i, '生產單號']} | {page_data.at[i, '配方編號']} | {page_data.at[i, '顏色']} | {page_data.at[i, '客戶名稱']}",
             key="select_order_code_page",
             index=page_data.index.get_loc(default_index) if default_index in page_data.index else 0
         )
 
-        selected_order = page_data.loc[selected_index]  # 取整行資料
+        selected_order = page_data.loc[selected_index]  # 直接拿整行資料
         selected_code_edit = selected_order["生產單號"]
     else:
         st.info("⚠️ 沒有可選的生產單")
-        selected_index, selected_code_edit, selected_order = None, None, None
+        selected_index, selected_order, selected_code_edit = None, None, None
         
     # ------------------- 預覽函式 -------------------
     def generate_order_preview_text(order, recipe_row, show_additional_ids=True):
