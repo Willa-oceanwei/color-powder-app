@@ -1514,6 +1514,7 @@ elif menu == "配方管理":
 
         selected_code = df_recipe.at[selected_index, "配方編號"] if selected_index is not None else None
 
+        
         # ---------- 配方預覽 + 修改 / 刪除按鈕同一橫列 ----------
         if selected_code:
             recipe_row_preview = df_recipe.loc[selected_index].to_dict()
@@ -1531,19 +1532,22 @@ elif menu == "配方管理":
                     st.markdown(preview_text_recipe, unsafe_allow_html=True)
 
             with cols_preview[1]:
-                if st.button("✏️ ", key="edit_btn"):
+                if st.button("✏️ ", key=f"edit_btn_{selected_index}"):
+                    # ✅ 設定 session_state，控制表單顯示
                     st.session_state.edit_recipe_index = selected_index
                     st.session_state.form_recipe = df_recipe.loc[selected_index].to_dict()
-                    st.rerun()
+                    st.session_state.show_recipe_form = True  # 新增這行
+                    st.experimental_rerun()  # 重新渲染頁面
 
             with cols_preview[2]:
-                if st.button("🗑️ ", key="del_btn"):
+                if st.button("🗑️ ", key=f"del_btn_{selected_index}"):
                     st.session_state.delete_recipe_index = selected_index
                     st.session_state.show_delete_recipe_confirm = True
-                    st.rerun()
+                    st.experimental_rerun()
 
         else:
             st.info("🟦 沒有可選的配方編號")
+
 
     # 頁面最下方手動載入按鈕
     st.markdown("---")
