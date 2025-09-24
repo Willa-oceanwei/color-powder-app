@@ -2611,7 +2611,7 @@ elif menu == "生產單管理":
         # checkbox 狀態
         show_ids_key = f"show_ids_checkbox_{selected_order['生產單號']}"
         if show_ids_key not in st.session_state:
-            st.session_state[show_ids_key] = True
+            st.session_state[show_ids_key] = False
 
         show_ids = st.checkbox(
             "預覽時顯示附加配方編號",
