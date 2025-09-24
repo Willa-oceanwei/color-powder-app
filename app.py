@@ -1615,21 +1615,27 @@ elif menu == "配方管理":
                     fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號", ""), key="edit_recipe_pantone")
 
                 # 重要提醒、比例1-3、備註
+                # 重要提醒 + 比例1-3
                 fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒", ""), key="edit_recipe_note")
-                colr1, col_colon, colr2, colr3, col_unit = st.columns([2, 0.5, 2, 2, 1])
-                fr["比例1"] = colr1.text_input("", value=fr.get("比例1", ""), key="edit_ratio1", label_visibility="collapsed")
-                st.markdown("<div style='display:flex; justify-content:center; align-items:center; font-size:18px;'>:</div>", unsafe_allow_html=True)
-                fr["比例2"] = colr2.text_input("", value=fr.get("比例2", ""), key="edit_ratio2", label_visibility="collapsed")
-                fr["比例3"] = colr3.text_input("", value=fr.get("比例3", ""), key="edit_ratio3", label_visibility="collapsed")
-                st.markdown("<div style='display:flex; justify-content:flex-start; align-items:center; font-size:16px;'>g/kg</div>", unsafe_allow_html=True)
-                fr["備註"] = st.text_area("備註", value=fr.get("備註", ""), key="edit_recipe_remark")
 
-                # 色粉編號/重量多列
-                st.markdown("#### 色粉設定")
-                for i in range(1, st.session_state.get("num_powder_rows", 5) + 1):
+                cols_ratio = st.columns([2, 0.3, 2, 2, 1])
+                with cols_ratio[0]:
+                    fr["比例1"] = st.text_input("", value=fr.get("比例1", ""), key="edit_ratio1", label_visibility="collapsed")
+                with cols_ratio[1]:
+                    st.markdown("<div style='text-align:center;font-size:18px;'>:</div>", unsafe_allow_html=True)
+                with cols_ratio[2]:
+                    fr["比例2"] = st.text_input("", value=fr.get("比例2", ""), key="edit_ratio2", label_visibility="collapsed")
+                with cols_ratio[3]:
+                    fr["比例3"] = st.text_input("", value=fr.get("比例3", ""), key="edit_ratio3", label_visibility="collapsed")
+                with cols_ratio[4]:
+                    st.markdown("<div style='text-align:left;font-size:16px;'>g/kg</div>", unsafe_allow_html=True)
+
+                # 色粉設定，固定 5 列
+                st.markdown("##### 色粉設定")
+                for i in range(1, 6):  # 固定顯示 5 列
                     c1, c2 = st.columns([2.5, 2.5])
-                fr[f"色粉編號{i}"] = c1.text_input("", value=fr.get(f"色粉編號{i}", ""), placeholder=f"色粉{i}編號", key=f"edit_recipe_powder_code{i}")
-                fr[f"色粉重量{i}"] = c2.text_input("", value=fr.get(f"色粉重量{i}", ""), placeholder="重量", key=f"edit_recipe_powder_weight{i}")
+                    fr[f"色粉編號{i}"] = c1.text_input(f"", value=fr.get(f"色粉編號{i}", ""), placeholder=f"色粉{i}編號", key=f"edit_recipe_powder_code{i}")
+                    fr[f"色粉重量{i}"] = c2.text_input(f"", value=fr.get(f"色粉重量{i}", ""), placeholder="重量", key=f"edit_recipe_powder_weight{i}")
 
                 # 合計類別
                 col1, col2 = st.columns(2)
