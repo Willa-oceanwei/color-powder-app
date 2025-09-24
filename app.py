@@ -1578,15 +1578,20 @@ elif menu == "配方管理":
                     fr["顏色"] = st.text_input("顏色", value=fr.get("顏色", ""), key="edit_recipe_color")
                 with col3:
                     options = [""] + customer_options
-                    cust_value = fr.get("客戶編號", "")
-                    index = options.index(cust_value) if cust_value in options else 0
-                    selected = st.selectbox("客戶編號", options, index=index, key="edit_recipe_customer")
+                    cust_id = fr.get("客戶編號", "").strip()
+                    cust_name = fr.get("客戶名稱", "").strip()
+                    current = f"{cust_id} - {cust_name}" if cust_id else ""
+
+                    index = options.index(current) if current in options else 0
+                    selected = st.selectbox("客戶編號", options, index=index, key="form_recipe_selected_customer")
+                    
                     if " - " in selected:
                         c_no, c_name = selected.split(" - ", 1)
                     else:
                         c_no, c_name = "", ""
-                    fr["客戶編號"] = c_no
-                    fr["客戶名稱"] = c_name
+
+                        fr["客戶編號"] = c_no
+                        fr["客戶名稱"] = c_name
 
                 # 配方類別、狀態、原始配方
                 col4, col5, col6 = st.columns(3)
@@ -1630,13 +1635,14 @@ elif menu == "配方管理":
                 with cols_ratio[4]:
                     st.markdown("<div style='text-align:left;font-size:16px;'>g/kg</div>", unsafe_allow_html=True)
 
-                # 色粉設定，固定 5 列
+                # 色粉設定
                 st.markdown("##### 色粉設定")
-                for i in range(1, 6):  # 固定顯示 5 列
+                num_rows = max(5, sum(1 for i in range(1, 9) if fr.get(f"色粉編號{i}")))
+                for i in range(1, num_rows + 1):
                     c1, c2 = st.columns([2.5, 2.5])
-                    fr[f"色粉編號{i}"] = c1.text_input(f"", value=fr.get(f"色粉編號{i}", ""), placeholder=f"色粉{i}編號", key=f"edit_recipe_powder_code{i}")
-                    fr[f"色粉重量{i}"] = c2.text_input(f"", value=fr.get(f"色粉重量{i}", ""), placeholder="重量", key=f"edit_recipe_powder_weight{i}")
-
+                    fr[f"色粉編號{i}"] = c1.text_input("", value=fr.get(f"色粉編號{i}", ""), placeholder=f"色粉{i}編號", key=f"edit_recipe_powder_code{i}")
+                    fr[f"色粉重量{i}"] = c2.text_input("", value=fr.get(f"色粉重量{i}", ""), placeholder="重量", key=f"edit_recipe_powder_weight{i}")
+                    
                 # 合計類別
                 col1, col2 = st.columns(2)
                 category_options = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他"]
