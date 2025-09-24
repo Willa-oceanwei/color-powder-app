@@ -3480,7 +3480,11 @@ if menu == "庫存區":
             st.write("請確認各色粉的期初庫存 (g)，若不正確可直接修改：")
             updated_ini = {}
             for pid, qty in st.session_state["ini_dict"].items():
-                new_qty = st.number_input(f"{pid} 期初庫存 (g)", value=qty, step=1.0)
+                new_qty = st.number_input(
+                    f"{pid} 期初庫存 (g)",
+                    value=float(qty),
+                    step=1.0
+                )
                 updated_ini[pid] = new_qty
             if st.button("✅ 確認期初庫存"):
                 st.session_state["ini_dict"] = updated_ini
