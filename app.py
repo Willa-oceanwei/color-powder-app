@@ -1654,8 +1654,19 @@ elif menu == "配方管理":
                         # 更新 df_recipe
                         for k, v in fr.items():
                             df_recipe.at[idx, k] = v
+
+                        # --- 同步到 session_state ---
+                        st.session_state.df_recipe = df_recipe
+
+                        # --- 同步回 Google Sheet & CSV ---
+                        try:
+                            save_recipe_data(df_recipe)  # 這裡呼叫你寫好的存檔函式
+                            st.success("✅ 配方已更新並同步至 Google Sheet！")
+                        except Exception as e:
+                            st.error(f"❌ 配方更新失敗：{e}")
+
+                        # 關閉修改面板並刷新
                         st.session_state.show_edit_recipe_panel = False
-                        st.success("✅ 配方已更新")
                         st.rerun()
                 with cols_edit[1]:
                     if st.button("返回", key="return_edit_recipe_btn"):
