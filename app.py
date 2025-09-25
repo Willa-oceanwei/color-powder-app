@@ -440,6 +440,22 @@ def init_states(keys):
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
+CSV_PATH = "data/recipes.csv"
+SHEET_NAME = "配方管理"  # 你的 Google Sheet 工作表名稱
+
+def save_recipe_data(df):
+    try:
+        # 1. 存到 Google Sheet
+        ws = spreadsheet.worksheet(SHEET_NAME)
+        ws.clear()
+        ws.update([df.columns.tolist()] + df.fillna("").astype(str).values.tolist())
+
+        # 2. 存到 CSV 備份
+        df.to_csv(CSV_PATH, index=False, encoding="utf-8-sig")
+
+    except Exception as e:
+        st.error(f"❌ 儲存失敗：{e}")
+
 # ======== 色粉管理 =========
 if menu == "色粉管理":
     worksheet = spreadsheet.worksheet("色粉管理")
@@ -1651,19 +1667,19 @@ elif menu == "配方管理":
                 cols_edit = st.columns([1, 1])
                 with cols_edit[0]:
                     if st.button("💾 儲存修改", key="save_edit_recipe_btn"):
-                        # 更新 df_recipe
                         for k, v in fr.items():
                             df_recipe.at[idx, k] = v
 
-                        # --- 同步到 session_state ---
                         st.session_state.df_recipe = df_recipe
 
-                        # --- 同步回 Google Sheet & CSV ---
                         try:
-                            save_recipe_data(df_recipe)  # 這裡呼叫你寫好的存檔函式
+                            save_recipe_data(df_recipe)   # ✅ 存到 Google Sheet + CSV
                             st.success("✅ 配方已更新並同步至 Google Sheet！")
                         except Exception as e:
                             st.error(f"❌ 配方更新失敗：{e}")
+
+                        st.session_state.show_edit_recipe_panel = False
+                        st.rerun()
 
                         # 關閉修改面板並刷新
                         st.session_state.show_edit_recipe_panel = False
