@@ -1780,7 +1780,7 @@ elif menu == "生產單管理":
     if "建立時間" in df_order.columns:
         df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
     if "配方編號" in df_order.columns:
-        df_order["配方編號"] = df_order["配方編號"].map(clean_powder_id)
+        df_order["配方編號"] = df_order["配方編號"].map(clean_str)
     
     # 初始化 session_state 用的 key
     for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "show_confirm_panel"]:
@@ -1806,7 +1806,7 @@ elif menu == "生產單管理":
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
         if "配方編號" in df_recipe.columns:
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_str)
         st.session_state.df_recipe = df_recipe
     except Exception as e:
         st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
@@ -1826,7 +1826,7 @@ elif menu == "生產單管理":
         return x.upper()
     
     def normalize_search_text(text):
-        return fix_leading_zero(clean_powder_id(text))
+        return fix_leading_zero(clean_str(text))
     
     # Streamlit UI 搜尋表單
     with st.form("search_add_form", clear_on_submit=False):
@@ -1843,7 +1843,7 @@ elif menu == "生產單管理":
         search_text_upper = search_text.strip().upper()
     
         if search_text_normalized:
-            df_recipe["_配方編號標準"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
+            df_recipe["_配方編號標準"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_str(x)))
     
             if exact:
                 filtered = df_recipe[
