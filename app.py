@@ -729,7 +729,7 @@ elif menu == "配方管理":
 
         # 1. 嘗試 Google Sheet
         try:
-            ws_recipe = spreadsheet.worksheet("配方資料")  # ←確認工作表名稱
+            ws_recipe = spreadsheet.worksheet("配方管理")  # ←確認工作表名稱
             df = pd.DataFrame(ws_recipe.get_all_records())
             if not df.empty:
                 for col in df.columns:
