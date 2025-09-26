@@ -912,7 +912,7 @@ elif menu == "配方管理":
     
     # 清理配方編號（保持字串格式且不轉成數字）
     if "配方編號" in df_loaded.columns:
-        df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map(clean_powder_id)
+        df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map((clean_str))
     
     st.session_state.df = df_loaded
     
