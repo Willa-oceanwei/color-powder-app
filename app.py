@@ -1492,22 +1492,27 @@ elif menu == "配方管理":
     
     # ---------- 配方下拉選單 + 修改/刪除 + 預覽 ----------
     if not df_recipe.empty and "配方編號" in df_recipe.columns:
-        df_recipe["配方編號"] = df_recipe["配方編號"].astype(str)
+        # 先確保欄位都是字串，NaN 也轉成空字串
+        df_recipe['配方編號'] = df_recipe['配方編號'].fillna('').astype(str)
+        only_code = str(only_code)
 
-        # ---------- 自動選單邏輯 ----------
-        default_index = None
-        if 'df_filtered' in locals() and len(df_filtered) == 1:
-            only_code = df_filtered.iloc[0]["配方編號"]
-            default_index = df_recipe.index[df_recipe["配方編號"] == only_code][0]
+        # 找出對應的 index
+        matches = df_recipe.index[df_recipe["配方編號"] == only_code]
 
-        # ---------- 同一橫列 Columns ----------
-        # ---------- 配方下拉選單 ----------
+        if len(matches) > 0:
+            default_index = matches[0]
+            default_pos = df_recipe.index.get_loc(default_index)
+        else:
+            st.warning(f"⚠️ 找不到配方編號 {only_code}，將預設選擇第一筆")
+            default_pos = 0  # 如果找不到就選第一筆
+
+        # 配方下拉選單
         selected_index = st.selectbox(
             "選擇配方",
             options=df_recipe.index,
             format_func=lambda i: f"{df_recipe.at[i, '配方編號']} | {df_recipe.at[i, '顏色']} | {df_recipe.at[i, '客戶名稱']}",
             key="select_recipe_code_page",
-            index=df_recipe.index.get_loc(default_index) if default_index is not None else 0
+            index=default_pos
         )
 
         selected_code = df_recipe.at[selected_index, "配方編號"] if selected_index is not None else None
