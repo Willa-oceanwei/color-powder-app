@@ -708,37 +708,21 @@ elif menu == "配方管理":
     import streamlit as st
 
     # ------------------- 配方資料初始化 -------------------
+    from pathlib import Path
+    import pandas as pd
+    import streamlit as st
+
+    # 統一清理字串函式
+    def clean_str(val):
+        if pd.isna(val) or val == "":
+            return ""
+        return str(val).strip().replace('\u3000', '').upper()  # 去空白+全形空白+轉大寫
+
     # 初始化 session_state
     if "df_recipe" not in st.session_state:
         st.session_state.df_recipe = pd.DataFrame()
     if "trigger_load_recipe" not in st.session_state:
         st.session_state.trigger_load_recipe = False
-    
-    def load_recipe_data():
-        """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
-        try:
-            ws_recipe = spreadsheet.worksheet("配方管理")
-            df_loaded = pd.DataFrame(ws_recipe.get_all_records())
-            if not df_loaded.empty:
-                return df_loaded
-        except Exception as e:
-            st.warning(f"Google Sheet 載入失敗：{e}")
-    
-        # 回退 CSV
-        order_file = Path("data/df_recipe.csv")
-        if order_file.exists():
-            try:
-                df_csv = pd.read_csv(order_file)
-                if not df_csv.empty:
-                    return df_csv
-            except Exception as e:
-                st.error(f"CSV 載入失敗：{e}")
-    
-        # 都失敗時，回傳空 df
-        return pd.DataFrame()
-    
-    # 統一使用 df_recipe
-    df_recipe = st.session_state.df_recipe
 
     # 預期欄位
     columns = [
@@ -770,57 +754,63 @@ elif menu == "配方管理":
     if st.session_state.form_recipe is None:
         st.session_state.form_recipe = {col: "" for col in columns}
 
-    # ✅ 如果還是空的，顯示提示
-    if df_recipe.empty:
-        st.error("⚠️ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
-    # 讀取表單
-    try:
-        df = pd.DataFrame(ws_recipe.get_all_records())
-    except:
-        df = pd.DataFrame(columns=columns)
+    # ------------------- 載入配方資料 -------------------
+    def load_recipe_data():
+        df = pd.DataFrame()
 
-    df = df.astype(str)
-    for col in columns:
-        if col not in df.columns:
-            df[col] = ""
-
-    import streamlit as st
-
-    if "df" not in st.session_state:
+        # 1. 嘗試從 Google Sheet 載入
         try:
+            ws_recipe = spreadsheet.worksheet("配方管理")
             df = pd.DataFrame(ws_recipe.get_all_records())
-        except:
-            df = pd.DataFrame(columns=columns)
+            if not df.empty:
+                for col in df.columns:
+                    df[col] = df[col].apply(clean_str)
+                # 確保特定欄位正確
+                for c in ["配方編號", "原始配方", "客戶名稱"]:
+                    if c in df.columns:
+                        df[c] = df[c].apply(clean_str)
+                return df
+        except Exception as e:
+            st.warning(f"Google Sheet 載入失敗：{e}")
 
-        df = df.astype(str)
-        for col in columns:
-            if col not in df.columns:
-                df[col] = ""
-        st.session_state.df = df# 儲存進 session_state
-    
-    # ✅ 後續操作都從 session_state 中抓資料
+        # 2. 回退 CSV
+        csv_file = Path("data/df_recipe.csv")
+        if csv_file.exists():
+            try:
+                df = pd.read_csv(csv_file)
+                for col in df.columns:
+                    df[col] = df[col].apply(clean_str)
+                for c in ["配方編號", "原始配方", "客戶名稱"]:
+                    if c in df.columns:
+                        df[c] = df[c].apply(clean_str)
+                return df
+            except Exception as e:
+                st.error(f"CSV 載入失敗：{e}")
 
-    #-------
-    df = st.session_state.df
-    # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
-    def clean_str(val):
-        if pd.isna(val) or val == "":
-            return ""
-        return str(val).strip().replace('\u3000', '').upper()
-    
-    # 讀取色粉管理清單
-    try:
-        ws_powder = spreadsheet.worksheet("色粉管理")
-        df_powders = pd.DataFrame(ws_powder.get_all_records())
-        if "色粉編號" not in df_powders.columns:
-            st.error("❌ 色粉管理表缺少『色粉編號』欄位")
-            existing_powders = set()
-        else:
-            existing_powders = set(df_powders["色粉編號"].map(clean_str).unique())
-            
-    except Exception as e:
-        st.warning(f"⚠️ 無法載入色粉管理：{e}")
+        # 3. 都失敗，回傳空 df
+        st.warning("⚠️ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
+        return pd.DataFrame()
+
+    # 實際載入資料到 session_state
+    if st.session_state.df_recipe.empty:
+        st.session_state.df_recipe = load_recipe_data()
+
+    # 後續統一使用 session_state.df_recipe
+    df_recipe = st.session_state.df_recipe
+
+# ------------------- 載入色粉管理清單 -------------------
+try:
+    ws_powder = spreadsheet.worksheet("色粉管理")
+    df_powders = pd.DataFrame(ws_powder.get_all_records())
+    if "色粉編號" not in df_powders.columns:
+        st.error("❌ 色粉管理表缺少『色粉編號』欄位")
         existing_powders = set()
+    else:
+        existing_powders = set(df_powders["色粉編號"].apply(clean_str).unique())
+except Exception as e:
+    st.warning(f"⚠️ 無法載入色粉管理：{e}")
+    existing_powders = set()
+
         
     st.markdown("""
     <style>
