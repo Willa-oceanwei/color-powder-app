@@ -1830,25 +1830,32 @@ elif menu == "生產單管理":
         return label
     
     # 先定義清理函式
-    def clean_powder_id(x):
-        if pd.isna(x) or x == "":
+    def clean_str(val):
+        """清理欄位值：NaN 轉空字串，去除空白，轉大寫"""
+        if pd.isna(val):
             return ""
-        return str(x).strip().upper()  # 去除空白+轉大寫
-    
-    # 載入配方管理表時做清理（載入區塊示範）
+        return str(val).strip().replace('\u3000', '').replace(' ', '').upper()
+
+    # 載入配方管理表並做清理
     try:
         records = ws_recipe.get_all_records()
         df_recipe = pd.DataFrame(records)
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
-        if "配方編號" in df_recipe.columns:
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
+    
+        # 安全清理重要欄位
+        for col in ["配方編號", "原始配方", "客戶名稱"]:
+            if col in df_recipe.columns:
+                df_recipe[col] = df_recipe[col].apply(clean_str)
+    
         st.session_state.df_recipe = df_recipe
     except Exception as e:
         st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
         st.stop()
-    
+
+    # 統一使用 session_state
     df_recipe = st.session_state.df_recipe
+
 
     def clean_powder_id(x):
         if pd.isna(x) or x == "":
