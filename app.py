@@ -1814,10 +1814,10 @@ elif menu == "生產單管理":
     
     df_recipe = st.session_state.df_recipe
 
-    def clean_powder_id(x):
-        if pd.isna(x) or x == "":
+    def clean_str(val):
+        if pd.isna(val) or val == "":
             return ""
-        return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
+        return str(val).strip().replace('\u3000', '').upper()  # 去空白、全形空白、轉大寫
     
     def fix_leading_zero(x):
         x = str(x).strip()
