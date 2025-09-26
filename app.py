@@ -1653,18 +1653,18 @@ except Exception as e:
                         st.session_state.show_edit_recipe_panel = False
                         st.rerun()
 
+# 頁面最下方手動載入按鈕
+st.markdown("---")
+if st.button("📥 重新載入配方資料"):
+    st.session_state.df_recipe = load_recipe_data()
+    st.success("配方資料已重新載入！")
+    st.experimental_rerun()
     # 頁面最下方手動載入按鈕
     st.markdown("---")
     if st.button("📥 重新載入配方資料"):
         st.session_state.df_recipe = load_recipe_data()
         st.success("配方資料已重新載入！")
-        st.experimental_rerun()
-        # 頁面最下方手動載入按鈕
-        st.markdown("---")
-        if st.button("📥 重新載入配方資料"):
-            st.session_state.df_recipe = load_recipe_data()
-            st.success("配方資料已重新載入！")
-            st.experimental_rerun()  # 重新載入頁面，更新資料
+        st.experimental_rerun()  # 重新載入頁面，更新資料
             
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
