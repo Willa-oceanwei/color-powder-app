@@ -708,21 +708,37 @@ elif menu == "配方管理":
     import streamlit as st
 
     # ------------------- 配方資料初始化 -------------------
-    from pathlib import Path
-    import pandas as pd
-    import streamlit as st
-
-    # 統一清理字串函式
-    def clean_str(val):
-        if pd.isna(val) or val == "":
-            return ""
-        return str(val).strip().replace('\u3000', '').upper()  # 去空白+全形空白+轉大寫
-
     # 初始化 session_state
     if "df_recipe" not in st.session_state:
         st.session_state.df_recipe = pd.DataFrame()
     if "trigger_load_recipe" not in st.session_state:
         st.session_state.trigger_load_recipe = False
+    
+    def load_recipe_data():
+        """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
+        try:
+            ws_recipe = spreadsheet.worksheet("配方資料")
+            df_loaded = pd.DataFrame(ws_recipe.get_all_records())
+            if not df_loaded.empty:
+                return df_loaded
+        except Exception as e:
+            st.warning(f"Google Sheet 載入失敗：{e}")
+    
+        # 回退 CSV
+        order_file = Path("data/df_recipe.csv")
+        if order_file.exists():
+            try:
+                df_csv = pd.read_csv(order_file)
+                if not df_csv.empty:
+                    return df_csv
+            except Exception as e:
+                st.error(f"CSV 載入失敗：{e}")
+    
+        # 都失敗時，回傳空 df
+        return pd.DataFrame()
+    
+    # 統一使用 df_recipe
+    df_recipe = st.session_state.df_recipe
 
     # 預期欄位
     columns = [
@@ -754,63 +770,56 @@ elif menu == "配方管理":
     if st.session_state.form_recipe is None:
         st.session_state.form_recipe = {col: "" for col in columns}
 
-    # ------------------- 載入配方資料 -------------------
-    def load_recipe_data():
-        df = pd.DataFrame()
+    # ✅ 如果還是空的，顯示提示
+    if df_recipe.empty:
+        st.error("⚠️ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
+    # 讀取表單
+    try:
+        df = pd.DataFrame(ws_recipe.get_all_records())
+    except:
+        df = pd.DataFrame(columns=columns)
 
-        # 1. 嘗試從 Google Sheet 載入
+    df = df.astype(str)
+    for col in columns:
+        if col not in df.columns:
+            df[col] = ""
+
+    import streamlit as st
+
+    if "df" not in st.session_state:
         try:
-            ws_recipe = spreadsheet.worksheet("配方管理")
             df = pd.DataFrame(ws_recipe.get_all_records())
-            if not df.empty:
-                for col in df.columns:
-                    df[col] = df[col].apply(clean_str)
-                # 確保特定欄位正確
-                for c in ["配方編號", "原始配方", "客戶名稱"]:
-                    if c in df.columns:
-                        df[c] = df[c].apply(clean_str)
-                return df
-        except Exception as e:
-            st.warning(f"Google Sheet 載入失敗：{e}")
+        except:
+            df = pd.DataFrame(columns=columns)
 
-        # 2. 回退 CSV
-        csv_file = Path("data/df_recipe.csv")
-        if csv_file.exists():
-            try:
-                df = pd.read_csv(csv_file)
-                for col in df.columns:
-                    df[col] = df[col].apply(clean_str)
-                for c in ["配方編號", "原始配方", "客戶名稱"]:
-                    if c in df.columns:
-                        df[c] = df[c].apply(clean_str)
-                return df
-            except Exception as e:
-                st.error(f"CSV 載入失敗：{e}")
+        df = df.astype(str)
+        for col in columns:
+            if col not in df.columns:
+                df[col] = ""
+        st.session_state.df = df# 儲存進 session_state
+    
+    # ✅ 後續操作都從 session_state 中抓資料
 
-        # 3. 都失敗，回傳空 df
-        st.warning("⚠️ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
-        return pd.DataFrame()
-
-    # 實際載入資料到 session_state
-    if st.session_state.df_recipe.empty:
-        st.session_state.df_recipe = load_recipe_data()
-
-    # 後續統一使用 session_state.df_recipe
-    df_recipe = st.session_state.df_recipe
-
-# ------------------- 載入色粉管理清單 -------------------
-try:
-    ws_powder = spreadsheet.worksheet("色粉管理")
-    df_powders = pd.DataFrame(ws_powder.get_all_records())
-    if "色粉編號" not in df_powders.columns:
-        st.error("❌ 色粉管理表缺少『色粉編號』欄位")
+    #-------
+    df = st.session_state.df
+    # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
+    def clean_powder_id(x):
+        s = str(x).replace('\u3000', '').replace(' ', '').strip().upper()
+        return s
+    
+    # 讀取色粉管理清單
+    try:
+        ws_powder = spreadsheet.worksheet("色粉管理")
+        df_powders = pd.DataFrame(ws_powder.get_all_records())
+        if "色粉編號" not in df_powders.columns:
+            st.error("❌ 色粉管理表缺少『色粉編號』欄位")
+            existing_powders = set()
+        else:
+            existing_powders = set(df_powders["色粉編號"].map(clean_powder_id).unique())
+            
+    except Exception as e:
+        st.warning(f"⚠️ 無法載入色粉管理：{e}")
         existing_powders = set()
-    else:
-        existing_powders = set(df_powders["色粉編號"].apply(clean_str).unique())
-except Exception as e:
-    st.warning(f"⚠️ 無法載入色粉管理：{e}")
-    existing_powders = set()
-
         
     st.markdown("""
     <style>
@@ -902,7 +911,7 @@ except Exception as e:
     
     # 清理配方編號（保持字串格式且不轉成數字）
     if "配方編號" in df_loaded.columns:
-        df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map((clean_str))
+        df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map(clean_powder_id)
     
     st.session_state.df = df_loaded
     
@@ -1146,7 +1155,7 @@ except Exception as e:
         missing_powders = []
         for i in range(1, st.session_state.num_powder_rows + 1):
             pid_raw = fr.get(f"色粉編號{i}", "")
-            pid = clean_str(pid_raw)
+            pid = clean_powder_id(pid_raw)
             if pid and pid not in existing_powders:
                 missing_powders.append(pid_raw)
     
@@ -1653,18 +1662,18 @@ except Exception as e:
                         st.session_state.show_edit_recipe_panel = False
                         st.rerun()
 
-# 頁面最下方手動載入按鈕
-st.markdown("---")
-if st.button("📥 重新載入配方資料"):
-    st.session_state.df_recipe = load_recipe_data()
-    st.success("配方資料已重新載入！")
-    st.experimental_rerun()
     # 頁面最下方手動載入按鈕
     st.markdown("---")
     if st.button("📥 重新載入配方資料"):
         st.session_state.df_recipe = load_recipe_data()
         st.success("配方資料已重新載入！")
-        st.experimental_rerun()  # 重新載入頁面，更新資料
+        st.experimental_rerun()
+        # 頁面最下方手動載入按鈕
+        st.markdown("---")
+        if st.button("📥 重新載入配方資料"):
+            st.session_state.df_recipe = load_recipe_data()
+            st.success("配方資料已重新載入！")
+            st.experimental_rerun()  # 重新載入頁面，更新資料
             
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
@@ -1692,10 +1701,10 @@ elif menu == "生產單管理":
     order_file = Path("data/df_order.csv")
 
     # 清理函式：去除空白、全形空白，轉大寫
-    def clean_str(val):
-        if pd.isna(val) or val == "":
+    def clean_powder_id(x):
+        if pd.isna(x) or x == "":
             return ""
-        return str(val).strip().replace('\u3000', '').upper()  # 去空白+全形空白+轉大寫
+        return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
     
     # 補足前導零（僅針對純數字且長度<4的字串）
     def fix_leading_zero(x):
@@ -1705,7 +1714,7 @@ elif menu == "生產單管理":
         return x.upper()
         
     def normalize_search_text(text):
-        return fix_leading_zero(clean_str(text))
+        return fix_leading_zero(clean_powder_id(text))
     
     # 先嘗試取得 Google Sheet 兩個工作表 ws_recipe、ws_order
     try:
@@ -1724,11 +1733,11 @@ elif menu == "生產單管理":
     
         if "配方編號" in df_recipe.columns:
             # 先清理再補零
-            df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_str(x)))
+            df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
         if "客戶名稱" in df_recipe.columns:
-            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_str)
+            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
         if "原始配方" in df_recipe.columns:
-            df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_str)
+            df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
     
         st.session_state.df_recipe = df_recipe
     except Exception as e:
@@ -1770,7 +1779,7 @@ elif menu == "生產單管理":
     if "建立時間" in df_order.columns:
         df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
     if "配方編號" in df_order.columns:
-        df_order["配方編號"] = df_order["配方編號"].map(clean_str)
+        df_order["配方編號"] = df_order["配方編號"].map(clean_powder_id)
     
     # 初始化 session_state 用的 key
     for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "show_confirm_panel"]:
@@ -1784,10 +1793,10 @@ elif menu == "生產單管理":
         return label
     
     # 先定義清理函式
-    def clean_str(val):
-        if pd.isna(val) or val == "":
+    def clean_powder_id(x):
+        if pd.isna(x) or x == "":
             return ""
-        return str(val).strip().replace('\u3000', '').upper()  # 去空白、全形空白、轉大寫
+        return str(x).strip().upper()  # 去除空白+轉大寫
     
     # 載入配方管理表時做清理（載入區塊示範）
     try:
@@ -1796,7 +1805,7 @@ elif menu == "生產單管理":
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
         if "配方編號" in df_recipe.columns:
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_str)
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
         st.session_state.df_recipe = df_recipe
     except Exception as e:
         st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
@@ -1804,10 +1813,10 @@ elif menu == "生產單管理":
     
     df_recipe = st.session_state.df_recipe
 
-    def clean_str(val):
-        if pd.isna(val) or val == "":
+    def clean_powder_id(x):
+        if pd.isna(x) or x == "":
             return ""
-        return str(val).strip().replace('\u3000', '').upper()  # 去空白、全形空白、轉大寫
+        return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
     
     def fix_leading_zero(x):
         x = str(x).strip()
@@ -1816,7 +1825,7 @@ elif menu == "生產單管理":
         return x.upper()
     
     def normalize_search_text(text):
-        return fix_leading_zero(clean_str(text))
+        return fix_leading_zero(clean_powder_id(text))
     
     # Streamlit UI 搜尋表單
     with st.form("search_add_form", clear_on_submit=False):
@@ -1833,7 +1842,7 @@ elif menu == "生產單管理":
         search_text_upper = search_text.strip().upper()
     
         if search_text_normalized:
-            df_recipe["_配方編號標準"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_str(x)))
+            df_recipe["_配方編號標準"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
     
             if exact:
                 filtered = df_recipe[
