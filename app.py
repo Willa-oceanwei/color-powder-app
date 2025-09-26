@@ -445,17 +445,22 @@ SHEET_NAME = "配方管理"  # 你的 Google Sheet 工作表名稱
 
 def save_recipe_data(df):
     try:
+        # --- 先處理 NaN / inf，轉成字串安全格式 ---
+        clean_df = df.fillna("").replace([float("inf"), float("-inf")], "")
+
         # 1. 存到 Google Sheet
         ws = spreadsheet.worksheet(SHEET_NAME)
         ws.clear()
-        ws.update([df.columns.tolist()] + df.fillna("").astype(str).values.tolist())
+        ws.update([clean_df.columns.tolist()] + clean_df.astype(str).values.tolist())
 
         # 2. 存到 CSV 備份
-        df.to_csv(CSV_PATH, index=False, encoding="utf-8-sig")
+        clean_df.to_csv(CSV_PATH, index=False, encoding="utf-8-sig")
+
+        st.success("✅ 已同步到 Google Sheet 與 CSV")
 
     except Exception as e:
         st.error(f"❌ 儲存失敗：{e}")
-
+        
 # ======== 色粉管理 =========
 if menu == "色粉管理":
     worksheet = spreadsheet.worksheet("色粉管理")
