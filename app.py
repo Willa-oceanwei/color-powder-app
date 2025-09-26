@@ -717,7 +717,7 @@ elif menu == "配方管理":
     def load_recipe_data():
         """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
         try:
-            ws_recipe = spreadsheet.worksheet("配方資料")
+            ws_recipe = spreadsheet.worksheet("配方管理")
             df_loaded = pd.DataFrame(ws_recipe.get_all_records())
             if not df_loaded.empty:
                 return df_loaded
