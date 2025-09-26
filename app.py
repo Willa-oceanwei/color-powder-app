@@ -1156,7 +1156,7 @@ elif menu == "配方管理":
         missing_powders = []
         for i in range(1, st.session_state.num_powder_rows + 1):
             pid_raw = fr.get(f"色粉編號{i}", "")
-            pid = clean_powder_id(pid_raw)
+            pid = clean_str(pid_raw)
             if pid and pid not in existing_powders:
                 missing_powders.append(pid_raw)
     
