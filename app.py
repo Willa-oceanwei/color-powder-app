@@ -708,74 +708,37 @@ elif menu == "配方管理":
     import streamlit as st
 
     # ------------------- 配方資料初始化 -------------------
-    from pathlib import Path
-    import pandas as pd
-    import streamlit as st
-
-    def clean_str(val):
-        if pd.isna(val):
-            return ""
-        return str(val).strip()
-
-    def fix_recipe_id(val):
-        val = clean_str(val)
-        if val.isdigit() and len(val) < 4:
-            val = val.zfill(4)
-        return val.upper()
-
-    def load_recipe_data():
-        """嘗試依序載入配方資料：Google Sheet > CSV > 空 DataFrame"""
-        df = pd.DataFrame()
-
-        # 1. 嘗試 Google Sheet
-        try:
-            ws_recipe = spreadsheet.worksheet("配方管理")  # ←確認工作表名稱
-            df = pd.DataFrame(ws_recipe.get_all_records())
-            if not df.empty:
-                for col in df.columns:
-                    df[col] = df[col].apply(clean_str)
-                if "配方編號" in df.columns:
-                    df["配方編號"] = df["配方編號"].apply(fix_recipe_id)
-                if "原始配方" in df.columns:
-                    df["原始配方"] = df["原始配方"].apply(fix_recipe_id)
-                if "客戶名稱" in df.columns:
-                    df["客戶名稱"] = df["客戶名稱"].apply(clean_str)
-                return df
-        except Exception as e:
-            st.warning(f"Google Sheet 載入失敗：{e}")
-
-        # 2. 回退 CSV
-        recipe_file = Path("data/df_recipe.csv")
-        if recipe_file.exists():
-            try:
-                df = pd.read_csv(recipe_file)
-                if not df.empty:
-                    for col in df.columns:
-                        df[col] = df[col].apply(clean_str)
-                    if "配方編號" in df.columns:
-                        df["配方編號"] = df["配方編號"].apply(fix_recipe_id)
-                    if "原始配方" in df.columns:
-                        df["原始配方"] = df["原始配方"].apply(fix_recipe_id)
-                    if "客戶名稱" in df.columns:
-                        df["客戶名稱"] = df["客戶名稱"].apply(clean_str)
-                    return df
-            except Exception as e:
-                st.error(f"CSV 載入失敗：{e}")
-
-        # 3. 都失敗，回傳空 df
-        st.warning("⚠️ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
-        return pd.DataFrame()
-
-    # --- 初始化 session_state ---
+    # 初始化 session_state
     if "df_recipe" not in st.session_state:
-        st.session_state.df_recipe = load_recipe_data()
-
+        st.session_state.df_recipe = pd.DataFrame()
     if "trigger_load_recipe" not in st.session_state:
         st.session_state.trigger_load_recipe = False
-
-    # 統一使用 session_state
+    
+    def load_recipe_data():
+        """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
+        try:
+            ws_recipe = spreadsheet.worksheet("配方資料")
+            df_loaded = pd.DataFrame(ws_recipe.get_all_records())
+            if not df_loaded.empty:
+                return df_loaded
+        except Exception as e:
+            st.warning(f"Google Sheet 載入失敗：{e}")
+    
+        # 回退 CSV
+        order_file = Path("data/df_recipe.csv")
+        if order_file.exists():
+            try:
+                df_csv = pd.read_csv(order_file)
+                if not df_csv.empty:
+                    return df_csv
+            except Exception as e:
+                st.error(f"CSV 載入失敗：{e}")
+    
+        # 都失敗時，回傳空 df
+        return pd.DataFrame()
+    
+    # 統一使用 df_recipe
     df_recipe = st.session_state.df_recipe
-
 
     # 預期欄位
     columns = [
@@ -1830,32 +1793,25 @@ elif menu == "生產單管理":
         return label
     
     # 先定義清理函式
-    def clean_str(val):
-        """清理欄位值：NaN 轉空字串，去除空白，轉大寫"""
-        if pd.isna(val):
+    def clean_powder_id(x):
+        if pd.isna(x) or x == "":
             return ""
-        return str(val).strip().replace('\u3000', '').replace(' ', '').upper()
-
-    # 載入配方管理表並做清理
+        return str(x).strip().upper()  # 去除空白+轉大寫
+    
+    # 載入配方管理表時做清理（載入區塊示範）
     try:
         records = ws_recipe.get_all_records()
         df_recipe = pd.DataFrame(records)
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
-    
-        # 安全清理重要欄位
-        for col in ["配方編號", "原始配方", "客戶名稱"]:
-            if col in df_recipe.columns:
-                df_recipe[col] = df_recipe[col].apply(clean_str)
-    
+        if "配方編號" in df_recipe.columns:
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
         st.session_state.df_recipe = df_recipe
     except Exception as e:
         st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
         st.stop()
-
-    # 統一使用 session_state
+    
     df_recipe = st.session_state.df_recipe
-
 
     def clean_powder_id(x):
         if pd.isna(x) or x == "":
