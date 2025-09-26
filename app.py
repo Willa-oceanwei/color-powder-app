@@ -1761,8 +1761,8 @@ elif menu == "生產單管理":
         if "配方編號" in df_recipe.columns:
             df_recipe["配方編號"] = (
                 df_recipe["配方編號"]
-                .fillna("")                  # 先補空值
-                .astype(str)                 # 全部轉字串
+                .fillna("")
+                .astype(str)
                 .map(lambda x: fix_leading_zero(clean_powder_id(x)))
             )
 
@@ -1773,6 +1773,20 @@ elif menu == "生產單管理":
                 .astype(str)
                 .map(clean_powder_id)
             )
+
+        if "原始配方" in df_recipe.columns:
+            df_recipe["原始配方"] = (
+                df_recipe["原始配方"]
+                .fillna("")
+                .astype(str)
+                .map(clean_powder_id)
+            )
+
+        st.session_state.df_recipe = df_recipe
+
+    except Exception as e:
+        st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
+        st.stop()
     
     # 載入生產單表
     try:
