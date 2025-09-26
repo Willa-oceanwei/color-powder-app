@@ -1494,7 +1494,10 @@ elif menu == "配方管理":
     if not df_recipe.empty and "配方編號" in df_recipe.columns:
         # 先確保欄位都是字串，NaN 也轉成空字串
         df_recipe['配方編號'] = df_recipe['配方編號'].fillna('').astype(str)
-        only_code = str(only_code)
+
+        # 確保 only_code 有值
+        if 'only_code' not in locals() or only_code is None:
+            only_code = ''
 
         # 找出對應的 index
         matches = df_recipe.index[df_recipe["配方編號"] == only_code]
