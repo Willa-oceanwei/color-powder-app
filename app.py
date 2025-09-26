@@ -1755,39 +1755,27 @@ elif menu == "生產單管理":
     try:
         records = ws_recipe.get_all_records()
         df_recipe = pd.DataFrame(records)
-        df_recipe.columns = df_recipe.columns.str.strip()
-        df_recipe.fillna("", inplace=True)
 
+        # 欄名全部轉字串再 strip
+        df_recipe.columns = df_recipe.columns.map(lambda x: str(x).strip())
+    
+        # 內容 NaN → ""，再轉字串
+        df_recipe = df_recipe.fillna("").astype(str)
+
+        # 再做進一步清理
         if "配方編號" in df_recipe.columns:
-            df_recipe["配方編號"] = (
-                df_recipe["配方編號"]
-                .fillna("")
-                .astype(str)
-                .map(lambda x: fix_leading_zero(clean_powder_id(x)))
-            )
-
+            df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
         if "客戶名稱" in df_recipe.columns:
-            df_recipe["客戶名稱"] = (
-                df_recipe["客戶名稱"]
-                .fillna("")
-                .astype(str)
-                .map(clean_powder_id)
-            )
-
+            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
         if "原始配方" in df_recipe.columns:
-            df_recipe["原始配方"] = (
-                df_recipe["原始配方"]
-                .fillna("")
-                .astype(str)
-                .map(clean_powder_id)
-            )
+            df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
 
         st.session_state.df_recipe = df_recipe
 
     except Exception as e:
         st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
         st.stop()
-    
+
     # 載入生產單表
     try:
         existing_values = ws_order.get_all_values()
