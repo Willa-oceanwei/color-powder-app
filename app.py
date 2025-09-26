@@ -803,9 +803,10 @@ elif menu == "配方管理":
     #-------
     df = st.session_state.df
     # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
-    def clean_powder_id(x):
-        s = str(x).replace('\u3000', '').replace(' ', '').strip().upper()
-        return s
+    def clean_str(val):
+        if pd.isna(val) or val == "":
+            return ""
+        return str(val).strip().replace('\u3000', '').upper()
     
     # 讀取色粉管理清單
     try:
@@ -815,7 +816,7 @@ elif menu == "配方管理":
             st.error("❌ 色粉管理表缺少『色粉編號』欄位")
             existing_powders = set()
         else:
-            existing_powders = set(df_powders["色粉編號"].map(clean_powder_id).unique())
+            existing_powders = set(df_powders["色粉編號"].map(clean_str).unique())
             
     except Exception as e:
         st.warning(f"⚠️ 無法載入色粉管理：{e}")
@@ -1701,10 +1702,10 @@ elif menu == "生產單管理":
     order_file = Path("data/df_order.csv")
 
     # 清理函式：去除空白、全形空白，轉大寫
-    def clean_powder_id(x):
-        if pd.isna(x) or x == "":
+    def clean_str(val):
+        if pd.isna(val) or val == "":
             return ""
-        return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
+        return str(val).strip().replace('\u3000', '').upper()  # 去空白+全形空白+轉大寫
     
     # 補足前導零（僅針對純數字且長度<4的字串）
     def fix_leading_zero(x):
