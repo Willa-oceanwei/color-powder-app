@@ -710,6 +710,7 @@ elif menu == "配方管理":
     # ------------------- 配方資料初始化 -------------------
     from pathlib import Path
     import pandas as pd
+    import streamlit as st
 
     def clean_str(val):
         if pd.isna(val):
@@ -725,15 +726,14 @@ elif menu == "配方管理":
     def load_recipe_data():
         """嘗試依序載入配方資料：Google Sheet > CSV > 空 DataFrame"""
         df = pd.DataFrame()
-        # 1. 嘗試載入 Google Sheet
+
+        # 1. 嘗試 Google Sheet
         try:
-            ws_recipe = spreadsheet.worksheet("配方資料")  # ←確認你的工作表名稱正確
+            ws_recipe = spreadsheet.worksheet("配方資料")  # ←確認工作表名稱
             df = pd.DataFrame(ws_recipe.get_all_records())
             if not df.empty:
-                # 清理欄位
                 for col in df.columns:
-                    if df[col].dtype == object:
-                        df[col] = df[col].apply(clean_str)
+                    df[col] = df[col].apply(clean_str)
                 if "配方編號" in df.columns:
                     df["配方編號"] = df["配方編號"].apply(fix_recipe_id)
                 if "原始配方" in df.columns:
@@ -750,10 +750,8 @@ elif menu == "配方管理":
             try:
                 df = pd.read_csv(recipe_file)
                 if not df.empty:
-                    # 同樣清理欄位
                     for col in df.columns:
-                        if df[col].dtype == object:
-                            df[col] = df[col].apply(clean_str)
+                        df[col] = df[col].apply(clean_str)
                     if "配方編號" in df.columns:
                         df["配方編號"] = df["配方編號"].apply(fix_recipe_id)
                     if "原始配方" in df.columns:
@@ -768,15 +766,16 @@ elif menu == "配方管理":
         st.warning("⚠️ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
         return pd.DataFrame()
 
-
     # --- 初始化 session_state ---
     if "df_recipe" not in st.session_state:
         st.session_state.df_recipe = load_recipe_data()
+
     if "trigger_load_recipe" not in st.session_state:
         st.session_state.trigger_load_recipe = False
 
-    # 統一使用
+    # 統一使用 session_state
     df_recipe = st.session_state.df_recipe
+
 
     # 預期欄位
     columns = [
