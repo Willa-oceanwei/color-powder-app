@@ -1757,19 +1757,22 @@ elif menu == "生產單管理":
         df_recipe = pd.DataFrame(records)
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
-    
+
         if "配方編號" in df_recipe.columns:
-            # 先清理再補零
-            df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
+            df_recipe["配方編號"] = (
+                df_recipe["配方編號"]
+                .fillna("")                  # 先補空值
+                .astype(str)                 # 全部轉字串
+                .map(lambda x: fix_leading_zero(clean_powder_id(x)))
+            )
+
         if "客戶名稱" in df_recipe.columns:
-            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
-        if "原始配方" in df_recipe.columns:
-            df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
-    
-        st.session_state.df_recipe = df_recipe
-    except Exception as e:
-        st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
-        st.stop()
+            df_recipe["客戶名稱"] = (
+                df_recipe["客戶名稱"]
+                .fillna("")
+                .astype(str)
+                .map(clean_powder_id)
+            )
     
     # 載入生產單表
     try:
