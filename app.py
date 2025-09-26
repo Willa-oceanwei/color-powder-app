@@ -1794,10 +1794,10 @@ elif menu == "生產單管理":
         return label
     
     # 先定義清理函式
-    def clean_powder_id(x):
-        if pd.isna(x) or x == "":
+    def clean_str(val):
+        if pd.isna(val) or val == "":
             return ""
-        return str(x).strip().upper()  # 去除空白+轉大寫
+        return str(val).strip().replace('\u3000', '').upper()  # 去空白、全形空白、轉大寫
     
     # 載入配方管理表時做清理（載入區塊示範）
     try:
