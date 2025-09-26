@@ -440,27 +440,6 @@ def init_states(keys):
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
-CSV_PATH = "data/recipes.csv"
-SHEET_NAME = "配方管理"  # 你的 Google Sheet 工作表名稱
-
-def save_recipe_data(df):
-    try:
-        # --- 先處理 NaN / inf，轉成字串安全格式 ---
-        clean_df = df.fillna("").replace([float("inf"), float("-inf")], "")
-
-        # 1. 存到 Google Sheet
-        ws = spreadsheet.worksheet(SHEET_NAME)
-        ws.clear()
-        ws.update([clean_df.columns.tolist()] + clean_df.astype(str).values.tolist())
-
-        # 2. 存到 CSV 備份
-        clean_df.to_csv(CSV_PATH, index=False, encoding="utf-8-sig")
-
-        st.success("✅ 已同步到 Google Sheet 與 CSV")
-
-    except Exception as e:
-        st.error(f"❌ 儲存失敗：{e}")
-        
 # ======== 色粉管理 =========
 if menu == "色粉管理":
     worksheet = spreadsheet.worksheet("色粉管理")
@@ -1672,22 +1651,11 @@ elif menu == "配方管理":
                 cols_edit = st.columns([1, 1])
                 with cols_edit[0]:
                     if st.button("💾 儲存修改", key="save_edit_recipe_btn"):
+                        # 更新 df_recipe
                         for k, v in fr.items():
                             df_recipe.at[idx, k] = v
-
-                        st.session_state.df_recipe = df_recipe
-
-                        try:
-                            save_recipe_data(df_recipe)   # ✅ 存到 Google Sheet + CSV
-                            st.success("✅ 配方已更新並同步至 Google Sheet！")
-                        except Exception as e:
-                            st.error(f"❌ 配方更新失敗：{e}")
-
                         st.session_state.show_edit_recipe_panel = False
-                        st.rerun()
-
-                        # 關閉修改面板並刷新
-                        st.session_state.show_edit_recipe_panel = False
+                        st.success("✅ 配方已更新")
                         st.rerun()
                 with cols_edit[1]:
                     if st.button("返回", key="return_edit_recipe_btn"):
@@ -1700,7 +1668,12 @@ elif menu == "配方管理":
         st.session_state.df_recipe = load_recipe_data()
         st.success("配方資料已重新載入！")
         st.experimental_rerun()
-        
+        # 頁面最下方手動載入按鈕
+        st.markdown("---")
+        if st.button("📥 重新載入配方資料"):
+            st.session_state.df_recipe = load_recipe_data()
+            st.success("配方資料已重新載入！")
+            st.experimental_rerun()  # 重新載入頁面，更新資料
             
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
@@ -1755,27 +1728,22 @@ elif menu == "生產單管理":
     try:
         records = ws_recipe.get_all_records()
         df_recipe = pd.DataFrame(records)
-
-        # 欄名全部轉字串再 strip
-        df_recipe.columns = df_recipe.columns.map(lambda x: str(x).strip())
+        df_recipe.columns = df_recipe.columns.str.strip()
+        df_recipe.fillna("", inplace=True)
     
-        # 內容 NaN → ""，再轉字串
-        df_recipe = df_recipe.fillna("").astype(str)
-
-        # 再做進一步清理
         if "配方編號" in df_recipe.columns:
+            # 先清理再補零
             df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
         if "客戶名稱" in df_recipe.columns:
             df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
         if "原始配方" in df_recipe.columns:
             df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
-
+    
         st.session_state.df_recipe = df_recipe
-
     except Exception as e:
         st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
         st.stop()
-
+    
     # 載入生產單表
     try:
         existing_values = ws_order.get_all_values()
@@ -2643,7 +2611,7 @@ elif menu == "生產單管理":
         # checkbox 狀態
         show_ids_key = f"show_ids_checkbox_{selected_order['生產單號']}"
         if show_ids_key not in st.session_state:
-            st.session_state[show_ids_key] = False
+            st.session_state[show_ids_key] = True
 
         show_ids = st.checkbox(
             "預覽時顯示附加配方編號",
