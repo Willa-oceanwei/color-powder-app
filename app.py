@@ -1715,7 +1715,7 @@ elif menu == "生產單管理":
         return x.upper()
         
     def normalize_search_text(text):
-        return fix_leading_zero(clean_powder_id(text))
+        return fix_leading_zero(clean_str(text))
     
     # 先嘗試取得 Google Sheet 兩個工作表 ws_recipe、ws_order
     try:
@@ -1734,11 +1734,11 @@ elif menu == "生產單管理":
     
         if "配方編號" in df_recipe.columns:
             # 先清理再補零
-            df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
+            df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_str(x)))
         if "客戶名稱" in df_recipe.columns:
-            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
+            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_str)
         if "原始配方" in df_recipe.columns:
-            df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
+            df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_str)
     
         st.session_state.df_recipe = df_recipe
     except Exception as e:
