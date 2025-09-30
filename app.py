@@ -1657,31 +1657,78 @@ elif menu == "配方管理":
 
                 # 儲存 / 返回
                 cols_edit = st.columns([1, 1])
+                
+                import traceback
+
                 with cols_edit[0]:
                     if st.button("💾 儲存修改", key="save_edit_recipe_btn"):
-                        # 更新 df_recipe
+                        # 先把畫面 fr 的值寫回 df_recipe（記憶體）
                         for k, v in fr.items():
                             df_recipe.at[idx, k] = v
 
-                            # ====== 寫回 Google Sheet ======
                         try:
                             ws_recipe = spreadsheet.worksheet("配方管理")
 
-                            row_num = idx + 2  # DataFrame index -> Sheet row
-                            col_num = len(df_recipe.columns)  # 總欄數
-                            last_col_letter = chr(64 + col_num)  # 轉成 A, B, C...
+                            # 讀試算表表頭（以表頭順序為寫回依據）
+                            header = ws_recipe.row_values(1)
+                            if not header:
+                                st.error("❌ 試算表第一列（表頭）為空，無法寫入")
+                            else:
+                                # 找出在試算表中該筆資料的實際 row（以配方編號匹配）
+                                recipe_id = str(df_recipe.at[idx, "配方編號"]) if "配方編號" in df_recipe.columns else ""
+                                row_num = idx + 2  # 預設回退值（DataFrame index -> sheet row）
 
-                            # 轉成二維 list，並把 None 轉成 ""
-                            values = [[str(df_recipe.at[idx, col]) if pd.notna(df_recipe.at[idx, col]) else "" 
-                                       for col in df_recipe.columns]]
+                                if "配方編號" in header and recipe_id:
+                                    id_col_index = header.index("配方編號") + 1  # 1-based
+                                    col_vals = ws_recipe.col_values(id_col_index)  # 包含 header
+                                    try:
+                                        found_list_index = col_vals.index(recipe_id)  # 0-based index in list
+                                        row_num = found_list_index + 1  # sheet row = list_index + 1
+                                    except ValueError:
+                                        # 沒找到就使用預設 idx+2
+                                        row_num = idx + 2
 
-                            # 更新範圍
-                            ws_recipe.update(f"A{row_num}:{last_col_letter}{row_num}", values)
+                                # 依 header 順序組 values，確保為二維 list，且把 None 轉成空字串
+                                values_row = [
+                                    str(df_recipe.at[idx, col]) if (col in df_recipe.columns and pd.notna(df_recipe.at[idx, col])) else ""
+                                    for col in header
+                                ]
 
-                            st.success("✅ 配方已更新並寫入 Google Sheet")
+                                # helper: 欄號 -> Excel 欄字母 (支援 > 26)
+                                def colnum_to_letter(n):
+                                    s = ""
+                                    while n > 0:
+                                        n, r = divmod(n - 1, 26)
+                                        s = chr(65 + r) + s
+                                    return s
+
+                                last_col_letter = colnum_to_letter(len(header))
+                                range_a1 = f"A{row_num}:{last_col_letter}{row_num}"
+
+                                # 主要更新方式
+                                ws_recipe.update(range_a1, [values_row])
+                                st.success("✅ 配方已更新並寫入 Google Sheet")
+
                         except Exception as e:
-                            st.error(f"❌ 儲存到 Google Sheet 失敗：{e}")
+                            # 顯示完整錯誤供排查
+                            st.error(f"❌ 儲存到 Google Sheet 失敗：{type(e).__name__} {e}")
+                            st.text(traceback.format_exc())
 
+                            # 備援寫法：用 update_cells（逐格更新）
+                            try:
+                                header_len = len(header) if 'header' in locals() else len(df_recipe.columns)
+                                last_col_num = header_len
+                                # 構造 cell 物件範圍
+                                cell_list = ws_recipe.range(row_num, 1, row_num, last_col_num)
+                                for i, cell in enumerate(cell_list):
+                                    cell.value = values_row[i] if i < len(values_row) else ""
+                                ws_recipe.update_cells(cell_list)
+                                st.success("✅ 備援寫入 (update_cells) 成功")
+                            except Exception as e2:
+                                st.error(f"❌ 備援寫入也失敗：{type(e2).__name__} {e2}")
+                                st.text(traceback.format_exc())
+
+                        # 關閉編輯面板 & 重新載入
                         st.session_state.show_edit_recipe_panel = False
                         st.rerun()
 
