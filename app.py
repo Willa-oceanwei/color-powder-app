@@ -1663,27 +1663,28 @@ elif menu == "配方管理":
                         for k, v in fr.items():
                             df_recipe.at[idx, k] = v
 
-                        # ====== 寫回 Google Sheet ======
+                            # ====== 寫回 Google Sheet ======
                         try:
-                            # 找到對應的 worksheet
                             ws_recipe = spreadsheet.worksheet("配方管理")
 
-                            # Google Sheet 的行號（+2 是因為 gspread 1-based 且有表頭）
-                            row_num = idx + 2  
+                            row_num = idx + 2  # DataFrame index -> Sheet row
+                            col_num = len(df_recipe.columns)  # 總欄數
+                            last_col_letter = chr(64 + col_num)  # 轉成 A, B, C...
 
-                            # 把這一行的資料轉換成 list，順序跟 Sheet 一樣
-                            values = [df_recipe.at[idx, col] for col in df_recipe.columns]
+                            # 轉成二維 list，並把 None 轉成 ""
+                            values = [[str(df_recipe.at[idx, col]) if pd.notna(df_recipe.at[idx, col]) else "" 
+                                       for col in df_recipe.columns]]
 
-                            # 一次更新整行
-                            ws_recipe.update(f"A{row_num}:{chr(65+len(df_recipe.columns)-1)}{row_num}", [values])
+                            # 更新範圍
+                            ws_recipe.update(f"A{row_num}:{last_col_letter}{row_num}", values)
 
                             st.success("✅ 配方已更新並寫入 Google Sheet")
                         except Exception as e:
                             st.error(f"❌ 儲存到 Google Sheet 失敗：{e}")
 
-                        # 關閉編輯面板 & rerun
                         st.session_state.show_edit_recipe_panel = False
                         st.rerun()
+
                 with cols_edit[1]:
                     if st.button("返回", key="return_edit_recipe_btn"):
                         st.session_state.show_edit_recipe_panel = False
