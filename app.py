@@ -3764,13 +3764,22 @@ if menu == "庫存區":
             in_qty_prior = 0
             usage_prior = 0
 
-            if not df_pid.empty:
-                ini_mask = df_pid["日期"] < s_dt_eff
-                ini_qty_g = df_pid[ini_mask & (df_pid["類型"]=="初始")]["數量_g"].sum()
-                in_qty_prior = df_pid[ini_mask & (df_pid["類型"]=="進貨")]["數量_g"].sum()
-                if df_pid["日期"].notna().any():
-                    usage_prior = calc_usage_for_stock(pid, df_order, df_recipe, df_pid["日期"].min(), s_dt_eff - pd.Timedelta(days=1))
+            # 先確保日期欄位是 datetime，空值補 1970-01-01
+            df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce").fillna(pd.Timestamp("1970-01-01"))
 
+            # 區間起日 / 結束日
+            s_dt_eff = s_dt if s_dt is not None else pd.Timestamp("1970-01-01")
+            e_dt_eff = e_dt if e_dt is not None else pd.Timestamp.today().normalize()
+
+            # 期初庫存 = 區間起日之前的累計 (初始 + 進貨 - 用量)
+            ini_mask = df_pid["日期"] < s_dt_eff
+            ini_qty_g = df_pid[ini_mask & (df_pid["類型"]=="初始")]["數量_g"].sum()
+            in_qty_prior = df_pid[ini_mask & (df_pid["類型"]=="進貨")]["數量_g"].sum()
+
+            usage_prior = 0
+            if df_pid["日期"].notna().any():
+                usage_prior = calc_usage_for_stock(pid, df_order, df_recipe, df_pid["日期"].min(), s_dt_eff - pd.Timedelta(days=1))
+        
             ini_total = ini_qty_g + in_qty_prior - usage_prior
 
             # 區間內進貨與用量
