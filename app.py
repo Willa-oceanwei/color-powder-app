@@ -3423,6 +3423,7 @@ if menu == "庫存區":
     ini_date = st.date_input("設定日期", value=datetime.today(), key="ini_date")
     ini_note = st.text_input("備註", key="ini_note")
 
+    # 工具：將 qty+unit 轉成 g
     def to_grams(qty, unit):
         if unit.lower() == "kg":
             return qty * 1000
@@ -3432,32 +3433,52 @@ if menu == "庫存區":
         if not ini_powder.strip():
             st.warning("⚠️ 請輸入色粉編號！")
         else:
-            if not df_stock.empty:
-                exist_mask = (df_stock["類型"]=="初始") & (df_stock["色粉編號"]==ini_powder.strip())
-            else:
-                exist_mask = pd.Series([], dtype=bool)
+            # 刪掉舊的初始庫存紀錄
+            df_stock = df_stock[~((df_stock["類型"]=="初始") & (df_stock["色粉編號"]==ini_powder.strip()))]
 
-            if exist_mask.any():
-                if st.confirm(f"已有色粉 {ini_powder} 的初始庫存，是否覆蓋？", key="confirm_ini"):
-                    df_stock.loc[exist_mask, ["日期","數量","單位","備註"]] = [ini_date, ini_qty, ini_unit, ini_note]
-                else:
-                    st.info("已取消覆蓋")
-            else:
-                new_row = {"類型":"初始",
-                           "色粉編號":ini_powder.strip(),
-                           "日期":ini_date,
-                           "數量":ini_qty,
-                           "單位":ini_unit,
-                           "備註":ini_note}
-                df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
+            # 新增最新的初始庫存
+            new_row = {
+                "類型": "初始",
+                "色粉編號": ini_powder.strip(),
+                "日期": ini_date,
+                "數量": ini_qty,
+                "單位": ini_unit,
+                "備註": ini_note
+            }
+            df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
 
             # 寫回 Sheet
             df_to_upload = df_stock.copy()
-            if "日期" in df_to_upload.columns:
-                df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce").dt.strftime("%Y/%m/%d").fillna("")
+            df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce").dt.strftime("%Y/%m/%d").fillna("")
             ws_stock.clear()
             ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
-            st.success("✅ 初始庫存已儲存")
+
+            st.session_state.df_stock = df_stock  # 更新 session_state
+            st.success(f"✅ 初始庫存已儲存，色粉 {ini_powder.strip()} 將以最新設定為準")
+
+    # ---------- 計算期初庫存 ----------
+    # 建立 session_state 儲存期初庫存
+    if "ini_dict" not in st.session_state:
+        st.session_state["ini_dict"] = {}
+    if "last_final_stock" not in st.session_state:
+        st.session_state["last_final_stock"] = {}
+
+    # 計算時，取每個色粉「最新日期的初始庫存」作為期初值
+    df_ini = df_stock[df_stock["類型"] == "初始"]
+    ini_dict = {}
+    for pid in df_stock["色粉編號"].unique():
+        pid = str(pid)
+        df_pid_ini = df_ini[df_ini["色粉編號"].astype(str) == pid]
+        if not df_pid_ini.empty:
+            # 取最新日期的初始庫存
+            ini_qty_g = to_grams(df_pid_ini.sort_values("日期", ascending=False).iloc[0]["數量"], 
+                                 df_pid_ini.sort_values("日期", ascending=False).iloc[0]["單位"])
+        else:
+            # 沒有初始紀錄，帶入上一期末庫存（如果有）
+            ini_qty_g = st.session_state["last_final_stock"].get(pid, 0)
+        ini_dict[pid] = ini_qty_g
+
+    st.session_state["ini_dict"] = ini_dict
 
     st.markdown("---")
 
@@ -3647,6 +3668,9 @@ if menu == "庫存區":
         return total_usage_g
 
     # ---------------- 庫存查詢（主流程） ----------------
+    if not query_date:
+        st.info("ℹ️ 未選擇日期，系統將顯示截至今日的最新庫存數量")
+        
     s_dt = pd.to_datetime(query_start)
     e_dt = pd.to_datetime(query_end)
 
