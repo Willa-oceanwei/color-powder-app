@@ -3668,37 +3668,33 @@ if menu == "庫存區":
         return total_usage_g
 
     # ---------------- 庫存查詢（主流程） ----------------
-    from datetime import date
-
-    # 日期區間輸入
-    col1, col2 = st.columns(2)
-    start_date = col1.date_input("查詢起日", value=None)
-    end_date = col2.date_input("查詢迄日", value=None)
+    rom datetime import date
 
     today = date.today()
 
-    # 判斷邏輯
-    if not start_date and not end_date:
+    # 判斷邏輯 → 用 query_start / query_end，不要再產生 start_date/end_date
+    if not query_start and not query_end:
         # 都沒選 → 查詢最新
         st.info(f"ℹ️ 未選擇日期，系統將顯示截至 {today} 的最新庫存數量")
-        start_date, end_date = None, today
+        query_start, query_end = None, today
 
-    elif start_date and not end_date:
+    elif query_start and not query_end:
         # 只有起日 → 結束日預設今天
-        st.info(f"ℹ️ 查詢 {start_date} ~ {today} 的庫存數量")
-        end_date = today
+        st.info(f"ℹ️ 查詢 {query_start} ~ {today} 的庫存數量")
+        query_end = today
 
-    elif not start_date and end_date:
+    elif not query_start and query_end:
         # 只有迄日 → 起日視為 None，直接查到迄日
-        st.info(f"ℹ️ 查詢最早 ~ {end_date} 的庫存數量")
-        start_date = None
+        st.info(f"ℹ️ 查詢最早 ~ {query_end} 的庫存數量")
+        query_start = None
 
     else:
         # 區間完整 → 照選的跑
-        st.success(f"✅ 查詢 {start_date} ~ {end_date} 的庫存數量")
-        
-    s_dt = pd.to_datetime(query_start)
-    e_dt = pd.to_datetime(query_end)
+        st.success(f"✅ 查詢 {query_start} ~ {query_end} 的庫存數量")
+
+    # 這裡直接用 query_start / query_end
+    s_dt = pd.to_datetime(query_start) if query_start else None
+    e_dt = pd.to_datetime(query_end) if query_end else today
 
     # 初始化 session_state
     if "ini_dict" not in st.session_state:
