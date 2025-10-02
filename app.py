@@ -3765,11 +3765,12 @@ if menu == "庫存區":
             usage_prior = 0
 
             # 先確保日期欄位是 datetime，空值補 1970-01-01
-            df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce").fillna(pd.Timestamp("1970-01-01"))
+            df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce")
+            df_pid["日期"] = df_pid["日期"].fillna(pd.Timestamp("1970-01-01"))
 
             # 區間起日 / 結束日
-            s_dt_eff = s_dt if s_dt is not None else pd.Timestamp("1970-01-01")
-            e_dt_eff = e_dt if e_dt is not None else pd.Timestamp.today().normalize()
+            s_dt_eff = pd.to_datetime(s_dt) if s_dt is not None else pd.Timestamp("1970-01-01")
+            e_dt_eff = pd.to_datetime(e_dt) if e_dt is not None else pd.Timestamp.today().normalize()
 
             # 期初庫存 = 區間起日之前的累計 (初始 + 進貨 - 用量)
             ini_mask = df_pid["日期"] < s_dt_eff
@@ -3779,7 +3780,7 @@ if menu == "庫存區":
             usage_prior = 0
             if df_pid["日期"].notna().any():
                 usage_prior = calc_usage_for_stock(pid, df_order, df_recipe, df_pid["日期"].min(), s_dt_eff - pd.Timedelta(days=1))
-        
+
             ini_total = ini_qty_g + in_qty_prior - usage_prior
 
             # 區間內進貨與用量
@@ -3788,6 +3789,7 @@ if menu == "庫存區":
             usage_qty_g = calc_usage_for_stock(pid, df_order, df_recipe, s_dt_eff, e_dt_eff)
 
             final_g = ini_total + in_qty_g - usage_qty_g
+
 
             # 更新 session_state
             st.session_state["last_final_stock"][pid] = final_g
