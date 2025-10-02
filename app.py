@@ -3790,7 +3790,8 @@ if menu == "庫存區":
                     s_dt_eff = s_dt
 
                 df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid]
-                ini_qty_g = df_pid[(df_pid["類型"]=="初始") & (df_pid["日期"] <= s_dt_eff)]["數量_g"].sum()
+                if df_pid["日期"].notna().any() and s_dt_eff is not None:
+                    ini_qty_g = df_pid[(df_pid["類型"]=="初始") & (df_pid["日期"] <= pd.to_datetime(s_dt_eff))]["數量_g"].sum()
                 in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] < s_dt_eff)]["數量_g"].sum()
                 usage_prior = calc_usage_for_stock(pid, df_order, df_recipe, df_pid["日期"].min(), s_dt_eff - pd.Timedelta(days=1))
                 ini_total = ini_qty_g + in_qty_prior - usage_prior
