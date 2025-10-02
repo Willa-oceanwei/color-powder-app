@@ -3464,22 +3464,26 @@ if menu == "庫存區":
         st.session_state["last_final_stock"] = {}
 
     # 計算時，取每個色粉「最新日期的初始庫存」作為期初值
-    df_ini = df_stock[df_stock["類型"] == "初始"]
+    df_ini = df_stock[df_stock["類型"] == "初始"].copy()
+    # 強制日期轉 datetime
+    df_ini["日期"] = pd.to_datetime(df_ini["日期"], errors="coerce")
+
     ini_dict = {}
     for pid in df_stock["色粉編號"].unique():
         pid = str(pid)
         df_pid_ini = df_ini[df_ini["色粉編號"].astype(str) == pid]
-        if not df_pid_ini.empty:
+
+        if not df_pid_ini.empty and df_pid_ini["日期"].notna().any():
             # 取最新日期的初始庫存
-            ini_qty_g = to_grams(df_pid_ini.sort_values("日期", ascending=False).iloc[0]["數量"], 
-                                 df_pid_ini.sort_values("日期", ascending=False).iloc[0]["單位"])
+            latest_row = df_pid_ini.sort_values("日期", ascending=False).iloc[0]
+            ini_qty_g = to_grams(latest_row["數量"], latest_row["單位"])
         else:
-            # 沒有初始紀錄，帶入上一期末庫存（如果有）
+            # 沒有初始紀錄，帶入上一期末庫存（如果有）或設為 0
             ini_qty_g = st.session_state["last_final_stock"].get(pid, 0)
+
         ini_dict[pid] = ini_qty_g
 
     st.session_state["ini_dict"] = ini_dict
-
     st.markdown("---")
 
     # ================= 進貨新增 =================
