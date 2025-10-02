@@ -3668,8 +3668,18 @@ if menu == "庫存區":
         return total_usage_g
 
     # ---------------- 庫存查詢（主流程） ----------------
-    if not query_date:
-        st.info("ℹ️ 未選擇日期，系統將顯示截至今日的最新庫存數量")
+    from datetime import date
+
+    # 查詢日期輸入，預設空白
+    query_date = st.date_input("📅 查詢日期", value=None)
+
+    if query_date:
+        st.success(f"✅ 查詢 {query_date} 的庫存數量")
+    else:
+        # 沒有選日期 → 視為查詢今天（最新庫存）
+        today = date.today()
+        query_date = today
+        st.info(f"ℹ️ 未選擇日期，系統將自動顯示截至 {today} 的最新庫存數量")
         
     s_dt = pd.to_datetime(query_start)
     e_dt = pd.to_datetime(query_end)
