@@ -3760,8 +3760,8 @@ if menu == "庫存區":
             df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce")
 
             # 區間起日 / 結束日
-            s_dt_eff = pd.to_datetime(s_dt) if s_dt is not None else pd.Timestamp("1970-01-01")
-            e_dt_eff = pd.to_datetime(e_dt) if e_dt is not None else pd.Timestamp.today().normalize()
+            s_dt_eff = pd.to_datetime(s_dt_eff)  # 即使 s_dt_eff 不是 None，也要轉
+            e_dt_eff = pd.to_datetime(e_dt_eff)
 
             # 期初庫存 = 區間起日前的累計（初始 + 進貨 - 用量）
             ini_mask = df_pid["日期"] < s_dt_eff
