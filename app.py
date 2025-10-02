@@ -3692,9 +3692,9 @@ if menu == "庫存區":
         # 區間完整 → 照選的跑
         st.success(f"✅ 查詢 {query_start} ~ {query_end} 的庫存數量")
 
-    # 這裡直接用 query_start / query_end
-    s_dt = pd.to_datetime(query_start) if query_start else None
-    e_dt = pd.to_datetime(query_end) if query_end else today
+    # 確保型態為 pd.Timestamp
+    s_dt = pd.to_datetime(query_start) if query_start else pd.Timestamp("1970-01-01")
+    e_dt = pd.to_datetime(query_end) if query_end else pd.Timestamp.today().normalize()
 
     # 初始化 session_state
     if "ini_dict" not in st.session_state:
@@ -3755,18 +3755,29 @@ if menu == "庫存區":
             pid = str(pid)
             df_pid = df_stock_copy[df_stock_copy["色粉編號"].astype(str) == pid]
 
+            # --- 區間起日 / 結束日 ---
+            s_dt_eff = s_dt if s_dt is not None else pd.Timestamp("1970-01-01")  # 過往最早日期
+            e_dt_eff = e_dt if e_dt is not None else pd.Timestamp.today().normalize()
+
             # 期初庫存 = 區間起日之前的累計 (初始 + 進貨 - 用量)
-            ini_mask = df_pid["日期"] < s_dt
-            ini_qty_g = df_pid[ini_mask & (df_pid["類型"]=="初始")]["數量_g"].sum()
-            in_qty_prior = df_pid[ini_mask & (df_pid["類型"]=="進貨")]["數量_g"].sum()
-            usage_prior = calc_usage_for_stock(pid, df_order, df_recipe, df_pid["日期"].min(), s_dt - pd.Timedelta(days=1))
+            ini_qty_g = 0
+            in_qty_prior = 0
+            usage_prior = 0
+
+            if not df_pid.empty:
+                ini_mask = df_pid["日期"] < s_dt_eff
+                ini_qty_g = df_pid[ini_mask & (df_pid["類型"]=="初始")]["數量_g"].sum()
+                in_qty_prior = df_pid[ini_mask & (df_pid["類型"]=="進貨")]["數量_g"].sum()
+                if df_pid["日期"].notna().any():
+                    usage_prior = calc_usage_for_stock(pid, df_order, df_recipe, df_pid["日期"].min(), s_dt_eff - pd.Timedelta(days=1))
+
             ini_total = ini_qty_g + in_qty_prior - usage_prior
 
             # 區間內進貨與用量
-            interval_mask = (df_pid["日期"] >= s_dt) & (df_pid["日期"] <= e_dt)
+            interval_mask = (df_pid["日期"] >= s_dt_eff) & (df_pid["日期"] <= e_dt_eff)
             in_qty_g = df_pid[interval_mask & (df_pid["類型"]=="進貨")]["數量_g"].sum()
-            usage_qty_g = calc_usage_for_stock(pid, df_order, df_recipe, s_dt, e_dt)
-    
+            usage_qty_g = calc_usage_for_stock(pid, df_order, df_recipe, s_dt_eff, e_dt_eff)
+
             final_g = ini_total + in_qty_g - usage_qty_g
 
             # 更新 session_state
@@ -3779,6 +3790,7 @@ if menu == "庫存區":
                 "區間用量": format_usage(usage_qty_g),
                 "期末庫存": format_usage(final_g),
             })
+
 
         st.dataframe(pd.DataFrame(stock_summary), use_container_width=True)
         st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
