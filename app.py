@@ -3668,7 +3668,7 @@ if menu == "庫存區":
         return total_usage_g
 
     # ---------------- 庫存查詢（主流程） ----------------
-    rom datetime import date
+    from datetime import date
 
     today = date.today()
 
