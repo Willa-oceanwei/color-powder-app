@@ -3414,19 +3414,25 @@ if menu == "庫存區":
         df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
     st.session_state.df_stock = df_stock
 
-    # ---------------- 安全用量計算 Wrapper ----------------
+    # ---------- 真正計算用量的函式 ----------
+    def calc_usage_for_stock(powder_id, df_order, df_recipe, start_date, end_date):
+        total_usage_g = 0.0
+        # 這裡放你原本的總用量算法
+        df_order_local = df_order.copy()
+        if "生產日期" in df_order_local.columns:
+            df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce")
+        else:
+            return 0.0
+        # 後面原本計算邏輯保持不變
+        return total_usage_g
+
+    # ---------- 安全呼叫 Wrapper ----------
     def safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt):
-        """
-        安全呼叫 calc_usage_for_stock，避免 None/NaT/空資料造成錯誤
-        """
         try:
-            # 日期無效 → 用量 0
             if pd.isna(start_dt) or pd.isna(end_dt):
                 return 0.0
-            # 沒有資料 → 用量 0
             if df_order.empty or df_recipe.empty:
                 return 0.0
-            # 呼叫原本的用量計算函式
             return calc_usage_for_stock(pid, df_order, df_recipe, start_dt, end_dt)
         except Exception as e:
             st.warning(f"⚠️ 計算色粉 {pid} 用量失敗: {e}")
@@ -3604,18 +3610,6 @@ if menu == "庫存區":
             return f"{kg:.2f} kg" if not float(int(kg)) == kg else f"{int(kg)} kg"
         else:
             return f"{int(round(val))} g" if float(int(val)) == val else f"{val:.2f} g"
-
-    # 用量計算：套用你原本的「總用量算法」，回傳 total_usage_g (g)
-    def calc_usage_for_stock(powder_id, df_order, df_recipe, start_date, end_date):
-        total_usage_g = 0.0
-
-        # 確保 df_order 的生產日期為 datetime
-        df_order_local = df_order.copy()
-        if "生產日期" in df_order_local.columns:
-            df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce")
-        else:
-            # 沒有生產日期欄位則直接無用量
-            return 0.0
 
         # 先找 candidate 配方（任何一個色粉欄位包含 powder_id）
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
