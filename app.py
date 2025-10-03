@@ -3483,13 +3483,22 @@ if menu == "庫存區":
                 ini_qty_g = st.session_state["last_final_stock"][pid]
             else:
                 # ⚠️ 沒有上一期末 → 用「進貨總和 - 用量總和」
-                df_pid = df_stock[df_stock["色粉編號"].astype(str) == pid]
+                df_pid = df_stock[df_stock["色粉編號"].astype(str) == pid].copy()
+
+                # 確保日期轉 datetime
+                df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce")
+
+                # 把數量轉成 g
+                df_pid["數量_g"] = df_pid.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
+
                 in_qty_all = df_pid[df_pid["類型"] == "進貨"]["數量_g"].sum()
-                usage_all = calc_usage_for_stock(pid, df_order, df_recipe,
-                                             df_pid["日期"].min(), df_pid["日期"].max())
+                usage_all = calc_usage_for_stock(
+                    pid, df_order, df_recipe,
+                    df_pid["日期"].min(), df_pid["日期"].max()
+                )
                 ini_qty_g = in_qty_all - usage_all
 
-        ini_dict[pid] = ini_qty_g
+                    ini_dict[pid] = ini_qty_g
 
     st.session_state["ini_dict"] = ini_dict
     st.markdown("---")
