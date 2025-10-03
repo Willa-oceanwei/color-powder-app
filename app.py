@@ -3480,7 +3480,6 @@ if menu == "庫存區":
             st.session_state.df_stock = df_stock  # 更新 session_state
             st.success(f"✅ 初始庫存已儲存，色粉 {ini_powder.strip()} 將以最新設定為準")
 
-
     # ----------- 計算期初庫存 -----------
     if "類型" in df_pid.columns:
         df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
@@ -3493,12 +3492,22 @@ if menu == "庫存區":
         ini_total = latest_ini["數量_g"]
         base_date = latest_ini["日期"] + pd.Timedelta(days=1)
         # 區間查詢時，期初加上起日前進貨
-        in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)]["數量_g"].sum() if s_dt else 0.0
+        if "類型" in df_pid.columns:
+            in_qty_prior = df_pid[
+                (df_pid["類型"] == "進貨") &
+                (df_pid["日期"] >= base_date) &
+                (df_pid["日期"] < s_dt)
+            ]["數量_g"].sum() if s_dt else 0.0
+        else:
+            in_qty_prior = 0.0
         ini_total += in_qty_prior
     else:
         # 沒有初始庫存 → 用進貨總和 - 用量總和（可為負）
         if "類型" in df_pid.columns:
-            in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] < s_dt)]["數量_g"].sum() if s_dt else df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
+            in_qty_prior = df_pid[
+                (df_pid["類型"] == "進貨") &
+                (df_pid["日期"] < s_dt)
+            ]["數量_g"].sum() if s_dt else df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
         else:
             in_qty_prior = 0.0
         usage_prior = 0.0
@@ -3509,6 +3518,7 @@ if menu == "庫存區":
         ini_total = in_qty_prior - usage_prior
 
     st.markdown("---")
+
 
     # ================= 進貨新增 =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
