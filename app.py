@@ -3699,9 +3699,9 @@ if menu == "庫存區":
         df_stock_copy["數量_g"] = df_stock_copy.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
 
         # 2. 篩選色粉
+        df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].astype(str).str.strip()
         if stock_powder.strip():
-            # 僅篩選包含查詢色粉編號的資料
-            df_stock_copy = df_stock_copy[df_stock_copy["色粉編號"].astype(str).str.contains(stock_powder.strip(), case=False)]
+            df_stock_copy = df_stock_copy[df_stock_copy["色粉編號"].str.contains(stock_powder.strip(), case=False)]
 
         # 3. 若未輸入區間，預設使用整個日期範圍
         s_dt_use = s_dt if s_dt else df_stock_copy["日期"].min()
@@ -3710,7 +3710,11 @@ if menu == "庫存區":
         stock_summary = []
 
         # 4. 逐一計算每個色粉的庫存
-        all_pids = df_stock["色粉編號"].dropna().unique()
+        all_pids = df_stock["色粉編號"].astype(str).str.strip().unique()
+        for pid in all_pids:
+            df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
+            if df_pid.empty:
+                df_pid = pd.DataFrame(columns=df_stock_copy.columns)  # 保留空 DataFrame 也計算
 
         for pid in all_pids:
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
