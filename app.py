@@ -3736,7 +3736,9 @@ if menu == "庫存區":
 
             if ini_base_value == 0.0:
                 # 沒有期初庫存 → 計算歷史累計
-                start_dt = df_pid["日期"].min() if not df_pid.empty else (df_order["日期"].min() if not df_order.empty else s_dt_use)
+                start_dt = df_pid["日期"].min() if not df_pid.empty else (
+                    pd.to_datetime(df_order["生產日期"].min()) if not df_order.empty and "生產日期" in df_order.columns else s_dt_use
+                )
                 end_dt = s_dt_use - pd.Timedelta(days=1)
 
                 in_all = df_pid[(df_pid["類型"].astype(str).str.strip() == "進貨") &
