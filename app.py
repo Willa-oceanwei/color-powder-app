@@ -3494,12 +3494,15 @@ if menu == "庫存區":
                 # 區間前進貨總和
                 in_qty_all = df_pid[df_pid["類型"] == "進貨"]["數量_g"].sum()
 
-                # 計算用量前先檢查 df_order / df_recipe 是否有資料
-                if df_pid["日期"].notna().any() and not df_order.empty and not df_recipe.empty:
-                    start_dt = pd.to_datetime(df_pid["日期"].min())
-                    end_dt = pd.to_datetime(df_pid["日期"].max())
+                # 計算用量前，先確認資料存在
+                if df_order.empty or df_recipe.empty:
+                    usage_all = 0
+                elif df_pid["日期"].notna().any():
+                    start_dt = df_pid["日期"].min()
+                    end_dt = df_pid["日期"].max()
                     usage_all = calc_usage_for_stock(pid, df_order, df_recipe, start_dt, end_dt)
                 else:
+                    # 沒有日期可計算
                     usage_all = 0
 
                 ini_qty_g = in_qty_all - usage_all
