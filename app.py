@@ -3530,10 +3530,24 @@ if menu == "庫存區":
             # 情況 2: 有初始庫存 → 計算在初始日期之後且在 s_dt 之前的進貨
             filter_condition = (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)
             
+        if "類型" in df_pid.columns and "日期" in df_pid.columns and s_dt is not None:
+        # 區分有無初始庫存，設定日期過濾條件
+        if df_ini.empty:
+            # 情況 1: 沒有初始庫存 → 計算所有在 s_dt 之前的進貨
+            date_filter = (df_pid["日期"] < s_dt)
+        else:
+            # 情況 2: 有初始庫存 → 計算在初始日期之後且在 s_dt 之前的進貨
+            date_filter = (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)
+        
+        # *** 修正：結合所有過濾條件 (類型 + 色粉編號 + 日期) ***
         in_qty_prior = df_pid[
             (df_pid["類型"].astype(str).str.strip() == "進貨") &
-            filter_condition
+            powder_filter &
+            date_filter
         ]["數量_g"].sum()
+    else:
+        # 如果缺少類型、日期欄位或 s_dt 未定義，則為 0
+        in_qty_prior = 0.0
     
     
     if not df_ini.empty:
