@@ -3792,25 +3792,32 @@ if menu == "庫存區":
            
             # ----------- 計算期初庫存（截至 s_dt_eff） -----------
             ini_total = 0
-            if df_pid["日期"].notna().any():
-                # 找出 <= s_dt_eff 的最新一筆初始庫存
-                df_pid_ini = df_pid[(df_pid["類型"] == "初始") & (df_pid["日期"] <= s_dt_eff)]
-                if not df_pid_ini.empty:
-                    latest_ini = df_pid_ini.sort_values("日期", ascending=False).iloc[0]
-                    ini_total = latest_ini["數量_g"]
 
-                    # 這裡只算「初始日期」之後的累計
-                    base_date = latest_ini["日期"] + pd.Timedelta(days=1)
+            # 確保 df_pid["日期"] 為 datetime
+            df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce")
+
+            # 初始庫存
+            df_pid_ini = df_pid[df_pid["類型"]=="初始"]
+
+            if not df_pid_ini.empty:
+                # 取最新初始庫存
+                latest_ini = df_pid_ini.sort_values("日期", ascending=False).iloc[0]
+                ini_total = latest_ini["數量_g"]
+                # 累計初始日期之後的進貨與用量（若 s_dt_eff > 初始日期）
+                base_date = latest_ini["日期"] + pd.Timedelta(days=1)
+                if s_dt_eff > base_date:
                     in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt_eff)]["數量_g"].sum()
                     usage_prior = calc_usage_for_stock(pid, df_order, df_recipe, base_date, s_dt_eff - pd.Timedelta(days=1))
                     ini_total += in_qty_prior - usage_prior
-
-                else:
-                    # 沒有初始 → 累積方式算
+            else:
+                # 沒有初始 → 全部累積
+                if df_pid["日期"].notna().any():
                     in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] < s_dt_eff)]["數量_g"].sum()
                     usage_prior = calc_usage_for_stock(pid, df_order, df_recipe, df_pid["日期"].min(), s_dt_eff - pd.Timedelta(days=1))
                     ini_total = in_qty_prior - usage_prior
-
+                else:
+                    # 完全沒有紀錄
+                    ini_total = 0
 
             # ----------- 區間內進貨與用量 -----------
             interval_mask = (df_pid["日期"] >= s_dt_eff) & (df_pid["日期"] <= e_dt_eff)
