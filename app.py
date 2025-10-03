@@ -3478,13 +3478,22 @@ if menu == "庫存區":
             latest_row = df_pid_ini.sort_values("日期", ascending=False).iloc[0]
             ini_qty_g = to_grams(latest_row["數量"], latest_row["單位"])
         else:
-            # 沒有初始紀錄，帶入上一期末庫存（如果有）或設為 0
-            ini_qty_g = st.session_state["last_final_stock"].get(pid, 0)
+            # 沒有初始紀錄 → 先看有沒有上一期末庫存
+            if pid in st.session_state["last_final_stock"]:
+                ini_qty_g = st.session_state["last_final_stock"][pid]
+            else:
+                # ⚠️ 沒有上一期末 → 用「進貨總和 - 用量總和」
+                df_pid = df_stock[df_stock["色粉編號"].astype(str) == pid]
+                in_qty_all = df_pid[df_pid["類型"] == "進貨"]["數量_g"].sum()
+                usage_all = calc_usage_for_stock(pid, df_order, df_recipe,
+                                             df_pid["日期"].min(), df_pid["日期"].max())
+                ini_qty_g = in_qty_all - usage_all
 
         ini_dict[pid] = ini_qty_g
 
     st.session_state["ini_dict"] = ini_dict
     st.markdown("---")
+
 
     # ================= 進貨新增 =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
