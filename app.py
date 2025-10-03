@@ -3748,27 +3748,29 @@ if menu == "庫存區":
 
             # --- 無期初 → 用歷史累計使用量計算可能為負
             if ini_base_value == 0.0:
-                # 計算歷史用量範圍
-                if not df_pid.empty:
-                    start_dt = df_pid["日期"].min()
-                elif not df_order.empty and "生產日期" in df_order.columns:
-                    start_dt = pd.to_datetime(df_order["生產日期"].min())
-                else:
-                    start_dt = s_dt_use
-                end_dt = s_dt_use - pd.Timedelta(days=1)
-
-                usage_all = 0.0
-                if not df_order.empty and not df_recipe.empty and start_dt <= end_dt:
-                    usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
-
-                ini_total = -usage_all  # 無進貨 → 期初 = -歷史用量
+            # 無期初 → 計算全部歷史用量（可能為負）
+            if not df_order.empty and "生產日期" in df_order.columns:
+                start_dt = pd.to_datetime(df_order[df_order["色粉編號"] == pid]["生產日期"].min())
             else:
-                # --- 有期初 → 最新初始 + 初始日期到查詢起始日進貨
-                in_prior = df_pid[
-                    (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                    (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt_use)
-                ]["數量_g"].sum()
-                ini_total = ini_base_value + in_prior
+                start_dt = s_dt_use  # 沒資料 → 從查詢起始日
+            end_dt = s_dt_use - pd.Timedelta(days=1)
+
+            if pd.notna(start_dt) and start_dt <= end_dt:
+                usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
+            else:
+                usage_all = 0.0
+
+            # 無進貨資料 → in_all = 0
+            in_all = 0.0
+
+            ini_total = in_all - usage_all  # 期初庫存 → 可能為負
+                    else:
+                        # --- 有期初 → 最新初始 + 初始日期到查詢起始日進貨
+                        in_prior = df_pid[
+                            (df_pid["類型"].astype(str).str.strip() == "進貨") &
+                            (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt_use)
+                        ]["數量_g"].sum()
+                        ini_total = ini_base_value + in_prior
 
             # --- (B) 區間進貨與用量 ---
             if not df_pid.empty:
