@@ -3722,20 +3722,16 @@ if menu == "庫存區":
             df_stock_copy = df_stock_copy[df_stock_copy["色粉編號"].astype(str).str.contains(stock_powder.strip(), case=False)]
 
         stock_summary = []
+
+        # 針對每一個「色粉編號」單獨處理
         for pid in df_stock_copy["色粉編號"].unique():
-            df_pid = df_stock_copy[df_stock_copy["色粉編號"].astype(str) == pid].copy()
-        
-            # 安全檢查
-            if df_pid.empty or "類型" not in df_pid.columns:
-                continue
-        
+            # 先切出當前色粉編號的資料
+            df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
             df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce")
             df_pid["數量_g"] = df_pid.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
 
             # ===== 計算期初庫存 =====
-            df_pid = df[df["色粉編號"] == pid].copy()
             df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
-
             if not df_ini.empty:
                 latest_ini = df_ini.sort_values("日期", ascending=False).iloc[0]
                 ini_total = latest_ini["數量_g"]
@@ -3764,6 +3760,16 @@ if menu == "庫存區":
             interval_mask = (df_pid["日期"] >= interval_start) & (df_pid["日期"] <= interval_end)
             in_qty_interval = df_pid[interval_mask & (df_pid["類型"]=="進貨")]["數量_g"].sum()
             usage_interval = safe_calc_usage(pid, df_order, df_recipe, interval_start, interval_end) if not df_order.empty else 0.0
+
+            # 存到結果
+            stock_summary.append({
+                "色粉編號": pid,
+                "期初庫存": ini_total,
+                "進貨量": in_qty_interval,
+                "用量": usage_interval,
+                "期末庫存": ini_total + in_qty_interval - usage_interval
+            })
+
 
             # ===== 期末庫存 =====
             final_g = ini_total + in_qty_interval - usage_interval
