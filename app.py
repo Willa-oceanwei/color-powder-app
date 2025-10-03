@@ -3636,7 +3636,7 @@ if menu == "庫存區":
             st.session_state.df_stock = df_stock  # 更新 session_state
             st.success(f"✅ 初始庫存已儲存，色粉 {ini_powder.strip()} 將以最新設定為準")
 
-
+    st.markdown("---")
     # ================= 進貨新增 (保持不變) =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
