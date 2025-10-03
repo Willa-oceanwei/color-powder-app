@@ -3796,16 +3796,8 @@ if menu == "庫存區":
                 # 沒有初始庫存
                 if df_pid["日期"].notna().any():
                     in_qty_prior = df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
-                    if not df_order.empty and not df_recipe.empty:
-                        start_dt = df_pid["日期"].min()
-                        end_dt = df_pid["日期"].max()
-                        usage_prior = calc_usage_for_stock(pid, df_order, df_recipe, start_dt, end_dt)
-                    else:
-                        usage_prior = 0
+                    usage_prior = safe_calc_usage(pid, df_order, df_recipe, df_pid["日期"].min(), df_pid["日期"].max())
                     ini_total = in_qty_prior - usage_prior
-                else:
-                    # 完全沒有紀錄
-                    ini_total = 0
 
             # ----------- 區間內進貨與用量 -----------
             interval_mask = (df_pid["日期"] >= s_dt_eff) & (df_pid["日期"] <= e_dt_eff)
