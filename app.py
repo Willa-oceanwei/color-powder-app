@@ -3724,7 +3724,7 @@ if menu == "庫存區":
         all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
         all_pids_order = df_order["色粉編號"].astype(str).str.strip().unique() if not df_order.empty and "色粉編號" in df_order.columns else []
         all_pids = list(set(all_pids_stock) | set(all_pids_order))
-
+        
         for pid in all_pids:
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
 
@@ -3739,36 +3739,37 @@ if menu == "庫存區":
             base_date = s_dt_use
 
             if not df_ini.empty:
-                # 取最近一期初始值
-                latest_ini_row = df_ini.sort_values("日期", ascending=False).iloc[0]
-                ini_base_value = latest_ini_row["數量_g"]
-                ini_date = latest_ini_row["日期"]
-                if ini_date < s_dt_use:
-                    base_date = ini_date + pd.Timedelta(days=1)
-                else:
-                    ini_base_value = 0.0
+            # 最近期初值
+            latest_ini_row = df_ini.sort_values("日期", ascending=False).iloc[0]
+            ini_base_value = latest_ini_row["數量_g"]
+            ini_date = latest_ini_row["日期"]
+        else:
+            ini_base_value = 0.0
+            ini_date = None
 
-            if ini_base_value == 0.0:
-                # 無期初 → 用累計歷史用量（可能為負）
+        # 計算期初庫存
+        if ini_base_value > 0:
+            # 查詢區間在期初日期之前 → 用累計歷史用量（可能為負）
+            if s_dt_use < ini_date:
                 start_dt = df_pid["日期"].min() if not df_pid.empty else (
-                    pd.to_datetime(df_order["生產日期"].min()) if not df_order.empty and "生產日期" in df_order.columns else s_dt_use
+                    pd.to_datetime(df_order["生產日期"].min()) if not df_order.empty else s_dt_use
                 )
                 end_dt = s_dt_use - pd.Timedelta(days=1)
-
-                usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt) if start_dt <= end_dt and not df_order.empty else 0.0
+                usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt) if start_dt <= end_dt else 0.0
                 in_all = df_pid[df_pid["類型"].astype(str).str.strip() == "進貨"]["數量_g"].sum() if not df_pid.empty else 0.0
-                ini_total = in_all - usage_all  # 可能為負
+                ini_total = in_all - usage_all
             else:
-                # 有期初 → 直接取最近初始值，不扣用量
+                # 查詢區間在期初日期之後 → 直接取最近期初值
                 ini_total = ini_base_value
-
-            # --- (B) 區間進貨與用量 ---
-            if not df_pid.empty:
-                interval_mask = (df_pid["日期"] >= s_dt_use) & (df_pid["日期"] <= e_dt_use)
-                in_qty_interval = df_pid[interval_mask & (df_pid["類型"].astype(str).str.strip() == "進貨")]["數量_g"].sum()
-
-            if not df_order.empty and not df_recipe.empty:
-                usage_interval = safe_calc_usage(pid, df_order, df_recipe, s_dt_use, e_dt_use)
+        else:
+            # 無期初 → 用累計歷史用量（可能為負）
+            start_dt = df_pid["日期"].min() if not df_pid.empty else (
+                pd.to_datetime(df_order["生產日期"].min()) if not df_order.empty else s_dt_use
+            )
+            end_dt = s_dt_use - pd.Timedelta(days=1)
+            usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt) if start_dt <= end_dt else 0.0
+            in_all = df_pid[df_pid["類型"].astype(str).str.strip() == "進貨"]["數量_g"].sum() if not df_pid.empty else 0.0
+            ini_total = in_all - usage_all
 
             # --- (C) 期末庫存 ---
             final_g = ini_total + in_qty_interval - usage_interval
