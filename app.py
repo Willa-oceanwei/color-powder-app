@@ -3868,9 +3868,57 @@ if menu == "庫存區":
                 usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_use, e_dt_use)
             else:
                 usage_interval = 0.0
+                
+            # --- (C) 期末庫存 (加入錨點覆寫邏輯) ---
+            # 1. 原始計算 (基於 ini_total 的結果，可能是錯的 -368.4 g)
+            final_g = ini_total + in_qty_interval - usage_interval 
 
-            # --- (C) 期末庫存 ---
-            final_g = ini_total + in_qty_interval - usage_interval
+            # 2. **錨點查找與覆寫：** 查找最新可靠的「期初庫存」紀錄作為錨點
+
+            # 篩選：在查詢結束日期 (e_dt_use) 之前的所有有效「初始」紀錄
+            df_anchor_valid = df_pid[
+                (df_pid["類型"].astype(str).str.strip() == "初始") &
+                (df_pid["日期"].notna()) &
+                (df_pid["日期"] <= e_dt_use)
+            ].dropna(subset=["數量_g"])
+
+            latest_anchor = None
+            if not df_anchor_valid.empty:
+                # 找到最近的錨點日期
+                latest_anchor_row = df_anchor_valid.sort_values("日期", ascending=False).iloc[0]
+    
+                # 確保該紀錄是有效的錨點 (例如，庫存不為 0)
+                if latest_anchor_row["數量_g"] > 0 or latest_anchor_row["數量_g"] < 0:
+                     latest_anchor = (latest_anchor_row["日期"].normalize(), latest_anchor_row["數量_g"])
+
+
+            # 3. 執行覆寫：如果找到有效的錨點
+            if latest_anchor:
+                anchor_date, anchor_stock_g = latest_anchor
+    
+                # 邏輯：最終庫存 = 錨點庫存 + 錨點日期(含)到查詢結束日期的活動量
+    
+                # 計算錨點日 (anchor_date) 到 查詢結束日 (e_dt_use) 的活動量
+                start_for_calc = anchor_date
+    
+                # 由於我們已經在 (B) 計算了區間進貨和用量，這裡需要重新計算「錨點日到區間結束日」的活動。
+    
+                # (i) 錨點日到區間結束日的 進貨 (從 df_pid 中查詢)
+                inflow_after_anchor_mask = (df_pid["日期"] >= start_for_calc) & (df_pid["日期"] <= e_dt_use)
+                inflow_after_anchor_g = df_pid[
+                    (df_pid["類型"].astype(str).str.strip() == "進貨") &
+                    inflow_after_anchor_mask
+                ]["數量_g"].sum()
+    
+                # (ii) 錨點日到區間結束日的 用量 (呼叫 safe_calc_usage)
+                usage_after_anchor_g = 0.0
+                if start_for_calc <= e_dt_use:
+                    usage_after_anchor_g = safe_calc_usage(pid, df_order_copy, df_recipe, start_for_calc, e_dt_use)
+
+                # **覆寫 final_g**：最終期末庫存使用錨點為基底
+                final_g = anchor_stock_g + inflow_after_anchor_g - usage_after_anchor_g
+    
+            # 4. 如果沒有找到錨點 (latest_anchor 為 None)，則 final_g 保持第 1 步的原始計算結果。
 
             # session_state 儲存
             if "last_final_stock" not in st.session_state:
