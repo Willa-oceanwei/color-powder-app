@@ -3482,6 +3482,7 @@ if menu == "庫存區":
 
     
     # ----------- 計算期初庫存 -----------
+    df_pid["類型"] = df_pid["類型"].astype(str).str.strip()
     df_ini = df_pid[df_pid["類型"]=="初始"]
     if not df_ini.empty:
         # 有初始庫存 → 期初固定，不扣回歷史用量
