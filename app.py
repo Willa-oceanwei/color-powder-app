@@ -3747,19 +3747,24 @@ if menu == "庫存區":
             # 歷史用量 (只有在沒有初始值時才計算)
             usage_prior = 0.0
             if ini_base_value == 0.0:
-                # 如果沒有初始值，則必須計算所有歷史用量
-                # 歷史用量區間: 從最早進貨日期到 s_dt 的前一天
-                start_dt_usage = df_pid["日期"].min()
-                end_dt_usage = s_dt - pd.Timedelta(days=1)
-            
-                if not df_order.empty and not df_recipe.empty and start_dt_usage < end_dt_usage:
-                     usage_prior = safe_calc_usage(pid, df_order, df_recipe, start_dt_usage, end_dt_usage)
-            
-                # 期初庫存 = (全部歷史進貨總和) - (全部歷史用量總和)
-                ini_total = in_prior - usage_prior
-            else:
-                # 期初庫存 = (最新初始值) + (初始日期到查詢起始日之間的進貨)
-                ini_total = ini_base_value + in_prior
+            # 沒有期初庫存 → 計算全部歷史累計庫存
+            start_dt = df_pid["日期"].min()
+            end_dt = s_dt - pd.Timedelta(days=1) if s_dt else df_pid["日期"].max()
+
+            # 歷史進貨總和
+            in_all = df_pid[(df_pid["類型"].astype(str).str.strip() == "進貨") &
+                            (df_pid["日期"] >= start_dt) & (df_pid["日期"] <= end_dt)]["數量_g"].sum()
+
+            # 歷史用量總和
+            usage_all = 0.0
+            if not df_order.empty and not df_recipe.empty and start_dt <= end_dt:
+                usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
+
+            # 期初庫存 = 歷史進貨 - 歷史用量
+            ini_total = in_all - usage_all
+        else:
+            # 有期初庫存 → 取最新初始值 + 初始日期到查詢起始日之間的進貨
+            ini_total = ini_base_value + in_prior
 
 
             # --- (B) 計算區間進貨與用量 ---
