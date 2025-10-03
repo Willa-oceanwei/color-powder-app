@@ -3702,11 +3702,6 @@ if menu == "庫存區":
         if stock_powder.strip():
             # 僅篩選包含查詢色粉編號的資料
             df_stock_copy = df_stock_copy[df_stock_copy["色粉編號"].astype(str).str.contains(stock_powder.strip(), case=False)]
-    
-        # 如果篩選後資料為空，則直接返回
-        if df_stock_copy.empty:
-            st.warning("⚠️ 查無任何庫存資料")
-            st.stop()
 
         # 3. 若未輸入區間，預設使用整個日期範圍
         s_dt_use = s_dt if s_dt else df_stock_copy["日期"].min()
