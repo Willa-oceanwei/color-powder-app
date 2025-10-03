@@ -3492,10 +3492,16 @@ if menu == "庫存區":
                 df_pid["數量_g"] = df_pid.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
 
                 in_qty_all = df_pid[df_pid["類型"] == "進貨"]["數量_g"].sum()
-                usage_all = calc_usage_for_stock(
-                    pid, df_order, df_recipe,
-                    df_pid["日期"].min(), df_pid["日期"].max()
-                )
+                # 先確保 df_pid["日期"] 有值
+                if df_pid["日期"].notna().any():
+                    start_dt = df_pid["日期"].min()
+                    end_dt = df_pid["日期"].max()
+                else:
+                    # 如果沒有任何日期 → 使用今天，或直接設定 0 用量
+                    start_dt = pd.Timestamp.today()
+                    end_dt = pd.Timestamp.today()
+
+                usage_all = calc_usage_for_stock(pid, df_order, df_recipe, start_dt, end_dt)
                 ini_qty_g = in_qty_all - usage_all
 
                 ini_dict[pid] = ini_qty_g
