@@ -3706,7 +3706,7 @@ if menu == "庫存區":
         # 如果篩選後資料為空，則直接返回
         if df_stock_copy.empty or df_stock_copy["色粉編號"].dropna().empty:
             st.warning("⚠️ 查無符合條件的庫存記錄")
-            return
+            st.stop()
 
         stock_summary = []
 
