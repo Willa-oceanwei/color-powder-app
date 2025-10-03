@@ -3712,7 +3712,18 @@ if menu == "庫存區":
             # 期初庫存計算
             df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
             ini_base_value = 0.0
-            base_date = s_dt_use if pd.notna(s_dt_use) else pd.Timestamp.today()
+            if s_dt:
+                s_dt_use = pd.to_datetime(s_dt)
+            else:
+                s_dt_use = pd.to_datetime(df_stock_copy["日期"].min()) if not df_stock_copy.empty else pd.Timestamp.today()
+
+            if e_dt:
+                e_dt_use = pd.to_datetime(e_dt)
+            else:
+                e_dt_use = pd.to_datetime(df_stock_copy["日期"].max()) if not df_stock_copy.empty else pd.Timestamp.today()
+
+            # base_date 安全設定
+            base_date = s_dt_use
 
             if not df_ini.empty:
                 latest_ini_row = df_ini.sort_values("日期", ascending=False).iloc[0]
