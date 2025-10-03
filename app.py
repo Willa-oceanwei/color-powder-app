@@ -3783,6 +3783,11 @@ if menu == "庫存區":
                         return format_usage(x)
                     except:
                         return "0"
+                pid_val = pid if 'pid' in locals() and pid is not None else ""
+                ini_val = ini_total if 'ini_total' in locals() and pd.notna(ini_total) else 0.0
+                in_val = in_qty_interval if 'in_qty_interval' in locals() and pd.notna(in_qty_interval) else 0.0
+                usage_val = usage_interval if 'usage_interval' in locals() and pd.notna(usage_interval) else 0.0
+                final_val = final_g if 'final_g' in locals() and pd.notna(final_g) else 0.0
 
                 # append 前再保護一次
                 stock_summary.append({
