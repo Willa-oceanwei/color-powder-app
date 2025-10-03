@@ -3731,22 +3731,19 @@ if menu == "庫存區":
             df_pid = df_stock_copy[df_stock_copy["色粉編號"].astype(str) == pid].copy()
             df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce")
 
-            # 這裡就可以安全使用 df_pid
-            ini_rows = df_pid[df_pid["類型"]=="初始"]
-
             # ===== 計算期初庫存 =====
-            df_ini = df_pid[df_pid["類型"]=="初始"]
+            df_ini = df_pid[df_pid["類型"] == "初始"]
             if not df_ini.empty:
-                # 最新初始庫存固定，不扣回歷史用量
+                # 有初始庫存 → 取最新日期作為期初
                 latest_ini = df_ini.sort_values("日期", ascending=False).iloc[0]
                 ini_total = latest_ini["數量_g"]
                 base_date = latest_ini["日期"] + pd.Timedelta(days=1)
                 # 區間查詢期初累計前進貨
-                in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)]["數量_g"].sum() if s_dt else 0.0
+                in_qty_prior = df_pid[(df_pid["類型"] == "進貨") & (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)]["數量_g"].sum() if s_dt else 0.0
                 ini_total += in_qty_prior
             else:
-                # 沒有初始庫存 → 用進貨總和 - 用量總和
-                in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] < s_dt)]["數量_g"].sum() if s_dt else df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
+                # 沒有初始庫存 → 用進貨總和 - 用量總和，可為負
+                in_qty_prior = df_pid[(df_pid["類型"] == "進貨") & (df_pid["日期"] < s_dt)]["數量_g"].sum() if s_dt else df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
                 usage_prior = 0.0
                 if not df_order.empty and not df_recipe.empty and not df_pid["日期"].dropna().empty:
                     start_dt = df_pid["日期"].min()
