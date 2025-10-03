@@ -3710,7 +3710,9 @@ if menu == "庫存區":
         stock_summary = []
 
         # 4. 逐一計算每個色粉的庫存
-        for pid in df_stock_copy["色粉編號"].unique():
+        all_pids = df_stock["色粉編號"].dropna().unique()
+
+        for pid in all_pids:
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
 
             # --- (A) 計算期初庫存 ---
