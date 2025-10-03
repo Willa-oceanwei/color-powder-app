@@ -3805,7 +3805,6 @@ if menu == "庫存區":
                     in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)]["數量_g"].sum()
                     usage_prior = safe_calc_usage(pid, df_order, df_recipe, base_date, s_dt - pd.Timedelta(days=1))
                     ini_total += in_qty_prior - usage_prior
-                            else:
                 # 沒有初始庫存
                 if df_pid["日期"].notna().any():
                     in_qty_prior = df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
