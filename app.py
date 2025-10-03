@@ -3743,30 +3743,34 @@ if menu == "庫存區":
 
             # 沒有期初庫存 → 計算全部歷史累計（可能為負）
             if ini_base_value == 0.0:
-                start_dt = df_pid["日期"].min() if not df_pid.empty else (
-                    pd.to_datetime(df_order["生產日期"].min()) if not df_order.empty and "生產日期" in df_order.columns else s_dt_use
-                )
+                # start_dt：用 df_pid 最早日期，如果 df_pid 空 → 用 df_order 生產日期最早
+                if not df_pid.empty:
+                    start_dt = df_pid["日期"].min()
+                elif not df_order.empty and "生產日期" in df_order.columns:
+                    start_dt = pd.to_datetime(df_order["生產日期"].min())
+                else:
+                    start_dt = s_dt_use  # 沒資料 → 從查詢起始日
+
                 end_dt = s_dt_use - pd.Timedelta(days=1)
 
-                # 保護區間有效性
+                # 區間有效性
                 if pd.isna(start_dt) or start_dt > end_dt:
-                    in_all = 0.0
                     usage_all = 0.0
                 else:
-                    in_all = df_pid[
-                        (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                        (df_pid["日期"] >= start_dt) & (df_pid["日期"] <= end_dt)
-                    ]["數量_g"].sum()
                     usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt) if not df_order.empty else 0.0
 
+                # 無進貨資料 → in_all = 0
+                in_all = 0.0
+
+                # 期初庫存 = 進貨 - 歷史使用量 → 可能為負
                 ini_total = in_all - usage_all
-            else:
-                # 有期初 → 最新初始值 + 初始日期到查詢起始日進貨
-                in_prior = df_pid[
-                    (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                    (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt_use)
-                ]["數量_g"].sum()
-                ini_total = ini_base_value + in_prior
+                        else:
+                            # 有期初 → 最新初始值 + 初始日期到查詢起始日進貨
+                            in_prior = df_pid[
+                                (df_pid["類型"].astype(str).str.strip() == "進貨") &
+                                (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt_use)
+                            ]["數量_g"].sum()
+                            ini_total = ini_base_value + in_prior
 
             # --- (B) 區間進貨與用量 ---
             if not df_pid.empty:
