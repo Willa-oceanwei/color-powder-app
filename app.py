@@ -3712,7 +3712,7 @@ if menu == "庫存區":
             # 期初庫存計算
             df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
             ini_base_value = 0.0
-            base_date = s_dt_use
+            base_date = s_dt_use if pd.notna(s_dt_use) else pd.Timestamp.today()
 
             if not df_ini.empty:
                 latest_ini_row = df_ini.sort_values("日期", ascending=False).iloc[0]
