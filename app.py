@@ -3482,28 +3482,24 @@ if menu == "庫存區":
 
     
     # ----------- 計算期初庫存 -----------
-    ini_rows = df_pid[df_pid["類型"]=="初始"]
-    if not ini_rows.empty:
+    df_ini = df_pid[df_pid["類型"]=="初始"]
+    if not df_ini.empty:
         # 有初始庫存 → 期初固定，不扣回歷史用量
-        latest_ini = ini_rows.sort_values("日期", ascending=False).iloc[0]
+        latest_ini = df_ini.sort_values("日期", ascending=False).iloc[0]
         ini_total = latest_ini["數量_g"]
         base_date = latest_ini["日期"] + pd.Timedelta(days=1)
         # 區間查詢時，期初加上起日前進貨
-        if s_dt:
-            in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)]["數量_g"].sum()
-            ini_total += in_qty_prior
+        in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)]["數量_g"].sum() if s_dt else 0.0
+        ini_total += in_qty_prior
     else:
         # 沒有初始庫存 → 用進貨總和 - 用量總和（可為負）
-        if s_dt:
-            # 區間查詢
-            in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] < s_dt)]["數量_g"].sum()
-            usage_prior = safe_calc_usage(pid, df_order, df_recipe, df_pid["日期"].min(), s_dt - pd.Timedelta(days=1)) if not df_order.empty else 0.0
-            ini_total = in_qty_prior - usage_prior
-        else:
-            # 單日查詢 / 未選日期
-            in_qty_total = df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
-            usage_total = safe_calc_usage(pid, df_order, df_recipe, df_pid["日期"].min(), today) if not df_order.empty else 0.0
-            ini_total = in_qty_total - usage_total  # 可能為負
+        in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] < s_dt)]["數量_g"].sum() if s_dt else df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
+        usage_prior = 0.0
+        if not df_order.empty and not df_recipe.empty and not df_pid["日期"].dropna().empty:
+            start_dt = df_pid["日期"].min()
+            end_dt = s_dt - pd.Timedelta(days=1) if s_dt else df_pid["日期"].max()
+            usage_prior = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
+        ini_total = in_qty_prior - usage_prior
 
         st.markdown("---")
 
