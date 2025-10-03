@@ -3531,51 +3531,51 @@ if menu == "庫存區":
             filter_condition = (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)
             
         if "類型" in df_pid.columns and "日期" in df_pid.columns and s_dt is not None:
-        # 區分有無初始庫存，設定日期過濾條件
-        if df_ini.empty:
-            # 情況 1: 沒有初始庫存 → 計算所有在 s_dt 之前的進貨
-            date_filter = (df_pid["日期"] < s_dt)
+            # 區分有無初始庫存，設定日期過濾條件
+            if df_ini.empty:
+                # 情況 1: 沒有初始庫存 → 計算所有在 s_dt 之前的進貨
+                date_filter = (df_pid["日期"] < s_dt)
+            else:
+                # 情況 2: 有初始庫存 → 計算在初始日期之後且在 s_dt 之前的進貨
+                date_filter = (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)
+        
+            # *** 修正：結合所有過濾條件 (類型 + 色粉編號 + 日期) ***
+            in_qty_prior = df_pid[
+                (df_pid["類型"].astype(str).str.strip() == "進貨") &
+                powder_filter &
+                date_filter
+            ]["數量_g"].sum()
         else:
-            # 情況 2: 有初始庫存 → 計算在初始日期之後且在 s_dt 之前的進貨
-            date_filter = (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)
-        
-        # *** 修正：結合所有過濾條件 (類型 + 色粉編號 + 日期) ***
-        in_qty_prior = df_pid[
-            (df_pid["類型"].astype(str).str.strip() == "進貨") &
-            powder_filter &
-            date_filter
-        ]["數量_g"].sum()
-    else:
-        # 如果缺少類型、日期欄位或 s_dt 未定義，則為 0
-        in_qty_prior = 0.0
+            # 如果缺少類型、日期欄位或 s_dt 未定義，則為 0
+            in_qty_prior = 0.0
     
     
-    if not df_ini.empty:
-        # 有初始庫存的情況
-        ini_total += in_qty_prior
-    else:
-        # 沒有初始庫存的情況 → 進貨總和 - 歷史用量
+        if not df_ini.empty:
+            # 有初始庫存的情況
+            ini_total += in_qty_prior
+        else:
+            # 沒有初始庫存的情況 → 進貨總和 - 歷史用量
         
-        # 歷史進貨總量 (已包含在 in_qty_prior 中，因為 base_date 為 pd.Timestamp.min)
-        ini_total = in_qty_prior
+            # 歷史進貨總量 (已包含在 in_qty_prior 中，因為 base_date 為 pd.Timestamp.min)
+            ini_total = in_qty_prior
 
-        usage_prior = 0.0
-        # 確定有足夠的資料來計算歷史用量
-        if not df_order.empty and not df_recipe.empty and "日期" in df_pid.columns and not df_pid["日期"].dropna().empty:
+            usage_prior = 0.0
+            # 確定有足夠的資料來計算歷史用量
+            if not df_order.empty and not df_recipe.empty and "日期" in df_pid.columns and not df_pid["日期"].dropna().empty:
             
-            # 使用進貨記錄中的最早日期作為用量計算的起始日期
-            start_dt_usage = df_pid["日期"].min()
-            end_dt_usage = s_dt - pd.Timedelta(days=1) if s_dt is not None else df_pid["日期"].max()
+                # 使用進貨記錄中的最早日期作為用量計算的起始日期
+                start_dt_usage = df_pid["日期"].min()
+                end_dt_usage = s_dt - pd.Timedelta(days=1) if s_dt is not None else df_pid["日期"].max()
             
-            # 確保起始和結束日期有效
-            if start_dt_usage <= end_dt_usage:
-                usage_prior = safe_calc_usage(pid, df_order, df_recipe, start_dt_usage, end_dt_usage)
+                #確保起始和結束日期有效
+                if start_dt_usage <= end_dt_usage:
+                    usage_prior = safe_calc_usage(pid, df_order, df_recipe, start_dt_usage, end_dt_usage)
         
-        # 最終期初庫存 = 歷史進貨總和 - 歷史用量總和
-        ini_total -= usage_prior
+            # 最終期初庫存 = 歷史進貨總和 - 歷史用量總和
+            ini_total -= usage_prior
 
 
-    st.markdown("---")
+        st.markdown("---")
 
     # ================= 進貨新增 =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
