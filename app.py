@@ -3695,7 +3695,7 @@ if menu == "庫存區":
     if st.button("計算庫存", key="btn_calc_stock"):
         import pandas as pd
 
-        # 1. 前置處理：日期轉換和單位統一
+       # 1. 前置處理：日期轉換和單位統一
         df_stock_copy = df_stock.copy()
         df_stock_copy["日期"] = pd.to_datetime(df_stock_copy["日期"], errors="coerce")
         df_stock_copy["數量_g"] = df_stock_copy.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
@@ -3721,19 +3721,18 @@ if menu == "庫存區":
         # 4. 取得所有色粉編號（來源：庫存或訂單）
         all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
         all_pids_order = df_order["色粉編號"].astype(str).str.strip().unique() if not df_order.empty and "色粉編號" in df_order.columns else []
-        all_pids = list(set(all_pids_stock) | set(all_pids_order))  # 取聯集
+        all_pids = list(set(all_pids_stock) | set(all_pids_order))
 
         for pid in all_pids:
-            # 篩選該色粉資料
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
 
-            # 初始化
+            # 初始化變數
             ini_total = 0.0
             in_qty_interval = 0.0
             usage_interval = 0.0
 
             # --- (A) 期初庫存 ---
-            df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
+            df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
             ini_base_value = 0.0
             base_date = s_dt_use
 
@@ -3744,38 +3743,30 @@ if menu == "庫存區":
                 if ini_date < s_dt_use:
                     base_date = ini_date + pd.Timedelta(days=1)
                 else:
-                    ini_base_value = 0.0  # 初始日期在查詢起日或之後 → 視為無期初
+                    ini_base_value = 0.0
 
-            # --- 無期初 → 用歷史累計使用量計算可能為負
             if ini_base_value == 0.0:
-            # 無期初 → 計算全部歷史用量（可能為負）
-            if not df_order.empty and "生產日期" in df_order.columns:
-                start_dt = pd.to_datetime(df_order[df_order["色粉編號"] == pid]["生產日期"].min())
+                # 無期初 → 用累計歷史用量（可能為負）
+                start_dt = df_pid["日期"].min() if not df_pid.empty else (
+                    pd.to_datetime(df_order["生產日期"].min()) if not df_order.empty and "生產日期" in df_order.columns else s_dt_use
+                )
+                end_dt = s_dt_use - pd.Timedelta(days=1)
+
+                usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt) if start_dt <= end_dt and not df_order.empty else 0.0
+                in_all = 0.0
+                ini_total = in_all - usage_all
             else:
-                start_dt = s_dt_use  # 沒資料 → 從查詢起始日
-            end_dt = s_dt_use - pd.Timedelta(days=1)
-
-            if pd.notna(start_dt) and start_dt <= end_dt:
-                usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
-            else:
-                usage_all = 0.0
-
-            # 無進貨資料 → in_all = 0
-            in_all = 0.0
-
-            ini_total = in_all - usage_all  # 期初庫存 → 可能為負
-                    else:
-                        # --- 有期初 → 最新初始 + 初始日期到查詢起始日進貨
-                        in_prior = df_pid[
-                            (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                            (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt_use)
-                        ]["數量_g"].sum()
-                        ini_total = ini_base_value + in_prior
+                in_prior = df_pid[
+                    (df_pid["類型"].astype(str).str.strip() == "進貨") &
+                    (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt_use)
+                ]["數量_g"].sum()
+                ini_total = ini_base_value + in_prior
 
             # --- (B) 區間進貨與用量 ---
             if not df_pid.empty:
                 interval_mask = (df_pid["日期"] >= s_dt_use) & (df_pid["日期"] <= e_dt_use)
                 in_qty_interval = df_pid[interval_mask & (df_pid["類型"].astype(str).str.strip() == "進貨")]["數量_g"].sum()
+
             if not df_order.empty and not df_recipe.empty:
                 usage_interval = safe_calc_usage(pid, df_order, df_recipe, s_dt_use, e_dt_use)
 
@@ -3801,9 +3792,7 @@ if menu == "庫存區":
         st.dataframe(df_result, use_container_width=True)
         st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
 
-
-
-          
+        
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
     st.title("📥 匯入配方備份 Excel")
