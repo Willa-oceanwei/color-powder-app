@@ -3416,17 +3416,17 @@ if menu == "庫存區":
 
     # ----------------- 安全用量計算 Wrapper -----------------
     def safe_usage_calc_wrapper(pid, df_order, df_recipe, start_dt, end_dt):
-    try:
-        # 先確保日期不是 NaT
-        if pd.isna(start_dt) or pd.isna(end_dt):
+        try:
+            # 先確保日期不是 NaT
+            if pd.isna(start_dt) or pd.isna(end_dt):
+                return 0.0
+            # 先確保有資料
+            if df_order.empty or df_recipe.empty:
+                return 0.0
+            return safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
+        except Exception as e:
+            st.error(f"⚠️ 計算色粉 {pid} 用量失敗: {e}")
             return 0.0
-        # 先確保有資料
-        if df_order.empty or df_recipe.empty:
-            return 0.0
-        return safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
-    except Exception as e:
-        st.error(f"⚠️ 計算色粉 {pid} 用量失敗: {e}")
-        return 0.0
     
     # ================= 初始庫存設定 =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 初始庫存設定</h2>', unsafe_allow_html=True)
