@@ -3414,18 +3414,22 @@ if menu == "庫存區":
         df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
     st.session_state.df_stock = df_stock
 
-    # ----------------- 安全用量計算 Wrapper -----------------
-    def safe_usage_calc_wrapper(pid, df_order, df_recipe, start_dt, end_dt):
+    # ---------------- 安全用量計算 Wrapper ----------------
+    def safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt):
+        """
+        安全呼叫 calc_usage_for_stock，避免 None/NaT/空資料造成錯誤
+        """
         try:
-            # 先確保日期不是 NaT
+            # 日期無效 → 用量 0
             if pd.isna(start_dt) or pd.isna(end_dt):
                 return 0.0
-            # 先確保有資料
+            # 沒有資料 → 用量 0
             if df_order.empty or df_recipe.empty:
                 return 0.0
-            return safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
+            # 呼叫原本的用量計算函式
+            return calc_usage_for_stock(pid, df_order, df_recipe, start_dt, end_dt)
         except Exception as e:
-            st.error(f"⚠️ 計算色粉 {pid} 用量失敗: {e}")
+            st.warning(f"⚠️ 計算色粉 {pid} 用量失敗: {e}")
             return 0.0
     
     # ================= 初始庫存設定 =================
