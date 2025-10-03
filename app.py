@@ -3481,43 +3481,50 @@ if menu == "庫存區":
             st.success(f"✅ 初始庫存已儲存，色粉 {ini_powder.strip()} 將以最新設定為準")
 
     # ----------- 計算期初庫存 -----------
+    # 先清理欄位空白，避免因多餘空白導致欄位名不匹配
+    df_pid.columns = df_pid.columns.str.strip()
+
     if "類型" in df_pid.columns:
         df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
     else:
-        df_ini = pd.DataFrame()  # 空 DataFrame
+        df_ini = pd.DataFrame()  # 空 DataFrame，沒有初始庫存
 
     if not df_ini.empty:
-        # 有初始庫存 → 期初固定，不扣回歷史用量
         latest_ini = df_ini.sort_values("日期", ascending=False).iloc[0]
-        ini_total = latest_ini["數量_g"]
-        base_date = latest_ini["日期"] + pd.Timedelta(days=1)
-        # 區間查詢時，期初加上起日前進貨
-        if "類型" in df_pid.columns:
+        ini_total = latest_ini.get("數量_g", 0.0)  # 用get避免KeyError
+        base_date = latest_ini.get("日期", pd.Timestamp.min) + pd.Timedelta(days=1)
+
+        if "類型" in df_pid.columns and "日期" in df_pid.columns and s_dt is not None:
             in_qty_prior = df_pid[
                 (df_pid["類型"] == "進貨") &
                 (df_pid["日期"] >= base_date) &
                 (df_pid["日期"] < s_dt)
-            ]["數量_g"].sum() if s_dt else 0.0
+            ]["數量_g"].sum()
         else:
             in_qty_prior = 0.0
         ini_total += in_qty_prior
+
     else:
-        # 沒有初始庫存 → 用進貨總和 - 用量總和（可為負）
-        if "類型" in df_pid.columns:
-            in_qty_prior = df_pid[
-                (df_pid["類型"] == "進貨") &
-                (df_pid["日期"] < s_dt)
-            ]["數量_g"].sum() if s_dt else df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
+        if "類型" in df_pid.columns and "日期" in df_pid.columns:
+            if s_dt is not None:
+                in_qty_prior = df_pid[
+                    (df_pid["類型"] == "進貨") &
+                    (df_pid["日期"] < s_dt)
+                ]["數量_g"].sum()
+            else:
+                in_qty_prior = df_pid[df_pid["類型"] == "進貨"]["數量_g"].sum()
         else:
             in_qty_prior = 0.0
+
         usage_prior = 0.0
-        if not df_order.empty and not df_recipe.empty and not df_pid["日期"].dropna().empty:
+        if not df_order.empty and not df_recipe.empty and "日期" in df_pid.columns and not df_pid["日期"].dropna().empty:
             start_dt = df_pid["日期"].min()
-            end_dt = s_dt - pd.Timedelta(days=1) if s_dt else df_pid["日期"].max()
+            end_dt = s_dt - pd.Timedelta(days=1) if s_dt is not None else df_pid["日期"].max()
             usage_prior = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
         ini_total = in_qty_prior - usage_prior
 
     st.markdown("---")
+
 
 
     # ================= 進貨新增 =================
