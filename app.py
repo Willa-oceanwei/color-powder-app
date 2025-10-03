@@ -3733,7 +3733,9 @@ if menu == "庫存區":
             df_pid["數量_g"] = df_pid.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
 
             # ===== 計算期初庫存 =====
+            df_pid = df[df["色粉編號"] == pid].copy()
             df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
+
             if not df_ini.empty:
                 latest_ini = df_ini.sort_values("日期", ascending=False).iloc[0]
                 ini_total = latest_ini["數量_g"]
@@ -3755,7 +3757,6 @@ if menu == "庫存區":
                     end_dt = s_dt - pd.Timedelta(days=1) if s_dt else df_pid["日期"].max()
                     usage_prior = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
                 ini_total = in_qty_prior - usage_prior
-
 
             # ===== 區間進貨與用量 =====
             interval_start = s_dt if s_dt else df_pid["日期"].min()
