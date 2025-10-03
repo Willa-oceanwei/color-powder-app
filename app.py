@@ -3498,7 +3498,7 @@ if menu == "庫存區":
                 )
                 ini_qty_g = in_qty_all - usage_all
 
-                    ini_dict[pid] = ini_qty_g
+                ini_dict[pid] = ini_qty_g
 
     st.session_state["ini_dict"] = ini_dict
     st.markdown("---")
