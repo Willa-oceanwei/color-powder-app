@@ -3498,11 +3498,8 @@ if menu == "庫存區":
                 if df_order.empty or df_recipe.empty:
                     usage_all = 0
                 elif df_pid["日期"].notna().any():
-                    start_dt = df_pid["日期"].min()
-                    end_dt = df_pid["日期"].max()
-                    usage_all = calc_usage_for_stock(pid, df_order, df_recipe, start_dt, end_dt)
+                    usage_all = safe_calc_usage(pid, df_order, df_recipe, df_pid["日期"].min(), df_pid["日期"].max())
                 else:
-                    # 沒有日期可計算
                     usage_all = 0
 
                 ini_qty_g = in_qty_all - usage_all
