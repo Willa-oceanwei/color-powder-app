@@ -3758,10 +3758,10 @@ if menu == "庫存區":
                     "期末庫存": format_usage(final_g),
                  })
 
-               # 5. 顯示結果
-               df_result = pd.DataFrame(stock_summary)
-               st.dataframe(df_result, use_container_width=True)
-               st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
+                # 5. 顯示結果
+                df_result = pd.DataFrame(stock_summary)
+                st.dataframe(df_result, use_container_width=True)
+                st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
 
           
 # ===== 匯入配方備份檔案 =====
