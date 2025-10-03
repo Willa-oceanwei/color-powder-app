@@ -3739,29 +3739,29 @@ if menu == "庫存區":
                 ini_total = ini_base_value + in_prior
 
 
-                    # --- (B) 區間進貨與用量 ---
-                    interval_mask = (df_pid["日期"] >= s_dt_use) & (df_pid["日期"] <= e_dt_use)
+                # --- (B) 區間進貨與用量 ---
+                interval_mask = (df_pid["日期"] >= s_dt_use) & (df_pid["日期"] <= e_dt_use)
 
-                    in_qty_interval = df_pid[interval_mask & (df_pid["類型"].astype(str).str.strip() == "進貨")]["數量_g"].sum()
-                    usage_interval = safe_calc_usage(pid, df_order, df_recipe, s_dt_use, e_dt_use) if not df_order.empty else 0.0
+                in_qty_interval = df_pid[interval_mask & (df_pid["類型"].astype(str).str.strip() == "進貨")]["數量_g"].sum()
+                usage_interval = safe_calc_usage(pid, df_order, df_recipe, s_dt_use, e_dt_use) if not df_order.empty else 0.0
 
-                    # --- (C) 期末庫存 ---
-                    final_g = ini_total + in_qty_interval - usage_interval
-                    st.session_state["last_final_stock"][pid] = final_g
+                # --- (C) 期末庫存 ---
+                final_g = ini_total + in_qty_interval - usage_interval
+                st.session_state["last_final_stock"][pid] = final_g
 
-                    # 加入結果列表
-                    stock_summary.append({
-                        "色粉編號": pid,
-                        "期初庫存": format_usage(ini_total),
-                        "區間進貨": format_usage(in_qty_interval),
-                        "區間用量": format_usage(usage_interval),
-                        "期末庫存": format_usage(final_g),
-                    })
+                # 加入結果列表
+                stock_summary.append({
+                    "色粉編號": pid,
+                    "期初庫存": format_usage(ini_total),
+                    "區間進貨": format_usage(in_qty_interval),
+                    "區間用量": format_usage(usage_interval),
+                    "期末庫存": format_usage(final_g),
+                 })
 
-                # 5. 顯示結果
-                df_result = pd.DataFrame(stock_summary)
-                st.dataframe(df_result, use_container_width=True)
-                st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
+               # 5. 顯示結果
+               df_result = pd.DataFrame(stock_summary)
+               st.dataframe(df_result, use_container_width=True)
+               st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
 
           
 # ===== 匯入配方備份檔案 =====
