@@ -3480,58 +3480,32 @@ if menu == "庫存區":
             st.session_state.df_stock = df_stock  # 更新 session_state
             st.success(f"✅ 初始庫存已儲存，色粉 {ini_powder.strip()} 將以最新設定為準")
 
-    # ---------- 計算期初庫存 ----------
-    # 建立 session_state 儲存期初庫存
-    if "ini_dict" not in st.session_state:
-        st.session_state["ini_dict"] = {}
-    if "last_final_stock" not in st.session_state:
-        st.session_state["last_final_stock"] = {}
-
-    # 計算時，取每個色粉「最新日期的初始庫存」作為期初值
-    df_ini = df_stock[df_stock["類型"] == "初始"].copy()
-    # 強制日期轉 datetime
-    df_ini["日期"] = pd.to_datetime(df_ini["日期"], errors="coerce")
-
-    ini_dict = {}
-    for pid in df_stock["色粉編號"].unique():
-        pid = str(pid)
-        df_pid_ini = df_ini[df_ini["色粉編號"].astype(str) == pid]
-
-        if not df_pid_ini.empty and df_pid_ini["日期"].notna().any():
-            # 取最新日期的初始庫存
-            latest_row = df_pid_ini.sort_values("日期", ascending=False).iloc[0]
-            ini_qty_g = to_grams(latest_row["數量"], latest_row["單位"])
+    
+    # ----------- 計算期初庫存 -----------
+    ini_rows = df_pid[df_pid["類型"]=="初始"]
+    if not ini_rows.empty:
+        # 有初始庫存 → 期初固定，不扣回歷史用量
+        latest_ini = ini_rows.sort_values("日期", ascending=False).iloc[0]
+        ini_total = latest_ini["數量_g"]
+        base_date = latest_ini["日期"] + pd.Timedelta(days=1)
+        # 區間查詢時，期初加上起日前進貨
+        if s_dt:
+            in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)]["數量_g"].sum()
+            ini_total += in_qty_prior
+    else:
+        # 沒有初始庫存 → 用進貨總和 - 用量總和（可為負）
+        if s_dt:
+            # 區間查詢
+            in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] < s_dt)]["數量_g"].sum()
+            usage_prior = safe_calc_usage(pid, df_order, df_recipe, df_pid["日期"].min(), s_dt - pd.Timedelta(days=1)) if not df_order.empty else 0.0
+            ini_total = in_qty_prior - usage_prior
         else:
-            # 沒有初始紀錄 → 先看有沒有上一期末庫存
-            if pid in st.session_state["last_final_stock"]:
-                ini_qty_g = st.session_state["last_final_stock"][pid]
-            else:
-                # ⚠️ 沒有上一期末 → 用「進貨總和 - 用量總和」
-                df_pid = df_stock[df_stock["色粉編號"].astype(str) == pid].copy()
+            # 單日查詢 / 未選日期
+            in_qty_total = df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
+            usage_total = safe_calc_usage(pid, df_order, df_recipe, df_pid["日期"].min(), today) if not df_order.empty else 0.0
+            ini_total = in_qty_total - usage_total  # 可能為負
 
-                # 確保日期轉 datetime
-                df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce")
-
-                # 把數量轉成 g
-                df_pid["數量_g"] = df_pid.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
-
-                # 區間前進貨總和
-                in_qty_all = df_pid[df_pid["類型"] == "進貨"]["數量_g"].sum()
-
-                # 計算用量前，先確認資料存在且日期有效
-                valid_dates = df_pid["日期"].dropna()
-                if df_order.empty or df_recipe.empty or valid_dates.empty:
-                    usage_all = 0
-                else:
-                    start_dt = valid_dates.min()
-                    end_dt = valid_dates.max()
-                    usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
-                    
-                ini_qty_g = in_qty_all - usage_all
-                ini_dict[pid] = ini_qty_g
-
-    st.session_state["ini_dict"] = ini_dict
-    st.markdown("---")
+        st.markdown("---")
 
 
     # ================= 進貨新增 =================
