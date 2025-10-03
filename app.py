@@ -3816,7 +3816,7 @@ if menu == "庫存區":
                     if not df_pid_ini.empty and df_pid_ini["日期"].notna().any():
                         latest_ini = df_pid_ini.sort_values("日期", ascending=False).iloc[0]
                         ini_total = latest_ini["數量_g"]
-                else:
+                 else:
                     # 沒有初始庫存 → 用進貨總和 - 用量總和
                     in_qty_total = df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
                     ini_total = in_qty_total - usage_interval
