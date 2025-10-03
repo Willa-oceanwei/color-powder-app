@@ -3803,10 +3803,7 @@ if menu == "庫存區":
             interval_mask = (df_pid["日期"] >= s_dt_eff) & (df_pid["日期"] <= e_dt_eff)
             in_qty_g = df_pid[interval_mask & (df_pid["類型"]=="進貨")]["數量_g"].sum()
     
-            if not df_order.empty and not df_recipe.empty:
-                usage_qty_g = calc_usage_for_stock(pid, df_order, df_recipe, s_dt_eff, e_dt_eff)
-            else:
-                usage_qty_g = 0
+            usage_qty_g = safe_calc_usage(pid, df_order, df_recipe, s_dt_eff, e_dt_eff)
 
             # ----------- 計算期末庫存 -----------
             final_g = ini_total + in_qty_g - usage_qty_g
