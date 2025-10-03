@@ -3803,9 +3803,23 @@ if menu == "庫存區":
                     ini_total = in_qty_prior - usage_prior
                 else:
                     # 單日查詢 / 未選日期
+                    in_qty_interval = df_pid[interval_mask & (df_pid["類型"]=="進貨")]["數量_g"].sum()
+    
+                    # 計算總用量（單日或從最早到今天）
+                    usage_interval = 0.0
+                    if not df_order.empty and not df_recipe.empty and df_pid["日期"].notna().any():
+                        start_dt = df_pid["日期"].min()
+                        end_dt = today
+                        usage_interval = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
+    
+                    # 若有初始庫存，期初庫存直接取最新初始庫存，不扣回歷史用量
+                    if not df_pid_ini.empty and df_pid_ini["日期"].notna().any():
+                    latest_ini = df_pid_ini.sort_values("日期", ascending=False).iloc[0]
+                    ini_total = latest_ini["數量_g"]
+                else:
+                    # 沒有初始庫存 → 用進貨總和 - 用量總和
                     in_qty_total = df_pid[df_pid["類型"]=="進貨"]["數量_g"].sum()
-                    usage_total = safe_calc_usage(pid, df_order, df_recipe, df_pid["日期"].min(), today) if not df_order.empty else 0.0
-                    ini_total = in_qty_total - usage_total
+                    ini_total = in_qty_total - usage_interval
 
             # --- 計算期末庫存 ---
             final_g = ini_total + in_qty_interval - usage_interval
