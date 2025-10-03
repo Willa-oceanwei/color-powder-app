@@ -3740,34 +3740,34 @@ if menu == "庫存區":
         st.dataframe(df_result)
 
 
-            # ===== 區間進貨與用量 =====
-            interval_start = s_dt if s_dt else df_pid["日期"].min()
-            interval_end = e_dt if e_dt else pd.Timestamp.today().normalize()
-            interval_mask = (df_pid["日期"] >= interval_start) & (df_pid["日期"] <= interval_end)
-            in_qty_interval = df_pid[interval_mask & (df_pid["類型"]=="進貨")]["數量_g"].sum()
-            usage_interval = safe_calc_usage(pid, df_order, df_recipe, interval_start, interval_end) if not df_order.empty else 0.0
+        # ===== 區間進貨與用量 =====
+        interval_start = s_dt if s_dt else df_pid["日期"].min()
+        interval_end = e_dt if e_dt else pd.Timestamp.today().normalize()
+        interval_mask = (df_pid["日期"] >= interval_start) & (df_pid["日期"] <= interval_end)
+        in_qty_interval = df_pid[interval_mask & (df_pid["類型"]=="進貨")]["數量_g"].sum()
+        usage_interval = safe_calc_usage(pid, df_order, df_recipe, interval_start, interval_end) if not df_order.empty else 0.0
 
-            # 存到結果
-            stock_summary.append({
-                "色粉編號": pid,
-                "期初庫存": ini_total,
-                "進貨量": in_qty_interval,
-                "用量": usage_interval,
-                "期末庫存": ini_total + in_qty_interval - usage_interval
-            })
+        # 存到結果
+        stock_summary.append({
+            "色粉編號": pid,
+            "期初庫存": ini_total,
+            "進貨量": in_qty_interval,
+            "用量": usage_interval,
+            "期末庫存": ini_total + in_qty_interval - usage_interval
+        })
 
 
-            # ===== 期末庫存 =====
-            final_g = ini_total + in_qty_interval - usage_interval
-            st.session_state["last_final_stock"][pid] = final_g
+        # ===== 期末庫存 =====
+        final_g = ini_total + in_qty_interval - usage_interval
+        st.session_state["last_final_stock"][pid] = final_g
 
-            stock_summary.append({
-                "色粉編號": pid,
-                "期初庫存": format_usage(ini_total),
-                "區間進貨": format_usage(in_qty_interval),
-                "區間用量": format_usage(usage_interval),
-                "期末庫存": format_usage(final_g),
-            })
+        stock_summary.append({
+            "色粉編號": pid,
+            "期初庫存": format_usage(ini_total),
+            "區間進貨": format_usage(in_qty_interval),
+            "區間用量": format_usage(usage_interval),
+             "期末庫存": format_usage(final_g),
+        })
 
         st.dataframe(pd.DataFrame(stock_summary), use_container_width=True)
         st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
