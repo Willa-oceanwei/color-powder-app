@@ -3519,8 +3519,8 @@ if menu == "庫存區":
                 else:
                     start_dt = valid_dates.min()
                     end_dt = valid_dates.max()
-                    usage_all = safe_usage_calc_wrapper(pid, df_order, df_recipe, start_dt, end_dt)
-
+                    usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
+                    
                 ini_qty_g = in_qty_all - usage_all
                 ini_dict[pid] = ini_qty_g
 
