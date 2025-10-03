@@ -3484,11 +3484,12 @@ if menu == "庫存區":
     # ----------- 計算期初庫存 -----------
     # 先清理欄位空白，避免欄位名稱不匹配
     import pandas as pd
-    print(isinstance(df_pid, pd.DataFrame))
-    print(f"df_pid is defined: {'df_pid' in locals() or 'df_pid' in globals()}")
-    print(repr(df_pid))
-    print(type(df_pid))
-    print(df_pid.columns)
+
+    # 確認 df_pid 是否為 DataFrame
+    if not isinstance(df_pid, pd.DataFrame):
+        raise TypeError("df_pid 不是 pandas DataFrame，請檢查資料來源")
+
+    # 清理欄位名稱前後空白，避免名稱不一致
     df_pid = df_pid.rename(columns=lambda x: x.strip() if isinstance(x, str) else x)
 
     # 檢查是否有「類型」欄位
