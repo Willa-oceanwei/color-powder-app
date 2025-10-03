@@ -3483,7 +3483,7 @@ if menu == "庫存區":
 
     # ----------- 計算期初庫存 -----------
     # 先清理欄位空白，避免欄位名稱不匹配
-    df_pid.columns = [col.strip() if isinstance(col, str) else col for col in df_pid.columns]
+    df_pid = df_pid.rename(columns=lambda x: x.strip() if isinstance(x, str) else x)
 
     # 檢查是否有「類型」欄位
     if "類型" in df_pid.columns:
