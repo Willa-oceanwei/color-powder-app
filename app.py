@@ -3495,12 +3495,12 @@ if menu == "庫存區":
                 in_qty_all = df_pid[df_pid["類型"] == "進貨"]["數量_g"].sum()
 
                 # 計算用量前，先確認資料存在
-                if df_order.empty or df_recipe.empty:
+                if df_order.empty or df_recipe.empty or not df_pid["日期"].notna().any():
                     usage_all = 0
-                elif df_pid["日期"].notna().any():
-                    usage_all = safe_calc_usage(pid, df_order, df_recipe, df_pid["日期"].min(), df_pid["日期"].max())
                 else:
-                    usage_all = 0
+                    start_dt = df_pid["日期"].min()
+                    end_dt = df_pid["日期"].max()
+                    usage_all = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
 
                 ini_qty_g = in_qty_all - usage_all
                 ini_dict[pid] = ini_qty_g
