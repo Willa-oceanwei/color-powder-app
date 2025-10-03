@@ -3547,7 +3547,7 @@ if menu == "庫存區":
 
             total_usage_g += order_total_for_powder
 
-    r    eturn total_usage_g
+            return total_usage_g
 
     # ---------------- 修正後的 format_usage 函式 ----------------
     def format_usage(val_g):
