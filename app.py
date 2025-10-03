@@ -3482,13 +3482,17 @@ if menu == "庫存區":
 
 
     # ----------- 計算期初庫存 -----------
-    import pandas as pd
-
-    df_pid_test = pd.DataFrame({'a': [1,2]})
-    print(isinstance(df_pid_test, pd.DataFrame))  # True
-
+    df_pid = st.session_state.get("df_stock", pd.DataFrame()) 
+    
+    if not df_pid.empty and "數量" in df_pid.columns and "單位" in df_pid.columns:
+        df_pid["數量_g"] = df_pid.apply(lambda row: to_grams(row["數量"], row["單位"]), axis=1)
+        df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce")
+    else:
+        df_pid = pd.DataFrame() 
+  
     # 清理欄位名稱前後空白，避免名稱不一致
-    df_pid = df_pid.rename(columns=lambda x: x.strip() if isinstance(x, str) else x)
+    if not df_pid.empty:
+        df_pid = df_pid.rename(columns=lambda x: x.strip() if isinstance(x, str) else x)
 
     # 檢查是否有「類型」欄位
     if "類型" in df_pid.columns:
@@ -3499,44 +3503,65 @@ if menu == "庫存區":
         df_ini = pd.DataFrame()
 
     if not df_ini.empty:
-        latest_ini = df_ini.sort_values("日期", ascending=False).iloc[0]
-        ini_total = latest_ini.get("數量_g", 0.0)  # 用 get 避免 KeyError
-        base_date = latest_ini.get("日期", pd.Timestamp.min) + pd.Timedelta(days=1)
-
-        # 計算期初前的進貨
-        if "類型" in df_pid.columns and "日期" in df_pid.columns and s_dt is not None:
-            in_qty_prior = df_pid[
-                (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                (df_pid["日期"] >= base_date) &
-                (df_pid["日期"] < s_dt)
-            ]["數量_g"].sum()
+        # 確保日期欄位非空，並按日期排序取最新一筆
+        df_ini_valid = df_ini.dropna(subset=["日期"])
+        if not df_ini_valid.empty:
+            latest_ini = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
+            ini_total = latest_ini.get("數量_g", 0.0)  # 用 get 避免 KeyError
+            # 基於初始日期計算起始點
+            base_date = latest_ini.get("日期", pd.Timestamp.min) + pd.Timedelta(days=1)
         else:
-            in_qty_prior = 0.0
+            ini_total = 0.0
+            base_date = pd.Timestamp.min
+    else:
+        # 沒有初始庫存，設定初始總和為 0，起始日期為最早
+        ini_total = 0.0
+        base_date = pd.Timestamp.min # 用最小日期確保計算所有進貨
+
+
+    # 計算期初後的進貨 (無論有無初始庫存，都需要這個變數)
+    in_qty_prior = 0.0
+    if "類型" in df_pid.columns and "日期" in df_pid.columns and s_dt is not None:
+        # 區分有無初始庫存，設定日期過濾條件
+        if df_ini.empty:
+            # 情況 1: 沒有初始庫存 → 計算所有在 s_dt 之前的進貨
+            filter_condition = (df_pid["日期"] < s_dt)
+        else:
+            # 情況 2: 有初始庫存 → 計算在初始日期之後且在 s_dt 之前的進貨
+            filter_condition = (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)
+            
+        in_qty_prior = df_pid[
+            (df_pid["類型"].astype(str).str.strip() == "進貨") &
+            filter_condition
+        ]["數量_g"].sum()
+    
+    
+    if not df_ini.empty:
+        # 有初始庫存的情況
         ini_total += in_qty_prior
     else:
-        # 沒有初始庫存 → 進貨總和 - 歷史用量
-        if "類型" in df_pid.columns and "日期" in df_pid.columns:
-            if s_dt is not None:
-                in_qty_prior = df_pid[
-                    (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                    (df_pid["日期"] < s_dt)
-                ]["數量_g"].sum()
-            else:
-                in_qty_prior = df_pid[df_pid["類型"].astype(str).str.strip() == "進貨"]["數量_g"].sum()
-        else:
-            in_qty_prior = 0.0
+        # 沒有初始庫存的情況 → 進貨總和 - 歷史用量
+        
+        # 歷史進貨總量 (已包含在 in_qty_prior 中，因為 base_date 為 pd.Timestamp.min)
+        ini_total = in_qty_prior
 
         usage_prior = 0.0
+        # 確定有足夠的資料來計算歷史用量
         if not df_order.empty and not df_recipe.empty and "日期" in df_pid.columns and not df_pid["日期"].dropna().empty:
-            start_dt = df_pid["日期"].min()
-            end_dt = s_dt - pd.Timedelta(days=1) if s_dt is not None else df_pid["日期"].max()
-            usage_prior = safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt)
-        ini_total = in_qty_prior - usage_prior
+            
+            # 使用進貨記錄中的最早日期作為用量計算的起始日期
+            start_dt_usage = df_pid["日期"].min()
+            end_dt_usage = s_dt - pd.Timedelta(days=1) if s_dt is not None else df_pid["日期"].max()
+            
+            # 確保起始和結束日期有效
+            if start_dt_usage <= end_dt_usage:
+                usage_prior = safe_calc_usage(pid, df_order, df_recipe, start_dt_usage, end_dt_usage)
+        
+        # 最終期初庫存 = 歷史進貨總和 - 歷史用量總和
+        ini_total -= usage_prior
 
 
     st.markdown("---")
-
-
 
     # ================= 進貨新增 =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
