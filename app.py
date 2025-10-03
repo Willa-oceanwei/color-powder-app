@@ -3799,7 +3799,7 @@ if menu == "庫存區":
                 ini_total = latest_ini["數量_g"]
                 base_date = latest_ini["日期"] + pd.Timedelta(days=1)
                 if base_date <= e_dt:
-                    in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt_eff)]["數量_g"].sum()
+                    in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt)]["數量_g"].sum()
                     usage_prior = safe_calc_usage(pid, df_order, df_recipe, base_date, s_dt_eff - pd.Timedelta(days=1))
                     ini_total += in_qty_prior - usage_prior
             else:
