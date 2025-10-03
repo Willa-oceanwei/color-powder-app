@@ -3788,9 +3788,9 @@ if menu == "庫存區":
                 latest_ini = df_pid_ini.sort_values("日期", ascending=False).iloc[0]
                 ini_total = latest_ini["數量_g"]
                 base_date = latest_ini["日期"] + pd.Timedelta(days=1)
-                if s_dt_eff > base_date and not df_order.empty and not df_recipe.empty:
+                if base_date <= e_dt_eff:
                     in_qty_prior = df_pid[(df_pid["類型"]=="進貨") & (df_pid["日期"] >= base_date) & (df_pid["日期"] < s_dt_eff)]["數量_g"].sum()
-                    usage_prior = calc_usage_for_stock(pid, df_order, df_recipe, base_date, s_dt_eff - pd.Timedelta(days=1))
+                    usage_prior = safe_calc_usage(pid, df_order, df_recipe, base_date, s_dt_eff - pd.Timedelta(days=1))
                     ini_total += in_qty_prior - usage_prior
             else:
                 # 沒有初始庫存
