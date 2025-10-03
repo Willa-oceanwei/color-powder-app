@@ -3765,32 +3765,34 @@ if menu == "庫存區":
                 usage_interval = safe_calc_usage(pid, df_order, df_recipe, s_dt_use, e_dt_use) if not df_order.empty else 0.0
 
                 # --- (C) 期末庫存 ---
-                # 確保所有變數都有數值，避免空 DataFrame 或 None 導致錯誤
-                ini_total = ini_total if 'ini_total' in locals() and ini_total is not None else 0.0
-                in_qty_interval = in_qty_interval if 'in_qty_interval' in locals() and in_qty_interval is not None else 0.0
-                usage_interval = usage_interval if 'usage_interval' in locals() and usage_interval is not None else 0.0
+                # 保證所有變數都有數值
+                ini_total = ini_total if 'ini_total' in locals() and pd.notna(ini_total) else 0.0
+                in_qty_interval = in_qty_interval if 'in_qty_interval' in locals() and pd.notna(in_qty_interval) else 0.0
+                usage_interval = usage_interval if 'usage_interval' in locals() and pd.notna(usage_interval) else 0.0
 
                 final_g = ini_total + in_qty_interval - usage_interval
 
-                # 存到 session_state
+                # session_state 儲存
                 if "last_final_stock" not in st.session_state:
                     st.session_state["last_final_stock"] = {}
                 st.session_state["last_final_stock"][pid] = final_g
 
-                # 加入結果列表，保護格式化函數
+                # safe 格式化函數
                 def safe_format(x):
                     try:
                         return format_usage(x)
                     except:
                         return "0"
 
+                # append 前再保護一次
                 stock_summary.append({
-                    "色粉編號": pid,
+                    "色粉編號": pid if pid is not None else "",
                     "期初庫存": safe_format(ini_total),
                     "區間進貨": safe_format(in_qty_interval),
                     "區間用量": safe_format(usage_interval),
                     "期末庫存": safe_format(final_g),
                 })
+
 
                 # 5. 顯示結果
                 df_result = pd.DataFrame(stock_summary)
