@@ -3483,6 +3483,8 @@ if menu == "庫存區":
 
     # ----------- 計算期初庫存 -----------
     # 先清理欄位空白，避免欄位名稱不匹配
+    print(f"df_pid is defined: {'df_pid' in locals() or 'df_pid' in globals()}")
+    print(repr(df_pid))
     print(type(df_pid))
     print(df_pid.columns)
     df_pid = df_pid.rename(columns=lambda x: x.strip() if isinstance(x, str) else x)
