@@ -3764,7 +3764,8 @@ if menu == "庫存區":
 
                 # 期初庫存 = 進貨 - 歷史使用量 → 可能為負
                 ini_total = in_all - usage_all
-                        else:
+                
+            else:
                 # 有期初 → 最新初始值 + 初始日期到查詢起始日進貨
                 in_prior = df_pid[
                     (df_pid["類型"].astype(str).str.strip() == "進貨") &
