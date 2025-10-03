@@ -3765,17 +3765,19 @@ if menu == "庫存區":
         today = date.today()
 
         # 判斷區間
+        today = pd.Timestamp.today().normalize()  # pd.Timestamp
         if not query_start and not query_end:
-            # 未選日期 → 從最早到今天
             s_dt = df_stock_copy["日期"].min() if df_stock_copy["日期"].notna().any() else today
             e_dt = today
         elif query_start and not query_end:
-            s_dt, e_dt = query_start, today
+            s_dt = pd.to_datetime(query_start)
+            e_dt = today
         elif not query_start and query_end:
             s_dt = df_stock_copy["日期"].min() if df_stock_copy["日期"].notna().any() else today
-            e_dt = query_end
+            e_dt = pd.to_datetime(query_end)
         else:
-            s_dt, e_dt = query_start, query_end
+            s_dt = pd.to_datetime(query_start)
+            e_dt = pd.to_datetime(query_end)
 
         # 統一提示訊息
         st.info(f"ℹ️ 查詢區間：{s_dt} ~ {e_dt}")
