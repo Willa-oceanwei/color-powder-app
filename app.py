@@ -3728,9 +3728,11 @@ if menu == "庫存區":
         stock_summary = []
 
         for pid in df_stock_copy["色粉編號"].unique():
-            pid = str(pid)
             df_pid = df_stock_copy[df_stock_copy["色粉編號"].astype(str) == pid].copy()
             df_pid["日期"] = pd.to_datetime(df_pid["日期"], errors="coerce")
+
+            # 這裡就可以安全使用 df_pid
+            ini_rows = df_pid[df_pid["類型"]=="初始"]
 
             # ===== 計算期初庫存 =====
             df_ini = df_pid[df_pid["類型"]=="初始"]
