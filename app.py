@@ -3681,10 +3681,11 @@ if menu == "庫存區":
         st.success(f"✅ 查詢 {query_start} ~ {query_end} 的庫存數量")
 
     # 確保型態為 pd.Timestamp
-    # s_dt 定義為 '查詢起日' (或最早日期)
-    s_dt = pd.to_datetime(query_start) if query_start else pd.Timestamp("1970-01-01").normalize()
+    today = pd.Timestamp.today().normalize()
+    # s_dt 定義為 '查詢起日' (或最早日期 / 今天)
+    s_dt = pd.to_datetime(query_start) if query_start else today
     # e_dt 定義為 '查詢迄日' (或今天)
-    e_dt = pd.to_datetime(query_end) if query_end else pd.Timestamp.today().normalize()
+    e_dt = pd.to_datetime(query_end) if query_end else today
 
     # 初始化 session_state
     if "ini_dict" not in st.session_state:
