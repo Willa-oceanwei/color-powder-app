@@ -2691,20 +2691,26 @@ elif menu == "生產單管理":
         # ✅ 灰色、不顯眼版本
         st.markdown("""
         <style>
-        /* 只針對灰色 checkbox 區塊套用樣式 */
-        div.gray-checkbox label p {
-            color: #999 !important;         /* 灰色文字 */
+        /* 針對 gray-checkbox 區塊內的 checkbox 樣式 */
+        div.gray-checkbox [data-testid="stCheckbox"] label p {
+            color: #999 !important;         /* 文字灰色 */
             font-size: 0.9rem !important;
         }
 
-        /* 改勾選框與勾的顏色為灰色 */
-        div.gray-checkbox input[type="checkbox"] {
+        /* 修改勾選框與勾的顏色 */
+        div.gray-checkbox [data-testid="stCheckbox"] input[type="checkbox"] {
             accent-color: #bbb !important;  /* 淺灰勾選 */
+        }
+
+        /* 避免間距異常：微調內邊距 */
+        div.gray-checkbox [data-testid="stCheckbox"] {
+            margin-top: -5px !important;
+            margin-bottom: -5px !important;
         }
         </style>
         """, unsafe_allow_html=True)
 
-        # --- 放入灰色區塊 ---
+        # --- 使用 container 包起來以便指定區域套用 ---
         with st.container():
             st.markdown('<div class="gray-checkbox">', unsafe_allow_html=True)
             show_ids = st.checkbox(
@@ -2713,6 +2719,7 @@ elif menu == "生產單管理":
                 key=show_ids_key
             )
             st.markdown('</div>', unsafe_allow_html=True)
+
 
 
         preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
