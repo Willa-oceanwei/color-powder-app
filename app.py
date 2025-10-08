@@ -2691,30 +2691,29 @@ elif menu == "生產單管理":
         # ✅ 灰色、不顯眼版本
         st.markdown("""
         <style>
-        /* 只讓「預覽時顯示附加配方編號」這一行變灰色 */
-        div[data-testid="stCheckbox"] label p:contains("預覽時顯示附加配方編號") {
-            color: #999 !important;     /* 文字灰色 */
+        /* 只針對灰色 checkbox 區塊套用樣式 */
+        div.gray-checkbox label p {
+            color: #999 !important;         /* 灰色文字 */
             font-size: 0.9rem !important;
         }
 
-        /* checkbox 框與勾的顏色 */
-        div[data-testid="stCheckbox"] label p:contains("預覽時顯示附加配方編號") 
-            + div input[type="checkbox"] {
-            accent-color: #bbb !important;   /* 淺灰勾選框 */
-        }
-
-        /* 替代方案：若 :contains 無效，直接用位置選取方式 */
-        div[data-testid="stCheckbox"]:has(p:contains("預覽時顯示附加配方編號")) input[type="checkbox"] {
-            accent-color: #bbb !important;   /* 灰色勾勾 */
+        /* 改勾選框與勾的顏色為灰色 */
+        div.gray-checkbox input[type="checkbox"] {
+            accent-color: #bbb !important;  /* 淺灰勾選 */
         }
         </style>
         """, unsafe_allow_html=True)
 
-        show_ids = st.checkbox(
-            "預覽時顯示附加配方編號",
-            value=st.session_state[show_ids_key],
-            key=show_ids_key
-        )
+        # --- 放入灰色區塊 ---
+        with st.container():
+            st.markdown('<div class="gray-checkbox">', unsafe_allow_html=True)
+            show_ids = st.checkbox(
+                "預覽時顯示附加配方編號",
+                value=st.session_state[show_ids_key],
+                key=show_ids_key
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
 
         preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
 
