@@ -2688,6 +2688,21 @@ elif menu == "生產單管理":
         if show_ids_key not in st.session_state:
             st.session_state[show_ids_key] = True
 
+        st.markdown("""
+        <style>
+        /* 讓特定 checkbox 呈現灰色系 */
+        div[data-testid="stCheckbox"] label p {
+            color: #888 !important;   /* 灰色文字 */
+            font-size: 0.9rem !important;
+        }
+
+        /* 調整 checkbox 框線與勾選顏色 */
+        div[data-testid="stCheckbox"] input[type="checkbox"] {
+            accent-color: #aaa !important;  /* 灰色勾選 */
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         show_ids = st.checkbox(
             "預覽時顯示附加配方編號",
             value=st.session_state[show_ids_key],
