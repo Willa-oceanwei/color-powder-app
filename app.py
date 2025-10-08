@@ -2688,21 +2688,28 @@ elif menu == "生產單管理":
         if show_ids_key not in st.session_state:
             st.session_state[show_ids_key] = True
 
+        # ✅ 灰色、不顯眼版本
         st.markdown("""
         <style>
-        /* 讓特定 checkbox 呈現灰色系 */
-        div[data-testid="stCheckbox"] label p {
-            color: #888 !important;   /* 灰色文字 */
+        /* 只讓「預覽時顯示附加配方編號」這一行變灰色 */
+        div[data-testid="stCheckbox"] label p:contains("預覽時顯示附加配方編號") {
+            color: #999 !important;     /* 文字灰色 */
             font-size: 0.9rem !important;
         }
 
-        /* 調整 checkbox 框線與勾選顏色 */
-        div[data-testid="stCheckbox"] input[type="checkbox"] {
-            accent-color: #aaa !important;  /* 灰色勾選 */
+        /* checkbox 框與勾的顏色 */
+        div[data-testid="stCheckbox"] label p:contains("預覽時顯示附加配方編號") 
+            + div input[type="checkbox"] {
+            accent-color: #bbb !important;   /* 淺灰勾選框 */
+        }
+
+        /* 替代方案：若 :contains 無效，直接用位置選取方式 */
+        div[data-testid="stCheckbox"]:has(p:contains("預覽時顯示附加配方編號")) input[type="checkbox"] {
+            accent-color: #bbb !important;   /* 灰色勾勾 */
         }
         </style>
         """, unsafe_allow_html=True)
-        
+
         show_ids = st.checkbox(
             "預覽時顯示附加配方編號",
             value=st.session_state[show_ids_key],
