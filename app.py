@@ -2691,36 +2691,24 @@ elif menu == "生產單管理":
         # ✅ 灰色、不顯眼版本
         st.markdown("""
         <style>
-        /* 針對 gray-checkbox 區塊內的 checkbox 樣式 */
-        div.gray-checkbox [data-testid="stCheckbox"] label p {
-            color: #999 !important;         /* 文字灰色 */
+        /* 讓特定 checkbox 呈現灰色系 */
+        div[data-testid="stCheckbox"] label p {
+            color: #888 !important;   /* 灰色文字 */
             font-size: 0.9rem !important;
         }
 
-        /* 修改勾選框與勾的顏色 */
-        div.gray-checkbox [data-testid="stCheckbox"] input[type="checkbox"] {
-            accent-color: #bbb !important;  /* 淺灰勾選 */
-        }
-
-        /* 避免間距異常：微調內邊距 */
-        div.gray-checkbox [data-testid="stCheckbox"] {
-            margin-top: -5px !important;
-            margin-bottom: -5px !important;
+        /* 調整 checkbox 框線與勾選顏色 */
+        div[data-testid="stCheckbox"] input[type="checkbox"] {
+            accent-color: #aaa !important;  /* 灰色勾選 */
         }
         </style>
         """, unsafe_allow_html=True)
 
-        # --- 使用 container 包起來以便指定區域套用 ---
-        with st.container():
-            st.markdown('<div class="gray-checkbox">', unsafe_allow_html=True)
-            show_ids = st.checkbox(
-                "預覽時顯示附加配方編號",
-                value=st.session_state[show_ids_key],
-                key=show_ids_key
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-
-
+        show_ids = st.checkbox(
+            "預覽時顯示附加配方編號",
+            value=st.session_state[show_ids_key],
+            key=show_ids_key
+        )
 
         preview_text = generate_order_preview_text(order_dict, recipe_row, show_additional_ids=show_ids)
 
