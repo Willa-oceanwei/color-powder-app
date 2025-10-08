@@ -2246,13 +2246,25 @@ elif menu == "生產單管理":
                     order[key_id] = recipe_row.get(key_id, "")
                     order[key_weight] = recipe_row.get(key_weight, "")
         
-        
-                # 計算色粉合計
-                net_weight = float(recipe_row.get("淨重", 0))
+
+                # ---------- 計算色粉合計 ----------
+                # 確保 recipe_row 是字典
+                if recipe_row is None:
+                    recipe_row = {}
+                elif isinstance(recipe_row, pd.Series):
+                    recipe_row = recipe_row.to_dict()
+
+                # 嘗試安全取得淨重
+                raw_net_weight = recipe_row.get("淨重", 0)
+                try:
+                    net_weight = float(raw_net_weight)
+                except (ValueError, TypeError):
+                    net_weight = 0.0
+
                 color_weight_list = []
                 for i in range(1, 5):
                     try:
-                        w_str = st.session_state.get(f"form_weight{i}", "").strip()
+                        w_str = str(st.session_state.get(f"form_weight{i}", "")).strip()
                         weight = float(w_str) if w_str else 0.0
                         if weight > 0:
                             color_weight_list.append({
@@ -2260,10 +2272,13 @@ elif menu == "生產單管理":
                                 "重量": weight,
                                 "結果": net_weight * weight
                             })
-                    except:
+                    except Exception as e:
+                        # 可加上除錯用 log，例如：print(f"⚠️ 第{i}項重量錯誤: {e}")
                         continue
+
                 order["色粉合計清單"] = color_weight_list
                 order["色粉合計類別"] = recipe_row.get("合計類別", "")
+
         
                 # ➕ 寫入 Google Sheets、CSV 等流程
                 header = [col for col in df_order.columns if col and str(col).strip() != ""]
