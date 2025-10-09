@@ -2746,6 +2746,9 @@ elif menu == "生產單管理":
                             st.session_state["show_delete_confirm"] = True
 
             # ------------------- 確認刪除 -------------------
+            st.write("Debug: order_id_str =", order_id_str)
+            st.write("Debug: ws_orders type =", type(ws_orders))
+            
             if st.session_state.get("show_delete_confirm", False):
                 # 取出目標 ID 與 label，若 label 為空則用 ID 代替
                 order_id = st.session_state.get("delete_target_id")
