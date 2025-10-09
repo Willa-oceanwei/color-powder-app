@@ -51,7 +51,6 @@ if "spreadsheet" not in st.session_state:
 spreadsheet = st.session_state["spreadsheet"]
 
 # ======== Sidebar 修正 =========
-# ======== Sidebar 修正 =========
 import streamlit as st
 
 menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
@@ -3973,8 +3972,11 @@ if menu == "庫存區":
         
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
-    st.title("📥 匯入配方備份 Excel")
-    
+    st.markdown(
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 庫存查詢</h2>',
+        unsafe_allow_html=True
+    )
+  
     def load_recipe_backup_excel(file):
         try:
             df = pd.read_excel(file)
