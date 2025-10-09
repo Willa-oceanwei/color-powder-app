@@ -2763,7 +2763,7 @@ elif menu == "生產單管理":
                     else:
                         order_id_str = str(order_id)
                         try:
-                            deleted = delete_order_by_id(ws_orders, order_id_str)
+                            deleted = delete_order_by_id(ws_order, order_id_str)
                             if deleted:
                                 st.success(f"✅ 已刪除 {order_label}")
                             else:
