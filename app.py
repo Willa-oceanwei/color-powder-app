@@ -2747,33 +2747,36 @@ elif menu == "生產單管理":
 
             # ------------------- 確認刪除 -------------------
             if st.session_state.get("show_delete_confirm", False):
+                # 取出目標 ID 與 label，若 label 為空則用 ID 代替
                 order_id = st.session_state.get("delete_target_id")
-                order_label = st.session_state.get("delete_target_label", order_id)
+                order_label = st.session_state.get("delete_target_label") or order_id or "未指定生產單"
 
                 st.warning(f"⚠️ 確定要刪除生產單？\n\n👉 {order_label}")
 
                 c1, c2 = st.columns(2)
+    
+                # ✅ 確認刪除
                 if c1.button("✅ 是，刪除", key="confirm_delete_yes"):
-                    # 安全防呆
-                    if order_id is None or order_id == "":
+                    if not order_id:
                         st.error("❌ 未指定要刪除的生產單 ID")
                     else:
-                        # 確保型別一致（字串）
+                        # 強制轉成字串
                         order_id_str = str(order_id)
                         deleted = delete_order_by_id(ws_orders, order_id_str)
                         if deleted:
                             st.success(f"✅ 已刪除 {order_label}")
                         else:
                             st.error("❌ 找不到該生產單，刪除失敗")
-
+        
+                    # 清除狀態並重跑
                     st.session_state["show_delete_confirm"] = False
                     st.rerun()
 
+                # ❌ 取消刪除
                 if c2.button("取消", key="confirm_delete_no"):
                     st.session_state["show_delete_confirm"] = False
                     st.rerun()
-
-
+                    
     # 修改面板（如果有啟動）
     if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
         st.markdown("---")
