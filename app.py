@@ -3843,11 +3843,14 @@ if menu == "庫存區":
             if not df_ini_valid.empty:
                 latest_ini_row = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
                 ini_base_value = latest_ini_row["數量_g"]
-                ini_date = latest_ini_row["日期"].normalize()
+                # 強制轉 datetime
+                ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce")
+                if not pd.isna(ini_date):
+                    ini_date = ini_date.normalize()
 
             # 備註文字：只要有期初日期就顯示
-            if ini_date is not None:
-                ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}" if (ini_date is not None and no_date_selected) else "—"
+            if ini_date is not None and not pd.isna(ini_date):
+                ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}"
             else:
                 ini_date_note = "—"
                      
