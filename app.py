@@ -3871,7 +3871,7 @@ if menu == "庫存區":
             # --- (D) 區間進貨 ---
             in_qty_interval = df_pid[
                 (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                (df_pid["日期"] > s_dt_pid) & (df_pid["日期"] <= e_dt_use)
+                (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
             ]["數量_g"].sum()
 
             # --- (E) 區間用量（從期初或查詢起日算起） ---
