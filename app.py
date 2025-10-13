@@ -3886,7 +3886,7 @@ if menu == "庫存區":
             ]["數量_g"].sum()
 
             # --- (E) 區間用量（累計所有符合 pid 的生產紀錄） ---
-            usage_interval = 0.0
+            usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use)
             if not df_order.empty and not df_recipe.empty:
                 # 遍歷所有訂單，累計對應 pid 的色粉用量
                 df_orders_interval = df_order_copy[
