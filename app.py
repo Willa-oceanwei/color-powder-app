@@ -3849,10 +3849,11 @@ if menu == "庫存區":
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
 
             ini_total = 0.0
-            
+            final_g = 0.0
+
             # 定義歷史計算的截止日 (查詢起始日的前一天)
             end_dt_prior = s_dt_use - pd.Timedelta(days=1)
-            
+
             # --- (A) 期初庫存 ---
             df_ini_valid = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
             ini_base_value = 0.0
@@ -3861,129 +3862,91 @@ if menu == "庫存區":
             if not df_ini_valid.empty:
                 latest_ini_row = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
                 ini_base_value = latest_ini_row["數量_g"]
-                # 強制轉 datetime
                 ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce")
                 if not pd.isna(ini_date):
                     ini_date = ini_date.normalize()
 
-            # 備註文字：只要有期初日期就顯示
+            # 📝 備註顯示：有期初日期才顯示日期，否則為「—」
             if ini_date is not None and not pd.isna(ini_date):
                 ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}"
             else:
                 ini_date_note = "—"
-                     
-            # 情況 A: 有效期初值，且在查詢起始日期之前
+
+            # --- (A1) 若有期初且日期在查詢起日之前 ---
             if ini_date is not None and ini_date < s_dt_use:
-                
-                # 1. 初始值為基礎
                 ini_total = ini_base_value
-                
-                # 2. 計算從初始日期(隔天) 到 查詢起始日期(前一天) 的進貨量
+
+                # 計算初始之後、查詢起始日之前的進貨
                 base_date = ini_date + pd.Timedelta(days=1)
                 in_prior_mask = (df_pid["日期"] >= base_date) & (df_pid["日期"] <= end_dt_prior)
                 in_prior = df_pid[
-                    (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                    in_prior_mask
+                    (df_pid["類型"].astype(str).str.strip() == "進貨") & in_prior_mask
                 ]["數量_g"].sum()
-                ini_total += in_prior
-                
-                # 3. 計算從初始日期(隔天) 到 查詢起始日期(前一天) 的用量
+
+                # 計算初始之後、查詢起始日之前的用量
                 usage_prior = 0.0
                 if base_date <= end_dt_prior:
                     usage_prior = safe_calc_usage(pid, df_order_copy, df_recipe, base_date, end_dt_prior)
-                
-                ini_total -= usage_prior # 期初總額 = 初始值 + 期間進貨 - 期間用量
 
-                
-            else:
-                # 情況 B: 無有效期初值 (使用 歷史總進貨 - 歷史總用量)
-                
-                # 歷史進貨 (從最早到 end_dt_prior)
+                ini_total += in_prior - usage_prior
+
+            # --- (B) 若無期初紀錄 → 用歷史累積進貨 - 用量 ---
+            elif ini_date is None:
+                # 若該色粉有紀錄，取最早日期當作期初參考點
+                if not df_pid.empty and "日期" in df_pid.columns:
+                    s_dt_use = df_pid["日期"].min().normalize()
+                else:
+                    s_dt_use = pd.Timestamp.today().normalize()
+
                 in_all_mask = (df_pid["日期"] <= end_dt_prior)
                 in_all = df_pid[
-                    (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                    in_all_mask
+                    (df_pid["類型"].astype(str).str.strip() == "進貨") & in_all_mask
                 ]["數量_g"].sum()
-                
-                # 歷史用量 (從全球最早日期到 end_dt_prior)
-                start_dt_usage = global_min_date 
-                
+
                 usage_all = 0.0
-                if not pd.isna(start_dt_usage) and start_dt_usage <= end_dt_prior:
-                     usage_all = safe_calc_usage(pid, df_order_copy, df_recipe, start_dt_usage, end_dt_prior)
+                if global_min_date <= end_dt_prior:
+                    usage_all = safe_calc_usage(pid, df_order_copy, df_recipe, global_min_date, end_dt_prior)
 
-                ini_total = in_all - usage_all # 期初總額 = 歷史總進貨 - 歷史總用量
-                
-            
-            # --- (B) 區間進貨與用量 (從 s_dt_use 到 e_dt_use) ---
-            
-            # 區間進貨
+                ini_total = in_all - usage_all
+
+            # --- (C) 區間進貨與用量 ---
             interval_mask = (df_pid["日期"] >= s_dt_use) & (df_pid["日期"] <= e_dt_use)
-            in_qty_interval = df_pid[interval_mask & (df_pid["類型"].astype(str).str.strip() == "進貨")]["數量_g"].sum()
+            in_qty_interval = df_pid[
+                interval_mask & (df_pid["類型"].astype(str).str.strip() == "進貨")
+            ]["數量_g"].sum()
 
-            # 區間用量
+            usage_interval = 0.0
             if not df_order.empty and not df_recipe.empty:
                 usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_use, e_dt_use)
+
+            # --- (D) 無期初、無進貨但有用量 → 顯示負數 ---
+            if ini_date is None and in_qty_interval == 0 and usage_interval > 0:
+                final_g = -usage_interval
             else:
-                usage_interval = 0.0
-                
-            # --- (C) 期末庫存 (加入錨點覆寫邏輯) ---
-            # 1. 原始計算 (基於 ini_total 的結果，可能是錯的 -368.4 g)
-            final_g = ini_total + in_qty_interval - usage_interval 
+                final_g = ini_total + in_qty_interval - usage_interval
 
-            # 2. **錨點查找與覆寫：** 查找最新可靠的「期初庫存」紀錄作為錨點
-
-            # 篩選：在查詢結束日期 (e_dt_use) 之前的所有有效「初始」紀錄
+            # --- (E) 錨點覆寫（若有最新期初）---
             df_anchor_valid = df_pid[
                 (df_pid["類型"].astype(str).str.strip() == "初始") &
                 (df_pid["日期"].notna()) &
                 (df_pid["日期"] <= e_dt_use)
             ].dropna(subset=["數量_g"])
 
-            latest_anchor = None
             if not df_anchor_valid.empty:
-                # 找到最近的錨點日期
                 latest_anchor_row = df_anchor_valid.sort_values("日期", ascending=False).iloc[0]
-    
-                # 確保該紀錄是有效的錨點 (例如，庫存不為 0)
-                if latest_anchor_row["數量_g"] > 0 or latest_anchor_row["數量_g"] < 0:
-                     latest_anchor = (latest_anchor_row["日期"].normalize(), latest_anchor_row["數量_g"])
+                anchor_date = latest_anchor_row["日期"].normalize()
+                anchor_stock_g = latest_anchor_row["數量_g"]
 
-
-            # 3. 執行覆寫：如果找到有效的錨點
-            if latest_anchor:
-                anchor_date, anchor_stock_g = latest_anchor
-    
-                # 邏輯：最終庫存 = 錨點庫存 + 錨點日期(含)到查詢結束日期的活動量
-    
-                # 計算錨點日 (anchor_date) 到 查詢結束日 (e_dt_use) 的活動量
-                start_for_calc = anchor_date
-    
-                # 由於我們已經在 (B) 計算了區間進貨和用量，這裡需要重新計算「錨點日到區間結束日」的活動。
-    
-                # (i) 錨點日到區間結束日的 進貨 (從 df_pid 中查詢)
-                inflow_after_anchor_mask = (df_pid["日期"] >= start_for_calc) & (df_pid["日期"] <= e_dt_use)
+                inflow_after_anchor_mask = (df_pid["日期"] >= anchor_date) & (df_pid["日期"] <= e_dt_use)
                 inflow_after_anchor_g = df_pid[
-                    (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                    inflow_after_anchor_mask
+                    (df_pid["類型"].astype(str).str.strip() == "進貨") & inflow_after_anchor_mask
                 ]["數量_g"].sum()
-    
-                # (ii) 錨點日到區間結束日的 用量 (呼叫 safe_calc_usage)
-                usage_after_anchor_g = 0.0
-                if start_for_calc <= e_dt_use:
-                    usage_after_anchor_g = safe_calc_usage(pid, df_order_copy, df_recipe, start_for_calc, e_dt_use)
 
-                # **覆寫 final_g**：最終期末庫存使用錨點為基底
+                usage_after_anchor_g = safe_calc_usage(pid, df_order_copy, df_recipe, anchor_date, e_dt_use)
                 final_g = anchor_stock_g + inflow_after_anchor_g - usage_after_anchor_g
-    
-            # 4. 如果沒有找到錨點 (latest_anchor 為 None)，則 final_g 保持第 1 步的原始計算結果。
 
-            # session_state 儲存
-            if "last_final_stock" not in st.session_state:
-                st.session_state["last_final_stock"] = {}
+            # --- (F) 儲存結果 ---
             st.session_state["last_final_stock"][pid] = final_g
-
-            # append 結果
             stock_summary.append({
                 "色粉編號": str(pid),
                 "期初庫存": safe_format(ini_total),
@@ -3992,6 +3955,7 @@ if menu == "庫存區":
                 "期末庫存": safe_format(final_g),
                 "備註": ini_date_note,
             })
+
 
         # 5. 顯示結果
         df_result = pd.DataFrame(stock_summary)
