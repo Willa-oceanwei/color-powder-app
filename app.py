@@ -3748,12 +3748,6 @@ if menu == "庫存區":
     query_end = col2.date_input("查詢迄日", key="stock_end_query")
     stock_powder = st.text_input("色粉編號 (未輸入可查全部)", key="stock_powder")
 
-    # (這段邏輯移到按鈕內處理，確保使用的是最新的日期設定)
-    # 這裡的 date.today() 只是為了 UI 顯示，實際計算在按鈕內
-
-    # 確保型態為 pd.Timestamp
-    # s_dt, e_dt 的定義在按鈕內更精確，這裡先刪除重複定義
-
     # 初始化 session_state
     if "ini_dict" not in st.session_state:
         st.session_state["ini_dict"] = {}
@@ -3812,30 +3806,28 @@ if menu == "庫存區":
             st.warning("⚠️ 查無任何色粉記錄。")
             st.stop()
 
-
         # --- 3. 區間預設與最早日期確定 ---
         today = pd.Timestamp.today().normalize()
-        
+
         # 找出所有數據中最早的日期
         min_date_stock = df_stock_copy["日期"].min() if not df_stock_copy.empty else today
         min_date_order = df_order_copy["生產日期"].min() if not df_order_copy.empty else today
         global_min_date = min(min_date_stock, min_date_order).normalize()
-        
+
         # 查詢起日/迄日確定 (如果沒選，起日設為最早紀錄日期，迄日設為今天)
-        # *** 修正點 3: 確保 query_start/query_end 即使是 None 也能正確處理 ***
         q_start = query_start if query_start else None
-        q_end = query_end if query_end else date.today() # 如果迄日沒選，用今天的 date object
+        q_end = query_end if query_end else date.today()
 
         s_dt_use = pd.to_datetime(q_start).normalize() if q_start else global_min_date
         e_dt_use = pd.to_datetime(q_end).normalize() if q_end else today
 
         if s_dt_use > e_dt_use:
-              st.error("❌ 查詢起日不能晚於查詢迄日。")
-              st.stop()
+            st.error("❌ 查詢起日不能晚於查詢迄日。")
+            st.stop()
 
-        # ***是否有選日期（影響是否顯示期初日期）***
+        # 是否有選日期
         no_date_selected = (query_start is None and query_end is None)
-            
+
         def safe_format(x):
             try:
                 return format_usage(x)
@@ -3844,33 +3836,37 @@ if menu == "庫存區":
 
         stock_summary = []
 
+        
         # ---------------- 核心計算迴圈 ----------------
         for pid in all_pids:
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
 
             ini_total = 0.0
-            final_g = 0.0
-
-            # 定義歷史計算的截止日 (查詢起始日的前一天)
-            end_dt_prior = s_dt_use - pd.Timedelta(days=1)
+            ini_date = None
+            ini_base_value = 0.0
 
             # --- (A) 期初庫存 ---
             df_ini_valid = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
-            ini_base_value = 0.0
-            ini_date = None
 
             if not df_ini_valid.empty:
                 latest_ini_row = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
                 ini_base_value = latest_ini_row["數量_g"]
-                ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce")
-                if not pd.isna(ini_date):
-                    ini_date = ini_date.normalize()
+                ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
 
-            # 📝 備註顯示：有期初日期才顯示日期，否則為「—」
-            if ini_date is not None and not pd.isna(ini_date):
-                ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}"
-            else:
-                ini_date_note = "—"
+            # 🟡【這裡加入期初自動對齊邏輯】
+            # 每筆色粉的查詢起始日，預設為全域起始日
+            s_dt_pid = s_dt_use
+
+            # 如果沒選日期且該筆有期初日期，則從期初起算
+            if no_date_selected and ini_date is not None:
+                s_dt_pid = ini_date
+
+            # 定義歷史截止日 (查詢起始日前一天)
+            end_dt_prior = s_dt_pid - pd.Timedelta(days=1)
+
+            # 備註顯示
+            ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}" if ini_date is not None else "—"
+
 
             # --- (A1) 若有期初且日期在查詢起日之前 ---
             if ini_date is not None and ini_date < s_dt_use:
@@ -3910,14 +3906,14 @@ if menu == "庫存區":
                 ini_total = in_all - usage_all
 
             # --- (C) 區間進貨與用量 ---
-            interval_mask = (df_pid["日期"] >= s_dt_use) & (df_pid["日期"] <= e_dt_use)
+            interval_mask = (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
             in_qty_interval = df_pid[
                 interval_mask & (df_pid["類型"].astype(str).str.strip() == "進貨")
             ]["數量_g"].sum()
 
             usage_interval = 0.0
             if not df_order.empty and not df_recipe.empty:
-                usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_use, e_dt_use)
+                usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use)
 
             # --- (D) 無期初、無進貨但有用量 → 顯示負數 ---
             if ini_date is None and in_qty_interval == 0 and usage_interval > 0:
