@@ -3858,32 +3858,28 @@ if menu == "庫存區":
             else:
                 s_dt_pid = s_dt_use
 
-            # --- (C) 如果有期初在查詢期間內，覆寫起算日與期初庫存 ---
-            anchor_row = df_ini_valid[(df_ini_valid["日期"] >= s_dt_pid) & (df_ini_valid["日期"] <= e_dt_use)]
-            if not anchor_row.empty:
-                latest_anchor_row = anchor_row.sort_values("日期", ascending=False).iloc[0]
-                s_dt_pid = latest_anchor_row["日期"].normalize()  # 新的起算日從期初開始
-                ini_total = latest_anchor_row["數量_g"]         # 期初數量作為起點
-                ini_date_note = f"期初來源：{s_dt_pid.strftime('%Y/%m/%d')}"
+            # --- (C) 期初處理（錨點覆寫） ---
+            if ini_date is not None and ini_date <= e_dt_use:
+                s_dt_pid = ini_date  # 起算日從期初開始
+                ini_total = ini_base_value
+                ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}"
             else:
+                s_dt_pid = s_dt_use
                 ini_total = 0.0
-                ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}" if ini_date is not None else "—"
+                ini_date_note = "—"
 
             # --- (D) 區間進貨 ---
             in_qty_interval = df_pid[
                 (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
+                (df_pid["日期"] > s_dt_pid) & (df_pid["日期"] <= e_dt_use)
             ]["數量_g"].sum()
 
-            # --- (E) 區間用量 ---
+            # --- (E) 區間用量（從期初或查詢起日算起） ---
             usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
                              if not df_order.empty and not df_recipe.empty else 0.0
 
             # --- (F) 計算期末庫存 ---
-            if ini_total == 0.0 and in_qty_interval == 0 and usage_interval > 0:
-                final_g = -usage_interval
-            else:
-                final_g = ini_total + in_qty_interval - usage_interval
+            final_g = ini_total + in_qty_interval - usage_interval
 
             # --- (G) 儲存結果 ---
             st.session_state["last_final_stock"][pid] = final_g
