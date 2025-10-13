@@ -3845,31 +3845,31 @@ if menu == "庫存區":
             ini_date = None
             ini_base_value = 0.0
 
-            # --- (A) 找最新期初（若有） ---
+            # --- (A) 期初庫存 ---
             df_ini_valid = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
             if not df_ini_valid.empty:
                 latest_ini_row = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
                 ini_base_value = latest_ini_row["數量_g"]
                 ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
 
-            # --- (B) 判斷用量起算日 ---
+            # --- (B) 起算日判斷 ---
             if no_date_selected:
                 if ini_date is not None:
-                    start_dt = ini_date            # 沒選日期且有期初 → 從期初算
+                    s_dt_pid = ini_date          # 沒選日期且有期初 → 從期初起算
                 else:
-                    start_dt = global_min_date     # 沒選日期且無期初 → 從全域最早日期算
+                    s_dt_pid = global_min_date   # 沒選日期且無期初 → 從全域最早日期起算
             else:
-                start_dt = s_dt_use                # 使用者有選日期 → 從查詢起日算
+                s_dt_pid = s_dt_use              # 使用者有選日期 → 從查詢起日算
 
-            # 備註
+            # 備註顯示
             ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}" if ini_date is not None else "—"
 
-            # --- (C) 計算期初之前的累積進貨與用量（只在有期初且期初早於起算日） ---
+            # --- (C) 計算期初之前累積進貨與用量（若有期初且早於起算日） ---
             ini_total = 0.0
-            if ini_date is not None and ini_date < start_dt:
+            if ini_date is not None and ini_date < s_dt_pid:
                 ini_total = ini_base_value
                 base_date = ini_date + pd.Timedelta(days=1)
-                end_prior = start_dt - pd.Timedelta(days=1)
+                end_prior = s_dt_pid - pd.Timedelta(days=1)
 
                 in_prior = df_pid[
                     (df_pid["類型"].astype(str).str.strip() == "進貨") &
@@ -3879,21 +3879,41 @@ if menu == "庫存區":
                 usage_prior = safe_calc_usage(pid, df_order_copy, df_recipe, base_date, end_prior) if base_date <= end_prior else 0.0
                 ini_total += in_prior - usage_prior
 
-            # --- (D) 計算區間進貨與用量（從起算日到查詢迄日） ---
+            # --- (D) 區間進貨 ---
             in_qty_interval = df_pid[
                 (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                (df_pid["日期"] >= start_dt) & (df_pid["日期"] <= e_dt_use)
+                (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
             ]["數量_g"].sum()
 
-            usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, start_dt, e_dt_use) if not df_order.empty and not df_recipe.empty else 0.0
+            # --- (E) 區間用量（累計所有符合 pid 的生產紀錄） ---
+            usage_interval = 0.0
+            if not df_order.empty and not df_recipe.empty:
+                # 遍歷所有訂單，累計對應 pid 的色粉用量
+                df_orders_interval = df_order_copy[
+                    (df_order_copy["生產日期"] >= s_dt_pid) & (df_order_copy["生產日期"] <= e_dt_use)
+                ]
+                for _, order_row in df_orders_interval.iterrows():
+                    formula_id = order_row["配方編號"]
+                    order_qty = order_row.get("生產數量", 1)  # 若有生產數量欄位，按比例計算
+                    # 取配方資料
+                    recipe_row = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == str(formula_id)]
+                    if not recipe_row.empty:
+                        for i in range(1, 9):
+                            col = f"色粉編號{i}"
+                            col_qty = f"色粉用量{i}"
+                            if col in recipe_row.columns and col_qty in recipe_row.columns:
+                                powder_id = str(recipe_row.iloc[0][col]).strip()
+                                powder_qty = recipe_row.iloc[0][col_qty]
+                                if powder_id == pid:
+                                    usage_interval += powder_qty * order_qty
 
-            # --- (E) 計算期末庫存 ---
+            # --- (F) 計算期末庫存 ---
             if ini_date is None and in_qty_interval == 0 and usage_interval > 0:
                 final_g = -usage_interval
             else:
                 final_g = ini_total + in_qty_interval - usage_interval
 
-            # --- (F) 儲存結果 ---
+            # --- (G) 儲存結果 ---
             st.session_state["last_final_stock"][pid] = final_g
             stock_summary.append({
                 "色粉編號": str(pid),
