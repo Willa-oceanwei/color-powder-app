@@ -3860,8 +3860,13 @@ if menu == "庫存區":
 
             # --- (B) 起算日判斷 ---
             if no_date_selected:
-                s_dt_pid = ini_date if ini_date is not None else global_min_date
+                if ini_date is not None:
+                    s_dt_pid = ini_date
+                else:
+                    # 若無期初，直接從全域最早紀錄開始算用量
+                    s_dt_pid = global_min_date
             else:
+                # 使用者有選日期 → 仍以選擇的起日為準
                 s_dt_pid = s_dt_use
 
             # --- (C) 期初處理（錨點覆寫） ---
@@ -3884,6 +3889,8 @@ if menu == "庫存區":
             usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
                              if not df_order.empty and not df_recipe.empty else 0.0
 
+            st.write(f"🧾 {pid} 用量期間：{s_dt_pid} ~ {e_dt_use}")
+            
             # --- (F) 計算期末庫存 ---
             final_g = ini_total + in_qty_interval - usage_interval
 
