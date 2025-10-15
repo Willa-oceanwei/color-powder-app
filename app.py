@@ -3964,7 +3964,10 @@ if menu == "庫存區":
 
             usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe_copy, s_dt_pid, e_dt_use)
 
-            st.write(f"{pid} 對應訂單筆數：", len(df_order_copy))
+            
+            mask = df_order_copy.apply(lambda r: pid_in_recipe_order(pid, r, df_recipe_copy), axis=1)
+            df_pid_usage = df_order_copy[mask].copy()
+            st.write(f"{pid} 對應訂單筆數：", len(df_pid_usage))
             st.write(f"🧮 {pid} 用量計算結果：{usage_interval} g（期間：{s_dt_pid} ~ {e_dt_use}）")
 
             # (C) 期初
