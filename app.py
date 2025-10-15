@@ -3840,33 +3840,36 @@ if menu == "庫存區":
     if st.button("計算庫存", key="btn_calc_stock"):
         import pandas as pd
 
-        # --- 1. 前置處理：日期與單位統一 ---
+        # --- 1. 前置處理 ---
         df_stock_copy = df_stock.copy()
         df_stock_copy["日期"] = pd.to_datetime(df_stock_copy["日期"], errors="coerce").dt.normalize()
         df_stock_copy["數量_g"] = df_stock_copy.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
         df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].astype(str).str.strip()
 
         df_order_copy = df_order.copy()
-        if "生產日期" in df_order_copy.columns:
-            df_order_copy["生產日期"] = pd.to_datetime(df_order_copy["生產日期"], errors="coerce").dt.normalize()
+        df_order_copy["生產日期"] = pd.to_datetime(df_order_copy.get("生產日期", pd.NaT), errors="coerce").dt.normalize()
+        df_order_copy["配方編號"] = df_order_copy["配方編號"].astype(str).str.strip()
 
-        df_recipe_copy = df_recipe.copy() if not df_recipe.empty else pd.DataFrame()
+        df_recipe_copy = df_recipe.copy()
+        df_recipe_copy["配方編號"] = df_recipe_copy["配方編號"].astype(str).str.strip()
+        powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
+        for c in powder_cols:
+            if c in df_recipe_copy.columns:
+                df_recipe_copy[c] = df_recipe_copy[c].astype(str).str.strip()
 
-        # --- 2. 獲取所有有效色粉編號 ---
+        # --- 2. 所有色粉編號 ---
         all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
         all_pids_recipe = []
         if not df_recipe_copy.empty:
-            powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
             for c in powder_cols:
                 if c in df_recipe_copy.columns:
-                    all_pids_recipe.extend(df_recipe_copy[c].astype(str).str.strip().tolist())
+                    all_pids_recipe.extend(df_recipe_copy[c].tolist())
         all_pids_all = sorted(list(set(all_pids_stock) | set([p for p in all_pids_recipe if p])))
 
-        # 篩選色粉
+        # 過濾色粉
         stock_powder_strip = stock_powder.strip()
         if stock_powder_strip:
-            filtered_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
-            all_pids = filtered_pids
+            all_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
             if not all_pids:
                 st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
                 st.stop()
@@ -3876,110 +3879,95 @@ if menu == "庫存區":
             st.warning("⚠️ 查無任何色粉記錄。")
             st.stop()
 
-        # --- 3. 區間預設與最早日期 ---
+        # --- 3. 起迄日 ---
         today = pd.Timestamp.today().normalize()
         min_date_stock = df_stock_copy["日期"].min() if not df_stock_copy.empty else today
         min_date_order = df_order_copy["生產日期"].min() if not df_order_copy.empty else today
         global_min_date = min(min_date_stock, min_date_order).normalize()
-
         s_dt_use = pd.to_datetime(query_start).normalize() if query_start else global_min_date
         e_dt_use = pd.to_datetime(query_end).normalize() if query_end else today
-
         if s_dt_use > e_dt_use:
             st.error("❌ 查詢起日不能晚於查詢迄日。")
             st.stop()
-
         no_date_selected = (query_start is None and query_end is None)
 
-        def safe_format(x):
-            try:
-                val = x
-                unit = "g"
-                if abs(val) >= 1000:
-                    val = val / 1000
-                    unit = "kg"
-                return f"{val:.2f} {unit}"
-            except:
-                return "0 g"
-
+        # --- 4. 計算庫存 ---
         stock_summary = []
+        st.session_state.setdefault("last_final_stock", {})
 
-        # ---------------- 核心計算迴圈 ----------------
         for pid in all_pids:
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
-            ini_total = 0.0
-            ini_date = None
-            ini_base_value = 0.0
 
             # (A) 最新期初
             df_ini_valid = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
+            ini_total = 0.0
+            ini_date = None
+            ini_base_value = 0.0
             if not df_ini_valid.empty:
                 latest_ini_row = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
                 ini_base_value = latest_ini_row["數量_g"]
                 ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
 
-            # --- (B) 起算日判斷 + 用量篩選 ---
-            df_pid_usage = pd.DataFrame()  # 預設空 DataFrame
-
-            def safe_pid_in_order(pid, order_row, df_recipe):
-                """
-                判斷某張訂單是否含有指定色粉 pid
-                """
-                order_recipe_id = str(order_row.get("配方編號", "")).strip()
-                if not order_recipe_id or df_recipe.empty:
-                    return False
-
-                # 取得主配方
-                main_df = df_recipe[df_recipe["配方編號"].astype(str) == order_recipe_id]
-                recipe_rows = []
-                if not main_df.empty:
-                    recipe_rows.append(main_df.iloc[0])
-
-                # 取得附加配方
-                add_df = df_recipe[
-                    (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"].astype(str) == order_recipe_id)
-                ]
-                if not add_df.empty:
-                    recipe_rows.extend(add_df.to_dict("records"))
-
-                # 檢查是否有該色粉
-                for rec in recipe_rows:
-                    for i in range(1, 9):
-                        col = f"色粉編號{i}"
-                        if col in rec and str(rec[col]).strip() == pid:
-                            return True
-                return False
-
-            # 判斷起算日
+            # (B) 起算日 + 用量篩選
+            df_pid_usage = pd.DataFrame()
             if no_date_selected:
-                if ini_date is not None:
-                    # 有期初，起算日從期初開始
-                    s_dt_pid = ini_date
-                else:
-                    # 找該色粉最早有用量的訂單
-                    if not df_order_copy.empty:
-                        mask = df_order_copy.apply(lambda r: safe_pid_in_order(pid, r, df_recipe), axis=1)
-                        if mask.any():
-                            df_pid_usage = df_order_copy[mask].copy()
-                            s_dt_pid = df_pid_usage["生產日期"].min()
-                        else:
-                            s_dt_pid = global_min_date
-                    else:
-                        s_dt_pid = global_min_date
+                s_dt_pid = ini_date if ini_date is not None else global_min_date
             else:
-                # 使用者有選日期 → 起日直接用查詢起日
                 s_dt_pid = s_dt_use
-                if not df_order_copy.empty:
-                    mask = df_order_copy.apply(lambda r: safe_pid_in_order(pid, r, df_recipe), axis=1)
-                    if mask.any():
-                        df_pid_usage = df_order_copy[mask].copy()
 
-            # --- Debug: 顯示訂單筆數 ---
-            st.write(f"{pid} 對應訂單筆數：", len(df_pid_usage))
-            st.write(df_pid_usage)
+            # --- 計算用量 ---
+            def safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt):
+                total = 0.0
+                if df_order.empty or df_recipe.empty:
+                    return 0.0
 
-            # (C) 期初處理
+                for _, order in df_order.iterrows():
+                    od = order.get("生產日期", pd.NaT)
+                    if pd.isna(od) or not (start_dt <= od <= end_dt):
+                        continue
+                    order_pid = str(order.get("配方編號", "")).strip()
+                    if not order_pid:
+                        continue
+                    # 主配方
+                    main_rec = df_recipe[df_recipe["配方編號"] == order_pid]
+                    recipes = main_rec.to_dict("records") if not main_rec.empty else []
+                    # 附加配方
+                    add_rec = df_recipe[(df_recipe["配方類別"] == "附加配方") &
+                                        (df_recipe["原始配方"].astype(str).str.strip() == order_pid)]
+                    recipes += add_rec.to_dict("records") if not add_rec.empty else []
+
+                    packs_total = 0.0
+                    for j in range(1, 5):
+                        w_key, n_key = f"包裝重量{j}", f"包裝份數{j}"
+                        try:
+                            pack_w = float(order.get(w_key, 0) or 0)
+                            pack_n = float(order.get(n_key, 0) or 0)
+                        except:
+                            pack_w = pack_n = 0.0
+                        packs_total += pack_w * pack_n
+                    if packs_total <= 0:
+                        continue
+
+                    for rec in recipes:
+                        pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
+                        if pid not in pvals:
+                            continue
+                        idx = pvals.index(pid) + 1
+                        try:
+                            powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
+                        except:
+                            powder_weight = 0.0
+                        if powder_weight <= 0:
+                            continue
+                        total += powder_weight * packs_total
+                return total
+
+            usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe_copy, s_dt_pid, e_dt_use)
+
+            st.write(f"{pid} 對應訂單筆數：", len(df_order_copy))
+            st.write(f"🧮 {pid} 用量計算結果：{usage_interval} g（期間：{s_dt_pid} ~ {e_dt_use}）")
+
+            # (C) 期初
             if ini_date is not None and ini_date <= e_dt_use:
                 s_dt_pid = ini_date
                 ini_total = ini_base_value
@@ -3994,20 +3982,21 @@ if menu == "庫存區":
                 (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
             ]["數量_g"].sum()
 
-            # (E) 區間用量
-            usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe_copy, s_dt_pid, e_dt_use) \
-                             if not df_pid_usage.empty else 0.0
-
-            st.write(f"🧮 {pid} 用量計算結果：{usage_interval} g（期間：{s_dt_pid} ~ {e_dt_use}）")
-            st.write(f"🧾 {pid} 用量期間：{s_dt_pid} ~ {e_dt_use}")
-
-            # (F) 計算期末庫存
+            # (F) 期末庫存
             final_g = ini_total + in_qty_interval - usage_interval
 
-            # (G) 儲存結果
+            # 儲存結果
             st.session_state["last_final_stock"][pid] = final_g
+            def safe_format(x):
+                unit = "g"
+                val = x
+                if abs(val) >= 1000:
+                    val = val / 1000
+                    unit = "kg"
+                return f"{val:.2f} {unit}"
+
             stock_summary.append({
-                "色粉編號": str(pid),
+                "色粉編號": pid,
                 "期初庫存": safe_format(ini_total),
                 "區間進貨": safe_format(in_qty_interval),
                 "區間用量": safe_format(usage_interval),
@@ -4018,7 +4007,7 @@ if menu == "庫存區":
         # 顯示結果
         df_result = pd.DataFrame(stock_summary)
         st.dataframe(df_result, use_container_width=True)
-        st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
+        st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算）")
       
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
