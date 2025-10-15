@@ -3865,16 +3865,25 @@ if menu == "庫存區":
                 ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
 
             # --- (B) 起算日判斷 ---
-            if ini_date is None and no_date_selected:
-                # 找出該色粉所有用量訂單
-                df_pid_usage = df_order_copy[df_order_copy.apply(lambda r: pid_in_order(pid, r, df_recipe), axis=1)]
-                if not df_pid_usage.empty:
-                    s_dt_pid = df_pid_usage["生產日期"].min()
+            if no_date_selected:
+                if ini_date is not None:
+                    # 有期初，從期初開始
+                    s_dt_pid = ini_date
                 else:
-                    s_dt_pid = global_min_date
-                e_dt_use = pd.Timestamp.today().normalize()
+                    # 沒有期初，找該色粉最早的用量日期
+                    df_pid_usage = pd.DataFrame()
+                    if not df_order_copy.empty and not df_recipe.empty:
+                        # 只保留包含該色粉的訂單
+                        mask = df_order_copy.apply(lambda r: pid_in_order(pid, r, df_recipe), axis=1)
+                        if mask.dtype == bool:
+                            df_pid_usage = df_order_copy[mask]
+                    if not df_pid_usage.empty:
+                        s_dt_pid = df_pid_usage["生產日期"].min()
+                    else:
+                        s_dt_pid = global_min_date
             else:
-                s_dt_pid = s_dt_use  # 有期初或有選日期
+                # 使用者有選日期 → 以選擇的起日為準
+                s_dt_pid = s_dt_use
 
             st.write(f"{pid} 對應訂單筆數：", len(df_pid_usage))
             st.write(df_pid_usage)
@@ -3897,8 +3906,8 @@ if menu == "庫存區":
 
             # --- (E) 區間用量（從期初或查詢起日算起） ---
             usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
-                             if not df_order_copy.empty and not df_recipe.empty else 0.0
-
+                 if not df_order_copy.empty and not df_recipe.empty else 0.0
+            
             debug_usage = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use)
             st.write(f"🧮 {pid} 用量計算結果：{debug_usage} g（期間：{s_dt_pid} ~ {e_dt_use}）")
             st.write(f"🧾 {pid} 用量期間：{s_dt_pid} ~ {e_dt_use}")
