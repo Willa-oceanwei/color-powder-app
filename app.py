@@ -3875,6 +3875,9 @@ if menu == "庫存區":
                 e_dt_use = pd.Timestamp.today().normalize()
             else:
                 s_dt_pid = s_dt_use  # 有期初或有選日期
+
+            st.write(f"{pid} 對應訂單筆數：", len(df_pid_usage))
+            st.write(df_pid_usage)
                 
             # --- (C) 期初處理（錨點覆寫） ---
             if ini_date is not None and ini_date <= e_dt_use:
