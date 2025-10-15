@@ -3904,6 +3904,8 @@ if menu == "庫存區":
             usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
                              if not df_order.empty and not df_recipe.empty else 0.0
 
+            debug_usage = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use)
+            st.write(f"🧮 {pid} 用量計算結果：{debug_usage} g（期間：{s_dt_pid} ~ {e_dt_use}）")
             st.write(f"🧾 {pid} 用量期間：{s_dt_pid} ~ {e_dt_use}")
             
             # --- (F) 計算期末庫存 ---
