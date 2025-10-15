@@ -3904,7 +3904,10 @@ if menu == "庫存區":
 
             # --- (E) 區間用量（從期初或查詢起日算起） ---
             usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
-                 if not df_order_copy.empty and not df_recipe.empty else 0.0
+                 if not df_order_copy.empty and not df_recipe.empty:
+                    orders_mask = df_order_copy.apply(lambda r: pid_in_order(pid, r, df_recipe), axis=1)
+                    if orders_mask.any():
+                        df_pid_usage = df_order_copy[orders_mask].copy()
             
             debug_usage = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use)
             st.write(f"🧮 {pid} 用量計算結果：{debug_usage} g（期間：{s_dt_pid} ~ {e_dt_use}）")
