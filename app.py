@@ -4007,6 +4007,9 @@ if menu == "庫存區":
             })
 
     # ===== 6️⃣ 顯示結果 =====
+
+    st.write(stock_summary)
+    stock_summary = [s for s in stock_summary if isinstance(s, dict)]
     df_result = pd.DataFrame(stock_summary)
     st.dataframe(df_result, use_container_width=True)
     st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算）")
