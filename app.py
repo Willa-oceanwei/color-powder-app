@@ -3830,10 +3830,15 @@ if menu == "庫存區":
 
         def safe_format(x):
             try:
-                # 顯示負數（自動轉換單位）
-                return format_usage(x, allow_negative=True)
+                unit = "g"
+                val = x
+                if abs(val) >= 1000:
+                    val = val / 1000
+                    unit = "kg"
+                sign = "-" if val < 0 else ""
+                return f"{sign}{abs(val):.2f} {unit}"
             except:
-                return f"{x:.2f} g" if isinstance(x, (int, float)) else "0 g"
+                return "0 g"
 
         stock_summary = []
 
