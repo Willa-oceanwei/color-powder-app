@@ -3478,19 +3478,25 @@ if menu == "庫存區":
             q = 0.0
         return q * 1000 if str(unit).lower() == "kg" else q
 
-    # 顯示格式（g -> g 或 kg）
-    def format_usage(val_g):
+    # 顯示格式（g -> g 或 kg，可負數）
+    def format_usage(val_g, allow_negative=False):
         try:
             val = float(val_g or 0)
         except Exception:
             val = 0.0
+
+        # 只有在 allow_negative=False 時才取絕對值
+        if not allow_negative:
+            val = abs(val)
+
         if abs(val) >= 1000:
             kg = val / 1000.0
-            # 格式化為 kg，保留兩位小數 (如果不是整數)
+            # 格式化為 kg，保留兩位小數
             return f"{kg:.2f} kg" if not float(int(kg * 100)) == (kg * 100) else f"{int(kg)} kg"
         else:
-            # 格式化為 g，保留兩位小數 (如果不是整數)
+            # 格式化為 g，保留兩位小數
             return f"{int(round(val))} g" if float(int(val)) == val else f"{val:.2f} g"
+
 
     # ---------------- 修正後的 calc_usage_for_stock 函式 ----------------
     # 假設：df_recipe 中的 '色粉重量{i}' 欄位單位是 g/每 kg 產品
