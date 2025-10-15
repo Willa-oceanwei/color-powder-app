@@ -3980,9 +3980,8 @@ if menu == "庫存區":
                     try:
                         powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
                     except:
-                        powder_weight = 0
-                    if powder_weight > 0:
-                        total_usage += powder_weight * packs_total
+                        powder_weight = 0.0
+                    total_usage += powder_weight * packs_total  # 不再檢查 >0，確保數量累加
 
             st.write(f"🧮 {pid} 用量計算結果：{total_usage:.2f} g（期間：{s_dt_pid} ~ {e_dt_use}）")
 
