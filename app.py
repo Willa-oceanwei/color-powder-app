@@ -3881,6 +3881,7 @@ if menu == "庫存區":
                 # 使用者有選日期 → 以選擇的起日為準
                 s_dt_pid = s_dt_use
 
+            df_pid_usage = pd.DataFrame() if 'df_pid_usage' not in locals() else df_pid_usage
             st.write(f"{pid} 對應訂單筆數：", len(df_pid_usage))
             st.write(df_pid_usage)
 
