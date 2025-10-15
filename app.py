@@ -3872,16 +3872,14 @@ if menu == "庫存區":
                     # 找該色粉最早的用量日期
                     first_usage_date = None
                     if not df_order_copy.empty and not df_recipe.empty:
-                        used_dates = df_order_copy.loc[
-                            df_order_copy["生產日期"].notna(), "生產日期"
-                        ].sort_values()
+                        df_pid_usage = df_order_copy[df_order_copy.apply(
+                            lambda r: pid_in_order(pid, r, df_recipe), axis=1
+                        )]
+                        used_dates = df_pid_usage["生產日期"].dropna().sort_values()
                         if not used_dates.empty:
                             first_usage_date = used_dates.iloc[0]
-
-                    # 若有用量紀錄則取用量最早日，否則用全域最早日
                     s_dt_pid = first_usage_date if first_usage_date is not None else global_min_date
             else:
-                # 使用者有選日期 → 以選擇的起日為準
                 s_dt_pid = s_dt_use
 
             # --- (C) 期初處理（錨點覆寫） ---
