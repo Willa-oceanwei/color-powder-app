@@ -3866,12 +3866,16 @@ if menu == "庫存區":
 
             # --- (B) 起算日判斷 ---
             if ini_date is None and no_date_selected:
+                # 找出該色粉所有用量訂單
                 df_pid_usage = df_order_copy[df_order_copy.apply(lambda r: pid_in_order(pid, r, df_recipe), axis=1)]
                 if not df_pid_usage.empty:
                     s_dt_pid = df_pid_usage["生產日期"].min()
-                    e_dt_use = pd.Timestamp.today().normalize()
-                    usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use)
-
+                else:
+                    s_dt_pid = global_min_date
+                e_dt_use = pd.Timestamp.today().normalize()
+            else:
+                s_dt_pid = s_dt_use  # 有期初或有選日期
+                
             # --- (C) 期初處理（錨點覆寫） ---
             if ini_date is not None and ini_date <= e_dt_use:
                 s_dt_pid = ini_date  # 起算日從期初開始
@@ -3890,7 +3894,7 @@ if menu == "庫存區":
 
             # --- (E) 區間用量（從期初或查詢起日算起） ---
             usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
-                             if not df_order.empty and not df_recipe.empty else 0.0
+                             if not df_order_copy.empty and not df_recipe.empty else 0.0
 
             debug_usage = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use)
             st.write(f"🧮 {pid} 用量計算結果：{debug_usage} g（期間：{s_dt_pid} ~ {e_dt_use}）")
