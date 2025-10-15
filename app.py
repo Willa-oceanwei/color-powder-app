@@ -3853,14 +3853,16 @@ if menu == "庫存區":
                 ini_base_value = latest_ini_row["數量_g"]
                 ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
 
-            # (B) 起算日判斷 & 用量篩選
+            # --- (B) 起算日 & 用量篩選（向量化） ---
             df_pid_usage = pd.DataFrame()
+            powder_cols = [f"色粉編號{i}" for i in range(1, 9) if f"色粉編號{i}" in df_recipe.columns]
+
             if no_date_selected:
                 if ini_date is not None:
                     s_dt_pid = ini_date
                 else:
-                    if not df_order_copy.empty and not df_recipe_copy.empty:
-                        mask = df_order_copy.apply(lambda r: bool(safe_pid_in_order(pid, r, df_recipe_copy)), axis=1)
+                    if not df_order_copy.empty and not df_recipe.empty:
+                        mask = df_order_copy[powder_cols].fillna("").astype(str).apply(lambda x: pid in x.values, axis=1)
                         if mask.any():
                             df_pid_usage = df_order_copy[mask].copy()
                             s_dt_pid = df_pid_usage["生產日期"].min()
@@ -3870,13 +3872,10 @@ if menu == "庫存區":
                         s_dt_pid = global_min_date
             else:
                 s_dt_pid = s_dt_use
-                if not df_order_copy.empty and not df_recipe_copy.empty:
-                    mask = df_order_copy.apply(lambda r: bool(safe_pid_in_order(pid, r, df_recipe_copy)), axis=1)
+                if not df_order_copy.empty and not df_recipe.empty:
+                    mask = df_order_copy[powder_cols].fillna("").astype(str).apply(lambda x: pid in x.values, axis=1)
                     if mask.any():
                         df_pid_usage = df_order_copy[mask].copy()
-
-            st.write(f"{pid} 對應訂單筆數：", len(df_pid_usage))
-            st.write(df_pid_usage)
 
             # (C) 期初處理
             if ini_date is not None and ini_date <= e_dt_use:
