@@ -3865,22 +3865,12 @@ if menu == "庫存區":
                 ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
 
             # --- (B) 起算日判斷 ---
-            if no_date_selected:
-                if ini_date is not None:
-                    s_dt_pid = ini_date
-                else:
-                    # 找該色粉最早的用量日期
-                    first_usage_date = None
-                    if not df_order_copy.empty and not df_recipe.empty:
-                        df_pid_usage = df_order_copy[df_order_copy.apply(
-                            lambda r: pid_in_order(pid, r, df_recipe), axis=1
-                        )]
-                        used_dates = df_pid_usage["生產日期"].dropna().sort_values()
-                        if not used_dates.empty:
-                            first_usage_date = used_dates.iloc[0]
-                    s_dt_pid = first_usage_date if first_usage_date is not None else global_min_date
-            else:
-                s_dt_pid = s_dt_use
+            if ini_date is None and no_date_selected:
+                df_pid_usage = df_order_copy[df_order_copy.apply(lambda r: pid_in_order(pid, r, df_recipe), axis=1)]
+                if not df_pid_usage.empty:
+                    s_dt_pid = df_pid_usage["生產日期"].min()
+                    e_dt_use = pd.Timestamp.today().normalize()
+                    usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use)
 
             # --- (C) 期初處理（錨點覆寫） ---
             if ini_date is not None and ini_date <= e_dt_use:
