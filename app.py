@@ -3864,17 +3864,21 @@ if menu == "庫存區":
                 ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
 
             # --- (B) 起算日判斷 ---
-            df_pid_usage = pd.DataFrame()  # <-- 先統一定義，避免後面報錯
             if no_date_selected:
                 if ini_date is not None:
+                    # 有期初，起算日從期初開始
                     s_dt_pid = ini_date
                 else:
-                    if not df_order_copy.empty and not df_recipe.empty:
-                        mask = df_order_copy.apply(lambda r: pid_in_order(pid, r, df_recipe), axis=1)
-                        if mask.any():
-                            df_pid_usage = df_order_copy[mask]
-                    s_dt_pid = df_pid_usage["生產日期"].min() if not df_pid_usage.empty else global_min_date
+                    # 沒有期初 → 找該色粉最早有用量的日期
+                    df_pid_usage = df_order_copy[
+                        df_order_copy.apply(lambda r: pid_in_order(pid, r, df_recipe), axis=1)
+                    ]
+                    if not df_pid_usage.empty:
+                        s_dt_pid = df_pid_usage["生產日期"].min()  # 最早用量日
+                    else:
+                        s_dt_pid = global_min_date  # 沒有用量紀錄 → 用全域最早日
             else:
+                # 使用者有選日期 → 以選擇的起日為準
                 s_dt_pid = s_dt_use
 
             st.write(f"{pid} 對應訂單筆數：", len(df_pid_usage))
