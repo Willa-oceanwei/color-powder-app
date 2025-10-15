@@ -3830,9 +3830,10 @@ if menu == "庫存區":
 
         def safe_format(x):
             try:
-                return format_usage(x)
+                # 顯示負數（自動轉換單位）
+                return format_usage(x, allow_negative=True)
             except:
-                return "0"
+                return f"{x:.2f} g" if isinstance(x, (int, float)) else "0 g"
 
         stock_summary = []
 
