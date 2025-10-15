@@ -3863,7 +3863,7 @@ if menu == "庫存區":
                 ini_base_value = latest_ini_row["數量_g"]
                 ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
 
-            # --- (B) 起算日判斷 ---
+            # --- (B) 起算日判斷 + 用量篩選 ---
             if no_date_selected:
                 if ini_date is not None:
                     # 有期初，起算日從期初開始
@@ -3880,19 +3880,21 @@ if menu == "庫存區":
             else:
                 # 使用者有選日期 → 以選擇的起日為準
                 s_dt_pid = s_dt_use
+                df_pid_usage = df_order_copy[
+                    df_order_copy.apply(lambda r: pid_in_order(pid, r, df_recipe), axis=1)
+                ]
 
-            df_pid_usage = pd.DataFrame() if 'df_pid_usage' not in locals() else df_pid_usage
+            # 確保 df_pid_usage 為 DataFrame
+            df_pid_usage = df_pid_usage if 'df_pid_usage' in locals() else pd.DataFrame()
             st.write(f"{pid} 對應訂單筆數：", len(df_pid_usage))
             st.write(df_pid_usage)
 
-                
             # --- (C) 期初處理（錨點覆寫） ---
             if ini_date is not None and ini_date <= e_dt_use:
                 s_dt_pid = ini_date  # 起算日從期初開始
                 ini_total = ini_base_value
                 ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}"
             else:
-                s_dt_pid = s_dt_use
                 ini_total = 0.0
                 ini_date_note = "—"
 
@@ -3904,14 +3906,11 @@ if menu == "庫存區":
 
             # --- (E) 區間用量（從期初或查詢起日算起） ---
             usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
-                 if not df_order_copy.empty and not df_recipe.empty:
-                    orders_mask = df_order_copy.apply(lambda r: pid_in_order(pid, r, df_recipe), axis=1)
-                    if orders_mask.any():
-                        df_pid_usage = df_order_copy[orders_mask].copy()
-            
-            debug_usage = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use)
-            st.write(f"🧮 {pid} 用量計算結果：{debug_usage} g（期間：{s_dt_pid} ~ {e_dt_use}）")
+                             if not df_pid_usage.empty else 0.0
+
+            st.write(f"🧮 {pid} 用量計算結果：{usage_interval} g（期間：{s_dt_pid} ~ {e_dt_use}）")
             st.write(f"🧾 {pid} 用量期間：{s_dt_pid} ~ {e_dt_use}")
+
             
             # --- (F) 計算期末庫存 ---
             final_g = ini_total + in_qty_interval - usage_interval
