@@ -3851,7 +3851,7 @@ if menu == "庫存區":
         # ---------------- 核心計算迴圈 ----------------
         for pid in all_pids:
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
-    
+
             ini_total = 0.0
             ini_date = None
             ini_base_value = 0.0
@@ -3864,34 +3864,35 @@ if menu == "庫存區":
                 ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
 
             # --- (B) 起算日判斷 + 用量篩選 ---
+            df_pid_usage = pd.DataFrame()  # 先初始化
+
+            if not df_order_copy.empty and not df_recipe.empty:
+                try:
+                    # 篩選包含該色粉的訂單，確保回傳布林值
+                    mask = df_order_copy.apply(lambda r: bool(pid_in_order(pid, r, df_recipe)), axis=1)
+                    if mask.any():
+                        df_pid_usage = df_order_copy[mask].copy()
+                except Exception as e:
+                    st.warning(f"⚠️ 篩選色粉 {pid} 訂單時發生錯誤: {e}")
+                    df_pid_usage = pd.DataFrame()
+
+            # 起算日判斷
             if no_date_selected:
                 if ini_date is not None:
-                    # 有期初，起算日從期初開始
                     s_dt_pid = ini_date
+                elif not df_pid_usage.empty:
+                    s_dt_pid = df_pid_usage["生產日期"].min()
                 else:
-                    # 沒有期初 → 找該色粉最早有用量的日期
-                    df_pid_usage = df_order_copy[
-                        df_order_copy.apply(lambda r: pid_in_order(pid, r, df_recipe), axis=1)
-                    ]
-                    if not df_pid_usage.empty:
-                        s_dt_pid = df_pid_usage["生產日期"].min()  # 最早用量日
-                    else:
-                        s_dt_pid = global_min_date  # 沒有用量紀錄 → 用全域最早日
+                    s_dt_pid = global_min_date
             else:
-                # 使用者有選日期 → 以選擇的起日為準
                 s_dt_pid = s_dt_use
-                df_pid_usage = df_order_copy[
-                    df_order_copy.apply(lambda r: pid_in_order(pid, r, df_recipe), axis=1)
-                ]
 
-            # 確保 df_pid_usage 為 DataFrame
-            df_pid_usage = df_pid_usage if 'df_pid_usage' in locals() else pd.DataFrame()
             st.write(f"{pid} 對應訂單筆數：", len(df_pid_usage))
             st.write(df_pid_usage)
 
             # --- (C) 期初處理（錨點覆寫） ---
             if ini_date is not None and ini_date <= e_dt_use:
-                s_dt_pid = ini_date  # 起算日從期初開始
+                s_dt_pid = ini_date
                 ini_total = ini_base_value
                 ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}"
             else:
@@ -3904,14 +3905,13 @@ if menu == "庫存區":
                 (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
             ]["數量_g"].sum()
 
-            # --- (E) 區間用量（從期初或查詢起日算起） ---
+            # --- (E) 區間用量 ---
             usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
                              if not df_pid_usage.empty else 0.0
 
             st.write(f"🧮 {pid} 用量計算結果：{usage_interval} g（期間：{s_dt_pid} ~ {e_dt_use}）")
             st.write(f"🧾 {pid} 用量期間：{s_dt_pid} ~ {e_dt_use}")
 
-            
             # --- (F) 計算期末庫存 ---
             final_g = ini_total + in_qty_interval - usage_interval
 
@@ -3925,6 +3925,7 @@ if menu == "庫存區":
                 "期末庫存": safe_format(final_g),
                 "備註": ini_date_note,
             })
+
 
         # 5. 顯示結果
         df_result = pd.DataFrame(stock_summary)
