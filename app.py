@@ -3948,20 +3948,25 @@ if menu == "庫存區":
             if c in df_recipe_copy.columns:
                 df_recipe_copy[c] = df_recipe_copy[c].apply(normalize_pid)
 
-        # --- 選擇色粉 ---
-        selected_pid = normalize_pid(stock_powder.strip())
-        all_pids = sorted(set(
-            df_stock_copy["色粉編號"].tolist() +
-            [pid for c in powder_cols if c in df_recipe_copy.columns for pid in df_recipe_copy[c].tolist()] +
-            ([] if not selected_pid else [selected_pid])
-        ))
+        # 選擇色粉-使用者輸入色粉編號 (模糊搜尋)
+        selected_pid = stock_powder.strip()  # stock_powder 是 text_input 的值
 
+        # 所有色粉
+        all_pids = sorted(
+            set(df_stock_copy["色粉編號"].tolist() +
+                [df_recipe_copy[c].tolist() for c in powder_cols if c in df_recipe_copy.columns])
+        )
+
+        # 如果使用者有輸入，做模糊搜尋
         if selected_pid:
-            all_pids = [selected_pid]
+            # 大小寫都忽略
+            all_pids = [pid for pid in all_pids if selected_pid.upper() in pid.upper()]
+
+        # 確認至少有色粉
         if not all_pids:
             st.warning("⚠️ 查無任何色粉記錄。")
             st.stop()
-
+            
         # --- 查詢日期 ---
         today = pd.Timestamp.today().normalize()
         s_dt_use = pd.to_datetime(query_start) if query_start else df_stock_copy["日期"].min()
