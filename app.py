@@ -4013,9 +4013,8 @@ if menu == "庫存區":
                 # 轉數字，不可轉的變 NaN，再填 0
                 w_series = pd.to_numeric(w_series, errors='coerce').fillna(0)
                 n_series = pd.to_numeric(n_series, errors='coerce').fillna(0)
-
                 df_orders["包裝總重"] += w_series * n_series
-
+                
             df_orders = df_orders[df_orders["包裝總重"]>0]
 
             df_merge = df_orders.merge(df_recipe_ex, left_on="配方編號", right_on="配方編號", how="left")
