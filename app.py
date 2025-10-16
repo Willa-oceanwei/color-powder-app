@@ -4017,12 +4017,25 @@ if menu == "庫存區":
                 df_orders["包裝總重"] += w_series * n_series
 
             # 過濾掉總重為 0 的訂單
+            st.write("df_merge.columns", df_merge.columns.tolist())
+            st.write("df_merge 預覽", df_merge.head())
+            
             df_orders = df_orders[df_orders["包裝總重"] > 0]
 
-            # 與配方展開表合併
-            df_merge = df_orders.merge(df_recipe_ex, left_on="配方編號", right_on="配方編號", how="left")
-            df_usage_sum = df_merge.groupby("色粉編號")["色粉使用量"].sum().reset_index().rename(columns={"色粉使用量":"區間用量"})
+            if "色粉編號" in df_orders.columns:
+                df_orders = df_orders.drop(columns=["色粉編號"])
 
+            df_merge = df_orders.merge(df_recipe_ex, on="配方編號", how="left")
+            
+            # 與配方展開表合併
+            df_merge["色粉使用量"] = df_merge["包裝總重"] * df_merge["色粉重量"]
+            df_usage_sum = (
+                df_merge.groupby("色粉編號")["色粉使用量"]
+                .sum()
+                .reset_index()
+                .rename(columns={"色粉使用量": "區間用量"})
+            )
+            
         # --- 合併計算期末 ---
         df_summary = pd.DataFrame({"色粉編號": all_pids})
         df_summary = df_summary.merge(df_ini_latest[["色粉編號","期初庫存","期初日期"]], on="色粉編號", how="left")
