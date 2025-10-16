@@ -4034,6 +4034,7 @@ if menu == "庫存區":
                 df_orders = df_orders.drop(columns=["色粉編號"])
 
             df_merge = df_orders.merge(df_recipe_ex, on="配方編號", how="left")
+            df_merge["色粉使用量"] = df_merge["包裝總重"] * df_merge["色粉重量"]
 
             # === 模糊對應色粉編號（例如 PK / PK01 / PK001 都能歸類）===
             def fuzzy_group(pid):
