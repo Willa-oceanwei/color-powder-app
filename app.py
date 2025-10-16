@@ -3515,7 +3515,7 @@ if menu == "庫存區":
             order_date = order.get("生產日期")
 
             if not order_recipe_id:
-                # orders_failed_match.append((order_id, order_date, "配方編號空白"))
+                orders_failed_match.append((order_id, order_date, "配方編號空白"))
                 continue
             
             # A. 檢查主配方 ID 是否在候選清單中
