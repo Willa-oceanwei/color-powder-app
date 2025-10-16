@@ -3891,16 +3891,20 @@ if menu == "庫存區":
 
         all_pids_recipe = []
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
-        if not df_recipe_copy.empty:
-            for c in powder_cols:
-                if c in df_recipe_copy.columns:
-                    df_recipe_copy[c] = (
-                        df_recipe_copy[c].astype(str).str.upper().str.strip().str.replace(" ", "")
-                    )
-                    all_pids_recipe.extend(df_recipe_copy[c].tolist())
-
-        # 統合所有色粉編號
-        all_pids = sorted(list(set(all_pids_stock) | set([p for p in all_pids_recipe if p])))
+        if user_input_pid:
+            all_pids = [user_input_pid.upper().strip().replace(" ", "")]
+        else:
+            all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
+            all_pids_recipe = []
+            powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
+            if not df_recipe_copy.empty:
+                for c in powder_cols:
+                    if c in df_recipe_copy.columns:
+                        df_recipe_copy[c] = (
+                            df_recipe_copy[c].astype(str).str.upper().str.strip().str.replace(" ", "")
+                        )
+                        all_pids_recipe.extend(df_recipe_copy[c].tolist())
+            all_pids = sorted(list(set(all_pids_stock) | set([p for p in all_pids_recipe if p])))
 
         # 確認至少有一個色粉
         if not all_pids:
