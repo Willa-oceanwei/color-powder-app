@@ -3979,6 +3979,10 @@ if menu == "庫存區":
 
         # ===== 取得查詢色粉編號（直接用你原本選擇的變數，例如 selected_pid） =====
         # 這裡不要新增新欄位，假設你的頁面有一個選擇框存入 selected_pid
+        if "selected_pid" not in st.session_state:
+            st.session_state["selected_pid"] = ""
+        selected_pid = st.session_state["selected_pid"]
+        
         if selected_pid:  
             all_pids = [normalize_pid(selected_pid)]
         else:
