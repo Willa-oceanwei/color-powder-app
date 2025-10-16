@@ -3996,6 +3996,7 @@ if menu == "庫存區":
 
 
         # ===== 判斷查詢目標色粉 =====
+        user_input_pid = st.session_state.get("user_input_pid", "")
         if user_input_pid:
             # 只查使用者輸入的色粉
             all_pids = [normalize_pid(user_input_pid)]
