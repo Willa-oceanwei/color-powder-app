@@ -3520,7 +3520,7 @@ if menu == "庫存區":
             
             # A. 檢查主配方 ID 是否在候選清單中
             if order_recipe_id not in candidate_ids:
-                # orders_failed_match.append((order_id, order_date, f"主配方ID ({order_recipe_id}) 未包含色粉"))
+                orders_failed_match.append((order_id, order_date, f"主配方ID ({order_recipe_id}) 未包含色粉"))
                 continue
         
             # B. 查找 df_recipe 的實際配方
