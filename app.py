@@ -3994,7 +3994,7 @@ if menu == "庫存區":
             )
             
         # --- 合併計算期末 ---
-        df_summary = pd.DataFrame({"色粉編號": all_pids})
+        df_summary = pd.DataFrame({"色粉編號": list(all_pids)})
         df_summary = df_summary.merge(df_ini_latest[["色粉編號","期初庫存","期初日期"]], on="色粉編號", how="left")
         df_summary = df_summary.merge(df_in_sum, on="色粉編號", how="left")
         df_summary = df_summary.merge(df_usage_sum, on="色粉編號", how="left")
