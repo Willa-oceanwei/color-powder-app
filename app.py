@@ -3981,7 +3981,7 @@ if menu == "庫存區":
         # 這裡不要新增新欄位，假設你的頁面有一個選擇框存入 selected_pid
         if "selected_pid" not in st.session_state:
             st.session_state["selected_pid"] = ""
-        selected_pid = st.session_state["selected_pid"]
+        selected_pid = st.session_state.get("selected_pid", "").strip()
         
         if selected_pid:  
             all_pids = [normalize_pid(selected_pid)]
