@@ -4045,25 +4045,24 @@ if menu == "庫存區":
         # 原始數值保留
         df_summary["期末庫存"] = df_summary["期初庫存"] + df_summary["區間進貨"] - df_summary["區間用量"]
 
-        # 顯示時格式化
-        # === 安全格式化顯示 ===
+
+        # === 顯示庫存查詢結果 ===
         def fmt_stock(x):
             if pd.isna(x):
                 return "-"
             return f"{x:.2f} g" if x < 1000 else f"{x/1000:.2f} kg"
 
-        # 檢查存在的欄位
-        display_cols = [col for col in ["色粉編號", "期初庫存", "區間進貨", "區間用量", "期末庫存", "備註"] if col in df_summary.columns]
+        # 建立一份顯示用副本（不影響原始數值）
+        df_display = df_summary.copy()
 
-        # 格式化數值欄（只對存在的欄位處理）
         for col in ["期初庫存", "區間進貨", "區間用量", "期末庫存"]:
-            if col in df_summary.columns:
-                df_summary[col] = df_summary[col].apply(fmt_stock)
+            if col in df_display.columns:
+                df_display[col] = df_display[col].apply(fmt_stock)
 
-        # 顯示資料表
-        st.dataframe(df_summary[display_cols])
+        # 自動檢查哪些欄位存在再顯示
+        display_cols = [c for c in ["色粉編號", "期初庫存", "區間進貨", "區間用量", "期末庫存", "備註"] if c in df_display.columns]
 
-        st.dataframe(df_summary[["色粉編號","期初庫存_fmt","區間進貨_fmt","區間用量_fmt","期末庫存_fmt","備註"]])
+        st.dataframe(df_display[display_cols])
 
         # ----------------- 顯示 -----------------
         df_stock_display = pd.DataFrame(stock_summary)
