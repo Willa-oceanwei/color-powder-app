@@ -3453,7 +3453,7 @@ if menu == "庫存區":
     # ---------------- 修正後的 calc_usage_for_stock 函式 (最終優化版本) ----------------
     # 假設：df_recipe 中的 '色粉重量{i}' 欄位單位是 g/每 kg 產品
     def calc_usage_for_stock(powder_id, df_order, df_recipe, start_date, end_date):
-        import pandas as pd # 確保 Pandas 可用
+        import pandas as pd
         total_usage_g = 0.0
 
         pid_strip = str(powder_id).strip()
@@ -3466,11 +3466,10 @@ if menu == "庫存區":
         if "生產日期" not in df_order_local.columns:
             return 0.0
     
-        # 🚨 關鍵修正 1：安全轉換日期。確保所有日期都被正確解析，錯誤的會變 NaT
+        # 確保日期是 Timestamp，並允許轉換錯誤 (與用量查詢的主流程一致)
         df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce")
     
         # --- 1. 找到所有包含此色粉的配方 (Candidate Recipes) ---
-        # ... (此段與上次的修正一致，確保配方 ID 和色粉 ID 匹配正確)
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
     
         candidate_ids = set()
@@ -3486,13 +3485,14 @@ if menu == "庫存區":
                 axis=1
             )
             recipe_candidates = recipe_df_copy[mask].copy()
+            # 確保 candidate_ids 都是 strip 過的，以便與訂單配方編號匹配
             candidate_ids = set(recipe_candidates["配方編號"].astype(str).str.strip().tolist())
     
         if not candidate_ids:
+            # print(f"診斷 {pid_strip}: 在配方表中找不到任何包含此色粉的配方。")
             return 0.0
 
         # --- 2. 篩選在查詢期間的訂單 (日期邏輯與用量查詢一致) ---
-    
         s_dt = pd.to_datetime(start_date).normalize()
         e_dt_exclusive = pd.to_datetime(end_date).normalize() + pd.Timedelta(days=1)
     
@@ -3502,35 +3502,49 @@ if menu == "庫存區":
             (df_order_local["生產日期"] < e_dt_exclusive) 
         ].copy()
 
+        # print(f"診斷 {pid_strip}: 日期範圍內找到 {len(orders_in_range)} 筆訂單。")
         if orders_in_range.empty:
             return 0.0
 
-        # --- 3. 逐張訂單計算用量 (邏輯保持上次的修正) ---
+        # --- 3. 逐張訂單計算用量 (新增配方查找失敗的診斷) ---
+        orders_failed_match = []
+    
         for _, order in orders_in_range.iterrows():
             order_recipe_id = str(order.get("配方編號", "")).strip()
+            order_id = str(order.get("訂單編號", "")) # 用於診斷輸出
+            order_date = order.get("生產日期")
+
             if not order_recipe_id:
+                # orders_failed_match.append((order_id, order_date, "配方編號空白"))
                 continue
             
+            # A. 檢查主配方 ID 是否在候選清單中
             if order_recipe_id not in candidate_ids:
+                # orders_failed_match.append((order_id, order_date, f"主配方ID ({order_recipe_id}) 未包含色粉"))
                 continue
         
-            # ... (後續的配方查找和用量計算邏輯，與上一個回覆一致)
+            # B. 查找 df_recipe 的實際配方
             recipe_rows = []
-            if "配方編號" in df_recipe.columns:
-                main_df = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id]
-                if not main_df.empty:
-                    recipe_rows.append(main_df.iloc[0].to_dict())
         
-            if "配方類別" in df_recipe.columns and "原始配方" in df_recipe.columns:
-                add_df = df_recipe[
-                    (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
-                    (df_recipe["原始配方"].astype(str).str.strip() == order_recipe_id)
-                ]
-                if not add_df.empty:
-                    recipe_rows.extend(add_df.to_dict("records"))
+            # 查找主配方 (確保 df_recipe 的 配方編號也進行 strip)
+            main_df = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id]
+            if not main_df.empty:
+                recipe_rows.append(main_df.iloc[0].to_dict())
+        
+            # 查找附加配方 (確保 df_recipe 的 原始配方也進行 strip)
+            add_df = df_recipe[
+                (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
+                (df_recipe["原始配方"].astype(str).str.strip() == order_recipe_id)
+            ]
+            if not add_df.empty:
+                recipe_rows.extend(add_df.to_dict("records"))
                     
             if not recipe_rows:
+                # 🚨 診斷點：訂單配方 ID 存在，但在 df_recipe 中找不到對應的行
+                orders_failed_match.append((order_id, order_date, f"配方ID ({order_recipe_id}) 在配方表找不到"))
                 continue
+
+            # ... (後續的用量計算邏輯與上一個回覆一致)
 
             packs_total_kg = 0.0
             for j in range(1, 5):
@@ -3566,10 +3580,17 @@ if menu == "庫存區":
                     continue
 
                 contrib = powder_weight_per_kg_product * packs_total_kg  
-            
                 order_total_for_powder += contrib
 
             total_usage_g += order_total_for_powder
+        
+            # orders_failed_match.append((order_id, order_date, f"成功計算 {order_total_for_powder} g"))
+
+
+        # 🚨 最終診斷輸出 (返回前)
+        if orders_failed_match:
+        
+            pass # 實際應用中，您可能需要將此 log 寫入檔案或 Streamlit 的 session_state
 
         return total_usage_g
 
