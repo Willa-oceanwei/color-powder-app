@@ -2996,10 +2996,13 @@ if menu == "交叉查詢區":
                 candidate_ids = set()
 
             # 2) 過濾生產單日期區間（只取有效日期）
+            end_datetime_exclusive = pd.to_datetime(end_date) + pd.Timedelta(days=1) 
+
             orders_in_range = df_order[
                 (df_order["生產日期"].notna()) &
                 (df_order["生產日期"] >= pd.to_datetime(start_date)) &
-                (df_order["生產日期"] <= pd.to_datetime(end_date))
+                # 將 <= end_date 改為 < 隔天 00:00:00
+                (df_order["生產日期"] < end_datetime_exclusive)
             ]
 
             # 3) 逐筆檢查訂單（保留原有過濾邏輯：只處理該訂單的主配方與其附加配方）
