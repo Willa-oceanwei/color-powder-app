@@ -3895,25 +3895,36 @@ if menu == "庫存區":
                 return f"{m.group(1)}{int(m.group(2)):03d}"
             return pid
 
-        user_input_pid = st.text_input("查詢色粉編號（留空表示全部）", "")
-        user_input_pid = user_input_pid.strip()  # 去掉空白
-        
-        # stock 色粉編號
+        # ===== stock 色粉編號統一格式 =====
         df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].apply(normalize_pid)
 
-        # recipe 色粉欄位
+        # ===== recipe 色粉欄位統一格式 =====
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
         for c in powder_cols:
             if c in df_recipe_copy.columns:
                 df_recipe_copy[c] = df_recipe_copy[c].apply(normalize_pid)
 
-        # 統計所有色粉編號
+        # ===== 統計所有色粉編號 =====
         all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
         all_pids_recipe = []
         if not df_recipe_copy.empty:
             for c in powder_cols:
                 if c in df_recipe_copy.columns:
                     all_pids_recipe.extend(df_recipe_copy[c].tolist())
+
+        # ===== 取得查詢色粉編號（直接用你原本選擇的變數，例如 selected_pid） =====
+        # 這裡不要新增新欄位，假設你的頁面有一個選擇框存入 selected_pid
+        if selected_pid:  
+            all_pids = [normalize_pid(selected_pid)]
+        else:
+            # 查全部
+            all_pids = sorted(list(set(all_pids_stock) | set([p for p in all_pids_recipe if p])))
+
+        # 確認至少有一個色粉
+        if not all_pids:
+            st.warning("⚠️ 查無任何色粉記錄。")
+            st.stop()
+
 
         # ===== 判斷查詢目標色粉 =====
         if user_input_pid:
