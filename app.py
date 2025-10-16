@@ -4032,8 +4032,6 @@ if menu == "庫存區":
                 .reset_index()
                 .rename(columns={"色粉使用量": "區間用量"})
             )
-            st.write("df_merge.columns", df_merge.columns.tolist())
-            st.write("df_merge 預覽", df_merge.head())
             
         # --- 合併計算期末 ---
         df_summary = pd.DataFrame({"色粉編號": all_pids})
