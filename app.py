@@ -436,6 +436,71 @@ def init_states(keys):
                 st.session_state[k] = {}
             else:
                 st.session_state[k] = ""
+
+import pandas as pd
+import streamlit as st
+#==============================================
+def calculate_stock(df_ini, df_in, df_out, all_pids, date_col="日期"):
+    """
+    計算庫存函式化版本
+    df_ini: 初始庫存 DataFrame, 必須包含 '色粉編號' 與 '庫存量'
+    df_in: 進貨 DataFrame, 必須包含 '色粉編號', '數量', '日期'
+    df_out: 出貨 DataFrame, 必須包含 '色粉編號', '數量', '日期'
+    all_pids: 所有色粉編號列表
+    date_col: 日期欄位名稱
+    """
+    # 日期標準化
+    for df in [df_in, df_out]:
+        if date_col in df.columns:
+            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+        else:
+            df[date_col] = pd.NaT
+
+    stock_summary = []
+    st.session_state.setdefault("last_final_stock", {})
+
+    def safe_format(x):
+        unit = "g"
+        val = x
+        if abs(val) >= 1000:
+            val /= 1000
+            unit = "kg"
+        return f"{val:.2f} {unit}"
+
+    for pid in all_pids:
+        # 空 DataFrame 保護
+        df_pid_ini = df_ini[df_ini.get("色粉編號", pd.Series()) == pid] if not df_ini.empty else pd.DataFrame()
+        df_pid_in = df_in[df_in.get("色粉編號", pd.Series()) == pid] if not df_in.empty else pd.DataFrame()
+        df_pid_out = df_out[df_out.get("色粉編號", pd.Series()) == pid] if not df_out.empty else pd.DataFrame()
+
+        initial_stock = df_pid_ini["庫存量"].sum() if not df_pid_ini.empty else 0
+        in_qty = df_pid_in["數量"].sum() if not df_pid_in.empty else 0
+        out_qty = df_pid_out["數量"].sum() if not df_pid_out.empty else 0
+
+        final_stock = initial_stock + in_qty - out_qty
+        stock_summary.append({
+            "色粉編號": pid,
+            "期初庫存": safe_format(initial_stock),
+            "進貨總量": safe_format(in_qty),
+            "出貨總量": safe_format(out_qty),
+            "期末庫存": safe_format(final_stock)
+        })
+
+        # 存回 session_state，方便下次查詢
+        st.session_state["last_final_stock"][pid] = final_stock
+
+    return pd.DataFrame(stock_summary)
+
+
+# ---------------- Streamlit 使用範例 ----------------
+if "menu" in st.session_state and st.session_state.menu == "庫存查詢":
+    all_pids = ["P001", "P002", "P003"]  # 可改成你的色粉清單
+    df_ini = pd.DataFrame({"色粉編號": ["P001", "P002"], "庫存量": [500, 1200]})
+    df_in = pd.DataFrame({"色粉編號": ["P001"], "數量": [200], "日期": ["2025-10-15"]})
+    df_out = pd.DataFrame({"色粉編號": ["P002"], "數量": [300], "日期": ["2025-10-14"]})
+
+    df_stock_summary = calculate_stock(df_ini, df_in, df_out, all_pids)
+    st.dataframe(df_stock_summary)
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
