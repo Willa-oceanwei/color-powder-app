@@ -3450,16 +3450,14 @@ if menu == "庫存區":
             # 格式化為 g，保留兩位小數 (如果不是整數)
             return f"{int(round(val))} g" if float(int(val)) == val else f"{val:.2f} g"
 
-    # ---------------- 修正後的 calc_usage_for_stock 函式 ----------------
+    # ---------------- 修正後的 calc_usage_for_stock 函式 (最終優化版本) ----------------
     # 假設：df_recipe 中的 '色粉重量{i}' 欄位單位是 g/每 kg 產品
     def calc_usage_for_stock(powder_id, df_order, df_recipe, start_date, end_date):
         total_usage_g = 0.0
 
-        # 🟢 修正點 (Start): 標準化查詢的色粉編號，用於大小寫不敏感比對
         pid_lower = str(powder_id).strip().lower() 
         if not pid_lower:
             return 0.0
-        # 🟢 修正點 (End)
 
         df_order_local = df_order.copy()
     
@@ -3472,23 +3470,25 @@ if menu == "庫存區":
         # --- 1. 找到所有包含此色粉的配方 (Candidate Recipes) ---
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
     
-        candidate_ids = set()
+        recipe_candidates = pd.DataFrame() # 宣告為空的 DataFrame
         if not df_recipe.empty:
             recipe_df_copy = df_recipe.copy()
             for c in powder_cols:
                 if c not in recipe_df_copy.columns:
                     recipe_df_copy[c] = ""
         
-            # 🟢 修正點 A: 大小寫不敏感地找出候選配方
-            # 將配方中的色粉編號 strip() 並轉為小寫後，再與 pid_lower 比對
+            # 修正 A: 大小寫不敏感地找出候選配方
             mask = recipe_df_copy[powder_cols].astype(str).apply(
                 lambda row: pid_lower in [s.strip().lower() for s in row.values], 
                 axis=1
             )
-            # 🟢 修正點 A (End)
-        
             recipe_candidates = recipe_df_copy[mask].copy()
-            candidate_ids = set(recipe_candidates["配方編號"].astype(str).str.strip().tolist())
+        
+            # 準備好配方編號的 strip 欄位，方便後續高效匹配
+            recipe_candidates.loc[:, "配方編號_strip"] = recipe_candidates["配方編號"].astype(str).str.strip()
+            candidate_ids = set(recipe_candidates["配方編號_strip"].tolist())
+        else:
+            candidate_ids = set()
     
         if not candidate_ids:
             return 0.0
@@ -3511,27 +3511,32 @@ if menu == "庫存區":
             order_recipe_id = str(order.get("配方編號", "")).strip()
             if not order_recipe_id:
                 continue
-
-            # --- 獲取主配方與其附加配方 (確保所有 ID 匹配都使用 strip()) ---
-            recipe_rows = []
-            if "配方編號" in df_recipe.columns:
-                # 確保 df_recipe 的 配方編號也進行 strip
-                main_df = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id]
-                if not main_df.empty:
-                    recipe_rows.append(main_df.iloc[0].to_dict())
+            
+            # 檢查該訂單的主配方是否在候選名單中
+            if order_recipe_id not in candidate_ids:
+                continue
         
-            if "配方類別" in df_recipe.columns and "原始配方" in df_recipe.columns:
-                add_df = df_recipe[
-                    (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
-                    (df_recipe["原始配方"].astype(str).str.strip() == order_recipe_id)
+            # --- 獲取主配方與其附加配方 (優化配方查詢效率) ---
+            recipe_rows = []
+        
+            # 🟢 優化點 C: 從已篩選的 recipe_candidates 中尋找配方，確保一致性
+            main_df = recipe_candidates[recipe_candidates["配方編號_strip"] == order_recipe_id]
+            if not main_df.empty:
+                recipe_rows.append(main_df.iloc[0].to_dict())
+        
+            if "配方類別" in recipe_candidates.columns and "原始配方" in recipe_candidates.columns:
+                add_df = recipe_candidates[
+                    (recipe_candidates["配方類別"].astype(str).str.strip() == "附加配方") &
+                    (recipe_candidates["原始配方"].astype(str).str.strip() == order_recipe_id)
                 ]
                 if not add_df.empty:
                     recipe_rows.extend(add_df.to_dict("records"))
                     
             # --- 獲取配方結束 ---
+            if not recipe_rows:
+                continue
 
-
-            # 計算這張訂單的包裝總量 (kg) = sum(pack_w * pack_n)
+            # 計算這張訂單的包裝總量 (kg)
             packs_total_kg = 0.0
             for j in range(1, 5):
                 w_key = f"包裝重量{j}"
@@ -3550,22 +3555,14 @@ if menu == "庫存區":
 
             order_total_for_powder = 0.0
             for rec in recipe_rows:
-                rec_id = str(rec.get("配方編號", "")).strip()
-                # 確保這個配方是我們關心的
-                if rec_id not in candidate_ids:
-                    continue
-
-                # 🟢 修正點 B: 大小寫不敏感地找出對應的色粉重量
-                # 1. 將配方中的色粉編號列表標準化（strip + lower）
+            
+                # 修正 B: 大小寫不敏感地找出對應的色粉重量
                 pvals_lower = [str(rec.get(f"色粉編號{i}", "")).strip().lower() for i in range(1, 9)]
             
-                # 2. 用標準化的 pid_lower 進行比對
                 if pid_lower not in pvals_lower:
                     continue
 
-                # 3. 透過標準化的列表 pvals_lower 找出索引位置
                 idx = pvals_lower.index(pid_lower) + 1 # 找到索引 (1~8)
-                # 🟢 修正點 B (End)
             
                 try:
                     # 假設 "色粉重量{idx}" 欄位的值單位是 G/每 KG 產品
@@ -3581,7 +3578,7 @@ if menu == "庫存區":
             
                 order_total_for_powder += contrib
 
-                total_usage_g += order_total_for_powder
+            total_usage_g += order_total_for_powder
 
         return total_usage_g
 
