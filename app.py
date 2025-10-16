@@ -4006,12 +4006,15 @@ if menu == "庫存區":
             df_orders["包裝總重"] = 0
 
             for w_col, n_col in pack_cols:
-                # 若欄位存在，取值；不存在就建立全 0 Series
-                w_series = df_orders[w_col] if w_col in df_orders.columns else pd.Series([0]*len(df_orders), index=df_orders.index)
-                n_series = df_orders[n_col] if n_col in df_orders.columns else pd.Series([0]*len(df_orders), index=df_orders.index)
-    
-                # 乘法前轉 float，避免 dtype 問題
-                df_orders["包裝總重"] += w_series.fillna(0).astype(float) * n_series.fillna(0).astype(float)
+                # 若欄位不存在，建立全 0 Series
+                w_series = df_orders[w_col] if w_col in df_orders.columns else pd.Series(0, index=df_orders.index)
+                n_series = df_orders[n_col] if n_col in df_orders.columns else pd.Series(0, index=df_orders.index)
+
+                # 轉數字，不可轉的變 NaN，再填 0
+                w_series = pd.to_numeric(w_series, errors='coerce').fillna(0)
+                n_series = pd.to_numeric(n_series, errors='coerce').fillna(0)
+
+                df_orders["包裝總重"] += w_series * n_series
 
             df_orders = df_orders[df_orders["包裝總重"]>0]
 
