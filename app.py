@@ -4017,9 +4017,6 @@ if menu == "庫存區":
                 df_orders["包裝總重"] += w_series * n_series
 
             # 過濾掉總重為 0 的訂單
-            st.write("df_merge.columns", df_merge.columns.tolist())
-            st.write("df_merge 預覽", df_merge.head())
-            
             df_orders = df_orders[df_orders["包裝總重"] > 0]
 
             if "色粉編號" in df_orders.columns:
@@ -4035,6 +4032,8 @@ if menu == "庫存區":
                 .reset_index()
                 .rename(columns={"色粉使用量": "區間用量"})
             )
+            st.write("df_merge.columns", df_merge.columns.tolist())
+            st.write("df_merge 預覽", df_merge.head())
             
         # --- 合併計算期末 ---
         df_summary = pd.DataFrame({"色粉編號": all_pids})
