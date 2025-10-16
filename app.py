@@ -3983,7 +3983,7 @@ if menu == "庫存區":
             st.session_state["selected_pid"] = ""
         selected_pid = st.session_state.get("selected_pid", "").strip()
         
-        if selected_pid:  
+        if selected_pid:
             all_pids = [normalize_pid(selected_pid)]
         else:
             # 查全部
