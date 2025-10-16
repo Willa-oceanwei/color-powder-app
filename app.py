@@ -4005,7 +4005,9 @@ if menu == "庫存區":
             pack_cols = [(f"包裝重量{i}", f"包裝份數{i}") for i in range(1,5)]
             df_orders["包裝總重"] = 0
             for w_col, n_col in pack_cols:
-                df_orders["包裝總重"] += df_orders.get(w_col,0).fillna(0) * df_orders.get(n_col,0).fillna(0)
+                w_series = df_orders[w_col] if w_col in df_orders.columns else pd.Series(0, index=df_orders.index)
+                n_series = df_orders[n_col] if n_col in df_orders.columns else pd.Series(0, index=df_orders.index)
+                df_orders["包裝總重"] += w_series.fillna(0) * n_series.fillna(0)
 
             df_orders = df_orders[df_orders["包裝總重"]>0]
 
