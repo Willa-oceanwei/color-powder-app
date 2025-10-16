@@ -3587,17 +3587,67 @@ if menu == "庫存區":
 
     # ---------- 安全呼叫 Wrapper (邏輯已優化) ----------
     def safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt):
-        try:
-            if pd.isna(start_dt) or pd.isna(end_dt) or start_dt > end_dt:
-                return 0.0
-            if df_order.empty or df_recipe.empty:
-                return 0.0
-            # 確保傳入的日期是 Timestamp，函式內部會自行 normalize
-            return calc_usage_for_stock(pid, df_order, df_recipe, start_dt, end_dt)
-        except Exception as e:
-            # 這是錯誤排除機制，確保程式不會崩潰
-            # st.warning(f"⚠️ 計算色粉 {pid} 用量失敗: {e}") 
+        """
+        計算指定色粉在訂單期間的用量 (g)
+        pid: 色粉編號 (精確匹配)
+        df_order: 訂單 DataFrame，包含包裝重量、包裝份數、配方編號、主/附加配方
+        df_recipe: 配方 DataFrame，包含色粉欄位及色粉重量
+        start_dt, end_dt: 查詢日期區間 (datetime)
+        """
+        if df_order.empty or df_recipe.empty:
             return 0.0
+
+        powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
+        total_usage = 0.0
+
+        # 過濾訂單日期
+        orders_in_range = df_order[
+            (df_order["生產日期"].notna()) &
+            (df_order["生產日期"] >= start_dt) &
+            (df_order["生產日期"] <= end_dt)
+        ]
+
+        for _, order in orders_in_range.iterrows():
+            # 計算訂單包裝總重
+            packs_total = 0.0
+            for j in range(1, 5):
+                w_val = order.get(f"包裝重量{j}", 0) or 0
+                n_val = order.get(f"包裝份數{j}", 0) or 0
+                try:
+                    packs_total += float(w_val) * float(n_val)
+                except:
+                    continue
+            if packs_total <= 0:
+                continue  # 無效訂單跳過
+
+            # 取得主配方及附加配方
+            order_recipe_id = str(order.get("配方編號", "")).strip()
+            recipe_rows = []
+            main_df = df_recipe[df_recipe["配方編號"].astype(str) == order_recipe_id]
+            if not main_df.empty:
+                recipe_rows.append(main_df.iloc[0].to_dict())
+            add_df = df_recipe[
+                (df_recipe["配方類別"] == "附加配方") &
+                (df_recipe["原始配方"].astype(str) == order_recipe_id)
+            ]
+            if not add_df.empty:
+                recipe_rows.extend(add_df.to_dict("records"))
+
+            # 計算每個配方對該 pid 的貢獻
+            for rec in recipe_rows:
+                pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
+                if pid not in pvals:
+                    continue
+                idx = pvals.index(pid) + 1
+                try:
+                    powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
+                except:
+                    powder_weight = 0.0
+                if powder_weight <= 0:
+                    continue
+                total_usage += powder_weight * packs_total
+
+        return total_usage
             
     # ================= 初始庫存設定 (保持不變) =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 初始庫存設定</h2>', unsafe_allow_html=True)
