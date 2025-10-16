@@ -3883,32 +3883,26 @@ if menu == "庫存區":
             return False
 
         # ===== 3️⃣ 修正版：依手動查詢邏輯計算色粉用量 =====
-        df_stock_copy["色粉編號"] = (
-            df_stock_copy["色粉編號"].astype(str).str.upper().str.strip().str.replace(" ", "")
-        )
+        user_input_pid = st.text_input("查詢色粉編號（留空表示全部）", "").upper().strip().replace(" ", "")
 
+        # ===== 取得所有色粉編號 =====
+        df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].astype(str).str.upper().str.strip().str.replace(" ", "")
         all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
 
         all_pids_recipe = []
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
-        user_input_pid = st.text_input("查詢色粉編號（留空表示全部）", "").upper().strip().replace(" ", "")
+        if not df_recipe_copy.empty:
+            for c in powder_cols:
+                if c in df_recipe_copy.columns:
+                    df_recipe_copy[c] = df_recipe_copy[c].astype(str).str.upper().str.strip().str.replace(" ", "")
+                    all_pids_recipe.extend(df_recipe_copy[c].tolist())
+
+        # ===== 統合色粉編號 =====
         if user_input_pid:
-            all_pids = [user_input_pid]
+            all_pids = [user_input_pid]  # 只查這個色粉
         else:
-            # 原本從庫存和配方抓取所有色粉
-            all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
-            all_pids_recipe = []
-            powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
-            if not df_recipe_copy.empty:
-                for c in powder_cols:
-                    if c in df_recipe_copy.columns:
-                        df_recipe_copy[c] = (
-                            df_recipe_copy[c].astype(str).str.upper().str.strip().str.replace(" ", "")
-                        )
-                        all_pids_recipe.extend(df_recipe_copy[c].tolist())
             all_pids = sorted(list(set(all_pids_stock) | set([p for p in all_pids_recipe if p])))
 
-        # 確認至少有一個色粉
         if not all_pids:
             st.warning("⚠️ 查無任何色粉記錄。")
             st.stop()
