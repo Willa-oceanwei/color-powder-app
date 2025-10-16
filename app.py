@@ -3891,9 +3891,11 @@ if menu == "庫存區":
 
         all_pids_recipe = []
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
+        user_input_pid = st.text_input("查詢色粉編號（留空表示全部）", "").upper().strip().replace(" ", "")
         if user_input_pid:
-            all_pids = [user_input_pid.upper().strip().replace(" ", "")]
+            all_pids = [user_input_pid]
         else:
+            # 原本從庫存和配方抓取所有色粉
             all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
             all_pids_recipe = []
             powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
