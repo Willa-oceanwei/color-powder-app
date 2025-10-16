@@ -4015,7 +4015,7 @@ if menu == "庫存區":
 
         if s_dt_use > e_dt_use:
             st.error("❌ 查詢起日不能晚於查詢迄日。")
-        st.stop()
+            st.stop()
 
         # ===== 5️⃣ 計算庫存核心迴圈 =====
         stock_summary = []
