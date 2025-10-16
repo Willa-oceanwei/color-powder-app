@@ -3882,49 +3882,101 @@ if menu == "庫存區":
                     return True
             return False
 
-        # ===== 3️⃣ 取得所有色粉編號 =====
-        # 先統一格式（去空白、轉大寫、去掉內文空格）
-        df_stock_copy["色粉編號"] = (
-            df_stock_copy["色粉編號"].astype(str).str.upper().str.strip().str.replace(" ", "")
-        )
+        # ===== 3️⃣ 修正版：依手動查詢邏輯計算色粉用量 =====
+        def calc_powder_usage_consistent(all_pids, df_order, df_recipe, start_date, end_date):
+            """
+            統一色粉用量計算邏輯（與手動查詢版本一致）
+            """
+            results = {}
 
-        all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
+            # 確保日期欄位格式正確
+            if "生產日期" in df_order.columns:
+                df_order["生產日期"] = pd.to_datetime(df_order["生產日期"], errors="coerce")
+            else:
+                df_order["生產日期"] = pd.NaT
 
-        # 處理配方資料的色粉欄位
-        all_pids_recipe = []
-        if not df_recipe_copy.empty:
-            for c in powder_cols:
-                if c in df_recipe_copy.columns:
-                    # 對每一欄進行同樣標準化
-                    df_recipe_copy[c] = (
-                        df_recipe_copy[c].astype(str).str.upper().str.strip().str.replace(" ", "")
-                    )
-                    all_pids_recipe.extend(df_recipe_copy[c].tolist())
+            powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
 
-        # 統合所有色粉編號
-        all_pids_all = sorted(
-            list(set(all_pids_stock) | set([p for p in all_pids_recipe if p]))
-        )
+            # 若日期未設定 → 用全域範圍
+            if not start_date or not end_date:
+                start_date = df_order["生產日期"].min()
+                end_date = df_order["生產日期"].max()
+            elif start_date == end_date:
+                # 避免只查單日導致誤差
+                start_date = df_order["生產日期"].min()
 
-        # ===== 搜尋過濾 =====
-        stock_powder_clean = stock_powder.upper().strip().replace(" ", "")
-
-        if stock_powder_clean:
-            # 模糊搜尋：讓 PK 可匹配 PK01、PK001 等
-            all_pids = [
-                pid for pid in all_pids_all
-                if stock_powder_clean in pid.replace(" ", "").upper()
+            # 日期範圍過濾
+            orders_in_range = df_order[
+                (df_order["生產日期"].notna()) &
+                (df_order["生產日期"] >= pd.to_datetime(start_date)) &
+                (df_order["生產日期"] <= pd.to_datetime(end_date))
             ]
-            if not all_pids:
-                st.warning(f"⚠️ 查無與 '{stock_powder}' 相關的色粉記錄。")
-                st.stop()
-        else:
-            all_pids = all_pids_all
 
-        if not all_pids:
-            st.warning("⚠️ 查無任何色粉記錄。")
-            st.stop()
+            for powder_id in all_pids:
+                total_usage_g = 0.0
 
+                # 🔹 1. 找出含此色粉的候選配方
+                mask = df_recipe[powder_cols].astype(str).apply(lambda row: powder_id in row.values, axis=1)
+                recipe_candidates = df_recipe[mask].copy()
+                candidate_ids = set(recipe_candidates["配方編號"].astype(str).tolist())
+
+                # 🔹 2. 遍歷日期範圍內的每筆生產單
+                for _, order in orders_in_range.iterrows():
+                    order_recipe_id = str(order.get("配方編號", "")).strip()
+                    if not order_recipe_id:
+                        continue
+
+                    # 主配方 + 附加配方
+                    recipe_rows = []
+                    main_df = df_recipe[df_recipe["配方編號"].astype(str) == order_recipe_id]
+                    if not main_df.empty:
+                        recipe_rows.append(main_df.iloc[0].to_dict())
+
+                    add_df = df_recipe[
+                        (df_recipe["配方類別"] == "附加配方") &
+                        (df_recipe["原始配方"].astype(str) == order_recipe_id)
+                    ]
+                    if not add_df.empty:
+                        recipe_rows.extend(add_df.to_dict("records"))
+
+                    # 🔹 計算包裝總份數
+                    packs_total = 0.0
+                    for j in range(1, 5):
+                        try:
+                            w = float(order.get(f"包裝重量{j}", 0) or 0)
+                            n = float(order.get(f"包裝份數{j}", 0) or 0)
+                        except (ValueError, TypeError):
+                            w, n = 0.0, 0.0
+                        packs_total += w * n
+
+                    if packs_total <= 0:
+                        continue  # 沒實際包裝的不算
+
+                    # 🔹 檢查此訂單的每個配方是否含該色粉
+                    for rec in recipe_rows:
+                        rec_id = str(rec.get("配方編號", "")).strip()
+                        if rec_id not in candidate_ids:
+                            continue
+
+                        pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
+                        if powder_id not in pvals:
+                            continue
+
+                        idx = pvals.index(powder_id) + 1
+                        try:
+                            powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
+                        except (ValueError, TypeError):
+                            powder_weight = 0.0
+
+                        if powder_weight <= 0:
+                            continue
+
+                        # ✅ 用量 = 色粉重量 × 包裝總份數
+                        contrib = powder_weight * packs_total
+                        total_usage_g += contrib
+
+                results[powder_id] = total_usage_g
+            return results
 
         # ===== 4️⃣ 起迄日 =====
         today = pd.Timestamp.today().normalize()
