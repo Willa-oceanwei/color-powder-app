@@ -3722,7 +3722,6 @@ if menu == "庫存區":
 
         st.write(f"🧾 最終計算 {pid} 用量：{total_usage} g（期間：{s_dt} ~ {e_dt}）")
         return total_usage
-
             
     # ================= 初始庫存設定 (保持不變) =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 初始庫存設定</h2>', unsafe_allow_html=True)
@@ -3841,7 +3840,6 @@ if menu == "庫存區":
     else:
         st.success(f"✅ 查詢 {query_start} ~ {query_end} 的庫存數量")
 
-
     # ---------------- 庫存查詢（主流程） ----------------
     if st.button("計算庫存", key="btn_calc_stock"):
         import pandas as pd
@@ -3930,16 +3928,31 @@ if menu == "庫存區":
 
         # ===== 4️⃣ 起迄日 =====
         today = pd.Timestamp.today().normalize()
+
+        # 取得最早日期（用於全域搜尋）
         min_date_stock = df_stock_copy["日期"].min() if not df_stock_copy.empty else today
         min_date_order = df_order_copy["生產日期"].min() if not df_order_copy.empty else today
         global_min_date = min(min_date_stock, min_date_order).normalize()
 
-        default_start = date.today()
-        default_end = date.today()
-        no_date_selected = (query_start == default_start and query_end == default_end)
+        # 判斷是否有選日期
+        # Streamlit 的 date_input 預設是今天，所以要比較是否「仍是預設值」
+        default_today = date.today()
+        user_selected = not (query_start == default_today and query_end == default_today)
 
-        s_dt_use = pd.to_datetime(query_start).normalize() if query_start else global_min_date
-        e_dt_use = pd.to_datetime(query_end).normalize() if query_end else today
+        # 若使用者未改日期 → 改用全域搜尋
+        if user_selected:
+            s_dt_use = pd.to_datetime(query_start).normalize() if query_start else global_min_date
+            e_dt_use = pd.to_datetime(query_end).normalize() if query_end else today
+        else:
+            s_dt_use = global_min_date
+            e_dt_use = today
+
+        # 檢查範圍合法
+        if s_dt_use > e_dt_use:
+            st.error("❌ 查詢起日不能晚於查詢迄日。")
+            st.stop()
+
+        no_date_selected = not user_selected
 
         # ===== 5️⃣ 計算庫存核心迴圈 =====
         stock_summary = []
