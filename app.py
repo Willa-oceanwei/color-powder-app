@@ -3543,8 +3543,64 @@ if menu == "庫存區":
                 # 🚨 診斷點：訂單配方 ID 存在，但在 df_recipe 中找不到對應的行
                 orders_failed_match.append((order_id, order_date, f"配方ID ({order_recipe_id}) 在配方表找不到"))
                 continue
+            
+            # 💡 新增診斷點 A：檢查訂單總重量
+            print(f"--- 訂單 {order_id} ({order_recipe_id}) 診斷開始 ---")
+            
+            # ... (計算 packs_total_kg 的邏輯)
+            packs_total_kg = 0.0
+            for j in range(1, 5):
+                # ... (計算 packs_total_kg)
+                w_key = f"包裝重量{j}"
+                n_key = f"包裝份數{j}"
+                w_val = order.get(w_key, 0)
+                n_val = order.get(n_key, 0)
+                try:
+                    pack_w = float(w_val or 0)
+                    pack_n = float(n_val or 0)
+                except (ValueError, TypeError):
+                    pack_w, pack_n = 0.0, 0.0
+                packs_total_kg += pack_w * pack_n
 
-            # ... (後續的用量計算邏輯與上一個回覆一致)
+            print(f"訂單總產品重量 (kg): {packs_total_kg}") # 💡 新增診斷輸出
+            
+            if packs_total_kg <= 0:
+                print("🚨 警告: 訂單總產品重量為零，跳過用量計算。") # 💡 新增診斷輸出
+                continue
+
+            order_total_for_powder = 0.0
+            for rec in recipe_rows:
+                pvals_lower = [str(rec.get(f"色粉編號{i}", "")).strip().lower() for i in range(1, 9)]
+            
+                if pid_lower not in pvals_lower:
+                    continue
+
+                idx = pvals_lower.index(pid_lower) + 1
+                
+                # 💡 新增診斷點 B：檢查色粉代碼是否被找到
+                print(f"色粉 {pid_strip} 在配方中找到，位置: {idx}") # 💡 新增診斷輸出
+            
+                try:
+                    powder_weight_per_kg_product = float(rec.get(f"色粉重量{idx}", 0) or 0)  
+                except (ValueError, TypeError):
+                    powder_weight_per_kg_product = 0.0
+
+                # 💡 新增診斷點 C：檢查色粉重量
+                print(f"色粉重量 (g/kg產品): {powder_weight_per_kg_product}") # 💡 新增診斷輸出
+                
+                if powder_weight_per_kg_product <= 0:
+                    print("🚨 警告: 配方中色粉重量為零，跳過計算。") # 💡 新增診斷輸出
+                    continue
+
+                contrib = powder_weight_per_kg_product * packs_total_kg  
+                order_total_for_powder += contrib
+            
+            total_usage_g += order_total_for_powder
+            
+            # 💡 新增診斷點 D：檢查該訂單的總貢獻
+            print(f"訂單 {order_id} 最終貢獻用量 (g): {order_total_for_powder}") # 💡 新增診斷輸出
+
+# ... (函數結尾的診斷輸出和 return total_usage_g)
 
             packs_total_kg = 0.0
             for j in range(1, 5):
