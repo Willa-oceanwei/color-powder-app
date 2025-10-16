@@ -3693,8 +3693,7 @@ if menu == "庫存區":
             # 確保傳入的日期是 Timestamp，函式內部會自行 normalize
             return calc_usage_for_stock(pid, df_order, df_recipe, start_dt, end_dt)
         except Exception as e:
-            # 這是錯誤排除機制，確保程式不會崩潰
-            # st.warning(f"⚠️ 計算色粉 {pid} 用量失敗: {e}") 
+            print(f"❌ 嚴重錯誤：計算色粉 {pid} 用量失敗: {e}")
             return 0.0
             
     # ================= 初始庫存設定 (保持不變) =================
