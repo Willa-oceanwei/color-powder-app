@@ -3883,24 +3883,26 @@ if menu == "庫存區":
             return False
 
         # ===== 3️⃣ 修正版：依手動查詢邏輯計算色粉用量 =====
-        # 將 stock 與 recipe 中的色粉編號統一格式（大寫、去空白）
+        import re
+
         def normalize_pid(pid):
-            if not pid:
+            if not pid or pd.isna(pid):
                 return ""
             pid = str(pid).upper().strip().replace(" ", "")
             # 統一數字部分為三位，例如 PK1 -> PK001
-            import re
             m = re.match(r"([A-Z]+)(\d+)", pid)
             if m:
                 return f"{m.group(1)}{int(m.group(2)):03d}"
             return pid
 
-        df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].astype(str).apply(normalize_pid)
+        # stock 色粉編號
+        df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].apply(normalize_pid)
 
+        # recipe 色粉欄位
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
         for c in powder_cols:
             if c in df_recipe_copy.columns:
-                df_recipe_copy[c] = df_recipe_copy[c].astype(str).apply(normalize_pid)
+                df_recipe_copy[c] = df_recipe_copy[c].apply(normalize_pid)
 
         # 統計所有色粉編號
         all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
@@ -3910,17 +3912,19 @@ if menu == "庫存區":
                 if c in df_recipe_copy.columns:
                     all_pids_recipe.extend(df_recipe_copy[c].tolist())
 
-        # 若使用者輸入色粉編號，僅查該編號
+        # ===== 判斷查詢目標色粉 =====
         if user_input_pid:
+            # 只查使用者輸入的色粉
             all_pids = [normalize_pid(user_input_pid)]
         else:
-            # 否則查全部
+            # 查全部
             all_pids = sorted(list(set(all_pids_stock) | set([p for p in all_pids_recipe if p])))
 
+        # 確認至少有一個色粉
         if not all_pids:
             st.warning("⚠️ 查無任何色粉記錄。")
             st.stop()
-
+            
         # ===== 4️⃣ 起迄日 =====
         today = pd.Timestamp.today().normalize()
         min_date_stock = df_stock_copy["日期"].min() if not df_stock_copy.empty else today
