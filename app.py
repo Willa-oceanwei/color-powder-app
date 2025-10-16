@@ -2988,10 +2988,7 @@ if menu == "交叉查詢區":
 
             # 1) 先從配方管理找出「候選配方」(任何一個色粉欄有包含此 powder_id)
             if not df_recipe.empty:
-               mask = df_recipe[powder_cols].astype(str).apply(
-                    lambda row: any(powder_id.lower().strip() == str(s).strip().lower() for s in row.values),
-                    axis=1
-                )
+                mask = df_recipe[powder_cols].astype(str).apply(lambda row: powder_id in row.values, axis=1)
                 recipe_candidates = df_recipe[mask].copy()
                 candidate_ids = set(recipe_candidates["配方編號"].astype(str).tolist())
             else:
