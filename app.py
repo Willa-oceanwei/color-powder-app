@@ -3590,8 +3590,17 @@ if menu == "庫存區":
         # 🚨 最終診斷輸出 (返回前)
         if orders_failed_match:
         
-            pass # 實際應用中，您可能需要將此 log 寫入檔案或 Streamlit 的 session_state
-
+            # 這是第一行：印出標題
+            print(f"=== 診斷 {pid_strip} 失敗訂單 ({len(orders_failed_match)} 筆) ===")
+        
+            # 這是迴圈：逐筆印出失敗的訂單資訊
+            for oid, od, reason in orders_failed_match:
+               # 格式化日期輸出
+               date_str = od.strftime('%Y/%m/%d') if pd.notna(od) else 'NaT'
+               print(f"訂單ID: {oid} ({date_str}) 失敗原因: {reason}")
+        
+            # 確保沒有額外的 pass 語句
+        
         return total_usage_g
 
     # ---------------- 修正後的 format_usage 函式 ----------------
