@@ -3056,11 +3056,14 @@ if menu == "交叉查詢區":
                     if rec_id not in candidate_ids:
                         continue
 
-                    pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-                    if powder_id not in pvals:
+                    pid_lower = powder_id.lower()
+                    pvals_lower = [str(rec.get(f"色粉編號{i}", "")).strip().lower() for i in range(1, 9)]
+
+                    if pid_lower not in pvals_lower:
                         continue
 
-                    idx = pvals.index(powder_id) + 1
+                    idx = pvals_lower.index(pid_lower) + 1 # 索引現在必須使用小寫列表來查找
+                    
                     try:
                         powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
                     except (ValueError, TypeError):
@@ -3450,12 +3453,18 @@ if menu == "庫存區":
     # ---------------- 修正後的 calc_usage_for_stock 函式 ----------------
     # 假設：df_recipe 中的 '色粉重量{i}' 欄位單位是 g/每 kg 產品
     def calc_usage_for_stock(powder_id, df_order, df_recipe, start_date, end_date):
-        total_usage_g = 0.0 
-    
+        total_usage_g = 0.0
+
+        # 🟢 修正點 (Start): 標準化查詢的色粉編號，用於大小寫不敏感比對
+        pid_lower = str(powder_id).strip().lower() 
+        if not pid_lower:
+            return 0.0
+        # 🟢 修正點 (End)
+
         df_order_local = df_order.copy()
     
         if "生產日期" not in df_order_local.columns:
-             return 0.0
+            return 0.0
     
         # 確保日期是 Timestamp 且標準化
         df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce").dt.normalize()
@@ -3470,17 +3479,19 @@ if menu == "庫存區":
                 if c not in recipe_df_copy.columns:
                     recipe_df_copy[c] = ""
         
-            # 確保比較時，recipe 內的色粉編號都被 strip()
-            pid_lower = powder_id.lower()
+            # 🟢 修正點 A: 大小寫不敏感地找出候選配方
+            # 將配方中的色粉編號 strip() 並轉為小寫後，再與 pid_lower 比對
             mask = recipe_df_copy[powder_cols].astype(str).apply(
                 lambda row: pid_lower in [s.strip().lower() for s in row.values], 
                 axis=1
             )
+            # 🟢 修正點 A (End)
+        
             recipe_candidates = recipe_df_copy[mask].copy()
             candidate_ids = set(recipe_candidates["配方編號"].astype(str).str.strip().tolist())
     
         if not candidate_ids:
-             return 0.0
+            return 0.0
 
         # --- 2. 篩選在查詢期間的訂單 (確保日期比較嚴謹) ---
         s_dt = pd.to_datetime(start_date).normalize()
@@ -3544,16 +3555,21 @@ if menu == "庫存區":
                 if rec_id not in candidate_ids:
                     continue
 
-                # 找到 powder_id 對應的欄位索引 (1~8)
-                pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-                if powder_id not in pvals:
+                # 🟢 修正點 B: 大小寫不敏感地找出對應的色粉重量
+                # 1. 將配方中的色粉編號列表標準化（strip + lower）
+                pvals_lower = [str(rec.get(f"色粉編號{i}", "")).strip().lower() for i in range(1, 9)]
+            
+                # 2. 用標準化的 pid_lower 進行比對
+                if pid_lower not in pvals_lower:
                     continue
 
-                idx = pvals.index(powder_id) + 1 # 找到索引 (1~8)
+                # 3. 透過標準化的列表 pvals_lower 找出索引位置
+                idx = pvals_lower.index(pid_lower) + 1 # 找到索引 (1~8)
+                # 🟢 修正點 B (End)
             
                 try:
                     # 假設 "色粉重量{idx}" 欄位的值單位是 G/每 KG 產品
-                    powder_weight_per_kg_product = float(rec.get(f"色粉重量{idx}", 0) or 0) 
+                    powder_weight_per_kg_product = float(rec.get(f"色粉重量{idx}", 0) or 0)  
                 except (ValueError, TypeError):
                     powder_weight_per_kg_product = 0.0
 
@@ -3561,11 +3577,11 @@ if menu == "庫存區":
                     continue
 
                 # 用量 (g) = [色粉重量 (g/kg 產品)] * [packs_total (kg 產品)]
-                contrib = powder_weight_per_kg_product * packs_total_kg 
+                contrib = powder_weight_per_kg_product * packs_total_kg  
             
                 order_total_for_powder += contrib
 
-            total_usage_g += order_total_for_powder
+                total_usage_g += order_total_for_powder
 
         return total_usage_g
 
