@@ -3796,9 +3796,21 @@ if menu == "庫存區":
             for c in powder_cols:
                  if c in df_recipe.columns:
                      all_pids_recipe.extend(df_recipe[c].astype(str).str.strip().tolist())
+
+        # 合併全部色粉
         all_pids_all = sorted(list(set(all_pids_stock) | set([p for p in all_pids_recipe if p])))
 
-        if not all_pids_all:
+        # ===== 在這裡加篩選 =====
+        stock_powder_strip = stock_powder.strip()  # 這是使用者輸入
+        if stock_powder_strip:
+            all_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
+            if not all_pids:
+                st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
+                st.stop()
+        else:
+            all_pids = all_pids_all
+
+        if not all_pids:
             st.warning("⚠️ 查無任何色粉記錄。")
             st.stop()
 
