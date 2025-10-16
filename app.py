@@ -3172,7 +3172,7 @@ if menu == "交叉查詢區":
 
                     idx = pvals.index(powder_id) + 1
                     try:
-                        powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
+                        powder_weight = float(rec.get(f"色粉重量{idx}",0) or 0)
                     except (ValueError, TypeError):
                         powder_weight = 0.0
 
