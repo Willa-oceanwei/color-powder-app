@@ -4025,13 +4025,21 @@ if menu == "庫存區":
         df_summary["期末庫存"] = df_summary["期初庫存"] + df_summary["區間進貨"] - df_summary["區間用量"]
 
         # --- 格式化欄位，不影響計算 ---
-        def fmt(x):
-            return f"{x:.2f} g" if x<1000 else f"{x/1000:.2f} kg"
-        df_summary["期初庫存_fmt"] = df_summary["期初庫存"].apply(fmt)
-        df_summary["區間進貨_fmt"] = df_summary["區間進貨"].apply(fmt)
-        df_summary["區間用量_fmt"] = df_summary["區間用量"].apply(fmt)
-        df_summary["期末庫存_fmt"] = df_summary["期末庫存"].apply(fmt)
-        df_summary["備註"] = df_summary["期初日期"].apply(lambda x: f"期初來源：{x.strftime('%Y/%m/%d')}" if x else "—")
+        # 原始數值保留
+        df_summary["期末庫存"] = df_summary["期初庫存"] + df_summary["區間進貨"] - df_summary["區間用量"]
+
+        # 顯示時格式化
+        def fmt_stock(x):
+            return f"{x:.2f} g" if x < 1000 else f"{x/1000:.2f} kg"
+
+        st.dataframe(
+            df_summary.assign(
+                期初庫存=lambda d: d["期初庫存"].apply(fmt_stock),
+                區間進貨=lambda d: d["區間進貨"].apply(fmt_stock),
+                區間用量=lambda d: d["區間用量"].apply(fmt_stock),
+                期末庫存=lambda d: d["期末庫存"].apply(fmt_stock)
+            )[["色粉編號","期初庫存","區間進貨","區間用量","期末庫存","備註"]]
+        )
 
         st.dataframe(df_summary[["色粉編號","期初庫存_fmt","區間進貨_fmt","區間用量_fmt","期末庫存_fmt","備註"]])
 
