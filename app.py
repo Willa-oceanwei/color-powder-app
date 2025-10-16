@@ -3496,16 +3496,6 @@ if menu == "庫存區":
         s_dt = pd.to_datetime(start_date).normalize()
         e_dt_exclusive = pd.to_datetime(end_date).normalize() + pd.Timedelta(days=1)
     
-        # 🚨 關鍵修正 2：在篩選前，先診斷 NaT 的數量
-        # print(f"--- 診斷 {pid_strip} ---")
-        # print(f"總訂單數: {len(df_order_local)}")
-        # print(f"NaT 訂單數 (日期無效): {df_order_local['生產日期'].isna().sum()}")
-        # df_valid = df_order_local[df_order_local["生產日期"].notna()]
-        # df_out_of_range = df_valid[(df_valid["生產日期"] < s_dt) | (df_valid["生產日期"] >= e_dt_exclusive)]
-        # print(f"日期範圍外訂單數 (<{s_dt.date()} 或 >={e_dt_exclusive.date()}): {len(df_out_of_range)}")
-        # print(f"日期範圍內訂單數 (理論上): {len(df_valid) - len(df_out_of_range)}")
-
-
         orders_in_range = df_order_local[
             (df_order_local["生產日期"].notna()) &
             (df_order_local["生產日期"] >= s_dt) &
@@ -3514,10 +3504,6 @@ if menu == "庫存區":
 
         if orders_in_range.empty:
             return 0.0
-
-        # 🚨 關鍵檢查點：篩選後的訂單數量是否符合預期？
-        # print(f"實際篩選後的訂單數 (用於計算 {pid_strip}): {len(orders_in_range)}")
-
 
         # --- 3. 逐張訂單計算用量 (邏輯保持上次的修正) ---
         for _, order in orders_in_range.iterrows():
@@ -3762,6 +3748,19 @@ if menu == "庫存區":
         df_order_copy = df_order.copy()
         if "生產日期" in df_order_copy.columns:
             df_order_copy["生產日期"] = pd.to_datetime(df_order_copy["生產日期"], errors="coerce").dt.normalize()
+
+        # ----------------- 🎯 新增的 NaT 診斷區域 🎯 -----------------
+        # 檢查 df_order 中，哪些行的「生產日期」是無效的 (NaT)
+        df_order_nat_diag = df_order_copy[df_order_copy["生產日期"].isna()]
+
+        if not df_order_nat_diag.empty:
+            st.error("🚨 警告：偵測到生產單日期無效 (NaT) 的訂單！")
+            st.caption("這些訂單將不會被計入庫存用量，這可能是導致用量差異的原因。")
+            # 僅顯示有問題的訂單的前幾行和關鍵欄位
+            display_cols = [c for c in ["訂單編號", "配方編號", "生產日期"] if c in df_order_nat_diag.columns]
+            st.dataframe(df_order_nat_diag[display_cols].head(5), use_container_width=True)
+            st.caption(f"（總共有 {len(df_order_nat_diag)} 筆訂單日期無效，請檢查您的原始訂單文件中的日期格式。）")
+        # ----------------- 🎯 診斷結束 🎯 -----------------
 
         # 獲取所有有效的色粉編號 (邏輯保持不變)
         all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
