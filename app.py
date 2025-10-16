@@ -3910,16 +3910,6 @@ if menu == "庫存區":
                     df_recipe_copy[c] = df_recipe_copy[c].apply(normalize_pid)
                     all_pids_recipe.extend(df_recipe_copy[c].tolist())
 
-        # 使用者輸入色粉編號（留空表示全部）
-        if user_input_pid:
-            all_pids = [normalize_pid(user_input_pid)]
-        else:
-            all_pids = sorted(list(set(all_pids_stock) | set([p for p in all_pids_recipe if p])))
-
-        if not all_pids:
-            st.warning("⚠️ 查無任何色粉記錄。")
-            st.stop()
-
         # ===== 4️⃣ 起迄日設定 =====
         today = pd.Timestamp.today().normalize()
         min_date_stock = df_stock_copy["日期"].min() if not df_stock_copy.empty else today
