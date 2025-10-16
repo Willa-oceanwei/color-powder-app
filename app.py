@@ -3950,9 +3950,12 @@ if menu == "庫存區":
 
         # --- 選擇色粉 ---
         selected_pid = normalize_pid(stock_powder.strip())
-        all_pids = sorted(set(df_stock_copy["色粉編號"].tolist() +
-                              [df_recipe_copy[c].tolist() for c in powder_cols if c in df_recipe_copy.columns] +
-                              ([] if not selected_pid else [selected_pid])))
+        all_pids = sorted(set(
+            df_stock_copy["色粉編號"].tolist() +
+            [pid for c in powder_cols if c in df_recipe_copy.columns for pid in df_recipe_copy[c].tolist()] +
+            ([] if not selected_pid else [selected_pid])
+        ))
+
         if selected_pid:
             all_pids = [selected_pid]
         if not all_pids:
