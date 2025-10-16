@@ -3996,14 +3996,6 @@ if menu == "庫存區":
 
 
         # ===== 判斷查詢目標色粉 =====
-        user_input_pid = st.session_state.get("user_input_pid", "")
-        if user_input_pid:
-            # 只查使用者輸入的色粉
-            all_pids = [normalize_pid(user_input_pid)]
-        else:
-            # 查全部
-            all_pids = sorted(list(set(all_pids_stock) | set([p for p in all_pids_recipe if p])))
-
         # 確認至少有一個色粉
         if not all_pids:
             st.warning("⚠️ 查無任何色粉記錄。")
