@@ -4003,34 +4003,56 @@ if menu == "庫存區":
             df_recipe_ex = pd.DataFrame(rec_list)
 
             # 計算每張訂單包裝總重量
-            pack_cols = [(f"包裝重量{i}", f"包裝份數{i}") for i in range(1,5)]
-            df_orders["包裝總重"] = 0
+            # 展開配方色粉
+            rec_list = []
+            for idx, rec in df_recipe_copy.iterrows():
+                for i in range(1, 9):
+                    pid = rec.get(f"色粉編號{i}")
+                    weight = rec.get(f"色粉重量{i}", 0)
+                    if pd.notna(pid) and str(pid).strip() != "" and float(weight) > 0:
+                        rec_list.append({
+                            "配方編號": rec["配方編號"],
+                            "色粉編號": str(pid).strip().upper(),
+                            "色粉重量": float(weight)
+                        })
+            df_recipe_ex = pd.DataFrame(rec_list)
+
+            # === 計算每筆訂單的包裝總重 ===
+            pack_cols = [(f"包裝重量{i}", f"包裝份數{i}") for i in range(1, 5)]
+            df_orders["包裝總重"] = 0.0
 
             for w_col, n_col in pack_cols:
-                # 若欄位不存在，建立全 0 Series
-                w_series = df_orders[w_col] if w_col in df_orders.columns else pd.Series(0, index=df_orders.index)
-                n_series = df_orders[n_col] if n_col in df_orders.columns else pd.Series(0, index=df_orders.index)
-
-                # 轉 float，避免 dtype 問題
-                w_series = pd.to_numeric(w_series, errors='coerce').fillna(0)
-                n_series = pd.to_numeric(n_series, errors='coerce').fillna(0)
+                w_series = pd.to_numeric(df_orders[w_col], errors='coerce').fillna(0) if w_col in df_orders.columns else pd.Series(0, index=df_orders.index)
+                n_series = pd.to_numeric(df_orders[n_col], errors='coerce').fillna(0) if n_col in df_orders.columns else pd.Series(0, index=df_orders.index)
                 df_orders["包裝總重"] += w_series * n_series
 
             # 過濾掉總重為 0 的訂單
-            df_orders = df_orders[df_orders["包裝總重"] > 0]
+            df_orders = df_orders[df_orders["包裝總重"] > 0].copy()
 
+            # === 與配方展開表合併 ===
             if "色粉編號" in df_orders.columns:
                 df_orders = df_orders.drop(columns=["色粉編號"])
 
             df_merge = df_orders.merge(df_recipe_ex, on="配方編號", how="left")
-            
-            # 與配方展開表合併
+
+            # === 模糊對應色粉編號（例如 PK / PK01 / PK001 都能歸類）===
+            def fuzzy_group(pid):
+                if not isinstance(pid, str):
+                    return ""
+                pid = pid.strip().upper()
+                # 找出字母開頭部分作為群組鍵，例如 "PK001" → "PK"
+                prefix = ''.join([c for c in pid if c.isalpha()])
+                return prefix or pid
+
+            df_merge["色粉群組"] = df_merge["色粉編號"].apply(fuzzy_group)
+
+            # 計算每種色粉群組的用量
             df_merge["色粉使用量"] = df_merge["包裝總重"] * df_merge["色粉重量"]
             df_usage_sum = (
-                df_merge.groupby("色粉編號")["色粉使用量"]
+                df_merge.groupby("色粉群組")["色粉使用量"]
                 .sum()
                 .reset_index()
-                .rename(columns={"色粉使用量": "區間用量"})
+                .rename(columns={"色粉群組": "色粉編號", "色粉使用量": "區間用量"})
             )
             
         # --- 合併計算期末 ---
