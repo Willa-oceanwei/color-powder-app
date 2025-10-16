@@ -3998,14 +3998,22 @@ if menu == "庫存區":
             # 計算每張訂單包裝總重量
             pack_cols = [(f"包裝重量{i}", f"包裝份數{i}") for i in range(1,5)]
             df_orders["包裝總重"] = 0
-            for w_col, n_col in pack_cols:
-                w_series = pd.to_numeric(df_orders[w_col], errors='coerce').fillna(0) if w_col in df_orders.columns else pd.Series(0, index=df_orders.index)
-                n_series = pd.to_numeric(df_orders[n_col], errors='coerce').fillna(0) if n_col in df_orders.columns else pd.Series(0, index=df_orders.index)
-                df_orders["包裝總重"] += w_series * n_series
-            df_orders = df_orders[df_orders["包裝總重"]>0]
 
-            df_merge = df_orders.merge(df_recipe_ex, on="配方編號", how="left")
-            df_merge["色粉使用量"] = df_merge["包裝總重"] * df_merge["色粉重量"]
+            for w_col, n_col in pack_cols:
+                # 若欄位不存在，建立全 0 Series
+                w_series = df_orders[w_col] if w_col in df_orders.columns else pd.Series(0, index=df_orders.index)
+                n_series = df_orders[n_col] if n_col in df_orders.columns else pd.Series(0, index=df_orders.index)
+
+                # 轉 float，避免 dtype 問題
+                w_series = pd.to_numeric(w_series, errors='coerce').fillna(0)
+                n_series = pd.to_numeric(n_series, errors='coerce').fillna(0)
+                df_orders["包裝總重"] += w_series * n_series
+
+            # 過濾掉總重為 0 的訂單
+            df_orders = df_orders[df_orders["包裝總重"] > 0]
+
+            # 與配方展開表合併
+            df_merge = df_orders.merge(df_recipe_ex, left_on="配方編號", right_on="配方編號", how="left")
             df_usage_sum = df_merge.groupby("色粉編號")["色粉使用量"].sum().reset_index().rename(columns={"色粉使用量":"區間用量"})
 
         # --- 合併計算期末 ---
