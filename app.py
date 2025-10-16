@@ -4036,24 +4036,22 @@ if menu == "庫存區":
             df_merge = df_orders.merge(df_recipe_ex, on="配方編號", how="left")
             df_merge["色粉使用量"] = df_merge["包裝總重"] * df_merge["色粉重量"]
 
-            # === 模糊對應色粉編號（例如 PK / PK01 / PK001 都能歸類）===
-            def fuzzy_group(pid):
-                if not isinstance(pid, str):
-                    return ""
-                pid = pid.strip().upper()
-                # 找出字母開頭部分作為群組鍵，例如 "PK001" → "PK"
-                prefix = ''.join([c for c in pid if c.isalpha()])
-                return prefix or pid
+            # 模糊比對色粉編號，對應庫存表
+            all_pids = set(df_stock_copy["色粉編號"].astype(str).str.strip().str.upper())
+            def match_fuzzy_pid(pid):
+                pid = str(pid).strip().upper()
+                for apid in all_pids:
+                    if pid in apid or apid.startswith(pid) or apid.endswith(pid):
+                        return apid
+                return pid
 
-            df_merge["色粉群組"] = df_merge["色粉編號"].apply(fuzzy_group)
+            df_merge["色粉編號"] = df_merge["色粉編號"].apply(match_fuzzy_pid)
 
-            # 計算每種色粉群組的用量
-            df_merge["色粉使用量"] = df_merge["包裝總重"] * df_merge["色粉重量"]
+            # groupby 計算用量
             df_usage_sum = (
-                df_merge.groupby("色粉群組")["色粉使用量"]
+                df_merge.groupby("色粉編號", as_index=False)["色粉使用量"]
                 .sum()
-                .reset_index()
-                .rename(columns={"色粉群組": "色粉編號", "色粉使用量": "區間用量"})
+                .rename(columns={"色粉使用量": "區間用量"})
             )
             
         # --- 合併計算期末 ---
