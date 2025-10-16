@@ -3952,11 +3952,13 @@ if menu == "庫存區":
         selected_pid = stock_powder.strip()  # stock_powder 是 text_input 的值
 
         # 所有色粉
-        all_pids = sorted(
-            set(df_stock_copy["色粉編號"].tolist() +
-                [df_recipe_copy[c].tolist() for c in powder_cols if c in df_recipe_copy.columns])
-        )
+        from itertools import chain
 
+        all_pids = sorted(set(
+            df_stock_copy["色粉編號"].tolist() +
+            list(chain.from_iterable(df_recipe_copy[c].tolist() for c in powder_cols if c in df_recipe_copy.columns))
+        ))
+        
         # 如果使用者有輸入，做模糊搜尋
         if selected_pid:
             # 大小寫都忽略
