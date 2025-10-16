@@ -3895,6 +3895,9 @@ if menu == "庫存區":
                 return f"{m.group(1)}{int(m.group(2)):03d}"
             return pid
 
+        user_input_pid = st.text_input("查詢色粉編號（留空表示全部）", "")
+        user_input_pid = user_input_pid.strip()  # 去掉空白
+        
         # stock 色粉編號
         df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].apply(normalize_pid)
 
