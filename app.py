@@ -3471,7 +3471,11 @@ if menu == "庫存區":
                     recipe_df_copy[c] = ""
         
             # 確保比較時，recipe 內的色粉編號都被 strip()
-            mask = recipe_df_copy[powder_cols].astype(str).apply(lambda row: powder_id in [s.strip() for s in row.values], axis=1)
+            pid_lower = powder_id.lower()
+            mask = recipe_df_copy[powder_cols].astype(str).apply(
+                lambda row: pid_lower in [s.strip().lower() for s in row.values], 
+                axis=1
+            )
             recipe_candidates = recipe_df_copy[mask].copy()
             candidate_ids = set(recipe_candidates["配方編號"].astype(str).str.strip().tolist())
     
