@@ -3453,23 +3453,24 @@ if menu == "庫存區":
     # ---------------- 修正後的 calc_usage_for_stock 函式 (最終優化版本) ----------------
     # 假設：df_recipe 中的 '色粉重量{i}' 欄位單位是 g/每 kg 產品
     def calc_usage_for_stock(powder_id, df_order, df_recipe, start_date, end_date):
+        import pandas as pd # 確保 Pandas 可用
         total_usage_g = 0.0
 
-        # 🟢 修正 (Start): 標準化查詢的色粉編號，用於大小寫不敏感比對 (保留)
         pid_strip = str(powder_id).strip()
         if not pid_strip:
             return 0.0
         pid_lower = pid_strip.lower()
-        # 🟢 修正 (End)
 
         df_order_local = df_order.copy()
     
         if "生產日期" not in df_order_local.columns:
             return 0.0
     
-        df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce").dt.normalize()
+        # 🚨 關鍵修正 1：安全轉換日期。確保所有日期都被正確解析，錯誤的會變 NaT
+        df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce")
     
         # --- 1. 找到所有包含此色粉的配方 (Candidate Recipes) ---
+        # ... (此段與上次的修正一致，確保配方 ID 和色粉 ID 匹配正確)
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
     
         candidate_ids = set()
@@ -3480,66 +3481,71 @@ if menu == "庫存區":
                 if c not in recipe_df_copy.columns:
                     recipe_df_copy[c] = ""
         
-            # 🟢 修正 A：採用「用量查詢」的邏輯。
-            #    如果資料庫中存的是 "E25P "，但使用者輸入 "E25P"，我們需要用更廣泛的方式匹配
-            #    這裡採用比對「標準化後的小寫 ID」是否在「欄位值標準化後的小寫列表」中
             mask = recipe_df_copy[powder_cols].astype(str).apply(
                 lambda row: pid_lower in [s.strip().lower() for s in row.values], 
                 axis=1
             )
             recipe_candidates = recipe_df_copy[mask].copy()
-        
-            # 確保 candidate_ids 是 strip 過的，以便後續與訂單配方編號匹配
             candidate_ids = set(recipe_candidates["配方編號"].astype(str).str.strip().tolist())
     
         if not candidate_ids:
             return 0.0
 
-        # --- 2. 篩選在查詢期間的訂單 ---
-        s_dt = pd.to_datetime(start_date).normalize()
-        e_dt = pd.to_datetime(end_date).normalize()
+        # --- 2. 篩選在查詢期間的訂單 (日期邏輯與用量查詢一致) ---
     
+        s_dt = pd.to_datetime(start_date).normalize()
+        e_dt_exclusive = pd.to_datetime(end_date).normalize() + pd.Timedelta(days=1)
+    
+        # 🚨 關鍵修正 2：在篩選前，先診斷 NaT 的數量
+        # print(f"--- 診斷 {pid_strip} ---")
+        # print(f"總訂單數: {len(df_order_local)}")
+        # print(f"NaT 訂單數 (日期無效): {df_order_local['生產日期'].isna().sum()}")
+        # df_valid = df_order_local[df_order_local["生產日期"].notna()]
+        # df_out_of_range = df_valid[(df_valid["生產日期"] < s_dt) | (df_valid["生產日期"] >= e_dt_exclusive)]
+        # print(f"日期範圍外訂單數 (<{s_dt.date()} 或 >={e_dt_exclusive.date()}): {len(df_out_of_range)}")
+        # print(f"日期範圍內訂單數 (理論上): {len(df_valid) - len(df_out_of_range)}")
+
+
         orders_in_range = df_order_local[
             (df_order_local["生產日期"].notna()) &
             (df_order_local["生產日期"] >= s_dt) &
-            (df_order_local["生產日期"] <= e_dt)
+            (df_order_local["生產日期"] < e_dt_exclusive) 
         ].copy()
 
         if orders_in_range.empty:
             return 0.0
 
-        # --- 3. 逐張訂單計算用量 ---
+        # 🚨 關鍵檢查點：篩選後的訂單數量是否符合預期？
+        # print(f"實際篩選後的訂單數 (用於計算 {pid_strip}): {len(orders_in_range)}")
+
+
+        # --- 3. 逐張訂單計算用量 (邏輯保持上次的修正) ---
         for _, order in orders_in_range.iterrows():
             order_recipe_id = str(order.get("配方編號", "")).strip()
             if not order_recipe_id:
                 continue
             
-            # 檢查該訂單的主配方是否在候選名單中 (候選名單已 strip)
             if order_recipe_id not in candidate_ids:
                 continue
         
-            # --- 獲取主配方與其附加配方 ---
+            # ... (後續的配方查找和用量計算邏輯，與上一個回覆一致)
             recipe_rows = []
             if "配方編號" in df_recipe.columns:
-                # 🟢 修正 B：確保 df_recipe 的 配方編號也進行 strip，這與您用量查詢的正確邏輯一致
                 main_df = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id]
                 if not main_df.empty:
                     recipe_rows.append(main_df.iloc[0].to_dict())
         
             if "配方類別" in df_recipe.columns and "原始配方" in df_recipe.columns:
                 add_df = df_recipe[
-                    # 確保 配方類別, 原始配方 都進行 strip
                     (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
                     (df_recipe["原始配方"].astype(str).str.strip() == order_recipe_id)
                 ]
                 if not add_df.empty:
                     recipe_rows.extend(add_df.to_dict("records"))
                     
-            # --- 獲取配方結束 ---
             if not recipe_rows:
                 continue
 
-            # 計算這張訂單的包裝總量 (kg)
             packs_total_kg = 0.0
             for j in range(1, 5):
                 w_key = f"包裝重量{j}"
@@ -3547,29 +3553,25 @@ if menu == "庫存區":
                 w_val = order.get(w_key, 0)
                 n_val = order.get(n_key, 0)
                 try:
-                    pack_w = float(w_val or 0) # 包裝重量(kg)
-                    pack_n = float(n_val or 0) # 包裝份數
+                    pack_w = float(w_val or 0)
+                    pack_n = float(n_val or 0)
                 except (ValueError, TypeError):
                     pack_w, pack_n = 0.0, 0.0
-                packs_total_kg += pack_w * pack_n # 總出貨量 (kg)
+                packs_total_kg += pack_w * pack_n
 
             if packs_total_kg <= 0:
                 continue
 
             order_total_for_powder = 0.0
             for rec in recipe_rows:
-            
-                # 找到 powder_id 對應的欄位索引 (1~8)
-                # 🟢 修正 C：使用標準化的小寫列表進行索引查找
                 pvals_lower = [str(rec.get(f"色粉編號{i}", "")).strip().lower() for i in range(1, 9)]
             
                 if pid_lower not in pvals_lower:
                     continue
 
-                idx = pvals_lower.index(pid_lower) + 1 # 找到索引 (1~8)
+                idx = pvals_lower.index(pid_lower) + 1
             
                 try:
-                    # 假設 "色粉重量{idx}" 欄位的值單位是 G/每 KG 產品
                     powder_weight_per_kg_product = float(rec.get(f"色粉重量{idx}", 0) or 0)  
                 except (ValueError, TypeError):
                     powder_weight_per_kg_product = 0.0
@@ -3577,7 +3579,6 @@ if menu == "庫存區":
                 if powder_weight_per_kg_product <= 0:
                     continue
 
-                # 用量 (g) = [色粉重量 (g/kg 產品)] * [packs_total (kg 產品)]
                 contrib = powder_weight_per_kg_product * packs_total_kg  
             
                 order_total_for_powder += contrib
