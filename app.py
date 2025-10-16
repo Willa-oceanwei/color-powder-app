@@ -3487,7 +3487,8 @@ if menu == "庫存區":
             recipe_candidates = recipe_df_copy[mask].copy()
             # 確保 candidate_ids 都是 strip 過的，以便與訂單配方編號匹配
             candidate_ids = set(recipe_candidates["配方編號"].astype(str).str.strip().tolist())
-    
+
+        print(f"診斷 {pid_strip}: 找到 {len(candidate_ids)} 個候選配方。") # <--- 加上這行！
         if not candidate_ids:
             # print(f"診斷 {pid_strip}: 在配方表中找不到任何包含此色粉的配方。")
             return 0.0
