@@ -3885,38 +3885,61 @@ if menu == "庫存區":
             return False
 
         # ===== 3️⃣ 取得所有色粉編號 =====
+        # 先統一格式（去空白、轉大寫、去掉內文空格）
+        df_stock_copy["色粉編號"] = (
+            df_stock_copy["色粉編號"].astype(str).str.upper().str.strip().str.replace(" ", "")
+        )
+
         all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
+
+        # 處理配方資料的色粉欄位
         all_pids_recipe = []
         if not df_recipe_copy.empty:
             for c in powder_cols:
                 if c in df_recipe_copy.columns:
+                    # 對每一欄進行同樣標準化
+                    df_recipe_copy[c] = (
+                        df_recipe_copy[c].astype(str).str.upper().str.strip().str.replace(" ", "")
+                    )
                     all_pids_recipe.extend(df_recipe_copy[c].tolist())
-        all_pids_all = sorted(list(set(all_pids_stock) | set([p for p in all_pids_recipe if p])))
 
-        # 過濾使用者輸入
-        stock_powder_strip = stock_powder.strip()
-        if stock_powder_strip:
-            all_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
+        # 統合所有色粉編號
+        all_pids_all = sorted(
+            list(set(all_pids_stock) | set([p for p in all_pids_recipe if p]))
+        )
+
+        # ===== 搜尋過濾 =====
+        stock_powder_clean = stock_powder.upper().strip().replace(" ", "")
+
+        if stock_powder_clean:
+            # 模糊搜尋：讓 PK 可匹配 PK01、PK001 等
+            all_pids = [
+                pid for pid in all_pids_all
+                if stock_powder_clean in pid.replace(" ", "").upper()
+            ]
             if not all_pids:
-                st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
+                st.warning(f"⚠️ 查無與 '{stock_powder}' 相關的色粉記錄。")
                 st.stop()
         else:
             all_pids = all_pids_all
+
         if not all_pids:
             st.warning("⚠️ 查無任何色粉記錄。")
             st.stop()
+
 
         # ===== 4️⃣ 起迄日 =====
         today = pd.Timestamp.today().normalize()
         min_date_stock = df_stock_copy["日期"].min() if not df_stock_copy.empty else today
         min_date_order = df_order_copy["生產日期"].min() if not df_order_copy.empty else today
         global_min_date = min(min_date_stock, min_date_order).normalize()
+
+        default_start = date.today()
+        default_end = date.today()
+        no_date_selected = (query_start == default_start and query_end == default_end)
+
         s_dt_use = pd.to_datetime(query_start).normalize() if query_start else global_min_date
         e_dt_use = pd.to_datetime(query_end).normalize() if query_end else today
-        if s_dt_use > e_dt_use:
-            st.error("❌ 查詢起日不能晚於查詢迄日。")
-            st.stop()
-        no_date_selected = (query_start is None and query_end is None)
 
         # ===== 5️⃣ 計算庫存核心迴圈 =====
         stock_summary = []
@@ -4012,13 +4035,13 @@ if menu == "庫存區":
             })
 
     # ===== 6️⃣ 顯示結果 =====
-
-    st.write(stock_summary)
-    stock_summary = [s for s in stock_summary if isinstance(s, dict)]
-    df_result = pd.DataFrame(stock_summary)
-    st.dataframe(df_result, use_container_width=True)
-    st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算）")
-
+    if "stock_summary" in locals() and stock_summary:
+        stock_summary = [s for s in stock_summary if isinstance(s, dict)]
+        df_result = pd.DataFrame(stock_summary)
+        st.dataframe(df_result, use_container_width=True)
+        st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算）")
+    else:
+        st.info("請先點擊『計算庫存』以產生結果。")
       
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
