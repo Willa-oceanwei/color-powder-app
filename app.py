@@ -3801,6 +3801,7 @@ if menu == "庫存區":
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
 
             ini_total = 0.0
+            remark = "—" 
             
             # 定義歷史計算的截止日 (查詢起始日的前一天)
             end_dt_prior = s_dt_use - pd.Timedelta(days=1)
@@ -3815,6 +3816,7 @@ if menu == "庫存區":
                 latest_ini_row = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
                 ini_base_value = latest_ini_row["數量_g"]
                 ini_date = latest_ini_row["日期"].normalize()
+                remark = f"期初：{ini_date.strftime('%Y/%m/%d')}"
             
             
             # 情況 A: 有效期初值，且在查詢起始日期之前
@@ -3935,6 +3937,7 @@ if menu == "庫存區":
                 "區間進貨": safe_format(in_qty_interval),
                 "區間用量": safe_format(usage_interval),
                 "期末庫存": safe_format(final_g),
+                "備註": remark,
             })
 
         # 5. 顯示結果
