@@ -3748,7 +3748,12 @@ if menu == "庫存區":
     query_end = col2.date_input("查詢迄日", key="stock_end_query")
     st.markdown(
         """
-        <label style="font-size:16px; font-weight:500;">
+        <style>
+        .no-space {
+            margin-bottom: -10px;
+        }
+        </style>
+        <label class="no-space" style="font-size:16px; font-weight:500;">
             色粉編號
             <span style="color:gray; font-size:13px; font-weight:400;">
                 （01 以下需選擇日期，或至「交叉查詢區」➔「色粉用量查詢」）
