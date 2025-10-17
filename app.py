@@ -3838,64 +3838,109 @@ if menu == "庫存區":
 
         
         # ---------------- 核心計算迴圈 ----------------
-        for pid in all_pids:
-            df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
+        for pid in all_pids:
+            df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
 
-            ini_total = 0.0
-            ini_date = None
-            ini_base_value = 0.0
+            ini_total = 0.0 # 查詢區間開始時的【期初庫存】
+            ini_date = None # 最新期初記錄的日期
+            ini_base_value = 0.0 # 最新期初記錄的數量
+            init_calc_start_date = s_dt_use # 區間淨交易計算的起日 (預設為查詢起日)
+            ini_date_note = "—"
 
-            # --- (A) 找出最新期初（錨點） ---
-            df_ini_valid = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
-            if not df_ini_valid.empty:
-                latest_ini_row = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
-                ini_base_value = latest_ini_row["數量_g"]
-                ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
+            # --- (A) 找出最新期初（錨點） ---
+            df_ini_valid = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
+            if not df_ini_valid.empty:
+                latest_ini_row = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
+                ini_base_value = latest_ini_row["數量_g"]
+                ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
+            
+            # ------------------- 修正後的 (B)+(C) 期初庫存決定邏輯 -------------------
 
-            # --- (B) 起算日判斷 ---
-            if no_date_selected:
-                s_dt_pid = ini_date if ini_date is not None else global_min_date
-            else:
-                s_dt_pid = s_dt_use
+            # 1. 有有效的期初紀錄 (ini_date <= 查詢迄日)
+            if ini_date is not None and ini_date <= e_dt_use:
+                # 如果期初日期比查詢起日還早，則以期初紀錄作為期初值，計算從期初日期開始
+                if ini_date <= s_dt_use:
+                    # 期初 = latest_ini_row + (ini_date ~ s_dt_use 前一天) 的淨交易
+                   
+                    # 計算 '期初日期' 到 '查詢起日' 前一天的淨交易
+                    # 備註: s_dt_use - pd.Timedelta(days=1) 是 '查詢起日' 的前一天
+                    start_calc_dt = ini_date
+                    end_calc_dt = s_dt_use - pd.Timedelta(days=1)
+                    
+                    # 如果查詢起日就是期初日，淨交易區間為空，ini_total = ini_base_value
+                    if start_calc_dt <= end_calc_dt:
+                        # 統計期初日期到查詢起日前的淨進貨
+                        in_qty_pre = df_pid[
+                            (df_pid["類型"].astype(str).str.strip() == "進貨") &
+                            (df_pid["日期"] > start_calc_dt) & (df_pid["日期"] <= end_calc_dt)
+                        ]["數量_g"].sum()
 
-            # --- (C) 期初處理（錨點覆寫） ---
-            if ini_date is not None and ini_date <= e_dt_use:
-                s_dt_pid = ini_date  # 起算日從期初開始
-                ini_total = ini_base_value
-                ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}"
-            else:
-                s_dt_pid = s_dt_use
-                ini_total = 0.0
-                ini_date_note = "—"
+                        # 統計期初日期到查詢起日前的用量
+                        usage_pre = safe_calc_usage(pid, df_order_copy, df_recipe, start_calc_dt + pd.Timedelta(days=1), end_calc_dt) \
+                                                              if not df_order.empty and not df_recipe.empty else 0.0
 
-            # --- (D) 區間進貨 ---
-            in_qty_interval = df_pid[
-                (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
-            ]["數量_g"].sum()
+                        ini_total = ini_base_value + in_qty_pre - usage_pre
+                        ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')} 淨調整"
+                        init_calc_start_date = s_dt_use # 區間計算從查詢起日開始
+                    else:
+                        ini_total = ini_base_value # 查詢起日當天或更早的期初紀錄，淨調整為零
+                        ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}"
+                        init_calc_start_date = s_dt_use # 區間計算從查詢起日開始
+                else: 
+                    ini_total = ini_base_value
+                    ini_date_note = f"區間內期初：{ini_date.strftime('%Y/%m/%d')}"
+                    init_calc_start_date = ini_date # 區間計算從最新的期初日期開始
 
-            # --- (E) 區間用量（從期初或查詢起日算起） ---
-            usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
-                             if not df_order.empty and not df_recipe.empty else 0.0
+            # 2. 沒有有效的期初紀錄
+            else:
+                # 找到所有交易中最早的日期
+                min_pid_date_stock = df_pid["日期"].min() if not df_pid.empty else today
+                min_pid_date_order = df_order_copy[df_order_copy['訂單編號'].apply(lambda x: str(pid) in str(x))]["生產日期"].min() \
+                                                                                          if not df_order_copy.empty else today
+                min_pid_date = min(min_pid_date_stock, min_pid_date_order).normalize() if not (min_pid_date_stock == today and min_pid_date_order == today) else today
+                
+                if min_pid_date > s_dt_use or min_pid_date == today:
+                    # 該色粉最早的交易比查詢起日還晚，或根本沒有交易
+                    ini_total = 0.0
+                    ini_date_note = "無交易或交易晚於起日"
+                    init_calc_start_date = s_dt_use
+                else:
+                    # 最早交易日在查詢起日或之前 (沒有期初記錄，需要回溯計算期初值)
+                    
+                    start_calc_dt = min_pid_date
+                    end_calc_dt = s_dt_use - pd.Timedelta(days=1)
+                    
+                    # 統計最早交易日到查詢起日前的進貨 (包含 '初始' 以外的類型)
+                    in_qty_pre = df_pid[
+                        (df_pid["類型"].astype(str).str.strip() != "初始") &
+                        (df_pid["日期"] >= start_calc_dt) & (df_pid["日期"] <= end_calc_dt)
+                    ]["數量_g"].sum()
+                    
+                    # 統計最早交易日到查詢起日前的用量
+                    usage_pre = safe_calc_usage(pid, df_order_copy, df_recipe, start_calc_dt, end_calc_dt) \
+                                                              if not df_order.empty and not df_recipe.empty else 0.0
 
-            # --- (F) 計算期末庫存 ---
-            final_g = ini_total + in_qty_interval - usage_interval
+                    ini_total = in_qty_pre - usage_pre # 這裡可能出現負值
+                    ini_date_note = f"回溯計算({min_pid_date.strftime('%Y/%m/%d')}起)"
+                    init_calc_start_date = s_dt_use # 區間計算從查詢起日開始
+            
+            # 將計算起日設定給 s_dt_pid
+            s_dt_pid = init_calc_start_date
+            
+            # ------------------- 修正後的 (D) 區間進貨 -------------------
+            # 注意：這裡的進貨區間應該從 s_dt_pid 開始，並且排除 "初始" 類型的紀錄
+            in_qty_interval = df_pid[
+                (df_pid["類型"].astype(str).str.strip().isin(["進貨", "退貨", "調整"])) & # 排除 "初始"，假設只有這些是交易
+                (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
+            ]["數量_g"].sum()
+            
+            # ------------------- (E) 區間用量（從 s_dt_pid 算起） -------------------
+            # 因為我們在回溯計算時已經包含了一部分用量 (usage_pre)，現在只計算 s_dt_pid 到 e_dt_use 的用量
+            usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
+                             if not df_order.empty and not df_recipe.empty else 0.0
 
-            # --- (G) 儲存結果 ---
-            st.session_state["last_final_stock"][pid] = final_g
-            stock_summary.append({
-                "色粉編號": str(pid),
-                "期初庫存": safe_format(ini_total),
-                "區間進貨": safe_format(in_qty_interval),
-                "區間用量": safe_format(usage_interval),
-                "期末庫存": safe_format(final_g),
-                "備註": ini_date_note,
-            })
-
-        # 5. 顯示結果
-        df_result = pd.DataFrame(stock_summary)
-        st.dataframe(df_result, use_container_width=True)
-        st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
+            # --- (F) 計算期末庫存 ---
+            final_g = ini_total + in_qty_interval - usage_interval
 
         
 # ===== 匯入配方備份檔案 =====
