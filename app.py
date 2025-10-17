@@ -3750,7 +3750,7 @@ if menu == "庫存區":
         """
         <style>
         .no-space {
-            margin-bottom: -10px;
+            margin-bottom: -14px;
         }
         </style>
         <label class="no-space" style="font-size:16px; font-weight:500;">
