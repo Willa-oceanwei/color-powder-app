@@ -3838,9 +3838,9 @@ if menu == "庫存區":
 
         
         # ---------------- 核心計算迴圈 ----------------
-        for pid in all_pids:
-            df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
-
+        for pid in all_pids: # 確保這裡的縮排是標準空格
+            df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
+      
             ini_total = 0.0 # 查詢區間開始時的【期初庫存】
             ini_date = None # 最新期初記錄的日期
             ini_base_value = 0.0 # 最新期初記錄的數量
