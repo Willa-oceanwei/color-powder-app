@@ -3838,9 +3838,10 @@ if menu == "庫存區":
 
         
         # ---------------- 核心計算迴圈 ----------------
-        for pid in all_pids: # 確保這裡的縮排是標準空格
-            df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
-      
+        # ---------------- 核心計算迴圈 ----------------
+        for pid in all_pids:
+            df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
+
             ini_total = 0.0 # 查詢區間開始時的【期初庫存】
             ini_date = None # 最新期初記錄的日期
             ini_base_value = 0.0 # 最新期初記錄的數量
@@ -3887,6 +3888,15 @@ if menu == "庫存區":
                         ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}"
                         init_calc_start_date = s_dt_use # 區間計算從查詢起日開始
                 else: 
+                    # 期初紀錄日期在查詢區間內 (s_dt_use < ini_date <= e_dt_use)
+                    # 由於查詢區間內有更晚的期初紀錄，我們從最古老的數據 (global_min_date) 算到期初紀錄的前一天
+                    # 這是個複雜邊界情況，為了簡化，我們採用最新的期初紀錄作為錨點，從其日期開始計算
+                    # 這種情況下，init_total應為0，且init_calc_start_date應為ini_date (但程式碼中ini_total在進貨時會被包含)
+                    # 為了保持邏輯一致性，ini_total仍然設為0，但將ini_date視為一個特殊「進貨」記錄
+                    # 由於在步驟(D)只計算 '進貨'，步驟(A)的 '初始' 記錄不會被算入。
+                    # 因此，如果 ini_date 在區間內，該 '初始' 記錄必須被視為區間內的起始值或一次性進貨。
+                    # 為了簡化，我們在這裡將 ini_total 設為 ini_base_value，並將計算區間的起日設為 ini_date
+                    # 這樣做會將 ini_date 的記錄視為「期初」並從當天開始計算進貨和用量。
                     ini_total = ini_base_value
                     ini_date_note = f"區間內期初：{ini_date.strftime('%Y/%m/%d')}"
                     init_calc_start_date = ini_date # 區間計算從最新的期初日期開始
@@ -3941,8 +3951,6 @@ if menu == "庫存區":
 
             # --- (F) 計算期末庫存 ---
             final_g = ini_total + in_qty_interval - usage_interval
-
-        
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
     st.markdown(
