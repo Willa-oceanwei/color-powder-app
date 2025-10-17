@@ -3746,7 +3746,19 @@ if menu == "庫存區":
     # 確保查詢日期 key 不同，避免衝突
     query_start = col1.date_input("查詢起日", key="stock_start_query") 
     query_end = col2.date_input("查詢迄日", key="stock_end_query")
-    stock_powder = st.text_input("色粉編號 (01以下需選擇日期，或至「交叉查詢區」➔「色粉用量查詢」)", key="stock_powder")
+    st.markdown(
+        """
+        <label style="font-size:16px; font-weight:500;">
+            色粉編號
+            <span style="color:gray; font-size:13px; font-weight:400;">
+                （01 以下需選擇日期，或至「交叉查詢區」➔「色粉用量查詢」）
+            </span>
+        </label>
+        """,
+        unsafe_allow_html=True
+    )
+
+    stock_powder = st.text_input("", key="stock_powder")
 
     # 初始化 session_state
     if "ini_dict" not in st.session_state:
