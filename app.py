@@ -3753,7 +3753,7 @@ if menu == "庫存區":
     st.markdown(f"""
         <style>
         div[data-testid="stTextInput"][data-baseweb="input"] > div:has(input#st-{input_key}) {{
-            margin-top: -25px !important;
+            margin-top: -28px !important;
         }}
         </style>
 
