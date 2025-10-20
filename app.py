@@ -3746,12 +3746,15 @@ if menu == "庫存區":
     # 確保查詢日期 key 不同，避免衝突
     query_start = col1.date_input("查詢起日", key="stock_start_query") 
     query_end = col2.date_input("查詢迄日", key="stock_end_query")
-    st.markdown("""
+    # 唯一 key
+    input_key = "stock_powder"
+
+    # 只針對這個欄位套 CSS，不影響其他 text_input
+    st.markdown(f"""
         <style>
-        /* 移除 markdown 與輸入框間距 */
-        div[data-testid="stTextInput"] {
-            margin-top: -25px;
-        }
+        div[data-testid="stTextInput"][data-baseweb="input"] > div:has(input#st-{input_key}) {{
+            margin-top: -25px !important;
+        }}
         </style>
 
         <label style="font-size:16px; font-weight:500;">
@@ -3762,7 +3765,8 @@ if menu == "庫存區":
         </label>
         """, unsafe_allow_html=True)
 
-    stock_powder = st.text_input("", key="stock_powder")
+    stock_powder = st.text_input("", key=input_key)
+
 
     # 初始化 session_state
     if "ini_dict" not in st.session_state:
