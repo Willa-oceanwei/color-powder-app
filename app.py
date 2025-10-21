@@ -1651,8 +1651,18 @@ elif menu == "配方管理":
                 # 合計類別
                 col1, col2 = st.columns(2)
                 category_options = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他"]
-                default = fr.get("合計類別", "\u2002")
-                fr["合計類別"] = col1.selectbox("合計類別", category_options, index=category_options.index(default), key="edit_recipe_total_category")
+
+                # 🔒 防呆處理：確保 default 在清單中
+                default = str(fr.get("合計類別", "\u2002")).strip()
+                if default not in category_options:
+                    default = "\u2002"
+
+                fr["合計類別"] = col1.selectbox(
+                    "合計類別",
+                    category_options,
+                    index=category_options.index(default),
+                    key="edit_recipe_total_category"
+                )
 
                 # 儲存 / 返回
                 cols_edit = st.columns([1, 1])
