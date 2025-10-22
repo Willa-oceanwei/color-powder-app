@@ -1510,7 +1510,7 @@ elif menu == "配方管理":
 
         # 配方下拉選單
         selected_index = st.selectbox(
-            "選擇配方",
+            "輸入配方",
             options=df_recipe.index,
             format_func=lambda i: f"{df_recipe.at[i, '配方編號']} | {df_recipe.at[i, '顏色']} | {df_recipe.at[i, '客戶名稱']}",
             key="select_recipe_code_page",
