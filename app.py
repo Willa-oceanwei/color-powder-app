@@ -335,13 +335,13 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             lines.append(sub_total_line)
 
         
-    lines.append("")
-    lines.append("")  # 多加這一行，讓備註往下多空一行
-    if order.get("列印備註", True):  # 預設顯示備註
-        remark_text = order.get("備註", "").strip()
-        if remark_text:  # 只有有內容才印
-            lines.append(f"備註 : {remark_text}")
-    
+    # ---------- 備註（自動判斷是否印出） ----------
+    remark_text = order.get("備註", "").strip()
+    if remark_text:  # 有輸入內容才印出
+        lines.append("")
+        lines.append("")  # 只在有備註時多留空行
+        lines.append(f"備註 : {remark_text}")
+
     return "<br>".join(lines)
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
@@ -2171,9 +2171,7 @@ elif menu == "生產單管理":
                 total_category = c10.text_input("合計類別", value=order.get("合計類別", ""), key="form_total_category")
                 remark_default = order.get("備註", "")
                 remark = st.text_area("備註", value=remark_default, key="form_remark")
-
-                print_remark = st.checkbox("列印時顯示『備註』欄位與內容", value=True, key="form_print_remark")
-        
+      
                 st.markdown("**包裝重量與份數**")
                 w_cols = st.columns(4)
                 c_cols = st.columns(4)
@@ -2247,7 +2245,6 @@ elif menu == "生產單管理":
                 order["備註"] = st.session_state.form_remark
                 order["重要提醒"] = st.session_state.form_important_note
                 order["合計類別"] = st.session_state.form_total_category
-                order["列印備註"] = st.session_state.form_print_remark
         
                 for i in range(1, 5):
                     order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
