@@ -2244,6 +2244,7 @@ elif menu == "生產單管理":
                 order["備註"] = st.session_state.form_remark
                 order["重要提醒"] = st.session_state.form_important_note
                 order["合計類別"] = st.session_state.form_total_category
+                order["列印備註"] = st.session_state.form_print_remark
         
                 for i in range(1, 5):
                     order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
