@@ -337,7 +337,10 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         
     lines.append("")
     lines.append("")  # 多加這一行，讓備註往下多空一行
-    lines.append(f"備註 : {order.get('備註', '')}")
+    if order.get("列印備註", True):  # 預設顯示備註
+        remark_text = order.get("備註", "").strip()
+        if remark_text:  # 只有有內容才印
+            lines.append(f"備註 : {remark_text}")
     
     return "<br>".join(lines)
 
