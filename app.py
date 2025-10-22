@@ -2168,7 +2168,8 @@ elif menu == "生產單管理":
                 total_category = c10.text_input("合計類別", value=order.get("合計類別", ""), key="form_total_category")
                 remark_default = order.get("備註", "")
                 remark = st.text_area("備註", value=remark_default, key="form_remark")
-        
+
+                print_remark = st.checkbox("列印時顯示『備註』欄位與內容", value=True, key="form_print_remark")
         
                 st.markdown("**包裝重量與份數**")
                 w_cols = st.columns(4)
