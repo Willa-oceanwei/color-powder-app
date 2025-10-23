@@ -3436,7 +3436,7 @@ if menu == "Pantone色號表":
     )
 
     # 查詢輸入框
-    search_code = st.text_input("輸入 Pantone 色號進行查詢")
+    search_code = st.text_input("輸入 Pantone 色號")
 
     # 使用者有輸入才顯示結果
     if search_code:
