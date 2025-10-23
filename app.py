@@ -3429,28 +3429,51 @@ if menu == "Pantone色號表":
     )
 
     # ====== 查詢區塊 ======
+    # ======== 🔍 查詢 Pantone 色號 ========
     st.markdown(
-        '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢Pantone色號</h1>',
+        '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢 Pantone 色號</h1>',
         unsafe_allow_html=True
     )
 
     # 查詢輸入框
     search_code = st.text_input("輸入 Pantone 色號進行查詢")
 
-    # 控制是否顯示表格
-    show_table = False
-
-    # 使用者輸入查詢就顯示表格
+    # 使用者有輸入才顯示結果
     if search_code:
-        show_table = True
-
-    # 顯示表格（只有在 show_table=True 時）
-    if show_table:
-        if search_code:
-            df_result = df_pantone[df_pantone["Pantone色號"].str.contains(search_code, case=False, na=False)]
-            show_pantone_table(df_result, title="")
+        # ---------- 第一部分：Pantone 對照表 ----------
+        if "df_pantone" in locals() or "df_pantone" in globals():
+            df_result_pantone = df_pantone[df_pantone["Pantone色號"].str.contains(search_code, case=False, na=False)]
         else:
-            show_pantone_table(df_pantone, title="")
+            df_result_pantone = pd.DataFrame()
+
+        # ---------- 第二部分：配方管理 ----------
+        if "df_recipe" in st.session_state and not st.session_state.df_recipe.empty:
+            df_recipe = st.session_state.df_recipe
+        elif "df" in st.session_state and not st.session_state.df.empty:
+            df_recipe = st.session_state.df
+        else:
+            df_recipe = pd.DataFrame()
+
+        if not df_recipe.empty and "Pantone色號" in df_recipe.columns:
+            df_result_recipe = df_recipe[df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False)]
+        else:
+            df_result_recipe = pd.DataFrame()
+
+        # ---------- 顯示結果 ----------
+        if df_result_pantone.empty and df_result_recipe.empty:
+            st.warning("查無符合的 Pantone 色號資料。")
+        else:
+            if not df_result_pantone.empty:
+                st.markdown("### 🎨 Pantone 對照表")
+                show_pantone_table(df_result_pantone, title="")
+            if not df_result_recipe.empty:
+                st.markdown("### 🧾 配方管理資料")
+                st.dataframe(
+                    df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True)
+                )
+    else:
+        st.info("請輸入 Pantone 色號以進行查詢。")
+
 
 # ======== 庫存區分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
