@@ -3467,7 +3467,6 @@ if menu == "Pantone色號表":
                 st.markdown("### 🎨 Pantone 對照表")
                 show_pantone_table(df_result_pantone, title="")
             if not df_result_recipe.empty:
-                st.markdown("### 🧾 配方管理資料")
                 st.dataframe(
                     df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True)
                 )
