@@ -2690,7 +2690,7 @@ elif menu == "生產單管理":
                 if w > 0:
                     val = total_colorant * w
                     width = col_widths[idx] if idx < len(col_widths) else 12
-                    total_line_colorant += str(int(val)).rjust(width)
+                    total_line_colorant += fmt_num_colorant(val).rjust(width)
             
             html_text += total_line_colorant + "<br>"
     
