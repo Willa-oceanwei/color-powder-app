@@ -2676,7 +2676,7 @@ elif menu == "生產單管理":
                     for w in pack_weights_display:
                         if w > 0:
                             val = wgt * w  # 色粉乘上包裝重量
-                            line += str(int(val)).rjust(number_col_width)
+                            line += fmt_num_colorant(val).rjust(number_col_width)
                     html_text += line + "<br>"
             
             # 色母合計列
