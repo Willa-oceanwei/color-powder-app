@@ -189,23 +189,31 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     lines = []
     lines.append("")
     
-    # 配方資訊列
+    # 配方資訊列（自動對齊 + 長文字自動撐開）
     recipe_id = recipe_row.get('配方編號', '')
     color = order.get('顏色', '')
     pantone = order.get('Pantone 色號', '').strip()
 
-    # 有 Pantone 色號才印出
-    pantone_part = f"   Pantone：{pantone}" if pantone else ""
+    # 有 Pantone 才印出
+    pantone_part = (
+        f"<span style='display:inline-block; min-width:22ch; vertical-align:top;'>Pantone：{pantone}</span>"
+        if pantone else ""
+    )
 
+    # 固定欄位基本對齊（使用 min-width 讓長字自動撐開，不被切掉）
+    recipe_part = f"<span style='display:inline-block; min-width:18ch; vertical-align:top;'>編號：<b>{recipe_id}</b></span>"
+    color_part = f"<span style='display:inline-block; min-width:18ch; vertical-align:top;'>顏色：{color}</span>"
+    ratio_part = f"<span style='display:inline-block; min-width:16ch; vertical-align:top;'>比例：{ratio} g/kg</span>"
+
+    # 組合整行
     info_line = (
-        f"<span style='font-size:20px;'>"
-        f"編號：<b>{recipe_id:<8}</b>"
-        f"顏色：{color:<4}     "
-        f"比例：{ratio} g/kg"
-        f"{pantone_part}</span>"
+        f"<span style='font-size:20px; font-family:Arial;'>"
+        f"{recipe_part}{color_part}{ratio_part}{pantone_part}"
+        f"</span>"
     )
     lines.append(info_line)
     lines.append("")
+
     
     # 包裝列
     pack_line = []
