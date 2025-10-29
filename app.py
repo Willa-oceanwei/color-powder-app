@@ -192,8 +192,18 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     # 配方資訊列
     recipe_id = recipe_row.get('配方編號', '')
     color = order.get('顏色', '')
-    pantone = order.get('Pantone 色號', '')
-    info_line = f"<span style='font-size:20px;'>編號：<b>{recipe_id:<8}</b>顏色：{color:<4}     比例：{ratio} g/kg   Pantone：{pantone}</span>"
+    pantone = order.get('Pantone 色號', '').strip()
+
+    # 有 Pantone 色號才印出
+    pantone_part = f"   Pantone：{pantone}" if pantone else ""
+
+    info_line = (
+        f"<span style='font-size:20px;'>"
+        f"編號：<b>{recipe_id:<8}</b>"
+        f"顏色：{color:<4}     "
+        f"比例：{ratio} g/kg"
+        f"{pantone_part}</span>"
+    )
     lines.append(info_line)
     lines.append("")
     
