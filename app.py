@@ -734,7 +734,7 @@ elif menu == "客戶名單":
 
         st.markdown("---")
         # ===== 🔍 搜尋欄（表格上方） =====
-        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🗿 客戶清單</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🗿 客戶修改/刪除</h2>', unsafe_allow_html=True)
         keyword = st.text_input("請輸入客戶編號或簡稱", st.session_state.search_customer_keyword)
         st.session_state.search_customer_keyword = keyword.strip()
 
@@ -760,7 +760,6 @@ elif menu == "客戶名單":
             # 標題 + 灰色小字說明
             st.markdown(
                 """
-                <h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 客戶修改 / 刪除</h2>
                 <p style="font-size:14px; font-family:Arial; color:gray; margin-top:-8px;">
                     🛈 請於新增欄位修改
                 </p>
