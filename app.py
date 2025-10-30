@@ -651,29 +651,6 @@ elif menu == "客戶名單":
     """, unsafe_allow_html=True)
 
     st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🗿客戶搜尋</h2>',
-        unsafe_allow_html=True
-    )
-  
-    search_input = st.text_input("請輸入客戶編號或簡稱", st.session_state.search_customer)
-    if search_input != st.session_state.search_customer:
-        st.session_state.search_customer = search_input
-    
-    search = (st.session_state.search_customer or "").strip()
-    
-    if search:
-        df_filtered = df[
-            df["客戶編號"].str.contains(search, case=False, na=False) |
-            df["客戶簡稱"].str.contains(search, case=False, na=False)
-        ]
-    else:
-        df_filtered = df
-
-    search_customer = st.session_state.get("search_customer")
-    if isinstance(search_customer, str) and search_customer.strip() and df_filtered.empty:
-        st.warning("❗ 查無符合的客戶編號或簡稱")
-
-    st.markdown(
         '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">➕新增客戶</h2>',
         unsafe_allow_html=True
     )
