@@ -493,7 +493,7 @@ if menu == "色粉管理":
     """, unsafe_allow_html=True)
     
     st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">➕新增色粉</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🪅新增色粉</h2>',
         unsafe_allow_html=True
     )
 
@@ -550,7 +550,7 @@ if menu == "色粉管理":
     # ===== 📋 色粉清單（搜尋後顯示表格與操作） =====
     st.markdown(
         """
-        <h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 色粉修改 / 刪除</h2>
+        <h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🛠️ 色粉修改 / 刪除</h2>
         """,
         unsafe_allow_html=True
     )
@@ -685,7 +685,7 @@ elif menu == "客戶名單":
     """, unsafe_allow_html=True)
 
     st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">➕新增客戶</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🤖新增客戶</h2>',
         unsafe_allow_html=True
     )
 
@@ -763,7 +763,7 @@ elif menu == "客戶名單":
 
         st.markdown("---")
         # ===== 🔍 搜尋欄（表格上方） =====
-        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🗿 客戶修改/刪除</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🛠️ 客戶修改/刪除</h2>', unsafe_allow_html=True)
         keyword = st.text_input("請輸入客戶編號或簡稱", st.session_state.search_customer_keyword)
         st.session_state.search_customer_keyword = keyword.strip()
 
