@@ -790,11 +790,10 @@ elif menu == "客戶名單":
                 df_customer["客戶編號"].str.contains(keyword, case=False, na=False) |
                 df_customer["客戶簡稱"].str.contains(keyword, case=False, na=False)
             ]
+
+            # 僅在有輸入且結果為空時顯示警告
             if df_filtered.empty:
                 st.warning("❗ 查無符合的資料")
-        else:
-            df_filtered = pd.DataFrame()  # 空表格，未輸入關鍵字時不顯示
-            st.info("請輸入關鍵字以搜尋客戶資料。")
 
         # ===== 📋 表格顯示搜尋結果 =====
         if not df_filtered.empty:
