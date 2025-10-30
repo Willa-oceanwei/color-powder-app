@@ -742,10 +742,10 @@ elif menu == "客戶名單":
         st.markdown('<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">➕ 新增客戶</h2>', unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         with col1:
-            st.session_state.form_customer["客戶編號"] = st.text_input("客戶編號", st.session_state.form_customer["客戶編號"])
-            st.session_state.form_customer["客戶簡稱"] = st.text_input("客戶簡稱", st.session_state.form_customer["客戶簡稱"])
+            st.text_input("客戶編號", st.session_state.form_customer["客戶編號"], key="form_customer_編號")
+            st.text_input("客戶簡稱", st.session_state.form_customer["客戶簡稱"], key="form_customer_簡稱")
         with col2:
-            st.session_state.form_customer["備註"] = st.text_input("備註", st.session_state.form_customer["備註"])
+            st.text_input("備註", st.session_state.form_customer["備註"], key="form_customer_備註")
 
         if st.button("💾 儲存"):
             new_data = st.session_state.form_customer.copy()
