@@ -613,7 +613,7 @@ if menu == "色粉管理":
                 c1, c2, c3 = st.columns([3, 1, 1])
                 with c1:
                     st.markdown(
-                        f"<div style='font-family:Arial;color:#FFFFFF;'>🎨 {row['色粉編號']}　{row['名稱']}</div>",
+                        f"<div style='font-family:Arial;color:#FFFFFF;'>🪅 {row['色粉編號']}　{row['名稱']}</div>",
                         unsafe_allow_html=True
                         )
                 with c2:
