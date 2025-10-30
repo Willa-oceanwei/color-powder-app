@@ -462,6 +462,17 @@ menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
 # ======== 色粉管理 =========
 if menu == "色粉管理":
+
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # ===== 讀取工作表 =====
     worksheet = spreadsheet.worksheet("色粉管理")
     required_columns = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
 
@@ -493,7 +504,7 @@ if menu == "色粉管理":
     """, unsafe_allow_html=True)
     
     st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🪅新增色粉</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818; margin:0 0 10px 0;">🪅新增色粉</h2>',
         unsafe_allow_html=True
     )
 
