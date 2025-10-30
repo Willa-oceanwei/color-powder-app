@@ -750,6 +750,7 @@ elif menu == "客戶名單":
             st.dataframe(df_filtered[columns], use_container_width=True, hide_index=True)
 
             # ===== ✏️ 改 / 🗑️ 刪操作（表格下方） =====
+            # ===== ✏️ 改 / 🗑️ 刪操作（表格下方） =====
             st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
 
             # 標題改成金色、22px
@@ -758,23 +759,43 @@ elif menu == "客戶名單":
                 unsafe_allow_html=True
             )
 
+            # --- 全域縮小 emoji 字體大小 ---
+            st.markdown("""
+                <style>
+                div.stButton > button {
+                    font-size:16px !important;   /* 縮小整個按鈕字體（含 emoji） */
+                    padding:2px 8px !important;  /* 按鈕變小一點 */
+                    border-radius:8px;
+                    background-color:#333333 !important; /* 深色底風格 */
+                    color:white !important;
+                    border:1px solid #555555;
+                }
+                div.stButton > button:hover {
+                    background-color:#555555 !important;
+                    border-color:#dbd818 !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+
+            # --- 列出客戶清單 ---
             for i, row in df_filtered.iterrows():
                 c1, c2, c3 = st.columns([3,1,1])
                 with c1:
                     st.markdown(
                         f"<div style='font-family:Arial;color:#FFFFFF;'>🤖 {row['客戶編號']}　{row['客戶簡稱']}</div>",
                         unsafe_allow_html=True
-                     )
+                    )
                 with c2:
-                    st.markdown(
-                        f"<button style='font-size:16px;'>✏️ </button>",
-                        unsafe_allow_html=True
-                    )
+                    if st.button("✏️ 改", key=f"edit_customer_{i}"):
+                        st.session_state.edit_customer_index = i
+                        st.session_state.form_customer = row.to_dict()
+                        st.rerun()
                 with c3:
-                    st.markdown(
-                        f"<button style='font-size:16px;'>🗑 </button>",
-                        unsafe_allow_html=True
-                    )
+                    if st.button("🗑️ 刪", key=f"delete_customer_{i}"):
+                        st.session_state.delete_customer_index = i
+                        st.session_state.show_delete_customer_confirm = True
+                        st.rerun()
+
 
         # ===== ⚠️ 刪除確認 =====
         if st.session_state.show_delete_customer_confirm:
