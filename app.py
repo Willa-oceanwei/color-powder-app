@@ -817,7 +817,7 @@ elif menu == "客戶名單":
                 st.session_state.edit_customer_index = None
                 st.rerun()
 
-==========================================================
+#==========================================================
 
 elif menu == "配方管理":
     from pathlib import Path
