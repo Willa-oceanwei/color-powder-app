@@ -698,7 +698,6 @@ elif menu == "客戶名單":
             st.rerun()
 
     # ===== 📋 客戶清單（搜尋後顯示表格與操作） =====
-    # ======== 客戶名單管理（搜尋 + 表格 + 改刪 + 新增） =========
     elif menu == "客戶名單":
         # 1️⃣ 讀取或建立 Google Sheet
         try:
@@ -728,9 +727,10 @@ elif menu == "客戶名單":
             if col not in df_customer.columns:
                 df_customer[col] = ""
 
+        st.markdown("---")
         # ===== 🔍 搜尋欄（表格上方） =====
         st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🗿 客戶清單</h2>', unsafe_allow_html=True)
-        keyword = st.text_input("請輸入客戶編號或簡稱搜尋", st.session_state.search_customer_keyword)
+        keyword = st.text_input("請輸入客戶編號或簡稱", st.session_state.search_customer_keyword)
         st.session_state.search_customer_keyword = keyword.strip()
 
         # 篩選資料
