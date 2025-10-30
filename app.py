@@ -651,7 +651,7 @@ elif menu == "客戶名單":
     """, unsafe_allow_html=True)
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🗿客戶搜尋</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🗿客戶搜尋</h2>',
         unsafe_allow_html=True
     )
   
@@ -674,7 +674,7 @@ elif menu == "客戶名單":
         st.warning("❗ 查無符合的客戶編號或簡稱")
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">➕新增客戶</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">➕新增客戶</h2>',
         unsafe_allow_html=True
     )
 
@@ -720,28 +720,70 @@ elif menu == "客戶名單":
             st.session_state.show_delete_customer_confirm = False
             st.rerun()
 
+    # ===== 📋 客戶清單（搜尋後顯示表格與操作） =====
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📋 客戶清單</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 客戶清單</h2>',
         unsafe_allow_html=True
     )
 
-    for i, row in df_filtered.iterrows():
-        cols = st.columns([3, 3, 3, 3])
-        cols[0].write(row["客戶編號"])
-        cols[1].write(row["客戶簡稱"])
-        cols[2].write(row["備註"])
-        with cols[3]:
-            c1, c2 = st.columns(2, gap="small")
-            with c1:
-                if st.button("✏️\n改", key=f"edit_customer_{i}"):
-                    st.session_state.edit_customer_index = i
-                    st.session_state.form_customer = row.to_dict()
-                    st.rerun()
-            with c2:
-                if st.button("🗑️\n刪", key=f"delete_color_{i}"):
-                    st.session_state.delete_customer_index = i
-                    st.session_state.show_delete_customer_confirm = True
-                    st.rerun()
+    # 初始化 session_state
+    if "form_customer" not in st.session_state or not isinstance(st.session_state.form_customer, dict):
+        st.session_state.form_customer = {}
+    st.session_state.setdefault("edit_customer_index", None)
+    st.session_state.setdefault("delete_customer_index", None)
+    st.session_state.setdefault("show_delete_customer_confirm", False)
+    st.session_state.setdefault("search_customer_keyword", "")
+
+    # 🔍 搜尋輸入框
+    keyword = st.text_input("🔍 輸入客戶編號或客戶簡稱搜尋", value=st.session_state.search_customer_keyword)
+    st.session_state.search_customer_keyword = keyword.strip()
+
+    # 若未輸入搜尋字，僅顯示提示
+    if keyword == "":
+        st.info("請輸入關鍵字以搜尋客戶資料。")
+    else:
+        # 篩選結果
+        df_filtered = df_customer[
+            df_customer["客戶編號"].str.contains(keyword, case=False, na=False)
+            | df_customer["客戶簡稱"].str.contains(keyword, case=False, na=False)
+        ]
+
+        if df_filtered.empty:
+            st.warning("❗ 查無符合的資料")
+        else:
+            # 1️⃣ 顯示表格
+            display_cols = ["客戶編號", "客戶簡稱", "備註"]
+            existing_cols = [c for c in display_cols if c in df_filtered.columns]
+            df_display = df_filtered[existing_cols].copy()
+
+            st.dataframe(
+                df_display,
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # 2️⃣ 顯示改 / 刪 操作
+            st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
+            st.markdown("<h4 style='font-family:Arial;color:#FFFFFF;'>✏️ 改 / 🗑️ 刪 操作</h4>", unsafe_allow_html=True)
+
+            for i, row in df_filtered.iterrows():
+                c1, c2, c3 = st.columns([3, 1, 1])
+                with c1:
+                    st.markdown(
+                        f"<div style='font-family:Arial;color:#FFFFFF;'>🏢 {row['客戶編號']}　{row['客戶簡稱']}</div>",
+                        unsafe_allow_html=True
+                    )
+                with c2:
+                    if st.button("✏️ 改", key=f"edit_customer_{i}"):
+                        st.session_state.edit_customer_index = i
+                        st.session_state.form_customer = row.to_dict()
+                        st.rerun()
+                with c3:
+                    if st.button("🗑️ 刪", key=f"delete_customer_{i}"):
+                        st.session_state.delete_customer_index = i
+                        st.session_state.show_delete_customer_confirm = True
+                        st.rerun()
+
 
 elif menu == "配方管理":
     from pathlib import Path
