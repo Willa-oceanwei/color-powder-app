@@ -729,8 +729,8 @@ elif menu == "客戶名單":
                 df_customer[col] = ""
 
         # ===== 🔍 搜尋欄（表格上方） =====
-        st.markdown('<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🗿 客戶清單</h2>', unsafe_allow_html=True)
-        keyword = st.text_input("請輸入客戶編號或客戶簡稱搜尋", st.session_state.search_customer_keyword)
+        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🗿 客戶清單</h2>', unsafe_allow_html=True)
+        keyword = st.text_input("請輸入客戶編號或簡稱搜尋", st.session_state.search_customer_keyword)
         st.session_state.search_customer_keyword = keyword.strip()
 
         # 篩選資料
@@ -785,38 +785,7 @@ elif menu == "客戶名單":
                 st.session_state.show_delete_customer_confirm = False
                 st.rerun()
 
-        # ===== ➕ 新增 / 編輯區 =====
-        st.markdown('<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">➕ 新增客戶</h2>', unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            st.text_input("客戶編號", st.session_state.form_customer["客戶編號"], key="form_customer_編號")
-            st.text_input("客戶簡稱", st.session_state.form_customer["客戶簡稱"], key="form_customer_簡稱")
-        with col2:
-            st.text_input("備註", st.session_state.form_customer["備註"], key="form_customer_備註")
-
-        if st.button("💾 儲存", key="save_customer"):
-            new_data = {
-                "客戶編號": st.session_state.get("form_customer_編號", "").strip(),
-                "客戶簡稱": st.session_state.get("form_customer_簡稱", "").strip(),
-                "備註": st.session_state.get("form_customer_備註", "").strip()
-            }
-            if new_data["客戶編號"] == "":
-                st.warning("⚠️ 請輸入客戶編號！")
-            else:
-                if st.session_state.edit_customer_index is not None:
-                    df_customer.iloc[st.session_state.edit_customer_index] = new_data
-                    st.success("✅ 客戶已更新！")
-                else:
-                    if new_data["客戶編號"] in df_customer["客戶編號"].values:
-                        st.warning("⚠️ 此客戶編號已存在！")
-                    else:
-                        df_customer = pd.concat([df_customer, pd.DataFrame([new_data])], ignore_index=True)
-                        st.success("✅ 新增成功！")
-                save_df_to_sheet(ws_customer, df_customer)
-                st.session_state.form_customer = {col:"" for col in columns}
-                st.session_state.edit_customer_index = None
-                st.rerun()
-
+       
 #==========================================================
 
 elif menu == "配方管理":
