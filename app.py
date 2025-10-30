@@ -599,15 +599,15 @@ if menu == "色粉管理":
     else:
         df_filtered = pd.DataFrame()  # 未輸入關鍵字，不顯示表格，也不提示
 
-            # 標題 + 灰色小字說明
-            st.markdown(
-                """
-                <p style="font-size:14px; font-family:Arial; color:gray; margin-top:-8px;">
-                    🛈 請於新增欄位修改
-                </p>
-                """,
-                unsafe_allow_html=True
-            )
+        # 標題 + 灰色小字說明
+        st.markdown(
+            """
+            <p style="font-size:14px; font-family:Arial; color:gray; margin-top:-8px;">
+                🛈 請於新增欄位修改
+            </p>
+            """,
+             unsafe_allow_html=True
+         )
 
             # 2️⃣ 顯示改 / 刪 操作
             # --- 全域按鈕樣式統一（與客戶清單一致） ---
