@@ -602,10 +602,28 @@ if menu == "色粉管理":
             )
 
             # 2️⃣ 顯示改 / 刪 操作
-            # ===== 顯示修改 / 刪除操作（色粉清單） =====
+            # --- 全域按鈕樣式統一（與客戶清單一致） ---
+            st.markdown("""
+                <style>
+                div.stButton > button {
+                    font-size:16px !important;   /* 縮小整個按鈕字體（含 emoji） */
+                    padding:2px 8px !important;  /* 按鈕變小一點 */
+                    border-radius:8px;
+                    background-color:#333333 !important; /* 深色底風格 */
+                    color:white !important;
+                    border:1px solid #555555;
+                }
+                div.stButton > button:hover {
+                    background-color:#555555 !important;
+                    border-color:#dbd818 !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+
+            # 2️⃣ 顯示改 / 刪 操作
             for i, row in df_filtered.iterrows():
                 c1, c2, c3 = st.columns([3, 1, 1])
-    
+
                 with c1:
                     st.markdown(
                         f"<div style='font-family:Arial; color:#FFFFFF;'>🔸 {row['色粉編號']}　{row['名稱']}</div>",
