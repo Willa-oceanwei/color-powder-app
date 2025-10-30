@@ -563,28 +563,73 @@ if menu == "色粉管理":
             st.session_state.show_delete_color_confirm = False
             st.rerun()
 
+    # ===== 📋 色粉清單 (改為表格樣式) =====
     st.markdown(
         '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📋色粉清單</h2>',
         unsafe_allow_html=True
     )
 
-    for i, row in df_filtered.iterrows():
-        cols = st.columns([2, 2, 2, 2, 2, 3])
-        cols[0].write(row["色粉編號"])
-        cols[1].write(row["國際色號"])
-        cols[2].write(row["名稱"])
-        cols[3].write(row["色粉類別"])
-        cols[4].write(row["包裝"])
-        with cols[5]:
-            c1, c2 = st.columns(2, gap="small")
-            if c1.button("✏️ 改", key=f"edit_color_{i}"):
-                st.session_state.edit_color_index = i
-                st.session_state.form_color = row.to_dict()
-                st.rerun()
-            if c2.button("🗑️ 刪", key=f"delete_color_{i}"):
-                st.session_state.delete_color_index = i
-                st.session_state.show_delete_color_confirm = True
-                st.rerun()
+    if df_filtered.empty:
+        st.warning("❗ 查無符合的資料")
+    else:
+        # 表格標題列
+        st.markdown("""
+        <div style="
+            display: grid; 
+            grid-template-columns: 1.2fr 1.6fr 2fr 1.2fr 1fr 1.4fr;
+            font-weight: bold; 
+            background-color: #333; 
+            color: #dbd818;
+            padding: 6px 10px; 
+            border-radius: 6px;
+            font-family: Arial;
+        ">
+            <div>色粉編號</div>
+            <div>國際色號</div>
+            <div>名稱</div>
+            <div>色粉類別</div>
+            <div>包裝</div>
+            <div>操作</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 資料列
+        for i, row in df_filtered.iterrows():
+            # 建立每列內容
+            st.markdown(
+                f"""
+                <div style="
+                    display: grid; 
+                    grid-template-columns: 1.2fr 1.6fr 2fr 1.2fr 1fr 1.4fr;
+                    align-items: center; 
+                    padding: 6px 10px; 
+                    border-bottom: 1px solid #555;
+                    font-family: Arial; 
+                    color: #eee;
+                ">
+                    <div>{row['色粉編號']}</div>
+                    <div>{row['國際色號']}</div>
+                    <div>{row['名稱']}</div>
+                    <div>{row['色粉類別']}</div>
+                    <div>{row['包裝']}</div>
+                    <div id="btn_{i}"></div>
+                </div>
+                """, unsafe_allow_html=True
+            )
+
+            # 右側操作按鈕
+            c1, c2 = st.columns([0.5, 0.5], gap="small")
+            with c1:
+                if st.button("✏️ 改", key=f"edit_color_{i}"):
+                    st.session_state.edit_color_index = i
+                    st.session_state.form_color = row.to_dict()
+                    st.rerun()
+            with c2:
+                if st.button("🗑️ 刪", key=f"delete_color_{i}"):
+                    st.session_state.delete_color_index = i
+                    st.session_state.show_delete_color_confirm = True
+                    st.rerun()
+
 
 # ======== 客戶名單 =========
 elif menu == "客戶名單":
