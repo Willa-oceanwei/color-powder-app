@@ -574,19 +574,21 @@ if menu == "色粉管理":
     st.session_state.setdefault("show_delete_color_confirm", False)
     st.session_state.setdefault("search_keyword", "")
 
+    
     # 🔍 搜尋輸入框
     keyword = st.text_input("輸入色粉編號或名稱搜尋", value=st.session_state.search_keyword)
     st.session_state.search_keyword = keyword.strip()
 
-    # 只在有輸入關鍵字時篩選
+    df_filtered = pd.DataFrame()  # 預設空表格
+
     if keyword:
+        # 篩選資料
         df_filtered = df[
             df["色粉編號"].str.contains(keyword, case=False, na=False) |
             df["名稱"].str.contains(keyword, case=False, na=False) |
             df["國際色號"].str.contains(keyword, case=False, na=False)
         ]
 
-        # 僅在有輸入且結果為空時顯示警告
         if df_filtered.empty:
             st.warning("❗ 查無符合的資料")
         else:
@@ -596,20 +598,16 @@ if menu == "色粉管理":
             df_display = df_filtered[existing_cols].copy()
             st.dataframe(df_display, use_container_width=True, hide_index=True)
 
-    else:
-        df_filtered = pd.DataFrame()  # 未輸入關鍵字，不顯示表格，也不提示
+            # 標題 + 灰色小字說明
+            st.markdown(
+                """
+                <p style="font-size:14px; font-family:Arial; color:gray; margin-top:-8px;">
+                    🛈 請於新增欄位修改
+                </p>
+                """,
+                unsafe_allow_html=True
+            )
 
-        # 標題 + 灰色小字說明
-        st.markdown(
-            """
-            <p style="font-size:14px; font-family:Arial; color:gray; margin-top:-8px;">
-                🛈 請於新增欄位修改
-            </p>
-            """,
-             unsafe_allow_html=True
-         )
-
-            # 2️⃣ 顯示改 / 刪 操作
             # --- 全域按鈕樣式統一（與客戶清單一致） ---
             st.markdown("""
                 <style>
@@ -628,7 +626,7 @@ if menu == "色粉管理":
                 </style>
             """, unsafe_allow_html=True)
 
-            # 2️⃣ 顯示改 / 刪 操作
+            # 顯示改 / 刪操作
             for i, row in df_filtered.iterrows():
                 c1, c2, c3 = st.columns([3, 1, 1])
 
