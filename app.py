@@ -573,6 +573,7 @@ if menu == "色粉管理":
         df_filtered = df[
             df["色粉編號"].str.contains(keyword, case=False, na=False)
             | df["名稱"].str.contains(keyword, case=False, na=False)
+            | df["國際色號"].str.contains(keyword, case=False, na=False)
         ]
         if df_filtered.empty:
             st.warning("❗ 查無符合的資料")
