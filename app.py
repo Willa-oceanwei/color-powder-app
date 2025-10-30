@@ -3662,26 +3662,27 @@ if menu == "Pantone色號表":
         else:
             df_result_recipe = pd.DataFrame()
 
+        
         # ---------- 顯示結果 ----------
         if df_result_pantone.empty and df_result_recipe.empty:
             st.warning("查無符合的 Pantone 色號資料。")
         else:
             if not df_result_pantone.empty:
-                # 標題改成統一字體、大小，縮小 margin
+                # 與查詢欄標題統一字體大小和顏色，並縮小上下 margin
                 st.markdown(
-                    '<div style="font-size:22px; font-family:Arial; color:#f0efa2; line-height:1.2; margin-top:5px; margin-bottom:5px;">🔍 Pantone 對照表</div>',
+                    '<div style="font-size:22px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0;">🔍 Pantone 對照表</div>',
                     unsafe_allow_html=True
                 )
 
                 show_pantone_table(df_result_pantone, title="")
 
             if not df_result_recipe.empty:
-                # 表格上方加一個小 margin 避免太擠
-                st.markdown('<div style="margin-top:3px;"></div>', unsafe_allow_html=True)
+                # 可額外加 margin-top 1~2px，避免貼太近或太遠
+                st.markdown('<div style="margin-top:2px;"></div>', unsafe_allow_html=True)
                 st.dataframe(
                     df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True)
-                )  
-
+                )
+                
 # ======== 庫存區分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
 
