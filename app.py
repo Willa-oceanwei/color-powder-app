@@ -2522,7 +2522,7 @@ elif menu == "生產單管理":
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
     st.markdown(
-        '<h2 style="font-size:24px; font-family:Arial; color:#F9DC5C;">📑 生產單記錄表</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#F9DC5C;">📑 生產單記錄表</h2>',
         unsafe_allow_html=True
     )
     
