@@ -564,7 +564,7 @@ if menu == "色粉管理":
     st.session_state.setdefault("search_keyword", "")
 
     # 🔍 搜尋輸入框
-    keyword = st.text_input("🔍 輸入色粉編號或名稱搜尋", value=st.session_state.search_keyword)
+    keyword = st.text_input(" 輸入色粉編號或名稱搜尋", value=st.session_state.search_keyword)
     st.session_state.search_keyword = keyword.strip()
 
     # 若未輸入搜尋字，僅顯示提示
@@ -606,7 +606,7 @@ if menu == "色粉管理":
                 c1, c2, c3 = st.columns([3, 1, 1])
                 with c1:
                     st.markdown(
-                        f"<div style='font-family:Arial;color:#FFFFFF;'>🪅 {row['色粉編號']}　{row['名稱']}</div>",
+                        f"<div style='font-family:Arial;color:#FFFFFF;'>🔸 {row['色粉編號']}　{row['名稱']}</div>",
                         unsafe_allow_html=True
                         )
                 with c2:
