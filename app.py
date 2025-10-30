@@ -493,7 +493,7 @@ if menu == "色粉管理":
     """, unsafe_allow_html=True)
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">🎰色粉搜尋</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🎰色粉搜尋</h2>',
         unsafe_allow_html=True
     )
 #---
@@ -510,7 +510,7 @@ if menu == "色粉管理":
         st.warning("❗ 查無符合的色粉編號")
 
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">➕新增色粉</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">➕新增色粉</h2>',
         unsafe_allow_html=True
     )
 
@@ -561,58 +561,71 @@ if menu == "色粉管理":
             st.rerun()
         if c2.button("取消"):
             st.session_state.show_delete_color_confirm = False
-            st.rerun()
-
+            st.rerun()  
     
-    
-    # ===== 📋 色粉清單 (改為表格樣式) =====
+    # ===== 📋 色粉清單（搜尋後顯示表格與操作） =====
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📋色粉清單</h2>',
+        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📋 色粉清單</h2>',
         unsafe_allow_html=True
     )
 
+    # 初始化 session_state
     if "form_color" not in st.session_state or not isinstance(st.session_state.form_color, dict):
         st.session_state.form_color = {}
+    st.session_state.setdefault("edit_color_index", None)
+    st.session_state.setdefault("delete_color_index", None)
+    st.session_state.setdefault("show_delete_color_confirm", False)
+    st.session_state.setdefault("search_keyword", "")
 
-    if df_filtered.empty:
-        st.warning("❗ 查無符合的資料")
+    # 🔍 搜尋輸入框
+    keyword = st.text_input("🔍 輸入色粉編號或名稱搜尋", value=st.session_state.search_keyword)
+    st.session_state.search_keyword = keyword.strip()
+
+    # 若未輸入搜尋字，僅顯示提示
+    if keyword == "":
+        st.info("請輸入關鍵字以搜尋色粉資料。")
     else:
-        # 1️⃣ 建立顯示用 DataFrame
-        display_cols = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝"]
-        existing_cols = [c for c in display_cols if c in df_filtered.columns]
-        df_display = df_filtered[existing_cols].copy()
+        # 篩選結果
+        df_filtered = df_color[
+            df_color["色粉編號"].str.contains(keyword, case=False, na=False)
+            | df_color["名稱"].str.contains(keyword, case=False, na=False)
+        ]
 
-        # 2️⃣ 加上操作提示欄（純文字，方便對應）
-        df_display["操作"] = ["⇩ 下方可執行 ✏️ / 🗑️"] * len(df_display)
+        if df_filtered.empty:
+            st.warning("❗ 查無符合的資料")
+        else:
+            # 1️⃣ 顯示表格
+            display_cols = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝"]
+            existing_cols = [c for c in display_cols if c in df_filtered.columns]
+            df_display = df_filtered[existing_cols].copy()
 
-        # 3️⃣ 顯示表格
-        st.dataframe(
-            df_display,
-            use_container_width=True,
-            hide_index=True
-        )
+            st.dataframe(
+                df_display,
+                use_container_width=True,
+                hide_index=True
+            )
 
-        # 4️⃣ 個別列的操作區
-        st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
-        st.markdown("<h4 style='font-family:Arial;color:#dbd818;'>✏️ 改 / 🗑️ 刪 操作</h4>", unsafe_allow_html=True)
+            # 2️⃣ 顯示改 / 刪 操作
+            st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
+            st.markdown("<h4 style='font-family:Arial;color:#dbd818;'>✏️ 改 / 🗑️ 刪 操作</h4>", unsafe_allow_html=True)
 
-        for i, row in df_filtered.iterrows():
-            c1, c2, c3 = st.columns([3, 1, 1])
-            with c1:
-                st.markdown(
-                    f"<div style='font-family:Arial;color:#dbd818;'>🎨 {row['色粉編號']}　{row['名稱']}</div>",
-                    unsafe_allow_html=True
-                )
-            with c2:
-                if st.button("✏️ 改", key=f"edit_color_{i}"):
-                    st.session_state.edit_color_index = i
-                    st.session_state.form_color = row.to_dict()
-                    st.rerun()
-            with c3:
-                if st.button("🗑️ 刪", key=f"delete_color_{i}"):
-                    st.session_state.delete_color_index = i
-                    st.session_state.show_delete_color_confirm = True
-                    st.rerun()
+            for i, row in df_filtered.iterrows():
+                c1, c2, c3 = st.columns([3, 1, 1])
+                with c1:
+                    st.markdown(
+                        f"<div style='font-family:Arial;color:#dbd818;'>🎨 {row['色粉編號']}　{row['名稱']}</div>",
+                        unsafe_allow_html=True
+                    )
+                with c2:
+                    if st.button("✏️ 改", key=f"edit_color_{i}"):
+                        st.session_state.edit_color_index = i
+                        st.session_state.form_color = row.to_dict()
+                        st.rerun()
+                with c3:
+                    if st.button("🗑️ 刪", key=f"delete_color_{i}"):
+                        st.session_state.delete_color_index = i
+                        st.session_state.show_delete_color_confirm = True
+                        st.rerun()
 
 # ======== 客戶名單 =========
 elif menu == "客戶名單":
