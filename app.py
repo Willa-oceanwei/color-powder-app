@@ -655,6 +655,17 @@ if menu == "色粉管理":
 
 # ======== 客戶名單 =========
 elif menu == "客戶名單":
+
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ===== 讀取或建立 Google Sheet =====    
     try:
         ws_customer = spreadsheet.worksheet("客戶名單")
     except:
