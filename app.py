@@ -551,9 +551,6 @@ if menu == "色粉管理":
     st.markdown(
         """
         <h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 色粉修改 / 刪除</h2>
-        <p style="font-size:14px; font-family:Arial; color:gray; margin-top:-8px;">
-            🛈 請於新增欄位修改
-        </p>
         """,
         unsafe_allow_html=True
     )
@@ -592,6 +589,16 @@ if menu == "色粉管理":
                 df_display,
                 use_container_width=True,
                 hide_index=True
+            )
+
+            # 標題 + 灰色小字說明
+            st.markdown(
+                """
+                <p style="font-size:14px; font-family:Arial; color:gray; margin-top:-8px;">
+                    🛈 請於新增欄位修改
+                </p>
+                """,
+                unsafe_allow_html=True
             )
 
             # 2️⃣ 顯示改 / 刪 操作
