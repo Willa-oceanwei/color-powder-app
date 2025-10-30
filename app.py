@@ -607,15 +607,15 @@ if menu == "色粉管理":
 
             # 2️⃣ 顯示改 / 刪 操作
             st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
-            st.markdown("<h2 style='font-size:22px; font-family:Arial; color:#FFAFA;'>刪 /  改 操作</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='font-size:22px; font-family:Arial; color:#dbd818;'>刪 /  改 操作</h2>", unsafe_allow_html=True)
 
             for i, row in df_filtered.iterrows():
                 c1, c2, c3 = st.columns([3, 1, 1])
                 with c1:
                     st.markdown(
-                        f"<div style='font-family:Arial;color:black;'>🎨 {row['色粉編號']}　{row['名稱']}</div>",
+                        f"<div style='font-family:Arial;color:#FFFFFF;'>🎨 {row['色粉編號']}　{row['名稱']}</div>",
                         unsafe_allow_html=True
-                    )
+                        )
                 with c2:
                     if st.button("✏️ 改", key=f"edit_color_{i}"):
                         st.session_state.edit_color_index = i
