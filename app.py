@@ -877,6 +877,16 @@ elif menu == "客戶名單":
 #==========================================================
 
 elif menu == "配方管理":
+
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     from pathlib import Path
     from datetime import datetime
     import pandas as pd
@@ -1937,6 +1947,16 @@ elif menu == "配方管理":
             
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
+
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     st.markdown("""
     <style>
     .big-title {
