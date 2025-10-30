@@ -781,10 +781,14 @@ elif menu == "客戶名單":
         st.markdown("---")
         # ===== 🔍 搜尋欄（表格上方） =====
         st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🛠️ 客戶修改/刪除</h2>', unsafe_allow_html=True)
-        keyword = st.text_input("請輸入客戶編號或簡稱", st.session_state.search_customer_keyword)
+        # 預設空表格
+        df_filtered = pd.DataFrame()
+
+        # 搜尋輸入框
+        keyword = st.text_input("請輸入客戶編號或簡稱", st.session_state.get("search_customer_keyword", ""))
         st.session_state.search_customer_keyword = keyword.strip()
 
-        # 篩選資料
+        # 只有輸入關鍵字才篩選
         if keyword:
             df_filtered = df_customer[
                 df_customer["客戶編號"].str.contains(keyword, case=False, na=False) |
