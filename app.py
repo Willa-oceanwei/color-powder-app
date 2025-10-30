@@ -1463,7 +1463,7 @@ elif menu == "配方管理":
 
     st.markdown("""
     <div id="recipe-table" style="display: flex; align-items: center; gap: 10px;">
-        <h2 style="font-size:24px; font-family:Arial; color:#F9DC5C;">📑配方記錄表</h2>
+        <h2 style="font-size:22px; font-family:Arial; color:#F9DC5C;">📑配方記錄表</h2>
         <a href="#recipe-create" style="
             background-color: var(--background-color);  /* 跟隨亮/暗模式 */
             color: var(--text-color);                  /* 跟隨亮/暗模式 */
