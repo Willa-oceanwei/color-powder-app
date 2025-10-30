@@ -762,17 +762,17 @@ elif menu == "客戶名單":
                 c1, c2, c3 = st.columns([3,1,1])
                 with c1:
                     st.markdown(
-                        f"<div style='font-family:Arial;color:#FFFFFF;'>🏢 {row['客戶編號']}　{row['客戶簡稱']}</div>",
+                        f"<div style='font-family:Arial;color:#FFFFFF;'>🤖 {row['客戶編號']}　{row['客戶簡稱']}</div>",
                         unsafe_allow_html=True
                      )
                 with c2:
                     st.markdown(
-                        f"<button style='font-size:16px;'>✏ 改</button>",
+                        f"<button style='font-size:16px;'>✏️ 改</button>",
                         unsafe_allow_html=True
                     )
                 with c3:
                     st.markdown(
-                        f"<button style='font-size:16px;'>🗑 刪</button>",
+                        f"<button style='font-size:16px;'>🗑️ 刪</button>",
                         unsafe_allow_html=True
                     )
 
