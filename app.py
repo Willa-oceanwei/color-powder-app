@@ -4188,7 +4188,7 @@ if st.session_state.menu == "匯入備份":
     """, unsafe_allow_html=True)
     
     st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 庫存查詢</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 匯入備份</h2>',
         unsafe_allow_html=True
     )
   
