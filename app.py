@@ -794,7 +794,7 @@ elif menu == "客戶名單":
 
             # --- 列出客戶清單 ---
             for i, row in df_filtered.iterrows():
-                c1, c2, c3 = st.columns([3,1,1])
+                c1, c2, c3 = st.columns([3, 1, 1])
                 with c1:
                     st.markdown(
                         f"<div style='font-family:Arial;color:#FFFFFF;'>🔹 {row['客戶編號']}　{row['客戶簡稱']}</div>",
