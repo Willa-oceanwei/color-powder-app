@@ -607,7 +607,7 @@ if menu == "色粉管理":
 
             # 2️⃣ 顯示改 / 刪 操作
             st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
-            st.markdown("h2 style="font-size:22px; font-family:Arial;color:#dbd818;'>✏️ 改 / 🗑️ 刪 操作</h4>", unsafe_allow_html=True)
+            st.markdown("<h2 style='font-size:22px; font-family:Arial; color:#dbd818;'>✏️ 改 / 🗑️ 刪 操作</h2>", unsafe_allow_html=True)
 
             for i, row in df_filtered.iterrows():
                 c1, c2, c3 = st.columns([3, 1, 1])
