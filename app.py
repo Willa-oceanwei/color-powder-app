@@ -750,12 +750,16 @@ elif menu == "客戶名單":
             st.dataframe(df_filtered[columns], use_container_width=True, hide_index=True)
 
             # ===== ✏️ 改 / 🗑️ 刪操作（表格下方） =====
-            # ===== ✏️ 改 / 🗑️ 刪操作（表格下方） =====
             st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
 
             # 標題改成金色、22px
             st.markdown(
-                '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 客戶刪 / 改</h2>',
+                """
+                '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 客戶修改 / 刪除</h2>',
+                <p style="font-size:14px; font-family:Arial; color:gray; margin-top:-8px;">
+                    🛈 請於新增欄位修改
+                </p>
+                """,
                 unsafe_allow_html=True
             )
 
