@@ -751,13 +751,22 @@ elif menu == "客戶名單":
 
             # ===== ✏️ 改 / 🗑️ 刪操作（表格下方） =====
             st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
-            st.markdown("<h4 style='font-family:Arial;color:#FFFFFF;'>✏️ 改 / 🗑️ 刪 操作</h4>", unsafe_allow_html=True)
+
+            # 標題改成金色、22px
+            st.markdown(
+                '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 客戶刪 / 改</h2>',
+                unsafe_allow_html=True
+            )
 
             for i, row in df_filtered.iterrows():
                 c1, c2, c3 = st.columns([3, 1, 1])
                 with c1:
-                    st.markdown(f"<div style='font-family:Arial;color:#FFFFFF;'>🏢 {row['客戶編號']}　{row['客戶簡稱']}</div>", unsafe_allow_html=True)
+                    st.markdown(
+                        f"<div style='font-family:Arial;color:#FFFFFF;'>🏢 {row['客戶編號']}　{row['客戶簡稱']}</div>",
+                        unsafe_allow_html=True
+                    )
                 with c2:
+                    # 讓按鈕的 emoji 小一點，可用 span 設定 font-size
                     if st.button("✏️ 改", key=f"edit_customer_{i}"):
                         st.session_state.edit_customer_index = i
                         st.session_state.form_customer = row.to_dict()
@@ -767,6 +776,7 @@ elif menu == "客戶名單":
                         st.session_state.delete_customer_index = i
                         st.session_state.show_delete_customer_confirm = True
                         st.rerun()
+
 
         # ===== ⚠️ 刪除確認 =====
         if st.session_state.show_delete_customer_confirm:
