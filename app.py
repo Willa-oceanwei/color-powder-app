@@ -602,18 +602,22 @@ if menu == "色粉管理":
             )
 
             # 2️⃣ 顯示改 / 刪 操作
+            # ===== 顯示修改 / 刪除操作（色粉清單） =====
             for i, row in df_filtered.iterrows():
                 c1, c2, c3 = st.columns([3, 1, 1])
+    
                 with c1:
                     st.markdown(
-                        f"<div style='font-family:Arial;color:#FFFFFF;'>🔸 {row['色粉編號']}　{row['名稱']}</div>",
+                        f"<div style='font-family:Arial; color:#FFFFFF;'>🔸 {row['色粉編號']}　{row['名稱']}</div>",
                         unsafe_allow_html=True
-                        )
+                    )
+
                 with c2:
                     if st.button("✏️ 改", key=f"edit_color_{i}"):
                         st.session_state.edit_color_index = i
                         st.session_state.form_color = row.to_dict()
                         st.rerun()
+
                 with c3:
                     if st.button("🗑️ 刪", key=f"delete_color_{i}"):
                         st.session_state.delete_color_index = i
