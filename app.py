@@ -564,11 +564,15 @@ if menu == "色粉管理":
             st.rerun()
 
     
+    
     # ===== 📋 色粉清單 (改為表格樣式) =====
     st.markdown(
         '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📋色粉清單</h2>',
         unsafe_allow_html=True
     )
+
+    if "form_color" not in st.session_state or not isinstance(st.session_state.form_color, dict):
+        st.session_state.form_color = {}
 
     if df_filtered.empty:
         st.warning("❗ 查無符合的資料")
@@ -578,8 +582,8 @@ if menu == "色粉管理":
         existing_cols = [c for c in display_cols if c in df_filtered.columns]
         df_display = df_filtered[existing_cols].copy()
 
-        # 2️⃣ 加上操作欄（顯示按鈕標籤）
-        df_display["操作"] = ["✏️ 改 / 🗑️ 刪"] * len(df_display)
+        # 2️⃣ 加上操作提示欄（純文字，方便對應）
+        df_display["操作"] = ["⇩ 下方可執行 ✏️ / 🗑️"] * len(df_display)
 
         # 3️⃣ 顯示表格
         st.dataframe(
@@ -588,13 +592,17 @@ if menu == "色粉管理":
             hide_index=True
         )
 
-        # 4️⃣ 個別列的操作區（在表格下方對應顯示）
-        st.markdown("---")
-        st.markdown("### ✏️ 改 / 🗑️ 刪 操作")
+        # 4️⃣ 個別列的操作區
+        st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
+        st.markdown("<h4 style='font-family:Arial;color:#dbd818;'>✏️ 改 / 🗑️ 刪 操作</h4>", unsafe_allow_html=True)
+
         for i, row in df_filtered.iterrows():
-            c1, c2, c3 = st.columns([2, 1, 1])
+            c1, c2, c3 = st.columns([3, 1, 1])
             with c1:
-                st.markdown(f"<div style='font-family:Arial;color:#dbd818;'>🎨 {row['色粉編號']}　{row['名稱']}</div>", unsafe_allow_html=True)
+                st.markdown(
+                    f"<div style='font-family:Arial;color:#dbd818;'>🎨 {row['色粉編號']}　{row['名稱']}</div>",
+                    unsafe_allow_html=True
+                )
             with c2:
                 if st.button("✏️ 改", key=f"edit_color_{i}"):
                     st.session_state.edit_color_index = i
