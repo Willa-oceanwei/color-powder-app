@@ -562,7 +562,8 @@ if menu == "色粉管理":
         if c2.button("取消"):
             st.session_state.show_delete_color_confirm = False
             st.rerun()  
-    
+            
+    st.markdown("---")
     # ===== 📋 色粉清單（搜尋後顯示表格與操作） =====
     st.markdown(
         '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 色粉清單</h2>',
@@ -606,7 +607,7 @@ if menu == "色粉管理":
 
             # 2️⃣ 顯示改 / 刪 操作
             st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
-            st.markdown("<h4 style='font-family:Arial;color:#dbd818;'>✏️ 改 / 🗑️ 刪 操作</h4>", unsafe_allow_html=True)
+            st.markdown("h2 style="font-size:22px; font-family:Arial;color:#dbd818;'>✏️ 改 / 🗑️ 刪 操作</h4>", unsafe_allow_html=True)
 
             for i, row in df_filtered.iterrows():
                 c1, c2, c3 = st.columns([3, 1, 1])
