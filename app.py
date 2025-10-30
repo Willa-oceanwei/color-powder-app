@@ -575,7 +575,7 @@ if menu == "色粉管理":
     st.session_state.setdefault("search_keyword", "")
 
     # 🔍 搜尋輸入框
-    keyword = st.text_input(" 輸入色粉編號或名稱搜尋", value=st.session_state.search_keyword)
+    keyword = st.text_input("輸入色粉編號或名稱搜尋", value=st.session_state.search_keyword)
     st.session_state.search_keyword = keyword.strip()
 
     # 只在有輸入關鍵字時篩選
@@ -585,22 +585,19 @@ if menu == "色粉管理":
             df["名稱"].str.contains(keyword, case=False, na=False) |
             df["國際色號"].str.contains(keyword, case=False, na=False)
         ]
-    else:
-        df_filtered = pd.DataFrame()  # 空表格，不顯示提示
-                
+
+        # 僅在有輸入且結果為空時顯示警告
         if df_filtered.empty:
             st.warning("❗ 查無符合的資料")
         else:
-            # 1️⃣ 顯示表格
+            # 顯示表格
             display_cols = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝"]
             existing_cols = [c for c in display_cols if c in df_filtered.columns]
             df_display = df_filtered[existing_cols].copy()
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
 
-            st.dataframe(
-                df_display,
-                use_container_width=True,
-                hide_index=True
-            )
+    else:
+        df_filtered = pd.DataFrame()  # 未輸入關鍵字，不顯示表格，也不提示
 
             # 標題 + 灰色小字說明
             st.markdown(
