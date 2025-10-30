@@ -3100,6 +3100,16 @@ elif menu == "生產單管理":
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
 
 if menu == "交叉查詢區":
+
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     import pandas as pd
 
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
@@ -3528,6 +3538,16 @@ if menu == "交叉查詢區":
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
 
 if menu == "Pantone色號表":
+
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     import streamlit as st
     import pandas as pd
 
@@ -3671,6 +3691,16 @@ if menu == "Pantone色號表":
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
 
 if menu == "庫存區":
+
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     import pandas as pd
     from datetime import datetime, date # 確保 datetime, date 都有導入
     import streamlit as st # 確保 Streamlit 已導入
@@ -4147,6 +4177,16 @@ if menu == "庫存區":
         
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
+
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     st.markdown(
         '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 庫存查詢</h2>',
         unsafe_allow_html=True
