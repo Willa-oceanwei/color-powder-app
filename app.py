@@ -3667,7 +3667,11 @@ if menu == "Pantone色號表":
             st.warning("查無符合的 Pantone 色號資料。")
         else:
             if not df_result_pantone.empty:
-                st.markdown("### 🎨 Pantone 對照表")
+                st.markdown(
+                    '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2; line-height:1.6;">🔍  Pantone 對照表</h1>',
+                    unsafe_allow_html=True
+                )
+
                 show_pantone_table(df_result_pantone, title="")
             if not df_result_recipe.empty:
                 st.dataframe(
