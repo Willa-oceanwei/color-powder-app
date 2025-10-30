@@ -578,19 +578,15 @@ if menu == "色粉管理":
     keyword = st.text_input(" 輸入色粉編號或名稱搜尋", value=st.session_state.search_keyword)
     st.session_state.search_keyword = keyword.strip()
 
-    # 若未輸入搜尋字，僅顯示提示
-    if keyword == "":
-        st.info("請輸入關鍵字以搜尋色粉資料。")
+    # 只在有輸入關鍵字時篩選
+    if keyword:
+        df_filtered = df[
+            df["色粉編號"].str.contains(keyword, case=False, na=False) |
+            df["名稱"].str.contains(keyword, case=False, na=False) |
+            df["國際色號"].str.contains(keyword, case=False, na=False)
+        ]
     else:
-        # 只在有輸入關鍵字時篩選
-            if keyword:
-                df_filtered = df[
-                    df["色粉編號"].str.contains(keyword, case=False, na=False) |
-                    df["名稱"].str.contains(keyword, case=False, na=False) |
-                    df["國際色號"].str.contains(keyword, case=False, na=False)
-                ]
-            else:
-                df_filtered = pd.DataFrame()  # 空表格，不顯示提示
+        df_filtered = pd.DataFrame()  # 空表格，不顯示提示
                 
         if df_filtered.empty:
             st.warning("❗ 查無符合的資料")
