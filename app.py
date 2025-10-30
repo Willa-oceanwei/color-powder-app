@@ -794,7 +794,7 @@ elif menu == "客戶名單":
         with col2:
             st.text_input("備註", st.session_state.form_customer["備註"], key="form_customer_備註")
 
-        if st.button("💾 儲存", key="save_customer")
+        if st.button("💾 儲存", key="save_customer"):
             new_data = {
                 "客戶編號": st.session_state.get("form_customer_編號", "").strip(),
                 "客戶簡稱": st.session_state.get("form_customer_簡稱", "").strip(),
