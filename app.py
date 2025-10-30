@@ -1957,18 +1957,10 @@ elif menu == "生產單管理":
     </style>
     """, unsafe_allow_html=True)
     
-    st.markdown("""
-    <style>
-    .big-title {
-        font-size: 24px;
-        font-weight: bold;
-        color: #F9DC5C;
-        margin-bottom: 20px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="big-title">🛸生產單建立</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<h2 style="font-size:22px; font-family:Arial; color:#F9DC5C;">🛸 生產單建立</h2>',
+        unsafe_allow_html=True
+    )
 
     from pathlib import Path
     from datetime import datetime
