@@ -1019,19 +1019,19 @@ elif menu == "配方管理":
 
     # 🎯 配方建立（加上 id 與跳轉按鈕）
     st.markdown("""
-    <div id="recipe-create" style="display: flex; align-items: center; gap: 10px;">
-        <div class="big-title">🎯配方建立</div>
-        <a href="#recipe-table" style="
-            background-color: var(--background-color);
-            color: var(--text-color);
-            padding:4px 10px;
-            border-radius:6px;
-            text-decoration:none;
-            font-size:14px;
-            font-family:Arial;
-        ">⬇ 跳到記錄表</a>
-    </div>
-    """, unsafe_allow_html=True)
+        <div id="recipe-create" style="display: flex; align-items: center; gap: 10px;">
+            <h2 style="font-size:22px; font-family:Arial; color:#F9DC5C; margin:0;">🎯 配方建立</h2>
+            <a href="#recipe-table" style="
+                background-color: var(--background-color);
+                color: var(--text-color);
+                padding:4px 10px;
+                border-radius:6px;
+                text-decoration:none;
+                font-size:14px;
+                font-family:Arial;
+            ">⬇ 跳到記錄表</a>
+        </div>
+        """, unsafe_allow_html=True)
   
     # === 欄位定義 ===
     columns = [
