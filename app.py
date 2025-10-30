@@ -3668,7 +3668,7 @@ if menu == "Pantone色號表":
         else:
             if not df_result_pantone.empty:
                 st.markdown(
-                    '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2; line-height:1.6;">🔍  Pantone 對照表</h1>',
+                    '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2; line-height:1.6;">🍭  Pantone 對照表</h1>',
                     unsafe_allow_html=True
                 )
 
