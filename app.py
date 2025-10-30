@@ -491,24 +491,7 @@ if menu == "色粉管理":
     }
     </style>
     """, unsafe_allow_html=True)
-
-    st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🎰色粉搜尋</h2>',
-        unsafe_allow_html=True
-    )
-#---
-
-    search_input = st.text_input("請輸入色粉編號或國際色號", st.session_state.search_color)
-    if search_input != st.session_state.search_color:
-        st.session_state.search_color = search_input
-    df_filtered = df[
-        df["色粉編號"].str.contains(st.session_state.search_color, case=False, na=False)
-        | df["國際色號"].str.contains(st.session_state.search_color, case=False, na=False)
-    ] if st.session_state.search_color.strip() else df
-
-    if st.session_state.search_color.strip() and df_filtered.empty:
-        st.warning("❗ 查無符合的色粉編號")
-
+    
     st.markdown(
         '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">➕新增色粉</h2>',
         unsafe_allow_html=True
@@ -566,7 +549,7 @@ if menu == "色粉管理":
     st.markdown("---")
     # ===== 📋 色粉清單（搜尋後顯示表格與操作） =====
     st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 色粉刪/改</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 色粉刪 / 改</h2>',
         unsafe_allow_html=True
     )
 
