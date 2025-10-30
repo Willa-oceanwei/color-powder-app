@@ -565,7 +565,7 @@ if menu == "色粉管理":
     
     # ===== 📋 色粉清單（搜尋後顯示表格與操作） =====
     st.markdown(
-        '<h2 style="font-size:26px; font-family:Arial; color:#dbd818;">📋 色粉清單</h2>',
+        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📋 色粉清單</h2>',
         unsafe_allow_html=True
     )
 
@@ -586,11 +586,10 @@ if menu == "色粉管理":
         st.info("請輸入關鍵字以搜尋色粉資料。")
     else:
         # 篩選結果
-        df_filtered = df_color[
-            df_color["色粉編號"].str.contains(keyword, case=False, na=False)
-            | df_color["名稱"].str.contains(keyword, case=False, na=False)
+        df_filtered = df[
+            df["色粉編號"].str.contains(keyword, case=False, na=False)
+            | df["名稱"].str.contains(keyword, case=False, na=False)
         ]
-
         if df_filtered.empty:
             st.warning("❗ 查無符合的資料")
         else:
