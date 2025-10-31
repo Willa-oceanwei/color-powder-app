@@ -482,8 +482,8 @@ def load_recipe_data():
         # 都失敗時，回傳空 df
         return pd.DataFrame()
     
-    # 統一使用 df_recipe
-    df_recipe = st.session_state.df_recipe
+        # 統一使用 df_recipe
+        df_recipe = st.session_state.df_recipe
 
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
