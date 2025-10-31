@@ -33,50 +33,47 @@ if "spreadsheet" not in st.session_state:
 spreadsheet = st.session_state["spreadsheet"]
 
 # ========= 🔐 Google Sheet 密碼登入區 =========
+# ========= 🔐 Google Sheet 密碼登入區 =========
 import streamlit as st
 from datetime import datetime
+import json
+from pathlib import Path
 
 # ---------------- 初始化 session_state ----------------
 today = datetime.today().strftime("%Y-%m-%d")
+auth_file = Path("login_status.json")  # 本地檔案記錄登入狀態
 
+# 讀取本地登入檔
+def load_auth_status():
+    if auth_file.exists():
+        try:
+            data = json.load(auth_file)
+            if data.get("auth_date") == today:
+                return True
+        except:
+            pass
+    return False
+
+# 寫入登入狀態
+def save_auth_status():
+    with open(auth_file, "w") as f:
+        json.dump({"auth_date": today}, f)
+
+# Session 初始值
 if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-if "auth_date" not in st.session_state:
-    st.session_state["auth_date"] = ""
+    st.session_state["authenticated"] = load_auth_status()
 if "menu" not in st.session_state:
     st.session_state["menu"] = "生產單管理"
 
 # ----------------- CSS: 修正頁面空白 & 深色背景 -----------------
 st.markdown("""
 <style>
-/* 隱藏 Streamlit header */
 header {height: 0px !important; padding: 0px !important; margin: 0px !important;}
-
-/* 去掉頁面頂部空白 */
 .css-18e3th9 {margin-top: 0rem !important;}
 .block-container {padding-top: 0rem !important; padding-bottom: 1rem !important;}
-
-/* 主背景 */
-[data-testid="stAppViewContainer"] {
-    background-color: #222;
-    font-family: Arial;
-    color: white;
-}
-
-/* Sidebar 標題字 */
-.sidebar .css-1d391kg h1 {
-    font-size: 22px !important;
-    color: white !important;
-}
-
-/* Sidebar 按鈕文字 */
-div.stButton > button {
-    font-size: 16px !important;
-    padding: 6px 12px !important;
-    text-align: left;
-    color: white !important;
-    background-color: #333 !important;
-}
+[data-testid="stAppViewContainer"] {background-color: #222; font-family: Arial; color: white;}
+.sidebar .css-1d391kg h1 {font-size: 22px !important; color: white !important;}
+div.stButton > button {font-size: 16px !important; padding: 6px 12px !important; text-align: left; color: white !important; background-color: #333 !important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -88,14 +85,14 @@ def login_section():
     if login_clicked:
         if input_pw == "120716":  # 你的密碼
             st.session_state["authenticated"] = True
-            st.session_state["auth_date"] = today
+            save_auth_status()
             st.success("✅ 登入成功！")
             st.rerun()
         else:
             st.error("❌ 密碼錯誤")
 
 # ----------------- 登入檢查 -----------------
-if not st.session_state["authenticated"] or st.session_state["auth_date"] != today:
+if not st.session_state["authenticated"]:
     login_section()
     st.stop()
 
@@ -106,25 +103,19 @@ menu_options = [
 ]
 
 with st.sidebar:
-    # Sidebar 標題
     st.markdown('<h1 style="font-size:22px; color:white;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
     
-    # Sidebar menu 按鈕
     for option in menu_options:
         label = f"✅ {option}" if st.session_state.menu == option else option
         if st.button(label, key=f"menu_{option}_btn", use_container_width=True):
             st.session_state.menu = option
     
-    st.markdown("---")  # 分隔線
-    # 登出按鈕
+    st.markdown("---")
     if st.button("登出", key="sidebar_logout"):
         st.session_state["authenticated"] = False
-        st.session_state["auth_date"] = ""
+        if auth_file.exists():
+            auth_file.unlink()  # 刪除本地登入檔
         st.rerun()
-
-# ----------------- 主頁面內容範例 -----------------
-st.write(f"✅ 目前在「{st.session_state.menu}」頁面，可以在這裡放你的主功能")
-
 
 # ===================== 自訂 selectbox CSS 範例 =====================
 st.markdown("""
