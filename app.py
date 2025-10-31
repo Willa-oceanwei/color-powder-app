@@ -31,162 +31,97 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
-
 # ========= 🔐 Google Sheet 密碼登入區 =========
 import streamlit as st
 
-# ======== 設定密碼 =========
-PASSWORD = "120716"  # 直接在程式裡改密碼
-
-# ======== 初始化 session_state =========
+# ===================== 初始化 session_state =====================
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
-
-# ======== 登入畫面 =========
-def login_section():
-    st.markdown('<h2 style="font-size:22px; color:#dbd818;">🔒 登入系統</h2>', unsafe_allow_html=True)
-    input_pw = st.text_input("請輸入密碼", type="password", key="login_input_pw")
-
-    if st.button("登入", key="login_button"):
-        if input_pw == PASSWORD:
-            st.session_state["authenticated"] = True
-            st.success("✅ 登入成功！")
-        else:
-            st.error("❌ 密碼錯誤，請再試一次")
-
-# ======== 登出按鈕 =========
-def logout_section():
-    if st.button("登出", key="logout_button"):
-        st.session_state["authenticated"] = False
-        st.success("🔒 已登出")
-
-# ======== 統一背景與字體色系 =========
-st.markdown("""
-    <style>
-    [data-testid="stAppViewContainer"] {
-        background-color: #222;
-        color: #dbd818;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# ======== 主流程 =========
-if not st.session_state["authenticated"]:
-    login_section()
-    st.stop()  # 未登入時停止後續顯示
-
-# 登入後畫面
-if st.session_state["authenticated"]:
-    st.markdown('<h2 style="font-size:22px; color:#dbd818;">🎨 主畫面</h2>', unsafe_allow_html=True)
-
-    # 登出按鈕（唯一 key）
-    if st.button("登出", key="logout_button_unique"):
-        st.session_state["authenticated"] = False
-        st.success("🔒 已登出")
-        st.experimental_rerun()
-
-    # 這裡放你的主程式內容
-    st.write("✅ 已登入，可以使用主功能！")
-
-# ===== Sidebar =====
-menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
-                "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
-
 if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
+    st.session_state["menu"] = "生產單管理"
 
-with st.sidebar:
-    st.markdown('<h1 style="font-size:22px;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
-    for option in menu_options:
-        label = f"✅ {option}" if st.session_state.menu == option else option
-        if st.button(label, key=f"menu_{option}", use_container_width=True):
-            st.session_state.menu = option
-
-# ===== 主內容範例 =====
-st.write("✅ 已登入，可以使用主功能！")
-
-
-# ===================== 主流程 =====================
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-
-# 統一背景與字體色系
-st.markdown("""
-    <style>
-    [data-testid="stAppViewContainer"] {
-        background-color: #222;
-        color: #dbd818;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# 登入檢查
-if not st.session_state["authenticated"]:
-    if not login_section():
-        st.stop()
-
-# ---- 登入後畫面 ----
-st.markdown("<h2 style='color:#dbd818;'>🎨 主畫面</h2>", unsafe_allow_html=True)
-logout_section()
-
-# 這裡放你的主程式內容
-st.write("✅ 已登入，可以使用主功能！")
-
-#=================================================================
-# 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
-st.markdown(
-    """
-    <style>
-    /* 選中項目背景色 */
-    .st-key-myselect [data-baseweb="option"][aria-selected="true"] {
-        background-color: #999999 !important;  /* 淺灰 */
-        color: black !important;
-        font-weight: bold;
-    }
-    /* 滑鼠滑過項目背景色 */
-    .st-key-myselect [data-baseweb="option"]:hover {
-        background-color: #bbbbbb !important;  /* 更淺灰 */
-        color: black !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)       
-
-# ======== Sidebar 修正 =========
-import streamlit as st
-
-menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
-                "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
-
-if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
-
-# 自訂 CSS：改按鈕字體大小
+# ===================== 全程式 CSS =====================
 st.markdown("""
 <style>
-/* Sidebar 標題字體大小 */
-.sidebar .css-1d391kg h1 {
-    font-size: 24px !important;
+/* 主背景與字體 */
+[data-testid="stAppViewContainer"] {
+    background-color: #222;
+    color: #dbd818;
+    font-family: Arial;
 }
 
-/* Sidebar 按鈕字體大小 */
+/* 全局文字大小 */
+h1, h2, h3, h4, h5, h6, div, p, span {
+    font-size: 22px;
+}
+
+/* Sidebar 按鈕樣式 */
 div.stButton > button {
-    font-size: 14px !important;
-    padding: 8px 12px !important;  /* 可調整上下左右間距 */
+    font-size: 16px !important;
+    padding: 6px 12px !important;
     text-align: left;
 }
 </style>
 """, unsafe_allow_html=True)
 
-with st.sidebar:
-    # 標題
-    st.markdown('<h1 style="font-size:22px;">🌈配方管理系統</h1>', unsafe_allow_html=True)
+# ===================== 登入區 =====================
+def login_section():
+    st.markdown('<h2 style="color:#dbd818;">🔒 登入系統</h2>', unsafe_allow_html=True)
+    input_pw = st.text_input("請輸入密碼", type="password", key="input_pw")
 
+    if st.button("登入", key="login_button"):
+        if input_pw == "120716":  # 單一密碼寫在程式內
+            st.session_state["authenticated"] = True
+            st.success("✅ 登入成功！")
+            st.rerun()
+        else:
+            st.error("❌ 密碼錯誤")
+
+# ===================== 登入檢查 =====================
+if not st.session_state["authenticated"]:
+    login_section()
+    st.stop()  # 未登入時停止往下執行
+
+# ===================== 登入後畫面 =====================
+st.markdown('<h2 style="color:#dbd818;">🎨 主畫面</h2>', unsafe_allow_html=True)
+
+# 登出按鈕
+if st.button("登出", key="logout_button"):
+    st.session_state["authenticated"] = False
+    st.rerun()
+
+# ===================== Sidebar =====================
+menu_options = [
+    "色粉管理", "客戶名單", "配方管理", "生產單管理",
+    "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"
+]
+
+with st.sidebar:
+    st.markdown('<h1 style="font-size:22px;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
     for option in menu_options:
         label = f"✅ {option}" if st.session_state.menu == option else option
-        if st.button(label, key=f"menu_{option}", use_container_width=True):
+        if st.button(label, key=f"menu_{option}_btn", use_container_width=True):
             st.session_state.menu = option
+
+# ===================== 主內容範例 =====================
+st.write(f"✅ 目前在「{st.session_state.menu}」頁面，功能可在這裡顯示。")
+
+# ===================== 自訂 selectbox CSS 範例 =====================
+st.markdown("""
+<style>
+/* 選中項目背景色 */
+.st-key-myselect [data-baseweb="option"][aria-selected="true"] {
+    background-color: #999999 !important;
+    color: black !important;
+    font-weight: bold;
+}
+/* 滑鼠滑過項目背景色 */
+.st-key-myselect [data-baseweb="option"]:hover {
+    background-color: #bbbbbb !important;
+    color: black !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 
 # ===== 在最上方定義函式 =====
