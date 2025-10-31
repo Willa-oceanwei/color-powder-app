@@ -365,6 +365,26 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         lines.append(f"備註 : {remark_text}")
 
     return "<br>".join(lines)
+    
+#========= 低庫存通知=======
+def check_low_stock(last_final_stock):
+    """
+    last_final_stock: dict, key=色粉編號, value=期末庫存(g)
+    """
+    import re
+    import streamlit as st
+
+    for pid, final_g in last_final_stock.items():
+        pid_clean = str(pid).strip()
+        try:
+            final_g_val = float(final_g)
+        except:
+            final_g_val = 0.0
+
+        # 排除尾數是 01, 001, 0001
+        if final_g_val < 1000 and not re.search(r"(01|001|0001)$", pid_clean):
+            final_kg = final_g_val / 1000
+            st.warning(f"⚠️ 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請補料！")
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
@@ -4197,18 +4217,6 @@ if menu == "庫存區":
                 "期末庫存": safe_format(final_g),
                 "備註": ini_date_note,
             })
-
-            # ---------------- 低庫存通知 ----------------
-            pid_clean = str(pid).strip()
-            try:
-                final_g_val = float(final_g)
-            except:
-                final_g_val = 0.0
-
-            # 排除尾數是 01, 001, 0001 的色粉
-            if final_g_val < 1000 and not re.search(r"(01|001|0001)$", pid_clean):
-                final_kg = final_g_val / 1000
-                st.warning(f"⚠️ 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請補料！")
         
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
