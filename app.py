@@ -82,7 +82,6 @@ div.stButton > button {
 
 # ----------------- 登入區 -----------------
 def login_section():
-    st.markdown('<h2 style="color:#dbd818;">🔒 登入系統</h2>', unsafe_allow_html=True)
     input_pw = st.text_input("請輸入密碼", type="password", key="input_pw")
     login_clicked = st.button("登入", key="login_button")
 
