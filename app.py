@@ -33,64 +33,54 @@ spreadsheet = st.session_state["spreadsheet"]
 
 
 # ========= 🔐 Google Sheet 密碼登入區 =========
-# ===================== 初始化 session_state =====================
+import streamlit as st
+
+# ======== 設定密碼 =========
+PASSWORD = "120716"  # 直接在程式裡改密碼
+
+# ======== 初始化 session_state =========
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
-# ===================== 全域樣式 =====================
-st.markdown("""
-<style>
-/* App 背景與字體 */
-[data-testid="stAppViewContainer"] {
-    background-color: #222;
-    color: #dbd818;
-}
-
-/* Sidebar 標題字體大小 */
-.sidebar .css-1d391kg h1 {
-    font-size: 22px !important;
-}
-
-/* Sidebar 按鈕字體大小 */
-div.stButton > button {
-    font-size: 14px !important;
-    padding: 8px 12px !important;
-    text-align: left;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ===================== 登入區 =====================
+# ======== 登入畫面 =========
 def login_section():
-    st.markdown("<h2 style='color:#dbd818;'>🔒 登入系統</h2>", unsafe_allow_html=True)
-
-    # 這裡設定單一密碼，若要改就直接修改 password 變數
-    password = "120716"  # <-- 你可以改成自己想要的密碼
-    input_pw = st.text_input("請輸入密碼", type="password")
+    st.markdown('<h2 style="font-size:22px; color:#dbd818;">🔒 登入系統</h2>', unsafe_allow_html=True)
+    input_pw = st.text_input("請輸入密碼", type="password", key="login_input_pw")
 
     if st.button("登入", key="login_button"):
-        if input_pw == password:
+        if input_pw == PASSWORD:
             st.session_state["authenticated"] = True
             st.success("✅ 登入成功！")
-            st.experimental_rerun()
         else:
             st.error("❌ 密碼錯誤，請再試一次")
 
-# ===================== 登出區 =====================
+# ======== 登出按鈕 =========
 def logout_section():
-    if st.session_state.get("authenticated", False):
-        if st.button("登出", key="logout_button"):
-            st.session_state["authenticated"] = False
-            st.rerun()
+    if st.button("登出", key="logout_button"):
+        st.session_state["authenticated"] = False
+        st.success("🔒 已登出")
 
-# ===================== 主程式 =====================
+# ======== 統一背景與字體色系 =========
+st.markdown("""
+    <style>
+    [data-testid="stAppViewContainer"] {
+        background-color: #222;
+        color: #dbd818;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# ======== 主流程 =========
 if not st.session_state["authenticated"]:
     login_section()
-    st.stop()
+    st.stop()  # 未登入時停止後續顯示
 
-# ---- 登入後畫面 ----
-st.markdown("<h2 style='color:#dbd818;'>🎨 主畫面</h2>", unsafe_allow_html=True)
+# 登入後畫面
+st.markdown('<h2 style="font-size:22px; color:#dbd818;">🎨 主畫面</h2>', unsafe_allow_html=True)
 logout_section()
+
+# 這裡放你的主程式內容
+st.write("✅ 已登入，可以使用主功能！")
 
 # ===== Sidebar =====
 menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
@@ -108,6 +98,8 @@ with st.sidebar:
 
 # ===== 主內容範例 =====
 st.write("✅ 已登入，可以使用主功能！")
+
+
 # ===================== 主流程 =====================
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
