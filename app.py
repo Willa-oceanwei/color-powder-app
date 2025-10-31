@@ -1421,7 +1421,7 @@ if "form_recipe" not in st.session_state:
                 if fr["配方編號"] in df["配方編號"].values:
                     st.warning("⚠️ 此配方編號已存在！")
                     st.stop()
-            fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 df = pd.concat([df, pd.DataFrame([fr])], ignore_index=True)
                 st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
 
