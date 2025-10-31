@@ -56,7 +56,7 @@ def login_section():
 
 # -------- 登出區塊 --------
 def logout_section():
-    if st.button("登出"):
+    if st.button("登出", key="logout_button"):
         st.session_state["authenticated"] = False
         st.rerun()
 
