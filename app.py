@@ -77,10 +77,11 @@ div.stButton > button {
 def login_section():
     st.markdown('<h2 style="color:#dbd818;">🔒 登入系統</h2>', unsafe_allow_html=True)
     input_pw = st.text_input("請輸入密碼", type="password", key="input_pw")
-    if st.button("登入", key="login_button"):
-        if input_pw == "120716":  # 固定密碼
+    login_clicked = st.button("登入", key="login_button")
+    
+    if login_clicked:
+        if input_pw == "120716":  # 單一密碼
             st.session_state["authenticated"] = True
-            st.session_state["auth_date"] = datetime.today().strftime("%Y-%m-%d")
             st.success("✅ 登入成功！")
             st.experimental_rerun()
         else:
@@ -88,9 +89,9 @@ def login_section():
 
 # ---------------------- 登入檢查 ----------------------
 today = datetime.today().strftime("%Y-%m-%d")
-if not st.session_state["authenticated"] or st.session_state["auth_date"] != today:
+if not st.session_state.get("authenticated", False):
     login_section()
-    st.stop()  # 未登入時停止往下執行
+    st.stop()  # 確保未登入時，不會執行後續主程式
 
 # ---------------------- 登入後畫面 ----------------------
 # 登出按鈕
