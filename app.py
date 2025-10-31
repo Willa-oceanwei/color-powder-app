@@ -60,6 +60,15 @@ div.stSelectbox div.css-1uccc91-singleValue,   /* 單行顯示文字 */
 div.st-key-myselect [data-baseweb="option"] { /* 下拉選項 */
     font-size: 14px !important;
 }
+div.stButton > button {
+    color: white !important;
+    font-size: 14px !important;
+    padding: 8px 12px !important;
+    text-align: left;
+}
+div[data-testid="stDataFrame"] span {
+    color: #999999; /* 或 #dbd818 統一色 */
+}
 
 /* Sidebar 按鈕樣式 */
 div.stButton > button {
@@ -67,6 +76,7 @@ div.stButton > button {
     padding: 6px 12px !important;
     text-align: left;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
