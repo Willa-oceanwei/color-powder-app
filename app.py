@@ -33,46 +33,54 @@ spreadsheet = st.session_state["spreadsheet"]
 
 
 # ========= 🔐 Google Sheet 密碼登入區 =========
-SHEET_NAME = "設定"   # 你的設定工作表名稱
+import streamlit as st
 
-# 從主試算表載入設定
-def load_google_sheet(sheet_name):
-    try:
-        worksheet = spreadsheet.worksheet(sheet_name)
-        data = worksheet.get_all_records()
-        return pd.DataFrame(data)
-    except Exception as e:
-        st.error(f"無法讀取設定工作表：{e}")
-        return pd.DataFrame()
+# -------- 固定密碼 --------
+MY_PASSWORD = "120716"
 
-# ===================== 登入邏輯 =====================
+# -------- 初始化 session_state --------
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+# -------- 登入區塊 --------
 def login_section():
     st.markdown("<h2 style='color:#dbd818;'>🔒 登入系統</h2>", unsafe_allow_html=True)
-
-    df_setting = load_google_sheet(SHEET_NAME)
-    if df_setting.empty or "密碼" not in df_setting.columns:
-        st.warning("⚠️ 無法讀取設定工作表或未包含『密碼』欄位")
-        return False
-
-    correct_password = str(df_setting.iloc[0]["密碼"]).strip()
-    input_pw = st.text_input("請輸入密碼", type="password")
-
+    pw_input = st.text_input("請輸入密碼", type="password")
     if st.button("登入"):
-        if input_pw == correct_password:
+        if pw_input == MY_PASSWORD:
             st.session_state["authenticated"] = True
             st.success("✅ 登入成功！")
-            time.sleep(0.5)
             st.rerun()
         else:
             st.error("❌ 密碼錯誤，請再試一次")
 
-    return st.session_state.get("authenticated", False)
-
-# ===================== 登出按鈕 =====================
+# -------- 登出區塊 --------
 def logout_section():
     if st.button("登出"):
         st.session_state["authenticated"] = False
         st.rerun()
+
+# -------- 主程式 --------
+# 統一背景與字體色系
+st.markdown("""
+    <style>
+    [data-testid="stAppViewContainer"] {
+        background-color: #222;
+        color: #dbd818;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+if not st.session_state["authenticated"]:
+    login_section()
+    st.stop()
+
+# 登入後主畫面
+st.markdown("<h2 style='color:#dbd818;'>🎨 主畫面</h2>", unsafe_allow_html=True)
+logout_section()
+
+# 這裡放你原本的主程式內容
+st.write("✅ 已登入，可以使用主功能！")
 
 # ===================== 主流程 =====================
 if "authenticated" not in st.session_state:
