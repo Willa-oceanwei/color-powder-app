@@ -944,39 +944,39 @@ elif menu == "配方管理":
     import streamlit as st
 
     # ------------------- 配方資料初始化 -------------------
-    # 初始化 session_state
     if "df_recipe" not in st.session_state:
         st.session_state.df_recipe = pd.DataFrame()
-    if "trigger_load_recipe" not in st.session_state:
-        st.session_state.trigger_load_recipe = False
-    
+
     def load_recipe_data():
         """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
         try:
             ws_recipe = spreadsheet.worksheet("配方管理")
             df_loaded = pd.DataFrame(ws_recipe.get_all_records())
             if not df_loaded.empty:
-                return df_loaded
+                st.session_state.df_recipe = df_loaded.astype(str)
+                return
         except Exception as e:
             st.warning(f"Google Sheet 載入失敗：{e}")
-    
+
         # 回退 CSV
         order_file = Path("data/df_recipe.csv")
         if order_file.exists():
             try:
-                df_csv = pd.read_csv(order_file)
+                df_csv = pd.read_csv(order_file).astype(str)
                 if not df_csv.empty:
-                    return df_csv
+                    st.session_state.df_recipe = df_csv
+                    return
             except Exception as e:
                 st.error(f"CSV 載入失敗：{e}")
-    
-        # 都失敗時，回傳空 df
-        return pd.DataFrame()
-    
-    # 統一使用 df_recipe
-    df_recipe = st.session_state.df_recipe
 
-    # 預期欄位
+        # 都失敗時
+        st.session_state.df_recipe = pd.DataFrame()
+
+    # 頁面開始就載入最新資料
+    load_recipe_data()
+    df = st.session_state.df_recipe.copy()  # 後續操作用 copy
+
+    # 確保所有欄位存在
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
         "原始配方", "色粉類別", "計量單位", "Pantone色號",
@@ -985,6 +985,14 @@ elif menu == "配方管理":
         *[f"色粉重量{i}" for i in range(1, 9)],
         "合計類別", "建檔時間"
     ]
+
+for col in columns:
+    if col not in df.columns:
+        df[col] = ""
+
+# 初始化表單
+if "form_recipe" not in st.session_state:
+    st.session_state.form_recipe = {col: "" for col in columns}
 
     # 初始化 session_state 需要的變數
     def init_states(keys):
@@ -1405,18 +1413,25 @@ elif menu == "配方管理":
         elif fr["配方類別"] == "附加配方" and fr["原始配方"].strip() == "":
             st.warning("⚠️ 附加配方必須填寫原始配方！")
         else:
+            df = st.session_state.df_recipe.copy()  # 從 session_state 拿資料
             if st.session_state.edit_recipe_index is not None:
                 df.iloc[st.session_state.edit_recipe_index] = pd.Series(fr, index=df.columns)
                 st.success(f"✅ 配方 {fr['配方編號']} 已更新！")
             else:
                 if fr["配方編號"] in df["配方編號"].values:
                     st.warning("⚠️ 此配方編號已存在！")
-                else:
-                    fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    df = pd.concat([df, pd.DataFrame([fr])], ignore_index=True)
-                    st.session_state.df_recipe = df  # ✅ 更新 session_state
-                    st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
-    
+                    st.stop()
+            fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                df = pd.concat([df, pd.DataFrame([fr])], ignore_index=True)
+                st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
+
+            # ✅ 更新主資料
+            st.session_state.df_recipe = df
+            st.session_state.df = df  # 當前頁面也更新
+            st.session_state.form_recipe = {col: "" for col in columns}
+            st.session_state.edit_recipe_index = None
+
+            # ✅ 同步 Google Sheet / CSV
             try:
                 ws_recipe.clear()
                 ws_recipe.update([df.columns.tolist()] + df.values.tolist())
@@ -1425,11 +1440,10 @@ elif menu == "配方管理":
             except Exception as e:
                 st.error(f"❌ 儲存失敗：{e}")
                 st.stop()
-    
-            st.session_state.df = df
-            st.session_state.form_recipe = {col: "" for col in columns}
-            st.session_state.edit_recipe_index = None
+
+            # ✅ 重新整理頁面，確保 sidebar 切換時讀最新資料
             st.rerun()
+
   
     # === 處理新增色粉列 ===
     if add_powder:
@@ -1990,12 +2004,7 @@ elif menu == "配方管理":
         st.session_state.df_recipe = load_recipe_data()
         st.success("配方資料已重新載入！")
         st.rerun()
-        # 頁面最下方手動載入按鈕
-        st.markdown("---")
-        if st.button("📥 重新載入配方資料"):
-            st.session_state.df_recipe = load_recipe_data()
-            st.success("配方資料已重新載入！")
-            st.rerun()  # 重新載入頁面，更新資料
+        
             
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
