@@ -81,7 +81,7 @@ def logout_section():
     if st.session_state.get("authenticated", False):
         if st.button("登出", key="logout_button"):
             st.session_state["authenticated"] = False
-            st.experimental_rerun()
+            st.rerun()
 
 # ===================== 主程式 =====================
 if not st.session_state["authenticated"]:
