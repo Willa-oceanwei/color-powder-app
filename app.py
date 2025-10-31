@@ -2528,19 +2528,25 @@ elif menu == "生產單管理":
 
                 # ---------------- 低庫存通知 ----------------
                 for i in range(1, 9):
-                    pid = recipe_row.get(f"色粉編號{i}", "")
-                    if not pid: 
+                    pid = recipe_row.get(f"色粉編號{i}", "").strip()
+                    if not pid:
                         continue
-                    try:
-                        final_g_val = st.session_state["last_final_stock"].get(pid, 0)
-                        used_g = float(recipe_row.get(f"色粉重量{i}", 0))  # 本次生產單用量
-                        final_after_order = final_g_val - used_g
-                    except:
-                        final_after_order = 0.0
 
-                    pid_clean = str(pid).strip()
-                    if final_after_order < 1000 and not re.search(r"(01|001|0001)$", pid_clean):
-                        st.warning(f"⚠️ 色粉 {pid_clean} 庫存僅剩 {final_after_order/1000:.2f} kg，請補料！")
+                    # 取得該色粉目前庫存
+                    final_g_val = st.session_state.get("last_final_stock", {}).get(pid, 0)
+
+                    # 取得這筆生產單使用量
+                    try:
+                        used_g = float(recipe_row.get(f"色粉重量{i}", 0))
+                    except:
+                        used_g = 0
+
+                    # 計算扣除使用量後的庫存
+                    final_after_order = final_g_val - used_g
+        
+                    # 檢查是否低於 1kg，排除尾碼
+                    if final_after_order < 1000 and not re.search(r"(01|001|0001)$", pid):
+                        st.warning(f"⚠️ 色粉 {pid} 庫存僅剩 {final_after_order/1000:.2f} kg，請補料！")
 
         
                 # ➕ 寫入 Google Sheets、CSV 等流程
