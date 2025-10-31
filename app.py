@@ -2532,6 +2532,7 @@ elif menu == "生產單管理":
 
                 # ---------- 低庫存檢查 ----------
                 last_stock = st.session_state.get("last_final_stock", {})
+                st.write("DEBUG last_final_stock:", last_stock)
                 if last_stock:
                     check_low_stock(last_stock)
                 else:
