@@ -48,15 +48,15 @@ today = datetime.today().strftime("%Y-%m-%d")
 # ----------------- 修正頁面上方多餘空間 -----------------
 st.markdown("""
 <style>
-/* 移除 Streamlit 頁面標題上方空白 */
+/* 隱藏 Streamlit 頁面 header（最上方橫條） */
+header {height: 0px !important; padding: 0px !important; margin: 0px !important;}
+
+/* 去掉頁面頂部空白 */
 .css-18e3th9 {margin-top: 0rem !important;}
-.css-1d391kg {margin-bottom: 0rem !important;}
+.block-container {padding-top: 0rem !important;}
 
-/* 移除 Streamlit 頁面 header 高度 */
-header {height: 0px !important; padding: 0px !important;}
-
-/* 移除 Streamlit 頁面 padding */
-.block-container {padding-top: 0rem !important; padding-bottom: 1rem !important;}
+/* 去掉頁面底部多餘空白 */
+.block-container {padding-bottom: 1rem !important;}
 </style>
 """, unsafe_allow_html=True)
 
