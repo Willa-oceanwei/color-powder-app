@@ -365,15 +365,12 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         lines.append(f"備註 : {remark_text}")
 
     return "<br>".join(lines)
-    
-#========= 低庫存通知=======
+
+# ========= 低庫存通知函式 =========
 def check_low_stock(last_final_stock):
     """
     last_final_stock: dict, key=色粉編號, value=期末庫存(g)
     """
-    import re
-    import streamlit as st
-
     for pid, final_g in last_final_stock.items():
         pid_clean = str(pid).strip()
         try:
@@ -2528,28 +2525,12 @@ elif menu == "生產單管理":
 
                 st.write("DEBUG last_final_stock:", st.session_state.get("last_final_stock", {}))
 
-                # ---------------- 低庫存通知 ----------------
-                for i in range(1, 9):
-                    pid = recipe_row.get(f"色粉編號{i}", "").strip()
-                    if not pid:
-                        continue
-
-                    # 取得該色粉目前庫存
-                    final_g_val = st.session_state.get("last_final_stock", {}).get(pid, 0)
-
-                    # 取得這筆生產單使用量
-                    try:
-                        used_g = float(recipe_row.get(f"色粉重量{i}", 0))
-                    except:
-                        used_g = 0
-
-                    # 計算扣除使用量後的庫存
-                    final_after_order = final_g_val - used_g
-        
-                    # 檢查是否低於 1kg，排除尾碼
-                    if final_after_order < 1000 and not re.search(r"(01|001|0001)$", pid):
-                        st.warning(f"⚠️ 色粉 {pid} 庫存僅剩 {final_after_order/1000:.2f} kg，請補料！")
-
+                # ---------- 低庫存檢查 ----------
+                last_stock = st.session_state.get("last_final_stock", {})
+                if last_stock:
+                    check_low_stock(last_stock)
+                else:
+                    st.info("⚠️ 尚未計算期末庫存，無法檢查低庫存")
         
                 # ➕ 寫入 Google Sheets、CSV 等流程
                 header = [col for col in df_order.columns if col and str(col).strip() != ""]
