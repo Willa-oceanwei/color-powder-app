@@ -50,9 +50,15 @@ st.markdown("""
     font-family: Arial;
 }
 
-/* 全局文字大小 */
-h1, h2, h3, h4, h5, h6, div, p, span {
+# 全局文字大小保留標題與主要內容
+h1, h2, h3, h4, h5, h6, div.main-text, p, span.main-text {
     font-size: 22px;
+}
+
+# 下拉選單文字單獨調整
+div.stSelectbox div.css-1uccc91-singleValue,   /* 單行顯示文字 */
+div.st-key-myselect [data-baseweb="option"] { /* 下拉選項 */
+    font-size: 14px !important;
 }
 
 /* Sidebar 按鈕樣式 */
