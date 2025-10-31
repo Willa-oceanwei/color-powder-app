@@ -9,7 +9,25 @@ import time
 import base64
 import re
 
-
+# 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
+st.markdown(
+    """
+    <style>
+    /* 選中項目背景色 */
+    .st-key-myselect [data-baseweb="option"][aria-selected="true"] {
+        background-color: #999999 !important;  /* 淺灰 */
+        color: black !important;
+        font-weight: bold;
+    }
+    /* 滑鼠滑過項目背景色 */
+    .st-key-myselect [data-baseweb="option"]:hover {
+        background-color: #bbbbbb !important;  /* 更淺灰 */
+        color: black !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
@@ -32,110 +50,40 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
-# ========= 🔐 Google Sheet 密碼登入區 =========
+# ======== Sidebar 修正 =========
 import streamlit as st
-from datetime import datetime
-import json
-from pathlib import Path
 
-# ---------------- 初始化 session_state ----------------
-today = datetime.today().strftime("%Y-%m-%d")
-auth_file = Path("login_status.json")  # 本地檔案記錄登入狀態
+menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
+                "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
 
-# 讀取本地登入檔
-def load_auth_status():
-    if auth_file.exists():
-        try:
-            data = json.load(auth_file)
-            if data.get("auth_date") == today:
-                return True
-        except:
-            pass
-    return False
-
-# 寫入登入狀態
-def save_auth_status():
-    with open(auth_file, "w") as f:
-        json.dump({"auth_date": today}, f)
-
-# Session 初始值
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = load_auth_status()
 if "menu" not in st.session_state:
-    st.session_state["menu"] = "生產單管理"
+    st.session_state.menu = "生產單管理"
 
-# ----------------- CSS: 修正頁面空白 & 深色背景 -----------------
+# 自訂 CSS：改按鈕字體大小
 st.markdown("""
 <style>
-header {height: 0px !important; padding: 0px !important; margin: 0px !important;}
-.css-18e3th9 {margin-top: 0rem !important;}
-.block-container {padding-top: 0rem !important; padding-bottom: 1rem !important;}
-[data-testid="stAppViewContainer"] {background-color: #222; font-family: Arial; color: white;}
-.sidebar .css-1d391kg h1 {font-size: 22px !important; color: white !important;}
-div.stButton > button {font-size: 16px !important; padding: 6px 12px !important; text-align: left; color: white !important; background-color: #333 !important;}
+/* Sidebar 標題字體大小 */
+.sidebar .css-1d391kg h1 {
+    font-size: 24px !important;
+}
+
+/* Sidebar 按鈕字體大小 */
+div.stButton > button {
+    font-size: 14px !important;
+    padding: 8px 12px !important;  /* 可調整上下左右間距 */
+    text-align: left;
+}
 </style>
 """, unsafe_allow_html=True)
-
-# ----------------- 登入區 -----------------
-def login_section():
-    input_pw = st.text_input("請輸入密碼", type="password", key="input_pw")
-    login_clicked = st.button("登入", key="login_button")
-
-    if login_clicked:
-        if input_pw == "120716":  # 你的密碼
-            st.session_state["authenticated"] = True
-            save_auth_status()
-            st.success("✅ 登入成功！")
-            st.rerun()
-        else:
-            st.error("❌ 密碼錯誤")
-
-# ----------------- 登入檢查 -----------------
-if not st.session_state["authenticated"]:
-    login_section()
-    st.stop()
-
-# ----------------- Sidebar -----------------
-menu_options = [
-    "色粉管理", "客戶名單", "配方管理", "生產單管理",
-    "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"
-]
 
 with st.sidebar:
-    st.markdown('<h1 style="font-size:22px; color:white;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
-    
+    # 標題
+    st.markdown('<h1 style="font-size:22px;">🌈配方管理系統</h1>', unsafe_allow_html=True)
+
     for option in menu_options:
         label = f"✅ {option}" if st.session_state.menu == option else option
-        if st.button(label, key=f"menu_{option}_btn", use_container_width=True):
+        if st.button(label, key=f"menu_{option}", use_container_width=True):
             st.session_state.menu = option
-            # 如果切到生產單或配方管理，自動更新資料
-            if option in ["生產單管理", "配方管理"]:
-                load_recipe()  # 重新載入配方資料
-                st.rerun()
-    
-    st.markdown("---")
-    if st.button("登出", key="sidebar_logout"):
-        st.session_state["authenticated"] = False
-        if auth_file.exists():
-            auth_file.unlink()  # 刪除本地登入檔
-        st.rerun()
-
-# ===================== 自訂 selectbox CSS 範例 =====================
-st.markdown("""
-<style>
-/* 選中項目背景色 */
-.st-key-myselect [data-baseweb="option"][aria-selected="true"] {
-    background-color: #999999 !important;
-    color: black !important;
-    font-weight: bold;
-}
-/* 滑鼠滑過項目背景色 */
-.st-key-myselect [data-baseweb="option"]:hover {
-    background-color: #bbbbbb !important;
-    color: black !important;
-}
-</style>
-""", unsafe_allow_html=True)
 
 
 # ===== 在最上方定義函式 =====
@@ -190,7 +138,6 @@ def init_states(keys=None):
                 st.session_state[key] = 1
             else:
                 st.session_state[key] = None
-                
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
@@ -944,45 +891,39 @@ elif menu == "配方管理":
     import streamlit as st
 
     # ------------------- 配方資料初始化 -------------------
-    # 安全初始化 df_recipe
-    if "df_recipe" not in st.session_state or not isinstance(st.session_state.df_recipe, pd.DataFrame):
-        st.session_state.df_recipe = pd.DataFrame(columns=columns)
-
-    df_recipe = st.session_state.df_recipe
-    
+    # 初始化 session_state
     if "df_recipe" not in st.session_state:
         st.session_state.df_recipe = pd.DataFrame()
-
-    def load_recipe():
+    if "trigger_load_recipe" not in st.session_state:
+        st.session_state.trigger_load_recipe = False
+    
+    def load_recipe_data():
         """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
         try:
             ws_recipe = spreadsheet.worksheet("配方管理")
             df_loaded = pd.DataFrame(ws_recipe.get_all_records())
             if not df_loaded.empty:
-                st.session_state.df_recipe = df_loaded.astype(str)
-                return
+                return df_loaded
         except Exception as e:
             st.warning(f"Google Sheet 載入失敗：{e}")
-
+    
         # 回退 CSV
         order_file = Path("data/df_recipe.csv")
         if order_file.exists():
             try:
-                df_csv = pd.read_csv(order_file).astype(str)
+                df_csv = pd.read_csv(order_file)
                 if not df_csv.empty:
-                    st.session_state.df_recipe = df_csv
-                    return
+                    return df_csv
             except Exception as e:
                 st.error(f"CSV 載入失敗：{e}")
+    
+        # 都失敗時，回傳空 df
+        return pd.DataFrame()
+    
+    # 統一使用 df_recipe
+    df_recipe = st.session_state.df_recipe
 
-        # 都失敗時
-        st.session_state.df_recipe = pd.DataFrame()
-
-    # 頁面開始就載入最新資料
-    load_recipe_data()
-    df = st.session_state.df_recipe.copy()  # 後續操作用 copy
-
-    # 確保所有欄位存在
+    # 預期欄位
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
         "原始配方", "色粉類別", "計量單位", "Pantone色號",
@@ -991,14 +932,6 @@ elif menu == "配方管理":
         *[f"色粉重量{i}" for i in range(1, 9)],
         "合計類別", "建檔時間"
     ]
-
-for col in columns:
-    if col not in df.columns:
-        df[col] = ""
-
-# 初始化表單
-if "form_recipe" not in st.session_state:
-    st.session_state.form_recipe = {col: "" for col in columns}
 
     # 初始化 session_state 需要的變數
     def init_states(keys):
@@ -1419,25 +1352,17 @@ if "form_recipe" not in st.session_state:
         elif fr["配方類別"] == "附加配方" and fr["原始配方"].strip() == "":
             st.warning("⚠️ 附加配方必須填寫原始配方！")
         else:
-            df = st.session_state.df_recipe.copy()  # 從 session_state 拿資料
             if st.session_state.edit_recipe_index is not None:
                 df.iloc[st.session_state.edit_recipe_index] = pd.Series(fr, index=df.columns)
                 st.success(f"✅ 配方 {fr['配方編號']} 已更新！")
             else:
                 if fr["配方編號"] in df["配方編號"].values:
                     st.warning("⚠️ 此配方編號已存在！")
-                    st.stop()
-                fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                df = pd.concat([df, pd.DataFrame([fr])], ignore_index=True)
-                st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
-
-            # ✅ 更新主資料
-            st.session_state.df_recipe = df
-            st.session_state.df = df  # 當前頁面也更新
-            st.session_state.form_recipe = {col: "" for col in columns}
-            st.session_state.edit_recipe_index = None
-
-            # ✅ 同步 Google Sheet / CSV
+                else:
+                    fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    df = pd.concat([df, pd.DataFrame([fr])], ignore_index=True)
+                    st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
+    
             try:
                 ws_recipe.clear()
                 ws_recipe.update([df.columns.tolist()] + df.values.tolist())
@@ -1446,10 +1371,11 @@ if "form_recipe" not in st.session_state:
             except Exception as e:
                 st.error(f"❌ 儲存失敗：{e}")
                 st.stop()
-
-            # ✅ 重新整理頁面，確保 sidebar 切換時讀最新資料
+    
+            st.session_state.df = df
+            st.session_state.form_recipe = {col: "" for col in columns}
+            st.session_state.edit_recipe_index = None
             st.rerun()
-
   
     # === 處理新增色粉列 ===
     if add_powder:
@@ -2009,8 +1935,13 @@ if "form_recipe" not in st.session_state:
     if st.button("📥 重新載入配方資料"):
         st.session_state.df_recipe = load_recipe_data()
         st.success("配方資料已重新載入！")
-        st.rerun()
-        
+        st.experimental_rerun()
+        # 頁面最下方手動載入按鈕
+        st.markdown("---")
+        if st.button("📥 重新載入配方資料"):
+            st.session_state.df_recipe = load_recipe_data()
+            st.success("配方資料已重新載入！")
+            st.experimental_rerun()  # 重新載入頁面，更新資料
             
     # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
