@@ -31,16 +31,14 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
+
 # ========= 🔐 Google Sheet 密碼登入區 =========
 SHEET_NAME = "設定"   # 你的設定工作表名稱
-PASSWORD_SHEET_URL = "https://docs.google.com/spreadsheets/d/【換成你的ID】/edit"
 
-# 連線授權（使用上面已建立的 client）
+# 從主試算表載入設定
 def load_google_sheet(sheet_name):
     try:
-        # 直接使用上方 client
-        sh = spreadsheet  # ← 已在最上方建立好的 Spreadsheet 物件
-        worksheet = sh.worksheet(sheet_name)
+        worksheet = spreadsheet.worksheet(sheet_name)
         data = worksheet.get_all_records()
         return pd.DataFrame(data)
     except Exception as e:
@@ -63,6 +61,7 @@ def login_section():
         if input_pw == correct_password:
             st.session_state["authenticated"] = True
             st.success("✅ 登入成功！")
+            time.sleep(0.5)
             st.rerun()
         else:
             st.error("❌ 密碼錯誤，請再試一次")
