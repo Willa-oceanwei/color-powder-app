@@ -2477,113 +2477,105 @@ elif menu == "生產單管理":
                 if submitted:
                     st.write("DEBUG: 按鈕已按下")
 
+                    # ---------- 更新 order ----------
+                    order["顏色"] = st.session_state.form_color
+                    order["Pantone 色號"] = st.session_state.form_pantone
+                    order["料"] = st.session_state.form_raw_material
+                    order["備註"] = st.session_state.form_remark
+                    order["重要提醒"] = st.session_state.form_important_note
+                    order["合計類別"] = st.session_state.form_total_category
+
+                    for i in range(1, 5):
+                        order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
+                        order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
+
+                    # 儲存色粉編號與重量
+                    for i in range(1, 9):
+                        key_id = f"色粉編號{i}"
+                        key_weight = f"色粉重量{i}"
+                        order[key_id] = recipe_row.get(key_id, "")
+                        order[key_weight] = recipe_row.get(key_weight, "")
+
+                    # ---------- 計算色粉合計 ----------
+                    if recipe_row is None:
+                        recipe_row = {}
+                    elif isinstance(recipe_row, pd.Series):
+                        recipe_row = recipe_row.to_dict()
+
+                    raw_net_weight = recipe_row.get("淨重", 0)
+                    try:
+                        net_weight = float(raw_net_weight)
+                    except (ValueError, TypeError):
+                        net_weight = 0.0
+
+                    color_weight_list = []
+                    for i in range(1, 5):
+                        try:
+                            w_str = str(st.session_state.get(f"form_weight{i}", "")).strip()
+                            weight = float(w_str) if w_str else 0.0
+                            if weight > 0:
+                                color_weight_list.append({
+                                    "項次": i,
+                                    "重量": weight,
+                                    "結果": net_weight * weight
+                                })
+                        except Exception as e:
+                            continue
+
+                    order["色粉合計清單"] = color_weight_list
+                    order["色粉合計類別"] = recipe_row.get("合計類別", "")
+
+                    # DEBUG：確認 last_final_stock 內容
+                    st.write("DEBUG last_final_stock:", st.session_state.get("last_final_stock", {}))
+
+                    # ➕ 寫入 Google Sheets、CSV 等流程
+                    header = [col for col in df_order.columns if col and str(col).strip() != ""]
+                    row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
+                    try:
+                        ws_order.append_row(row_data)
+                        df_new = pd.DataFrame([order], columns=df_order.columns)
+                        df_order = pd.concat([df_order, df_new], ignore_index=True)
+                        df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+                        st.session_state.df_order = df_order
+                        st.session_state.new_order_saved = True
+                        st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+                    except Exception as e:
+                        st.error(f"❌ 寫入失敗：{e}")
+
                     # ---------- 低庫存檢查 ----------
                     last_stock = st.session_state.get("last_final_stock", {})
-                    st.write("DEBUG last_final_stock:", last_stock)
+                    st.write("DEBUG last_final_stock (檢查用):", last_stock)
                     if last_stock:
                         check_low_stock(last_stock)
                     else:
                         st.info("⚠️ 尚未計算期末庫存，無法檢查低庫存")
-        
-        
-            if submitted:
-                order["顏色"] = st.session_state.form_color
-                order["Pantone 色號"] = st.session_state.form_pantone
-                order["料"] = st.session_state.form_raw_material
-                order["備註"] = st.session_state.form_remark
-                order["重要提醒"] = st.session_state.form_important_note
-                order["合計類別"] = st.session_state.form_total_category
-        
-                for i in range(1, 5):
-                    order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
-                    order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
-        
-                # 儲存色粉編號與重量
-                for i in range(1, 9):
-                    key_id = f"色粉編號{i}"
-                    key_weight = f"色粉重量{i}"
-                    order[key_id] = recipe_row.get(key_id, "")
-                    order[key_weight] = recipe_row.get(key_weight, "")
-        
 
-                # ---------- 計算色粉合計 ----------
-                # 確保 recipe_row 是字典
-                if recipe_row is None:
-                    recipe_row = {}
-                elif isinstance(recipe_row, pd.Series):
-                    recipe_row = recipe_row.to_dict()
+                    # 產生列印 HTML 按鈕
+                    show_ids = st.checkbox("列印時顯示附加配方編號", value=False)
+                    print_html = generate_print_page_content(
+                        order=order,
+                        recipe_row=recipe_row,
+                        additional_recipe_rows=order.get("附加配方", []),
+                        show_additional_ids=show_ids
+                    )
 
-                # 嘗試安全取得淨重
-                raw_net_weight = recipe_row.get("淨重", 0)
-                try:
-                    net_weight = float(raw_net_weight)
-                except (ValueError, TypeError):
-                    net_weight = 0.0
+                    # 下載按鈕         
+                    col1, col2, col3 = st.columns([3, 1, 3])
+                    with col1:
+                        st.download_button(
+                            label="📥 下載 A5 HTML",
+                            data=print_html.encode("utf-8"),
+                            file_name=f"{order['生產單號']}_列印.html",
+                            mime="text/html"
+                        )
 
-                color_weight_list = []
-                for i in range(1, 5):
-                    try:
-                        w_str = str(st.session_state.get(f"form_weight{i}", "")).strip()
-                        weight = float(w_str) if w_str else 0.0
-                        if weight > 0:
-                            color_weight_list.append({
-                                "項次": i,
-                                "重量": weight,
-                                "結果": net_weight * weight
-                            })
-                    except Exception as e:
-                        # 可加上除錯用 log，例如：print(f"⚠️ 第{i}項重量錯誤: {e}")
-                        continue
+                    with col3:
+                        if st.button("🔙 返回", key="back_button"):
+                            st.session_state.new_order = None
+                            st.session_state.show_confirm_panel = False
+                            st.session_state.new_order_saved = False
+                            st.rerun()
 
-                order["色粉合計清單"] = color_weight_list
-                order["色粉合計類別"] = recipe_row.get("合計類別", "")
-
-                # DEBUG：確認 last_final_stock 內容
-                st.write("DEBUG last_final_stock:", st.session_state.get("last_final_stock", {}))
-
-                
-                # ➕ 寫入 Google Sheets、CSV 等流程
-                header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
-                try:
-                    ws_order.append_row(row_data)
-                    df_new = pd.DataFrame([order], columns=df_order.columns)
-                    df_order = pd.concat([df_order, df_new], ignore_index=True)
-                    df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
-                    st.session_state.df_order = df_order
-                    st.session_state.new_order_saved = True
-                    st.success(f"✅ 生產單 {order['生產單號']} 已存！")
-                except Exception as e:
-                    st.error(f"❌ 寫入失敗：{e}")
-        
-            # 產生列印 HTML 按鈕
-            # ✅ 加入 checkbox 讓使用者決定是否顯示附加配方編號
-            show_ids = st.checkbox("列印時顯示附加配方編號", value=False)
-            
-            # 產生列印 HTML
-            print_html = generate_print_page_content(
-                order=order,
-                recipe_row=recipe_row,
-                additional_recipe_rows=order.get("附加配方", []),
-                show_additional_ids=show_ids
-            )
-            
-            # 下載按鈕         
-            col1, col2, col3 = st.columns([3, 1, 3])
-            with col1:
-                st.download_button(
-                    label="📥 下載 A5 HTML",
-                    data=print_html.encode("utf-8"),
-                    file_name=f"{order['生產單號']}_列印.html",
-                    mime="text/html"
-                )
-            
-            with col3:
-                if st.button("🔙 返回", key="back_button"):
-                    st.session_state.new_order = None
-                    st.session_state.show_confirm_panel = False
-                    st.session_state.new_order_saved = False
-                    st.rerun()
                             
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
