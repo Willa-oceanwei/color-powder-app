@@ -2527,17 +2527,20 @@ elif menu == "生產單管理":
                 order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
                 # ---------------- 低庫存通知 ----------------
-                for pid, final_g in st.session_state.get("last_final_stock", {}).items():
-                    pid_clean = str(pid).strip()
+                for i in range(1, 9):
+                    pid = recipe_row.get(f"色粉編號{i}", "")
+                    if not pid: 
+                        continue
                     try:
-                        final_g_val = float(final_g)
+                        final_g_val = st.session_state["last_final_stock"].get(pid, 0)
+                        used_g = float(recipe_row.get(f"色粉重量{i}", 0))  # 本次生產單用量
+                        final_after_order = final_g_val - used_g
                     except:
-                        final_g_val = 0.0
+                        final_after_order = 0.0
 
-                    # 排除尾數是 01, 001, 0001 的色粉
-                    if final_g_val < 1000 and not re.search(r"(01|001|0001)$", pid_clean):
-                        final_kg = final_g_val / 1000
-                        st.warning(f"⚠️ 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請補料！")
+                    pid_clean = str(pid).strip()
+                    if final_after_order < 1000 and not re.search(r"(01|001|0001)$", pid_clean):
+                        st.warning(f"⚠️ 色粉 {pid_clean} 庫存僅剩 {final_after_order/1000:.2f} kg，請補料！")
 
         
                 # ➕ 寫入 Google Sheets、CSV 等流程
