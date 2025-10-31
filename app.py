@@ -88,9 +88,6 @@ if not st.session_state["authenticated"]:
     login_section()
     st.stop()  # 未登入時停止往下執行
 
-# ===================== 登入後畫面 =====================
-st.markdown('<h2 style="color:#dbd818;">🎨 主畫面</h2>', unsafe_allow_html=True)
-
 # 登出按鈕
 if st.button("登出", key="logout_button"):
     st.session_state["authenticated"] = False
@@ -108,9 +105,6 @@ with st.sidebar:
         label = f"✅ {option}" if st.session_state.menu == option else option
         if st.button(label, key=f"menu_{option}_btn", use_container_width=True):
             st.session_state.menu = option
-
-# ===================== 主內容範例 =====================
-st.write(f"✅ 目前在「{st.session_state.menu}」頁面，功能可在這裡顯示。")
 
 # ===================== 自訂 selectbox CSS 範例 =====================
 st.markdown("""
