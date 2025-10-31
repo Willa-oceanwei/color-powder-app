@@ -8,7 +8,7 @@ import json
 import time
 import base64
 import re
-from datetime import datetime
+
 
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
@@ -34,14 +34,31 @@ spreadsheet = st.session_state["spreadsheet"]
 
 # ========= 🔐 Google Sheet 密碼登入區 =========
 import streamlit as st
-
-# ===================== 初始化 session_state =====================
+from datetime import datetime
+# -------------- 初始化 session_state -------------
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 if "auth_date" not in st.session_state:
     st.session_state["auth_date"] = ""
 if "menu" not in st.session_state:
     st.session_state["menu"] = "生產單管理"
+
+today = datetime.today().strftime("%Y-%m-%d")
+
+# ----------------- 修正頁面上方多餘空間 -----------------
+st.markdown("""
+<style>
+/* 移除 Streamlit 頁面標題上方空白 */
+.css-18e3th9 {margin-top: 0rem !important;}
+.css-1d391kg {margin-bottom: 0rem !important;}
+
+/* 移除 Streamlit 頁面 header 高度 */
+header {height: 0px !important; padding: 0px !important;}
+
+/* 移除 Streamlit 頁面 padding */
+.block-container {padding-top: 0rem !important; padding-bottom: 1rem !important;}
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------------- 全程式 CSS ----------------------
 st.markdown("""
@@ -73,62 +90,40 @@ div.stButton > button {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------- 登入區 ----------------------
+# --------------- 登入區----------------
 def login_section():
     st.markdown('<h2 style="color:#dbd818;">🔒 登入系統</h2>', unsafe_allow_html=True)
     input_pw = st.text_input("請輸入密碼", type="password", key="input_pw")
     login_clicked = st.button("登入", key="login_button")
-    
+
     if login_clicked:
-        if input_pw == "120716":  # 單一密碼
+        if input_pw == "120716":
             st.session_state["authenticated"] = True
+            st.session_state["auth_date"] = today
             st.success("✅ 登入成功！")
             st.experimental_rerun()
         else:
             st.error("❌ 密碼錯誤")
 
-# ---------------------- 登入檢查 ----------------------
-today = datetime.today().strftime("%Y-%m-%d")
-if not st.session_state.get("authenticated", False):
+# ================= 登入檢查 =================
+if not st.session_state["authenticated"] or st.session_state["auth_date"] != today:
     login_section()
-    st.stop()  # 確保未登入時，不會執行後續主程式
+    st.stop()
 
-# ---------------------- 登入後畫面 ----------------------
-# 登出按鈕
+# ================= 登入後畫面 =================
 if st.button("登出", key="logout_button"):
     st.session_state["authenticated"] = False
     st.session_state["auth_date"] = ""
     st.experimental_rerun()
 
-# ---------------------- Sidebar ----------------------
-menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理",
-                "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
-
-with st.sidebar:
-    st.markdown('<h1 style="font-size:22px; color:white;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
-    for option in menu_options:
-        label = f"✅ {option}" if st.session_state.menu == option else option
-        if st.button(label, key=f"menu_{option}_menu", use_container_width=True):
-            st.session_state.menu = option
-
-# ===================== 登入檢查 =====================
-if not st.session_state["authenticated"]:
-    login_section()
-    st.stop()  # 未登入時停止往下執行
-
-# 登出按鈕
-if st.button("登出", key="logout_button"):
-    st.session_state["authenticated"] = False
-    st.rerun()
-
-# ===================== Sidebar =====================
+# ================= Sidebar =================
 menu_options = [
     "色粉管理", "客戶名單", "配方管理", "生產單管理",
     "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"
 ]
 
 with st.sidebar:
-    st.markdown('<h1 style="font-size:22px;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="font-size:22px; color:white;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
     for option in menu_options:
         label = f"✅ {option}" if st.session_state.menu == option else option
         if st.button(label, key=f"menu_{option}_btn", use_container_width=True):
