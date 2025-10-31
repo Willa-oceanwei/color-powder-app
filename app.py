@@ -41,45 +41,40 @@ if "menu" not in st.session_state:
     st.session_state["menu"] = "生產單管理"
 
 # ===================== 全程式 CSS =====================
+# ===================== CSS 調整 =====================
 st.markdown("""
 <style>
-/* 主背景與字體 */
+/* 主背景深色 */
 [data-testid="stAppViewContainer"] {
     background-color: #222;
-    color: #dbd818;
-    font-family: Arial;
 }
 
-# 全局文字大小保留標題與主要內容
-h1, h2, h3, h4, h5, h6, div.main-text, p, span.main-text {
-    font-size: 22px;
+/* 移除頁面上方多餘空白 */
+.css-18e3th9 {  /* 主內容容器 */
+    padding-top: 0rem;
+    padding-bottom: 0rem;
 }
 
-# 下拉選單文字單獨調整
-div.stSelectbox div.css-1uccc91-singleValue,   /* 單行顯示文字 */
-div.st-key-myselect [data-baseweb="option"] { /* 下拉選項 */
-    font-size: 14px !important;
-}
-div.stButton > button {
-    color: white !important;
-    font-size: 14px !important;
-    padding: 8px 12px !important;
-    text-align: left;
-}
-div[data-testid="stDataFrame"] span {
-    color: #999999; /* 或 #dbd818 統一色 */
+/* 移除 header / title 上方 margin */
+h1, h2, h3, h4, h5, h6 {
+    margin-top: 0rem;
+    margin-bottom: 0.3rem;
 }
 
-/* Sidebar 按鈕樣式 */
+/* Sidebar 按鈕 */
 div.stButton > button {
     font-size: 16px !important;
     padding: 6px 12px !important;
     text-align: left;
 }
 
+/* 下拉選單選項大小恢復正常 */
+div.stSelectbox > div > div > div.css-1uccc91-singleValue {
+    font-size: 14px;
+    color: black;
+}
 </style>
 """, unsafe_allow_html=True)
-
 # ===================== 登入區 =====================
 def login_section():
     st.markdown('<h2 style="color:#dbd818;">🔒 登入系統</h2>', unsafe_allow_html=True)
