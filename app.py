@@ -2474,6 +2474,8 @@ elif menu == "生產單管理":
                         )
   
                 submitted = st.form_submit_button("💾 儲存生產單")
+                if submitted:
+                    st.write("DEBUG: 按鈕已按下")
         
             if submitted:
                 order["顏色"] = st.session_state.form_color
