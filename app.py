@@ -10,84 +10,82 @@ import base64
 import re
 
 # ========= 🔐 Google Sheet 密碼登入區 =========
-try:
-    ws_setting = spreadsheet.worksheet("設定")
-    df_setting = pd.DataFrame(ws_setting.get_all_records())
-    PASSWORD = df_setting.loc[df_setting["參數名稱"] == "密碼", "值"].values[0]
-except Exception as e:
-    st.error(f"無法讀取設定工作表：{e}")
-    st.stop()
+SHEET_NAME = "設定"   # 你的設定工作表名稱
+PASSWORD_SHEET_URL = "https://docs.google.com/spreadsheets/d/【換成你的ID】/edit"
 
-# 初始化登入狀態
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-# ============================
-# 🔒 登入畫面
-# ============================
-if not st.session_state.authenticated:
-    st.markdown(
-        """
-        <style>
-        body {
-            background-color: #0e1117;
-        }
-        div[data-testid="stAppViewContainer"] {
-            background-color: #0e1117 !important;
-            color: #f0efa2 !important;
-        }
-        input, button {
-            font-family: Arial, sans-serif;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        """
-        <div style="
-            text-align:center;
-            margin-top:100px;
-            color:#f0efa2;
-            font-family:Arial;
-        ">
-            <h1 style="font-size:28px; margin-bottom:10px;">🎨 色粉管理系統</h1>
-            <h3 style="font-size:20px; margin-bottom:30px;">🔒 請輸入密碼以進入</h3>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # 密碼輸入框（置中風格）
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        password_input = st.text_input(
-            "輸入密碼", type="password", label_visibility="collapsed", key="login_pwd"
+# 連線授權
+def load_google_sheet(sheet_name):
+    try:
+        # 載入 service_account 憑證（放在專案目錄中）
+        creds = Credentials.from_service_account_file(
+            "service_account.json",
+            scopes=["https://www.googleapis.com/auth/spreadsheets"]
         )
-        login_btn = st.button("登入", use_container_width=True)
+        gc = gspread.authorize(creds)
+        # 以 URL 開啟試算表
+        sh = gc.open_by_url(PASSWORD_SHEET_URL)
+        worksheet = sh.worksheet(sheet_name)
+        data = worksheet.get_all_records()
+        return pd.DataFrame(data)
+    except Exception as e:
+        st.error(f"無法讀取設定工作表：{e}")
+        return pd.DataFrame()
 
-    # 驗證密碼
-    if login_btn:
-        if password_input == PASSWORD:
-            st.session_state.authenticated = True
+# ===================== 登入邏輯 =====================
+def login_section():
+    st.markdown("<h2 style='color:#dbd818;'>🔒 登入系統</h2>", unsafe_allow_html=True)
+
+    df_setting = load_google_sheet(SHEET_NAME)
+    if df_setting.empty or "密碼" not in df_setting.columns:
+        st.warning("⚠️ 無法讀取設定工作表或未包含『密碼』欄位")
+        return False
+
+    correct_password = str(df_setting.iloc[0]["密碼"]).strip()
+    input_pw = st.text_input("請輸入密碼", type="password")
+
+    if st.button("登入"):
+        if input_pw == correct_password:
+            st.session_state["authenticated"] = True
             st.success("✅ 登入成功！")
             st.rerun()
         else:
-            st.error("❌ 密碼錯誤，請再試一次。")
+            st.error("❌ 密碼錯誤，請再試一次")
 
-    st.stop()  # 停止執行後續內容，直到登入成功
+    return st.session_state.get("authenticated", False)
 
-# ============================
-# 🚪 登出按鈕（登入後顯示）
-# ============================
-with st.sidebar:
-    st.markdown("<hr>", unsafe_allow_html=True)
-    if st.button("🚪 登出", use_container_width=True):
-        st.session_state.authenticated = False
+# ===================== 登出按鈕 =====================
+def logout_section():
+    if st.button("登出"):
+        st.session_state["authenticated"] = False
         st.rerun()
 
+# ===================== 主流程 =====================
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
 
+# 統一背景與字體色系
+st.markdown("""
+    <style>
+    [data-testid="stAppViewContainer"] {
+        background-color: #222;
+        color: #dbd818;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# 登入檢查
+if not st.session_state["authenticated"]:
+    if not login_section():
+        st.stop()
+
+# ---- 登入後畫面 ----
+st.markdown("<h2 style='color:#dbd818;'>🎨 主畫面</h2>", unsafe_allow_html=True)
+logout_section()
+
+# 這裡放你的主程式內容
+st.write("✅ 已登入，可以使用主功能！")
+
+#=================================================================
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
 st.markdown(
     """
