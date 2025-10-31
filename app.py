@@ -32,14 +32,13 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
-#==========密碼登入==============
+# ========= 🔐 Google Sheet 密碼登入區 =========
 import streamlit as st
 from datetime import datetime
 
-# ----------------- 今天日期 -----------------
+# ---------------- 初始化 session_state ----------------
 today = datetime.today().strftime("%Y-%m-%d")
 
-# ----------------- 初始化 session_state -----------------
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 if "auth_date" not in st.session_state:
@@ -47,21 +46,37 @@ if "auth_date" not in st.session_state:
 if "menu" not in st.session_state:
     st.session_state["menu"] = "生產單管理"
 
-# ----------------- 修正頁面上方多餘空間 -----------------
+# ----------------- CSS: 修正頁面空白 & 深色背景 -----------------
 st.markdown("""
 <style>
+/* 隱藏 Streamlit header */
 header {height: 0px !important; padding: 0px !important; margin: 0px !important;}
+
+/* 去掉頁面頂部空白 */
 .css-18e3th9 {margin-top: 0rem !important;}
 .block-container {padding-top: 0rem !important; padding-bottom: 1rem !important;}
-</style>
-""", unsafe_allow_html=True)
 
-# ----------------- 全程式 CSS -----------------
-st.markdown("""
-<style>
-[data-testid="stAppViewContainer"] {background-color: #222; font-family: Arial;}
-.sidebar .css-1d391kg h1 {font-size: 22px !important; color: white !important;}
-div.stButton > button {font-size:16px !important; padding:6px 12px !important; text-align:left; color:white !important; background-color:#333 !important;}
+/* 主背景 */
+[data-testid="stAppViewContainer"] {
+    background-color: #222;
+    font-family: Arial;
+    color: white;
+}
+
+/* Sidebar 標題字 */
+.sidebar .css-1d391kg h1 {
+    font-size: 22px !important;
+    color: white !important;
+}
+
+/* Sidebar 按鈕文字 */
+div.stButton > button {
+    font-size: 16px !important;
+    padding: 6px 12px !important;
+    text-align: left;
+    color: white !important;
+    background-color: #333 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -72,11 +87,11 @@ def login_section():
     login_clicked = st.button("登入", key="login_button")
 
     if login_clicked:
-        if input_pw == "120716":
+        if input_pw == "120716":  # 你的密碼
             st.session_state["authenticated"] = True
             st.session_state["auth_date"] = today
             st.success("✅ 登入成功！")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("❌ 密碼錯誤")
 
@@ -85,12 +100,6 @@ if not st.session_state["authenticated"] or st.session_state["auth_date"] != tod
     login_section()
     st.stop()
 
-# ----------------- 登入後畫面 -----------------
-if st.button("登出", key="logout_button"):
-    st.session_state["authenticated"] = False
-    st.session_state["auth_date"] = ""
-    st.experimental_rerun()
-
 # ----------------- Sidebar -----------------
 menu_options = [
     "色粉管理", "客戶名單", "配方管理", "生產單管理",
@@ -98,11 +107,25 @@ menu_options = [
 ]
 
 with st.sidebar:
+    # Sidebar 標題
     st.markdown('<h1 style="font-size:22px; color:white;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
+    
+    # Sidebar menu 按鈕
     for option in menu_options:
         label = f"✅ {option}" if st.session_state.menu == option else option
         if st.button(label, key=f"menu_{option}_btn", use_container_width=True):
             st.session_state.menu = option
+    
+    st.markdown("---")  # 分隔線
+    # 登出按鈕
+    if st.button("登出", key="sidebar_logout"):
+        st.session_state["authenticated"] = False
+        st.session_state["auth_date"] = ""
+        st.rerun()
+
+# ----------------- 主頁面內容範例 -----------------
+st.write(f"✅ 目前在「{st.session_state.menu}」頁面，可以在這裡放你的主功能")
+
 
 # ===================== 自訂 selectbox CSS 範例 =====================
 st.markdown("""
