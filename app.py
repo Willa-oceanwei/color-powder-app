@@ -35,17 +35,11 @@ spreadsheet = st.session_state["spreadsheet"]
 SHEET_NAME = "設定"   # 你的設定工作表名稱
 PASSWORD_SHEET_URL = "https://docs.google.com/spreadsheets/d/【換成你的ID】/edit"
 
-# 連線授權
+# 連線授權（使用上面已建立的 client）
 def load_google_sheet(sheet_name):
     try:
-        # 載入 service_account 憑證（放在專案目錄中）
-        creds = Credentials.from_service_account_file(
-            "service_account.json",
-            scopes=["https://www.googleapis.com/auth/spreadsheets"]
-        )
-        gc = gspread.authorize(creds)
-        # 以 URL 開啟試算表
-        sh = gc.open_by_url(PASSWORD_SHEET_URL)
+        # 直接使用上方 client
+        sh = spreadsheet  # ← 已在最上方建立好的 Spreadsheet 物件
         worksheet = sh.worksheet(sheet_name)
         data = worksheet.get_all_records()
         return pd.DataFrame(data)
