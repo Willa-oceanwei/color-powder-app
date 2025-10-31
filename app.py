@@ -459,7 +459,7 @@ def init_states(keys):
                 st.session_state[k] = ""
                 
 #===「載入配方資料」的核心函式與初始化程式====
-def load_recipe():
+def load_recipe(force_reload=False):
         """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
         try:
             ws_recipe = spreadsheet.worksheet("配方管理")
