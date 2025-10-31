@@ -457,6 +457,34 @@ def init_states(keys):
                 st.session_state[k] = {}
             else:
                 st.session_state[k] = ""
+                
+#===「載入配方資料」的核心函式與初始化程式====
+def load_recipe_data():
+        """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
+        try:
+            ws_recipe = spreadsheet.worksheet("配方管理")
+            df_loaded = pd.DataFrame(ws_recipe.get_all_records())
+            if not df_loaded.empty:
+                return df_loaded
+        except Exception as e:
+            st.warning(f"Google Sheet 載入失敗：{e}")
+    
+        # 回退 CSV
+        order_file = Path("data/df_recipe.csv")
+        if order_file.exists():
+            try:
+                df_csv = pd.read_csv(order_file)
+                if not df_csv.empty:
+                    return df_csv
+            except Exception as e:
+                st.error(f"CSV 載入失敗：{e}")
+    
+        # 都失敗時，回傳空 df
+        return pd.DataFrame()
+    
+    # 統一使用 df_recipe
+    df_recipe = st.session_state.df_recipe
+
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
@@ -1943,8 +1971,9 @@ elif menu == "配方管理":
             st.success("配方資料已重新載入！")
             st._rerun()  # 重新載入頁面，更新資料
             
-    # --- 生產單分頁 ----------------------------------------------------
+# --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
+    load_recipe(force_reload=True)
 
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
