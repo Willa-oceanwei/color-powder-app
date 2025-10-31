@@ -1416,7 +1416,6 @@ elif menu == "配方管理":
                     df = pd.concat([df, pd.DataFrame([fr])], ignore_index=True)
                     st.session_state.df_recipe = df  # ✅ 更新 session_state
                     st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
-                    st.rerun()  # 可選：立即刷新頁面
     
             try:
                 ws_recipe.clear()
