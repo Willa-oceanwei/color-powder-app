@@ -76,11 +76,17 @@ if not st.session_state["authenticated"]:
     st.stop()  # 未登入時停止後續顯示
 
 # 登入後畫面
-st.markdown('<h2 style="font-size:22px; color:#dbd818;">🎨 主畫面</h2>', unsafe_allow_html=True)
-logout_section()
+if st.session_state["authenticated"]:
+    st.markdown('<h2 style="font-size:22px; color:#dbd818;">🎨 主畫面</h2>', unsafe_allow_html=True)
 
-# 這裡放你的主程式內容
-st.write("✅ 已登入，可以使用主功能！")
+    # 登出按鈕（唯一 key）
+    if st.button("登出", key="logout_button_unique"):
+        st.session_state["authenticated"] = False
+        st.success("🔒 已登出")
+        st.experimental_rerun()
+
+    # 這裡放你的主程式內容
+    st.write("✅ 已登入，可以使用主功能！")
 
 # ===== Sidebar =====
 menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
