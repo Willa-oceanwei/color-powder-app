@@ -33,7 +33,6 @@ if "spreadsheet" not in st.session_state:
 spreadsheet = st.session_state["spreadsheet"]
 
 # ========= 🔐 Google Sheet 密碼登入區 =========
-# ========= 🔐 Google Sheet 密碼登入區 =========
 import streamlit as st
 from datetime import datetime
 import json
