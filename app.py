@@ -947,7 +947,7 @@ elif menu == "配方管理":
     if "df_recipe" not in st.session_state:
         st.session_state.df_recipe = pd.DataFrame()
 
-    def load_recipe_data():
+    def load_recipe():
         """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
         try:
             ws_recipe = spreadsheet.worksheet("配方管理")
