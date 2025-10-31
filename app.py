@@ -4199,12 +4199,13 @@ if menu == "庫存區":
             })
 
             # ---------------- 低庫存通知 ----------------
+            pid_clean = str(pid).strip()
             # 排除尾數是 01, 001, 0001 的色粉
-            if final_g < 1000 and not re.search(r"(01|001|0001)$", pid):
-                # 單位轉換為 kg 顯示
+            if final_g < 1000 and not re.search(r"(01|001|0001)$", pid_clean):
                 final_kg = final_g / 1000
-                st.toast(f"⚠️ 色粉 {pid} 庫存僅剩 {final_kg:.2f} kg，請補料！", icon="⚠️")
-
+                # 用 st.warning 測試先看是否會觸發
+                st.warning(f"⚠️ 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請補料！")
+                # st.toast(f"⚠️ 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請補料！", icon="⚠️")
 
         
 # ===== 匯入配方備份檔案 =====
