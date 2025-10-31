@@ -2444,8 +2444,14 @@ elif menu == "生產單管理":
                 # ===== 提交按鈕 =====
                 submitted = st.form_submit_button("💾 儲存生產單")
                 if submitted:
-                    st.write("DEBUG: 按鈕已按下")
-
+                    st.write("DEBUG: 按鈕已按下")  # ✅ 這裡一定要出現
+                    last_stock = st.session_state.get("last_final_stock", {})
+                    st.write("DEBUG last_final_stock:", last_stock)
+                    if last_stock:
+                        check_low_stock(last_stock)
+                    else:
+                        st.info("⚠️ 尚未計算期末庫存，無法檢查低庫存")
+                        
                     # 更新 order
                     order["顏色"] = st.session_state.form_color
                     order["Pantone 色號"] = st.session_state.form_pantone
@@ -2477,13 +2483,6 @@ elif menu == "生產單管理":
 
                     # DEBUG: 確認庫存
                     st.write("DEBUG last_final_stock:", st.session_state.get("last_final_stock", {}))
-
-                    # 低庫存檢查
-                    last_stock = st.session_state.get("last_final_stock", {})
-                    if last_stock:
-                        check_low_stock(last_stock)
-                    else:
-                        st.info("⚠️ 尚未計算期末庫存，無法檢查低庫存")          
 
                 # ---------- 寫入 Sheets / CSV ----------
                 try:
