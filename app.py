@@ -2526,6 +2526,8 @@ elif menu == "生產單管理":
                 order["色粉合計清單"] = color_weight_list
                 order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
+                st.write("DEBUG last_final_stock:", st.session_state.get("last_final_stock", {}))
+
                 # ---------------- 低庫存通知 ----------------
                 for i in range(1, 9):
                     pid = recipe_row.get(f"色粉編號{i}", "").strip()
