@@ -944,6 +944,12 @@ elif menu == "配方管理":
     import streamlit as st
 
     # ------------------- 配方資料初始化 -------------------
+    # 安全初始化 df_recipe
+    if "df_recipe" not in st.session_state or not isinstance(st.session_state.df_recipe, pd.DataFrame):
+        st.session_state.df_recipe = pd.DataFrame(columns=columns)
+
+    df_recipe = st.session_state.df_recipe
+    
     if "df_recipe" not in st.session_state:
         st.session_state.df_recipe = pd.DataFrame()
 
