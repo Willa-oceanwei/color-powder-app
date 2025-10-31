@@ -56,10 +56,11 @@ def login_section():
 
 # -------- 登出區塊 --------
 def logout_section():
-    if st.button("登出", key="logout_button"):
-        st.session_state["authenticated"] = False
-        st.rerun()
-
+    if st.session_state.get("authenticated", False):
+        if st.button("登出", key="logout_button"):
+            st.session_state["authenticated"] = False
+            st.experimental_rerun()
+            
 # -------- 主程式 --------
 # 統一背景與字體色系
 st.markdown("""
