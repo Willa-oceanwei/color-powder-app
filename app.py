@@ -2476,6 +2476,15 @@ elif menu == "生產單管理":
                 submitted = st.form_submit_button("💾 儲存生產單")
                 if submitted:
                     st.write("DEBUG: 按鈕已按下")
+
+                    # ---------- 低庫存檢查 ----------
+                    last_stock = st.session_state.get("last_final_stock", {})
+                    st.write("DEBUG last_final_stock:", last_stock)
+                    if last_stock:
+                        check_low_stock(last_stock)
+                    else:
+                        st.info("⚠️ 尚未計算期末庫存，無法檢查低庫存")
+        
         
             if submitted:
                 order["顏色"] = st.session_state.form_color
@@ -2532,14 +2541,7 @@ elif menu == "生產單管理":
                 # DEBUG：確認 last_final_stock 內容
                 st.write("DEBUG last_final_stock:", st.session_state.get("last_final_stock", {}))
 
-                # ---------- 低庫存檢查 ----------
-                last_stock = st.session_state.get("last_final_stock", {})
-                st.write("DEBUG last_final_stock:", last_stock)
-                if last_stock:
-                    check_low_stock(last_stock)
-                else:
-                    st.info("⚠️ 尚未計算期末庫存，無法檢查低庫存")
-        
+                
                 # ➕ 寫入 Google Sheets、CSV 等流程
                 header = [col for col in df_order.columns if col and str(col).strip() != ""]
                 row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
