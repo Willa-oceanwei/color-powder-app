@@ -32,12 +32,14 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
-# ========= 🔐 Google Sheet 密碼登入區 =========
+#==========密碼登入==============
 import streamlit as st
 from datetime import datetime
 
+# ----------------- 今天日期 -----------------
 today = datetime.today().strftime("%Y-%m-%d")
-# -------------- 初始化 session_state -------------
+
+# ----------------- 初始化 session_state -----------------
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 if "auth_date" not in st.session_state:
@@ -48,49 +50,22 @@ if "menu" not in st.session_state:
 # ----------------- 修正頁面上方多餘空間 -----------------
 st.markdown("""
 <style>
-/* 隱藏 Streamlit 頁面 header（最上方橫條） */
 header {height: 0px !important; padding: 0px !important; margin: 0px !important;}
-
-/* 去掉頁面頂部空白 */
 .css-18e3th9 {margin-top: 0rem !important;}
-.block-container {padding-top: 0rem !important;}
-
-/* 去掉頁面底部多餘空白 */
-.block-container {padding-bottom: 1rem !important;}
+.block-container {padding-top: 0rem !important; padding-bottom: 1rem !important;}
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------- 全程式 CSS ----------------------
+# ----------------- 全程式 CSS -----------------
 st.markdown("""
 <style>
-/* 主背景 */
-[data-testid="stAppViewContainer"] {
-    background-color: #222;
-    font-family: Arial;
-}
-
-/* Sidebar 標題字 */
-.sidebar .css-1d391kg h1 {
-    font-size: 22px !important;
-    color: white !important;
-}
-
-/* Sidebar 按鈕文字 */
-div.stButton > button {
-    font-size: 16px !important;
-    padding: 6px 12px !important;
-    text-align: left;
-    color: white !important;
-    background-color: #333 !important;
-}
-
-/* 去掉多餘 margin/padding */
-.css-18e3th9 {margin-top: 0px !important;}
-.css-1d391kg {margin-bottom: 0px !important;}
+[data-testid="stAppViewContainer"] {background-color: #222; font-family: Arial;}
+.sidebar .css-1d391kg h1 {font-size: 22px !important; color: white !important;}
+div.stButton > button {font-size:16px !important; padding:6px 12px !important; text-align:left; color:white !important; background-color:#333 !important;}
 </style>
 """, unsafe_allow_html=True)
 
-# --------------- 登入區----------------
+# ----------------- 登入區 -----------------
 def login_section():
     st.markdown('<h2 style="color:#dbd818;">🔒 登入系統</h2>', unsafe_allow_html=True)
     input_pw = st.text_input("請輸入密碼", type="password", key="input_pw")
@@ -105,18 +80,18 @@ def login_section():
         else:
             st.error("❌ 密碼錯誤")
 
-# ================= 登入檢查 =================
+# ----------------- 登入檢查 -----------------
 if not st.session_state["authenticated"] or st.session_state["auth_date"] != today:
     login_section()
     st.stop()
 
-# ================= 登入後畫面 =================
+# ----------------- 登入後畫面 -----------------
 if st.button("登出", key="logout_button"):
     st.session_state["authenticated"] = False
     st.session_state["auth_date"] = ""
-    st.rerun()
+    st.experimental_rerun()
 
-# ================= Sidebar =================
+# ----------------- Sidebar -----------------
 menu_options = [
     "色粉管理", "客戶名單", "配方管理", "生產單管理",
     "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"
