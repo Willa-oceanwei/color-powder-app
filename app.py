@@ -371,6 +371,9 @@ def check_low_stock(last_final_stock):
     """
     last_final_stock: dict, key=色粉編號, value=期末庫存(g)
     """
+    import re
+    import streamlit as st
+
     for pid, final_g in last_final_stock.items():
         pid_clean = str(pid).strip()
         try:
@@ -382,6 +385,7 @@ def check_low_stock(last_final_stock):
         if final_g_val < 1000 and not re.search(r"(01|001|0001)$", pid_clean):
             final_kg = final_g_val / 1000
             st.warning(f"⚠️ 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請補料！")
+
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
@@ -2523,6 +2527,7 @@ elif menu == "生產單管理":
                 order["色粉合計清單"] = color_weight_list
                 order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
+                # DEBUG：確認 last_final_stock 內容
                 st.write("DEBUG last_final_stock:", st.session_state.get("last_final_stock", {}))
 
                 # ---------- 低庫存檢查 ----------
