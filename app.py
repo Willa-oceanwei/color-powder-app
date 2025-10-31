@@ -9,6 +9,85 @@ import time
 import base64
 import re
 
+# ========= 🔐 Google Sheet 密碼登入區 =========
+try:
+    ws_setting = spreadsheet.worksheet("設定")
+    df_setting = pd.DataFrame(ws_setting.get_all_records())
+    PASSWORD = df_setting.loc[df_setting["參數名稱"] == "密碼", "值"].values[0]
+except Exception as e:
+    st.error(f"無法讀取設定工作表：{e}")
+    st.stop()
+
+# 初始化登入狀態
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+# ============================
+# 🔒 登入畫面
+# ============================
+if not st.session_state.authenticated:
+    st.markdown(
+        """
+        <style>
+        body {
+            background-color: #0e1117;
+        }
+        div[data-testid="stAppViewContainer"] {
+            background-color: #0e1117 !important;
+            color: #f0efa2 !important;
+        }
+        input, button {
+            font-family: Arial, sans-serif;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            margin-top:100px;
+            color:#f0efa2;
+            font-family:Arial;
+        ">
+            <h1 style="font-size:28px; margin-bottom:10px;">🎨 色粉管理系統</h1>
+            <h3 style="font-size:20px; margin-bottom:30px;">🔒 請輸入密碼以進入</h3>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # 密碼輸入框（置中風格）
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        password_input = st.text_input(
+            "輸入密碼", type="password", label_visibility="collapsed", key="login_pwd"
+        )
+        login_btn = st.button("登入", use_container_width=True)
+
+    # 驗證密碼
+    if login_btn:
+        if password_input == PASSWORD:
+            st.session_state.authenticated = True
+            st.success("✅ 登入成功！")
+            st.rerun()
+        else:
+            st.error("❌ 密碼錯誤，請再試一次。")
+
+    st.stop()  # 停止執行後續內容，直到登入成功
+
+# ============================
+# 🚪 登出按鈕（登入後顯示）
+# ============================
+with st.sidebar:
+    st.markdown("<hr>", unsafe_allow_html=True)
+    if st.button("🚪 登出", use_container_width=True):
+        st.session_state.authenticated = False
+        st.rerun()
+
+
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
 st.markdown(
     """
@@ -28,6 +107,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+        
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
