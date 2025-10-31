@@ -37,56 +37,77 @@ import streamlit as st
 # ===================== 初始化 session_state =====================
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
+if "auth_date" not in st.session_state:
+    st.session_state["auth_date"] = ""
 if "menu" not in st.session_state:
     st.session_state["menu"] = "生產單管理"
 
-# ===================== 全程式 CSS =====================
-# ===================== CSS 調整 =====================
+# ---------------------- 全程式 CSS ----------------------
 st.markdown("""
 <style>
-/* 主背景深色 */
+/* 主背景 */
 [data-testid="stAppViewContainer"] {
     background-color: #222;
+    font-family: Arial;
 }
 
-/* 移除頁面上方多餘空白 */
-.css-18e3th9 {  /* 主內容容器 */
-    padding-top: 0rem;
-    padding-bottom: 0rem;
+/* Sidebar 標題字 */
+.sidebar .css-1d391kg h1 {
+    font-size: 22px !important;
+    color: white !important;
 }
 
-/* 移除 header / title 上方 margin */
-h1, h2, h3, h4, h5, h6 {
-    margin-top: 0rem;
-    margin-bottom: 0.3rem;
-}
-
-/* Sidebar 按鈕 */
+/* Sidebar 按鈕文字 */
 div.stButton > button {
     font-size: 16px !important;
     padding: 6px 12px !important;
     text-align: left;
+    color: white !important;
+    background-color: #333 !important;
 }
 
-/* 下拉選單選項大小恢復正常 */
-div.stSelectbox > div > div > div.css-1uccc91-singleValue {
-    font-size: 14px;
-    color: black;
-}
+/* 去掉多餘 margin/padding */
+.css-18e3th9 {margin-top: 0px !important;}
+.css-1d391kg {margin-bottom: 0px !important;}
 </style>
 """, unsafe_allow_html=True)
-# ===================== 登入區 =====================
+
+# ---------------------- 登入區 ----------------------
 def login_section():
     st.markdown('<h2 style="color:#dbd818;">🔒 登入系統</h2>', unsafe_allow_html=True)
     input_pw = st.text_input("請輸入密碼", type="password", key="input_pw")
-
     if st.button("登入", key="login_button"):
-        if input_pw == "120716":  # 單一密碼寫在程式內
+        if input_pw == "120716":  # 固定密碼
             st.session_state["authenticated"] = True
+            st.session_state["auth_date"] = datetime.today().strftime("%Y-%m-%d")
             st.success("✅ 登入成功！")
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error("❌ 密碼錯誤")
+
+# ---------------------- 登入檢查 ----------------------
+today = datetime.today().strftime("%Y-%m-%d")
+if not st.session_state["authenticated"] or st.session_state["auth_date"] != today:
+    login_section()
+    st.stop()  # 未登入時停止往下執行
+
+# ---------------------- 登入後畫面 ----------------------
+# 登出按鈕
+if st.button("登出", key="logout_button"):
+    st.session_state["authenticated"] = False
+    st.session_state["auth_date"] = ""
+    st.experimental_rerun()
+
+# ---------------------- Sidebar ----------------------
+menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理",
+                "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
+
+with st.sidebar:
+    st.markdown('<h1 style="font-size:22px; color:white;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
+    for option in menu_options:
+        label = f"✅ {option}" if st.session_state.menu == option else option
+        if st.button(label, key=f"menu_{option}_menu", use_container_width=True):
+            st.session_state.menu = option
 
 # ===================== 登入檢查 =====================
 if not st.session_state["authenticated"]:
@@ -181,6 +202,7 @@ def init_states(keys=None):
                 st.session_state[key] = 1
             else:
                 st.session_state[key] = None
+                
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
