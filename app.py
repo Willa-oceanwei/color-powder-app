@@ -108,6 +108,10 @@ with st.sidebar:
         label = f"✅ {option}" if st.session_state.menu == option else option
         if st.button(label, key=f"menu_{option}_btn", use_container_width=True):
             st.session_state.menu = option
+            # 如果切到生產單或配方管理，自動更新資料
+            if option in ["生產單管理", "配方管理"]:
+                load_recipe()  # 重新載入配方資料
+                st.rerun()
     
     st.markdown("---")
     if st.button("登出", key="sidebar_logout"):
