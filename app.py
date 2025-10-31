@@ -2332,7 +2332,7 @@ elif menu == "生產單管理":
             recipe_row = {}
     
         # 這裡從 session_state 讀取 show_confirm_panel，避免被覆蓋
-        show_confirm_panel = st.session_state.get("show_confirm_panel", False)
+        show_confirm_panel = st.session_state.get("show_confirm_panel", True)
     
         # 強制帶入配方欄位值，避免原本 order 已有空字串導致沒更新
         for field in ["合計類別", "備註", "重要提醒"]:
@@ -2484,19 +2484,19 @@ elif menu == "生產單管理":
                     # DEBUG: 確認庫存
                     st.write("DEBUG last_final_stock:", st.session_state.get("last_final_stock", {}))
 
-                # ---------- 寫入 Sheets / CSV ----------
-                try:
-                    header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                    row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
-                    ws_order.append_row(row_data)
-                    df_new = pd.DataFrame([order], columns=df_order.columns)
-                    df_order = pd.concat([df_order, df_new], ignore_index=True)
-                    df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
-                    st.session_state.df_order = df_order
-                    st.session_state.new_order_saved = True
-                    st.success(f"✅ 生產單 {order['生產單號']} 已存！")
-                except Exception as e:
-                    st.error(f"❌ 寫入失敗：{e}")
+                    # ---------- 寫入 Sheets / CSV ----------
+                    try:
+                        header = [col for col in df_order.columns if col and str(col).strip() != ""]
+                        row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
+                        ws_order.append_row(row_data)
+                        df_new = pd.DataFrame([order], columns=df_order.columns)
+                        df_order = pd.concat([df_order, df_new], ignore_index=True)
+                        df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+                        st.session_state.df_order = df_order
+                        st.session_state.new_order_saved = True
+                        st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+                    except Exception as e:
+                        st.error(f"❌ 寫入失敗：{e}")
 
                 # --- 產生列印 HTML 按鈕 ---
                 show_ids = st.checkbox("列印時顯示附加配方編號", value=False)
