@@ -11,6 +11,8 @@ import re
 from pathlib import Path        
 from datetime import datetime
 
+st.write("Streamlit 版本：", st.__version__)
+
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
 st.markdown(
     """
