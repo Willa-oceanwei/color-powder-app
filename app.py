@@ -35,6 +35,8 @@ spreadsheet = st.session_state["spreadsheet"]
 # ========= 🔐 Google Sheet 密碼登入區 =========
 import streamlit as st
 from datetime import datetime
+
+today = datetime.today().strftime("%Y-%m-%d")
 # -------------- 初始化 session_state -------------
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -42,8 +44,6 @@ if "auth_date" not in st.session_state:
     st.session_state["auth_date"] = ""
 if "menu" not in st.session_state:
     st.session_state["menu"] = "生產單管理"
-
-today = datetime.today().strftime("%Y-%m-%d")
 
 # ----------------- 修正頁面上方多餘空間 -----------------
 st.markdown("""
@@ -114,7 +114,7 @@ if not st.session_state["authenticated"] or st.session_state["auth_date"] != tod
 if st.button("登出", key="logout_button"):
     st.session_state["authenticated"] = False
     st.session_state["auth_date"] = ""
-    st.experimental_rerun()
+    st.rerun()
 
 # ================= Sidebar =================
 menu_options = [
