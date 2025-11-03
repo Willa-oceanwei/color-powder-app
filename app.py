@@ -2444,9 +2444,7 @@ elif menu == "生產單管理":
                 # ===== 提交按鈕 =====
                 submitted = st.form_submit_button("💾 儲存生產單")
                 if submitted:
-                    st.write("DEBUG: 按鈕已按下")  # ✅ 這裡一定要出現
                     last_stock = st.session_state.get("last_final_stock", {})
-                    st.write("DEBUG last_final_stock:", last_stock)
                     if last_stock:
                         check_low_stock(last_stock)
                     else:
