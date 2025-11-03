@@ -2462,13 +2462,26 @@ elif menu == "生產單管理":
                 # ===== 提交按鈕 =====
                 submitted = st.form_submit_button("💾 儲存生產單")
                 if submitted:
-                    last_stock = st.session_state.get("last_final_stock", {})
-                    if last_stock:
-                        check_low_stock(last_stock)
+                    st.write("DEBUG: 按鈕已按下")
+
+                    # ---------- 自動計算本單色粉庫存 ----------
+                    powder_ids = [recipe_row.get(f"色粉編號{i}", "").strip() for i in range(1, 9) if recipe_row.get(f"色粉編號{i}", "").strip()]
+                    if powder_ids:
+                        st.info(f"🔍 自動檢查這張單的色粉庫存：{powder_ids}")
+
+                        # 模擬每支色粉的期末庫存（這裡你可替換成實際庫存來源）
+                        for pid in powder_ids:
+                            # 範例：假設每支色粉隨機剩 0.3 ~ 2.5 kg（測試用）
+                            import random
+                            final_g = random.uniform(300, 2500)
+                            st.session_state["last_final_stock"][pid] = final_g
+
+                        # 執行低庫存檢查
+                        check_low_stock(st.session_state["last_final_stock"])
                     else:
-                        st.info("⚠️ 尚未計算期末庫存，無法檢查低庫存")
-                        
-                    # 更新 order
+                        st.info("⚠️ 此生產單無色粉資料，略過庫存檢查")
+
+                    # ---------- 更新 order ----------
                     order["顏色"] = st.session_state.form_color
                     order["Pantone 色號"] = st.session_state.form_pantone
                     order["料"] = st.session_state.form_raw_material
@@ -2482,12 +2495,13 @@ elif menu == "生產單管理":
                         order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
                         order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
 
-                    # 計算色粉合計
+                    # ---------- 計算色粉合計 ----------
                     raw_net_weight = recipe_row.get("淨重", 0)
                     try:
                         net_weight = float(raw_net_weight)
                     except:
                         net_weight = 0.0
+
                     color_weight_list = []
                     for i in range(1, 5):
                         w_str = st.session_state.get(f"form_weight{i}", "").strip()
@@ -2496,6 +2510,7 @@ elif menu == "生產單管理":
                             color_weight_list.append({"項次": i, "重量": weight, "結果": net_weight * weight})
                     order["色粉合計清單"] = color_weight_list
                     order["色粉合計類別"] = recipe_row.get("合計類別", "")
+
 
                     # ---------- 寫入 Sheets / CSV ----------
                     try:
