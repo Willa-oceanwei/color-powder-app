@@ -4141,6 +4141,7 @@ if menu == "庫存區":
 
         stock_summary = []
        
+        
         # ---------------- 核心計算迴圈 ----------------
         stock_summary = []
         low_stock_alerts = []
@@ -4171,7 +4172,8 @@ if menu == "庫存區":
             final_g = ini_total + in_qty_interval - usage_interval
             st.session_state["last_final_stock"][pid] = final_g
 
-            if final_g < 1000:
+            # 低庫存提醒 (<1kg)，忽略尾數 01, 001, 0001
+            if final_g < 1000 and not str(pid).endswith(("01", "001", "0001")):
                 low_stock_alerts.append((pid, final_g))
 
             stock_summary.append({
@@ -4192,6 +4194,7 @@ if menu == "庫存區":
             st.warning("⚠️ 以下色粉庫存低於 1kg：")
             for pid, qty in low_stock_alerts:
                 st.write(f"• {pid} → {safe_format(qty)}")
+
         
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
