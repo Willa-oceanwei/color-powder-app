@@ -4116,10 +4116,10 @@ elif menu == "庫存查詢":
         if stock_powder_strip:
             filtered_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
             all_pids = filtered_pids
-               if not all_pids:
+            if not all_pids:
                 st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
                 st.stop()
-         else:
+        else:
             all_pids = all_pids_all
 
         if not all_pids:
