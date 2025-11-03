@@ -387,27 +387,34 @@ def check_low_stock(order, last_final_stock):
     import re
     import streamlit as st
 
-    # 取得生產單內所有實際用到的色粉編號與用量
+    # 取得生產單內所有實際用到的色粉編號（排除空值）
     used_pids = []
-    used_weights = {}
     for i in range(1, 9):
-        pid = str(order.get(f"色粉編號{i}", "")).strip()
-        wt_str = str(order.get(f"色粉重量{i}", "")).strip()
-        weight_g = float(wt_str) if wt_str else 0.0
-        if pid and weight_g > 0:
+        pid = str(order.get(f"色粉{i}", "")).strip()
+        if pid:
             used_pids.append(pid)
-            used_weights[pid] = weight_g
 
     if not used_pids:
         return  # 沒有用到任何色粉就不檢查
 
     for pid in used_pids:
-        pid_clean = pid.strip()
-        final_g_val = float(last_final_stock.get(pid_clean, 0)) - used_weights.get(pid_clean, 0)
-        # 排除尾碼特殊色粉
-        if final_g_val < 1000 and not re.search(r"(01|001|0001)$", pid_clean):
-            final_kg = final_g_val / 1000
-            st.warning(f"⚠️ 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請補料！")
+        pid_clean = str(pid).strip()
+        final_g_val = float(last_final_stock.get(pid_clean, 0))
+        final_kg = final_g_val / 1000
+
+        # 排除特殊尾碼
+        if re.search(r"(01|001|0001)$", pid_clean):
+            continue
+
+        # 分級提醒
+        if final_kg < 0.5:
+            st.error(f"🔴 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，嚴重不足！")
+        elif final_kg < 1:
+            st.warning(f"🟠 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請盡快補料！")
+        elif final_kg < 3:
+            st.info(f"🟡 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，庫存偏低")
+        # >=3 kg 不顯示通知
+
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
