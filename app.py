@@ -2527,19 +2527,6 @@ elif menu == "生產單管理":
                     except Exception as e:
                         st.error(f"❌ 寫入失敗：{e}")
                         
-                 # ---------- 寫入 Sheets / CSV ----------
-                    try:
-                        header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                        row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
-                        ws_order.append_row(row_data)
-                        df_new = pd.DataFrame([order], columns=df_order.columns)
-                        df_order = pd.concat([df_order, df_new], ignore_index=True)
-                        df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
-                        st.session_state.df_order = df_order
-                        st.session_state.new_order_saved = True
-                        st.success(f"✅ 生產單 {order['生產單號']} 已存！")
-                    except Exception as e:
-                        st.error(f"❌ 寫入失敗：{e}")
 
                 # --- 產生列印 HTML 按鈕 ---
                 show_ids = st.checkbox("列印時顯示附加配方編號", value=False)
