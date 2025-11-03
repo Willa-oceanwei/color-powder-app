@@ -153,6 +153,7 @@ def init_states(keys=None):
                 st.session_state[key] = 1
             else:
                 st.session_state[key] = None
+                
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
@@ -386,21 +387,24 @@ def check_low_stock(order, last_final_stock):
     import re
     import streamlit as st
 
-    # 取得生產單內所有實際用到的色粉編號（排除空值）
+    # 取得生產單內所有實際用到的色粉編號與用量
     used_pids = []
+    used_weights = {}
     for i in range(1, 9):
-        pid = str(order.get(f"色粉{i}", "")).strip()
-        if pid:
+        pid = str(order.get(f"色粉編號{i}", "")).strip()
+        wt_str = str(order.get(f"色粉重量{i}", "")).strip()
+        weight_g = float(wt_str) if wt_str else 0.0
+        if pid and weight_g > 0:
             used_pids.append(pid)
+            used_weights[pid] = weight_g
 
     if not used_pids:
         return  # 沒有用到任何色粉就不檢查
 
     for pid in used_pids:
-        pid_clean = str(pid).strip()
-        final_g_val = float(last_final_stock.get(pid_clean, 0))
-
-        # 排除像 "01", "001", "0001" 這類尾碼特殊色粉
+        pid_clean = pid.strip()
+        final_g_val = float(last_final_stock.get(pid_clean, 0)) - used_weights.get(pid_clean, 0)
+        # 排除尾碼特殊色粉
         if final_g_val < 1000 and not re.search(r"(01|001|0001)$", pid_clean):
             final_kg = final_g_val / 1000
             st.warning(f"⚠️ 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請補料！")
@@ -2462,40 +2466,24 @@ elif menu == "生產單管理":
                 # ===== 提交按鈕 =====
                 submitted = st.form_submit_button("💾 儲存生產單")
                 if submitted:
-                    st.write("DEBUG: 按鈕已按下")
-
-                    # ---------- 自動計算本單色粉庫存 ----------
-                    powder_ids = [recipe_row.get(f"色粉編號{i}", "").strip() for i in range(1, 9) if recipe_row.get(f"色粉編號{i}", "").strip()]
-                    if powder_ids:
-                        st.info(f"🔍 自動檢查這張單的色粉庫存：{powder_ids}")
-
-                        # 模擬每支色粉的期末庫存（這裡你可替換成實際庫存來源）
-                        for pid in powder_ids:
-                            # 範例：假設每支色粉隨機剩 0.3 ~ 2.5 kg（測試用）
-                            import random
-                            final_g = random.uniform(300, 2500)
-                            st.session_state["last_final_stock"][pid] = final_g
-
-                        # 執行低庫存檢查
-                        check_low_stock(st.session_state["last_final_stock"])
-                    else:
-                        st.info("⚠️ 此生產單無色粉資料，略過庫存檢查")
-
-                    # ---------- 更新 order ----------
+                    # 1️⃣ 更新 order 資料（表單欄位）
                     order["顏色"] = st.session_state.form_color
                     order["Pantone 色號"] = st.session_state.form_pantone
                     order["料"] = st.session_state.form_raw_material
                     order["備註"] = st.session_state.form_remark
                     order["重要提醒"] = st.session_state.form_important_note
                     order["合計類別"] = st.session_state.form_total_category
+
                     for i in range(1, 5):
                         order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
                         order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
+
+                    # 2️⃣ 更新色粉編號與重量
                     for i in range(1, 9):
                         order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
                         order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
 
-                    # ---------- 計算色粉合計 ----------
+                    # 3️⃣ 計算色粉合計清單
                     raw_net_weight = recipe_row.get("淨重", 0)
                     try:
                         net_weight = float(raw_net_weight)
@@ -2511,8 +2499,28 @@ elif menu == "生產單管理":
                     order["色粉合計清單"] = color_weight_list
                     order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
+                    # 4️⃣ 低庫存檢查（只針對本生產單用到的色粉）
+                    last_stock = st.session_state.get("last_final_stock", {})
+                    if last_stock:
+                        check_low_stock(order, last_stock)
+                    else:
+                        st.info("⚠️ 尚未計算期末庫存，無法檢查低庫存")
 
-                    # ---------- 寫入 Sheets / CSV ----------
+                    # 5️⃣ 寫入 Google Sheet / CSV
+                    try:
+                        header = [col for col in df_order.columns if col and str(col).strip() != ""]
+                        row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
+                        ws_order.append_row(row_data)  # Google Sheet
+                        df_new = pd.DataFrame([order], columns=df_order.columns)
+                        df_order = pd.concat([df_order, df_new], ignore_index=True)
+                        df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+                        st.session_state.df_order = df_order
+                        st.session_state.new_order_saved = True
+                        st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+                    except Exception as e:
+                        st.error(f"❌ 寫入失敗：{e}")
+                        
+                 # ---------- 寫入 Sheets / CSV ----------
                     try:
                         header = [col for col in df_order.columns if col and str(col).strip() != ""]
                         row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
