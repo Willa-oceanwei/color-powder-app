@@ -88,6 +88,17 @@ with st.sidebar:
         label = f"✅ {option}" if st.session_state.menu == option else option
         if st.button(label, key=f"menu_{option}", use_container_width=True):
             st.session_state.menu = option
+            
+# ===== 調整整體主內容上方距離 =====
+st.markdown("""
+    <style>
+    /* 調整整體主內容上方距離 */
+    .block-container {
+        padding-top: 0rem;
+        margin-top: -20px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 
 # ===== 在最上方定義函式 =====
