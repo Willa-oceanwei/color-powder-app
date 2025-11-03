@@ -128,6 +128,8 @@ def set_form_style():
 # ===== 呼叫一次，套用全程式 =====
 set_form_style()
 
+# --- DEBUG 模式開關 ---
+DEBUG_MODE = False  # True=開啟除錯訊息, False=關閉
 
 # ======== 初始化 session_state =========
 def init_states(keys=None):
@@ -4195,8 +4197,8 @@ if menu == "庫存區":
             for pid, qty in low_stock_alerts:
                 st.write(f"• {pid} → {safe_format(qty)}")
 
-        st.success(f"✅ 已更新期末庫存，共 {len(st.session_state['last_final_stock'])} 筆")
-
+        if DEBUG_MODE:
+            st.write("DEBUG last_final_stock:", st.session_state.get("last_final_stock", {}))
 
         
 # ===== 匯入配方備份檔案 =====
