@@ -378,25 +378,32 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     return "<br>".join(lines)
 
 # ========= 低庫存通知函式 =========
-def check_low_stock(last_final_stock):
+def check_low_stock(order, last_final_stock):
     """
+    order: dict，包含當前生產單的色粉欄位與用量
     last_final_stock: dict, key=色粉編號, value=期末庫存(g)
     """
     import re
     import streamlit as st
 
-    for pid, final_g in last_final_stock.items():
-        pid_clean = str(pid).strip()
-        try:
-            final_g_val = float(final_g)
-        except:
-            final_g_val = 0.0
+    # 取得生產單內所有實際用到的色粉編號（排除空值）
+    used_pids = []
+    for i in range(1, 9):
+        pid = str(order.get(f"色粉{i}", "")).strip()
+        if pid:
+            used_pids.append(pid)
 
-        # 排除尾數是 01, 001, 0001
+    if not used_pids:
+        return  # 沒有用到任何色粉就不檢查
+
+    for pid in used_pids:
+        pid_clean = str(pid).strip()
+        final_g_val = float(last_final_stock.get(pid_clean, 0))
+
+        # 排除像 "01", "001", "0001" 這類尾碼特殊色粉
         if final_g_val < 1000 and not re.search(r"(01|001|0001)$", pid_clean):
             final_kg = final_g_val / 1000
             st.warning(f"⚠️ 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請補料！")
-
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
