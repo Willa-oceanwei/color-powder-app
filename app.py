@@ -2507,21 +2507,21 @@ elif menu == "生產單管理":
                     show_additional_ids=show_ids
                 )
 
-                col1, col2, col3 = st.columns([3,1,3])
-                with col1:
-                    st.download_button(
-                        label="📥 下載 A5 HTML",
-                        data=print_html.encode("utf-8"),
-                        file_name=f"{order['生產單號']}_列印.html",
-                        mime="text/html"
-                    )
+            col1, col2, col3 = st.columns([3,1,3])
+            with col1:
+                st.download_button(
+                    label="📥 下載 A5 HTML",
+                    data=print_html.encode("utf-8"),
+                    file_name=f"{order['生產單號']}_列印.html",
+                    mime="text/html"
+                )
 
-                with col3:
-                    if st.button("🔙 返回", key="back_button"):
-                        st.session_state.new_order = None
-                        st.session_state.show_confirm_panel = False
-                        st.session_state.new_order_saved = False
-                        st.rerun()
+            with col3:
+                if st.button("🔙 返回", key="back_button"):
+                    st.session_state.new_order = None
+                    st.session_state.show_confirm_panel = False
+                    st.session_state.new_order_saved = False
+                    st.rerun()
                           
     # ---------- 生產單清單 + 修改 / 刪除 ----------
     st.markdown("---")
