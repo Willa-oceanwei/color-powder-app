@@ -4195,6 +4195,9 @@ if menu == "庫存區":
             for pid, qty in low_stock_alerts:
                 st.write(f"• {pid} → {safe_format(qty)}")
 
+        st.success(f"✅ 已更新期末庫存，共 {len(st.session_state['last_final_stock'])} 筆")
+
+
         
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
