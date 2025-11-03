@@ -2507,11 +2507,7 @@ elif menu == "生產單管理":
                     order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
                     # 4️⃣ 低庫存檢查（只針對本生產單用到的色粉）
-                    last_stock = st.session_state.get("last_final_stock", {})
-                    if last_stock:
-                        check_low_stock(order, last_stock)
-                    else:
-                        st.info("⚠️ 尚未計算期末庫存，無法檢查低庫存")
+                    check_low_stock(order, st.session_state.get("last_final_stock", {}))
 
                     # 5️⃣ 寫入 Google Sheet / CSV
                     try:
