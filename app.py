@@ -2479,9 +2479,6 @@ elif menu == "生產單管理":
                     order["色粉合計清單"] = color_weight_list
                     order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
-                    # DEBUG: 確認庫存
-                    st.write("DEBUG last_final_stock:", st.session_state.get("last_final_stock", {}))
-
                     # ---------- 寫入 Sheets / CSV ----------
                     try:
                         header = [col for col in df_order.columns if col and str(col).strip() != ""]
