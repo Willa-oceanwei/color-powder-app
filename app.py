@@ -4079,7 +4079,7 @@ elif menu == "庫存查詢":
     # ===== 初始化 =====
     st.session_state.setdefault("last_final_stock", {})
 
-     st.markdown('<h2 style="font-size:22px; color:#dbd818;">📦 庫存查詢</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="font-size:22px; color:#dbd818;">📦 庫存查詢</h2>', unsafe_allow_html=True)
 
     # 日期與條件輸入
     col1, col2 = st.columns(2)
