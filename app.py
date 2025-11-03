@@ -4227,18 +4227,18 @@ elif menu == "庫存查詢":
     if st.session_state.menu == "匯入備份":
 
     # ===== 縮小整個頁面最上方空白 =====
-    st.markdown("""
-    <style>
-    div.block-container {
-        padding-top: 5px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+        st.markdown("""
+        <style>
+        div.block-container {
+            padding-top: 5px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
     
-    st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 匯入備份</h2>',
-        unsafe_allow_html=True
-    )
+        st.markdown(
+            '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 匯入備份</h2>',
+            unsafe_allow_html=True
+        )
   
     def load_recipe_backup_excel(file):
         try:
