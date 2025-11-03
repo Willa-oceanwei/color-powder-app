@@ -4076,6 +4076,10 @@ if menu == "庫存查詢":
     import streamlit as st
     from datetime import date, datetime
 
+    st.write("測試按鈕顯示")
+    if st.button("計算庫存"):
+        st.write("按鈕有效")
+
     st.session_state.setdefault("last_final_stock", {})
 
     st.markdown('<h2 style="font-size:22px; color:#dbd818;">📦 庫存查詢</h2>', unsafe_allow_html=True)
