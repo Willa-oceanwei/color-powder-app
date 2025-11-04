@@ -387,17 +387,18 @@ def check_low_stock(order, last_final_stock):
     last_final_stock: dict, key=色粉編號, value=期末庫存(g)
     """
     import re
-    import streamlit as st
+
+    alerts = []
 
     # 取得生產單內所有實際用到的色粉編號（排除空值）
     used_pids = []
     for i in range(1, 9):
-        pid = str(order.get(f"色粉{i}", "")).strip()
+        pid = str(order.get(f"色粉編號{i}", "")).strip()
         if pid:
             used_pids.append(pid)
 
     if not used_pids:
-        return  # 沒有用到任何色粉就不檢查
+        return []
 
     for pid in used_pids:
         pid_clean = str(pid).strip()
@@ -410,13 +411,13 @@ def check_low_stock(order, last_final_stock):
 
         # 分級提醒
         if final_kg < 0.5:
-            st.error(f"🔴 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，嚴重不足！")
+            alerts.append(f"🔴 {pid_clean} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
         elif final_kg < 1:
-            st.warning(f"🟠 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請盡快補料！")
+            alerts.append(f"🟠 {pid_clean} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
         elif final_kg < 3:
-            st.info(f"🟡 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，庫存偏低")
-        # >=3 kg 不顯示通知
+            alerts.append(f"🟡 {pid_clean} → 僅剩 {final_kg:.2f} kg（偏低）")
 
+    return alerts
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
