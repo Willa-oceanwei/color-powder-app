@@ -11,8 +11,6 @@ import re
 from pathlib import Path        
 from datetime import datetime
 
-st.write("Streamlit 版本：", st.__version__)
-
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
 st.markdown(
     """
@@ -2523,7 +2521,10 @@ elif menu == "生產單管理":
 
                         # ✅ 插入 debug
                         st.write("Debug: alerts =", alerts)
-        
+                        st.write("Debug: last_stock =", last_stock)
+                        st.write("Debug: pid =", pid)
+                        st.write("Debug: total_used_g =", total_used_g)
+                        st.write("Debug: new_stock_g =", new_stock_g)
                         
                     # 更新回 session_state
                     st.session_state["last_final_stock"] = last_stock
