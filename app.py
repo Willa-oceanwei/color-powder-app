@@ -380,17 +380,19 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 
     return "<br>".join(lines)
 
-# ========= 低庫存通知函式 =========
+# ========= 低庫存檢查與更新函式（自動算包裝重量×份數） =========
 def check_low_stock(order, last_final_stock):
     """
-    order: dict，包含當前生產單的色粉欄位與用量
-    last_final_stock: dict, key=色粉編號, value=期末庫存(g)
+    order: dict — 當前生產單資料（包含色粉編號、色粉重量、包裝重量與份數）
+    last_final_stock: dict — 上次庫存 (key=色粉編號, value=期末庫存(g))
     """
     import re
+    import streamlit as st
 
     alerts = []
+    updated_stock = last_final_stock.copy() if isinstance(last_final_stock, dict) else {}
 
-    # 取得生產單內所有實際用到的色粉編號（排除空值）
+    # 取得生產單用到的色粉
     used_pids = []
     for i in range(1, 9):
         pid = str(order.get(f"色粉編號{i}", "")).strip()
@@ -398,18 +400,40 @@ def check_low_stock(order, last_final_stock):
             used_pids.append(pid)
 
     if not used_pids:
-        return []
+        return updated_stock  # 沒用到色粉就直接回傳
 
+    # 計算實際使用總量（以包裝重量 × 份數 × 色粉比例）
     for pid in used_pids:
         pid_clean = str(pid).strip()
-        final_g_val = float(last_final_stock.get(pid_clean, 0))
-        final_kg = final_g_val / 1000
 
-        # 排除特殊尾碼
+        # 排除特殊尾碼 01/001/0001
         if re.search(r"(01|001|0001)$", pid_clean):
             continue
 
-        # 分級提醒
+        # 取得現有庫存（g）
+        final_g_val = float(updated_stock.get(pid_clean, 0))
+
+        # 計算生產單用量
+        used_g = 0
+        for i in range(1, 9):
+            if order.get(f"色粉編號{i}", "") == pid_clean:
+                # 每個包裝重量與份數
+                for j in range(1, 5):
+                    try:
+                        w = float(order.get(f"包裝重量{j}", 0))    # g
+                        n = float(order.get(f"包裝份數{j}", 0))     # 份
+                        ratio = float(order.get(f"色粉重量{i}", 0)) # 配方比例 (淨重已含色粉比例)
+                        # 計算這個包裝對應的色粉用量
+                        used_g += w * n * ratio
+                    except:
+                        pass
+
+        # 更新扣除後庫存
+        new_stock_g = max(final_g_val - used_g, 0)
+        updated_stock[pid_clean] = new_stock_g
+
+        # 分級提醒（以 kg 為單位）
+        final_kg = new_stock_g / 1000
         if final_kg < 0.5:
             alerts.append(f"🔴 {pid_clean} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
         elif final_kg < 1:
@@ -417,7 +441,20 @@ def check_low_stock(order, last_final_stock):
         elif final_kg < 3:
             alerts.append(f"🟡 {pid_clean} → 僅剩 {final_kg:.2f} kg（偏低）")
 
-    return alerts
+    # 顯示通知
+    if alerts:
+        st.markdown(
+            f"""
+            <div style="background-color:#fff3cd;padding:10px 14px;border-radius:8px;border:1px solid #ffeeba;margin-top:10px;">
+            ⚠️ <b>以下色粉庫存過低：</b><br>
+            {'<br>'.join(alerts)}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    return updated_stock
+
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
