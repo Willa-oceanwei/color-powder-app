@@ -2544,9 +2544,12 @@ elif menu == "生產單管理":
                         # 更新庫存並檢查低庫存
                         if pid in last_stock:
                             new_stock_g = last_stock[pid] - total_used_g
+                            st.write(f"Debug: pid={pid}, last_stock_before={last_stock[pid]}, total_used_g={total_used_g}, new_stock_g={new_stock_g}")
                             last_stock[pid] = new_stock_g
 
                             final_kg = new_stock_g / 1000
+                            st.write(f"Debug: final_kg={final_kg}")  # 這行確認 final_kg
+                            
                             if final_kg < 0.5:
                                 alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
                             elif final_kg < 1:
