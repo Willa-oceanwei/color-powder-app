@@ -2537,7 +2537,7 @@ elif menu == "生產單管理":
                                 pass
 
                         # Debug 每筆色粉計算
-                        st.write(f"🟡 Debug: 色粉 {pid}, total_used_g={total_used_g}")
+                        st.write(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock.get(pid, 0)}")
 
                         # 更新庫存並檢查低庫存
                         if pid in last_stock:
