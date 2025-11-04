@@ -2472,11 +2472,11 @@ elif menu == "生產單管理":
                     order["色粉合計清單"] = color_weight_list
                     order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
+                    
                     # 4️⃣ 檢查本單用量後的低庫存（含分級提醒）
                     last_stock = st.session_state.get("last_final_stock", {})
                     alerts = []
 
-                    # 根據這筆訂單的色粉，預先扣除用量再檢查
                     for i in range(1, 9):
                         pid = order.get(f"色粉編號{i}", "").strip()
                         if not pid:
@@ -2486,26 +2486,28 @@ elif menu == "生產單管理":
                         if str(pid).endswith(("01", "001", "0001")):
                             continue
 
-                        used_g = recipe_row.get(f"色粉重量{i}", 0)
+                        # 該色粉在配方中的比例（g）
+                        ratio_g = recipe_row.get(f"色粉重量{i}", 0)
                         try:
-                            used_g = float(used_g)
+                            ratio_g = float(ratio_g)
                         except:
-                            used_g = 0.0
+                            ratio_g = 0.0
 
-                        # 取得包裝總量（包裝重量 × 份數）來計算實際使用量
-                        used_g_total = 0
+                        # 計算所有包裝的實際使用量（色粉比例 × 包裝重量 × 份數）
+                        total_used_g = 0
                         for j in range(1, 5):
                             w = st.session_state.get(f"form_weight{j}", "")
                             n = st.session_state.get(f"form_count{j}", "")
                             try:
                                 w_val = float(w) if w else 0
                                 n_val = float(n) if n else 0
-                                used_g_total += w_val * n_val
+                                total_used_g += ratio_g * w_val * n_val
                             except:
                                 pass
 
+                        # 更新庫存並檢查低庫存
                         if pid in last_stock:
-                            new_stock_g = last_stock[pid] - used_g_total
+                            new_stock_g = last_stock[pid] - total_used_g
                             last_stock[pid] = new_stock_g
 
                             final_kg = new_stock_g / 1000
@@ -2530,7 +2532,6 @@ elif menu == "生產單管理":
                             """,
                             unsafe_allow_html=True
                         )
-
 
                     # 5️⃣ 寫入 Google Sheet / CSV
                     try:
