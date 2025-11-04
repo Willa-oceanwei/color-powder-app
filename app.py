@@ -207,25 +207,25 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     lines = []
     lines.append("")
     
-    # 配方資訊列（flex 排版 + 長文字自動撐開）
+    # 配方資訊列（flex 平均分配 + 長文字自動撐開）
     recipe_id = recipe_row.get('配方編號', '')
     color = order.get('顏色', '')
     pantone = order.get('Pantone 色號', '').strip()
 
     # 有 Pantone 才印出
     pantone_part = (
-        f"<div style='flex:0 0 auto; margin-left:12px;'>Pantone：{pantone}</div>"
+        f"<div style='flex:1; min-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>Pantone：{pantone}</div>"
         if pantone else ""
     )
 
-    # 固定欄位基本對齊
-    recipe_part = f"<div style='flex:0 0 auto; margin-right:12px;'>編號：<b>{recipe_id}</b></div>"
-    color_part = f"<div style='flex:0 0 auto; margin-right:12px;'>顏色：{color}</div>"
-    ratio_part = f"<div style='flex:0 0 auto; margin-right:12px;'>比例：{ratio} g/kg</div>"
+    # 固定欄位平均分配
+    recipe_part = f"<div style='flex:1; min-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>編號：<b>{recipe_id}</b></div>"
+    color_part = f"<div style='flex:1; min-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>顏色：{color}</div>"
+    ratio_part = f"<div style='flex:1; min-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>比例：{ratio} g/kg</div>"
 
     # 組合整行
     info_line = (
-        f"<div style='display:flex; font-size:20px; font-family:Arial; align-items:flex-start;'>"
+        f"<div style='display:flex; font-size:20px; font-family:Arial; align-items:center; gap:12px;'>"
         f"{recipe_part}{color_part}{ratio_part}{pantone_part}"
         f"</div>"
     )
