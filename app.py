@@ -4107,7 +4107,11 @@ if menu == "庫存區":
                 st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
                 st.stop()
         else:
-            all_pids = all_pids_all
+            # 沒輸入色粉編號時，排除尾數為 01、001、0001 的色粉
+            all_pids = [
+                pid for pid in all_pids_all
+                if not str(pid).endswith(("01", "001", "0001"))
+            ]
             
         if not all_pids:
             st.warning("⚠️ 查無任何色粉記錄。")
