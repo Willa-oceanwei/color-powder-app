@@ -2520,7 +2520,8 @@ elif menu == "生產單管理":
 
                         # ✅ 插入 debug
                         st.write("Debug: alerts =", alerts)
-
+                        st.write(f"Debug: pid={pid}, last_stock_before={last_stock[pid]+total_used_g}, total_used_g={total_used_g}, new_stock_g={new_stock_g}")
+                        
                     # 更新回 session_state
                     st.session_state["last_final_stock"] = last_stock
 
