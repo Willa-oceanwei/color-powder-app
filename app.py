@@ -2102,7 +2102,6 @@ elif menu == "生產單管理":
     df_stock["類型"] = df_stock["類型"].astype(str).str.strip().replace('\u3000','')
 
     # Debug
-    st.write("💡 Debug: df_stock = ", df_stock)
     st.write("💡 Debug: 初始列 = ", df_stock[df_stock["類型"]=="初始"])
 
     # 載入初始庫存
@@ -2114,9 +2113,9 @@ elif menu == "生產單管理":
                 qty *= 1000
             st.session_state["last_final_stock"][pid] = qty
 
-    st.write("💡 Debug: last_final_stock = ", st.session_state["last_final_stock"])
+    st.write("💡 Debug: last_final_stock =", st.session_state["last_final_stock"])
 
-    
+   
     # 轉換時間欄位與配方編號欄清理
     if "建立時間" in df_order.columns:
         df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
