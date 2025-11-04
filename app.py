@@ -166,7 +166,7 @@ except Exception as e:
 required_columns = ["色粉編號", "庫存量"]
 for col in required_columns:
     if col not in df_stock.columns:
-        st.error(f"❌ 欄位缺失：{col}，請確認 {stock_file}")
+        st.error(f"❌ 欄位缺失：{col}，請確認 Google Sheet 「色粉管理」的「庫存記錄」工作表")
         st.stop()
 
 # 初始化 last_final_stock（僅第一次載入時）
