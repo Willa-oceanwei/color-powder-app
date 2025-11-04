@@ -2087,7 +2087,10 @@ elif menu == "生產單管理":
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
 
-    
+    st.write("💡 Debug: df_stock columns =", df_stock.columns.tolist())
+    st.write("💡 Debug: df_stock 類型欄內容 =", df_stock["類型"].unique())
+    st.write("💡 Debug: df_stock 初始列 =", df_stock[df_stock["類型"]=="初始"])
+ 
     # ===== 初始化庫存 =====
     if "last_final_stock" not in st.session_state:
         st.session_state["last_final_stock"] = {}
