@@ -2087,40 +2087,35 @@ elif menu == "生產單管理":
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
 
-    st.write("💡 Debug: df_stock columns =", df_stock.columns.tolist())
-    st.write("💡 Debug: df_stock 類型欄內容 =", df_stock["類型"].unique())
-    st.write("💡 Debug: df_stock 初始列 =", df_stock[df_stock["類型"]=="初始"])
- 
     # ===== 初始化庫存 =====
-    if "last_final_stock" not in st.session_state:
-        st.session_state["last_final_stock"] = {}
+    st.session_state["last_final_stock"] = {}  # 每次都清空
 
-        try:
-            ws_stock = spreadsheet.worksheet("庫存記錄")
-            records = ws_stock.get_all_records()
-            df_stock = pd.DataFrame(records)
-        except Exception as e:
-            st.warning(f"⚠️ 無法讀取 Google Sheet 庫存資料：{e}")
-            df_stock = pd.DataFrame(columns=["類型","色粉編號","數量","單位","備註"])
+    try:
+        ws_stock = spreadsheet.worksheet("庫存記錄")
+        records = ws_stock.get_all_records()
+        df_stock = pd.DataFrame(records)
+    except Exception as e:
+        st.warning(f"⚠️ 無法讀取 Google Sheet 庫存資料：{e}")
+        df_stock = pd.DataFrame(columns=["類型","色粉編號","數量","單位","備註"])
 
-        # ✅ 清理欄位名稱及字串
-        df_stock.columns = df_stock.columns.str.strip()
-        df_stock["類型"] = df_stock["類型"].astype(str).str.replace('\u3000','').str.strip()
-        df_stock["單位"] = df_stock["單位"].astype(str).str.lower().str.strip()
-    
-        # ✅ Debug
-        st.write("💡 Debug: df_stock =", df_stock)
+    # 標準化類型欄
+    df_stock["類型"] = df_stock["類型"].astype(str).str.strip().str.replace('\u3000','')
 
-        # 載入初始庫存
-        for idx, row in df_stock.iterrows():
-            if row["類型"] == "初始":
-                pid = str(row.get("色粉編號","")).strip()
-                qty = float(row.get("數量", 0))
-                if row.get("單位","g") == "kg":
-                    qty *= 1000
-                st.session_state["last_final_stock"][pid] = qty
+    # Debug
+    st.write("💡 Debug: df_stock = ", df_stock)
+    st.write("💡 Debug: 初始列 = ", df_stock[df_stock["類型"]=="初始"])
 
-        st.write("💡 Debug: last_final_stock =", st.session_state["last_final_stock"])
+    # 載入初始庫存
+    for idx, row in df_stock.iterrows():
+        if row["類型"] == "初始":
+            pid = str(row.get("色粉編號","")).strip()
+            qty = float(row.get("數量",0))
+            if str(row.get("單位","g")).lower() == "kg":
+                qty *= 1000
+            st.session_state["last_final_stock"][pid] = qty
+
+    st.write("💡 Debug: last_final_stock = ", st.session_state["last_final_stock"])
+
     
     # 轉換時間欄位與配方編號欄清理
     if "建立時間" in df_order.columns:
