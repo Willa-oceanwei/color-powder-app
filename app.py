@@ -2546,7 +2546,7 @@ elif menu == "生產單管理":
                     low_stock_alerts = []
 
                     # 根據這筆訂單的色粉，預先扣除用量再檢查
-                        for i in range(1, 9):
+                    for i in range(1, 9):
                         pid = order.get(f"色粉編號{i}", "")
                         if not pid:
                             continue
