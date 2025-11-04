@@ -2505,7 +2505,7 @@ elif menu == "生產單管理":
                             except:
                                 pass
 
-                        st.write(f"🟡 Debug: 色粉 {pid}, used_g {used_g}, used_g_total {used_g_total}")
+                        st.write(f"🟡 Debug: 色粉 {pid}, total_used_g {total_used_g}")
 
                         # 更新庫存並檢查低庫存
                         if pid in last_stock:
