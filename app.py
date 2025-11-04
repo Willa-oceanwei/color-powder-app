@@ -4223,17 +4223,6 @@ if menu == "庫存區":
             final_g = ini_total + in_qty_interval - usage_interval
             st.session_state["last_final_stock"][pid] = final_g
 
-            # 扣掉本單使用量（如果本單使用了這個色粉）
-            # 假設本單使用的色粉都列在 order["色粉編號1~8"] 和 order["色粉重量1~8"]
-            used_in_order = 0
-            for i in range(1, 9):
-                pid_in_order = str(order.get(f"色粉編號{i}", "")).strip()
-                try:
-                    weight = float(order.get(f"色粉重量{i}", 0))
-                except:
-                    weight = 0
-                if pid_in_order == pid:
-                    used_in_order += weight
             # 如果你希望用包裝重量 × 份數作為用量，可替換上面計算方式
             used_in_order = 0
             for j in range(1, 5):
