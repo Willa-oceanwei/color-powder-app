@@ -4202,10 +4202,10 @@ if menu == "庫存區":
             final_g = ini_total + in_qty_interval - usage_interval
             st.session_state["last_final_stock"][pid] = final_g
 
-            # 低庫存提醒 (<1kg)，忽略尾數 01, 001, 0001
-            if final_g < 1000 and not str(pid).endswith(("01", "001", "0001")):
+            # 低庫存提醒 (<1kg)，排除期初為 0 或尾碼 01, 001, 0001
+            if final_g < 1000 and ini_total > 0 and not str(pid).endswith(("01", "001", "0001")):
                 low_stock_alerts.append((pid, final_g))
-
+                
             stock_summary.append({
                 "色粉編號": str(pid),
                 "期初庫存": safe_format(ini_total),
