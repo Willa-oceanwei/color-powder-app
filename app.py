@@ -2507,6 +2507,7 @@ elif menu == "生產單管理":
 
                         # 更新庫存並檢查低庫存
                         if pid in last_stock:
+                            stock_before = last_stock[pid]          # 扣除前庫存
                             new_stock_g = last_stock[pid] - total_used_g
                             last_stock[pid] = new_stock_g
 
