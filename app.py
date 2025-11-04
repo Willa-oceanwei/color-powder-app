@@ -2542,11 +2542,21 @@ elif menu == "生產單管理":
                     order["色粉合計清單"] = color_weight_list
                     order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
-                    # 4️⃣ 低庫存檢查（只針對本生產單用到的色粉）
-                    st.session_state.last_final_stock = check_low_stock(
+                    # 4️⃣ 計算本單用量後的低庫存並顯示警示
+                    low_stock_alerts = check_low_stock(
                         order,
-                        st.session_state.get("last_final_stock", {})
+                        st.session_state.get("last_final_stock", {}),
+                        include_order_usage=True  # 函式內要扣掉本單用量
                     )
+
+                    if low_stock_alerts:
+                        st.markdown(
+                            "<div style='background-color:#2d2d2d;color:#ffffff;padding:10px;border-radius:8px;'>"
+                            "<b>⚠️ 以下色粉庫存低於 1kg：</b><br>"
+                            + "<br>".join([f"• {pid} → 僅剩 {qty/1000:.2f} kg" for pid, qty in low_stock_alerts])
+                            + "</div>",
+                            unsafe_allow_html=True
+                        )
 
                     # 5️⃣ 寫入 Google Sheet / CSV
                     try:
