@@ -152,6 +152,7 @@ def init_states(keys=None):
                 st.session_state[key] = None
 
 # ===== 初始化 last_final_stock（僅第一次載入時） =====
+df_stock = pd.read_csv("data/stock.csv", dtype={"色粉編號": str, "庫存量": float})
 if "last_final_stock" not in st.session_state:
     # 假設 df_stock 已經有欄位 "色粉編號" 與 "庫存量"
     st.session_state["last_final_stock"] = {
