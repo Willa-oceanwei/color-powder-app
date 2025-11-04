@@ -163,7 +163,7 @@ except Exception as e:
     df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
 
 # 確認欄位存在
-required_columns = ["色粉編號", "庫存量"]
+required_columns = ["色粉編號", "數量"]
 for col in required_columns:
     if col not in df_stock.columns:
         st.error(f"❌ 欄位缺失：{col}，請確認 Google Sheet 「色粉管理」的「庫存記錄」工作表")
