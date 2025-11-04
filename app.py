@@ -3576,7 +3576,11 @@ if menu == "交叉查詢區":
         # 生成 DataFrame（先保留純數字 g，用來排序）
         df_rank = pd.DataFrame([
             {"色粉編號": k, "總用量_g": v} for k, v in pigment_usage.items()
-        ])
+        ], columns=["色粉編號", "總用量_g"])
+
+        df_rank = df_rank.sort_values("總用量_g", ascending=False).reset_index(drop=True)
+        df_rank["總用量"] = df_rank["總用量_g"].map(format_usage)
+        df_rank = df_rank[["色粉編號", "總用量"]]
 
         print(df_rank.columns.tolist())
 
