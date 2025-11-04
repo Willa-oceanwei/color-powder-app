@@ -2506,6 +2506,10 @@ elif menu == "生產單管理":
 
                     # 4️⃣ 低庫存檢查（只針對本生產單用到的色粉）
                     last_stock = st.session_state.get("last_final_stock", {})
+
+                    # ✅ Debug: 查看初始庫存
+                    st.write("Debug: initial last_stock =", last_stock)
+
                     alerts = []
 
                     for i in range(1, 9):
