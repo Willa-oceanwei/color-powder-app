@@ -2491,15 +2491,15 @@ elif menu == "生產單管理":
                             ratio_g = 0.0
 
                         total_used_g = 0
-                            for j in range(1, 5):
-                                w = st.session_state.get(f"form_weight{j}", "")
-                                n = st.session_state.get(f"form_count{j}", "")
-                            try:
-                                w_val = float(w) if w else 0
-                                n_val = float(n) if n else 0
-                                total_used_g += ratio_g * w_val * n_val
-                            except:
-                                pass
+                        for j in range(1, 5):
+                            w = st.session_state.get(f"form_weight{j}", "")
+                            n = st.session_state.get(f"form_count{j}", "")
+                        try:
+                            w_val = float(w) if w else 0
+                            n_val = float(n) if n else 0
+                            total_used_g += ratio_g * w_val * n_val
+                        except:
+                            pass
 
                         # 確保只有 pid 在 last_stock 時才計算 new_stock_g
                         if pid in last_stock:
