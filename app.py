@@ -151,14 +151,35 @@ def init_states(keys=None):
             else:
                 st.session_state[key] = None
 
-# ===== 初始化 last_final_stock（僅第一次載入時） =====
-df_stock = pd.read_csv("data/stock.csv", dtype={"色粉編號": str, "庫存量": float})
+# ===== 安全初始化庫存資料last_final_stock =====
+stock_file = "data/stock.csv"
+
+if not os.path.exists(stock_file):
+    st.error(f"❌ 找不到庫存檔案：{stock_file}")
+    st.stop()
+
+try:
+    df_stock = pd.read_csv(stock_file, dtype={"色粉編號": str, "庫存量": float})
+except Exception as e:
+    st.error(f"❌ 讀取庫存檔案失敗：{e}")
+    st.stop()
+
+# 確認欄位存在
+required_columns = ["色粉編號", "庫存量"]
+for col in required_columns:
+    if col not in df_stock.columns:
+        st.error(f"❌ 欄位缺失：{col}，請確認 {stock_file}")
+        st.stop()
+
+# 初始化 last_final_stock（僅第一次載入時）
 if "last_final_stock" not in st.session_state:
-    # 假設 df_stock 已經有欄位 "色粉編號" 與 "庫存量"
     st.session_state["last_final_stock"] = {
         str(row["色粉編號"]).strip(): float(row["庫存量"])
         for idx, row in df_stock.iterrows()
     }
+
+# ✅ Debug: 顯示初始庫存
+st.write("Debug: initial last_stock =", st.session_state["last_final_stock"])
                 
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
@@ -383,44 +404,6 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         lines.append(f"備註 : {remark_text}")
 
     return "<br>".join(lines)
-
-# ========= 低庫存通知函式 =========
-def check_low_stock(order, last_final_stock):
-    """
-    order: dict，包含當前生產單的色粉欄位與用量
-    last_final_stock: dict, key=色粉編號, value=期末庫存(g)
-    """
-    import re
-    import streamlit as st
-
-    # 取得生產單內所有實際用到的色粉編號（排除空值）
-    used_pids = []
-    for i in range(1, 9):
-        pid = str(order.get(f"色粉{i}", "")).strip()
-        if pid:
-            used_pids.append(pid)
-
-    if not used_pids:
-        return  # 沒有用到任何色粉就不檢查
-
-    for pid in used_pids:
-        pid_clean = str(pid).strip()
-        final_g_val = float(last_final_stock.get(pid_clean, 0))
-        final_kg = final_g_val / 1000
-
-        # 排除特殊尾碼
-        if re.search(r"(01|001|0001)$", pid_clean):
-            continue
-
-        # 分級提醒
-        if final_kg < 0.5:
-            st.error(f"🔴 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，嚴重不足！")
-        elif final_kg < 1:
-            st.warning(f"🟠 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，請盡快補料！")
-        elif final_kg < 3:
-            st.info(f"🟡 色粉 {pid_clean} 庫存僅剩 {final_kg:.2f} kg，庫存偏低")
-        # >=3 kg 不顯示通知
-
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
