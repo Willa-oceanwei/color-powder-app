@@ -2507,9 +2507,11 @@ elif menu == "生產單管理":
 
                         # 更新庫存並檢查低庫存
                         if pid in last_stock:
-                            stock_before = last_stock[pid]          # 扣除前庫存
-                            new_stock_g = last_stock[pid] - total_used_g
+                            stock_before = last_stock[pid]           # 扣除前庫存
+                            new_stock_g = stock_before - total_used_g
                             last_stock[pid] = new_stock_g
+
+                            st.write(f"Debug: pid={pid}, stock_before={stock_before}, total_used_g={total_used_g}, new_stock_g={new_stock_g}")
 
                             final_kg = new_stock_g / 1000
                             if final_kg < 0.5:
@@ -2521,7 +2523,7 @@ elif menu == "生產單管理":
 
                         # ✅ 插入 debug
                         st.write("Debug: alerts =", alerts)
-                        st.write(f"Debug: pid={pid}, last_stock_before={last_stock[pid]+total_used_g}, total_used_g={total_used_g}, new_stock_g={new_stock_g}")
+        
                         
                     # 更新回 session_state
                     st.session_state["last_final_stock"] = last_stock
