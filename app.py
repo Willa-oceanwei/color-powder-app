@@ -2101,10 +2101,16 @@ elif menu == "生產單管理":
 
          # ✅ 在這裡先印出 df_stock 看看
         st.write("💡 Debug: df_stock =", df_stock)
+
+        # 將欄位名稱去空白
+        df_stock.columns = df_stock.columns.str.strip()
+
+        # 將類型欄位去全形+半形空格
+        df_stock["類型"] = df_stock["類型"].astype(str).str.replace('\u3000','').str.strip()
         
         # 將初始庫存載入 last_final_stock（單位統一 g）
-        for idx, row in df_stock.iterrows():
-            if str(row.get("類型","")).strip() == "初始":
+        ffor idx, row in df_stock.iterrows():
+            if row["類型"] == "初始":
                 pid = str(row.get("色粉編號","")).strip()
                 qty = float(row.get("數量", 0))
                 if str(row.get("單位","g")).lower() == "kg":
