@@ -2508,24 +2508,24 @@ elif menu == "生產單管理":
 
                             final_kg = new_stock_g / 1000
 
-                            # Debug
-                            st.write(f"Debug: pid={pid}, last_stock_before={last_stock[pid]+total_used_g}, total_used_g={total_used_g}, new_stock_g={new_stock_g}, final_kg={final_kg}")
+                        # Debug
+                        st.write(f"Debug: pid={pid}, last_stock_before={last_stock[pid]+total_used_g}, total_used_g={total_used_g}, new_stock_g={new_stock_g}, final_kg={final_kg}")
 
-                            if final_kg < 0.5:
-                                alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
-                            elif final_kg < 1:
-                                alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
-                            elif final_kg < 3:
-                                alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
-                                            # ✅ 插入 debug
-                                            st.write("Debug: alerts =", alerts)
-                                            st.write("Debug: last_stock =", last_stock)
-                                            st.write("Debug: pid =", pid)
-                                            st.write("Debug: total_used_g =", total_used_g)
-                                            st.write("Debug: new_stock_g =", new_stock_g)
+                        if final_kg < 0.5:
+                            alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
+                        elif final_kg < 1:
+                            alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
+                        elif final_kg < 3:
+                            alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
+                        # ✅ 插入 debug
+                        st.write("Debug: alerts =", alerts)
+                        st.write("Debug: last_stock =", last_stock)
+                        st.write("Debug: pid =", pid)
+                        st.write("Debug: total_used_g =", total_used_g)
+                        st.write("Debug: new_stock_g =", new_stock_g)
                         
-                                        # 更新回 session_state
-                                        st.session_state["last_final_stock"] = last_stock
+                        # 更新回 session_state
+                        st.session_state["last_final_stock"] = last_stock
 
                     # 顯示警示訊息
                     if alerts:
