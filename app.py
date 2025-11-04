@@ -2526,7 +2526,7 @@ elif menu == "生產單管理":
                         except:
                             ratio_g = 0.0
 
-                        # 計算實際使用量：色粉比例 × 包裝重量 × 份數
+                        # 計算所有包裝的實際使用量（色粉比例 × 包裝重量 × 份數）
                         total_used_g = 0
                         for j in range(1, 5):
                             w = st.session_state.get(f"form_weight{j}", "")
@@ -2538,15 +2538,14 @@ elif menu == "生產單管理":
                             except:
                                 pass
 
-                        # Debug 可用
+                        # Debug 每筆色粉計算
                         st.write(f"🟡 Debug: 色粉 {pid}, total_used_g={total_used_g}")
 
-                        # 更新庫存
+                        # 更新庫存並檢查低庫存
                         if pid in last_stock:
                             new_stock_g = last_stock[pid] - total_used_g
                             last_stock[pid] = new_stock_g
 
-                            # 分級提醒
                             final_kg = new_stock_g / 1000
                             if final_kg < 0.5:
                                 alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
@@ -2555,10 +2554,10 @@ elif menu == "生產單管理":
                             elif final_kg < 3:
                                 alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
 
-                    # 更新 session_state
+                    # ✅ 所有色粉計算完後再更新 session_state 和顯示警示
                     st.session_state["last_final_stock"] = last_stock
+                    st.write("Debug: alerts =", alerts)
 
-                    # 顯示分級提醒
                     if alerts:
                         st.markdown(
                             f"""
@@ -2583,7 +2582,6 @@ elif menu == "生產單管理":
                         st.success(f"✅ 生產單 {order['生產單號']} 已存！")
                     except Exception as e:
                         st.error(f"❌ 寫入失敗：{e}")
-
 
                 # --- 產生列印 HTML 按鈕 ---
                 show_ids = st.checkbox("列印時顯示附加配方編號", value=False)
