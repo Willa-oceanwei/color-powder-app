@@ -2541,12 +2541,30 @@ elif menu == "生產單管理":
                     order["色粉合計清單"] = color_weight_list
                     order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
-                    # 4️⃣ 計算本單用量後的低庫存並顯示警示
-                    low_stock_alerts = check_low_stock(
-                        order,
-                        st.session_state.get("last_final_stock", {}),
-                    )
+                    # 4️⃣ 檢查本單用量後的低庫存
+                    last_stock = st.session_state.get("last_final_stock", {})
+                    low_stock_alerts = []
 
+                    # 根據這筆訂單的色粉，預先扣除用量再檢查
+                        for i in range(1, 9):
+                        pid = order.get(f"色粉編號{i}", "")
+                        if not pid:
+                            continue
+                        used_g = recipe_row.get(f"色粉重量{i}", 0)
+                        try:
+                            used_g = float(used_g)
+                        except:
+                            used_g = 0.0
+
+                        if pid in last_stock:
+                            last_stock[pid] = last_stock[pid] - used_g
+                            if last_stock[pid] < 1000 and not str(pid).endswith(("01", "001", "0001")):
+                                low_stock_alerts.append((pid, last_stock[pid]))
+
+                    # 更新回 session_state
+                    st.session_state["last_final_stock"] = last_stock
+
+                    # 顯示警示訊息
                     if low_stock_alerts:
                         st.markdown(
                             "<div style='background-color:#2d2d2d;color:#ffffff;padding:10px;border-radius:8px;'>"
@@ -2561,15 +2579,17 @@ elif menu == "生產單管理":
                         header = [col for col in df_order.columns if col and str(col).strip() != ""]
                         row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
                         ws_order.append_row(row_data)  # Google Sheet
+
                         df_new = pd.DataFrame([order], columns=df_order.columns)
                         df_order = pd.concat([df_order, df_new], ignore_index=True)
                         df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+
                         st.session_state.df_order = df_order
                         st.session_state.new_order_saved = True
                         st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+
                     except Exception as e:
                         st.error(f"❌ 寫入失敗：{e}")
-                        
 
                 # --- 產生列印 HTML 按鈕 ---
                 show_ids = st.checkbox("列印時顯示附加配方編號", value=False)
