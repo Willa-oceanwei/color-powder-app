@@ -150,37 +150,6 @@ def init_states(keys=None):
                 st.session_state[key] = 1
             else:
                 st.session_state[key] = None
-
-# ===== 安全初始化庫存資料 last_final_stock =====
-try:
-    sh = client.open("色粉管理")  # Google Sheet 名稱
-    ws_stock = sh.worksheet("庫存記錄")  # 對應工作表名稱
-    records = ws_stock.get_all_records()
-    df_stock = pd.DataFrame(records)
-except Exception as e:
-    st.error(f"⚠️ 無法讀取 Google Sheet 庫存資料：{e}")
-    df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
-
-# 確認欄位存在
-required_columns = ["色粉編號", "數量", "單位"]
-for col in required_columns:
-    if col not in df_stock.columns:
-        st.error(f"❌ 欄位缺失：{col}，請確認 Google Sheet 「色粉管理」的「庫存記錄」工作表")
-        st.stop()
-
-# 初始化 last_final_stock（僅第一次載入時）
-if "last_final_stock" not in st.session_state:
-    st.session_state["last_final_stock"] = {}
-    for idx, row in df_stock.iterrows():
-        pid = str(row.get("色粉編號", "")).strip()
-        qty = row.get("數量", 0)
-        unit = row.get("單位", "g")
-        # 使用前面定義的 to_grams 函式
-        st.session_state["last_final_stock"][pid] = to_grams(qty, unit)
-
-
-# ✅ Debug: 顯示初始庫存
-st.write("Debug: initial last_stock =", st.session_state["last_final_stock"])
                 
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
@@ -2539,23 +2508,14 @@ elif menu == "生產單管理":
                         # Debug 每筆色粉計算
                         st.write(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock.get(pid, 0)}")
 
-                        # 更新庫存並檢查低庫存
-                        if pid in last_stock:
-                            new_stock_g = last_stock[pid] - total_used_g
-                            st.write(f"Debug: pid={pid}, last_stock_before={last_stock[pid]}, total_used_g={total_used_g}, new_stock_g={new_stock_g}")
-                            last_stock[pid] = new_stock_g
+                        # 扣除庫存
+                        new_stock_g = last_stock[pid] - total_used_g
+                        last_stock[pid] = new_stock_g
 
-                            final_kg = new_stock_g / 1000
-                            st.write(f"Debug: final_kg={final_kg}")  # 這行確認 final_kg
-                            st.write(f"Debug: pid={pid}, final_kg={final_kg}, append alert now")
-                            alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
-                            
-                            if final_kg < 0.5:
-                                alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
-                            elif final_kg < 1:
-                                alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
-                            elif final_kg < 3:
-                                alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
+                        # 判斷不足 1kg
+                        final_kg = new_stock_g / 1000
+                        if final_kg < 1:
+                            alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg")
 
                     # ✅ 所有色粉計算完後再更新 session_state 和顯示警示
                     st.session_state["last_final_stock"] = last_stock
