@@ -2509,6 +2509,10 @@ elif menu == "生產單管理":
                         st.write(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock.get(pid, 0)}")
 
                         # 扣除庫存
+                        if pid not in last_stock:
+                            # 沒有初期庫存就跳過，不計算也不報警
+                            continue
+
                         new_stock_g = last_stock[pid] - total_used_g
                         last_stock[pid] = new_stock_g
 
