@@ -2547,6 +2547,8 @@ elif menu == "生產單管理":
 
                             final_kg = new_stock_g / 1000
                             st.write(f"Debug: final_kg={final_kg}")  # 這行確認 final_kg
+                            st.write(f"Debug: pid={pid}, final_kg={final_kg}, append alert now")
+                            alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
                             
                             if final_kg < 0.5:
                                 alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
