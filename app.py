@@ -2098,6 +2098,9 @@ elif menu == "生產單管理":
         except Exception as e:
             st.warning(f"⚠️ 無法讀取 Google Sheet 庫存資料：{e}")
             df_stock = pd.DataFrame(columns=["類型","色粉編號","數量","單位","備註"])
+
+         # ✅ 在這裡先印出 df_stock 看看
+        st.write("💡 Debug: df_stock =", df_stock)
         
         # 將初始庫存載入 last_final_stock（單位統一 g）
         for idx, row in df_stock.iterrows():
