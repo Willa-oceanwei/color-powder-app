@@ -3474,6 +3474,7 @@ if menu == "交叉查詢區":
     st.markdown("---")  # 分隔線
 
     # ---------------- 第三段：色粉用量排行榜 ----------------
+    # ---------------- 第三段：色粉用量排行榜 ----------------
     st.markdown(
         '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🏆 色粉用量排行榜</h2>',
         unsafe_allow_html=True
@@ -3488,30 +3489,22 @@ if menu == "交叉查詢區":
         """g -> kg/g，去除小數點多餘零"""
         if val >= 1000:
             kg = val / 1000
-            if round(kg, 2) == int(kg):
-                return f"{int(kg)} kg"
-            else:
-                return f"{kg:.2f} kg"
+            return f"{int(kg)} kg" if round(kg,2)==int(kg) else f"{kg:.2f} kg"
         else:
-            if round(val, 2) == int(val):
-                return f"{int(val)} g"
-            else:
-                return f"{val:.2f} g"
+            return f"{int(val)} g" if round(val,2)==int(val) else f"{val:.2f} g"
 
     if st.button("生成排行榜", key="btn_powder_rank"):
         df_order = st.session_state.get("df_order", pd.DataFrame()).copy()
         df_recipe = st.session_state.get("df_recipe", pd.DataFrame()).copy()
 
+        # 確保必要欄位存在
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
         weight_cols = [f"色粉重量{i}" for i in range(1, 9)]
         for c in powder_cols + weight_cols + ["配方編號", "配方類別", "原始配方"]:
             if c not in df_recipe.columns:
                 df_recipe[c] = ""
 
-        if "生產日期" in df_order.columns:
-            df_order["生產日期"] = pd.to_datetime(df_order["生產日期"], errors="coerce")
-        else:
-            df_order["生產日期"] = pd.NaT
+        df_order["生產日期"] = pd.to_datetime(df_order.get("生產日期", pd.NaT), errors="coerce")
 
         # 過濾日期區間
         orders_in_range = df_order[
@@ -3522,7 +3515,7 @@ if menu == "交叉查詢區":
 
         pigment_usage = {}
 
-        # 計算所有色粉用量
+        # 計算色粉用量
         for _, order in orders_in_range.iterrows():
             order_recipe_id = str(order.get("配方編號", "")).strip()
             if not order_recipe_id:
@@ -3540,23 +3533,16 @@ if menu == "交叉查詢區":
             if not add_df.empty:
                 recipe_rows.extend(add_df.to_dict("records"))
 
-            # 包裝總份
+            # 計算包裝總份
             packs_total = 0.0
             for j in range(1, 5):
-                w_key = f"包裝重量{j}"
-                n_key = f"包裝份數{j}"
-                w_val = order[w_key] if w_key in order.index else 0
-                n_val = order[n_key] if n_key in order.index else 0
-                try:
-                    pack_w = float(w_val or 0)
-                except (ValueError, TypeError):
-                    pack_w = 0.0
-                try:
-                    pack_n = float(n_val or 0)
-                except (ValueError, TypeError):
-                    pack_n = 0.0
+                w_val = order.get(f"包裝重量{j}", 0)
+                n_val = order.get(f"包裝份數{j}", 0)
+                try: pack_w = float(w_val or 0)
+                except: pack_w = 0.0
+                try: pack_n = float(n_val or 0)
+                except: pack_n = 0.0
                 packs_total += pack_w * pack_n
-
             if packs_total <= 0:
                 continue
 
@@ -3566,40 +3552,35 @@ if menu == "交叉查詢區":
                     pid = str(rec.get(f"色粉編號{i}", "")).strip()
                     try:
                         pw = float(rec.get(f"色粉重量{i}", 0) or 0)
-                    except (ValueError, TypeError):
-                        pw = 0.0
-
+                    except: pw = 0.0
                     if pid and pw > 0:
-                        contrib = pw * packs_total
-                        pigment_usage[pid] = pigment_usage.get(pid, 0.0) + contrib
+                        pigment_usage[pid] = pigment_usage.get(pid, 0.0) + pw * packs_total
 
-        # 生成 DataFrame（先保留純數字 g，用來排序）
-        df_rank = pd.DataFrame([
-            {"色粉編號": k, "總用量_g": v} for k, v in pigment_usage.items()
-        ], columns=["色粉編號", "總用量_g"])
+        # 防呆：即使 pigment_usage 是空，也建立 DataFrame
+        df_rank = pd.DataFrame(
+            [{"色粉編號": k, "總用量_g": v} for k,v in pigment_usage.items()],
+            columns=["色粉編號", "總用量_g"]
+        )
 
-        df_rank = df_rank.sort_values("總用量_g", ascending=False).reset_index(drop=True)
-        df_rank["總用量"] = df_rank["總用量_g"].map(format_usage)
-        df_rank = df_rank[["色粉編號", "總用量"]]
+        # 排序 + 格式化
+        if not df_rank.empty:
+            df_rank = df_rank.sort_values("總用量_g", ascending=False).reset_index(drop=True)
+            df_rank["總用量"] = df_rank["總用量_g"].map(format_usage)
+            df_rank = df_rank[["色粉編號", "總用量"]]
 
-        print(df_rank.columns.tolist())
-
-        # 先由高到低排序
-        df_rank = df_rank.sort_values("總用量_g", ascending=False).reset_index(drop=True)
-        # 再格式化成 g 或 kg 顯示
-        df_rank["總用量"] = df_rank["總用量_g"].map(format_usage)
-        # 只保留要顯示的欄位
-        df_rank = df_rank[["色粉編號", "總用量"]]
         st.dataframe(df_rank, use_container_width=True)
 
         # 下載 CSV（原始數字）
-        csv = pd.DataFrame(list(pigment_usage.items()), columns=["色粉編號", "總用量(g)"]).to_csv(index=False, encoding="utf-8-sig")
+        csv = pd.DataFrame(list(pigment_usage.items()), columns=["色粉編號", "總用量(g)"]).to_csv(
+            index=False, encoding="utf-8-sig"
+        )
         st.download_button(
             label="⬇️ 下載排行榜 CSV",
             data=csv,
             file_name=f"powder_rank_{rank_start}_{rank_end}.csv",
             mime="text/csv"
         )
+
 
 # ======== Pantone色號分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
