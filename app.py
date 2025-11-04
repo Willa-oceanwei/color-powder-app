@@ -4183,62 +4183,55 @@ if menu == "庫存區":
         stock_summary = []
         low_stock_alerts = []
 
-        # 計算本單使用量（包裝重量 × 份數）
-        order_used_g = 0
-        for j in range(1, 5):
-            try:
-                w = float(st.session_state.get(f"form_weight{j}", 0))
-                n = float(st.session_state.get(f"form_count{j}", 0))
-                order_used_g += w * n
-            except:
-                pass
-
         for pid in all_pids:
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
 
             ini_total = 0.0
+            ini_date = None
+            ini_base_value = 0.0
             ini_date_note = "—"
 
-            # 取最新期初庫存
+            # --- (A) 找出最新期初（錨點） ---
             df_ini_valid = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
             if not df_ini_valid.empty:
                 latest_ini_row = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
-                ini_total = latest_ini_row["數量_g"]
+                ini_base_value = latest_ini_row["數量_g"]
                 ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
+
+            # --- (B) 起算日判斷 ---
+            if no_date_selected:
+                s_dt_pid = ini_date if ini_date is not None else global_min_date
+            else:
+                s_dt_pid = s_dt_use
+
+            # --- (C) 期初處理（錨點覆寫） ---
+            if ini_date is not None and ini_date <= e_dt_use:
+                s_dt_pid = ini_date  # 起算日從期初開始
+                ini_total = ini_base_value
                 ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}"
+            else:
+                ini_total = 0.0
+                ini_date_note = "—"
 
-            s_dt_pid = ini_date if ini_date is not None and no_date_selected else s_dt_use
-
-            # 區間進貨
+            # --- (D) 區間進貨 ---
             in_qty_interval = df_pid[
                 (df_pid["類型"].astype(str).str.strip() == "進貨") &
                 (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
             ]["數量_g"].sum()
 
-            # 區間用量
+            # --- (E) 區間用量 ---
             usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
                              if not df_order.empty and not df_recipe.empty else 0.0
 
-            # 計算期末庫存
+            # --- (F) 計算期末庫存 ---
             final_g = ini_total + in_qty_interval - usage_interval
+
+            # --- (G) 低庫存提醒 (<1kg)，排除期初為0或尾碼01,001,0001 ---
+            if final_g < 1000 and ini_total > 0 and not str(pid).endswith(("01", "001", "0001")):
+                low_stock_alerts.append((pid, final_g))
+
+            # --- (H) 儲存結果 ---
             st.session_state["last_final_stock"][pid] = final_g
-
-            # 如果你希望用包裝重量 × 份數作為用量，可替換上面計算方式
-            used_in_order = 0
-            for j in range(1, 5):
-                try:
-                    w = float(st.session_state.get(f"form_weight{j}", 0))
-                    n = float(st.session_state.get(f"form_count{j}", 0))
-                    used_in_order += w * n
-                except:
-                    pass
-
-            updated_final_g = final_g - used_in_order
-
-            # 低庫存提醒 (<1kg)，排除期初為 0 或尾碼 01, 001, 0001
-            if updated_final_g < 1000 and ini_total > 0 and not str(pid).endswith(("01", "001", "0001")):
-                low_stock_alerts.append((pid, updated_final_g))
-
             stock_summary.append({
                 "色粉編號": str(pid),
                 "期初庫存": safe_format(ini_total),
@@ -4248,19 +4241,15 @@ if menu == "庫存區":
                 "備註": ini_date_note,
             })
 
-        # 顯示結果
+        # ---------------- 結果輸出 ----------------
         df_result = pd.DataFrame(stock_summary)
         st.dataframe(df_result, use_container_width=True)
         st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
 
-        # 低庫存顯示
         if low_stock_alerts:
             st.warning("⚠️ 以下色粉庫存低於 1kg：")
             for pid, qty in low_stock_alerts:
                 st.write(f"• {pid} → {safe_format(qty)}")
-
-        if DEBUG_MODE:
-            st.write("DEBUG last_final_stock:", st.session_state.get("last_final_stock", {}))
 
         
 # ===== 匯入配方備份檔案 =====
