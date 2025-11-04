@@ -379,7 +379,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 
     return "<br>".join(lines)
 
-# ========= 低庫存檢查與更新函式（自動算包裝重量×份數） =========
+# ========= 低庫存檢查與更新函式（每個色粉計算自己的包裝重量×份數） =========
 def check_low_stock(order, last_final_stock):
     """
     order: dict — 當前生產單資料（包含色粉編號、包裝重量與份數）
@@ -392,51 +392,47 @@ def check_low_stock(order, last_final_stock):
     updated_stock = last_final_stock.copy() if isinstance(last_final_stock, dict) else {}
 
     # 取得生產單用到的色粉
-    used_pids = []
     for i in range(1, 9):
         pid = str(order.get(f"色粉編號{i}", "")).strip()
-        if pid:
-            used_pids.append(pid)
-
-    if not used_pids:
-        return updated_stock  # 沒用到色粉就直接回傳
-
-    for pid in used_pids:
-        pid_clean = pid.strip()
+        if not pid:
+            continue
 
         # 排除尾碼 01/001/0001
-        if re.search(r"(01|001|0001)$", pid_clean):
+        if re.search(r"(01|001|0001)$", pid):
             continue
 
         # 如果沒有期初資料就跳過
-        if pid_clean not in updated_stock:
+        if pid not in updated_stock:
             continue
 
         # 取得現有庫存（g）
-        final_g_val = float(updated_stock.get(pid_clean, 0))
+        final_g_val = float(updated_stock.get(pid, 0))
 
-        # 計算本單使用量：包裝重量 × 份數
+        # 計算該色粉本單使用量：包裝重量 × 份數
         used_g = 0
         for j in range(1, 5):
             try:
-                w = float(order.get(f"包裝重量{j}", 0))   # g
-                n = float(order.get(f"包裝份數{j}", 0))   # 份
-                used_g += w * n
+                w = float(order.get(f"包裝重量{j}", 0))
+                n = float(order.get(f"包裝份數{j}", 0))
+                # 如果該色粉在這個項次有用量，累加
+                color_weight = float(order.get(f"色粉重量{i}", 0))
+                if color_weight > 0:
+                    used_g += w * n
             except:
                 pass
 
         # 扣除後庫存
         new_stock_g = max(final_g_val - used_g, 0)
-        updated_stock[pid_clean] = new_stock_g
+        updated_stock[pid] = new_stock_g
 
         # 分級提醒（以 kg 為單位）
         final_kg = new_stock_g / 1000
         if final_kg < 0.5:
-            alerts.append(f"🔴 {pid_clean} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
+            alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
         elif final_kg < 1:
-            alerts.append(f"🟠 {pid_clean} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
+            alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
         elif final_kg < 3:
-            alerts.append(f"🟡 {pid_clean} → 僅剩 {final_kg:.2f} kg（偏低）")
+            alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
 
     # 顯示通知（深色模式可讀）
     if alerts:
