@@ -4170,11 +4170,20 @@ if menu == "庫存區":
                 return "0"
 
         stock_summary = []
-       
-        
+              
         # ---------------- 核心計算迴圈 ----------------
         stock_summary = []
         low_stock_alerts = []
+
+        # 計算本單使用量（包裝重量 × 份數）
+        order_used_g = 0
+        for j in range(1, 5):
+            try:
+                w = float(st.session_state.get(f"form_weight{j}", 0))
+                n = float(st.session_state.get(f"form_count{j}", 0))
+                order_used_g += w * n
+            except:
+                pass
 
         for pid in all_pids:
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
@@ -4182,6 +4191,7 @@ if menu == "庫存區":
             ini_total = 0.0
             ini_date_note = "—"
 
+            # 取最新期初庫存
             df_ini_valid = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
             if not df_ini_valid.empty:
                 latest_ini_row = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
@@ -4191,21 +4201,47 @@ if menu == "庫存區":
 
             s_dt_pid = ini_date if ini_date is not None and no_date_selected else s_dt_use
 
+            # 區間進貨
             in_qty_interval = df_pid[
                 (df_pid["類型"].astype(str).str.strip() == "進貨") &
                 (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
             ]["數量_g"].sum()
 
+            # 區間用量
             usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
                              if not df_order.empty and not df_recipe.empty else 0.0
 
+            # 計算期末庫存
             final_g = ini_total + in_qty_interval - usage_interval
             st.session_state["last_final_stock"][pid] = final_g
 
+            # 扣掉本單使用量（如果本單使用了這個色粉）
+            # 假設本單使用的色粉都列在 order["色粉編號1~8"] 和 order["色粉重量1~8"]
+            used_in_order = 0
+            for i in range(1, 9):
+                pid_in_order = str(order.get(f"色粉編號{i}", "")).strip()
+                try:
+                    weight = float(order.get(f"色粉重量{i}", 0))
+                except:
+                    weight = 0
+                if pid_in_order == pid:
+                    used_in_order += weight
+            # 如果你希望用包裝重量 × 份數作為用量，可替換上面計算方式
+            used_in_order = 0
+            for j in range(1, 5):
+                try:
+                    w = float(st.session_state.get(f"form_weight{j}", 0))
+                    n = float(st.session_state.get(f"form_count{j}", 0))
+                    used_in_order += w * n
+                except:
+                    pass
+
+            updated_final_g = final_g - used_in_order
+
             # 低庫存提醒 (<1kg)，排除期初為 0 或尾碼 01, 001, 0001
-            if final_g < 1000 and ini_total > 0 and not str(pid).endswith(("01", "001", "0001")):
-                low_stock_alerts.append((pid, final_g))
-                
+            if updated_final_g < 1000 and ini_total > 0 and not str(pid).endswith(("01", "001", "0001")):
+                low_stock_alerts.append((pid, updated_final_g))
+
             stock_summary.append({
                 "色粉編號": str(pid),
                 "期初庫存": safe_format(ini_total),
@@ -4220,6 +4256,7 @@ if menu == "庫存區":
         st.dataframe(df_result, use_container_width=True)
         st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
 
+        # 低庫存顯示
         if low_stock_alerts:
             st.warning("⚠️ 以下色粉庫存低於 1kg：")
             for pid, qty in low_stock_alerts:
