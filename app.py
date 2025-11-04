@@ -2112,8 +2112,8 @@ elif menu == "生產單管理":
                 st.session_state["last_final_stock"][pid] = qty
 
         # ✅ 在這裡加一行確認
-        st.write("💡 Debug: df_stock =", df_stock)
-        st.write("💡 Debug: last_final_stock =", st.session_state["last_final_stock"])
+        st.write("💡 Debug: df_stock head:", df_stock.head())
+        st.write("💡 Debug: df_stock types:", df_stock.dtypes)
     
     # 轉換時間欄位與配方編號欄清理
     if "建立時間" in df_order.columns:
