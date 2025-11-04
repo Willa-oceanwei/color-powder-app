@@ -2542,7 +2542,6 @@ elif menu == "生產單管理":
                     low_stock_alerts = check_low_stock(
                         order,
                         st.session_state.get("last_final_stock", {}),
-                        include_order_usage=True  # 函式內要扣掉本單用量
                     )
 
                     if low_stock_alerts:
