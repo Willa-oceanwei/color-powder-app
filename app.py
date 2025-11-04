@@ -2518,6 +2518,9 @@ elif menu == "生產單管理":
                             elif final_kg < 3:
                                 alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
 
+                        # ✅ 插入 debug
+                        st.write("Debug: alerts =", alerts)
+
                     # 更新回 session_state
                     st.session_state["last_final_stock"] = last_stock
 
