@@ -2495,6 +2495,7 @@ elif menu == "生產單管理":
 
                     alerts = []
 
+                    # 迴圈處理每個色粉
                     for i in range(1, 9):
                         pid = order.get(f"色粉編號{i}", "").strip()
                         if not pid:
@@ -2504,58 +2505,41 @@ elif menu == "生產單管理":
                         if str(pid).endswith(("01", "001", "0001")):
                             continue
 
-                        # 該色粉在配方中的比例（g）
-                        ratio_g = recipe_row.get(f"色粉重量{i}", 0)
+                        # 只處理有初始資料的色粉
+                        if pid not in last_stock:
+                            continue
+
+                        # 取得比例
                         try:
-                            ratio_g = float(ratio_g)
+                            ratio_g = float(recipe_row.get(f"色粉重量{i}", 0))
                         except:
                             ratio_g = 0.0
 
-                        # 計算所有包裝的實際使用量（色粉比例 × 包裝重量 × 份數）
+                        # 計算使用量
                         total_used_g = 0
                         for j in range(1, 5):
-                            w = st.session_state.get(f"form_weight{j}", "")
-                            n = st.session_state.get(f"form_count{j}", "")
-                            try:
-                                w_val = float(w) if w else 0
-                                n_val = float(n) if n else 0
-                                total_used_g += ratio_g * w_val * n_val
-                            except:
-                                pass
+                            w_val = float(st.session_state.get(f"form_weight{j}", 0) or 0)
+                            n_val = float(st.session_state.get(f"form_count{j}", 0) or 0)
+                            total_used_g += ratio_g * w_val * n_val
 
-                        st.session_state["last_final_stock"] = last_stock
-                        st.write("Debug: alerts =", alerts)
+                        # 扣庫存
+                        new_stock = last_stock[pid] - total_used_g
+                        last_stock[pid] = new_stock
 
-                        # Debug 每筆色粉計算
-                        st.write(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock.get(pid, 0)}")
+                        # 判斷低庫存
+                        if new_stock < 1000:  # g
+                            alerts.append(f"🔴 {pid} → 僅剩 {new_stock/1000:.2f} kg")
 
-                        # 扣除庫存
-                        if pid not in last_stock:
-                            # 沒有初期庫存就跳過，不計算也不報警
-                            continue
-
-                        new_stock_g = last_stock[pid] - total_used_g
-                        last_stock[pid] = new_stock_g
-
-                        # 判斷不足 1kg
-                        final_kg = new_stock_g / 1000
-                        if final_kg < 1:
-                            alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg")
-
-                    # ✅ 所有色粉計算完後再更新 session_state 和顯示警示
+                    # 迴圈結束後再更新 session_state
                     st.session_state["last_final_stock"] = last_stock
-                    st.write("Debug: alerts =", alerts)
 
+                    # 顯示警告
                     if alerts:
                         st.markdown(
-                            f"""
-                            <div style="background-color:#2c2c2c;padding:10px 14px;border-radius:8px;border:1px solid #444;color:#ffffff;margin-top:10px;">
-                            🆘 <b>以下色粉庫存過低：</b><br>
-                            {'<br>'.join(alerts)}
-                            </div>
-                            """,
+                            f"<div style='background-color:#2c2c2c;padding:10px 14px;border-radius:8px;border:1px solid #444;color:#ffffff;margin-top:10px;'>🆘 <b>以下色粉庫存過低：</b><br>{'<br>'.join(alerts)}</div>",
                             unsafe_allow_html=True
                         )
+
 
                     # 5️⃣ 寫入 Google Sheet / CSV
                     try:
