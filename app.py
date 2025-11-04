@@ -2365,6 +2365,9 @@ elif menu == "生產單管理":
                         order[id_key] = ""
                         order[wt_key] = ""
     
+                order = st.session_state.get("new_order", {})
+                if order is None:
+                    order = {}
                 st.session_state["new_order"] = order
                 st.session_state["show_confirm_panel"] = True
     
