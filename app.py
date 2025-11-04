@@ -151,7 +151,7 @@ def init_states(keys=None):
             else:
                 st.session_state[key] = None
 
-# ===== 安全初始化庫存資料last_final_stock =====
+# ===== 安全初始化庫存資料 last_final_stock =====
 try:
     sh = client.open("色粉管理")  # Google Sheet 名稱
     ws_stock = sh.worksheet("庫存記錄")  # 對應工作表名稱
@@ -159,11 +159,10 @@ try:
     df_stock = pd.DataFrame(records)
 except Exception as e:
     st.error(f"⚠️ 無法讀取 Google Sheet 庫存資料：{e}")
-    # 如果讀取失敗，也可以初始化空 DataFrame
     df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
 
 # 確認欄位存在
-required_columns = ["色粉編號", "數量"]
+required_columns = ["色粉編號", "數量", "單位"]
 for col in required_columns:
     if col not in df_stock.columns:
         st.error(f"❌ 欄位缺失：{col}，請確認 Google Sheet 「色粉管理」的「庫存記錄」工作表")
@@ -171,10 +170,14 @@ for col in required_columns:
 
 # 初始化 last_final_stock（僅第一次載入時）
 if "last_final_stock" not in st.session_state:
-    st.session_state["last_final_stock"] = {
-        str(row["色粉編號"]).strip(): float(row["庫存量"])
-        for idx, row in df_stock.iterrows()
-    }
+    st.session_state["last_final_stock"] = {}
+    for idx, row in df_stock.iterrows():
+        pid = str(row.get("色粉編號", "")).strip()
+        qty = row.get("數量", 0)
+        unit = row.get("單位", "g")
+        # 使用前面定義的 to_grams 函式
+        st.session_state["last_final_stock"][pid] = to_grams(qty, unit)
+
 
 # ✅ Debug: 顯示初始庫存
 st.write("Debug: initial last_stock =", st.session_state["last_final_stock"])
