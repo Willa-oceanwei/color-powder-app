@@ -2507,7 +2507,68 @@ elif menu == "生產單管理":
                     order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
                     # 4️⃣ 低庫存檢查（只針對本生產單用到的色粉）
-                    check_low_stock(order, st.session_state.get("last_final_stock", {}))
+                    last_stock = st.session_state.get("last_final_stock", {})
+                    alerts = []
+
+                    for i in range(1, 9):
+                        pid = order.get(f"色粉編號{i}", "").strip()
+                        if not pid:
+                            continue
+
+                        # 排除尾碼 01/001/0001
+                        if str(pid).endswith(("01", "001", "0001")):
+                            continue
+
+                        # 該色粉在配方中的比例（g）
+                        ratio_g = recipe_row.get(f"色粉重量{i}", 0)
+                        try:
+                            ratio_g = float(ratio_g)
+                        except:
+                            ratio_g = 0.0
+
+                        # 計算實際使用量：色粉比例 × 包裝重量 × 份數
+                        total_used_g = 0
+                        for j in range(1, 5):
+                            w = st.session_state.get(f"form_weight{j}", "")
+                            n = st.session_state.get(f"form_count{j}", "")
+                            try:
+                                w_val = float(w) if w else 0
+                                n_val = float(n) if n else 0
+                                total_used_g += ratio_g * w_val * n_val
+                            except:
+                                pass
+
+                        # Debug 可用
+                        st.write(f"🟡 Debug: 色粉 {pid}, total_used_g={total_used_g}")
+
+                        # 更新庫存
+                        if pid in last_stock:
+                            new_stock_g = last_stock[pid] - total_used_g
+                            last_stock[pid] = new_stock_g
+
+                            # 分級提醒
+                            final_kg = new_stock_g / 1000
+                            if final_kg < 0.5:
+                                alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
+                            elif final_kg < 1:
+                                alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
+                            elif final_kg < 3:
+                                alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
+
+                    # 更新 session_state
+                    st.session_state["last_final_stock"] = last_stock
+
+                    # 顯示分級提醒
+                    if alerts:
+                        st.markdown(
+                            f"""
+                            <div style="background-color:#2c2c2c;padding:10px 14px;border-radius:8px;border:1px solid #444;color:#ffffff;margin-top:10px;">
+                            🆘 <b>以下色粉庫存過低：</b><br>
+                            {'<br>'.join(alerts)}
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
 
                     # 5️⃣ 寫入 Google Sheet / CSV
                     try:
@@ -2522,7 +2583,7 @@ elif menu == "生產單管理":
                         st.success(f"✅ 生產單 {order['生產單號']} 已存！")
                     except Exception as e:
                         st.error(f"❌ 寫入失敗：{e}")
-                        
+
 
                 # --- 產生列印 HTML 按鈕 ---
                 show_ids = st.checkbox("列印時顯示附加配方編號", value=False)
