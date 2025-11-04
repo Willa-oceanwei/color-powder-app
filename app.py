@@ -2472,38 +2472,65 @@ elif menu == "生產單管理":
                     order["色粉合計清單"] = color_weight_list
                     order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
-                    # 4️⃣ 檢查本單用量後的低庫存
+                    # 4️⃣ 檢查本單用量後的低庫存（含分級提醒）
                     last_stock = st.session_state.get("last_final_stock", {})
-                    low_stock_alerts = []
+                    alerts = []
 
                     # 根據這筆訂單的色粉，預先扣除用量再檢查
                     for i in range(1, 9):
-                        pid = order.get(f"色粉編號{i}", "")
+                        pid = order.get(f"色粉編號{i}", "").strip()
                         if not pid:
                             continue
+
+                        # 排除尾碼 01/001/0001
+                        if str(pid).endswith(("01", "001", "0001")):
+                            continue
+
                         used_g = recipe_row.get(f"色粉重量{i}", 0)
                         try:
                             used_g = float(used_g)
                         except:
                             used_g = 0.0
 
+                        # 取得包裝總量（包裝重量 × 份數）來計算實際使用量
+                        used_g_total = 0
+                        for j in range(1, 5):
+                            w = st.session_state.get(f"form_weight{j}", "")
+                            n = st.session_state.get(f"form_count{j}", "")
+                            try:
+                                w_val = float(w) if w else 0
+                                n_val = float(n) if n else 0
+                                used_g_total += w_val * n_val
+                            except:
+                                pass
+
                         if pid in last_stock:
-                            last_stock[pid] = last_stock[pid] - used_g
-                            if last_stock[pid] < 1000 and not str(pid).endswith(("01", "001", "0001")):
-                                low_stock_alerts.append((pid, last_stock[pid]))
+                            new_stock_g = last_stock[pid] - used_g_total
+                            last_stock[pid] = new_stock_g
+
+                            final_kg = new_stock_g / 1000
+                            if final_kg < 0.5:
+                                alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
+                            elif final_kg < 1:
+                                alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
+                            elif final_kg < 3:
+                                alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
 
                     # 更新回 session_state
                     st.session_state["last_final_stock"] = last_stock
 
                     # 顯示警示訊息
-                    if low_stock_alerts:
+                    if alerts:
                         st.markdown(
-                            "<div style='background-color:#2d2d2d;color:#ffffff;padding:10px;border-radius:8px;'>"
-                            "<b>⚠️ 以下色粉庫存低於 1kg：</b><br>"
-                            + "<br>".join([f"• {pid} → 僅剩 {qty/1000:.2f} kg" for pid, qty in low_stock_alerts])
-                            + "</div>",
+                            f"""
+                            <div style="background-color:#2c2c2c;padding:10px 14px;border-radius:8px;border:1px solid #444;color:#ffffff;margin-top:10px;">
+                            🆘 <b>以下色粉庫存過低：</b><br>
+                            {'<br>'.join(alerts)}
+                            </div>
+                            """,
                             unsafe_allow_html=True
                         )
+
 
                     # 5️⃣ 寫入 Google Sheet / CSV
                     try:
