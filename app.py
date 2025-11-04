@@ -152,17 +152,15 @@ def init_states(keys=None):
                 st.session_state[key] = None
 
 # ===== 安全初始化庫存資料last_final_stock =====
-stock_file = "data/stock.csv"
-
-if not os.path.exists(stock_file):
-    st.error(f"❌ 找不到庫存檔案：{stock_file}")
-    st.stop()
-
 try:
-    df_stock = pd.read_csv(stock_file, dtype={"色粉編號": str, "庫存量": float})
+    sh = client.open("色粉管理")  # Google Sheet 名稱
+    ws_stock = sh.worksheet("庫存記錄")  # 對應工作表名稱
+    records = ws_stock.get_all_records()
+    df_stock = pd.DataFrame(records)
 except Exception as e:
-    st.error(f"❌ 讀取庫存檔案失敗：{e}")
-    st.stop()
+    st.error(f"⚠️ 無法讀取 Google Sheet 庫存資料：{e}")
+    # 如果讀取失敗，也可以初始化空 DataFrame
+    df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
 
 # 確認欄位存在
 required_columns = ["色粉編號", "庫存量"]
