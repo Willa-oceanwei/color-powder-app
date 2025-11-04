@@ -126,6 +126,13 @@ def set_form_style():
 # ===== 呼叫一次，套用全程式 =====
 set_form_style()
 
+# ===== 初始化 last_final_stock（僅第一次載入時） =====
+if "last_final_stock" not in st.session_state:
+    # 假設 df_stock 已經有欄位 "色粉編號" 與 "庫存量"
+    st.session_state["last_final_stock"] = {
+        str(row["色粉編號"]).strip(): float(row["庫存量"])
+        for idx, row in df_stock.iterrows()
+    }
 
 # ======== 初始化 session_state =========
 def init_states(keys=None):
@@ -2506,6 +2513,7 @@ elif menu == "生產單管理":
 
                     # 4️⃣ 低庫存檢查（只針對本生產單用到的色粉）
                     last_stock = st.session_state.get("last_final_stock", {})
+                    st.write("Debug: initial last_stock =", last_stock)
 
                     # ✅ Debug: 查看初始庫存
                     st.write("Debug: initial last_stock =", last_stock)
@@ -2539,6 +2547,9 @@ elif menu == "生產單管理":
                                 total_used_g += ratio_g * w_val * n_val
                             except:
                                 pass
+
+                        st.session_state["last_final_stock"] = last_stock
+                        st.write("Debug: alerts =", alerts)
 
                         # Debug 每筆色粉計算
                         st.write(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock.get(pid, 0)}")
