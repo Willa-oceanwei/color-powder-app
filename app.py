@@ -2480,22 +2480,20 @@ elif menu == "生產單管理":
                         if not pid:
                             continue
 
-                        # 排除尾碼 01/001/0001
+                        # 排除尾碼
                         if str(pid).endswith(("01", "001", "0001")):
                             continue
 
-                        # 該色粉在配方中的比例（g）
                         ratio_g = recipe_row.get(f"色粉重量{i}", 0)
                         try:
                             ratio_g = float(ratio_g)
                         except:
                             ratio_g = 0.0
 
-                        # 計算所有包裝的實際使用量（色粉比例 × 包裝重量 × 份數）
                         total_used_g = 0
-                        for j in range(1, 5):
-                            w = st.session_state.get(f"form_weight{j}", "")
-                            n = st.session_state.get(f"form_count{j}", "")
+                            for j in range(1, 5):
+                                w = st.session_state.get(f"form_weight{j}", "")
+                                n = st.session_state.get(f"form_count{j}", "")
                             try:
                                 w_val = float(w) if w else 0
                                 n_val = float(n) if n else 0
@@ -2503,31 +2501,31 @@ elif menu == "生產單管理":
                             except:
                                 pass
 
-                        # 更新庫存並檢查低庫存
+                        # 確保只有 pid 在 last_stock 時才計算 new_stock_g
                         if pid in last_stock:
-                            stock_before = last_stock[pid]           # 扣除前庫存
-                            new_stock_g = stock_before - total_used_g
+                            new_stock_g = last_stock[pid] - total_used_g
                             last_stock[pid] = new_stock_g
 
-                            st.write(f"Debug: pid={pid}, stock_before={stock_before}, total_used_g={total_used_g}, new_stock_g={new_stock_g}")
-
                             final_kg = new_stock_g / 1000
+
+                            # Debug
+                            st.write(f"Debug: pid={pid}, last_stock_before={last_stock[pid]+total_used_g}, total_used_g={total_used_g}, new_stock_g={new_stock_g}, final_kg={final_kg}")
+
                             if final_kg < 0.5:
                                 alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
                             elif final_kg < 1:
                                 alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
                             elif final_kg < 3:
                                 alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
-
-                        # ✅ 插入 debug
-                        st.write("Debug: alerts =", alerts)
-                        st.write("Debug: last_stock =", last_stock)
-                        st.write("Debug: pid =", pid)
-                        st.write("Debug: total_used_g =", total_used_g)
-                        st.write("Debug: new_stock_g =", new_stock_g)
+                                            # ✅ 插入 debug
+                                            st.write("Debug: alerts =", alerts)
+                                            st.write("Debug: last_stock =", last_stock)
+                                            st.write("Debug: pid =", pid)
+                                            st.write("Debug: total_used_g =", total_used_g)
+                                            st.write("Debug: new_stock_g =", new_stock_g)
                         
-                    # 更新回 session_state
-                    st.session_state["last_final_stock"] = last_stock
+                                        # 更新回 session_state
+                                        st.session_state["last_final_stock"] = last_stock
 
                     # 顯示警示訊息
                     if alerts:
