@@ -3541,6 +3541,8 @@ if menu == "交叉查詢區":
             {"色粉編號": k, "總用量_g": v} for k, v in pigment_usage.items()
         ])
 
+        print(df_rank.columns.tolist())
+
         # 先由高到低排序
         df_rank = df_rank.sort_values("總用量_g", ascending=False).reset_index(drop=True)
         # 再格式化成 g 或 kg 顯示
