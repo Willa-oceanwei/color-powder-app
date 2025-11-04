@@ -2099,7 +2099,7 @@ elif menu == "生產單管理":
         df_stock = pd.DataFrame(columns=["類型","色粉編號","數量","單位","備註"])
 
     # 標準化類型欄
-    df_stock["類型"] = df_stock["類型"].astype(str).str.strip().str.replace('\u3000','')
+    df_stock["類型"] = df_stock["類型"].astype(str).str.strip().replace('\u3000','')
 
     # Debug
     st.write("💡 Debug: df_stock = ", df_stock)
