@@ -2496,7 +2496,6 @@ elif menu == "生產單管理":
 
                     # 4️⃣ 低庫存檢查（只針對本生產單用到的色粉）
                     last_stock = st.session_state.get("last_final_stock", {})
-                    
                     alerts = []
 
                     # 逐一處理每個色粉
@@ -2530,27 +2529,24 @@ elif menu == "生產單管理":
                             except:
                                 pass
 
-                        # Debug: 顯示每筆扣料
-                        last_stock_before = last_stock.get(pid, 0)                        
-
                         # 扣庫存
+                        last_stock_before = last_stock.get(pid, 0)
                         new_stock = last_stock_before - total_used_g
                         last_stock[pid] = new_stock
 
-                    # 判斷低庫存
+                        # 判斷低庫存
                         if last_stock_before > 0 and new_stock < 1000:  # g
                             alerts.append(f"🔴 {pid} → 僅剩 {new_stock/1000:.2f} kg")
 
-                        # Debug
-                        print(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock
+                        # ✅ Debug：如要暫時保留這行方便追蹤，可留
+                        print(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock_before}")
 
                     # ---------------- ✅ 在這裡加判斷 alerts ----------------
                     if alerts:
-                        st.warning("🆘 以下色粉庫存過低，已中止儲存：\n" + "\n".join(alerts))
-                        st.stop()   # 或 return 也行，視你是否在 function 內
-                        # ⚠️ 加這行會中斷程式，不會繼續更新庫存與寫入檔案
+                        st.warning("⚠️ 以下色粉庫存過低，已中止儲存：\n" + "\n".join(alerts))
+                        st.stop()  # ⚠️ 中斷流程，不會繼續往下寫入檔案
 
-                    # 更新 session_state
+                    # ---------------- 更新 session_state ----------------
                     st.session_state["last_final_stock"] = last_stock
 
                     # 5️⃣ 寫入 Google Sheet / CSV
