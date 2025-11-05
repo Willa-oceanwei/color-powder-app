@@ -3710,20 +3710,22 @@ if menu == "Pantone色號表":
 
     # 只有使用者有輸入文字才進行查詢
     if search_code:
-        search_code = str(search_code).strip()
+        search_code = str(search_code).strip().upper()  # 轉成大寫方便比對
 
         # 取得配方資料
         if "df_recipe" in st.session_state and not st.session_state.df_recipe.empty:
-            df_recipe = st.session_state.df_recipe
+            df_recipe = st.session_state.df_recipe.copy()
         elif "df" in st.session_state and not st.session_state.df.empty:
-            df_recipe = st.session_state.df
+            df_recipe = st.session_state.df.copy()
         else:
             df_recipe = pd.DataFrame()
 
         if not df_recipe.empty:
-            # 清理欄位，確保都是字串並去掉空白
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).str.strip()
-            df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
+            # 先確認欄位存在
+            for col in ["配方編號", "Pantone色號"]:
+                if col in df_recipe.columns:
+                    # 空值填空字串、轉字串、去空白、轉大寫
+                    df_recipe[col] = df_recipe[col].fillna("").astype(str).str.strip().str.upper()
 
             # 過濾資料：Pantone色號或配方編號包含輸入文字
             df_result_recipe = df_recipe[
@@ -3737,7 +3739,6 @@ if menu == "Pantone色號表":
         if df_result_recipe.empty:
             st.warning("查無符合資料。")
         else:
-            # 顯示配方管理結果（固定欄位）
             st.markdown('<div style="margin-top:2px;"></div>', unsafe_allow_html=True)
             display_columns = ["Pantone色號", "配方編號", "客戶名稱", "料號", "顏色"]
             # 只顯示存在的欄位，避免 KeyError
