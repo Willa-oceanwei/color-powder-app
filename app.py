@@ -2504,7 +2504,7 @@ elif menu == "生產單管理":
 
                         # 若該色粉沒有初始庫存，就略過但標記（方便之後補）
                         if pid not in last_stock:
-                            st.write(f"⚪ Debug: {pid}, 該色粉庫存未設定")
+                            st.write(f"⚪ Debug: {pid}色粉庫存未設定")
                             continue
 
                         # 取得比例（每單位用量）
