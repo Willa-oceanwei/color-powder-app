@@ -2109,9 +2109,6 @@ elif menu == "生產單管理":
             if str(row.get("單位","g")).lower() == "kg":
                 qty *= 1000
             st.session_state["last_final_stock"][pid] = qty
-
-    st.write("💡 Debug: last_final_stock =", st.session_state["last_final_stock"])
-
    
     # 轉換時間欄位與配方編號欄清理
     if "建立時間" in df_order.columns:
