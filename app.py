@@ -4230,14 +4230,17 @@ if menu == "庫存區":
 
             # (G) 儲存結果
             st.session_state["last_final_stock"][pid] = final_g
-            stock_summary.append({
-                "色粉編號": str(pid),
-                "期初庫存": safe_format(ini_total),
-                "區間進貨": safe_format(in_qty_interval),
-                "區間用量": safe_format(usage_interval),
-                "期末庫存": safe_format(final_g),
-                "備註": ini_date_note,
-            })
+
+            # 只顯示非尾碼 01/001/0001 的色粉
+            if not str(pid).endswith(("01", "001", "0001")):
+                stock_summary.append({
+                    "色粉編號": str(pid),
+                    "期初庫存": safe_format(ini_total),
+                    "區間進貨": safe_format(in_qty_interval),
+                    "區間用量": safe_format(usage_interval),
+                    "期末庫存": safe_format(final_g),
+                    "備註": ini_date_note,
+                })
 
         # --- 6. 顯示結果 ---
         df_result = pd.DataFrame(stock_summary)
