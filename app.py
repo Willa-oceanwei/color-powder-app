@@ -4200,59 +4200,61 @@ if menu == "庫存區":
 
             # ---------------- 起始日期決定 ----------------
             if no_date_selected:
-                # 庫存表的日期
+                # 該色粉在庫存表中的所有日期
                 stock_dates = df_pid["日期"]
-    
-                # 該色粉在所有生產單中用到的日期
-                used_in_orders = []
+
+                # 該色粉在生產單中被使用的日期
+                order_dates = []
                 if not df_order_copy.empty and not df_recipe.empty:
-                    for _, order in df_order_copy.iterrows():
+                    for _, recipe_row in df_recipe.iterrows():
                         for i in range(1, 9):
-                            pid_in_order = str(df_recipe.loc[df_recipe["配方編號"] == str(order["配方編號"]), f"色粉編號{i}"].values).strip()
-                            if pid_in_order == pid:
-                                used_in_orders.append(order["生產日期"])
-                order_dates = pd.to_datetime(pd.Series(used_in_orders)).dropna()
-    
-                # 取最早日期
-                all_dates = pd.concat([stock_dates, order_dates])
+                            if str(recipe_row.get(f"色粉編號{i}", "")).strip() == str(pid):
+                                # 找出用到這配方的所有生產日期
+                                related_orders = df_order_copy[df_order_copy["配方編號"] == recipe_row["配方編號"]]
+                                order_dates.extend(pd.to_datetime(related_orders["生產日期"], errors="coerce").dropna())
+
+                # 合併所有日期
+                all_dates = pd.concat([pd.to_datetime(stock_dates, errors="coerce"), pd.Series(order_dates)]).dropna()
                 s_dt_pid = all_dates.min() if not all_dates.empty else s_dt_use
+            else:
+                s_dt_pid = ini_date if ini_date is not None else s_dt_use
 
-                # 區間進貨
-                in_qty_interval = df_pid[
-                    (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                    (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
-                ]["數量_g"].sum()
+            # 區間進貨
+            in_qty_interval = df_pid[
+                (df_pid["類型"].astype(str).str.strip() == "進貨") &
+                (df_pid["日期"] >= s_dt_pid) & (df_pid["日期"] <= e_dt_use)
+            ]["數量_g"].sum()
 
-                # 區間用量
-                usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
-                                 if not df_order_copy.empty and not df_recipe.empty else 0.0
+            # 區間用量
+            usage_interval = safe_calc_usage(pid, df_order_copy, df_recipe, s_dt_pid, e_dt_use) \
+                             if not df_order_copy.empty and not df_recipe.empty else 0.0
 
-                # 期末庫存
-                final_g = ini_total + in_qty_interval - usage_interval
-                st.session_state["last_final_stock"][pid] = final_g
+            # 期末庫存
+            final_g = ini_total + in_qty_interval - usage_interval
+            st.session_state["last_final_stock"][pid] = final_g
 
-                # 低庫存提醒 (<1kg)，忽略尾數 01, 001, 0001
-                if final_g < 1000 and not str(pid).endswith(("01", "001", "0001")):
-                    low_stock_alerts.append((pid, final_g))
+            # 低庫存提醒 (<1kg)，忽略尾數 01, 001, 0001
+            if final_g < 1000 and not str(pid).endswith(("01", "001", "0001")):
+                low_stock_alerts.append((pid, final_g))
 
-                stock_summary.append({
-                    "色粉編號": str(pid),
-                    "期初庫存": safe_format(ini_total),
-                    "區間進貨": safe_format(in_qty_interval),
-                    "區間用量": safe_format(usage_interval),
-                    "期末庫存": safe_format(final_g),
-                    "備註": ini_date_note,
-                })
+            stock_summary.append({
+                "色粉編號": str(pid),
+                "期初庫存": safe_format(ini_total),
+                "區間進貨": safe_format(in_qty_interval),
+                "區間用量": safe_format(usage_interval),
+                "期末庫存": safe_format(final_g),
+                "備註": ini_date_note,
+            })
 
-            # 顯示結果
-            df_result = pd.DataFrame(stock_summary)
-            st.dataframe(df_result, use_container_width=True)
-            st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
+        # 顯示結果
+        df_result = pd.DataFrame(stock_summary)
+        st.dataframe(df_result, use_container_width=True)
+        st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
 
-            if low_stock_alerts:
-                st.warning("⚠️ 以下色粉庫存低於 1kg：")
-                for pid, qty in low_stock_alerts:
-                    st.write(f"• {pid} → {safe_format(qty)}")
+        if low_stock_alerts:
+            st.warning("⚠️ 以下色粉庫存低於 1kg：")
+            for pid, qty in low_stock_alerts:
+                st.write(f"• {pid} → {safe_format(qty)}")
         
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
