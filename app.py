@@ -3699,8 +3699,7 @@ if menu == "Pantone色號表":
         unsafe_allow_html=True
     )
 
-    # ====== 查詢區塊 ======
-    # ======== 🔍 查詢 Pantone 色號 ========
+    # ======== 🔍 查詢 Pantone / 配方編號 ========
     st.markdown(
         '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢 Pantone / 配方編號</h1>',
         unsafe_allow_html=True
@@ -3709,10 +3708,10 @@ if menu == "Pantone色號表":
     # 查詢輸入框
     search_code = st.text_input("輸入 Pantone 色號或配方編號")
 
-    # 確保 search_code 是字串
-    if search_code is not None and str(search_code).strip() != "":
+    # 只有使用者有輸入文字才進行查詢
+    if search_code:
         search_code = str(search_code).strip()
-        
+
         # 取得配方資料
         if "df_recipe" in st.session_state and not st.session_state.df_recipe.empty:
             df_recipe = st.session_state.df_recipe
@@ -3722,11 +3721,11 @@ if menu == "Pantone色號表":
             df_recipe = pd.DataFrame()
 
         if not df_recipe.empty:
-            # 清理欄位
+            # 清理欄位，確保都是字串並去掉空白
             df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).str.strip()
             df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
-    
-            # 過濾資料
+
+            # 過濾資料：Pantone色號或配方編號包含輸入文字
             df_result_recipe = df_recipe[
                 df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False) |
                 df_recipe["配方編號"].str.contains(search_code, case=False, na=False)
@@ -3734,33 +3733,16 @@ if menu == "Pantone色號表":
         else:
             df_result_recipe = pd.DataFrame()
 
-        # 如果沒有查到，先定義空 DataFrame
-        if 'df_result_pantone' not in locals():
-            df_result_pantone = pd.DataFrame()
-
-        if 'df_result_recipe' not in locals():
-            df_result_recipe = pd.DataFrame()
-
         # ---------- 顯示結果 ----------
-        if df_result_pantone.empty and df_result_recipe.empty:
+        if df_result_recipe.empty:
             st.warning("查無符合資料。")
         else:
-            # 顯示 Pantone 對照表（如有）
-            if not df_result_pantone.empty:
-                st.markdown(
-                    '<div style="font-size:22px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0;">🔍 Pantone 對照表</div>',
-                    unsafe_allow_html=True
-                )
-                show_pantone_table(df_result_pantone, title="")
-
-            # 顯示配方管理結果（只顯示固定欄位）
-            if not df_result_recipe.empty:
-                st.markdown('<div style="margin-top:2px;"></div>', unsafe_allow_html=True)
-                display_columns = ["Pantone色號", "配方編號", "客戶名稱", "料號", "顏色"]
-                # 只顯示存在的欄位，避免 KeyError
-                display_columns = [col for col in display_columns if col in df_result_recipe.columns]
-                st.dataframe(df_result_recipe[display_columns].reset_index(drop=True))
-
+            # 顯示配方管理結果（固定欄位）
+            st.markdown('<div style="margin-top:2px;"></div>', unsafe_allow_html=True)
+            display_columns = ["Pantone色號", "配方編號", "客戶名稱", "料號", "顏色"]
+            # 只顯示存在的欄位，避免 KeyError
+            display_columns = [col for col in display_columns if col in df_result_recipe.columns]
+            st.dataframe(df_result_recipe[display_columns].reset_index(drop=True))
                 
 # ======== 庫存區分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
