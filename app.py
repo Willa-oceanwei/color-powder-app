@@ -4106,20 +4106,35 @@ if menu == "庫存區":
         st.success(f"✅ 查詢 {query_start} ~ {query_end} 的庫存數量")
 
 
+    
     # ---------------- 庫存查詢（主流程*） ----------------
     if st.button("執行查詢", key="btn_stock_query"):
         if df_stock.empty and df_order.empty:
             st.warning("⚠️ 沒有任何庫存或生產資料可查！")
         else:
+            # 複製 stock 與 order
             df_stock_copy = df_stock.copy()
-            df_stock_copy.columns = df_stock_copy.columns.str.strip()
-            if "數量_g" in df_stock_copy.columns and "數量" not in df_stock_copy.columns:
-                df_stock_copy.rename(columns={"數量_g": "數量"}, inplace=True)
-            df_stock_copy["日期"] = pd.to_datetime(df_stock_copy["日期"], errors="coerce")
             df_order_copy = df_order.copy()
+
+            # 1️⃣ 清理欄位名稱前後空白
+            df_stock_copy.columns = df_stock_copy.columns.str.strip()
+            df_order_copy.columns = df_order_copy.columns.str.strip()
+
+            # 2️⃣ 將日期欄轉 datetime
+            if "日期" in df_stock_copy.columns:
+                df_stock_copy["日期"] = pd.to_datetime(df_stock_copy["日期"], errors="coerce")
+            else:
+                st.warning("⚠️ df_stock 中缺少 '日期' 欄位！")
+
             if "生產日期" in df_order_copy.columns:
                 df_order_copy["生產日期"] = pd.to_datetime(df_order_copy["生產日期"], errors="coerce")
 
+            # 3️⃣ 確保色粉編號欄存在
+            if "色粉編號" not in df_stock_copy.columns:
+                st.error("❌ df_stock 中缺少 '色粉編號' 欄位，無法查詢庫存！")
+                st.stop()
+
+            # 4️⃣ 判斷是否有選日期
             no_date_selected = not (query_start or query_end)
             s_dt_use = pd.to_datetime(query_start) if query_start else None
             e_dt_use = pd.to_datetime(query_end) if query_end else pd.to_datetime(date.today())
