@@ -3737,7 +3737,7 @@ if menu == "Pantone色號表":
             if not df_result_pantone.empty:
                 # 與查詢欄標題統一字體大小和顏色，並縮小上下 margin
                 st.markdown(
-                    '<div style="font-size:22px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0;">🔍 Pantone 對照表</div>',
+                    '<div style="font-size:20px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0;">🔍 Pantone 對照表</div>',
                     unsafe_allow_html=True
                 )
 
