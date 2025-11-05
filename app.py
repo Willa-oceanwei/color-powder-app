@@ -3707,35 +3707,29 @@ if menu == "Pantone色號表":
     )
 
     # 查詢輸入框
-    search_code = st.text_input("輸入 Pantone 色號或配方編號")
+    # 清理查詢字串
+    search_code = search_code.strip()
 
-    if search_code:
-        # ---------- 第一部分：Pantone 對照表 ----------
-        if "df_pantone" in locals() or "df_pantone" in globals():
-            df_result_pantone = df_pantone[df_pantone["Pantone色號"].str.contains(search_code, case=False, na=False)]
-        else:
-            df_result_pantone = pd.DataFrame()
+    # 取得配方資料
+    if "df_recipe" in st.session_state and not st.session_state.df_recipe.empty:
+        df_recipe = st.session_state.df_recipe
+    elif "df" in st.session_state and not st.session_state.df.empty:
+        df_recipe = st.session_state.df
+    else:
+        df_recipe = pd.DataFrame()
 
-        # ---------- 第二部分：配方管理 ----------
-        if "df_recipe" in st.session_state and not st.session_state.df_recipe.empty:
-            df_recipe = st.session_state.df_recipe
-        elif "df" in st.session_state and not st.session_state.df.empty:
-            df_recipe = st.session_state.df
-        else:
-            df_recipe = pd.DataFrame()
-
-        if not df_recipe.empty:
-            # 清理欄位：去空白並轉字串
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).str.strip()
-            df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
+    if not df_recipe.empty:
+        # 清理欄位
+        df_recipe["配方編號"] = df_recipe["配方編號"].apply(lambda x: str(int(x)) if pd.notnull(x) else "").str.strip()
+        df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
     
-            # 過濾資料：Pantone色號 或 配方編號 包含輸入文字
-            df_result_recipe = df_recipe[
-                df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False) |
-                df_recipe["配方編號"].str.contains(search_code, case=False, na=False)
-            ]        
-        else:
-            df_result_recipe = pd.DataFrame()
+        # 過濾資料
+        df_result_recipe = df_recipe[
+            df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False) |
+            df_recipe["配方編號"].str.contains(search_code, case=False, na=False)
+        ]
+    else:
+        df_result_recipe = pd.DataFrame()
 
         # ---------- 顯示結果 ----------
         if df_result_pantone.empty and df_result_recipe.empty:
