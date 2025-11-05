@@ -4200,21 +4200,25 @@ if menu == "庫存區":
 
             # ---------------- 起始日期決定 ----------------
             if no_date_selected:
-                # 該色粉在庫存表中的所有日期
-                stock_dates = df_pid["日期"]
+                # 1️⃣ 該色粉在庫存表（初始與進貨）的所有日期
+                stock_dates = pd.to_datetime(df_pid["日期"], errors="coerce")
 
-                # 該色粉在生產單中被使用的日期
-                order_dates = []
+                # 2️⃣ 該色粉在生產單中被使用的日期
+                order_dates = pd.Series(dtype="datetime64[ns]")
                 if not df_order_copy.empty and not df_recipe.empty:
-                    for _, recipe_row in df_recipe.iterrows():
-                        for i in range(1, 9):
-                            if str(recipe_row.get(f"色粉編號{i}", "")).strip() == str(pid):
-                                # 找出用到這配方的所有生產日期
-                                related_orders = df_order_copy[df_order_copy["配方編號"] == recipe_row["配方編號"]]
-                                order_dates.extend(pd.to_datetime(related_orders["生產日期"], errors="coerce").dropna())
+                    # 找出含該色粉的配方編號們
+                    related_recipes = df_recipe[
+                        df_recipe[[f"色粉編號{i}" for i in range(1, 9)]].isin([pid]).any(axis=1)
+                    ]["配方編號"].unique().tolist()
 
-                # 合併所有日期
-                all_dates = pd.concat([pd.to_datetime(stock_dates, errors="coerce"), pd.Series(order_dates)]).dropna()
+                    if related_recipes:
+                        order_dates = pd.to_datetime(
+                            df_order_copy[df_order_copy["配方編號"].isin(related_recipes)]["生產日期"],
+                            errors="coerce"
+                        )
+
+                # 3️⃣ 合併所有日期，取最早
+                all_dates = pd.concat([stock_dates, order_dates]).dropna()
                 s_dt_pid = all_dates.min() if not all_dates.empty else s_dt_use
             else:
                 s_dt_pid = ini_date if ini_date is not None else s_dt_use
