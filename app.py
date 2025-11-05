@@ -2537,10 +2537,6 @@ elif menu == "生產單管理":
                         elif final_kg < 3:
                             alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
 
-                        # 判斷低庫存
-                        if last_stock_before > 0 and new_stock < 1000:  # g
-                            alerts.append(f"🔴 {pid} → 僅剩 {new_stock/1000:.2f} kg")
-
                         # ✅ Debug：如要暫時保留這行方便追蹤，可留
                         print(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock_before}")
 
