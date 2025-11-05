@@ -4200,7 +4200,7 @@ if menu == "庫存區":
 
             # ---------------- 起始日期決定 ----------------
             if no_date_selected:
-                # 沒選日期 → 該色粉最早的所有紀錄（初始/進貨/生產單）最早日期
+                # 找出該色粉所有紀錄（期初、進貨、或生產單）的最早日期
                 all_dates = pd.concat([
                     df_pid["日期"],
                     df_order_copy[df_order_copy["配方編號"].astype(str).str.strip() == pid]["生產日期"]
@@ -4208,7 +4208,6 @@ if menu == "庫存區":
                 ]).dropna()
                 s_dt_pid = all_dates.min() if not all_dates.empty else s_dt_use
             else:
-                # 選了日期 → 用期初日期或使用者選擇的起日
                 s_dt_pid = ini_date if ini_date is not None else s_dt_use
 
             # 區間進貨
