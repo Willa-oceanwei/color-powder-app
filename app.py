@@ -4200,15 +4200,22 @@ if menu == "庫存區":
 
             # ---------------- 起始日期決定 ----------------
             if no_date_selected:
-                # 找出該色粉所有紀錄（期初、進貨、或生產單）的最早日期
-                all_dates = pd.concat([
-                    df_pid["日期"],
-                    df_order_copy[df_order_copy["配方編號"].astype(str).str.strip() == pid]["生產日期"]
-                        if not df_order_copy.empty else pd.Series(dtype='datetime64[ns]')
-                ]).dropna()
-                s_dt_pid = all_dates.min() if not all_dates.empty else s_dt_use
-            else:
-                s_dt_pid = ini_date if ini_date is not None else s_dt_use
+            # 庫存表的日期
+            stock_dates = df_pid["日期"]
+    
+            # 該色粉在所有生產單中用到的日期
+            used_in_orders = []
+            if not df_order_copy.empty and not df_recipe.empty:
+                for _, order in df_order_copy.iterrows():
+                    for i in range(1, 9):
+                        pid_in_order = str(df_recipe.loc[df_recipe["配方編號"] == str(order["配方編號"]), f"色粉編號{i}"].values).strip()
+                        if pid_in_order == pid:
+                            used_in_orders.append(order["生產日期"])
+            order_dates = pd.to_datetime(pd.Series(used_in_orders)).dropna()
+    
+            # 取最早日期
+            all_dates = pd.concat([stock_dates, order_dates])
+            s_dt_pid = all_dates.min() if not all_dates.empty else s_dt_use
 
             # 區間進貨
             in_qty_interval = df_pid[
