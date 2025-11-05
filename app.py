@@ -4176,11 +4176,33 @@ if menu == "庫存區":
             ini_base_value = 0.0
 
             # (A) 找出最新期初（錨點）
-            df_ini_valid = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"].dropna(subset=["日期"])
-            if not df_ini_valid.empty:
-                latest_ini_row = df_ini_valid.sort_values("日期", ascending=False).iloc[0]
+            df_pid_stock = df_pid.dropna(subset=["日期"]).copy()
+            ini_base_value = 0.0
+            ini_date = None
+
+            # 優先抓初始庫存
+            df_ini = df_pid_stock[df_pid_stock["類型"].astype(str).str.strip() == "初始"]
+            if not df_ini.empty:
+                latest_ini_row = df_ini.sort_values("日期", ascending=False).iloc[0]
                 ini_base_value = latest_ini_row["數量_g"]
                 ini_date = pd.to_datetime(latest_ini_row["日期"], errors="coerce").normalize()
+            else:
+                # 沒有初始庫存 → 從最早進貨或生產記錄作起算點
+                # 找最早進貨
+                df_in = df_pid_stock[df_pid_stock["類型"].astype(str).str.strip() == "進貨"]
+                min_stock_date = df_in["日期"].min() if not df_in.empty else None
+
+                # 找最早生產日期
+                df_order_pid = df_order_copy[df_order_copy["配方編號"].astype(str).str.strip() == pid]
+                min_order_date = df_order_pid["生產日期"].min() if not df_order_pid.empty else None
+
+                # 起算點取最早日期
+                candidate_dates = [d for d in [min_stock_date, min_order_date] if d is not None]
+                if candidate_dates:
+                    ini_date = min(candidate_dates).normalize()
+                else:
+                    ini_date = pd.Timestamp.today().normalize()
+                ini_base_value = 0.0
 
             # (B) 起算日判斷
             if no_date_selected:
