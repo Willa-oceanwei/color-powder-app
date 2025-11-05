@@ -2537,9 +2537,8 @@ elif menu == "生產單管理":
 
                     # ---------------- ✅ 在這裡加判斷 alerts ----------------
                     if alerts:
-                        st.warning("⚠️ 以下色粉庫存過低，已中止儲存：\n" + "\n".join(alerts))
-                        st.stop()  # ⚠️ 中斷流程，不會繼續往下寫入檔案
-
+                        st.warning("⚠️ 以下色粉庫存過低：\n" + "\n".join(alerts))
+                        
                     # ---------------- 更新 session_state ----------------
                     st.session_state["last_final_stock"] = last_stock
 
