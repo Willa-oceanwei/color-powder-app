@@ -3723,7 +3723,7 @@ if menu == "Pantone色號表":
 
         if not df_recipe.empty:
             # 清理欄位
-            df_recipe["配方編號"] = df_recipe["配方編號"].apply(lambda x: str(int(x)) if pd.notnull(x) else "").str.strip()
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).str.strip()
             df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
     
             # 過濾資料
