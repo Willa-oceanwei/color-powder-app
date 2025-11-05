@@ -3707,30 +3707,32 @@ if menu == "Pantone色號表":
     )
 
     # 查詢輸入框
-    # 清理查詢字串
-    if search_code:
-        search_code = search_code.strip()
+    search_code = st.text_input("輸入 Pantone 色號或配方編號")
 
-    # 取得配方資料
-    if "df_recipe" in st.session_state and not st.session_state.df_recipe.empty:
-        df_recipe = st.session_state.df_recipe
-    elif "df" in st.session_state and not st.session_state.df.empty:
-        df_recipe = st.session_state.df
-    else:
-        df_recipe = pd.DataFrame()
+    # 確保 search_code 是字串
+    if search_code is not None and str(search_code).strip() != "":
+        search_code = str(search_code).strip()
+        
+        # 取得配方資料
+        if "df_recipe" in st.session_state and not st.session_state.df_recipe.empty:
+            df_recipe = st.session_state.df_recipe
+        elif "df" in st.session_state and not st.session_state.df.empty:
+            df_recipe = st.session_state.df
+        else:
+            df_recipe = pd.DataFrame()
 
-    if not df_recipe.empty:
-        # 清理欄位
-        df_recipe["配方編號"] = df_recipe["配方編號"].apply(lambda x: str(int(x)) if pd.notnull(x) else "").str.strip()
-        df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
+        if not df_recipe.empty:
+            # 清理欄位
+            df_recipe["配方編號"] = df_recipe["配方編號"].apply(lambda x: str(int(x)) if pd.notnull(x) else "").str.strip()
+            df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
     
-        # 過濾資料
-        df_result_recipe = df_recipe[
-            df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False) |
-            df_recipe["配方編號"].str.contains(search_code, case=False, na=False)
-        ]
-    else:
-        df_result_recipe = pd.DataFrame()
+            # 過濾資料
+            df_result_recipe = df_recipe[
+                df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False) |
+                df_recipe["配方編號"].str.contains(search_code, case=False, na=False)
+            ]
+        else:
+            df_result_recipe = pd.DataFrame()
 
         # ---------- 顯示結果 ----------
         if df_result_pantone.empty and df_result_recipe.empty:
