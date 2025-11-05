@@ -3708,7 +3708,8 @@ if menu == "Pantone色號表":
 
     # 查詢輸入框
     # 清理查詢字串
-    search_code = search_code.strip()
+    if search_code:
+        search_code = search_code.strip()
 
     # 取得配方資料
     if "df_recipe" in st.session_state and not st.session_state.df_recipe.empty:
