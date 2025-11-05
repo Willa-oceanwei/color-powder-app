@@ -2101,9 +2101,6 @@ elif menu == "生產單管理":
     # 標準化類型欄
     df_stock["類型"] = df_stock["類型"].astype(str).str.strip().replace('\u3000','')
 
-    # Debug
-    st.write("💡 Debug: 初始列 = ", df_stock[df_stock["類型"]=="初始"])
-
     # 載入初始庫存
     for idx, row in df_stock.iterrows():
         if row["類型"] == "初始":
