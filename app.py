@@ -4132,6 +4132,8 @@ if menu == "庫存區":
             stock_summary = []
             low_stock_alerts = []
 
+            df_stock_copy["日期"] = pd.to_datetime(df_stock_copy["日期"], errors="coerce")
+
             for pid in all_pids:
                 df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
 
