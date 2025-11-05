@@ -3700,8 +3700,6 @@ if menu == "Pantone色號表":
     )
 
     # ======== 🔍 查詢 Pantone / 配方編號 ========
-    import re
-
     st.markdown(
         '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢 Pantone / 配方編號</h1>',
         unsafe_allow_html=True
@@ -3710,10 +3708,8 @@ if menu == "Pantone色號表":
     # 查詢輸入框
     search_code = st.text_input("輸入 Pantone 色號或配方編號")
 
-    # 只有使用者有輸入文字才進行查詢
-    if search_code:
-        # 清理輸入：去掉空白、隱藏字元，轉大寫
-        search_code_clean = re.sub(r"\s+", "", str(search_code)).upper()
+    if search_code:  # 使用者有輸入才進行查詢
+        search_code_clean = str(search_code).strip()  # 去掉前後空白
 
         # 取得配方資料
         if "df_recipe" in st.session_state and not st.session_state.df_recipe.empty:
@@ -3724,15 +3720,16 @@ if menu == "Pantone色號表":
             df_recipe = pd.DataFrame()
 
         if not df_recipe.empty:
-            # 配方編號：先轉字串，再去前後空白
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).str.strip()
-            # Pantone 色號：去空白
-            df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
+            # 確保欄位存在且安全處理
+            for col in ["配方編號", "Pantone色號"]:
+                if col in df_recipe.columns:
+                    # 空值填空字串，轉字串，去前後空白
+                    df_recipe[col] = df_recipe[col].fillna("").astype(str).str.strip()
 
-            # 過濾資料
+            # 過濾資料：Pantone色號 或 配方編號 包含輸入文字
             df_result_recipe = df_recipe[
-                df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False) |
-                df_recipe["配方編號"].str.contains(search_code, case=False, na=False)
+                df_recipe["Pantone色號"].str.contains(search_code_clean, case=False, na=False) |
+                df_recipe["配方編號"].str.contains(search_code_clean, case=False, na=False)
             ]
         else:
             df_result_recipe = pd.DataFrame()
