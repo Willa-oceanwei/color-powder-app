@@ -4121,6 +4121,8 @@ if menu == "庫存區":
             s_dt_use = pd.to_datetime(query_start) if query_start else None
             e_dt_use = pd.to_datetime(query_end) if query_end else pd.to_datetime(date.today())
 
+            st.write("🧩 Debug 欄位名稱：", df_stock_copy.columns.tolist())
+
             # 過濾色粉（若輸入）
             all_pids = sorted(df_stock_copy["色粉編號"].dropna().unique().tolist())
             if stock_powder.strip():
