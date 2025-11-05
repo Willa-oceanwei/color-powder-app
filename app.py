@@ -2496,8 +2496,7 @@ elif menu == "生產單管理":
 
                     # 4️⃣ 低庫存檢查（只針對本生產單用到的色粉）
                     last_stock = st.session_state.get("last_final_stock", {})
-                    st.write("💡 Debug: initial last_stock =", last_stock)
-
+                    
                     alerts = []
 
                     # 逐一處理每個色粉
@@ -2532,8 +2531,7 @@ elif menu == "生產單管理":
                                 pass
 
                         # Debug: 顯示每筆扣料
-                        last_stock_before = last_stock.get(pid, 0)
-                        st.write(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock_before}")
+                        last_stock_before = last_stock.get(pid, 0)                        
 
                         # 扣庫存
                         new_stock = last_stock_before - total_used_g
@@ -2543,16 +2541,17 @@ elif menu == "生產單管理":
                         if last_stock_before > 0 and new_stock < 1000:  # g
                             alerts.append(f"🔴 {pid} → 僅剩 {new_stock/1000:.2f} kg")
 
+                        # Debug
+                        print(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock
+
+                    # ---------------- ✅ 在這裡加判斷 alerts ----------------
+                    if alerts:
+                        st.warning("🆘 以下色粉庫存過低，已中止儲存：\n" + "\n".join(alerts))
+                        st.stop()   # 或 return 也行，視你是否在 function 內
+                        # ⚠️ 加這行會中斷程式，不會繼續更新庫存與寫入檔案
+
                     # 更新 session_state
                     st.session_state["last_final_stock"] = last_stock
-
-                    # 顯示警示
-                    st.write("Debug: alerts =", alerts)
-                    if alerts:
-                        st.markdown(
-                            f"<div style='background-color:#2c2c2c;padding:10px 14px;border-radius:8px;border:1px solid #444;color:#ffffff;margin-top:10px;'>🆘 <b>以下色粉庫存過低：</b><br>{'<br>'.join(alerts)}</div>",
-                            unsafe_allow_html=True
-                        )
 
                     # 5️⃣ 寫入 Google Sheet / CSV
                     try:
