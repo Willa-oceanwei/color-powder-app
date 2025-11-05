@@ -3734,6 +3734,13 @@ if menu == "Pantone色號表":
         else:
             df_result_recipe = pd.DataFrame()
 
+        # 如果沒有查到，先定義空 DataFrame
+        if 'df_result_pantone' not in locals():
+            df_result_pantone = pd.DataFrame()
+
+        if 'df_result_recipe' not in locals():
+            df_result_recipe = pd.DataFrame()
+
         # ---------- 顯示結果 ----------
         if df_result_pantone.empty and df_result_recipe.empty:
             st.warning("查無符合資料。")
