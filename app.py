@@ -4112,8 +4112,7 @@ if menu == "庫存區":
             st.warning("⚠️ 沒有任何庫存或生產資料可查！")
         else:
             df_stock_copy = df_stock.copy()
-            # 🧩 防呆：統一欄位名稱
-            df_stock_copy.columns = df_stock_copy.columns.str.strip()  # 去除空白
+            df_stock_copy.columns = df_stock_copy.columns.str.strip()
             if "數量_g" in df_stock_copy.columns and "數量" not in df_stock_copy.columns:
                 df_stock_copy.rename(columns={"數量_g": "數量"}, inplace=True)
             df_stock_copy["日期"] = pd.to_datetime(df_stock_copy["日期"], errors="coerce")
