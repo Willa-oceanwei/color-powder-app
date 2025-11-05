@@ -3725,11 +3725,15 @@ if menu == "Pantone色號表":
             df_recipe = pd.DataFrame()
 
         if not df_recipe.empty:
+            # 清理欄位：去空白並轉字串
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).str.strip()
+            df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
+    
             # 過濾資料：Pantone色號 或 配方編號 包含輸入文字
             df_result_recipe = df_recipe[
                 df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False) |
-                df_recipe["配方編號"].astype(str).str.contains(search_code, case=False, na=False)
-            ]
+                df_recipe["配方編號"].str.contains(search_code, case=False, na=False)
+            ]        
         else:
             df_result_recipe = pd.DataFrame()
 
