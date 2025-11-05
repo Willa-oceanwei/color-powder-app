@@ -4168,19 +4168,15 @@ if menu == "庫存區":
         stock_summary = []
 
         # --- 5. 核心計算迴圈 ---
+        # --- 核心計算迴圈（防呆版） ---
         for pid in all_pids:
             df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
-
             ini_total = 0.0
             ini_date = None
             ini_base_value = 0.0
 
             # (A) 找出最新期初（錨點）
             df_pid_stock = df_pid.dropna(subset=["日期"]).copy()
-            ini_base_value = 0.0
-            ini_date = None
-
-            # 優先抓初始庫存
             df_ini = df_pid_stock[df_pid_stock["類型"].astype(str).str.strip() == "初始"]
             if not df_ini.empty:
                 latest_ini_row = df_ini.sort_values("日期", ascending=False).iloc[0]
@@ -4192,16 +4188,16 @@ if menu == "庫存區":
                 df_in = df_pid_stock[df_pid_stock["類型"].astype(str).str.strip() == "進貨"]
                 min_stock_date = df_in["日期"].min() if not df_in.empty else None
 
-                # 找最早生產日期
-                df_order_pid = df_order_copy[df_order_copy["配方編號"].astype(str).str.strip() == pid]
-                min_order_date = df_order_pid["生產日期"].min() if not df_order_pid.empty else None
+                # 找最早生產日期（防呆）
+                if "配方編號" in df_order_copy.columns and "生產日期" in df_order_copy.columns:
+                    df_order_pid = df_order_copy[df_order_copy["配方編號"].astype(str).str.strip() == pid]
+                    min_order_date = df_order_pid["生產日期"].min() if not df_order_pid.empty else None
+                else:
+                    min_order_date = None
 
                 # 起算點取最早日期
                 candidate_dates = [d for d in [min_stock_date, min_order_date] if d is not None]
-                if candidate_dates:
-                    ini_date = min(candidate_dates).normalize()
-                else:
-                    ini_date = pd.Timestamp.today().normalize()
+                ini_date = min(candidate_dates).normalize() if candidate_dates else pd.Timestamp.today().normalize()
                 ini_base_value = 0.0
 
             # (B) 起算日判斷
