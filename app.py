@@ -3745,7 +3745,7 @@ if menu == "Pantone色號表":
 
             if not df_result_recipe.empty:
                 # 可額外加 margin-top 1~2px，避免貼太近或太遠
-                st.markdown('<div style="margin-top:2px;"></div>', unsafe_allow_html=True)
+                st.markdown('<div style="margin-top:0px;"></div>', unsafe_allow_html=True)
                 st.dataframe(
                     df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True)
                 )            
