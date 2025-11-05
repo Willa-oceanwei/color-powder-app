@@ -3702,14 +3702,13 @@ if menu == "Pantone色號表":
     # ====== 查詢區塊 ======
     # ======== 🔍 查詢 Pantone 色號 ========
     st.markdown(
-        '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢 Pantone 色號</h1>',
+        '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢 Pantone / 配方編號</h1>',
         unsafe_allow_html=True
     )
 
     # 查詢輸入框
-    search_code = st.text_input("輸入 Pantone 色號")
+    search_code = st.text_input("輸入 Pantone 色號或配方編號")
 
-    # 使用者有輸入才顯示結果
     if search_code:
         # ---------- 第一部分：Pantone 對照表 ----------
         if "df_pantone" in locals() or "df_pantone" in globals():
@@ -3725,31 +3724,35 @@ if menu == "Pantone色號表":
         else:
             df_recipe = pd.DataFrame()
 
-        if not df_recipe.empty and "Pantone色號" in df_recipe.columns:
-            df_result_recipe = df_recipe[df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False)]
+        if not df_recipe.empty:
+            # 過濾資料：Pantone色號 或 配方編號 包含輸入文字
+            df_result_recipe = df_recipe[
+                df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False) |
+                df_recipe["配方編號"].astype(str).str.contains(search_code, case=False, na=False)
+            ]
         else:
             df_result_recipe = pd.DataFrame()
 
-        
         # ---------- 顯示結果 ----------
         if df_result_pantone.empty and df_result_recipe.empty:
-            st.warning("查無符合的 Pantone 色號資料。")
+            st.warning("查無符合資料。")
         else:
+            # 顯示 Pantone 對照表（如有）
             if not df_result_pantone.empty:
-                # 與查詢欄標題統一字體大小和顏色，並縮小上下 margin
                 st.markdown(
                     '<div style="font-size:22px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0;">🔍 Pantone 對照表</div>',
                     unsafe_allow_html=True
                 )
-
                 show_pantone_table(df_result_pantone, title="")
 
+            # 顯示配方管理結果（只顯示固定欄位）
             if not df_result_recipe.empty:
-                # 可額外加 margin-top 1~2px，避免貼太近或太遠
                 st.markdown('<div style="margin-top:2px;"></div>', unsafe_allow_html=True)
-                st.dataframe(
-                    df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True)
-                )
+                display_columns = ["Pantone色號", "配方編號", "客戶名稱", "料號", "顏色"]
+                # 只顯示存在的欄位，避免 KeyError
+                display_columns = [col for col in display_columns if col in df_result_recipe.columns]
+                st.dataframe(df_result_recipe[display_columns].reset_index(drop=True))
+
                 
 # ======== 庫存區分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
