@@ -2528,6 +2528,15 @@ elif menu == "生產單管理":
                         new_stock = last_stock_before - total_used_g
                         last_stock[pid] = new_stock
 
+                        # 分級提醒
+                        final_kg = new_stock / 1000
+                        if final_kg < 0.5:
+                            alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
+                        elif final_kg < 1:
+                            alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
+                        elif final_kg < 3:
+                            alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
+
                         # 判斷低庫存
                         if last_stock_before > 0 and new_stock < 1000:  # g
                             alerts.append(f"🔴 {pid} → 僅剩 {new_stock/1000:.2f} kg")
