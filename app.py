@@ -2542,7 +2542,7 @@ elif menu == "生產單管理":
 
                     # ---------------- ✅ 在這裡加判斷 alerts ----------------
                     if alerts:
-                        st.warning("🆘💀☠️ 以下色粉庫存過低：\n" + "\n".join(alerts))
+                        st.warning("💀 以下色粉庫存過低：\n" + "\n".join(alerts))
                         
                     # ---------------- 更新 session_state ----------------
                     st.session_state["last_final_stock"] = last_stock
