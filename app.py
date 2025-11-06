@@ -3755,9 +3755,19 @@ if menu == "Pantone色號表":
 
         if not df_recipe.empty:
             # 如果是浮點數，先取整數再轉字串
-            df_recipe["配方編號"] = df_recipe["配方編號"].apply(lambda x: str(int(x)) if pd.notna(x) else "")
-            df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
+            def clean_pid(x):
+                if pd.isna(x):
+                    return ""
+                try:
+                    # 如果是浮點數，去掉小數點
+                    return str(int(x))
+                except:
+                    # 其他直接轉字串
+                    return str(x).strip()
 
+            df_recipe["配方編號"] = df_recipe["配方編號"].apply(clean_pid)
+            df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
+            
             mask = df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False) | \
                    df_recipe["配方編號"].str.contains(search_code, case=False, na=False)
             df_result_recipe = df_recipe[mask]
