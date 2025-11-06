@@ -4134,17 +4134,14 @@ if menu == "庫存區":
     else:
         st.success(f"✅ 查詢 {query_start} ~ {query_end} 的庫存數量")
 
+    # ---------------- 庫存查詢（主流程） ----------------
     # 🟢 可按鈕 or 按 Enter 執行
     run_query = st.button("計算庫存", key="btn_calc_stock_v2") or bool(stock_powder.strip())
-    
+
     if run_query:
         import pandas as pd
-
-    # ---------------- 庫存查詢（主流程） ----------------
-    if st.button("計算庫存", key="btn_calc_stock"):
-        import pandas as pd
         import streamlit as st
-
+    
         # --- 1. 前置處理：日期轉換與單位統一 ---
         df_stock_copy = df_stock.copy()
         df_stock_copy["日期"] = pd.to_datetime(df_stock_copy["日期"], errors="coerce").dt.normalize()
