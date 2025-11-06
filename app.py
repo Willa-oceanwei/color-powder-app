@@ -4278,6 +4278,11 @@ if menu == "庫存區":
             # (F) 計算期末庫存
             final_g = ini_total + in_qty_interval - usage_interval
 
+            # ✅［新增］低庫存累積（1kg 以下）
+            final_kg = final_g / 1000
+            if final_kg < 1:
+                alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg")
+
             # (G) 儲存結果
             st.session_state["last_final_stock"][pid] = final_g
 
@@ -4296,6 +4301,14 @@ if menu == "庫存區":
         df_result = pd.DataFrame(stock_summary)
         st.dataframe(df_result, use_container_width=True)
         st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
+
+        # ✅ 在表格下方顯示低庫存警告
+        if alerts:
+            st.error("⚠️ 以下色粉庫存不足 1 kg：")
+            for msg in alerts:
+                st.write(msg)
+        else:
+            st.success("✅ 沒有色粉低於 1 kg")
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
