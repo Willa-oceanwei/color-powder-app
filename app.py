@@ -4135,8 +4135,8 @@ if menu == "庫存區":
         st.success(f"✅ 查詢 {query_start} ~ {query_end} 的庫存數量")
 
     # 🟢 可按鈕 or 按 Enter 執行
-    run_query = st.button("計算庫存", key="btn_calc_stock") or bool(stock_powder.strip())
-
+    run_query = st.button("計算庫存", key="btn_calc_stock_v2") or bool(stock_powder.strip())
+    
     if run_query:
         import pandas as pd
 
