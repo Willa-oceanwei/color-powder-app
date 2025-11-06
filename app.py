@@ -4287,9 +4287,11 @@ if menu == "庫存區":
             if final_kg < 1 and not str(pid).endswith(exclude_suffix):
                 alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg")
 
-            # (G) 儲存結果
-            # 只顯示非尾碼 01/001/0001 的色粉
-            if not str(pid).endswith(("01", "001", "0001")):
+            # (G) 儲存結果—只顯示非尾碼 01/001/0001，且必須有期初庫存記錄
+            if (
+                not str(pid).endswith(("01", "001", "0001")) 
+                and ini_total > 0  # ✅ 要有期初庫存記錄
+            ):
                 stock_summary.append({
                     "色粉編號": str(pid),
                     "期初庫存": safe_format(ini_total),
@@ -4298,7 +4300,7 @@ if menu == "庫存區":
                     "期末庫存": safe_format(final_g),
                     "備註": ini_date_note,
                 })
-
+                
         # --- 6. 顯示結果 ---
         df_result = pd.DataFrame(stock_summary)
         st.dataframe(df_result, use_container_width=True)
