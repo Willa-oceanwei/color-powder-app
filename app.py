@@ -4278,15 +4278,16 @@ if menu == "庫存區":
 
             # (F) 計算期末庫存
             final_g = ini_total + in_qty_interval - usage_interval
+            
+            st.session_state["last_final_stock"][pid] = final_g
 
-            # ✅［新增］低庫存累積（1kg 以下）
+            # ✅ 低庫存判斷（排除尾碼）
             final_kg = final_g / 1000
-            if final_kg < 1:
+            exclude_suffix = ("01", "001", "0001")
+            if final_kg < 1 and not str(pid).endswith(exclude_suffix):
                 alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg")
 
             # (G) 儲存結果
-            st.session_state["last_final_stock"][pid] = final_g
-
             # 只顯示非尾碼 01/001/0001 的色粉
             if not str(pid).endswith(("01", "001", "0001")):
                 stock_summary.append({
