@@ -3754,7 +3754,7 @@ if menu == "Pantone色號表":
             df_recipe = pd.DataFrame()
 
         if not df_recipe.empty:
-            # 如果是浮點數，先取整數再轉字串
+            # 清理欄位
             def clean_pid(x):
                 if pd.isna(x):
                     return ""
@@ -3767,10 +3767,14 @@ if menu == "Pantone色號表":
 
             df_recipe["配方編號"] = df_recipe["配方編號"].apply(clean_pid)
             df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
-            
-            mask = df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False) | \
-                   df_recipe["配方編號"].str.contains(search_code, case=False, na=False)
-            df_result_recipe = df_recipe[mask]
+
+            # 只保留有 Pantone 色號的資料
+            df_with_pantone = df_recipe[df_recipe["Pantone色號"] != ""]
+
+            # 查詢 Pantone 色號或配方編號
+            mask = df_with_pantone["Pantone色號"].str.contains(search_code, case=False, na=False) | \
+                   df_with_pantone["配方編號"].str.contains(search_code, case=False, na=False)
+            df_result_recipe = df_with_pantone[mask]
         else:
             df_result_recipe = pd.DataFrame()
 
