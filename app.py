@@ -3645,6 +3645,14 @@ if menu == "Pantone色號表":
 
     ws_recipe = spreadsheet.worksheet("配方管理")
     df_recipe = pd.DataFrame(ws_recipe.get_all_records())
+    st.session_state.df_recipe = df_recipe   # ✅ 確保查詢拿到完整資料
+
+    # ---------- 重新整理按鈕（可選） ----------
+    if st.button("重新整理配方資料"):
+        ws_recipe = spreadsheet.worksheet("配方管理")
+        st.session_state.df_recipe = pd.DataFrame(ws_recipe.get_all_records())
+        st.success("✅ 配方資料已重新整理")
+
 
     st.markdown(
             '<h1 style="font-size:22px; font-family:Arial; color:#dbd818;">🍭 Pantone色號表</h1>',
