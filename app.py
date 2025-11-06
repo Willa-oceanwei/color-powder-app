@@ -4013,44 +4013,6 @@ if menu == "庫存區":
             # st.warning(f"⚠️ 計算色粉 {pid} 用量失敗: {e}") 
             return 0.0
             
-    # ================= 初始庫存設定 (保持不變) =================
-    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 初始庫存設定</h2>', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns(3)
-    ini_powder = col1.text_input("色粉編號", key="ini_color")
-    ini_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty")
-    ini_unit = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
-    ini_date = st.date_input("設定日期", value=datetime.today(), key="ini_date")
-    ini_note = st.text_input("備註", key="ini_note")
-
-    if st.button("儲存初始庫存", key="btn_save_ini"):
-        if not ini_powder.strip():
-            st.warning("⚠️ 請輸入色粉編號！")
-        else:
-            # 刪掉舊的初始庫存紀錄
-            df_stock = df_stock[~((df_stock["類型"]=="初始") & (df_stock["色粉編號"]==ini_powder.strip()))]
-
-            # 新增最新的初始庫存
-            new_row = {
-                "類型": "初始",
-                "色粉編號": ini_powder.strip(),
-                "日期": ini_date,
-                "數量": ini_qty,
-                "單位": ini_unit,
-                "備註": ini_note
-            }
-            df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
-
-            # 寫回 Sheet
-            df_to_upload = df_stock.copy()
-            df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce").dt.strftime("%Y/%m/%d").fillna("")
-            if ws_stock:
-                ws_stock.clear()
-                ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
-
-            st.session_state.df_stock = df_stock  # 更新 session_state
-            st.success(f"✅ 初始庫存已儲存，色粉 {ini_powder.strip()} 將以最新設定為準")
-
-    st.markdown("---")
     # ================= 進貨新增 (保持不變) =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
@@ -4104,6 +4066,45 @@ if menu == "庫存區":
             st.dataframe(df_result, use_container_width=True)
         else:
             st.info("ℹ️ 沒有符合條件的進貨資料")
+    st.markdown("---")
+
+    # ================= 初始庫存設定 (保持不變) =================
+    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 初始庫存設定</h2>', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    ini_powder = col1.text_input("色粉編號", key="ini_color")
+    ini_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty")
+    ini_unit = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
+    ini_date = st.date_input("設定日期", value=datetime.today(), key="ini_date")
+    ini_note = st.text_input("備註", key="ini_note")
+
+    if st.button("儲存初始庫存", key="btn_save_ini"):
+        if not ini_powder.strip():
+            st.warning("⚠️ 請輸入色粉編號！")
+        else:
+            # 刪掉舊的初始庫存紀錄
+            df_stock = df_stock[~((df_stock["類型"]=="初始") & (df_stock["色粉編號"]==ini_powder.strip()))]
+
+            # 新增最新的初始庫存
+            new_row = {
+                "類型": "初始",
+                "色粉編號": ini_powder.strip(),
+                "日期": ini_date,
+                "數量": ini_qty,
+                "單位": ini_unit,
+                "備註": ini_note
+            }
+            df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
+
+            # 寫回 Sheet
+            df_to_upload = df_stock.copy()
+            df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce").dt.strftime("%Y/%m/%d").fillna("")
+            if ws_stock:
+                ws_stock.clear()
+                ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
+
+            st.session_state.df_stock = df_stock  # 更新 session_state
+            st.success(f"✅ 初始庫存已儲存，色粉 {ini_powder.strip()} 將以最新設定為準")
+
     st.markdown("---")
 
     # ---------------- 庫存查詢 ----------------
