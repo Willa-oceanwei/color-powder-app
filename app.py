@@ -13,7 +13,7 @@ from datetime import datetime
 
 # ======== 🔐 簡易登入驗證區 ========
 # 在這裡設定密碼（可以改成你想要的）
-APP_PASSWORD = "/"
+APP_PASSWORD = "'"
 
 # 初始化登入狀態
 if "authenticated" not in st.session_state:
