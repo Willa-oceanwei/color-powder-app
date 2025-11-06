@@ -12,32 +12,33 @@ from pathlib import Path
 from datetime import datetime
 
 # ======== 🔐 簡易登入驗證區 ========
-# 在這裡設定密碼（可以改成你想要的）
-APP_PASSWORD = "="
+APP_PASSWORD = "'"  # ✅ 直接在程式中設定密碼
 
 # 初始化登入狀態
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# 登入畫面
+# 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
     st.markdown(
         "<h3 style='text-align:center; color:#f0efa2;'>🔐 請輸入密碼以進入系統</h3>",
         unsafe_allow_html=True,
     )
+
     password_input = st.text_input("密碼：", type="password", key="login_password")
 
-    if st.button("登入", use_container_width=True):
-        if password_input == APP_PASSWORD:
-            st.session_state.authenticated = True
-            st.success("✅ 登入成功！請稍候...")
-            time.sleep(0.8)
-            st.rerun()
-        else:
-            st.error("❌ 密碼錯誤，請再試一次。")
-            st.stop()
+    # ✅ 支援按 Enter 或按鈕登入
+    if password_input == APP_PASSWORD:
+        st.session_state.authenticated = True
+        st.success("✅ 登入成功！請稍候...")
+        time.sleep(0.8)
+        st.rerun()
+    elif password_input != "":
+        # 使用者輸入錯誤密碼時立即顯示錯誤
+        st.error("❌ 密碼錯誤，請再試一次。")
+        st.stop()
 
-    # 尚未登入時直接停止執行
+    # 尚未輸入密碼時停止執行
     st.stop()
 
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
