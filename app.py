@@ -70,7 +70,8 @@ creds = Credentials.from_service_account_info(
     ],
 )
 client = gspread.authorize(creds)
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_/edit#gid=0"
+
 
 # ======== 建立 Spreadsheet 物件 (避免重複連線) =========
 if "spreadsheet" not in st.session_state:
