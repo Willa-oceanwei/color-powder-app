@@ -21,7 +21,7 @@ if "authenticated" not in st.session_state:
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
     st.markdown(
-        "<h3 style='text-align:center; color:#f0efa2;'>🔐 請輸入密碼</h3>",
+        "<h3 style='text-align:center; color:#f0efa2;'>🔐 請輸入密碼以進入系統</h3>",
         unsafe_allow_html=True,
     )
 
@@ -70,8 +70,7 @@ creds = Credentials.from_service_account_info(
     ],
 )
 client = gspread.authorize(creds)
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_BK/edit#gid=0"
-
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 
 # ======== 建立 Spreadsheet 物件 (避免重複連線) =========
 if "spreadsheet" not in st.session_state:
@@ -3646,7 +3645,6 @@ if menu == "Pantone色號表":
 
     ws_recipe = spreadsheet.worksheet("配方管理")
     df_recipe = pd.DataFrame(ws_recipe.get_all_records())
-    st.session_state.df_recipe = df_recipe   # ✅ 確保查詢拿到完整資料
 
     st.markdown(
             '<h1 style="font-size:22px; font-family:Arial; color:#dbd818;">🍭 Pantone色號表</h1>',
@@ -3733,13 +3731,14 @@ if menu == "Pantone色號表":
 
     # ======== 🔍 查詢 Pantone 色號 ========
     st.markdown(
-        '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢 Pantone 色號或配方編號</h1>',
+        '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢 Pantone 色號</h1>',
         unsafe_allow_html=True
     )
-    
-    # 查詢輸入框
-    search_code = st.text_input("輸入 Pantone 色號或配方編號").strip()
 
+    # 查詢輸入框
+    search_code = st.text_input("輸入 Pantone 色號")
+
+    # 使用者有輸入才顯示結果
     if search_code:
         # ---------- 第一部分：Pantone 對照表 ----------
         if "df_pantone" in locals() or "df_pantone" in globals():
@@ -3755,47 +3754,31 @@ if menu == "Pantone色號表":
         else:
             df_recipe = pd.DataFrame()
 
-        if not df_recipe.empty:
-            # 清理欄位
-            def clean_pid(x):
-                if pd.isna(x):
-                    return ""
-                try:
-                    # 如果是浮點數，去掉小數點
-                    return str(int(x))
-                except:
-                    # 其他直接轉字串
-                    return str(x).strip()
-
-            df_recipe["配方編號"] = df_recipe["配方編號"].apply(clean_pid)
-            df_recipe["Pantone色號"] = df_recipe["Pantone色號"].astype(str).str.strip()
-
-            # 只保留有 Pantone 色號的資料
-            df_with_pantone = df_recipe[df_recipe["Pantone色號"] != ""]
-
-            # 查詢 Pantone 色號或配方編號
-            mask = df_with_pantone["Pantone色號"].str.contains(search_code, case=False, na=False) | \
-                   df_with_pantone["配方編號"].str.contains(search_code, case=False, na=False)
-            df_result_recipe = df_with_pantone[mask]
+        if not df_recipe.empty and "Pantone色號" in df_recipe.columns:
+            df_result_recipe = df_recipe[df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False)]
         else:
             df_result_recipe = pd.DataFrame()
 
+        
         # ---------- 顯示結果 ----------
         if df_result_pantone.empty and df_result_recipe.empty:
-            st.warning("查無符合的資料。")
+            st.warning("查無符合的 Pantone 色號資料。")
         else:
             if not df_result_pantone.empty:
+                # 與查詢欄標題統一字體大小和顏色，並縮小上下 margin
                 st.markdown(
                     '<div style="font-size:20px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0;">🔍 Pantone 對照表</div>',
                     unsafe_allow_html=True
-                    )
+                )
+
                 show_pantone_table(df_result_pantone, title="")
 
-        if not df_result_recipe.empty:
-            st.markdown('<div style="margin-top:0px;"></div>', unsafe_allow_html=True)
-            st.dataframe(
-                df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True)
-            )
+            if not df_result_recipe.empty:
+                # 可額外加 margin-top 1~2px，避免貼太近或太遠
+                st.markdown('<div style="margin-top:0px;"></div>', unsafe_allow_html=True)
+                st.dataframe(
+                    df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True)
+                )            
                 
 # ======== 庫存區分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
@@ -4014,8 +3997,46 @@ if menu == "庫存區":
             # st.warning(f"⚠️ 計算色粉 {pid} 用量失敗: {e}") 
             return 0.0
             
+    # ================= 初始庫存設定 (保持不變) =================
+    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 初始庫存設定</h2>', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    ini_powder = col1.text_input("色粉編號", key="ini_color")
+    ini_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty")
+    ini_unit = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
+    ini_date = st.date_input("設定日期", value=datetime.today(), key="ini_date")
+    ini_note = st.text_input("備註", key="ini_note")
+
+    if st.button("儲存初始庫存", key="btn_save_ini"):
+        if not ini_powder.strip():
+            st.warning("⚠️ 請輸入色粉編號！")
+        else:
+            # 刪掉舊的初始庫存紀錄
+            df_stock = df_stock[~((df_stock["類型"]=="初始") & (df_stock["色粉編號"]==ini_powder.strip()))]
+
+            # 新增最新的初始庫存
+            new_row = {
+                "類型": "初始",
+                "色粉編號": ini_powder.strip(),
+                "日期": ini_date,
+                "數量": ini_qty,
+                "單位": ini_unit,
+                "備註": ini_note
+            }
+            df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
+
+            # 寫回 Sheet
+            df_to_upload = df_stock.copy()
+            df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce").dt.strftime("%Y/%m/%d").fillna("")
+            if ws_stock:
+                ws_stock.clear()
+                ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
+
+            st.session_state.df_stock = df_stock  # 更新 session_state
+            st.success(f"✅ 初始庫存已儲存，色粉 {ini_powder.strip()} 將以最新設定為準")
+
+    st.markdown("---")
     # ================= 進貨新增 (保持不變) =================
-    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📲 進貨新增</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
     in_powder = col1.text_input("色粉編號", key="in_color")
     in_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="in_qty_add")
@@ -4067,45 +4088,6 @@ if menu == "庫存區":
             st.dataframe(df_result, use_container_width=True)
         else:
             st.info("ℹ️ 沒有符合條件的進貨資料")
-    st.markdown("---")
-
-    # ================= 初始庫存設定 (保持不變) =================
-    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 初始庫存設定</h2>', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns(3)
-    ini_powder = col1.text_input("色粉編號", key="ini_color")
-    ini_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty")
-    ini_unit = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
-    ini_date = st.date_input("設定日期", value=datetime.today(), key="ini_date")
-    ini_note = st.text_input("備註", key="ini_note")
-
-    if st.button("儲存初始庫存", key="btn_save_ini"):
-        if not ini_powder.strip():
-            st.warning("⚠️ 請輸入色粉編號！")
-        else:
-            # 刪掉舊的初始庫存紀錄
-            df_stock = df_stock[~((df_stock["類型"]=="初始") & (df_stock["色粉編號"]==ini_powder.strip()))]
-
-            # 新增最新的初始庫存
-            new_row = {
-                "類型": "初始",
-                "色粉編號": ini_powder.strip(),
-                "日期": ini_date,
-                "數量": ini_qty,
-                "單位": ini_unit,
-                "備註": ini_note
-            }
-            df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
-
-            # 寫回 Sheet
-            df_to_upload = df_stock.copy()
-            df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce").dt.strftime("%Y/%m/%d").fillna("")
-            if ws_stock:
-                ws_stock.clear()
-                ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
-
-            st.session_state.df_stock = df_stock  # 更新 session_state
-            st.success(f"✅ 初始庫存已儲存，色粉 {ini_powder.strip()} 將以最新設定為準")
-
     st.markdown("---")
 
     # ---------------- 庫存查詢 ----------------
@@ -4216,7 +4198,6 @@ if menu == "庫存區":
                 return "0"
 
         stock_summary = []
-        alerts = []   # ✅ 新增：低庫存警告列表
 
         # --- 5. 核心計算迴圈 ---
         # --- 核心計算迴圈（防呆版） ---
@@ -4279,19 +4260,12 @@ if menu == "庫存區":
 
             # (F) 計算期末庫存
             final_g = ini_total + in_qty_interval - usage_interval
-            
+
+            # (G) 儲存結果
             st.session_state["last_final_stock"][pid] = final_g
 
-            # ✅ 低庫存判斷（排除尾碼）
-            final_kg = final_g / 1000
-            exclude_suffix = ("01", "001", "0001")
-            # 只有有「期初庫存紀錄」才檢查低庫存（排除尾碼）
-            if ini_total > 0:
-                if final_kg < 1 and not str(pid).endswith(exclude_suffix):
-                    alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg")
-
-            # (G) 儲存結果—只顯示非尾碼 01/001/0001，且必須有期初庫存記錄
-            if ini_total > 0 and not str(pid).endswith(("01", "001", "0001")):
+            # 只顯示非尾碼 01/001/0001 的色粉
+            if not str(pid).endswith(("01", "001", "0001")):
                 stock_summary.append({
                     "色粉編號": str(pid),
                     "期初庫存": safe_format(ini_total),
@@ -4300,19 +4274,11 @@ if menu == "庫存區":
                     "期末庫存": safe_format(final_g),
                     "備註": ini_date_note,
                 })
-                
+
         # --- 6. 顯示結果 ---
         df_result = pd.DataFrame(stock_summary)
         st.dataframe(df_result, use_container_width=True)
         st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
-
-        # ✅ 在表格下方顯示低庫存警告
-        if alerts:
-            st.error("💀 以下色粉庫存不足 1 kg：")
-            for msg in alerts:
-                st.write(msg)
-        else:
-            st.success("✅ 沒有色粉低於 1 kg")
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
