@@ -21,7 +21,7 @@ if "authenticated" not in st.session_state:
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
     st.markdown(
-        "<h3 style='text-align:center; color:#f0efa2;'>🔐 請輸入密碼以進入系統</h3>",
+        "<h3 style='text-align:center; color:#f0efa2;'>🔐 請輸入密碼</h3>",
         unsafe_allow_html=True,
     )
 
