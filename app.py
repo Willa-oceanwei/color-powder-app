@@ -2484,6 +2484,19 @@ elif menu == "生產單管理":
                 # ===== 提交按鈕 =====
                 submitted = st.form_submit_button("💾 儲存生產單")
                 if submitted:
+                    # 🔹 先檢查包裝重量與份數是否全空
+                    all_empty = True
+                    for i in range(1, 5):
+                        weight = st.session_state.get(f"form_weight{i}", "").strip()
+                        count = st.session_state.get(f"form_count{i}", "").strip()
+                        if weight or count:
+                            all_empty = False
+                            break
+
+                    if all_empty:
+                        st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
+                        st.stop()  # 中止後續儲存程式
+                        
                     # 1️⃣ 更新 order 資料（表單欄位）
                     order["顏色"] = st.session_state.form_color
                     order["Pantone 色號"] = st.session_state.form_pantone
