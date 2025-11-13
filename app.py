@@ -4080,6 +4080,14 @@ if menu == "庫存區":
     st.markdown("---")
 
     # ================= 進貨查詢 (保持不變) =================
+    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🔍 進貨查詢</h2>', unsafe_allow_html=True)
+
+    # --- 篩選欄位 ---
+    col1, col2, col3 = st.columns(3)
+    search_code = col1.text_input("色粉編號", key="in_search_code")
+    search_start = col2.date_input("進貨日期(起)", key="in_search_start")
+    search_end = col3.date_input("進貨日期(迄)", key="in_search_end")
+
     if st.button("查詢進貨", key="in_btn_search"):
         import pandas as pd
 
