@@ -4116,7 +4116,7 @@ if menu == "庫存區":
                 (df_result["日期_dt"] <= search_end_dt)
             ]
         else:
-            st.write("📅 未選日期 → 顯示所有進貨資料")
+            st.markdown('<span style="color:gray; font-size:0.9em;">📅 未選日期 → 顯示所有進貨資料</span>', unsafe_allow_html=True)
 
         # 4️⃣ 顯示結果（避免重複欄位）
         if not df_result.empty:
@@ -4129,6 +4129,21 @@ if menu == "庫存區":
                 "備註": "備註"
             }
             df_display = df_result[list(show_cols.keys())].rename(columns=show_cols)
+
+            # 自動轉換單位
+            def format_quantity(row):
+                qty = row["數量"]
+                unit = row["單位"].strip().lower()
+                if unit == "g" and qty >= 1000:
+                    return f"{qty/1000:.2f} kg"
+                else:
+                    return f"{qty} {row['單位']}"
+            df_display["數量"] = df_display.apply(format_quantity, axis=1)
+
+            # 日期只顯示年月日
+            df_display["日期"] = df_display["日期"].dt.strftime("%Y/%m/%d")
+
+            # 顯示表格
             st.dataframe(df_display, use_container_width=True)
         else:
             st.info("ℹ️ 沒有符合條件的進貨資料")
