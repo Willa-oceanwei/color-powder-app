@@ -4048,6 +4048,7 @@ if menu == "庫存區":
             st.success(f"✅ 初始庫存已儲存，色粉 {ini_powder.strip()} 將以最新設定為準")
 
     st.markdown("---")
+    
     # ================= 進貨新增 (保持不變) =================
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
@@ -4079,52 +4080,42 @@ if menu == "庫存區":
     st.markdown("---")
 
     # ================= 進貨查詢 (保持不變) =================
-    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🔍 進貨查詢</h2>', unsafe_allow_html=True)
-
-    # --- 篩選欄位 ---
-    col1, col2, col3 = st.columns(3)
-    search_code = col1.text_input("色粉編號", key="in_search_code")
-    search_start = col2.date_input("進貨日期(起)", key="in_search_start")
-    search_end = col3.date_input("進貨日期(迄)", key="in_search_end")
-
-    # --- 查詢按鈕 ---
     if st.button("查詢進貨", key="in_btn_search"):
         import pandas as pd
 
-        # --- 1️⃣ 過濾進貨資料 ---
-        df_result = df_stock[df_stock["類型"].astype(str).str.strip() == "進貨"].copy()
+        df_result = df_stock.copy()
+        st.write("🔍 類型欄位唯一值：", df_result["類型"].unique())
 
-        # --- 2️⃣ 色粉編號查詢 ---
+        df_result = df_result[df_result["類型"].astype(str).str.strip() == "進貨"].copy()
+        st.write("📊 篩完進貨後筆數：", len(df_result))
+
         if search_code.strip():
             df_result = df_result[df_result["色粉編號"].astype(str).str.contains(search_code.strip(), case=False)]
 
-        # --- 3️⃣ 日期處理 ---
         df_result["日期"] = pd.to_datetime(df_result["日期"], errors="coerce").dt.normalize()
+        st.write("📅 有效日期筆數：", df_result["日期"].notna().sum())
+
         today = pd.Timestamp.today().normalize()
         min_date = df_result["日期"].min() if not df_result.empty else today
+        st.write("🗓️ min_date =", min_date, "today =", today)
 
-        # --- 4️⃣ 自動日期範圍邏輯 ---
         s_dt_use = pd.to_datetime(search_start).normalize() if search_start else min_date
         e_dt_use = pd.to_datetime(search_end).normalize() if search_end else today
+        st.write("🔎 查詢範圍：", s_dt_use, "～", e_dt_use)
 
-        # --- 5️⃣ 防呆 ---
         if s_dt_use > e_dt_use:
             st.error("❌ 查詢起日不能晚於查詢迄日。")
             st.stop()
 
-        # --- 6️⃣ 篩選日期區間 ---
         df_result = df_result[(df_result["日期"] >= s_dt_use) & (df_result["日期"] <= e_dt_use)]
 
-        # --- 7️⃣ 顯示結果 ---
+        st.write("✅ 篩選後筆數：", len(df_result))
+
         if not df_result.empty:
-            df_result = df_result.sort_values("日期")
-            st.dataframe(df_result, use_container_width=True)
-            st.caption(f"📅 查詢區間：{s_dt_use.strftime('%Y/%m/%d')} ～ {e_dt_use.strftime('%Y/%m/%d')}")
+            st.dataframe(df_result.sort_values("日期"), use_container_width=True)
         else:
             st.info("ℹ️ 沒有符合條件的進貨資料")
-
-    st.markdown("---")
-
+            
     # ---------------- 庫存查詢 ----------------
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 庫存查詢</h2>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
