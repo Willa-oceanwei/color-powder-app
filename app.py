@@ -4131,14 +4131,15 @@ if menu == "庫存區":
             df_display = df_result[list(show_cols.keys())].rename(columns=show_cols)
 
             # 自動轉換單位
-            def format_quantity(row):
+            def format_quantity_unit(row):
                 qty = row["數量"]
                 unit = row["單位"].strip().lower()
                 if unit == "g" and qty >= 1000:
-                    return f"{qty/1000:.2f} kg"
+                    return pd.Series([qty/1000, "kg"])  # 數量轉 kg，單位也改成 kg
                 else:
-                    return f"{qty} {row['單位']}"
-            df_display["數量"] = df_display.apply(format_quantity, axis=1)
+                    return pd.Series([qty, row["單位"]])  # 保留原數量與單位
+
+            df_display[["數量", "單位"]] = df_display.apply(format_quantity_unit, axis=1)
 
             # 日期只顯示年月日
             df_display["日期"] = df_display["日期"].dt.strftime("%Y/%m/%d")
