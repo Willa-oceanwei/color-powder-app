@@ -4119,7 +4119,6 @@ if menu == "庫存區":
             st.write("📅 未選日期 → 顯示所有進貨資料")
 
         # 4️⃣ 顯示結果（避免重複欄位）
-        st.write("✅ 篩選後筆數：", len(df_result))
         if not df_result.empty:
             # 選擇要顯示的欄位，並在顯示時改名稱
             show_cols = {
