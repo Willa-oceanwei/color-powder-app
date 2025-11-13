@@ -4115,7 +4115,7 @@ if menu == "庫存區":
             st.dataframe(df_result.sort_values("日期"), use_container_width=True)
         else:
             st.info("ℹ️ 沒有符合條件的進貨資料")
-            
+          
     # ---------------- 庫存查詢 ----------------
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 庫存查詢</h2>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
