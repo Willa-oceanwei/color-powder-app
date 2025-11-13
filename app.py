@@ -4118,10 +4118,14 @@ if menu == "庫存區":
         else:
             st.write("📅 未選日期 → 顯示所有進貨資料")
 
+        # 將日期_dt 改回 日期欄位名稱
+        df_result = df_result.rename(columns={"日期_dt": "日期"})
+
         # 4️⃣ 顯示結果
         st.write("✅ 篩選後筆數：", len(df_result))
         if not df_result.empty:
-            st.dataframe(df_result, use_container_width=True)
+            show_cols = [c for c in ["色粉編號", "日期", "數量", "單位", "備註"] if c in df_result.columns]
+            st.dataframe(df_result[show_cols], use_container_width=True)
         else:
             st.info("ℹ️ 沒有符合條件的進貨資料")
             
