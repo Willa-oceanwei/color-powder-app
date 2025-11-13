@@ -4088,7 +4088,7 @@ if menu == "庫存區":
     search_start = col2.date_input("進貨日期(起)", key="in_search_start")
     search_end = col3.date_input("進貨日期(迄)", key="in_search_end")
 
-    if st.button("查詢進貨", key="btn_search_in_v2"):
+    if st.button("查詢進貨", key="btn_search_in_v3"):
         df_result = df_stock[df_stock["類型"] == "進貨"].copy()
         st.write("🔍 類型欄位唯一值：", df_stock["類型"].unique())
 
@@ -4096,17 +4096,27 @@ if menu == "庫存區":
         if search_code.strip():
             df_result = df_result[df_result["色粉編號"].astype(str).str.contains(search_code.strip(), case=False)]
 
-        # 2️⃣ 若有日期欄位則轉換格式
+        # 2️⃣ 日期欄轉換格式
         df_result["日期_dt"] = pd.to_datetime(df_result["日期"], errors="coerce").dt.normalize()
         valid_rows = df_result["日期_dt"].notna().sum()
         st.write(f"📊 篩完進貨後筆數：{len(df_result)}，📅 有效日期筆數：{valid_rows}")
 
-        # 3️⃣ 僅當使用者選了日期範圍時才比對
-        if search_start and search_end:
-            search_start_dt = pd.to_datetime(search_start).normalize()
-            search_end_dt = pd.to_datetime(search_end).normalize()
-            st.write("🔎 查詢範圍：", search_start_dt, "～", search_end_dt)
-            df_result = df_result[(df_result["日期_dt"] >= search_start_dt) & (df_result["日期_dt"] <= search_end_dt)]
+        # 3️⃣ 判斷使用者是否真的有選日期
+        today = pd.to_datetime("today").normalize()
+        search_start_dt = pd.to_datetime(search_start).normalize() if search_start else None
+        search_end_dt = pd.to_datetime(search_end).normalize() if search_end else None
+
+        use_date_filter = (
+            (search_start_dt is not None and search_start_dt != today) or
+            (search_end_dt is not None and search_end_dt != today)
+        )
+
+        if use_date_filter:
+            st.write("🔎 使用日期範圍：", search_start_dt, "～", search_end_dt)
+            df_result = df_result[
+                (df_result["日期_dt"] >= search_start_dt) &
+                (df_result["日期_dt"] <= search_end_dt)
+            ]
         else:
             st.write("📅 未選日期 → 顯示所有進貨資料")
 
@@ -4116,7 +4126,7 @@ if menu == "庫存區":
             st.dataframe(df_result, use_container_width=True)
         else:
             st.info("ℹ️ 沒有符合條件的進貨資料")
-        
+            
     # ---------------- 庫存查詢 ----------------
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 庫存查詢</h2>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
