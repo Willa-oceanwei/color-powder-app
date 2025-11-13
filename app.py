@@ -4116,7 +4116,10 @@ if menu == "庫存區":
                 (df_result["日期_dt"] <= search_end_dt)
             ]
         else:
-            st.markdown('<span style="color:gray; font-size:0.9em;">📅 未選日期 → 顯示所有進貨資料</span>', unsafe_allow_html=True)
+            st.markdown(
+                '<span style="color:gray; font-size:0.8em;">📅 未選日期 → 顯示所有進貨資料</span>',
+                unsafe_allow_html=True
+            )
 
         # 4️⃣ 顯示結果（避免重複欄位）
         if not df_result.empty:
