@@ -2589,6 +2589,36 @@ elif menu == "生產單管理":
                     # ---------------- 更新 session_state ----------------
                     st.session_state["last_final_stock"] = last_stock
 
+                    # ======================================================
+                    # ✅ 4.5 覆蓋同生產單號：先刪除舊資料再寫入
+                    # ======================================================
+
+                    order_no = str(order.get("生產單號", "")).strip()
+
+                    # ---- Google Sheet 刪除舊資料 ----
+                    try:
+                        sheet_data = ws_order.get_all_records()
+                        rows_to_delete = []
+
+                        # 第 2 列開始才是資料
+                        for idx, row in enumerate(sheet_data, start=2):
+                            if str(row.get("生產單號", "")).strip() == order_no:
+                                rows_to_delete.append(idx)
+
+                        # 反向刪除避免位移
+                        for r in reversed(rows_to_delete):
+                            ws_order.delete_rows(r)
+
+                    except Exception as e:
+                        st.error(f"❌ 刪除舊生產單失敗：{e}")
+
+
+                    # ---- CSV 刪除舊資料 ----
+                    try:
+                        df_order = df_order[df_order["生產單號"].astype(str) != order_no]
+                    except:
+                        pass
+
                     # 5️⃣ 寫入 Google Sheet / CSV
                     try:
                         header = [col for col in df_order.columns if col and str(col).strip() != ""]
