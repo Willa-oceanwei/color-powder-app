@@ -1866,7 +1866,7 @@ elif menu == "配方管理":
                     fr["原始配方"] = st.text_input("原始配方", value=fr.get("原始配方", ""), key="edit_recipe_origin")
 
                 # 色粉類別、計量單位、Pantone
-                col7, col8, col9, col10 = st.columns(5)
+                col7, col8, col9, col10, col11 = st.columns(5)
                 with col7:
                     options_type = ["配方", "色母", "色粉", "添加劑", "其他"]
                     current = fr.get("色粉類別", options_type[0])
