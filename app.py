@@ -3169,12 +3169,10 @@ elif menu == "生產單管理":
         recipe_row = recipe_rows.iloc[0]
         
         # 表單編輯欄位
-        col_cust_no, col_cust_name, col_color = st.columns(3)
-
         with col_cust_no:
             new_customer_no = st.text_input(
                 "客戶編號",
-                value=order_dict.get("客戶編號", ""),
+                value=order_dict.get("客戶編號", "") or recipe_row.get("客戶編號", ""),
                 key="edit_customer_no"
             )
 
