@@ -3155,12 +3155,29 @@ elif menu == "生產單管理":
         recipe_row = recipe_rows.iloc[0]
         
         # 表單編輯欄位
-        col_cust, col_color = st.columns(2)  # 建立兩欄
-        with col_cust:
-            new_customer = st.text_input("客戶名稱", value=order_dict.get("客戶名稱", ""), key="edit_customer_name")
+        col_cust_no, col_cust_name, col_color = st.columns(3)
+
+        with col_cust_no:
+            new_customer_no = st.text_input(
+                "客戶編號",
+                value=order_dict.get("客戶編號", ""),
+                key="edit_customer_no"
+            )
+
+        with col_cust_name:
+            new_customer = st.text_input(
+                "客戶名稱",
+                value=order_dict.get("客戶名稱", ""),
+                key="edit_customer_name"
+            )
+
         with col_color:
-            new_color = st.text_input("顏色", value=order_dict.get("顏色", ""), key="edit_color")
-    
+            new_color = st.text_input(
+                "顏色",
+                value=order_dict.get("顏色", ""),
+                key="edit_color"
+            )
+  
         # 包裝重量 1~4
         pack_weights_cols = st.columns(4)
         new_packing_weights = []
@@ -3192,6 +3209,7 @@ elif menu == "生產單管理":
                     idx = idx_list[0]
 
                     # === 更新本地 DataFrame ===
+                    df_order.at[idx, "客戶編號"] = new_customer_no
                     df_order.at[idx, "客戶名稱"] = new_customer
                     df_order.at[idx, "顏色"] = new_color
                     for i in range(4):
