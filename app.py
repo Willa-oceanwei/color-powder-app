@@ -2092,13 +2092,18 @@ elif menu == "生產單管理":
         st.stop()
     
     # 載入生產單表
+    # 載入生產單表
     try:
         existing_values = ws_order.get_all_values()
         if existing_values:
             df_order = pd.DataFrame(existing_values[1:], columns=existing_values[0]).astype(str)
+
+            # ⭐ 補齊缺少欄位（新增客戶編號）
+            if "客戶編號" not in df_order.columns:
+                df_order["客戶編號"] = ""
         else:
             header = [
-                "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
+                "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "客戶編號", "建立時間",
                 "Pantone 色號", "計量單位", "原料",
                 "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
                 "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
@@ -2107,18 +2112,27 @@ elif menu == "生產單管理":
                 "色粉編號5", "色粉編號6", "色粉編號7", "色粉編號8", "色粉合計",
                 "合計類別"
             ]
+
+            # ⭐ header 裡也要加「客戶編號」
             ws_order.append_row(header)
             df_order = pd.DataFrame(columns=header)
+
         st.session_state.df_order = df_order
+
     except Exception as e:
         if order_file.exists():
             st.warning("⚠️ 無法連線 Google Sheets，改用本地 CSV")
             df_order = pd.read_csv(order_file, dtype=str).fillna("")
+
+            # ⭐ 本地 CSV 也補欄位
+            if "客戶編號" not in df_order.columns:
+                df_order["客戶編號"] = ""
+
             st.session_state.df_order = df_order
         else:
             st.error(f"❌ 無法讀取生產單資料：{e}")
             st.stop()
-    
+   
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
 
