@@ -130,12 +130,12 @@ with st.sidebar:
     if target_index != -1:
         st.markdown(f"""
             <style>
-            /* 針對側邊欄內，第 {target_index} 個 stButton 的按鈕套用樣式 */
+            /* 針對側邊欄內,第 {target_index} 個 stButton 的按鈕套用樣式 */
             div[data-testid="stSidebar"] div.stButton:nth-child({target_index}) button {{
                 background-color: #f9dc5c !important; /* 黃色背景 */
                 color: #1a1a1a !important; /* 深色文字 */
                 font-weight: bold;
-                /* 繼承您原有的樣式，確保按鈕看起來正常 */
+                /* 繼承您原有的樣式,確保按鈕看起來正常 */
                 border: none !important; 
             }}
             </style>
