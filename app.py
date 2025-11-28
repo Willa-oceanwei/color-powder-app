@@ -151,29 +151,29 @@ with st.sidebar:
 # ===== 在最上方定義函式 =====
 def set_form_style():
     st.markdown("""
-    <style>
-    /* text_input placeholder */
-    div.stTextInput > div > div > input::placeholder {
-        color: #999999;
-        font-size: 13px;
-    }
+        <style>
+        /* text_input placeholder */
+        div.stTextInput > div > div > input::placeholder {
+            color: #999999;
+            font-size: 13px;
+        }
 
-    /* selectbox placeholder */
-    div.stSelectbox > div > div > div.css-1wa3eu0-placeholder {
-        color: #999999;
-        font-size: 13px;
-    }
+        /* selectbox placeholder */
+        div.stSelectbox > div > div > div.css-1wa3eu0-placeholder {
+            color: #999999;
+            font-size: 13px;
+        }
 
-    /* selectbox 選中後文字 */
-    div.stSelectbox > div > div > div.css-1uccc91-singleValue {
-        font-size: 14px;
-        color: #000000;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+        /* selectbox 選中後文字 */
+        div.stSelectbox > div > div > div.css-1uccc91-singleValue {
+            font-size: 14px;
+            color: #000000;
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
-# ===== 呼叫一次，套用全程式 =====
-set_form_style()
+    # ===== 呼叫一次，套用全程式 =====
+    set_form_style()
 
 # ======== 初始化 session_state =========
 def init_states(keys=None):
