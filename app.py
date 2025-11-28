@@ -154,8 +154,8 @@ def set_form_style():
     <style>
     /* text_input placeholder */
     div.stTextInput > div > div > input::placeholder {
-        color: #999999;
-        font-size: 13px;
+        color: #999999;     
+        font-size: 13px;
     }
 
     /* selectbox placeholder */
