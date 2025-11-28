@@ -52,35 +52,44 @@ st.set_page_config(
     page_icon="🌈"
 ) 
 
-# 合併後的 CSS 區塊 (保留您所有原有的樣式)
+# 合併後的 CSS 區塊 ———— ⚠ 注意：一定要關閉 """ !!!
 st.markdown(
     """
     <style>
-    /* 選中項目背景色 (來自 selectbox 的舊樣式) */
+    /* 選中項目背景色 */
     .st-key-myselect [data-baseweb="option"][aria-selected="true"] {
-        background-color: #999999 !important; /* 淺灰 */
+        background-color: #999999 !important;
         color: black !important;
         font-weight: bold;
     }
-    /* 滑鼠滑過項目背景色 (來自 selectbox 的舊樣式) */
+
+    /* 滑鼠滑過選項背景色 */
     .st-key-myselect [data-baseweb="option"]:hover {
-        background-color: #bbbbbb !important; /* 更淺灰 */
+        background-color: #bbbbbb !important;
         color: black !important;
     }
-    
-    /* Sidebar 標題字體大小 (來自您原有的設定) */
+
+    /* Sidebar 標題字體大小 */
     .sidebar .css-1d391kg h1 {
         font-size: 24px !important;
     }
 
-    /* Sidebar 按鈕字體大小和對齊 (來自您原有的設定) */
+    /* Sidebar 按鈕樣式 */
     div.stButton > button {
         font-size: 14px !important;
-        padding: 8px 12px !important; 
+        padding: 8px 12px !important;
         text-align: left;
     }
-    
- # ======== GCP SERVICE ACCOUNT =========
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# ⚠️⚠️⚠️ 到這裡 CSS 才真正結束！
+#     下面的 Python 才不會被誤解成 CSS。
+# --------------------------------------------------------------
+
+# ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
     service_account_info,
@@ -101,6 +110,7 @@ if "spreadsheet" not in st.session_state:
         st.stop()
 
 spreadsheet = st.session_state["spreadsheet"]
+
 
 # =======================================================
 # 📌 步驟 2: 側邊欄導航邏輯 (加入選中按鈕的顏色高亮)
