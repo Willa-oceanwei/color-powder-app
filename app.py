@@ -2278,12 +2278,12 @@ elif menu == "生產單管理":
         st.success(f"已自動選取：{display_label}")
     else:
         selected_label = st.selectbox(
-            "選擇配方",
-            ["請選擇"] + list(option_map.keys()),
+            "",   # ⬅️ 不顯示標題
+            ["選擇配方"] + list(option_map.keys()),
             index=0,
             key="search_add_form_selected_recipe"
         )
-        if selected_label == "請選擇":
+        if selected_label == "選擇配方":
             selected_row = None
         else:
             selected_row = option_map.get(selected_label)
