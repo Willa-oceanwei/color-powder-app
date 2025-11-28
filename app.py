@@ -12,13 +12,13 @@ from pathlib import Path
 from datetime import datetime
 
 # ======== 🔐 簡易登入驗證區 ========
-APP_PASSWORD = "'"  # ⚠️ 你自己的密碼
+APP_PASSWORD = "'"  # ✅ 直接在程式中設定密碼
 
 # 初始化登入狀態
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# 尚未登入 → 顯示登入介面
+# 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
     st.markdown(
         "<h3 style='text-align:center; color:#f0efa2;'>🔐 請輸入密碼</h3>",
@@ -27,72 +27,40 @@ if not st.session_state.authenticated:
 
     password_input = st.text_input("密碼：", type="password", key="login_password")
 
-    # 支援按 Enter
+    # ✅ 支援按 Enter 或按鈕登入
     if password_input == APP_PASSWORD:
         st.session_state.authenticated = True
         st.success("✅ 登入成功！請稍候...")
         time.sleep(0.8)
         st.rerun()
     elif password_input != "":
+        # 使用者輸入錯誤密碼時立即顯示錯誤
         st.error("❌ 密碼錯誤，請再試一次。")
         st.stop()
 
+    # 尚未輸入密碼時停止執行
     st.stop()
 
-# =======================================================
-# 📌 頁面設定
-# =======================================================
-st.set_page_config(
-    layout="wide",
-    page_title="配方管理系統",
-    page_icon="🌈"
+# 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
+st.markdown(
+    """
+    <style>
+    /* 選中項目背景色 */
+    .st-key-myselect [data-baseweb="option"][aria-selected="true"] {
+        background-color: #999999 !important;  /* 淺灰 */
+        color: black !important;
+        font-weight: bold;
+    }
+    /* 滑鼠滑過項目背景色 */
+    .st-key-myselect [data-baseweb="option"]:hover {
+        background-color: #bbbbbb !important;  /* 更淺灰 */
+        color: black !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
-
-# =======================================================
-# 📌 全局 CSS（修正內容被吃掉 + 側邊欄按鈕樣式）
-# =======================================================
-st.markdown("""
-<style>
-
- /* ⭐ 修正主畫面最上方文字被壓掉 */
-div[data-testid="stAppViewContainer"] > div:first-child {
-    padding-top: 1rem !important;
-}
-
- /* ⭐ 修正側邊欄最上方字被吃掉 */
-section[data-testid="stSidebar"] {
-    padding-top: 1rem !important;
-}
-
-/* ⭐ 側邊欄按鈕預設 */
-div[data-testid="stSidebar"] button[kind="secondary"] {
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    font-weight: normal;
-    border: 1px solid #ddd !important;
-}
-
-/* ⭐ 被選中的按鈕（依 aria-label 自動偵測） */
-div[data-testid="stSidebar"] button[kind="secondary"][aria-label="%s"] {
-    background-color: #f9dc5c !important;
-    color: #1a1a1a !important;
-    font-weight: bold !important;
-    border: none !important;
-}
-
-/* ⭐ selectbox 選項 hover */
-[data-baseweb="option"]:hover {
-    background-color: #bbbbbb !important;
-    color: black !important;
-}
-
-</style>
-""" % st.session_state.get("menu", ""), unsafe_allow_html=True)
-
-
-# =======================================================
-# 📌 Google Sheet 初始化
-# =======================================================
+# ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
     service_account_info,
@@ -104,6 +72,7 @@ creds = Credentials.from_service_account_info(
 client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 
+# ======== 建立 Spreadsheet 物件 (避免重複連線) =========
 if "spreadsheet" not in st.session_state:
     try:
         st.session_state["spreadsheet"] = client.open_by_url(SHEET_URL)
@@ -113,30 +82,54 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
+# ======== Sidebar 修正 =========
+import streamlit as st
 
-# =======================================================
-# 📌 側邊欄選單（高亮 ✓）
-# =======================================================
+menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
+                "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
 
-menu_items = ["色粉管理", "客戶名單", "配方管理", "生產單管理",
-              "生產單列印", "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
-
-# 初始選項
-if "menu" not in st.session_state or st.session_state.menu not in menu_items:
+if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 
+# 自訂 CSS：改按鈕字體大小
+st.markdown("""
+<style>
+/* Sidebar 標題字體大小 */
+.sidebar .css-1d391kg h1 {
+    font-size: 24px !important;
+}
+
+/* Sidebar 按鈕字體大小 */
+div.stButton > button {
+    font-size: 14px !important;
+    padding: 8px 12px !important;  /* 可調整上下左右間距 */
+    text-align: left;
+}
+</style>
+""", unsafe_allow_html=True)
+
 with st.sidebar:
+    # 標題
     st.markdown('<h1 style="font-size:22px;">🌈配方管理系統</h1>', unsafe_allow_html=True)
 
-    for item in menu_items:
-        if st.button(item, key=f"menu_btn_{item}", use_container_width=True):
-            st.session_state.menu = item
-            st.rerun()
+    for option in menu_options:
+        label = f"✅ {option}" if st.session_state.menu == option else option
+        if st.button(label, key=f"menu_{option}", use_container_width=True):
+            st.session_state.menu = option
+            
+# ===== 調整整體主內容上方距離 =====
+st.markdown("""
+    <style>
+    /* 調整整體主內容上方距離 */
+    .block-container {
+        padding-top: 0rem;
+        margin-top: -20px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 
-# =======================================================
-# 📌 表單字體樣式（較小字）
-# =======================================================
+# ===== 在最上方定義函式 =====
 def set_form_style():
     st.markdown("""
     <style>
@@ -145,11 +138,13 @@ def set_form_style():
         color: #999999;
         font-size: 13px;
     }
+
     /* selectbox placeholder */
     div.stSelectbox > div > div > div.css-1wa3eu0-placeholder {
         color: #999999;
         font-size: 13px;
     }
+
     /* selectbox 選中後文字 */
     div.stSelectbox > div > div > div.css-1uccc91-singleValue {
         font-size: 14px;
@@ -158,6 +153,7 @@ def set_form_style():
     </style>
     """, unsafe_allow_html=True)
 
+# ===== 呼叫一次，套用全程式 =====
 set_form_style()
 
 # ======== 初始化 session_state =========
