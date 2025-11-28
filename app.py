@@ -2278,22 +2278,22 @@ elif menu == "生產單管理":
         st.success(f"已自動選取：{display_label}")
     else:
         selected_label = st.selectbox(
-            "選擇配方",
-            ["請選擇"] + list(option_map.keys()),
+            "",  # 移除 label
+            ["選擇配方"] + list(option_map.keys()),  # 將 "請選擇" 改為 "選擇配方"
             index=0,
             key="search_add_form_selected_recipe"
         )
-        if selected_label == "請選擇":
+        if selected_label == "選擇配方":  # 對應修改判斷條件
             selected_row = None
         else:
             selected_row = option_map.get(selected_label)
-    
+
     if add_btn:
-        if selected_label is None or selected_label == "請選擇" or selected_label == "（無符合配方）":
+        if selected_label is None or selected_label == "選擇配方" or selected_label == "（無符合配方）":  # 對應修改判斷條件
             st.warning("請先選擇有效配方")
         else:
             if selected_row.get("狀態") == "停用":
-                st.warning("⚠️ 此配方已停用，請勿使用")
+                st.warning("⚠️ 此配方已停用,請勿使用")
                 st.stop()
             else:
                 # 取得或初始化新訂單物件
