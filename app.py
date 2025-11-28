@@ -147,15 +147,15 @@ with st.sidebar:
         if st.button(item, key=f"menu_btn_{item}", use_container_width=True):
             st.session_state.menu = item
             st.rerun()
-            
+        
 # ===== 在最上方定義函式 =====
 def set_form_style():
     st.markdown("""
     <style>
     /* text_input placeholder */
     div.stTextInput > div > div > input::placeholder {
-        color: #999999;     
-        font-size: 13px;
+        color: #999999;
+        font-size: 13px;
     }
 
     /* selectbox placeholder */
