@@ -148,18 +148,6 @@ with st.sidebar:
             st.session_state.menu = item
             st.rerun()
             
-# ===== 調整整體主內容上方距離 =====
-st.markdown("""
-    <style>
-    /* 調整整體主內容上方距離 */
-    .block-container {
-        padding-top: 0rem;
-        margin-top: -20px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-
 # ===== 在最上方定義函式 =====
 def set_form_style():
     st.markdown("""
