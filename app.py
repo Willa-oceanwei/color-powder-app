@@ -41,26 +41,46 @@ if not st.session_state.authenticated:
     # 尚未輸入密碼時停止執行
     st.stop()
 
-# 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
+# =======================================================
+# 📌 步驟 1: 頁面配置與合併 CSS (保留原有樣式)
+# =======================================================
+
+# 設置頁面配置 (必須在所有 Streamlit 元件呼叫前執行)
+st.set_page_config(
+    layout="wide", 
+    page_title="配方管理系統",
+    page_icon="🌈"
+) 
+
+# 合併後的 CSS 區塊 (保留您所有原有的樣式)
 st.markdown(
     """
     <style>
-    /* 選中項目背景色 */
+    /* 選中項目背景色 (來自 selectbox 的舊樣式) */
     .st-key-myselect [data-baseweb="option"][aria-selected="true"] {
-        background-color: #999999 !important;  /* 淺灰 */
+        background-color: #999999 !important; /* 淺灰 */
         color: black !important;
         font-weight: bold;
     }
-    /* 滑鼠滑過項目背景色 */
+    /* 滑鼠滑過項目背景色 (來自 selectbox 的舊樣式) */
     .st-key-myselect [data-baseweb="option"]:hover {
-        background-color: #bbbbbb !important;  /* 更淺灰 */
+        background-color: #bbbbbb !important; /* 更淺灰 */
         color: black !important;
     }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-# ======== GCP SERVICE ACCOUNT =========
+    
+    /* Sidebar 標題字體大小 (來自您原有的設定) */
+    .sidebar .css-1d391kg h1 {
+        font-size: 24px !important;
+    }
+
+    /* Sidebar 按鈕字體大小和對齊 (來自您原有的設定) */
+    div.stButton > button {
+        font-size: 14px !important;
+        padding: 8px 12px !important; 
+        text-align: left;
+    }
+    
+ # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
     service_account_info,
@@ -82,40 +102,51 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
-# ======== Sidebar 修正 =========
-import streamlit as st
+# =======================================================
+# 📌 步驟 2: 側邊欄導航邏輯 (加入選中按鈕的顏色高亮)
+# =======================================================
 
-menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
-                "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
+# 菜單項目列表
+menu_items = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "生產單列印", "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
 
-if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
+# 初始化菜單狀態 (注意: 這裡使用您原始程式碼的預設值: "生產單管理")
+if "menu" not in st.session_state or st.session_state.menu not in menu_items:
+    st.session_state.menu = "生產單管理" 
 
-# 自訂 CSS：改按鈕字體大小
-st.markdown("""
-<style>
-/* Sidebar 標題字體大小 */
-.sidebar .css-1d391kg h1 {
-    font-size: 24px !important;
-}
-
-/* Sidebar 按鈕字體大小 */
-div.stButton > button {
-    font-size: 14px !important;
-    padding: 8px 12px !important;  /* 可調整上下左右間距 */
-    text-align: left;
-}
-</style>
-""", unsafe_allow_html=True)
-
+# --- 側邊欄導航 (使用 st.button) ---
 with st.sidebar:
-    # 標題
     st.markdown('<h1 style="font-size:22px;">🌈配方管理系統</h1>', unsafe_allow_html=True)
+    
+    # 取得當前選單的 index (這是用來定位哪個按鈕需要高亮的重要步驟)
+    try:
+        current_index = menu_items.index(st.session_state.menu)
+        # 側邊欄標題 (h1) 佔據第 1 個位置，所以按鈕的 nth-child 索引是 current_index + 2
+        target_index = current_index + 2
+    except ValueError:
+        # 如果 st.session_state.menu 不在列表中，則不應用高亮
+        target_index = -1 
+        
+    # 注入 CSS：針對當前選中的按鈕套用黃色背景
+    if target_index != -1:
+        st.markdown(f"""
+            <style>
+            /* 針對側邊欄內，第 {target_index} 個 stButton 的按鈕套用樣式 */
+            div[data-testid="stSidebar"] div.stButton:nth-child({target_index}) button {{
+                background-color: #f9dc5c !important; /* 黃色背景 */
+                color: #1a1a1a !important; /* 深色文字 */
+                font-weight: bold;
+                /* 繼承您原有的樣式，確保按鈕看起來正常 */
+                border: none !important; 
+            }}
+            </style>
+        """, unsafe_allow_html=True)
 
-    for option in menu_options:
-        label = f"✅ {option}" if st.session_state.menu == option else option
-        if st.button(label, key=f"menu_{option}", use_container_width=True):
-            st.session_state.menu = option
+    # 顯示按鈕
+    for item in menu_items:
+        # **注意**: 這裡不再使用 "✅" 符號，而是讓顏色高亮
+        if st.button(item, key=f"menu_btn_{item}", use_container_width=True):
+            st.session_state.menu = item
+            st.rerun()
             
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
