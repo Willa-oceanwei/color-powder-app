@@ -3,13 +3,11 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
-import os
 import json
 import time
-import base64
-import re
 from pathlib import Path        
 from datetime import datetime
+from streamlit_javascript import st_javascript
 
 # ======== 🔐 簡易登入驗證區 ========
 APP_PASSWORD = "'"  # ✅ 直接在程式中設定密碼
@@ -22,36 +20,32 @@ if not st.session_state.authenticated:
         "<h3 style='text-align:center; color:#f0efa2;'>🔐 請輸入密碼</h3>",
         unsafe_allow_html=True,
     )
-
     password_input = st.text_input("密碼：", type="password", key="login_password")
 
     if password_input == APP_PASSWORD:
         st.session_state.authenticated = True
         st.success("✅ 登入成功！請稍候...")
-        time.sleep(0.8)
-        st.rerun()
+        st.experimental_rerun()  # 安全 rerun
     elif password_input != "":
         st.error("❌ 密碼錯誤，請再試一次。")
-        st.stop()
-    st.stop()
+    st.stop()  # 停止後續程式執行，直到登入成功
 
 # ===== 自訂 CSS =====
-st.markdown(
-    """
-    <style>
-    .st-key-myselect [data-baseweb="option"][aria-selected="true"] {
-        background-color: #999999 !important;
-        color: black !important;
-        font-weight: bold;
-    }
-    .st-key-myselect [data-baseweb="option"]:hover {
-        background-color: #bbbbbb !important;
-        color: black !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown("""
+<style>
+/* 選中項目背景色 */
+.st-key-myselect [data-baseweb="option"][aria-selected="true"] {
+    background-color: #999999 !important;
+    color: black !important;
+    font-weight: bold;
+}
+/* 滑鼠滑過項目背景色 */
+.st-key-myselect [data-baseweb="option"]:hover {
+    background-color: #bbbbbb !important;
+    color: black !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ===== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
@@ -66,58 +60,52 @@ client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 
 # ====== Streamlit JavaScript 接收左側選單訊息 ======
-from streamlit_javascript import st_javascript
-
-# 監聽左側選單 postMessage 發送的 tab
 tab_name = st_javascript(
     "window.addEventListener('message', e => e.data.tab);",
     key="tab_listener"
-)
+) or "color-powder"  # 預設值，避免 None 導致 rerun 循環
 
-# ======== 建立 Spreadsheet 物件 (避免重複連線) =========
-if "spreadsheet" not in st.session_state:
-    try:
-        st.session_state["spreadsheet"] = client.open_by_url(SHEET_URL)
-    except Exception as e:
-        st.error(f"❗ 無法連線 Google Sheet：{e}")
-        st.stop()
+# ======= 模組判斷 =======
+if tab_name == "color-powder":
+    # 🔹 色粉管理程式碼
+    # 你原本的色粉管理程式碼放在這裡
+    st.write("色粉管理模組 (放你的原始程式碼)")
 
-spreadsheet = st.session_state["spreadsheet"]
+elif tab_name == "customer-list":
+    # 🔹 客戶名單程式碼
+    st.write("客戶名單模組 (放你的原始程式碼)")
 
-# ======== Sidebar 修正 =========
-import streamlit as st
+elif tab_name == "recipe":
+    # 🔹 配方管理程式碼
+    st.write("配方管理模組 (放你的原始程式碼)")
 
-menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
-                "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
+elif tab_name == "production-order":
+    # 🔹 生產單管理程式碼
+    st.write("生產單管理模組 (放你的原始程式碼)")
 
-if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
+elif tab_name == "outsourcing":
+    # 🔹 代工排程
+    st.write("代工排程模組 (放你的原始程式碼)")
 
-# 自訂 CSS：改按鈕字體大小
-st.markdown("""
-<style>
-/* Sidebar 標題字體大小 */
-.sidebar .css-1d391kg h1 {
-    font-size: 24px !important;
-}
+elif tab_name == "inventory":
+    # 🔹 庫存管理
+    st.write("庫存管理模組 (放你的原始程式碼)")
 
-/* Sidebar 按鈕字體大小 */
-div.stButton > button {
-    font-size: 14px !important;
-    padding: 8px 12px !important;  /* 可調整上下左右間距 */
-    text-align: left;
-}
-</style>
-""", unsafe_allow_html=True)
+elif tab_name == "pantone-table":
+    # 🔹 Pantone 色號表
+    st.write("Pantone 色號表模組 (放你的原始程式碼)")
 
-with st.sidebar:
-    # 標題
-    st.markdown('<h1 style="font-size:22px;">🌈配方管理系統</h1>', unsafe_allow_html=True)
+elif tab_name == "cross-query":
+    # 🔹 交叉查詢區
+    st.write("交叉查詢模組 (放你的原始程式碼)")
 
-    for option in menu_options:
-        label = f"✅ {option}" if st.session_state.menu == option else option
-        if st.button(label, key=f"menu_{option}", use_container_width=True):
-            st.session_state.menu = option
+elif tab_name == "import-backup":
+    # 🔹 匯入備份
+    st.write("匯入備份模組 (放你的原始程式碼)")
+
+else:
+    st.warning("❗ 未選擇模組或 tab_name 錯誤")
+
             
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
