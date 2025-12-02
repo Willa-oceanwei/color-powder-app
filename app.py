@@ -88,6 +88,14 @@ import streamlit as st
 menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
                 "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
 
+# ===== 讀取 URL 參數控制選單 =====
+try:
+    menu_param = st.query_params.get("menu")
+    if menu_param and menu_param in menu_options:
+        st.session_state.menu = menu_param
+except:
+    pass
+
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 
