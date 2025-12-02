@@ -89,15 +89,6 @@ menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理
                 "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
 
 # ===== 讀取 URL 參數控制選單 =====
-try:
-    menu_param = st.query_params.get("menu")
-    # 只有當參數存在、且與目前選單不同時才更新
-    if menu_param and menu_param in menu_options:
-        if "menu" not in st.session_state or st.session_state.menu != menu_param:
-            st.session_state.menu = menu_param
-except:
-    pass
-
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 
