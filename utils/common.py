@@ -1,27 +1,101 @@
+# utils/common.py
 import streamlit as st
 import pandas as pd
 from pathlib import Path
+from datetime import datetime
+import json
+import gspread
+from google.oauth2.service_account import Credentials
 
-# ===== 自訂函式：產生生產單列印格式 =====      
+# ---------- Helper: 取得 Spreadsheet 物件 ----------
+def get_spreadsheet():
+    """
+    回傳已存在於 st.session_state 的 spreadsheet（若有）。
+    如果不存在，嘗試用 st.secrets 建立連線並回傳。
+    """
+    if "spreadsheet" in st.session_state:
+        return st.session_state["spreadsheet"]
+
+    # 嘗試從 st.secrets 建立連線（備援）
+    try:
+        service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
+        creds = Credentials.from_service_account_info(
+            service_account_info,
+            scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive",
+            ],
+        )
+        client = gspread.authorize(creds)
+        sheet_url = st.secrets.get("sheet_url") or st.secrets.get("SHEET_URL")
+        if not sheet_url:
+            raise RuntimeError("st.session_state 未包含 spreadsheet，且 st.secrets 未提供 sheet_url")
+        ss = client.open_by_url(sheet_url)
+        st.session_state["spreadsheet"] = ss
+        return ss
+    except Exception as e:
+        raise RuntimeError(f"無法取得 spreadsheet：{e}")
+
+# ---------- 儲存 DataFrame 至 Google Sheet ----------
+def save_df_to_sheet(ws, df):
+    """
+    將 DataFrame 寫回試算表（會清表後寫入）。
+    ws: gspread worksheet
+    df: pandas DataFrame
+    """
+    values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
+    ws.clear()
+    ws.update("A1", values)
+
+# ---------- 初始化 session state 的便利函式 ----------
+def init_states(keys):
+    """
+    初始化一組 session_state key：
+    - 以 'form_' 開頭的 key 預設為 dict
+    - 以 'edit_' 或 'delete_' 開頭的 key 預設為 None
+    - 以 'show_' 開頭的 key 預設為 False
+    - 以 'search' 開頭的 key 預設為 ""
+    - 其他預設為 None
+    """
+    dict_keys = {"form_color", "form_recipe", "order", "form_customer"}
+    if keys is None:
+        return
+    for k in keys:
+        if k not in st.session_state:
+            if k in dict_keys or k.startswith("form_"):
+                st.session_state[k] = {}
+            elif k.startswith("edit_") or k.startswith("delete_"):
+                st.session_state[k] = None
+            elif k.startswith("show_"):
+                st.session_state[k] = False
+            elif k.startswith("search"):
+                st.session_state[k] = ""
+            else:
+                st.session_state[k] = None
+
+# ---------- 列印函式（完全版：你原本的列印 HTML 與文本生成） ----------
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+    """
+    產生列印內容（HTML 可直接放到 <pre> 或 innerHTML）。
+    直接複製你提供的完整版本（未刪減）。
+    """
     if recipe_row is None:
         recipe_row = {}
 
     category = order.get("色粉類別", "").strip()
-    
+
     unit = recipe_row.get("計量單位", "kg")
     ratio = recipe_row.get("比例3", "")
     total_type = recipe_row.get("合計類別", "").strip()
-
     if total_type == "原料":
         total_type = "料"
-    
+
     powder_label_width = 12
     pack_col_width = 11
     number_col_width = 6
     column_offsets = [1, 5, 5, 5]
     total_offsets = [1.3, 5, 5, 5]
-    
+
     packing_weights = [
         float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
         for i in range(1, 5)
@@ -40,17 +114,17 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         except:
             val = 0.0
         colorant_weights.append(val)
-    
+
     multipliers = packing_weights
-    
+
     try:
         net_weight = float(recipe_row.get("淨重", 0))
     except:
         net_weight = 0.0
-    
+
     lines = []
     lines.append("")
-    
+
     recipe_id = recipe_row.get('配方編號', '')
     color = order.get('顏色', '')
     pantone = order.get('Pantone 色號', '').strip()
@@ -71,7 +145,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     )
     lines.append(info_line)
     lines.append("")
-    
+
     pack_line = []
     for i in range(4):
         w = packing_weights[i]
@@ -92,14 +166,14 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             else:
                 real_w = w
                 unit_str = f"{real_w:.2f}".rstrip("0").rstrip(".") + "kg"
-        
+
             count_str = str(int(c)) if c == int(c) else str(c)
             text = f"{unit_str} × {count_str}"
             pack_line.append(f"{text:<{pack_col_width}}")
-        
+
     packing_indent = " " * 14
     lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
-                                    
+
     for idx in range(8):
         c_id = colorant_ids[idx]
         c_weight = colorant_weights[idx]
@@ -114,11 +188,11 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             padding = " " * max(0, int(round(column_offsets[i])))
             row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
         lines.append(row)
-        
+
     category = (order.get("色粉類別") or "").strip()
     if category != "色母":
         lines.append("＿" * 28)
-                    
+
     total_offsets = [1, 5, 5, 5]
     if total_type == "" or total_type == "無":
         total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
@@ -126,22 +200,23 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
         total_type_display = f"<b><span style='font-size:22px; display:inline-block; width:{powder_label_width}ch'>料</span></b>"
     else:
         total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
-        
+
     total_line = total_type_display
-        
+
     for i in range(4):
+        result = 0
         if category == "色母":
             pigment_total = sum(colorant_weights)
             result = (net_weight - pigment_total) * multipliers[i] if multipliers[i] > 0 else 0
         else:
             result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
-        
+
         val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
         padding = " " * max(0, int(round(total_offsets[i])))
         total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-        
+
     lines.append(total_line)
-           
+
     if additional_recipe_rows and isinstance(additional_recipe_rows, list):
         for idx, sub in enumerate(additional_recipe_rows, 1):
             lines.append("")
@@ -149,7 +224,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                 lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
             else:
                 lines.append(f"附加配方 {idx}")
-    
+
             add_ids = [sub.get(f"色粉編號{i+1}", "") for i in range(8)]
             add_weights = []
             for i in range(8):
@@ -158,7 +233,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                 except:
                     val = 0.0
                 add_weights.append(val)
-    
+
             for i in range(8):
                 c_id = add_ids[i]
                 if not c_id:
@@ -175,17 +250,17 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 
             line_length = powder_label_width + sum([number_col_width + int(round(column_offsets[j])) for j in range(4)])
             lines.append("―" * line_length)
-   
+
             sub_total_type = sub.get("合計類別", "")
             sub_net_weight = float(sub.get("淨重", 0) or 0)
-            
+
             if sub_total_type == "" or sub_total_type == "無":
                 sub_total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
             elif category == "色母":
                 sub_total_type_display = f"<b>{'料'.ljust(powder_label_width)}</b>"
             else:
                 sub_total_type_display = f"<b>{sub_total_type.ljust(powder_label_width)}</b>"
-            
+
             sub_total_line = sub_total_type_display
             for j in range(4):
                 val = sub_net_weight * multipliers[j] if multipliers[j] > 0 else 0
@@ -194,10 +269,9 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                 ) if val else ""
                 padding = " " * max(0, int(round(column_offsets[j])))
                 sub_total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-            
+
             lines.append(sub_total_line)
 
-        
     remark_text = order.get("備註", "").strip()
     if remark_text:
         lines.append("")
@@ -206,8 +280,10 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 
     return "<br>".join(lines)
 
-# --------------- 列印 HTML 生成函式 ---------------
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+    """
+    生成完整列印 HTML（A5 橫向）字串，會自動把 content 放入 <pre>。
+    """
     if recipe_row is None:
         recipe_row = {}
 
@@ -279,39 +355,19 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     html = html_template.replace("{created_time}", created_time).replace("{content}", content)
     return html
 
-
-# ======== 共用儲存函式 =========
-def save_df_to_sheet(ws, df):
-    values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
-    ws.clear()
-    ws.update("A1", values)
-
-
-def init_states(keys):
-    """
-    初始化 session_state 中的變數
-    - 如果 key 需要 dict，預設為 {}
-    - 否則預設為 ""
-    """
-    dict_keys = {"form_color", "form_recipe", "order"}
-    
-    for k in keys:
-        if k not in st.session_state:
-            if k in dict_keys:
-                st.session_state[k] = {}
-            else:
-                st.session_state[k] = ""
-
-
-#===「載入配方資料」的核心函式====
+# ---------- 載入配方資料（備援：Sheet -> CSV -> 空 DF） ----------
 def load_recipe(force_reload=False):
+    """
+    嘗試載入 '配方管理' 工作表，若失敗回退 data/df_recipe.csv，否則回傳空 df。
+    """
     try:
-        ws_recipe = st.session_state.spreadsheet.worksheet("配方管理")
+        ss = get_spreadsheet()
+        ws_recipe = ss.worksheet("配方管理")
         df_loaded = pd.DataFrame(ws_recipe.get_all_records())
         if not df_loaded.empty:
             return df_loaded
-    except Exception as e:
-        st.warning(f"Google Sheet 載入失敗：{e}")
+    except Exception:
+        pass
 
     order_file = Path("data/df_recipe.csv")
     if order_file.exists():
@@ -319,7 +375,7 @@ def load_recipe(force_reload=False):
             df_csv = pd.read_csv(order_file)
             if not df_csv.empty:
                 return df_csv
-        except Exception as e:
-            st.error(f"CSV 載入失敗：{e}")
+        except Exception:
+            pass
 
     return pd.DataFrame()
