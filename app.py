@@ -1,306 +1,308 @@
-import streamlit as st
-import gspread
-import json
-import pandas as pd
-from google.oauth2.service_account import Credentials
-from pathlib import Path
+elif menu == "配方管理":
 
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    from pathlib import Path
+    from datetime import datetime
+    import pandas as pd
+    import streamlit as st
 
-
-# ======================================================
-# 🔥 1. Google Sheet Client（全域共用）
-# ======================================================
-
-def get_gspread_client():
-    """建立 gspread client"""
-    try:
-        service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
-        creds = Credentials.from_service_account_info(
-            service_account_info,
-            scopes=[
-                "https://www.googleapis.com/auth/spreadsheets",
-                "https://www.googleapis.com/auth/drive",
-            ],
-        )
-        client = gspread.authorize(creds)
-        return client
-    except Exception as e:
-        st.error(f"❌ 無法建立 Google Sheet 連線：{e}")
-        return None
-
-
-def get_spreadsheet(name_or_url):
-    """回傳 Spreadsheet 物件"""
-    client = get_gspread_client()
-    if not client:
-        return None
-    try:
-        if str(name_or_url).startswith("http"):
-            return client.open_by_url(name_or_url)
-        else:
-            return client.open(name_or_url)
-    except Exception as e:
-        st.error(f"❌ 無法開啟 Spreadsheet：{e}")
-        return None
-
-
-
-# ======================================================
-# 🔥 2. DataFrame ↔ Google Sheet
-# ======================================================
-
-def sheet_to_df(ws):
-    """worksheet → dataframe"""
-    try:
-        rows = ws.get_all_records()
-        return pd.DataFrame(rows)
-    except Exception as e:
-        st.error(f"❌ 載入 Google Sheet 錯誤：{e}")
+    # ------------------- 配方資料初始化 -------------------
+    # 初始化 session_state
+    if "df_recipe" not in st.session_state:
+        st.session_state.df_recipe = pd.DataFrame()
+    if "trigger_load_recipe" not in st.session_state:
+        st.session_state.trigger_load_recipe = False
+    
+    def load_recipe_data():
+        """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
+        try:
+            ws_recipe = spreadsheet.worksheet("配方管理")
+            df_loaded = pd.DataFrame(ws_recipe.get_all_records())
+            if not df_loaded.empty:
+                return df_loaded
+        except Exception as e:
+            st.warning(f"Google Sheet 載入失敗：{e}")
+    
+        # 回退 CSV
+        order_file = Path("data/df_recipe.csv")
+        if order_file.exists():
+            try:
+                df_csv = pd.read_csv(order_file)
+                if not df_csv.empty:
+                    return df_csv
+            except Exception as e:
+                st.error(f"CSV 載入失敗：{e}")
+    
+        # 都失敗時，回傳空 df
         return pd.DataFrame()
+    
+    # 統一使用 df_recipe
+    df_recipe = st.session_state.df_recipe
 
-
-def save_df_to_sheet(ws, df):
-    """dataframe → worksheet"""
-    try:
-        values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
-        ws.clear()
-        ws.update("A1", values)
-    except Exception as e:
-        st.error(f"❌ 無法寫入 Google Sheet：{e}")
-
-
-# ======================================================
-# 🔥 3. Session State 初始化
-# ======================================================
-
-def init_states(keys):
-    """初始化 session_state"""
-    dict_keys = {"form_color", "form_recipe", "order"}
-
-    for k in keys:
-        if k not in st.session_state:
-            if k in dict_keys:
-                st.session_state[k] = {}
-            else:
-                st.session_state[k] = ""
-
-
-# ======================================================
-# 🔥 4. CSV 備份
-# ======================================================
-
-def save_csv(df, filename):
-    Path("data").mkdir(exist_ok=True)
-    df.to_csv(Path("data") / filename, index=False, encoding="utf-8-sig")
-
-
-def load_csv(filename):
-    path = Path("data") / filename
-    if path.exists():
-        try:
-            return pd.read_csv(path)
-        except:
-            return pd.DataFrame()
-    return pd.DataFrame()
-
-
-# ======================================================
-# 🔥 5. 配方資料載入（Google Sheet → CSV → 空DF）
-# ======================================================
-
-def load_recipe(spreadsheet):
-    try:
-        ws = spreadsheet.worksheet("配方管理")
-        df = pd.DataFrame(ws.get_all_records())
-        if not df.empty:
-            return df
-    except Exception as e:
-        st.warning(f"Google Sheet 載入失敗：{e}")
-
-    # fallback CSV
-    try:
-        df_csv = load_csv("df_recipe.csv")
-        if not df_csv.empty:
-            return df_csv
-    except:
-        pass
-
-    return pd.DataFrame()
-
-
-
-# ======================================================
-# 🔥 6. 生產單列印：主函式
-# ======================================================
-
-def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
-    """
-    生產單列印格式（完整版本，不刪減）
-    """
-    if recipe_row is None:
-        recipe_row = {}
-
-    category = order.get("色粉類別", "").strip()
-
-    unit = recipe_row.get("計量單位", "kg")
-    ratio = recipe_row.get("比例3", "")
-    total_type = recipe_row.get("合計類別", "").strip()
-
-    if total_type == "原料":  # 舊資料相容
-        total_type = "料"
-
-    powder_label_width = 12
-    pack_col_width = 11
-    number_col_width = 6
-    column_offsets = [1, 5, 5, 5]
-
-    packing_weights = [
-        float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
-        for i in range(1, 5)
-    ]
-    packing_counts = [
-        float(order.get(f"包裝份數{i}", 0)) if str(order.get(f"包裝份數{i}", "")).replace(".", "", 1).isdigit() else 0
-        for i in range(1, 5)
+    # 預期欄位
+    columns = [
+        "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
+        "原始配方", "色粉類別", "計量單位", "Pantone色號",
+        "比例1", "比例2", "比例3", "淨重", "淨重單位",
+        *[f"色粉編號{i}" for i in range(1, 9)],
+        *[f"色粉重量{i}" for i in range(1, 9)],
+        "合計類別", "建檔時間"
     ]
 
-    colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
-    colorant_weights = []
-    for i in range(8):
-        try:
-            val = float(recipe_row.get(f"色粉重量{i+1}", 0) or 0)
-        except:
-            val = 0.0
-        colorant_weights.append(val)
+    # 初始化 session_state 需要的變數
+    def init_states(keys):
+        for k in keys:
+            if k not in st.session_state:
+                st.session_state[k] = None
 
-    multipliers = packing_weights
+    init_states([
+        "form_recipe",
+        "edit_recipe_index",
+        "delete_recipe_index",
+        "show_delete_recipe_confirm",
+        "search_recipe_code",
+        "search_pantone",
+        "search_customer"
+    ])
 
+    # 初始 form_recipe
+    if st.session_state.form_recipe is None:
+        st.session_state.form_recipe = {col: "" for col in columns}
+
+    # ✅ 如果還是空的，顯示提示
+    if df_recipe.empty:
+        st.error("⚠️ 配方資料尚未載入，請確認 Google Sheet 或 CSV 是否有資料")
+    # 讀取表單
     try:
-        net_weight = float(recipe_row.get("淨重", 0))
+        df = pd.DataFrame(ws_recipe.get_all_records())
     except:
-        net_weight = 0.0
+        df = pd.DataFrame(columns=columns)
 
-    lines = []
-    lines.append("")
+    df = df.astype(str)
+    for col in columns:
+        if col not in df.columns:
+            df[col] = ""
 
-    # ========= 第一行：配方資訊行 =========
-    recipe_id = recipe_row.get('配方編號', '')
-    color = order.get('顏色', '')
-    pantone = order.get('Pantone 色號', '').strip()
+    import streamlit as st
 
-    pantone_part = (
-        f"<div style='flex:1; min-width:80px;'>Pantone：{pantone}</div>"
-        if pantone else ""
-    )
+    if "df" not in st.session_state:
+        try:
+            df = pd.DataFrame(ws_recipe.get_all_records())
+        except:
+            df = pd.DataFrame(columns=columns)
 
-    info_line = (
-        f"<div style='display:flex; font-size:20px; font-family:Arial;'>"
-        f"<div style='flex:1;'>編號：<b>{recipe_id}</b></div>"
-        f"<div style='flex:1;'>顏色：{color}</div>"
-        f"<div style='flex:1;'>比例：{ratio} g/kg</div>"
-        f"{pantone_part}</div>"
-    )
-    lines.append(info_line)
-    lines.append("")
+        df = df.astype(str)
+        for col in columns:
+            if col not in df.columns:
+                df[col] = ""
+        st.session_state.df = df# 儲存進 session_state
+    
+    # ✅ 後續操作都從 session_state 中抓資料
 
-    # ========= 包裝列 =========
-    pack_line = []
-    for i in range(4):
-        w = packing_weights[i]
-        c = packing_counts[i]
-        if w > 0 or c > 0:
-            unit_str = f"{w:.2f}".rstrip("0").rstrip(".") + "kg"
-            count_str = str(int(c)) if c == int(c) else str(c)
-            pack_line.append(f"{unit_str} × {count_str:<{pack_col_width}}")
+    #-------
+    df = st.session_state.df
+    # === 載入「色粉管理」的色粉清單，建立 existing_powders ===
+    def clean_powder_id(x):
+        s = str(x).replace('\u3000', '').replace(' ', '').strip().upper()
+        return s
+    
+    # 讀取色粉管理清單
+    try:
+        ws_powder = spreadsheet.worksheet("色粉管理")
+        df_powders = pd.DataFrame(ws_powder.get_all_records())
+        if "色粉編號" not in df_powders.columns:
+            st.error("❌ 色粉管理表缺少『色粉編號』欄位")
+            existing_powders = set()
+        else:
+            existing_powders = set(df_powders["色粉編號"].map(clean_powder_id).unique())
+            
+    except Exception as e:
+        st.warning(f"⚠️ 無法載入色粉管理：{e}")
+        existing_powders = set()
+        
+    st.markdown("""
+    <style>
+    .big-title {
+        font-size: 24px;   /* 字體大小 */
+        font-weight: bold;  /*加粗 */
+        color: #F9DC5C; /* 字體顏色 */
+        margin-bottom: 20px; /* 下方間距 */
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    lines.append("<b>" + " " * 14 + "".join(pack_line) + "</b>")
+    # 🎯 配方建立（加上 id 與跳轉按鈕）
+    st.markdown("""
+        <div id="recipe-create" style="display: flex; align-items: center; gap: 10px;">
+            <h2 style="font-size:22px; font-family:Arial; color:#F9DC5C; margin:0;">🎯 配方建立</h2>
+            <a href="#recipe-table" style="
+                background-color: var(--background-color);
+                color: var(--text-color);
+                padding:4px 10px;
+                border-radius:6px;
+                text-decoration:none;
+                font-size:14px;
+                font-family:Arial;
+            ">⬇ 跳到記錄表</a>
+        </div>
+        """, unsafe_allow_html=True)
+  
+    # === 欄位定義 ===
+    columns = [
+        "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
+        "原始配方", "色粉類別", "計量單位", "Pantone色號",
+        "比例1", "比例2", "比例3", "淨重", "淨重單位",
+        *[f"色粉編號{i}" for i in range(1, 9)],
+        *[f"色粉重量{i}" for i in range(1, 9)],
+        "合計類別", "重要提醒", "備註", "建檔時間"
+    ]
 
-    # ========= 主配方色粉列 =========
-    for idx in range(8):
-        c_id = colorant_ids[idx]
-        c_w = colorant_weights[idx]
-        if not c_id:
-            continue
+    order_file = Path("data/df_recipe.csv")
 
-        row = f"<b>{c_id.ljust(powder_label_width)}</b>"
-        for i in range(4):
-            val = c_w * multipliers[i] if multipliers[i] else 0
-            val_str = (str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip("0").rstrip(".")) if val else ""
-            padding = " " * column_offsets[i]
-            row += padding + f"<b>{val_str:>{number_col_width}}</b>"
+    # 載入 Google Sheets
+    try:
+        ws_customer = spreadsheet.worksheet("客戶名單")
+        df_customers = pd.DataFrame(ws_customer.get_all_records())
+        customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in df_customers.iterrows()]
+    except:
+        st.error("無法載入客戶名單")
 
-        lines.append(row)
+    import gspread
+    from gspread.exceptions import WorksheetNotFound, APIError
+    
+    try:
+        ws_recipe = spreadsheet.worksheet("配方管理")
+    except WorksheetNotFound:
+        try:
+            ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
+        except APIError as e:
+            st.error(f"❌ 無法建立工作表：{e}")
+            st.stop()
+            
+    # 初始化 session_state
+    def init_states(keys):
+        for k in keys:
+            if k not in st.session_state:
+                st.session_state[k] = None
 
-    # ========= 橫線 =========
-    if category != "色母":
-        lines.append("＿" * 28)
+    init_states([
+        "form_recipe",
+        "edit_recipe_index",
+        "delete_recipe_index",
+        "show_delete_recipe_confirm",
+        "search_recipe_code",
+        "search_pantone",
+        "search_customer",
+        "df"
+    ])
 
-    # ========= 主配方合計 =========
-    total_line = f"<b>{total_type.ljust(powder_label_width)}</b>"
-    for i in range(4):
-        result = net_weight * multipliers[i] if multipliers[i] else 0
-        val_str = f"{result:.3f}".rstrip("0").rstrip(".") if result else ""
-        padding = " " * column_offsets[i]
-        total_line += padding + f"<b>{val_str:>{number_col_width}}</b>"
-    lines.append(total_line)
+    # 讀取原始資料(純字串)
+    values = ws_recipe.get_all_values()
+    if len(values) > 1:
+        df_loaded = pd.DataFrame(values[1:], columns=values[0])
+    else:
+        df_loaded = pd.DataFrame(columns=columns)
+    
+    # 補齊缺少欄位
+    for col in columns:
+        if col not in df_loaded.columns:
+            df_loaded[col] = ""
+    
+    # 清理配方編號（保持字串格式且不轉成數字）
+    if "配方編號" in df_loaded.columns:
+        df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map(clean_powder_id)
+    
+    st.session_state.df = df_loaded
+    
+    df = st.session_state.df
+    
+    # ===== 初始化欄位 =====
+    import streamlit as st
 
-    # ========= 備註 =========
-    remark = order.get("備註", "").strip()
-    if remark:
-        lines.append("")
-        lines.append(f"備註：{remark}")
+    # 假設你已經有這個列表，是所有欄位名稱
+    columns = [
+        "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方",
+        "色粉類別", "計量單位", "Pantone色號", "重要提醒", "比例1", "比例2", "比例3",
+        "備註", "淨重", "淨重單位", "合計類別"
+    ] + [f"色粉編號{i}" for i in range(1, 9)] + [f"色粉重量{i}" for i in range(1, 9)]
+    
+    # 初始化 session_state
+    if "form_recipe" not in st.session_state or not st.session_state.form_recipe:
+        st.session_state.form_recipe = {col: "" for col in columns}
+        st.session_state.form_recipe["配方類別"] = "原始配方"
+        st.session_state.form_recipe["狀態"] = "啟用"
+        st.session_state.form_recipe["色粉類別"] = "配方"
+        st.session_state.form_recipe["計量單位"] = "包"
+        st.session_state.form_recipe["淨重單位"] = "g"
+        st.session_state.form_recipe["合計類別"] = "無"
+    if "num_powder_rows" not in st.session_state:
+        st.session_state.num_powder_rows = 5
+    
+    fr = st.session_state.form_recipe
+        
+    with st.form("recipe_form"):
+        # 基本欄位
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            fr["配方編號"] = st.text_input("配方編號", value=fr.get("配方編號", ""), key="form_recipe_配方編號")
+        with col2:
+            fr["顏色"] = st.text_input("顏色", value=fr.get("顏色", ""), key="form_recipe_顏色")
+        with col3:
+            options = [""] + customer_options  # 例如 ["001 - 客戶A", "002 - 客戶B"]
 
-    return "<br>".join(lines)
+            # 組合成目前的顯示值
+            current = f"{fr.get('客戶編號','')} - {fr.get('客戶名稱','')}" if fr.get("客戶編號") else ""
+            index = options.index(current) if current in options else 0
 
+            selected = st.selectbox(
+                "客戶編號",
+                options,
+                index=index,
+                key="form_recipe_selected_customer"
+            )
 
-
-# ======================================================
-# 🔥 7. 生產單列印 HTML Wrapper
-# ======================================================
-
-def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
-
-    content = generate_production_order_print(
-        order, recipe_row,
-        additional_recipe_rows=additional_recipe_rows,
-        show_additional_ids=show_additional_ids
-    )
-
-    created_time = str(order.get("建立時間", "") or "")
-
-    html = f"""
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>生產單列印</title>
-        <style>
-            @page {{ size: A5 landscape; margin: 10mm; }}
-            body {{
-                font-family: 'Courier New';
-                font-size: 22px;
-                line-height: 1.3;
-            }}
-            .title {{
-                text-align: center;
-                font-size: 26px;
-                font-family: Arial;
-            }}
-            .timestamp {{
-                text-align: center;
-                font-size: 20px;
-                margin-bottom: 8px;
-            }}
-            pre {{
-                white-space: pre-wrap;
-                margin-left: 20px;
-            }}
-        </style>
-        <script> window.onload = () => window.print(); </script>
-    </head>
-    <body>
-        <div class="timestamp">{created_time}</div>
-        <div class="title">生產單</div>
-        <pre>{content}</pre>
-    </body>
-    </html>
-    """
-    return html
+            # 只有在選了有效選項時才更新
+            if selected and " - " in selected:
+                c_no, c_name = selected.split(" - ", 1)
+                fr["客戶編號"] = c_no.strip()
+                fr["客戶名稱"] = c_name.strip()
+   
+        # 配方類別、狀態、原始配方
+        col4, col5, col6 = st.columns(3)
+        with col4:
+            options = ["原始配方", "附加配方"]
+            current = fr.get("配方類別", options[0])
+            if current not in options:
+                current = options[0]
+            fr["配方類別"] = st.selectbox("配方類別", options, index=options.index(current), key="form_recipe_配方類別")
+        with col5:
+            options = ["啟用", "停用"]
+            current = fr.get("狀態", options[0])
+            if current not in options:
+                current = options[0]
+            fr["狀態"] = st.selectbox("狀態", options, index=options.index(current), key="form_recipe_狀態")
+        with col6:
+            fr["原始配方"] = st.text_input("原始配方", value=fr.get("原始配方", ""), key="form_recipe_原始配方")
+    
+        # 色粉類別、計量單位、Pantone 色號
+        col7, col8, col9 = st.columns(3)
+        with col7:
+            options = ["配方", "色母", "色粉", "添加劑", "其他"]
+            current = fr.get("色粉類別", options[0])
+            if current not in options:
+                current = options[0]
+            fr["色粉類別"] = st.selectbox("色粉類別", options, index=options.index(current), key="form_recipe_色粉類別")
+        with col8:
+            options = ["包", "桶", "kg", "其他"]
+            current = fr.get("計量單位", options[0])
+            if current not in options:
+                current = options[0]
+            fr["計量單位"] = st.selectbox("計量單位", options, index=options.index(current), key="f
