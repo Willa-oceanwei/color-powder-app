@@ -1,7 +1,10 @@
 # utils/customer.py
 import streamlit as st
 import pandas as pd
+import os
+from datetime import datetime, date
 from .common import get_spreadsheet, save_df_to_sheet, init_states
+
 
 def show_customer_page():
     """客戶名單主頁面"""
