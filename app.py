@@ -1,5 +1,12 @@
 # app.py
 import streamlit as st
+import sys
+from pathlib import Path
+
+# 強制加入 utils 路徑
+sys.path.append(str(Path(__file__).resolve().parent / "utils"))
+sys.path.append(str(Path(__file__).resolve().parent))
+
 
 st.set_page_config(page_title="佳咊配方管理系統", layout="wide")
 
