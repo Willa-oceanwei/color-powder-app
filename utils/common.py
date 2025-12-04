@@ -1,4 +1,4 @@
-# utils/common.py
+# ===== utils/common.py (完整修正版) =====
 import streamlit as st
 import pandas as pd
 from pathlib import Path
@@ -9,14 +9,10 @@ from google.oauth2.service_account import Credentials
 
 # ---------- Helper: 取得 Spreadsheet 物件 ----------
 def get_spreadsheet():
-    """
-    回傳已存在於 st.session_state 的 spreadsheet（若有）。
-    如果不存在，嘗試用 st.secrets 建立連線並回傳。
-    """
+    """回傳已存在於 st.session_state 的 spreadsheet（若有）"""
     if "spreadsheet" in st.session_state:
         return st.session_state["spreadsheet"]
 
-    # 嘗試從 st.secrets 建立連線（備援）
     try:
         service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
         creds = Credentials.from_service_account_info(
@@ -38,25 +34,32 @@ def get_spreadsheet():
 
 # ---------- 儲存 DataFrame 至 Google Sheet ----------
 def save_df_to_sheet(ws, df):
-    """
-    將 DataFrame 寫回試算表（會清表後寫入）。
-    ws: gspread worksheet
-    df: pandas DataFrame
-    """
+    """將 DataFrame 寫回試算表（會清表後寫入）"""
     values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
     ws.clear()
     ws.update("A1", values)
 
-# ---------- 初始化 session state 的便利函式 ----------
+# ---------- 清理色粉編號函式 ----------
+def clean_powder_id(x):
+    """去除空白、全形空白，轉大寫"""
+    if pd.isna(x) or x == "":
+        return ""
+    return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
+
+def fix_leading_zero(x):
+    """補足前導零（僅針對純數字且長度<4的字串）"""
+    x = str(x).strip()
+    if x.isdigit() and len(x) < 4:
+        x = x.zfill(4)
+    return x.upper()
+
+def normalize_search_text(text):
+    """標準化搜尋文字"""
+    return fix_leading_zero(clean_powder_id(text))
+
+# ---------- 初始化 session state ----------
 def init_states(keys):
-    """
-    初始化一組 session_state key：
-    - 以 'form_' 開頭的 key 預設為 dict
-    - 以 'edit_' 或 'delete_' 開頭的 key 預設為 None
-    - 以 'show_' 開頭的 key 預設為 False
-    - 以 'search' 開頭的 key 預設為 ""
-    - 其他預設為 None
-    """
+    """初始化一組 session_state key"""
     dict_keys = {"form_color", "form_recipe", "order", "form_customer"}
     if keys is None:
         return
@@ -73,17 +76,13 @@ def init_states(keys):
             else:
                 st.session_state[k] = None
 
-# ---------- 列印函式（完全版：你原本的列印 HTML 與文本生成） ----------
+# ---------- 列印函式 ----------
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
-    """
-    產生列印內容（HTML 可直接放到 <pre> 或 innerHTML）。
-    直接複製你提供的完整版本（未刪減）。
-    """
+    """產生列印內容（HTML 格式）"""
     if recipe_row is None:
         recipe_row = {}
 
     category = order.get("色粉類別", "").strip()
-
     unit = recipe_row.get("計量單位", "kg")
     ratio = recipe_row.get("比例3", "")
     total_type = recipe_row.get("合計類別", "").strip()
@@ -125,6 +124,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     lines = []
     lines.append("")
 
+    # 配方資訊列
     recipe_id = recipe_row.get('配方編號', '')
     color = order.get('顏色', '')
     pantone = order.get('Pantone 色號', '').strip()
@@ -146,6 +146,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     lines.append(info_line)
     lines.append("")
 
+    # 包裝列
     pack_line = []
     for i in range(4):
         w = packing_weights[i]
@@ -174,6 +175,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     packing_indent = " " * 14
     lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
 
+    # 主配方色粉列
     for idx in range(8):
         c_id = colorant_ids[idx]
         c_weight = colorant_weights[idx]
@@ -189,11 +191,12 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
         lines.append(row)
 
+    # 橫線
     category = (order.get("色粉類別") or "").strip()
     if category != "色母":
         lines.append("＿" * 28)
 
-    total_offsets = [1, 5, 5, 5]
+    # 合計列
     if total_type == "" or total_type == "無":
         total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
     elif category == "色母":
@@ -217,6 +220,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 
     lines.append(total_line)
 
+    # 附加配方
     if additional_recipe_rows and isinstance(additional_recipe_rows, list):
         for idx, sub in enumerate(additional_recipe_rows, 1):
             lines.append("")
@@ -272,6 +276,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 
             lines.append(sub_total_line)
 
+    # 備註
     remark_text = order.get("備註", "").strip()
     if remark_text:
         lines.append("")
@@ -281,9 +286,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     return "<br>".join(lines)
 
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
-    """
-    生成完整列印 HTML（A5 橫向）字串，會自動把 content 放入 <pre>。
-    """
+    """生成完整列印 HTML（A5 橫向）"""
     if recipe_row is None:
         recipe_row = {}
 
@@ -355,11 +358,9 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     html = html_template.replace("{created_time}", created_time).replace("{content}", content)
     return html
 
-# ---------- 載入配方資料（備援：Sheet -> CSV -> 空 DF） ----------
+# ---------- 載入配方資料 ----------
 def load_recipe(force_reload=False):
-    """
-    嘗試載入 '配方管理' 工作表，若失敗回退 data/df_recipe.csv，否則回傳空 df。
-    """
+    """嘗試載入配方管理工作表"""
     try:
         ss = get_spreadsheet()
         ws_recipe = ss.worksheet("配方管理")
@@ -379,3 +380,4 @@ def load_recipe(force_reload=False):
             pass
 
     return pd.DataFrame()
+
