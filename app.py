@@ -3,11 +3,34 @@ import streamlit as st
 from pathlib import Path
 import importlib
 
-# ---- 若你需要在這裡初始化 gspread / creds，請自行放置原本的授權程式區塊 ----
-# 例如：service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
-# client = gspread.authorize(creds)
-# spreadsheet = client.open_by_url(SHEET_URL)
-# -----------------------------------------------------------------------------
+# ======== 🔐 Google Sheet 初始化區 ========
+import gspread
+from google.oauth2.service_account import Credentials
+import json
+
+# 1️⃣ 從 secrets 讀取 gcp 金鑰
+service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
+creds = Credentials.from_service_account_info(
+    service_account_info,
+    scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ],
+)
+
+client = gspread.authorize(creds)
+
+# 2️⃣ 讀取 Google 試算表 URL
+if "spreadsheet" not in st.session_state:
+    try:
+        sheet_url = st.secrets["sheet_url"]
+        st.session_state["spreadsheet"] = client.open_by_url(sheet_url)
+    except Exception as e:
+        st.error(f"⚠️ 無法開啟 Google Sheet：{e}")
+        st.stop()
+
+spreadsheet = st.session_state["spreadsheet"]
+# ======== 初始化完畢 ========
 
 # widgets 样式微調（可自行調整）
 st.set_page_config(layout="wide", page_title="佳咊配方管理系統")
