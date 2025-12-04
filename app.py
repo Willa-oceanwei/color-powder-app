@@ -23,7 +23,7 @@ client = gspread.authorize(creds)
 # 2️⃣ 讀取 Google 試算表 URL
 if "spreadsheet" not in st.session_state:
     try:
-        sheet_url = st.secrets["sheet_url"]
+        sheet_url = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
         st.session_state["spreadsheet"] = client.open_by_url(sheet_url)
     except Exception as e:
         st.error(f"⚠️ 無法開啟 Google Sheet：{e}")
