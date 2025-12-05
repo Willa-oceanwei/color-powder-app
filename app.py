@@ -3128,8 +3128,13 @@ elif menu == "生產單管理":
                             st.error(f"❌ 刪除時發生錯誤：{e}")
 
                     st.session_state["show_delete_confirm"] = False
-                    st.rerun()        
-                    
+                    st.rerun()
+
+        
+                    # 清除狀態並重跑
+                    st.session_state["show_delete_confirm"] = False
+                    st.rerun()
+
                 # ❌ 取消刪除
                 if c2.button("取消", key="confirm_delete_no"):
                     st.session_state["show_delete_confirm"] = False
