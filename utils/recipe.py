@@ -332,12 +332,7 @@ def show_recipe_page():
             st.session_state.add_powder_clicked = False
     
     # ================= 表單提交處理（接續在第二部分）=================
-    # utils/recipe.py - 完整版（第二部分）
-# 接續第一部分
-
-    # ================= 表單提交後的處理邏輯 =================
-    existing_powders_str = {str(x).strip().upper() for x in existing_powders if str(x).strip() != ""}
-    
+    # ================= 在表單提交處理中，找到這段並替換 =================
     if submitted:
         missing_powders = []
         for i in range(1, st.session_state.num_powder_rows + 1):
@@ -345,63 +340,78 @@ def show_recipe_page():
             pid = clean_powder_id(pid_raw)
             if pid and pid not in existing_powders:
                 missing_powders.append(pid_raw)
-        
+    
         if missing_powders:
             st.warning(f"⚠️ 以下色粉尚未建檔：{', '.join(missing_powders)}")
             st.stop()
-        
+    
         # 儲存配方邏輯
         if fr["配方編號"].strip() == "":
             st.warning("⚠️ 請輸入配方編號！")
         elif fr["配方類別"] == "附加配方" and fr["原始配方"].strip() == "":
             st.warning("⚠️ 附加配方必須填寫原始配方！")
         else:
-            if st.session_state.edit_recipe_index is not None:
-                df.iloc[st.session_state.edit_recipe_index] = pd.Series(fr, index=df.columns)
-                st.success(f"✅ 配方 {fr['配方編號']} 已更新！")
-            else:
-                if fr["配方編號"] in df["配方編號"].values:
-                    st.warning("⚠️ 此配方編號已存在！")
-                else:
-                    fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    df = pd.concat([df, pd.DataFrame([fr])], ignore_index=True)
-                    st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
-            
+            # ✅ 修正：先備份，再更新
             try:
-                ws_recipe.clear()
-                ws_recipe.update([df.columns.tolist()] + df.values.tolist())
+                # 1️⃣ 建立本地備份
+                import os
+                backup_dir = Path("data/backups")
+                backup_dir.mkdir(parents=True, exist_ok=True)
+                backup_file = backup_dir / f"recipe_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                df.to_csv(backup_file, index=False, encoding="utf-8-sig")
+            
+                # 2️⃣ 更新 DataFrame
+                if st.session_state.edit_recipe_index is not None:
+                    idx = st.session_state.edit_recipe_index
+                    for col in df.columns:
+                        df.at[idx, col] = fr.get(col, "")
+                    st.success(f"✅ 配方 {fr['配方編號']} 已更新！")
+                else:
+                    if fr["配方編號"] in df["配方編號"].values:
+                        st.warning("⚠️ 此配方編號已存在！")
+                        st.stop()
+                    else:
+                        fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        # 清理 NaN
+                        fr_clean = {k: (v if pd.notna(v) else "") for k, v in fr.items()}
+                        df = pd.concat([df, pd.DataFrame([fr_clean])], ignore_index=True)
+                        st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
+            
+                # 3️⃣ 清理 DataFrame 中的 NaN
+                import numpy as np
+                df = df.replace({np.nan: "", np.inf: "", -np.inf: ""})
+            
+                # 4️⃣ 儲存到 Google Sheets（使用安全函式）
+                save_success = save_df_to_sheet(ws_recipe, df)
+            
+                if not save_success:
+                    st.error("❌ Google Sheets 儲存失敗，但本地備份已建立")
+                    st.info(f"📁 備份位置：{backup_file}")
+                    st.stop()
+            
+                # 5️⃣ 儲存本地 CSV
                 order_file = Path("data/df_recipe.csv")
                 order_file.parent.mkdir(parents=True, exist_ok=True)
                 df.to_csv(order_file, index=False, encoding="utf-8-sig")
-            except Exception as e:
-                st.error(f"❌ 儲存失敗：{e}")
-                st.stop()
             
-            st.session_state.df = df
-            st.session_state.df_recipe = df
-            st.session_state.form_recipe = {col: "" for col in columns}
-            st.session_state.edit_recipe_index = None
-            st.rerun()
-    
-    # 刪除確認
-    if st.session_state.show_delete_recipe_confirm:
-        target_row = df.iloc[st.session_state.delete_recipe_index]
-        target_text = f'{target_row["配方編號"]}'
-        st.warning(f"⚠️ 確定要刪除 {target_text}？")
+                # 6️⃣ 更新 session_state
+                st.session_state.df = df
+                st.session_state.df_recipe = df
+                st.session_state.form_recipe = {col: "" for col in columns}
+                st.session_state.edit_recipe_index = None
+            
+                st.success("💾 資料已安全儲存！")
+            
+                # 7️⃣ 防止無限迴圈：使用 flag
+                if "save_completed" not in st.session_state:
+                    st.session_state.save_completed = True
+                    st.rerun()
+            
+            except Exception as e:
+                st.error(f"❌ 儲存過程發生錯誤：{e}")
+                st.error("⚠️ 請檢查本地備份檔案")
+                st.stop()
         
-        c1, c2 = st.columns(2)
-        if c1.button("是", key="confirm_delete_recipe_yes"):
-            df.drop(index=st.session_state.delete_recipe_index, inplace=True)
-            df.reset_index(drop=True, inplace=True)
-            save_df_to_sheet(ws_recipe, df)
-            st.success("✅ 刪除成功！")
-            st.session_state.show_delete_recipe_confirm = False
-            st.rerun()
-        
-        if c2.button("否", key="confirm_delete_recipe_no"):
-            st.session_state.show_delete_recipe_confirm = False
-            st.rerun()
-    
     # ================= 配方記錄表 =================
     st.markdown("---")
     
