@@ -1,8 +1,11 @@
+# 確保 Streamlit 核心功能正常
 streamlit==1.38.0
-pandas==2.2.2
+
+# Google Sheets 連線核心套件
 gspread==5.12.4
 google-auth==2.29.0
-google-oauth2-service-account==2.2.0
-google-api-python-client==2.132.0
-google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.0
+
+# 資料處理與 Excel 支援
+pandas==2.2.2
 openpyxl==3.1.2
