@@ -1,7 +1,5 @@
-streamlit
+streamlit==1.37.0
+pandas==2.2.2
 gspread
 google-auth
-google-auth-oauthlib
-google-auth-httplib2
-pandas
-streamlit-javascript
+openpyxl
