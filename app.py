@@ -10,6 +10,31 @@ import base64
 import re
 from pathlib import Path        
 from datetime import datetime
+#==================================
+import os, json
+import streamlit as st
+
+raw = os.environ.get("GCP_SERVICE_ACCOUNT_JSON")
+if not raw:
+    st.error("❗️ GCP_SERVICE_ACCOUNT_JSON 環境變數未設。請到 Settings → Secrets 裡新增。")
+    st.stop()
+
+try:
+    info = json.loads(raw)
+except json.JSONDecodeError:
+    st.error("❗️ GCP_SERVICE_ACCOUNT_JSON 內容不是合法 JSON。")
+    st.stop()
+
+from gspread import authorize
+from google.oauth2.service_account import Credentials
+
+try:
+    gc = authorize(Credentials.from_service_account_info(info, scopes=[...]))
+except Exception as e:
+    st.error(f"❗️ 認證失敗: {e}")
+    st.stop()
+
+#======================================
 
 # ======== 🔐 簡易登入驗證區 ========
 APP_PASSWORD = "66"  # ✅ 直接在程式中設定密碼
