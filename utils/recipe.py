@@ -332,6 +332,9 @@ def show_recipe_page():
             st.session_state.add_powder_clicked = False
     
     # ================= 表單提交處理（接續在第二部分）=================
+    # utils/recipe.py - 完整版（第二部分）
+# 接續第一部分
+
     # ================= 表單提交後的處理邏輯 =================
     existing_powders_str = {str(x).strip().upper() for x in existing_powders if str(x).strip() != ""}
     
