@@ -12,7 +12,7 @@ from pathlib import Path
 from datetime import datetime
 
 # ======== 🔐 簡易登入驗證區 ========
-APP_PASSWORD = "'"  # ✅ 直接在程式中設定密碼
+APP_PASSWORD = "66"  # ✅ 直接在程式中設定密碼
 
 # 初始化登入狀態
 if "authenticated" not in st.session_state:
