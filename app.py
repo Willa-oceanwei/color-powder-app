@@ -4378,31 +4378,8 @@ if menu == "庫存區":
         st.dataframe(df_result, use_container_width=True)
         st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
 
+
 # ===== 匯入配方備份檔案 =====
-st.markdown(
-    '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 匯入備份</h2>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    """
-    <a href="https://paylist.streamlit.app/" target="_blank">
-        <div style="
-            display:inline-block;
-            padding:6px 12px;
-            background:#dbd818;
-            color:black;
-            border-radius:6px;
-            margin-bottom:10px;
-        ">
-            🔗 前往收帳查詢系統
-        </div>
-    </a>
-    """,
-    unsafe_allow_html=True
-)
-
-
 if st.session_state.menu == "匯入備份":
 
     # ===== 縮小整個頁面最上方空白 =====
@@ -4414,35 +4391,59 @@ if st.session_state.menu == "匯入備份":
     </style>
     """, unsafe_allow_html=True)
     
+    # 📌 標題
     st.markdown(
         '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 匯入備份</h2>',
         unsafe_allow_html=True
     )
+
+    # 📌 前往收帳查詢系統
+    st.markdown(
+        """
+        <a href="https://paylist.streamlit.app/" target="_blank">
+            <div style="
+                display:inline-block;
+                padding:6px 12px;
+                background:#dbd818;
+                color:black;
+                border-radius:6px;
+                margin-bottom:10px;
+            ">
+                🔗 前往收帳查詢系統
+            </div>
+        </a>
+        """,
+        unsafe_allow_html=True
+    )
   
+    # ===== 讀取備份函式 =====
     def load_recipe_backup_excel(file):
         try:
             df = pd.read_excel(file)
             df.columns = df.columns.str.strip()
             df = df.dropna(how='all')
             df = df.fillna("")
-    
+
             # 檢查必要欄位
             required_columns = ["配方編號", "顏色", "客戶編號", "色粉編號1"]
             missing = [col for col in required_columns if col not in df.columns]
             if missing:
                 raise ValueError(f"缺少必要欄位：{missing}")
-    
+
             return df
         except Exception as e:
             st.error(f"❌ 備份檔讀取失敗：{e}")
             return None
-    
+
+    # ===== 上傳檔案 =====
     uploaded_file = st.file_uploader("請上傳備份 Excel (.xlsx)", type=["xlsx"], key="upload_backup")
+
     if uploaded_file:
         df_uploaded = load_recipe_backup_excel(uploaded_file)
         if df_uploaded is not None:
             st.session_state.df_recipe = df_uploaded
             st.success("✅ 成功匯入備份檔！")
             st.dataframe(df_uploaded.head())
+
 
                 
