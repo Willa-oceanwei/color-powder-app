@@ -1899,6 +1899,7 @@ elif menu == "配方管理":
                     fr["比例3"] = st.text_input("", value=fr.get("比例3", ""), key="edit_ratio3", label_visibility="collapsed")
                 with cols_ratio[4]:
                     st.markdown("<div style='text-align:left;font-size:16px;'>g/kg</div>", unsafe_allow_html=True)
+                fr["備註"] = st.text_area("備註", value=fr.get("備註", ""), key="edit_recipe_remark")
 
                 # 色粉設定
                 st.markdown("##### 色粉設定")
