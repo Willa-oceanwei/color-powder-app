@@ -4379,6 +4379,30 @@ if menu == "庫存區":
         st.caption("🌟期末庫存 = 期初庫存 + 區間進貨 − 區間用量（單位皆以 g 計算，顯示自動轉換）")
 
 # ===== 匯入配方備份檔案 =====
+st.markdown(
+    '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 匯入備份</h2>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <a href="https://paylist.streamlit.app/" target="_blank">
+        <div style="
+            display:inline-block;
+            padding:6px 12px;
+            background:#dbd818;
+            color:black;
+            border-radius:6px;
+            margin-bottom:10px;
+        ">
+            🔗 前往收帳查詢系統
+        </div>
+    </a>
+    """,
+    unsafe_allow_html=True
+)
+
+
 if st.session_state.menu == "匯入備份":
 
     # ===== 縮小整個頁面最上方空白 =====
