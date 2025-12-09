@@ -88,9 +88,6 @@ import streamlit as st
 menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "代工管理", 
                 "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
 
-if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
-
 # 自訂 CSS：改按鈕字體大小
 st.markdown("""
 <style>
