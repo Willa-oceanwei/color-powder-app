@@ -2507,7 +2507,7 @@ elif menu == "生產單管理":
                     if all_empty:
                         st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
                         st.stop()  # 中止後續儲存程式
-                        
+
                     # 1️⃣ 更新 order 資料（表單欄位）
                     order["顏色"] = st.session_state.form_color
                     order["Pantone 色號"] = st.session_state.form_pantone
@@ -2545,28 +2545,23 @@ elif menu == "生產單管理":
                     last_stock = st.session_state.get("last_final_stock", {})
                     alerts = []
 
-                    # 逐一處理每個色粉
                     for i in range(1, 9):
                         pid = str(order.get(f"色粉編號{i}", "")).strip()
                         if not pid:
                             continue
 
-                        # 排除尾碼 01 / 001 / 0001（代表附加配方或非主要色粉）
                         if pid.endswith(("01", "001", "0001")):
                             continue
 
-                        # 若該色粉沒有初始庫存，就略過但標記（方便之後補）
                         if pid not in last_stock:
                             st.write(f"⚪ Debug: {pid}色粉庫存未設定")
                             continue
 
-                        # 取得比例（每單位用量）
                         try:
                             ratio_g = float(recipe_row.get(f"色粉重量{i}", 0))
                         except:
                             ratio_g = 0.0
 
-                        # 計算用量：比例 * 包裝重量 * 包裝份數
                         total_used_g = 0
                         for j in range(1, 5):
                             try:
@@ -2576,12 +2571,10 @@ elif menu == "生產單管理":
                             except:
                                 pass
 
-                        # 扣庫存
                         last_stock_before = last_stock.get(pid, 0)
                         new_stock = last_stock_before - total_used_g
                         last_stock[pid] = new_stock
 
-                        # 分級提醒
                         final_kg = new_stock / 1000
                         if final_kg < 0.5:
                             alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
@@ -2590,14 +2583,36 @@ elif menu == "生產單管理":
                         elif final_kg < 3:
                             alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
 
-                        # ✅ Debug：如要暫時保留這行方便追蹤，可留
                         print(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock_before}")
 
-                    # ---------------- ✅ 在這裡加判斷 alerts ----------------
+                    # 5️⃣ 續轉代工管理（自動建立 OEM 單）
+                    oem_checkbox = st.checkbox("□ 續轉代工管理")
+                    if oem_checkbox:
+                        gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
+                        sh = gc.open_by_key(st.secrets["gcp_sheet_key"])
+                        ws_master = sh.worksheet("OEM_MASTER")
+
+                        today = datetime.now().strftime("%Y%m%d")
+                        process_no = order.get("生產單號", "")
+                        oem_no = f"OEM{today}-{process_no}"
+
+                        try:
+                            total_qty = sum([float(order.get(f"包裝重量{i}", 0) or 0) * float(order.get(f"包裝份數{i}", 0) or 0) for i in range(1,5)])
+                        except:
+                            total_qty = 0.0
+
+                        vendor = st.selectbox(f"選擇代工廠商（{oem_no}）", ["弘旭", "良輝", "其他"], index=0)
+                        oem_note = order.get("備註", "")
+
+                        ws_master.append_row([oem_no, process_no, vendor, total_qty, oem_note])
+                        st.success(f"✅ 已自動建立代工單：{oem_no}")
+
+                    st.session_state.new_order = order
+                    st.success("💾 生產單已儲存")
+
                     if alerts:
                         st.warning("💀 以下色粉庫存過低：\n" + "\n".join(alerts))
-                        
-                    # ---------------- 更新 session_state ----------------
+
                     st.session_state["last_final_stock"] = last_stock
 
                     # ======================================================
@@ -3237,6 +3252,153 @@ elif menu == "生產單管理":
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
                 st.rerun()
+
+# ======== 代工管理分頁 =========
+elif menu == "代工管理":
+    show_oem_pages()
+
+
+# ========================
+# 代工管理主頁（分三個 tab）
+# ========================
+def show_oem_pages():
+    st.title("📦 代工管理")
+
+    tab1, tab2, tab3 = st.tabs(["代工單管理", "送達 / 載回管理", "代工進度表"])
+
+    with tab1:
+        show_oem_main()
+    with tab2:
+        show_oem_detail()
+    with tab3:
+        show_oem_schedule()
+
+
+# ========================
+# 代工單管理
+# ========================
+def show_oem_main():
+    st.subheader("📄 代工單管理")
+
+    gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
+    sh = gc.open_by_key(st.secrets["gcp_sheet_key"])
+    ws_master = sh.worksheet("OEM_MASTER")
+
+    df_master = pd.DataFrame(ws_master.get_all_records())
+
+    # 新增代工單
+    st.markdown("### ➕ 新增代工單")
+    col1, col2 = st.columns(2)
+    with col1:
+        process_no = st.text_input("生產單號（來源生產單）")
+        qty = st.number_input("代工數量 (kg)", min_value=0.0, step=1.0)
+    with col2:
+        oem_note = st.text_input("備註（選填）")
+        vendor = st.selectbox("代工廠商", ["弘旭", "良輝", "其他"], index=0)
+
+    if st.button("建立代工單"):
+        today = datetime.now().strftime("%Y%m%d")
+        oem_no = f"OEM{today}-{process_no}"
+        new_row = [oem_no, process_no, vendor, qty, oem_note]
+        ws_master.append_row(new_row)
+        st.success(f"成功新增代工單：{oem_no}")
+
+    st.markdown("---")
+    st.markdown("## 📋 代工單列表")
+    st.dataframe(df_master)
+
+
+# ========================
+# 送達 / 載回管理
+# ========================
+def show_oem_detail():
+    st.subheader("📦 送達 / 載回管理")
+
+    gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
+    sh = gc.open_by_key(st.secrets["gcp_sheet_key"])
+
+    ws_master = sh.worksheet("OEM_MASTER")
+    ws_send = sh.worksheet("OEM_SEND")
+    ws_return = sh.worksheet("OEM_RETURN")
+
+    df_master = pd.DataFrame(ws_master.get_all_records())
+    if len(df_master) == 0:
+        st.warning("尚無任何代工單")
+        return
+
+    # 選擇代工單
+    oem_no = st.selectbox("選擇代工單號", df_master["OEM單號"].unique())
+    target = df_master[df_master["OEM單號"] == oem_no].iloc[0]
+    oem_qty = float(target["代工數量"])
+    st.info(f"🔢 此代工單總量：{oem_qty} kg")
+
+    # 送達登記
+    st.markdown("### 🚚 送達登記")
+    send_date = st.date_input("送達日期")
+    send_qty = st.number_input("送達數量 kg", min_value=0.0, step=1.0)
+    if st.button("新增送達紀錄"):
+        ws_send.append_row([oem_no, str(send_date), send_qty])
+        st.success("已新增送達紀錄")
+
+    df_send = pd.DataFrame(ws_send.get_all_records())
+    sent = df_send[df_send["OEM單號"] == oem_no]["送達數量"].sum()
+    remain_send = oem_qty - sent
+    st.info(f"📦 已送達：{sent} kg　｜　尚餘未送：{remain_send} kg")
+
+    st.markdown("---")
+
+    # 載回登記
+    st.markdown("### 🔄 載回登記")
+    ret_date = st.date_input("載回日期")
+    ret_qty = st.number_input("載回數量 kg", min_value=0.0, step=1.0)
+    if st.button("新增載回紀錄"):
+        ws_return.append_row([oem_no, str(ret_date), ret_qty])
+        st.success("已新增載回紀錄")
+
+    df_ret = pd.DataFrame(ws_return.get_all_records())
+    returned = df_ret[df_ret["OEM單號"] == oem_no]["載回數量"].sum()
+    remain_return = oem_qty - returned
+    st.info(f"📦 已載回：{returned} kg　｜　尚餘未載：{remain_return} kg")
+
+
+# ========================
+# 代工進度表
+# ========================
+def show_oem_schedule():
+    st.subheader("📊 代工進度表")
+
+    gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
+    sh = gc.open_by_key(st.secrets["gcp_sheet_key"])
+
+    ws_master = sh.worksheet("OEM_MASTER")
+    ws_send = sh.worksheet("OEM_SEND")
+    ws_return = sh.worksheet("OEM_RETURN")
+
+    df_master = pd.DataFrame(ws_master.get_all_records())
+    df_send = pd.DataFrame(ws_send.get_all_records())
+    df_return = pd.DataFrame(ws_return.get_all_records())
+
+    # 整理送達明細
+    df_send["資訊"] = df_send["送達日期"] + "｜" + df_send["送達數量"].astype(str) + "kg"
+    df_s = df_send.groupby("OEM單號")["資訊"].apply(lambda x: "\n".join(x))
+    df_return["資訊"] = df_return["載回日期"] + "｜" + df_return["載回數量"].astype(str) + "kg"
+    df_r = df_return.groupby("OEM單號")["資訊"].apply(lambda x: "\n".join(x))
+
+    df = df_master.copy()
+    df["送達紀錄"] = df["OEM單號"].map(df_s).fillna("")
+    df["載回紀錄"] = df["OEM單號"].map(df_r).fillna("")
+
+    df_send_sum = df_send.groupby("OEM單號")["送達數量"].sum()
+    df_return_sum = df_return.groupby("OEM單號")["載回數量"].sum()
+    df["已送達"] = df["OEM單號"].map(df_send_sum).fillna(0)
+    df["已載回"] = df["OEM單號"].map(df_return_sum).fillna(0)
+
+    df["狀態"] = df.apply(lambda r: "✔ 已全數載回" if r["已載回"] >= r["代工數量"] else "⏳ 進行中", axis=1)
+
+    st.dataframe(df[["狀態", "OEM單號", "生產單號", "代工廠商", "代工數量",
+                     "送達紀錄", "載回紀錄"]])
+
+
 
 # ======== 交叉查詢分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
