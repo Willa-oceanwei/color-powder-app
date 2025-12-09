@@ -3395,6 +3395,8 @@ def show_oem_schedule():
     st.dataframe(df[["狀態", "OEM單號", "生產單號", "代工廠商", "代工數量",
                      "送達紀錄", "載回紀錄"]])
 
+if menu == "生產單管理":
+    show_production_pages()
 elif menu == "代工管理":
     show_oem_pages()
 
