@@ -1602,7 +1602,7 @@ elif menu == "配方管理":
     cols_page = st.columns([1, 1, 1, 2, 1])  # 五欄：首頁 / 上一頁 / 下一頁 / 跳頁 / 每頁筆數
     
     with cols_page[0]:
-        if st.button("🏠首頁", key="first_page"):
+        if st.button("🏠首頁", key="recipe_first_page"):
             st.session_state.page = 1
             st.experimental_rerun()
     
