@@ -94,16 +94,18 @@ if "menu" not in st.session_state:
 # 自訂 CSS：改按鈕字體大小
 st.markdown("""
 <style>
-/* 🔼 讓 Sidebar 整體更靠上 */
-section[data-testid="stSidebar"] > div {
-    padding-top: -10px !important;
+/* 將 Sidebar 內容往上推到最極限 */
+section[data-testid="stSidebar"] > div:first-child {
+    padding-top: 0px !important;
+    margin-top: -15px !important;   /* 極限大概 -15 ~ -22 */
 }
 
-/* 🔼 讓標題也微調往上 */
+/* 調整標題間距 */
 .sidebar h1 {
     margin-top: -10px !important;
 }
-
+</style>
+""", unsafe_allow_html=True)
 /* Sidebar 標題字體大小 */
 .sidebar .css-1d391kg h1 {
     font-size: 24px !important;
