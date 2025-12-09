@@ -1877,12 +1877,16 @@ elif menu == "配方管理":
                     fr["計量單位"] = st.selectbox("計量單位", options_unit, index=options_unit.index(current), key="edit_recipe_unit")
                 with col9:
                     fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號", ""), key="edit_recipe_pantone")
+                # === 色粉淨重 ===
                 with col10:
-                    fr["淨重"] = st.text_input("淨重", value=fr.get("淨重", ""), key="edit_recipe_net_weight")
+                    fr["淨重"] = st.text_input("色粉淨重", value=fr.get("淨重", ""), key="edit_recipe_淨重")
+
                 with col11:
                     options = ["g", "kg"]
                     current = fr.get("淨重單位", options[0])
-                    fr["淨重單位"] = st.selectbox("單位", options, index=options.index(current), key="edit_recipe_net_unit")
+                    if current not in options:
+                        current = options[0]
+                    fr["淨重單位"] = st.selectbox("單位", options, index=options.index(current), key="edit_recipe_淨重單位")
 
                 # 重要提醒、比例1-3、備註
                 # 重要提醒 + 比例1-3
