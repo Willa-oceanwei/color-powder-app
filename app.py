@@ -3254,9 +3254,6 @@ elif menu == "生產單管理":
                 st.rerun()
 
 # ======== 代工管理分頁 =========
-elif menu == "代工管理":
-    show_oem_pages()
-
 
 # ========================
 # 代工管理主頁（分三個 tab）
@@ -3398,7 +3395,8 @@ def show_oem_schedule():
     st.dataframe(df[["狀態", "OEM單號", "生產單號", "代工廠商", "代工數量",
                      "送達紀錄", "載回紀錄"]])
 
-
+elif menu == "代工管理":
+    show_oem_pages()
 
 # ======== 交叉查詢分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
