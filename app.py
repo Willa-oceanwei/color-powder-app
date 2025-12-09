@@ -2035,10 +2035,6 @@ def show_production_pages():
 
     load_recipe(force_reload=True)
 
-elif menu == "生產單管理":
-    load_recipe(force_reload=True)
-    show_production_pages()
-
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
     <style>
