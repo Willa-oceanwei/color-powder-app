@@ -82,15 +82,14 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
-# ===== 初始化選單狀態 =====
-if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
-
 # ======== Sidebar 修正 =========
 import streamlit as st
 
-menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", "代工管理", 
+menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
                 "交叉查詢區", "Pantone色號表", "庫存區", "匯入備份"]
+
+if "menu" not in st.session_state:
+    st.session_state.menu = "生產單管理"
 
 # 自訂 CSS：改按鈕字體大小
 st.markdown("""
@@ -1603,17 +1602,17 @@ elif menu == "配方管理":
     cols_page = st.columns([1, 1, 1, 2, 1])  # 五欄：首頁 / 上一頁 / 下一頁 / 跳頁 / 每頁筆數
     
     with cols_page[0]:
-        if st.button("🏠首頁", key="recipe_first_page"):
+        if st.button("🏠首頁", key="first_page"):
             st.session_state.page = 1
             st.experimental_rerun()
     
     with cols_page[1]:
-        if st.button("🔼上一頁", key="recipe_prev_page") and st.session_state.page > 1:
+        if st.button("🔼上一頁", key="prev_page") and st.session_state.page > 1:
             st.session_state.page -= 1
             st.experimental_rerun()
     
     with cols_page[2]:
-        if st.button("🔽下一頁", key="recipe_next_page") and st.session_state.page < total_pages:
+        if st.button("🔽下一頁", key="next_page") and st.session_state.page < total_pages:
             st.session_state.page += 1
             st.experimental_rerun()
     
@@ -2026,14 +2025,7 @@ elif menu == "配方管理":
             st._rerun()  # 重新載入頁面，更新資料
             
 # --- 生產單分頁 ----------------------------------------------------
-
-# ---------- 生產單分頁函式 ----------
-def show_production_pages():
-    import streamlit as st
-    import pandas as pd
-    from pathlib import Path
-    from datetime import datetime, timedelta
-
+elif menu == "生產單管理":
     load_recipe(force_reload=True)
 
     # ===== 縮小整個頁面最上方空白 =====
@@ -2044,50 +2036,68 @@ def show_production_pages():
     }
     </style>
     """, unsafe_allow_html=True)
-
+    
     st.markdown(
         '<h2 style="font-size:22px; font-family:Arial; color:#F9DC5C;">🛸 生產單建立</h2>',
         unsafe_allow_html=True
     )
 
+    from pathlib import Path
+    from datetime import datetime
+    from datetime import datetime, timedelta
+    import pandas as pd
+
     # 建立資料夾（若尚未存在）
     Path("data").mkdir(parents=True, exist_ok=True)
+
     order_file = Path("data/df_order.csv")
 
-    # ---------- 工具函式 ----------
+    # 清理函式：去除空白、全形空白，轉大寫
     def clean_powder_id(x):
         if pd.isna(x) or x == "":
             return ""
         return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
-
+    
+    # 補足前導零（僅針對純數字且長度<4的字串）
     def fix_leading_zero(x):
         x = str(x).strip()
         if x.isdigit() and len(x) < 4:
             x = x.zfill(4)
         return x.upper()
-
+        
     def normalize_search_text(text):
         return fix_leading_zero(clean_powder_id(text))
-
-    # ---------- 載入配方管理表 ----------
+    
+    # 先嘗試取得 Google Sheet 兩個工作表 ws_recipe、ws_order
     try:
         ws_recipe = spreadsheet.worksheet("配方管理")
+        ws_order = spreadsheet.worksheet("生產單")
+    except Exception as e:
+        st.error(f"❌ 無法載入工作表：{e}")
+        st.stop()
+    
+    # 載入配方管理表
+    try:
         records = ws_recipe.get_all_records()
         df_recipe = pd.DataFrame(records)
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
+    
         if "配方編號" in df_recipe.columns:
+            # 先清理再補零
             df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
+        if "客戶名稱" in df_recipe.columns:
+            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
+        if "原始配方" in df_recipe.columns:
+            df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
+    
         st.session_state.df_recipe = df_recipe
     except Exception as e:
         st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
         st.stop()
-
-    df_recipe = st.session_state.df_recipe
-
-    # ---------- 載入生產單表 ----------
+    
+    # 載入生產單表
     try:
-        ws_order = spreadsheet.worksheet("生產單")
         existing_values = ws_order.get_all_values()
         if existing_values:
             df_order = pd.DataFrame(existing_values[1:], columns=existing_values[0]).astype(str)
@@ -2113,15 +2123,86 @@ def show_production_pages():
         else:
             st.error(f"❌ 無法讀取生產單資料：{e}")
             st.stop()
-
+    
+    df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
 
-    # ---------- 初始化 session_state ----------
+    # ===== 初始化庫存 =====
+    st.session_state["last_final_stock"] = {}  # 每次都清空
+
+    try:
+        ws_stock = spreadsheet.worksheet("庫存記錄")
+        records = ws_stock.get_all_records()
+        df_stock = pd.DataFrame(records)
+    except Exception as e:
+        st.warning(f"⚠️ 無法讀取 Google Sheet 庫存資料：{e}")
+        df_stock = pd.DataFrame(columns=["類型","色粉編號","數量","單位","備註"])
+
+    # 標準化類型欄
+    df_stock["類型"] = df_stock["類型"].astype(str).str.strip().replace('\u3000','')
+
+    # 載入初始庫存
+    for idx, row in df_stock.iterrows():
+        if row["類型"] == "初始":
+            pid = str(row.get("色粉編號","")).strip()
+            qty = float(row.get("數量",0))
+            if str(row.get("單位","g")).lower() == "kg":
+                qty *= 1000
+            st.session_state["last_final_stock"][pid] = qty
+   
+    # 轉換時間欄位與配方編號欄清理
+    if "建立時間" in df_order.columns:
+        df_order["建立時間"] = pd.to_datetime(df_order["建立時間"], errors="coerce")
+    if "配方編號" in df_order.columns:
+        df_order["配方編號"] = df_order["配方編號"].map(clean_powder_id)
+    
+    # 初始化 session_state 用的 key
     for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "show_confirm_panel"]:
         if key not in st.session_state:
             st.session_state[key] = None if key != "order_page" else 1
+    
+    def format_option(r):
+        label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
+        if r.get("配方類別", "") == "附加配方":
+            label += "（附加配方）"
+        return label
+    
+    # 先定義清理函式
+    def clean_powder_id(x):
+        if pd.isna(x) or x == "":
+            return ""
+        return str(x).strip().upper()  # 去除空白+轉大寫
+    
+    # 載入配方管理表時做清理（載入區塊示範）
+    try:
+        records = ws_recipe.get_all_records()
+        df_recipe = pd.DataFrame(records)
+        df_recipe.columns = df_recipe.columns.str.strip()
+        df_recipe.fillna("", inplace=True)
+        if "配方編號" in df_recipe.columns:
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
+        st.session_state.df_recipe = df_recipe
+    except Exception as e:
+        st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
+        st.stop()
+    
+    df_recipe = st.session_state.df_recipe
 
-    # ---------- Streamlit 搜尋表單 ----------
+    def clean_powder_id(x):
+        if pd.isna(x) or x == "":
+            return ""
+        return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
+    
+    def fix_leading_zero(x):
+        x = str(x).strip()
+        if x.isdigit() and len(x) < 4:
+            x = x.zfill(4)
+        return x.upper()
+    
+    def normalize_search_text(text):
+        return fix_leading_zero(clean_powder_id(text))
+    
+    # Streamlit UI 搜尋表單
     with st.form("search_add_form", clear_on_submit=False):
         col1, col2, col3 = st.columns([4,1,1])
         with col1:
@@ -2130,13 +2211,14 @@ def show_production_pages():
             exact = st.checkbox("精確搜尋", key="exact_search")
         with col3:
             add_btn = st.form_submit_button("➕ 新增")
-
+    
         search_text_original = search_text.strip()
         search_text_normalized = fix_leading_zero(search_text.strip())
         search_text_upper = search_text.strip().upper()
-
+    
         if search_text_normalized:
             df_recipe["_配方編號標準"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
+    
             if exact:
                 filtered = df_recipe[
                     (df_recipe["_配方編號標準"] == search_text_normalized) |
@@ -2151,51 +2233,101 @@ def show_production_pages():
             filtered.drop(columns=["_配方編號標準"], inplace=True)
         else:
             filtered = df_recipe.copy()
-
-        # 建立搜尋結果標籤與選項
-        def format_option(r):
-            label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
-            if r.get("配方類別", "") == "附加配方":
-                label += "（附加配方）"
-            return label
-
-        if not filtered.empty:
-            filtered["label"] = filtered.apply(format_option, axis=1)
-            option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
+    
+    # 建立搜尋結果標籤與選項
+    def format_option(r):
+        label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
+        if r.get("配方類別", "") == "附加配方":
+            label += "（附加配方）"
+        return label
+    
+    if not filtered.empty:
+        filtered["label"] = filtered.apply(format_option, axis=1)
+        option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
+    else:
+        option_map = {}
+    
+    if not option_map:
+        st.warning("查無符合的配方")
+        selected_row = None
+        selected_label = None
+    elif len(option_map) == 1:
+        selected_label = list(option_map.keys())[0]
+        selected_row = option_map[selected_label].copy()  # 複製，避免修改原資料
+    
+        # 直接用搜尋結果的真實配方編號帶入，不用用輸入字串
+        true_formula_id = selected_row["配方編號"]
+        selected_row["配方編號_原始"] = true_formula_id
+    
+        # 顯示標籤（用真實配方編號）
+        parts = selected_label.split(" | ", 1)
+        if len(parts) > 1:
+            display_label = f"{selected_row['配方編號']} | {parts[1]}"
         else:
-            option_map = {}
-
-        if not option_map:
-            st.warning("查無符合的配方")
+            display_label = selected_row['配方編號']
+    
+        st.success(f"已自動選取：{display_label}")
+    else:
+        selected_label = st.selectbox(
+            "選擇配方",
+            ["請選擇"] + list(option_map.keys()),
+            index=0,
+            key="search_add_form_selected_recipe"
+        )
+        if selected_label == "請選擇":
             selected_row = None
-            selected_label = None
-        elif len(option_map) == 1:
-            selected_label = list(option_map.keys())[0]
-            selected_row = option_map[selected_label].copy()
-            st.success(f"已自動選取：{selected_label}")
         else:
-            selected_label = st.selectbox(
-                "選擇配方",
-                ["請選擇"] + list(option_map.keys()),
-                index=0,
-                key="search_add_form_selected_recipe"
-            )
-            if selected_label == "請選擇":
-                selected_row = None
+            selected_row = option_map.get(selected_label)
+    
+    if add_btn:
+        if selected_label is None or selected_label == "請選擇" or selected_label == "（無符合配方）":
+            st.warning("請先選擇有效配方")
+        else:
+            if selected_row.get("狀態") == "停用":
+                st.warning("⚠️ 此配方已停用，請勿使用")
+                st.stop()
             else:
-                selected_row = option_map.get(selected_label)
-
-        if add_btn:
-            if selected_row is None:
-                st.warning("請先選擇有效配方")
-            else:
+                # 取得或初始化新訂單物件
+                order = st.session_state.get("new_order")
+                if order is None or not isinstance(order, dict):
+                    order = {}
+    
                 # 產生新的生產單號
                 df_all_orders = st.session_state.df_order.copy()
                 today_str = datetime.now().strftime("%Y%m%d")
                 count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
                 new_id = f"{today_str}-{count_today + 1:03}"
-
-                order = st.session_state.get("new_order") or {}
+    
+                # 查找附加配方
+                main_recipe_code = selected_row.get("配方編號", "").strip()
+                df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
+                df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).str.strip()
+                附加配方 = df_recipe[
+                    (df_recipe["配方類別"] == "附加配方") &
+                    (df_recipe["原始配方"] == main_recipe_code)
+                ]
+    
+                # 整合色粉：先加入主配方色粉
+                all_colorants = []
+                for i in range(1, 9):
+                    id_key = f"色粉編號{i}"
+                    wt_key = f"色粉重量{i}"
+                    id_val = selected_row.get(id_key, "")
+                    wt_val = selected_row.get(wt_key, "")
+                    if id_val or wt_val:
+                        all_colorants.append((id_val, wt_val))
+    
+                # 加入附加配方色粉
+                for _, sub in 附加配方.iterrows():
+                    for i in range(1, 9):
+                        id_key = f"色粉編號{i}"
+                        wt_key = f"色粉重量{i}"
+                        id_val = sub.get(id_key, "")
+                        wt_val = sub.get(wt_key, "")
+                        if id_val or wt_val:
+                            all_colorants.append((id_val, wt_val))
+    
+                # 設定訂單詳細資料（先更新其他欄位）
                 order.update({
                     "生產單號": new_id,
                     "生產日期": datetime.now().strftime("%Y-%m-%d"),
@@ -2208,11 +2340,26 @@ def show_production_pages():
                     "備註": str(selected_row.get("備註", "")).strip(),
                     "重要提醒": str(selected_row.get("重要提醒", "")).strip(),
                     "合計類別": str(selected_row.get("合計類別", "")).strip(),
+                    "色粉類別": selected_row.get("色粉類別", "").strip(),
                 })
+    
+                # 用 all_colorants 填入色粉編號與重量欄位
+                for i in range(1, 9):
+                    id_key = f"色粉編號{i}"
+                    wt_key = f"色粉重量{i}"
+                    if i <= len(all_colorants):
+                        id_val, wt_val = all_colorants[i-1]
+                        order[id_key] = id_val
+                        order[wt_key] = wt_val
+                    else:
+                        order[id_key] = ""
+                        order[wt_key] = ""
+    
                 st.session_state["new_order"] = order
                 st.session_state["show_confirm_panel"] = True
-                st.rerun()  # 立即刷新頁面
-              
+    
+                # 重新執行應用（Streamlit 1.18+ 建議用 st.experimental_rerun）
+                st.rerun()              
     
     # ---------- 新增後欄位填寫區塊 ----------
     # ===== 主流程頁面切換 =====
@@ -2360,7 +2507,7 @@ def show_production_pages():
                     if all_empty:
                         st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
                         st.stop()  # 中止後續儲存程式
-
+                        
                     # 1️⃣ 更新 order 資料（表單欄位）
                     order["顏色"] = st.session_state.form_color
                     order["Pantone 色號"] = st.session_state.form_pantone
@@ -2398,23 +2545,28 @@ def show_production_pages():
                     last_stock = st.session_state.get("last_final_stock", {})
                     alerts = []
 
+                    # 逐一處理每個色粉
                     for i in range(1, 9):
                         pid = str(order.get(f"色粉編號{i}", "")).strip()
                         if not pid:
                             continue
 
+                        # 排除尾碼 01 / 001 / 0001（代表附加配方或非主要色粉）
                         if pid.endswith(("01", "001", "0001")):
                             continue
 
+                        # 若該色粉沒有初始庫存，就略過但標記（方便之後補）
                         if pid not in last_stock:
                             st.write(f"⚪ Debug: {pid}色粉庫存未設定")
                             continue
 
+                        # 取得比例（每單位用量）
                         try:
                             ratio_g = float(recipe_row.get(f"色粉重量{i}", 0))
                         except:
                             ratio_g = 0.0
 
+                        # 計算用量：比例 * 包裝重量 * 包裝份數
                         total_used_g = 0
                         for j in range(1, 5):
                             try:
@@ -2424,10 +2576,12 @@ def show_production_pages():
                             except:
                                 pass
 
+                        # 扣庫存
                         last_stock_before = last_stock.get(pid, 0)
                         new_stock = last_stock_before - total_used_g
                         last_stock[pid] = new_stock
 
+                        # 分級提醒
                         final_kg = new_stock / 1000
                         if final_kg < 0.5:
                             alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
@@ -2436,36 +2590,14 @@ def show_production_pages():
                         elif final_kg < 3:
                             alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
 
+                        # ✅ Debug：如要暫時保留這行方便追蹤，可留
                         print(f"🟡 Debug: pid={pid}, total_used_g={total_used_g}, last_stock_before={last_stock_before}")
 
-                    # 5️⃣ 續轉代工管理（自動建立 OEM 單）
-                    oem_checkbox = st.checkbox("□ 續轉代工管理")
-                    if oem_checkbox:
-                        gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
-                        sh = gc.open_by_key(st.secrets["gcp_sheet_key"])
-                        ws_master = sh.worksheet("OEM_MASTER")
-
-                        today = datetime.now().strftime("%Y%m%d")
-                        process_no = order.get("生產單號", "")
-                        oem_no = f"OEM{today}-{process_no}"
-
-                        try:
-                            total_qty = sum([float(order.get(f"包裝重量{i}", 0) or 0) * float(order.get(f"包裝份數{i}", 0) or 0) for i in range(1,5)])
-                        except:
-                            total_qty = 0.0
-
-                        vendor = st.selectbox(f"選擇代工廠商（{oem_no}）", ["弘旭", "良輝", "其他"], index=0)
-                        oem_note = order.get("備註", "")
-
-                        ws_master.append_row([oem_no, process_no, vendor, total_qty, oem_note])
-                        st.success(f"✅ 已自動建立代工單：{oem_no}")
-
-                    st.session_state.new_order = order
-                    st.success("💾 生產單已儲存")
-
+                    # ---------------- ✅ 在這裡加判斷 alerts ----------------
                     if alerts:
                         st.warning("💀 以下色粉庫存過低：\n" + "\n".join(alerts))
-
+                        
+                    # ---------------- 更新 session_state ----------------
                     st.session_state["last_final_stock"] = last_stock
 
                     # ======================================================
@@ -2666,19 +2798,19 @@ def show_production_pages():
     
     # 首頁
     with cols_page[0]:
-        if st.button("🏠首頁", key="production_first_page"):
+        if st.button("🏠首頁", key="first_page"):
             st.session_state.order_page = 1
             st.experimental_rerun()
     
     # 上一頁
     with cols_page[1]:
-        if st.button("🔼上一頁", key="production_prev_page") and st.session_state.order_page > 1:
+        if st.button("🔼上一頁", key="prev_page") and st.session_state.order_page > 1:
             st.session_state.order_page -= 1
             st.experimental_rerun()
     
     # 下一頁
     with cols_page[2]:
-        if st.button("🔽下一頁", key="production_next_page") and st.session_state.order_page < total_pages:
+        if st.button("🔽下一頁", key="next_page") and st.session_state.order_page < total_pages:
             st.session_state.order_page += 1
             st.rerun()
     
@@ -3105,162 +3237,6 @@ def show_production_pages():
                 st.session_state.show_edit_panel = False
                 st.session_state.editing_order = None
                 st.rerun()
-
-# ======== 代工管理分頁 =========
-
-# ========================
-# 代工管理主頁（分三個 tab）
-# ========================
-def show_oem_pages():
-    st.title("📦 代工管理")
-
-    tab1, tab2, tab3 = st.tabs(["代工單管理", "送達 / 載回管理", "代工進度表"])
-
-    with tab1:
-        show_oem_main()
-    with tab2:
-        show_oem_detail()
-    with tab3:
-        show_oem_schedule()
-
-
-# ========================
-# 代工單管理
-# ========================
-def show_oem_main():
-    st.subheader("📄 代工單管理")
-
-    ws_master = spreadsheet.worksheet("OEM_MASTER")
-
-    df_master = pd.DataFrame(ws_master.get_all_records())
-
-    # 新增代工單
-    st.markdown("### ➕ 新增代工單")
-    col1, col2 = st.columns(2)
-    with col1:
-        process_no = st.text_input("生產單號（來源生產單）")
-        qty = st.number_input("代工數量 (kg)", min_value=0.0, step=1.0)
-    with col2:
-        oem_note = st.text_input("備註（選填）")
-        vendor = st.selectbox("代工廠商", ["弘旭", "良輝", "其他"], index=0)
-
-    if st.button("建立代工單"):
-        today = datetime.now().strftime("%Y%m%d")
-        oem_no = f"OEM{today}-{process_no}"
-        new_row = [oem_no, process_no, vendor, qty, oem_note]
-        ws_master.append_row(new_row)
-        st.success(f"成功新增代工單：{oem_no}")
-
-    st.markdown("---")
-    st.markdown("## 📋 代工單列表")
-    st.dataframe(df_master)
-
-
-# ========================
-# 送達 / 載回管理
-# ========================
-def show_oem_detail():
-    st.subheader("📦 送達 / 載回管理")
-
-    ws_master = spreadsheet.worksheet("OEM_MASTER")
-    ws_send = spreadsheet.worksheet("OEM_SEND")
-    ws_return = spreadsheet.worksheet("OEM_RETURN")
-
-    df_master = pd.DataFrame(ws_master.get_all_records())
-    if len(df_master) == 0:
-        st.warning("尚無任何代工單")
-        return
-
-    # 選擇代工單
-    oem_no = st.selectbox("選擇代工單號", df_master["OEM單號"].unique())
-    target = df_master[df_master["OEM單號"] == oem_no].iloc[0]
-    oem_qty = float(target["代工數量"])
-    st.info(f"🔢 此代工單總量：{oem_qty} kg")
-
-    # 送達登記
-    st.markdown("### 🚚 送達登記")
-    send_date = st.date_input("送達日期")
-    send_qty = st.number_input("送達數量 kg", min_value=0.0, step=1.0)
-    if st.button("新增送達紀錄"):
-        ws_send.append_row([oem_no, str(send_date), send_qty])
-        st.success("已新增送達紀錄")
-
-    df_send = pd.DataFrame(ws_send.get_all_records())
-    sent = df_send[df_send["OEM單號"] == oem_no]["送達數量"].sum()
-    remain_send = oem_qty - sent
-    st.info(f"📦 已送達：{sent} kg　｜　尚餘未送：{remain_send} kg")
-
-    st.markdown("---")
-
-    # 載回登記
-    st.markdown("### 🔄 載回登記")
-    ret_date = st.date_input("載回日期")
-    ret_qty = st.number_input("載回數量 kg", min_value=0.0, step=1.0)
-    if st.button("新增載回紀錄"):
-        ws_return.append_row([oem_no, str(ret_date), ret_qty])
-        st.success("已新增載回紀錄")
-
-    df_ret = pd.DataFrame(ws_return.get_all_records())
-    returned = df_ret[df_ret["OEM單號"] == oem_no]["載回數量"].sum()
-    remain_return = oem_qty - returned
-    st.info(f"📦 已載回：{returned} kg　｜　尚餘未載：{remain_return} kg")
-
-
-# ========================
-# 代工進度表
-# ========================
-def show_oem_schedule():
-    st.subheader("📊 代工進度表")
-
-    ws_master = spreadsheet.worksheet("OEM_MASTER")
-    ws_send = spreadsheet.worksheet("OEM_SEND")
-    ws_return = spreadsheet.worksheet("OEM_RETURN")
-
-    df_master = pd.DataFrame(ws_master.get_all_records())
-    df_send = pd.DataFrame(ws_send.get_all_records())
-    df_return = pd.DataFrame(ws_return.get_all_records())
-
-    # 整理送達明細
-    df_send["資訊"] = df_send["送達日期"] + "｜" + df_send["送達數量"].astype(str) + "kg"
-    df_s = df_send.groupby("OEM單號")["資訊"].apply(lambda x: "\n".join(x))
-    df_return["資訊"] = df_return["載回日期"] + "｜" + df_return["載回數量"].astype(str) + "kg"
-    df_r = df_return.groupby("OEM單號")["資訊"].apply(lambda x: "\n".join(x))
-
-    df = df_master.copy()
-    df["送達紀錄"] = df["OEM單號"].map(df_s).fillna("")
-    df["載回紀錄"] = df["OEM單號"].map(df_r).fillna("")
-
-    df_send_sum = df_send.groupby("OEM單號")["送達數量"].sum()
-    df_return_sum = df_return.groupby("OEM單號")["載回數量"].sum()
-    df["已送達"] = df["OEM單號"].map(df_send_sum).fillna(0)
-    df["已載回"] = df["OEM單號"].map(df_return_sum).fillna(0)
-
-    df["狀態"] = df.apply(lambda r: "✔ 已全數載回" if r["已載回"] >= r["代工數量"] else "⏳ 進行中", axis=1)
-
-    st.dataframe(df[["狀態", "OEM單號", "生產單號", "代工廠商", "代工數量",
-                     "送達紀錄", "載回紀錄"]])
-
-# --- menu 選單 ---
-menu = st.sidebar.selectbox("功能選單", ["生產單管理", "代工管理"])
-
-# --- 生產單管理 ---
-if menu == "生產單管理":
-    try:
-        show_production_pages()
-    except Exception as e:
-        st.error(f"錯誤發生: {e}")
-        import traceback
-        st.text(traceback.format_exc())
-
-# --- 代工管理 ---
-elif menu == "代工管理":
-    try:
-        show_oem_schedule()   # ← 注意！這裡是 show_oem_schedule()
-    except Exception as e:
-        st.error(f"錯誤發生: {e}")
-        import traceback
-        st.text(traceback.format_exc())
-
 
 # ======== 交叉查詢分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
