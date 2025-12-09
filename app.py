@@ -94,9 +94,14 @@ if "menu" not in st.session_state:
 # 自訂 CSS：改按鈕字體大小
 st.markdown("""
 <style>
-/* 🔼 調整 Sidebar 上方空白（往上貼） */
+/* 🔼 讓 Sidebar 整體更靠上 */
 section[data-testid="stSidebar"] > div {
-    padding-top: -10px !important;   /* 預設大概是 60px 左右 */
+    padding-top: -10px !important;
+}
+
+/* 🔼 讓標題也微調往上 */
+.sidebar h1 {
+    margin-top: -10px !important;
 }
 
 /* Sidebar 標題字體大小 */
