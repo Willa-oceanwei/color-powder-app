@@ -2665,7 +2665,7 @@ def show_production_pages():
     
     # 首頁
     with cols_page[0]:
-        if st.button("🏠首頁", key="first_page"):
+        if st.button("🏠首頁", production_first_page"):
             st.session_state.order_page = 1
             st.experimental_rerun()
     
