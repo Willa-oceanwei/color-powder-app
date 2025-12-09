@@ -82,6 +82,10 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
+# ===== 初始化選單狀態 =====
+if "menu" not in st.session_state:
+    st.session_state.menu = "生產單管理"
+
 # ======== Sidebar 修正 =========
 import streamlit as st
 
