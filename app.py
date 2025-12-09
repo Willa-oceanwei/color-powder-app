@@ -3391,7 +3391,13 @@ def show_oem_schedule():
 menu = st.sidebar.selectbox("功能選單", ["生產單管理", "代工管理"])
 
 if menu == "生產單管理":
-    show_production_pages()
+    try:
+        show_production_pages()
+    except Exception as e:
+        st.error(f"錯誤發生: {e}")
+        import traceback
+        st.text(traceback.format_exc())
+
 elif menu == "代工管理":
     show_oem_pages()
 
