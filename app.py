@@ -3239,9 +3239,10 @@ def show_oem_schedule():
     st.dataframe(df[["狀態", "OEM單號", "生產單號", "代工廠商", "代工數量",
                      "送達紀錄", "載回紀錄"]])
 
-# menu 選單
+# --- menu 選單 ---
 menu = st.sidebar.selectbox("功能選單", ["生產單管理", "代工管理"])
 
+# --- 生產單管理 ---
 if menu == "生產單管理":
     try:
         show_production_pages()
@@ -3250,9 +3251,10 @@ if menu == "生產單管理":
         import traceback
         st.text(traceback.format_exc())
 
+# --- 代工管理 ---
 elif menu == "代工管理":
     try:
-        show_oem_schedule()
+        show_oem_schedule()   # ← 注意！這裡是 show_oem_schedule()
     except Exception as e:
         st.error(f"錯誤發生: {e}")
         import traceback
