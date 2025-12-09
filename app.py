@@ -3252,12 +3252,11 @@ if menu == "生產單管理":
 
 elif menu == "代工管理":
     try:
-        show_oem_schedule()  # 這裡改成正確函式名稱
+        show_oem_schedule()
     except Exception as e:
         st.error(f"錯誤發生: {e}")
         import traceback
         st.text(traceback.format_exc())
-
 
 
 # ======== 交叉查詢分頁 =========
