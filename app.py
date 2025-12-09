@@ -3251,7 +3251,12 @@ if menu == "生產單管理":
         st.text(traceback.format_exc())
 
 elif menu == "代工管理":
-    show_oem_pages()
+    try:
+        show_oem_schedule()  # 這裡改成正確函式名稱
+    except Exception as e:
+        st.error(f"錯誤發生: {e}")
+        import traceback
+        st.text(traceback.format_exc())
 
 
 
