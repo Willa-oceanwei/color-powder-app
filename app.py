@@ -3277,9 +3277,7 @@ def show_oem_pages():
 def show_oem_main():
     st.subheader("📄 代工單管理")
 
-    gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
-    sh = gc.open_by_key(st.secrets["gcp_sheet_key"])
-    ws_master = sh.worksheet("OEM_MASTER")
+    ws_master = spreadsheet.worksheet("OEM_MASTER")
 
     df_master = pd.DataFrame(ws_master.get_all_records())
 
@@ -3311,12 +3309,9 @@ def show_oem_main():
 def show_oem_detail():
     st.subheader("📦 送達 / 載回管理")
 
-    gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
-    sh = gc.open_by_key(st.secrets["gcp_sheet_key"])
-
-    ws_master = sh.worksheet("OEM_MASTER")
-    ws_send = sh.worksheet("OEM_SEND")
-    ws_return = sh.worksheet("OEM_RETURN")
+    ws_master = spreadsheet.worksheet("OEM_MASTER")
+    ws_send = spreadsheet.worksheet("OEM_SEND")
+    ws_return = spreadsheet.worksheet("OEM_RETURN")
 
     df_master = pd.DataFrame(ws_master.get_all_records())
     if len(df_master) == 0:
@@ -3364,12 +3359,9 @@ def show_oem_detail():
 def show_oem_schedule():
     st.subheader("📊 代工進度表")
 
-    gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
-    sh = gc.open_by_key(st.secrets["gcp_sheet_key"])
-
-    ws_master = sh.worksheet("OEM_MASTER")
-    ws_send = sh.worksheet("OEM_SEND")
-    ws_return = sh.worksheet("OEM_RETURN")
+    ws_master = spreadsheet.worksheet("OEM_MASTER")
+    ws_send = spreadsheet.worksheet("OEM_SEND")
+    ws_return = spreadsheet.worksheet("OEM_RETURN")
 
     df_master = pd.DataFrame(ws_master.get_all_records())
     df_send = pd.DataFrame(ws_send.get_all_records())
@@ -3395,10 +3387,15 @@ def show_oem_schedule():
     st.dataframe(df[["狀態", "OEM單號", "生產單號", "代工廠商", "代工數量",
                      "送達紀錄", "載回紀錄"]])
 
+# menu 選單
+menu = st.sidebar.selectbox("功能選單", ["生產單管理", "代工管理"])
+
 if menu == "生產單管理":
     show_production_pages()
 elif menu == "代工管理":
     show_oem_pages()
+
+
 
 # ======== 交叉查詢分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
