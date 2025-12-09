@@ -2493,8 +2493,19 @@ elif menu == "生產單管理":
                                 col2.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}")
 
                 # ===== 提交按鈕 =====
-                submitted = st.form_submit_button("💾 儲存生產單")
-                if submitted:
+                col_submit1, col_submit2 = st.columns([1, 1])  # ⬅️ 先定義兩欄
+                with col_submit1:
+                    submitted = st.form_submit_button("💾 儲存生產單")
+
+                # ===== 判斷是否為色母，顯示代工勾選框 =====
+                is_colorant = (recipe_row.get("色粉類別", "").strip() == "色母")
+                with col_submit2:
+                    if is_colorant:
+                        continue_to_oem = st.form_submit_button("✅ 儲存並轉代工管理")
+                    else:
+                        continue_to_oem = False
+        
+                if submitted or continue_to_oem:  # ⬅️ 改成單一冒號
                     # 🔹 先檢查包裝重量與份數是否全空
                     all_empty = True
                     for i in range(1, 5):
@@ -2502,7 +2513,6 @@ elif menu == "生產單管理":
                         count = st.session_state.get(f"form_count{i}", "").strip()
                         if weight or count:
                             all_empty = False
-                            break
 
                     if all_empty:
                         st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
