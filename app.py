@@ -96,7 +96,7 @@ st.markdown("""
 <style>
 /* 🔼 調整 Sidebar 上方空白（往上貼） */
 section[data-testid="stSidebar"] > div {
-    padding-top: 0px !important;   /* 預設大概是 60px 左右 */
+    padding-top: -10px !important;   /* 預設大概是 60px 左右 */
 }
 
 /* Sidebar 標題字體大小 */
