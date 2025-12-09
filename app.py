@@ -2651,6 +2651,46 @@ elif menu == "生產單管理":
                         st.session_state.df_order = df_order
                         st.session_state.new_order_saved = True
                         st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+
+                        # ===== 如果是色母且勾選轉代工 =====
+                        if continue_to_oem:
+                            # 建立代工單號
+                            oem_id = f"OEM{order['生產單號']}"
+        
+                            # 計算代工數量（包裝重量*份數的總和，單位kg）
+                            oem_qty = 0.0
+                            for i in range(1, 5):
+                                try:
+                                    w = float(order.get(f"包裝重量{i}", 0) or 0)
+                                    n = float(order.get(f"包裝份數{i}", 0) or 0)
+                                    oem_qty += w * n
+                                except:
+                                    pass
+        
+                            # 寫入代工管理表
+                            try:
+                                ws_oem = spreadsheet.worksheet("代工管理")
+                            except:
+                                ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
+                                ws_oem.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱", 
+                                                   "代工數量", "代工廠商", "備註", "狀態", "建立時間"])
+        
+                            oem_row = [
+                                oem_id,
+                                order['生產單號'],
+                                order.get('配方編號', ''),
+                                order.get('客戶名稱', ''),
+                                oem_qty,
+                                "",  # 代工廠商
+                                "",  # 備註
+                                "",  # 狀態（初始為空）
+                                (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+                            ]
+                            ws_oem.append_row(oem_row)
+        
+                            st.success(f"✅ 已建立代工單號：{oem_id}（{oem_qty} kg）")
+                            st.info("💡 請至「代工管理」分頁進行後續編輯")
+                    
                     except Exception as e:
                         st.error(f"❌ 寫入失敗：{e}")
 
