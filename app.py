@@ -1607,12 +1607,12 @@ elif menu == "配方管理":
             st.experimental_rerun()
     
     with cols_page[1]:
-        if st.button("🔼上一頁", key="prev_page") and st.session_state.page > 1:
+        if st.button("🔼上一頁", key="recipe_prev_page") and st.session_state.page > 1:
             st.session_state.page -= 1
             st.experimental_rerun()
     
     with cols_page[2]:
-        if st.button("🔽下一頁", key="next_page") and st.session_state.page < total_pages:
+        if st.button("🔽下一頁", key="recipe_next_page") and st.session_state.page < total_pages:
             st.session_state.page += 1
             st.experimental_rerun()
     
