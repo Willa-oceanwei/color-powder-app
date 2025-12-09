@@ -94,19 +94,18 @@ if "menu" not in st.session_state:
 # 自訂 CSS：改按鈕字體大小
 st.markdown("""
 <style>
-/* 將 Sidebar 內容往上推到最極限 */
+/* 將 Sidebar 內容往上推到極限安全值 */
 section[data-testid="stSidebar"] > div:first-child {
     padding-top: 0px !important;
-    margin-top: -15px !important;   /* 極限大概 -15 ~ -22 */
+    margin-top: -18px !important;
 }
 
-/* 調整標題間距 */
+/* 調整 Sidebar 標題距離 */
 .sidebar h1 {
     margin-top: -10px !important;
 }
-</style>
-""", unsafe_allow_html=True)
-/* Sidebar 標題字體大小 */
+
+/* Sidebar 標題字體大小（你原本的） */
 .sidebar .css-1d391kg h1 {
     font-size: 24px !important;
 }
@@ -114,11 +113,12 @@ section[data-testid="stSidebar"] > div:first-child {
 /* Sidebar 按鈕字體大小 */
 div.stButton > button {
     font-size: 14px !important;
-    padding: 8px 12px !important;  /* 可調整上下左右間距 */
+    padding: 8px 12px !important;
     text-align: left;
 }
 </style>
 """, unsafe_allow_html=True)
+
 
 with st.sidebar:
     # 標題
