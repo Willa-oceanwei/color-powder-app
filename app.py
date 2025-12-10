@@ -3445,11 +3445,13 @@ elif menu == "代工管理":
                 col3.text_input("代工數量 (kg)", value=oem_row.get("代工數量", ""), disabled=True)
                 
                 # 可編輯欄位
-                col4, col5, col6 = st.columns(3)
-                new_vendor = col4.selectbox("代工廠商", ["", "弘旭", "良輝"], 
-                                           index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", "")) 
-                                           if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
-                                           key="oem_vendor")
+                col4, col5 = st.columns([2,1])
+                new_vendor = col4.selectbox(
+                    "代工廠商", ["", "弘旭", "良輝"], 
+                    index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", "")) 
+                          if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
+                    key="oem_vendor"
+                )
                 
                 # 狀態選擇（可手動設定）
                 status_options = ["", "⏳ 未載回", "🔄 進行中", "✅ 已結案"]
