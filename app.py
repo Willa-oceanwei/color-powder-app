@@ -3423,20 +3423,42 @@ elif menu == "代工管理":
         st.markdown("##### 編輯代工單")
         
         if not df_oem.empty:
-            # 選擇代工單號
-            # 建立選單顯示文字
+
+            # ========== 🔄 依代工單號中的日期進行排序（新 → 舊）==========
+            try:
+                # 取得代工單號中的日期部分（例如 1140105 或 20250105）
+                df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0]
+
+                # 若是民國年（長度 7），轉換成西元
+                def tw_to_ad(d):
+                    d = str(d)
+                    if len(d) == 7:  # 1140105
+                        return str(int(d[:3]) + 1911) + d[3:]
+                    return d
+
+                df_oem["日期排序"] = df_oem["日期排序"].apply(tw_to_ad)
+
+                # 轉成 datetime 排序（無法解析者為 NaT）
+                df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
+
+                # 🔽 由新到舊排序
+                df_oem = df_oem.sort_values("日期排序", ascending=False)
+
+            except Exception as e:
+                st.warning(f"日期排序時發生錯誤：{e}")
+
+            # ========== 📌 建立排序後的下拉選單 ==========
+
             oem_options = [
                 f"{row['代工單號']} | 配方:{row.get('配方編號','')} | 客戶:{row.get('客戶名稱','')} | 廠商:{row.get('代工廠商','')} | 數量:{row.get('代工數量',0)}kg"
                 for _, row in df_oem.iterrows()
             ]
 
-            # 下拉選單
             selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_edit")
-
-            # 取得選擇的代工單號
-            if selected_option:
-                selected_oem = selected_option.split(" | ")[0]  # 取代工單號部分
-                oem_row = df_oem[df_oem["代工單號"] == selected_oem].iloc[0]
+                    # 取得選擇的代工單號
+                    if selected_option:
+                        selected_oem = selected_option.split(" | ")[0]  # 取代工單號部分
+                        oem_row = df_oem[df_oem["代工單號"] == selected_oem].iloc[0]
                 
                 # 顯示基本資訊
                 col1, col2, col3 = st.columns(3)
