@@ -3457,7 +3457,7 @@ elif menu == "代工管理":
                 status_options = ["", "⏳ 未載回", "🔄 進行中", "✅ 已結案"]
                 current_status = oem_row.get("狀態", "")
                 status_index = status_options.index(current_status) if current_status in status_options else 0
-                new_status = col6.selectbox("狀態", status_options, index=status_index, key="oem_status")
+                new_status = col5.selectbox("狀態", status_options, index=status_index, key="oem_status")
 
                 # 獨立備註區塊放最下面
                 new_remark = st.text_area(
