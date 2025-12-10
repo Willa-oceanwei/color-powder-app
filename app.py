@@ -3501,6 +3501,10 @@ elif menu == "代工管理":
     # ========== Tab 3：載回登入 ==========
     with tab3:
         st.markdown("#### 載回登入")
+
+        # 確保 df_return 有代工單號欄位
+        if "代工單號" not in df_return.columns:
+            df_return["代工單號"] = ""
         
         if not df_oem.empty:
             # 選擇代工單號
