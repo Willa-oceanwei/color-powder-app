@@ -3455,10 +3455,11 @@ elif menu == "代工管理":
             ]
 
             selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_edit")
-                    # 取得選擇的代工單號
-                    if selected_option:
-                        selected_oem = selected_option.split(" | ")[0]  # 取代工單號部分
-                        oem_row = df_oem[df_oem["代工單號"] == selected_oem].iloc[0]
+            
+            # 取得選擇的代工單號
+            if selected_option:
+                selected_oem = selected_option.split(" | ")[0]  # 取代工單號部分
+                oem_row = df_oem[df_oem["代工單號"] == selected_oem].iloc[0]
                 
                 # 顯示基本資訊
                 col1, col2, col3 = st.columns(3)
