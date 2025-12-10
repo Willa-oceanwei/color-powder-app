@@ -3531,11 +3531,17 @@ elif menu == "代工管理":
             df_return["代工單號"] = ""
         
         if not df_oem.empty:
-            # 選擇代工單號
-            oem_options = df_oem["代工單號"].tolist()
-            selected_oem_return = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_return")
-            
-            if selected_oem_return:
+            # 建立選單顯示文字，顯示代工單號、配方編號、客戶名稱、數量
+            oem_options = [
+                f"{row['代工單號']} | 配方:{row.get('配方編號','')} | 客戶:{row.get('客戶名稱','')} | 數量:{row.get('代工數量',0)}kg"
+                for _, row in df_oem.iterrows()
+            ]
+
+            # 下拉選單
+            selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_return")
+
+            if selected_option:
+                selected_oem_return = selected_option.split(" | ")[0]  # 取代工單號部分
                 oem_row_return = df_oem[df_oem["代工單號"] == selected_oem_return].iloc[0]
                 
                 # 顯示基本資訊
