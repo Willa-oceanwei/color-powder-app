@@ -3450,7 +3450,12 @@ elif menu == "代工管理":
                                            index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", "")) 
                                            if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
                                            key="oem_vendor")
-                new_remark = col5.text_input("備註", value=oem_row.get("備註", ""), key="oem_remark")
+                new_remark = col5.text_area(
+                    "備註", 
+                    value=oem_row.get("備註", ""), 
+                    key="oem_remark",
+                    height=120  # 高度可依需求調整，單位是像素
+                )
                 
                 # 狀態選擇（可手動設定）
                 status_options = ["", "⏳ 未載回", "🔄 進行中", "✅ 已結案"]
