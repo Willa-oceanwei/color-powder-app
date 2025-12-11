@@ -3666,6 +3666,11 @@ elif menu == "採購管理":
         except:
             df_supplier = pd.DataFrame(columns=["供應商編號", "供應商簡稱"])
 
+        # 確保欄位存在
+        for col in ["供應商編號", "供應商簡稱"]:
+            if col not in df_supplier.columns:
+                df_supplier[col] = ""
+
         supplier_options = df_supplier["供應商編號"].tolist()
         options_list = [""] + supplier_options
         current_index = options_list.index(st.session_state.form_in_stock.get("廠商編號","")) \
