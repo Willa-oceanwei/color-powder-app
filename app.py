@@ -1573,7 +1573,9 @@ elif menu == "配方管理":
             selected_index = st.selectbox(
                 "輸入配方",
                 options=df.index,
-                format_func=lambda i: f"{df.at[i, '配方編號']} | {df.at[i, '顏色']} | {df.at[i, '客戶名稱']}",
+                format_func=lambda i: 
+                    f"{df.at[i, '配方編號']} | {df.at[i, '顏色']} | {df.at[i, '客戶名稱']}"
+                    + (" (停用)" if str(df.at[i, '狀態']) == "停用" else ""),
                 key="select_recipe_code_tab3",
                 index=0
             )
