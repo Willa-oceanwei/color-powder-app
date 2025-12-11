@@ -2729,12 +2729,13 @@ elif menu == "生產單管理":
                             oem_id = f"OEM{order['生產單號']}"
         
                             # 計算代工數量（包裝重量*份數的總和，單位kg）
+                            # 計算代工數量（包裝重量 * 100 * 包裝份數）
                             oem_qty = 0.0
                             for i in range(1, 5):
                                 try:
                                     w = float(order.get(f"包裝重量{i}", 0) or 0)
                                     n = float(order.get(f"包裝份數{i}", 0) or 0)
-                                    oem_qty += w * n
+                                    oem_qty += w * 100 * n
                                 except:
                                     pass
         
