@@ -86,7 +86,7 @@ spreadsheet = st.session_state["spreadsheet"]
 import streamlit as st
 
 menu_options = ["色粉管理", "客戶名單", "配方管理", "生產單管理", 
-                "交叉查詢區", "Pantone色號表", "庫存區", "代工管理", "匯入備份"]
+                "交叉查詢區", "Pantone色號表", "庫存區", "採購管理", "代工管理", "匯入備份"]
 
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
@@ -3662,6 +3662,303 @@ elif menu == "代工管理":
             st.dataframe(df_progress, use_container_width=True, hide_index=True)
         else:
             st.info("⚠️ 目前沒有代工記錄")
+
+# ======== 採購管理分頁 =========
+elif menu == "採購管理":
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    import pandas as pd
+    from datetime import datetime, date
+    
+    # ===== Tab 分頁 =====
+    tab1, tab2, tab3 = st.tabs(["📲 進貨新增", "🔍 進貨查詢", "🏢 供應商管理"])
+    
+    # ========== Tab 1：進貨新增 ==========
+    with tab1:
+        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
+        
+        # 讀取庫存記錄表
+        try:
+            ws_stock = spreadsheet.worksheet("庫存記錄")
+            df_stock = pd.DataFrame(ws_stock.get_all_records())
+        except:
+            df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
+        
+        col1, col2, col3, col4 = st.columns(4)
+        in_powder = col1.text_input("色粉編號", key="in_color")
+        in_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="in_qty_add")
+        in_unit = col3.selectbox("單位", ["g", "kg"], key="in_unit_add")
+        in_date = col4.date_input("進貨日期", value=datetime.today(), key="in_date")
+        in_note = st.text_input("備註", key="in_note")
+        
+        if st.button("新增進貨", key="btn_add_in"):
+            if not in_powder.strip():
+                st.warning("⚠️ 請輸入色粉編號！")
+            else:
+                new_row = {
+                    "類型":"進貨",
+                    "色粉編號":in_powder.strip(),
+                    "日期":in_date,
+                    "數量":in_qty,
+                    "單位":in_unit,
+                    "備註":in_note
+                }
+                df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
+                
+                # 寫回 Google Sheet
+                df_to_upload = df_stock.copy()
+                if "日期" in df_to_upload.columns:
+                    df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce").dt.strftime("%Y/%m/%d").fillna("")
+                ws_stock.clear()
+                ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
+                st.success("✅ 進貨紀錄已新增")
+                st.rerun()
+    
+    # ========== Tab 2：進貨查詢 ==========
+    with tab2:
+        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🔍 進貨查詢</h2>', unsafe_allow_html=True)
+        
+        # 讀取庫存記錄表
+        try:
+            ws_stock = spreadsheet.worksheet("庫存記錄")
+            df_stock = pd.DataFrame(ws_stock.get_all_records())
+        except:
+            df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
+        
+        # --- 篩選欄位 ---
+        col1, col2, col3 = st.columns(3)
+        search_code = col1.text_input("色粉編號", key="in_search_code")
+        search_start = col2.date_input("進貨日期(起)", key="in_search_start")
+        search_end = col3.date_input("進貨日期(迄)", key="in_search_end")
+        
+        if st.button("查詢進貨", key="btn_search_in_v3"):
+            df_result = df_stock[df_stock["類型"] == "進貨"].copy()
+            
+            # 1️⃣ 依色粉編號篩選
+            if search_code.strip():
+                df_result = df_result[df_result["色粉編號"].astype(str).str.contains(search_code.strip(), case=False)]
+            
+            # 2️⃣ 日期欄轉換格式
+            df_result["日期_dt"] = pd.to_datetime(df_result["日期"], errors="coerce").dt.normalize()
+            
+            # 3️⃣ 判斷使用者是否真的有選日期
+            today = pd.to_datetime("today").normalize()
+            search_start_dt = pd.to_datetime(search_start).normalize() if search_start else None
+            search_end_dt = pd.to_datetime(search_end).normalize() if search_end else None
+            
+            use_date_filter = (
+                (search_start_dt is not None and search_start_dt != today) or
+                (search_end_dt is not None and search_end_dt != today)
+            )
+            
+            if use_date_filter:
+                st.write("🔎 使用日期範圍：", search_start_dt, "～", search_end_dt)
+                df_result = df_result[
+                    (df_result["日期_dt"] >= search_start_dt) &
+                    (df_result["日期_dt"] <= search_end_dt)
+                ]
+            else:
+                st.markdown(
+                    '<span style="color:gray; font-size:0.8em;">📅 未選日期 → 顯示所有進貨資料</span>',
+                    unsafe_allow_html=True
+                )
+            
+            # 4️⃣ 顯示結果
+            if not df_result.empty:
+                show_cols = {
+                    "色粉編號": "色粉編號",
+                    "日期_dt": "日期",
+                    "數量": "數量",
+                    "單位": "單位",
+                    "備註": "備註"
+                }
+                df_display = df_result[list(show_cols.keys())].rename(columns=show_cols)
+                
+                # 自動轉換單位
+                def format_quantity_unit(row):
+                    qty = row["數量"]
+                    unit = row["單位"].strip().lower()
+                    if unit == "g" and qty >= 1000:
+                        return pd.Series([qty/1000, "kg"])
+                    else:
+                        return pd.Series([qty, row["單位"]])
+                
+                df_display[["數量", "單位"]] = df_display.apply(format_quantity_unit, axis=1)
+                df_display["日期"] = df_display["日期"].dt.strftime("%Y/%m/%d")
+                
+                st.dataframe(df_display, use_container_width=True, hide_index=True)
+            else:
+                st.info("ℹ️ 沒有符合條件的進貨資料")
+    
+    # ========== Tab 3：供應商管理 ==========
+    with tab3:
+        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🏢 供應商管理</h2>', unsafe_allow_html=True)
+        
+        # ===== 讀取或建立 Google Sheet =====
+        try:
+            ws_supplier = spreadsheet.worksheet("供應商管理")
+        except:
+            ws_supplier = spreadsheet.add_worksheet("供應商管理", rows=100, cols=10)
+        
+        columns = ["供應商編號", "供應商簡稱", "備註"]
+        
+        # 安全初始化 form_supplier
+        if "form_supplier" not in st.session_state or not isinstance(st.session_state.form_supplier, dict):
+            st.session_state.form_supplier = {}
+        
+        # 初始化其他 session_state 變數
+        init_states(["edit_supplier_index", "delete_supplier_index", "show_delete_supplier_confirm", "search_supplier"])
+        
+        # 確保所有欄位都有 key
+        for col in columns:
+            st.session_state.form_supplier.setdefault(col, "")
+        
+        # 載入 Google Sheet 資料
+        try:
+            df = pd.DataFrame(ws_supplier.get_all_records())
+        except:
+            df = pd.DataFrame(columns=columns)
+        
+        df = df.astype(str)
+        for col in columns:
+            if col not in df.columns:
+                df[col] = ""
+        
+        # ===== 新增供應商 =====
+        st.markdown(
+            '<h3 style="font-size:20px; font-family:Arial; color:#dbd818;">➕ 新增供應商</h3>',
+            unsafe_allow_html=True
+        )
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.session_state.form_supplier["供應商編號"] = st.text_input("供應商編號", st.session_state.form_supplier["供應商編號"])
+            st.session_state.form_supplier["供應商簡稱"] = st.text_input("供應商簡稱", st.session_state.form_supplier["供應商簡稱"])
+        with col2:
+            st.session_state.form_supplier["備註"] = st.text_input("備註", st.session_state.form_supplier["備註"])
+        
+        if st.button("💾 儲存", key="save_supplier"):
+            new_data = st.session_state.form_supplier.copy()
+            if new_data["供應商編號"].strip() == "":
+                st.warning("⚠️ 請輸入供應商編號！")
+            else:
+                if st.session_state.edit_supplier_index is not None:
+                    df.iloc[st.session_state.edit_supplier_index] = new_data
+                    st.success("✅ 供應商已更新！")
+                else:
+                    if new_data["供應商編號"] in df["供應商編號"].values:
+                        st.warning("⚠️ 此供應商編號已存在！")
+                    else:
+                        df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+                        st.success("✅ 新增成功！")
+                save_df_to_sheet(ws_supplier, df)
+                st.session_state.form_supplier = {col: "" for col in columns}
+                st.session_state.edit_supplier_index = None
+                st.rerun()
+        
+        # ===== 刪除確認 =====
+        if st.session_state.show_delete_supplier_confirm:
+            target_row = df.iloc[st.session_state.delete_supplier_index]
+            target_text = f'{target_row["供應商編號"]} {target_row["供應商簡稱"]}'
+            st.warning(f"⚠️ 確定要刪除 {target_text}？")
+            c1, c2 = st.columns(2)
+            if c1.button("刪除", key="confirm_delete_supplier"):
+                df.drop(index=st.session_state.delete_supplier_index, inplace=True)
+                df.reset_index(drop=True, inplace=True)
+                save_df_to_sheet(ws_supplier, df)
+                st.success("✅ 刪除成功！")
+                st.session_state.show_delete_supplier_confirm = False
+                st.rerun()
+            if c2.button("取消", key="cancel_delete_supplier"):
+                st.session_state.show_delete_supplier_confirm = False
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # ===== 📋 供應商清單（搜尋後顯示表格與操作） =====
+        st.markdown(
+            '<h3 style="font-size:20px; font-family:Arial; color:#dbd818;">🛠️ 供應商修改/刪除</h3>',
+            unsafe_allow_html=True
+        )
+        
+        # 搜尋輸入框
+        keyword = st.text_input("請輸入供應商編號或簡稱", st.session_state.get("search_supplier_keyword", ""))
+        st.session_state.search_supplier_keyword = keyword.strip()
+        
+        # 預設空表格
+        df_filtered = pd.DataFrame()
+        
+        # 只有輸入關鍵字才篩選
+        if keyword:
+            df_filtered = df[
+                df["供應商編號"].str.contains(keyword, case=False, na=False) |
+                df["供應商簡稱"].str.contains(keyword, case=False, na=False)
+            ]
+            
+            # 僅在有輸入且結果為空時顯示警告
+            if df_filtered.empty:
+                st.warning("❗ 查無符合的資料")
+        
+        # ===== 📋 表格顯示搜尋結果 =====
+        if not df_filtered.empty:
+            st.dataframe(df_filtered[columns], use_container_width=True, hide_index=True)
+            
+            # ===== ✏️ 改 / 🗑️ 刪操作（表格下方） =====
+            st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
+            
+            # 標題 + 灰色小字說明
+            st.markdown(
+                """
+                <p style="font-size:14px; font-family:Arial; color:gray; margin-top:-8px;">
+                    🛈 請於新增欄位修改
+                </p>
+                """,
+                unsafe_allow_html=True
+            )
+            
+            # --- 全域縮小 emoji 字體大小 ---
+            st.markdown("""
+                <style>
+                div.stButton > button {
+                    font-size:16px !important;
+                    padding:2px 8px !important;
+                    border-radius:8px;
+                    background-color:#333333 !important;
+                    color:white !important;
+                    border:1px solid #555555;
+                }
+                div.stButton > button:hover {
+                    background-color:#555555 !important;
+                    border-color:#dbd818 !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+            
+            # --- 列出供應商清單 ---
+            for i, row in df_filtered.iterrows():
+                c1, c2, c3 = st.columns([3, 1, 1])
+                with c1:
+                    st.markdown(
+                        f"<div style='font-family:Arial;color:#FFFFFF;'>🔹 {row['供應商編號']}　{row['供應商簡稱']}</div>",
+                        unsafe_allow_html=True
+                    )
+                with c2:
+                    if st.button("✏️ 改", key=f"edit_supplier_{i}"):
+                        st.session_state.edit_supplier_index = i
+                        st.session_state.form_supplier = row.to_dict()
+                        st.rerun()
+                with c3:
+                    if st.button("🗑️ 刪", key=f"delete_supplier_{i}"):
+                        st.session_state.delete_supplier_index = i
+                        st.session_state.show_delete_supplier_confirm = True
+                        st.rerun()
             
 # ======== 交叉查詢分頁 =========
 menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
