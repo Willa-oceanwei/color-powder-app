@@ -3374,19 +3374,24 @@ elif menu == "代工管理":
         if not df_oem.empty:
 
             # ---------- 建立日期排序欄位 ----------
+            # 先清理狀態欄位
+            df_oem["狀態"] = df_oem["狀態"].astype(str).str.strip()
+
+            # 過濾未結案
+            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"]
+
+            # 日期排序
             def tw_to_ad(d):
                 d = str(d)
                 if len(d) == 7:
                     return str(int(d[:3]) + 1911) + d[3:]
                 return d
 
-            df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
-            df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
-
-            # ---------- 過濾未結案代工單 ----------
-            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"]
+            df_oem_active["日期排序"] = df_oem_active["代工單號"].str.split("-").str[0].apply(tw_to_ad)
+            df_oem_active["日期排序"] = pd.to_datetime(df_oem_active["日期排序"], errors="coerce")
             df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
 
+            # 建立選單
             oem_options = [
                 f"{row['代工單號']} | 配方:{row.get('配方編號','')} | 客戶:{row.get('客戶名稱','')} | 廠商:{row.get('代工廠商','')} | 數量:{row.get('代工數量',0)}kg"
                 for _, row in df_oem_active.iterrows()
