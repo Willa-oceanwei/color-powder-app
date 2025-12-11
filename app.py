@@ -3377,19 +3377,19 @@ elif menu == "代工管理":
             # 先清理狀態欄位
             df_oem["狀態"] = df_oem["狀態"].astype(str).str.strip()
 
-            # 過濾未結案並排序
-            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
-            df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
-
-            # 日期排序
+            # 日期排序函式
             def tw_to_ad(d):
                 d = str(d)
                 if len(d) == 7:
                     return str(int(d[:3]) + 1911) + d[3:]
                 return d
 
-            df_oem_active["日期排序"] = df_oem_active["代工單號"].str.split("-").str[0].apply(tw_to_ad)
-            df_oem_active["日期排序"] = pd.to_datetime(df_oem_active["日期排序"], errors="coerce")
+            # 在 df_oem 建立日期排序欄位
+            df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
+            df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
+
+            # 過濾未結案並排序
+            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
             df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
 
             # 建立選單
