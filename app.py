@@ -3377,8 +3377,9 @@ elif menu == "代工管理":
             # 先清理狀態欄位
             df_oem["狀態"] = df_oem["狀態"].astype(str).str.strip()
 
-            # 過濾未結案
-            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"]
+            # 過濾未結案並排序
+            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
+            df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
 
             # 日期排序
             def tw_to_ad(d):
