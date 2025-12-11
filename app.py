@@ -4353,6 +4353,31 @@ elif menu == "查詢區":
                     )
 
     # ========== Tab 4：樣品記錄表 ==========
+    # --- 初始化日期欄位函式 ---
+    from datetime import datetime, date
+
+    def init_date_field(field_name, default_date=None):
+        if default_date is None:
+            default_date = datetime.today().date()
+        if "form_sample" not in st.session_state:
+            st.session_state.form_sample = {}
+        value = st.session_state.form_sample.get(field_name, default_date)
+
+        if value is None or value == "" or (isinstance(value, pd.Timestamp) and pd.isna(value)):
+            value = default_date
+        elif isinstance(value, pd.Timestamp):
+            value = value.date()
+        elif isinstance(value, datetime):
+            value = value.date()
+        elif not isinstance(value, date):
+            try:
+                value = pd.to_datetime(value).date()
+            except:
+                value = default_date
+
+        st.session_state.form_sample[field_name] = value
+        return value
+        
     with tab4:
         st.markdown(
             '<h2 style="font-size:20px; font-family:Arial; color:#f0efa2;">🧪 樣品記錄表</h2>',
@@ -4395,33 +4420,7 @@ elif menu == "查詢區":
 
         # ===== 新增樣品 =====
         st.markdown("**➕ 新增樣品記錄**")
-
-        # 初始化日期欄位
-        # --- 初始化日期欄位函式 ---
-        from datetime import datetime, date
-
-        def init_date_field(field_name, default_date=None):
-            if default_date is None:
-                default_date = datetime.today().date()
-            if "form_sample" not in st.session_state:
-                st.session_state.form_sample = {}
-            value = st.session_state.form_sample.get(field_name, default_date)
-
-            if value is None or value == "" or (isinstance(value, pd.Timestamp) and pd.isna(value)):
-                value = default_date
-            elif isinstance(value, pd.Timestamp):
-                value = value.date()
-            elif isinstance(value, datetime):
-                value = value.date()
-            elif not isinstance(value, date):
-                try:
-                    value = pd.to_datetime(value).date()
-                except:
-                    value = default_date
-
-            st.session_state.form_sample[field_name] = value
-            return value
-
+        
         # --- 表單 ---
         col1, col2, col3 = st.columns(3)
         with col1:
