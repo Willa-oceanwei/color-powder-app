@@ -3672,6 +3672,9 @@ elif menu == "採購管理":
     
     import pandas as pd
     from datetime import datetime, date
+
+    # ===== 標題 =====
+    st.markdown('<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">📥 採購管理</h1>', unsafe_allow_html=True)
     
     # ===== Tab 分頁 =====
     tab1, tab2, tab3 = st.tabs(["📲 進貨新增", "🔍 進貨查詢", "🏢 供應商管理"])
