@@ -3862,7 +3862,11 @@ elif menu == "採購管理":
             st.session_state.form_supplier["供應商編號"] = st.text_input("供應商編號", st.session_state.form_supplier["供應商編號"])
             st.session_state.form_supplier["供應商簡稱"] = st.text_input("供應商簡稱", st.session_state.form_supplier["供應商簡稱"])
         with col2:
-            st.session_state.form_supplier["備註"] = st.text_input("備註", st.session_state.form_supplier["備註"])
+            st.session_state.form_supplier["備註"] = st.text_input(
+                "備註", 
+                st.session_state.form_supplier["備註"],
+                key="form_supplier_note"  # <- 唯一 key
+            )
         
         if st.button("💾 儲存", key="save_supplier"):
             new_data = st.session_state.form_supplier.copy()
