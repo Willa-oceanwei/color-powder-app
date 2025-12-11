@@ -4730,9 +4730,10 @@ elif menu == "庫存區":
     # ===== Tab 分頁 =====
     tab1, tab2, tab3 = st.tabs(["📦 初始庫存設定", "📊 庫存查詢", "🏆 色粉用量排行榜"])
 
+    st.markdown('<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🏭 庫存區</h1>', unsafe_allow_html=True)
+
     # ========== Tab 1：初始庫存設定 ==========
     with tab1:
-        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📦 初始庫存設定</h2>', unsafe_allow_html=True)
         col1, col2, col3 = st.columns(3)
         ini_powder = col1.text_input("色粉編號", key="ini_color")
         ini_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty")
@@ -4771,7 +4772,6 @@ elif menu == "庫存區":
 
     # ========== Tab 2：庫存查詢 ==========
     with tab2:
-        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 庫存查詢</h2>', unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         query_start = col1.date_input("查詢起日", key="stock_start_query") 
         query_end = col2.date_input("查詢迄日", key="stock_end_query")
@@ -4949,8 +4949,6 @@ elif menu == "庫存區":
 
     # ========== Tab 3：色粉用量排行榜 ==========
     with tab3:
-        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🏆 色粉用量排行榜</h2>', unsafe_allow_html=True)
-
         # 日期區間選擇
         col1, col2 = st.columns(2)
         rank_start = col1.date_input("開始日期（排行榜）", key="rank_start_date")
