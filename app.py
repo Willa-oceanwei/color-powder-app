@@ -4395,7 +4395,31 @@ elif menu == "查詢區":
 
         # ===== 新增樣品 =====
         st.markdown("**➕ 新增樣品記錄**")
-        
+
+        # 初始化日期欄位
+        from datetime import datetime
+
+        def init_date_field(field_name, default_date=None):
+            if default_date is None:
+                default_date = datetime.today().date()
+            if "form_sample" not in st.session_state:
+                st.session_state.form_sample = {}
+            value = st.session_state.form_sample.get(field_name, default_date)
+            if value is None or value == "" or (isinstance(value, pd.Timestamp) and pd.isna(value)):
+                value = default_date
+            elif isinstance(value, pd.Timestamp):
+                value = value.date()
+            elif isinstance(value, datetime):
+                value = value.date()
+            elif not isinstance(value, datetime.date):
+                try:
+                    value = pd.to_datetime(value).date()
+                except:
+                    value = default_date
+            st.session_state.form_sample[field_name] = value
+            return value
+
+        # --- 表單 ---
         col1, col2, col3 = st.columns(3)
         with col1:
             st.session_state.form_sample["日期"] = st.date_input(
