@@ -3931,11 +3931,7 @@ elif menu == "查詢區":
 
     # ========== Tab 1：依色粉編號查配方 ==========
     with tab1:
-        st.markdown(
-            '<h2 style="font-size:20px; font-family:Arial; color:#f0efa2;">♻️ 依色粉編號查配方</h2>',
-            unsafe_allow_html=True
-        )
-
+        
         # 輸入最多五個色粉編號
         cols = st.columns(5)
         inputs = []
@@ -3998,11 +3994,7 @@ elif menu == "查詢區":
 
 # ========== Tab 2：色粉用量查詢 ==========
     with tab2:
-        st.markdown(
-            '<h2 style="font-size:20px; font-family:Arial; color:#f0efa2;">🧮 色粉用量查詢</h2>',
-            unsafe_allow_html=True
-        )
-
+        
         # 四個色粉編號輸入框
         cols = st.columns(4)
         powder_inputs = []
@@ -4225,11 +4217,7 @@ elif menu == "查詢區":
 
 # ========== Tab 3：Pantone色號表 ==========
     with tab3:
-        st.markdown(
-            '<h2 style="font-size:20px; font-family:Arial; color:#f0efa2;">🍭 Pantone色號表</h2>',
-            unsafe_allow_html=True
-        )
-
+        
         # 讀取 Google Sheets
         try:
             ws_pantone = spreadsheet.worksheet("Pantone色號表")
@@ -4379,11 +4367,7 @@ elif menu == "查詢區":
         return value
         
     with tab4:
-        st.markdown(
-            '<h2 style="font-size:20px; font-family:Arial; color:#f0efa2;">🧪 樣品記錄表</h2>',
-            unsafe_allow_html=True
-        )
-
+        
         # ===== 讀取或建立 Google Sheet =====
         try:
             ws_sample = spreadsheet.worksheet("樣品記錄")
