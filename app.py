@@ -724,12 +724,6 @@ def load_recipe(force_reload=False):
         # 統一使用 df_recipe
         df_recipe = st.session_state.df_recipe
 
-# ===初始化全域庫存 (一次)，供所有頁面統一使用========
-if "last_final_stock" not in st.session_state:
-    st.session_state["last_final_stock"] = calculate_final_stock(
-        df_stock, df_order, df_recipe
-    )
-
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
@@ -2110,6 +2104,12 @@ elif menu == "生產單管理":
             if str(row.get("單位","g")).lower() == "kg":
                 qty *= 1000
             st.session_state["last_final_stock"][pid] = qty
+
+    # ===初始化全域庫存 (一次)，供所有頁面統一使用========
+    if "last_final_stock" not in st.session_state:
+        st.session_state["last_final_stock"] = calculate_final_stock(
+            df_stock, df_order, df_recipe
+        )
    
     # 轉換時間欄位與配方編號欄清理
     if "建立時間" in df_order.columns:
