@@ -724,6 +724,12 @@ def load_recipe(force_reload=False):
         # 統一使用 df_recipe
         df_recipe = st.session_state.df_recipe
 
+# ===初始化全域庫存 (一次)，供所有頁面統一使用========
+if "last_final_stock" not in st.session_state:
+    st.session_state["last_final_stock"] = calculate_final_stock(
+        df_stock, df_order, df_recipe
+    )
+
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
