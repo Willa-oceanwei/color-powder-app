@@ -3366,7 +3366,6 @@ elif menu == "代工管理":
     
     # ========== Tab 1：新增代工單 ==========
     with tab1:
-        st.markdown("##### 新增代工單")
         st.info("💡 可直接建立代工單，不需透過生產單轉單")
     
         with st.form("create_oem_form"):
@@ -3420,8 +3419,6 @@ elif menu == "代工管理":
     
     # ========== Tab 2：編輯代工 ==========
     with tab2:
-        st.markdown("##### 編輯代工單")
-        
         if not df_oem.empty:
 
             # ========== 🔄 依代工單號中的日期進行排序（新 → 舊）==========
@@ -3547,8 +3544,7 @@ elif menu == "代工管理":
     
     # ========== Tab 3：載回登入 ==========
     with tab3:
-        st.markdown("##### 載回登入")
-
+    
         # 確保 df_return 有代工單號欄位
         if "代工單號" not in df_return.columns:
             df_return["代工單號"] = ""
@@ -3606,7 +3602,6 @@ elif menu == "代工管理":
     
     # ========== Tab 4：代工進度表 ==========
     with tab4:
-        st.markdown("##### 代工進度表")
         
         if not df_oem.empty:
             progress_data = []
@@ -3662,6 +3657,7 @@ elif menu == "代工管理":
             st.dataframe(df_progress, use_container_width=True, hide_index=True)
         else:
             st.info("⚠️ 目前沒有代工記錄")
+            
 
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
@@ -3682,8 +3678,7 @@ elif menu == "採購管理":
     
     # ========== Tab 1：進貨新增 ==========
     with tab1:
-        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
-        
+            
         # 讀取庫存記錄表
         try:
             ws_stock = spreadsheet.worksheet("庫存記錄")
@@ -3723,8 +3718,7 @@ elif menu == "採購管理":
     
     # ========== Tab 2：進貨查詢 ==========
     with tab2:
-        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🔍 進貨查詢</h2>', unsafe_allow_html=True)
-        
+              
         # 讀取庫存記錄表
         try:
             ws_stock = spreadsheet.worksheet("庫存記錄")
@@ -3799,7 +3793,6 @@ elif menu == "採購管理":
     
     # ========== Tab 3：供應商管理 ==========
     with tab3:
-        st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🏢 供應商管理</h2>', unsafe_allow_html=True)
         
         # ===== 讀取或建立 Google Sheet =====
         try:
@@ -4812,108 +4805,6 @@ if menu == "庫存區":
 
     st.markdown("---")
     
-    # ================= 進貨新增 (保持不變) =================
-    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#18aadb;">📲 進貨新增</h2>', unsafe_allow_html=True)
-    col1, col2, col3, col4 = st.columns(4)
-    in_powder = col1.text_input("色粉編號", key="in_color")
-    in_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="in_qty_add")
-    in_unit = col3.selectbox("單位", ["g", "kg"], key="in_unit_add")
-    in_date = col4.date_input("進貨日期", value=datetime.today(), key="in_date")
-    in_note = st.text_input("備註", key="in_note")
-
-    if st.button("新增進貨", key="btn_add_in"):
-        if not in_powder.strip():
-            st.warning("⚠️ 請輸入色粉編號！")
-        else:
-            new_row = {"類型":"進貨",
-                        "色粉編號":in_powder.strip(),
-                        "日期":in_date,
-                        "數量":in_qty,
-                        "單位":in_unit,
-                        "備註":in_note}
-            df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
-
-            df_to_upload = df_stock.copy()
-            if "日期" in df_to_upload.columns:
-                df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce").dt.strftime("%Y/%m/%d").fillna("")
-            if ws_stock:
-                ws_stock.clear()
-                ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
-            st.success("✅ 進貨紀錄已新增")
-    st.markdown("---")
-
-    # ================= 進貨查詢 (保持不變) =================
-    st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🔍 進貨查詢</h2>', unsafe_allow_html=True)
-
-    # --- 篩選欄位 ---
-    col1, col2, col3 = st.columns(3)
-    search_code = col1.text_input("色粉編號", key="in_search_code")
-    search_start = col2.date_input("進貨日期(起)", key="in_search_start")
-    search_end = col3.date_input("進貨日期(迄)", key="in_search_end")
-
-    if st.button("查詢進貨", key="btn_search_in_v3"):
-        df_result = df_stock[df_stock["類型"] == "進貨"].copy()
-        
-        # 1️⃣ 依色粉編號篩選
-        if search_code.strip():
-            df_result = df_result[df_result["色粉編號"].astype(str).str.contains(search_code.strip(), case=False)]
-
-        # 2️⃣ 日期欄轉換格式
-        df_result["日期_dt"] = pd.to_datetime(df_result["日期"], errors="coerce").dt.normalize()
-        valid_rows = df_result["日期_dt"].notna().sum()
-        
-        # 3️⃣ 判斷使用者是否真的有選日期
-        today = pd.to_datetime("today").normalize()
-        search_start_dt = pd.to_datetime(search_start).normalize() if search_start else None
-        search_end_dt = pd.to_datetime(search_end).normalize() if search_end else None
-
-        use_date_filter = (
-            (search_start_dt is not None and search_start_dt != today) or
-            (search_end_dt is not None and search_end_dt != today)
-        )
-
-        if use_date_filter:
-            st.write("🔎 使用日期範圍：", search_start_dt, "～", search_end_dt)
-            df_result = df_result[
-                (df_result["日期_dt"] >= search_start_dt) &
-                (df_result["日期_dt"] <= search_end_dt)
-            ]
-        else:
-            st.markdown(
-                '<span style="color:gray; font-size:0.8em;">📅 未選日期 → 顯示所有進貨資料</span>',
-                unsafe_allow_html=True
-            )
-
-        # 4️⃣ 顯示結果（避免重複欄位）
-        if not df_result.empty:
-            # 選擇要顯示的欄位，並在顯示時改名稱
-            show_cols = {
-                "色粉編號": "色粉編號",
-                "日期_dt": "日期",
-                "數量": "數量",
-                "單位": "單位",
-                "備註": "備註"
-            }
-            df_display = df_result[list(show_cols.keys())].rename(columns=show_cols)
-
-            # 自動轉換單位
-            def format_quantity_unit(row):
-                qty = row["數量"]
-                unit = row["單位"].strip().lower()
-                if unit == "g" and qty >= 1000:
-                    return pd.Series([qty/1000, "kg"])  # 數量轉 kg，單位也改成 kg
-                else:
-                    return pd.Series([qty, row["單位"]])  # 保留原數量與單位
-
-            df_display[["數量", "單位"]] = df_display.apply(format_quantity_unit, axis=1)
-
-            # 日期只顯示年月日
-            df_display["日期"] = df_display["日期"].dt.strftime("%Y/%m/%d")
-
-            # 顯示表格
-            st.dataframe(df_display, use_container_width=True)
-        else:
-            st.info("ℹ️ 沒有符合條件的進貨資料")
             
     # ---------------- 庫存查詢 ----------------
     st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 庫存查詢</h2>', unsafe_allow_html=True)
