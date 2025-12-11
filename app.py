@@ -3,7 +3,7 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
-import oshttps://github.com/Willa-oceanwei/color-powder-app/blob/main/app.py
+import os
 import json
 import time
 import base64
