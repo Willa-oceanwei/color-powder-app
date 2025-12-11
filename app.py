@@ -4420,7 +4420,7 @@ elif menu == "查詢區":
                 if not df_result_recipe.empty:
                     st.markdown('<div style="margin-top:10px;"></div>', unsafe_allow_html=True)
                     st.markdown(
-                        '<div style="font-size:14px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0;">📋 配方管理</div>',
+                        '<div style="font-size:14px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0; font-weight:bold;">📋 配方管理</div>',
                         unsafe_allow_html=True
                     )
                     st.dataframe(
