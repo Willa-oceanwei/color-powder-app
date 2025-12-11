@@ -4412,7 +4412,7 @@ elif menu == "查詢區":
             else:
                 if not df_result_pantone.empty:
                     st.markdown(
-                        '<div style="font-size:14px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0;">📋 Pantone 對照表</div>',
+                        '<div style="font-size:14px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0; font-weight:bold;">📋 Pantone 對照表</div>',
                         unsafe_allow_html=True
                     )
                     show_pantone_table(df_result_pantone, title="")
