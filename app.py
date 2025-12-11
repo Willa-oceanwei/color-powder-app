@@ -4452,7 +4452,7 @@ elif menu == "查詢區":
                 st.session_state.edit_sample_index = None
                 st.rerun()
 
-        st.markdown("---
+        st.markdown("---")
 
 # ===== 刪除確認 =====
     if st.session_state.show_delete_sample_confirm:
