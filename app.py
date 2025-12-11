@@ -3321,7 +3321,7 @@ elif menu == "代工管理":
     
     with tab1:
         st.markdown(
-            '<div style="font-size:12px; color:#0c5460;">💡 可直接建立代工單，不需透過生產單轉單</div>',
+            '<div style="font-size:12px; color:#3dbcd1;">💡 可直接建立代工單，不需透過生產單轉單</div>',
             unsafe_allow_html=True
         )
 
