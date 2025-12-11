@@ -4550,10 +4550,7 @@ if menu == "Pantone色號表":
                 st.markdown('<div style="margin-top:0px;"></div>', unsafe_allow_html=True)
                 st.dataframe(
                     df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True)
-                )            
-                
-# ======== 庫存區分頁 =========
-menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
+                )                            
 
 # ======== 庫存區分頁 =========
 elif menu == "庫存區":
