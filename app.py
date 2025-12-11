@@ -3896,9 +3896,10 @@ elif menu == "採購管理":
                         st.rerun()
             
 # ======== 交叉查詢分頁 =========
-menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
-
-if menu == "交叉查詢區":
+if "menu" not in st.session_state:
+    st.session_state.menu = "查詢區"
+# ======== 查詢區分頁（改為 Tab 架構）=========
+elif menu == "查詢區":
 
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
@@ -3914,461 +3915,649 @@ if menu == "交叉查詢區":
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
     df_order = st.session_state.get("df_order", pd.DataFrame())
 
-    # ---------------- 第一段：交叉查詢 ----------------
+    # ===== 標題 =====
     st.markdown(
-        '<h1 style="font-size:22px; font-family:Arial; color:#dbd818;">♻️ 依色粉編號查配方</h1>',
+        '<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🔍 查詢區</h1>',
         unsafe_allow_html=True
     )
 
-    # 輸入最多四個色粉編號
-    cols = st.columns(5)
-    inputs = []
-    for i in range(5):
-        val = cols[i].text_input(f"色粉編號{i+1}", key=f"cross_color_{i}")
-        if val.strip():
-            inputs.append(val.strip())
+    # ===== Tab 分頁 =====
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "♻️ 依色粉編號查配方",
+        "🧮 色粉用量查詢",
+        "🍭 Pantone色號表",
+        "🧪 樣品記錄表"
+    ])
 
-    if st.button("查詢配方", key="btn_cross_query") and inputs:
-        # 篩選符合的配方
-        mask = df_recipe.apply(
-            lambda row: all(
-                inp in row[[f"色粉編號{i}" for i in range(1, 9)]].astype(str).tolist() 
-                for inp in inputs
-            ),
-            axis=1
-        )
-        matched = df_recipe[mask].copy()
-
-        if matched.empty:
-            st.warning("⚠️ 找不到符合的配方")
-        else:
-            results = []
-            for _, recipe in matched.iterrows():
-                # 找最近的生產日期
-                orders = df_order[df_order["配方編號"].astype(str) == str(recipe["配方編號"])]
-                last_date = pd.NaT
-                if not orders.empty and "生產日期" in orders.columns:
-                    orders["生產日期"] = pd.to_datetime(orders["生產日期"], errors="coerce")
-                    last_date = orders["生產日期"].max()
-
-                # 色粉組成
-                powders = [
-                    str(recipe[f"色粉編號{i}"]).strip()
-                    for i in range(1, 9)
-                    if str(recipe[f"色粉編號{i}"]).strip()
-                ]
-                powder_str = "、".join(powders)
-
-                results.append({
-                    "最後生產時間": last_date,
-                    "配方編號": recipe["配方編號"],
-                    "顏色": recipe["顏色"],
-                    "客戶名稱": recipe["客戶名稱"],
-                    "色粉組成": powder_str
-                })
-
-            df_result = pd.DataFrame(results)
-
-            if not df_result.empty:
-                # 按最後生產時間排序（由近到遠）
-                df_result = df_result.sort_values(by="最後生產時間", ascending=False)
-
-                # 格式化最後生產時間（避免 NaT 顯示成 NaT）
-                df_result["最後生產時間"] = df_result["最後生產時間"].apply(
-                    lambda x: x.strftime("%Y-%m-%d") if pd.notnull(x) else ""
-                )
-
-            st.dataframe(df_result, use_container_width=True)
-
-    st.markdown("---")  # 分隔線
-
-    # ---------------- 第二段：色粉用量查詢 ----------------
-    st.markdown(
-        '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🧮 色粉用量查詢</h2>',
-        unsafe_allow_html=True
-    )
-
-    # 四個色粉編號輸入框
-    cols = st.columns(4)
-    powder_inputs = []
-    for i in range(4):
-        val = cols[i].text_input(f"色粉編號{i+1}", key=f"usage_color_{i}")
-        if val.strip():
-            powder_inputs.append(val.strip())
-
-    # ---- 日期區間選擇 ----
-    col1, col2 = st.columns(2)
-    start_date = col1.date_input("開始日期")
-    end_date = col2.date_input("結束日期")
-
-    def format_usage(val):
-        if val >= 1000:
-            kg = val / 1000
-            # 若小數部分 = 0 就顯示整數
-            if round(kg, 2) == int(kg):
-                return f"{int(kg)} kg"
-            else:
-                return f"{kg:.2f} kg"
-        else:
-            if round(val, 2) == int(val):
-                return f"{int(val)} g"
-            else:
-                return f"{val:.2f} g"
-
-    if st.button("查詢用量", key="btn_powder_usage") and powder_inputs:
-        results = []
-        df_order = st.session_state.get("df_order", pd.DataFrame()).copy()
-        df_recipe = st.session_state.get("df_recipe", pd.DataFrame()).copy()
-
-        # 確保欄位存在，避免 KeyError
-        powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
-        for c in powder_cols + ["配方編號", "配方類別", "原始配方", "配方名稱", "顏色", "客戶名稱"]:
-            if c not in df_recipe.columns:
-                df_recipe[c] = ""
-
-        if "生產日期" in df_order.columns:
-            df_order["生產日期"] = pd.to_datetime(df_order["生產日期"], errors="coerce")
-        else:
-            df_order["生產日期"] = pd.NaT
-
-        # 小工具：將 recipe dict 轉成顯示名稱（若有配方名稱用配方名稱，否則用編號+顏色）
-        def recipe_display_name(rec: dict) -> str:
-            name = str(rec.get("配方名稱", "")).strip()
-            if name:
-                return name
-            rid = str(rec.get("配方編號", "")).strip()
-            color = str(rec.get("顏色", "")).strip()
-            cust = str(rec.get("客戶名稱", "")).strip()
-            if color or cust:
-                parts = [p for p in [color, cust] if p]
-                return f"{rid} ({' / '.join(parts)})"
-            return rid
-
-        for powder_id in powder_inputs:
-            total_usage_g = 0.0
-            monthly_usage = {}   # e.g. { 'YYYY/MM': { 'usage': float, 'main_recipes': set(), 'additional_recipes': set() } }
-
-            # 1) 先從配方管理找出「候選配方」(任何一個色粉欄有包含此 powder_id)
-            if not df_recipe.empty:
-                mask = df_recipe[powder_cols].astype(str).apply(lambda row: powder_id in row.values, axis=1)
-                recipe_candidates = df_recipe[mask].copy()
-                candidate_ids = set(recipe_candidates["配方編號"].astype(str).tolist())
-            else:
-                recipe_candidates = pd.DataFrame()
-                candidate_ids = set()
-
-            # 2) 過濾生產單日期區間（只取有效日期）
-            orders_in_range = df_order[
-                (df_order["生產日期"].notna()) &
-                (df_order["生產日期"] >= pd.to_datetime(start_date)) &
-                (df_order["生產日期"] <= pd.to_datetime(end_date))
-            ]
-
-            # 3) 逐筆檢查訂單（保留原有過濾邏輯：只處理該訂單的主配方與其附加配方）
-            for _, order in orders_in_range.iterrows():
-                order_recipe_id = str(order.get("配方編號", "")).strip()
-                if not order_recipe_id:
-                    continue
-
-                # 取得主配方（若存在）與其附加配方
-                recipe_rows = []
-                main_df = df_recipe[df_recipe["配方編號"].astype(str) == order_recipe_id]
-                if not main_df.empty:
-                    recipe_rows.append(main_df.iloc[0].to_dict())
-                add_df = df_recipe[
-                    (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"].astype(str) == order_recipe_id)
-                ]
-                if not add_df.empty:
-                    recipe_rows.extend(add_df.to_dict("records"))
-
-                # 計算這張訂單中，該 powder_id 的用量（會檢查每個配方是否包含 powder_id，且該配方需在候選清單中）
-                # 若同一張單多個配方包含 powder_id，會將各配方的貢獻加總
-                order_total_for_powder = 0.0
-                sources_main = set()
-                sources_add = set()
-
-                # 先算出該訂單的包裝總份 (= sum(pack_w * pack_n) )
-                packs_total = 0.0
-                for j in range(1, 5):
-                    w_key = f"包裝重量{j}"
-                    n_key = f"包裝份數{j}"
-                    w_val = order[w_key] if w_key in order.index else 0
-                    n_val = order[n_key] if n_key in order.index else 0
-                    try:
-                        pack_w = float(w_val or 0)
-                    except (ValueError, TypeError):
-                        pack_w = 0.0
-                    try:
-                        pack_n = float(n_val or 0)
-                    except (ValueError, TypeError):
-                        pack_n = 0.0
-                    packs_total += pack_w * pack_n
-
-                if packs_total <= 0:
-                    # 如果這張訂單沒有實際包裝份數（皆為0），就跳過（因為不會產生用量）
-                    continue
-
-                for rec in recipe_rows:
-                    rec_id = str(rec.get("配方編號", "")).strip()
-                    # 只有當該配方在候選清單裡（也就是配方管理確認含該色粉）才計算
-                    if rec_id not in candidate_ids:
-                        continue
-
-                    pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-                    if powder_id not in pvals:
-                        continue
-
-                    idx = pvals.index(powder_id) + 1
-                    try:
-                        powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
-                    except (ValueError, TypeError):
-                        powder_weight = 0.0
-
-                    if powder_weight <= 0:
-                        continue
-
-                    # 用量 (g) = 色粉重量 * packs_total
-                    contrib = powder_weight * packs_total
-                    order_total_for_powder += contrib
-                    # 記錄來源
-                    disp_name = recipe_display_name(rec)
-                    if str(rec.get("配方類別", "")).strip() == "附加配方":
-                        sources_add.add(disp_name)
-                    else:
-                        sources_main.add(disp_name)
-
-                if order_total_for_powder <= 0:
-                    continue
-
-                # 累計到月份
-                od = order["生產日期"]
-                if pd.isna(od):
-                    continue
-                month_key = od.strftime("%Y/%m")
-                if month_key not in monthly_usage:
-                    monthly_usage[month_key] = {"usage": 0.0, "main_recipes": set(), "additional_recipes": set()}
-
-                monthly_usage[month_key]["usage"] += order_total_for_powder
-                monthly_usage[month_key]["main_recipes"].update(sources_main)
-                monthly_usage[month_key]["additional_recipes"].update(sources_add)
-                total_usage_g += order_total_for_powder
-
-            # 4) 輸出每月用量（日期區間使用輸入 start/end 與該月份交集，整月顯示 YYYY/MM，否則顯示 YYYY/MM/DD~MM/DD）
-            #    只輸出用量>0 的月份
-            months_sorted = sorted(monthly_usage.keys())
-            for month in months_sorted:
-                data = monthly_usage[month]
-                usage_g = data["usage"]
-                if usage_g <= 0:
-                    continue
-
-                # 利用 pd.Period 計算該月份的第一天/最後一天
-                per = pd.Period(month, freq="M")
-                month_start = per.start_time.date()
-                month_end = per.end_time.date()
-                disp_start = max(start_date, month_start)
-                disp_end = min(end_date, month_end)
-
-                if (disp_start == month_start) and (disp_end == month_end):
-                    date_disp = month
-                else:
-                    date_disp = f"{disp_start.strftime('%Y/%m/%d')}~{disp_end.strftime('%m/%d')}"
-
-                usage_disp = format_usage(usage_g)
-                main_src = ", ".join(sorted(data["main_recipes"])) if data["main_recipes"] else ""
-                add_src  = ", ".join(sorted(data["additional_recipes"])) if data["additional_recipes"] else ""
-
-                results.append({
-                    "色粉編號": powder_id,
-                    "來源區間": date_disp,
-                    "月用量": usage_disp,
-                    "主配方來源": main_src,
-                    "附加配方來源": add_src
-                })
-
-            # 5) 總用量（always append）
-            total_disp = format_usage(total_usage_g)
-            results.append({
-                "色粉編號": powder_id,
-                "來源區間": "總用量",
-                "月用量": total_disp,
-                "主配方來源": "",
-                "附加配方來源": ""
-            })
-
-        df_usage = pd.DataFrame(results)
-
-        def highlight_total_row(s):
-            # 只有總用量那行才套用
-            return [
-                'font-weight: bold; background-color: #333333; color: white' if s.name in df_usage.index and df_usage.loc[s.name, "來源區間"] == "總用量" and col in ["色粉編號", "來源區間", "月用量"] else ''
-                for col in s.index
-            ]
-
-        styled = df_usage.style.apply(highlight_total_row, axis=1)
-        st.dataframe(styled, use_container_width=True)
-
-    st.markdown("---")  # 分隔線
-
-
-# ======== Pantone色號分頁 =========
-menu = st.session_state.get("menu", "色粉管理")  # 預設值可以自己改
-
-if menu == "Pantone色號表":
-
-    # ===== 縮小整個頁面最上方空白 =====
-    st.markdown("""
-    <style>
-    div.block-container {
-        padding-top: 5px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    import streamlit as st
-    import pandas as pd
-
-    # 讀取 Google Sheets
-    ws_pantone = spreadsheet.worksheet("Pantone色號表")
-    df_pantone = pd.DataFrame(ws_pantone.get_all_records())
-
-    ws_recipe = spreadsheet.worksheet("配方管理")
-    df_recipe = pd.DataFrame(ws_recipe.get_all_records())
-
-    st.markdown(
-            '<h1 style="font-size:22px; font-family:Arial; color:#dbd818;">🍭 Pantone色號表</h1>',
+    # ========== Tab 1：依色粉編號查配方 ==========
+    with tab1:
+        st.markdown(
+            '<h2 style="font-size:20px; font-family:Arial; color:#f0efa2;">♻️ 依色粉編號查配方</h2>',
             unsafe_allow_html=True
         )
 
-    # 嘗試讀取 Pantone色號表
-    try:
-        ws_pantone = spreadsheet.worksheet("Pantone色號表")
-    except:
-        ws_pantone = spreadsheet.add_worksheet(title="Pantone色號表", rows=100, cols=4)
+        # 輸入最多五個色粉編號
+        cols = st.columns(5)
+        inputs = []
+        for i in range(5):
+            val = cols[i].text_input(f"色粉編號{i+1}", key=f"cross_color_{i}")
+            if val.strip():
+                inputs.append(val.strip())
 
-    df_pantone = pd.DataFrame(ws_pantone.get_all_records())
+        if st.button("查詢配方", key="btn_cross_query") and inputs:
+            # 篩選符合的配方
+            mask = df_recipe.apply(
+                lambda row: all(
+                    inp in row[[f"色粉編號{i}" for i in range(1, 9)]].astype(str).tolist() 
+                    for inp in inputs
+                ),
+                axis=1
+            )
+            matched = df_recipe[mask].copy()
 
-    # 如果表格是空的，補上欄位名稱
-    if df_pantone.empty:
-        ws_pantone.clear()
-        ws_pantone.append_row(["Pantone色號", "配方編號", "客戶名稱", "料號"])
-        df_pantone = pd.DataFrame(columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
-    
-    # === 新增區塊（2 欄一列） ===
-    with st.form("add_pantone"):
-        col1, col2 = st.columns(2)
-        with col1:
-            pantone_code = st.text_input("Pantone 色號")
-        with col2:
-            formula_id = st.text_input("配方編號")
-        
-        col3, col4 = st.columns(2)
-        with col3:
-            customer = st.text_input("客戶名稱")
-        with col4:
-            material_no = st.text_input("料號")
-    
-        # 按鈕必須在 form 內
-        submitted = st.form_submit_button("➕ 新增")
-    
-        if submitted:
-            if not pantone_code or not formula_id:
-                st.error("❌ Pantone 色號與配方編號必填")
+            if matched.empty:
+                st.warning("⚠️ 找不到符合的配方")
             else:
-                # 單向檢查配方管理
-                if formula_id in df_recipe["配方編號"].astype(str).values:
-                    st.warning(f"⚠️ 配方編號 {formula_id} 已存在於『配方管理』，不新增")
-                # 檢查 Pantone 色號表內是否重複
-                elif formula_id in df_pantone["配方編號"].astype(str).values:
-                    st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
+                results = []
+                for _, recipe in matched.iterrows():
+                    # 找最近的生產日期
+                    orders = df_order[df_order["配方編號"].astype(str) == str(recipe["配方編號"])]
+                    last_date = pd.NaT
+                    if not orders.empty and "生產日期" in orders.columns:
+                        orders["生產日期"] = pd.to_datetime(orders["生產日期"], errors="coerce")
+                        last_date = orders["生產日期"].max()
+
+                    # 色粉組成
+                    powders = [
+                        str(recipe[f"色粉編號{i}"]).strip()
+                        for i in range(1, 9)
+                        if str(recipe[f"色粉編號{i}"]).strip()
+                    ]
+                    powder_str = "、".join(powders)
+
+                    results.append({
+                        "最後生產時間": last_date,
+                        "配方編號": recipe["配方編號"],
+                        "顏色": recipe["顏色"],
+                        "客戶名稱": recipe["客戶名稱"],
+                        "色粉組成": powder_str
+                    })
+
+                df_result = pd.DataFrame(results)
+
+                if not df_result.empty:
+                    # 按最後生產時間排序（由近到遠）
+                    df_result = df_result.sort_values(by="最後生產時間", ascending=False)
+
+                    # 格式化最後生產時間（避免 NaT 顯示成 NaT）
+                    df_result["最後生產時間"] = df_result["最後生產時間"].apply(
+                        lambda x: x.strftime("%Y-%m-%d") if pd.notnull(x) else ""
+                    )
+
+                st.dataframe(df_result, use_container_width=True, hide_index=True)
+
+# ========== Tab 2：色粉用量查詢 ==========
+    with tab2:
+        st.markdown(
+            '<h2 style="font-size:20px; font-family:Arial; color:#f0efa2;">🧮 色粉用量查詢</h2>',
+            unsafe_allow_html=True
+        )
+
+        # 四個色粉編號輸入框
+        cols = st.columns(4)
+        powder_inputs = []
+        for i in range(4):
+            val = cols[i].text_input(f"色粉編號{i+1}", key=f"usage_color_{i}")
+            if val.strip():
+                powder_inputs.append(val.strip())
+
+        # ---- 日期區間選擇 ----
+        col1, col2 = st.columns(2)
+        start_date = col1.date_input("開始日期", key="usage_start_date")
+        end_date = col2.date_input("結束日期", key="usage_end_date")
+
+        def format_usage(val):
+            if val >= 1000:
+                kg = val / 1000
+                # 若小數部分 = 0 就顯示整數
+                if round(kg, 2) == int(kg):
+                    return f"{int(kg)} kg"
                 else:
-                    ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
-                    st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
-                    
-    # ====== 全域函式 ======
-    def show_pantone_table(df, title="Pantone 色號表"):
-        """統一顯示 Pantone 色號表：去掉序號、文字左對齊"""
-        st.subheader(title)
-    
-        # 如果 df 是 None 或不是 DataFrame，直接顯示空訊息
-        if df is None or not isinstance(df, pd.DataFrame) or df.empty:
-            st.info("⚠️ 目前沒有資料")
-            return
-    
-        # 轉成 DataFrame，重置 index，所有欄位轉字串
-        df_reset = pd.DataFrame(df).reset_index(drop=True).astype(str)
-    
-        st.table(df_reset)
+                    return f"{kg:.2f} kg"
+            else:
+                if round(val, 2) == int(val):
+                    return f"{int(val)} g"
+                else:
+                    return f"{val:.2f} g"
 
-    # ======== Pantone色號查詢區塊 =========
-    st.markdown(
-        """
-        <style>
-        /* 查詢框下方距離縮小 */
-        div.stTextInput {
-            margin-bottom: 0.2rem !important;
-        }
-        /* 表格上方和下方距離縮小 */
-        div[data-testid="stTable"] {
-            margin-top: 0.2rem !important;
-            margin-bottom: 0.2rem !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+        if st.button("查詢用量", key="btn_powder_usage") and powder_inputs:
+            results = []
+            df_order_local = st.session_state.get("df_order", pd.DataFrame()).copy()
+            df_recipe_local = st.session_state.get("df_recipe", pd.DataFrame()).copy()
 
-    # ======== 🔍 查詢 Pantone 色號 ========
-    st.markdown(
-        '<h1 style="font-size:22px; font-family:Arial; color:#f0efa2;">🔍 查詢 Pantone 色號</h1>',
-        unsafe_allow_html=True
-    )
+            # 確保欄位存在，避免 KeyError
+            powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
+            for c in powder_cols + ["配方編號", "配方類別", "原始配方", "配方名稱", "顏色", "客戶名稱"]:
+                if c not in df_recipe_local.columns:
+                    df_recipe_local[c] = ""
 
-    # 查詢輸入框
-    search_code = st.text_input("輸入 Pantone 色號")
+            if "生產日期" in df_order_local.columns:
+                df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce")
+            else:
+                df_order_local["生產日期"] = pd.NaT
 
-    # 使用者有輸入才顯示結果
-    if search_code:
-        # ---------- 第一部分：Pantone 對照表 ----------
-        if "df_pantone" in locals() or "df_pantone" in globals():
-            df_result_pantone = df_pantone[df_pantone["Pantone色號"].str.contains(search_code, case=False, na=False)]
-        else:
-            df_result_pantone = pd.DataFrame()
+            # 小工具：將 recipe dict 轉成顯示名稱（若有配方名稱用配方名稱，否則用編號+顏色）
+            def recipe_display_name(rec: dict) -> str:
+                name = str(rec.get("配方名稱", "")).strip()
+                if name:
+                    return name
+                rid = str(rec.get("配方編號", "")).strip()
+                color = str(rec.get("顏色", "")).strip()
+                cust = str(rec.get("客戶名稱", "")).strip()
+                if color or cust:
+                    parts = [p for p in [color, cust] if p]
+                    return f"{rid} ({' / '.join(parts)})"
+                return rid
 
-        # ---------- 第二部分：配方管理 ----------
-        if "df_recipe" in st.session_state and not st.session_state.df_recipe.empty:
-            df_recipe = st.session_state.df_recipe
-        elif "df" in st.session_state and not st.session_state.df.empty:
-            df_recipe = st.session_state.df
-        else:
-            df_recipe = pd.DataFrame()
+            for powder_id in powder_inputs:
+                total_usage_g = 0.0
+                monthly_usage = {}   # e.g. { 'YYYY/MM': { 'usage': float, 'main_recipes': set(), 'additional_recipes': set() } }
 
-        if not df_recipe.empty and "Pantone色號" in df_recipe.columns:
-            df_result_recipe = df_recipe[df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False)]
-        else:
-            df_result_recipe = pd.DataFrame()
+                # 1) 先從配方管理找出「候選配方」(任何一個色粉欄有包含此 powder_id)
+                if not df_recipe_local.empty:
+                    mask = df_recipe_local[powder_cols].astype(str).apply(lambda row: powder_id in row.values, axis=1)
+                    recipe_candidates = df_recipe_local[mask].copy()
+                    candidate_ids = set(recipe_candidates["配方編號"].astype(str).tolist())
+                else:
+                    recipe_candidates = pd.DataFrame()
+                    candidate_ids = set()
 
+                # 2) 過濾生產單日期區間（只取有效日期）
+                orders_in_range = df_order_local[
+                    (df_order_local["生產日期"].notna()) &
+                    (df_order_local["生產日期"] >= pd.to_datetime(start_date)) &
+                    (df_order_local["生產日期"] <= pd.to_datetime(end_date))
+                ]
+
+                # 3) 逐筆檢查訂單（保留原有過濾邏輯：只處理該訂單的主配方與其附加配方）
+                for _, order in orders_in_range.iterrows():
+                    order_recipe_id = str(order.get("配方編號", "")).strip()
+                    if not order_recipe_id:
+                        continue
+
+                    # 取得主配方（若存在）與其附加配方
+                    recipe_rows = []
+                    main_df = df_recipe_local[df_recipe_local["配方編號"].astype(str) == order_recipe_id]
+                    if not main_df.empty:
+                        recipe_rows.append(main_df.iloc[0].to_dict())
+                    add_df = df_recipe_local[
+                        (df_recipe_local["配方類別"] == "附加配方") &
+                        (df_recipe_local["原始配方"].astype(str) == order_recipe_id)
+                    ]
+                    if not add_df.empty:
+                        recipe_rows.extend(add_df.to_dict("records"))
+
+                    # 計算這張訂單中，該 powder_id 的用量（會檢查每個配方是否包含 powder_id，且該配方需在候選清單中）
+                    order_total_for_powder = 0.0
+                    sources_main = set()
+                    sources_add = set()
+
+                    # 先算出該訂單的包裝總份 (= sum(pack_w * pack_n) )
+                    packs_total = 0.0
+                    for j in range(1, 5):
+                        w_key = f"包裝重量{j}"
+                        n_key = f"包裝份數{j}"
+                        w_val = order[w_key] if w_key in order.index else 0
+                        n_val = order[n_key] if n_key in order.index else 0
+                        try:
+                            pack_w = float(w_val or 0)
+                        except (ValueError, TypeError):
+                            pack_w = 0.0
+                        try:
+                            pack_n = float(n_val or 0)
+                        except (ValueError, TypeError):
+                            pack_n = 0.0
+                        packs_total += pack_w * pack_n
+
+                    if packs_total <= 0:
+                        # 如果這張訂單沒有實際包裝份數（皆為0），就跳過（因為不會產生用量）
+                        continue
+
+                    for rec in recipe_rows:
+                        rec_id = str(rec.get("配方編號", "")).strip()
+                        # 只有當該配方在候選清單裡（也就是配方管理確認含該色粉）才計算
+                        if rec_id not in candidate_ids:
+                            continue
+
+                        pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
+                        if powder_id not in pvals:
+                            continue
+
+                        idx = pvals.index(powder_id) + 1
+                        try:
+                            powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
+                        except (ValueError, TypeError):
+                            powder_weight = 0.0
+
+                        if powder_weight <= 0:
+                            continue
+
+                        # 用量 (g) = 色粉重量 * packs_total
+                        contrib = powder_weight * packs_total
+                        order_total_for_powder += contrib
+                        # 記錄來源
+                        disp_name = recipe_display_name(rec)
+                        if str(rec.get("配方類別", "")).strip() == "附加配方":
+                            sources_add.add(disp_name)
+                        else:
+                            sources_main.add(disp_name)
+
+                    if order_total_for_powder <= 0:
+                        continue
+
+                    # 累計到月份
+                    od = order["生產日期"]
+                    if pd.isna(od):
+                        continue
+                    month_key = od.strftime("%Y/%m")
+                    if month_key not in monthly_usage:
+                        monthly_usage[month_key] = {"usage": 0.0, "main_recipes": set(), "additional_recipes": set()}
+
+                    monthly_usage[month_key]["usage"] += order_total_for_powder
+                    monthly_usage[month_key]["main_recipes"].update(sources_main)
+                    monthly_usage[month_key]["additional_recipes"].update(sources_add)
+                    total_usage_g += order_total_for_powder
+
+                # 4) 輸出每月用量（日期區間使用輸入 start/end 與該月份交集，整月顯示 YYYY/MM，否則顯示 YYYY/MM/DD~MM/DD）
+                #    只輸出用量>0 的月份
+                months_sorted = sorted(monthly_usage.keys())
+                for month in months_sorted:
+                    data = monthly_usage[month]
+                    usage_g = data["usage"]
+                    if usage_g <= 0:
+                        continue
+
+                    # 利用 pd.Period 計算該月份的第一天/最後一天
+                    per = pd.Period(month, freq="M")
+                    month_start = per.start_time.date()
+                    month_end = per.end_time.date()
+                    disp_start = max(start_date, month_start)
+                    disp_end = min(end_date, month_end)
+
+                    if (disp_start == month_start) and (disp_end == month_end):
+                        date_disp = month
+                    else:
+                        date_disp = f"{disp_start.strftime('%Y/%m/%d')}~{disp_end.strftime('%m/%d')}"
+
+                    usage_disp = format_usage(usage_g)
+                    main_src = ", ".join(sorted(data["main_recipes"])) if data["main_recipes"] else ""
+                    add_src  = ", ".join(sorted(data["additional_recipes"])) if data["additional_recipes"] else ""
+
+                    results.append({
+                        "色粉編號": powder_id,
+                        "來源區間": date_disp,
+                        "月用量": usage_disp,
+                        "主配方來源": main_src,
+                        "附加配方來源": add_src
+                    })
+
+                # 5) 總用量（always append）
+                total_disp = format_usage(total_usage_g)
+                results.append({
+                    "色粉編號": powder_id,
+                    "來源區間": "總用量",
+                    "月用量": total_disp,
+                    "主配方來源": "",
+                    "附加配方來源": ""
+                })
+
+            df_usage = pd.DataFrame(results)
+
+            def highlight_total_row(s):
+                # 只有總用量那行才套用
+                return [
+                    'font-weight: bold; background-color: #333333; color: white' if s.name in df_usage.index and df_usage.loc[s.name, "來源區間"] == "總用量" and col in ["色粉編號", "來源區間", "月用量"] else ''
+                    for col in s.index
+                ]
+
+            styled = df_usage.style.apply(highlight_total_row, axis=1)
+            st.dataframe(styled, use_container_width=True, hide_index=True)
+
+# ========== Tab 3：Pantone色號表 ==========
+    with tab3:
+        st.markdown(
+            '<h2 style="font-size:20px; font-family:Arial; color:#f0efa2;">🍭 Pantone色號表</h2>',
+            unsafe_allow_html=True
+        )
+
+        # 讀取 Google Sheets
+        try:
+            ws_pantone = spreadsheet.worksheet("Pantone色號表")
+        except:
+            ws_pantone = spreadsheet.add_worksheet(title="Pantone色號表", rows=100, cols=4)
+
+        df_pantone = pd.DataFrame(ws_pantone.get_all_records())
+
+        # 如果表格是空的，補上欄位名稱
+        if df_pantone.empty:
+            ws_pantone.clear()
+            ws_pantone.append_row(["Pantone色號", "配方編號", "客戶名稱", "料號"])
+            df_pantone = pd.DataFrame(columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
+
+        # === 新增區塊（2 欄一列） ===
+        st.markdown("**➕ 新增 Pantone 記錄**")
+        with st.form("add_pantone_tab"):
+            col1, col2 = st.columns(2)
+            with col1:
+                pantone_code = st.text_input("Pantone 色號", key="pantone_code_tab")
+            with col2:
+                formula_id = st.text_input("配方編號", key="formula_id_tab")
+            
+            col3, col4 = st.columns(2)
+            with col3:
+                customer = st.text_input("客戶名稱", key="customer_tab")
+            with col4:
+                material_no = st.text_input("料號", key="material_no_tab")
         
-        # ---------- 顯示結果 ----------
-        if df_result_pantone.empty and df_result_recipe.empty:
-            st.warning("查無符合的 Pantone 色號資料。")
-        else:
-            if not df_result_pantone.empty:
-                # 與查詢欄標題統一字體大小和顏色，並縮小上下 margin
+            # 按鈕必須在 form 內
+            submitted = st.form_submit_button("➕ 新增")
+        
+            if submitted:
+                if not pantone_code or not formula_id:
+                    st.error("❌ Pantone 色號與配方編號必填")
+                else:
+                    # 單向檢查配方管理
+                    if formula_id in df_recipe["配方編號"].astype(str).values:
+                        st.warning(f"⚠️ 配方編號 {formula_id} 已存在於『配方管理』，不新增")
+                    # 檢查 Pantone 色號表內是否重複
+                    elif formula_id in df_pantone["配方編號"].astype(str).values:
+                        st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
+                    else:
+                        ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
+                        st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
+                        st.rerun()
+
+        st.markdown("---")
+
+        # ====== 統一顯示 Pantone 色號表函式 ======
+        def show_pantone_table(df, title="Pantone 色號表"):
+            """統一顯示 Pantone 色號表：去掉序號、文字左對齊"""
+            if title:
+                st.subheader(title)
+        
+            # 如果 df 是 None 或不是 DataFrame，直接顯示空訊息
+            if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+                st.info("⚠️ 目前沒有資料")
+                return
+        
+            # 轉成 DataFrame，重置 index，所有欄位轉字串
+            df_reset = pd.DataFrame(df).reset_index(drop=True).astype(str)
+        
+            st.table(df_reset)
+
+        # ======== Pantone色號查詢區塊 =========
+        st.markdown("""
+            <style>
+            /* 查詢框下方距離縮小 */
+            div.stTextInput {
+                margin-bottom: 0.2rem !important;
+            }
+            /* 表格上方和下方距離縮小 */
+            div[data-testid="stTable"] {
+                margin-top: 0.2rem !important;
+                margin-bottom: 0.2rem !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # ======== 🔍 查詢 Pantone 色號 ========
+        st.markdown("**🔍 查詢 Pantone 色號**")
+
+        # 查詢輸入框
+        search_code = st.text_input("輸入 Pantone 色號", key="search_pantone_tab")
+
+        # 使用者有輸入才顯示結果
+        if search_code:
+            # ---------- 第一部分：Pantone 對照表 ----------
+            df_result_pantone = df_pantone[df_pantone["Pantone色號"].str.contains(search_code, case=False, na=False)]
+
+            # ---------- 第二部分：配方管理 ----------
+            if not df_recipe.empty and "Pantone色號" in df_recipe.columns:
+                df_result_recipe = df_recipe[df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False)]
+            else:
+                df_result_recipe = pd.DataFrame()
+
+            # ---------- 顯示結果 ----------
+            if df_result_pantone.empty and df_result_recipe.empty:
+                st.warning("查無符合的 Pantone 色號資料。")
+            else:
+                if not df_result_pantone.empty:
+                    st.markdown(
+                        '<div style="font-size:18px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0;">📋 Pantone 對照表</div>',
+                        unsafe_allow_html=True
+                    )
+                    show_pantone_table(df_result_pantone, title="")
+
+                if not df_result_recipe.empty:
+                    st.markdown('<div style="margin-top:10px;"></div>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<div style="font-size:18px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0;">📋 配方管理</div>',
+                        unsafe_allow_html=True
+                    )
+                    st.dataframe(
+                        df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+
+# ========== Tab 4：樣品記錄表 ==========
+    with tab4:
+        st.markdown(
+            '<h2 style="font-size:20px; font-family:Arial; color:#f0efa2;">🧪 樣品記錄表</h2>',
+            unsafe_allow_html=True
+        )
+
+        # ===== 讀取或建立 Google Sheet =====
+        try:
+            ws_sample = spreadsheet.worksheet("樣品記錄")
+        except:
+            ws_sample = spreadsheet.add_worksheet("樣品記錄", rows=100, cols=10)
+            ws_sample.append_row(["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
+
+        # 讀取資料
+        try:
+            df_sample = pd.DataFrame(ws_sample.get_all_records())
+            if df_sample.empty:
+                df_sample = pd.DataFrame(columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
+        except:
+            df_sample = pd.DataFrame(columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
+
+        # 確保所有欄位存在
+        for col in ["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"]:
+            if col not in df_sample.columns:
+                df_sample[col] = ""
+
+        # 初始化 session_state
+        if "form_sample" not in st.session_state:
+            st.session_state.form_sample = {"日期": "", "客戶名稱": "", "樣品編號": "", "樣品名稱": "", "樣品數量": ""}
+        if "edit_sample_index" not in st.session_state:
+            st.session_state.edit_sample_index = None
+        if "delete_sample_index" not in st.session_state:
+            st.session_state.delete_sample_index = None
+        if "show_delete_sample_confirm" not in st.session_state:
+            st.session_state.show_delete_sample_confirm = False
+        if "sample_page" not in st.session_state:
+            st.session_state.sample_page = 1
+        if "sample_limit" not in st.session_state:
+            st.session_state.sample_limit = 5
+
+        # ===== 新增樣品 =====
+        st.markdown("**➕ 新增樣品記錄**")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.session_state.form_sample["日期"] = st.date_input(
+                "日期",
+                value=pd.to_datetime(st.session_state.form_sample.get("日期", datetime.today())),
+                key="sample_date"
+            ).strftime("%Y/%m/%d")
+        with col2:
+            st.session_state.form_sample["客戶名稱"] = st.text_input(
+                "客戶名稱",
+                value=st.session_state.form_sample.get("客戶名稱", ""),
+                key="sample_customer"
+            )
+        with col3:
+            st.session_state.form_sample["樣品編號"] = st.text_input(
+                "樣品編號",
+                value=st.session_state.form_sample.get("樣品編號", ""),
+                key="sample_code"
+            )
+
+        col4, col5 = st.columns(2)
+        with col4:
+            st.session_state.form_sample["樣品名稱"] = st.text_input(
+                "樣品名稱",
+                value=st.session_state.form_sample.get("樣品名稱", ""),
+                key="sample_name"
+            )
+        with col5:
+            st.session_state.form_sample["樣品數量"] = st.text_input(
+                "樣品數量",
+                value=st.session_state.form_sample.get("樣品數量", ""),
+                key="sample_qty"
+            )
+
+        if st.button("💾 儲存", key="save_sample"):
+            new_data = st.session_state.form_sample.copy()
+            if not new_data["樣品編號"].strip():
+                st.warning("⚠️ 請輸入樣品編號！")
+            else:
+                if st.session_state.edit_sample_index is not None:
+                    # 更新模式
+                    idx = st.session_state.edit_sample_index
+                    for col in df_sample.columns:
+                        df_sample.at[idx, col] = new_data.get(col, "")
+                    st.success("✅ 樣品記錄已更新！")
+                else:
+                    # 新增模式
+                    df_sample = pd.concat([df_sample, pd.DataFrame([new_data])], ignore_index=True)
+                    st.success("✅ 新增成功！")
+                
+                # 寫回 Google Sheet
+                save_df_to_sheet(ws_sample, df_sample)
+                st.session_state.form_sample = {"日期": "", "客戶名稱": "", "樣品編號": "", "樣品名稱": "", "樣品數量": ""}
+                st.session_state.edit_sample_index = None
+                st.rerun()
+
+        st.markdown("---
+
+# ===== 刪除確認 =====
+    if st.session_state.show_delete_sample_confirm:
+        target_row = df_sample.iloc[st.session_state.delete_sample_index]
+        target_text = f'{target_row["樣品編號"]} {target_row["樣品名稱"]}'
+        st.warning(f"⚠️ 確定要刪除 {target_text}？")
+        c1, c2 = st.columns(2)
+        if c1.button("刪除", key="confirm_delete_sample"):
+            df_sample.drop(index=st.session_state.delete_sample_index, inplace=True)
+            df_sample.reset_index(drop=True, inplace=True)
+            save_df_to_sheet(ws_sample, df_sample)
+            st.success("✅ 刪除成功！")
+            st.session_state.show_delete_sample_confirm = False
+            st.rerun()
+        if c2.button("取消", key="cancel_delete_sample"):
+            st.session_state.show_delete_sample_confirm = False
+            st.rerun()
+
+    # ===== 樣品記錄表格顯示（分頁） =====
+    st.markdown("**📋 樣品記錄清單**")
+
+    if not df_sample.empty:
+        # 計算分頁
+        total_rows = len(df_sample)
+        limit = st.session_state.sample_limit
+        total_pages = max((total_rows - 1) // limit + 1, 1)
+
+        # 限制頁碼
+        if st.session_state.sample_page > total_pages:
+            st.session_state.sample_page = total_pages
+
+        # 分頁索引
+        start_idx = (st.session_state.sample_page - 1) * limit
+        end_idx = start_idx + limit
+        page_data = df_sample.iloc[start_idx:end_idx]
+
+        # 顯示表格
+        st.dataframe(
+            page_data[["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"]].reset_index(drop=True),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # 修改 / 刪除按鈕
+        st.markdown("**✏️ 修改 / 🗑️ 刪除**")
+        for i, row in page_data.iterrows():
+            c1, c2, c3 = st.columns([3, 1, 1])
+            with c1:
                 st.markdown(
-                    '<div style="font-size:20px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0;">🔍 Pantone 對照表</div>',
+                    f"<div style='font-family:Arial;color:#FFFFFF;'>🔹 {row['樣品編號']}　{row['樣品名稱']}</div>",
                     unsafe_allow_html=True
                 )
+            with c2:
+                if st.button("✏️ 改", key=f"edit_sample_{i}"):
+                    st.session_state.edit_sample_index = i
+                    st.session_state.form_sample = row.to_dict()
+                    st.rerun()
+            with c3:
+                if st.button("🗑️ 刪", key=f"delete_sample_{i}"):
+                    st.session_state.delete_sample_index = i
+                    st.session_state.show_delete_sample_confirm = True
+                    st.rerun()
 
-                show_pantone_table(df_result_pantone, title="")
+        # 分頁控制
+        cols_page = st.columns([1, 1, 1, 2, 1])
+        with cols_page[0]:
+            if st.button("🏠首頁", key="first_page_sample"):
+                st.session_state.sample_page = 1
+                st.rerun()
+        with cols_page[1]:
+            if st.button("🔼上一頁", key="prev_page_sample") and st.session_state.sample_page > 1:
+                st.session_state.sample_page -= 1
+                st.rerun()
+        with cols_page[2]:
+            if st.button("🔽下一頁", key="next_page_sample") and st.session_state.sample_page < total_pages:
+                st.session_state.sample_page += 1
+                st.rerun()
+        with cols_page[3]:
+            jump_page = st.number_input(
+                "",
+                min_value=1,
+                max_value=total_pages,
+                value=st.session_state.sample_page,
+                key="jump_page_sample",
+                label_visibility="collapsed"
+            )
+            if jump_page != st.session_state.sample_page:
+                st.session_state.sample_page = jump_page
+                st.rerun()
+        with cols_page[4]:
+            new_limit = st.selectbox(
+                "",
+                options=[5, 10, 20, 50],
+                index=[5, 10, 20, 50].index(st.session_state.sample_limit),
+                key="sample_limit_select",
+                label_visibility="collapsed"
+            )
+            if new_limit != st.session_state.sample_limit:
+                st.session_state.sample_limit = new_limit
+                st.session_state.sample_page = 1
+                st.rerun()
 
-            if not df_result_recipe.empty:
-                # 可額外加 margin-top 1~2px，避免貼太近或太遠
-                st.markdown('<div style="margin-top:0px;"></div>', unsafe_allow_html=True)
-                st.dataframe(
-                    df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True)
-                )                            
+        st.caption(f"頁碼 {st.session_state.sample_page} / {total_pages}，總筆數 {total_rows}")
+    else:
+        st.info("⚠️ 目前沒有樣品記錄")
 
 # ======== 庫存區分頁 =========
 elif menu == "庫存區":
