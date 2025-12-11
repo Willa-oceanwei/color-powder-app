@@ -4352,7 +4352,7 @@ elif menu == "查詢區":
                         hide_index=True
                     )
 
-# ========== Tab 4：樣品記錄表 ==========
+    # ========== Tab 4：樣品記錄表 ==========
     with tab4:
         st.markdown(
             '<h2 style="font-size:20px; font-family:Arial; color:#f0efa2;">🧪 樣品記錄表</h2>',
@@ -4397,7 +4397,8 @@ elif menu == "查詢區":
         st.markdown("**➕ 新增樣品記錄**")
 
         # 初始化日期欄位
-        from datetime import datetime
+        # --- 初始化日期欄位函式 ---
+        from datetime import datetime, date
 
         def init_date_field(field_name, default_date=None):
             if default_date is None:
@@ -4405,28 +4406,32 @@ elif menu == "查詢區":
             if "form_sample" not in st.session_state:
                 st.session_state.form_sample = {}
             value = st.session_state.form_sample.get(field_name, default_date)
+
             if value is None or value == "" or (isinstance(value, pd.Timestamp) and pd.isna(value)):
                 value = default_date
             elif isinstance(value, pd.Timestamp):
                 value = value.date()
             elif isinstance(value, datetime):
                 value = value.date()
-            elif not isinstance(value, datetime.date):
+            elif not isinstance(value, date):
                 try:
                     value = pd.to_datetime(value).date()
                 except:
                     value = default_date
+
             st.session_state.form_sample[field_name] = value
             return value
 
         # --- 表單 ---
         col1, col2, col3 = st.columns(3)
         with col1:
+            date_value = init_date_field("日期")  # 確保 session_state["日期"] 是 datetime.date
             st.session_state.form_sample["日期"] = st.date_input(
                 "日期",
-                value=pd.to_datetime(st.session_state.form_sample.get("日期", datetime.today())),
+                value=date_value,
                 key="sample_date"
-            ).strftime("%Y/%m/%d")
+            )
+
         with col2:
             st.session_state.form_sample["客戶名稱"] = st.text_input(
                 "客戶名稱",
