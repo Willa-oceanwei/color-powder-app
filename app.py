@@ -4500,93 +4500,93 @@ elif menu == "查詢區":
             st.session_state.show_delete_sample_confirm = False
             st.rerun()
 
-    # ===== 樣品記錄表格顯示（分頁） =====
-    st.markdown("**📋 樣品記錄清單**")
+        # ===== 樣品記錄表格顯示（分頁） =====
+        st.markdown("**📋 樣品記錄清單**")
 
-    if not df_sample.empty:
-        # 計算分頁
-        total_rows = len(df_sample)
-        limit = st.session_state.sample_limit
-        total_pages = max((total_rows - 1) // limit + 1, 1)
+        if not df_sample.empty:
+            # 計算分頁
+            total_rows = len(df_sample)
+            limit = st.session_state.sample_limit
+            total_pages = max((total_rows - 1) // limit + 1, 1)
 
-        # 限制頁碼
-        if st.session_state.sample_page > total_pages:
-            st.session_state.sample_page = total_pages
+            # 限制頁碼
+            if st.session_state.sample_page > total_pages:
+                st.session_state.sample_page = total_pages
 
-        # 分頁索引
-        start_idx = (st.session_state.sample_page - 1) * limit
-        end_idx = start_idx + limit
-        page_data = df_sample.iloc[start_idx:end_idx]
+            # 分頁索引
+            start_idx = (st.session_state.sample_page - 1) * limit
+            end_idx = start_idx + limit
+            page_data = df_sample.iloc[start_idx:end_idx]
 
-        # 顯示表格
-        st.dataframe(
-            page_data[["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"]].reset_index(drop=True),
-            use_container_width=True,
-            hide_index=True
-        )
+            # 顯示表格
+            st.dataframe(
+                page_data[["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"]].reset_index(drop=True),
+                use_container_width=True,
+                hide_index=True
+            )
 
-        # 修改 / 刪除按鈕
-        st.markdown("**✏️ 修改 / 🗑️ 刪除**")
-        for i, row in page_data.iterrows():
-            c1, c2, c3 = st.columns([3, 1, 1])
-            with c1:
-                st.markdown(
-                    f"<div style='font-family:Arial;color:#FFFFFF;'>🔹 {row['樣品編號']}　{row['樣品名稱']}</div>",
-                    unsafe_allow_html=True
+            # 修改 / 刪除按鈕
+            st.markdown("**✏️ 修改 / 🗑️ 刪除**")
+            for i, row in page_data.iterrows():
+                c1, c2, c3 = st.columns([3, 1, 1])
+                with c1:
+                    st.markdown(
+                        f"<div style='font-family:Arial;color:#FFFFFF;'>🔹 {row['樣品編號']}　{row['樣品名稱']}</div>",
+                        unsafe_allow_html=True
+                    )
+                with c2:
+                    if st.button("✏️ 改", key=f"edit_sample_{i}"):
+                        st.session_state.edit_sample_index = i
+                        st.session_state.form_sample = row.to_dict()
+                        st.rerun()
+                with c3:
+                    if st.button("🗑️ 刪", key=f"delete_sample_{i}"):
+                        st.session_state.delete_sample_index = i
+                        st.session_state.show_delete_sample_confirm = True
+                        st.rerun()
+
+            # 分頁控制
+            cols_page = st.columns([1, 1, 1, 2, 1])
+            with cols_page[0]:
+                if st.button("🏠首頁", key="first_page_sample"):
+                    st.session_state.sample_page = 1
+                    st.rerun()
+            with cols_page[1]:
+                if st.button("🔼上一頁", key="prev_page_sample") and st.session_state.sample_page > 1:
+                    st.session_state.sample_page -= 1
+                    st.rerun()
+            with cols_page[2]:
+                if st.button("🔽下一頁", key="next_page_sample") and st.session_state.sample_page < total_pages:
+                    st.session_state.sample_page += 1
+                    st.rerun()
+            with cols_page[3]:
+                jump_page = st.number_input(
+                    "",
+                    min_value=1,
+                    max_value=total_pages,
+                    value=st.session_state.sample_page,
+                    key="jump_page_sample",
+                    label_visibility="collapsed"
                 )
-            with c2:
-                if st.button("✏️ 改", key=f"edit_sample_{i}"):
-                    st.session_state.edit_sample_index = i
-                    st.session_state.form_sample = row.to_dict()
+                if jump_page != st.session_state.sample_page:
+                    st.session_state.sample_page = jump_page
                     st.rerun()
-            with c3:
-                if st.button("🗑️ 刪", key=f"delete_sample_{i}"):
-                    st.session_state.delete_sample_index = i
-                    st.session_state.show_delete_sample_confirm = True
+            with cols_page[4]:
+                new_limit = st.selectbox(
+                    "",
+                    options=[5, 10, 20, 50],
+                    index=[5, 10, 20, 50].index(st.session_state.sample_limit),
+                    key="sample_limit_select",
+                    label_visibility="collapsed"
+                )
+                if new_limit != st.session_state.sample_limit:
+                    st.session_state.sample_limit = new_limit
+                    st.session_state.sample_page = 1
                     st.rerun()
 
-        # 分頁控制
-        cols_page = st.columns([1, 1, 1, 2, 1])
-        with cols_page[0]:
-            if st.button("🏠首頁", key="first_page_sample"):
-                st.session_state.sample_page = 1
-                st.rerun()
-        with cols_page[1]:
-            if st.button("🔼上一頁", key="prev_page_sample") and st.session_state.sample_page > 1:
-                st.session_state.sample_page -= 1
-                st.rerun()
-        with cols_page[2]:
-            if st.button("🔽下一頁", key="next_page_sample") and st.session_state.sample_page < total_pages:
-                st.session_state.sample_page += 1
-                st.rerun()
-        with cols_page[3]:
-            jump_page = st.number_input(
-                "",
-                min_value=1,
-                max_value=total_pages,
-                value=st.session_state.sample_page,
-                key="jump_page_sample",
-                label_visibility="collapsed"
-            )
-            if jump_page != st.session_state.sample_page:
-                st.session_state.sample_page = jump_page
-                st.rerun()
-        with cols_page[4]:
-            new_limit = st.selectbox(
-                "",
-                options=[5, 10, 20, 50],
-                index=[5, 10, 20, 50].index(st.session_state.sample_limit),
-                key="sample_limit_select",
-                label_visibility="collapsed"
-            )
-            if new_limit != st.session_state.sample_limit:
-                st.session_state.sample_limit = new_limit
-                st.session_state.sample_page = 1
-                st.rerun()
-
-        st.caption(f"頁碼 {st.session_state.sample_page} / {total_pages}，總筆數 {total_rows}")
-    else:
-        st.info("⚠️ 目前沒有樣品記錄")
+            st.caption(f"頁碼 {st.session_state.sample_page} / {total_pages}，總筆數 {total_rows}")
+        else:
+            st.info("⚠️ 目前沒有樣品記錄")
 
 # ======== 庫存區分頁 =========
 elif menu == "庫存區":
