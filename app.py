@@ -3620,41 +3620,121 @@ elif menu == "採購管理":
     
     # ========== Tab 1：進貨新增 ==========
     with tab1:
-            
+        
         # 讀取庫存記錄表
         try:
             ws_stock = spreadsheet.worksheet("庫存記錄")
             df_stock = pd.DataFrame(ws_stock.get_all_records())
         except:
-            df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
-        
+            df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"])
+
+        # 初始化 form_in_stock session_state
+        if "form_in_stock" not in st.session_state:
+            st.session_state.form_in_stock = {
+                "色粉編號": "",
+                "數量": 0.0,
+                "單位": "g",
+                "日期": datetime.today().date(),
+                "廠商編號": "",
+                "廠商名稱": "",
+                "備註": ""
+        }    
+
+        # --- 基本欄位 ---
         col1, col2, col3, col4 = st.columns(4)
-        in_powder = col1.text_input("色粉編號", key="in_color")
-        in_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="in_qty_add")
-        in_unit = col3.selectbox("單位", ["g", "kg"], key="in_unit_add")
-        in_date = col4.date_input("進貨日期", value=datetime.today(), key="in_date")
-        in_note = st.text_input("備註", key="in_note")
-        
+        with col1:
+            st.session_state.form_in_stock["色粉編號"] = st.text_input(
+                "色粉編號", st.session_state.form_in_stock["色粉編號"]
+            )
+        with col2:
+            st.session_state.form_in_stock["數量"] = st.number_input(
+                "數量", min_value=0.0, value=st.session_state.form_in_stock["數量"], step=1.0
+            )
+        with col3:
+            st.session_state.form_in_stock["單位"] = st.selectbox(
+                "單位", ["g","kg"], index=["g","kg"].index(st.session_state.form_in_stock["單位"])
+            )
+        with col4:
+            st.session_state.form_in_stock["日期"] = st.date_input(
+                "進貨日期", value=st.session_state.form_in_stock["日期"]
+            )
+
+        # --- 廠商欄位，下拉選單 + 自動帶出名稱 ---
+        try:
+            ws_supplier = spreadsheet.worksheet("供應商管理")
+            df_supplier = pd.DataFrame(ws_supplier.get_all_records()).astype(str)
+        except:
+            df_supplier = pd.DataFrame(columns=["供應商編號", "供應商簡稱"])
+
+        supplier_options = df_supplier["供應商編號"].tolist()
+        options_list = [""] + supplier_options
+        current_index = options_list.index(st.session_state.form_in_stock.get("廠商編號","")) \
+            if st.session_state.form_in_stock.get("廠商編號","") in options_list else 0
+
+        col5, col6 = st.columns(2)
+        with col5:
+            selected_supplier = st.selectbox(
+                "廠商編號",
+                options=options_list,
+                index=current_index
+            )
+            st.session_state.form_in_stock["廠商編號"] = selected_supplier
+
+        with col6:
+            if selected_supplier and selected_supplier in df_supplier["供應商編號"].values:
+                st.session_state.form_in_stock["廠商名稱"] = df_supplier.loc[
+                    df_supplier["供應商編號"] == selected_supplier, "供應商簡稱"
+                ].values[0]
+            else:
+                st.session_state.form_in_stock["廠商名稱"] = ""
+            st.text_input(
+                "廠商名稱",
+                value=st.session_state.form_in_stock["廠商名稱"],
+                disabled=True
+            )
+
+        # --- 備註欄 ---
+        st.session_state.form_in_stock["備註"] = st.text_input(
+            "備註", st.session_state.form_in_stock["備註"]
+        )
+
+        # --- 新增進貨按鈕 ---
         if st.button("新增進貨", key="btn_add_in"):
-            if not in_powder.strip():
+            if not st.session_state.form_in_stock["色粉編號"].strip():
                 st.warning("⚠️ 請輸入色粉編號！")
             else:
                 new_row = {
-                    "類型":"進貨",
-                    "色粉編號":in_powder.strip(),
-                    "日期":in_date,
-                    "數量":in_qty,
-                    "單位":in_unit,
-                    "備註":in_note
+                    "類型": "進貨",
+                    "色粉編號": st.session_state.form_in_stock["色粉編號"].strip(),
+                    "日期": st.session_state.form_in_stock["日期"],
+                    "數量": st.session_state.form_in_stock["數量"],
+                    "單位": st.session_state.form_in_stock["單位"],
+                    "廠商編號": st.session_state.form_in_stock["廠商編號"].strip(),
+                    "廠商名稱": st.session_state.form_in_stock["廠商名稱"].strip(),
+                    "備註": st.session_state.form_in_stock["備註"]
                 }
+
                 df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
-                
+
                 # 寫回 Google Sheet
                 df_to_upload = df_stock.copy()
                 if "日期" in df_to_upload.columns:
-                    df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce").dt.strftime("%Y/%m/%d").fillna("")
+                    df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce")\
+                        .dt.strftime("%Y/%m/%d").fillna("")
                 ws_stock.clear()
                 ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
+
+                # 清空表單
+                st.session_state.form_in_stock = {
+                    "色粉編號": "",
+                    "數量": 0.0,
+                    "單位": "g",
+                    "日期": datetime.today().date(),
+                    "廠商編號": "",
+                    "廠商名稱": "",
+                    "備註": ""
+                }
+
                 st.success("✅ 進貨紀錄已新增")
                 st.rerun()
     
