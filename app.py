@@ -3829,7 +3829,7 @@ elif menu == "採購管理":
         
         # ===== 新增供應商 =====
         st.markdown(
-            '<h3 style="font-size:20px; font-family:Arial; color:#dbd818;">➕ 新增供應商</h3>',
+            '<h3 style="font-size:18px; font-family:Arial; color:#dbd818;">➕ 新增供應商</h3>',
             unsafe_allow_html=True
         )
         
@@ -3880,7 +3880,7 @@ elif menu == "採購管理":
         
         # ===== 📋 供應商清單（搜尋後顯示表格與操作） =====
         st.markdown(
-            '<h3 style="font-size:20px; font-family:Arial; color:#dbd818;">🛠️ 供應商修改/刪除</h3>',
+            '<h3 style="font-size:18px; font-family:Arial; color:#dbd818;">🛠️ 供應商修改/刪除</h3>',
             unsafe_allow_html=True
         )
         
