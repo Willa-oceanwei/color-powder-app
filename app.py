@@ -3,7 +3,7 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
-import os
+import oshttps://github.com/Willa-oceanwei/color-powder-app/blob/main/app.py
 import json
 import time
 import base64
@@ -1234,11 +1234,10 @@ elif menu == "配方管理":
     
     tab1, tab2, tab3, tab4 = st.tabs(["📝 配方建立", "📊 配方記錄表", "🔧 配方預覽/修改/刪除", "🎨 色粉管理"])
 
-# ============================================================
+    # ============================================================
     # Tab 1: 配方建立
     # ============================================================
     with tab1:
-        st.markdown('<h2 style="font-size:22px; color:#F9DC5C;">🎯 配方建立</h2>', unsafe_allow_html=True)
         
         # ===== 初始化欄位 =====
         if "form_recipe" not in st.session_state or not st.session_state.form_recipe:
@@ -1507,7 +1506,6 @@ elif menu == "配方管理":
     # Tab 2: 配方記錄表
     # ============================================================
     with tab2:
-        st.markdown('<h2 style="font-size:22px; color:#F9DC5C;">📑 配方記錄表</h2>', unsafe_allow_html=True)
         
         # 初始化布林遮罩
         mask = pd.Series(True, index=df.index)
@@ -1655,7 +1653,6 @@ elif menu == "配方管理":
     # Tab 3: 配方預覽/修改/刪除
     # ============================================================
     with tab3:
-        st.markdown('<h2 style="font-size:20px; color:#F9DC5C;">🛠️ 配方預覽/修改/刪除</h2>', unsafe_allow_html=True)
         
         # ---------- 配方下拉選單 ----------
         if not df.empty and "配方編號" in df.columns:
@@ -1941,7 +1938,6 @@ elif menu == "配方管理":
     # Tab 4: 色粉管理（完整從原本 "色粉管理" 搬移過來）
     # ============================================================
     with tab4:
-        st.markdown('<h2 style="font-size:22px; color:#dbd818;">🪅 色粉管理</h2>', unsafe_allow_html=True)
         
         # ===== 讀取工作表 =====
         worksheet = spreadsheet.worksheet("色粉管理")
