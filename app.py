@@ -86,7 +86,7 @@ spreadsheet = st.session_state["spreadsheet"]
 import streamlit as st
 
 menu_options = ["客戶名單", "配方管理", "生產單管理", 
-                "交叉查詢區", "Pantone色號表", "庫存區", "代工管理", "採購管理", "匯入備份"]
+                "查詢區", "庫存區", "代工管理", "採購管理", "匯入備份"]
 
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
