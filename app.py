@@ -3365,41 +3365,38 @@ elif menu == "代工管理":
     tab1, tab2, tab3, tab4 = st.tabs(["➕ 新增代工單", "✏️ 編輯代工", "📥 載回登入", "📊 代工進度表"])
     
     # ========== Tab 1：新增代工單 ==========
+    if "oem_saved" in st.session_state:
+        st.toast(f"代工單 {st.session_state['oem_saved']} 建立成功！ 🎉")
+        del st.session_state["oem_saved"]
+    
     with tab1:
         st.info("💡 可直接建立代工單，不需透過生產單轉單")
-    
+
         with st.form("create_oem_form"):
             col1, col2 = st.columns(2)
             with col1:
                 new_oem_id = st.text_input("代工單號", placeholder="例如：OEM20251210-001")
                 new_production_id = st.text_input("生產單號（選填）", placeholder="若有對應生產單請填寫")
                 new_formula_id = st.text_input("配方編號")
-        
+    
             with col2:
                 new_customer = st.text_input("客戶名稱")
                 new_oem_qty = st.number_input("代工數量 (kg)", min_value=0.0, value=0.0, step=1.0)
                 new_vendor = st.selectbox("代工廠商", ["", "弘旭", "良輝"])
-        
+    
             new_remark = st.text_area("備註")
-        
+    
             submitted_new = st.form_submit_button("💾 建立代工單")
-        
+    
             if submitted_new:
 
-                # ❶ 檢查是否有填寫代工單號
                 if not new_oem_id.strip():
                     st.error("❌ 請輸入代工單號")
-
-                # ❷ 修正版的重複檢查（避免 KeyError）
                 elif new_oem_id in df_oem.get("代工單號", []).values:
                     st.error(f"❌ 代工單號 {new_oem_id} 已存在")
-
-                # ❸ 檢查數量
                 elif new_oem_qty <= 0:
                     st.error("❌ 代工數量必須大於 0")
-
                 else:
-                    # ❹ 新增資料
                     new_row = [
                         new_oem_id,
                         new_production_id,
@@ -3413,10 +3410,12 @@ elif menu == "代工管理":
                     ]
 
                     ws_oem.append_row(new_row)
-                    st.success(f"✅ 代工單 {new_oem_id} 已建立（{new_oem_qty} kg）")
+
+                    # 儲存成功後，將代工單號存進 session_state
+                    st.session_state["oem_saved"] = new_oem_id  
 
                     st.rerun()
-    
+ 
     # ========== Tab 2：編輯代工 ==========
     with tab2:
         if not df_oem.empty:
