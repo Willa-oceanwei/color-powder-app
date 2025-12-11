@@ -3320,7 +3320,10 @@ elif menu == "代工管理":
         del st.session_state["oem_saved"]
     
     with tab1:
-        st.info("💡 可直接建立代工單，不需透過生產單轉單")
+        st.markdown(
+            '<div style="font-size:12px; color:#0c5460;">💡 可直接建立代工單，不需透過生產單轉單</div>',
+            unsafe_allow_html=True
+        )
 
         with st.form("create_oem_form"):
             col1, col2 = st.columns(2)
