@@ -1562,11 +1562,12 @@ elif menu == "配方管理":
             if selected_code:
                 recipe_row_preview = df_recipe.loc[selected_index].to_dict()
                 
-                # 預覽與按鈕
-                cols_preview_recipe = st.columns([6, 1.2])
-                with cols_preview_recipe[0]:
-                    with st.expander("👀 配方預覽", expanded=False):
-                        st.json(recipe_row_preview)
+                # 使用你的函式生成預覽文字
+                preview_text = generate_recipe_preview_text(order=recipe_row_preview, recipe_row=recipe_row_preview)
+                
+                # 顯示在 Streamlit
+                with st.expander("👀 配方預覽", expanded=False):
+                    st.markdown(preview_text, unsafe_allow_html=True)
                 
                 with cols_preview_recipe[1]:
                     col_btn1, col_btn2 = st.columns(2)
