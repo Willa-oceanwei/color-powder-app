@@ -2530,7 +2530,7 @@ elif menu == "生產單管理":
 			with cols_preview_order[1]:
 				col_btn1, col_btn2 = st.columns(2)
 				with col_btn1:
-					f st.button("✏️ ", key="edit_order_btn_tab3"):
+					if st.button("✏️ ", key="edit_order_btn_tab3"):
 						st.session_state["show_edit_panel"] = True
 						st.session_state["editing_order"] = order_dict
 						st.rerun()
