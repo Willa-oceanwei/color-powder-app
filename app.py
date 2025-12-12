@@ -1416,24 +1416,31 @@ elif menu == "配方管理":
 # ============================================================
     # Tab 2: 配方記錄表
     # ============================================================
-    with tab2:
-        if df.empty:
-            st.info("目前無資料")
-            df_filtered = df.copy()
+    # ===== Tab 2: 配方記錄表 =====
+with tab2:
+
+    if df.empty:
+        st.info("目前無資料")
+        df_filtered = pd.DataFrame()
+    else:
+        # 搜尋欄位
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            search_recipe = st.text_input("配方編號", key="search_recipe_tab2")
+        with col2:
+            search_customer = st.text_input("客戶名稱或編號", key="search_customer_tab2")
+        with col3:
+            search_pantone = st.text_input("Pantone色號", key="search_pantone_tab2")
+
+        recipe_kw = search_recipe.strip()
+        customer_kw = search_customer.strip()
+        pantone_kw = search_pantone.strip()
+
+        # ===== 判斷是否有輸入搜尋條件 =====
+        if not (recipe_kw or customer_kw or pantone_kw):
+            st.info("請輸入搜尋條件開始查詢。")
+            df_filtered = pd.DataFrame()  # 空 DataFrame，不顯示表格
         else:
-            # 搜尋欄位
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                search_recipe = st.text_input("配方編號", key="search_recipe_tab2")
-            with col2:
-                search_customer = st.text_input("客戶名稱或編號", key="search_customer_tab2")
-            with col3:
-                search_pantone = st.text_input("Pantone色號", key="search_pantone_tab2")
-
-            recipe_kw = search_recipe.strip()
-            customer_kw = search_customer.strip()
-            pantone_kw = search_pantone.strip()
-
             # 篩選
             mask = pd.Series(True, index=df.index)
             if recipe_kw:
@@ -1449,23 +1456,25 @@ elif menu == "配方管理":
 
             df_filtered = df[mask]
 
-        # 分頁設定
-        total_rows = df_filtered.shape[0]
-        limit = st.session_state.get("limit_per_page_tab2", 5)
-        total_pages = max((total_rows - 1) // limit + 1, 1)
+        # ===== 若篩選結果非空才顯示表格與分頁 =====
+        if not df_filtered.empty:
+            # 分頁設定
+            total_rows = df_filtered.shape[0]
+            limit = st.session_state.get("limit_per_page_tab2", 5)
+            total_pages = max((total_rows - 1) // limit + 1, 1)
+            if "page_tab2" not in st.session_state:
+                st.session_state.page_tab2 = 1
+            if st.session_state.page_tab2 > total_pages:
+                st.session_state.page_tab2 = total_pages
 
-        if "page_tab2" not in st.session_state:
-            st.session_state.page_tab2 = 1
-        if st.session_state.page_tab2 > total_pages:
-            st.session_state.page_tab2 = total_pages
+            start_idx = (st.session_state.page_tab2 - 1) * limit
+            end_idx = start_idx + limit
+            page_data = df_filtered.iloc[start_idx:end_idx]
 
-        start_idx = (st.session_state.page_tab2 - 1) * limit
-        end_idx = start_idx + limit
-        page_data = df_filtered.iloc[start_idx:end_idx]
-
-        # 顯示表格
-        show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-        existing_cols = [c for c in show_cols if c in page_data.columns]
+            # 顯示表格
+            show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
+            existing_cols = [c for c in show_cols if c in page_data.columns]
+            st.dataframe(page_data[existing_cols].reset_index(drop=True), use_container_width=True, hide_index=True)
 
         if not page_data.empty:
             st.dataframe(page_data[existing_cols].reset_index(drop=True), use_container_width=True, hide_index=True)
