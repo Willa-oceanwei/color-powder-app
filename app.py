@@ -5166,7 +5166,7 @@ elif menu == "庫存區":
                 mime="text/csv"
             )
     # ========== Tab 4：色粉用量查詢 ==========
-    with tab2:
+    with tab4:
         
         # 四個色粉編號輸入框
         cols = st.columns(4)
