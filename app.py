@@ -1524,9 +1524,17 @@ elif menu == "配方管理":
                 st.session_state.page_tab2 = jump_page
                 st.rerun()
         with cols_page[4]:
-            limit = st.selectbox("", options=[5, 10, 20, 50, 100],
-                                 index=[5, 10, 20, 50, 100].index(st.session_state.get("limit_per_page_tab2", 5)),
-                                 key="limit_per_page_tab2", label_visibility="collapsed")
+            limit_options = [1, 5, 10, 20, 50, 100]  # 把 1 加進選項
+            default_limit = st.session_state.get("limit_per_page_tab2", 1)  # 預設 1
+            # 找到預設值在 options 中的 index
+            default_index = limit_options.index(default_limit) if default_limit in limit_options else 0
+            limit = st.selectbox(
+                "",
+                options=limit_options,
+                index=default_index,
+                key="limit_per_page_tab2",
+                label_visibility="collapsed"
+            )
 
         st.caption(f"頁碼 {st.session_state.page_tab2} / {total_pages}，總筆數 {total_rows}")
 
