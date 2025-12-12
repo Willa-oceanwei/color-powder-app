@@ -2417,8 +2417,8 @@ elif menu == "生產單管理":
                         continue_to_oem = False
 
                 if submitted or continue_to_oem:
-                    # 檢查包裝重量與份數是否全空
-                    all_empty = True
+    				# 檢查包裝重量與份數是否全空
+    				all_empty = True
     				for i in range(1, 5):
         				weight = st.session_state.get(f"form_weight{i}", "").strip()
         				count  = st.session_state.get(f"form_count{i}", "").strip()
