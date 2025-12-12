@@ -2417,48 +2417,53 @@ elif menu == "生產單管理":
                         continue_to_oem = False
 
                 if submitted or continue_to_oem:
-                    # 檢查包裝重量與份數是否全空
-                    all_empty = True
-                    for i in range(1, 5):
-                        weight = st.session_state.get(f"form_weight{i}", "").strip()
-                        count = st.session_state.get(f"form_count{i}", "").strip()
-                        if weight or count:
-                            all_empty = False
+    				# 檢查包裝重量與份數是否全空
+    				all_empty = True
+    				for i in range(1, 5):
+        				weight = st.session_state.get(f"form_weight{i}", "").strip()
+        				count  = st.session_state.get(f"form_count{i}", "").strip()
+        				if weight or count:
+            				all_empty = False
 
-                    if all_empty:
-                        st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
-                        st.stop()
+    				if all_empty:
+        				st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
+        				st.stop()
 
-                    # 更新 order 資料
-                    order["顏色"] = st.session_state.form_color
-                    order["Pantone 色號"] = st.session_state.form_pantone
-                    order["料"] = st.session_state.form_raw_material
-                    order["備註"] = st.session_state.form_remark
-                    order["重要提醒"] = st.session_state.form_important_note
-                    order["合計類別"] = st.session_state.form_total_category
+    				# 更新 order 資料
+    				order["顏色"] = st.session_state.form_color
+    				order["Pantone 色號"] = st.session_state.form_pantone
+    				order["料"] = st.session_state.form_raw_material
+    				order["備註"] = st.session_state.form_remark
+    				order["重要提醒"] = st.session_state.form_important_note
+    				order["合計類別"] = st.session_state.form_total_category
 
-                    for i in range(1, 5):
+    				# 包裝重量與份數
+    				for i in range(1, 5):
         				order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
         				order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
 
+    				# 色粉資料
     				for i in range(1, 9):
         				order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
         				order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
 
-                    raw_net_weight = recipe_row.get("淨重", 0)
-                    try:
-                        net_weight = float(raw_net_weight)
-                    except:
-                        net_weight = 0.0
+    				# 計算淨重
+    				raw_net_weight = recipe_row.get("淨重", 0)
+    				try:
+        				net_weight = float(raw_net_weight)
+    				except:
+        				net_weight = 0.0
 
-                    color_weight_list = []
-                    for i in range(1, 5):
-                        w_str = st.session_state.get(f"form_weight{i}", "").strip()
-                        weight = float(w_str) if w_str else 0.0
-                        if weight > 0:
-                            color_weight_list.append({"項次": i, "重量": weight, "結果": net_weight * weight})
-                    order["色粉合計清單"] = color_weight_list
-                    order["色粉合計類別"] = recipe_row.get("合計類別", "")
+    				# 計算色粉合計清單
+    				color_weight_list = []
+    				for i in range(1, 5):
+        				w_str = st.session_state.get(f"form_weight{i}", "").strip()
+        				weight = float(w_str) if w_str else 0.0
+        				if weight > 0:
+            				color_weight_list.append({"項次": i, "重量": weight, "結果": net_weight * weight})
+    				order["色粉合計清單"] = color_weight_list
+    				order["色粉合計類別"] = recipe_row.get("合計類別", "")
+
 
                     # ✅ 低庫存檢查（使用最新庫存）
                     last_stock = st.session_state.get("last_final_stock", {}).copy()
