@@ -1579,15 +1579,15 @@ elif menu == "配方管理":
                         recipe_row_preview
                     )
                     st.markdown(preview_text_recipe, unsafe_allow_html=True)
-                
-                with cols_preview_recipe[1]:
-                    col_btn1, col_btn2 = st.columns(2)
-                    with col_btn1:
+            
+                    # ✅ 生成兩欄放按鈕
+                    col_left, col_right = st.columns(2)
+                    with col_left:
                         if st.button("✏️ ", key=f"edit_recipe_btn_tab3_{selected_index}"):
                             st.session_state.show_edit_recipe_panel = True
                             st.session_state.editing_recipe_index = selected_index
                             st.rerun()
-                    with col_btn2:
+                    with col_right:
                         if st.button("🗑️ ", key=f"delete_recipe_btn_tab3_{selected_index}"):
                             st.session_state.show_delete_recipe_confirm = True
                             st.session_state.delete_recipe_index = selected_index
