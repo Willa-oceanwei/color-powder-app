@@ -1454,6 +1454,16 @@ with tab2:
                 mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
 
             df_filtered = df[mask]
+            
+            if not (recipe_kw or customer_kw or pantone_kw):
+                # 沒輸入條件 → 顯示「請輸入搜尋條件開始查詢」
+            else:
+                # 有輸入條件 → 篩選
+                if not df_filtered.empty:
+                    # 顯示表格、詳細資訊、分頁
+                else:
+                    # ✅ 只有有條件但結果為空才顯示
+                    st.info("查無符合的配方（分頁結果）")
 
         # ===== 若篩選結果非空才顯示表格與詳細資訊 =====
         if not df_filtered.empty:
