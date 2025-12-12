@@ -1469,7 +1469,6 @@ elif menu == "配方管理":
         page_data = df_filtered.iloc[start_idx:end_idx]
         
         # ===== 顯示表格 =====
-        # ===== 顯示表格 =====
         show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
         existing_cols = [c for c in show_cols if c in page_data.columns]
         
@@ -1479,44 +1478,51 @@ elif menu == "配方管理":
                          hide_index=True)
             
             # ===== 附加配方標記 ===
-            st.markdown("---")
-            st.markdown("**📋 配方詳細資訊**")
+            # 只有在 page_data 有資料時才顯示詳細資料
+            if not page_data.empty:
+
+                st.markdown("---")
+                st.markdown("**📋 配方詳細資訊**")
+                
+                for idx, row in page_data.iterrows():
+                    with st.expander(
+                        f"🔖 {row['配方編號']} - {row['客戶名稱']} - {row['產品名稱'] if '產品名稱' in row else row['顏色']}"
+                    ):
+                        col1, col2 = st.columns(2)
             
-            for idx, row in page_data.iterrows():
-                with st.expander(f"🔖 {row['配方編號']} - {row['客戶名稱']} - {row['產品名稱'] if '產品名稱' in row else row['顏色']}"):
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.markdown(f"**配方編號**: {row['配方編號']}")
-                        st.markdown(f"**客戶名稱**: {row['客戶名稱']}")
-                        st.markdown(f"**顏色**: {row['顏色']}")
-                        st.markdown(f"**配方類別**: {row['配方類別']}")
-                        st.markdown(f"**狀態**: {row['狀態']}")
-                    
-                    with col2:
-                        st.markdown(f"**Pantone色號**: {row.get('Pantone色號', 'N/A')}")
-                        st.markdown(f"**計量單位**: {row.get('計量單位', 'N/A')}")
-                        st.markdown(f"**建檔時間**: {row.get('建檔時間', 'N/A')}")
-                        if row['配方類別'] == '附加配方':
-                            st.markdown(f"**原始配方**: {row.get('原始配方', 'N/A')}")
-                    
-                    st.markdown("**色粉配方**:")
-                    powder_info = []
-                    for i in range(1, 9):
-                        powder_id = row.get(f'色粉編號{i}', '')
-                        amount = row.get(f'色粉重量{i}', '')
-                        if powder_id and str(powder_id).strip():
-                            powder_info.append(f"- {powder_id}: {amount}g")
-                    
-                    if powder_info:
-                        st.markdown('\n'.join(powder_info))
-                    else:
-                        st.markdown("_無色粉配方_")
-                    
-                    if row.get('備註'):
-                        st.markdown(f"**備註**: {row['備註']}")
-        else:
-            st.info("查無符合的配方（分頁結果）")
+                        with col1:
+                            st.markdown(f"**配方編號**: {row['配方編號']}")
+                            st.markdown(f"**客戶名稱**: {row['客戶名稱']}")
+                            st.markdown(f"**顏色**: {row['顏色']}")
+                            st.markdown(f"**配方類別**: {row['配方類別']}")
+                            st.markdown(f"**狀態**: {row['狀態']}")
+
+                        with col2:
+                            st.markdown(f"**Pantone色號**: {row.get('Pantone色號', 'N/A')}")
+                            st.markdown(f"**計量單位**: {row.get('計量單位', 'N/A')}")
+                            st.markdown(f"**建檔時間**: {row.get('建檔時間', 'N/A')}")
+                
+                            if row['配方類別'] == '附加配方':
+                                st.markdown(f"**原始配方**: {row.get('原始配方', 'N/A')}")
+
+                        st.markdown("**色粉配方**:")
+                        powder_info = []
+                        for i in range(1, 9):
+                            pid = row.get(f'色粉編號{i}', '')
+                            amount = row.get(f'色粉重量{i}', '')
+                            if pid and str(pid).strip():
+                                powder_info.append(f"- {pid}: {amount}g")
+
+                        if powder_info:
+                            st.markdown('\n'.join(powder_info))
+                        else:
+                            st.markdown("_無色粉配方_")
+
+                        if row.get('備註'):
+                            st.markdown(f"**備註**: {row['備註']}")
+
+            else:
+                st.info("查無符合的配方（分頁結果）")
         
         # ===== 分頁控制列 =====
         cols_page = st.columns([1, 1, 1, 2, 1])
