@@ -2131,7 +2131,7 @@ elif menu == "生產單管理":
 	# 初始化 session_state 用的 key
 	for key in ["order_page", "editing_order", "show_edit_panel", "new_order", "show_confirm_panel"]:
 		if key not in st.session_state:
-		st.session_state[key] = None if key != "order_page" else 1
+			st.session_state[key] = None if key != "order_page" else 1
 
 	def format_option(r):
 		label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
