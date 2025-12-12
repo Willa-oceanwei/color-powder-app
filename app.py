@@ -1566,7 +1566,7 @@ elif menu == "配方管理":
                 cols_preview_recipe = st.columns([6, 1.2])
                 with cols_preview_recipe[0]:
                     with st.expander("👀 配方預覽", expanded=False):
-                        st.write(recipe_row_preview)
+                        st.json(recipe_row_preview)(recipe_row_preview)
                 
                 with cols_preview_recipe[1]:
                     col_btn1, col_btn2 = st.columns(2)
