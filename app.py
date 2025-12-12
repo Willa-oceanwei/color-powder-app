@@ -1458,15 +1458,8 @@ elif menu == "配方管理":
         if pantone_kw:
             pantone_kw_clean = pantone_kw.replace(" ", "").upper()
             mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
-        
-        df_filtered = df[mask]    
 
-        # ======== 搜尋後過濾資料 ========
-        df_filtered = df[
-            df["配方編號"].astype(str).str.contains(search_input) |
-            df["客戶名稱"].astype(str).str.contains(search_input) |
-            df["顏色"].astype(str).str.contains(search_input)
-        ]
+        df_filtered = df[mask]
 
         # 搜尋後沒有資料 → 不顯示
         if df_filtered.empty:
