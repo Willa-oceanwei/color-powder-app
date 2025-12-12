@@ -1584,22 +1584,12 @@ elif menu == "配方管理":
     # ============================================================
     with tab3:
         st.markdown('<h2 style="font-size:20px; color:#F9DC5C;">🛠️ 配方預覽/修改/刪除</h2>', unsafe_allow_html=True)
-
-        # ----------------- 初始化 session_state -----------------
-        for key in ["show_edit_recipe_panel", "editing_recipe_index", "show_delete_recipe_confirm"]:
-            if key not in st.session_state:
-                st.session_state[key] = False if "show" in key else None
-
-        # ----------------- 讀取配方資料 -----------------
-        if "df_recipe" not in st.session_state:
-            st.session_state.df_recipe = load_recipe_data()  # 從 CSV 或 Google Sheet 讀
-        df = st.session_state.df_recipe.copy()
         
         # ---------- 配方下拉選單 ----------
-        if not df.empty:
+        if not df.empty and "配方編號" in df.columns:
             df['配方編號'] = df['配方編號'].fillna('').astype(str)
 
-            # 下拉選單
+            # 找出對應的 index
             selected_index = st.selectbox(
                 "輸入配方",
                 options=df.index,
@@ -1609,7 +1599,8 @@ elif menu == "配方管理":
             )
 
             selected_code = df.at[selected_index, "配方編號"] if selected_index is not None else None
-
+            
+            # ---------- 配方預覽 + 修改 / 刪除按鈕同一橫列 ----------
             if selected_code:
                 recipe_row_preview = df.loc[selected_index].to_dict()
                 preview_text_recipe = generate_recipe_preview_text(
@@ -1622,7 +1613,6 @@ elif menu == "配方管理":
                     with st.expander("👀 配方預覽", expanded=False):
                         st.markdown(preview_text_recipe, unsafe_allow_html=True)
 
-                # 修改/刪除按鈕
                 with cols_preview_recipe[1]:
                     col_btn1, col_btn2 = st.columns(2)
                     with col_btn1:
@@ -1635,32 +1625,6 @@ elif menu == "配方管理":
                             st.session_state.show_delete_recipe_confirm = True
                             st.session_state.delete_recipe_index = selected_index
 
-            # ----------------- 確認刪除 -----------------
-            if st.session_state.get("show_delete_recipe_confirm"):
-                idx = st.session_state["delete_recipe_index"]
-                recipe_label = df.at[idx, "配方編號"]
-                st.warning(f"⚠️ 確定要刪除配方？\n\n👉 {recipe_label}")
-                c1, c2 = st.columns(2)
-                if c1.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
-                    df.drop(idx, inplace=True)
-                    df.reset_index(drop=True, inplace=True)
-                    try:
-                        ws_recipe.clear()
-                        ws_recipe.update([df.columns.tolist()] + df.values.tolist())
-                        df.to_csv("data/df_recipe.csv", index=False, encoding="utf-8-sig")
-                    except Exception as e:
-                        st.error(f"刪除失敗：{e}")
-                    st.success(f"✅ 已刪除 {recipe_label}")
-                    st.session_state.df_recipe = df
-                    st.session_state.show_delete_recipe_confirm = False
-                    st.rerun()
-                if c2.button("取消", key="confirm_delete_recipe_no_tab3"):
-                    st.session_state.show_delete_recipe_confirm = False
-                    st.rerun()
-
-        else:
-            st.info("⚠️ 目前沒有配方記錄")
-            
                # ------------------- 確認刪除 -------------------
                 if st.session_state.get("show_delete_recipe_confirm", False):
                     idx = st.session_state["delete_recipe_index"]
@@ -2060,8 +2024,7 @@ elif menu == "配方管理":
                             st.session_state.delete_color_index = i
                             st.session_state.show_delete_color_confirm = True
                             st.rerun()
-                            
-# =============== Tab 架構結束 ===============
+# =============== Tab 架構結束 ===============                            
             
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
