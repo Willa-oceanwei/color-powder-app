@@ -2294,66 +2294,6 @@ elif menu == "生產單管理":
                     st.rerun()
 
         # ---------- 新增後欄位填寫區塊 ----------
-        order = st.session_state.get("new_order")
-        if order is None or not isinstance(order, dict):
-            order = {}
-
-        recipe_id_raw = order.get("配方編號", "").strip()
-        recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
-        
-        matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
-        
-        if not matched.empty:
-            recipe_row = matched.iloc[0].to_dict()
-            recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
-            st.session_state["recipe_row_cache"] = recipe_row
-        else:
-            recipe_row = {}
-
-        show_confirm_panel = st.session_state.get("show_confirm_panel", True)
-
-        for field in ["合計類別", "備註", "重要提醒"]:
-            order[field] = recipe_row.get(field, "")
-        
-        if recipe_id:
-            def get_additional_recipes(df, main_recipe_code):
-                df = df.copy()
-                df["配方類別"] = df["配方類別"].astype(str).str.strip()
-                df["原始配方"] = df["原始配方"].astype(str).str.strip()
-                main_code = str(main_recipe_code).strip()
-                return df[(df["配方類別"] == "附加配方") & (df["原始配方"] == main_code)]
-        
-            additional_recipes = get_additional_recipes(df_recipe, recipe_id)
-        
-            if additional_recipes.empty:
-                st.info("無附加配方")
-                order["附加配方"] = []
-            else:
-                st.markdown(f"<span style='font-size:14px; font-weight:bold;'>附加配方清單（共 {len(additional_recipes)} 筆）</span>", unsafe_allow_html=True)
-        
-                for idx, row in additional_recipes.iterrows():
-                    with st.expander(f"附加配方：{row.get('配方編號', '')} - {row.get('顏色', '')}"):
-                        st.write(row)
-        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            color_ids = {f"色粉編號{i}": row.get(f"色粉編號{i}", "") for i in range(1, 9)}
-                            st.write("色粉編號", color_ids)
-                        with col2:
-                            color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}", "") for i in range(1, 9)}
-                            st.write("色粉重量", color_wts)
-        
-                order["附加配方"] = [
-                    {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
-                    for _, row in additional_recipes.iterrows()
-                ]
-        else:
-            order["附加配方"] = []
- 
-        st.session_state.new_order = order
-        st.session_state.show_confirm_panel = show_confirm_panel
-
-        # ===== 新增生產單詳情填寫表單 =====
         if submitted or continue_to_oem:
     		# 檢查包裝重量與份數是否全空
     		all_empty = True
@@ -2368,7 +2308,7 @@ elif menu == "生產單管理":
         		st.stop()
 
     		# 更新 order 資料
-    		order["顏色"] = st.session_state.form_color
+    			order["顏色"] = st.session_state.form_color
     		order["Pantone 色號"] = st.session_state.form_pantone
     		order["料"] = st.session_state.form_raw_material
     		order["備註"] = st.session_state.form_remark
@@ -2383,7 +2323,7 @@ elif menu == "生產單管理":
     		# 色粉資料
     		for i in range(1, 9):
         		order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
-        		order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
+       		 	order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
 
     		# 計算淨重
     		raw_net_weight = recipe_row.get("淨重", 0)
@@ -2398,48 +2338,43 @@ elif menu == "生產單管理":
         		w_str = st.session_state.get(f"form_weight{i}", "").strip()
         		weight = float(w_str) if w_str else 0.0
         		if weight > 0:
-            		color_weight_list.append({"項次": i, "重量": weight, "結果": net_weight * weight})
+            color_weight_list.append({"項次": i, "重量": weight, "結果": net_weight * weight})
     		order["色粉合計清單"] = color_weight_list
     		order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
-                    # ✅ 低庫存檢查（使用最新庫存）
-                    last_stock = st.session_state.get("last_final_stock", {}).copy()
-                    alerts = []
+    		# ✅ 低庫存檢查（使用最新庫存）
+    		last_stock = st.session_state.get("last_final_stock", {}).copy()
+    		alerts = []
 
-                    # 主配方色粉
-                    for i in range(1, 9):
-                        pid = str(order.get(f"色粉編號{i}", "")).strip()
-                        if not pid or pid.endswith(("01", "001", "0001")):
-                            continue
-
-                        if pid not in last_stock:
-                            continue
-
-                        try:
-                            ratio_g = float(recipe_row.get(f"色粉重量{i}", 0))
-                        except:
-                            ratio_g = 0.0
-
-                        total_used_g = 0
-                        for j in range(1, 5):
-                            try:
-                                w_val = float(st.session_state.get(f"form_weight{j}", 0) or 0)
-                                n_val = float(st.session_state.get(f"form_count{j}", 0) or 0)
-                                total_used_g += ratio_g * w_val * n_val
-                            except:
-                                pass
-
-                        last_stock_before = last_stock.get(pid, 0)
-                        new_stock = last_stock_before - total_used_g
-                        last_stock[pid] = new_stock
-
-                        final_kg = new_stock / 1000
-                        if final_kg < 0.5:
-                            alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
-                        elif final_kg < 1:
-                            alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
-                        elif final_kg < 3:
-                            alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
+    		# 主配方色粉
+    			for i in range(1, 9):
+        		pid = str(order.get(f"色粉編號{i}", "")).strip()
+        		if not pid or pid.endswith(("01", "001", "0001")):
+            		continue
+        		if pid not in last_stock:
+            		continue
+        		try:
+            		ratio_g = float(recipe_row.get(f"色粉重量{i}", 0))
+        		except:
+            		ratio_g = 0.0
+        		total_used_g = 0
+        		for j in range(1, 5):
+            		try:
+                		w_val = float(st.session_state.get(f"form_weight{j}", 0) or 0)
+                		n_val = float(st.session_state.get(f"form_count{j}", 0) or 0)
+                		total_used_g += ratio_g * w_val * n_val
+            		except:
+                		pass
+        		last_stock_before = last_stock.get(pid, 0)
+        		new_stock = last_stock_before - total_used_g
+        		last_stock[pid] = new_stock
+        		final_kg = new_stock / 1000
+        		if final_kg < 0.5:
+            		alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
+        		elif final_kg < 1:
+            		alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
+        		elif final_kg < 3:
+            		alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
 
                     # 附加配方色粉
                     for add_rec in order.get("附加配方", []):
