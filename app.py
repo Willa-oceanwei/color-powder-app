@@ -1454,7 +1454,7 @@ elif menu == "配方管理":
         df_filtered = df[mask]    
 
         # ======== 搜尋輸入 ========
-       search_input = st.text_input("搜尋配方...", key="search_keyword_tab2")
+        search_input = st.text_input("搜尋配方...", key="search_keyword_tab2")
 
         # 沒搜尋 → 不顯示任何資料
         if not search_input.strip():
