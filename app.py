@@ -1439,6 +1439,14 @@ elif menu == "配方管理":
         customer_kw = st.session_state.get("customer_kw_tab2", "").strip()
         pantone_kw = st.session_state.get("pantone_kw_tab2", "").strip()
 
+        # 👉 三個欄位都沒輸入 → 不顯示資料
+        if not (recipe_kw or customer_kw or pantone_kw):
+            st.info("請輸入搜尋條件開始查詢。")
+            st.stop()
+
+        # 🔎 有輸入才開始過濾
+        mask = pd.Series(True, index=df.index)
+
         # 篩選
         if recipe_kw:
             mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
@@ -1452,14 +1460,6 @@ elif menu == "配方管理":
             mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
         
         df_filtered = df[mask]    
-
-        # ======== 搜尋輸入 ========
-        search_input = st.text_input("搜尋配方...", key="search_keyword_tab2")
-
-        # 沒搜尋 → 不顯示任何資料
-        if not search_input.strip():
-            st.info("請輸入搜尋條件開始查詢。")
-            st.stop()
 
         # ======== 搜尋後過濾資料 ========
         df_filtered = df[
