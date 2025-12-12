@@ -3328,7 +3328,7 @@ elif menu == "代工管理":
 
             # 建立選單
             oem_options = [
-                f"配方:{row.get('配方編號','')} | 客戶:{row.get('客戶名稱','')} | 數量:{row.get('代工數量',0)}kg | 廠商:{row.get('代工廠商','')} | {row['代工單號']}"
+                f"客戶:{row.get('客戶名稱','')} | 配方:{row.get('配方編號','')} | 數量:{row.get('代工數量',0)}kg | 廠商:{row.get('代工廠商','')} | {row['代工單號']}"
                 for _, row in df_oem_active.iterrows()
             ]
 
@@ -3338,7 +3338,8 @@ elif menu == "代工管理":
                 selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_edit")
 
                 if selected_option:
-                    selected_oem = selected_option.split(" | ")[0]
+                    # 從最後抓代工單號
+                    selected_oem = selected_option.split(" | ")[-1]
                     oem_row = df_oem_active[df_oem_active["代工單號"] == selected_oem].iloc[0]
 
                     # ---------- 顯示基本資訊 ----------
