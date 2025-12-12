@@ -2354,116 +2354,53 @@ elif menu == "生產單管理":
         st.session_state.show_confirm_panel = show_confirm_panel
 
         # ===== 新增生產單詳情填寫表單 =====
-        if st.session_state.get("show_confirm_panel"):
-            st.markdown("---")
-            st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
+        if submitted or continue_to_oem:
+    		# 檢查包裝重量與份數是否全空
+    		all_empty = True
+    		for i in range(1, 5):
+        		weight = st.session_state.get(f"form_weight{i}", "").strip()
+        		count  = st.session_state.get(f"form_count{i}", "").strip()
+        		if weight or count:
+            		all_empty = False
 
-            with st.form("order_detail_form"):
-                c1, c2, c3, c4 = st.columns(4)
-                c1.text_input("生產單號", value=order.get("生產單號", ""), disabled=True)
-                c2.text_input("配方編號", value=order.get("配方編號", ""), disabled=True)
-                c3.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True)
-                c4.text_input("客戶名稱", value=order.get("客戶名稱", ""), disabled=True)
+    		if all_empty:
+        		st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
+        		st.stop()
 
-                c5, c6, c7, c8 = st.columns(4)
-                c5.text_input("計量單位", value=recipe_row.get("計量單位", "kg"), disabled=True)
-                color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color")
-                pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone")
-                raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
+    		# 更新 order 資料
+    		order["顏色"] = st.session_state.form_color
+    		order["Pantone 色號"] = st.session_state.form_pantone
+    		order["料"] = st.session_state.form_raw_material
+    		order["備註"] = st.session_state.form_remark
+    		order["重要提醒"] = st.session_state.form_important_note
+    		order["合計類別"] = st.session_state.form_total_category
 
-                c9, c10 = st.columns(2)
-                important_note = c9.text_input("重要提醒", value=order.get("重要提醒", ""), key="form_important_note")
-                total_category = c10.text_input("合計類別", value=order.get("合計類別", ""), key="form_total_category")
-                remark = st.text_area("備註", value=order.get("備註", ""), key="form_remark")
+    		# 包裝重量與份數
+    		for i in range(1, 5):
+        		order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
+        		order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
 
-                st.markdown("**包裝重量與份數**")
-                w_cols = st.columns(4)
-                c_cols = st.columns(4)
-                for i in range(1, 5):
-                    w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}")
-                    c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}")
+    		# 色粉資料
+    		for i in range(1, 9):
+        		order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
+        		order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
 
-                st.markdown("##### 色粉用量（編號與重量）")
-                id_col, wt_col = st.columns(2)
-                for i in range(1, 9):
-                    color_id = recipe_row.get(f"色粉編號{i}", "").strip()
-                    color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
-                    if color_id or color_wt:
-                        id_col.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}")
-                        wt_col.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}")
+    		# 計算淨重
+    		raw_net_weight = recipe_row.get("淨重", 0)
+    		try:
+        		net_weight = float(raw_net_weight)
+    		except:
+        		net_weight = 0.0
 
-                additional_recipes = order.get("附加配方", [])
-                if additional_recipes:
-                    st.markdown("##### 附加配方色粉用量（編號與重量）")
-                    for idx, r in enumerate(additional_recipes, 1):
-                        st.markdown(f"附加配方 {idx}")
-                        col1, col2 = st.columns(2)
-                        for i in range(1, 9):
-                            color_id = r.get(f"色粉編號{i}", "").strip()
-                            color_wt = r.get(f"色粉重量{i}", "").strip()
-                            if color_id or color_wt:
-                                col1.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}")
-                                col2.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}")
-
-                col_submit1, col_submit2 = st.columns([1, 1])
-                with col_submit1:
-                    submitted = st.form_submit_button("💾 儲存生產單")
-
-                is_colorant = (recipe_row.get("色粉類別", "").strip() == "色母")
-                with col_submit2:
-                    if is_colorant:
-                        continue_to_oem = st.form_submit_button("✅ 儲存並轉代工管理")
-                    else:
-                        continue_to_oem = False
-
-                if submitted or continue_to_oem:
-    				# 檢查包裝重量與份數是否全空
-    				all_empty = True
-    				for i in range(1, 5):
-        				weight = st.session_state.get(f"form_weight{i}", "").strip()
-        				count  = st.session_state.get(f"form_count{i}", "").strip()
-        				if weight or count:
-            				all_empty = False
-
-    				if all_empty:
-        				st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
-        				st.stop()
-
-    				# 更新 order 資料
-    				order["顏色"] = st.session_state.form_color
-    				order["Pantone 色號"] = st.session_state.form_pantone
-    				order["料"] = st.session_state.form_raw_material
-    				order["備註"] = st.session_state.form_remark
-    				order["重要提醒"] = st.session_state.form_important_note
-    				order["合計類別"] = st.session_state.form_total_category
-
-    				# 包裝重量與份數
-    				for i in range(1, 5):
-        				order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
-        				order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
-
-    				# 色粉資料
-    				for i in range(1, 9):
-        				order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
-        				order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
-
-    				# 計算淨重
-    				raw_net_weight = recipe_row.get("淨重", 0)
-    				try:
-        				net_weight = float(raw_net_weight)
-    				except:
-        				net_weight = 0.0
-
-    				# 計算色粉合計清單
-    				color_weight_list = []
-    				for i in range(1, 5):
-        				w_str = st.session_state.get(f"form_weight{i}", "").strip()
-        				weight = float(w_str) if w_str else 0.0
-        				if weight > 0:
-            				color_weight_list.append({"項次": i, "重量": weight, "結果": net_weight * weight})
-    				order["色粉合計清單"] = color_weight_list
-    				order["色粉合計類別"] = recipe_row.get("合計類別", "")
-
+    		# 計算色粉合計清單
+    		color_weight_list = []
+    		for i in range(1, 5):
+        		w_str = st.session_state.get(f"form_weight{i}", "").strip()
+        		weight = float(w_str) if w_str else 0.0
+        		if weight > 0:
+            		color_weight_list.append({"項次": i, "重量": weight, "結果": net_weight * weight})
+    		order["色粉合計清單"] = color_weight_list
+    		order["色粉合計類別"] = recipe_row.get("合計類別", "")
 
                     # ✅ 低庫存檢查（使用最新庫存）
                     last_stock = st.session_state.get("last_final_stock", {}).copy()
