@@ -1582,7 +1582,10 @@ elif menu == "配方管理":
 # ============================================================
     # Tab 3: 配方預覽/修改/刪除
     # ============================================================
+    # Tab 3: 配方預覽/修改/刪除
+    # ============================================================
     with tab3:
+        st.markdown('<h2 style="font-size:20px; color:#F9DC5C;">🛠️ 配方預覽/修改/刪除</h2>', unsafe_allow_html=True)
         
         # ---------- 配方下拉選單 ----------
         if not df.empty and "配方編號" in df.columns:
@@ -1592,13 +1595,11 @@ elif menu == "配方管理":
             selected_index = st.selectbox(
                 "輸入配方",
                 options=df.index,
-                format_func=lambda i: (
-                    f"{df.at[i, '配方編號']} | {df.at[i, '顏色']} | {df.at[i, '客戶名稱']}"
-                    + (" 🔴停用" if str(df.at[i, '狀態']) == "停用" else "")
-                ),
+                format_func=lambda i: f"{df.at[i, '配方編號']} | {df.at[i, '顏色']} | {df.at[i, '客戶名稱']}",
                 key="select_recipe_code_tab3",
                 index=0
             )
+
             selected_code = df.at[selected_index, "配方編號"] if selected_index is not None else None
             
             # ---------- 配方預覽 + 修改 / 刪除按鈕同一橫列 ----------
@@ -1870,6 +1871,8 @@ elif menu == "配方管理":
     # Tab 4: 色粉管理（完整從原本 "色粉管理" 搬移過來）
     # ============================================================
     with tab4:
+        st.markdown('<h2 style="font-size:22px; color:#dbd818;">🪅 色粉管理</h2>', unsafe_allow_html=True)
+        
         # ===== 讀取工作表 =====
         worksheet = spreadsheet.worksheet("色粉管理")
         required_columns = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
@@ -1880,26 +1883,23 @@ elif menu == "配方管理":
         # form_color 確保是 dict
         if "form_color" not in st.session_state or not isinstance(st.session_state.form_color, dict):
             st.session_state.form_color = {}
+        
         for col in required_columns:
             st.session_state.form_color.setdefault(col, "")
 
-        # 讀取 Sheet
         try:
             df_color = pd.DataFrame(worksheet.get_all_records())
         except:
             df_color = pd.DataFrame(columns=required_columns)
 
-        # 補齊缺少欄位
+        df_color = df_color.astype(str)
         for col in required_columns:
             if col not in df_color.columns:
                 df_color[col] = ""
 
-        # 將所有欄位轉字串並清理前後空格
-        for col in required_columns:
-            df_color[col] = df_color[col].astype(str).str.strip()
-
-        # ===== 新增 / 更新色粉 =====
+        # ===== 新增色粉 =====
         st.markdown('<h3 style="font-size:18px; color:#dbd818;">新增色粉</h3>', unsafe_allow_html=True)
+
         col1, col2 = st.columns(2)
         with col1:
             st.session_state.form_color["色粉編號"] = st.text_input("色粉編號", st.session_state.form_color["色粉編號"], key="color_id_tab4")
@@ -1915,8 +1915,8 @@ elif menu == "配方管理":
             st.session_state.form_color["備註"] = st.text_input("備註", st.session_state.form_color["備註"], key="color_note_tab4")
 
         if st.button("💾 儲存", key="save_color_tab4"):
-            new_data = {k: str(v).strip() for k,v in st.session_state.form_color.items()}
-            if new_data["色粉編號"] == "":
+            new_data = st.session_state.form_color.copy()
+            if new_data["色粉編號"].strip() == "":
                 st.warning("⚠️ 請輸入色粉編號！")
             else:
                 if st.session_state.edit_color_index is not None:
@@ -1930,14 +1930,11 @@ elif menu == "配方管理":
                     else:
                         df_color = pd.concat([df_color, pd.DataFrame([new_data], columns=df_color.columns)], ignore_index=True)
                         st.success("✅ 新增成功！")
-                # 儲存到 Google Sheet
                 save_df_to_sheet(worksheet, df_color)
-                # 清空 form_color 並重置編輯索引
                 st.session_state.form_color = {col: "" for col in required_columns}
                 st.session_state.edit_color_index = None
                 st.rerun()
 
-        # ===== 刪除確認 =====
         if st.session_state.show_delete_color_confirm:
             target_row = df_color.iloc[st.session_state.delete_color_index]
             target_text = f'{target_row["色粉編號"]} {target_row["名稱"]}'
@@ -1952,151 +1949,23 @@ elif menu == "配方管理":
                 st.rerun()
             if c2.button("取消", key="cancel_delete_color_tab4"):
                 st.session_state.show_delete_color_confirm = False
-                st.rerun()
-
+                st.rerun()  
+                
         st.markdown("---")
-
-        # ===== 搜尋與修改 / 刪除 =====
+        
+        # ===== 色粉修改 / 刪除 =====
         st.markdown('<h3 style="font-size:18px; color:#dbd818;">色粉修改 / 刪除</h3>', unsafe_allow_html=True)
-        st.session_state.setdefault("search_keyword_tab4", "")
-        keyword = st.text_input("輸入色粉編號或名稱搜尋", value=st.session_state.search_keyword_tab4, key="search_color_tab4")
-        keyword = keyword.strip()
-        st.session_state.search_keyword_tab4 = keyword
-
-        df_filtered = pd.DataFrame()
-        if keyword:
-            for col in ["色粉編號", "名稱", "國際色號"]:
-                df_color[col] = df_color[col].astype(str).str.strip()
-            df_filtered = df_color[
-                df_color["色粉編號"].str.contains(keyword, case=False, na=False) |
-                df_color["名稱"].str.contains(keyword, case=False, na=False) |
-                df_color["國際色號"].str.contains(keyword, case=False, na=False)
-            ]
-
-            if df_filtered.empty:
-                st.warning("❗ 查無符合的資料")
-            else:
-                display_cols = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝"]
-                existing_cols = [c for c in display_cols if c in df_filtered.columns]
-                st.dataframe(df_filtered[existing_cols], use_container_width=True, hide_index=True)
-
-                # 修改 / 刪除按鈕
-                for i, row in df_filtered.iterrows():
-                    c1, c2, c3 = st.columns([3,1,1])
-                    with c1:
-                        st.markdown(f"<div style='font-family:Arial; color:#FFFFFF;'>🔸 {row['色粉編號']}　{row['名稱']}</div>", unsafe_allow_html=True)
-                    with c2:
-                        if st.button("✏️ 改", key=f"edit_color_tab4_{i}"):
-                            st.session_state.edit_color_index = df_color.index[df_color["色粉編號"] == row["色粉編號"]][0]
-                            st.session_state.form_color = row.to_dict()
-                            st.rerun()
-                    with c3:
-                        if st.button("🗑️ 刪", key=f"delete_color_tab4_{i}"):
-                            st.session_state.delete_color_index = df_color.index[df_color["色粉編號"] == row["色粉編號"]][0]
-                            st.session_state.show_delete_color_confirm = True
-                            st.rerun()
-
-# ============================================================
-    # Tab 4: 色粉管理（完整從原本 "色粉管理" 搬移過來）
-    # ============================================================
-    with tab4:
-        # ===== 讀取工作表 =====
-        worksheet = spreadsheet.worksheet("色粉管理")
-        required_columns = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
 
         # 初始化 session_state
-        init_states(["form_color", "edit_color_index", "delete_color_index", "show_delete_color_confirm", "search_color"])
-
-        # form_color 確保是 dict
-        if "form_color" not in st.session_state or not isinstance(st.session_state.form_color, dict):
-            st.session_state.form_color = {}
-        for col in required_columns:
-            st.session_state.form_color.setdefault(col, "")
-
-        # 讀取 Sheet
-        try:
-            df_color = pd.DataFrame(worksheet.get_all_records())
-        except:
-            df_color = pd.DataFrame(columns=required_columns)
-
-        # 補齊缺少欄位
-        for col in required_columns:
-            if col not in df_color.columns:
-                df_color[col] = ""
-
-        # 將所有欄位轉字串並清理前後空格
-        for col in required_columns:
-            df_color[col] = df_color[col].astype(str).str.strip()
-
-        # ===== 新增 / 更新色粉 =====
-        st.markdown('<h3 style="font-size:18px; color:#dbd818;">新增色粉</h3>', unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            st.session_state.form_color["色粉編號"] = st.text_input("色粉編號", st.session_state.form_color["色粉編號"], key="color_id_tab4")
-            st.session_state.form_color["國際色號"] = st.text_input("國際色號", st.session_state.form_color["國際色號"], key="color_intl_tab4")
-            st.session_state.form_color["名稱"] = st.text_input("名稱", st.session_state.form_color["名稱"], key="color_name_tab4")
-        with col2:
-            st.session_state.form_color["色粉類別"] = st.selectbox("色粉類別", ["色粉", "色母", "添加劑"],
-                index=["色粉", "色母", "添加劑"].index(st.session_state.form_color["色粉類別"]) if st.session_state.form_color["色粉類別"] in ["色粉", "色母", "添加劑"] else 0,
-                key="color_type_tab4")
-            st.session_state.form_color["包裝"] = st.selectbox("包裝", ["袋", "箱", "kg"],
-                index=["袋", "箱", "kg"].index(st.session_state.form_color["包裝"]) if st.session_state.form_color["包裝"] in ["袋", "箱", "kg"] else 0,
-                key="color_pack_tab4")
-            st.session_state.form_color["備註"] = st.text_input("備註", st.session_state.form_color["備註"], key="color_note_tab4")
-
-        if st.button("💾 儲存", key="save_color_tab4"):
-            new_data = {k: str(v).strip() for k,v in st.session_state.form_color.items()}
-            if new_data["色粉編號"] == "":
-                st.warning("⚠️ 請輸入色粉編號！")
-            else:
-                if st.session_state.edit_color_index is not None:
-                    idx = st.session_state.edit_color_index
-                    for col in df_color.columns:
-                        df_color.at[idx, col] = new_data.get(col, "")
-                    st.success("✅ 色粉已更新！")
-                else:
-                    if new_data["色粉編號"] in df_color["色粉編號"].values:
-                        st.warning("⚠️ 此色粉編號已存在！")
-                    else:
-                        df_color = pd.concat([df_color, pd.DataFrame([new_data], columns=df_color.columns)], ignore_index=True)
-                        st.success("✅ 新增成功！")
-                # 儲存到 Google Sheet
-                save_df_to_sheet(worksheet, df_color)
-                # 清空 form_color 並重置編輯索引
-                st.session_state.form_color = {col: "" for col in required_columns}
-                st.session_state.edit_color_index = None
-                st.rerun()
-
-        # ===== 刪除確認 =====
-        if st.session_state.show_delete_color_confirm:
-            target_row = df_color.iloc[st.session_state.delete_color_index]
-            target_text = f'{target_row["色粉編號"]} {target_row["名稱"]}'
-            st.warning(f"⚠️ 確定要刪除 {target_text}？")
-            c1, c2 = st.columns(2)
-            if c1.button("刪除", key="confirm_delete_color_tab4"):
-                df_color.drop(index=st.session_state.delete_color_index, inplace=True)
-                df_color.reset_index(drop=True, inplace=True)
-                save_df_to_sheet(worksheet, df_color)
-                st.success("✅ 刪除成功！")
-                st.session_state.show_delete_color_confirm = False
-                st.rerun()
-            if c2.button("取消", key="cancel_delete_color_tab4"):
-                st.session_state.show_delete_color_confirm = False
-                st.rerun()
-
-        st.markdown("---")
-
-        # ===== 搜尋與修改 / 刪除 =====
-        st.markdown('<h3 style="font-size:18px; color:#dbd818;">色粉修改 / 刪除</h3>', unsafe_allow_html=True)
         st.session_state.setdefault("search_keyword_tab4", "")
+        
+        # 🔍 搜尋輸入框
         keyword = st.text_input("輸入色粉編號或名稱搜尋", value=st.session_state.search_keyword_tab4, key="search_color_tab4")
-        keyword = keyword.strip()
-        st.session_state.search_keyword_tab4 = keyword
+        st.session_state.search_keyword_tab4 = keyword.strip()
 
         df_filtered = pd.DataFrame()
+
         if keyword:
-            for col in ["色粉編號", "名稱", "國際色號"]:
-                df_color[col] = df_color[col].astype(str).str.strip()
             df_filtered = df_color[
                 df_color["色粉編號"].str.contains(keyword, case=False, na=False) |
                 df_color["名稱"].str.contains(keyword, case=False, na=False) |
@@ -2108,21 +1977,53 @@ elif menu == "配方管理":
             else:
                 display_cols = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝"]
                 existing_cols = [c for c in display_cols if c in df_filtered.columns]
-                st.dataframe(df_filtered[existing_cols], use_container_width=True, hide_index=True)
+                df_display = df_filtered[existing_cols].copy()
+                st.dataframe(df_display, use_container_width=True, hide_index=True)
 
-                # 修改 / 刪除按鈕
+                st.markdown(
+                    """
+                    <p style="font-size:14px; font-family:Arial; color:gray; margin-top:-8px;">
+                        🛈 請於新增欄位修改
+                    </p>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+                st.markdown("""
+                    <style>
+                    div.stButton > button {
+                        font-size:16px !important;
+                        padding:2px 8px !important;
+                        border-radius:8px;
+                        background-color:#333333 !important;
+                        color:white !important;
+                        border:1px solid #555555;
+                    }
+                    div.stButton > button:hover {
+                        background-color:#555555 !important;
+                        border-color:#dbd818 !important;
+                    }
+                    </style>
+                """, unsafe_allow_html=True)
+
                 for i, row in df_filtered.iterrows():
-                    c1, c2, c3 = st.columns([3,1,1])
+                    c1, c2, c3 = st.columns([3, 1, 1])
+
                     with c1:
-                        st.markdown(f"<div style='font-family:Arial; color:#FFFFFF;'>🔸 {row['色粉編號']}　{row['名稱']}</div>", unsafe_allow_html=True)
+                        st.markdown(
+                            f"<div style='font-family:Arial; color:#FFFFFF;'>🔸 {row['色粉編號']}　{row['名稱']}</div>",
+                            unsafe_allow_html=True
+                        )
+
                     with c2:
                         if st.button("✏️ 改", key=f"edit_color_tab4_{i}"):
-                            st.session_state.edit_color_index = df_color.index[df_color["色粉編號"] == row["色粉編號"]][0]
+                            st.session_state.edit_color_index = i
                             st.session_state.form_color = row.to_dict()
                             st.rerun()
+
                     with c3:
                         if st.button("🗑️ 刪", key=f"delete_color_tab4_{i}"):
-                            st.session_state.delete_color_index = df_color.index[df_color["色粉編號"] == row["色粉編號"]][0]
+                            st.session_state.delete_color_index = i
                             st.session_state.show_delete_color_confirm = True
                             st.rerun()
                             
