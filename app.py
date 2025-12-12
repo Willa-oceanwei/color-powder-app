@@ -1583,84 +1583,79 @@ elif menu == "配方管理":
     # Tab 3: 配方預覽/修改/刪除
     # ============================================================
     with tab3:
-        
-        # ---------- 配方下拉選單 ----------
-        if not df.empty and "配方編號" in df.columns:
-            df['配方編號'] = df['配方編號'].fillna('').astype(str)
 
-            # 建立選項列表，第一個為空白
-            options = [None] + list(df.index)
+    if not df.empty and "配方編號" in df.columns:
+        df['配方編號'] = df['配方編號'].fillna('').astype(str)
 
-            # 找出對應的 index
-            selected_index = st.selectbox(
-                "輸入配方",
-                options=options,  # <- 這裡要改成 options
-                format_func=lambda i: (
-                    "" if i is None else
-                    f"{df.at[i, '配方編號']} | {df.at[i, '顏色']} | {df.at[i, '客戶名稱']}"
-                    + (" 🔴停用" if str(df.at[i, '狀態']) == "停用" else "")
-                ),
-                key="select_recipe_code_tab3",
-                index=0  # 空白為預設
+        # 建立選項列表，第一個為空白
+        options = [None] + list(df.index)
+
+        # 選擇配方
+        selected_index = st.selectbox(
+            "輸入配方",
+            options=options,
+            format_func=lambda i: (
+                "" if i is None else
+                f"{df.at[i, '配方編號']} | {df.at[i, '顏色']} | {df.at[i, '客戶名稱']}"
+                + (" 🔴停用" if str(df.at[i, '狀態']) == "停用" else "")
+            ),
+            key="select_recipe_code_tab3",
+            index=0
+        )
+
+        if selected_index is not None:
+            selected_code = df.at[selected_index, "配方編號"]
+
+            # ---------- 配方預覽 ----------
+            recipe_row_preview = df.loc[selected_index].to_dict()
+            preview_text_recipe = generate_recipe_preview_text(
+                {"配方編號": recipe_row_preview.get("配方編號")},
+                recipe_row_preview
             )
-            selected_code = df.at[selected_index, "配方編號"] if selected_index is not None else None
-            
-            # ---------- 配方預覽 + 修改 / 刪除按鈕同一橫列 ----------
-            if selected_code:
-                recipe_row_preview = df.loc[selected_index].to_dict()
-                preview_text_recipe = generate_recipe_preview_text(
-                    {"配方編號": recipe_row_preview.get("配方編號")},
-                    recipe_row_preview
-                )
 
-                cols_preview_recipe = st.columns([6, 1.2])
-                with cols_preview_recipe[0]:
-                    with st.expander("👀 配方預覽", expanded=False):
-                        st.markdown(preview_text_recipe, unsafe_allow_html=True)
+            cols_preview_recipe = st.columns([6, 1.2])
+            with cols_preview_recipe[0]:
+                with st.expander("👀 配方預覽", expanded=False):
+                    st.markdown(preview_text_recipe, unsafe_allow_html=True)
 
-                with cols_preview_recipe[1]:
-                    col_btn1, col_btn2 = st.columns(2)
-                    with col_btn1:
-                        if st.button("✏️ ", key=f"edit_recipe_btn_tab3_{selected_index}"):
-                            st.session_state.show_edit_recipe_panel = True
-                            st.session_state.editing_recipe_index = selected_index
-                            st.rerun()
-                    with col_btn2:
-                        if st.button("🗑️ ", key=f"delete_recipe_btn_tab3_{selected_index}"):
-                            st.session_state.show_delete_recipe_confirm = True
-                            st.session_state.delete_recipe_index = selected_index
+            # 修改 / 刪除按鈕
+            with cols_preview_recipe[1]:
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("✏️ ", key=f"edit_recipe_btn_tab3_{selected_index}"):
+                        st.session_state.show_edit_recipe_panel = True
+                        st.session_state.editing_recipe_index = selected_index
+                        st.rerun()
+                with col_btn2:
+                    if st.button("🗑️ ", key=f"delete_recipe_btn_tab3_{selected_index}"):
+                        st.session_state.show_delete_recipe_confirm = True
+                        st.session_state.delete_recipe_index = selected_index
 
-               # ------------------- 確認刪除 -------------------
-                if st.session_state.get("show_delete_recipe_confirm", False):
-                    idx = st.session_state["delete_recipe_index"]
-                    recipe_label = df.at[idx, "配方編號"]
-                    st.warning(f"⚠️ 確定要刪除配方？\n\n👉 {recipe_label}")
+            # ---------- 確認刪除 ----------
+            if st.session_state.get("show_delete_recipe_confirm", False):
+                idx = st.session_state["delete_recipe_index"]
+                recipe_label = df.at[idx, "配方編號"]
+                st.warning(f"⚠️ 確定要刪除配方？\n\n👉 {recipe_label}")
 
-                    c1, c2 = st.columns(2)
-                    if c1.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
-                        df.drop(idx, inplace=True)
-                        df.reset_index(drop=True, inplace=True)
-                        
-                        # 寫回 Google Sheet
-                        try:
-                            ws_recipe.clear()
-                            ws_recipe.update([df.columns.tolist()] + df.values.tolist())
-                            # 同時寫入 CSV
-                            order_file = Path("data/df_recipe.csv")
-                            order_file.parent.mkdir(parents=True, exist_ok=True)
-                            df.to_csv(order_file, index=False, encoding="utf-8-sig")
-                        except Exception as e:
-                            st.error(f"刪除失敗：{e}")
-                        
+                c1, c2 = st.columns(2)
+                if c1.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
+                    df.drop(idx, inplace=True)
+                    df.reset_index(drop=True, inplace=True)
+                    # 寫回 Google Sheet 與 CSV
+                    try:
+                        ws_recipe.clear()
+                        ws_recipe.update([df.columns.tolist()] + df.values.tolist())
+                        df.to_csv("data/df_recipe.csv", index=False, encoding="utf-8-sig")
                         st.success(f"✅ 已刪除 {recipe_label}")
-                        st.session_state.show_delete_recipe_confirm = False
-                        st.session_state.df = df
-                        st.session_state.df_recipe = df  # 同步更新
-                        st.rerun()
-
-                    if c2.button("取消", key="confirm_delete_recipe_no_tab3"):
-                        st.session_state.show_delete_recipe_confirm = False
-                        st.rerun()
+                    except Exception as e:
+                        st.error(f"刪除失敗：{e}")
+                    st.session_state.show_delete_recipe_confirm = False
+                    st.session_state.df = df
+                    st.session_state.df_recipe = df
+                    st.rerun()
+                if c2.button("取消", key="confirm_delete_recipe_no_tab3"):
+                    st.session_state.show_delete_recipe_confirm = False
+                    st.rerun()
 
                 # ---------- 修改配方面板 ----------
                 if st.session_state.get("show_edit_recipe_panel") and st.session_state.get("editing_recipe_index") is not None:
@@ -1859,8 +1854,8 @@ elif menu == "配方管理":
                         if st.button("返回", key="return_edit_recipe_btn_tab3"):
                             st.session_state.show_edit_recipe_panel = False
                             st.rerun()
-        else:
-            st.info("⚠️ 目前沒有配方記錄")
+    else:
+        st.info("⚠️ 目前沒有配方記錄")
 
         # 頁面最下方手動載入按鈕
         st.markdown("---")
