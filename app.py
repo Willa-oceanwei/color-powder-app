@@ -1588,6 +1588,9 @@ elif menu == "配方管理":
         if not df.empty and "配方編號" in df.columns:
             df['配方編號'] = df['配方編號'].fillna('').astype(str)
 
+            # 建立選項列表，第一個為空白
+            options = [None] + list(df.index)
+
             # 找出對應的 index
             selected_index = st.selectbox(
                 "輸入配方",
