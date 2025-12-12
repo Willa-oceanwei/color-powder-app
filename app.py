@@ -2044,7 +2044,7 @@ elif menu == "生產單管理":
 
 	# ✅ 步驟 2：累加所有進貨記錄
 	for idx, row in df_stock.iterrows():
-		f row["類型"] == "進貨":
+		if row["類型"] == "進貨":
 			pid = str(row.get("色粉編號","")).strip()
 			qty = float(row.get("數量",0))
 			if str(row.get("單位","g")).lower() == "kg":
