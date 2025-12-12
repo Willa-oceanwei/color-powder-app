@@ -1546,7 +1546,7 @@ elif menu == "配方管理":
             
         if not df_recipe.empty and "配方編號" in df_recipe.columns:
             df_recipe['配方編號'] = df_recipe['配方編號'].fillna('').astype(str)
-            
+            options = [None] + list(df_recipe.index)
             selected_index = st.selectbox(
                 "輸入配方",
                 options=df_recipe.index,
