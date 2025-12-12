@@ -1452,6 +1452,26 @@ elif menu == "配方管理":
             mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
         
         df_filtered = df[mask]    
+
+        # ======== 搜尋輸入 ========
+       search_input = st.text_input("搜尋配方...", key="search_keyword_tab2")
+
+        # 沒搜尋 → 不顯示任何資料
+        if not search_input.strip():
+            st.info("請輸入搜尋條件開始查詢。")
+            st.stop()
+
+        # ======== 搜尋後過濾資料 ========
+        df_filtered = df[
+            df["配方編號"].astype(str).str.contains(search_input) |
+            df["客戶名稱"].astype(str).str.contains(search_input) |
+            df["顏色"].astype(str).str.contains(search_input)
+        ]
+
+        # 搜尋後沒有資料 → 不顯示
+        if df_filtered.empty:
+            st.warning("查無符合的配方")
+            st.stop()
         
         # ===== 計算分頁 =====
         total_rows = df_filtered.shape[0]
