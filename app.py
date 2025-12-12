@@ -1417,8 +1417,6 @@ elif menu == "配方管理":
     # Tab 2: 配方記錄表
     # ============================================================
     with tab2:
-        st.markdown('<h2 style="font-size:20px; font-family:Arial; color:#F9DC5C;">📑 配方記錄表</h2>', unsafe_allow_html=True)
-
         if df.empty:
             st.info("目前無資料")
             df_filtered = df.copy()
@@ -1536,8 +1534,7 @@ elif menu == "配方管理":
     # Tab 3: 配方預覽/修改/刪除
     # ============================================================
     with tab3:
-        st.markdown('<h2 style="font-size:20px; font-family:Arial; color:#F9DC5C;">🛠️ 配方預覽/修改/刪除</h2>', unsafe_allow_html=True)
-        
+            
         if not df_recipe.empty and "配方編號" in df_recipe.columns:
             df_recipe['配方編號'] = df_recipe['配方編號'].fillna('').astype(str)
             
@@ -1752,7 +1749,6 @@ elif menu == "配方管理":
 
     # ========== Tab 4：色粉管理 ==========
     with tab4:
-        st.markdown('<h2 style="font-size:20px; font-family:Arial; color:#dbd818;">🪅 色粉管理</h2>', unsafe_allow_html=True)
         
         # 讀取色粉管理表
         worksheet = spreadsheet.worksheet("色粉管理")
