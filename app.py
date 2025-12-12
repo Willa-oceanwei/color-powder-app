@@ -1594,13 +1594,14 @@ elif menu == "配方管理":
             # 找出對應的 index
             selected_index = st.selectbox(
                 "輸入配方",
-                options=df.index,
+                options=options,  # <- 這裡要改成 options
                 format_func=lambda i: (
+                    "" if i is None else
                     f"{df.at[i, '配方編號']} | {df.at[i, '顏色']} | {df.at[i, '客戶名稱']}"
                     + (" 🔴停用" if str(df.at[i, '狀態']) == "停用" else "")
                 ),
                 key="select_recipe_code_tab3",
-                index=0
+                index=0  # 空白為預設
             )
             selected_code = df.at[selected_index, "配方編號"] if selected_index is not None else None
             
