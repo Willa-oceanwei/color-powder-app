@@ -2438,8 +2438,8 @@ elif menu == "生產單管理":
                     order["合計類別"] = st.session_state.form_total_category
 
                     for i in range(1, 5):
-                        order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
-			            order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
+    					order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}", "").strip()
+    					order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}", "").strip()
 
 		            for i in range(1, 9):
                         order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
