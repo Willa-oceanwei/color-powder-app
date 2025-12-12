@@ -338,8 +338,19 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
                 if net_sub > 0:
                     html_text += "_"*40 + "\n"
                     html_text += total_label_sub.ljust(12) + fmt_num(net_sub) + "\n"
+        # 色母專用
+        if safe_str(recipe_row.get("色粉類別"))=="色母":
+            html_text += "\n色母專用預覽：\n"
+            for pid, wgt in zip(powder_ids, colorant_weights):
+                if pid and wgt > 0:
+                    html_text += f"{pid.ljust(8)}{fmt_num(wgt).rjust(8)}\n"
+            total_colorant = net_weight - sum(colorant_weights)
+            if total_colorant > 0:
+                category = safe_str(recipe_row.get("合計類別", "料"))
+                html_text += f"{category.ljust(8)}{fmt_num(total_colorant).rjust(8)}\n"
+    
+        return "```\n" + html_text.strip() + "\n```"
 
-    return "```\n" + html_text.strip() + "\n```"
 
 def load_recipe_data():
     """從 Google Sheets 載入配方數據"""
@@ -1560,14 +1571,14 @@ elif menu == "配方管理":
             selected_code = df_recipe.at[selected_index, "配方編號"] if selected_index is not None else None
             
             if selected_code:
-                recipe_row_preview = df_recipe.loc[selected_index].to_dict()
-                
-                # 使用你的函式生成預覽文字
-                preview_text = generate_recipe_preview_text(order=recipe_row_preview, recipe_row=recipe_row_preview)
-                
-                # 顯示在 Streamlit
-                with st.expander("👀 配方預覽", expanded=False):
-                    st.markdown(preview_text, unsafe_allow_html=True)
+                df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
+                if not df_selected.empty:
+                    recipe_row_preview = df_selected.iloc[0].to_dict()
+                    preview_text_recipe = generate_recipe_preview_text(
+                        {"配方編號": recipe_row_preview.get("配方編號")}, 
+                        recipe_row_preview
+                    )
+                    st.markdown(preview_text_recipe, unsafe_allow_html=True)
                 
                 with cols_preview_recipe[1]:
                     col_btn1, col_btn2 = st.columns(2)
