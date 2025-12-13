@@ -891,7 +891,7 @@ elif menu == "客戶名單":
 	""", unsafe_allow_html=True)
 
 	st.markdown(
-		'<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🤖新增客戶</h2>',
+		'<h2 style="font-size:16px; font-family:Arial; color:#dbd818;">🤖新增客戶</h2>',
 		unsafe_allow_html=True
 	)
 
@@ -969,7 +969,7 @@ elif menu == "客戶名單":
 
 		st.markdown("---")
 		# ===== 🔍 搜尋欄（表格上方） =====
-		st.markdown('<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">🛠️ 客戶修改/刪除</h2>', unsafe_allow_html=True)
+		st.markdown('<h2 style="font-size:16px; font-family:Arial; color:#dbd818;">🛠️ 客戶修改/刪除</h2>', unsafe_allow_html=True)
 		# 預設空表格
 		df_filtered = pd.DataFrame()
 
@@ -3825,7 +3825,7 @@ elif menu == "採購管理":
 		
 		# ===== 新增供應商 =====
 		st.markdown(
-			'<h3 style="font-size:18px; font-family:Arial; color:#dbd818;">➕ 新增供應商</h3>',
+			'<h3 style="font-size:16px; font-family:Arial; color:#dbd818;">➕ 新增供應商</h3>',
 			unsafe_allow_html=True
 		)
 		
@@ -3880,7 +3880,7 @@ elif menu == "採購管理":
 		
 		# ===== 📋 供應商清單（搜尋後顯示表格與操作） =====
 		st.markdown(
-			'<h3 style="font-size:18px; font-family:Arial; color:#dbd818;">🛠️ 供應商修改/刪除</h3>',
+			'<h3 style="font-size:16px; font-family:Arial; color:#dbd818;">🛠️ 供應商修改/刪除</h3>',
 			unsafe_allow_html=True
 		)
 		
