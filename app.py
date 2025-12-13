@@ -2984,9 +2984,15 @@ elif menu == "生產單管理":
 					return str(int(x))
 				return f"{x:g}"
 	
-			note_text = str(recipe_row.get("備註","")).strip()
-			if note_text:
-				html_text += f"備註 : {note_text}<br><br>"
+			# ===== 備註顯示（區分來源） =====
+			order_note = str(order.get("備註", "")).strip()
+			if order_note:
+				html_text += f"【生產單備註】{order_note}<br><br>"
+			
+			recipe_note = str(recipe_row.get("備註", "")).strip()
+			if recipe_note:
+				html_text += f"【配方備註】{recipe_note}<br><br>"
+
 	
 			category_colorant = str(recipe_row.get("色粉類別","")).strip()
 			if category_colorant == "色母":
