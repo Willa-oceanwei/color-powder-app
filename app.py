@@ -1924,8 +1924,6 @@ elif menu == "配方管理":
         st.rerun()
 
 # =============== Tab 架構結束 ===============                            
-            
-# --- 生產單分頁 ----------------------------------------------------
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
     load_recipe(force_reload=True)
@@ -2313,67 +2311,67 @@ elif menu == "生產單管理":
                     st.rerun()
 
         # ===== 顯示「新增後欄位填寫區塊」 =====
-        order = st.session_state.get("new_order")
-        if order is None or not isinstance(order, dict):
-            order = {}
+		order = st.session_state.get("new_order")
+		if order is None or not isinstance(order, dict):
+			order = {}
 
-        recipe_id_raw = order.get("配方編號", "").strip()
-        recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
-        
-        matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
-        
-        if not matched.empty:
-            recipe_row = matched.iloc[0].to_dict()
-            recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
-            st.session_state["recipe_row_cache"] = recipe_row
-        else:
-            recipe_row = {}
+		recipe_id_raw = order.get("配方編號", "").strip()
+		recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
+		
+		matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
+		
+		if not matched.empty:
+			recipe_row = matched.iloc[0].to_dict()
+			recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
+			st.session_state["recipe_row_cache"] = recipe_row
+		else:
+			recipe_row = {}
 
-        show_confirm_panel = st.session_state.get("show_confirm_panel", False)
+		show_confirm_panel = st.session_state.get("show_confirm_panel", False)
 
-        for field in ["合計類別", "備註", "重要提醒"]:
-            if field in recipe_row:
-                order[field] = recipe_row.get(field, "")
-        
-        if recipe_id:
-            def get_additional_recipes(df, main_recipe_code):
-                df = df.copy()
-                df["配方類別"] = df["配方類別"].astype(str).str.strip()
-                df["原始配方"] = df["原始配方"].astype(str).str.strip()
-                main_code = str(main_recipe_code).strip()
-                return df[(df["配方類別"] == "附加配方") & (df["原始配方"] == main_code)]
-        
-            additional_recipes = get_additional_recipes(df_recipe, recipe_id)
-        
-            if additional_recipes.empty:
-                if show_confirm_panel:
-                    st.info("無附加配方")
-                order["附加配方"] = []
-            else:
-                if show_confirm_panel:
-                    st.markdown(f"<span style='font-size:14px; font-weight:bold;'>附加配方清單（共 {len(additional_recipes)} 筆）</span>", unsafe_allow_html=True)
-        
-                    for idx, row in additional_recipes.iterrows():
-                        with st.expander(f"附加配方：{row.get('配方編號', '')} - {row.get('顏色', '')}"):
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                color_ids = {f"色粉編號{i}": row.get(f"色粉編號{i}", "") for i in range(1, 9)}
-                                st.write("色粉編號", color_ids)
-                            with col2:
-                                color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}", "") for i in range(1, 9)}
-                                st.write("色粉重量", color_wts)
-        
-                order["附加配方"] = [
-                    {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
-                    for _, row in additional_recipes.iterrows()
-                ]
-        else:
-            order["附加配方"] = []
+		for field in ["合計類別", "備註", "重要提醒"]:
+			if field in recipe_row:
+				order[field] = recipe_row.get(field, "")
+		
+		if recipe_id:
+			def get_additional_recipes(df, main_recipe_code):
+				df = df.copy()
+				df["配方類別"] = df["配方類別"].astype(str).str.strip()
+				df["原始配方"] = df["原始配方"].astype(str).str.strip()
+				main_code = str(main_recipe_code).strip()
+				return df[(df["配方類別"] == "附加配方") & (df["原始配方"] == main_code)]
+		
+			additional_recipes = get_additional_recipes(df_recipe, recipe_id)
+		
+			if additional_recipes.empty:
+				if show_confirm_panel:
+					st.info("無附加配方")
+				order["附加配方"] = []
+			else:
+				if show_confirm_panel:
+					st.markdown(f"<span style='font-size:14px; font-weight:bold;'>附加配方清單（共 {len(additional_recipes)} 筆）</span>", unsafe_allow_html=True)
+		
+					for idx, row in additional_recipes.iterrows():
+						with st.expander(f"附加配方：{row.get('配方編號', '')} - {row.get('顏色', '')}"):
+							col1, col2 = st.columns(2)
+							with col1:
+								color_ids = {f"色粉編號{i}": row.get(f"色粉編號{i}", "") for i in range(1, 9)}
+								st.write("色粉編號", color_ids)
+							with col2:
+								color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}", "") for i in range(1, 9)}
+								st.write("色粉重量", color_wts)
+		
+				order["附加配方"] = [
+					{k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
+					for _, row in additional_recipes.iterrows()
+				]
+		else:
+			order["附加配方"] = []
  
-        st.session_state.new_order = order
+		st.session_state.new_order = order
 
-        # ===== 顯示詳情填寫表單 =====
-        if show_confirm_panel:
+		# ===== 顯示詳情填寫表單 =====
+		if show_confirm_panel:
 			st.markdown("---")
 			st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
 
