@@ -2211,37 +2211,46 @@ elif menu == "生產單管理":
 			selected_row	=	None
 			selected_label	=	None
 			
-		elif	len(option_map)	==	1:
-						selected_label	=	list(option_map.keys())[0]
-						selected_row	=	option_map[selected_label].copy()
+		elif len(option_map) == 1:
+		    selected_label = list(option_map.keys())[0]
+		    selected_row = option_map[selected_label].copy()
 		
-						#	自動建立	order
-						order	=	{}
-						order.update({
-										"生產單號":	f"{datetime.now().strftime('%Y%m%d')}-001",		#	或使用你的編號生成邏輯
-										"配方編號":	selected_row.get("配方編號",	""),
-										"顏色":	selected_row.get("顏色",	""),
-										"客戶名稱":	selected_row.get("客戶名稱",	""),
-										"Pantone	色號":	selected_row.get("Pantone色號",	""),
-										"計量單位":	selected_row.get("計量單位",	""),
-										"備註":	str(selected_row.get("備註",	"")).strip(),
-										"重要提醒":	str(selected_row.get("重要提醒",	"")).strip(),
-										"合計類別":	str(selected_row.get("合計類別",	"")).strip(),
-										"色粉類別":	selected_row.get("色粉類別",	"").strip(),
-						})
-						st.session_state["new_order"]	=	order
-						st.session_state["show_confirm_panel"]	=	True
-	
-			true_formula_id = selected_row["配方編號"]
-			selected_row["配方編號_原始"] = true_formula_id
-	
-			parts = selected_label.split(" | ", 1)
-			if len(parts) > 1:
-				display_label = f"{selected_row['配方編號']} | {parts[1]}"
-			else:
-				display_label = selected_row['配方編號']
-	
-			st.success(f"已自動選取：{display_label}")
+		    # 計算當天已有的單數，生成生產單號
+		    df_all_orders = st.session_state.df_order.copy()
+		    today_str = datetime.now().strftime("%Y%m%d")
+		    count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
+		    new_id = f"{today_str}-{count_today + 1:03}"
+		
+		    # 自動建立 order
+		    order = {
+		        "生產單號": new_id,
+		        "生產日期": datetime.now().strftime("%Y-%m-%d"),
+		        "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
+		        "配方編號": selected_row.get("配方編號", ""),
+		        "顏色": selected_row.get("顏色", ""),
+		        "客戶名稱": selected_row.get("客戶名稱", ""),
+		        "Pantone 色號": selected_row.get("Pantone色號", ""),
+		        "計量單位": selected_row.get("計量單位", ""),
+		        "備註": str(selected_row.get("備註", "")).strip(),
+		        "重要提醒": str(selected_row.get("重要提醒", "")).strip(),
+		        "合計類別": str(selected_row.get("合計類別", "")).strip(),
+		        "色粉類別": selected_row.get("色粉類別", "").strip(),
+		    }
+		
+		    st.session_state["new_order"] = order
+		    st.session_state["show_confirm_panel"] = True
+		
+		    # 建立 recipe_row_cache
+		    st.session_state["recipe_row_cache"] = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in selected_row.items()}
+		
+		    # 顯示選取訊息
+		    parts = selected_label.split(" | ", 1)
+		    if len(parts) > 1:
+		        display_label = f"{selected_row['配方編號']} | {parts[1]}"
+		    else:
+		        display_label = selected_row['配方編號']
+		    st.success(f"已自動選取：{display_label}")
+
 		else:
 			selected_label = st.selectbox(
 				"選擇配方",
@@ -2253,7 +2262,7 @@ elif menu == "生產單管理":
 				selected_row = None
 			else:
 				selected_row = option_map.get(selected_label)
-	
+		
 		# ===== 處理「新增」按鈕 =====
 		if add_btn:
 			if selected_label is None or selected_label == "請選擇":
