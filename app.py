@@ -2446,15 +2446,15 @@ elif menu == "生產單管理":
                 			break  # ✅ 已經有填，不用再檢查後面
                 
                 	if all_empty:
-                    	st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
-                    	st.stop()
-                    
-                    order["顏色"] = st.session_state.form_color_tab1
-                    order["Pantone 色號"] = st.session_state.form_pantone_tab1
-                    order["料"] = st.session_state.form_raw_material_tab1
-                    order["備註"] = st.session_state.form_remark_tab1
-                    order["重要提醒"] = st.session_state.form_important_note_tab1
-                    order["合計類別"] = st.session_state.form_total_category_tab1
+						st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
+						st.stop()
+					
+					order["顏色"] = st.session_state.form_color_tab1
+					order["Pantone 色號"] = st.session_state.form_pantone_tab1
+					order["料"] = st.session_state.form_raw_material_tab1
+					order["備註"] = st.session_state.form_remark_tab1
+					order["重要提醒"] = st.session_state.form_important_note_tab1
+					order["合計類別"] = st.session_state.form_total_category_tab1
 
     
                     for i in range(1, 5):
