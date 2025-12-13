@@ -2205,31 +2205,32 @@ elif menu == "生產單管理":
 			option_map = {}
 	
 		# ===== 顯示選擇結果 =====
-		if not option_map:
+		#	=====	顯示選擇結果	=====
+		if	not	option_map:
 			st.warning("查無符合的配方")
-			selected_row = None
-			selected_label = None
+			selected_row	=	None
+			selected_label	=	None
 			
-		elif len(option_map) == 1:
-		    selected_label = list(option_map.keys())[0]
-		    selected_row = option_map[selected_label].copy()
+		elif	len(option_map)	==	1:
+						selected_label	=	list(option_map.keys())[0]
+						selected_row	=	option_map[selected_label].copy()
 		
-		    # 自動建立 order
-		    order = {}
-		    order.update({
-		        "生產單號": f"{datetime.now().strftime('%Y%m%d')}-001",  # 或使用你的編號生成邏輯
-		        "配方編號": selected_row.get("配方編號", ""),
-		        "顏色": selected_row.get("顏色", ""),
-		        "客戶名稱": selected_row.get("客戶名稱", ""),
-		        "Pantone 色號": selected_row.get("Pantone色號", ""),
-		        "計量單位": selected_row.get("計量單位", ""),
-		        "備註": str(selected_row.get("備註", "")).strip(),
-		        "重要提醒": str(selected_row.get("重要提醒", "")).strip(),
-		        "合計類別": str(selected_row.get("合計類別", "")).strip(),
-		        "色粉類別": selected_row.get("色粉類別", "").strip(),
-		    })
-		    st.session_state["new_order"] = order
-		    st.session_state["show_confirm_panel"] = True
+						#	自動建立	order
+						order	=	{}
+						order.update({
+										"生產單號":	f"{datetime.now().strftime('%Y%m%d')}-001",		#	或使用你的編號生成邏輯
+										"配方編號":	selected_row.get("配方編號",	""),
+										"顏色":	selected_row.get("顏色",	""),
+										"客戶名稱":	selected_row.get("客戶名稱",	""),
+										"Pantone	色號":	selected_row.get("Pantone色號",	""),
+										"計量單位":	selected_row.get("計量單位",	""),
+										"備註":	str(selected_row.get("備註",	"")).strip(),
+										"重要提醒":	str(selected_row.get("重要提醒",	"")).strip(),
+										"合計類別":	str(selected_row.get("合計類別",	"")).strip(),
+										"色粉類別":	selected_row.get("色粉類別",	"").strip(),
+						})
+						st.session_state["new_order"]	=	order
+						st.session_state["show_confirm_panel"]	=	True
 	
 			true_formula_id = selected_row["配方編號"]
 			selected_row["配方編號_原始"] = true_formula_id
