@@ -2425,17 +2425,17 @@ elif menu == "生產單管理":
                                 col2.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
 
                 col_submit1, col_submit2 = st.columns([1, 1])
-                with col_submit1:
-                    submitted = st.form_submit_button("💾 儲存生產單")
+				with col_submit1:
+					submitted = st.form_submit_button("💾 儲存生產單")
 
-                is_colorant = (recipe_row.get("色粉類別", "").strip() == "色母")
-                with col_submit2:
-                    if is_colorant:
-                        continue_to_oem = st.form_submit_button("✅ 儲存並轉代工管理")
-                    else:
-                        continue_to_oem = False
+				is_colorant = (recipe_row.get("色粉類別", "").strip() == "色母")
+				with col_submit2:
+					if is_colorant:
+						continue_to_oem = st.form_submit_button("✅ 儲存並轉代工管理")
+					else:
+						continue_to_oem = False
 
-                if submitted or continue_to_oem:
+				if submitted or continue_to_oem:
 					all_empty = True
 				
 					for i in range(1, 5):
