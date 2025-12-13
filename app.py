@@ -2157,16 +2157,12 @@ elif menu == "生產單管理":
 		return label
 
 	# =============== Tab 架構開始 ===============
-	tab1, tab2, tab3 = st.tabs(["📝 生產單建立", "📊 生產單記錄表", "🔧 生產單修改/刪除"])
+	tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📊 生產單記錄表", "🔧 生產單預覽/修改/刪除"])
 
 	# ============================================================
 	# Tab 1: 生產單建立
 	# ============================================================
 	with tab1:
-		st.markdown(
-			'<h2 style="font-size:20px; font-family:Arial; color:#F9DC5C;">🛸 生產單建立</h2>',
-			unsafe_allow_html=True
-		)
 
 		# ===== 搜尋表單 =====
 		with st.form("search_add_form", clear_on_submit=False):
@@ -2657,11 +2653,7 @@ elif menu == "生產單管理":
 	# Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
 	# ============================================================
 	with tab2:
-		st.markdown(
-			'<h2 style="font-size:20px; font-family:Arial; color:#F9DC5C;">📑 生產單記錄表</h2>',
-			unsafe_allow_html=True
-		)
-	
+			
 		search_order = st.text_input(
 			"搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)",
 			key="search_order_input_tab2",
@@ -2852,10 +2844,6 @@ elif menu == "生產單管理":
 	# Tab 3: 生產單修改/刪除（保持完整，無變更）
 	# ============================================================
 	with tab3:
-		st.markdown(
-			'<h2 style="font-size:20px; font-family:Arial; color:#F9DC5C;">🛠️ 生產單修改/刪除</h2>',
-			unsafe_allow_html=True
-		)
 	
 		def delete_order_by_id(ws, order_id):
 			all_values = ws.get_all_records()
