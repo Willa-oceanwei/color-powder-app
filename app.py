@@ -2989,11 +2989,6 @@ elif menu == "生產單管理":
 			if order_note:
 				html_text += f"【生產單備註】{order_note}<br><br>"
 			
-			recipe_note = str(recipe_row.get("備註", "")).strip()
-			if recipe_note:
-				html_text += f"【配方備註】{recipe_note}<br><br>"
-
-	
 			category_colorant = str(recipe_row.get("色粉類別","")).strip()
 			if category_colorant == "色母":
 				pack_weights_display = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
