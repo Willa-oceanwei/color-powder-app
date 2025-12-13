@@ -2436,16 +2436,16 @@ elif menu == "生產單管理":
                         continue_to_oem = False
 
                 if submitted or continue_to_oem:
-                	all_empty = True
-                
-                	for i in range(1, 5):
-                		weight = st.session_state.get(f"form_weight{i}_tab1", "").strip()
-                		count  = st.session_state.get(f"form_count{i}_tab1", "").strip()
-                		if weight or count:
-                			all_empty = False
-                			break  # ✅ 已經有填，不用再檢查後面
-                
-                	if all_empty:
+					all_empty = True
+				
+					for i in range(1, 5):
+						weight = st.session_state.get(f"form_weight{i}_tab1", "").strip()
+						count  = st.session_state.get(f"form_count{i}_tab1", "").strip()
+						if weight or count:
+							all_empty = False
+							break  # ✅ 已經有填，不用再檢查後面
+				
+					if all_empty:
 						st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
 						st.stop()
 					
