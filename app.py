@@ -2406,7 +2406,7 @@ elif menu == "生產單管理":
 	st.session_state.new_order = order
 	
 	# ===== 儲存生產單 + 庫存警示 + 更新 session_state（含附加配方） =====
-	if	submitted	or	continue_to_oem:
+	if submitted or continue_to_oem:
 		#	----------	檢查包裝重量與份數	----------
 		all_empty	=	True
 		for	i	in	range(1,	5):
