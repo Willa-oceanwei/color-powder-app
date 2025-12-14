@@ -3100,7 +3100,6 @@ elif menu == "生產單管理":
 					if st.button("✏️ ", key="edit_order_btn_tab3"):
 						st.session_state["show_edit_panel"] = True
 						st.session_state["editing_order"] = order_dict
-						st.rerun()
 				with col_btn2:
 					if st.button("🗑️ ", key="delete_order_btn_tab3"):
 						st.session_state["delete_target_id"] = selected_code_edit
