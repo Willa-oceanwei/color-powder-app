@@ -2541,53 +2541,105 @@ elif menu == "生產單管理":
 					last_stock_before = last_stock.get(pid, 0)
 					new_stock = last_stock_before - total_used_g
 					last_stock[pid] = new_stock
+
+					def calc_latest_stock_for_alert(order, df_stock, df_order, df_recipe):
+				    """
+				    計算本單儲存前，扣掉本單用量後的最新庫存，回傳 dict {色粉編號: 庫存_g}
+				    """
+				    last_stock = {}  # 最終庫存結果
+				    
+				    # 將庫存資料轉換成 g
+				    def to_grams(qty, unit):
+				        try:
+				            q = float(qty or 0)
+				        except:
+				            q = 0.0
+				        return q * 1000 if str(unit).lower() == "kg" else q
 				
-					final_kg = new_stock / 1000
-					if final_kg < 0.5:
-						alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
-					elif final_kg < 1:
-						alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
-					elif final_kg < 3:
-						alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
+				    df_stock_copy = df_stock.copy()
+				    df_stock_copy["數量_g"] = df_stock_copy.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
+				    df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].astype(str).str.strip()
 				
-				for add_rec in order.get("附加配方", []):
-					for i in range(1, 9):
-						pid = str(add_rec.get(f"色粉編號{i}", "")).strip()
-						if not pid or pid.endswith(("01", "001", "0001")):
-							continue
+				    # 計算區間用量的安全函式
+				    def safe_calc_usage(pid, df_order, df_recipe):
+				        try:
+				            return calc_usage_for_stock(pid, df_order, df_recipe, None, None)
+				        except:
+				            return 0.0
 				
-						if pid not in last_stock:
-							continue
+				    # --- 先抓所有相關色粉 ---
+				    color_ids = []
+				    for i in range(1, 9):
+				        cid = str(order.get(f"色粉編號{i}", "")).strip()
+				        if cid and not cid.endswith(("01","001","0001")):
+				            color_ids.append(cid)
+				    for add_rec in order.get("附加配方", []):
+				        for i in range(1, 9):
+				            cid = str(add_rec.get(f"色粉編號{i}", "")).strip()
+				            if cid and not cid.endswith(("01","001","0001")):
+				                color_ids.append(cid)
+				    color_ids = list(set(color_ids))
 				
-						try:
-							ratio_g = float(add_rec.get(f"色粉重量{i}", 0))
-						except:
-							ratio_g = 0.0
+				    for pid in color_ids:
+				        # 期初庫存
+				        df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid]
+				        ini_total = 0.0
+				        if not df_pid.empty:
+				            df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
+				            if not df_ini.empty:
+				                ini_total = df_ini.sort_values("日期", ascending=False).iloc[0]["數量_g"]
+				            else:
+				                # 沒有期初，就把所有進貨加起來
+				                ini_total = df_pid["數量_g"].sum()
 				
-						total_used_g = 0
-						for j in range(1, 5):
-							try:
-								w_val = float(st.session_state.get(f"form_weight{j}_tab1", 0) or 0)
-								n_val = float(st.session_state.get(f"form_count{j}_tab1", 0) or 0)
-								total_used_g += ratio_g * w_val * n_val
-							except:
-								pass
+				        # 區間用量（已使用 calc_usage_for_stock，不指定日期，抓所有歷史訂單）
+				        usage_total = safe_calc_usage(pid, df_order, df_recipe)
 				
-						last_stock_before = last_stock.get(pid, 0)
-						new_stock = last_stock_before - total_used_g
-						last_stock[pid] = new_stock
+				        # 計算本單用量
+				        order_usage = 0.0
+				        # 主配方
+				        for i in range(1, 5):
+				            try:
+				                w_val = float(st.session_state.get(f"form_weight{i}_tab1", 0) or 0)
+				                n_val = float(st.session_state.get(f"form_count{i}_tab1", 0) or 0)
+				                ratio_g = float(order.get(f"色粉重量{i}", 0) or 0)
+				                order_usage += ratio_g * w_val * n_val
+				            except:
+				                continue
+				        # 附加配方
+				        for add_rec in order.get("附加配方", []):
+				            for i in range(1, 9):
+				                try:
+				                    w_val = float(st.session_state.get(f"form_weight{i}_tab1", 0) or 0)
+				                    n_val = float(st.session_state.get(f"form_count{i}_tab1", 0) or 0)
+				                    ratio_g = float(add_rec.get(f"色粉重量{i}", 0) or 0)
+				                    order_usage += ratio_g * w_val * n_val
+				                except:
+				                    continue
 				
-						final_kg = new_stock / 1000
-						if final_kg < 0.5:
-							alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
-						elif final_kg < 1:
-							alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
-						elif final_kg < 3:
-							alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
+				        # 最終庫存 = 期初 + 進貨 - 歷史用量 - 本單用量
+				        final_g = ini_total - usage_total - order_usage
+				        last_stock[pid] = final_g
 				
-				if alerts:
-					st.warning("💀 以下色粉庫存過低：\n" + "\n".join(alerts))
-				
+				    return last_stock
+	
+					# 在警示前呼叫
+					last_stock_alert = calc_latest_stock_for_alert(order, df_stock, df_order, df_recipe)
+					
+					# 警示判斷
+					alerts = []
+					for pid, stock_g in last_stock_alert.items():
+					    final_kg = stock_g / 1000
+					    if final_kg < 0.5:
+					        alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
+					    elif final_kg < 1:
+					        alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
+					    elif final_kg < 3:
+					        alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
+					
+					if alerts:
+					    st.warning("💀 以下色粉庫存過低：\n" + "\n".join(alerts))
+
 				st.session_state["last_final_stock"] = last_stock
 				
 				order_no = str(order.get("生產單號", "")).strip()
