@@ -2264,6 +2264,7 @@ elif menu == "生產單管理":
 				selected_row = option_map.get(selected_label)
 		
 		# ===== 處理「新增」按鈕 =====
+		# === 處理「新增」按鈕 ===
 		if add_btn:
 			if selected_label is None or selected_label == "請選擇":
 				st.warning("請先選擇有效配方")
@@ -2334,25 +2335,25 @@ elif menu == "生產單管理":
 					st.session_state["show_confirm_panel"] = True
 					st.rerun()
 
-					# ===== 顯示「新增後欄位填寫區塊」 =====
-					order = st.session_state.get("new_order")
-					if order is None or not isinstance(order, dict):
-						order = {}
-			
-			
-					recipe_id_raw = order.get("配方編號", "").strip()
-					recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
-					
-					matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
-					
-					if not matched.empty:
-						recipe_row = matched.iloc[0].to_dict()
-						recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
-						st.session_state["recipe_row_cache"] = recipe_row
-					else:
-						recipe_row = {}
-			
-					show_confirm_panel = st.session_state.get("show_confirm_panel", False)
+		# ===== 顯示「新增後欄位填寫區塊」（必須在按鈕處理之外）=====
+		order = st.session_state.get("new_order")
+		if order is None or not isinstance(order, dict):
+			order = {}
+		
+		
+		recipe_id_raw = order.get("配方編號", "").strip()
+		recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
+		
+		matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
+		
+		if not matched.empty:
+			recipe_row = matched.iloc[0].to_dict()
+			recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
+			st.session_state["recipe_row_cache"] = recipe_row
+		else:
+			recipe_row = {}
+		
+		show_confirm_panel = st.session_state.get("show_confirm_panel", False)
 			
 					for field in ["合計類別", "備註", "重要提醒"]:
 						if field in recipe_row:
