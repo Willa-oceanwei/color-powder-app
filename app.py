@@ -2264,7 +2264,6 @@ elif menu == "生產單管理":
 				selected_row = option_map.get(selected_label)
 		
 		# ===== 處理「新增」按鈕 =====
-		# === 處理「新增」按鈕 ===
 		if add_btn:
 			if selected_label is None or selected_label == "請選擇":
 				st.warning("請先選擇有效配方")
