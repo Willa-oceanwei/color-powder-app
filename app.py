@@ -3321,7 +3321,7 @@ elif menu == "生產單管理":
 			if show_ids_key not in st.session_state:
 				st.session_state[show_ids_key] = True
 
-			st.markdown("""
+			t.markdown("""
 			<style>
 			div[data-testid="stCheckbox"] label p {
 			    color: #888 !important;
@@ -3330,9 +3330,6 @@ elif menu == "生產單管理":
 			div[data-testid="stCheckbox"] input[type="checkbox"] {
 			    accent-color: #aaa !important;
 			}
-			</style>
-			""", unsafe_allow_html=True)
-
 			</style>
 			""", unsafe_allow_html=True)
 
