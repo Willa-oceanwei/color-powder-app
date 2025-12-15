@@ -2818,28 +2818,29 @@ elif menu == "生產單管理":
 					# 產生列印 HTML 按鈕
 					show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
 					print_html = generate_print_page_content(
-						order=order,
-						recipe_row=recipe_row,
-						additional_recipe_rows=order.get("附加配方", []),
-						show_additional_ids=show_ids
+					    order=order,
+					    recipe_row=recipe_row,
+					    additional_recipe_rows=order.get("附加配方", []),
+					    show_additional_ids=show_ids
 					)
-							
+					
+					# 確保 print_html 是字串
+					if not isinstance(print_html, str):
+					    print_html = str(print_html)
+					
+					# 產生安全檔名
+					safe_name = "".join(c for c in order.get('生產單號', 'NEW') if c.isalnum() or c in ("_","-"))
+					
 					col1, col2, col3 = st.columns([3,1,3])
 					with col1:
-						st.download_button(
-							label="📥 下載 A5 HTML",
-							data=print_html.encode("utf-8"),
-							file_name=f"{order['生產單號']}_列印.html",
-							mime="text/html",
-							key="download_html_tab1"
-						)
-							
-					with col3:
-						if st.button("🔙 返回", key="back_button_tab1"):
-							st.session_state.new_order = None
-							st.session_state.show_confirm_panel = False
-							st.session_state.new_order_saved = False
-							st.rerun()
+					    st.download_button(
+					        label="📥 下載 A5 HTML",
+					        data=print_html.encode("utf-8"),
+					        file_name=f"{safe_name}_列印.html",
+					        mime="text/html",
+					        key="download_html_tab1"
+					    )
+
 				
 	# ============================================================
 	# Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
