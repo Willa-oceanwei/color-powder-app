@@ -3133,6 +3133,8 @@ elif menu == "生產單管理":
 	# Tab 3: 生產單修改/刪除（保持完整，無變更）
 	# ============================================================
 	with tab3:
+
+		raise Exception("TAB3 START")
 	
 		def delete_order_by_id(ws, order_id):
 			all_values = ws.get_all_records()
