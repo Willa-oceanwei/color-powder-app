@@ -2838,7 +2838,7 @@ elif menu == "生產單管理":
 				        data=print_html.encode("utf-8"),
 				        file_name=f"{safe_name}_列印.html",
 				        mime="text/html",
-				        key=f"download_html_tab1_{order_no}"  # 建議加上 order_no 保證唯一
+				        key=f"download_html_tab1_{safe_order_no}"  # 建議加上 order_no 保證唯一
 				    )
 
 				
