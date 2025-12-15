@@ -8,6 +8,7 @@ import json
 import time
 import base64
 import re
+import uuid
 from pathlib import Path		
 from datetime import datetime
 
@@ -1155,7 +1156,7 @@ elif menu == "配方管理":
 	st.markdown('<h1 style="font-size:24px; color:#F9DC5C;">🌈 配方管理</h1>', unsafe_allow_html=True)
 	
 	tab1, tab2, tab3, tab4 = st.tabs(["📝 配方建立", "📊 配方記錄表", "🔧 配方預覽/修改/刪除", "🪅 色粉管理"])
-
+	
 	# ============================================================
 	# Tab 1: 配方建立
 	# ============================================================
