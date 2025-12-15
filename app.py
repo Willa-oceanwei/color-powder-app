@@ -4038,7 +4038,9 @@ elif menu == "採購管理":
 				st.warning("⚠️ 請輸入供應商編號！")
 			else:
 				if st.session_state.edit_supplier_index is not None:
-					df.iloc[st.session_state.edit_supplier_index] = new_data
+					df.loc[df.index[st.session_state.edit_supplier_index], df.columns] = (
+					    pd.Series(new_data)
+					)
 					st.success("✅ 供應商已更新！")
 				else:
 					if new_data["供應商編號"] in df["供應商編號"].values:
