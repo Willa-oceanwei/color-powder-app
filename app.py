@@ -2374,8 +2374,8 @@ elif menu == "生產單管理":
 				# 計算差異
 				diff = function_usage - usage_with_date
 				if abs(diff) > 100:
-					st.error(f"🔴 **函式多扣除了 {diff / 1000:.2f} kg！**")
-					st.info("""
+				    st.error(f"🔴 **函式多扣除了 {diff / 1000:.2f} kg！**")
+				    st.info("⚠️ 除錯計算與正式函式計算結果不一致，請檢查日期條件")
 		
 			st.success(f"🎯 **計算後的 CA 庫存：{final_stock / 1000:.2f} kg（{final_stock:.2f} g）**")
 			
@@ -3133,8 +3133,6 @@ elif menu == "生產單管理":
 	# Tab 3: 生產單修改/刪除（保持完整，無變更）
 	# ============================================================
 	with tab3:
-
-		raise Exception("TAB3 START")
 	
 		def delete_order_by_id(ws, order_id):
 			all_values = ws.get_all_records()
