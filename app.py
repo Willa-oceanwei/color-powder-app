@@ -3835,33 +3835,38 @@ elif menu == "採購管理":
 			if col not in df_supplier.columns:
 				df_supplier[col] = ""
 
+		# 建立顯示文字列表，同時保留編號對應
 		supplier_options = df_supplier["供應商編號"].tolist()
-		options_list = [""] + supplier_options
-		current_index = options_list.index(st.session_state.form_in_stock.get("廠商編號","")) \
-			if st.session_state.form_in_stock.get("廠商編號","") in options_list else 0
-
+		supplier_name_map = df_supplier.set_index("供應商編號")["供應商簡稱"].to_dict()
+		
+		# 顯示「編號 + 名稱」
+		options_list = [""] + [f"{sid} - {supplier_name_map[sid]}" for sid in supplier_options]
+		
+		# 設定目前選擇的 index
+		current_display = st.session_state.form_in_stock.get("廠商編號", "")
+		if current_display in supplier_options:
+		    current_index = options_list.index(f"{current_display} - {supplier_name_map[current_display]}")
+		else:
+		    current_index = 0
+		
 		col5, col6 = st.columns(2)
 		with col5:
-			selected_supplier = st.selectbox(
-				"廠商編號",
-				options=options_list,
-				index=current_index
-			)
-			st.session_state.form_in_stock["廠商編號"] = selected_supplier
-
+		    selected_supplier = st.selectbox(
+		        "廠商編號",
+		        [""] + supplier_options,
+		        index=current_index,
+		        format_func=lambda x: f"{x} - {supplier_name_map[x]}" if x else ""
+		    )
+		    st.session_state.form_in_stock["廠商編號"] = selected_supplier
+		
 		with col6:
-			if selected_supplier and selected_supplier in df_supplier["供應商編號"].values:
-				st.session_state.form_in_stock["廠商名稱"] = df_supplier.loc[
-					df_supplier["供應商編號"] == selected_supplier, "供應商簡稱"
-				].values[0]
-			else:
-				st.session_state.form_in_stock["廠商名稱"] = ""
-			st.text_input(
-				"廠商名稱",
-				value=st.session_state.form_in_stock["廠商名稱"],
-				disabled=True
-			)
-
+		    st.session_state.form_in_stock["廠商名稱"] = supplier_name_map.get(selected_supplier, "")
+		    st.text_input(
+		        "廠商名稱",
+		        value=st.session_state.form_in_stock["廠商名稱"],
+		        disabled=True
+		    )
+		
 		# --- 備註欄 ---
 		st.session_state.form_in_stock["備註"] = st.text_input(
 			"備註", st.session_state.form_in_stock["備註"]
