@@ -4869,17 +4869,20 @@ elif menu == "庫存區":
 			q = 0.0
 		return q * 1000 if str(unit).lower() == "kg" else q
 
-	# 顯示格式（g -> g 或 kg）
+	# 顯示格式（g -> g 或 kg，保留小數）
 	def format_usage(val_g):
 		try:
 			val = float(val_g or 0)
 		except Exception:
 			val = 0.0
+
+		# kg 顯示
 		if abs(val) >= 1000:
 			kg = val / 1000.0
-			return f"{kg:.2f} kg" if not float(int(kg * 100)) == (kg * 100) else f"{int(kg)} kg"
-		else:
-			return f"{int(round(val))} g" if float(int(val)) == val else f"{val:.2f} g"
+			return f"{kg:.2f} kg"
+
+		# g 顯示（永遠保留 2 位）
+		return f"{val:.2f} g"
 
 	# ---------------- 計算用量函式 ----------------
 	def calc_usage_for_stock(powder_id, df_order, df_recipe, start_date, end_date):
