@@ -1535,7 +1535,7 @@ elif menu == "配方管理":
 			# 是否需要欄位分頁
 			has_search = bool(recipe_kw or customer_kw or pantone_kw)
 			multi_result = df_filtered.shape[0] > 1
-			need_col_pagination = has_search and multi_result and total_cols > MAX_COLS_PER_PAGE
+			need_col_pagination = multi_result and total_cols > MAX_COLS_PER_PAGE
 			
 			if need_col_pagination:
 				display_cols = visible_cols
