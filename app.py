@@ -1464,6 +1464,10 @@ elif menu == "配方管理":
 			# ===== 分頁設定 =====
 			total_rows = df_filtered.shape[0]
 
+			# ===== 搜尋結果提示 =====
+			if recipe_kw or customer_kw or pantone_kw:
+				st.info(f"🔍 搜尋結果：共 {total_rows} 筆資料，請依筆數手動調整欄位顯示或每頁筆數")
+
 			# 預設只顯示 1 筆
 			limit_options = [1, 5, 10, 20, 50, 100]
 			if "limit_per_page_tab2" not in st.session_state:
