@@ -2309,6 +2309,74 @@ elif menu == "生產單管理":
 					st.info(f"✅ 歷史用量總計：{total_usage} g")
 			
 			final_stock = st.session_state.get("last_final_stock", {}).get("CA", 0)
+
+			# === 🔬 深度除錯：對比函式計算和除錯區塊計算 ===
+			st.markdown("---")
+			st.markdown("### 🔬 深度除錯：函式計算 vs 除錯區塊計算")
+			
+			# 用除錯邏輯重新計算一次（只計算有日期的）
+			usage_with_date = 0
+			usage_no_date = 0
+			before_init_usage = 0
+			after_init_usage = 0
+			
+			if not df_ca_init.empty:
+				init_date = df_ca_init.sort_values("日期", ascending=False).iloc[0]["日期"]
+				
+				for _, order in df_order_debug.iterrows():
+					order_date = order.get("生產日期")
+					recipe_id = str(order.get("配方編號", "")).strip()
+					
+					recipe_rows = df_recipe_debug[df_recipe_debug["配方編號"] == recipe_id]
+					if recipe_rows.empty:
+						continue
+					
+					recipe_row = recipe_rows.iloc[0]
+					
+					# 計算這張單的 CA 用量
+					order_ca_usage = 0
+					for i in range(1, 9):
+						pid = str(recipe_row.get(f"色粉編號{i}", "")).strip()
+						if pid == "CA":
+							ratio_g = float(recipe_row.get(f"色粉重量{i}", 0))
+							for j in range(1, 5):
+								w_val = float(order.get(f"包裝重量{j}", 0) or 0)
+								n_val = float(order.get(f"包裝份數{j}", 0) or 0)
+								order_ca_usage += ratio_g * w_val * n_val
+					
+					if order_ca_usage == 0:
+						continue
+					
+					# 分類統計
+					if pd.isna(order_date):
+						usage_no_date += order_ca_usage
+					elif order_date < init_date:
+						before_init_usage += order_ca_usage
+					else:
+						after_init_usage += order_ca_usage
+						usage_with_date += order_ca_usage
+				
+				# 顯示對比
+				col1, col2 = st.columns(2)
+				with col1:
+					st.info(f"**除錯區塊計算**（只計算有日期的）\n\n{usage_with_date / 1000:.2f} kg")
+				with col2:
+					final_stock = st.session_state.get("last_final_stock", {}).get("CA", 0)
+					function_usage = 3000000 - final_stock  # 反推函式計算的用量
+					st.error(f"**函式計算**（calculate_current_stock）\n\n{function_usage / 1000:.2f} kg")
+				
+				st.markdown("**詳細分類：**")
+				st.write(f"- 沒有日期的生產單用量：{usage_no_date / 1000:.2f} kg")
+				st.write(f"- 起算點之前的生產單用量：{before_init_usage / 1000:.2f} kg")
+				st.write(f"- 起算點之後的生產單用量：{after_init_usage / 1000:.2f} kg")
+				st.write(f"- **總用量（除錯計算）**：{(usage_no_date + before_init_usage + after_init_usage) / 1000:.2f} kg")
+				
+				# 計算差異
+				diff = function_usage - usage_with_date
+				if abs(diff) > 100:
+					st.error(f"🔴 **函式多扣除了 {diff / 1000:.2f} kg！**")
+					st.info("""
+		
 			st.success(f"🎯 **計算後的 CA 庫存：{final_stock / 1000:.2f} kg（{final_stock:.2f} g）**")
 			
 		except Exception as e:
