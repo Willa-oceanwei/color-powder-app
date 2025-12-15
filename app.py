@@ -2818,7 +2818,7 @@ elif menu == "生產單管理":
 	
 			    # ✅ 修正：在生成 HTML 前先檢查 order 是否有效
 				if order and order.get("生產單號"):
-				    show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
+				    show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key=f"show_ids_tab1_{order.get('生產單號')}")
 				
 				    print_html = generate_print_page_content(
 				        order=order,
@@ -2827,7 +2827,6 @@ elif menu == "生產單管理":
 				        show_additional_ids=show_ids
 				    )
 				
-				    # 確保 HTML 不是空字串
 				    if not print_html or not isinstance(print_html, str):
 				        print_html = "<html><body>生產單資料不完整</body></html>"
 				
@@ -2835,7 +2834,7 @@ elif menu == "生產單管理":
 				    if not safe_name:
 				        safe_name = "NEW"
 				
-				    download_key = f"download_html_tab1_{order.get('生產單號', 'NEW')}"
+				    download_key = f"download_html_tab1_{safe_name}"
 				
 				    st.download_button(
 				        label="📥 下載 A5 HTML",
@@ -2846,6 +2845,7 @@ elif menu == "生產單管理":
 				    )
 				else:
 				    st.warning("⚠️ 請先完成生產單儲存後再下載列印檔")
+
 
 						
 	# ============================================================
