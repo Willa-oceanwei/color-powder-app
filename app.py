@@ -1557,14 +1557,14 @@ elif menu == "配方管理":
 				
 				col_nav = st.columns([1, 1, 2])
 				with col_nav[0]:
-					if st.button("⬅️ 上一組欄位", key="prev_col_tab2") and st.session_state.col_page_tab2 > 1:
-						st.session_state.col_page_tab2 -= 1
-						st.rerun()
+					if st.button("➡️ 下一組欄位", key="next_col_tab2"):
+						if st.session_state.col_page_tab2 < total_col_pages:
+							st.session_state.col_page_tab2 += 1
 				
 				with col_nav[1]:
-					if st.button("➡️ 下一組欄位", key="next_col_tab2") and st.session_state.col_page_tab2 < total_col_pages:
-						st.session_state.col_page_tab2 += 1
-						st.rerun()
+					if st.button("⬅️ 上一組欄位", key="prev_col_tab2"):
+						if st.session_state.col_page_tab2 > 1:
+							st.session_state.col_page_tab2 -= 1
 				
 				with col_nav[2]:
 					st.caption(
