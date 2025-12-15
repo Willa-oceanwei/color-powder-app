@@ -2047,7 +2047,7 @@ elif menu == "生產單管理":
 		if df_stock.empty:
 			return stock_dict
 		
-		# ⚠️ 新增：定義「今天」作為結束日
+		# ⚠️ 定義「今天」作為結束日
 		today = pd.Timestamp.today().normalize()
 		
 		# 清理資料
@@ -2105,13 +2105,13 @@ elif menu == "生產單管理":
 			
 			row_date = row.get("日期")
 			
-			# ⚠️ 修正：檢查進貨日期是否在「起算點 ~ 今天」之間
+			# 檢查進貨日期是否在「起算點 ~ 今天」之間
 			if pd.isna(row_date):
-				should_add = True  # 沒有日期的進貨，保守起見仍然累加
+				should_add = True
 			else:
 				should_add = (
 					row_date >= initial_stocks[pid]["date"] and
-					row_date <= today  # ← 新增：必須在今天之前
+					row_date <= today
 				)
 			
 			if should_add:
@@ -2138,6 +2138,10 @@ elif menu == "生產單管理":
 		for _, order_hist in df_order_hist.iterrows():
 			order_date = order_hist.get("生產日期")
 			
+			# ⚠️ 關鍵修正：沒有日期的訂單直接跳過
+			if pd.isna(order_date):
+				continue
+			
 			recipe_id = str(order_hist.get("配方編號", "")).strip()
 			if not recipe_id:
 				continue
@@ -2157,14 +2161,11 @@ elif menu == "生產單管理":
 				if pid not in initial_stocks:
 					continue
 				
-				# ⚠️ 修正：只扣除「起算點 ~ 今天」之間的訂單
-				if pd.isna(order_date):
-					# 沒有日期的訂單：保守起見仍然扣除
-					pass
-				elif order_date < initial_stocks[pid]["date"]:
+				# ⚠️ 只扣除「起算點 ~ 今天」之間的訂單
+				if order_date < initial_stocks[pid]["date"]:
 					continue  # 起算點之前的不扣除
-				elif order_date > today:
-					continue  # ← 新增：今天之後的不扣除
+				if order_date > today:
+					continue  # 今天之後的不扣除
 				
 				try:
 					ratio_g = float(recipe_row_hist.get(f"色粉重量{i}", 0))
@@ -2198,13 +2199,11 @@ elif menu == "生產單管理":
 					if pid not in initial_stocks:
 						continue
 					
-					# ⚠️ 修正：只扣除「起算點 ~ 今天」之間的訂單
-					if pd.isna(order_date):
-						pass
-					elif order_date < initial_stocks[pid]["date"]:
+					# ⚠️ 只扣除「起算點 ~ 今天」之間的訂單
+					if order_date < initial_stocks[pid]["date"]:
 						continue
-					elif order_date > today:
-						continue  # ← 新增：今天之後的不扣除
+					if order_date > today:
+						continue
 					
 					try:
 						ratio_g = float(add_recipe.get(f"色粉重量{i}", 0))
