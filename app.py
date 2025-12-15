@@ -3320,8 +3320,7 @@ elif menu == "生產單管理":
 			show_ids_key = f"show_ids_checkbox_tab3_{selected_order['生產單號']}"
 			if show_ids_key not in st.session_state:
 				st.session_state[show_ids_key] = True
-
-			t.markdown("""
+			st.markdown("""
 			<style>
 			div[data-testid="stCheckbox"] label p {
 			    color: #888 !important;
