@@ -2726,127 +2726,94 @@ elif menu == "生產單管理":
 			
 			# ---------- 儲存生產單 ----------
 			if submitted or continue_to_oem:
-			    # 檢查包裝重量或份數
-			    all_empty = True
-			    for i in range(1,5):
-			        weight = st.session_state.get(f"form_weight{i}_tab1", "").strip()
-			        count  = st.session_state.get(f"form_count{i}_tab1", "").strip()
-			        if weight or count:
-			            all_empty = False
-			            break
-			    if all_empty:
-			        st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
-			        st.stop()
-			    
-			    # 更新 order 資料
-			    order["顏色"] = st.session_state.form_color_tab1
-			    order["Pantone 色號"] = st.session_state.form_pantone_tab1
-			    order["料"] = st.session_state.form_raw_material_tab1
-			    order["備註"] = st.session_state.form_remark_tab1
-			    order["重要提醒"] = st.session_state.form_important_note_tab1
-			    order["合計類別"] = st.session_state.form_total_category_tab1
-			    
-			    for i in range(1,5):
-			        order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}_tab1", "").strip()
-			        order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}_tab1", "").strip()
-			    
-			    for i in range(1,9):
-			        order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
-			        order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
-			    
-			    # 儲存生產單
-			    order_no = str(order.get("生產單號", "")).strip()
-			    if not st.session_state.get(f"saved_order_{order_no}", False):
-			        try:
-			            # 刪除舊生產單
-			            sheet_data = ws_order.get_all_records()
-			            rows_to_delete = [idx for idx, row in enumerate(sheet_data, start=2)
-			                              if str(row.get("生產單號", "")).strip() == order_no]
-			            for r in reversed(rows_to_delete):
-			                ws_order.delete_rows(r)
-			            
-			            # 更新 df_order
-			            df_order = df_order[df_order["生產單號"].astype(str) != order_no]
-			            header = [col for col in df_order.columns if col and str(col).strip() != ""]
-			            row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
-			            ws_order.append_row(row_data)
-			            df_new = pd.DataFrame([order], columns=df_order.columns)
-			            df_order = pd.concat([df_order, df_new], ignore_index=True)
-			            df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
-			            st.session_state.df_order = df_order
-			            st.session_state.new_order_saved = True
-			            st.session_state[f"saved_order_{order_no}"] = True
-			            st.success(f"✅ 生產單 {order_no} 已存！")
-			        except Exception as e:
-			            st.error(f"❌ 寫入失敗：{e}")
+				# 檢查包裝重量或份數
+				all_empty = True
+				for i in range(1,5):
+					weight = st.session_state.get(f"form_weight{i}_tab1", "").strip()
+					count  = st.session_state.get(f"form_count{i}_tab1", "").strip()
+					if weight or count:
+						all_empty = False
+						break
+				if all_empty:
+					st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
+					st.stop()
+				
+				# 更新 order 資料
+				order["顏色"] = st.session_state.form_color_tab1
+				order["Pantone 色號"] = st.session_state.form_pantone_tab1
+				order["料"] = st.session_state.form_raw_material_tab1
+				order["備註"] = st.session_state.form_remark_tab1
+				order["重要提醒"] = st.session_state.form_important_note_tab1
+				order["合計類別"] = st.session_state.form_total_category_tab1
+				
+				for i in range(1,5):
+					order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}_tab1", "").strip()
+					order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}_tab1", "").strip()
+				
+				for i in range(1,9):
+					order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
+					order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
+				
+				# ---------- 儲存生產單 ----------
+				order_no = str(order.get("生產單號", "")).strip()
+				if not st.session_state.get(f"saved_order_{order_no}", False):
+					try:
+						# 刪除舊生產單
+						sheet_data = ws_order.get_all_records()
+						rows_to_delete = [idx for idx, row in enumerate(sheet_data, start=2)
+										  if str(row.get("生產單號", "")).strip() == order_no]
+						for r in reversed(rows_to_delete):
+							ws_order.delete_rows(r)
+						
+						# 更新 df_order
+						df_order = df_order[df_order["生產單號"].astype(str) != order_no]
+						header = [col for col in df_order.columns if col and str(col).strip() != ""]
+						row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
+						ws_order.append_row(row_data)
+						df_new = pd.DataFrame([order], columns=df_order.columns)
+						df_order = pd.concat([df_order, df_new], ignore_index=True)
+						df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+						st.session_state.df_order = df_order
+						st.session_state.new_order_saved = True
+						st.session_state[f"saved_order_{order_no}"] = True
+						st.success(f"✅ 生產單 {order_no} 已存！")
+					except Exception as e:
+						st.error(f"❌ 寫入失敗：{e}")
 			
-			# ---------- 建立代工單 ----------
-			if continue_to_oem:
-			    oem_id = f"OEM{order_no}"
-			    oem_qty = 0.0
-			    for i in range(1,5):
-			        try:
-			            w = float(order.get(f"包裝重量{i}",0) or 0)
-			            n = float(order.get(f"包裝份數{i}",0) or 0)
-			            oem_qty += w * 100 * n
-			        except:
-			            pass
-			    try:
-			        ws_oem = spreadsheet.worksheet("代工管理")
-			    except:
-			        ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
-			        ws_oem.append_row(["代工單號","生產單號","配方編號","客戶名稱","代工數量","代工廠商","備註","狀態","建立時間"])
-			    
-			    oem_row = [
-			        oem_id,
-			        order_no,
-			        order.get('配方編號',''),
-			        order.get('客戶名稱',''),
-			        oem_qty,
-			        "",
-			        "",
-			        "",
-			        (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-			    ]
-			    try:
-			        ws_oem.append_row(oem_row)
-			        st.toast(f"🎉 已建立代工單號：{oem_id}（{oem_qty} kg）\n💡 後續至「代工管理」編輯")
-			    except Exception as e:
-			        st.error(f"❌ 寫入失敗：{e}")
-			
+				# ---------- 建立代工單 ----------
+				if continue_to_oem:
+					oem_id = f"OEM{order_no}"
+					oem_qty = 0.0
+					for i in range(1,5):
+						try:
+							w = float(order.get(f"包裝重量{i}",0) or 0)
+							n = float(order.get(f"包裝份數{i}",0) or 0)
+							oem_qty += w * 100 * n
+						except:
+							pass
+					try:
+						ws_oem = spreadsheet.worksheet("代工管理")
+					except:
+						ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
+						ws_oem.append_row(["代工單號","生產單號","配方編號","客戶名稱","代工數量","代工廠商","備註","狀態","建立時間"])
+					
+					oem_row = [
+						oem_id,
+						order_no,
+						order.get('配方編號',''),
+						order.get('客戶名稱',''),
+						oem_qty,
+						"",
+						"",
+						"",
+						(datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+					]
+					try:
+						ws_oem.append_row(oem_row)
+						st.toast(f"🎉 已建立代工單號：{oem_id}（{oem_qty} kg）\n💡 後續至「代工管理」編輯")
+					except Exception as e:
+						st.error(f"❌ 寫入失敗：{e}")		
 							
-							# ---------- 建立代工單 ----------
-							if continue_to_oem:
-								oem_id = f"OEM{order_no}"
-								oem_qty = 0.0
-								for i in range(1, 5):
-									try:
-										w = float(order.get(f"包裝重量{i}", 0) or 0)
-										n = float(order.get(f"包裝份數{i}", 0) or 0)
-										oem_qty += w * 100 * n
-									except:
-										pass
-								try:
-									ws_oem = spreadsheet.worksheet("代工管理")
-								except:
-									ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
-									ws_oem.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱", "代工數量", "代工廠商", "備註", "狀態", "建立時間"])
-								oem_row = [
-									oem_id,
-									order_no,
-									order.get('配方編號', ''),
-									order.get('客戶名稱', ''),
-									oem_qty,
-									"",
-									"",
-									"",
-									(datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-								]
-								try:
-									ws_oem.append_row(oem_row)
-									st.toast(f"🎉 已建立代工單號：{oem_id}（{oem_qty} kg）\n💡 後續至「代工管理」編輯")
-								except Exception as e:
-									st.error(f"❌ 寫入失敗：{e}")
 							
 					# 產生列印 HTML 按鈕
 					show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
