@@ -2890,12 +2890,12 @@ elif menu == "生產單管理":
 						"",
 						(datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
 					]
-					ws_oem.append_row(oem_row)
-					st.success(f"✅	已建立代工單號：{oem_id}（{oem_qty}	kg）")
-					st.info("💡	請至「代工管理」分頁進行後續編輯")
-
+					try:
+						ws_oem.append_row(oem_row)
+						st.success(f"✅ 已建立代工單號：{oem_id}（{oem_qty} kg）")
+						st.info("💡 請至「代工管理」分頁進行後續編輯")
 					except Exception as e:
-    					st.error(f"❌ 寫入失敗：{e}")
+						st.error(f"❌ 寫入失敗：{e}")
 				
 		# 產生列印 HTML 按鈕
 		show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
