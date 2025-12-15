@@ -3324,12 +3324,15 @@ elif menu == "生產單管理":
 			st.markdown("""
 			<style>
 			div[data-testid="stCheckbox"] label p {
-				color: #888 !important;
-				font-size: 0.9rem !important;
+			    color: #888 !important;
+			    font-size: 0.9rem !important;
 			}
 			div[data-testid="stCheckbox"] input[type="checkbox"] {
-				accent-color: #aaa !important;
+			    accent-color: #aaa !important;
 			}
+			</style>
+			""", unsafe_allow_html=True)
+
 			</style>
 			""", unsafe_allow_html=True)
 
