@@ -2833,15 +2833,14 @@ elif menu == "生產單管理":
 				safe_name = "".join(c for c in order.get('生產單號', 'NEW') if c.isalnum() or c in ("_","-"))
 				
 				col1, col2, col3 = st.columns([3,1,3])
-				with col1:
-				    st.download_button(
-				        label="📥 下載 A5 HTML",
-				        data=print_html.encode("utf-8"),
-				        file_name=f"{safe_name}_列印.html",
-				        mime="text/html",
-				        key=f"download_html_tab1_{order_no}_{uuid.uuid4()}"  # 建議加上 order_no 保證唯一
-				    )
-
+				download_key = f"download_html_tab1_{order_no}"
+					st.download_button(
+					    label="📥 下載 A5 HTML",
+					    data=print_html.encode("utf-8"),
+					    file_name=f"{safe_name}_列印.html",
+					    mime="text/html",
+					    key=download_key
+					)
 				
 	# ============================================================
 	# Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
