@@ -2907,9 +2907,9 @@ elif menu == "生產單管理":
 						]
 						ws_oem.append_row(oem_row)
 				
-						st.success(f"✅ 已建立代工單號：{oem_id}（{oem_qty} kg）")
-						st.info("💡 請至「代工管理」分頁進行後續編輯")
-				
+						oem_msg = f"🎉 已建立代工單號：{oem_id}（{oem_qty} kg）\n💡 請至「代工管理」分頁編輯"
+						st.toast(oem_msg)
+			
 				except Exception as e:
 					st.error(f"❌ 寫入失敗：{e}")
 				
