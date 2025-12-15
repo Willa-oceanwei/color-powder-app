@@ -2815,33 +2815,37 @@ elif menu == "生產單管理":
 					except Exception as e:
 						st.error(f"❌ 寫入失敗：{e}")		
 							
-							
-				show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
-
-				print_html = generate_print_page_content(
-				    order=order,
-				    recipe_row=recipe_row,
-				    additional_recipe_rows=order.get("附加配方", []),
-				    show_additional_ids=show_ids
-				)
-				
-				# 確保是字串
-				if not print_html:
-				    print_html = ""
-				
-				safe_name = "".join(c for c in order.get('生產單號', 'NEW') if c.isalnum() or c in ("_","-"))
-				if not safe_name:
-				    safe_name = "NEW"
-				
-				download_key = f"download_html_tab1_{order_no or 'NEW'}"
-				
-				st.download_button(
-				    label="📥 下載 A5 HTML",
-				    data=print_html.encode("utf-8"),
-				    file_name=f"{safe_name}_列印.html",
-				    mime="text/html",
-				    key=download_key
-				)
+	
+				# ✅ 修正：在生成 HTML 前先檢查 order 是否有效
+			    if order and order.get("生產單號"):
+			        show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
+			
+			        print_html = generate_print_page_content(
+			            order=order,
+			            recipe_row=recipe_row,
+			            additional_recipe_rows=order.get("附加配方", []),
+			            show_additional_ids=show_ids
+			        )
+			        
+			        # ✅ 確保 HTML 不是空字串
+			        if not print_html or not isinstance(print_html, str):
+			            print_html = "<html><body>生產單資料不完整</body></html>"
+			        
+			        safe_name = "".join(c for c in order.get('生產單號', 'NEW') if c.isalnum() or c in ("_","-"))
+			        if not safe_name:
+			            safe_name = "NEW"
+			        
+			        download_key = f"download_html_tab1_{order.get('生產單號', 'NEW')}"
+			        
+			        st.download_button(
+			            label="📥 下載 A5 HTML",
+			            data=print_html.encode("utf-8"),
+			            file_name=f"{safe_name}_列印.html",
+			            mime="text/html",
+			            key=download_key
+			        )
+			    else:
+			        st.warning("⚠️ 請先完成生產單儲存後再下載列印檔")
 						
 	# ============================================================
 	# Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
