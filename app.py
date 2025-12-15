@@ -2826,29 +2826,23 @@ elif menu == "生產單管理":
 				)
 				
 				# 確保是字串
-				if not isinstance(print_html, str):
-				    print_html = str(print_html)
+				if not print_html:
+				    print_html = ""
 				
-				# 產生安全檔名
 				safe_name = "".join(c for c in order.get('生產單號', 'NEW') if c.isalnum() or c in ("_","-"))
+				if not safe_name:
+				    safe_name = "NEW"
 				
-				col1, col2, col3 = st.columns([3,1,3])
+				download_key = f"download_html_tab1_{order_no or 'NEW'}"
 				
-				if print_html:
-				    download_key = f"download_html_tab1_{order_no}"  # 固定 key
-				
-				    with col1:
-				        st.download_button(
-				            label="📥 下載 A5 HTML",
-				            data=print_html.encode("utf-8"),
-				            file_name=f"{safe_name}_列印.html",
-				            mime="text/html",
-				            key=download_key
-				        )
-
-
-
-							
+				st.download_button(
+				    label="📥 下載 A5 HTML",
+				    data=print_html.encode("utf-8"),
+				    file_name=f"{safe_name}_列印.html",
+				    mime="text/html",
+				    key=download_key
+				)
+						
 	# ============================================================
 	# Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
 	# ============================================================
