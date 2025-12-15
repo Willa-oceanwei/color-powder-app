@@ -2834,15 +2834,16 @@ elif menu == "生產單管理":
 				
 				col1, col2, col3 = st.columns([3,1,3])
 				download_key = f"download_html_tab1_{order_no}"
+
 				st.download_button(
-					    label="📥 下載 A5 HTML",
-					    data=print_html.encode("utf-8"),
-					    file_name=f"{safe_name}_列印.html",
-					    mime="text/html",
-					    key=download_key
-					)
-					
-				
+				    label="📥 下載 A5 HTML",
+				    data=print_html.encode("utf-8"),
+				    file_name=f"{safe_name}_列印.html",
+				    mime="text/html",
+				    key=download_key
+				)
+
+							
 	# ============================================================
 	# Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
 	# ============================================================
