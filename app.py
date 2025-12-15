@@ -4033,26 +4033,37 @@ elif menu == "採購管理":
 			)
 		
 		if st.button("💾 儲存", key="save_supplier"):
-			new_data = st.session_state.form_supplier.copy()
-			if new_data["供應商編號"].strip() == "":
-				st.warning("⚠️ 請輸入供應商編號！")
-			else:
-				if st.session_state.edit_supplier_index is not None:
-					df.loc[df.index[st.session_state.edit_supplier_index], df.columns] = (
-					    pd.Series(new_data)
-					)
-					st.success("✅ 供應商已更新！")
-				else:
-					if new_data["供應商編號"] in df["供應商編號"].values:
-						st.warning("⚠️ 此供應商編號已存在！")
-					else:
-						df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-						st.success("✅ 新增成功！")
-				save_df_to_sheet(ws_supplier, df)
-				st.session_state.form_supplier = {col: "" for col in columns}
-				st.session_state.edit_supplier_index = None
-				st.rerun()
+		    new_data = st.session_state.form_supplier.copy()
 		
+		    if new_data["供應商編號"].strip() == "":
+		        st.warning("⚠️ 請輸入供應商編號！")
+		        st.stop()
+		
+		    edit_id = st.session_state.get("edit_supplier_id")
+		
+		    if edit_id:
+		        mask = df["供應商編號"] == edit_id
+		
+		        if mask.any():
+		            df.loc[mask, df.columns] = pd.Series(new_data)
+		            st.success("✅ 供應商已更新！")
+		        else:
+		            st.error("⚠️ 原供應商不存在，請重新選擇")
+		            st.stop()
+		    else:
+		        if new_data["供應商編號"] in df["供應商編號"].values:
+		            st.warning("⚠️ 此供應商編號已存在！")
+		            st.stop()
+		
+		        df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+		        st.success("✅ 新增成功！")
+		
+		    save_df_to_sheet(ws_supplier, df)
+		
+		    st.session_state.form_supplier = {col: "" for col in columns}
+		    st.session_state.edit_supplier_id = None
+		    st.rerun()
+	
 		# ===== 刪除確認 =====
 		if st.session_state.show_delete_supplier_confirm:
 			target_row = df.iloc[st.session_state.delete_supplier_index]
