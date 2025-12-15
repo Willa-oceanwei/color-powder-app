@@ -2815,8 +2815,8 @@ elif menu == "生產單管理":
 						st.error(f"❌ 寫入失敗：{e}")		
 							
 							
-					# 產生列印 HTML 按鈕
-					show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
+				# 產生列印 HTML 按鈕
+				show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
 					print_html = generate_print_page_content(
 					    order=order,
 					    recipe_row=recipe_row,
@@ -2839,8 +2839,7 @@ elif menu == "生產單管理":
 					        file_name=f"{safe_name}_列印.html",
 					        mime="text/html",
 					        key="download_html_tab1"
-					    )
-
+					    )				
 				
 	# ============================================================
 	# Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
