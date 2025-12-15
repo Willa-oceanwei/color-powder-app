@@ -1532,36 +1532,46 @@ elif menu == "配方管理":
 			visible_cols = existing_cols[col_start:col_end]
 	
 			# ===== 顯示表格 =====
-			if not page_data.empty:
-				st.dataframe(
-					page_data[visible_cols].reset_index(drop=True),
-					use_container_width=True,
-					hide_index=True
+			# 是否需要欄位分頁
+			has_search = bool(recipe_kw or customer_kw or pantone_kw)
+			multi_result = df_filtered.shape[0] > 1
+			need_col_pagination = has_search and multi_result and total_cols > MAX_COLS_PER_PAGE
+			
+			if need_col_pagination:
+				display_cols = visible_cols
+			else:
+				display_cols = existing_cols
+			
+			st.dataframe(
+				page_data[display_cols].reset_index(drop=True),
+				use_container_width=True,
+				hide_index=True
+			)
+
+			# ===== 欄位分頁提示與控制 =====
+			if need_col_pagination:
+				st.info(
+					f"📊 搜尋結果欄位較多，已分為 {total_col_pages} 頁顯示｜"
+					f"目前第 {st.session_state.col_page_tab2} 頁（每頁最多 {MAX_COLS_PER_PAGE} 欄）"
 				)
-	
-				# ===== 欄位分頁提示與控制 =====
-				if total_col_pages > 1:
-					st.info(
-						f"📊 欄位過多，已分為 {total_col_pages} 頁顯示｜"
-						f"目前第 {st.session_state.col_page_tab2} 頁（每頁最多 {MAX_COLS_PER_PAGE} 欄）"
+				
+				col_nav = st.columns([1, 1, 2])
+				with col_nav[0]:
+					if st.button("⬅️ 上一組欄位", key="prev_col_tab2") and st.session_state.col_page_tab2 > 1:
+						st.session_state.col_page_tab2 -= 1
+						st.rerun()
+				
+				with col_nav[1]:
+					if st.button("➡️ 下一組欄位", key="next_col_tab2") and st.session_state.col_page_tab2 < total_col_pages:
+						st.session_state.col_page_tab2 += 1
+						st.rerun()
+				
+				with col_nav[2]:
+					st.caption(
+						f"顯示欄位 {col_start + 1} ~ {min(col_end, total_cols)} / {total_cols}"
 					)
 	
-					col_nav = st.columns([1, 1, 2])
-					with col_nav[0]:
-						if st.button("⬅️ 上一組欄位", key="prev_col_tab2") and st.session_state.col_page_tab2 > 1:
-							st.session_state.col_page_tab2 -= 1
-							st.rerun()
-	
-					with col_nav[1]:
-						if st.button("➡️ 下一組欄位", key="next_col_tab2") and st.session_state.col_page_tab2 < total_col_pages:
-							st.session_state.col_page_tab2 += 1
-							st.rerun()
-	
-					with col_nav[2]:
-						st.caption(
-							f"顯示欄位 {col_start + 1} ~ {min(col_end, total_cols)} / {total_cols}"
-						)
-	
+				
 				# ===== 詳細資料 Expander =====
 				st.markdown("---")
 				st.markdown("**📋 配方詳細資訊**")
