@@ -2308,113 +2308,113 @@ elif menu == "生產單管理":
 	
 	# ⚠️ 每次進入「生產單管理」都重新計算最新庫存
 	st.session_state["last_final_stock"] = calculate_current_stock()
+	
+    # ========== 📊 診斷模式：顯示庫存計算細節 ==========
+	st.markdown("---")
+	st.markdown("**🔍 庫存診斷資訊（CA 色粉）**")
+					
+	# 1️⃣ 顯示 session_state 中的初始庫存
+	initial_ca = st.session_state.get("last_final_stock", {}).get("CA", 0)
+	st.info(f"📦 session_state 初始庫存：CA = {initial_ca / 1000:.2f} kg")
+					
+	# 2️⃣ 重新從 Google Sheet 讀取 CA 的初始庫存
+	try:
+		ws_stock = spreadsheet.worksheet("庫存記錄")
+		records = ws_stock.get_all_records()
+		df_stock_diag = pd.DataFrame(records)
+						
+		if not df_stock_diag.empty:
+			df_stock_diag["色粉編號"] = df_stock_diag["色粉編號"].astype(str).str.strip()
+			df_stock_diag["類型"] = df_stock_diag["類型"].astype(str).str.strip()
+							
+			# 找出所有 CA 的記錄
+			df_ca = df_stock_diag[df_stock_diag["色粉編號"] == "CA"]
+							
+			if not df_ca.empty:
+				st.write("**CA 的所有庫存記錄：**")
+				st.dataframe(df_ca[["類型", "日期", "數量", "單位", "備註"]])
+								
+				# 找出最新的「初始」記錄
+				df_ca_ini = df_ca[df_ca["類型"] == "初始"]
+				if not df_ca_ini.empty:
+					if "日期" in df_ca_ini.columns:
+						df_ca_ini["日期"] = pd.to_datetime(df_ca_ini["日期"], errors="coerce")
+						latest_ini = df_ca_ini.sort_values("日期", ascending=False).iloc[0]
+					else:
+						latest_ini = df_ca_ini.iloc[0]
+									
+					qty = float(latest_ini.get("數量", 0) or 0)
+					unit = str(latest_ini.get("單位", "g")).strip().lower()
+					qty_g = qty * 1000 if unit == "kg" else qty
+									
+					st.success(f"✅ Google Sheet 最新初始庫存：{qty} {unit} = {qty_g / 1000:.2f} kg")
+				else:
+					st.warning("⚠️ 找不到 CA 的「初始」類型記錄")
+								
+				# 計算進貨總量
+				df_ca_in = df_ca[df_ca["類型"] == "進貨"]
+				if not df_ca_in.empty:
+					total_in_g = 0
+					for _, row in df_ca_in.iterrows():
+						qty = float(row.get("數量", 0) or 0)
+						unit = str(row.get("單位", "g")).strip().lower()
+						total_in_g += qty * 1000 if unit == "kg" else qty
+					st.info(f"📥 進貨總量：{total_in_g / 1000:.2f} kg")
+			else:
+				st.warning("⚠️ 找不到 CA 的任何庫存記錄")
+	except Exception as e:
+		st.error(f"❌ 讀取庫存記錄失敗：{e}")
+					
+	# 3️⃣ 計算本張生產單會用掉多少 CA
+	st.markdown("**本張生產單的 CA 用量：**")
+					
+	all_recipes_for_diag = [recipe_row]
+	additional_recipes_list = order.get("附加配方", [])
+	if additional_recipes_list:
+		all_recipes_for_diag.extend(additional_recipes_list)
+					
+	ca_usage_detail = []
+	total_ca_usage = 0
+					
+	for rec_idx, rec in enumerate(all_recipes_for_diag):
+		rec_name = rec.get("配方編號", f"配方{rec_idx+1}")
+		for i in range(1, 9):
+			pid = str(rec.get(f"色粉編號{i}", "")).strip()
+			if pid != "CA":
+				continue
+							
+			try:
+				ratio_g = float(rec.get(f"色粉重量{i}", 0) or 0)
+			except:
+				ratio_g = 0.0
+							
+			if ratio_g <= 0:
+				continue
+							
+			for j in range(1, 5):
+				try:
+					w_val = float(st.session_state.get(f"form_weight{j}", 0) or 0)
+					n_val = float(st.session_state.get(f"form_count{j}", 0) or 0)
+					if w_val > 0 and n_val > 0:
+						usage = ratio_g * w_val * n_val
+						total_ca_usage += usage
+						ca_usage_detail.append(f"  - {rec_name}（包裝{j}）：{ratio_g} g/kg × {w_val} kg × {n_val} 份 = {usage:.2f} g")
+				except:
+					pass
+					
+	if ca_usage_detail:
+		for detail in ca_usage_detail:
+			st.text(detail)
+		st.success(f"**總用量：{total_ca_usage / 1000:.2f} kg**")
+	else:
+		st.info("本張生產單不使用 CA")
+					
+	st.markdown("---")
+	# ========== 診斷模式結束 ==========
 
-	# ========== 📊 診斷模式：顯示庫存計算細節 ==========
-    st.markdown("---")
-    st.markdown("**🔍 庫存診斷資訊（CA 色粉）**")
-                    
-    # 1️⃣ 顯示 session_state 中的初始庫存
-    initial_ca = st.session_state.get("last_final_stock", {}).get("CA", 0)
-    st.info(f"📦 session_state 初始庫存：CA = {initial_ca / 1000:.2f} kg")
-                    
-    # 2️⃣ 重新從 Google Sheet 讀取 CA 的初始庫存
-    try:
-        ws_stock = spreadsheet.worksheet("庫存記錄")
-        records = ws_stock.get_all_records()
-        df_stock_diag = pd.DataFrame(records)
-                        
-        if not df_stock_diag.empty:
-            df_stock_diag["色粉編號"] = df_stock_diag["色粉編號"].astype(str).str.strip()
-            df_stock_diag["類型"] = df_stock_diag["類型"].astype(str).str.strip()
-                            
-            # 找出所有 CA 的記錄
-            df_ca = df_stock_diag[df_stock_diag["色粉編號"] == "CA"]
-                            
-            if not df_ca.empty:
-                st.write("**CA 的所有庫存記錄：**")
-                st.dataframe(df_ca[["類型", "日期", "數量", "單位", "備註"]])
-                                
-                # 找出最新的「初始」記錄
-                df_ca_ini = df_ca[df_ca["類型"] == "初始"]
-                if not df_ca_ini.empty:
-                    if "日期" in df_ca_ini.columns:
-                        df_ca_ini["日期"] = pd.to_datetime(df_ca_ini["日期"], errors="coerce")
-                        latest_ini = df_ca_ini.sort_values("日期", ascending=False).iloc[0]
-                    else:
-                        latest_ini = df_ca_ini.iloc[0]
-                                    
-                    qty = float(latest_ini.get("數量", 0) or 0)
-                    unit = str(latest_ini.get("單位", "g")).strip().lower()
-                    qty_g = qty * 1000 if unit == "kg" else qty
-                                    
-                    st.success(f"✅ Google Sheet 最新初始庫存：{qty} {unit} = {qty_g / 1000:.2f} kg")
-                else:
-                    st.warning("⚠️ 找不到 CA 的「初始」類型記錄")
-                                
-                # 計算進貨總量
-                df_ca_in = df_ca[df_ca["類型"] == "進貨"]
-                if not df_ca_in.empty:
-                    total_in_g = 0
-                    for _, row in df_ca_in.iterrows():
-                        qty = float(row.get("數量", 0) or 0)
-                        unit = str(row.get("單位", "g")).strip().lower()
-                        total_in_g += qty * 1000 if unit == "kg" else qty
-                    st.info(f"📥 進貨總量：{total_in_g / 1000:.2f} kg")
-            else:
-                st.warning("⚠️ 找不到 CA 的任何庫存記錄")
-    except Exception as e:
-        st.error(f"❌ 讀取庫存記錄失敗：{e}")
-                    
-    # 3️⃣ 計算本張生產單會用掉多少 CA
-    st.markdown("**本張生產單的 CA 用量：**")
-                    
-    all_recipes_for_diag = [recipe_row]
-    additional_recipes_list = order.get("附加配方", [])
-    if additional_recipes_list:
-        all_recipes_for_diag.extend(additional_recipes_list)
-                    
-    ca_usage_detail = []
-    total_ca_usage = 0
-                    
-    for rec_idx, rec in enumerate(all_recipes_for_diag):
-        rec_name = rec.get("配方編號", f"配方{rec_idx+1}")
-        for i in range(1, 9):
-            pid = str(rec.get(f"色粉編號{i}", "")).strip()
-            if pid != "CA":
-                continue
-                            
-            try:
-                ratio_g = float(rec.get(f"色粉重量{i}", 0) or 0)
-            except:
-                ratio_g = 0.0
-                            
-            if ratio_g <= 0:
-                continue
-                            
-            for j in range(1, 5):
-                try:
-                    w_val = float(st.session_state.get(f"form_weight{j}", 0) or 0)
-                    n_val = float(st.session_state.get(f"form_count{j}", 0) or 0)
-                    if w_val > 0 and n_val > 0:
-                        usage = ratio_g * w_val * n_val
-                        total_ca_usage += usage
-                        ca_usage_detail.append(f"  - {rec_name}（包裝{j}）：{ratio_g} g/kg × {w_val} kg × {n_val} 份 = {usage:.2f} g")
-                except:
-                    pass
-                    
-    if ca_usage_detail:
-        for detail in ca_usage_detail:
-            st.text(detail)
-        st.success(f"**總用量：{total_ca_usage / 1000:.2f} kg**")
-    else:
-        st.info("本張生產單不使用 CA")
-                    
-    st.markdown("---")
-    # ========== 診斷模式結束 ==========
-
-    # 📌 4️⃣ 低庫存檢查（與庫存區邏輯完全一致）
-    last_stock = st.session_state.get("last_final_stock", {}).copy()
-    alerts = []
+	# 📌 4️⃣ 低庫存檢查（與庫存區邏輯完全一致）
+	last_stock = st.session_state.get("last_final_stock", {}).copy()
+	alerts = []
 	
 	# === 🐛 除錯模式：顯示 CA 色粉的詳細計算過程 ===
 	if st.checkbox("🐛 顯示庫存計算除錯資訊（CA 色粉）", value=False, key="debug_stock_ca"):
