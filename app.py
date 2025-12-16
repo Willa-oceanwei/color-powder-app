@@ -1513,7 +1513,6 @@ elif menu == "配方管理":
 			if st.session_state.last_limit_tab2 != st.session_state.limit_per_page_tab2:
 				st.session_state.page_tab2 = 1
 				st.session_state.last_limit_tab2 = st.session_state.limit_per_page_tab2
-				st.rerun()
 	
 			total_pages = max((total_rows - 1) // limit + 1, 1)
 	
