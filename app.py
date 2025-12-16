@@ -2235,19 +2235,16 @@ elif menu == "生產單管理":
 					continue
 				
 				# ⚠️ 只扣除「起算點 ~ 今天」之間的訂單
-				# 標準化日期（去除時間部分）
-				order_date = order_date.normalize()
-				
-				# 核心修正：只扣除「起算點（含）~ 今天（含）」之間的訂單
+				# 📌 標準化日期（去除時間部分）
+				order_date_norm = order_date.normalize()
 				init_start_date = initial_stocks[pid]["date"].normalize()
 				
-				# 跳過起算點之前的訂單
-				if order_date < init_start_date:
-				    continue
+				# 📌 只扣除「起算點（含）~ 今天（含）」之間的訂單
+				if order_date_norm < init_start_date:
+					continue
 				
-				# 跳過今天之後的訂單
-				if order_date > today:
-				    continue
+				if order_date_norm > today:
+					continue
 				
 				try:
 					ratio_g = float(recipe_row_hist.get(f"色粉重量{i}", 0))
@@ -2282,9 +2279,14 @@ elif menu == "生產單管理":
 						continue
 					
 					# ⚠️ 只扣除「起算點 ~ 今天」之間的訂單
-					if order_date < initial_stocks[pid]["date"]:
+					# 📌 標準化日期
+					order_date_norm = order_date.normalize()
+					init_start_date = initial_stocks[pid]["date"].normalize()
+					
+					# 📌 只扣除「起算點（含）~ 今天（含）」之間的訂單
+					if order_date_norm < init_start_date:
 						continue
-					if order_date > today:
+					if order_date_norm > today:
 						continue
 					
 					try:
