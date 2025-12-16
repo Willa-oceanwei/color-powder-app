@@ -2712,7 +2712,6 @@ elif menu == "生產單管理":
 		additional_recipes = get_additional_recipes(df_recipe, recipe_id)
 
 		if additional_recipes.empty:
-			st.info("無附加配方")
 			order["附加配方"] = []
 
 		else:
@@ -2720,27 +2719,6 @@ elif menu == "生產單管理":
 				f"<span style='font-size:14px; font-weight:bold;'>附加配方清單（共 {len(additional_recipes)} 筆）</span>",
 				unsafe_allow_html=True
 			)
-
-			# 📌 只顯示一次
-			for idx, row in additional_recipes.iterrows():
-				with st.expander(
-					f"附加配方：{row.get('配方編號', '')} - {row.get('顏色', '')}"
-				):
-					col1, col2 = st.columns(2)
-
-					with col1:
-						color_ids = {
-							f"色粉編號{i}": row.get(f"色粉編號{i}", "")
-							for i in range(1, 9)
-						}
-						st.write("色粉編號", color_ids)
-
-					with col2:
-						color_wts = {
-							f"色粉重量{i}": row.get(f"色粉重量{i}", "")
-							for i in range(1, 9)
-						}
-						st.write("色粉重量", color_wts)
 
 			order["附加配方"] = [
 				{
