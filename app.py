@@ -2684,48 +2684,40 @@ elif menu == "生產單管理":
 			order[field] = recipe_row.get(field, "")
 	
 	# ===== 處理附加配方 =====
-	if recipe_id:
-	
-		def get_additional_recipes(df, main_recipe_code):
-			df = df.copy()
-			df["配方類別"] = df["配方類別"].astype(str).str.strip()
-			df["原始配方"] = df["原始配方"].astype(str).str.strip()
-			main_code = str(main_recipe_code).strip()
-			return df[
-				(df["配方類別"] == "附加配方") &
-				(df["原始配方"] == main_code)
-			]
-	
-		additional_recipes = get_additional_recipes(df_recipe, recipe_id)
-	
-		if additional_recipes.empty:
-			if show_confirm_panel:
-				st.info("無附加配方")
-			order["附加配方"] = []
-		else:
-			if show_confirm_panel:
-				st.markdown(
-					f"<span style='font-size:14px; font-weight:bold;'>附加配方清單（共 {len(additional_recipes)} 筆）</span>",
-					unsafe_allow_html=True
-				)
-	
-				for _, row in additional_recipes.iterrows():
-					with st.expander(f"附加配方：{row.get('配方編號', '')} - {row.get('顏色', '')}"):
-						col1, col2 = st.columns(2)
-						with col1:
-							color_ids = {f"色粉編號{i}": row.get(f"色粉編號{i}", "") for i in range(1, 9)}
-							st.write("色粉編號", color_ids)
-						with col2:
-							color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}", "") for i in range(1, 9)}
-							st.write("色粉重量", color_wts)
-	
-			order["附加配方"] = [
-				{k.strip(): ("" if v is None or pd.isna(v) else str(v))}
-				for _, row in additional_recipes.iterrows()
-				for k, v in row.to_dict().items()
-			]
-	else:
-		order["附加配方"] = []
+# 📌 修正：附加配方只查詢一次，避免重複顯示
+    if recipe_id:
+        def get_additional_recipes(df, main_recipe_code):
+            df = df.copy()
+            df["配方類別"] = df["配方類別"].astype(str).str.strip()
+            df["原始配方"] = df["原始配方"].astype(str).str.strip()
+            main_code = str(main_recipe_code).strip()
+            return df[(df["配方類別"] == "附加配方") & (df["原始配方"] == main_code)]
+        
+        additional_recipes = get_additional_recipes(df_recipe, recipe_id)
+        
+        if additional_recipes.empty:
+            st.info("無附加配方")
+            order["附加配方"] = []
+        else:
+            st.markdown(f"<span style='font-size:14px; font-weight:bold;'>附加配方清單（共 {len(additional_recipes)} 筆）</span>", unsafe_allow_html=True)
+        
+            # 📌 修正：只顯示一次，不要在迴圈內重複
+            for idx, row in additional_recipes.iterrows():
+                with st.expander(f"附加配方：{row.get('配方編號', '')} - {row.get('顏色', '')}"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        color_ids = {f"色粉編號{i}": row.get(f"色粉編號{i}", "") for i in range(1, 9)}
+                        st.write("色粉編號", color_ids)
+                    with col2:
+                        color_wts = {f"色粉重量{i}": row.get(f"色粉重量{i}", "") for i in range(1, 9)}
+                        st.write("色粉重量", color_wts)
+        
+            order["附加配方"] = [
+                {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in row.to_dict().items()}
+                for _, row in additional_recipes.iterrows()
+            ]
+    else:
+        order["附加配方"] = []
 	
 	st.session_state.new_order = order
 	# ===== 顯示詳情填寫表單 =====
