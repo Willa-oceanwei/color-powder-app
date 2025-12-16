@@ -4826,148 +4826,149 @@ elif menu == "查詢區":
 					)
 
 	# ========== Tab 4：樣品記錄表（改良版） ==========
+	# ========== Tab 4：樣品記錄表（改良版） ==========
 	from datetime import datetime, date
 	
 	# --- 初始化日期欄位 ---
 	def init_date_field(field_name, default_date=None):
-	    if default_date is None:
-	        default_date = datetime.today().date()
+		if default_date is None:
+			default_date = datetime.today().date()
 	
-	    if "form_sample" not in st.session_state:
-	        st.session_state.form_sample = {}
+		if "form_sample" not in st.session_state:
+			st.session_state.form_sample = {}
 	
-	    raw = st.session_state.form_sample.get(field_name)
+		raw = st.session_state.form_sample.get(field_name)
 	
-	    try:
-	        if raw in ["", None]:
-	            value = default_date
-	        elif isinstance(raw, pd.Timestamp):
-	            value = raw.date()
-	        elif isinstance(raw, datetime):
-	            value = raw.date()
-	        elif isinstance(raw, date):
-	            value = raw
-	        else:
-	            value = pd.to_datetime(raw).date()
-	    except:
-	        value = default_date
+		try:
+			if raw in ["", None]:
+				value = default_date
+			elif isinstance(raw, pd.Timestamp):
+				value = raw.date()
+			elif isinstance(raw, datetime):
+				value = raw.date()
+			elif isinstance(raw, date):
+				value = raw
+			else:
+				value = pd.to_datetime(raw).date()
+		except:
+			value = default_date
 	
-	    st.session_state.form_sample[field_name] = value
-	    return value
+		st.session_state.form_sample[field_name] = value
+		return value
 	
 	with tab4:
-	    # ===== Sheet 讀取 =====
-	    try:
-	        ws_sample = spreadsheet.worksheet("樣品記錄")
-	    except:
-	        ws_sample = spreadsheet.add_worksheet("樣品記錄", rows=100, cols=10)
-	        ws_sample.append_row(["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
+		# ===== Sheet 讀取 =====
+		try:
+			ws_sample = spreadsheet.worksheet("樣品記錄")
+		except:
+			ws_sample = spreadsheet.add_worksheet("樣品記錄", rows=100, cols=10)
+			ws_sample.append_row(["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
 	
-	    try:
-	        df_sample = pd.DataFrame(ws_sample.get_all_records())
-	        if df_sample.empty:
-	            df_sample = pd.DataFrame(columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
-	    except:
-	        df_sample = pd.DataFrame(columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
+		try:
+			df_sample = pd.DataFrame(ws_sample.get_all_records())
+			if df_sample.empty:
+				df_sample = pd.DataFrame(columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
+		except:
+			df_sample = pd.DataFrame(columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
 	
-	    for col in ["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"]:
-	        if col not in df_sample.columns:
-	            df_sample[col] = ""
+		for col in ["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"]:
+			if col not in df_sample.columns:
+				df_sample[col] = ""
 	
-	    # ===== session_state 初始化 =====
-	    if "form_sample" not in st.session_state:
-	        st.session_state.form_sample = {
-	            "日期": "",
-	            "客戶名稱": "",
-	            "樣品編號": "",
-	            "樣品名稱": "",
-	            "樣品數量": ""
-	        }
+		# ===== session_state 初始化 =====
+		if "form_sample" not in st.session_state:
+			st.session_state.form_sample = {
+				"日期": "",
+				"客戶名稱": "",
+				"樣品編號": "",
+				"樣品名稱": "",
+				"樣品數量": ""
+			}
 	
-	    for k, v in {
-	        "edit_sample_index": None,
-	        "delete_sample_index": None,
-	        "show_delete_sample_confirm": False,
-	        "sample_search_triggered": False,
-	        "sample_filtered_df": pd.DataFrame(),
-	        "selected_sample_index": None
-	    }.items():
-	        if k not in st.session_state:
-	            st.session_state[k] = v
+		for k, v in {
+			"edit_sample_index": None,
+			"delete_sample_index": None,
+			"show_delete_sample_confirm": False,
+			"sample_search_triggered": False,
+			"sample_filtered_df": pd.DataFrame(),
+			"selected_sample_index": None
+		}.items():
+			if k not in st.session_state:
+				st.session_state[k] = v
 	
-	    # ===== 新增 / 修改 區 =====
-	    st.markdown("**➕ 新增 / 修改 樣品**")
+		# ===== 新增 / 修改 區 =====
+		st.markdown("**➕ 新增 / 修改 樣品**")
 	
-	    c1, c2, c3 = st.columns(3)
-	    with c1:
-	        st.session_state.form_sample["日期"] = st.date_input(
-	            "日期",
-	            value=init_date_field("日期"),
-	            key="sample_date"
-	        )
-	    with c2:
-	        st.session_state.form_sample["客戶名稱"] = st.text_input("客戶名稱", key="sample_customer")
-	    with c3:
-	        st.session_state.form_sample["樣品編號"] = st.text_input("樣品編號", key="sample_code")
+		c1, c2, c3 = st.columns(3)
+		with c1:
+			st.session_state.form_sample["日期"] = st.date_input(
+				"日期",
+				value=init_date_field("日期"),
+				key="sample_date"
+			)
+		with c2:
+			st.session_state.form_sample["客戶名稱"] = st.text_input("客戶名稱", key="sample_customer")
+		with c3:
+			st.session_state.form_sample["樣品編號"] = st.text_input("樣品編號", key="sample_code")
 	
-	    c4, c5 = st.columns(2)
-	    with c4:
-	        st.session_state.form_sample["樣品名稱"] = st.text_input("樣品名稱", key="sample_name")
-	    with c5:
-	        st.session_state.form_sample["樣品數量"] = st.text_input("樣品數量", key="sample_qty")
+		c4, c5 = st.columns(2)
+		with c4:
+			st.session_state.form_sample["樣品名稱"] = st.text_input("樣品名稱", key="sample_name")
+		with c5:
+			st.session_state.form_sample["樣品數量"] = st.text_input("樣品數量", key="sample_qty")
 	
-	    if st.button("💾 儲存", key="save_sample"):
-	        data = st.session_state.form_sample.copy()
+		if st.button("💾 儲存", key="save_sample"):
+			data = st.session_state.form_sample.copy()
 	
-	        if not data["樣品編號"].strip():
-	            st.warning("⚠️ 請輸入樣品編號")
-	        else:
-	            if st.session_state.edit_sample_index is not None:
-	                for col in df_sample.columns:
-	                    df_sample.at[st.session_state.edit_sample_index, col] = data[col]
-	                st.success("✅ 樣品已更新")
-	            else:
-	                df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
-	                st.success("✅ 新增完成")
+			if not data["樣品編號"].strip():
+				st.warning("⚠️ 請輸入樣品編號")
+			else:
+				if st.session_state.edit_sample_index is not None:
+					for col in df_sample.columns:
+						df_sample.at[st.session_state.edit_sample_index, col] = data[col]
+					st.success("✅ 樣品已更新")
+				else:
+					df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
+					st.success("✅ 新增完成")
 	
-	            save_df_to_sheet(ws_sample, df_sample)
-	            st.session_state.form_sample = {k: "" for k in st.session_state.form_sample}
-	            st.session_state.edit_sample_index = None
-	            st.rerun()
+				save_df_to_sheet(ws_sample, df_sample)
+				st.session_state.form_sample = {k: "" for k in st.session_state.form_sample}
+				st.session_state.edit_sample_index = None
+				st.rerun()
 	
-	    st.markdown("---")
+		st.markdown("---")
 	
-	    # ===== 搜尋區（Enter 可觸發）=====
-	    st.markdown("**🔍 樣品記錄搜尋**")
-	    with st.form("sample_search_form"):
-	        s1, s2, s3, s4 = st.columns(4)
-	        with s1:
-	            search_code = st.text_input("樣品編號")
-	        with s2:
-	            search_customer = st.text_input("客戶名稱")
-	        with s3:
-	            search_start = st.date_input("供樣日期（起）", value=None)
-	        with s4:
-	            search_end = st.date_input("供樣日期（迄）", value=None)
+		# ===== 搜尋區（Enter 可觸發）=====
+		st.markdown("**🔍 樣品記錄搜尋**")
+		with st.form("sample_search_form"):
+			s1, s2, s3, s4 = st.columns(4)
+			with s1:
+				search_code = st.text_input("樣品編號")
+			with s2:
+				search_customer = st.text_input("客戶名稱")
+			with s3:
+				search_start = st.date_input("供樣日期（起）", value=None)
+			with s4:
+				search_end = st.date_input("供樣日期（迄）", value=None)
 	
-	        do_search = st.form_submit_button("🔍 搜尋")
+			do_search = st.form_submit_button("🔍 搜尋")
 	
-	    if do_search:
-	        df_f = df_sample.copy()
-	        if search_code.strip():
-	            df_f = df_f[df_f["樣品編號"].astype(str).str.contains(search_code)]
-	        if search_customer.strip():
-	            df_f = df_f[df_f["客戶名稱"].astype(str).str.contains(search_customer)]
-	        if search_start:
-	            df_f = df_f[pd.to_datetime(df_f["日期"]) >= pd.to_datetime(search_start)]
-	        if search_end:
-	            df_f = df_f[pd.to_datetime(df_f["日期"]) <= pd.to_datetime(search_end)]
+		if do_search:
+			df_f = df_sample.copy()
+			if search_code.strip():
+				df_f = df_f[df_f["樣品編號"].astype(str).str.contains(search_code)]
+			if search_customer.strip():
+				df_f = df_f[df_f["客戶名稱"].astype(str).str.contains(search_customer)]
+			if search_start:
+				df_f = df_f[pd.to_datetime(df_f["日期"]) >= pd.to_datetime(search_start)]
+			if search_end:
+				df_f = df_f[pd.to_datetime(df_f["日期"]) <= pd.to_datetime(search_end)]
 	
-	        st.session_state.sample_filtered_df = df_f.reset_index(drop=True)
-	        st.session_state.sample_search_triggered = True
-	        st.session_state.selected_sample_index = None
+			st.session_state.sample_filtered_df = df_f.reset_index(drop=True)
+			st.session_state.sample_search_triggered = True
+			st.session_state.selected_sample_index = None
 	
-	    # ===== 搜尋結果 =====
+		# ===== 搜尋結果 =====
 		if st.session_state.sample_search_triggered:
 			df_show = st.session_state.sample_filtered_df
 		
@@ -5021,7 +5022,6 @@ elif menu == "查詢區":
 					with c2:
 						if st.button("取消", key="cancel_delete_sample"):
 							st.session_state.show_delete_sample_confirm = False
-
 
 # ======== 庫存區分頁 =========
 elif menu == "庫存區":
