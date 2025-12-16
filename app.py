@@ -4967,7 +4967,6 @@ elif menu == "查詢區":
 				st.session_state.selected_sample_index
 			]
 
-			st.markdown("**✏️ 修改 / 🗑️ 刪除**")
 			b1, b2 = st.columns(2)
 
 			with b1:
