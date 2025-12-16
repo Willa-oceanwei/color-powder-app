@@ -1610,7 +1610,6 @@ elif menu == "配方管理":
 				)
 				if jump_page != st.session_state.page_tab2:
 					st.session_state.page_tab2 = jump_page
-					st.rerun()
 	
 			with cols_page[4]:
 				# ⭐ 修正 3：selectbox 只寫 state，不接回傳值
