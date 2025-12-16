@@ -1416,149 +1416,193 @@ elif menu == "配方管理":
 # ============================================================
     # Tab 2: 配方記錄表
     # ============================================================
+    # Tab 2: 配方記錄表（穩定第一）
+    # ============================================================
     with tab2:
-        
-        # 初始化布林遮罩
-        mask = pd.Series(True, index=df.index)
+    
+    	if df.empty:
+    		st.info("目前無資料")
+    		df_filtered = df.copy()
+    
+    	else:
+    		# ===== 搜尋欄位 =====
+    		col1, col2, col3 = st.columns(3)
+    		with col1:
+    			search_recipe = st.text_input("配方編號", key="search_recipe_tab2")
+    		with col2:
+    			search_customer = st.text_input("客戶名稱或編號", key="search_customer_tab2")
+    		with col3:
+    			search_pantone = st.text_input("Pantone色號", key="search_pantone_tab2")
+    
+    		recipe_kw = search_recipe.strip()
+    		customer_kw = search_customer.strip()
+    		pantone_kw = search_pantone.strip()
+    
+    		# ===== 搜尋簽章（用來鎖版型）=====
+    		search_signature = f"{recipe_kw}|{customer_kw}|{pantone_kw}"
+    		if "last_search_signature_tab2" not in st.session_state:
+    			st.session_state.last_search_signature_tab2 = search_signature
+    
+    		# ===== 篩選資料 =====
+    		mask = pd.Series(True, index=df.index)
+    
+    		if recipe_kw:
+    			mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
+    
+    		if customer_kw:
+    			mask &= (
+    				df["客戶名稱"].astype(str).str.contains(customer_kw, case=False, na=False) |
+    				df["客戶編號"].astype(str).str.contains(customer_kw, case=False, na=False)
+    			)
+    
+    		if pantone_kw:
+    			pantone_kw_clean = pantone_kw.replace(" ", "").upper()
+    			mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(
+    				pantone_kw_clean, na=False
+    			)
+    
+    		df_filtered = df[mask]
+    
+    		# ===== 分頁資料 =====
+    		total_rows = df_filtered.shape[0]
+    
+    		# ===== 只在「搜尋改變」時決定欄位數 =====
+    		if search_signature != st.session_state.last_search_signature_tab2:
+    			st.session_state.page_tab2 = 1
+    
+    			if total_rows <= 5:
+    				st.session_state.recipe_cols_tab2 = 1
+    			elif total_rows <= 20:
+    				st.session_state.recipe_cols_tab2 = 2
+    			else:
+    				st.session_state.recipe_cols_tab2 = 3
+    
+    			st.session_state.last_search_signature_tab2 = search_signature
+    
+    		# ===== 搜尋結果提示 =====
+    		if recipe_kw or customer_kw or pantone_kw:
+    			st.info(
+    				f"🔍 搜尋結果：共 {total_rows} 筆資料｜"
+    				f"版型已鎖定為 {st.session_state.get('recipe_cols_tab2', 1)} 欄"
+    			)
+    
+    		# ===== 分頁設定 =====
+    		limit_options = [1, 5, 10, 20, 50, 100]
+    
+    		if "limit_per_page_tab2" not in st.session_state:
+    			st.session_state.limit_per_page_tab2 = 1
+    
+    		limit = st.session_state.limit_per_page_tab2
+    		total_pages = max((total_rows - 1) // limit + 1, 1)
+    
+    		if "page_tab2" not in st.session_state:
+    			st.session_state.page_tab2 = 1
+    
+    		if st.session_state.page_tab2 > total_pages:
+    			st.session_state.page_tab2 = total_pages
+    
+    		start_idx = (st.session_state.page_tab2 - 1) * limit
+    		end_idx = start_idx + limit
+    		page_data = df_filtered.iloc[start_idx:end_idx]
+    
+    		# ===== 顯示表格 =====
+    		show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
+    		existing_cols = [c for c in show_cols if c in page_data.columns]
+    
+    		if not page_data.empty:
+    			st.dataframe(
+    				page_data[existing_cols].reset_index(drop=True),
+    				use_container_width=True,
+    				hide_index=True
+    			)
+    
+    			# ===== 配方詳細資訊（穩定版，不動欄位結構）=====
+    			st.markdown("---")
+    			st.markdown("**📋 配方詳細資訊**")
+    
+    			num_cols = st.session_state.get("recipe_cols_tab2", 1)
+    			cols = st.columns(num_cols)
+    
+    			for i, (_, row) in enumerate(page_data.iterrows()):
+    				with cols[i % num_cols]:
+    					with st.expander(
+    						f"🔖 {row['配方編號']} - {row['客戶名稱']} - {row.get('產品名稱', row['顏色'])}"
+    					):
+    						c1, c2 = st.columns(2)
+    						with c1:
+    							st.markdown(f"**配方編號**: {row['配方編號']}")
+    							st.markdown(f"**客戶名稱**: {row['客戶名稱']}")
+    							st.markdown(f"**顏色**: {row['顏色']}")
+    							st.markdown(f"**配方類別**: {row['配方類別']}")
+    							st.markdown(f"**狀態**: {row['狀態']}")
+    
+    						with c2:
+    							st.markdown(f"**Pantone色號**: {row.get('Pantone色號', 'N/A')}")
+    							st.markdown(f"**計量單位**: {row.get('計量單位', 'N/A')}")
+    							st.markdown(f"**建檔時間**: {row.get('建檔時間', 'N/A')}")
+    							if row['配方類別'] == '附加配方':
+    								st.markdown(f"**原始配方**: {row.get('原始配方', 'N/A')}")
+    
+    						st.markdown("**色粉配方**:")
+    						powder_info = []
+    						for j in range(1, 9):
+    							pid = row.get(f"色粉編號{j}", "")
+    							amt = row.get(f"色粉重量{j}", "")
+    							if pid and str(pid).strip():
+    								powder_info.append(f"- {pid}: {amt}g")
+    
+    						st.markdown("\n".join(powder_info) if powder_info else "_無色粉配方_")
+    
+    						if row.get("備註"):
+    							st.markdown(f"**備註**: {row['備註']}")
+    
+    		else:
+    			if recipe_kw or customer_kw or pantone_kw:
+    				st.info("查無符合的配方")
+    
+    		# ===== 分頁控制列 =====
+    		cols_page = st.columns([1, 1, 1, 2, 1])
+    
+    		with cols_page[0]:
+    			if st.button("🏠首頁", key="first_page_tab2"):
+    				st.session_state.page_tab2 = 1
+    				st.rerun()
+    
+    		with cols_page[1]:
+    			if st.button("🔼上一頁", key="prev_page_tab2") and st.session_state.page_tab2 > 1:
+    				st.session_state.page_tab2 -= 1
+    				st.rerun()
+    
+    		with cols_page[2]:
+    			if st.button("🔽下一頁", key="next_page_tab2") and st.session_state.page_tab2 < total_pages:
+    				st.session_state.page_tab2 += 1
+    				st.rerun()
+    
+    		with cols_page[3]:
+    			jump_page = st.number_input(
+    				"",
+    				min_value=1,
+    				max_value=total_pages,
+    				value=st.session_state.page_tab2,
+    				key="jump_page_tab2",
+    				label_visibility="collapsed"
+    			)
+    			if jump_page != st.session_state.page_tab2:
+    				st.session_state.page_tab2 = jump_page
+    				st.rerun()
+    
+    		with cols_page[4]:
+    			default_index = limit_options.index(limit) if limit in limit_options else 0
+    			st.session_state.limit_per_page_tab2 = st.selectbox(
+    				"",
+    				options=limit_options,
+    				index=default_index,
+    				key="limit_per_page_tab2_select",
+    				label_visibility="collapsed"
+    			)
+    
+    		st.caption(f"頁碼 {st.session_state.page_tab2} / {total_pages}，總筆數 {total_rows}")
 
-        # 初始化搜尋關鍵字
-        for key in ["recipe_kw_tab2", "customer_kw_tab2", "pantone_kw_tab2"]:
-            if key not in st.session_state:
-                st.session_state[key] = ""
-        
-        # 🔍 搜尋列區塊
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            search_recipe_bottom = st.text_input("配方編號", key="recipe_kw_tab2")
-        with col2:
-            search_customer_bottom = st.text_input("客戶名稱或編號", key="customer_kw_tab2")
-        with col3:
-            search_pantone_bottom = st.text_input("Pantone色號", key="pantone_kw_tab2")
-
-        recipe_kw = st.session_state.get("recipe_kw_tab2", "").strip()
-        customer_kw = st.session_state.get("customer_kw_tab2", "").strip()
-        pantone_kw = st.session_state.get("pantone_kw_tab2", "").strip()
-
-        # 篩選
-        if recipe_kw:
-            mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
-        if customer_kw:
-            mask &= (
-                df["客戶名稱"].astype(str).str.contains(customer_kw, case=False, na=False) |
-                df["客戶編號"].astype(str).str.contains(customer_kw, case=False, na=False)
-            )
-        if pantone_kw:
-            pantone_kw_clean = pantone_kw.replace(" ", "").upper()
-            mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
-        
-        df_filtered = df[mask]    
-        
-        # ===== 計算分頁 =====
-        total_rows = df_filtered.shape[0]
-        limit = st.session_state.get("limit_per_page_tab2", 5)
-        total_pages = max((total_rows - 1) // limit + 1, 1)
-        
-        if "page_tab2" not in st.session_state:
-            st.session_state.page_tab2 = 1
-        if st.session_state.page_tab2 > total_pages:
-            st.session_state.page_tab2 = total_pages
-        
-        # ===== 分頁索引 =====
-        start_idx = (st.session_state.page_tab2 - 1) * limit
-        end_idx = start_idx + limit
-        page_data = df_filtered.iloc[start_idx:end_idx]
-        
-        # ===== 顯示表格 =====
-        # ===== 顯示表格 =====
-        show_cols = ["配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態", "原始配方", "Pantone色號"]
-        existing_cols = [c for c in show_cols if c in page_data.columns]
-        
-        if not page_data.empty:
-            st.dataframe(page_data[existing_cols].reset_index(drop=True),
-                         use_container_width=True,
-                         hide_index=True)
-            
-            # ===== 附加配方標記 ===
-            st.markdown("---")
-            st.markdown("**📋 配方詳細資訊**")
-            
-            for idx, row in page_data.iterrows():
-                with st.expander(f"🔖 {row['配方編號']} - {row['客戶名稱']} - {row['產品名稱'] if '產品名稱' in row else row['顏色']}"):
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.markdown(f"**配方編號**: {row['配方編號']}")
-                        st.markdown(f"**客戶名稱**: {row['客戶名稱']}")
-                        st.markdown(f"**顏色**: {row['顏色']}")
-                        st.markdown(f"**配方類別**: {row['配方類別']}")
-                        st.markdown(f"**狀態**: {row['狀態']}")
-                    
-                    with col2:
-                        st.markdown(f"**Pantone色號**: {row.get('Pantone色號', 'N/A')}")
-                        st.markdown(f"**計量單位**: {row.get('計量單位', 'N/A')}")
-                        st.markdown(f"**建檔時間**: {row.get('建檔時間', 'N/A')}")
-                        if row['配方類別'] == '附加配方':
-                            st.markdown(f"**原始配方**: {row.get('原始配方', 'N/A')}")
-                    
-                    st.markdown("**色粉配方**:")
-                    powder_info = []
-                    for i in range(1, 9):
-                        powder_id = row.get(f'色粉編號{i}', '')
-                        amount = row.get(f'色粉重量{i}', '')
-                        if powder_id and str(powder_id).strip():
-                            powder_info.append(f"- {powder_id}: {amount}g")
-                    
-                    if powder_info:
-                        st.markdown('\n'.join(powder_info))
-                    else:
-                        st.markdown("_無色粉配方_")
-                    
-                    if row.get('備註'):
-                        st.markdown(f"**備註**: {row['備註']}")
-        else:
-            st.info("查無符合的配方（分頁結果）")
-        
-        # ===== 分頁控制列 =====
-        cols_page = st.columns([1, 1, 1, 2, 1])
-        
-        with cols_page[0]:
-            if st.button("🏠首頁", key="first_page_tab2"):
-                st.session_state.page_tab2 = 1
-                st.rerun()
-        
-        with cols_page[1]:
-            if st.button("🔼上一頁", key="prev_page_tab2") and st.session_state.page_tab2 > 1:
-                st.session_state.page_tab2 -= 1
-                st.rerun()
-        
-        with cols_page[2]:
-            if st.button("🔽下一頁", key="next_page_tab2") and st.session_state.page_tab2 < total_pages:
-                st.session_state.page_tab2 += 1
-                st.rerun()
-        
-        with cols_page[3]:
-            jump_page = st.number_input(
-                "",
-                min_value=1,
-                max_value=total_pages,
-                value=st.session_state.page_tab2,
-                key="jump_page_tab2",
-                label_visibility="collapsed"
-            )
-            if jump_page != st.session_state.page_tab2:
-                st.session_state.page_tab2 = jump_page
-                st.rerun()
-        
-        with cols_page[4]:
-            limit = st.selectbox(
-                "",
-                options=[5, 10, 20, 50, 100],
-                index=[5, 10, 20, 50, 100].index(st.session_state.get("limit_per_page_tab2", 5)),
-                key="limit_per_page_tab2",
-                label_visibility="collapsed"
-            )
-        
-        st.caption(f"頁碼 {st.session_state.page_tab2} / {total_pages}，總筆數 {total_rows}")
 
 # ============================================================
     # Tab 3: 配方預覽/修改/刪除
