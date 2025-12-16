@@ -2853,89 +2853,74 @@ elif menu == "生產單管理":
 				order["色粉合計類別"] = recipe_row.get("合計類別", "")
 				
 				# 低庫存檢查
+				# 📌 4️⃣ 低庫存檢查（統一與庫存區邏輯）
+				# ============================================================
+
 				last_stock = st.session_state.get("last_final_stock", {}).copy()
 				alerts = []
-				
-				for i in range(1, 9):
-					pid = str(order.get(f"色粉編號{i}", "")).strip()
-					if not pid or pid.endswith(("01", "001", "0001")):
-						continue
-				
-					if pid not in last_stock:
-						continue
-				
-					try:
-						ratio_g = float(recipe_row.get(f"色粉重量{i}", 0))
-					except:
-						ratio_g = 0.0
-				
-					total_used_g = 0
-					for j in range(1, 5):
-						try:
-							w_val = float(st.session_state.get(f"form_weight{j}_tab1", 0) or 0)
-							n_val = float(st.session_state.get(f"form_count{j}_tab1", 0) or 0)
-							total_used_g += ratio_g * w_val * n_val
-						except:
-							pass
-				
-					last_stock_before = last_stock.get(pid, 0)
-					new_stock = last_stock_before - total_used_g
-					last_stock[pid] = new_stock
-				
-					final_kg = new_stock / 1000
-					if final_kg < 0.5:
-						alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
-					elif final_kg < 1:
-						alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
-					elif final_kg < 3:
-						alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
-				
-				for add_rec in order.get("附加配方", []):
+
+				# 取得本張生產單的主配方與附加配方
+				all_recipes_for_check = [recipe_row]
+				if additional_recipes:
+					all_recipes_for_check.extend(additional_recipes)
+
+				for rec in all_recipes_for_check:
 					for i in range(1, 9):
-						pid = str(add_rec.get(f"色粉編號{i}", "")).strip()
-						if not pid or pid.endswith(("01", "001", "0001")):
+						pid = str(rec.get(f"色粉編號{i}", "")).strip()
+						if not pid:
 							continue
-				
+
+						# 排除尾碼 01 / 001 / 0001
+						if pid.endswith(("01", "001", "0001")):
+							continue
+
+						# 若該色粉沒有初始庫存，略過
 						if pid not in last_stock:
 							continue
-				
+
+						# 取得色粉重量（每 kg 產品用量）
 						try:
-							ratio_g = float(add_rec.get(f"色粉重量{i}", 0))
+							ratio_g = float(rec.get(f"色粉重量{i}", 0))
 						except:
 							ratio_g = 0.0
-				
+
+						# 計算用量：比例 * 包裝重量 * 包裝份數
 						total_used_g = 0
 						for j in range(1, 5):
 							try:
-								w_val = float(st.session_state.get(f"form_weight{j}_tab1", 0) or 0)
-								n_val = float(st.session_state.get(f"form_count{j}_tab1", 0) or 0)
+								w_val = float(st.session_state.get(f"form_weight{j}", 0) or 0)
+								n_val = float(st.session_state.get(f"form_count{j}", 0) or 0)
 								total_used_g += ratio_g * w_val * n_val
 							except:
 								pass
-				
+
+						# 扣庫存
 						last_stock_before = last_stock.get(pid, 0)
 						new_stock = last_stock_before - total_used_g
 						last_stock[pid] = new_stock
-				
+
+						# 分級提醒
 						final_kg = new_stock / 1000
-						if final_kg < 0.5:
+						if final_kg < 0:
+							alerts.append(f"🔴 {pid} → 庫存不足（需 {abs(final_kg):.2f} kg）")
+						elif final_kg < 0.5:
 							alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
 						elif final_kg < 1:
 							alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
 						elif final_kg < 3:
 							alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
-				
+
 				if alerts:
 					st.warning("💀 以下色粉庫存過低：\n" + "\n".join(alerts))
-				
+
 				st.session_state["last_final_stock"] = last_stock
-				
+
 				order_no = str(order.get("生產單號", "")).strip()
-				
+
 				try:
 					sheet_data = ws_order.get_all_records()
 					rows_to_delete = []
-				
+					
 					for idx, row in enumerate(sheet_data, start=2):
 						if str(row.get("生產單號", "")).strip() == order_no:
 							rows_to_delete.append(idx)
