@@ -3706,80 +3706,80 @@ elif menu == "代工管理":
  
 	# ========== Tab 2：編輯代工 ==========
 	with tab2:
-	    if not df_oem.empty:
+		if not df_oem.empty:
 	
-	        # ---------- 建立日期排序欄位 ----------
-	        df_oem["狀態"] = df_oem["狀態"].astype(str).str.strip()
+			# ---------- 建立日期排序欄位 ----------
+			df_oem["狀態"] = df_oem["狀態"].astype(str).str.strip()
 	
-	        def tw_to_ad(d):
-	            d = str(d)
-	            if len(d) == 7:
-	                return str(int(d[:3]) + 1911) + d[3:]
-	            return d
+			def tw_to_ad(d):
+				d = str(d)
+				if len(d) == 7:
+					return str(int(d[:3]) + 1911) + d[3:]
+				return d
 	
-	        df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
-	        df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
+			df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
+			df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
 	
-	        df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
-	        df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
+			df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
+			df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
 	
-	        oem_options = [
-	            f"客戶:{row.get('客戶名稱','')} | 配方:{row.get('配方編號','')} | 數量:{row.get('代工數量',0)}kg | 廠商:{row.get('代工廠商','')} | {row['代工單號']}"
-	            for _, row in df_oem_active.iterrows()
-	        ]
+			oem_options = [
+				f"客戶:{row.get('客戶名稱','')} | 配方:{row.get('配方編號','')} | 數量:{row.get('代工數量',0)}kg | 廠商:{row.get('代工廠商','')} | {row['代工單號']}"
+				for _, row in df_oem_active.iterrows()
+			]
 	
-	        if not oem_options:
-	            st.warning("⚠️ 目前沒有可編輯的代工單（全部已結案）")
-	        else:
-	            selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_edit")
+			if not oem_options:
+				st.warning("⚠️ 目前沒有可編輯的代工單（全部已結案）")
+			else:
+				selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_edit")
 	
-	            # 選擇代工單號
-	            if selected_option:
-	                selected_oem = selected_option.split(" | ")[-1]
+				# 選擇代工單號
+				if selected_option:
+					selected_oem = selected_option.split(" | ")[-1]
 	
-	                # 如果 session_state 沒有這筆資料，才抓一次
-	                if "oem_selected_row" not in st.session_state or st.session_state.oem_selected_row.get("代工單號") != selected_oem:
-	                    oem_row = df_oem_active[df_oem_active["代工單號"] == selected_oem].iloc[0].to_dict()
-	                    st.session_state.oem_selected_row = oem_row
+					# 如果 session_state 沒有這筆資料，才抓一次
+					if "oem_selected_row" not in st.session_state or st.session_state.oem_selected_row.get("代工單號") != selected_oem:
+						oem_row = df_oem_active[df_oem_active["代工單號"] == selected_oem].iloc[0].to_dict()
+						st.session_state.oem_selected_row = oem_row
 	
-	                oem_row = st.session_state.oem_selected_row
+					oem_row = st.session_state.oem_selected_row
 	
-	                # ---------- 顯示基本資訊 ----------
-	                col1, col2, col3 = st.columns(3)
-	                col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
-	                col2.text_input("客戶名稱", value=oem_row.get("客戶名稱", ""), disabled=True)
-	                col3.text_input("代工數量 (kg)", value=oem_row.get("代工數量", ""), disabled=True)
+					# ---------- 顯示基本資訊 ----------
+					col1, col2, col3 = st.columns(3)
+					col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
+					col2.text_input("客戶名稱", value=oem_row.get("客戶名稱", ""), disabled=True)
+					col3.text_input("代工數量 (kg)", value=oem_row.get("代工數量", ""), disabled=True)
 	
-	                # ---------- 可編輯欄位 ----------
-	                col4, col5 = st.columns([2,1])
-	                new_vendor = col4.selectbox(
-	                    "代工廠商", ["", "弘旭", "良輝"],
-	                    index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", "")) if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
-	                    key="oem_vendor"
-	                )
-	                status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
-	                current_status = oem_row.get("狀態", "")
-	                status_index = status_options.index(current_status) if current_status in status_options else 0
-	                new_status = col5.selectbox("狀態", status_options, index=status_index, key="oem_status")
-	                new_remark = st.text_area("備註", value=oem_row.get("備註",""), key="oem_remark", height=120)
+					# ---------- 可編輯欄位 ----------
+					col4, col5 = st.columns([2,1])
+					new_vendor = col4.selectbox(
+						"代工廠商", ["", "弘旭", "良輝"],
+						index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", "")) if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
+						key="oem_vendor"
+					)
+					status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
+					current_status = oem_row.get("狀態", "")
+					status_index = status_options.index(current_status) if current_status in status_options else 0
+					new_status = col5.selectbox("狀態", status_options, index=status_index, key="oem_status")
+					new_remark = st.text_area("備註", value=oem_row.get("備註",""), key="oem_remark", height=120)
 	
-	                # ---------- 更新按鈕 ----------
-	                if st.button("💾 更新代工資訊", key="update_oem_info"):
-	                    all_values = ws_oem.get_all_values()
-	                    for idx, row in enumerate(all_values[1:], start=2):
-	                        if row[0] == selected_oem:
-	                            ws_oem.update_cell(idx, 6, new_vendor)
-	                            ws_oem.update_cell(idx, 7, new_remark)
-	                            ws_oem.update_cell(idx, 8, new_status)
-	                            st.success("✅ 代工資訊已更新")
-	                            st.session_state.oem_selected_row.update({
-	                                "代工廠商": new_vendor,
-	                                "備註": new_remark,
-	                                "狀態": new_status
-	                            })
-	                            break
+					# ---------- 更新按鈕 ----------
+					if st.button("💾 更新代工資訊", key="update_oem_info"):
+						all_values = ws_oem.get_all_values()
+						for idx, row in enumerate(all_values[1:], start=2):
+							if row[0] == selected_oem:
+								ws_oem.update_cell(idx, 6, new_vendor)
+								ws_oem.update_cell(idx, 7, new_remark)
+								ws_oem.update_cell(idx, 8, new_status)
+								st.success("✅ 代工資訊已更新")
+								st.session_state.oem_selected_row.update({
+									"代工廠商": new_vendor,
+									"備註": new_remark,
+									"狀態": new_status
+								})
+								break
 	
-	                st.markdown("---")
+					st.markdown("---")
 
 
 					# ---------- 送達記錄區 ----------
