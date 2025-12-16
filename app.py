@@ -4967,77 +4967,60 @@ elif menu == "查詢區":
 	        st.session_state.sample_search_triggered = True
 	        st.session_state.selected_sample_index = None
 	
-	    # ===== 搜尋結果（折疊表格 + 選擇單筆） =====
-	    if st.session_state.sample_search_triggered:
-	        df_show = st.session_state.sample_filtered_df
-	        if df_show.empty:
-	            st.info("⚠️ 查無符合條件的樣品記錄")
-	        else:
-	            st.markdown("**📋 搜尋結果（選擇單筆以修改 / 刪除）**")
-	            with st.expander("點擊展開搜尋結果表格"):
-	                st.dataframe(df_show[["日期","樣品編號","樣品名稱","客戶名稱"]], use_container_width=True, hide_index=True)
-	
-	            options = [
-	                f"{df_show.at[i,'日期']}｜{df_show.at[i,'樣品編號']}｜{df_show.at[i,'樣品名稱']}"
-	                for i in df_show.index
-	            ]
-	            selected = st.selectbox("選擇樣品", [""] + options, key="select_sample")
-	            if selected and selected != "":
-	                idx = options.index(selected)  # 對應 df_show.index
-	                st.session_state.selected_sample_index = df_show.index[idx]
-	
-	    # ===== 修改 / 刪除表單 =====
-	    if st.session_state.selected_sample_index is not None:
-	        row = df_sample.iloc[st.session_state.selected_sample_index]
-	        st.markdown("**✏️ 修改 / 🗑️ 刪除樣品**")
-	
-	        c1, c2, c3 = st.columns(3)
-	        with c1:
-	            st.date_input("日期", value=pd.to_datetime(row["日期"]).date(), key="edit_date")
-	        with c2:
-	            st.text_input("客戶名稱", value=row["客戶名稱"], key="edit_customer")
-	        with c3:
-	            st.text_input("樣品編號", value=row["樣品編號"], key="edit_code")
-	
-	        c4, c5 = st.columns(2)
-	        with c4:
-	            st.text_input("樣品名稱", value=row["樣品名稱"], key="edit_name")
-	        with c5:
-	            st.text_input("樣品數量", value=row["樣品數量"], key="edit_qty")
-	
-	        b1, b2 = st.columns(2)
-	        with b1:
-	            if st.button("💾 儲存修改", key="save_edit"):
-	                df_sample.at[st.session_state.selected_sample_index, "日期"] = st.session_state["edit_date"]
-	                df_sample.at[st.session_state.selected_sample_index, "客戶名稱"] = st.session_state["edit_customer"]
-	                df_sample.at[st.session_state.selected_sample_index, "樣品編號"] = st.session_state["edit_code"]
-	                df_sample.at[st.session_state.selected_sample_index, "樣品名稱"] = st.session_state["edit_name"]
-	                df_sample.at[st.session_state.selected_sample_index, "樣品數量"] = st.session_state["edit_qty"]
-	                save_df_to_sheet(ws_sample, df_sample)
-	                st.success("✅ 樣品已更新")
-	                st.rerun()
-	        with b2:
-	            if st.button("🗑️ 刪除", key="delete_edit"):
-	                st.session_state.delete_sample_index = st.session_state.selected_sample_index
-	                st.session_state.show_delete_sample_confirm = True
-	
-	    # ===== 刪除確認 =====
-	    if st.session_state.show_delete_sample_confirm:
-	        r = df_sample.iloc[st.session_state.delete_sample_index]
-	        st.warning(f"⚠️ 確定刪除 {r['樣品編號']} {r['樣品名稱']}？")
-	
-	        c1, c2 = st.columns(2)
-	        with c1:
-	            if st.button("確認刪除", key="confirm_delete_sample"):
-	                df_sample.drop(index=st.session_state.delete_sample_index, inplace=True)
-	                df_sample.reset_index(drop=True, inplace=True)
-	                save_df_to_sheet(ws_sample, df_sample)
-	                st.session_state.show_delete_sample_confirm = False
-	                st.session_state.selected_sample_index = None
-	                st.rerun()
-	        with c2:
-	            if st.button("取消", key="cancel_delete_sample"):
-	                st.session_state.show_delete_sample_confirm = False
+	    # ===== 搜尋結果 =====
+		if st.session_state.sample_search_triggered:
+		    df_show = st.session_state.sample_filtered_df
+		
+		    if df_show.empty:
+		        st.info("⚠️ 查無符合條件的樣品記錄")
+		    else:
+		        st.markdown("**📋 搜尋結果（請選擇一筆）**")
+		
+		        selected = st.radio(
+		            "",
+		            options=df_show.index,
+		            format_func=lambda i: f"{df_show.at[i,'日期']}｜{df_show.at[i,'樣品編號']}｜{df_show.at[i,'樣品名稱']}"
+		        )
+		
+		        st.session_state.selected_sample_index = selected
+		        st.dataframe(df_show, use_container_width=True, hide_index=True)
+		
+		        # ===== 修改 / 刪除（選擇後才顯示）=====
+		        if st.session_state.selected_sample_index is not None:
+		            row = df_show.iloc[st.session_state.selected_sample_index]
+		            b1, b2 = st.columns(2)
+		            with b1:
+		                if st.button("✏️ 修改"):
+		                    idx = df_sample[df_sample["樣品編號"] == row["樣品編號"]].index[0]
+		                    st.session_state.edit_sample_index = idx
+		                    st.session_state.form_sample = row.to_dict()
+		                    st.rerun()
+		            with b2:
+		                if st.button("🗑️ 刪除"):
+		                    st.session_state.delete_sample_index = df_sample[
+		                        df_sample["樣品編號"] == row["樣品編號"]
+		                    ].index[0]
+		                    st.session_state.show_delete_sample_confirm = True
+		                    st.rerun()
+		
+			
+			    # ===== 刪除確認 =====
+			    if st.session_state.show_delete_sample_confirm:
+			        r = df_sample.iloc[st.session_state.delete_sample_index]
+			        st.warning(f"⚠️ 確定刪除 {r['樣品編號']} {r['樣品名稱']}？")
+			
+			        c1, c2 = st.columns(2)
+			        with c1:
+			            if st.button("確認刪除", key="confirm_delete_sample"):
+			                df_sample.drop(index=st.session_state.delete_sample_index, inplace=True)
+			                df_sample.reset_index(drop=True, inplace=True)
+			                save_df_to_sheet(ws_sample, df_sample)
+			                st.session_state.show_delete_sample_confirm = False
+			                st.session_state.selected_sample_index = None
+			                st.rerun()
+			        with c2:
+			            if st.button("取消", key="cancel_delete_sample"):
+			                st.session_state.show_delete_sample_confirm = False
 
 
 # ======== 庫存區分頁 =========
