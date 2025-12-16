@@ -1426,6 +1426,7 @@ elif menu == "配方管理":
 				st.rerun()
 
 # ============================================================
+	# ============================================================
 	# Tab 2: 配方記錄表（穩定第一）
 	# ============================================================
 	with tab2:
@@ -1493,16 +1494,27 @@ elif menu == "配方管理":
 			if recipe_kw or customer_kw or pantone_kw:
 				st.info(
 					f"🔍 搜尋結果：共 {total_rows} 筆資料｜"
-					f"版型已鎖定為 {st.session_state.get('recipe_cols_tab2', 1)} 欄"
+					f"詳細資料固定為 {st.session_state.get('recipe_cols_tab2', 1)} 欄顯示"
 				)
 	
 			# ===== 分頁設定 =====
 			limit_options = [1, 5, 10, 20, 50, 100]
 	
+			# ⭐ 修正 1：只讀 state，不用 selectbox 回傳值
 			if "limit_per_page_tab2" not in st.session_state:
 				st.session_state.limit_per_page_tab2 = 1
 	
 			limit = st.session_state.limit_per_page_tab2
+	
+			# ⭐ 修正 2：偵測 limit 變更，立刻重置頁碼
+			if "last_limit_tab2" not in st.session_state:
+				st.session_state.last_limit_tab2 = limit
+	
+			if st.session_state.last_limit_tab2 != st.session_state.limit_per_page_tab2:
+				st.session_state.page_tab2 = 1
+				st.session_state.last_limit_tab2 = st.session_state.limit_per_page_tab2
+				st.rerun()
+	
 			total_pages = max((total_rows - 1) // limit + 1, 1)
 	
 			if "page_tab2" not in st.session_state:
@@ -1526,7 +1538,7 @@ elif menu == "配方管理":
 					hide_index=True
 				)
 	
-				# ===== 配方詳細資訊（穩定版，不動欄位結構）=====
+				# ===== 配方詳細資訊（穩定版）=====
 				st.markdown("---")
 				st.markdown("**📋 配方詳細資訊**")
 	
@@ -1602,12 +1614,12 @@ elif menu == "配方管理":
 					st.rerun()
 	
 			with cols_page[4]:
-				default_index = limit_options.index(limit) if limit in limit_options else 0
-				st.session_state.limit_per_page_tab2 = st.selectbox(
+				# ⭐ 修正 3：selectbox 只寫 state，不接回傳值
+				st.selectbox(
 					"",
 					options=limit_options,
-					index=default_index,
-					key="limit_per_page_tab2_select",
+					index=limit_options.index(limit),
+					key="limit_per_page_tab2",
 					label_visibility="collapsed"
 				)
 	
