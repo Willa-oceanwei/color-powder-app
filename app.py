@@ -2774,7 +2774,7 @@ elif menu == "生產單管理":
 				w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}_tab1")
 				c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
 			
-			st.markdown("##### 色粉用量（編號與重量）")
+			st.markdown("###### 色粉用量（編號與重量）")
 			id_col, wt_col = st.columns(2)
 			for i in range(1, 9):
 				color_id = recipe_row.get(f"色粉編號{i}", "").strip()
@@ -2785,7 +2785,7 @@ elif menu == "生產單管理":
 			
 			additional_recipes = order.get("附加配方", [])
 			if additional_recipes:
-				st.markdown("##### 附加配方色粉用量（編號與重量）")
+				st.markdown("###### 附加配方色粉用量（編號與重量）")
 				for idx, r in enumerate(additional_recipes, 1):
 					st.markdown(f"附加配方 {idx}")
 					col1, col2 = st.columns(2)
