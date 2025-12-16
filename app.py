@@ -3763,23 +3763,50 @@ elif menu == "代工管理":
 					new_status = col5.selectbox("狀態", status_options, index=status_index, key="oem_status")
 					new_remark = st.text_area("備註", value=oem_row.get("備註",""), key="oem_remark", height=120)
 	
-					# ---------- 更新按鈕 ----------
-					if st.button("💾 更新代工資訊", key="update_oem_info"):
-						all_values = ws_oem.get_all_values()
-						for idx, row in enumerate(all_values[1:], start=2):
-							if row[0] == selected_oem:
-								ws_oem.update_cell(idx, 6, new_vendor)
-								ws_oem.update_cell(idx, 7, new_remark)
-								ws_oem.update_cell(idx, 8, new_status)
-								st.success("✅ 代工資訊已更新")
-								st.session_state.oem_selected_row.update({
-									"代工廠商": new_vendor,
-									"備註": new_remark,
-									"狀態": new_status
-								})
-								break
-	
+					# ---------- 更新 / 刪除按鈕 ----------
+					b1, b2 = st.columns(2)
+					
+					with b1:
+					    if st.button("💾 更新代工資訊", key="update_oem_info"):
+					        all_values = ws_oem.get_all_values()  # 只抓一次
+					        for idx, row in enumerate(all_values[1:], start=2):
+					            if row[0] == selected_oem:
+					                ws_oem.update_cell(idx, 6, new_vendor)
+					                ws_oem.update_cell(idx, 7, new_remark)
+					                ws_oem.update_cell(idx, 8, new_status)
+					                st.success("✅ 代工資訊已更新")
+					                st.session_state.oem_selected_row.update({
+					                    "代工廠商": new_vendor,
+					                    "備註": new_remark,
+					                    "狀態": new_status
+					                })
+					                break
+					
+					with b2:
+					    if st.button("🗑️ 刪除代工單", key="delete_oem"):
+					        st.session_state.show_delete_oem_confirm = True
+					
+					# ---------- 刪除確認 ----------
+					if st.session_state.get("show_delete_oem_confirm", False):
+					    st.warning(f"⚠️ 確定刪除 {oem_row['代工單號']}？")
+					    c1, c2 = st.columns(2)
+					    with c1:
+					        if st.button("確認刪除", key="confirm_delete_oem"):
+					            all_values = ws_oem.get_all_values()
+					            for idx, row in enumerate(all_values[1:], start=2):
+					                if row[0] == oem_row["代工單號"]:
+					                    ws_oem.delete_row(idx)
+					                    st.success("✅ 已刪除代工單")
+					                    st.session_state.oem_selected_row = None
+					                    st.session_state.show_delete_oem_confirm = False
+					                    st.rerun()
+					                    break
+					    with c2:
+					        if st.button("取消", key="cancel_delete_oem"):
+					            st.session_state.show_delete_oem_confirm = False
+					
 					st.markdown("---")
+
 
 
 					# ---------- 送達記錄區 ----------
