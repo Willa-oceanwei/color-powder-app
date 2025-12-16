@@ -4803,18 +4803,24 @@ elif menu == "查詢區":
 		if "form_sample" not in st.session_state:
 			st.session_state.form_sample = {}
 
-		value = st.session_state.form_sample.get(field_name, default_date)
+		raw = st.session_state.form_sample.get(field_name)
 
-		if value in ["", None] or (isinstance(value, pd.Timestamp) and pd.isna(value)):
+		try:
+			if raw in ["", None]:
+				value = default_date
+			elif isinstance(raw, pd.Timestamp):
+				value = raw.date()
+			elif isinstance(raw, datetime):
+				value = raw.date()
+			elif isinstance(raw, date):
+				value = raw
+			else:
+				value = pd.to_datetime(raw).date()
+		except:
 			value = default_date
-		elif isinstance(value, pd.Timestamp):
-			value = value.date()
-		elif isinstance(value, datetime):
-			value = value.date()
 
 		st.session_state.form_sample[field_name] = value
 		return value
-
 
 	with tab4:
 
@@ -4967,8 +4973,12 @@ elif menu == "查詢區":
 			with b1:
 				if st.button("✏️ 修改"):
 					idx = df_sample[df_sample["樣品編號"] == row["樣品編號"]].index[0]
+				
+					data = row.to_dict()
+					data["日期"] = pd.to_datetime(data["日期"]).date()
+				
 					st.session_state.edit_sample_index = idx
-					st.session_state.form_sample = row.to_dict()
+					st.session_state.form_sample = data
 					st.rerun()
 
 			with b2:
