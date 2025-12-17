@@ -2105,8 +2105,7 @@ elif menu == "生產單管理":
 	def calculate_current_stock():
 		"""
 		計算截至「今天」的實際庫存
-		邏輯：初始庫存 + [起算點~今天]的進貨 - [起算點~今天]的用量
-		✅ 與庫存區 calc_usage_for_stock() 邏輯完全一致
+		邏輯：與庫存區 calc_usage_for_stock() 完全一致
 		"""
 		stock_dict = {}
 		
@@ -2170,7 +2169,7 @@ elif menu == "生產單管理":
 			if not pid:
 				continue
 			
-			# ✅ 關鍵修正：沒有初始庫存的色粉，自動建立起算點
+			# ✅ 處理沒有初始庫存的色粉
 			if pid not in initial_stocks:
 				row_date = row.get("日期")
 				if pd.isna(row_date):
@@ -2210,10 +2209,26 @@ elif menu == "生產單管理":
 		
 		df_recipe_hist = st.session_state.get("df_recipe", pd.DataFrame()).copy()
 		
+		# ✅ 取得所有包含各色粉的配方（與庫存區邏輯一致）
+		powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
+		candidate_recipes = {}  # pid -> set of recipe_ids
+		
+		if not df_recipe_hist.empty:
+			for c in powder_cols:
+				if c not in df_recipe_hist.columns:
+					df_recipe_hist[c] = ""
+			
+			for pid in initial_stocks.keys():
+				mask = df_recipe_hist[powder_cols].astype(str).apply(
+					lambda row: pid in [s.strip() for s in row.values], axis=1
+				)
+				recipe_candidates = df_recipe_hist[mask].copy()
+				candidate_recipes[pid] = set(recipe_candidates["配方編號"].astype(str).str.strip().tolist())
+		
 		for _, order_hist in df_order_hist.iterrows():
 			order_date = order_hist.get("生產日期")
 			
-			# ✅ 關鍵修正 1：沒有日期的訂單直接跳過
+			# ✅ 沒有日期的訂單直接跳過
 			if pd.isna(order_date):
 				continue
 			
@@ -2221,64 +2236,51 @@ elif menu == "生產單管理":
 			if not recipe_id:
 				continue
 			
-			recipe_rows = df_recipe_hist[df_recipe_hist["配方編號"] == recipe_id]
-			if recipe_rows.empty:
-				continue
+			# 取得主配方與附加配方
+			recipe_rows = []
+			main_df = df_recipe_hist[df_recipe_hist["配方編號"].astype(str).str.strip() == recipe_id]
+			if not main_df.empty:
+				recipe_rows.append(main_df.iloc[0].to_dict())
 			
-			recipe_row_hist = recipe_rows.iloc[0]
-			
-			# 主配方色粉
-			for i in range(1, 9):
-				pid = str(recipe_row_hist.get(f"色粉編號{i}", "")).strip()
-				if not pid or pid.endswith(("01", "001", "0001")):
-					continue
-				
-				if pid not in initial_stocks:
-					continue
-				
-				# ✅ 關鍵修正 2：只扣除「起算點（含）~ 今天（含）」之間的訂單
-				order_date_norm = order_date.normalize()
-				init_start_date = initial_stocks[pid]["date"].normalize()
-				
-				if order_date_norm < init_start_date:
-					continue
-				
-				if order_date_norm > today:
-					continue
-				
-				try:
-					ratio_g = float(recipe_row_hist.get(f"色粉重量{i}", 0))
-				except:
-					ratio_g = 0.0
-				
-				total_used_g = 0
-				for j in range(1, 5):
-					try:
-						w_val = float(order_hist.get(f"包裝重量{j}", 0) or 0)
-						n_val = float(order_hist.get(f"包裝份數{j}", 0) or 0)
-						total_used_g += ratio_g * w_val * n_val
-					except:
-						pass
-				
-				if pid in stock_dict:
-					stock_dict[pid] -= total_used_g
-			
-			# 附加配方色粉
-			additional_recipes_hist = df_recipe_hist[
+			add_df = df_recipe_hist[
 				(df_recipe_hist["配方類別"].astype(str).str.strip() == "附加配方") &
 				(df_recipe_hist["原始配方"].astype(str).str.strip() == recipe_id)
 			]
+			if not add_df.empty:
+				recipe_rows.extend(add_df.to_dict("records"))
 			
-			for _, add_recipe in additional_recipes_hist.iterrows():
-				for i in range(1, 9):
-					pid = str(add_recipe.get(f"色粉編號{i}", "")).strip()
+			# 計算包裝總量（kg）
+			packs_total_kg = 0.0
+			for j in range(1, 5):
+				try:
+					w_val = float(order_hist.get(f"包裝重量{j}", 0) or 0)
+					n_val = float(order_hist.get(f"包裝份數{j}", 0) or 0)
+					packs_total_kg += w_val * n_val
+				except:
+					pass
+			
+			if packs_total_kg <= 0:
+				continue
+			
+			# 逐配方計算用量
+			for rec in recipe_rows:
+				rec_id = str(rec.get("配方編號", "")).strip()
+				
+				pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
+				
+				for i, pid in enumerate(pvals, 1):
 					if not pid or pid.endswith(("01", "001", "0001")):
 						continue
 					
+					# ✅ 檢查這個色粉是否有初始庫存
 					if pid not in initial_stocks:
 						continue
 					
-					# ✅ 關鍵修正 3：只扣除「起算點（含）~ 今天（含）」之間的訂單
+					# ✅ 檢查配方是否在候選清單中
+					if pid in candidate_recipes and rec_id not in candidate_recipes[pid]:
+						continue
+					
+					# ✅ 檢查日期範圍
 					order_date_norm = order_date.normalize()
 					init_start_date = initial_stocks[pid]["date"].normalize()
 					
@@ -2288,18 +2290,15 @@ elif menu == "生產單管理":
 						continue
 					
 					try:
-						ratio_g = float(add_recipe.get(f"色粉重量{i}", 0))
+						ratio_g = float(rec.get(f"色粉重量{i}", 0) or 0)
 					except:
 						ratio_g = 0.0
 					
-					total_used_g = 0
-					for j in range(1, 5):
-						try:
-							w_val = float(order_hist.get(f"包裝重量{j}", 0) or 0)
-							n_val = float(order_hist.get(f"包裝份數{j}", 0) or 0)
-							total_used_g += ratio_g * w_val * n_val
-						except:
-							pass
+					if ratio_g <= 0:
+						continue
+					
+					# ✅ 計算用量（g） = 色粉重量 * 包裝總量
+					total_used_g = ratio_g * packs_total_kg
 					
 					if pid in stock_dict:
 						stock_dict[pid] -= total_used_g
