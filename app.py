@@ -2161,6 +2161,16 @@ elif menu == "生產單管理":
 			stock_dict[pid] = data["qty"]
 		
 		# === 步驟 2：累加「起算點 ~ 今天」的進貨 ===
+		# 先取得所有進貨記錄的色粉，建立起算點
+		df_in = df_stock[df_stock["類型"].astype(str).str.strip() == "進貨"].copy()
+		for pid in df_in["色粉編號"].unique():
+			if pid not in initial_stocks:
+				# ✅ 找到該色粉最早的進貨日期作為起算點
+				pid_in = df_in[df_in["色粉編號"] == pid]
+				min_in_date = pid_in["日期"].min() if not pid_in.empty else pd.Timestamp('2000-01-01')
+				initial_stocks[pid] = {"qty": 0.0, "date": min_in_date}
+				stock_dict[pid] = 0.0
+		
 		for idx, row in df_stock.iterrows():
 			if row["類型"] != "進貨":
 				continue
@@ -2168,14 +2178,6 @@ elif menu == "生產單管理":
 			pid = row.get("色粉編號", "")
 			if not pid:
 				continue
-			
-			# ✅ 處理沒有初始庫存的色粉
-			if pid not in initial_stocks:
-				row_date = row.get("日期")
-				if pd.isna(row_date):
-					row_date = pd.Timestamp('2000-01-01')
-				initial_stocks[pid] = {"qty": 0.0, "date": row_date}
-				stock_dict[pid] = 0.0
 			
 			row_date = row.get("日期")
 			
@@ -2218,7 +2220,9 @@ elif menu == "生產單管理":
 				if c not in df_recipe_hist.columns:
 					df_recipe_hist[c] = ""
 			
-			for pid in initial_stocks.keys():
+			# ✅ 關鍵修正：為所有在 stock_dict 中的色粉建立候選配方
+			# （包含只有進貨記錄、沒有初始庫存的色粉）
+			for pid in stock_dict.keys():
 				mask = df_recipe_hist[powder_cols].astype(str).apply(
 					lambda row: pid in [s.strip() for s in row.values], axis=1
 				)
@@ -2272,17 +2276,24 @@ elif menu == "生產單管理":
 					if not pid or pid.endswith(("01", "001", "0001")):
 						continue
 					
-					# ✅ 檢查這個色粉是否有初始庫存
-					if pid not in initial_stocks:
+					# ✅ 修正：只檢查 stock_dict，不檢查 initial_stocks
+					# （因為有些色粉只有進貨記錄，沒有初始庫存）
+					if pid not in stock_dict:
 						continue
 					
 					# ✅ 檢查配方是否在候選清單中
 					if pid in candidate_recipes and rec_id not in candidate_recipes[pid]:
 						continue
 					
-					# ✅ 檢查日期範圍
+					# ✅ 檢查日期範圍（使用起算日期）
 					order_date_norm = order_date.normalize()
-					init_start_date = initial_stocks[pid]["date"].normalize()
+					
+					# 取得起算日期
+					if pid in initial_stocks:
+						init_start_date = initial_stocks[pid]["date"].normalize()
+					else:
+						# 沒有初始庫存的色粉，使用最早的日期
+						init_start_date = pd.Timestamp('2000-01-01').normalize()
 					
 					if order_date_norm < init_start_date:
 						continue
