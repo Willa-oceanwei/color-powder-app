@@ -2106,6 +2106,7 @@ elif menu == "生產單管理":
 		"""
 		計算截至「今天」的實際庫存
 		邏輯：初始庫存 + [起算點~今天]的進貨 - [起算點~今天]的用量
+		✅ 與庫存區 calc_usage_for_stock() 邏輯完全一致
 		"""
 		stock_dict = {}
 		
@@ -2169,6 +2170,7 @@ elif menu == "生產單管理":
 			if not pid:
 				continue
 			
+			# ✅ 關鍵修正：沒有初始庫存的色粉，自動建立起算點
 			if pid not in initial_stocks:
 				row_date = row.get("日期")
 				if pd.isna(row_date):
@@ -2211,7 +2213,7 @@ elif menu == "生產單管理":
 		for _, order_hist in df_order_hist.iterrows():
 			order_date = order_hist.get("生產日期")
 			
-			# ⚠️ 關鍵修正：沒有日期的訂單直接跳過
+			# ✅ 關鍵修正 1：沒有日期的訂單直接跳過
 			if pd.isna(order_date):
 				continue
 			
@@ -2234,12 +2236,10 @@ elif menu == "生產單管理":
 				if pid not in initial_stocks:
 					continue
 				
-				# ⚠️ 只扣除「起算點 ~ 今天」之間的訂單
-				# 📌 標準化日期（去除時間部分）
+				# ✅ 關鍵修正 2：只扣除「起算點（含）~ 今天（含）」之間的訂單
 				order_date_norm = order_date.normalize()
 				init_start_date = initial_stocks[pid]["date"].normalize()
 				
-				# 📌 只扣除「起算點（含）~ 今天（含）」之間的訂單
 				if order_date_norm < init_start_date:
 					continue
 				
@@ -2278,12 +2278,10 @@ elif menu == "生產單管理":
 					if pid not in initial_stocks:
 						continue
 					
-					# ⚠️ 只扣除「起算點 ~ 今天」之間的訂單
-					# 📌 標準化日期
+					# ✅ 關鍵修正 3：只扣除「起算點（含）~ 今天（含）」之間的訂單
 					order_date_norm = order_date.normalize()
 					init_start_date = initial_stocks[pid]["date"].normalize()
 					
-					# 📌 只扣除「起算點（含）~ 今天（含）」之間的訂單
 					if order_date_norm < init_start_date:
 						continue
 					if order_date_norm > today:
