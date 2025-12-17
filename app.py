@@ -2786,7 +2786,7 @@ elif menu == "生產單管理":
 			
 			col_submit1, col_submit2 = st.columns([1, 1])
 			with col_submit1:
-				submitted = st.form_submit_button("💾 儲存生產單")
+				submitted = st.form_submit_button("💾 僅儲存生產單")
 			
 			is_colorant = (recipe_row.get("色粉類別", "").strip() == "色母")
 			with col_submit2:
@@ -2998,8 +2998,6 @@ elif menu == "生產單管理":
 				st.session_state.show_confirm_panel = False
 				st.session_state.new_order_saved = False
 				st.rerun()
-
-
 						
 	# ============================================================
 	# Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
