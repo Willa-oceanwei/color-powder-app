@@ -3625,7 +3625,7 @@ def format_option(r):
 						st.rerun()
 
 # ======== 代工管理分頁 =========
-elif menu == "代工管理":
+if menu == "代工管理":
 	# ===== 縮小整個頁面最上方空白 =====
 	st.markdown("""
 	<style>
