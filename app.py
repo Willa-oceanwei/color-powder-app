@@ -2451,7 +2451,10 @@ elif menu == "生產單管理":
 	            init_date = df_init.sort_values("日期", ascending=False).iloc[0]["日期"]
 	
 	            for _, order in df_order_debug.iterrows():
-	                order_date = order.get("生產日期")
+	                order_date = pd.to_datetime(
+					    order.get("生產日期"),
+					    errors="coerce"
+					)
 	                recipe_id = str(order.get("配方編號", "")).strip()
 	
 	                recipe_rows = df_recipe_debug[
