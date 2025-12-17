@@ -2211,23 +2211,11 @@ elif menu == "生產單管理":
 		
 		df_recipe_hist = st.session_state.get("df_recipe", pd.DataFrame()).copy()
 		
-		# ✅ 取得所有包含各色粉的配方（與庫存區邏輯一致）
+		# ✅ 確保必要欄位存在
 		powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
-		candidate_recipes = {}  # pid -> set of recipe_ids
-		
-		if not df_recipe_hist.empty:
-			for c in powder_cols:
-				if c not in df_recipe_hist.columns:
-					df_recipe_hist[c] = ""
-			
-			# ✅ 關鍵修正：為所有在 stock_dict 中的色粉建立候選配方
-			# （包含只有進貨記錄、沒有初始庫存的色粉）
-			for pid in stock_dict.keys():
-				mask = df_recipe_hist[powder_cols].astype(str).apply(
-					lambda row: pid in [s.strip() for s in row.values], axis=1
-				)
-				recipe_candidates = df_recipe_hist[mask].copy()
-				candidate_recipes[pid] = set(recipe_candidates["配方編號"].astype(str).str.strip().tolist())
+		for c in powder_cols + ["配方編號", "配方類別", "原始配方"]:
+			if c not in df_recipe_hist.columns:
+				df_recipe_hist[c] = ""
 		
 		for _, order_hist in df_order_hist.iterrows():
 			order_date = order_hist.get("生產日期")
@@ -2240,6 +2228,7 @@ elif menu == "生產單管理":
 			if not recipe_id:
 				continue
 			
+			# ✅ 關鍵修正：只處理「這張訂單的配方」，避免重複計算
 			# 取得主配方與附加配方
 			recipe_rows = []
 			main_df = df_recipe_hist[df_recipe_hist["配方編號"].astype(str).str.strip() == recipe_id]
@@ -2266,23 +2255,23 @@ elif menu == "生產單管理":
 			if packs_total_kg <= 0:
 				continue
 			
+			# ✅ 建立這張訂單已處理的色粉集合（避免重複扣除）
+			processed_powders = set()
+			
 			# 逐配方計算用量
 			for rec in recipe_rows:
-				rec_id = str(rec.get("配方編號", "")).strip()
-				
 				pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
 				
 				for i, pid in enumerate(pvals, 1):
 					if not pid or pid.endswith(("01", "001", "0001")):
 						continue
 					
-					# ✅ 修正：只檢查 stock_dict，不檢查 initial_stocks
-					# （因為有些色粉只有進貨記錄，沒有初始庫存）
-					if pid not in stock_dict:
+					# ✅ 避免同一色粉在同一張訂單中重複扣除
+					if pid in processed_powders:
 						continue
 					
-					# ✅ 檢查配方是否在候選清單中
-					if pid in candidate_recipes and rec_id not in candidate_recipes[pid]:
+					# ✅ 只處理有庫存記錄的色粉
+					if pid not in stock_dict:
 						continue
 					
 					# ✅ 檢查日期範圍（使用起算日期）
@@ -2313,6 +2302,7 @@ elif menu == "生產單管理":
 					
 					if pid in stock_dict:
 						stock_dict[pid] -= total_used_g
+						processed_powders.add(pid)  # ✅ 標記已處理
 		
 		return stock_dict
 	
