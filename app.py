@@ -3998,7 +3998,6 @@ if menu == "代工管理":
 	                if not df_this_return.empty else 0.0
 	            )
 	
-	            # 優先使用手動設定狀態
 	            manual_status = str(oem.get("狀態", "")).strip()
 	            if manual_status:
 	                status = manual_status
@@ -4010,11 +4009,10 @@ if menu == "代工管理":
 	                else:
 	                    status = "⏳ 未載回"
 	
-	            # 狀態排序權重
 	            status_order = status_order_map.get(status, 99)
 	
 	            progress_data.append({
-	                "status_order": status_order,          # 只用來排序
+	                "status_order": status_order,
 	                "建立時間": oem.get("建立時間", ""),
 	                "狀態": status,
 	                "代工單號": oem_id,
@@ -4031,11 +4029,10 @@ if menu == "代工管理":
 	
 	        # ---------- 只看未結案（預設開） ----------
 	        show_open_only = st.checkbox("只顯示未結案代工單", value=True)
-	
 	        if show_open_only:
 	            df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
 	
-	        # ---------- 排序：狀態優先 → 建立時間新到舊 ----------
+	        # ---------- 排序、整理、顯示 ----------
 	        if not df_progress.empty:
 	            df_progress = df_progress.sort_values(
 	                by=["status_order", "建立時間"],
@@ -4043,6 +4040,13 @@ if menu == "代工管理":
 	            )
 	
 	            df_progress = df_progress.drop(columns=["status_order"])
+	
+	            # ===== 建立時間移到最後 =====
+	            cols = list(df_progress.columns)
+	            if "建立時間" in cols:
+	                cols.remove("建立時間")
+	                cols.append("建立時間")
+	                df_progress = df_progress[cols]
 	
 	            st.dataframe(
 	                df_progress,
