@@ -3669,7 +3669,7 @@ elif menu == "代工管理":
 						new_oem_qty,
 						new_vendor,
 						new_remark,
-						"",  # 狀態
+						"🏭 在廠內",  # ⭐ 預設狀態
 						datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 					]
 
