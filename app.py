@@ -2962,7 +2962,7 @@ elif menu == "生產單管理":
 							oem_qty,
 							"",
 							"",
-							"",
+							"🏭 在廠內",  # ⭐ 預設狀態
 							(datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
 						]
 						ws_oem.append_row(oem_row)
