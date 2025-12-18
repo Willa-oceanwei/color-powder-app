@@ -401,7 +401,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 	if recipe_row is None:
 		recipe_row = {}
 
-	category = order.get("色粉類別", "").strip()  # 確保先賦值
+	category = order.get("色粉類別", "").strip()
 	
 	unit = recipe_row.get("計量單位", "kg")
 	ratio = recipe_row.get("比例3", "")
@@ -414,7 +414,6 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 	pack_col_width = 11
 	number_col_width = 6
 	column_offsets = [1, 5, 5, 5]
-	total_offsets = [1.3, 5, 5, 5]
 	
 	packing_weights = [
 		float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
@@ -425,7 +424,6 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 		for i in range(1, 5)
 	]
 
-	# 這裡初始化 colorant_ids 和 colorant_weights
 	colorant_ids = [recipe_row.get(f"色粉編號{i+1}", "") for i in range(8)]
 	colorant_weights = []
 	for i in range(8):
@@ -438,119 +436,143 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 	
 	multipliers = packing_weights
 	
-	# 合計列
 	try:
 		net_weight = float(recipe_row.get("淨重", 0))
 	except:
 		net_weight = 0.0
 	
-	lines = []
-	lines.append("")
+	powder_ids = colorant_ids
 	
-	# 配方資訊列（flex 平均分配 + 長文字自動撐開）
+	lines = []
+	
+	# ✅ 修正：移除多餘空行，標題與內容距離縮短
+	# 配方資訊列
 	recipe_id = recipe_row.get('配方編號', '')
 	color = order.get('顏色', '')
 	pantone = order.get('Pantone 色號', '').strip()
 
-	# 有 Pantone 才印出
 	pantone_part = (
 		f"<div style='flex:1; min-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>Pantone：{pantone}</div>"
 		if pantone else ""
 	)
 
-	# 固定欄位平均分配
 	recipe_part = f"<div style='flex:1; min-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>編號：<b>{recipe_id}</b></div>"
 	color_part = f"<div style='flex:1; min-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>顏色：{color}</div>"
 	ratio_part = f"<div style='flex:1; min-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>比例：{ratio} g/kg</div>"
 
-	# 組合整行
 	info_line = (
 		f"<div style='display:flex; font-size:20px; font-family:Arial; align-items:center; gap:12px;'>"
 		f"{recipe_part}{color_part}{ratio_part}{pantone_part}"
 		f"</div>"
 	)
 	lines.append(info_line)
-	lines.append("")
+	lines.append("")  # ✅ 只留一個空行
 	
-	# 包裝列
-	pack_line = []
-	for i in range(4):
-		w = packing_weights[i]
-		c = packing_counts[i]
-		if w > 0 or c > 0:
-			# 特例：色母類別 + w==1 時，強制 real_w=100
-			if category == "色母":
-				if w == 1:
-					unit_str = "100K"
-				else:
+	# ===== 判斷是否為色母 =====
+	is_colorant = (category == "色母")
+	
+	# ===== 非色母：一般格式 =====
+	if not is_colorant:
+		# 包裝列
+		pack_line = []
+		for i in range(4):
+			w = packing_weights[i]
+			c = packing_counts[i]
+			if w > 0 or c > 0:
+				if unit == "包":
+					real_w = w * 25
+					unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
+				elif unit == "桶":
 					real_w = w * 100
 					unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
-			elif unit == "包":
-				real_w = w * 25
-				unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
-			elif unit == "桶":
-				real_w = w * 100
-				unit_str = f"{int(real_w)}K" if real_w == int(real_w) else f"{real_w:.1f}K"
-			else:
-				real_w = w
-				# 轉成字串後去掉多餘的 0 和小數點
-				unit_str = f"{real_w:.2f}".rstrip("0").rstrip(".") + "kg"
+				else:
+					real_w = w
+					unit_str = f"{real_w:.2f}".rstrip("0").rstrip(".") + "kg"
+			
+				count_str = str(int(c)) if c == int(c) else str(c)
+				text = f"{unit_str} × {count_str}"
+				pack_line.append(f"{text:<{pack_col_width}}")
 		
-			count_str = str(int(c)) if c == int(c) else str(c)
-			text = f"{unit_str} × {count_str}"
-			pack_line.append(f"{text:<{pack_col_width}}")
+		packing_indent = " " * 14
+		lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
 		
-	packing_indent = " " * 14
-	lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
-									
-	# 主配方色粉列
-	for idx in range(8):
-		c_id = colorant_ids[idx]
-		c_weight = colorant_weights[idx]
-		if not c_id:
-			continue
-		row = f"<b>{str(c_id or '').ljust(powder_label_width)}</b>"
-		for i in range(4):
-			val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
-			val_str = (
-				str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
-			) if val else ""
-			padding = " " * max(0, int(round(column_offsets[i])))
-			# 數字用加 class 的 <b> 包起來
-			row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-		lines.append(row)
-		
-	# 橫線：只有非色母類別才顯示
-	category = (order.get("色粉類別") or "").strip()
-	if category != "色母":
+		# 主配方色粉列
+		for idx in range(8):
+			c_id = colorant_ids[idx]
+			c_weight = colorant_weights[idx]
+			if not c_id:
+				continue
+			row = f"<b>{str(c_id or '').ljust(powder_label_width)}</b>"
+			for i in range(4):
+				val = c_weight * multipliers[i] if multipliers[i] > 0 else 0
+				val_str = (
+					str(int(val)) if val.is_integer() else f"{val:.3f}".rstrip('0').rstrip('.')
+				) if val else ""
+				padding = " " * max(0, int(round(column_offsets[i])))
+				row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+			lines.append(row)
+			
+		# 橫線
 		lines.append("＿" * 28)
-					
-	# 合計列
-	total_offsets = [1, 5, 5, 5]  # 第一欄前空 2、第二欄前空 4、依此類推
-	if total_type == "" or total_type == "無":
-		total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
-	elif category == "色母":
-		total_type_display = f"<b><span style='font-size:22px; display:inline-block; width:{powder_label_width}ch'>料</span></b>"
-	else:
-		total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
-		
-	total_line = total_type_display
-		
-	for i in range(4):
-		result = 0
-		if category == "色母":
-			pigment_total = sum(colorant_weights)
-			result = (net_weight - pigment_total) * multipliers[i] if multipliers[i] > 0 else 0
+						
+		# 合計列
+		total_offsets = [1, 5, 5, 5]
+		if total_type == "" or total_type == "無":
+			total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
 		else:
+			total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
+			
+		total_line = total_type_display
+			
+		for i in range(4):
 			result = net_weight * multipliers[i] if multipliers[i] > 0 else 0
+			val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
+			padding = " " * max(0, int(round(total_offsets[i])))
+			total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
+			
+		lines.append(total_line)
+	
+	# ===== 色母：色母專用格式（無橫線）=====
+	if is_colorant:
+		# 包裝列
+		pack_weights_display = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
+		pack_counts_display = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
+
+		pack_line = []
+		for w, c in zip(pack_weights_display, pack_counts_display):
+			if w > 0 and c > 0:
+				val = int(w * 100)
+				pack_line.append(f"{val}K × {int(c)}")
+
+		if pack_line:
+			lines.append(" " * 14 + "  ".join(pack_line))
 		
-		val_str = f"{result:.3f}".rstrip('0').rstrip('.') if result else ""
-		padding = " " * max(0, int(round(total_offsets[i])))
-		total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
-		
-	lines.append(total_line)
+		# 色粉列
+		number_col_width = 12
+		for pid, wgt in zip(powder_ids, colorant_weights):
+			if pid and wgt > 0:
+				line = pid.ljust(6)
+				for w in pack_weights_display:
+					if w > 0:
+						val = wgt * w
+						line += fmt_num(val).rjust(number_col_width)
+				lines.append(line)
+
+		# 料（合計列）
+		total_colorant = net_weight - sum(colorant_weights)
+		total_line_colorant = "料".ljust(12)
+
+		col_widths = [5, 12, 12, 12]
+
+		for idx, w in enumerate(pack_weights_display):
+			if w > 0:
+				val = total_colorant * w
+				width = col_widths[idx] if idx < len(col_widths) else 12
+				total_line_colorant += fmt_num(val).rjust(width)
+
+		lines.append(total_line_colorant)
 		   
-	# 多筆附加配方列印
+	# 附加配方
 	if additional_recipe_rows and isinstance(additional_recipe_rows, list):
 		for idx, sub in enumerate(additional_recipe_rows, 1):
 			lines.append("")
@@ -583,11 +605,11 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 					row += padding + f"<b>{val_str:>{number_col_width}}</b>"
 				lines.append(row)
 
-			# 橫線：加在附加配方合計列上方
+			# 橫線
 			line_length = powder_label_width + sum([number_col_width + int(round(column_offsets[j])) for j in range(4)])
 			lines.append("―" * line_length)
    
-			# ✅ 合計列 (附加配方專用)
+			# 合計列
 			sub_total_type = sub.get("合計類別", "")
 			sub_net_weight = float(sub.get("淨重", 0) or 0)
 			
@@ -608,13 +630,12 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 				sub_total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
 			
 			lines.append(sub_total_line)
-
 		
-	# ---------- 備註（自動判斷是否印出） ----------
+	# 備註
 	remark_text = order.get("備註", "").strip()
-	if remark_text:  # 有輸入內容才印出
+	if remark_text:
 		lines.append("")
-		lines.append("")  # 只在有備註時多留空行
+		lines.append("")
 		lines.append(f"備註 : {remark_text}")
 
 	return "<br>".join(lines)
