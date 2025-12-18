@@ -277,7 +277,7 @@ def load_recipe(force_reload=False):
 
 	# 都失敗時，回傳空 df
 	return pd.DataFrame()
-#==
+
 def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
 	"""生成配方預覽文字（用於生產單）"""
 	html_text = ""
@@ -289,68 +289,26 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
 							  for i in range(1,4) if safe_str(recipe_row.get(f"比例{i}", ""))])
 	html_text += f"比例：{proportions}  "
 	html_text += f"計量單位：{safe_str(recipe_row.get('計量單位',''))}  "
-	html_text += f"Pantone：{safe_str(recipe_row.get('Pantone色號',''))}\n"  # ⭐ 移除一個 \n
+	html_text += f"Pantone：{safe_str(recipe_row.get('Pantone色號',''))}\n\n"
 
-	# ===== 判斷是否為色母 =====
-	category = safe_str(recipe_row.get("色粉類別","")).strip()
-	is_colorant = (category == "色母")
-	
+	# 主配方色粉列
 	colorant_weights = [safe_float(recipe_row.get(f"色粉重量{i}",0)) for i in range(1,9)]
 	powder_ids = [safe_str(recipe_row.get(f"色粉編號{i}","")) for i in range(1,9)]
-	net_weight = safe_float(recipe_row.get("淨重",0))
-	
-	# ===== 非色母：一般格式（有橫線）=====
-	if not is_colorant:
-		# 主配方色粉列
-		for pid, wgt in zip(powder_ids, colorant_weights):
-			if pid and wgt > 0:
-				html_text += pid.ljust(12) + fmt_num(wgt) + "\n"
+	for pid, wgt in zip(powder_ids, colorant_weights):
+		if pid and wgt > 0:
+			html_text += pid.ljust(12) + fmt_num(wgt) + "\n"
 
-		# 主配方合計列
-		total_label = safe_str(recipe_row.get("合計類別","="))
-		if net_weight > 0:
-			html_text += "_"*40 + "\n"
-			html_text += total_label.ljust(12) + fmt_num(net_weight) + "\n"
-	
-	# ===== 色母：色母專用格式（無橫線，緊湊）=====
-	if is_colorant:
-		# ⭐ 包裝列：取得數據
-		pack_weights = [safe_float(order.get(f"包裝重量{i}",0)) for i in range(1,5)]
-		pack_counts = [safe_float(order.get(f"包裝份數{i}",0)) for i in range(1,5)]
-		
-		# ⭐ 包裝列：組合顯示
-		pack_parts = []
-		for w, c in zip(pack_weights, pack_counts):
-			if w > 0 and c > 0:
-				pack_parts.append(f"{int(w*100)}K×{int(c)}")
-		
-		if pack_parts:
-			html_text += "\n" + " "*14 + "  ".join(pack_parts) + "\n"  # ⭐ 只加一個 \n
-		
-		# ⭐ 色粉列：色粉編號 + 各包裝用量
-		for pid, wgt in zip(powder_ids, colorant_weights):
-			if pid and wgt > 0:
-				line = f"{pid.ljust(6)}"  # 色粉編號靠左，佔6格
-				for w in pack_weights:
-					if w > 0:
-						val = wgt * w
-						line += f"{fmt_num(val).rjust(12)}"  # 用量靠右，佔12格
-				html_text += line + "\n"
-		
-		# ⭐ 料列：合計
-		total_colorant = net_weight - sum(colorant_weights)
-		if total_colorant > 0:
-			line = f"{'料'.ljust(6)}"
-			for w in pack_weights:
-				if w > 0:
-					val = total_colorant * w
-					line += f"{fmt_num(val).rjust(12)}"
-			html_text += line + "\n"
+	# 主配方合計列
+	total_label = safe_str(recipe_row.get("合計類別","="))
+	net_weight = safe_float(recipe_row.get("淨重",0))
+	if net_weight > 0:
+		html_text += "_"*40 + "\n"
+		html_text += total_label.ljust(12) + fmt_num(net_weight) + "\n"
 
 	# 備註列
 	note = safe_str(recipe_row.get("備註"))
 	if note:
-		html_text += f"\n備註 : {note}\n"
+		html_text += f"備註 : {note}\n"
 
 	# 附加配方
 	if "df_recipe" in st.session_state:
@@ -381,8 +339,18 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
 				if net_sub > 0:
 					html_text += "_"*40 + "\n"
 					html_text += total_label_sub.ljust(12) + fmt_num(net_sub) + "\n"
+		# 色母專用
+		if safe_str(recipe_row.get("色粉類別"))=="色母":
+			html_text += "\n色母專用預覽：\n"
+			for pid, wgt in zip(powder_ids, colorant_weights):
+				if pid and wgt > 0:
+					html_text += f"{pid.ljust(8)}{fmt_num(wgt).rjust(8)}\n"
+			total_colorant = net_weight - sum(colorant_weights)
+			if total_colorant > 0:
+				category = safe_str(recipe_row.get("合計類別", "料"))
+				html_text += f"{category.ljust(8)}{fmt_num(total_colorant).rjust(8)}\n"
 	
-	return "```\n" + html_text.strip() + "\n```"
+		return "```\n" + html_text.strip() + "\n```"
 
 
 def load_recipe_data():
@@ -471,8 +439,9 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 		net_weight = 0.0
 	
 	lines = []
+	lines.append("")
 	
-	# ⭐ 配方資訊列（縮小間距）
+	# 配方資訊列（flex 平均分配 + 長文字自動撐開）
 	recipe_id = recipe_row.get('配方編號', '')
 	color = order.get('顏色', '')
 	pantone = order.get('Pantone 色號', '').strip()
@@ -490,13 +459,14 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 
 	# 組合整行
 	info_line = (
-		f"<div style='display:flex; font-size:20px; font-family:Arial; align-items:center; gap:12px; margin-bottom:-2px;'>"
+		f"<div style='display:flex; font-size:20px; font-family:Arial; align-items:center; gap:12px;'>"
 		f"{recipe_part}{color_part}{ratio_part}{pantone_part}"
 		f"</div>"
 	)
 	lines.append(info_line)
+	lines.append("")
 	
-	# ⭐ 包裝列（緊接配方資訊，無額外空行）
+	# 包裝列
 	pack_line = []
 	for i in range(4):
 		w = packing_weights[i]
@@ -519,14 +489,14 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 				real_w = w
 				# 轉成字串後去掉多餘的 0 和小數點
 				unit_str = f"{real_w:.2f}".rstrip("0").rstrip(".") + "kg"
-	
+		
 			count_str = str(int(c)) if c == int(c) else str(c)
 			text = f"{unit_str} × {count_str}"
 			pack_line.append(f"{text:<{pack_col_width}}")
-	
+		
 	packing_indent = " " * 14
 	lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
-								
+									
 	# 主配方色粉列
 	for idx in range(8):
 		c_id = colorant_ids[idx]
@@ -543,13 +513,14 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 			# 數字用加 class 的 <b> 包起來
 			row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
 		lines.append(row)
-	
-	# ⭐ 橫線：只有非色母類別才顯示
+		
+	# 橫線：只有非色母類別才顯示
+	category = (order.get("色粉類別") or "").strip()
 	if category != "色母":
 		lines.append("＿" * 28)
-				
+					
 	# 合計列
-	total_offsets = [1, 5, 5, 5]
+	total_offsets = [1, 5, 5, 5]  # 第一欄前空 2、第二欄前空 4、依此類推
 	if total_type == "" or total_type == "無":
 		total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
 	elif category == "色母":
@@ -632,7 +603,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 			
 			lines.append(sub_total_line)
 
-	
+		
 	# ---------- 備註（自動判斷是否印出） ----------
 	remark_text = order.get("備註", "").strip()
 	if remark_text:  # 有輸入內容才印出
