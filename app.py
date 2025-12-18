@@ -4222,7 +4222,6 @@ elif menu == "採購管理":
 				}
 
 				st.success("✅ 進貨紀錄已新增")
-				st.rerun()
 	
 	# ========== Tab 2：進貨查詢 ==========
 	with tab2:
