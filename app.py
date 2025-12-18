@@ -4014,17 +4014,17 @@ if menu == "代工管理":
 	            status_order = status_order_map.get(status, 99)
 	
 	            progress_data.append({
-	                "status_order": status_order,          # 只用來排序
-	                "建立時間": oem.get("建立時間", ""),
-	                "狀態": status,
-	                "代工單號": oem_id,
-	                "代工廠名稱": oem.get("代工廠商", ""),
-	                "配方編號": oem.get("配方編號", ""),
-	                "客戶名稱": oem.get("客戶名稱", ""),
-	                "代工數量": f"{oem.get('代工數量', 0)} kg",
-	                "送達日期及數量": delivery_text,
-	                "載回日期及數量": return_text
-	            })
+				    "status_order": status_order,          # 只用來排序
+				    "狀態": status,
+				    "代工單號": oem_id,
+				    "代工廠名稱": oem.get("代工廠商", ""),
+				    "配方編號": oem.get("配方編號", ""),
+				    "客戶名稱": oem.get("客戶名稱", ""),
+				    "代工數量": f"{oem.get('代工數量', 0)} kg",
+				    "送達日期及數量": delivery_text,
+				    "載回日期及數量": return_text,
+				    "建立時間": oem.get("建立時間", "")
+				})
 	
 	        # ---------- 組成 DataFrame ----------
 	        df_progress = pd.DataFrame(progress_data)
