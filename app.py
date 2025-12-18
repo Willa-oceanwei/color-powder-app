@@ -3421,7 +3421,7 @@ def generate_order_preview_text_tab3(order, recipe_row, show_additional_ids=True
 		pack_weights_display = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
 		pack_counts_display = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
 		
-				pack_line = []
+		pack_line = []
 		for w, c in zip(pack_weights_display, pack_counts_display):
 			if w > 0 and c > 0:
 				val = int(w * 100)
