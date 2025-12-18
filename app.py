@@ -3763,10 +3763,10 @@ if menu == "代工管理":
 			df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
 	
 			oem_options = [
-				f"客戶:{row.get('客戶名稱','')} | 配方:{row.get('配方編號','')} | 數量:{row.get('代工數量',0)}kg | 廠商:{row.get('代工廠商','')} | {row['代工單號']}"
-				for _, row in df_oem_active.iterrows()
+			    f"{row.get('客戶名稱','')} | {row.get('配方編號','')} | {row.get('代工數量',0)}kg | {row.get('代工廠商','')} | {row['代工單號']}"
+			    for _, row in df_oem_active.iterrows()
 			]
-	
+
 			if not oem_options:
 				st.warning("⚠️ 目前沒有可編輯的代工單（全部已結案）")
 			else:
