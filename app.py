@@ -3913,6 +3913,26 @@ if menu == "代工管理":
 					selected_oem_return = selected_option.split(" | ")[0]
 					oem_row_return = df_oem_active[df_oem_active["代工單號"] == selected_oem_return].iloc[0]
 
+					# 取得總數量與已載回數量
+					total_qty = float(oem_row_return.get("代工數量", 0))
+					
+					# 先抓對應載回紀錄
+					df_this_return = df_return[df_return["代工單號"] == selected_oem_return]
+					total_returned = df_this_return["載回數量"].astype(float).sum() if not df_this_return.empty else 0.0
+					
+					# 判斷狀態
+					if total_returned == 0 and total_qty > 0:
+					    status = "✅ 已結案"   # 載回數量餘0就判定已結案
+					elif total_returned > 0 and total_returned < total_qty:
+					    status = "🔄 進行中"
+					elif total_returned >= total_qty:
+					    status = "✅ 已結案"
+					else:
+					    status = "⏳ 未載回"
+
+					# ⚡ 建議：同步更新 df_oem_active
+					df_oem_active.loc[df_oem_active["代工單號"] == selected_oem_return, "狀態"] = status
+
 					# ---------- 顯示基本資訊 ----------
 					col1, col2 = st.columns(2)
 					col1.text_input("配方編號", value=oem_row_return.get("配方編號", ""), disabled=True, key="return_formula")
