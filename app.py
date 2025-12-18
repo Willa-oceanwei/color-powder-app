@@ -3653,8 +3653,9 @@ elif menu == "生產單管理":
 		text_with_newlines = "\n".join(lines)
 		return "```\n" + text_with_newlines.strip() + "\n```"
 	
-			# ===== 備註顯示（區分來源） =====
-			order_note = str(order.get("備註", "")).strip()
+		# ===== 備註顯示（區分來源） =====
+		#===
+		order_note = str(order.get("備註", "")).strip()
 			if order_note:
 				html_text += f"【生產單備註】{order_note}<br><br>"
 			
@@ -3890,7 +3891,7 @@ elif menu == "生產單管理":
 					if st.button("返回", key="return_button_tab3"):
 						st.session_state.show_edit_panel = False
 						st.session_state.editing_order = None
-						st.rerun()
+						st.rerun()	
 
 # ======== 代工管理分頁 =========
 if menu == "代工管理":
