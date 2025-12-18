@@ -289,7 +289,7 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
 							  for i in range(1,4) if safe_str(recipe_row.get(f"比例{i}", ""))])
 	html_text += f"比例：{proportions}  "
 	html_text += f"計量單位：{safe_str(recipe_row.get('計量單位',''))}  "
-	html_text += f"Pantone：{safe_str(recipe_row.get('Pantone色號',''))}\n\n"
+	html_text += f"Pantone：{safe_str(recipe_row.get('Pantone色號',''))}\n"  # ⭐ 移除一個 \n
 
 	# ===== 判斷是否為色母 =====
 	category = safe_str(recipe_row.get("色粉類別","")).strip()
@@ -312,19 +312,45 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
 			html_text += "_"*40 + "\n"
 			html_text += total_label.ljust(12) + fmt_num(net_weight) + "\n"
 	
-	# ===== 色母：色母專用格式（無橫線）=====
+	# ===== 色母：色母專用格式（無橫線，緊湊）=====
 	if is_colorant:
+		# ⭐ 包裝列：取得數據
+		pack_weights = [safe_float(order.get(f"包裝重量{i}",0)) for i in range(1,5)]
+		pack_counts = [safe_float(order.get(f"包裝份數{i}",0)) for i in range(1,5)]
+		
+		# ⭐ 包裝列：組合顯示
+		pack_parts = []
+		for w, c in zip(pack_weights, pack_counts):
+			if w > 0 and c > 0:
+				pack_parts.append(f"{int(w*100)}K×{int(c)}")
+		
+		if pack_parts:
+			html_text += "\n" + " "*14 + "  ".join(pack_parts) + "\n"  # ⭐ 只加一個 \n
+		
+		# ⭐ 色粉列：色粉編號 + 各包裝用量
 		for pid, wgt in zip(powder_ids, colorant_weights):
 			if pid and wgt > 0:
-				html_text += f"{pid.ljust(8)}{fmt_num(wgt).rjust(8)}\n"
+				line = f"{pid.ljust(6)}"  # 色粉編號靠左，佔6格
+				for w in pack_weights:
+					if w > 0:
+						val = wgt * w
+						line += f"{fmt_num(val).rjust(12)}"  # 用量靠右，佔12格
+				html_text += line + "\n"
+		
+		# ⭐ 料列：合計
 		total_colorant = net_weight - sum(colorant_weights)
 		if total_colorant > 0:
-			html_text += f"{'料'.ljust(8)}{fmt_num(total_colorant).rjust(8)}\n"
+			line = f"{'料'.ljust(6)}"
+			for w in pack_weights:
+				if w > 0:
+					val = total_colorant * w
+					line += f"{fmt_num(val).rjust(12)}"
+			html_text += line + "\n"
 
 	# 備註列
 	note = safe_str(recipe_row.get("備註"))
 	if note:
-		html_text += f"備註 : {note}\n"
+		html_text += f"\n備註 : {note}\n"
 
 	# 附加配方
 	if "df_recipe" in st.session_state:
