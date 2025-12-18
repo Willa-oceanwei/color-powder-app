@@ -3845,7 +3845,7 @@ elif menu == "生產單管理":
 				key="edit_remark_tab3"
 			)
 				
-				cols_edit = st.columns([1, 1, 1])
+			cols_edit = st.columns([1, 1, 1])
 				
 			with cols_edit[0]:
 				if st.button("💾 儲存修改", key="save_edit_button_tab3"):
