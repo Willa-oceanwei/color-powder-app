@@ -22,7 +22,7 @@ if "authenticated" not in st.session_state:
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
 	st.markdown(
-		"<h3 style='text-align:center; color:#f0efa2;'>🔐 請輸入密碼</h3>",
+		"<h3 style='text-align:center; color:#f0efa2;'>👻 請輸入密碼 👻</h3>",
 		unsafe_allow_html=True,
 	)
 
@@ -2318,7 +2318,7 @@ elif menu == "生產單管理":
 		    label += "（附加配方）"
 		return label
 		
-	DEBUG_MODE = False   # 平常 False，要查帳再打開
+	DEBUG_MODE = TRUE   # 平常 False，要查帳再打開
 	if DEBUG_MODE:
 		# ============================================================
 		# 🐛 庫存計算除錯模式（可切換色粉）
