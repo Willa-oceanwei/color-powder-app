@@ -471,9 +471,8 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 		net_weight = 0.0
 	
 	lines = []
-	lines.append("")
 	
-	# 配方資訊列（flex 平均分配 + 長文字自動撐開）
+	# ⭐ 配方資訊列（縮小間距）
 	recipe_id = recipe_row.get('配方編號', '')
 	color = order.get('顏色', '')
 	pantone = order.get('Pantone 色號', '').strip()
@@ -491,14 +490,13 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 
 	# 組合整行
 	info_line = (
-		f"<div style='display:flex; font-size:20px; font-family:Arial; align-items:center; gap:12px;'>"
+		f"<div style='display:flex; font-size:20px; font-family:Arial; align-items:center; gap:12px; margin-bottom:-2px;'>"
 		f"{recipe_part}{color_part}{ratio_part}{pantone_part}"
 		f"</div>"
 	)
 	lines.append(info_line)
-	lines.append("")
 	
-	# 包裝列
+	# ⭐ 包裝列（緊接配方資訊，無額外空行）
 	pack_line = []
 	for i in range(4):
 		w = packing_weights[i]
@@ -521,14 +519,14 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 				real_w = w
 				# 轉成字串後去掉多餘的 0 和小數點
 				unit_str = f"{real_w:.2f}".rstrip("0").rstrip(".") + "kg"
-		
+	
 			count_str = str(int(c)) if c == int(c) else str(c)
 			text = f"{unit_str} × {count_str}"
 			pack_line.append(f"{text:<{pack_col_width}}")
-		
+	
 	packing_indent = " " * 14
 	lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
-									
+								
 	# 主配方色粉列
 	for idx in range(8):
 		c_id = colorant_ids[idx]
@@ -545,14 +543,13 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 			# 數字用加 class 的 <b> 包起來
 			row += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
 		lines.append(row)
-		
-	# 橫線：只有非色母類別才顯示
-	category = (order.get("色粉類別") or "").strip()
+	
+	# ⭐ 橫線：只有非色母類別才顯示
 	if category != "色母":
 		lines.append("＿" * 28)
-					
+				
 	# 合計列
-	total_offsets = [1, 5, 5, 5]  # 第一欄前空 2、第二欄前空 4、依此類推
+	total_offsets = [1, 5, 5, 5]
 	if total_type == "" or total_type == "無":
 		total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
 	elif category == "色母":
@@ -635,7 +632,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 			
 			lines.append(sub_total_line)
 
-		
+	
 	# ---------- 備註（自動判斷是否印出） ----------
 	remark_text = order.get("備註", "").strip()
 	if remark_text:  # 有輸入內容才印出
