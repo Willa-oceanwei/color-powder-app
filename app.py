@@ -2318,7 +2318,7 @@ elif menu == "生產單管理":
 		    label += "（附加配方）"
 		return label
 		
-	DEBUG_MODE = TRUE   # 平常 False，要查帳再打開
+	DEBUG_MODE = True   # 平常 False，要查帳再打開
 	if DEBUG_MODE:
 		# ============================================================
 		# 🐛 庫存計算除錯模式（可切換色粉）
