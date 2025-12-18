@@ -3901,10 +3901,9 @@ if menu == "代工管理":
 
 			# ---------- 建立下拉選單 ----------
 			oem_options = [
-				f"{row['代工單號']} | 配方:{row.get('配方編號','')} | 客戶:{row.get('客戶名稱','')} | 數量:{row.get('代工數量',0)}kg"
-				for _, row in df_oem_active.iterrows()
+			    f"{row['代工單號']} | {row.get('配方編號','')} | {row.get('客戶名稱','')} | {row.get('代工數量',0)}kg"
+			    for _, row in df_oem_active.iterrows()
 			]
-
 			if not oem_options:
 				st.warning("⚠️ 目前沒有可載回的代工單（全部已結案）")
 			else:
