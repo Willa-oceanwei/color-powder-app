@@ -3934,115 +3934,115 @@ if menu == "代工管理":
 	# ========== Tab 4：代工進度表 ==========
 	with tab4:
 	
-	    if not df_oem.empty:
-	        progress_data = []
+		if not df_oem.empty:
+			progress_data = []
 	
-	        # ===== 狀態排序權重（依你指定）=====
-	        status_order_map = {
-	            "🏭 在廠內": 1,
-	            "⏳ 未載回": 2,
-	            "🔄 進行中": 3,
-	            "✅ 已結案": 4
-	        }
+			# ===== 狀態排序權重（依你指定）=====
+			status_order_map = {
+				"🏭 在廠內": 1,
+				"⏳ 未載回": 2,
+				"🔄 進行中": 3,
+				"✅ 已結案": 4
+			}
 	
-	        for _, oem in df_oem.iterrows():
-	            oem_id = oem["代工單號"]
+			for _, oem in df_oem.iterrows():
+				oem_id = oem["代工單號"]
 	
-	            # ---------- 送達紀錄 ----------
-	            df_this_delivery = df_delivery[df_delivery["代工單號"] == oem_id]
-	            delivery_text = ""
-	            if not df_this_delivery.empty:
-	                delivery_list = [
-	                    f"{row['送達日期']} ({row['送達數量']} kg)"
-	                    for _, row in df_this_delivery.iterrows()
-	                ]
-	                delivery_text = "\n".join(delivery_list)
+				# ---------- 送達紀錄 ----------
+				df_this_delivery = df_delivery[df_delivery["代工單號"] == oem_id]
+				delivery_text = ""
+				if not df_this_delivery.empty:
+					delivery_list = [
+						f"{row['送達日期']} ({row['送達數量']} kg)"
+						for _, row in df_this_delivery.iterrows()
+					]
+					delivery_text = "\n".join(delivery_list)
 	
-	            # ---------- 載回紀錄 ----------
-	            df_this_return = df_return[df_return["代工單號"] == oem_id]
-	            return_text = ""
-	            if not df_this_return.empty:
-	                return_list = [
-	                    f"{row['載回日期']} ({row['載回數量']} kg)"
-	                    for _, row in df_this_return.iterrows()
-	                ]
-	                return_text = "\n".join(return_list)
+				# ---------- 載回紀錄 ----------
+				df_this_return = df_return[df_return["代工單號"] == oem_id]
+				return_text = ""
+				if not df_this_return.empty:
+					return_list = [
+						f"{row['載回日期']} ({row['載回數量']} kg)"
+						for _, row in df_this_return.iterrows()
+					]
+					return_text = "\n".join(return_list)
 	
-	            # ---------- 狀態判斷 ----------
-	            total_qty = float(oem.get("代工數量", 0))
-	            total_returned = (
-	                df_this_return["載回數量"].astype(float).sum()
-	                if not df_this_return.empty else 0.0
-	            )
+				# ---------- 狀態判斷 ----------
+				total_qty = float(oem.get("代工數量", 0))
+				total_returned = (
+					df_this_return["載回數量"].astype(float).sum()
+					if not df_this_return.empty else 0.0
+				)
 	
-	            # 優先使用手動設定狀態
-	            manual_status = str(oem.get("狀態", "")).strip()
-	            if manual_status:
-	                status = manual_status
-	            else:
-	                if total_returned >= total_qty and total_qty > 0:
-	                    status = "✅ 已結案"
-	                elif total_returned > 0:
-	                    status = "🔄 進行中"
-	                else:
-	                    status = "⏳ 未載回"
+				# 優先使用手動設定狀態
+				manual_status = str(oem.get("狀態", "")).strip()
+				if manual_status:
+					status = manual_status
+				else:
+					if total_returned >= total_qty and total_qty > 0:
+						status = "✅ 已結案"
+					elif total_returned > 0:
+						status = "🔄 進行中"
+					else:
+						status = "⏳ 未載回"
 	
-	            # 狀態排序權重
-	            status_order = status_order_map.get(status, 99)
+				# 狀態排序權重
+				status_order = status_order_map.get(status, 99)
 	
-	            progress_data.append({
-				    "status_order": status_order,          # 只用來排序
-				    "狀態": status,
-				    "代工單號": oem_id,
-				    "代工廠名稱": oem.get("代工廠商", ""),
-				    "配方編號": oem.get("配方編號", ""),
-				    "客戶名稱": oem.get("客戶名稱", ""),
-				    "代工數量": f"{oem.get('代工數量', 0)} kg",
-				    "送達日期及數量": delivery_text,
-				    "載回日期及數量": return_text,
-				    "建立時間": oem.get("建立時間", "")
+				progress_data.append({
+					"status_order": status_order,		  # 只用來排序
+					"狀態": status,
+					"代工單號": oem_id,
+					"代工廠名稱": oem.get("代工廠商", ""),
+					"配方編號": oem.get("配方編號", ""),
+					"客戶名稱": oem.get("客戶名稱", ""),
+					"代工數量": f"{oem.get('代工數量', 0)} kg",
+					"送達日期及數量": delivery_text,
+					"載回日期及數量": return_text,
+					"建立時間": oem.get("建立時間", "")
 				})
 	
-	        # ---------- 組成 DataFrame ----------
-	        df_progress = pd.DataFrame(progress_data)
+			# ---------- 組成 DataFrame ----------
+			df_progress = pd.DataFrame(progress_data)
 	
-	        # ---------- 只看未結案（預設開） ----------
-	        show_open_only = st.checkbox("只顯示未結案代工單", value=True)
+			# ---------- 只看未結案（預設開） ----------
+			show_open_only = st.checkbox("只顯示未結案代工單", value=True)
 	
-	        if show_open_only:
-	            df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
+			if show_open_only:
+				df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
 
 			# ---------- 搜尋：客戶名稱 / 配方編號 ----------
 			search_text = st.text_input(
-			    "🔍 搜尋客戶名稱或配方編號",
-			    placeholder="輸入關鍵字（可搜尋客戶名稱 / 配方編號）"
+				"🔍 搜尋客戶名稱或配方編號",
+				placeholder="輸入關鍵字（可搜尋客戶名稱 / 配方編號）"
 			).strip()
 			
 			if search_text:
-			    df_progress = df_progress[
-			        df_progress["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-			        df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
-			    ]
+				df_progress = df_progress[
+					df_progress["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+					df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+				]
 	
-	        # ---------- 排序：狀態優先 → 建立時間新到舊 ----------
-	        if not df_progress.empty:
-	            df_progress = df_progress.sort_values(
-	                by=["status_order", "建立時間"],
-	                ascending=[True, False]
-	            )
+			# ---------- 排序：狀態優先 → 建立時間新到舊 ----------
+			if not df_progress.empty:
+				df_progress = df_progress.sort_values(
+					by=["status_order", "建立時間"],
+					ascending=[True, False]
+				)
 	
-	            df_progress = df_progress.drop(columns=["status_order"])
+				df_progress = df_progress.drop(columns=["status_order"])
 	
-	            st.dataframe(
-	                df_progress,
-	                use_container_width=True,
-	                hide_index=True
-	            )
-	        else:
-	            st.info("目前沒有符合條件的代工單")
+				st.dataframe(
+					df_progress,
+					use_container_width=True,
+					hide_index=True
+				)
+			else:
+				st.info("目前沒有符合條件的代工單")
 	
-	    else:
-	        st.info("⚠️ 目前沒有代工記錄")			
+		else:
+			st.info("⚠️ 目前沒有代工記錄")			
 
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
