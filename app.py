@@ -3901,8 +3901,8 @@ if menu == "代工管理":
 
 			# ---------- 建立下拉選單 ----------
 			oem_options = [
-			    f"{row['代工單號']} | {row.get('配方編號','')} | {row.get('客戶名稱','')} | {row.get('代工數量',0)}kg"
-			    for _, row in df_oem_active.iterrows()
+				f"{row['代工單號']} | {row.get('配方編號','')} | {row.get('客戶名稱','')} | {row.get('代工數量',0)}kg"
+				for _, row in df_oem_active.iterrows()
 			]
 			if not oem_options:
 				st.warning("⚠️ 目前沒有可載回的代工單（全部已結案）")
@@ -3921,14 +3921,13 @@ if menu == "代工管理":
 					total_returned = df_this_return["載回數量"].astype(float).sum() if not df_this_return.empty else 0.0
 					
 					# 判斷狀態
-					if total_returned == 0 and total_qty > 0:
-					    status = "✅ 已結案"   # 載回數量餘0就判定已結案
-					elif total_returned > 0 and total_returned < total_qty:
-					    status = "🔄 進行中"
-					elif total_returned >= total_qty:
-					    status = "✅ 已結案"
+					# ---------- 判斷狀態（依尚餘數量） ----------
+					if total_returned >= total_qty and total_qty > 0:
+						status = "✅ 已結案"
+					elif total_returned > 0:
+						status = "🔄 進行中"
 					else:
-					    status = "⏳ 未載回"
+						status = "⏳ 未載回"
 
 					# ⚡ 建議：同步更新 df_oem_active
 					df_oem_active.loc[df_oem_active["代工單號"] == selected_oem_return, "狀態"] = status
@@ -3965,6 +3964,14 @@ if menu == "代工管理":
 								datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 							]
 							ws_return.append_row(new_record)
+							# ---------- 若尚餘 = 0，自動結案 ----------
+							new_total_returned = total_returned + return_qty
+							if new_total_returned >= total_qty and total_qty > 0:
+								ws_oem.update_cell(
+									oem_row_return.name + 2,  # +2：標題列 + index
+									df_oem.columns.get_loc("狀態") + 1,
+									"✅ 已結案"
+								)
 							st.success(f"✅ 已新增載回記錄：{return_date} / {return_qty} kg")
 							st.rerun()
 						else:
