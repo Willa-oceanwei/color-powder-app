@@ -3965,20 +3965,24 @@ if menu == "代工管理":
 								datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 							]
 							ws_return.append_row(new_record)
-							# ---------- 若尚餘 = 0，自動結案 ----------
+					
 							new_total_returned = total_returned + return_qty
+					
 							if new_total_returned >= total_qty and total_qty > 0:
-							    ws_oem.update_cell(
-							        oem_idx + 2,
-							        df_oem.columns.get_loc("狀態") + 1,
-							        "✅ 已結案"
-							    )
-							    st.toast("🎉 載回資料已儲存，代工單已結案", icon="✅")
+								ws_oem.update_cell(
+									oem_idx + 2,
+									df_oem.columns.get_loc("狀態") + 1,
+									"✅ 已結案"
+								)
+								st.session_state.toast_msg = "🎉 載回資料已儲存，代工單已結案"
+								st.session_state.toast_icon = "✅"
 							else:
-							    st.toast("💾 載回資料已儲存", icon="📦")
-							
+								st.session_state.toast_msg = "💾 載回資料已儲存"
+								st.session_state.toast_icon = "📦"
+					
 							st.rerun()
-
+						else:
+							st.warning("⚠️ 請輸入載回數量")
 		else:
 			st.info("⚠️ 目前沒有代工單")
 
