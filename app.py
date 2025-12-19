@@ -464,7 +464,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
 		f"</div>"
 	)
 	lines.append(info_line)
-	lines.append("")
+	# lines.append("")
 	
 	# 包裝列
 	pack_line = []
