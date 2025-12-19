@@ -841,109 +841,109 @@ if menu == "色粉管理":
 # ======== 客戶名單 =========
 elif menu == "客戶名單":
 
-    # ===== 縮小頁面空白 =====
-    st.markdown("""
-    <style>
-    div.block-container { padding-top: 5px; }
-    </style>
-    """, unsafe_allow_html=True)
+	# ===== 縮小頁面空白 =====
+	st.markdown("""
+	<style>
+	div.block-container { padding-top: 5px; }
+	</style>
+	""", unsafe_allow_html=True)
 
-    # ===== 讀取或建立 Google Sheet =====
-    try:
-        ws_customer = spreadsheet.worksheet("客戶名單")
-    except:
-        ws_customer = spreadsheet.add_worksheet("客戶名單", rows=100, cols=10)
+	# ===== 讀取或建立 Google Sheet =====
+	try:
+		ws_customer = spreadsheet.worksheet("客戶名單")
+	except:
+		ws_customer = spreadsheet.add_worksheet("客戶名單", rows=100, cols=10)
 
-    columns = ["客戶編號", "客戶簡稱", "備註"]
+	columns = ["客戶編號", "客戶簡稱", "備註"]
 
-    # ===== 初始化 session_state =====
-    st.session_state.setdefault("form_customer", {col: "" for col in columns})
-    init_states([
-        "edit_customer_index",
-        "delete_customer_index",
-        "show_delete_customer_confirm",
-        "search_customer"
-    ])
+	# ===== 初始化 session_state =====
+	st.session_state.setdefault("form_customer", {col: "" for col in columns})
+	init_states([
+		"edit_customer_index",
+		"delete_customer_index",
+		"show_delete_customer_confirm",
+		"search_customer"
+	])
 
-    # ===== 載入資料 =====
-    try:
-        df = pd.DataFrame(ws_customer.get_all_records())
-    except:
-        df = pd.DataFrame(columns=columns)
+	# ===== 載入資料 =====
+	try:
+		df = pd.DataFrame(ws_customer.get_all_records())
+	except:
+		df = pd.DataFrame(columns=columns)
 
-    df = df.astype(str)
-    for col in columns:
-        if col not in df.columns:
-            df[col] = ""
+	df = df.astype(str)
+	for col in columns:
+		if col not in df.columns:
+			df[col] = ""
 
-    # =====================================================
-    # 📝 新增 / 編輯 客戶
-    # =====================================================
-    st.markdown(
-        '<h2 style="font-size:16px; font-family:Arial; color:#dbd818;">🤖 新增 / 編輯客戶</h2>',
-        unsafe_allow_html=True
-    )
+	# =====================================================
+	# 📝 新增 / 編輯 客戶
+	# =====================================================
+	st.markdown(
+		'<h2 style="font-size:16px; font-family:Arial; color:#dbd818;">🤖 新增 / 編輯客戶</h2>',
+		unsafe_allow_html=True
+	)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.session_state.form_customer["客戶編號"] = st.text_input(
-            "客戶編號", st.session_state.form_customer["客戶編號"]
-        )
-        st.session_state.form_customer["客戶簡稱"] = st.text_input(
-            "客戶簡稱", st.session_state.form_customer["客戶簡稱"]
-        )
-    with col2:
-        st.session_state.form_customer["備註"] = st.text_input(
-            "備註", st.session_state.form_customer["備註"]
-        )
+	col1, col2 = st.columns(2)
+	with col1:
+		st.session_state.form_customer["客戶編號"] = st.text_input(
+			"客戶編號", st.session_state.form_customer["客戶編號"]
+		)
+		st.session_state.form_customer["客戶簡稱"] = st.text_input(
+			"客戶簡稱", st.session_state.form_customer["客戶簡稱"]
+		)
+	with col2:
+		st.session_state.form_customer["備註"] = st.text_input(
+			"備註", st.session_state.form_customer["備註"]
+		)
 
-    if st.button("💾 儲存"):
-        new_data = st.session_state.form_customer.copy()
+	if st.button("💾 儲存"):
+		new_data = st.session_state.form_customer.copy()
 
-        if not new_data["客戶編號"].strip():
-            st.warning("⚠️ 請輸入客戶編號！")
+		if not new_data["客戶編號"].strip():
+			st.warning("⚠️ 請輸入客戶編號！")
 
-        else:
-            if st.session_state.edit_customer_index is not None:
-                row_idx = st.session_state.edit_customer_index
-                for col in df.columns:
-                    if col in new_data:
-                        df.at[row_idx, col] = new_data[col]
-                st.success("✅ 客戶已更新！")
+		else:
+			if st.session_state.edit_customer_index is not None:
+				row_idx = st.session_state.edit_customer_index
+				for col in df.columns:
+					if col in new_data:
+						df.at[row_idx, col] = new_data[col]
+				st.success("✅ 客戶已更新！")
 
-            else:
-                if new_data["客戶編號"] in df["客戶編號"].values:
-                    st.warning("⚠️ 此客戶編號已存在！")
-                else:
-                    df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-                    st.success("✅ 新增成功！")
+			else:
+				if new_data["客戶編號"] in df["客戶編號"].values:
+					st.warning("⚠️ 此客戶編號已存在！")
+				else:
+					df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+					st.success("✅ 新增成功！")
 
-            save_df_to_sheet(ws_customer, df)
-            st.session_state.form_customer = {col: "" for col in columns}
-            st.session_state.edit_customer_index = None
-            st.rerun()
+			save_df_to_sheet(ws_customer, df)
+			st.session_state.form_customer = {col: "" for col in columns}
+			st.session_state.edit_customer_index = None
+			st.rerun()
 
-    # =====================================================
-    # 🗑️ 刪除確認
-    # =====================================================
-    if st.session_state.show_delete_customer_confirm:
-        target_row = df.iloc[st.session_state.delete_customer_index]
-        st.warning(f"⚠️ 確定要刪除 {target_row['客戶編號']} {target_row['客戶簡稱']}？")
+	# =====================================================
+	# 🗑️ 刪除確認
+	# =====================================================
+	if st.session_state.show_delete_customer_confirm:
+		target_row = df.iloc[st.session_state.delete_customer_index]
+		st.warning(f"⚠️ 確定要刪除 {target_row['客戶編號']} {target_row['客戶簡稱']}？")
 
-        c1, c2 = st.columns(2)
-        if c1.button("刪除"):
-            df.drop(index=st.session_state.delete_customer_index, inplace=True)
-            df.reset_index(drop=True, inplace=True)
-            save_df_to_sheet(ws_customer, df)
-            st.session_state.show_delete_customer_confirm = False
-            st.success("✅ 刪除成功！")
-            st.rerun()
+		c1, c2 = st.columns(2)
+		if c1.button("刪除"):
+			df.drop(index=st.session_state.delete_customer_index, inplace=True)
+			df.reset_index(drop=True, inplace=True)
+			save_df_to_sheet(ws_customer, df)
+			st.session_state.show_delete_customer_confirm = False
+			st.success("✅ 刪除成功！")
+			st.rerun()
 
-        if c2.button("取消"):
-            st.session_state.show_delete_customer_confirm = False
-            st.rerun()
+		if c2.button("取消"):
+			st.session_state.show_delete_customer_confirm = False
+			st.rerun()
 
-    # =====================================================
+	# =====================================================
 	# 📋 客戶清單（搜尋 / 編輯 / 刪除）
 	# =====================================================
 	st.markdown('<h2 style="font-size:16px; font-family:Arial; color:#dbd818;">🛠️ 客戶修改 / 刪除</h2>', unsafe_allow_html=True)
