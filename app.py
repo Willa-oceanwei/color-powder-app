@@ -1493,46 +1493,6 @@ elif menu == "配方管理":
 					hide_index=True
 				)
 	
-				# ===== 配方詳細資訊（穩定版）=====
-				st.markdown("---")
-				st.markdown("**📋 配方詳細資訊**")
-	
-				num_cols = st.session_state.get("recipe_cols_tab2", 1)
-				cols = st.columns(num_cols)
-	
-				for i, (_, row) in enumerate(page_data.iterrows()):
-					with cols[i % num_cols]:
-						with st.expander(
-							f"🔖 {row['配方編號']} - {row['客戶名稱']} - {row.get('產品名稱', row['顏色'])}"
-						):
-							c1, c2 = st.columns(2)
-							with c1:
-								st.markdown(f"**配方編號**: {row['配方編號']}")
-								st.markdown(f"**客戶名稱**: {row['客戶名稱']}")
-								st.markdown(f"**顏色**: {row['顏色']}")
-								st.markdown(f"**配方類別**: {row['配方類別']}")
-								st.markdown(f"**狀態**: {row['狀態']}")
-	
-							with c2:
-								st.markdown(f"**Pantone色號**: {row.get('Pantone色號', 'N/A')}")
-								st.markdown(f"**計量單位**: {row.get('計量單位', 'N/A')}")
-								st.markdown(f"**建檔時間**: {row.get('建檔時間', 'N/A')}")
-								if row['配方類別'] == '附加配方':
-									st.markdown(f"**原始配方**: {row.get('原始配方', 'N/A')}")
-	
-							st.markdown("**色粉配方**:")
-							powder_info = []
-							for j in range(1, 9):
-								pid = row.get(f"色粉編號{j}", "")
-								amt = row.get(f"色粉重量{j}", "")
-								if pid and str(pid).strip():
-									powder_info.append(f"- {pid}: {amt}g")
-	
-							st.markdown("\n".join(powder_info) if powder_info else "_無色粉配方_")
-	
-							if row.get("備註"):
-								st.markdown(f"**備註**: {row['備註']}")
-	
 			else:
 				if recipe_kw or customer_kw or pantone_kw:
 					st.info("查無符合的配方")
