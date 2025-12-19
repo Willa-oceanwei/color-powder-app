@@ -3911,7 +3911,8 @@ if menu == "代工管理":
 
 				if selected_option:
 					selected_oem_return = selected_option.split(" | ")[0]
-					oem_row_return = df_oem_active[df_oem_active["代工單號"] == selected_oem_return].iloc[0]
+					oem_idx = df_oem[df_oem["代工單號"] == selected_oem_return].index[0]
+					oem_row_return = df_oem.loc[oem_idx]
 
 					# 取得總數量與已載回數量
 					total_qty = float(oem_row_return.get("代工數量", 0))
