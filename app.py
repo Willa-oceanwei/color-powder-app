@@ -3969,9 +3969,9 @@ if menu == "代工管理":
 							new_total_returned = total_returned + return_qty
 							if new_total_returned >= total_qty and total_qty > 0:
 								ws_oem.update_cell(
-									oem_row_return.name + 2,  # +2：標題列 + index
-									df_oem.columns.get_loc("狀態") + 1,
-									"✅ 已結案"
+								    oem_idx + 2,  # ← 永遠對到 Google Sheet 正確列
+								    df_oem.columns.get_loc("狀態") + 1,
+								    "✅ 已結案"
 								)
 							st.success(f"✅ 已新增載回記錄：{return_date} / {return_qty} kg")
 							st.rerun()
