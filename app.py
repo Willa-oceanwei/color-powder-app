@@ -946,13 +946,12 @@ elif menu == "客戶名單":
     # =====================================================
 	# 📋 客戶清單（搜尋 / 編輯 / 刪除）
 	# =====================================================
-	
 	st.markdown('<h2 style="font-size:16px; font-family:Arial; color:#dbd818;">🛠️ 客戶修改 / 刪除</h2>', unsafe_allow_html=True)
 	
 	# 搜尋輸入
 	keyword = st.text_input(
-	    "請輸入客戶編號或簡稱",
-	    st.session_state.get("search_customer", "")
+		"請輸入客戶編號或簡稱",
+		st.session_state.get("search_customer", "")
 	)
 	st.session_state.search_customer = keyword.strip()
 	
@@ -960,66 +959,66 @@ elif menu == "客戶名單":
 	df_filtered = pd.DataFrame()
 	
 	if keyword:
-	    df_filtered = df[
-	        df["客戶編號"].str.contains(keyword, case=False, na=False) |
-	        df["客戶簡稱"].str.contains(keyword, case=False, na=False)
-	    ]
+		df_filtered = df[
+			df["客戶編號"].str.contains(keyword, case=False, na=False) |
+			df["客戶簡稱"].str.contains(keyword, case=False, na=False)
+		]
 	
-	    if df_filtered.empty:
-	        st.warning("❗ 查無符合的資料")
+		if df_filtered.empty:
+			st.warning("❗ 查無符合的資料")
 	
 	# ===== 表格顯示 =====
 	if not df_filtered.empty:
-	    st.dataframe(df_filtered[columns], use_container_width=True, hide_index=True)
+		st.dataframe(df_filtered[columns], use_container_width=True, hide_index=True)
 	
-	    st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
+		st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
 	
-	    st.markdown(
-	        "<p style='font-size:14px; font-family:Arial; color:gray;'>🛈 請於上方新增欄位進行修改</p>",
-	        unsafe_allow_html=True
-	    )
+		st.markdown(
+			"<p style='font-size:14px; font-family:Arial; color:gray;'>🛈 請於上方新增欄位進行修改</p>",
+			unsafe_allow_html=True
+		)
 	
-	    # --- 按鈕樣式 ---
-	    st.markdown("""
-	    <style>
-	    div.stButton > button {
-	        font-size:16px !important;
-	        padding:2px 8px !important;
-	        border-radius:8px;
-	        background-color:#333333 !important;
-	        color:white !important;
-	        border:1px solid #555555;
-	    }
-	    div.stButton > button:hover {
-	        background-color:#555555 !important;
-	        border-color:#dbd818 !important;
-	    }
-	    </style>
-	    """, unsafe_allow_html=True)
+		# --- 按鈕樣式 ---
+		st.markdown("""
+		<style>
+		div.stButton > button {
+			font-size:16px !important;
+			padding:2px 8px !important;
+			border-radius:8px;
+			background-color:#333333 !important;
+			color:white !important;
+			border:1px solid #555555;
+		}
+		div.stButton > button:hover {
+			background-color:#555555 !important;
+			border-color:#dbd818 !important;
+		}
+		</style>
+		""", unsafe_allow_html=True)
 	
-	    # ===== 列出清單（重點：index 對回原 df）=====
-	    for _, row in df_filtered.iterrows():
-	        real_idx = df.index[
-	            (df["客戶編號"] == row["客戶編號"]) &
-	            (df["客戶簡稱"] == row["客戶簡稱"])
-	        ][0]
+		# ===== 列出清單（重點：index 對回原 df）=====
+		for _, row in df_filtered.iterrows():
+			real_idx = df.index[
+				(df["客戶編號"] == row["客戶編號"]) &
+				(df["客戶簡稱"] == row["客戶簡稱"])
+			][0]
 	
-	        c1, c2, c3 = st.columns([3, 1, 1])
-	        with c1:
-	            st.markdown(
-	                f"<div style='font-family:Arial;'>🔹 {row['客戶編號']}　{row['客戶簡稱']}</div>",
-	                unsafe_allow_html=True
-	            )
-	        with c2:
-	            if st.button("✏️ 改", key=f"edit_customer_{real_idx}"):
-	                st.session_state.edit_customer_index = real_idx
-	                st.session_state.form_customer = row.to_dict()
-	                st.rerun()
-	        with c3:
-	            if st.button("🗑️ 刪", key=f"delete_customer_{real_idx}"):
-	                st.session_state.delete_customer_index = real_idx
-	                st.session_state.show_delete_customer_confirm = True
-	                st.rerun()
+			c1, c2, c3 = st.columns([3, 1, 1])
+			with c1:
+				st.markdown(
+					f"<div style='font-family:Arial;'>🔹 {row['客戶編號']}　{row['客戶簡稱']}</div>",
+					unsafe_allow_html=True
+				)
+			with c2:
+				if st.button("✏️ 改", key=f"edit_customer_{real_idx}"):
+					st.session_state.edit_customer_index = real_idx
+					st.session_state.form_customer = row.to_dict()
+					st.rerun()
+			with c3:
+				if st.button("🗑️ 刪", key=f"delete_customer_{real_idx}"):
+					st.session_state.delete_customer_index = real_idx
+					st.session_state.show_delete_customer_confirm = True
+					st.rerun()
 
 #==========================================================
 elif menu == "配方管理":
