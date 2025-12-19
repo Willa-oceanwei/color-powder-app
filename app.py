@@ -277,45 +277,11 @@ def load_recipe(force_reload=False):
 
 	# 都失敗時，回傳空 df
 	return pd.DataFrame()
-#===
+
 def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
 	"""生成配方預覽文字（用於生產單）"""
 	html_text = ""
 	
-	# 取得色粉類別
-	category = safe_str(recipe_row.get("色粉類別", "")).strip()
-	
-	# ===== 色母專用預覽（優先處理）=====
-	if category == "色母":
-		html_text += f"編號：{safe_str(recipe_row.get('配方編號'))}  "
-		html_text += f"顏色：{safe_str(recipe_row.get('顏色'))}  "
-		proportions = " / ".join([safe_str(recipe_row.get(f"比例{i}", "")) 
-								  for i in range(1,4) if safe_str(recipe_row.get(f"比例{i}", ""))])
-		html_text += f"比例：{proportions}  "
-		html_text += f"計量單位：{safe_str(recipe_row.get('計量單位',''))}  "
-		html_text += f"Pantone：{safe_str(recipe_row.get('Pantone色號',''))}\n\n"
-		
-		# 色粉列
-		colorant_weights = [safe_float(recipe_row.get(f"色粉重量{i}",0)) for i in range(1,9)]
-		powder_ids = [safe_str(recipe_row.get(f"色粉編號{i}","")) for i in range(1,9)]
-		for pid, wgt in zip(powder_ids, colorant_weights):
-			if pid and wgt > 0:
-				html_text += pid.ljust(12) + fmt_num(wgt) + "\n"
-		
-		# 合計列（料）- 不顯示橫線
-		net_weight = safe_float(recipe_row.get("淨重",0))
-		total_colorant = net_weight - sum(colorant_weights)
-		if total_colorant > 0:
-			html_text += "料".ljust(12) + fmt_num(total_colorant) + "\n"
-		
-		# 備註列
-		note = safe_str(recipe_row.get("備註"))
-		if note:
-			html_text += f"\n備註 : {note}\n"
-		
-		return "```\n" + html_text.strip() + "\n```"
-	
-	# ===== 一般配方預覽 =====
 	# 主配方基本資訊
 	html_text += f"編號：{safe_str(recipe_row.get('配方編號'))}  "
 	html_text += f"顏色：{safe_str(recipe_row.get('顏色'))}  "
@@ -332,7 +298,7 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
 		if pid and wgt > 0:
 			html_text += pid.ljust(12) + fmt_num(wgt) + "\n"
 
-	# 主配方合計列（顯示橫線）
+	# 主配方合計列
 	total_label = safe_str(recipe_row.get("合計類別","="))
 	net_weight = safe_float(recipe_row.get("淨重",0))
 	if net_weight > 0:
@@ -373,8 +339,18 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
 				if net_sub > 0:
 					html_text += "_"*40 + "\n"
 					html_text += total_label_sub.ljust(12) + fmt_num(net_sub) + "\n"
+		# 色母專用
+		if safe_str(recipe_row.get("色粉類別"))=="色母":
+			html_text += "\n色母專用預覽：\n"
+			for pid, wgt in zip(powder_ids, colorant_weights):
+				if pid and wgt > 0:
+					html_text += f"{pid.ljust(8)}{fmt_num(wgt).rjust(8)}\n"
+			total_colorant = net_weight - sum(colorant_weights)
+			if total_colorant > 0:
+				category = safe_str(recipe_row.get("合計類別", "料"))
+				html_text += f"{category.ljust(8)}{fmt_num(total_colorant).rjust(8)}\n"
 	
-	return "```\n" + html_text.strip() + "\n```"
+		return "```\n" + html_text.strip() + "\n```"
 
 
 def load_recipe_data():
@@ -3334,15 +3310,81 @@ elif menu == "生產單管理":
 			st.info("⚠️ 沒有可選的生產單")
 			selected_index, selected_order, selected_code_edit = None, None, None
 	
-		# ✅ 修正：直接呼叫配方預覽函式（不要用列印函式）
 		def generate_order_preview_text_tab3(order, recipe_row, show_additional_ids=True):
-			"""生產單 Tab 3 的預覽（使用配方管理的預覽格式，色母不顯示橫線）"""
-			return generate_recipe_preview_text(
+			html_text = generate_production_order_print(
 				order,
 				recipe_row,
+				additional_recipe_rows=None,
 				show_additional_ids=show_additional_ids
 			)
-		
+	
+			main_code = str(order.get("配方編號", "")).strip()
+			if main_code:
+				additional_recipe_rows = df_recipe[
+					(df_recipe["配方類別"] == "附加配方") &
+					(df_recipe["原始配方"].astype(str).str.strip() == main_code)
+				].to_dict("records")
+			else:
+				additional_recipe_rows = []
+	
+			if additional_recipe_rows:
+				powder_label_width = 12
+				number_col_width = 7
+				multipliers = []
+				for j in range(1, 5):
+					try:
+						w = float(order.get(f"包裝重量{j}", 0) or 0)
+					except Exception:
+						w = 0
+					if w > 0:
+						multipliers.append(w)
+				if not multipliers:
+					multipliers = [1.0]
+	
+				def fmt_num(x: float) -> str:
+					if abs(x - int(x)) < 1e-9:
+						return str(int(x))
+					return f"{x:g}"
+	
+				html_text += "<br>=== 附加配方 ===<br>"
+	
+				for idx, sub in enumerate(additional_recipe_rows, 1):
+					if show_additional_ids:
+						html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>"
+					else:
+						html_text += f"附加配方 {idx}<br>"
+	
+					for i in range(1, 9):
+						c_id = str(sub.get(f"色粉編號{i}", "") or "").strip()
+						try:
+							base_w = float(sub.get(f"色粉重量{i}", 0) or 0)
+						except Exception:
+							base_w = 0.0
+	
+						if c_id and base_w > 0:
+							cells = []
+							for m in multipliers:
+								val = base_w * m
+								cells.append(fmt_num(val).rjust(number_col_width))
+							row = c_id.ljust(powder_label_width) + "".join(cells)
+							html_text += row + "<br>"
+	
+					total_label = str(sub.get("合計類別", "=") or "=")
+					try:
+						net = float(sub.get("淨重", 0) or 0)
+					except Exception:
+						net = 0.0
+					total_line = total_label.ljust(powder_label_width)
+					for idx, m in enumerate(multipliers):
+						val = net * m
+						total_line += fmt_num(val).rjust(number_col_width)
+					html_text += total_line + "<br>"
+	
+			def fmt_num_colorant(x: float) -> str:
+				if abs(x - int(x)) < 1e-9:
+					return str(int(x))
+				return f"{x:g}"
+	
 			# ===== 備註顯示（區分來源） =====
 			order_note = str(order.get("備註", "")).strip()
 			if order_note:
@@ -3934,115 +3976,103 @@ if menu == "代工管理":
 	# ========== Tab 4：代工進度表 ==========
 	with tab4:
 	
-		if not df_oem.empty:
-			progress_data = []
+	    if not df_oem.empty:
+	        progress_data = []
 	
-			# ===== 狀態排序權重（依你指定）=====
-			status_order_map = {
-				"🏭 在廠內": 1,
-				"⏳ 未載回": 2,
-				"🔄 進行中": 3,
-				"✅ 已結案": 4
-			}
+	        # ===== 狀態排序權重（依你指定）=====
+	        status_order_map = {
+	            "🏭 在廠內": 1,
+	            "⏳ 未載回": 2,
+	            "🔄 進行中": 3,
+	            "✅ 已結案": 4
+	        }
 	
-			for _, oem in df_oem.iterrows():
-				oem_id = oem["代工單號"]
+	        for _, oem in df_oem.iterrows():
+	            oem_id = oem["代工單號"]
 	
-				# ---------- 送達紀錄 ----------
-				df_this_delivery = df_delivery[df_delivery["代工單號"] == oem_id]
-				delivery_text = ""
-				if not df_this_delivery.empty:
-					delivery_list = [
-						f"{row['送達日期']} ({row['送達數量']} kg)"
-						for _, row in df_this_delivery.iterrows()
-					]
-					delivery_text = "\n".join(delivery_list)
+	            # ---------- 送達紀錄 ----------
+	            df_this_delivery = df_delivery[df_delivery["代工單號"] == oem_id]
+	            delivery_text = ""
+	            if not df_this_delivery.empty:
+	                delivery_list = [
+	                    f"{row['送達日期']} ({row['送達數量']} kg)"
+	                    for _, row in df_this_delivery.iterrows()
+	                ]
+	                delivery_text = "\n".join(delivery_list)
 	
-				# ---------- 載回紀錄 ----------
-				df_this_return = df_return[df_return["代工單號"] == oem_id]
-				return_text = ""
-				if not df_this_return.empty:
-					return_list = [
-						f"{row['載回日期']} ({row['載回數量']} kg)"
-						for _, row in df_this_return.iterrows()
-					]
-					return_text = "\n".join(return_list)
+	            # ---------- 載回紀錄 ----------
+	            df_this_return = df_return[df_return["代工單號"] == oem_id]
+	            return_text = ""
+	            if not df_this_return.empty:
+	                return_list = [
+	                    f"{row['載回日期']} ({row['載回數量']} kg)"
+	                    for _, row in df_this_return.iterrows()
+	                ]
+	                return_text = "\n".join(return_list)
 	
-				# ---------- 狀態判斷 ----------
-				total_qty = float(oem.get("代工數量", 0))
-				total_returned = (
-					df_this_return["載回數量"].astype(float).sum()
-					if not df_this_return.empty else 0.0
-				)
+	            # ---------- 狀態判斷 ----------
+	            total_qty = float(oem.get("代工數量", 0))
+	            total_returned = (
+	                df_this_return["載回數量"].astype(float).sum()
+	                if not df_this_return.empty else 0.0
+	            )
 	
-				# 優先使用手動設定狀態
-				manual_status = str(oem.get("狀態", "")).strip()
-				if manual_status:
-					status = manual_status
-				else:
-					if total_returned >= total_qty and total_qty > 0:
-						status = "✅ 已結案"
-					elif total_returned > 0:
-						status = "🔄 進行中"
-					else:
-						status = "⏳ 未載回"
+	            # 優先使用手動設定狀態
+	            manual_status = str(oem.get("狀態", "")).strip()
+	            if manual_status:
+	                status = manual_status
+	            else:
+	                if total_returned >= total_qty and total_qty > 0:
+	                    status = "✅ 已結案"
+	                elif total_returned > 0:
+	                    status = "🔄 進行中"
+	                else:
+	                    status = "⏳ 未載回"
 	
-				# 狀態排序權重
-				status_order = status_order_map.get(status, 99)
+	            # 狀態排序權重
+	            status_order = status_order_map.get(status, 99)
 	
-				progress_data.append({
-					"status_order": status_order,		  # 只用來排序
-					"狀態": status,
-					"代工單號": oem_id,
-					"代工廠名稱": oem.get("代工廠商", ""),
-					"配方編號": oem.get("配方編號", ""),
-					"客戶名稱": oem.get("客戶名稱", ""),
-					"代工數量": f"{oem.get('代工數量', 0)} kg",
-					"送達日期及數量": delivery_text,
-					"載回日期及數量": return_text,
-					"建立時間": oem.get("建立時間", "")
+	            progress_data.append({
+				    "status_order": status_order,          # 只用來排序
+				    "狀態": status,
+				    "代工單號": oem_id,
+				    "代工廠名稱": oem.get("代工廠商", ""),
+				    "配方編號": oem.get("配方編號", ""),
+				    "客戶名稱": oem.get("客戶名稱", ""),
+				    "代工數量": f"{oem.get('代工數量', 0)} kg",
+				    "送達日期及數量": delivery_text,
+				    "載回日期及數量": return_text,
+				    "建立時間": oem.get("建立時間", "")
 				})
 	
-			# ---------- 組成 DataFrame ----------
-			df_progress = pd.DataFrame(progress_data)
+	        # ---------- 組成 DataFrame ----------
+	        df_progress = pd.DataFrame(progress_data)
 	
-			# ---------- 只看未結案（預設開） ----------
-			show_open_only = st.checkbox("只顯示未結案代工單", value=True)
+	        # ---------- 只看未結案（預設開） ----------
+	        show_open_only = st.checkbox("只顯示未結案代工單", value=True)
 	
-			if show_open_only:
-				df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
-
-			# ---------- 搜尋：客戶名稱 / 配方編號 ----------
-			search_text = st.text_input(
-				"🔍 搜尋客戶名稱或配方編號",
-				placeholder="輸入關鍵字（可搜尋客戶名稱 / 配方編號）"
-			).strip()
-			
-			if search_text:
-				df_progress = df_progress[
-					df_progress["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-					df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
-				]
+	        if show_open_only:
+	            df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
 	
-			# ---------- 排序：狀態優先 → 建立時間新到舊 ----------
-			if not df_progress.empty:
-				df_progress = df_progress.sort_values(
-					by=["status_order", "建立時間"],
-					ascending=[True, False]
-				)
+	        # ---------- 排序：狀態優先 → 建立時間新到舊 ----------
+	        if not df_progress.empty:
+	            df_progress = df_progress.sort_values(
+	                by=["status_order", "建立時間"],
+	                ascending=[True, False]
+	            )
 	
-				df_progress = df_progress.drop(columns=["status_order"])
+	            df_progress = df_progress.drop(columns=["status_order"])
 	
-				st.dataframe(
-					df_progress,
-					use_container_width=True,
-					hide_index=True
-				)
-			else:
-				st.info("目前沒有符合條件的代工單")
+	            st.dataframe(
+	                df_progress,
+	                use_container_width=True,
+	                hide_index=True
+	            )
+	        else:
+	            st.info("目前沒有符合條件的代工單")
 	
-		else:
-			st.info("⚠️ 目前沒有代工記錄")			
+	    else:
+	        st.info("⚠️ 目前沒有代工記錄")			
 
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
