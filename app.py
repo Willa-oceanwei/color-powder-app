@@ -4273,30 +4273,37 @@ elif menu == "採購管理":
 			
 			# 4️⃣ 顯示結果
 			if not df_result.empty:
-				show_cols = {
-					"色粉編號": "色粉編號",
-					"日期_dt": "日期",
-					"數量": "數量",
-					"單位": "單位",
-					"備註": "備註"
-				}
-				df_display = df_result[list(show_cols.keys())].rename(columns=show_cols)
-				
-				# 自動轉換單位
-				def format_quantity_unit(row):
-					qty = row["數量"]
-					unit = row["單位"].strip().lower()
-					if unit == "g" and qty >= 1000:
-						return pd.Series([qty/1000, "kg"])
-					else:
-						return pd.Series([qty, row["單位"]])
-				
-				df_display[["數量", "單位"]] = df_display.apply(format_quantity_unit, axis=1)
-				df_display["日期"] = df_display["日期"].dt.strftime("%Y/%m/%d")
-				
-				st.dataframe(df_display, use_container_width=True, hide_index=True)
+			    show_cols = {
+			        "色粉編號": "色粉編號",
+			        "廠商名稱": "供應商簡稱",
+			        "日期_dt": "日期",
+			        "數量": "數量",
+			        "單位": "單位",
+			        "備註": "備註"
+			    }
+			
+			    # ✅ 若舊資料沒有廠商名稱欄位，補空值（避免 KeyError）
+			    if "廠商名稱" not in df_result.columns:
+			        df_result["廠商名稱"] = ""
+			
+			    df_display = df_result[list(show_cols.keys())].rename(columns=show_cols)
+			
+			    # 🔄 自動轉換單位
+			    def format_quantity_unit(row):
+			        qty = row["數量"]
+			        unit = row["單位"].strip().lower()
+			        if unit == "g" and qty >= 1000:
+			            return pd.Series([qty / 1000, "kg"])
+			        else:
+			            return pd.Series([qty, row["單位"]])
+			
+			    df_display[["數量", "單位"]] = df_display.apply(format_quantity_unit, axis=1)
+			    df_display["日期"] = df_display["日期"].dt.strftime("%Y/%m/%d")
+			
+			    st.dataframe(df_display, use_container_width=True, hide_index=True)
+			
 			else:
-				st.info("ℹ️ 沒有符合條件的進貨資料")
+			    st.info("ℹ️ 沒有符合條件的進貨資料")
 	
 	# ========== Tab 3：供應商管理 ==========
 	with tab3:
