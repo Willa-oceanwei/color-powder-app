@@ -3310,81 +3310,15 @@ elif menu == "生產單管理":
 			st.info("⚠️ 沒有可選的生產單")
 			selected_index, selected_order, selected_code_edit = None, None, None
 	
+		# ✅ 修正：直接呼叫配方預覽函式（不要用列印函式）
 		def generate_order_preview_text_tab3(order, recipe_row, show_additional_ids=True):
-			html_text = generate_production_order_print(
+			"""生產單 Tab 3 的預覽（使用配方管理的預覽格式，色母不顯示橫線）"""
+			return generate_recipe_preview_text(
 				order,
 				recipe_row,
-				additional_recipe_rows=None,
 				show_additional_ids=show_additional_ids
 			)
-	
-			main_code = str(order.get("配方編號", "")).strip()
-			if main_code:
-				additional_recipe_rows = df_recipe[
-					(df_recipe["配方類別"] == "附加配方") &
-					(df_recipe["原始配方"].astype(str).str.strip() == main_code)
-				].to_dict("records")
-			else:
-				additional_recipe_rows = []
-	
-			if additional_recipe_rows:
-				powder_label_width = 12
-				number_col_width = 7
-				multipliers = []
-				for j in range(1, 5):
-					try:
-						w = float(order.get(f"包裝重量{j}", 0) or 0)
-					except Exception:
-						w = 0
-					if w > 0:
-						multipliers.append(w)
-				if not multipliers:
-					multipliers = [1.0]
-	
-				def fmt_num(x: float) -> str:
-					if abs(x - int(x)) < 1e-9:
-						return str(int(x))
-					return f"{x:g}"
-	
-				html_text += "<br>=== 附加配方 ===<br>"
-	
-				for idx, sub in enumerate(additional_recipe_rows, 1):
-					if show_additional_ids:
-						html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>"
-					else:
-						html_text += f"附加配方 {idx}<br>"
-	
-					for i in range(1, 9):
-						c_id = str(sub.get(f"色粉編號{i}", "") or "").strip()
-						try:
-							base_w = float(sub.get(f"色粉重量{i}", 0) or 0)
-						except Exception:
-							base_w = 0.0
-	
-						if c_id and base_w > 0:
-							cells = []
-							for m in multipliers:
-								val = base_w * m
-								cells.append(fmt_num(val).rjust(number_col_width))
-							row = c_id.ljust(powder_label_width) + "".join(cells)
-							html_text += row + "<br>"
-	
-					total_label = str(sub.get("合計類別", "=") or "=")
-					try:
-						net = float(sub.get("淨重", 0) or 0)
-					except Exception:
-						net = 0.0
-					total_line = total_label.ljust(powder_label_width)
-					for idx, m in enumerate(multipliers):
-						val = net * m
-						total_line += fmt_num(val).rjust(number_col_width)
-					html_text += total_line + "<br>"
-	
-			def fmt_num_colorant(x: float) -> str:
-				if abs(x - int(x)) < 1e-9:
-					return str(int(x))
-				return f"{x:g}"
-	
+		
 			# ===== 備註顯示（區分來源） =====
 			order_note = str(order.get("備註", "")).strip()
 			if order_note:
