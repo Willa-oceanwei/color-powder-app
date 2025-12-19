@@ -4011,6 +4011,18 @@ if menu == "代工管理":
 	
 	        if show_open_only:
 	            df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
+
+			# ---------- 搜尋：客戶名稱 / 配方編號 ----------
+			search_text = st.text_input(
+			    "🔍 搜尋客戶名稱或配方編號",
+			    placeholder="輸入關鍵字（可搜尋客戶名稱 / 配方編號）"
+			).strip()
+			
+			if search_text:
+			    df_progress = df_progress[
+			        df_progress["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+			        df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+			    ]
 	
 	        # ---------- 排序：狀態優先 → 建立時間新到舊 ----------
 	        if not df_progress.empty:
