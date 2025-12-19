@@ -3968,15 +3968,16 @@ if menu == "代工管理":
 							# ---------- 若尚餘 = 0，自動結案 ----------
 							new_total_returned = total_returned + return_qty
 							if new_total_returned >= total_qty and total_qty > 0:
-								ws_oem.update_cell(
-								    oem_idx + 2,  # ← 永遠對到 Google Sheet 正確列
-								    df_oem.columns.get_loc("狀態") + 1,
-								    "✅ 已結案"
-								)
-							st.success(f"✅ 已新增載回記錄：{return_date} / {return_qty} kg")
+							    ws_oem.update_cell(
+							        oem_idx + 2,
+							        df_oem.columns.get_loc("狀態") + 1,
+							        "✅ 已結案"
+							    )
+							    st.toast("🎉 載回資料已儲存，代工單已結案", icon="✅")
+							else:
+							    st.toast("💾 載回資料已儲存", icon="📦")
+							
 							st.rerun()
-						else:
-							st.warning("⚠️ 請輸入載回數量")
 
 		else:
 			st.info("⚠️ 目前沒有代工單")
