@@ -3074,50 +3074,6 @@ elif menu == "生產單管理":
 		else:
 			st.info("查無符合的資料（分頁結果）")
 	
-		# ✅ 新增：生產單預覽展開區塊
-		if not page_data.empty:
-			st.markdown("---")
-			st.markdown("**📋 生產單詳細資訊**")
-			
-			for idx, row in page_data.iterrows():
-				# 取得配方資料
-				recipe_rows = df_recipe[df_recipe["配方編號"] == row.get("配方編號", "")]
-				if not recipe_rows.empty:
-					recipe_row = recipe_rows.iloc[0].to_dict()
-				else:
-					recipe_row = {}
-				
-				with st.expander(f"🔖 {row['生產單號']} - {row.get('客戶名稱', '')} - {row.get('顏色', '')}"):
-					col1, col2 = st.columns(2)
-					
-					with col1:
-						st.markdown(f"**生產單號**: {row['生產單號']}")
-						st.markdown(f"**配方編號**: {row['配方編號']}")
-						st.markdown(f"**客戶名稱**: {row.get('客戶名稱', 'N/A')}")
-						st.markdown(f"**顏色**: {row.get('顏色', 'N/A')}")
-					
-					with col2:
-						st.markdown(f"**Pantone色號**: {row.get('Pantone 色號', 'N/A')}")
-						st.markdown(f"**計量單位**: {row.get('計量單位', 'N/A')}")
-						st.markdown(f"**建立時間**: {row.get('建立時間', 'N/A')}")
-					
-					# 包裝資訊
-					st.markdown("**包裝資訊**:")
-					pack_info = []
-					for i in range(1, 5):
-						weight = row.get(f'包裝重量{i}', '')
-						count = row.get(f'包裝份數{i}', '')
-						if weight and str(weight).strip() and count and str(count).strip():
-							pack_info.append(f"- 包裝{i}: {weight} × {count}")
-					
-					if pack_info:
-						st.markdown('\n'.join(pack_info))
-					else:
-						st.markdown("_無包裝資訊_")
-					
-					if row.get('備註'):
-						st.markdown(f"**備註**: {row['備註']}")
-	
 		cols_page = st.columns([2, 2, 2, 2, 2])
 	
 		with cols_page[0]:
