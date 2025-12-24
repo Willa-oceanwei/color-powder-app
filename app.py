@@ -3720,36 +3720,77 @@ if menu == "代工管理":
 
 					# ---------- 送達記錄區 ----------
 					if "代工單號" not in df_delivery.columns:
-						df_delivery["代工單號"] = ""
-
+					    df_delivery["代工單號"] = ""
+					
 					st.markdown("**📦 送達記錄**")
+					
+					# 取得該代工單的送達紀錄
 					df_this_delivery = df_delivery[df_delivery["代工單號"] == selected_oem]
+					
 					if not df_this_delivery.empty:
-						st.dataframe(df_this_delivery[["送達日期","送達數量"]], use_container_width=True, hide_index=True)
-
-					total_delivered = df_this_delivery["送達數量"].astype(float).sum() if not df_this_delivery.empty else 0.0
-					remaining = float(oem_row.get("代工數量",0)) - total_delivered
+					    st.dataframe(
+					        df_this_delivery[["送達日期", "送達數量"]],
+					        use_container_width=True,
+					        hide_index=True
+					    )
+					
+					# 計算已送達與尚餘
+					total_delivered = (
+					    df_this_delivery["送達數量"].astype(float).sum()
+					    if not df_this_delivery.empty else 0.0
+					)
+					
+					oem_qty = float(oem_row.get("代工數量", 0))
+					remaining = oem_qty - total_delivered
+					
 					st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg")
-
+					
+					# ---------- 新增送達 ----------
 					col_d1, col_d2 = st.columns(2)
 					delivery_date = col_d1.date_input("送達日期", key="delivery_date")
-					delivery_qty = col_d2.number_input("送達數量 (kg)", min_value=0.0, value=0.0, step=1.0, key="delivery_qty")
-				
-					col_btn1, col_btn2 = st.columns([1,3])
+					delivery_qty = col_d2.number_input(
+					    "送達數量 (kg)",
+					    min_value=0.0,
+					    value=0.0,
+					    step=1.0,
+					    key="delivery_qty"
+					)
+					
+					col_btn1, col_btn2 = st.columns([1, 3])
+					
+					# 小工具：更新代工狀態
+					def update_oem_status(oem_no, new_status):
+					    all_values = ws_oem.get_all_values()
+					    for idx, row in enumerate(all_values[1:], start=2):
+					        if row[0] == oem_no:
+					            ws_oem.update_cell(idx, 8, new_status)  # 第 8 欄 = 狀態
+					            break
+					
 					if col_btn1.button("➕ 新增送達", key="add_delivery"):
-						if delivery_qty > 0:
-							new_record = [
-								selected_oem,
-								delivery_date.strftime("%Y/%m/%d"),
-								delivery_qty,
-								datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-							]
-							ws_delivery.append_row(new_record)
-							st.success(f"✅ 已新增送達記錄：{delivery_date} / {delivery_qty} kg")
-							st.rerun()
-						else:
-							st.warning("⚠️ 請輸入送達數量")
-
+					    if delivery_qty > 0:
+					        # 寫入送達紀錄
+					        new_record = [
+					            selected_oem,
+					            delivery_date.strftime("%Y/%m/%d"),
+					            delivery_qty,
+					            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+					        ]
+					        ws_delivery.append_row(new_record)
+					
+					        # 重新計算尚餘
+					        new_total_delivered = total_delivered + delivery_qty
+					        new_remaining = oem_qty - new_total_delivered
+					
+					        # ✅ 尚餘為 0 → 自動轉為「未載回」（不影響已結案）
+					        if new_remaining <= 0 and oem_row.get("狀態") != "✅ 已結案":
+					            update_oem_status(selected_oem, "⏳ 未載回")
+					            st.session_state.oem_selected_row["狀態"] = "⏳ 未載回"
+					            st.toast("📦 已全數送達，狀態自動轉為「未載回」", icon="🚚")
+					
+					        st.success(f"✅ 已新增送達記錄：{delivery_date} / {delivery_qty} kg")
+					        st.rerun()
+					    else:
+					        st.warning("⚠️ 請輸入送達數量")
 		else:
 			st.info("⚠️ 目前沒有代工單，請至「新增代工單」分頁建立")
 
