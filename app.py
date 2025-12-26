@@ -5548,7 +5548,7 @@ elif menu == "庫存區":
 	        # ============================================================
 	        # 2️⃣ 色粉清單
 	        # ============================================================
-	        all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
+            all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
             all_pids_recipe = []
     
             if not df_recipe.empty:
