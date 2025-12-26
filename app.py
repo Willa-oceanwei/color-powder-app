@@ -5525,7 +5525,8 @@ elif menu == "庫存區":
 	        df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].astype(str).str.strip()
 	
 	        # ---------- 生產單 ----------
-	        df_order_copy = df_order.copy()
+	        # ---------- 生產單 ----------
+			df_order_copy = df_order.copy()
 
 			def get_order_datetime(row):
 				# 1️⃣ 已有生產時間
@@ -5545,7 +5546,7 @@ elif menu == "庫存區":
 				return pd.NaT
 			
 			df_order_copy["生產時間"] = df_order_copy.apply(get_order_datetime, axis=1)
-
+			
 	        # ============================================================
 	        # 2️⃣ 色粉清單
 	        # ============================================================
