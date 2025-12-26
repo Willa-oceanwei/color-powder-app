@@ -5581,19 +5581,19 @@ elif menu == "庫存區":
 	        # 3️⃣ 查詢時間區間（datetime）
 	        # ============================================================
 	        today_dt = pd.Timestamp.now()
-	
-	        start_dt = (
-	            pd.to_datetime(query_start)
-	            if query_start else pd.Timestamp.min
-	        )
-	
-	        end_dt = (
-	            pd.to_datetime(query_end) + pd.Timedelta(days=1)
-	            if query_end else today_dt
-	        )
-	
-	        if query_start and query_end and start_dt > end_dt:
-	            st.error("❌ 查詢起日不能晚於查詢迄日。")
+    
+            start_dt = (
+                pd.to_datetime(query_start)
+                if query_start else pd.Timestamp.min
+            )
+    
+            end_dt = (
+                pd.to_datetime(query_end) + pd.Timedelta(days=1)
+                if query_end else today_dt
+            )
+    
+            if query_start and query_end and start_dt > end_dt:
+                st.error("❌ 查詢起日不能晚於查詢迄日。")
 	            st.stop()
 	
 	        # ============================================================
