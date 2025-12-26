@@ -5545,7 +5545,7 @@ elif menu == "庫存區":
 
 				# (C) 期初處理
 				if ini_date is not None and ini_date <= e_dt_use:
-					s_dt_pid = ini_date
+					s_dt_pid = ini_date + pd.Timedelta(days=1)
 					ini_total = ini_base_value
 					ini_date_note = f"期初來源：{ini_date.strftime('%Y/%m/%d')}"
 				else:
