@@ -5367,41 +5367,97 @@ elif menu == "庫存區":
 
 	# ========== Tab 1：初始庫存設定 ==========
 	with tab1:
-		col1, col2, col3 = st.columns(3)
-		ini_powder = col1.text_input("色粉編號", key="ini_color")
-		ini_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty")
-		ini_unit = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
-		ini_date = st.date_input("設定日期", value=datetime.today(), key="ini_date")
-		ini_note = st.text_input("備註", key="ini_note")
-
-		if st.button("儲存初始庫存", key="btn_save_ini"):
-			if not ini_powder.strip():
-				st.warning("⚠️ 請輸入色粉編號！")
-			else:
-				# 刪掉舊的初始庫存紀錄
-				df_stock = df_stock[~((df_stock["類型"]=="初始") & (df_stock["色粉編號"]==ini_powder.strip()))]
-
-				# 新增最新的初始庫存
-				new_row = {
-					"類型": "初始",
-					"色粉編號": ini_powder.strip(),
-					"日期": ini_date,
-					"數量": ini_qty,
-					"單位": ini_unit,
-					"備註": ini_note
-				}
-				df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
-
-				# 寫回 Sheet
-				df_to_upload = df_stock.copy()
-				df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce").dt.strftime("%Y/%m/%d").fillna("")
-				if ws_stock:
-					ws_stock.clear()
-					ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
-
-				st.session_state.df_stock = df_stock
-				st.success(f"✅ 初始庫存已儲存，色粉 {ini_powder.strip()} 將以最新設定為準")
-				st.rerun()
+	    col1, col2, col3 = st.columns(3)
+	    ini_powder = col1.text_input("色粉編號", key="ini_color")
+	    ini_qty = col2.number_input(
+	        "數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty"
+	    )
+	    ini_unit = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
+	
+	    # ⭐ 日期 + 時間（關鍵）
+	    col4, col5 = st.columns(2)
+	    ini_date = col4.date_input(
+	        "設定日期", value=datetime.today(), key="ini_date"
+	    )
+	    ini_time = col5.time_input(
+	        "設定時間", value=datetime.now().time(), key="ini_time"
+	    )
+	
+	    ini_note = st.text_input("備註", key="ini_note")
+	
+	    # 👉 組合成真正的 Timestamp
+	    ini_datetime = pd.to_datetime(
+	        datetime.combine(ini_date, ini_time)
+	    )
+	
+	    # ===== 使用者提示（很重要）=====
+	    st.info(
+	        "ℹ️ 此初始庫存將視為「該時間點的實際庫存」。\n\n"
+	        "✔️ 同一天 **此時間之後** 的生產單都會扣庫存\n"
+	        "❌ 此時間之前的生產單不會回溯扣除"
+	    )
+	
+	    if st.button("儲存初始庫存", key="btn_save_ini"):
+	        if not ini_powder.strip():
+	            st.warning("⚠️ 請輸入色粉編號！")
+	            st.stop()
+	
+	        powder_id = ini_powder.strip()
+	
+	        # --- 安全防呆：數量 ---
+	        try:
+	            qty_val = float(ini_qty)
+	        except:
+	            qty_val = 0.0
+	
+	        # --- 刪掉舊的初始庫存（同色粉）---
+	        df_stock = df_stock[
+	            ~(
+	                (df_stock["類型"].astype(str).str.strip() == "初始") &
+	                (df_stock["色粉編號"].astype(str).str.strip() == powder_id)
+	            )
+	        ]
+	
+	        # --- 新增最新初始庫存 ---
+	        new_row = {
+	            "類型": "初始",
+	            "色粉編號": powder_id,
+	            "日期": ini_datetime,          # ⭐ 存 Timestamp
+	            "數量": qty_val,
+	            "單位": ini_unit,
+	            "備註": ini_note
+	        }
+	
+	        df_stock = pd.concat(
+	            [df_stock, pd.DataFrame([new_row])],
+	            ignore_index=True
+	        )
+	
+	        # --- 寫回 Google Sheet ---
+	        df_to_upload = df_stock.copy()
+	
+	        # ⭐ 日期欄統一格式（但保留時間）
+	        df_to_upload["日期"] = pd.to_datetime(
+	            df_to_upload["日期"], errors="coerce"
+	        ).dt.strftime("%Y/%m/%d %H:%M").fillna("")
+	
+	        if ws_stock:
+	            ws_stock.clear()
+	            ws_stock.update(
+	                [df_to_upload.columns.tolist()] +
+	                df_to_upload.values.tolist()
+	            )
+	
+	        # 同步 session_state
+	        st.session_state.df_stock = df_stock
+	
+	        st.success(
+	            f"✅ 初始庫存已儲存\n"
+	            f"色粉：{powder_id}\n"
+	            f"時間點：{ini_datetime.strftime('%Y/%m/%d %H:%M')}"
+	        )
+	
+	        st.rerun()
 
 	# ========== Tab 2：庫存查詢 ==========
 	with tab2:
