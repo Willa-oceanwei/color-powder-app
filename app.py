@@ -5566,7 +5566,7 @@ elif menu == "庫存區":
 
             # 使用者搜尋
             stock_powder_strip = stock_powder.strip()
-             if stock_powder_strip:
+            if stock_powder_strip:
                 all_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
                 if not all_pids:
                      st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
