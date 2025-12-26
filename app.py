@@ -5663,12 +5663,12 @@ elif menu == "庫存區":
 	        # ============================================================
 	        # 5️⃣ 顯示
 	        # ============================================================
-	        df_result = pd.DataFrame(stock_summary)
-	        st.dataframe(df_result, use_container_width=True, hide_index=True)
-	
-	        st.caption(
-	            "🌟 期末庫存 = 期初庫存（時間點） + 其後進貨 − 其後用量（單位皆以 g 計算）"
-	        )
+            df_result = pd.DataFrame(stock_summary)
+            st.dataframe(df_result, use_container_width=True, hide_index=True)
+    
+            st.caption(
+                "🌟 期末庫存 = 期初庫存（時間點） + 其後進貨 − 其後用量（單位皆以 g 計算）"
+            )
 
 	# ========== Tab 3：色粉用量排行榜 ==========
 	with tab3:
