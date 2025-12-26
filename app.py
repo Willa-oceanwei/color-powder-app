@@ -4162,7 +4162,7 @@ elif menu == "採購管理":
 				new_row = {
 					"類型": "進貨",
 					"色粉編號": st.session_state.form_in_stock["色粉編號"].strip(),
-					"日期": st.session_state.form_in_stock["日期"],
+					"日期": st.session_state.form_in_stock["日期"].strftime("%Y/%m/%d"),
 					"數量": st.session_state.form_in_stock["數量"],
 					"單位": st.session_state.form_in_stock["單位"],
 					"廠商編號": st.session_state.form_in_stock["廠商編號"].strip(),
