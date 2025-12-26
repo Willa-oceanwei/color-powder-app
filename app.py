@@ -5523,7 +5523,7 @@ elif menu == "庫存區":
 	            lambda r: to_grams(r["數量"], r["單位"]), axis=1
 	        )
 	        df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].astype(str).str.strip()
-	
+
 			# ---------- 生產單 ----------
 			df_order_copy = df_order.copy()
 			
