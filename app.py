@@ -5379,7 +5379,9 @@ elif menu == "庫存區":
             "設定日期", value=datetime.today(), key="ini_date"
         )
         ini_time = col5.time_input(
-            "設定時間", value=datetime.now().time(), key="ini_time"
+            "設定時間",
+            value=datetime.now().replace(microsecond=0).time(),  # microsecond 直接設 0
+            key="ini_time"
         )
     
         ini_note = st.text_input("備註", key="ini_note")
