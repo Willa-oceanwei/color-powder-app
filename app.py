@@ -5530,7 +5530,7 @@ elif menu == "庫存區":
                  # 3️⃣ 只有生產日期 → 補 09:00
                 if "生產日期" in row and pd.notna(row["生產日期"]):
                      dt = pd.to_datetime(row["生產日期"], errors="coerce")
-                    if pd.notna(dt):
+                     if pd.notna(dt):
                         return dt + pd.Timedelta(hours=9)
                  return pd.NaT
 
