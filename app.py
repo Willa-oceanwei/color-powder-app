@@ -4046,19 +4046,19 @@ if menu == "代工管理":
 
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
-	# ===== 縮小整個頁面最上方空白 =====
-	st.markdown("""
-	<style>
-	div.block-container {
-		padding-top: 5px;
-	}
-	</style>
-	""", unsafe_allow_html=True)
-	
-	import pandas as pd
-	from datetime import datetime, date
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    import pandas as pd
+    from datetime import datetime, date
 
-	# ===== 標題 =====
+    # ===== 標題 =====
     st.markdown(
         '<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">📥 採購管理</h1>',
         unsafe_allow_html=True
