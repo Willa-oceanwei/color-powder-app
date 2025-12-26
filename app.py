@@ -4204,86 +4204,86 @@ elif menu == "採購管理":
                 st.success("✅ 進貨紀錄已新增")
 
 	# ========== Tab 2：進貨查詢 ==========
-	with tab2:
-			  
-		# 讀取庫存記錄表
-		try:
-			ws_stock = spreadsheet.worksheet("庫存記錄")
-			df_stock = pd.DataFrame(ws_stock.get_all_records())
-		except:
-			df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
-		
-		# --- 篩選欄位 ---
-		col1, col2, col3 = st.columns(3)
-		search_code = col1.text_input("色粉編號", key="in_search_code")
-		search_start = col2.date_input("進貨日期(起)", key="in_search_start")
-		search_end = col3.date_input("進貨日期(迄)", key="in_search_end")
-		
-		if st.button("查詢進貨", key="btn_search_in_v3"):
-			df_result = df_stock[df_stock["類型"] == "進貨"].copy()
-			
-			# 1️⃣ 依色粉編號篩選
-			if search_code.strip():
-				df_result = df_result[df_result["色粉編號"].astype(str).str.contains(search_code.strip(), case=False)]
-			
-			# 2️⃣ 日期欄轉換格式
-			df_result["日期_dt"] = pd.to_datetime(df_result["日期"], errors="coerce").dt.normalize()
-			
-			# 3️⃣ 判斷使用者是否真的有選日期
-			today = pd.to_datetime("today").normalize()
-			search_start_dt = pd.to_datetime(search_start).normalize() if search_start else None
-			search_end_dt = pd.to_datetime(search_end).normalize() if search_end else None
-			
-			use_date_filter = (
-				(search_start_dt is not None and search_start_dt != today) or
-				(search_end_dt is not None and search_end_dt != today)
-			)
-			
-			if use_date_filter:
-				st.write("🔎 使用日期範圍：", search_start_dt, "～", search_end_dt)
-				df_result = df_result[
-					(df_result["日期_dt"] >= search_start_dt) &
-					(df_result["日期_dt"] <= search_end_dt)
-				]
-			else:
-				st.markdown(
-					'<span style="color:gray; font-size:0.8em;">📅 未選日期 → 顯示所有進貨資料</span>',
-					unsafe_allow_html=True
-				)
-			
-			# 4️⃣ 顯示結果
-			if not df_result.empty:
-			    show_cols = {
-			        "色粉編號": "色粉編號",
-			        "廠商名稱": "供應商簡稱",
-			        "日期_dt": "日期",
-			        "數量": "數量",
-			        "單位": "單位",
-			        "備註": "備註"
-			    }
-			
-			    # ✅ 若舊資料沒有廠商名稱欄位，補空值（避免 KeyError）
-			    if "廠商名稱" not in df_result.columns:
-			        df_result["廠商名稱"] = ""
-			
-			    df_display = df_result[list(show_cols.keys())].rename(columns=show_cols)
-			
-			    # 🔄 自動轉換單位
-			    def format_quantity_unit(row):
-			        qty = row["數量"]
-			        unit = row["單位"].strip().lower()
-			        if unit == "g" and qty >= 1000:
-			            return pd.Series([qty / 1000, "kg"])
-			        else:
-			            return pd.Series([qty, row["單位"]])
-			
-			    df_display[["數量", "單位"]] = df_display.apply(format_quantity_unit, axis=1)
-			    df_display["日期"] = df_display["日期"].dt.strftime("%Y/%m/%d")
-			
-			    st.dataframe(df_display, use_container_width=True, hide_index=True)
-			
-			else:
-			    st.info("ℹ️ 沒有符合條件的進貨資料")
+    with tab2:
+              
+        # 讀取庫存記錄表
+        try:
+            ws_stock = spreadsheet.worksheet("庫存記錄")
+            df_stock = pd.DataFrame(ws_stock.get_all_records())
+        except:
+            df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
+        
+        # --- 篩選欄位 ---
+        col1, col2, col3 = st.columns(3)
+        search_code = col1.text_input("色粉編號", key="in_search_code")
+        search_start = col2.date_input("進貨日期(起)", key="in_search_start")
+        search_end = col3.date_input("進貨日期(迄)", key="in_search_end")
+        
+        if st.button("查詢進貨", key="btn_search_in_v3"):
+            df_result = df_stock[df_stock["類型"] == "進貨"].copy()
+            
+            # 1️⃣ 依色粉編號篩選
+            if search_code.strip():
+                df_result = df_result[df_result["色粉編號"].astype(str).str.contains(search_code.strip(), case=False)]
+            
+            # 2️⃣ 日期欄轉換格式
+            df_result["日期_dt"] = pd.to_datetime(df_result["日期"], errors="coerce").dt.normalize()
+            
+            # 3️⃣ 判斷使用者是否真的有選日期
+            today = pd.to_datetime("today").normalize()
+            search_start_dt = pd.to_datetime(search_start).normalize() if search_start else None
+            search_end_dt = pd.to_datetime(search_end).normalize() if search_end else None
+            
+            use_date_filter = (
+                (search_start_dt is not None and search_start_dt != today) or
+                (search_end_dt is not None and search_end_dt != today)
+            )
+            
+            if use_date_filter:
+                st.write("🔎 使用日期範圍：", search_start_dt, "～", search_end_dt)
+                df_result = df_result[
+                    (df_result["日期_dt"] >= search_start_dt) &
+                    (df_result["日期_dt"] <= search_end_dt)
+                ]
+            else:
+                st.markdown(
+                    '<span style="color:gray; font-size:0.8em;">📅 未選日期 → 顯示所有進貨資料</span>',
+                    unsafe_allow_html=True
+                )
+            
+            # 4️⃣ 顯示結果
+            if not df_result.empty:
+                show_cols = {
+                    "色粉編號": "色粉編號",
+                    "廠商名稱": "供應商簡稱",
+                    "日期_dt": "日期",
+                    "數量": "數量",
+                    "單位": "單位",
+                    "備註": "備註"
+                }
+            
+                # ✅ 若舊資料沒有廠商名稱欄位，補空值（避免 KeyError）
+                if "廠商名稱" not in df_result.columns:
+                    df_result["廠商名稱"] = ""
+            
+                df_display = df_result[list(show_cols.keys())].rename(columns=show_cols)
+            
+                # 🔄 自動轉換單位
+                def format_quantity_unit(row):
+                    qty = row["數量"]
+                    unit = row["單位"].strip().lower()
+                    if unit == "g" and qty >= 1000:
+                        return pd.Series([qty / 1000, "kg"])
+                    else:
+                        return pd.Series([qty, row["單位"]])
+            
+                df_display[["數量", "單位"]] = df_display.apply(format_quantity_unit, axis=1)
+                df_display["日期"] = df_display["日期"].dt.strftime("%Y/%m/%d")
+            
+                st.dataframe(df_display, use_container_width=True, hide_index=True)
+            
+            else:
+                st.info("ℹ️ 沒有符合條件的進貨資料")
 	
 	# ========== Tab 3：供應商管理 ==========
 	with tab3:
