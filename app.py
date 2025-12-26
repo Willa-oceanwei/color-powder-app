@@ -4174,11 +4174,21 @@ elif menu == "採購管理":
 
 				# 寫回 Google Sheet
 				df_to_upload = df_stock.copy()
+
+				# 日期統一轉字串
 				if "日期" in df_to_upload.columns:
-					df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce")\
-						.dt.strftime("%Y/%m/%d").fillna("")
+				    df_to_upload["日期"] = pd.to_datetime(
+				        df_to_upload["日期"], errors="coerce"
+				    ).dt.strftime("%Y/%m/%d").fillna("")
+				
+				# ✅ 保險再加一道（就在這一行）
+				df_to_upload = df_to_upload.astype(str)
+				
+				# 寫回 Google Sheet
 				ws_stock.clear()
-				ws_stock.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
+				ws_stock.update(
+				    [df_to_upload.columns.tolist()] + df_to_upload.values.tolist()
+				)
 
 				# 清空表單
 				st.session_state.form_in_stock = {
