@@ -5250,104 +5250,104 @@ elif menu == "庫存區":
 	# ---------------- 計算用量函式 ----------------
 	# ---------------- 計算用量函式（時間版） ----------------
 	def calc_usage_for_stock(powder_id, df_order, df_recipe, start_dt, end_dt):
-	    total_usage_g = 0.0
+		total_usage_g = 0.0
 	
-	    df_order_local = df_order.copy()
+		df_order_local = df_order.copy()
 	
-	    # 必須有生產時間
-	    if "生產時間" not in df_order_local.columns:
-	        return 0.0
+		# 必須有生產時間
+		if "生產時間" not in df_order_local.columns:
+			return 0.0
 	
-	    df_order_local["生產時間"] = pd.to_datetime(
-	        df_order_local["生產時間"], errors="coerce"
-	    )
+		df_order_local["生產時間"] = pd.to_datetime(
+			df_order_local["生產時間"], errors="coerce"
+		)
 	
-	    # --- 1. 找到所有包含此色粉的配方 ---
-	    powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
+		# --- 1. 找到所有包含此色粉的配方 ---
+		powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
 	
-	    candidate_ids = set()
-	    if not df_recipe.empty:
-	        recipe_df_copy = df_recipe.copy()
-	        for c in powder_cols:
-	            if c not in recipe_df_copy.columns:
-	                recipe_df_copy[c] = ""
+		candidate_ids = set()
+		if not df_recipe.empty:
+			recipe_df_copy = df_recipe.copy()
+			for c in powder_cols:
+				if c not in recipe_df_copy.columns:
+					recipe_df_copy[c] = ""
 	
-	        mask = recipe_df_copy[powder_cols].astype(str).apply(
-	            lambda row: powder_id in [s.strip() for s in row.values],
-	            axis=1
-	        )
-	        recipe_candidates = recipe_df_copy[mask].copy()
-	        candidate_ids = set(
-	            recipe_candidates["配方編號"].astype(str).str.strip().tolist()
-	        )
+			mask = recipe_df_copy[powder_cols].astype(str).apply(
+				lambda row: powder_id in [s.strip() for s in row.values],
+				axis=1
+			)
+			recipe_candidates = recipe_df_copy[mask].copy()
+			candidate_ids = set(
+				recipe_candidates["配方編號"].astype(str).str.strip().tolist()
+			)
 	
-	    if not candidate_ids:
-	        return 0.0
+		if not candidate_ids:
+			return 0.0
 	
-	    # --- 2. 篩選「初始時間之後」的訂單（⭐ 核心） ---
-	    s_dt = pd.to_datetime(start_dt, errors="coerce")
-	    e_dt = pd.to_datetime(end_dt, errors="coerce")
+		# --- 2. 篩選「初始時間之後」的訂單（⭐ 核心） ---
+		s_dt = pd.to_datetime(start_dt, errors="coerce")
+		e_dt = pd.to_datetime(end_dt, errors="coerce")
 	
-	    orders_in_range = df_order_local[
-	        (df_order_local["生產時間"].notna()) &
-	        (df_order_local["生產時間"] > s_dt) &
-	        (df_order_local["生產時間"] <= e_dt)
-	    ].copy()
+		orders_in_range = df_order_local[
+			(df_order_local["生產時間"].notna()) &
+			(df_order_local["生產時間"] > s_dt) &
+			(df_order_local["生產時間"] <= e_dt)
+		].copy()
 	
-	    if orders_in_range.empty:
-	        return 0.0
+		if orders_in_range.empty:
+			return 0.0
 	
-	    # --- 3. 逐張訂單計算用量 ---
-	    for _, order in orders_in_range.iterrows():
-	        order_recipe_id = str(order.get("配方編號", "")).strip()
-	        if not order_recipe_id:
-	            continue
+		# --- 3. 逐張訂單計算用量 ---
+		for _, order in orders_in_range.iterrows():
+			order_recipe_id = str(order.get("配方編號", "")).strip()
+			if not order_recipe_id:
+				continue
 	
-	        # 主配方 + 附加配方
-	        recipe_rows = []
+			# 主配方 + 附加配方
+			recipe_rows = []
 	
-	        main_df = df_recipe[
-	            df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id
-	        ]
-	        if not main_df.empty:
-	            recipe_rows.append(main_df.iloc[0].to_dict())
+			main_df = df_recipe[
+				df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id
+			]
+			if not main_df.empty:
+				recipe_rows.append(main_df.iloc[0].to_dict())
 	
-	        if "配方類別" in df_recipe.columns and "原始配方" in df_recipe.columns:
-	            add_df = df_recipe[
-	                (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
-	                (df_recipe["原始配方"].astype(str).str.strip() == order_recipe_id)
-	            ]
-	            if not add_df.empty:
-	                recipe_rows.extend(add_df.to_dict("records"))
+			if "配方類別" in df_recipe.columns and "原始配方" in df_recipe.columns:
+				add_df = df_recipe[
+					(df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
+					(df_recipe["原始配方"].astype(str).str.strip() == order_recipe_id)
+				]
+				if not add_df.empty:
+					recipe_rows.extend(add_df.to_dict("records"))
 	
-	        # 計算包裝總量（kg）
-	        packs_total_kg = 0.0
-	        for j in range(1, 5):
-	            try:
-	                packs_total_kg += float(order.get(f"包裝重量{j}", 0) or 0) * \
-	                                  float(order.get(f"包裝份數{j}", 0) or 0)
-	            except:
-	                pass
+			# 計算包裝總量（kg）
+			packs_total_kg = 0.0
+			for j in range(1, 5):
+				try:
+					packs_total_kg += float(order.get(f"包裝重量{j}", 0) or 0) * \
+									  float(order.get(f"包裝份數{j}", 0) or 0)
+				except:
+					pass
 	
-	        if packs_total_kg <= 0:
-	            continue
+			if packs_total_kg <= 0:
+				continue
 	
-	        # 計算色粉用量
-	        for rec in recipe_rows:
-	            pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-	            if powder_id not in pvals:
-	                continue
+			# 計算色粉用量
+			for rec in recipe_rows:
+				pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
+				if powder_id not in pvals:
+					continue
 	
-	            idx = pvals.index(powder_id) + 1
-	            try:
-	                powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
-	            except:
-	                powder_weight = 0.0
+				idx = pvals.index(powder_id) + 1
+				try:
+					powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
+				except:
+					powder_weight = 0.0
 	
-	            if powder_weight > 0:
-	                total_usage_g += powder_weight * packs_total_kg
+				if powder_weight > 0:
+					total_usage_g += powder_weight * packs_total_kg
 	
-	    return total_usage_g
+		return total_usage_g
 
 	# ---------- 安全呼叫 Wrapper ----------
 	def safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt):
@@ -5367,97 +5367,97 @@ elif menu == "庫存區":
 
 	# ========== Tab 1：初始庫存設定 ==========
 	with tab1:
-	    col1, col2, col3 = st.columns(3)
-	    ini_powder = col1.text_input("色粉編號", key="ini_color")
-	    ini_qty = col2.number_input(
-	        "數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty"
-	    )
-	    ini_unit = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
+		col1, col2, col3 = st.columns(3)
+		ini_powder = col1.text_input("色粉編號", key="ini_color")
+		ini_qty = col2.number_input(
+			"數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty"
+		)
+		ini_unit = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
 	
-	    # ⭐ 日期 + 時間（關鍵）
-	    col4, col5 = st.columns(2)
-	    ini_date = col4.date_input(
-	        "設定日期", value=datetime.today(), key="ini_date"
-	    )
-	    ini_time = col5.time_input(
-	        "設定時間", value=datetime.now().time(), key="ini_time"
-	    )
+		# ⭐ 日期 + 時間（關鍵）
+		col4, col5 = st.columns(2)
+		ini_date = col4.date_input(
+			"設定日期", value=datetime.today(), key="ini_date"
+		)
+		ini_time = col5.time_input(
+			"設定時間", value=datetime.now().time(), key="ini_time"
+		)
 	
-	    ini_note = st.text_input("備註", key="ini_note")
+		ini_note = st.text_input("備註", key="ini_note")
 	
-	    # 👉 組合成真正的 Timestamp
-	    ini_datetime = pd.to_datetime(
-	        datetime.combine(ini_date, ini_time)
-	    )
+		# 👉 組合成真正的 Timestamp
+		ini_datetime = pd.to_datetime(
+			datetime.combine(ini_date, ini_time)
+		)
 	
-	    # ===== 使用者提示（很重要）=====
-	    st.info(
-	        "ℹ️ 此初始庫存將視為「該時間點的實際庫存」。\n\n"
-	        "✔️ 同一天 **此時間之後** 的生產單都會扣庫存\n"
-	        "❌ 此時間之前的生產單不會回溯扣除"
-	    )
+		# ===== 使用者提示（很重要）=====
+		st.info(
+			"ℹ️ 此初始庫存將視為「該時間點的實際庫存」。\n\n"
+			"✔️ 同一天 **此時間之後** 的生產單都會扣庫存\n"
+			"❌ 此時間之前的生產單不會回溯扣除"
+		)
 	
-	    if st.button("儲存初始庫存", key="btn_save_ini"):
-	        if not ini_powder.strip():
-	            st.warning("⚠️ 請輸入色粉編號！")
-	            st.stop()
+		if st.button("儲存初始庫存", key="btn_save_ini"):
+			if not ini_powder.strip():
+				st.warning("⚠️ 請輸入色粉編號！")
+				st.stop()
 	
-	        powder_id = ini_powder.strip()
+			powder_id = ini_powder.strip()
 	
-	        # --- 安全防呆：數量 ---
-	        try:
-	            qty_val = float(ini_qty)
-	        except:
-	            qty_val = 0.0
+			# --- 安全防呆：數量 ---
+			try:
+				qty_val = float(ini_qty)
+			except:
+				qty_val = 0.0
 	
-	        # --- 刪掉舊的初始庫存（同色粉）---
-	        df_stock = df_stock[
-	            ~(
-	                (df_stock["類型"].astype(str).str.strip() == "初始") &
-	                (df_stock["色粉編號"].astype(str).str.strip() == powder_id)
-	            )
-	        ]
+			# --- 刪掉舊的初始庫存（同色粉）---
+			df_stock = df_stock[
+				~(
+					(df_stock["類型"].astype(str).str.strip() == "初始") &
+					(df_stock["色粉編號"].astype(str).str.strip() == powder_id)
+				)
+			]
 	
-	        # --- 新增最新初始庫存 ---
-	        new_row = {
-	            "類型": "初始",
-	            "色粉編號": powder_id,
-	            "日期": ini_datetime,          # ⭐ 存 Timestamp
-	            "數量": qty_val,
-	            "單位": ini_unit,
-	            "備註": ini_note
-	        }
+			# --- 新增最新初始庫存 ---
+			new_row = {
+				"類型": "初始",
+				"色粉編號": powder_id,
+				"日期": ini_datetime,		  # ⭐ 存 Timestamp
+				"數量": qty_val,
+				"單位": ini_unit,
+				"備註": ini_note
+			}
 	
-	        df_stock = pd.concat(
-	            [df_stock, pd.DataFrame([new_row])],
-	            ignore_index=True
-	        )
+			df_stock = pd.concat(
+				[df_stock, pd.DataFrame([new_row])],
+				ignore_index=True
+			)
 	
-	        # --- 寫回 Google Sheet ---
-	        df_to_upload = df_stock.copy()
+			# --- 寫回 Google Sheet ---
+			df_to_upload = df_stock.copy()
 	
-	        # ⭐ 日期欄統一格式（但保留時間）
-	        df_to_upload["日期"] = pd.to_datetime(
-	            df_to_upload["日期"], errors="coerce"
-	        ).dt.strftime("%Y/%m/%d %H:%M").fillna("")
+			# ⭐ 日期欄統一格式（但保留時間）
+			df_to_upload["日期"] = pd.to_datetime(
+				df_to_upload["日期"], errors="coerce"
+			).dt.strftime("%Y/%m/%d %H:%M").fillna("")
 	
-	        if ws_stock:
-	            ws_stock.clear()
-	            ws_stock.update(
-	                [df_to_upload.columns.tolist()] +
-	                df_to_upload.values.tolist()
-	            )
+			if ws_stock:
+				ws_stock.clear()
+				ws_stock.update(
+					[df_to_upload.columns.tolist()] +
+					df_to_upload.values.tolist()
+				)
 	
-	        # 同步 session_state
-	        st.session_state.df_stock = df_stock
+			# 同步 session_state
+			st.session_state.df_stock = df_stock
 	
-	        st.success(
-	            f"✅ 初始庫存已儲存\n"
-	            f"色粉：{powder_id}\n"
-	            f"時間點：{ini_datetime.strftime('%Y/%m/%d %H:%M')}"
-	        )
+			st.success(
+				f"✅ 初始庫存已儲存\n"
+				f"色粉：{powder_id}\n"
+				f"時間點：{ini_datetime.strftime('%Y/%m/%d %H:%M')}"
+			)
 	
-	        st.rerun()
+			st.rerun()
 
 	# ========== Tab 2：庫存查詢 ==========
 	with tab2:
