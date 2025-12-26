@@ -4074,7 +4074,7 @@ elif menu == "採購管理":
 		except:
 			df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"])
 
-		# 🔒 =====【就插在這裡】舊庫存補時間 =====
+        # 🔒 =====【就插在這裡】舊庫存補時間 =====
         if "日期" in df_stock.columns:
             def fix_stock_datetime(x):
                 try:
@@ -4090,18 +4090,18 @@ elif menu == "採購管理":
 
             df_stock["日期"] = df_stock["日期"].apply(fix_stock_datetime)
 
-		# 初始化 form_in_stock session_state
-		if "form_in_stock" not in st.session_state:
-			st.session_state.form_in_stock = {
-				"色粉編號": "",
-				"數量": 0.0,
-				"單位": "g",
-				"日期": datetime.today().date(),
-				"廠商編號": "",
-				"廠商名稱": "",
-				"備註": ""
-		}	
-
+        # 初始化 form_in_stock session_state
+        if "form_in_stock" not in st.session_state:
+            st.session_state.form_in_stock = {
+                "色粉編號": "",
+                "數量": 0.0,
+                "單位": "g",
+                "日期": datetime.today().date(),
+                "廠商編號": "",
+                "廠商名稱": "",
+                "備註": ""
+        }    
+			
 		# --- 基本欄位 ---
 		col1, col2, col3, col4 = st.columns(4)
 		with col1:
