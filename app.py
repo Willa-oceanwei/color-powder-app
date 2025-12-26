@@ -5574,7 +5574,7 @@ elif menu == "庫存區":
             else:
                 all_pids = all_pids_all
 
-             if not all_pids:
+            if not all_pids:
                 st.warning("⚠️ 查無任何色粉記錄。")
                 st.stop()	
 	        # ============================================================
