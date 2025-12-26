@@ -4286,37 +4286,37 @@ elif menu == "採購管理":
                 st.info("ℹ️ 沒有符合條件的進貨資料")
 	
 	# ========== Tab 3：供應商管理 ==========
-	with tab3:
-		
-		# ===== 讀取或建立 Google Sheet =====
-		try:
-			ws_supplier = spreadsheet.worksheet("供應商管理")
-		except:
-			ws_supplier = spreadsheet.add_worksheet("供應商管理", rows=100, cols=10)
-		
-		columns = ["供應商編號", "供應商簡稱", "備註"]
-		
-		# 安全初始化 form_supplier
-		if "form_supplier" not in st.session_state or not isinstance(st.session_state.form_supplier, dict):
-			st.session_state.form_supplier = {}
-		
-		# 初始化其他 session_state 變數
-		init_states(["edit_supplier_index", "delete_supplier_index", "show_delete_supplier_confirm", "search_supplier"])
-		
-		# 確保所有欄位都有 key
-		for col in columns:
-			st.session_state.form_supplier.setdefault(col, "")
-		
-		# 載入 Google Sheet 資料
-		try:
-			df = pd.DataFrame(ws_supplier.get_all_records())
-		except:
-			df = pd.DataFrame(columns=columns)
-		
-		df = df.astype(str)
-		for col in columns:
-			if col not in df.columns:
-				df[col] = ""
+    with tab3:
+        
+        # ===== 讀取或建立 Google Sheet =====
+        try:
+            ws_supplier = spreadsheet.worksheet("供應商管理")
+        except:
+            ws_supplier = spreadsheet.add_worksheet("供應商管理", rows=100, cols=10)
+        
+        columns = ["供應商編號", "供應商簡稱", "備註"]
+        
+        # 安全初始化 form_supplier
+        if "form_supplier" not in st.session_state or not isinstance(st.session_state.form_supplier, dict):
+            st.session_state.form_supplier = {}
+        
+        # 初始化其他 session_state 變數
+        init_states(["edit_supplier_index", "delete_supplier_index", "show_delete_supplier_confirm", "search_supplier"])
+        
+        # 確保所有欄位都有 key
+        for col in columns:
+            st.session_state.form_supplier.setdefault(col, "")
+        
+        # 載入 Google Sheet 資料
+        try:
+            df = pd.DataFrame(ws_supplier.get_all_records())
+        except:
+            df = pd.DataFrame(columns=columns)
+        
+        df = df.astype(str)
+        for col in columns:
+            if col not in df.columns:
+                df[col] = ""
 		
 		# ===== 新增供應商 =====
 		st.markdown(
