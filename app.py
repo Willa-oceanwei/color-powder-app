@@ -5461,90 +5461,90 @@ elif menu == "庫存區":
 
 	# ========== Tab 2：庫存查詢 ==========
 	with tab2:
-	    col1, col2 = st.columns(2)
-	    query_start = col1.date_input("查詢起日", key="stock_start_query")
-	    query_end = col2.date_input("查詢迄日", key="stock_end_query")
+		col1, col2 = st.columns(2)
+		query_start = col1.date_input("查詢起日", key="stock_start_query")
+		query_end = col2.date_input("查詢迄日", key="stock_end_query")
 	
-	    input_key = "stock_powder"
+		input_key = "stock_powder"
 	
-	    st.markdown(f"""
-	        <style>
-	        div[data-testid="stTextInput"][data-baseweb="input"] > div:has(input#st-{input_key}) {{
-	            margin-top: -32px !important;
-	        }}
-	        </style>
+		st.markdown(f"""
+			<style>
+			div[data-testid="stTextInput"][data-baseweb="input"] > div:has(input#st-{input_key}) {{
+				margin-top: -32px !important;
+			}}
+			</style>
 	
-	        <label style="font-size:16px; font-weight:500;">
-	            色粉編號
-	            <span style="color:gray; font-size:13px; font-weight:400;">
-	                （01 以下需選擇日期，或至➔「色粉用量查詢」）
-	            </span>
-	        </label>
-	        """, unsafe_allow_html=True)
+			<label style="font-size:16px; font-weight:500;">
+				色粉編號
+				<span style="color:gray; font-size:13px; font-weight:400;">
+					（01 以下需選擇日期，或至➔「色粉用量查詢」）
+				</span>
+			</label>
+			""", unsafe_allow_html=True)
 	
-	    stock_powder = st.text_input("", key=input_key)
+		stock_powder = st.text_input("", key=input_key)
 	
-	    # ---------- session_state ----------
-	    if "last_final_stock" not in st.session_state:
-	        st.session_state["last_final_stock"] = {}
+		# ---------- session_state ----------
+		if "last_final_stock" not in st.session_state:
+			st.session_state["last_final_stock"] = {}
 	
-	    # ---------- UI 提示 ----------
-	    if not query_start and not query_end:
-	        st.info(f"ℹ️ 未選擇日期，系統將顯示截至 {date.today()} 的最新庫存數量")
-	    elif query_start and not query_end:
-	        st.info(f"ℹ️ 查詢 {query_start} ~ {date.today()} 的庫存數量")
-	    elif not query_start and query_end:
-	        st.info(f"ℹ️ 查詢最早 ~ {query_end} 的庫存數量")
-	    else:
-	        st.success(f"✅ 查詢 {query_start} ~ {query_end} 的庫存數量")
+		# ---------- UI 提示 ----------
+		if not query_start and not query_end:
+			st.info(f"ℹ️ 未選擇日期，系統將顯示截至 {date.today()} 的最新庫存數量")
+		elif query_start and not query_end:
+			st.info(f"ℹ️ 查詢 {query_start} ~ {date.today()} 的庫存數量")
+		elif not query_start and query_end:
+			st.info(f"ℹ️ 查詢最早 ~ {query_end} 的庫存數量")
+		else:
+			st.success(f"✅ 查詢 {query_start} ~ {query_end} 的庫存數量")
 	
-	    run_query = st.button("計算庫存", key="btn_calc_stock_v2") or bool(stock_powder.strip())
+		run_query = st.button("計算庫存", key="btn_calc_stock_v2") or bool(stock_powder.strip())
 	
-	    if run_query:
-	        # ============================================================
-	        # 1️⃣ 前置處理（⚠️ 改為「時間」模型）
-	        # ============================================================
-	        df_stock_copy = df_stock.copy()
+		if run_query:
+			# ============================================================
+			# 1️⃣ 前置處理（⚠️ 改為「時間」模型）
+			# ============================================================
+			df_stock_copy = df_stock.copy()
 	
-	        # 日期（保留給顯示 / 舊資料）
-	        df_stock_copy["日期"] = pd.to_datetime(
-	            df_stock_copy["日期"], errors="coerce"
-	        ).dt.normalize()
+			# 日期（保留給顯示 / 舊資料）
+			df_stock_copy["日期"] = pd.to_datetime(
+				df_stock_copy["日期"], errors="coerce"
+			).dt.normalize()
 	
-	        # ⭐ 關鍵：期初時間點（新資料有「日期時間」，舊資料退回日期 00:00）
-	        if "日期時間" in df_stock_copy.columns:
-	            df_stock_copy["日期時間"] = pd.to_datetime(
-	                df_stock_copy["日期時間"], errors="coerce"
-	            )
-	        else:
-	            df_stock_copy["日期時間"] = df_stock_copy["日期"]
+			# ⭐ 關鍵：期初時間點（新資料有「日期時間」，舊資料退回日期 00:00）
+			if "日期時間" in df_stock_copy.columns:
+				df_stock_copy["日期時間"] = pd.to_datetime(
+					df_stock_copy["日期時間"], errors="coerce"
+				)
+			else:
+				df_stock_copy["日期時間"] = df_stock_copy["日期"]
 	
-	        df_stock_copy["數量_g"] = df_stock_copy.apply(
-	            lambda r: to_grams(r["數量"], r["單位"]), axis=1
-	        )
-	        df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].astype(str).str.strip()
+			df_stock_copy["數量_g"] = df_stock_copy.apply(
+				lambda r: to_grams(r["數量"], r["單位"]), axis=1
+			)
+			df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].astype(str).str.strip()
 
 			# ---------- 生產單 ----------
-            df_order_copy = df_order.copy()
+			df_order_copy = df_order.copy()
 
-            def get_order_datetime(row):
-                # 1️⃣ 已有生產時間
-                if "生產時間" in row and pd.notna(row["生產時間"]):
-                    return pd.to_datetime(row["生產時間"], errors="coerce")
+			def get_order_datetime(row):
+				# 1️⃣ 已有生產時間
+				if "生產時間" in row and pd.notna(row["生產時間"]):
+					return pd.to_datetime(row["生產時間"], errors="coerce")
 
-                # 2️⃣ 用建立時間
-                if "建立時間" in row and pd.notna(row["建立時間"]):
-                    return pd.to_datetime(row["建立時間"], errors="coerce")
+				# 2️⃣ 用建立時間
+				if "建立時間" in row and pd.notna(row["建立時間"]):
+					return pd.to_datetime(row["建立時間"], errors="coerce")
 
-                # 3️⃣ 只有生產日期 → 補 09:00
-               if "生產日期" in row and pd.notna(row["生產日期"]):
-                    dt = pd.to_datetime(row["生產日期"], errors="coerce")
-                    if pd.notna(dt):
-                        return dt + pd.Timedelta(hours=9)
+				# 3️⃣ 只有生產日期 → 補 09:00
+			   if "生產日期" in row and pd.notna(row["生產日期"]):
+					dt = pd.to_datetime(row["生產日期"], errors="coerce")
+					if pd.notna(dt):
+						return dt + pd.Timedelta(hours=9)
 
-                return pd.NaT
+				return pd.NaT
 
-            df_order_copy["生產時間"] = df_order_copy.apply(get_order_datetime, axis=1)
+			df_order_copy["生產時間"] = df_order_copy.apply(get_order_datetime, axis=1)
 	
 	        # ============================================================
 	        # 2️⃣ 色粉清單
