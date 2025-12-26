@@ -5532,7 +5532,7 @@ elif menu == "庫存區":
                      dt = pd.to_datetime(row["生產日期"], errors="coerce")
                      if pd.notna(dt):
                         return dt + pd.Timedelta(hours=9)
-                 return pd.NaT
+                return pd.NaT
 
             df_order_copy["生產時間"] = df_order_copy.apply(get_order_datetime, axis=1)
 
