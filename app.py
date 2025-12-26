@@ -5517,26 +5517,20 @@ elif menu == "庫存區":
     
         if run_query:
             # ============================================================
-            # 1️⃣ 前置處理（⚠️ 改為「時間」模型）
+            # 1️⃣ 前置處理（時間模型）
             # ============================================================
             df_stock_copy = df_stock.copy()
-    
+
             # 日期（保留給顯示 / 舊資料）
-            df_stock_copy["日期"] = pd.to_datetime(
-                df_stock_copy["日期"], errors="coerce"
-            ).dt.normalize()
-    
-            # ⭐ 關鍵：期初時間點（新資料有「日期時間」，舊資料退回日期 00:00）
+            df_stock_copy["日期"] = pd.to_datetime(df_stock_copy["日期"], errors="coerce").dt.normalize()
+
+            # 期初時間點（新資料有「日期時間」，舊資料退回日期 00:00）
             if "日期時間" in df_stock_copy.columns:
-                df_stock_copy["日期時間"] = pd.to_datetime(
-                    df_stock_copy["日期時間"], errors="coerce"
-                )
+                df_stock_copy["日期時間"] = pd.to_datetime(df_stock_copy["日期時間"], errors="coerce")
             else:
                 df_stock_copy["日期時間"] = df_stock_copy["日期"]
-    
-            df_stock_copy["數量_g"] = df_stock_copy.apply(
-                lambda r: to_grams(r["數量"], r["單位"]), axis=1
-            )
+
+            df_stock_copy["數量_g"] = df_stock_copy.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
             df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].astype(str).str.strip()
 
             # ---------- 生產單 ----------
@@ -5546,36 +5540,29 @@ elif menu == "庫存區":
                 # 1️⃣ 已有生產時間
                 if "生產時間" in row and pd.notna(row["生產時間"]):
                     return pd.to_datetime(row["生產時間"], errors="coerce")
-
                 # 2️⃣ 用建立時間
                 if "建立時間" in row and pd.notna(row["建立時間"]):
                     return pd.to_datetime(row["建立時間"], errors="coerce")
-
-                # 3️⃣ 只有生產日期 → 補 09:00
+                 # 3️⃣ 只有生產日期 → 補 09:00
                 if "生產日期" in row and pd.notna(row["生產日期"]):
-                    dt = pd.to_datetime(row["生產日期"], errors="coerce")
+                     dt = pd.to_datetime(row["生產日期"], errors="coerce")
                     if pd.notna(dt):
                         return dt + pd.Timedelta(hours=9)
-
-                return pd.NaT
+                 return pd.NaT
 
             df_order_copy["生產時間"] = df_order_copy.apply(get_order_datetime, axis=1)
-	
-	        # ============================================================
-	        # 2️⃣ 色粉清單
-	        # ============================================================
-            # ---------- 取得所有色粉編號 ----------
-            all_pids_stock = sorted(set(df_stock_copy["色粉編號"].astype(str).str.strip().tolist())) \
-                             if not df_stock_copy.empty else []
+
+            # ============================================================
+            # 2️⃣ 色粉清單
+            # ============================================================
+            all_pids_stock = sorted(set(df_stock_copy["色粉編號"].tolist())) if not df_stock_copy.empty else []
 
             all_pids_recipe = []
             if not df_recipe.empty:
                 for i in range(1, 9):
                     col = f"色粉編號{i}"
                     if col in df_recipe.columns:
-                        all_pids_recipe.extend(
-                            df_recipe[col].astype(str).str.strip().tolist()
-                        )
+                        all_pids_recipe.extend(df_recipe[col].astype(str).str.strip().tolist())
 
             # 結合庫存與配方
             all_pids_all = sorted(set(all_pids_stock) | set(p for p in all_pids_recipe if p))
@@ -5585,33 +5572,36 @@ elif menu == "庫存區":
             if stock_powder_strip:
                 all_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
                 if not all_pids:
-                     st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
-                     st.stop()
+                    st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
+                    st.stop()
             else:
                 all_pids = all_pids_all
 
             if not all_pids:
                 st.warning("⚠️ 查無任何色粉記錄。")
-                st.stop()	
-	        # ============================================================
-	        # 3️⃣ 查詢時間區間（datetime）
-	        # ============================================================
+                st.stop()
+
+            # ============================================================
+            # 3️⃣ 查詢時間區間（datetime）
+            # ============================================================
             today_dt = pd.Timestamp.now()
-    
-            start_dt = (
-                pd.to_datetime(query_start)
-                if query_start else pd.Timestamp.min
-            )
-    
-            end_dt = (
-                pd.to_datetime(query_end) + pd.Timedelta(days=1)
-                if query_end else today_dt
-            )
-    
-            if query_start and query_end and start_dt > end_dt:
+
+            start_dt = pd.to_datetime(query_start) if query_start else pd.Timestamp.min
+            end_dt = pd.to_datetime(query_end) + pd.Timedelta(hours=23, minutes=59, seconds=59) if query_end else today_dt
+
+            if start_dt > end_dt:
                 st.error("❌ 查詢起日不能晚於查詢迄日。")
                 st.stop()
-				
+
+            # ============================================================
+            # 4️⃣ 過濾生產單（orders_in_range）
+            # ============================================================
+            orders_in_range = df_order_copy[
+                (df_order_copy["生產時間"].notna()) &
+                (df_order_copy["生產時間"] >= start_dt) &
+                (df_order_copy["生產時間"] <= end_dt)
+            ].copy()
+		
 	        # ============================================================
 	        # 4️⃣ 核心計算
 	        # ============================================================
