@@ -5527,21 +5527,21 @@ elif menu == "庫存區":
             df_order_copy = df_order.copy()
 
             def get_order_datetime(row):
-            # 1️⃣ 已有生產時間
-            if "生產時間" in row and pd.notna(row["生產時間"]):
-                return pd.to_datetime(row["生產時間"], errors="coerce")
+                # 1️⃣ 已有生產時間
+                if "生產時間" in row and pd.notna(row["生產時間"]):
+                    return pd.to_datetime(row["生產時間"], errors="coerce")
 
-            # 2️⃣ 用建立時間
-            if "建立時間" in row and pd.notna(row["建立時間"]):
-                return pd.to_datetime(row["建立時間"], errors="coerce")
+                # 2️⃣ 用建立時間
+                if "建立時間" in row and pd.notna(row["建立時間"]):
+                    return pd.to_datetime(row["建立時間"], errors="coerce")
 
-            # 3️⃣ 只有生產日期 → 補 09:00
-            if "生產日期" in row and pd.notna(row["生產日期"]):
-                dt = pd.to_datetime(row["生產日期"], errors="coerce")
-                if pd.notna(dt):
-                    return dt + pd.Timedelta(hours=9)
+                # 3️⃣ 只有生產日期 → 補 09:00
+                if "生產日期" in row and pd.notna(row["生產日期"]):
+                    dt = pd.to_datetime(row["生產日期"], errors="coerce")
+                    if pd.notna(dt):
+                        return dt + pd.Timedelta(hours=9)
 
-            return pd.NaT
+                return pd.NaT
 
             df_order_copy["生產時間"] = df_order_copy.apply(get_order_datetime, axis=1)
 	
