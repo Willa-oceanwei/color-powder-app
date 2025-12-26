@@ -5599,66 +5599,66 @@ elif menu == "庫存區":
 	        # ============================================================
 	        # 4️⃣ 核心計算
 	        # ============================================================
-	        def safe_format(x):
-	            try:
-	                return format_usage(x)
-	            except:
-	                return "0"
-	
-	        stock_summary = []
-	
-	        for pid in all_pids:
-	            df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
-	
-	            # ---------- (A) 找最新期初（時間點快照） ----------
-	            df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
-	
-	            if not df_ini.empty:
-	                latest_ini = df_ini.sort_values(
-	                    "日期時間", ascending=False
-	                ).iloc[0]
-	
-	                ini_value = latest_ini["數量_g"]
-	                ini_dt = latest_ini["日期時間"]
-	                ini_note = f"期初來源：{ini_dt.strftime('%Y/%m/%d %H:%M')}"
-	
-	            else:
-	                ini_value = 0.0
-	                ini_dt = pd.Timestamp.min
-	                ini_note = "—"
-	
-	            # ---------- (B) 區間進貨 ----------
-	            in_qty = df_pid[
-	                (df_pid["類型"].astype(str).str.strip() == "進貨") &
-	                (df_pid["日期時間"] > ini_dt) &
-	                (df_pid["日期時間"] <= end_dt)
-	            ]["數量_g"].sum()
-	
-	            # ---------- (C) 區間用量（⚠️ 用時間） ----------
-	            usage_qty = (
-	                safe_calc_usage(
-	                    pid,
-	                    df_order_copy,
-	                    df_recipe,
-	                    ini_dt,
-	                    end_dt
-	                )
-	                if not df_order.empty and not df_recipe.empty
-	                else 0.0
-	            )
-	
-	            final_g = ini_value + in_qty - usage_qty
-	            st.session_state["last_final_stock"][pid] = final_g
-	
-	            if not str(pid).endswith(("01", "001", "0001")):
-	                stock_summary.append({
-	                    "色粉編號": pid,
-	                    "期初庫存": safe_format(ini_value),
-	                    "區間進貨": safe_format(in_qty),
-	                    "區間用量": safe_format(usage_qty),
-	                    "期末庫存": safe_format(final_g),
-	                    "備註": ini_note,
-	                })
+            def safe_format(x):
+                try:
+                    return format_usage(x)
+                except:
+                    return "0"
+    
+            stock_summary = []
+    
+            for pid in all_pids:
+                df_pid = df_stock_copy[df_stock_copy["色粉編號"] == pid].copy()
+    
+                # ---------- (A) 找最新期初（時間點快照） ----------
+                df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
+    
+                if not df_ini.empty:
+                    latest_ini = df_ini.sort_values(
+                        "日期時間", ascending=False
+                    ).iloc[0]
+    
+                    ini_value = latest_ini["數量_g"]
+                    ini_dt = latest_ini["日期時間"]
+                    ini_note = f"期初來源：{ini_dt.strftime('%Y/%m/%d %H:%M')}"
+    
+                else:
+                    ini_value = 0.0
+                    ini_dt = pd.Timestamp.min
+                    ini_note = "—"
+    
+                # ---------- (B) 區間進貨 ----------
+                in_qty = df_pid[
+                    (df_pid["類型"].astype(str).str.strip() == "進貨") &
+                    (df_pid["日期時間"] > ini_dt) &
+                    (df_pid["日期時間"] <= end_dt)
+                ]["數量_g"].sum()
+    
+                # ---------- (C) 區間用量（⚠️ 用時間） ----------
+                usage_qty = (
+                    safe_calc_usage(
+                        pid,
+                        df_order_copy,
+                        df_recipe,
+                        ini_dt,
+                        end_dt
+                    )
+                    if not df_order.empty and not df_recipe.empty
+                    else 0.0
+                )
+    
+                final_g = ini_value + in_qty - usage_qty
+                st.session_state["last_final_stock"][pid] = final_g
+    
+                if not str(pid).endswith(("01", "001", "0001")):
+                    stock_summary.append({
+                        "色粉編號": pid,
+                        "期初庫存": safe_format(ini_value),
+                        "區間進貨": safe_format(in_qty),
+                        "區間用量": safe_format(usage_qty),
+                        "期末庫存": safe_format(final_g),
+                        "備註": ini_note,
+                    })
 	
 	        # ============================================================
 	        # 5️⃣ 顯示
