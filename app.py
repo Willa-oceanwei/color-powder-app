@@ -5549,33 +5549,33 @@ elif menu == "庫存區":
 	        # 2️⃣ 色粉清單
 	        # ============================================================
 	        all_pids_stock = df_stock_copy["色粉編號"].unique() if not df_stock_copy.empty else []
-	        all_pids_recipe = []
-	
-	        if not df_recipe.empty:
-	            for i in range(1, 9):
-	                c = f"色粉編號{i}"
-	                if c in df_recipe.columns:
-	                    all_pids_recipe.extend(
-	                        df_recipe[c].astype(str).str.strip().tolist()
-	                    )
-	
-	        all_pids_all = sorted(set(all_pids_stock) | {p for p in all_pids_recipe if p})
-	
-	        stock_powder_strip = stock_powder.strip()
-	        if stock_powder_strip:
-	            all_pids = [
-	                pid for pid in all_pids_all
-	                if stock_powder_strip.lower() in pid.lower()
-	            ]
-	            if not all_pids:
-	                st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
-	                st.stop()
-	        else:
-	            all_pids = all_pids_all
-	
-	        if not all_pids:
-	            st.warning("⚠️ 查無任何色粉記錄。")
-	            st.stop()
+            all_pids_recipe = []
+    
+            if not df_recipe.empty:
+                for i in range(1, 9):
+                    c = f"色粉編號{i}"
+                    if c in df_recipe.columns:
+                        all_pids_recipe.extend(
+                            df_recipe[c].astype(str).str.strip().tolist()
+                        )
+    
+            all_pids_all = sorted(set(all_pids_stock) | {p for p in all_pids_recipe if p})
+    
+            stock_powder_strip = stock_powder.strip()
+            if stock_powder_strip:
+                all_pids = [
+                    pid for pid in all_pids_all
+                    if stock_powder_strip.lower() in pid.lower()
+                ]
+                if not all_pids:
+                    st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
+                    st.stop()
+            else:
+                all_pids = all_pids_all
+    
+            if not all_pids:
+                st.warning("⚠️ 查無任何色粉記錄。")
+                st.stop()
 	
 	        # ============================================================
 	        # 3️⃣ 查詢時間區間（datetime）
