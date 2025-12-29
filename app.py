@@ -4068,14 +4068,19 @@ elif menu == "採購管理":
     tab1, tab2, tab3 = st.tabs(["📲 進貨新增", "🔍 進貨查詢", "🏢 供應商管理"])
 
     # ========== Tab 1：進貨新增 ==========
-    try:
-        ws_stock = spreadsheet.worksheet("庫存記錄")
-        df_stock = pd.DataFrame(ws_stock.get_all_records())
-    except:
-        ws_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
-        ws_stock.append_row(["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"])
-        df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"])
-
+	with tab1:
+    
+        # ✅ 讀取庫存記錄表（使用 spreadsheet）
+        try:
+            ws_stock = spreadsheet.worksheet("庫存記錄")
+            df_stock = pd.DataFrame(ws_stock.get_all_records())
+        except:
+            ws_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
+            ws_stock.append_row(["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"])
+            df_stock = pd.DataFrame(
+                columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"]
+            )
+    
         # 🔒 ===== 舊庫存補時間 =====
         if "日期" in df_stock.columns:
             def fix_stock_datetime(x):
@@ -4090,7 +4095,7 @@ elif menu == "採購管理":
                 except:
                     return x
             df_stock["日期"] = df_stock["日期"].apply(fix_stock_datetime)
-
+    
         # 初始化 form_in_stock session_state
         if "form_in_stock" not in st.session_state:
             st.session_state.form_in_stock = {
@@ -4102,7 +4107,7 @@ elif menu == "採購管理":
                 "廠商名稱": "",
                 "備註": ""
             }
-
+    
         # --- 基本欄位 ---
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -4121,22 +4126,22 @@ elif menu == "採購管理":
             st.session_state.form_in_stock["日期"] = st.date_input(
                 "進貨日期", value=st.session_state.form_in_stock["日期"]
             )
-
+    
         # --- 廠商欄位，下拉選單 + 自動帶出名稱 ---
         try:
             ws_supplier = spreadsheet.worksheet("供應商管理")
             df_supplier = pd.DataFrame(ws_supplier.get_all_records()).astype(str)
         except:
             df_supplier = pd.DataFrame(columns=["供應商編號", "供應商簡稱"])
-
+    
         # 確保欄位存在
         for col in ["供應商編號", "供應商簡稱"]:
             if col not in df_supplier.columns:
                 df_supplier[col] = ""
-
+    
         supplier_name_map = df_supplier.set_index("供應商編號")["供應商簡稱"].to_dict()
         supplier_options = df_supplier["供應商編號"].tolist()
-
+    
         col5, col6 = st.columns(2)
         with col5:
             selected_supplier = st.selectbox(
@@ -4147,7 +4152,7 @@ elif menu == "採購管理":
                 format_func=lambda x: f"{x} - {supplier_name_map[x]}" if x else ""
             )
             st.session_state.form_in_stock["廠商編號"] = selected_supplier
-
+    
         with col6:
             st.session_state.form_in_stock["廠商名稱"] = supplier_name_map.get(selected_supplier, "")
             st.text_input(
@@ -4155,12 +4160,12 @@ elif menu == "採購管理":
                 value=st.session_state.form_in_stock["廠商名稱"],
                 disabled=True
             )
-
+    
         # --- 備註欄 ---
         st.session_state.form_in_stock["備註"] = st.text_input(
             "備註", st.session_state.form_in_stock["備註"]
         )
-
+    
         # --- 新增進貨按鈕 ---
         if st.button("新增進貨", key="btn_add_in"):
             if not st.session_state.form_in_stock["色粉編號"].strip():
@@ -4176,18 +4181,18 @@ elif menu == "採購管理":
                     "廠商名稱": st.session_state.form_in_stock["廠商名稱"].strip(),
                     "備註": st.session_state.form_in_stock["備註"]
                 }
-
+    
                 df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
-
-                # 寫回 Google Sheet
+    
+                # ✅ 寫回 Google Sheet
                 df_to_upload = df_stock.copy()
                 df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce")\
                                          .dt.strftime("%Y/%m/%d").fillna("")
                 df_to_upload = df_to_upload.astype(str)
-            
+                
                 ws_stock.clear()
                 ws_stock.update([df_to_upload.columns.tolist()] + df_to_upload.values.tolist())
-
+    
                 # 清空表單
                 st.session_state.form_in_stock = {
                     "色粉編號": "",
@@ -4198,8 +4203,9 @@ elif menu == "採購管理":
                     "廠商名稱": "",
                     "備註": ""
                 }
-
+    
                 st.success("✅ 進貨紀錄已新增")
+                st.rerun()
 				
 	# ========== Tab 2：進貨查詢 ==========
     with tab2:
