@@ -5207,19 +5207,19 @@ elif menu == "庫存區":
     df_order = st.session_state.get("df_order", pd.DataFrame())
 
     # 打開工作簿 & 工作表
+    # ✅ 讀取庫存記錄表（改用 spreadsheet）
     try:
-        sh = client.open("色粉管理")  # Google Sheet 名稱
-        ws_stock = sh.worksheet("庫存記錄")  # 對應工作表名稱
-    except NameError:
-        st.error("⚠️ Google Sheets 客戶端 'client' 未定義，請確保已正確連線。")
-        ws_stock = None
-
-    # ---------- 讀取資料 ----------
-    records = ws_stock.get_all_records() if ws_stock else []
-    if records:
-        df_stock = pd.DataFrame(records)
-    else:
+        ws_stock = spreadsheet.worksheet("庫存記錄")
+        records = ws_stock.get_all_records()
+        if records:
+            df_stock = pd.DataFrame(records)
+        else:
+            df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
+    except:
+        ws_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
+        ws_stock.append_row(["類型","色粉編號","日期","數量","單位","備註"])
         df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
+
     st.session_state.df_stock = df_stock
 
     # 工具：將 qty+unit 轉成 g
