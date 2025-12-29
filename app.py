@@ -5396,12 +5396,33 @@ elif menu == "庫存區":
         )
 
         # ===== 使用者提示（很重要）=====
+        st.markdown(
+            """
+            <style>
+            .small-info div {
+                font-size: 13px;
+                line-height: 1.5;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            """
+            <div class="small-info">
+            """,
+            unsafe_allow_html=True
+        )
+
         st.info(
             "ℹ️ 期初庫存視為「該時間點的實際庫存」。\n\n"
             "✔️ 同日 **此時間點後** 的生產單都會扣庫存\n"
             "❌ 此時間點之前的生產單則不回溯扣除"
         )
-    
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
         if st.button("儲存初始庫存", key="btn_save_ini"):
             if not ini_powder.strip():
                 st.warning("⚠️ 請輸入色粉編號！")
