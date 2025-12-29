@@ -5561,12 +5561,17 @@ elif menu == "庫存區":
             # 結合庫存與配方
             all_pids_all = sorted(set(all_pids_stock) | set(p for p in all_pids_recipe if p))
 
-            # 使用者搜尋
+            # 使用者搜尋（精準比對色粉編號）
             stock_powder_strip = stock_powder.strip()
+
             if stock_powder_strip:
-                all_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
+                all_pids = [
+                    pid for pid in all_pids_all
+                    if pid.strip() == stock_powder_strip
+                ]
+
                 if not all_pids:
-                    st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
+                    st.warning(f"⚠️ 查無色粉編號「{stock_powder_strip}」的記錄。")
                     st.stop()
             else:
                 all_pids = all_pids_all
