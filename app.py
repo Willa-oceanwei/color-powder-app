@@ -4068,16 +4068,13 @@ elif menu == "採購管理":
     tab1, tab2, tab3 = st.tabs(["📲 進貨新增", "🔍 進貨查詢", "🏢 供應商管理"])
 
     # ========== Tab 1：進貨新增 ==========
-    with tab1:
-
-        # 讀取庫存記錄表
-        try:
-            ws_stock = spreadsheet.worksheet("庫存記錄")
-            df_stock = pd.DataFrame(ws_stock.get_all_records())
-        except:
-            df_stock = pd.DataFrame(
-                columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"]
-            )
+    try:
+        ws_stock = spreadsheet.worksheet("庫存記錄")
+        df_stock = pd.DataFrame(ws_stock.get_all_records())
+    except:
+        ws_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
+        ws_stock.append_row(["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"])
+        df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"])
 
         # 🔒 ===== 舊庫存補時間 =====
         if "日期" in df_stock.columns:
@@ -4187,6 +4184,7 @@ elif menu == "採購管理":
                 df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce")\
                                          .dt.strftime("%Y/%m/%d").fillna("")
                 df_to_upload = df_to_upload.astype(str)
+            
                 ws_stock.clear()
                 ws_stock.update([df_to_upload.columns.tolist()] + df_to_upload.values.tolist())
 
@@ -4202,6 +4200,7 @@ elif menu == "採購管理":
                 }
 
                 st.success("✅ 進貨紀錄已新增")
+				st.rerun()
 
 	# ========== Tab 2：進貨查詢 ==========
     with tab2:
