@@ -4206,8 +4206,7 @@ elif menu == "採購管理":
                 df_to_upload = df_to_upload.astype(str)
 
                 ws_stock.update(
-                    [df_to_upload.columns.tolist()] +
-                    df_to_upload.values.tolist()
+                    [df_to_upload.columns.tolist()] + df_to_upload.values.tolist()
                 )
 
                 # 清空表單
