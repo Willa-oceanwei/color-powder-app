@@ -5402,7 +5402,7 @@ elif menu == "庫存區":
             .small-info div {
                 font-size: 10px;
                 line-height: 1.5;
-				margin-bottom: 4px;
+				margin-bottom: 2px;
             }
             </style>
             """,
