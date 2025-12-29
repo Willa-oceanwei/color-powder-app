@@ -5399,28 +5399,22 @@ elif menu == "庫存區":
         st.markdown(
             """
             <style>
+            /* 縮小 st.info 外層 element-container 的下方空白 */
+            .small-info > div {
+                margin-bottom: 2px !important;
+            }
+
             /* 文字本身 */
             .small-info div {
                 font-size: 10px;
                 line-height: 1.5;
-                margin-bottom: 0px;
-            }
-
-            /* 🔥 只縮「包在 .small-info 裡的 st.info」外距 */
-            .small-info div.element-container:has(div[data-testid="stAlert"]) {
-                margin-bottom: 2px !important;
             }
             </style>
             """,
             unsafe_allow_html=True
         )
 
-        st.markdown(
-            """
-            <div class="small-info">
-            """,
-            unsafe_allow_html=True
-        )
+        st.markdown('<div class="small-info">', unsafe_allow_html=True)
 
         st.info(
             "ℹ️ 期初庫存視為「該時間點的實際庫存」。\n\n"
