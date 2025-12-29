@@ -5400,7 +5400,7 @@ elif menu == "庫存區":
             """
             <style>
             .small-info div {
-                font-size: 13px;
+                font-size: 11px;
                 line-height: 1.5;
             }
             </style>
