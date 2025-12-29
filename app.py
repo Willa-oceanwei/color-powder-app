@@ -4183,12 +4183,28 @@ elif menu == "採購管理":
                 df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
 
                 # 寫回 Google Sheet
+                # ===== 取得或建立「庫存」worksheet（一定成功）=====
+                try:
+                    ws_stock = spreadsheet.worksheet("庫存")
+                except:
+                    ws_stock = spreadsheet.add_worksheet("庫存", rows=1000, cols=20)
+
+                # ===== 寫回 Google Sheet =====
                 df_to_upload = df_stock.copy()
-                df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce")\
-                                         .dt.strftime("%Y/%m/%d").fillna("")
+
+                df_to_upload["日期"] = (
+                    pd.to_datetime(df_to_upload["日期"], errors="coerce")
+                    .dt.strftime("%Y/%m/%d")
+                    .fillna("")
+                )
+
                 df_to_upload = df_to_upload.astype(str)
-                ws_stock.clear()
-                ws_stock.update([df_to_upload.columns.tolist()] + df_to_upload.values.tolist())
+
+                ws_stock.batch_clear([f"A2:Z{ws_stock.row_count}"])
+                ws_stock.update(
+                    [df_to_upload.columns.tolist()] +
+                    df_to_upload.values.tolist()
+                )
 
                 # 清空表單
                 st.session_state.form_in_stock = {
