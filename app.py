@@ -5372,29 +5372,29 @@ elif menu == "庫存區":
             "數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty"
         )
         ini_unit = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
-    
+
         # ⭐ 日期 + 時間（關鍵）
-　　　　col4, col5 = st.columns(2)
+        col4, col5 = st.columns(2)
 
-　　　　ini_date = col4.date_input(
-　　　　　　"設定時間", 
-    　　　　value=datetime.today(),
-    　　　　key="ini_date"
-　　　　)
+        ini_date = col4.date_input(
+            "設定時間",
+            value=datetime.today(),
+            key="ini_date"
+        )
 
-　　　　ini_time = col5.time_input(
-　　　　 　 "設定時間",
-    　　　　value=datetime.now().replace(microsecond=0).time(),
-    　　　　key="ini_time"
-　　　　)
+        ini_time = col5.time_input(
+            "設定時間",
+            value=datetime.now().replace(microsecond=0).time(),
+            key="ini_time"
+        )
 
-　　　　ini_note = st.text_input("備註", key="ini_note")
+        ini_note = st.text_input("備註", key="ini_note")
 
-　　　　# 👉 組合成真正的 Timestamp（只做一次）
-　　　　ini_datetime = pd.to_datetime(
-    　　　　datetime.combine(ini_date, ini_time)
-　　　　)
- 
+        # 👉 組合成真正的 Timestamp（只做一次）
+        ini_datetime = pd.to_datetime(
+            datetime.combine(ini_date, ini_time)
+        )
+
         # ===== 使用者提示（很重要）=====
         st.info(
             "ℹ️ 期初庫存視為「該時間點的實際庫存」。\n\n"
