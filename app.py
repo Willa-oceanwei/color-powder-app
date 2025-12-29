@@ -4188,6 +4188,8 @@ elif menu == "採購管理":
                     ws_stock = spreadsheet.worksheet("庫存記錄")
                 except:
                     ws_stock = spreadsheet.add_worksheet("庫存記錄", rows=1000, cols=20)
+
+				st.write("worksheet title:", ws_stock.title)
                 
                 # ===== 確保標題列存在 =====
                 if ws_stock.row_count < 1:
@@ -4205,7 +4207,7 @@ elif menu == "採購管理":
                 # ===== 清除 A2 以後的資料（保留標題列） =====
                 # 使用 try 防呆，避免空 worksheet 或範圍錯誤
                 try:
-                    ws_stock.batch_clear([f"A2:ZZ{ws_stock.row_count}"])
+                    ws_stock.update([df_to_upload.columns.tolist()] + df_to_upload.values.tolist())
                 except Exception as e:
                     st.warning(f"⚠️ 清空舊資料時發生錯誤: {e}")
                 
