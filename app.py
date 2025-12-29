@@ -4182,21 +4182,18 @@ elif menu == "採購管理":
 
                 df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
 
-                # 寫回 Google Sheet
+				# 寫回 Google Sheet
                 # ===== 取得或建立「庫存」worksheet（一定成功）=====
                 try:
                     ws_stock = spreadsheet.worksheet("庫存")
                 except:
                     ws_stock = spreadsheet.add_worksheet("庫存", rows=1000, cols=20)
-
-                # 保證標題列存在
+                
+                # ===== 確保標題列存在 =====
                 if ws_stock.row_count < 1:
                     ws_stock.update([df_stock.columns.tolist()])  # 建立標題列
-
-                # ===== 清除 A2 以後的資料 =====
-                ws_stock.batch_clear([f"A2:Z{ws_stock.row_count}"])
-
-                # ===== 寫回 Google Sheet =====
+                
+                # ===== 複製資料並處理日期格式 =====
                 df_to_upload = df_stock.copy()
                 df_to_upload["日期"] = (
                     pd.to_datetime(df_to_upload["日期"], errors="coerce")
@@ -4204,23 +4201,37 @@ elif menu == "採購管理":
                     .fillna("")
                 )
                 df_to_upload = df_to_upload.astype(str)
-
-                ws_stock.update(
-                    [df_to_upload.columns.tolist()] + df_to_upload.values.tolist()
-                )
-
-                # 清空表單
-                st.session_state.form_in_stock = {
-                    "色粉編號": "",
-                    "數量": 0.0,
-                    "單位": "g",
-                    "日期": datetime.today().date(),
-                    "廠商編號": "",
-                    "廠商名稱": "",
-                    "備註": ""
-                }
-
-                st.success("✅ 進貨紀錄已新增")
+                
+                # ===== 清除 A2 以後的資料（保留標題列） =====
+                # 使用 try 防呆，避免空 worksheet 或範圍錯誤
+                try:
+                    ws_stock.batch_clear([f"A2:Z{ws_stock.row_count}"])
+                except Exception as e:
+                    st.warning(f"⚠️ 清空舊資料時發生錯誤: {e}")
+                
+                # ===== 寫回資料 =====
+                try:
+                    ws_stock.update(
+                        [df_to_upload.columns.tolist()] + df_to_upload.values.tolist()
+                    )
+                except Exception as e:
+                    st.error(f"❌ 寫入 Google Sheet 發生錯誤: {e}")
+                else:
+                    # ===== 清空表單 =====
+                    st.session_state.form_in_stock = {
+                        "色粉編號": "",
+                        "數量": 0.0,
+                        "單位": "g",
+                        "日期": datetime.today().date(),
+                        "廠商編號": "",
+                        "廠商名稱": "",
+                        "備註": ""
+                    }
+                
+                    st.success("✅ 進貨紀錄已新增")
+                    # ===== Debug 信息，可選 =====
+                    # st.write("worksheet title:", ws_stock.title)
+                    # st.write("寫入的 df_to_upload:", df_to_upload)
 
 	# ========== Tab 2：進貨查詢 ==========
     with tab2:
