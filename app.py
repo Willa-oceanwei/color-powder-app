@@ -5399,10 +5399,16 @@ elif menu == "庫存區":
         st.markdown(
             """
             <style>
+            /* 文字本身 */
             .small-info div {
                 font-size: 10px;
                 line-height: 1.5;
-				margin-bottom: 2px;
+                margin-bottom: 0px;
+            }
+
+            /* 🔥 只縮「包在 .small-info 裡的 st.info」外距 */
+            .small-info div.element-container:has(div[data-testid="stAlert"]) {
+                margin-bottom: 2px !important;
             }
             </style>
             """,
