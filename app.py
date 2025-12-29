@@ -4189,18 +4189,22 @@ elif menu == "採購管理":
                 except:
                     ws_stock = spreadsheet.add_worksheet("庫存", rows=1000, cols=20)
 
+                # 保證標題列存在
+                if ws_stock.row_count < 1:
+                    ws_stock.update([df_stock.columns.tolist()])  # 建立標題列
+
+                # ===== 清除 A2 以後的資料 =====
+                ws_stock.batch_clear([f"A2:Z{ws_stock.row_count}"])
+
                 # ===== 寫回 Google Sheet =====
                 df_to_upload = df_stock.copy()
-
                 df_to_upload["日期"] = (
                     pd.to_datetime(df_to_upload["日期"], errors="coerce")
                     .dt.strftime("%Y/%m/%d")
                     .fillna("")
                 )
-
                 df_to_upload = df_to_upload.astype(str)
 
-                ws_stock.batch_clear([f"A2:Z{ws_stock.row_count}"])
                 ws_stock.update(
                     [df_to_upload.columns.tolist()] +
                     df_to_upload.values.tolist()
