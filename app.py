@@ -2552,6 +2552,7 @@ elif menu == "生產單管理":
 		
 		    st.session_state["new_order"] = order
             st.session_state["show_confirm_panel"] = True
+
 		
 		    # 建立 recipe_row_cache
 		    st.session_state["recipe_row_cache"] = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in selected_row.items()}
