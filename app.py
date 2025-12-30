@@ -2955,38 +2955,48 @@ elif menu == "生產單管理":
 				
 # 產生列印 HTML 按鈕
 # ===== 表單（儲存流程）結束後 =====
+# ===== 產生列印 HTML 按鈕 =====
+order = st.session_state.get("new_order", {})
 is_saved = st.session_state.get("new_order_saved", False)
+print_html = generate_print_page_content(
+    order=order,
+    recipe_row=st.session_state.get("recipe_row_cache", {}),
+    additional_recipe_rows=order.get("附加配方", []),
+    show_additional_ids=st.session_state.get("show_ids_tab1", False)
+)
 
-# ===== 列印區塊（只看 session_state）=====
-if is_saved:
-	st.markdown("### 📄 列印生產單")
+col1, col2, col3 = st.columns([3,1,3])
+with col1:
+    st.download_button(
+        label="📥 下載 A5 HTML",
+        data=print_html.encode("utf-8"),
+        file_name=f"{order.get('生產單號','未命名')}_列印.html",
+        mime="text/html",
+        disabled=not is_saved,  # 沒儲存就灰掉
+        key="download_html_tab1"
+    )
 
-	show_ids = st.checkbox(
-		"列印時顯示附加配方編號",
-		value=False,
-		key="show_ids_tab1"
-	)
+# ===== 提醒訊息 =====
+if not is_saved:
+    st.warning("⚠️ 請先按『💾 僅儲存生產單』，才能下載 A5 生產單！")
 
-	print_html = generate_print_page_content(
-		order=order,
-		recipe_row=recipe_row,
-		additional_recipe_rows=order.get("附加配方", []),
-		show_additional_ids=show_ids
-	)
+# ===== 儲存流程（簡化示意） =====
+submitted = st.session_state.get("submitted_tab1", False)  # 假設你按下的 form_submit_button 會設定這個
+if submitted:
+    try:
+        # 將 order 寫入 Google Sheet
+        row_data = [str(order.get(col,"")).strip() for col in df_order.columns]
+        ws_order.append_row(row_data)
 
-	col1, col2, col3 = st.columns([3, 1, 3])
+        # 更新 session_state df_order 與 CSV
+        df_new = pd.DataFrame([order], columns=df_order.columns)
+        st.session_state.df_order = pd.concat([st.session_state.df_order, df_new], ignore_index=True)
+        st.session_state.df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
 
-	with col1:
-		st.download_button(
-			label="📥 下載 A5 HTML",
-			data=print_html.encode("utf-8"),
-			file_name=f"{order['生產單號']}_列印.html",
-			mime="text/html",
-			key="download_html_tab1"
-		)
-else:
-	st.info("💡 請先完成並儲存生產單，才能下載 A5 生產單")
-
+        st.session_state.new_order_saved = True
+        st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+    except Exception as e:
+        st.error(f"❌ 儲存 Google Sheet 失敗：{e}")
 						
 	# ============================================================
 	# Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
