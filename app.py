@@ -2953,7 +2953,7 @@ elif menu == "生產單管理":
 					st.error(f"❌ 寫入失敗：{e}")
 				
 		# ===== 產生列印 HTML =====
-		show_ids = st.checkbox(
+        show_ids = st.checkbox(
             "列印時顯示附加配方編號",
             value=False,
             key="show_ids_tab1"
@@ -2982,6 +2982,7 @@ elif menu == "生產單管理":
                     mime="text/html",
                     key="download_html_tab1"
                 )
+                    
 					
 	# ============================================================
 	# Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
