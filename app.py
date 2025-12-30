@@ -4921,7 +4921,7 @@ elif menu == "查詢區":
 		)
 
 		# ======== 🔍 查詢 Pantone 色號 ========
-		st.markdown("**🔍 查詢 Pantone 色號**")
+        st.markdown("**🔍 查詢 Pantone 色號**")
         
         # 同一行：輸入框 + 搜尋模式
         c1, c2 = st.columns([2, 1])  # 輸入框較寬
@@ -4968,7 +4968,7 @@ elif menu == "查詢區":
                         df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True),
                         use_container_width=True,
                     )
-
+					
 	# ========== Tab 4：樣品記錄表 ==========
 	from datetime import datetime, date
 	
