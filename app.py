@@ -2969,6 +2969,7 @@ elif menu == "生產單管理":
 				file_name=f"{order['生產單號']}_列印.html",
 				mime="text/html",
 				key="download_html_tab1"
+				disabled=not st.session_state.get("new_order_saved", False)  # 未儲存前禁用
 			)
 				
 		with col3:
