@@ -5400,7 +5400,11 @@ elif menu == "庫存區":
         )
 
         # ===== 使用者提示（很重要）=====
-        st.info("ℹ️ 庫存僅扣除期初庫存儲存後之生產單（含當日）")
+        st.info(
+            "ℹ️ 期初庫存視為「該時間點的實際庫存」。\n\n"
+            "✔️ 同日 **此時間點後** 的生產單都會扣庫存\n"
+            "❌ 此時間點之前的生產單則不回溯扣除"
+        )
     
         if st.button("儲存初始庫存", key="btn_save_ini"):
             if not ini_powder.strip():
@@ -5557,17 +5561,12 @@ elif menu == "庫存區":
             # 結合庫存與配方
             all_pids_all = sorted(set(all_pids_stock) | set(p for p in all_pids_recipe if p))
 
-            # 使用者搜尋（精準比對色粉編號）
+            # 使用者搜尋
             stock_powder_strip = stock_powder.strip()
-
             if stock_powder_strip:
-                all_pids = [
-                    pid for pid in all_pids_all
-                    if pid.strip() == stock_powder_strip
-                ]
-
+                all_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
                 if not all_pids:
-                    st.warning(f"⚠️ 查無色粉編號「{stock_powder_strip}」的記錄。")
+                    st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
                     st.stop()
             else:
                 all_pids = all_pids_all
