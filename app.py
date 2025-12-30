@@ -2519,7 +2519,7 @@ elif menu == "生產單管理":
 	
 		# ===== 顯示選擇結果 =====
 		#    =====    顯示選擇結果    =====
-        if    not    option_map:
+        if not option_map:
             st.warning("查無符合的配方")
             selected_row    =    None
             selected_label    =    None
