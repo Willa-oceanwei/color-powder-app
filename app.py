@@ -4514,328 +4514,328 @@ elif menu == "採購管理":
                         st.session_state.delete_supplier_index = i
                         st.session_state.show_delete_supplier_confirm = True
                         st.rerun()
-			
+
 # ======== 交叉查詢分頁 =========
 if "menu" not in st.session_state:
-	st.session_state.menu = "查詢區"
+    st.session_state.menu = "查詢區"
 # ======== 查詢區分頁（改為 Tab 架構）=========
 elif menu == "查詢區":
 
-	# ===== 縮小整個頁面最上方空白 =====
-	st.markdown("""
-	<style>
-	div.block-container {
-		padding-top: 5px;
-	}
-	</style>
-	""", unsafe_allow_html=True)
-	
-	import pandas as pd
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    import pandas as pd
 
-	df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
-	df_order = st.session_state.get("df_order", pd.DataFrame())
+    df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
+    df_order = st.session_state.get("df_order", pd.DataFrame())
 
-	# ===== 標題 =====
-	st.markdown(
-		'<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🔍 查詢區</h1>',
-		unsafe_allow_html=True
-	)
+    # ===== 標題 =====
+    st.markdown(
+        '<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🔍 查詢區</h1>',
+        unsafe_allow_html=True
+    )
 
-	# ===== Tab 分頁 =====
-	tab1, tab2, tab3, tab4 = st.tabs([
-		"♻️ 依色粉編號查配方",
-		"🧮 色粉用量查詢",
-		"🍭 Pantone色號表",
-		"🧪 樣品記錄表"
-	])
+    # ===== Tab 分頁 =====
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "♻️ 依色粉編號查配方",
+        "🧮 色粉用量查詢",
+        "🍭 Pantone色號表",
+        "🧪 樣品記錄表"
+    ])
 
-	# ========== Tab 1：依色粉編號查配方 ==========
-	with tab1:
-		
-		# 輸入最多五個色粉編號
-		cols = st.columns(5)
-		inputs = []
-		for i in range(5):
-			val = cols[i].text_input(f"色粉編號{i+1}", key=f"cross_color_{i}")
-			if val.strip():
-				inputs.append(val.strip())
+    # ========== Tab 1：依色粉編號查配方 ==========
+    with tab1:
+        
+        # 輸入最多五個色粉編號
+        cols = st.columns(5)
+        inputs = []
+        for i in range(5):
+            val = cols[i].text_input(f"色粉編號{i+1}", key=f"cross_color_{i}")
+            if val.strip():
+                inputs.append(val.strip())
 
-		if st.button("查詢配方", key="btn_cross_query") and inputs:
-			# 篩選符合的配方
-			mask = df_recipe.apply(
-				lambda row: all(
-					inp in row[[f"色粉編號{i}" for i in range(1, 9)]].astype(str).tolist() 
-					for inp in inputs
-				),
-				axis=1
-			)
-			matched = df_recipe[mask].copy()
+        if st.button("查詢配方", key="btn_cross_query") and inputs:
+            # 篩選符合的配方
+            mask = df_recipe.apply(
+                lambda row: all(
+                    inp in row[[f"色粉編號{i}" for i in range(1, 9)]].astype(str).tolist() 
+                    for inp in inputs
+                ),
+                axis=1
+            )
+            matched = df_recipe[mask].copy()
 
-			if matched.empty:
-				st.warning("⚠️ 找不到符合的配方")
-			else:
-				results = []
-				for _, recipe in matched.iterrows():
-					# 找最近的生產日期
-					orders = df_order[df_order["配方編號"].astype(str) == str(recipe["配方編號"])]
-					last_date = pd.NaT
-					if not orders.empty and "生產日期" in orders.columns:
-						orders["生產日期"] = pd.to_datetime(orders["生產日期"], errors="coerce")
-						last_date = orders["生產日期"].max()
+            if matched.empty:
+                st.warning("⚠️ 找不到符合的配方")
+            else:
+                results = []
+                for _, recipe in matched.iterrows():
+                    # 找最近的生產日期
+                    orders = df_order[df_order["配方編號"].astype(str) == str(recipe["配方編號"])]
+                    last_date = pd.NaT
+                    if not orders.empty and "生產日期" in orders.columns:
+                        orders["生產日期"] = pd.to_datetime(orders["生產日期"], errors="coerce")
+                        last_date = orders["生產日期"].max()
 
-					# 色粉組成
-					powders = [
-						str(recipe[f"色粉編號{i}"]).strip()
-						for i in range(1, 9)
-						if str(recipe[f"色粉編號{i}"]).strip()
-					]
-					powder_str = "、".join(powders)
+                    # 色粉組成
+                    powders = [
+                        str(recipe[f"色粉編號{i}"]).strip()
+                        for i in range(1, 9)
+                        if str(recipe[f"色粉編號{i}"]).strip()
+                    ]
+                    powder_str = "、".join(powders)
 
-					results.append({
-						"最後生產時間": last_date,
-						"配方編號": recipe["配方編號"],
-						"顏色": recipe["顏色"],
-						"客戶名稱": recipe["客戶名稱"],
-						"色粉組成": powder_str
-					})
+                    results.append({
+                        "最後生產時間": last_date,
+                        "配方編號": recipe["配方編號"],
+                        "顏色": recipe["顏色"],
+                        "客戶名稱": recipe["客戶名稱"],
+                        "色粉組成": powder_str
+                    })
 
-				df_result = pd.DataFrame(results)
+                df_result = pd.DataFrame(results)
 
-				if not df_result.empty:
-					# 按最後生產時間排序（由近到遠）
-					df_result = df_result.sort_values(by="最後生產時間", ascending=False)
+                if not df_result.empty:
+                    # 按最後生產時間排序（由近到遠）
+                    df_result = df_result.sort_values(by="最後生產時間", ascending=False)
 
-					# 格式化最後生產時間（避免 NaT 顯示成 NaT）
-					df_result["最後生產時間"] = df_result["最後生產時間"].apply(
-						lambda x: x.strftime("%Y-%m-%d") if pd.notnull(x) else ""
-					)
+                    # 格式化最後生產時間（避免 NaT 顯示成 NaT）
+                    df_result["最後生產時間"] = df_result["最後生產時間"].apply(
+                        lambda x: x.strftime("%Y-%m-%d") if pd.notnull(x) else ""
+                    )
 
-				st.dataframe(df_result, use_container_width=True, hide_index=True)
+                st.dataframe(df_result, use_container_width=True, hide_index=True)
 
 # ========== Tab 2：色粉用量查詢 ==========
-	with tab2:
-		
-		# 四個色粉編號輸入框
-		cols = st.columns(4)
-		powder_inputs = []
-		for i in range(4):
-			val = cols[i].text_input(f"色粉編號{i+1}", key=f"usage_color_{i}")
-			if val.strip():
-				powder_inputs.append(val.strip())
+    with tab2:
+        
+        # 四個色粉編號輸入框
+        cols = st.columns(4)
+        powder_inputs = []
+        for i in range(4):
+            val = cols[i].text_input(f"色粉編號{i+1}", key=f"usage_color_{i}")
+            if val.strip():
+                powder_inputs.append(val.strip())
 
-		# ---- 日期區間選擇 ----
-		col1, col2 = st.columns(2)
-		start_date = col1.date_input("開始日期", key="usage_start_date")
-		end_date = col2.date_input("結束日期", key="usage_end_date")
+        # ---- 日期區間選擇 ----
+        col1, col2 = st.columns(2)
+        start_date = col1.date_input("開始日期", key="usage_start_date")
+        end_date = col2.date_input("結束日期", key="usage_end_date")
 
-		def format_usage(val):
-			if val >= 1000:
-				kg = val / 1000
-				# 若小數部分 = 0 就顯示整數
-				if round(kg, 2) == int(kg):
-					return f"{int(kg)} kg"
-				else:
-					return f"{kg:.2f} kg"
-			else:
-				if round(val, 2) == int(val):
-					return f"{int(val)} g"
-				else:
-					return f"{val:.2f} g"
+        def format_usage(val):
+            if val >= 1000:
+                kg = val / 1000
+                # 若小數部分 = 0 就顯示整數
+                if round(kg, 2) == int(kg):
+                    return f"{int(kg)} kg"
+                else:
+                    return f"{kg:.2f} kg"
+            else:
+                if round(val, 2) == int(val):
+                    return f"{int(val)} g"
+                else:
+                    return f"{val:.2f} g"
 
-		if st.button("查詢用量", key="btn_powder_usage") and powder_inputs:
-			results = []
-			df_order_local = st.session_state.get("df_order", pd.DataFrame()).copy()
-			df_recipe_local = st.session_state.get("df_recipe", pd.DataFrame()).copy()
+        if st.button("查詢用量", key="btn_powder_usage") and powder_inputs:
+            results = []
+            df_order_local = st.session_state.get("df_order", pd.DataFrame()).copy()
+            df_recipe_local = st.session_state.get("df_recipe", pd.DataFrame()).copy()
 
-			# 確保欄位存在，避免 KeyError
-			powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
-			for c in powder_cols + ["配方編號", "配方類別", "原始配方", "配方名稱", "顏色", "客戶名稱"]:
-				if c not in df_recipe_local.columns:
-					df_recipe_local[c] = ""
+            # 確保欄位存在，避免 KeyError
+            powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
+            for c in powder_cols + ["配方編號", "配方類別", "原始配方", "配方名稱", "顏色", "客戶名稱"]:
+                if c not in df_recipe_local.columns:
+                    df_recipe_local[c] = ""
 
-			if "生產日期" in df_order_local.columns:
-				df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce")
-			else:
-				df_order_local["生產日期"] = pd.NaT
+            if "生產日期" in df_order_local.columns:
+                df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce")
+            else:
+                df_order_local["生產日期"] = pd.NaT
 
-			# 小工具：將 recipe dict 轉成顯示名稱（若有配方名稱用配方名稱，否則用編號+顏色）
-			def recipe_display_name(rec: dict) -> str:
-				name = str(rec.get("配方名稱", "")).strip()
-				if name:
-					return name
-				rid = str(rec.get("配方編號", "")).strip()
-				color = str(rec.get("顏色", "")).strip()
-				cust = str(rec.get("客戶名稱", "")).strip()
-				if color or cust:
-					parts = [p for p in [color, cust] if p]
-					return f"{rid} ({' / '.join(parts)})"
-				return rid
+            # 小工具：將 recipe dict 轉成顯示名稱（若有配方名稱用配方名稱，否則用編號+顏色）
+            def recipe_display_name(rec: dict) -> str:
+                name = str(rec.get("配方名稱", "")).strip()
+                if name:
+                    return name
+                rid = str(rec.get("配方編號", "")).strip()
+                color = str(rec.get("顏色", "")).strip()
+                cust = str(rec.get("客戶名稱", "")).strip()
+                if color or cust:
+                    parts = [p for p in [color, cust] if p]
+                    return f"{rid} ({' / '.join(parts)})"
+                return rid
 
-			for powder_id in powder_inputs:
-				total_usage_g = 0.0
-				monthly_usage = {}   # e.g. { 'YYYY/MM': { 'usage': float, 'main_recipes': set(), 'additional_recipes': set() } }
+            for powder_id in powder_inputs:
+                total_usage_g = 0.0
+                monthly_usage = {}   # e.g. { 'YYYY/MM': { 'usage': float, 'main_recipes': set(), 'additional_recipes': set() } }
 
-				# 1) 先從配方管理找出「候選配方」(任何一個色粉欄有包含此 powder_id)
-				if not df_recipe_local.empty:
-					mask = df_recipe_local[powder_cols].astype(str).apply(lambda row: powder_id in row.values, axis=1)
-					recipe_candidates = df_recipe_local[mask].copy()
-					candidate_ids = set(recipe_candidates["配方編號"].astype(str).tolist())
-				else:
-					recipe_candidates = pd.DataFrame()
-					candidate_ids = set()
+                # 1) 先從配方管理找出「候選配方」(任何一個色粉欄有包含此 powder_id)
+                if not df_recipe_local.empty:
+                    mask = df_recipe_local[powder_cols].astype(str).apply(lambda row: powder_id in row.values, axis=1)
+                    recipe_candidates = df_recipe_local[mask].copy()
+                    candidate_ids = set(recipe_candidates["配方編號"].astype(str).tolist())
+                else:
+                    recipe_candidates = pd.DataFrame()
+                    candidate_ids = set()
 
-				# 2) 過濾生產單日期區間（只取有效日期）
-				orders_in_range = df_order_local[
-					(df_order_local["生產日期"].notna()) &
-					(df_order_local["生產日期"] >= pd.to_datetime(start_date)) &
-					(df_order_local["生產日期"] <= pd.to_datetime(end_date))
-				]
+                # 2) 過濾生產單日期區間（只取有效日期）
+                orders_in_range = df_order_local[
+                    (df_order_local["生產日期"].notna()) &
+                    (df_order_local["生產日期"] >= pd.to_datetime(start_date)) &
+                    (df_order_local["生產日期"] <= pd.to_datetime(end_date))
+                ]
 
-				# 3) 逐筆檢查訂單（保留原有過濾邏輯：只處理該訂單的主配方與其附加配方）
-				for _, order in orders_in_range.iterrows():
-					order_recipe_id = str(order.get("配方編號", "")).strip()
-					if not order_recipe_id:
-						continue
+                # 3) 逐筆檢查訂單（保留原有過濾邏輯：只處理該訂單的主配方與其附加配方）
+                for _, order in orders_in_range.iterrows():
+                    order_recipe_id = str(order.get("配方編號", "")).strip()
+                    if not order_recipe_id:
+                        continue
 
-					# 取得主配方（若存在）與其附加配方
-					recipe_rows = []
-					main_df = df_recipe_local[df_recipe_local["配方編號"].astype(str) == order_recipe_id]
-					if not main_df.empty:
-						recipe_rows.append(main_df.iloc[0].to_dict())
-					add_df = df_recipe_local[
-						(df_recipe_local["配方類別"] == "附加配方") &
-						(df_recipe_local["原始配方"].astype(str) == order_recipe_id)
-					]
-					if not add_df.empty:
-						recipe_rows.extend(add_df.to_dict("records"))
+                    # 取得主配方（若存在）與其附加配方
+                    recipe_rows = []
+                    main_df = df_recipe_local[df_recipe_local["配方編號"].astype(str) == order_recipe_id]
+                    if not main_df.empty:
+                        recipe_rows.append(main_df.iloc[0].to_dict())
+                    add_df = df_recipe_local[
+                        (df_recipe_local["配方類別"] == "附加配方") &
+                        (df_recipe_local["原始配方"].astype(str) == order_recipe_id)
+                    ]
+                    if not add_df.empty:
+                        recipe_rows.extend(add_df.to_dict("records"))
 
-					# 計算這張訂單中，該 powder_id 的用量（會檢查每個配方是否包含 powder_id，且該配方需在候選清單中）
-					order_total_for_powder = 0.0
-					sources_main = set()
-					sources_add = set()
+                    # 計算這張訂單中，該 powder_id 的用量（會檢查每個配方是否包含 powder_id，且該配方需在候選清單中）
+                    order_total_for_powder = 0.0
+                    sources_main = set()
+                    sources_add = set()
 
-					# 先算出該訂單的包裝總份 (= sum(pack_w * pack_n) )
-					packs_total = 0.0
-					for j in range(1, 5):
-						w_key = f"包裝重量{j}"
-						n_key = f"包裝份數{j}"
-						w_val = order[w_key] if w_key in order.index else 0
-						n_val = order[n_key] if n_key in order.index else 0
-						try:
-							pack_w = float(w_val or 0)
-						except (ValueError, TypeError):
-							pack_w = 0.0
-						try:
-							pack_n = float(n_val or 0)
-						except (ValueError, TypeError):
-							pack_n = 0.0
-						packs_total += pack_w * pack_n
+                    # 先算出該訂單的包裝總份 (= sum(pack_w * pack_n) )
+                    packs_total = 0.0
+                    for j in range(1, 5):
+                        w_key = f"包裝重量{j}"
+                        n_key = f"包裝份數{j}"
+                        w_val = order[w_key] if w_key in order.index else 0
+                        n_val = order[n_key] if n_key in order.index else 0
+                        try:
+                            pack_w = float(w_val or 0)
+                        except (ValueError, TypeError):
+                            pack_w = 0.0
+                        try:
+                            pack_n = float(n_val or 0)
+                        except (ValueError, TypeError):
+                            pack_n = 0.0
+                        packs_total += pack_w * pack_n
 
-					if packs_total <= 0:
-						# 如果這張訂單沒有實際包裝份數（皆為0），就跳過（因為不會產生用量）
-						continue
+                    if packs_total <= 0:
+                        # 如果這張訂單沒有實際包裝份數（皆為0），就跳過（因為不會產生用量）
+                        continue
 
-					for rec in recipe_rows:
-						rec_id = str(rec.get("配方編號", "")).strip()
-						# 只有當該配方在候選清單裡（也就是配方管理確認含該色粉）才計算
-						if rec_id not in candidate_ids:
-							continue
+                    for rec in recipe_rows:
+                        rec_id = str(rec.get("配方編號", "")).strip()
+                        # 只有當該配方在候選清單裡（也就是配方管理確認含該色粉）才計算
+                        if rec_id not in candidate_ids:
+                            continue
 
-						pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-						if powder_id not in pvals:
-							continue
+                        pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
+                        if powder_id not in pvals:
+                            continue
 
-						idx = pvals.index(powder_id) + 1
-						try:
-							powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
-						except (ValueError, TypeError):
-							powder_weight = 0.0
+                        idx = pvals.index(powder_id) + 1
+                        try:
+                            powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
+                        except (ValueError, TypeError):
+                            powder_weight = 0.0
 
-						if powder_weight <= 0:
-							continue
+                        if powder_weight <= 0:
+                            continue
 
-						# 用量 (g) = 色粉重量 * packs_total
-						contrib = powder_weight * packs_total
-						order_total_for_powder += contrib
-						# 記錄來源
-						disp_name = recipe_display_name(rec)
-						if str(rec.get("配方類別", "")).strip() == "附加配方":
-							sources_add.add(disp_name)
-						else:
-							sources_main.add(disp_name)
+                        # 用量 (g) = 色粉重量 * packs_total
+                        contrib = powder_weight * packs_total
+                        order_total_for_powder += contrib
+                        # 記錄來源
+                        disp_name = recipe_display_name(rec)
+                        if str(rec.get("配方類別", "")).strip() == "附加配方":
+                            sources_add.add(disp_name)
+                        else:
+                            sources_main.add(disp_name)
 
-					if order_total_for_powder <= 0:
-						continue
+                    if order_total_for_powder <= 0:
+                        continue
 
-					# 累計到月份
-					od = order["生產日期"]
-					if pd.isna(od):
-						continue
-					month_key = od.strftime("%Y/%m")
-					if month_key not in monthly_usage:
-						monthly_usage[month_key] = {"usage": 0.0, "main_recipes": set(), "additional_recipes": set()}
+                    # 累計到月份
+                    od = order["生產日期"]
+                    if pd.isna(od):
+                        continue
+                    month_key = od.strftime("%Y/%m")
+                    if month_key not in monthly_usage:
+                        monthly_usage[month_key] = {"usage": 0.0, "main_recipes": set(), "additional_recipes": set()}
 
-					monthly_usage[month_key]["usage"] += order_total_for_powder
-					monthly_usage[month_key]["main_recipes"].update(sources_main)
-					monthly_usage[month_key]["additional_recipes"].update(sources_add)
-					total_usage_g += order_total_for_powder
+                    monthly_usage[month_key]["usage"] += order_total_for_powder
+                    monthly_usage[month_key]["main_recipes"].update(sources_main)
+                    monthly_usage[month_key]["additional_recipes"].update(sources_add)
+                    total_usage_g += order_total_for_powder
 
-				# 4) 輸出每月用量（日期區間使用輸入 start/end 與該月份交集，整月顯示 YYYY/MM，否則顯示 YYYY/MM/DD~MM/DD）
-				#	只輸出用量>0 的月份
-				months_sorted = sorted(monthly_usage.keys())
-				for month in months_sorted:
-					data = monthly_usage[month]
-					usage_g = data["usage"]
-					if usage_g <= 0:
-						continue
+                # 4) 輸出每月用量（日期區間使用輸入 start/end 與該月份交集，整月顯示 YYYY/MM，否則顯示 YYYY/MM/DD~MM/DD）
+                #    只輸出用量>0 的月份
+                months_sorted = sorted(monthly_usage.keys())
+                for month in months_sorted:
+                    data = monthly_usage[month]
+                    usage_g = data["usage"]
+                    if usage_g <= 0:
+                        continue
 
-					# 利用 pd.Period 計算該月份的第一天/最後一天
-					per = pd.Period(month, freq="M")
-					month_start = per.start_time.date()
-					month_end = per.end_time.date()
-					disp_start = max(start_date, month_start)
-					disp_end = min(end_date, month_end)
+                    # 利用 pd.Period 計算該月份的第一天/最後一天
+                    per = pd.Period(month, freq="M")
+                    month_start = per.start_time.date()
+                    month_end = per.end_time.date()
+                    disp_start = max(start_date, month_start)
+                    disp_end = min(end_date, month_end)
 
-					if (disp_start == month_start) and (disp_end == month_end):
-						date_disp = month
-					else:
-						date_disp = f"{disp_start.strftime('%Y/%m/%d')}~{disp_end.strftime('%m/%d')}"
+                    if (disp_start == month_start) and (disp_end == month_end):
+                        date_disp = month
+                    else:
+                        date_disp = f"{disp_start.strftime('%Y/%m/%d')}~{disp_end.strftime('%m/%d')}"
 
-					usage_disp = format_usage(usage_g)
-					main_src = ", ".join(sorted(data["main_recipes"])) if data["main_recipes"] else ""
-					add_src  = ", ".join(sorted(data["additional_recipes"])) if data["additional_recipes"] else ""
+                    usage_disp = format_usage(usage_g)
+                    main_src = ", ".join(sorted(data["main_recipes"])) if data["main_recipes"] else ""
+                    add_src  = ", ".join(sorted(data["additional_recipes"])) if data["additional_recipes"] else ""
 
-					results.append({
-						"色粉編號": powder_id,
-						"來源區間": date_disp,
-						"月用量": usage_disp,
-						"主配方來源": main_src,
-						"附加配方來源": add_src
-					})
+                    results.append({
+                        "色粉編號": powder_id,
+                        "來源區間": date_disp,
+                        "月用量": usage_disp,
+                        "主配方來源": main_src,
+                        "附加配方來源": add_src
+                    })
 
-				# 5) 總用量（always append）
-				total_disp = format_usage(total_usage_g)
-				results.append({
-					"色粉編號": powder_id,
-					"來源區間": "總用量",
-					"月用量": total_disp,
-					"主配方來源": "",
-					"附加配方來源": ""
-				})
+                # 5) 總用量（always append）
+                total_disp = format_usage(total_usage_g)
+                results.append({
+                    "色粉編號": powder_id,
+                    "來源區間": "總用量",
+                    "月用量": total_disp,
+                    "主配方來源": "",
+                    "附加配方來源": ""
+                })
 
-			df_usage = pd.DataFrame(results)
+            df_usage = pd.DataFrame(results)
 
-			def highlight_total_row(s):
-				# 只有總用量那行才套用
-				return [
-					'font-weight: bold; background-color: #333333; color: white' if s.name in df_usage.index and df_usage.loc[s.name, "來源區間"] == "總用量" and col in ["色粉編號", "來源區間", "月用量"] else ''
-					for col in s.index
-				]
+            def highlight_total_row(s):
+                # 只有總用量那行才套用
+                return [
+                    'font-weight: bold; background-color: #333333; color: white' if s.name in df_usage.index and df_usage.loc[s.name, "來源區間"] == "總用量" and col in ["色粉編號", "來源區間", "月用量"] else ''
+                    for col in s.index
+                ]
 
-			styled = df_usage.style.apply(highlight_total_row, axis=1)
-			st.dataframe(styled, use_container_width=True, hide_index=True)
+            styled = df_usage.style.apply(highlight_total_row, axis=1)
+            st.dataframe(styled, use_container_width=True, hide_index=True)
 
-	# ========== Tab 3：Pantone色號表 ==========
+    # ========== Tab 3：Pantone色號表 ==========
     with tab3:
     
         # 讀取 Google Sheets
@@ -4939,235 +4939,235 @@ elif menu == "查詢區":
                         df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True),
                         use_container_width=True,
                     )
-					
-	# ========== Tab 4：樣品記錄表 ==========
-	from datetime import datetime, date
-	
-	# --- 日期安全轉換 ---
-	def safe_date(v):
-		try:
-			if v in ["", None]:
-				return datetime.today().date()
-			if isinstance(v, pd.Timestamp):
-				return v.date()
-			if isinstance(v, datetime):
-				return v.date()
-			if isinstance(v, date):
-				return v
-			return pd.to_datetime(v).date()
-		except:
-			return datetime.today().date()
-	
-	with tab4:
-	
-		# ===== Sheet 讀取 =====
-		try:
-			ws_sample = spreadsheet.worksheet("樣品記錄")
-		except:
-			ws_sample = spreadsheet.add_worksheet("樣品記錄", rows=100, cols=10)
-			ws_sample.append_row(["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
-	
-		try:
-			df_sample = pd.DataFrame(ws_sample.get_all_records())
-		except:
-			df_sample = pd.DataFrame()
-	
-		if df_sample.empty:
-			df_sample = pd.DataFrame(columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
-	
-		# ===== session_state 初始化 =====
-		if "form_sample" not in st.session_state:
-			st.session_state.form_sample = {
-				"日期": "",
-				"客戶名稱": "",
-				"樣品編號": "",
-				"樣品名稱": "",
-				"樣品數量": ""
-			}
-	
-		for k, v in {
-			"edit_sample_index": None,
-			"delete_sample_index": None,
-			"show_delete_sample_confirm": False,
-			"sample_search_triggered": False,
-			"sample_filtered_df": pd.DataFrame(),
-			"selected_sample_index": None
-		}.items():
-			if k not in st.session_state:
-				st.session_state[k] = v
-	
-		# ===== 新增 / 修改 區 =====
-		st.markdown("**➕ 新增 / 修改 樣品**")
-	
-		c1, c2, c3 = st.columns(3)
-		with c1:
-			st.date_input(
-				"日期",
-				value=safe_date(st.session_state.form_sample.get("日期")),
-				key="ui_sample_date"
-			)
-		with c2:
-			st.text_input(
-				"客戶名稱",
-				value=st.session_state.form_sample.get("客戶名稱", ""),
-				key="ui_sample_customer"
-			)
-		with c3:
-			st.text_input(
-				"樣品編號",
-				value=st.session_state.form_sample.get("樣品編號", ""),
-				key="ui_sample_code",
-				disabled=st.session_state.edit_sample_index is not None
-			)
-	
-		c4, c5 = st.columns(2)
-		with c4:
-			st.text_input(
-				"樣品名稱",
-				value=st.session_state.form_sample.get("樣品名稱", ""),
-				key="ui_sample_name"
-			)
-		with c5:
-			st.text_input(
-				"樣品數量",
-				value=st.session_state.form_sample.get("樣品數量", ""),
-				key="ui_sample_qty"
-			)
-	
-		if st.button("💾 儲存"):
-			data = {
-				"日期": st.session_state.ui_sample_date,
-				"客戶名稱": st.session_state.ui_sample_customer,
-				"樣品編號": st.session_state.ui_sample_code,
-				"樣品名稱": st.session_state.ui_sample_name,
-				"樣品數量": st.session_state.ui_sample_qty
-			}
-	
-			if not data["樣品編號"].strip():
-				st.warning("⚠️ 請輸入樣品編號")
-			else:
-				if st.session_state.edit_sample_index is not None:
-					df_sample.loc[st.session_state.edit_sample_index] = data
-					st.success("✅ 樣品已更新")
-				else:
-					df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
-					st.success("✅ 新增完成")
-	
-				save_df_to_sheet(ws_sample, df_sample)
-				st.session_state.form_sample = {k: "" for k in st.session_state.form_sample}
-				st.session_state.edit_sample_index = None
-				st.rerun()
-	
-		st.markdown("---")
-	
-		# ===== 搜尋區（Enter 可觸發）=====
-		st.markdown("**🔍 樣品記錄搜尋**")
-	
-		with st.form("sample_search_form"):
-			s1, s2, s3, s4 = st.columns(4)
-			with s1:
-				search_code = st.text_input("樣品編號")
-			with s2:
-				search_customer = st.text_input("客戶名稱")
-			with s3:
-				search_start = st.date_input("供樣日期（起）", value=None)
-			with s4:
-				search_end = st.date_input("供樣日期（迄）", value=None)
-	
-			do_search = st.form_submit_button("🔍 搜尋")
-	
-		if do_search:
-			df_f = df_sample.copy()
-	
-			if search_code.strip():
-				df_f = df_f[df_f["樣品編號"].astype(str).str.contains(search_code)]
-	
-			if search_customer.strip():
-				df_f = df_f[df_f["客戶名稱"].astype(str).str.contains(search_customer)]
-	
-			if search_start:
-				df_f = df_f[pd.to_datetime(df_f["日期"]) >= pd.to_datetime(search_start)]
-	
-			if search_end:
-				df_f = df_f[pd.to_datetime(df_f["日期"]) <= pd.to_datetime(search_end)]
-	
-			st.session_state.sample_filtered_df = df_f.reset_index(drop=True)
-			st.session_state.sample_search_triggered = True
-			st.session_state.selected_sample_index = None
-	
-		# ===== 搜尋結果（表格 + 單選）=====
-		if st.session_state.sample_search_triggered:
-			df_show = st.session_state.sample_filtered_df
-	
-			if df_show.empty:
-				st.info("⚠️ 查無符合條件的樣品記錄")
-			else:
-				st.markdown("**📋 搜尋結果（選擇單筆以修改 / 刪除）**")
-				with st.expander("點擊展開搜尋結果表格"):
-					st.dataframe(df_show[["日期","樣品編號","樣品名稱","客戶名稱"]], use_container_width=True, hide_index=True)
-	
-				options = [
-					f"{df_show.at[i,'日期']}｜{df_show.at[i,'樣品編號']}｜{df_show.at[i,'樣品名稱']}"
-					for i in df_show.index
-				]
-				selected = st.selectbox("選擇樣品", [""] + options, key="select_sample")
-				if selected and selected != "":
-					idx = options.index(selected)
-					st.session_state.selected_sample_index = df_show.index[idx]
-	
-		# ===== 修改 / 刪除表單（選定後才出現）=====
-		if st.session_state.selected_sample_index is not None:
-			row = df_sample.iloc[st.session_state.selected_sample_index]
-			st.markdown("**✏️ 修改 / 🗑️ 刪除樣品**")
-	
-			c1, c2, c3 = st.columns(3)
-			with c1:
-				st.date_input("日期", value=pd.to_datetime(row["日期"]).date(), key="edit_date")
-			with c2:
-				st.text_input("客戶名稱", value=row["客戶名稱"], key="edit_customer")
-			with c3:
-				st.text_input("樣品編號", value=row["樣品編號"], key="edit_code")
-	
-			c4, c5 = st.columns(2)
-			with c4:
-				st.text_input("樣品名稱", value=row["樣品名稱"], key="edit_name")
-			with c5:
-				st.text_input("樣品數量", value=row["樣品數量"], key="edit_qty")
-	
-			b1, b2 = st.columns(2)
-			with b1:
-				if st.button("💾 儲存修改", key="save_edit"):
-					df_sample.at[st.session_state.selected_sample_index, "日期"] = st.session_state["edit_date"]
-					df_sample.at[st.session_state.selected_sample_index, "客戶名稱"] = st.session_state["edit_customer"]
-					df_sample.at[st.session_state.selected_sample_index, "樣品編號"] = st.session_state["edit_code"]
-					df_sample.at[st.session_state.selected_sample_index, "樣品名稱"] = st.session_state["edit_name"]
-					df_sample.at[st.session_state.selected_sample_index, "樣品數量"] = st.session_state["edit_qty"]
-					save_df_to_sheet(ws_sample, df_sample)
-					st.success("✅ 樣品已更新")
-					st.rerun()
-			with b2:
-				if st.button("🗑️ 刪除", key="delete_edit"):
-					st.session_state.delete_sample_index = st.session_state.selected_sample_index
-					st.session_state.show_delete_sample_confirm = True
-	
-		# ===== 刪除確認 =====
-		if st.session_state.show_delete_sample_confirm:
-			r = df_sample.iloc[st.session_state.delete_sample_index]
-			st.warning(f"⚠️ 確定刪除 {r['樣品編號']} {r['樣品名稱']}？")
-	
-			c1, c2 = st.columns(2)
-			with c1:
-				if st.button("確認刪除"):
-					df_sample.drop(index=st.session_state.delete_sample_index, inplace=True)
-					df_sample.reset_index(drop=True, inplace=True)
-					save_df_to_sheet(ws_sample, df_sample)
-					st.session_state.show_delete_sample_confirm = False
-					st.session_state.selected_sample_index = None
-					st.rerun()
-			with c2:
-				if st.button("取消"):
-					st.session_state.show_delete_sample_confirm = False
-					st.rerun()
+                    
+    # ========== Tab 4：樣品記錄表 ==========
+    from datetime import datetime, date
+    
+    # --- 日期安全轉換 ---
+    def safe_date(v):
+        try:
+            if v in ["", None]:
+                return datetime.today().date()
+            if isinstance(v, pd.Timestamp):
+                return v.date()
+            if isinstance(v, datetime):
+                return v.date()
+            if isinstance(v, date):
+                return v
+            return pd.to_datetime(v).date()
+        except:
+            return datetime.today().date()
+    
+    with tab4:
+    
+        # ===== Sheet 讀取 =====
+        try:
+            ws_sample = spreadsheet.worksheet("樣品記錄")
+        except:
+            ws_sample = spreadsheet.add_worksheet("樣品記錄", rows=100, cols=10)
+            ws_sample.append_row(["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
+    
+        try:
+            df_sample = pd.DataFrame(ws_sample.get_all_records())
+        except:
+            df_sample = pd.DataFrame()
+    
+        if df_sample.empty:
+            df_sample = pd.DataFrame(columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
+    
+        # ===== session_state 初始化 =====
+        if "form_sample" not in st.session_state:
+            st.session_state.form_sample = {
+                "日期": "",
+                "客戶名稱": "",
+                "樣品編號": "",
+                "樣品名稱": "",
+                "樣品數量": ""
+            }
+    
+        for k, v in {
+            "edit_sample_index": None,
+            "delete_sample_index": None,
+            "show_delete_sample_confirm": False,
+            "sample_search_triggered": False,
+            "sample_filtered_df": pd.DataFrame(),
+            "selected_sample_index": None
+        }.items():
+            if k not in st.session_state:
+                st.session_state[k] = v
+    
+        # ===== 新增 / 修改 區 =====
+        st.markdown("**➕ 新增 / 修改 樣品**")
+    
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.date_input(
+                "日期",
+                value=safe_date(st.session_state.form_sample.get("日期")),
+                key="ui_sample_date"
+            )
+        with c2:
+            st.text_input(
+                "客戶名稱",
+                value=st.session_state.form_sample.get("客戶名稱", ""),
+                key="ui_sample_customer"
+            )
+        with c3:
+            st.text_input(
+                "樣品編號",
+                value=st.session_state.form_sample.get("樣品編號", ""),
+                key="ui_sample_code",
+                disabled=st.session_state.edit_sample_index is not None
+            )
+    
+        c4, c5 = st.columns(2)
+        with c4:
+            st.text_input(
+                "樣品名稱",
+                value=st.session_state.form_sample.get("樣品名稱", ""),
+                key="ui_sample_name"
+            )
+        with c5:
+            st.text_input(
+                "樣品數量",
+                value=st.session_state.form_sample.get("樣品數量", ""),
+                key="ui_sample_qty"
+            )
+    
+        if st.button("💾 儲存"):
+            data = {
+                "日期": st.session_state.ui_sample_date,
+                "客戶名稱": st.session_state.ui_sample_customer,
+                "樣品編號": st.session_state.ui_sample_code,
+                "樣品名稱": st.session_state.ui_sample_name,
+                "樣品數量": st.session_state.ui_sample_qty
+            }
+    
+            if not data["樣品編號"].strip():
+                st.warning("⚠️ 請輸入樣品編號")
+            else:
+                if st.session_state.edit_sample_index is not None:
+                    df_sample.loc[st.session_state.edit_sample_index] = data
+                    st.success("✅ 樣品已更新")
+                else:
+                    df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
+                    st.success("✅ 新增完成")
+    
+                save_df_to_sheet(ws_sample, df_sample)
+                st.session_state.form_sample = {k: "" for k in st.session_state.form_sample}
+                st.session_state.edit_sample_index = None
+                st.rerun()
+    
+        st.markdown("---")
+    
+        # ===== 搜尋區（Enter 可觸發）=====
+        st.markdown("**🔍 樣品記錄搜尋**")
+    
+        with st.form("sample_search_form"):
+            s1, s2, s3, s4 = st.columns(4)
+            with s1:
+                search_code = st.text_input("樣品編號")
+            with s2:
+                search_customer = st.text_input("客戶名稱")
+            with s3:
+                search_start = st.date_input("供樣日期（起）", value=None)
+            with s4:
+                search_end = st.date_input("供樣日期（迄）", value=None)
+    
+            do_search = st.form_submit_button("🔍 搜尋")
+    
+        if do_search:
+            df_f = df_sample.copy()
+    
+            if search_code.strip():
+                df_f = df_f[df_f["樣品編號"].astype(str).str.contains(search_code)]
+    
+            if search_customer.strip():
+                df_f = df_f[df_f["客戶名稱"].astype(str).str.contains(search_customer)]
+    
+            if search_start:
+                df_f = df_f[pd.to_datetime(df_f["日期"]) >= pd.to_datetime(search_start)]
+    
+            if search_end:
+                df_f = df_f[pd.to_datetime(df_f["日期"]) <= pd.to_datetime(search_end)]
+    
+            st.session_state.sample_filtered_df = df_f.reset_index(drop=True)
+            st.session_state.sample_search_triggered = True
+            st.session_state.selected_sample_index = None
+    
+        # ===== 搜尋結果（表格 + 單選）=====
+        if st.session_state.sample_search_triggered:
+            df_show = st.session_state.sample_filtered_df
+    
+            if df_show.empty:
+                st.info("⚠️ 查無符合條件的樣品記錄")
+            else:
+                st.markdown("**📋 搜尋結果（選擇單筆以修改 / 刪除）**")
+                with st.expander("點擊展開搜尋結果表格"):
+                    st.dataframe(df_show[["日期","樣品編號","樣品名稱","客戶名稱"]], use_container_width=True, hide_index=True)
+    
+                options = [
+                    f"{df_show.at[i,'日期']}｜{df_show.at[i,'樣品編號']}｜{df_show.at[i,'樣品名稱']}"
+                    for i in df_show.index
+                ]
+                selected = st.selectbox("選擇樣品", [""] + options, key="select_sample")
+                if selected and selected != "":
+                    idx = options.index(selected)
+                    st.session_state.selected_sample_index = df_show.index[idx]
+    
+        # ===== 修改 / 刪除表單（選定後才出現）=====
+        if st.session_state.selected_sample_index is not None:
+            row = df_sample.iloc[st.session_state.selected_sample_index]
+            st.markdown("**✏️ 修改 / 🗑️ 刪除樣品**")
+    
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.date_input("日期", value=pd.to_datetime(row["日期"]).date(), key="edit_date")
+            with c2:
+                st.text_input("客戶名稱", value=row["客戶名稱"], key="edit_customer")
+            with c3:
+                st.text_input("樣品編號", value=row["樣品編號"], key="edit_code")
+    
+            c4, c5 = st.columns(2)
+            with c4:
+                st.text_input("樣品名稱", value=row["樣品名稱"], key="edit_name")
+            with c5:
+                st.text_input("樣品數量", value=row["樣品數量"], key="edit_qty")
+    
+            b1, b2 = st.columns(2)
+            with b1:
+                if st.button("💾 儲存修改", key="save_edit"):
+                    df_sample.at[st.session_state.selected_sample_index, "日期"] = st.session_state["edit_date"]
+                    df_sample.at[st.session_state.selected_sample_index, "客戶名稱"] = st.session_state["edit_customer"]
+                    df_sample.at[st.session_state.selected_sample_index, "樣品編號"] = st.session_state["edit_code"]
+                    df_sample.at[st.session_state.selected_sample_index, "樣品名稱"] = st.session_state["edit_name"]
+                    df_sample.at[st.session_state.selected_sample_index, "樣品數量"] = st.session_state["edit_qty"]
+                    save_df_to_sheet(ws_sample, df_sample)
+                    st.success("✅ 樣品已更新")
+                    st.rerun()
+            with b2:
+                if st.button("🗑️ 刪除", key="delete_edit"):
+                    st.session_state.delete_sample_index = st.session_state.selected_sample_index
+                    st.session_state.show_delete_sample_confirm = True
+    
+        # ===== 刪除確認 =====
+        if st.session_state.show_delete_sample_confirm:
+            r = df_sample.iloc[st.session_state.delete_sample_index]
+            st.warning(f"⚠️ 確定刪除 {r['樣品編號']} {r['樣品名稱']}？")
+    
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("確認刪除"):
+                    df_sample.drop(index=st.session_state.delete_sample_index, inplace=True)
+                    df_sample.reset_index(drop=True, inplace=True)
+                    save_df_to_sheet(ws_sample, df_sample)
+                    st.session_state.show_delete_sample_confirm = False
+                    st.session_state.selected_sample_index = None
+                    st.rerun()
+            with c2:
+                if st.button("取消"):
+                    st.session_state.show_delete_sample_confirm = False
+                    st.rerun()
 
 # ======== 庫存區分頁 =========
 elif menu == "庫存區":
