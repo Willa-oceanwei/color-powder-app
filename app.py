@@ -2517,63 +2517,135 @@ elif menu == "生產單管理":
 		else:
 			option_map = {}
 	
-        # ===== 顯示選擇結果 =====
-        if not option_map:
-            st.warning("查無符合的配方")
-            selected_row    =    None
-            
-        elif len(option_map) == 1:
-            selected_label = list(option_map.keys())[0]
-            selected_row = option_map[selected_label].copy()
-        
-            # 計算當天已有的單數，生成生產單號
-            df_all_orders = st.session_state.df_order.copy()
-            today_str = datetime.now().strftime("%Y%m%d")
-            count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
-            new_id = f"{today_str}-{count_today + 1:03}"
-        
-            # 自動建立 order
-            order = {
-                "生產單號": new_id,
-                "生產日期": datetime.now().strftime("%Y-%m-%d"),
-                "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                "配方編號": selected_row.get("配方編號", ""),
-                "顏色": selected_row.get("顏色", ""),
-                "客戶名稱": selected_row.get("客戶名稱", ""),
-                "Pantone 色號": selected_row.get("Pantone色號", ""),
-                "計量單位": selected_row.get("計量單位", ""),
-                "備註": str(selected_row.get("備註", "")).strip(),
-                "重要提醒": str(selected_row.get("重要提醒", "")).strip(),
-                "合計類別": str(selected_row.get("合計類別", "")).strip(),
-                "色粉類別": selected_row.get("色粉類別", "").strip(),
-            }
-        
-            st.session_state["new_order"] = order
-            st.session_state["show_confirm_panel"] = True
+		# ===== 顯示選擇結果 =====
+		#	=====	顯示選擇結果	=====
+		if	not	option_map:
+			st.warning("查無符合的配方")
+			selected_row	=	None
+			selected_label	=	None
+			
+		elif len(option_map) == 1:
+		    selected_label = list(option_map.keys())[0]
+		    selected_row = option_map[selected_label].copy()
+		
+		    # 計算當天已有的單數，生成生產單號
+		    df_all_orders = st.session_state.df_order.copy()
+		    today_str = datetime.now().strftime("%Y%m%d")
+		    count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
+		    new_id = f"{today_str}-{count_today + 1:03}"
+		
+		    # 自動建立 order
+		    order = {
+		        "生產單號": new_id,
+		        "生產日期": datetime.now().strftime("%Y-%m-%d"),
+		        "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
+		        "配方編號": selected_row.get("配方編號", ""),
+		        "顏色": selected_row.get("顏色", ""),
+		        "客戶名稱": selected_row.get("客戶名稱", ""),
+		        "Pantone 色號": selected_row.get("Pantone色號", ""),
+		        "計量單位": selected_row.get("計量單位", ""),
+		        "備註": str(selected_row.get("備註", "")).strip(),
+		        "重要提醒": str(selected_row.get("重要提醒", "")).strip(),
+		        "合計類別": str(selected_row.get("合計類別", "")).strip(),
+		        "色粉類別": selected_row.get("色粉類別", "").strip(),
+		    }
+		
+		    st.session_state["new_order"] = order
+		    st.session_state["show_confirm_panel"] = True
+		
+		    # 建立 recipe_row_cache
+		    st.session_state["recipe_row_cache"] = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in selected_row.items()}
+		
+		    # 顯示選取訊息
+		    parts = selected_label.split(" | ", 1)
+		    if len(parts) > 1:
+		        display_label = f"{selected_row['配方編號']} | {parts[1]}"
+		    else:
+		        display_label = selected_row['配方編號']
+		    st.success(f"已自動選取：{display_label}")
 
-        
-            # 建立 recipe_row_cache
-            st.session_state["recipe_row_cache"] = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in selected_row.items()}
-        
-            # 顯示選取訊息
-            parts = selected_label.split(" | ", 1)
-            if len(parts) > 1:
-                display_label = f"{selected_row['配方編號']} | {parts[1]}"
-            else:
-                display_label = selected_row['配方編號']
-            st.success(f"已自動選取：{display_label}")
-
-        else:
-            selected_label = st.selectbox(
-                "選擇配方",
-                ["請選擇"] + list(option_map.keys()),
-                index=0,
-                key="search_add_form_selected_recipe_tab1"
-            )
-            if selected_label == "請選擇":
-                selected_row = None
-            else:
-                selected_row = option_map.get(selected_label)
+		else:
+			selected_label = st.selectbox(
+				"選擇配方",
+				["請選擇"] + list(option_map.keys()),
+				index=0,
+				key="search_add_form_selected_recipe_tab1"
+			)
+			if selected_label == "請選擇":
+				selected_row = None
+			else:
+				selected_row = option_map.get(selected_label)
+		
+		# === 處理「新增」按鈕 ===
+		if add_btn:
+			if selected_label is None or selected_label == "請選擇":
+				st.warning("請先選擇有效配方")
+			else:
+				if selected_row.get("狀態") == "停用":
+					st.warning("⚠️ 此配方已停用，請勿使用")
+				else:
+					order = {}
+	
+					df_all_orders = st.session_state.df_order.copy()
+					today_str = datetime.now().strftime("%Y%m%d")
+					count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
+					new_id = f"{today_str}-{count_today + 1:03}"
+	
+					main_recipe_code = selected_row.get("配方編號", "").strip()
+					df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
+					df_recipe["原始配方"] = df_recipe["原始配方"].astype(str).str.strip()
+					附加配方 = df_recipe[
+						(df_recipe["配方類別"] == "附加配方") &
+						(df_recipe["原始配方"] == main_recipe_code)
+					]
+	
+					all_colorants = []
+					for i in range(1, 9):
+						id_key = f"色粉編號{i}"
+						wt_key = f"色粉重量{i}"
+						id_val = selected_row.get(id_key, "")
+						wt_val = selected_row.get(wt_key, "")
+						if id_val or wt_val:
+							all_colorants.append((id_val, wt_val))
+	
+					for _, sub in 附加配方.iterrows():
+						for i in range(1, 9):
+							id_key = f"色粉編號{i}"
+							wt_key = f"色粉重量{i}"
+							id_val = sub.get(id_key, "")
+							wt_val = sub.get(wt_key, "")
+							if id_val or wt_val:
+								all_colorants.append((id_val, wt_val))
+	
+					order.update({
+						"生產單號": new_id,
+						"生產日期": datetime.now().strftime("%Y-%m-%d"),
+						"建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
+						"配方編號": selected_row.get("配方編號", search_text_original),
+						"顏色": selected_row.get("顏色", ""),
+						"客戶名稱": selected_row.get("客戶名稱", ""),
+						"Pantone 色號": selected_row.get("Pantone色號", ""),
+						"計量單位": selected_row.get("計量單位", ""),
+						"備註": str(selected_row.get("備註", "")).strip(),
+						"重要提醒": str(selected_row.get("重要提醒", "")).strip(),
+						"合計類別": str(selected_row.get("合計類別", "")).strip(),
+						"色粉類別": selected_row.get("色粉類別", "").strip(),
+					})
+	
+					for i in range(1, 9):
+						id_key = f"色粉編號{i}"
+						wt_key = f"色粉重量{i}"
+						if i <= len(all_colorants):
+							id_val, wt_val = all_colorants[i-1]
+							order[id_key] = id_val
+							order[wt_key] = wt_val
+						else:
+							order[id_key] = ""
+							order[wt_key] = ""
+	
+					st.session_state["new_order"] = order
+					st.session_state["show_confirm_panel"] = True
+					st.rerun()
 
 		# ===== 顯示「新增後欄位填寫區塊」（必須在按鈕處理之外）=====
 		order = st.session_state.get("new_order")
@@ -2880,50 +2952,31 @@ elif menu == "生產單管理":
 				except Exception as e:
 					st.error(f"❌ 寫入失敗：{e}")
 				
-# 產生列印 HTML 按鈕
-# ===== 表單（儲存流程）結束後 =====
-# ===== 產生列印 HTML 按鈕 =====
-order = st.session_state.get("new_order", {})
-is_saved = st.session_state.get("new_order_saved", False)
-print_html = generate_print_page_content(
-    order=order,
-    recipe_row=st.session_state.get("recipe_row_cache", {}),
-    additional_recipe_rows=order.get("附加配方", []),
-    show_additional_ids=st.session_state.get("show_ids_tab1", False)
-)
-
-col1, col2, col3 = st.columns([3,1,3])
-with col1:
-    st.download_button(
-        label="📥 下載 A5 HTML",
-        data=print_html.encode("utf-8"),
-        file_name=f"{order.get('生產單號','未命名')}_列印.html",
-        mime="text/html",
-        disabled=not is_saved,  # 沒儲存就灰掉
-        key="download_html_tab1"
-    )
-
-# ===== 提醒訊息 =====
-if not is_saved:
-    st.warning("⚠️ 請先按『💾 僅儲存生產單』，才能下載 A5 生產單！")
-
-# ===== 儲存流程（簡化示意） =====
-submitted = st.session_state.get("submitted_tab1", False)  # 假設你按下的 form_submit_button 會設定這個
-if submitted:
-    try:
-        # 將 order 寫入 Google Sheet
-        row_data = [str(order.get(col,"")).strip() for col in df_order.columns]
-        ws_order.append_row(row_data)
-
-        # 更新 session_state df_order 與 CSV
-        df_new = pd.DataFrame([order], columns=df_order.columns)
-        st.session_state.df_order = pd.concat([st.session_state.df_order, df_new], ignore_index=True)
-        st.session_state.df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
-
-        st.session_state.new_order_saved = True
-        st.success(f"✅ 生產單 {order['生產單號']} 已存！")
-    except Exception as e:
-        st.error(f"❌ 儲存 Google Sheet 失敗：{e}")
+		# 產生列印 HTML 按鈕
+		show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
+		print_html = generate_print_page_content(
+			order=order,
+			recipe_row=recipe_row,
+			additional_recipe_rows=order.get("附加配方", []),
+			show_additional_ids=show_ids
+		)
+				
+		col1, col2, col3 = st.columns([3,1,3])
+		with col1:
+			st.download_button(
+				label="📥 下載 A5 HTML",
+				data=print_html.encode("utf-8"),
+				file_name=f"{order['生產單號']}_列印.html",
+				mime="text/html",
+				key="download_html_tab1"
+			)
+				
+		with col3:
+			if st.button("🔙 返回", key="back_button_tab1"):
+				st.session_state.new_order = None
+				st.session_state.show_confirm_panel = False
+				st.session_state.new_order_saved = False
+				st.rerun()
 						
 	# ============================================================
 	# Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
@@ -5347,7 +5400,11 @@ elif menu == "庫存區":
         )
 
         # ===== 使用者提示（很重要）=====
-        st.info("ℹ️ 庫存僅扣除期初庫存儲存後之生產單（含當日）")
+        st.info(
+            "ℹ️ 期初庫存視為「該時間點的實際庫存」。\n\n"
+            "✔️ 同日 **此時間點後** 的生產單都會扣庫存\n"
+            "❌ 此時間點之前的生產單則不回溯扣除"
+        )
     
         if st.button("儲存初始庫存", key="btn_save_ini"):
             if not ini_powder.strip():
@@ -5504,17 +5561,12 @@ elif menu == "庫存區":
             # 結合庫存與配方
             all_pids_all = sorted(set(all_pids_stock) | set(p for p in all_pids_recipe if p))
 
-            # 使用者搜尋（精準比對色粉編號）
+            # 使用者搜尋
             stock_powder_strip = stock_powder.strip()
-
             if stock_powder_strip:
-                all_pids = [
-                    pid for pid in all_pids_all
-                    if pid.strip() == stock_powder_strip
-                ]
-
+                all_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
                 if not all_pids:
-                    st.warning(f"⚠️ 查無色粉編號「{stock_powder_strip}」的記錄。")
+                    st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
                     st.stop()
             else:
                 all_pids = all_pids_all
