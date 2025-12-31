@@ -5099,6 +5099,8 @@ elif menu == "查詢區":
         # ===== 搜尋結果（表格 + 單選）=====
         if st.session_state.sample_search_triggered:
             df_show = st.session_state.sample_filtered_df
+
+			df_show["樣品編號"] = df_show["樣品編號"].astype(str)
     
             if df_show.empty:
                 st.info("⚠️ 查無符合條件的樣品記錄")
