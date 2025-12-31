@@ -5098,23 +5098,33 @@ elif menu == "查詢區":
     
         # ===== 搜尋結果（表格 + 單選）=====
         if st.session_state.sample_search_triggered:
-            df_show = st.session_state.sample_filtered_df
-
-			df_show["樣品編號"] = df_show["樣品編號"].astype(str)
-    
+            df_show = st.session_state.sample_filtered_df.copy()  # ← 重點：copy()
+        
+            # 🔥 只影響顯示：樣品編號轉成字串
+            df_show["樣品編號"] = (
+                df_show["樣品編號"]
+                .astype(str)
+                .str.replace(",", "")   # 防 6,590 這種格式
+            )
+        
             if df_show.empty:
                 st.info("⚠️ 查無符合條件的樣品記錄")
             else:
                 st.markdown("**📋 搜尋結果（選擇單筆以修改 / 刪除）**")
                 with st.expander("點擊展開搜尋結果表格"):
-                    st.dataframe(df_show[["日期","樣品編號","樣品名稱","客戶名稱"]], use_container_width=True, hide_index=True)
-    
+                    st.dataframe(
+                        df_show[["日期","樣品編號","樣品名稱","客戶名稱"]],
+                        use_container_width=True,
+                        hide_index=True
+                    )
+        
                 options = [
                     f"{df_show.at[i,'日期']}｜{df_show.at[i,'樣品編號']}｜{df_show.at[i,'樣品名稱']}"
                     for i in df_show.index
                 ]
+        
                 selected = st.selectbox("選擇樣品", [""] + options, key="select_sample")
-                if selected and selected != "":
+                if selected:
                     idx = options.index(selected)
                     st.session_state.selected_sample_index = df_show.index[idx]
     
