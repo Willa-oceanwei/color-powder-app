@@ -5490,15 +5490,19 @@ elif menu == "庫存區":
             </label>
             """, unsafe_allow_html=True)
     
-        stock_powder = st.text_input("", key=input_key)
-
-        # 🔹 新增匹配模式下拉選單
-        match_mode = st.selectbox(
-            "匹配模式",  # 🔹 標籤
-            ["部分匹配", "精準匹配"],  # 🔹 選項
-            index=0,
-            help="部分匹配會搜尋包含輸入字串的色粉編號，精準匹配則必須完全相符"  # 🔹 提示文字
-        )
+        # 🔹🔹🔹【新增】同一橫欄：色粉編號 + 匹配模式
+        c_input, c_match = st.columns([3, 1])  # 左寬右窄
+    
+        with c_input:
+            stock_powder = st.text_input("", key=input_key)
+    
+        with c_match:
+            match_mode = st.selectbox(
+                "匹配模式",
+                ["部分匹配", "精準匹配"],
+                index=0,
+                help="部分匹配：包含即可；精準匹配：必須完全相同"
+            )
     
         # ---------- session_state ----------
         if "last_final_stock" not in st.session_state:
