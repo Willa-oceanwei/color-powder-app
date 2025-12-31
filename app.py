@@ -5491,6 +5491,14 @@ elif menu == "庫存區":
             """, unsafe_allow_html=True)
     
         stock_powder = st.text_input("", key=input_key)
+
+        # 🔹 新增匹配模式下拉選單
+        match_mode = st.selectbox(
+            "匹配模式",  # 🔹 標籤
+            ["部分匹配", "精準匹配"],  # 🔹 選項
+            index=0,
+            help="部分匹配會搜尋包含輸入字串的色粉編號，精準匹配則必須完全相符"  # 🔹 提示文字
+        )
     
         # ---------- session_state ----------
         if "last_final_stock" not in st.session_state:
@@ -5560,16 +5568,20 @@ elif menu == "庫存區":
             # 結合庫存與配方
             all_pids_all = sorted(set(all_pids_stock) | set(p for p in all_pids_recipe if p))
 
-            # 使用者搜尋
+            # 🔹 使用者搜尋，依匹配模式決定篩選方式
             stock_powder_strip = stock_powder.strip()
             if stock_powder_strip:
-                all_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
+                if match_mode == "部分匹配":  # 🔹 部分匹配
+                    all_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() in pid.lower()]
+                else:  # 🔹 精準匹配
+                    all_pids = [pid for pid in all_pids_all if stock_powder_strip.lower() == pid.lower()]
+    
                 if not all_pids:
                     st.warning(f"⚠️ 查無與 '{stock_powder_strip}' 相關的色粉記錄。")
                     st.stop()
             else:
                 all_pids = all_pids_all
-
+    
             if not all_pids:
                 st.warning("⚠️ 查無任何色粉記錄。")
                 st.stop()
@@ -5594,10 +5606,10 @@ elif menu == "庫存區":
                 (df_order_copy["生產時間"] >= start_dt) &
                 (df_order_copy["生產時間"] <= end_dt)
             ].copy()
-		
-	        # ============================================================
-	        # 4️⃣ 核心計算
-	        # ============================================================
+        
+            # ============================================================
+            # 4️⃣ 核心計算
+            # ============================================================
             def safe_format(x):
                 try:
                     return format_usage(x)
@@ -5658,10 +5670,10 @@ elif menu == "庫存區":
                         "期末庫存": safe_format(final_g),
                         "備註": ini_note,
                     })
-	
-	        # ============================================================
-	        # 5️⃣ 顯示
-	        # ============================================================
+    
+            # ============================================================
+            # 5️⃣ 顯示
+            # ============================================================
             df_result = pd.DataFrame(stock_summary)
             st.dataframe(df_result, use_container_width=True, hide_index=True)
     
