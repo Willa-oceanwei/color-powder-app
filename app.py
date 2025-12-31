@@ -4068,7 +4068,7 @@ elif menu == "採購管理":
     # ===== Tab 分頁 =====
     tab1, tab2, tab3 = st.tabs(["📲 進貨新增", "🔍 進貨查詢", "🏢 供應商管理"])
 
-	def get_or_create_worksheet(spreadsheet, title, rows=100, cols=10):
+    def get_or_create_worksheet(spreadsheet, title, rows=100, cols=10):
         try:
             return spreadsheet.worksheet(title)
         except Exception as e:
