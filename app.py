@@ -4068,20 +4068,31 @@ elif menu == "採購管理":
     # ===== Tab 分頁 =====
     tab1, tab2, tab3 = st.tabs(["📲 進貨新增", "🔍 進貨查詢", "🏢 供應商管理"])
 
+	def get_or_create_worksheet(spreadsheet, title, rows=100, cols=10):
+        try:
+            return spreadsheet.worksheet(title)
+        except Exception as e:
+            try:
+                return spreadsheet.add_worksheet(title, rows=rows, cols=cols)
+            except Exception as e2:
+                st.error(f"❌ 無法建立或取得工作表「{title}」")
+                raise e2
+
+    ws_stock = get_or_create_worksheet(spreadsheet, "庫存記錄", 100, 10)
+
     # ========== Tab 1：進貨新增 ==========
     with tab1:
     
-        # ✅ 讀取庫存記錄表（使用 spreadsheet）
-        try:
-            ws_stock = spreadsheet.worksheet("庫存記錄")
-            df_stock = pd.DataFrame(ws_stock.get_all_records())
-        except:
-            ws_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
-            ws_stock.append_row(["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"])
+        # ✅ 讀取庫存記錄表（防 rerun）
+        ws_stock = get_or_create_worksheet(spreadsheet, "庫存記錄", rows=100, cols=10)
+
+        records = ws_stock.get_all_records()
+        if records:
+            df_stock = pd.DataFrame(records)
+        else:
             df_stock = pd.DataFrame(
                 columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"]
             )
-    
         # 🔒 ===== 舊庫存補時間 =====
         if "日期" in df_stock.columns:
             def fix_stock_datetime(x):
