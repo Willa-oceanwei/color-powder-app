@@ -2470,29 +2470,33 @@ elif menu == "生產單管理":
             
 	# =============== Tab 架構開始 ===============
     tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📊 生產單記錄表", "👀 生產單預覽/修改/刪除"])
-
     # ============================================================
     # Tab 1: 生產單建立
     # ============================================================
     with tab1:
-        if show_confirm_panel:
-            # 🔹 初始化 session_state，避免 AttributeError
-            if "form_remark_tab1" not in st.session_state:
-                st.session_state.form_remark_tab1 = ""
-            if "form_color_tab1" not in st.session_state:
-                st.session_state.form_color_tab1 = ""
-            if "form_pantone_tab1" not in st.session_state:
-                st.session_state.form_pantone_tab1 = ""
-            if "form_raw_material_tab1" not in st.session_state:
-                st.session_state.form_raw_material_tab1 = ""
-            if "form_important_note_tab1" not in st.session_state:
-                st.session_state.form_important_note_tab1 = ""
-            
+        # ================== Tab1 安全初始化 ==================
+        # 確保控制旗標存在
+        if "show_confirm_panel" not in st.session_state:
+            st.session_state["show_confirm_panel"] = False
+        if "new_order" not in st.session_state:
+            st.session_state["new_order"] = None
+        if "new_order_saved" not in st.session_state:
+            st.session_state["new_order_saved"] = False
+        
+        # 初始化表單欄位，避免 AttributeError
+        for key in ["form_remark_tab1", "form_color_tab1", "form_pantone_tab1", "form_raw_material_tab1", "form_important_note_tab1", "form_total_category_tab1"]:
+            if key not in st.session_state:
+                st.session_state[key] = ""
+        
         for i in range(1, 5):
             if f"form_weight{i}_tab1" not in st.session_state:
                 st.session_state[f"form_weight{i}_tab1"] = ""
             if f"form_count{i}_tab1" not in st.session_state:
                 st.session_state[f"form_count{i}_tab1"] = ""
+		
+		# 初始化 Tab1 使用的 local 變數
+		show_confirm_panel = st.session_state["show_confirm_panel"]
+		order = st.session_state["new_order"]
 
         # ===== 搜尋表單 =====
         with st.form("search_add_form", clear_on_submit=False):
