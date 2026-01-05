@@ -2468,7 +2468,7 @@ elif menu == "生產單管理":
         if "order_page" not in st.session_state:
             st.session_state["order_page"] = 1
             
-	# =============== Tab 架構開始 ===============
+    # =============== Tab 架構開始 ===============
     tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📊 生產單記錄表", "👀 生產單預覽/修改/刪除"])
     # ============================================================
     # Tab 1: 生產單建立
@@ -2493,10 +2493,10 @@ elif menu == "生產單管理":
                 st.session_state[f"form_weight{i}_tab1"] = ""
             if f"form_count{i}_tab1" not in st.session_state:
                 st.session_state[f"form_count{i}_tab1"] = ""
-		
-		# 初始化 Tab1 使用的 local 變數
-		show_confirm_panel = st.session_state["show_confirm_panel"]
-		order = st.session_state["new_order"]
+        
+        # 初始化 Tab1 使用的 local 變數
+        show_confirm_panel = st.session_state["show_confirm_panel"]
+        order = st.session_state["new_order"]
 
         # ===== 搜尋表單 =====
         with st.form("search_add_form", clear_on_submit=False):
