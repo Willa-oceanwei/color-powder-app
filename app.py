@@ -2711,90 +2711,126 @@ elif menu == "生產單管理":
 		order["附加配方"] = []
 	
 	st.session_state.new_order = order
+
 	# ===== 顯示詳情填寫表單 =====
-	if show_confirm_panel:
-		st.markdown("---")
-		st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
-			
-		with st.form("order_detail_form_tab1"):
-			c1, c2, c3, c4 = st.columns(4)
-			c1.text_input("生產單號", value=order.get("生產單號", ""), disabled=True, key="form_order_no_tab1")
-			c2.text_input("配方編號", value=order.get("配方編號", ""), disabled=True, key="form_recipe_id_tab1")
-			c3.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True, key="form_cust_id_tab1")
-			c4.text_input("客戶名稱", value=order.get("客戶名稱", ""), disabled=True, key="form_cust_name_tab1")
-			
-			c5, c6, c7, c8 = st.columns(4)
-			c5.text_input("計量單位", value=recipe_row.get("計量單位", "kg"), disabled=True, key="form_unit_tab1")
-			color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color_tab1")
-			pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone_tab1")
-			raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material_tab1")
-			
-			c9, c10 = st.columns(2)
-			important_note = c9.text_input("重要提醒", value=order.get("重要提醒", ""), key="form_important_note_tab1")
-			total_category = c10.text_input("合計類別", value=order.get("合計類別", ""), key="form_total_category_tab1")
-			remark = st.text_area("備註", value=order.get("備註", ""), key="form_remark_tab1")
-			
-			st.markdown("**包裝重量與份數**")
-			w_cols = st.columns(4)
-			c_cols = st.columns(4)
-			for i in range(1, 5):
-				w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}_tab1")
-				c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
-			
-			st.markdown("###### 色粉用量（編號與重量）")
-			id_col, wt_col = st.columns(2)
-			for i in range(1, 9):
-				color_id = recipe_row.get(f"色粉編號{i}", "").strip()
-				color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
-				if color_id or color_wt:
-					id_col.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}_tab1")
-					wt_col.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}_tab1")
-			
-			additional_recipes = order.get("附加配方", [])
-			if additional_recipes:
-				st.markdown("###### 附加配方色粉用量（編號與重量）")
-				for idx, r in enumerate(additional_recipes, 1):
-					st.markdown(f"附加配方 {idx}")
-					col1, col2 = st.columns(2)
-					for i in range(1, 9):
-						color_id = r.get(f"色粉編號{i}", "").strip()
-						color_wt = r.get(f"色粉重量{i}", "").strip()
-						if color_id or color_wt:
-							col1.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
-							col2.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
-			
-			col_submit1, col_submit2 = st.columns([1, 1])
-			with col_submit1:
-				submitted = st.form_submit_button("💾 僅儲存生產單")
-			
-			is_colorant = (recipe_row.get("色粉類別", "").strip() == "色母")
-			with col_submit2:
-				if is_colorant:
-					continue_to_oem = st.form_submit_button("✅ 儲存並轉代工管理")
-				else:
-					continue_to_oem = False
-			
-			if submitted or continue_to_oem:
-				all_empty = True
-							
-				for i in range(1, 5):
-					weight = st.session_state.get(f"form_weight{i}_tab1", "").strip()
-					count  = st.session_state.get(f"form_count{i}_tab1", "").strip()
-					if weight or count:
-						all_empty = False
-						break  # ✅ 已經有填，不用再檢查後面
-							
-				if all_empty:
-					st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
-					st.stop()
-								
-				order["顏色"] = st.session_state.form_color_tab1
-				order["Pantone 色號"] = st.session_state.form_pantone_tab1
-				order["料"] = st.session_state.form_raw_material_tab1
-				order["備註"] = st.session_state.form_remark_tab1
-				order["重要提醒"] = st.session_state.form_important_note_tab1
-				order["合計類別"] = st.session_state.form_total_category_tab1
-			
+    if show_confirm_panel:
+        st.markdown("---")
+        st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
+            
+        with st.form("order_detail_form_tab1"):
+            c1, c2, c3, c4 = st.columns(4)
+            c1.text_input("生產單號", value=order.get("生產單號", ""), disabled=True, key="form_order_no_tab1")
+            c2.text_input("配方編號", value=order.get("配方編號", ""), disabled=True, key="form_recipe_id_tab1")
+            c3.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True, key="form_cust_id_tab1")
+            c4.text_input("客戶名稱", value=order.get("客戶名稱", ""), disabled=True, key="form_cust_name_tab1")
+            
+            c5, c6, c7, c8 = st.columns(4)
+            c5.text_input("計量單位", value=recipe_row.get("計量單位", "kg"), disabled=True, key="form_unit_tab1")
+            color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color_tab1")
+            pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone_tab1")
+            raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material_tab1")
+            
+            # ===== 重要提醒 / 合計類別 / 比例（同一橫列）=====
+            col_note, col_total, col_ratio = st.columns([0.5, 0.25, 0.25])
+            
+            with col_note:
+                important_note = st.text_input(
+                    "重要提醒",
+                    value=order.get("重要提醒", ""),
+                    key="form_important_note_tab1"
+                )
+            
+            with col_total:
+                total_category = st.text_input(
+                    "合計類別",
+                    value=order.get("合計類別", recipe_row.get("合計類別", "")),
+                    disabled=True,
+                    key="form_total_category_tab1"
+                )
+            
+            with col_ratio:
+                # 比例顯示（來自配方）
+                r1 = recipe_row.get("比例1", "")
+                r2 = recipe_row.get("比例2", "")
+                r3 = recipe_row.get("比例3", "")
+            
+                ratio_text = ""
+                if r1 or r2 or r3:
+                    parts = [p for p in [r1, r2, r3] if p]
+                    ratio_text = ":".join(parts) + " g/kg"
+            
+                st.text_input(
+                    "比例",
+                    value=ratio_text,
+                    disabled=True,
+                    key="form_ratio_tab1"
+                )
+            
+            
+            st.markdown("**包裝重量與份數**")
+            w_cols = st.columns(4)
+            c_cols = st.columns(4)
+            for i in range(1, 5):
+                w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}_tab1")
+                c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
+            
+            st.markdown("###### 色粉用量（編號與重量）")
+            id_col, wt_col = st.columns(2)
+            for i in range(1, 9):
+                color_id = recipe_row.get(f"色粉編號{i}", "").strip()
+                color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
+                if color_id or color_wt:
+                    id_col.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}_tab1")
+                    wt_col.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}_tab1")
+            
+            additional_recipes = order.get("附加配方", [])
+            if additional_recipes:
+                st.markdown("###### 附加配方色粉用量（編號與重量）")
+                for idx, r in enumerate(additional_recipes, 1):
+                    st.markdown(f"附加配方 {idx}")
+                    col1, col2 = st.columns(2)
+                    for i in range(1, 9):
+                        color_id = r.get(f"色粉編號{i}", "").strip()
+                        color_wt = r.get(f"色粉重量{i}", "").strip()
+                        if color_id or color_wt:
+                            col1.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
+                            col2.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
+            
+            col_submit1, col_submit2 = st.columns([1, 1])
+            with col_submit1:
+                submitted = st.form_submit_button("💾 僅儲存生產單")
+            
+            is_colorant = (recipe_row.get("色粉類別", "").strip() == "色母")
+            with col_submit2:
+                if is_colorant:
+                    continue_to_oem = st.form_submit_button("✅ 儲存並轉代工管理")
+                else:
+                    continue_to_oem = False
+            
+            if submitted or continue_to_oem:
+                all_empty = True
+                            
+                for i in range(1, 5):
+                    weight = st.session_state.get(f"form_weight{i}_tab1", "").strip()
+                    count  = st.session_state.get(f"form_count{i}_tab1", "").strip()
+                    if weight or count:
+                        all_empty = False
+                        break  # ✅ 已經有填，不用再檢查後面
+                            
+                if all_empty:
+                    st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
+                    st.stop()
+                                
+                order["顏色"] = st.session_state.form_color_tab1
+                order["Pantone 色號"] = st.session_state.form_pantone_tab1
+                order["料"] = st.session_state.form_raw_material_tab1
+                order["備註"] = st.session_state.form_remark_tab1
+                order["重要提醒"] = st.session_state.form_important_note_tab1
+                order["合計類別"] = st.session_state.form_total_category_tab1
+                # ===== 比例（來自配方，直接寫入訂單）=====
+                order["比例1"] = recipe_row.get("比例1", "")
+                order["比例2"] = recipe_row.get("比例2", "")
+                order["比例3"] = recipe_row.get("比例3", "")	
 				
 				for i in range(1, 5):
 					order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}_tab1", "").strip()
