@@ -2830,30 +2830,30 @@ elif menu == "生產單管理":
                 # ===== 比例（來自配方，直接寫入訂單）=====
                 order["比例1"] = recipe_row.get("比例1", "")
                 order["比例2"] = recipe_row.get("比例2", "")
-                order["比例3"] = recipe_row.get("比例3", "")	
-				
-				for i in range(1, 5):
-					order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}_tab1", "").strip()
-					order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}_tab1", "").strip()
-				
-				for i in range(1, 9):
-					order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
-					order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
-				
-				raw_net_weight = recipe_row.get("淨重", 0)
-				try:
-					net_weight = float(raw_net_weight)
-				except:
-					net_weight = 0.0
-				
-				color_weight_list = []
-				for i in range(1, 5):
-					w_str = st.session_state.get(f"form_weight{i}_tab1", "").strip()
-					weight = float(w_str) if w_str else 0.0
-					if weight > 0:
-						color_weight_list.append({"項次": i, "重量": weight, "結果": net_weight * weight})
-				order["色粉合計清單"] = color_weight_list
-				order["色粉合計類別"] = recipe_row.get("合計類別", "")
+                order["比例3"] = recipe_row.get("比例3", "")    
+                
+                for i in range(1, 5):
+                    order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}_tab1", "").strip()
+                    order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}_tab1", "").strip()
+                
+                for i in range(1, 9):
+                    order[f"色粉編號{i}"] = recipe_row.get(f"色粉編號{i}", "")
+                    order[f"色粉重量{i}"] = recipe_row.get(f"色粉重量{i}", "")
+                
+                raw_net_weight = recipe_row.get("淨重", 0)
+                try:
+                    net_weight = float(raw_net_weight)
+                except:
+                    net_weight = 0.0
+                
+                color_weight_list = []
+                for i in range(1, 5):
+                    w_str = st.session_state.get(f"form_weight{i}_tab1", "").strip()
+                    weight = float(w_str) if w_str else 0.0
+                    if weight > 0:
+                        color_weight_list.append({"項次": i, "重量": weight, "結果": net_weight * weight})
+                order["色粉合計清單"] = color_weight_list
+                order["色粉合計類別"] = recipe_row.get("合計類別", "")
 				
 				# 低庫存檢查
 				# 📌 4️⃣ 低庫存檢查（統一與庫存區邏輯）
