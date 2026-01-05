@@ -2475,6 +2475,24 @@ elif menu == "生產單管理":
     # Tab 1: 生產單建立
     # ============================================================
     with tab1:
+        if show_confirm_panel:
+            # 🔹 初始化 session_state，避免 AttributeError
+            if "form_remark_tab1" not in st.session_state:
+                st.session_state.form_remark_tab1 = ""
+            if "form_color_tab1" not in st.session_state:
+                st.session_state.form_color_tab1 = ""
+            if "form_pantone_tab1" not in st.session_state:
+                st.session_state.form_pantone_tab1 = ""
+            if "form_raw_material_tab1" not in st.session_state:
+                st.session_state.form_raw_material_tab1 = ""
+            if "form_important_note_tab1" not in st.session_state:
+                st.session_state.form_important_note_tab1 = ""
+            
+        for i in range(1, 5):
+            if f"form_weight{i}_tab1" not in st.session_state:
+                st.session_state[f"form_weight{i}_tab1"] = ""
+            if f"form_count{i}_tab1" not in st.session_state:
+                st.session_state[f"form_count{i}_tab1"] = ""
 
         # ===== 搜尋表單 =====
         with st.form("search_add_form", clear_on_submit=False):
