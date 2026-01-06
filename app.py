@@ -2751,7 +2751,7 @@ elif menu == "生產單管理":
             pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone_tab1")
             raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material_tab1")
             
-            # ===== 重要提醒 / 合計類別 / 比例（同一橫列）=====
+			# ===== 重要提醒 / 合計類別 / 比例（同一橫列）=====
             col_note, col_total, col_ratio = st.columns([0.5, 0.25, 0.25])
             
             with col_note:
@@ -2760,14 +2760,7 @@ elif menu == "生產單管理":
                     value=order.get("重要提醒", ""),
                     key="form_important_note_tab1"
                 )
-
-                remark = st.text_area(
-                    "備註",
-                    value=order.get("備註", ""),
-                    height=80,
-                    key="form_remark_tab1"
-                )
-         
+            
             with col_total:
                 total_category = st.text_input(
                     "合計類別",
@@ -2777,22 +2770,28 @@ elif menu == "生產單管理":
                 )
             
             with col_ratio:
-                # 比例顯示（來自配方）
                 r1 = recipe_row.get("比例1", "")
                 r2 = recipe_row.get("比例2", "")
                 r3 = recipe_row.get("比例3", "")
             
                 ratio_text = ""
                 if r1 or r2 or r3:
-                    parts = [p for p in [r1, r2, r3] if p]
-                    ratio_text = ":".join(parts) + " g/kg"
+                    ratio_text = ":".join([p for p in [r1, r2, r3] if p]) + " g/kg"
             
                 st.text_input(
                     "比例",
                     value=ratio_text,
                     disabled=True,
                     key="form_ratio_tab1"
-                )       
+                )
+            
+            # ===== 備註（整行橫條）=====
+            remark = st.text_area(
+                "備註",
+                value=order.get("備註", ""),
+                height=100,
+                key="form_remark_tab1"
+            )
             
             st.markdown("**包裝重量與份數**")
             w_cols = st.columns(4)
