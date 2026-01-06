@@ -2760,7 +2760,14 @@ elif menu == "生產單管理":
                     value=order.get("重要提醒", ""),
                     key="form_important_note_tab1"
                 )
-            
+
+                remark = st.text_area(
+                    "備註",
+                    value=order.get("備註", ""),
+                    height=80,
+                    key="form_remark_tab1"
+                )
+         
             with col_total:
                 total_category = st.text_input(
                     "合計類別",
@@ -2785,8 +2792,7 @@ elif menu == "生產單管理":
                     value=ratio_text,
                     disabled=True,
                     key="form_ratio_tab1"
-                )
-            
+                )       
             
             st.markdown("**包裝重量與份數**")
             w_cols = st.columns(4)
