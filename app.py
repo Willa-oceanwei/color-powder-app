@@ -2732,11 +2732,18 @@ elif menu == "生產單管理":
         order["附加配方"] = []
     
     st.session_state.new_order = order
-
+	
     # ===== 顯示詳情填寫表單 =====
     if show_confirm_panel:
-        st.markdown("---")
-        st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
+        
+        # ✅【關鍵】第一次進入時，從配方帶入預設值
+        if "recipe_init_done" not in st.session_state:
+            order["備註"] = recipe_row.get("備註", "")
+            order["重要提醒"] = recipe_row.get("重要提醒", "")
+            order["合計類別"] = recipe_row.get("合計類別", "")
+            st.session_state.recipe_init_done = True
+            st.markdown("---")
+            st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
             
         with st.form("order_detail_form_tab1"):
             c1, c2, c3, c4 = st.columns(4)
@@ -2751,7 +2758,7 @@ elif menu == "生產單管理":
             pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone_tab1")
             raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material_tab1")
             
-			# ===== 重要提醒 / 合計類別 / 比例（同一橫列）=====
+            # ===== 重要提醒 / 合計類別 / 比例（同一橫列）=====
             col_note, col_total, col_ratio = st.columns([0.5, 0.25, 0.25])
             
             with col_note:
