@@ -3442,7 +3442,7 @@ elif menu == "生產單管理":
 
                 c1, c2 = st.columns(2)
 
-                 if c1.button("✅ 是，刪除", key="confirm_delete_yes_tab3"):
+                if c1.button("✅ 是，刪除", key="confirm_delete_yes_tab3"):
                     if not order_id:
                         st.error("❌ 未指定要刪除的生產單 ID")
                     else:
