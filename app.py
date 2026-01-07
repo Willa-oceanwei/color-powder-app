@@ -3966,11 +3966,6 @@ if menu == "代工管理":
                         key="return_qty_input"
                     )
                     
-                    if st.button(
-                        "➕ 新增載回",
-                        key="btn_add_return"
-                    ):
-    
                     # ---------- 新增載回 ----------
                     if st.button("➕ 新增載回"):
                         if return_qty <= 0:
