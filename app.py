@@ -3560,125 +3560,126 @@ elif menu == "生產單管理":
                         st.rerun()
 
 # ======== 代工管理分頁 =========
+# ======== 代工管理分頁 =========
 if menu == "代工管理":
-	# ===== 縮小整個頁面最上方空白 =====
-	st.markdown("""
-	<style>
-	div.block-container {
-		padding-top: 5px;
-	}
-	</style>
-	""", unsafe_allow_html=True)
-	
-	import pandas as pd
-	from datetime import datetime
-	
-	# ===== 標題 =====
-	st.markdown('<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🏭 代工管理</h1>', unsafe_allow_html=True)
-	
-	# ===== 讀取代工管理表 =====
-	try:
-		ws_oem = spreadsheet.worksheet("代工管理")
-		df_oem = pd.DataFrame(ws_oem.get_all_records())
-	except:
-		ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
-		ws_oem.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱", 
-						  "代工數量", "代工廠商", "備註", "狀態", "建立時間"])
-		df_oem = pd.DataFrame(columns=["代工單號", "生產單號", "配方編號", "客戶名稱", 
-									   "代工數量", "代工廠商", "備註", "狀態", "建立時間"])
-	# 🔒 確保代工單號欄位一定存在（避免 KeyError）
-	if "代工單號" not in df_oem.columns:
-		df_oem["代工單號"] = ""
-		
-	
-	# 確保狀態欄位存在
-	if "狀態" not in df_oem.columns:
-		df_oem["狀態"] = ""
-	
-	# ===== 讀取送達記錄表 =====
-	try:
-		ws_delivery = spreadsheet.worksheet("代工送達記錄")
-		df_delivery = pd.DataFrame(ws_delivery.get_all_records())
-	except:
-		ws_delivery = spreadsheet.add_worksheet("代工送達記錄", rows=100, cols=10)
-		ws_delivery.append_row(["代工單號", "送達日期", "送達數量", "建立時間"])
-		df_delivery = pd.DataFrame(columns=["代工單號", "送達日期", "送達數量", "建立時間"])
-	
-	# ===== 讀取載回記錄表 =====
-	try:
-		ws_return = spreadsheet.worksheet("代工載回記錄")
-		df_return = pd.DataFrame(ws_return.get_all_records())
-	except:
-		ws_return = spreadsheet.add_worksheet("代工載回記錄", rows=100, cols=10)
-		ws_return.append_row(["代工單號", "載回日期", "載回數量", "建立時間"])
-		df_return = pd.DataFrame(columns=["代工單號", "載回日期", "載回數量", "建立時間"])
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    import pandas as pd
+    from datetime import datetime
+    
+    # ===== 標題 =====
+    st.markdown('<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🏭 代工管理</h1>', unsafe_allow_html=True)
+    
+    # ===== 讀取代工管理表 =====
+    try:
+        ws_oem = spreadsheet.worksheet("代工管理")
+        df_oem = pd.DataFrame(ws_oem.get_all_records())
+    except:
+        ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
+        ws_oem.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱", 
+                          "代工數量", "代工廠商", "備註", "狀態", "建立時間"])
+        df_oem = pd.DataFrame(columns=["代工單號", "生產單號", "配方編號", "客戶名稱", 
+                                       "代工數量", "代工廠商", "備註", "狀態", "建立時間"])
+    # 🔒 確保代工單號欄位一定存在（避免 KeyError）
+    if "代工單號" not in df_oem.columns:
+        df_oem["代工單號"] = ""
+        
+    
+    # 確保狀態欄位存在
+    if "狀態" not in df_oem.columns:
+        df_oem["狀態"] = ""
+    
+    # ===== 讀取送達記錄表 =====
+    try:
+        ws_delivery = spreadsheet.worksheet("代工送達記錄")
+        df_delivery = pd.DataFrame(ws_delivery.get_all_records())
+    except:
+        ws_delivery = spreadsheet.add_worksheet("代工送達記錄", rows=100, cols=10)
+        ws_delivery.append_row(["代工單號", "送達日期", "送達數量", "建立時間"])
+        df_delivery = pd.DataFrame(columns=["代工單號", "送達日期", "送達數量", "建立時間"])
+    
+    # ===== 讀取載回記錄表 =====
+    try:
+        ws_return = spreadsheet.worksheet("代工載回記錄")
+        df_return = pd.DataFrame(ws_return.get_all_records())
+    except:
+        ws_return = spreadsheet.add_worksheet("代工載回記錄", rows=100, cols=10)
+        ws_return.append_row(["代工單號", "載回日期", "載回數量", "建立時間"])
+        df_return = pd.DataFrame(columns=["代工單號", "載回日期", "載回數量", "建立時間"])
 
-	# 🔒 確保送達與載回表都有 "代工單號" 欄位，避免 KeyError
-	if "代工單號" not in df_delivery.columns:
-		df_delivery["代工單號"] = ""
-	if "代工單號" not in df_return.columns:
-		df_return["代工單號"] = ""
+    # 🔒 確保送達與載回表都有 "代工單號" 欄位，避免 KeyError
+    if "代工單號" not in df_delivery.columns:
+        df_delivery["代工單號"] = ""
+    if "代工單號" not in df_return.columns:
+        df_return["代工單號"] = ""
 
-	
-	# ===== Tab 分頁 =====
-	tab1, tab2, tab3, tab4 = st.tabs(["➕ 新增代工單", "✏️ 編輯代工", "📥 載回登入", "📊 代工進度表"])
-	
-	# ========== Tab 1：新增代工單 ==========
-	if "oem_saved" in st.session_state:
-		st.toast(f"代工單 {st.session_state['oem_saved']} 建立成功！ 🎉")
-		del st.session_state["oem_saved"]
-	
-	with tab1:
-		st.markdown(
-			'<div style="font-size:12px; color:#3dbcd1;">💡 可直接建立代工單，不需透過生產單轉單</div>',
-			unsafe_allow_html=True
-		)
+    
+    # ===== Tab 分頁 =====
+    tab1, tab2, tab3, tab4 = st.tabs(["➕ 新增代工單", "✏️ 編輯代工", "📥 載回登入", "📊 代工進度表"])
+    
+    # ========== Tab 1：新增代工單 ==========
+    if "oem_saved" in st.session_state:
+        st.toast(f"代工單 {st.session_state['oem_saved']} 建立成功！ 🎉")
+        del st.session_state["oem_saved"]
+    
+    with tab1:
+        st.markdown(
+            '<div style="font-size:12px; color:#3dbcd1;">💡 可直接建立代工單，不需透過生產單轉單</div>',
+            unsafe_allow_html=True
+        )
 
-		with st.form("create_oem_form"):
-			col1, col2 = st.columns(2)
-			with col1:
-				new_oem_id = st.text_input("代工單號", placeholder="例如：OEM20251210-001")
-				new_production_id = st.text_input("生產單號（選填）", placeholder="若有對應生產單請填寫")
-				new_formula_id = st.text_input("配方編號")
-	
-			with col2:
-				new_customer = st.text_input("客戶名稱")
-				new_oem_qty = st.number_input("代工數量 (kg)", min_value=0.0, value=0.0, step=1.0)
-				new_vendor = st.selectbox("代工廠商", ["", "弘旭", "良輝"])
-	
-			new_remark = st.text_area("備註")
-	
-			submitted_new = st.form_submit_button("💾 建立代工單")
-	
-			if submitted_new:
+        with st.form("create_oem_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                new_oem_id = st.text_input("代工單號", placeholder="例如：OEM20251210-001")
+                new_production_id = st.text_input("生產單號（選填）", placeholder="若有對應生產單請填寫")
+                new_formula_id = st.text_input("配方編號")
+    
+            with col2:
+                new_customer = st.text_input("客戶名稱")
+                new_oem_qty = st.number_input("代工數量 (kg)", min_value=0.0, value=0.0, step=1.0)
+                new_vendor = st.selectbox("代工廠商", ["", "弘旭", "良輝"])
+    
+            new_remark = st.text_area("備註")
+    
+            submitted_new = st.form_submit_button("💾 建立代工單")
+    
+            if submitted_new:
 
-				if not new_oem_id.strip():
-					st.error("❌ 請輸入代工單號")
-				elif new_oem_id in df_oem.get("代工單號", []).values:
-					st.error(f"❌ 代工單號 {new_oem_id} 已存在")
-				elif new_oem_qty <= 0:
-					st.error("❌ 代工數量必須大於 0")
-				else:
-					new_row = [
-						new_oem_id,
-						new_production_id,
-						new_formula_id,
-						new_customer,
-						new_oem_qty,
-						new_vendor,
-						new_remark,
-						"🏭 在廠內",  # ⭐ 預設狀態
-						datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-					]
+                if not new_oem_id.strip():
+                    st.error("❌ 請輸入代工單號")
+                elif new_oem_id in df_oem.get("代工單號", []).values:
+                    st.error(f"❌ 代工單號 {new_oem_id} 已存在")
+                elif new_oem_qty <= 0:
+                    st.error("❌ 代工數量必須大於 0")
+                else:
+                    new_row = [
+                        new_oem_id,
+                        new_production_id,
+                        new_formula_id,
+                        new_customer,
+                        new_oem_qty,
+                        new_vendor,
+                        new_remark,
+                        "🏭 在廠內",  # ⭐ 預設狀態
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    ]
 
-					ws_oem.append_row(new_row)
+                    ws_oem.append_row(new_row)
 
-					# 儲存成功後，將代工單號存進 session_state
-					st.session_state["oem_saved"] = new_oem_id  
+                    # 儲存成功後，將代工單號存進 session_state
+                    st.session_state["oem_saved"] = new_oem_id  
 
-					st.rerun()
+                    st.rerun()
 
-	# ========== Tab 2：編輯代工 ==========
+    # ========== Tab 2：編輯代工 ==========
     with tab2:
         if not df_oem.empty:
     
@@ -4110,7 +4111,7 @@ if menu == "代工管理":
                 st.info("目前沒有符合條件的代工單")
     
         else:
-            st.info("⚠️ 目前沒有代工記錄")                        
+            st.info("⚠️ 目前沒有代工記錄")                                    
             
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
