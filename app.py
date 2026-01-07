@@ -3449,26 +3449,21 @@ elif menu == "生產單管理":
                         order_id_str = str(order_id)
                         try:
                             # ===== 先刪代工單 =====
+                            deleted_oem_count = 0
                             try:
                                 ws_oem = spreadsheet.worksheet("代工管理")
+                                deleted_oem_count = delete_oem_by_order_id(ws_oem, order_id_str)
                             except:
                                 ws_oem = None
                 
-                            deleted_oem_count = 0
-                            if ws_oem:
-                                deleted_oem_count = delete_oem_by_order_id(ws_oem, order_id_str)
+                            if deleted_oem_count > 0:
+                                st.toast(f"🧹 已自動刪除 {deleted_oem_count} 筆對應代工單")
                 
                             # ===== 再刪生產單 =====
                             deleted = delete_order_by_id(ws_order, order_id_str)
                 
-                            # ===== 顯示結果 =====
                             if deleted:
-                                msg = f"✅ 已刪除 {order_label}"
-                                if deleted_oem_count > 0:
-                                    msg += f"\n🧹 同時刪除 {deleted_oem_count} 筆對應代工單"
-                                else:
-                                    msg += "\n🧹 無對應代工單"
-                                st.success(msg)
+                                st.success(f"✅ 已刪除 {order_label}")
                             else:
                                 st.error("❌ 找不到該生產單，刪除失敗")
                 
@@ -3477,11 +3472,7 @@ elif menu == "生產單管理":
                 
                     st.session_state["show_delete_confirm"] = False
                     st.rerun()
-
-                if c2.button("取消", key="confirm_delete_no_tab3"):
-                    st.session_state["show_delete_confirm"] = False
-                    st.rerun()
-                
+           
             # ====== 修改面板（⚠️ 一定要在外層） ======
             if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
                 
