@@ -3214,6 +3214,17 @@ elif menu == "生產單管理":
             row_number = target_idx[0] + 2
             ws.delete_rows(row_number)
             return True
+
+		# ===== 刪除代工單函式 =====
+        def delete_oem_by_order_id(ws_oem, order_id):
+            all_values = ws_oem.get_all_records()
+            df = pd.DataFrame(all_values)
+            if df.empty or "生產單號" not in df.columns:
+                return 0
+            target_idxs = df.index[df["生產單號"].astype(str) == str(order_id)].tolist()
+            for idx in sorted(target_idxs, reverse=True):
+                ws_oem.delete_rows(idx + 2)
+            return len(target_idxs)
     
         search_order_tab3 = st.text_input(
             "搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)",
