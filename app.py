@@ -3677,187 +3677,187 @@ if menu == "代工管理":
 					st.session_state["oem_saved"] = new_oem_id  
 
 					st.rerun()
- 
+
 	# ========== Tab 2：編輯代工 ==========
-	with tab2:
-		if not df_oem.empty:
-	
-			# ---------- 建立日期排序欄位 ----------
-			df_oem["狀態"] = df_oem["狀態"].astype(str).str.strip()
-	
-			def tw_to_ad(d):
-				d = str(d)
-				if len(d) == 7:
-					return str(int(d[:3]) + 1911) + d[3:]
-				return d
-	
-			df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
-			df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
-	
-			df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
-			df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
-	
-			oem_options = [
-			    f"{row.get('客戶名稱','')} | {row.get('配方編號','')} | {row.get('代工數量',0)}kg | {row.get('代工廠商','')} | {row['代工單號']}"
-			    for _, row in df_oem_active.iterrows()
-			]
+    with tab2:
+        if not df_oem.empty:
+    
+            # ---------- 建立日期排序欄位 ----------
+            df_oem["狀態"] = df_oem["狀態"].astype(str).str.strip()
+    
+            def tw_to_ad(d):
+                d = str(d)
+                if len(d) == 7:
+                    return str(int(d[:3]) + 1911) + d[3:]
+                return d
+    
+            df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
+            df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
+    
+            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
+            df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
+    
+            oem_options = [
+                f"{row.get('客戶名稱','')} | {row.get('配方編號','')} | {row.get('代工數量',0)}kg | {row.get('代工廠商','')} | {row['代工單號']}"
+                for _, row in df_oem_active.iterrows()
+            ]
 
-			if not oem_options:
-				st.warning("⚠️ 目前沒有可編輯的代工單（全部已結案）")
-			else:
-				selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_edit")
-	
-				# 選擇代工單號
-				if selected_option:
-					selected_oem = selected_option.split(" | ")[-1]
-	
-					# 如果 session_state 沒有這筆資料，才抓一次
-					if "oem_selected_row" not in st.session_state or st.session_state.oem_selected_row.get("代工單號") != selected_oem:
-						oem_row = df_oem_active[df_oem_active["代工單號"] == selected_oem].iloc[0].to_dict()
-						st.session_state.oem_selected_row = oem_row
-	
-					oem_row = st.session_state.oem_selected_row
-	
-					# ---------- 顯示基本資訊 ----------
-					col1, col2, col3 = st.columns(3)
-					col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
-					col2.text_input("客戶名稱", value=oem_row.get("客戶名稱", ""), disabled=True)
-					col3.text_input("代工數量 (kg)", value=oem_row.get("代工數量", ""), disabled=True)
-	
-					# ---------- 可編輯欄位 ----------
-					col4, col5 = st.columns([2,1])
-					new_vendor = col4.selectbox(
-						"代工廠商", ["", "弘旭", "良輝"],
-						index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", "")) if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
-						key="oem_vendor"
-					)
-					status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
-					current_status = oem_row.get("狀態", "")
-					status_index = status_options.index(current_status) if current_status in status_options else 0
-					new_status = col5.selectbox("狀態", status_options, index=status_index, key="oem_status")
-					new_remark = st.text_area("備註", value=oem_row.get("備註",""), key="oem_remark", height=120)
-	
-					# ---------- 更新 / 刪除按鈕 ----------
-					b1, b2 = st.columns(2)
-					
-					with b1:
-					    if st.button("💾 更新代工資訊", key="update_oem_info"):
-					        all_values = ws_oem.get_all_values()  # 只抓一次
-					        for idx, row in enumerate(all_values[1:], start=2):
-					            if row[0] == selected_oem:
-					                ws_oem.update_cell(idx, 6, new_vendor)
-					                ws_oem.update_cell(idx, 7, new_remark)
-					                ws_oem.update_cell(idx, 8, new_status)
-					                st.success("✅ 代工資訊已更新")
-					                st.session_state.oem_selected_row.update({
-					                    "代工廠商": new_vendor,
-					                    "備註": new_remark,
-					                    "狀態": new_status
-					                })
-					                break
-					
-					with b2:
-					    if st.button("🗑️ 刪除代工單", key="delete_oem"):
-					        st.session_state.show_delete_oem_confirm = True
-					
-					# ---------- 刪除確認 ----------
-					if st.session_state.get("show_delete_oem_confirm", False):
-					    st.warning(f"⚠️ 確定刪除 {oem_row['代工單號']}？")
-					    c1, c2 = st.columns(2)
-					    with c1:
-					        if st.button("確認刪除", key="confirm_delete_oem"):
-					            all_values = ws_oem.get_all_values()
-					            for idx, row in enumerate(all_values[1:], start=2):
-					                if row[0] == oem_row["代工單號"]:
-					                    ws_oem.delete_row(idx)
-					                    st.success("✅ 已刪除代工單")
-					                    st.session_state.oem_selected_row = None
-					                    st.session_state.show_delete_oem_confirm = False
-					                    st.rerun()
-					                    break
-					    with c2:
-					        if st.button("取消", key="cancel_delete_oem"):
-					            st.session_state.show_delete_oem_confirm = False
-					
-					st.markdown("---")
+            if not oem_options:
+                st.warning("⚠️ 目前沒有可編輯的代工單（全部已結案）")
+            else:
+                selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_edit")
+    
+                # 選擇代工單號
+                if selected_option:
+                    selected_oem = selected_option.split(" | ")[-1]
+    
+                    # 如果 session_state 沒有這筆資料，才抓一次
+                    if "oem_selected_row" not in st.session_state or st.session_state.oem_selected_row.get("代工單號") != selected_oem:
+                        oem_row = df_oem_active[df_oem_active["代工單號"] == selected_oem].iloc[0].to_dict()
+                        st.session_state.oem_selected_row = oem_row
+    
+                    oem_row = st.session_state.oem_selected_row
+    
+                    # ---------- 顯示基本資訊 ----------
+                    col1, col2, col3 = st.columns(3)
+                    col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
+                    col2.text_input("客戶名稱", value=oem_row.get("客戶名稱", ""), disabled=True)
+                    col3.text_input("代工數量 (kg)", value=oem_row.get("代工數量", ""), disabled=True)
+    
+                    # ---------- 可編輯欄位 ----------
+                    col4, col5 = st.columns([2,1])
+                    new_vendor = col4.selectbox(
+                        "代工廠商", ["", "弘旭", "良輝"],
+                        index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", "")) if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
+                        key="oem_vendor"
+                    )
+                    status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
+                    current_status = oem_row.get("狀態", "")
+                    status_index = status_options.index(current_status) if current_status in status_options else 0
+                    new_status = col5.selectbox("狀態", status_options, index=status_index, key="oem_status")
+                    new_remark = st.text_area("備註", value=oem_row.get("備註",""), key="oem_remark", height=120)
+    
+                    # ---------- 更新 / 刪除按鈕 ----------
+                    b1, b2 = st.columns(2)
+                    
+                    with b1:
+                        if st.button("💾 更新代工資訊", key="update_oem_info"):
+                            all_values = ws_oem.get_all_values()  # 只抓一次
+                            for idx, row in enumerate(all_values[1:], start=2):
+                                if row[0] == selected_oem:
+                                    ws_oem.update_cell(idx, 6, new_vendor)
+                                    ws_oem.update_cell(idx, 7, new_remark)
+                                    ws_oem.update_cell(idx, 8, new_status)
+                                    st.success("✅ 代工資訊已更新")
+                                    st.session_state.oem_selected_row.update({
+                                        "代工廠商": new_vendor,
+                                        "備註": new_remark,
+                                        "狀態": new_status
+                                    })
+                                    break
+                    
+                    with b2:
+                        if st.button("🗑️ 刪除代工單", key="delete_oem"):
+                            st.session_state.show_delete_oem_confirm = True
+                    
+                    # ---------- 刪除確認 ----------
+                    if st.session_state.get("show_delete_oem_confirm", False):
+                        st.warning(f"⚠️ 確定刪除 {oem_row['代工單號']}？")
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            if st.button("確認刪除", key="confirm_delete_oem"):
+                                all_values = ws_oem.get_all_values()
+                                for idx, row in enumerate(all_values[1:], start=2):
+                                    if row[0] == oem_row["代工單號"]:
+                                        ws_oem.delete_row(idx)
+                                        st.success("✅ 已刪除代工單")
+                                        st.session_state.oem_selected_row = None
+                                        st.session_state.show_delete_oem_confirm = False
+                                        st.rerun()
+                                        break
+                        with c2:
+                            if st.button("取消", key="cancel_delete_oem"):
+                                st.session_state.show_delete_oem_confirm = False
+                    
+                    st.markdown("---")
 
-					# ---------- 送達記錄區 ----------
-					if "代工單號" not in df_delivery.columns:
-					    df_delivery["代工單號"] = ""
-					
-					st.markdown("**📦 送達記錄**")
-					
-					# 取得該代工單的送達紀錄
-					df_this_delivery = df_delivery[df_delivery["代工單號"] == selected_oem]
-					
-					if not df_this_delivery.empty:
-					    st.dataframe(
-					        df_this_delivery[["送達日期", "送達數量"]],
-					        use_container_width=True,
-					        hide_index=True
-					    )
-					
-					# 計算已送達與尚餘
-					total_delivered = (
-					    df_this_delivery["送達數量"].astype(float).sum()
-					    if not df_this_delivery.empty else 0.0
-					)
-					
-					oem_qty = float(oem_row.get("代工數量", 0))
-					remaining = oem_qty - total_delivered
-					
-					st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg")
-					
-					# ---------- 新增送達 ----------
-					col_d1, col_d2 = st.columns(2)
-					delivery_date = col_d1.date_input("送達日期", key="delivery_date")
-					delivery_qty = col_d2.number_input(
-					    "送達數量 (kg)",
-					    min_value=0.0,
-					    value=0.0,
-					    step=1.0,
-					    key="delivery_qty"
-					)
-					
-					col_btn1, col_btn2 = st.columns([1, 3])
-					
-					# 小工具：更新代工狀態
-					def update_oem_status(oem_no, new_status):
-					    all_values = ws_oem.get_all_values()
-					    for idx, row in enumerate(all_values[1:], start=2):
-					        if row[0] == oem_no:
-					            ws_oem.update_cell(idx, 8, new_status)  # 第 8 欄 = 狀態
-					            break
-					
-					if col_btn1.button("➕ 新增送達", key="add_delivery"):
-					    if delivery_qty > 0:
-					        # 寫入送達紀錄
-					        new_record = [
-					            selected_oem,
-					            delivery_date.strftime("%Y/%m/%d"),
-					            delivery_qty,
-					            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-					        ]
-					        ws_delivery.append_row(new_record)
-					
-					        # 重新計算尚餘
-					        new_total_delivered = total_delivered + delivery_qty
-					        new_remaining = oem_qty - new_total_delivered
-					
-					        # ✅ 尚餘為 0 → 自動轉為「未載回」（不影響已結案）
-					        if new_remaining <= 0 and oem_row.get("狀態") != "✅ 已結案":
-					            update_oem_status(selected_oem, "⏳ 未載回")
-					            st.session_state.oem_selected_row["狀態"] = "⏳ 未載回"
-					            st.toast("📦 已全數送達，狀態自動轉為「未載回」", icon="🚚")
-					
-					        st.success(f"✅ 已新增送達記錄：{delivery_date} / {delivery_qty} kg")
-					        st.rerun()
-					    else:
-					        st.warning("⚠️ 請輸入送達數量")
-		else:
-			st.info("⚠️ 目前沒有代工單，請至「新增代工單」分頁建立")
+                    # ---------- 送達記錄區 ----------
+                    if "代工單號" not in df_delivery.columns:
+                        df_delivery["代工單號"] = ""
+                    
+                    st.markdown("**📦 送達記錄**")
+                    
+                    # 取得該代工單的送達紀錄
+                    df_this_delivery = df_delivery[df_delivery["代工單號"] == selected_oem]
+                    
+                    if not df_this_delivery.empty:
+                        st.dataframe(
+                            df_this_delivery[["送達日期", "送達數量"]],
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    
+                    # 計算已送達與尚餘
+                    total_delivered = (
+                        df_this_delivery["送達數量"].astype(float).sum()
+                        if not df_this_delivery.empty else 0.0
+                    )
+                    
+                    oem_qty = float(oem_row.get("代工數量", 0))
+                    remaining = oem_qty - total_delivered
+                    
+                    st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg")
+                    
+                    # ---------- 新增送達 ----------
+                    col_d1, col_d2 = st.columns(2)
+                    delivery_date = col_d1.date_input("送達日期", key="delivery_date")
+                    delivery_qty = col_d2.number_input(
+                        "送達數量 (kg)",
+                        min_value=0.0,
+                        value=0.0,
+                        step=1.0,
+                        key="delivery_qty"
+                    )
+                    
+                    col_btn1, col_btn2 = st.columns([1, 3])
+                    
+                    # 小工具：更新代工狀態
+                    def update_oem_status(oem_no, new_status):
+                        all_values = ws_oem.get_all_values()
+                        for idx, row in enumerate(all_values[1:], start=2):
+                            if row[0] == oem_no:
+                                ws_oem.update_cell(idx, 8, new_status)  # 第 8 欄 = 狀態
+                                break
+                    
+                    if col_btn1.button("➕ 新增送達", key="add_delivery"):
+                        if delivery_qty > 0:
+                            # 寫入送達紀錄
+                            new_record = [
+                                selected_oem,
+                                delivery_date.strftime("%Y/%m/%d"),
+                                delivery_qty,
+                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            ]
+                            ws_delivery.append_row(new_record)
+                    
+                            # 重新計算尚餘
+                            new_total_delivered = total_delivered + delivery_qty
+                            new_remaining = oem_qty - new_total_delivered
+                    
+                            # ✅ 尚餘為 0 → 自動轉為「未載回」（不影響已結案）
+                            if new_remaining <= 0 and oem_row.get("狀態") != "✅ 已結案":
+                                update_oem_status(selected_oem, "⏳ 未載回")
+                                st.session_state.oem_selected_row["狀態"] = "⏳ 未載回"
+                                st.toast("📦 已全數送達，狀態自動轉為「未載回」", icon="🚚")
+                    
+                            st.success(f"✅ 已新增送達記錄：{delivery_date} / {delivery_qty} kg")
+                            st.rerun()
+                        else:
+                            st.warning("⚠️ 請輸入送達數量")
+        else:
+            st.info("⚠️ 目前沒有代工單，請至「新增代工單」分頁建立")
 
-	# ================= Tab 3：載回登入 =================
+    # ================= Tab 3：載回登入 =================
     with tab3:
     
         # ===== Toast 顯示（跨 rerun 一次性）=====
@@ -4004,118 +4004,153 @@ if menu == "代工管理":
         else:
             st.info("⚠️ 目前沒有代工單")
 
-	# ========== Tab 4：代工進度表 ==========
-	with tab4:
-	
-		if not df_oem.empty:
-			progress_data = []
-	
-			# ===== 狀態排序權重（依你指定）=====
-			status_order_map = {
-				"🏭 在廠內": 1,
-				"⏳ 未載回": 2,
-				"🔄 進行中": 3,
-				"✅ 已結案": 4
-			}
-	
-			for _, oem in df_oem.iterrows():
-				oem_id = oem["代工單號"]
-	
-				# ---------- 送達紀錄 ----------
-				df_this_delivery = df_delivery[df_delivery["代工單號"] == oem_id]
-				delivery_text = ""
-				if not df_this_delivery.empty:
-					delivery_list = [
-						f"{row['送達日期']} ({row['送達數量']} kg)"
-						for _, row in df_this_delivery.iterrows()
-					]
-					delivery_text = "\n".join(delivery_list)
-	
-				# ---------- 載回紀錄 ----------
-				df_this_return = df_return[df_return["代工單號"] == oem_id]
-				return_text = ""
-				if not df_this_return.empty:
-					return_list = [
-						f"{row['載回日期']} ({row['載回數量']} kg)"
-						for _, row in df_this_return.iterrows()
-					]
-					return_text = "\n".join(return_list)
-	
-				# ---------- 狀態判斷 ----------
-				total_qty = float(oem.get("代工數量", 0))
-				total_returned = (
-					df_this_return["載回數量"].astype(float).sum()
-					if not df_this_return.empty else 0.0
-				)
-	
-				# 優先使用手動設定狀態
-				manual_status = str(oem.get("狀態", "")).strip()
-				if manual_status:
-					status = manual_status
-				else:
-					if total_returned >= total_qty and total_qty > 0:
-						status = "✅ 已結案"
-					elif total_returned > 0:
-						status = "🔄 進行中"
-					else:
-						status = "⏳ 未載回"
-	
-				# 狀態排序權重
-				status_order = status_order_map.get(status, 99)
-	
-				progress_data.append({
-					"status_order": status_order,		  # 只用來排序
-					"狀態": status,
-					"代工單號": oem_id,
-					"代工廠名稱": oem.get("代工廠商", ""),
-					"配方編號": oem.get("配方編號", ""),
-					"客戶名稱": oem.get("客戶名稱", ""),
-					"代工數量": f"{oem.get('代工數量', 0)} kg",
-					"送達日期及數量": delivery_text,
-					"載回日期及數量": return_text,
-					"建立時間": oem.get("建立時間", "")
-				})
-	
-			# ---------- 組成 DataFrame ----------
-			df_progress = pd.DataFrame(progress_data)
-	
-			# ---------- 只看未結案（預設開） ----------
-			show_open_only = st.checkbox("只顯示未結案代工單", value=True)
-	
-			if show_open_only:
-				df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
+    # ========== Tab 4：代工進度表 ==========
+    with tab4:
+    
+        if not df_oem.empty:
+            progress_data = []
+    
+            # ===== 狀態排序權重（依你指定）=====
+            status_order_map = {
+                "🏭 在廠內": 1,
+                "⏳ 未載回": 2,
+                "🔄 進行中": 3,
+                "✅ 已結案": 4
+            }
+    
+            for _, oem in df_oem.iterrows():
+                oem_id = oem["代工單號"]
+    
+                # ---------- 送達紀錄 ----------
+                df_this_delivery = df_delivery[df_delivery["代工單號"] == oem_id]
+                delivery_text = ""
+                if not df_this_delivery.empty:
+                    delivery_list = [
+                        f"{row['送達日期']} ({row['送達數量']} kg)"
+                        for _, row in df_this_delivery.iterrows()
+                    ]
+                    delivery_text = "\n".join(delivery_list)
+    
+                # ---------- 載回紀錄 ----------
+                df_this_return = df_return[df_return["代工單號"] == oem_id]
+                return_text = ""
+                if not df_this_return.empty:
+                    return_list = [
+                        f"{row['載回日期']} ({row['載回數量']} kg)"
+                        for _, row in df_this_return.iterrows()
+                    ]
+                    return_text = "\n".join(return_list)
+    
+                # ---------- 狀態判斷 ----------
+                total_qty = float(oem.get("代工數量", 0))
+                total_returned = (
+                    df_this_return["載回數量"].astype(float).sum()
+                    if not df_this_return.empty else 0.0
+                )
+    
+                # 優先使用手動設定狀態
+                manual_status = str(oem.get("狀態", "")).strip()
+                if manual_status:
+                    status = manual_status
+                else:
+                    if total_returned >= total_qty and total_qty > 0:
+                        status = "✅ 已結案"
+                    elif total_returned > 0:
+                        status = "🔄 進行中"
+                    else:
+                        status = "⏳ 未載回"
+    
+                # 狀態排序權重
+                status_order = status_order_map.get(status, 99)
+    
+                progress_data.append({
+                    "status_order": status_order,          # 只用來排序
+                    "狀態": status,
+                    "代工單號": oem_id,
+                    "代工廠名稱": oem.get("代工廠商", ""),
+                    "配方編號": oem.get("配方編號", ""),
+                    "客戶名稱": oem.get("客戶名稱", ""),
+                    "代工數量": f"{oem.get('代工數量', 0)} kg",
+                    "送達日期及數量": delivery_text,
+                    "載回日期及數量": return_text,
+                    "建立時間": oem.get("建立時間", "")
+                })
+    
+            # ---------- 組成 DataFrame ----------
+            df_progress = pd.DataFrame(progress_data)
+    
+            # ---------- 只看未結案（預設開） ----------
+            show_open_only = st.checkbox("只顯示未結案代工單", value=True)
+    
+            if show_open_only:
+                df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
 
-			# ---------- 搜尋：客戶名稱 / 配方編號 ----------
-			search_text = st.text_input(
-				"🔍 搜尋客戶名稱或配方編號",
-				placeholder="輸入關鍵字（可搜尋客戶名稱 / 配方編號）"
-			).strip()
-			
-			if search_text:
-				df_progress = df_progress[
-					df_progress["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-					df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
-				]
-	
-			# ---------- 排序：狀態優先 → 建立時間新到舊 ----------
-			if not df_progress.empty:
-				df_progress = df_progress.sort_values(
-					by=["status_order", "建立時間"],
-					ascending=[True, False]
-				)
-	
-				df_progress = df_progress.drop(columns=["status_order"])
-	
-				st.dataframe(
-					df_progress,
-					use_container_width=True,
-					hide_index=True
-				)
-			else:
-				st.info("目前沒有符合條件的代工單")
-	
-		else:
-			st.info("⚠️ 目前沒有代工記錄")						
+            # ---------- 搜尋：客戶名稱 / 配方編號 ----------
+            search_text = st.text_input(
+                "🔍 搜尋客戶名稱或配方編號",
+                placeholder="輸入關鍵字（可搜尋客戶名稱 / 配方編號）"
+            ).strip()
+            
+            if search_text:
+                df_progress = df_progress[
+                    df_progress["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                ]
+    
+            # ---------- 排序：狀態優先 → 建立時間新到舊 ----------
+            if not df_progress.empty:
+                df_progress = df_progress.sort_values(
+                    by=["status_order", "建立時間"],
+                    ascending=[True, False]
+                )
+    
+                df_progress = df_progress.drop(columns=["status_order"])
+    
+                st.dataframe(
+                    df_progress,
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.info("目前沒有符合條件的代工單")
+    
+        else:
+            st.info("⚠️ 目前沒有代工記錄")                        
+            
+# ======== 採購管理分頁 =========
+elif menu == "採購管理":
+    # ===== 縮小整個頁面最上方空白 =====
+    st.markdown("""
+    <style>
+    div.block-container {
+        padding-top: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    import pandas as pd
+    from datetime import datetime, date
+
+    # ===== 標題 =====
+    st.markdown(
+        '<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">📥 採購管理</h1>',
+        unsafe_allow_html=True
+    )
+
+    # ===== Tab 分頁 =====
+    tab1, tab2, tab3 = st.tabs(["📲 進貨新增", "🔍 進貨查詢", "🏢 供應商管理"])
+
+    def get_or_create_worksheet(spreadsheet, title, rows=100, cols=10):
+        try:
+            return spreadsheet.worksheet(title)
+        except Exception as e:
+            try:
+                return spreadsheet.add_worksheet(title, rows=rows, cols=cols)
+            except Exception as e2:
+                st.error(f"❌ 無法建立或取得工作表「{title}」")
+                raise e2
+
+    ws_stock = get_or_create_worksheet(spreadsheet, "庫存記錄", 100, 10)				
 			
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
