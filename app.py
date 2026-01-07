@@ -3442,20 +3442,39 @@ elif menu == "生產單管理":
 
                 c1, c2 = st.columns(2)
 
-                if c1.button("✅ 是，刪除", key="confirm_delete_yes_tab3"):
-                    if order_id is None or order_id == "":
+                 if c1.button("✅ 是，刪除", key="confirm_delete_yes_tab3"):
+                    if not order_id:
                         st.error("❌ 未指定要刪除的生產單 ID")
                     else:
                         order_id_str = str(order_id)
                         try:
+                            # ===== 先刪代工單 =====
+                            try:
+                                ws_oem = spreadsheet.worksheet("代工管理")
+                            except:
+                                ws_oem = None
+                
+                            deleted_oem_count = 0
+                            if ws_oem:
+                                deleted_oem_count = delete_oem_by_order_id(ws_oem, order_id_str)
+                
+                            # ===== 再刪生產單 =====
                             deleted = delete_order_by_id(ws_order, order_id_str)
+                
+                            # ===== 顯示結果 =====
                             if deleted:
-                                st.success(f"✅ 已刪除 {order_label}")
+                                msg = f"✅ 已刪除 {order_label}"
+                                if deleted_oem_count > 0:
+                                    msg += f"\n🧹 同時刪除 {deleted_oem_count} 筆對應代工單"
+                                else:
+                                    msg += "\n🧹 無對應代工單"
+                                st.success(msg)
                             else:
                                 st.error("❌ 找不到該生產單，刪除失敗")
+                
                         except Exception as e:
                             st.error(f"❌ 刪除時發生錯誤：{e}")
-
+                
                     st.session_state["show_delete_confirm"] = False
                     st.rerun()
 
