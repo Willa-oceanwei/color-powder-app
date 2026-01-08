@@ -2238,7 +2238,7 @@ elif menu == "生產單管理":
         base = format_option(row)  # 你原本的顯示格式
         status = str(row.get("狀態", "")).strip()
         if status == "停用":
-            return f"{base} 【停用】"
+            return f"🚫 {base} 【停用】"
         return base
         
     DEBUG_MODE = False   # 平常 False，要查帳再打開
