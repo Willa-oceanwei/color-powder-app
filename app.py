@@ -4314,13 +4314,13 @@ elif menu == "採購管理":
                 }
             
                 st.success("✅ 進貨紀錄已新增")
-                    st.toast(
-                        f"進貨成功｜色粉 {new_row['色粉編號']}｜廠商 {new_row['廠商編號']}",
-                        icon="✅"
-                    )
+                st.toast(
+                    f"進貨成功｜色粉 {new_row['色粉編號']}｜廠商 {new_row['廠商編號']}",
+                    icon="✅"
+                )
+                
                 st.rerun()
-                
-                
+                               
     # ========== Tab 2：進貨查詢 ==========
     with tab2:
               
