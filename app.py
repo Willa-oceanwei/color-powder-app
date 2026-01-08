@@ -2234,7 +2234,7 @@ elif menu == "生產單管理":
             label += "（附加配方）"
         return label
 
-	def format_option_with_status(row):
+    def format_option_with_status(row):
         base = format_option(row)  # 你原本的顯示格式
         status = str(row.get("狀態", "")).strip()
         if status == "停用":
