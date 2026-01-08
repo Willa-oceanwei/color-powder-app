@@ -4257,6 +4257,10 @@ elif menu == "採購管理":
                 key="form_supplier_select",
                 format_func=lambda x: f"{x} - {supplier_name_map.get(x,'')}" if x else ""
             )
+
+		# ✅ 同步選單值到表單 state（關鍵）
+        st.session_state.form_in_stock["廠商編號"] = selected_supplier
+        st.session_state.form_in_stock["廠商名稱"] = supplier_name_map.get(selected_supplier, "")
     
         with col6:
             st.session_state.form_in_stock["廠商名稱"] = supplier_name_map.get(selected_supplier, "")
