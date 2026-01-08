@@ -4240,7 +4240,7 @@ elif menu == "採購管理":
             df_supplier = pd.DataFrame(ws_supplier.get_all_records()).astype(str)
         except:
             df_supplier = pd.DataFrame(columns=["供應商編號", "供應商簡稱"])
-    
+
         # 確保欄位存在
         for col in ["供應商編號", "供應商簡稱"]:
             if col not in df_supplier.columns:
@@ -4254,11 +4254,9 @@ elif menu == "採購管理":
             selected_supplier = st.selectbox(
                 "廠商編號",
                 [""] + supplier_options,
-                index=supplier_options.index(st.session_state.form_in_stock.get("廠商編號", "")) 
-                      if st.session_state.form_in_stock.get("廠商編號", "") in supplier_options else 0,
-                format_func=lambda x: f"{x} - {supplier_name_map[x]}" if x else ""
+                key="form_supplier_select",
+                format_func=lambda x: f"{x} - {supplier_name_map.get(x,'')}" if x else ""
             )
-            st.session_state.form_in_stock["廠商編號"] = selected_supplier
     
         with col6:
             st.session_state.form_in_stock["廠商名稱"] = supplier_name_map.get(selected_supplier, "")
@@ -4266,7 +4264,7 @@ elif menu == "採購管理":
                 "廠商名稱",
                 value=st.session_state.form_in_stock["廠商名稱"],
                 disabled=True
-            )
+            )    
     
         # --- 備註欄 ---
         st.session_state.form_in_stock["備註"] = st.text_input(
