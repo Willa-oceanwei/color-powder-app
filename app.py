@@ -3588,7 +3588,6 @@ elif menu == "生產單管理":
                         st.rerun()
 
 # ======== 代工管理分頁 =========
-# ======== 代工管理分頁 =========
 if menu == "代工管理":
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
@@ -4141,41 +4140,6 @@ if menu == "代工管理":
         else:
             st.info("⚠️ 目前沒有代工記錄")                                    
             
-# ======== 採購管理分頁 =========
-elif menu == "採購管理":
-    # ===== 縮小整個頁面最上方空白 =====
-    st.markdown("""
-    <style>
-    div.block-container {
-        padding-top: 5px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    import pandas as pd
-    from datetime import datetime, date
-
-    # ===== 標題 =====
-    st.markdown(
-        '<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">📥 採購管理</h1>',
-        unsafe_allow_html=True
-    )
-
-    # ===== Tab 分頁 =====
-    tab1, tab2, tab3 = st.tabs(["📲 進貨新增", "🔍 進貨查詢", "🏢 供應商管理"])
-
-    def get_or_create_worksheet(spreadsheet, title, rows=100, cols=10):
-        try:
-            return spreadsheet.worksheet(title)
-        except Exception as e:
-            try:
-                return spreadsheet.add_worksheet(title, rows=rows, cols=cols)
-            except Exception as e2:
-                st.error(f"❌ 無法建立或取得工作表「{title}」")
-                raise e2
-
-    ws_stock = get_or_create_worksheet(spreadsheet, "庫存記錄", 100, 10)				
-			
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
     # ===== 縮小整個頁面最上方空白 =====
