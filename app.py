@@ -2233,6 +2233,13 @@ elif menu == "生產單管理":
         if r.get("配方類別", "") == "附加配方":
             label += "（附加配方）"
         return label
+
+	def format_option_with_status(row):
+        base = format_option(row)  # 你原本的顯示格式
+        status = str(row.get("狀態", "")).strip()
+        if status == "停用":
+            return f"{base} 【停用】"
+        return base
         
     DEBUG_MODE = False   # 平常 False，要查帳再打開
     if DEBUG_MODE:
@@ -2533,7 +2540,7 @@ elif menu == "生產單管理":
     
         # 建立搜尋結果標籤與選項
         if not filtered.empty:
-            filtered["label"] = filtered.apply(format_option, axis=1)
+            filtered["label"] = filtered.apply(format_option_with_status, axis=1)
             option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
         else:
             option_map = {}
