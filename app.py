@@ -3736,13 +3736,12 @@ if menu == "代工管理":
                 f"{row.get('客戶名稱','')} | {row.get('配方編號','')} | {row.get('代工數量',0)}kg | {row.get('代工廠商','')} | {row['代工單號']}"
                 for _, row in df_oem_active.iterrows()
             ]
-
+    
             if not oem_options:
                 st.warning("⚠️ 目前沒有可編輯的代工單（全部已結案）")
             else:
                 selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_edit")
     
-                # 選擇代工單號
                 if selected_option:
                     selected_oem = selected_option.split(" | ")[-1]
     
@@ -3772,12 +3771,23 @@ if menu == "代工管理":
                     new_status = col5.selectbox("狀態", status_options, index=status_index, key="oem_status")
                     new_remark = st.text_area("備註", value=oem_row.get("備註",""), key="oem_remark", height=120)
     
+                    # ---------- 計算尚餘 ----------
+                    df_this_delivery = df_delivery[df_delivery["代工單號"] == selected_oem] if "代工單號" in df_delivery.columns else pd.DataFrame()
+                    total_delivered = df_this_delivery["送達數量"].astype(float).sum() if not df_this_delivery.empty else 0.0
+                    oem_qty = float(oem_row.get("代工數量", 0))
+                    remaining = oem_qty - total_delivered
+                    st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg")
+    
+                    # 禁用條件
+                    disabled = remaining <= 0
+                    if disabled:
+                        st.warning("⚠️ 此代工單已全數送達，無法再編輯或新增送達紀錄")
+    
                     # ---------- 更新 / 刪除按鈕 ----------
                     b1, b2 = st.columns(2)
-                    
                     with b1:
-                        if st.button("💾 更新代工資訊", key="update_oem_info"):
-                            all_values = ws_oem.get_all_values()  # 只抓一次
+                        if st.button("💾 更新代工資訊", key="update_oem_info") and not disabled:
+                            all_values = ws_oem.get_all_values()
                             for idx, row in enumerate(all_values[1:], start=2):
                                 if row[0] == selected_oem:
                                     ws_oem.update_cell(idx, 6, new_vendor)
@@ -3790,11 +3800,11 @@ if menu == "代工管理":
                                         "狀態": new_status
                                     })
                                     break
-                    
+    
                     with b2:
                         if st.button("🗑️ 刪除代工單", key="delete_oem"):
                             st.session_state.show_delete_oem_confirm = True
-                    
+    
                     # ---------- 刪除確認 ----------
                     if st.session_state.get("show_delete_oem_confirm", False):
                         st.warning(f"⚠️ 確定刪除 {oem_row['代工單號']}？")
@@ -3813,36 +3823,9 @@ if menu == "代工管理":
                         with c2:
                             if st.button("取消", key="cancel_delete_oem"):
                                 st.session_state.show_delete_oem_confirm = False
-                    
+    
                     st.markdown("---")
-
-                    # ---------- 送達記錄區 ----------
-                    if "代工單號" not in df_delivery.columns:
-                        df_delivery["代工單號"] = ""
-                    
-                    st.markdown("**📦 送達記錄**")
-                    
-                    # 取得該代工單的送達紀錄
-                    df_this_delivery = df_delivery[df_delivery["代工單號"] == selected_oem]
-                    
-                    if not df_this_delivery.empty:
-                        st.dataframe(
-                            df_this_delivery[["送達日期", "送達數量"]],
-                            use_container_width=True,
-                            hide_index=True
-                        )
-                    
-                    # 計算已送達與尚餘
-                    total_delivered = (
-                        df_this_delivery["送達數量"].astype(float).sum()
-                        if not df_this_delivery.empty else 0.0
-                    )
-                    
-                    oem_qty = float(oem_row.get("代工數量", 0))
-                    remaining = oem_qty - total_delivered
-                    
-                    st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg")
-                    
+    
                     # ---------- 新增送達 ----------
                     col_d1, col_d2 = st.columns(2)
                     delivery_date = col_d1.date_input("送達日期", key="delivery_date")
@@ -3851,20 +3834,19 @@ if menu == "代工管理":
                         min_value=0.0,
                         value=0.0,
                         step=1.0,
-                        key="delivery_qty"
+                        key="delivery_qty",
+                        disabled=disabled
                     )
-                    
+    
                     col_btn1, col_btn2 = st.columns([1, 3])
-                    
-                    # 小工具：更新代工狀態
                     def update_oem_status(oem_no, new_status):
                         all_values = ws_oem.get_all_values()
                         for idx, row in enumerate(all_values[1:], start=2):
                             if row[0] == oem_no:
-                                ws_oem.update_cell(idx, 8, new_status)  # 第 8 欄 = 狀態
+                                ws_oem.update_cell(idx, 8, new_status)
                                 break
-                    
-                    if col_btn1.button("➕ 新增送達", key="add_delivery"):
+    
+                    if col_btn1.button("➕ 新增送達", key="add_delivery") and not disabled:
                         if delivery_qty > 0:
                             # 寫入送達紀錄
                             new_record = [
@@ -3874,23 +3856,24 @@ if menu == "代工管理":
                                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             ]
                             ws_delivery.append_row(new_record)
-                    
+    
                             # 重新計算尚餘
                             new_total_delivered = total_delivered + delivery_qty
                             new_remaining = oem_qty - new_total_delivered
-                    
-                            # ✅ 尚餘為 0 → 自動轉為「未載回」（不影響已結案）
+    
+                            # ✅ 尚餘為 0 → 自動轉為「未載回」
                             if new_remaining <= 0 and oem_row.get("狀態") != "✅ 已結案":
                                 update_oem_status(selected_oem, "⏳ 未載回")
                                 st.session_state.oem_selected_row["狀態"] = "⏳ 未載回"
                                 st.toast("📦 已全數送達，狀態自動轉為「未載回」", icon="🚚")
-                    
+    
                             st.success(f"✅ 已新增送達記錄：{delivery_date} / {delivery_qty} kg")
                             st.rerun()
                         else:
                             st.warning("⚠️ 請輸入送達數量")
+    
         else:
-            st.info("⚠️ 目前沒有代工單，請至「新增代工單」分頁建立")
+            st.info("⚠️ 目前沒有代工單，請至「新增代工單」分頁建立") 
 
     # ================= Tab 3：載回登入 =================
     with tab3:
