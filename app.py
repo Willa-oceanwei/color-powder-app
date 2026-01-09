@@ -4427,15 +4427,27 @@ elif menu == "採購管理":
     
         # ===== 計算下一個編號 =====
         import re
+        
         def get_next_supplier_code(df, prefix="S", width=3):
             if df.empty or "供應商編號" not in df.columns:
-                return f"{prefix}{'1'.zfill(width)}", None
-            nums = [int(m.group(1)) for m in df["供應商編號"].dropna() 
-                    if (m := re.match(rf"{prefix}(\d+)", str(_)))]
+                return f"{prefix}{str(1).zfill(width)}", None
+        
+            nums = []
+        
+            for code in df["供應商編號"].dropna():
+                m = re.match(rf"{prefix}(\d+)", str(code))
+                if m:
+                    nums.append(int(m.group(1)))
+        
             if not nums:
-                return f"{prefix}{'1'.zfill(width)}", None
+                return f"{prefix}{str(1).zfill(width)}", None
+        
             max_num = max(nums)
-            return f"{prefix}{str(max_num + 1).zfill(width)}", f"{prefix}{str(max_num).zfill(width)}"
+            current_code = f"{prefix}{str(max_num).zfill(width)}"
+            next_code = f"{prefix}{str(max_num + 1).zfill(width)}"
+        
+            return next_code, current_code
+        
     
         next_code, current_code = get_next_supplier_code(df)
     
