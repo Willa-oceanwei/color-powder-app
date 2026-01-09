@@ -42,25 +42,33 @@ if not st.session_state.authenticated:
     # 尚未輸入密碼時停止執行
     st.stop()
 
-# ======== 🎨 自訂樣式模組 ========
+# ======== 🎨 自訂樣式模組（修正版）========
 def apply_modern_style():
     st.markdown("""
     <style>
-    /* ===== 全域字體與背景 ===== */
+    /* ===== 全域字體 ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
     * {
         font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
     }
     
+    /* ===== 主背景（深色統一）===== */
     .stApp {
-        background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+        background: #0e0e1a;
+    }
+    
+    /* ===== 主內容區塊 ===== */
+    .main .block-container {
+        background: #1a1a2e;
+        padding: 2rem;
+        border-radius: 12px;
     }
     
     /* ===== Sidebar 樣式 ===== */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #252538 0%, #1a1a2e 100%);
-        border-right: 1px solid rgba(249, 220, 92, 0.1);
+        background: linear-gradient(180deg, #16162a 0%, #0e0e1a 100%);
+        border-right: 1px solid rgba(249, 220, 92, 0.15);
     }
     
     section[data-testid="stSidebar"] h1 {
@@ -69,18 +77,20 @@ def apply_modern_style():
         font-size: 22px;
         padding: 0 1rem;
         margin-bottom: 1.5rem;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
     
-    /* ===== 按鈕樣式（Sidebar + 主頁面） ===== */
+    /* ===== 按鈕樣式 ===== */
     div.stButton > button {
-        background: linear-gradient(135deg, #3a3a52 0%, #2d2d44 100%);
+        background: #252538;
         color: #E8E8E8;
         border: 1px solid rgba(249, 220, 92, 0.2);
         border-radius: 8px;
         padding: 0.6rem 1rem;
         font-weight: 500;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        width: 100%;
     }
     
     div.stButton > button:hover {
@@ -88,109 +98,246 @@ def apply_modern_style():
         color: #1e1e2e;
         border-color: #F9DC5C;
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(249, 220, 92, 0.3);
+        box-shadow: 0 4px 16px rgba(249, 220, 92, 0.4);
     }
     
-    /* Sidebar 選中按鈕 */
-    div.stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #F9DC5C 0%, #E8C547 100%);
-        color: #1e1e2e;
-        border-color: #F9DC5C;
-        font-weight: 600;
-    }
-    
-    /* ===== 輸入框樣式 ===== */
+    /* ===== 輸入框統一深色背景 ===== */
     div.stTextInput > div > div > input,
     div.stNumberInput > div > div > input,
-    div.stTextArea > div > div > textarea,
-    div.stSelectbox > div > div {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(249, 220, 92, 0.2);
+    div.stTextArea > div > div > textarea {
+        background: #252538 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
         border-radius: 6px;
-        color: #E8E8E8;
+        color: #E8E8E8 !important;
         padding: 0.5rem 0.75rem;
     }
     
     div.stTextInput > div > div > input:focus,
     div.stNumberInput > div > div > input:focus,
     div.stTextArea > div > div > textarea:focus {
-        border-color: #F9DC5C;
-        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.1);
+        border-color: #F9DC5C !important;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.15) !important;
+        background: #2d2d44 !important;
+    }
+    
+    /* ===== 🔥 下拉選單修正（防止文字被切） ===== */
+    div.stSelectbox > div > div {
+        background: #252538 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        border-radius: 6px;
+        color: #E8E8E8 !important;
+        min-height: 42px !important;  /* 增加高度 */
+        padding: 0.5rem 0.75rem !important;
+    }
+    
+    /* 下拉選單的選項容器 */
+    div[data-baseweb="popover"] {
+        background: #252538 !important;
+        border: 1px solid rgba(249, 220, 92, 0.3) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+    }
+    
+    /* 下拉選單選項 */
+    ul[role="listbox"] {
+        background: #252538 !important;
+        padding: 0.5rem 0 !important;
+    }
+    
+    ul[role="listbox"] li {
+        background: #252538 !important;
+        color: #E8E8E8 !important;
+        padding: 0.75rem 1rem !important;  /* 增加內距 */
+        min-height: 44px !important;  /* 確保高度足夠 */
+        line-height: 1.5 !important;  /* 行高 */
+        white-space: normal !important;  /* 允許換行 */
+        word-wrap: break-word !important;
+    }
+    
+    ul[role="listbox"] li:hover {
+        background: #2d2d44 !important;
+        color: #F9DC5C !important;
+    }
+    
+    ul[role="listbox"] li[aria-selected="true"] {
+        background: rgba(249, 220, 92, 0.15) !important;
+        color: #F9DC5C !important;
+        font-weight: 600;
+    }
+    
+    /* 下拉選單文字 */
+    div[data-baseweb="select"] span {
+        color: #E8E8E8 !important;
+        white-space: normal !important;  /* 允許換行 */
+        overflow: visible !important;
+    }
+    
+    /* ===== Date Input 日期選擇器 ===== */
+    div.stDateInput > div > div > input {
+        background: #252538 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        color: #E8E8E8 !important;
+    }
+    
+    /* ===== Checkbox 勾選框 ===== */
+    div.stCheckbox {
+        background: transparent !important;
+    }
+    
+    div.stCheckbox label {
+        color: #E8E8E8 !important;
     }
     
     /* ===== 表格樣式 ===== */
     div.stDataFrame {
-        background: rgba(255, 255, 255, 0.03);
+        background: #1a1a2e !important;
         border-radius: 8px;
-        border: 1px solid rgba(249, 220, 92, 0.1);
+        border: 1px solid rgba(249, 220, 92, 0.15);
         overflow: hidden;
+    }
+    
+    div.stDataFrame table {
+        background: #1a1a2e !important;
+    }
+    
+    div.stDataFrame thead tr th {
+        background: #252538 !important;
+        color: #F9DC5C !important;
+        font-weight: 600;
+        border-bottom: 2px solid rgba(249, 220, 92, 0.3) !important;
+    }
+    
+    div.stDataFrame tbody tr {
+        background: #1a1a2e !important;
+        color: #E8E8E8 !important;
+    }
+    
+    div.stDataFrame tbody tr:hover {
+        background: #252538 !important;
     }
     
     /* ===== Tab 樣式 ===== */
     button[data-baseweb="tab"] {
-        background: transparent;
-        color: #A8A8B8;
+        background: transparent !important;
+        color: #A8A8B8 !important;
         border-bottom: 2px solid transparent;
         font-weight: 500;
+        padding: 0.75rem 1.5rem;
+    }
+    
+    button[data-baseweb="tab"]:hover {
+        color: #F9DC5C !important;
+        background: rgba(249, 220, 92, 0.05) !important;
     }
     
     button[data-baseweb="tab"][aria-selected="true"] {
-        color: #F9DC5C;
-        border-bottom-color: #F9DC5C;
+        color: #F9DC5C !important;
+        border-bottom-color: #F9DC5C !important;
+        background: rgba(249, 220, 92, 0.1) !important;
     }
     
-    /* ===== 卡片效果 ===== */
-    div.block-container {
-        background: rgba(255, 255, 255, 0.02);
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    /* ===== Form 表單樣式 ===== */
+    form {
+        background: rgba(37, 37, 56, 0.5) !important;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border: 1px solid rgba(249, 220, 92, 0.15);
     }
     
     /* ===== 標題樣式 ===== */
     h1, h2, h3 {
-        color: #F9DC5C;
+        color: #F9DC5C !important;
         font-weight: 600;
     }
     
     /* ===== 提示框樣式 ===== */
     div.stAlert {
-        background: rgba(249, 220, 92, 0.1);
+        background: rgba(249, 220, 92, 0.1) !important;
         border-left: 4px solid #F9DC5C;
         border-radius: 6px;
+        color: #E8E8E8 !important;
     }
     
-    /* ===== 下拉選單樣式 ===== */
-    div[data-baseweb="select"] > div {
-        background: rgba(255, 255, 255, 0.05);
-        border-color: rgba(249, 220, 92, 0.2);
+    /* Success 訊息 */
+    div.stSuccess {
+        background: rgba(76, 175, 80, 0.1) !important;
+        border-left-color: #4CAF50 !important;
     }
     
-    /* ===== Form 表單樣式 ===== */
-    form {
-        background: rgba(255, 255, 255, 0.03);
-        padding: 1.5rem;
-        border-radius: 10px;
-        border: 1px solid rgba(249, 220, 92, 0.1);
+    /* Warning 訊息 */
+    div.stWarning {
+        background: rgba(255, 152, 0, 0.1) !important;
+        border-left-color: #FF9800 !important;
+    }
+    
+    /* Error 訊息 */
+    div.stError {
+        background: rgba(244, 67, 54, 0.1) !important;
+        border-left-color: #F44336 !important;
     }
     
     /* ===== 捲軸樣式 ===== */
     ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 10px;
+        height: 10px;
     }
     
     ::-webkit-scrollbar-track {
-        background: rgba(0,0,0,0.2);
+        background: #1a1a2e;
+        border-radius: 5px;
     }
     
     ::-webkit-scrollbar-thumb {
         background: rgba(249, 220, 92, 0.3);
-        border-radius: 4px;
+        border-radius: 5px;
     }
     
     ::-webkit-scrollbar-thumb:hover {
         background: rgba(249, 220, 92, 0.5);
+    }
+    
+    /* ===== Expander 摺疊面板 ===== */
+    div.streamlit-expanderHeader {
+        background: #252538 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2);
+        border-radius: 6px;
+        color: #E8E8E8 !important;
+    }
+    
+    div.streamlit-expanderHeader:hover {
+        background: #2d2d44 !important;
+        border-color: #F9DC5C;
+    }
+    
+    div.streamlit-expanderContent {
+        background: #1a1a2e !important;
+        border: 1px solid rgba(249, 220, 92, 0.15);
+        border-top: none;
+    }
+    
+    /* ===== 文字顏色統一 ===== */
+    p, label, span {
+        color: #E8E8E8 !important;
+    }
+    
+    /* ===== Markdown 文字 ===== */
+    .markdown-text-container {
+        color: #E8E8E8 !important;
+    }
+    
+    /* ===== Code Block 程式碼區塊 ===== */
+    code {
+        background: #252538 !important;
+        color: #F9DC5C !important;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+    }
+    
+    pre {
+        background: #252538 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2);
+        border-radius: 6px;
+        padding: 1rem;
     }
     </style>
     """, unsafe_allow_html=True)
