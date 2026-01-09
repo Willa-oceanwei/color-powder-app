@@ -43,17 +43,26 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ======== 🎨 終極版下拉無直線修正版========
+# ======== 🎨 終極版自訂樣式（統一高度 + 無直線下拉 + 分頁標題 + Tab 修正版）========
 def apply_modern_style():
     st.markdown("""
     <style>
     /* ===== 全域字體 ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    * { font-family: 'Inter', 'Microsoft JhengHei', sans-serif; }
-
+    
+    * {
+        font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
+    }
+    
     /* ===== 主背景 ===== */
-    .stApp { background: #1e1e2e !important; }
-    .main .block-container { background: #1e1e2e !important; padding: 2rem; }
-
+    .stApp {
+        background: #1e1e2e !important;
+    }
+    .main .block-container {
+        background: #1e1e2e !important;
+        padding: 2rem;
+    }
+    
     /* ===== Sidebar ===== */
     section[data-testid="stSidebar"] {
         background: #181828 !important;
@@ -66,7 +75,7 @@ def apply_modern_style():
         padding: 0 1rem;
         margin-bottom: 1.5rem;
     }
-
+    
     /* ===== 按鈕 ===== */
     div.stButton > button {
         background: #181828 !important;
@@ -85,7 +94,7 @@ def apply_modern_style():
         transform: translateY(-1px);
     }
 
-    /* ===== 輸入框統一高度與字體 ===== */
+    /* ===== 輸入框 ===== */
     input, textarea, .stNumberInput > div > div > input {
         background: #2a2a40 !important;
         border: 1px solid rgba(249, 215, 100, 0.2) !important;
@@ -101,7 +110,7 @@ def apply_modern_style():
         outline: none !important;
     }
 
-    /* ===== 下拉選單統一高度與字體 ===== */
+    /* ===== 下拉選單 (無直線) ===== */
     div.stSelectbox > div > div,
     div.stSelectbox div[data-baseweb="select"] > div,
     ul[role="listbox"] li {
@@ -109,28 +118,36 @@ def apply_modern_style():
         font-size: 15px !important;
         line-height: 1.6 !important;
     }
-
-    /* ===== 下拉選單顏色 + 移除直線 ===== */
-    div.stSelectbox > div > div,
-    div.stSelectbox div[data-baseweb="select"] {
+    div.stSelectbox > div > div {
         background: #2a2a40 !important;
         border: 1px solid rgba(249, 215, 100, 0.2) !important;
         border-radius: 6px !important;
-        box-shadow: none !important;
+        min-height: 40px !important;
         padding: 0 !important;
+        box-shadow: none !important;
     }
-
-    /* 完全移除所有 li 下的邊框 / hr / line */
-    ul[role="listbox"] li,
-    ul[role="listbox"] li::before,
-    ul[role="listbox"] li::after,
-    ul[role="listbox"] li div {
-        border: none !important;
+    div.stSelectbox div[data-baseweb="select"] {
+        background: #2a2a40 !important;
+        min-height: 40px !important;
+        border: none !important;  /* 移除所有多餘邊線 */
+    }
+    div.stSelectbox div[data-baseweb="select"] > div:focus-within {
+        border: 1px solid #F9D764 !important;
+        box-shadow: 0 0 0 1px rgba(249,215,100,0.3) !important;
+    }
+    ul[role="listbox"] {
+        background: #2a2a40 !important;
+        max-height: 400px !important;
+        overflow-y: auto !important;
+        padding: 0.5rem 0 !important;
+        border: none !important; /* 移除直線 */
+    }
+    ul[role="listbox"] li {
         background: #2a2a40 !important;
         color: #E8E8E8 !important;
+        padding: 0 1rem !important;
+        border: none !important; /* 移除直線 */
     }
-
-    /* hover / 選中樣式 */
     ul[role="listbox"] li:hover {
         background: #3a3a52 !important;
         color: #F9D764 !important;
@@ -145,10 +162,10 @@ def apply_modern_style():
     h1 { font-size: 20px !important; }
     h2 { font-size: 16px !important; }
     h3 { font-size: 14px !important; }
-    h4, h5, h6 { font-size: 16px !important; }
+    h4,h5,h6 { font-size: 16px !important; }
     h1,h2,h3,h4,h5,h6 { color: #F9D764 !important; }
 
-    /* ===== Tab 修正 ===== */
+    /* ===== Tab ===== */
     div[data-baseweb="tab-list"] {
         white-space: nowrap !important;
         overflow-x: auto !important;
@@ -165,11 +182,21 @@ def apply_modern_style():
         font-size: 15px !important;
         line-height: 1.6 !important;
     }
-    button[data-baseweb="tab"]:hover { color: #F9D764 !important; border-bottom-color: rgba(249,215,100,0.3) !important; }
-    button[data-baseweb="tab"][aria-selected="true"] { color:#F9D764 !important; border-bottom-color:#F9D764 !important; font-weight:600 !important; }
-    div[data-baseweb="tab-panel"] { background:#1e1e2e !important; padding:1.5rem !important; }
+    button[data-baseweb="tab"]:hover {
+        color: #F9D764 !important;
+        border-bottom-color: rgba(249, 215, 100, 0.3) !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #F9D764 !important;
+        border-bottom-color: #F9D764 !important;
+        font-weight: 600 !important;
+    }
+    div[data-baseweb="tab-panel"] {
+        background: #1e1e2e !important;
+        padding: 1.5rem !important;
+    }
 
-    /* ===== 表格、提示框、Expander、Code Block 保留 ===== */
+    /* ===== 其他保留樣式 ===== */
     div.stDataFrame { background: #1e1e2e !important; border-radius: 8px; border: 1px solid rgba(249,215,100,0.15);}
     div.stDataFrame thead tr th { background: #181828 !important; color:#F9D764 !important; font-weight:600; border-bottom:2px solid rgba(249,215,100,0.3);}
     div.stDataFrame tbody tr { background: #1e1e2e !important; color: #E8E8E8 !important;}
