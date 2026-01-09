@@ -43,7 +43,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
-# ======== 🎨 穩定版 Selectbox CSS ========
+# ======== 🎨 穩定版 Selectbox CSS + Sidebar 選定黃底 ========
 st.markdown("""
 <style>
 /* ===== Selectbox 外殼 ===== */
