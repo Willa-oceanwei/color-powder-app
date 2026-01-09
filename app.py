@@ -1884,8 +1884,12 @@ elif menu == "配方管理":
                 if st.button("🗑️ 刪", key=f"del_color_{i}"):
                     st.session_state.df_color = df_color.drop(index=i).reset_index(drop=True)
                     st.session_state.color_dirty = True
-                    st.success("🗑️ 已刪除（尚未寫回）")
-                    st.rerun()
+                    st.session_state._tab4_need_rerun = True
+                    
+        # ---- Tab4 安全 rerun（一定要在 with tab4 裡）----
+        if st.session_state.get("_tab4_need_rerun", False):
+            st.session_state._tab4_need_rerun = False
+            st.rerun()
     
         # ---------- 4️⃣ 批次寫回 Google Sheet（唯一 API） ----------
         st.markdown("---")
