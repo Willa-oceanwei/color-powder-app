@@ -132,10 +132,16 @@ ul[role="listbox"] li:hover {
 }
 
 /* ===== Sidebar 選定填滿黃色 ===== */
-section[data-testid="stSidebar"] div[role="listitem"][aria-selected="true"] {
+section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] {
     background-color: #F9D764 !important;
     color: #181828 !important;
     border-radius: 6px !important;
+}
+
+/* 滑鼠 hover 狀態 (可選) */
+section[data-testid="stSidebar"] div[role="option"]:hover {
+    background-color: rgba(249,215,100,0.5) !important;
+    color: #181828 !important;
 }
 </style>
 """, unsafe_allow_html=True)
