@@ -44,41 +44,32 @@ if not st.session_state.authenticated:
 
 # ======== 🎨 終極版自訂樣式（統一高度+字體一致）========
 # ======== 🎨 終極版自訂樣式（統一高度 + 分頁標題 + tab 修正版）========
+# ======== 🎨 終極版自訂樣式（統一高度 + 分頁標題 + tab + 下拉直線修正版）========
 def apply_modern_style():
     st.markdown("""
     <style>
     /* ===== 全域字體 ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    * {
-        font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
-    }
-    
-    /* ===== 主背景統一 ===== */
-    .stApp {
-        background: #1e1e2e !important;  /* 比之前深一點 */
-    }
-    
-    .main .block-container {
-        background: #1e1e2e !important;
-        padding: 2rem;
-    }
-    
-    /* ===== Sidebar 樣式 ===== */
+    * { font-family: 'Inter', 'Microsoft JhengHei', sans-serif; }
+
+    /* ===== 主背景 ===== */
+    .stApp { background: #1e1e2e !important; }
+    .main .block-container { background: #1e1e2e !important; padding: 2rem; }
+
+    /* ===== Sidebar ===== */
     section[data-testid="stSidebar"] {
-        background: #181828 !important; /* 偏深色但不刺眼 */
+        background: #181828 !important;
         border-right: 1px solid rgba(249, 215, 100, 0.15);
     }
-    
     section[data-testid="stSidebar"] h1 {
-        color: #F9D764;  /* 柔黃強調色 */
+        color: #F9D764;
         font-weight: 700;
         font-size: 20px;
         padding: 0 1rem;
         margin-bottom: 1.5rem;
     }
-    
-    /* ===== 按鈕樣式 ===== */
+
+    /* ===== 按鈕 ===== */
     div.stButton > button {
         background: #181828 !important;
         color: #E8E8E8 !important;
@@ -89,32 +80,30 @@ def apply_modern_style():
         font-size: 15px;
         transition: all 0.3s ease;
     }
-    
     div.stButton > button:hover {
         background: #F9D764 !important;
         color: #181828 !important;
         border-color: #F9D764 !important;
         transform: translateY(-1px);
     }
-    
-    /* ===== 輸入框統一 ===== */
+
+    /* ===== 輸入框統一高度與字體 ===== */
     input, textarea, .stNumberInput > div > div > input {
-        background: #2a2a40 !important;  /* 比主背景淺一點 */
+        background: #2a2a40 !important;
         border: 1px solid rgba(249, 215, 100, 0.2) !important;
         border-radius: 6px;
         color: #E8E8E8 !important;
         padding: 0.6rem 0.75rem !important;
-        height: 40px !important;   /* 統一高度 */
-        font-size: 15px !important; /* 統一字體大小 */
+        height: 40px !important;
+        font-size: 15px !important;
     }
-    
     input:focus, textarea:focus {
         border-color: #F9D764 !important;
         box-shadow: 0 0 0 1px rgba(249, 215, 100, 0.3) !important;
         outline: none !important;
     }
 
-    /* ===== 下拉選單統一高度 ===== */
+    /* ===== 下拉選單高度 + 字體統一 ===== */
     div.stSelectbox > div > div,
     div.stSelectbox div[data-baseweb="select"] > div,
     ul[role="listbox"] li {
@@ -123,48 +112,40 @@ def apply_modern_style():
         line-height: 1.6 !important;
     }
 
-    /* ===== 下拉選單顏色 ===== */
-    /* 下拉外框統一，只保留一個 border */
+    /* ===== 下拉選單顏色 + 移除直線 ===== */
     div.stSelectbox > div > div {
         background: #2a2a40 !important;
         border: 1px solid rgba(249, 215, 100, 0.2) !important;
         border-radius: 6px !important;
         min-height: 40px !important;
         padding: 0 !important;
-        box-shadow: none !important; /* 移除重疊陰影 */
+        box-shadow: none !important;
     }
-    
-    /* 下拉容器內層 */
     div.stSelectbox div[data-baseweb="select"] {
         background: #2a2a40 !important;
         min-height: 40px !important;
-        border: none !important;  /* 移除多餘 border */
+        border: none !important;
     }
-    
-    /* 選中 focus 狀態 */
     div.stSelectbox div[data-baseweb="select"] > div:focus-within {
         border: 1px solid #F9D764 !important;
         box-shadow: 0 0 0 1px rgba(249,215,100,0.3) !important;
     }
-
     ul[role="listbox"] {
         background: #2a2a40 !important;
         max-height: 400px !important;
         overflow-y: auto !important;
         padding: 0.5rem 0 !important;
     }
-
     ul[role="listbox"] li {
         background: #2a2a40 !important;
         color: #E8E8E8 !important;
         padding: 0 1rem !important;
+        border-bottom: none !important; /* 移除直線 */
     }
-
     ul[role="listbox"] li:hover {
         background: #3a3a52 !important;
         color: #F9D764 !important;
     }
-
     ul[role="listbox"] li[aria-selected="true"] {
         background: rgba(249, 215, 100, 0.15) !important;
         color: #F9D764 !important;
@@ -185,7 +166,6 @@ def apply_modern_style():
         -webkit-overflow-scrolling: touch;
         border-bottom: 1px solid rgba(249, 215, 100, 0.2) !important;
     }
-
     button[data-baseweb="tab"] {
         background: transparent !important;
         color: #A8A8B8 !important;
@@ -196,24 +176,11 @@ def apply_modern_style():
         font-size: 15px !important;
         line-height: 1.6 !important;
     }
+    button[data-baseweb="tab"]:hover { color: #F9D764 !important; border-bottom-color: rgba(249,215,100,0.3) !important; }
+    button[data-baseweb="tab"][aria-selected="true"] { color:#F9D764 !important; border-bottom-color:#F9D764 !important; font-weight:600 !important; }
+    div[data-baseweb="tab-panel"] { background:#1e1e2e !important; padding:1.5rem !important; }
 
-    button[data-baseweb="tab"]:hover {
-        color: #F9D764 !important;
-        border-bottom-color: rgba(249, 215, 100, 0.3) !important;
-    }
-
-    button[data-baseweb="tab"][aria-selected="true"] {
-        color: #F9D764 !important;
-        border-bottom-color: #F9D764 !important;
-        font-weight: 600 !important;
-    }
-
-    div[data-baseweb="tab-panel"] {
-        background: #1e1e2e !important;
-        padding: 1.5rem !important;
-    }
-
-    /* ===== 其他保留樣式（表格、提示框、Expander、Code Block） ===== */
+    /* ===== 表格、提示框、Expander、Code Block 保留 ===== */
     div.stDataFrame { background: #1e1e2e !important; border-radius: 8px; border: 1px solid rgba(249,215,100,0.15);}
     div.stDataFrame thead tr th { background: #181828 !important; color:#F9D764 !important; font-weight:600; border-bottom:2px solid rgba(249,215,100,0.3);}
     div.stDataFrame tbody tr { background: #1e1e2e !important; color: #E8E8E8 !important;}
