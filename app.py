@@ -42,6 +42,163 @@ if not st.session_state.authenticated:
     # 尚未輸入密碼時停止執行
     st.stop()
 
+# ======== 🎨 自訂樣式模組 ========
+def apply_modern_style():
+    st.markdown("""
+    <style>
+    /* ===== 全域字體與背景 ===== */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    * {
+        font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
+    }
+    
+    .stApp {
+        background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+    }
+    
+    /* ===== Sidebar 樣式 ===== */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #252538 0%, #1a1a2e 100%);
+        border-right: 1px solid rgba(249, 220, 92, 0.1);
+    }
+    
+    section[data-testid="stSidebar"] h1 {
+        color: #F9DC5C;
+        font-weight: 700;
+        font-size: 22px;
+        padding: 0 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* ===== 按鈕樣式（Sidebar + 主頁面） ===== */
+    div.stButton > button {
+        background: linear-gradient(135deg, #3a3a52 0%, #2d2d44 100%);
+        color: #E8E8E8;
+        border: 1px solid rgba(249, 220, 92, 0.2);
+        border-radius: 8px;
+        padding: 0.6rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    div.stButton > button:hover {
+        background: linear-gradient(135deg, #F9DC5C 0%, #E8C547 100%);
+        color: #1e1e2e;
+        border-color: #F9DC5C;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(249, 220, 92, 0.3);
+    }
+    
+    /* Sidebar 選中按鈕 */
+    div.stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #F9DC5C 0%, #E8C547 100%);
+        color: #1e1e2e;
+        border-color: #F9DC5C;
+        font-weight: 600;
+    }
+    
+    /* ===== 輸入框樣式 ===== */
+    div.stTextInput > div > div > input,
+    div.stNumberInput > div > div > input,
+    div.stTextArea > div > div > textarea,
+    div.stSelectbox > div > div {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(249, 220, 92, 0.2);
+        border-radius: 6px;
+        color: #E8E8E8;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    div.stTextInput > div > div > input:focus,
+    div.stNumberInput > div > div > input:focus,
+    div.stTextArea > div > div > textarea:focus {
+        border-color: #F9DC5C;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.1);
+    }
+    
+    /* ===== 表格樣式 ===== */
+    div.stDataFrame {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 8px;
+        border: 1px solid rgba(249, 220, 92, 0.1);
+        overflow: hidden;
+    }
+    
+    /* ===== Tab 樣式 ===== */
+    button[data-baseweb="tab"] {
+        background: transparent;
+        color: #A8A8B8;
+        border-bottom: 2px solid transparent;
+        font-weight: 500;
+    }
+    
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #F9DC5C;
+        border-bottom-color: #F9DC5C;
+    }
+    
+    /* ===== 卡片效果 ===== */
+    div.block-container {
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    
+    /* ===== 標題樣式 ===== */
+    h1, h2, h3 {
+        color: #F9DC5C;
+        font-weight: 600;
+    }
+    
+    /* ===== 提示框樣式 ===== */
+    div.stAlert {
+        background: rgba(249, 220, 92, 0.1);
+        border-left: 4px solid #F9DC5C;
+        border-radius: 6px;
+    }
+    
+    /* ===== 下拉選單樣式 ===== */
+    div[data-baseweb="select"] > div {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(249, 220, 92, 0.2);
+    }
+    
+    /* ===== Form 表單樣式 ===== */
+    form {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 1.5rem;
+        border-radius: 10px;
+        border: 1px solid rgba(249, 220, 92, 0.1);
+    }
+    
+    /* ===== 捲軸樣式 ===== */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: rgba(0,0,0,0.2);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: rgba(249, 220, 92, 0.3);
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(249, 220, 92, 0.5);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ===== 套用樣式 =====
+apply_modern_style()
+
+＃＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
 st.markdown(
     """
