@@ -43,15 +43,16 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
+# ======== 🎨 穩定版 Selectbox CSS ========
 st.markdown("""
 <style>
-/* ===== 下拉 Selectbox ===== */
+/* ===== Selectbox 外殼 ===== */
 div.stSelectbox > div {
     background: transparent !important;
     min-height: 40px !important;
 }
 
-/* Selectbox 本體 */
+/* ===== Selectbox 本體 ===== */
 div.stSelectbox div[data-baseweb="select"] {
     background: #2a2a40 !important;
     border-radius: 6px !important;
@@ -63,8 +64,8 @@ div.stSelectbox div[data-baseweb="select"] {
     box-sizing: border-box !important;
 }
 
-/* 文字區域 */
-div.stSelectbox div[data-baseweb="select"] > div[data-baseweb="value-container"] {
+/* ===== 顯示文字區塊 ===== */
+div.stSelectbox div[data-baseweb="select"] > div {
     flex: 1 1 auto !important;
     width: 100% !important;
     background: transparent !important;
@@ -73,20 +74,21 @@ div.stSelectbox div[data-baseweb="select"] > div[data-baseweb="value-container"]
     display: flex !important;
     align-items: center !important;
     padding: 0 !important;
+    border: none !important;
 }
 
-/* 箭頭 */
+/* ===== 箭頭 ===== */
 div.stSelectbox div[data-baseweb="select"] svg {
     fill: rgba(249,215,100,0.6) !important;
 }
 
-/* Focus 統一黃框，取消紅框 */
+/* ===== Focus 狀態 ===== */
 div.stSelectbox div[data-baseweb="select"]:focus-within {
     border-color: #F9D764 !important;
-    box-shadow: 0 0 0 2px rgba(249,215,100,0.35) !important;  /* 只黃框 */
+    box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important;
 }
 
-/* 下拉清單 */
+/* ===== 下拉清單 ===== */
 ul[role="listbox"] {
     position: absolute !important;
     z-index: 9999 !important;
@@ -99,7 +101,7 @@ ul[role="listbox"] {
     box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
 }
 
-/* 下拉選項 */
+/* ===== 下拉選項 ===== */
 ul[role="listbox"] li {
     padding: 0.5rem 1rem !important;
     min-height: 40px !important;
@@ -111,43 +113,46 @@ ul[role="listbox"] li {
     align-items: center !important;
 }
 
-/* 選中狀態 */
+/* ===== 選中狀態 ===== */
 ul[role="listbox"] li[aria-selected="true"] {
     background: rgba(249,215,100,0.25) !important;
     color: #F9D764 !important;
     font-weight: 600 !important;
 }
 
-/* hover 狀態 */
+/* ===== 滑鼠 hover 狀態 ===== */
 ul[role="listbox"] li:hover {
     background: rgba(249,215,100,0.15) !important;
     color: #F9D764 !important;
 }
 
-/* ===== Sidebar 選中填滿黃底 ===== */
-section[data-testid="stSidebar"] div[role="option"][aria-selected="true"],
-section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] > span,
-section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] > div {
-    background-color: #F9D764 !important;
-    color: #181828 !important;
-    border-radius: 6px !important;
-}
-
-/* Sidebar hover */
-section[data-testid="stSidebar"] div[role="option"]:hover,
-section[data-testid="stSidebar"] div[role="option"]:hover > span,
-section[data-testid="stSidebar"] div[role="option"]:hover > div {
-    background-color: rgba(249,215,100,0.5) !important;
-    color: #181828 !important;
-}
-
-/* 解除父容器 overflow 裁切 */
+/* ===== 解除父容器 overflow 裁切 ===== */
 .main .block-container {
     overflow: visible !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
+#=======================================================
+# 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
+st.markdown(
+    """
+    <style>
+    /* 選中項目背景色 */
+    .st-key-myselect [data-baseweb="option"][aria-selected="true"] {
+        background-color: #999999 !important;  /* 淺灰 */
+        color: black !important;
+        font-weight: bold;
+    }
+    /* 滑鼠滑過項目背景色 */
+    .st-key-myselect [data-baseweb="option"]:hover {
+        background-color: #bbbbbb !important;  /* 
+        color: black !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
