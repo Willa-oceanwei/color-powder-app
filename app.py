@@ -42,161 +42,252 @@ if not st.session_state.authenticated:
     # 尚未輸入密碼時停止執行
     st.stop()
 
-# ======== 🎨 終極版自訂樣式（深色優化 & 下拉欄高度修正）========
+# ======== 🎨 終極版自訂樣式（統一高度+字體一致）========
 def apply_modern_style():
     st.markdown("""
     <style>
     /* ===== 全域字體 ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    * { font-family: 'Inter', 'Microsoft JhengHei', sans-serif; }
-
-    /* ===== 主背景 ===== */
-    :root {
-        --bg-main: #1e1e2b;       /* 比原本更深 */
-        --bg-input: #2a2a40;      /* 輸入欄比背景稍淺 */
-        --sidebar-bg: #1c1c28;    /* 側邊欄柔和深色 */
-        --accent: #F9C74F;        /* 強調色，但比原本柔和 */
-        --border-soft: rgba(249, 199, 79, 0.25);
-        --hover-bg: #35355a;
-        --text-main: #E8E8E8;
-        --placeholder: #A8A8B8;
+    
+    * {
+        font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
+        font-size: 16px !important;
+        line-height: 1.6 !important;
     }
 
-    .stApp { background: var(--bg-main) !important; }
-    .main .block-container { background: var(--bg-main) !important; padding: 2rem; }
+    /* ===== 主背景統一 ===== */
+    .stApp {
+        background: #1f1f2f !important;  /* 深色再深一點 */
+    }
+    
+    .main .block-container {
+        background: #1f1f2f !important;
+        padding: 2rem;
+    }
 
-    /* ===== Sidebar ===== */
+    /* ===== Sidebar 樣式 ===== */
     section[data-testid="stSidebar"] {
-        background: var(--sidebar-bg) !important;
-        border-right: 1px solid var(--border-soft);
+        background: #17172a !important;  /* 深色且柔化黃強調 */
+        border-right: 1px solid rgba(249, 220, 92, 0.12);
     }
+    
     section[data-testid="stSidebar"] h1 {
-        color: var(--accent);
+        color: #F9D76A;  /* 黃色稍柔化 */
         font-weight: 700;
         font-size: 22px;
         padding: 0 1rem;
         margin-bottom: 1.5rem;
     }
 
-    /* ===== 按鈕 ===== */
+    /* ===== 按鈕樣式 ===== */
     div.stButton > button {
-        background: var(--sidebar-bg) !important;
-        color: var(--text-main) !important;
-        border: 1px solid var(--border-soft) !important;
+        background: #17172a !important;
+        color: #E8E8E8 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
         border-radius: 8px;
         padding: 0.6rem 1rem;
+        height: 40px !important;
         font-weight: 500;
+        font-size: 16px !important;
         transition: all 0.3s ease;
     }
+    
     div.stButton > button:hover {
-        background: var(--accent) !important;
-        color: var(--sidebar-bg) !important;
-        border-color: var(--accent) !important;
+        background: #F9D76A !important;
+        color: #17172a !important;
+        border-color: #F9D76A !important;
         transform: translateY(-1px);
     }
 
-    /* ===== 輸入框 ===== */
+    /* ===== 輸入框、文字區域、日期輸入統一高度 ===== */
     div.stTextInput > div > div > input,
     div.stNumberInput > div > div > input,
     div.stTextArea > div > div > textarea,
     div.stDateInput > div > div > input {
-        background: var(--bg-input) !important;
-        border: 1px solid var(--border-soft) !important;
+        background: #2a2a44 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
         border-radius: 6px;
-        color: var(--text-main) !important;
+        color: #E8E8E8 !important;
         padding: 0.6rem 0.75rem !important;
+        height: 40px !important;
+        font-size: 16px !important;
+        line-height: 1.6 !important;
     }
+
     div.stTextInput > div > div > input:focus,
     div.stNumberInput > div > div > input:focus,
     div.stTextArea > div > div > textarea:focus,
     div.stDateInput > div > div > input:focus {
-        border-color: var(--accent) !important;
-        box-shadow: 0 0 0 1px rgba(249, 199, 79, 0.3) !important;
+        border-color: #F9D76A !important;
+        box-shadow: 0 0 0 1px rgba(249, 220, 92, 0.3) !important;
         outline: none !important;
     }
 
-    /* ===== 下拉選單修正 (高度統一) ===== */
-    div.stSelectbox > div > div {
-        background: var(--bg-input) !important;
-        border: 1px solid var(--border-soft) !important;
-        border-radius: 6px !important;
-        padding: 0 !important; /* 外層不加高度 */
+    div.stTextArea > div > div > textarea {
+        min-height: 80px !important;  /* TextArea 比普通欄位高 */
     }
+
+    /* ===== 下拉選單統一高度 ===== */
+    div.stSelectbox > div > div,
     div.stSelectbox div[data-baseweb="select"] > div {
-        background: var(--bg-input) !important;
-        min-height: 45px !important;  /* 控制唯一高度 */
-        padding: 0 0.75rem !important;
-        display: flex !important;
-        align-items: center !important;
+        background: #2a2a44 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        border-radius: 6px !important;
+        min-height: 40px !important;
+        padding: 0.6rem !important;
+        font-size: 16px !important;
+        line-height: 1.6 !important;
     }
+
     div.stSelectbox div[data-baseweb="select"] > div > div {
-        color: var(--text-main) !important;
-        line-height: 1.8 !important;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
+        color: #E8E8E8 !important;
     }
-    div.stSelectbox svg { color: var(--text-main) !important; }
-    div[data-baseweb="popover"] { background: var(--bg-input) !important; border: 1px solid rgba(249, 199, 79, 0.3) !important; border-radius: 8px; margin-top: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
-    ul[role="listbox"] { background: var(--bg-input) !important; padding: 0.5rem 0 !important; max-height: 400px !important; overflow-y: auto; }
+
+    div.stSelectbox svg {
+        color: #E8E8E8 !important;
+    }
+
+    div[data-baseweb="popover"] {
+        background: #2a2a44 !important;
+        border: 1px solid rgba(249, 220, 92, 0.3) !important;
+        border-radius: 8px !important;
+        margin-top: 4px !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+    }
+
     ul[role="listbox"] li {
-        background: var(--bg-input) !important;
-        color: var(--text-main) !important;
-        padding: 1rem 1.2rem !important;
-        min-height: 48px !important;
-        line-height: 1.8 !important;
-        display: flex !important;
-        align-items: center !important;
-        transition: all 0.2s ease !important;
+        min-height: 40px !important;
+        padding: 0.6rem 1rem !important;
+        font-size: 16px !important;
+        line-height: 1.6 !important;
     }
-    ul[role="listbox"] li:hover { background: var(--hover-bg) !important; color: var(--accent) !important; }
-    ul[role="listbox"] li[aria-selected="true"] { background: rgba(249, 199, 79, 0.15) !important; color: var(--accent) !important; font-weight: 600 !important; }
-    div.stSelectbox [data-baseweb="select"] [class*="placeholder"] { color: var(--placeholder) !important; }
 
     /* ===== Checkbox ===== */
-    div.stCheckbox label { color: var(--text-main) !important; }
-    div.stCheckbox input[type="checkbox"] { accent-color: var(--accent) !important; }
+    div.stCheckbox label {
+        color: #E8E8E8 !important;
+        font-size: 16px !important;
+    }
+    
+    div.stCheckbox input[type="checkbox"] {
+        accent-color: #F9D76A !important;
+    }
 
-    /* ===== 表格 ===== */
-    div.stDataFrame { background: var(--bg-main) !important; border-radius: 8px; border: 1px solid var(--border-soft); }
-    div.stDataFrame thead tr th { background: var(--sidebar-bg) !important; color: var(--accent) !important; font-weight: 600; border-bottom: 2px solid rgba(249, 199, 79, 0.3); }
-    div.stDataFrame tbody tr { background: var(--bg-main) !important; color: var(--text-main) !important; }
-    div.stDataFrame tbody tr:hover { background: var(--bg-input) !important; }
+    /* ===== 表格樣式 ===== */
+    div.stDataFrame {
+        background: #1f1f2f !important;
+        border-radius: 8px;
+        border: 1px solid rgba(249, 220, 92, 0.15);
+    }
+    
+    div.stDataFrame thead tr th {
+        background: #17172a !important;
+        color: #F9D76A !important;
+        font-weight: 600;
+        border-bottom: 2px solid rgba(249, 220, 92, 0.3) !important;
+    }
+    
+    div.stDataFrame tbody tr {
+        background: #1f1f2f !important;
+        color: #E8E8E8 !important;
+    }
+    
+    div.stDataFrame tbody tr:hover {
+        background: #2a2a44 !important;
+    }
 
-    /* ===== Tabs ===== */
-    div[data-baseweb="tab-list"] { background: transparent !important; border-bottom: 1px solid var(--border-soft); }
-    button[data-baseweb="tab"] { background: transparent !important; color: #A8A8B8 !important; border: none !important; border-bottom: 3px solid transparent !important; font-weight: 500; padding: 0.75rem 1.5rem !important; }
-    button[data-baseweb="tab"]:hover { color: var(--accent) !important; border-bottom-color: rgba(249, 199, 79, 0.3) !important; }
-    button[data-baseweb="tab"][aria-selected="true"] { color: var(--accent) !important; border-bottom-color: var(--accent) !important; font-weight: 600 !important; }
-    div[data-baseweb="tab-panel"] { background: var(--bg-main) !important; padding: 1.5rem !important; }
+    /* ===== Tab 樣式 ===== */
+    div[data-baseweb="tab-list"] {
+        background: transparent !important;
+        border-bottom: 1px solid rgba(249, 220, 92, 0.2) !important;
+    }
 
-    /* ===== Form & Expander ===== */
-    form { background: rgba(28,28,40,0.5) !important; padding: 1.5rem; border-radius: 10px; border: 1px solid var(--border-soft); }
-    div.streamlit-expanderHeader { background: var(--bg-input) !important; border: 1px solid var(--border-soft); border-radius: 6px; color: var(--text-main) !important; }
-    div.streamlit-expanderHeader:hover { background: var(--hover-bg) !important; border-color: var(--accent) !important; }
+    button[data-baseweb="tab"] {
+        background: transparent !important;
+        color: #A8A8B8 !important;
+        border: none !important;
+        border-bottom: 3px solid transparent !important;
+        font-weight: 500;
+        padding: 0.75rem 1.5rem !important;
+        font-size: 16px !important;
+        line-height: 1.6 !important;
+    }
 
-    /* ===== 標題 & 提示框 ===== */
-    h1,h2,h3,h4,h5,h6 { color: var(--accent) !important; }
-    div.stAlert { background: rgba(249, 199, 79,0.1) !important; border-left: 4px solid var(--accent) !important; color: var(--text-main); }
-    div.stSuccess { background: rgba(76,175,80,0.1) !important; border-left-color:#4CAF50; }
-    div.stWarning { background: rgba(255,152,0,0.1) !important; border-left-color:#FF9800; }
-    div.stError { background: rgba(244,67,54,0.1) !important; border-left-color:#F44336; }
+    button[data-baseweb="tab"]:hover {
+        color: #F9D76A !important;
+        border-bottom-color: rgba(249, 220, 92, 0.3) !important;
+    }
 
-    /* ===== Scrollbar ===== */
-    ::-webkit-scrollbar { width: 10px; height: 10px; }
-    ::-webkit-scrollbar-track { background: var(--sidebar-bg); border-radius: 5px; }
-    ::-webkit-scrollbar-thumb { background: rgba(249,199,79,0.3); border-radius:5px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(249,199,79,0.5); }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #F9D76A !important;
+        border-bottom-color: #F9D76A !important;
+        font-weight: 600 !important;
+    }
 
-    /* ===== Code Block ===== */
-    code { background: var(--sidebar-bg); color: var(--accent); padding:0.2rem 0.4rem; border-radius:4px; }
-    pre { background: var(--sidebar-bg); border: 1px solid var(--border-soft); border-radius:6px; padding:1rem; }
+    div[data-baseweb="tab-panel"] {
+        background: #1f1f2f !important;
+        padding: 1.5rem !important;
+    }
+
+    /* ===== Form ===== */
+    form {
+        background: rgba(23, 23, 42, 0.5) !important;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border: 1px solid rgba(249, 220, 92, 0.15);
+    }
+
+    /* ===== 標題 ===== */
+    h1, h2, h3, h4, h5, h6 {
+        color: #F9D76A !important;
+    }
+
+    /* ===== 提示框 ===== */
+    div.stAlert {
+        background: rgba(249, 215, 106, 0.1) !important;
+        border-left: 4px solid #F9D76A !important;
+        color: #E8E8E8 !important;
+    }
+
+    div.stSuccess {
+        background: rgba(76, 175, 80, 0.1) !important;
+        border-left-color: #4CAF50 !important;
+    }
+
+    div.stWarning {
+        background: rgba(255, 152, 0, 0.1) !important;
+        border-left-color: #FF9800 !important;
+    }
+
+    div.stError {
+        background: rgba(244, 67, 54, 0.1) !important;
+        border-left-color: #F44336 !important;
+    }
+
+    /* ===== 捲軸 ===== */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #17172a;
+        border-radius: 5px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: rgba(249, 220, 92, 0.3);
+        border-radius: 5px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(249, 220, 92, 0.5);
+    }
+
     </style>
     """, unsafe_allow_html=True)
 
 # ===== 在登入驗證後、Menu 顯示前呼叫 =====
 apply_modern_style()
-
 
 #=======================================================
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
