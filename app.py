@@ -43,15 +43,15 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
-# ======== 🎨 終極版自訂樣式（暗色 + 下拉穩定版）========
-def apply_modern_style():
+# ======== 🎨 終極版自訂樣式（穩定暗色 + Selectbox 修正）========
+def apply_modern_style_stable():
     st.markdown("""
     <style>
     /* ===== 全域字體 ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     * { font-family: 'Inter', 'Microsoft JhengHei', sans-serif; }
 
-    /* ===== 主背景統一 ===== */
+    /* ===== 主背景 ===== */
     .stApp { background: #1e1e2e !important; }
     .main .block-container { background: #1e1e2e !important; padding: 2rem; overflow: visible !important; }
 
@@ -79,7 +79,7 @@ def apply_modern_style():
         border-color: #F9D764 !important; transform: translateY(-1px);
     }
 
-    /* ===== 輸入框統一高度 ===== */
+    /* ===== 輸入框 ===== */
     input, textarea, .stNumberInput > div > div > input {
         background: #2a2a40 !important;
         border: 1px solid rgba(249, 215, 100, 0.2) !important;
@@ -93,7 +93,7 @@ def apply_modern_style():
         outline: none !important;
     }
 
-    /* ===== 下拉選單穩定版 ===== */
+    /* ===== Selectbox 穩定暗色修正 ===== */
     div.stSelectbox > div {
         background: #2a2a40 !important;
         border: 1px solid rgba(249,215,100,0.2) !important;
@@ -101,28 +101,27 @@ def apply_modern_style():
         min-height: 40px !important;
         display: flex !important;
         align-items: center !important;
-        padding: 0 0.5rem !important;
+        padding: 0 0.75rem !important;
     }
-    div.stSelectbox div[data-baseweb="select"] {
+
+    /* 文字區域吃滿寬度 */
+    div.stSelectbox div[data-baseweb="select"] > div {
         display: flex !important;
-        align-items: center !important;
-        width: 100% !important;
-        background: transparent !important;
-    }
-    div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(2) {
-        width: 0 !important;
-        height: 0 !important;
-        overflow: hidden !important;
-    }
-    div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(1) {
         flex: 1 1 auto !important;
         color: #E8E8E8 !important;
         font-size: 15px !important;
+        background: transparent !important;
+        border: none !important;
+        min-height: 40px !important;
+        align-items: center !important;
     }
+
+    /* 箭頭 */
     div.stSelectbox svg {
         fill: rgba(249,215,100,0.6) !important;
-        flex-shrink: 0 !important;
     }
+
+    /* Focus */
     div.stSelectbox div[data-baseweb="select"]:focus-within {
         border-color: #F9D764 !important;
         box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important;
@@ -135,10 +134,10 @@ def apply_modern_style():
         border-radius: 6px !important;
         max-height: 400px !important;
         overflow-y: auto !important;
-        padding: 0.5rem 0 !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        padding: 0.25rem 0 !important;
         position: absolute !important;
         z-index: 9999 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
     }
     ul[role="listbox"] li {
         background: transparent !important;
@@ -147,7 +146,6 @@ def apply_modern_style():
         min-height: 40px !important;
         font-size: 15px !important;
         border: none !important;
-        transition: all 0.2s ease;
     }
     ul[role="listbox"] li:hover {
         background: rgba(249, 215, 100, 0.15) !important;
@@ -159,49 +157,12 @@ def apply_modern_style():
         font-weight: 600 !important;
     }
 
-    /* ===== 分頁標題大小 ===== */
-    h1 { font-size: 20px !important; } 
-    h2 { font-size: 16px !important; }
-    h3 { font-size: 14px !important; } 
-    h4,h5,h6 { font-size: 16px !important; }
-    h1,h2,h3,h4,h5,h6 { color: #F9D764 !important; }
-
-    /* ===== Tab 修正 ===== */
-    div[data-baseweb="tab-list"] {
-        white-space: nowrap !important; 
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-        border-bottom: 1px solid rgba(249,215,100,0.2) !important;
-    }
-    button[data-baseweb="tab"] {
-        background: transparent !important; 
-        color: #A8A8B8 !important;
-        border: none !important; 
-        border-bottom: 3px solid transparent !important;
-        font-weight: 500; 
-        padding: 0.5rem 1rem !important;
-        font-size: 15px !important; 
-        line-height: 1.6 !important;
-    }
-    button[data-baseweb="tab"]:hover { 
-        color: #F9D764 !important; 
-        border-bottom-color: rgba(249,215,100,0.3) !important; 
-    }
-    button[data-baseweb="tab"][aria-selected="true"] {
-        color: #F9D764 !important; 
-        border-bottom-color: #F9D764 !important; 
-        font-weight: 600 !important;
-    }
-    div[data-baseweb="tab-panel"] { 
-        background: #1e1e2e !important; 
-        padding: 1.5rem !important; 
-    }
-
-    /* ===== 表格樣式 ===== */
+    /* ===== 表格 ===== */
     div.stDataFrame { 
         background: #1e1e2e !important; 
         border-radius: 8px; 
         border: 1px solid rgba(249,215,100,0.15);
+        overflow-x: auto !important;
     }
     div.stDataFrame thead tr th { 
         background: #181828 !important; 
@@ -217,7 +178,7 @@ def apply_modern_style():
         background: #2a2a40 !important; 
     }
 
-    /* ===== 提示框樣式 ===== */
+    /* ===== 提示框 ===== */
     div.stAlert { 
         background: rgba(249,215,100,0.1) !important; 
         border-left:4px solid #F9D764 !important; 
@@ -227,28 +188,16 @@ def apply_modern_style():
     div.stWarning { border-left-color:#FF9800 !important;}
     div.stError { border-left-color:#F44336 !important;}
 
-    /* ===== 📱 手機響應式（寬度 < 768px）===== */
+    /* ===== 響應式 ===== */
     @media (max-width: 768px) {
-        body, p, span, label, input, textarea, button { font-size: 14px !important; }
-        h1 { font-size: 18px !important; }
-        h2 { font-size: 16px !important; }
-        div.stButton > button { width: 100% !important; padding: 0.75rem !important; }
         input, textarea { height: 44px !important; font-size: 16px !important; }
-        section[data-testid="stSidebar"] { width: 280px !important; }
-        div.stDataFrame { overflow-x: auto !important; }
-        button[data-baseweb="tab"] { padding: 0.4rem 0.6rem !important; font-size: 13px !important; }
+        div.stButton > button { width: 100% !important; padding: 0.75rem !important; }
     }
-
-    /* ===== 平板響應式（768px - 1024px）===== */
-    @media (min-width: 768px) and (max-width: 1024px) {
-        .main .block-container { padding: 1.5rem !important; }
-    }
-
     </style>
     """, unsafe_allow_html=True)
 
 # ===== 呼叫 =====
-apply_modern_style()
+apply_modern_style_stable()
 
 #=======================================================
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
