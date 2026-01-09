@@ -61,10 +61,13 @@ section[data-testid="stSidebar"] h1 {
 }
 
 /* ===== Sidebar 選中項目填滿黃色 ===== */
-section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] {
+section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] > div {
     background-color: #F9D764 !important;  /* 黃色填滿 */
     color: #181828 !important;             /* 文字深色 */
     border-radius: 6px !important;         /* 圓角 */
+    width: 100% !important;                /* 確保寬度填滿 */
+    display: block !important;             /* 避免 inline 限制 */
+    padding: 0.5rem 1rem !important;       /* 保持 padding */
 }
 
 /* ===== Sidebar 滑鼠 hover 狀態 ===== */
