@@ -42,159 +42,110 @@ if not st.session_state.authenticated:
     # 尚未輸入密碼時停止執行
     st.stop()
 
-# ======== 🎨 終極版下拉無直線修正版========
-# ======== 🎨 終極版自訂樣式（統一高度 + 無直線下拉 + 分頁標題 + Tab 修正版）========
+# ======== 🎨 終極版自訂樣式（最終版）========
 def apply_modern_style():
     st.markdown("""
     <style>
     /* ===== 全域字體 ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    * {
-        font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
-    }
-    
-    /* ===== 主背景 ===== */
-    .stApp {
-        background: #1e1e2e !important;
-    }
-    .main .block-container {
-        background: #1e1e2e !important;
-        padding: 2rem;
-    }
-    
+    * { font-family: 'Inter', 'Microsoft JhengHei', sans-serif; }
+
+    /* ===== 主背景統一 ===== */
+    .stApp { background: #1e1e2e !important; }
+    .main .block-container { background: #1e1e2e !important; padding: 2rem; }
+
     /* ===== Sidebar ===== */
     section[data-testid="stSidebar"] {
         background: #181828 !important;
         border-right: 1px solid rgba(249, 215, 100, 0.15);
     }
     section[data-testid="stSidebar"] h1 {
-        color: #F9D764;
-        font-weight: 700;
-        font-size: 20px;
-        padding: 0 1rem;
-        margin-bottom: 1.5rem;
+        color: #F9D764; font-weight: 700; font-size: 20px;
+        padding: 0 1rem; margin-bottom: 1.5rem;
     }
-    
+
     /* ===== 按鈕 ===== */
     div.stButton > button {
         background: #181828 !important;
         color: #E8E8E8 !important;
         border: 1px solid rgba(249, 215, 100, 0.2) !important;
-        border-radius: 8px;
-        padding: 0.6rem 1rem;
-        font-weight: 500;
-        font-size: 15px;
+        border-radius: 8px; padding: 0.6rem 1rem;
+        font-weight: 500; font-size: 15px;
         transition: all 0.3s ease;
     }
     div.stButton > button:hover {
-        background: #F9D764 !important;
-        color: #181828 !important;
-        border-color: #F9D764 !important;
-        transform: translateY(-1px);
+        background: #F9D764 !important; color: #181828 !important;
+        border-color: #F9D764 !important; transform: translateY(-1px);
     }
 
-    /* ===== 輸入框 ===== */
+    /* ===== 輸入框統一高度 ===== */
     input, textarea, .stNumberInput > div > div > input {
-        background: #2a2a40 !important;
+        background: #2a2a40 !important;  /* 比主背景淺 */
         border: 1px solid rgba(249, 215, 100, 0.2) !important;
-        border-radius: 6px;
-        color: #E8E8E8 !important;
+        border-radius: 6px; color: #E8E8E8 !important;
         padding: 0.6rem 0.75rem !important;
-        height: 40px !important;
-        font-size: 15px !important;
+        height: 40px !important; font-size: 15px !important;
     }
     input:focus, textarea:focus {
         border-color: #F9D764 !important;
-        box-shadow: 0 0 0 1px rgba(249, 215, 100, 0.3) !important;
+        box-shadow: 0 0 0 1px rgba(249,215,100,0.3) !important;
         outline: none !important;
     }
 
-    /* ===== 下拉選單 (無直線) ===== */
+    /* ===== 下拉選單統一高度 & 移除直線 ===== */
     div.stSelectbox > div > div,
     div.stSelectbox div[data-baseweb="select"] > div,
     ul[role="listbox"] li {
-        min-height: 40px !important;
-        font-size: 15px !important;
-        line-height: 1.6 !important;
+        min-height: 40px !important; font-size: 15px !important; line-height: 1.6 !important;
     }
     div.stSelectbox > div > div {
         background: #2a2a40 !important;
-        border: 1px solid rgba(249, 215, 100, 0.2) !important;
-        border-radius: 6px !important;
-        min-height: 40px !important;
-        padding: 0 !important;
+        border: 1px solid rgba(249,215,100,0.2) !important;
+        border-radius: 6px !important; padding: 0 !important;
         box-shadow: none !important;
     }
-    div.stSelectbox div[data-baseweb="select"] {
-        background: #2a2a40 !important;
-        min-height: 40px !important;
-        border: none !important;  /* 移除所有多餘邊線 */
-    }
+    div.stSelectbox div[data-baseweb="select"] { background: #2a2a40 !important; border: none !important; }
     div.stSelectbox div[data-baseweb="select"] > div:focus-within {
         border: 1px solid #F9D764 !important;
         box-shadow: 0 0 0 1px rgba(249,215,100,0.3) !important;
     }
+    /* 移除文字和箭頭中間分隔線 */
+    div.stSelectbox > div > div > div:last-child { border-left: none !important; }
+
     ul[role="listbox"] {
-        background: #2a2a40 !important;
-        max-height: 400px !important;
-        overflow-y: auto !important;
-        padding: 0.5rem 0 !important;
-        border: none !important; /* 移除直線 */
+        background: #2a2a40 !important; max-height: 400px !important;
+        overflow-y: auto !important; padding: 0.5rem 0 !important;
     }
     ul[role="listbox"] li {
-        background: #2a2a40 !important;
-        color: #E8E8E8 !important;
-        padding: 0 1rem !important;
-        border: none !important; /* 移除直線 */
+        background: #2a2a40 !important; color: #E8E8E8 !important; padding: 0 1rem !important;
     }
-    ul[role="listbox"] li:hover {
-        background: #3a3a52 !important;
-        color: #F9D764 !important;
-    }
+    ul[role="listbox"] li:hover { background: #3a3a52 !important; color: #F9D764 !important; }
     ul[role="listbox"] li[aria-selected="true"] {
-        background: rgba(249, 215, 100, 0.15) !important;
-        color: #F9D764 !important;
-        font-weight: 600 !important;
+        background: rgba(249,215,100,0.15) !important; color: #F9D764 !important; font-weight: 600 !important;
     }
 
     /* ===== 分頁標題大小 ===== */
-    h1 { font-size: 20px !important; }
-    h2 { font-size: 16px !important; }
-    h3 { font-size: 14px !important; }
-    h4,h5,h6 { font-size: 16px !important; }
+    h1 { font-size: 20px !important; } h2 { font-size: 16px !important; }
+    h3 { font-size: 14px !important; } h4,h5,h6 { font-size: 16px !important; }
     h1,h2,h3,h4,h5,h6 { color: #F9D764 !important; }
 
-    /* ===== Tab ===== */
+    /* ===== Tab 修正 ===== */
     div[data-baseweb="tab-list"] {
-        white-space: nowrap !important;
-        overflow-x: auto !important;
+        white-space: nowrap !important; overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
-        border-bottom: 1px solid rgba(249, 215, 100, 0.2) !important;
+        border-bottom: 1px solid rgba(249,215,100,0.2) !important;
     }
     button[data-baseweb="tab"] {
-        background: transparent !important;
-        color: #A8A8B8 !important;
-        border: none !important;
-        border-bottom: 3px solid transparent !important;
-        font-weight: 500;
-        padding: 0.5rem 1rem !important;
-        font-size: 15px !important;
-        line-height: 1.6 !important;
+        background: transparent !important; color: #A8A8B8 !important;
+        border: none !important; border-bottom: 3px solid transparent !important;
+        font-weight: 500; padding: 0.5rem 1rem !important;
+        font-size: 15px !important; line-height: 1.6 !important;
     }
-    button[data-baseweb="tab"]:hover {
-        color: #F9D764 !important;
-        border-bottom-color: rgba(249, 215, 100, 0.3) !important;
-    }
+    button[data-baseweb="tab"]:hover { color: #F9D764 !important; border-bottom-color: rgba(249,215,100,0.3) !important; }
     button[data-baseweb="tab"][aria-selected="true"] {
-        color: #F9D764 !important;
-        border-bottom-color: #F9D764 !important;
-        font-weight: 600 !important;
+        color: #F9D764 !important; border-bottom-color: #F9D764 !important; font-weight: 600 !important;
     }
-    div[data-baseweb="tab-panel"] {
-        background: #1e1e2e !important;
-        padding: 1.5rem !important;
-    }
+    div[data-baseweb="tab-panel"] { background: #1e1e2e !important; padding: 1.5rem !important; }
 
     /* ===== 其他保留樣式 ===== */
     div.stDataFrame { background: #1e1e2e !important; border-radius: 8px; border: 1px solid rgba(249,215,100,0.15);}
@@ -208,7 +159,7 @@ def apply_modern_style():
     </style>
     """, unsafe_allow_html=True)
 
-# ===== 在登入驗證後、Menu 顯示前呼叫 =====
+# ===== 呼叫 =====
 apply_modern_style()
 
 #=======================================================
