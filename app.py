@@ -60,14 +60,22 @@ section[data-testid="stSidebar"] h1 {
     margin-bottom: 1.5rem;
 }
 
-/* ===== Sidebar 選中項目填滿黃色 ===== */
+/* ===== Sidebar 選中項目填滿黃底 ===== */
 section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] > div {
-    background-color: #F9D764 !important;
+    background-color: #F9D764 !important; /* 整條黃底 */
+    color: #181828 !important;            /* 文字深色 */
+    width: 100% !important;               /* 撐滿整行 */
+    display: block !important;            /* 避免 inline 導致空洞 */
+    border-radius: 6px !important;        /* 圓角 */
+    padding: 0.5rem 1rem !important;      /* 內距 */
+    outline: none !important;             /* 去掉紅框 */
+    box-shadow: none !important;          /* 去掉黃外框 */
+}
+
+/* 滑鼠 hover */
+section[data-testid="stSidebar"] div[role="option"]:hover > div {
+    background-color: rgba(249,215,100,0.5) !important;
     color: #181828 !important;
-    width: 100% !important;
-    display: block !important;
-    border-radius: 6px !important;
-    padding: 0.5rem 1rem !important;
 }
 
 /* ===== Sidebar 滑鼠 hover 狀態 ===== */
