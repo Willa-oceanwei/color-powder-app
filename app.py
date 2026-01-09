@@ -42,277 +42,161 @@ if not st.session_state.authenticated:
     # 尚未輸入密碼時停止執行
     st.stop()
 
-# ======== 🎨 終極版自訂樣式（產品級深色系・穩定版）========
+# ======== 🎨 終極版自訂樣式（深色優化 & 下拉欄高度修正）========
 def apply_modern_style():
     st.markdown("""
     <style>
-    /* =========================================================
-       🎨 Color System（統一色盤，之後只動這裡）
-    ========================================================= */
-    :root {
-        /* 背景層級 */
-        --bg-main:    #1f1f30;
-        --bg-panel:   #252538;
-        --bg-input:   #2f2f48;
-        --bg-hover:   #3a3a52;
-        --bg-sidebar: #1a1a2e;
-
-        /* 文字 */
-        --text-main:  #E8E8E8;
-        --text-muted: #A8A8B8;
-
-        /* 強調色（分級） */
-        --accent-main:  #F9DC5C;
-        --accent-muted: #E6C84F;
-
-        /* 狀態 */
-        --success: #4CAF50;
-        --warning: #FF9800;
-        --error:   #F44336;
-
-        /* 邊框 */
-        --border-soft: rgba(249, 220, 92, 0.15);
-        --border-focus: rgba(249, 220, 92, 0.35);
-    }
-
-    /* =========================================================
-       🔤 字體
-    ========================================================= */
+    /* ===== 全域字體 ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { font-family: 'Inter', 'Microsoft JhengHei', sans-serif; }
 
-    body, p, div, span, input, textarea, button {
-        font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
+    /* ===== 主背景 ===== */
+    :root {
+        --bg-main: #1e1e2b;       /* 比原本更深 */
+        --bg-input: #2a2a40;      /* 輸入欄比背景稍淺 */
+        --sidebar-bg: #1c1c28;    /* 側邊欄柔和深色 */
+        --accent: #F9C74F;        /* 強調色，但比原本柔和 */
+        --border-soft: rgba(249, 199, 79, 0.25);
+        --hover-bg: #35355a;
+        --text-main: #E8E8E8;
+        --placeholder: #A8A8B8;
     }
 
-    code, pre {
-        font-family: Consolas, monospace;
-    }
+    .stApp { background: var(--bg-main) !important; }
+    .main .block-container { background: var(--bg-main) !important; padding: 2rem; }
 
-    /* =========================================================
-       🌑 主背景
-    ========================================================= */
-    .stApp {
-        background: var(--bg-main) !important;
-    }
-
-    .main .block-container {
-        background: var(--bg-main) !important;
-        padding: 2rem;
-    }
-
-    /* =========================================================
-       📂 Sidebar（使用 muted 強調色）
-    ========================================================= */
+    /* ===== Sidebar ===== */
     section[data-testid="stSidebar"] {
-        background: var(--bg-sidebar) !important;
+        background: var(--sidebar-bg) !important;
         border-right: 1px solid var(--border-soft);
     }
-
     section[data-testid="stSidebar"] h1 {
-        color: var(--accent-muted);
+        color: var(--accent);
         font-weight: 700;
         font-size: 22px;
         padding: 0 1rem;
         margin-bottom: 1.5rem;
     }
 
-    /* =========================================================
-       🔘 Button
-    ========================================================= */
+    /* ===== 按鈕 ===== */
     div.stButton > button {
-        background: var(--bg-sidebar) !important;
+        background: var(--sidebar-bg) !important;
         color: var(--text-main) !important;
         border: 1px solid var(--border-soft) !important;
         border-radius: 8px;
         padding: 0.6rem 1rem;
         font-weight: 500;
-        transition: all 0.25s ease;
+        transition: all 0.3s ease;
     }
-
     div.stButton > button:hover {
-        background: var(--accent-main) !important;
-        color: var(--bg-sidebar) !important;
-        border-color: var(--accent-main) !important;
+        background: var(--accent) !important;
+        color: var(--sidebar-bg) !important;
+        border-color: var(--accent) !important;
         transform: translateY(-1px);
     }
 
-    /* =========================================================
-       ✏️ Input / Textarea / Number
-    ========================================================= */
-    div.stTextInput input,
-    div.stNumberInput input,
-    div.stTextArea textarea {
+    /* ===== 輸入框 ===== */
+    div.stTextInput > div > div > input,
+    div.stNumberInput > div > div > input,
+    div.stTextArea > div > div > textarea,
+    div.stDateInput > div > div > input {
         background: var(--bg-input) !important;
         border: 1px solid var(--border-soft) !important;
         border-radius: 6px;
         color: var(--text-main) !important;
         padding: 0.6rem 0.75rem !important;
     }
-
-    div.stTextInput input:focus,
-    div.stNumberInput input:focus,
-    div.stTextArea textarea:focus {
-        border-color: var(--accent-main) !important;
-        box-shadow: 0 0 0 1px var(--border-focus) !important;
+    div.stTextInput > div > div > input:focus,
+    div.stNumberInput > div > div > input:focus,
+    div.stTextArea > div > div > textarea:focus,
+    div.stDateInput > div > div > input:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 1px rgba(249, 199, 79, 0.3) !important;
         outline: none !important;
     }
 
-    /* =========================================================
-       🔽 Selectbox（完整修正版）
-    ========================================================= */
-    div.stSelectbox > div > div,
-    div.stSelectbox div[data-baseweb="select"],
-    div.stSelectbox div[data-baseweb="select"] > div {
+    /* ===== 下拉選單修正 (高度統一) ===== */
+    div.stSelectbox > div > div {
         background: var(--bg-input) !important;
         border: 1px solid var(--border-soft) !important;
         border-radius: 6px !important;
-        min-height: 50px !important;
-        padding: 0.75rem !important;
+        padding: 0 !important; /* 外層不加高度 */
+    }
+    div.stSelectbox div[data-baseweb="select"] > div {
+        background: var(--bg-input) !important;
+        min-height: 45px !important;  /* 控制唯一高度 */
+        padding: 0 0.75rem !important;
         display: flex !important;
         align-items: center !important;
     }
-
-    div.stSelectbox svg {
+    div.stSelectbox div[data-baseweb="select"] > div > div {
         color: var(--text-main) !important;
+        line-height: 1.8 !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
     }
-
-    div[data-baseweb="popover"] {
-        background: var(--bg-input) !important;
-        border: 1px solid var(--border-focus) !important;
-        border-radius: 8px !important;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
-    }
-
-    ul[role="listbox"] {
-        background: var(--bg-input) !important;
-        max-height: 400px !important;
-    }
-
+    div.stSelectbox svg { color: var(--text-main) !important; }
+    div[data-baseweb="popover"] { background: var(--bg-input) !important; border: 1px solid rgba(249, 199, 79, 0.3) !important; border-radius: 8px; margin-top: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    ul[role="listbox"] { background: var(--bg-input) !important; padding: 0.5rem 0 !important; max-height: 400px !important; overflow-y: auto; }
     ul[role="listbox"] li {
         background: var(--bg-input) !important;
         color: var(--text-main) !important;
         padding: 1rem 1.2rem !important;
-        min-height: 52px !important;
+        min-height: 48px !important;
         line-height: 1.8 !important;
         display: flex !important;
         align-items: center !important;
         transition: all 0.2s ease !important;
     }
+    ul[role="listbox"] li:hover { background: var(--hover-bg) !important; color: var(--accent) !important; }
+    ul[role="listbox"] li[aria-selected="true"] { background: rgba(249, 199, 79, 0.15) !important; color: var(--accent) !important; font-weight: 600 !important; }
+    div.stSelectbox [data-baseweb="select"] [class*="placeholder"] { color: var(--placeholder) !important; }
 
-    ul[role="listbox"] li:hover {
-        background: var(--bg-hover) !important;
-        color: var(--accent-main) !important;
-    }
+    /* ===== Checkbox ===== */
+    div.stCheckbox label { color: var(--text-main) !important; }
+    div.stCheckbox input[type="checkbox"] { accent-color: var(--accent) !important; }
 
-    ul[role="listbox"] li[aria-selected="true"] {
-        background: rgba(249, 220, 92, 0.15) !important;
-        color: var(--accent-main) !important;
-        font-weight: 600 !important;
-    }
+    /* ===== 表格 ===== */
+    div.stDataFrame { background: var(--bg-main) !important; border-radius: 8px; border: 1px solid var(--border-soft); }
+    div.stDataFrame thead tr th { background: var(--sidebar-bg) !important; color: var(--accent) !important; font-weight: 600; border-bottom: 2px solid rgba(249, 199, 79, 0.3); }
+    div.stDataFrame tbody tr { background: var(--bg-main) !important; color: var(--text-main) !important; }
+    div.stDataFrame tbody tr:hover { background: var(--bg-input) !important; }
 
-    /* =========================================================
-       📑 Tabs
-    ========================================================= */
-    div[data-baseweb="tab-list"] {
-        border-bottom: 1px solid var(--border-soft) !important;
-    }
+    /* ===== Tabs ===== */
+    div[data-baseweb="tab-list"] { background: transparent !important; border-bottom: 1px solid var(--border-soft); }
+    button[data-baseweb="tab"] { background: transparent !important; color: #A8A8B8 !important; border: none !important; border-bottom: 3px solid transparent !important; font-weight: 500; padding: 0.75rem 1.5rem !important; }
+    button[data-baseweb="tab"]:hover { color: var(--accent) !important; border-bottom-color: rgba(249, 199, 79, 0.3) !important; }
+    button[data-baseweb="tab"][aria-selected="true"] { color: var(--accent) !important; border-bottom-color: var(--accent) !important; font-weight: 600 !important; }
+    div[data-baseweb="tab-panel"] { background: var(--bg-main) !important; padding: 1.5rem !important; }
 
-    button[data-baseweb="tab"] {
-        background: transparent !important;
-        color: var(--text-muted) !important;
-        border-bottom: 3px solid transparent !important;
-        padding: 0.75rem 1.5rem !important;
-    }
+    /* ===== Form & Expander ===== */
+    form { background: rgba(28,28,40,0.5) !important; padding: 1.5rem; border-radius: 10px; border: 1px solid var(--border-soft); }
+    div.streamlit-expanderHeader { background: var(--bg-input) !important; border: 1px solid var(--border-soft); border-radius: 6px; color: var(--text-main) !important; }
+    div.streamlit-expanderHeader:hover { background: var(--hover-bg) !important; border-color: var(--accent) !important; }
 
-    button[data-baseweb="tab"]:hover {
-        color: var(--accent-main) !important;
-        border-bottom-color: var(--border-focus) !important;
-    }
+    /* ===== 標題 & 提示框 ===== */
+    h1,h2,h3,h4,h5,h6 { color: var(--accent) !important; }
+    div.stAlert { background: rgba(249, 199, 79,0.1) !important; border-left: 4px solid var(--accent) !important; color: var(--text-main); }
+    div.stSuccess { background: rgba(76,175,80,0.1) !important; border-left-color:#4CAF50; }
+    div.stWarning { background: rgba(255,152,0,0.1) !important; border-left-color:#FF9800; }
+    div.stError { background: rgba(244,67,54,0.1) !important; border-left-color:#F44336; }
 
-    button[data-baseweb="tab"][aria-selected="true"] {
-        color: var(--accent-main) !important;
-        border-bottom-color: var(--accent-main) !important;
-        font-weight: 600 !important;
-    }
+    /* ===== Scrollbar ===== */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: var(--sidebar-bg); border-radius: 5px; }
+    ::-webkit-scrollbar-thumb { background: rgba(249,199,79,0.3); border-radius:5px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(249,199,79,0.5); }
 
-    /* =========================================================
-       📦 Form / Panel
-    ========================================================= */
-    form {
-        background: var(--bg-panel) !important;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border: 1px solid var(--border-soft);
-    }
-
-    /* =========================================================
-       📊 DataFrame
-    ========================================================= */
-    div.stDataFrame {
-        background: var(--bg-panel) !important;
-        border-radius: 8px;
-        border: 1px solid var(--border-soft);
-    }
-
-    div.stDataFrame thead th {
-        background: var(--bg-sidebar) !important;
-        color: var(--accent-muted) !important;
-        font-weight: 600;
-    }
-
-    div.stDataFrame tbody tr:hover {
-        background: var(--bg-hover) !important;
-    }
-
-    /* =========================================================
-       ℹ️ Alerts
-    ========================================================= */
-    div.stAlert {
-        background: rgba(249, 220, 92, 0.12) !important;
-        border-left: 4px solid var(--accent-main) !important;
-        color: var(--text-main) !important;
-    }
-
-    div.stSuccess { border-left-color: var(--success) !important; }
-    div.stWarning { border-left-color: var(--warning) !important; }
-    div.stError   { border-left-color: var(--error) !important; }
-
-    /* =========================================================
-       🧩 Expander
-    ========================================================= */
-    div.streamlit-expanderHeader {
-        background: var(--bg-input) !important;
-        border: 1px solid var(--border-soft) !important;
-        border-radius: 6px;
-        color: var(--text-main) !important;
-    }
-
-    div.streamlit-expanderHeader:hover {
-        background: var(--bg-hover) !important;
-        border-color: var(--accent-main) !important;
-    }
-
-    /* =========================================================
-       🧠 Code
-    ========================================================= */
-    code {
-        background: var(--bg-sidebar) !important;
-        color: var(--accent-main) !important;
-        padding: 0.2rem 0.4rem;
-        border-radius: 4px;
-    }
-
-    pre {
-        background: var(--bg-sidebar) !important;
-        border: 1px solid var(--border-soft);
-        border-radius: 6px;
-        padding: 1rem;
-    }
+    /* ===== Code Block ===== */
+    code { background: var(--sidebar-bg); color: var(--accent); padding:0.2rem 0.4rem; border-radius:4px; }
+    pre { background: var(--sidebar-bg); border: 1px solid var(--border-soft); border-radius:6px; padding:1rem; }
     </style>
     """, unsafe_allow_html=True)
 
 # ===== 在登入驗證後、Menu 顯示前呼叫 =====
 apply_modern_style()
+
 
 #=======================================================
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
