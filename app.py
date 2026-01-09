@@ -43,8 +43,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
-# ======== 🎨 終極版自訂樣式（穩定版 + 黃框統一）========
-# ======== 🎨 終極版自訂樣式（穩定版）========
+# ======== 🎨 終極穩定版自訂樣式（完整整合）========
 def apply_modern_style_stable():
     st.markdown("""
     <style>
@@ -52,7 +51,7 @@ def apply_modern_style_stable():
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     * { font-family: 'Inter', 'Microsoft JhengHei', sans-serif; }
 
-    /* ===== 主背景 ===== */
+    /* ===== 主背景 / 次背景 ===== */
     .stApp { background: #1e1e2e !important; }
     .main .block-container { background: #1e1e2e !important; padding: 2rem; overflow: visible !important; }
 
@@ -65,10 +64,11 @@ def apply_modern_style_stable():
         color: #F9D764; font-weight: 700; font-size: 20px;
         padding: 0 1rem; margin-bottom: 1.5rem;
     }
-    /* Sidebar 選定填滿黃 */
-    section[data-testid="stSidebar"] div[role="button"][aria-selected="true"] {
+    /* Sidebar 選定填滿黃色 */
+    section[data-testid="stSidebar"] div[role="listitem"][aria-selected="true"] {
         background-color: #F9D764 !important;
         color: #181828 !important;
+        border-radius: 6px !important;
     }
 
     /* ===== 按鈕 ===== */
@@ -85,7 +85,7 @@ def apply_modern_style_stable():
         border-color: #F9D764 !important; transform: translateY(-1px);
     }
 
-    /* ===== 輸入框統一高度 & 黃框 ===== */
+    /* ===== 輸入框統一高度 ===== */
     input, textarea, .stNumberInput > div > div > input {
         background: #2a2a40 !important;
         border: 1px solid rgba(249, 215, 100, 0.2) !important;
@@ -93,29 +93,11 @@ def apply_modern_style_stable():
         padding: 0.6rem 0.75rem !important;
         height: 40px !important; font-size: 15px !important;
     }
-    input:focus, textarea:focus {
-        border: 1px solid #F9D764 !important;
-        box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important;
-        outline: none !important;
-    }
 
-    /* =====================================================
-       ✅ Selectbox（穩定版，不切割、不變形）
-       ===================================================== */
-    /* 隱藏多餘占位元素，避免出現 ( ) 或罒 */
-    div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(2) {
-        display: none !important;
-    }
-    /* 文字區塊吃滿寬度 */
-    div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(1) {
-        flex: 1 1 auto !important;
-        width: 100% !important;
-    }
-    /* Select 外殼 */
+    /* ===== 下拉 Selectbox（穩定版） ===== */
     div.stSelectbox > div {
         background: transparent !important;
     }
-    /* Select 本體 */
     div.stSelectbox div[data-baseweb="select"] {
         background: #2a2a40 !important;
         border: 1px solid rgba(249,215,100,0.2) !important;
@@ -123,38 +105,43 @@ def apply_modern_style_stable():
         min-height: 40px !important;
         display: flex !important;
         align-items: center !important;
+        overflow: visible !important;
     }
-    /* 顯示值區塊 */
+    /* 顯示文字區塊 */
     div.stSelectbox div[data-baseweb="select"] > div {
         padding: 0 0.75rem !important;
         min-height: 40px !important;
         color: #E8E8E8 !important;
         font-size: 15px !important;
-        background: transparent !important;
         border: none !important;
+        background: transparent !important;
         display: flex !important;
+        flex: 1 1 auto !important;
         align-items: center !important;
+    }
+    /* 隱藏內部占位元素，避免罒 / 空洞 */
+    div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(2) {
+        opacity: 0 !important;
+        width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     /* 箭頭 */
     div.stSelectbox svg {
         fill: rgba(249,215,100,0.6) !important;
+        z-index: 1 !important;
     }
-    /* 選定黃框 */
-    div.stSelectbox div[data-baseweb="select"]:focus-within {
-        border: 1px solid #F9D764 !important;
-        box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important;
-    }
-    /* 下拉清單 */
+    /* 下拉選單清單 */
     ul[role="listbox"] {
         background: #2a2a40 !important;
-        border: 1px solid rgba(249,215,100,0.3) !important;
+        border: 1px solid rgba(249, 215, 100, 0.3) !important;
         border-radius: 6px !important;
         max-height: 400px !important;
         overflow-y: auto !important;
         padding: 0.5rem 0 !important;
         box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-        z-index: 9999 !important;
         position: absolute !important;
+        z-index: 9999 !important;
     }
     ul[role="listbox"] li {
         background: transparent !important;
@@ -175,7 +162,16 @@ def apply_modern_style_stable():
         font-weight: 600 !important;
     }
 
-    /* ===== 分頁標題大小 ===== */
+    /* ===== 統一 focus / 選定框為黃 ===== */
+    input:focus,
+    textarea:focus,
+    div.stSelectbox div[data-baseweb="select"]:focus-within {
+        border-color: #F9D764 !important;
+        box-shadow: 0 0 0 2px rgba(249,215,100,0.35) !important;
+        outline: none !important;
+    }
+
+    /* ===== 分頁標題 ===== */
     h1 { font-size: 20px !important; } 
     h2 { font-size: 16px !important; }
     h3 { font-size: 14px !important; } 
@@ -218,7 +214,6 @@ def apply_modern_style_stable():
         background: #1e1e2e !important; 
         border-radius: 8px; 
         border: 1px solid rgba(249,215,100,0.15);
-        overflow-x: auto !important;
     }
     div.stDataFrame thead tr th { 
         background: #181828 !important; 
@@ -252,7 +247,11 @@ def apply_modern_style_stable():
         div.stButton > button { width: 100% !important; padding: 0.75rem !important; }
         input, textarea { height: 44px !important; font-size: 16px !important; }
         section[data-testid="stSidebar"] { width: 280px !important; }
+        div.stDataFrame { overflow-x: auto !important; }
         button[data-baseweb="tab"] { padding: 0.4rem 0.6rem !important; font-size: 13px !important; }
+    }
+    @media (min-width: 768px) and (max-width: 1024px) {
+        .main .block-container { padding: 1.5rem !important; }
     }
     </style>
     """, unsafe_allow_html=True)
