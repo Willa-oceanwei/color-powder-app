@@ -43,116 +43,146 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
-# ======== 🎨 穩定版 Selectbox CSS ========
-st.markdown("""
-<style>
-/* ===== Selectbox 外殼 ===== */
-div.stSelectbox > div {
-    background: transparent !important;
-    min-height: 40px !important;
-}
-
-/* ===== Selectbox 本體 ===== */
-div.stSelectbox div[data-baseweb="select"] {
-    background: #2a2a40 !important;
-    border-radius: 6px !important;
-    border: 1px solid rgba(249,215,100,0.2) !important;
-    min-height: 40px !important;
-    display: flex !important;
-    align-items: center !important;
-    padding: 0 0.75rem !important;
-    box-sizing: border-box !important;
-}
-
-/* ===== 顯示文字區塊 ===== */
-div.stSelectbox div[data-baseweb="select"] > div {
-    flex: 1 1 auto !important;
-    width: 100% !important;
-    background: transparent !important;
-    color: #E8E8E8 !important;
-    font-size: 15px !important;
-    display: flex !important;
-    align-items: center !important;
-    padding: 0 !important;
-    border: none !important;
-}
-
-/* ===== 箭頭 ===== */
-div.stSelectbox div[data-baseweb="select"] svg {
-    fill: rgba(249,215,100,0.6) !important;
-}
-
-/* ===== Focus 狀態 ===== */
-div.stSelectbox div[data-baseweb="select"]:focus-within {
-    border-color: #F9D764 !important;
-    box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important;
-}
-
-/* ===== 下拉清單 ===== */
-ul[role="listbox"] {
-    position: absolute !important;
-    z-index: 9999 !important;
-    background: #2a2a40 !important;
-    border-radius: 6px !important;
-    border: 1px solid rgba(249,215,100,0.3) !important;
-    max-height: 400px !important;
-    overflow-y: auto !important;
-    padding: 0.25rem 0 !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-}
-
-/* ===== 下拉選項 ===== */
-ul[role="listbox"] li {
-    padding: 0.5rem 1rem !important;
-    min-height: 40px !important;
-    font-size: 15px !important;
-    background: transparent !important;
-    color: #E8E8E8 !important;
-    border: none !important;
-    display: flex !important;
-    align-items: center !important;
-}
-
-/* ===== 選中狀態 ===== */
-ul[role="listbox"] li[aria-selected="true"] {
-    background: rgba(249,215,100,0.25) !important;
-    color: #F9D764 !important;
-    font-weight: 600 !important;
-}
-
-/* ===== 滑鼠 hover 狀態 ===== */
-ul[role="listbox"] li:hover {
-    background: rgba(249,215,100,0.15) !important;
-    color: #F9D764 !important;
-}
-
-/* ===== 解除父容器 overflow 裁切 ===== */
-.main .block-container {
-    overflow: visible !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-#=======================================================
-# 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
-st.markdown(
-    """
+# ======== 🎨 終極版自訂樣式（穩定版 + 黃框統一）========
+def apply_modern_style_stable():
+    st.markdown("""
     <style>
-    /* 選中項目背景色 */
-    .st-key-myselect [data-baseweb="option"][aria-selected="true"] {
-        background-color: #999999 !important;  /* 淺灰 */
-        color: black !important;
-        font-weight: bold;
+    /* ===== 全域字體 ===== */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    * { font-family: 'Inter', 'Microsoft JhengHei', sans-serif; }
+
+    /* ===== 主背景 & 次背景 ===== */
+    .stApp { background: #1e1e2e !important; } /* 主背景：整個 app 背景 */
+    .main .block-container { background: #1e1e2e !important; padding: 2rem; } /* 次背景：內容區塊背景 */
+
+    /* ===== Sidebar ===== */
+    section[data-testid="stSidebar"] {
+        background: #181828 !important;
+        border-right: 1px solid rgba(249, 215, 100, 0.15);
     }
-    /* 滑鼠滑過項目背景色 */
-    .st-key-myselect [data-baseweb="option"]:hover {
-        background-color: #bbbbbb !important;  /* 
-        color: black !important;
+    section[data-testid="stSidebar"] h1 {
+        color: #F9D764; font-weight: 700; font-size: 20px;
+        padding: 0 1rem; margin-bottom: 1.5rem;
     }
+    /* Sidebar 選定項目背景填滿黃色，文字變深色 */
+    section[data-testid="stSidebar"] div[data-baseweb="radio"] label[aria-checked="true"] {
+        background-color: #F9D764 !important;
+        color: #181828 !important;
+    }
+
+    /* ===== 按鈕 ===== */
+    div.stButton > button {
+        background: #181828 !important;
+        color: #E8E8E8 !important;
+        border: 1px solid rgba(249, 215, 100, 0.2) !important;
+        border-radius: 8px; padding: 0.6rem 1rem;
+        font-weight: 500; font-size: 15px;
+        transition: all 0.3s ease;
+    }
+    div.stButton > button:hover {
+        background: #F9D764 !important; color: #181828 !important;
+        border-color: #F9D764 !important; transform: translateY(-1px);
+    }
+
+    /* ===== 輸入框統一高度 ===== */
+    input, textarea, .stNumberInput > div > div > input {
+        background: #2a2a40 !important;
+        border: 1px solid rgba(249, 215, 100, 0.2) !important;
+        border-radius: 6px; color: #E8E8E8 !important;
+        padding: 0.6rem 0.75rem !important;
+        height: 40px !important; font-size: 15px !important;
+    }
+    input:focus, textarea:focus {
+        border-color: #F9D764 !important;
+        box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important; /* 統一黃框 */
+        outline: none !important;
+    }
+
+    /* ===== 下拉 Selectbox（穩定版）===== */
+    div.stSelectbox > div {
+        background: transparent !important;
+    }
+    div.stSelectbox div[data-baseweb="select"] {
+        background: #2a2a40 !important;
+        border: 1px solid rgba(249,215,100,0.2) !important;
+        border-radius: 6px !important;
+        min-height: 40px !important;
+    }
+    div.stSelectbox div[data-baseweb="select"] > div {
+        padding: 0 0.75rem !important;
+        min-height: 40px !important;
+        color: #E8E8E8 !important;
+        font-size: 15px !important;
+        border: none !important;
+        background: transparent !important;
+        display: flex;
+        align-items: center;
+    }
+    /* 隱藏多餘佔位元素，避免 ( ) 空洞 */
+    div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(2) {
+        display: none !important;
+    }
+    /* 文字區塊吃滿寬度 */
+    div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(1) {
+        flex: 1 1 auto !important;
+        width: 100% !important;
+    }
+    /* 下拉箭頭 */
+    div.stSelectbox svg {
+        fill: rgba(249,215,100,0.6) !important;
+    }
+    /* 選定狀態黃框 */
+    div.stSelectbox div[data-baseweb="select"]:focus-within {
+        border-color: #F9D764 !important;
+        box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important;
+    }
+    /* 下拉選單列表 */
+    ul[role="listbox"] {
+        background: #2a2a40 !important;
+        border: 1px solid rgba(249,215,100,0.3) !important;
+        border-radius: 6px !important;
+        max-height: 400px !important;
+        overflow-y: auto !important;
+        padding: 0.5rem 0 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        position: absolute !important;
+        z-index: 9999 !important;
+    }
+    ul[role="listbox"] li {
+        background: transparent !important;
+        color: #E8E8E8 !important;
+        padding: 0.5rem 1rem !important;
+        min-height: 40px !important;
+        font-size: 15px !important;
+        border: none !important;
+        transition: all 0.2s ease;
+    }
+    ul[role="listbox"] li:hover {
+        background: rgba(249, 215, 100, 0.15) !important;
+        color: #F9D764 !important;
+    }
+    ul[role="listbox"] li[aria-selected="true"] {
+        background: rgba(249, 215, 100, 0.25) !important;
+        color: #F9D764 !important;
+        font-weight: 600 !important;
+    }
+
+    /* ===== 表格、Tab、提示框、響應式維持原樣 ===== */
+    div.stDataFrame { background: #1e1e2e !important; border-radius: 8px; border: 1px solid rgba(249,215,100,0.15); }
+    div.stDataFrame thead tr th { background: #181828 !important; color:#F9D764 !important; font-weight:600; border-bottom:2px solid rgba(249,215,100,0.3);}
+    div.stDataFrame tbody tr { background: #1e1e2e !important; color: #E8E8E8 !important;}
+    div.stDataFrame tbody tr:hover { background: #2a2a40 !important;}
+    
+    div.stAlert { background: rgba(249,215,100,0.1) !important; border-left:4px solid #F9D764 !important; color:#E8E8E8 !important;}
+    div.stSuccess { border-left-color:#4CAF50 !important;}
+    div.stWarning { border-left-color:#FF9800 !important;}
+    div.stError { border-left-color:#F44336 !important;}
     </style>
-    """,
-    unsafe_allow_html=True,
-)
+    """, unsafe_allow_html=True)
+
+# ===== 呼叫 =====
+apply_modern_style_stable()
+
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
