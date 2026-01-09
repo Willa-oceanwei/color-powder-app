@@ -124,15 +124,27 @@ def apply_modern_style():
     }
 
     /* ===== 下拉選單顏色 ===== */
-    div.stSelectbox > div > div,
-    div.stSelectbox div[data-baseweb="select"] {
+    /* 下拉外框統一，只保留一個 border */
+    div.stSelectbox > div > div {
         background: #2a2a40 !important;
         border: 1px solid rgba(249, 215, 100, 0.2) !important;
         border-radius: 6px !important;
+        min-height: 40px !important;
+        padding: 0 !important;
+        box-shadow: none !important; /* 移除重疊陰影 */
     }
-
-    div.stSelectbox div[data-baseweb="select"] > div > div {
-        color: #E8E8E8 !important;
+    
+    /* 下拉容器內層 */
+    div.stSelectbox div[data-baseweb="select"] {
+        background: #2a2a40 !important;
+        min-height: 40px !important;
+        border: none !important;  /* 移除多餘 border */
+    }
+    
+    /* 選中 focus 狀態 */
+    div.stSelectbox div[data-baseweb="select"] > div:focus-within {
+        border: 1px solid #F9D764 !important;
+        box-shadow: 0 0 0 1px rgba(249,215,100,0.3) !important;
     }
 
     ul[role="listbox"] {
