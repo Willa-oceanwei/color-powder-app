@@ -45,45 +45,6 @@ if not st.session_state.authenticated:
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
 st.markdown("""
 <style>
-/* ===== 全域字體 ===== */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-* { font-family: 'Inter', 'Microsoft JhengHei', sans-serif; }
-
-/* ===== 主背景 ===== */
-.stApp { background: #1e1e2e !important; }
-.main .block-container { background: #1e1e2e !important; padding: 2rem; overflow: visible !important; }
-
-/* ===== Sidebar 背景 & 選定黃底 ===== */
-section[data-testid="stSidebar"] {
-    background: #181828 !important;
-    border-right: 1px solid rgba(249, 215, 100, 0.15);
-}
-section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] {
-    background-color: #F9D764 !important;
-    color: #181828 !important;
-    border-radius: 6px !important;
-}
-section[data-testid="stSidebar"] div[role="option"]:hover {
-    background-color: rgba(249,215,100,0.5) !important;
-    color: #181828 !important;
-}
-
-/* ===== 輸入框 / textarea ===== */
-input, textarea, .stNumberInput > div > div > input {
-    background: #2a2a40 !important;
-    border: 1px solid rgba(249,215,100,0.2) !important;
-    border-radius: 6px;
-    color: #E8E8E8 !important;
-    padding: 0.6rem 0.75rem !important;
-    min-height: 40px !important;
-    font-size: 15px !important;
-}
-input:focus, textarea:focus {
-    border-color: #F9D764 !important;
-    box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important;
-    outline: none !important;
-}
-
 /* ===== Selectbox 外殼 ===== */
 div.stSelectbox > div {
     background: transparent !important;
@@ -102,8 +63,8 @@ div.stSelectbox div[data-baseweb="select"] {
     box-sizing: border-box !important;
 }
 
-/* ===== 顯示文字區塊 ===== */
-div.stSelectbox div[data-baseweb="select"] > div {
+/* ===== 文字顯示區 flex 撐滿，移除中間空洞 ===== */
+div.stSelectbox div[data-baseweb="select"] > div[data-baseweb="value-container"] {
     flex: 1 1 auto !important;
     width: 100% !important;
     background: transparent !important;
@@ -112,12 +73,6 @@ div.stSelectbox div[data-baseweb="select"] > div {
     display: flex !important;
     align-items: center !important;
     padding: 0 !important;
-    border: none !important;
-}
-
-/* ===== 移除中間空洞 (罒) ===== */
-div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(2) {
-    display: none !important;
 }
 
 /* ===== 箭頭 ===== */
@@ -169,6 +124,19 @@ ul[role="listbox"] li[aria-selected="true"] {
 ul[role="listbox"] li:hover {
     background: rgba(249,215,100,0.15) !important;
     color: #F9D764 !important;
+}
+
+/* ===== Sidebar 選中填滿黃色 ===== */
+section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] {
+    background-color: #F9D764 !important;
+    color: #181828 !important;
+    border-radius: 6px !important;
+}
+
+/* Sidebar hover */
+section[data-testid="stSidebar"] div[role="option"]:hover {
+    background-color: rgba(249,215,100,0.5) !important;
+    color: #181828 !important;
 }
 </style>
 """, unsafe_allow_html=True)
