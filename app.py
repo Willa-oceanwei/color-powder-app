@@ -5109,67 +5109,69 @@ elif menu == "查詢區":
     
         # ===== 新增 / 修改 區 =====
         st.markdown("**➕ 新增 / 修改 樣品**")
-    
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.date_input(
-                "日期",
-                value=safe_date(st.session_state.form_sample.get("日期")),
-                key="ui_sample_date"
-            )
-        with c2:
-            st.text_input(
-                "客戶名稱",
-                value=st.session_state.form_sample.get("客戶名稱", ""),
-                key="ui_sample_customer"
-            )
-        with c3:
-            st.text_input(
-                "樣品編號",
-                value=st.session_state.form_sample.get("樣品編號", ""),
-                key="ui_sample_code",
-                disabled=st.session_state.edit_sample_index is not None
-            )
-    
-        c4, c5 = st.columns(2)
-        with c4:
-            st.text_input(
-                "樣品名稱",
-                value=st.session_state.form_sample.get("樣品名稱", ""),
-                key="ui_sample_name"
-            )
-        with c5:
-            st.text_input(
-                "樣品數量",
-                value=st.session_state.form_sample.get("樣品數量", ""),
-                key="ui_sample_qty"
-            )
-    
-        if st.button("💾 儲存"):
+        
+        with st.form("form_sample"):
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                sample_date = st.date_input(
+                    "日期",
+                    value=safe_date(st.session_state.form_sample.get("日期")),
+                    key="ui_sample_date"
+                )
+            with c2:
+                sample_customer = st.text_input(
+                    "客戶名稱",
+                    value=st.session_state.form_sample.get("客戶名稱", "")
+                )
+            with c3:
+                sample_code = st.text_input(
+                    "樣品編號",
+                    value=st.session_state.form_sample.get("樣品編號", ""),
+                    disabled=st.session_state.edit_sample_index is not None
+                )
+        
+            c4, c5 = st.columns(2)
+            with c4:
+                sample_name = st.text_input(
+                    "樣品名稱",
+                    value=st.session_state.form_sample.get("樣品名稱", "")
+                )
+            with c5:
+                sample_qty = st.text_input(
+                    "樣品數量",
+                    value=st.session_state.form_sample.get("樣品數量", "")
+                )
+        
+            submit = st.form_submit_button("💾 儲存")
+        
+        if submit:
             data = {
-                "日期": st.session_state.ui_sample_date,
-                "客戶名稱": st.session_state.ui_sample_customer,
-                "樣品編號": st.session_state.ui_sample_code,
-                "樣品名稱": st.session_state.ui_sample_name,
-                "樣品數量": st.session_state.ui_sample_qty
+                "日期": sample_date,
+                "客戶名稱": sample_customer.strip(),
+                "樣品編號": sample_code.strip(),
+                "樣品名稱": sample_name.strip(),
+                "樣品數量": sample_qty.strip()
             }
-    
-            if not data["樣品編號"].strip():
+        
+            if not data["樣品編號"]:
                 st.warning("⚠️ 請輸入樣品編號")
             else:
                 if st.session_state.edit_sample_index is not None:
                     df_sample.loc[st.session_state.edit_sample_index] = data
                     st.success("✅ 樣品已更新")
+                    st.session_state.edit_sample_index = None
                 else:
                     df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
                     st.success("✅ 新增完成")
-    
+        
+                # 寫回 Google Sheet
                 save_df_to_sheet(ws_sample, df_sample)
+        
+                # 清空表單
                 st.session_state.form_sample = {k: "" for k in st.session_state.form_sample}
-                st.session_state.edit_sample_index = None
-                st.rerun()
-    
-        st.markdown("---")
+        
+                # 立即更新前端列表
+                st.experimental_rerun()      
     
         # ===== 搜尋區（Enter 可觸發）=====
         st.markdown("**🔍 樣品記錄搜尋**")
