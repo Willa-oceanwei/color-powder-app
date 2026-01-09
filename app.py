@@ -5210,8 +5210,8 @@ elif menu == "查詢區":
                     st.session_state.selected_sample_index = df_show.index[idx]
     
         # ===== 修改 / 刪除表單（選定後才出現）=====
-        if st.session_state.selected_sample_index is not None:
-            row = df_sample.iloc[st.session_state.selected_sample_index]
+        if st.session_state.selected_sample_index in df_sample.index:
+            row = df_sample.loc[st.session_state.selected_sample_index]
             st.markdown("**✏️ 修改 / 🗑️ 刪除樣品**")
     
             c1, c2, c3 = st.columns(3)
@@ -5245,8 +5245,8 @@ elif menu == "查詢區":
                     st.session_state.show_delete_sample_confirm = True
     
         # ===== 刪除確認 =====
-        if st.session_state.show_delete_sample_confirm:
-            r = df_sample.iloc[st.session_state.delete_sample_index]
+        if st.session_state.show_delete_sample_confirm and st.session_state.delete_sample_index is not None:
+            r = df_sample.loc[st.session_state.delete_sample_index]
             st.warning(f"⚠️ 確定刪除 {r['樣品編號']} {r['樣品名稱']}？")
     
             c1, c2 = st.columns(2)
