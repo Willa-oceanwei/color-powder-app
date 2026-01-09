@@ -287,9 +287,26 @@ def apply_modern_style():
             padding: 1.5rem !important;
         }
     }
+    /* ===== 🔧 修正 Selectbox 下拉被裁切與背景異常（必加） ===== */
+
+    /* 1️⃣ 解除父層裁切 */
+    .main .block-container {
+        overflow: visible !important;
+    }
+    
+    /* 2️⃣ 確保下拉層級最高 */
+    ul[role="listbox"] {
+        position: absolute !important;
+        z-index: 9999 !important;
+    }
+    
+    /* 3️⃣ 不動 select 外殼，只樣式化本體 */
+    div.stSelectbox > div {
+        background: unset !important;
+    }
     </style>
     """, unsafe_allow_html=True)
-    
+        
 # ===== 呼叫 =====
 apply_modern_style()
 
