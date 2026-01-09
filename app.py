@@ -883,46 +883,52 @@ elif menu == "客戶名單":
         '<h2 style="font-size:16px; font-family:Arial; color:#dbd818;">🤖 新增 / 編輯客戶</h2>',
         unsafe_allow_html=True
     )
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.session_state.form_customer["客戶編號"] = st.text_input(
-            "客戶編號", st.session_state.form_customer["客戶編號"]
-        )
-        st.session_state.form_customer["客戶簡稱"] = st.text_input(
-            "客戶簡稱", st.session_state.form_customer["客戶簡稱"]
-        )
-    with col2:
-        st.session_state.form_customer["備註"] = st.text_input(
-            "備註", st.session_state.form_customer["備註"]
-        )
-
-    if st.button("💾 儲存"):
-        new_data = st.session_state.form_customer.copy()
-
-        if not new_data["客戶編號"].strip():
+    
+    with st.form("customer_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            cid = st.text_input("客戶編號", st.session_state.form_customer.get("客戶編號", ""))
+            cname = st.text_input("客戶簡稱", st.session_state.form_customer.get("客戶簡稱", ""))
+        with col2:
+            note = st.text_input("備註", st.session_state.form_customer.get("備註", ""))
+    
+        submit = st.form_submit_button("💾 儲存")
+    
+    if submit:
+        new_data = {
+            "客戶編號": cid.strip(),
+            "客戶簡稱": cname.strip(),
+            "備註": note.strip()
+        }
+    
+        if not new_data["客戶編號"]:
             st.warning("⚠️ 請輸入客戶編號！")
-
         else:
             if st.session_state.edit_customer_index is not None:
-                row_idx = st.session_state.edit_customer_index
+                # 編輯模式
+                idx = st.session_state.edit_customer_index
                 for col in df.columns:
                     if col in new_data:
-                        df.at[row_idx, col] = new_data[col]
+                        df.at[idx, col] = new_data[col]
                 st.success("✅ 客戶已更新！")
-
+                st.session_state.edit_customer_index = None
             else:
+                # 新增模式
                 if new_data["客戶編號"] in df["客戶編號"].values:
                     st.warning("⚠️ 此客戶編號已存在！")
                 else:
                     df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
                     st.success("✅ 新增成功！")
-
+    
+            # 寫回 Google Sheet
             save_df_to_sheet(ws_customer, df)
-            st.session_state.form_customer = {col: "" for col in columns}
-            st.session_state.edit_customer_index = None
-            st.rerun()
-
+    
+            # 清空表單
+            st.session_state.form_customer = {col: "" for col in df.columns}
+    
+            # 立即更新前端列表
+            st.experimental_rerun()
+    
     # =====================================================
     # 🗑️ 刪除確認
     # =====================================================
