@@ -46,6 +46,33 @@ if not st.session_state.authenticated:
 # ======== 🎨 穩定版 Selectbox CSS ========
 st.markdown("""
 <style>
+/* ===== Sidebar 基本樣式 ===== */
+section[data-testid="stSidebar"] {
+    background: #1a1a2e !important;
+    border-right: 1px solid rgba(249, 220, 92, 0.15);
+}
+
+section[data-testid="stSidebar"] h1 {
+    color: #F9DC5C !important;
+    font-weight: 700;
+    font-size: 22px;
+    padding: 0 1rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ===== Sidebar 選中項目填滿黃色 ===== */
+section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] {
+    background-color: #F9D764 !important;  /* 黃色填滿 */
+    color: #181828 !important;             /* 文字深色 */
+    border-radius: 6px !important;         /* 圓角 */
+}
+
+/* ===== Sidebar 滑鼠 hover 狀態 ===== */
+section[data-testid="stSidebar"] div[role="option"]:hover {
+    background-color: rgba(249,215,100,0.5) !important;
+    color: #181828 !important;
+}
+
 /* ===== Selectbox 外殼 ===== */
 div.stSelectbox > div {
     background: transparent !important;
@@ -82,10 +109,10 @@ div.stSelectbox div[data-baseweb="select"] svg {
     fill: rgba(249,215,100,0.6) !important;
 }
 
-/* ===== Focus 狀態 ===== */
+/* ===== Focus 狀態 (右邊 Selectbox) ===== */
 div.stSelectbox div[data-baseweb="select"]:focus-within {
     border-color: #F9D764 !important;
-    box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important;
+    box-shadow: none !important;  /* 移除多餘紅黃疊框 */
 }
 
 /* ===== 下拉清單 ===== */
@@ -113,14 +140,14 @@ ul[role="listbox"] li {
     align-items: center !important;
 }
 
-/* ===== 選中狀態 ===== */
+/* ===== 選中狀態 (右邊 Selectbox) ===== */
 ul[role="listbox"] li[aria-selected="true"] {
     background: rgba(249,215,100,0.25) !important;
     color: #F9D764 !important;
     font-weight: 600 !important;
 }
 
-/* ===== 滑鼠 hover 狀態 ===== */
+/* ===== 滑鼠 hover 狀態 (右邊 Selectbox) ===== */
 ul[role="listbox"] li:hover {
     background: rgba(249,215,100,0.15) !important;
     color: #F9D764 !important;
@@ -132,6 +159,7 @@ ul[role="listbox"] li:hover {
 }
 </style>
 """, unsafe_allow_html=True)
+
 
 #=======================================================
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
@@ -153,6 +181,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
