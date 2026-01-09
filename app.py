@@ -124,6 +124,18 @@ def apply_modern_style():
     /* =====================================================
        ✅ Selectbox（穩定版，不切割、不變形）
        ===================================================== */
+    /* ===== 修正 Selectbox 中間出現 ( ) 空洞 ===== */
+
+    /* 隱藏多餘的內部佔位元素 */
+    div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(2) {
+        display: none !important;
+    }
+
+    /* 確保文字區塊吃滿寬度 */
+    div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(1) {
+        flex: 1 1 auto !important;
+        width: 100% !important;
+    }
 
     /* Select 外殼 */
     div.stSelectbox > div {
