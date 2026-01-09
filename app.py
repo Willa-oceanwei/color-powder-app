@@ -133,9 +133,6 @@ ul[role="listbox"] li:hover {
 </style>
 """, unsafe_allow_html=True)
 
-# ===== 呼叫 =====
-apply_modern_style_stable()
-
 #=======================================================
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
 st.markdown(
