@@ -4658,70 +4658,76 @@ elif menu == "查詢區":
     # ========== Tab 1：依色粉編號查配方 ==========
     with tab1:
     
+        # 使用 form 包裹查詢欄位
         with st.form("form_cross_query"):
-              
-            # 輸入最多五個色粉編號
             cols = st.columns(5)
-            inputs = []
+            input_vals = []
             for i in range(5):
-                val = cols[i].text_input(f"色粉編號{i+1}", key=f"cross_color_{i}")
-                if val.strip():
-                    inputs.append(val.strip())
+                # 先用本地變數接收輸入，不直接綁定 session_state
+                val = cols[i].text_input(f"色粉編號{i+1}", value="", key=f"cross_color_{i}")
+                input_vals.append(val.strip())
     
             # Form 提交按鈕
             submit = st.form_submit_button("查詢配方")
     
-        if submit and inputs:
-            # 篩選符合的配方
-            mask = df_recipe.apply(
-                lambda row: all(
-                    inp in row[[f"色粉編號{i}" for i in range(1, 9)]].astype(str).tolist() 
-                    for inp in inputs
-                ),
-                axis=1
-            )
-            matched = df_recipe[mask].copy()
+        # form 提交後再處理
+        if submit:
+            # 收集非空值
+            inputs = [v for v in input_vals if v]
     
-            if matched.empty:
-                st.warning("⚠️ 找不到符合的配方")
+            if not inputs:
+                st.warning("⚠️ 請至少輸入一個色粉編號")
             else:
-                results = []
-                for _, recipe in matched.iterrows():
-                    # 找最近的生產日期
-                    orders = df_order[df_order["配方編號"].astype(str) == str(recipe["配方編號"])]
-                    last_date = pd.NaT
-                    if not orders.empty and "生產日期" in orders.columns:
-                        orders["生產日期"] = pd.to_datetime(orders["生產日期"], errors="coerce")
-                        last_date = orders["生產日期"].max()
+                # 篩選符合的配方
+                mask = df_recipe.apply(
+                    lambda row: all(
+                        inp in row[[f"色粉編號{i}" for i in range(1, 9)]].astype(str).tolist() 
+                        for inp in inputs
+                    ),
+                    axis=1
+                )
+                matched = df_recipe[mask].copy()
     
-                    # 色粉組成
-                    powders = [
-                        str(recipe[f"色粉編號{i}"]).strip()
-                        for i in range(1, 9)
-                        if str(recipe[f"色粉編號{i}"]).strip()
-                    ]
-                    powder_str = "、".join(powders)
+                if matched.empty:
+                    st.warning("⚠️ 找不到符合的配方")
+                else:
+                    results = []
+                    for _, recipe in matched.iterrows():
+                        # 找最近的生產日期
+                        orders = df_order[df_order["配方編號"].astype(str) == str(recipe["配方編號"])]
+                        last_date = pd.NaT
+                        if not orders.empty and "生產日期" in orders.columns:
+                            orders["生產日期"] = pd.to_datetime(orders["生產日期"], errors="coerce")
+                            last_date = orders["生產日期"].max()
     
-                    results.append({
-                        "最後生產時間": last_date,
-                        "配方編號": recipe["配方編號"],
-                        "顏色": recipe["顏色"],
-                        "客戶名稱": recipe["客戶名稱"],
-                        "色粉組成": powder_str
-                    })
+                        # 色粉組成
+                        powders = [
+                            str(recipe[f"色粉編號{i}"]).strip()
+                            for i in range(1, 9)
+                            if str(recipe[f"色粉編號{i}"]).strip()
+                        ]
+                        powder_str = "、".join(powders)
     
-                df_result = pd.DataFrame(results)
+                        results.append({
+                            "最後生產時間": last_date,
+                            "配方編號": recipe["配方編號"],
+                            "顏色": recipe["顏色"],
+                            "客戶名稱": recipe["客戶名稱"],
+                            "色粉組成": powder_str
+                        })
     
-                if not df_result.empty:
-                    # 按最後生產時間排序（由近到遠）
-                    df_result = df_result.sort_values(by="最後生產時間", ascending=False)
+                    df_result = pd.DataFrame(results)
     
-                    # 格式化最後生產時間（避免 NaT 顯示成 NaT）
-                    df_result["最後生產時間"] = df_result["最後生產時間"].apply(
-                        lambda x: x.strftime("%Y-%m-%d") if pd.notnull(x) else ""
-                    )
+                    if not df_result.empty:
+                        # 按最後生產時間排序（由近到遠）
+                        df_result = df_result.sort_values(by="最後生產時間", ascending=False)
     
-                    st.dataframe(df_result)   
+                        # 格式化最後生產時間（避免 NaT 顯示成 NaT）
+                        df_result["最後生產時間"] = df_result["最後生產時間"].apply(
+                            lambda x: x.strftime("%Y-%m-%d") if pd.notnull(x) else ""
+                        )
+    
+                        st.dataframe(df_result, use_container_width=True) 
 
     # ========== Tab 2：色粉用量查詢 ==========
         # ========== Tab 2：色粉用量查詢（使用 form 提交） ==========
