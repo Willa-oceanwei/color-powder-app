@@ -45,13 +45,13 @@ if not st.session_state.authenticated:
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
 st.markdown("""
 <style>
-/* ===== Selectbox 外殼 ===== */
+/* ===== 下拉 Selectbox ===== */
 div.stSelectbox > div {
     background: transparent !important;
     min-height: 40px !important;
 }
 
-/* ===== Selectbox 本體 ===== */
+/* Selectbox 本體 */
 div.stSelectbox div[data-baseweb="select"] {
     background: #2a2a40 !important;
     border-radius: 6px !important;
@@ -63,7 +63,7 @@ div.stSelectbox div[data-baseweb="select"] {
     box-sizing: border-box !important;
 }
 
-/* ===== 文字顯示區 flex 撐滿，移除中間空洞 ===== */
+/* 文字區域 */
 div.stSelectbox div[data-baseweb="select"] > div[data-baseweb="value-container"] {
     flex: 1 1 auto !important;
     width: 100% !important;
@@ -75,20 +75,18 @@ div.stSelectbox div[data-baseweb="select"] > div[data-baseweb="value-container"]
     padding: 0 !important;
 }
 
-/* ===== 箭頭 ===== */
+/* 箭頭 */
 div.stSelectbox div[data-baseweb="select"] svg {
     fill: rgba(249,215,100,0.6) !important;
 }
 
-/* ===== Focus 狀態統一黃框 ===== */
-div.stSelectbox div[data-baseweb="select"]:focus-within,
-input:focus,
-textarea:focus {
+/* Focus 統一黃框，取消紅框 */
+div.stSelectbox div[data-baseweb="select"]:focus-within {
     border-color: #F9D764 !important;
-    box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important;
+    box-shadow: 0 0 0 2px rgba(249,215,100,0.35) !important;  /* 只黃框 */
 }
 
-/* ===== 下拉清單 ===== */
+/* 下拉清單 */
 ul[role="listbox"] {
     position: absolute !important;
     z-index: 9999 !important;
@@ -101,7 +99,7 @@ ul[role="listbox"] {
     box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
 }
 
-/* ===== 下拉選項 ===== */
+/* 下拉選項 */
 ul[role="listbox"] li {
     padding: 0.5rem 1rem !important;
     min-height: 40px !important;
@@ -113,30 +111,39 @@ ul[role="listbox"] li {
     align-items: center !important;
 }
 
-/* ===== 選中狀態 ===== */
+/* 選中狀態 */
 ul[role="listbox"] li[aria-selected="true"] {
     background: rgba(249,215,100,0.25) !important;
     color: #F9D764 !important;
     font-weight: 600 !important;
 }
 
-/* ===== 滑鼠 hover ===== */
+/* hover 狀態 */
 ul[role="listbox"] li:hover {
     background: rgba(249,215,100,0.15) !important;
     color: #F9D764 !important;
 }
 
-/* ===== Sidebar 選中填滿黃色 ===== */
-section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] {
+/* ===== Sidebar 選中填滿黃底 ===== */
+section[data-testid="stSidebar"] div[role="option"][aria-selected="true"],
+section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] > span,
+section[data-testid="stSidebar"] div[role="option"][aria-selected="true"] > div {
     background-color: #F9D764 !important;
     color: #181828 !important;
     border-radius: 6px !important;
 }
 
 /* Sidebar hover */
-section[data-testid="stSidebar"] div[role="option"]:hover {
+section[data-testid="stSidebar"] div[role="option"]:hover,
+section[data-testid="stSidebar"] div[role="option"]:hover > span,
+section[data-testid="stSidebar"] div[role="option"]:hover > div {
     background-color: rgba(249,215,100,0.5) !important;
     color: #181828 !important;
+}
+
+/* 解除父容器 overflow 裁切 */
+.main .block-container {
+    overflow: visible !important;
 }
 </style>
 """, unsafe_allow_html=True)
