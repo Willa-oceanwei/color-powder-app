@@ -198,7 +198,7 @@ def apply_modern_style():
 # ===== 套用樣式 =====
 apply_modern_style()
 
-＃＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+#=======================================================
 # 自訂 CSS，針對 key="myselect" 的 selectbox 選項背景色調整
 st.markdown(
     """
