@@ -5061,54 +5061,59 @@ elif menu == "查詢區":
                 "樣品數量": ""
             }
     
-        for k, v in {
+        # 初始化其他 session_state
+        init_states({
             "edit_sample_index": None,
             "delete_sample_index": None,
             "show_delete_sample_confirm": False,
             "sample_search_triggered": False,
             "sample_filtered_df": pd.DataFrame(),
             "selected_sample_index": None
-        }.items():
-            if k not in st.session_state:
-                st.session_state[k] = v
+        })
     
         # ===== 新增 / 修改 區 =====
         st.markdown("**➕ 新增 / 修改 樣品**")
-        
-        with st.form("form_sample"):
+    
+        # 🔹 使用唯一 form name
+        with st.form("form_sample_tab4"):
+    
             c1, c2, c3 = st.columns(3)
             with c1:
                 sample_date = st.date_input(
                     "日期",
                     value=safe_date(st.session_state.form_sample.get("日期")),
-                    key="ui_sample_date"
+                    key="form_sample_tab4_date"
                 )
             with c2:
                 sample_customer = st.text_input(
                     "客戶名稱",
-                    value=st.session_state.form_sample.get("客戶名稱", "")
+                    value=st.session_state.form_sample.get("客戶名稱", ""),
+                    key="form_sample_tab4_customer"
                 )
             with c3:
                 sample_code = st.text_input(
                     "樣品編號",
                     value=st.session_state.form_sample.get("樣品編號", ""),
-                    disabled=st.session_state.edit_sample_index is not None
+                    disabled=st.session_state.edit_sample_index is not None,
+                    key="form_sample_tab4_code"
                 )
-        
+    
             c4, c5 = st.columns(2)
             with c4:
                 sample_name = st.text_input(
                     "樣品名稱",
-                    value=st.session_state.form_sample.get("樣品名稱", "")
+                    value=st.session_state.form_sample.get("樣品名稱", ""),
+                    key="form_sample_tab4_name"
                 )
             with c5:
                 sample_qty = st.text_input(
                     "樣品數量",
-                    value=st.session_state.form_sample.get("樣品數量", "")
+                    value=st.session_state.form_sample.get("樣品數量", ""),
+                    key="form_sample_tab4_qty"
                 )
-        
+    
             submit = st.form_submit_button("💾 儲存")
-        
+    
         if submit:
             data = {
                 "日期": sample_date,
@@ -5117,7 +5122,7 @@ elif menu == "查詢區":
                 "樣品名稱": sample_name.strip(),
                 "樣品數量": sample_qty.strip()
             }
-        
+    
             if not data["樣品編號"]:
                 st.warning("⚠️ 請輸入樣品編號")
             else:
@@ -5128,15 +5133,14 @@ elif menu == "查詢區":
                 else:
                     df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
                     st.success("✅ 新增完成")
-        
+    
                 # 寫回 Google Sheet
                 save_df_to_sheet(ws_sample, df_sample)
-        
+    
                 # 清空表單
                 st.session_state.form_sample = {k: "" for k in st.session_state.form_sample}
-        
-                # 立即更新前端列表
-                st.experimental_rerun()      
+    
+                # 可在這裡觸發前端列表刷新
     
         # ===== 搜尋區（Enter 可觸發）=====
         st.markdown("**🔍 樣品記錄搜尋**")
