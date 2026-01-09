@@ -241,9 +241,55 @@ def apply_modern_style():
     div.stSuccess { border-left-color:#4CAF50 !important;}
     div.stWarning { border-left-color:#FF9800 !important;}
     div.stError { border-left-color:#F44336 !important;}
+    
+    /* ===== 📱 手機響應式（寬度 < 768px）===== */
+    @media (max-width: 768px) {
+
+        body, p, span, label, input, textarea, button {
+            font-size: 14px !important;
+        }
+
+        h1 { font-size: 18px !important; }
+        h2 { font-size: 16px !important; }
+
+        /* 按鈕全寬 */
+        div.stButton > button {
+            width: 100% !important;
+            padding: 0.75rem !important;
+        }
+
+        /* 輸入框加大可點擊區域 */
+        input, textarea {
+            height: 44px !important;
+            font-size: 16px !important; /* 防止 iOS 自動縮放 */
+        }
+
+        /* Sidebar 改成覆蓋式 */
+        section[data-testid="stSidebar"] {
+            width: 280px !important;
+        }
+
+        /* 表格橫向滾動 */
+        div.stDataFrame {
+            overflow-x: auto !important;
+        }
+
+        /* Tab 按鈕縮小 */
+        button[data-baseweb="tab"] {
+            padding: 0.4rem 0.6rem !important;
+            font-size: 13px !important;
+        }
+    }
+  
+    /* ===== 平板響應式（768px - 1024px）===== */
+    @media (min-width: 768px) and (max-width: 1024px) {
+        .main .block-container {
+            padding: 1.5rem !important;
+        }
+    }
     </style>
     """, unsafe_allow_html=True)
-
+    
 # ===== 呼叫 =====
 apply_modern_style()
 
