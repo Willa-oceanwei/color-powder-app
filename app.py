@@ -5836,7 +5836,7 @@ elif menu == "庫存區":
             )
     
     # ========== Tab 4：色粉用量查詢 ==========
-    with tab2:
+    with tab4:
     
         with st.form("form_powder_usage"):
             st.markdown("**🔍 色粉用量查詢**")
