@@ -43,6 +43,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
+# ======== 🎨 終極版自訂樣式（暗色 + 下拉穩定版）========
 def apply_modern_style():
     st.markdown("""
     <style>
@@ -52,7 +53,7 @@ def apply_modern_style():
 
     /* ===== 主背景統一 ===== */
     .stApp { background: #1e1e2e !important; }
-    .main .block-container { background: #1e1e2e !important; padding: 2rem; }
+    .main .block-container { background: #1e1e2e !important; padding: 2rem; overflow: visible !important; }
 
     /* ===== Sidebar ===== */
     section[data-testid="stSidebar"] {
@@ -92,25 +93,39 @@ def apply_modern_style():
         outline: none !important;
     }
 
-    /* ===== ✅ 下拉選單（穩定版，不切割、不變形） ===== */
-    /* Selectbox 外殼 */
+    /* ===== 下拉選單穩定版 ===== */
     div.stSelectbox > div {
         background: #2a2a40 !important;
         border: 1px solid rgba(249,215,100,0.2) !important;
         border-radius: 6px !important;
         min-height: 40px !important;
-    }
-
-    /* Selectbox 本體 (內部文字區塊) */
-    div.stSelectbox div[data-baseweb="select"] > div {
-        padding: 0 0.75rem !important;
-        min-height: 40px !important;
-        color: #E8E8E8 !important;
-        font-size: 15px !important;
-        border: none !important;
-        background: transparent !important;
         display: flex !important;
         align-items: center !important;
+        padding: 0 0.5rem !important;
+    }
+    div.stSelectbox div[data-baseweb="select"] {
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+        background: transparent !important;
+    }
+    div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(2) {
+        width: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+    div.stSelectbox div[data-baseweb="select"] > div > div:nth-child(1) {
+        flex: 1 1 auto !important;
+        color: #E8E8E8 !important;
+        font-size: 15px !important;
+    }
+    div.stSelectbox svg {
+        fill: rgba(249,215,100,0.6) !important;
+        flex-shrink: 0 !important;
+    }
+    div.stSelectbox div[data-baseweb="select"]:focus-within {
+        border-color: #F9D764 !important;
+        box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important;
     }
 
     /* 下拉選單清單 */
@@ -120,13 +135,11 @@ def apply_modern_style():
         border-radius: 6px !important;
         max-height: 400px !important;
         overflow-y: auto !important;
-        padding: 0.25rem 0 !important;
+        padding: 0.5rem 0 !important;
         box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
         position: absolute !important;
         z-index: 9999 !important;
     }
-
-    /* 選項樣式 */
     ul[role="listbox"] li {
         background: transparent !important;
         color: #E8E8E8 !important;
@@ -135,8 +148,6 @@ def apply_modern_style():
         font-size: 15px !important;
         border: none !important;
         transition: all 0.2s ease;
-        display: flex !important;
-        align-items: center !important;
     }
     ul[role="listbox"] li:hover {
         background: rgba(249, 215, 100, 0.15) !important;
@@ -146,17 +157,6 @@ def apply_modern_style():
         background: rgba(249, 215, 100, 0.25) !important;
         color: #F9D764 !important;
         font-weight: 600 !important;
-    }
-
-    /* 箭頭 */
-    div.stSelectbox svg {
-        fill: rgba(249,215,100,0.8) !important;
-    }
-
-    /* Focus */
-    div.stSelectbox div[data-baseweb="select"]:focus-within {
-        border-color: #F9D764 !important;
-        box-shadow: 0 0 0 1px rgba(249,215,100,0.35) !important;
     }
 
     /* ===== 分頁標題大小 ===== */
@@ -227,7 +227,7 @@ def apply_modern_style():
     div.stWarning { border-left-color:#FF9800 !important;}
     div.stError { border-left-color:#F44336 !important;}
 
-    /* ===== 手機響應式（寬度 < 768px）===== */
+    /* ===== 📱 手機響應式（寬度 < 768px）===== */
     @media (max-width: 768px) {
         body, p, span, label, input, textarea, button { font-size: 14px !important; }
         h1 { font-size: 18px !important; }
@@ -243,9 +243,6 @@ def apply_modern_style():
     @media (min-width: 768px) and (max-width: 1024px) {
         .main .block-container { padding: 1.5rem !important; }
     }
-
-    /* ===== 修正 Selectbox 下拉被裁切 ===== */
-    .main .block-container { overflow: visible !important; }
 
     </style>
     """, unsafe_allow_html=True)
