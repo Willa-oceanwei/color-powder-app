@@ -5441,103 +5441,79 @@ elif menu == "庫存區":
     
     # ========== Tab 1：初始庫存設定 ==========
     with tab1:
-        col1, col2, col3 = st.columns(3)
-        ini_powder = col1.text_input("色粉編號", key="ini_color")
-        ini_qty = col2.number_input(
-            "數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty"
-        )
-        ini_unit = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
-
-        # ⭐ 日期 + 時間（關鍵）
-        col4, col5 = st.columns(2)
-
-        ini_date = col4.date_input(
-            "設定時間",
-            value=datetime.today(),
-            key="ini_date"
-        )
-
-        ini_time = col5.time_input(
-            "設定時間",
-            value=datetime.now().replace(microsecond=0).time(),
-            key="ini_time"
-        )
-
-        ini_note = st.text_input("備註", key="ini_note")
-
-        # 👉 組合成真正的 Timestamp（只做一次）
-        ini_datetime = pd.to_datetime(
-            datetime.combine(ini_date, ini_time)
-        )
-
-        # ===== 使用者提示（很重要）=====
-        st.info("ℹ️ 庫存僅扣除期初庫存儲存後之生產單（含當日）")
-        
-        # ===== 儲存初始庫存按鈕 =====
-        if st.button("儲存初始庫存", key="btn_save_ini"):
-        
+    
+        with st.form("form_ini_stock"):
+            # 輸入欄位
+            col1, col2, col3 = st.columns(3)
+            ini_powder = col1.text_input("色粉編號", key="ini_color")
+            ini_qty = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty")
+            ini_unit = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
+    
+            # 日期與時間
+            col4, col5 = st.columns(2)
+            ini_date = col4.date_input("設定日期", value=datetime.today(), key="ini_date")
+            ini_time = col5.time_input("設定時間", value=datetime.now().replace(microsecond=0).time(), key="ini_time")
+    
+            # 備註
+            ini_note = st.text_input("備註", key="ini_note")
+    
+            # Form 提交按鈕
+            submit = st.form_submit_button("💾 儲存初始庫存")
+    
+        if submit:
             # 防呆：檢查色粉編號
             if not ini_powder.strip():
                 st.warning("⚠️ 請輸入色粉編號！")
                 st.stop()
-        
+    
             powder_id = ini_powder.strip()
-        
+    
             # 防呆：數量轉 float
             try:
                 qty_val = float(ini_qty)
             except:
                 qty_val = 0.0
-        
-            # 處理時間：確保 ini_datetime 是 datetime
-            if isinstance(ini_datetime, str):
-                try:
-                    ini_datetime_parsed = pd.to_datetime(ini_datetime)
-                except:
-                    ini_datetime_parsed = datetime.now()
-            else:
-                ini_datetime_parsed = ini_datetime
-        
+    
+            # 組合成 datetime
+            ini_datetime = pd.to_datetime(datetime.combine(ini_date, ini_time))
+    
             # --- 刪掉舊的初始庫存（同色粉） ---
             df_stock = df_stock[~(
                 (df_stock["類型"].astype(str).str.strip() == "初始") &
                 (df_stock["色粉編號"].astype(str).str.strip() == powder_id)
             )]
-        
+    
             # --- 新增最新初始庫存 ---
             new_row = {
                 "類型": "初始",
                 "色粉編號": powder_id,
-                "日期": ini_datetime_parsed,
+                "日期": ini_datetime,
                 "數量": qty_val,
                 "單位": ini_unit,
                 "備註": ini_note
             }
             df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
-        
+    
             # --- 寫回 Google Sheet ---
             df_to_upload = df_stock.copy()
             df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce") \
-                                        .dt.strftime("%Y/%m/%d %H:%M").fillna("")
-        
+                                          .dt.strftime("%Y/%m/%d %H:%M").fillna("")
+    
             # gspread 安全清洗
             df_to_upload = df_to_upload.astype(object)
             df_to_upload = df_to_upload.where(pd.notnull(df_to_upload), "")
             df_to_upload = df_to_upload.applymap(lambda x: x.item() if hasattr(x, "item") else x)
-        
+    
             if ws_stock:
                 ws_stock.clear()
                 ws_stock.update([df_to_upload.columns.tolist()] + df_to_upload.values.tolist())
-        
+    
             # 同步 session_state
             st.session_state.df_stock = df_stock
-        
-            # ✅ 成功通知（安全版）
-            st.success(
-                f"✅ 初始庫存已儲存\n"
-                f"色粉：{powder_id}\n"
-                f"時間點：{ini_datetime_parsed.strftime('%Y/%m/%d %H:%M')}"
-            )
+    
+            # 成功通知
+            st.success(f"✅ 初始庫存已儲存\n色粉：{powder_id}\n數量：{qty_val} {ini_unit}")
+    
     
     # ========== Tab 2：庫存查詢 ==========
     with tab2:
