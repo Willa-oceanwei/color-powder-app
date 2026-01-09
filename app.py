@@ -42,6 +42,7 @@ if not st.session_state.authenticated:
     # 尚未輸入密碼時停止執行
     st.stop()
 # ======== 🎨 自訂樣式模組（完全修正版）========
+# ======== 🎨 終極版自訂樣式（完全修正版）========
 def apply_modern_style():
     st.markdown("""
     <style>
@@ -57,7 +58,6 @@ def apply_modern_style():
         background: #252538 !important;
     }
     
-    /* ===== 主內容區塊 ===== */
     .main .block-container {
         background: #252538 !important;
         padding: 2rem;
@@ -95,7 +95,7 @@ def apply_modern_style():
         transform: translateY(-1px);
     }
     
-    /* ===== 🔥 輸入框統一（較淺色 #2d2d44）===== */
+    /* ===== 輸入框統一 ===== */
     div.stTextInput > div > div > input,
     div.stNumberInput > div > div > input,
     div.stTextArea > div > div > textarea {
@@ -114,41 +114,58 @@ def apply_modern_style():
         outline: none !important;
     }
     
-    /* ===== 🔥 下拉選單完全修正 ===== */
-    /* 下拉選單主體 */
+    /* ===== 🔥🔥🔥 終極下拉選單修正 ===== */
+    
+    /* 1. 下拉選單外框 */
     div.stSelectbox > div > div {
         background: #2d2d44 !important;
         border: 1px solid rgba(249, 220, 92, 0.2) !important;
         border-radius: 6px !important;
-        color: #E8E8E8 !important;
-        min-height: 48px !important;
-        padding: 0.6rem 0.75rem !important;
+        min-height: 50px !important;
+        padding: 0 !important;
     }
     
-    /* 下拉選單內的文字 */
-    div.stSelectbox [data-baseweb="select"] > div {
+    /* 2. 下拉選單容器 */
+    div.stSelectbox div[data-baseweb="select"] {
         background: #2d2d44 !important;
-        min-height: 48px !important;
-        line-height: 1.6 !important;
+        min-height: 50px !important;
+        border: none !important;
     }
     
-    /* 選中的值 */
-    div.stSelectbox [data-baseweb="select"] > div > div {
+    /* 3. 下拉選單內層 div */
+    div.stSelectbox div[data-baseweb="select"] > div {
+        background: #2d2d44 !important;
+        min-height: 50px !important;
+        padding: 0.75rem !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    /* 4. 選中的文字 */
+    div.stSelectbox div[data-baseweb="select"] > div > div {
         color: #E8E8E8 !important;
-        line-height: 1.6 !important;
-        padding-top: 0.3rem !important;
-        padding-bottom: 0.3rem !important;
+        line-height: 1.8 !important;
+        padding: 0.3rem 0 !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
     }
     
-    /* 🔥 下拉選單彈出層 */
+    /* 5. 下拉選單箭頭 */
+    div.stSelectbox svg {
+        color: #E8E8E8 !important;
+    }
+    
+    /* 6. 彈出層容器 */
     div[data-baseweb="popover"] {
         background: #2d2d44 !important;
         border: 1px solid rgba(249, 220, 92, 0.3) !important;
         border-radius: 8px !important;
         margin-top: 4px !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
     }
     
-    /* 🔥 下拉選單選項容器 */
+    /* 7. 選項列表容器 */
     ul[role="listbox"] {
         background: #2d2d44 !important;
         padding: 0.5rem 0 !important;
@@ -156,43 +173,55 @@ def apply_modern_style():
         overflow-y: auto !important;
     }
     
-    /* 🔥 下拉選單每個選項 */
+    /* 8. 每個選項 */
     ul[role="listbox"] li {
         background: #2d2d44 !important;
         color: #E8E8E8 !important;
-        padding: 0.8rem 1rem !important;
-        min-height: 48px !important;
-        line-height: 1.6 !important;
+        padding: 1rem 1.2rem !important;
+        min-height: 52px !important;
+        line-height: 1.8 !important;
         white-space: normal !important;
         word-wrap: break-word !important;
         overflow: visible !important;
         display: flex !important;
         align-items: center !important;
+        transition: all 0.2s ease !important;
     }
     
+    /* 9. 選項 hover 效果 */
     ul[role="listbox"] li:hover {
         background: #3a3a52 !important;
         color: #F9DC5C !important;
     }
     
+    /* 10. 選中的選項 */
     ul[role="listbox"] li[aria-selected="true"] {
         background: rgba(249, 220, 92, 0.15) !important;
         color: #F9DC5C !important;
         font-weight: 600 !important;
     }
     
-    /* 🔥 下拉選單內的文字元素 */
+    /* 11. 選項內的所有文字元素 */
     div[data-baseweb="select"] span,
+    div[data-baseweb="select"] div,
     ul[role="listbox"] li span,
-    ul[role="listbox"] li div {
+    ul[role="listbox"] li div,
+    ul[role="listbox"] li > * {
         color: inherit !important;
         white-space: normal !important;
         overflow: visible !important;
         text-overflow: clip !important;
-        line-height: 1.6 !important;
+        line-height: 1.8 !important;
+        max-width: 100% !important;
+        overflow-wrap: break-word !important;
     }
     
-    /* ===== Date Input 日期選擇器 ===== */
+    /* 12. placeholder 文字 */
+    div.stSelectbox [data-baseweb="select"] [class*="placeholder"] {
+        color: #A8A8B8 !important;
+    }
+    
+    /* ===== Date Input ===== */
     div.stDateInput > div > div > input {
         background: #2d2d44 !important;
         border: 1px solid rgba(249, 220, 92, 0.2) !important;
@@ -200,17 +229,7 @@ def apply_modern_style():
         padding: 0.6rem 0.75rem !important;
     }
     
-    /* ===== Time Input 時間選擇器 ===== */
-    div[data-baseweb="input"] input {
-        background: #2d2d44 !important;
-        color: #E8E8E8 !important;
-    }
-    
-    /* ===== Checkbox 勾選框 ===== */
-    div.stCheckbox {
-        background: transparent !important;
-    }
-    
+    /* ===== Checkbox ===== */
     div.stCheckbox label {
         color: #E8E8E8 !important;
     }
@@ -224,10 +243,6 @@ def apply_modern_style():
         background: #252538 !important;
         border-radius: 8px;
         border: 1px solid rgba(249, 220, 92, 0.15);
-    }
-    
-    div.stDataFrame table {
-        background: #252538 !important;
     }
     
     div.stDataFrame thead tr th {
@@ -246,14 +261,12 @@ def apply_modern_style():
         background: #2d2d44 !important;
     }
     
-    /* ===== 🔥 Tab 樣式修正（移除色塊）===== */
-    /* Tab 容器背景 */
+    /* ===== 🔥 Tab 樣式（移除色塊）===== */
     div[data-baseweb="tab-list"] {
         background: transparent !important;
         border-bottom: 1px solid rgba(249, 220, 92, 0.2) !important;
     }
     
-    /* Tab 按鈕 */
     button[data-baseweb="tab"] {
         background: transparent !important;
         color: #A8A8B8 !important;
@@ -261,7 +274,6 @@ def apply_modern_style():
         border-bottom: 3px solid transparent !important;
         font-weight: 500;
         padding: 0.75rem 1.5rem !important;
-        margin: 0 !important;
     }
     
     button[data-baseweb="tab"]:hover {
@@ -277,13 +289,12 @@ def apply_modern_style():
         font-weight: 600 !important;
     }
     
-    /* Tab 內容區域 */
     div[data-baseweb="tab-panel"] {
         background: #252538 !important;
         padding: 1.5rem !important;
     }
     
-    /* ===== Form 表單樣式 ===== */
+    /* ===== Form ===== */
     form {
         background: rgba(26, 26, 46, 0.5) !important;
         padding: 1.5rem;
@@ -291,17 +302,15 @@ def apply_modern_style():
         border: 1px solid rgba(249, 220, 92, 0.15);
     }
     
-    /* ===== 標題樣式 ===== */
+    /* ===== 標題 ===== */
     h1, h2, h3, h4, h5, h6 {
         color: #F9DC5C !important;
-        font-weight: 600;
     }
     
-    /* ===== 提示框樣式 ===== */
+    /* ===== 提示框 ===== */
     div.stAlert {
         background: rgba(249, 220, 92, 0.1) !important;
         border-left: 4px solid #F9DC5C !important;
-        border-radius: 6px;
         color: #E8E8E8 !important;
     }
     
@@ -320,12 +329,7 @@ def apply_modern_style():
         border-left-color: #F44336 !important;
     }
     
-    div.stInfo {
-        background: rgba(33, 150, 243, 0.1) !important;
-        border-left-color: #2196F3 !important;
-    }
-    
-    /* ===== 捲軸樣式 ===== */
+    /* ===== 捲軸 ===== */
     ::-webkit-scrollbar {
         width: 10px;
         height: 10px;
@@ -345,7 +349,7 @@ def apply_modern_style():
         background: rgba(249, 220, 92, 0.5);
     }
     
-    /* ===== Expander 摺疊面板 ===== */
+    /* ===== Expander ===== */
     div.streamlit-expanderHeader {
         background: #2d2d44 !important;
         border: 1px solid rgba(249, 220, 92, 0.2) !important;
@@ -358,18 +362,7 @@ def apply_modern_style():
         border-color: #F9DC5C !important;
     }
     
-    div.streamlit-expanderContent {
-        background: #252538 !important;
-        border: 1px solid rgba(249, 220, 92, 0.15);
-        border-top: none;
-    }
-    
-    /* ===== 文字顏色統一 ===== */
-    p, label, span, div {
-        color: #E8E8E8 !important;
-    }
-    
-    /* ===== Code Block 程式碼區塊 ===== */
+    /* ===== Code Block ===== */
     code {
         background: #1a1a2e !important;
         color: #F9DC5C !important;
@@ -383,45 +376,10 @@ def apply_modern_style():
         border-radius: 6px;
         padding: 1rem;
     }
-    
-    /* ===== 分隔線 ===== */
-    hr {
-        border-color: rgba(249, 220, 92, 0.2) !important;
-    }
-    
-    /* ===== Toast 通知 ===== */
-    div[data-testid="stToast"] {
-        background: #2d2d44 !important;
-        border: 1px solid rgba(249, 220, 92, 0.3) !important;
-        color: #E8E8E8 !important;
-    }
-    
-    /* ===== File Uploader 上傳元件 ===== */
-    div[data-testid="stFileUploader"] {
-        background: #2d2d44 !important;
-        border: 1px dashed rgba(249, 220, 92, 0.3) !important;
-        border-radius: 8px;
-    }
-    
-    div[data-testid="stFileUploader"]:hover {
-        border-color: #F9DC5C !important;
-    }
-    
-    /* ===== 下載按鈕 ===== */
-    div.stDownloadButton > button {
-        background: #1a1a2e !important;
-        color: #F9DC5C !important;
-        border: 1px solid rgba(249, 220, 92, 0.3) !important;
-    }
-    
-    div.stDownloadButton > button:hover {
-        background: #F9DC5C !important;
-        color: #1a1a2e !important;
-    }
     </style>
     """, unsafe_allow_html=True)
 
-# ===== 套用樣式 =====
+# ===== 在登入驗證後、Menu 顯示前呼叫 =====
 apply_modern_style()
 
 #=======================================================
