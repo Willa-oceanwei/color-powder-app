@@ -4659,8 +4659,7 @@ elif menu == "查詢區":
     with tab1:
     
         with st.form("form_cross_query"):
-            st.markdown("### 🔍 依色粉編號查配方")
-    
+              
             # 輸入最多五個色粉編號
             cols = st.columns(5)
             inputs = []
