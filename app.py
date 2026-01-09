@@ -1760,7 +1760,6 @@ elif menu == "配方管理":
 							st.session_state.show_edit_recipe_panel = False
 							st.rerun()
 
-	# ========== Tab 4：色粉管理 ==========
     # ========== Tab 4：色粉管理（前端狀態 → 批次寫回）==========
     with tab4:
     
