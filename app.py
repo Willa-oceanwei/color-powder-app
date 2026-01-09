@@ -1975,7 +1975,7 @@ elif menu == "配方管理":
                                     index=["袋", "箱", "kg"].index(st.session_state.form_color["包裝"]))
                 note = st.text_input("備註", st.session_state.form_color["備註"])
         
-            submit = st.form_submit_button("💾 新增 / 修改 (直接存 Google Sheet)")
+            submit = st.form_submit_button("💾 新增 / 修改")
         
         if submit:
             new_row = {
