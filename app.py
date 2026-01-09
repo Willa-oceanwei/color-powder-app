@@ -1807,17 +1807,13 @@ elif menu == "配方管理":
                 name = st.text_input("名稱", st.session_state.form_color["名稱"])
             with col2:
                 ctype = st.selectbox("色粉類別", ["色粉", "色母", "添加劑"],
-                                     index=["色粉", "色母", "添加劑"].index(
-                                         st.session_state.form_color["色粉類別"]
-                                     ))
+                                     index=["色粉", "色母", "添加劑"].index(st.session_state.form_color["色粉類別"]))
                 pack = st.selectbox("包裝", ["袋", "箱", "kg"],
-                                    index=["袋", "箱", "kg"].index(
-                                        st.session_state.form_color["包裝"]
-                                    ))
+                                    index=["袋", "箱", "kg"].index(st.session_state.form_color["包裝"]))
                 note = st.text_input("備註", st.session_state.form_color["備註"])
-    
-            submit = st.form_submit_button("💾 暫存（不寫回）")
-    
+        
+            submit = st.form_submit_button("💾 新增 / 修改 (直接存 Google Sheet)")
+        
         if submit:
             new_row = {
                 "色粉編號": cid.strip(),
@@ -1827,7 +1823,7 @@ elif menu == "配方管理":
                 "包裝": pack,
                 "備註": note.strip()
             }
-    
+        
             if new_row["色粉編號"] == "":
                 st.warning("⚠️ 請輸入色粉編號")
             else:
@@ -1835,18 +1831,21 @@ elif menu == "配方管理":
                     idx = st.session_state.edit_color_index
                     for k in new_row:
                         df_color.at[idx, k] = new_row[k]
-                    st.success("✏️ 已更新（尚未寫回）")
+                    st.success("✏️ 已更新並寫回 Google Sheet")
                     st.session_state.edit_color_index = None
                 else:
                     if new_row["色粉編號"] in df_color["色粉編號"].values:
                         st.warning("⚠️ 此色粉編號已存在")
                     else:
-                        st.session_state.df_color = pd.concat(
-                            [df_color, pd.DataFrame([new_row])],
-                            ignore_index=True
-                        )
-                        st.success("➕ 已新增（尚未寫回）")
-    
+                        df_color = pd.concat([df_color, pd.DataFrame([new_row])], ignore_index=True)
+                        st.success("➕ 已新增並寫回 Google Sheet")
+        
+                # 直接寫回 Google Sheet
+                worksheet = spreadsheet.worksheet("色粉管理")
+                save_df_to_sheet(worksheet, df_color)
+                st.session_state.df_color = df_color  # 更新 session_state
+        
+                # 清空表單
                 st.session_state.form_color = {
                     "色粉編號": "",
                     "國際色號": "",
@@ -1855,8 +1854,10 @@ elif menu == "配方管理":
                     "包裝": "袋",
                     "備註": ""
                 }
-                st.session_state.color_dirty = True
-    
+        
+                # 重跑，讓新增/修改的資料立即更新搜尋列表
+                st.experimental_rerun()
+        
         # ---------- 3️⃣ 搜尋 / 修改 / 刪除（只動前端） ----------
         st.markdown("---")
         st.markdown('<h3 style="font-size:18px; color:#dbd818;">🛠️ 色粉修改 / 刪除</h3>', unsafe_allow_html=True)
