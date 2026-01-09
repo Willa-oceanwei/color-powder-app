@@ -1860,9 +1860,11 @@ elif menu == "配方管理":
         # ---------- 3️⃣ 搜尋 / 修改 / 刪除（只動前端） ----------
         st.markdown("---")
         st.markdown('<h3 style="font-size:18px; color:#dbd818;">🛠️ 色粉修改 / 刪除</h3>', unsafe_allow_html=True)
-    
-        keyword = st.text_input("輸入色粉編號 / 名稱 / 國際色號搜尋")
-    
+        
+        keyword = st.text_input("輸入色粉編號 / 名稱 / 國際色號搜尋", value=st.session_state.get("search_color_tab4",""))
+        st.session_state.search_color_tab4 = keyword.strip()
+        
+        # 過濾資料
         if keyword:
             df_show = df_color[
                 df_color["色粉編號"].str.contains(keyword, case=False, na=False) |
@@ -1871,25 +1873,29 @@ elif menu == "配方管理":
             ]
         else:
             df_show = df_color
-    
-        for i, row in df_show.iterrows():
-            c1, c2, c3 = st.columns([4, 1, 1])
-            with c1:
-                st.markdown(f"🔸 {row['色粉編號']}　{row['名稱']}")
-            with c2:
-                if st.button("✏️ 改", key=f"edit_color_{i}"):
-                    st.session_state.form_color = row.to_dict()
-                    st.session_state.edit_color_index = i
-            with c3:
-                if st.button("🗑️ 刪", key=f"del_color_{i}"):
-                    st.session_state.df_color = df_color.drop(index=i).reset_index(drop=True)
-                    st.session_state.color_dirty = True
-                    st.session_state._tab4_need_rerun = True
-                    
+        
+        if df_show.empty:
+            st.info("⚠️ 查無符合的色粉")
+        else:
+            for i, row in df_show.iterrows():
+                c1, c2, c3 = st.columns([4, 1, 1])
+                with c1:
+                    st.markdown(f"🔸 {row['色粉編號']}　{row['名稱']}")
+                with c2:
+                    if st.button("✏️ 改", key=f"edit_color_{i}"):
+                        st.session_state.form_color = row.to_dict()
+                        st.session_state.edit_color_index = i
+                with c3:
+                    if st.button("🗑️ 刪", key=f"del_color_{i}"):
+                        st.session_state.df_color = df_color.drop(index=i).reset_index(drop=True)
+                        st.session_state.color_dirty = True
+                        st.session_state._tab4_need_rerun = True
+        
         # ---- Tab4 安全 rerun（一定要在 with tab4 裡）----
         if st.session_state.get("_tab4_need_rerun", False):
             st.session_state._tab4_need_rerun = False
             st.rerun()
+        
     
         # ---------- 4️⃣ 批次寫回 Google Sheet（唯一 API） ----------
         st.markdown("---")
