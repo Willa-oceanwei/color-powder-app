@@ -42,9 +42,7 @@ if not st.session_state.authenticated:
     # 尚未輸入密碼時停止執行
     st.stop()
 
-# ======== 🎨 終極版自訂樣式（統一高度+字體一致）========
-# ======== 🎨 終極版自訂樣式（統一高度 + 分頁標題 + tab 修正版）========
-# ======== 🎨 終極版自訂樣式（統一高度 + 分頁標題 + tab + 下拉直線修正版）========
+# ======== 🎨 終極版下拉無直線修正版========
 def apply_modern_style():
     st.markdown("""
     <style>
@@ -103,7 +101,7 @@ def apply_modern_style():
         outline: none !important;
     }
 
-    /* ===== 下拉選單高度 + 字體統一 ===== */
+    /* ===== 下拉選單統一高度與字體 ===== */
     div.stSelectbox > div > div,
     div.stSelectbox div[data-baseweb="select"] > div,
     ul[role="listbox"] li {
@@ -113,35 +111,26 @@ def apply_modern_style():
     }
 
     /* ===== 下拉選單顏色 + 移除直線 ===== */
-    div.stSelectbox > div > div {
+    div.stSelectbox > div > div,
+    div.stSelectbox div[data-baseweb="select"] {
         background: #2a2a40 !important;
         border: 1px solid rgba(249, 215, 100, 0.2) !important;
         border-radius: 6px !important;
-        min-height: 40px !important;
-        padding: 0 !important;
         box-shadow: none !important;
+        padding: 0 !important;
     }
-    div.stSelectbox div[data-baseweb="select"] {
-        background: #2a2a40 !important;
-        min-height: 40px !important;
+
+    /* 完全移除所有 li 下的邊框 / hr / line */
+    ul[role="listbox"] li,
+    ul[role="listbox"] li::before,
+    ul[role="listbox"] li::after,
+    ul[role="listbox"] li div {
         border: none !important;
-    }
-    div.stSelectbox div[data-baseweb="select"] > div:focus-within {
-        border: 1px solid #F9D764 !important;
-        box-shadow: 0 0 0 1px rgba(249,215,100,0.3) !important;
-    }
-    ul[role="listbox"] {
-        background: #2a2a40 !important;
-        max-height: 400px !important;
-        overflow-y: auto !important;
-        padding: 0.5rem 0 !important;
-    }
-    ul[role="listbox"] li {
         background: #2a2a40 !important;
         color: #E8E8E8 !important;
-        padding: 0 1rem !important;
-        border-bottom: none !important; /* 移除直線 */
     }
+
+    /* hover / 選中樣式 */
     ul[role="listbox"] li:hover {
         background: #3a3a52 !important;
         color: #F9D764 !important;
