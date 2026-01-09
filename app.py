@@ -2670,7 +2670,7 @@ elif menu == "生產單管理":
             with col1:
                 search_text = st.text_input("配方編號或客戶名稱", value="", key="search_text_tab1")
             with col2:
-                exact = st.checkbox("精確搜尋", key="exact_search_tab1")
+                exact = st.checkbox("精準搜", key="exact_search_tab1")
             with col3:
                 add_btn = st.form_submit_button("➕ 新增")
         
