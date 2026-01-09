@@ -130,6 +130,13 @@ ul[role="listbox"] li:hover {
 .main .block-container {
     overflow: visible !important;
 }
+
+/* ===== Sidebar 選定填滿黃色 ===== */
+section[data-testid="stSidebar"] div[role="listitem"][aria-selected="true"] {
+    background-color: #F9D764 !important;
+    color: #181828 !important;
+    border-radius: 6px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
