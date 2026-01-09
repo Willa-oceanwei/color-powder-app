@@ -4395,112 +4395,95 @@ elif menu == "採購管理":
     
     # ========== Tab 3：供應商管理 ==========
     with tab3:
-        
+    
         # ===== 讀取或建立 Google Sheet =====
         try:
             ws_supplier = spreadsheet.worksheet("供應商管理")
         except:
             ws_supplier = spreadsheet.add_worksheet("供應商管理", rows=100, cols=10)
-        
+    
         columns = ["供應商編號", "供應商簡稱", "備註"]
-        
+    
         # 安全初始化 form_supplier
         if "form_supplier" not in st.session_state or not isinstance(st.session_state.form_supplier, dict):
-            st.session_state.form_supplier = {}
-        
-        # 初始化其他 session_state 變數
-        init_states(["edit_supplier_index", "delete_supplier_index", "show_delete_supplier_confirm", "search_supplier"])
-        
-        # 確保所有欄位都有 key
-        for col in columns:
-            st.session_state.form_supplier.setdefault(col, "")
-        
-        # 載入 Google Sheet 資料
+            st.session_state.form_supplier = {col: "" for col in columns}
+    
+        # 初始化其他 session_state
+        init_states({
+            "edit_supplier_id": None,
+            "delete_supplier_index": None,
+            "show_delete_supplier_confirm": False
+        })
+    
+        # 讀取 Google Sheet 資料
         try:
             df = pd.DataFrame(ws_supplier.get_all_records())
         except:
             df = pd.DataFrame(columns=columns)
         
-        df = df.astype(str)
         for col in columns:
             if col not in df.columns:
                 df[col] = ""
-        
-        # ===== 新增供應商 =====
-        st.markdown(
-            '<h3 style="font-size:16px; font-family:Arial; color:#dbd818;">➕ 新增供應商</h3>',
-            unsafe_allow_html=True
-        )
-        
+    
+        # ===== 計算下一個編號 =====
         import re
-        
-        # ===== 🔍 計算目前最大供應商編號（S001 → S002）=====
         def get_next_supplier_code(df, prefix="S", width=3):
             if df.empty or "供應商編號" not in df.columns:
                 return f"{prefix}{'1'.zfill(width)}", None
-        
-            nums = []
-            for code in df["供應商編號"].dropna():
-                m = re.match(rf"{prefix}(\d+)", str(code))
-                if m:
-                    nums.append(int(m.group(1)))
-        
+            nums = [int(m.group(1)) for m in df["供應商編號"].dropna() 
+                    if (m := re.match(rf"{prefix}(\d+)", str(_)))]
             if not nums:
                 return f"{prefix}{'1'.zfill(width)}", None
-        
             max_num = max(nums)
-            current_code = f"{prefix}{str(max_num).zfill(width)}"
-            next_code = f"{prefix}{str(max_num + 1).zfill(width)}"
-            return next_code, current_code
-        
-        
-        next_supplier_code, current_supplier_code = get_next_supplier_code(df)
-        
-        # ===== 📌 編號提示（僅在「新增模式」顯示）=====
+            return f"{prefix}{str(max_num + 1).zfill(width)}", f"{prefix}{str(max_num).zfill(width)}"
+    
+        next_code, current_code = get_next_supplier_code(df)
+    
         if not st.session_state.get("edit_supplier_id"):
-            if current_supplier_code:
-                st.info(f"📌 目前已新增到：{current_supplier_code}　➡ 建議下一號：{next_supplier_code}")
+            if current_code:
+                st.info(f"📌 目前已新增到：{current_code}　➡ 建議下一號：{next_code}")
             else:
-                st.info(f"📌 尚無供應商資料，建議從：{next_supplier_code} 開始")
-        
-        # ===== 表單欄位 =====
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.session_state.form_supplier["供應商編號"] = st.text_input(
-                "供應商編號",
-                st.session_state.form_supplier["供應商編號"]
-            )
-        
-            # 👉 一鍵帶入建議編號（只在新增模式顯示）
-            if not st.session_state.get("edit_supplier_id"):
-                if st.button("⬇️ 使用建議編號"):
-                    st.session_state.form_supplier["供應商編號"] = next_supplier_code
-                    st.rerun()
-        
-            st.session_state.form_supplier["供應商簡稱"] = st.text_input(
-                "供應商簡稱",
-                st.session_state.form_supplier["供應商簡稱"]
-            )
-        
-        with col2:
-            st.session_state.form_supplier["備註"] = st.text_input(
-                "備註",
-                st.session_state.form_supplier["備註"],
-                key="form_supplier_note"
-            )
-        
-        # ===== 儲存 =====
-        if st.button("💾 儲存", key="save_supplier"):
+                st.info(f"📌 尚無供應商資料，建議從：{next_code} 開始")
+    
+        # ===== 表單模式 =====
+        with st.form("form_supplier_tab3"):
+    
+            col1, col2 = st.columns(2)
+            with col1:
+                st.session_state.form_supplier["供應商編號"] = st.text_input(
+                    "供應商編號",
+                    st.session_state.form_supplier.get("供應商編號", "")
+                )
+    
+                # 建議編號按鈕
+                if not st.session_state.get("edit_supplier_id"):
+                    if st.form_submit_button("⬇️ 使用建議編號", use_container_width=True):
+                        st.session_state.form_supplier["供應商編號"] = next_code
+                        st.rerun()
+    
+                st.session_state.form_supplier["供應商簡稱"] = st.text_input(
+                    "供應商簡稱",
+                    st.session_state.form_supplier.get("供應商簡稱", "")
+                )
+    
+            with col2:
+                st.session_state.form_supplier["備註"] = st.text_input(
+                    "備註",
+                    st.session_state.form_supplier.get("備註", ""),
+                    key="form_supplier_note_tab3"
+                )
+    
+            submit = st.form_submit_button("💾 儲存")
+    
+        if submit:
             new_data = st.session_state.form_supplier.copy()
-        
-            if new_data["供應商編號"].strip() == "":
+            if not new_data["供應商編號"].strip():
                 st.warning("⚠️ 請輸入供應商編號！")
                 st.stop()
-        
+    
             edit_id = st.session_state.get("edit_supplier_id")
-        
-            if edit_id:
+    
+            if edit_id:  # 修改模式
                 mask = df["供應商編號"] == edit_id
                 if mask.any():
                     df.loc[mask, df.columns] = pd.Series(new_data)
@@ -4508,34 +4491,31 @@ elif menu == "採購管理":
                 else:
                     st.error("⚠️ 原供應商不存在，請重新選擇")
                     st.stop()
-            else:
+            else:  # 新增模式
                 if new_data["供應商編號"] in df["供應商編號"].values:
                     st.warning("⚠️ 此供應商編號已存在！")
                     st.stop()
-        
                 df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
                 st.success("✅ 新增成功！")
-        
+    
             save_df_to_sheet(ws_supplier, df)
-        
             st.session_state.form_supplier = {col: "" for col in columns}
             st.session_state.edit_supplier_id = None
             st.rerun()
     
         # ===== 刪除確認 =====
-        if st.session_state.show_delete_supplier_confirm:
-            target_row = df.iloc[st.session_state.delete_supplier_index]
-            target_text = f'{target_row["供應商編號"]} {target_row["供應商簡稱"]}'
-            st.warning(f"⚠️ 確定要刪除 {target_text}？")
+        if st.session_state.show_delete_supplier_confirm and st.session_state.delete_supplier_index in df.index:
+            row = df.loc[st.session_state.delete_supplier_index]
+            st.warning(f"⚠️ 確定要刪除 {row['供應商編號']} {row['供應商簡稱']}？")
             c1, c2 = st.columns(2)
-            if c1.button("刪除", key="confirm_delete_supplier"):
+            if c1.button("刪除", key="confirm_delete_supplier_tab3"):
                 df.drop(index=st.session_state.delete_supplier_index, inplace=True)
                 df.reset_index(drop=True, inplace=True)
                 save_df_to_sheet(ws_supplier, df)
                 st.success("✅ 刪除成功！")
                 st.session_state.show_delete_supplier_confirm = False
                 st.rerun()
-            if c2.button("取消", key="cancel_delete_supplier"):
+            if c2.button("取消", key="cancel_delete_supplier_tab3"):
                 st.session_state.show_delete_supplier_confirm = False
                 st.rerun()
         
