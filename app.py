@@ -160,9 +160,9 @@ def apply_modern_style():
     }
 
     /* ===== 分頁標題大小 ===== */
-    h1 { font-size: 28px !important; }
-    h2 { font-size: 24px !important; }
-    h3 { font-size: 20px !important; }
+    h1 { font-size: 20px !important; }
+    h2 { font-size: 16px !important; }
+    h3 { font-size: 14px !important; }
     h4, h5, h6 { font-size: 16px !important; }
     h1,h2,h3,h4,h5,h6 { color: #F9D764 !important; }
 
