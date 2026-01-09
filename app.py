@@ -43,6 +43,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ======== 🎨 終極版自訂樣式（統一高度+字體一致）========
+# ======== 🎨 終極版自訂樣式（統一高度 + 分頁標題 + tab 修正版）========
 def apply_modern_style():
     st.markdown("""
     <style>
@@ -51,154 +52,126 @@ def apply_modern_style():
     
     * {
         font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
-        font-size: 16px !important;
-        line-height: 1.6 !important;
     }
-
+    
     /* ===== 主背景統一 ===== */
     .stApp {
-        background: #1f1f2f !important;  /* 深色再深一點 */
+        background: #1e1e2e !important;  /* 比之前深一點 */
     }
     
     .main .block-container {
-        background: #1f1f2f !important;
+        background: #1e1e2e !important;
         padding: 2rem;
     }
-
+    
     /* ===== Sidebar 樣式 ===== */
     section[data-testid="stSidebar"] {
-        background: #17172a !important;  /* 深色且柔化黃強調 */
-        border-right: 1px solid rgba(249, 220, 92, 0.12);
+        background: #181828 !important; /* 偏深色但不刺眼 */
+        border-right: 1px solid rgba(249, 215, 100, 0.15);
     }
     
     section[data-testid="stSidebar"] h1 {
-        color: #F9D76A;  /* 黃色稍柔化 */
+        color: #F9D764;  /* 柔黃強調色 */
         font-weight: 700;
-        font-size: 22px;
+        font-size: 20px;
         padding: 0 1rem;
         margin-bottom: 1.5rem;
     }
-
+    
     /* ===== 按鈕樣式 ===== */
     div.stButton > button {
-        background: #17172a !important;
+        background: #181828 !important;
         color: #E8E8E8 !important;
-        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        border: 1px solid rgba(249, 215, 100, 0.2) !important;
         border-radius: 8px;
         padding: 0.6rem 1rem;
-        height: 40px !important;
         font-weight: 500;
-        font-size: 16px !important;
+        font-size: 15px;
         transition: all 0.3s ease;
     }
     
     div.stButton > button:hover {
-        background: #F9D76A !important;
-        color: #17172a !important;
-        border-color: #F9D76A !important;
+        background: #F9D764 !important;
+        color: #181828 !important;
+        border-color: #F9D764 !important;
         transform: translateY(-1px);
     }
-
-    /* ===== 輸入框、文字區域、日期輸入統一高度 ===== */
-    div.stTextInput > div > div > input,
-    div.stNumberInput > div > div > input,
-    div.stTextArea > div > div > textarea,
-    div.stDateInput > div > div > input {
-        background: #2a2a44 !important;
-        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+    
+    /* ===== 輸入框統一 ===== */
+    input, textarea, .stNumberInput > div > div > input {
+        background: #2a2a40 !important;  /* 比主背景淺一點 */
+        border: 1px solid rgba(249, 215, 100, 0.2) !important;
         border-radius: 6px;
         color: #E8E8E8 !important;
         padding: 0.6rem 0.75rem !important;
-        height: 40px !important;
-        font-size: 16px !important;
-        line-height: 1.6 !important;
+        height: 40px !important;   /* 統一高度 */
+        font-size: 15px !important; /* 統一字體大小 */
     }
-
-    div.stTextInput > div > div > input:focus,
-    div.stNumberInput > div > div > input:focus,
-    div.stTextArea > div > div > textarea:focus,
-    div.stDateInput > div > div > input:focus {
-        border-color: #F9D76A !important;
-        box-shadow: 0 0 0 1px rgba(249, 220, 92, 0.3) !important;
+    
+    input:focus, textarea:focus {
+        border-color: #F9D764 !important;
+        box-shadow: 0 0 0 1px rgba(249, 215, 100, 0.3) !important;
         outline: none !important;
-    }
-
-    div.stTextArea > div > div > textarea {
-        min-height: 80px !important;  /* TextArea 比普通欄位高 */
     }
 
     /* ===== 下拉選單統一高度 ===== */
     div.stSelectbox > div > div,
-    div.stSelectbox div[data-baseweb="select"] > div {
-        background: #2a2a44 !important;
-        border: 1px solid rgba(249, 220, 92, 0.2) !important;
-        border-radius: 6px !important;
+    div.stSelectbox div[data-baseweb="select"] > div,
+    ul[role="listbox"] li {
         min-height: 40px !important;
-        padding: 0.6rem !important;
-        font-size: 16px !important;
+        font-size: 15px !important;
         line-height: 1.6 !important;
+    }
+
+    /* ===== 下拉選單顏色 ===== */
+    div.stSelectbox > div > div,
+    div.stSelectbox div[data-baseweb="select"] {
+        background: #2a2a40 !important;
+        border: 1px solid rgba(249, 215, 100, 0.2) !important;
+        border-radius: 6px !important;
     }
 
     div.stSelectbox div[data-baseweb="select"] > div > div {
         color: #E8E8E8 !important;
     }
 
-    div.stSelectbox svg {
-        color: #E8E8E8 !important;
-    }
-
-    div[data-baseweb="popover"] {
-        background: #2a2a44 !important;
-        border: 1px solid rgba(249, 220, 92, 0.3) !important;
-        border-radius: 8px !important;
-        margin-top: 4px !important;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+    ul[role="listbox"] {
+        background: #2a2a40 !important;
+        max-height: 400px !important;
+        overflow-y: auto !important;
+        padding: 0.5rem 0 !important;
     }
 
     ul[role="listbox"] li {
-        min-height: 40px !important;
-        padding: 0.6rem 1rem !important;
-        font-size: 16px !important;
-        line-height: 1.6 !important;
-    }
-
-    /* ===== Checkbox ===== */
-    div.stCheckbox label {
+        background: #2a2a40 !important;
         color: #E8E8E8 !important;
-        font-size: 16px !important;
-    }
-    
-    div.stCheckbox input[type="checkbox"] {
-        accent-color: #F9D76A !important;
+        padding: 0 1rem !important;
     }
 
-    /* ===== 表格樣式 ===== */
-    div.stDataFrame {
-        background: #1f1f2f !important;
-        border-radius: 8px;
-        border: 1px solid rgba(249, 220, 92, 0.15);
-    }
-    
-    div.stDataFrame thead tr th {
-        background: #17172a !important;
-        color: #F9D76A !important;
-        font-weight: 600;
-        border-bottom: 2px solid rgba(249, 220, 92, 0.3) !important;
-    }
-    
-    div.stDataFrame tbody tr {
-        background: #1f1f2f !important;
-        color: #E8E8E8 !important;
-    }
-    
-    div.stDataFrame tbody tr:hover {
-        background: #2a2a44 !important;
+    ul[role="listbox"] li:hover {
+        background: #3a3a52 !important;
+        color: #F9D764 !important;
     }
 
-    /* ===== Tab 樣式 ===== */
+    ul[role="listbox"] li[aria-selected="true"] {
+        background: rgba(249, 215, 100, 0.15) !important;
+        color: #F9D764 !important;
+        font-weight: 600 !important;
+    }
+
+    /* ===== 分頁標題大小 ===== */
+    h1 { font-size: 28px !important; }
+    h2 { font-size: 24px !important; }
+    h3 { font-size: 20px !important; }
+    h4, h5, h6 { font-size: 16px !important; }
+    h1,h2,h3,h4,h5,h6 { color: #F9D764 !important; }
+
+    /* ===== Tab 修正 ===== */
     div[data-baseweb="tab-list"] {
-        background: transparent !important;
-        border-bottom: 1px solid rgba(249, 220, 92, 0.2) !important;
+        white-space: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        border-bottom: 1px solid rgba(249, 215, 100, 0.2) !important;
     }
 
     button[data-baseweb="tab"] {
@@ -207,82 +180,36 @@ def apply_modern_style():
         border: none !important;
         border-bottom: 3px solid transparent !important;
         font-weight: 500;
-        padding: 0.75rem 1.5rem !important;
-        font-size: 16px !important;
+        padding: 0.5rem 1rem !important;
+        font-size: 15px !important;
         line-height: 1.6 !important;
     }
 
     button[data-baseweb="tab"]:hover {
-        color: #F9D76A !important;
-        border-bottom-color: rgba(249, 220, 92, 0.3) !important;
+        color: #F9D764 !important;
+        border-bottom-color: rgba(249, 215, 100, 0.3) !important;
     }
 
     button[data-baseweb="tab"][aria-selected="true"] {
-        color: #F9D76A !important;
-        border-bottom-color: #F9D76A !important;
+        color: #F9D764 !important;
+        border-bottom-color: #F9D764 !important;
         font-weight: 600 !important;
     }
 
     div[data-baseweb="tab-panel"] {
-        background: #1f1f2f !important;
+        background: #1e1e2e !important;
         padding: 1.5rem !important;
     }
 
-    /* ===== Form ===== */
-    form {
-        background: rgba(23, 23, 42, 0.5) !important;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border: 1px solid rgba(249, 220, 92, 0.15);
-    }
-
-    /* ===== 標題 ===== */
-    h1, h2, h3, h4, h5, h6 {
-        color: #F9D76A !important;
-    }
-
-    /* ===== 提示框 ===== */
-    div.stAlert {
-        background: rgba(249, 215, 106, 0.1) !important;
-        border-left: 4px solid #F9D76A !important;
-        color: #E8E8E8 !important;
-    }
-
-    div.stSuccess {
-        background: rgba(76, 175, 80, 0.1) !important;
-        border-left-color: #4CAF50 !important;
-    }
-
-    div.stWarning {
-        background: rgba(255, 152, 0, 0.1) !important;
-        border-left-color: #FF9800 !important;
-    }
-
-    div.stError {
-        background: rgba(244, 67, 54, 0.1) !important;
-        border-left-color: #F44336 !important;
-    }
-
-    /* ===== 捲軸 ===== */
-    ::-webkit-scrollbar {
-        width: 10px;
-        height: 10px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: #17172a;
-        border-radius: 5px;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: rgba(249, 220, 92, 0.3);
-        border-radius: 5px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: rgba(249, 220, 92, 0.5);
-    }
-
+    /* ===== 其他保留樣式（表格、提示框、Expander、Code Block） ===== */
+    div.stDataFrame { background: #1e1e2e !important; border-radius: 8px; border: 1px solid rgba(249,215,100,0.15);}
+    div.stDataFrame thead tr th { background: #181828 !important; color:#F9D764 !important; font-weight:600; border-bottom:2px solid rgba(249,215,100,0.3);}
+    div.stDataFrame tbody tr { background: #1e1e2e !important; color: #E8E8E8 !important;}
+    div.stDataFrame tbody tr:hover { background: #2a2a40 !important; }
+    div.stAlert { background: rgba(249,215,100,0.1) !important; border-left:4px solid #F9D764 !important; color:#E8E8E8 !important; }
+    div.stSuccess { border-left-color:#4CAF50 !important;}
+    div.stWarning { border-left-color:#FF9800 !important;}
+    div.stError { border-left-color:#F44336 !important;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -302,7 +229,7 @@ st.markdown(
     }
     /* 滑鼠滑過項目背景色 */
     .st-key-myselect [data-baseweb="option"]:hover {
-        background-color: #bbbbbb !important;  /* 更淺灰 */
+        background-color: #bbbbbb !important;  /* 
         color: black !important;
     }
     </style>
