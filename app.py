@@ -43,136 +43,161 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
+# ======== 🎨 完整修正版樣式 ========
 def apply_modern_style():
     st.markdown("""
     <style>
     /* ===== 全域字體 ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
     * {
         font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
     }
-
-    /* ===== 主背景 ===== */
-    .stApp,
-    .main .block-container {
+    
+    /* ===== 主背景統一 ===== */
+    .stApp {
         background: #252538 !important;
     }
-
+    
     .main .block-container {
+        background: #252538 !important;
         padding: 2rem;
     }
-
-    /* ===== Sidebar ===== */
+    
+    /* ===== Sidebar 樣式 ===== */
     section[data-testid="stSidebar"] {
         background: #1a1a2e !important;
-        border-right: 1px solid rgba(249,220,92,0.15);
+        border-right: 1px solid rgba(249, 220, 92, 0.15);
     }
-
-    /* ===== Sidebar Button ===== */
-    section[data-testid="stSidebar"] div.stButton > button {
-        width: 100%;
-        text-align: left;
-        border-radius: 8px;
-        padding: 0.6rem 1rem;
-        transition: all 0.3s ease;
+    
+    section[data-testid="stSidebar"] h1 {
+        color: #F9DC5C;
+        font-weight: 700;
+        font-size: 22px;
+        padding: 0 1rem;
+        margin-bottom: 1.5rem;
     }
-
+    
+    /* ===== Sidebar 未選中 ===== */
     section[data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
         background: #252538 !important;
         color: #E8E8E8 !important;
-        border: 1px solid rgba(249,220,92,0.15) !important;
+        border: 1px solid rgba(249, 220, 92, 0.15) !important;
+        border-radius: 8px !important;
+        padding: 0.6rem 1rem !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+        text-align: left !important;
+        width: 100% !important;
     }
-
+    
+    /* Hover（未選中） */
     section[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {
         background: #2d2d44 !important;
         color: #F9DC5C !important;
-        border-color: rgba(249,220,92,0.4) !important;
+        border-color: rgba(249, 220, 92, 0.4) !important;
     }
-
+    
+    /* ===== 🔥 Sidebar 選中（填滿黃色）===== */
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-        background: linear-gradient(135deg,#F9DC5C,#E8C547) !important;
+        background: linear-gradient(135deg, #F9DC5C 0%, #E8C547 100%) !important;
         color: #1a1a2e !important;
-        font-weight: 700;
         border: 1px solid #F9DC5C !important;
-        box-shadow: 0 4px 12px rgba(249,220,92,0.35);
+        font-weight: 700 !important;
+        box-shadow: 0 4px 12px rgba(249, 220, 92, 0.35) !important;
     }
-
-    /* =====================================================
-       🔥 所有「輸入類欄位」統一高度（關鍵區）
-       ===================================================== */
-
-    /* ===== Text / Number / Date / TextArea ===== */
-    div.stTextInput input,
-    div.stNumberInput input,
-    div.stDateInput input,
-    div.stTextArea textarea {
-        background: #2d2d44 !important;
+    
+    /* 選中狀態 hover 不變（避免閃爍） */
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #F9DC5C 0%, #E8C547 100%) !important;
+        color: #1a1a2e !important;
+    }
+    
+    /* ===== 主內容區按鈕樣式 ===== */
+    .main div.stButton > button {
+        background: #1a1a2e !important;
         color: #E8E8E8 !important;
-        border: 1px solid rgba(249,220,92,0.2) !important;
-        border-radius: 6px !important;
-
-        /* 🔥 高度統一 */
-        min-height: 50px !important;
-        padding: 0 0.75rem !important;
-        display: flex !important;
-        align-items: center !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        border-radius: 8px;
+        padding: 0.6rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
     }
-
-    /* TextArea 額外處理（不強制壓扁） */
-    div.stTextArea textarea {
-        padding: 0.6rem 0.75rem !important;
-    }
-
-    /* ===== Focus 統一 ===== */
-    input:focus,
-    textarea:focus {
+    
+    .main div.stButton > button:hover {
+        background: #F9DC5C !important;
+        color: #1a1a2e !important;
         border-color: #F9DC5C !important;
-        box-shadow: 0 0 0 2px rgba(249,220,92,0.2) !important;
+        transform: translateY(-1px);
+    }
+    
+    /* ===== 🔥 輸入框統一（Focus 改黃色）===== */
+    div.stTextInput > div > div > input,
+    div.stNumberInput > div > div > input,
+    div.stTextArea > div > div > textarea {
+        background: #2d2d44 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        border-radius: 6px;
+        color: #E8E8E8 !important;
+        padding: 0.6rem 0.75rem !important;
+        transition: all 0.3s ease;
+    }
+    
+    /* 🔥 Focus 統一改黃色 */
+    div.stTextInput > div > div > input:focus,
+    div.stNumberInput > div > div > input:focus,
+    div.stTextArea > div > div > textarea:focus {
+        border-color: #F9DC5C !important;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
         outline: none !important;
     }
-
-    /* =====================================================
-       🔥 Selectbox（與 input 完全等高）
-       ===================================================== */
-
-    /* 外框 */
+    
+    /* 🔥 移除 Streamlit 預設的紅色 focus ring */
+    div.stTextInput > div > div > input:focus-visible,
+    div.stNumberInput > div > div > input:focus-visible,
+    div.stTextArea > div > div > textarea:focus-visible {
+        outline: none !important;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
+    }
+    
+    /* ===== 下拉選單完整樣式 ===== */
     div.stSelectbox > div > div {
         background: #2d2d44 !important;
-        border: 1px solid rgba(249,220,92,0.2) !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
         border-radius: 6px !important;
-
-        /* 🔥 高度統一 */
         min-height: 50px !important;
-        display: flex !important;
-        align-items: center !important;
         padding: 0 !important;
+        transition: all 0.3s ease;
     }
-
-    /* focus */
+    
+    /* 🔥 下拉選單 Focus 也改黃色 */
     div.stSelectbox > div > div:focus-within {
         border-color: #F9DC5C !important;
-        box-shadow: 0 0 0 2px rgba(249,220,92,0.2) !important;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
     }
-
-    /* BaseWeb select 本體 */
+    
     div.stSelectbox div[data-baseweb="select"] {
-        background: transparent !important;
+        background: #2d2d44 !important;
         min-height: 50px !important;
-        width: 100%;
-        display: flex !important;
-        align-items: center !important;
+        border: none !important;
     }
-
-    /* 文字區 */
+    
     div.stSelectbox div[data-baseweb="select"] > div {
+        background: #2d2d44 !important;
         min-height: 50px !important;
-        padding: 0 0.75rem !important;
+        padding: 0.75rem !important;
         display: flex !important;
         align-items: center !important;
-        color: #E8E8E8 !important;
     }
-
-    /* 箭頭 */
+    
+    div.stSelectbox div[data-baseweb="select"] > div > div {
+        color: #E8E8E8 !important;
+        line-height: 1.8 !important;
+        padding: 0.3rem 0 !important;
+        white-space: normal !important;
+        overflow: visible !important;
+    }
+    
     div.stSelectbox svg {
         color: #E8E8E8 !important;
     }
