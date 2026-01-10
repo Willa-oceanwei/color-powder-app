@@ -44,26 +44,20 @@ if not st.session_state.authenticated:
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
 # ======== 🎨 完整修正版樣式 ========
+# ======== 🎨 完整修正版樣式（高度統一）========
 def apply_modern_style():
     st.markdown("""
     <style>
-    /* ===== 🎨 配色變數區（方便快速調整）===== */
+    /* ===== 🎨 配色變數區 ===== */
     :root {
-        /* 主視覺色（背景） */
-        --bg-primary: #252538;      /* 主背景 */
-        --bg-secondary: #1a1a2e;    /* Sidebar 背景 */
-        
-        /* 次視覺色（欄位） */
-        --input-bg: #2d2d44;        /* 輸入框背景 */
-        --input-bg-hover: #3a3a52;  /* 輸入框 hover */
-        
-        /* 強調色 */
-        --accent-color: #F9DC5C;    /* 黃色（主色） */
-        --accent-dark: #E8C547;     /* 深黃色 */
-        
-        /* 文字色 */
-        --text-primary: #E8E8E8;    /* 主文字 */
-        --text-secondary: #A8A8B8;  /* 次要文字 */
+        --bg-primary: #252538;
+        --bg-secondary: #1a1a2e;
+        --input-bg: #2d2d44;
+        --input-bg-hover: #3a3a52;
+        --accent-color: #F9DC5C;
+        --accent-dark: #E8C547;
+        --text-primary: #E8E8E8;
+        --text-secondary: #A8A8B8;
     }
     
     /* ===== 全域字體 ===== */
@@ -83,7 +77,7 @@ def apply_modern_style():
         padding: 2rem;
     }
     
-    /* ===== Sidebar 樣式 ===== */
+    /* ===== Sidebar ===== */
     section[data-testid="stSidebar"] {
         background: var(--bg-secondary) !important;
         border-right: 1px solid rgba(249, 220, 92, 0.15);
@@ -97,8 +91,7 @@ def apply_modern_style():
         margin-bottom: 1.5rem;
     }
     
-    /* ===== 🔥 Sidebar 按鈕樣式 ===== */
-    /* 一般狀態（未選中）*/
+    /* ===== Sidebar 按鈕 ===== */
     section[data-testid="stSidebar"] div.stButton > button {
         background: transparent !important;
         color: var(--text-primary) !important;
@@ -110,6 +103,8 @@ def apply_modern_style():
         text-align: left;
         width: 100%;
         height: 44px !important;
+        display: flex !important;
+        align-items: center !important;
     }
     
     section[data-testid="stSidebar"] div.stButton > button:hover {
@@ -118,9 +113,8 @@ def apply_modern_style():
         color: var(--accent-color) !important;
     }
     
-    /* 🔥 選中狀態（Primary 按鈕）*/
-    section[data-testid="stSidebar"] div.stButton > button[data-testid="baseButton-primary"],
-    section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+    /* 🔥 Primary 按鈕（選中狀態）- 黃色填滿 */
+    section[data-testid="stSidebar"] div.stButton > button[data-testid="baseButton-primary"] {
         background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-dark) 100%) !important;
         color: #1a1a2e !important;
         border-color: var(--accent-color) !important;
@@ -134,7 +128,7 @@ def apply_modern_style():
         box-shadow: 0 4px 12px rgba(249, 220, 92, 0.4) !important;
     }
     
-    /* ===== 主內容區按鈕樣式 ===== */
+    /* ===== 主內容按鈕 ===== */
     .main div.stButton > button {
         background: var(--bg-secondary) !important;
         color: var(--text-primary) !important;
@@ -155,25 +149,31 @@ def apply_modern_style():
     
     /* ===== 🔥 所有輸入框統一高度 44px ===== */
     div.stTextInput > div > div > input,
-    div.stNumberInput > div > div > input,
+    div.stNumberInput > div > div > input {
+        background: var(--input-bg) !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        border-radius: 6px !important;
+        color: var(--text-primary) !important;
+        padding: 0 0.75rem !important;
+        transition: all 0.3s ease;
+        height: 44px !important;
+        line-height: 44px !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* TextArea 例外 */
     div.stTextArea > div > div > textarea {
         background: var(--input-bg) !important;
         border: 1px solid rgba(249, 220, 92, 0.2) !important;
-        border-radius: 6px;
+        border-radius: 6px !important;
         color: var(--text-primary) !important;
         padding: 0.65rem 0.75rem !important;
-        transition: all 0.3s ease;
-        height: 44px !important;
+        height: auto !important;
+        min-height: 100px !important;
         line-height: 1.5 !important;
     }
     
-    /* TextArea 例外（保持多行） */
-    div.stTextArea > div > div > textarea {
-        height: auto !important;
-        min-height: 100px !important;
-    }
-    
-    /* 🔥 Focus 統一黃色（移除紅色）*/
+    /* Focus 統一黃色 */
     div.stTextInput > div > div > input:focus,
     div.stNumberInput > div > div > input:focus,
     div.stTextArea > div > div > textarea:focus {
@@ -182,16 +182,17 @@ def apply_modern_style():
         outline: none !important;
     }
     
-    /* 🔥 強制移除 Streamlit 預設紅框 */
-    div.stTextInput > div > div > input:focus-visible,
-    div.stNumberInput > div > div > input:focus-visible,
-    div.stTextArea > div > div > textarea:focus-visible {
-        outline: none !important;
-        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
-        border-color: var(--accent-color) !important;
+    /* ===== 🔥🔥 下拉選單強制統一高度 44px ===== */
+    
+    /* 外層容器 */
+    div.stSelectbox {
+        height: 44px !important;
     }
     
-    /* ===== 🔥 下拉選單統一高度 44px ===== */
+    div.stSelectbox > div {
+        height: 44px !important;
+    }
+    
     div.stSelectbox > div > div {
         background: var(--input-bg) !important;
         border: 1px solid rgba(249, 220, 92, 0.2) !important;
@@ -201,44 +202,58 @@ def apply_modern_style():
         max-height: 44px !important;
         padding: 0 !important;
         transition: all 0.3s ease;
-        overflow: hidden;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
     }
     
+    /* Select 容器 */
+    div.stSelectbox div[data-baseweb="select"] {
+        background: var(--input-bg) !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        max-height: 44px !important;
+        border: none !important;
+    }
+    
+    /* Select 內層 */
+    div.stSelectbox div[data-baseweb="select"] > div {
+        background: transparent !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        max-height: 44px !important;
+        padding: 0 0.75rem !important;
+        display: flex !important;
+        align-items: center !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 顯示的文字 */
+    div.stSelectbox div[data-baseweb="select"] > div > div {
+        color: var(--text-primary) !important;
+        line-height: 44px !important;
+        height: 44px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    /* 下拉箭頭 */
+    div.stSelectbox svg {
+        color: var(--text-primary) !important;
+        flex-shrink: 0 !important;
+    }
+    
+    /* Focus 狀態 */
     div.stSelectbox > div > div:focus-within {
         border-color: var(--accent-color) !important;
         box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
     }
     
-    div.stSelectbox div[data-baseweb="select"] {
-        background: var(--input-bg) !important;
-        height: 44px !important;
-        min-height: 44px !important;
-        border: none !important;
-    }
-    
-    div.stSelectbox div[data-baseweb="select"] > div {
-        background: var(--input-bg) !important;
-        height: 44px !important;
-        min-height: 44px !important;
-        padding: 0 0.75rem !important;
-        display: flex !important;
-        align-items: center !important;
-    }
-    
-    div.stSelectbox div[data-baseweb="select"] > div > div {
-        color: var(--text-primary) !important;
-        line-height: 1.5 !important;
-        padding: 0 !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-    
-    div.stSelectbox svg {
-        color: var(--text-primary) !important;
-    }
-    
-    /* 下拉選單彈出層 */
+    /* 彈出選項 */
     div[data-baseweb="popover"] {
         background: var(--input-bg) !important;
         border: 1px solid rgba(249, 220, 92, 0.3) !important;
@@ -278,27 +293,34 @@ def apply_modern_style():
         font-weight: 600 !important;
     }
     
-    div[data-baseweb="select"] span,
-    ul[role="listbox"] li span,
-    ul[role="listbox"] li div {
-        color: inherit !important;
-    }
-    
-    /* ===== 🔥 Date Input 統一高度 ===== */
+    /* ===== Date Input ===== */
     div.stDateInput > div > div > input {
         background: var(--input-bg) !important;
         border: 1px solid rgba(249, 220, 92, 0.2) !important;
         color: var(--text-primary) !important;
-        padding: 0.65rem 0.75rem !important;
+        padding: 0 0.75rem !important;
         transition: all 0.3s ease;
         height: 44px !important;
-        border-radius: 6px;
+        line-height: 44px !important;
+        border-radius: 6px !important;
+        box-sizing: border-box !important;
     }
     
     div.stDateInput > div > div > input:focus {
         border-color: var(--accent-color) !important;
         box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
         outline: none !important;
+    }
+    
+    /* ===== Time Input ===== */
+    div.stTimeInput > div > div > input {
+        background: var(--input-bg) !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        color: var(--text-primary) !important;
+        padding: 0 0.75rem !important;
+        height: 44px !important;
+        line-height: 44px !important;
+        border-radius: 6px !important;
     }
     
     /* ===== Checkbox ===== */
@@ -310,12 +332,7 @@ def apply_modern_style():
         accent-color: var(--accent-color) !important;
     }
     
-    div.stCheckbox input[type="checkbox"]:focus {
-        outline: 2px solid rgba(249, 220, 92, 0.5) !important;
-        outline-offset: 2px;
-    }
-    
-    /* ===== 表格樣式 ===== */
+    /* ===== 表格 ===== */
     div.stDataFrame {
         background: var(--bg-primary) !important;
         border-radius: 8px;
@@ -338,7 +355,7 @@ def apply_modern_style():
         background: var(--input-bg) !important;
     }
     
-    /* ===== Tab 樣式 ===== */
+    /* ===== Tab ===== */
     div[data-baseweb="tab-list"] {
         background: transparent !important;
         border-bottom: 1px solid rgba(249, 220, 92, 0.2) !important;
@@ -356,13 +373,11 @@ def apply_modern_style():
     
     button[data-baseweb="tab"]:hover {
         color: var(--accent-color) !important;
-        background: transparent !important;
         border-bottom-color: rgba(249, 220, 92, 0.3) !important;
     }
     
     button[data-baseweb="tab"][aria-selected="true"] {
         color: var(--accent-color) !important;
-        background: transparent !important;
         border-bottom-color: var(--accent-color) !important;
         font-weight: 600 !important;
     }
@@ -441,12 +456,6 @@ def apply_modern_style():
         border-color: var(--accent-color) !important;
     }
     
-    div.streamlit-expanderContent {
-        background: var(--bg-primary) !important;
-        border: 1px solid rgba(249, 220, 92, 0.15);
-        border-top: none;
-    }
-    
     /* ===== Code Block ===== */
     code {
         background: var(--bg-secondary) !important;
@@ -467,7 +476,6 @@ def apply_modern_style():
         background: var(--input-bg) !important;
         border: 1px dashed rgba(249, 220, 92, 0.3) !important;
         border-radius: 8px;
-        transition: all 0.3s ease;
     }
     
     div[data-testid="stFileUploader"]:hover {
@@ -480,7 +488,6 @@ def apply_modern_style():
         background: var(--bg-secondary) !important;
         color: var(--accent-color) !important;
         border: 1px solid rgba(249, 220, 92, 0.3) !important;
-        transition: all 0.3s ease;
         height: 44px !important;
     }
     
@@ -489,32 +496,21 @@ def apply_modern_style():
         color: #1a1a2e !important;
     }
     
-    /* ===== 🔥 全域移除紅色 Focus 樣式 ===== */
+    /* ===== 🔥 全域移除紅框 ===== */
     *:focus,
     *:focus-visible {
         outline: none !important;
     }
     
-    input:focus,
     input:focus-visible,
-    textarea:focus,
-    textarea:focus-visible,
-    select:focus,
-    select:focus-visible {
+    textarea:focus-visible {
         outline: none !important;
-        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
-    }
-    
-    /* 強制覆蓋 Streamlit 內建樣式 */
-    [data-baseweb="input"]:focus-within,
-    [data-baseweb="base-input"]:focus-within {
-        border-color: var(--accent-color) !important;
-        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
 apply_modern_style()
+    
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
@@ -578,14 +574,21 @@ div.stButton > button {
 with st.sidebar:
     st.markdown('<h1 style="font-size:22px;">🌈配方管理系統</h1>', unsafe_allow_html=True)
 
-    # 您的程式碼需要改成這樣（約 150 行）：
     for option in menu_options:
-        if st.session_state.menu == option:
-            st.button(f"✅ {option}", key=f"menu_{option}", 
-                     use_container_width=True, type="primary")  # 👈 加 type="primary"
+        # 🔥 重點：label 保持不變，用 type 控制樣式
+        is_selected = (st.session_state.menu == option)
+        
+        if is_selected:
+            # 選中狀態
+            if st.button(f"✅ {option}", key=f"menu_{option}", 
+                        use_container_width=True, type="primary"):
+                pass  # 已經選中，不需要再設定
         else:
-            st.button(option, key=f"menu_{option}", 
-                     use_container_width=True)
+            # 未選中狀態
+            if st.button(option, key=f"menu_{option}", 
+                        use_container_width=True, type="secondary"):
+                st.session_state.menu = option
+                st.rerun()
             
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
