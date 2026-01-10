@@ -479,24 +479,26 @@ def apply_modern_style():
    🔥 徹底移除 Sidebar 選中按鈕的勾勾（新版 Streamlit）
    ===================================================== */
 
-    /* 1️⃣ 移除所有 sidebar button 內的 icon */
+	/* 移除所有 sidebar button 內的 icon */
 	section[data-testid="stSidebar"] div.stButton svg,
 	section[data-testid="stSidebar"] div.stButton span[data-testid="stIcon"],
 	section[data-testid="stSidebar"] div.stButton i {
 		display: none !important;
 	}
 	
-	/* 2️⃣ 防止 BaseWeb 在 primary 狀態插入 before icon */
-	section[data-testid="stSidebar"] button::before {
+	/* 移除 BaseWeb primary 狀態插入的 pseudo-element */
+	section[data-testid="stSidebar"] button::before,
+	section[data-testid="stSidebar"] button::after {
 		content: none !important;
+		display: none !important;
 	}
 	
-	/* 3️⃣ 有些版本會用 mask-image 畫勾勾 */
+	/* 防止 background image 或 mask 產生勾勾 */
 	section[data-testid="stSidebar"] button {
 		background-image: none !important;
 	}
 	
-	/* 4️⃣ 保證文字不被預留 icon 空間擠歪 */
+	/* 保證文字不被預留 icon 空間擠歪 */
 	section[data-testid="stSidebar"] div.stButton > button > div {
 		padding-left: 0 !important;
 	}
