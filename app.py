@@ -474,10 +474,32 @@ def apply_modern_style():
     button:focus-visible {
         outline: none !important;
     }
-    /* ===== 🔥 移除 Sidebar 選中按鈕的綠色勾勾 ===== */
-    section[data-testid="stSidebar"] div.stButton svg {
-        display: none !important;
-    }
+   
+    /* =====================================================
+   🔥 徹底移除 Sidebar 選中按鈕的勾勾（新版 Streamlit）
+   ===================================================== */
+
+    /* 1️⃣ 移除所有 sidebar button 內的 icon */
+	section[data-testid="stSidebar"] div.stButton svg,
+	section[data-testid="stSidebar"] div.stButton span[data-testid="stIcon"],
+	section[data-testid="stSidebar"] div.stButton i {
+		display: none !important;
+	}
+	
+	/* 2️⃣ 防止 BaseWeb 在 primary 狀態插入 before icon */
+	section[data-testid="stSidebar"] button::before {
+		content: none !important;
+	}
+	
+	/* 3️⃣ 有些版本會用 mask-image 畫勾勾 */
+	section[data-testid="stSidebar"] button {
+		background-image: none !important;
+	}
+	
+	/* 4️⃣ 保證文字不被預留 icon 空間擠歪 */
+	section[data-testid="stSidebar"] div.stButton > button > div {
+		padding-left: 0 !important;
+	}
 
     </style>
     """, unsafe_allow_html=True)
