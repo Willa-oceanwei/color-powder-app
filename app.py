@@ -541,14 +541,16 @@ div.stButton > button {
 with st.sidebar:
     st.markdown('<h1 style="font-size:22px;">🌈配方管理系統</h1>', unsafe_allow_html=True)
 
-    # 您的程式碼需要改成這樣（約 150 行）：
     for option in menu_options:
+        # 🔥 改用 type 參數控制樣式
         if st.session_state.menu == option:
-            st.button(f"✅ {option}", key=f"menu_{option}", 
-                     use_container_width=True, type="primary")  # 👈 加 type="primary"
+            # 選中狀態：使用 primary 類型
+            if st.button(f"✅ {option}", key=f"menu_{option}", use_container_width=True, type="primary"):
+                st.session_state.menu = option
         else:
-            st.button(option, key=f"menu_{option}", 
-                     use_container_width=True)
+            # 未選中：使用 secondary 類型
+            if st.button(option, key=f"menu_{option}", use_container_width=True, type="secondary"):
+                st.session_state.menu = option
             
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
