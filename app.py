@@ -543,15 +543,17 @@ with st.sidebar:
     st.markdown('<h1 style="font-size:22px;">🌈配方管理系統</h1>', unsafe_allow_html=True)
 
     for option in menu_options:
-        # 🔥 改用 type 參數控制樣式
-        if st.session_state.menu == option:
-            # 選中狀態：使用 primary 類型
-            if st.button(f"✅ {option}", key=f"menu_{option}", use_container_width=True, type="primary"):
+        is_active = st.session_state.menu == option
+
+        if st.button(
+            f"✅ {option}" if is_active else option,
+            key=f"menu_{option}",
+            type="primary" if is_active else "secondary",
+            use_container_width=True,
+        ):
+            if not is_active:
                 st.session_state.menu = option
-        else:
-            # 未選中：使用 secondary 類型
-            if st.button(option, key=f"menu_{option}", use_container_width=True, type="secondary"):
-                st.session_state.menu = option
+                st.rerun()   # 🔥 關鍵：一次點擊立即更新
             
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
