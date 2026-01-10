@@ -474,6 +474,11 @@ def apply_modern_style():
     button:focus-visible {
         outline: none !important;
     }
+    /* ===== 🔥 移除 Sidebar 選中按鈕的綠色勾勾 ===== */
+    section[data-testid="stSidebar"] div.stButton svg {
+        display: none !important;
+    }
+
     </style>
     """, unsafe_allow_html=True)
 
