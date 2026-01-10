@@ -78,38 +78,39 @@ def apply_modern_style():
         margin-bottom: 1.5rem;
     }
     
-    /* ===== 🔥 Sidebar 按鈕樣式（修正選中狀態）===== */
-    section[data-testid="stSidebar"] div.stButton > button {
+    /* ===== Sidebar 未選中 ===== */
+    section[data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
         background: #252538 !important;
         color: #E8E8E8 !important;
         border: 1px solid rgba(249, 220, 92, 0.15) !important;
-        border-radius: 8px;
-        padding: 0.6rem 1rem;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        text-align: left;
-        width: 100%;
+        border-radius: 8px !important;
+        padding: 0.6rem 1rem !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+        text-align: left !important;
+        width: 100% !important;
     }
     
-    section[data-testid="stSidebar"] div.stButton > button:hover {
+    /* Hover（未選中） */
+    section[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {
         background: #2d2d44 !important;
-        border-color: rgba(249, 220, 92, 0.4) !important;
         color: #F9DC5C !important;
+        border-color: rgba(249, 220, 92, 0.4) !important;
     }
     
-    /* 🔥 選中狀態：偵測按鈕文字開頭是否有 ✅ */
-    section[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:has-text("✅"),
-    section[data-testid="stSidebar"] div.stButton > button:first-child {
+    /* ===== 🔥 Sidebar 選中（填滿黃色）===== */
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
         background: linear-gradient(135deg, #F9DC5C 0%, #E8C547 100%) !important;
         color: #1a1a2e !important;
-        border-color: #F9DC5C !important;
+        border: 1px solid #F9DC5C !important;
         font-weight: 700 !important;
-        box-shadow: 0 2px 8px rgba(249, 220, 92, 0.3);
+        box-shadow: 0 4px 12px rgba(249, 220, 92, 0.35) !important;
     }
     
-    /* 🔥 備用方案：用 p 標籤內容判斷（因為 Streamlit 按鈕內有 p 標籤）*/
-    section[data-testid="stSidebar"] div.stButton > button > div > p {
-        color: inherit !important;
+    /* 選中狀態 hover 不變（避免閃爍） */
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #F9DC5C 0%, #E8C547 100%) !important;
+        color: #1a1a2e !important;
     }
     
     /* ===== 主內容區按鈕樣式 ===== */
