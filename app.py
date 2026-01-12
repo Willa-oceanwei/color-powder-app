@@ -44,6 +44,10 @@ if not st.session_state.authenticated:
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
 def apply_modern_style():
+	# ✅ 加入時間戳記強制更新 CSS
+    import time
+    version = str(int(time.time()))
+	
     st.markdown("""
     <style>
     /* ===== 全域字體 ===== */
