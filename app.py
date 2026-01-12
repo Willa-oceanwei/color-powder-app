@@ -58,7 +58,7 @@ def apply_modern_style():
     .main .block-container { background: #0d1410 !important; padding: 2rem; }
 
     /* ===== Sidebar ===== */
-    section[data-testid="stSidebar"] { background: #173928 !important; border-right: 1px solid rgba(42,157,95,0.35); }
+    section[data-testid="stSidebar"] { background: #10271b !important; border-right: 1px solid rgba(42,157,95,0.35); }
     section[data-testid="stSidebar"] h1 { color: #2a9d5f; font-weight: 700; font-size:22px; padding:0 1rem; margin-bottom:1.5rem; }
 
     section[data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
