@@ -50,6 +50,17 @@ def apply_modern_style():
     
     st.markdown("""
     <style>
+	body::before {
+        content: "CSS UPDATED";
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        background: red;
+        color: white;
+        padding: 6px 10px;
+        z-index: 99999;
+        font-size: 14px;
+    }
     /* ===== 全域字體 ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
