@@ -231,6 +231,14 @@ def apply_modern_style():
         align-items: center !important;
         transition: all 0.2s ease !important;
     }
+
+	/* ===== 🔽 下拉選單項目【緊湊版高度覆蓋】===== */
+    ul[role="listbox"] li {
+        font-size: 13px !important;
+        line-height: 1.4 !important;
+        padding: 0.5rem 0.8rem !important;
+        min-height: 36px !important;
+    }
     
     ul[role="listbox"] li:hover {
         background: #263930 !important;
