@@ -44,10 +44,10 @@ if not st.session_state.authenticated:
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
 def apply_modern_style():
-	# ✅ 加入時間戳記強制更新 CSS
+    # ✅ 加入時間戳記強制更新 CSS
     import time
     version = str(int(time.time()))
-	
+    
     st.markdown("""
     <style>
     /* ===== 全域字體 ===== */
@@ -64,7 +64,6 @@ def apply_modern_style():
     
     .main .block-container {
         background: #252538 !important;
-        padding: 2rem;
     }
     
     /* ===== Sidebar 樣式 ===== */
@@ -504,29 +503,63 @@ def apply_modern_style():
    🔥 徹底移除 Sidebar 選中按鈕的勾勾（新版 Streamlit）
    ===================================================== */
 
-	/* 移除所有 sidebar button 內的 icon */
-	section[data-testid="stSidebar"] div.stButton svg,
-	section[data-testid="stSidebar"] div.stButton span[data-testid="stIcon"],
-	section[data-testid="stSidebar"] div.stButton i {
-		display: none !important;
-	}
-	
-	/* 移除 BaseWeb primary 狀態插入的 pseudo-element */
-	section[data-testid="stSidebar"] button::before,
-	section[data-testid="stSidebar"] button::after {
-		content: none !important;
-		display: none !important;
-	}
-	
-	/* 防止 background image 或 mask 產生勾勾 */
-	section[data-testid="stSidebar"] button {
-		background-image: none !important;
-	}
-	
-	/* 保證文字不被預留 icon 空間擠歪 */
-	section[data-testid="stSidebar"] div.stButton > button > div {
-		padding-left: 0 !important;
-	}
+    /* 移除所有 sidebar button 內的 icon */
+    section[data-testid="stSidebar"] div.stButton svg,
+    section[data-testid="stSidebar"] div.stButton span[data-testid="stIcon"],
+    section[data-testid="stSidebar"] div.stButton i {
+        display: none !important;
+    }
+    
+    /* 移除 BaseWeb primary 狀態插入的 pseudo-element */
+    section[data-testid="stSidebar"] button::before,
+    section[data-testid="stSidebar"] button::after {
+        content: none !important;
+        display: none !important;
+    }
+    
+    /* 防止 background image 或 mask 產生勾勾 */
+    section[data-testid="stSidebar"] button {
+        background-image: none !important;
+    }
+    
+    /* 保證文字不被預留 icon 空間擠歪 */
+    section[data-testid="stSidebar"] div.stButton > button > div {
+        padding-left: 0 !important;
+    }
+
+    /* =====================================================
+   🔥 強制覆蓋 Streamlit 內建 block-container padding
+   （解決 selectbox 直線 / 高度異常的根因）
+   ===================================================== */
+    section.main > div:first-child {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+        max-width: none !important;   /* 防止被鎖 46rem */
+    }
+
+    /* 🔥 防止 BaseWeb 內部殘留線條 */
+    div[data-baseweb="select"] * {
+        box-shadow: none !important;
+    }
+
+	/* =====================================================
+    🔥【終極修正】移除 Selectbox 文字與箭頭間的直線
+    （BaseWeb divider）
+    ===================================================== */
+
+    /* 箭頭容器本身 */
+    div[data-baseweb="select"] > div > div:last-child {
+        border-left: none !important;
+        background: transparent !important;
+    }
+
+    /* 有些版本在 svg 外層再包一層 */
+    div[data-baseweb="select"] > div > div:last-child * {
+        border-left: none !important;
+        box-shadow: none !important;
+    }
 
     </style>
     """, unsafe_allow_html=True)
