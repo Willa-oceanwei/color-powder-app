@@ -112,31 +112,6 @@ def apply_modern_style():
         color: #1a1a2e !important;
     }
     
-    /* ===== 🎯 移除 Sidebar 選中按鈕的勾勾（加強版）===== */
-    section[data-testid="stSidebar"] div.stButton > button[kind="primary"]::before,
-    section[data-testid="stSidebar"] div.stButton > button[kind="primary"]::after {
-        content: none !important;
-        display: none !important;
-    }
-    
-    section[data-testid="stSidebar"] div.stButton > button svg,
-    section[data-testid="stSidebar"] div.stButton > button span[data-testid="stIcon"],
-    section[data-testid="stSidebar"] div.stButton > button i {
-        display: none !important;
-        visibility: hidden !important;
-        width: 0 !important;
-        height: 0 !important;
-    }
-    
-    section[data-testid="stSidebar"] div.stButton > button > div {
-        padding-left: 0 !important;
-    }
-    
-    /* 防止 background image 產生勾勾 */
-    section[data-testid="stSidebar"] button {
-        background-image: none !important;
-    }
-    
     /* ===== 主內容區按鈕樣式 ===== */
     .main div.stButton > button {
         background: #1a1a2e !important;
@@ -155,33 +130,30 @@ def apply_modern_style():
         transform: translateY(-1px);
     }
     
-    /* ===== 🔥 統一輸入框高度（50px）===== */
+    /* ===== 🔥 輸入框統一（Focus 改黃色 + 固定高度 50px）===== */
     div.stTextInput > div > div > input,
     div.stNumberInput > div > div > input,
-    div.stTextArea > div > div > textarea,
-    div.stDateInput > div > div > input {
+    div.stTextArea > div > div > textarea {
         background: #2d2d44 !important;
         border: 1px solid rgba(249, 220, 92, 0.2) !important;
         border-radius: 6px;
         color: #E8E8E8 !important;
         padding: 0.6rem 0.75rem !important;
-        min-height: 50px !important;
-        height: 50px !important;
         transition: all 0.3s ease;
-        box-sizing: border-box !important;
     }
     
-    /* TextArea 例外（可多行） */
-    div.stTextArea > div > div > textarea {
-        min-height: 100px !important;
-        height: auto !important;
+    /* ✅ 固定高度 50px（TextArea 除外） */
+    div.stTextInput > div > div > input,
+    div.stNumberInput > div > div > input {
+        min-height: 50px !important;
+        height: 50px !important;
+        box-sizing: border-box !important;
     }
     
     /* 🔥 Focus 統一改黃色 */
     div.stTextInput > div > div > input:focus,
     div.stNumberInput > div > div > input:focus,
-    div.stTextArea > div > div > textarea:focus,
-    div.stDateInput > div > div > input:focus {
+    div.stTextArea > div > div > textarea:focus {
         border-color: #F9DC5C !important;
         box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
         outline: none !important;
@@ -190,22 +162,19 @@ def apply_modern_style():
     /* 🔥 移除 Streamlit 預設的紅色 focus ring */
     div.stTextInput > div > div > input:focus-visible,
     div.stNumberInput > div > div > input:focus-visible,
-    div.stTextArea > div > div > textarea:focus-visible,
-    div.stDateInput > div > div > input:focus-visible {
+    div.stTextArea > div > div > textarea:focus-visible {
         outline: none !important;
         box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
     }
     
-    /* ===== 🎯 下拉選單統一高度為 50px ===== */
+    /* ===== 下拉選單完整樣式（固定高度 50px）===== */
     div.stSelectbox > div > div {
         background: #2d2d44 !important;
         border: 1px solid rgba(249, 220, 92, 0.2) !important;
         border-radius: 6px !important;
         min-height: 50px !important;
-        height: 50px !important;
         padding: 0 !important;
         transition: all 0.3s ease;
-        box-sizing: border-box !important;
     }
     
     /* 🔥 下拉選單 Focus 也改黃色 */
@@ -217,42 +186,27 @@ def apply_modern_style():
     div.stSelectbox div[data-baseweb="select"] {
         background: #2d2d44 !important;
         min-height: 50px !important;
-        height: 50px !important;
         border: none !important;
     }
     
     div.stSelectbox div[data-baseweb="select"] > div {
         background: #2d2d44 !important;
         min-height: 50px !important;
-        height: 50px !important;
-        padding: 0 0.75rem !important;
+        padding: 0.75rem !important;
         display: flex !important;
         align-items: center !important;
-        box-sizing: border-box !important;
     }
     
     div.stSelectbox div[data-baseweb="select"] > div > div {
         color: #E8E8E8 !important;
-        line-height: 1.5 !important;
-        padding: 0 !important;
+        line-height: 1.8 !important;
+        padding: 0.3rem 0 !important;
         white-space: normal !important;
         overflow: visible !important;
     }
     
     div.stSelectbox svg {
         color: #E8E8E8 !important;
-    }
-    
-    /* ===== 🎯 修正標籤位置（確保對齊）===== */
-    div.stTextInput > label,
-    div.stNumberInput > label,
-    div.stSelectbox > label,
-    div.stDateInput > label,
-    div.stTextArea > label {
-        color: #E8E8E8 !important;
-        font-size: 0.875rem !important;
-        margin-bottom: 0.5rem !important;
-        display: block !important;
     }
     
     /* 彈出層 */
@@ -306,6 +260,41 @@ def apply_modern_style():
         line-height: 1.8 !important;
         max-width: 100% !important;
         overflow-wrap: break-word !important;
+    }
+    
+    /* ===== 🔥 Date Input Focus 統一黃色 + 固定高度 50px ===== */
+    div.stDateInput > div > div > input {
+        background: #2d2d44 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        color: #E8E8E8 !important;
+        padding: 0.6rem 0.75rem !important;
+        transition: all 0.3s ease;
+        min-height: 50px !important;
+        height: 50px !important;
+        box-sizing: border-box !important;
+    }
+    
+    div.stDateInput > div > div > input:focus {
+        border-color: #F9DC5C !important;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
+        outline: none !important;
+    }
+    
+    /* ===== 🔥 Number Input Focus 統一黃色 ===== */
+    div.stNumberInput > div > div > div > input:focus {
+        border-color: #F9DC5C !important;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
+    }
+    
+    /* ===== ✅ 標籤對齊統一 ===== */
+    div.stTextInput > label,
+    div.stNumberInput > label,
+    div.stSelectbox > label,
+    div.stDateInput > label,
+    div.stTextArea > label {
+        margin-bottom: 0.5rem !important;
+        font-size: 0.875rem !important;
+        font-weight: 400 !important;
     }
     
     /* ===== Checkbox ===== */
@@ -506,6 +495,35 @@ def apply_modern_style():
     button:focus-visible {
         outline: none !important;
     }
+   
+    /* =====================================================
+   🔥 徹底移除 Sidebar 選中按鈕的勾勾（新版 Streamlit）
+   ===================================================== */
+
+	/* 移除所有 sidebar button 內的 icon */
+	section[data-testid="stSidebar"] div.stButton svg,
+	section[data-testid="stSidebar"] div.stButton span[data-testid="stIcon"],
+	section[data-testid="stSidebar"] div.stButton i {
+		display: none !important;
+	}
+	
+	/* 移除 BaseWeb primary 狀態插入的 pseudo-element */
+	section[data-testid="stSidebar"] button::before,
+	section[data-testid="stSidebar"] button::after {
+		content: none !important;
+		display: none !important;
+	}
+	
+	/* 防止 background image 或 mask 產生勾勾 */
+	section[data-testid="stSidebar"] button {
+		background-image: none !important;
+	}
+	
+	/* 保證文字不被預留 icon 空間擠歪 */
+	section[data-testid="stSidebar"] div.stButton > button > div {
+		padding-left: 0 !important;
+	}
+
     </style>
     """, unsafe_allow_html=True)
     
