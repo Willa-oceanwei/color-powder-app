@@ -4786,10 +4786,10 @@ elif menu == "查詢區":
     df_order = st.session_state.get("df_order", pd.DataFrame())
 
     # ===== 標題 =====
-    st.markdown(
-        '<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🔍 查詢區</h1>',
-        unsafe_allow_html=True
-    )
+    # st.markdown(
+    #     '<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🔍 查詢區</h1>',
+    #     unsafe_allow_html=True
+    # )
 
     # ===== Tab 分頁 =====
     tab1, tab2, tab3, tab4 = st.tabs([
