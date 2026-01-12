@@ -43,50 +43,480 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
-# ======== 🎨 終極版自訂樣式（綠色主題）========
+# ======== 🎨 完整修正版樣式 ========
 def apply_modern_style():
     st.markdown("""
     <style>
-    /* ===============================
-       🌿 全域與背景（原樣保留）
-       =============================== */
+    /* ===== 全域字體 ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    * { font-family: 'Inter', 'Microsoft JhengHei', sans-serif; }
-
-    .stApp, .main .block-container { background: #1a1f1c !important; }
-    .main .block-container { padding: 2rem; }
-
-    /* ===============================
-       🔽 Selectbox 輸入框（未展開）
-       =============================== */
+    
+    * {
+        font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
+    }
+    
+    /* ===== 主背景統一 ===== */
+    .stApp {
+        background: #252538 !important;
+    }
+    
+    .main .block-container {
+        background: #252538 !important;
+        padding: 2rem;
+    }
+    
+    /* ===== Sidebar 樣式 ===== */
+    section[data-testid="stSidebar"] {
+        background: #1a1a2e !important;
+        border-right: 1px solid rgba(249, 220, 92, 0.15);
+    }
+    
+    section[data-testid="stSidebar"] h1 {
+        color: #F9DC5C;
+        font-weight: 700;
+        font-size: 22px;
+        padding: 0 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* ===== Sidebar 未選中 ===== */
+    section[data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
+        background: #252538 !important;
+        color: #E8E8E8 !important;
+        border: 1px solid rgba(249, 220, 92, 0.15) !important;
+        border-radius: 8px !important;
+        padding: 0.6rem 1rem !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+        text-align: left !important;
+        width: 100% !important;
+    }
+    
+    /* Hover（未選中） */
+    section[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {
+        background: #2d2d44 !important;
+        color: #F9DC5C !important;
+        border-color: rgba(249, 220, 92, 0.4) !important;
+    }
+    
+    /* ===== 🔥 Sidebar 選中（填滿黃色）===== */
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #F9DC5C 0%, #E8C547 100%) !important;
+        color: #1a1a2e !important;
+        border: 1px solid #F9DC5C !important;
+        font-weight: 700 !important;
+        box-shadow: 0 4px 12px rgba(249, 220, 92, 0.35) !important;
+    }
+    
+    /* 選中狀態 hover 不變（避免閃爍） */
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #F9DC5C 0%, #E8C547 100%) !important;
+        color: #1a1a2e !important;
+    }
+    
+    /* ===== 主內容區按鈕樣式 ===== */
+    .main div.stButton > button {
+        background: #1a1a2e !important;
+        color: #E8E8E8 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        border-radius: 8px;
+        padding: 0.6rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .main div.stButton > button:hover {
+        background: #F9DC5C !important;
+        color: #1a1a2e !important;
+        border-color: #F9DC5C !important;
+        transform: translateY(-1px);
+    }
+    
+    /* ===== 🔥 輸入框統一（Focus 改黃色）===== */
+    div.stTextInput > div > div > input,
+    div.stNumberInput > div > div > input,
+    div.stTextArea > div > div > textarea {
+        background: #2d2d44 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        border-radius: 6px;
+        color: #E8E8E8 !important;
+        padding: 0.6rem 0.75rem !important;
+        transition: all 0.3s ease;
+    }
+    
+    /* 🔥 Focus 統一改黃色 */
+    div.stTextInput > div > div > input:focus,
+    div.stNumberInput > div > div > input:focus,
+    div.stTextArea > div > div > textarea:focus {
+        border-color: #F9DC5C !important;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
+        outline: none !important;
+    }
+    
+    /* 🔥 移除 Streamlit 預設的紅色 focus ring */
+    div.stTextInput > div > div > input:focus-visible,
+    div.stNumberInput > div > div > input:focus-visible,
+    div.stTextArea > div > div > textarea:focus-visible {
+        outline: none !important;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
+    }
+    
+    /* ===== 下拉選單完整樣式 ===== */
     div.stSelectbox > div > div {
-        background: #1f2923 !important;
-        border: 1px solid rgba(23,57,40,0.4) !important;
+        background: #2d2d44 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
         border-radius: 6px !important;
         min-height: 50px !important;
+        padding: 0 !important;
+        transition: all 0.3s ease;
     }
-
+    
+    /* 🔥 下拉選單 Focus 也改黃色 */
+    div.stSelectbox > div > div:focus-within {
+        border-color: #F9DC5C !important;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
+    }
+    
+    div.stSelectbox div[data-baseweb="select"] {
+        background: #2d2d44 !important;
+        min-height: 50px !important;
+        border: none !important;
+    }
+    
     div.stSelectbox div[data-baseweb="select"] > div {
+        background: #2d2d44 !important;
         min-height: 50px !important;
         padding: 0.75rem !important;
         display: flex !important;
         align-items: center !important;
     }
+    
+    div.stSelectbox div[data-baseweb="select"] > div > div {
+        color: #E8E8E8 !important;
+        line-height: 1.8 !important;
+        padding: 0.3rem 0 !important;
+        white-space: normal !important;
+        overflow: visible !important;
+    }
+    
+    div.stSelectbox svg {
+        color: #E8E8E8 !important;
+    }
+    
+    /* 彈出層 */
+    div[data-baseweb="popover"] {
+        background: #2d2d44 !important;
+        border: 1px solid rgba(249, 220, 92, 0.3) !important;
+        border-radius: 8px !important;
+        margin-top: 4px !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+    }
+    
+    ul[role="listbox"] {
+        background: #2d2d44 !important;
+        padding: 0.5rem 0 !important;
+        max-height: 400px !important;
+        overflow-y: auto !important;
+    }
+    
+    ul[role="listbox"] li {
+        background: #2d2d44 !important;
+        color: #E8E8E8 !important;
+        padding: 1rem 1.2rem !important;
+        min-height: 52px !important;
+        line-height: 1.8 !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        overflow: visible !important;
+        display: flex !important;
+        align-items: center !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    ul[role="listbox"] li:hover {
+        background: #3a3a52 !important;
+        color: #F9DC5C !important;
+    }
+    
+    ul[role="listbox"] li[aria-selected="true"] {
+        background: rgba(249, 220, 92, 0.15) !important;
+        color: #F9DC5C !important;
+        font-weight: 600 !important;
+    }
+    
+    div[data-baseweb="select"] span,
+    ul[role="listbox"] li span,
+    ul[role="listbox"] li div,
+    ul[role="listbox"] li > * {
+        color: inherit !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        line-height: 1.8 !important;
+        max-width: 100% !important;
+        overflow-wrap: break-word !important;
+    }
+    
+    /* ===== 🔥 Date Input Focus 統一黃色 ===== */
+    div.stDateInput > div > div > input {
+        background: #2d2d44 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        color: #E8E8E8 !important;
+        padding: 0.6rem 0.75rem !important;
+        transition: all 0.3s ease;
+    }
+    
+    div.stDateInput > div > div > input:focus {
+        border-color: #F9DC5C !important;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
+        outline: none !important;
+    }
+    
+    /* ===== 🔥 Number Input Focus 統一黃色 ===== */
+    div.stNumberInput > div > div > div > input:focus {
+        border-color: #F9DC5C !important;
+        box-shadow: 0 0 0 2px rgba(249, 220, 92, 0.2) !important;
+    }
+    
+    /* ===== Checkbox ===== */
+    div.stCheckbox label {
+        color: #E8E8E8 !important;
+    }
+    
+    div.stCheckbox input[type="checkbox"] {
+        accent-color: #F9DC5C !important;
+    }
+    
+    div.stCheckbox input[type="checkbox"]:focus {
+        outline: 2px solid rgba(249, 220, 92, 0.5) !important;
+        outline-offset: 2px;
+    }
+    
+    /* ===== 表格樣式 ===== */
+    div.stDataFrame {
+        background: #252538 !important;
+        border-radius: 8px;
+        border: 1px solid rgba(249, 220, 92, 0.15);
+    }
+    
+    div.stDataFrame thead tr th {
+        background: #1a1a2e !important;
+        color: #F9DC5C !important;
+        font-weight: 600;
+        border-bottom: 2px solid rgba(249, 220, 92, 0.3) !important;
+    }
+    
+    div.stDataFrame tbody tr {
+        background: #252538 !important;
+        color: #E8E8E8 !important;
+    }
+    
+    div.stDataFrame tbody tr:hover {
+        background: #2d2d44 !important;
+    }
+    
+    /* ===== Tab 樣式 ===== */
+    div[data-baseweb="tab-list"] {
+        background: transparent !important;
+        border-bottom: 1px solid rgba(249, 220, 92, 0.2) !important;
+    }
+    
+    button[data-baseweb="tab"] {
+        background: transparent !important;
+        color: #A8A8B8 !important;
+        border: none !important;
+        border-bottom: 3px solid transparent !important;
+        font-weight: 500;
+        padding: 0.75rem 1.5rem !important;
+        transition: all 0.3s ease;
+    }
+    
+    button[data-baseweb="tab"]:hover {
+        color: #F9DC5C !important;
+        background: transparent !important;
+        border-bottom-color: rgba(249, 220, 92, 0.3) !important;
+    }
+    
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #F9DC5C !important;
+        background: transparent !important;
+        border-bottom-color: #F9DC5C !important;
+        font-weight: 600 !important;
+    }
+    
+    div[data-baseweb="tab-panel"] {
+        background: #252538 !important;
+        padding: 1.5rem !important;
+    }
+    
+    /* ===== Form ===== */
+    form {
+        background: rgba(26, 26, 46, 0.5) !important;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border: 1px solid rgba(249, 220, 92, 0.15);
+    }
+    
+    /* ===== 標題 ===== */
+    h1, h2, h3, h4, h5, h6 {
+        color: #F9DC5C !important;
+    }
+    
+    /* ===== 提示框 ===== */
+    div.stAlert {
+        background: rgba(249, 220, 92, 0.1) !important;
+        border-left: 4px solid #F9DC5C !important;
+        color: #E8E8E8 !important;
+    }
+    
+    div.stSuccess {
+        background: rgba(76, 175, 80, 0.1) !important;
+        border-left-color: #4CAF50 !important;
+    }
+    
+    div.stWarning {
+        background: rgba(255, 152, 0, 0.1) !important;
+        border-left-color: #FF9800 !important;
+    }
+    
+    div.stError {
+        background: rgba(244, 67, 54, 0.1) !important;
+        border-left-color: #F44336 !important;
+    }
+    
+    /* ===== 捲軸 ===== */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #1a1a2e;
+        border-radius: 5px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: rgba(249, 220, 92, 0.3);
+        border-radius: 5px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(249, 220, 92, 0.5);
+    }
+    
+    /* ===== Expander ===== */
+    div.streamlit-expanderHeader {
+        background: #2d2d44 !important;
+        border: 1px solid rgba(249, 220, 92, 0.2) !important;
+        border-radius: 6px;
+        color: #E8E8E8 !important;
+        transition: all 0.3s ease;
+    }
+    
+    div.streamlit-expanderHeader:hover {
+        background: #3a3a52 !important;
+        border-color: #F9DC5C !important;
+    }
+    
+    div.streamlit-expanderContent {
+        background: #252538 !important;
+        border: 1px solid rgba(249, 220, 92, 0.15);
+        border-top: none;
+    }
+    
+    /* ===== Code Block ===== */
+    code {
+        background: #1a1a2e !important;
+        color: #F9DC5C !important;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+    }
+    
+    pre {
+        background: #1a1a2e !important;
+        border: 1px solid rgba(249, 220, 92, 0.2);
+        border-radius: 6px;
+        padding: 1rem;
+    }
+    
+    /* ===== File Uploader ===== */
+    div[data-testid="stFileUploader"] {
+        background: #2d2d44 !important;
+        border: 1px dashed rgba(249, 220, 92, 0.3) !important;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    div[data-testid="stFileUploader"]:hover {
+        border-color: #F9DC5C !important;
+        background: #3a3a52 !important;
+    }
+    
+    /* ===== 下載按鈕 ===== */
+    div.stDownloadButton > button {
+        background: #1a1a2e !important;
+        color: #F9DC5C !important;
+        border: 1px solid rgba(249, 220, 92, 0.3) !important;
+        transition: all 0.3s ease;
+    }
+    
+    div.stDownloadButton > button:hover {
+        background: #F9DC5C !important;
+        color: #1a1a2e !important;
+    }
+    
+    /* ===== 🔥 移除所有預設 Focus 樣式衝突 ===== */
+    *:focus-visible {
+        outline: none !important;
+    }
+    
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible,
+    button:focus-visible {
+        outline: none !important;
+    }
+   
+    /* =====================================================
+   🔥 徹底移除 Sidebar 選中按鈕的勾勾（新版 Streamlit）
+   ===================================================== */
 
-    /* ===============================
-       🔽 下拉選單外框（關鍵！）
-       =============================== */
+	/* 移除所有 sidebar button 內的 icon */
+	section[data-testid="stSidebar"] div.stButton svg,
+	section[data-testid="stSidebar"] div.stButton span[data-testid="stIcon"],
+	section[data-testid="stSidebar"] div.stButton i {
+		display: none !important;
+	}
+	
+	/* 移除 BaseWeb primary 狀態插入的 pseudo-element */
+	section[data-testid="stSidebar"] button::before,
+	section[data-testid="stSidebar"] button::after {
+		content: none !important;
+		display: none !important;
+	}
+	
+	/* 防止 background image 或 mask 產生勾勾 */
+	section[data-testid="stSidebar"] button {
+		background-image: none !important;
+	}
+	
+	/* 保證文字不被預留 icon 空間擠歪 */
+	section[data-testid="stSidebar"] div.stButton > button > div {
+		padding-left: 0 !important;
+	}
+    /* =====================================================
+   🔽 Selectbox 修正補丁（圓角 + 緊湊高度）
+   👉 必須放在整份 CSS 最後
+   ===================================================== */
+
+    /* 下拉彈出外框 */
     div[data-baseweb="popover"] {
         background: #1f2923 !important;
-        border: 1px solid rgba(42,157,95,0.35) !important;
+        border: 1px solid rgba(42, 157, 95, 0.35) !important;
         border-radius: 10px !important;
         padding: 4px !important;
         box-shadow: 0 10px 28px rgba(0,0,0,0.45) !important;
     }
-
-    /* ===============================
-       🔽 listbox 容器（圓角本體）
-       =============================== */
+    
+    /* listbox 本體 */
     ul[role="listbox"] {
         background: #1f2923 !important;
         border-radius: 8px !important;
@@ -94,47 +524,42 @@ def apply_modern_style():
         overflow: hidden !important;
         max-height: 360px !important;
     }
-
-    /* ===============================
-       🔽 選項（高度真的在這）
-       =============================== */
+    
+    /* 選項高度（真的會變小） */
     ul[role="listbox"] li {
         font-size: 13px !important;
         line-height: 1.4 !important;
         padding: 0.45rem 0.75rem !important;
         min-height: 34px !important;
-
-        color: #b8d4c5 !important;
-        background: transparent !important;
-
+    
         display: flex !important;
         align-items: center !important;
         border-radius: 6px !important;
-        transition: background 0.15s ease !important;
     }
-
+    
+    /* hover / 選中保留你的綠色風格 */
     ul[role="listbox"] li:hover {
         background: #263930 !important;
         color: #2a9d5f !important;
     }
-
+    
     ul[role="listbox"] li[aria-selected="true"] {
-        background: rgba(42,157,95,0.18) !important;
+        background: rgba(42, 157, 95, 0.18) !important;
         color: #2a9d5f !important;
         font-weight: 600 !important;
     }
-
-    /* ===============================
-       ❗ 修正你原本撐高的那段
-       =============================== */
+    
+    /* ⚠️ 關鍵：防止被你前面撐高 */
     ul[role="listbox"] li *,
     ul[role="listbox"] li span,
     ul[role="listbox"] li div {
         line-height: 1.4 !important;
     }
-
+       
     </style>
     """, unsafe_allow_html=True)
+
+apply_modern_style()
     
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
