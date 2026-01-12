@@ -67,7 +67,11 @@ def apply_modern_style():
     }
     section[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover { background:#263930 !important; color:#e8f5ee !important; border-color: rgba(42,157,95,0.5) !important; }
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-        background: rgba(42,157,95,0.35) !important; color:#e8f5ee !important; border:1px solid #2a9d5f !important; font-weight:700 !important; box-shadow: 0 4px 12px rgba(42,157,95,0.35) !important;
+        background: linear-gradient(135deg, #2a9d5f 0%, #4bc186 100%) !important; /* 新增漸層 */
+        color: #e8f5ee !important;
+        border: 1px solid #2a9d5f !important;
+        font-weight: 700 !important;
+        box-shadow: 0 4px 12px rgba(42, 157, 95, 0.35) !important;
     }
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover { background: rgba(42,157,95,0.35) !important; color:#e8f5ee !important; }
 
