@@ -43,7 +43,6 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
-# ======== 🎨 完整修正版樣式 ========
 def apply_modern_style():
     st.markdown("""
     <style>
@@ -113,18 +112,29 @@ def apply_modern_style():
         color: #1a1a2e !important;
     }
     
-    /* ===== 🎯 移除 Sidebar 選中按鈕的勾勾 ===== */
-    section[data-testid="stSidebar"] div.stButton > button[kind="primary"]::before {
+    /* ===== 🎯 移除 Sidebar 選中按鈕的勾勾（加強版）===== */
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"]::before,
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"]::after {
         content: none !important;
         display: none !important;
     }
     
-    section[data-testid="stSidebar"] div.stButton > button svg {
+    section[data-testid="stSidebar"] div.stButton > button svg,
+    section[data-testid="stSidebar"] div.stButton > button span[data-testid="stIcon"],
+    section[data-testid="stSidebar"] div.stButton > button i {
         display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        height: 0 !important;
     }
     
-    section[data-testid="stSidebar"] div.stButton > button span[data-testid="stMarkdownContainer"] {
+    section[data-testid="stSidebar"] div.stButton > button > div {
         padding-left: 0 !important;
+    }
+    
+    /* 防止 background image 產生勾勾 */
+    section[data-testid="stSidebar"] button {
+        background-image: none !important;
     }
     
     /* ===== 主內容區按鈕樣式 ===== */
