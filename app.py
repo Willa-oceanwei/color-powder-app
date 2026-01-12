@@ -164,7 +164,7 @@ def apply_modern_style():
     div.stSelectbox > div > div {
         background: #1f2923 !important;
         border: 1px solid rgba(23, 57, 40, 0.4) !important;
-        border-radius: 6px !important;
+        border-radius: 12px !important;
         min-height: 50px !important;
         padding: 0 !important;
         transition: all 0.3s ease;
