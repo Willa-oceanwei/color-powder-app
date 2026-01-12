@@ -155,7 +155,7 @@ def apply_modern_style():
     div.stSelectbox div[data-baseweb="select"] > div {
         border-radius: 999px !important;       /* 圓角本體 */
         background: #1f2923 !important;
-        min-height: 50px !important;
+        min-height: 40px !important;
         padding: 0.75rem !important;
         display: flex !important;
         align-items: center !important;
