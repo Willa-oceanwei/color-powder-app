@@ -41,9 +41,7 @@ if not st.session_state.authenticated:
 
     # 尚未輸入密碼時停止執行
     st.stop()
-
-# ======== 🎨 終極版自訂樣式（穩定版 Selectbox）========
-# ======== 🎨 終極版自訂樣式（綠色主題）========
+    
 # ======== 🎨 終極版自訂樣式（綠色主題 + 圓角下拉）========
 def apply_modern_style():
     st.markdown("""
@@ -269,7 +267,7 @@ div.stButton > button {
 
 
 with st.sidebar:
-    st.markdown('<h1 style="font-size:22px;">🌈 配方管理系統</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="font-size:22px;">🪁 配方管理系統</h1>', unsafe_allow_html=True)
 
     for option in menu_options:
         is_active = st.session_state.menu == option
