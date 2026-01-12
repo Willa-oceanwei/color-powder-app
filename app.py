@@ -66,13 +66,7 @@ def apply_modern_style():
         border-radius:8px !important; padding:0.6rem 1rem !important; font-weight:500 !important; transition: all 0.3s ease !important; text-align:left !important; width:100% !important;
     }
     section[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover { background:#263930 !important; color:#e8f5ee !important; border-color: rgba(42,157,95,0.5) !important; }
-    section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #2a9d5f 0%, #4bc186 100%) !important; /* 新增漸層 */
-        color: #e8f5ee !important;
-        border: 1px solid #2a9d5f !important;
-        font-weight: 700 !important;
-        box-shadow: 0 4px 12px rgba(42, 157, 95, 0.35) !important;
-    }
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"] { background: rgba(42,157,95,0.35) !important; color:#e8f5ee !important; border:1px solid #2a9d5f !important; font-weight:700 !important; box-shadow: 0 4px 12px rgba(42,157,95,0.35) !important; }
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover { background: rgba(42,157,95,0.35) !important; color:#e8f5ee !important; }
 
     /* 移除 sidebar 勾勾 */
