@@ -3765,7 +3765,7 @@ if menu == "代工管理":
     from datetime import datetime
     
     # ===== 標題 =====
-    st.markdown('<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🏭 代工管理</h1>', unsafe_allow_html=True)
+    # st.markdown('<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🏭 代工管理</h1>', unsafe_allow_html=True)
     
     # ===== 讀取代工管理表 =====
     try:
