@@ -5582,7 +5582,7 @@ elif menu == "庫存區":
         except Exception as e:
             return 0.0
 
-    st.markdown('<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🏭 庫存區</h1>', unsafe_allow_html=True)
+    # st.markdown('<h1 style="font-size:24px; font-family:Arial; color:#dbd818;">🏭 庫存區</h1>', unsafe_allow_html=True)
 
     # ===== Tab 分頁 =====
     tab1, tab2, tab3, tab4 = st.tabs(["📦 初始庫存設定", "📊 庫存查詢", "🏆 色粉用量排行榜", "🧮 色粉用量查詢"])
