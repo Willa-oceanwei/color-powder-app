@@ -55,7 +55,7 @@ def apply_modern_style():
 
     /* ===== 主背景 ===== */
     .stApp { background: #0d1410 !important; }
-    .main .block-container { background: #1a1f1c !important; padding: 2rem; }
+    .main .block-container { background: #0d1410 !important; padding: 2rem; }
 
     /* ===== Sidebar ===== */
     section[data-testid="stSidebar"] { background: #173928 !important; border-right: 1px solid rgba(42,157,95,0.35); }
