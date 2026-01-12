@@ -46,9 +46,10 @@ if not st.session_state.authenticated:
 def apply_modern_style():
     # ✅ 加入時間戳記強制更新 CSS
     import time
-    version = str(int(time.time()))
+    version = int(time.time())
     
-    st.markdown("""
+    st.markdown(f"""
+    <style id="custom-style-{version}">
     <style>
 	body::before {
         content: "CSS UPDATED";
