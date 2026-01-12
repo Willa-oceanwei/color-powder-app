@@ -505,8 +505,7 @@ def apply_modern_style():
     /* =====================================================
    🔽 Selectbox 修正補丁（圓角 + 緊湊高度）
    👉 必須放在整份 CSS 最後
-   ===================================================== */
-
+   ===================================================== */    
     /* 下拉彈出外框 */
     div[data-baseweb="popover"] {
         background: #1f2923 !important;
@@ -525,35 +524,39 @@ def apply_modern_style():
         max-height: 360px !important;
     }
     
-    /* 選項高度（真的會變小） */
+    /* 選項高度與圓角 */
     ul[role="listbox"] li {
         font-size: 13px !important;
         line-height: 1.4 !important;
         padding: 0.45rem 0.75rem !important;
         min-height: 34px !important;
-    
         display: flex !important;
         align-items: center !important;
         border-radius: 6px !important;
+        color: #b8d4c5 !important;  /* 普通文字亮綠白色 */
+        transition: all 0.2s ease !important;
     }
     
-    /* hover / 選中保留你的綠色風格 */
+    /* hover 狀態 */
     ul[role="listbox"] li:hover {
         background: #263930 !important;
-        color: #2a9d5f !important;
+        color: #e8f5ee !important;
     }
     
+    /* 選中狀態 */
     ul[role="listbox"] li[aria-selected="true"] {
-        background: rgba(42, 157, 95, 0.18) !important;
-        color: #2a9d5f !important;
+        background: rgba(42, 157, 95, 0.35) !important;  /* 選中綠色背景 */
+        color: #e8f5ee !important;                       /* 亮綠文字 */
         font-weight: 600 !important;
     }
     
-    /* ⚠️ 關鍵：防止被你前面撐高 */
-    ul[role="listbox"] li *,
+    /* 防止被撐高 / 保持文字行距緊湊 */
+    ul[role="listbox"] li * ,
     ul[role="listbox"] li span,
     ul[role="listbox"] li div {
         line-height: 1.4 !important;
+        overflow: visible !important;
+        white-space: normal !important;
     }
        
     </style>
