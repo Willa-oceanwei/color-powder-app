@@ -1144,7 +1144,7 @@ elif menu == "客戶名單":
     # =====================================================
     # 📋 客戶清單（搜尋 / 編輯 / 刪除）
     # =====================================================
-    st.markdown('<h2 style="font-size:16px; font-family:Arial; color:#b8d4c5;">🛠️ 客戶修改 / 刪除</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 style="font-size:16px; font-family:Arial; color:#b8d4c5;">🛠️ 客戶修改 / 刪除</h3>', unsafe_allow_html=True)
     
     # 搜尋輸入
     keyword = st.text_input(
