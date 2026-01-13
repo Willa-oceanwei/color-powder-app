@@ -198,14 +198,14 @@ def apply_modern_style():
         color: #2a9d5f !important;
         font-weight: 600 !important;
     }
-    /* ===== Streamlit v1.38 Tabs 真・字體加粗 ===== */
-    button[data-testid="stTab"] > p {
-        font-weight: 700 !important;
+
+    /* ===== Streamlit v1.38 Tabs 字體加粗（唯一需要）===== */
+    div[role="tablist"] > div[role="tab"] {
+        font-weight: 600 !important;
     }
 
-    /* 選中中的 Tab */
-    button[data-testid="stTab"][aria-selected="true"] > p {
-        font-weight: 800 !important;
+    div[role="tablist"] > div[role="tab"][aria-selected="true"] {
+        font-weight: 700 !important;
     }
     </style>
     """, unsafe_allow_html=True)
