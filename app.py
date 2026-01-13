@@ -211,6 +211,10 @@ def apply_modern_style():
     button[data-testid="stTab"][aria-selected="true"] p {
         color: #2a9d5f !important;
     }
+    /* ===== Streamlit v1.38 Tabs：底部移動指示線改成綠色 ===== */
+    div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+        background-color: #2a9d5f !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
