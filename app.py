@@ -207,6 +207,10 @@ def apply_modern_style():
     div[role="tablist"] > div[role="tab"][aria-selected="true"] {
         font-weight: 700 !important;
     }
+    /* ===== Streamlit v1.38 Tabs：選中變綠（保證有效）===== */
+    button[data-testid="stTab"][aria-selected="true"] p {
+        color: #2a9d5f !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
