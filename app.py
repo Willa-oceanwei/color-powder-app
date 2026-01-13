@@ -130,6 +130,23 @@ def apply_modern_style():
         border-color: #2a9d5f !important;
         transform: translateY(-1px);
     }
+    /* ===== Form 裡按鈕漸層 ===== */
+    form button[type="submit"] {
+       background: linear-gradient(135deg, #173928 0%, #2a9d5f 100%) !important;
+        color: #e8f5ee !important;
+        border: 1px solid #2a9d5f !important;
+        border-radius: 8px !important;
+        padding: 0.6rem 1rem !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }
+
+    form button[type="submit"]:hover {
+        background: linear-gradient(135deg, #1f2923 0%, #2a9d5f 100%) !important;
+        color: #e8f5ee !important;
+        border-color: #2a9d5f !important;
+        transform: translateY(-1px);
+    }
     
     /* ===== 🔥 輸入框統一（Focus 改綠色）===== */
     div.stTextInput > div > div > input,
