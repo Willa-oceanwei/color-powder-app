@@ -199,36 +199,12 @@ def apply_modern_style():
         font-weight: 600 !important;
     }
     
-    /* ===== Tab 樣式（字體加粗）===== */
-    div[data-baseweb="tab-list"] {
-        border-bottom: 1px solid rgba(42, 157, 95, 0.2) !important;
-    }
-
-    button[data-baseweb="tab"] {
-        background: transparent !important;
-        color: #6b8a7a !important;
-        border: none !important;
-        border-bottom: 3px solid transparent !important;
+    /* ===== Streamlit v1.38 Tabs 字體加粗（唯一需要）===== */
+    div[role="tablist"] > div[role="tab"] {
         font-weight: 600 !important;
-        padding: 0.75rem 1.5rem !important;
-        transition: all 0.3s ease;
     }
 
-    button[data-baseweb="tab"]:hover {
-        color: #2a9d5f !important;
-        border-bottom-color: rgba(42, 157, 95, 0.3) !important;
-    }
-
-    button[data-baseweb="tab"][aria-selected="true"] {
-        color: #2a9d5f !important;
-        border-bottom-color: #2a9d5f !important;
-        font-weight: 700 !important;
-    /* ===== 🔥 強制 Tab 文字加粗（保證生效）===== */
-    button[data-baseweb="tab"] span {
-        font-weight: 800 !important;
-    }
-
-    button[data-baseweb="tab"][aria-selected="true"] span {
+    div[role="tablist"] > div[role="tab"][aria-selected="true"] {
         font-weight: 700 !important;
     }
     </style>
