@@ -209,7 +209,7 @@ def apply_modern_style():
     }
     /* ===== Streamlit v1.38 Tabs：選中變綠（保證有效）===== */
     button[data-testid="stTab"][aria-selected="true"] p {
-        color: 6eaa5e !important;
+        color: #28955a !important;
     }
     /* ===== Streamlit v1.38 Tabs：底部移動指示線改成綠色 ===== */
     div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
