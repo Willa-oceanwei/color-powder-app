@@ -3120,9 +3120,6 @@ elif menu == "生產單管理":
                 order["色粉合計清單"] = color_weight_list
                 order["色粉合計類別"] = recipe_row.get("合計類別", "")
             
-                # ===== 🔽 這裡是你原本寫入 Google Sheet / CSV 的地方 =====
-                write_order_to_sheet(order)   # ← 你原本的寫入函式
-            
                 # =================================================
                 # ✅ Step 3：儲存成功後，記住這次內容
                 # =================================================
@@ -3225,6 +3222,8 @@ elif menu == "生產單管理":
                     st.session_state.df_order = df_order
                     st.session_state.new_order_saved = True
                     st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+                    # ✅【防止重複儲存】只有真的寫入成功才記住
+                    st.session_state.last_saved_order_snapshot = current_snapshot
                 
                     if continue_to_oem:
                         oem_id = f"OEM{order['生產單號']}"
