@@ -1072,7 +1072,7 @@ elif menu == "客戶名單":
     # 📝 新增 / 編輯 客戶
     # =====================================================
     st.markdown(
-        '<h2 style="font-size:16px; font-family:Arial; color:#b8d4c5;">🤖 新增 / 編輯客戶</h2>',
+        '<h2 style="font-size:16px; font-family:Arial; color:#b8d4c5;">🤖 新增 / 編輯客戶</h3>',
         unsafe_allow_html=True
     )
     
