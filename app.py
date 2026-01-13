@@ -225,7 +225,7 @@ def apply_modern_style():
         font-weight: 700 !important;
     /* ===== 🔥 強制 Tab 文字加粗（保證生效）===== */
     button[data-baseweb="tab"] span {
-        font-weight: 600 !important;
+        font-weight: 800 !important;
     }
 
     button[data-baseweb="tab"][aria-selected="true"] span {
