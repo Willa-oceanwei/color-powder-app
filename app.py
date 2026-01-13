@@ -111,19 +111,19 @@ def apply_modern_style():
         color: #e8f5ee !important;
     }
     
-    /* ===== 主內容區按鈕樣式 ===== */
+    /* ===== 主內容區按鈕漸層 ===== */
     .main div.stButton > button {
-        background: #0d1410 !important;
-        color: #b8d4c5 !important;
-        border: 1px solid rgba(23, 57, 40, 0.4) !important;
+        background: linear-gradient(135deg, #173928 0%, #2a9d5f 100%) !important;
+        color: #e8f5ee !important;
+        border: 1px solid #2a9d5f !important;
         border-radius: 8px;
         padding: 0.6rem 1rem;
         font-weight: 500;
         transition: all 0.3s ease;
     }
-    
+
     .main div.stButton > button:hover {
-        background: #173928 !important;
+        background: linear-gradient(135deg, #1f2923 0%, #2a9d5f 100%) !important;
         color: #e8f5ee !important;
         border-color: #2a9d5f !important;
         transform: translateY(-1px);
