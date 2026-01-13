@@ -1985,7 +1985,7 @@ elif menu == "配方管理":
         df_color = st.session_state.df_color
     
         # ---------- 2️⃣ 新增 / 編輯色粉（只動前端） ----------
-        st.markdown('<h3 style="font-size:18px; color:#dbd818;">➕ 新增 / 編輯色粉</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="font-size:18px; color:#b8d4c5;">➕ 新增 / 編輯色粉</h3>', unsafe_allow_html=True)
     
         if "form_color" not in st.session_state:
             st.session_state.form_color = {
@@ -2058,7 +2058,7 @@ elif menu == "配方管理":
         
         # ---------- 3️⃣ 搜尋 / 修改 / 刪除（只動前端） ----------
         st.markdown("---")
-        st.markdown('<h3 style="font-size:18px; color:#dbd818;">🛠️ 色粉修改 / 刪除</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="font-size:18px; color:#b8d4c5;">🛠️ 色粉修改 / 刪除</h3>', unsafe_allow_html=True)
         
         keyword = st.text_input("輸入色粉編號 / 名稱 / 國際色號搜尋", value=st.session_state.get("search_color_tab4",""))
         st.session_state.search_color_tab4 = keyword.strip()
