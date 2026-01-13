@@ -223,6 +223,13 @@ def apply_modern_style():
         color: #2a9d5f !important;
         border-bottom-color: #2a9d5f !important;
         font-weight: 700 !important;
+    /* ===== 🔥 強制 Tab 文字加粗（保證生效）===== */
+    button[data-baseweb="tab"] span {
+        font-weight: 600 !important;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] span {
+        font-weight: 700 !important;
     }
     </style>
     """, unsafe_allow_html=True)
