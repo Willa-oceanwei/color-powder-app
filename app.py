@@ -205,7 +205,7 @@ def apply_modern_style():
 
     /* 選中中的 Tab */
     button[data-testid="stTab"][aria-selected="true"] > p {
-        font-weight: 800 !important;
+        font-weight: 900 !important;
     }
     </style>
     """, unsafe_allow_html=True)
