@@ -4022,15 +4022,23 @@ if menu == "代工管理":
     
                     # ---------- 新增送達 ----------
                     col_d1, col_d2 = st.columns(2)
-                    delivery_date = col_d1.date_input("送達日期", key="delivery_date")
+                    
+                    disab = st.session_state.get("is_delivery_locked", False)
+                    
+                    delivery_date = col_d1.date_input(
+                        "送達日期",
+                        key="delivery_date",
+                        disabled=disab
+                    )
+                    
                     delivery_qty = col_d2.number_input(
                         "送達數量 (kg)",
                         min_value=0.0,
                         value=0.0,
                         step=1.0,
                         key="delivery_qty",
-                        disabled=disabled
-                    )
+                        disabled=disab
+                    )                 
     
                     col_btn1, col_btn2 = st.columns([1, 3])
                     def update_oem_status(oem_no, new_status):
