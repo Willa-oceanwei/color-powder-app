@@ -213,7 +213,7 @@ def apply_modern_style():
     }
     /* ===== Streamlit v1.38 Tabs：底部移動指示線改成綠色 ===== */
     div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
-        background-color: #279058 !important;
+        background-color: #28955a !important;
     }
     </style>
     """, unsafe_allow_html=True)
