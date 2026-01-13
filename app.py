@@ -198,13 +198,13 @@ def apply_modern_style():
         color: #2a9d5f !important;
         font-weight: 600 !important;
     }
-    
-    /* ===== Streamlit v1.38 Tabs 字體加粗（唯一需要）===== */
-    div[role="tablist"] > div[role="tab"] {
+    /* ===== Streamlit v1.38 Tabs 真・字體加粗 ===== */
+    button[data-testid="stTab"] > p {
         font-weight: 700 !important;
     }
 
-    div[role="tablist"] > div[role="tab"][aria-selected="true"] {
+    /* 選中中的 Tab */
+    button[data-testid="stTab"][aria-selected="true"] > p {
         font-weight: 800 !important;
     }
     </style>
