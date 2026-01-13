@@ -226,6 +226,7 @@ def apply_modern_style():
     div[role="tablist"] > div[role="tab"][aria-selected="true"] {
         font-weight: 700 !important;
     }
+    
     /* ===== Streamlit v1.38 Tabs：選中變綠（保證有效）===== */
     button[data-testid="stTab"][aria-selected="true"] p {
         color: #00cc66 !important;
@@ -233,6 +234,12 @@ def apply_modern_style():
     /* ===== Streamlit v1.38 Tabs：底部移動指示線改成綠色 ===== */
     div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
         background-color: #28955a !important;
+        
+    }
+    /* ===== Tab 未選中文字顏色（同步 Sidebar 顏色）===== */
+    button[data-testid="stTab"]:not([aria-selected="true"]) p {
+        color: #b8d4c5 !important;
+        
     }
     </style>
     """, unsafe_allow_html=True)
