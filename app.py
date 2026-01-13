@@ -199,8 +199,31 @@ def apply_modern_style():
         font-weight: 600 !important;
     }
     
-    /* ===== 其他 CSS 保留不變 ===== */
-    /* ... 這裡可保留你原本所有其他樣式 ... */
+    /* ===== Tab 樣式（字體加粗）===== */
+    div[data-baseweb="tab-list"] {
+        border-bottom: 1px solid rgba(42, 157, 95, 0.2) !important;
+    }
+
+    button[data-baseweb="tab"] {
+        background: transparent !important;
+        color: #6b8a7a !important;
+        border: none !important;
+        border-bottom: 3px solid transparent !important;
+        font-weight: 600 !important;
+        padding: 0.75rem 1.5rem !important;
+        transition: all 0.3s ease;
+    }
+
+    button[data-baseweb="tab"]:hover {
+        color: #2a9d5f !important;
+        border-bottom-color: rgba(42, 157, 95, 0.3) !important;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #2a9d5f !important;
+        border-bottom-color: #2a9d5f !important;
+        font-weight: 700 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
