@@ -201,11 +201,11 @@ def apply_modern_style():
     
     /* ===== Streamlit v1.38 Tabs 字體加粗（唯一需要）===== */
     div[role="tablist"] > div[role="tab"] {
-        font-weight: 600 !important;
+        font-weight: 700 !important;
     }
 
     div[role="tablist"] > div[role="tab"][aria-selected="true"] {
-        font-weight: 700 !important;
+        font-weight: 800 !important;
     }
     </style>
     """, unsafe_allow_html=True)
