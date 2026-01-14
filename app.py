@@ -4151,17 +4151,19 @@ if menu == "代工管理":
     with tab3:
     
         # ===== Toast（跨 rerun 顯示一次）=====
-        if "toast_msg" in st.session_state:
+        if st.session_state.get("toast_msg"):
             st.toast(
                 st.session_state.toast_msg,
                 icon=st.session_state.toast_icon
             )
-            del st.session_state.toast_msg
-            del st.session_state.toast_icon
+            st.session_state.pop("toast_msg")
+            st.session_state.pop("toast_icon")
     
         # ===== 沒有任何代工單 =====
         if df_oem.empty:
             st.info("⚠️ 目前沒有代工單")
+            # 顯示空白界面，不使用 st.stop()
+            st.empty()
         else:
     
             # ---------- 建立日期排序欄位 ----------
@@ -4180,49 +4182,41 @@ if menu == "代工管理":
             df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
     
             # ---------- 只顯示未結案 ----------
-            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"]
-            df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
+            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].sort_values("日期排序", ascending=False)
     
             if df_oem_active.empty:
                 st.warning("⚠️ 目前沒有可載回的代工單（全部已結案）")
+                st.empty()
             else:
     
-                # ---------- 下拉選代工單 ----------
+                # ---------- 下拉選代工單（Form 外） ----------
                 oem_options = [
                     f"{row['代工單號']} | {row.get('配方編號','')} | {row.get('客戶名稱','')} | {row.get('代工數量',0)}kg"
                     for _, row in df_oem_active.iterrows()
                 ]
-    
                 selected_option = st.selectbox(
                     "選擇代工單號",
                     [""] + oem_options,
                     key="select_oem_return"
                 )
     
-                if not selected_option:
-                    st.info("⬆️ 請先選擇代工單")
-                else:
+                if selected_option:
                     selected_oem = selected_option.split(" | ")[0]
     
-                    # ---------- 用 df_oem 找正確列（避免 Sheet 對錯） ----------
+                    # ---------- 找到正確 Sheet row ----------
                     oem_idx = df_oem[df_oem["代工單號"] == selected_oem].index[0]
                     oem_row = df_oem.loc[oem_idx]
     
                     total_qty = float(oem_row.get("代工數量", 0))
     
                     df_this_return = df_return[df_return["代工單號"] == selected_oem]
-                    total_returned = (
-                        df_this_return["載回數量"].astype(float).sum()
-                        if not df_this_return.empty else 0.0
-                    )
-    
+                    total_returned = df_this_return["載回數量"].astype(float).sum() if not df_this_return.empty else 0.0
                     remaining_qty = total_qty - total_returned
     
                     # ---------- 基本資訊 ----------
                     col1, col2 = st.columns(2)
                     col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
                     col2.text_input("代工數量 (kg)", value=total_qty, disabled=True)
-    
                     st.info(f"🚚 已載回：{total_returned} kg / 尚餘：{remaining_qty} kg")
     
                     # ---------- 已載回紀錄 ----------
@@ -4236,10 +4230,9 @@ if menu == "代工管理":
                     st.markdown("---")
     
                     # =====================================================
-                    # ✅ 只把「輸入＋提交」放進 form
+                    # ✅ 輸入載回放進 Form
                     # =====================================================
                     with st.form("return_form"):
-    
                         col_r1, col_r2 = st.columns(2)
     
                         return_date = col_r1.date_input(
@@ -4259,12 +4252,11 @@ if menu == "代工管理":
     
                     # ---------- 表單送出後 ----------
                     if submitted:
-    
                         if return_qty <= 0:
                             st.warning("⚠️ 請輸入載回數量")
                         else:
-                            # 🔒 寫入載回紀錄（安全 append_row / batch_update 可放在這裡）
-                            ws_return.append_row([
+                            # ===== 安全寫入 Google Sheet =====
+                            safe_append_row(ws_return, [
                                 selected_oem,
                                 return_date.strftime("%Y/%m/%d"),
                                 return_qty,
@@ -4273,20 +4265,31 @@ if menu == "代工管理":
     
                             new_total = total_returned + return_qty
     
-                            # ---------- 是否結案 ----------
+                            # ===== 是否結案（batch_update 寫法） =====
                             if new_total >= total_qty and total_qty > 0:
-                                ws_oem.update_cell(
-                                    oem_idx + 2,
-                                    df_oem.columns.get_loc("狀態") + 1,
-                                    "✅ 已結案"
-                                )
+                                ws_oem.batch_update([{
+                                    "range": f"{oem_idx + 2}:{oem_idx + 2}",
+                                    "values": [[
+                                        *(oem_row.values.tolist()[:-1]),  # 保留其他欄位
+                                        "✅ 已結案"
+                                    ]]
+                                }])
                                 st.session_state.toast_msg = "🎉 載回完成，代工單已結案"
                                 st.session_state.toast_icon = "✅"
                             else:
                                 st.session_state.toast_msg = "💾 載回資料已儲存"
                                 st.session_state.toast_icon = "📦"
     
-                            st.experimental_rerun()
+                            # 使用 flag 安全 rerun
+                            st.session_state["rerun_after_return_save"] = True
+    
+    # =====================================================
+    # 🔄 安全 rerun
+    # =====================================================
+    if st.session_state.get("rerun_after_return_save", False):
+        st.session_state["rerun_after_return_save"] = False
+        st.experimental_rerun()
+    
       
     # ========== Tab 4：代工進度表 ==========
     with tab4:
