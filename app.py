@@ -5199,7 +5199,7 @@ elif menu == "查詢區":
             df_pantone = pd.DataFrame(columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
     
         # === 新增區塊（2 欄一列） ===
-        st.markdown('<span style="color:#f1f5f2; font-weight:bold;">➕ 新增 Pantone 記錄</span>', unsafe_allow_html=True)
+        st.markdown('<span style="color:#f1f5f2; font-weight:bold;">☑️ 新增 Pantone 記錄</span>', unsafe_allow_html=True)
         
         with st.form("add_pantone_tab"):
             col1, col2 = st.columns(2)
@@ -5341,7 +5341,7 @@ elif menu == "查詢區":
         })
     
         # ===== 新增 / 修改 區 =====
-        st.markdown('<span style="color:#f1f5f2; font-weight:bold;">➕ 新增 / 修改 樣品</span>', unsafe_allow_html=True)
+        st.markdown('<span style="color:#f1f5f2; font-weight:bold;">☑️ 新增 / 修改 樣品</span>', unsafe_allow_html=True)
     
         # 🔹 使用唯一 form name
         with st.form("form_sample_tab4"):
