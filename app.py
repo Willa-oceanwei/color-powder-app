@@ -4999,7 +4999,6 @@ elif menu == "查詢區":
                         st.dataframe(df_result, use_container_width=True) 
 
     # ========== Tab 2：色粉用量查詢 ==========
-        # ========== Tab 2：色粉用量查詢（使用 form 提交） ==========
     with tab2:
     
         with st.form("form_powder_usage"):
@@ -5200,7 +5199,7 @@ elif menu == "查詢區":
             df_pantone = pd.DataFrame(columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
     
         # === 新增區塊（2 欄一列） ===
-        st.markdown('<span style="color:#b8d4c5; font-weight:bold;">➕ 新增 Pantone 記錄</span>', unsafe_allow_html=True)
+        st.markdown('<span style="color:#f1f5f2; font-weight:bold;">➕ 新增 Pantone 記錄</span>', unsafe_allow_html=True)
         
         with st.form("add_pantone_tab"):
             col1, col2 = st.columns(2)
@@ -5243,7 +5242,7 @@ elif menu == "查詢區":
             st.table(df_reset)
     
         # ======== 🔍 查詢 Pantone 色號 ========
-        st.markdown('<span style="color:#b8d4c5; font-weight:bold;">🔍 查詢 Pantone 色號</span>', unsafe_allow_html=True)
+        st.markdown('<span style="color:#f1f5f2; font-weight:bold;">🔍 查詢 Pantone 色號</span>', unsafe_allow_html=True)
 
         # 同一行：輸入框 + 搜尋模式
         c1, c2 = st.columns([2, 1])
