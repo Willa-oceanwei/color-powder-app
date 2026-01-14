@@ -5341,7 +5341,7 @@ elif menu == "查詢區":
         })
     
         # ===== 新增 / 修改 區 =====
-        st.markdown('<span style="color:#b8d4c5; font-weight:bold;">➕ 新增 / 修改 樣品</span>', unsafe_allow_html=True)
+        st.markdown('<span style="color:#f1f5f2; font-weight:bold;">➕ 新增 / 修改 樣品</span>', unsafe_allow_html=True)
     
         # 🔹 使用唯一 form name
         with st.form("form_sample_tab4"):
@@ -5412,7 +5412,7 @@ elif menu == "查詢區":
                 # 可在這裡觸發前端列表刷新
     
         # ===== 搜尋區（Enter 可觸發）=====
-        st.markdown('<span style="color:#b8d4c5; font-weight:bold;">🔍 樣品記錄搜尋</span>', unsafe_allow_html=True)
+        st.markdown('<span style="color:#f1f5f2; font-weight:bold;">🔍 樣品記錄搜尋</span>', unsafe_allow_html=True)
     
         with st.form("sample_search_form"):
             s1, s2, s3, s4 = st.columns(4)
@@ -5785,8 +5785,6 @@ elif menu == "庫存區":
             # 成功通知
             st.success(f"✅ 初始庫存已儲存\n色粉：{powder_id}\n數量：{qty_val} {ini_unit}")
     
-    
-    # ========== Tab 2：庫存查詢 ==========
     # ========== Tab 2：庫存查詢（Form 版） ==========
     with tab2:
     
