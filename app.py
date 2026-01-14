@@ -4121,7 +4121,7 @@ if menu == "代工管理":
     # ================= Tab 3：載回登入 =================
     with tab3:
     
-        # ===== Toast 顯示（跨 rerun 一次性）=====
+        # ===== Toast（跨 rerun 顯示一次）=====
         if "toast_msg" in st.session_state:
             st.toast(
                 st.session_state.toast_msg,
@@ -4130,6 +4130,7 @@ if menu == "代工管理":
             del st.session_state.toast_msg
             del st.session_state.toast_icon
     
+        # ===== 沒有任何代工單 =====
         if df_oem.empty:
             st.info("⚠️ 目前沒有代工單")
             st.stop()
@@ -4137,89 +4138,87 @@ if menu == "代工管理":
         # ---------- 建立日期排序欄位 ----------
         def tw_to_ad(d):
             d = str(d)
-            if len(d) == 7:  # 民國年
+            if len(d) == 7:
                 return str(int(d[:3]) + 1911) + d[3:]
             return d
     
         df_oem["日期排序"] = (
             df_oem["代工單號"]
-            .str.split("-").str[0]
+            .str.split("-")
+            .str[0]
             .apply(tw_to_ad)
         )
         df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
     
-        # ---------- 過濾未結案 ----------
-        df_oem_active = (
-            df_oem[df_oem["狀態"] != "✅ 已結案"]
-            .sort_values("日期排序", ascending=False)
-        )
+        # ---------- 只顯示未結案 ----------
+        df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"]
+        df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
     
         if df_oem_active.empty:
             st.warning("⚠️ 目前沒有可載回的代工單（全部已結案）")
             st.stop()
     
+        # ---------- 下拉選代工單（⚠️ 一定在 form 外） ----------
         oem_options = [
             f"{row['代工單號']} | {row.get('配方編號','')} | {row.get('客戶名稱','')} | {row.get('代工數量',0)}kg"
             for _, row in df_oem_active.iterrows()
         ]
     
-        # ================= 🔒 Form 開始 =================
-        with st.form("oem_return_form"):
+        selected_option = st.selectbox(
+            "選擇代工單號",
+            [""] + oem_options,
+            key="select_oem_return"
+        )
     
-            selected_option = st.selectbox(
-                "選擇代工單號",
-                [""] + oem_options,
-                key="select_oem_return"
+        if not selected_option:
+            st.stop()
+    
+        selected_oem = selected_option.split(" | ")[0]
+    
+        # ---------- 用 df_oem 找正確列（避免 Sheet 對錯） ----------
+        oem_idx = df_oem[df_oem["代工單號"] == selected_oem].index[0]
+        oem_row = df_oem.loc[oem_idx]
+    
+        total_qty = float(oem_row.get("代工數量", 0))
+    
+        df_this_return = df_return[df_return["代工單號"] == selected_oem]
+        total_returned = (
+            df_this_return["載回數量"].astype(float).sum()
+            if not df_this_return.empty else 0.0
+        )
+    
+        remaining_qty = total_qty - total_returned
+    
+        # ---------- 基本資訊 ----------
+        col1, col2 = st.columns(2)
+        col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
+        col2.text_input("代工數量 (kg)", value=total_qty, disabled=True)
+    
+        st.info(f"🚚 已載回：{total_returned} kg / 尚餘：{remaining_qty} kg")
+    
+        # ---------- 已載回紀錄 ----------
+        if not df_this_return.empty:
+            st.dataframe(
+                df_this_return[["載回日期", "載回數量"]],
+                use_container_width=True,
+                hide_index=True
             )
     
-            if not selected_option:
-                st.form_submit_button("➕ 新增載回", disabled=True)
-                st.stop()
+        st.markdown("---")
     
-            selected_oem_return = selected_option.split(" | ")[0]
+        # =====================================================
+        # ✅ 只把「輸入＋提交」放進 form
+        # =====================================================
+        with st.form("return_form"):
     
-            # ⚠️ 一定用 df_oem 找 index
-            oem_idx = df_oem[df_oem["代工單號"] == selected_oem_return].index[0]
-            oem_row_return = df_oem.loc[oem_idx]
-    
-            total_qty = float(oem_row_return.get("代工數量", 0))
-    
-            df_this_return = df_return[df_return["代工單號"] == selected_oem_return]
-            total_returned = (
-                df_this_return["載回數量"].astype(float).sum()
-                if not df_this_return.empty else 0.0
-            )
-    
-            remaining_return = total_qty - total_returned
-    
-            # ---------- 基本資訊 ----------
-            col1, col2 = st.columns(2)
-            col1.text_input(
-                "配方編號",
-                value=oem_row_return.get("配方編號", ""),
-                disabled=True
-            )
-            col2.text_input(
-                "代工數量 (kg)",
-                value=oem_row_return.get("代工數量", ""),
-                disabled=True
-            )
-    
-            if not df_this_return.empty:
-                st.dataframe(
-                    df_this_return[["載回日期", "載回數量"]],
-                    use_container_width=True,
-                    hide_index=True
-                )
-    
-            st.info(f"🚚 已載回：{total_returned} kg / 尚餘：{remaining_return} kg")
-    
-            # ---------- 輸入 ----------
             col_r1, col_r2 = st.columns(2)
+    
             return_date = col_r1.date_input(
                 "載回日期",
+                value=datetime.today(),
                 key="return_date_input"
             )
+    
             return_qty = col_r2.number_input(
                 "載回數量 (kg)",
                 min_value=0.0,
@@ -4229,14 +4228,16 @@ if menu == "代工管理":
     
             submitted = st.form_submit_button("➕ 新增載回")
     
-        # ================= 🚀 Form 提交後處理 =================
+        # ---------- 表單送出後 ----------
         if submitted:
+    
             if return_qty <= 0:
                 st.warning("⚠️ 請輸入載回數量")
                 st.stop()
     
+            # 寫入載回紀錄
             ws_return.append_row([
-                selected_oem_return,
+                selected_oem,
                 return_date.strftime("%Y/%m/%d"),
                 return_qty,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -4244,13 +4245,14 @@ if menu == "代工管理":
     
             new_total = total_returned + return_qty
     
+            # ---------- 是否結案 ----------
             if new_total >= total_qty and total_qty > 0:
                 ws_oem.update_cell(
                     oem_idx + 2,
                     df_oem.columns.get_loc("狀態") + 1,
                     "✅ 已結案"
                 )
-                st.session_state.toast_msg = "🎉 載回資料已儲存，代工單已結案"
+                st.session_state.toast_msg = "🎉 載回完成，代工單已結案"
                 st.session_state.toast_icon = "✅"
             else:
                 st.session_state.toast_msg = "💾 載回資料已儲存"
