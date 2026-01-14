@@ -5193,7 +5193,8 @@ elif menu == "查詢區":
             df_pantone = pd.DataFrame(columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
     
         # === 新增區塊（2 欄一列） ===
-        st.markdown("**➕ 新增 Pantone 記錄**")
+        st.markdown('<span style="color:#b8d4c5; font-weight:bold;">➕ 新增 Pantone 記錄</span>', unsafe_allow_html=True)
+        
         with st.form("add_pantone_tab"):
             col1, col2 = st.columns(2)
             with col1:
@@ -5235,8 +5236,8 @@ elif menu == "查詢區":
             st.table(df_reset)
     
         # ======== 🔍 查詢 Pantone 色號 ========
-        st.markdown("**🔍 查詢 Pantone 色號**")
-    
+        st.markdown('<span style="color:#b8d4c5; font-weight:bold;">🔍 查詢 Pantone 色號</span>', unsafe_allow_html=True)
+
         # 同一行：輸入框 + 搜尋模式
         c1, c2 = st.columns([2, 1])
         with c1:
@@ -5336,7 +5337,7 @@ elif menu == "查詢區":
         })
     
         # ===== 新增 / 修改 區 =====
-        st.markdown("**➕ 新增 / 修改 樣品**")
+        st.markdown('<span style="color:#b8d4c5; font-weight:bold;">➕ 新增 / 修改 樣品</span>', unsafe_allow_html=True)
     
         # 🔹 使用唯一 form name
         with st.form("form_sample_tab4"):
@@ -5407,7 +5408,7 @@ elif menu == "查詢區":
                 # 可在這裡觸發前端列表刷新
     
         # ===== 搜尋區（Enter 可觸發）=====
-        st.markdown("**🔍 樣品記錄搜尋**")
+        st.markdown('<span style="color:#b8d4c5; font-weight:bold;">🔍 樣品記錄搜尋</span>', unsafe_allow_html=True)
     
         with st.form("sample_search_form"):
             s1, s2, s3, s4 = st.columns(4)
