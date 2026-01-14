@@ -242,14 +242,43 @@ def apply_modern_style():
         
     }
 
-    /* ===== ✅ 成功通知（只改 st.success）===== */
-    .stAlert.stAlert-success {
-        background-color: #233a30 !important;   /* 比主背景亮一階的綠 */
-        color: #f1f5f2 !important;              /* 柔和白 */
-        border-left: 6px solid #2a9d5f !important;
-        border-radius: 10px !important;
-        box-shadow: 0 6px 18px rgba(42, 157, 95, 0.25) !important;
+    /* ===== 🔔 全站通知訊息（統一風格） ===== */
+    .stAlert {
+        border-radius: 12px !important;
+        padding: 1rem 1.2rem !important;
+        font-weight: 500 !important;
+        line-height: 1.6 !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.35) !important;
     }
+    
+    /* ===== 成功 Success ===== */
+    .stAlert.stAlert-success {
+        background: linear-gradient(135deg, #233a30 0%, #1f2f28 100%) !important;
+        color: #f1f5f2 !important;
+        border-left: 6px solid #2a9d5f !important;
+    }
+    
+    /* ===== 錯誤 Error ===== */
+    .stAlert.stAlert-error {
+        background: linear-gradient(135deg, #3a2323 0%, #2f1f1f 100%) !important;
+        color: #fdecec !important;
+        border-left: 6px solid #e76f51 !important;
+    }
+    
+    /* ===== 警告 Warning ===== */
+    .stAlert.stAlert-warning {
+        background: linear-gradient(135deg, #3a3223 0%, #2f281f 100%) !important;
+        color: #fff4d6 !important;
+        border-left: 6px solid #f4a261 !important;
+    }
+    
+    /* ===== 資訊 Info ===== */
+    .stAlert.stAlert-info {
+        background: linear-gradient(135deg, #23303a 0%, #1f262f 100%) !important;
+        color: #e6f0ff !important;
+        border-left: 6px solid #3a86ff !important;
+    }
+    
 
     </style>
     """, unsafe_allow_html=True)
