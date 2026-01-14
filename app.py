@@ -2021,7 +2021,7 @@ elif menu == "配方管理":
         df_color = st.session_state.df_color
     
         # ---------- 2️⃣ 新增 / 編輯色粉（只動前端） ----------
-        st.markdown('<h3 style="font-size:18px; color:#f1f5f2;">➕ 新增 / 編輯色粉</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="font-size:18px; color:#f1f5f2;">☑️ 新增 / 編輯色粉</h3>', unsafe_allow_html=True)
     
         if "form_color" not in st.session_state:
             st.session_state.form_color = {
