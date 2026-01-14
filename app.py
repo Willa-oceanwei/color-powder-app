@@ -241,6 +241,13 @@ def apply_modern_style():
         color: #b8d4c5 !important;
         
     }
+
+    /* ===== 只針對確認訊息改色 ===== */
+    .stAlert.stAlert-success {
+        background-color: #82cda8 !important;   /* 背景顏色，可自訂 */
+        border-left: 5px solid #00cc66 !important; /* 左邊綠色標記 */
+        color: #e8f5ee !important;              /* 文字顏色 */
+    }
     </style>
     """, unsafe_allow_html=True)
 
