@@ -5229,8 +5229,6 @@ elif menu == "查詢區":
                         st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
                         st.rerun()
     
-        st.markdown("---")
-    
         # ====== 統一顯示 Pantone 色號表函式 ======
         def show_pantone_table(df, title="Pantone 色號表"):
             if title:
