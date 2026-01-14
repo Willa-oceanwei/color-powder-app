@@ -333,6 +333,35 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# ================= 共用 Google Sheet 穩定寫入工具 =================
+
+def safe_append_row(ws, row_values):
+    """
+    穩定版新增一列（取代 append_row）
+    """
+    next_row = len(ws.get_all_values()) + 1
+    body = {
+        "valueInputOption": "USER_ENTERED",
+        "data": [{
+            "range": f"A{next_row}",
+            "values": [row_values]
+        }]
+    }
+    ws.spreadsheet.batch_update(body)
+
+
+def safe_update_cell(ws, row, col, value):
+    """
+    穩定版單格更新（取代 update_cell）
+    """
+    body = {
+        "valueInputOption": "USER_ENTERED",
+        "data": [{
+            "range": gspread.utils.rowcol_to_a1(row, col),
+            "values": [[value]]
+        }]
+    }
+    ws.spreadsheet.batch_update(body)
 
 # ===== 在最上方定義函式 =====
 def set_form_style():
@@ -4175,7 +4204,7 @@ if menu == "代工管理":
     
         selected_oem = selected_option.split(" | ")[0]
     
-        # ---------- 用 df_oem 找正確列（避免 Sheet 對錯） ----------
+        # ---------- 用 df_oem 找正確列 ----------
         oem_idx = df_oem[df_oem["代工單號"] == selected_oem].index[0]
         oem_row = df_oem.loc[oem_idx]
     
@@ -4235,8 +4264,8 @@ if menu == "代工管理":
                 st.warning("⚠️ 請輸入載回數量")
                 st.stop()
     
-            # 寫入載回紀錄
-            ws_return.append_row([
+            # ✅ 穩定寫入載回紀錄
+            safe_append_row(ws_return, [
                 selected_oem,
                 return_date.strftime("%Y/%m/%d"),
                 return_qty,
@@ -4245,9 +4274,10 @@ if menu == "代工管理":
     
             new_total = total_returned + return_qty
     
-            # ---------- 是否結案 ----------
+            # ---------- 是否結案（穩定更新） ----------
             if new_total >= total_qty and total_qty > 0:
-                ws_oem.update_cell(
+                safe_update_cell(
+                    ws_oem,
                     oem_idx + 2,
                     df_oem.columns.get_loc("狀態") + 1,
                     "✅ 已結案"
