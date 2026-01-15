@@ -3454,7 +3454,7 @@ elif menu == "生產單管理":
         cols_page = st.columns([2, 2, 2, 2, 2])
     
         with cols_page[0]:
-            if st.button("🏠首頁", key="first_page_tab2"):
+            if st.button("🏠回首頁", key="first_page_tab2"):
                 st.session_state.order_page_tab2 = 1
                 st.rerun()
     
