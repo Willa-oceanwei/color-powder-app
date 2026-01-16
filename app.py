@@ -4526,20 +4526,24 @@ if menu == "代工管理":
             if df_progress.empty:
                 st.info("⚠️ 沒有符合條件的代工歷程")
             else:
-                # 排序：未結案 → 已結案，依建立時間排序
+                # 排序：未結案在前，建立時間由新到舊
                 df_progress = df_progress.sort_values(["status_order", "建立時間"], ascending=[True, False])
-    
-                # 排序、生成序號
+                
+                # 生成顯示欄位
                 df_display = df_progress.drop(columns=["status_order"]).copy()
+                
+                # 先把序號生成好（確保是 int）
                 df_display["序號"] = range(1, len(df_display) + 1)
+                
+                # 把序號放最右
                 cols = [c for c in df_display.columns if c != "序號"] + ["序號"]
                 df_display = df_display[cols]
-
-                # 移除 DataFrame 的內建 index
+                
+                # DataFrame reset_index 只重置內建 index，不會影響「序號」
                 df_display_reset = df_display.reset_index(drop=True)
-
+                
                 # 顯示
-                st.dataframe(df_display_reset, use_container_width=True)
+                st.dataframe(df_display_reset, use_container_width=True)                
                
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
