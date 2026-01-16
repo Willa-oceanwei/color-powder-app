@@ -4304,13 +4304,11 @@ if menu == "代工管理":
                                         safe_values.append(str(v))
                     
                                 # ② 寫回狀態為已結案
-                                ws_oem.batch_update([{
-                                    "range": f"{oem_idx + 2}:{oem_idx + 2}",
-                                    "values": [[
-                                        *safe_values,
-                                        "✅ 已結案"
-                                    ]]
-                                }])
+                                ws_oem.update_cell(
+                                    row=oem_idx + 2,
+                                    col=status_col_idx,
+                                    value="✅ 已結案"
+                                )
                     
                                 st.session_state.toast_msg = "🎉 載回完成，代工單已結案"
                                 st.session_state.toast_icon = "✅"
