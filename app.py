@@ -373,21 +373,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ================= 共用 Google Sheet 穩定寫入工具 =================
-
 def safe_append_row(ws, row_values):
-    """
-    穩定版新增一列（取代 append_row）
-    """
-    next_row = len(ws.get_all_values()) + 1
-    body = {
-        "valueInputOption": "USER_ENTERED",
-        "data": [{
-            "range": f"A{next_row}",
-            "values": [row_values]
-        }]
-    }
-    ws.spreadsheet.batch_update(body)
-
+    clean_row = ["" if v is None else str(v) for v in row_values]
+    ws.append_row(clean_row, value_input_option="USER_ENTERED")
 
 def safe_update_cell(ws, row, col, value):
     """
