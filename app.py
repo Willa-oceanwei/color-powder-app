@@ -4314,12 +4314,16 @@ if menu == "代工管理":
                                         safe_values.append(str(v))
                     
                                 # ② 寫回狀態為已結案
+                                # 確保 status_col_idx 是 int
+                                status_col_idx = int(df_oem.columns.get_loc("狀態")) + 1  # +1 因為 gspread 是 1-base
+
+                                # 更新單一格
                                 ws_oem.update_cell(
-                                    row=oem_idx + 2,
+                                    row=oem_idx + 2,        # gspread row 也是 1-base
                                     col=status_col_idx,
                                     value="✅ 已結案"
                                 )
-                    
+                
                                 st.session_state.toast_msg = "🎉 載回完成，代工單已結案"
                                 st.session_state.toast_icon = "✅"
                     
