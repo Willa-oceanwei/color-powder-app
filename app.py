@@ -4462,8 +4462,7 @@ if menu == "代工管理":
 
     # ================= Tab 5：代工歷程查詢 =================
     with tab5:
-        st.markdown("### 🔍 搜尋代工歷程")
-    
+        
         # ---------- 搜尋欄位 ----------
         col1, col2 = st.columns(2)
         search_client = col1.text_input("客戶名稱", key="search_client_history")
