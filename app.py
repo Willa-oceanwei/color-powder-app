@@ -3944,7 +3944,7 @@ if menu == "代工管理":
 
     
     # ===== Tab 分頁 =====
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 新增代工單", "✏️ 編輯代工", "📥 載回登入", "🆗 代工進度表"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 新增代工單", "✏️ 編輯代工", "📥 載回登入", "🆗 代工進度表", "📋 代工歷程查詢"])
     
     # ========== Tab 1：新增代工單 ==========
     if "oem_saved" in st.session_state:
@@ -4339,8 +4339,7 @@ if menu == "代工管理":
     # =====================================================
     if st.session_state.get("rerun_after_return_save", False):
         st.session_state["rerun_after_return_save"] = False
-        st.rerun()
-    
+        st.rerun()    
       
     # ========== Tab 4：代工進度表 ==========
     with tab4:
@@ -4453,7 +4452,72 @@ if menu == "代工管理":
                 st.info("目前沒有符合條件的代工單")
     
         else:
-            st.info("⚠️ 目前沒有代工記錄")                                    
+            st.info("⚠️ 目前沒有代工記錄")      
+
+    # ================= Tab 5：代工歷程查詢 =================
+    with st.tab5("代工歷程表"):
+    
+        st.markdown("### 🔍 搜尋代工歷程")
+    
+        # ---------- 搜尋欄位 ----------
+        col1, col2 = st.columns(2)
+        search_client = col1.text_input("客戶名稱", key="search_client_history")
+        search_recipe = col2.text_input("配方編號", key="search_recipe_history")
+    
+        # ---------- 準備歷程資料 ----------
+        progress_data = []
+    
+        for _, oem in df_oem.iterrows():
+            oem_id = oem.get("代工單號", "")
+            status = oem.get("狀態", "")
+            status_order = 0 if status != "✅ 已結案" else 1  # 可排序
+            delivery_text = ""  # 組成送達日期及數量文字
+            return_text = ""    # 組成載回日期及數量文字
+    
+            # 送達紀錄（假設 df_delivery 有對應資料）
+            df_del = df_delivery[df_delivery["代工單號"] == oem_id] if 'df_delivery' in locals() else pd.DataFrame()
+            if not df_del.empty:
+                delivery_text = "\n".join([
+                    f"{row['送達日期']} → {row['送達數量']} kg"
+                    for _, row in df_del.iterrows()
+                ])
+    
+            # 載回紀錄（df_return）
+            df_ret = df_return[df_return["代工單號"] == oem_id] if 'df_return' in locals() else pd.DataFrame()
+            if not df_ret.empty:
+                return_text = "\n".join([
+                    f"{row['載回日期']} → {row['載回數量']} kg"
+                    for _, row in df_ret.iterrows()
+                ])
+    
+            progress_data.append({
+                "status_order": status_order,          # 排序用
+                "狀態": status,
+                "代工單號": oem_id,
+                "代工廠名稱": oem.get("代工廠商", ""),
+                "配方編號": oem.get("配方編號", ""),
+                "客戶名稱": oem.get("客戶名稱", ""),
+                "代工數量": f"{oem.get('代工數量', 0)} kg",
+                "送達日期及數量": delivery_text,
+                "載回日期及數量": return_text,
+                "建立時間": oem.get("建立時間", "")
+            })
+    
+        df_progress = pd.DataFrame(progress_data)
+    
+        # ---------- 搜尋過濾 ----------
+        if search_client:
+            df_progress = df_progress[df_progress["客戶名稱"].str.contains(search_client, case=False, na=False)]
+        if search_recipe:
+            df_progress = df_progress[df_progress["配方編號"].str.contains(search_recipe, case=False, na=False)]
+    
+        # ---------- 顯示表格 ----------
+        if df_progress.empty:
+            st.info("⚠️ 沒有符合條件的代工歷程")
+        else:
+            df_progress = df_progress.sort_values(["status_order", "建立時間"], ascending=[True, False])
+            st.dataframe(df_progress.drop(columns=["status_order"]), use_container_width=True)
+    
             
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
