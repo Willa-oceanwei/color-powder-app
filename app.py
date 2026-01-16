@@ -4529,14 +4529,17 @@ if menu == "代工管理":
                 # 排序：未結案 → 已結案，依建立時間排序
                 df_progress = df_progress.sort_values(["status_order", "建立時間"], ascending=[True, False])
     
-                # 生成序號放最右
+                # 排序、生成序號
                 df_display = df_progress.drop(columns=["status_order"]).copy()
                 df_display["序號"] = range(1, len(df_display) + 1)
                 cols = [c for c in df_display.columns if c != "序號"] + ["序號"]
                 df_display = df_display[cols]
-    
-                # 顯示 DataFrame
-                st.dataframe(df_display.style.hide(axis="index"), use_container_width=True)
+
+                # 移除 DataFrame 的內建 index
+                df_display_reset = df_display.reset_index(drop=True)
+
+                # 顯示
+                st.dataframe(df_display_reset, use_container_width=True)
                
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
