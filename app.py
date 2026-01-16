@@ -4293,9 +4293,9 @@ if menu == "代工管理":
                         else:
                             # ===== 安全寫入 Google Sheet =====
                             safe_append_row(ws_return, [
-                                selected_oem,
+                                str(selected_oem or ""),
                                 return_date.strftime("%Y/%m/%d"),
-                                return_qty,
+                                str(return_qty),
                                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             ])
     
