@@ -4286,13 +4286,14 @@ if menu == "代工管理":
                                 str(return_qty),
                                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             ])
-    
+                    
                             new_total = total_returned + return_qty
-    
-                            # ===== 是否結案（batch_update 寫法） =====
-                            if new_total >= total_qty and total_qty > 0:
-                            
-                                # ① 先把 pandas / numpy 資料轉成「乾淨可 JSON 化」的 list
+                            remaining_after = total_qty - new_total   # 🔑 關鍵：算「載回後尚餘」
+                    
+                            # ===== 是否結案（剩餘 <= 0 即結案）=====
+                            if remaining_after <= 0 and total_qty > 0:
+                    
+                                # ① pandas / numpy → 乾淨字串
                                 safe_values = []
                                 for v in oem_row.values.tolist()[:-1]:
                                     if v is None:
@@ -4301,8 +4302,8 @@ if menu == "代工管理":
                                         safe_values.append("")
                                     else:
                                         safe_values.append(str(v))
-                            
-                                # ② 寫回該筆資料，最後一欄標記為「已結案」
+                    
+                                # ② 寫回狀態為已結案
                                 ws_oem.batch_update([{
                                     "range": f"{oem_idx + 2}:{oem_idx + 2}",
                                     "values": [[
@@ -4310,17 +4311,16 @@ if menu == "代工管理":
                                         "✅ 已結案"
                                     ]]
                                 }])
-                            
+                    
                                 st.session_state.toast_msg = "🎉 載回完成，代工單已結案"
                                 st.session_state.toast_icon = "✅"
-                            
+                    
                             else:
                                 st.session_state.toast_msg = "💾 載回資料已儲存"
                                 st.session_state.toast_icon = "📦"
-                            
+                    
                             # ③ 使用 flag 安全 rerun
-                            st.session_state["rerun_after_return_save"] = True
-                            
+                            st.session_state["rerun_after_return_save"] = True                   
     
     # =====================================================
     # 🔄 安全 rerun
