@@ -4239,8 +4239,18 @@ if menu == "代工管理":
     
                     # ---------- 基本資訊 ----------
                     col1, col2 = st.columns(2)
-                    col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
-                    col2.text_input("代工數量 (kg)", value=total_qty, disabled=True)
+                    col1.text_input(
+                        "配方編號",
+                        value=oem_row.get("配方編號", ""),
+                        disabled=True,
+                        key="oem_recipe_no_display"  # <- 這行就是你問的 key
+                    )
+                    col2.text_input(
+                        "代工數量 (kg)",
+                        value=total_qty,
+                        disabled=True,
+                        key="oem_total_qty_display"  # <- 這個欄位也建議加 key
+                    )
                     st.info(f"🚚 已載回：{total_returned} kg / 尚餘：{remaining_qty} kg")
     
                     # ---------- 已載回紀錄 ----------
