@@ -4327,7 +4327,7 @@ if menu == "代工管理":
     # =====================================================
     if st.session_state.get("rerun_after_return_save", False):
         st.session_state["rerun_after_return_save"] = False
-        st.experimental_rerun()
+        st.rerun()
     
       
     # ========== Tab 4：代工進度表 ==========
