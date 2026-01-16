@@ -4291,21 +4291,36 @@ if menu == "代工管理":
     
                             # ===== 是否結案（batch_update 寫法） =====
                             if new_total >= total_qty and total_qty > 0:
+                            
+                                # ① 先把 pandas / numpy 資料轉成「乾淨可 JSON 化」的 list
+                                safe_values = []
+                                for v in oem_row.values.tolist()[:-1]:
+                                    if v is None:
+                                        safe_values.append("")
+                                    elif isinstance(v, float) and pd.isna(v):
+                                        safe_values.append("")
+                                    else:
+                                        safe_values.append(str(v))
+                            
+                                # ② 寫回該筆資料，最後一欄標記為「已結案」
                                 ws_oem.batch_update([{
                                     "range": f"{oem_idx + 2}:{oem_idx + 2}",
                                     "values": [[
-                                        *(oem_row.values.tolist()[:-1]),  # 保留其他欄位
+                                        *safe_values,
                                         "✅ 已結案"
                                     ]]
                                 }])
+                            
                                 st.session_state.toast_msg = "🎉 載回完成，代工單已結案"
                                 st.session_state.toast_icon = "✅"
+                            
                             else:
                                 st.session_state.toast_msg = "💾 載回資料已儲存"
                                 st.session_state.toast_icon = "📦"
-    
-                            # 使用 flag 安全 rerun
+                            
+                            # ③ 使用 flag 安全 rerun
                             st.session_state["rerun_after_return_save"] = True
+                            
     
     # =====================================================
     # 🔄 安全 rerun
