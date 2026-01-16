@@ -4536,7 +4536,7 @@ if menu == "代工管理":
                 df_display = df_display[cols]
     
                 # 顯示 DataFrame
-                st.dataframe(df_display, use_container_width=True)
+                st.dataframe(df_display.style.hide(axis="index"), use_container_width=True)
                
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
