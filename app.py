@@ -1827,7 +1827,7 @@ elif menu == "配方管理":
                     # ✅ 生成兩欄放按鈕
                     col_left, col_right = st.columns(2)
                     with col_left:
-                        if st.button("✏️ ", key=f"edit_recipe_btn_tab3_{selected_index}"):
+                        if st.button("✏️ 修改", key=f"edit_recipe_btn_tab3_{selected_code}"):
                             st.session_state.show_edit_recipe_panel = True
                             st.session_state.editing_recipe_index = selected_index
                             st.rerun()
