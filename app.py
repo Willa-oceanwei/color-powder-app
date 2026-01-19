@@ -1807,6 +1807,9 @@ elif menu == "配方管理":
             selected_code = st.selectbox(
                 "輸入配方",
                 options=recipe_codes,
+                index=recipe_codes.index(
+                    st.session_state.get("select_recipe_code_page_tab3","")
+                ) if st.session_state.get("select_recipe_code_page_tab3","") in recipe_codes else 0,
                 format_func=lambda code: "" if code == "" else " | ".join(
                     df_recipe[df_recipe["配方編號"] == code][["配方編號","顏色","客戶名稱"]].iloc[0]
                 ),
