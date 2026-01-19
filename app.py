@@ -1802,9 +1802,8 @@ elif menu == "配方管理":
             df_recipe['配方編號'] = df_recipe['配方編號'].fillna('').astype(str)
 
             # ===== 改成用配方編號當選單值（穩定版）=====
-            recipe_codes = df_recipe["配方編號"].dropna().astype(str).tolist()
-            recipe_codes = [""] + recipe_codes  # 空白預設
-        
+            recipe_codes = [""] + sorted(df_recipe["配方編號"].dropna().astype(str).unique().tolist())
+                
             selected_code = st.selectbox(
                 "輸入配方",
                 options=recipe_codes,
