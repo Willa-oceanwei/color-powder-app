@@ -1801,17 +1801,18 @@ elif menu == "配方管理":
         if not df_recipe.empty and "配方編號" in df_recipe.columns:
             df_recipe['配方編號'] = df_recipe['配方編號'].fillna('').astype(str)
 
-            # 新增空白選項
-            options = [None] + list(df_recipe.index)
-
-            selected_index = st.selectbox(
+            # ===== 改成用配方編號當選單值（穩定版）=====
+            recipe_codes = df_recipe["配方編號"].dropna().astype(str).tolist()
+            recipe_codes = [""] + recipe_codes  # 空白預設
+        
+            selected_code = st.selectbox(
                 "輸入配方",
-                options=options,
-                format_func=lambda i: "" if i is None else f"{df_recipe.at[i, '配方編號']} | {df_recipe.at[i, '顏色']} | {df_recipe.at[i, '客戶名稱']}",
+                options=recipe_codes,
+                format_func=lambda code: "" if code == "" else " | ".join(
+                    df_recipe[df_recipe["配方編號"] == code][["配方編號","顏色","客戶名稱"]].iloc[0]
+                ),
                 key="select_recipe_code_page_tab3"
             )
-
-            selected_code = df_recipe.at[selected_index, "配方編號"] if selected_index is not None else None
             
             if selected_code:
                 df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
