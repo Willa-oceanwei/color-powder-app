@@ -1834,8 +1834,8 @@ elif menu == "配方管理":
                     with col_right:
                         if st.button("🗑️ 刪除", key=f"delete_recipe_btn_tab3_{selected_code}"):
                             st.session_state.show_delete_recipe_confirm = True
-                            st.session_state.delete_recipe_index = selected_index
-
+                            st.session_state.delete_recipe_code = selected_code
+                            
                 # 刪除確認
                 if st.session_state.get("show_delete_recipe_confirm", False):
                     idx = st.session_state["delete_recipe_index"]
