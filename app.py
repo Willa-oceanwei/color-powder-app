@@ -1854,7 +1854,7 @@ elif menu == "配方管理":
                         st.rerun()
 
                 # 修改配方面板
-                if st.session_state.get("show_edit_recipe_panel") and st.session_state.get("editing_recipe_index") is not None:
+                if st.session_state.get("show_edit_recipe_panel") and st.session_state.get("editing_recipe_code"):
                     st.markdown("---")
                     idx = st.session_state.editing_recipe_index
                     st.markdown(f"<p style='font-size:18px; font-weight:bold; color:#fceca6;'>✏️ 修改配方 {df_recipe.at[idx, '配方編號']}</p>", unsafe_allow_html=True)
