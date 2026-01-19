@@ -1860,8 +1860,6 @@ elif menu == "配方管理":
                     fr = df_recipe[df_recipe["配方編號"] == code].iloc[0].to_dict()
                     idx = df_recipe[df_recipe["配方編號"] == code].index[0]
 
-                    fr = df_recipe.loc[idx].to_dict()
-
                     # 基本欄位
                     col1, col2, col3 = st.columns(3)
                     with col1:
