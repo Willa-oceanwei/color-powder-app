@@ -1829,7 +1829,7 @@ elif menu == "配方管理":
                     with col_left:
                         if st.button("✏️ 修改", key=f"edit_recipe_btn_tab3_{selected_code}"):
                             st.session_state.show_edit_recipe_panel = True
-                            st.session_state.editing_recipe_index = selected_index
+                            st.session_state.editing_recipe_code = selected_code
                             st.rerun()
                     with col_right:
                         if st.button("🗑️ 刪除", key=f"delete_recipe_btn_tab3_{selected_code}"):
