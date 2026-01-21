@@ -2007,7 +2007,6 @@ elif menu == "配方管理":
                                 df_recipe.at[idx, k] = v
                 
                             # 👉 你原本寫 Google Sheet 的程式碼 그대로貼在這裡
-                            st.session_state.select_recipe_code_page_tab3 = fr["配方編號"]
                             st.session_state.show_edit_recipe_panel = False
                             st.rerun()
                 
