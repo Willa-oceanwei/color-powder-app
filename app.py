@@ -1838,21 +1838,21 @@ elif menu == "配方管理":
                             st.session_state.show_delete_recipe_confirm = True
                             st.session_state.delete_recipe_code = selected_code
                             
-                # 刪除確認
-                if st.session_state.get("show_delete_recipe_confirm", False):
-                    code = st.session_state["delete_recipe_code"]
-                    idx = df_recipe[df_recipe["配方編號"] == code].index[0]
-                    recipe_label = code
+                    # 刪除確認
+                    if st.session_state.get("show_delete_recipe_confirm", False):
+                        code = st.session_state["delete_recipe_code"]
+                        idx = df_recipe[df_recipe["配方編號"] == code].index[0]
+                        recipe_label = code
 
-                    c1, c2 = st.columns(2)
-                    if c1.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
-                        df_recipe.drop(idx, inplace=True)
-                        st.success(f"✅ 已刪除 {recipe_label}")
-                        st.session_state.show_delete_recipe_confirm = False
-                        st.rerun()
-                    if c2.button("取消", key="confirm_delete_recipe_no_tab3"):
-                        st.session_state.show_delete_recipe_confirm = False
-                        st.rerun()
+                        c1, c2 = st.columns(2)
+                        if c1.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
+                            df_recipe.drop(idx, inplace=True)
+                            st.success(f"✅ 已刪除 {recipe_label}")
+                            st.session_state.show_delete_recipe_confirm = False
+                            st.rerun()
+                        if c2.button("取消", key="confirm_delete_recipe_no_tab3"):
+                            st.session_state.show_delete_recipe_confirm = False
+                            st.rerun()
 
                 # 修改配方面板（form 完整版）
                 if st.session_state.get("show_edit_recipe_panel") and st.session_state.get("editing_recipe_code"):
@@ -2002,6 +2002,7 @@ elif menu == "配方管理":
                                 df_recipe.at[idx, k] = v
                 
                             # 👉 你原本寫 Google Sheet 的程式碼 그대로貼在這裡
+                            st.session_state.select_recipe_code_page_tab3 = fr["配方編號"]
                             st.session_state.show_edit_recipe_panel = False
                             st.rerun()
                 
@@ -2009,76 +2010,6 @@ elif menu == "配方管理":
                             st.session_state.show_edit_recipe_panel = False
                             st.rerun()
                 
-
-                    # 儲存 / 返回
-                    cols_edit = st.columns([1, 1])
-                    
-                    import traceback
-
-                    with cols_edit[0]:
-                        if st.button("💾 儲存修改", key="save_edit_recipe_btn_tab3"):
-                            for k, v in fr.items():
-                                df_recipe.at[idx, k] = v
-
-                            try:
-                                ws_recipe = spreadsheet.worksheet("配方管理")
-                                header = ws_recipe.row_values(1)
-                                if not header:
-                                    st.error("❌ 試算表第一列（表頭）為空，無法寫入")
-                                else:
-                                    recipe_id = str(df_recipe.at[idx, "配方編號"]) if "配方編號" in df_recipe.columns else ""
-                                    row_num = idx + 2
-
-                                    if "配方編號" in header and recipe_id:
-                                        id_col_index = header.index("配方編號") + 1
-                                        col_vals = ws_recipe.col_values(id_col_index)
-                                        try:
-                                            found_list_index = col_vals.index(recipe_id)
-                                            row_num = found_list_index + 1
-                                        except ValueError:
-                                            row_num = idx + 2
-
-                                    values_row = [
-                                        str(df_recipe.at[idx, col]) if (col in df_recipe.columns and pd.notna(df_recipe.at[idx, col])) else ""
-                                        for col in header
-                                    ]
-
-                                    def colnum_to_letter(n):
-                                        s = ""
-                                        while n > 0:
-                                            n, r = divmod(n - 1, 26)
-                                            s = chr(65 + r) + s
-                                        return s
-
-                                    last_col_letter = colnum_to_letter(len(header))
-                                    range_a1 = f"A{row_num}:{last_col_letter}{row_num}"
-                                    ws_recipe.update(range_a1, [values_row])
-                                    st.success("✅ 配方已更新並寫入 Google Sheet")
-
-                            except Exception as e:
-                                st.error(f"❌ 儲存到 Google Sheet 失敗：{type(e).__name__} {e}")
-                                st.text(traceback.format_exc())
-
-                                try:
-                                    header_len = len(header) if 'header' in locals() else len(df_recipe.columns)
-                                    last_col_num = header_len
-                                    cell_list = ws_recipe.range(row_num, 1, row_num, last_col_num)
-                                    for i, cell in enumerate(cell_list):
-                                        cell.value = values_row[i] if i < len(values_row) else ""
-                                    ws_recipe.update_cells(cell_list)
-                                    st.success("✅ 備援寫入 (update_cells) 成功")
-                                except Exception as e2:
-                                    st.error(f"❌ 備援寫入也失敗：{type(e2).__name__} {e2}")
-                                    st.text(traceback.format_exc())
-
-                            st.session_state.show_edit_recipe_panel = False
-                            st.rerun()
-
-                    with cols_edit[1]:
-                        if st.button("返回", key="return_edit_recipe_btn_tab3"):
-                            st.session_state.show_edit_recipe_panel = False
-                            st.rerun()
-
     # ========== Tab 4：色粉管理（前端狀態 → 批次寫回）==========
     with tab4:
     
