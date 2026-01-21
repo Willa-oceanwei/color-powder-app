@@ -2031,9 +2031,7 @@ elif menu == "配方管理":
                         
                             # 6️⃣ 關閉面板 & 回到預覽
                             st.session_state.show_edit_recipe_panel = False
-                            st.session_state.editing_recipe_code = None
-                            st.session_state.select_recipe_code_page_tab3 = fr["配方編號"]
-                        
+                            st.session_state.editing_recipe_code = None                    
                             st.rerun()                     
                 
     # ========== Tab 4：色粉管理（前端狀態 → 批次寫回）==========
