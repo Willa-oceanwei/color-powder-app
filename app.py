@@ -1815,6 +1815,11 @@ elif menu == "配方管理":
                 ),
                 key="select_recipe_code_page_tab3"
             )
+            # ✅ 切換配方時，自動關閉修改面板（完全版）
+            if st.session_state.get("editing_recipe_code") != selected_code:
+                st.session_state.show_edit_recipe_panel = False
+                st.session_state.editing_recipe_code = None
+                st.session_state.show_delete_recipe_confirm = False
             
             if selected_code:
                 df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
