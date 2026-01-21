@@ -1846,6 +1846,7 @@ elif menu == "配方管理":
 
                         c1, c2 = st.columns(2)
                         if c1.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
+                            st.session_state.select_recipe_code_page_tab3 = "" 
                             df_recipe.drop(idx, inplace=True)
                             st.success(f"✅ 已刪除 {recipe_label}")
                             st.session_state.show_delete_recipe_confirm = False
