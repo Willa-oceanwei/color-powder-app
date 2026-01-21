@@ -2003,16 +2003,38 @@ elif menu == "配方管理":
                         cancel = col_back.form_submit_button("返回")
                 
                         if submitted:
+                            # 1️⃣ 更新 dataframe
                             for k, v in fr.items():
                                 df_recipe.at[idx, k] = v
-                
-                            # 👉 你原本寫 Google Sheet 的程式碼 그대로貼在這裡
+                        
+                            try:
+                                # 2️⃣ 寫回 Google Sheet
+                                ws_recipe.clear()
+                                ws_recipe.update(
+                                    [df_recipe.columns.tolist()] + df_recipe.values.tolist()
+                                )
+                        
+                                # 3️⃣ 同步 CSV
+                                recipe_file = Path("data/df_recipe.csv")
+                                recipe_file.parent.mkdir(parents=True, exist_ok=True)
+                                df_recipe.to_csv(recipe_file, index=False, encoding="utf-8-sig")
+                        
+                                # 4️⃣ 同步 session_state（很重要）
+                                st.session_state.df_recipe = df_recipe
+                        
+                                # 5️⃣ 成功訊息（一定要在 rerun 前）
+                                st.success(f"✅ 配方 {fr['配方編號']} 已成功更新！")
+                        
+                            except Exception as e:
+                                st.error(f"❌ 儲存失敗：{e}")
+                                st.stop()
+                        
+                            # 6️⃣ 關閉面板 & 回到預覽
                             st.session_state.show_edit_recipe_panel = False
-                            st.rerun()
-                
-                        if cancel:
-                            st.session_state.show_edit_recipe_panel = False
-                            st.rerun()
+                            st.session_state.editing_recipe_code = None
+                            st.session_state.select_recipe_code_page_tab3 = fr["配方編號"]
+                        
+                            st.rerun()                     
                 
     # ========== Tab 4：色粉管理（前端狀態 → 批次寫回）==========
     with tab4:
