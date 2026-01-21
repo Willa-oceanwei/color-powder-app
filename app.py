@@ -3778,7 +3778,7 @@ elif menu == "生產單管理":
                     unsafe_allow_html=True
                 )
                 
-                st.caption("⚠️：『儲存修改』僅同步更新Google Sheets作記錄修正用；若需列印，請先刪除原生產單，並重新建立新生產單。")
+                st.caption("⚠️：『儲存修改』僅同步更新Google Sheets記錄；若需列印需先刪除原生產單後並重新建立新生產單。")
                 
                 order_no = st.session_state.editing_order["生產單號"]
                 
