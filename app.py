@@ -2195,11 +2195,6 @@ elif menu == "生產單管理":
     }
     </style>
     """, unsafe_allow_html=True)
-    
-    # st.markdown(
-    #     '<h1 style="font-size:24px; font-family:Arial; color:#F9DC5C;">🛸 生產單管理</h1>',
-    #     unsafe_allow_html=True
-    # )
 
     from pathlib import Path
     from datetime import datetime, timedelta
