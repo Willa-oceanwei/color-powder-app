@@ -2499,17 +2499,28 @@ elif menu == "生產單管理":
     # 共用顯示函式（正式流程使用）
     # ============================================================
     def format_option(r):
-        label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
-        if r.get("配方類別", "") == "附加配方":
+        recipe_id = str(r.get("配方編號", "") or "").strip()
+        color     = str(r.get("顏色", "") or "").strip()
+        customer  = str(r.get("客戶名稱", "") or "").strip()
+    
+        parts = [p for p in [recipe_id, color, customer] if p]
+        label = " | ".join(parts) if parts else "(無標示資料)"
+    
+        # 保留你原本的「附加配方」標示
+        if str(r.get("配方類別", "")).strip() == "附加配方":
             label += "（附加配方）"
+    
         return label
-
+    
+    
     def format_option_with_status(row):
-        base = format_option(row)  # 你原本的顯示格式
-        status = str(row.get("狀態", "")).strip()
+        base = format_option(row)  # ✅ 這裡已經不會 KeyError
+    
+        status = str(row.get("狀態", "") or "").strip()
         if status == "停用":
             return f"🚫 {base} 【停用】"
-        return base
+    
+        return base   
         
     DEBUG_MODE = False   # 平常 False，要查帳再打開
     if DEBUG_MODE:
