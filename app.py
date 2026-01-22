@@ -3514,6 +3514,11 @@ elif menu == "生產單管理":
     # Tab 3: 生產單修改/刪除（保持完整，無變更）
     # ============================================================
     with tab3:
+
+        # ===== 修改完成通知（一定要在 Tab 3 最上方）=====
+        if st.session_state.get("edit_success_message"):
+        st.toast(st.session_state.edit_success_message, icon="🎉")
+        del st.session_state.edit_success_message
     
         def delete_order_by_id(ws, order_id):
             all_values = ws.get_all_records()
@@ -3893,7 +3898,11 @@ elif menu == "生產單管理":
                         df_order.to_csv(order_file, index=False, encoding="utf-8-sig")
                         st.session_state.df_order = df_order
                 
-                        st.success("✅ 本地資料更新成功，修改已儲存")
+                        # ===== 設定「修改完成」狀態 =====
+                        st.session_state.edit_success_message = f"✅ 生產單 {order_no} 修改完成"
+                        st.session_state.show_edit_panel = False
+                        st.session_state.editing_order = None
+
                         st.rerun()
                 
                 with cols_edit[1]:
