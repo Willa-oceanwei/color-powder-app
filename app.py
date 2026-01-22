@@ -987,20 +987,6 @@ def load_recipe(force_reload=False):
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
-# ✅ 全域配方資料檢查（在所有分頁之前）
-if "df_recipe" not in st.session_state:
-    try:
-        ws_recipe = spreadsheet.worksheet("配方管理")
-        values = ws_recipe.get_all_values()
-        if len(values) > 1:
-            df_recipe = pd.DataFrame(values[1:], columns=values[0])
-            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
-            st.session_state.df_recipe = df_recipe
-        else:
-            st.session_state.df_recipe = pd.DataFrame()
-    except:
-        st.session_state.df_recipe = pd.DataFrame()
-
 # ======== 色粉管理 =========
 if menu == "色粉管理":
 
@@ -1305,47 +1291,16 @@ elif menu == "配方管理":
     import pandas as pd
     import streamlit as st
 
-    # ✅ 統一的配方資料載入函式
-    def load_recipe_data():
-        """從 Google Sheets 載入配方數據"""
-        try:
-            ws_recipe = spreadsheet.worksheet("配方管理")
-            values = ws_recipe.get_all_values()
-            if len(values) > 1:
-                df_loaded = pd.DataFrame(values[1:], columns=values[0])
-            else:
-                columns = [
-                    "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
-                    "原始配方", "色粉類別", "計量單位", "Pantone色號",
-                    "比例1", "比例2", "比例3", "淨重", "淨重單位",
-                    *[f"色粉編號{i}" for i in range(1, 9)],
-                    *[f"色粉重量{i}" for i in range(1, 9)],
-                    "合計類別", "重要提醒", "備註", "建檔時間"
-                ]
-                df_loaded = pd.DataFrame(columns=columns)
-            
-            # ✅ 補齊缺少欄位
-            for col in df_loaded.columns:
-                if col not in df_loaded.columns:
-                    df_loaded[col] = ""
-            
-            # ✅ 清理配方編號
-            if "配方編號" in df_loaded.columns:
-                df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map(clean_powder_id)
-            
-            return df_loaded
-        except Exception as e:
-            st.error(f"載入配方數據時發生錯誤: {str(e)}")
-            return pd.DataFrame()
+    # ------------------- 配方資料初始化 -------------------
+    if "df_recipe" not in st.session_state:
+        st.session_state.df_recipe = load_recipe_data()
+    if "trigger_load_recipe" not in st.session_state:
+        st.session_state.trigger_load_recipe = False
+    
+    # 統一使用 df_recipe
+    df_recipe = st.session_state.df_recipe
 
-    # ✅ 強制每次進入都重新載入
-    df_recipe = load_recipe_data()
-    
-    # ✅ 同步到 session_state（關鍵！）
-    st.session_state.df_recipe = df_recipe
-    st.session_state.df = df_recipe  # 雙重同步
-    
-    # 預期欄位（保持原樣）
+    # 預期欄位
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
         "原始配方", "色粉類別", "計量單位", "Pantone色號",
@@ -1365,8 +1320,38 @@ elif menu == "配方管理":
             st.error("❌ 無法建立工作表")
             st.stop()
 
-    # ✅ 使用統一載入的資料
-    df = df_recipe.copy()
+    # 讀取原始資料
+    values = ws_recipe.get_all_values()
+    if len(values) > 1:
+        df_loaded = pd.DataFrame(values[1:], columns=values[0])
+    else:
+        df_loaded = pd.DataFrame(columns=columns)
+    
+    # 補齊缺少欄位
+    for col in columns:
+        if col not in df_loaded.columns:
+            df_loaded[col] = ""
+    
+    # 清理配方編號
+    if "配方編號" in df_loaded.columns:
+        df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map(clean_powder_id)
+    
+    st.session_state.df = df_loaded
+    st.session_state.df_recipe = df_loaded  # ✅ 雙向同步
+    df = st.session_state.df
+    
+    # === 載入「色粉管理」的色粉清單 ===
+    try:
+        ws_powder = spreadsheet.worksheet("色粉管理")
+        df_powders = pd.DataFrame(ws_powder.get_all_records())
+        if "色粉編號" not in df_powders.columns:
+            st.error("❌ 色粉管理表缺少『色粉編號』欄位")
+            existing_powders = set()
+        else:
+            existing_powders = set(df_powders["色粉編號"].map(clean_powder_id).unique())
+    except Exception as e:
+        st.warning(f"⚠️ 無法載入色粉管理：{e}")
+        existing_powders = set()
     
     # 載入客戶名單（提前載入，供所有 Tab 使用）
     try:
@@ -2018,36 +2003,16 @@ elif menu == "配方管理":
                         cancel = col_back.form_submit_button("返回")
                 
                         if submitted:
-                            # 1️⃣ 更新 dataframe
                             for k, v in fr.items():
                                 df_recipe.at[idx, k] = v
-                        
-                            try:
-                                # 2️⃣ 寫回 Google Sheet
-                                ws_recipe.clear()
-                                ws_recipe.update(
-                                    [df_recipe.columns.tolist()] + df_recipe.values.tolist()
-                                )
-                        
-                                # 3️⃣ 同步 CSV
-                                recipe_file = Path("data/df_recipe.csv")
-                                recipe_file.parent.mkdir(parents=True, exist_ok=True)
-                                df_recipe.to_csv(recipe_file, index=False, encoding="utf-8-sig")
-                        
-                                # 4️⃣ 同步 session_state（很重要）
-                                st.session_state.df_recipe = df_recipe
-                        
-                                # 5️⃣ 成功訊息（一定要在 rerun 前）
-                                st.success(f"✅ 配方 {fr['配方編號']} 已成功更新！")
-                        
-                            except Exception as e:
-                                st.error(f"❌ 儲存失敗：{e}")
-                                st.stop()
-                        
-                            # 6️⃣ 關閉面板 & 回到預覽
+                
+                            # 👉 你原本寫 Google Sheet 的程式碼 그대로貼在這裡
                             st.session_state.show_edit_recipe_panel = False
-                            st.session_state.editing_recipe_code = None                    
-                            st.rerun()                     
+                            st.rerun()
+                
+                        if cancel:
+                            st.session_state.show_edit_recipe_panel = False
+                            st.rerun()
                 
     # ========== Tab 4：色粉管理（前端狀態 → 批次寫回）==========
     with tab4:
@@ -2200,22 +2165,7 @@ elif menu == "配方管理":
 # =============== Tab 架構結束 ===============                            
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
-    
-    # ✅ 強制重新載入配方資料
-    if "df_recipe" not in st.session_state or st.session_state.df_recipe.empty:
-        try:
-            ws_recipe = spreadsheet.worksheet("配方管理")
-            values = ws_recipe.get_all_values()
-            if len(values) > 1:
-                df_recipe = pd.DataFrame(values[1:], columns=values[0])
-                df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
-                st.session_state.df_recipe = df_recipe
-            else:
-                st.error("❌ 配方管理表為空，請先建立配方")
-                st.stop()
-        except Exception as e:
-            st.error(f"❌ 無法載入配方管理表：{e}")
-            st.stop()
+    load_recipe(force_reload=True)
     
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
@@ -2225,6 +2175,11 @@ elif menu == "生產單管理":
     }
     </style>
     """, unsafe_allow_html=True)
+    
+    # st.markdown(
+    #     '<h1 style="font-size:24px; font-family:Arial; color:#F9DC5C;">🛸 生產單管理</h1>',
+    #     unsafe_allow_html=True
+    # )
 
     from pathlib import Path
     from datetime import datetime, timedelta
@@ -2236,17 +2191,6 @@ elif menu == "生產單管理":
     Path("data").mkdir(parents=True, exist_ok=True)
 
     order_file = Path("data/df_order.csv")
-
-    # ✅ 確保 df_recipe 存在且有「配方編號」欄位
-    df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
-    
-    if df_recipe.empty:
-        st.error("❌ 配方資料未載入，請先至「配方管理」建立配方")
-        st.stop()
-    
-    if "配方編號" not in df_recipe.columns:
-        st.error("❌ df_recipe 中找不到「配方編號」欄位")
-        st.stop()
 
     # 清理函式：去除空白、全形空白，轉大寫
     def clean_powder_id(x):
@@ -2535,28 +2479,17 @@ elif menu == "生產單管理":
     # 共用顯示函式（正式流程使用）
     # ============================================================
     def format_option(r):
-        recipe_id = str(r.get("配方編號", "") or "").strip()
-        color     = str(r.get("顏色", "") or "").strip()
-        customer  = str(r.get("客戶名稱", "") or "").strip()
-    
-        parts = [p for p in [recipe_id, color, customer] if p]
-        label = " | ".join(parts) if parts else "(無標示資料)"
-    
-        # 保留你原本的「附加配方」標示
-        if str(r.get("配方類別", "")).strip() == "附加配方":
+        label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
+        if r.get("配方類別", "") == "附加配方":
             label += "（附加配方）"
-    
         return label
-    
-    
+
     def format_option_with_status(row):
-        base = format_option(row)  # ✅ 這裡已經不會 KeyError
-    
-        status = str(row.get("狀態", "") or "").strip()
+        base = format_option(row)  # 你原本的顯示格式
+        status = str(row.get("狀態", "")).strip()
         if status == "停用":
             return f"🚫 {base} 【停用】"
-    
-        return base   
+        return base
         
     DEBUG_MODE = False   # 平常 False，要查帳再打開
     if DEBUG_MODE:
@@ -3001,23 +2934,7 @@ elif menu == "生產單管理":
         recipe_id_raw = order.get("配方編號", "").strip()
         recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
         
-        # ===== 安全取得配方編號欄位（避免 KeyError）=====
-        recipe_id_col = None
-        for col in df_recipe.columns:
-            if col.strip() == "配方編號":
-                recipe_id_col = col
-                break
-        
-        if recipe_id_col is None:
-            st.error("❌ df_recipe 中找不到「配方編號」欄位")
-            st.stop()
-        
-        matched = df_recipe[
-            df_recipe[recipe_id_col]
-            .astype(str)
-            .map(lambda x: fix_leading_zero(clean_powder_id(x)))
-            == recipe_id
-        ]
+        matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
         
         if not matched.empty:
             recipe_row = matched.iloc[0].to_dict()
@@ -3454,7 +3371,6 @@ elif menu == "生產單管理":
         df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
         df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
-        # ✅ 初始化每頁筆數
         if "selectbox_order_limit_tab2" not in st.session_state:
             st.session_state.selectbox_order_limit_tab2 = 5
     
@@ -3551,27 +3467,26 @@ elif menu == "生產單管理":
             )
             if jump_page != st.session_state.order_page_tab2:
                 st.session_state.order_page_tab2 = jump_page
+                st.rerun()
     
         with cols_page[4]:
             options_list = [5, 10, 20, 50, 75, 100]
-            current_limit = st.session_state.selectbox_order_limit_tab2
-            
-            # ✅ 直接綁定 session_state
-            st.selectbox(
+            current_limit = st.session_state.get("selectbox_order_limit_tab2", 5)
+            if current_limit not in options_list:
+                current_limit = 5
+    
+            new_limit = st.selectbox(
                 label=" ",
                 options=options_list,
                 index=options_list.index(current_limit),
-                key="selectbox_order_limit_tab2",  # ← 關鍵修正
+                key="selectbox_order_limit_tab2_widget",
                 label_visibility="collapsed"
             )
-            
-            # ✅ 偵測變更並重置頁碼
-            if "last_limit_tab2" not in st.session_state:
-                st.session_state.last_limit_tab2 = current_limit
-            
-            if st.session_state.selectbox_order_limit_tab2 != st.session_state.last_limit_tab2:
+    
+            if new_limit != st.session_state.selectbox_order_limit_tab2:
+                st.session_state.selectbox_order_limit_tab2 = new_limit
                 st.session_state.order_page_tab2 = 1
-                st.session_state.last_limit_tab2 = st.session_state.selectbox_order_limit_tab2
+                st.rerun()
     
         st.caption(f"頁碼 {st.session_state.order_page_tab2} / {total_pages}，總筆數 {total_rows}")
     
@@ -3817,70 +3732,41 @@ elif menu == "生產單管理":
             if st.session_state.get("show_delete_confirm", False):
                 order_id = st.session_state.get("delete_target_id")
                 order_label = order_id or "未指定生產單"
-            
+
                 st.warning(f"⚠️ 確定要刪除生產單？\n\n👉 {order_label}")
-            
-                # 🔔 是否同步刪除代工單
-                sync_oem_key = f"sync_delete_oem_{order_id}"
-                if sync_oem_key not in st.session_state:
-                    st.session_state[sync_oem_key] = True  # 預設勾選
-            
-                sync_delete_oem = st.checkbox(
-                    "🗑️ 同步刪除對應的代工單",
-                    value=st.session_state[sync_oem_key],
-                    key=sync_oem_key
-                )
-            
+
                 c1, c2 = st.columns(2)
-            
-                # ======================
-                # ✅ 確認刪除
-                # ======================
+
                 if c1.button("✅ 是，刪除", key="confirm_delete_yes_tab3"):
                     if not order_id:
                         st.error("❌ 未指定要刪除的生產單 ID")
                     else:
                         order_id_str = str(order_id)
-            
                         try:
-                            # ===== ① 依選項刪代工單 =====
-                            if sync_delete_oem:
-                                try:
-                                    ws_oem = spreadsheet.worksheet("代工管理")
-                                    deleted_oem_count = delete_oem_by_order_id(ws_oem, order_id_str)
-            
-                                    if deleted_oem_count > 0:
-                                        st.toast(f"🧹 已刪除 {deleted_oem_count} 筆對應代工單")
-                                    else:
-                                        st.toast("ℹ️ 沒有找到對應的代工單")
-            
-                                except Exception as e:
-                                    st.error(f"⚠️ 刪除代工單失敗：{e}")
-            
-                            # ===== ② 刪生產單 =====
+                            # ===== 先刪代工單 =====
+                            deleted_oem_count = 0
+                            try:
+                                ws_oem = spreadsheet.worksheet("代工管理")
+                                deleted_oem_count = delete_oem_by_order_id(ws_oem, order_id_str)
+                            except:
+                                ws_oem = None
+                
+                            if deleted_oem_count > 0:
+                                st.toast(f"🧹 已自動刪除 {deleted_oem_count} 筆對應代工單")
+                
+                            # ===== 再刪生產單 =====
                             deleted = delete_order_by_id(ws_order, order_id_str)
-            
+                
                             if deleted:
-                                st.success(f"✅ 已刪除生產單 {order_label}")
+                                st.success(f"✅ 已刪除 {order_label}")
                             else:
                                 st.error("❌ 找不到該生產單，刪除失敗")
-            
+                
                         except Exception as e:
                             st.error(f"❌ 刪除時發生錯誤：{e}")
-            
-                    # ===== 清理狀態 =====
+                
                     st.session_state["show_delete_confirm"] = False
-                    st.session_state["delete_target_id"] = None
                     st.rerun()
-            
-                # ======================
-                # ❌ 取消
-                # ======================
-                if c2.button("❌ 取消", key="confirm_delete_cancel_tab3"):
-                    st.session_state["show_delete_confirm"] = False
-                    st.session_state["delete_target_id"] = None
-                    st.rerun()
-            
            
             # ====== 修改面板（⚠️ 一定要在外層） ======
             if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
@@ -4154,17 +4040,12 @@ if menu == "代工管理":
                     selected_oem = selected_option.split(" | ")[-1]
     
                     # 如果 session_state 沒有這筆資料，才抓一次
-                    row = st.session_state.get("oem_selected_row")
-                
-                    if not isinstance(row, dict) or row.get("代工單號") != selected_oem:
-                        oem_row = (
-                            df_oem_active[df_oem_active["代工單號"] == selected_oem]
-                            .iloc[0]
-                            .to_dict()
-                        )
+                    if "oem_selected_row" not in st.session_state or st.session_state.oem_selected_row.get("代工單號") != selected_oem:
+                        oem_row = df_oem_active[df_oem_active["代工單號"] == selected_oem].iloc[0].to_dict()
                         st.session_state.oem_selected_row = oem_row
-                    else:
-                        oem_row = row
+    
+                    oem_row = st.session_state.oem_selected_row
+    
                     # ---------- 顯示基本資訊 ----------
                     col1, col2, col3 = st.columns(3)
                     col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
