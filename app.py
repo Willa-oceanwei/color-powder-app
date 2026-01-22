@@ -1291,16 +1291,47 @@ elif menu == "配方管理":
     import pandas as pd
     import streamlit as st
 
-    # ------------------- 配方資料初始化 -------------------
-    if "df_recipe" not in st.session_state:
-        st.session_state.df_recipe = load_recipe_data()
-    if "trigger_load_recipe" not in st.session_state:
-        st.session_state.trigger_load_recipe = False
-    
-    # 統一使用 df_recipe
-    df_recipe = st.session_state.df_recipe
+    # ✅ 統一的配方資料載入函式
+    def load_recipe_data():
+        """從 Google Sheets 載入配方數據"""
+        try:
+            ws_recipe = spreadsheet.worksheet("配方管理")
+            values = ws_recipe.get_all_values()
+            if len(values) > 1:
+                df_loaded = pd.DataFrame(values[1:], columns=values[0])
+            else:
+                columns = [
+                    "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
+                    "原始配方", "色粉類別", "計量單位", "Pantone色號",
+                    "比例1", "比例2", "比例3", "淨重", "淨重單位",
+                    *[f"色粉編號{i}" for i in range(1, 9)],
+                    *[f"色粉重量{i}" for i in range(1, 9)],
+                    "合計類別", "重要提醒", "備註", "建檔時間"
+                ]
+                df_loaded = pd.DataFrame(columns=columns)
+            
+            # ✅ 補齊缺少欄位
+            for col in df_loaded.columns:
+                if col not in df_loaded.columns:
+                    df_loaded[col] = ""
+            
+            # ✅ 清理配方編號
+            if "配方編號" in df_loaded.columns:
+                df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map(clean_powder_id)
+            
+            return df_loaded
+        except Exception as e:
+            st.error(f"載入配方數據時發生錯誤: {str(e)}")
+            return pd.DataFrame()
 
-    # 預期欄位
+    # ✅ 強制每次進入都重新載入
+    df_recipe = load_recipe_data()
+    
+    # ✅ 同步到 session_state（關鍵！）
+    st.session_state.df_recipe = df_recipe
+    st.session_state.df = df_recipe  # 雙重同步
+    
+    # 預期欄位（保持原樣）
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
         "原始配方", "色粉類別", "計量單位", "Pantone色號",
@@ -1320,38 +1351,8 @@ elif menu == "配方管理":
             st.error("❌ 無法建立工作表")
             st.stop()
 
-    # 讀取原始資料
-    values = ws_recipe.get_all_values()
-    if len(values) > 1:
-        df_loaded = pd.DataFrame(values[1:], columns=values[0])
-    else:
-        df_loaded = pd.DataFrame(columns=columns)
-    
-    # 補齊缺少欄位
-    for col in columns:
-        if col not in df_loaded.columns:
-            df_loaded[col] = ""
-    
-    # 清理配方編號
-    if "配方編號" in df_loaded.columns:
-        df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map(clean_powder_id)
-    
-    st.session_state.df = df_loaded
-    st.session_state.df_recipe = df_loaded  # ✅ 雙向同步
-    df = st.session_state.df
-    
-    # === 載入「色粉管理」的色粉清單 ===
-    try:
-        ws_powder = spreadsheet.worksheet("色粉管理")
-        df_powders = pd.DataFrame(ws_powder.get_all_records())
-        if "色粉編號" not in df_powders.columns:
-            st.error("❌ 色粉管理表缺少『色粉編號』欄位")
-            existing_powders = set()
-        else:
-            existing_powders = set(df_powders["色粉編號"].map(clean_powder_id).unique())
-    except Exception as e:
-        st.warning(f"⚠️ 無法載入色粉管理：{e}")
-        existing_powders = set()
+    # ✅ 使用統一載入的資料
+    df = df_recipe.copy()
     
     # 載入客戶名單（提前載入，供所有 Tab 使用）
     try:
