@@ -2941,7 +2941,9 @@ elif menu == "生產單管理":
         
         recipe_id_raw = order.get("配方編號", "").strip()
         recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
-        
+
+        print(df_recipe.columns.tolist())
+      
         matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
         
         if not matched.empty:
