@@ -1801,20 +1801,17 @@ elif menu == "配方管理":
         if not df_recipe.empty and "配方編號" in df_recipe.columns:
             df_recipe['配方編號'] = df_recipe['配方編號'].fillna('').astype(str)
 
-            # ===== 改成用配方編號當選單值（穩定版）=====
-            recipe_codes = [""] + sorted(df_recipe["配方編號"].dropna().astype(str).unique().tolist())
-                
-            selected_code = st.selectbox(
+            # 新增空白選項
+            options = [None] + list(df_recipe.index)
+
+            selected_index = st.selectbox(
                 "輸入配方",
-                options=recipe_codes,
-                index=recipe_codes.index(
-                    st.session_state.get("select_recipe_code_page_tab3","")
-                ) if st.session_state.get("select_recipe_code_page_tab3","") in recipe_codes else 0,
-                format_func=lambda code: "" if code == "" else " | ".join(
-                    df_recipe[df_recipe["配方編號"] == code][["配方編號","顏色","客戶名稱"]].iloc[0]
-                ),
+                options=options,
+                format_func=lambda i: "" if i is None else f"{df_recipe.at[i, '配方編號']} | {df_recipe.at[i, '顏色']} | {df_recipe.at[i, '客戶名稱']}",
                 key="select_recipe_code_page_tab3"
             )
+
+            selected_code = df_recipe.at[selected_index, "配方編號"] if selected_index is not None else None
             
             if selected_code:
                 df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
@@ -1829,20 +1826,20 @@ elif menu == "配方管理":
                     # ✅ 生成兩欄放按鈕
                     col_left, col_right = st.columns(2)
                     with col_left:
-                        if st.button("✏️ 修改", key=f"edit_recipe_btn_tab3_{selected_code}"):
+                        if st.button("✏️ ", key=f"edit_recipe_btn_tab3_{selected_index}"):
                             st.session_state.show_edit_recipe_panel = True
-                            st.session_state.editing_recipe_code = selected_code
+                            st.session_state.editing_recipe_index = selected_index
                             st.rerun()
                     with col_right:
-                        if st.button("🗑️ 刪除", key=f"delete_recipe_btn_tab3_{selected_code}"):
+                        if st.button("🗑️ ", key=f"delete_recipe_btn_tab3_{selected_index}"):
                             st.session_state.show_delete_recipe_confirm = True
-                            st.session_state.delete_recipe_code = selected_code
-                            
+                            st.session_state.delete_recipe_index = selected_index
+
                 # 刪除確認
                 if st.session_state.get("show_delete_recipe_confirm", False):
-                    code = st.session_state["delete_recipe_code"]
-                    idx = df_recipe[df_recipe["配方編號"] == code].index[0]
-                    recipe_label = code
+                    idx = st.session_state["delete_recipe_index"]
+                    recipe_label = df_recipe.at[idx, "配方編號"]
+                    st.warning(f"⚠️ 確定要刪除配方？\n\n👉 {recipe_label}")
 
                     c1, c2 = st.columns(2)
                     if c1.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
@@ -1855,11 +1852,12 @@ elif menu == "配方管理":
                         st.rerun()
 
                 # 修改配方面板
-                if st.session_state.get("show_edit_recipe_panel") and st.session_state.get("editing_recipe_code"):
+                if st.session_state.get("show_edit_recipe_panel") and st.session_state.get("editing_recipe_index") is not None:
                     st.markdown("---")
-                    code = st.session_state.editing_recipe_code
-                    fr = df_recipe[df_recipe["配方編號"] == code].iloc[0].to_dict()
-                    idx = df_recipe[df_recipe["配方編號"] == code].index[0]
+                    idx = st.session_state.editing_recipe_index
+                    st.markdown(f"<p style='font-size:18px; font-weight:bold; color:#fceca6;'>✏️ 修改配方 {df_recipe.at[idx, '配方編號']}</p>", unsafe_allow_html=True)
+
+                    fr = df_recipe.loc[idx].to_dict()
 
                     # 基本欄位
                     col1, col2, col3 = st.columns(3)
@@ -2481,19 +2479,13 @@ elif menu == "生產單管理":
     # 共用顯示函式（正式流程使用）
     # ============================================================
     def format_option(r):
-        # 用 get() 取值，如果欄位不存在或值為 None，回傳空字串
-        配方編號 = r.get("配方編號", "") or ""
-        顏色 = r.get("顏色", "") or ""
-        客戶名稱 = r.get("客戶名稱", "") or ""
-
-        label = f"{配方編號} | {顏色} | {客戶名稱}"
-
+        label = f"{r['配方編號']} | {r['顏色']} | {r['客戶名稱']}"
         if r.get("配方類別", "") == "附加配方":
             label += "（附加配方）"
         return label
 
     def format_option_with_status(row):
-        base = format_option(row)
+        base = format_option(row)  # 你原本的顯示格式
         status = str(row.get("狀態", "")).strip()
         if status == "停用":
             return f"🚫 {base} 【停用】"
@@ -2941,9 +2933,7 @@ elif menu == "生產單管理":
         
         recipe_id_raw = order.get("配方編號", "").strip()
         recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
-
-        print([f"'{c}'" for c in df_recipe.columns.tolist()]) 
-      
+        
         matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
         
         if not matched.empty:
@@ -3959,7 +3949,7 @@ if menu == "代工管理":
         "✏️ 編輯代工",
         "📥 載回登入",
         "🆗 代工進度表",
-        "🚚 代工歷程查詢"
+        "📋 代工歷程查詢"
     ])
     
     # ========== Tab 1：新增代工單 ==========
