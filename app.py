@@ -3812,7 +3812,7 @@ elif menu == "生產單管理":
                 if recipe_rows.empty:
                     st.warning(f"找不到配方編號：{recipe_id}")
                     st.stop()
-                recipe_row = recipe_rows.iloc[0]
+                recipe_row = recipe_rows.iloc[0].to_dict()
                 
                 col_cust, col_color = st.columns(2)
                 with col_cust:
