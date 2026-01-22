@@ -3517,8 +3517,8 @@ elif menu == "生產單管理":
 
         # ===== 修改完成通知（一定要在 Tab 3 最上方）=====
         if st.session_state.get("edit_success_message"):
-        st.toast(st.session_state.edit_success_message, icon="🎉")
-        del st.session_state.edit_success_message
+            st.toast(st.session_state.edit_success_message, icon="🎉")
+            del st.session_state.edit_success_message
     
         def delete_order_by_id(ws, order_id):
             all_values = ws.get_all_records()
