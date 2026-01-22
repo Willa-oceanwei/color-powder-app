@@ -2965,7 +2965,23 @@ elif menu == "生產單管理":
         recipe_id_raw = order.get("配方編號", "").strip()
         recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
         
-        matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
+        # ===== 安全取得配方編號欄位（避免 KeyError）=====
+        recipe_id_col = None
+        for col in df_recipe.columns:
+            if col.strip() == "配方編號":
+                recipe_id_col = col
+                break
+        
+        if recipe_id_col is None:
+            st.error("❌ df_recipe 中找不到「配方編號」欄位")
+            st.stop()
+        
+        matched = df_recipe[
+            df_recipe[recipe_id_col]
+            .astype(str)
+            .map(lambda x: fix_leading_zero(clean_powder_id(x)))
+            == recipe_id
+        ]
         
         if not matched.empty:
             recipe_row = matched.iloc[0].to_dict()
