@@ -3413,6 +3413,7 @@ elif menu == "生產單管理":
         df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
         df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
+        # ✅ 初始化每頁筆數
         if "selectbox_order_limit_tab2" not in st.session_state:
             st.session_state.selectbox_order_limit_tab2 = 5
     
@@ -3509,26 +3510,27 @@ elif menu == "生產單管理":
             )
             if jump_page != st.session_state.order_page_tab2:
                 st.session_state.order_page_tab2 = jump_page
-                st.rerun()
     
         with cols_page[4]:
             options_list = [5, 10, 20, 50, 75, 100]
-            current_limit = st.session_state.get("selectbox_order_limit_tab2", 5)
-            if current_limit not in options_list:
-                current_limit = 5
-    
-            new_limit = st.selectbox(
+            current_limit = st.session_state.selectbox_order_limit_tab2
+            
+            # ✅ 直接綁定 session_state
+            st.selectbox(
                 label=" ",
                 options=options_list,
                 index=options_list.index(current_limit),
-                key="selectbox_order_limit_tab2_widget",  # ← 這個 key 跟 session_state 的 key 不同
+                key="selectbox_order_limit_tab2",  # ← 關鍵修正
                 label_visibility="collapsed"
             )
-
-            if new_limit != st.session_state.selectbox_order_limit_tab2:
-                st.session_state.selectbox_order_limit_tab2 = new_limit
+            
+            # ✅ 偵測變更並重置頁碼
+            if "last_limit_tab2" not in st.session_state:
+                st.session_state.last_limit_tab2 = current_limit
+            
+            if st.session_state.selectbox_order_limit_tab2 != st.session_state.last_limit_tab2:
                 st.session_state.order_page_tab2 = 1
-                st.rerun()
+                st.session_state.last_limit_tab2 = st.session_state.selectbox_order_limit_tab2
     
         st.caption(f"頁碼 {st.session_state.order_page_tab2} / {total_pages}，總筆數 {total_rows}")
     
