@@ -5994,30 +5994,41 @@ elif menu == "庫存區":
             df_order_copy["生產時間"] = df_order_copy.apply(get_order_datetime, axis=1)
     
             # ---------- 色粉清單 ----------
-            all_pids_stock = sorted(set(df_stock_copy["色粉編號"].tolist())) if not df_stock_copy.empty else []
-    
-            all_pids_recipe = []
-            if not df_recipe.empty:
-                for i in range(1, 9):
-                    col = f"色粉編號{i}"
-                    if col in df_recipe.columns:
-                        all_pids_recipe.extend(df_recipe[col].astype(str).str.strip().tolist())
-    
-            all_pids_all = sorted(set(all_pids_stock) | set(p for p in all_pids_recipe if p))
-    
-            # 篩選匹配色粉
-            all_pids = []
-            if stock_powder:
-                if match_mode == "部分匹配":
-                    all_pids = [pid for pid in all_pids_all if stock_powder.lower() in pid.lower()]
-                else:
-                    all_pids = [pid for pid in all_pids_all if stock_powder.lower() == pid.lower()]
-    
-                if not all_pids:
-                    st.warning(f"⚠️ 查無與 '{stock_powder}' 相關的色粉記錄。")
-                    st.stop()
+            stock_powder = stock_powder.strip()
+            
+            if stock_powder and match_mode == "精準匹配":
+                # 👉 精準匹配：只查這一個
+                all_pids = [stock_powder]
+            
             else:
-                all_pids = all_pids_all
+                # 👉 只有「部分匹配 / 未輸入」才建立完整清單
+                all_pids_stock = (
+                    df_stock_copy["色粉編號"].dropna().astype(str).str.strip().unique().tolist()
+                    if not df_stock_copy.empty else []
+                )
+            
+                all_pids_recipe = []
+                if not df_recipe.empty:
+                    for i in range(1, 9):
+                        col = f"色粉編號{i}"
+                        if col in df_recipe.columns:
+                            all_pids_recipe.extend(
+                                df_recipe[col].dropna().astype(str).str.strip().tolist()
+                            )
+            
+                all_pids_all = sorted(set(all_pids_stock) | set(all_pids_recipe))
+            
+                if stock_powder:
+                    all_pids = [
+                        pid for pid in all_pids_all
+                        if stock_powder.lower() in pid.lower()
+                    ]
+                    if not all_pids:
+                        st.warning(f"⚠️ 查無與 '{stock_powder}' 相關的色粉記錄。")
+                        st.stop()
+                else:
+                    all_pids = all_pids_all
+            
     
             if not all_pids:
                 st.warning("⚠️ 查無任何色粉記錄。")
