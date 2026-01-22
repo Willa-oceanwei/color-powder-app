@@ -4060,12 +4060,17 @@ if menu == "代工管理":
                     selected_oem = selected_option.split(" | ")[-1]
     
                     # 如果 session_state 沒有這筆資料，才抓一次
-                    if "oem_selected_row" not in st.session_state or st.session_state.oem_selected_row.get("代工單號") != selected_oem:
-                        oem_row = df_oem_active[df_oem_active["代工單號"] == selected_oem].iloc[0].to_dict()
+                    row = st.session_state.get("oem_selected_row")
+                
+                    if not isinstance(row, dict) or row.get("代工單號") != selected_oem:
+                        oem_row = (
+                            df_oem_active[df_oem_active["代工單號"] == selected_oem]
+                            .iloc[0]
+                            .to_dict()
+                        )
                         st.session_state.oem_selected_row = oem_row
-    
-                    oem_row = st.session_state.oem_selected_row
-    
+                    else:
+                        oem_row = row
                     # ---------- 顯示基本資訊 ----------
                     col1, col2, col3 = st.columns(3)
                     col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
