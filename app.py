@@ -1573,22 +1573,23 @@ elif menu == "配方管理":
         existing_powders_str = {str(x).strip().upper() for x in existing_powders if str(x).strip() != ""}
        
         if submitted:
-            # 檢查色粉是否已建檔
             missing_powders = []
             for i in range(1, st.session_state.num_powder_rows + 1):
                 pid_raw = fr.get(f"色粉編號{i}", "")
                 pid = clean_powder_id(pid_raw)
-                if pid and pid not in existing_powders_str:
+                if pid and pid not in existing_powders:
                     missing_powders.append(pid_raw)
         
             if missing_powders:
                 st.warning(f"⚠️ 以下色粉尚未建檔：{', '.join(missing_powders)}")
-            elif fr["配方編號"].strip() == "":
+                st.stop()
+        
+            # 儲存配方邏輯
+            if fr["配方編號"].strip() == "":
                 st.warning("⚠️ 請輸入配方編號！")
             elif fr["配方類別"] == "附加配方" and fr["原始配方"].strip() == "":
                 st.warning("⚠️ 附加配方必須填寫原始配方！")
             else:
-                # 新增或更新配方
                 if st.session_state.get("edit_recipe_index") is not None:
                     df.iloc[st.session_state.edit_recipe_index] = pd.Series(fr, index=df.columns)
                     st.success(f"✅ 配方 {fr['配方編號']} 已更新！")
@@ -1600,7 +1601,6 @@ elif menu == "配方管理":
                         df = pd.concat([df, pd.DataFrame([fr])], ignore_index=True)
                         st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
         
-                # 儲存到 Google Sheet / CSV
                 try:
                     ws_recipe.clear()
                     ws_recipe.update([df.columns.tolist()] + df.values.tolist())
@@ -1609,12 +1609,13 @@ elif menu == "配方管理":
                     df.to_csv(order_file, index=False, encoding="utf-8-sig")
                 except Exception as e:
                     st.error(f"❌ 儲存失敗：{e}")
+                    st.stop()
         
-                # 更新 session state
                 st.session_state.df = df
-                st.session_state.df_recipe = df
+                st.session_state.df_recipe = df  # ✅ 雙向同步
                 st.session_state.form_recipe = {col: "" for col in columns}
                 st.session_state.edit_recipe_index = None
+                st.rerun()
       
         # === 處理新增色粉列 ===
         if add_powder and not st.session_state.add_powder_clicked:
@@ -2007,6 +2008,7 @@ elif menu == "配方管理":
                                 df_recipe.at[idx, k] = v
                 
                             # 👉 你原本寫 Google Sheet 的程式碼 그대로貼在這裡
+                            st.session_state.select_recipe_code_page_tab3 = fr["配方編號"]
                             st.session_state.show_edit_recipe_panel = False
                             st.rerun()
                 
@@ -3777,7 +3779,7 @@ elif menu == "生產單管理":
                     unsafe_allow_html=True
                 )
                 
-                st.caption("⚠️：『儲存修改』僅同步更新Google Sheets記錄；若需列印需先刪除原生產單後並重新建立新生產單。")
+                st.caption("⚠️：『儲存修改』僅同步更新Google Sheets作記錄修正用；若需列印，請先刪除原生產單，並重新建立新生產單。")
                 
                 order_no = st.session_state.editing_order["生產單號"]
                 
