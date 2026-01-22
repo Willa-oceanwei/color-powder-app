@@ -3521,10 +3521,10 @@ elif menu == "生產單管理":
                 label=" ",
                 options=options_list,
                 index=options_list.index(current_limit),
-                key="selectbox_order_limit_tab2_widget",
+                key="selectbox_order_limit_tab2_widget",  # ← 這個 key 跟 session_state 的 key 不同
                 label_visibility="collapsed"
             )
-    
+
             if new_limit != st.session_state.selectbox_order_limit_tab2:
                 st.session_state.selectbox_order_limit_tab2 = new_limit
                 st.session_state.order_page_tab2 = 1
