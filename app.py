@@ -2186,7 +2186,22 @@ elif menu == "配方管理":
 # =============== Tab 架構結束 ===============                            
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
-    load_recipe(force_reload=True)
+    
+    # ✅ 強制重新載入配方資料
+    if "df_recipe" not in st.session_state or st.session_state.df_recipe.empty:
+        try:
+            ws_recipe = spreadsheet.worksheet("配方管理")
+            values = ws_recipe.get_all_values()
+            if len(values) > 1:
+                df_recipe = pd.DataFrame(values[1:], columns=values[0])
+                df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
+                st.session_state.df_recipe = df_recipe
+            else:
+                st.error("❌ 配方管理表為空，請先建立配方")
+                st.stop()
+        except Exception as e:
+            st.error(f"❌ 無法載入配方管理表：{e}")
+            st.stop()
     
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
@@ -2207,6 +2222,17 @@ elif menu == "生產單管理":
     Path("data").mkdir(parents=True, exist_ok=True)
 
     order_file = Path("data/df_order.csv")
+
+    # ✅ 確保 df_recipe 存在且有「配方編號」欄位
+    df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
+    
+    if df_recipe.empty:
+        st.error("❌ 配方資料未載入，請先至「配方管理」建立配方")
+        st.stop()
+    
+    if "配方編號" not in df_recipe.columns:
+        st.error("❌ df_recipe 中找不到「配方編號」欄位")
+        st.stop()
 
     # 清理函式：去除空白、全形空白，轉大寫
     def clean_powder_id(x):
