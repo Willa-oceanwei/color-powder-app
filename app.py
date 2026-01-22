@@ -3752,41 +3752,70 @@ elif menu == "生產單管理":
             if st.session_state.get("show_delete_confirm", False):
                 order_id = st.session_state.get("delete_target_id")
                 order_label = order_id or "未指定生產單"
-
+            
                 st.warning(f"⚠️ 確定要刪除生產單？\n\n👉 {order_label}")
-
+            
+                # 🔔 是否同步刪除代工單
+                sync_oem_key = f"sync_delete_oem_{order_id}"
+                if sync_oem_key not in st.session_state:
+                    st.session_state[sync_oem_key] = True  # 預設勾選
+            
+                sync_delete_oem = st.checkbox(
+                    "🗑️ 同步刪除對應的代工單",
+                    value=st.session_state[sync_oem_key],
+                    key=sync_oem_key
+                )
+            
                 c1, c2 = st.columns(2)
-
+            
+                # ======================
+                # ✅ 確認刪除
+                # ======================
                 if c1.button("✅ 是，刪除", key="confirm_delete_yes_tab3"):
                     if not order_id:
                         st.error("❌ 未指定要刪除的生產單 ID")
                     else:
                         order_id_str = str(order_id)
+            
                         try:
-                            # ===== 先刪代工單 =====
-                            deleted_oem_count = 0
-                            try:
-                                ws_oem = spreadsheet.worksheet("代工管理")
-                                deleted_oem_count = delete_oem_by_order_id(ws_oem, order_id_str)
-                            except:
-                                ws_oem = None
-                
-                            if deleted_oem_count > 0:
-                                st.toast(f"🧹 已自動刪除 {deleted_oem_count} 筆對應代工單")
-                
-                            # ===== 再刪生產單 =====
+                            # ===== ① 依選項刪代工單 =====
+                            if sync_delete_oem:
+                                try:
+                                    ws_oem = spreadsheet.worksheet("代工管理")
+                                    deleted_oem_count = delete_oem_by_order_id(ws_oem, order_id_str)
+            
+                                    if deleted_oem_count > 0:
+                                        st.toast(f"🧹 已刪除 {deleted_oem_count} 筆對應代工單")
+                                    else:
+                                        st.toast("ℹ️ 沒有找到對應的代工單")
+            
+                                except Exception as e:
+                                    st.error(f"⚠️ 刪除代工單失敗：{e}")
+            
+                            # ===== ② 刪生產單 =====
                             deleted = delete_order_by_id(ws_order, order_id_str)
-                
+            
                             if deleted:
-                                st.success(f"✅ 已刪除 {order_label}")
+                                st.success(f"✅ 已刪除生產單 {order_label}")
                             else:
                                 st.error("❌ 找不到該生產單，刪除失敗")
-                
+            
                         except Exception as e:
                             st.error(f"❌ 刪除時發生錯誤：{e}")
-                
+            
+                    # ===== 清理狀態 =====
                     st.session_state["show_delete_confirm"] = False
+                    st.session_state["delete_target_id"] = None
                     st.rerun()
+            
+                # ======================
+                # ❌ 取消
+                # ======================
+                if c2.button("❌ 取消", key="confirm_delete_cancel_tab3"):
+                    st.session_state["show_delete_confirm"] = False
+                    st.session_state["delete_target_id"] = None
+                    st.rerun()
+            
            
             # ====== 修改面板（⚠️ 一定要在外層） ======
             if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
