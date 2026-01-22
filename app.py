@@ -987,6 +987,20 @@ def load_recipe(force_reload=False):
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
+# ✅ 全域配方資料檢查（在所有分頁之前）
+if "df_recipe" not in st.session_state:
+    try:
+        ws_recipe = spreadsheet.worksheet("配方管理")
+        values = ws_recipe.get_all_values()
+        if len(values) > 1:
+            df_recipe = pd.DataFrame(values[1:], columns=values[0])
+            df_recipe["配方編號"] = df_recipe["配方編號"].astype(str).map(clean_powder_id)
+            st.session_state.df_recipe = df_recipe
+        else:
+            st.session_state.df_recipe = pd.DataFrame()
+    except:
+        st.session_state.df_recipe = pd.DataFrame()
+
 # ======== 色粉管理 =========
 if menu == "色粉管理":
 
