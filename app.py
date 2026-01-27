@@ -3511,10 +3511,10 @@ elif menu == "生產單管理":
         st.caption(f"頁碼 {st.session_state.order_page_tab2} / {total_pages}，總筆數 {total_rows}")
     
     # ============================================================
-    # Tab 3: 生產單預覽/修改/刪除（保持完整，無變更）
+    # Tab 3: 生產單預覽/修改/刪除
     # ============================================================
     with tab3:
-
+    
         # ===== 修改完成通知（一定要在 Tab 3 最上方）=====
         if st.session_state.get("edit_success_message"):
             st.toast(st.session_state.edit_success_message, icon="🎉")
@@ -3534,7 +3534,7 @@ elif menu == "生產單管理":
             row_number = target_idx[0] + 2
             ws.delete_rows(row_number)
             return True
-
+    
         # ===== 刪除代工單函式 =====
         def delete_oem_by_order_id(ws_oem, order_id):
             all_values = ws_oem.get_all_records()
@@ -3546,42 +3546,94 @@ elif menu == "生產單管理":
                 ws_oem.delete_rows(idx + 2)
             return len(target_idxs)
     
-        search_order_tab3 = st.text_input(
-            "搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)",
-            key="search_order_input_tab3",
-            value=""
-        )
-    
-        if search_order_tab3.strip():
-            mask = (
-                df_order["生產單號"].astype(str).str.contains(search_order_tab3, case=False, na=False) |
-                df_order["配方編號"].astype(str).str.contains(search_order_tab3, case=False, na=False) |
-                df_order["客戶名稱"].astype(str).str.contains(search_order_tab3, case=False, na=False) |
-                df_order["顏色"].astype(str).str.contains(search_order_tab3, case=False, na=False)
+        # ===== 🔥 用 Form 包起來（搜尋 + 日期 + 選擇生產單）=====
+        with st.form("search_order_form_tab3"):
+            
+            # 📅 日期區間選擇（新增）
+            col_date1, col_date2 = st.columns(2)
+            with col_date1:
+                search_date_start = st.date_input(
+                    "生產日期（起）",
+                    value=None,
+                    key="search_date_start_tab3"
+                )
+            with col_date2:
+                search_date_end = st.date_input(
+                    "生產日期（迄）",
+                    value=None,
+                    key="search_date_end_tab3"
+                )
+            
+            # 🔍 搜尋關鍵字
+            search_order_tab3 = st.text_input(
+                "搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)",
+                key="search_order_input_tab3",
+                value=""
             )
-            df_filtered_tab3 = df_order[mask].copy()
+            
+            # ✅ Form 提交按鈕
+            submit_search = st.form_submit_button("🔍 搜尋")
+    
+        # ===== 只有按下搜尋才執行篩選 =====
+        if submit_search or st.session_state.get("last_search_tab3_done", False):
+            
+            # 標記已搜尋過（避免 rerun 後消失）
+            st.session_state.last_search_tab3_done = True
+            
+            # 📌 1. 關鍵字篩選
+            if search_order_tab3.strip():
+                mask = (
+                    df_order["生產單號"].astype(str).str.contains(search_order_tab3, case=False, na=False) |
+                    df_order["配方編號"].astype(str).str.contains(search_order_tab3, case=False, na=False) |
+                    df_order["客戶名稱"].astype(str).str.contains(search_order_tab3, case=False, na=False) |
+                    df_order["顏色"].astype(str).str.contains(search_order_tab3, case=False, na=False)
+                )
+                df_filtered_tab3 = df_order[mask].copy()
+            else:
+                df_filtered_tab3 = df_order.copy()
+    
+            # 📌 2. 日期篩選（新增）
+            if "生產日期" in df_filtered_tab3.columns:
+                df_filtered_tab3["生產日期"] = pd.to_datetime(df_filtered_tab3["生產日期"], errors="coerce")
+                
+                # 起始日期篩選
+                if search_date_start:
+                    df_filtered_tab3 = df_filtered_tab3[
+                        df_filtered_tab3["生產日期"] >= pd.to_datetime(search_date_start)
+                    ]
+                
+                # 結束日期篩選
+                if search_date_end:
+                    df_filtered_tab3 = df_filtered_tab3[
+                        df_filtered_tab3["生產日期"] <= pd.to_datetime(search_date_end)
+                    ]
+    
+            # 📌 3. 建立時間排序
+            df_filtered_tab3["建立時間"] = pd.to_datetime(df_filtered_tab3["建立時間"], errors="coerce")
+            df_filtered_tab3 = df_filtered_tab3.sort_values(by="建立時間", ascending=False)
+    
+            # 📌 4. 下拉選單
+            if not df_filtered_tab3.empty:
+                df_filtered_tab3['配方編號'] = df_filtered_tab3['配方編號'].fillna('').astype(str)
+    
+                selected_index = st.selectbox(
+                    "選擇生產單",
+                    options=df_filtered_tab3.index,
+                    format_func=lambda i: f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
+                    key="select_order_code_tab3",
+                    index=0
+                )
+    
+                selected_order = df_filtered_tab3.loc[selected_index]
+                selected_code_edit = selected_order["生產單號"]
+            else:
+                st.info("⚠️ 沒有符合條件的生產單")
+                selected_index, selected_order, selected_code_edit = None, None, None
+    
         else:
-            df_filtered_tab3 = df_order.copy()
-    
-        df_filtered_tab3["建立時間"] = pd.to_datetime(df_filtered_tab3["建立時間"], errors="coerce")
-        df_filtered_tab3 = df_filtered_tab3.sort_values(by="建立時間", ascending=False)
-    
-        if not df_filtered_tab3.empty:
-            df_filtered_tab3['配方編號'] = df_filtered_tab3['配方編號'].fillna('').astype(str)
-    
-            selected_index = st.selectbox(
-                "選擇生產單",
-                options=df_filtered_tab3.index,
-                format_func=lambda i: f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
-                key="select_order_code_tab3",
-                index=0
-            )
-    
-            selected_order = df_filtered_tab3.loc[selected_index]
-            selected_code_edit = selected_order["生產單號"]
-        else:
-            st.info("⚠️ 沒有可選的生產單")
-            selected_index, selected_order, selected_code_edit = None, None, None
+            # 尚未搜尋時，顯示提示
+            st.info("💡 請輸入搜尋條件後按「🔍 搜尋」")
+            selected_order = None
     
         def generate_order_preview_text_tab3(order, recipe_row, show_additional_ids=True):
             html_text = generate_production_order_print(
@@ -3710,10 +3762,10 @@ elif menu == "生產單管理":
         if selected_order is not None:
             order_dict = selected_order.to_dict()
             order_dict = {k: "" if v is None or pd.isna(v) else str(v) for k, v in order_dict.items()}
-
+    
             recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
             recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
-
+    
             show_ids_key = f"show_ids_checkbox_tab3_{selected_order['生產單號']}"
             if show_ids_key not in st.session_state:
                 st.session_state[show_ids_key] = True
@@ -3729,20 +3781,20 @@ elif menu == "生產單管理":
             }
             </style>
             """, unsafe_allow_html=True)
-
+    
             show_ids = st.checkbox(
                 "預覽時顯示附加配方編號",
                 value=st.session_state[show_ids_key],
                 key=show_ids_key
             )
-
+    
             preview_text = generate_order_preview_text_tab3(order_dict, recipe_row, show_additional_ids=show_ids)
-
+    
             cols_preview_order = st.columns([6, 1.2])
             with cols_preview_order[0]:
                 with st.expander("👀 生產單預覽", expanded=False):
                     st.markdown(preview_text, unsafe_allow_html=True)
-
+    
             with cols_preview_order[1]:
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
@@ -3753,15 +3805,15 @@ elif menu == "生產單管理":
                     if st.button("🗑️ ", key="delete_order_btn_tab3"):
                         st.session_state["delete_target_id"] = selected_code_edit
                         st.session_state["show_delete_confirm"] = True
-
+    
             if st.session_state.get("show_delete_confirm", False):
                 order_id = st.session_state.get("delete_target_id")
                 order_label = order_id or "未指定生產單"
-
+    
                 st.warning(f"⚠️ 確定要刪除生產單？\n\n👉 {order_label}")
-
+    
                 c1, c2 = st.columns(2)
-
+    
                 if c1.button("✅ 是，刪除", key="confirm_delete_yes_tab3"):
                     if not order_id:
                         st.error("❌ 未指定要刪除的生產單 ID")
@@ -3901,8 +3953,7 @@ elif menu == "生產單管理":
                         # ===== 設定「修改完成」狀態 =====
                         st.session_state.edit_success_message = f"✅ 生產單 {order_no} 修改完成"
                         st.session_state.show_edit_panel = False
-                        st.session_state.editing_order = None
-
+                        st.session_state.editing_order = None                    
                         st.rerun()
                 
                 with cols_edit[1]:
