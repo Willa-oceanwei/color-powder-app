@@ -3658,34 +3658,40 @@ elif menu == "生產單管理":
                 df_display_tab3 = df_filtered_tab3.copy()
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
     
-                # ===== 分頁控制（極簡一行）=====
-                col_ps, col_pg, col_info = st.columns([1.2, 1.2, 7])
+                # ===== 分頁控制：同一橫列，極簡版 =====
+                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
                 
-                # 分頁選擇
-                page_size = int(st.selectbox(
-                    "",
-                    [5, 10, 20, 50, 100], # 新增 5
-                    index=0, # 預設選第一個，也就是 5
-                    key="tab3_page_size",
-                    label_visibility="collapsed"
+                with col_ps:
+                    st.markdown(
+                        "<span style='font-size:13px; color:#888;'>顯示</span>",
+                        unsafe_allow_html=True
+                    )
+                    page_size = int(st.selectbox(
+                        "",
+                        [5, 10, 20, 50, 100],  # 新增 5
+                        index=0,                # 預設 5
+                        key="tab3_page_size",
+                        label_visibility="collapsed"
                     ))
                 
-                # 頁碼輸入
                 with col_pg:
-                    page = int(st.number_input(
-                        "", 
-                        min_value=1, 
-                        max_value=max(1, (total_rows - 1) // page_size + 1), 
+                    st.markdown(
+                        "<span style='font-size:13px; color:#888;'>頁碼</span>",
+                        unsafe_allow_html=True
+                    )
+                    page = st.number_input(
+                        "",
+                        min_value=1,
+                        max_value=total_pages,
                         value=st.session_state.get("tab3_page_number", 1),
                         step=1,
                         key="tab3_page_number",
                         label_visibility="collapsed"
-                    ))
+                    )
                 
-                # 顯示總筆數/總頁數
                 with col_info:
                     st.markdown(
-                        f"<span style='font-size:12px; color:#888;'>{total_rows} 筆 · 共 {(total_rows - 1)//page_size + 1} 頁</span>",
+                        f"<span style='font-size:13px; color:#888;'>共 {total_rows} 筆 · {total_pages} 頁</span>",
                         unsafe_allow_html=True
                     )
                 
