@@ -3659,14 +3659,43 @@ elif menu == "生產單管理":
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
     
                 # 顯示表格
-                display_cols = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]
-                existing_cols = [c for c in display_cols if c in df_display_tab3.columns]
-    
-                st.dataframe(
-                    df_display_tab3[existing_cols].reset_index(drop=True),
-                    use_container_width=True,
-                    hide_index=True
+                # ===== 分頁控制 =====
+                page_size = st.selectbox(
+                "每頁顯示筆數",
+                [10, 20, 50, 100],
+                index=1,
+                key="tab3_page_size"
                 )
+                
+                
+                total_rows = len(df_display_tab3)
+                total_pages = max(1, (total_rows - 1) // page_size + 1)
+                
+                
+                page = st.number_input(
+                "頁碼",
+                min_value=1,
+                max_value=total_pages,
+                value=1,
+                step=1,
+                key="tab3_page_number"
+                )
+                
+                
+                start_idx = (page - 1) * page_size
+                end_idx = start_idx + page_size
+                df_page = df_display_tab3.iloc[start_idx:end_idx]
+                
+                
+                # ===== 顯示表格 =====
+                st.dataframe(
+                df_page[existing_cols].reset_index(drop=True),
+                use_container_width=True,
+                hide_index=True
+                )
+                
+                
+                st.caption(f"第 {page} / {total_pages} 頁，共 {total_rows} 筆")
             else:
                 st.info("⚠️ 沒有符合條件的生產單")
     
