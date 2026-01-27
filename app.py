@@ -3943,9 +3943,9 @@ elif menu == "生產單管理":
         if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
                 
             st.markdown("---")
-                st.markdown(
-                    f"<p style='font-size:18px; font-weight:bold; color:#fceca6;'>✏️ 修改生產單 {st.session_state.editing_order['生產單號']}</p>",
-                    unsafe_allow_html=True
+            st.markdown(
+                f"<p style='font-size:18px; font-weight:bold; color:#fceca6;'>✏️ 修改生產單 {st.session_state.editing_order['生產單號']}</p>",
+                unsafe_allow_html=True
                 )
                 
                 st.caption("⚠️：『儲存修改』僅同步更新Google Sheets記錄；若需列印需先刪除原生產單後並重新建立新生產單。")
@@ -4054,7 +4054,10 @@ elif menu == "生產單管理":
                     if st.button("返回", key="return_button_tab3"):
                         st.session_state.show_edit_panel = False
                         st.session_state.editing_order = None
-                        st.rerun()    
+                        st.rerun()
+                    
+                    
+                
 
 # ======== 代工管理分頁 =========
 if menu == "代工管理":
