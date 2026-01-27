@@ -3660,53 +3660,24 @@ elif menu == "生產單管理":
     
                 # 顯示表格
                 # ===== 分頁控制（單行極簡，不佔高度）=====
-                st.markdown(
-                    """
-                    <div style="
-                        display:flex;
-                        align-items:center;
-                        gap:12px;
-                        font-size:12px;
-                        color:#9aa0a6;
-                        margin-bottom:-8px;
-                    ">
-                        <span>顯示</span>
-                    """,
-                    unsafe_allow_html=True
-                )
-                
-                page_size = st.selectbox(
-                    "",
-                    [10, 20, 50, 100],
-                    index=1,
-                    key="tab3_page_size",
-                    label_visibility="collapsed"
-                )
-                
-                st.markdown(
-                    """
-                        <span>頁碼</span>
-                    """,
-                    unsafe_allow_html=True
-                )
-                
-                page = st.number_input(
-                    "",
-                    min_value=1,
-                    max_value=total_pages,
-                    value=st.session_state.get("tab3_page_number", 1),
-                    step=1,
-                    key="tab3_page_number",
-                    label_visibility="collapsed"
-                )
-                
-                st.markdown(
-                    f"""
-                        <span>共 {total_rows} 筆 · {total_pages} 頁</span>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                import streamlit as st
+                           
+                st.components.v1.html(f"""
+                <div style="display:flex; align-items:center; gap:10px; font-size:12px; color:#999;">
+                <label>顯示
+                <select id="page_size">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                </select>
+                </label>
+                <label>頁碼
+                <input type="number" id="page" min="1" max="200" value="1" style="width:50px;">
+                </label>
+                <span>共 996 筆 · 200 頁</span>
+                </div>
+                """, height=35)
                         
                 start_idx = (page - 1) * page_size
                 end_idx = start_idx + page_size
