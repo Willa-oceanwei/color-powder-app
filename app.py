@@ -3659,8 +3659,8 @@ elif menu == "生產單管理":
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
     
                 # 顯示表格
-                # ===== 分頁控制 =====
-                col_ps, col_pg, col_info = st.columns([2, 2, 6])
+                # ===== 分頁控制（極簡、不搶戲）=====
+                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
                 
                 with col_ps:
                     st.caption("顯示")
@@ -3672,30 +3672,18 @@ elif menu == "生產單管理":
                     )
                 
                 with col_pg:
+                    st.caption("頁碼")
                     page = st.number_input(
-                        "頁碼",
+                        "",
                         min_value=1,
                         max_value=total_pages,
-                        value=1,
+                        value=st.session_state.get("tab3_page_number", 1),
                         step=1,
-                        key="tab3_page_number",
-                        label_visibility="collapsed"
+                        key="tab3_page_number"
                     )
-                    st.caption("頁碼")
                 
                 with col_info:
-                    st.markdown(
-                        f"""
-                        <div style="
-                            padding-top:30px;
-                            font-size:13px;
-                            color:#9aa0a6;
-                        ">
-                            共 {total_rows} 筆 · {total_pages} 頁
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                    st.caption(f"共 {total_rows} 筆 · {total_pages} 頁")
                         
                 start_idx = (page - 1) * page_size
                 end_idx = start_idx + page_size
@@ -3707,8 +3695,7 @@ elif menu == "生產單管理":
                 use_container_width=True,
                 hide_index=True
                 )
-                
-                
+                                
                 st.caption(f"第 {page} / {total_pages} 頁，共 {total_rows} 筆")
             else:
                 st.info("⚠️ 沒有符合條件的生產單")
