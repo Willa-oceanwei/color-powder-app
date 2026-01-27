@@ -3674,32 +3674,29 @@ elif menu == "生產單管理":
                 """, unsafe_allow_html=True)
     
                 # ===== 分頁控制（極簡、同一行、字體小、顏色淡灰）=====
-                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
+                col_ps, col_pg, col_info = st.columns([1, 1, 4])  # 改比例避免寬撐
                 
                 # CSS 調整 selectbox / number_input / caption
                 st.markdown("""
                 <style>
-                /* 下拉與數字輸入整行高度與字體 */
-                div.stSelectbox, div.stNumberInput {
-                    height: 28px !important;
-                    min-height: 28px !important;
-                    font-size: 12px !important;
-                }
-                
-                /* selectbox 內部 input / button 高度 */
+                /* 調整 selectbox */
                 div.stSelectbox > div > div {
                     height: 28px !important;
                     line-height: 28px !important;
+                    min-width: 60px !important; /* 控制不要太寬 */
+                    max-width: 100px !important;
+                    font-size: 12px !important;
                 }
                 
-                /* number_input 內部 input 高度 */
+                /* 調整 number_input */
                 div.stNumberInput > div > div > input {
                     height: 28px !important;
                     padding: 2px 6px !important;
                     font-size: 12px !important;
+                    max-width: 80px !important;
                 }
                 
-                /* 調整 caption / 顯示文字顏色與字體 */
+                /* 調整 caption */
                 div.stCaption {
                     font-size: 12px !important;
                     color: #9aa0a6 !important;
