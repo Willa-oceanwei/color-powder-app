@@ -3659,31 +3659,42 @@ elif menu == "生產單管理":
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
     
                 # 顯示表格
-                # ===== 分頁控制（極簡、不搶戲）=====
-                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
+                # ===== 分頁控制（單行極簡，不佔高度）=====
+                col_ps, col_pg, col_info = st.columns([2, 2, 6])
                 
                 with col_ps:
-                    st.caption("顯示")
+                    st.markdown(
+                        "<span style='font-size:12px; color:#9aa0a6;'>顯示</span>",
+                        unsafe_allow_html=True
+                    )
                     page_size = st.selectbox(
                         "",
                         [10, 20, 50, 100],
                         index=1,
-                        key="tab3_page_size"
+                        key="tab3_page_size",
+                        label_visibility="collapsed"
                     )
                 
                 with col_pg:
-                    st.caption("頁碼")
+                    st.markdown(
+                        "<span style='font-size:12px; color:#9aa0a6;'>頁碼</span>",
+                        unsafe_allow_html=True
+                    )
                     page = st.number_input(
                         "",
                         min_value=1,
                         max_value=total_pages,
                         value=st.session_state.get("tab3_page_number", 1),
                         step=1,
-                        key="tab3_page_number"
+                        key="tab3_page_number",
+                        label_visibility="collapsed"
                     )
                 
                 with col_info:
-                    st.caption(f"共 {total_rows} 筆 · {total_pages} 頁")
+                    st.markdown(
+                        f"<span style='font-size:12px; color:#9aa0a6;'>共 {total_rows} 筆 · {total_pages} 頁</span>",
+                        unsafe_allow_html=True
+                    )
                         
                 start_idx = (page - 1) * page_size
                 end_idx = start_idx + page_size
