@@ -3659,41 +3659,33 @@ elif menu == "生產單管理":
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
     
                 # ===== 分頁控制：同一橫列，極簡版 =====
-                col_ps, col_pg, col_info = st.columns([1, 1, 4])
+                col_page = st.columns([1])[0]  # 單欄用來承載所有內容
                 
-                with col_ps:
-                    st.markdown(
-                        "<span style='font-size:13px; color:#888; vertical-align:middle;'>顯示</span>",
-                        unsafe_allow_html=True
-                    )
-                    page_size = int(st.selectbox(
-                        "",
-                        [5, 10, 20, 50, 100],  # 新增 5
-                        index=0,                # 預設 5
-                        key="tab3_page_size",
-                        label_visibility="collapsed"
-                    ))
-                
-                with col_pg:
-                    st.markdown(
-                        "<span style='font-size:13px; color:#888; vertical-align:middle;'>頁碼</span>",
-                        unsafe_allow_html=True
-                    )
-                    page = st.number_input(
-                        "",
-                        min_value=1,
-                        max_value=total_pages,
-                        value=st.session_state.get("tab3_page_number", 1),
-                        step=1,
-                        key="tab3_page_number",
-                        label_visibility="collapsed"
-                    )
-                
-                with col_info:
-                    st.markdown(
-                        f"<span style='font-size:13px; color:#888; vertical-align:middle;'>共 {total_rows} 筆 · {total_pages} 頁</span>",
-                        unsafe_allow_html=True
-                    )
+                col_page.markdown(
+                    f"""
+                    <div style="
+                        display:flex;
+                        align-items:center;
+                        gap:10px;
+                        font-size:12px;
+                        color:#888;
+                        white-space:nowrap;
+                    ">
+                        <span>顯示</span>
+                        <select style='font-size:12px; color:#555;' onchange="this.dispatchEvent(new Event('change'))" id='page_size_select'>
+                            <option value='5' {"selected" if st.session_state.get('tab3_page_size', 5)==5 else ""}>5</option>
+                            <option value='10' {"selected" if st.session_state.get('tab3_page_size', 5)==10 else ""}>10</option>
+                            <option value='20' {"selected" if st.session_state.get('tab3_page_size', 5)==20 else ""}>20</option>
+                            <option value='50' {"selected" if st.session_state.get('tab3_page_size', 5)==50 else ""}>50</option>
+                            <option value='100' {"selected" if st.session_state.get('tab3_page_size', 5)==100 else ""}>100</option>
+                        </select>
+                        <span>頁碼</span>
+                        <input type="number" value="{st.session_state.get('tab3_page_number',1)}" min="1" max="{total_pages}" style="width:50px; font-size:12px; color:#555;">
+                        <span>共 {total_rows} 筆 · {total_pages} 頁</span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
                 
                 # 計算分頁索引
                 start_idx = (page - 1) * page_size
