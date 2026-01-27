@@ -3726,8 +3726,7 @@ elif menu == "生產單管理":
                 selected_index, selected_order, selected_code_edit = None, None, None
     
         else:
-            # 尚未搜尋時，顯示提示
-            st.info("💡 請輸入搜尋條件後按「🔍 搜尋」")
+            # st.info("💡 請輸入搜尋條件後按「🔍 搜尋」")
             selected_order = None
     
         def generate_order_preview_text_tab3(order, recipe_row, show_additional_ids=True):
