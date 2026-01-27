@@ -3665,8 +3665,8 @@ elif menu == "生產單管理":
                 with col_ps:
                     page_size = int(st.selectbox(
                         "", 
-                        [10, 20, 50, 100],
-                        index=1,
+                        [5, 10, 20, 50, 100]
+                        index=0,
                         key="tab3_page_size",
                         label_visibility="collapsed"
                     ))
