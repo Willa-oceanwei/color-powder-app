@@ -3662,7 +3662,7 @@ elif menu == "生產單管理":
                 <style>
                 /* 調整 selectbox 與 number_input 字體和高度 */
                 div[data-baseweb="select"] > div {
-                    font-size: 13px !important;
+                    font-size: 10px !important;
                     min-height: 28px !important;
                 }
                 div.stNumberInput > label > div > input {
