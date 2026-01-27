@@ -3673,55 +3673,23 @@ elif menu == "生產單管理":
                 </style>
                 """, unsafe_allow_html=True)
     
-                # ===== 分頁控制（極簡、同一行、字體小、顏色淡灰）=====
-                col_ps, col_pg, col_info = st.columns([1, 1, 4])  # 改比例避免寬撐
-                
-                # CSS 調整 selectbox / number_input / caption
-                st.markdown("""
-                <style>
-                /* 調整 selectbox */
-                div.stSelectbox > div > div {
-                    height: 28px !important;
-                    line-height: 28px !important;
-                    min-width: 60px !important; /* 控制不要太寬 */
-                    max-width: 100px !important;
-                    font-size: 12px !important;
-                }
-                
-                /* 調整 number_input */
-                div.stNumberInput > div > div > input {
-                    height: 28px !important;
-                    padding: 2px 6px !important;
-                    font-size: 12px !important;
-                    max-width: 80px !important;
-                }
-                
-                /* 調整 caption */
-                div.stCaption {
-                    font-size: 12px !important;
-                    color: #9aa0a6 !important;
-                    padding-top: 0px;
-                    padding-bottom: 0px;
-                }
-                </style>
-                """, unsafe_allow_html=True)
+                # ===== 分頁控制：同一橫列，極簡版 =====
+                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
                 
                 with col_ps:
-                    st.caption("顯示")
                     page_size = st.selectbox(
-                        "",
+                        "",                      # 標題不顯示
                         [5, 10, 20, 50, 100],
-                        index=0,  # 預設 5 筆
+                        index=0,                 # 預設 5 筆
                         key="tab3_page_size",
                         label_visibility="collapsed"
                     )
                 
                 with col_pg:
-                    st.caption("頁碼")
                     page = st.number_input(
-                        "",
-                        min_value=1,
-                        max_value=total_pages,
+                        "", 
+                        min_value=1, 
+                        max_value=max(1, (len(df_display_tab3)-1)//page_size + 1),
                         value=st.session_state.get("tab3_page_number", 1),
                         step=1,
                         key="tab3_page_number",
@@ -3729,7 +3697,10 @@ elif menu == "生產單管理":
                     )
                 
                 with col_info:
-                    st.caption(f"共 {total_rows} 筆 · {total_pages} 頁")
+                    st.markdown(
+                        f'<div style="font-size:12px; color:#888;">共 {len(df_display_tab3)} 筆 · {max(1,(len(df_display_tab3)-1)//page_size + 1)} 頁</div>',
+                        unsafe_allow_html=True
+                    )
                 
                 # 分頁索引計算
                 start_idx = (page-1) * page_size
