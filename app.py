@@ -3657,6 +3657,21 @@ elif menu == "生產單管理":
                 # 新增出貨數量欄位
                 df_display_tab3 = df_filtered_tab3.copy()
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
+
+                st.markdown("""
+                <style>
+                /* 調整 selectbox 與 number_input 字體和高度 */
+                div[data-baseweb="select"] > div {
+                    font-size: 13px !important;
+                    min-height: 28px !important;
+                }
+                div.stNumberInput > label > div > input {
+                    font-size: 13px !important;
+                    height: 28px !important;
+                    padding: 2px 4px !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
     
                 # ===== 分頁控制：同一橫列，極簡版 =====
                 col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
