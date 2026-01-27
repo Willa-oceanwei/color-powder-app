@@ -3659,47 +3659,44 @@ elif menu == "生產單管理":
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
     
                 # ===== 分頁控制：同一橫列，極簡版 =====
-                col_page = st.columns([1])[0]  # 單欄用來承載所有內容
+                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
                 
-                col_page.markdown(
-                    f"""
-                    <div style="
-                        display:flex;
-                        align-items:center;
-                        gap:10px;
-                        font-size:12px;
-                        color:#888;
-                        white-space:nowrap;
-                    ">
-                        <span>顯示</span>
-                        <select style='font-size:12px; color:#555;' onchange="this.dispatchEvent(new Event('change'))" id='page_size_select'>
-                            <option value='5' {"selected" if st.session_state.get('tab3_page_size', 5)==5 else ""}>5</option>
-                            <option value='10' {"selected" if st.session_state.get('tab3_page_size', 5)==10 else ""}>10</option>
-                            <option value='20' {"selected" if st.session_state.get('tab3_page_size', 5)==20 else ""}>20</option>
-                            <option value='50' {"selected" if st.session_state.get('tab3_page_size', 5)==50 else ""}>50</option>
-                            <option value='100' {"selected" if st.session_state.get('tab3_page_size', 5)==100 else ""}>100</option>
-                        </select>
-                        <span>頁碼</span>
-                        <input type="number" value="{st.session_state.get('tab3_page_number',1)}" min="1" max="{total_pages}" style="width:50px; font-size:12px; color:#555;">
-                        <span>共 {total_rows} 筆 · {total_pages} 頁</span>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                with col_ps:
+                    st.caption("顯示")
+                    page_size = st.selectbox(
+                        "",
+                        [5, 10, 20, 50, 100],  # 預設可選 5 筆
+                        index=0,  # 預設選 5
+                        key="tab3_page_size"
+                    )
                 
-                # 計算分頁索引
+                with col_pg:
+                    st.caption("頁碼")
+                    page = st.number_input(
+                        "",
+                        min_value=1,
+                        max_value=max(1, (len(df_display_tab3) - 1) // int(page_size) + 1),
+                        value=st.session_state.get("tab3_page_number", 1),
+                        step=1,
+                        key="tab3_page_number"
+                    )
+                
+                with col_info:
+                    st.caption(f"共 {len(df_display_tab3)} 筆 · {max(1, (len(df_display_tab3) - 1) // int(page_size) + 1)} 頁")
+                
+                # ===== 修復錯誤：強制轉整數 =====
+                page_size = int(page_size)
+                page = int(page)
                 start_idx = (page - 1) * page_size
                 end_idx = start_idx + page_size
                 df_page = df_display_tab3.iloc[start_idx:end_idx]
                 
                 # ===== 顯示表格 =====
                 st.dataframe(
-                df_page[existing_cols].reset_index(drop=True),
-                use_container_width=True,
-                hide_index=True
+                    df_page[existing_cols].reset_index(drop=True),
+                    use_container_width=True,
+                    hide_index=True
                 )
-                                
-                st.caption(f"第 {page} / {total_pages} 頁，共 {total_rows} 筆")
             else:
                 st.info("⚠️ 沒有符合條件的生產單")
     
