@@ -4162,7 +4162,7 @@ elif menu == "生產單管理":
                         st.session_state.df_order = df_order
                 
                         # ===== 設定「修改完成」狀態 =====
-                        st.session_state.edit_success_message = f"✅ 生產單 {ord女er_no} 修改完成"
+                        st.session_state.edit_success_message = f"✅ 生產單 {order_no} 修改完成"
                         st.session_state.show_edit_panel = False
                         st.session_state.editing_order = None                    
                         st.rerun()
