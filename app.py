@@ -3659,37 +3659,38 @@ elif menu == "生產單管理":
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
     
                 # ===== 分頁控制：同一橫列，極簡版 =====
-                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
+                page_size = st.selectbox(
+                    "", [5, 10, 20, 50, 100], index=0, key="tab3_page_size", label_visibility="collapsed"
+                )
+                page = st.number_input(
+                    "", min_value=1, max_value=max(1, (len(df_display_tab3) - 1) // int(page_size) + 1),
+                    value=st.session_state.get("tab3_page_number", 1), step=1, key="tab3_page_number", label_visibility="collapsed"
+                )
                 
-                with col_ps:
-                    st.caption("顯示")
-                    page_size = st.selectbox(
-                        "",
-                        [5, 10, 20, 50, 100],  # 預設可選 5 筆
-                        index=0,  # 預設選 5
-                        key="tab3_page_size"
-                    )
-                
-                with col_pg:
-                    st.caption("頁碼")
-                    page = st.number_input(
-                        "",
-                        min_value=1,
-                        max_value=max(1, (len(df_display_tab3) - 1) // int(page_size) + 1),
-                        value=st.session_state.get("tab3_page_number", 1),
-                        step=1,
-                        key="tab3_page_number"
-                    )
-                
-                with col_info:
-                    st.caption(f"共 {len(df_display_tab3)} 筆 · {max(1, (len(df_display_tab3) - 1) // int(page_size) + 1)} 頁")
-                
-                # ===== 修復錯誤：強制轉整數 =====
+                # 強制轉整數避免錯誤
                 page_size = int(page_size)
                 page = int(page)
                 start_idx = (page - 1) * page_size
                 end_idx = start_idx + page_size
                 df_page = df_display_tab3.iloc[start_idx:end_idx]
+                
+                # ===== 用 HTML 同一行顯示所有資訊 =====
+                st.markdown(
+                    f"""
+                    <div style="
+                        display:flex; 
+                        align-items:center; 
+                        gap:10px; 
+                        font-size:13px; 
+                        color:#888;
+                    ">
+                        <div>顯示 {page_size} 筆</div>
+                        <div>頁碼 {page}</div>
+                        <div>共 {len(df_display_tab3)} 筆 · {max(1, (len(df_display_tab3) - 1) // page_size + 1)} 頁</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
                 
                 # ===== 顯示表格 =====
                 st.dataframe(
