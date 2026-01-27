@@ -3673,16 +3673,30 @@ elif menu == "生產單管理":
                 </style>
                 """, unsafe_allow_html=True)
     
-                # ===== 分頁控制：同一橫列，極簡版 =====
+                # ===== 分頁控制（極簡、同一行、字體小、顏色淡灰）=====
                 col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
                 
-                # 套用 CSS 調整 selectbox / number_input 字體與高度
+                # CSS 調整 selectbox / number_input / caption
                 st.markdown("""
                 <style>
-                /* 下拉與數字輸入字體與高度 */
-                div.stSelectbox > div, div.stNumberInput > div {
-                    font-size: 12px !important;
+                /* 下拉與數字輸入整行高度與字體 */
+                div.stSelectbox, div.stNumberInput {
                     height: 28px !important;
+                    min-height: 28px !important;
+                    font-size: 12px !important;
+                }
+                
+                /* selectbox 內部 input / button 高度 */
+                div.stSelectbox > div > div {
+                    height: 28px !important;
+                    line-height: 28px !important;
+                }
+                
+                /* number_input 內部 input 高度 */
+                div.stNumberInput > div > div > input {
+                    height: 28px !important;
+                    padding: 2px 6px !important;
+                    font-size: 12px !important;
                 }
                 
                 /* 調整 caption / 顯示文字顏色與字體 */
@@ -3698,7 +3712,7 @@ elif menu == "生產單管理":
                 with col_ps:
                     st.caption("顯示")
                     page_size = st.selectbox(
-                        "",  # label 隱藏
+                        "",
                         [5, 10, 20, 50, 100],
                         index=0,  # 預設 5 筆
                         key="tab3_page_size",
