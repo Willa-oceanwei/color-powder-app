@@ -3658,27 +3658,39 @@ elif menu == "生產單管理":
                 df_display_tab3 = df_filtered_tab3.copy()
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
     
-                # 顯示表格
-                # ===== 分頁控制（單行極簡，不佔高度）=====
-                import streamlit as st
-                           
-                st.components.v1.html(f"""
-                <div style="display:flex; align-items:center; gap:10px; font-size:12px; color:#999;">
-                <label>顯示
-                <select id="page_size">
-                <option value="10">10</option>
-                <option value="20" selected>20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                </select>
-                </label>
-                <label>頁碼
-                <input type="number" id="page" min="1" max="200" value="1" style="width:50px;">
-                </label>
-                <span>共 996 筆 · 200 頁</span>
-                </div>
-                """, height=35)
-                        
+                # ===== 分頁控制（極簡一行）=====
+                col_ps, col_pg, col_info = st.columns([1.2, 1.2, 7])
+                
+                # 分頁選擇
+                with col_ps:
+                    page_size = int(st.selectbox(
+                        "", 
+                        [10, 20, 50, 100],
+                        index=1,
+                        key="tab3_page_size",
+                        label_visibility="collapsed"
+                    ))
+                
+                # 頁碼輸入
+                with col_pg:
+                    page = int(st.number_input(
+                        "", 
+                        min_value=1, 
+                        max_value=max(1, (total_rows - 1) // page_size + 1), 
+                        value=st.session_state.get("tab3_page_number", 1),
+                        step=1,
+                        key="tab3_page_number",
+                        label_visibility="collapsed"
+                    ))
+                
+                # 顯示總筆數/總頁數
+                with col_info:
+                    st.markdown(
+                        f"<span style='font-size:12px; color:#888;'>{total_rows} 筆 · 共 {(total_rows - 1)//page_size + 1} 頁</span>",
+                        unsafe_allow_html=True
+                    )
+                
+                # 計算分頁索引
                 start_idx = (page - 1) * page_size
                 end_idx = start_idx + page_size
                 df_page = df_display_tab3.iloc[start_idx:end_idx]
