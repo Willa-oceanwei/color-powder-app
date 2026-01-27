@@ -3509,7 +3509,7 @@ elif menu == "生產單管理":
                 st.rerun()
     
         st.caption(f"頁碼 {st.session_state.order_page_tab2} / {total_pages}，總筆數 {total_rows}")
-    
+
     # ============================================================
     # Tab 3: 生產單預覽/修改/刪除
     # ============================================================
@@ -3951,7 +3951,7 @@ elif menu == "生產單管理":
                         st.session_state.df_order = df_order
                 
                         # ===== 設定「修改完成」狀態 =====
-                        st.session_state.edit_success_message = f"✅ 生產單 {order_no} 修改完成"
+                        st.session_state.edit_success_message = f"✅ 生產單 {ord女er_no} 修改完成"
                         st.session_state.show_edit_panel = False
                         st.session_state.editing_order = None                    
                         st.rerun()
