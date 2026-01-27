@@ -3659,45 +3659,51 @@ elif menu == "生產單管理":
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
     
                 # ===== 分頁控制：同一橫列，極簡版 =====
-                import streamlit as st
+                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
                 
-                page_size = st.session_state.get("tab3_page_size", 5)
-                page = st.session_state.get("tab3_page_number", 1)
-                total_rows = len(df_display_tab3)
-                total_pages = max(1, (total_rows - 1) // page_size + 1)
+                # 1️⃣ 每頁筆數
+                with col_ps:
+                    page_size = st.selectbox(
+                        "",  # 不顯示 label
+                        [5, 10, 20, 50, 100],  # 可調整，預設 5 筆
+                        index=0,
+                        key="tab3_page_size",
+                        label_visibility="collapsed"
+                    )
                 
-                # HTML 同一行顯示
-                st.markdown(f"""
-                <div style="
-                    display:flex; 
-                    align-items:center; 
-                    gap:10px; 
-                    font-size:13px; 
-                    color:#888;
-                ">
-                    <div>
-                        <select onchange="window.streamlitSendMessage({{type:'update', key:'tab3_page_size', value:this.value}})">
-                            {"".join([f"<option value='{x}' {'selected' if x==page_size else ''}>{x}</option>" for x in [5,10,20,50,100]])}
-                        </select> 顯示
-                    </div>
-                    <div>
-                        <input type="number" min="1" max="{total_pages}" value="{page}" 
-                            style="width:50px;" 
-                            onchange="window.streamlitSendMessage({{type:'update', key:'tab3_page_number', value:this.value}})"
-                        > 頁碼
-                    </div>
-                    <div>共 {total_rows} 筆 · {total_pages} 頁</div>
-                </div>
-                """, unsafe_allow_html=True)
+                # 2️⃣ 頁碼
+                with col_pg:
+                    page = st.number_input(
+                        "",  # 不顯示 label
+                        min_value=1,
+                        max_value=max(1, (len(df_display_tab3)-1)//page_size + 1),
+                        value=st.session_state.get("tab3_page_number", 1),
+                        step=1,
+                        key="tab3_page_number",
+                        label_visibility="collapsed"
+                    )
+                
+                # 3️⃣ 顯示總筆數與總頁數
+                with col_info:
+                    st.markdown(
+                        f"<p style='font-size:13px; color:#9aa0a6; margin-top:0px;'>共 {len(df_display_tab3)} 筆 · {max(1, (len(df_display_tab3)-1)//page_size + 1)} 頁</p>",
+                        unsafe_allow_html=True
+                    )
+                
+                # ===== 計算分頁索引，安全處理 =====
+                start_idx = min((page-1)*page_size, len(df_display_tab3))
+                end_idx = min(start_idx + page_size, len(df_display_tab3))
+                df_page = df_display_tab3.iloc[start_idx:end_idx]
                 
                 # ===== 顯示表格 =====
-                st.dataframe(
-                    df_page[existing_cols].reset_index(drop=True),
-                    use_container_width=True,
-                    hide_index=True
-                )
-            else:
-                st.info("⚠️ 沒有符合條件的生產單")
+                if not df_page.empty and existing_cols:
+                    st.dataframe(
+                        df_page[existing_cols].reset_index(drop=True),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.info("⚠️ 沒有符合條件的生產單")
     
             # 📌 4. 下拉選單
             if not df_filtered_tab3.empty:
