@@ -3663,14 +3663,13 @@ elif menu == "生產單管理":
                 col_ps, col_pg, col_info = st.columns([2, 2, 6])
                 
                 with col_ps:
+                    st.caption("顯示")
                     page_size = st.selectbox(
-                        "每頁",
+                        "",
                         [10, 20, 50, 100],
                         index=1,
-                        key="tab3_page_size",
-                        label_visibility="collapsed"
+                        key="tab3_page_size"
                     )
-                    st.caption("每頁筆數")
                 
                 with col_pg:
                     page = st.number_input(
