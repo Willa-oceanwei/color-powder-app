@@ -3674,52 +3674,32 @@ elif menu == "生產單管理":
                 """, unsafe_allow_html=True)
     
                 # ===== 分頁控制：同一橫列，極簡版 =====
-                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
+                page_size_options = [5, 10, 20, 50, 100]
+                page_size_default = 0  # 預設 5 筆
+                page_number_default = st.session_state.get("tab3_page_number", 1)
                 
-                # 📌 套用 CSS 調整 input 高度、字體小、padding
-                st.markdown("""
-                <style>
-                /* Selectbox / NumberInput 高度小巧 */
-                div.stSelectbox > label > div > div > div, 
-                div.stNumberInput > label > div > input {
-                    font-size: 12px !important;     /* 字體小 */
-                    height: 24px !important;        /* 欄位高度小 */
-                    padding: 2px 4px !important;    /* 內距 */
-                }
-                
-                /* Caption 文字淡色小字 */
-                div[data-testid="stCaption"] {
-                    font-size: 12px !important;
-                    color: #888 !important;
-                    line-height: 1.2 !important;
-                }
-                </style>
+                # HTML + CSS 控制整行
+                st.markdown(f"""
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;       /* 欄位間距 */
+                    font-size: 12px;
+                    color: #888;
+                    margin-bottom: 6px;
+                ">
+                    <div>顯示</div>
+                    <select id="page_size_select" style="height:22px; font-size:12px;">
+                        {''.join([f'<option value={i} {"selected" if idx==page_size_default else ""}>{i}</option>' for idx,i in enumerate(page_size_options)])}
+                    </select>
+                    <div>頁碼</div>
+                    <input id="page_number_input" type="number" value="{page_number_default}" min="1" max="{total_pages}" style="width:50px; height:22px; font-size:12px;" />
+                    <div>共 {total_rows} 筆 · {total_pages} 頁</div>
+                </div>
                 """, unsafe_allow_html=True)
                 
-                with col_ps:
-                    st.caption("顯示")
-                    page_size = st.selectbox(
-                        "",
-                        [5, 10, 20, 50, 100],
-                        index=0,  # 預設 5 筆
-                        key="tab3_page_size",
-                        label_visibility="collapsed"
-                    )
-                
-                with col_pg:
-                    st.caption("頁碼")
-                    page = st.number_input(
-                        "",
-                        min_value=1,
-                        max_value=total_pages,
-                        value=st.session_state.get("tab3_page_number", 1),
-                        step=1,
-                        key="tab3_page_number",
-                        label_visibility="collapsed"
-                    )
-                
-                with col_info:
-                    st.caption(f"共 {total_rows} 筆 · {total_pages} 頁")
+                # 使用 session_state 儲存選擇（JS -> Python 互動需額外套件或 Streamlit Forms/Components）
+                # 如果要繼續用原生 st.selectbox + st.number_input 也可以，但會自動換行
                 
                 # ===== 計算分頁索引，安全處理 =====
                 start_idx = min((page-1)*page_size, len(df_display_tab3))
