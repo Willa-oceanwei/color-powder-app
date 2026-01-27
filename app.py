@@ -3674,32 +3674,38 @@ elif menu == "生產單管理":
                 """, unsafe_allow_html=True)
     
                 # ===== 分頁控制：同一橫列，極簡版 =====
-                page_size_options = [5, 10, 20, 50, 100]
-                page_size_default = 0  # 預設 5 筆
-                page_number_default = st.session_state.get("tab3_page_number", 1)
+                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
                 
-                # HTML + CSS 控制整行
-                st.markdown(f"""
-                <div style="
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;       /* 欄位間距 */
-                    font-size: 12px;
-                    color: #888;
-                    margin-bottom: 6px;
-                ">
-                    <div>顯示</div>
-                    <select id="page_size_select" style="height:22px; font-size:12px;">
-                        {''.join([f'<option value={i} {"selected" if idx==page_size_default else ""}>{i}</option>' for idx,i in enumerate(page_size_options)])}
-                    </select>
-                    <div>頁碼</div>
-                    <input id="page_number_input" type="number" value="{page_number_default}" min="1" max="{total_pages}" style="width:50px; height:22px; font-size:12px;" />
-                    <div>共 {total_rows} 筆 · {total_pages} 頁</div>
-                </div>
-                """, unsafe_allow_html=True)
+                with col_ps:
+                    page_size = st.selectbox(
+                        "",                      # 標題不顯示
+                        [5, 10, 20, 50, 100],
+                        index=0,                 # 預設 5 筆
+                        key="tab3_page_size",
+                        label_visibility="collapsed"
+                    )
                 
-                # 使用 session_state 儲存選擇（JS -> Python 互動需額外套件或 Streamlit Forms/Components）
-                # 如果要繼續用原生 st.selectbox + st.number_input 也可以，但會自動換行
+                with col_pg:
+                    page = st.number_input(
+                        "", 
+                        min_value=1, 
+                        max_value=max(1, (len(df_display_tab3)-1)//page_size + 1),
+                        value=st.session_state.get("tab3_page_number", 1),
+                        step=1,
+                        key="tab3_page_number",
+                        label_visibility="collapsed"
+                    )
+                
+                with col_info:
+                    st.markdown(
+                        f'<div style="font-size:12px; color:#888;">共 {len(df_display_tab3)} 筆 · {max(1,(len(df_display_tab3)-1)//page_size + 1)} 頁</div>',
+                        unsafe_allow_html=True
+                    )
+                
+                # 分頁索引計算
+                start_idx = (page-1) * page_size
+                end_idx = start_idx + page_size
+                df_page = df_display_tab3.iloc[start_idx:end_idx]
                 
                 # ===== 計算分頁索引，安全處理 =====
                 start_idx = min((page-1)*page_size, len(df_display_tab3))
