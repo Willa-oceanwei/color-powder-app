@@ -3659,11 +3659,11 @@ elif menu == "生產單管理":
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
     
                 # ===== 分頁控制：同一橫列，極簡版 =====
-                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
+                col_ps, col_pg, col_info = st.columns([1, 1, 4])
                 
                 with col_ps:
                     st.markdown(
-                        "<span style='font-size:13px; color:#888;'>顯示</span>",
+                        "<span style='font-size:13px; color:#888; vertical-align:middle;'>顯示</span>",
                         unsafe_allow_html=True
                     )
                     page_size = int(st.selectbox(
@@ -3676,7 +3676,7 @@ elif menu == "生產單管理":
                 
                 with col_pg:
                     st.markdown(
-                        "<span style='font-size:13px; color:#888;'>頁碼</span>",
+                        "<span style='font-size:13px; color:#888; vertical-align:middle;'>頁碼</span>",
                         unsafe_allow_html=True
                     )
                     page = st.number_input(
@@ -3691,7 +3691,7 @@ elif menu == "生產單管理":
                 
                 with col_info:
                     st.markdown(
-                        f"<span style='font-size:13px; color:#888;'>共 {total_rows} 筆 · {total_pages} 頁</span>",
+                        f"<span style='font-size:13px; color:#888; vertical-align:middle;'>共 {total_rows} 筆 · {total_pages} 頁</span>",
                         unsafe_allow_html=True
                     )
                 
