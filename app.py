@@ -3667,8 +3667,10 @@ elif menu == "生產單管理":
                         "每頁",
                         [10, 20, 50, 100],
                         index=1,
-                        key="tab3_page_size"
+                        key="tab3_page_size",
+                        label_visibility="collapsed"
                     )
+                    st.caption("每頁筆數")
                 
                 with col_pg:
                     page = st.number_input(
@@ -3677,12 +3679,22 @@ elif menu == "生產單管理":
                         max_value=total_pages,
                         value=1,
                         step=1,
-                        key="tab3_page_number"
+                        key="tab3_page_number",
+                        label_visibility="collapsed"
                     )
+                    st.caption("頁碼")
                 
                 with col_info:
                     st.markdown(
-                        f"<div style='padding-top:28px;'>共 <b>{total_rows}</b> 筆，{total_pages} 頁</div>",
+                        f"""
+                        <div style="
+                            padding-top:30px;
+                            font-size:13px;
+                            color:#9aa0a6;
+                        ">
+                            共 {total_rows} 筆 · {total_pages} 頁
+                        </div>
+                        """,
                         unsafe_allow_html=True
                     )
                         
