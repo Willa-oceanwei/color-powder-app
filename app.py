@@ -3660,32 +3660,35 @@ elif menu == "生產單管理":
     
                 # 顯示表格
                 # ===== 分頁控制 =====
-                page_size = st.selectbox(
-                "每頁顯示筆數",
-                [10, 20, 50, 100],
-                index=1,
-                key="tab3_page_size"
-                )
+                col_ps, col_pg, col_info = st.columns([2, 2, 6])
                 
+                with col_ps:
+                    page_size = st.selectbox(
+                        "每頁",
+                        [10, 20, 50, 100],
+                        index=1,
+                        key="tab3_page_size"
+                    )
                 
-                total_rows = len(df_display_tab3)
-                total_pages = max(1, (total_rows - 1) // page_size + 1)
+                with col_pg:
+                    page = st.number_input(
+                        "頁碼",
+                        min_value=1,
+                        max_value=total_pages,
+                        value=1,
+                        step=1,
+                        key="tab3_page_number"
+                    )
                 
-                
-                page = st.number_input(
-                "頁碼",
-                min_value=1,
-                max_value=total_pages,
-                value=1,
-                step=1,
-                key="tab3_page_number"
-                )
-                
-                
+                with col_info:
+                    st.markdown(
+                        f"<div style='padding-top:28px;'>共 <b>{total_rows}</b> 筆，{total_pages} 頁</div>",
+                        unsafe_allow_html=True
+                    )
+                        
                 start_idx = (page - 1) * page_size
                 end_idx = start_idx + page_size
                 df_page = df_display_tab3.iloc[start_idx:end_idx]
-                
                 
                 # ===== 顯示表格 =====
                 st.dataframe(
