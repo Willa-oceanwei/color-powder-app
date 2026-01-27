@@ -3662,13 +3662,12 @@ elif menu == "生產單管理":
                 col_ps, col_pg, col_info = st.columns([1.2, 1.2, 7])
                 
                 # 分頁選擇
-                with col_ps:
-                    page_size = int(st.selectbox(
-                        "", 
-                        [5, 10, 20, 50, 100]
-                        index=0,
-                        key="tab3_page_size",
-                        label_visibility="collapsed"
+                page_size = int(st.selectbox(
+                    "",
+                    [5, 10, 20, 50, 100], # 新增 5
+                    index=0, # 預設選第一個，也就是 5
+                    key="tab3_page_size",
+                    label_visibility="collapsed"
                     ))
                 
                 # 頁碼輸入
