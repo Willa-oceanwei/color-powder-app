@@ -5699,7 +5699,7 @@ elif menu == "查詢區":
         
             with c5:
                 sample_qty = st.text_input(
-                    "樣品數量",
+                    "樣品數量(g)",
                     value=st.session_state.form_sample.get("樣品數量", ""),
                     key="form_sample_qty"
                 )
