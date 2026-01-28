@@ -2789,28 +2789,37 @@ elif menu == "生產單管理":
             with col3:
                 add_btn = st.form_submit_button("➕ 新增")
         
-        # ===== 處理搜尋結果 =====
+        # ===== 處理搜尋結果（不污染原始 df_recipe）=====
         search_text_original = search_text.strip()
-        search_text_normalized = fix_leading_zero(search_text.strip())
-        search_text_upper = search_text.strip().upper()
-    
+        search_text_normalized = fix_leading_zero(search_text_original)
+        search_text_upper = search_text_original.upper()
+        
+        # 🔒 一律先 copy，搜尋只作用在 search_df
+        search_df = df_recipe.copy()
+        
         if search_text_normalized:
-            df_recipe["_配方編號標準"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
-    
+            # 建立「僅供搜尋使用」的標準化配方編號
+            search_df["_配方編號標準"] = search_df["配方編號"].map(
+                lambda x: fix_leading_zero(clean_powder_id(x))
+            )
+        
             if exact:
-                filtered = df_recipe[
-                    (df_recipe["_配方編號標準"] == search_text_normalized) |
-                    (df_recipe["客戶名稱"].str.upper() == search_text_upper)
+                filtered = search_df[
+                    (search_df["_配方編號標準"] == search_text_normalized) |
+                    (search_df["客戶名稱"].str.upper() == search_text_upper)
                 ]
             else:
-                filtered = df_recipe[
-                    df_recipe["_配方編號標準"].str.contains(search_text_normalized, case=False, na=False) |
-                    df_recipe["客戶名稱"].str.contains(search_text.strip(), case=False, na=False)
+                filtered = search_df[
+                    search_df["_配方編號標準"].str.contains(search_text_normalized, case=False, na=False) |
+                    search_df["客戶名稱"].str.contains(search_text_original, case=False, na=False)
                 ]
-            filtered = filtered.copy()
-            filtered.drop(columns=["_配方編號標準"], inplace=True)
+        
+            # 搜尋結束後移除暫用欄位
+            filtered = filtered.drop(columns=["_配方編號標準"], errors="ignore")
+        
         else:
-            filtered = df_recipe.copy()
+            # 沒輸入搜尋字 → 顯示全部（仍是 copy）
+            filtered = search_df.copy()
     
         # 建立搜尋結果標籤與選項
         if not filtered.empty:
@@ -2820,7 +2829,6 @@ elif menu == "生產單管理":
             option_map = {}
     
         # ===== 顯示選擇結果 =====
-        #    =====    顯示選擇結果    =====
         if    not    option_map:
             st.warning("查無符合的配方")
             selected_row    =    None
