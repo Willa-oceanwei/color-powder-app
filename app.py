@@ -5790,9 +5790,18 @@ elif menu == "查詢區":
                     for _, row in df_show.iterrows()
                 ]
         
-                selected = st.selectbox("選擇樣品以修改", [""] + options)
+                # 初始化上一選項
+                if "last_selected_sample" not in st.session_state:
+                    st.session_state.last_selected_sample = None
         
-                if selected:
+                selected = st.selectbox(
+                    "選擇樣品以修改",
+                    [""] + options,
+                    index=0
+                )
+        
+                # 只在「選擇改變時」才進入修改模式
+                if selected and selected != st.session_state.last_selected_sample:
                     idx = options.index(selected)
                     real_index = df_show.iloc[idx]["index"]
         
@@ -5800,7 +5809,8 @@ elif menu == "查詢區":
                     st.session_state.edit_sample_index = real_index
                     st.session_state.form_sample = df_sample.loc[real_index].to_dict()
         
-                    st.rerun()
+                    # 記錄最後一次選擇，避免無限 rerun
+                    st.session_state.last_selected_sample = selected
                     
 # ======== 庫存區分頁 =========
 elif menu == "庫存區":
