@@ -5639,22 +5639,26 @@ elif menu == "查詢區":
         })
     
         # ============================================================
-        # 新增 / 修改 樣品（明確模式版）
+        # 新增 / 修改 / 刪除 樣品（安全版）
         # ============================================================
         st.markdown(
-            "<span style='color:#f1f5f2; font-weight:bold;'>☑️ 新增 / 修改 樣品</span>",
+            "<span style='color:#f1f5f2; font-weight:bold;'>☑️ 新增 / 修改 / 刪除 樣品</span>",
             unsafe_allow_html=True
         )
         
         # ===== 狀態初始化 =====
         if "sample_mode" not in st.session_state:
-            st.session_state.sample_mode = "add"   # add / edit
-        
+            st.session_state.sample_mode = "add"  # add / edit
         if "edit_sample_index" not in st.session_state:
             st.session_state.edit_sample_index = None
-        
         if "form_sample" not in st.session_state:
             st.session_state.form_sample = {}
+        if "last_selected_sample" not in st.session_state:
+            st.session_state.last_selected_sample = None
+        if "show_delete_sample_confirm" not in st.session_state:
+            st.session_state.show_delete_sample_confirm = False
+        if "delete_sample_index" not in st.session_state:
+            st.session_state.delete_sample_index = None
         
         # ============================================================
         # 表單
@@ -5681,7 +5685,6 @@ elif menu == "查詢區":
                 sample_code = st.text_input(
                     "樣品編號",
                     value=st.session_state.form_sample.get("樣品編號", ""),
-                    disabled=(st.session_state.sample_mode == "edit"),
                     key="form_sample_code"
                 )
         
@@ -5721,13 +5724,12 @@ elif menu == "查詢區":
                 st.warning("⚠️ 請輸入樣品編號")
             else:
                 if st.session_state.sample_mode == "edit":
+                    # ===== 修改 =====
                     df_sample.loc[st.session_state.edit_sample_index] = data
                     st.success("✅ 樣品已更新")
                 else:
-                    df_sample = pd.concat(
-                        [df_sample, pd.DataFrame([data])],
-                        ignore_index=True
-                    )
+                    # ===== 新增 =====
+                    df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
                     st.success("✅ 新增完成")
         
                 save_df_to_sheet(ws_sample, df_sample)
@@ -5736,11 +5738,12 @@ elif menu == "查詢區":
                 st.session_state.sample_mode = "add"
                 st.session_state.edit_sample_index = None
                 st.session_state.form_sample = {}
+                st.session_state.last_selected_sample = None
         
                 st.rerun()
         
         # ============================================================
-        # 搜尋
+        # 搜尋區
         # ============================================================
         st.markdown('<span style="color:#f1f5f2; font-weight:bold;">🔍 樣品記錄搜尋</span>', unsafe_allow_html=True)
         
@@ -5776,10 +5779,9 @@ elif menu == "查詢區":
             st.session_state.sample_search_triggered = True
         
         # ============================================================
-        # 搜尋結果 → 選擇即進入「修改模式」
+        # 搜尋結果 → 選擇即進入「修改模式」 / 刪除
         # ============================================================
         if st.session_state.get("sample_search_triggered"):
-        
             df_show = st.session_state.sample_filtered_df.copy()
         
             if df_show.empty:
@@ -5790,12 +5792,8 @@ elif menu == "查詢區":
                     for _, row in df_show.iterrows()
                 ]
         
-                # 初始化上一選項
-                if "last_selected_sample" not in st.session_state:
-                    st.session_state.last_selected_sample = None
-        
                 selected = st.selectbox(
-                    "選擇樣品以修改",
+                    "選擇樣品以修改 / 刪除",
                     [""] + options,
                     index=0
                 )
@@ -5808,9 +5806,41 @@ elif menu == "查詢區":
                     st.session_state.sample_mode = "edit"
                     st.session_state.edit_sample_index = real_index
                     st.session_state.form_sample = df_sample.loc[real_index].to_dict()
-        
-                    # 記錄最後一次選擇，避免無限 rerun
                     st.session_state.last_selected_sample = selected
+        
+        # ============================================================
+        # 刪除按鈕
+        # ============================================================
+        if st.session_state.sample_mode == "edit":
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("🗑️ 刪除樣品"):
+                    st.session_state.show_delete_sample_confirm = True
+                    st.session_state.delete_sample_index = st.session_state.edit_sample_index
+            with c2:
+                st.write("")  # 空欄位保持對齊
+        
+        # ===== 刪除確認 =====
+        if st.session_state.show_delete_sample_confirm and st.session_state.delete_sample_index is not None:
+            r = df_sample.loc[st.session_state.delete_sample_index]
+            st.warning(f"⚠️ 確定刪除 {r['樣品編號']} {r['樣品名稱']}？")
+        
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("確認刪除"):
+                    df_sample.drop(index=st.session_state.delete_sample_index, inplace=True)
+                    df_sample.reset_index(drop=True, inplace=True)
+                    save_df_to_sheet(ws_sample, df_sample)
+                    st.session_state.show_delete_sample_confirm = False
+                    st.session_state.edit_sample_index = None
+                    st.session_state.form_sample = {}
+                    st.session_state.sample_mode = "add"
+                    st.session_state.last_selected_sample = None
+                    st.rerun()
+            with c2:
+                if st.button("取消"):
+                    st.session_state.show_delete_sample_confirm = False
+                    st.rerun()
                     
 # ======== 庫存區分頁 =========
 elif menu == "庫存區":
