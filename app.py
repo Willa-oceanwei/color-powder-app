@@ -1486,7 +1486,12 @@ elif menu == "配方管理":
                 )
         
             # 備註
-            fr["備註"] = st.text_area("備註", value=fr.get("備註", ""), key="form_recipe_備註")
+            fr["備註"] = st.text_area(
+                "備註",
+                value=fr.get("備註", ""),
+                key="form_recipe_備註",
+                height=60 # 調整高度
+            )
         
             # 色粉淨重與單位
             col1, col2 = st.columns(2)
