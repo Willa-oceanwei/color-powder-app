@@ -1486,11 +1486,21 @@ elif menu == "配方管理":
                 )
         
             # 備註
+            st.markdown("""
+            <style>
+            textarea[aria-label="備註"] {
+                height: 60px !important;
+                padding: 4px !important;
+                line-height: 1.2 !important;
+                font-size: 0.9rem !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+                
             fr["備註"] = st.text_area(
                 "備註",
                 value=fr.get("備註", ""),
                 key="form_recipe_備註",
-                height=60 # 調整高度
             )
         
             # 色粉淨重與單位
