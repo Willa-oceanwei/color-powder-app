@@ -5638,44 +5638,60 @@ elif menu == "查詢區":
             "selected_sample_index": None
         })
     
-        # ===== 新增 / 修改 區 =====
-        st.markdown('<span style="color:#f1f5f2; font-weight:bold;">☑️ 新增 / 修改 樣品</span>', unsafe_allow_html=True)
+        # ============================================================
+        # 新增 / 修改 樣品
+        # ============================================================
+        st.markdown(
+            "<span style='color:#f1f5f2; font-weight:bold;'>☑️ 新增 / 修改 樣品</span>",
+            unsafe_allow_html=True
+        )
         
-        # 🔹 初始化 edit_sample_index，確保新增狀態下可輸入
+        # ===== 模式初始化（只做一次）=====
+        if "sample_mode" not in st.session_state:
+            st.session_state.sample_mode = "add"   # add / edit
+        
         if "edit_sample_index" not in st.session_state:
             st.session_state.edit_sample_index = None
         
-        # 🔹 使用唯一 form name
+        if "form_sample" not in st.session_state:
+            st.session_state.form_sample = {}
+        
+        # ===== 表單 =====
         with st.form("form_sample_tab4"):
         
             c1, c2, c3 = st.columns(3)
+        
             with c1:
                 sample_date = st.date_input(
                     "日期",
                     value=safe_date(st.session_state.form_sample.get("日期")),
                     key="form_sample_tab4_date"
                 )
+        
             with c2:
                 sample_customer = st.text_input(
                     "客戶名稱",
                     value=st.session_state.form_sample.get("客戶名稱", ""),
                     key="form_sample_tab4_customer"
                 )
+        
             with c3:
                 sample_code = st.text_input(
                     "樣品編號",
                     value=st.session_state.form_sample.get("樣品編號", ""),
-                    disabled=st.session_state.edit_sample_index is not None,
+                    disabled=(st.session_state.sample_mode == "edit"),  # ⭐ 關鍵
                     key="form_sample_tab4_code"
                 )
         
             c4, c5 = st.columns(2)
+        
             with c4:
                 sample_name = st.text_input(
                     "樣品名稱",
                     value=st.session_state.form_sample.get("樣品名稱", ""),
                     key="form_sample_tab4_name"
                 )
+        
             with c5:
                 sample_qty = st.text_input(
                     "樣品數量",
@@ -5684,7 +5700,10 @@ elif menu == "查詢區":
                 )
         
             submit = st.form_submit_button("💾 儲存")
-    
+        
+        # ============================================================
+        # 儲存處理
+        # ============================================================
         if submit:
             data = {
                 "日期": sample_date,
@@ -5693,24 +5712,31 @@ elif menu == "查詢區":
                 "樣品名稱": sample_name.strip(),
                 "樣品數量": sample_qty.strip()
             }
-    
+        
             if not data["樣品編號"]:
                 st.warning("⚠️ 請輸入樣品編號")
             else:
-                if st.session_state.edit_sample_index is not None:
+                if st.session_state.sample_mode == "edit":
+                    # ===== 修改 =====
                     df_sample.loc[st.session_state.edit_sample_index] = data
                     st.success("✅ 樣品已更新")
-                    st.session_state.edit_sample_index = None
                 else:
-                    df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
+                    # ===== 新增 =====
+                    df_sample = pd.concat(
+                        [df_sample, pd.DataFrame([data])],
+                        ignore_index=True
+                    )
                     st.success("✅ 新增完成")
-    
+        
                 # 寫回 Google Sheet
                 save_df_to_sheet(ws_sample, df_sample)
-    
-                # 清空表單
-                st.session_state.form_sample = {k: "" for k in st.session_state.form_sample}
-                st.session_state.edit_sample_index = None # ✅ 這行必須加
+        
+                # ===== 儲存後狀態重置（回新增模式）=====
+                st.session_state.sample_mode = "add"
+                st.session_state.edit_sample_index = None
+                st.session_state.form_sample = {}
+        
+                st.rerun()
     
                 # 可在這裡觸發前端列表刷新
     
