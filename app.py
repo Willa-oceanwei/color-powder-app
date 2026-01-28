@@ -5640,14 +5640,14 @@ elif menu == "查詢區":
     
         # ===== 新增 / 修改 區 =====
         st.markdown('<span style="color:#f1f5f2; font-weight:bold;">☑️ 新增 / 修改 樣品</span>', unsafe_allow_html=True)
-
+        
         # 🔹 初始化 edit_sample_index，確保新增狀態下可輸入
         if "edit_sample_index" not in st.session_state:
             st.session_state.edit_sample_index = None
-    
+        
         # 🔹 使用唯一 form name
         with st.form("form_sample_tab4"):
-    
+        
             c1, c2, c3 = st.columns(3)
             with c1:
                 sample_date = st.date_input(
@@ -5668,7 +5668,7 @@ elif menu == "查詢區":
                     disabled=st.session_state.edit_sample_index is not None,
                     key="form_sample_tab4_code"
                 )
-    
+        
             c4, c5 = st.columns(2)
             with c4:
                 sample_name = st.text_input(
@@ -5682,7 +5682,7 @@ elif menu == "查詢區":
                     value=st.session_state.form_sample.get("樣品數量", ""),
                     key="form_sample_tab4_qty"
                 )
-    
+        
             submit = st.form_submit_button("💾 儲存")
     
         if submit:
