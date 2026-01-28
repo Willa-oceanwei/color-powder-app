@@ -5640,6 +5640,10 @@ elif menu == "查詢區":
     
         # ===== 新增 / 修改 區 =====
         st.markdown('<span style="color:#f1f5f2; font-weight:bold;">☑️ 新增 / 修改 樣品</span>', unsafe_allow_html=True)
+
+        # 🔹 初始化 edit_sample_index，確保新增狀態下可輸入
+        if "edit_sample_index" not in st.session_state:
+        st.session_state.edit_sample_index = None
     
         # 🔹 使用唯一 form name
         with st.form("form_sample_tab4"):
