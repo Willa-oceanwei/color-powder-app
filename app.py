@@ -2759,6 +2759,10 @@ elif menu == "生產單管理":
             st.session_state["new_order"] = None
         if "new_order_saved" not in st.session_state:
             st.session_state["new_order_saved"] = False
+
+        # ===== Tab1 下載狀態初始化 =====
+        if "downloaded_html_tab1" not in st.session_state:
+            st.session_state["downloaded_html_tab1"] = False
         
         # 初始化表單欄位，避免 AttributeError
         for key in ["form_remark_tab1", "form_color_tab1", "form_pantone_tab1", "form_raw_material_tab1", "form_important_note_tab1", "form_total_category_tab1"]:
@@ -3344,16 +3348,26 @@ elif menu == "生產單管理":
             additional_recipe_rows=order.get("附加配方", []),
             show_additional_ids=show_ids
         )
+
+        def mark_html_downloaded():
+            st.session_state.downloaded_html_tab1 = True
                 
         col1, col2, col3 = st.columns([3,1,3])
         with col1:
+            download_label = (
+                "✅ 已下載 A5 HTML"
+                if st.session_state.get("downloaded_html_tab1", False)
+                else "📥 下載 A5 HTML"
+            )
+        
             st.download_button(
-                label="📥 下載 A5 HTML",
+                label=download_label,
                 data=print_html.encode("utf-8"),
                 file_name=f"{order['生產單號']}_列印.html",
                 mime="text/html",
                 key="download_html_tab1",
-                disabled=not st.session_state.get("new_order_saved", False)  # 未儲存前禁用
+                disabled=not st.session_state.get("new_order_saved", False),
+                on_click=mark_html_downloaded
             )
                 
         with col3:
@@ -3361,6 +3375,8 @@ elif menu == "生產單管理":
                 st.session_state.new_order = None
                 st.session_state.show_confirm_panel = False
                 st.session_state.new_order_saved = False
+                st.session_state.downloaded_html_tab1 = False
+                st.session_state.pop("recipe_init_done", None)
                 st.rerun()
                         
     # ============================================================
