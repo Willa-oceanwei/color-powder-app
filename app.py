@@ -5710,6 +5710,7 @@ elif menu == "查詢區":
     
                 # 清空表單
                 st.session_state.form_sample = {k: "" for k in st.session_state.form_sample}
+                st.session_state.edit_sample_index = None # ✅ 這行必須加
     
                 # 可在這裡觸發前端列表刷新
     
