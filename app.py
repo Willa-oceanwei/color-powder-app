@@ -1489,7 +1489,7 @@ elif menu == "配方管理":
             st.markdown("""
             <style>
             textarea[aria-label="備註"] {
-                height: 60px !important;
+                height: 40px !important;
                 padding: 4px !important;
                 line-height: 1.2 !important;
                 font-size: 0.9rem !important;
