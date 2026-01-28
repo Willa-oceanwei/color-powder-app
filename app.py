@@ -3861,9 +3861,7 @@ elif menu == "生產單管理":
             recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
     
             show_ids_key = f"show_ids_checkbox_tab3_{selected_order['生產單號']}"
-            if show_ids_key not in st.session_state:
-                st.session_state[show_ids_key] = True
-                
+                        
             st.markdown("""
             <style>
             div[data-testid="stCheckbox"] label p {
@@ -3875,11 +3873,11 @@ elif menu == "生產單管理":
             }
             </style>
             """, unsafe_allow_html=True)
-    
+                        
             show_ids = st.checkbox(
                 "預覽時顯示附加配方編號",
-                value=st.session_state[show_ids_key],
-                key=show_ids_key
+                value=True,          # ✅ 只在第一次建立時當預設值
+                key=show_ids_key     # ✅ 之後狀態由 Streamlit 自己記
             )
     
             preview_text = generate_order_preview_text_tab3(order_dict, recipe_row, show_additional_ids=show_ids)
