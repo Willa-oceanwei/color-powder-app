@@ -2215,6 +2215,11 @@ elif menu == "配方管理":
         if "master_batch_calculated" not in st.session_state:
             st.session_state.master_batch_calculated = None
         
+        # ✅ 清除舊版本不完整的 calculated 資料
+        if st.session_state.master_batch_calculated is not None:
+            if "additive_display" not in st.session_state.master_batch_calculated:
+                st.session_state.master_batch_calculated = None
+        
         # ===== 步驟 1：選擇配方 =====
         st.markdown("**步驟 1：選擇原始配方**")
         
@@ -2421,7 +2426,7 @@ elif menu == "配方管理":
                     # 計算添加劑數量
                     additive_qty = total_qty - total_powder_weight - material_qty
                     
-                    # 處理添加劑顯示名稱
+                    # ✅ 提前處理添加劑顯示名稱
                     additive_display = additive.replace("(增韌劑)", "")
                     
                     # 驗證數量是否合理
@@ -2434,12 +2439,12 @@ elif menu == "配方管理":
                     if abs(calculated_total - total_qty) > 0.01:
                         st.warning(f"⚠️ 計算總和（{calculated_total:.2f}g）與輸入總數量（{total_qty:.2f}g）不符")
                     
-                    # ===== ✅ 儲存計算結果到 session_state（完整版）=====
+                    # ===== ✅ 儲存完整計算結果到 session_state =====
                     st.session_state.master_batch_calculated = {
                         "new_code": new_code,
                         "powder_data": powder_data,
                         "additive": additive,
-                        "additive_display": additive_display,  # ✅ 關鍵：加入這個
+                        "additive_display": additive_display,
                         "additive_qty": additive_qty,
                         "material_code": material_code,
                         "material_qty": material_qty,
@@ -2452,7 +2457,7 @@ elif menu == "配方管理":
                     }
                 
                 # ===== 顯示計算結果（使用 session_state）=====
-                if st.session_state.master_batch_calculated:
+                if st.session_state.master_batch_calculated is not None:
                     calc = st.session_state.master_batch_calculated
                     
                     st.success("✅ 色母配方計算完成")
@@ -2478,7 +2483,7 @@ elif menu == "配方管理":
                         weight_str = f"{int(item['weight'])}" if item['weight'] == int(item['weight']) else f"{item['weight']:.2f}"
                         result_lines.append(f"{item['id'].ljust(12)}{weight_str.rjust(12)}")
                     
-                    # ✅ 添加劑（現在有 additive_display 了）
+                    # 添加劑
                     additive_qty_str = f"{int(calc['additive_qty'])}" if calc['additive_qty'] == int(calc['additive_qty']) else f"{calc['additive_qty']:.2f}"
                     result_lines.append(f"{calc['additive_display'].ljust(12)}{additive_qty_str.rjust(12)}")
                     
@@ -2510,7 +2515,6 @@ elif menu == "配方管理":
                         
                         content = "<br>".join(html_lines)
                         
-                        # ✅ 字體放大：font-size 24px
                         html_template = """
                         <html>
                         <head>
@@ -2678,12 +2682,12 @@ elif menu == "配方管理":
                                         "建檔時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                     }
                                     
-                                    # 填入色粉資料（前面的色粉）
+                                    # 填入色粉資料
                                     for i, item in enumerate(calc['powder_data'], 1):
                                         new_recipe[f"色粉編號{i}"] = item["id"]
                                         new_recipe[f"色粉重量{i}"] = str(item["weight"])
                                     
-                                    # 填入添加劑（接在色粉後面）
+                                    # 填入添加劑
                                     next_index = len(calc['powder_data']) + 1
                                     if next_index <= 8:
                                         new_recipe[f"色粉編號{next_index}"] = calc['additive_display']
@@ -2699,7 +2703,7 @@ elif menu == "配方管理":
                                     # 寫入 Google Sheet
                                     ws_recipe = spreadsheet.worksheet("配方管理")
                                     
-                                    # 取得所有欄位（與現有配方表一致）
+                                    # 取得所有欄位
                                     all_values = ws_recipe.get_all_values()
                                     if all_values:
                                         existing_columns = all_values[0]
