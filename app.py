@@ -2605,7 +2605,7 @@ elif menu == "配方管理":
                                     
                                     # 依 columns 順序產生新列（關鍵）
                                     new_row = [new_recipe.get(col, "") for col in columns]
-                                    ws_recipe.append_row(new_row, value_input_option="USER_ENTERED"))
+                                    ws_recipe.append_row(new_row, value_input_option="USER_ENTERED")
                     
                                     # ===== 更新 session_state =====
                                     st.session_state.df_recipe = pd.concat(
