@@ -1798,7 +1798,7 @@ elif menu == "配方管理":
     
             st.caption(f"頁碼 {st.session_state.page_tab2} / {total_pages}，總筆數 {total_rows}")
 
-# ============================================================
+    # ============================================================
     # Tab 3: 配方預覽/修改/刪除
     # ============================================================
     with tab3:
@@ -2595,17 +2595,21 @@ elif menu == "配方管理":
                                         new_recipe.setdefault(f"色粉編號{i}", "")
                                         new_recipe.setdefault(f"色粉重量{i}", "")             
                                     
-                                    # ===== 寫入 Google Sheet（強制使用 columns 順序）=====
+                                    # ===== 寫入 Google Sheet（與配方管理完全一致）=====
                                     ws_recipe = spreadsheet.worksheet("配方管理")
                                     
-                                    # 若 Sheet 是空的，先寫表頭
+                                    # 如果工作表是空的，先補 header
                                     values = ws_recipe.get_all_values()
                                     if not values:
                                         ws_recipe.append_row(columns)
                                     
-                                    # 依 columns 順序產生新列（關鍵）
+                                    # 嚴格依照配方管理欄位順序
                                     new_row = [new_recipe.get(col, "") for col in columns]
-                                    ws_recipe.append_row(new_row, value_input_option="USER_ENTERED")
+                                    
+                                    ws_recipe.append_row(
+                                        new_row,
+                                        value_input_option="USER_ENTERED"
+                                    )
                     
                                     # ===== 更新 session_state =====
                                     st.session_state.df_recipe = pd.concat(
@@ -2622,7 +2626,6 @@ elif menu == "配方管理":
         else:
             st.info("⚠️ 目前沒有配方資料，請先至「配方建立」新增配方")
     
-
 # =============== Tab 架構結束 ===============                            
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
