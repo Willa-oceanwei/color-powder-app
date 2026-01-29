@@ -2187,6 +2187,7 @@ elif menu == "配方管理":
                 st.session_state.color_dirty = False
                 st.success("✅ 已全部寫回完成")
     # ========== Tab 5：色母換算 ==========
+        # ========== Tab 5：色母換算 ==========
     with tab5:
         
         st.markdown(
@@ -2416,27 +2417,36 @@ elif menu == "配方管理":
                     # ===== 生成預覽 =====
                     st.success("✅ 色母配方計算完成")
                     
+                    st.markdown("**色母配方預覽**")
+                    
+                    # ✅ 修正 2：資訊列改成橫排顯示
+                    info_parts = []
+                    info_parts.append(f"編號：{new_code}")
+                    info_parts.append(f"顏色：{recipe_data.get('顏色', '')}")
+                    info_parts.append(f"比例：{ratio}")
+                    
+                    st.markdown(
+                        f"<div style='font-size:16px; font-family:Arial; margin-bottom:10px;'>{' 　 '.join(info_parts)}</div>",
+                        unsafe_allow_html=True
+                    )
+                    
+                    # 配方內容
                     result_lines = []
-                    result_lines.append(f"編號：{new_code}")
-                    result_lines.append(f"顏色：{recipe_data.get('顏色', '')}")
-                    result_lines.append(f"比例：{ratio}")
-                    result_lines.append("")
                     
                     # 色粉列表
                     for item in powder_data:
                         weight_str = f"{int(item['weight'])}" if item['weight'] == int(item['weight']) else f"{item['weight']:.2f}"
-                        result_lines.append(f"{item['id'].ljust(12)}{weight_str.rjust(20)}")
+                        result_lines.append(f"{item['id'].ljust(12)}{weight_str.rjust(12)}")
                     
                     # 添加劑
                     additive_display = additive.replace("(增韌劑)", "")
                     additive_qty_str = f"{int(additive_qty)}" if additive_qty == int(additive_qty) else f"{additive_qty:.2f}"
-                    result_lines.append(f"{additive_display.ljust(12)}{additive_qty_str.rjust(20)}")
+                    result_lines.append(f"{additive_display.ljust(12)}{additive_qty_str.rjust(12)}")
                     
                     # 原料
                     material_qty_str = f"{int(material_qty)}" if material_qty == int(material_qty) else f"{material_qty:.2f}"
-                    result_lines.append(f"{material_code.ljust(12)}{material_qty_str.rjust(20)}")
+                    result_lines.append(f"{material_code.ljust(12)}{material_qty_str.rjust(12)}")
                     
-                    st.markdown("**色母配方預覽**")
                     st.code("\n".join(result_lines), language=None)
                     
                     # 顯示計算驗證
@@ -2449,16 +2459,17 @@ elif menu == "配方管理":
                         html_lines.append(f"編號：{new_code}　顏色：{color}　比例：{ratio}")
                         html_lines.append("")
                         
+                        # ✅ 修正 3：縮小左右距離（從 20 改成 8）
                         for item in powder_data:
                             weight_str = f"{int(item['weight'])}" if item['weight'] == int(item['weight']) else f"{item['weight']:.2f}"
-                            html_lines.append(f"{item['id'].ljust(12)}{weight_str.rjust(20)}")
+                            html_lines.append(f"{item['id'].ljust(12)}{weight_str.rjust(8)}")
                         
                         additive_display = additive.replace("(增韌劑)", "")
                         additive_qty_str = f"{int(additive_qty)}" if additive_qty == int(additive_qty) else f"{additive_qty:.2f}"
-                        html_lines.append(f"{additive_display.ljust(12)}{additive_qty_str.rjust(20)}")
+                        html_lines.append(f"{additive_display.ljust(12)}{additive_qty_str.rjust(8)}")
                         
                         material_qty_str = f"{int(material_qty)}" if material_qty == int(material_qty) else f"{material_qty:.2f}"
-                        html_lines.append(f"{material_code.ljust(12)}{material_qty_str.rjust(20)}")
+                        html_lines.append(f"{material_code.ljust(12)}{material_qty_str.rjust(8)}")
                         
                         content = "<br>".join(html_lines)
                         
