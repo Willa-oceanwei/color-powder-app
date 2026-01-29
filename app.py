@@ -2210,6 +2210,8 @@ elif menu == "配方管理":
             st.session_state.master_batch_material_qty = 60000.0
         if "master_batch_new_code" not in st.session_state:
             st.session_state.master_batch_new_code = ""
+        if "master_batch_selected_code" not in st.session_state:
+            st.session_state.master_batch_selected_code = ""
         
         # ===== 步驟 1：選擇配方 =====
         st.markdown("**步驟 1：選擇原始配方**")
@@ -2217,15 +2219,22 @@ elif menu == "配方管理":
         if not df_recipe.empty:
             recipe_options = [""] + sorted(df_recipe["配方編號"].dropna().astype(str).unique().tolist())
             
+            # ✅ 修正：使用 session_state 記住選擇
+            if st.session_state.master_batch_selected_code not in recipe_options:
+                st.session_state.master_batch_selected_code = ""
+            
             selected_recipe_code = st.selectbox(
                 "配方編號",
                 options=recipe_options,
-                index=0,
+                index=recipe_options.index(st.session_state.master_batch_selected_code),
                 format_func=lambda code: "" if code == "" else " | ".join(
                     df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0].astype(str)
                 ),
                 key="master_batch_recipe_select"
             )
+            
+            # 更新 session_state
+            st.session_state.master_batch_selected_code = selected_recipe_code
             
             if selected_recipe_code:
                 # 取得配方資料
@@ -2235,7 +2244,7 @@ elif menu == "配方管理":
                 # ===== 顯示原始配方 =====
                 st.markdown("**原始配方預覽**")
                 
-                # ✅ 修正 1：資訊列改成橫排
+                # 資訊列改成橫排
                 info_parts = []
                 info_parts.append(f"編號：{recipe_data.get('配方編號', '')}")
                 info_parts.append(f"顏色：{recipe_data.get('顏色', '')}")
@@ -2359,7 +2368,6 @@ elif menu == "配方管理":
                     st.session_state.master_batch_material = material_code
                     st.session_state.master_batch_material_qty = material_qty
                     st.session_state.master_batch_new_code = new_code
-                    st.session_state.master_batch_ready = True
                     
                     # 驗證必填欄位
                     if total_qty <= 0:
@@ -2479,7 +2487,6 @@ elif menu == "配方管理":
                         
                         content = "<br>".join(html_lines)
                         
-                        # ✅ 修正 2：拿掉標題「色母配方」
                         html_template = """
                         <html>
                         <head>
@@ -2527,6 +2534,19 @@ elif menu == "配方管理":
                         material_qty
                     )
                     
+                    # ✅ 儲存計算結果到 session_state（供後續新增使用）
+                    st.session_state.master_batch_calculated = {
+                        "new_code": new_code,
+                        "powder_data": powder_data,
+                        "additive": additive,
+                        "additive_qty": additive_qty,
+                        "material_code": material_code,
+                        "material_qty": material_qty,
+                        "total_qty": total_qty,
+                        "ratio": ratio,
+                        "recipe_data": recipe_data
+                    }
+                    
                     # ===== 下載按鈕與新增配方選項 =====
                     col_download, col_save = st.columns([2, 2])
                     
@@ -2540,28 +2560,80 @@ elif menu == "配方管理":
                         )
                     
                     # ✅ 修正 3：新增配方到 Google Sheet
-                    # ===== 只有在「已計算完成」才顯示新增按鈕 =====
-                    if st.session_state.get("master_batch_ready"):
-                    
-                        with col_save:
-                            if st.button("💾 新增此配方到配方管理", key="save_master_batch_recipe"):
-                    
-                                st.error("🚨 寫入前")  # ← 你現在這行一定會出現
-                    
-                                ws_recipe = spreadsheet.worksheet("配方管理")
-                    
-                                values = ws_recipe.get_all_values()
-                                if not values:
-                                    ws_recipe.append_row(columns)
-                    
-                                new_row = [new_recipe.get(col, "") for col in columns]
-                                ws_recipe.append_row(new_row, value_input_option="USER_ENTERED")
-                    
-                                st.success(f"✅ 配方 {new_code} 已成功新增到配方管理！")
-                                st.balloons()
-                    
-                                # 存完就重置，避免重複新增
-                                st.session_state.master_batch_ready = False
+                    with col_save:
+                        if st.button("💾 新增此配方到配方管理", key="save_master_batch_recipe"):
+                            
+                            # 檢查配方編號是否已存在
+                            if new_code in df_recipe["配方編號"].astype(str).values:
+                                st.error(f"❌ 配方編號 {new_code} 已存在於配方管理中")
+                            else:
+                                try:
+                                    # ✅ 建立新配方資料
+                                    new_recipe = {
+                                        "配方編號": new_code,
+                                        "顏色": recipe_data.get("顏色", ""),
+                                        "客戶編號": recipe_data.get("客戶編號", ""),
+                                        "客戶名稱": recipe_data.get("客戶名稱", ""),
+                                        "配方類別": "原始配方",
+                                        "狀態": "啟用",
+                                        "原始配方": "",
+                                        "色粉類別": "色母",
+                                        "計量單位": recipe_data.get("計量單位", ""),
+                                        "Pantone色號": recipe_data.get("Pantone色號", ""),
+                                        "比例1": "",
+                                        "比例2": "",
+                                        "比例3": ratio,
+                                        "淨重": str(total_qty),
+                                        "淨重單位": "g",
+                                        "合計類別": material_code,
+                                        "重要提醒": f"色母換算自 {selected_recipe_code}",
+                                        "備註": recipe_data.get("備註", ""),
+                                        "建檔時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                    }
+                                    
+                                    # ✅ 填入色粉資料（前面的色粉）
+                                    for i, item in enumerate(powder_data, 1):
+                                        new_recipe[f"色粉編號{i}"] = item["id"]
+                                        new_recipe[f"色粉重量{i}"] = str(item["weight"])
+                                    
+                                    # ✅ 填入添加劑（接在色粉後面）
+                                    next_index = len(powder_data) + 1
+                                    if next_index <= 8:
+                                        new_recipe[f"色粉編號{next_index}"] = additive_display
+                                        new_recipe[f"色粉重量{next_index}"] = str(additive_qty)
+                                    
+                                    # ✅ 補齊剩餘欄位
+                                    for i in range(1, 9):
+                                        if f"色粉編號{i}" not in new_recipe:
+                                            new_recipe[f"色粉編號{i}"] = ""
+                                        if f"色粉重量{i}" not in new_recipe:
+                                            new_recipe[f"色粉重量{i}"] = ""
+                                    
+                                    # ✅ 寫入 Google Sheet
+                                    ws_recipe = spreadsheet.worksheet("配方管理")
+                                    
+                                    # 取得所有欄位（與現有配方表一致）
+                                    all_values = ws_recipe.get_all_values()
+                                    if all_values:
+                                        existing_columns = all_values[0]
+                                    else:
+                                        existing_columns = list(new_recipe.keys())
+                                    
+                                    # 按照現有欄位順序組成新列
+                                    new_row = [new_recipe.get(col, "") for col in existing_columns]
+                                    
+                                    # 寫入新列
+                                    ws_recipe.append_row(new_row)
+                                    
+                                    # ✅ 更新 session_state
+                                    df_recipe_new = pd.concat([df_recipe, pd.DataFrame([new_recipe])], ignore_index=True)
+                                    st.session_state.df_recipe = df_recipe_new
+                                    
+                                    st.success(f"✅ 配方 {new_code} 已成功新增到配方管理！")
+                                    st.balloons()
+                                    
+                                except Exception as e:
+                                    st.error(f"❌ 新增失敗：{e}")
         
         else:
             st.info("⚠️ 目前沒有配方資料，請先至「配方建立」新增配方")
