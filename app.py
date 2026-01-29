@@ -2660,6 +2660,8 @@ elif menu == "配方管理":
                             else:
                                 try:
                                     # 建立新配方資料
+                                    # 拆 ratio 成比例1/比例2，比例3 存空
+                                    ratio_parts = calc['ratio'].split(":")  # 例如 '50:1' → ['50','1']
                                     new_recipe = {
                                         "配方編號": calc['new_code'],
                                         "顏色": calc['recipe_data'].get("顏色", ""),
@@ -2669,11 +2671,11 @@ elif menu == "配方管理":
                                         "狀態": "啟用",
                                         "原始配方": "",
                                         "色粉類別": "色母",
-                                        "計量單位": "kg",
+                                        "計量單位": "kg",  # 色母固定 kg
                                         "Pantone色號": calc['recipe_data'].get("Pantone色號", ""),
-                                        "比例1": "",
-                                        "比例2": "",
-                                        "比例3": calc['ratio'],
+                                        "比例1": ratio_parts[0] if len(ratio_parts) > 0 else "",
+                                        "比例2": ratio_parts[1] if len(ratio_parts) > 1 else "",
+                                        "比例3": "",   # 存空
                                         "淨重": str(calc['total_qty']),
                                         "淨重單位": "g",
                                         "合計類別": calc['material_code'],
