@@ -2559,6 +2559,90 @@ elif menu == "配方管理":
                             key="download_master_batch_html"
                         )
                     
+                    # ========== 🔍 除錯模式：顯示欄位對比 ==========
+                    if st.checkbox("🐛 顯示欄位除錯資訊", value=False, key="debug_master_batch"):
+                        st.markdown("### 📊 欄位對比檢查")
+                        
+                        try:
+                            ws_recipe = spreadsheet.worksheet("配方管理")
+                            all_values = ws_recipe.get_all_values()
+                            
+                            if all_values:
+                                existing_columns = all_values[0]
+                                st.write("**Google Sheet 現有欄位：**")
+                                st.write(existing_columns)
+                                st.write(f"**欄位數量：{len(existing_columns)}**")
+                            else:
+                                st.warning("⚠️ Google Sheet 是空的")
+                                existing_columns = []
+                            
+                            # 模擬建立 new_recipe
+                            test_recipe = {
+                                "配方編號": new_code,
+                                "顏色": recipe_data.get("顏色", ""),
+                                "客戶編號": recipe_data.get("客戶編號", ""),
+                                "客戶名稱": recipe_data.get("客戶名稱", ""),
+                                "配方類別": "原始配方",
+                                "狀態": "啟用",
+                                "原始配方": "",
+                                "色粉類別": "色母",
+                                "計量單位": recipe_data.get("計量單位", ""),
+                                "Pantone色號": recipe_data.get("Pantone色號", ""),
+                                "比例1": "",
+                                "比例2": "",
+                                "比例3": ratio,
+                                "淨重": str(total_qty),
+                                "淨重單位": "g",
+                                "合計類別": material_code,
+                                "重要提醒": f"色母換算自 {selected_recipe_code}",
+                                "備註": recipe_data.get("備註", ""),
+                                "建檔時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            }
+                            
+                            # 填入色粉
+                            for i, item in enumerate(powder_data, 1):
+                                test_recipe[f"色粉編號{i}"] = item["id"]
+                                test_recipe[f"色粉重量{i}"] = str(item["weight"])
+                            
+                            # 填入添加劑
+                            next_index = len(powder_data) + 1
+                            if next_index <= 8:
+                                test_recipe[f"色粉編號{next_index}"] = additive_display
+                                test_recipe[f"色粉重量{next_index}"] = str(additive_qty)
+                            
+                            # 補齊剩餘欄位
+                            for i in range(1, 9):
+                                if f"色粉編號{i}" not in test_recipe:
+                                    test_recipe[f"色粉編號{i}"] = ""
+                                if f"色粉重量{i}" not in test_recipe:
+                                    test_recipe[f"色粉重量{i}"] = ""
+                            
+                            st.write("**新配方欄位：**")
+                            st.write(list(test_recipe.keys()))
+                            st.write(f"**欄位數量：{len(test_recipe)}**")
+                            
+                            # 檢查缺少的欄位
+                            missing_in_sheet = set(test_recipe.keys()) - set(existing_columns)
+                            missing_in_recipe = set(existing_columns) - set(test_recipe.keys())
+                            
+                            if missing_in_sheet:
+                                st.error(f"❌ Sheet 缺少這些欄位：{missing_in_sheet}")
+                            
+                            if missing_in_recipe:
+                                st.warning(f"⚠️ 新配方缺少這些欄位：{missing_in_recipe}")
+                            
+                            if not missing_in_sheet and not missing_in_recipe:
+                                st.success("✅ 欄位完全對齊！")
+                            
+                            # 顯示即將寫入的資料
+                            st.write("**即將寫入的列資料：**")
+                            new_row = [test_recipe.get(col, "") for col in existing_columns]
+                            st.write(new_row)
+                            
+                        except Exception as e:
+                            st.error(f"❌ 除錯時發生錯誤：{e}")
+
+                    
                     # ✅ 修正 3：新增配方到 Google Sheet
                     with col_save:
                         if st.button("💾 新增此配方到配方管理", key="save_master_batch_recipe"):
