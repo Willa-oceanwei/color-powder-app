@@ -2191,7 +2191,7 @@ elif menu == "配方管理":
     with tab5:
         
         st.markdown(
-            '<h3 style="font-size:18px; color:#f1f5f2;">🧮 色母換算工具</h3>',
+            '<h3 style="font-size:18px; color:#f1f5f2;">👹 色母換算工具</h3>',
             unsafe_allow_html=True
         )
         
@@ -2564,7 +2564,7 @@ elif menu == "配方管理":
                                         "比例3": ratio,
                                         "淨重": str(total_qty),
                                         "淨重單位": "g",
-                                        "合計類別": "無",  
+                                        "合計類別": material_code,
                                         "重要提醒": f"色母換算自 {selected_recipe_code}",
                                         "備註": recipe_data.get("備註", ""),
                                         "建檔時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
