@@ -2593,16 +2593,19 @@ elif menu == "配方管理":
                                     # ===== 補齊 1~8 欄 =====
                                     for i in range(1, 9):
                                         new_recipe.setdefault(f"色粉編號{i}", "")
-                                        new_recipe.setdefault(f"色粉重量{i}", "")
-                    
-                                    # ===== 寫入 Google Sheet =====
+                                        new_recipe.setdefault(f"色粉重量{i}", "")             
+                                    
+                                    # ===== 寫入 Google Sheet（強制使用 columns 順序）=====
                                     ws_recipe = spreadsheet.worksheet("配方管理")
-                    
-                                    all_values = ws_recipe.get_all_values()
-                                    existing_columns = all_values[0] if all_values else list(new_recipe.keys())
-                    
-                                    new_row = [new_recipe.get(col, "") for col in existing_columns]
-                                    ws_recipe.append_row(new_row)
+                                    
+                                    # 若 Sheet 是空的，先寫表頭
+                                    values = ws_recipe.get_all_values()
+                                    if not values:
+                                        ws_recipe.append_row(columns)
+                                    
+                                    # 依 columns 順序產生新列（關鍵）
+                                    new_row = [new_recipe.get(col, "") for col in columns]
+                                    ws_recipe.append_row(new_row, value_input_option="USER_ENTERED"))
                     
                                     # ===== 更新 session_state =====
                                     st.session_state.df_recipe = pd.concat(
