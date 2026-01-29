@@ -2480,7 +2480,13 @@ elif menu == "配方管理":
                     
                     # 色粉列表
                     # ===== 預覽粉料表格版 =====
-                    table_html = "<table style='border-collapse: collapse;'>"
+                    table_html = """
+                    <table style="
+                        border-collapse: collapse;
+                        font-size: 12px;
+                        line-height: 1.4;
+                    ">
+                    """
                     table_html += "<tr><th>色粉編號</th><th>重量</th></tr>"
                     
                     # 色粉列表
