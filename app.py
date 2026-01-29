@@ -2593,7 +2593,9 @@ elif menu == "配方管理":
                                     # ===== 補齊 1~8 欄 =====
                                     for i in range(1, 9):
                                         new_recipe.setdefault(f"色粉編號{i}", "")
-                                        new_recipe.setdefault(f"色粉重量{i}", "")             
+                                        new_recipe.setdefault(f"色粉重量{i}", "")       
+
+                                    st.error("🚨 寫入前")
                                     
                                     # ===== 寫入 Google Sheet（與配方管理完全一致）=====
                                     ws_recipe = spreadsheet.worksheet("配方管理")
