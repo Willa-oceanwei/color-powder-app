@@ -2421,6 +2421,9 @@ elif menu == "配方管理":
                     # 計算添加劑數量
                     additive_qty = total_qty - total_powder_weight - material_qty
                     
+                    # 處理添加劑顯示名稱
+                    additive_display = additive.replace("(增韌劑)", "")
+                    
                     # 驗證數量是否合理
                     if additive_qty < 0:
                         st.error(f"❌ 總數量不足！\n色粉總和：{total_powder_weight:.2f}g\n原料數量：{material_qty:.2f}g\n需要總數量至少：{total_powder_weight + material_qty:.2f}g")
@@ -2431,14 +2434,12 @@ elif menu == "配方管理":
                     if abs(calculated_total - total_qty) > 0.01:
                         st.warning(f"⚠️ 計算總和（{calculated_total:.2f}g）與輸入總數量（{total_qty:.2f}g）不符")
                     
-                    # ===== 儲存計算結果到 session_state =====
-                    additive_display = additive.replace("(增韌劑)", "")
-                    
+                    # ===== ✅ 儲存計算結果到 session_state（完整版）=====
                     st.session_state.master_batch_calculated = {
                         "new_code": new_code,
                         "powder_data": powder_data,
                         "additive": additive,
-                        "additive_display": additive_display,
+                        "additive_display": additive_display,  # ✅ 關鍵：加入這個
                         "additive_qty": additive_qty,
                         "material_code": material_code,
                         "material_qty": material_qty,
@@ -2477,7 +2478,7 @@ elif menu == "配方管理":
                         weight_str = f"{int(item['weight'])}" if item['weight'] == int(item['weight']) else f"{item['weight']:.2f}"
                         result_lines.append(f"{item['id'].ljust(12)}{weight_str.rjust(12)}")
                     
-                    # 添加劑
+                    # ✅ 添加劑（現在有 additive_display 了）
                     additive_qty_str = f"{int(calc['additive_qty'])}" if calc['additive_qty'] == int(calc['additive_qty']) else f"{calc['additive_qty']:.2f}"
                     result_lines.append(f"{calc['additive_display'].ljust(12)}{additive_qty_str.rjust(12)}")
                     
@@ -2509,7 +2510,7 @@ elif menu == "配方管理":
                         
                         content = "<br>".join(html_lines)
                         
-                        # ✅ 字體放大：font-size 從 20px 改成 24px
+                        # ✅ 字體放大：font-size 24px
                         html_template = """
                         <html>
                         <head>
