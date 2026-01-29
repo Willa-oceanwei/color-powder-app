@@ -2186,8 +2186,8 @@ elif menu == "配方管理":
                 save_df_to_sheet(worksheet, st.session_state.df_color)
                 st.session_state.color_dirty = False
                 st.success("✅ 已全部寫回完成")
+                
     # ========== Tab 5：色母換算 ==========
-        # ========== Tab 5：色母換算 ==========
     with tab5:
         
         st.markdown(
@@ -2235,22 +2235,28 @@ elif menu == "配方管理":
                 # ===== 顯示原始配方 =====
                 st.markdown("**原始配方預覽**")
                 
-                preview_lines = []
-                preview_lines.append(f"編號：{recipe_data.get('配方編號', '')}")
-                preview_lines.append(f"顏色：{recipe_data.get('顏色', '')}")
+                # ✅ 修正 1：資訊列改成橫排
+                info_parts = []
+                info_parts.append(f"編號：{recipe_data.get('配方編號', '')}")
+                info_parts.append(f"顏色：{recipe_data.get('顏色', '')}")
                 
-                # 比例
                 ratio3 = recipe_data.get('比例3', '')
                 if ratio3:
-                    preview_lines.append(f"比例：{ratio3}")
+                    info_parts.append(f"比例：{ratio3}")
                 
-                preview_lines.append(f"計量單位：{recipe_data.get('計量單位', '')}")
+                info_parts.append(f"計量單位：{recipe_data.get('計量單位', '')}")
                 
                 pantone = recipe_data.get('Pantone色號', '')
                 if pantone:
-                    preview_lines.append(f"Pantone：{pantone}")
+                    info_parts.append(f"Pantone：{pantone}")
                 
-                preview_lines.append("")  # 空行
+                st.markdown(
+                    f"<div style='font-size:16px; font-family:Arial; margin-bottom:10px;'>{' 　 '.join(info_parts)}</div>",
+                    unsafe_allow_html=True
+                )
+                
+                # 配方內容
+                preview_lines = []
                 
                 # 色粉列表
                 for i in range(1, 9):
@@ -2419,7 +2425,7 @@ elif menu == "配方管理":
                     
                     st.markdown("**色母配方預覽**")
                     
-                    # ✅ 修正 2：資訊列改成橫排顯示
+                    # 資訊列改成橫排顯示
                     info_parts = []
                     info_parts.append(f"編號：{new_code}")
                     info_parts.append(f"顏色：{recipe_data.get('顏色', '')}")
@@ -2459,7 +2465,6 @@ elif menu == "配方管理":
                         html_lines.append(f"編號：{new_code}　顏色：{color}　比例：{ratio}")
                         html_lines.append("")
                         
-                        # ✅ 修正 3：縮小左右距離（從 20 改成 8）
                         for item in powder_data:
                             weight_str = f"{int(item['weight'])}" if item['weight'] == int(item['weight']) else f"{item['weight']:.2f}"
                             html_lines.append(f"{item['id'].ljust(12)}{weight_str.rjust(8)}")
@@ -2473,6 +2478,7 @@ elif menu == "配方管理":
                         
                         content = "<br>".join(html_lines)
                         
+                        # ✅ 修正 2：拿掉標題「色母配方」
                         html_template = """
                         <html>
                         <head>
@@ -2489,17 +2495,10 @@ elif menu == "配方管理":
                                     font-size: 20px;
                                     line-height: 1.6;
                                 }}
-                                .title {{
-                                    text-align: center;
-                                    font-size: 22px;
-                                    margin-bottom: 10px;
-                                    font-family: Arial, Helvetica, sans-serif;
-                                    font-weight: bold;
-                                }}
                                 pre {{
                                     white-space: pre-wrap;
                                     margin-left: 25px;
-                                    margin-top: 0px;
+                                    margin-top: 10px;
                                 }}
                             </style>
                             <script>
@@ -2509,7 +2508,6 @@ elif menu == "配方管理":
                             </script>
                         </head>
                         <body>
-                            <div class="title">色母配方</div>
                             <pre>{content}</pre>
                         </body>
                         </html>
@@ -2528,14 +2526,93 @@ elif menu == "配方管理":
                         material_qty
                     )
                     
-                    # ===== 下載按鈕 =====
-                    st.download_button(
-                        label="📥 下載 A6 列印 HTML",
-                        data=html_content.encode("utf-8"),
-                        file_name=f"{new_code}_色母配方.html",
-                        mime="text/html",
-                        key="download_master_batch_html"
-                    )
+                    # ===== 下載按鈕與新增配方選項 =====
+                    col_download, col_save = st.columns([2, 2])
+                    
+                    with col_download:
+                        st.download_button(
+                            label="📥 下載 A6 列印 HTML",
+                            data=html_content.encode("utf-8"),
+                            file_name=f"{new_code}_色母配方.html",
+                            mime="text/html",
+                            key="download_master_batch_html"
+                        )
+                    
+                    # ✅ 修正 3：新增配方到 Google Sheet
+                    with col_save:
+                        if st.button("💾 新增此配方到配方管理", key="save_master_batch_recipe"):
+                            
+                            # 檢查配方編號是否已存在
+                            if new_code in df_recipe["配方編號"].astype(str).values:
+                                st.error(f"❌ 配方編號 {new_code} 已存在於配方管理中")
+                            else:
+                                try:
+                                    # 建立新配方資料
+                                    new_recipe = {
+                                        "配方編號": new_code,
+                                        "顏色": recipe_data.get("顏色", ""),
+                                        "客戶編號": recipe_data.get("客戶編號", ""),
+                                        "客戶名稱": recipe_data.get("客戶名稱", ""),
+                                        "配方類別": "原始配方",
+                                        "狀態": "啟用",
+                                        "原始配方": "",
+                                        "色粉類別": "色母",
+                                        "計量單位": recipe_data.get("計量單位", ""),
+                                        "Pantone色號": recipe_data.get("Pantone色號", ""),
+                                        "比例1": "",
+                                        "比例2": "",
+                                        "比例3": ratio,
+                                        "淨重": str(total_qty),
+                                        "淨重單位": "g",
+                                        "合計類別": "無",  
+                                        "重要提醒": f"色母換算自 {selected_recipe_code}",
+                                        "備註": recipe_data.get("備註", ""),
+                                        "建檔時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                    }
+                                    
+                                    # 填入色粉資料（前面的色粉）
+                                    for i, item in enumerate(powder_data, 1):
+                                        new_recipe[f"色粉編號{i}"] = item["id"]
+                                        new_recipe[f"色粉重量{i}"] = str(item["weight"])
+                                    
+                                    # 填入添加劑（接在色粉後面）
+                                    next_index = len(powder_data) + 1
+                                    if next_index <= 8:
+                                        new_recipe[f"色粉編號{next_index}"] = additive_display
+                                        new_recipe[f"色粉重量{next_index}"] = str(additive_qty)
+                                    
+                                    # 補齊剩餘欄位
+                                    for i in range(1, 9):
+                                        if f"色粉編號{i}" not in new_recipe:
+                                            new_recipe[f"色粉編號{i}"] = ""
+                                        if f"色粉重量{i}" not in new_recipe:
+                                            new_recipe[f"色粉重量{i}"] = ""
+                                    
+                                    # 寫入 Google Sheet
+                                    ws_recipe = spreadsheet.worksheet("配方管理")
+                                    
+                                    # 取得所有欄位（與現有配方表一致）
+                                    all_values = ws_recipe.get_all_values()
+                                    if all_values:
+                                        existing_columns = all_values[0]
+                                    else:
+                                        existing_columns = list(new_recipe.keys())
+                                    
+                                    # 按照現有欄位順序組成新列
+                                    new_row = [new_recipe.get(col, "") for col in existing_columns]
+                                    
+                                    # 寫入新列
+                                    ws_recipe.append_row(new_row)
+                                    
+                                    # 更新 session_state
+                                    df_recipe_new = pd.concat([df_recipe, pd.DataFrame([new_recipe])], ignore_index=True)
+                                    st.session_state.df_recipe = df_recipe_new
+                                    
+                                    st.success(f"✅ 配方 {new_code} 已成功新增到配方管理！")
+                                    st.balloons()
+                                    
+                                except Exception as e:
+                                    st.error(f"❌ 新增失敗：{e}")
         
         else:
             st.info("⚠️ 目前沒有配方資料，請先至「配方建立」新增配方")
