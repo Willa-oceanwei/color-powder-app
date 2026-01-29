@@ -2186,6 +2186,348 @@ elif menu == "配方管理":
                 save_df_to_sheet(worksheet, st.session_state.df_color)
                 st.session_state.color_dirty = False
                 st.success("✅ 已全部寫回完成")
+    # ========== Tab 5：色母換算 ==========
+    with tab5:
+        
+        st.markdown(
+            '<h3 style="font-size:18px; color:#f1f5f2;">🧮 色母換算工具</h3>',
+            unsafe_allow_html=True
+        )
+        
+        # ===== 初始化 session_state =====
+        if "master_batch_formula" not in st.session_state:
+            st.session_state.master_batch_formula = None
+        if "master_batch_ratio" not in st.session_state:
+            st.session_state.master_batch_ratio = "50:1"
+        if "master_batch_additive" not in st.session_state:
+            st.session_state.master_batch_additive = "CA"
+        if "master_batch_total_qty" not in st.session_state:
+            st.session_state.master_batch_total_qty = 100000.0
+        if "master_batch_material" not in st.session_state:
+            st.session_state.master_batch_material = ""
+        if "master_batch_material_qty" not in st.session_state:
+            st.session_state.master_batch_material_qty = 60000.0
+        if "master_batch_new_code" not in st.session_state:
+            st.session_state.master_batch_new_code = ""
+        
+        # ===== 步驟 1：選擇配方 =====
+        st.markdown("**步驟 1：選擇原始配方**")
+        
+        if not df_recipe.empty:
+            recipe_options = [""] + sorted(df_recipe["配方編號"].dropna().astype(str).unique().tolist())
+            
+            selected_recipe_code = st.selectbox(
+                "配方編號",
+                options=recipe_options,
+                index=0,
+                format_func=lambda code: "" if code == "" else " | ".join(
+                    df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0].astype(str)
+                ),
+                key="master_batch_recipe_select"
+            )
+            
+            if selected_recipe_code:
+                # 取得配方資料
+                recipe_data = df_recipe[df_recipe["配方編號"] == selected_recipe_code].iloc[0].to_dict()
+                st.session_state.master_batch_formula = recipe_data
+                
+                # ===== 顯示原始配方 =====
+                st.markdown("**原始配方預覽**")
+                
+                preview_lines = []
+                preview_lines.append(f"編號：{recipe_data.get('配方編號', '')}")
+                preview_lines.append(f"顏色：{recipe_data.get('顏色', '')}")
+                
+                # 比例
+                ratio3 = recipe_data.get('比例3', '')
+                if ratio3:
+                    preview_lines.append(f"比例：{ratio3}")
+                
+                preview_lines.append(f"計量單位：{recipe_data.get('計量單位', '')}")
+                
+                pantone = recipe_data.get('Pantone色號', '')
+                if pantone:
+                    preview_lines.append(f"Pantone：{pantone}")
+                
+                preview_lines.append("")  # 空行
+                
+                # 色粉列表
+                for i in range(1, 9):
+                    powder_id = str(recipe_data.get(f"色粉編號{i}", "")).strip()
+                    powder_weight = str(recipe_data.get(f"色粉重量{i}", "")).strip()
+                    
+                    if powder_id and powder_weight:
+                        preview_lines.append(f"{powder_id.ljust(12)}{powder_weight}")
+                
+                # 分隔線
+                preview_lines.append("_" * 40)
+                
+                # 合計類別
+                total_category = recipe_data.get("合計類別", "").strip()
+                net_weight = recipe_data.get("淨重", "").strip()
+                
+                if total_category and total_category != "無":
+                    preview_lines.append(f"{total_category.ljust(12)}{net_weight}")
+                
+                st.code("\n".join(preview_lines), language=None)
+                
+                st.markdown("---")
+                
+                # ===== 使用 Form 包裹所有輸入欄位 =====
+                with st.form("master_batch_form"):
+                    
+                    # ===== 步驟 2：選擇色母比例 =====
+                    st.markdown("**步驟 2：設定色母比例**")
+                    
+                    ratio = st.selectbox(
+                        "色母比例",
+                        ["25:1", "50:1", "100:1"],
+                        index=["25:1", "50:1", "100:1"].index(st.session_state.master_batch_ratio),
+                        key="ratio_select"
+                    )
+                    
+                    # ===== 步驟 3：選擇添加劑 =====
+                    st.markdown("**步驟 3：選擇添加劑**")
+                    
+                    additive = st.selectbox(
+                        "添加劑",
+                        ["CA", "LA", "CP(增韌劑)"],
+                        index=["CA", "LA", "CP(增韌劑)"].index(st.session_state.master_batch_additive),
+                        key="additive_select"
+                    )
+                    
+                    # ===== 步驟 4：填寫合計資料 =====
+                    st.markdown("**步驟 4：填寫合計資料**")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        total_qty = st.number_input(
+                            "總數量 (g)",
+                            min_value=0.0,
+                            value=st.session_state.master_batch_total_qty,
+                            step=1000.0,
+                            key="total_quantity_input",
+                            help="所有成分的總重量"
+                        )
+                    
+                    with col2:
+                        material_code = st.text_input(
+                            "料號",
+                            value=st.session_state.master_batch_material,
+                            placeholder="例如：PE5100",
+                            key="material_input"
+                        )
+                    
+                    with col3:
+                        material_qty = st.number_input(
+                            "原料數量 (g)",
+                            min_value=0.0,
+                            value=st.session_state.master_batch_material_qty,
+                            step=1000.0,
+                            key="material_quantity_input",
+                            help="原料的重量"
+                        )
+                    
+                    # ===== 步驟 5：新編號 =====
+                    st.markdown("**步驟 5：新色母編號**")
+                    
+                    new_code = st.text_input(
+                        "新色母編號",
+                        value=st.session_state.master_batch_new_code,
+                        placeholder="例如：26820M",
+                        key="new_code_input"
+                    )
+                    
+                    # ===== 計算按鈕 =====
+                    calculate = st.form_submit_button("🧮 計算色母配方")
+                
+                # ===== Form 提交後處理 =====
+                if calculate:
+                    
+                    # 更新 session_state
+                    st.session_state.master_batch_ratio = ratio
+                    st.session_state.master_batch_additive = additive
+                    st.session_state.master_batch_total_qty = total_qty
+                    st.session_state.master_batch_material = material_code
+                    st.session_state.master_batch_material_qty = material_qty
+                    st.session_state.master_batch_new_code = new_code
+                    
+                    # 驗證必填欄位
+                    if total_qty <= 0:
+                        st.warning("⚠️ 請填寫總數量")
+                        st.stop()
+                    
+                    if not material_code.strip():
+                        st.warning("⚠️ 請填寫料號")
+                        st.stop()
+                    
+                    if material_qty <= 0:
+                        st.warning("⚠️ 請填寫原料數量")
+                        st.stop()
+                    
+                    if not new_code.strip():
+                        st.warning("⚠️ 請填寫新色母編號")
+                        st.stop()
+                    
+                    # ===== 計算色母配方 =====
+                    
+                    # 取得倍數
+                    multiplier_map = {
+                        "25:1": 104,
+                        "50:1": 200,
+                        "100:1": 400
+                    }
+                    multiplier = multiplier_map[ratio]
+                    
+                    # 計算色粉重量
+                    powder_data = []
+                    total_powder_weight = 0.0
+                    
+                    for i in range(1, 9):
+                        powder_id = str(recipe_data.get(f"色粉編號{i}", "")).strip()
+                        powder_weight_str = str(recipe_data.get(f"色粉重量{i}", "")).strip()
+                        
+                        if powder_id and powder_weight_str:
+                            try:
+                                original_weight = float(powder_weight_str)
+                                new_weight = original_weight * multiplier
+                                powder_data.append({
+                                    "id": powder_id,
+                                    "weight": new_weight
+                                })
+                                total_powder_weight += new_weight
+                            except:
+                                pass
+                    
+                    # 計算添加劑數量
+                    additive_qty = total_qty - total_powder_weight - material_qty
+                    
+                    # 驗證數量是否合理
+                    if additive_qty < 0:
+                        st.error(f"❌ 總數量不足！\n色粉總和：{total_powder_weight:.2f}g\n原料數量：{material_qty:.2f}g\n需要總數量至少：{total_powder_weight + material_qty:.2f}g")
+                        st.stop()
+                    
+                    # 驗證總和
+                    calculated_total = total_powder_weight + additive_qty + material_qty
+                    if abs(calculated_total - total_qty) > 0.01:
+                        st.warning(f"⚠️ 計算總和（{calculated_total:.2f}g）與輸入總數量（{total_qty:.2f}g）不符")
+                    
+                    # ===== 生成預覽 =====
+                    st.success("✅ 色母配方計算完成")
+                    
+                    result_lines = []
+                    result_lines.append(f"編號：{new_code}")
+                    result_lines.append(f"顏色：{recipe_data.get('顏色', '')}")
+                    result_lines.append(f"比例：{ratio}")
+                    result_lines.append("")
+                    
+                    # 色粉列表
+                    for item in powder_data:
+                        weight_str = f"{int(item['weight'])}" if item['weight'] == int(item['weight']) else f"{item['weight']:.2f}"
+                        result_lines.append(f"{item['id'].ljust(12)}{weight_str.rjust(20)}")
+                    
+                    # 添加劑
+                    additive_display = additive.replace("(增韌劑)", "")
+                    additive_qty_str = f"{int(additive_qty)}" if additive_qty == int(additive_qty) else f"{additive_qty:.2f}"
+                    result_lines.append(f"{additive_display.ljust(12)}{additive_qty_str.rjust(20)}")
+                    
+                    # 原料
+                    material_qty_str = f"{int(material_qty)}" if material_qty == int(material_qty) else f"{material_qty:.2f}"
+                    result_lines.append(f"{material_code.ljust(12)}{material_qty_str.rjust(20)}")
+                    
+                    st.markdown("**色母配方預覽**")
+                    st.code("\n".join(result_lines), language=None)
+                    
+                    # 顯示計算驗證
+                    st.caption(f"✓ 色粉總和：{total_powder_weight:.2f}g + 添加劑：{additive_qty:.2f}g + 原料：{material_qty:.2f}g = {calculated_total:.2f}g")
+                    
+                    # ===== 生成 A6 列印 HTML =====
+                    def generate_master_batch_html(new_code, color, ratio, powder_data, additive, additive_qty, material_code, material_qty):
+                        
+                        html_lines = []
+                        html_lines.append(f"編號：{new_code}　顏色：{color}　比例：{ratio}")
+                        html_lines.append("")
+                        
+                        for item in powder_data:
+                            weight_str = f"{int(item['weight'])}" if item['weight'] == int(item['weight']) else f"{item['weight']:.2f}"
+                            html_lines.append(f"{item['id'].ljust(12)}{weight_str.rjust(20)}")
+                        
+                        additive_display = additive.replace("(增韌劑)", "")
+                        additive_qty_str = f"{int(additive_qty)}" if additive_qty == int(additive_qty) else f"{additive_qty:.2f}"
+                        html_lines.append(f"{additive_display.ljust(12)}{additive_qty_str.rjust(20)}")
+                        
+                        material_qty_str = f"{int(material_qty)}" if material_qty == int(material_qty) else f"{material_qty:.2f}"
+                        html_lines.append(f"{material_code.ljust(12)}{material_qty_str.rjust(20)}")
+                        
+                        content = "<br>".join(html_lines)
+                        
+                        html_template = """
+                        <html>
+                        <head>
+                            <meta charset="utf-8">
+                            <title>色母配方列印</title>
+                            <style>
+                                @page {{
+                                    size: A6 landscape;
+                                    margin: 10mm;
+                                }}
+                                body {{
+                                    margin: 0;
+                                    font-family: 'Courier New', Courier, monospace;
+                                    font-size: 20px;
+                                    line-height: 1.6;
+                                }}
+                                .title {{
+                                    text-align: center;
+                                    font-size: 22px;
+                                    margin-bottom: 10px;
+                                    font-family: Arial, Helvetica, sans-serif;
+                                    font-weight: bold;
+                                }}
+                                pre {{
+                                    white-space: pre-wrap;
+                                    margin-left: 25px;
+                                    margin-top: 0px;
+                                }}
+                            </style>
+                            <script>
+                                window.onload = function() {{
+                                    window.print();
+                                }}
+                            </script>
+                        </head>
+                        <body>
+                            <div class="title">色母配方</div>
+                            <pre>{content}</pre>
+                        </body>
+                        </html>
+                        """
+                        
+                        return html_template.replace("{content}", content)
+                    
+                    html_content = generate_master_batch_html(
+                        new_code,
+                        recipe_data.get('顏色', ''),
+                        ratio,
+                        powder_data,
+                        additive,
+                        additive_qty,
+                        material_code,
+                        material_qty
+                    )
+                    
+                    # ===== 下載按鈕 =====
+                    st.download_button(
+                        label="📥 下載 A6 列印 HTML",
+                        data=html_content.encode("utf-8"),
+                        file_name=f"{new_code}_色母配方.html",
+                        mime="text/html",
+                        key="download_master_batch_html"
+                    )
+        
+        else:
+            st.info("⚠️ 目前沒有配方資料，請先至「配方建立」新增配方")
     
 
 # =============== Tab 架構結束 ===============                            
