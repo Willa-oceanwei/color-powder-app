@@ -2447,18 +2447,8 @@ elif menu == "配方管理":
                     # 計算完成，允許新增
                     st.session_state.master_batch_ready = True
     
-                    # ===== 顯示「下載 / 新增配方」按鈕 =====
+                    # ===== 顯示「新增配方」按鈕 =====
                     col_download, col_save = st.columns([2,2])
-    
-                    with col_download:
-                        st.download_button(
-                            label="📥 下載 A6 列印 HTML",
-                            data=html_content.encode("utf-8"),
-                            file_name=f"{new_code}_色母配方.html",
-                            mime="text/html",
-                            key="download_master_batch_html"
-                        )
-    
                     with col_save:
                         if st.session_state.get("master_batch_ready"):
                             if st.button("💾 新增此配方到配方管理", key="save_master_batch_recipe"):
@@ -2493,12 +2483,12 @@ elif menu == "配方管理":
                                     new_recipe[f"色粉重量{i}"] = str(item["weight"])
                                 next_index = len(powder_data)+1
                                 if next_index<=8:
-                                    new_recipe[f"色粉編號{next_index}"] = additive_display
+                                    new_recipe[f"色粉編號{next_index}"] = additive.replace("(增韌劑)","")
                                     new_recipe[f"色粉重量{next_index}"] = str(additive_qty)
                                 for i in range(1,9):
                                     new_recipe.setdefault(f"色粉編號{i}","")
                                     new_recipe.setdefault(f"色粉重量{i}","")
-                                # 寫入 Google Sheet
+                                # 寫入
                                 new_row = [new_recipe.get(col,"") for col in columns]
                                 ws_recipe.append_row(new_row,value_input_option="USER_ENTERED")
                                 st.success(f"✅ 配方 {new_code} 已成功新增到配方管理！")
