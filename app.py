@@ -2479,19 +2479,29 @@ elif menu == "配方管理":
                     result_lines = []
                     
                     # 色粉列表
+                    # ===== 預覽粉料表格版 =====
+                    table_html = "<table style='border-collapse: collapse;'>"
+                    table_html += "<tr><th>色粉編號</th><th>重量</th></tr>"
+                    
+                    # 色粉列表
                     for item in calc['powder_data']:
-                        weight_str = f"{int(item['weight'])}" if item['weight'] == int(item['weight']) else f"{item['weight']:.2f}"
-                        result_lines.append(f"{item['id'].ljust(12)}{weight_str.rjust(12)}")
+                        weight = item['weight']
+                        weight_str = f"{int(weight)}" if weight==int(weight) else f"{weight:.2f}"
+                        table_html += f"<tr><td>{item['id']}</td><td style='text-align:right'>{weight_str}</td></tr>"
                     
                     # 添加劑
-                    additive_qty_str = f"{int(calc['additive_qty'])}" if calc['additive_qty'] == int(calc['additive_qty']) else f"{calc['additive_qty']:.2f}"
-                    result_lines.append(f"{calc['additive_display'].ljust(12)}{additive_qty_str.rjust(12)}")
+                    add_qty = calc['additive_qty']
+                    add_str = f"{int(add_qty)}" if add_qty==int(add_qty) else f"{add_qty:.2f}"
+                    table_html += f"<tr><td>{calc['additive_display']}</td><td style='text-align:right'>{add_str}</td></tr>"
                     
                     # 原料
-                    material_qty_str = f"{int(calc['material_qty'])}" if calc['material_qty'] == int(calc['material_qty']) else f"{calc['material_qty']:.2f}"
-                    result_lines.append(f"{calc['material_code'].ljust(12)}{material_qty_str.rjust(12)}")
+                    mat_qty = calc['material_qty']
+                    mat_str = f"{int(mat_qty)}" if mat_qty==int(mat_qty) else f"{mat_qty:.2f}"
+                    table_html += f"<tr><td>{calc['material_code']}</td><td style='text-align:right'>{mat_str}</td></tr>"
                     
-                    st.code("\n".join(result_lines), language=None)
+                    table_html += "</table>"
+                    
+                    st.markdown(table_html, unsafe_allow_html=True)
                     
                     # 顯示計算驗證
                     st.caption(f"✓ 色粉總和：{calc['total_powder_weight']:.2f}g + 添加劑：{calc['additive_qty']:.2f}g + 原料：{calc['material_qty']:.2f}g = {calc['calculated_total']:.2f}g")
