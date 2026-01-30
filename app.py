@@ -3849,12 +3849,11 @@ elif menu == "生產單管理":
                 if st.session_state.get("downloaded_html_tab1", False)
                 else "📥 下載 A5 HTML"
             )
-
-            recipe_code = recipe_row.get("配方編號", "無配方")
+        
             st.download_button(
                 label=download_label,
                 data=print_html.encode("utf-8"),
-                file_name=f"{order['生產單號']}_{recipe_code}_列印.html",
+                file_name=f"{order['生產單號']}_列印.html",
                 mime="text/html",
                 key="download_html_tab1",
                 disabled=not st.session_state.get("new_order_saved", False),
@@ -5780,7 +5779,7 @@ elif menu == "查詢區":
                         st.dataframe(df_result, use_container_width=True) 
 
     # ========== Tab 2：色粉用量查詢 ==========
-    with tab4:
+    with tab2:
     
         with st.form("form_powder_usage"):
             st.markdown("**🔍 色粉用量查詢**")
@@ -5812,11 +5811,10 @@ elif menu == "查詢區":
                 if c not in df_recipe_local.columns:
                     df_recipe_local[c] = ""
     
-            # ✅ 改用建立時間
-            if "建立時間" in df_order_local.columns:
-                df_order_local["建立時間_dt"] = pd.to_datetime(df_order_local["建立時間"], errors="coerce")
+            if "生產日期" in df_order_local.columns:
+                df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce")
             else:
-                df_order_local["建立時間_dt"] = pd.NaT
+                df_order_local["生產日期"] = pd.NaT
     
             def format_usage(val):
                 if val >= 1000:
@@ -5851,11 +5849,11 @@ elif menu == "查詢區":
                     recipe_candidates = pd.DataFrame()
                     candidate_ids = set()
     
-                # 2) ✅ 過濾生產單日期區間（改用建立時間）
+                # 2) 過濾生產單日期區間
                 orders_in_range = df_order_local[
-                    (df_order_local["建立時間_dt"].notna()) &
-                    (df_order_local["建立時間_dt"] >= pd.to_datetime(start_date)) &
-                    (df_order_local["建立時間_dt"] <= pd.to_datetime(end_date))
+                    (df_order_local["生產日期"].notna()) &
+                    (df_order_local["生產日期"] >= pd.to_datetime(start_date)) &
+                    (df_order_local["生產日期"] <= pd.to_datetime(end_date))
                 ]
     
                 # 3) 計算用量
@@ -5883,29 +5881,21 @@ elif menu == "查詢區":
                     for j in range(1, 5):
                         w_val = order.get(f"包裝重量{j}", 0)
                         n_val = order.get(f"包裝份數{j}", 0)
-                        try: 
-                            packs_total += float(w_val or 0) * float(n_val or 0)
-                        except: 
-                            pass
+                        try: packs_total += float(w_val or 0) * float(n_val or 0)
+                        except: pass
     
-                    if packs_total <= 0: 
-                        continue
+                    if packs_total <= 0: continue
     
                     for rec in recipe_rows:
                         rec_id = str(rec.get("配方編號", "")).strip()
-                        if rec_id not in candidate_ids: 
-                            continue
+                        if rec_id not in candidate_ids: continue
     
                         pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-                        if powder_id not in pvals: 
-                            continue
+                        if powder_id not in pvals: continue
                         idx = pvals.index(powder_id) + 1
-                        try: 
-                            powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
-                        except: 
-                            powder_weight = 0.0
-                        if powder_weight <= 0: 
-                            continue
+                        try: powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
+                        except: powder_weight = 0.0
+                        if powder_weight <= 0: continue
     
                         contrib = powder_weight * packs_total
                         order_total_for_powder += contrib
@@ -5915,13 +5905,10 @@ elif menu == "查詢區":
                         else:
                             sources_main.add(disp_name)
     
-                    if order_total_for_powder <= 0: 
-                        continue
+                    if order_total_for_powder <= 0: continue
     
-                    # ✅ 改用建立時間_dt
-                    od = order["建立時間_dt"]
-                    if pd.isna(od): 
-                        continue
+                    od = order["生產日期"]
+                    if pd.isna(od): continue
                     month_key = od.strftime("%Y/%m")
                     if month_key not in monthly_usage:
                         monthly_usage[month_key] = {"usage": 0.0, "main_recipes": set(), "additional_recipes": set()}
@@ -5936,8 +5923,7 @@ elif menu == "查詢區":
                 for month in months_sorted:
                     data = monthly_usage[month]
                     usage_g = data["usage"]
-                    if usage_g <= 0: 
-                        continue
+                    if usage_g <= 0: continue
                     per = pd.Period(month, freq="M")
                     month_start = per.start_time.date()
                     month_end = per.end_time.date()
@@ -6764,118 +6750,99 @@ elif menu == "庫存區":
 
     # ========== Tab 3：色粉用量排行榜 ==========
     with tab3:
-    
-        # ===== 日期區間 =====
+        # 日期區間選擇
         col1, col2 = st.columns(2)
         rank_start = col1.date_input("開始日期（排行榜）", key="rank_start_date")
-        rank_end   = col2.date_input("結束日期（排行榜）", key="rank_end_date")
-    
+        rank_end = col2.date_input("結束日期（排行榜）", key="rank_end_date")
+
         if st.button("生成排行榜", key="btn_powder_rank"):
-    
-            # ---------- 基礎防呆 ----------
-            if rank_start > rank_end:
-                st.error("❌ 開始日期不能晚於結束日期")
-                st.stop()
-    
-            df_order_copy  = df_order.copy()
+            df_order_copy = df_order.copy()
             df_recipe_copy = df_recipe.copy()
-    
-            # ---------- 欄位補齊（避免 KeyError） ----------
+
             powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
             weight_cols = [f"色粉重量{i}" for i in range(1, 9)]
-    
             for c in powder_cols + weight_cols + ["配方編號", "配方類別", "原始配方"]:
                 if c not in df_recipe_copy.columns:
                     df_recipe_copy[c] = ""
-    
-            # ✅ 改用建立時間
-            if "建立時間" in df_order_copy.columns:
-                df_order_copy["建立時間_dt"] = pd.to_datetime(df_order_copy["建立時間"], errors="coerce")
+
+            if "生產日期" in df_order_copy.columns:
+                df_order_copy["生產日期"] = pd.to_datetime(df_order_copy["生產日期"], errors="coerce")
             else:
-                df_order_copy["建立時間_dt"] = pd.NaT
-    
-            # ---------- 篩選日期 ----------
+                df_order_copy["生產日期"] = pd.NaT
+
+            # 過濾日期區間
             orders_in_range = df_order_copy[
-                (df_order_copy["建立時間_dt"].notna()) &
-                (df_order_copy["建立時間_dt"] >= pd.to_datetime(rank_start)) &
-                (df_order_copy["建立時間_dt"] <= pd.to_datetime(rank_end))
+                (df_order_copy["生產日期"].notna()) &
+                (df_order_copy["生產日期"] >= pd.to_datetime(rank_start)) &
+                (df_order_copy["生產日期"] <= pd.to_datetime(rank_end))
             ]
-    
-            if orders_in_range.empty:
-                st.info("📭 該日期區間內沒有任何生產單")
-                st.stop()
-    
-            # ---------- 核心累計 ----------
-            pigment_usage: dict[str, float] = {}
-    
+
+            pigment_usage = {}
+
+            # 計算所有色粉用量
             for _, order in orders_in_range.iterrows():
-    
                 order_recipe_id = str(order.get("配方編號", "")).strip()
                 if not order_recipe_id:
                     continue
-    
-                # 主配方
+
+                # 主配方 + 附加配方
                 recipe_rows = []
                 main_df = df_recipe_copy[df_recipe_copy["配方編號"].astype(str) == order_recipe_id]
                 if not main_df.empty:
                     recipe_rows.append(main_df.iloc[0].to_dict())
-    
-                # 附加配方
                 add_df = df_recipe_copy[
                     (df_recipe_copy["配方類別"] == "附加配方") &
                     (df_recipe_copy["原始配方"].astype(str) == order_recipe_id)
                 ]
                 if not add_df.empty:
                     recipe_rows.extend(add_df.to_dict("records"))
-    
-                if not recipe_rows:
-                    continue
-    
-                # 包裝總量
+
+                # 包裝總份
                 packs_total = 0.0
                 for j in range(1, 5):
+                    w_key = f"包裝重量{j}"
+                    n_key = f"包裝份數{j}"
+                    w_val = order[w_key] if w_key in order.index else 0
+                    n_val = order[n_key] if n_key in order.index else 0
                     try:
-                        packs_total += float(order.get(f"包裝重量{j}", 0) or 0) * float(order.get(f"包裝份數{j}", 0) or 0)
-                    except:
-                        pass
-    
+                        pack_w = float(w_val or 0)
+                    except (ValueError, TypeError):
+                        pack_w = 0.0
+                    try:
+                        pack_n = float(n_val or 0)
+                    except (ValueError, TypeError):
+                        pack_n = 0.0
+                    packs_total += pack_w * pack_n
+
                 if packs_total <= 0:
                     continue
-    
-                # 色粉累計
+
+                # 計算各色粉用量
                 for rec in recipe_rows:
                     for i in range(1, 9):
                         pid = str(rec.get(f"色粉編號{i}", "")).strip()
                         try:
                             pw = float(rec.get(f"色粉重量{i}", 0) or 0)
-                        except:
+                        except (ValueError, TypeError):
                             pw = 0.0
-    
+
                         if pid and pw > 0:
-                            pigment_usage[pid] = pigment_usage.get(pid, 0.0) + pw * packs_total
-    
-            # ---------- 轉成 DataFrame ----------
-            df_rank = pd.DataFrame(
-                [{"色粉編號": k, "總用量_g": v} for k, v in pigment_usage.items()],
-                columns=["色粉編號", "總用量_g"]
-            )
-    
-            if df_rank.empty:
-                st.info("📭 該區間內無任何色粉用量紀錄")
-                st.stop()
-    
-            # ---------- 排序 & 顯示 ----------
+                            contrib = pw * packs_total
+                            pigment_usage[pid] = pigment_usage.get(pid, 0.0) + contrib
+
+            # 生成 DataFrame
+            df_rank = pd.DataFrame([
+                {"色粉編號": k, "總用量_g": v} for k, v in pigment_usage.items()
+            ])
+
+            # 排序
             df_rank = df_rank.sort_values("總用量_g", ascending=False).reset_index(drop=True)
             df_rank["總用量"] = df_rank["總用量_g"].map(format_usage)
             df_rank = df_rank[["色粉編號", "總用量"]]
-    
             st.dataframe(df_rank, use_container_width=True, hide_index=True)
-    
-            # ---------- 下載 ----------
-            csv = df_rank.rename(columns={"總用量": "總用量"}).to_csv(
-                index=False, encoding="utf-8-sig"
-            )
-    
+
+            # 下載 CSV
+            csv = pd.DataFrame(list(pigment_usage.items()), columns=["色粉編號", "總用量(g)"]).to_csv(index=False, encoding="utf-8-sig")
             st.download_button(
                 label="⬇️ 下載排行榜 CSV",
                 data=csv,
