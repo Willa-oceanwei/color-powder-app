@@ -6764,10 +6764,6 @@ elif menu == "庫存區":
                 st.error("❌ 開始日期不能晚於結束日期")
                 st.stop()
     
-            if df_order.empty or df_recipe.empty:
-                st.info("📭 尚無生產單或配方資料")
-                st.stop()
-    
             df_order_copy  = df_order.copy()
             df_recipe_copy = df_recipe.copy()
     
