@@ -3849,11 +3849,12 @@ elif menu == "生產單管理":
                 if st.session_state.get("downloaded_html_tab1", False)
                 else "📥 下載 A5 HTML"
             )
-        
+
+            recipe_code = recipe_row.get("配方編號", "無配方")
             st.download_button(
                 label=download_label,
                 data=print_html.encode("utf-8"),
-                file_name=f"{order['生產單號']}_列印.html",
+                file_name=f"{order['生產單號']}_{recipe_code}_列印.html",
                 mime="text/html",
                 key="download_html_tab1",
                 disabled=not st.session_state.get("new_order_saved", False),
