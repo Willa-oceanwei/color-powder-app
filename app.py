@@ -6775,17 +6775,17 @@ elif menu == "庫存區":
                 if c not in df_recipe_copy.columns:
                     df_recipe_copy[c] = ""
     
-            # ---------- 生產日期 ----------
-            if "生產日期" in df_order_copy.columns:
-                df_order_copy["生產日期"] = pd.to_datetime(df_order_copy["生產日期"], errors="coerce")
+            # ✅ 改用建立時間
+            if "建立時間" in df_order_copy.columns:
+                df_order_copy["建立時間_dt"] = pd.to_datetime(df_order_copy["建立時間"], errors="coerce")
             else:
-                df_order_copy["生產日期"] = pd.NaT
+                df_order_copy["建立時間_dt"] = pd.NaT
     
             # ---------- 篩選日期 ----------
             orders_in_range = df_order_copy[
-                (df_order_copy["生產日期"].notna()) &
-                (df_order_copy["生產日期"] >= pd.to_datetime(rank_start)) &
-                (df_order_copy["生產日期"] <= pd.to_datetime(rank_end))
+                (df_order_copy["建立時間_dt"].notna()) &
+                (df_order_copy["建立時間_dt"] >= pd.to_datetime(rank_start)) &
+                (df_order_copy["建立時間_dt"] <= pd.to_datetime(rank_end))
             ]
     
             if orders_in_range.empty:
@@ -6841,7 +6841,7 @@ elif menu == "庫存區":
                         if pid and pw > 0:
                             pigment_usage[pid] = pigment_usage.get(pid, 0.0) + pw * packs_total
     
-            # ---------- 轉成 DataFrame（關鍵防炸） ----------
+            # ---------- 轉成 DataFrame ----------
             df_rank = pd.DataFrame(
                 [{"色粉編號": k, "總用量_g": v} for k, v in pigment_usage.items()],
                 columns=["色粉編號", "總用量_g"]
