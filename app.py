@@ -5780,7 +5780,7 @@ elif menu == "查詢區":
                         st.dataframe(df_result, use_container_width=True) 
 
     # ========== Tab 2：色粉用量查詢 ==========
-    with tab2:
+    with tab4:
     
         with st.form("form_powder_usage"):
             st.markdown("**🔍 色粉用量查詢**")
@@ -5812,10 +5812,11 @@ elif menu == "查詢區":
                 if c not in df_recipe_local.columns:
                     df_recipe_local[c] = ""
     
-            if "生產日期" in df_order_local.columns:
-                df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce")
+            # ✅ 改用建立時間
+            if "建立時間" in df_order_local.columns:
+                df_order_local["建立時間_dt"] = pd.to_datetime(df_order_local["建立時間"], errors="coerce")
             else:
-                df_order_local["生產日期"] = pd.NaT
+                df_order_local["建立時間_dt"] = pd.NaT
     
             def format_usage(val):
                 if val >= 1000:
@@ -5850,11 +5851,11 @@ elif menu == "查詢區":
                     recipe_candidates = pd.DataFrame()
                     candidate_ids = set()
     
-                # 2) 過濾生產單日期區間
+                # 2) ✅ 過濾生產單日期區間（改用建立時間）
                 orders_in_range = df_order_local[
-                    (df_order_local["生產日期"].notna()) &
-                    (df_order_local["生產日期"] >= pd.to_datetime(start_date)) &
-                    (df_order_local["生產日期"] <= pd.to_datetime(end_date))
+                    (df_order_local["建立時間_dt"].notna()) &
+                    (df_order_local["建立時間_dt"] >= pd.to_datetime(start_date)) &
+                    (df_order_local["建立時間_dt"] <= pd.to_datetime(end_date))
                 ]
     
                 # 3) 計算用量
@@ -5882,21 +5883,29 @@ elif menu == "查詢區":
                     for j in range(1, 5):
                         w_val = order.get(f"包裝重量{j}", 0)
                         n_val = order.get(f"包裝份數{j}", 0)
-                        try: packs_total += float(w_val or 0) * float(n_val or 0)
-                        except: pass
+                        try: 
+                            packs_total += float(w_val or 0) * float(n_val or 0)
+                        except: 
+                            pass
     
-                    if packs_total <= 0: continue
+                    if packs_total <= 0: 
+                        continue
     
                     for rec in recipe_rows:
                         rec_id = str(rec.get("配方編號", "")).strip()
-                        if rec_id not in candidate_ids: continue
+                        if rec_id not in candidate_ids: 
+                            continue
     
                         pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-                        if powder_id not in pvals: continue
+                        if powder_id not in pvals: 
+                            continue
                         idx = pvals.index(powder_id) + 1
-                        try: powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
-                        except: powder_weight = 0.0
-                        if powder_weight <= 0: continue
+                        try: 
+                            powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
+                        except: 
+                            powder_weight = 0.0
+                        if powder_weight <= 0: 
+                            continue
     
                         contrib = powder_weight * packs_total
                         order_total_for_powder += contrib
@@ -5906,10 +5915,13 @@ elif menu == "查詢區":
                         else:
                             sources_main.add(disp_name)
     
-                    if order_total_for_powder <= 0: continue
+                    if order_total_for_powder <= 0: 
+                        continue
     
-                    od = order["生產日期"]
-                    if pd.isna(od): continue
+                    # ✅ 改用建立時間_dt
+                    od = order["建立時間_dt"]
+                    if pd.isna(od): 
+                        continue
                     month_key = od.strftime("%Y/%m")
                     if month_key not in monthly_usage:
                         monthly_usage[month_key] = {"usage": 0.0, "main_recipes": set(), "additional_recipes": set()}
@@ -5924,7 +5936,8 @@ elif menu == "查詢區":
                 for month in months_sorted:
                     data = monthly_usage[month]
                     usage_g = data["usage"]
-                    if usage_g <= 0: continue
+                    if usage_g <= 0: 
+                        continue
                     per = pd.Period(month, freq="M")
                     month_start = per.start_time.date()
                     month_end = per.end_time.date()
