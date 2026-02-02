@@ -1980,7 +1980,15 @@ elif menu == "配方管理":
                 
                         # ===== 色粉設定 =====
                         st.markdown("##### 色粉設定")
-                        num_rows = max(5, sum(1 for i in range(1, 9) if fr.get(f"色粉編號{i}")))
+                        
+                        # ✅ 初始化編輯時的色粉列數
+                        if "edit_num_powder_rows" not in st.session_state:
+                            # 計算現有配方有幾列色粉
+                            existing_rows = max(5, sum(1 for i in range(1, 9) if fr.get(f"色粉編號{i}")))
+                            st.session_state.edit_num_powder_rows = existing_rows
+                        
+                        num_rows = st.session_state.edit_num_powder_rows
+                        
                         for i in range(1, num_rows + 1):
                             c1, c2 = st.columns([2.5, 2.5])
                             fr[f"色粉編號{i}"] = c1.text_input(
@@ -1993,7 +2001,13 @@ elif menu == "配方管理":
                                 placeholder="重量",
                                 key=f"edit_recipe_powder_weight_tab3_{i}"
                             )
-                
+                        
+                        # ✅ 新增色粉列按鈕
+                        if num_rows < 8:
+                            col_add_powder, col_spacer = st.columns([1, 3])
+                            with col_add_powder:
+                                add_powder_btn = st.form_submit_button("➕ 新增色粉列")
+                        
                         # ===== 合計類別 =====
                         cat_opts = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他"]
                         default = fr.get("合計類別", "\u2002")
@@ -2002,12 +2016,18 @@ elif menu == "配方管理":
                             index=cat_opts.index(default if default in cat_opts else "\u2002"),
                             key="edit_recipe_total_category_tab3"
                         )
-                
+                        
                         # ===== 表單送出 =====
                         col_save, col_back = st.columns(2)
                         submitted = col_save.form_submit_button("💾 儲存修改")
                         cancel = col_back.form_submit_button("返回")
-                
+                        
+                        # ===== 處理「新增色粉列」按鈕 =====
+                        if num_rows < 8 and 'add_powder_btn' in locals() and add_powder_btn:
+                            st.session_state.edit_num_powder_rows += 1
+                            st.rerun()
+                        
+                        # ===== 處理「儲存修改」按鈕 =====
                         if submitted:
                             # 1️⃣ 更新 dataframe
                             for k, v in fr.items():
@@ -2035,10 +2055,18 @@ elif menu == "配方管理":
                                 st.error(f"❌ 儲存失敗：{e}")
                                 st.stop()
                         
-                            # 6️⃣ 關閉面板 & 回到預覽
+                            # 6️⃣ 關閉面板 & 回到預覽（只保留一次）
                             st.session_state.show_edit_recipe_panel = False
-                            st.session_state.editing_recipe_code = None                    
-                            st.rerun()                     
+                            st.session_state.editing_recipe_code = None
+                            st.session_state.edit_num_powder_rows = None  # ✅ 重置色粉列數
+                            st.rerun()
+                        
+                        # ===== 處理「返回」按鈕 =====
+                        if cancel:
+                            st.session_state.show_edit_recipe_panel = False
+                            st.session_state.editing_recipe_code = None
+                            st.session_state.edit_num_powder_rows = None  # ✅ 重置色粉列數
+                            st.rerun()
                 
     # ========== Tab 4：色粉管理（前端狀態 → 批次寫回）==========
     with tab4:
