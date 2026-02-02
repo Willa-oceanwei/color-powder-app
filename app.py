@@ -2002,9 +2002,9 @@ elif menu == "配方管理":
                                 key=f"edit_recipe_powder_weight_tab3_{i}"
                             )
                         
-                        # ✅ 新增色粉列按鈕
+                        # ✅ 新增色粉列按鈕（靠右）
                         if num_rows < 8:
-                            col_add_powder, col_spacer = st.columns([1, 3])
+                            col_spacer, col_add_powder = st.columns([3, 1])
                             with col_add_powder:
                                 add_powder_btn = st.form_submit_button("➕ 新增色粉列")
                         
