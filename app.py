@@ -2287,7 +2287,7 @@ elif menu == "配方管理":
                 
                 # 合計類別
                 total_category = recipe_data.get("合計類別", "").strip()
-                net_weight = recipe_data.get("淨重", "").strip()
+                net_weight = str(recipe_data.get("淨重", "") or "").strip()
                 
                 if total_category and total_category != "無":
                     preview_lines.append(f"{total_category.ljust(12)}{net_weight}")
