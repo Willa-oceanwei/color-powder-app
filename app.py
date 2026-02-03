@@ -4553,45 +4553,44 @@ elif menu == "生產單管理":
                         order_dict[f"包裝重量{i}"] = new_packing_weights[i-1]
                         order_dict[f"包裝份數{i}"] = new_packing_counts[i-1]
                     
-                    # ===== 寫回 Google Sheet（批次更新）=====
+                    # ===== 寫回 Google Sheet（簡化版）=====
                     try:
-                        # 1️⃣ 找到該生產單在 Sheet 中的位置
-                        all_values = ws_order.get_all_values()
-                        header = all_values[0]
-                        
-                        target_row_idx = None
-                        for idx, row in enumerate(all_values[1:], start=2):
-                            if row[0] == order_no:
-                                target_row_idx = idx
-                                break
-                        
-                        if target_row_idx is None:
-                            st.error(f"❌ 找不到生產單號 {order_no} 在 Google Sheet 中")
-                            st.stop()
-                        
-                        # 2️⃣ 準備要更新的資料（按欄位順序）
-                        updated_row = []
-                        for col_name in header:
-                            updated_row.append(str(order_dict.get(col_name, "")))
-                        
-                        # 3️⃣ 使用 batch_update 一次更新整列（超快！）
-                        range_name = f"A{target_row_idx}:{gspread.utils.rowcol_to_a1(target_row_idx, len(header)).split(str(target_row_idx))[0]}{target_row_idx}"
-                        
-                        ws_order.update(
-                            range_name,
-                            [updated_row],
-                            value_input_option='USER_ENTERED'
-                        )
-                        
-                        # 4️⃣ 同步更新本地 df_order
-                        mask = df_order["生產單號"] == order_no
-                        for key, val in order_dict.items():
-                            if key in df_order.columns:
-                                df_order.loc[mask, key] = val
-                        
-                        st.session_state.df_order = df_order
-                        
-                        st.session_state.edit_success_message = f"✅ 生產單 {order_no} 修改完成"
+                        with st.spinner("正在儲存修改..."):
+                            # 1️⃣ 找到該生產單在 Sheet 中的位置
+                            all_values = ws_order.get_all_values()
+                            header = all_values[0]
+                            
+                            target_row_idx = None
+                            for idx, row in enumerate(all_values[1:], start=2):
+                                if row[0] == order_no:
+                                    target_row_idx = idx
+                                    break
+                            
+                            if target_row_idx is None:
+                                st.error(f"❌ 找不到生產單號 {order_no} 在 Google Sheet 中")
+                                st.stop()
+                            
+                            # 2️⃣ 準備要更新的資料（按欄位順序）
+                            updated_row = []
+                            for col_name in header:
+                                updated_row.append(str(order_dict.get(col_name, "")))
+                            
+                            # 3️⃣ 使用 gspread 內建函式轉換欄位範圍
+                            import gspread.utils as utils
+                            end_col = utils.rowcol_to_a1(target_row_idx, len(header)).replace(str(target_row_idx), "")
+                            range_name = f"A{target_row_idx}:{end_col}{target_row_idx}"
+                            
+                            # 4️⃣ 一次更新整列
+                            ws_order.update(range_name, [updated_row])
+                            
+                            # 5️⃣ 同步更新本地 df_order
+                            mask = df_order["生產單號"] == order_no
+                            for key, val in order_dict.items():
+                                if key in df_order.columns:
+                                    df_order.loc[mask, key] = val
+                            
+                            st.session_state.df_order = df_order
+                            st.session_state.edit_success_message = f"✅ 生產單 {order_no} 修改完成"
                         
                     except Exception as e:
                         st.error(f"❌ 儲存失敗：{e}")
