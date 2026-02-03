@@ -4553,7 +4553,7 @@ elif menu == "生產單管理":
                         order_dict[f"包裝重量{i}"] = new_packing_weights[i-1]
                         order_dict[f"包裝份數{i}"] = new_packing_counts[i-1]
                     
-                    # ===== 寫回 Google Sheet =====
+                    # ===== 寫回 Google Sheet（批次更新）=====
                     try:
                         # 1️⃣ 找到該生產單在 Sheet 中的位置
                         all_values = ws_order.get_all_values()
@@ -4561,7 +4561,7 @@ elif menu == "生產單管理":
                         
                         target_row_idx = None
                         for idx, row in enumerate(all_values[1:], start=2):
-                            if row[0] == order_no:  # 假設第一欄是生產單號
+                            if row[0] == order_no:
                                 target_row_idx = idx
                                 break
                         
@@ -4574,9 +4574,14 @@ elif menu == "生產單管理":
                         for col_name in header:
                             updated_row.append(str(order_dict.get(col_name, "")))
                         
-                        # 3️⃣ 逐欄更新（避免欄位過多時的 chr() 計算問題）
-                        for col_idx, value in enumerate(updated_row, start=1):
-                            ws_order.update_cell(target_row_idx, col_idx, value)
+                        # 3️⃣ 使用 batch_update 一次更新整列（超快！）
+                        range_name = f"A{target_row_idx}:{gspread.utils.rowcol_to_a1(target_row_idx, len(header)).split(str(target_row_idx))[0]}{target_row_idx}"
+                        
+                        ws_order.update(
+                            range_name,
+                            [updated_row],
+                            value_input_option='USER_ENTERED'
+                        )
                         
                         # 4️⃣ 同步更新本地 df_order
                         mask = df_order["生產單號"] == order_no
