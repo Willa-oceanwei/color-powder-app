@@ -1597,7 +1597,7 @@ elif menu == "配方管理":
                 # 新增或更新配方
                 if st.session_state.get("edit_recipe_index") is not None:
                     df.iloc[st.session_state.edit_recipe_index] = pd.Series(fr, index=df.columns)
-                    st.success(f"✅ 配方 {fr['配方編號']} 已更新！")
+                    st.toast(f"✅ 配方 {fr['配方編號']} 已更新！", icon="✏️")
                 else:
                     if fr["配方編號"] in df["配方編號"].values:
                         st.warning("⚠️ 此配方編號已存在！")
