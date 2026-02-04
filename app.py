@@ -1604,7 +1604,7 @@ elif menu == "配方管理":
                     else:
                         fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         df = pd.concat([df, pd.DataFrame([fr])], ignore_index=True)
-                        st.success(f"✅ 新增配方 {fr['配方編號']} 成功！")
+                        st.toast(f"✅ 新增配方 {fr['配方編號']} 成功！", icon="🎉")
         
                 # 儲存到 Google Sheet / CSV
                 try:
