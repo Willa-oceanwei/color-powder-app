@@ -833,13 +833,26 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             sub_total_type = sub.get("合計類別", "")
             sub_net_weight = float(sub.get("淨重", 0) or 0)
             
-            if sub_total_type == "" or sub_total_type == "無":
-                sub_total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
-            elif category == "色母":
-                sub_total_type_display = f"<b>{'料'.ljust(powder_label_width)}</b>"
-            else:
-                sub_total_type_display = f"<b>{sub_total_type.ljust(powder_label_width)}</b>"
+            if total_type == "" or total_type == "無":
+                total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
             
+            elif category == "色母":
+                total_type_display = (
+                    f"<b><span style='font-size:22px; display:inline-block; width:{powder_label_width}ch'>料</span></b>"
+                )
+            
+            elif total_type == "其他":
+                total_type_display = (
+                    f"<b>"
+                    f"<span style='font-size:16px; display:inline-block; width:{powder_label_width}ch'>"
+                    f"{total_type}"
+                    f"</span>"
+                    f"</b>"
+                )
+            
+            else:
+                total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
+             
             sub_total_line = sub_total_type_display
             for j in range(4):
                 val = sub_net_weight * multipliers[j] if multipliers[j] > 0 else 0
