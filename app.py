@@ -843,11 +843,13 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             
             elif total_type == "其他":
                 total_type_display = (
-                    f"<b>"
-                    f"<span style='font-size:0.5em;'>其他</span>"
-                    f"{' ' * (powder_label_width - 2)}"
-                    f"</b>"
-                )            
+                    f"<span style='"
+                    f"font-size:14px;"
+                    f"font-weight:bold;"
+                    f"display:inline-block;"
+                    f"width:{powder_label_width}ch;"
+                    f"'>其他</span>"
+                )                 
                 
             else:
                 total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
