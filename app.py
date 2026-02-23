@@ -4811,34 +4811,48 @@ if menu == "代工管理":
                     total_delivered = df_this_delivery["送達數量"].astype(float).sum() if not df_this_delivery.empty else 0.0
                     oem_qty = float(oem_row.get("代工數量", 0))
                     remaining = oem_qty - total_delivered
+                    
                     st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg")
-    
-                    # 禁用條件
-                    disabled = remaining <= 0
-                    if disabled:
-                        st.warning("⚠️ 此代工單已全數送達，無法再編輯或新增送達紀錄")
-    
+                    
+                    # ---------- 鎖定條件 ----------
+                    is_closed = oem_row.get("狀態") == "✅ 已結案"
+                    
+                    if is_closed:
+                        st.warning("⚠️ 此代工單已結案，禁止再修改")
+                    
                     # ---------- 更新 / 刪除按鈕 ----------
                     b1, b2 = st.columns(2)
+                    
                     with b1:
-                        if st.button("💾 更新代工資訊", key="update_oem_info") and not disabled:
-                            all_values = ws_oem.get_all_values()
-                            for idx, row in enumerate(all_values[1:], start=2):
-                                if row[0] == selected_oem:
-                                    ws_oem.update_cell(idx, 6, new_vendor)
-                                    ws_oem.update_cell(idx, 7, new_remark)
-                                    ws_oem.update_cell(idx, 8, new_status)
-                                    st.success("✅ 代工資訊已更新")
-                                    st.session_state.oem_selected_row.update({
-                                        "代工廠商": new_vendor,
-                                        "備註": new_remark,
-                                        "狀態": new_status
-                                    })
-                                    break
-    
+                        if st.button("💾 更新代工資訊", key="update_oem_info"):
+                    
+                            # 🔒 只鎖已結案
+                            if is_closed:
+                                st.error("❌ 已結案代工單不可修改")
+                    
+                            else:
+                                all_values = ws_oem.get_all_values()
+                                for idx, row in enumerate(all_values[1:], start=2):
+                                    if row[0] == selected_oem:
+                                        ws_oem.update_cell(idx, 6, new_vendor)
+                                        ws_oem.update_cell(idx, 7, new_remark)
+                                        ws_oem.update_cell(idx, 8, new_status)
+                    
+                                        st.success("✅ 代工資訊已更新")
+                    
+                                        st.session_state.oem_selected_row.update({
+                                            "代工廠商": new_vendor,
+                                            "備註": new_remark,
+                                            "狀態": new_status
+                                        })
+                                        break
+                    
                     with b2:
                         if st.button("🗑️ 刪除代工單", key="delete_oem"):
-                            st.session_state.show_delete_oem_confirm = True
+                            if is_closed:
+                                st.error("❌ 已結案代工單不可刪除")
+                            else:
+                                st.session_state.show_delete_oem_confirm = True
     
                     # ---------- 刪除確認 ----------
                     if st.session_state.get("show_delete_oem_confirm", False):
