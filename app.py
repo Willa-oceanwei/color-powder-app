@@ -855,7 +855,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             else:
                 total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
              
-            sub_total_line = sub_total_type_display
+            sub_total_line = total_type_display
             for j in range(4):
                 val = sub_net_weight * multipliers[j] if multipliers[j] > 0 else 0
                 val_str = (
