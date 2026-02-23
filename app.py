@@ -830,19 +830,19 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             lines.append("―" * line_length)
    
             # ✅ 合計列 (附加配方專用)
-            sub_total_type = sub.get("合計類別", "")
+            sub_total_type = (sub.get("合計類別", "") or "").strip()
             sub_net_weight = float(sub.get("淨重", 0) or 0)
             
-            if total_type == "" or total_type == "無":
-                total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
+            if sub_total_type == "" or sub_total_type == "無":
+                sub_total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
             
             elif category == "色母":
-                total_type_display = (
+                sub_total_type_display = (
                     f"<b><span style='font-size:22px; display:inline-block; width:{powder_label_width}ch'>料</span></b>"
                 )
             
-            elif total_type == "其他":
-                total_type_display = (
+            elif sub_total_type == "其他":
+                sub_total_type_display = (
                     f"<span style='"
                     f"display:inline-block;"
                     f"width:{powder_label_width}ch;"
@@ -851,11 +851,12 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                     f"transform-origin:left center;"
                     f"'>其他</span>"
                 )
-                                      
+            
             else:
-                total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
-             
-            sub_total_line = total_type_display
+                sub_total_type_display = f"<b>{sub_total_type.ljust(powder_label_width)}</b>"
+            
+            sub_total_line = sub_total_type_display
+            
             for j in range(4):
                 val = sub_net_weight * multipliers[j] if multipliers[j] > 0 else 0
                 val_str = (
@@ -865,8 +866,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
                 sub_total_line += padding + f"<b class='num'>{val_str:>{number_col_width}}</b>"
             
             lines.append(sub_total_line)
-
-        
+    
     # ---------- 備註（自動判斷是否印出） ----------
     remark_text = order.get("備註", "").strip()
     if remark_text:  # 有輸入內容才印出
