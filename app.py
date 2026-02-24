@@ -2345,20 +2345,32 @@ elif menu == "配方管理":
                     # ===== 步驟 2：選擇色母比例 =====
                     st.markdown("**步驟 2：設定色母比例**")
                     
+                    ratio_options = ["12.5", "25:1", "50:1", "100:1"]
+
+                    # ✅ 防止 session_state 裡的值不存在造成 index error
+                    if st.session_state.master_batch_ratio not in ratio_options:
+                        st.session_state.master_batch_ratio = "25:1"
+                    
                     ratio = st.selectbox(
                         "色母比例",
-                        ["25:1", "50:1", "100:1"],
-                        index=["25:1", "50:1", "100:1"].index(st.session_state.master_batch_ratio),
+                        ratio_options,
+                        index=ratio_options.index(st.session_state.master_batch_ratio),
                         key="ratio_select"
                     )
                     
                     # ===== 步驟 3：選擇添加劑 =====
                     st.markdown("**步驟 3：選擇添加劑**")
                     
+                    additive_options = ["CA", "LA", "CP(增韌劑)"]
+                    
+                    # ✅ 保護 session_state
+                    if st.session_state.master_batch_additive not in additive_options:
+                        st.session_state.master_batch_additive = "CA"
+                    
                     additive = st.selectbox(
                         "添加劑",
-                        ["CA", "LA", "CP(增韌劑)"],
-                        index=["CA", "LA", "CP(增韌劑)"].index(st.session_state.master_batch_additive),
+                        additive_options,
+                        index=additive_options.index(st.session_state.master_batch_additive),
                         key="additive_select"
                     )
                     
@@ -2440,6 +2452,7 @@ elif menu == "配方管理":
                     
                     # 取得倍數
                     multiplier_map = {
+                        "12.5": 54,      # (原始/25)*13.5*100 等價倍率
                         "25:1": 104,
                         "50:1": 200,
                         "100:1": 400
