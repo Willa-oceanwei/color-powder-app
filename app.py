@@ -2458,6 +2458,10 @@ elif menu == "配方管理":
                         "100:1": 400
                     }
                     multiplier = multiplier_map[ratio]
+
+                    if multiplier is None:
+                        st.error("❌ 比例設定錯誤")
+                        st.stop()
                     
                     # 計算色粉重量
                     powder_data = []
