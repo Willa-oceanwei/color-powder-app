@@ -2630,7 +2630,7 @@ elif menu == "配方管理":
                     
                     with col_download:
                         st.download_button(
-                            label="📥 下載 A6 列印 HTML",
+                            label="📥 下載 A6 列印 200%",
                             data=html_content.encode("utf-8"),
                             file_name=f"{calc['new_code']}_色母配方.html",
                             mime="text/html",
