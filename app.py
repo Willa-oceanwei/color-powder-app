@@ -310,8 +310,8 @@ spreadsheet = st.session_state["spreadsheet"]
 # ======== Sidebar 修正 =========
 import streamlit as st
 
-menu_options = ["客戶名單", "配方管理", "生產單管理", 
-                "查詢區", "庫存區", "代工管理", "採購管理", "匯入備份"]
+menu_options = ["客戶名單", "配方管理", "生產單管理", "代工管理",
+                "查詢區", "庫存區", "採購管理", "匯入備份"]
 
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
