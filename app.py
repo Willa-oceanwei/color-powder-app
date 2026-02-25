@@ -4921,14 +4921,18 @@ if menu == "代工管理":
                                 break
     
                     if col_btn1.button("➕ 新增送達", key="add_delivery"):              
+                    
                         if remaining <= 0:
                             st.error("❌ 已全數送達，無法再新增送達紀錄")
                     
                         elif delivery_qty <= 0:
                             st.warning("⚠️ 請輸入正確的送達數量")
                     
+                        elif delivery_qty > remaining:
+                            st.error("❌ 送達數量不可超過尚餘數量")
+                    
                         else:
-                            # 寫入送達紀錄
+                            # ---------- 寫入送達紀錄 ----------
                             new_record = [
                                 selected_oem,
                                 delivery_date.strftime("%Y/%m/%d"),
@@ -4938,25 +4942,19 @@ if menu == "代工管理":
                     
                             ws_delivery.append_row(new_record)
                     
-                            st.success("✅ 送達紀錄已新增")
-                    
-                            # 可選：自動刷新畫面
-                            st.rerun()
-    
-                            # 重新計算尚餘
+                            # ---------- 重新計算尚餘 ----------
                             new_total_delivered = total_delivered + delivery_qty
                             new_remaining = oem_qty - new_total_delivered
-    
-                            # ✅ 尚餘為 0 → 自動轉為「未載回」
+                    
+                            # ---------- 尚餘為 0 → 自動轉為「未載回」 ----------
                             if new_remaining <= 0 and oem_row.get("狀態") != "✅ 已結案":
                                 update_oem_status(selected_oem, "⏳ 未載回")
                                 st.session_state.oem_selected_row["狀態"] = "⏳ 未載回"
                                 st.toast("📦 已全數送達，狀態自動轉為「未載回」", icon="🚚")
-    
+                    
                             st.success(f"✅ 已新增送達記錄：{delivery_date} / {delivery_qty} kg")
+                    
                             st.rerun()
-                            else:
-                                st.warning("⚠️ 請輸入送達數量")
     
         else:
             st.info("⚠️ 目前沒有代工單，請至「新增代工單」分頁建立") 
