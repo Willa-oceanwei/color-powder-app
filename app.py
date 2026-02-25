@@ -4864,17 +4864,18 @@ if menu == "代工管理":
                                         ws_oem.update_cell(idx, 7, new_remark)
                                         ws_oem.update_cell(idx, 8, new_status)
                     
-                                        st.session_state.toast_message = {
-                                            "msg": "代工資訊已更新",
-                                            "icon": "💾"
-                                        }
-                                        st.rerun()
-                    
                                         st.session_state.oem_selected_row.update({
                                             "代工廠商": new_vendor,
                                             "備註": new_remark,
                                             "狀態": new_status
                                         })
+                                    
+                                        st.session_state.toast_message = {
+                                            "msg": "代工資訊已更新",
+                                            "icon": "💾"
+                                        }
+                                    
+                                        st.rerun()
                                         break
                     
                     with b2:
