@@ -4955,8 +4955,8 @@ if menu == "代工管理":
     
                             st.success(f"✅ 已新增送達記錄：{delivery_date} / {delivery_qty} kg")
                             st.rerun()
-                        else:
-                            st.warning("⚠️ 請輸入送達數量")
+                            else:
+                                st.warning("⚠️ 請輸入送達數量")
     
         else:
             st.info("⚠️ 目前沒有代工單，請至「新增代工單」分頁建立") 
