@@ -4952,7 +4952,7 @@ if menu == "代工管理":
                                 st.session_state.oem_selected_row["狀態"] = "⏳ 未載回"
                                 st.toast("📦 已全數送達，狀態自動轉為「未載回」", icon="🚚")
                     
-                            st.success(f"✅ 已新增送達記錄：{delivery_date} / {delivery_qty} kg")
+                            st.toast(f"已新增送達：{delivery_date.strftime('%Y/%m/%d')} / {delivery_qty} kg", icon="🚚")
                     
                             st.rerun()
     
