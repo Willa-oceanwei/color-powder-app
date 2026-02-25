@@ -4767,6 +4767,15 @@ if menu == "代工管理":
 
     # ========== Tab 2：編輯代工 ==========
     with tab2:
+
+        # ---------- 顯示 rerun 後的 toast ----------
+        if "toast_message" in st.session_state:
+            st.toast(
+                st.session_state.toast_message["msg"],
+                icon=st.session_state.toast_message.get("icon", "ℹ️")
+            )
+            del st.session_state.toast_message
+        
         if not df_oem.empty:
     
             # ---------- 建立日期排序欄位 ----------
@@ -4855,7 +4864,11 @@ if menu == "代工管理":
                                         ws_oem.update_cell(idx, 7, new_remark)
                                         ws_oem.update_cell(idx, 8, new_status)
                     
-                                        st.success("✅ 代工資訊已更新")
+                                        st.session_state.toast_message = {
+                                            "msg": "代工資訊已更新",
+                                            "icon": "💾"
+                                        }
+                                        st.rerun()
                     
                                         st.session_state.oem_selected_row.update({
                                             "代工廠商": new_vendor,
@@ -4881,7 +4894,10 @@ if menu == "代工管理":
                                 for idx, row in enumerate(all_values[1:], start=2):
                                     if row[0] == oem_row["代工單號"]:
                                         ws_oem.delete_row(idx)
-                                        st.success("✅ 已刪除代工單")
+                                        st.session_state.toast_message = {
+                                            "msg": "已刪除代工單",
+                                            "icon": "🗑️"
+                                            }
                                         st.session_state.oem_selected_row = None
                                         st.session_state.show_delete_oem_confirm = False
                                         st.rerun()
@@ -4950,10 +4966,18 @@ if menu == "代工管理":
                             if new_remaining <= 0 and oem_row.get("狀態") != "✅ 已結案":
                                 update_oem_status(selected_oem, "⏳ 未載回")
                                 st.session_state.oem_selected_row["狀態"] = "⏳ 未載回"
-                                st.toast("📦 已全數送達，狀態自動轉為「未載回」", icon="🚚")
-                    
-                            st.toast(f"已新增送達：{delivery_date.strftime('%Y/%m/%d')} / {delivery_qty} kg", icon="🚚")
-                    
+                            
+                                toast_msg = "📦 已全數送達，狀態自動轉為「未載回」"
+                            
+                            else:
+                                toast_msg = f"已新增送達：{delivery_date.strftime('%Y/%m/%d')} / {delivery_qty} kg"
+                            
+                            # 存入 session_state
+                            st.session_state.toast_message = {
+                                "msg": toast_msg,
+                                "icon": "🚚"
+                            }
+                            
                             st.rerun()
     
         else:
