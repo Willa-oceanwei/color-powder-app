@@ -4920,8 +4920,14 @@ if menu == "代工管理":
                                 ws_oem.update_cell(idx, 8, new_status)
                                 break
     
-                    if col_btn1.button("➕ 新增送達", key="add_delivery") and not disabled:
-                        if delivery_qty > 0:
+                    if col_btn1.button("➕ 新增送達", key="add_delivery"):              
+                        if remaining <= 0:
+                            st.error("❌ 已全數送達，無法再新增送達紀錄")
+                    
+                        elif delivery_qty <= 0:
+                            st.warning("⚠️ 請輸入正確的送達數量")
+                    
+                        else:
                             # 寫入送達紀錄
                             new_record = [
                                 selected_oem,
@@ -4929,7 +4935,13 @@ if menu == "代工管理":
                                 delivery_qty,
                                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             ]
+                    
                             ws_delivery.append_row(new_record)
+                    
+                            st.success("✅ 送達紀錄已新增")
+                    
+                            # 可選：自動刷新畫面
+                            st.rerun()
     
                             # 重新計算尚餘
                             new_total_delivered = total_delivered + delivery_qty
