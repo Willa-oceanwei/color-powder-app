@@ -3903,17 +3903,35 @@ elif menu == "生產單管理":
             st.session_state.downloaded_html_tab1 = True
                 
         col1, col2, col3 = st.columns([3,1,3])
-        with col1:
+        with col1:           
+            # ---------- 產生安全檔名 ----------
+            raw_order_no = str(order.get("生產單號", "未命名")).strip()
+            raw_recipe_no = str(recipe_row.get("配方編號", "無配方")).strip()
+            
+            def make_safe_filename(text):
+                # 移除 Windows 不允許的字元
+                text = re.sub(r'[\\/:*?"<>|]', '-', text)
+                # 將多餘空白轉成單一底線
+                text = re.sub(r'\s+', '_', text)
+                return text
+            
+            safe_order_no = make_safe_filename(raw_order_no)
+            safe_recipe_no = make_safe_filename(raw_recipe_no)
+            
+            file_name = f"{safe_order_no}_{safe_recipe_no}_列印.html"
+            
+            # ---------- 動態按鈕文字 ----------
             download_label = (
                 "✅ 已下載 A5 HTML"
                 if st.session_state.get("downloaded_html_tab1", False)
                 else "📥 下載 A5 HTML"
             )
-        
+            
+            # ---------- 下載按鈕 ----------
             st.download_button(
                 label=download_label,
                 data=print_html.encode("utf-8"),
-                file_name=f"{order['生產單號']}_列印.html",
+                file_name=file_name,
                 mime="text/html",
                 key="download_html_tab1",
                 disabled=not st.session_state.get("new_order_saved", False),
