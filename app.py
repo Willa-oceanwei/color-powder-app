@@ -1950,7 +1950,7 @@ elif menu == "配方管理":
                     fr["備註"] = st.text_area("備註", fr.get("備註", ""), key=f"edit_recipe_remark_{code}")
     
                     # ===== 色粉設定 =====
-                    st.markdown("### 色粉設定")
+                    st.markdown("#### 色粉設定")
                     existing_rows = max(
                         5,
                         sum(1 for i in range(1, 9) if fr.get(f"色粉編號{i}"))
