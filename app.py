@@ -2076,14 +2076,16 @@ elif menu == "配方管理":
                             # 6️⃣ 關閉面板 & 回到預覽（只保留一次）
                             st.session_state.show_edit_recipe_panel = False
                             st.session_state.editing_recipe_code = None
-                            st.session_state.edit_num_powder_rows = None  # ✅ 重置色粉列數
+                            if "edit_num_powder_rows" in st.session_state:
+                                del st.session_state.edit_num_powder_rows
                             st.rerun()
                         
                         # ===== 處理「返回」按鈕 =====
                         if cancel:
                             st.session_state.show_edit_recipe_panel = False
                             st.session_state.editing_recipe_code = None
-                            st.session_state.edit_num_powder_rows = None  # ✅ 重置色粉列數
+                            if "edit_num_powder_rows" in st.session_state:
+                                del st.session_state.edit_num_powder_rows
                             st.rerun()
                 
     # ========== Tab 4：色粉管理（前端狀態 → 批次寫回）==========
