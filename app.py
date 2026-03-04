@@ -1817,6 +1817,24 @@ elif menu == "配方管理":
     # Tab 3: 配方預覽/修改/刪除
     # ============================================================
     with tab3:
+  
+        if not df_recipe.empty and "配方編號" in df_recipe.columns:
+            # ✅ 先初始化 session_state，避免 selectbox 需要按兩次
+            st.session_state.setdefault("select_recipe_code_page_tab3", "")
+    
+            # ===== 改成用配方編號當選單值（穩定版）=====
+            recipe_codes = [""] + sorted(df_recipe["配方編號"].dropna().astype(str).unique().tolist())
+                
+            selected_code = st.selectbox(
+                "輸入配方",
+                options=recipe_codes,
+                index=recipe_codes.index(st.session_state["select_recipe_code_page_tab3"])
+                      if st.session_state["select_recipe_code_page_tab3"] in recipe_codes else 0,
+                format_func=lambda code: "" if code == "" else " | ".join(
+                    df_recipe[df_recipe["配方編號"] == code][["配方編號","顏色","客戶名稱"]].iloc[0]
+                ),
+                key="select_recipe_code_page_tab3"
+            )
     
         if not df_recipe.empty and "配方編號" in df_recipe.columns:
             df_recipe['配方編號'] = df_recipe['配方編號'].fillna('').astype(str)
