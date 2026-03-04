@@ -2004,7 +2004,7 @@ elif menu == "配方管理":
                         
                         num_rows = st.session_state.edit_num_powder_rows
                         
-                        for i in range(1, num_rows + 1):
+                        for i in range(1, int(num_rows) + 1):
                             c1, c2 = st.columns([2.5, 2.5])
                             fr[f"色粉編號{i}"] = c1.text_input(
                                 "", fr.get(f"色粉編號{i}", ""),
