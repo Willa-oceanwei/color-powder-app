@@ -1814,203 +1814,217 @@ elif menu == "配方管理":
             st.caption(f"頁碼 {st.session_state.page_tab2} / {total_pages}，總筆數 {total_rows}")
 
     # ============================================================
-    # Tab 3: 配方預覽 / 修改 / 刪除
+    # Tab 3: 配方預覽/修改/刪除
     # ============================================================
     with tab3:
     
-        if df_recipe.empty or "配方編號" not in df_recipe.columns:
-            st.info("目前沒有配方資料")
-            st.stop()
+        if not df_recipe.empty and "配方編號" in df_recipe.columns:
+            df_recipe['配方編號'] = df_recipe['配方編號'].fillna('').astype(str)
     
-        df_recipe["配方編號"] = df_recipe["配方編號"].fillna("").astype(str)
+            # ===== 改成用配方編號當選單值（穩定版）=====
+            recipe_codes = [""] + sorted(df_recipe["配方編號"].dropna().astype(str).unique().tolist())
     
-        # ===== 配方選單 =====
-        recipe_codes = [""] + sorted(
-            df_recipe["配方編號"].dropna().astype(str).unique().tolist()
-        )
+            selected_code = st.selectbox(
+                "輸入配方",
+                options=recipe_codes,
+                index=recipe_codes.index(
+                    st.session_state.get("select_recipe_code_page_tab3","")
+                ) if st.session_state.get("select_recipe_code_page_tab3","") in recipe_codes else 0,
+                format_func=lambda code: "" if code == "" else " | ".join(
+                    df_recipe[df_recipe["配方編號"] == code][["配方編號","顏色","客戶名稱"]].iloc[0]
+                ),
+                key="select_recipe_code_page_tab3"
+            )
     
-        selected_code = st.selectbox(
-            "選擇配方",
-            options=recipe_codes,
-            key="select_recipe_code_page_tab3"
-        )
-    
-        # 切換配方時重置狀態
-        if st.session_state.get("editing_recipe_code") != selected_code:
-            st.session_state.show_edit_recipe_panel = False
-            st.session_state.editing_recipe_code = None
-            st.session_state.show_delete_recipe_confirm = False
-            if "edit_num_powder_rows" in st.session_state:
-                del st.session_state.edit_num_powder_rows
-    
-        if not selected_code:
-            st.stop()
-    
-        df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
-    
-        if df_selected.empty:
-            st.warning("找不到配方")
-            st.stop()
-    
-        idx = df_selected.index[0]
-        fr = df_selected.iloc[0].to_dict()
-    
-        # ===== 預覽 =====
-        preview_text = generate_recipe_preview_text(
-            {"配方編號": fr.get("配方編號")},
-            fr
-        )
-        st.markdown(preview_text, unsafe_allow_html=True)
-    
-        col1, col2 = st.columns(2)
-    
-        # ===== 修改按鈕 =====
-        with col1:
-            if st.button("✏️ 修改"):
-                st.session_state.show_edit_recipe_panel = True
-                st.session_state.editing_recipe_code = selected_code
-                st.rerun()
-    
-        # ===== 刪除按鈕 =====
-        with col2:
-            if st.button("🗑️ 刪除"):
-                st.session_state.show_delete_recipe_confirm = True
-    
-        # ===== 刪除確認 =====
-        if st.session_state.get("show_delete_recipe_confirm"):
-            st.warning(f"確定刪除配方 {selected_code} ?")
-    
-            c1, c2 = st.columns(2)
-    
-            if c1.button("✅ 是，刪除"):
-                df_recipe.drop(idx, inplace=True)
-    
-                ws_recipe.clear()
-                ws_recipe.update(
-                    [df_recipe.columns.tolist()] + df_recipe.values.tolist()
-                )
-    
-                df_recipe.to_csv("data/df_recipe.csv",
-                                 index=False,
-                                 encoding="utf-8-sig")
-    
-                st.session_state.select_recipe_code_page_tab3 = ""
-                st.session_state.show_delete_recipe_confirm = False
-                st.success("已刪除")
-                st.rerun()
-    
-            if c2.button("取消"):
-                st.session_state.show_delete_recipe_confirm = False
-                st.rerun()
-    
-        # ============================================================
-        # 修改面板
-        # ============================================================
-        if not st.session_state.get("show_edit_recipe_panel"):
-            st.stop()
-    
-        st.markdown("---")
-        st.subheader("修改配方")
-    
-        # ===== 色粉列數控制（放在 form 外面）=====
-        existing_rows = max(
-            5,
-            sum(1 for i in range(1, 9) if fr.get(f"色粉編號{i}"))
-        )
-    
-        num_rows = st.session_state.get("edit_num_powder_rows")
-    
-        if not isinstance(num_rows, int) or num_rows <= 0:
-            num_rows = existing_rows
-            st.session_state.edit_num_powder_rows = num_rows
-    
-        col_add, col_minus = st.columns(2)
-    
-        with col_add:
-            if st.button("➕ 增加色粉列"):
-                st.session_state.edit_num_powder_rows += 1
-                st.rerun()
-    
-        with col_minus:
-            if st.button("➖ 減少色粉列"):
-                if st.session_state.edit_num_powder_rows > 5:
-                    st.session_state.edit_num_powder_rows -= 1
-                    st.rerun()
-    
-        # ============================================================
-        # 表單開始
-        # ============================================================
-        with st.form("edit_recipe_form_tab3"):
-    
-            fr["配方編號"] = st.text_input("配方編號", fr.get("配方編號", ""))
-            fr["顏色"] = st.text_input("顏色", fr.get("顏色", ""))
-    
-            fr["重要提醒"] = st.text_input("重要提醒", fr.get("重要提醒", ""))
-            fr["備註"] = st.text_area("備註", fr.get("備註", ""))
-    
-            st.markdown("### 色粉設定")
-    
-            num_rows = st.session_state.edit_num_powder_rows
-    
-            for i in range(1, num_rows + 1):
-                c1, c2 = st.columns(2)
-    
-                with c1:
-                    fr[f"色粉編號{i}"] = st.text_input(
-                        f"色粉編號{i}",
-                        fr.get(f"色粉編號{i}", ""),
-                        key=f"edit_code_{i}"
-                    )
-    
-                with c2:
-                    fr[f"色粉重量{i}"] = st.text_input(
-                        f"色粉重量{i}",
-                        fr.get(f"色粉重量{i}", ""),
-                        key=f"edit_weight_{i}"
-                    )
-    
-            col_save, col_cancel = st.columns(2)
-    
-            submitted = col_save.form_submit_button("💾 儲存修改")
-            cancel = col_cancel.form_submit_button("返回")
-    
-            # ===== 儲存 =====
-            if submitted:
-    
-                for k, v in fr.items():
-                    df_recipe.at[idx, k] = v
-    
-                ws_recipe.clear()
-                ws_recipe.update(
-                    [df_recipe.columns.tolist()] + df_recipe.values.tolist()
-                )
-    
-                df_recipe.to_csv(
-                    "data/df_recipe.csv",
-                    index=False,
-                    encoding="utf-8-sig"
-                )
-    
-                st.session_state.df_recipe = df_recipe
-    
+            # 切換配方時自動關閉修改面板
+            if st.session_state.get("editing_recipe_code") != selected_code:
                 st.session_state.show_edit_recipe_panel = False
                 st.session_state.editing_recipe_code = None
+                st.session_state.show_delete_recipe_confirm = False
     
-                if "edit_num_powder_rows" in st.session_state:
-                    del st.session_state.edit_num_powder_rows
+            if selected_code:
+                df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
+                if not df_selected.empty:
+                    recipe_row_preview = df_selected.iloc[0].to_dict()
+                    preview_text_recipe = generate_recipe_preview_text(
+                        {"配方編號": recipe_row_preview.get("配方編號")}, 
+                        recipe_row_preview
+                    )
+                    st.markdown(preview_text_recipe, unsafe_allow_html=True)
     
-                st.success("修改成功")
-                st.rerun()
+                    # 生成修改 / 刪除按鈕
+                    col_left, col_right = st.columns(2)
+                    with col_left:
+                        if st.button("✏️ 修改", key=f"edit_recipe_btn_tab3_{selected_code}"):
+                            st.session_state.show_edit_recipe_panel = True
+                            st.session_state.editing_recipe_code = selected_code
+                            st.rerun()
+                    with col_right:
+                        if st.button("🗑️ 刪除", key=f"delete_recipe_btn_tab3_{selected_code}"):
+                            st.session_state.show_delete_recipe_confirm = True
+                            st.session_state.delete_recipe_code = selected_code
     
-            # ===== 返回 =====
-            if cancel:
-                st.session_state.show_edit_recipe_panel = False
-                st.session_state.editing_recipe_code = None
+                    # 刪除確認
+                    if st.session_state.get("show_delete_recipe_confirm", False):
+                        code = st.session_state["delete_recipe_code"]
+                        idx = df_recipe[df_recipe["配方編號"] == code].index[0]
+                        recipe_label = code
+                        c1, c2 = st.columns(2)
+                        if c1.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
+                            st.session_state.select_recipe_code_page_tab3 = "" 
+                            df_recipe.drop(idx, inplace=True)
+                            st.success(f"✅ 已刪除 {recipe_label}")
+                            st.session_state.show_delete_recipe_confirm = False
+                            st.rerun()
+                        if c2.button("取消", key="confirm_delete_recipe_no_tab3"):
+                            st.session_state.show_delete_recipe_confirm = False
+                            st.rerun()
     
-                if "edit_num_powder_rows" in st.session_state:
-                    del st.session_state.edit_num_powder_rows
+                # 修改配方面板
+                if st.session_state.get("show_edit_recipe_panel") and st.session_state.get("editing_recipe_code"):
+                    st.markdown("---")
+                    code = st.session_state.editing_recipe_code
+                    idx = df_recipe[df_recipe["配方編號"] == code].index[0]
+                    fr = df_recipe.loc[idx].to_dict()
     
-                st.rerun()
+                    with st.form(f"edit_recipe_form_tab3_{code}"):
+                        # ===== 基本欄位 3欄一排 =====
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            fr["配方編號"] = st.text_input("配方編號", fr.get("配方編號", ""))
+                        with col2:
+                            fr["顏色"] = st.text_input("顏色", fr.get("顏色", ""))
+                        with col3:
+                            fr["原始配方"] = st.text_input("原始配方", fr.get("原始配方", ""))
+    
+                        # ===== 類別 / 狀態 / 客戶 3欄一排 =====
+                        col4, col5, col6 = st.columns(3)
+                        with col4:
+                            options_cat = ["原始配方", "附加配方"]
+                            fr["配方類別"] = st.selectbox(
+                                "配方類別", options_cat,
+                                index=options_cat.index(fr.get("配方類別", options_cat[0]))
+                            )
+                        with col5:
+                            options_status = ["啟用", "停用"]
+                            fr["狀態"] = st.selectbox(
+                                "狀態", options_status,
+                                index=options_status.index(fr.get("狀態", options_status[0]))
+                            )
+                        with col6:
+                            options = [""] + customer_options
+                            cust_id = fr.get("客戶編號", "").strip()
+                            cust_name = fr.get("客戶名稱", "").strip()
+                            current = f"{cust_id} - {cust_name}" if cust_id else ""
+                            index = options.index(current) if current in options else 0
+                            selected = st.selectbox("客戶編號", options, index=index)
+                            if " - " in selected:
+                                fr["客戶編號"], fr["客戶名稱"] = selected.split(" - ", 1)
+    
+                        # ===== 色粉類別 / 單位 / Pantone / 淨重 4~5欄一排 =====
+                        col7, col8, col9, col10, col11 = st.columns(5)
+                        with col7:
+                            options_type = ["配方", "色母", "色粉", "添加劑", "其他"]
+                            fr["色粉類別"] = st.selectbox("色粉類別", options_type,
+                                                           index=options_type.index(fr.get("色粉類別", options_type[0])))
+                        with col8:
+                            options_unit = ["包", "桶", "kg", "其他"]
+                            fr["計量單位"] = st.selectbox("計量單位", options_unit,
+                                                           index=options_unit.index(fr.get("計量單位", options_unit[0])))
+                        with col9:
+                            fr["Pantone色號"] = st.text_input("Pantone色號", fr.get("Pantone色號", ""))
+                        with col10:
+                            fr["淨重"] = st.text_input("色粉淨重", fr.get("淨重", ""))
+                        with col11:
+                            unit_opts = ["g", "kg"]
+                            fr["淨重單位"] = st.selectbox("單位", unit_opts,
+                                                           index=unit_opts.index(fr.get("淨重單位", unit_opts[0])))
+    
+                        # ===== 重要提醒 / 比例 / 備註 =====
+                        fr["重要提醒"] = st.text_input("重要提醒", fr.get("重要提醒", ""))
+                        cols_ratio = st.columns([2, 0.3, 2, 2, 1])
+                        with cols_ratio[0]:
+                            fr["比例1"] = st.text_input("", fr.get("比例1", ""))
+                        with cols_ratio[1]:
+                            st.markdown(":", unsafe_allow_html=True)
+                        with cols_ratio[2]:
+                            fr["比例2"] = st.text_input("", fr.get("比例2", ""))
+                        with cols_ratio[3]:
+                            fr["比例3"] = st.text_input("", fr.get("比例3", ""))
+                        with cols_ratio[4]:
+                            st.markdown("g/kg")
+                        fr["備註"] = st.text_area("備註", fr.get("備註", ""))
+    
+                        # ===== 色粉設定 =====
+                        st.markdown("### 色粉設定")
+                        existing_rows = max(5, sum(1 for i in range(1, 9) if fr.get(f"色粉編號{i}")))
+                        num_rows = st.session_state.get("edit_num_powder_rows", existing_rows)
+                        if not isinstance(num_rows, int) or num_rows <= 0:
+                            num_rows = existing_rows
+                            st.session_state.edit_num_powder_rows = num_rows
+    
+                        # 增減色粉列按鈕
+                        col_add, col_minus = st.columns(2)
+                        with col_add:
+                            if st.form_submit_button("➕ 增加色粉列"):
+                                st.session_state.edit_num_powder_rows = min(8, st.session_state.edit_num_powder_rows + 1)
+                                st.rerun()
+                        with col_minus:
+                            if st.form_submit_button("➖ 減少色粉列"):
+                                if st.session_state.edit_num_powder_rows > 5:
+                                    st.session_state.edit_num_powder_rows -= 1
+                                    st.rerun()
+    
+                        # 重新抓一次最新列數
+                        num_rows = st.session_state.edit_num_powder_rows
+    
+                        for i in range(1, num_rows + 1):
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                fr[f"色粉編號{i}"] = st.text_input(f"色粉編號{i}", fr.get(f"色粉編號{i}", ""),
+                                                                   key=f"edit_code_{i}")
+                            with col2:
+                                fr[f"色粉重量{i}"] = st.text_input(f"色粉重量{i}", fr.get(f"色粉重量{i}", ""),
+                                                                   key=f"edit_weight_{i}")
+    
+                        # ===== 合計類別 =====
+                        cat_opts = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他"]
+                        default = fr.get("合計類別", "\u2002")
+                        fr["合計類別"] = st.selectbox("合計類別", cat_opts,
+                                                       index=cat_opts.index(default if default in cat_opts else "\u2002"))
+    
+                        # ===== 表單送出 / 返回 =====
+                        col_save, col_back = st.columns(2)
+                        submitted = col_save.form_submit_button("💾 儲存修改")
+                        cancel = col_back.form_submit_button("返回")
+    
+                        if submitted:
+                            for k, v in fr.items():
+                                df_recipe.at[idx, k] = v
+                            try:
+                                ws_recipe.clear()
+                                ws_recipe.update([df_recipe.columns.tolist()] + df_recipe.values.tolist())
+                                recipe_file = Path("data/df_recipe.csv")
+                                recipe_file.parent.mkdir(parents=True, exist_ok=True)
+                                df_recipe.to_csv(recipe_file, index=False, encoding="utf-8-sig")
+                                st.session_state.df_recipe = df_recipe
+                                st.success(f"✅ 配方 {fr['配方編號']} 已成功更新！")
+                            except Exception as e:
+                                st.error(f"❌ 儲存失敗：{e}")
+                                st.stop()
+                            # 關閉面板 & 重置
+                            st.session_state.show_edit_recipe_panel = False
+                            st.session_state.editing_recipe_code = None
+                            if "edit_num_powder_rows" in st.session_state:
+                                del st.session_state.edit_num_powder_rows
+                            st.rerun()
+    
+                        if cancel:
+                            st.session_state.show_edit_recipe_panel = False
+                            st.session_state.editing_recipe_code = None
+                            if "edit_num_powder_rows" in st.session_state:
+                                del st.session_state.edit_num_powder_rows
+                            st.rerun()
                 
     # ========== Tab 4：色粉管理（前端狀態 → 批次寫回）==========
     with tab4:
