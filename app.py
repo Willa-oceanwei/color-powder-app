@@ -1900,10 +1900,62 @@ elif menu == "配方管理":
                         # ===== 備註獨立一橫列 =====
                         fr["備註"] = st.text_area("備註", fr.get("備註", ""))
     
+                        # ===== 配方類別 / 狀態 / 原始配方（3欄橫排） =====
+                        col4, col5, col6 = st.columns(3)
+                        with col4:
+                            options_cat = ["原始配方", "附加配方"]
+                            fr["配方類別"] = st.selectbox(
+                                "配方類別", options_cat,
+                                index=options_cat.index(fr.get("配方類別", options_cat[0]))
+                            )
+                        with col5:
+                            options_status = ["啟用", "停用"]
+                            fr["狀態"] = st.selectbox(
+                                "狀態", options_status,
+                                index=options_status.index(fr.get("狀態", options_status[0]))
+                            )
+                        with col6:
+                            fr["原始配方"] = st.text_input("原始配方", fr.get("原始配方", ""))
+    
+                        # ===== 色粉類別 / 計量單位 / Pantone / 色粉淨重 / 單位 =====
+                        col7, col8, col9, col10, col11 = st.columns(5)
+                        with col7:
+                            options_type = ["配方", "色母", "色粉", "添加劑", "其他"]
+                            fr["色粉類別"] = st.selectbox(
+                                "色粉類別", options_type,
+                                index=options_type.index(fr.get("色粉類別", options_type[0]))
+                            )
+                        with col8:
+                            options_unit = ["包", "桶", "kg", "其他"]
+                            fr["計量單位"] = st.selectbox(
+                                "計量單位", options_unit,
+                                index=options_unit.index(fr.get("計量單位", options_unit[0]))
+                            )
+                        with col9:
+                            fr["Pantone色號"] = st.text_input("Pantone色號", fr.get("Pantone色號", ""))
+                        with col10:
+                            fr["淨重"] = st.text_input("色粉淨重", fr.get("淨重", ""))
+                        with col11:
+                            unit_opts = ["g", "kg"]
+                            fr["淨重單位"] = st.selectbox("單位", unit_opts,
+                                                          index=unit_opts.index(fr.get("淨重單位", unit_opts[0])))
+    
+                        # ===== 比例 1~3（2欄橫排+單位） =====
+                        cols_ratio = st.columns([2, 0.3, 2, 2, 1])
+                        with cols_ratio[0]:
+                            fr["比例1"] = st.text_input("", fr.get("比例1", ""))
+                        with cols_ratio[1]:
+                            st.markdown(":", unsafe_allow_html=True)
+                        with cols_ratio[2]:
+                            fr["比例2"] = st.text_input("", fr.get("比例2", ""))
+                        with cols_ratio[3]:
+                            fr["比例3"] = st.text_input("", fr.get("比例3", ""))
+                        with cols_ratio[4]:
+                            st.markdown("g/kg", unsafe_allow_html=True)
+    
                         # ===== 色粉設定 =====
                         st.markdown("### 色粉設定")
                         existing_rows = max(5, sum(1 for i in range(1, 9) if fr.get(f"色粉編號{i}")))
-                        # 安全初始化 session_state
                         num_rows = st.session_state.get("edit_num_powder_rows", existing_rows)
                         st.session_state.edit_num_powder_rows = num_rows
     
@@ -1921,7 +1973,6 @@ elif menu == "配方管理":
                                     st.rerun()
     
                         num_rows = st.session_state.edit_num_powder_rows
-    
                         for i in range(1, num_rows + 1):
                             c1, c2 = st.columns(2)
                             with c1:
@@ -1929,12 +1980,18 @@ elif menu == "配方管理":
                             with c2:
                                 fr[f"色粉重量{i}"] = st.text_input(f"色粉重量{i}", fr.get(f"色粉重量{i}", ""), key=f"edit_weight_{i}")
     
+                        # ===== 合計類別 =====
+                        cat_opts = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他"]
+                        default = fr.get("合計類別", "\u2002")
+                        fr["合計類別"] = st.selectbox("合計類別", cat_opts,
+                                                       index=cat_opts.index(default if default in cat_opts else "\u2002"))
+    
                         # ===== 儲存 & 返回按鈕 =====
                         col_save, col_back = st.columns(2)
                         submitted = col_save.form_submit_button("💾 儲存修改")
                         cancel = col_back.form_submit_button("返回")
     
-                        # 儲存邏輯
+                        # ===== 儲存邏輯 =====
                         if submitted:
                             for k,v in fr.items():
                                 df_recipe.at[idx,k] = v
