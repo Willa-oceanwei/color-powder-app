@@ -1934,7 +1934,32 @@ elif menu == "配方管理":
                         )
                     with col6:
                         fr["原始配方"] = st.text_input("原始配方", fr.get("原始配方", ""), key=f"edit_recipe_origin_{code}")
-    
+
+                    # ===== 色粉類別 / 計量單位 =====
+                    col7, col8 = st.columns(2)
+                    with col7:
+                        color_type_options = ["色粉", "色母"]
+                        current_color_type = fr.get("色粉類別", color_type_options[0])
+                        if current_color_type not in color_type_options:
+                            current_color_type = color_type_options[0]
+                        fr["色粉類別"] = st.selectbox(
+                            "色粉類別",
+                            color_type_options,
+                            index=color_type_options.index(current_color_type),
+                            key=f"edit_recipe_color_type_{code}"
+                        )
+                    with col8:
+                        unit_options = ["包", "kg", "桶"]
+                        current_unit = fr.get("計量單位", unit_options[0])
+                        if current_unit not in unit_options:
+                            current_unit = unit_options[0]
+                        fr["計量單位"] = st.selectbox(
+                            "計量單位",
+                            unit_options,
+                            index=unit_options.index(current_unit),
+                            key=f"edit_recipe_unit_{code}"
+                        )
+
                     # ===== 重要提醒獨立一橫列 =====
                     fr["重要提醒"] = st.text_input("重要提醒", fr.get("重要提醒", ""), key=f"edit_recipe_note_{code}")
     
