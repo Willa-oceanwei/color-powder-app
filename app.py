@@ -647,8 +647,10 @@ def save_df_to_sheet(ws, df):
     ws.clear()
     ws.update("A1", values)
     invalidate_sheet_cache(ws.title)
+
     if ws.title == "庫存記錄":
         st.session_state.pop("stock_calc_time", None)
+
                 
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
@@ -969,8 +971,10 @@ def save_df_to_sheet(ws, df):
     ws.clear()
     ws.update("A1", values)
     invalidate_sheet_cache(ws.title)
+
     if ws.title == "庫存記錄":
         st.session_state.pop("stock_calc_time", None)
+
 
 def init_states(keys):
     """
@@ -4037,17 +4041,17 @@ elif menu == "生產單管理":
         cols_page = st.columns([2, 2, 2, 2, 2])
     
         with cols_page[0]:
-            if st.button("🏠回首頁", key="first_page_tab2"):
+            if st.button("🏠首頁", key="first_page_tab2"):
                 st.session_state.order_page_tab2 = 1
                 st.rerun()
     
         with cols_page[1]:
-            if st.button("🔼上一頁", key="prev_page_tab2") and st.session_state.order_page_tab2 > 1:
+            if st.button("🔼上頁", key="prev_page_tab2") and st.session_state.order_page_tab2 > 1:
                 st.session_state.order_page_tab2 -= 1
                 st.rerun()
     
         with cols_page[2]:
-            if st.button("🔽下一頁", key="next_page_tab2") and st.session_state.order_page_tab2 < total_pages:
+            if st.button("🔽下頁", key="next_page_tab2") and st.session_state.order_page_tab2 < total_pages:
                 st.session_state.order_page_tab2 += 1
                 st.rerun()
     
