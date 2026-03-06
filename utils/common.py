@@ -9,6 +9,8 @@ import gspread
 from google.oauth2.service_account import Credentials
 import numpy as np
 
+CACHE_TTL_SECONDS = 120
+
 # ========== 安全儲存函式（防止資料丟失）==========
 def safe_save_df_to_sheet(ws, df):
     """
@@ -60,7 +62,10 @@ def safe_save_df_to_sheet(ws, df):
 # ========== 舊的 save_df_to_sheet 改為呼叫安全版本 ==========
 def save_df_to_sheet(ws, df):
     """舊函式名稱，改為呼叫安全版本"""
-    return safe_save_df_to_sheet(ws, df)
+    result = safe_save_df_to_sheet(ws, df)
+    if result:
+        invalidate_sheet_cache(ws.title)
+    return result
 
 # ========== 取得 Spreadsheet 物件 ==========
 def get_spreadsheet():
@@ -85,6 +90,56 @@ def get_spreadsheet():
         return ss
     except Exception as e:
         raise RuntimeError(f"無法取得 spreadsheet：{e}")
+
+
+def get_worksheet(sheet_name):
+    """取得 worksheet，並快取 worksheet 物件避免重複查詢 metadata。"""
+    cache = st.session_state.setdefault("_worksheet_cache", {})
+    if sheet_name in cache:
+        return cache[sheet_name]
+
+    ws = get_spreadsheet().worksheet(sheet_name)
+    cache[sheet_name] = ws
+    return ws
+
+
+def get_sheet_df(sheet_name, force_reload=False, ttl_seconds=CACHE_TTL_SECONDS):
+    """讀取指定工作表 DataFrame，使用 TTL 快取降低 API 呼叫。"""
+    now = datetime.now().timestamp()
+    cache = st.session_state.setdefault("_sheet_df_cache", {})
+    cached = cache.get(sheet_name)
+    if (
+        not force_reload
+        and cached
+        and (now - cached.get("timestamp", 0) < ttl_seconds)
+    ):
+        return cached["df"].copy()
+
+    ws = get_worksheet(sheet_name)
+    df = pd.DataFrame(ws.get_all_records())
+    cache[sheet_name] = {"timestamp": now, "df": df.copy()}
+    return df
+
+
+def preload_sheet_dfs(sheet_names, force_reload=False, ttl_seconds=CACHE_TTL_SECONDS):
+    """一次預載多個工作表資料，避免頁面內重複抓取。"""
+    loaded = {}
+    for name in sheet_names:
+        loaded[name] = get_sheet_df(name, force_reload=force_reload, ttl_seconds=ttl_seconds)
+    return loaded
+
+
+def invalidate_sheet_cache(sheet_name=None):
+    """寫入成功後清除快取，確保下次讀到最新資料。"""
+    if sheet_name is None:
+        st.session_state.pop("_sheet_df_cache", None)
+        st.session_state.pop("_worksheet_cache", None)
+        return
+
+    cache = st.session_state.get("_sheet_df_cache", {})
+    cache.pop(sheet_name, None)
+    ws_cache = st.session_state.get("_worksheet_cache", {})
+    ws_cache.pop(sheet_name, None)
 
 # ========== 清理函式 ==========
 def clean_powder_id(x):

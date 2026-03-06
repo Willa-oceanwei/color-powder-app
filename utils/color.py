@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime, date
-from .common import get_spreadsheet, save_df_to_sheet, init_states
+from .common import save_df_to_sheet, init_states, get_worksheet, get_sheet_df
 
 def show_color_page():
     """色粉管理主頁面"""
@@ -19,8 +19,7 @@ def show_color_page():
     
     # 讀取工作表
     try:
-        spreadsheet = get_spreadsheet()
-        worksheet = spreadsheet.worksheet("色粉管理")
+        worksheet = get_worksheet("色粉管理")
     except Exception as e:
         st.error(f"無法連線 Google Sheet：{e}")
         return
@@ -41,7 +40,7 @@ def show_color_page():
     
     # 讀取資料
     try:
-        df = pd.DataFrame(worksheet.get_all_records())
+        df = get_sheet_df("色粉管理")
     except:
         df = pd.DataFrame(columns=required_columns)
     
