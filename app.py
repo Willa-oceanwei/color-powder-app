@@ -46,240 +46,189 @@ if not st.session_state.authenticated:
 def apply_modern_style():
     st.markdown("""
     <style>
-    /* ===== 全域字體 ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
+
+    :root {
+        --glass-bg: rgba(18, 18, 32, 0.62);
+        --glass-border: rgba(255, 255, 255, 0.18);
+        --text-main: #f5f1ff;
+        --text-sub: #d7c9f7;
+        --accent: #b188ff;
+        --accent-2: #8d5bff;
+    }
+
     * {
         font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
     }
-    
-    /* ===== 主背景統一 ===== */
+
     .stApp {
-        background: #1a1f1c !important;
+        color: var(--text-main) !important;
+        background:
+            linear-gradient(120deg, rgba(8, 5, 20, 0.78), rgba(25, 12, 46, 0.72)),
+            url('https://des13.com/images/2023/Branding_Website/Branding_Website35.webp');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
     }
-    
+
     .main .block-container {
-        background: #1a1f1c !important;
+        background: rgba(14, 12, 26, 0.55) !important;
+        border: 1px solid var(--glass-border) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 18px;
         padding: 2rem;
+        box-shadow: 0 16px 38px rgba(6, 5, 15, 0.5);
     }
-    
-    /* ===== Sidebar 樣式 ===== */
+
     section[data-testid="stSidebar"] {
-        background: #0d1410 !important;
-        border-right: 1px solid rgba(23, 57, 40, 0.3);
+        background: rgba(10, 8, 22, 0.78) !important;
+        border-right: 1px solid rgba(255,255,255,0.12);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
     }
-    
+
     section[data-testid="stSidebar"] h1 {
-        color: #2a9d5f;
+        color: #f6efff;
         font-weight: 700;
         font-size: 22px;
         padding: 0 1rem;
         margin-bottom: 1.5rem;
     }
-    
-    /* ===== Sidebar 未選中 ===== */
+
     section[data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
-        background: #1a1f1c !important;
-        color: #b8d4c5 !important;
-        border: 1px solid rgba(23, 57, 40, 0.3) !important;
-        border-radius: 8px !important;
-        padding: 0.6rem 1rem !important;
+        background: rgba(255,255,255,0.08) !important;
+        color: var(--text-sub) !important;
+        border: 1px solid rgba(255,255,255,0.18) !important;
+        border-radius: 12px !important;
+        padding: 0.65rem 1rem !important;
         font-weight: 500 !important;
-        transition: all 0.3s ease !important;
+        transition: all 0.25s ease !important;
         text-align: left !important;
         width: 100% !important;
+        backdrop-filter: blur(6px);
     }
-    
-    /* Hover（未選中） */
+
     section[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {
-        background: #1f2923 !important;
-        color: #2a9d5f !important;
-        border-color: rgba(42, 157, 95, 0.5) !important;
+        background: rgba(177, 136, 255, 0.28) !important;
+        color: #ffffff !important;
+        border-color: rgba(226, 204, 255, 0.55) !important;
     }
-    
-    /* ===== 🔥 Sidebar 選中（填滿綠色）===== */
+
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #173928 0%, #2a9d5f 100%) !important;
-        color: #e8f5ee !important;
-        border: 1px solid #2a9d5f !important;
+        background: linear-gradient(135deg, var(--accent-2), var(--accent)) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(246, 234, 255, 0.65) !important;
         font-weight: 700 !important;
-        box-shadow: 0 4px 12px rgba(23, 57, 40, 0.4) !important;
+        box-shadow: 0 8px 20px rgba(58, 31, 125, 0.5) !important;
     }
-    
+
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover {
-        background: linear-gradient(135deg, #173928 0%, #2a9d5f 100%) !important;
-        color: #e8f5ee !important;
+        background: linear-gradient(135deg, #7b47ff, #b188ff) !important;
+        color: #ffffff !important;
     }
-    
-    /* ===== 主內容區 & Form 按鈕樣式（漸層統一） ===== */
+
     .main div.stButton > button,
-    form div.stButton > button {
-        background: linear-gradient(135deg, #173928 0%, #2a9d5f 100%) !important;
-        color: #e8f5ee !important;
-        border: 1px solid #2a9d5f !important;
-        border-radius: 8px;
-        padding: 0.6rem 1rem;
-        font-weight: 500;
-        transition: all 0.3s ease;
+    form div.stButton > button,
+    form button[type="submit"] {
+        background: linear-gradient(135deg, var(--accent-2), var(--accent)) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(246, 234, 255, 0.65) !important;
+        border-radius: 12px !important;
+        padding: 0.58rem 1rem !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 6px 16px rgba(47, 28, 98, 0.35);
     }
 
     .main div.stButton > button:hover,
-     form div.stButton > button:hover {
-        background: linear-gradient(135deg, #1f2923 0%, #2a9d5f 100%) !important;
-        color: #e8f5ee !important;
-        border-color: #2a9d5f !important;
+    form div.stButton > button:hover,
+    form button[type="submit"]:hover {
         transform: translateY(-1px);
-    }
-    /* ===== Form 裡按鈕漸層 ===== */
-    form button[type="submit"] {
-       background: linear-gradient(135deg, #173928 0%, #2a9d5f 100%) !important;
-        color: #e8f5ee !important;
-        border: 1px solid #2a9d5f !important;
-        border-radius: 8px !important;
-        padding: 0.6rem 1rem !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
+        background: linear-gradient(135deg, #6f42e9, #ac84ff) !important;
+        border-color: rgba(255,255,255,0.85) !important;
     }
 
-    form button[type="submit"]:hover {
-        background: linear-gradient(135deg, #1f2923 0%, #2a9d5f 100%) !important;
-        color: #e8f5ee !important;
-        border-color: #2a9d5f !important;
-        transform: translateY(-1px);
-    }
-    
-    /* ===== 🔥 輸入框統一（Focus 改綠色）===== */
     div.stTextInput > div > div > input,
     div.stNumberInput > div > div > input,
     div.stTextArea > div > div > textarea {
-        background: #1f2923 !important;
-        border: 1px solid rgba(23, 57, 40, 0.4) !important;
-        border-radius: 6px;
-        color: #b8d4c5 !important;
+        background: rgba(255,255,255,0.1) !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        border-radius: 10px;
+        color: #fff !important;
         padding: 0.6rem 0.75rem !important;
-        transition: all 0.3s ease;
+        transition: all 0.2s ease;
     }
-    
+
     div.stTextInput > div > div > input:focus,
     div.stNumberInput > div > div > input:focus,
     div.stTextArea > div > div > textarea:focus {
-        border-color: #2a9d5f !important;
-        box-shadow: 0 0 0 2px rgba(42, 157, 95, 0.2) !important;
+        border-color: rgba(206, 170, 255, 0.95) !important;
+        box-shadow: 0 0 0 2px rgba(177, 136, 255, 0.25) !important;
         outline: none !important;
     }
-    
-    /* ===== 下拉選單（完全圓角）===== */
+
     div.stSelectbox div[data-baseweb="select"] > div {
-        border-radius: 999px !important;       /* 圓角本體 */
-        background: #1f2923 !important;
+        border-radius: 999px !important;
+        background: rgba(255,255,255,0.1) !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
         min-height: 40px !important;
         padding: 0.75rem !important;
         display: flex !important;
         align-items: center !important;
     }
 
-    div.stSelectbox div[data-baseweb="select"] > div > div {
-        border-radius: 999px !important;       /* 圓角文字區 */
-        color: #b8d4c5 !important;
-        line-height: 1.8 !important;
-        padding: 0.3rem 0 !important;
-    }
-
+    div.stSelectbox div[data-baseweb="select"] > div > div,
     div.stSelectbox svg {
-        color: #b8d4c5 !important;
+        color: #f2e8ff !important;
     }
 
     div[data-baseweb="popover"] {
-        border-radius: 999px !important;       /* 圓角彈出層 */
-        background: #1f2923 !important;
-        border: 1px solid rgba(42, 157, 95, 0.3) !important;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+        border-radius: 18px !important;
+        background: rgba(30, 18, 52, 0.95) !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        box-shadow: 0 14px 32px rgba(8, 5, 20, 0.6) !important;
     }
 
     ul[role="listbox"] li {
-        border-radius: 999px !important;       /* 圓角選項 */
-        background: #1f2923 !important;
-        color: #b8d4c5 !important;
-        padding: 1rem 1.2rem !important;
-        min-height: 52px !important;
-        display: flex !important;
-        align-items: center !important;
-        transition: all 0.2s ease !important;
+        border-radius: 12px !important;
+        background: transparent !important;
+        color: #eee5ff !important;
     }
 
     ul[role="listbox"] li:hover {
-        background: #263930 !important;
-        color: #2a9d5f !important;
+        background: rgba(177,136,255,0.22) !important;
+        color: #fff !important;
     }
 
     ul[role="listbox"] li[aria-selected="true"] {
-        background: rgba(42, 157, 95, 0.15) !important;
-        color: #2a9d5f !important;
+        background: rgba(177,136,255,0.35) !important;
+        color: #fff !important;
         font-weight: 600 !important;
     }
 
-    /* ===== Streamlit v1.38 Tabs 字體加粗（唯一需要）===== */
-    div[role="tablist"] > div[role="tab"] {
+    button[data-testid="stTab"] p {
+        color: #d8c6ff !important;
         font-weight: 600 !important;
     }
 
-    div[role="tablist"] > div[role="tab"][aria-selected="true"] {
-        font-weight: 700 !important;
-    }
-    
-    /* ===== Streamlit v1.38 Tabs：選中變綠（保證有效）===== */
     button[data-testid="stTab"][aria-selected="true"] p {
-        color: #00cc66 !important;
-    }
-    /* ===== Streamlit v1.38 Tabs：底部移動指示線改成綠色 ===== */
-    div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
-        background-color: #28955a !important;
-        
-    }
-    /* ===== Tab 未選中文字顏色（同步 Sidebar 顏色）===== */
-    button[data-testid="stTab"]:not([aria-selected="true"]) p {
-        color: #b8d4c5 !important;
-        
+        color: #ffffff !important;
+        text-shadow: 0 1px 8px rgba(186, 145, 255, 0.8);
     }
 
-    /* ===== 🔔 全站通知訊息（統一風格） ===== */
+    div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+        background: linear-gradient(90deg, #7f4dff, #c09bff) !important;
+        height: 3px !important;
+        border-radius: 999px !important;
+    }
+
     .stAlert {
         border-radius: 12px !important;
-        padding: 1rem 1.2rem !important;
-        font-weight: 500 !important;
-        line-height: 1.6 !important;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.35) !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        background: rgba(24, 15, 44, 0.8) !important;
+        color: #f7f2ff !important;
     }
-    
-    /* ===== 成功 Success ===== */
-    .stAlert.stAlert-success {
-        background: linear-gradient(135deg, #233a30 0%, #1f2f28 100%) !important;
-        color: #f1f5f2 !important;
-        border-left: 6px solid #2a9d5f !important;
-    }
-    
-    /* ===== 錯誤 Error ===== */
-    .stAlert.stAlert-error {
-        background: linear-gradient(135deg, #3a2323 0%, #2f1f1f 100%) !important;
-        color: #fdecec !important;
-        border-left: 6px solid #e76f51 !important;
-    }
-    
-    /* ===== 警告 Warning ===== */
-    .stAlert.stAlert-warning {
-        background: linear-gradient(135deg, #3a3223 0%, #2f281f 100%) !important;
-        color: #fff4d6 !important;
-        border-left: 6px solid #f4a261 !important;
-    }
-    
-    /* ===== 資訊 Info ===== */
-    .stAlert.stAlert-info {
-        background: linear-gradient(135deg, #23303a 0%, #1f262f 100%) !important;
-        color: #e6f0ff !important;
-        border-left: 6px solid #3a86ff !important;
-    }
-    
-
     </style>
     """, unsafe_allow_html=True)
 
@@ -1934,7 +1883,32 @@ elif menu == "配方管理":
                         )
                     with col6:
                         fr["原始配方"] = st.text_input("原始配方", fr.get("原始配方", ""), key=f"edit_recipe_origin_{code}")
-    
+
+                    # ===== 色粉類別 / 計量單位 =====
+                    col7, col8 = st.columns(2)
+                    with col7:
+                        color_type_options = ["色粉", "色母"]
+                        current_color_type = fr.get("色粉類別", color_type_options[0])
+                        if current_color_type not in color_type_options:
+                            current_color_type = color_type_options[0]
+                        fr["色粉類別"] = st.selectbox(
+                            "色粉類別",
+                            color_type_options,
+                            index=color_type_options.index(current_color_type),
+                            key=f"edit_recipe_color_type_{code}"
+                        )
+                    with col8:
+                        unit_options = ["包", "kg", "桶"]
+                        current_unit = fr.get("計量單位", unit_options[0])
+                        if current_unit not in unit_options:
+                            current_unit = unit_options[0]
+                        fr["計量單位"] = st.selectbox(
+                            "計量單位",
+                            unit_options,
+                            index=unit_options.index(current_unit),
+                            key=f"edit_recipe_unit_{code}"
+                        )
+
                     # ===== 重要提醒獨立一橫列 =====
                     fr["重要提醒"] = st.text_input("重要提醒", fr.get("重要提醒", ""), key=f"edit_recipe_note_{code}")
     
