@@ -647,6 +647,10 @@ def save_df_to_sheet(ws, df):
     ws.clear()
     ws.update("A1", values)
     invalidate_sheet_cache(ws.title)
+
+    if ws.title == "庫存記錄":
+        st.session_state.pop("stock_calc_time", None)
+
                 
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
@@ -967,6 +971,10 @@ def save_df_to_sheet(ws, df):
     ws.clear()
     ws.update("A1", values)
     invalidate_sheet_cache(ws.title)
+
+    if ws.title == "庫存記錄":
+        st.session_state.pop("stock_calc_time", None)
+
 
 def init_states(keys):
     """
@@ -3006,8 +3014,23 @@ elif menu == "生產單管理":
         
         return stock_dict
     
-    # ⚠️ 每次進入「生產單管理」都重新計算最新庫存
-    st.session_state["last_final_stock"] = calculate_current_stock()
+    # ⚡ 生產單頁：庫存重算節流（預設 3 分鐘）
+    now = datetime.now()
+    stock_recalc_interval_sec = 180
+    last_calc_time = st.session_state.get("stock_calc_time")
+
+    should_recalc_stock = (
+        "last_final_stock" not in st.session_state
+        or last_calc_time is None
+        or not isinstance(last_calc_time, datetime)
+        or (now - last_calc_time).total_seconds() > stock_recalc_interval_sec
+    )
+
+    if should_recalc_stock:
+        # 讓既有 sheet TTL 快取先判斷是否需要打 API
+        load_recipe(force_reload=False)
+        st.session_state["last_final_stock"] = calculate_current_stock()
+        st.session_state["stock_calc_time"] = now
     
     # ============================================================
     # 共用顯示函式（正式流程使用）
