@@ -64,10 +64,18 @@ def apply_modern_style():
     .stApp {
         color: var(--text-main) !important;
         background:
+ codex/add-fields-for-color-type-and-unit
+            radial-gradient(circle at 18% 20%, rgba(162, 118, 255, 0.20), transparent 38%),
+            radial-gradient(circle at 82% 15%, rgba(94, 196, 255, 0.14), transparent 34%),
+            radial-gradient(circle at 70% 80%, rgba(215, 126, 255, 0.16), transparent 42%),
+            linear-gradient(145deg, #120f24 0%, #1b1831 45%, #121629 100%);
+        background-repeat: no-repeat;
+
             linear-gradient(120deg, rgba(8, 5, 20, 0.78), rgba(25, 12, 46, 0.72)),
             url('https://des13.com/images/2023/Branding_Website/Branding_Website35.webp');
         background-size: cover;
         background-position: center;
+ main
         background-attachment: fixed;
     }
 
