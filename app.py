@@ -264,6 +264,62 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
+SHEET_CACHE_TTL_SECONDS = 120
+
+def get_cached_worksheet(sheet_name):
+    cache = st.session_state.setdefault("_ws_cache", {})
+    if sheet_name in cache:
+        return cache[sheet_name]
+    ws = spreadsheet.worksheet(sheet_name)
+    cache[sheet_name] = ws
+    return ws
+
+def get_cached_sheet_df(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
+    now = datetime.now().timestamp()
+    cache = st.session_state.setdefault("_sheet_df_cache", {})
+    cached = cache.get(sheet_name)
+
+    if (
+        not force_reload
+        and cached
+        and now - cached.get("timestamp", 0) < ttl_seconds
+    ):
+        return cached["df"].copy()
+
+    ws = get_cached_worksheet(sheet_name)
+    df = pd.DataFrame(ws.get_all_records())
+    cache[sheet_name] = {"timestamp": now, "df": df.copy()}
+    return df
+
+
+def get_cached_sheet_values(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
+    now = datetime.now().timestamp()
+    cache = st.session_state.setdefault("_sheet_values_cache", {})
+    cached = cache.get(sheet_name)
+
+    if (
+        not force_reload
+        and cached
+        and now - cached.get("timestamp", 0) < ttl_seconds
+    ):
+        return [row[:] for row in cached["values"]]
+
+    ws = get_cached_worksheet(sheet_name)
+    values = ws.get_all_values()
+    cache[sheet_name] = {"timestamp": now, "values": [row[:] for row in values]}
+    return values
+
+def invalidate_sheet_cache(sheet_name=None):
+    if sheet_name is None:
+        st.session_state.pop("_sheet_df_cache", None)
+        st.session_state.pop("_ws_cache", None)
+        st.session_state.pop("_sheet_values_cache", None)
+        return
+
+    st.session_state.get("_sheet_df_cache", {}).pop(sheet_name, None)
+    st.session_state.get("_ws_cache", {}).pop(sheet_name, None)
+    st.session_state.get("_sheet_values_cache", {}).pop(sheet_name, None)
+
 # ======== Sidebar 修正 =========
 import streamlit as st
 
@@ -463,8 +519,7 @@ def fmt_num(val, digits=2):
 def load_recipe(force_reload=False):
     """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
     try:
-        ws_recipe = spreadsheet.worksheet("配方管理")
-        df_loaded = pd.DataFrame(ws_recipe.get_all_records())
+        df_loaded = get_cached_sheet_df("配方管理", force_reload=force_reload)
         if not df_loaded.empty:
             return df_loaded
     except Exception as e:
@@ -561,11 +616,8 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
 def load_recipe_data():
     """從 Google Sheets 載入配方數據"""
     try:
-        ws_recipe = spreadsheet.worksheet("配方管理")
-        values = ws_recipe.get_all_values()
-        if len(values) > 1:
-            df_loaded = pd.DataFrame(values[1:], columns=values[0])
-        else:
+        df_loaded = get_cached_sheet_df("配方管理")
+        if df_loaded.empty:
             columns = [
                 "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
                 "原始配方", "色粉類別", "計量單位", "Pantone色號",
@@ -594,6 +646,9 @@ def save_df_to_sheet(ws, df):
     values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
     ws.clear()
     ws.update("A1", values)
+    invalidate_sheet_cache(ws.title)
+    if ws.title == "庫存記錄":
+        st.session_state.pop("stock_calc_time", None)
                 
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
@@ -913,6 +968,9 @@ def save_df_to_sheet(ws, df):
     values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
     ws.clear()
     ws.update("A1", values)
+    invalidate_sheet_cache(ws.title)
+    if ws.title == "庫存記錄":
+        st.session_state.pop("stock_calc_time", None)
 
 def init_states(keys):
     """
@@ -933,8 +991,8 @@ def init_states(keys):
 def load_recipe(force_reload=False):
         """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
         try:
-            ws_recipe = spreadsheet.worksheet("配方管理")
-            df_loaded = pd.DataFrame(ws_recipe.get_all_records())
+            ws_recipe = get_cached_worksheet("配方管理")
+            df_loaded = get_cached_sheet_df("配方管理", force_reload=force_reload)
             if not df_loaded.empty:
                 return df_loaded
         except Exception as e:
@@ -972,7 +1030,7 @@ if menu == "色粉管理":
     """, unsafe_allow_html=True)
     
     # ===== 讀取工作表 =====
-    worksheet = spreadsheet.worksheet("色粉管理")
+    worksheet = get_cached_worksheet("色粉管理")
     required_columns = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
 
     # form_color 現在一定是 dict，不會再報錯
@@ -982,7 +1040,7 @@ if menu == "色粉管理":
         st.session_state.form_color.setdefault(col, "")
 
     try:
-        df = pd.DataFrame(worksheet.get_all_records())
+        df = get_cached_sheet_df("色粉管理")
     except:
         df = pd.DataFrame(columns=required_columns)
 
@@ -1070,7 +1128,7 @@ elif menu == "客戶名單":
 
     # ===== 讀取或建立 Google Sheet =====
     try:
-        ws_customer = spreadsheet.worksheet("客戶名單")
+        ws_customer = get_cached_worksheet("客戶名單")
     except:
         ws_customer = spreadsheet.add_worksheet("客戶名單", rows=100, cols=10)
 
@@ -1087,7 +1145,7 @@ elif menu == "客戶名單":
 
     # ===== 載入資料 =====
     try:
-        df = pd.DataFrame(ws_customer.get_all_records())
+        df = get_cached_sheet_df("客戶名單")
     except:
         df = pd.DataFrame(columns=columns)
 
@@ -1284,7 +1342,7 @@ elif menu == "配方管理":
 
     # 載入 Google Sheet 工作表
     try:
-        ws_recipe = spreadsheet.worksheet("配方管理")
+        ws_recipe = get_cached_worksheet("配方管理")
     except:
         try:
             ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
@@ -1293,7 +1351,7 @@ elif menu == "配方管理":
             st.stop()
 
     # 讀取原始資料
-    values = ws_recipe.get_all_values()
+    values = get_cached_sheet_values("配方管理")
     if len(values) > 1:
         df_loaded = pd.DataFrame(values[1:], columns=values[0])
     else:
@@ -1314,8 +1372,8 @@ elif menu == "配方管理":
     
     # === 載入「色粉管理」的色粉清單 ===
     try:
-        ws_powder = spreadsheet.worksheet("色粉管理")
-        df_powders = pd.DataFrame(ws_powder.get_all_records())
+        ws_powder = get_cached_worksheet("色粉管理")
+        df_powders = get_cached_sheet_df("色粉管理")
         if "色粉編號" not in df_powders.columns:
             st.error("❌ 色粉管理表缺少『色粉編號』欄位")
             existing_powders = set()
@@ -1327,8 +1385,8 @@ elif menu == "配方管理":
     
     # 載入客戶名單（提前載入，供所有 Tab 使用）
     try:
-        ws_customer = spreadsheet.worksheet("客戶名單")
-        df_customers = pd.DataFrame(ws_customer.get_all_records())
+        ws_customer = get_cached_worksheet("客戶名單")
+        df_customers = get_cached_sheet_df("客戶名單")
         customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in df_customers.iterrows()]
     except:
         st.warning("⚠️ 無法載入客戶名單")
@@ -2009,9 +2067,9 @@ elif menu == "配方管理":
     
         # ---------- 1️⃣ 初次進入才讀 Google Sheet ----------
         if "df_color" not in st.session_state:
-            worksheet = spreadsheet.worksheet("色粉管理")
+            worksheet = get_cached_worksheet("色粉管理")
             try:
-                df = pd.DataFrame(worksheet.get_all_records())
+                df = get_cached_sheet_df("色粉管理")
             except:
                 df = pd.DataFrame(columns=REQUIRED_COLUMNS)
     
@@ -2083,7 +2141,7 @@ elif menu == "配方管理":
                         st.success("➕ 已新增並寫回 Google Sheet")
         
                 # 直接寫回 Google Sheet
-                worksheet = spreadsheet.worksheet("色粉管理")
+                worksheet = get_cached_worksheet("色粉管理")
                 save_df_to_sheet(worksheet, df_color)
                 st.session_state.df_color = df_color  # 更新 session_state
         
@@ -2144,7 +2202,7 @@ elif menu == "配方管理":
             st.warning("⚠️ 尚有變更尚未寫回 Google Sheet")
     
             if st.button("💾 套用變更（寫回 Google Sheet）"):
-                worksheet = spreadsheet.worksheet("色粉管理")
+                worksheet = get_cached_worksheet("色粉管理")
                 save_df_to_sheet(worksheet, st.session_state.df_color)
                 st.session_state.color_dirty = False
                 st.success("✅ 已全部寫回完成")
@@ -2613,10 +2671,10 @@ elif menu == "配方管理":
                                             new_recipe[f"色粉重量{i}"] = ""
                                     
                                     # 寫入 Google Sheet
-                                    ws_recipe = spreadsheet.worksheet("配方管理")
+                                    ws_recipe = get_cached_worksheet("配方管理")
                                     
                                     # 取得所有欄位
-                                    all_values = ws_recipe.get_all_values()
+                                    all_values = get_cached_sheet_values("配方管理")
                                     if all_values:
                                         existing_columns = all_values[0]
                                     else:
@@ -2627,6 +2685,7 @@ elif menu == "配方管理":
                                     
                                     # 寫入新列
                                     ws_recipe.append_row(new_row)
+                                    invalidate_sheet_cache("配方管理")
                                     
                                     # 更新 session_state
                                     df_recipe_new = pd.concat([df_recipe, pd.DataFrame([new_recipe])], ignore_index=True)
@@ -2691,16 +2750,15 @@ elif menu == "生產單管理":
     
     # 先嘗試取得 Google Sheet 兩個工作表 ws_recipe、ws_order
     try:
-        ws_recipe = spreadsheet.worksheet("配方管理")
-        ws_order = spreadsheet.worksheet("生產單")
+        ws_recipe = get_cached_worksheet("配方管理")
+        ws_order = get_cached_worksheet("生產單")
     except Exception as e:
         st.error(f"❌ 無法載入工作表：{e}")
         st.stop()
     
     # 載入配方管理表
     try:
-        records = ws_recipe.get_all_records()
-        df_recipe = pd.DataFrame(records)
+        df_recipe = get_cached_sheet_df("配方管理")
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
     
@@ -2718,9 +2776,9 @@ elif menu == "生產單管理":
     
     # 載入生產單表
     try:
-        existing_values = ws_order.get_all_values()
-        if existing_values:
-            df_order = pd.DataFrame(existing_values[1:], columns=existing_values[0]).astype(str)
+        df_order = get_cached_sheet_df("生產單")
+        if not df_order.empty:
+            df_order = df_order.astype(str)
         else:
             header = [
                 "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
@@ -2733,6 +2791,7 @@ elif menu == "生產單管理":
                 "合計類別"
             ]
             ws_order.append_row(header)
+            invalidate_sheet_cache("生產單")
             df_order = pd.DataFrame(columns=header)
         st.session_state.df_order = df_order
     except Exception as e:
@@ -2757,9 +2816,7 @@ elif menu == "生產單管理":
         stock_dict = {}
         
         try:
-            ws_stock = spreadsheet.worksheet("庫存記錄")
-            records = ws_stock.get_all_records()
-            df_stock = pd.DataFrame(records)
+            df_stock = get_cached_sheet_df("庫存記錄")
         except Exception as e:
             st.warning(f"⚠️ 無法讀取庫存記錄：{e}")
             return stock_dict
@@ -2953,8 +3010,23 @@ elif menu == "生產單管理":
         
         return stock_dict
     
-    # ⚠️ 每次進入「生產單管理」都重新計算最新庫存
-    st.session_state["last_final_stock"] = calculate_current_stock()
+    # ⚡ 生產單頁：庫存重算節流（預設 3 分鐘）
+    now = datetime.now()
+    stock_recalc_interval_sec = 180
+    last_calc_time = st.session_state.get("stock_calc_time")
+
+    should_recalc_stock = (
+        "last_final_stock" not in st.session_state
+        or last_calc_time is None
+        or not isinstance(last_calc_time, datetime)
+        or (now - last_calc_time).total_seconds() > stock_recalc_interval_sec
+    )
+
+    if should_recalc_stock:
+        # 讓既有 sheet TTL 快取先判斷是否需要打 API
+        load_recipe(force_reload=False)
+        st.session_state["last_final_stock"] = calculate_current_stock()
+        st.session_state["stock_calc_time"] = now
     
     # ============================================================
     # 共用顯示函式（正式流程使用）
@@ -2988,8 +3060,8 @@ elif menu == "生產單管理":
         
             try:
                 # ===== 讀取庫存記錄 =====
-                ws_stock = spreadsheet.worksheet("庫存記錄")
-                records = ws_stock.get_all_records()
+                ws_stock = get_cached_worksheet("庫存記錄")
+                records = get_cached_sheet_df("庫存記錄").to_dict("records")
                 df_stock_debug = pd.DataFrame(records)
         
                 if not df_stock_debug.empty:
@@ -3740,7 +3812,7 @@ elif menu == "生產單管理":
                 order_no = str(order.get("生產單號", "")).strip()
 
                 try:
-                    sheet_data = ws_order.get_all_records()
+                    sheet_data = get_cached_sheet_df("生產單").to_dict("records")
                     rows_to_delete = []
                     
                     for idx, row in enumerate(sheet_data, start=2):
@@ -3784,7 +3856,7 @@ elif menu == "生產單管理":
                                 pass
                 
                         try:
-                            ws_oem = spreadsheet.worksheet("代工管理")
+                            ws_oem = get_cached_worksheet("代工管理")
                         except:
                             ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
                             ws_oem.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱", 
@@ -4024,7 +4096,7 @@ elif menu == "生產單管理":
             del st.session_state.edit_success_message
     
         def delete_order_by_id(ws, order_id):
-            all_values = ws.get_all_records()
+            all_values = get_cached_sheet_df(ws.title).to_dict("records")
             df = pd.DataFrame(all_values)
     
             if df.empty:
@@ -4040,7 +4112,7 @@ elif menu == "生產單管理":
     
         # ===== 刪除代工單函式 =====
         def delete_oem_by_order_id(ws_oem, order_id):
-            all_values = ws_oem.get_all_records()
+            all_values = get_cached_sheet_df("代工管理").to_dict("records")
             df = pd.DataFrame(all_values)
             if df.empty or "生產單號" not in df.columns:
                 return 0
@@ -4418,7 +4490,7 @@ elif menu == "生產單管理":
                             # ===== 先刪代工單 =====
                             deleted_oem_count = 0
                             try:
-                                ws_oem = spreadsheet.worksheet("代工管理")
+                                ws_oem = get_cached_worksheet("代工管理")
                                 deleted_oem_count = delete_oem_by_order_id(ws_oem, order_id_str)
                             except:
                                 ws_oem = None
@@ -4526,7 +4598,7 @@ elif menu == "生產單管理":
                     try:
                         with st.spinner("正在儲存修改..."):
                             # 1️⃣ 找到該生產單在 Sheet 中的位置
-                            all_values = ws_order.get_all_values()
+                            all_values = get_cached_sheet_values("生產單")
                             header = all_values[0]
                             
                             target_row_idx = None
@@ -4596,8 +4668,8 @@ if menu == "代工管理":
     
     # ===== 讀取代工管理表 =====
     try:
-        ws_oem = spreadsheet.worksheet("代工管理")
-        df_oem = pd.DataFrame(ws_oem.get_all_records())
+        ws_oem = get_cached_worksheet("代工管理")
+        df_oem = get_cached_sheet_df("代工管理")
     except:
         ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
         ws_oem.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱", 
@@ -4615,8 +4687,8 @@ if menu == "代工管理":
     
     # ===== 讀取送達記錄表 =====
     try:
-        ws_delivery = spreadsheet.worksheet("代工送達記錄")
-        df_delivery = pd.DataFrame(ws_delivery.get_all_records())
+        ws_delivery = get_cached_worksheet("代工送達記錄")
+        df_delivery = get_cached_sheet_df("代工送達記錄")
     except:
         ws_delivery = spreadsheet.add_worksheet("代工送達記錄", rows=100, cols=10)
         ws_delivery.append_row(["代工單號", "送達日期", "送達數量", "建立時間"])
@@ -4624,8 +4696,8 @@ if menu == "代工管理":
     
     # ===== 讀取載回記錄表 =====
     try:
-        ws_return = spreadsheet.worksheet("代工載回記錄")
-        df_return = pd.DataFrame(ws_return.get_all_records())
+        ws_return = get_cached_worksheet("代工載回記錄")
+        df_return = get_cached_sheet_df("代工載回記錄")
     except:
         ws_return = spreadsheet.add_worksheet("代工載回記錄", rows=100, cols=10)
         ws_return.append_row(["代工單號", "載回日期", "載回數量", "建立時間"])
@@ -4794,7 +4866,7 @@ if menu == "代工管理":
                                 st.error("❌ 已結案代工單不可修改")
                     
                             else:
-                                all_values = ws_oem.get_all_values()
+                                all_values = get_cached_sheet_values("代工管理")
                                 for idx, row in enumerate(all_values[1:], start=2):
                                     if row[0] == selected_oem:
                                         ws_oem.update_cell(idx, 6, new_vendor)
@@ -4828,7 +4900,7 @@ if menu == "代工管理":
                         c1, c2 = st.columns(2)
                         with c1:
                             if st.button("確認刪除", key="confirm_delete_oem"):
-                                all_values = ws_oem.get_all_values()
+                                all_values = get_cached_sheet_values("代工管理")
                                 for idx, row in enumerate(all_values[1:], start=2):
                                     if row[0] == oem_row["代工單號"]:
                                         ws_oem.delete_row(idx)
@@ -4868,7 +4940,7 @@ if menu == "代工管理":
     
                     col_btn1, col_btn2 = st.columns([1, 3])
                     def update_oem_status(oem_no, new_status):
-                        all_values = ws_oem.get_all_values()
+                        all_values = get_cached_sheet_values("代工管理")
                         for idx, row in enumerate(all_values[1:], start=2):
                             if row[0] == oem_no:
                                 ws_oem.update_cell(idx, 8, new_status)
@@ -5328,7 +5400,7 @@ elif menu == "採購管理":
     
         # ✅ 讀取庫存記錄表（防 rerun）
         ws_stock = get_or_create_worksheet(spreadsheet, "庫存記錄", rows=100, cols=10)
-        records = ws_stock.get_all_records()
+        records = get_cached_sheet_df("庫存記錄").to_dict("records")
         if records:
             df_stock = pd.DataFrame(records)
         else:
@@ -5385,8 +5457,8 @@ elif menu == "採購管理":
     
             # --- 廠商欄位，下拉選單 + 自動帶出名稱 ---
             try:
-                ws_supplier = spreadsheet.worksheet("供應商管理")
-                df_supplier = pd.DataFrame(ws_supplier.get_all_records()).astype(str)
+                ws_supplier = get_cached_worksheet("供應商管理")
+                df_supplier = get_cached_sheet_df("供應商管理").astype(str)
             except:
                 df_supplier = pd.DataFrame(columns=["供應商編號", "供應商簡稱"])
             for col in ["供應商編號", "供應商簡稱"]:
@@ -5472,8 +5544,8 @@ elif menu == "採購管理":
               
         # 讀取庫存記錄表
         try:
-            ws_stock = spreadsheet.worksheet("庫存記錄")
-            df_stock = pd.DataFrame(ws_stock.get_all_records())
+            ws_stock = get_cached_worksheet("庫存記錄")
+            df_stock = get_cached_sheet_df("庫存記錄")
         except:
             df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
         
@@ -5554,7 +5626,7 @@ elif menu == "採購管理":
     
         # ===== 讀取或建立 Google Sheet =====
         try:
-            ws_supplier = spreadsheet.worksheet("供應商管理")
+            ws_supplier = get_cached_worksheet("供應商管理")
         except:
             ws_supplier = spreadsheet.add_worksheet("供應商管理", rows=100, cols=10)
     
@@ -5573,7 +5645,7 @@ elif menu == "採購管理":
     
         # 讀取 Google Sheet 資料
         try:
-            df = pd.DataFrame(ws_supplier.get_all_records())
+            df = get_cached_sheet_df("供應商管理")
         except:
             df = pd.DataFrame(columns=columns)
         
@@ -6063,11 +6135,11 @@ elif menu == "查詢區":
     
         # 讀取 Google Sheets
         try:
-            ws_pantone = spreadsheet.worksheet("Pantone色號表")
+            ws_pantone = get_cached_worksheet("Pantone色號表")
         except:
             ws_pantone = spreadsheet.add_worksheet(title="Pantone色號表", rows=100, cols=4)
     
-        df_pantone = pd.DataFrame(ws_pantone.get_all_records())
+        df_pantone = get_cached_sheet_df("Pantone色號表")
     
         # 如果表格是空的，補上欄位名稱
         if df_pantone.empty:
@@ -6184,13 +6256,14 @@ elif menu == "查詢區":
     
         # ===== Sheet 讀取 =====
         try:
-            ws_sample = spreadsheet.worksheet("樣品記錄")
+            ws_sample = get_cached_worksheet("樣品記錄")
         except:
             ws_sample = spreadsheet.add_worksheet("樣品記錄", rows=100, cols=10)
             ws_sample.append_row(["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
+            invalidate_sheet_cache("樣品記錄")
     
         try:
-            df_sample = pd.DataFrame(ws_sample.get_all_records())
+            df_sample = get_cached_sheet_df("樣品記錄")
         except:
             df_sample = pd.DataFrame()
     
@@ -6445,8 +6518,8 @@ elif menu == "庫存區":
     # 打開工作簿 & 工作表
     # ✅ 讀取庫存記錄表（改用 spreadsheet）
     try:
-        ws_stock = spreadsheet.worksheet("庫存記錄")
-        records = ws_stock.get_all_records()
+        ws_stock = get_cached_worksheet("庫存記錄")
+        records = get_cached_sheet_df("庫存記錄").to_dict("records")
         if records:
             df_stock = pd.DataFrame(records)
         else:
@@ -6454,6 +6527,7 @@ elif menu == "庫存區":
     except:
         ws_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
         ws_stock.append_row(["類型","色粉編號","日期","數量","單位","備註"])
+        invalidate_sheet_cache("庫存記錄")
         df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
 
     st.session_state.df_stock = df_stock
