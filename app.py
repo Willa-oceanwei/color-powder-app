@@ -1732,17 +1732,17 @@ elif menu == "配方管理":
             cols_page = st.columns([1, 1, 1, 2, 1])
     
             with cols_page[0]:
-                if st.button("🏠回首頁", key="first_page_tab2"):
+                if st.button("🏠首頁", key="first_page_tab2"):
                     st.session_state.page_tab2 = 1
                     st.rerun()
     
             with cols_page[1]:
-                if st.button("🔼上一頁", key="prev_page_tab2") and st.session_state.page_tab2 > 1:
+                if st.button("🔼上頁", key="prev_page_tab2") and st.session_state.page_tab2 > 1:
                     st.session_state.page_tab2 -= 1
                     st.rerun()
     
             with cols_page[2]:
-                if st.button("🔽下一頁", key="next_page_tab2") and st.session_state.page_tab2 < total_pages:
+                if st.button("🔽下頁", key="next_page_tab2") and st.session_state.page_tab2 < total_pages:
                     st.session_state.page_tab2 += 1
                     st.rerun()
     
