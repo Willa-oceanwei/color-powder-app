@@ -42,7 +42,7 @@ if not st.session_state.authenticated:
     # 尚未輸入密碼時停止執行
     st.stop()
     
-# ======== 🎨 終極版自訂樣式（綠色主題 + 圓角下拉）========
+# ======== 🎨 終極版自訂樣式（紫色玻璃主題 + 圓角下拉）========
 def apply_modern_style():
     st.markdown("""
     <style>
@@ -52,7 +52,7 @@ def apply_modern_style():
         --glass-bg: rgba(18, 18, 32, 0.62);
         --glass-border: rgba(255, 255, 255, 0.18);
         --text-main: #f5f1ff;
-        --text-sub: #d7c9f7;
+        --text-sub: #e6dcff;
         --accent: #b188ff;
         --accent-2: #8d5bff;
     }
@@ -61,22 +61,23 @@ def apply_modern_style():
         font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
     }
 
+    /* ===== 全站背景 ===== */
     .stApp {
         color: var(--text-main) !important;
         background:
-            radial-gradient(circle at 18% 20%, rgba(162, 118, 255, 0.20), transparent 38%),
-            radial-gradient(circle at 82% 15%, rgba(94, 196, 255, 0.14), transparent 34%),
-            radial-gradient(circle at 70% 80%, rgba(215, 126, 255, 0.16), transparent 42%),
-            linear-gradient(145deg, #120f24 0%, #1b1831 45%, #121629 100%);
-        background-repeat: no-repeat;
-
-            linear-gradient(120deg, rgba(8, 5, 20, 0.78), rgba(25, 12, 46, 0.72)),
+            radial-gradient(circle at 18% 20%, rgba(162,118,255,0.20), transparent 38%),
+            radial-gradient(circle at 82% 15%, rgba(94,196,255,0.14), transparent 34%),
+            radial-gradient(circle at 70% 80%, rgba(215,126,255,0.16), transparent 42%),
+            linear-gradient(145deg, #120f24 0%, #1b1831 45%, #121629 100%),
+            linear-gradient(120deg, rgba(8,5,20,0.78), rgba(25,12,46,0.72)),
             url('https://des13.com/images/2023/Branding_Website/Branding_Website35.webp');
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
+        background-repeat: no-repeat;
     }
 
+    /* ===== 主內容玻璃區 ===== */
     .main .block-container {
         background: rgba(14, 12, 26, 0.55) !important;
         border: 1px solid var(--glass-border) !important;
@@ -87,6 +88,7 @@ def apply_modern_style():
         box-shadow: 0 16px 38px rgba(6, 5, 15, 0.5);
     }
 
+    /* ===== Sidebar ===== */
     section[data-testid="stSidebar"] {
         background: rgba(10, 8, 22, 0.78) !important;
         border-right: 1px solid rgba(255,255,255,0.12);
@@ -102,6 +104,7 @@ def apply_modern_style():
         margin-bottom: 1.5rem;
     }
 
+    /* ===== Sidebar 未選按鈕 ===== */
     section[data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
         background: rgba(255,255,255,0.08) !important;
         color: var(--text-sub) !important;
@@ -115,37 +118,42 @@ def apply_modern_style():
         backdrop-filter: blur(6px);
     }
 
+    /* hover */
     section[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {
-        background: rgba(177, 136, 255, 0.28) !important;
+        background: rgba(177,136,255,0.28) !important;
         color: #ffffff !important;
-        border-color: rgba(226, 204, 255, 0.55) !important;
+        border-color: rgba(226,204,255,0.55) !important;
     }
 
+    /* ===== Sidebar 選中按鈕 ===== */
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
         background: linear-gradient(135deg, var(--accent-2), var(--accent)) !important;
         color: #ffe8a3 !important;
-        border: 1px solid rgba(246, 234, 255, 0.65) !important;
+        border: 1px solid rgba(246,234,255,0.65) !important;
         font-weight: 700 !important;
-        box-shadow: 0 8px 20px rgba(58, 31, 125, 0.5) !important;
-        text-shadow: 0 0 8px rgba(255, 230, 140, 0.8);
+        box-shadow: 0 8px 20px rgba(58,31,125,0.5) !important;
+        text-shadow: 0 0 8px rgba(255,230,140,0.8);
+        border-left: 4px solid #ffe8a3 !important;
     }
 
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover {
         background: linear-gradient(135deg, #7b47ff, #b188ff) !important;
-        color: #ffffff !important;
+        color: #ffe8a3 !important;
+        text-shadow: 0 0 10px rgba(255,230,140,0.9);
     }
 
+    /* ===== 主區按鈕 ===== */
     .main div.stButton > button,
     form div.stButton > button,
     form button[type="submit"] {
         background: linear-gradient(135deg, var(--accent-2), var(--accent)) !important;
         color: #ffffff !important;
-        border: 1px solid rgba(246, 234, 255, 0.65) !important;
+        border: 1px solid rgba(246,234,255,0.65) !important;
         border-radius: 12px !important;
         padding: 0.58rem 1rem !important;
         font-weight: 600 !important;
         transition: all 0.2s ease !important;
-        box-shadow: 0 6px 16px rgba(47, 28, 98, 0.35);
+        box-shadow: 0 6px 16px rgba(47,28,98,0.35);
     }
 
     .main div.stButton > button:hover,
@@ -156,6 +164,7 @@ def apply_modern_style():
         border-color: rgba(255,255,255,0.85) !important;
     }
 
+    /* ===== 輸入框 ===== */
     div.stTextInput > div > div > input,
     div.stNumberInput > div > div > input,
     div.stTextArea > div > div > textarea {
@@ -164,17 +173,17 @@ def apply_modern_style():
         border-radius: 10px;
         color: #fff !important;
         padding: 0.6rem 0.75rem !important;
-        transition: all 0.2s ease;
     }
 
     div.stTextInput > div > div > input:focus,
     div.stNumberInput > div > div > input:focus,
     div.stTextArea > div > div > textarea:focus {
-        border-color: rgba(206, 170, 255, 0.95) !important;
-        box-shadow: 0 0 0 2px rgba(177, 136, 255, 0.25) !important;
+        border-color: rgba(206,170,255,0.95) !important;
+        box-shadow: 0 0 0 2px rgba(177,136,255,0.25) !important;
         outline: none !important;
     }
 
+    /* ===== Selectbox 圓角 ===== */
     div.stSelectbox div[data-baseweb="select"] > div {
         border-radius: 999px !important;
         background: rgba(255,255,255,0.1) !important;
@@ -190,11 +199,12 @@ def apply_modern_style():
         color: #f2e8ff !important;
     }
 
+    /* ===== 下拉選單 ===== */
     div[data-baseweb="popover"] {
         border-radius: 18px !important;
-        background: rgba(30, 18, 52, 0.95) !important;
+        background: rgba(30,18,52,0.95) !important;
         border: 1px solid rgba(255,255,255,0.2) !important;
-        box-shadow: 0 14px 32px rgba(8, 5, 20, 0.6) !important;
+        box-shadow: 0 14px 32px rgba(8,5,20,0.6) !important;
     }
 
     ul[role="listbox"] li {
@@ -214,6 +224,7 @@ def apply_modern_style():
         font-weight: 600 !important;
     }
 
+    /* ===== Tabs ===== */
     button[data-testid="stTab"] p {
         color: #d8c6ff !important;
         font-weight: 600 !important;
@@ -221,7 +232,7 @@ def apply_modern_style():
 
     button[data-testid="stTab"][aria-selected="true"] p {
         color: #ffffff !important;
-        text-shadow: 0 1px 8px rgba(186, 145, 255, 0.8);
+        text-shadow: 0 1px 8px rgba(186,145,255,0.8);
     }
 
     div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
@@ -230,12 +241,14 @@ def apply_modern_style():
         border-radius: 999px !important;
     }
 
+    /* ===== 提示框 ===== */
     .stAlert {
         border-radius: 12px !important;
         border: 1px solid rgba(255,255,255,0.2) !important;
-        background: rgba(24, 15, 44, 0.8) !important;
+        background: rgba(24,15,44,0.8) !important;
         color: #f7f2ff !important;
     }
+
     </style>
     """, unsafe_allow_html=True)
 
