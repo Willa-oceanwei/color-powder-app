@@ -138,7 +138,6 @@ def apply_modern_style():
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover {
         background: linear-gradient(135deg, #7b47ff, #b188ff) !important;
         color: #ffe8a3 !important;
-        text-shadow: 0 0 10px rgba(255,230,140,0.9);
     }
 
     /* ===== 主區按鈕 ===== */
