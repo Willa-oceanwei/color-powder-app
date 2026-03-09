@@ -123,10 +123,11 @@ def apply_modern_style():
 
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
         background: linear-gradient(135deg, var(--accent-2), var(--accent)) !important;
-        color: #ffffff !important;
+        color: #ffe8a3 !important;
         border: 1px solid rgba(246, 234, 255, 0.65) !important;
         font-weight: 700 !important;
         box-shadow: 0 8px 20px rgba(58, 31, 125, 0.5) !important;
+        text-shadow: 0 0 8px rgba(255, 230, 140, 0.8);
     }
 
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover {
