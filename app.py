@@ -1947,6 +1947,9 @@ elif menu == "配方管理":
     # ============================================================
     with tab4:
 
+        if "edit_color_index" not in st.session_state:
+            st.session_state.edit_color_index = None
+
         REQUIRED_COLUMNS = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
 
         # ── 使用 session_state 的 df_color，不重讀 Sheet ──
