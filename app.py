@@ -1219,7 +1219,7 @@ elif menu == "客戶名單":
             st.session_state.form_customer = {col: "" for col in df.columns}
     
             # 立即更新前端列表
-            st.experimental_rerun()
+            st.rerun()
     
     # =====================================================
     # 🗑️ 刪除確認
