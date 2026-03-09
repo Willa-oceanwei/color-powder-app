@@ -1947,6 +1947,14 @@ elif menu == "配方管理":
     # ============================================================
     with tab4:
 
+        if "color_toast" not in st.session_state:
+            st.session_state.color_toast = None
+
+        # 顯示 toast（rerun 後）
+        if st.session_state.get("color_toast"):
+            st.toast(st.session_state.color_toast)
+            st.session_state.color_toast = None
+
         if "edit_color_index" not in st.session_state:
             st.session_state.edit_color_index = None
 
@@ -2012,7 +2020,7 @@ elif menu == "配方管理":
                     except Exception as e:
                         st.error(f"❌ 更新色粉失敗：{e}")
 
-                    st.success("✏️ 已更新色粉")
+                    st.session_state.color_toast = "✏️ 已更新色粉"
                     st.session_state.edit_color_index = None
                 else:
                     if new_row["色粉編號"] in df_color["色粉編號"].values:
@@ -2022,7 +2030,7 @@ elif menu == "配方管理":
                         # ✅ 只 append 新列
                         ws_powder.append_row([str(new_row.get(col, "")) for col in REQUIRED_COLUMNS])
                         invalidate_sheet_cache("色粉管理")
-                        st.success("➕ 已新增色粉")
+                        st.session_state.color_toast = "➕ 已新增色粉"
 
                 st.session_state.df_color = df_color
                 st.session_state.form_color = {
@@ -2071,6 +2079,7 @@ elif menu == "配方管理":
                                 st.error(f"❌ 刪除色粉失敗：{e}")
 
                             st.session_state.df_color = df_color.drop(index=i).reset_index(drop=True)
+                            st.session_state.color_toast = "🗑️ 已刪除色粉"
                             st.session_state._tab4_need_rerun = True
 
         if st.session_state.get("_tab4_need_rerun", False):
