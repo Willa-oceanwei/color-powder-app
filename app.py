@@ -375,7 +375,6 @@ def preload_all_data(force=False):
 
         st.session_state[state_key] = df
 
-
     # 相容舊程式：配方管理同時會讀 st.session_state.df
     if "df_recipe" in st.session_state:
         st.session_state.df = st.session_state.df_recipe
@@ -390,11 +389,11 @@ def preload_all_data(force=False):
 
     # ⚠️ 代工管理還需要 df_delivery / df_return，這裡不要先設 oem_data_loaded
     # 讓代工分頁自己的 load_oem_data() 仍可正常建立完整資料。
+
+
     # 讓各分頁舊版「已載入」旗標同步設好，避免它們自己重讀
     st.session_state.recipe_data_loaded = True
     st.session_state.oem_data_loaded = True
-
-
 
 # ── App 第一次啟動時，執行一次預載 ──
 if "app_data_loaded" not in st.session_state:
@@ -4462,7 +4461,9 @@ if menu == "代工管理":
         st.session_state.oem_data_loaded = True
 
     # ── 只有第一次進入時才讀 Sheet，rerun 時直接用 session_state ──
-    if not st.session_state.get("oem_data_loaded", False):
+    # 也防禦舊 session：若旗標存在但必要資料缺漏，仍強制補載
+    oem_keys_ready = all(k in st.session_state for k in ["df_oem", "df_delivery", "df_return"])
+    if (not st.session_state.get("oem_data_loaded", False)) or (not oem_keys_ready):
         load_oem_data()
 
     # 取出工作表物件（worksheet 物件本身有 _ws_cache，不耗 quota）
