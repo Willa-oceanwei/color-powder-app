@@ -1882,7 +1882,7 @@ elif menu == "配方管理":
                         c1, c2 = st.columns(2)
                         with c1:
                             if st.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
-                                st.session_state.select_recipe_code_page_tab3 = ""
+                                st.session_state.pop("select_recipe_code_page_tab3", None)
                                 df_recipe.drop(idx, inplace=True)
                                 df_recipe.reset_index(drop=True, inplace=True)
 
