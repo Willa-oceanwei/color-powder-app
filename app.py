@@ -250,8 +250,11 @@ def apply_modern_style():
     </style>
     """, unsafe_allow_html=True)
 
+# Streamlit 每次互動都會重新渲染 DOM，樣式必須每輪注入，
+# 否則切頁時會短暫回到預設黑白主題造成閃爍。
 apply_modern_style()
  
+
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
 creds = Credentials.from_service_account_info(
@@ -330,6 +333,87 @@ def invalidate_sheet_cache(sheet_name=None):
     st.session_state.get("_ws_cache", {}).pop(sheet_name, None)
     st.session_state.get("_sheet_values_cache", {}).pop(sheet_name, None)
 
+
+def clean_powder_id(x):
+    """清理色粉ID，移除空白、全形空白，轉大寫"""
+    if pd.isna(x) or x == "":
+        return ""
+    return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
+
+
+
+# 需要預載的 Sheet 對應表（Sheet名稱 → session_state key）
+PRELOAD_SHEETS = {
+    "配方管理": "df_recipe",
+    "客戶名單": "_recipe_customers",
+    "色粉管理": "df_color",
+    "生產單": "df_order",
+    "代工管理": "df_oem",
+}
+
+
+def preload_all_data(force=False):
+    """
+    一次性把所有常用 Sheet 載入 session_state。
+    force=False（預設）：session_state 已有非空資料就跳過，不打 API。
+    force=True：強制重讀（寫入後才用）。
+    """
+    for sheet_name, state_key in PRELOAD_SHEETS.items():
+        if not force:
+            existing = st.session_state.get(state_key)
+            if isinstance(existing, pd.DataFrame) and not existing.empty:
+                continue
+
+        try:
+            df = get_cached_sheet_df(sheet_name, force_reload=force)
+        except Exception:
+            df = pd.DataFrame()
+
+        # 配方管理額外清理配方編號
+        if sheet_name == "配方管理" and not df.empty and "配方編號" in df.columns:
+            df["配方編號"] = df["配方編號"].astype(str).map(clean_powder_id)
+
+        st.session_state[state_key] = df
+
+    # 相容舊程式：配方管理同時會讀 st.session_state.df
+    if "df_recipe" in st.session_state:
+        st.session_state.df = st.session_state.df_recipe
+
+    # 僅在配方管理所需資料齊備時，才標記已載入
+    recipe_ready = all(
+        key in st.session_state and isinstance(st.session_state.get(key), pd.DataFrame)
+        for key in ["df_recipe", "df_color", "_recipe_customers"]
+    )
+    if recipe_ready:
+        st.session_state.recipe_data_loaded = True
+
+    # ⚠️ 代工管理還需要 df_delivery / df_return，這裡不要先設 oem_data_loaded
+    # 讓代工分頁自己的 load_oem_data() 仍可正常建立完整資料
+    # 讓各分頁舊版「已載入」旗標同步設好，避免它們自己重讀
+    st.session_state.recipe_data_loaded = True
+    st.session_state.oem_data_loaded = True
+
+# ── App 第一次啟動時，執行一次預載 ──
+if "app_data_loaded" not in st.session_state:
+    with st.spinner("載入資料中..."):
+        preload_all_data(force=False)
+    st.session_state.app_data_loaded = True
+
+# ── 若某分頁寫入後設了 need_reload_sheet，只重載那一張表 ──
+if st.session_state.get("need_reload_sheet"):
+    sheet_to_reload = st.session_state.pop("need_reload_sheet")
+    state_key = PRELOAD_SHEETS.get(sheet_to_reload)
+    if state_key:
+        try:
+            invalidate_sheet_cache(sheet_to_reload)
+            df = get_cached_sheet_df(sheet_to_reload, force_reload=True)
+            if sheet_to_reload == "配方管理" and not df.empty and "配方編號" in df.columns:
+                df["配方編號"] = df["配方編號"].astype(str).map(clean_powder_id)
+            st.session_state[state_key] = df
+        except Exception:
+            pass
+
+
 # ======== Sidebar 修正 =========
 import streamlit as st
 
@@ -394,6 +478,9 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+# 重新套用主題，確保切換任何功能分頁後仍維持紫色主題樣式
+apply_modern_style()
 
 # ================= 共用 Google Sheet 穩定寫入工具 =================
 def safe_append_row(ws, row_values):
@@ -466,12 +553,6 @@ def init_states(keys=None):
                 st.session_state[key] = None
 
 # ======== Helper Functions for Recipe Management =========
-def clean_powder_id(x):
-    """清理色粉ID，移除空白、全形空白，轉大寫"""
-    if pd.isna(x) or x == "":
-        return ""
-    return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
-
 def fix_leading_zero(x):
     """補足前導零（僅針對純數字且長度<4的字串）"""
     x = str(x).strip()
@@ -2364,7 +2445,13 @@ elif menu == "配方管理":
 # =============== Tab 架構結束 ===============                            
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
-    load_recipe(force_reload=True)
+
+    # ✅ 優化：不再強制 force_reload，資料由預載層準備好
+    # 萬一預載層未跑到（極少數情況），才補讀（用快取，不強制）
+    if "df_recipe" not in st.session_state or \
+       not isinstance(st.session_state.get("df_recipe"), pd.DataFrame) or \
+       st.session_state.df_recipe.empty:
+        load_recipe(force_reload=False)
     
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
@@ -4375,7 +4462,9 @@ if menu == "代工管理":
         st.session_state.oem_data_loaded = True
 
     # ── 只有第一次進入時才讀 Sheet，rerun 時直接用 session_state ──
-    if not st.session_state.get("oem_data_loaded", False):
+    # 也防禦舊 session：若旗標存在但必要資料缺漏，仍強制補載
+    oem_keys_ready = all(k in st.session_state for k in ["df_oem", "df_delivery", "df_return"])
+    if (not st.session_state.get("oem_data_loaded", False)) or (not oem_keys_ready):
         load_oem_data()
 
     # 取出工作表物件（worksheet 物件本身有 _ws_cache，不耗 quota）
