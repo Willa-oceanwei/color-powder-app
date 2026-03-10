@@ -250,7 +250,9 @@ def apply_modern_style():
     </style>
     """, unsafe_allow_html=True)
 
-apply_modern_style()
+if "style_applied" not in st.session_state:
+    apply_modern_style()
+    st.session_state.style_applied = True
  
 
 # ======== GCP SERVICE ACCOUNT =========
@@ -386,8 +388,10 @@ def preload_all_data(force=False):
         st.session_state.recipe_data_loaded = True
 
     # ⚠️ 代工管理還需要 df_delivery / df_return，這裡不要先設 oem_data_loaded
-    # 讓代工分頁自己的 load_oem_data() 仍可正常建立完整資料。
-
+    # 讓代工分頁自己的 load_oem_data() 仍可正常建立完整資料
+    # 讓各分頁舊版「已載入」旗標同步設好，避免它們自己重讀
+    st.session_state.recipe_data_loaded = True
+    st.session_state.oem_data_loaded = True
 
 # ── App 第一次啟動時，執行一次預載 ──
 if "app_data_loaded" not in st.session_state:
@@ -475,6 +479,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# 重新套用主題，確保切換任何功能分頁後仍維持紫色主題樣式
+apply_modern_style()
 
 # ================= 共用 Google Sheet 穩定寫入工具 =================
 def safe_append_row(ws, row_values):
