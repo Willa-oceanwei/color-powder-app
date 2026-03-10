@@ -250,9 +250,9 @@ def apply_modern_style():
     </style>
     """, unsafe_allow_html=True)
 
-if "style_applied" not in st.session_state:
-    apply_modern_style()
-    st.session_state.style_applied = True
+# Streamlit 每次互動都會重新渲染 DOM，樣式必須每輪注入，
+# 否則切頁時會短暫回到預設黑白主題造成閃爍。
+apply_modern_style()
  
 
 # ======== GCP SERVICE ACCOUNT =========
