@@ -375,9 +375,26 @@ def preload_all_data(force=False):
 
         st.session_state[state_key] = df
 
+
+    # 相容舊程式：配方管理同時會讀 st.session_state.df
+    if "df_recipe" in st.session_state:
+        st.session_state.df = st.session_state.df_recipe
+
+    # 僅在配方管理所需資料齊備時，才標記已載入
+    recipe_ready = all(
+        key in st.session_state and isinstance(st.session_state.get(key), pd.DataFrame)
+        for key in ["df_recipe", "df_color", "_recipe_customers"]
+    )
+    if recipe_ready:
+        st.session_state.recipe_data_loaded = True
+
+    # ⚠️ 代工管理還需要 df_delivery / df_return，這裡不要先設 oem_data_loaded
+    # 讓代工分頁自己的 load_oem_data() 仍可正常建立完整資料。
+=======
     # 讓各分頁舊版「已載入」旗標同步設好，避免它們自己重讀
     st.session_state.recipe_data_loaded = True
     st.session_state.oem_data_loaded = True
+
 
 
 # ── App 第一次啟動時，執行一次預載 ──
