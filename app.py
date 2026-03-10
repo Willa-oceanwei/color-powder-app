@@ -390,7 +390,6 @@ def preload_all_data(force=False):
 
     # ⚠️ 代工管理還需要 df_delivery / df_return，這裡不要先設 oem_data_loaded
     # 讓代工分頁自己的 load_oem_data() 仍可正常建立完整資料。
-=======
     # 讓各分頁舊版「已載入」旗標同步設好，避免它們自己重讀
     st.session_state.recipe_data_loaded = True
     st.session_state.oem_data_loaded = True
