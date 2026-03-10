@@ -1838,6 +1838,8 @@ elif menu == "配方管理":
                 st.session_state["show_edit_recipe_panel"]        = False
             if "show_delete_recipe_confirm"    not in st.session_state:
                 st.session_state["show_delete_recipe_confirm"]    = False
+            if "last_selected_recipe_code_tab3" not in st.session_state:
+                st.session_state["last_selected_recipe_code_tab3"] = ""
 
             recipe_codes  = [""] + sorted(df_recipe["配方編號"].dropna().unique().tolist())
             selected_code = st.selectbox(
@@ -1850,10 +1852,12 @@ elif menu == "配方管理":
                 key="select_recipe_code_page_tab3"
             )
 
-            if st.session_state.get("editing_recipe_code") != selected_code:
+            # 只在切換配方時重置面板，避免按下刪除確認時被立即清掉狀態
+            if st.session_state.get("last_selected_recipe_code_tab3") != selected_code:
                 st.session_state.show_edit_recipe_panel     = False
                 st.session_state.editing_recipe_code        = None
                 st.session_state.show_delete_recipe_confirm = False
+                st.session_state["last_selected_recipe_code_tab3"] = selected_code
 
             if selected_code:
                 df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
