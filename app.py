@@ -250,7 +250,9 @@ def apply_modern_style():
     </style>
     """, unsafe_allow_html=True)
 
-apply_modern_style()
+if not st.session_state.get("style_applied", False):
+    apply_modern_style()
+    st.session_state.style_applied = True
  
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
@@ -275,6 +277,17 @@ if "spreadsheet" not in st.session_state:
 spreadsheet = st.session_state["spreadsheet"]
 
 SHEET_CACHE_TTL_SECONDS = 120
+PRELOAD_SHEETS = [
+    "客戶名單",
+    "配方管理",
+    "生產單",
+    "代工管理",
+    "代工送達記錄",
+    "代工載回記錄",
+    "庫存記錄",
+    "供應商管理",
+    "色粉管理",
+]
 
 def get_cached_worksheet(sheet_name):
     cache = st.session_state.setdefault("_ws_cache", {})
@@ -320,15 +333,52 @@ def get_cached_sheet_values(sheet_name, force_reload=False, ttl_seconds=SHEET_CA
     return values
 
 def invalidate_sheet_cache(sheet_name=None):
+    reload_flags = st.session_state.setdefault("need_reload_sheet", {})
+
     if sheet_name is None:
         st.session_state.pop("_sheet_df_cache", None)
         st.session_state.pop("_ws_cache", None)
         st.session_state.pop("_sheet_values_cache", None)
+        st.session_state.pop("preloaded_data", None)
+        st.session_state.pop("preload_completed", None)
+        for name in PRELOAD_SHEETS:
+            reload_flags[name] = True
         return
 
     st.session_state.get("_sheet_df_cache", {}).pop(sheet_name, None)
     st.session_state.get("_ws_cache", {}).pop(sheet_name, None)
     st.session_state.get("_sheet_values_cache", {}).pop(sheet_name, None)
+    st.session_state.get("preloaded_data", {}).pop(sheet_name, None)
+    reload_flags[sheet_name] = True
+
+
+def preload_all_data(force_reload=False):
+    data = st.session_state.setdefault("preloaded_data", {})
+    reload_flags = st.session_state.setdefault("need_reload_sheet", {})
+
+    for sheet_name in PRELOAD_SHEETS:
+        need_reload = force_reload or reload_flags.get(sheet_name, False) or sheet_name not in data
+        if need_reload:
+            try:
+                data[sheet_name] = get_cached_sheet_df(sheet_name, force_reload=True)
+                reload_flags[sheet_name] = False
+            except Exception:
+                continue
+
+    st.session_state.preload_completed = True
+
+
+def get_preloaded_sheet_df(sheet_name, force_reload=False):
+    data = st.session_state.setdefault("preloaded_data", {})
+    reload_flags = st.session_state.setdefault("need_reload_sheet", {})
+
+    if force_reload or reload_flags.get(sheet_name, False) or sheet_name not in data:
+        df = get_cached_sheet_df(sheet_name, force_reload=True)
+        data[sheet_name] = df
+        reload_flags[sheet_name] = False
+        return df.copy()
+
+    return data[sheet_name].copy()
 
 # ======== Sidebar 修正 =========
 import streamlit as st
@@ -340,32 +390,37 @@ if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 
 # 自訂 CSS：改按鈕字體大小
-st.markdown("""
-<style>
-/* 將 Sidebar 內容往上推到極限安全值 */
-section[data-testid="stSidebar"] > div:first-child {
-    padding-top: 0px !important;
-    margin-top: -18px !important;
-}
+if not st.session_state.get("sidebar_style_applied", False):
+    st.markdown("""
+    <style>
+    /* 將 Sidebar 內容往上推到極限安全值 */
+    section[data-testid="stSidebar"] > div:first-child {
+        padding-top: 0px !important;
+        margin-top: -18px !important;
+    }
 
-/* 調整 Sidebar 標題距離 */
-.sidebar h1 {
-    margin-top: -10px !important;
-}
+    /* 調整 Sidebar 標題距離 */
+    .sidebar h1 {
+        margin-top: -10px !important;
+    }
 
-/* Sidebar 標題字體大小（你原本的） */
-.sidebar .css-1d391kg h1 {
-    font-size: 24px !important;
-}
+    /* Sidebar 標題字體大小（你原本的） */
+    .sidebar .css-1d391kg h1 {
+        font-size: 24px !important;
+    }
 
-/* Sidebar 按鈕字體大小 */
-div.stButton > button {
-    font-size: 14px !important;
-    padding: 8px 12px !important;
-    text-align: left;
-}
-</style>
-""", unsafe_allow_html=True)
+    /* Sidebar 按鈕字體大小 */
+    div.stButton > button {
+        font-size: 14px !important;
+        padding: 8px 12px !important;
+        text-align: left;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    st.session_state.sidebar_style_applied = True
+
+if not st.session_state.get("preload_completed", False):
+    preload_all_data()
 
 
 with st.sidebar:
@@ -438,7 +493,9 @@ def set_form_style():
     """, unsafe_allow_html=True)
 
 # ===== 呼叫一次，套用全程式 =====
-set_form_style()
+if not st.session_state.get("form_style_applied", False):
+    set_form_style()
+    st.session_state.form_style_applied = True
 
 # ======== 初始化 session_state =========
 def init_states(keys=None):
@@ -529,7 +586,7 @@ def fmt_num(val, digits=2):
 def load_recipe(force_reload=False):
     """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
     try:
-        df_loaded = get_cached_sheet_df("配方管理", force_reload=force_reload)
+        df_loaded = get_preloaded_sheet_df("配方管理", force_reload=force_reload)
         if not df_loaded.empty:
             return df_loaded
     except Exception as e:
@@ -1006,7 +1063,7 @@ def load_recipe(force_reload=False):
         """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
         try:
             ws_recipe = get_cached_worksheet("配方管理")
-            df_loaded = get_cached_sheet_df("配方管理", force_reload=force_reload)
+            df_loaded = get_preloaded_sheet_df("配方管理", force_reload=force_reload)
             if not df_loaded.empty:
                 return df_loaded
         except Exception as e:
@@ -1054,7 +1111,7 @@ if menu == "色粉管理":
         st.session_state.form_color.setdefault(col, "")
 
     try:
-        df = get_cached_sheet_df("色粉管理")
+        df = get_preloaded_sheet_df("色粉管理")
     except:
         df = pd.DataFrame(columns=required_columns)
 
@@ -1159,7 +1216,7 @@ elif menu == "客戶名單":
 
     # ===== 載入資料 =====
     try:
-        df = get_cached_sheet_df("客戶名單")
+        df = get_preloaded_sheet_df("客戶名單")
     except:
         df = pd.DataFrame(columns=columns)
 
@@ -1350,7 +1407,7 @@ elif menu == "配方管理":
 
         # 1️⃣ 配方管理
         try:
-            df_r = get_cached_sheet_df("配方管理", force_reload=True)
+            df_r = get_preloaded_sheet_df("配方管理", force_reload=True)
         except:
             df_r = pd.DataFrame(columns=columns)
 
@@ -1362,7 +1419,7 @@ elif menu == "配方管理":
 
         # 2️⃣ 色粉管理
         try:
-            df_p = get_cached_sheet_df("色粉管理", force_reload=True)
+            df_p = get_preloaded_sheet_df("色粉管理", force_reload=True)
             if "色粉編號" not in df_p.columns:
                 df_p = pd.DataFrame(columns=["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"])
         except:
@@ -1370,7 +1427,7 @@ elif menu == "配方管理":
 
         # 3️⃣ 客戶名單
         try:
-            df_c = get_cached_sheet_df("客戶名單", force_reload=True)
+            df_c = get_preloaded_sheet_df("客戶名單", force_reload=True)
         except:
             df_c = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
 
@@ -2364,7 +2421,7 @@ elif menu == "配方管理":
 # =============== Tab 架構結束 ===============                            
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
-    load_recipe(force_reload=True)
+    load_recipe(force_reload=False)
     
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
@@ -2417,7 +2474,7 @@ elif menu == "生產單管理":
     
     # 載入配方管理表
     try:
-        df_recipe = get_cached_sheet_df("配方管理")
+        df_recipe = get_preloaded_sheet_df("配方管理")
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
     
@@ -2435,7 +2492,7 @@ elif menu == "生產單管理":
     
     # 載入生產單表
     try:
-        df_order = get_cached_sheet_df("生產單")
+        df_order = get_preloaded_sheet_df("生產單")
         if not df_order.empty:
             df_order = df_order.astype(str)
         else:
@@ -4327,7 +4384,7 @@ if menu == "代工管理":
         """重新從 Google Sheet 讀取代工三張表，存入 session_state"""
         try:
             ws_oem_ = get_cached_worksheet("代工管理")
-            df_oem_ = get_cached_sheet_df("代工管理", force_reload=True)
+            df_oem_ = get_preloaded_sheet_df("代工管理", force_reload=True)
         except:
             try:
                 ws_oem_ = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
@@ -4340,7 +4397,7 @@ if menu == "代工管理":
 
         try:
             ws_delivery_ = get_cached_worksheet("代工送達記錄")
-            df_delivery_ = get_cached_sheet_df("代工送達記錄", force_reload=True)
+            df_delivery_ = get_preloaded_sheet_df("代工送達記錄", force_reload=True)
         except:
             try:
                 ws_delivery_ = spreadsheet.add_worksheet("代工送達記錄", rows=100, cols=10)
@@ -4351,7 +4408,7 @@ if menu == "代工管理":
 
         try:
             ws_return_ = get_cached_worksheet("代工載回記錄")
-            df_return_ = get_cached_sheet_df("代工載回記錄", force_reload=True)
+            df_return_ = get_preloaded_sheet_df("代工載回記錄", force_reload=True)
         except:
             try:
                 ws_return_ = spreadsheet.add_worksheet("代工載回記錄", rows=100, cols=10)
@@ -6100,7 +6157,7 @@ elif menu == "庫存區":
     force_reload_stock = st.session_state.pop("stock_need_reload", False)
 
     try:
-        records = get_cached_sheet_df("庫存記錄", force_reload=force_reload_stock).to_dict("records")
+        records = get_preloaded_sheet_df("庫存記錄", force_reload=force_reload_stock).to_dict("records")
         df_stock = pd.DataFrame(records) if records else pd.DataFrame(
             columns=["類型", "色粉編號", "日期", "數量", "單位", "備註"]
         )
