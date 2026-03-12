@@ -247,6 +247,19 @@ def apply_modern_style():
         color: #f7f2ff !important;
     }
 
+    /* ===== DataFrame 顯示優化（減少左右捲動） ===== */
+    div[data-testid="stDataFrame"] [role="gridcell"],
+    div[data-testid="stDataFrame"] [role="columnheader"] {
+        white-space: normal !important;
+        word-break: break-word !important;
+        line-height: 1.35 !important;
+    }
+
+    /* DataFrame 放大視圖寬度優化 */
+    div[data-testid="stModal"] div[data-testid="stDataFrame"] {
+        width: min(96vw, 1700px) !important;
+    }
+
     </style>
     """, unsafe_allow_html=True)
 
@@ -6313,10 +6326,18 @@ elif menu == "庫存區":
     def build_stock_summary(stock_powder="", match_mode="部分匹配", query_start=None, query_end=None, category_filter=None):
         """依條件計算庫存摘要（單位 g），可依色粉類別過濾。"""
         df_stock_copy = df_stock.copy()
-        df_stock_copy["日期"] = pd.to_datetime(df_stock_copy["日期"], errors="coerce").dt.normalize()
-        df_stock_copy["日期時間"] = pd.to_datetime(
-            df_stock_copy.get("日期時間", df_stock_copy["日期"]), errors="coerce"
+        raw_date_dt = (
+            pd.to_datetime(df_stock_copy["日期"], errors="coerce")
+            if "日期" in df_stock_copy.columns
+            else pd.Series(pd.NaT, index=df_stock_copy.index)
         )
+        raw_datetime_dt = (
+            pd.to_datetime(df_stock_copy["日期時間"], errors="coerce")
+            if "日期時間" in df_stock_copy.columns
+            else pd.Series(pd.NaT, index=df_stock_copy.index)
+        )
+        df_stock_copy["日期時間"] = raw_datetime_dt.combine_first(raw_date_dt)
+        df_stock_copy["日期"] = raw_date_dt.dt.normalize()
         df_stock_copy["數量_g"] = df_stock_copy.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
         df_stock_copy["色粉編號"] = df_stock_copy["色粉編號"].astype(str).str.strip()
 
@@ -6414,15 +6435,14 @@ elif menu == "庫存區":
             final_g = ini_value + in_qty - usage_qty
             st.session_state["last_final_stock"][pid] = final_g
 
-            if not str(pid).endswith(("01", "001", "0001")):
-                stock_summary.append({
-                    "色粉編號": pid,
-                    "期初庫存": format_usage(ini_value),
-                    "區間進貨": format_usage(in_qty),
-                    "區間用量": format_usage(usage_qty),
-                    "期末庫存": format_usage(final_g),
-                    "備註": ini_note,
-                })
+            stock_summary.append({
+                "色粉編號": pid,
+                "期初庫存": format_usage(ini_value),
+                "區間進貨": format_usage(in_qty),
+                "區間用量": format_usage(usage_qty),
+                "期末庫存": format_usage(final_g),
+                "備註": ini_note,
+            })
 
         return stock_summary, None
 
@@ -6520,6 +6540,7 @@ elif menu == "庫存區":
             st.session_state.pop("stock_calc_time", None)   # 讓生產單頁的庫存也重算
 
             st.success(f"✅ 初始庫存已儲存　色粉：{powder_id}　數量：{qty_val} {ini_unit}")
+            st.toast(f"✅ 初始庫存儲存成功：{powder_id}", icon="📦")
             st.rerun()
 
     # ====================================================================
@@ -6569,7 +6590,14 @@ elif menu == "庫存區":
         cached_result = st.session_state.get("stock_query_result")
         if cached_result is not None:
             df_result = pd.DataFrame(cached_result)
-            st.dataframe(df_result, use_container_width=True, hide_index=True)
+            st.dataframe(
+                df_result,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "備註": st.column_config.TextColumn(width="large"),
+                },
+            )
             st.caption("ℹ️ 庫存僅扣除期初庫存儲存後之生產單（含當日）")
             st.caption("🌟 期末庫存 = 期初庫存 + 其後進貨 − 其後用量（單位皆以 g 計算）")
 
@@ -6616,8 +6644,19 @@ elif menu == "庫存區":
         cached_master_result = st.session_state.get("master_stock_query_result")
         if cached_master_result is not None:
             df_master_result = pd.DataFrame(cached_master_result)
-            st.dataframe(df_master_result, use_container_width=True, hide_index=True)
+            df_master_result = df_master_result[
+                ~df_master_result["色粉編號"].astype(str).str.endswith(("01", "001", "0001"))
+            ]
+            st.dataframe(
+                df_master_result,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "備註": st.column_config.TextColumn(width="large"),
+                },
+            )
             st.caption("🌟 顯示條件：色粉管理「色粉類別」= 色母")
+            st.caption("🔎 額外排除：色粉編號尾碼為 01 / 001 / 0001 的項目")
 
     # ====================================================================
     # Tab 3：色粉用量排行榜
