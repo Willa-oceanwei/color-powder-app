@@ -255,9 +255,22 @@ def apply_modern_style():
         line-height: 1.35 !important;
     }
 
+    /* DataFrame 放大視圖：調整 Modal 容器，避免左半邊裁切 */
+    div[data-testid="stModal"] > div > div {
+        width: min(98vw, 1800px) !important;
+        max-width: min(98vw, 1800px) !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    div[data-testid="stModal"] div[data-testid="stDataFrame"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        
     /* DataFrame 放大視圖寬度優化 */
     div[data-testid="stModal"] div[data-testid="stDataFrame"] {
         width: min(96vw, 1700px) !important;
+
     }
 
     </style>
@@ -6326,6 +6339,23 @@ elif menu == "庫存區":
     def build_stock_summary(stock_powder="", match_mode="部分匹配", query_start=None, query_end=None, category_filter=None):
         """依條件計算庫存摘要（單位 g），可依色粉類別過濾。"""
         df_stock_copy = df_stock.copy()
+
+        def parse_stock_datetime_series(series):
+            if series is None:
+                return pd.Series(pd.NaT, index=df_stock_copy.index)
+
+            dt_parsed = pd.to_datetime(series, errors="coerce")
+            numeric_serial = pd.to_numeric(series, errors="coerce")
+            serial_dt = pd.to_datetime("1899-12-30") + pd.to_timedelta(numeric_serial, unit="D")
+            dt_parsed = dt_parsed.combine_first(serial_dt.where(numeric_serial.notna()))
+            return dt_parsed
+
+        raw_date_dt = parse_stock_datetime_series(
+            df_stock_copy["日期"] if "日期" in df_stock_copy.columns else None
+        )
+        raw_datetime_dt = parse_stock_datetime_series(
+            df_stock_copy["日期時間"] if "日期時間" in df_stock_copy.columns else None
+
         raw_date_dt = (
             pd.to_datetime(df_stock_copy["日期"], errors="coerce")
             if "日期" in df_stock_copy.columns
@@ -6335,6 +6365,7 @@ elif menu == "庫存區":
             pd.to_datetime(df_stock_copy["日期時間"], errors="coerce")
             if "日期時間" in df_stock_copy.columns
             else pd.Series(pd.NaT, index=df_stock_copy.index)
+
         )
         df_stock_copy["日期時間"] = raw_datetime_dt.combine_first(raw_date_dt)
         df_stock_copy["日期"] = raw_date_dt.dt.normalize()
@@ -6532,7 +6563,7 @@ elif menu == "庫存區":
                 ini_unit,
                 ini_note
             ]
-            ws_stock.append_row(new_row_values, value_input_option="USER_ENTERED")
+            ws_stock.append_row(new_row_values, value_input_option="RAW")
 
             # ── 步驟 4：讓下次讀取強制 reload ──
             invalidate_sheet_cache("庫存記錄")
@@ -6645,7 +6676,10 @@ elif menu == "庫存區":
         if cached_master_result is not None:
             df_master_result = pd.DataFrame(cached_master_result)
             df_master_result = df_master_result[
+
+                ~df_master_result["色粉編號"].astype(str).str.contains(r"(?<!\d)(?:01|001|0001)$", regex=True)
                 ~df_master_result["色粉編號"].astype(str).str.endswith(("01", "001", "0001"))
+
             ]
             st.dataframe(
                 df_master_result,
@@ -6656,6 +6690,7 @@ elif menu == "庫存區":
                 },
             )
             st.caption("🌟 顯示條件：色粉管理「色粉類別」= 色母")
+            st.caption("🔎 額外排除：色粉編號尾碼為 01 / 001 / 0001，且尾碼前一碼不是數字")
             st.caption("🔎 額外排除：色粉編號尾碼為 01 / 001 / 0001 的項目")
 
     # ====================================================================
