@@ -6670,8 +6670,15 @@ elif menu == "庫存區":
             b1, b2 = st.columns(2)
             submit_master_query = b1.form_submit_button("計算色母庫存")
             submit_master_all   = b2.form_submit_button("顯示全色母數量")
-    
+
         if submit_master_query or submit_master_all:
+
+            df_stock = get_cached_sheet_df("庫存記錄", force_reload=False)  # 用快取但確保型別正確
+            df_stock_copy = df_stock.copy()
+            df_stock_copy["日期_dt"] = df_stock_copy["日期"].apply(
+                lambda x: pd.to_datetime(str(x).strip(), errors="coerce") if x else pd.NaT
+            )
+            
             query_start    = master_start if use_date_range else None
             query_end      = master_end   if use_date_range else None
             powder_keyword = "" if submit_master_all else master_powder.strip()
