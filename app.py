@@ -6639,20 +6639,6 @@ elif menu == "庫存區":
     # ====================================================================
     with tab5:
         st.caption("ℹ️ 不選擇日期區間時，會顯示目前庫存數量。")
-  
-        # ✅ 加入診斷區塊（確認問題後可移除）
-        with st.expander("🔍 診斷：庫存記錄原始資料", expanded=False):
-            df_diag = df_stock[df_stock["類型"].astype(str).str.strip() == "初始"].copy()
-            if not df_diag.empty:
-                st.dataframe(df_diag[["類型","色粉編號","日期","數量","單位","備註"]], 
-                             use_container_width=True)
-                # 顯示每個「日期」欄的原始型別與值
-                for _, row in df_diag.iterrows():
-                    raw = row.get("日期", "")
-                    parsed = pd.to_datetime(raw, errors="coerce")
-                    st.write(f"色粉：{row['色粉編號']} | 原始值：`{repr(raw)}` | 型別：`{type(raw).__name__}` | 解析結果：`{parsed}`")
-            else:
-                st.info("目前沒有初始庫存記錄")
     
         with st.form("form_master_stock_query"):
             use_date_range = st.checkbox("使用日期區間", value=False, key="master_use_date_range")
