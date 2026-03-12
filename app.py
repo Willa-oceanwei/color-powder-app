@@ -6245,9 +6245,12 @@ elif menu == "庫存區":
             val = float(val_g or 0)
         except Exception:
             val = 0.0
+        def _trim_num(num):
+            return f"{num:.2f}".rstrip("0").rstrip(".")
+
         if abs(val) >= 1000:
-            return f"{val / 1000:.2f} kg"
-        return f"{val:.2f} g"
+            return f"{_trim_num(val / 1000)} kg"
+        return f"{_trim_num(val)} g"
 
     def calc_usage_for_stock(powder_id, df_order, df_recipe, start_dt, end_dt):
         """計算指定色粉在 (start_dt, end_dt] 區間的生產用量（g）"""
