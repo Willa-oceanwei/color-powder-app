@@ -6763,13 +6763,17 @@ elif menu == "庫存區":
                     ini_value  = latest_ini["數量_g"]
                     ini_dt     = latest_ini["日期_dt"]
     
-                    # ✅ 備註只顯示日期
+                    # ✅ 備註顯示期初日期，若有輸入期初備註則一併帶出
+                    ini_remark = str(latest_ini.get("備註", "")).strip()
                     if pd.notna(ini_dt):
                         ini_note = f"期初：{ini_dt.strftime('%Y/%m/%d')}"
                     else:
                         # fallback：直接讀原始字串的前10碼（yyyy/mm/dd）
                         raw_str = str(latest_ini.get("日期", "")).strip()
                         ini_note = f"期初：{raw_str[:10]}" if raw_str else "期初：—"
+
+                    if ini_remark:
+                        ini_note = f"{ini_note} | {ini_remark}"
                 else:
                     ini_value = 0.0
                     ini_dt    = pd.Timestamp.min
