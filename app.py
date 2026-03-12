@@ -1581,11 +1581,13 @@ elif menu == "配方管理":
     # ============================================================
     with tab1:
     
-        # ===== toast 顯示（rerun 後觸發）=====
-        if "toast_msg" in st.session_state:
-            st.toast(st.session_state.toast_msg, icon=st.session_state.get("toast_icon", "✅"))
-            st.session_state.pop("toast_msg")
-            st.session_state.pop("toast_icon", None)
+        # ===== 配方 toast 顯示（rerun 後觸發）=====
+        if st.session_state.get("recipe_toast"):
+            st.toast(
+                st.session_state["recipe_toast"].get("msg", "已儲存"),
+                icon=st.session_state["recipe_toast"].get("icon", "✅")
+            )
+            st.session_state.pop("recipe_toast", None)
     
         # ===== 表單初始化 =====
         if "form_recipe" not in st.session_state or not st.session_state.form_recipe:
@@ -1719,8 +1721,7 @@ elif menu == "配方管理":
                     if edit_idx is not None:
                         df.iloc[edit_idx] = pd.Series(fr, index=df.columns)
                         save_recipe_row(df, is_edit=True, edit_index=edit_idx)
-                        st.session_state.toast_msg  = f"配方 {fr['配方編號']} 已更新！"
-                        st.session_state.toast_icon = "✏️"
+                        st.session_state.recipe_toast = {"msg": f"配方 {fr['配方編號']} 已更新！", "icon": "✏️"}
                     else:
                         if fr["配方編號"] in df["配方編號"].values:
                             st.warning("⚠️ 此配方編號已存在！")
@@ -1728,8 +1729,7 @@ elif menu == "配方管理":
                             fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             df = pd.concat([df,pd.DataFrame([fr])], ignore_index=True)
                             save_recipe_row(df, is_edit=False)
-                            st.session_state.toast_msg  = f"新增配方 {fr['配方編號']} 成功！"
-                            st.session_state.toast_icon = "🎉"
+                            st.session_state.recipe_toast = {"msg": f"新增配方 {fr['配方編號']} 成功！", "icon": "🎉"}
     
                     st.session_state.form_recipe       = {col:"" for col in columns}
                     st.session_state.edit_recipe_index = None
@@ -5705,10 +5705,12 @@ elif menu == "查詢區":
                     candidate_ids = set()
     
                 # 2) 過濾生產單日期區間
+                start_dt = pd.to_datetime(start_date)
+                end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
                 orders_in_range = df_order_local[
                     (df_order_local["生產日期"].notna()) &
-                    (df_order_local["生產日期"] >= pd.to_datetime(start_date)) &
-                    (df_order_local["生產日期"] <= pd.to_datetime(end_date))
+                    (df_order_local["生產日期"] >= start_dt) &
+                    (df_order_local["生產日期"] < end_dt)
                 ]
     
                 # 3) 計算用量
@@ -7028,10 +7030,12 @@ elif menu == "庫存區":
                     else:
                         candidate_ids = set()
 
+                    start_dt = pd.to_datetime(start_date)
+                    end_dt = pd.to_datetime(end_date) + pd.Timedelta(days=1)
                     orders_in_range = df_order_local[
                         df_order_local["生產日期"].notna() &
-                        (df_order_local["生產日期"] >= pd.to_datetime(start_date)) &
-                        (df_order_local["生產日期"] <= pd.to_datetime(end_date))
+                        (df_order_local["生產日期"] >= start_dt) &
+                        (df_order_local["生產日期"] < end_dt)
                     ]
 
                     for _, order in orders_in_range.iterrows():
