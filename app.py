@@ -6355,7 +6355,7 @@ elif menu == "庫存區":
         )
         raw_datetime_dt = parse_stock_datetime_series(
             df_stock_copy["日期時間"] if "日期時間" in df_stock_copy.columns else None
-
+        )
         raw_date_dt = (
             pd.to_datetime(df_stock_copy["日期"], errors="coerce")
             if "日期" in df_stock_copy.columns
