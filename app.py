@@ -6678,6 +6678,7 @@ elif menu == "庫存區":
             df_master_result = df_master_result[
 
                 ~df_master_result["色粉編號"].astype(str).str.contains(r"(?<!\d)(?:01|001|0001)$", regex=True)
+                &
                 ~df_master_result["色粉編號"].astype(str).str.endswith(("01", "001", "0001"))
 
             ]
