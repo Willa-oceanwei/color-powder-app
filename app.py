@@ -6660,14 +6660,17 @@ elif menu == "庫存區":
             st.caption("ℹ️ 庫存僅扣除期初庫存儲存後之生產單（含當日）")
             st.caption("🌟 期末庫存 = 期初庫存 + 其後進貨 − 其後用量（單位皆以 g 計算）")
 
+   
     # ====================================================================
-    # Tab 5：色母庫存查詢（除錯版 - 找出用量為0的原因）
-    # 用完後把 show_debug checkbox 關掉即可，不影響正常使用
+    # Tab 5：色母庫存查詢（修復版）
+    # 根本問題：date_input disabled=True 時值仍是今天，
+    #           導致不勾選日期區間時反而把所有舊生產單篩掉。
+    # 修復：不勾選時，query_start/end 強制設為 None，不做日期篩選。
     # ====================================================================
     with tab5:
         st.caption("ℹ️ 不選擇日期區間時，會顯示截至今日的累積庫存。")
 
-        # checkbox 放在 form 外
+        # checkbox 放在 form 外才能即時控制 disabled
         use_date_range = st.checkbox(
             "使用日期區間",
             value=st.session_state.get("_tab5_use_date_range", False),
@@ -6675,19 +6678,25 @@ elif menu == "庫存區":
         )
         st.session_state["_tab5_use_date_range"] = use_date_range
 
-        # 除錯開關（平常關掉）
-        show_debug = st.checkbox("🐛 顯示除錯資訊", value=True, key="_tab5_debug")
-
         with st.form("form_master_stock_query"):
             col1, col2 = st.columns(2)
-            master_start = col1.date_input("查詢起日", key="master_stock_start", disabled=not use_date_range)
-            master_end   = col2.date_input("查詢迄日", key="master_stock_end",   disabled=not use_date_range)
+            master_start = col1.date_input(
+                "查詢起日", key="master_stock_start",
+                disabled=not use_date_range
+            )
+            master_end = col2.date_input(
+                "查詢迄日", key="master_stock_end",
+                disabled=not use_date_range
+            )
 
             c_input, c_match = st.columns([3, 1])
             with c_input:
                 master_powder = st.text_input("色母編號（留空=全部）", key="master_powder")
             with c_match:
-                master_match_mode = st.selectbox("匹配模式", ["部分匹配", "精準匹配"], index=0, key="master_match_mode")
+                master_match_mode = st.selectbox(
+                    "匹配模式", ["部分匹配", "精準匹配"],
+                    index=0, key="master_match_mode"
+                )
 
             b1, b2 = st.columns(2)
             submit_master_query = b1.form_submit_button("計算色母庫存")
@@ -6695,21 +6704,19 @@ elif menu == "庫存區":
 
         if submit_master_query or submit_master_all:
 
-            query_start    = master_start if use_date_range else None
-            query_end      = master_end   if use_date_range else None
+            # ★ 核心修復：不勾選時強制 None，不用 date_input 的預設值
+            query_start = master_start if use_date_range else None
+            query_end   = master_end   if use_date_range else None
+
             powder_keyword = "" if submit_master_all else master_powder.strip()
 
             # ── Step 1: 色母編號清單 ──
             df_color_local = st.session_state.get("df_color", pd.DataFrame()).copy()
 
-            if show_debug:
-                st.markdown("### 🐛 除錯資訊")
-                st.write(f"**df_color 筆數：** {len(df_color_local)}")
-                if not df_color_local.empty and "色粉類別" in df_color_local.columns:
-                    st.write("**色粉類別分佈：**", df_color_local["色粉類別"].value_counts().to_dict())
-
-            if df_color_local.empty or "色粉編號" not in df_color_local.columns or "色粉類別" not in df_color_local.columns:
-                st.warning("⚠️ 缺少色粉管理資料")
+            if (df_color_local.empty
+                    or "色粉編號"  not in df_color_local.columns
+                    or "色粉類別" not in df_color_local.columns):
+                st.warning("⚠️ 缺少色粉管理資料，請先至「色粉管理」建立色母資料。")
                 st.stop()
 
             master_ids_all = set(
@@ -6718,69 +6725,44 @@ elif menu == "庫存區":
                 ]["色粉編號"].astype(str).str.strip().tolist()
             )
 
-            if show_debug:
-                st.write(f"**色母編號清單：** {sorted(master_ids_all)}")
-
             if not master_ids_all:
-                st.warning("⚠️ 色粉管理中沒有「色母」類別的資料")
+                st.warning("⚠️ 色粉管理中沒有「色母」類別的資料。")
                 st.stop()
 
             if powder_keyword:
                 if master_match_mode == "精準匹配":
                     master_ids_filtered = {p for p in master_ids_all if p == powder_keyword}
                 else:
-                    master_ids_filtered = {p for p in master_ids_all if powder_keyword.upper() in p.upper()}
+                    master_ids_filtered = {
+                        p for p in master_ids_all if powder_keyword.upper() in p.upper()
+                    }
             else:
                 master_ids_filtered = master_ids_all
 
-            if show_debug:
-                st.write(f"**過濾後色母：** {sorted(master_ids_filtered)}")
+            if not master_ids_filtered:
+                st.warning(f"⚠️ 找不到符合「{powder_keyword}」的色母編號。")
+                st.stop()
 
             # ── Step 2: 生產單 ──
             df_order_local = st.session_state.get("df_order", pd.DataFrame()).copy()
 
-            if show_debug:
-                st.write(f"**df_order 筆數：** {len(df_order_local)}")
-                if not df_order_local.empty:
-                    st.write(f"**df_order 欄位：** {list(df_order_local.columns)}")
-                    # 顯示前幾筆的關鍵欄位
-                    key_cols = [c for c in ["生產單號","配方編號","生產日期","建立時間","包裝重量1","包裝份數1"] if c in df_order_local.columns]
-                    st.write("**生產單前5筆：**")
-                    st.dataframe(df_order_local[key_cols].head(5))
-
             if not df_order_local.empty:
-                # 嘗試多個欄位解析日期
-                date_parsed = pd.Series(pd.NaT, index=df_order_local.index)
-
-                for col_try in ["生產日期", "建立時間"]:
-                    if col_try in df_order_local.columns:
-                        parsed = pd.to_datetime(df_order_local[col_try], errors="coerce")
-                        date_parsed = date_parsed.combine_first(parsed)
-                        if show_debug:
-                            ok_count = parsed.notna().sum()
-                            st.write(f"**「{col_try}」成功解析筆數：** {ok_count}/{len(df_order_local)}")
-                            if ok_count > 0:
-                                st.write(f"  範例：{parsed.dropna().iloc[0]}")
-
-                df_order_local["生產日期_dt"] = date_parsed.dt.normalize()
-
-                if show_debug:
-                    nat_count = df_order_local["生產日期_dt"].isna().sum()
-                    st.write(f"**生產日期_dt NaT 筆數：** {nat_count}/{len(df_order_local)}")
+                df_order_local["生產日期_dt"] = pd.to_datetime(
+                    df_order_local.get("生產日期", pd.Series(dtype=str)),
+                    errors="coerce"
+                ).dt.normalize()
 
             # ── Step 3: 配方管理 ──
             df_recipe_local = st.session_state.get("df_recipe", pd.DataFrame()).copy()
 
-            if show_debug:
-                st.write(f"**df_recipe 筆數：** {len(df_recipe_local)}")
-
-            powder_cols_list = [f"色粉編號{i}" for i in range(1, 9)]
-            powder_wt_cols   = [f"色粉重量{i}" for i in range(1, 9)]
-            for c in powder_cols_list + powder_wt_cols + ["配方編號", "配方類別", "原始配方"]:
+            for c in [f"色粉編號{i}" for i in range(1, 9)] + \
+                     [f"色粉重量{i}" for i in range(1, 9)] + \
+                     ["配方編號", "配方類別", "原始配方"]:
                 if c not in df_recipe_local.columns:
                     df_recipe_local[c] = ""
 
-            # ── Step 4: 建立配方→色母用量快取 ──
+            # ── Step 4: 建立「配方 → 含哪些色母及用量」快取 ──
+            # key = 配方編號（附加配方用原始配方ID）
             recipe_powder_map = {}
 
             for _, rec in df_recipe_local.iterrows():
@@ -6788,13 +6770,9 @@ elif menu == "庫存區":
                 if not rid:
                     continue
                 cat = str(rec.get("配方類別", "")).strip()
-                if cat == "附加配方":
-                    # 附加配方用原始配方ID當key
-                    key_rid = str(rec.get("原始配方", "")).strip()
-                    if not key_rid:
-                        continue
-                else:
-                    key_rid = rid
+                key_rid = str(rec.get("原始配方", "")).strip() if cat == "附加配方" else rid
+                if not key_rid:
+                    continue
 
                 for i in range(1, 9):
                     pid = str(rec.get(f"色粉編號{i}", "")).strip()
@@ -6807,11 +6785,9 @@ elif menu == "庫存區":
                     if pw > 0:
                         recipe_powder_map.setdefault(key_rid, []).append((pid, pw))
 
-            if show_debug:
-                st.write(f"**recipe_powder_map（含色母的配方）：** {dict(list(recipe_powder_map.items())[:10])}")
-
             # ── Step 5: 預計算每張生產單的色母用量 ──
-            order_usage_records = []   # (date_dt, pid, usage_g)
+            # (date_dt, pid, usage_g)
+            order_usage_records = []
 
             if not df_order_local.empty:
                 for _, order in df_order_local.iterrows():
@@ -6820,10 +6796,7 @@ elif menu == "庫存區":
                         continue
 
                     recipe_id = str(order.get("配方編號", "")).strip()
-                    if not recipe_id:
-                        continue
-
-                    if recipe_id not in recipe_powder_map:
+                    if not recipe_id or recipe_id not in recipe_powder_map:
                         continue
 
                     packs_total_kg = 0.0
@@ -6847,44 +6820,6 @@ elif menu == "庫存區":
                         if usage_g > 0:
                             order_usage_records.append((order_date_dt, pid, usage_g))
 
-            if show_debug:
-                st.write(f"**order_usage_records 總筆數：** {len(order_usage_records)}")
-                if order_usage_records:
-                    st.write("**前10筆用量記錄：**")
-                    df_debug_usage = pd.DataFrame(
-                        order_usage_records, columns=["日期", "色母編號", "用量_g"]
-                    ).head(10)
-                    st.dataframe(df_debug_usage)
-
-                # 特別針對搜尋的色母編號顯示
-                if powder_keyword:
-                    target_records = [(d, p, u) for d, p, u in order_usage_records if p == powder_keyword]
-                    st.write(f"**「{powder_keyword}」的用量記錄（共{len(target_records)}筆）：**")
-                    if target_records:
-                        st.dataframe(pd.DataFrame(target_records, columns=["日期", "色母編號", "用量_g"]))
-                    else:
-                        st.error(f"❌ 找不到 {powder_keyword} 的任何用量記錄！")
-                        # 進一步診斷
-                        st.write("**診斷：配方管理中含此色母的配方：**")
-                        for rid, entries in recipe_powder_map.items():
-                            for pid, pw in entries:
-                                if pid == powder_keyword:
-                                    st.write(f"  配方 {rid} → {pid} = {pw} g/kg")
-
-                        st.write("**診斷：生產單中用到這些配方的筆數：**")
-                        if not df_order_local.empty:
-                            relevant_rids = {rid for rid, entries in recipe_powder_map.items()
-                                             for pid, pw in entries if pid == powder_keyword}
-                            matched_orders = df_order_local[
-                                df_order_local["配方編號"].astype(str).str.strip().isin(relevant_rids)
-                            ]
-                            st.write(f"  相關配方ID：{relevant_rids}")
-                            st.write(f"  生產單中匹配筆數：{len(matched_orders)}")
-                            if not matched_orders.empty:
-                                show_c = [c for c in ["生產單號","配方編號","生產日期","建立時間",
-                                                       "包裝重量1","包裝份數1","生產日期_dt"] if c in matched_orders.columns]
-                                st.dataframe(matched_orders[show_c])
-
             # ── Step 6: 庫存記錄 ──
             try:
                 df_stock_local = get_cached_sheet_df("庫存記錄").copy()
@@ -6892,8 +6827,12 @@ elif menu == "庫存區":
                 df_stock_local = pd.DataFrame()
 
             if not df_stock_local.empty:
-                raw_date  = pd.to_datetime(df_stock_local.get("日期",  pd.Series(dtype=str)), errors="coerce")
-                raw_dtime = pd.to_datetime(df_stock_local.get("日期時間", pd.Series(dtype=str)), errors="coerce")
+                raw_date  = pd.to_datetime(
+                    df_stock_local.get("日期",    pd.Series(dtype=str)), errors="coerce"
+                )
+                raw_dtime = pd.to_datetime(
+                    df_stock_local.get("日期時間", pd.Series(dtype=str)), errors="coerce"
+                )
                 df_stock_local["日期_dt"]  = raw_dtime.combine_first(raw_date)
                 df_stock_local["數量_g"]   = df_stock_local.apply(
                     lambda r: to_grams(r.get("數量", 0), r.get("單位", "g")), axis=1
@@ -6903,10 +6842,14 @@ elif menu == "庫存區":
             # ── Step 7: 逐色母計算 ──
             today_dt = pd.Timestamp.today().normalize()
 
+            # ★ 查詢結束點：有指定用指定日，否則用今天
+            range_end_global = pd.Timestamp(query_end).normalize() if query_end else today_dt
+
             stock_summary = []
 
             for pid in sorted(master_ids_filtered):
 
+                # 7a. 期初庫存
                 ini_value = 0.0
                 ini_dt    = pd.Timestamp.min
                 ini_note  = "無期初記錄"
@@ -6930,37 +6873,47 @@ elif menu == "庫存區":
                 else:
                     df_pid = pd.DataFrame()
 
-                # 計算區間
+                # 7b. 計算起點
+                # ★ 未使用日期區間：從期初日起算（無期初則從最遠）
+                # ★ 使用日期區間：起點取「期初日」與「查詢起日」較晚者
                 if query_start:
                     qs_dt = pd.Timestamp(query_start).normalize()
                     range_start = max(ini_dt, qs_dt) if ini_dt != pd.Timestamp.min else qs_dt
                 else:
-                    range_start = ini_dt
+                    # 不限起日 → 從期初日開始，無期初則不限（pd.Timestamp.min）
+                    range_start = ini_dt  # 可能是 Timestamp.min（代表不限）
 
-                range_end = pd.Timestamp(query_end).normalize() if query_end else today_dt
+                range_end = range_end_global
 
-                # 進貨
+                # 7c. 進貨量
                 in_qty = 0.0
                 if not df_pid.empty:
-                    mask_in = (df_pid["類型"].astype(str).str.strip() == "進貨")
-                    if pd.notna(range_start) and range_start != pd.Timestamp.min:
-                        mask_in &= (df_pid["日期_dt"].dt.normalize() > range_start.normalize())
-                    mask_in &= (df_pid["日期_dt"].dt.normalize() <= range_end)
+                    mask_in = df_pid["類型"].astype(str).str.strip() == "進貨"
+                    if range_start != pd.Timestamp.min:
+                        mask_in &= df_pid["日期_dt"].dt.normalize() > range_start.normalize()
+                    mask_in &= df_pid["日期_dt"].dt.normalize() <= range_end
                     in_qty = df_pid[mask_in]["數量_g"].sum()
 
-                # 用量
+                # 7d. 生產用量
                 usage_qty = 0.0
-                range_start_norm = range_start.normalize() if (pd.notna(range_start) and range_start != pd.Timestamp.min) else pd.Timestamp.min
+                range_start_norm = (
+                    range_start.normalize()
+                    if range_start != pd.Timestamp.min and pd.notna(range_start)
+                    else pd.Timestamp.min
+                )
 
                 for rec_date, rec_pid, rec_usage in order_usage_records:
                     if rec_pid != pid:
                         continue
+                    # 嚴格大於期初日（或不限）
                     if range_start_norm != pd.Timestamp.min and rec_date <= range_start_norm:
                         continue
+                    # 不超過結束日
                     if rec_date > range_end:
                         continue
                     usage_qty += rec_usage
 
+                # 7e. 期末庫存
                 final_g = ini_value + in_qty - usage_qty
                 st.session_state.setdefault("last_final_stock", {})[pid] = final_g
 
@@ -6995,11 +6948,13 @@ elif menu == "庫存區":
                         "備註":     st.column_config.TextColumn("備註",     width="medium"),
                     },
                 )
+                st.caption("🌟 條件：色粉管理「色粉類別」= 色母")
                 st.caption("📅 期末庫存 = 期初庫存 + 期初後進貨 − 期初後用量")
                 if use_date_range:
                     st.caption(f"📅 查詢區間：{master_start} ～ {master_end}")
                 else:
-                    st.caption("📅 未使用日期區間，顯示截至今日的累積庫存")
+                    st.caption("📅 未指定日期區間，計算截至今日的累積庫存")
+
 
     # ====================================================================
     # Tab 3：色粉用量排行榜
