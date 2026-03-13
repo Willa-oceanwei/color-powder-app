@@ -6884,47 +6884,42 @@ elif menu == "庫存區":
 
                 range_end = range_end_global
 
-                if has_ini:
-                    # 有期初：起點 = max(期初日, 查詢起日)
-                    if query_start:
-                        qs_dt = pd.Timestamp(query_start).normalize()
-                        range_start = max(ini_dt_norm, qs_dt)
-                    else:
-                        range_start = ini_dt_norm
+                # qs_dt = 查詢起日（含當天）；ini_dt_norm = 期初日（嚴格大於）
+                qs_dt = pd.Timestamp(query_start).normalize() if query_start else None
 
-                    # 期初日在查詢區間結束之後 → 整段為 0
-                    if ini_dt_norm > range_end:
-                        stock_summary.append({
-                            "色母編號": pid,
-                            "期初庫存": format_usage(0),
-                            "區間進貨": format_usage(0),
-                            "區間用量": format_usage(0),
-                            "期末庫存": format_usage(0),
-                            "備註": f"期初（{ini_dt.strftime('%Y/%m/%d')}）在查詢區間結束後",
-                        })
-                        continue
-                else:
-                    # 無期初：起點 = 查詢起日（無則不限）
-                    range_start = (
-                        pd.Timestamp(query_start).normalize()
-                        if query_start else pd.Timestamp.min
-                    )
+                if has_ini and ini_dt_norm > range_end:
+                    # 期初日在查詢結束後 → 整段為 0
+                    stock_summary.append({
+                        "色母編號": pid,
+                        "期初庫存": format_usage(0),
+                        "區間進貨": format_usage(0),
+                        "區間用量": format_usage(0),
+                        "期末庫存": format_usage(0),
+                        "備註": f"期初（{ini_dt.strftime('%Y/%m/%d')}）在查詢區間結束後",
+                    })
+                    continue
 
-                # 7c. 進貨量（嚴格大於起點，不超過結束日）
+                # 7c. 進貨量
+                # 嚴格大於期初日（避免重算期初當天）AND 大於等於查詢起日（含當天）
                 in_qty = 0.0
                 if not df_pid.empty:
                     mask_in = df_pid["類型"].astype(str).str.strip() == "進貨"
-                    if range_start != pd.Timestamp.min:
-                        mask_in &= df_pid["日期_dt"].dt.normalize() > range_start
+                    if has_ini:
+                        mask_in &= df_pid["日期_dt"].dt.normalize() > ini_dt_norm
+                    if qs_dt is not None:
+                        mask_in &= df_pid["日期_dt"].dt.normalize() >= qs_dt
                     mask_in &= df_pid["日期_dt"].dt.normalize() <= range_end
                     in_qty = df_pid[mask_in]["數量_g"].sum()
 
-                # 7d. 生產用量（嚴格大於起點，不超過結束日）
+                # 7d. 生產用量
+                # 嚴格大於期初日 AND 大於等於查詢起日（含當天）
                 usage_qty = 0.0
                 for rec_date, rec_pid, rec_usage in order_usage_records:
                     if rec_pid != pid:
                         continue
-                    if range_start != pd.Timestamp.min and rec_date <= range_start:
+                    if has_ini and rec_date <= ini_dt_norm:
+                        continue
+                    if qs_dt is not None and rec_date < qs_dt:
                         continue
                     if rec_date > range_end:
                         continue
