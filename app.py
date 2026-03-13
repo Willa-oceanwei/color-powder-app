@@ -6263,6 +6263,12 @@ elif menu == "庫存區":
         df_order_local["生產時間"] = pd.to_datetime(df_order_local["生產時間"], errors="coerce")
 
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
+        powder_weight_cols = [f"色粉重量{i}" for i in range(1, 9)]
+
+        for c in powder_cols + powder_weight_cols:
+            if c not in df_order_local.columns:
+                df_order_local[c] = ""
+
         candidate_ids = set()
         if not df_recipe.empty:
             recipe_df_copy = df_recipe.copy()
@@ -6289,6 +6295,34 @@ elif menu == "庫存區":
         ]
 
         for _, order in orders_in_range.iterrows():
+            # 優先使用生產單快照中的色粉欄位，確保「生產單新增色母」也能扣庫存
+            packs_total_kg = 0.0
+            for j in range(1, 5):
+                try:
+                    packs_total_kg += float(order.get(f"包裝重量{j}", 0) or 0) * \
+                                      float(order.get(f"包裝份數{j}", 0) or 0)
+                except Exception:
+                    pass
+
+            if packs_total_kg <= 0:
+                continue
+
+            usage_from_order_snapshot = 0.0
+            for i in range(1, 9):
+                oid = str(order.get(f"色粉編號{i}", "") or "").strip()
+                if oid != powder_id:
+                    continue
+                try:
+                    pw = float(order.get(f"色粉重量{i}", 0) or 0)
+                except Exception:
+                    pw = 0.0
+                if pw > 0:
+                    usage_from_order_snapshot += pw * packs_total_kg
+
+            if usage_from_order_snapshot > 0:
+                total_usage_g += usage_from_order_snapshot
+                continue
+
             order_recipe_id = str(order.get("配方編號", "")).strip()
             if not order_recipe_id:
                 continue
@@ -6305,17 +6339,6 @@ elif menu == "庫存區":
                 ]
                 if not add_df.empty:
                     recipe_rows.extend(add_df.to_dict("records"))
-
-            packs_total_kg = 0.0
-            for j in range(1, 5):
-                try:
-                    packs_total_kg += float(order.get(f"包裝重量{j}", 0) or 0) * \
-                                      float(order.get(f"包裝份數{j}", 0) or 0)
-                except Exception:
-                    pass
-
-            if packs_total_kg <= 0:
-                continue
 
             for rec in recipe_rows:
                 pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
@@ -6782,16 +6805,19 @@ elif menu == "庫存區":
                     ini_dt    = pd.Timestamp.min
                     ini_note  = "無期初記錄"
     
-                # 進貨量（期初後 ～ 查詢迄日）
+                # 區間起算點：同時考慮「期初日」與「查詢起日」
+                range_start_dt = max(ini_dt, start_dt)
+
+                # 進貨量（區間起算點 ～ 查詢迄日）
                 in_qty = df_pid[
                     (df_pid["類型"].astype(str).str.strip() == "進貨") &
-                    (df_pid["日期_dt"] > ini_dt) &
+                    (df_pid["日期_dt"] > range_start_dt) &
                     (df_pid["日期_dt"] <= end_dt)
                 ]["數量_g"].sum()
     
-                # 生產用量（期初後 ～ 查詢迄日）
+                # 生產用量（區間起算點 ～ 查詢迄日）
                 usage_qty = (
-                    safe_calc_usage(pid, df_order_copy, df_recipe_copy, ini_dt, end_dt)
+                    safe_calc_usage(pid, df_order_copy, df_recipe_copy, range_start_dt, end_dt)
                     if not df_order_copy.empty and not df_recipe_copy.empty
                     else 0.0
                 )
