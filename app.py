@@ -6663,9 +6663,6 @@ elif menu == "庫存區":
    
     # ====================================================================
     # Tab 5：色母庫存查詢（修復版）
-    # 根本問題：date_input disabled=True 時值仍是今天，
-    #           導致不勾選日期區間時反而把所有舊生產單篩掉。
-    # 修復：不勾選時，query_start/end 強制設為 None，不做日期篩選。
     # ====================================================================
     with tab5:
         st.caption("ℹ️ 不選擇日期區間時，會顯示截至今日的累積庫存。")
@@ -6874,41 +6871,46 @@ elif menu == "庫存區":
                     df_pid = pd.DataFrame()
 
                 # 7b. 計算起點
-                # ★ 未使用日期區間：從期初日起算（無期初則從最遠）
-                # ★ 使用日期區間：起點取「期初日」與「查詢起日」較晚者
+                # 規則：實際起點 = max(期初日, 查詢起日)
+                # 進貨和用量都用同一起點
+                ini_dt_norm = ini_dt.normalize() if ini_dt != pd.Timestamp.min else pd.Timestamp.min
+
                 if query_start:
                     qs_dt = pd.Timestamp(query_start).normalize()
-                    range_start = max(ini_dt, qs_dt) if ini_dt != pd.Timestamp.min else qs_dt
+                    range_start = max(ini_dt_norm, qs_dt) if ini_dt_norm != pd.Timestamp.min else qs_dt
                 else:
-                    # 不限起日 → 從期初日開始，無期初則不限（pd.Timestamp.min）
-                    range_start = ini_dt  # 可能是 Timestamp.min（代表不限）
+                    range_start = ini_dt_norm  # 無查詢起日：從期初日算起
 
                 range_end = range_end_global
 
-                # 7c. 進貨量
+                # 特殊情況：期初日晚於查詢結束日 → 區間內尚無此色母庫存
+                if ini_dt_norm != pd.Timestamp.min and ini_dt_norm > range_end:
+                    stock_summary.append({
+                        "色母編號": pid,
+                        "期初庫存": "—",
+                        "區間進貨": "—",
+                        "區間用量": "—",
+                        "期末庫存": "—",
+                        "備註": f"期初（{ini_dt.strftime('%Y/%m/%d')}）在查詢區間結束後",
+                    })
+                    continue
+
+                # 7c. 進貨量（嚴格大於起點，不超過結束日）
                 in_qty = 0.0
                 if not df_pid.empty:
                     mask_in = df_pid["類型"].astype(str).str.strip() == "進貨"
                     if range_start != pd.Timestamp.min:
-                        mask_in &= df_pid["日期_dt"].dt.normalize() > range_start.normalize()
+                        mask_in &= df_pid["日期_dt"].dt.normalize() > range_start
                     mask_in &= df_pid["日期_dt"].dt.normalize() <= range_end
                     in_qty = df_pid[mask_in]["數量_g"].sum()
 
-                # 7d. 生產用量
+                # 7d. 生產用量（嚴格大於起點，不超過結束日）
                 usage_qty = 0.0
-                range_start_norm = (
-                    range_start.normalize()
-                    if range_start != pd.Timestamp.min and pd.notna(range_start)
-                    else pd.Timestamp.min
-                )
-
                 for rec_date, rec_pid, rec_usage in order_usage_records:
                     if rec_pid != pid:
                         continue
-                    # 嚴格大於期初日（或不限）
-                    if range_start_norm != pd.Timestamp.min and rec_date <= range_start_norm:
+                    if range_start != pd.Timestamp.min and rec_date <= range_start:
                         continue
-                    # 不超過結束日
                     if rec_date > range_end:
                         continue
                     usage_qty += rec_usage
@@ -6954,7 +6956,6 @@ elif menu == "庫存區":
                     st.caption(f"📅 查詢區間：{master_start} ～ {master_end}")
                 else:
                     st.caption("📅 未指定日期區間，計算截至今日的累積庫存")
-
 
     # ====================================================================
     # Tab 3：色粉用量排行榜
