@@ -6870,30 +6870,45 @@ elif menu == "庫存區":
                 else:
                     df_pid = pd.DataFrame()
 
-                # 7b. 計算起點
-                # 規則：實際起點 = max(期初日, 查詢起日)
-                # 進貨和用量都用同一起點
+                # 7b. 計算起點與結束點
+                # ─────────────────────────────────────────────────────
+                # 有期初記錄：
+                #   range_start = max(期初日, 查詢起日)
+                #   若期初日 > 查詢結束日 → 期初庫存=0、進貨=0、用量=0、期末=0
+                # 無期初記錄：
+                #   range_start = 查詢起日（無指定則不限）
+                #   期初庫存 = 0，但進貨與用量照常計算，期末可為負
+                # ─────────────────────────────────────────────────────
                 ini_dt_norm = ini_dt.normalize() if ini_dt != pd.Timestamp.min else pd.Timestamp.min
-
-                if query_start:
-                    qs_dt = pd.Timestamp(query_start).normalize()
-                    range_start = max(ini_dt_norm, qs_dt) if ini_dt_norm != pd.Timestamp.min else qs_dt
-                else:
-                    range_start = ini_dt_norm  # 無查詢起日：從期初日算起
+                has_ini = (ini_dt_norm != pd.Timestamp.min)
 
                 range_end = range_end_global
 
-                # 特殊情況：期初日晚於查詢結束日 → 區間內尚無此色母庫存
-                if ini_dt_norm != pd.Timestamp.min and ini_dt_norm > range_end:
-                    stock_summary.append({
-                        "色母編號": pid,
-                        "期初庫存": "—",
-                        "區間進貨": "—",
-                        "區間用量": "—",
-                        "期末庫存": "—",
-                        "備註": f"期初（{ini_dt.strftime('%Y/%m/%d')}）在查詢區間結束後",
-                    })
-                    continue
+                if has_ini:
+                    # 有期初：起點 = max(期初日, 查詢起日)
+                    if query_start:
+                        qs_dt = pd.Timestamp(query_start).normalize()
+                        range_start = max(ini_dt_norm, qs_dt)
+                    else:
+                        range_start = ini_dt_norm
+
+                    # 期初日在查詢區間結束之後 → 整段為 0
+                    if ini_dt_norm > range_end:
+                        stock_summary.append({
+                            "色母編號": pid,
+                            "期初庫存": format_usage(0),
+                            "區間進貨": format_usage(0),
+                            "區間用量": format_usage(0),
+                            "期末庫存": format_usage(0),
+                            "備註": f"期初（{ini_dt.strftime('%Y/%m/%d')}）在查詢區間結束後",
+                        })
+                        continue
+                else:
+                    # 無期初：起點 = 查詢起日（無則不限）
+                    range_start = (
+                        pd.Timestamp(query_start).normalize()
+                        if query_start else pd.Timestamp.min
+                    )
 
                 # 7c. 進貨量（嚴格大於起點，不超過結束日）
                 in_qty = 0.0
