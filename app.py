@@ -7577,7 +7577,7 @@ elif menu == "洗車廠庫存":
                         rec_qty = _to_float(row.get("數量_num", 0))
                         rec_name = str(row.get("登記人", "")).strip()
 
-                        history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}")
+                        history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}"))
                         history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}"))
                         history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}｜{pid}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}"))
 
