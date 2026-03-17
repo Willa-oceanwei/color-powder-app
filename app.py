@@ -7386,8 +7386,10 @@ elif menu == "洗車廠庫存":
 
             c5, c6 = st.columns(2)
 
+            registrar = c5.selectbox("登記人", ["德", "Q"], key="cw_init_registrar_sel")
             registrar = c5.selectbox("登記人", ["德", "Q"], key="cw_init_registrar")
             registrar = c5.text_input("登記人", key="cw_init_registrar").strip()
+
 
             note = c6.text_input("備註", key="cw_init_note").strip()
 
@@ -7409,6 +7411,9 @@ elif menu == "洗車廠庫存":
                 st.toast(f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}", icon="📦")
                 st.rerun()
 
+                st.toast(f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}", icon="📦")
+                st.rerun()
+
                 st.success(f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}")
                 st.rerun()
 
@@ -7419,7 +7424,6 @@ elif menu == "洗車廠庫存":
                 use_container_width=True,
                 hide_index=True,
             )
-
 
     with tab_c2:
         with st.form("carwash_inout_form"):
@@ -7436,9 +7440,9 @@ elif menu == "洗車廠庫存":
             c5, c6 = st.columns(2)
             io_unit = c5.selectbox("單位", ["KG", "包"], key="cw_io_unit")
 
+            io_registrar = c6.selectbox("登記人", ["德", "Q"], key="cw_io_registrar_sel")
             io_registrar = c6.selectbox("登記人", ["德", "Q"], key="cw_io_registrar")
             io_registrar = c6.text_input("登記人", key="cw_io_registrar").strip()
-
 
             io_note = st.text_input("備註", key="cw_io_note").strip()
             submit_io = st.form_submit_button("💾 儲存入/出庫")
@@ -7563,6 +7567,8 @@ elif menu == "洗車廠庫存":
                             continue
                         rec_qty = _to_float(row.get("數量_num", 0))
                         rec_name = str(row.get("登記人", "")).strip()
+
+                        history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}"))
                         history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}｜{pid}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}"))
 
                     history_text = "\n".join([h[1] for h in sorted(history, key=lambda x: x[0], reverse=True)])
