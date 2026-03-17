@@ -7374,29 +7374,20 @@ elif menu == "洗車廠庫存":
 
     tab_c1, tab_c2, tab_c3 = st.tabs(["洗車廠初始庫存", "入/出庫登錄", "洗車廠庫存查詢"])
 
-
-    # 相容舊版：若 session_state 仍殘留舊登記人 key，先清掉避免 widget 衝突
-    st.session_state.pop("cw_init_registrar", None)
-    st.session_state.pop("cw_io_registrar", None)
-
+    # ── Tab C1：初始庫存 ──
     with tab_c1:
         with st.form("carwash_initial_form"):
             c1, c2 = st.columns(2)
             product_id = c1.text_input("貨品編號", key="cw_init_product_id").strip()
-            init_date = c2.date_input("初始庫存日期", key="cw_init_date")
+            init_date  = c2.date_input("初始庫存日期", key="cw_init_date")
 
             c3, c4 = st.columns(2)
-            init_qty = c3.number_input("數量", min_value=0.0, step=1.0, key="cw_init_qty")
+            init_qty  = c3.number_input("數量", min_value=0.0, step=1.0, key="cw_init_qty")
             init_unit = c4.selectbox("單位", ["KG", "包"], key="cw_init_unit")
 
             c5, c6 = st.columns(2)
-
-            registrar = c5.selectbox("登記人", ["德", "Q"], key="cw_init_registrar_sel")
-            registrar = c5.selectbox("登記人", ["德", "Q"], key="cw_init_registrar_sel")
             registrar = c5.selectbox("登記人", ["德", "Q"], key="cw_init_registrar")
-            registrar = c5.text_input("登記人", key="cw_init_registrar").strip()
-
-            note = c6.text_input("備註", key="cw_init_note").strip()
+            note      = c6.text_input("備註", key="cw_init_note")
 
             submit_init = st.form_submit_button("💾 儲存初始庫存")
 
@@ -7412,51 +7403,40 @@ elif menu == "洗車廠庫存":
                 ])
                 invalidate_sheet_cache("洗車廠庫存")
                 st.session_state.carwash_need_reload = True
-
                 st.toast(f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}", icon="📦")
-                st.rerun()
-
-                st.toast(f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}", icon="📦")
-                st.rerun()
-
-                st.toast(f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}", icon="📦")
-                st.rerun()
-
-                st.success(f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}")
                 st.rerun()
 
         initial_df = df_carwash[df_carwash["初始庫存日期"].astype(str).str.strip() != ""].copy()
         if not initial_df.empty:
             st.dataframe(
-                initial_df[["貨品編號", "初始庫存日期", "初始數量", "單位", "登記人", "備註"]].sort_values("初始庫存日期", ascending=False),
+                initial_df[["貨品編號", "初始庫存日期", "初始數量", "單位", "登記人", "備註"]]
+                .sort_values("初始庫存日期", ascending=False),
                 use_container_width=True,
                 hide_index=True,
             )
 
+    # ── Tab C2：入/出庫登錄 ──
     with tab_c2:
         with st.form("carwash_inout_form"):
             io_type = st.selectbox("出/入庫", ["入庫", "出庫"], key="cw_io_type")
 
             c1, c2 = st.columns(2)
-            io_product_id = c1.text_input("貨品編號", key="cw_io_product_id").strip()
-            io_qty = c2.number_input("數量", min_value=0.0, step=1.0, key="cw_io_qty")
+            io_product_id = c1.text_input("貨品編號", key="cw_io_product_id")
+            io_qty        = c2.number_input("數量", min_value=0.0, step=1.0, key="cw_io_qty")
 
             c3, c4 = st.columns(2)
-            in_date = c3.date_input("入庫日期", key="cw_in_date", disabled=(io_type == "出庫"))
+            in_date  = c3.date_input("入庫日期",  key="cw_in_date",  disabled=(io_type == "出庫"))
             out_date = c4.date_input("出庫日期", key="cw_out_date", disabled=(io_type == "入庫"))
 
             c5, c6 = st.columns(2)
-            io_unit = c5.selectbox("單位", ["KG", "包"], key="cw_io_unit")
-
-            io_registrar = c6.selectbox("登記人", ["德", "Q"], key="cw_io_registrar_sel")
-            io_registrar = c6.selectbox("登記人", ["德", "Q"], key="cw_io_registrar_sel")
+            io_unit      = c5.selectbox("單位", ["KG", "包"], key="cw_io_unit")
             io_registrar = c6.selectbox("登記人", ["德", "Q"], key="cw_io_registrar")
-            io_registrar = c6.text_input("登記人", key="cw_io_registrar").strip()
 
-            io_note = st.text_input("備註", key="cw_io_note").strip()
-            submit_io = st.form_submit_button("💾 儲存入/出庫")
+            io_note      = st.text_input("備註", key="cw_io_note")
+            submit_io    = st.form_submit_button("💾 儲存入/出庫")
 
         if submit_io:
+            io_product_id = io_product_id.strip()
             if not io_product_id:
                 st.warning("⚠️ 請輸入貨品編號")
             elif io_qty <= 0:
@@ -7464,70 +7444,64 @@ elif menu == "洗車廠庫存":
             else:
                 safe_append_row(ws_carwash, [
                     io_type, "", "", io_product_id,
-                    in_date.strftime("%Y-%m-%d") if io_type == "入庫" else "",
+                    in_date.strftime("%Y-%m-%d")  if io_type == "入庫" else "",
                     out_date.strftime("%Y-%m-%d") if io_type == "出庫" else "",
                     io_qty, io_unit, io_registrar, io_note
                 ])
                 invalidate_sheet_cache("洗車廠庫存")
                 st.session_state.carwash_need_reload = True
-
                 st.toast(f"✅ 已登錄 {io_type}：{io_product_id} {io_qty} {io_unit}", icon="🧾")
                 st.rerun()
 
+    # ── Tab C3：庫存查詢 ──
     with tab_c3:
-        st.markdown("""
-        <style>
-        .st-key-cw_query_btn button {
-            font-size: 12px !important;
-            padding: 0.2rem 0.7rem !important;
-            min-height: 34px !important;
-            margin-top: 28px !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
         with st.form("cw_query_form"):
-            c1, c2 = st.columns([6, 1])
-            q_pid = c1.text_input("產品編號", key="cw_query_pid").strip()
-            do_query = c2.form_submit_button("搜尋", key="cw_query_btn", use_container_width=False)
+            c1, c2 = st.columns([5, 1])
+            q_pid     = c1.text_input("產品編號（留空顯示全部）", key="cw_query_pid")
+            do_query  = c2.form_submit_button("搜尋")
 
         if do_query:
-            query_ids = []
+            q_pid = q_pid.strip()
+
+            # 取得要查詢的 ID 清單
             if q_pid:
                 query_ids = [q_pid]
             else:
-                query_ids = sorted(
-                    {
-                        str(v).strip() for v in df_carwash["貨品編號"].tolist()
-                        if str(v).strip()
-                    }
-                )
+                query_ids = sorted({
+                    str(v).strip() for v in df_carwash["貨品編號"].tolist()
+                    if str(v).strip()
+                })
 
             if not query_ids:
                 st.info("目前沒有可查詢的洗車廠庫存資料。")
             else:
                 result_rows = []
+                today = datetime.now().date()
+
                 for pid in query_ids:
-                    pid_df = df_carwash[df_carwash["貨品編號"].astype(str).str.strip() == pid].copy()
+                    pid_df = df_carwash[
+                        df_carwash["貨品編號"].astype(str).str.strip() == pid
+                    ].copy()
 
                     pid_df["初始庫存日期_dt"] = pid_df["初始庫存日期"].map(_to_date)
-                    pid_df["入庫日期_dt"] = pid_df["入庫日期"].map(_to_date)
-                    pid_df["出庫日期_dt"] = pid_df["出庫日期"].map(_to_date)
-                    pid_df["初始數量_num"] = pid_df["初始數量"].map(_to_float)
-                    pid_df["數量_num"] = pid_df["數量"].map(_to_float)
+                    pid_df["入庫日期_dt"]     = pid_df["入庫日期"].map(_to_date)
+                    pid_df["出庫日期_dt"]     = pid_df["出庫日期"].map(_to_date)
+                    pid_df["初始數量_num"]    = pid_df["初始數量"].map(_to_float)
+                    pid_df["數量_num"]        = pid_df["數量"].map(_to_float)
 
-                    latest_init = pid_df[pid_df["初始庫存日期_dt"].notna()].sort_values("初始庫存日期_dt", ascending=False)
+                    latest_init = pid_df[
+                        pid_df["初始庫存日期_dt"].notna()
+                    ].sort_values("初始庫存日期_dt", ascending=False)
 
-                    today = datetime.now().date()
                     if not latest_init.empty:
-                        init_row = latest_init.iloc[0]
+                        init_row  = latest_init.iloc[0]
                         init_date = init_row["初始庫存日期_dt"]
-                        init_qty = init_row["初始數量_num"]
-                        unit = str(init_row.get("單位", "")).strip() or "KG"
+                        init_qty  = init_row["初始數量_num"]
+                        unit      = str(init_row.get("單位", "")).strip() or "KG"
                     else:
                         init_date = None
-                        init_qty = 0.0
-                        unit = ""
+                        init_qty  = 0.0
+                        unit      = ""
 
                     if init_date is not None:
                         in_mask = (
@@ -7554,150 +7528,63 @@ elif menu == "洗車廠庫存":
                             (pid_df["出庫日期_dt"] <= today)
                         )
 
-                    in_qty = pid_df.loc[in_mask, "數量_num"].sum()
-                    out_qty = pid_df.loc[out_mask, "數量_num"].sum()
+                    in_qty      = pid_df.loc[in_mask,  "數量_num"].sum()
+                    out_qty     = pid_df.loc[out_mask, "數量_num"].sum()
                     current_qty = init_qty + in_qty - out_qty
 
-                    history = []
+                    # 出入庫歷程
                     if init_date is not None:
                         history_source = pid_df[
-                            ((pid_df["類型"].astype(str).str.strip() == "入庫") & (pid_df["入庫日期_dt"] > init_date)) |
-                            ((pid_df["類型"].astype(str).str.strip() == "出庫") & (pid_df["出庫日期_dt"] > init_date))
+                            ((pid_df["類型"].astype(str).str.strip() == "入庫") &
+                             (pid_df["入庫日期_dt"] > init_date)) |
+                            ((pid_df["類型"].astype(str).str.strip() == "出庫") &
+                             (pid_df["出庫日期_dt"] > init_date))
                         ].copy()
                     else:
                         history_source = pid_df[
-                            (pid_df["類型"].astype(str).str.strip().isin(["入庫", "出庫"]))
+                            pid_df["類型"].astype(str).str.strip().isin(["入庫", "出庫"])
                         ].copy()
 
+                    history = []
                     for _, row in history_source.iterrows():
                         rec_type = str(row.get("類型", "")).strip()
-                        rec_date = row.get("入庫日期_dt") if rec_type == "入庫" else row.get("出庫日期_dt")
+                        rec_date = (row.get("入庫日期_dt") if rec_type == "入庫"
+                                    else row.get("出庫日期_dt"))
                         if rec_date is None:
                             continue
-                        rec_qty = _to_float(row.get("數量_num", 0))
+                        rec_qty  = _to_float(row.get("數量_num", 0))
+                        rec_unit = str(row.get("單位", "")).strip()
                         rec_name = str(row.get("登記人", "")).strip()
+                        history.append((
+                            rec_date,
+                            f"{rec_date.strftime('%Y-%m-%d')}｜{rec_type} {rec_qty:g}{rec_unit}｜{rec_name}"
+                        ))
 
-                        history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}"))
-                        history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}"))
-                        history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}｜{pid}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}"))
-
-                    history_text = "\n".join([h[1] for h in sorted(history, key=lambda x: x[0], reverse=True)])
+                    history_text = "\n".join([
+                        h[1] for h in sorted(history, key=lambda x: x[0], reverse=True)
+                    ])
 
                     result_rows.append({
-                        "產品編號": pid,
-                        "期初庫存": f"{init_qty:g} {unit}".strip(),
-                        "區間入庫": f"{in_qty:g} {unit}".strip(),
-                        "區間出庫": f"{out_qty:g} {unit}".strip(),
+                        "產品編號":     pid,
+                        "期初庫存":     f"{init_qty:g} {unit}".strip(),
+                        "區間入庫":     f"{in_qty:g} {unit}".strip(),
+                        "區間出庫":     f"{out_qty:g} {unit}".strip(),
                         "目前庫存數量": f"{current_qty:g} {unit}".strip(),
-                        "出入庫歷程": history_text or "-",
+                        "出入庫歷程":   history_text or "-",
                     })
 
                 result_df = pd.DataFrame(result_rows).sort_values("產品編號")
-
-                st.success(f"✅ 已登錄 {io_type}：{io_product_id} {io_qty} {io_unit}")
-                st.rerun()
-
-    with tab_c3:
-        c1, c2 = st.columns([3, 1])
-        q_pid = c1.text_input("產品編號", key="cw_query_pid").strip()
-        do_query = c2.button("查詢", key="cw_query_btn", use_container_width=True)
-
-        if do_query:
-            if not q_pid:
-                st.warning("⚠️ 請輸入產品編號")
-            else:
-                pid_df = df_carwash[df_carwash["貨品編號"].astype(str).str.strip() == q_pid].copy()
-
-                pid_df["初始庫存日期_dt"] = pid_df["初始庫存日期"].map(_to_date)
-                pid_df["入庫日期_dt"] = pid_df["入庫日期"].map(_to_date)
-                pid_df["出庫日期_dt"] = pid_df["出庫日期"].map(_to_date)
-                pid_df["初始數量_num"] = pid_df["初始數量"].map(_to_float)
-                pid_df["數量_num"] = pid_df["數量"].map(_to_float)
-
-                latest_init = pid_df[pid_df["初始庫存日期_dt"].notna()].sort_values("初始庫存日期_dt", ascending=False)
-
-                today = datetime.now().date()
-                if not latest_init.empty:
-                    init_row = latest_init.iloc[0]
-                    init_date = init_row["初始庫存日期_dt"]
-                    init_qty = init_row["初始數量_num"]
-                    unit = str(init_row.get("單位", "")).strip() or "KG"
-                else:
-                    init_date = None
-                    init_qty = 0.0
-                    unit = ""
-
-                if init_date is not None:
-                    in_mask = (
-                        (pid_df["類型"].astype(str).str.strip() == "入庫") &
-                        (pid_df["入庫日期_dt"].notna()) &
-                        (pid_df["入庫日期_dt"] > init_date) &
-                        (pid_df["入庫日期_dt"] <= today)
-                    )
-                    out_mask = (
-                        (pid_df["類型"].astype(str).str.strip() == "出庫") &
-                        (pid_df["出庫日期_dt"].notna()) &
-                        (pid_df["出庫日期_dt"] > init_date) &
-                        (pid_df["出庫日期_dt"] <= today)
-                    )
-                else:
-                    in_mask = (
-                        (pid_df["類型"].astype(str).str.strip() == "入庫") &
-                        (pid_df["入庫日期_dt"].notna()) &
-                        (pid_df["入庫日期_dt"] <= today)
-                    )
-                    out_mask = (
-                        (pid_df["類型"].astype(str).str.strip() == "出庫") &
-                        (pid_df["出庫日期_dt"].notna()) &
-                        (pid_df["出庫日期_dt"] <= today)
-                    )
-
-                in_qty = pid_df.loc[in_mask, "數量_num"].sum()
-                out_qty = pid_df.loc[out_mask, "數量_num"].sum()
-                current_qty = init_qty + in_qty - out_qty
-
-                history = []
-                if init_date is not None:
-                    history_source = pid_df[
-                        ((pid_df["類型"].astype(str).str.strip() == "入庫") & (pid_df["入庫日期_dt"] > init_date)) |
-                        ((pid_df["類型"].astype(str).str.strip() == "出庫") & (pid_df["出庫日期_dt"] > init_date))
-                    ].copy()
-                else:
-                    history_source = pid_df[
-                        (pid_df["類型"].astype(str).str.strip().isin(["入庫", "出庫"]))
-                    ].copy()
-
-                for _, row in history_source.iterrows():
-                    rec_type = str(row.get("類型", "")).strip()
-                    rec_date = row.get("入庫日期_dt") if rec_type == "入庫" else row.get("出庫日期_dt")
-                    if rec_date is None:
-                        continue
-                    rec_qty = _to_float(row.get("數量_num", 0))
-                    rec_name = str(row.get("登記人", "")).strip()
-                    history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}｜{q_pid}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}"))
-
-                history_text = "\n".join([h[1] for h in sorted(history, key=lambda x: x[0], reverse=True)])
-
-                result_df = pd.DataFrame([{
-                    "產品編號": q_pid,
-                    "期初庫存": f"{init_qty:g} {unit}".strip(),
-                    "區間入庫": f"{in_qty:g} {unit}".strip(),
-                    "區間出庫": f"{out_qty:g} {unit}".strip(),
-                    "目前庫存數量": f"{current_qty:g} {unit}".strip(),
-                    "出入庫歷程": history_text or "-",
-                }])
-
                 st.dataframe(
                     result_df,
                     use_container_width=True,
                     hide_index=True,
                     column_config={
-                        "產品編號": st.column_config.TextColumn("產品編號", width="small"),
-                        "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
-                        "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
-                        "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
+                        "產品編號":     st.column_config.TextColumn("產品編號",     width="small"),
+                        "期初庫存":     st.column_config.TextColumn("期初庫存",     width="small"),
+                        "區間入庫":     st.column_config.TextColumn("區間入庫",     width="small"),
+                        "區間出庫":     st.column_config.TextColumn("區間出庫",     width="small"),
                         "目前庫存數量": st.column_config.TextColumn("目前庫存數量", width="small"),
-                        "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
+                        "出入庫歷程":   st.column_config.TextColumn("出入庫歷程",   width="large"),
                     },
                 )
 
