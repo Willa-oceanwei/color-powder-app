@@ -5247,6 +5247,8 @@ elif menu == "採購管理":
                     df_to_upload = df_to_upload.astype(str)
                     ws_stock.clear()
                     ws_stock.update([df_to_upload.columns.tolist()] + df_to_upload.values.tolist())
+                    invalidate_sheet_cache("庫存記錄")
+                    st.session_state.stock_need_reload = True
     
                     # 清空表單
                     st.session_state.form_in_stock = {
@@ -6521,8 +6523,9 @@ elif menu == "庫存區":
                 ini_dt = pd.Timestamp.min
                 ini_note = "—"
 
+            purchase_types = {"進貨", "新增庫存"}
             in_qty = df_pid[
-                (df_pid["類型"].astype(str).str.strip() == "進貨") &
+                (df_pid["類型"].astype(str).str.strip().isin(purchase_types)) &
                 (df_pid["日期時間"] > ini_dt) &
                 (df_pid["日期時間"] <= end_dt)
             ]["數量_g"].sum()
