@@ -6876,6 +6876,7 @@ elif menu == "庫存區":
                     lambda r: to_grams(r.get("數量", 0), r.get("單位", "g")), axis=1
                 )
                 df_stock_local["色粉編號"] = df_stock_local["色粉編號"].astype(str).str.strip()
+                df_stock_local["類型"] = df_stock_local.get("類型", "").astype(str).str.strip()
 
             # ── Step 7: 逐色母計算 ──
             today_dt = pd.Timestamp.today().normalize()
@@ -6944,7 +6945,8 @@ elif menu == "庫存區":
                 # 嚴格大於期初日（避免重算期初當天）AND 大於等於查詢起日（含當天）
                 in_qty = 0.0
                 if not df_pid.empty:
-                    mask_in = df_pid["類型"].astype(str).str.strip() == "進貨"
+                    purchase_types = {"進貨", "新增庫存"}
+                    mask_in = df_pid["類型"].astype(str).str.strip().isin(purchase_types)
                     if has_ini:
                         mask_in &= df_pid["日期_dt"].dt.normalize() > ini_dt_norm
                     if qs_dt is not None:
