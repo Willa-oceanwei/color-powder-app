@@ -1,5 +1,6 @@
 # ===== app.py =====
 import streamlit as st
+import streamlit.components.v1 as components
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
@@ -3055,6 +3056,46 @@ elif menu == "生產單管理":
             st.session_state["order_page"] = 1
             
     # =============== Tab 架構開始 ===============
+    components.html(
+        """
+        <script>
+        const storageKey = "order_mgmt_active_tab";
+        const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"];
+
+        function bindTabPersistence() {
+            const doc = window.parent.document;
+            const allTabs = Array.from(doc.querySelectorAll('button[role="tab"]'));
+            const targetTab = allTabs.find(btn => tabTexts.includes(btn.textContent.trim()));
+            if (!targetTab) return false;
+
+            const tablist = targetTab.closest('div[role="tablist"]');
+            if (!tablist) return false;
+
+            const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
+            const savedIndex = parseInt(sessionStorage.getItem(storageKey), 10);
+            if (!Number.isNaN(savedIndex) && tabs[savedIndex] && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
+                tabs[savedIndex].click();
+            }
+
+            tabs.forEach((tab, idx) => {
+                if (tab.dataset.persistBound === '1') return;
+                tab.dataset.persistBound = '1';
+                tab.addEventListener('click', () => sessionStorage.setItem(storageKey, String(idx)));
+            });
+            return true;
+        }
+
+        if (!bindTabPersistence()) {
+            const observer = new MutationObserver(() => {
+                if (bindTabPersistence()) observer.disconnect();
+            });
+            observer.observe(window.parent.document.body, { childList: true, subtree: true });
+        }
+        </script>
+        """,
+        height=0,
+    )
+
     tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"])
     # ============================================================
     # Tab 1: 生產單建立
