@@ -7374,6 +7374,11 @@ elif menu == "洗車廠庫存":
 
     tab_c1, tab_c2, tab_c3 = st.tabs(["洗車廠初始庫存", "入/出庫登錄", "洗車廠庫存查詢"])
 
+
+    # 相容舊版：若 session_state 仍殘留舊登記人 key，先清掉避免 widget 衝突
+    st.session_state.pop("cw_init_registrar", None)
+    st.session_state.pop("cw_io_registrar", None)
+
     with tab_c1:
         with st.form("carwash_initial_form"):
             c1, c2 = st.columns(2)
@@ -7387,9 +7392,9 @@ elif menu == "洗車廠庫存":
             c5, c6 = st.columns(2)
 
             registrar = c5.selectbox("登記人", ["德", "Q"], key="cw_init_registrar_sel")
+            registrar = c5.selectbox("登記人", ["德", "Q"], key="cw_init_registrar_sel")
             registrar = c5.selectbox("登記人", ["德", "Q"], key="cw_init_registrar")
             registrar = c5.text_input("登記人", key="cw_init_registrar").strip()
-
 
             note = c6.text_input("備註", key="cw_init_note").strip()
 
@@ -7407,6 +7412,9 @@ elif menu == "洗車廠庫存":
                 ])
                 invalidate_sheet_cache("洗車廠庫存")
                 st.session_state.carwash_need_reload = True
+
+                st.toast(f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}", icon="📦")
+                st.rerun()
 
                 st.toast(f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}", icon="📦")
                 st.rerun()
@@ -7440,6 +7448,7 @@ elif menu == "洗車廠庫存":
             c5, c6 = st.columns(2)
             io_unit = c5.selectbox("單位", ["KG", "包"], key="cw_io_unit")
 
+            io_registrar = c6.selectbox("登記人", ["德", "Q"], key="cw_io_registrar_sel")
             io_registrar = c6.selectbox("登記人", ["德", "Q"], key="cw_io_registrar_sel")
             io_registrar = c6.selectbox("登記人", ["德", "Q"], key="cw_io_registrar")
             io_registrar = c6.text_input("登記人", key="cw_io_registrar").strip()
@@ -7568,6 +7577,7 @@ elif menu == "洗車廠庫存":
                         rec_qty = _to_float(row.get("數量_num", 0))
                         rec_name = str(row.get("登記人", "")).strip()
 
+                        history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}")
                         history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}"))
                         history.append((rec_date, f"{rec_date.strftime('%Y%m%d')}｜{pid}{rec_type}{rec_qty:g}{row.get('單位', '')}｜{rec_name}"))
 
