@@ -4293,6 +4293,16 @@ elif menu == "生產單管理":
                     st.markdown("##### 生產單預覽")
                     st.caption("下方為目前選擇生產單的完整列印預覽內容。")
                 with opt_col:
+                    if st.session_state.get("_show_ids_tab3_order_no") != current_order_no:
+                        st.session_state["_show_ids_tab3_order_no"] = current_order_no
+                        st.session_state["show_ids_mode_tab3"] = "顯示"
+                    show_ids_mode = st.radio(
+                        "附加配方編號",
+                        options=["顯示", "不顯示"],
+                        horizontal=True,
+                        key="show_ids_mode_tab3"
+                    )
+                    show_ids = (show_ids_mode == "顯示")
 
                     if st.session_state.get("_show_ids_tab3_order_no") != current_order_no:
                         st.session_state["_show_ids_tab3_order_no"] = current_order_no
@@ -6738,7 +6748,6 @@ elif menu == "庫存區":
                 query_end=st.session_state.get("stock_end_query"),
             )
             if err_msg:
-
                 err_text = err_msg if isinstance(err_msg, str) else str(err_msg)
                 if not err_text.strip():
                     err_text = "庫存查詢失敗，請稍後再試。"
