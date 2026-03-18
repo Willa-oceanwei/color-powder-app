@@ -4270,14 +4270,8 @@ elif menu == "生產單管理":
     
             recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
             recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
-            preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 刪除"])
-
-            with preview_tab:
-                st.markdown("##### 生產單預覽")
-                st.caption("下方為目前選擇生產單的完整列印預覽內容。")
-                show_ids = True
             current_order_no = str(selected_order.get("生產單號", "")).strip()
-                        
+    
             st.markdown("""
             <style>
             div[data-testid="stCheckbox"] label p {
@@ -4289,9 +4283,9 @@ elif menu == "生產單管理":
             }
             </style>
             """, unsafe_allow_html=True)
-                        
+    
             preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 刪除"])
-
+    
             with preview_tab:
                 head_col, opt_col = st.columns([6, 2])
                 with head_col:
@@ -4301,13 +4295,6 @@ elif menu == "生產單管理":
                     if st.session_state.get("_show_ids_tab3_order_no") != current_order_no:
                         st.session_state["_show_ids_tab3_order_no"] = current_order_no
                         st.session_state["show_ids_mode_tab3"] = "顯示"
-
-                    default_mode = st.session_state.get("show_ids_mode_tab3", "顯示")
-                    show_ids_mode = st.radio(
-                        "附加配方編號",
-                        options=["顯示", "不顯示"],
-                        index=0 if default_mode == "顯示" else 1,
-                    )
                     show_ids_mode = st.radio(
                         "附加配方編號",
                         options=["顯示", "不顯示"],
@@ -4315,21 +4302,12 @@ elif menu == "生產單管理":
                         key="show_ids_mode_tab3"
                     )
                     show_ids = (show_ids_mode == "顯示")
-
-                    if st.session_state.get("_show_ids_tab3_order_no") != current_order_no:
-                        st.session_state["_show_ids_tab3_order_no"] = current_order_no
-                        st.session_state["show_ids_tab3_preview_toggle"] = True
-                    show_ids = st.checkbox(
-                        "顯示附加配方編號",
-                        value=True,          # ✅ 只在第一次建立時當預設值
-                        key="show_ids_tab3_preview_toggle"
-                    )
-                    show_ids = st.checkbox(
-                        "顯示附加配方編號",
-                        value=True,          # ✅ 只在第一次建立時當預設值
-                        key=show_ids_key     # ✅ 之後狀態由 Streamlit 自己記
-                    )
-                preview_text = generate_order_preview_text_tab3(order_dict, recipe_row, show_additional_ids=show_ids)
+    
+                preview_text = generate_order_preview_text_tab3(
+                    order_dict,
+                    recipe_row,
+                    show_additional_ids=show_ids
+                )
                 st.markdown(preview_text, unsafe_allow_html=True)
 
             with manage_tab:
@@ -4338,18 +4316,6 @@ elif menu == "生產單管理":
                     f"目前選擇：{order_dict.get('生產單號','')}｜{order_dict.get('配方編號','')}｜"
                     f"{order_dict.get('顏色','')}｜{order_dict.get('客戶名稱','')}"
                 )
-
-            preview_tab, manage_tab = st.tabs(["👀 生產單預覽", "🛠️ 修改 / 刪除"])
-
-            with preview_tab:
-                show_ids = st.checkbox(
-                    "預覽時顯示附加配方編號",
-                    value=True,          # ✅ 只在第一次建立時當預設值
-                    key=show_ids_key     # ✅ 之後狀態由 Streamlit 自己記
-                )
-                preview_text = generate_order_preview_text_tab3(order_dict, recipe_row, show_additional_ids=show_ids)
-                with st.expander("👀 生產單預覽", expanded=False):
-                    st.markdown(preview_text, unsafe_allow_html=True)
 
             with manage_tab:
                 col_btn1, col_btn2 = st.columns(2)
