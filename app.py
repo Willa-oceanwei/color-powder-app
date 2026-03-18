@@ -4270,7 +4270,12 @@ elif menu == "生產單管理":
     
             recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
             recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
-    
+            preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 刪除"])
+
+            with preview_tab:
+                st.markdown("##### 生產單預覽")
+                st.caption("下方為目前選擇生產單的完整列印預覽內容。")
+                show_ids = True
             current_order_no = str(selected_order.get("生產單號", "")).strip()
                         
             st.markdown("""
