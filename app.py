@@ -4069,40 +4069,19 @@ elif menu == "生產單管理":
                 df_display_tab3 = df_filtered_tab3.copy()
                 df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
     
-                # ===== 分頁控制：同一橫列，極簡版 =====
-                col_ps, col_pg, col_info = st.columns([1.5, 1.5, 7])
-                
-                # 1️⃣ 每頁筆數
-                with col_ps:
-                    page_size = st.selectbox(
-                        "",  # 不顯示 label
-                        [5, 10, 20, 50, 100],  # 可調整，預設 5 筆
-                        index=0,
-                        key="tab3_page_size",
-                        label_visibility="collapsed"
-                    )
-                
-                # 2️⃣ 頁碼
-                with col_pg:
-                    page = st.number_input(
-                        "",  # 不顯示 label
-                        min_value=1,
-                        max_value=max(1, (len(df_display_tab3)-1)//page_size + 1),
-                        value=st.session_state.get("tab3_page_number", 1),
-                        step=1,
-                        key="tab3_page_number",
-                        label_visibility="collapsed"
-                    )
-                
-                # 3️⃣ 顯示總筆數與總頁數
-                with col_info:
-                    st.markdown(
-                        f"<p style='font-size:13px; color:#9aa0a6; margin-top:0px;'>共 {len(df_display_tab3)} 筆 · {max(1, (len(df_display_tab3)-1)//page_size + 1)} 頁</p>",
-                        unsafe_allow_html=True
-                    )
-                
+                # ===== 分頁資料（控制元件改放到表格右下角）=====
+                page_size = int(st.session_state.get("tab3_page_size", 10))
+                if page_size <= 0:
+                    page_size = 10
+                    st.session_state["tab3_page_size"] = 10
+
+                total_pages = max(1, (len(df_display_tab3) - 1) // page_size + 1)
+                page = int(st.session_state.get("tab3_page_number", 1))
+                page = max(1, min(page, total_pages))
+                st.session_state["tab3_page_number"] = page
+
                 # ===== 計算分頁索引，安全處理 =====
-                start_idx = min((page-1)*page_size, len(df_display_tab3))
+                start_idx = min((page - 1) * page_size, len(df_display_tab3))
                 end_idx = min(start_idx + page_size, len(df_display_tab3))
                 df_page = df_display_tab3.iloc[start_idx:end_idx]
                 
@@ -4113,6 +4092,41 @@ elif menu == "生產單管理":
                         use_container_width=True,
                         hide_index=True
                     )
+
+                    st.markdown("""
+                    <style>
+                    .tab3-pager-note {
+                        font-size: 12px;
+                        color: #9aa0a6;
+                        text-align: right;
+                        margin-top: -2px;
+                        margin-bottom: 4px;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+
+                    pager_left, pager_size_col, pager_page_col = st.columns([8.6, 1.0, 1.0], vertical_alignment="bottom")
+                    with pager_left:
+                        st.markdown(
+                            f"<div class='tab3-pager-note'>共 {len(df_display_tab3)} 筆 · 第 {page}/{total_pages} 頁</div>",
+                            unsafe_allow_html=True
+                        )
+                    with pager_size_col:
+                        st.selectbox(
+                            "每頁",
+                            [5, 10, 20, 50, 100],
+                            key="tab3_page_size",
+                            label_visibility="collapsed"
+                        )
+                    with pager_page_col:
+                        st.number_input(
+                            "頁碼",
+                            min_value=1,
+                            max_value=total_pages,
+                            step=1,
+                            key="tab3_page_number",
+                            label_visibility="collapsed"
+                        )
                 else:
                     st.info("⚠️ 沒有符合條件的生產單")
     
