@@ -6741,7 +6741,6 @@ elif menu == "庫存區":
                 if not err_text.strip():
                     err_text = "庫存查詢失敗，請稍後再試。"
                 st.warning(err_text) if err_text.startswith("⚠️") else st.error(err_text)
-                st.warning(err_msg) if err_msg.startswith("⚠️") else st.error(err_msg)
                 st.session_state["stock_query_result"] = []
             else:
                 st.session_state["stock_query_result"] = stock_summary
