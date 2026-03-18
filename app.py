@@ -4289,7 +4289,6 @@ elif menu == "生產單管理":
             with preview_tab:
                 head_col, opt_col = st.columns([6, 2])
                 with head_col:
-                    st.markdown("##### 生產單預覽")
                     st.caption("下方為目前選擇生產單的完整列印預覽內容。")
                 with opt_col:
                     if st.session_state.get("_show_ids_tab3_order_no") != current_order_no:
@@ -4311,7 +4310,6 @@ elif menu == "生產單管理":
                 st.markdown(preview_text, unsafe_allow_html=True)
 
             with manage_tab:
-                st.markdown("##### 修改 / 刪除")
                 st.info(
                     f"目前選擇：{order_dict.get('生產單號','')}｜{order_dict.get('配方編號','')}｜"
                     f"{order_dict.get('顏色','')}｜{order_dict.get('客戶名稱','')}"
