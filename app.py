@@ -4311,7 +4311,7 @@ elif menu == "生產單管理":
                         "顯示附加配方編號",
                         value=True,          # ✅ 只在第一次建立時當預設值
                         key="show_ids_tab3_preview_toggle"
-
+                    )
                     show_ids = st.checkbox(
                         "顯示附加配方編號",
                         value=True,          # ✅ 只在第一次建立時當預設值
