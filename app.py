@@ -4296,6 +4296,12 @@ elif menu == "生產單管理":
                     if st.session_state.get("_show_ids_tab3_order_no") != current_order_no:
                         st.session_state["_show_ids_tab3_order_no"] = current_order_no
                         st.session_state["show_ids_mode_tab3"] = "顯示"
+
+                    default_mode = st.session_state.get("show_ids_mode_tab3", "顯示")
+                    show_ids_mode = st.radio(
+                        "附加配方編號",
+                        options=["顯示", "不顯示"],
+                        index=0 if default_mode == "顯示" else 1,
                     show_ids_mode = st.radio(
                         "附加配方編號",
                         options=["顯示", "不顯示"],
@@ -4340,7 +4346,6 @@ elif menu == "生產單管理":
                     st.markdown(preview_text, unsafe_allow_html=True)
 
             with manage_tab:
-
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
                     if st.button("✏️ 修改生產單", key="edit_order_btn_tab3"):
