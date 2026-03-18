@@ -6749,20 +6749,23 @@ elif menu == "庫存區":
         # ── 顯示（快取結果，不重算）──
         cached_result = st.session_state.get("stock_query_result")
         if cached_result is not None:
-            df_result = pd.DataFrame(cached_result)
-            if df_result.empty:
+            if not cached_result:  # 空列表 / 無資料
                 st.info("查無符合條件的庫存資料。")
             else:
-                st.dataframe(
-                    df_result,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "備註": st.column_config.TextColumn(width="large"),
-                    },
-                )
-                st.caption("ℹ️ 庫存僅扣除期初庫存儲存後之生產單（含當日）")
-                st.caption("🌟 期末庫存 = 期初庫存 + 其後進貨 − 其後用量（單位皆以 g 計算）")
+                df_result = pd.DataFrame(cached_result)
+                if df_result.empty:
+                    st.info("查無符合條件的庫存資料。")
+                else:
+                    st.dataframe(
+                        df_result,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "備註": st.column_config.TextColumn(width="large"),
+                        },
+                    )
+                    st.caption("ℹ️ 庫存僅扣除期初庫存儲存後之生產單（含當日）")
+                    st.caption("🌟 期末庫存 = 期初庫存 + 其後進貨 − 其後用量（單位皆以 g 計算）")
 
    
     # ====================================================================
@@ -7371,20 +7374,23 @@ elif menu == "庫存區":
         # ── 顯示（快取結果）──
         cached_t4 = st.session_state.get("tab4_usage_result")
         if cached_t4 is not None:
-            df_usage = pd.DataFrame(cached_t4)
+            if not cached_t4:  # 空列表 / 無資料
+                st.info("查無符合條件的用量資料。")
+            else:
+                df_usage = pd.DataFrame(cached_t4)
 
-            def highlight_total_row(s):
-                return [
-                    "font-weight:bold; background-color:#333333; color:white"
-                    if (s.name in df_usage.index and
-                        df_usage.loc[s.name, "來源區間"] == "總用量" and
-                        col_n in ["色粉編號", "來源區間", "月用量"])
-                    else ""
-                    for col_n in s.index
-                ]
+                def highlight_total_row(s):
+                    return [
+                        "font-weight:bold; background-color:#333333; color:white"
+                        if (s.name in df_usage.index and
+                            df_usage.loc[s.name, "來源區間"] == "總用量" and
+                            col_n in ["色粉編號", "來源區間", "月用量"])
+                        else ""
+                        for col_n in s.index
+                    ]
 
-            styled = df_usage.style.apply(highlight_total_row, axis=1)
-            st.dataframe(styled, use_container_width=True, hide_index=True)
+                styled = df_usage.style.apply(highlight_total_row, axis=1)
+                st.dataframe(styled, use_container_width=True, hide_index=True)
 
 # ======== 洗車廠庫存分頁 =========
 elif menu == "洗車廠庫存":
