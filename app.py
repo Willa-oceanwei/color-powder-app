@@ -7379,7 +7379,19 @@ elif menu == "洗車廠庫存":
         except Exception:
             return 0.0
 
-    tab_c1, tab_c2, tab_c3 = st.tabs(["洗車廠初始庫存", "入/出庫登錄", "洗車廠庫存查詢"])
+    def _save_carwash_df(df_to_save):
+        upload_df = df_to_save.copy().fillna("")
+        ws_carwash.clear()
+        ws_carwash.update([carwash_headers] + upload_df[carwash_headers].astype(str).values.tolist())
+        invalidate_sheet_cache("洗車廠庫存")
+        st.session_state.carwash_need_reload = True
+
+    tab_c1, tab_c2, tab_c3, tab_c4 = st.tabs([
+        "洗車廠初始庫存",
+        "入/出庫登錄",
+        "洗車廠庫存查詢",
+        "資料修改"
+    ])
 
     # ── Tab C1：初始庫存 ──
     with tab_c1:
@@ -7462,6 +7474,11 @@ elif menu == "洗車廠庫存":
         with st.form("cw_query_form"):
             c1, c2 = st.columns([5, 1])
             q_pid     = c1.text_input("產品編號（留空顯示全部）", key="cw_query_pid")
+            show_zero_inventory = st.checkbox(
+                "顯示數量為 0 之庫存",
+                value=False,
+                key="cw_query_show_zero_inventory"
+            )
             do_query  = c2.form_submit_button("搜尋")
 
         if do_query:
@@ -7575,22 +7592,187 @@ elif menu == "洗車廠庫存":
                         "區間出庫":     f"{out_qty:g} {unit}".strip(),
                         "目前庫存數量": f"{current_qty:g} {unit}".strip(),
                         "出入庫歷程":   history_text or "-",
+                        "_目前庫存數值": current_qty,
                     })
 
                 result_df = pd.DataFrame(result_rows).sort_values("產品編號")
-                st.dataframe(
-                    result_df,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "產品編號":     st.column_config.TextColumn("產品編號",     width="small"),
-                        "期初庫存":     st.column_config.TextColumn("期初庫存",     width="small"),
-                        "區間入庫":     st.column_config.TextColumn("區間入庫",     width="small"),
-                        "區間出庫":     st.column_config.TextColumn("區間出庫",     width="small"),
-                        "目前庫存數量": st.column_config.TextColumn("目前庫存數量", width="small"),
-                        "出入庫歷程":   st.column_config.TextColumn("出入庫歷程",   width="large"),
-                    },
+                if not show_zero_inventory:
+                    result_df = result_df[result_df["_目前庫存數值"] != 0]
+
+                result_df = result_df.drop(columns=["_目前庫存數值"], errors="ignore")
+
+                if result_df.empty:
+                    st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
+                else:
+                    st.dataframe(
+                        result_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "產品編號":     st.column_config.TextColumn("產品編號",     width="small"),
+                            "期初庫存":     st.column_config.TextColumn("期初庫存",     width="small"),
+                            "區間入庫":     st.column_config.TextColumn("區間入庫",     width="small"),
+                            "區間出庫":     st.column_config.TextColumn("區間出庫",     width="small"),
+                            "目前庫存數量": st.column_config.TextColumn("目前庫存數量", width="small"),
+                            "出入庫歷程":   st.column_config.TextColumn("出入庫歷程",   width="large"),
+                        },
+                    )
+
+    # ── Tab C4：資料修改 ──
+    with tab_c4:
+        edit_tab1, edit_tab2 = st.tabs(["初始庫存修改", "出/入庫記錄修改"])
+
+        with edit_tab1:
+            init_df = df_carwash[df_carwash["類型"].astype(str).str.strip() == "初始庫存"].copy()
+
+            if init_df.empty:
+                st.info("目前沒有可修改的初始庫存資料。")
+            else:
+                init_df["sheet_idx"] = init_df.index
+                init_df = init_df.reset_index(drop=True)
+                init_df["row_no"] = init_df["sheet_idx"] + 2
+                init_df["選擇標籤"] = init_df.apply(
+                    lambda r: f"列 {r['row_no']}｜{str(r.get('貨品編號', '')).strip()}｜{str(r.get('初始庫存日期', '')).strip()}｜{str(r.get('初始數量', '')).strip()} {str(r.get('單位', '')).strip()}",
+                    axis=1
                 )
+
+                selected_init_label = st.selectbox(
+                    "選擇要修改的初始庫存記錄",
+                    options=init_df["選擇標籤"].tolist(),
+                    key="cw_edit_init_select"
+                )
+
+                selected_init_row = init_df[init_df["選擇標籤"] == selected_init_label].iloc[0]
+                selected_init_date = _to_date(selected_init_row.get("初始庫存日期", "")) or datetime.now().date()
+                selected_init_qty = _to_float(selected_init_row.get("初始數量", 0))
+
+                with st.form("cw_edit_initial_form"):
+                    c1, c2 = st.columns(2)
+                    edit_product_id = c1.text_input("貨品編號", value=str(selected_init_row.get("貨品編號", "")).strip())
+                    edit_init_date = c2.date_input("初始庫存日期", value=selected_init_date)
+
+                    c3, c4 = st.columns(2)
+                    edit_init_qty = c3.number_input("數量", min_value=0.0, value=float(selected_init_qty), step=1.0)
+                    edit_init_unit = c4.selectbox(
+                        "單位",
+                        ["KG", "包"],
+                        index=0 if str(selected_init_row.get("單位", "KG")).strip() != "包" else 1
+                    )
+
+                    c5, c6 = st.columns(2)
+                    edit_registrar = c5.selectbox(
+                        "登記人",
+                        ["德", "Q"],
+                        index=0 if str(selected_init_row.get("登記人", "德")).strip() != "Q" else 1
+                    )
+                    edit_note = c6.text_input("備註", value=str(selected_init_row.get("備註", "")).strip())
+
+                    submit_edit_init = st.form_submit_button("💾 儲存初始庫存修改")
+
+                if submit_edit_init:
+                    edit_product_id = edit_product_id.strip()
+                    if not edit_product_id:
+                        st.warning("⚠️ 貨品編號不可空白")
+                    else:
+                        sheet_idx = int(selected_init_row["sheet_idx"])
+                        df_carwash.loc[sheet_idx, "類型"] = "初始庫存"
+                        df_carwash.loc[sheet_idx, "初始庫存日期"] = edit_init_date.strftime("%Y-%m-%d")
+                        df_carwash.loc[sheet_idx, "初始數量"] = edit_init_qty
+                        df_carwash.loc[sheet_idx, "貨品編號"] = edit_product_id
+                        df_carwash.loc[sheet_idx, "入庫日期"] = ""
+                        df_carwash.loc[sheet_idx, "出庫日期"] = ""
+                        df_carwash.loc[sheet_idx, "數量"] = ""
+                        df_carwash.loc[sheet_idx, "單位"] = edit_init_unit
+                        df_carwash.loc[sheet_idx, "登記人"] = edit_registrar
+                        df_carwash.loc[sheet_idx, "備註"] = edit_note
+
+                        _save_carwash_df(df_carwash)
+                        st.session_state["carwash_toast"] = {
+                            "msg": f"✅ 已更新初始庫存：{edit_product_id}",
+                            "icon": "🛠️"
+                        }
+                        st.rerun()
+
+        with edit_tab2:
+            io_df = df_carwash[df_carwash["類型"].astype(str).str.strip().isin(["入庫", "出庫"])].copy()
+
+            if io_df.empty:
+                st.info("目前沒有可修改的出/入庫記錄。")
+            else:
+                io_df["sheet_idx"] = io_df.index
+                io_df = io_df.reset_index(drop=True)
+                io_df["row_no"] = io_df["sheet_idx"] + 2
+                io_df["紀錄日期"] = io_df.apply(
+                    lambda r: str(r.get("入庫日期", "")).strip() if str(r.get("類型", "")).strip() == "入庫"
+                    else str(r.get("出庫日期", "")).strip(),
+                    axis=1
+                )
+                io_df["選擇標籤"] = io_df.apply(
+                    lambda r: f"列 {r['row_no']}｜{str(r.get('類型', '')).strip()}｜{str(r.get('貨品編號', '')).strip()}｜{str(r.get('紀錄日期', '')).strip()}｜{str(r.get('數量', '')).strip()} {str(r.get('單位', '')).strip()}",
+                    axis=1
+                )
+
+                selected_io_label = st.selectbox(
+                    "選擇要修改的出/入庫記錄",
+                    options=io_df["選擇標籤"].tolist(),
+                    key="cw_edit_io_select"
+                )
+                selected_io_row = io_df[io_df["選擇標籤"] == selected_io_label].iloc[0]
+                selected_io_type = str(selected_io_row.get("類型", "入庫")).strip() or "入庫"
+                selected_io_qty = _to_float(selected_io_row.get("數量", 0))
+                selected_io_in_date = _to_date(selected_io_row.get("入庫日期", "")) or datetime.now().date()
+                selected_io_out_date = _to_date(selected_io_row.get("出庫日期", "")) or datetime.now().date()
+
+                with st.form("cw_edit_inout_form"):
+                    edit_io_type = st.selectbox("出/入庫", ["入庫", "出庫"], index=0 if selected_io_type == "入庫" else 1)
+
+                    c1, c2 = st.columns(2)
+                    edit_io_product_id = c1.text_input("貨品編號", value=str(selected_io_row.get("貨品編號", "")).strip())
+                    edit_io_qty = c2.number_input("數量", min_value=0.0, value=float(selected_io_qty), step=1.0)
+
+                    c3, c4 = st.columns(2)
+                    edit_io_in_date = c3.date_input("入庫日期", value=selected_io_in_date, disabled=(edit_io_type == "出庫"))
+                    edit_io_out_date = c4.date_input("出庫日期", value=selected_io_out_date, disabled=(edit_io_type == "入庫"))
+
+                    c5, c6 = st.columns(2)
+                    edit_io_unit = c5.selectbox(
+                        "單位",
+                        ["KG", "包"],
+                        index=0 if str(selected_io_row.get("單位", "KG")).strip() != "包" else 1
+                    )
+                    edit_io_registrar = c6.selectbox(
+                        "登記人",
+                        ["德", "Q"],
+                        index=0 if str(selected_io_row.get("登記人", "德")).strip() != "Q" else 1
+                    )
+                    edit_io_note = st.text_input("備註", value=str(selected_io_row.get("備註", "")).strip())
+                    submit_edit_io = st.form_submit_button("💾 儲存出/入庫修改")
+
+                if submit_edit_io:
+                    edit_io_product_id = edit_io_product_id.strip()
+                    if not edit_io_product_id:
+                        st.warning("⚠️ 貨品編號不可空白")
+                    elif edit_io_qty <= 0:
+                        st.warning("⚠️ 數量需大於 0")
+                    else:
+                        sheet_idx = int(selected_io_row["sheet_idx"])
+                        df_carwash.loc[sheet_idx, "類型"] = edit_io_type
+                        df_carwash.loc[sheet_idx, "初始庫存日期"] = ""
+                        df_carwash.loc[sheet_idx, "初始數量"] = ""
+                        df_carwash.loc[sheet_idx, "貨品編號"] = edit_io_product_id
+                        df_carwash.loc[sheet_idx, "入庫日期"] = edit_io_in_date.strftime("%Y-%m-%d") if edit_io_type == "入庫" else ""
+                        df_carwash.loc[sheet_idx, "出庫日期"] = edit_io_out_date.strftime("%Y-%m-%d") if edit_io_type == "出庫" else ""
+                        df_carwash.loc[sheet_idx, "數量"] = edit_io_qty
+                        df_carwash.loc[sheet_idx, "單位"] = edit_io_unit
+                        df_carwash.loc[sheet_idx, "登記人"] = edit_io_registrar
+                        df_carwash.loc[sheet_idx, "備註"] = edit_io_note
+
+                        _save_carwash_df(df_carwash)
+                        st.session_state["carwash_toast"] = {
+                            "msg": f"✅ 已更新{edit_io_type}記錄：{edit_io_product_id}",
+                            "icon": "🛠️"
+                        }
+                        st.rerun()
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
