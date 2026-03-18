@@ -198,6 +198,13 @@ def apply_modern_style():
         color: #f2e8ff !important;
     }
 
+    /* Selectbox 數字等寬（讓生產單預覽下拉選單更整齊） */
+    div.stSelectbox div[data-baseweb="select"] span,
+    ul[role="listbox"] li {
+        font-variant-numeric: tabular-nums !important;
+        font-feature-settings: "tnum" 1 !important;
+    }
+
     /* ===== 下拉選單 ===== */
     div[data-baseweb="popover"] {
         border-radius: 18px !important;
