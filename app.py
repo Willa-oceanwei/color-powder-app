@@ -7352,6 +7352,13 @@ elif menu == "洗車廠庫存":
 
     reload_carwash = st.session_state.pop("carwash_need_reload", False)
 
+    if st.session_state.get("carwash_toast"):
+        st.toast(
+            st.session_state["carwash_toast"].get("msg", ""),
+            icon=st.session_state["carwash_toast"].get("icon", "ℹ️")
+        )
+        st.session_state.pop("carwash_toast", None)
+
     try:
         df_carwash = get_cached_sheet_df("洗車廠庫存", force_reload=reload_carwash)
     except Exception:
@@ -7403,17 +7410,11 @@ elif menu == "洗車廠庫存":
                 ])
                 invalidate_sheet_cache("洗車廠庫存")
                 st.session_state.carwash_need_reload = True
-                st.toast(f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}", icon="📦")
+                st.session_state["carwash_toast"] = {
+                    "msg": f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}",
+                    "icon": "📦"
+                }
                 st.rerun()
-
-        initial_df = df_carwash[df_carwash["初始庫存日期"].astype(str).str.strip() != ""].copy()
-        if not initial_df.empty:
-            st.dataframe(
-                initial_df[["貨品編號", "初始庫存日期", "初始數量", "單位", "登記人", "備註"]]
-                .sort_values("初始庫存日期", ascending=False),
-                use_container_width=True,
-                hide_index=True,
-            )
 
     # ── Tab C2：入/出庫登錄 ──
     with tab_c2:
@@ -7450,7 +7451,10 @@ elif menu == "洗車廠庫存":
                 ])
                 invalidate_sheet_cache("洗車廠庫存")
                 st.session_state.carwash_need_reload = True
-                st.toast(f"✅ 已登錄 {io_type}：{io_product_id} {io_qty} {io_unit}", icon="🧾")
+                st.session_state["carwash_toast"] = {
+                    "msg": f"✅ 已登錄 {io_type}：{io_product_id} {io_qty} {io_unit}",
+                    "icon": "🧾"
+                }
                 st.rerun()
 
     # ── Tab C3：庫存查詢 ──
@@ -7507,13 +7511,13 @@ elif menu == "洗車廠庫存":
                         in_mask = (
                             (pid_df["類型"].astype(str).str.strip() == "入庫") &
                             (pid_df["入庫日期_dt"].notna()) &
-                            (pid_df["入庫日期_dt"] > init_date) &
+                            (pid_df["入庫日期_dt"] >= init_date) &
                             (pid_df["入庫日期_dt"] <= today)
                         )
                         out_mask = (
                             (pid_df["類型"].astype(str).str.strip() == "出庫") &
                             (pid_df["出庫日期_dt"].notna()) &
-                            (pid_df["出庫日期_dt"] > init_date) &
+                            (pid_df["出庫日期_dt"] >= init_date) &
                             (pid_df["出庫日期_dt"] <= today)
                         )
                     else:
@@ -7536,9 +7540,9 @@ elif menu == "洗車廠庫存":
                     if init_date is not None:
                         history_source = pid_df[
                             ((pid_df["類型"].astype(str).str.strip() == "入庫") &
-                             (pid_df["入庫日期_dt"] > init_date)) |
+                             (pid_df["入庫日期_dt"] >= init_date)) |
                             ((pid_df["類型"].astype(str).str.strip() == "出庫") &
-                             (pid_df["出庫日期_dt"] > init_date))
+                             (pid_df["出庫日期_dt"] >= init_date))
                         ].copy()
                     else:
                         history_source = pid_df[
