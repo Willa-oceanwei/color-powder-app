@@ -3055,6 +3055,31 @@ elif menu == "生產單管理":
         if "order_page" not in st.session_state:
             st.session_state["order_page"] = 1
             
+    def generate_next_production_order_id():
+        """依「當日最大流水號 + 1」產生生產單號，避免刪單後重複編號。"""
+        today_str = datetime.now().strftime("%Y%m%d")
+        id_pattern = re.compile(rf"^{today_str}-(\d+)$")
+
+        max_seq = 0
+
+        # 優先從最新 Sheet 讀取（避免 session_state 舊資料導致重號）
+        try:
+            latest_df = get_cached_sheet_df("生產單", force_reload=True)
+        except Exception:
+            latest_df = st.session_state.get("df_order", pd.DataFrame()).copy()
+
+        if "生產單號" in latest_df.columns:
+            for raw_id in latest_df["生產單號"].astype(str).tolist():
+                m = id_pattern.match(raw_id.strip())
+                if not m:
+                    continue
+                try:
+                    max_seq = max(max_seq, int(m.group(1)))
+                except Exception:
+                    continue
+
+        return f"{today_str}-{max_seq + 1:03d}"
+
     # =============== Tab 架構開始 ===============
     components.html(
         """
@@ -3188,11 +3213,8 @@ elif menu == "生產單管理":
             selected_label = list(option_map.keys())[0]
             selected_row = option_map[selected_label].copy()
         
-            # 計算當天已有的單數，生成生產單號
-            df_all_orders = st.session_state.df_order.copy()
-            today_str = datetime.now().strftime("%Y%m%d")
-            count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
-            new_id = f"{today_str}-{count_today + 1:03}"
+            # 依當日最大流水號 +1 產生生產單號（避免刪單後重號）
+            new_id = generate_next_production_order_id()
         
             # 自動建立 order
             order = {
@@ -3246,10 +3268,7 @@ elif menu == "生產單管理":
                 else:
                     order = {}
     
-                    df_all_orders = st.session_state.df_order.copy()
-                    today_str = datetime.now().strftime("%Y%m%d")
-                    count_today = df_all_orders[df_all_orders["生產單號"].str.startswith(today_str)].shape[0]
-                    new_id = f"{today_str}-{count_today + 1:03}"
+                    new_id = generate_next_production_order_id()
     
                     main_recipe_code = selected_row.get("配方編號", "").strip()
                     df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
@@ -3915,17 +3934,17 @@ elif menu == "生產單管理":
         def delete_order_by_id(ws, order_id):
             all_values = get_cached_sheet_df(ws.title).to_dict("records")
             df = pd.DataFrame(all_values)
-    
+
             if df.empty:
-                return False
-    
-            target_idx = df.index[df["生產單號"] == order_id].tolist()
+                return 0
+
+            target_idx = df.index[df["生產單號"].astype(str) == str(order_id)].tolist()
             if not target_idx:
-                return False
-    
-            row_number = target_idx[0] + 2
-            ws.delete_rows(row_number)
-            return True
+                return 0
+
+            for idx in sorted(target_idx, reverse=True):
+                ws.delete_rows(idx + 2)
+            return len(target_idx)
     
         # ===== 刪除代工單函式 =====
         def delete_oem_by_order_id(ws_oem, order_id):
@@ -4266,68 +4285,80 @@ elif menu == "生產單管理":
             </style>
             """, unsafe_allow_html=True)
                         
-            show_ids = st.checkbox(
-                "預覽時顯示附加配方編號",
-                value=True,          # ✅ 只在第一次建立時當預設值
-                key=show_ids_key     # ✅ 之後狀態由 Streamlit 自己記
-            )
-    
-            preview_text = generate_order_preview_text_tab3(order_dict, recipe_row, show_additional_ids=show_ids)
-    
-            cols_preview_order = st.columns([6, 1.2])
-            with cols_preview_order[0]:
-                with st.expander("👀 生產單預覽", expanded=False):
-                    st.markdown(preview_text, unsafe_allow_html=True)
-    
-            with cols_preview_order[1]:
+            preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 刪除"])
+
+            with preview_tab:
+                head_col, opt_col = st.columns([6, 2])
+                with head_col:
+                    st.markdown("##### 生產單預覽")
+                    st.caption("下方為目前選擇生產單的完整列印預覽內容。")
+                with opt_col:
+                    show_ids = st.checkbox(
+                        "顯示附加配方編號",
+                        value=True,          # ✅ 只在第一次建立時當預設值
+                        key=show_ids_key     # ✅ 之後狀態由 Streamlit 自己記
+                    )
+                preview_text = generate_order_preview_text_tab3(order_dict, recipe_row, show_additional_ids=show_ids)
+                st.markdown(preview_text, unsafe_allow_html=True)
+
+            with manage_tab:
+                st.markdown("##### 修改 / 刪除")
+                st.info(
+                    f"目前選擇：{order_dict.get('生產單號','')}｜{order_dict.get('配方編號','')}｜"
+                    f"{order_dict.get('顏色','')}｜{order_dict.get('客戶名稱','')}"
+                )
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
-                    if st.button("✏️ ", key="edit_order_btn_tab3"):
+                    if st.button("✏️ 修改生產單", key="edit_order_btn_tab3"):
                         st.session_state["show_edit_panel"] = True
                         st.session_state["editing_order"] = order_dict
                 with col_btn2:
-                    if st.button("🗑️ ", key="delete_order_btn_tab3"):
+                    if st.button("🗑️ 刪除生產單", key="delete_order_btn_tab3"):
                         st.session_state["delete_target_id"] = selected_code_edit
                         st.session_state["show_delete_confirm"] = True
-    
-            if st.session_state.get("show_delete_confirm", False):
-                order_id = st.session_state.get("delete_target_id")
-                order_label = order_id or "未指定生產單"
-    
-                st.warning(f"⚠️ 確定要刪除生產單？\n\n👉 {order_label}")
-    
-                c1, c2 = st.columns(2)
-    
-                if c1.button("✅ 是，刪除", key="confirm_delete_yes_tab3"):
-                    if not order_id:
-                        st.error("❌ 未指定要刪除的生產單 ID")
-                    else:
-                        order_id_str = str(order_id)
-                        try:
-                            # ===== 先刪代工單 =====
-                            deleted_oem_count = 0
+
+                if st.session_state.get("show_delete_confirm", False):
+                    order_id = st.session_state.get("delete_target_id")
+                    order_label = order_id or "未指定生產單"
+
+                    st.warning(f"⚠️ 確定要刪除生產單？\n\n👉 {order_label}")
+
+                    c1, c2 = st.columns(2)
+
+                    if c1.button("✅ 是，刪除", key="confirm_delete_yes_tab3"):
+                        if not order_id:
+                            st.error("❌ 未指定要刪除的生產單 ID")
+                        else:
+                            order_id_str = str(order_id)
                             try:
-                                ws_oem = get_cached_worksheet("代工管理")
-                                deleted_oem_count = delete_oem_by_order_id(ws_oem, order_id_str)
-                            except:
-                                ws_oem = None
-                
-                            if deleted_oem_count > 0:
-                                st.toast(f"🧹 已自動刪除 {deleted_oem_count} 筆對應代工單")
-                
-                            # ===== 再刪生產單 =====
-                            deleted = delete_order_by_id(ws_order, order_id_str)
-                
-                            if deleted:
-                                st.success(f"✅ 已刪除 {order_label}")
-                            else:
-                                st.error("❌ 找不到該生產單，刪除失敗")
-                
-                        except Exception as e:
-                            st.error(f"❌ 刪除時發生錯誤：{e}")
-                
-                    st.session_state["show_delete_confirm"] = False
-                    st.rerun()
+                                # ===== 先刪代工單 =====
+                                deleted_oem_count = 0
+                                try:
+                                    ws_oem = get_cached_worksheet("代工管理")
+                                    deleted_oem_count = delete_oem_by_order_id(ws_oem, order_id_str)
+                                except:
+                                    ws_oem = None
+
+                                if deleted_oem_count > 0:
+                                    st.toast(f"🧹 已自動刪除 {deleted_oem_count} 筆對應代工單")
+
+                                # ===== 再刪生產單 =====
+                                deleted_count = delete_order_by_id(ws_order, order_id_str)
+
+                                if deleted_count > 0:
+                                    invalidate_sheet_cache("生產單")
+                                    st.session_state.df_order = st.session_state.df_order[
+                                        st.session_state.df_order["生產單號"].astype(str) != order_id_str
+                                    ].copy()
+                                    st.success(f"✅ 已刪除 {order_label}")
+                                else:
+                                    st.error("❌ 找不到該生產單，刪除失敗")
+
+                            except Exception as e:
+                                st.error(f"❌ 刪除時發生錯誤：{e}")
+
+                        st.session_state["show_delete_confirm"] = False
+                        st.rerun()
            
         # ====== 修改面板（⚠️ 一定要在外層） ======
         if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
@@ -6683,26 +6714,32 @@ elif menu == "庫存區":
                 query_end=st.session_state.get("stock_end_query"),
             )
             if err_msg:
-                st.warning(err_msg) if err_msg.startswith("⚠️") else st.error(err_msg)
-                st.stop()
-
-            st.session_state["stock_query_result"] = stock_summary
-            st.session_state["stock_query_signature"] = query_signature
+                err_text = err_msg if isinstance(err_msg, str) else str(err_msg)
+                if not err_text.strip():
+                    err_text = "庫存查詢失敗，請稍後再試。"
+                st.warning(err_text) if err_text.startswith("⚠️") else st.error(err_text)
+                st.session_state["stock_query_result"] = []
+            else:
+                st.session_state["stock_query_result"] = stock_summary
+                st.session_state["stock_query_signature"] = query_signature
 
         # ── 顯示（快取結果，不重算）──
         cached_result = st.session_state.get("stock_query_result")
         if cached_result is not None:
             df_result = pd.DataFrame(cached_result)
-            st.dataframe(
-                df_result,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "備註": st.column_config.TextColumn(width="large"),
-                },
-            )
-            st.caption("ℹ️ 庫存僅扣除期初庫存儲存後之生產單（含當日）")
-            st.caption("🌟 期末庫存 = 期初庫存 + 其後進貨 − 其後用量（單位皆以 g 計算）")
+            if df_result.empty:
+                st.info("查無符合條件的庫存資料。")
+            else:
+                st.dataframe(
+                    df_result,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "備註": st.column_config.TextColumn(width="large"),
+                    },
+                )
+                st.caption("ℹ️ 庫存僅扣除期初庫存儲存後之生產單（含當日）")
+                st.caption("🌟 期末庫存 = 期初庫存 + 其後進貨 − 其後用量（單位皆以 g 計算）")
 
    
     # ====================================================================
