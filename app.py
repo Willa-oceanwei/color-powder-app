@@ -4302,6 +4302,7 @@ elif menu == "生產單管理":
                         "附加配方編號",
                         options=["顯示", "不顯示"],
                         index=0 if default_mode == "顯示" else 1,
+                    )
                     show_ids_mode = st.radio(
                         "附加配方編號",
                         options=["顯示", "不顯示"],
