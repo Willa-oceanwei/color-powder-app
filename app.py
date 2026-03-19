@@ -1578,6 +1578,46 @@ elif menu == "配方管理":
     # ================================================================
     # Tab 架構
     # ================================================================
+    components.html(
+        """
+        <script>
+        const storageKey = "recipe_mgmt_active_tab";
+        const tabTexts = ["📝 配方建立", "📜 配方記錄表", "👀 配方預覽/修改/刪除", "🪅 色粉管理", "👹 色母換算"];
+
+        function bindRecipeTabs() {
+            const doc = window.parent.document;
+            const allTabs = Array.from(doc.querySelectorAll('button[role="tab"]'));
+            const targetTab = allTabs.find(btn => tabTexts.includes(btn.textContent.trim()));
+            if (!targetTab) return false;
+
+            const tablist = targetTab.closest('div[role="tablist"]');
+            if (!tablist) return false;
+
+            const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
+            const savedIndex = parseInt(sessionStorage.getItem(storageKey), 10);
+            if (!Number.isNaN(savedIndex) && tabs[savedIndex] && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
+                tabs[savedIndex].click();
+            }
+
+            tabs.forEach((tab, idx) => {
+                if (tab.dataset.recipePersistBound === '1') return;
+                tab.dataset.recipePersistBound = '1';
+                tab.addEventListener('click', () => sessionStorage.setItem(storageKey, String(idx)));
+            });
+            return true;
+        }
+
+        if (!bindRecipeTabs()) {
+            const observer = new MutationObserver(() => {
+                if (bindRecipeTabs()) observer.disconnect();
+            });
+            observer.observe(window.parent.document.body, { childList: true, subtree: true });
+        }
+        </script>
+        """,
+        height=0,
+    )
+
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📝 配方建立",
         "📜 配方記錄表",
@@ -1733,8 +1773,11 @@ elif menu == "配方管理":
                         save_recipe_row(df, is_edit=True, edit_index=edit_idx)
                         st.session_state.recipe_toast = {"msg": f"配方 {fr['配方編號']} 已更新！", "icon": "✏️"}
                     else:
-                        if fr["配方編號"] in df["配方編號"].values:
-                            st.warning("⚠️ 此配方編號已存在！")
+                        new_recipe_code = clean_powder_id(fr["配方編號"])
+                        existing_codes = set(df["配方編號"].astype(str).map(clean_powder_id))
+                        if new_recipe_code in existing_codes:
+                            st.session_state.recipe_toast = {"msg": f"❌ 配方編號 {fr['配方編號']} 已存在，請勿重覆新增", "icon": "🚫"}
+                            st.rerun()
                         else:
                             fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             df = pd.concat([df,pd.DataFrame([fr])], ignore_index=True)
@@ -3090,6 +3133,13 @@ elif menu == "生產單管理":
         return f"{today_str}-{max_seq + 1:03d}"
 
     # =============== Tab 架構開始 ===============
+    if st.session_state.get("order_toast"):
+        st.toast(
+            st.session_state["order_toast"].get("msg", ""),
+            icon=st.session_state["order_toast"].get("icon", "ℹ️")
+        )
+        st.session_state.pop("order_toast", None)
+
     components.html(
         """
         <script>
@@ -4385,7 +4435,10 @@ elif menu == "生產單管理":
                                     st.session_state.df_order = st.session_state.df_order[
                                         st.session_state.df_order["生產單號"].astype(str) != order_id_str
                                     ].copy()
-                                    st.success(f"✅ 已刪除 {order_label}")
+                                    st.session_state["order_toast"] = {
+                                        "msg": f"✅ 已刪除生產單 {order_label}",
+                                        "icon": "🗑️"
+                                    }
                                 else:
                                     st.error("❌ 找不到該生產單，刪除失敗")
 
@@ -4514,7 +4567,10 @@ elif menu == "生產單管理":
                                     df_order.loc[mask, key] = val
                             
                             st.session_state.df_order = df_order
-                            st.session_state.edit_success_message = f"✅ 生產單 {order_no} 修改完成"
+                            st.session_state["order_toast"] = {
+                                "msg": f"✅ 生產單 {order_no} 修改完成",
+                                "icon": "🎉"
+                            }
                         
                     except Exception as e:
                         st.error(f"❌ 儲存失敗：{e}")
