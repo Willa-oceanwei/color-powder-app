@@ -880,6 +880,8 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
             count_str = str(int(c)) if c == int(c) else str(c)
             text = f"{unit_str} × {count_str}"
             pack_line.append(f"{text:<{pack_col_width}}")
+        else:
+            pack_line.append(" " * pack_col_width)
         
     packing_indent = " " * 14
     lines.append(f"<b>{packing_indent + ''.join(pack_line)}</b>")
@@ -4247,13 +4249,16 @@ elif menu == "生產單管理":
                 pack_counts_display = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
     
                 pack_line = []
+                slot_width = 12
                 for w, c in zip(pack_weights_display, pack_counts_display):
                     if w > 0 and c > 0:
                         val = int(w * 100)
-                        pack_line.append(f"{val}K × {int(c)}")
-    
-                if pack_line:
-                    html_text += " " * 14 + "  ".join(pack_line) + "<br>"
+                        pack_line.append(f"{val}K × {int(c)}".center(slot_width))
+                    else:
+                        pack_line.append(" " * slot_width)
+
+                if any((w > 0 and c > 0) for w, c in zip(pack_weights_display, pack_counts_display)):
+                    html_text += " " * 14 + "".join(pack_line) + "<br>"
     
                 colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
                 powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
@@ -6716,6 +6721,32 @@ elif menu == "庫存區":
     #   3. 相同查詢條件（簽名）不重算，直接顯示快取結果
     # ====================================================================
     with tab2:
+        def normalize_stock_query_error(err_msg):
+            """將各種錯誤型態轉成可安全顯示的文字，避免 Streamlit 再次誤判型態。"""
+            if isinstance(err_msg, str):
+                err_text_local = err_msg
+            elif isinstance(err_msg, BaseException):
+                err_text_local = f"{type(err_msg).__name__}: {err_msg}"
+            elif isinstance(err_msg, dict):
+                err_text_local = "；".join(
+                    f"{k}={v}" for k, v in err_msg.items()
+                )
+            elif isinstance(err_msg, (list, tuple, set)):
+                parts = [str(x).strip() for x in err_msg if str(x).strip()]
+                err_text_local = "；".join(parts)
+            else:
+                try:
+                    err_text_local = str(err_msg)
+                except Exception:
+                    err_text_local = repr(err_msg)
+
+            if not isinstance(err_text_local, str):
+                err_text_local = str(err_text_local)
+
+            err_text_local = err_text_local.replace("\x00", "").strip()
+            if not err_text_local:
+                err_text_local = "庫存查詢失敗，請稍後再試。"
+            return err_text_local
 
         with st.form("form_stock_query"):
             col1, col2 = st.columns(2)
@@ -6744,11 +6775,13 @@ elif menu == "庫存區":
                 query_end=st.session_state.get("stock_end_query"),
             )
             if err_msg:
-                err_text = err_msg if isinstance(err_msg, str) else str(err_msg)
-                if not err_text.strip():
-                    err_text = "庫存查詢失敗，請稍後再試。"
-                st.warning(err_text) if err_text.startswith("⚠️") else st.error(err_text)
-                st.session_state["stock_query_result"] = []
+                err_text = normalize_stock_query_error(err_msg)
+                if err_text.startswith("⚠️"):
+                    st.warning(err_text)
+                else:
+                    st.error(err_text)
+                # 錯誤狀態不再灌空列表，避免下方「查無資料」提示重複顯示一次
+                st.session_state["stock_query_result"] = None
             else:
                 st.session_state["stock_query_result"] = stock_summary
                 st.session_state["stock_query_signature"] = query_signature
