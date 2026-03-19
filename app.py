@@ -6780,7 +6780,8 @@ elif menu == "庫存區":
                     st.warning(err_text)
                 else:
                     st.error(err_text)
-                st.session_state["stock_query_result"] = []
+                # 錯誤狀態不再灌空列表，避免下方「查無資料」提示重複顯示一次
+                st.session_state["stock_query_result"] = None
             else:
                 st.session_state["stock_query_result"] = stock_summary
                 st.session_state["stock_query_signature"] = query_signature
