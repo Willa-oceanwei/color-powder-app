@@ -3707,7 +3707,9 @@ elif menu == "生產單管理":
                 order_no = str(order.get("生產單號", "")).strip()
 
                 try:
-                    sheet_data = get_cached_sheet_df("生產單").to_dict("records")
+                    # ⚠️ 修改後立即重存時，若吃到快取可能找不到舊單而重複 append
+                    # 這裡強制重讀最新資料，確保先刪舊列再寫新列。
+                    sheet_data = get_cached_sheet_df("生產單", force_reload=True).to_dict("records")
                     rows_to_delete = []
                     
                     for idx, row in enumerate(sheet_data, start=2):
@@ -3733,6 +3735,7 @@ elif menu == "生產單管理":
                     df_order = pd.concat([df_order, df_new], ignore_index=True)
                     df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
+                    invalidate_sheet_cache("生產單")
                     st.session_state.new_order_saved = True
                     st.success(f"✅ 生產單 {order['生產單號']} 已存！")
                     # ✅【防止重複儲存】只有真的寫入成功才記住
