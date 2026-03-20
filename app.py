@@ -6551,7 +6551,7 @@ elif menu == "庫存區":
     
             # 合計類別搜尋（LA/T9/料 等）
             if "合計類別" in recipe_df_copy.columns and "淨重" in recipe_df_copy.columns:
-                mask_total = recipe_df_copy["合計類別"].astype(str).str.strip() == powder_id
+                mask_total = recipe_df_copy["合計類別"].astype(str).str.strip().str.upper() == powder_id.upper()
                 candidate_total_ids = set(
                     recipe_df_copy[mask_total]["配方編號"].astype(str).str.strip().tolist()
                 )
