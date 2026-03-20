@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import re
 from datetime import datetime, date
 from .common import get_spreadsheet, save_df_to_sheet, init_states
 
@@ -237,6 +238,52 @@ def show_cross_query_page():
                 return f"{int(val)} g"
             else:
                 return f"{val:.2f} g"
+
+    def parse_pack_value(val):
+        """將包裝重量/份數轉為數值，容忍包含單位或符號的輸入（例如 500K、25kg）。"""
+        if val is None:
+            return 0.0
+        if isinstance(val, (int, float)):
+            return float(val)
+
+        text = str(val).strip()
+        if not text:
+            return 0.0
+
+        try:
+            return float(text)
+        except (TypeError, ValueError):
+            pass
+
+        normalized = text.replace(",", "")
+        match = re.search(r"-?\d+(?:\.\d+)?", normalized)
+        if not match:
+            return 0.0
+        try:
+            return float(match.group(0))
+        except (TypeError, ValueError):
+            return 0.0
+
+    def get_effective_powder_weights(rec: dict) -> dict:
+        """依配方列計算每個色粉的有效 g/kg。若為合計類別，需扣掉其它色粉重量。"""
+        totals = {}
+        for i in range(1, 9):
+            pid = str(rec.get(f"色粉編號{i}", "")).strip()
+            if not pid:
+                continue
+            try:
+                weight = float(rec.get(f"色粉重量{i}", 0) or 0)
+            except (TypeError, ValueError):
+                weight = 0.0
+            if weight <= 0:
+                continue
+            totals[pid] = totals.get(pid, 0.0) + weight
+
+        total_category = str(rec.get("合計類別", "")).strip()
+        if total_category and total_category in totals:
+            others = sum(v for k, v in totals.items() if k != total_category)
+            totals[total_category] = max(totals[total_category] - others, 0.0)
+        return totals
     
     if st.button("查詢用量", key="btn_powder_usage") and powder_inputs:
         results = []
@@ -300,15 +347,8 @@ def show_cross_query_page():
                 
                 packs_total = 0.0
                 for j in range(1, 5):
-                    try:
-                        w = float(order.get(f"包裝重量{j}", 0) or 0)
-                    except:
-                        w = 0.0
-                    try:
-                        n = float(order.get(f"包裝份數{j}", 0) or 0)
-                    except:
-                        n = 0.0
-                    packs_total += w * n
+                    n = parse_pack_value(order.get(f"包裝份數{j}", 0))
+                    packs_total += n
                 
                 if packs_total <= 0:
                     continue
@@ -321,17 +361,8 @@ def show_cross_query_page():
                     rec_id = str(rec.get("配方編號", "")).strip()
                     if rec_id not in candidate_ids:
                         continue
-                    
-                    pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-                    if powder_id not in pvals:
-                        continue
-                    
-                    idx = pvals.index(powder_id) + 1
-                    try:
-                        powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
-                    except:
-                        powder_weight = 0.0
-                    
+
+                    powder_weight = get_effective_powder_weights(rec).get(powder_id, 0.0)
                     if powder_weight <= 0:
                         continue
                     
@@ -461,27 +492,14 @@ def show_cross_query_page():
             
             packs_total = 0.0
             for j in range(1, 5):
-                try:
-                    w = float(order.get(f"包裝重量{j}", 0) or 0)
-                except:
-                    w = 0.0
-                try:
-                    n = float(order.get(f"包裝份數{j}", 0) or 0)
-                except:
-                    n = 0.0
-                packs_total += w * n
+                n = parse_pack_value(order.get(f"包裝份數{j}", 0))
+                packs_total += n
             
             if packs_total <= 0:
                 continue
             
             for rec in recipe_rows:
-                for i in range(1, 9):
-                    pid = str(rec.get(f"色粉編號{i}", "")).strip()
-                    try:
-                        pw = float(rec.get(f"色粉重量{i}", 0) or 0)
-                    except:
-                        pw = 0.0
-                    
+                for pid, pw in get_effective_powder_weights(rec).items():
                     if pid and pw > 0:
                         contrib = pw * packs_total
                         pigment_usage[pid] = pigment_usage.get(pid, 0.0) + contrib
