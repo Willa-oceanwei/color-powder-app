@@ -265,7 +265,7 @@ def show_cross_query_page():
             return 0.0
 
     def get_effective_powder_weights(rec: dict) -> dict:
-        """依配方列計算每個色粉的有效 g/kg。若為合計類別，需扣掉其它色粉重量。"""
+        """依配方列計算每個色粉的有效 g/kg，並補上合計類別差額。"""
         totals = {}
         for i in range(1, 9):
             pid = str(rec.get(f"色粉編號{i}", "")).strip()
@@ -280,9 +280,14 @@ def show_cross_query_page():
             totals[pid] = totals.get(pid, 0.0) + weight
 
         total_category = str(rec.get("合計類別", "")).strip()
-        if total_category and total_category in totals:
-            others = sum(v for k, v in totals.items() if k != total_category)
-            totals[total_category] = max(totals[total_category] - others, 0.0)
+        if total_category:
+            try:
+                net_weight = float(rec.get("淨重", 0) or 0)
+            except (TypeError, ValueError):
+                net_weight = 0.0
+            remainder = net_weight - sum(totals.values())
+            if remainder > 0:
+                totals[total_category] = totals.get(total_category, 0.0) + remainder
         return totals
     
     if st.button("查詢用量", key="btn_powder_usage") and powder_inputs:
@@ -318,10 +323,16 @@ def show_cross_query_page():
             if not df_recipe.empty:
                 mask = df_recipe[powder_cols].astype(str).apply(lambda row: powder_id in row.values, axis=1)
                 recipe_candidates = df_recipe[mask].copy()
-                candidate_ids = set(recipe_candidates["配方編號"].astype(str).tolist())
+                candidate_ids = set(recipe_candidates["配方編號"].astype(str).str.strip().tolist())
+                if "合計類別" in df_recipe.columns:
+                    mask_total = df_recipe["合計類別"].astype(str).str.strip() == powder_id
+                    candidate_total_ids = set(df_recipe[mask_total]["配方編號"].astype(str).str.strip().tolist())
+                else:
+                    candidate_total_ids = set()
             else:
                 recipe_candidates = pd.DataFrame()
                 candidate_ids = set()
+                candidate_total_ids = set()
             
             orders_in_range = df_order_local[
                 (df_order_local["生產日期"].notna()) &
@@ -347,8 +358,9 @@ def show_cross_query_page():
                 
                 packs_total = 0.0
                 for j in range(1, 5):
+                    w = parse_pack_value(order.get(f"包裝重量{j}", 0))
                     n = parse_pack_value(order.get(f"包裝份數{j}", 0))
-                    packs_total += n
+                    packs_total += w * n
                 
                 if packs_total <= 0:
                     continue
@@ -359,7 +371,7 @@ def show_cross_query_page():
                 
                 for rec in recipe_rows:
                     rec_id = str(rec.get("配方編號", "")).strip()
-                    if rec_id not in candidate_ids:
+                    if (rec_id not in candidate_ids) and (rec_id not in candidate_total_ids):
                         continue
 
                     powder_weight = get_effective_powder_weights(rec).get(powder_id, 0.0)
@@ -492,8 +504,9 @@ def show_cross_query_page():
             
             packs_total = 0.0
             for j in range(1, 5):
+                w = parse_pack_value(order.get(f"包裝重量{j}", 0))
                 n = parse_pack_value(order.get(f"包裝份數{j}", 0))
-                packs_total += n
+                packs_total += w * n
             
             if packs_total <= 0:
                 continue
