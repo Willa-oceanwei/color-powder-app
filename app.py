@@ -778,7 +778,13 @@ def save_df_to_sheet(ws, df):
 
                 
 # ===== 自訂函式：產生生產單列印格式 =====      
-def generate_production_order_print(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
+def generate_production_order_print(
+    order,
+    recipe_row,
+    additional_recipe_rows=None,
+    show_additional_ids=True,
+    include_remark=True
+):
     if recipe_row is None:
         recipe_row = {}
 
@@ -1010,7 +1016,7 @@ def generate_production_order_print(order, recipe_row, additional_recipe_rows=No
     
     # ---------- 備註（自動判斷是否印出） ----------
     remark_text = order.get("備註", "").strip()
-    if remark_text:  # 有輸入內容才印出
+    if include_remark and remark_text:  # 有輸入內容才印出
         lines.append("")
         lines.append("")  # 只在有備註時多留空行
         lines.append(f"備註 : {remark_text}")
@@ -1031,7 +1037,8 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
         order,
         recipe_row,
         additional_recipe_rows,
-        show_additional_ids=show_additional_ids  # 👈 新增參數
+        show_additional_ids=show_additional_ids,  # 👈 新增參數
+        include_remark=True
     )
     created_time = str(order.get("建立時間", "") or "")
 
@@ -1759,9 +1766,13 @@ elif menu == "配方管理":
                     pid = clean_powder_id(fr.get(f"色粉編號{i}",""))
                     if pid and pid not in existing_powders_str:
                         missing_powders.append(fr.get(f"色粉編號{i}",""))
-    
+
                 if missing_powders:
-                    st.warning(f"⚠️ 以下色粉尚未建檔：{', '.join(missing_powders)}")
+                    st.session_state.recipe_toast = {
+                        "msg": f"新增失敗：以下色粉尚未建檔 {', '.join(missing_powders)}",
+                        "icon": "⚠️"
+                    }
+                    st.rerun()
                 elif fr["配方編號"].strip() == "":
                     st.warning("⚠️ 請輸入配方編號！")
                 elif fr["配方類別"]=="附加配方" and fr["原始配方"].strip()=="":
@@ -1792,6 +1803,9 @@ elif menu == "配方管理":
             if add_powder and not st.session_state.add_powder_clicked:
                 if st.session_state.num_powder_rows < 8:
                     st.session_state.num_powder_rows += 1
+                    st.session_state.recipe_toast = {"msg": "已新增一列色粉欄位", "icon": "➕"}
+                else:
+                    st.session_state.recipe_toast = {"msg": "色粉列已達上限（8 列）", "icon": "ℹ️"}
                 st.session_state.add_powder_clicked = True
                 st.rerun()
             else:
@@ -4221,7 +4235,8 @@ elif menu == "生產單管理":
                 order,
                 recipe_row,
                 additional_recipe_rows=None,
-                show_additional_ids=show_additional_ids
+                show_additional_ids=show_additional_ids,
+                include_remark=False
             )
     
             main_code = str(order.get("配方編號", "")).strip()
@@ -4286,59 +4301,11 @@ elif menu == "生產單管理":
                         total_line += fmt_num(val).rjust(number_col_width)
                     html_text += total_line + "<br>"
     
-            def fmt_num_colorant(x: float) -> str:
-                if abs(x - int(x)) < 1e-9:
-                    return str(int(x))
-                return f"{x:g}"
-    
             # ===== 備註顯示（區分來源） =====
             order_note = str(order.get("備註", "")).strip()
             if order_note:
                 html_text += f"【生產單備註】{order_note}<br><br>"
-            
-            category_colorant = str(recipe_row.get("色粉類別","")).strip()
-            if category_colorant == "色母":
-                pack_weights_display = [float(order.get(f"包裝重量{i}",0) or 0) for i in range(1,5)]
-                pack_counts_display = [float(order.get(f"包裝份數{i}",0) or 0) for i in range(1,5)]
-    
-                pack_line = []
-                slot_width = 12
-                for w, c in zip(pack_weights_display, pack_counts_display):
-                    if w > 0 and c > 0:
-                        val = int(w * 100)
-                        pack_line.append(f"{val}K × {int(c)}".center(slot_width))
-                    else:
-                        pack_line.append(" " * slot_width)
 
-                if any((w > 0 and c > 0) for w, c in zip(pack_weights_display, pack_counts_display)):
-                    html_text += " " * 14 + "".join(pack_line) + "<br>"
-    
-                colorant_weights = [float(recipe_row.get(f"色粉重量{i}",0) or 0) for i in range(1,9)]
-                powder_ids = [str(recipe_row.get(f"色粉編號{i}","") or "").strip() for i in range(1,9)]
-    
-                number_col_width = 12
-                for pid, wgt in zip(powder_ids, colorant_weights):
-                    if pid and wgt > 0:
-                        line = pid.ljust(6)
-                        for w in pack_weights_display:
-                            if w > 0:
-                                val = wgt * w
-                                line += fmt_num_colorant(val).rjust(number_col_width)
-                        html_text += line + "<br>"
-    
-                total_colorant = float(recipe_row.get("淨重",0) or 0) - sum(colorant_weights)
-                total_line_colorant = "料".ljust(12)
-    
-                col_widths = [5, 12, 12, 12]
-    
-                for idx, w in enumerate(pack_weights_display):
-                    if w > 0:
-                        val = total_colorant * w
-                        width = col_widths[idx] if idx < len(col_widths) else 12
-                        total_line_colorant += fmt_num_colorant(val).rjust(width)
-    
-                html_text += total_line_colorant + "<br>"
-    
             text_with_newlines = html_text.replace("<br>", "\n")
             plain_text = re.sub(r"<.*?>", "", text_with_newlines)
             return "```\n" + plain_text.strip() + "\n```"
