@@ -6616,7 +6616,7 @@ elif menu == "庫存區":
                 # ── 合計類別命中：用量 = (淨重 - 色粉合計) × 包裝 ──
                 if rec_id in candidate_total_ids:
                     rec_total_type = str(rec.get("合計類別", "")).strip()
-                    if rec_total_type == powder_id:
+                    if rec_total_type.upper() == powder_id.upper():
                         try:
                             net_weight = float(rec.get("淨重", 0) or 0)
                         except Exception:
