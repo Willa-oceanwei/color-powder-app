@@ -4231,6 +4231,65 @@ elif menu == "生產單管理":
             selected_order = None
     
         def generate_order_preview_text_tab3(order, recipe_row, show_additional_ids=True):
+            category_colorant = str(recipe_row.get("色粉類別", "")).strip()
+
+            # 色母預覽改用專用版型（保留正確的下方顯示樣式）
+            if category_colorant == "色母":
+                html_text = ""
+
+                def fmt_num_colorant(x: float) -> str:
+                    if abs(x - int(x)) < 1e-9:
+                        return str(int(x))
+                    return f"{x:g}"
+
+                order_note = str(order.get("備註", "")).strip()
+                if order_note:
+                    html_text += f"【生產單備註】{order_note}<br><br>"
+
+                pack_weights_display = [float(order.get(f"包裝重量{i}", 0) or 0) for i in range(1, 5)]
+                pack_counts_display = [float(order.get(f"包裝份數{i}", 0) or 0) for i in range(1, 5)]
+
+                pack_line = []
+                slot_width = 12
+                for w, c in zip(pack_weights_display, pack_counts_display):
+                    if w > 0 and c > 0:
+                        val = 100 if abs(w - 1.0) < 1e-9 else int(w * 100)
+                        pack_line.append(f"{val}K × {int(c)}".center(slot_width))
+                    else:
+                        pack_line.append(" " * slot_width)
+
+                if any((w > 0 and c > 0) for w, c in zip(pack_weights_display, pack_counts_display)):
+                    html_text += " " * 14 + "".join(pack_line) + "<br>"
+
+                colorant_weights = [float(recipe_row.get(f"色粉重量{i}", 0) or 0) for i in range(1, 9)]
+                powder_ids = [str(recipe_row.get(f"色粉編號{i}", "") or "").strip() for i in range(1, 9)]
+
+                number_col_width = 12
+                for pid, wgt in zip(powder_ids, colorant_weights):
+                    if pid and wgt > 0:
+                        line = pid.ljust(6)
+                        for w in pack_weights_display:
+                            if w > 0:
+                                val = wgt * w
+                                line += fmt_num_colorant(val).rjust(number_col_width)
+                        html_text += line + "<br>"
+
+                total_colorant = float(recipe_row.get("淨重", 0) or 0) - sum(colorant_weights)
+                total_line_colorant = "料".ljust(12)
+                col_widths = [5, 12, 12, 12]
+
+                for idx, w in enumerate(pack_weights_display):
+                    if w > 0:
+                        val = total_colorant * w
+                        width = col_widths[idx] if idx < len(col_widths) else 12
+                        total_line_colorant += fmt_num_colorant(val).rjust(width)
+
+                html_text += total_line_colorant + "<br>"
+
+                text_with_newlines = html_text.replace("<br>", "\n")
+                plain_text = re.sub(r"<.*?>", "", text_with_newlines)
+                return "```\n" + plain_text.strip() + "\n```"
+
             html_text = generate_production_order_print(
                 order,
                 recipe_row,
