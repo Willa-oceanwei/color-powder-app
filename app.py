@@ -6492,49 +6492,63 @@ elif menu == "庫存區":
         return f"{_trim_num(val)} g"
 
     def calc_usage_for_stock(powder_id, df_order, df_recipe, start_dt, end_dt):
-        """計算指定色粉在 (start_dt, end_dt] 區間的生產用量（g）"""
+        """計算指定色粉在 (start_dt, end_dt] 區間的生產用量（g）
+        
+        修正：除了搜尋色粉編號欄位外，也處理「合計類別」== powder_id 的情況
+        合計類別用量 = (淨重 - 所有色粉重量合計) × 包裝總量
+        """
         total_usage_g = 0.0
         df_order_local = df_order.copy()
-
+    
         if "生產時間" not in df_order_local.columns:
             return 0.0
-
+    
         df_order_local["生產時間"] = pd.to_datetime(df_order_local["生產時間"], errors="coerce")
-
+    
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
         powder_weight_cols = [f"色粉重量{i}" for i in range(1, 9)]
-
+    
         for c in powder_cols + powder_weight_cols:
             if c not in df_order_local.columns:
                 df_order_local[c] = ""
-
+    
         candidate_ids = set()
+        candidate_total_ids = set()  # 合計類別為 powder_id 的配方
+    
         if not df_recipe.empty:
             recipe_df_copy = df_recipe.copy()
             for c in powder_cols:
                 if c not in recipe_df_copy.columns:
                     recipe_df_copy[c] = ""
+    
+            # 一般色粉欄位搜尋
             mask = recipe_df_copy[powder_cols].astype(str).apply(
                 lambda row: powder_id in [s.strip() for s in row.values], axis=1
             )
             candidate_ids = set(
                 recipe_df_copy[mask]["配方編號"].astype(str).str.strip().tolist()
             )
-
-        if not candidate_ids:
+    
+            # 合計類別搜尋（LA/T9/料 等）
+            if "合計類別" in recipe_df_copy.columns and "淨重" in recipe_df_copy.columns:
+                mask_total = recipe_df_copy["合計類別"].astype(str).str.strip() == powder_id
+                candidate_total_ids = set(
+                    recipe_df_copy[mask_total]["配方編號"].astype(str).str.strip().tolist()
+                )
+    
+        if not candidate_ids and not candidate_total_ids:
             return 0.0
-
+    
         s_dt = pd.to_datetime(start_dt, errors="coerce")
         e_dt = pd.to_datetime(end_dt,   errors="coerce")
-
+    
         orders_in_range = df_order_local[
             df_order_local["生產時間"].notna() &
             (df_order_local["生產時間"] > s_dt) &
             (df_order_local["生產時間"] <= e_dt)
         ]
-
+    
         for _, order in orders_in_range.iterrows():
-            # 優先使用生產單快照中的色粉欄位，確保「生產單新增色母」也能扣庫存
             packs_total_kg = 0.0
             for j in range(1, 5):
                 try:
@@ -6542,55 +6556,61 @@ elif menu == "庫存區":
                                       float(order.get(f"包裝份數{j}", 0) or 0)
                 except Exception:
                     pass
-
+    
             if packs_total_kg <= 0:
                 continue
-
-            usage_from_order_snapshot = 0.0
-            for i in range(1, 9):
-                oid = str(order.get(f"色粉編號{i}", "") or "").strip()
-                if oid != powder_id:
-                    continue
-                try:
-                    pw = float(order.get(f"色粉重量{i}", 0) or 0)
-                except Exception:
-                    pw = 0.0
-                if pw > 0:
-                    usage_from_order_snapshot += pw * packs_total_kg
-
-            if usage_from_order_snapshot > 0:
-                total_usage_g += usage_from_order_snapshot
-                continue
-
+    
             order_recipe_id = str(order.get("配方編號", "")).strip()
             if not order_recipe_id:
                 continue
-
+    
+            # 取得主配方與附加配方
             recipe_rows = []
-            main_df = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id]
-            if not main_df.empty:
-                recipe_rows.append(main_df.iloc[0].to_dict())
-
-            if "配方類別" in df_recipe.columns and "原始配方" in df_recipe.columns:
-                add_df = df_recipe[
-                    (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
-                    (df_recipe["原始配方"].astype(str).str.strip() == order_recipe_id)
-                ]
-                if not add_df.empty:
-                    recipe_rows.extend(add_df.to_dict("records"))
-
+            if not df_recipe.empty:
+                main_df = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id]
+                if not main_df.empty:
+                    recipe_rows.append(main_df.iloc[0].to_dict())
+                if "配方類別" in df_recipe.columns and "原始配方" in df_recipe.columns:
+                    add_df = df_recipe[
+                        (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
+                        (df_recipe["原始配方"].astype(str).str.strip() == order_recipe_id)
+                    ]
+                    if not add_df.empty:
+                        recipe_rows.extend(add_df.to_dict("records"))
+    
             for rec in recipe_rows:
-                pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-                if powder_id not in pvals:
-                    continue
-                idx = pvals.index(powder_id) + 1
-                try:
-                    pw = float(rec.get(f"色粉重量{idx}", 0) or 0)
-                except Exception:
-                    pw = 0.0
-                if pw > 0:
-                    total_usage_g += pw * packs_total_kg
-
+                rec_id = str(rec.get("配方編號", "")).strip()
+    
+                # ── 一般色粉欄位命中 ──
+                if rec_id in candidate_ids:
+                    pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
+                    if powder_id in pvals:
+                        idx = pvals.index(powder_id) + 1
+                        try:
+                            pw = float(rec.get(f"色粉重量{idx}", 0) or 0)
+                        except Exception:
+                            pw = 0.0
+                        if pw > 0:
+                            total_usage_g += pw * packs_total_kg
+    
+                # ── 合計類別命中：用量 = (淨重 - 色粉合計) × 包裝 ──
+                if rec_id in candidate_total_ids:
+                    rec_total_type = str(rec.get("合計類別", "")).strip()
+                    if rec_total_type == powder_id:
+                        try:
+                            net_weight = float(rec.get("淨重", 0) or 0)
+                        except Exception:
+                            net_weight = 0.0
+                        powder_sum = 0.0
+                        for i in range(1, 9):
+                            try:
+                                powder_sum += float(rec.get(f"色粉重量{i}", 0) or 0)
+                            except Exception:
+                                pass
+                        remainder = net_weight - powder_sum
+                        if remainder > 0:
+                            total_usage_g += remainder * packs_total_kg
+    
         return total_usage_g
 
     def safe_calc_usage(pid, df_order, df_recipe, start_dt, end_dt):
