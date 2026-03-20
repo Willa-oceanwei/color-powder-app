@@ -5945,7 +5945,7 @@ elif menu == "查詢區":
         
                         # ── 合計類別命中 ──
                         rec_total_type = str(rec.get("合計類別", "")).strip()
-                        if rec_total_type == powder_kw:
+                        if rec_total_type.upper() == powder_kw.upper():
                             try:
                                 net_weight = float(rec.get("淨重", 0) or 0)
                             except Exception:
