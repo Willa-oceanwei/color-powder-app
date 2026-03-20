@@ -129,27 +129,7 @@ def show_inventory_page():
         
         df_order_local["生產日期"] = pd.to_datetime(df_order_local["生產日期"], errors="coerce").dt.normalize()
         
-        powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
-        candidate_ids = set()
-        
-        if not df_recipe.empty:
-            recipe_df_copy = df_recipe.copy()
-            for c in powder_cols:
-                if c not in recipe_df_copy.columns:
-                    recipe_df_copy[c] = ""
-            
-            mask = recipe_df_copy[powder_cols].astype(str).apply(lambda row: powder_id in [s.strip() for s in row.values], axis=1)
-            recipe_candidates = recipe_df_copy[mask].copy()
-            candidate_ids = set(recipe_candidates["配方編號"].astype(str).str.strip().tolist())
-            if "合計類別" in recipe_df_copy.columns:
-                mask_total = recipe_df_copy["合計類別"].astype(str).str.strip() == powder_id
-                candidate_total_ids = set(recipe_df_copy[mask_total]["配方編號"].astype(str).str.strip().tolist())
-            else:
-                candidate_total_ids = set()
-        else:
-            candidate_total_ids = set()
-        
-        if not candidate_ids and not candidate_total_ids:
+        if df_recipe.empty:
             return 0.0
         
         s_dt = pd.to_datetime(start_date).normalize()
@@ -195,10 +175,6 @@ def show_inventory_page():
             
             order_total_for_powder = 0.0
             for rec in recipe_rows:
-                rec_id = str(rec.get("配方編號", "")).strip()
-                if (rec_id not in candidate_ids) and (rec_id not in candidate_total_ids):
-                    continue
-
                 powder_weight_per_kg_product = get_effective_powder_weights(rec).get(powder_id, 0.0)
                 if powder_weight_per_kg_product <= 0:
                     continue

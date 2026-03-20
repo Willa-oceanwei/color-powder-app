@@ -320,20 +320,6 @@ def show_cross_query_page():
             total_usage_g = 0.0
             monthly_usage = {}
             
-            if not df_recipe.empty:
-                mask = df_recipe[powder_cols].astype(str).apply(lambda row: powder_id in row.values, axis=1)
-                recipe_candidates = df_recipe[mask].copy()
-                candidate_ids = set(recipe_candidates["配方編號"].astype(str).str.strip().tolist())
-                if "合計類別" in df_recipe.columns:
-                    mask_total = df_recipe["合計類別"].astype(str).str.strip() == powder_id
-                    candidate_total_ids = set(df_recipe[mask_total]["配方編號"].astype(str).str.strip().tolist())
-                else:
-                    candidate_total_ids = set()
-            else:
-                recipe_candidates = pd.DataFrame()
-                candidate_ids = set()
-                candidate_total_ids = set()
-            
             orders_in_range = df_order_local[
                 (df_order_local["生產日期"].notna()) &
                 (df_order_local["生產日期"] >= pd.to_datetime(start_date)) &
@@ -370,10 +356,6 @@ def show_cross_query_page():
                 sources_add = set()
                 
                 for rec in recipe_rows:
-                    rec_id = str(rec.get("配方編號", "")).strip()
-                    if (rec_id not in candidate_ids) and (rec_id not in candidate_total_ids):
-                        continue
-
                     powder_weight = get_effective_powder_weights(rec).get(powder_id, 0.0)
                     if powder_weight <= 0:
                         continue
