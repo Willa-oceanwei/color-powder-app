@@ -5942,6 +5942,26 @@ elif menu == "查詢區":
     
                     for rec in recipe_rows:
                         rec_id = str(rec.get("配方編號", "")).strip()
+        
+                        # ── 合計類別命中 ──
+                        rec_total_type = str(rec.get("合計類別", "")).strip()
+                        if rec_total_type == powder_kw:
+                            try:
+                                net_weight = float(rec.get("淨重", 0) or 0)
+                            except Exception:
+                                net_weight = 0.0
+                            powder_sum = sum(
+                                float(rec.get(f"色粉重量{i}", 0) or 0)
+                                for i in range(1, 9)
+                            )
+                            remainder = net_weight - powder_sum
+                            if remainder > 0:
+                                contrib = remainder * packs_total
+                                order_total_for_powder += contrib
+                                disp_name = recipe_display_name(rec)
+                                sources_main.add(disp_name)
+                            continue  # 已處理，跳過下方一般色粉邏輯
+        
                         if rec_id not in candidate_ids: continue
     
                         pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
