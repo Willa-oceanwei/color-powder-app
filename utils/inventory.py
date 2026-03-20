@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import re
 from datetime import datetime, date
 from .common import get_spreadsheet, save_df_to_sheet, init_states
 
@@ -55,6 +56,52 @@ def show_inventory_page():
         except:
             q = 0.0
         return q * 1000 if str(unit).lower() == "kg" else q
+
+    def parse_pack_value(val):
+        """將包裝重量/份數轉為數值，容忍包含單位或符號的輸入（例如 500K、25kg）。"""
+        if val is None:
+            return 0.0
+        if isinstance(val, (int, float)):
+            return float(val)
+
+        text = str(val).strip()
+        if not text:
+            return 0.0
+
+        try:
+            return float(text)
+        except (TypeError, ValueError):
+            pass
+
+        normalized = text.replace(",", "")
+        match = re.search(r"-?\d+(?:\.\d+)?", normalized)
+        if not match:
+            return 0.0
+        try:
+            return float(match.group(0))
+        except (TypeError, ValueError):
+            return 0.0
+
+    def get_effective_powder_weights(rec: dict) -> dict:
+        """依配方列計算每個色粉的有效 g/kg。若為合計類別，需扣掉其它色粉重量。"""
+        totals = {}
+        for i in range(1, 9):
+            pid = str(rec.get(f"色粉編號{i}", "")).strip()
+            if not pid:
+                continue
+            try:
+                weight = float(rec.get(f"色粉重量{i}", 0) or 0)
+            except (TypeError, ValueError):
+                weight = 0.0
+            if weight <= 0:
+                continue
+            totals[pid] = totals.get(pid, 0.0) + weight
+
+        total_category = str(rec.get("合計類別", "")).strip()
+        if total_category and total_category in totals:
+            others = sum(v for k, v in totals.items() if k != total_category)
+            totals[total_category] = max(totals[total_category] - others, 0.0)
+        return totals
     
     def format_usage(val_g):
         try:
@@ -126,16 +173,9 @@ def show_inventory_page():
             
             packs_total_kg = 0.0
             for j in range(1, 5):
-                w_key = f"包裝重量{j}"
                 n_key = f"包裝份數{j}"
-                w_val = order.get(w_key, 0)
-                n_val = order.get(n_key, 0)
-                try:
-                    pack_w = float(w_val or 0)
-                    pack_n = float(n_val or 0)
-                except (ValueError, TypeError):
-                    pack_w, pack_n = 0.0, 0.0
-                packs_total_kg += pack_w * pack_n
+                pack_n = parse_pack_value(order.get(n_key, 0))
+                packs_total_kg += pack_n
             
             if packs_total_kg <= 0:
                 continue
@@ -145,18 +185,8 @@ def show_inventory_page():
                 rec_id = str(rec.get("配方編號", "")).strip()
                 if rec_id not in candidate_ids:
                     continue
-                
-                pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-                if powder_id not in pvals:
-                    continue
-                
-                idx = pvals.index(powder_id) + 1
-                
-                try:
-                    powder_weight_per_kg_product = float(rec.get(f"色粉重量{idx}", 0) or 0)
-                except (ValueError, TypeError):
-                    powder_weight_per_kg_product = 0.0
-                
+
+                powder_weight_per_kg_product = get_effective_powder_weights(rec).get(powder_id, 0.0)
                 if powder_weight_per_kg_product <= 0:
                     continue
                 
