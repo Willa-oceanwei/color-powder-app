@@ -281,6 +281,59 @@ def apply_modern_style():
 
     }
 
+    /* ===== 手機響應式優化（桌機優先：僅在較小螢幕介入） ===== */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding: 1.1rem 1rem 1.25rem !important;
+            border-radius: 14px !important;
+        }
+
+        .stApp {
+            background-attachment: scroll !important;
+        }
+
+        section[data-testid="stSidebar"] {
+            width: min(82vw, 320px) !important;
+        }
+
+        h1, h2, h3 {
+            line-height: 1.25 !important;
+        }
+
+        div[data-testid="stHorizontalBlock"] {
+            gap: 0.6rem !important;
+            flex-wrap: wrap !important; /* 讓窄螢幕可換行，不強制全單欄 */
+        }
+
+        .main div.stButton > button,
+        form div.stButton > button,
+        form button[type="submit"] {
+            min-height: 44px !important;
+        }
+
+        div.stTextInput > div > div > input,
+        div.stNumberInput > div > div > input,
+        div.stTextArea > div > div > textarea,
+        div.stSelectbox div[data-baseweb="select"] > div {
+            min-height: 44px !important;
+            font-size: 16px !important;
+        }
+    }
+
+    /* 超小螢幕才全面單欄，避免影響平板與橫向手機 */
+    @media (max-width: 640px) {
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+        }
+
+        .main div.stButton > button,
+        form div.stButton > button,
+        form button[type="submit"] {
+            width: 100% !important;
+        }
+    }
+
     </style>
     """, unsafe_allow_html=True)
 
