@@ -5885,12 +5885,16 @@ elif menu == "查詢區":
     
             # ---- 以下原本計算邏輯照舊 ----
             for powder_id in powder_inputs:
+                powder_kw = powder_id.strip().lower()
                 total_usage_g = 0.0
                 monthly_usage = {}
     
                 # 1) 先從配方管理找出「候選配方」
                 if not df_recipe_local.empty:
-                    mask = df_recipe_local[powder_cols].astype(str).apply(lambda row: powder_id in row.values, axis=1)
+                    mask = df_recipe_local[powder_cols].astype(str).apply(
+                        lambda row: any(powder_kw in str(v).strip().lower() for v in row.values),
+                        axis=1
+                    )
                     recipe_candidates = df_recipe_local[mask].copy()
                     candidate_ids = set(recipe_candidates["配方編號"].astype(str).tolist())
                 else:
@@ -5941,13 +5945,24 @@ elif menu == "查詢區":
                         if rec_id not in candidate_ids: continue
     
                         pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-                        if powder_id not in pvals: continue
-                        idx = pvals.index(powder_id) + 1
-                        try: powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
-                        except: powder_weight = 0.0
-                        if powder_weight <= 0: continue
-    
-                        contrib = powder_weight * packs_total
+                        match_indexes = [
+                            i for i, pval in enumerate(pvals, start=1)
+                            if powder_kw in pval.lower()
+                        ]
+                        if not match_indexes:
+                            continue
+
+                        contrib = 0.0
+                        for idx in match_indexes:
+                            try:
+                                powder_weight = float(rec.get(f"色粉重量{idx}", 0) or 0)
+                            except Exception:
+                                powder_weight = 0.0
+                            if powder_weight > 0:
+                                contrib += powder_weight * packs_total
+                        if contrib <= 0:
+                            continue
+
                         order_total_for_powder += contrib
                         disp_name = recipe_display_name(rec)
                         if str(rec.get("配方類別", "")).strip() == "附加配方":
@@ -7408,13 +7423,15 @@ elif menu == "庫存區":
                     return rid
 
                 for powder_id in powder_inputs:
+                    powder_kw = powder_id.strip().lower()
                     total_usage_g = 0.0
                     monthly_usage = {}
 
                     # 候選配方
                     if not df_recipe_local.empty:
                         mask = df_recipe_local[powder_cols].astype(str).apply(
-                            lambda row: powder_id in row.values, axis=1
+                            lambda row: any(powder_kw in str(v).strip().lower() for v in row.values),
+                            axis=1
                         )
                         candidate_ids = set(df_recipe_local[mask]["配方編號"].astype(str).tolist())
                     else:
@@ -7463,16 +7480,22 @@ elif menu == "庫存區":
                             if rec_id not in candidate_ids:
                                 continue
                             pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
-                            if powder_id not in pvals:
+                            match_indexes = [
+                                i for i, pval in enumerate(pvals, start=1)
+                                if powder_kw in pval.lower()
+                            ]
+                            if not match_indexes:
                                 continue
-                            idx_r = pvals.index(powder_id) + 1
-                            try:
-                                pw = float(rec.get(f"色粉重量{idx_r}", 0) or 0)
-                            except Exception:
-                                pw = 0.0
-                            if pw <= 0:
+                            contrib = 0.0
+                            for idx_r in match_indexes:
+                                try:
+                                    pw = float(rec.get(f"色粉重量{idx_r}", 0) or 0)
+                                except Exception:
+                                    pw = 0.0
+                                if pw > 0:
+                                    contrib += pw * packs_total
+                            if contrib <= 0:
                                 continue
-                            contrib = pw * packs_total
                             order_total += contrib
                             name = recipe_display_name(rec)
                             if str(rec.get("配方類別", "")).strip() == "附加配方":
@@ -7707,7 +7730,11 @@ elif menu == "洗車廠庫存":
 
             # 取得要查詢的 ID 清單
             if q_pid:
-                query_ids = [q_pid]
+                pid_series = df_carwash["貨品編號"].astype(str).str.strip()
+                query_ids = sorted({
+                    pid for pid in pid_series.tolist()
+                    if pid and q_pid.lower() in pid.lower()
+                })
             else:
                 query_ids = sorted({
                     str(v).strip() for v in df_carwash["貨品編號"].tolist()
