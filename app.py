@@ -1901,7 +1901,17 @@ elif menu == "配方管理":
                 pantone_kw_clean = pantone_kw.replace(" ", "").upper()
                 mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
 
-            df_filtered = df[mask]
+            df_filtered = df[mask].copy()
+            if not df_filtered.empty:
+                if "建檔時間" in df_filtered.columns:
+                    df_filtered["_建檔時間_dt"] = pd.to_datetime(df_filtered["建檔時間"], errors="coerce")
+                else:
+                    df_filtered["_建檔時間_dt"] = pd.NaT
+                df_filtered["_原始序"] = df_filtered.index
+                df_filtered = df_filtered.sort_values(
+                    by=["_建檔時間_dt", "_原始序"],
+                    ascending=[False, False]
+                ).drop(columns=["_建檔時間_dt", "_原始序"], errors="ignore")
             total_rows  = df_filtered.shape[0]
 
             if search_signature != st.session_state.last_search_signature_tab2:
@@ -2391,7 +2401,7 @@ elif menu == "配方管理":
 
                 with st.form("master_batch_form"):
                     st.markdown("**步驟 2：設定色母比例**")
-                    ratio_options = ["12.5", "25:1", "50:1", "100:1"]
+                    ratio_options = ["12.5", "20:1", "25:1", "50:1", "100:1"]
                     if st.session_state.master_batch_ratio not in ratio_options:
                         st.session_state.master_batch_ratio = "25:1"
                     ratio = st.selectbox("色母比例", ratio_options,
@@ -2438,7 +2448,7 @@ elif menu == "配方管理":
                     if not new_code.strip():
                         st.warning("⚠️ 請填寫新色母編號"); st.stop()
 
-                    multiplier_map = {"12.5": 54, "25:1": 104, "50:1": 200, "100:1": 400}
+                    multiplier_map = {"12.5": 54, "20:1": 84, "25:1": 104, "50:1": 200, "100:1": 400}
                     multiplier = multiplier_map[ratio]
 
                     powder_data         = []
@@ -4258,6 +4268,8 @@ elif menu == "生產單管理":
                         )
                 else:
                     st.info("⚠️ 沒有符合條件的生產單")
+            else:
+                st.warning("⚠️ 查無符合的生產單，請確認輸入的編號或篩選條件。")
     
             # 📌 4. 下拉選單
             if not df_filtered_tab3.empty:
@@ -6887,6 +6899,14 @@ elif menu == "庫存區":
                 qty_val = float(ini_qty)
             except Exception:
                 qty_val = 0.0
+
+            confirm_key = f"_confirm_zero_stock_{powder_id}"
+            pending_confirm_key = "_pending_zero_stock_confirm"
+            if qty_val == 0 and st.session_state.get(pending_confirm_key) != confirm_key:
+                st.session_state[pending_confirm_key] = confirm_key
+                st.warning("⚠️ 數量為 0，請再次按下「💾 儲存初始庫存」確認要儲存。")
+                st.stop()
+            st.session_state.pop(pending_confirm_key, None)
 
             ini_datetime = datetime.combine(ini_date, ini_time).strftime("%Y/%m/%d %H:%M")
 
