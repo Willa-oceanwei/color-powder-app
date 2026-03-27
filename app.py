@@ -1982,6 +1982,12 @@ elif menu == "配方管理":
     # Tab 3：配方預覽/修改/刪除
     # ============================================================
     with tab3:
+        if st.session_state.get("recipe_tab3_toast"):
+            st.toast(
+                st.session_state["recipe_tab3_toast"].get("msg", ""),
+                icon=st.session_state["recipe_tab3_toast"].get("icon", "ℹ️")
+            )
+            st.session_state.pop("recipe_tab3_toast", None)
 
         if not df_recipe.empty and "配方編號" in df_recipe.columns:
             df_recipe["配方編號"] = df_recipe["配方編號"].fillna("").astype(str)
@@ -2059,10 +2065,18 @@ elif menu == "配方管理":
 
                                 st.success(f"✅ 已刪除 {code}")
                                 st.session_state.show_delete_recipe_confirm = False
+                                st.session_state["recipe_tab3_toast"] = {
+                                    "msg": f"已刪除配方：{code}",
+                                    "icon": "🗑️"
+                                }
                                 st.rerun()
                         with c2:
                             if st.button("取消", key="confirm_delete_recipe_no_tab3"):
                                 st.session_state.show_delete_recipe_confirm = False
+                                st.session_state["recipe_tab3_toast"] = {
+                                    "msg": "已取消刪除配方",
+                                    "icon": "↩️"
+                                }
                                 st.rerun()
 
             # ── 修改配方面板 ──
@@ -2168,6 +2182,10 @@ elif menu == "配方管理":
                             st.session_state.df_recipe = df_recipe
                             st.session_state.df        = df_recipe
                             st.success(f"✅ 配方 {fr['配方編號']} 已成功更新！")
+                            st.session_state["recipe_tab3_toast"] = {
+                                "msg": f"配方 {fr['配方編號']} 已更新",
+                                "icon": "💾"
+                            }
                         except Exception as e:
                             st.error(f"❌ 儲存失敗：{e}")
                             st.stop()
@@ -2181,6 +2199,10 @@ elif menu == "配方管理":
                         st.session_state.show_edit_recipe_panel = False
                         st.session_state.editing_recipe_code    = None
                         st.session_state.pop("edit_num_powder_rows", None)
+                        st.session_state["recipe_tab3_toast"] = {
+                            "msg": "已取消配方修改",
+                            "icon": "↩️"
+                        }
                         st.rerun()
 
     # ============================================================
@@ -3216,46 +3238,6 @@ elif menu == "生產單管理":
             icon=st.session_state["order_toast"].get("icon", "ℹ️")
         )
         st.session_state.pop("order_toast", None)
-
-    components.html(
-        """
-        <script>
-        const storageKey = "order_mgmt_active_tab";
-        const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"];
-
-        function bindTabPersistence() {
-            const doc = window.parent.document;
-            const allTabs = Array.from(doc.querySelectorAll('button[role="tab"]'));
-            const targetTab = allTabs.find(btn => tabTexts.includes(btn.textContent.trim()));
-            if (!targetTab) return false;
-
-            const tablist = targetTab.closest('div[role="tablist"]');
-            if (!tablist) return false;
-
-            const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
-            const savedIndex = parseInt(sessionStorage.getItem(storageKey), 10);
-            if (!Number.isNaN(savedIndex) && tabs[savedIndex] && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
-                tabs[savedIndex].click();
-            }
-
-            tabs.forEach((tab, idx) => {
-                if (tab.dataset.persistBound === '1') return;
-                tab.dataset.persistBound = '1';
-                tab.addEventListener('click', () => sessionStorage.setItem(storageKey, String(idx)));
-            });
-            return true;
-        }
-
-        if (!bindTabPersistence()) {
-            const observer = new MutationObserver(() => {
-                if (bindTabPersistence()) observer.disconnect();
-            });
-            observer.observe(window.parent.document.body, { childList: true, subtree: true });
-        }
-        </script>
-        """,
-        height=0,
-    )
 
     tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"])
     # ============================================================
@@ -4889,13 +4871,19 @@ if menu == "代工管理":
 
                 if selected_option:
                     selected_oem = selected_option.split(" | ")[-1]
+                    selected_row_df = df_oem_active[df_oem_active["代工單號"] == selected_oem]
+                    if selected_row_df.empty:
+                        st.warning("⚠️ 找不到對應代工單資料，請重新整理")
+                        st.stop()
+                    oem_row = selected_row_df.iloc[0].to_dict()
 
-                    if ("oem_selected_row" not in st.session_state or
-                            st.session_state.oem_selected_row.get("代工單號") != selected_oem):
-                        oem_row = df_oem_active[df_oem_active["代工單號"] == selected_oem].iloc[0].to_dict()
-                        st.session_state.oem_selected_row = oem_row
-
-                    oem_row = st.session_state.oem_selected_row
+                    # 🔁 切換代工單時重置編輯欄位，避免沿用上一筆資料
+                    if st.session_state.get("oem_edit_selected_id") != selected_oem:
+                        st.session_state.oem_edit_selected_id = selected_oem
+                        st.session_state.oem_vendor = oem_row.get("代工廠商", "")
+                        st.session_state.oem_status = oem_row.get("狀態", "")
+                        st.session_state.oem_remark = oem_row.get("備註", "")
+                        st.session_state.delivery_qty = 0.0
 
                     col1, col2, col3 = st.columns(3)
                     col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
@@ -4929,6 +4917,27 @@ if menu == "代工管理":
                     if is_closed:
                         st.warning("⚠️ 此代工單已結案，禁止再修改")
 
+                    def persist_oem_info(vendor, remark, status):
+                        all_values = get_cached_sheet_values("代工管理")
+                        for idx, row in enumerate(all_values[1:], start=2):
+                            if row[0] == selected_oem:
+                                import gspread.utils as gu
+                                col_s = gu.rowcol_to_a1(idx, 6).rstrip("0123456789")
+                                col_e = gu.rowcol_to_a1(idx, 8).rstrip("0123456789")
+                                ws_oem.update(
+                                    f"{col_s}{idx}:{col_e}{idx}",
+                                    [[vendor, remark, status]]
+                                )
+                                break
+
+                        mask = st.session_state.df_oem["代工單號"] == selected_oem
+                        st.session_state.df_oem.loc[mask, "代工廠商"] = vendor
+                        st.session_state.df_oem.loc[mask, "備註"] = remark
+                        st.session_state.df_oem.loc[mask, "狀態"] = status
+                        st.session_state.oem_vendor = vendor
+                        st.session_state.oem_status = status
+                        st.session_state.oem_remark = remark
+
                     b1, b2 = st.columns(2)
 
                     with b1:
@@ -4936,29 +4945,7 @@ if menu == "代工管理":
                             if is_closed:
                                 st.error("❌ 已結案代工單不可修改")
                             else:
-                                # ✅ 三欄合併成一次 API 寫入
-                                all_values = get_cached_sheet_values("代工管理")
-                                for idx, row in enumerate(all_values[1:], start=2):
-                                    if row[0] == selected_oem:
-                                        import gspread.utils as gu
-                                        col_s = gu.rowcol_to_a1(idx, 6).rstrip("0123456789")
-                                        col_e = gu.rowcol_to_a1(idx, 8).rstrip("0123456789")
-                                        ws_oem.update(
-                                            f"{col_s}{idx}:{col_e}{idx}",
-                                            [[new_vendor, new_remark, new_status]]
-                                        )
-                                        break
-
-                                # ✅ 同步 session_state，不重讀 Sheet
-                                mask = st.session_state.df_oem["代工單號"] == selected_oem
-                                st.session_state.df_oem.loc[mask, "代工廠商"] = new_vendor
-                                st.session_state.df_oem.loc[mask, "備註"]     = new_remark
-                                st.session_state.df_oem.loc[mask, "狀態"]     = new_status
-                                st.session_state.oem_selected_row.update({
-                                    "代工廠商": new_vendor,
-                                    "備註":     new_remark,
-                                    "狀態":     new_status
-                                })
+                                persist_oem_info(new_vendor, new_remark, new_status)
                                 st.session_state.toast_message = {"msg": "代工資訊已更新", "icon": "💾"}
                                 st.rerun()
 
@@ -4984,7 +4971,7 @@ if menu == "代工管理":
                                     st.session_state.df_oem["代工單號"] != oem_row["代工單號"]
                                 ].reset_index(drop=True)
                                 st.session_state.toast_message = {"msg": "已刪除代工單", "icon": "🗑️"}
-                                st.session_state.oem_selected_row = None
+                                st.session_state.oem_edit_selected_id = None
                                 st.session_state.show_delete_oem_confirm = False
                                 st.rerun()
                         with c2:
@@ -5001,13 +4988,28 @@ if menu == "代工管理":
                     )
 
                     if st.button("➕ 新增送達", key="add_delivery"):
-                        if remaining <= 0:
+                        vendor_changed = (
+                            str(new_vendor).strip() != str(oem_row.get("代工廠商", "")).strip()
+                            or str(new_remark).strip() != str(oem_row.get("備註", "")).strip()
+                            or str(new_status).strip() != str(oem_row.get("狀態", "")).strip()
+                        )
+
+                        if remaining <= 0 and delivery_qty > 0:
                             st.error("❌ 已全數送達，無法再新增送達紀錄")
+                        elif delivery_qty <= 0 and vendor_changed:
+                            if is_closed:
+                                st.error("❌ 已結案代工單不可修改")
+                            else:
+                                persist_oem_info(new_vendor, new_remark, new_status)
+                                st.session_state.toast_message = {"msg": "已更新代工廠商資訊（未新增送達）", "icon": "🏭"}
+                                st.rerun()
                         elif delivery_qty <= 0:
                             st.warning("⚠️ 請輸入正確的送達數量")
                         elif delivery_qty > remaining:
                             st.error("❌ 送達數量不可超過尚餘數量")
                         else:
+                            if vendor_changed and not is_closed:
+                                persist_oem_info(new_vendor, new_remark, new_status)
                             new_delivery_row = [
                                 selected_oem,
                                 delivery_date.strftime("%Y/%m/%d"),
@@ -5323,7 +5325,7 @@ elif menu == "採購管理":
     # )
 
     # ===== Tab 分頁 =====
-    tab1, tab2, tab3 = st.tabs(["📥 進貨新增", "🔍 進貨查詢", "🏢 供應商管理"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📥 進貨新增", "🔍 進貨查詢", "✏️ 進貨編輯/刪除", "🏢 供應商管理"])
 
     def get_or_create_worksheet(spreadsheet, title, rows=100, cols=10):
         try:
@@ -5565,8 +5567,96 @@ elif menu == "採購管理":
             else:
                 st.info("ℹ️ 沒有符合條件的進貨資料")
     
-    # ========== Tab 3：供應商管理 ==========
+    # ========== Tab 3：進貨編輯 / 刪除 ==========
     with tab3:
+        try:
+            ws_stock = get_cached_worksheet("庫存記錄")
+            df_stock = get_cached_sheet_df("庫存記錄")
+        except Exception:
+            df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"])
+
+        if df_stock.empty or "類型" not in df_stock.columns:
+            st.info("目前沒有可編輯的進貨資料")
+        else:
+            df_in_edit = df_stock[df_stock["類型"].astype(str).str.strip() == "進貨"].copy().reset_index(drop=True)
+            if df_in_edit.empty:
+                st.info("目前沒有可編輯的進貨資料")
+            else:
+                df_in_edit["row_no"] = df_in_edit.index + 2
+                record_options = df_in_edit.apply(
+                    lambda r: f"列 {r['row_no']}｜{r.get('色粉編號','')}｜{r.get('日期','')}｜{r.get('數量','')} {r.get('單位','')}",
+                    axis=1
+                ).tolist()
+                selected_record = st.selectbox("選擇進貨記錄", [""] + record_options, key="purchase_edit_record")
+
+                if selected_record:
+                    selected_idx = record_options.index(selected_record)
+                    target_row = df_in_edit.iloc[selected_idx].to_dict()
+                    sheet_idx = int(target_row["row_no"]) - 2
+
+                    try:
+                        edit_date = pd.to_datetime(target_row.get("日期", ""), errors="coerce").date()
+                    except Exception:
+                        edit_date = datetime.today().date()
+                    if pd.isna(pd.to_datetime(target_row.get("日期", ""), errors="coerce")):
+                        edit_date = datetime.today().date()
+
+                    with st.form("purchase_edit_form"):
+                        c1, c2, c3, c4 = st.columns(4)
+                        edit_powder = c1.text_input("色粉編號", value=str(target_row.get("色粉編號", "")).strip())
+                        edit_qty = c2.number_input(
+                            "數量", min_value=0.0, value=float(pd.to_numeric(target_row.get("數量", 0), errors="coerce") or 0.0), step=1.0
+                        )
+                        edit_unit = c3.selectbox(
+                            "單位", ["g", "kg"],
+                            index=(["g", "kg"].index(str(target_row.get("單位", "g")).strip()) if str(target_row.get("單位", "g")).strip() in ["g", "kg"] else 0)
+                        )
+                        edit_in_date = c4.date_input("進貨日期", value=edit_date)
+
+                        c5, c6 = st.columns(2)
+                        edit_supplier_id = c5.text_input("廠商編號", value=str(target_row.get("廠商編號", "")).strip())
+                        edit_supplier_name = c6.text_input("廠商名稱", value=str(target_row.get("廠商名稱", "")).strip())
+                        edit_note = st.text_input("備註", value=str(target_row.get("備註", "")))
+
+                        e1, e2 = st.columns(2)
+                        submit_edit = e1.form_submit_button("💾 儲存進貨修改")
+                        submit_delete = e2.form_submit_button("🗑️ 刪除此筆進貨")
+
+                    if submit_edit:
+                        if not edit_powder.strip():
+                            st.warning("⚠️ 請輸入色粉編號！")
+                        else:
+                            df_stock.loc[sheet_idx, "類型"] = "進貨"
+                            df_stock.loc[sheet_idx, "色粉編號"] = edit_powder.strip()
+                            df_stock.loc[sheet_idx, "日期"] = edit_in_date.strftime("%Y/%m/%d")
+                            df_stock.loc[sheet_idx, "數量"] = edit_qty
+                            df_stock.loc[sheet_idx, "單位"] = edit_unit
+                            df_stock.loc[sheet_idx, "廠商編號"] = edit_supplier_id.strip()
+                            df_stock.loc[sheet_idx, "廠商名稱"] = edit_supplier_name.strip()
+                            df_stock.loc[sheet_idx, "備註"] = edit_note
+
+                            df_upload = df_stock.fillna("").astype(str)
+                            ws_stock.clear()
+                            ws_stock.update([df_upload.columns.tolist()] + df_upload.values.tolist())
+                            invalidate_sheet_cache("庫存記錄")
+                            st.session_state.stock_need_reload = True
+                            st.success("✅ 進貨紀錄已更新")
+                            st.toast(f"已更新進貨：{edit_powder.strip()}", icon="💾")
+                            st.rerun()
+
+                    if submit_delete:
+                        df_stock = df_stock.drop(index=sheet_idx).reset_index(drop=True)
+                        df_upload = df_stock.fillna("").astype(str)
+                        ws_stock.clear()
+                        ws_stock.update([df_upload.columns.tolist()] + df_upload.values.tolist())
+                        invalidate_sheet_cache("庫存記錄")
+                        st.session_state.stock_need_reload = True
+                        st.success("✅ 已刪除進貨紀錄")
+                        st.toast("已刪除進貨紀錄", icon="🗑️")
+                        st.rerun()
+
+    # ========== Tab 4：供應商管理 ==========
+    with tab4:
     
         # ===== 讀取或建立 Google Sheet =====
         try:
@@ -7793,6 +7883,29 @@ elif menu == "洗車廠庫存":
                 st.warning("⚠️ 請輸入貨品編號")
             elif init_qty < 0:
                 st.warning("⚠️ 數量不可小於 0")
+            elif init_qty == 0:
+                zero_confirm_key = "cw_init_zero_confirm"
+                expected_signature = (
+                    f"{product_id}|{init_date.strftime('%Y-%m-%d')}|"
+                    f"{init_unit}|{registrar}|{note.strip()}"
+                )
+                if st.session_state.get(zero_confirm_key) == expected_signature:
+                    st.session_state.pop(zero_confirm_key, None)
+                    safe_append_row(ws_carwash, [
+                        "初始庫存", init_date.strftime("%Y-%m-%d"), init_qty, product_id,
+                        "", "", "", init_unit, registrar, note
+                    ])
+                    invalidate_sheet_cache("洗車廠庫存")
+                    st.session_state.carwash_need_reload = True
+                    st.session_state["carwash_toast"] = {
+                        "msg": f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}",
+                        "icon": "📦"
+                    }
+                    st.rerun()
+                else:
+                    st.session_state[zero_confirm_key] = expected_signature
+                    st.warning("⚠️ 數量為 0，請再次按下「💾 儲存初始庫存」確認資料無誤。")
+                    st.stop()
             else:
                 safe_append_row(ws_carwash, [
                     "初始庫存", init_date.strftime("%Y-%m-%d"), init_qty, product_id,
