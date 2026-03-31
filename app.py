@@ -13,6 +13,13 @@ import uuid
 from pathlib import Path        
 from datetime import datetime
 
+st.set_page_config(
+    page_title="配方管理系統",
+    page_icon="🏭",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
 # ======== 🔐 簡易登入驗證區 ========
 APP_PASSWORD = "'"  # ✅ 直接在程式中設定密碼
 
@@ -501,59 +508,136 @@ if st.session_state.get("need_reload_sheet"):
             pass
 
 
-# ======== Sidebar 修正 =========
-import streamlit as st
+# ======== ERP HTML Shell（僅替換畫面層，保留後端邏輯）=========
+MENU_ITEMS = [
+    {"key": "生產單管理", "label": "生產單管理", "group": "生產"},
+    {"key": "配方管理", "label": "配方管理", "group": "生產"},
+    {"key": "代工管理", "label": "代工管理", "group": "生產"},
+    {"key": "庫存區", "label": "庫存區", "group": "倉儲"},
+    {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
+    {"key": "採購管理", "label": "採購管理", "group": "倉儲"},
+    {"key": "查詢區", "label": "查詢區", "group": "查詢"},
+    {"key": "客戶名單", "label": "客戶名單", "group": "設定"},
+    {"key": "匯入備份", "label": "匯入備份", "group": "設定"},
+]
 
-menu_options = ["客戶名單", "配方管理", "生產單管理", "代工管理",
-                "查詢區", "庫存區", "洗車廠庫存", "採購管理", "匯入備份"]
+def build_nav_html(active_key: str) -> str:
+    groups = {}
+    for item in MENU_ITEMS:
+        groups.setdefault(item["group"], []).append(item)
 
+    html = ""
+    for group_name, items in groups.items():
+        html += f'<div class="nav-label">{group_name}</div>'
+        for item in items:
+            active_cls = " active" if item["key"] == active_key else ""
+            html += (
+                f'<div class="nav-item{active_cls}" '
+                f'onclick="switchMenu(\'{item["key"]}\')">'
+                f'<span class="nav-dot"></span>{item["label"]}</div>'
+            )
+    return html
+
+def erp_shell(active_menu: str) -> str:
+    nav_html = build_nav_html(active_menu)
+    return f"""
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<style>
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+body {{ font-family: 'Microsoft JhengHei', sans-serif; background: #f0f2f5; }}
+.shell {{ display: flex; width: 100%; height: 100vh; }}
+.sidebar {{ width: 152px; background: #1e3a5f; display: flex; flex-direction: column; overflow-y: auto; }}
+.sidebar-logo {{ padding: 13px 14px 11px; background: #152d4a; border-bottom: 1px solid #2a4f78; }}
+.sys-name {{ font-size: 13px; font-weight: 600; color: #fff; letter-spacing: .4px; }}
+.sys-ver {{ font-size: 10px; color: #5a85b0; margin-top: 3px; }}
+.nav-group {{ padding: 8px 0 2px; }}
+.nav-label {{ font-size: 10px; color: #4a7aaa; padding: 4px 13px 3px; letter-spacing: .8px; }}
+.nav-item {{ display:flex; align-items:center; gap:7px; padding:8px 12px 8px 13px; color:#b8d0eb; cursor:pointer; font-size:12.5px; border-left:3px solid transparent; }}
+.nav-item:hover {{ background:#243f5e; color:#fff; border-left-color:#3a8fd4; }}
+.nav-item.active {{ background:#2a4f78; color:#fff; border-left-color:#4fa3e0; font-weight:600; }}
+.nav-dot {{ width:5px; height:5px; border-radius:50%; background:currentColor; opacity:.7; }}
+.main-area {{ flex: 1; display: flex; flex-direction: column; }}
+.topbar {{ height: 36px; background: #fff; border-bottom: 1px solid #dce3ec; display: flex; align-items: center; padding: 0 16px; }}
+.breadcrumb {{ display:flex; align-items:center; gap:5px; font-size:12px; color:#888; }}
+.current {{ color:#1e3a5f; font-weight:600; }}
+.topbar-right {{ margin-left:auto; font-size:11px; color:#888; }}
+.content-wrapper {{ flex:1; }}
+.statusbar {{ height: 23px; background: #152d4a; display: flex; align-items:center; padding: 0 13px; color:#5a85b0; font-size:11px; }}
+.status-page {{ margin-left:auto; }}
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar">
+      <div class="sidebar-logo">
+        <div class="sys-name">配方管理系統</div>
+        <div class="sys-ver">v2.0 · ERP Edition</div>
+      </div>
+      <div class="nav-group">{nav_html}</div>
+    </div>
+    <div class="main-area">
+      <div class="topbar">
+        <div class="breadcrumb"><span>首頁</span><span>›</span><span class="current">{active_menu}</span></div>
+        <div class="topbar-right" id="clock"></div>
+      </div>
+      <div class="content-wrapper"></div>
+      <div class="statusbar">
+        <span>Google Sheets 已連線</span>
+        <span class="status-page">{active_menu}</span>
+      </div>
+    </div>
+  </div>
+<script>
+function updateClock() {{
+  const now = new Date();
+  const s = now.toLocaleTimeString('zh-TW', {{hour:'2-digit', minute:'2-digit', second:'2-digit'}});
+  const el = document.getElementById('clock');
+  if (el) el.textContent = s;
+}}
+updateClock();
+setInterval(updateClock, 1000);
+function switchMenu(key) {{
+  const url = new URL(window.parent.location.href);
+  url.searchParams.set('menu', key);
+  window.parent.history.pushState({{}}, '', url);
+  window.parent.location.reload();
+}}
+</script>
+</body>
+</html>
+"""
+
+def render_erp_nav(height: int = 120):
+    valid_keys = {item["key"] for item in MENU_ITEMS}
+    menu = st.session_state.get("menu", "生產單管理")
+    params = st.query_params
+    query_menu = params.get("menu", menu)
+    if isinstance(query_menu, list):
+        query_menu = query_menu[0] if query_menu else menu
+    if query_menu in valid_keys and query_menu != menu:
+        st.session_state.menu = query_menu
+        st.rerun()
+    elif menu not in valid_keys:
+        st.session_state.menu = "生產單管理"
+
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] {display:none !important;}
+        .main .block-container {padding-top: 0.4rem !important;}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    components.html(erp_shell(active_menu=st.session_state.menu), height=height, scrolling=False)
+    return st.session_state.menu
+
+menu_options = [item["key"] for item in MENU_ITEMS]
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
-
-# 自訂 CSS：改按鈕字體大小
-st.markdown("""
-<style>
-/* 將 Sidebar 內容往上推到極限安全值 */
-section[data-testid="stSidebar"] > div:first-child {
-    padding-top: 0px !important;
-    margin-top: -18px !important;
-}
-
-/* 調整 Sidebar 標題距離 */
-.sidebar h1 {
-    margin-top: -10px !important;
-}
-
-/* Sidebar 標題字體大小（你原本的） */
-.sidebar .css-1d391kg h1 {
-    font-size: 24px !important;
-}
-
-/* Sidebar 按鈕字體大小 */
-div.stButton > button {
-    font-size: 14px !important;
-    padding: 8px 12px !important;
-    text-align: left;
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-with st.sidebar:
-    st.markdown('<h1 style="font-size:22px;">🪁 配方管理系統</h1>', unsafe_allow_html=True)
-
-    for option in menu_options:
-        is_active = st.session_state.menu == option
-
-        if st.button(
-            f"✅ {option}" if is_active else option,
-            key=f"menu_{option}",
-            type="primary" if is_active else "secondary",
-            use_container_width=True,
-        ):
-            if not is_active:
-                st.session_state.menu = option
-                st.rerun()   # 🔥 關鍵：一次點擊立即更新
+render_erp_nav()
             
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
