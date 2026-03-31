@@ -539,77 +539,86 @@ def build_nav_html(active_key: str) -> str:
     return html
 
 def erp_shell(active_menu: str) -> str:
-    nav_html = build_nav_html(active_menu)
+    groups = {}
+    for item in MENU_ITEMS:
+        groups.setdefault(item["group"], []).append(item)
+
+    nav_html = ""
+    for group_name, items in groups.items():
+        nav_html += f'<div class="erp-nav-label">{group_name}</div>'
+        for item in items:
+            active_cls = " active" if item["key"] == active_menu else ""
+            nav_html += (
+                f'<a class="erp-nav-item{active_cls}" href="?menu={item["key"]}" target="_self">'
+                f'<span class="erp-nav-dot"></span>{item["label"]}</a>'
+            )
+
     return f"""
-<html lang="zh-TW">
-<head>
-<meta charset="UTF-8" />
 <style>
-* {{ box-sizing: border-box; margin: 0; padding: 0; }}
-body {{ font-family: 'Microsoft JhengHei', sans-serif; background: #f0f2f5; }}
-.shell {{ display: flex; width: 100%; height: 100vh; }}
-.sidebar {{ width: 152px; background: #1e3a5f; display: flex; flex-direction: column; overflow-y: auto; }}
-.sidebar-logo {{ padding: 13px 14px 11px; background: #152d4a; border-bottom: 1px solid #2a4f78; }}
-.sys-name {{ font-size: 13px; font-weight: 600; color: #fff; letter-spacing: .4px; }}
-.sys-ver {{ font-size: 10px; color: #5a85b0; margin-top: 3px; }}
-.nav-group {{ padding: 8px 0 2px; }}
-.nav-label {{ font-size: 10px; color: #4a7aaa; padding: 4px 13px 3px; letter-spacing: .8px; }}
-.nav-item {{ display:flex; align-items:center; gap:7px; padding:8px 12px 8px 13px; color:#b8d0eb; cursor:pointer; font-size:12.5px; border-left:3px solid transparent; }}
-.nav-item:hover {{ background:#243f5e; color:#fff; border-left-color:#3a8fd4; }}
-.nav-item.active {{ background:#2a4f78; color:#fff; border-left-color:#4fa3e0; font-weight:600; }}
-.nav-dot {{ width:5px; height:5px; border-radius:50%; background:currentColor; opacity:.7; }}
-.main-area {{ flex: 1; display: flex; flex-direction: column; }}
-.topbar {{ height: 36px; background: #fff; border-bottom: 1px solid #dce3ec; display: flex; align-items: center; padding: 0 16px; }}
-.breadcrumb {{ display:flex; align-items:center; gap:5px; font-size:12px; color:#888; }}
-.current {{ color:#1e3a5f; font-weight:600; }}
-.topbar-right {{ margin-left:auto; font-size:11px; color:#888; }}
-.content-wrapper {{ flex:1; }}
-.statusbar {{ height: 23px; background: #152d4a; display: flex; align-items:center; padding: 0 13px; color:#5a85b0; font-size:11px; }}
-.status-page {{ margin-left:auto; }}
+.erp-sidebar {{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 152px;
+    height: 100vh;
+    background: #1e3a5f;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 9999;
+}}
+.erp-sidebar-logo {{ padding: 13px 14px 11px; background: #152d4a; border-bottom: 1px solid #2a4f78; }}
+.erp-sys-name {{ font-size: 13px; font-weight: 600; color: #fff; letter-spacing: .4px; }}
+.erp-sys-ver {{ font-size: 10px; color: #5a85b0; margin-top: 3px; }}
+.erp-nav-group {{ padding: 8px 0 2px; }}
+.erp-nav-label {{ font-size: 10px; color: #4a7aaa; padding: 4px 13px 3px; letter-spacing: .8px; }}
+.erp-nav-item {{
+    display:flex; align-items:center; gap:7px; padding:8px 12px 8px 13px;
+    color:#b8d0eb; cursor:pointer; font-size:12.5px; border-left:3px solid transparent;
+    text-decoration:none;
+}}
+.erp-nav-item:hover {{ background:#243f5e; color:#fff; border-left-color:#3a8fd4; }}
+.erp-nav-item.active {{ background:#2a4f78; color:#fff; border-left-color:#4fa3e0; font-weight:600; }}
+.erp-nav-dot {{ width:5px; height:5px; border-radius:50%; background:currentColor; opacity:.7; }}
+.erp-topbar {{
+    position: fixed;
+    left: 152px;
+    right: 0;
+    top: 0;
+    height: 36px;
+    background: #ffffff;
+    border-bottom: 1px solid #dce3ec;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    z-index: 9998;
+}}
+.erp-breadcrumb {{ font-size:12px; color:#888; }}
+.erp-current {{ color:#1e3a5f; font-weight:600; }}
+.erp-content-mask {{
+    position: fixed;
+    left: 152px;
+    right: 0;
+    top: 36px;
+    bottom: 0;
+    background: #f0f2f5;
+    z-index: -1;
+}}
 </style>
-</head>
-<body>
-  <div class="shell">
-    <div class="sidebar">
-      <div class="sidebar-logo">
-        <div class="sys-name">配方管理系統</div>
-        <div class="sys-ver">v2.0 · ERP Edition</div>
-      </div>
-      <div class="nav-group">{nav_html}</div>
+<div class="erp-sidebar">
+    <div class="erp-sidebar-logo">
+      <div class="erp-sys-name">配方管理系統</div>
+      <div class="erp-sys-ver">v2.0 · ERP Edition</div>
     </div>
-    <div class="main-area">
-      <div class="topbar">
-        <div class="breadcrumb"><span>首頁</span><span>›</span><span class="current">{active_menu}</span></div>
-        <div class="topbar-right" id="clock"></div>
-      </div>
-      <div class="content-wrapper"></div>
-      <div class="statusbar">
-        <span>Google Sheets 已連線</span>
-        <span class="status-page">{active_menu}</span>
-      </div>
-    </div>
-  </div>
-<script>
-function updateClock() {{
-  const now = new Date();
-  const s = now.toLocaleTimeString('zh-TW', {{hour:'2-digit', minute:'2-digit', second:'2-digit'}});
-  const el = document.getElementById('clock');
-  if (el) el.textContent = s;
-}}
-updateClock();
-setInterval(updateClock, 1000);
-function switchMenu(key) {{
-  const url = new URL(window.parent.location.href);
-  url.searchParams.set('menu', key);
-  window.parent.history.pushState({{}}, '', url);
-  window.parent.location.reload();
-}}
-</script>
-</body>
-</html>
+    <div class="erp-nav-group">{nav_html}</div>
+</div>
+<div class="erp-topbar">
+  <div class="erp-breadcrumb">首頁 › <span class="erp-current">{active_menu}</span></div>
+</div>
+<div class="erp-content-mask"></div>
 """
 
-def render_erp_nav(height: int = 720):
+def render_erp_nav():
     valid_keys = {item["key"] for item in MENU_ITEMS}
     menu = st.session_state.get("menu", "生產單管理")
     params = st.query_params
@@ -626,12 +635,18 @@ def render_erp_nav(height: int = 720):
         """
         <style>
         section[data-testid="stSidebar"] {display:none !important;}
-        .main .block-container {padding-top: 0.4rem !important;}
+        .main .block-container {
+            margin-left: 166px !important;
+            padding-top: 52px !important;
+            padding-left: 18px !important;
+            padding-right: 18px !important;
+            max-width: calc(100% - 166px) !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
-    components.html(erp_shell(active_menu=st.session_state.menu), height=height, scrolling=False)
+    st.markdown(erp_shell(active_menu=st.session_state.menu), unsafe_allow_html=True)
     return st.session_state.menu
 
 menu_options = [item["key"] for item in MENU_ITEMS]
@@ -642,10 +657,9 @@ render_erp_nav()
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
     <style>
-    /* 調整整體主內容上方距離 */
+    /* 右側內容區微調，避免與 ERP topbar 重疊 */
     .block-container {
-        padding-top: 0rem;
-        margin-top: -20px;
+        margin-top: 0 !important;
     }
     </style>
 """, unsafe_allow_html=True)
