@@ -13,6 +13,13 @@ import uuid
 from pathlib import Path        
 from datetime import datetime
 
+st.set_page_config(
+    page_title="配方管理系統",
+    page_icon="🏭",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 # ======== 🔐 簡易登入驗證區 ========
 APP_PASSWORD = "'"  # ✅ 直接在程式中設定密碼
 
@@ -501,68 +508,129 @@ if st.session_state.get("need_reload_sheet"):
             pass
 
 
-# ======== Sidebar 修正 =========
-import streamlit as st
+# ======== ERP HTML Shell（僅替換畫面層，保留後端邏輯）=========
+MENU_ITEMS = [
+    {"key": "生產單管理", "label": "生產單管理", "group": "生產"},
+    {"key": "配方管理", "label": "配方管理", "group": "生產"},
+    {"key": "代工管理", "label": "代工管理", "group": "生產"},
+    {"key": "庫存區", "label": "庫存區", "group": "倉儲"},
+    {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
+    {"key": "採購管理", "label": "採購管理", "group": "倉儲"},
+    {"key": "查詢區", "label": "查詢區", "group": "查詢"},
+    {"key": "客戶名單", "label": "客戶名單", "group": "設定"},
+    {"key": "匯入備份", "label": "匯入備份", "group": "設定"},
+]
 
-menu_options = ["客戶名單", "配方管理", "生產單管理", "代工管理",
-                "查詢區", "庫存區", "洗車廠庫存", "採購管理", "匯入備份"]
+def render_erp_nav():
+    groups = {}
+    for item in MENU_ITEMS:
+        groups.setdefault(item["group"], []).append(item)
 
-if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
+    if "menu" not in st.session_state:
+        st.session_state.menu = "生產單管理"
 
-# 自訂 CSS：改按鈕字體大小
-st.markdown("""
-<style>
-/* 將 Sidebar 內容往上推到極限安全值 */
-section[data-testid="stSidebar"] > div:first-child {
-    padding-top: 0px !important;
-    margin-top: -18px !important;
-}
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] {
+            min-width: 210px !important;
+            max-width: 210px !important;
+            background: #1e3a5f !important;
+            border-right: 1px solid #2a4f78 !important;
+        }
+        section[data-testid="stSidebar"] .erp-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0 0.25rem 0;
+            letter-spacing: 0.5px;
+        }
+        section[data-testid="stSidebar"] .erp-sub {
+            font-size: 10px;
+            color: #7fa8d1;
+            margin-bottom: 0.8rem;
+        }
+        section[data-testid="stSidebar"] .erp-group {
+            color: #6f9ecb;
+            font-size: 10px;
+            letter-spacing: 0.8px;
+            margin: 0.5rem 0 0.25rem 0.15rem;
+        }
+        section[data-testid="stSidebar"] div.stButton > button {
+            border-radius: 2px !important;
+            text-align: left !important;
+            width: 100% !important;
+            font-size: 12.5px !important;
+            padding: 0.42rem 0.55rem !important;
+            border-left: 3px solid transparent !important;
+            background: transparent !important;
+            color: #b8d0eb !important;
+            border-top: 0 !important;
+            border-right: 0 !important;
+            border-bottom: 0 !important;
+            box-shadow: none !important;
+        }
+        section[data-testid="stSidebar"] div.stButton > button:hover {
+            background: #243f5e !important;
+            color: #ffffff !important;
+            border-left-color: #3a8fd4 !important;
+        }
+        section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+            background: #2a4f78 !important;
+            color: #ffffff !important;
+            border-left-color: #4fa3e0 !important;
+            font-weight: 700 !important;
+        }
+        .erp-main-topbar {
+            background: #ffffff;
+            border: 1px solid #dce3ec;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin: 2px 0 12px 0;
+            color: #6c7a89;
+            font-size: 12px;
+        }
+        .erp-main-topbar .current {
+            color: #1e3a5f;
+            font-weight: 700;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-/* 調整 Sidebar 標題距離 */
-.sidebar h1 {
-    margin-top: -10px !important;
-}
+    with st.sidebar:
+        st.markdown('<div class="erp-title">配方管理系統</div>', unsafe_allow_html=True)
+        st.markdown('<div class="erp-sub">v2.0 · ERP Edition</div>', unsafe_allow_html=True)
 
-/* Sidebar 標題字體大小（你原本的） */
-.sidebar .css-1d391kg h1 {
-    font-size: 24px !important;
-}
+        for group_name, items in groups.items():
+            st.markdown(f'<div class="erp-group">{group_name}</div>', unsafe_allow_html=True)
+            for item in items:
+                is_active = st.session_state.menu == item["key"]
+                label = item["label"]
+                if st.button(
+                    label,
+                    key=f"menu_{item['key']}",
+                    type="primary" if is_active else "secondary",
+                    use_container_width=True,
+                ):
+                    if not is_active:
+                        st.session_state.menu = item["key"]
+                        st.rerun()
 
-/* Sidebar 按鈕字體大小 */
-div.stButton > button {
-    font-size: 14px !important;
-    padding: 8px 12px !important;
-    text-align: left;
-}
-</style>
-""", unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="erp-main-topbar">首頁  ›  <span class="current">{st.session_state.menu}</span></div>',
+        unsafe_allow_html=True,
+    )
 
+    return st.session_state.menu
 
-with st.sidebar:
-    st.markdown('<h1 style="font-size:22px;">🪁 配方管理系統</h1>', unsafe_allow_html=True)
-
-    for option in menu_options:
-        is_active = st.session_state.menu == option
-
-        if st.button(
-            f"✅ {option}" if is_active else option,
-            key=f"menu_{option}",
-            type="primary" if is_active else "secondary",
-            use_container_width=True,
-        ):
-            if not is_active:
-                st.session_state.menu = option
-                st.rerun()   # 🔥 關鍵：一次點擊立即更新
+render_erp_nav()
             
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
     <style>
-    /* 調整整體主內容上方距離 */
-    .block-container {
-        padding-top: 0rem;
-        margin-top: -20px;
-    }
+    .block-container { margin-top: 0 !important; }
     </style>
 """, unsafe_allow_html=True)
 
