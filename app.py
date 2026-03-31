@@ -17,7 +17,7 @@ st.set_page_config(
     page_title="配方管理系統",
     page_icon="🏭",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ======== 🔐 簡易登入驗證區 ========
@@ -521,146 +521,71 @@ MENU_ITEMS = [
     {"key": "匯入備份", "label": "匯入備份", "group": "設定"},
 ]
 
-def build_nav_html(active_key: str) -> str:
-    groups = {}
-    for item in MENU_ITEMS:
-        groups.setdefault(item["group"], []).append(item)
-
-    html = ""
-    for group_name, items in groups.items():
-        html += f'<div class="nav-label">{group_name}</div>'
-        for item in items:
-            active_cls = " active" if item["key"] == active_key else ""
-            html += (
-                f'<div class="nav-item{active_cls}" '
-                f'onclick="switchMenu(\'{item["key"]}\')">'
-                f'<span class="nav-dot"></span>{item["label"]}</div>'
-            )
-    return html
-
-def erp_shell(active_menu: str) -> str:
-    groups = {}
-    for item in MENU_ITEMS:
-        groups.setdefault(item["group"], []).append(item)
-
-    nav_html = ""
-    for group_name, items in groups.items():
-        nav_html += f'<div class="erp-nav-label">{group_name}</div>'
-        for item in items:
-            active_cls = " active" if item["key"] == active_menu else ""
-            nav_html += (
-                f'<a class="erp-nav-item{active_cls}" href="?menu={item["key"]}" target="_self">'
-                f'<span class="erp-nav-dot"></span>{item["label"]}</a>'
-            )
-
-    return f"""
-<style>
-.erp-sidebar {{
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 152px;
-    height: 100vh;
-    background: #1e3a5f;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    z-index: 9999;
-}}
-.erp-sidebar-logo {{ padding: 13px 14px 11px; background: #152d4a; border-bottom: 1px solid #2a4f78; }}
-.erp-sys-name {{ font-size: 13px; font-weight: 600; color: #fff; letter-spacing: .4px; }}
-.erp-sys-ver {{ font-size: 10px; color: #5a85b0; margin-top: 3px; }}
-.erp-nav-group {{ padding: 8px 0 2px; }}
-.erp-nav-label {{ font-size: 10px; color: #4a7aaa; padding: 4px 13px 3px; letter-spacing: .8px; }}
-.erp-nav-item {{
-    display:flex; align-items:center; gap:7px; padding:8px 12px 8px 13px;
-    color:#b8d0eb; cursor:pointer; font-size:12.5px; border-left:3px solid transparent;
-    text-decoration:none;
-}}
-.erp-nav-item:hover {{ background:#243f5e; color:#fff; border-left-color:#3a8fd4; }}
-.erp-nav-item.active {{ background:#2a4f78; color:#fff; border-left-color:#4fa3e0; font-weight:600; }}
-.erp-nav-dot {{ width:5px; height:5px; border-radius:50%; background:currentColor; opacity:.7; }}
-.erp-topbar {{
-    position: fixed;
-    left: 152px;
-    right: 0;
-    top: 0;
-    height: 36px;
-    background: #ffffff;
-    border-bottom: 1px solid #dce3ec;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    z-index: 9998;
-}}
-.erp-breadcrumb {{ font-size:12px; color:#888; }}
-.erp-current {{ color:#1e3a5f; font-weight:600; }}
-.erp-content-mask {{
-    position: fixed;
-    left: 152px;
-    right: 0;
-    top: 36px;
-    bottom: 0;
-    background: #f0f2f5;
-    z-index: -1;
-}}
-</style>
-<div class="erp-sidebar">
-    <div class="erp-sidebar-logo">
-      <div class="erp-sys-name">配方管理系統</div>
-      <div class="erp-sys-ver">v2.0 · ERP Edition</div>
-    </div>
-    <div class="erp-nav-group">{nav_html}</div>
-</div>
-<div class="erp-topbar">
-  <div class="erp-breadcrumb">首頁 › <span class="erp-current">{active_menu}</span></div>
-</div>
-<div class="erp-content-mask"></div>
-"""
-
 def render_erp_nav():
-    valid_keys = {item["key"] for item in MENU_ITEMS}
-    menu = st.session_state.get("menu", "生產單管理")
-    params = st.query_params
-    query_menu = params.get("menu", menu)
-    if isinstance(query_menu, list):
-        query_menu = query_menu[0] if query_menu else menu
-    if query_menu in valid_keys and query_menu != menu:
-        st.session_state.menu = query_menu
-        st.rerun()
-    elif menu not in valid_keys:
+    groups = {}
+    for item in MENU_ITEMS:
+        groups.setdefault(item["group"], []).append(item)
+
+    if "menu" not in st.session_state:
         st.session_state.menu = "生產單管理"
 
     st.markdown(
         """
         <style>
-        section[data-testid="stSidebar"] {display:none !important;}
-        .main .block-container {
-            margin-left: 166px !important;
-            padding-top: 52px !important;
-            padding-left: 18px !important;
-            padding-right: 18px !important;
-            max-width: calc(100% - 166px) !important;
+        section[data-testid="stSidebar"] {
+            min-width: 245px !important;
+            max-width: 245px !important;
+        }
+        section[data-testid="stSidebar"] .erp-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #f5f1ff;
+            margin: 0 0 0.8rem 0;
+        }
+        section[data-testid="stSidebar"] .erp-sub {
+            font-size: 11px;
+            color: #bba8e6;
+            margin-bottom: 0.6rem;
+        }
+        section[data-testid="stSidebar"] div.stButton > button {
+            border-radius: 10px !important;
+            text-align: left !important;
+            width: 100% !important;
+            font-size: 13px !important;
+            padding: 0.5rem 0.8rem !important;
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown(erp_shell(active_menu=st.session_state.menu), unsafe_allow_html=True)
+
+    with st.sidebar:
+        st.markdown('<div class="erp-title">🏭 配方管理系統</div>', unsafe_allow_html=True)
+        st.markdown('<div class="erp-sub">ERP Navigation</div>', unsafe_allow_html=True)
+
+        for group_name, items in groups.items():
+            st.caption(group_name)
+            for item in items:
+                is_active = st.session_state.menu == item["key"]
+                label = f"▶ {item['label']}" if is_active else item["label"]
+                if st.button(
+                    label,
+                    key=f"menu_{item['key']}",
+                    type="primary" if is_active else "secondary",
+                    use_container_width=True,
+                ):
+                    if not is_active:
+                        st.session_state.menu = item["key"]
+                        st.rerun()
+
     return st.session_state.menu
 
-menu_options = [item["key"] for item in MENU_ITEMS]
-if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
 render_erp_nav()
             
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
     <style>
-    /* 右側內容區微調，避免與 ERP topbar 重疊 */
-    .block-container {
-        margin-top: 0 !important;
-    }
+    .block-container { margin-top: 0 !important; }
     </style>
 """, unsafe_allow_html=True)
 
