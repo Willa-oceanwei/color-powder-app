@@ -609,7 +609,7 @@ function switchMenu(key) {{
 </html>
 """
 
-def render_erp_nav(height: int = 120):
+def render_erp_nav(height: int = 720):
     valid_keys = {item["key"] for item in MENU_ITEMS}
     menu = st.session_state.get("menu", "生產單管理")
     params = st.query_params
