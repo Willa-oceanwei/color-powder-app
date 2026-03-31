@@ -13,6 +13,13 @@ import uuid
 from pathlib import Path        
 from datetime import datetime
 
+st.set_page_config(
+    page_title="配方管理系統",
+    page_icon="🏭",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 # ======== 🔐 簡易登入驗證區 ========
 APP_PASSWORD = "'"  # ✅ 直接在程式中設定密碼
 
@@ -501,68 +508,84 @@ if st.session_state.get("need_reload_sheet"):
             pass
 
 
-# ======== Sidebar 修正 =========
-import streamlit as st
+# ======== ERP HTML Shell（僅替換畫面層，保留後端邏輯）=========
+MENU_ITEMS = [
+    {"key": "生產單管理", "label": "生產單管理", "group": "生產"},
+    {"key": "配方管理", "label": "配方管理", "group": "生產"},
+    {"key": "代工管理", "label": "代工管理", "group": "生產"},
+    {"key": "庫存區", "label": "庫存區", "group": "倉儲"},
+    {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
+    {"key": "採購管理", "label": "採購管理", "group": "倉儲"},
+    {"key": "查詢區", "label": "查詢區", "group": "查詢"},
+    {"key": "客戶名單", "label": "客戶名單", "group": "設定"},
+    {"key": "匯入備份", "label": "匯入備份", "group": "設定"},
+]
 
-menu_options = ["客戶名單", "配方管理", "生產單管理", "代工管理",
-                "查詢區", "庫存區", "洗車廠庫存", "採購管理", "匯入備份"]
+def render_erp_nav():
+    groups = {}
+    for item in MENU_ITEMS:
+        groups.setdefault(item["group"], []).append(item)
 
-if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
+    if "menu" not in st.session_state:
+        st.session_state.menu = "生產單管理"
 
-# 自訂 CSS：改按鈕字體大小
-st.markdown("""
-<style>
-/* 將 Sidebar 內容往上推到極限安全值 */
-section[data-testid="stSidebar"] > div:first-child {
-    padding-top: 0px !important;
-    margin-top: -18px !important;
-}
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] {
+            min-width: 245px !important;
+            max-width: 245px !important;
+        }
+        section[data-testid="stSidebar"] .erp-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #f5f1ff;
+            margin: 0 0 0.8rem 0;
+        }
+        section[data-testid="stSidebar"] .erp-sub {
+            font-size: 11px;
+            color: #bba8e6;
+            margin-bottom: 0.6rem;
+        }
+        section[data-testid="stSidebar"] div.stButton > button {
+            border-radius: 10px !important;
+            text-align: left !important;
+            width: 100% !important;
+            font-size: 13px !important;
+            padding: 0.5rem 0.8rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-/* 調整 Sidebar 標題距離 */
-.sidebar h1 {
-    margin-top: -10px !important;
-}
+    with st.sidebar:
+        st.markdown('<div class="erp-title">🏭 配方管理系統</div>', unsafe_allow_html=True)
+        st.markdown('<div class="erp-sub">ERP Navigation</div>', unsafe_allow_html=True)
 
-/* Sidebar 標題字體大小（你原本的） */
-.sidebar .css-1d391kg h1 {
-    font-size: 24px !important;
-}
+        for group_name, items in groups.items():
+            st.caption(group_name)
+            for item in items:
+                is_active = st.session_state.menu == item["key"]
+                label = f"▶ {item['label']}" if is_active else item["label"]
+                if st.button(
+                    label,
+                    key=f"menu_{item['key']}",
+                    type="primary" if is_active else "secondary",
+                    use_container_width=True,
+                ):
+                    if not is_active:
+                        st.session_state.menu = item["key"]
+                        st.rerun()
 
-/* Sidebar 按鈕字體大小 */
-div.stButton > button {
-    font-size: 14px !important;
-    padding: 8px 12px !important;
-    text-align: left;
-}
-</style>
-""", unsafe_allow_html=True)
+    return st.session_state.menu
 
-
-with st.sidebar:
-    st.markdown('<h1 style="font-size:22px;">🪁 配方管理系統</h1>', unsafe_allow_html=True)
-
-    for option in menu_options:
-        is_active = st.session_state.menu == option
-
-        if st.button(
-            f"✅ {option}" if is_active else option,
-            key=f"menu_{option}",
-            type="primary" if is_active else "secondary",
-            use_container_width=True,
-        ):
-            if not is_active:
-                st.session_state.menu = option
-                st.rerun()   # 🔥 關鍵：一次點擊立即更新
+render_erp_nav()
             
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
     <style>
-    /* 調整整體主內容上方距離 */
-    .block-container {
-        padding-top: 0rem;
-        margin-top: -20px;
-    }
+    .block-container { margin-top: 0 !important; }
     </style>
 """, unsafe_allow_html=True)
 
