@@ -533,26 +533,66 @@ def render_erp_nav():
         """
         <style>
         section[data-testid="stSidebar"] {
-            min-width: 245px !important;
-            max-width: 245px !important;
+            min-width: 210px !important;
+            max-width: 210px !important;
+            background: #1e3a5f !important;
+            border-right: 1px solid #2a4f78 !important;
         }
         section[data-testid="stSidebar"] .erp-title {
-            font-size: 20px;
+            font-size: 15px;
             font-weight: 700;
-            color: #f5f1ff;
-            margin: 0 0 0.8rem 0;
+            color: #ffffff;
+            margin: 0 0 0.25rem 0;
+            letter-spacing: 0.5px;
         }
         section[data-testid="stSidebar"] .erp-sub {
-            font-size: 11px;
-            color: #bba8e6;
-            margin-bottom: 0.6rem;
+            font-size: 10px;
+            color: #7fa8d1;
+            margin-bottom: 0.8rem;
+        }
+        section[data-testid="stSidebar"] .erp-group {
+            color: #6f9ecb;
+            font-size: 10px;
+            letter-spacing: 0.8px;
+            margin: 0.5rem 0 0.25rem 0.15rem;
         }
         section[data-testid="stSidebar"] div.stButton > button {
-            border-radius: 10px !important;
+            border-radius: 2px !important;
             text-align: left !important;
             width: 100% !important;
-            font-size: 13px !important;
-            padding: 0.5rem 0.8rem !important;
+            font-size: 12.5px !important;
+            padding: 0.42rem 0.55rem !important;
+            border-left: 3px solid transparent !important;
+            background: transparent !important;
+            color: #b8d0eb !important;
+            border-top: 0 !important;
+            border-right: 0 !important;
+            border-bottom: 0 !important;
+            box-shadow: none !important;
+        }
+        section[data-testid="stSidebar"] div.stButton > button:hover {
+            background: #243f5e !important;
+            color: #ffffff !important;
+            border-left-color: #3a8fd4 !important;
+        }
+        section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+            background: #2a4f78 !important;
+            color: #ffffff !important;
+            border-left-color: #4fa3e0 !important;
+            font-weight: 700 !important;
+        }
+        .erp-main-topbar {
+            background: #ffffff;
+            border: 1px solid #dce3ec;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin: 2px 0 12px 0;
+            color: #6c7a89;
+            font-size: 12px;
+        }
+        .erp-main-topbar .current {
+            color: #1e3a5f;
+            font-weight: 700;
         }
         </style>
         """,
@@ -560,14 +600,14 @@ def render_erp_nav():
     )
 
     with st.sidebar:
-        st.markdown('<div class="erp-title">🏭 配方管理系統</div>', unsafe_allow_html=True)
-        st.markdown('<div class="erp-sub">ERP Navigation</div>', unsafe_allow_html=True)
+        st.markdown('<div class="erp-title">配方管理系統</div>', unsafe_allow_html=True)
+        st.markdown('<div class="erp-sub">v2.0 · ERP Edition</div>', unsafe_allow_html=True)
 
         for group_name, items in groups.items():
-            st.caption(group_name)
+            st.markdown(f'<div class="erp-group">{group_name}</div>', unsafe_allow_html=True)
             for item in items:
                 is_active = st.session_state.menu == item["key"]
-                label = f"▶ {item['label']}" if is_active else item["label"]
+                label = item["label"]
                 if st.button(
                     label,
                     key=f"menu_{item['key']}",
@@ -577,6 +617,11 @@ def render_erp_nav():
                     if not is_active:
                         st.session_state.menu = item["key"]
                         st.rerun()
+
+    st.markdown(
+        f'<div class="erp-main-topbar">首頁  ›  <span class="current">{st.session_state.menu}</span></div>',
+        unsafe_allow_html=True,
+    )
 
     return st.session_state.menu
 
