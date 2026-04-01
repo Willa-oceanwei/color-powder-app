@@ -532,40 +532,26 @@ def render_erp_nav():
     st.markdown(
         """
         <style>
-        :root {
-            /* ===== ERP 側欄主題色（要換色改這裡） ===== */
-            --erp-sidebar-bg: #6e2f2f;         /* 側欄底色 */
-            --erp-sidebar-border: #8a4646;     /* 側欄邊框 */
-            --erp-title: #fff4ec;              /* 標題字色 */
-            --erp-subtitle: #e8bfa8;           /* 副標字色 */
-            --erp-group: #d8a88e;              /* 群組字色 */
-            --erp-item: #f3d9cb;               /* 一般選單字色 */
-            --erp-item-hover-bg: #824040;      /* hover 背景 */
-            --erp-item-active-bg: #975050;     /* active 背景 */
-            --erp-item-line-hover: #f0b07d;    /* hover 左線 */
-            --erp-item-line-active: #ffd3ab;   /* active 左線 */
-            --erp-item-active-text: #fff8f2;   /* active 字色 */
-        }
         section[data-testid="stSidebar"] {
             min-width: 210px !important;
             max-width: 210px !important;
-            background: var(--erp-sidebar-bg) !important;
-            border-right: 1px solid var(--erp-sidebar-border) !important;
+            background: #1e3a5f !important;
+            border-right: 1px solid #2a4f78 !important;
         }
         section[data-testid="stSidebar"] .erp-title {
             font-size: 15px;
             font-weight: 700;
-            color: var(--erp-title);
+            color: #ffffff;
             margin: 0 0 0.25rem 0;
             letter-spacing: 0.5px;
         }
         section[data-testid="stSidebar"] .erp-sub {
             font-size: 10px;
-            color: var(--erp-subtitle);
+            color: #7fa8d1;
             margin-bottom: 0.8rem;
         }
         section[data-testid="stSidebar"] .erp-group {
-            color: var(--erp-group);
+            color: #6f9ecb;
             font-size: 10px;
             letter-spacing: 0.8px;
             margin: 0.5rem 0 0.25rem 0.15rem;
@@ -578,21 +564,21 @@ def render_erp_nav():
             padding: 0.42rem 0.55rem !important;
             border-left: 3px solid transparent !important;
             background: transparent !important;
-            color: var(--erp-item) !important;
+            color: #b8d0eb !important;
             border-top: 0 !important;
             border-right: 0 !important;
             border-bottom: 0 !important;
             box-shadow: none !important;
         }
         section[data-testid="stSidebar"] div.stButton > button:hover {
-            background: var(--erp-item-hover-bg) !important;
-            color: var(--erp-item-active-text) !important;
-            border-left-color: var(--erp-item-line-hover) !important;
+            background: #243f5e !important;
+            color: #ffffff !important;
+            border-left-color: #3a8fd4 !important;
         }
         section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-            background: var(--erp-item-active-bg) !important;
-            color: var(--erp-item-active-text) !important;
-            border-left-color: var(--erp-item-line-active) !important;
+            background: #2a4f78 !important;
+            color: #ffffff !important;
+            border-left-color: #4fa3e0 !important;
             font-weight: 700 !important;
         }
         .erp-main-topbar {
