@@ -6,7 +6,8 @@ import re
 from pathlib import Path
 from datetime import datetime, timedelta
 from .common import (
-    get_spreadsheet,
+    get_sheet_df,
+    get_worksheet,
     save_df_to_sheet,
     generate_production_order_print,
     generate_print_page_content,
@@ -40,23 +41,21 @@ def show_order_page():
     # 載入配方資料
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
     if df_recipe.empty:
-        df_recipe = load_recipe(force_reload=True)
+        df_recipe = load_recipe(force_reload=False)
         st.session_state.df_recipe = df_recipe
     
     # 取得 Google Sheets
     try:
-        spreadsheet = get_spreadsheet()
-        ws_recipe = spreadsheet.worksheet("配方管理")
-        ws_order = spreadsheet.worksheet("生產單")
+        ws_order = get_worksheet("生產單")
     except Exception as e:
         st.error(f"❌ 無法連線 Google Sheet：{e}")
         return
     
     # 載入生產單資料
     try:
-        existing_values = ws_order.get_all_values()
-        if existing_values:
-            df_order = pd.DataFrame(existing_values[1:], columns=existing_values[0]).astype(str)
+        df_order = get_sheet_df("生產單")
+        if not df_order.empty:
+            df_order = df_order.astype(str)
             if "客戶編號" not in df_order.columns:
                 df_order["客戶編號"] = ""
         else:
