@@ -619,11 +619,6 @@ def render_erp_nav():
                         st.session_state.menu = item["key"]
                         st.rerun()
 
-    st.markdown(
-        f'<div class="erp-main-topbar">首頁  ›  <span class="current">{st.session_state.menu}</span></div>',
-        unsafe_allow_html=True,
-    )
-
     return st.session_state.menu
 
 render_erp_nav()
@@ -637,6 +632,70 @@ st.markdown("""
 
 # 重新套用主題，確保切換任何功能分頁後仍維持紫色主題樣式
 apply_modern_style()
+
+# 鍵盤方向鍵跨欄位移動（輸入框邊界時可跳到前/後欄位）
+components.html(
+    """
+    <script>
+    (function () {
+      function getInputs() {
+        const root = window.parent.document;
+        return Array.from(
+          root.querySelectorAll('input:not([disabled]), textarea:not([disabled]), [data-baseweb="select"] input:not([disabled])')
+        ).filter(el => el.offsetParent !== null);
+      }
+
+      function moveFocus(current, step) {
+        const inputs = getInputs();
+        const idx = inputs.indexOf(current);
+        if (idx < 0) return;
+        const next = inputs[idx + step];
+        if (!next) return;
+        next.focus();
+        if (next.select) next.select();
+      }
+
+      function onKeyDown(e) {
+        const t = e.target;
+        if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
+        if (t.readOnly || t.disabled) return;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          moveFocus(t, +1);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          moveFocus(t, -1);
+          return;
+        }
+
+        if (t instanceof HTMLInputElement && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+          const start = t.selectionStart ?? 0;
+          const end = t.selectionEnd ?? 0;
+          const len = (t.value || '').length;
+          const noSelect = start === end;
+          if (e.key === 'ArrowRight' && noSelect && end >= len) {
+            e.preventDefault();
+            moveFocus(t, +1);
+          } else if (e.key === 'ArrowLeft' && noSelect && start <= 0) {
+            e.preventDefault();
+            moveFocus(t, -1);
+          }
+        }
+      }
+
+      const doc = window.parent.document;
+      if (!doc.body.dataset.arrowNavBound) {
+        doc.body.dataset.arrowNavBound = '1';
+        doc.addEventListener('keydown', onKeyDown, true);
+      }
+    })();
+    </script>
+    """,
+    height=0,
+)
 
 # ================= 共用 Google Sheet 穩定寫入工具 =================
 def safe_append_row(ws, row_values):
@@ -3722,26 +3781,34 @@ elif menu == "生產單管理":
                 c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
             
             st.markdown("###### 色粉用量（編號與重量）")
-            id_col, wt_col = st.columns(2)
+            main_powders = []
             for i in range(1, 9):
                 color_id = recipe_row.get(f"色粉編號{i}", "").strip()
                 color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
                 if color_id or color_wt:
-                    id_col.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}_tab1")
-                    wt_col.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}_tab1")
+                    main_powders.append((i, color_id, color_wt))
+            if main_powders:
+                powder_cols = st.columns(len(main_powders))
+                for col, (i, color_id, color_wt) in zip(powder_cols, main_powders):
+                    col.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}_tab1")
+                    col.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}_tab1")
             
             additional_recipes = order.get("附加配方", [])
             if additional_recipes:
                 st.markdown("###### 附加配方色粉用量（編號與重量）")
                 for idx, r in enumerate(additional_recipes, 1):
                     st.markdown(f"附加配方 {idx}")
-                    col1, col2 = st.columns(2)
+                    add_powders = []
                     for i in range(1, 9):
                         color_id = r.get(f"色粉編號{i}", "").strip()
                         color_wt = r.get(f"色粉重量{i}", "").strip()
                         if color_id or color_wt:
-                            col1.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
-                            col2.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
+                            add_powders.append((i, color_id, color_wt))
+                    if add_powders:
+                        add_cols = st.columns(len(add_powders))
+                        for col, (i, color_id, color_wt) in zip(add_cols, add_powders):
+                            col.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
+                            col.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
             
             col_submit1, col_submit2 = st.columns([1, 1])
             with col_submit1:
@@ -4929,15 +4996,21 @@ if menu == "代工管理":
         )
 
         with st.form("create_oem_form"):
-            col1, col2 = st.columns(2)
-            with col1:
-                new_oem_id       = st.text_input("代工單號", placeholder="例如：OEM20251210-001")
+            row1_col1, row1_col2, row1_col3 = st.columns(3)
+            with row1_col1:
+                new_oem_id = st.text_input("代工單號", placeholder="例如：OEM20251210-001")
+            with row1_col2:
                 new_production_id = st.text_input("生產單號（選填）", placeholder="若有對應生產單請填寫")
-                new_formula_id   = st.text_input("配方編號")
-            with col2:
-                new_customer  = st.text_input("客戶名稱")
-                new_oem_qty   = st.number_input("代工數量 (kg)", min_value=0.0, value=0.0, step=1.0)
-                new_vendor    = st.selectbox("代工廠商", ["", "弘旭", "良輝"])
+            with row1_col3:
+                new_formula_id = st.text_input("配方編號")
+
+            row2_col1, row2_col2, row2_col3 = st.columns(3)
+            with row2_col1:
+                new_customer = st.text_input("客戶名稱")
+            with row2_col2:
+                new_oem_qty = st.number_input("代工數量 (kg)", min_value=0.0, value=0.0, step=1.0)
+            with row2_col3:
+                new_vendor = st.selectbox("代工廠商", ["", "弘旭", "良輝"])
 
             new_remark     = st.text_area("備註")
             submitted_new  = st.form_submit_button("💾 建立代工單")
