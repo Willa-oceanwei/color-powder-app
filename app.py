@@ -5871,63 +5871,65 @@ elif menu == "採購管理":
             else:
                 st.info(f"📌 尚無供應商資料，建議從：{next_code} 開始")
     
-        # ===== 表單模式 =====
-        with st.form("form_supplier_tab3"):
-    
-            col1, col2 = st.columns(2)
-            with col1:
-                st.session_state.form_supplier["供應商編號"] = st.text_input(
-                    "供應商編號",
-                    st.session_state.form_supplier.get("供應商編號", "")
-                )
-    
-                # 建議編號按鈕
-                if not st.session_state.get("edit_supplier_id"):
-                    if st.form_submit_button("⬇️ 使用建議編號", use_container_width=True):
-                        st.session_state.form_supplier["供應商編號"] = next_code
-                        st.rerun()
-    
-                st.session_state.form_supplier["供應商簡稱"] = st.text_input(
-                    "供應商簡稱",
-                    st.session_state.form_supplier.get("供應商簡稱", "")
-                )
-    
-            with col2:
-                st.session_state.form_supplier["備註"] = st.text_input(
-                    "備註",
-                    st.session_state.form_supplier.get("備註", ""),
-                    key="form_supplier_note_tab3"
-                )
-    
-            submit = st.form_submit_button("💾 儲存")
-    
-        if submit:
-            new_data = st.session_state.form_supplier.copy()
-            if not new_data["供應商編號"].strip():
-                st.warning("⚠️ 請輸入供應商編號！")
-                st.stop()
-    
-            edit_id = st.session_state.get("edit_supplier_id")
-    
-            if edit_id:  # 修改模式
-                mask = df["供應商編號"] == edit_id
-                if mask.any():
-                    df.loc[mask, df.columns] = pd.Series(new_data)
-                    st.success("✅ 供應商已更新！")
-                else:
-                    st.error("⚠️ 原供應商不存在，請重新選擇")
+        supplier_tab_form, supplier_tab_manage = st.tabs(["📝 新增 / 修改", "🛠️ 查詢 / 刪除"])
+
+        with supplier_tab_form:
+            # ===== 表單模式（欄位縮窄） =====
+            with st.form("form_supplier_tab3"):
+                col1, col2, col3, col4 = st.columns([1.1, 1.1, 1.6, 0.9])
+                with col1:
+                    st.session_state.form_supplier["供應商編號"] = st.text_input(
+                        "供應商編號",
+                        st.session_state.form_supplier.get("供應商編號", "")
+                    )
+                with col2:
+                    st.session_state.form_supplier["供應商簡稱"] = st.text_input(
+                        "供應商簡稱",
+                        st.session_state.form_supplier.get("供應商簡稱", "")
+                    )
+                with col3:
+                    st.session_state.form_supplier["備註"] = st.text_input(
+                        "備註",
+                        st.session_state.form_supplier.get("備註", ""),
+                        key="form_supplier_note_tab3"
+                    )
+                with col4:
+                    st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+                    use_next_code = st.form_submit_button("⬇️ 建議號", use_container_width=True)
+
+                submit = st.form_submit_button("💾 儲存")
+
+            if use_next_code and not st.session_state.get("edit_supplier_id"):
+                st.session_state.form_supplier["供應商編號"] = next_code
+                st.rerun()
+
+            if submit:
+                new_data = st.session_state.form_supplier.copy()
+                if not new_data["供應商編號"].strip():
+                    st.warning("⚠️ 請輸入供應商編號！")
                     st.stop()
-            else:  # 新增模式
-                if new_data["供應商編號"] in df["供應商編號"].values:
-                    st.warning("⚠️ 此供應商編號已存在！")
-                    st.stop()
-                df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-                st.success("✅ 新增成功！")
-    
-            save_df_to_sheet(ws_supplier, df)
-            st.session_state.form_supplier = {col: "" for col in columns}
-            st.session_state.edit_supplier_id = None
-            st.rerun()
+
+                edit_id = st.session_state.get("edit_supplier_id")
+
+                if edit_id:  # 修改模式
+                    mask = df["供應商編號"] == edit_id
+                    if mask.any():
+                        df.loc[mask, df.columns] = pd.Series(new_data)
+                        st.success("✅ 供應商已更新！")
+                    else:
+                        st.error("⚠️ 原供應商不存在，請重新選擇")
+                        st.stop()
+                else:  # 新增模式
+                    if new_data["供應商編號"] in df["供應商編號"].values:
+                        st.warning("⚠️ 此供應商編號已存在！")
+                        st.stop()
+                    df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+                    st.success("✅ 新增成功！")
+
+                save_df_to_sheet(ws_supplier, df)
+                st.session_state.form_supplier = {col: "" for col in columns}
+                st.session_state.edit_supplier_id = None
+                st.rerun()
     
         # ===== 刪除確認 =====
         if st.session_state.show_delete_supplier_confirm and st.session_state.delete_supplier_index in df.index:
@@ -5945,85 +5947,45 @@ elif menu == "採購管理":
                 st.session_state.show_delete_supplier_confirm = False
                 st.rerun()
         
-        st.markdown("---")
-        
-        # ===== 📋 供應商清單（搜尋後顯示表格與操作） =====
-        st.markdown(
-            '<h3 style="font-size:16px; font-family:Arial; color:#dbd818;">🛠️ 供應商修改/刪除</h3>',
-            unsafe_allow_html=True
-        )
-        
-        # 搜尋輸入框
-        keyword = st.text_input("請輸入供應商編號或簡稱", st.session_state.get("search_supplier_keyword", ""))
-        st.session_state.search_supplier_keyword = keyword.strip()
-        
-        # 預設空表格
-        df_filtered = pd.DataFrame()
-        
-        # 只有輸入關鍵字才篩選
-        if keyword:
-            df_filtered = df[
-                df["供應商編號"].str.contains(keyword, case=False, na=False) |
-                df["供應商簡稱"].str.contains(keyword, case=False, na=False)
-            ]
-            
-            # 僅在有輸入且結果為空時顯示警告
-            if df_filtered.empty:
-                st.warning("❗ 查無符合的資料")
-        
-        # ===== 📋 表格顯示搜尋結果 =====
-        if not df_filtered.empty:
-            st.dataframe(df_filtered[columns], use_container_width=True, hide_index=True)
-            
-            # ===== ✏️ 改 / 🗑️ 刪操作（表格下方） =====
-            st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
-            
-            # 標題 + 灰色小字說明
+        with supplier_tab_manage:
+            st.markdown("---")
             st.markdown(
-                """
-                <p style="font-size:14px; font-family:Arial; color:gray; margin-top:-8px;">
-                    🛈 請於新增欄位修改
-                </p>
-                """,
+                '<h3 style="font-size:16px; font-family:Arial; color:#dbd818;">🛠️ 供應商修改/刪除</h3>',
                 unsafe_allow_html=True
             )
-            
-            # --- 全域縮小 emoji 字體大小 ---
-            st.markdown("""
-                <style>
-                div.stButton > button {
-                    font-size:16px !important;
-                    padding:2px 8px !important;
-                    border-radius:8px;
-                    background-color:#333333 !important;
-                    color:white !important;
-                    border:1px solid #555555;
-                }
-                div.stButton > button:hover {
-                    background-color:#555555 !important;
-                    border-color:#dbd818 !important;
-                }
-                </style>
-            """, unsafe_allow_html=True)
-            
-            # --- 列出供應商清單 ---
-            for i, row in df_filtered.iterrows():
-                c1, c2, c3 = st.columns([3, 1, 1])
-                with c1:
-                    st.markdown(
-                        f"<div style='font-family:Arial;color:#FFFFFF;'>🔹 {row['供應商編號']}　{row['供應商簡稱']}</div>",
-                        unsafe_allow_html=True
-                    )
-                with c2:
-                    if st.button("✏️ 改", key=f"edit_supplier_{i}"):
-                        st.session_state.edit_supplier_index = i
-                        st.session_state.form_supplier = row.to_dict()
-                        st.rerun()
-                with c3:
-                    if st.button("🗑️ 刪", key=f"delete_supplier_{i}"):
-                        st.session_state.delete_supplier_index = i
-                        st.session_state.show_delete_supplier_confirm = True
-                        st.rerun()
+
+            keyword = st.text_input("請輸入供應商編號或簡稱", st.session_state.get("search_supplier_keyword", ""))
+            st.session_state.search_supplier_keyword = keyword.strip()
+            df_filtered = pd.DataFrame()
+
+            if keyword:
+                df_filtered = df[
+                    df["供應商編號"].str.contains(keyword, case=False, na=False) |
+                    df["供應商簡稱"].str.contains(keyword, case=False, na=False)
+                ]
+                if df_filtered.empty:
+                    st.warning("❗ 查無符合的資料")
+
+            if not df_filtered.empty:
+                st.dataframe(df_filtered[columns], use_container_width=True, hide_index=True)
+                st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
+                for i, row in df_filtered.iterrows():
+                    c1, c2, c3 = st.columns([3, 1, 1])
+                    with c1:
+                        st.markdown(
+                            f"<div style='font-family:Arial;color:#FFFFFF;'>🔹 {row['供應商編號']}　{row['供應商簡稱']}</div>",
+                            unsafe_allow_html=True
+                        )
+                    with c2:
+                        if st.button("✏️ 改", key=f"edit_supplier_{i}"):
+                            st.session_state.edit_supplier_id = row["供應商編號"]
+                            st.session_state.form_supplier = row.to_dict()
+                            st.success("已帶入資料到「新增 / 修改」分頁，可直接儲存更新。")
+                    with c3:
+                        if st.button("🗑️ 刪", key=f"delete_supplier_{i}"):
+                            st.session_state.delete_supplier_index = i
+                            st.session_state.show_delete_supplier_confirm = True
+                            st.rerun()
 
 # ======== 交叉查詢分頁 =========
 if "menu" not in st.session_state:
@@ -6370,36 +6332,34 @@ elif menu == "查詢區":
             ws_pantone.append_row(["Pantone色號", "配方編號", "客戶名稱", "料號"])
             df_pantone = pd.DataFrame(columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
     
-        # === 新增區塊（2 欄一列） ===
-        st.markdown('<span style="color:#f1f5f2; font-weight:bold;">☑️ 新增 Pantone 記錄</span>', unsafe_allow_html=True)
-        
-        with st.form("add_pantone_tab"):
-            col1, col2 = st.columns(2)
-            with col1:
-                pantone_code = st.text_input("Pantone 色號", key="pantone_code_tab")
-            with col2:
-                formula_id = st.text_input("配方編號", key="formula_id_tab")
-    
-            col3, col4 = st.columns(2)
-            with col3:
-                customer = st.text_input("客戶名稱", key="customer_tab")
-            with col4:
-                material_no = st.text_input("料號", key="material_no_tab")
-    
-            submitted = st.form_submit_button("➕ 新增")
-    
-            if submitted:
-                if not pantone_code or not formula_id:
-                    st.error("❌ Pantone 色號與配方編號必填")
-                else:
-                    if formula_id in df_recipe["配方編號"].astype(str).values:
-                        st.warning(f"⚠️ 配方編號 {formula_id} 已存在於『配方管理』，不新增")
-                    elif formula_id in df_pantone["配方編號"].astype(str).values:
-                        st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
+        pantone_tab_add, pantone_tab_search = st.tabs(["☑️ 新增記錄", "🔍 查詢 Pantone 色號"])
+
+        with pantone_tab_add:
+            with st.form("add_pantone_tab"):
+                col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+                with col1:
+                    pantone_code = st.text_input("Pantone 色號", key="pantone_code_tab")
+                with col2:
+                    formula_id = st.text_input("配方編號", key="formula_id_tab")
+                with col3:
+                    customer = st.text_input("客戶名稱", key="customer_tab")
+                with col4:
+                    material_no = st.text_input("料號", key="material_no_tab")
+
+                submitted = st.form_submit_button("➕ 新增")
+
+                if submitted:
+                    if not pantone_code or not formula_id:
+                        st.error("❌ Pantone 色號與配方編號必填")
                     else:
-                        ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
-                        st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
-                        st.rerun()
+                        if formula_id in df_recipe["配方編號"].astype(str).values:
+                            st.warning(f"⚠️ 配方編號 {formula_id} 已存在於『配方管理』，不新增")
+                        elif formula_id in df_pantone["配方編號"].astype(str).values:
+                            st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
+                        else:
+                            ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
+                            st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
+                            st.rerun()
     
         # ====== 統一顯示 Pantone 色號表函式 ======
         def show_pantone_table(df, title="Pantone 色號表"):
@@ -6411,51 +6371,47 @@ elif menu == "查詢區":
             df_reset = pd.DataFrame(df).reset_index(drop=True).astype(str)
             st.table(df_reset)
     
-        # ======== 🔍 查詢 Pantone 色號 ========
-        st.markdown('<span style="color:#f1f5f2; font-weight:bold;">🔍 查詢 Pantone 色號</span>', unsafe_allow_html=True)
+        with pantone_tab_search:
+            c1, c2 = st.columns([2, 1])
+            with c1:
+                search_code = st.text_input("輸入 Pantone 色號", key="search_pantone_tab")
+            with c2:
+                search_mode = st.selectbox("", ["部分匹配", "精準匹配"], key="pantone_search_mode")
 
-        # 同一行：輸入框 + 搜尋模式
-        c1, c2 = st.columns([2, 1])
-        with c1:
-            search_code = st.text_input("輸入 Pantone 色號", key="search_pantone_tab")
-        with c2:
-            search_mode = st.selectbox("", ["部分匹配", "精準匹配"], key="pantone_search_mode")
-    
-        # 使用者有輸入才顯示結果
-        if search_code:
-            if search_mode == "精準匹配":
-                df_result_pantone = df_pantone[df_pantone["Pantone色號"].str.strip().str.lower() == search_code.strip().lower()]
-            else:
-                df_result_pantone = df_pantone[df_pantone["Pantone色號"].str.contains(search_code, case=False, na=False)]
-    
-            if not df_recipe.empty and "Pantone色號" in df_recipe.columns:
+            if search_code:
                 if search_mode == "精準匹配":
-                    df_result_recipe = df_recipe[df_recipe["Pantone色號"].str.strip().str.lower() == search_code.strip().lower()]
+                    df_result_pantone = df_pantone[df_pantone["Pantone色號"].str.strip().str.lower() == search_code.strip().lower()]
                 else:
-                    df_result_recipe = df_recipe[df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False)]
-            else:
-                df_result_recipe = pd.DataFrame()
-    
-            if df_result_pantone.empty and df_result_recipe.empty:
-                st.warning("查無符合的 Pantone 色號資料。")
-            else:
-                if not df_result_pantone.empty:
-                    st.markdown(
-                        '<div style="font-size:14px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0; font-weight:bold;">📋 Pantone 對照表</div>',
-                        unsafe_allow_html=True
-                    )
-                    show_pantone_table(df_result_pantone, title="")
-    
-                if not df_result_recipe.empty:
-                    st.markdown('<div style="margin-top:10px;"></div>', unsafe_allow_html=True)
-                    st.markdown(
-                        '<div style="font-size:14px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0; font-weight:bold;">📋 配方管理</div>',
-                        unsafe_allow_html=True
-                    )
-                    st.dataframe(
-                        df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True),
-                        use_container_width=True,
-                    )
+                    df_result_pantone = df_pantone[df_pantone["Pantone色號"].str.contains(search_code, case=False, na=False)]
+
+                if not df_recipe.empty and "Pantone色號" in df_recipe.columns:
+                    if search_mode == "精準匹配":
+                        df_result_recipe = df_recipe[df_recipe["Pantone色號"].str.strip().str.lower() == search_code.strip().lower()]
+                    else:
+                        df_result_recipe = df_recipe[df_recipe["Pantone色號"].str.contains(search_code, case=False, na=False)]
+                else:
+                    df_result_recipe = pd.DataFrame()
+
+                if df_result_pantone.empty and df_result_recipe.empty:
+                    st.warning("查無符合的 Pantone 色號資料。")
+                else:
+                    if not df_result_pantone.empty:
+                        st.markdown(
+                            '<div style="font-size:14px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0; font-weight:bold;">📋 Pantone 對照表</div>',
+                            unsafe_allow_html=True
+                        )
+                        show_pantone_table(df_result_pantone, title="")
+
+                    if not df_result_recipe.empty:
+                        st.markdown('<div style="margin-top:10px;"></div>', unsafe_allow_html=True)
+                        st.markdown(
+                            '<div style="font-size:14px; font-family:Arial; color:#f0efa2; line-height:1.2; margin:2px 0; font-weight:bold;">📋 配方管理</div>',
+                            unsafe_allow_html=True
+                        )
+                        st.dataframe(
+                            df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True),
+                            use_container_width=True,
+                        )
                     
     # ========== Tab 4：樣品記錄表 ==========
     from datetime import datetime, date
