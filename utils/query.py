@@ -4,7 +4,7 @@ import pandas as pd
 import os
 import re
 from datetime import datetime, date
-from .common import get_spreadsheet, save_df_to_sheet, init_states
+from .common import get_spreadsheet, get_worksheet, get_sheet_df, save_df_to_sheet, init_states
 
 
 def show_query_page(mode="pantone"):
@@ -30,12 +30,7 @@ def show_query_page(mode="pantone"):
 def show_pantone_page():
     """Pantone色號表頁面"""
     try:
-        spreadsheet = get_spreadsheet()
-        ws_pantone = spreadsheet.worksheet("Pantone色號表")
-        df_pantone = pd.DataFrame(ws_pantone.get_all_records())
-        
-        ws_recipe = spreadsheet.worksheet("配方管理")
-        df_recipe = pd.DataFrame(ws_recipe.get_all_records())
+        df_recipe = get_sheet_df("配方管理")
     except Exception as e:
         st.error(f"無法載入資料：{e}")
         return
@@ -47,11 +42,12 @@ def show_pantone_page():
     
     # 嘗試讀取 Pantone色號表
     try:
-        ws_pantone = spreadsheet.worksheet("Pantone色號表")
+        ws_pantone = get_worksheet("Pantone色號表")
     except:
+        spreadsheet = get_spreadsheet()
         ws_pantone = spreadsheet.add_worksheet(title="Pantone色號表", rows=100, cols=4)
     
-    df_pantone = pd.DataFrame(ws_pantone.get_all_records())
+    df_pantone = get_sheet_df("Pantone色號表")
     
     # 如果表格是空的，補上欄位名稱
     if df_pantone.empty:

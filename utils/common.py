@@ -230,9 +230,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
 def load_recipe(force_reload=False):
     """嘗試載入配方管理工作表"""
     try:
-        ss = get_spreadsheet()
-        ws_recipe = ss.worksheet("配方管理")
-        df_loaded = pd.DataFrame(ws_recipe.get_all_records())
+        df_loaded = get_sheet_df("配方管理", force_reload=force_reload)
         if not df_loaded.empty:
             # 清理 NaN
             df_loaded = df_loaded.replace({np.nan: "", np.inf: "", -np.inf: ""})

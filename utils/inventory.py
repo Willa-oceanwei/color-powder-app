@@ -4,7 +4,7 @@ import pandas as pd
 import os
 import re
 from datetime import datetime, date
-from .common import get_spreadsheet, save_df_to_sheet, init_states
+from .common import get_worksheet, get_sheet_df, save_df_to_sheet, init_states
 
 def show_inventory_page():
     """庫存管理主頁面"""
@@ -27,10 +27,10 @@ def show_inventory_page():
         st.session_state["last_final_stock"] = {}
     
     try:
-        spreadsheet = get_spreadsheet()
-        ws_stock = spreadsheet.worksheet("庫存記錄")
-        records = ws_stock.get_all_records()
-        df_stock = pd.DataFrame(records) if records else pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
+        ws_stock = get_worksheet("庫存記錄")
+        df_stock = get_sheet_df("庫存記錄")
+        if df_stock.empty:
+            df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
     except Exception as e:
         st.warning(f"⚠️ 無法讀取 Google Sheet 庫存資料：{e}")
         df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
