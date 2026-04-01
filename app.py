@@ -770,31 +770,6 @@ def set_form_style():
 # ===== 呼叫一次，套用全程式 =====
 set_form_style()
 
-# ======== 初始化 session_state =========
-def init_states(keys=None):
-    if keys is None:
-        keys = [
-            "selected_order_code_edit",
-            "editing_order",
-            "show_edit_panel",
-            "search_order_input",
-            "order_page",
-        ]
-    for key in keys:
-        if key not in st.session_state:
-            if key.startswith("form_"):
-                st.session_state[key] = {}
-            elif key.startswith("edit_") or key.startswith("delete_"):
-                st.session_state[key] = None
-            elif key.startswith("show_"):
-                st.session_state[key] = False
-            elif key.startswith("search"):
-                st.session_state[key] = ""
-            elif key == "order_page":
-                st.session_state[key] = 1
-            else:
-                st.session_state[key] = None
-
 # ======== Helper Functions for Recipe Management =========
 def fix_leading_zero(x):
     """補足前導零（僅針對純數字且長度<4的字串）"""
@@ -849,28 +824,6 @@ def fmt_num(val, digits=2):
     except (TypeError, ValueError):
         return "0"
     return f"{num:.{digits}f}".rstrip("0").rstrip(".")
-
-def load_recipe(force_reload=False):
-    """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
-    try:
-        df_loaded = get_cached_sheet_df("配方管理", force_reload=force_reload)
-        if not df_loaded.empty:
-            return df_loaded
-    except Exception as e:
-        st.warning(f"Google Sheet 載入失敗：{e}")
-
-    # 回退 CSV
-    order_file = Path("data/df_recipe.csv")
-    if order_file.exists():
-        try:
-            df_csv = pd.read_csv(order_file)
-            if not df_csv.empty:
-                return df_csv
-        except Exception as e:
-            st.error(f"CSV 載入失敗：{e}")
-
-    # 都失敗時，回傳空 df
-    return pd.DataFrame()
 
 def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
     """生成配方預覽文字（用於生產單）"""
@@ -946,46 +899,6 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
     
         return "```\n" + html_text.strip() + "\n```"
 
-
-def load_recipe_data():
-    """從 Google Sheets 載入配方數據"""
-    try:
-        df_loaded = get_cached_sheet_df("配方管理")
-        if df_loaded.empty:
-            columns = [
-                "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
-                "原始配方", "色粉類別", "計量單位", "Pantone色號",
-                "比例1", "比例2", "比例3", "淨重", "淨重單位",
-                *[f"色粉編號{i}" for i in range(1, 9)],
-                *[f"色粉重量{i}" for i in range(1, 9)],
-                "合計類別", "重要提醒", "備註", "建檔時間"
-            ]
-            df_loaded = pd.DataFrame(columns=columns)
-        
-        for col in df_loaded.columns:
-            if col not in df_loaded.columns:
-                df_loaded[col] = ""
-        
-        if "配方編號" in df_loaded.columns:
-            df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map(clean_powder_id)
-        
-        return df_loaded
-    except Exception as e:
-        st.error(f"載入配方數據時發生錯誤: {str(e)}")
-        return pd.DataFrame()
-
-# ======== 共用儲存函式 =========
-def save_df_to_sheet(ws, df):
-    """共用的 DataFrame 儲存函式"""
-    values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
-    ws.clear()
-    ws.update("A1", values)
-    _set_sheet_values_cache(ws.title, values)
-
-    if ws.title == "庫存記錄":
-        st.session_state.pop("stock_calc_time", None)
-
-                
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(
     order,
