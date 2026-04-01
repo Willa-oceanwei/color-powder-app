@@ -526,6 +526,18 @@ def render_erp_nav():
     for item in MENU_ITEMS:
         groups.setdefault(item["group"], []).append(item)
 
+    menu_icons = {
+        "生產單管理": "🧾",
+        "配方管理": "🧪",
+        "代工管理": "🏭",
+        "庫存區": "📦",
+        "洗車廠庫存": "🧴",
+        "採購管理": "🛒",
+        "查詢區": "🔎",
+        "客戶名單": "👥",
+        "匯入備份": "💾",
+    }
+
     if "menu" not in st.session_state:
         st.session_state.menu = "生產單管理"
 
@@ -533,49 +545,67 @@ def render_erp_nav():
         """
         <style>
         :root {
-            /* ===== ERP 側欄主題色（要換色改這裡） ===== */
-            --erp-sidebar-bg: #6e2f2f;         /* 側欄底色 */
-            --erp-sidebar-border: #8a4646;     /* 側欄邊框 */
-            --erp-title: #fff4ec;              /* 標題字色 */
-            --erp-subtitle: #e8bfa8;           /* 副標字色 */
-            --erp-group: #d8a88e;              /* 群組字色 */
-            --erp-item: #f3d9cb;               /* 一般選單字色 */
-            --erp-item-hover-bg: #824040;      /* hover 背景 */
-            --erp-item-active-bg: #975050;     /* active 背景 */
-            --erp-item-line-hover: #f0b07d;    /* hover 左線 */
-            --erp-item-line-active: #ffd3ab;   /* active 左線 */
-            --erp-item-active-text: #fff8f2;   /* active 字色 */
+            --erp-sidebar-bg: linear-gradient(180deg, rgba(33,29,58,0.94) 0%, rgba(27,24,49,0.97) 100%);
+            --erp-sidebar-border: rgba(226, 216, 255, 0.2);
+            --erp-title: #f8f2ff;
+            --erp-subtitle: #cdb8ef;
+            --erp-group: #9f8ed0;
+            --erp-item: #e7dbff;
+            --erp-item-hover-bg: rgba(159, 120, 255, 0.18);
+            --erp-item-active-bg: linear-gradient(135deg, #7d59ea, #a982ff);
+            --erp-item-line-hover: #bfa6ff;
+            --erp-item-line-active: #ffe3a0;
+            --erp-item-active-text: #fffaf0;
         }
+
         section[data-testid="stSidebar"] {
-            min-width: 210px !important;
-            max-width: 210px !important;
+            min-width: 268px !important;
+            max-width: 268px !important;
             background: var(--erp-sidebar-bg) !important;
             border-right: 1px solid var(--erp-sidebar-border) !important;
+            box-shadow: inset -1px 0 0 rgba(255,255,255,0.04);
         }
+
+        section[data-testid="stSidebar"] > div {
+            padding-top: 0.45rem !important;
+        }
+
+        section[data-testid="stSidebar"] .erp-brand-wrap {
+            border: 1px solid rgba(233, 222, 255, 0.15);
+            border-radius: 14px;
+            padding: 0.75rem 0.8rem;
+            background: rgba(255,255,255,0.04);
+            margin-bottom: 0.9rem;
+        }
+
         section[data-testid="stSidebar"] .erp-title {
-            font-size: 15px;
+            font-size: 16px;
             font-weight: 700;
             color: var(--erp-title);
-            margin: 0 0 0.25rem 0;
-            letter-spacing: 0.5px;
+            margin: 0;
+            letter-spacing: 0.4px;
         }
+
         section[data-testid="stSidebar"] .erp-sub {
-            font-size: 10px;
+            font-size: 11px;
             color: var(--erp-subtitle);
-            margin-bottom: 0.8rem;
+            margin-top: 0.15rem;
         }
+
         section[data-testid="stSidebar"] .erp-group {
             color: var(--erp-group);
-            font-size: 10px;
-            letter-spacing: 0.8px;
-            margin: 0.5rem 0 0.25rem 0.15rem;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            margin: 0.8rem 0 0.28rem 0.15rem;
         }
+
         section[data-testid="stSidebar"] div.stButton > button {
-            border-radius: 2px !important;
+            border-radius: 10px !important;
             text-align: left !important;
             width: 100% !important;
-            font-size: 12.5px !important;
-            padding: 0.42rem 0.55rem !important;
+            font-size: 13px !important;
+            padding: 0.5rem 0.7rem !important;
             border-left: 3px solid transparent !important;
             background: transparent !important;
             color: var(--erp-item) !important;
@@ -583,30 +613,45 @@ def render_erp_nav():
             border-right: 0 !important;
             border-bottom: 0 !important;
             box-shadow: none !important;
+            margin-bottom: 0.12rem;
+            min-height: 2.2rem !important;
         }
+
         section[data-testid="stSidebar"] div.stButton > button:hover {
             background: var(--erp-item-hover-bg) !important;
-            color: var(--erp-item-active-text) !important;
+            color: #ffffff !important;
             border-left-color: var(--erp-item-line-hover) !important;
+            transform: none !important;
         }
+
         section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
             background: var(--erp-item-active-bg) !important;
             color: var(--erp-item-active-text) !important;
             border-left-color: var(--erp-item-line-active) !important;
             font-weight: 700 !important;
+            box-shadow: 0 6px 14px rgba(32, 17, 73, 0.34) !important;
         }
+
         .erp-main-topbar {
-            background: #ffffff;
-            border: 1px solid #dce3ec;
-            border-radius: 4px;
-            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(163, 175, 196, 0.35);
+            border-radius: 10px;
+            padding: 9px 13px;
             margin: 2px 0 12px 0;
-            color: #6c7a89;
+            color: #5e6f85;
             font-size: 12px;
         }
+
         .erp-main-topbar .current {
-            color: #1e3a5f;
+            color: #2c3d57;
             font-weight: 700;
+        }
+
+        @media (max-width: 900px) {
+            section[data-testid="stSidebar"] {
+                min-width: min(78vw, 300px) !important;
+                max-width: min(78vw, 300px) !important;
+            }
         }
         </style>
         """,
@@ -614,14 +659,16 @@ def render_erp_nav():
     )
 
     with st.sidebar:
-        st.markdown('<div class="erp-title">配方管理系統</div>', unsafe_allow_html=True)
-        st.markdown('<div class="erp-sub">v2.0 · ERP Edition</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="erp-brand-wrap"><div class="erp-title">配方管理系統</div><div class="erp-sub">Sidebar · Streamlit UI</div></div>',
+            unsafe_allow_html=True,
+        )
 
         for group_name, items in groups.items():
             st.markdown(f'<div class="erp-group">{group_name}</div>', unsafe_allow_html=True)
             for item in items:
                 is_active = st.session_state.menu == item["key"]
-                label = item["label"]
+                label = f"{menu_icons.get(item['key'], '•')}  {item['label']}"
                 if st.button(
                     label,
                     key=f"menu_{item['key']}",
