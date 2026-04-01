@@ -372,7 +372,7 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
-SHEET_CACHE_TTL_SECONDS = 120
+SHEET_CACHE_TTL_SECONDS = 300
 
 def get_cached_worksheet(sheet_name):
     cache = st.session_state.setdefault("_ws_cache", {})
@@ -382,25 +382,7 @@ def get_cached_worksheet(sheet_name):
     cache[sheet_name] = ws
     return ws
 
-def get_cached_sheet_df(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
-    now = datetime.now().timestamp()
-    cache = st.session_state.setdefault("_sheet_df_cache", {})
-    cached = cache.get(sheet_name)
-
-    if (
-        not force_reload
-        and cached
-        and now - cached.get("timestamp", 0) < ttl_seconds
-    ):
-        return cached["df"].copy()
-
-    ws = get_cached_worksheet(sheet_name)
-    df = pd.DataFrame(ws.get_all_records())
-    cache[sheet_name] = {"timestamp": now, "df": df.copy()}
-    return df
-
-
-def get_cached_sheet_values(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
+def _load_sheet_values_with_cache(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
     now = datetime.now().timestamp()
     cache = st.session_state.setdefault("_sheet_values_cache", {})
     cached = cache.get(sheet_name)
@@ -416,6 +398,26 @@ def get_cached_sheet_values(sheet_name, force_reload=False, ttl_seconds=SHEET_CA
     values = ws.get_all_values()
     cache[sheet_name] = {"timestamp": now, "values": [row[:] for row in values]}
     return values
+
+
+def get_cached_sheet_df(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
+    values = _load_sheet_values_with_cache(
+        sheet_name,
+        force_reload=force_reload,
+        ttl_seconds=ttl_seconds,
+    )
+    if len(values) <= 1:
+        return pd.DataFrame(columns=values[0] if values else [])
+    return pd.DataFrame(values[1:], columns=values[0])
+
+
+def get_cached_sheet_values(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
+    values = _load_sheet_values_with_cache(
+        sheet_name,
+        force_reload=force_reload,
+        ttl_seconds=ttl_seconds,
+    )
+    return [row[:] for row in values]
 
 def invalidate_sheet_cache(sheet_name=None):
     if sheet_name is None:
