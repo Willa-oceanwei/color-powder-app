@@ -33,8 +33,9 @@ if not st.session_state.authenticated:
         "<h3 style='text-align:center; color:#f0efa2;'>👻 密碼咧 👻</h3>",
         unsafe_allow_html=True,
     )
-
-    password_input = st.text_input("密碼：", type="password", key="login_password")
+    _, login_col, _ = st.columns([2, 3, 2])
+    with login_col:
+        password_input = st.text_input("密碼：", type="password", key="login_password")
 
     # ✅ 支援按 Enter 或按鈕登入
     if password_input == APP_PASSWORD:
@@ -618,11 +619,6 @@ def render_erp_nav():
                         st.session_state.menu = item["key"]
                         st.rerun()
 
-    st.markdown(
-        f'<div class="erp-main-topbar">首頁  ›  <span class="current">{st.session_state.menu}</span></div>',
-        unsafe_allow_html=True,
-    )
-
     return st.session_state.menu
 
 render_erp_nav()
@@ -636,6 +632,70 @@ st.markdown("""
 
 # 重新套用主題，確保切換任何功能分頁後仍維持紫色主題樣式
 apply_modern_style()
+
+# 鍵盤方向鍵跨欄位移動（輸入框邊界時可跳到前/後欄位）
+components.html(
+    """
+    <script>
+    (function () {
+      function getInputs() {
+        const root = window.parent.document;
+        return Array.from(
+          root.querySelectorAll('input:not([disabled]), textarea:not([disabled]), [data-baseweb="select"] input:not([disabled])')
+        ).filter(el => el.offsetParent !== null);
+      }
+
+      function moveFocus(current, step) {
+        const inputs = getInputs();
+        const idx = inputs.indexOf(current);
+        if (idx < 0) return;
+        const next = inputs[idx + step];
+        if (!next) return;
+        next.focus();
+        if (next.select) next.select();
+      }
+
+      function onKeyDown(e) {
+        const t = e.target;
+        if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
+        if (t.readOnly || t.disabled) return;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          moveFocus(t, +1);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          moveFocus(t, -1);
+          return;
+        }
+
+        if (t instanceof HTMLInputElement && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+          const start = t.selectionStart ?? 0;
+          const end = t.selectionEnd ?? 0;
+          const len = (t.value || '').length;
+          const noSelect = start === end;
+          if (e.key === 'ArrowRight' && noSelect && end >= len) {
+            e.preventDefault();
+            moveFocus(t, +1);
+          } else if (e.key === 'ArrowLeft' && noSelect && start <= 0) {
+            e.preventDefault();
+            moveFocus(t, -1);
+          }
+        }
+      }
+
+      const doc = window.parent.document;
+      if (!doc.body.dataset.arrowNavBound) {
+        doc.body.dataset.arrowNavBound = '1';
+        doc.addEventListener('keydown', onKeyDown, true);
+      }
+    })();
+    </script>
+    """,
+    height=0,
+)
 
 # ================= 共用 Google Sheet 穩定寫入工具 =================
 def safe_append_row(ws, row_values):
@@ -1785,7 +1845,7 @@ elif menu == "配方管理":
     
         with st.form("recipe_form"):
             # ---------------- 基本資訊 ----------------
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 fr["配方編號"] = st.text_input("配方編號", value=fr.get("配方編號",""), key="form_recipe_配方編號")
             with col2:
@@ -1799,22 +1859,19 @@ elif menu == "配方管理":
                     c_no, c_name = selected.split(" - ",1)
                     fr["客戶編號"] = c_no.strip()
                     fr["客戶名稱"] = c_name.strip()
-    
-            # ---------------- 類別/狀態 ----------------
-            col4, col5, col6 = st.columns(3)
             with col4:
                 opts = ["原始配方","附加配方"]
                 cur = fr.get("配方類別", opts[0])
                 fr["配方類別"] = st.selectbox("配方類別", opts, index=opts.index(cur) if cur in opts else 0, key="form_recipe_配方類別")
+
+            # ---------------- 狀態/原始配方/色粉類別/計量單位 ----------------
+            col5, col6, col7, col8 = st.columns(4)
             with col5:
                 opts = ["啟用","停用"]
                 cur = fr.get("狀態", opts[0])
                 fr["狀態"] = st.selectbox("狀態", opts, index=opts.index(cur) if cur in opts else 0, key="form_recipe_狀態")
             with col6:
                 fr["原始配方"] = st.text_input("原始配方", value=fr.get("原始配方",""), key="form_recipe_原始配方")
-    
-            # ---------------- 色粉/單位 ----------------
-            col7, col8, col9 = st.columns(3)
             with col7:
                 opts = ["配方","色母","色粉","添加劑","其他"]
                 cur = fr.get("色粉類別", opts[0])
@@ -1823,8 +1880,8 @@ elif menu == "配方管理":
                 opts = ["包","桶","kg","其他"]
                 cur = fr.get("計量單位", opts[0])
                 fr["計量單位"] = st.selectbox("計量單位", opts, index=opts.index(cur) if cur in opts else 0, key="form_recipe_計量單位")
-            with col9:
-                fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號",""), key="form_recipe_Pantone色號")
+
+            fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號",""), key="form_recipe_Pantone色號")
     
             # ---------------- 重要提醒 ----------------
             fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒",""), key="form_recipe_重要提醒")
@@ -1852,10 +1909,20 @@ elif menu == "配方管理":
     
             # ---------------- 色粉設定 ----------------
             st.markdown("##### 色粉設定")
-            for i in range(1, st.session_state.num_powder_rows + 1):
-                c1,c2 = st.columns([2.5,2.5])
-                fr[f"色粉編號{i}"] = c1.text_input("", value=fr.get(f"色粉編號{i}",""), placeholder=f"色粉{i}編號", key=f"form_recipe_色粉編號{i}")
-                fr[f"色粉重量{i}"] = c2.text_input("", value=fr.get(f"色粉重量{i}",""), placeholder="重量", key=f"form_recipe_色粉重量{i}")
+            powder_cols = st.columns(st.session_state.num_powder_rows)
+            for i, col in enumerate(powder_cols, start=1):
+                fr[f"色粉編號{i}"] = col.text_input(
+                    f"色粉編號{i}",
+                    value=fr.get(f"色粉編號{i}",""),
+                    key=f"form_recipe_色粉編號{i}"
+                )
+            powder_weight_cols = st.columns(st.session_state.num_powder_rows)
+            for i, col in enumerate(powder_weight_cols, start=1):
+                fr[f"色粉重量{i}"] = col.text_input(
+                    f"色粉重量{i}",
+                    value=fr.get(f"色粉重量{i}",""),
+                    key=f"form_recipe_色粉重量{i}"
+                )
     
             # ---------------- 合計類別與差額 ----------------
             col1, col2 = st.columns(2)
@@ -2156,7 +2223,7 @@ elif menu == "配方管理":
 
                 with st.form(f"edit_recipe_form_tab3_{code}"):
 
-                    col1, col2, col3 = st.columns(3)
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
                         fr["配方編號"] = st.text_input("配方編號", fr.get("配方編號", ""), key=f"edit_recipe_code_{code}")
                     with col2:
@@ -2170,13 +2237,13 @@ elif menu == "配方管理":
                         selected = st.selectbox("客戶編號", options, index=index_c, key=f"edit_recipe_customer_{code}")
                         if " - " in selected:
                             fr["客戶編號"], fr["客戶名稱"] = selected.split(" - ", 1)
-
-                    col4, col5, col6 = st.columns(3)
                     with col4:
                         opts_cat = ["原始配方", "附加配方"]
                         fr["配方類別"] = st.selectbox("配方類別", opts_cat,
                             index=opts_cat.index(fr.get("配方類別", opts_cat[0])),
                             key=f"edit_recipe_category_{code}")
+
+                    col5, col6, col7, col8 = st.columns(4)
                     with col5:
                         opts_st = ["啟用", "停用"]
                         fr["狀態"] = st.selectbox("狀態", opts_st,
@@ -2185,7 +2252,6 @@ elif menu == "配方管理":
                     with col6:
                         fr["原始配方"] = st.text_input("原始配方", fr.get("原始配方", ""), key=f"edit_recipe_origin_{code}")
 
-                    col7, col8 = st.columns(2)
                     with col7:
                         color_type_options = ["色粉", "色母"]
                         cur_ct = fr.get("色粉類別", color_type_options[0])
@@ -2200,6 +2266,17 @@ elif menu == "配方管理":
                             cur_u = unit_options[0]
                         fr["計量單位"] = st.selectbox("計量單位", unit_options,
                             index=unit_options.index(cur_u), key=f"edit_recipe_unit_{code}")
+
+                    col_net, col_net_unit = st.columns(2)
+                    with col_net:
+                        fr["淨重"] = st.text_input("淨重", fr.get("淨重", ""), key=f"edit_recipe_net_weight_{code}")
+                    with col_net_unit:
+                        net_unit_options = ["g", "kg"]
+                        cur_net_unit = fr.get("淨重單位", net_unit_options[0])
+                        if cur_net_unit not in net_unit_options:
+                            cur_net_unit = net_unit_options[0]
+                        fr["淨重單位"] = st.selectbox("淨重單位", net_unit_options,
+                            index=net_unit_options.index(cur_net_unit), key=f"edit_recipe_net_unit_{code}")
 
                     fr["重要提醒"] = st.text_input("重要提醒", fr.get("重要提醒", ""), key=f"edit_recipe_note_{code}")
 
@@ -2225,10 +2302,20 @@ elif menu == "配方管理":
                         if st.form_submit_button("➖ 減少色粉列") and st.session_state.edit_num_powder_rows > 5:
                             st.session_state.edit_num_powder_rows -= 1; st.rerun()
 
-                    for i in range(1, st.session_state.edit_num_powder_rows + 1):
-                        c1, c2 = st.columns(2)
-                        fr[f"色粉編號{i}"] = c1.text_input(f"色粉編號{i}", fr.get(f"色粉編號{i}", ""), key=f"edit_powder_code{i}_{code}")
-                        fr[f"色粉重量{i}"] = c2.text_input(f"色粉重量{i}", fr.get(f"色粉重量{i}", ""), key=f"edit_powder_weight{i}_{code}")
+                    edit_powder_cols = st.columns(st.session_state.edit_num_powder_rows)
+                    for i, col in enumerate(edit_powder_cols, start=1):
+                        fr[f"色粉編號{i}"] = col.text_input(
+                            f"色粉編號{i}",
+                            fr.get(f"色粉編號{i}", ""),
+                            key=f"edit_powder_code{i}_{code}"
+                        )
+                    edit_powder_weight_cols = st.columns(st.session_state.edit_num_powder_rows)
+                    for i, col in enumerate(edit_powder_weight_cols, start=1):
+                        fr[f"色粉重量{i}"] = col.text_input(
+                            f"色粉重量{i}",
+                            fr.get(f"色粉重量{i}", ""),
+                            key=f"edit_powder_weight{i}_{code}"
+                        )
 
                     cat_opts = ["LA", "MA", "S", "CA", "T9", "料", "\u2002", "其他"]
                     default  = fr.get("合計類別", "\u2002")
@@ -3307,6 +3394,48 @@ elif menu == "生產單管理":
         )
         st.session_state.pop("order_toast", None)
 
+    components.html(
+        """
+        <script>
+        (function () {
+            const storageKey = "order_mgmt_active_tab";
+            const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"];
+
+            function bindOrderTabs() {
+                const doc = window.parent.document;
+                const allTabs = Array.from(doc.querySelectorAll('button[role="tab"]'));
+                const targetTab = allTabs.find(btn => tabTexts.includes(btn.textContent.trim()));
+                if (!targetTab) return false;
+
+                const tablist = targetTab.closest('div[role="tablist"]');
+                if (!tablist) return false;
+
+                const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
+                const savedIndex = parseInt(sessionStorage.getItem(storageKey), 10);
+                if (!Number.isNaN(savedIndex) && tabs[savedIndex] && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
+                    tabs[savedIndex].click();
+                }
+
+                tabs.forEach((tab, idx) => {
+                    if (tab.dataset.orderPersistBound === '1') return;
+                    tab.dataset.orderPersistBound = '1';
+                    tab.addEventListener('click', () => sessionStorage.setItem(storageKey, String(idx)));
+                });
+                return true;
+            }
+
+            if (!bindOrderTabs()) {
+                const observer = new MutationObserver(() => {
+                    if (bindOrderTabs()) observer.disconnect();
+                });
+                observer.observe(window.parent.document.body, { childList: true, subtree: true });
+            }
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
     tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"])
     # ============================================================
     # Tab 1: 生產單建立
@@ -3652,26 +3781,34 @@ elif menu == "生產單管理":
                 c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
             
             st.markdown("###### 色粉用量（編號與重量）")
-            id_col, wt_col = st.columns(2)
+            main_powders = []
             for i in range(1, 9):
                 color_id = recipe_row.get(f"色粉編號{i}", "").strip()
                 color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
                 if color_id or color_wt:
-                    id_col.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}_tab1")
-                    wt_col.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}_tab1")
+                    main_powders.append((i, color_id, color_wt))
+            if main_powders:
+                powder_cols = st.columns(len(main_powders))
+                for col, (i, color_id, color_wt) in zip(powder_cols, main_powders):
+                    col.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}_tab1")
+                    col.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}_tab1")
             
             additional_recipes = order.get("附加配方", [])
             if additional_recipes:
                 st.markdown("###### 附加配方色粉用量（編號與重量）")
                 for idx, r in enumerate(additional_recipes, 1):
                     st.markdown(f"附加配方 {idx}")
-                    col1, col2 = st.columns(2)
+                    add_powders = []
                     for i in range(1, 9):
                         color_id = r.get(f"色粉編號{i}", "").strip()
                         color_wt = r.get(f"色粉重量{i}", "").strip()
                         if color_id or color_wt:
-                            col1.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
-                            col2.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
+                            add_powders.append((i, color_id, color_wt))
+                    if add_powders:
+                        add_cols = st.columns(len(add_powders))
+                        for col, (i, color_id, color_wt) in zip(add_cols, add_powders):
+                            col.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
+                            col.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
             
             col_submit1, col_submit2 = st.columns([1, 1])
             with col_submit1:
@@ -4859,15 +4996,21 @@ if menu == "代工管理":
         )
 
         with st.form("create_oem_form"):
-            col1, col2 = st.columns(2)
-            with col1:
-                new_oem_id       = st.text_input("代工單號", placeholder="例如：OEM20251210-001")
+            row1_col1, row1_col2, row1_col3 = st.columns(3)
+            with row1_col1:
+                new_oem_id = st.text_input("代工單號", placeholder="例如：OEM20251210-001")
+            with row1_col2:
                 new_production_id = st.text_input("生產單號（選填）", placeholder="若有對應生產單請填寫")
-                new_formula_id   = st.text_input("配方編號")
-            with col2:
-                new_customer  = st.text_input("客戶名稱")
-                new_oem_qty   = st.number_input("代工數量 (kg)", min_value=0.0, value=0.0, step=1.0)
-                new_vendor    = st.selectbox("代工廠商", ["", "弘旭", "良輝"])
+            with row1_col3:
+                new_formula_id = st.text_input("配方編號")
+
+            row2_col1, row2_col2, row2_col3 = st.columns(3)
+            with row2_col1:
+                new_customer = st.text_input("客戶名稱")
+            with row2_col2:
+                new_oem_qty = st.number_input("代工數量 (kg)", min_value=0.0, value=0.0, step=1.0)
+            with row2_col3:
+                new_vendor = st.selectbox("代工廠商", ["", "弘旭", "良輝"])
 
             new_remark     = st.text_area("備註")
             submitted_new  = st.form_submit_button("💾 建立代工單")
