@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime, date
-from .common import get_spreadsheet, save_df_to_sheet, init_states
+from .common import get_spreadsheet, get_worksheet, get_sheet_df, save_df_to_sheet, init_states
 
 
 def show_customer_page():
@@ -20,8 +20,7 @@ def show_customer_page():
     
     # 讀取或建立 Google Sheet
     try:
-        spreadsheet = get_spreadsheet()
-        ws_customer = spreadsheet.worksheet("客戶名單")
+        ws_customer = get_worksheet("客戶名單")
     except:
         spreadsheet = get_spreadsheet()
         ws_customer = spreadsheet.add_worksheet("客戶名單", rows=100, cols=10)
@@ -41,7 +40,7 @@ def show_customer_page():
     
     # 載入 Google Sheet 資料
     try:
-        df = pd.DataFrame(ws_customer.get_all_records())
+        df = get_sheet_df("客戶名單")
     except:
         df = pd.DataFrame(columns=columns)
     

@@ -372,7 +372,7 @@ if "spreadsheet" not in st.session_state:
 
 spreadsheet = st.session_state["spreadsheet"]
 
-SHEET_CACHE_TTL_SECONDS = 120
+SHEET_CACHE_TTL_SECONDS = 300
 
 def get_cached_worksheet(sheet_name):
     cache = st.session_state.setdefault("_ws_cache", {})
@@ -382,25 +382,7 @@ def get_cached_worksheet(sheet_name):
     cache[sheet_name] = ws
     return ws
 
-def get_cached_sheet_df(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
-    now = datetime.now().timestamp()
-    cache = st.session_state.setdefault("_sheet_df_cache", {})
-    cached = cache.get(sheet_name)
-
-    if (
-        not force_reload
-        and cached
-        and now - cached.get("timestamp", 0) < ttl_seconds
-    ):
-        return cached["df"].copy()
-
-    ws = get_cached_worksheet(sheet_name)
-    df = pd.DataFrame(ws.get_all_records())
-    cache[sheet_name] = {"timestamp": now, "df": df.copy()}
-    return df
-
-
-def get_cached_sheet_values(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
+def _load_sheet_values_with_cache(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
     now = datetime.now().timestamp()
     cache = st.session_state.setdefault("_sheet_values_cache", {})
     cached = cache.get(sheet_name)
@@ -416,6 +398,45 @@ def get_cached_sheet_values(sheet_name, force_reload=False, ttl_seconds=SHEET_CA
     values = ws.get_all_values()
     cache[sheet_name] = {"timestamp": now, "values": [row[:] for row in values]}
     return values
+
+
+def _set_sheet_values_cache(sheet_name, values):
+    now = datetime.now().timestamp()
+    st.session_state.setdefault("_sheet_values_cache", {})[sheet_name] = {
+        "timestamp": now,
+        "values": [row[:] for row in values],
+    }
+    st.session_state.get("_sheet_df_cache", {}).pop(sheet_name, None)
+
+
+def get_cached_sheet_df(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
+    values = _load_sheet_values_with_cache(
+        sheet_name,
+        force_reload=force_reload,
+        ttl_seconds=ttl_seconds,
+    )
+    values_ts = st.session_state.get("_sheet_values_cache", {}).get(sheet_name, {}).get("timestamp", 0)
+    df_cache = st.session_state.setdefault("_sheet_df_cache", {})
+    df_cached = df_cache.get(sheet_name)
+    if df_cached and df_cached.get("source_ts") == values_ts:
+        return df_cached["df"].copy()
+
+    if len(values) <= 1:
+        df = pd.DataFrame(columns=values[0] if values else [])
+    else:
+        df = pd.DataFrame(values[1:], columns=values[0])
+
+    df_cache[sheet_name] = {"source_ts": values_ts, "df": df.copy()}
+    return df
+
+
+def get_cached_sheet_values(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
+    values = _load_sheet_values_with_cache(
+        sheet_name,
+        force_reload=force_reload,
+        ttl_seconds=ttl_seconds,
+    )
+    return [row[:] for row in values]
 
 def invalidate_sheet_cache(sheet_name=None):
     if sheet_name is None:
@@ -701,6 +722,13 @@ components.html(
 def safe_append_row(ws, row_values):
     clean_row = ["" if v is None else str(v) for v in row_values]
     ws.append_row(clean_row, value_input_option="USER_ENTERED")
+    cache = st.session_state.get("_sheet_values_cache", {}).get(ws.title)
+    if cache and cache.get("values"):
+        updated_values = [row[:] for row in cache["values"]]
+        updated_values.append(clean_row)
+        _set_sheet_values_cache(ws.title, updated_values)
+    else:
+        invalidate_sheet_cache(ws.title)
 
 def safe_update_cell(ws, row, col, value):
     """
@@ -741,31 +769,6 @@ def set_form_style():
 
 # ===== 呼叫一次，套用全程式 =====
 set_form_style()
-
-# ======== 初始化 session_state =========
-def init_states(keys=None):
-    if keys is None:
-        keys = [
-            "selected_order_code_edit",
-            "editing_order",
-            "show_edit_panel",
-            "search_order_input",
-            "order_page",
-        ]
-    for key in keys:
-        if key not in st.session_state:
-            if key.startswith("form_"):
-                st.session_state[key] = {}
-            elif key.startswith("edit_") or key.startswith("delete_"):
-                st.session_state[key] = None
-            elif key.startswith("show_"):
-                st.session_state[key] = False
-            elif key.startswith("search"):
-                st.session_state[key] = ""
-            elif key == "order_page":
-                st.session_state[key] = 1
-            else:
-                st.session_state[key] = None
 
 # ======== Helper Functions for Recipe Management =========
 def fix_leading_zero(x):
@@ -821,28 +824,6 @@ def fmt_num(val, digits=2):
     except (TypeError, ValueError):
         return "0"
     return f"{num:.{digits}f}".rstrip("0").rstrip(".")
-
-def load_recipe(force_reload=False):
-    """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
-    try:
-        df_loaded = get_cached_sheet_df("配方管理", force_reload=force_reload)
-        if not df_loaded.empty:
-            return df_loaded
-    except Exception as e:
-        st.warning(f"Google Sheet 載入失敗：{e}")
-
-    # 回退 CSV
-    order_file = Path("data/df_recipe.csv")
-    if order_file.exists():
-        try:
-            df_csv = pd.read_csv(order_file)
-            if not df_csv.empty:
-                return df_csv
-        except Exception as e:
-            st.error(f"CSV 載入失敗：{e}")
-
-    # 都失敗時，回傳空 df
-    return pd.DataFrame()
 
 def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
     """生成配方預覽文字（用於生產單）"""
@@ -918,46 +899,6 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
     
         return "```\n" + html_text.strip() + "\n```"
 
-
-def load_recipe_data():
-    """從 Google Sheets 載入配方數據"""
-    try:
-        df_loaded = get_cached_sheet_df("配方管理")
-        if df_loaded.empty:
-            columns = [
-                "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
-                "原始配方", "色粉類別", "計量單位", "Pantone色號",
-                "比例1", "比例2", "比例3", "淨重", "淨重單位",
-                *[f"色粉編號{i}" for i in range(1, 9)],
-                *[f"色粉重量{i}" for i in range(1, 9)],
-                "合計類別", "重要提醒", "備註", "建檔時間"
-            ]
-            df_loaded = pd.DataFrame(columns=columns)
-        
-        for col in df_loaded.columns:
-            if col not in df_loaded.columns:
-                df_loaded[col] = ""
-        
-        if "配方編號" in df_loaded.columns:
-            df_loaded["配方編號"] = df_loaded["配方編號"].astype(str).map(clean_powder_id)
-        
-        return df_loaded
-    except Exception as e:
-        st.error(f"載入配方數據時發生錯誤: {str(e)}")
-        return pd.DataFrame()
-
-# ======== 共用儲存函式 =========
-def save_df_to_sheet(ws, df):
-    """共用的 DataFrame 儲存函式"""
-    values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
-    ws.clear()
-    ws.update("A1", values)
-    invalidate_sheet_cache(ws.title)
-
-    if ws.title == "庫存記錄":
-        st.session_state.pop("stock_calc_time", None)
-
-                
 # ===== 自訂函式：產生生產單列印格式 =====      
 def generate_production_order_print(
     order,
@@ -1285,7 +1226,7 @@ def save_df_to_sheet(ws, df):
     values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
     ws.clear()
     ws.update("A1", values)
-    invalidate_sheet_cache(ws.title)
+    _set_sheet_values_cache(ws.title, values)
 
     if ws.title == "庫存記錄":
         st.session_state.pop("stock_calc_time", None)
