@@ -11,6 +11,15 @@ import numpy as np
 
 CACHE_TTL_SECONDS = 300
 
+
+def _set_sheet_values_cache(sheet_name, values):
+    now = datetime.now().timestamp()
+    st.session_state.setdefault("_sheet_values_cache", {})[sheet_name] = {
+        "timestamp": now,
+        "values": [row[:] for row in values],
+    }
+    st.session_state.get("_sheet_df_cache", {}).pop(sheet_name, None)
+
 # ========== 安全儲存函式（防止資料丟失）==========
 def safe_save_df_to_sheet(ws, df):
     """
@@ -42,6 +51,7 @@ def safe_save_df_to_sheet(ws, df):
         # 4️⃣ 寫入（先清空再更新）
         ws.clear()
         ws.update("A1", values, value_input_option='RAW')
+        _set_sheet_values_cache(ws.title, values)
         
         return True
         
@@ -124,9 +134,19 @@ def get_sheet_values(sheet_name, force_reload=False, ttl_seconds=CACHE_TTL_SECON
 def get_sheet_df(sheet_name, force_reload=False, ttl_seconds=CACHE_TTL_SECONDS):
     """讀取指定工作表 DataFrame，底層共用 values 快取減少重複 API。"""
     values = get_sheet_values(sheet_name, force_reload=force_reload, ttl_seconds=ttl_seconds)
+    values_ts = st.session_state.get("_sheet_values_cache", {}).get(sheet_name, {}).get("timestamp", 0)
+    df_cache = st.session_state.setdefault("_sheet_df_cache", {})
+    cached = df_cache.get(sheet_name)
+    if cached and cached.get("source_ts") == values_ts:
+        return cached["df"].copy()
+
     if len(values) <= 1:
-        return pd.DataFrame(columns=values[0] if values else [])
-    return pd.DataFrame(values[1:], columns=values[0])
+        df = pd.DataFrame(columns=values[0] if values else [])
+    else:
+        df = pd.DataFrame(values[1:], columns=values[0])
+
+    df_cache[sheet_name] = {"source_ts": values_ts, "df": df.copy()}
+    return df
 
 
 def preload_sheet_dfs(sheet_names, force_reload=False, ttl_seconds=CACHE_TTL_SECONDS):
@@ -141,11 +161,13 @@ def invalidate_sheet_cache(sheet_name=None):
     """寫入成功後清除快取，確保下次讀到最新資料。"""
     if sheet_name is None:
         st.session_state.pop("_sheet_values_cache", None)
+        st.session_state.pop("_sheet_df_cache", None)
         st.session_state.pop("_worksheet_cache", None)
         return
 
     cache = st.session_state.get("_sheet_values_cache", {})
     cache.pop(sheet_name, None)
+    st.session_state.get("_sheet_df_cache", {}).pop(sheet_name, None)
     ws_cache = st.session_state.get("_worksheet_cache", {})
     ws_cache.pop(sheet_name, None)
 

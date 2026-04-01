@@ -400,15 +400,34 @@ def _load_sheet_values_with_cache(sheet_name, force_reload=False, ttl_seconds=SH
     return values
 
 
+def _set_sheet_values_cache(sheet_name, values):
+    now = datetime.now().timestamp()
+    st.session_state.setdefault("_sheet_values_cache", {})[sheet_name] = {
+        "timestamp": now,
+        "values": [row[:] for row in values],
+    }
+    st.session_state.get("_sheet_df_cache", {}).pop(sheet_name, None)
+
+
 def get_cached_sheet_df(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
     values = _load_sheet_values_with_cache(
         sheet_name,
         force_reload=force_reload,
         ttl_seconds=ttl_seconds,
     )
+    values_ts = st.session_state.get("_sheet_values_cache", {}).get(sheet_name, {}).get("timestamp", 0)
+    df_cache = st.session_state.setdefault("_sheet_df_cache", {})
+    df_cached = df_cache.get(sheet_name)
+    if df_cached and df_cached.get("source_ts") == values_ts:
+        return df_cached["df"].copy()
+
     if len(values) <= 1:
-        return pd.DataFrame(columns=values[0] if values else [])
-    return pd.DataFrame(values[1:], columns=values[0])
+        df = pd.DataFrame(columns=values[0] if values else [])
+    else:
+        df = pd.DataFrame(values[1:], columns=values[0])
+
+    df_cache[sheet_name] = {"source_ts": values_ts, "df": df.copy()}
+    return df
 
 
 def get_cached_sheet_values(sheet_name, force_reload=False, ttl_seconds=SHEET_CACHE_TTL_SECONDS):
@@ -703,6 +722,13 @@ components.html(
 def safe_append_row(ws, row_values):
     clean_row = ["" if v is None else str(v) for v in row_values]
     ws.append_row(clean_row, value_input_option="USER_ENTERED")
+    cache = st.session_state.get("_sheet_values_cache", {}).get(ws.title)
+    if cache and cache.get("values"):
+        updated_values = [row[:] for row in cache["values"]]
+        updated_values.append(clean_row)
+        _set_sheet_values_cache(ws.title, updated_values)
+    else:
+        invalidate_sheet_cache(ws.title)
 
 def safe_update_cell(ws, row, col, value):
     """
@@ -954,7 +980,7 @@ def save_df_to_sheet(ws, df):
     values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
     ws.clear()
     ws.update("A1", values)
-    invalidate_sheet_cache(ws.title)
+    _set_sheet_values_cache(ws.title, values)
 
     if ws.title == "庫存記錄":
         st.session_state.pop("stock_calc_time", None)
@@ -1287,7 +1313,7 @@ def save_df_to_sheet(ws, df):
     values = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
     ws.clear()
     ws.update("A1", values)
-    invalidate_sheet_cache(ws.title)
+    _set_sheet_values_cache(ws.title, values)
 
     if ws.title == "庫存記錄":
         st.session_state.pop("stock_calc_time", None)
