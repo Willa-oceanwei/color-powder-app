@@ -6,6 +6,9 @@ from datetime import datetime
 import traceback
 import re
 from .common import (
+    get_sheet_df,
+    get_sheet_values,
+    get_worksheet,
     get_spreadsheet, 
     save_df_to_sheet, 
     init_states,
@@ -35,9 +38,7 @@ def show_recipe_page():
     def load_recipe_data():
         """嘗試依序載入配方資料"""
         try:
-            spreadsheet = get_spreadsheet()
-            ws_recipe = spreadsheet.worksheet("配方管理")
-            df_loaded = pd.DataFrame(ws_recipe.get_all_records())
+            df_loaded = get_sheet_df("配方管理")
             if not df_loaded.empty:
                 return df_loaded
         except Exception as e:
@@ -93,14 +94,14 @@ def show_recipe_page():
     # 載入資料
     try:
         spreadsheet = get_spreadsheet()
-        ws_recipe = spreadsheet.worksheet("配方管理")
+        ws_recipe = get_worksheet("配方管理")
     except Exception as e:
         st.error(f"❌ 無法連線 Google Sheet：{e}")
         return
     
     # 讀取原始資料(純字串)
     try:
-        values = ws_recipe.get_all_values()
+        values = get_sheet_values("配方管理")
         if len(values) > 1:
             df_loaded = pd.DataFrame(values[1:], columns=values[0])
         else:
@@ -127,8 +128,7 @@ def show_recipe_page():
     
     # 載入「色粉管理」的色粉清單
     try:
-        ws_powder = spreadsheet.worksheet("色粉管理")
-        df_powders = pd.DataFrame(ws_powder.get_all_records())
+        df_powders = get_sheet_df("色粉管理")
         if "色粉編號" not in df_powders.columns:
             st.error("❌ 色粉管理表缺少『色粉編號』欄位")
             existing_powders = set()
@@ -140,8 +140,7 @@ def show_recipe_page():
     
     # 載入客戶清單
     try:
-        ws_customer = spreadsheet.worksheet("客戶名單")
-        df_customers = pd.DataFrame(ws_customer.get_all_records())
+        df_customers = get_sheet_df("客戶名單")
         customer_options = ["{} - {}".format(row["客戶編號"], row["客戶簡稱"]) for _, row in df_customers.iterrows()]
     except:
         st.error("無法載入客戶名單")

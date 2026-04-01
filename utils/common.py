@@ -9,7 +9,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import numpy as np
 
-CACHE_TTL_SECONDS = 120
+CACHE_TTL_SECONDS = 300
 
 # ========== 安全儲存函式（防止資料丟失）==========
 def safe_save_df_to_sheet(ws, df):
@@ -103,22 +103,30 @@ def get_worksheet(sheet_name):
     return ws
 
 
-def get_sheet_df(sheet_name, force_reload=False, ttl_seconds=CACHE_TTL_SECONDS):
-    """讀取指定工作表 DataFrame，使用 TTL 快取降低 API 呼叫。"""
+def get_sheet_values(sheet_name, force_reload=False, ttl_seconds=CACHE_TTL_SECONDS):
+    """讀取指定工作表原始 values，並使用 TTL 快取降低 API 呼叫。"""
     now = datetime.now().timestamp()
-    cache = st.session_state.setdefault("_sheet_df_cache", {})
+    cache = st.session_state.setdefault("_sheet_values_cache", {})
     cached = cache.get(sheet_name)
     if (
         not force_reload
         and cached
         and (now - cached.get("timestamp", 0) < ttl_seconds)
     ):
-        return cached["df"].copy()
+        return [row[:] for row in cached["values"]]
 
     ws = get_worksheet(sheet_name)
-    df = pd.DataFrame(ws.get_all_records())
-    cache[sheet_name] = {"timestamp": now, "df": df.copy()}
-    return df
+    values = ws.get_all_values()
+    cache[sheet_name] = {"timestamp": now, "values": [row[:] for row in values]}
+    return values
+
+
+def get_sheet_df(sheet_name, force_reload=False, ttl_seconds=CACHE_TTL_SECONDS):
+    """讀取指定工作表 DataFrame，底層共用 values 快取減少重複 API。"""
+    values = get_sheet_values(sheet_name, force_reload=force_reload, ttl_seconds=ttl_seconds)
+    if len(values) <= 1:
+        return pd.DataFrame(columns=values[0] if values else [])
+    return pd.DataFrame(values[1:], columns=values[0])
 
 
 def preload_sheet_dfs(sheet_names, force_reload=False, ttl_seconds=CACHE_TTL_SECONDS):
@@ -132,11 +140,11 @@ def preload_sheet_dfs(sheet_names, force_reload=False, ttl_seconds=CACHE_TTL_SEC
 def invalidate_sheet_cache(sheet_name=None):
     """寫入成功後清除快取，確保下次讀到最新資料。"""
     if sheet_name is None:
-        st.session_state.pop("_sheet_df_cache", None)
+        st.session_state.pop("_sheet_values_cache", None)
         st.session_state.pop("_worksheet_cache", None)
         return
 
-    cache = st.session_state.get("_sheet_df_cache", {})
+    cache = st.session_state.get("_sheet_values_cache", {})
     cache.pop(sheet_name, None)
     ws_cache = st.session_state.get("_worksheet_cache", {})
     ws_cache.pop(sheet_name, None)
@@ -222,9 +230,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
 def load_recipe(force_reload=False):
     """嘗試載入配方管理工作表"""
     try:
-        ss = get_spreadsheet()
-        ws_recipe = ss.worksheet("配方管理")
-        df_loaded = pd.DataFrame(ws_recipe.get_all_records())
+        df_loaded = get_sheet_df("配方管理", force_reload=force_reload)
         if not df_loaded.empty:
             # 清理 NaN
             df_loaded = df_loaded.replace({np.nan: "", np.inf: "", -np.inf: ""})
