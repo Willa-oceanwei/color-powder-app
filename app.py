@@ -5950,7 +5950,7 @@ elif menu == "採購管理":
         with supplier_tab_manage:
             st.markdown("---")
             st.markdown(
-                '<h3 style="font-size:16px; font-family:Arial; color:#dbd818;">🛠️ 供應商修改/刪除</h3>',
+                '<h3 style="font-size:16px; font-family:Arial; color:#f6efff;">🛠️ 供應商修改/刪除</h3>',
                 unsafe_allow_html=True
             )
 
