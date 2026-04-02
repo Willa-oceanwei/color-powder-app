@@ -5423,8 +5423,8 @@ if menu == "代工管理":
             df_progress = df_progress_all.copy()
 
             show_open_only = st.checkbox("只顯示未結案代工單", value=True)
-            if show_open_only:
-                df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
+            # 上方主表固定只顯示未結案，避免與下方已結案表重複
+            df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
 
             search_text = st.text_input(
                 "🔍 搜尋客戶名稱或配方編號",
@@ -5489,6 +5489,16 @@ if menu == "代工管理":
                     df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
                 ]
 
+            date_start = None
+            date_end = None
+
+            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
+            if search_text:
+                df_closed = df_closed[
+                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                ]
+
             if not df_progress.empty:
                 df_progress["建立時間"] = df_progress["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                 df_progress = df_progress.sort_values(
@@ -5529,21 +5539,23 @@ if menu == "代工管理":
                         "狀態", "代工單號", "代工廠名稱", "配方編號", "客戶名稱",
                         "代工數量", "送達日期及數量", "載回日期及數量", "建立時間", "已交貨", "交貨備註"
                     ]
-                    edited_closed = st.data_editor(
-                        df_closed[closed_cols],
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "送達日期及數量": st.column_config.TextColumn("送達日期及數量", width="small"),
-                            "載回日期及數量": st.column_config.TextColumn("載回日期及數量", width="small"),
-                            "已交貨": st.column_config.CheckboxColumn("已交貨", help="僅做註記，不影響其他流程"),
-                            "交貨備註": st.column_config.TextColumn("交貨備註", width="medium")
-                        },
-                        disabled=[c for c in closed_cols if c not in ["已交貨", "交貨備註"]],
-                        key="oem_closed_delivery_editor_tab4"
-                    )
+                    with st.form("oem_closed_delivery_form_tab4"):
+                        edited_closed = st.data_editor(
+                            df_closed[closed_cols],
+                            use_container_width=True,
+                            hide_index=True,
+                            column_config={
+                                "送達日期及數量": st.column_config.TextColumn("送達日期及數量", width="small"),
+                                "載回日期及數量": st.column_config.TextColumn("載回日期及數量", width="small"),
+                                "已交貨": st.column_config.CheckboxColumn("已交貨", help="僅做註記，不影響其他流程"),
+                                "交貨備註": st.column_config.TextColumn("交貨備註", width="medium")
+                            },
+                            disabled=[c for c in closed_cols if c not in ["已交貨", "交貨備註"]],
+                            key="oem_closed_delivery_editor_tab4"
+                        )
+                        save_closed_delivery = st.form_submit_button("💾 儲存已結案交貨註記")
 
-                    if st.button("💾 儲存已結案交貨註記", key="save_closed_delivery_flag_tab4"):
+                    if save_closed_delivery:
                         all_values = get_cached_sheet_values("代工管理")
                         headers = all_values[0] if all_values else []
                         for col_name in ["已交貨", "交貨備註"]:
