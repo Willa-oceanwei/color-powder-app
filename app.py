@@ -5408,10 +5408,12 @@ if menu == "代工管理":
                     "代工數量":       f"{oem.get('代工數量', 0)} kg",
                     "送達日期及數量": delivery_text,
                     "載回日期及數量": return_text,
-                    "建立時間":       oem.get("建立時間", "")
+                    "建立時間":       oem.get("建立時間", ""),
+                    "已交貨":         oem.get("已交貨", "")
                 })
 
-            df_progress = pd.DataFrame(progress_data)
+            df_progress_all = pd.DataFrame(progress_data)
+            df_progress = df_progress_all.copy()
 
             show_open_only = st.checkbox("只顯示未結案代工單", value=True)
             if show_open_only:
@@ -5427,14 +5429,73 @@ if menu == "代工管理":
                     df_progress["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
                     df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
                 ]
+            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
+            if search_text:
+                df_closed = df_closed[
+                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                ]
 
             if not df_progress.empty:
+                df_progress["建立時間"] = pd.to_datetime(df_progress["建立時間"], errors="coerce").dt.strftime("%Y-%m-%d").fillna("")
                 df_progress = df_progress.sort_values(
                     by=["status_order", "建立時間"], ascending=[True, False]
                 ).drop(columns=["status_order"])
                 st.dataframe(df_progress, use_container_width=True, hide_index=True)
             else:
                 st.info("目前沒有符合條件的代工單")
+
+            st.markdown("---")
+            st.markdown("#### ✅ 已結案代工資料表")
+            if df_closed.empty:
+                st.info("目前沒有已結案代工資料")
+            else:
+                df_closed["建立時間"] = pd.to_datetime(df_closed["建立時間"], errors="coerce").dt.strftime("%Y-%m-%d").fillna("")
+                df_closed["已交貨"] = df_closed["已交貨"].astype(str).str.strip().isin(
+                    ["是", "TRUE", "True", "1", "Y", "y", "✅"]
+                )
+                closed_cols = [
+                    "狀態", "代工單號", "代工廠名稱", "配方編號", "客戶名稱",
+                    "代工數量", "送達日期及數量", "載回日期及數量", "建立時間", "已交貨"
+                ]
+                edited_closed = st.data_editor(
+                    df_closed[closed_cols],
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "已交貨": st.column_config.CheckboxColumn("已交貨", help="僅做註記，不影響其他流程")
+                    },
+                    disabled=[c for c in closed_cols if c != "已交貨"],
+                    key="oem_closed_delivery_editor_tab4"
+                )
+
+                if st.button("💾 儲存已結案交貨註記", key="save_closed_delivery_flag_tab4"):
+                    all_values = get_cached_sheet_values("代工管理")
+                    headers = all_values[0] if all_values else []
+                    if "已交貨" not in headers:
+                        ws_oem.update_cell(1, len(headers) + 1, "已交貨")
+                        headers = ws_oem.row_values(1)
+                    delivery_col = headers.index("已交貨") + 1
+
+                    oem_row_map = {}
+                    for idx, row in enumerate(all_values[1:], start=2):
+                        if row and row[0]:
+                            oem_row_map[row[0]] = idx
+
+                    changed_count = 0
+                    for _, row in edited_closed.iterrows():
+                        oem_no = row["代工單號"]
+                        marked = bool(row["已交貨"])
+                        sheet_value = "是" if marked else ""
+                        target_row = oem_row_map.get(oem_no)
+                        if target_row:
+                            ws_oem.update_cell(target_row, delivery_col, sheet_value)
+                            mask = st.session_state.df_oem["代工單號"] == oem_no
+                            st.session_state.df_oem.loc[mask, "已交貨"] = sheet_value
+                            changed_count += 1
+
+                    st.success(f"✅ 已儲存 {changed_count} 筆交貨註記")
+                    st.rerun()
 
         else:
             st.info("⚠️ 目前沒有代工記錄")
