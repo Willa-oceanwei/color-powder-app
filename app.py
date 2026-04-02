@@ -2537,21 +2537,16 @@ elif menu == "配方管理":
                     preview_rows.append((total_cat, net_wt))
 
                 if preview_rows:
-                    preview_table_html = """
-                        <style>
-                        .preview-table { border-collapse: collapse; width: 100%; max-width: 520px; font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; }
-                        .preview-table th, .preview-table td { border-bottom: 1px solid rgba(255,255,255,0.12); padding: 4px 8px; }
-                        .preview-table th { text-align: left; color: #d4d4d4; }
-                        .preview-table td:last-child, .preview-table th:last-child { text-align: right; }
-                        </style>
-                        <table class="preview-table">
-                            <thead><tr><th>項目</th><th>重量</th></tr></thead>
-                            <tbody>
-                    """
-                    for row_id, row_weight in preview_rows:
-                        preview_table_html += f"<tr><td>{row_id}</td><td>{row_weight}</td></tr>"
-                    preview_table_html += "</tbody></table>"
-                    st.markdown(preview_table_html, unsafe_allow_html=True)
+                    preview_df = pd.DataFrame(preview_rows, columns=["項目", "重量"])
+                    st.dataframe(
+                        preview_df,
+                        use_container_width=False,
+                        hide_index=True,
+                        column_config={
+                            "項目": st.column_config.TextColumn("項目", width="medium"),
+                            "重量": st.column_config.TextColumn("重量", width="small"),
+                        },
+                    )
 
                 st.markdown("---")
 
@@ -2650,28 +2645,28 @@ elif menu == "配方管理":
                                   f"比例：{calc['ratio']}"]
                     st.markdown(f"<div style='font-size:16px;font-family:Arial;margin-bottom:10px;'>{' 　 '.join(info_parts)}</div>", unsafe_allow_html=True)
 
-                    table_html = """
-                        <style>
-                        .mb-preview-table { border-collapse: collapse; width: 100%; max-width: 520px; font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; }
-                        .mb-preview-table th, .mb-preview-table td { border-bottom: 1px solid rgba(255,255,255,0.12); padding: 4px 8px; }
-                        .mb-preview-table th { text-align: left; color: #d4d4d4; }
-                        .mb-preview-table td:last-child, .mb-preview-table th:last-child { text-align: right; }
-                        </style>
-                        <table class="mb-preview-table">
-                            <tr><th>色粉編號</th><th>重量</th></tr>
-                    """
+                    calc_rows = []
                     for item in calc["powder_data"]:
                         w = item["weight"]
                         w_str = f"{int(w)}" if w == int(w) else f"{w:.2f}"
-                        table_html += f"<tr><td>{item['id']}</td><td>{w_str}</td></tr>"
+                        calc_rows.append((item["id"], w_str))
                     aq = calc["additive_qty"]
                     aq_str = f"{int(aq)}" if aq == int(aq) else f"{aq:.2f}"
-                    table_html += f"<tr><td>{calc['additive_display']}</td><td>{aq_str}</td></tr>"
+                    calc_rows.append((calc["additive_display"], aq_str))
                     mq = calc["material_qty"]
                     mq_str = f"{int(mq)}" if mq == int(mq) else f"{mq:.2f}"
-                    table_html += f"<tr><td>{calc['material_code']}</td><td>{mq_str}</td></tr>"
-                    table_html += "</table>"
-                    st.markdown(table_html, unsafe_allow_html=True)
+                    calc_rows.append((calc["material_code"], mq_str))
+
+                    calc_df = pd.DataFrame(calc_rows, columns=["色粉編號", "重量"])
+                    st.dataframe(
+                        calc_df,
+                        use_container_width=False,
+                        hide_index=True,
+                        column_config={
+                            "色粉編號": st.column_config.TextColumn("色粉編號", width="medium"),
+                            "重量": st.column_config.TextColumn("重量", width="small"),
+                        },
+                    )
                     st.caption(f"✓ 色粉：{calc['total_powder_weight']:.2f}g + 添加劑：{calc['additive_qty']:.2f}g + 原料：{calc['material_qty']:.2f}g = {calc['calculated_total']:.2f}g")
 
                     def generate_master_batch_html(calc_data):
