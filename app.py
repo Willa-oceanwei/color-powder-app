@@ -8225,8 +8225,14 @@ elif menu == "洗車廠庫存":
                     out_qty     = pid_df.loc[out_mask, "數量_num"].sum()
                     current_qty = init_qty + in_qty - out_qty
 
-                    # 出入庫歷程
+                    # 出入庫歷程（從「最新期初庫存」開始，依時間順序列出）
+                    history = []
                     if init_date is not None:
+                        init_registrar = str(init_row.get("登記人", "")).strip()
+                        history.append((
+                            init_date,
+                            f"{init_date.strftime('%Y-%m-%d')}｜期初庫存 {init_qty:g}{unit}｜{init_registrar}"
+                        ))
                         history_source = pid_df[
                             ((pid_df["類型"].astype(str).str.strip() == "入庫") &
                              (pid_df["入庫日期_dt"] >= init_date)) |
@@ -8238,7 +8244,6 @@ elif menu == "洗車廠庫存":
                             pid_df["類型"].astype(str).str.strip().isin(["入庫", "出庫"])
                         ].copy()
 
-                    history = []
                     for _, row in history_source.iterrows():
                         rec_type = str(row.get("類型", "")).strip()
                         rec_date = (row.get("入庫日期_dt") if rec_type == "入庫"
