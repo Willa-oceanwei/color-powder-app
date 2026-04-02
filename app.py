@@ -2525,18 +2525,33 @@ elif menu == "配方管理":
                     info_parts.append(f"Pantone：{recipe_data.get('Pantone色號')}")
                 st.markdown(f"<div style='font-size:16px;font-family:Arial;margin-bottom:10px;'>{' 　 '.join(info_parts)}</div>", unsafe_allow_html=True)
 
-                preview_lines = []
+                preview_rows = []
                 for i in range(1, 9):
                     pid = str(recipe_data.get(f"色粉編號{i}", "")).strip()
                     pwt = str(recipe_data.get(f"色粉重量{i}", "")).strip()
                     if pid and pwt:
-                        preview_lines.append(f"{pid.ljust(12)}{pwt}")
-                preview_lines.append("_" * 40)
+                        preview_rows.append((pid, pwt))
                 total_cat = recipe_data.get("合計類別", "").strip()
                 net_wt    = str(recipe_data.get("淨重", "") or "").strip()
                 if total_cat and total_cat != "無":
-                    preview_lines.append(f"{total_cat.ljust(12)}{net_wt}")
-                st.code("\n".join(preview_lines), language=None)
+                    preview_rows.append((total_cat, net_wt))
+
+                if preview_rows:
+                    preview_table_html = """
+                        <style>
+                        .preview-table { border-collapse: collapse; width: 100%; max-width: 520px; font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; }
+                        .preview-table th, .preview-table td { border-bottom: 1px solid rgba(255,255,255,0.12); padding: 4px 8px; }
+                        .preview-table th { text-align: left; color: #d4d4d4; }
+                        .preview-table td:last-child, .preview-table th:last-child { text-align: right; }
+                        </style>
+                        <table class="preview-table">
+                            <thead><tr><th>項目</th><th>重量</th></tr></thead>
+                            <tbody>
+                    """
+                    for row_id, row_weight in preview_rows:
+                        preview_table_html += f"<tr><td>{row_id}</td><td>{row_weight}</td></tr>"
+                    preview_table_html += "</tbody></table>"
+                    st.markdown(preview_table_html, unsafe_allow_html=True)
 
                 st.markdown("---")
 
@@ -2635,18 +2650,26 @@ elif menu == "配方管理":
                                   f"比例：{calc['ratio']}"]
                     st.markdown(f"<div style='font-size:16px;font-family:Arial;margin-bottom:10px;'>{' 　 '.join(info_parts)}</div>", unsafe_allow_html=True)
 
-                    table_html = "<table style='border-collapse:collapse;font-size:12px;line-height:1.4;'>"
-                    table_html += "<tr><th>色粉編號</th><th>重量</th></tr>"
+                    table_html = """
+                        <style>
+                        .mb-preview-table { border-collapse: collapse; width: 100%; max-width: 520px; font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; }
+                        .mb-preview-table th, .mb-preview-table td { border-bottom: 1px solid rgba(255,255,255,0.12); padding: 4px 8px; }
+                        .mb-preview-table th { text-align: left; color: #d4d4d4; }
+                        .mb-preview-table td:last-child, .mb-preview-table th:last-child { text-align: right; }
+                        </style>
+                        <table class="mb-preview-table">
+                            <tr><th>色粉編號</th><th>重量</th></tr>
+                    """
                     for item in calc["powder_data"]:
                         w = item["weight"]
                         w_str = f"{int(w)}" if w == int(w) else f"{w:.2f}"
-                        table_html += f"<tr><td>{item['id']}</td><td style='text-align:right'>{w_str}</td></tr>"
+                        table_html += f"<tr><td>{item['id']}</td><td>{w_str}</td></tr>"
                     aq = calc["additive_qty"]
                     aq_str = f"{int(aq)}" if aq == int(aq) else f"{aq:.2f}"
-                    table_html += f"<tr><td>{calc['additive_display']}</td><td style='text-align:right'>{aq_str}</td></tr>"
+                    table_html += f"<tr><td>{calc['additive_display']}</td><td>{aq_str}</td></tr>"
                     mq = calc["material_qty"]
                     mq_str = f"{int(mq)}" if mq == int(mq) else f"{mq:.2f}"
-                    table_html += f"<tr><td>{calc['material_code']}</td><td style='text-align:right'>{mq_str}</td></tr>"
+                    table_html += f"<tr><td>{calc['material_code']}</td><td>{mq_str}</td></tr>"
                     table_html += "</table>"
                     st.markdown(table_html, unsafe_allow_html=True)
                     st.caption(f"✓ 色粉：{calc['total_powder_weight']:.2f}g + 添加劑：{calc['additive_qty']:.2f}g + 原料：{calc['material_qty']:.2f}g = {calc['calculated_total']:.2f}g")
@@ -7978,6 +8001,16 @@ elif menu == "洗車廠庫存":
         except Exception:
             return 0.0
 
+    def _normalize_product_name(value):
+        return re.sub(r"[^A-Z0-9]", "", str(value).upper().strip())
+
+    def _is_similar_product_name(current_name, existing_name):
+        cur_norm = _normalize_product_name(current_name)
+        ex_norm = _normalize_product_name(existing_name)
+        if not cur_norm or not ex_norm or cur_norm == ex_norm:
+            return False
+        return (cur_norm in ex_norm) or (ex_norm in cur_norm)
+
     def _save_carwash_df(df_to_save):
         upload_df = df_to_save.copy().fillna("")
         ws_carwash.clear()
@@ -8077,6 +8110,28 @@ elif menu == "洗車廠庫存":
             elif io_qty <= 0:
                 st.warning("⚠️ 數量需大於 0")
             else:
+                existing_product_ids = sorted({
+                    str(v).strip() for v in df_carwash["貨品編號"].tolist()
+                    if str(v).strip()
+                })
+                similar_ids = [
+                    pid for pid in existing_product_ids
+                    if _is_similar_product_name(io_product_id, pid)
+                ]
+                confirm_key = "cw_io_similar_confirm"
+                if similar_ids:
+                    confirm_signature = (
+                        f"{io_type}|{io_product_id}|{io_qty}|{io_unit}|"
+                        f"{io_registrar}|{io_note.strip()}|{'|'.join(similar_ids)}"
+                    )
+                    if st.session_state.get(confirm_key) != confirm_signature:
+                        st.session_state[confirm_key] = confirm_signature
+                        st.warning(
+                            "⚠️ 偵測到相似貨品編號，請再次按下「💾 儲存入/出庫」確認："
+                            + "、".join(similar_ids)
+                        )
+                        st.stop()
+                st.session_state.pop(confirm_key, None)
                 safe_append_row(ws_carwash, [
                     io_type, "", "", io_product_id,
                     in_date.strftime("%Y-%m-%d")  if io_type == "入庫" else "",
@@ -8210,6 +8265,23 @@ elif menu == "洗車廠庫存":
                     history_text = "\n".join([
                         h[1] for h in sorted(history, key=lambda x: x[0], reverse=True)
                     ])
+                    note_candidates = []
+                    for _, row in pid_df.iterrows():
+                        note_text = str(row.get("備註", "")).strip()
+                        if note_text:
+                            rec_type = str(row.get("類型", "")).strip()
+                            note_date = (
+                                row.get("初始庫存日期_dt")
+                                if rec_type == "初始庫存"
+                                else row.get("入庫日期_dt") if rec_type == "入庫"
+                                else row.get("出庫日期_dt")
+                            )
+                            if note_date is not None:
+                                note_candidates.append((note_date, note_text))
+
+                    latest_note = "-"
+                    if note_candidates:
+                        latest_note = sorted(note_candidates, key=lambda x: x[0], reverse=True)[0][1]
 
                     result_rows.append({
                         "產品編號":     pid,
@@ -8218,6 +8290,7 @@ elif menu == "洗車廠庫存":
                         "區間出庫":     f"{out_qty:g} {unit}".strip(),
                         "目前庫存數量": f"{current_qty:g} {unit}".strip(),
                         "出入庫歷程":   history_text or "-",
+                        "備註":         latest_note,
                         "_目前庫存數值": current_qty,
                     })
 
@@ -8241,6 +8314,7 @@ elif menu == "洗車廠庫存":
                             "區間出庫":     st.column_config.TextColumn("區間出庫",     width="small"),
                             "目前庫存數量": st.column_config.TextColumn("目前庫存數量", width="small"),
                             "出入庫歷程":   st.column_config.TextColumn("出入庫歷程",   width="large"),
+                            "備註":         st.column_config.TextColumn("備註",         width="medium"),
                         },
                     )
 
