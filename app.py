@@ -93,7 +93,7 @@ def apply_modern_style():
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         border-radius: 18px;
-        padding: 2rem;
+        padding: 1.2rem 2rem 2rem 2rem;
         box-shadow: 0 16px 38px rgba(6, 5, 15, 0.5);
     }
 
@@ -647,7 +647,7 @@ render_erp_nav()
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
     <style>
-    .block-container { margin-top: 0 !important; }
+    .block-container { margin-top: -0.4rem !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -680,19 +680,42 @@ components.html(
         const t = e.target;
         if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
         if (t.readOnly || t.disabled) return;
+        const isNumberInput = t instanceof HTMLInputElement && t.type === 'number';
 
-        if (e.key === 'ArrowDown') {
+        // 數字欄位：方向鍵優先用於跨欄位移動（避免瀏覽器預設加減數值）
+        if (isNumberInput && e.key === 'ArrowDown') {
           e.preventDefault();
           moveFocus(t, +1);
           return;
         }
-        if (e.key === 'ArrowUp') {
+        if (isNumberInput && e.key === 'ArrowUp') {
+          e.preventDefault();
+          moveFocus(t, -1);
+          return;
+        }
+        if (isNumberInput && e.key === 'ArrowRight') {
+          e.preventDefault();
+          moveFocus(t, +1);
+          return;
+        }
+        if (isNumberInput && e.key === 'ArrowLeft') {
           e.preventDefault();
           moveFocus(t, -1);
           return;
         }
 
-        if (t instanceof HTMLInputElement && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        if (!isNumberInput && e.key === 'ArrowDown') {
+          e.preventDefault();
+          moveFocus(t, +1);
+          return;
+        }
+        if (!isNumberInput && e.key === 'ArrowUp') {
+          e.preventDefault();
+          moveFocus(t, -1);
+          return;
+        }
+
+        if (!isNumberInput && t instanceof HTMLInputElement && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
           const start = t.selectionStart ?? 0;
           const end = t.selectionEnd ?? 0;
           const len = (t.value || '').length;
