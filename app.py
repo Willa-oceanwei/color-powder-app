@@ -5512,6 +5512,13 @@ if menu == "代工管理":
                     df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
                 ]
 
+            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
+            if search_text:
+                df_closed = df_closed[
+                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                ]
+
             if not df_progress.empty:
                 df_progress["建立時間"] = df_progress["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                 df_progress = df_progress.sort_values(
@@ -5527,6 +5534,7 @@ if menu == "代工管理":
                     "<div style='font-size:16px; font-weight:600; color:#f4e8ff;'>✅ 已結案代工資料表</div>",
                     unsafe_allow_html=True
                 )
+                # 只有查看已結案時才顯示日期區間
                 today_date = datetime.today().date()
                 default_start = today_date - timedelta(days=20)
                 default_end = today_date
@@ -5600,6 +5608,10 @@ if menu == "代工管理":
 
                         st.success(f"✅ 已儲存 {changed_count} 筆交貨註記")
                         st.rerun()
+            else:
+                # 只顯示未結案時，不保留已結案日期區間控制元件
+                st.session_state.pop("oem_tab4_closed_start_date", None)
+                st.session_state.pop("oem_tab4_closed_end_date", None)
 
         else:
             st.info("⚠️ 目前沒有代工記錄")
