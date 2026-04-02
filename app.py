@@ -1598,7 +1598,7 @@ elif menu == "配方管理":
     """, unsafe_allow_html=True)
 
     from pathlib import Path
-    from datetime import datetime
+    from datetime import datetime, timedelta
     import pandas as pd
 
     # 預期欄位
@@ -4004,7 +4004,7 @@ elif menu == "生產單管理":
                         except:
                             ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
                             ws_oem.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱", 
-                                                               "代工數量", "代工廠商", "備註", "狀態", "建立時間"])
+                                                               "代工數量", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
                 
                         oem_row = [
                             oem_id,
@@ -4015,7 +4015,9 @@ elif menu == "生產單管理":
                             "",
                             "",
                             "🏭 在廠內",  # ⭐ 預設狀態
-                            (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+                            (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
+                            "",
+                            ""
                         ]
                         ws_oem.append_row(oem_row)
                 
@@ -4860,7 +4862,7 @@ if menu == "代工管理":
     """, unsafe_allow_html=True)
 
     import pandas as pd
-    from datetime import datetime
+    from datetime import datetime, timedelta
 
     # ================================================================
     # 📌 資料載入：只有第一次進入、或寫入後才重新讀 Google Sheet
@@ -4874,11 +4876,11 @@ if menu == "代工管理":
             try:
                 ws_oem_ = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
                 ws_oem_.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱",
-                                    "代工數量", "代工廠商", "備註", "狀態", "建立時間"])
+                                    "代工數量", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
             except:
                 pass
             df_oem_ = pd.DataFrame(columns=["代工單號", "生產單號", "配方編號", "客戶名稱",
-                                             "代工數量", "代工廠商", "備註", "狀態", "建立時間"])
+                                             "代工數量", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
 
         try:
             ws_delivery_ = get_cached_worksheet("代工送達記錄")
@@ -4903,7 +4905,7 @@ if menu == "代工管理":
             df_return_ = pd.DataFrame(columns=["代工單號", "載回日期", "載回數量", "建立時間"])
 
         # 補齊必要欄位
-        for col in ["代工單號", "狀態"]:
+        for col in ["代工單號", "狀態", "已交貨", "交貨備註"]:
             if col not in df_oem_.columns:
                 df_oem_[col] = ""
         if "代工單號" not in df_delivery_.columns:
@@ -4926,6 +4928,16 @@ if menu == "代工管理":
     ws_oem      = get_cached_worksheet("代工管理")
     ws_delivery = get_cached_worksheet("代工送達記錄")
     ws_return   = get_cached_worksheet("代工載回記錄")
+
+    # 若舊版工作表缺少交貨相關欄位，自動補上（只做一次）
+    try:
+        oem_headers = ws_oem.row_values(1)
+        for col_name in ["已交貨", "交貨備註"]:
+            if col_name not in oem_headers:
+                ws_oem.update_cell(1, len(oem_headers) + 1, col_name)
+                oem_headers.append(col_name)
+    except:
+        pass
 
     # 取出 DataFrame（全程用 session_state，不重讀 Sheet）
     df_oem      = st.session_state.df_oem
@@ -5009,7 +5021,9 @@ if menu == "代工管理":
                     new_oem_id, new_production_id, new_formula_id,
                     new_customer, new_oem_qty, new_vendor, new_remark,
                     "🏭 在廠內",
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "",
+                    ""
                 ]
                 ws_oem.append_row(new_row_data)
 
@@ -5023,7 +5037,9 @@ if menu == "代工管理":
                     "代工廠商": new_vendor,
                     "備註":     new_remark,
                     "狀態":     "🏭 在廠內",
-                    "建立時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    "建立時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "已交貨":   "",
+                    "交貨備註": ""
                 }])
                 st.session_state.df_oem = pd.concat(
                     [st.session_state.df_oem, new_df_row], ignore_index=True
@@ -5397,10 +5413,14 @@ if menu == "代工管理":
                     "代工數量":       f"{oem.get('代工數量', 0)} kg",
                     "送達日期及數量": delivery_text,
                     "載回日期及數量": return_text,
-                    "建立時間":       oem.get("建立時間", "")
+                    "建立時間":       oem.get("建立時間", ""),
+                    "已交貨":         oem.get("已交貨", ""),
+                    "交貨備註":       oem.get("交貨備註", "")
                 })
 
-            df_progress = pd.DataFrame(progress_data)
+            df_progress_all = pd.DataFrame(progress_data)
+            df_progress_all["建立時間_dt"] = pd.to_datetime(df_progress_all["建立時間"], errors="coerce")
+            df_progress = df_progress_all.copy()
 
             show_open_only = st.checkbox("只顯示未結案代工單", value=True)
             if show_open_only:
@@ -5417,13 +5437,102 @@ if menu == "代工管理":
                     df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
                 ]
 
+            date_start = None
+            date_end = None
+
+            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
+            if search_text:
+                df_closed = df_closed[
+                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                ]
+
             if not df_progress.empty:
+                df_progress["建立時間"] = df_progress["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                 df_progress = df_progress.sort_values(
-                    by=["status_order", "建立時間"], ascending=[True, False]
-                ).drop(columns=["status_order"])
+                    by=["status_order", "建立時間_dt"], ascending=[True, False]
+                ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt"], errors="ignore")
                 st.dataframe(df_progress, use_container_width=True, hide_index=True)
             else:
                 st.info("目前沒有符合條件的代工單")
+
+            if not show_open_only:
+                st.markdown("---")
+                st.markdown(
+                    "<div style='font-size:16px; font-weight:600; color:#f4e8ff;'>✅ 已結案代工資料表</div>",
+                    unsafe_allow_html=True
+                )
+                today_date = datetime.today().date()
+                default_start = today_date - timedelta(days=20)
+                default_end = today_date
+                dcol1, dcol2 = st.columns(2)
+                date_start = dcol1.date_input("建立日期起", value=default_start, key="oem_tab4_start_date")
+                date_end = dcol2.date_input("建立日期迄", value=default_end, key="oem_tab4_end_date")
+                if date_start > date_end:
+                    st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
+                    df_closed = df_closed.iloc[0:0]
+                else:
+                    df_closed = df_closed[
+                        df_closed["建立時間_dt"].dt.date.between(date_start, date_end, inclusive="both")
+                    ]
+                if df_closed.empty:
+                    st.info("目前沒有已結案代工資料")
+                else:
+                    df_closed = df_closed.sort_values(by="建立時間_dt", ascending=False)
+                    df_closed["建立時間"] = df_closed["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
+                    df_closed["已交貨"] = df_closed["已交貨"].astype(str).str.strip().isin(
+                        ["是", "TRUE", "True", "1", "Y", "y", "✅"]
+                    )
+                    closed_cols = [
+                        "狀態", "代工單號", "代工廠名稱", "配方編號", "客戶名稱",
+                        "代工數量", "送達日期及數量", "載回日期及數量", "建立時間", "已交貨", "交貨備註"
+                    ]
+                    edited_closed = st.data_editor(
+                        df_closed[closed_cols],
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "送達日期及數量": st.column_config.TextColumn("送達日期及數量", width="small"),
+                            "載回日期及數量": st.column_config.TextColumn("載回日期及數量", width="small"),
+                            "已交貨": st.column_config.CheckboxColumn("已交貨", help="僅做註記，不影響其他流程"),
+                            "交貨備註": st.column_config.TextColumn("交貨備註", width="medium")
+                        },
+                        disabled=[c for c in closed_cols if c not in ["已交貨", "交貨備註"]],
+                        key="oem_closed_delivery_editor_tab4"
+                    )
+
+                    if st.button("💾 儲存已結案交貨註記", key="save_closed_delivery_flag_tab4"):
+                        all_values = get_cached_sheet_values("代工管理")
+                        headers = all_values[0] if all_values else []
+                        for col_name in ["已交貨", "交貨備註"]:
+                            if col_name not in headers:
+                                ws_oem.update_cell(1, len(headers) + 1, col_name)
+                                headers.append(col_name)
+                        delivery_col = headers.index("已交貨") + 1
+                        delivery_note_col = headers.index("交貨備註") + 1
+
+                        oem_row_map = {}
+                        for idx, row in enumerate(all_values[1:], start=2):
+                            if row and row[0]:
+                                oem_row_map[row[0]] = idx
+
+                        changed_count = 0
+                        for _, row in edited_closed.iterrows():
+                            oem_no = row["代工單號"]
+                            marked = bool(row["已交貨"])
+                            sheet_value = "是" if marked else ""
+                            delivery_note_value = str(row.get("交貨備註", "") or "").strip()
+                            target_row = oem_row_map.get(oem_no)
+                            if target_row:
+                                ws_oem.update_cell(target_row, delivery_col, sheet_value)
+                                ws_oem.update_cell(target_row, delivery_note_col, delivery_note_value)
+                                mask = st.session_state.df_oem["代工單號"] == oem_no
+                                st.session_state.df_oem.loc[mask, "已交貨"] = sheet_value
+                                st.session_state.df_oem.loc[mask, "交貨備註"] = delivery_note_value
+                                changed_count += 1
+
+                        st.success(f"✅ 已儲存 {changed_count} 筆交貨註記")
+                        st.rerun()
 
         else:
             st.info("⚠️ 目前沒有代工記錄")
@@ -5471,7 +5580,8 @@ if menu == "代工管理":
                     "代工數量":     f"{oem.get('代工數量', 0)} kg",
                     "送達日期及數量": delivery_text,
                     "載回日期及數量": return_text,
-                    "建立時間":     oem.get("建立時間", "")
+                    "建立時間":     oem.get("建立時間", ""),
+                    "已交貨":       oem.get("已交貨", "")
                 })
 
             df_progress = pd.DataFrame(progress_data)
@@ -5488,13 +5598,33 @@ if menu == "代工管理":
             if df_progress.empty:
                 st.info("⚠️ 沒有符合條件的代工歷程")
             else:
+                df_progress["建立時間"] = pd.to_datetime(df_progress["建立時間"], errors="coerce")
+
+                today_date = datetime.today().date()
+                default_start = today_date - timedelta(days=20)
+                default_end = today_date
+                hcol1, hcol2 = st.columns(2)
+                his_start = hcol1.date_input("歷程建立日期起", value=default_start, key="oem_tab5_start_date")
+                his_end = hcol2.date_input("歷程建立日期迄", value=default_end, key="oem_tab5_end_date")
+
+                if his_start > his_end:
+                    st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
+                    df_progress = df_progress.iloc[0:0]
+                else:
+                    df_progress = df_progress[
+                        df_progress["建立時間"].dt.date.between(his_start, his_end, inclusive="both")
+                    ]
+
+            if df_progress.empty:
+                st.info("⚠️ 沒有符合條件的代工歷程")
+            else:
                 df_progress = df_progress.sort_values(
                     ["status_order", "建立時間"], ascending=[True, False]
                 )
                 df_display = df_progress.drop(columns=["status_order"]).copy()
-                df_display["序號"] = range(1, len(df_display) + 1)
-                cols = [c for c in df_display.columns if c != "序號"] + ["序號"]
-                st.dataframe(df_display[cols].reset_index(drop=True), use_container_width=True)
+                df_display["建立時間"] = df_display["建立時間"].dt.strftime("%Y-%m-%d").fillna("")
+                display_cols = [c for c in df_display.columns if c not in ["已交貨"]]
+                st.dataframe(df_display[display_cols].reset_index(drop=True), use_container_width=True)
             
                
 # ======== 採購管理分頁 =========
