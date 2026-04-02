@@ -5519,6 +5519,13 @@ if menu == "代工管理":
                     df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
                 ]
 
+            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
+            if search_text:
+                df_closed = df_closed[
+                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                ]
+
             if not df_progress.empty:
                 df_progress["建立時間"] = df_progress["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                 df_progress = df_progress.sort_values(
@@ -5534,20 +5541,28 @@ if menu == "代工管理":
                     "<div style='font-size:16px; font-weight:600; color:#f4e8ff;'>✅ 已結案代工資料表</div>",
                     unsafe_allow_html=True
                 )
-                # 只有查看已結案時才顯示日期區間
                 today_date = datetime.today().date()
-                default_start = today_date - timedelta(days=20)
-                default_end = today_date
-                dcol1, dcol2 = st.columns(2)
-                date_start = dcol1.date_input("建立日期起", value=default_start, key="oem_tab4_closed_start_date")
-                date_end = dcol2.date_input("建立日期迄", value=default_end, key="oem_tab4_closed_end_date")
-                if date_start > date_end:
-                    st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
-                    df_closed = df_closed.iloc[0:0]
-                else:
-                    df_closed = df_closed[
-                        df_closed["建立時間_dt"].dt.date.between(date_start, date_end, inclusive="both")
-                    ]
+                default_start = today_date - timedelta(days=29)
+                df_closed = df_closed[
+                    df_closed["建立時間_dt"].dt.date.between(default_start, today_date, inclusive="both")
+                ]
+
+                with st.expander("進階篩選（日期區間）", expanded=False):
+                    use_custom_range = st.checkbox("使用自訂日期區間", value=False, key="oem_closed_use_custom_range")
+                    if use_custom_range:
+                        dcol1, dcol2 = st.columns(2)
+                        custom_start = dcol1.date_input("建立日期起", value=default_start, key="oem_tab4_closed_start_date")
+                        custom_end = dcol2.date_input("建立日期迄", value=today_date, key="oem_tab4_closed_end_date")
+                        if custom_start > custom_end:
+                            st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
+                            df_closed = df_closed.iloc[0:0]
+                        else:
+                            df_closed = df_closed[
+                                df_closed["建立時間_dt"].dt.date.between(custom_start, custom_end, inclusive="both")
+                            ]
+                    else:
+                        st.caption(f"目前預設顯示近 30 天資料（{default_start} ~ {today_date}）")
+
                 if df_closed.empty:
                     st.info("目前沒有已結案代工資料")
                 else:
@@ -5608,10 +5623,6 @@ if menu == "代工管理":
 
                         st.success(f"✅ 已儲存 {changed_count} 筆交貨註記")
                         st.rerun()
-            else:
-                # 只顯示未結案時，不保留已結案日期區間控制元件
-                st.session_state.pop("oem_tab4_closed_start_date", None)
-                st.session_state.pop("oem_tab4_closed_end_date", None)
 
         else:
             st.info("⚠️ 目前沒有代工記錄")
