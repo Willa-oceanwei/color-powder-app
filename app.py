@@ -8081,21 +8081,17 @@ elif menu == "洗車廠庫存":
     # ── Tab C2：入/出庫登錄 ──
     with tab_c2:
         with st.form("carwash_inout_form"):
-            io_type = st.selectbox("出/入庫", ["入庫", "出庫"], key="cw_io_type")
+            r1c1, r1c2, r1c3, r1c4 = st.columns(4)
+            io_type = r1c1.selectbox("出/入庫", ["入庫", "出庫"], key="cw_io_type")
+            io_registrar = r1c2.selectbox("登記人", ["德", "Q"], key="cw_io_registrar")
+            in_date  = r1c3.date_input("入庫日期",  key="cw_in_date",  disabled=(io_type == "出庫"))
+            out_date = r1c4.date_input("出庫日期", key="cw_out_date", disabled=(io_type == "入庫"))
 
-            c1, c2 = st.columns(2)
-            io_product_id = c1.text_input("貨品編號", key="cw_io_product_id")
-            io_qty        = c2.number_input("數量", min_value=0.0, step=1.0, key="cw_io_qty")
-
-            c3, c4 = st.columns(2)
-            in_date  = c3.date_input("入庫日期",  key="cw_in_date",  disabled=(io_type == "出庫"))
-            out_date = c4.date_input("出庫日期", key="cw_out_date", disabled=(io_type == "入庫"))
-
-            c5, c6 = st.columns(2)
-            io_unit      = c5.selectbox("單位", ["KG", "包"], key="cw_io_unit")
-            io_registrar = c6.selectbox("登記人", ["德", "Q"], key="cw_io_registrar")
-
-            io_note      = st.text_input("備註", key="cw_io_note")
+            r2c1, r2c2, r2c3, r2c4 = st.columns(4)
+            io_product_id = r2c1.text_input("貨品編號", key="cw_io_product_id")
+            io_qty        = r2c2.number_input("數量", min_value=0.0, step=1.0, key="cw_io_qty")
+            io_unit       = r2c3.selectbox("單位", ["KG", "包"], key="cw_io_unit")
+            io_note       = r2c4.text_input("備註", key="cw_io_note")
             submit_io    = st.form_submit_button("💾 儲存入/出庫")
 
         if submit_io:
@@ -8265,14 +8261,26 @@ elif menu == "洗車廠庫存":
                         note_text = str(row.get("備註", "")).strip()
                         if note_text:
                             rec_type = str(row.get("類型", "")).strip()
-                            note_date = (
-                                row.get("初始庫存日期_dt")
-                                if rec_type == "初始庫存"
-                                else row.get("入庫日期_dt") if rec_type == "入庫"
-                                else row.get("出庫日期_dt")
-                            )
+                            candidate_dates = []
+                            if rec_type == "初始庫存":
+                                candidate_dates.append(row.get("初始庫存日期_dt"))
+                            elif rec_type == "入庫":
+                                candidate_dates.append(row.get("入庫日期_dt"))
+                            elif rec_type == "出庫":
+                                candidate_dates.append(row.get("出庫日期_dt"))
+                            else:
+                                candidate_dates.extend([
+                                    row.get("初始庫存日期_dt"),
+                                    row.get("入庫日期_dt"),
+                                    row.get("出庫日期_dt"),
+                                ])
+
+                            note_date = next((d for d in candidate_dates if d is not None), None)
                             if note_date is not None:
                                 note_candidates.append((note_date, note_text))
+                            else:
+                                # 沒日期也保留，避免「有備註卻顯示空白」
+                                note_candidates.append((datetime.min.date(), note_text))
 
                     latest_note = "-"
                     if note_candidates:
