@@ -5382,11 +5382,13 @@ if menu == "代工管理":
 
                 df_this_return = df_return[df_return["代工單號"] == oem_id]
                 return_text = ""
+                latest_return_date = pd.NaT
                 if not df_this_return.empty:
                     return_text = "\n".join([
                         f"{row['載回日期']} ({row['載回數量']} kg)"
                         for _, row in df_this_return.iterrows()
                     ])
+                    latest_return_date = pd.to_datetime(df_this_return["載回日期"], errors="coerce").max()
 
                 total_qty      = float(oem.get("代工數量", 0))
                 total_returned = df_this_return["載回數量"].astype(float).sum() \
@@ -5414,6 +5416,7 @@ if menu == "代工管理":
                     "送達日期及數量": delivery_text,
                     "載回日期及數量": return_text,
                     "建立時間":       oem.get("建立時間", ""),
+                    "最近載回日期_sort": latest_return_date,
                     "已交貨":         oem.get("已交貨", ""),
                     "交貨備註":       oem.get("交貨備註", "")
                 })
@@ -5499,11 +5502,21 @@ if menu == "代工管理":
                     df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
                 ]
 
+            date_start = None
+            date_end = None
+
+            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
+            if search_text:
+                df_closed = df_closed[
+                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                ]
+
             if not df_progress.empty:
                 df_progress["建立時間"] = df_progress["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                 df_progress = df_progress.sort_values(
                     by=["status_order", "建立時間_dt"], ascending=[True, False]
-                ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt"], errors="ignore")
+                ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort"], errors="ignore")
                 st.dataframe(df_progress, use_container_width=True, hide_index=True)
             else:
                 st.info("目前沒有符合條件的代工單")
@@ -5530,7 +5543,7 @@ if menu == "代工管理":
                 if df_closed.empty:
                     st.info("目前沒有已結案代工資料")
                 else:
-                    df_closed = df_closed.sort_values(by="建立時間_dt", ascending=False)
+                    df_closed = df_closed.sort_values(by="最近載回日期_sort", ascending=False, na_position="last")
                     df_closed["建立時間"] = df_closed["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                     df_closed["已交貨"] = df_closed["已交貨"].astype(str).str.strip().isin(
                         ["是", "TRUE", "True", "1", "Y", "y", "✅"]
