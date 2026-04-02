@@ -5526,6 +5526,13 @@ if menu == "代工管理":
                     df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
                 ]
 
+            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
+            if search_text:
+                df_closed = df_closed[
+                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                ]
+
             if not df_progress.empty:
                 df_progress["建立時間"] = df_progress["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                 df_progress = df_progress.sort_values(
@@ -5541,6 +5548,10 @@ if menu == "代工管理":
                     "<div style='font-size:16px; font-weight:600; color:#f4e8ff;'>✅ 已結案代工資料表</div>",
                     unsafe_allow_html=True
                 )
+                # 清除舊版日期欄位 key，避免殘留舊 UI
+                st.session_state.pop("oem_tab4_start_date", None)
+                st.session_state.pop("oem_tab4_end_date", None)
+
                 today_date = datetime.today().date()
                 default_start = today_date - timedelta(days=29)
                 df_closed = df_closed[
