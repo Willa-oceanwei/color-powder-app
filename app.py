@@ -5479,6 +5479,16 @@ if menu == "代工管理":
                     df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
                 ]
 
+            date_start = None
+            date_end = None
+
+            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
+            if search_text:
+                df_closed = df_closed[
+                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                ]
+
             if not df_progress.empty:
                 df_progress["建立時間"] = df_progress["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                 df_progress = df_progress.sort_values(
@@ -5498,8 +5508,8 @@ if menu == "代工管理":
                 default_start = today_date - timedelta(days=20)
                 default_end = today_date
                 dcol1, dcol2 = st.columns(2)
-                date_start = dcol1.date_input("建立日期起", value=default_start, key="oem_tab4_start_date")
-                date_end = dcol2.date_input("建立日期迄", value=default_end, key="oem_tab4_end_date")
+                date_start = dcol1.date_input("建立日期起", value=default_start, key="oem_tab4_closed_start_date")
+                date_end = dcol2.date_input("建立日期迄", value=default_end, key="oem_tab4_closed_end_date")
                 if date_start > date_end:
                     st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
                     df_closed = df_closed.iloc[0:0]
@@ -5631,21 +5641,6 @@ if menu == "代工管理":
                 st.info("⚠️ 沒有符合條件的代工歷程")
             else:
                 df_progress["建立時間"] = pd.to_datetime(df_progress["建立時間"], errors="coerce")
-
-                today_date = datetime.today().date()
-                default_start = today_date - timedelta(days=20)
-                default_end = today_date
-                hcol1, hcol2 = st.columns(2)
-                his_start = hcol1.date_input("歷程建立日期起", value=default_start, key="oem_tab5_start_date")
-                his_end = hcol2.date_input("歷程建立日期迄", value=default_end, key="oem_tab5_end_date")
-
-                if his_start > his_end:
-                    st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
-                    df_progress = df_progress.iloc[0:0]
-                else:
-                    df_progress = df_progress[
-                        df_progress["建立時間"].dt.date.between(his_start, his_end, inclusive="both")
-                    ]
 
             if df_progress.empty:
                 st.info("⚠️ 沒有符合條件的代工歷程")
