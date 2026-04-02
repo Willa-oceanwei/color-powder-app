@@ -5430,6 +5430,12 @@ if menu == "代工管理":
                     df_progress["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
                     df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
                 ]
+            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
+            if search_text:
+                df_closed = df_closed[
+                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                ]
 
             today_date = datetime.today().date()
             default_start = today_date - timedelta(days=20)
