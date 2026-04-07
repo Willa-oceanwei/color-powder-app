@@ -5108,9 +5108,6 @@ if menu == "代工管理":
                         st.session_state.df_oem.loc[mask, "代工廠商"] = vendor
                         st.session_state.df_oem.loc[mask, "備註"] = remark
                         st.session_state.df_oem.loc[mask, "狀態"] = status
-                        st.session_state.oem_vendor = vendor
-                        st.session_state.oem_status = status
-                        st.session_state.oem_remark = remark
 
                     b1, b2 = st.columns(2)
 
