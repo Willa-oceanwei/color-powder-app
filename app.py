@@ -345,9 +345,60 @@ def apply_modern_style():
     </style>
     """, unsafe_allow_html=True)
 
+def apply_arrow_nav():
+    st.markdown("""
+    <script>
+    (function () {
+      if (window._arrowNavBound) return;
+      window._arrowNavBound = true;
+
+      function getInputs() {
+        return Array.from(
+          document.querySelectorAll(
+            'input:not([disabled]):not([readonly]), textarea:not([disabled])'
+          )
+        ).filter(el => el.offsetParent !== null);
+      }
+
+      function moveFocus(current, step) {
+        const inputs = getInputs();
+        const idx = inputs.indexOf(current);
+        if (idx < 0) return;
+        const next = inputs[idx + step];
+        if (next) {
+          next.focus();
+          if (next.select) next.select();
+        }
+      }
+
+      document.addEventListener('keydown', function(e) {
+        const t = e.target;
+        if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
+        if (t.disabled || t.readOnly) return;
+        const isNum = t.type === 'number';
+
+        if (['ArrowDown', 'ArrowRight'].includes(e.key) && isNum) {
+          e.preventDefault();
+          moveFocus(t, +1);
+        } else if (['ArrowUp', 'ArrowLeft'].includes(e.key) && isNum) {
+          e.preventDefault();
+          moveFocus(t, -1);
+        } else if (e.key === 'ArrowDown' && !isNum) {
+          e.preventDefault();
+          moveFocus(t, +1);
+        } else if (e.key === 'ArrowUp' && !isNum) {
+          e.preventDefault();
+          moveFocus(t, -1);
+        }
+      }, true);
+    })();
+    </script>
+    """, unsafe_allow_html=True)
+
 # Streamlit 每次互動都會重新渲染 DOM，樣式必須每輪注入，
 # 否則切頁時會短暫回到預設黑白主題造成閃爍。
 apply_modern_style()
+apply_arrow_nav()
  
 
 # ======== GCP SERVICE ACCOUNT =========
@@ -653,93 +704,7 @@ st.markdown("""
 
 # 重新套用主題，確保切換任何功能分頁後仍維持紫色主題樣式
 apply_modern_style()
-
-# 鍵盤方向鍵跨欄位移動（輸入框邊界時可跳到前/後欄位）
-components.html(
-    """
-    <script>
-    (function () {
-      function getInputs() {
-        const root = window.parent.document;
-        return Array.from(
-          root.querySelectorAll('input:not([disabled]), textarea:not([disabled]), [data-baseweb="select"] input:not([disabled])')
-        ).filter(el => el.offsetParent !== null);
-      }
-
-      function moveFocus(current, step) {
-        const inputs = getInputs();
-        const idx = inputs.indexOf(current);
-        if (idx < 0) return;
-        const next = inputs[idx + step];
-        if (!next) return;
-        next.focus();
-        if (next.select) next.select();
-      }
-
-      function onKeyDown(e) {
-        const t = e.target;
-        if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
-        if (t.readOnly || t.disabled) return;
-        const isNumberInput = t instanceof HTMLInputElement && t.type === 'number';
-
-        // 數字欄位：方向鍵優先用於跨欄位移動（避免瀏覽器預設加減數值）
-        if (isNumberInput && e.key === 'ArrowDown') {
-          e.preventDefault();
-          moveFocus(t, +1);
-          return;
-        }
-        if (isNumberInput && e.key === 'ArrowUp') {
-          e.preventDefault();
-          moveFocus(t, -1);
-          return;
-        }
-        if (isNumberInput && e.key === 'ArrowRight') {
-          e.preventDefault();
-          moveFocus(t, +1);
-          return;
-        }
-        if (isNumberInput && e.key === 'ArrowLeft') {
-          e.preventDefault();
-          moveFocus(t, -1);
-          return;
-        }
-
-        if (!isNumberInput && e.key === 'ArrowDown') {
-          e.preventDefault();
-          moveFocus(t, +1);
-          return;
-        }
-        if (!isNumberInput && e.key === 'ArrowUp') {
-          e.preventDefault();
-          moveFocus(t, -1);
-          return;
-        }
-
-        if (!isNumberInput && t instanceof HTMLInputElement && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
-          const start = t.selectionStart ?? 0;
-          const end = t.selectionEnd ?? 0;
-          const len = (t.value || '').length;
-          const noSelect = start === end;
-          if (e.key === 'ArrowRight' && noSelect && end >= len) {
-            e.preventDefault();
-            moveFocus(t, +1);
-          } else if (e.key === 'ArrowLeft' && noSelect && start <= 0) {
-            e.preventDefault();
-            moveFocus(t, -1);
-          }
-        }
-      }
-
-      const doc = window.parent.document;
-      if (!doc.body.dataset.arrowNavBound) {
-        doc.body.dataset.arrowNavBound = '1';
-        doc.addEventListener('keydown', onKeyDown, true);
-      }
-    })();
-    </script>
-    """,
-    height=0,
-)
+apply_arrow_nav()
 
 # ================= 共用 Google Sheet 穩定寫入工具 =================
 def safe_append_row(ws, row_values):
