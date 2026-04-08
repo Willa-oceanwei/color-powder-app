@@ -7474,15 +7474,27 @@ elif menu == "庫存區":
                 latest_ini = df_ini.sort_values("日期時間", ascending=False).iloc[0]
                 ini_value = latest_ini["數量_g"]
                 ini_dt = latest_ini["日期時間"]
+                ini_dt_raw = str(latest_ini.get("日期時間", "")).strip()
+                has_explicit_ini_datetime = bool(ini_dt_raw) and ini_dt_raw.lower() not in {"nan", "nat"}
                 if pd.isna(ini_dt) and "日期" in latest_ini and pd.notna(latest_ini["日期"]):
                     ini_dt = pd.to_datetime(latest_ini["日期"], errors="coerce")
-                ini_note = f"期初來源：{ini_dt.strftime('%Y/%m/%d %H:%M') if pd.notna(ini_dt) else '未提供日期'}"
+                if pd.notna(ini_dt):
+                    note_fmt = "%Y/%m/%d %H:%M" if has_explicit_ini_datetime else "%Y/%m/%d"
+                    ini_note = f"期初來源：{ini_dt.strftime(note_fmt)}"
+                else:
+                    ini_note = "期初來源：未提供日期"
             else:
                 ini_value = 0.0
                 ini_dt = pd.Timestamp.min
+                has_explicit_ini_datetime = True
                 ini_note = "—"
 
-            calc_start_dt = max(start_dt, ini_dt) if pd.notna(ini_dt) else start_dt
+            if pd.notna(ini_dt) and not has_explicit_ini_datetime:
+                ini_effective_start_dt = ini_dt.normalize() + pd.Timedelta(hours=23, minutes=59, seconds=59)
+            else:
+                ini_effective_start_dt = ini_dt
+
+            calc_start_dt = max(start_dt, ini_effective_start_dt) if pd.notna(ini_effective_start_dt) else start_dt
 
             purchase_types = {"進貨", "新增庫存"}
             in_qty = df_pid[
