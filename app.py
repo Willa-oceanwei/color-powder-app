@@ -2635,8 +2635,12 @@ elif menu == "配方管理":
                     st.caption(f"✓ 色粉：{calc['total_powder_weight']:.2f}g + 添加劑：{calc['additive_qty']:.2f}g + 原料：{calc['material_qty']:.2f}g = {calc['calculated_total']:.2f}g")
 
                     def generate_master_batch_html(calc_data):
+                        ratio_display = str(calc_data.get("ratio", "")).strip()
+                        unit_hint = f"{ratio_display}K" if ratio_display else ""
                         html_lines = [
                             f"編號：{calc_data['new_code']}　顏色：{calc_data['recipe_data'].get('顏色', '')}　比例：{calc_data['ratio']}",
+                            "",
+                            f"{unit_hint:^20}" if unit_hint else "",
                             ""
                         ]
                         for item in calc_data["powder_data"]:
@@ -3341,48 +3345,6 @@ elif menu == "生產單管理":
         )
         st.session_state.pop("order_toast", None)
 
-    components.html(
-        """
-        <script>
-        (function () {
-            const storageKey = "order_mgmt_active_tab";
-            const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"];
-
-            function bindOrderTabs() {
-                const doc = window.parent.document;
-                const allTabs = Array.from(doc.querySelectorAll('button[role="tab"]'));
-                const targetTab = allTabs.find(btn => tabTexts.includes(btn.textContent.trim()));
-                if (!targetTab) return false;
-
-                const tablist = targetTab.closest('div[role="tablist"]');
-                if (!tablist) return false;
-
-                const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
-                const savedIndex = parseInt(sessionStorage.getItem(storageKey), 10);
-                if (!Number.isNaN(savedIndex) && tabs[savedIndex] && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
-                    tabs[savedIndex].click();
-                }
-
-                tabs.forEach((tab, idx) => {
-                    if (tab.dataset.orderPersistBound === '1') return;
-                    tab.dataset.orderPersistBound = '1';
-                    tab.addEventListener('click', () => sessionStorage.setItem(storageKey, String(idx)));
-                });
-                return true;
-            }
-
-            if (!bindOrderTabs()) {
-                const observer = new MutationObserver(() => {
-                    if (bindOrderTabs()) observer.disconnect();
-                });
-                observer.observe(window.parent.document.body, { childList: true, subtree: true });
-            }
-        })();
-        </script>
-        """,
-        height=0,
-    )
-
     tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"])
     # ============================================================
     # Tab 1: 生產單建立
@@ -3864,6 +3826,22 @@ elif menu == "生產單管理":
                 if additional_recipes:
                     all_recipes_for_check.extend(additional_recipes)
 
+                def parse_numeric_input(raw_val):
+                    """容忍 30K / 25kg / 1,200 等輸入格式。"""
+                    if raw_val is None:
+                        return 0.0
+                    text = str(raw_val).strip()
+                    if not text:
+                        return 0.0
+                    text = text.replace(",", "")
+                    match = re.search(r"-?\d+(?:\.\d+)?", text)
+                    if not match:
+                        return 0.0
+                    try:
+                        return float(match.group(0))
+                    except Exception:
+                        return 0.0
+
                 for rec in all_recipes_for_check:
                     for i in range(1, 9):
                         pid = str(rec.get(f"色粉編號{i}", "")).strip()
@@ -3887,12 +3865,13 @@ elif menu == "生產單管理":
                         # 計算用量：比例 * 包裝重量 * 包裝份數
                         total_used_g = 0
                         for j in range(1, 5):
-                            try:
-                                w_val = float(st.session_state.get(f"form_weight{j}", 0) or 0)
-                                n_val = float(st.session_state.get(f"form_count{j}", 0) or 0)
-                                total_used_g += ratio_g * w_val * n_val
-                            except:
-                                pass
+                            w_val = parse_numeric_input(
+                                st.session_state.get(f"form_weight{j}_tab1", 0)
+                            )
+                            n_val = parse_numeric_input(
+                                st.session_state.get(f"form_count{j}_tab1", 0)
+                            )
+                            total_used_g += ratio_g * w_val * n_val
 
                         # 扣庫存
                         last_stock_before = last_stock.get(pid, 0)
