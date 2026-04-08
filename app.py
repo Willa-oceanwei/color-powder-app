@@ -7197,6 +7197,23 @@ elif menu == "庫存區":
         """
         total_usage_g = 0.0
         df_order_local = df_order.copy()
+
+        def normalize_recipe_id(raw_val):
+            return fix_leading_zero(clean_powder_id(str(raw_val or "")))
+
+        def parse_pack_value(raw_val):
+            if raw_val is None:
+                return 0.0
+            text = str(raw_val).strip().replace(",", "")
+            if not text:
+                return 0.0
+            m = re.search(r"-?\d+(?:\.\d+)?", text)
+            if not m:
+                return 0.0
+            try:
+                return float(m.group(0))
+            except Exception:
+                return 0.0
     
         if "生產時間" not in df_order_local.columns:
             return 0.0
@@ -7224,14 +7241,14 @@ elif menu == "庫存區":
                 lambda row: powder_id in [s.strip() for s in row.values], axis=1
             )
             candidate_ids = set(
-                recipe_df_copy[mask]["配方編號"].astype(str).str.strip().tolist()
+                recipe_df_copy[mask]["配方編號"].map(normalize_recipe_id).tolist()
             )
     
             # 合計類別搜尋（LA/T9/料 等）
             if "合計類別" in recipe_df_copy.columns and "淨重" in recipe_df_copy.columns:
                 mask_total = recipe_df_copy["合計類別"].astype(str).str.strip().str.upper() == powder_id.upper()
                 candidate_total_ids = set(
-                    recipe_df_copy[mask_total]["配方編號"].astype(str).str.strip().tolist()
+                    recipe_df_copy[mask_total]["配方編號"].map(normalize_recipe_id).tolist()
                 )
     
         if not candidate_ids and not candidate_total_ids:
@@ -7249,35 +7266,36 @@ elif menu == "庫存區":
         for _, order in orders_in_range.iterrows():
             packs_total_kg = 0.0
             for j in range(1, 5):
-                try:
-                    packs_total_kg += float(order.get(f"包裝重量{j}", 0) or 0) * \
-                                      float(order.get(f"包裝份數{j}", 0) or 0)
-                except Exception:
-                    pass
+                packs_total_kg += (
+                    parse_pack_value(order.get(f"包裝重量{j}", 0)) *
+                    parse_pack_value(order.get(f"包裝份數{j}", 0))
+                )
     
             if packs_total_kg <= 0:
                 continue
     
-            order_recipe_id = str(order.get("配方編號", "")).strip()
+            order_recipe_id = normalize_recipe_id(order.get("配方編號", ""))
             if not order_recipe_id:
                 continue
     
             # 取得主配方與附加配方
             recipe_rows = []
             if not df_recipe.empty:
-                main_df = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id]
+                recipe_norm = df_recipe["配方編號"].map(normalize_recipe_id)
+                main_df = df_recipe[recipe_norm == order_recipe_id]
                 if not main_df.empty:
                     recipe_rows.append(main_df.iloc[0].to_dict())
                 if "配方類別" in df_recipe.columns and "原始配方" in df_recipe.columns:
+                    base_norm = df_recipe["原始配方"].map(normalize_recipe_id)
                     add_df = df_recipe[
                         (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
-                        (df_recipe["原始配方"].astype(str).str.strip() == order_recipe_id)
+                        (base_norm == order_recipe_id)
                     ]
                     if not add_df.empty:
                         recipe_rows.extend(add_df.to_dict("records"))
     
             for rec in recipe_rows:
-                rec_id = str(rec.get("配方編號", "")).strip()
+                rec_id = normalize_recipe_id(rec.get("配方編號", ""))
     
                 # ── 一般色粉欄位命中 ──
                 if rec_id in candidate_ids:
@@ -7437,15 +7455,17 @@ elif menu == "庫存區":
                 ini_dt = pd.Timestamp.min
                 ini_note = "—"
 
+            calc_start_dt = max(start_dt, ini_dt)
+
             purchase_types = {"進貨", "新增庫存"}
             in_qty = df_pid[
                 (df_pid["類型"].astype(str).str.strip().isin(purchase_types)) &
-                (df_pid["日期時間"] > ini_dt) &
+                (df_pid["日期時間"] > calc_start_dt) &
                 (df_pid["日期時間"] <= end_dt)
             ]["數量_g"].sum()
 
             usage_qty = (
-                safe_calc_usage(pid, df_order_copy, df_recipe, ini_dt, end_dt)
+                safe_calc_usage(pid, df_order_copy, df_recipe, calc_start_dt, end_dt)
                 if not df_order.empty and not df_recipe.empty else 0.0
             )
 
