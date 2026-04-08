@@ -3988,23 +3988,38 @@ elif menu == "生產單管理":
                             ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
                             ws_oem.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱", 
                                                                "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
-                
-                        oem_row = [
-                            oem_id,
-                            order['生產單號'],
-                            order.get('配方編號', ''),
-                            order.get('客戶名稱', ''),
-                            oem_qty,
-                            oem_qty,
-                            1,
-                            "",
-                            "",
-                            "🏭 在廠內",  # ⭐ 預設狀態
-                            (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                            "",
-                            ""
+
+                        # 兼容舊版表頭：先補齊必要欄位，再按目前表頭順序組裝資料，避免欄位錯位
+                        required_oem_headers = [
+                            "代工單號", "生產單號", "配方編號", "客戶名稱",
+                            "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"
                         ]
-                        ws_oem.append_row(oem_row)
+                        oem_headers = ws_oem.row_values(1)
+                        if not oem_headers:
+                            ws_oem.append_row(required_oem_headers)
+                            oem_headers = required_oem_headers.copy()
+                        else:
+                            for h in required_oem_headers:
+                                if h not in oem_headers:
+                                    ws_oem.update_cell(1, len(oem_headers) + 1, h)
+                                    oem_headers.append(h)
+
+                        oem_row_dict = {
+                            "代工單號": oem_id,
+                            "生產單號": order['生產單號'],
+                            "配方編號": order.get('配方編號', ''),
+                            "客戶名稱": order.get('客戶名稱', ''),
+                            "代工數量": oem_qty,
+                            "目標載回數量": oem_qty,
+                            "轉換倍率": 1,
+                            "代工廠商": "",
+                            "備註": "",
+                            "狀態": "🏭 在廠內",
+                            "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
+                            "已交貨": "",
+                            "交貨備註": ""
+                        }
+                        ws_oem.append_row([oem_row_dict.get(h, "") for h in oem_headers])
                 
                         oem_msg = f"🎉 已建立代工單號：{oem_id}（{oem_qty} kg）\n💡 請至「代工管理」分頁編輯"
                         st.toast(oem_msg)
