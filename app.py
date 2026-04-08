@@ -2664,7 +2664,7 @@ elif menu == "配方管理":
                     col_download, col_save = st.columns([2, 2])
                     with col_download:
                         st.download_button(
-                            label="📥 下載 A5 列印 80%",
+                            label="📥 下載 A5 列印 90%",
                             data=html_content.encode("utf-8"),
                             file_name=f"{calc['new_code']}_色母配方.html",
                             mime="text/html",
