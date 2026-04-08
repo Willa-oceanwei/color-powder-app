@@ -7347,11 +7347,43 @@ elif menu == "庫存區":
             if series is None:
                 return pd.Series(pd.NaT, index=df_stock_copy.index)
 
-            dt_parsed = pd.to_datetime(series, errors="coerce")
-            numeric_serial = pd.to_numeric(series, errors="coerce")
-            serial_dt = pd.to_datetime("1899-12-30") + pd.to_timedelta(numeric_serial, unit="D")
-            dt_parsed = dt_parsed.combine_first(serial_dt.where(numeric_serial.notna()))
-            return dt_parsed
+            def parse_one(val):
+                if pd.isna(val):
+                    return pd.NaT
+
+                if isinstance(val, (datetime, pd.Timestamp)):
+                    return pd.to_datetime(val, errors="coerce")
+                if isinstance(val, date):
+                    return pd.Timestamp(val)
+
+                text = str(val).strip()
+                if not text:
+                    return pd.NaT
+
+                parsed = pd.to_datetime(text, errors="coerce")
+                if pd.notna(parsed):
+                    return parsed
+
+                numeric_serial = pd.to_numeric(text, errors="coerce")
+                if pd.notna(numeric_serial):
+                    return pd.to_datetime("1899-12-30") + pd.to_timedelta(numeric_serial, unit="D")
+
+                for fmt in (
+                    "%Y/%m/%d %H:%M:%S",
+                    "%Y/%m/%d %H:%M",
+                    "%Y-%m-%d %H:%M:%S",
+                    "%Y-%m-%d %H:%M",
+                    "%Y/%m/%d",
+                    "%Y-%m-%d",
+                ):
+                    try:
+                        return pd.to_datetime(datetime.strptime(text, fmt))
+                    except Exception:
+                        continue
+
+                return pd.NaT
+
+            return series.apply(parse_one)
 
         raw_date_dt = parse_stock_datetime_series(
             df_stock_copy["日期"] if "日期" in df_stock_copy.columns else None
@@ -7442,13 +7474,15 @@ elif menu == "庫存區":
                 latest_ini = df_ini.sort_values("日期時間", ascending=False).iloc[0]
                 ini_value = latest_ini["數量_g"]
                 ini_dt = latest_ini["日期時間"]
-                ini_note = f"期初來源：{ini_dt.strftime('%Y/%m/%d %H:%M') if pd.notna(ini_dt) else '—'}"
+                if pd.isna(ini_dt) and "日期" in latest_ini and pd.notna(latest_ini["日期"]):
+                    ini_dt = pd.to_datetime(latest_ini["日期"], errors="coerce")
+                ini_note = f"期初來源：{ini_dt.strftime('%Y/%m/%d %H:%M') if pd.notna(ini_dt) else '未提供日期'}"
             else:
                 ini_value = 0.0
                 ini_dt = pd.Timestamp.min
                 ini_note = "—"
 
-            calc_start_dt = max(start_dt, ini_dt)
+            calc_start_dt = max(start_dt, ini_dt) if pd.notna(ini_dt) else start_dt
 
             purchase_types = {"進貨", "新增庫存"}
             in_qty = df_pid[
