@@ -326,6 +326,18 @@ def apply_modern_style():
             min-height: 44px !important;
             font-size: 16px !important;
         }
+
+        /* 已結案交貨註記：手機字級微調，避免過大 */
+        .closed-delivery-note-title {
+            font-size: 15px !important;
+            line-height: 1.35 !important;
+            font-weight: 700 !important;
+        }
+        .closed-delivery-note-hint {
+            font-size: 12px !important;
+            line-height: 1.35 !important;
+            opacity: 0.9;
+        }
     }
 
     /* 超小螢幕才全面單欄，避免影響平板與橫向手機 */
@@ -5710,7 +5722,14 @@ if menu == "代工管理":
                         }
                     )
 
-                    st.markdown("#### 📝 已結案交貨註記（手機相容）")
+                    st.markdown(
+                        "<div class='closed-delivery-note-title'>📝 已結案交貨註記（手機相容）</div>",
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        "<div class='closed-delivery-note-hint'>已針對手機縮小字級，避免標題與欄位過大。</div>",
+                        unsafe_allow_html=True
+                    )
                     closed_selector_options = []
                     for _, row in df_closed.iterrows():
                         oem_no = str(row.get("代工單號", "") or "").strip()
@@ -7742,6 +7761,25 @@ elif menu == "庫存區":
                 if c not in df_recipe_local.columns:
                     df_recipe_local[c] = ""
 
+            def normalize_recipe_id(raw_val):
+                return fix_leading_zero(clean_powder_id(str(raw_val or "")))
+
+            def parse_pack_value(raw_val):
+                """容忍 25kg / 1,200 / 30K 等輸入，萃取數字部分。"""
+                if raw_val is None:
+                    return 0.0
+                text = str(raw_val).strip()
+                if not text:
+                    return 0.0
+                text = text.replace(",", "")
+                m = re.search(r"-?\d+(?:\.\d+)?", text)
+                if not m:
+                    return 0.0
+                try:
+                    return float(m.group(0))
+                except Exception:
+                    return 0.0
+
             # ── Step 4: 建立「配方 → 含哪些色母及用量」快取 ──
             # key = 配方編號（附加配方用原始配方ID）
             recipe_powder_map = {}
@@ -7752,6 +7790,7 @@ elif menu == "庫存區":
                     continue
                 cat = str(rec.get("配方類別", "")).strip()
                 key_rid = str(rec.get("原始配方", "")).strip() if cat == "附加配方" else rid
+                key_rid = normalize_recipe_id(key_rid)
                 if not key_rid:
                     continue
 
@@ -7774,21 +7813,21 @@ elif menu == "庫存區":
                 for _, order in df_order_local.iterrows():
                     order_date_dt = order.get("生產日期_dt")
                     if pd.isna(order_date_dt):
-                        continue
+                        order_date_dt = pd.to_datetime(order.get("建立時間", ""), errors="coerce")
+                        if pd.isna(order_date_dt):
+                            continue
+                        order_date_dt = order_date_dt.normalize()
 
-                    recipe_id = str(order.get("配方編號", "")).strip()
+                    recipe_id = normalize_recipe_id(order.get("配方編號", ""))
                     if not recipe_id or recipe_id not in recipe_powder_map:
                         continue
 
                     packs_total_kg = 0.0
                     for j in range(1, 5):
-                        try:
-                            packs_total_kg += (
-                                float(order.get(f"包裝重量{j}", 0) or 0) *
-                                float(order.get(f"包裝份數{j}", 0) or 0)
-                            )
-                        except Exception:
-                            pass
+                        packs_total_kg += (
+                            parse_pack_value(order.get(f"包裝重量{j}", 0)) *
+                            parse_pack_value(order.get(f"包裝份數{j}", 0))
+                        )
 
                     if packs_total_kg <= 0:
                         continue
