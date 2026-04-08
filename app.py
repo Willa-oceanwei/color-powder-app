@@ -7617,10 +7617,18 @@ elif menu == "庫存區":
                 err_text_local = "庫存查詢失敗，請稍後再試。"
             return err_text_local
 
+        use_date_range_key = "stock_use_date_range"
+        use_date_range = st.checkbox(
+            "使用日期區間",
+            value=st.session_state.get(use_date_range_key, False),
+            key=f"{use_date_range_key}_cb",
+        )
+        st.session_state[use_date_range_key] = use_date_range
+
         with st.form("form_stock_query"):
             col1, col2 = st.columns(2)
-            query_start = col1.date_input("查詢起日", key="stock_start_query")
-            query_end   = col2.date_input("查詢迄日", key="stock_end_query")
+            query_start = col1.date_input("查詢起日", key="stock_start_query", disabled=not use_date_range)
+            query_end   = col2.date_input("查詢迄日", key="stock_end_query", disabled=not use_date_range)
 
             c_input, c_match = st.columns([3, 1])
             with c_input:
@@ -7633,15 +7641,21 @@ elif menu == "庫存區":
 
             submit_t2 = st.form_submit_button("計算庫存")
 
+        if not use_date_range:
+            st.caption("ℹ️ 未使用日期區間：預設查詢從期初庫存（若無期初則從最早資料）到今天的庫存。")
+
+        effective_query_start = query_start if use_date_range else None
+        effective_query_end = query_end if use_date_range else None
+
         # ── 計算簽名（避免重複計算）──
-        query_signature = f"{query_start}|{query_end}|{st.session_state.get('stock_powder','')}|{st.session_state.get('match_mode','')}"
+        query_signature = f"{use_date_range}|{effective_query_start}|{effective_query_end}|{st.session_state.get('stock_powder','')}|{st.session_state.get('match_mode','')}"
 
         if submit_t2:
             stock_summary, err_msg = build_stock_summary(
                 stock_powder=st.session_state.get("stock_powder", "").strip(),
                 match_mode=st.session_state.get("match_mode", "部分匹配"),
-                query_start=st.session_state.get("stock_start_query"),
-                query_end=st.session_state.get("stock_end_query"),
+                query_start=effective_query_start,
+                query_end=effective_query_end,
             )
             if err_msg:
                 err_text = normalize_stock_query_error(err_msg)
