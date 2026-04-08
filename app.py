@@ -5700,20 +5700,36 @@ if menu == "代工管理":
                         "狀態", "代工單號", "代工廠名稱", "配方編號", "客戶名稱",
                         "代工數量", "目標載回", "差異", "送達日期及數量", "載回日期及數量", "建立時間", "已交貨", "交貨備註"
                     ]
+                    st.dataframe(
+                        df_closed[closed_cols],
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "送達日期及數量": st.column_config.TextColumn("送達日期及數量", width="small"),
+                            "載回日期及數量": st.column_config.TextColumn("載回日期及數量", width="small"),
+                        }
+                    )
+
+                    closed_ids = df_closed["代工單號"].astype(str).tolist()
+
                     with st.form("oem_closed_delivery_form_tab4"):
-                        edited_closed = st.data_editor(
-                            df_closed[closed_cols],
-                            use_container_width=True,
-                            hide_index=True,
-                            column_config={
-                                "送達日期及數量": st.column_config.TextColumn("送達日期及數量", width="small"),
-                                "載回日期及數量": st.column_config.TextColumn("載回日期及數量", width="small"),
-                                "已交貨": st.column_config.CheckboxColumn("已交貨", help="僅做註記，不影響其他流程"),
-                                "交貨備註": st.column_config.TextColumn("交貨備註", width="medium")
-                            },
-                            disabled=[c for c in closed_cols if c not in ["已交貨", "交貨備註"]],
-                            key="oem_closed_delivery_editor_tab4"
+                        st.markdown("#### 📝 已結案交貨註記（手機相容）")
+                        selected_closed_id = st.selectbox(
+                            "選擇代工單號",
+                            closed_ids,
+                            key="oem_closed_delivery_target_id_tab4"
                         )
+                        selected_closed_row = df_closed[
+                            df_closed["代工單號"].astype(str) == str(selected_closed_id)
+                        ].iloc[0]
+                        delivered_default = bool(selected_closed_row.get("已交貨", False))
+                        note_default = str(selected_closed_row.get("交貨備註", "") or "")
+                        marked_delivered = st.checkbox(
+                            "已交貨",
+                            value=delivered_default,
+                            help="僅做註記，不影響其他流程"
+                        )
+                        delivery_note = st.text_input("交貨備註", value=note_default)
                         save_closed_delivery = st.form_submit_button("💾 儲存已結案交貨註記")
 
                     if save_closed_delivery:
@@ -5732,19 +5748,17 @@ if menu == "代工管理":
                                 oem_row_map[row[0]] = idx
 
                         changed_count = 0
-                        for _, row in edited_closed.iterrows():
-                            oem_no = row["代工單號"]
-                            marked = bool(row["已交貨"])
-                            sheet_value = "是" if marked else ""
-                            delivery_note_value = str(row.get("交貨備註", "") or "").strip()
-                            target_row = oem_row_map.get(oem_no)
-                            if target_row:
-                                ws_oem.update_cell(target_row, delivery_col, sheet_value)
-                                ws_oem.update_cell(target_row, delivery_note_col, delivery_note_value)
-                                mask = st.session_state.df_oem["代工單號"] == oem_no
-                                st.session_state.df_oem.loc[mask, "已交貨"] = sheet_value
-                                st.session_state.df_oem.loc[mask, "交貨備註"] = delivery_note_value
-                                changed_count += 1
+                        oem_no = str(selected_closed_id).strip()
+                        sheet_value = "是" if bool(marked_delivered) else ""
+                        delivery_note_value = str(delivery_note or "").strip()
+                        target_row = oem_row_map.get(oem_no)
+                        if target_row:
+                            ws_oem.update_cell(target_row, delivery_col, sheet_value)
+                            ws_oem.update_cell(target_row, delivery_note_col, delivery_note_value)
+                            mask = st.session_state.df_oem["代工單號"] == oem_no
+                            st.session_state.df_oem.loc[mask, "已交貨"] = sheet_value
+                            st.session_state.df_oem.loc[mask, "交貨備註"] = delivery_note_value
+                            changed_count = 1
 
                         st.success(f"✅ 已儲存 {changed_count} 筆交貨註記")
                         st.rerun()
