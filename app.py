@@ -7455,10 +7455,10 @@ elif menu == "庫存區":
         if not all_pids:
             return [], "⚠️ 查無符合條件的庫存記錄。"
 
-        today_dt = pd.Timestamp.now()
-        start_dt = pd.to_datetime(query_start) if query_start else pd.Timestamp.min
-        end_dt = (pd.to_datetime(query_end) + pd.Timedelta(hours=23, minutes=59, seconds=59)
-                  if query_end else today_dt)
+        today_end_dt = pd.Timestamp.today().normalize() + pd.Timedelta(hours=23, minutes=59, seconds=59)
+        start_dt = pd.to_datetime(query_start).normalize() if query_start else pd.Timestamp.min
+        end_dt = (pd.to_datetime(query_end).normalize() + pd.Timedelta(hours=23, minutes=59, seconds=59)
+                  if query_end else today_end_dt)
         if start_dt > end_dt:
             return None, "❌ 查詢起日不能晚於查詢迄日。"
 
