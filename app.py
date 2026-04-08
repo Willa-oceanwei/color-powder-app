@@ -326,6 +326,18 @@ def apply_modern_style():
             min-height: 44px !important;
             font-size: 16px !important;
         }
+
+        /* 已結案交貨註記：手機字級微調，避免過大 */
+        .closed-delivery-note-title {
+            font-size: 15px !important;
+            line-height: 1.35 !important;
+            font-weight: 700 !important;
+        }
+        .closed-delivery-note-hint {
+            font-size: 12px !important;
+            line-height: 1.35 !important;
+            opacity: 0.9;
+        }
     }
 
     /* 超小螢幕才全面單欄，避免影響平板與橫向手機 */
@@ -5710,7 +5722,14 @@ if menu == "代工管理":
                         }
                     )
 
-                    st.markdown("#### 📝 已結案交貨註記（手機相容）")
+                    st.markdown(
+                        "<div class='closed-delivery-note-title'>📝 已結案交貨註記（手機相容）</div>",
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        "<div class='closed-delivery-note-hint'>已針對手機縮小字級，避免標題與欄位過大。</div>",
+                        unsafe_allow_html=True
+                    )
                     closed_selector_options = []
                     for _, row in df_closed.iterrows():
                         oem_no = str(row.get("代工單號", "") or "").strip()
@@ -7178,6 +7197,23 @@ elif menu == "庫存區":
         """
         total_usage_g = 0.0
         df_order_local = df_order.copy()
+
+        def normalize_recipe_id(raw_val):
+            return fix_leading_zero(clean_powder_id(str(raw_val or "")))
+
+        def parse_pack_value(raw_val):
+            if raw_val is None:
+                return 0.0
+            text = str(raw_val).strip().replace(",", "")
+            if not text:
+                return 0.0
+            m = re.search(r"-?\d+(?:\.\d+)?", text)
+            if not m:
+                return 0.0
+            try:
+                return float(m.group(0))
+            except Exception:
+                return 0.0
     
         if "生產時間" not in df_order_local.columns:
             return 0.0
@@ -7205,14 +7241,14 @@ elif menu == "庫存區":
                 lambda row: powder_id in [s.strip() for s in row.values], axis=1
             )
             candidate_ids = set(
-                recipe_df_copy[mask]["配方編號"].astype(str).str.strip().tolist()
+                recipe_df_copy[mask]["配方編號"].map(normalize_recipe_id).tolist()
             )
     
             # 合計類別搜尋（LA/T9/料 等）
             if "合計類別" in recipe_df_copy.columns and "淨重" in recipe_df_copy.columns:
                 mask_total = recipe_df_copy["合計類別"].astype(str).str.strip().str.upper() == powder_id.upper()
                 candidate_total_ids = set(
-                    recipe_df_copy[mask_total]["配方編號"].astype(str).str.strip().tolist()
+                    recipe_df_copy[mask_total]["配方編號"].map(normalize_recipe_id).tolist()
                 )
     
         if not candidate_ids and not candidate_total_ids:
@@ -7230,35 +7266,36 @@ elif menu == "庫存區":
         for _, order in orders_in_range.iterrows():
             packs_total_kg = 0.0
             for j in range(1, 5):
-                try:
-                    packs_total_kg += float(order.get(f"包裝重量{j}", 0) or 0) * \
-                                      float(order.get(f"包裝份數{j}", 0) or 0)
-                except Exception:
-                    pass
+                packs_total_kg += (
+                    parse_pack_value(order.get(f"包裝重量{j}", 0)) *
+                    parse_pack_value(order.get(f"包裝份數{j}", 0))
+                )
     
             if packs_total_kg <= 0:
                 continue
     
-            order_recipe_id = str(order.get("配方編號", "")).strip()
+            order_recipe_id = normalize_recipe_id(order.get("配方編號", ""))
             if not order_recipe_id:
                 continue
     
             # 取得主配方與附加配方
             recipe_rows = []
             if not df_recipe.empty:
-                main_df = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id]
+                recipe_norm = df_recipe["配方編號"].map(normalize_recipe_id)
+                main_df = df_recipe[recipe_norm == order_recipe_id]
                 if not main_df.empty:
                     recipe_rows.append(main_df.iloc[0].to_dict())
                 if "配方類別" in df_recipe.columns and "原始配方" in df_recipe.columns:
+                    base_norm = df_recipe["原始配方"].map(normalize_recipe_id)
                     add_df = df_recipe[
                         (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
-                        (df_recipe["原始配方"].astype(str).str.strip() == order_recipe_id)
+                        (base_norm == order_recipe_id)
                     ]
                     if not add_df.empty:
                         recipe_rows.extend(add_df.to_dict("records"))
     
             for rec in recipe_rows:
-                rec_id = str(rec.get("配方編號", "")).strip()
+                rec_id = normalize_recipe_id(rec.get("配方編號", ""))
     
                 # ── 一般色粉欄位命中 ──
                 if rec_id in candidate_ids:
@@ -7322,17 +7359,6 @@ elif menu == "庫存區":
         raw_datetime_dt = parse_stock_datetime_series(
             df_stock_copy["日期時間"] if "日期時間" in df_stock_copy.columns else None
         )
-        raw_date_dt = (
-            pd.to_datetime(df_stock_copy["日期"], errors="coerce")
-            if "日期" in df_stock_copy.columns
-            else pd.Series(pd.NaT, index=df_stock_copy.index)
-        )
-        raw_datetime_dt = (
-            pd.to_datetime(df_stock_copy["日期時間"], errors="coerce")
-            if "日期時間" in df_stock_copy.columns
-            else pd.Series(pd.NaT, index=df_stock_copy.index)
-
-        )
         df_stock_copy["日期時間"] = raw_datetime_dt.combine_first(raw_date_dt)
         df_stock_copy["日期"] = raw_date_dt.dt.normalize()
         df_stock_copy["數量_g"] = df_stock_copy.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
@@ -7341,13 +7367,17 @@ elif menu == "庫存區":
         df_order_copy = df_order.copy()
 
         def get_order_datetime(row):
-            for col_name in ["生產時間", "建立時間"]:
-                if col_name in row and pd.notna(row[col_name]):
-                    return pd.to_datetime(row[col_name], errors="coerce")
+            # 優先用「生產日期」，其次才是生產時間/建立時間
             if "生產日期" in row and pd.notna(row["生產日期"]):
                 dt = pd.to_datetime(row["生產日期"], errors="coerce")
                 if pd.notna(dt):
-                    return dt + pd.Timedelta(hours=9)
+                    return dt + pd.Timedelta(hours=12)
+
+            for col_name in ["生產時間", "建立時間"]:
+                if col_name in row and pd.notna(row[col_name]):
+                    dt = pd.to_datetime(row[col_name], errors="coerce")
+                    if pd.notna(dt):
+                        return dt
             return pd.NaT
 
         if not df_order_copy.empty:
@@ -7418,15 +7448,17 @@ elif menu == "庫存區":
                 ini_dt = pd.Timestamp.min
                 ini_note = "—"
 
+            calc_start_dt = max(start_dt, ini_dt)
+
             purchase_types = {"進貨", "新增庫存"}
             in_qty = df_pid[
                 (df_pid["類型"].astype(str).str.strip().isin(purchase_types)) &
-                (df_pid["日期時間"] > ini_dt) &
+                (df_pid["日期時間"] > calc_start_dt) &
                 (df_pid["日期時間"] <= end_dt)
             ]["數量_g"].sum()
 
             usage_qty = (
-                safe_calc_usage(pid, df_order_copy, df_recipe, ini_dt, end_dt)
+                safe_calc_usage(pid, df_order_copy, df_recipe, calc_start_dt, end_dt)
                 if not df_order.empty and not df_recipe.empty else 0.0
             )
 
@@ -7742,6 +7774,25 @@ elif menu == "庫存區":
                 if c not in df_recipe_local.columns:
                     df_recipe_local[c] = ""
 
+            def normalize_recipe_id(raw_val):
+                return fix_leading_zero(clean_powder_id(str(raw_val or "")))
+
+            def parse_pack_value(raw_val):
+                """容忍 25kg / 1,200 / 30K 等輸入，萃取數字部分。"""
+                if raw_val is None:
+                    return 0.0
+                text = str(raw_val).strip()
+                if not text:
+                    return 0.0
+                text = text.replace(",", "")
+                m = re.search(r"-?\d+(?:\.\d+)?", text)
+                if not m:
+                    return 0.0
+                try:
+                    return float(m.group(0))
+                except Exception:
+                    return 0.0
+
             # ── Step 4: 建立「配方 → 含哪些色母及用量」快取 ──
             # key = 配方編號（附加配方用原始配方ID）
             recipe_powder_map = {}
@@ -7752,6 +7803,7 @@ elif menu == "庫存區":
                     continue
                 cat = str(rec.get("配方類別", "")).strip()
                 key_rid = str(rec.get("原始配方", "")).strip() if cat == "附加配方" else rid
+                key_rid = normalize_recipe_id(key_rid)
                 if not key_rid:
                     continue
 
@@ -7774,21 +7826,21 @@ elif menu == "庫存區":
                 for _, order in df_order_local.iterrows():
                     order_date_dt = order.get("生產日期_dt")
                     if pd.isna(order_date_dt):
-                        continue
+                        order_date_dt = pd.to_datetime(order.get("建立時間", ""), errors="coerce")
+                        if pd.isna(order_date_dt):
+                            continue
+                        order_date_dt = order_date_dt.normalize()
 
-                    recipe_id = str(order.get("配方編號", "")).strip()
+                    recipe_id = normalize_recipe_id(order.get("配方編號", ""))
                     if not recipe_id or recipe_id not in recipe_powder_map:
                         continue
 
                     packs_total_kg = 0.0
                     for j in range(1, 5):
-                        try:
-                            packs_total_kg += (
-                                float(order.get(f"包裝重量{j}", 0) or 0) *
-                                float(order.get(f"包裝份數{j}", 0) or 0)
-                            )
-                        except Exception:
-                            pass
+                        packs_total_kg += (
+                            parse_pack_value(order.get(f"包裝重量{j}", 0)) *
+                            parse_pack_value(order.get(f"包裝份數{j}", 0))
+                        )
 
                     if packs_total_kg <= 0:
                         continue
