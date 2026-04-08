@@ -1570,6 +1570,7 @@ elif menu == "配方管理":
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
         "原始配方", "色粉類別", "計量單位", "Pantone色號",
+        "代工轉換倍率",
         "比例1", "比例2", "比例3", "淨重", "淨重單位",
         *[f"色粉編號{i}" for i in range(1, 9)],
         *[f"色粉重量{i}" for i in range(1, 9)],
@@ -1810,7 +1811,17 @@ elif menu == "配方管理":
                 cur = fr.get("計量單位", opts[0])
                 fr["計量單位"] = st.selectbox("計量單位", opts, index=opts.index(cur) if cur in opts else 0, key="form_recipe_計量單位")
 
-            fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號",""), key="form_recipe_Pantone色號")
+            pantone_col, oem_ratio_col = st.columns(2)
+            with pantone_col:
+                fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號",""), key="form_recipe_Pantone色號")
+            with oem_ratio_col:
+                fr["代工轉換倍率"] = st.number_input(
+                    "代工轉換倍率（僅代工管理生效）",
+                    min_value=0.01,
+                    value=float(fr.get("代工轉換倍率", 1) or 1),
+                    step=0.01,
+                    key="form_recipe_oem_multiplier"
+                )
     
             # ---------------- 重要提醒 ----------------
             fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒",""), key="form_recipe_重要提醒")
@@ -2195,6 +2206,18 @@ elif menu == "配方管理":
                             cur_u = unit_options[0]
                         fr["計量單位"] = st.selectbox("計量單位", unit_options,
                             index=unit_options.index(cur_u), key=f"edit_recipe_unit_{code}")
+
+                    pantone_col, oem_ratio_col = st.columns(2)
+                    with pantone_col:
+                        fr["Pantone色號"] = st.text_input("Pantone色號", fr.get("Pantone色號", ""), key=f"edit_recipe_pantone_{code}")
+                    with oem_ratio_col:
+                        fr["代工轉換倍率"] = st.number_input(
+                            "代工轉換倍率（僅代工管理生效）",
+                            min_value=0.01,
+                            value=float(fr.get("代工轉換倍率", 1) or 1),
+                            step=0.01,
+                            key=f"edit_recipe_oem_multiplier_{code}"
+                        )
 
                     col_net, col_net_unit = st.columns(2)
                     with col_net:
@@ -2636,12 +2659,18 @@ elif menu == "配方管理":
 
                     def generate_master_batch_html(calc_data):
                         ratio_display = str(calc_data.get("ratio", "")).strip()
-                        unit_hint = f"{ratio_display}K" if ratio_display else ""
+                        unit_hint_map = {
+                            "12.5": "27K",
+                            "20:1": "42K",
+                            "25:1": "52K",
+                            "50:1": "100K",
+                            "100:1": "200K",
+                        }
+                        unit_hint = unit_hint_map.get(ratio_display, "")
                         html_lines = [
                             f"編號：{calc_data['new_code']}　顏色：{calc_data['recipe_data'].get('顏色', '')}　比例：{calc_data['ratio']}",
                             "",
                             f"{unit_hint:^20}" if unit_hint else "",
-                            ""
                         ]
                         for item in calc_data["powder_data"]:
                             w = item["weight"]
@@ -3819,6 +3848,9 @@ elif menu == "生產單管理":
                 # ============================================================
 
                 last_stock = st.session_state.get("last_final_stock", {}).copy()
+                normalized_last_stock = {
+                    str(k).strip().upper(): v for k, v in last_stock.items()
+                }
                 alerts = []
 
                 # 取得本張生產單的主配方與附加配方
@@ -3842,9 +3874,15 @@ elif menu == "生產單管理":
                     except Exception:
                         return 0.0
 
+                def _safe_float_local(value, default=0.0):
+                    try:
+                        return float(str(value).strip())
+                    except Exception:
+                        return default
+
                 for rec in all_recipes_for_check:
                     for i in range(1, 9):
-                        pid = str(rec.get(f"色粉編號{i}", "")).strip()
+                        pid = str(rec.get(f"色粉編號{i}", "")).strip().upper()
                         if not pid:
                             continue
 
@@ -3853,7 +3891,7 @@ elif menu == "生產單管理":
                             continue
 
                         # 若該色粉沒有初始庫存，略過
-                        if pid not in last_stock:
+                        if pid not in normalized_last_stock:
                             continue
 
                         # 取得色粉重量（每 kg 產品用量）
@@ -3874,8 +3912,9 @@ elif menu == "生產單管理":
                             total_used_g += ratio_g * w_val * n_val
 
                         # 扣庫存
-                        last_stock_before = last_stock.get(pid, 0)
+                        last_stock_before = _safe_float_local(normalized_last_stock.get(pid, 0), 0.0)
                         new_stock = last_stock_before - total_used_g
+                        normalized_last_stock[pid] = new_stock
                         last_stock[pid] = new_stock
 
                         # 分級提醒
@@ -3948,7 +3987,7 @@ elif menu == "生產單管理":
                         except:
                             ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
                             ws_oem.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱", 
-                                                               "代工數量", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
+                                                               "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
                 
                         oem_row = [
                             oem_id,
@@ -3956,6 +3995,8 @@ elif menu == "生產單管理":
                             order.get('配方編號', ''),
                             order.get('客戶名稱', ''),
                             oem_qty,
+                            oem_qty,
+                            1,
                             "",
                             "",
                             "🏭 在廠內",  # ⭐ 預設狀態
@@ -4820,11 +4861,11 @@ if menu == "代工管理":
             try:
                 ws_oem_ = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
                 ws_oem_.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱",
-                                    "代工數量", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
+                                    "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
             except:
                 pass
             df_oem_ = pd.DataFrame(columns=["代工單號", "生產單號", "配方編號", "客戶名稱",
-                                             "代工數量", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
+                                             "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
 
         try:
             ws_delivery_ = get_cached_worksheet("代工送達記錄")
@@ -4849,7 +4890,7 @@ if menu == "代工管理":
             df_return_ = pd.DataFrame(columns=["代工單號", "載回日期", "載回數量", "建立時間"])
 
         # 補齊必要欄位
-        for col in ["代工單號", "狀態", "已交貨", "交貨備註"]:
+        for col in ["代工單號", "目標載回數量", "轉換倍率", "狀態", "已交貨", "交貨備註"]:
             if col not in df_oem_.columns:
                 df_oem_[col] = ""
         if "代工單號" not in df_delivery_.columns:
@@ -4876,7 +4917,7 @@ if menu == "代工管理":
     # 若舊版工作表缺少交貨相關欄位，自動補上（只做一次）
     try:
         oem_headers = ws_oem.row_values(1)
-        for col_name in ["已交貨", "交貨備註"]:
+        for col_name in ["目標載回數量", "轉換倍率", "已交貨", "交貨備註"]:
             if col_name not in oem_headers:
                 ws_oem.update_cell(1, len(oem_headers) + 1, col_name)
                 oem_headers.append(col_name)
@@ -4897,12 +4938,36 @@ if menu == "代工管理":
             return str(int(d[:3]) + 1911) + d[3:]
         return d
 
+    def _safe_float(value, default=0.0):
+        try:
+            return float(str(value).strip())
+        except:
+            return default
+
+    def compute_oem_progress_status(oem_row, total_returned):
+        target_qty = _safe_float(oem_row.get("目標載回數量", 0), 0.0)
+        if target_qty <= 0:
+            target_qty = _safe_float(oem_row.get("代工數量", 0), 0.0)
+
+        if total_returned >= target_qty and target_qty > 0:
+            return "✅ 已結案"
+        if total_returned > 0:
+            return "🔄 進行中"
+        return "⏳ 未載回"
+
     def update_oem_status(oem_no, new_status):
         """更新代工單狀態（單格寫入）並同步 session_state"""
+        status_col_idx = 8
+        try:
+            oem_headers = ws_oem.row_values(1)
+            if "狀態" in oem_headers:
+                status_col_idx = oem_headers.index("狀態") + 1
+        except:
+            pass
         all_values = get_cached_sheet_values("代工管理")
         for idx, row in enumerate(all_values[1:], start=2):
             if row[0] == oem_no:
-                ws_oem.update_cell(idx, 8, new_status)
+                ws_oem.update_cell(idx, status_col_idx, new_status)
                 break
         # 同步 session_state
         mask = st.session_state.df_oem["代工單號"] == oem_no
@@ -4950,6 +5015,30 @@ if menu == "代工管理":
             with row2_col3:
                 new_vendor = st.selectbox("代工廠商", ["", "弘旭", "良輝"])
 
+            recipe_multiplier = 1.0
+            try:
+                df_recipe_for_oem = st.session_state.get("df_recipe", pd.DataFrame())
+                matched = df_recipe_for_oem[
+                    df_recipe_for_oem.get("配方編號", pd.Series(dtype=str)).astype(str).str.strip() == str(new_formula_id).strip()
+                ]
+                if not matched.empty:
+                    recipe_multiplier = _safe_float(matched.iloc[0].get("代工轉換倍率", 1), 1.0)
+            except:
+                recipe_multiplier = 1.0
+            if recipe_multiplier <= 0:
+                recipe_multiplier = 1.0
+
+            row3_col1, row3_col2 = st.columns(2)
+            with row3_col1:
+                new_multiplier = st.number_input("轉換倍率（僅代工管理）", min_value=0.01, value=float(recipe_multiplier), step=0.01)
+            with row3_col2:
+                new_target_qty = st.number_input(
+                    "目標載回數量 (kg)",
+                    min_value=0.0,
+                    value=float(new_oem_qty * new_multiplier if new_oem_qty > 0 else 0.0),
+                    step=1.0
+                )
+
             new_remark     = st.text_area("備註")
             submitted_new  = st.form_submit_button("💾 建立代工單")
 
@@ -4960,10 +5049,12 @@ if menu == "代工管理":
                 st.error(f"❌ 代工單號 {new_oem_id} 已存在")
             elif new_oem_qty <= 0:
                 st.error("❌ 代工數量必須大於 0")
+            elif new_target_qty <= 0:
+                st.error("❌ 目標載回數量必須大於 0")
             else:
                 new_row_data = [
                     new_oem_id, new_production_id, new_formula_id,
-                    new_customer, new_oem_qty, new_vendor, new_remark,
+                    new_customer, new_oem_qty, new_target_qty, new_multiplier, new_vendor, new_remark,
                     "🏭 在廠內",
                     datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "",
@@ -4978,6 +5069,8 @@ if menu == "代工管理":
                     "配方編號": new_formula_id,
                     "客戶名稱": new_customer,
                     "代工數量": new_oem_qty,
+                    "目標載回數量": new_target_qty,
+                    "轉換倍率": new_multiplier,
                     "代工廠商": new_vendor,
                     "備註":     new_remark,
                     "狀態":     "🏭 在廠內",
@@ -5013,7 +5106,7 @@ if menu == "代工管理":
             df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
 
             oem_options = [
-                f"{row.get('客戶名稱','')} | {row.get('配方編號','')} | {row.get('代工數量',0)}kg | {row.get('代工廠商','')} | {row['代工單號']}"
+                f"{row.get('客戶名稱','')} | {row.get('配方編號','')} | 送{row.get('代工數量',0)}kg/回{row.get('目標載回數量', row.get('代工數量',0))}kg | {row.get('代工廠商','')} | {row['代工單號']}"
                 for _, row in df_oem_active.iterrows()
             ]
 
@@ -5036,6 +5129,11 @@ if menu == "代工管理":
                         st.session_state.oem_vendor = oem_row.get("代工廠商", "")
                         st.session_state.oem_status = oem_row.get("狀態", "")
                         st.session_state.oem_remark = oem_row.get("備註", "")
+                        st.session_state.oem_multiplier = _safe_float(oem_row.get("轉換倍率", 1), 1.0)
+                        st.session_state.oem_target_qty = _safe_float(
+                            oem_row.get("目標載回數量", oem_row.get("代工數量", 0)),
+                            _safe_float(oem_row.get("代工數量", 0), 0.0)
+                        )
                         st.session_state.delivery_qty = 0.0
 
                     col1, col2, col3 = st.columns(3)
@@ -5043,8 +5141,23 @@ if menu == "代工管理":
                     col2.text_input("客戶名稱", value=oem_row.get("客戶名稱", ""), disabled=True)
                     col3.text_input("代工數量 (kg)", value=oem_row.get("代工數量", ""), disabled=True)
 
-                    col4, col5 = st.columns([2, 1])
-                    new_vendor = col4.selectbox(
+                    col_target, col_ratio, col_vendor, col_status = st.columns([1, 1, 2, 1])
+                    new_target_qty = col_target.number_input(
+                        "目標載回數量 (kg)",
+                        min_value=0.0,
+                        value=float(st.session_state.get("oem_target_qty", 0.0)),
+                        step=1.0,
+                        key="oem_target_qty"
+                    )
+                    new_multiplier = col_ratio.number_input(
+                        "轉換倍率",
+                        min_value=0.01,
+                        value=float(st.session_state.get("oem_multiplier", 1.0)),
+                        step=0.01,
+                        key="oem_multiplier"
+                    )
+
+                    new_vendor = col_vendor.selectbox(
                         "代工廠商", ["", "弘旭", "良輝"],
                         index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", ""))
                               if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
@@ -5053,7 +5166,7 @@ if menu == "代工管理":
                     status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
                     current_status = oem_row.get("狀態", "")
                     status_index   = status_options.index(current_status) if current_status in status_options else 0
-                    new_status     = col5.selectbox("狀態", status_options, index=status_index, key="oem_status")
+                    new_status     = col_status.selectbox("狀態", status_options, index=status_index, key="oem_status")
                     new_remark     = st.text_area("備註", value=oem_row.get("備註", ""), key="oem_remark", height=120)
 
                     # 計算已送達 / 尚餘
@@ -5070,16 +5183,30 @@ if menu == "代工管理":
                     if is_closed:
                         st.warning("⚠️ 此代工單已結案，禁止再修改")
 
-                    def persist_oem_info(vendor, remark, status):
+                    def persist_oem_info(vendor, remark, status, target_qty, multiplier):
                         all_values = get_cached_sheet_values("代工管理")
+                        headers = all_values[0] if all_values else []
                         for idx, row in enumerate(all_values[1:], start=2):
                             if row[0] == selected_oem:
                                 import gspread.utils as gu
-                                col_s = gu.rowcol_to_a1(idx, 6).rstrip("0123456789")
-                                col_e = gu.rowcol_to_a1(idx, 8).rstrip("0123456789")
+                                vendor_col = headers.index("代工廠商") + 1 if "代工廠商" in headers else 6
+                                remark_col = headers.index("備註") + 1 if "備註" in headers else 7
+                                status_col = headers.index("狀態") + 1 if "狀態" in headers else 8
+                                target_col = headers.index("目標載回數量") + 1 if "目標載回數量" in headers else 6
+                                ratio_col = headers.index("轉換倍率") + 1 if "轉換倍率" in headers else 7
+                                start_col = min(vendor_col, remark_col, status_col, target_col, ratio_col)
+                                end_col = max(vendor_col, remark_col, status_col, target_col, ratio_col)
+                                row_payload = [""] * (end_col - start_col + 1)
+                                row_payload[vendor_col - start_col] = vendor
+                                row_payload[remark_col - start_col] = remark
+                                row_payload[status_col - start_col] = status
+                                row_payload[target_col - start_col] = str(target_qty)
+                                row_payload[ratio_col - start_col] = str(multiplier)
+                                col_s = gu.rowcol_to_a1(idx, start_col).rstrip("0123456789")
+                                col_e = gu.rowcol_to_a1(idx, end_col).rstrip("0123456789")
                                 ws_oem.update(
                                     f"{col_s}{idx}:{col_e}{idx}",
-                                    [[vendor, remark, status]]
+                                    [row_payload]
                                 )
                                 break
 
@@ -5087,15 +5214,19 @@ if menu == "代工管理":
                         st.session_state.df_oem.loc[mask, "代工廠商"] = vendor
                         st.session_state.df_oem.loc[mask, "備註"] = remark
                         st.session_state.df_oem.loc[mask, "狀態"] = status
+                        st.session_state.df_oem.loc[mask, "目標載回數量"] = target_qty
+                        st.session_state.df_oem.loc[mask, "轉換倍率"] = multiplier
 
-                    b1, b2 = st.columns(2)
+                    b1, b2, b3 = st.columns(3)
 
                     with b1:
                         if st.button("💾 更新代工資訊", key="update_oem_info"):
                             if is_closed:
                                 st.error("❌ 已結案代工單不可修改")
+                            elif new_target_qty <= 0:
+                                st.error("❌ 目標載回數量必須大於 0")
                             else:
-                                persist_oem_info(new_vendor, new_remark, new_status)
+                                persist_oem_info(new_vendor, new_remark, new_status, new_target_qty, new_multiplier)
                                 st.session_state.toast_message = {"msg": "代工資訊已更新", "icon": "💾"}
                                 st.rerun()
 
@@ -5105,6 +5236,15 @@ if menu == "代工管理":
                                 st.error("❌ 已結案代工單不可刪除")
                             else:
                                 st.session_state.show_delete_oem_confirm = True
+
+                    with b3:
+                        if st.button("✅ 手動結案（短收/特例）", key="force_close_oem"):
+                            if is_closed:
+                                st.warning("⚠️ 此代工單已結案")
+                            else:
+                                update_oem_status(selected_oem, "✅ 已結案")
+                                st.session_state.toast_message = {"msg": "已手動結案（適用短收/特例）", "icon": "✅"}
+                                st.rerun()
 
                     if st.session_state.get("show_delete_oem_confirm", False):
                         st.warning(f"⚠️ 確定刪除 {oem_row['代工單號']}？")
@@ -5142,6 +5282,8 @@ if menu == "代工管理":
                             str(new_vendor).strip() != str(oem_row.get("代工廠商", "")).strip()
                             or str(new_remark).strip() != str(oem_row.get("備註", "")).strip()
                             or str(new_status).strip() != str(oem_row.get("狀態", "")).strip()
+                            or float(new_target_qty) != _safe_float(oem_row.get("目標載回數量", oem_row.get("代工數量", 0)), 0.0)
+                            or float(new_multiplier) != _safe_float(oem_row.get("轉換倍率", 1), 1.0)
                         )
 
                         if remaining <= 0 and delivery_qty > 0:
@@ -5150,7 +5292,7 @@ if menu == "代工管理":
                             if is_closed:
                                 st.error("❌ 已結案代工單不可修改")
                             else:
-                                persist_oem_info(new_vendor, new_remark, new_status)
+                                persist_oem_info(new_vendor, new_remark, new_status, new_target_qty, new_multiplier)
                                 st.session_state.toast_message = {"msg": "已更新代工廠商資訊（未新增送達）", "icon": "🏭"}
                                 st.rerun()
                         elif delivery_qty <= 0:
@@ -5159,7 +5301,7 @@ if menu == "代工管理":
                             st.error("❌ 送達數量不可超過尚餘數量")
                         else:
                             if vendor_changed and not is_closed:
-                                persist_oem_info(new_vendor, new_remark, new_status)
+                                persist_oem_info(new_vendor, new_remark, new_status, new_target_qty, new_multiplier)
                             new_delivery_row = [
                                 selected_oem,
                                 delivery_date.strftime("%Y/%m/%d"),
@@ -5216,7 +5358,7 @@ if menu == "代工管理":
                 st.warning("⚠️ 目前沒有可載回的代工單（全部已結案）")
             else:
                 oem_options = [
-                    f"{row['代工單號']} | {row.get('配方編號','')} | {row.get('客戶名稱','')} | {row.get('代工數量',0)}kg"
+                    f"{row['代工單號']} | {row.get('配方編號','')} | {row.get('客戶名稱','')} | 送{row.get('代工數量',0)}kg/回{row.get('目標載回數量', row.get('代工數量',0))}kg"
                     for _, row in df_oem_active.iterrows()
                 ]
                 selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_return")
@@ -5228,16 +5370,20 @@ if menu == "代工管理":
                     oem_row = df_oem.loc[oem_idx]
 
                     total_qty = float(oem_row.get("代工數量", 0))
+                    target_qty = _safe_float(oem_row.get("目標載回數量", total_qty), total_qty)
+                    if target_qty <= 0:
+                        target_qty = total_qty
 
                     df_this_return  = df_return[df_return["代工單號"] == selected_oem]
                     total_returned  = df_this_return["載回數量"].astype(float).sum() \
                         if not df_this_return.empty else 0.0
-                    remaining_qty   = total_qty - total_returned
+                    remaining_qty   = target_qty - total_returned
 
-                    col1, col2 = st.columns(2)
+                    col1, col2, col3 = st.columns(3)
                     col1.text_input("配方編號",    value=oem_row.get("配方編號", ""),  disabled=True, key="oem_recipe_no_display")
-                    col2.text_input("代工數量 (kg)", value=total_qty,                   disabled=True, key="oem_total_qty_display")
-                    st.info(f"🚚 已載回：{total_returned} kg / 尚餘：{remaining_qty} kg")
+                    col2.text_input("代工數量 (kg)", value=total_qty, disabled=True, key="oem_total_qty_display")
+                    col3.text_input("目標載回數量 (kg)", value=target_qty, disabled=True, key="oem_target_qty_display")
+                    st.info(f"🚚 已載回：{total_returned} kg / 目標：{target_qty} kg / 尚餘：{remaining_qty} kg")
 
                     if not df_this_return.empty:
                         st.dataframe(
@@ -5275,15 +5421,19 @@ if menu == "代工管理":
                                 [st.session_state.df_return, new_ret_df], ignore_index=True
                             )
 
-                            new_total     = total_returned + return_qty
-                            remaining_after = total_qty - new_total
+                            new_total = total_returned + return_qty
+                            remaining_after = target_qty - new_total
 
-                            if remaining_after <= 0 and total_qty > 0:
+                            if remaining_after <= 0 and target_qty > 0:
                                 status_col_idx = int(df_oem.columns.get_loc("狀態")) + 1
                                 ws_oem.update_cell(row=oem_idx + 2, col=status_col_idx, value="✅ 已結案")
                                 # ✅ 同步 session_state
                                 st.session_state.df_oem.loc[oem_idx, "狀態"] = "✅ 已結案"
-                                st.session_state.toast_msg  = "🎉 載回完成，代工單已結案"
+                                if new_total > target_qty:
+                                    over_qty = new_total - target_qty
+                                    st.session_state.toast_msg = f"🎉 載回完成並超收 {over_qty:.2f} kg，代工單已結案"
+                                else:
+                                    st.session_state.toast_msg = "🎉 載回完成，代工單已結案"
                                 st.session_state.toast_icon = "✅"
                             else:
                                 st.session_state.toast_msg  = "💾 載回資料已儲存"
@@ -5332,6 +5482,9 @@ if menu == "代工管理":
                     latest_return_date = pd.to_datetime(df_this_return["載回日期"], errors="coerce").max()
 
                 total_qty      = float(oem.get("代工數量", 0))
+                target_qty     = _safe_float(oem.get("目標載回數量", total_qty), total_qty)
+                if target_qty <= 0:
+                    target_qty = total_qty
                 total_returned = df_this_return["載回數量"].astype(float).sum() \
                     if not df_this_return.empty else 0.0
 
@@ -5339,12 +5492,15 @@ if menu == "代工管理":
                 if manual_status:
                     status = manual_status
                 else:
-                    if total_returned >= total_qty and total_qty > 0:
-                        status = "✅ 已結案"
-                    elif total_returned > 0:
-                        status = "🔄 進行中"
-                    else:
-                        status = "⏳ 未載回"
+                    status = compute_oem_progress_status(oem, total_returned)
+
+                variance_qty = total_returned - target_qty
+                if variance_qty > 0:
+                    variance_text = f"超收 {variance_qty:.2f} kg"
+                elif variance_qty < 0:
+                    variance_text = f"短收 {abs(variance_qty):.2f} kg"
+                else:
+                    variance_text = "剛好達標"
 
                 progress_data.append({
                     "status_order":   status_order_map.get(status, 99),
@@ -5354,6 +5510,8 @@ if menu == "代工管理":
                     "配方編號":       oem.get("配方編號", ""),
                     "客戶名稱":       oem.get("客戶名稱", ""),
                     "代工數量":       f"{oem.get('代工數量', 0)} kg",
+                    "目標載回":       f"{target_qty} kg",
+                    "差異":           variance_text,
                     "送達日期及數量": delivery_text,
                     "載回日期及數量": return_text,
                     "建立時間":       oem.get("建立時間", ""),
@@ -5525,7 +5683,7 @@ if menu == "代工管理":
                     )
                     closed_cols = [
                         "狀態", "代工單號", "代工廠名稱", "配方編號", "客戶名稱",
-                        "代工數量", "送達日期及數量", "載回日期及數量", "建立時間", "已交貨", "交貨備註"
+                        "代工數量", "目標載回", "差異", "送達日期及數量", "載回日期及數量", "建立時間", "已交貨", "交貨備註"
                     ]
                     with st.form("oem_closed_delivery_form_tab4"):
                         edited_closed = st.data_editor(
