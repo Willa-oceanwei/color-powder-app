@@ -2659,7 +2659,14 @@ elif menu == "配方管理":
 
                     def generate_master_batch_html(calc_data):
                         ratio_display = str(calc_data.get("ratio", "")).strip()
-                        unit_hint = f"{ratio_display}K" if ratio_display else ""
+                        unit_hint_map = {
+                            "12.5": "27K",
+                            "20:1": "42K",
+                            "25:1": "52K",
+                            "50:1": "100K",
+                            "100:1": "200K",
+                        }
+                        unit_hint = unit_hint_map.get(ratio_display, "")
                         html_lines = [
                             f"編號：{calc_data['new_code']}　顏色：{calc_data['recipe_data'].get('顏色', '')}　比例：{calc_data['ratio']}",
                             "",
@@ -3842,6 +3849,9 @@ elif menu == "生產單管理":
                 # ============================================================
 
                 last_stock = st.session_state.get("last_final_stock", {}).copy()
+                normalized_last_stock = {
+                    str(k).strip().upper(): v for k, v in last_stock.items()
+                }
                 alerts = []
 
                 # 取得本張生產單的主配方與附加配方
@@ -3867,7 +3877,7 @@ elif menu == "生產單管理":
 
                 for rec in all_recipes_for_check:
                     for i in range(1, 9):
-                        pid = str(rec.get(f"色粉編號{i}", "")).strip()
+                        pid = str(rec.get(f"色粉編號{i}", "")).strip().upper()
                         if not pid:
                             continue
 
@@ -3876,7 +3886,7 @@ elif menu == "生產單管理":
                             continue
 
                         # 若該色粉沒有初始庫存，略過
-                        if pid not in last_stock:
+                        if pid not in normalized_last_stock:
                             continue
 
                         # 取得色粉重量（每 kg 產品用量）
@@ -3897,8 +3907,9 @@ elif menu == "生產單管理":
                             total_used_g += ratio_g * w_val * n_val
 
                         # 扣庫存
-                        last_stock_before = last_stock.get(pid, 0)
+                        last_stock_before = _safe_float(normalized_last_stock.get(pid, 0), 0.0)
                         new_stock = last_stock_before - total_used_g
+                        normalized_last_stock[pid] = new_stock
                         last_stock[pid] = new_stock
 
                         # 分級提醒
@@ -5125,7 +5136,7 @@ if menu == "代工管理":
                     col2.text_input("客戶名稱", value=oem_row.get("客戶名稱", ""), disabled=True)
                     col3.text_input("代工數量 (kg)", value=oem_row.get("代工數量", ""), disabled=True)
 
-                    col_target, col_ratio = st.columns(2)
+                    col_target, col_ratio, col_vendor, col_status = st.columns([1, 1, 2, 1])
                     new_target_qty = col_target.number_input(
                         "目標載回數量 (kg)",
                         min_value=0.0,
@@ -5134,15 +5145,14 @@ if menu == "代工管理":
                         key="oem_target_qty"
                     )
                     new_multiplier = col_ratio.number_input(
-                        "轉換倍率（僅代工管理）",
+                        "轉換倍率",
                         min_value=0.01,
                         value=float(st.session_state.get("oem_multiplier", 1.0)),
                         step=0.01,
                         key="oem_multiplier"
                     )
 
-                    col4, col5 = st.columns([2, 1])
-                    new_vendor = col4.selectbox(
+                    new_vendor = col_vendor.selectbox(
                         "代工廠商", ["", "弘旭", "良輝"],
                         index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", ""))
                               if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
@@ -5151,7 +5161,7 @@ if menu == "代工管理":
                     status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
                     current_status = oem_row.get("狀態", "")
                     status_index   = status_options.index(current_status) if current_status in status_options else 0
-                    new_status     = col5.selectbox("狀態", status_options, index=status_index, key="oem_status")
+                    new_status     = col_status.selectbox("狀態", status_options, index=status_index, key="oem_status")
                     new_remark     = st.text_area("備註", value=oem_row.get("備註", ""), key="oem_remark", height=120)
 
                     # 計算已送達 / 尚餘
