@@ -2671,7 +2671,6 @@ elif menu == "配方管理":
                             f"編號：{calc_data['new_code']}　顏色：{calc_data['recipe_data'].get('顏色', '')}　比例：{calc_data['ratio']}",
                             "",
                             f"{unit_hint:^20}" if unit_hint else "",
-                            ""
                         ]
                         for item in calc_data["powder_data"]:
                             w = item["weight"]
@@ -3875,6 +3874,12 @@ elif menu == "生產單管理":
                     except Exception:
                         return 0.0
 
+                def _safe_float_local(value, default=0.0):
+                    try:
+                        return float(str(value).strip())
+                    except Exception:
+                        return default
+
                 for rec in all_recipes_for_check:
                     for i in range(1, 9):
                         pid = str(rec.get(f"色粉編號{i}", "")).strip().upper()
@@ -3907,7 +3912,7 @@ elif menu == "生產單管理":
                             total_used_g += ratio_g * w_val * n_val
 
                         # 扣庫存
-                        last_stock_before = _safe_float(normalized_last_stock.get(pid, 0), 0.0)
+                        last_stock_before = _safe_float_local(normalized_last_stock.get(pid, 0), 0.0)
                         new_stock = last_stock_before - total_used_g
                         normalized_last_stock[pid] = new_stock
                         last_stock[pid] = new_stock
