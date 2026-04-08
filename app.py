@@ -7359,17 +7359,6 @@ elif menu == "庫存區":
         raw_datetime_dt = parse_stock_datetime_series(
             df_stock_copy["日期時間"] if "日期時間" in df_stock_copy.columns else None
         )
-        raw_date_dt = (
-            pd.to_datetime(df_stock_copy["日期"], errors="coerce")
-            if "日期" in df_stock_copy.columns
-            else pd.Series(pd.NaT, index=df_stock_copy.index)
-        )
-        raw_datetime_dt = (
-            pd.to_datetime(df_stock_copy["日期時間"], errors="coerce")
-            if "日期時間" in df_stock_copy.columns
-            else pd.Series(pd.NaT, index=df_stock_copy.index)
-
-        )
         df_stock_copy["日期時間"] = raw_datetime_dt.combine_first(raw_date_dt)
         df_stock_copy["日期"] = raw_date_dt.dt.normalize()
         df_stock_copy["數量_g"] = df_stock_copy.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
@@ -7378,13 +7367,17 @@ elif menu == "庫存區":
         df_order_copy = df_order.copy()
 
         def get_order_datetime(row):
-            for col_name in ["生產時間", "建立時間"]:
-                if col_name in row and pd.notna(row[col_name]):
-                    return pd.to_datetime(row[col_name], errors="coerce")
+            # 優先用「生產日期」，其次才是生產時間/建立時間
             if "生產日期" in row and pd.notna(row["生產日期"]):
                 dt = pd.to_datetime(row["生產日期"], errors="coerce")
                 if pd.notna(dt):
-                    return dt + pd.Timedelta(hours=9)
+                    return dt + pd.Timedelta(hours=12)
+
+            for col_name in ["生產時間", "建立時間"]:
+                if col_name in row and pd.notna(row[col_name]):
+                    dt = pd.to_datetime(row[col_name], errors="coerce")
+                    if pd.notna(dt):
+                        return dt
             return pd.NaT
 
         if not df_order_copy.empty:
