@@ -327,17 +327,6 @@ def apply_modern_style():
             font-size: 16px !important;
         }
 
-        /* 已結案交貨註記：手機字級微調，避免過大 */
-        .closed-delivery-note-title {
-            font-size: 15px !important;
-            line-height: 1.35 !important;
-            font-weight: 700 !important;
-        }
-        .closed-delivery-note-hint {
-            font-size: 12px !important;
-            line-height: 1.35 !important;
-            opacity: 0.9;
-        }
     }
 
     /* 超小螢幕才全面單欄，避免影響平板與橫向手機 */
@@ -5723,11 +5712,7 @@ if menu == "代工管理":
                     )
 
                     st.markdown(
-                        "<div class='closed-delivery-note-title'>📝 已結案交貨註記（手機相容）</div>",
-                        unsafe_allow_html=True
-                    )
-                    st.markdown(
-                        "<div class='closed-delivery-note-hint'>已針對手機縮小字級，避免標題與欄位過大。</div>",
+                        "<div style='font-size:16px; font-weight:600; color:#f4e8ff;'>📝 已結案交貨註記</div>",
                         unsafe_allow_html=True
                     )
                     closed_selector_options = []
