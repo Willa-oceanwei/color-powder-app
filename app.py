@@ -7347,11 +7347,43 @@ elif menu == "庫存區":
             if series is None:
                 return pd.Series(pd.NaT, index=df_stock_copy.index)
 
-            dt_parsed = pd.to_datetime(series, errors="coerce")
-            numeric_serial = pd.to_numeric(series, errors="coerce")
-            serial_dt = pd.to_datetime("1899-12-30") + pd.to_timedelta(numeric_serial, unit="D")
-            dt_parsed = dt_parsed.combine_first(serial_dt.where(numeric_serial.notna()))
-            return dt_parsed
+            def parse_one(val):
+                if pd.isna(val):
+                    return pd.NaT
+
+                if isinstance(val, (datetime, pd.Timestamp)):
+                    return pd.to_datetime(val, errors="coerce")
+                if isinstance(val, date):
+                    return pd.Timestamp(val)
+
+                text = str(val).strip()
+                if not text:
+                    return pd.NaT
+
+                parsed = pd.to_datetime(text, errors="coerce")
+                if pd.notna(parsed):
+                    return parsed
+
+                numeric_serial = pd.to_numeric(text, errors="coerce")
+                if pd.notna(numeric_serial):
+                    return pd.to_datetime("1899-12-30") + pd.to_timedelta(numeric_serial, unit="D")
+
+                for fmt in (
+                    "%Y/%m/%d %H:%M:%S",
+                    "%Y/%m/%d %H:%M",
+                    "%Y-%m-%d %H:%M:%S",
+                    "%Y-%m-%d %H:%M",
+                    "%Y/%m/%d",
+                    "%Y-%m-%d",
+                ):
+                    try:
+                        return pd.to_datetime(datetime.strptime(text, fmt))
+                    except Exception:
+                        continue
+
+                return pd.NaT
+
+            return series.apply(parse_one)
 
         raw_date_dt = parse_stock_datetime_series(
             df_stock_copy["日期"] if "日期" in df_stock_copy.columns else None
@@ -7423,10 +7455,10 @@ elif menu == "庫存區":
         if not all_pids:
             return [], "⚠️ 查無符合條件的庫存記錄。"
 
-        today_dt = pd.Timestamp.now()
-        start_dt = pd.to_datetime(query_start) if query_start else pd.Timestamp.min
-        end_dt = (pd.to_datetime(query_end) + pd.Timedelta(hours=23, minutes=59, seconds=59)
-                  if query_end else today_dt)
+        today_end_dt = pd.Timestamp.today().normalize() + pd.Timedelta(hours=23, minutes=59, seconds=59)
+        start_dt = pd.to_datetime(query_start).normalize() if query_start else pd.Timestamp.min
+        end_dt = (pd.to_datetime(query_end).normalize() + pd.Timedelta(hours=23, minutes=59, seconds=59)
+                  if query_end else today_end_dt)
         if start_dt > end_dt:
             return None, "❌ 查詢起日不能晚於查詢迄日。"
 
@@ -7442,13 +7474,27 @@ elif menu == "庫存區":
                 latest_ini = df_ini.sort_values("日期時間", ascending=False).iloc[0]
                 ini_value = latest_ini["數量_g"]
                 ini_dt = latest_ini["日期時間"]
-                ini_note = f"期初來源：{ini_dt.strftime('%Y/%m/%d %H:%M') if pd.notna(ini_dt) else '—'}"
+                ini_dt_raw = str(latest_ini.get("日期時間", "")).strip()
+                has_explicit_ini_datetime = bool(ini_dt_raw) and ini_dt_raw.lower() not in {"nan", "nat"}
+                if pd.isna(ini_dt) and "日期" in latest_ini and pd.notna(latest_ini["日期"]):
+                    ini_dt = pd.to_datetime(latest_ini["日期"], errors="coerce")
+                if pd.notna(ini_dt):
+                    note_fmt = "%Y/%m/%d %H:%M" if has_explicit_ini_datetime else "%Y/%m/%d"
+                    ini_note = f"期初來源：{ini_dt.strftime(note_fmt)}"
+                else:
+                    ini_note = "期初來源：未提供日期"
             else:
                 ini_value = 0.0
                 ini_dt = pd.Timestamp.min
+                has_explicit_ini_datetime = True
                 ini_note = "—"
 
-            calc_start_dt = max(start_dt, ini_dt)
+            if pd.notna(ini_dt) and not has_explicit_ini_datetime:
+                ini_effective_start_dt = ini_dt.normalize() + pd.Timedelta(hours=23, minutes=59, seconds=59)
+            else:
+                ini_effective_start_dt = ini_dt
+
+            calc_start_dt = max(start_dt, ini_effective_start_dt) if pd.notna(ini_effective_start_dt) else start_dt
 
             purchase_types = {"進貨", "新增庫存"}
             in_qty = df_pid[
@@ -7617,10 +7663,18 @@ elif menu == "庫存區":
                 err_text_local = "庫存查詢失敗，請稍後再試。"
             return err_text_local
 
+        use_date_range_key = "stock_use_date_range"
+        use_date_range = st.checkbox(
+            "使用日期區間",
+            value=st.session_state.get(use_date_range_key, False),
+            key=f"{use_date_range_key}_cb",
+        )
+        st.session_state[use_date_range_key] = use_date_range
+
         with st.form("form_stock_query"):
             col1, col2 = st.columns(2)
-            query_start = col1.date_input("查詢起日", key="stock_start_query")
-            query_end   = col2.date_input("查詢迄日", key="stock_end_query")
+            query_start = col1.date_input("查詢起日", key="stock_start_query", disabled=not use_date_range)
+            query_end   = col2.date_input("查詢迄日", key="stock_end_query", disabled=not use_date_range)
 
             c_input, c_match = st.columns([3, 1])
             with c_input:
@@ -7633,15 +7687,21 @@ elif menu == "庫存區":
 
             submit_t2 = st.form_submit_button("計算庫存")
 
+        if not use_date_range:
+            st.caption("ℹ️ 未使用日期區間：預設查詢從期初庫存（若無期初則從最早資料）到今天的庫存。")
+
+        effective_query_start = query_start if use_date_range else None
+        effective_query_end = query_end if use_date_range else None
+
         # ── 計算簽名（避免重複計算）──
-        query_signature = f"{query_start}|{query_end}|{st.session_state.get('stock_powder','')}|{st.session_state.get('match_mode','')}"
+        query_signature = f"{use_date_range}|{effective_query_start}|{effective_query_end}|{st.session_state.get('stock_powder','')}|{st.session_state.get('match_mode','')}"
 
         if submit_t2:
             stock_summary, err_msg = build_stock_summary(
                 stock_powder=st.session_state.get("stock_powder", "").strip(),
                 match_mode=st.session_state.get("match_mode", "部分匹配"),
-                query_start=st.session_state.get("stock_start_query"),
-                query_end=st.session_state.get("stock_end_query"),
+                query_start=effective_query_start,
+                query_end=effective_query_end,
             )
             if err_msg:
                 err_text = normalize_stock_query_error(err_msg)
