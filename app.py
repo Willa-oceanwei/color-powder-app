@@ -7475,7 +7475,7 @@ elif menu == "庫存區":
                     ini_note = "期初來源：未提供日期"
             else:
                 ini_value = 0.0
-                ini_dt = pd.Timestamp.min
+                ini_dt = pd.NaT
                 ini_note = "—"
 
             if pd.notna(ini_dt):
@@ -7541,11 +7541,7 @@ elif menu == "庫存區":
             ini_qty    = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty")
             ini_unit   = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
 
-            col4, col5 = st.columns(2)
-            ini_date = col4.date_input("設定日期",  value=datetime.today(), key="ini_date")
-            ini_time = col5.time_input("設定時間",
-                                       value=datetime.now().replace(microsecond=0).time(),
-                                       key="ini_time")
+            ini_date = st.date_input("設定日期", value=datetime.today(), key="ini_date")
 
             ini_note  = st.text_input("備註", key="ini_note")
             submit_t1 = st.form_submit_button("💾 儲存初始庫存")
@@ -7569,7 +7565,8 @@ elif menu == "庫存區":
                 st.stop()
             st.session_state.pop(pending_confirm_key, None)
 
-            ini_datetime = datetime.combine(ini_date, ini_time).strftime("%Y/%m/%d %H:%M")
+            # 期初庫存採「日期語意」，寫入日期字串即可（不再要求時間欄位）
+            ini_datetime = ini_date.strftime("%Y/%m/%d")
 
             # ── 步驟 1：找出舊的「初始」列（從快取取，不多打 API）──
             try:
