@@ -814,6 +814,32 @@ def fmt_num(val, digits=2):
         return "0"
     return f"{num:.{digits}f}".rstrip("0").rstrip(".")
 
+def parse_pack_value(raw_val):
+    """將包裝重量/份數轉為數值，容忍包含單位或符號的輸入（例如 30K、25kg、1,200）。"""
+    if raw_val is None:
+        return 0.0
+    text = str(raw_val).strip()
+    if not text:
+        return 0.0
+    text = text.replace(",", "")
+    match = re.search(r"-?\d+(?:\.\d+)?", text)
+    if not match:
+        return 0.0
+    try:
+        return float(match.group(0))
+    except Exception:
+        return 0.0
+
+def calc_packs_total_kg(order_row):
+    """依生產單包裝重量/份數，計算總包裝量（kg）。"""
+    packs_total = 0.0
+    for j in range(1, 5):
+        packs_total += (
+            parse_pack_value(order_row.get(f"包裝重量{j}", 0)) *
+            parse_pack_value(order_row.get(f"包裝份數{j}", 0))
+        )
+    return packs_total
+
 def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
     """生成配方預覽文字（用於生產單）"""
     html_text = ""
@@ -3011,14 +3037,7 @@ elif menu == "生產單管理":
                 recipe_rows.extend(add_df.to_dict("records"))
             
             # 計算包裝總量（kg）
-            packs_total_kg = 0.0
-            for j in range(1, 5):
-                try:
-                    w_val = float(order_hist.get(f"包裝重量{j}", 0) or 0)
-                    n_val = float(order_hist.get(f"包裝份數{j}", 0) or 0)
-                    packs_total_kg += w_val * n_val
-                except:
-                    pass
+            packs_total_kg = calc_packs_total_kg(order_hist)
             
             if packs_total_kg <= 0:
                 continue
@@ -6104,12 +6123,13 @@ elif menu == "採購管理":
             
                 # 🔄 自動轉換單位
                 def format_quantity_unit(row):
-                    qty = row["數量"]
-                    unit = row["單位"].strip().lower()
+                    qty = parse_pack_value(row.get("數量", 0))
+                    unit_raw = str(row.get("單位", "") or "").strip()
+                    unit = unit_raw.lower()
                     if unit == "g" and qty >= 1000:
                         return pd.Series([qty / 1000, "kg"])
                     else:
-                        return pd.Series([qty, row["單位"]])
+                        return pd.Series([qty, unit_raw])
             
                 df_display[["數量", "單位"]] = df_display.apply(format_quantity_unit, axis=1)
                 df_display["日期"] = df_display["日期"].dt.strftime("%Y/%m/%d")
@@ -6600,12 +6620,7 @@ elif menu == "查詢區":
                     sources_main = set()
                     sources_add = set()
     
-                    packs_total = 0.0
-                    for j in range(1, 5):
-                        w_val = order.get(f"包裝重量{j}", 0)
-                        n_val = order.get(f"包裝份數{j}", 0)
-                        try: packs_total += float(w_val or 0) * float(n_val or 0)
-                        except: pass
+                    packs_total = calc_packs_total_kg(order)
     
                     if packs_total <= 0: continue
     
@@ -7185,20 +7200,6 @@ elif menu == "庫存區":
 
         def normalize_recipe_id(raw_val):
             return fix_leading_zero(clean_powder_id(str(raw_val or "")))
-
-        def parse_pack_value(raw_val):
-            if raw_val is None:
-                return 0.0
-            text = str(raw_val).strip().replace(",", "")
-            if not text:
-                return 0.0
-            m = re.search(r"-?\d+(?:\.\d+)?", text)
-            if not m:
-                return 0.0
-            try:
-                return float(m.group(0))
-            except Exception:
-                return 0.0
     
         if "生產時間" not in df_order_local.columns:
             return 0.0
@@ -7249,12 +7250,7 @@ elif menu == "庫存區":
         ]
     
         for _, order in orders_in_range.iterrows():
-            packs_total_kg = 0.0
-            for j in range(1, 5):
-                packs_total_kg += (
-                    parse_pack_value(order.get(f"包裝重量{j}", 0)) *
-                    parse_pack_value(order.get(f"包裝份數{j}", 0))
-                )
+            packs_total_kg = calc_packs_total_kg(order)
     
             if packs_total_kg <= 0:
                 continue
@@ -7822,22 +7818,6 @@ elif menu == "庫存區":
             def normalize_recipe_id(raw_val):
                 return fix_leading_zero(clean_powder_id(str(raw_val or "")))
 
-            def parse_pack_value(raw_val):
-                """容忍 25kg / 1,200 / 30K 等輸入，萃取數字部分。"""
-                if raw_val is None:
-                    return 0.0
-                text = str(raw_val).strip()
-                if not text:
-                    return 0.0
-                text = text.replace(",", "")
-                m = re.search(r"-?\d+(?:\.\d+)?", text)
-                if not m:
-                    return 0.0
-                try:
-                    return float(m.group(0))
-                except Exception:
-                    return 0.0
-
             # ── Step 4: 建立「配方 → 含哪些色母及用量」快取 ──
             # key = 配方編號（附加配方用原始配方ID）
             recipe_powder_map = {}
@@ -7880,12 +7860,7 @@ elif menu == "庫存區":
                     if not recipe_id or recipe_id not in recipe_powder_map:
                         continue
 
-                    packs_total_kg = 0.0
-                    for j in range(1, 5):
-                        packs_total_kg += (
-                            parse_pack_value(order.get(f"包裝重量{j}", 0)) *
-                            parse_pack_value(order.get(f"包裝份數{j}", 0))
-                        )
+                    packs_total_kg = calc_packs_total_kg(order)
 
                     if packs_total_kg <= 0:
                         continue
@@ -8110,13 +8085,7 @@ elif menu == "庫存區":
                     if not add_df.empty:
                         recipe_rows.extend(add_df.to_dict("records"))
 
-                    packs_total = 0.0
-                    for j in range(1, 5):
-                        try:
-                            packs_total += float(order.get(f"包裝重量{j}", 0) or 0) * \
-                                           float(order.get(f"包裝份數{j}", 0) or 0)
-                        except Exception:
-                            pass
+                    packs_total = calc_packs_total_kg(order)
 
                     if packs_total <= 0:
                         continue
@@ -8265,13 +8234,7 @@ elif menu == "庫存區":
                         if not add_df.empty:
                             recipe_rows.extend(add_df.to_dict("records"))
 
-                        packs_total = 0.0
-                        for j in range(1, 5):
-                            try:
-                                packs_total += float(order.get(f"包裝重量{j}", 0) or 0) * \
-                                               float(order.get(f"包裝份數{j}", 0) or 0)
-                            except Exception:
-                                pass
+                        packs_total = calc_packs_total_kg(order)
 
                         if packs_total <= 0:
                             continue
