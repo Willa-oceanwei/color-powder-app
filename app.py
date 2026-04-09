@@ -7366,12 +7366,22 @@ elif menu == "庫存區":
 
             return series.apply(parse_one)
 
-        raw_date_dt = parse_stock_datetime_series(
-            df_stock_copy["日期"] if "日期" in df_stock_copy.columns else None
-        )
-        raw_datetime_dt = parse_stock_datetime_series(
-            df_stock_copy["日期時間"] if "日期時間" in df_stock_copy.columns else None
-        )
+        raw_date_source = df_stock_copy["日期"] if "日期" in df_stock_copy.columns else None
+        raw_datetime_source = df_stock_copy["日期時間"] if "日期時間" in df_stock_copy.columns else None
+
+        # 保留原始輸入，避免後續僅靠 Timestamp(00:00:00) 無法判斷是否有「明確填寫時間」
+        if raw_date_source is not None:
+            df_stock_copy["_raw_日期"] = raw_date_source
+        else:
+            df_stock_copy["_raw_日期"] = ""
+
+        if raw_datetime_source is not None:
+            df_stock_copy["_raw_日期時間"] = raw_datetime_source
+        else:
+            df_stock_copy["_raw_日期時間"] = ""
+
+        raw_date_dt = parse_stock_datetime_series(raw_date_source)
+        raw_datetime_dt = parse_stock_datetime_series(raw_datetime_source)
         df_stock_copy["日期時間"] = raw_datetime_dt.combine_first(raw_date_dt)
         df_stock_copy["日期"] = raw_date_dt.dt.normalize()
         df_stock_copy["數量_g"] = df_stock_copy.apply(lambda r: to_grams(r["數量"], r["單位"]), axis=1)
@@ -7455,22 +7465,20 @@ elif menu == "庫存區":
                 latest_ini = df_ini.sort_values("日期時間", ascending=False).iloc[0]
                 ini_value = latest_ini["數量_g"]
                 ini_dt = latest_ini["日期時間"]
-                ini_dt_raw = str(latest_ini.get("日期時間", "")).strip()
-                has_explicit_ini_datetime = bool(ini_dt_raw) and ini_dt_raw.lower() not in {"nan", "nat"}
                 if pd.isna(ini_dt) and "日期" in latest_ini and pd.notna(latest_ini["日期"]):
                     ini_dt = pd.to_datetime(latest_ini["日期"], errors="coerce")
                 if pd.notna(ini_dt):
-                    note_fmt = "%Y/%m/%d %H:%M" if has_explicit_ini_datetime else "%Y/%m/%d"
-                    ini_note = f"期初來源：{ini_dt.strftime(note_fmt)}"
+                    # ✅ 業務規則：期初庫存採「日期」語意，不採時間點語意
+                    # 代表該日清點結束後的期初基準，扣料自次日開始
+                    ini_note = f"期初來源：{ini_dt.strftime('%Y/%m/%d')}"
                 else:
                     ini_note = "期初來源：未提供日期"
             else:
                 ini_value = 0.0
-                ini_dt = pd.Timestamp.min
-                has_explicit_ini_datetime = True
+                ini_dt = pd.NaT
                 ini_note = "—"
 
-            if pd.notna(ini_dt) and not has_explicit_ini_datetime:
+            if pd.notna(ini_dt):
                 ini_effective_start_dt = ini_dt.normalize() + pd.Timedelta(hours=23, minutes=59, seconds=59)
             else:
                 ini_effective_start_dt = ini_dt
@@ -7533,11 +7541,7 @@ elif menu == "庫存區":
             ini_qty    = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty")
             ini_unit   = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
 
-            col4, col5 = st.columns(2)
-            ini_date = col4.date_input("設定日期",  value=datetime.today(), key="ini_date")
-            ini_time = col5.time_input("設定時間",
-                                       value=datetime.now().replace(microsecond=0).time(),
-                                       key="ini_time")
+            ini_date = st.date_input("設定日期", value=datetime.today(), key="ini_date")
 
             ini_note  = st.text_input("備註", key="ini_note")
             submit_t1 = st.form_submit_button("💾 儲存初始庫存")
@@ -7561,7 +7565,8 @@ elif menu == "庫存區":
                 st.stop()
             st.session_state.pop(pending_confirm_key, None)
 
-            ini_datetime = datetime.combine(ini_date, ini_time).strftime("%Y/%m/%d %H:%M")
+            # 期初庫存採「日期語意」，寫入日期字串即可（不再要求時間欄位）
+            ini_datetime = ini_date.strftime("%Y/%m/%d")
 
             # ── 步驟 1：找出舊的「初始」列（從快取取，不多打 API）──
             try:
@@ -7714,7 +7719,7 @@ elif menu == "庫存區":
                             "備註": st.column_config.TextColumn(width="large"),
                         },
                     )
-                    st.caption("ℹ️ 庫存僅扣除期初庫存儲存後之生產單（含當日）")
+                    st.caption("ℹ️ 庫存扣除從期初日期次日開始的生產單（期初日期當天不扣料）")
                     st.caption("🌟 期末庫存 = 期初庫存 + 其後進貨 − 其後用量（單位皆以 g 計算）")
 
    
