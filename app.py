@@ -675,7 +675,7 @@ def render_erp_nav():
 
     with st.sidebar:
         st.markdown('<div class="erp-title">配方管理系統</div>', unsafe_allow_html=True)
-        st.markdown('<div class="erp-sub">v2.0 · ERP Edition</div>', unsafe_allow_html=True)
+        st.markdown('<div class="erp-sub">v2.1 · ERP Edition</div>', unsafe_allow_html=True)
 
         for group_name, items in groups.items():
             st.markdown(f'<div class="erp-group">{group_name}</div>', unsafe_allow_html=True)
