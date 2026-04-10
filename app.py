@@ -5605,7 +5605,8 @@ if menu == "代工管理":
                 ]
             if date_start <= date_end:
                 df_closed = df_closed[
-                    (df_closed["建立時間_dt"] >= _ds) & (df_closed["建立時間_dt"] <= _de)
+                    (df_closed["建立時間_dt"] >= _ds) & (df_closed["建立時間_dt"] <= _de) |
+                    df_closed["建立時間_dt"].isna()
                 ]
             
             if not df_progress.empty:
