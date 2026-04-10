@@ -5616,7 +5616,7 @@ if menu == "代工管理":
                 st.dataframe(df_progress, use_container_width=True, hide_index=True)
             else:
                 st.info("目前沒有符合條件的代工單")
-                else:
+            else:
                     df_closed = df_closed.sort_values(by="最近載回日期_sort", ascending=False, na_position="last")
                     df_closed["建立時間"] = df_closed["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                     df_closed["已交貨"] = df_closed["已交貨"].astype(str).str.strip().isin(
