@@ -5591,11 +5591,12 @@ if menu == "代工管理":
                 st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
                 df_progress = df_progress.iloc[0:0]
             else:
-                date_start = date_start.date() if hasattr(date_start, 'date') else date_start
-                date_end = date_end.date() if hasattr(date_end, 'date') else date_end
-                df_progress = df_progress[
-                    df_progress["建立時間_dt"].dt.date.between(date_start, date_end, inclusive="both")
-                ]
+                if date_start is not None and date_end is not None:
+                    date_start = date_start.date() if hasattr(date_start, 'date') else date_start
+                    date_end = date_end.date() if hasattr(date_end, 'date') else date_end
+                    df_progress = df_progress[
+                        df_progress["建立時間_dt"].dt.date.between(date_start, date_end, inclusive="both")
+                    ]
 
             df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
             if search_text:
