@@ -5591,87 +5591,23 @@ if menu == "代工管理":
                 st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
                 df_progress = df_progress.iloc[0:0]
             else:
-                if date_start is not None and date_end is not None:
-                    date_start = date_start.date() if hasattr(date_start, 'date') else date_start
-                    date_end = date_end.date() if hasattr(date_end, 'date') else date_end
-                    df_progress = df_progress[
-                        df_progress["建立時間_dt"].dt.date.between(date_start, date_end, inclusive="both")
-                    ]
-
+                _ds = date_start.date() if hasattr(date_start, 'date') else date_start
+                _de = date_end.date() if hasattr(date_end, 'date') else date_end
+                df_progress = df_progress[
+                    df_progress["建立時間_dt"].dt.date.between(_ds, _de, inclusive="both")
+                ]
+            
             df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
             if search_text:
                 df_closed = df_closed[
                     df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
                     df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
                 ]
-            if date_start is not None and date_end is not None and date_start <= date_end:
-                _ds = date_start.date() if hasattr(date_start, 'date') else date_start
-                _de = date_end.date() if hasattr(date_end, 'date') else date_end
+            if date_start <= date_end:
                 df_closed = df_closed[
                     df_closed["建立時間_dt"].dt.date.between(_ds, _de, inclusive="both")
                 ]
-
-            date_start = None
-            date_end = None
-
-            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
-            if search_text:
-                df_closed = df_closed[
-                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
-                ]
-
-            date_start = None
-            date_end = None
-
-            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
-            if search_text:
-                df_closed = df_closed[
-                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
-                ]
-
-            date_start = None
-            date_end = None
-
-            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
-            if search_text:
-                df_closed = df_closed[
-                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
-                ]
-
-            date_start = None
-            date_end = None
-
-            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
-            if search_text:
-                df_closed = df_closed[
-                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
-                ]
-
-            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
-            if search_text:
-                df_closed = df_closed[
-                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
-                ]
-
-            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
-            if search_text:
-                df_closed = df_closed[
-                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
-                ]
-
-            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
-            if search_text:
-                df_closed = df_closed[
-                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
-                ]
-
+            
             if not df_progress.empty:
                 df_progress["建立時間"] = df_progress["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                 df_progress = df_progress.sort_values(
