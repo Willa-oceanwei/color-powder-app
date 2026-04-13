@@ -51,46 +51,43 @@ if not st.session_state.authenticated:
     # 尚未輸入密碼時停止執行
     st.stop()
     
-# ======== 🎨 終極版自訂樣式（紫色玻璃主題 + 圓角下拉）========
+# ======== 🎨 終極版自訂樣式（圓角下拉）========
 def apply_modern_style():
     import streamlit as st
     st.markdown("""
 <style>
 
 /* ═══════════════════════════════
-   ERP UI 變數系統 (企業級)
+   ERP UI THEME (ENTERPRISE)
 ═══════════════════════════════ */
 
 :root{
 
-/* 主背景 */
 --bg-main:#0a0a0a;
---bg-card:#161616;
+--bg-card:#141414;
 
 /* Sidebar */
---sidebar-bg:#0c2d48;
---sidebar-hover:#123b5f;
---sidebar-active:#1d4f73;
+--sidebar-bg:#0b2f4a;
+--sidebar-hover:#124466;
+--sidebar-active:#1a5a84;
 
-/* 文字顏色 */
+/* Text */
 --text-main:#ffffff;
 --text-soft:#d7e3ef;
 --text-dim:#9fb7cc;
---text-red:#e05757;
+--text-red:#e35b5b;
 
-/* UI 字體大小 */
+/* UI size */
 --font-ui:13px;
 --font-small:11px;
---font-title:20px;
 
-/* 邊框 */
+/* border */
 --border-soft:rgba(255,255,255,0.08);
-
 }
 
 
 /* ═══════════════════════════════
-   全站字體
+   Base Font
 ═══════════════════════════════ */
 
 *{
@@ -106,7 +103,7 @@ color:var(--text-main);
 
 
 /* ═══════════════════════════════
-   背景
+   Background
 ═══════════════════════════════ */
 
 .stApp{
@@ -115,20 +112,18 @@ background:var(--bg-main);
 
 
 /* ═══════════════════════════════
-   Sidebar
+   Sidebar (ERP BLUE)
 ═══════════════════════════════ */
 
 section[data-testid="stSidebar"]{
 background:var(--sidebar-bg) !important;
-border-right:1px solid rgba(255,255,255,0.1);
+border-right:1px solid rgba(255,255,255,0.08);
 min-width:220px;
 max-width:220px;
 }
 
-/* Sidebar 按鈕 */
-
+/* Sidebar Buttons */
 section[data-testid="stSidebar"] div.stButton > button{
-
 background:transparent;
 border:0;
 width:100%;
@@ -138,153 +133,133 @@ color:#ffffff;
 font-size:13px;
 
 padding:8px 12px;
-
 transition:0.15s;
 }
 
 section[data-testid="stSidebar"] div.stButton > button:hover{
-
 background:var(--sidebar-hover);
-color:white;
-
+color:#ffffff;
 }
-
-
-/* active */
 
 section[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
-
 background:var(--sidebar-active);
-color:white;
 font-weight:600;
-
 }
 
 
-/* Sidebar 小字 */
-
-section[data-testid="stSidebar"] .erp-sub{
-font-size:var(--font-small);
-color:var(--text-red);
-}
-
+/* Sidebar small text */
+section[data-testid="stSidebar"] .erp-sub,
 section[data-testid="stSidebar"] .erp-group{
-font-size:var(--font-small);
+font-size:11px;
 color:var(--text-red);
-letter-spacing:1px;
+letter-spacing:0.5px;
 }
 
 
 /* ═══════════════════════════════
-   Tab 光暈強化
+   Tabs (Glow)
 ═══════════════════════════════ */
 
 button[data-testid="stTab"] p{
 font-size:13px;
-color:#cdd9e5;
+color:#cfd8e3;
 }
 
 button[data-testid="stTab"]:hover p{
-color:white;
+color:#ffffff;
 }
 
-button[data-testid="stTab"][aria-selected="true"] p {
-    color: #6fbaff !important;
-    font-weight: 600 !important;
-    text-shadow:
-        0 0 8px rgba(70,160,255,.9),
-        0 0 16px rgba(70,160,255,.6);
+button[data-testid="stTab"][aria-selected="true"] p{
+color:#6fbaff !important;
+text-shadow:
+0 0 8px rgba(70,160,255,.9),
+0 0 16px rgba(70,160,255,.6);
 }
 
-/* tab 底部光暈 */
-
+/* tab underline glow */
 div[data-testid="stTabs"] [data-baseweb="tab-highlight"]{
-
 background:#5aa0ff;
 height:3px;
-
 box-shadow:
-0 0 10px rgba(90,160,255,0.8),
-0 0 20px rgba(90,160,255,0.6);
-
+0 0 10px rgba(90,160,255,.8),
+0 0 20px rgba(90,160,255,.5);
 }
 
 
 /* ═══════════════════════════════
-   輸入框
+   Inputs
 ═══════════════════════════════ */
 
 div.stTextInput input,
-div.stNumberInput input,
-div.stTextArea textarea{
-
+div.stTextArea textarea,
+div.stNumberInput input{
 background:#161616;
 border:1px solid var(--border-soft);
-
-color:white;
-font-size:13px;
-
 border-radius:6px;
-
+color:#fff;
+font-size:13px;
 }
 
-
-/* focus */
-
 div.stTextInput input:focus,
-div.stNumberInput input:focus,
-div.stTextArea textarea:focus{
-
+div.stTextArea textarea:focus,
+div.stNumberInput input:focus{
 border:1px solid #5aa0ff;
-
-box-shadow:
-0 0 0 2px rgba(90,160,255,0.2);
-
+box-shadow:0 0 0 2px rgba(90,160,255,.2);
 }
 
 
 /* ═══════════════════════════════
-   Selectbox
+   Selectbox (FIXED POPUP VISIBILITY)
 ═══════════════════════════════ */
 
 div.stSelectbox div[data-baseweb="select"] > div{
-
-background:#161616;
-border:1px solid var(--border-soft);
+background:#1b1b1b !important;
+border:1px solid rgba(255,255,255,0.14) !important;
 border-radius:6px;
-
 font-size:13px;
-
 }
 
-div.stSelectbox svg{
-color:white;
+/* dropdown popup (重點修正) */
+div[data-baseweb="popover"]{
+background:#202020 !important;
+border:1px solid rgba(255,255,255,0.15) !important;
+box-shadow:0 12px 30px rgba(0,0,0,.7) !important;
+border-radius:8px !important;
+}
+
+ul[role="listbox"] li{
+background:transparent !important;
+color:#d7e3ef !important;
+font-size:13px !important;
+}
+
+ul[role="listbox"] li:hover{
+background:rgba(90,160,255,.12) !important;
+color:#ffffff !important;
+}
+
+ul[role="listbox"] li[aria-selected="true"]{
+background:rgba(90,160,255,.25) !important;
+color:#ffffff !important;
 }
 
 
 /* ═══════════════════════════════
-   按鈕
+   Buttons
 ═══════════════════════════════ */
 
 .stButton button{
-
 background:#a1162b;
 color:white;
-
 border-radius:6px;
-border:0;
-
 padding:8px 16px;
-
 font-size:13px;
 font-weight:600;
-
+border:0;
 }
 
 .stButton button:hover{
-
 background:#c21e37;
-
 }
 
 
@@ -293,248 +268,30 @@ background:#c21e37;
 ═══════════════════════════════ */
 
 div[data-testid="stDataFrame"]{
-
 border:1px solid var(--border-soft);
 border-radius:8px;
-
+overflow:hidden;
 }
-
-/* 表頭 */
 
 div[data-testid="stDataFrame"] [role="columnheader"]{
-
 font-size:11px;
 color:#9fb7cc;
-
 }
-
-/* 表格 */
 
 div[data-testid="stDataFrame"] [role="gridcell"]{
-
 font-size:13px;
-color:white;
-
+color:#ffffff;
 }
 
+
+/* hover */
+div[data-testid="stDataFrame"] [role="row"]:hover [role="gridcell"]{
+background:rgba(90,160,255,.08);
+}
 
 </style>
 """, unsafe_allow_html=True)
-    
-def apply_arrow_nav():
-    st.markdown("""
-    <script>
-    (function () {
-      if (window._arrowNavBound) return;
-      window._arrowNavBound = true;
 
-      function getInputs() {
-        return Array.from(
-          document.querySelectorAll(
-            'input:not([disabled]):not([readonly]), textarea:not([disabled])'
-          )
-        ).filter(el => el.offsetParent !== null);
-      }
-
-      function moveFocus(current, step) {
-        const inputs = getInputs();
-        const idx = inputs.indexOf(current);
-        if (idx < 0) return;
-        const next = inputs[idx + step];
-        if (next) {
-          next.focus();
-          if (next.select) next.select();
-        }
-      }
-
-      document.addEventListener('keydown', function(e) {
-        const t = e.target;
-        if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
-        if (t.disabled || t.readOnly) return;
-        const isNum = t.type === 'number';
-
-        if (['ArrowDown', 'ArrowRight'].includes(e.key) && isNum) {
-          e.preventDefault();
-          moveFocus(t, +1);
-        } else if (['ArrowUp', 'ArrowLeft'].includes(e.key) && isNum) {
-          e.preventDefault();
-          moveFocus(t, -1);
-        } else if (e.key === 'ArrowDown' && !isNum) {
-          e.preventDefault();
-          moveFocus(t, +1);
-        } else if (e.key === 'ArrowUp' && !isNum) {
-          e.preventDefault();
-          moveFocus(t, -1);
-        }
-      }, true);
-    })();
-        /* ═══════════════════════════════════════
-       全站字體優化（清晰 UI 字體）
-    ═══════════════════════════════════════ */
-    
-    html, body, [class*="css"] {
-        font-family:
-            "Segoe UI",
-            "Microsoft JhengHei",
-            "PingFang TC",
-            "Noto Sans TC",
-            sans-serif !important;
-        -webkit-font-smoothing: antialiased !important;
-        text-rendering: optimizeLegibility !important;
-    }
-    
-    
-    /* ═══════════════════════════════════════
-       Dashboard Card（內容卡片）
-    ═══════════════════════════════════════ */
-    
-    .block-container > div {
-        background: rgba(18,18,18,.65);
-        border: 1px solid var(--bd);
-        border-radius: 10px;
-        padding: 20px 22px;
-        margin-bottom: 16px;
-    }
-    
-    
-    /* ═══════════════════════════════════════
-       Section Header
-    ═══════════════════════════════════════ */
-    
-    .section-title {
-        font-size: 13px;
-        font-weight: 700;
-        letter-spacing: .04em;
-        margin-bottom: 12px;
-        color: var(--t2);
-        text-transform: uppercase;
-    }
-    
-    .section-line {
-        height: 1px;
-        background: linear-gradient(
-            90deg,
-            rgba(129,2,31,.55),
-            rgba(129,2,31,.15)
-        );
-        margin-bottom: 16px;
-    }
-    
-    
-    /* ═══════════════════════════════════════
-       表格可讀性提升
-    ═══════════════════════════════════════ */
-    
-    div[data-testid="stDataFrame"] [role="gridcell"] {
-        font-size: 13px !important;
-        padding: 7px 8px !important;
-    }
-    
-    div[data-testid="stDataFrame"] [role="columnheader"] {
-        font-size: 10px !important;
-        letter-spacing: .08em !important;
-    }
-    
-    
-    /* hover highlight */
-    
-    div[data-testid="stDataFrame"] [role="row"]:hover [role="gridcell"] {
-        background: rgba(129,2,31,.08) !important;
-        color: var(--t1) !important;
-    }
-    
-    
-    /* ═══════════════════════════════════════
-       表單 label
-    ═══════════════════════════════════════ */
-    
-    label {
-        font-size: 12px !important;
-        font-weight: 500 !important;
-        color: var(--t2) !important;
-    }
-    
-    
-    /* ═══════════════════════════════════════
-       輸入框清晰化
-    ═══════════════════════════════════════ */
-    
-    div.stTextInput input,
-    div.stTextArea textarea,
-    div.stNumberInput input {
-        font-size: 13px !important;
-    }
-    
-    
-    /* ═══════════════════════════════════════
-       按鈕間距優化
-    ═══════════════════════════════════════ */
-    
-    div.stButton {
-        margin-top: 6px;
-    }
-    
-    
-    /* ═══════════════════════════════════════
-       Button Group
-    ═══════════════════════════════════════ */
-    
-    .button-group button {
-        margin-right: 6px !important;
-    }
-    
-    
-    /* ═══════════════════════════════════════
-       Sidebar spacing
-    ═══════════════════════════════════════ */
-    
-    section[data-testid="stSidebar"] div.stButton {
-        margin-bottom: 3px;
-    }
-    
-    
-    /* ═══════════════════════════════════════
-       metric 卡片文字清晰
-    ═══════════════════════════════════════ */
-    
-    div[data-testid="stMetricValue"] {
-        font-size: 26px !important;
-        font-weight: 700 !important;
-    }
-    
-    div[data-testid="stMetricLabel"] p {
-        font-size: 10px !important;
-    }
-    
-    
-    /* ═══════════════════════════════════════
-       Scrollbar
-    ═══════════════════════════════════════ */
-    
-    ::-webkit-scrollbar {
-        width: 10px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: #111;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: #333;
-        border-radius: 6px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: #444;
-    }
-    </script>
-    """, unsafe_allow_html=True)
-
-# Streamlit 每次互動都會重新渲染 DOM，樣式必須每輪注入，
-# 否則切頁時會短暫回到預設黑白主題造成閃爍。
-apply_modern_style()
-apply_arrow_nav()
- 
 
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
