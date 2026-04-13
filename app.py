@@ -238,6 +238,9 @@ def apply_modern_style():
     button[data-testid="stTab"][aria-selected="true"] p {
         color: var(--blue-t) !important;
         font-weight: 600 !important;
+        text-shadow:
+            0 0 6px rgba(0,120,220,.6),
+            0 0 12px rgba(0,80,160,.4);
     }
 
     /* active tab 底部光暈線 */
