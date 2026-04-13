@@ -320,6 +320,7 @@ color:white;
 
 </style>
 """, unsafe_allow_html=True)
+    
 def apply_arrow_nav():
     st.markdown("""
     <script>
