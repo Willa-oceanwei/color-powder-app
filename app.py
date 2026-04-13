@@ -541,22 +541,33 @@ def apply_modern_style():
     details[data-testid="stExpander"] {
         background: var(--bg1) !important;
         border: 1px solid var(--bd) !important;
-        border-radius: 8px !important;
+        border-radius: 9px !important;
+        padding: 6px 12px !important;
+        transition: border-color .15s, background .15s !important;
     }
-
+    
+    details[data-testid="stExpander"]:hover {
+        border-color: var(--bd2) !important;
+    }
+    
     details[data-testid="stExpander"] summary {
-        color: var(--t2) !important;
         font-size: 12px !important;
-        padding: 10px 14px !important;
+        font-weight: 600 !important;
+        color: var(--t2) !important;
+        letter-spacing: .02em !important;
     }
-
+    
+    details[data-testid="stExpander"][open] summary {
+        color: var(--t1) !important;
+    }
+    
     details[data-testid="stExpander"] summary:hover {
         color: var(--t1) !important;
-        background: rgba(255,255,255,.03) !important;
     }
-
-    details[data-testid="stExpander"] summary svg {
-        color: var(--t3) !important;
+    
+    /* expander 內容區 */
+    details[data-testid="stExpander"] > div {
+        padding-top: 8px !important;
     }
 
     /* ═══════════════════════════════════════
