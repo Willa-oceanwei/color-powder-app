@@ -158,7 +158,7 @@ def apply_modern_style():
 
     section[data-testid="stSidebar"] .erp-group {
         font-family: 'DM Mono', monospace !important;
-        font-size: 8px !important;
+        font-size: 10px !important;
         letter-spacing: .12em !important;
         color: var(--t3) !important;
         text-transform: uppercase !important;
