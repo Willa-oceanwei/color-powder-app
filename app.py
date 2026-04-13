@@ -341,100 +341,50 @@ background:#c21e37;
    STREAMLIT DATAFRAME (AG GRID) - PRO STYLE
 ═══════════════════════════════ */
 
-/* outer card */
+/* ═══════════════════════════════
+   STREAMLIT DATAFRAME (REAL DOM FIX)
+═══════════════════════════════ */
 
-.ag-theme-streamlit .ag-root-wrapper{
-border:1px solid rgba(255,255,255,0.08);
-border-radius:10px;
-overflow:hidden;
-background:#0e1117;
+/* 外框 */
+div[data-testid="stDataFrame"]{
+border:1px solid rgba(255,255,255,0.08) !important;
+border-radius:10px !important;
+overflow:hidden !important;
+background:#0e1117 !important;
 }
 
-
-/* header bar */
-
-.ag-theme-streamlit .ag-header{
-background:#161b22;
-border-bottom:1px solid rgba(255,255,255,0.06);
+/* header */
+div[data-testid="stDataFrame"] thead{
+background:#161b22 !important;
 }
-
 
 /* header text */
-
-.ag-theme-streamlit .ag-header-cell-label{
+div[data-testid="stDataFrame"] th{
 color:#8fbfff !important;
 font-size:11px !important;
-letter-spacing:.08em;
-text-transform:uppercase;
+letter-spacing:0.06em !important;
+text-transform:uppercase !important;
+border-bottom:1px solid rgba(255,255,255,0.08) !important;
 }
 
-
-/* rows */
-
-.ag-theme-streamlit .ag-row{
-background:#11161c;
-}
-
-.ag-theme-streamlit .ag-row:nth-child(even){
-background:#0d1318;
-}
-
-
-/* cells */
-
-.ag-theme-streamlit .ag-cell{
+/* cell */
+div[data-testid="stDataFrame"] td{
 color:#e6edf3 !important;
 font-size:13px !important;
-border-bottom:1px solid rgba(255,255,255,0.04);
-padding-left:10px;
-padding-right:10px;
+background:#11161c !important;
+border-bottom:1px solid rgba(255,255,255,0.04) !important;
+padding:6px 10px !important;
 }
 
+/* zebra */
+div[data-testid="stDataFrame"] tr:nth-child(even) td{
+background:#0d1318 !important;
+}
 
-/* hover row */
-
-.ag-theme-streamlit .ag-row-hover .ag-cell{
+/* hover */
+div[data-testid="stDataFrame"] tr:hover td{
 background:#1c2733 !important;
 color:#ffffff !important;
-}
-
-
-/* hover left highlight */
-
-.ag-theme-streamlit .ag-row-hover{
-box-shadow:inset 3px 0 0 rgba(90,160,255,0.9);
-}
-
-
-/* selected row */
-
-.ag-theme-streamlit .ag-row-selected .ag-cell{
-background:rgba(90,160,255,0.20) !important;
-}
-
-
-/* hide annoying "Press Enter to submit" */
-
-.ag-cell-inline-editing::after{
-display:none !important;
-}
-
-.ag-overlay-no-rows-center{
-display:none !important;
-}
-
-.ag-input-field-label{
-display:none !important;
-}
-
-.ag-cell-edit-wrapper::after{
-display:none !important;
-}
-
-/* DEBUG TEST */
-
-[data-testid="stDataFrame"] *{
-outline:1px solid red !important;
 }
 
 </style>
