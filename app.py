@@ -262,60 +262,73 @@ border:0;
 background:#c21e37;
 }
 
-
 /* ═══════════════════════════════
-   DataFrame
+   DataFrame — SaaS 冷色系升級版
 ═══════════════════════════════ */
 
-div[data-testid="stDataFrame"]{
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:10px;
-    overflow:hidden;
-    background:#111111;
+div[data-testid="stDataFrame"] {
+    border: 1px solid rgba(60, 130, 200, 0.15);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0a0f16;
+    box-shadow:
+        0 4px 24px rgba(0,0,0,0.6),
+        0 1px 0 rgba(60,140,220,0.08) inset;
 }
 
-/* 表頭 */
-div[data-testid="stDataFrame"] [role="columnheader"]{
-    background:#161b22;
-    color:#9fb7cc;
-    font-size:11px;
-    letter-spacing:0.08em;
-    text-transform:uppercase;
-    border-bottom:1px solid rgba(255,255,255,0.06);
+/* 表頭 — 玻璃擬態 */
+div[data-testid="stDataFrame"] [role="columnheader"] {
+    background: rgba(10, 28, 52, 0.98) !important;
+    color: #5a9fd4 !important;
+    font-size: 10px !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+    border-bottom: 1px solid rgba(77, 166, 255, 0.25) !important;
+    padding: 10px 8px !important;
+    font-weight: 600 !important;
 }
 
-/* 🔥 核心：row 層次感 */
-div[data-testid="stDataFrame"] [role="row"]{
-    background:#0f0f0f;
+/* 奇數行 */
+div[data-testid="stDataFrame"] [role="row"]:nth-child(odd) {
+    background: #0d1117;
+}
+div[data-testid="stDataFrame"] [role="row"]:nth-child(odd) [role="gridcell"] {
+    background: #0d1117 !important;
 }
 
-/* 偶數行（層次感） */
-div[data-testid="stDataFrame"] [role="row"]:nth-child(even){
-    background:#121212;
+/* 偶數行 */
+div[data-testid="stDataFrame"] [role="row"]:nth-child(even) {
+    background: #101820;
+}
+div[data-testid="stDataFrame"] [role="row"]:nth-child(even) [role="gridcell"] {
+    background: #101820 !important;
 }
 
 /* cell */
-div[data-testid="stDataFrame"] [role="gridcell"]{
-    font-size:13px;
-    color:#e6edf3;
-    border-bottom:1px solid rgba(255,255,255,0.04);
+div[data-testid="stDataFrame"] [role="gridcell"] {
+    font-size: 12.5px !important;
+    color: #c8d8e8 !important;
+    border-bottom: 1px solid rgba(255,255,255,0.03) !important;
+    padding: 8px 10px !important;
+    transition: background 0.1s, color 0.1s, box-shadow 0.1s;
 }
 
-/* hover（重點升級） */
-div[data-testid="stDataFrame"] [role="row"]:hover [role="gridcell"]{
-    background:linear-gradient(
+/* hover — 左側亮條 */
+div[data-testid="stDataFrame"] [role="row"]:hover {
+    box-shadow: inset 3px 0 0 #4da6ff !important;
+}
+
+/* hover — 卡片浮起 */
+div[data-testid="stDataFrame"] [role="row"]:hover [role="gridcell"] {
+    background: linear-gradient(
         90deg,
-        rgba(90,160,255,0.08),
-        rgba(90,160,255,0.03)
-    );
-    color:#ffffff;
-    transform:translateX(2px);
-    transition:0.15s;
-}
-
-/* 選取感（像 SaaS highlight） */
-div[data-testid="stDataFrame"] [role="row"]:hover{
-    box-shadow:inset 3px 0 0 rgba(90,160,255,0.8);
+        rgba(30, 80, 140, 0.28) 0%,
+        rgba(20, 50, 90, 0.12) 100%
+    ) !important;
+    color: #e8f4ff !important;
+    box-shadow:
+        inset 0 1px 0 rgba(100, 180, 255, 0.10),
+        inset 0 -1px 0 rgba(0,0,0,0.35) !important;
 }
 
 </style>
