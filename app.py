@@ -383,6 +383,11 @@ background:#1c2733 !important;
 color:#ffffff !important;
 }
 
+/* 隱藏 enter submit 提示 */
+div[data-testid="stDataFrame"] [data-baseweb="popover"]{
+display:none !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
