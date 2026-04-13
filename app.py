@@ -337,129 +337,98 @@ background:#c21e37;
 
 }
 
-
 /* ═══════════════════════════════
-   STREAMLIT DATAFRAME (AG GRID)
+   STREAMLIT DATAFRAME (AG GRID) - PRO STYLE
 ═══════════════════════════════ */
 
-
-/* grid */
+/* outer card */
 
 .ag-theme-streamlit .ag-root-wrapper{
-
 border:1px solid rgba(255,255,255,0.08);
-
 border-radius:10px;
-
 overflow:hidden;
-
-background:#0d1117;
-
+background:#0e1117;
 }
 
 
-/* header */
+/* header bar */
 
 .ag-theme-streamlit .ag-header{
-
 background:#161b22;
-
 border-bottom:1px solid rgba(255,255,255,0.06);
-
 }
 
+
+/* header text */
+
 .ag-theme-streamlit .ag-header-cell-label{
-
-color:#9fb7cc !important;
-
+color:#8fbfff !important;
 font-size:11px !important;
-
 letter-spacing:.08em;
-
 text-transform:uppercase;
-
 }
 
 
 /* rows */
 
 .ag-theme-streamlit .ag-row{
-
-background:#0d1117;
-
+background:#11161c;
 }
 
 .ag-theme-streamlit .ag-row:nth-child(even){
-
-background:#10151b;
-
+background:#0d1318;
 }
 
 
 /* cells */
 
 .ag-theme-streamlit .ag-cell{
-
 color:#e6edf3 !important;
-
 font-size:13px !important;
-
 border-bottom:1px solid rgba(255,255,255,0.04);
-
 padding-left:10px;
 padding-right:10px;
-
 }
 
 
-/* hover */
+/* hover row */
 
 .ag-theme-streamlit .ag-row-hover .ag-cell{
-
-background:linear-gradient(
-
-90deg,
-rgba(90,160,255,0.08),
-rgba(90,160,255,0.03)
-
-) !important;
-
+background:#1c2733 !important;
 color:#ffffff !important;
-
 }
 
 
-/* hover left bar */
+/* hover left highlight */
 
 .ag-theme-streamlit .ag-row-hover{
-
 box-shadow:inset 3px 0 0 rgba(90,160,255,0.9);
-
 }
 
 
-/* selected */
+/* selected row */
 
 .ag-theme-streamlit .ag-row-selected .ag-cell{
-
-background:rgba(90,160,255,0.18) !important;
-
+background:rgba(90,160,255,0.20) !important;
 }
 
-/* 隱藏 AG Grid 的 Press Enter to submit */
-.ag-overlay-no-rows-center,
-.ag-cell-inline-editing::after {
-    display: none !important;
+
+/* hide annoying "Press Enter to submit" */
+
+.ag-cell-inline-editing::after{
+display:none !important;
 }
 
-/* 隱藏 cell editor hint */
-.ag-cell-inline-editing .ag-input-field-label {
-    display:none !important;
+.ag-overlay-no-rows-center{
+display:none !important;
 }
 
-/* 進階：隱藏 Enter 提示 */
-.ag-cell-edit-wrapper::after {
-    display:none !important;
+.ag-input-field-label{
+display:none !important;
+}
+
+.ag-cell-edit-wrapper::after{
+display:none !important;
 }
 
 </style>
