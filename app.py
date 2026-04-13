@@ -596,7 +596,6 @@ st.markdown("""
 
 # 重新套用主題，確保切換任何功能分頁後仍維持紫色主題樣式
 apply_modern_style()
-apply_arrow_nav()
 
 # ================= 共用 Google Sheet 穩定寫入工具 =================
 def safe_append_row(ws, row_values):
