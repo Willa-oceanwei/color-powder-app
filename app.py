@@ -152,7 +152,7 @@ def apply_modern_style():
     section[data-testid="stSidebar"] .erp-sub {
         font-family: 'DM Mono', monospace !important;
         font-size: 10px !important;
-        color: var(--t4) !important;
+        color: var(--t2) !important;
         letter-spacing: .04em !important;
     }
 
@@ -160,7 +160,7 @@ def apply_modern_style():
         font-family: 'DM Mono', monospace !important;
         font-size: 9px !important;
         letter-spacing: .12em !important;
-        color: var(--t4) !important;
+        color: var(--t3) !important;
         text-transform: uppercase !important;
         margin: 10px 0 3px 2px !important;
     }
