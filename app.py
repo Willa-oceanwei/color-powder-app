@@ -338,10 +338,6 @@ background:#c21e37;
 }
 
 /* ═══════════════════════════════
-   STREAMLIT DATAFRAME (AG GRID) - PRO STYLE
-═══════════════════════════════ */
-
-/* ═══════════════════════════════
    STREAMLIT DATAFRAME (REAL DOM FIX)
 ═══════════════════════════════ */
 
