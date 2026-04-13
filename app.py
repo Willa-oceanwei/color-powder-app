@@ -172,7 +172,7 @@ def apply_modern_style():
         border: 0 !important;
         border-left: 2px solid transparent !important;
         border-radius: 2px !important;
-        font-size: 12px !important;
+        font-size: 13px !important;
         padding: 7px 10px !important;
         text-align: left !important;
         width: 100% !important;
