@@ -56,153 +56,626 @@ def apply_modern_style():
     import streamlit as st
     st.markdown("""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap');
 
-    /* 字體載入 */
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
-
+    /* ═══════════════════════════════════════
+       變數定義
+    ═══════════════════════════════════════ */
     :root {
-        --bg0:#0a0a0a;
-        --bg1:#141414;
-        --bg2:#1a1a1a;
-        --bg3:#222222;
-
-        --burg:#81021f;
-
-        --pruss:#003153;
-
-        --white:#ffffff;
-
-        --t1:#ffffff;
-        --t2:rgba(255,255,255,.75);
-        --t3:rgba(255,255,255,.55);
-        --t4:rgba(255,255,255,.30);
-
-        --bd:rgba(255,255,255,.08);
-        --bd2:rgba(255,255,255,.18);
+        --bg0:         #0a0a0a;
+        --bg1:         #141414;
+        --bg2:         #1a1a1a;
+        --bg3:         #222222;
+        --burg:        #81021f;
+        --burg-dim:    rgba(129,2,31,.28);
+        --pruss:       #003153;
+        --pruss-dim:   rgba(0,49,83,.5);
+        --pruss-edge:  rgba(0,80,140,.6);
+        --ivory:       #F9F6E5;
+        --t1:          rgba(249,246,229,.88);
+        --t2:          rgba(249,246,229,.50);
+        --t3:          rgba(249,246,229,.28);
+        --t4:          rgba(249,246,229,.12);
+        --bd:          rgba(249,246,229,.07);
+        --bd2:         rgba(249,246,229,.12);
+        --gold:        rgba(200,164,90,.70);
+        --gold2:       rgba(200,164,90,.95);
+        --blue-t:      rgba(110,175,220,.85);
     }
 
-    /* 全站字體 */
+    /* ═══════════════════════════════════════
+       全站字體
+    ═══════════════════════════════════════ */
     * {
-        font-family:
-        "Microsoft JhengHei",
-        "PingFang TC",
-        "Noto Sans TC",
-        sans-serif !important;
-
-        -webkit-font-smoothing: antialiased;
-        text-rendering: optimizeLegibility;
+        font-family: 'Noto Serif TC', 'Microsoft JhengHei', sans-serif !important;
     }
 
-    /* App背景 */
+    /* ═══════════════════════════════════════
+       全站背景
+    ═══════════════════════════════════════ */
     .stApp {
         background:
-        radial-gradient(circle at 90% 0%, rgba(0,49,83,.15), transparent 60%),
-        #0a0a0a;
-        color:var(--t1);
+            radial-gradient(ellipse at 90% 0%, rgba(0,49,83,.12) 0%, transparent 50%),
+            #0a0a0a !important;
+        background-attachment: fixed !important;
+        color: var(--t1) !important;
     }
 
-    /* 主容器 */
-    .main .block-container{
-        padding-top:1rem;
+    /* ═══════════════════════════════════════
+       主內容容器
+    ═══════════════════════════════════════ */
+    .main .block-container {
+        background: rgba(10,10,10,.0) !important;
+        padding: 1rem 2rem 2rem !important;
+        margin-top: -0.4rem !important;
     }
 
-    /* Sidebar */
-    section[data-testid="stSidebar"]{
-        background:linear-gradient(180deg,#161616,#101010);
-        border-right:1px solid var(--bd);
-        min-width:210px;
-        max-width:210px;
+    /* ═══════════════════════════════════════
+       Sidebar
+    ═══════════════════════════════════════ */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #161616 0%, #111111 100%) !important;
+        border-right: 1px solid var(--bd) !important;
+        min-width: 210px !important;
+        max-width: 210px !important;
+        position: relative !important;
     }
 
-    /* Sidebar按鈕 */
-    section[data-testid="stSidebar"] div.stButton > button{
-        background:transparent;
-        color:#ffffff;
-        border:0;
-        border-left:2px solid transparent;
-        font-size:13px;
-        padding:8px 10px;
-        text-align:left;
-        width:100%;
-        transition:.15s;
+    /* sidebar 右側邊光（藍紅漸層） */
+    section[data-testid="stSidebar"]::after {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important; right: 0 !important; bottom: 0 !important;
+        width: 1px !important;
+        background: linear-gradient(
+            180deg,
+            transparent 0%,
+            rgba(0,80,140,.3) 35%,
+            rgba(129,2,31,.2) 70%,
+            transparent 100%
+        ) !important;
+        pointer-events: none !important;
     }
 
-    section[data-testid="stSidebar"] div.stButton > button:hover{
-        background:rgba(255,255,255,.06);
-        border-left:2px solid rgba(255,255,255,.35);
+    /* sidebar 頭部 */
+    section[data-testid="stSidebar"] > div:first-child {
+        background: rgba(0,0,0,.2) !important;
     }
 
-    /* active */
-    section[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
-        background:rgba(129,2,31,.30);
-        border-left:2px solid #81021f;
-        color:#ffffff;
-        font-weight:600;
+    section[data-testid="stSidebar"] .erp-title {
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        color: var(--t1) !important;
+        letter-spacing: .02em !important;
     }
 
-    /* 標題 */
-    h1,h2,h3,h4{
-        color:#ffffff;
-        font-weight:600;
+    section[data-testid="stSidebar"] .erp-sub {
+        font-family: 'DM Mono', monospace !important;
+        font-size: 10px !important;
+        color: var(--t4) !important;
+        letter-spacing: .04em !important;
     }
 
-    p,label,span{
-        color:var(--t1);
+    section[data-testid="stSidebar"] .erp-group {
+        font-family: 'DM Mono', monospace !important;
+        font-size: 9px !important;
+        letter-spacing: .12em !important;
+        color: var(--t4) !important;
+        text-transform: uppercase !important;
+        margin: 10px 0 3px 2px !important;
     }
 
-    /* 輸入框 */
-    input,textarea{
-        background:var(--bg1) !important;
-        border:1px solid var(--bd2) !important;
-        border-radius:6px;
-        color:#ffffff !important;
+    /* sidebar 未選按鈕 */
+    section[data-testid="stSidebar"] div.stButton > button {
+        background: transparent !important;
+        color: var(--t3) !important;
+        border: 0 !important;
+        border-left: 2px solid transparent !important;
+        border-radius: 2px !important;
+        font-size: 12px !important;
+        padding: 7px 10px !important;
+        text-align: left !important;
+        width: 100% !important;
+        box-shadow: none !important;
+        transition: all .12s ease !important;
     }
 
-    input:focus,textarea:focus{
-        border-color:#004a7a !important;
-        box-shadow:0 0 0 2px rgba(0,90,150,.3);
+    section[data-testid="stSidebar"] div.stButton > button:hover {
+        background: rgba(255,255,255,.04) !important;
+        color: var(--t2) !important;
+        border-left-color: var(--bd2) !important;
     }
 
-    /* Selectbox */
-    div[data-baseweb="select"]{
-        background:var(--bg1);
+    /* sidebar 選中按鈕 */
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+        background: linear-gradient(
+            90deg, rgba(129,2,31,.22) 0%, rgba(129,2,31,.06) 100%
+        ) !important;
+        color: var(--t1) !important;
+        border-left: 2px solid var(--burg) !important;
+        font-weight: 600 !important;
+        box-shadow: none !important;
     }
 
-    /* Button */
-    .stButton > button{
-        background:#81021f;
-        color:white;
-        border-radius:6px;
-        font-size:13px;
-        font-weight:600;
-        padding:8px 18px;
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"]:hover {
+        background: linear-gradient(
+            90deg, rgba(129,2,31,.3) 0%, rgba(129,2,31,.1) 100%
+        ) !important;
     }
 
-    .stButton > button:hover{
-        background:#a1092b;
+    /* ═══════════════════════════════════════
+       標題
+    ═══════════════════════════════════════ */
+    h1, h2, h3, h4 {
+        color: var(--t1) !important;
+        font-weight: 600 !important;
+        letter-spacing: .01em !important;
     }
 
-    /* dataframe */
-    div[data-testid="stDataFrame"]{
-        border:1px solid var(--bd);
-        border-radius:8px;
+    p, label, span, li {
+        color: var(--t1) !important;
     }
 
-    div[data-testid="stDataFrame"] [role="columnheader"]{
-        background:#1a1a1a;
-        color:#dddddd;
-        font-size:11px;
-        border-bottom:1px solid var(--bd);
+    /* ═══════════════════════════════════════
+       Tab 分頁（普魯士藍光暈）
+    ═══════════════════════════════════════ */
+    div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+        background: transparent !important;
+        border-bottom: 1px solid var(--bd) !important;
     }
 
-    div[data-testid="stDataFrame"] [role="gridcell"]{
-        color:#ffffff;
-        font-size:13px;
+    button[data-testid="stTab"] p {
+        font-size: 12px !important;
+        color: var(--t3) !important;
+        letter-spacing: .01em !important;
+        transition: color .15s !important;
+    }
+
+    button[data-testid="stTab"]:hover p {
+        color: var(--t2) !important;
+    }
+
+    button[data-testid="stTab"][aria-selected="true"] p {
+        color: var(--blue-t) !important;
+        font-weight: 600 !important;
+    }
+
+    /* active tab 底部光暈線 */
+    div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+        background: rgba(0,90,155,.75) !important;
+        height: 2px !important;
+        border-radius: 0 !important;
+        box-shadow: 0 0 12px 2px rgba(0,80,140,.45) !important;
+    }
+
+    /* ═══════════════════════════════════════
+       輸入框
+    ═══════════════════════════════════════ */
+    div.stTextInput > div > div > input,
+    div.stNumberInput > div > div > input,
+    div.stTextArea > div > div > textarea {
+        background: var(--bg1) !important;
+        border: 1px solid var(--bd2) !important;
+        border-radius: 7px !important;
+        color: var(--t1) !important;
+        padding: 8px 13px !important;
+        font-size: 12px !important;
+        transition: border-color .15s, box-shadow .15s !important;
+    }
+
+    div.stTextInput > div > div > input:focus,
+    div.stNumberInput > div > div > input:focus,
+    div.stTextArea > div > div > textarea:focus {
+        border-color: rgba(0,80,140,.55) !important;
+        box-shadow: 0 0 0 3px rgba(0,55,95,.2) !important;
+        outline: none !important;
+    }
+
+    div.stTextInput > div > div > input::placeholder,
+    div.stTextArea > div > div > textarea::placeholder {
+        color: var(--t3) !important;
+    }
+
+    div.stNumberInput button {
+        background: var(--bg2) !important;
+        border-color: var(--bd2) !important;
+        color: var(--t2) !important;
+    }
+
+    div.stNumberInput button:hover {
+        background: var(--bg3) !important;
+        color: var(--t1) !important;
+    }
+
+    /* ═══════════════════════════════════════
+       Selectbox
+    ═══════════════════════════════════════ */
+    div.stSelectbox div[data-baseweb="select"] > div {
+        background: var(--bg1) !important;
+        border: 1px solid var(--bd2) !important;
+        border-radius: 7px !important;
+        min-height: 40px !important;
+        transition: border-color .15s !important;
+    }
+
+    div.stSelectbox div[data-baseweb="select"] > div:hover {
+        border-color: rgba(249,246,229,.2) !important;
+    }
+
+    div.stSelectbox div[data-baseweb="select"] > div > div,
+    div.stSelectbox svg {
+        color: var(--t1) !important;
+    }
+
+    /* 下拉選單 */
+    div[data-baseweb="popover"] {
+        border-radius: 9px !important;
+        background: #181818 !important;
+        border: 1px solid var(--bd2) !important;
+        box-shadow: 0 16px 40px rgba(0,0,0,.7) !important;
+    }
+
+    ul[role="listbox"] li {
+        border-radius: 5px !important;
+        background: transparent !important;
+        color: var(--t2) !important;
+        font-size: 12px !important;
+        margin: 1px 4px !important;
+        transition: background .1s !important;
+    }
+
+    ul[role="listbox"] li:hover {
+        background: rgba(255,255,255,.05) !important;
+        color: var(--t1) !important;
+    }
+
+    ul[role="listbox"] li[aria-selected="true"] {
+        background: var(--burg-dim) !important;
+        color: var(--t1) !important;
+        font-weight: 600 !important;
+    }
+
+    /* ═══════════════════════════════════════
+       主按鈕
+    ═══════════════════════════════════════ */
+    .main div.stButton > button,
+    form div.stButton > button,
+    form button[type="submit"] {
+        background: var(--burg) !important;
+        color: rgba(249,246,229,.9) !important;
+        border: none !important;
+        border-radius: 7px !important;
+        padding: 8px 18px !important;
+        font-weight: 600 !important;
+        font-size: 12px !important;
+        letter-spacing: .02em !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,.4) !important;
+        transition: background .12s !important;
+    }
+
+    .main div.stButton > button:hover,
+    form div.stButton > button:hover {
+        background: #9e0a27 !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,.5) !important;
+    }
+
+    /* 次要按鈕（取消/返回） */
+    .main div.stButton > button[kind="secondary"] {
+        background: transparent !important;
+        border: 1px solid var(--bd2) !important;
+        color: var(--t2) !important;
+        box-shadow: none !important;
+    }
+
+    .main div.stButton > button[kind="secondary"]:hover {
+        background: var(--bg2) !important;
+        color: var(--t1) !important;
+        border-color: rgba(249,246,229,.2) !important;
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
+    /* form submit */
+    button[data-testid="stFormSubmitButton"] > button {
+        background: var(--burg) !important;
+        color: rgba(249,246,229,.9) !important;
+        border: none !important;
+        border-radius: 7px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,.4) !important;
+    }
+
+    button[data-testid="stFormSubmitButton"] > button:hover {
+        background: #9e0a27 !important;
+    }
+
+    /* download 按鈕 */
+    div.stDownloadButton > button {
+        background: var(--pruss-dim) !important;
+        color: var(--blue-t) !important;
+        border: 1px solid rgba(0,65,110,.5) !important;
+        border-radius: 7px !important;
+        font-weight: 600 !important;
+    }
+
+    div.stDownloadButton > button:hover {
+        background: rgba(0,60,100,.65) !important;
+        border-color: rgba(0,90,150,.6) !important;
+    }
+
+    /* ═══════════════════════════════════════
+       DataFrame 表格
+    ═══════════════════════════════════════ */
+    div[data-testid="stDataFrame"] {
+        border: 1px solid var(--bd) !important;
+        border-radius: 9px !important;
+        overflow: hidden !important;
+    }
+
+    div[data-testid="stDataFrame"] [role="columnheader"] {
+        background: var(--bg2) !important;
+        color: var(--t3) !important;
+        font-family: 'DM Mono', monospace !important;
+        font-size: 9px !important;
+        letter-spacing: .09em !important;
+        text-transform: uppercase !important;
+        border-bottom: 1px solid var(--bd2) !important;
+        font-weight: 500 !important;
+    }
+
+    div[data-testid="stDataFrame"] [role="gridcell"] {
+        background: transparent !important;
+        color: var(--t2) !important;
+        font-size: 12px !important;
+        border-bottom: 1px solid var(--bd) !important;
+    }
+
+    div[data-testid="stDataFrame"] [role="row"]:hover [role="gridcell"] {
+        background: rgba(255,255,255,.025) !important;
+        color: var(--t1) !important;
+    }
+
+    div[data-testid="stDataFrame"] [data-testid="glideDataEditor"] {
+        background: var(--bg1) !important;
+    }
+
+    /* ═══════════════════════════════════════
+       提示框（三色語意）
+    ═══════════════════════════════════════ */
+    /* info → 普魯士藍 */
+    div[data-testid="stAlert"] [data-baseweb="notification"]:has([data-testid="stAlertContentInfo"]),
+    .stAlert[data-type="info"],
+    div[class*="stInfo"] {
+        background: var(--pruss-dim) !important;
+        border: 1px solid rgba(0,65,110,.45) !important;
+        border-left: 2px solid rgba(0,100,170,.6) !important;
+        border-radius: 7px !important;
+        color: rgba(140,195,230,.82) !important;
+    }
+
+    /* success → 深綠（低飽和） */
+    div[class*="stSuccess"],
+    .stAlert[data-type="success"] {
+        background: rgba(0,35,15,.55) !important;
+        border: 1px solid rgba(30,90,50,.4) !important;
+        border-left: 2px solid rgba(40,130,70,.5) !important;
+        border-radius: 7px !important;
+        color: rgba(120,200,145,.82) !important;
+    }
+
+    /* warning → 金/琥珀 */
+    div[class*="stWarning"],
+    .stAlert[data-type="warning"] {
+        background: rgba(40,28,0,.55) !important;
+        border: 1px solid rgba(140,100,20,.35) !important;
+        border-left: 2px solid rgba(180,135,30,.5) !important;
+        border-radius: 7px !important;
+        color: rgba(200,162,88,.85) !important;
+    }
+
+    /* error → 勃艮第紅 */
+    div[class*="stError"],
+    .stAlert[data-type="error"] {
+        background: rgba(129,2,31,.14) !important;
+        border: 1px solid rgba(129,2,31,.3) !important;
+        border-left: 2px solid rgba(160,20,45,.65) !important;
+        border-radius: 7px !important;
+        color: rgba(220,140,155,.82) !important;
+    }
+
+    /* 通用 stAlert fallback */
+    .stAlert {
+        border-radius: 7px !important;
+        font-size: 12px !important;
+    }
+
+    /* ═══════════════════════════════════════
+       Metric 卡片
+    ═══════════════════════════════════════ */
+    div[data-testid="stMetric"] {
+        background: var(--bg1) !important;
+        border: 1px solid var(--bd) !important;
+        border-radius: 9px !important;
+        padding: 13px 15px !important;
+        position: relative !important;
+        overflow: hidden !important;
+        transition: border-color .15s !important;
+    }
+
+    div[data-testid="stMetric"]:hover {
+        border-color: var(--bd2) !important;
+    }
+
+    div[data-testid="stMetric"]::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important; left: 0 !important; right: 0 !important;
+        height: 1.5px !important;
+        background: linear-gradient(90deg, var(--burg) 0%, rgba(129,2,31,.2) 100%) !important;
+    }
+
+    div[data-testid="stMetricLabel"] p {
+        font-family: 'DM Mono', monospace !important;
+        font-size: 9px !important;
+        letter-spacing: .07em !important;
+        color: var(--t3) !important;
+        text-transform: uppercase !important;
+    }
+
+    div[data-testid="stMetricValue"] {
+        font-size: 24px !important;
+        font-weight: 600 !important;
+        color: var(--t1) !important;
+    }
+
+    div[data-testid="stMetricDelta"] span {
+        font-family: 'DM Mono', monospace !important;
+        font-size: 10px !important;
+        color: var(--t3) !important;
+    }
+
+    /* ═══════════════════════════════════════
+       Expander
+    ═══════════════════════════════════════ */
+    details[data-testid="stExpander"] {
+        background: var(--bg1) !important;
+        border: 1px solid var(--bd) !important;
+        border-radius: 8px !important;
+    }
+
+    details[data-testid="stExpander"] summary {
+        color: var(--t2) !important;
+        font-size: 12px !important;
+        padding: 10px 14px !important;
+    }
+
+    details[data-testid="stExpander"] summary:hover {
+        color: var(--t1) !important;
+        background: rgba(255,255,255,.03) !important;
+    }
+
+    details[data-testid="stExpander"] summary svg {
+        color: var(--t3) !important;
+    }
+
+    /* ═══════════════════════════════════════
+       Code / Caption
+    ═══════════════════════════════════════ */
+    code, pre {
+        background: var(--pruss-dim) !important;
+        border: 1px solid rgba(0,65,110,.4) !important;
+        border-radius: 6px !important;
+        color: rgba(140,195,230,.82) !important;
+        font-family: 'DM Mono', monospace !important;
+        font-size: 11px !important;
+    }
+
+    .stCaption p, div[data-testid="stCaption"] p {
+        font-family: 'DM Mono', monospace !important;
+        font-size: 10px !important;
+        color: var(--t3) !important;
+        letter-spacing: .03em !important;
+    }
+
+    /* ═══════════════════════════════════════
+       Toast
+    ═══════════════════════════════════════ */
+    div[data-testid="toastContainer"] > div {
+        background: #1a1a1a !important;
+        border: 1px solid var(--bd2) !important;
+        border-left: 2px solid rgba(0,100,170,.6) !important;
+        border-radius: 9px !important;
+        color: var(--t1) !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,.6) !important;
+    }
+
+    /* ═══════════════════════════════════════
+       Date Input / Calendar
+    ═══════════════════════════════════════ */
+    div.stDateInput > div > div > input {
+        background: var(--bg1) !important;
+        border: 1px solid var(--bd2) !important;
+        border-radius: 7px !important;
+        color: var(--t1) !important;
+    }
+
+    div[data-baseweb="calendar"] {
+        background: #181818 !important;
+        border: 1px solid var(--bd2) !important;
+        border-radius: 9px !important;
+    }
+
+    div[data-baseweb="calendar"] button { color: var(--t2) !important; }
+    div[data-baseweb="calendar"] button:hover { background: var(--bg3) !important; color: var(--t1) !important; }
+    div[data-baseweb="calendar"] [aria-selected="true"] button {
+        background: var(--burg) !important;
+        color: var(--ivory) !important;
+    }
+
+    /* ═══════════════════════════════════════
+       Checkbox / Radio
+    ═══════════════════════════════════════ */
+    input[type="checkbox"] { accent-color: var(--burg) !important; }
+    input[type="radio"]    { accent-color: var(--burg) !important; }
+
+    /* ═══════════════════════════════════════
+       分隔線
+    ═══════════════════════════════════════ */
+    hr {
+        border: none !important;
+        border-top: 1px solid var(--bd) !important;
+        margin: .75rem 0 !important;
+    }
+
+    /* ═══════════════════════════════════════
+       滾動條
+    ═══════════════════════════════════════ */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(249,246,229,.1);
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(249,246,229,.18);
+    }
+
+    /* ═══════════════════════════════════════
+       Modal 放大視圖
+    ═══════════════════════════════════════ */
+    div[data-testid="stModal"] > div > div {
+        background: #141414 !important;
+        border: 1px solid var(--bd2) !important;
+        border-radius: 12px !important;
+        width: min(98vw, 1800px) !important;
+        max-width: min(98vw, 1800px) !important;
+    }
+
+    /* ═══════════════════════════════════════
+       響應式
+    ═══════════════════════════════════════ */
+    @media (max-width: 768px) {
+        .main .block-container { padding: 1rem !important; }
+        .stApp { background-attachment: scroll !important; }
+        section[data-testid="stSidebar"] {
+            min-width: unset !important;
+            max-width: 82vw !important;
+        }
+    }
+
+    @media (max-width: 640px) {
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            min-width: 100% !important;
+        }
+        .main div.stButton > button,
+        form div.stButton > button {
+            width: 100% !important;
+        }
     }
 
     </style>
     """, unsafe_allow_html=True)
-
 
 def apply_arrow_nav():
     st.markdown("""
