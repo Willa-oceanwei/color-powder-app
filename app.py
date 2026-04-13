@@ -52,13 +52,16 @@ if not st.session_state.authenticated:
     st.stop()
     
 # ======== 🎨 終極版自訂樣式（圓角下拉）========
+# ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
+
 def apply_modern_style():
     import streamlit as st
+
     st.markdown("""
 <style>
 
 /* ═══════════════════════════════
-   ERP UI THEME (ENTERPRISE)
+   ROOT THEME
 ═══════════════════════════════ */
 
 :root{
@@ -67,30 +70,36 @@ def apply_modern_style():
 --bg-card:#141414;
 
 /* Sidebar */
+
 --sidebar-bg:#0b2f4a;
 --sidebar-hover:#124466;
 --sidebar-active:#1a5a84;
 
 /* Text */
+
 --text-main:#ffffff;
 --text-soft:#d7e3ef;
 --text-dim:#9fb7cc;
 --text-red:#e35b5b;
 
 /* UI size */
+
 --font-ui:13px;
 --font-small:11px;
 
 /* border */
+
 --border-soft:rgba(255,255,255,0.08);
+
 }
 
 
 /* ═══════════════════════════════
-   Base Font
+   BASE FONT
 ═══════════════════════════════ */
 
 *{
+
 font-family:
 "Microsoft JhengHei",
 "PingFang TC",
@@ -99,11 +108,12 @@ sans-serif !important;
 
 font-size:var(--font-ui);
 color:var(--text-main);
+
 }
 
 
 /* ═══════════════════════════════
-   Background
+   BACKGROUND
 ═══════════════════════════════ */
 
 .stApp{
@@ -112,20 +122,27 @@ background:var(--bg-main);
 
 
 /* ═══════════════════════════════
-   Sidebar (ERP BLUE)
+   SIDEBAR
 ═══════════════════════════════ */
 
 section[data-testid="stSidebar"]{
+
 background:var(--sidebar-bg) !important;
 border-right:1px solid rgba(255,255,255,0.08);
+
 min-width:220px;
 max-width:220px;
+
 }
 
+
 /* Sidebar Buttons */
+
 section[data-testid="stSidebar"] div.stButton > button{
+
 background:transparent;
 border:0;
+
 width:100%;
 text-align:left;
 
@@ -133,256 +150,387 @@ color:#ffffff;
 font-size:13px;
 
 padding:8px 12px;
+
 transition:0.15s;
+
 }
 
 section[data-testid="stSidebar"] div.stButton > button:hover{
+
 background:var(--sidebar-hover);
 color:#ffffff;
+
 }
 
 section[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
+
 background:var(--sidebar-active);
 font-weight:600;
+
 }
 
 
 /* Sidebar small text */
+
 section[data-testid="stSidebar"] .erp-sub,
 section[data-testid="stSidebar"] .erp-group{
+
 font-size:11px;
 color:var(--text-red);
+
 letter-spacing:0.5px;
+
 }
 
 
 /* ═══════════════════════════════
-   Tabs (Glow)
+   TABS (GLOW STYLE)
 ═══════════════════════════════ */
 
 button[data-testid="stTab"] p{
+
 font-size:13px;
 color:#cfd8e3;
+
 }
 
 button[data-testid="stTab"]:hover p{
+
 color:#ffffff;
+
 }
 
 button[data-testid="stTab"][aria-selected="true"] p{
+
 color:#6fbaff !important;
+
 text-shadow:
 0 0 8px rgba(70,160,255,.9),
 0 0 16px rgba(70,160,255,.6);
+
 }
 
-/* tab underline glow */
+/* underline glow */
+
 div[data-testid="stTabs"] [data-baseweb="tab-highlight"]{
+
 background:#5aa0ff;
 height:3px;
+
 box-shadow:
 0 0 10px rgba(90,160,255,.8),
 0 0 20px rgba(90,160,255,.5);
+
 }
 
 
 /* ═══════════════════════════════
-   Inputs
+   INPUTS
 ═══════════════════════════════ */
 
 div.stTextInput input,
 div.stTextArea textarea,
 div.stNumberInput input{
+
 background:#161616;
 border:1px solid var(--border-soft);
+
 border-radius:6px;
+
 color:#fff;
+
 font-size:13px;
+
 }
 
 div.stTextInput input:focus,
 div.stTextArea textarea:focus,
 div.stNumberInput input:focus{
+
 border:1px solid #5aa0ff;
-box-shadow:0 0 0 2px rgba(90,160,255,.2);
+
+box-shadow:
+0 0 0 2px rgba(90,160,255,.2);
+
 }
 
 
 /* ═══════════════════════════════
-   Selectbox (FIXED POPUP VISIBILITY)
+   SELECTBOX
 ═══════════════════════════════ */
 
 div.stSelectbox div[data-baseweb="select"] > div{
+
 background:#1b1b1b !important;
+
 border:1px solid rgba(255,255,255,0.14) !important;
+
 border-radius:6px;
+
 font-size:13px;
+
 }
 
-/* dropdown popup (重點修正) */
+
+/* dropdown popup */
+
 div[data-baseweb="popover"]{
+
 background:#202020 !important;
+
 border:1px solid rgba(255,255,255,0.15) !important;
+
 box-shadow:0 12px 30px rgba(0,0,0,.7) !important;
+
 border-radius:8px !important;
+
 }
+
 
 ul[role="listbox"] li{
+
 background:transparent !important;
 color:#d7e3ef !important;
+
 font-size:13px !important;
+
 }
 
 ul[role="listbox"] li:hover{
+
 background:rgba(90,160,255,.12) !important;
 color:#ffffff !important;
+
 }
 
 ul[role="listbox"] li[aria-selected="true"]{
+
 background:rgba(90,160,255,.25) !important;
 color:#ffffff !important;
+
 }
 
 
 /* ═══════════════════════════════
-   Buttons
+   BUTTONS
 ═══════════════════════════════ */
 
 .stButton button{
+
 background:#a1162b;
 color:white;
+
 border-radius:6px;
+
 padding:8px 16px;
+
 font-size:13px;
 font-weight:600;
+
 border:0;
+
 }
 
 .stButton button:hover{
+
 background:#c21e37;
+
 }
+
 
 /* ═══════════════════════════════
-   AG GRID / Streamlit DataFrame
+   STREAMLIT DATAFRAME (AG GRID)
 ═══════════════════════════════ */
 
-/* 整個 grid */
 
-.ag-root-wrapper{
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:10px;
-    overflow:hidden;
-    background:#111;
+/* grid */
+
+.ag-theme-streamlit .ag-root-wrapper{
+
+border:1px solid rgba(255,255,255,0.08);
+
+border-radius:10px;
+
+overflow:hidden;
+
+background:#0d1117;
+
 }
 
 
-/* 表頭 */
+/* header */
 
-.ag-header{
-    background:#161b22;
-    border-bottom:1px solid rgba(255,255,255,0.06);
+.ag-theme-streamlit .ag-header{
+
+background:#161b22;
+
+border-bottom:1px solid rgba(255,255,255,0.06);
+
 }
 
-.ag-header-cell-label{
-    color:#9fb7cc;
-    font-size:11px;
-    letter-spacing:.08em;
-    text-transform:uppercase;
-}
+.ag-theme-streamlit .ag-header-cell-label{
 
+color:#9fb7cc !important;
 
-/* row */
+font-size:11px !important;
 
-.ag-row{
-    background:#0f0f0f;
-}
+letter-spacing:.08em;
 
+text-transform:uppercase;
 
-/* zebra row */
-
-.ag-row:nth-child(even){
-    background:#121212;
 }
 
 
-/* cell */
+/* rows */
 
-.ag-cell{
-    color:#e6edf3;
-    font-size:13px;
-    border-bottom:1px solid rgba(255,255,255,0.04);
+.ag-theme-streamlit .ag-row{
+
+background:#0d1117;
+
+}
+
+.ag-theme-streamlit .ag-row:nth-child(even){
+
+background:#10151b;
+
+}
+
+
+/* cells */
+
+.ag-theme-streamlit .ag-cell{
+
+color:#e6edf3 !important;
+
+font-size:13px !important;
+
+border-bottom:1px solid rgba(255,255,255,0.04);
+
+padding-left:10px;
+padding-right:10px;
+
 }
 
 
 /* hover */
 
-.ag-row-hover .ag-cell{
-    background:linear-gradient(
-        90deg,
-        rgba(90,160,255,0.08),
-        rgba(90,160,255,0.03)
-    );
-    color:#fff;
+.ag-theme-streamlit .ag-row-hover .ag-cell{
+
+background:linear-gradient(
+
+90deg,
+rgba(90,160,255,0.08),
+rgba(90,160,255,0.03)
+
+) !important;
+
+color:#ffffff !important;
+
 }
 
 
-/* 左側 highlight bar */
+/* hover left bar */
 
-.ag-row-hover{
-    box-shadow:inset 3px 0 0 rgba(90,160,255,0.8);
+.ag-theme-streamlit .ag-row-hover{
+
+box-shadow:inset 3px 0 0 rgba(90,160,255,0.9);
+
+}
+
+
+/* selected */
+
+.ag-theme-streamlit .ag-row-selected .ag-cell{
+
+background:rgba(90,160,255,0.18) !important;
+
 }
 
 </style>
 """, unsafe_allow_html=True)
 
+
+# ======== Arrow key navigation ========
+
 def apply_arrow_nav():
+
     import streamlit as st
+
     st.markdown("""
 <script>
+
 (function () {
-  if (window._arrowNavBound) return;
-  window._arrowNavBound = true;
 
-  function getInputs() {
-    return Array.from(
-      document.querySelectorAll(
-        'input:not([disabled]):not([readonly]), textarea:not([disabled])'
-      )
-    ).filter(el => el.offsetParent !== null);
-  }
+if (window._arrowNavBound) return;
+window._arrowNavBound = true;
 
-  function moveFocus(current, step) {
-    const inputs = getInputs();
-    const idx = inputs.indexOf(current);
-    if (idx < 0) return;
-    const next = inputs[idx + step];
-    if (next) {
-      next.focus();
-      if (next.select) next.select();
-    }
-  }
+function getInputs(){
 
-  document.addEventListener('keydown', function(e) {
-    const t = e.target;
-    if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
-    if (t.disabled || t.readOnly) return;
+return Array.from(
 
-    const isNum = t.type === 'number';
+document.querySelectorAll(
 
-    if (['ArrowDown', 'ArrowRight'].includes(e.key)) {
-      e.preventDefault();
-      moveFocus(t, +1);
-    }
+'input:not([disabled]):not([readonly]), textarea:not([disabled])'
 
-    if (['ArrowUp', 'ArrowLeft'].includes(e.key)) {
-      e.preventDefault();
-      moveFocus(t, -1);
-    }
-  }, true);
+)
+
+).filter(el => el.offsetParent !== null);
+
+}
+
+function moveFocus(current, step){
+
+const inputs = getInputs();
+const idx = inputs.indexOf(current);
+
+if (idx < 0) return;
+
+const next = inputs[idx + step];
+
+if (next){
+
+next.focus();
+
+if (next.select) next.select();
+
+}
+
+}
+
+
+document.addEventListener('keydown', function(e){
+
+const t = e.target;
+
+if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement))
+return;
+
+if (t.disabled || t.readOnly) return;
+
+if (['ArrowDown','ArrowRight'].includes(e.key)){
+
+e.preventDefault();
+moveFocus(t, +1);
+
+}
+
+if (['ArrowUp','ArrowLeft'].includes(e.key)){
+
+e.preventDefault();
+moveFocus(t, -1);
+
+}
+
+}, true);
+
 })();
+
 </script>
 """, unsafe_allow_html=True)
 
+
+
+# 啟用 UI
 apply_modern_style()
 apply_arrow_nav()
 
