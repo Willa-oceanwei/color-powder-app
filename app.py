@@ -87,7 +87,7 @@ def apply_modern_style():
        全站字體
     ═══════════════════════════════════════ */
     * {
-        font-family: 'Noto Serif TC', 'Microsoft JhengHei', sans-serif !important;
+        font-family: 'Microsoft JhengHei', 'Noto Serif TC', sans-serif !important;
     }
 
     /* ═══════════════════════════════════════
