@@ -263,45 +263,74 @@ background:#c21e37;
 }
 
 /* ═══════════════════════════════
-   DataFrame — SaaS 冷色系升級版
-═══════════════════════════════ */
-
-/* ═══════════════════════════════
    DataFrame — AG Grid 正確選擇器
 ═══════════════════════════════ */
 
-/* 外框 */
-.stDataFrame { border-radius: 10px; overflow: hidden; }
+div[data-testid="stDataFrame"] {
+    border: 1px solid rgba(60, 130, 200, 0.15);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0a0f16;
+    box-shadow:
+        0 4px 24px rgba(0,0,0,0.6),
+        0 1px 0 rgba(60,140,220,0.08) inset;
+}
 
-/* 表頭 */
-.ag-header { background: #0a1c34 !important; }
-.ag-header-cell-text {
+/* 表頭 — 玻璃擬態 */
+div[data-testid="stDataFrame"] [role="columnheader"] {
+    background: rgba(10, 28, 52, 0.98) !important;
     color: #5a9fd4 !important;
     font-size: 10px !important;
     letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
+    border-bottom: 1px solid rgba(77, 166, 255, 0.25) !important;
+    padding: 10px 8px !important;
     font-weight: 600 !important;
 }
 
-/* 奇偶行底色 */
-.ag-row-even { background: #0d1117 !important; }
-.ag-row-odd  { background: #101820 !important; }
-
-/* cell 文字 */
-.ag-cell {
-    color: #c8d8e8 !important;
-    font-size: 12.5px !important;
-    border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+/* 奇數行 */
+div[data-testid="stDataFrame"] [role="row"]:nth-child(odd) {
+    background: #0d1117;
+}
+div[data-testid="stDataFrame"] [role="row"]:nth-child(odd) [role="gridcell"] {
+    background: #0d1117 !important;
 }
 
-/* hover */
-.ag-row:hover {
-    background: #0f1e2e !important;
+/* 偶數行 */
+div[data-testid="stDataFrame"] [role="row"]:nth-child(even) {
+    background: #101820;
+}
+div[data-testid="stDataFrame"] [role="row"]:nth-child(even) [role="gridcell"] {
+    background: #101820 !important;
+}
+
+/* cell */
+div[data-testid="stDataFrame"] [role="gridcell"] {
+    font-size: 12.5px !important;
+    color: #c8d8e8 !important;
+    border-bottom: 1px solid rgba(255,255,255,0.03) !important;
+    padding: 8px 10px !important;
+    transition: background 0.1s, color 0.1s, box-shadow 0.1s;
+}
+
+/* hover — 左側亮條 */
+div[data-testid="stDataFrame"] [role="row"]:hover {
     box-shadow: inset 3px 0 0 #4da6ff !important;
 }
-.ag-row:hover .ag-cell {
+
+/* hover — 卡片浮起 */
+div[data-testid="stDataFrame"] [role="row"]:hover [role="gridcell"] {
+    background: linear-gradient(
+        90deg,
+        rgba(30, 80, 140, 0.28) 0%,
+        rgba(20, 50, 90, 0.12) 100%
+    ) !important;
     color: #e8f4ff !important;
+    box-shadow:
+        inset 0 1px 0 rgba(100, 180, 255, 0.10),
+        inset 0 -1px 0 rgba(0,0,0,0.35) !important;
 }
+
 
 </style>
 """, unsafe_allow_html=True)
