@@ -232,7 +232,8 @@ def apply_modern_style():
     }
 
     button[data-testid="stTab"]:hover p {
-        color: var(--t2) !important;
+        color: rgba(180,220,255,.9) !important;
+        text-shadow: 0 0 6px rgba(0,90,180,.5);
     }
 
     button[data-testid="stTab"][aria-selected="true"] p {
