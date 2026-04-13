@@ -446,6 +446,22 @@ background:rgba(90,160,255,0.18) !important;
 
 }
 
+/* 隱藏 AG Grid 的 Press Enter to submit */
+.ag-overlay-no-rows-center,
+.ag-cell-inline-editing::after {
+    display: none !important;
+}
+
+/* 隱藏 cell editor hint */
+.ag-cell-inline-editing .ag-input-field-label {
+    display:none !important;
+}
+
+/* 進階：隱藏 Enter 提示 */
+.ag-cell-edit-wrapper::after {
+    display:none !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
