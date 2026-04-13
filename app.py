@@ -168,7 +168,7 @@ def apply_modern_style():
     /* sidebar 未選按鈕 */
     section[data-testid="stSidebar"] div.stButton > button {
         background: transparent !important;
-        color: var(--t3) !important;
+        color: rgba(200,220,240,.8) !important;
         border: 0 !important;
         border-left: 2px solid transparent !important;
         border-radius: 2px !important;
