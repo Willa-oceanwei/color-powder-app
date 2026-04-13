@@ -292,6 +292,57 @@ background:rgba(90,160,255,.08);
 </style>
 """, unsafe_allow_html=True)
 
+def apply_arrow_nav():
+    import streamlit as st
+    st.markdown("""
+<script>
+(function () {
+  if (window._arrowNavBound) return;
+  window._arrowNavBound = true;
+
+  function getInputs() {
+    return Array.from(
+      document.querySelectorAll(
+        'input:not([disabled]):not([readonly]), textarea:not([disabled])'
+      )
+    ).filter(el => el.offsetParent !== null);
+  }
+
+  function moveFocus(current, step) {
+    const inputs = getInputs();
+    const idx = inputs.indexOf(current);
+    if (idx < 0) return;
+    const next = inputs[idx + step];
+    if (next) {
+      next.focus();
+      if (next.select) next.select();
+    }
+  }
+
+  document.addEventListener('keydown', function(e) {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
+    if (t.disabled || t.readOnly) return;
+
+    const isNum = t.type === 'number';
+
+    if (['ArrowDown', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      moveFocus(t, +1);
+    }
+
+    if (['ArrowUp', 'ArrowLeft'].includes(e.key)) {
+      e.preventDefault();
+      moveFocus(t, -1);
+    }
+  }, true);
+})();
+</script>
+""", unsafe_allow_html=True)
+
+apply_modern_style()
+apply_arrow_nav()
+
 
 # ======== GCP SERVICE ACCOUNT =========
 service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
