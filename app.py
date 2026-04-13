@@ -684,6 +684,165 @@ def apply_modern_style():
             width: 100% !important;
         }
     }
+        /* ═══════════════════════════════════════
+       全站字體優化（清晰 UI 字體）
+    ═══════════════════════════════════════ */
+    
+    html, body, [class*="css"] {
+        font-family:
+            "Segoe UI",
+            "Microsoft JhengHei",
+            "PingFang TC",
+            "Noto Sans TC",
+            sans-serif !important;
+        -webkit-font-smoothing: antialiased !important;
+        text-rendering: optimizeLegibility !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       Dashboard Card（內容卡片）
+    ═══════════════════════════════════════ */
+    
+    .block-container > div {
+        background: rgba(18,18,18,.65);
+        border: 1px solid var(--bd);
+        border-radius: 10px;
+        padding: 20px 22px;
+        margin-bottom: 16px;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       Section Header
+    ═══════════════════════════════════════ */
+    
+    .section-title {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: .04em;
+        margin-bottom: 12px;
+        color: var(--t2);
+        text-transform: uppercase;
+    }
+    
+    .section-line {
+        height: 1px;
+        background: linear-gradient(
+            90deg,
+            rgba(129,2,31,.55),
+            rgba(129,2,31,.15)
+        );
+        margin-bottom: 16px;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       表格可讀性提升
+    ═══════════════════════════════════════ */
+    
+    div[data-testid="stDataFrame"] [role="gridcell"] {
+        font-size: 13px !important;
+        padding: 7px 8px !important;
+    }
+    
+    div[data-testid="stDataFrame"] [role="columnheader"] {
+        font-size: 10px !important;
+        letter-spacing: .08em !important;
+    }
+    
+    
+    /* hover highlight */
+    
+    div[data-testid="stDataFrame"] [role="row"]:hover [role="gridcell"] {
+        background: rgba(129,2,31,.08) !important;
+        color: var(--t1) !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       表單 label
+    ═══════════════════════════════════════ */
+    
+    label {
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        color: var(--t2) !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       輸入框清晰化
+    ═══════════════════════════════════════ */
+    
+    div.stTextInput input,
+    div.stTextArea textarea,
+    div.stNumberInput input {
+        font-size: 13px !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       按鈕間距優化
+    ═══════════════════════════════════════ */
+    
+    div.stButton {
+        margin-top: 6px;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       Button Group
+    ═══════════════════════════════════════ */
+    
+    .button-group button {
+        margin-right: 6px !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       Sidebar spacing
+    ═══════════════════════════════════════ */
+    
+    section[data-testid="stSidebar"] div.stButton {
+        margin-bottom: 3px;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       metric 卡片文字清晰
+    ═══════════════════════════════════════ */
+    
+    div[data-testid="stMetricValue"] {
+        font-size: 26px !important;
+        font-weight: 700 !important;
+    }
+    
+    div[data-testid="stMetricLabel"] p {
+        font-size: 10px !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       Scrollbar
+    ═══════════════════════════════════════ */
+    
+    ::-webkit-scrollbar {
+        width: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #111;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 6px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #444;
+    }
 
     </style>
     """, unsafe_allow_html=True)
@@ -736,6 +895,165 @@ def apply_arrow_nav():
         }
       }, true);
     })();
+        /* ═══════════════════════════════════════
+       全站字體優化（清晰 UI 字體）
+    ═══════════════════════════════════════ */
+    
+    html, body, [class*="css"] {
+        font-family:
+            "Segoe UI",
+            "Microsoft JhengHei",
+            "PingFang TC",
+            "Noto Sans TC",
+            sans-serif !important;
+        -webkit-font-smoothing: antialiased !important;
+        text-rendering: optimizeLegibility !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       Dashboard Card（內容卡片）
+    ═══════════════════════════════════════ */
+    
+    .block-container > div {
+        background: rgba(18,18,18,.65);
+        border: 1px solid var(--bd);
+        border-radius: 10px;
+        padding: 20px 22px;
+        margin-bottom: 16px;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       Section Header
+    ═══════════════════════════════════════ */
+    
+    .section-title {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: .04em;
+        margin-bottom: 12px;
+        color: var(--t2);
+        text-transform: uppercase;
+    }
+    
+    .section-line {
+        height: 1px;
+        background: linear-gradient(
+            90deg,
+            rgba(129,2,31,.55),
+            rgba(129,2,31,.15)
+        );
+        margin-bottom: 16px;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       表格可讀性提升
+    ═══════════════════════════════════════ */
+    
+    div[data-testid="stDataFrame"] [role="gridcell"] {
+        font-size: 13px !important;
+        padding: 7px 8px !important;
+    }
+    
+    div[data-testid="stDataFrame"] [role="columnheader"] {
+        font-size: 10px !important;
+        letter-spacing: .08em !important;
+    }
+    
+    
+    /* hover highlight */
+    
+    div[data-testid="stDataFrame"] [role="row"]:hover [role="gridcell"] {
+        background: rgba(129,2,31,.08) !important;
+        color: var(--t1) !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       表單 label
+    ═══════════════════════════════════════ */
+    
+    label {
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        color: var(--t2) !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       輸入框清晰化
+    ═══════════════════════════════════════ */
+    
+    div.stTextInput input,
+    div.stTextArea textarea,
+    div.stNumberInput input {
+        font-size: 13px !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       按鈕間距優化
+    ═══════════════════════════════════════ */
+    
+    div.stButton {
+        margin-top: 6px;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       Button Group
+    ═══════════════════════════════════════ */
+    
+    .button-group button {
+        margin-right: 6px !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       Sidebar spacing
+    ═══════════════════════════════════════ */
+    
+    section[data-testid="stSidebar"] div.stButton {
+        margin-bottom: 3px;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       metric 卡片文字清晰
+    ═══════════════════════════════════════ */
+    
+    div[data-testid="stMetricValue"] {
+        font-size: 26px !important;
+        font-weight: 700 !important;
+    }
+    
+    div[data-testid="stMetricLabel"] p {
+        font-size: 10px !important;
+    }
+    
+    
+    /* ═══════════════════════════════════════
+       Scrollbar
+    ═══════════════════════════════════════ */
+    
+    ::-webkit-scrollbar {
+        width: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #111;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 6px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #444;
+    }
     </script>
     """, unsafe_allow_html=True)
 
