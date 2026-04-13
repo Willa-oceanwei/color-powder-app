@@ -431,6 +431,12 @@ display:none !important;
 display:none !important;
 }
 
+/* DEBUG TEST */
+
+[data-testid="stDataFrame"] *{
+outline:1px solid red !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
