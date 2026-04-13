@@ -188,14 +188,12 @@ button[data-testid="stTab"]:hover p{
 color:white;
 }
 
-button[data-testid="stTab"][aria-selected="true"] p{
-
-color:white;
-font-weight:600;
-text-shadow:
-0 0 6px rgba(90,160,255,0.7),
-0 0 14px rgba(90,160,255,0.5);
-
+button[data-testid="stTab"][aria-selected="true"] p {
+    color: #6fbaff !important;
+    font-weight: 600 !important;
+    text-shadow:
+        0 0 8px rgba(70,160,255,.9),
+        0 0 16px rgba(70,160,255,.6);
 }
 
 /* tab 底部光暈 */
