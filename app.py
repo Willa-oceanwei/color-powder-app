@@ -462,6 +462,18 @@ background:rgba(90,160,255,0.18) !important;
     display:none !important;
 }
 
+/* TEST CSS */
+
+div[data-testid="stDataFrame"] div[role="gridcell"]{
+background:#202a36 !important;
+color:#ffffff !important;
+}
+
+div[data-testid="stDataFrame"] div[role="columnheader"]{
+background:#16202a !important;
+color:#8fbfff !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
