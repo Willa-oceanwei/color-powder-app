@@ -186,6 +186,15 @@ div[data-testid="stDataFrame"] {
     margin-bottom:10px;
 }
 
+[data-testid="stSidebar"] .erp-group {
+    font-size:9.5px !important;
+    color:#e06b3a !important;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    font-weight:600;
+    margin-top:14px;
+}
+
 </style>
 """, unsafe_allow_html=True)
     
