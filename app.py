@@ -52,18 +52,16 @@ if not st.session_state.authenticated:
     st.stop()
     
 # ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
-# ======== 🎨 ERP UI THEME (FIXED VERSION) ========
 def apply_modern_style():
     import streamlit as st
 
     st.markdown("""
 <style>
 
-/* =========================================================
-   MAIN PAGE (右邊內容：金色 TAB + 橘紅按鈕)
-========================================================= */
+/* =========================
+   MAIN PAGE (右側)
+========================= */
 
-/* tab */
 button[data-baseweb="tab"]{
     font-size:14px;
     font-weight:600;
@@ -75,7 +73,6 @@ button[data-baseweb="tab"][aria-selected="true"]{
     border-bottom:3px solid #c89b2d !important;
 }
 
-/* general buttons */
 .stButton > button{
     border-radius:6px;
     border:1px solid #d2a85a;
@@ -84,43 +81,26 @@ button[data-baseweb="tab"][aria-selected="true"]{
     font-weight:600;
 }
 
-.stButton > button:hover{
-    background:#f7e1b0;
-    border-color:#c9962a;
-}
-
-/* primary button */
 .stButton > button[kind="primary"]{
     background:#c6582f;
     border-color:#c6582f;
     color:white;
 }
 
-.stButton > button[kind="primary"]:hover{
-    background:#a94723;
-}
+/* =========================
+   SIDEBAR (左側固定灰藍)
+========================= */
 
-/* =========================================================
-   SIDEBAR (左邊 ERP 深藍)
-========================================================= */
-
-:root{
-    --sidebar-bg:#23272D;
-    --sidebar-hover:#2d3540;
-    --sidebar-active:#2a3f5a;
-}
-
-/* sidebar container */
-section[data-testid="stSidebar"]{
-    background:var(--sidebar-bg) !important;
+[data-testid="stSidebar"]{
+    background:#23272D !important;
     border-right:1px solid rgba(255,255,255,0.08);
     min-width:190px !important;
     max-width:190px !important;
 }
 
-/* sidebar buttons */
-section[data-testid="stSidebar"] div.stButton > button{
-    background:transparent;
+/* sidebar button */
+[data-testid="stSidebar"] div.stButton > button{
+    background:transparent !important;
     border:0;
     width:100%;
     text-align:left;
@@ -130,39 +110,35 @@ section[data-testid="stSidebar"] div.stButton > button{
 }
 
 /* hover */
-section[data-testid="stSidebar"] div.stButton > button:hover{
-    background:var(--sidebar-hover);
-    color:#ffffff;
+[data-testid="stSidebar"] div.stButton > button:hover{
+    background:#2d3540 !important;
+    color:#ffffff !important;
 }
 
 /* active */
-section[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
-    background:var(--sidebar-active);
-    font-weight:600;
+[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
+    background:#2a3f5a !important;
+    color:#ffffff !important;
 }
 
-/* sidebar group title */
-section[data-testid="stSidebar"] .erp-group{
-    font-size:11px;
+/* group text */
+[data-testid="stSidebar"] .erp-group{
     color:#bf6030;
-    letter-spacing:0.5px;
+    font-size:11px;
     margin-top:10px;
 }
 
-/* =========================================================
-   HEADER TEXT (左上標題)
-========================================================= */
-
+/* title */
 .erp-title{
     font-size:16px;
     font-weight:700;
-    color:#ffffff;
+    color:white;
 }
 
 .erp-sub{
     font-size:11px;
     color:#9fb6cc;
-    margin-bottom:10px;
+    margin-bottom:8px;
 }
 
 </style>
@@ -209,49 +185,46 @@ def apply_arrow_nav():
 </script>
 """, unsafe_allow_html=True)
 
-
 # ======== Sidebar Menu ========
 
-MENU_ITEMS = [
-    {"group":"生產","key":"生產單管理","label":"生產單管理"},
-    {"group":"生產","key":"配方管理","label":"配方管理"},
-    {"group":"生產","key":"代工管理","label":"代工管理"},
+def render_sidebar():
+    import streamlit as st
 
-    {"group":"倉儲","key":"庫存區","label":"庫存區"},
-    {"group":"倉儲","key":"洗車廠庫存","label":"洗車廠庫存"},
-    {"group":"倉儲","key":"採購管理","label":"採購管理"},
+    MENU_ITEMS = [
+        {"group":"生產","key":"生產單管理","label":"生產單管理"},
+        {"group":"生產","key":"配方管理","label":"配方管理"},
+        {"group":"生產","key":"代工管理","label":"代工管理"},
+        {"group":"倉儲","key":"庫存區","label":"庫存區"},
+        {"group":"倉儲","key":"洗車廠庫存","label":"洗車廠庫存"},
+        {"group":"倉儲","key":"採購管理","label":"採購管理"},
+        {"group":"查詢","key":"查詢區","label":"查詢區"},
+        {"group":"設定","key":"客戶名單","label":"客戶名單"},
+        {"group":"設定","key":"匯入備份","label":"匯入備份"},
+    ]
 
-    {"group":"查詢","key":"查詢區","label":"查詢區"},
+    if "menu" not in st.session_state:
+        st.session_state.menu = "生產單管理"
 
-    {"group":"設定","key":"客戶名單","label":"客戶名單"},
-    {"group":"設定","key":"匯入備份","label":"匯入備份"},
-]
+    with st.sidebar:
 
+        st.markdown("<div class='erp-title'>配方管理系統</div>", unsafe_allow_html=True)
+        st.markdown("<div class='erp-sub'>v2.1 · ERP Edition</div>", unsafe_allow_html=True)
 
-if "menu" not in st.session_state:
-    st.session_state.menu = "生產單管理"
+        current_group = None
 
+        for item in MENU_ITEMS:
 
-with st.sidebar:
+            if item["group"] != current_group:
+                st.markdown(f"<div class='erp-group'>{item['group']}</div>", unsafe_allow_html=True)
+                current_group = item["group"]
 
-    st.markdown("<div class='erp-title'>配方管理系統</div>", unsafe_allow_html=True)
-    st.markdown("<div class='erp-sub'>v2.1 · ERP Edition</div>", unsafe_allow_html=True)
-
-    current_group = None
-
-    for item in MENU_ITEMS:
-
-        if item["group"] != current_group:
-            st.markdown(f"<div class='erp-group'>{item['group']}</div>", unsafe_allow_html=True)
-            current_group = item["group"]
-
-        if st.button(
-            item["label"],
-            key=item["key"],
-            use_container_width=True,
-            type="primary" if st.session_state.menu == item["key"] else "secondary"
-        ):
-            st.session_state.menu = item["key"]
+            if st.button(
+                item["label"],
+                key=item["key"],
+                use_container_width=True,
+                type="primary" if st.session_state.menu == item["key"] else "secondary"
+            ):
+                st.session_state.menu = item["key"]
 
 # ======== ENABLE ========
 
