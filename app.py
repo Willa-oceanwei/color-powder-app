@@ -204,6 +204,32 @@ div[data-testid="stDataFrame"] {
     background:#11161c !important;
 }
 
+div[data-baseweb="popover"] {
+    background:#1f2630 !important;
+    border:1px solid rgba(255,255,255,0.10) !important;
+    box-shadow:0 12px 28px rgba(0,0,0,0.75) !important;
+    border-radius:10px !important;
+}
+
+/* option */
+ul[role="listbox"] li {
+    background:transparent !important;
+    color:#d7e3ef !important;
+    font-size:13px !important;
+}
+
+/* hover */
+ul[role="listbox"] li:hover {
+    background:rgba(198,88,47,0.12) !important;
+    color:#ffffff !important;
+}
+
+/* selected */
+ul[role="listbox"] li[aria-selected="true"] {
+    background:rgba(198,88,47,0.22) !important;
+    color:#ffffff !important;
+    font-weight:600;
+}
 
 /* =========================
    FONT
