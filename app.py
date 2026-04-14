@@ -86,10 +86,19 @@ def apply_modern_style():
     text-align:left;
     font-size:13px;
 
-    /* 🔥 重點：縮小間距 */
+    /* 🔥 縮小按鈕內距 */
     padding:5px 10px !important;
     margin-bottom:2px !important;
     line-height:1.2 !important;
+}
+
+/* 🔥 縮小每個 button 外層間距 */
+[data-testid="stSidebar"] div.stButton {
+    margin-bottom:2px !important;
+}
+
+[data-testid="stSidebar"] {
+    gap: 2px !important;
 }
 
 [data-testid="stSidebar"] div.stButton > button:hover {
