@@ -59,7 +59,7 @@ def apply_modern_style():
 <style>
 
 /* =========================
-   GLOBAL BACKGROUND（只動右邊）
+   GLOBAL BACKGROUND
 ========================= */
 
 .stApp, [data-testid="stAppViewContainer"] {
@@ -68,7 +68,7 @@ def apply_modern_style():
 
 
 /* =========================
-   SIDEBAR BASE（完全隔離）
+   SIDEBAR ONLY
 ========================= */
 
 [data-testid="stSidebar"] {
@@ -77,7 +77,7 @@ def apply_modern_style():
     max-width:200px !important;
 }
 
-/* sidebar button ONLY */
+/* sidebar buttons ONLY */
 [data-testid="stSidebar"] div.stButton > button {
     background:transparent !important;
     color:#ffffff !important;
@@ -95,14 +95,13 @@ def apply_modern_style():
 
 [data-testid="stSidebar"] div.stButton > button[kind="primary"] {
     background:#c6582f !important;
-    color:#fff !important;
     border-left:3px solid #ffb199 !important;
     font-weight:600;
 }
 
 
 /* =========================
-   SIDEBAR GROUP（橘紅 + 小字）
+   SIDEBAR GROUP
 ========================= */
 
 [data-testid="stSidebar"] .erp-group {
@@ -115,7 +114,7 @@ def apply_modern_style():
 
 
 /* =========================
-   SIDEBAR TITLE（修復你消失問題）
+   SIDEBAR TITLE
 ========================= */
 
 .erp-title {
@@ -133,7 +132,7 @@ def apply_modern_style():
 
 
 /* =========================
-   TABS（橘紅一致）
+   TAB（只改 tab，不碰 button）
 ========================= */
 
 button[data-baseweb="tab"] {
@@ -152,11 +151,10 @@ button[data-baseweb="tab"][aria-selected="true"] {
 
 
 /* =========================
-   MAIN BUTTON（只影響右側）
+   MAIN BUTTON（精準鎖 main）
 ========================= */
 
-section.main button,
-.stButton > button {
+div.block-container .stButton > button {
     background:#c6582f !important;
     color:white !important;
     border-radius:6px !important;
@@ -164,24 +162,22 @@ section.main button,
     font-weight:600 !important;
 }
 
-section.main button:hover,
-.stButton > button:hover {
+div.block-container .stButton > button:hover {
     background:#a94723 !important;
 }
 
 /* primary */
-.stButton > button[kind="primary"] {
+div.block-container .stButton > button[kind="primary"] {
     background:#e06b3a !important;
 }
 
 
 /* =========================
-   INPUT（限制範圍避免爆掉）
+   INPUT（避免影響 +/- 控制）
 ========================= */
 
-section.main input,
-section.main textarea,
-section.main [data-baseweb="input"] input {
+div[data-testid="stAppViewContainer"] input,
+div[data-testid="stAppViewContainer"] textarea {
     background:#161616 !important;
     border:1px solid rgba(255,255,255,0.15) !important;
     color:white !important;
@@ -190,11 +186,12 @@ section.main [data-baseweb="input"] input {
 
 
 /* =========================
-   SELECTBOX（穩定版）
+   NUMBER INPUT（避免 +/- 壞掉）
 ========================= */
 
-section.main div[data-baseweb="select"] {
-    font-family:'DM Mono', monospace !important;
+div[data-testid="stNumberInput"] button {
+    background:transparent !important;
+    color:white !important;
 }
 
 
@@ -205,6 +202,7 @@ section.main div[data-baseweb="select"] {
 div[data-testid="stDataFrame"] {
     background:#11161c !important;
 }
+
 
 /* =========================
    FONT
