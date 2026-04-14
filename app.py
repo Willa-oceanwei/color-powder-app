@@ -63,7 +63,7 @@ def apply_modern_style():
 ===================================================== */
 
 [data-testid="stAppViewContainer"]{
-    background:#23272D !important;
+    background:#f6f8fb !important;
 }
 
 /* =====================================================
