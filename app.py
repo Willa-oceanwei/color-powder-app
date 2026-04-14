@@ -689,12 +689,14 @@ def render_erp_nav():
             st.markdown(f'<div class="erp-group">{group_name}</div>', unsafe_allow_html=True)
             for item in items:
                 is_active = st.session_state.menu == item["key"]
-                if st.button(
-                    item["label"],
-                    key=f"menu_{item['key']}",
-                    type="primary" if is_active else "tertiary",
-                    use_container_width=True,
-                ):
+                btn_kwargs = {
+                    "key": f"menu_{item['key']}",
+                    "use_container_width": True,
+                }
+                if is_active:
+                    btn_kwargs["type"] = "primary"
+        
+                if st.button(item["label"], **btn_kwargs):
                     if not is_active:
                         st.session_state.menu = item["key"]
                         st.rerun()
