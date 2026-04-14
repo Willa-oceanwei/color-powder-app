@@ -146,7 +146,7 @@ div.block-container .stTabs [data-baseweb="tab-list"]{
 div.block-container .stTabs button[data-baseweb="tab"]{
 
     background:#0b2f4a !important;
-    color:#e06b3a !important;
+    color:#ffffff !important;
 
     border-radius:10px 10px 0 0 !important;
 
