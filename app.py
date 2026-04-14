@@ -237,6 +237,10 @@ div[data-testid="stDataFrame"] {
     overflow-x: hidden !important;
 }
 
+div.block-container div[data-testid="stDataFrame"]{
+    overflow-y:auto !important;
+}
+
 div[data-testid="stDataFrame"] table {
     width: 100% !important;
     table-layout: fixed !important;
