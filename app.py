@@ -397,6 +397,47 @@ def apply_arrow_nav():
 </script>
 """, unsafe_allow_html=True)
 
+# ======== Sidebar Menu ========
+
+MENU_ITEMS = [
+    {"group":"生產","key":"生產單管理","label":"📋 生產單管理"},
+    {"group":"生產","key":"配方管理","label":"🧪 配方管理"},
+    {"group":"生產","key":"代工管理","label":"🏭 代工管理"},
+
+    {"group":"倉儲","key":"庫存區","label":"📦 庫存區"},
+    {"group":"倉儲","key":"洗車廠庫存","label":"🚗 洗車廠庫存"},
+    {"group":"倉儲","key":"採購管理","label":"🧾 採購管理"},
+
+    {"group":"查詢","key":"查詢區","label":"🔎 查詢區"},
+
+    {"group":"設定","key":"客戶名單","label":"👥 客戶名單"},
+    {"group":"設定","key":"匯入備份","label":"💾 匯入備份"},
+]
+
+if "menu" not in st.session_state:
+    st.session_state.menu = "生產單管理"
+
+with st.sidebar:
+
+    current_group = None
+
+    for item in MENU_ITEMS:
+
+        if item["group"] != current_group:
+            st.markdown(
+                f"<div class='erp-group'>{item['group']}</div>",
+                unsafe_allow_html=True
+            )
+            current_group = item["group"]
+
+        if st.button(
+            item["label"],
+            key=item["key"],
+            use_container_width=True,
+            type="primary" if st.session_state.menu == item["key"] else "secondary"
+        ):
+            st.session_state.menu = item["key"]
+
 # 啟用 UI
 apply_modern_style()
 apply_arrow_nav()
