@@ -15,7 +15,7 @@ from datetime import datetime
 
 st.set_page_config(
     page_title="配方管理系統",
-    page_icon="🏭",
+    page_icon="🍺",
     layout="wide",
     initial_sidebar_state="expanded",
 )
