@@ -177,18 +177,18 @@ def apply_arrow_nav():
 # ======== Sidebar Menu ========
 
 MENU_ITEMS = [
-    {"group":"生產","key":"生產單管理","label":"📋 生產單管理"},
-    {"group":"生產","key":"配方管理","label":"🧪 配方管理"},
-    {"group":"生產","key":"代工管理","label":"🏭 代工管理"},
+    {"group":"生產","key":"生產單管理","label":" 生產單管理"},
+    {"group":"生產","key":"配方管理","label":" 配方管理"},
+    {"group":"生產","key":"代工管理","label":" 代工管理"},
 
-    {"group":"倉儲","key":"庫存區","label":"📦 庫存區"},
-    {"group":"倉儲","key":"洗車廠庫存","label":"🚗 洗車廠庫存"},
-    {"group":"倉儲","key":"採購管理","label":"🧾 採購管理"},
+    {"group":"倉儲","key":"庫存區","label":" 庫存區"},
+    {"group":"倉儲","key":"洗車廠庫存","label":" 洗車廠庫存"},
+    {"group":"倉儲","key":"採購管理","label":" 採購管理"},
 
-    {"group":"查詢","key":"查詢區","label":"🔎 查詢區"},
+    {"group":"查詢","key":"查詢區","label":" 查詢區"},
 
-    {"group":"設定","key":"客戶名單","label":"👥 客戶名單"},
-    {"group":"設定","key":"匯入備份","label":"💾 匯入備份"},
+    {"group":"設定","key":"客戶名單","label":" 客戶名單"},
+    {"group":"設定","key":"匯入備份","label":" 匯入備份"},
 ]
 
 if "menu" not in st.session_state:
