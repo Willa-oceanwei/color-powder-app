@@ -58,134 +58,117 @@ def apply_modern_style():
     st.markdown("""
 <style>
 
-/* =====================================================
-   🟫 MAIN BACKGROUND（右側統一深灰）
-===================================================== */
+/* =========================
+   GLOBAL BACKGROUND (RIGHT SIDE)
+========================= */
 
-[data-testid="stAppViewContainer"]{
-    background:#f6f8fb !important;
+.stApp {
+    background:#0a0a0a !important;
 }
 
-/* =====================================================
-   🔵 SIDEBAR（左側深藍）
-===================================================== */
+[data-testid="stAppViewContainer"] {
+    background:#0a0a0a !important;
+}
 
-[data-testid="stSidebar"]{
+
+/* =========================
+   SIDEBAR (KEEP BLUE)
+========================= */
+
+[data-testid="stSidebar"] {
     background:#0b2f4a !important;
     border-right:1px solid rgba(255,255,255,0.08);
-    min-width:190px !important;
-    max-width:190px !important;
+    min-width:200px !important;
+    max-width:200px !important;
 }
 
-/* sidebar buttons */
-[data-testid="stSidebar"] div.stButton > button{
-    background:transparent !important;
+[data-testid="stSidebar"] div.stButton > button {
+    background:transparent;
     border:0;
     width:100%;
     text-align:left;
-    color:#ffffff !important;
+    color:#ffffff;
     font-size:13px;
-    padding:6px 10px;
+    padding:8px 12px;
 }
 
-/* hover */
-[data-testid="stSidebar"] div.stButton > button:hover{
-    background:#124466 !important;
+[data-testid="stSidebar"] div.stButton > button:hover {
+    background:#124466;
 }
 
-/* active */
-[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
-    background:#1a5a84 !important;
+[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+    background:#1a5a84;
+    font-weight:600;
 }
 
-/* group title */
-[data-testid="stSidebar"] .erp-group{
-    color:#bf6030 !important;
+[data-testid="stSidebar"] .erp-group {
     font-size:11px;
-    margin-top:10px;
-}
-
-/* title */
-.erp-title{
-    font-size:16px;
-    font-weight:700;
-    color:white;
-}
-
-.erp-sub{
-    font-size:11px;
-    color:#9fb6cc;
-    margin-bottom:8px;
+    color:#e35b5b;
+    margin-top:12px;
 }
 
 
-/* =====================================================
-   🟠 TABS（橘紅一致設計）
-===================================================== */
+/* =========================
+   TABS (ORANGE GLOW)
+========================= */
 
-/* 未選 tab = 白色 */
-button[data-baseweb="tab"]{
+button[data-baseweb="tab"] {
+    color:#ffffff !important;
     font-size:14px;
-    font-weight:600;
-    color:#ffffff !important;
-    opacity:0.85;
 }
 
-/* hover */
-button[data-baseweb="tab"]:hover{
-    color:#ffffff !important;
-    opacity:1;
-}
-
-/* 選中 tab = 橘紅 */
-button[data-baseweb="tab"][aria-selected="true"]{
-    color:#bf6030 !important;
+button[data-baseweb="tab"][aria-selected="true"] {
+    color:#e35b5b !important;
+    border-bottom:3px solid #e35b5b !important;
     text-shadow:
-        0 0 8px rgba(191,96,48,.8),
-        0 0 16px rgba(191,96,48,.5);
-}
-
-/* tab underline glow */
-div[data-testid="stTabs"] [data-baseweb="tab-highlight"]{
-    background:#bf6030 !important;
-    height:3px !important;
-    box-shadow:
-        0 0 10px rgba(191,96,48,.7),
-        0 0 20px rgba(191,96,48,.4);
+        0 0 8px rgba(227,91,91,.7),
+        0 0 16px rgba(227,91,91,.4);
 }
 
 
-/* =====================================================
-   🟠 BUTTONS（橘紅系統按鈕）
-===================================================== */
+/* =========================
+   BUTTONS (ORANGE STYLE)
+========================= */
 
-.stButton > button{
+.stButton > button {
+    background:#a1162b;
+    color:white;
     border-radius:6px;
-    border:1px solid #d2a85a;
-    background:#fff7e3;
-    color:#a35d16;
+    border:0;
     font-weight:600;
 }
 
-/* hover */
-.stButton > button:hover{
-    background:#f7e1b0;
+.stButton > button:hover {
+    background:#c21e37;
 }
 
-/* primary */
-.stButton > button[kind="primary"]{
-    background:#c6582f !important;
-    border-color:#c6582f !important;
+.stButton > button[kind="primary"] {
+    background:#e35b5b;
+}
+
+
+/* =========================
+   INPUT FIX (避免框消失)
+========================= */
+
+input, textarea, [data-baseweb="input"] {
+    background:#161616 !important;
+    border:1px solid rgba(255,255,255,0.15) !important;
     color:white !important;
 }
 
-.stButton > button[kind="primary"]:hover{
-    background:#a94723 !important;
+
+/* =========================
+   DATAFRAME KEEP DARK
+========================= */
+
+div[data-testid="stDataFrame"] {
+    background:#11161c !important;
 }
 
 </style>
 """, unsafe_allow_html=True)
-
+    
 # ======== Sidebar Menu ========
 
 def render_sidebar():
