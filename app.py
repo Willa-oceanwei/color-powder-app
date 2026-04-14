@@ -52,111 +52,121 @@ if not st.session_state.authenticated:
     st.stop()
     
 # ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
+# ======== 🎨 ERP UI THEME (FIXED VERSION) ========
 def apply_modern_style():
     import streamlit as st
 
     st.markdown("""
 <style>
 
-/* =========================
-   MAIN PAGE (右側)
-========================= */
+/* =========================================================
+   MAIN PAGE (右邊內容：金色 TAB + 橘紅按鈕)
+========================================================= */
 
-[data-testid="stAppViewContainer"]{
-background:#f6f8fb;
-}
-
-/* tabs（金色ERP） */
+/* tab */
 button[data-baseweb="tab"]{
-font-size:14px;
-font-weight:600;
-color:#9a7b2f;
+    font-size:14px;
+    font-weight:600;
+    color:#9a7b2f;
 }
 
 button[data-baseweb="tab"][aria-selected="true"]{
-color:#c89b2d;
-border-bottom:3px solid #c89b2d;
+    color:#c89b2d !important;
+    border-bottom:3px solid #c89b2d !important;
 }
 
-/* buttons（只影響右邊） */
-[data-testid="stAppViewContainer"] .stButton > button{
-border-radius:6px;
-border:1px solid #d2a85a;
-background:#fff7e3;
-color:#a35d16;
-font-weight:600;
+/* general buttons */
+.stButton > button{
+    border-radius:6px;
+    border:1px solid #d2a85a;
+    background:#fff7e3;
+    color:#a35d16;
+    font-weight:600;
 }
 
-[data-testid="stAppViewContainer"] .stButton > button:hover{
-background:#f7e1b0;
-border-color:#c9962a;
+.stButton > button:hover{
+    background:#f7e1b0;
+    border-color:#c9962a;
 }
 
-/* primary（右邊橘紅） */
-[data-testid="stAppViewContainer"] .stButton > button[kind="primary"]{
-background:#c6582f;
-border-color:#c6582f;
-color:white;
+/* primary button */
+.stButton > button[kind="primary"]{
+    background:#c6582f;
+    border-color:#c6582f;
+    color:white;
 }
 
-[data-testid="stAppViewContainer"] .stButton > button[kind="primary"]:hover{
-background:#a94723;
+.stButton > button[kind="primary"]:hover{
+    background:#a94723;
 }
 
-/* =========================
-   SIDEBAR (左側)
-========================= */
+/* =========================================================
+   SIDEBAR (左邊 ERP 深藍)
+========================================================= */
 
 :root{
---sidebar-bg:#0b2f4a;
---sidebar-hover:#124466;
---sidebar-active:#1a5a84;
---text-red:#e35b5b;
+    --sidebar-bg:#23272D;
+    --sidebar-hover:#2d3540;
+    --sidebar-active:#2a3f5a;
 }
 
 /* sidebar container */
-[data-testid="stSidebar"]{
-background:var(--sidebar-bg) !important;
-border-right:1px solid rgba(255,255,255,0.08);
-min-width:220px;
-max-width:220px;
+section[data-testid="stSidebar"]{
+    background:var(--sidebar-bg) !important;
+    border-right:1px solid rgba(255,255,255,0.08);
+    min-width:190px !important;
+    max-width:190px !important;
 }
 
 /* sidebar buttons */
-[data-testid="stSidebar"] div.stButton > button{
-background:transparent;
-border:0;
-width:100%;
-text-align:left;
-color:#ffffff;
-font-size:13px;
-padding:8px 12px;
-transition:0.15s;
+section[data-testid="stSidebar"] div.stButton > button{
+    background:transparent;
+    border:0;
+    width:100%;
+    text-align:left;
+    color:#b8d0eb;
+    font-size:13px;
+    padding:6px 10px;
 }
 
 /* hover */
-[data-testid="stSidebar"] div.stButton > button:hover{
-background:var(--sidebar-hover);
-color:#ffffff;
+section[data-testid="stSidebar"] div.stButton > button:hover{
+    background:var(--sidebar-hover);
+    color:#ffffff;
 }
 
 /* active */
-[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
-background:var(--sidebar-active);
-font-weight:600;
+section[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
+    background:var(--sidebar-active);
+    font-weight:600;
 }
 
-/* sidebar group */
-[data-testid="stSidebar"] .erp-group{
-font-size:11px;
-color:var(--text-red);
-letter-spacing:0.5px;
-margin-top:12px;
+/* sidebar group title */
+section[data-testid="stSidebar"] .erp-group{
+    font-size:11px;
+    color:#bf6030;
+    letter-spacing:0.5px;
+    margin-top:10px;
+}
+
+/* =========================================================
+   HEADER TEXT (左上標題)
+========================================================= */
+
+.erp-title{
+    font-size:16px;
+    font-weight:700;
+    color:#ffffff;
+}
+
+.erp-sub{
+    font-size:11px;
+    color:#9fb6cc;
+    margin-bottom:10px;
 }
 
 </style>
 """, unsafe_allow_html=True)
-
 
 # ======== Arrow key navigation ========
 def apply_arrow_nav():
@@ -222,39 +232,26 @@ if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 
 
-def render_sidebar():
+with st.sidebar:
 
-    with st.sidebar:
+    st.markdown("<div class='erp-title'>配方管理系統</div>", unsafe_allow_html=True)
+    st.markdown("<div class='erp-sub'>v2.1 · ERP Edition</div>", unsafe_allow_html=True)
 
-        st.markdown(
-            "<div style='font-size:12px;font-weight:700;color:#ffffff'>配方管理系統</div>",
-            unsafe_allow_html=True
-        )
+    current_group = None
 
-        st.markdown(
-            "<div style='font-size:11px;color:#CF5C2C;margin-bottom:10px'>v2.1 · ERP Edition</div>",
-            unsafe_allow_html=True
-        )
+    for item in MENU_ITEMS:
 
-        current_group = None
+        if item["group"] != current_group:
+            st.markdown(f"<div class='erp-group'>{item['group']}</div>", unsafe_allow_html=True)
+            current_group = item["group"]
 
-        for item in MENU_ITEMS:
-
-            if item["group"] != current_group:
-                st.markdown(
-                    f"<div class='erp-group'>{item['group']}</div>",
-                    unsafe_allow_html=True
-                )
-                current_group = item["group"]
-
-            if st.button(
-                item["label"],
-                key=item["key"],
-                use_container_width=True,
-                type="primary" if st.session_state.menu == item["key"] else "secondary"
-            ):
-                st.session_state.menu = item["key"]
-                st.rerun()
+        if st.button(
+            item["label"],
+            key=item["key"],
+            use_container_width=True,
+            type="primary" if st.session_state.menu == item["key"] else "secondary"
+        ):
+            st.session_state.menu = item["key"]
 
 # ======== ENABLE ========
 
