@@ -171,9 +171,9 @@ div.block-container .stTabs button[data-baseweb="tab"]:hover{
 /* active tab */
 div.block-container .stTabs button[data-baseweb="tab"][aria-selected="true"]{
 
-    background:#0b2f4a !important;
+    background:#e06b3a !important;
 
-    color:#e06b3a !important;
+    color:#ffffff !important;
 
     border-bottom:2px solid #0a0a0a !important;
 
