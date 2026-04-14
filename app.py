@@ -59,7 +59,7 @@ def apply_modern_style():
 <style>
 
 /* =========================
-   GLOBAL BACKGROUND
+   GLOBAL BACKGROUND（只動右邊）
 ========================= */
 
 .stApp, [data-testid="stAppViewContainer"] {
@@ -68,7 +68,7 @@ def apply_modern_style():
 
 
 /* =========================
-   SIDEBAR BASE
+   SIDEBAR BASE（完全隔離）
 ========================= */
 
 [data-testid="stSidebar"] {
@@ -77,10 +77,7 @@ def apply_modern_style():
     max-width:200px !important;
 }
 
-/* =========================
-   BUTTON BASE
-========================= */
-
+/* sidebar button ONLY */
 [data-testid="stSidebar"] div.stButton > button {
     background:transparent !important;
     color:#ffffff !important;
@@ -92,25 +89,51 @@ def apply_modern_style():
     border-left:3px solid transparent;
 }
 
-/* hover */
 [data-testid="stSidebar"] div.stButton > button:hover {
     background:#124466 !important;
 }
 
-/* =========================
-   ✔ ACTIVE（重點修這裡）
-========================= */
-
 [data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-    background:#c6582f !important;   /* 🔥 橘紅填滿 */
-    color:#ffffff !important;
-    font-weight:600;
+    background:#c6582f !important;
+    color:#fff !important;
     border-left:3px solid #ffb199 !important;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+    font-weight:600;
 }
 
+
 /* =========================
-   TABS（柔橘紅，不刺眼）
+   SIDEBAR GROUP（橘紅 + 小字）
+========================= */
+
+[data-testid="stSidebar"] .erp-group {
+    font-size:9.5px !important;
+    color:#e06b3a !important;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    margin-top:14px;
+}
+
+
+/* =========================
+   SIDEBAR TITLE（修復你消失問題）
+========================= */
+
+.erp-title {
+    font-size:15px;
+    font-weight:700;
+    color:#ffffff;
+    margin-bottom:2px;
+}
+
+.erp-sub {
+    font-size:10px;
+    color:#9fb6cc;
+    margin-bottom:10px;
+}
+
+
+/* =========================
+   TABS（橘紅一致）
 ========================= */
 
 button[data-baseweb="tab"] {
@@ -129,9 +152,10 @@ button[data-baseweb="tab"][aria-selected="true"] {
 
 
 /* =========================
-   BUTTONS（ERP橘紅系）
+   MAIN BUTTON（只影響右側）
 ========================= */
 
+section.main button,
 .stButton > button {
     background:#c6582f !important;
     color:white !important;
@@ -140,24 +164,37 @@ button[data-baseweb="tab"][aria-selected="true"] {
     font-weight:600 !important;
 }
 
+section.main button:hover,
 .stButton > button:hover {
     background:#a94723 !important;
 }
 
-/* primary（重要按鈕） */
+/* primary */
 .stButton > button[kind="primary"] {
     background:#e06b3a !important;
 }
 
 
 /* =========================
-   INPUT（避免消失）
+   INPUT（限制範圍避免爆掉）
 ========================= */
 
-input, textarea, [data-baseweb="input"] {
+section.main input,
+section.main textarea,
+section.main [data-baseweb="input"] input {
     background:#161616 !important;
     border:1px solid rgba(255,255,255,0.15) !important;
     color:white !important;
+    font-family:'DM Mono', monospace !important;
+}
+
+
+/* =========================
+   SELECTBOX（穩定版）
+========================= */
+
+section.main div[data-baseweb="select"] {
+    font-family:'DM Mono', monospace !important;
 }
 
 
@@ -169,31 +206,11 @@ div[data-testid="stDataFrame"] {
     background:#11161c !important;
 }
 
-/* ===== sidebar title ===== */
+/* =========================
+   FONT
+========================= */
 
-.erp-title {
-    font-size:13px;
-    font-weight:700;
-    color:#ffffff;
-    margin-bottom:2px;
-}
-
-/* ===== sidebar subtitle ===== */
-
-.erp-sub {
-    font-size:10px;
-    color:#9fb6cc;
-    margin-bottom:10px;
-}
-
-[data-testid="stSidebar"] .erp-group {
-    font-size:9.5px !important;
-    color:#e06b3a !important;
-    letter-spacing:1.2px;
-    text-transform:uppercase;
-    font-weight:600;
-    margin-top:14px;
-}
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
 
 </style>
 """, unsafe_allow_html=True)
