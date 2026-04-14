@@ -5556,22 +5556,28 @@ if menu == "代工管理":
                     df_closed["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_text, case=False, na=False)
                 ]
 
-            today_date = datetime.today().date()
-            default_start = today_date - timedelta(days=20)
-            default_end = today_date
-            dcol1, dcol2 = st.columns(2)
-            date_start = dcol1.date_input("建立日期起", value=default_start, key="oem_tab4_start_date")
-            date_end = dcol2.date_input("建立日期迄", value=default_end, key="oem_tab4_end_date")
+            use_date_filter = st.checkbox("啟用建立日期篩選", value=False, key="oem_tab4_use_date_filter")
+            if use_date_filter:
+                today_date = datetime.today().date()
+                default_start = today_date - timedelta(days=20)
+                default_end = today_date
+                dcol1, dcol2 = st.columns(2)
+                date_start = dcol1.date_input("建立日期起", value=default_start, key="oem_tab4_start_date")
+                date_end = dcol2.date_input("建立日期迄", value=default_end, key="oem_tab4_end_date")
 
-            if date_start > date_end:
-                st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
-                df_progress = df_progress.iloc[0:0]
-            else:
-                _ds = pd.Timestamp(date_start)
-                _de = pd.Timestamp(date_end) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-                df_progress = df_progress[
-                    (df_progress["建立時間_dt"] >= _ds) & (df_progress["建立時間_dt"] <= _de)
-                ]
+                if date_start > date_end:
+                    st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
+                    df_progress = df_progress.iloc[0:0]
+                else:
+                    _ds = pd.Timestamp(date_start)
+                    _de = pd.Timestamp(date_end) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+                    df_progress = df_progress[
+                        (
+                            (df_progress["建立時間_dt"] >= _ds) &
+                            (df_progress["建立時間_dt"] <= _de)
+                        ) |
+                        df_progress["建立時間_dt"].isna()
+                    ]
             
             df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
             if search_text:
@@ -5581,7 +5587,7 @@ if menu == "代工管理":
                     df_closed["代工單號"].astype(str).str.contains(search_text, case=False, na=False) |
                     df_closed["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_text, case=False, na=False)
                 ]
-            if date_start <= date_end:
+            if use_date_filter and date_start <= date_end:
                 df_closed = df_closed[
                     (df_closed["建立時間_dt"] >= _ds) & (df_closed["建立時間_dt"] <= _de) |
                     df_closed["建立時間_dt"].isna()
