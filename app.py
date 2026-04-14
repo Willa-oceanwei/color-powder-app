@@ -166,6 +166,65 @@ div[data-testid="stDataFrame"] {
     background:#11161c !important;
 }
 
+
+/* =========================
+   TAB（橘紅 + 光暈）
+========================= */
+
+button[data-baseweb="tab"] {
+    color:#ffffff !important;
+    font-size:14px;
+    font-weight:600;
+}
+
+/* 未選中 */
+button[data-baseweb="tab"]:not([aria-selected="true"]) {
+    color:#cfd8e3 !important;
+}
+
+/* 選中 tab */
+button[data-baseweb="tab"][aria-selected="true"] {
+    color:#e35b5b !important;
+    border-bottom:3px solid #e35b5b !important;
+    text-shadow:
+        0 0 8px rgba(227,91,91,.75),
+        0 0 16px rgba(227,91,91,.45);
+}
+
+
+/* =========================
+   BUTTON（橘紅系統）
+========================= */
+
+.stButton > button {
+    background:#a1162b !important;
+    color:white !important;
+    border-radius:6px !important;
+    border:0 !important;
+    font-weight:600 !important;
+}
+
+/* hover */
+.stButton > button:hover {
+    background:#c21e37 !important;
+}
+
+/* primary（目前選中/重要按鈕） */
+.stButton > button[kind="primary"] {
+    background:#e35b5b !important;
+    color:white !important;
+    border-left:3px solid #ff7a7a !important;
+}
+
+/* =========================
+   保持 sidebar 一致橘紅（選中感）
+========================= */
+
+[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+    background:#1a5a84 !important;
+    border-left:3px solid #e35b5b !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
     
