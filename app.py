@@ -1294,6 +1294,8 @@ def load_recipe(force_reload=False):
         # 統一使用 df_recipe
         df_recipe = st.session_state.df_recipe
 
+if "menu" not in st.session_state:
+    st.session_state.menu = "生產單管理"
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
