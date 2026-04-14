@@ -206,6 +206,11 @@ div[data-testid="stDataFrame"] {
     overflow-x: auto !important;
 }
 
+div[data-testid="stDataFrame"] table {
+    width: 100% !important;
+    table-layout: fixed !important;
+}
+
 div[data-baseweb="popover"] {
     background:#1f2630 !important;
     border:1px solid rgba(255,255,255,0.10) !important;
