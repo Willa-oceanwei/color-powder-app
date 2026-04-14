@@ -139,7 +139,7 @@ def apply_modern_style():
 /* tab list */
 div.block-container .stTabs [data-baseweb="tab-list"]{
     gap:4px;
-    border-bottom:2px solid #0b2f4a;
+    border-bottom:2px solid rgba(255,255,255,0.08);
 }
 
 /* tab button */
