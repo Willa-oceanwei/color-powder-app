@@ -143,10 +143,11 @@ button[data-baseweb="tab"] {
 
 button[data-baseweb="tab"][aria-selected="true"] {
     color:#c6582f !important;
-    border-bottom:3px solid #c6582f !important;
+    border-bottom:2px solid #c6582f !important;
+
     text-shadow:
-        0 0 6px rgba(198,88,47,.45),
-        0 0 12px rgba(198,88,47,.25);
+        0 0 4px rgba(198,88,47,0.35),
+        0 0 10px rgba(198,88,47,0.20);
 }
 
 
