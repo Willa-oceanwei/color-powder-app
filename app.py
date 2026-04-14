@@ -51,9 +51,7 @@ if not st.session_state.authenticated:
     # 尚未輸入密碼時停止執行
     st.stop()
     
-# ======== 🎨 終極版自訂樣式（圓角下拉）========
 # ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
-
 def apply_modern_style():
     import streamlit as st
 
@@ -64,33 +62,46 @@ def apply_modern_style():
    ROOT THEME
 ═══════════════════════════════ */
 
-:root{
+:root {
 
---bg-main:#0a0a0a;
---bg-card:#141414;
+  /* ── Tab 光暈設定（只改這裡就能切換）──
+     金黃光暈（目前）：
+       --tab-active-color : #e2ae53;
+       --tab-glow         : 0 0 8px rgba(226,174,83,.9), 0 0 16px rgba(226,174,83,.5);
+       --tab-underline    : #e2ae53;
 
-/* Sidebar */
+     藍色光暈（備用，換回原版）：
+       --tab-active-color : #6fbaff;
+       --tab-glow         : 0 0 8px rgba(70,160,255,.9), 0 0 16px rgba(70,160,255,.6);
+       --tab-underline    : #5aa0ff;
+  */
+  --tab-active-color : #e2ae53;
+  --tab-glow         : 0 0 8px rgba(226,174,83,.9), 0 0 16px rgba(226,174,83,.5);
+  --tab-underline    : #e2ae53;
 
---sidebar-bg:#0b2f4a;
---sidebar-hover:#124466;
---sidebar-active:#1a5a84;
+  --bg-main          : #0a0a0a;
+  --bg-card          : #141414;
 
-/* Text */
+  /* Sidebar */
+  --sidebar-bg       : #23272D;
+  --sidebar-hover    : #2d3540;
+  --sidebar-active   : #2a3f5a;
 
---text-main:#ffffff;
---text-soft:#d7e3ef;
---text-dim:#9fb7cc;
---text-red:#e35b5b;
+  /* Text */
+  --text-main        : #ffffff;
+  --text-soft        : #d7e3ef;
+  --text-dim         : #9fb7cc;
 
-/* UI size */
+  /* Button */
+  --btn-primary      : #cf5c2c;
+  --btn-primary-hover: #e06832;
 
---font-ui:13px;
---font-small:11px;
+  /* UI size */
+  --font-ui          : 13px;
+  --font-small       : 11px;
 
-/* border */
-
---border-soft:rgba(255,255,255,0.08);
-
+  /* Border */
+  --border-soft      : rgba(255,255,255,0.08);
 }
 
 
@@ -98,17 +109,14 @@ def apply_modern_style():
    BASE FONT
 ═══════════════════════════════ */
 
-*{
-
-font-family:
-"Microsoft JhengHei",
-"PingFang TC",
-"Noto Sans TC",
-sans-serif !important;
-
-font-size:var(--font-ui);
-color:var(--text-main);
-
+* {
+  font-family:
+    "Microsoft JhengHei",
+    "PingFang TC",
+    "Noto Sans TC",
+    sans-serif !important;
+  font-size: var(--font-ui);
+  color: var(--text-main);
 }
 
 
@@ -116,8 +124,8 @@ color:var(--text-main);
    BACKGROUND
 ═══════════════════════════════ */
 
-.stApp{
-background:var(--bg-main);
+.stApp {
+  background: var(--bg-main);
 }
 
 
@@ -125,133 +133,111 @@ background:var(--bg-main);
    SIDEBAR
 ═══════════════════════════════ */
 
-section[data-testid="stSidebar"]{
-
-background:var(--sidebar-bg) !important;
-border-right:1px solid rgba(255,255,255,0.08);
-
-min-width:220px;
-max-width:220px;
-
+section[data-testid="stSidebar"] {
+  background: var(--sidebar-bg) !important;
+  border-right: 1px solid rgba(255,255,255,0.08);
+  min-width: 220px;
+  max-width: 220px;
 }
-
 
 /* Sidebar Buttons */
-
-section[data-testid="stSidebar"] div.stButton > button{
-
-background:transparent;
-border:0;
-
-width:100%;
-text-align:left;
-
-color:#ffffff;
-font-size:13px;
-
-padding:8px 12px;
-
-transition:0.15s;
-
+section[data-testid="stSidebar"] div.stButton > button {
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  color: #ffffff;
+  font-size: 13px;
+  padding: 8px 12px;
+  transition: 0.15s;
 }
 
-section[data-testid="stSidebar"] div.stButton > button:hover{
-
-background:var(--sidebar-hover);
-color:#ffffff;
-
+section[data-testid="stSidebar"] div.stButton > button:hover {
+  background: var(--sidebar-hover);
+  color: #ffffff;
 }
 
-section[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
-
-background:var(--sidebar-active);
-font-weight:600;
-
+section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+  background: var(--sidebar-active);
+  font-weight: 600;
 }
 
-
-/* Sidebar small text */
-
+/* Sidebar group label */
 section[data-testid="stSidebar"] .erp-sub,
-section[data-testid="stSidebar"] .erp-group{
-
-font-size:11px;
-color:var(--text-red);
-
-letter-spacing:0.5px;
-
+section[data-testid="stSidebar"] .erp-group {
+  font-size: 11px;
+  color: #bf6030;
+  letter-spacing: 0.5px;
 }
 
 
 /* ═══════════════════════════════
-   TABS (GLOW STYLE)
+   TABS（光暈由 CSS 變數控制）
 ═══════════════════════════════ */
 
-button[data-testid="stTab"] p{
-
-font-size:13px;
-color:#cfd8e3;
-
+button[data-testid="stTab"] p {
+  font-size: 13px;
+  color: #cfd8e3;
 }
 
-button[data-testid="stTab"]:hover p{
-
-color:#ffffff;
-
+button[data-testid="stTab"]:hover p {
+  color: #ffffff;
 }
 
-button[data-testid="stTab"][aria-selected="true"] p{
-
-color:#6fbaff !important;
-
-text-shadow:
-0 0 8px rgba(70,160,255,.9),
-0 0 16px rgba(70,160,255,.6);
-
+button[data-testid="stTab"][aria-selected="true"] p {
+  color: var(--tab-active-color) !important;
+  text-shadow: var(--tab-glow);
 }
 
-/* underline glow */
-
-div[data-testid="stTabs"] [data-baseweb="tab-highlight"]{
-
-background:#5aa0ff;
-height:3px;
-
-box-shadow:
-0 0 10px rgba(90,160,255,.8),
-0 0 20px rgba(90,160,255,.5);
-
+/* Tab underline */
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+  background: var(--tab-underline);
+  height: 3px;
+  box-shadow:
+    0 0 10px rgba(226,174,83,.7),
+    0 0 20px rgba(226,174,83,.4);
 }
 
 
 /* ═══════════════════════════════
-   INPUTS
+   INPUTS（加深底色、加粗邊框讓欄位更凸出）
 ═══════════════════════════════ */
 
 div.stTextInput input,
 div.stTextArea textarea,
-div.stNumberInput input{
-
-background:#161616;
-border:1px solid var(--border-soft);
-
-border-radius:6px;
-
-color:#fff;
-
-font-size:13px;
-
+div.stNumberInput input {
+  background: #1e2430;
+  border: 1.5px solid rgba(255,255,255,0.18) !important;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
 }
 
 div.stTextInput input:focus,
 div.stTextArea textarea:focus,
-div.stNumberInput input:focus{
+div.stNumberInput input:focus {
+  border: 1.5px solid #5aa0ff !important;
+  box-shadow: 0 0 0 2px rgba(90,160,255,.18);
+}
 
-border:1px solid #5aa0ff;
+/* disabled 欄位稍微暗一點 */
+div.stTextInput input:disabled,
+div.stNumberInput input:disabled {
+  background: #161b22 !important;
+  border: 1.5px solid rgba(255,255,255,0.08) !important;
+  color: #555 !important;
+}
 
-box-shadow:
-0 0 0 2px rgba(90,160,255,.2);
-
+/* 欄位標籤白字 */
+div.stTextInput label,
+div.stTextArea label,
+div.stNumberInput label,
+div.stSelectbox label,
+div.stDateInput label,
+div.stCheckbox label,
+div.stRadio label {
+  color: rgba(255,255,255,0.75) !important;
+  font-size: var(--font-small) !important;
 }
 
 
@@ -259,218 +245,157 @@ box-shadow:
    SELECTBOX
 ═══════════════════════════════ */
 
-div.stSelectbox div[data-baseweb="select"] > div{
-
-background:#1b1b1b !important;
-
-border:1px solid rgba(255,255,255,0.14) !important;
-
-border-radius:6px;
-
-font-size:13px;
-
+div.stSelectbox div[data-baseweb="select"] > div {
+  background: #1e2430 !important;
+  border: 1.5px solid rgba(255,255,255,0.18) !important;
+  border-radius: 6px;
+  font-size: 13px;
 }
 
-
-/* dropdown popup */
-
-div[data-baseweb="popover"]{
-
-background:#202020 !important;
-
-border:1px solid rgba(255,255,255,0.15) !important;
-
-box-shadow:0 12px 30px rgba(0,0,0,.7) !important;
-
-border-radius:8px !important;
-
+/* Dropdown popup 加深底色，層次更清楚 */
+div[data-baseweb="popover"] {
+  background: #252c38 !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.75) !important;
+  border-radius: 8px !important;
 }
 
-
-ul[role="listbox"] li{
-
-background:transparent !important;
-color:#d7e3ef !important;
-
-font-size:13px !important;
-
+ul[role="listbox"] li {
+  background: transparent !important;
+  color: #d7e3ef !important;
+  font-size: 13px !important;
 }
 
-ul[role="listbox"] li:hover{
-
-background:rgba(90,160,255,.12) !important;
-color:#ffffff !important;
-
+ul[role="listbox"] li:hover {
+  background: rgba(226,174,83,.10) !important;
+  color: #ffffff !important;
 }
 
-ul[role="listbox"] li[aria-selected="true"]{
-
-background:rgba(90,160,255,.25) !important;
-color:#ffffff !important;
-
+/* 選中項：金黃底色 */
+ul[role="listbox"] li[aria-selected="true"] {
+  background: rgba(226,174,83,.20) !important;
+  color: #e2ae53 !important;
+  font-weight: 600;
 }
 
 
 /* ═══════════════════════════════
-   BUTTONS
+   BUTTONS（統一換成 #CF5C2C）
 ═══════════════════════════════ */
 
-.stButton button{
-
-background:#a1162b;
-color:white;
-
-border-radius:6px;
-
-padding:8px 16px;
-
-font-size:13px;
-font-weight:600;
-
-border:0;
-
+.stButton button {
+  background: var(--btn-primary);
+  color: white;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 0;
 }
 
-.stButton button:hover{
-
-background:#c21e37;
-
+.stButton button:hover {
+  background: var(--btn-primary-hover);
 }
+
+/* Sidebar 按鈕不套用 primary 底色 */
+section[data-testid="stSidebar"] .stButton button {
+  background: transparent !important;
+  color: #b8d0eb !important;
+  border: 0 !important;
+}
+
+section[data-testid="stSidebar"] .stButton button[kind="primary"] {
+  background: var(--sidebar-active) !important;
+  color: #ffffff !important;
+  border-left: 3px solid #4fa3e0 !important;
+  font-weight: 700 !important;
+}
+
 
 /* ═══════════════════════════════
-   STREAMLIT DATAFRAME (REAL DOM FIX)
+   DATAFRAME
 ═══════════════════════════════ */
 
-/* 外框 */
-div[data-testid="stDataFrame"]{
-border:1px solid rgba(255,255,255,0.08) !important;
-border-radius:10px !important;
-overflow:hidden !important;
-background:#0e1117 !important;
+div[data-testid="stDataFrame"] {
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  background: #0e1117 !important;
 }
 
-/* header */
-div[data-testid="stDataFrame"] thead{
-background:#161b22 !important;
+div[data-testid="stDataFrame"] thead {
+  background: #161b22 !important;
 }
 
-/* header text */
-div[data-testid="stDataFrame"] th{
-color:#8fbfff !important;
-font-size:11px !important;
-letter-spacing:0.06em !important;
-text-transform:uppercase !important;
-border-bottom:1px solid rgba(255,255,255,0.08) !important;
+div[data-testid="stDataFrame"] th {
+  color: #8fbfff !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
 }
 
-/* cell */
-div[data-testid="stDataFrame"] td{
-color:#e6edf3 !important;
-font-size:13px !important;
-background:#11161c !important;
-border-bottom:1px solid rgba(255,255,255,0.04) !important;
-padding:6px 10px !important;
+div[data-testid="stDataFrame"] td {
+  color: #e6edf3 !important;
+  font-size: 13px !important;
+  background: #11161c !important;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+  padding: 6px 10px !important;
 }
 
-/* zebra */
-div[data-testid="stDataFrame"] tr:nth-child(even) td{
-background:#0d1318 !important;
+div[data-testid="stDataFrame"] tr:nth-child(even) td {
+  background: #0d1318 !important;
 }
 
-/* hover */
-div[data-testid="stDataFrame"] tr:hover td{
-background:#1c2733 !important;
-color:#ffffff !important;
+div[data-testid="stDataFrame"] tr:hover td {
+  background: #1c2733 !important;
+  color: #ffffff !important;
 }
 
-/* 隱藏 enter submit 提示 */
-div[data-testid="stDataFrame"] [data-baseweb="popover"]{
-display:none !important;
+div[data-testid="stDataFrame"] [data-baseweb="popover"] {
+  display: none !important;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
 
-# ======== Arrow key navigation ========
-
+# ======== Arrow key navigation（不動）========
 def apply_arrow_nav():
-
     import streamlit as st
 
     st.markdown("""
 <script>
-
 (function () {
+  if (window._arrowNavBound) return;
+  window._arrowNavBound = true;
 
-if (window._arrowNavBound) return;
-window._arrowNavBound = true;
+  function getInputs() {
+    return Array.from(
+      document.querySelectorAll(
+        'input:not([disabled]):not([readonly]), textarea:not([disabled])'
+      )
+    ).filter(el => el.offsetParent !== null);
+  }
 
-function getInputs(){
+  function moveFocus(current, step) {
+    const inputs = getInputs();
+    const idx = inputs.indexOf(current);
+    if (idx < 0) return;
+    const next = inputs[idx + step];
+    if (next) { next.focus(); if (next.select) next.select(); }
+  }
 
-return Array.from(
-
-document.querySelectorAll(
-
-'input:not([disabled]):not([readonly]), textarea:not([disabled])'
-
-)
-
-).filter(el => el.offsetParent !== null);
-
-}
-
-function moveFocus(current, step){
-
-const inputs = getInputs();
-const idx = inputs.indexOf(current);
-
-if (idx < 0) return;
-
-const next = inputs[idx + step];
-
-if (next){
-
-next.focus();
-
-if (next.select) next.select();
-
-}
-
-}
-
-
-document.addEventListener('keydown', function(e){
-
-const t = e.target;
-
-if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement))
-return;
-
-if (t.disabled || t.readOnly) return;
-
-if (['ArrowDown','ArrowRight'].includes(e.key)){
-
-e.preventDefault();
-moveFocus(t, +1);
-
-}
-
-if (['ArrowUp','ArrowLeft'].includes(e.key)){
-
-e.preventDefault();
-moveFocus(t, -1);
-
-}
-
-}, true);
-
+  document.addEventListener('keydown', function(e) {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
+    if (t.disabled || t.readOnly) return;
+    if (['ArrowDown','ArrowRight'].includes(e.key)) { e.preventDefault(); moveFocus(t, +1); }
+    if (['ArrowUp','ArrowLeft'].includes(e.key))    { e.preventDefault(); moveFocus(t, -1); }
+  }, true);
 })();
-
 </script>
 """, unsafe_allow_html=True)
-
-
 
 # 啟用 UI
 apply_modern_style()
@@ -670,7 +595,22 @@ MENU_ITEMS = [
     {"key": "匯入備份", "label": "匯入備份", "group": "設定"},
 ]
 
+# ======== ERP Nav（sidebar 配色改為 #23272D，群組字改為 #bf6030）========
 def render_erp_nav():
+    import streamlit as st
+
+    MENU_ITEMS = [
+        {"key": "生產單管理", "label": "生產單管理", "group": "生產"},
+        {"key": "配方管理",   "label": "配方管理",   "group": "生產"},
+        {"key": "代工管理",   "label": "代工管理",   "group": "生產"},
+        {"key": "庫存區",     "label": "庫存區",     "group": "倉儲"},
+        {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
+        {"key": "採購管理",   "label": "採購管理",   "group": "倉儲"},
+        {"key": "查詢區",     "label": "查詢區",     "group": "查詢"},
+        {"key": "客戶名單",   "label": "客戶名單",   "group": "設定"},
+        {"key": "匯入備份",   "label": "匯入備份",   "group": "設定"},
+    ]
+
     groups = {}
     for item in MENU_ITEMS:
         groups.setdefault(item["group"], []).append(item)
@@ -681,12 +621,14 @@ def render_erp_nav():
     st.markdown(
         """
         <style>
+        /* ── Sidebar 底色：#23272D ── */
         section[data-testid="stSidebar"] {
             min-width: 210px !important;
             max-width: 210px !important;
-            background: #1e3a5f !important;
-            border-right: 1px solid #2a4f78 !important;
+            background: #23272D !important;
+            border-right: 1px solid rgba(255,255,255,0.08) !important;
         }
+
         section[data-testid="stSidebar"] .erp-title {
             font-size: 15px;
             font-weight: 700;
@@ -699,12 +641,15 @@ def render_erp_nav():
             color: #7fa8d1;
             margin-bottom: 0.8rem;
         }
+
+        /* ── 群組字：偏紅橘 #bf6030 ── */
         section[data-testid="stSidebar"] .erp-group {
-            color: #6f9ecb;
+            color: #bf6030;
             font-size: 10px;
             letter-spacing: 0.8px;
             margin: 0.5rem 0 0.25rem 0.15rem;
         }
+
         section[data-testid="stSidebar"] div.stButton > button {
             border-radius: 2px !important;
             text-align: left !important;
@@ -718,30 +663,18 @@ def render_erp_nav():
             border-right: 0 !important;
             border-bottom: 0 !important;
             box-shadow: none !important;
+            transition: background 0.15s, color 0.15s;
         }
         section[data-testid="stSidebar"] div.stButton > button:hover {
-            background: #243f5e !important;
+            background: #2d3540 !important;
             color: #ffffff !important;
             border-left-color: #3a8fd4 !important;
         }
         section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-            background: #2a4f78 !important;
+            background: #2a3f5a !important;
             color: #ffffff !important;
             border-left-color: #4fa3e0 !important;
             font-weight: 700 !important;
-        }
-        .erp-main-topbar {
-            background: #ffffff;
-            border: 1px solid #dce3ec;
-            border-radius: 4px;
-            padding: 8px 12px;
-            margin: 2px 0 12px 0;
-            color: #6c7a89;
-            font-size: 12px;
-        }
-        .erp-main-topbar .current {
-            color: #1e3a5f;
-            font-weight: 700;
         }
         </style>
         """,
@@ -756,9 +689,8 @@ def render_erp_nav():
             st.markdown(f'<div class="erp-group">{group_name}</div>', unsafe_allow_html=True)
             for item in items:
                 is_active = st.session_state.menu == item["key"]
-                label = item["label"]
                 if st.button(
-                    label,
+                    item["label"],
                     key=f"menu_{item['key']}",
                     type="primary" if is_active else "secondary",
                     use_container_width=True,
@@ -769,7 +701,6 @@ def render_erp_nav():
 
     return st.session_state.menu
 
-render_erp_nav()
             
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
