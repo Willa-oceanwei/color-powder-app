@@ -52,6 +52,7 @@ if not st.session_state.authenticated:
     st.stop()
     
 # ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
+# ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
 def apply_modern_style():
     import streamlit as st
 
@@ -75,31 +76,21 @@ def apply_modern_style():
     background:#0b2f4a !important;
     min-width:200px !important;
     max-width:200px !important;
-
-    /* 🔥 關鍵：壓縮整體上下空間 */
     padding-top: 8px !important;
     padding-bottom: 8px !important;
 }
 
-/* group title（生產 / 倉儲） */
+/* group title */
 [data-testid="stSidebar"] .erp-group {
     font-size:9.5px !important;
     color:#e06b3a !important;
     letter-spacing:1.2px;
     text-transform:uppercase;
-
     margin: 6px 0 2px 0 !important;
-    padding: 0 !important;
     line-height: 1.1 !important;
 }
 
-/* button wrapper */
-[data-testid="stSidebar"] div.stButton {
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-/* button */
+/* sidebar button */
 [data-testid="stSidebar"] div.stButton > button {
     background:transparent !important;
     color:#ffffff !important;
@@ -107,10 +98,7 @@ def apply_modern_style():
     width:100%;
     text-align:left;
     font-size:13px;
-
-    /* 🔥 關鍵：壓縮高度 */
     padding:4px 10px !important;
-    margin:0 !important;
     line-height:1.1 !important;
 }
 
@@ -125,19 +113,6 @@ def apply_modern_style():
     border-left:3px solid #ffb199 !important;
     font-weight:600;
 }
-
-/* =========================
-   SIDEBAR GROUP
-========================= */
-
-[data-testid="stSidebar"] .erp-group {
-    font-size:9.5px !important;
-    color:#e06b3a !important;
-    letter-spacing:1.2px;
-    text-transform:uppercase;
-    margin-top:14px;
-}
-
 
 /* =========================
    SIDEBAR TITLE
@@ -157,28 +132,59 @@ def apply_modern_style():
 }
 
 
-/* =========================
-   TAB（只改 tab，不碰 button）
-========================= */
+/* ===================================================
+   ⭐ ERP TAB（標籤紙樣式）— 只作用在右側 main
+=================================================== */
 
-button[data-baseweb="tab"] {
-    color:#cfd8e3 !important;
+/* tab list */
+div.block-container .stTabs [data-baseweb="tab-list"]{
+    gap:6px;
+    border-bottom:2px solid #0b2f4a;
+}
+
+/* tab button */
+div.block-container .stTabs button[data-baseweb="tab"]{
+
+    background:#0b2f4a !important;
+    color:#e06b3a !important;
+
+    border-radius:10px 10px 0 0 !important;
+
+    padding:8px 22px !important;
+
     font-size:14px;
     font-weight:600;
+
+    border:1px solid rgba(255,255,255,0.08) !important;
+
+    margin-bottom:-2px;
 }
 
-button[data-baseweb="tab"][aria-selected="true"] {
-    color:#c6582f !important;
-    border-bottom:2px solid #c6582f !important;
+/* hover */
+div.block-container .stTabs button[data-baseweb="tab"]:hover{
 
-    text-shadow:
-        0 0 4px rgba(198,88,47,0.35),
-        0 0 10px rgba(198,88,47,0.20);
+    background:#124466 !important;
+    color:#ff8b5a !important;
+
+}
+
+/* active tab */
+div.block-container .stTabs button[data-baseweb="tab"][aria-selected="true"]{
+
+    background:#0b2f4a !important;
+
+    color:#e06b3a !important;
+
+    border-bottom:2px solid #0a0a0a !important;
+
+    box-shadow:
+        0 -2px 6px rgba(0,0,0,0.45);
+
 }
 
 
 /* =========================
-   MAIN BUTTON（精準鎖 main）
+   MAIN BUTTON
 ========================= */
 
 div.block-container .stButton > button {
@@ -200,7 +206,7 @@ div.block-container .stButton > button[kind="primary"] {
 
 
 /* =========================
-   INPUT（避免影響 +/- 控制）
+   INPUT
 ========================= */
 
 div[data-testid="stAppViewContainer"] input,
@@ -213,7 +219,7 @@ div[data-testid="stAppViewContainer"] textarea {
 
 
 /* =========================
-   NUMBER INPUT（避免 +/- 壞掉）
+   NUMBER INPUT
 ========================= */
 
 div[data-testid="stNumberInput"] button {
@@ -236,6 +242,11 @@ div[data-testid="stDataFrame"] table {
     table-layout: fixed !important;
 }
 
+
+/* =========================
+   SELECTBOX
+========================= */
+
 div[data-baseweb="popover"] {
     background:#1f2630 !important;
     border:1px solid rgba(255,255,255,0.10) !important;
@@ -243,25 +254,23 @@ div[data-baseweb="popover"] {
     border-radius:10px !important;
 }
 
-/* option */
 ul[role="listbox"] li {
     background:transparent !important;
     color:#d7e3ef !important;
     font-size:13px !important;
 }
 
-/* hover */
 ul[role="listbox"] li:hover {
     background:rgba(198,88,47,0.12) !important;
     color:#ffffff !important;
 }
 
-/* selected */
 ul[role="listbox"] li[aria-selected="true"] {
     background:rgba(198,88,47,0.22) !important;
     color:#ffffff !important;
     font-weight:600;
 }
+
 
 /* =========================
    FONT
