@@ -87,8 +87,8 @@ def apply_modern_style():
     font-size:13px;
 
     /* 🔥 重點：縮小間距 */
-    padding:6px 10px !important;
-    margin:0 !important;
+    padding:5px 10px !important;
+    margin-bottom:2px !important;
     line-height:1.2 !important;
 }
 
