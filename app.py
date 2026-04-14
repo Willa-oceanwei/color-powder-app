@@ -109,14 +109,17 @@ def apply_modern_style():
    BASE FONT
 ═══════════════════════════════ */
 
-* {
-  font-family:
-    "Microsoft JhengHei",
-    "PingFang TC",
-    "Noto Sans TC",
-    sans-serif !important;
-  font-size: var(--font-ui);
-  color: var(--text-main);
+*{
+
+font-family:
+"Microsoft JhengHei",
+"PingFang TC",
+"Noto Sans TC",
+sans-serif !important;
+
+font-size:var(--font-ui);
+color:var(--text-main);
+
 }
 
 
@@ -124,8 +127,8 @@ def apply_modern_style():
    BACKGROUND
 ═══════════════════════════════ */
 
-.stApp {
-  background: var(--bg-main);
+.stApp{
+background:var(--bg-main);
 }
 
 
@@ -133,111 +136,133 @@ def apply_modern_style():
    SIDEBAR
 ═══════════════════════════════ */
 
-section[data-testid="stSidebar"] {
-  background: var(--sidebar-bg) !important;
-  border-right: 1px solid rgba(255,255,255,0.08);
-  min-width: 220px;
-  max-width: 220px;
+section[data-testid="stSidebar"]{
+
+background:var(--sidebar-bg) !important;
+border-right:1px solid rgba(255,255,255,0.08);
+
+min-width:220px;
+max-width:220px;
+
 }
+
 
 /* Sidebar Buttons */
-section[data-testid="stSidebar"] div.stButton > button {
-  background: transparent;
-  border: 0;
-  width: 100%;
-  text-align: left;
-  color: #ffffff;
-  font-size: 13px;
-  padding: 8px 12px;
-  transition: 0.15s;
+
+section[data-testid="stSidebar"] div.stButton > button{
+
+background:transparent;
+border:0;
+
+width:100%;
+text-align:left;
+
+color:#ffffff;
+font-size:13px;
+
+padding:8px 12px;
+
+transition:0.15s;
+
 }
 
-section[data-testid="stSidebar"] div.stButton > button:hover {
-  background: var(--sidebar-hover);
-  color: #ffffff;
+section[data-testid="stSidebar"] div.stButton > button:hover{
+
+background:var(--sidebar-hover);
+color:#ffffff;
+
 }
 
-section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-  background: var(--sidebar-active);
-  font-weight: 600;
+section[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
+
+background:var(--sidebar-active);
+font-weight:600;
+
 }
 
-/* Sidebar group label */
+
+/* Sidebar small text */
+
 section[data-testid="stSidebar"] .erp-sub,
-section[data-testid="stSidebar"] .erp-group {
-  font-size: 11px;
-  color: #bf6030;
-  letter-spacing: 0.5px;
+section[data-testid="stSidebar"] .erp-group{
+
+font-size:11px;
+color:var(--text-red);
+
+letter-spacing:0.5px;
+
 }
 
 
 /* ═══════════════════════════════
-   TABS（光暈由 CSS 變數控制）
+   TABS (GLOW STYLE)
 ═══════════════════════════════ */
 
-button[data-testid="stTab"] p {
-  font-size: 13px;
-  color: #cfd8e3;
+button[data-testid="stTab"] p{
+
+font-size:13px;
+color:#cfd8e3;
+
 }
 
-button[data-testid="stTab"]:hover p {
-  color: #ffffff;
+button[data-testid="stTab"]:hover p{
+
+color:#ffffff;
+
 }
 
-button[data-testid="stTab"][aria-selected="true"] p {
-  color: var(--tab-active-color) !important;
-  text-shadow: var(--tab-glow);
+button[data-testid="stTab"][aria-selected="true"] p{
+
+color:#6fbaff !important;
+
+text-shadow:
+0 0 8px rgba(70,160,255,.9),
+0 0 16px rgba(70,160,255,.6);
+
 }
 
-/* Tab underline */
-div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
-  background: var(--tab-underline);
-  height: 3px;
-  box-shadow:
-    0 0 10px rgba(226,174,83,.7),
-    0 0 20px rgba(226,174,83,.4);
+/* underline glow */
+
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"]{
+
+background:#5aa0ff;
+height:3px;
+
+box-shadow:
+0 0 10px rgba(90,160,255,.8),
+0 0 20px rgba(90,160,255,.5);
+
 }
 
 
 /* ═══════════════════════════════
-   INPUTS（加深底色、加粗邊框讓欄位更凸出）
+   INPUTS
 ═══════════════════════════════ */
 
 div.stTextInput input,
 div.stTextArea textarea,
-div.stNumberInput input {
-  background: #1e2430;
-  border: 1.5px solid rgba(255,255,255,0.18) !important;
-  border-radius: 6px;
-  color: #fff;
-  font-size: 13px;
+div.stNumberInput input{
+
+background:#161616;
+border:1px solid var(--border-soft);
+
+border-radius:6px;
+
+color:#fff;
+
+font-size:13px;
+
 }
 
 div.stTextInput input:focus,
 div.stTextArea textarea:focus,
-div.stNumberInput input:focus {
-  border: 1.5px solid #5aa0ff !important;
-  box-shadow: 0 0 0 2px rgba(90,160,255,.18);
-}
+div.stNumberInput input:focus{
 
-/* disabled 欄位稍微暗一點 */
-div.stTextInput input:disabled,
-div.stNumberInput input:disabled {
-  background: #161b22 !important;
-  border: 1.5px solid rgba(255,255,255,0.08) !important;
-  color: #555 !important;
-}
+border:1px solid #5aa0ff;
 
-/* 欄位標籤白字 */
-div.stTextInput label,
-div.stTextArea label,
-div.stNumberInput label,
-div.stSelectbox label,
-div.stDateInput label,
-div.stCheckbox label,
-div.stRadio label {
-  color: rgba(255,255,255,0.75) !important;
-  font-size: var(--font-small) !important;
+box-shadow:
+0 0 0 2px rgba(90,160,255,.2);
+
 }
 
 
@@ -245,157 +270,217 @@ div.stRadio label {
    SELECTBOX
 ═══════════════════════════════ */
 
-div.stSelectbox div[data-baseweb="select"] > div {
-  background: #1e2430 !important;
-  border: 1.5px solid rgba(255,255,255,0.18) !important;
-  border-radius: 6px;
-  font-size: 13px;
-}
+div.stSelectbox div[data-baseweb="select"] > div{
 
-/* Dropdown popup 加深底色，層次更清楚 */
-div[data-baseweb="popover"] {
-  background: #252c38 !important;
-  border: 1px solid rgba(255,255,255,0.15) !important;
-  box-shadow: 0 12px 30px rgba(0,0,0,.75) !important;
-  border-radius: 8px !important;
-}
+background:#1b1b1b !important;
 
-ul[role="listbox"] li {
-  background: transparent !important;
-  color: #d7e3ef !important;
-  font-size: 13px !important;
-}
+border:1px solid rgba(255,255,255,0.14) !important;
 
-ul[role="listbox"] li:hover {
-  background: rgba(226,174,83,.10) !important;
-  color: #ffffff !important;
-}
+border-radius:6px;
 
-/* 選中項：金黃底色 */
-ul[role="listbox"] li[aria-selected="true"] {
-  background: rgba(226,174,83,.20) !important;
-  color: #e2ae53 !important;
-  font-weight: 600;
+font-size:13px;
+
 }
 
 
-/* ═══════════════════════════════
-   BUTTONS（統一換成 #CF5C2C）
-═══════════════════════════════ */
+/* dropdown popup */
 
-.stButton button {
-  background: var(--btn-primary);
-  color: white;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  border: 0;
+div[data-baseweb="popover"]{
+
+background:#202020 !important;
+
+border:1px solid rgba(255,255,255,0.15) !important;
+
+box-shadow:0 12px 30px rgba(0,0,0,.7) !important;
+
+border-radius:8px !important;
+
 }
 
-.stButton button:hover {
-  background: var(--btn-primary-hover);
+
+ul[role="listbox"] li{
+
+background:transparent !important;
+color:#d7e3ef !important;
+
+font-size:13px !important;
+
 }
 
-/* Sidebar 按鈕不套用 primary 底色 */
-section[data-testid="stSidebar"] .stButton button {
-  background: transparent !important;
-  color: #b8d0eb !important;
-  border: 0 !important;
+ul[role="listbox"] li:hover{
+
+background:rgba(90,160,255,.12) !important;
+color:#ffffff !important;
+
 }
 
-section[data-testid="stSidebar"] .stButton button[kind="primary"] {
-  background: var(--sidebar-active) !important;
-  color: #ffffff !important;
-  border-left: 3px solid #4fa3e0 !important;
-  font-weight: 700 !important;
+ul[role="listbox"] li[aria-selected="true"]{
+
+background:rgba(90,160,255,.25) !important;
+color:#ffffff !important;
+
 }
 
 
 /* ═══════════════════════════════
-   DATAFRAME
+   BUTTONS
 ═══════════════════════════════ */
 
-div[data-testid="stDataFrame"] {
-  border: 1px solid rgba(255,255,255,0.08) !important;
-  border-radius: 10px !important;
-  overflow: hidden !important;
-  background: #0e1117 !important;
+.stButton button{
+
+background:#a1162b;
+color:white;
+
+border-radius:6px;
+
+padding:8px 16px;
+
+font-size:13px;
+font-weight:600;
+
+border:0;
+
 }
 
-div[data-testid="stDataFrame"] thead {
-  background: #161b22 !important;
+.stButton button:hover{
+
+background:#c21e37;
+
 }
 
-div[data-testid="stDataFrame"] th {
-  color: #8fbfff !important;
-  font-size: 11px !important;
-  letter-spacing: 0.06em !important;
-  text-transform: uppercase !important;
-  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+/* ═══════════════════════════════
+   STREAMLIT DATAFRAME (REAL DOM FIX)
+═══════════════════════════════ */
+
+/* 外框 */
+div[data-testid="stDataFrame"]{
+border:1px solid rgba(255,255,255,0.08) !important;
+border-radius:10px !important;
+overflow:hidden !important;
+background:#0e1117 !important;
 }
 
-div[data-testid="stDataFrame"] td {
-  color: #e6edf3 !important;
-  font-size: 13px !important;
-  background: #11161c !important;
-  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
-  padding: 6px 10px !important;
+/* header */
+div[data-testid="stDataFrame"] thead{
+background:#161b22 !important;
 }
 
-div[data-testid="stDataFrame"] tr:nth-child(even) td {
-  background: #0d1318 !important;
+/* header text */
+div[data-testid="stDataFrame"] th{
+color:#8fbfff !important;
+font-size:11px !important;
+letter-spacing:0.06em !important;
+text-transform:uppercase !important;
+border-bottom:1px solid rgba(255,255,255,0.08) !important;
 }
 
-div[data-testid="stDataFrame"] tr:hover td {
-  background: #1c2733 !important;
-  color: #ffffff !important;
+/* cell */
+div[data-testid="stDataFrame"] td{
+color:#e6edf3 !important;
+font-size:13px !important;
+background:#11161c !important;
+border-bottom:1px solid rgba(255,255,255,0.04) !important;
+padding:6px 10px !important;
 }
 
-div[data-testid="stDataFrame"] [data-baseweb="popover"] {
-  display: none !important;
+/* zebra */
+div[data-testid="stDataFrame"] tr:nth-child(even) td{
+background:#0d1318 !important;
+}
+
+/* hover */
+div[data-testid="stDataFrame"] tr:hover td{
+background:#1c2733 !important;
+color:#ffffff !important;
+}
+
+/* 隱藏 enter submit 提示 */
+div[data-testid="stDataFrame"] [data-baseweb="popover"]{
+display:none !important;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
 
-# ======== Arrow key navigation（不動）========
+# ======== Arrow key navigation ========
+
 def apply_arrow_nav():
+
     import streamlit as st
 
     st.markdown("""
 <script>
+
 (function () {
-  if (window._arrowNavBound) return;
-  window._arrowNavBound = true;
 
-  function getInputs() {
-    return Array.from(
-      document.querySelectorAll(
-        'input:not([disabled]):not([readonly]), textarea:not([disabled])'
-      )
-    ).filter(el => el.offsetParent !== null);
-  }
+if (window._arrowNavBound) return;
+window._arrowNavBound = true;
 
-  function moveFocus(current, step) {
-    const inputs = getInputs();
-    const idx = inputs.indexOf(current);
-    if (idx < 0) return;
-    const next = inputs[idx + step];
-    if (next) { next.focus(); if (next.select) next.select(); }
-  }
+function getInputs(){
 
-  document.addEventListener('keydown', function(e) {
-    const t = e.target;
-    if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
-    if (t.disabled || t.readOnly) return;
-    if (['ArrowDown','ArrowRight'].includes(e.key)) { e.preventDefault(); moveFocus(t, +1); }
-    if (['ArrowUp','ArrowLeft'].includes(e.key))    { e.preventDefault(); moveFocus(t, -1); }
-  }, true);
+return Array.from(
+
+document.querySelectorAll(
+
+'input:not([disabled]):not([readonly]), textarea:not([disabled])'
+
+)
+
+).filter(el => el.offsetParent !== null);
+
+}
+
+function moveFocus(current, step){
+
+const inputs = getInputs();
+const idx = inputs.indexOf(current);
+
+if (idx < 0) return;
+
+const next = inputs[idx + step];
+
+if (next){
+
+next.focus();
+
+if (next.select) next.select();
+
+}
+
+}
+
+
+document.addEventListener('keydown', function(e){
+
+const t = e.target;
+
+if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement))
+return;
+
+if (t.disabled || t.readOnly) return;
+
+if (['ArrowDown','ArrowRight'].includes(e.key)){
+
+e.preventDefault();
+moveFocus(t, +1);
+
+}
+
+if (['ArrowUp','ArrowLeft'].includes(e.key)){
+
+e.preventDefault();
+moveFocus(t, -1);
+
+}
+
+}, true);
+
 })();
+
 </script>
 """, unsafe_allow_html=True)
+
 
 # 啟用 UI
 apply_modern_style()
