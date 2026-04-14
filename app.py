@@ -85,8 +85,11 @@ def apply_modern_style():
     width:100%;
     text-align:left;
     font-size:13px;
-    padding:8px 12px;
-    border-left:3px solid transparent;
+
+    /* 🔥 重點：縮小間距 */
+    padding:6px 10px !important;
+    margin:0 !important;
+    line-height:1.2 !important;
 }
 
 [data-testid="stSidebar"] div.stButton > button:hover {
