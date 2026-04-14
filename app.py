@@ -59,7 +59,15 @@ def apply_modern_style():
 <style>
 
 /* =====================================================
-   🔵 SIDEBAR（深藍固定）
+   🟫 MAIN BACKGROUND（右側統一深灰）
+===================================================== */
+
+[data-testid="stAppViewContainer"]{
+    background:#23272D !important;
+}
+
+/* =====================================================
+   🔵 SIDEBAR（左側深藍）
 ===================================================== */
 
 [data-testid="stSidebar"]{
@@ -72,12 +80,12 @@ def apply_modern_style():
 /* sidebar buttons */
 [data-testid="stSidebar"] div.stButton > button{
     background:transparent !important;
-    border:0 !important;
-    width:100% !important;
-    text-align:left !important;
+    border:0;
+    width:100%;
+    text-align:left;
     color:#ffffff !important;
-    font-size:13px !important;
-    padding:6px 10px !important;
+    font-size:13px;
+    padding:6px 10px;
 }
 
 /* hover */
@@ -88,10 +96,9 @@ def apply_modern_style():
 /* active */
 [data-testid="stSidebar"] div.stButton > button[kind="primary"]{
     background:#1a5a84 !important;
-    font-weight:600 !important;
 }
 
-/* group */
+/* group title */
 [data-testid="stSidebar"] .erp-group{
     color:#bf6030 !important;
     font-size:11px;
@@ -113,41 +120,46 @@ def apply_modern_style():
 
 
 /* =====================================================
-   🟡 RIGHT SIDE TABS（修復光暈）
+   🟠 TABS（橘紅一致設計）
 ===================================================== */
 
+/* 未選 tab = 白色 */
 button[data-baseweb="tab"]{
     font-size:14px;
     font-weight:600;
-    color:#9a7b2f;
+    color:#ffffff !important;
+    opacity:0.85;
 }
 
-/* active tab（Streamlit 正確寫法） */
+/* hover */
+button[data-baseweb="tab"]:hover{
+    color:#ffffff !important;
+    opacity:1;
+}
+
+/* 選中 tab = 橘紅 */
 button[data-baseweb="tab"][aria-selected="true"]{
-    color:#c89b2d !important;
-    border-bottom:3px solid #c89b2d !important;
+    color:#bf6030 !important;
     text-shadow:
-        0 0 8px rgba(200,155,45,.6),
-        0 0 14px rgba(200,155,45,.4);
+        0 0 8px rgba(191,96,48,.8),
+        0 0 16px rgba(191,96,48,.5);
 }
 
-/* underline glow（真正的 tab bar） */
+/* tab underline glow */
 div[data-testid="stTabs"] [data-baseweb="tab-highlight"]{
-    background:#c89b2d !important;
+    background:#bf6030 !important;
     height:3px !important;
     box-shadow:
-        0 0 10px rgba(200,155,45,.6),
-        0 0 20px rgba(200,155,45,.4);
+        0 0 10px rgba(191,96,48,.7),
+        0 0 20px rgba(191,96,48,.4);
 }
 
 
 /* =====================================================
-   🟠 BUTTONS（橘紅主按鈕修復）
+   🟠 BUTTONS（橘紅系統按鈕）
 ===================================================== */
 
-/* ⚠️ 只影響 main，不影響 sidebar */
-section.main .stButton > button,
-div[data-testid="stAppViewContainer"] .stButton > button{
+.stButton > button{
     border-radius:6px;
     border:1px solid #d2a85a;
     background:#fff7e3;
@@ -156,66 +168,22 @@ div[data-testid="stAppViewContainer"] .stButton > button{
 }
 
 /* hover */
-section.main .stButton > button:hover,
-div[data-testid="stAppViewContainer"] .stButton > button:hover{
+.stButton > button:hover{
     background:#f7e1b0;
 }
 
 /* primary */
-section.main .stButton > button[kind="primary"],
-div[data-testid="stAppViewContainer"] .stButton > button[kind="primary"]{
+.stButton > button[kind="primary"]{
     background:#c6582f !important;
     border-color:#c6582f !important;
     color:white !important;
 }
 
-/* hover primary */
-section.main .stButton > button[kind="primary"]:hover{
+.stButton > button[kind="primary"]:hover{
     background:#a94723 !important;
 }
 
 </style>
-""", unsafe_allow_html=True)
-
-# ======== Arrow key navigation ========
-def apply_arrow_nav():
-    import streamlit as st
-
-    st.markdown("""
-<script>
-(function () {
-  if (window._arrowNavBound) return;
-  window._arrowNavBound = true;
-
-  function getInputs() {
-    return Array.from(
-      document.querySelectorAll(
-        'input:not([disabled]):not([readonly]), textarea:not([disabled])'
-      )
-    ).filter(el => el.offsetParent !== null);
-  }
-
-  function moveFocus(current, step) {
-    const inputs = getInputs();
-    const idx = inputs.indexOf(current);
-    if (idx < 0) return;
-    const next = inputs[idx + step];
-    if (next) { next.focus(); if (next.select) next.select(); }
-  }
-
-  document.addEventListener('keydown', function(e) {
-    const t = e.target;
-    if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
-    if (t.disabled || t.readOnly) return;
-    if (['ArrowDown','ArrowRight'].includes(e.key)) {
-        e.preventDefault(); moveFocus(t, +1);
-    }
-    if (['ArrowUp','ArrowLeft'].includes(e.key)) {
-        e.preventDefault(); moveFocus(t, -1);
-    }
-  }, true);
-})();
-</script>
 """, unsafe_allow_html=True)
 
 # ======== Sidebar Menu ========
