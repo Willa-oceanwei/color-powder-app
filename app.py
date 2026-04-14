@@ -58,72 +58,42 @@ def apply_modern_style():
     st.markdown("""
 <style>
 
-/* =========================
-   MAIN PAGE (右側)
-========================= */
-
-button[data-baseweb="tab"]{
-    font-size:14px;
-    font-weight:600;
-    color:#9a7b2f;
-}
-
-button[data-baseweb="tab"][aria-selected="true"]{
-    color:#c89b2d !important;
-    border-bottom:3px solid #c89b2d !important;
-}
-
-.stButton > button{
-    border-radius:6px;
-    border:1px solid #d2a85a;
-    background:#fff7e3;
-    color:#a35d16;
-    font-weight:600;
-}
-
-.stButton > button[kind="primary"]{
-    background:#c6582f;
-    border-color:#c6582f;
-    color:white;
-}
-
-/* =========================
-   SIDEBAR (左側固定灰藍)
-========================= */
+/* =====================================================
+   🔵 SIDEBAR（深藍固定）
+===================================================== */
 
 [data-testid="stSidebar"]{
-    background:#23272D !important;
+    background:#0b2f4a !important;
     border-right:1px solid rgba(255,255,255,0.08);
     min-width:190px !important;
     max-width:190px !important;
 }
 
-/* sidebar button */
+/* sidebar buttons */
 [data-testid="stSidebar"] div.stButton > button{
     background:transparent !important;
-    border:0;
-    width:100%;
-    text-align:left;
-    color:#b8d0eb;
-    font-size:13px;
-    padding:6px 10px;
+    border:0 !important;
+    width:100% !important;
+    text-align:left !important;
+    color:#ffffff !important;
+    font-size:13px !important;
+    padding:6px 10px !important;
 }
 
 /* hover */
 [data-testid="stSidebar"] div.stButton > button:hover{
-    background:#2d3540 !important;
-    color:#ffffff !important;
+    background:#124466 !important;
 }
 
 /* active */
 [data-testid="stSidebar"] div.stButton > button[kind="primary"]{
-    background:#2a3f5a !important;
-    color:#ffffff !important;
+    background:#1a5a84 !important;
+    font-weight:600 !important;
 }
 
-/* group text */
+/* group */
 [data-testid="stSidebar"] .erp-group{
-    color:#bf6030;
+    color:#bf6030 !important;
     font-size:11px;
     margin-top:10px;
 }
@@ -139,6 +109,69 @@ button[data-baseweb="tab"][aria-selected="true"]{
     font-size:11px;
     color:#9fb6cc;
     margin-bottom:8px;
+}
+
+
+/* =====================================================
+   🟡 RIGHT SIDE TABS（修復光暈）
+===================================================== */
+
+button[data-baseweb="tab"]{
+    font-size:14px;
+    font-weight:600;
+    color:#9a7b2f;
+}
+
+/* active tab（Streamlit 正確寫法） */
+button[data-baseweb="tab"][aria-selected="true"]{
+    color:#c89b2d !important;
+    border-bottom:3px solid #c89b2d !important;
+    text-shadow:
+        0 0 8px rgba(200,155,45,.6),
+        0 0 14px rgba(200,155,45,.4);
+}
+
+/* underline glow（真正的 tab bar） */
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"]{
+    background:#c89b2d !important;
+    height:3px !important;
+    box-shadow:
+        0 0 10px rgba(200,155,45,.6),
+        0 0 20px rgba(200,155,45,.4);
+}
+
+
+/* =====================================================
+   🟠 BUTTONS（橘紅主按鈕修復）
+===================================================== */
+
+/* ⚠️ 只影響 main，不影響 sidebar */
+section.main .stButton > button,
+div[data-testid="stAppViewContainer"] .stButton > button{
+    border-radius:6px;
+    border:1px solid #d2a85a;
+    background:#fff7e3;
+    color:#a35d16;
+    font-weight:600;
+}
+
+/* hover */
+section.main .stButton > button:hover,
+div[data-testid="stAppViewContainer"] .stButton > button:hover{
+    background:#f7e1b0;
+}
+
+/* primary */
+section.main .stButton > button[kind="primary"],
+div[data-testid="stAppViewContainer"] .stButton > button[kind="primary"]{
+    background:#c6582f !important;
+    border-color:#c6582f !important;
+    color:white !important;
+}
+
+/* hover primary */
+section.main .stButton > button[kind="primary"]:hover{
+    background:#a94723 !important;
 }
 
 </style>
