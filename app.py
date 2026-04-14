@@ -692,7 +692,7 @@ def render_erp_nav():
                 if st.button(
                     item["label"],
                     key=f"menu_{item['key']}",
-                    type="primary" if is_active else "secondary",
+                    type="primary" if is_active else "tertiary",
                     use_container_width=True,
                 ):
                     if not is_active:
