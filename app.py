@@ -595,6 +595,31 @@ MENU_ITEMS = [
     {"key": "匯入備份", "label": "匯入備份", "group": "設定"},
 ]
 
+# ======== Sidebar Navigation =========
+
+if "menu" not in st.session_state:
+    st.session_state.menu = "生產單管理"
+
+with st.sidebar:
+
+    current_group = None
+
+    for item in MENU_ITEMS:
+
+        # group 標題
+        if item["group"] != current_group:
+            st.markdown(f"<div class='erp-group'>{item['group']}</div>", unsafe_allow_html=True)
+            current_group = item["group"]
+
+        # menu button
+        if st.button(
+            item["label"],
+            key=f"menu_{item['key']}",
+            use_container_width=True,
+            type="primary" if st.session_state.menu == item["key"] else "secondary",
+        ):
+            st.session_state.menu = item["key"]
+
 # ======== ERP Nav（sidebar 配色改為 #23272D，群組字改為 #bf6030）========
 def render_erp_nav():
     import streamlit as st
