@@ -131,17 +131,16 @@ def apply_modern_style():
 }
 
 /* ===================================================
-   ⭐ ERP TAB（真實標籤貼風格）
+   ⭐ ERP TAB（薄標籤貼風格）
 =================================================== */
 
 /* tab list */
 div.block-container .stTabs [data-baseweb="tab-list"]{
 
     gap:4px;
+    align-items:flex-end;
 
     border-bottom:2px solid rgba(255,255,255,0.08);
-
-    padding-left:2px;
 
 }
 
@@ -150,23 +149,20 @@ div.block-container .stTabs [data-baseweb="tab-list"]{
 div.block-container .stTabs button[data-baseweb="tab"]{
 
     background:#0b2f4a !important;
-
     color:#ffffff !important;
 
     border-radius:8px 8px 0 0 !important;
 
-    /* ⭐ 高度縮短 */
-    padding:4px 18px !important;
+    /* ⭐ 讓標籤變薄的關鍵 */
+    padding:2px 18px !important;
+    line-height:1.2 !important;
 
     font-size:13px;
-
     font-weight:600;
 
     border:1px solid rgba(255,255,255,0.08) !important;
 
     margin-bottom:-2px;
-
-    transition:all 0.15s ease;
 
 }
 
@@ -192,7 +188,6 @@ div.block-container .stTabs button[data-baseweb="tab"][aria-selected="true"]{
         0 -2px 6px rgba(0,0,0,0.45);
 
 }
-
 
 /* =========================
    MAIN BUTTON
