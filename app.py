@@ -1509,7 +1509,12 @@ elif menu == "客戶名單":
     
     # ===== 表格顯示 =====
     if not df_filtered.empty:
-        st.dataframe(df_filtered[columns], use_container_width=True, hide_index=True)
+        st.dataframe(
+            df_filtered[columns],
+            use_container_width=True,
+            hide_index=True,
+            height=420
+        )
     
         st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
     
