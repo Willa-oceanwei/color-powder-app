@@ -134,14 +134,20 @@ def apply_modern_style():
    ⭐ 第一層 TAB（主模組 / 實心標籤）
 =================================================== */
 
-div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"]{
+/* ===================================================
+   ⭐ 第一層 TAB（主模組 / 實心標籤）
+=================================================== */
+
+div.block-container > div[data-testid="stTabs"] > div:first-child > div[data-baseweb="tab-list"]{
+
     gap:4px;
     align-items:flex-end;
+
     border-bottom:2px solid rgba(255,255,255,0.08);
 }
 
-/* 第一層 tab（只抓 direct child，避免污染第二層） */
-div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button{
+/* 第一層 buttons（100%只吃外層） */
+div.block-container > div[data-testid="stTabs"] > div:first-child > div[data-baseweb="tab-list"] > button{
 
     background:#0b2f4a !important;
     color:#ffffff !important;
@@ -149,6 +155,7 @@ div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] >
     border-radius:7px 7px 0 0;
 
     padding:3px 18px !important;
+
     font-size:13px;
     font-weight:600;
 
@@ -159,42 +166,38 @@ div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] >
 }
 
 /* hover */
-div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button:hover{
+div.block-container > div[data-testid="stTabs"] > div:first-child > div[data-baseweb="tab-list"] > button:hover{
     background:#124466 !important;
 }
 
-/* active */
-div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button[aria-selected="true"]{
+/* active（實心橘） */
+div.block-container > div[data-testid="stTabs"] > div:first-child > div[data-baseweb="tab-list"] > button[aria-selected="true"]{
 
     background:#c6582f !important;
+
     color:#ffffff !important;
 
     border-bottom:2px solid #0a0a0a !important;
-
 }
 
 
 /* ===================================================
    ⭐ 第二層 TAB（子功能 / 扁平）
-   🔥 重點：只抓 nested stTabs
 =================================================== */
 
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"]{
+/* 只抓「內層 stTabs」避免污染第一層 */
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"]{
+
+    gap:10px;
+
+    border-bottom:1px solid rgba(255,255,255,0.08);
 
     margin-top:6px;
 
 }
 
-/* 子 tab list */
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"]{
-
-    gap:10px;
-    border-bottom:1px solid rgba(255,255,255,0.08);
-
-}
-
-/* 子 tab button（完全扁平） */
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] button{
+/* 第二層 tab buttons */
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button{
 
     background:transparent !important;
 
@@ -211,18 +214,19 @@ div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] button{
 }
 
 /* hover */
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] button:hover{
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button:hover{
     color:#ff8a57 !important;
 }
 
 /* active */
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] button[aria-selected="true"]{
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button[aria-selected="true"]{
 
     color:#c6582f !important;
 
     border-bottom:2px solid #c6582f !important;
 
 }
+
 /* =========================
    MAIN BUTTON
 ========================= */
