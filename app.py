@@ -148,7 +148,7 @@ div.block-container .stTabs button[data-baseweb="tab"]{
     background:#0b2f4a !important;
     color:#ffffff !important;
 
-    border-radius:10px 10px 0 0 !important;
+    border-radius:12px 12px 0 0 !important;
 
     padding:8px 22px !important;
 
