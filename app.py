@@ -156,20 +156,20 @@ button[data-baseweb="tab"][aria-selected="true"] {
 ========================= */
 
 div.block-container .stButton > button {
-    background:#c6582f !important;
+    background:#0b2f4a !important;
     color:white !important;
     border-radius:6px !important;
-    border:0 !important;
+    border:1px solid rgba(255,255,255,0.12) !important;
     font-weight:600 !important;
 }
 
 div.block-container .stButton > button:hover {
-    background:#a94723 !important;
+    background:#124466 !important;
 }
 
-/* primary */
 div.block-container .stButton > button[kind="primary"] {
-    background:#e06b3a !important;
+    background:#1a5a84 !important;
+    color:white !important;
 }
 
 
