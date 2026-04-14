@@ -52,158 +52,148 @@ if not st.session_state.authenticated:
     st.stop()
     
 # ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
-# ======== 🚀 SaaS ERP UI (Notion + SAP Hybrid) ========
 def apply_modern_style():
     import streamlit as st
 
     st.markdown("""
 <style>
 
-/* ===================================================
-   🌌 GLOBAL
-=================================================== */
+/* =========================
+   GLOBAL BACKGROUND
+========================= */
 
-.stApp, [data-testid="stAppViewContainer"]{
+.stApp, [data-testid="stAppViewContainer"] {
     background:#0a0a0a !important;
-    font-family: 'Inter', 'DM Mono', sans-serif !important;
 }
 
-/* ===================================================
-   🧭 SIDEBAR (SAP STYLE + NOTION CLEAN)
-=================================================== */
 
-[data-testid="stSidebar"]{
+/* =========================
+   SIDEBAR ONLY (COMPACT ERP)
+========================= */
+
+[data-testid="stSidebar"] {
     background:#0b2f4a !important;
     min-width:200px !important;
     max-width:200px !important;
-    padding-top:10px !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
 }
 
-/* title */
-.erp-title{
-    font-size:15px;
-    font-weight:700;
-    color:#ffffff;
-    margin-bottom:2px;
-}
-
-.erp-sub{
-    font-size:10px;
-    color:#9fb6cc;
-    margin-bottom:12px;
-}
-
-/* group */
-[data-testid="stSidebar"] .erp-group{
-    font-size:9.5px;
-    color:#e06b3a;
+/* group title */
+[data-testid="stSidebar"] .erp-group {
+    font-size:9.5px !important;
+    color:#e06b3a !important;
     letter-spacing:1.2px;
-    margin:10px 0 4px 0;
+    text-transform:uppercase;
+    margin: 6px 0 2px 0 !important;
+    line-height: 1.1 !important;
 }
 
-/* sidebar buttons */
-[data-testid="stSidebar"] div.stButton > button{
+/* sidebar button */
+[data-testid="stSidebar"] div.stButton > button {
     background:transparent !important;
     color:#ffffff !important;
     border:0 !important;
     width:100%;
     text-align:left;
     font-size:13px;
-    padding:6px 10px !important;
-    border-radius:6px;
+    padding:4px 10px !important;
+    line-height:1.1 !important;
 }
 
 /* hover */
-[data-testid="stSidebar"] div.stButton > button:hover{
+[data-testid="stSidebar"] div.stButton > button:hover {
     background:#124466 !important;
 }
 
 /* active */
-[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
+[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
     background:#c6582f !important;
     border-left:3px solid #ffb199 !important;
+    font-weight:600;
+}
+
+/* =========================
+   SIDEBAR TITLE
+========================= */
+
+.erp-title {
+    font-size:15px;
+    font-weight:700;
+    color:#ffffff;
+    margin-bottom:2px;
+}
+
+.erp-sub {
+    font-size:10px;
+    color:#9fb6cc;
+    margin-bottom:10px;
 }
 
 /* ===================================================
-   🟦 MAIN LAYOUT
+   ⭐ 第一層 TAB（主模組 / 實心標籤）
+   🔥 穩定版（不使用 first-child）
 =================================================== */
 
-.block-container{
-    padding-top:18px;
-    padding-left:22px;
-    padding-right:22px;
-}
 
 /* ===================================================
-   ⭐ LEVEL 1 TAB (SAP MODULE STYLE)
+   ⭐ 第一層 TAB（主模組 / 實心標籤）
+   🔥 最穩版本（不用 DOM 結構猜測）
 =================================================== */
 
-div.block-container .stTabs [data-baseweb="tab-list"]{
-    gap:6px;
-    border-bottom:1px solid rgba(255,255,255,0.08);
-}
-
-/* tab */
 div.block-container .stTabs [data-baseweb="tab-list"] > button{
 
     background:#0b2f4a !important;
-    color:#cfd8e3 !important;
 
-    padding:4px 16px !important;
-    border-radius:8px 8px 0 0;
+    color:#ffffff !important;
+
+    border-radius:7px 7px 0 0;
+
+    padding:3px 18px !important;
 
     font-size:13px;
     font-weight:600;
 
-    border:1px solid rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.08);
 
-    transition:0.15s ease;
+    margin-bottom:-2px;
 
 }
 
 /* hover */
 div.block-container .stTabs [data-baseweb="tab-list"] > button:hover{
     background:#124466 !important;
-    color:#ffffff !important;
 }
 
-/* active */
+/* active（實心橘） */
 div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="true"]{
 
     background:#c6582f !important;
+
     color:#ffffff !important;
 
     border-bottom:2px solid #0a0a0a !important;
 
-    box-shadow:0 -2px 10px rgba(198,88,47,0.25);
+    box-shadow:0 -2px 6px rgba(0,0,0,0.35);
 
 }
+
 
 /* ===================================================
-   🟠 LEVEL 2 TAB (NOTION STYLE)
+   ⭐ 第二層 TAB（子功能 / 扁平）
 =================================================== */
 
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"]{
-
-    gap:14px;
-    border-bottom:1px solid rgba(255,255,255,0.06);
-    margin-top:8px;
-
-}
-
-/* tab */
 div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button{
 
     background:transparent !important;
-    color:#9fb6cc !important;
+
+    color:#c6582f !important;
 
     border:none !important;
 
-    padding:2px 6px !important;
-    font-size:12.5px;
-    font-weight:500;
+    padding:2px 10px !important;
 
-    border-radius:0;
+    font-size:12.5px;
 
 }
 
@@ -220,24 +210,11 @@ div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-ba
     border-bottom:2px solid #c6582f !important;
 
 }
+/* =========================
+   MAIN BUTTON
+========================= */
 
-/* ===================================================
-   🧾 INPUT (CLEAN ERP)
-=================================================== */
-
-input, textarea{
-    background:#161616 !important;
-    color:#ffffff !important;
-    border:1px solid rgba(255,255,255,0.12) !important;
-    border-radius:6px !important;
-    font-family:'DM Mono', monospace !important;
-}
-
-/* ===================================================
-   🔘 BUTTONS
-=================================================== */
-
-div.block-container .stButton > button{
+div.block-container .stButton > button {
     background:#0b2f4a !important;
     color:white !important;
     border-radius:6px !important;
@@ -245,51 +222,91 @@ div.block-container .stButton > button{
     font-weight:600 !important;
 }
 
-div.block-container .stButton > button:hover{
+div.block-container .stButton > button:hover {
     background:#124466 !important;
 }
 
-div.block-container .stButton > button[kind="primary"]{
+div.block-container .stButton > button[kind="primary"] {
     background:#1a5a84 !important;
+    color:white !important;
 }
 
-/* ===================================================
-   📊 TABLE (ERP CLEAN GRID)
-=================================================== */
 
-div[data-testid="stDataFrame"]{
-    border-radius:8px;
-    overflow:hidden;
+/* =========================
+   INPUT
+========================= */
+
+div[data-testid="stAppViewContainer"] input,
+div[data-testid="stAppViewContainer"] textarea {
+    background:#161616 !important;
+    border:1px solid rgba(255,255,255,0.15) !important;
+    color:white !important;
+    font-family:'DM Mono', monospace !important;
 }
 
-div[data-testid="stDataFrame"] table{
-    width:100% !important;
-    table-layout:fixed !important;
+
+/* =========================
+   NUMBER INPUT
+========================= */
+
+div[data-testid="stNumberInput"] button {
+    background:transparent !important;
+    color:white !important;
 }
 
-/* ===================================================
-   📦 POPUP / SELECTBOX (NOTION STYLE)
-=================================================== */
 
-div[data-baseweb="popover"]{
+/* =========================
+   DATAFRAME
+========================= */
+
+div[data-testid="stDataFrame"] {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+div.block-container div[data-testid="stDataFrame"]{
+    overflow-y:auto !important;
+}
+
+div[data-testid="stDataFrame"] table {
+    width: 100% !important;
+    table-layout: fixed !important;
+}
+
+
+/* =========================
+   SELECTBOX
+========================= */
+
+div[data-baseweb="popover"] {
     background:#1f2630 !important;
-    border:1px solid rgba(255,255,255,0.08) !important;
+    border:1px solid rgba(255,255,255,0.10) !important;
+    box-shadow:0 12px 28px rgba(0,0,0,0.75) !important;
     border-radius:10px !important;
 }
 
-ul[role="listbox"] li{
+ul[role="listbox"] li {
+    background:transparent !important;
     color:#d7e3ef !important;
+    font-size:13px !important;
 }
 
-ul[role="listbox"] li:hover{
-    background:rgba(198,88,47,0.15) !important;
+ul[role="listbox"] li:hover {
+    background:rgba(198,88,47,0.12) !important;
+    color:#ffffff !important;
 }
 
-/* ===================================================
-   ✨ FONT
-=================================================== */
+ul[role="listbox"] li[aria-selected="true"] {
+    background:rgba(198,88,47,0.22) !important;
+    color:#ffffff !important;
+    font-weight:600;
+}
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=DM+Mono:wght@300;400;500&display=swap');
+/* =========================
+   FONT
+========================= */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
 
 </style>
 """, unsafe_allow_html=True)
