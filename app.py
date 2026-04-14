@@ -164,7 +164,7 @@ div.block-container .stTabs button[data-baseweb="tab"]{
 div.block-container .stTabs button[data-baseweb="tab"]:hover{
 
     background:#124466 !important;
-    color:#ff8b5a !important;
+    color:#ffffff !important;
 
 }
 
