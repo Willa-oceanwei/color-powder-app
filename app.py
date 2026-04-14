@@ -68,16 +68,38 @@ def apply_modern_style():
 
 
 /* =========================
-   SIDEBAR ONLY
+   SIDEBAR ONLY (COMPACT ERP)
 ========================= */
 
 [data-testid="stSidebar"] {
     background:#0b2f4a !important;
     min-width:200px !important;
     max-width:200px !important;
+
+    /* 🔥 關鍵：壓縮整體上下空間 */
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
 }
 
-/* sidebar buttons ONLY */
+/* group title（生產 / 倉儲） */
+[data-testid="stSidebar"] .erp-group {
+    font-size:9.5px !important;
+    color:#e06b3a !important;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+
+    margin: 6px 0 2px 0 !important;
+    padding: 0 !important;
+    line-height: 1.1 !important;
+}
+
+/* button wrapper */
+[data-testid="stSidebar"] div.stButton {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* button */
 [data-testid="stSidebar"] div.stButton > button {
     background:transparent !important;
     color:#ffffff !important;
@@ -86,31 +108,23 @@ def apply_modern_style():
     text-align:left;
     font-size:13px;
 
-    /* 🔥 縮小按鈕內距 */
-    padding:5px 10px !important;
-    margin-bottom:2px !important;
-    line-height:1.2 !important;
+    /* 🔥 關鍵：壓縮高度 */
+    padding:4px 10px !important;
+    margin:0 !important;
+    line-height:1.1 !important;
 }
 
-/* 🔥 縮小每個 button 外層間距 */
-[data-testid="stSidebar"] div.stButton {
-    margin-bottom:2px !important;
-}
-
-[data-testid="stSidebar"] {
-    gap: 2px !important;
-}
-
+/* hover */
 [data-testid="stSidebar"] div.stButton > button:hover {
     background:#124466 !important;
 }
 
+/* active */
 [data-testid="stSidebar"] div.stButton > button[kind="primary"] {
     background:#c6582f !important;
     border-left:3px solid #ffb199 !important;
     font-weight:600;
 }
-
 
 /* =========================
    SIDEBAR GROUP
