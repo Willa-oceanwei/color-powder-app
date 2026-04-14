@@ -195,6 +195,16 @@ if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 
 with st.sidebar:
+    
+    st.markdown(
+        "<div style='font-size:16px;font-weight:700;color:#ffffff'>配方管理系統</div>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        "<div style='font-size:11px;color:#9fb6cc;margin-bottom:10px'>v2.1 · ERP Edition</div>",
+        unsafe_allow_html=True
+    )
 
     current_group = None
 
