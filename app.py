@@ -132,24 +132,23 @@ def apply_modern_style():
 
 /* ===================================================
    ⭐ 第一層 TAB（主模組 / 實心標籤）
+   🔥 穩定版（不使用 first-child）
 =================================================== */
 
-/* ===================================================
-   ⭐ 第一層 TAB（主模組 / 實心標籤）
-=================================================== */
-
-div.block-container > div[data-testid="stTabs"] > div:first-child > div[data-baseweb="tab-list"]{
+div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"]{
 
     gap:4px;
     align-items:flex-end;
 
     border-bottom:2px solid rgba(255,255,255,0.08);
+
 }
 
-/* 第一層 buttons（100%只吃外層） */
-div.block-container > div[data-testid="stTabs"] > div:first-child > div[data-baseweb="tab-list"] > button{
+/* 第一層 tab buttons */
+div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button{
 
     background:#0b2f4a !important;
+
     color:#ffffff !important;
 
     border-radius:7px 7px 0 0;
@@ -166,18 +165,21 @@ div.block-container > div[data-testid="stTabs"] > div:first-child > div[data-bas
 }
 
 /* hover */
-div.block-container > div[data-testid="stTabs"] > div:first-child > div[data-baseweb="tab-list"] > button:hover{
+div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button:hover{
     background:#124466 !important;
 }
 
 /* active（實心橘） */
-div.block-container > div[data-testid="stTabs"] > div:first-child > div[data-baseweb="tab-list"] > button[aria-selected="true"]{
+div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button[aria-selected="true"]{
 
     background:#c6582f !important;
 
     color:#ffffff !important;
 
     border-bottom:2px solid #0a0a0a !important;
+
+    box-shadow:0 -2px 6px rgba(0,0,0,0.35);
+
 }
 
 
@@ -185,7 +187,6 @@ div.block-container > div[data-testid="stTabs"] > div:first-child > div[data-bas
    ⭐ 第二層 TAB（子功能 / 扁平）
 =================================================== */
 
-/* 只抓「內層 stTabs」避免污染第一層 */
 div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"]{
 
     gap:10px;
@@ -196,7 +197,7 @@ div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[da
 
 }
 
-/* 第二層 tab buttons */
+/* 第二層 tab */
 div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button{
 
     background:transparent !important;
