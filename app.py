@@ -2340,116 +2340,115 @@ elif menu == "配方管理":
             if c not in df_color.columns:
                 df_color[c] = ""
 
-        st.markdown('<h3 style="font-size:18px; color:#f1f5f2;">☑️ 新增 / 編輯色粉</h3>', unsafe_allow_html=True)
+        subtab_add_edit, subtab_modify_delete = st.tabs(["☑️ 新增 / 編輯色粉", "🛠️ 色粉修改 / 刪除"])
 
-        if "form_color" not in st.session_state:
-            st.session_state.form_color = {
-                "色粉編號": "", "國際色號": "", "名稱": "",
-                "色粉類別": "色粉", "包裝": "袋", "備註": ""
-            }
-
-        with st.form("color_form_tab4"):
-            col1, col2 = st.columns(2)
-            with col1:
-                cid  = st.text_input("色粉編號",  st.session_state.form_color["色粉編號"])
-                intl = st.text_input("國際色號",  st.session_state.form_color["國際色號"])
-                name = st.text_input("名稱",       st.session_state.form_color["名稱"])
-            with col2:
-                ctype = st.selectbox("色粉類別", ["色粉", "色母", "添加劑"],
-                    index=["色粉", "色母", "添加劑"].index(st.session_state.form_color["色粉類別"]))
-                pack  = st.selectbox("包裝", ["袋", "箱", "kg"],
-                    index=["袋", "箱", "kg"].index(st.session_state.form_color["包裝"]))
-                note  = st.text_input("備註", st.session_state.form_color["備註"])
-            submit_color = st.form_submit_button("💾 新增 / 修改")
-
-        if submit_color:
-            new_row = {
-                "色粉編號": cid.strip(), "國際色號": intl.strip(), "名稱": name.strip(),
-                "色粉類別": ctype, "包裝": pack, "備註": note.strip()
-            }
-            if new_row["色粉編號"] == "":
-                st.warning("⚠️ 請輸入色粉編號")
-            else:
-                ws_powder = get_cached_worksheet("色粉管理")
-                if st.session_state.edit_color_index is not None:
-                    idx_c = st.session_state.edit_color_index
-                    for k in new_row:
-                        df_color.at[idx_c, k] = new_row[k]
-
-                    # ✅ 單列更新
-                    try:
-                        all_vals = get_cached_sheet_values("色粉管理")
-                        header_c = all_vals[0] if all_vals else list(new_row.keys())
-                        updated_c = [str(df_color.loc[idx_c].get(col, "")) for col in header_c]
-                        import gspread.utils as gu
-                        sheet_row = idx_c + 2
-                        end_col_c = gu.rowcol_to_a1(sheet_row, len(header_c)).rstrip("0123456789")
-                        ws_powder.update(f"A{sheet_row}:{end_col_c}{sheet_row}", [updated_c])
-                        invalidate_sheet_cache("色粉管理")
-                    except Exception as e:
-                        st.error(f"❌ 更新色粉失敗：{e}")
-
-                    st.session_state.color_toast = "✏️ 已更新色粉"
-                    st.session_state.edit_color_index = None
-                else:
-                    if new_row["色粉編號"] in df_color["色粉編號"].values:
-                        st.warning("⚠️ 此色粉編號已存在")
-                    else:
-                        df_color = pd.concat([df_color, pd.DataFrame([new_row])], ignore_index=True)
-                        # ✅ 只 append 新列
-                        ws_powder.append_row([str(new_row.get(col, "")) for col in REQUIRED_COLUMNS])
-                        invalidate_sheet_cache("色粉管理")
-                        st.session_state.color_toast = "➕ 已新增色粉"
-
-                st.session_state.df_color = df_color
+        with subtab_add_edit:
+            if "form_color" not in st.session_state:
                 st.session_state.form_color = {
                     "色粉編號": "", "國際色號": "", "名稱": "",
                     "色粉類別": "色粉", "包裝": "袋", "備註": ""
                 }
-                st.rerun()
 
-        st.markdown("---")
-        st.markdown('<h3 style="font-size:18px; color:#b8d4c5;">🛠️ 色粉修改 / 刪除</h3>', unsafe_allow_html=True)
+            with st.form("color_form_tab4"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    cid  = st.text_input("色粉編號",  st.session_state.form_color["色粉編號"])
+                    intl = st.text_input("國際色號",  st.session_state.form_color["國際色號"])
+                    name = st.text_input("名稱",       st.session_state.form_color["名稱"])
+                with col2:
+                    ctype = st.selectbox("色粉類別", ["色粉", "色母", "添加劑"],
+                        index=["色粉", "色母", "添加劑"].index(st.session_state.form_color["色粉類別"]))
+                    pack  = st.selectbox("包裝", ["袋", "箱", "kg"],
+                        index=["袋", "箱", "kg"].index(st.session_state.form_color["包裝"]))
+                    note  = st.text_input("備註", st.session_state.form_color["備註"])
+                submit_color = st.form_submit_button("💾 新增 / 修改")
 
-        keyword = st.text_input("輸入色粉編號 / 名稱 / 國際色號搜尋",
-                                value=st.session_state.get("search_color_tab4", ""))
-        st.session_state.search_color_tab4 = keyword.strip()
+            if submit_color:
+                new_row = {
+                    "色粉編號": cid.strip(), "國際色號": intl.strip(), "名稱": name.strip(),
+                    "色粉類別": ctype, "包裝": pack, "備註": note.strip()
+                }
+                if new_row["色粉編號"] == "":
+                    st.warning("⚠️ 請輸入色粉編號")
+                else:
+                    ws_powder = get_cached_worksheet("色粉管理")
+                    if st.session_state.edit_color_index is not None:
+                        idx_c = st.session_state.edit_color_index
+                        for k in new_row:
+                            df_color.at[idx_c, k] = new_row[k]
 
-        if keyword:
-            df_show = df_color[
-                df_color["色粉編號"].str.contains(keyword, case=False, na=False) |
-                df_color["名稱"].str.contains(keyword, case=False, na=False) |
-                df_color["國際色號"].str.contains(keyword, case=False, na=False)
-            ]
-            if df_show.empty:
-                st.info("⚠️ 查無符合的色粉")
-            else:
-                for i, row in df_show.iterrows():
-                    c1, c2, c3 = st.columns([4, 1, 1])
-                    with c1:
-                        st.markdown(f"🔸 {row['色粉編號']}　{row['名稱']}")
-                    with c2:
-                        if st.button("✏️ 改", key=f"edit_color_{i}"):
-                            st.session_state.form_color       = row.to_dict()
-                            st.session_state.edit_color_index = i
-                    with c3:
-                        if st.button("🗑️ 刪", key=f"del_color_{i}"):
-                            ws_powder = get_cached_worksheet("色粉管理")
-                            # ✅ 刪除單列
-                            try:
-                                all_vals = get_cached_sheet_values("色粉管理")
-                                target_id = str(row["色粉編號"]).strip()
-                                for r_idx, r_row in enumerate(all_vals[1:], start=2):
-                                    if r_row[0].strip() == target_id:
-                                        ws_powder.delete_rows(r_idx)
-                                        invalidate_sheet_cache("色粉管理")
-                                        break
-                            except Exception as e:
-                                st.error(f"❌ 刪除色粉失敗：{e}")
+                        # ✅ 單列更新
+                        try:
+                            all_vals = get_cached_sheet_values("色粉管理")
+                            header_c = all_vals[0] if all_vals else list(new_row.keys())
+                            updated_c = [str(df_color.loc[idx_c].get(col, "")) for col in header_c]
+                            import gspread.utils as gu
+                            sheet_row = idx_c + 2
+                            end_col_c = gu.rowcol_to_a1(sheet_row, len(header_c)).rstrip("0123456789")
+                            ws_powder.update(f"A{sheet_row}:{end_col_c}{sheet_row}", [updated_c])
+                            invalidate_sheet_cache("色粉管理")
+                        except Exception as e:
+                            st.error(f"❌ 更新色粉失敗：{e}")
 
-                            st.session_state.df_color = df_color.drop(index=i).reset_index(drop=True)
-                            st.session_state.color_toast = "🗑️ 已刪除色粉"
-                            st.session_state._tab4_need_rerun = True
+                        st.session_state.color_toast = "✏️ 已更新色粉"
+                        st.session_state.edit_color_index = None
+                    else:
+                        if new_row["色粉編號"] in df_color["色粉編號"].values:
+                            st.warning("⚠️ 此色粉編號已存在")
+                        else:
+                            df_color = pd.concat([df_color, pd.DataFrame([new_row])], ignore_index=True)
+                            # ✅ 只 append 新列
+                            ws_powder.append_row([str(new_row.get(col, "")) for col in REQUIRED_COLUMNS])
+                            invalidate_sheet_cache("色粉管理")
+                            st.session_state.color_toast = "➕ 已新增色粉"
+
+                    st.session_state.df_color = df_color
+                    st.session_state.form_color = {
+                        "色粉編號": "", "國際色號": "", "名稱": "",
+                        "色粉類別": "色粉", "包裝": "袋", "備註": ""
+                    }
+                    st.rerun()
+
+        with subtab_modify_delete:
+            keyword = st.text_input("輸入色粉編號 / 名稱 / 國際色號搜尋",
+                                    value=st.session_state.get("search_color_tab4", ""))
+            st.session_state.search_color_tab4 = keyword.strip()
+
+            if keyword:
+                df_show = df_color[
+                    df_color["色粉編號"].str.contains(keyword, case=False, na=False) |
+                    df_color["名稱"].str.contains(keyword, case=False, na=False) |
+                    df_color["國際色號"].str.contains(keyword, case=False, na=False)
+                ]
+                if df_show.empty:
+                    st.info("⚠️ 查無符合的色粉")
+                else:
+                    for i, row in df_show.iterrows():
+                        c1, c2, c3 = st.columns([4, 1, 1])
+                        with c1:
+                            st.markdown(f"🔸 {row['色粉編號']}　{row['名稱']}")
+                        with c2:
+                            if st.button("✏️ 改", key=f"edit_color_{i}"):
+                                st.session_state.form_color       = row.to_dict()
+                                st.session_state.edit_color_index = i
+                        with c3:
+                            if st.button("🗑️ 刪", key=f"del_color_{i}"):
+                                ws_powder = get_cached_worksheet("色粉管理")
+                                # ✅ 刪除單列
+                                try:
+                                    all_vals = get_cached_sheet_values("色粉管理")
+                                    target_id = str(row["色粉編號"]).strip()
+                                    for r_idx, r_row in enumerate(all_vals[1:], start=2):
+                                        if r_row[0].strip() == target_id:
+                                            ws_powder.delete_rows(r_idx)
+                                            invalidate_sheet_cache("色粉管理")
+                                            break
+                                except Exception as e:
+                                    st.error(f"❌ 刪除色粉失敗：{e}")
+
+                                st.session_state.df_color = df_color.drop(index=i).reset_index(drop=True)
+                                st.session_state.color_toast = "🗑️ 已刪除色粉"
+                                st.session_state._tab4_need_rerun = True
 
         if st.session_state.get("_tab4_need_rerun", False):
             st.session_state._tab4_need_rerun = False
@@ -5536,20 +5535,25 @@ if menu == "代工管理":
             df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
 
             search_text = st.text_input(
-                "🔍 搜尋客戶名稱或配方編號",
-                placeholder="輸入關鍵字（可搜尋客戶名稱 / 配方編號）"
+                "🔍 搜尋客戶名稱 / 配方編號 / 代工單號",
+                placeholder="輸入關鍵字（可搜尋客戶名稱、配方編號、代工單號）"
             ).strip()
+            normalized_search_text = search_text.lstrip("-").strip()
 
             if search_text:
                 df_progress = df_progress[
                     df_progress["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                    df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_progress["代工單號"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_progress["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_text, case=False, na=False)
                 ]
             df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
             if search_text:
                 df_closed = df_closed[
                     df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["代工單號"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_text, case=False, na=False)
                 ]
 
             today_date = datetime.today().date()
@@ -5573,7 +5577,9 @@ if menu == "代工管理":
             if search_text:
                 df_closed = df_closed[
                     df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False)
+                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["代工單號"].astype(str).str.contains(search_text, case=False, na=False) |
+                    df_closed["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_text, case=False, na=False)
                 ]
             if date_start <= date_end:
                 df_closed = df_closed[
@@ -5690,12 +5696,14 @@ if menu == "代工管理":
     # ================================================================
     with tab5:
 
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         search_client = col1.text_input("客戶名稱", key="search_client_history")
         search_recipe = col2.text_input("配方編號", key="search_recipe_history")
+        search_oem = col3.text_input("代工單號", key="search_oem_history")
+        normalized_search_oem = search_oem.lstrip("-").strip()
 
-        if not search_client and not search_recipe:
-            st.info("請輸入客戶名稱或配方編號進行查詢")
+        if not search_client and not search_recipe and not search_oem:
+            st.info("請輸入客戶名稱、配方編號或代工單號進行查詢")
         else:
             progress_data = []
 
@@ -5742,6 +5750,11 @@ if menu == "代工管理":
                 df_progress = df_progress[
                     df_progress["配方編號"].str.contains(search_recipe, case=False, na=False)
                 ]
+            if search_oem:
+                df_progress = df_progress[
+                    df_progress["代工單號"].astype(str).str.contains(search_oem, case=False, na=False) |
+                    df_progress["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_oem, case=False, na=False)
+                ]
 
             if df_progress.empty:
                 st.info("⚠️ 沒有符合條件的代工歷程")
@@ -5762,15 +5775,6 @@ if menu == "代工管理":
                
 # ======== 採購管理分頁 =========
 elif menu == "採購管理":
-    # ===== 縮小整個頁面最上方空白 =====
-    st.markdown("""
-    <style>
-    div.block-container {
-        padding-top: 5px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
     import pandas as pd
     from datetime import datetime, date
 
@@ -8737,28 +8741,25 @@ elif menu == "洗車廠庫存":
                 selected_io_out_date = _to_date(selected_io_row.get("出庫日期", "")) or datetime.now().date()
 
                 with st.form("cw_edit_inout_form"):
-                    edit_io_type = st.selectbox("出/入庫", ["入庫", "出庫"], index=0 if selected_io_type == "入庫" else 1)
-
-                    c1, c2 = st.columns(2)
-                    edit_io_product_id = c1.text_input("貨品編號", value=str(selected_io_row.get("貨品編號", "")).strip())
-                    edit_io_qty = c2.number_input("數量", min_value=0.0, value=float(selected_io_qty), step=1.0)
-
-                    c3, c4 = st.columns(2)
-                    edit_io_in_date = c3.date_input("入庫日期", value=selected_io_in_date, disabled=(edit_io_type == "出庫"))
-                    edit_io_out_date = c4.date_input("出庫日期", value=selected_io_out_date, disabled=(edit_io_type == "入庫"))
-
-                    c5, c6 = st.columns(2)
-                    edit_io_unit = c5.selectbox(
+                    c1, c2, c3, c4 = st.columns(4)
+                    edit_io_type = c1.selectbox("出/入庫", ["入庫", "出庫"], index=0 if selected_io_type == "入庫" else 1)
+                    edit_io_product_id = c2.text_input("貨品編號", value=str(selected_io_row.get("貨品編號", "")).strip())
+                    edit_io_qty = c3.number_input("數量", min_value=0.0, value=float(selected_io_qty), step=1.0)
+                    edit_io_unit = c4.selectbox(
                         "單位",
                         ["KG", "包"],
                         index=0 if str(selected_io_row.get("單位", "KG")).strip() != "包" else 1
                     )
-                    edit_io_registrar = c6.selectbox(
+
+                    c5, c6, c7, c8 = st.columns(4)
+                    edit_io_in_date = c5.date_input("入庫日期", value=selected_io_in_date, disabled=(edit_io_type == "出庫"))
+                    edit_io_out_date = c6.date_input("出庫日期", value=selected_io_out_date, disabled=(edit_io_type == "入庫"))
+                    edit_io_registrar = c7.selectbox(
                         "登記人",
                         ["德", "Q"],
                         index=0 if str(selected_io_row.get("登記人", "德")).strip() != "Q" else 1
                     )
-                    edit_io_note = st.text_input("備註", value=str(selected_io_row.get("備註", "")).strip())
+                    edit_io_note = c8.text_input("備註", value=str(selected_io_row.get("備註", "")).strip())
                     submit_edit_io = st.form_submit_button("💾 儲存出/入庫修改")
 
                 if submit_edit_io:
@@ -8790,15 +8791,6 @@ elif menu == "洗車廠庫存":
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
 
-    # ===== 縮小整個頁面最上方空白 =====
-    st.markdown("""
-    <style>
-    div.block-container {
-        padding-top: 5px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
     # 📌 標題
     # st.markdown(
     #     '<h2 style="font-size:22px; font-family:Arial; color:#dbd818;">📊 匯入備份</h2>',
