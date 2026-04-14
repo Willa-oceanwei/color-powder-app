@@ -134,58 +134,47 @@ def apply_modern_style():
    ⭐ ERP TAB（薄標籤貼風格）
 =================================================== */
 
-/* tab list */
-div.block-container .stTabs [data-baseweb="tab-list"]{
-
+div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"]{
     gap:4px;
     align-items:flex-end;
-
     border-bottom:2px solid rgba(255,255,255,0.08);
-
 }
 
-
-/* tab button */
-div.block-container .stTabs button[data-baseweb="tab"]{
+div.block-container > div[data-testid="stTabs"] button[data-baseweb="tab"]{
 
     background:#0b2f4a !important;
     color:#ffffff !important;
 
-    border-radius:8px 8px 0 0 !important;
+    border-radius:7px 7px 0 0;
 
-    /* ⭐ 讓標籤變薄的關鍵 */
     padding:2px 18px !important;
-    line-height:1.2 !important;
+    line-height:1.2;
 
     font-size:13px;
     font-weight:600;
 
-    border:1px solid rgba(255,255,255,0.08) !important;
+    border:1px solid rgba(255,255,255,0.08);
 
     margin-bottom:-2px;
 
 }
 
-
 /* hover */
-div.block-container .stTabs button[data-baseweb="tab"]:hover{
+
+div.block-container > div[data-testid="stTabs"] button[data-baseweb="tab"]:hover{
 
     background:#124466 !important;
 
 }
 
+/* active */
 
-/* active tab */
-div.block-container .stTabs button[data-baseweb="tab"][aria-selected="true"]{
+div.block-container > div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"]{
 
-    background:#e06b3a !important;
-
+    background:#c6582f !important;
     color:#ffffff !important;
 
     border-bottom:2px solid #0a0a0a !important;
-
-    box-shadow:
-        0 -2px 6px rgba(0,0,0,0.45);
 
 }
 
