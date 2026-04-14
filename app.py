@@ -187,12 +187,12 @@ div[data-testid="stDataFrame"] {
 }
 
 [data-testid="stSidebar"] .erp-group {
-    font-size:10px !important;
-    color:#c6582f !important;
-    letter-spacing:0.8px;
-    margin-top:12px;
-    margin-bottom:4px;
-    opacity:0.95;
+    font-size:9.5px !important;
+    color:#e06b3a !important;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    font-weight:600;
+    margin-top:14px;
 }
 
 </style>
