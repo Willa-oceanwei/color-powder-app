@@ -68,42 +68,46 @@ def apply_modern_style():
 
 
 /* =========================
-   SIDEBAR（鎖死不動）
+   SIDEBAR BASE
 ========================= */
 
 [data-testid="stSidebar"] {
     background:#0b2f4a !important;
-    border-right:1px solid rgba(255,255,255,0.08);
     min-width:200px !important;
     max-width:200px !important;
 }
+
+/* =========================
+   BUTTON BASE
+========================= */
 
 [data-testid="stSidebar"] div.stButton > button {
     background:transparent !important;
     color:#ffffff !important;
     border:0 !important;
-    text-align:left;
     width:100%;
+    text-align:left;
     font-size:13px;
     padding:8px 12px;
+    border-left:3px solid transparent;
 }
 
+/* hover */
 [data-testid="stSidebar"] div.stButton > button:hover {
     background:#124466 !important;
 }
 
+/* =========================
+   ✔ ACTIVE（重點修這裡）
+========================= */
+
 [data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-    background:#1a5a84 !important;
-    border-left:3px solid #c6582f !important;
+    background:#c6582f !important;   /* 🔥 橘紅填滿 */
+    color:#ffffff !important;
     font-weight:600;
+    border-left:3px solid #ffb199 !important;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
 }
-
-[data-testid="stSidebar"] .erp-group {
-    font-size:11px;
-    color:#e35b5b;
-    margin-top:12px;
-}
-
 
 /* =========================
    TABS（柔橘紅，不刺眼）
@@ -163,6 +167,23 @@ input, textarea, [data-baseweb="input"] {
 
 div[data-testid="stDataFrame"] {
     background:#11161c !important;
+}
+
+/* ===== sidebar title ===== */
+
+.erp-title {
+    font-size:13px;
+    font-weight:700;
+    color:#ffffff;
+    margin-bottom:2px;
+}
+
+/* ===== sidebar subtitle ===== */
+
+.erp-sub {
+    font-size:10px;
+    color:#9fb6cc;
+    margin-bottom:10px;
 }
 
 </style>
