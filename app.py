@@ -52,7 +52,6 @@ if not st.session_state.authenticated:
     st.stop()
     
 # ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
-# ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
 def apply_modern_style():
     import streamlit as st
 
@@ -131,54 +130,66 @@ def apply_modern_style():
     margin-bottom:10px;
 }
 
-
 /* ===================================================
-   ⭐ ERP TAB（標籤紙樣式）— 只作用在右側 main
+   ⭐ ERP TAB（真實標籤貼風格）
 =================================================== */
 
 /* tab list */
 div.block-container .stTabs [data-baseweb="tab-list"]{
+
     gap:4px;
+
     border-bottom:2px solid rgba(255,255,255,0.08);
+
+    padding-left:2px;
+
 }
+
 
 /* tab button */
 div.block-container .stTabs button[data-baseweb="tab"]{
 
     background:#0b2f4a !important;
+
     color:#ffffff !important;
 
-    border-radius:12px 12px 0 0 !important;
+    border-radius:8px 8px 0 0 !important;
 
-    padding:8px 22px !important;
+    /* ⭐ 高度縮短 */
+    padding:4px 18px !important;
 
-    font-size:14px;
+    font-size:13px;
+
     font-weight:600;
 
     border:1px solid rgba(255,255,255,0.08) !important;
 
     margin-bottom:-2px;
+
+    transition:all 0.15s ease;
+
 }
+
 
 /* hover */
 div.block-container .stTabs button[data-baseweb="tab"]:hover{
 
     background:#124466 !important;
-    color:#ffffff !important;
 
 }
+
 
 /* active tab */
 div.block-container .stTabs button[data-baseweb="tab"][aria-selected="true"]{
 
     background:#e06b3a !important;
+
     color:#ffffff !important;
 
     border-bottom:2px solid #0a0a0a !important;
 
     box-shadow:
-        0 -3px 8px rgba(0,0,0,0.55),
-        0 2px 6px rgba(0,0,0,0.35);
+        0 -2px 6px rgba(0,0,0,0.45);
 
 }
 
