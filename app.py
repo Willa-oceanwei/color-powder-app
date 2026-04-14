@@ -617,6 +617,8 @@ def render_erp_nav():
 
     if "menu" not in st.session_state:
         st.session_state.menu = "生產單管理"
+    render_erp_nav()          # ← 加這行來渲染 sidebar
+    menu = st.session_state.menu
 
     st.markdown(
         """
