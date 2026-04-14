@@ -201,9 +201,8 @@ div[data-testid="stNumberInput"] button {
 ========================= */
 
 div[data-testid="stDataFrame"] {
-    background:#11161c !important;
     max-width: 100% !important;
-    overflow-x: auto !important;
+    overflow-x: hidden !important;
 }
 
 div[data-testid="stDataFrame"] table {
