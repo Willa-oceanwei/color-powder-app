@@ -131,7 +131,7 @@ def apply_modern_style():
 }
 
 /* ===================================================
-   ⭐ ERP TAB（薄標籤貼風格）
+   ⭐ 第一層 TAB（主模組 / 實心標籤）
 =================================================== */
 
 div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"]{
@@ -140,16 +140,15 @@ div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"]{
     border-bottom:2px solid rgba(255,255,255,0.08);
 }
 
-div.block-container > div[data-testid="stTabs"] button[data-baseweb="tab"]{
+/* 第一層 tab（只抓 direct child，避免污染第二層） */
+div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button{
 
     background:#0b2f4a !important;
     color:#ffffff !important;
 
     border-radius:7px 7px 0 0;
 
-    padding:2px 18px !important;
-    line-height:1.2;
-
+    padding:3px 18px !important;
     font-size:13px;
     font-weight:600;
 
@@ -160,16 +159,12 @@ div.block-container > div[data-testid="stTabs"] button[data-baseweb="tab"]{
 }
 
 /* hover */
-
-div.block-container > div[data-testid="stTabs"] button[data-baseweb="tab"]:hover{
-
+div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button:hover{
     background:#124466 !important;
-
 }
 
 /* active */
-
-div.block-container > div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"]{
+div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button[aria-selected="true"]{
 
     background:#c6582f !important;
     color:#ffffff !important;
@@ -178,6 +173,56 @@ div.block-container > div[data-testid="stTabs"] button[data-baseweb="tab"][aria-
 
 }
 
+
+/* ===================================================
+   ⭐ 第二層 TAB（子功能 / 扁平）
+   🔥 重點：只抓 nested stTabs
+=================================================== */
+
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"]{
+
+    margin-top:6px;
+
+}
+
+/* 子 tab list */
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"]{
+
+    gap:10px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+
+}
+
+/* 子 tab button（完全扁平） */
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] button{
+
+    background:transparent !important;
+
+    color:#c6582f !important;
+
+    border:none !important;
+
+    padding:2px 10px !important;
+
+    font-size:12.5px;
+
+    font-weight:500;
+
+}
+
+/* hover */
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] button:hover{
+    color:#ff8a57 !important;
+}
+
+/* active */
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] button[aria-selected="true"]{
+
+    color:#c6582f !important;
+
+    border-bottom:2px solid #c6582f !important;
+
+}
 /* =========================
    MAIN BUTTON
 ========================= */
@@ -269,7 +314,6 @@ ul[role="listbox"] li[aria-selected="true"] {
     color:#ffffff !important;
     font-weight:600;
 }
-
 
 /* =========================
    FONT
