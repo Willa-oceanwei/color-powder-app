@@ -58,302 +58,79 @@ def apply_modern_style():
     st.markdown("""
 <style>
 
-/* ═══════════════════════════════
-   ROOT THEME
-═══════════════════════════════ */
+/* ===== SIDEBAR THEME ONLY ===== */
 
-:root {
+:root{
 
-  /* ── Tab 光暈設定（只改這裡就能切換）──
-     金黃光暈（目前）：
-       --tab-active-color : #e2ae53;
-       --tab-glow         : 0 0 8px rgba(226,174,83,.9), 0 0 16px rgba(226,174,83,.5);
-       --tab-underline    : #e2ae53;
+--sidebar-bg:#0b2f4a;
+--sidebar-hover:#124466;
+--sidebar-active:#1a5a84;
 
-     藍色光暈（備用，換回原版）：
-       --tab-active-color : #6fbaff;
-       --tab-glow         : 0 0 8px rgba(70,160,255,.9), 0 0 16px rgba(70,160,255,.6);
-       --tab-underline    : #5aa0ff;
-  */
-  --tab-active-color : #e2ae53;
-  --tab-glow         : 0 0 8px rgba(226,174,83,.9), 0 0 16px rgba(226,174,83,.5);
-  --tab-underline    : #e2ae53;
+--text-main:#ffffff;
+--text-red:#e35b5b;
 
-  --bg-main          : #0a0a0a;
-  --bg-card          : #141414;
-
-  /* Sidebar */
-  --sidebar-bg       : #23272D;
-  --sidebar-hover    : #2d3540;
-  --sidebar-active   : #2a3f5a;
-
-  /* Text */
-  --text-main        : #ffffff;
-  --text-soft        : #d7e3ef;
-  --text-dim         : #9fb7cc;
-
-  /* Button */
-  --btn-primary      : #cf5c2c;
-  --btn-primary-hover: #e06832;
-
-  /* UI size */
-  --font-ui          : 13px;
-  --font-small       : 11px;
-
-  /* Border */
-  --border-soft      : rgba(255,255,255,0.08);
 }
 
+/* sidebar container */
 
-/* ═══════════════════════════════
-   BASE FONT
-═══════════════════════════════ */
+[data-testid="stSidebar"]{
 
-* {
-  font-family:
-    "Microsoft JhengHei",
-    "PingFang TC",
-    "Noto Sans TC",
-    sans-serif !important;
-  font-size: var(--font-ui);
-  color: var(--text-main);
+background:var(--sidebar-bg) !important;
+border-right:1px solid rgba(255,255,255,0.08);
+
+min-width:220px;
+max-width:220px;
+
 }
 
+/* sidebar buttons */
 
-/* ═══════════════════════════════
-   BACKGROUND
-═══════════════════════════════ */
+[data-testid="stSidebar"] div.stButton > button{
 
-.stApp {
-  background: var(--bg-main);
+background:transparent;
+border:0;
+
+width:100%;
+text-align:left;
+
+color:#ffffff;
+
+font-size:13px;
+
+padding:8px 12px;
+
+transition:0.15s;
+
 }
 
+/* hover */
 
-/* ═══════════════════════════════
-   SIDEBAR
-═══════════════════════════════ */
+[data-testid="stSidebar"] div.stButton > button:hover{
 
-section[data-testid="stSidebar"] {
-  background: var(--sidebar-bg) !important;
-  border-right: 1px solid rgba(255,255,255,0.08);
-  min-width: 220px;
-  max-width: 220px;
+background:var(--sidebar-hover);
+color:#ffffff;
+
 }
 
-/* Sidebar Buttons */
-section[data-testid="stSidebar"] div.stButton > button {
-  background: transparent;
-  border: 0;
-  width: 100%;
-  text-align: left;
-  color: #ffffff;
-  font-size: 13px;
-  padding: 8px 12px;
-  transition: 0.15s;
+/* active */
+
+[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
+
+background:var(--sidebar-active);
+font-weight:600;
+
 }
 
-section[data-testid="stSidebar"] div.stButton > button:hover {
-  background: var(--sidebar-hover);
-  color: #ffffff;
-}
+/* sidebar group title */
 
-section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-  background: var(--sidebar-active);
-  font-weight: 600;
-}
+[data-testid="stSidebar"] .erp-group{
 
-/* Sidebar group label */
-section[data-testid="stSidebar"] .erp-sub,
-section[data-testid="stSidebar"] .erp-group {
-  font-size: 11px;
-  color: #bf6030;
-  letter-spacing: 0.5px;
-}
+font-size:11px;
+color:var(--text-red);
 
+letter-spacing:0.5px;
+margin-top:12px;
 
-/* ═══════════════════════════════
-   TABS（光暈由 CSS 變數控制）
-═══════════════════════════════ */
-
-button[data-testid="stTab"] p {
-  font-size: 13px;
-  color: #cfd8e3;
-}
-
-button[data-testid="stTab"]:hover p {
-  color: #ffffff;
-}
-
-button[data-testid="stTab"][aria-selected="true"] p {
-  color: var(--tab-active-color) !important;
-  text-shadow: var(--tab-glow);
-}
-
-/* Tab underline */
-div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
-  background: var(--tab-underline);
-  height: 3px;
-  box-shadow:
-    0 0 10px rgba(226,174,83,.7),
-    0 0 20px rgba(226,174,83,.4);
-}
-
-
-/* ═══════════════════════════════
-   INPUTS（加深底色、加粗邊框讓欄位更凸出）
-═══════════════════════════════ */
-
-div.stTextInput input,
-div.stTextArea textarea,
-div.stNumberInput input {
-  background: #1e2430;
-  border: 1.5px solid rgba(255,255,255,0.18) !important;
-  border-radius: 6px;
-  color: #fff;
-  font-size: 13px;
-}
-
-div.stTextInput input:focus,
-div.stTextArea textarea:focus,
-div.stNumberInput input:focus {
-  border: 1.5px solid #5aa0ff !important;
-  box-shadow: 0 0 0 2px rgba(90,160,255,.18);
-}
-
-/* disabled 欄位稍微暗一點 */
-div.stTextInput input:disabled,
-div.stNumberInput input:disabled {
-  background: #161b22 !important;
-  border: 1.5px solid rgba(255,255,255,0.08) !important;
-  color: #555 !important;
-}
-
-/* 欄位標籤白字 */
-div.stTextInput label,
-div.stTextArea label,
-div.stNumberInput label,
-div.stSelectbox label,
-div.stDateInput label,
-div.stCheckbox label,
-div.stRadio label {
-  color: rgba(255,255,255,0.75) !important;
-  font-size: var(--font-small) !important;
-}
-
-
-/* ═══════════════════════════════
-   SELECTBOX
-═══════════════════════════════ */
-
-div.stSelectbox div[data-baseweb="select"] > div {
-  background: #1e2430 !important;
-  border: 1.5px solid rgba(255,255,255,0.18) !important;
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-/* Dropdown popup 加深底色，層次更清楚 */
-div[data-baseweb="popover"] {
-  background: #252c38 !important;
-  border: 1px solid rgba(255,255,255,0.15) !important;
-  box-shadow: 0 12px 30px rgba(0,0,0,.75) !important;
-  border-radius: 8px !important;
-}
-
-ul[role="listbox"] li {
-  background: transparent !important;
-  color: #d7e3ef !important;
-  font-size: 13px !important;
-}
-
-ul[role="listbox"] li:hover {
-  background: rgba(226,174,83,.10) !important;
-  color: #ffffff !important;
-}
-
-/* 選中項：金黃底色 */
-ul[role="listbox"] li[aria-selected="true"] {
-  background: rgba(226,174,83,.20) !important;
-  color: #e2ae53 !important;
-  font-weight: 600;
-}
-
-
-/* ═══════════════════════════════
-   BUTTONS（統一換成 #CF5C2C）
-═══════════════════════════════ */
-
-.stButton button {
-  background: var(--btn-primary);
-  color: white;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  border: 0;
-}
-
-.stButton button:hover {
-  background: var(--btn-primary-hover);
-}
-
-/* Sidebar 按鈕不套用 primary 底色 */
-section[data-testid="stSidebar"] .stButton button {
-  background: transparent !important;
-  color: #b8d0eb !important;
-  border: 0 !important;
-}
-
-section[data-testid="stSidebar"] .stButton button[kind="primary"] {
-  background: var(--sidebar-active) !important;
-  color: #ffffff !important;
-  border-left: 3px solid #4fa3e0 !important;
-  font-weight: 700 !important;
-}
-
-
-/* ═══════════════════════════════
-   DATAFRAME
-═══════════════════════════════ */
-
-div[data-testid="stDataFrame"] {
-  border: 1px solid rgba(255,255,255,0.08) !important;
-  border-radius: 10px !important;
-  overflow: hidden !important;
-  background: #0e1117 !important;
-}
-
-div[data-testid="stDataFrame"] thead {
-  background: #161b22 !important;
-}
-
-div[data-testid="stDataFrame"] th {
-  color: #8fbfff !important;
-  font-size: 11px !important;
-  letter-spacing: 0.06em !important;
-  text-transform: uppercase !important;
-  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
-}
-
-div[data-testid="stDataFrame"] td {
-  color: #e6edf3 !important;
-  font-size: 13px !important;
-  background: #11161c !important;
-  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
-  padding: 6px 10px !important;
-}
-
-div[data-testid="stDataFrame"] tr:nth-child(even) td {
-  background: #0d1318 !important;
-}
-
-div[data-testid="stDataFrame"] tr:hover td {
-  background: #1c2733 !important;
-  color: #ffffff !important;
-}
-
-div[data-testid="stDataFrame"] [data-baseweb="popover"] {
-  display: none !important;
 }
 
 </style>
