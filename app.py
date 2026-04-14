@@ -172,13 +172,13 @@ div.block-container .stTabs button[data-baseweb="tab"]:hover{
 div.block-container .stTabs button[data-baseweb="tab"][aria-selected="true"]{
 
     background:#e06b3a !important;
-
     color:#ffffff !important;
 
     border-bottom:2px solid #0a0a0a !important;
 
     box-shadow:
-        0 -2px 6px rgba(0,0,0,0.45);
+        0 -3px 8px rgba(0,0,0,0.55),
+        0 2px 6px rgba(0,0,0,0.35);
 
 }
 
