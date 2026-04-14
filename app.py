@@ -202,6 +202,8 @@ div[data-testid="stNumberInput"] button {
 
 div[data-testid="stDataFrame"] {
     background:#11161c !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
 }
 
 div[data-baseweb="popover"] {
