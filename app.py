@@ -135,17 +135,13 @@ def apply_modern_style():
    🔥 穩定版（不使用 first-child）
 =================================================== */
 
-div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"]{
 
-    gap:4px;
-    align-items:flex-end;
+/* ===================================================
+   ⭐ 第一層 TAB（主模組 / 實心標籤）
+   🔥 最穩版本（不用 DOM 結構猜測）
+=================================================== */
 
-    border-bottom:2px solid rgba(255,255,255,0.08);
-
-}
-
-/* 第一層 tab buttons */
-div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button{
+div.block-container .stTabs [data-baseweb="tab-list"] > button{
 
     background:#0b2f4a !important;
 
@@ -165,12 +161,12 @@ div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] >
 }
 
 /* hover */
-div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button:hover{
+div.block-container .stTabs [data-baseweb="tab-list"] > button:hover{
     background:#124466 !important;
 }
 
 /* active（實心橘） */
-div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button[aria-selected="true"]{
+div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="true"]{
 
     background:#c6582f !important;
 
@@ -187,18 +183,7 @@ div.block-container > div[data-testid="stTabs"] > div[data-baseweb="tab-list"] >
    ⭐ 第二層 TAB（子功能 / 扁平）
 =================================================== */
 
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"]{
-
-    gap:10px;
-
-    border-bottom:1px solid rgba(255,255,255,0.08);
-
-    margin-top:6px;
-
-}
-
-/* 第二層 tab */
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button{
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button{
 
     background:transparent !important;
 
@@ -210,24 +195,21 @@ div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[da
 
     font-size:12.5px;
 
-    font-weight:500;
-
 }
 
 /* hover */
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button:hover{
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button:hover{
     color:#ff8a57 !important;
 }
 
 /* active */
-div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button[aria-selected="true"]{
+div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button[aria-selected="true"]{
 
     color:#c6582f !important;
 
     border-bottom:2px solid #c6582f !important;
 
 }
-
 /* =========================
    MAIN BUTTON
 ========================= */
