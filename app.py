@@ -58,86 +58,107 @@ def apply_modern_style():
     st.markdown("""
 <style>
 
-/* ===== SIDEBAR THEME ONLY ===== */
+/* =========================
+   MAIN PAGE (右側)
+========================= */
+
+[data-testid="stAppViewContainer"]{
+background:#f6f8fb;
+}
+
+/* tabs（金色ERP） */
+button[data-baseweb="tab"]{
+font-size:14px;
+font-weight:600;
+color:#9a7b2f;
+}
+
+button[data-baseweb="tab"][aria-selected="true"]{
+color:#c89b2d;
+border-bottom:3px solid #c89b2d;
+}
+
+/* buttons（只影響右邊） */
+[data-testid="stAppViewContainer"] .stButton > button{
+border-radius:6px;
+border:1px solid #d2a85a;
+background:#fff7e3;
+color:#a35d16;
+font-weight:600;
+}
+
+[data-testid="stAppViewContainer"] .stButton > button:hover{
+background:#f7e1b0;
+border-color:#c9962a;
+}
+
+/* primary（右邊橘紅） */
+[data-testid="stAppViewContainer"] .stButton > button[kind="primary"]{
+background:#c6582f;
+border-color:#c6582f;
+color:white;
+}
+
+[data-testid="stAppViewContainer"] .stButton > button[kind="primary"]:hover{
+background:#a94723;
+}
+
+/* =========================
+   SIDEBAR (左側)
+========================= */
 
 :root{
-
 --sidebar-bg:#0b2f4a;
 --sidebar-hover:#124466;
 --sidebar-active:#1a5a84;
-
---text-main:#ffffff;
 --text-red:#e35b5b;
-
 }
 
 /* sidebar container */
-
 [data-testid="stSidebar"]{
-
 background:var(--sidebar-bg) !important;
 border-right:1px solid rgba(255,255,255,0.08);
-
 min-width:220px;
 max-width:220px;
-
 }
 
 /* sidebar buttons */
-
 [data-testid="stSidebar"] div.stButton > button{
-
 background:transparent;
 border:0;
-
 width:100%;
 text-align:left;
-
 color:#ffffff;
-
 font-size:13px;
-
 padding:8px 12px;
-
 transition:0.15s;
-
 }
 
 /* hover */
-
 [data-testid="stSidebar"] div.stButton > button:hover{
-
 background:var(--sidebar-hover);
 color:#ffffff;
-
 }
 
 /* active */
-
 [data-testid="stSidebar"] div.stButton > button[kind="primary"]{
-
 background:var(--sidebar-active);
 font-weight:600;
-
 }
 
-/* sidebar group title */
-
+/* sidebar group */
 [data-testid="stSidebar"] .erp-group{
-
 font-size:11px;
 color:var(--text-red);
-
 letter-spacing:0.5px;
 margin-top:12px;
-
 }
 
 </style>
 """, unsafe_allow_html=True)
 
 
-# ======== Arrow key navigation（不動）========
+# ======== Arrow key navigation ========
 def apply_arrow_nav():
     import streamlit as st
 
@@ -167,67 +188,79 @@ def apply_arrow_nav():
     const t = e.target;
     if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
     if (t.disabled || t.readOnly) return;
-    if (['ArrowDown','ArrowRight'].includes(e.key)) { e.preventDefault(); moveFocus(t, +1); }
-    if (['ArrowUp','ArrowLeft'].includes(e.key))    { e.preventDefault(); moveFocus(t, -1); }
+    if (['ArrowDown','ArrowRight'].includes(e.key)) {
+        e.preventDefault(); moveFocus(t, +1);
+    }
+    if (['ArrowUp','ArrowLeft'].includes(e.key)) {
+        e.preventDefault(); moveFocus(t, -1);
+    }
   }, true);
 })();
 </script>
 """, unsafe_allow_html=True)
 
+
 # ======== Sidebar Menu ========
 
 MENU_ITEMS = [
-    {"group":"生產","key":"生產單管理","label":" 生產單管理"},
-    {"group":"生產","key":"配方管理","label":" 配方管理"},
-    {"group":"生產","key":"代工管理","label":" 代工管理"},
+    {"group":"生產","key":"生產單管理","label":"生產單管理"},
+    {"group":"生產","key":"配方管理","label":"配方管理"},
+    {"group":"生產","key":"代工管理","label":"代工管理"},
 
-    {"group":"倉儲","key":"庫存區","label":" 庫存區"},
-    {"group":"倉儲","key":"洗車廠庫存","label":" 洗車廠庫存"},
-    {"group":"倉儲","key":"採購管理","label":" 採購管理"},
+    {"group":"倉儲","key":"庫存區","label":"庫存區"},
+    {"group":"倉儲","key":"洗車廠庫存","label":"洗車廠庫存"},
+    {"group":"倉儲","key":"採購管理","label":"採購管理"},
 
-    {"group":"查詢","key":"查詢區","label":" 查詢區"},
+    {"group":"查詢","key":"查詢區","label":"查詢區"},
 
-    {"group":"設定","key":"客戶名單","label":" 客戶名單"},
-    {"group":"設定","key":"匯入備份","label":" 匯入備份"},
+    {"group":"設定","key":"客戶名單","label":"客戶名單"},
+    {"group":"設定","key":"匯入備份","label":"匯入備份"},
 ]
+
 
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 
-with st.sidebar:
-    
-    st.markdown(
-        "<div style='font-size:16px;font-weight:700;color:#ffffff'>配方管理系統</div>",
-        unsafe_allow_html=True
-    )
 
-    st.markdown(
-        "<div style='font-size:11px;color:#9fb6cc;margin-bottom:10px'>v2.1 · ERP Edition</div>",
-        unsafe_allow_html=True
-    )
+def render_sidebar():
 
-    current_group = None
+    with st.sidebar:
 
-    for item in MENU_ITEMS:
+        st.markdown(
+            "<div style='font-size:12px;font-weight:700;color:#ffffff'>配方管理系統</div>",
+            unsafe_allow_html=True
+        )
 
-        if item["group"] != current_group:
-            st.markdown(
-                f"<div class='erp-group'>{item['group']}</div>",
-                unsafe_allow_html=True
-            )
-            current_group = item["group"]
+        st.markdown(
+            "<div style='font-size:11px;color:#CF5C2C;margin-bottom:10px'>v2.1 · ERP Edition</div>",
+            unsafe_allow_html=True
+        )
 
-        if st.button(
-            item["label"],
-            key=item["key"],
-            use_container_width=True,
-            type="primary" if st.session_state.menu == item["key"] else "secondary"
-        ):
-            st.session_state.menu = item["key"]
+        current_group = None
 
-# 啟用 UI
+        for item in MENU_ITEMS:
+
+            if item["group"] != current_group:
+                st.markdown(
+                    f"<div class='erp-group'>{item['group']}</div>",
+                    unsafe_allow_html=True
+                )
+                current_group = item["group"]
+
+            if st.button(
+                item["label"],
+                key=item["key"],
+                use_container_width=True,
+                type="primary" if st.session_state.menu == item["key"] else "secondary"
+            ):
+                st.session_state.menu = item["key"]
+                st.rerun()
+
+# ======== ENABLE ========
+
 apply_modern_style()
 apply_arrow_nav()
+render_sidebar()
 
 
 # ======== GCP SERVICE ACCOUNT =========
