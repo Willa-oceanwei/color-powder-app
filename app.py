@@ -8743,21 +8743,34 @@ elif menu == "洗車廠庫存":
 
                 if result_df.empty:
                     st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
-
-                else:            
-                    html = "<div style='overflow-x:auto; width:100%;'>"
-                    html += "<table style='border-collapse:collapse; font-size:14px; white-space:nowrap;'>"
+           
+                else:
+                
+                    html = """
+                    <div style='overflow-x:auto; width:100%;'>
+                    <table style='
+                        border-collapse:collapse;
+                        font-size:14px;
+                        width:100%;
+                        table-layout:fixed;
+                    '>
+                    """
                 
                     # ===== 表頭 =====
                     html += "<tr>"
+                
                     for col in result_df.columns:
                         html += f"""
                         <th style='
                             padding:8px;
                             border-bottom:2px solid #ccc;
                             text-align:left;
+                            white-space:nowrap;
+                            overflow:hidden;
+                            text-overflow:ellipsis;
                         '>{col}</th>
                         """
+                
                     html += "</tr>"
                 
                     # ===== 表身 =====
@@ -8767,9 +8780,9 @@ elif menu == "洗車廠庫存":
                         for col in result_df.columns:
                             val = row[col]
                 
-                            # ===== 數字欄右對齊 =====
+                            # ===== 數字欄 =====
                             if col in ["期初庫存", "區間入庫", "區間出庫", "目前庫存數量"]:
-                                
+                
                                 if col == "目前庫存數量":
                                     html += f"""
                                     <td style='
@@ -8777,7 +8790,7 @@ elif menu == "洗車廠庫存":
                                         text-align:right;
                                         font-weight:800;
                                         color:#d62828;
-                                        background:#111;
+                                        white-space:nowrap;
                                     '>{val}</td>
                                     """
                                 else:
@@ -8785,6 +8798,7 @@ elif menu == "洗車廠庫存":
                                     <td style='
                                         padding:8px;
                                         text-align:right;
+                                        white-space:nowrap;
                                     '>{val}</td>
                                     """
                 
@@ -8793,6 +8807,9 @@ elif menu == "洗車廠庫存":
                                 <td style='
                                     padding:8px;
                                     text-align:left;
+                                    white-space:nowrap;
+                                    overflow:hidden;
+                                    text-overflow:ellipsis;
                                 '>{val}</td>
                                 """
                 
