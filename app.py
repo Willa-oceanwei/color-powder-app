@@ -782,6 +782,25 @@ def matches_all_keywords(target_text, keywords):
             return False
     return True
 
+def filter_df_by_keywords(df, keywords, searchable_cols):
+    """DataFrame 多條件 AND 搜尋：每個關鍵字都需命中任一指定欄位。"""
+    if df is None or df.empty or not keywords:
+        return df
+
+    filtered_df = df.copy()
+    for kw in keywords:
+        per_kw_mask = pd.Series(False, index=filtered_df.index)
+        for col in searchable_cols:
+            if col not in filtered_df.columns:
+                continue
+            per_kw_mask = per_kw_mask | filtered_df[col].astype(str).str.contains(
+                kw, case=False, na=False, regex=False
+            )
+        filtered_df = filtered_df[per_kw_mask]
+        if filtered_df.empty:
+            break
+    return filtered_df
+
 def safe_float_convert(value, default=0.0):
     """安全地將值轉換為浮點數"""
     if pd.isna(value) or value == '' or value is None:
@@ -2002,35 +2021,22 @@ elif menu == "配方管理":
             st.info("目前無資料")
             df_filtered = df.copy()
         else:
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                search_recipe  = st.text_input("配方編號", key="search_recipe_tab2")
-            with col2:
-                search_customer = st.text_input("客戶名稱或編號", key="search_customer_tab2")
-            with col3:
-                search_pantone  = st.text_input("Pantone色號", key="search_pantone_tab2")
+            search_text_tab2 = st.text_input(
+                "搜尋（配方編號、客戶名稱/編號、Pantone）",
+                key="search_recipe_multi_tab2",
+                placeholder="可輸入多條件，例如：27706,環瑩"
+            ).strip()
+            search_keywords = split_search_keywords(search_text_tab2)
 
-            recipe_kw   = search_recipe.strip()
-            customer_kw = search_customer.strip()
-            pantone_kw  = search_pantone.strip()
-
-            search_signature = f"{recipe_kw}|{customer_kw}|{pantone_kw}"
+            search_signature = "|".join(search_keywords)
             if "last_search_signature_tab2" not in st.session_state:
                 st.session_state.last_search_signature_tab2 = search_signature
 
-            mask = pd.Series(True, index=df.index)
-            if recipe_kw:
-                mask &= df["配方編號"].astype(str).str.contains(recipe_kw, case=False, na=False)
-            if customer_kw:
-                mask &= (
-                    df["客戶名稱"].astype(str).str.contains(customer_kw, case=False, na=False) |
-                    df["客戶編號"].astype(str).str.contains(customer_kw, case=False, na=False)
-                )
-            if pantone_kw:
-                pantone_kw_clean = pantone_kw.replace(" ", "").upper()
-                mask &= df["Pantone色號"].astype(str).str.replace(" ", "").str.upper().str.contains(pantone_kw_clean, na=False)
-
-            df_filtered = df[mask].copy()
+            df_filtered = filter_df_by_keywords(
+                df,
+                search_keywords,
+                ["配方編號", "客戶名稱", "客戶編號", "Pantone色號"]
+            ).copy()
             if not df_filtered.empty:
                 if "建檔時間" in df_filtered.columns:
                     df_filtered["_建檔時間_dt"] = pd.to_datetime(df_filtered["建檔時間"], errors="coerce")
@@ -2053,7 +2059,7 @@ elif menu == "配方管理":
                     st.session_state.recipe_cols_tab2 = 3
                 st.session_state.last_search_signature_tab2 = search_signature
 
-            if recipe_kw or customer_kw or pantone_kw:
+            if search_keywords:
                 st.info(f"🔍 搜尋結果：共 {total_rows} 筆資料｜固定 {st.session_state.get('recipe_cols_tab2', 1)} 欄顯示")
 
             limit_options = [1, 5, 10, 20, 50, 100]
@@ -2083,7 +2089,7 @@ elif menu == "配方管理":
                 st.dataframe(page_data[existing_cols].reset_index(drop=True),
                              use_container_width=True, hide_index=True)
             else:
-                if recipe_kw or customer_kw or pantone_kw:
+                if search_keywords:
                     st.info("查無符合的配方")
 
             cols_page = st.columns([1, 1, 1, 2, 1])
@@ -4203,16 +4209,12 @@ elif menu == "生產單管理":
         if "order_page_tab2" not in st.session_state:
             st.session_state.order_page_tab2 = 1
     
-        if search_order.strip():
-            mask = (
-                df_order["生產單號"].astype(str).str.contains(search_order, case=False, na=False) |
-                df_order["配方編號"].astype(str).str.contains(search_order, case=False, na=False) |
-                df_order["客戶名稱"].astype(str).str.contains(search_order, case=False, na=False) |
-                df_order["顏色"].astype(str).str.contains(search_order, case=False, na=False)
-            )
-            df_filtered = df_order[mask].copy()
-        else:
-            df_filtered = df_order.copy()
+        order_keywords_tab2 = split_search_keywords(search_order)
+        df_filtered = filter_df_by_keywords(
+            df_order,
+            order_keywords_tab2,
+            ["生產單號", "配方編號", "客戶名稱", "顏色"]
+        ).copy()
     
         df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
         df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
@@ -4406,17 +4408,13 @@ elif menu == "生產單管理":
             # 標記已搜尋過（避免 rerun 後消失）
             st.session_state.last_search_tab3_done = True
             
-            # 📌 1. 關鍵字篩選
-            if search_order_tab3.strip():
-                mask = (
-                    df_order["生產單號"].astype(str).str.contains(search_order_tab3, case=False, na=False) |
-                    df_order["配方編號"].astype(str).str.contains(search_order_tab3, case=False, na=False) |
-                    df_order["客戶名稱"].astype(str).str.contains(search_order_tab3, case=False, na=False) |
-                    df_order["顏色"].astype(str).str.contains(search_order_tab3, case=False, na=False)
-                )
-                df_filtered_tab3 = df_order[mask].copy()
-            else:
-                df_filtered_tab3 = df_order.copy()
+            # 📌 1. 關鍵字篩選（多條件 AND）
+            order_keywords_tab3 = split_search_keywords(search_order_tab3)
+            df_filtered_tab3 = filter_df_by_keywords(
+                df_order,
+                order_keywords_tab3,
+                ["生產單號", "配方編號", "客戶名稱", "顏色"]
+            ).copy()
     
             # 📌 2. 日期篩選（新增）
             if "生產日期" in df_filtered_tab3.columns:
@@ -4554,34 +4552,16 @@ elif menu == "生產單管理":
                 st.markdown("---")  # 分隔線
                 st.markdown("**🔽 選擇生產單進行預覽/修改/刪除**")
 
-                order_dropdown_filter_text = st.text_input(
-                    "生產單下拉搜尋（可多條件）",
-                    value="",
-                    placeholder="例如：環瑩,27706",
-                    key="order_dropdown_filter_tab3"
+                selected_index = st.selectbox(
+                    "選擇生產單",
+                    options=df_filtered_tab3.index,
+                    format_func=lambda i: f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
+                    key="select_order_code_tab3",
+                    index=0
                 )
-                order_dropdown_keywords = split_search_keywords(order_dropdown_filter_text)
-                filtered_order_indices = [
-                    i for i in df_filtered_tab3.index
-                    if matches_all_keywords(
-                        f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
-                        order_dropdown_keywords
-                    )
-                ]
-                if not filtered_order_indices:
-                    st.info("⚠️ 下拉選單無符合條件的生產單")
-                    selected_index, selected_order, selected_code_edit = None, None, None
-                else:
-                    selected_index = st.selectbox(
-                        "選擇生產單",
-                        options=filtered_order_indices,
-                        format_func=lambda i: f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
-                        key="select_order_code_tab3",
-                        index=0
-                    )
 
-                    selected_order = df_filtered_tab3.loc[selected_index]
-                    selected_code_edit = selected_order["生產單號"]
+                selected_order = df_filtered_tab3.loc[selected_index]
+                selected_code_edit = selected_order["生產單號"]
             else:
                 selected_index, selected_order, selected_code_edit = None, None, None
     
