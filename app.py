@@ -8787,20 +8787,21 @@ elif menu == "洗車廠庫存":
                     st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
     
                 else:
-    
-                    styled_df = result_df.style.set_properties(
-                        subset=["期初庫存", "區間入庫", "區間出庫", "目前庫存數量"],
-                        **{"text-align": "right"}
-                    )
-    
+                
                     st.dataframe(
                         result_df,
                         use_container_width=True,
                         hide_index=True,
                         column_config={
+                            "產品編號": st.column_config.TextColumn("產品編號", width="small"),
+                
+                            "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
+                            "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
+                            "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
+                            "目前庫存數量": st.column_config.TextColumn("目前庫存數量", width="small"),
+                
                             "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
                             "備註": st.column_config.TextColumn("備註", width="medium"),
-                            "目前庫存數量": st.column_config.TextColumn("目前庫存數量", width="small"),
                         }
                     )
                     
