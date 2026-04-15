@@ -215,9 +215,14 @@ div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-ba
 /* active */
 div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button[aria-selected="true"]{
 
-    color:#c6582f !important;
+    color:#ff8a57 !important;
 
-    border-bottom:2px solid #c6582f !important;
+    border-bottom:2px solid #ff8a57 !important;
+
+    box-shadow:
+        0 2px 6px rgba(255,138,87,0.55),
+        0 0 14px rgba(255,138,87,0.45),
+        0 0 24px rgba(255,138,87,0.35);
 
 }
 
