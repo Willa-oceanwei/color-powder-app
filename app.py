@@ -5173,7 +5173,6 @@ if menu == "代工管理":
                     new_target_qty = col_target.number_input(
                         "目標載回數量 (kg)",
                         min_value=0.0,
-                        value=float(st.session_state.get("oem_target_qty", 0.0)),
                         step=1.0,
                         key="oem_target_qty"
                     )
