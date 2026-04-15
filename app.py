@@ -1843,21 +1843,8 @@ elif menu == "配方管理":
             with col3:
                 options = [""] + customer_options
                 current = f"{fr.get('客戶編號','')} - {fr.get('客戶名稱','')}" if fr.get("客戶編號") else ""
-                customer_filter_text = st.text_input(
-                    "客戶下拉搜尋（可多條件）",
-                    value="",
-                    placeholder="例如：環瑩,27706",
-                    key="form_recipe_customer_filter"
-                )
-                customer_keywords = split_search_keywords(customer_filter_text)
-                filtered_customer_options = [""] + [
-                    opt for opt in customer_options
-                    if matches_all_keywords(opt, customer_keywords)
-                ]
-                if current and current not in filtered_customer_options:
-                    filtered_customer_options.append(current)
-                index = filtered_customer_options.index(current) if current in filtered_customer_options else 0
-                selected = st.selectbox("客戶編號", filtered_customer_options, index=index, key="form_recipe_selected_customer")
+                index = options.index(current) if current in options else 0
+                selected = st.selectbox("客戶編號", options, index=index, key="form_recipe_selected_customer")
                 if selected and " - " in selected:
                     c_no, c_name = selected.split(" - ",1)
                     fr["客戶編號"] = c_no.strip()
