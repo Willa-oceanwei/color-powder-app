@@ -8744,19 +8744,46 @@ elif menu == "洗車廠庫存":
                 if result_df.empty:
                     st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
                 else:
-                    # ===== ERP 高亮表格（目前庫存數量特別標示）=====
-                    html = "<table style='width:100%; border-collapse:collapse; font-size:14px;'>"
                 
-                    # 表頭
+                    html = """
+                    <div style='overflow-x:auto;'>
+                    <table style='
+                        width:100%;
+                        border-collapse:collapse;
+                        font-size:14px;
+                        table-layout:auto;
+                        white-space:nowrap;
+                    '>
+                    """
+                
+                    # ===== 表頭 =====
                     html += "<tr>"
                     for col in result_df.columns:
+                
                         if col == "目前庫存數量":
-                            html += f"<th style='text-align:left; color:#d62828; font-weight:800; padding:6px;'>{col}</th>"
+                            html += f"""
+                            <th style='
+                                text-align:right;
+                                padding:8px;
+                                border-bottom:2px solid #ccc;
+                                color:#d62828;
+                                font-weight:900;
+                                white-space:nowrap;
+                            '>{col}</th>
+                            """
                         else:
-                            html += f"<th style='text-align:left; padding:6px;'>{col}</th>"
+                            html += f"""
+                            <th style='
+                                text-align:left;
+                                padding:8px;
+                                border-bottom:2px solid #ccc;
+                                white-space:nowrap;
+                            '>{col}</th>
+                            """
+                
                     html += "</tr>"
                 
-                    # 表身
+                    # ===== 表身 =====
                     for _, row in result_df.iterrows():
                         html += "<tr>"
                 
@@ -8764,13 +8791,29 @@ elif menu == "洗車廠庫存":
                             val = row[col]
                 
                             if col == "目前庫存數量":
-                                html += f"<td style='color:#d62828; font-weight:800; padding:6px;'>{val}</td>"
+                                html += f"""
+                                <td style='
+                                    text-align:right;
+                                    padding:8px;
+                                    border-bottom:1px solid #eee;
+                                    background:#d62828;
+                                    color:#fff;
+                                    font-weight:800;
+                                    white-space:nowrap;
+                                '>{val}</td>
+                                """
                             else:
-                                html += f"<td style='padding:6px;'>{val}</td>"
+                                html += f"""
+                                <td style='
+                                    padding:8px;
+                                    border-bottom:1px solid #eee;
+                                    white-space:nowrap;
+                                '>{val}</td>
+                                """
                 
                         html += "</tr>"
                 
-                    html += "</table>"
+                    html += "</table></div>"
                 
                     st.markdown(html, unsafe_allow_html=True)
 
