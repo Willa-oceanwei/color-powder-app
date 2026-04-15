@@ -5599,7 +5599,7 @@ if menu == "代工管理":
 
                 return filtered_df
 
-            open_tab, closed_tab = st.tabs(["📋 未結案代工單", "✅ 已結案代工單"])
+            open_tab, closed_tab = st.tabs([" 未結案代工單", " 已結案代工單"])
 
             with open_tab:
                 df_progress_open = df_progress_all[df_progress_all["狀態"] != "✅ 已結案"].copy()
@@ -5615,11 +5615,7 @@ if menu == "代工管理":
                     st.info("目前沒有符合條件的代工單")
 
             with closed_tab:
-                st.markdown(
-                    "<div style='font-size:16px; font-weight:600; color:#f4e8ff;'>✅ 已結案代工資料表</div>",
-                    unsafe_allow_html=True
-                )
-
+                
                 df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
                 df_closed = _apply_tab4_filters(df_closed, "oem_tab4_closed")
                 df_closed = df_closed.sort_values(by="最近載回日期_sort", ascending=False, na_position="last")
