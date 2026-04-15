@@ -8744,35 +8744,35 @@ elif menu == "洗車廠庫存":
                 if result_df.empty:
                     st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
                 else:
-                # ===== ERP 高亮表格（目前庫存數量特別標示）=====
-                html = "<table style='width:100%; border-collapse:collapse; font-size:14px;'>"
+                    # ===== ERP 高亮表格（目前庫存數量特別標示）=====
+                    html = "<table style='width:100%; border-collapse:collapse; font-size:14px;'>"
                 
-                # 表頭
-                html += "<tr>"
-                for col in result_df.columns:
-                    if col == "目前庫存數量":
-                        html += f"<th style='text-align:left; color:#d62828; font-weight:800; padding:6px;'>{col}</th>"
-                    else:
-                        html += f"<th style='text-align:left; padding:6px;'>{col}</th>"
-                html += "</tr>"
-                
-                # 表身
-                for _, row in result_df.iterrows():
+                    # 表頭
                     html += "<tr>"
-                
                     for col in result_df.columns:
-                        val = row[col]
-                
                         if col == "目前庫存數量":
-                            html += f"<td style='color:#d62828; font-weight:800; padding:6px;'>{val}</td>"
+                            html += f"<th style='text-align:left; color:#d62828; font-weight:800; padding:6px;'>{col}</th>"
                         else:
-                            html += f"<td style='padding:6px;'>{val}</td>"
-                
+                            html += f"<th style='text-align:left; padding:6px;'>{col}</th>"
                     html += "</tr>"
                 
-                html += "</table>"
+                    # 表身
+                    for _, row in result_df.iterrows():
+                        html += "<tr>"
                 
-                st.markdown(html, unsafe_allow_html=True)
+                        for col in result_df.columns:
+                            val = row[col]
+                
+                            if col == "目前庫存數量":
+                                html += f"<td style='color:#d62828; font-weight:800; padding:6px;'>{val}</td>"
+                            else:
+                                html += f"<td style='padding:6px;'>{val}</td>"
+                
+                        html += "</tr>"
+                
+                    html += "</table>"
+                
+                    st.markdown(html, unsafe_allow_html=True)
 
     # ── Tab C4：資料修改 ──
     with tab_c4:
