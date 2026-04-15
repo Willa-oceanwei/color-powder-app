@@ -8765,7 +8765,7 @@ elif menu == "洗車廠庫存":
                 
                     # ===== 表頭 =====
                     html += "<tr>"
-                
+                    
                     for col in result_df.columns:
                         html += f"""
                         <th style='
@@ -8777,7 +8777,7 @@ elif menu == "洗車廠庫存":
                             text-overflow:ellipsis;
                         '>{col}</th>
                         """
-                
+                    
                     html += "</tr>"
                 
                     # ===== 表身 =====
