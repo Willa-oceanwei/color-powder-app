@@ -5667,7 +5667,7 @@ if menu == "代工管理":
                 search_text = st.text_input(
                     label="",
                     label_visibility="collapsed",
-                    placeholder="輸入關鍵字（可逗號多條件，例如：環瑩,27706）",
+                    placeholder="輸入關鍵字（可輸入多條件，例如：編號, 公司名, 顏色, 生產單號）",
                     key=f"{key_prefix}_search_text"
                 ).strip()
                 keywords = _parse_multi_search_keywords(search_text)
