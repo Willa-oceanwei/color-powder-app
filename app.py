@@ -4186,12 +4186,12 @@ elif menu == "生產單管理":
     # Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
     # ============================================================
     with tab2:
-            
-        search_order = st.text_input(
-            "搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)",
-            key="search_order_input_tab2",
-            value=""
-        )
+
+    search_order = st.text_input(
+        label="",   # 不顯示上方標題
+        placeholder="多條件搜尋：編號, 公司名, 顏色, 生產單號",
+        key="search_order_input_tab2"
+    )
     
         if "order_page_tab2" not in st.session_state:
             st.session_state.order_page_tab2 = 1
