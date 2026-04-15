@@ -8744,77 +8744,76 @@ elif menu == "洗車廠庫存":
                 if result_df.empty:
                     st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
                 else:
-                
                     html = """
-                    <div style='overflow-x:auto;'>
+                    <div style='overflow-x:auto; width:100%;'>
                     <table style='
-                        width:100%;
+                        width:max-content;
+                        min-width:100%;
                         border-collapse:collapse;
                         font-size:14px;
-                        table-layout:auto;
-                        white-space:nowrap;
+                        table-layout:fixed;
                     '>
                     """
-                
+                    
                     # ===== 表頭 =====
                     html += "<tr>"
                     for col in result_df.columns:
-                
+                    
+                        base_th = """
+                            padding:8px;
+                            border-bottom:2px solid #ccc;
+                            white-space:nowrap;
+                            overflow:hidden;
+                            text-overflow:ellipsis;
+                        """
+                    
                         if col == "目前庫存數量":
                             html += f"""
-                            <th style='
-                                text-align:right;
-                                padding:8px;
-                                border-bottom:2px solid #ccc;
-                                color:#d62828;
-                                font-weight:900;
-                                white-space:nowrap;
-                            '>{col}</th>
+                            <th style='{base_th} text-align:right; color:#d62828; font-weight:900;'>
+                                {col}
+                            </th>
                             """
                         else:
                             html += f"""
-                            <th style='
-                                text-align:left;
-                                padding:8px;
-                                border-bottom:2px solid #ccc;
-                                white-space:nowrap;
-                            '>{col}</th>
+                            <th style='{base_th} text-align:left;'>
+                                {col}
+                            </th>
                             """
-                
+                    
                     html += "</tr>"
-                
+                    
                     # ===== 表身 =====
                     for _, row in result_df.iterrows():
                         html += "<tr>"
-                
+                    
                         for col in result_df.columns:
                             val = row[col]
-                
+                    
+                            base_td = """
+                                padding:8px;
+                                border-bottom:1px solid #eee;
+                                white-space:nowrap;
+                                overflow:hidden;
+                                text-overflow:ellipsis;
+                            """
+                    
                             if col == "目前庫存數量":
                                 html += f"""
-                                <td style='
-                                    text-align:right;
-                                    padding:8px;
-                                    border-bottom:1px solid #eee;
-                                    background:#d62828;
-                                    color:#fff;
-                                    font-weight:800;
-                                    white-space:nowrap;
-                                '>{val}</td>
+                                <td style='{base_td} text-align:right; background:#d62828; color:#fff; font-weight:800;'>
+                                    {val}
+                                </td>
                                 """
                             else:
                                 html += f"""
-                                <td style='
-                                    padding:8px;
-                                    border-bottom:1px solid #eee;
-                                    white-space:nowrap;
-                                '>{val}</td>
+                                <td style='{base_td} text-align:left;'>
+                                    {val}
+                                </td>
                                 """
-                
+                    
                         html += "</tr>"
-                
+                    
                     html += "</table></div>"
-                
+                    
                     st.markdown(html, unsafe_allow_html=True)
 
     # ── Tab C4：資料修改 ──
