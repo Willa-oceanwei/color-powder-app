@@ -5559,7 +5559,8 @@ if menu == "代工管理":
             def _apply_tab4_filters(source_df, key_prefix):
                 filtered_df = source_df.copy()
                 search_text = st.text_input(
-                    "🔍 搜尋客戶名稱 / 配方編號 / 代工單號",
+                    label="",
+                    label_visibility="collapsed",
                     placeholder="輸入關鍵字（可搜尋客戶名稱、配方編號、代工單號）",
                     key=f"{key_prefix}_search_text"
                 ).strip()
