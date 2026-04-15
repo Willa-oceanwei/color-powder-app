@@ -764,6 +764,24 @@ def normalize_search_text(text):
     """標準化搜尋文字"""
     return fix_leading_zero(clean_powder_id(text))
 
+def split_search_keywords(raw_text):
+    """拆解多條件關鍵字，支援逗號/頓號/分號/空白。"""
+    text = str(raw_text or "").strip()
+    if not text:
+        return []
+    return [t.strip() for t in re.split(r"[，,、;\s\n\t]+", text) if t.strip()]
+
+def matches_all_keywords(target_text, keywords):
+    """文字是否符合多條件 AND 關鍵字（不分大小寫）。"""
+    if not keywords:
+        return True
+    haystack = str(target_text or "").lower()
+    for kw in keywords:
+        needle = str(kw or "").strip().lower()
+        if needle and needle not in haystack:
+            return False
+    return True
+
 def safe_float_convert(value, default=0.0):
     """安全地將值轉換為浮點數"""
     if pd.isna(value) or value == '' or value is None:
@@ -1806,8 +1824,21 @@ elif menu == "配方管理":
             with col3:
                 options = [""] + customer_options
                 current = f"{fr.get('客戶編號','')} - {fr.get('客戶名稱','')}" if fr.get("客戶編號") else ""
-                index = options.index(current) if current in options else 0
-                selected = st.selectbox("客戶編號", options, index=index, key="form_recipe_selected_customer")
+                customer_filter_text = st.text_input(
+                    "客戶下拉搜尋（可多條件）",
+                    value="",
+                    placeholder="例如：環瑩,27706",
+                    key="form_recipe_customer_filter"
+                )
+                customer_keywords = split_search_keywords(customer_filter_text)
+                filtered_customer_options = [""] + [
+                    opt for opt in customer_options
+                    if matches_all_keywords(opt, customer_keywords)
+                ]
+                if current and current not in filtered_customer_options:
+                    filtered_customer_options.append(current)
+                index = filtered_customer_options.index(current) if current in filtered_customer_options else 0
+                selected = st.selectbox("客戶編號", filtered_customer_options, index=index, key="form_recipe_selected_customer")
                 if selected and " - " in selected:
                     c_no, c_name = selected.split(" - ",1)
                     fr["客戶編號"] = c_no.strip()
@@ -2101,14 +2132,32 @@ elif menu == "配方管理":
             if "last_selected_recipe_code_tab3" not in st.session_state:
                 st.session_state["last_selected_recipe_code_tab3"] = ""
 
-            recipe_codes  = [""] + sorted(df_recipe["配方編號"].dropna().unique().tolist())
+            recipe_codes = [""] + sorted(df_recipe["配方編號"].dropna().unique().tolist())
+            code_label_map = {
+                code: "" if code == "" else " | ".join(
+                    df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0].astype(str)
+                )
+                for code in recipe_codes
+            }
+            recipe_filter_text = st.text_input(
+                "配方下拉搜尋（可多條件）",
+                value="",
+                placeholder="例如：27706,環瑩",
+                key="recipe_code_filter_tab3"
+            )
+            recipe_filter_keywords = split_search_keywords(recipe_filter_text)
+            filtered_recipe_codes = [
+                code for code in recipe_codes
+                if code == "" or matches_all_keywords(code_label_map.get(code, ""), recipe_filter_keywords)
+            ]
+            current_recipe_code = st.session_state["select_recipe_code_page_tab3"]
+            if current_recipe_code and current_recipe_code not in filtered_recipe_codes:
+                filtered_recipe_codes.append(current_recipe_code)
+
             selected_code = st.selectbox(
-                "輸入配方", options=recipe_codes,
-                index=recipe_codes.index(st.session_state["select_recipe_code_page_tab3"])
-                      if st.session_state["select_recipe_code_page_tab3"] in recipe_codes else 0,
-                format_func=lambda code: "" if code == "" else " | ".join(
-                    df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0]
-                ),
+                "輸入配方", options=filtered_recipe_codes,
+                index=filtered_recipe_codes.index(current_recipe_code) if current_recipe_code in filtered_recipe_codes else 0,
+                format_func=lambda code: code_label_map.get(code, ""),
                 key="select_recipe_code_page_tab3"
             )
 
@@ -2192,12 +2241,24 @@ elif menu == "配方管理":
                     with col2:
                         fr["顏色"] = st.text_input("顏色", fr.get("顏色", ""), key=f"edit_recipe_color_{code}")
                     with col3:
-                        options  = [""] + customer_options
                         cust_id  = fr.get("客戶編號", "").strip()
                         cust_name = fr.get("客戶名稱", "").strip()
                         current  = f"{cust_id} - {cust_name}" if cust_id else ""
-                        index_c  = options.index(current) if current in options else 0
-                        selected = st.selectbox("客戶編號", options, index=index_c, key=f"edit_recipe_customer_{code}")
+                        customer_filter_text_edit = st.text_input(
+                            "客戶下拉搜尋（可多條件）",
+                            value="",
+                            placeholder="例如：環瑩,27706",
+                            key=f"edit_recipe_customer_filter_{code}"
+                        )
+                        customer_keywords_edit = split_search_keywords(customer_filter_text_edit)
+                        filtered_options = [""] + [
+                            opt for opt in customer_options
+                            if matches_all_keywords(opt, customer_keywords_edit)
+                        ]
+                        if current and current not in filtered_options:
+                            filtered_options.append(current)
+                        index_c = filtered_options.index(current) if current in filtered_options else 0
+                        selected = st.selectbox("客戶編號", filtered_options, index=index_c, key=f"edit_recipe_customer_{code}")
                         if " - " in selected:
                             fr["客戶編號"], fr["客戶名稱"] = selected.split(" - ", 1)
                     with col4:
@@ -2507,16 +2568,35 @@ elif menu == "配方管理":
 
         if not df_recipe.empty:
             recipe_options = [""] + sorted(df_recipe["配方編號"].dropna().astype(str).unique().tolist())
+            recipe_option_labels = {
+                code: "" if code == "" else " | ".join(
+                    df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0].astype(str)
+                )
+                for code in recipe_options
+            }
 
             if st.session_state.master_batch_selected_code not in recipe_options:
                 st.session_state.master_batch_selected_code = ""
 
+            master_filter_text = st.text_input(
+                "配方下拉搜尋（可多條件）",
+                value="",
+                placeholder="例如：27706,環瑩",
+                key="master_batch_recipe_filter"
+            )
+            master_filter_keywords = split_search_keywords(master_filter_text)
+            filtered_recipe_options = [
+                code for code in recipe_options
+                if code == "" or matches_all_keywords(recipe_option_labels.get(code, ""), master_filter_keywords)
+            ]
+            current_master_code = st.session_state.master_batch_selected_code
+            if current_master_code and current_master_code not in filtered_recipe_options:
+                filtered_recipe_options.append(current_master_code)
+
             selected_recipe_code = st.selectbox(
-                "配方編號", options=recipe_options,
-                index=recipe_options.index(st.session_state.master_batch_selected_code),
-                format_func=lambda code: "" if code == "" else " | ".join(
-                    df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0].astype(str)
-                ),
+                "配方編號", options=filtered_recipe_options,
+                index=filtered_recipe_options.index(current_master_code) if current_master_code in filtered_recipe_options else 0,
+                format_func=lambda code: recipe_option_labels.get(code, ""),
                 key="master_batch_recipe_select"
             )
             st.session_state.master_batch_selected_code = selected_recipe_code
@@ -3514,9 +3594,20 @@ elif menu == "生產單管理":
             st.success(f"已自動選取：{display_label}")
 
         else:
+            recipe_dropdown_filter_text = st.text_input(
+                "配方下拉搜尋（可多條件）",
+                value="",
+                placeholder="例如：27706,環瑩",
+                key="search_add_form_dropdown_filter_tab1"
+            )
+            recipe_dropdown_keywords = split_search_keywords(recipe_dropdown_filter_text)
+            filtered_option_labels = [
+                label for label in option_map.keys()
+                if matches_all_keywords(label, recipe_dropdown_keywords)
+            ]
             selected_label = st.selectbox(
                 "選擇配方",
-                ["請選擇"] + list(option_map.keys()),
+                ["請選擇"] + filtered_option_labels,
                 index=0,
                 key="search_add_form_selected_recipe_tab1"
             )
@@ -4459,20 +4550,38 @@ elif menu == "生產單管理":
             # 📌 4. 下拉選單
             if not df_filtered_tab3.empty:
                 df_filtered_tab3['配方編號'] = df_filtered_tab3['配方編號'].fillna('').astype(str)
-    
+
                 st.markdown("---")  # 分隔線
                 st.markdown("**🔽 選擇生產單進行預覽/修改/刪除**")
-    
-                selected_index = st.selectbox(
-                    "選擇生產單",
-                    options=df_filtered_tab3.index,
-                    format_func=lambda i: f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
-                    key="select_order_code_tab3",
-                    index=0
+
+                order_dropdown_filter_text = st.text_input(
+                    "生產單下拉搜尋（可多條件）",
+                    value="",
+                    placeholder="例如：環瑩,27706",
+                    key="order_dropdown_filter_tab3"
                 )
-    
-                selected_order = df_filtered_tab3.loc[selected_index]
-                selected_code_edit = selected_order["生產單號"]
+                order_dropdown_keywords = split_search_keywords(order_dropdown_filter_text)
+                filtered_order_indices = [
+                    i for i in df_filtered_tab3.index
+                    if matches_all_keywords(
+                        f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
+                        order_dropdown_keywords
+                    )
+                ]
+                if not filtered_order_indices:
+                    st.info("⚠️ 下拉選單無符合條件的生產單")
+                    selected_index, selected_order, selected_code_edit = None, None, None
+                else:
+                    selected_index = st.selectbox(
+                        "選擇生產單",
+                        options=filtered_order_indices,
+                        format_func=lambda i: f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
+                        key="select_order_code_tab3",
+                        index=0
+                    )
+
+                    selected_order = df_filtered_tab3.loc[selected_index]
+                    selected_code_edit = selected_order["生產單號"]
             else:
                 selected_index, selected_order, selected_code_edit = None, None, None
     
@@ -5002,6 +5111,49 @@ if menu == "代工管理":
         mask = st.session_state.df_oem["代工單號"] == oem_no
         st.session_state.df_oem.loc[mask, "狀態"] = new_status
 
+    def _parse_multi_search_keywords(raw_text):
+        """將使用者輸入拆成多條件關鍵字（支援逗號、頓號、空白、分號、換行）。"""
+        text = str(raw_text or "").strip()
+        if not text:
+            return []
+        tokens = re.split(r"[，,、;\s\n\t]+", text)
+        return [t.strip() for t in tokens if t and t.strip()]
+
+    def _filter_df_by_keywords(df, keywords, searchable_cols):
+        """
+        多條件 AND 搜尋：
+        - 每個 keyword 都必須在任一搜尋欄位命中
+        - 若沒有 keyword，回傳原 df
+        """
+        if not keywords or df.empty:
+            return df
+
+        matched_df = df.copy()
+        for kw in keywords:
+            norm_kw = str(kw).lstrip("-").strip()
+            per_kw_mask = pd.Series(False, index=matched_df.index)
+            for col in searchable_cols:
+                if col not in matched_df.columns:
+                    continue
+                per_kw_mask = per_kw_mask | matched_df[col].astype(str).str.contains(kw, case=False, na=False, regex=False)
+                if norm_kw and norm_kw != kw:
+                    per_kw_mask = per_kw_mask | matched_df[col].astype(str).str.lstrip("-").str.contains(norm_kw, case=False, na=False, regex=False)
+            matched_df = matched_df[per_kw_mask]
+            if matched_df.empty:
+                break
+        return matched_df
+
+    def _build_oem_dropdown_label(row):
+        """統一代工單下拉選單顯示格式，提升可讀性。"""
+        oem_no = str(row.get("代工單號", "") or "").strip()
+        recipe_no = str(row.get("配方編號", "") or "").strip()
+        customer = str(row.get("客戶名稱", "") or "").strip()
+        delivered = _safe_float(row.get("代工數量", 0), 0.0)
+        target = _safe_float(row.get("目標載回數量", delivered), delivered)
+        if target <= 0:
+            target = delivered
+        return f"{oem_no} | {recipe_no} | {customer} | 📦送{delivered:g} → 🎯應回{target:g}"
+
     # ================================================================
     # Tab 分頁
     # ================================================================
@@ -5133,10 +5285,7 @@ if menu == "代工管理":
             df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
             df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
 
-            oem_options = [
-                f"{row.get('客戶名稱','')} | {row.get('配方編號','')} | 送{row.get('代工數量',0)}kg/應回{row.get('目標載回數量', row.get('代工數量',0))}kg | {row.get('代工廠商','')} | {row['代工單號']}"
-                for _, row in df_oem_active.iterrows()
-            ]
+            oem_options = [_build_oem_dropdown_label(row) for _, row in df_oem_active.iterrows()]
 
             if not oem_options:
                 st.warning("⚠️ 目前沒有可編輯的代工單（全部已結案）")
@@ -5144,7 +5293,7 @@ if menu == "代工管理":
                 selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_edit")
 
                 if selected_option:
-                    selected_oem = selected_option.split(" | ")[-1]
+                    selected_oem = selected_option.split(" | ")[0].strip()
                     selected_row_df = df_oem_active[df_oem_active["代工單號"] == selected_oem]
                     if selected_row_df.empty:
                         st.warning("⚠️ 找不到對應代工單資料，請重新整理")
@@ -5383,14 +5532,11 @@ if menu == "代工管理":
             if df_oem_active.empty:
                 st.warning("⚠️ 目前沒有可載回的代工單（全部已結案）")
             else:
-                oem_options = [
-                    f"{row['代工單號']} | {row.get('配方編號','')} | {row.get('客戶名稱','')} | 送{row.get('代工數量',0)}kg/回{row.get('目標載回數量', row.get('代工數量',0))}kg"
-                    for _, row in df_oem_active.iterrows()
-                ]
+                oem_options = [_build_oem_dropdown_label(row) for _, row in df_oem_active.iterrows()]
                 selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_return")
 
                 if selected_option:
-                    selected_oem = selected_option.split(" | ")[0]
+                    selected_oem = selected_option.split(" | ")[0].strip()
 
                     oem_idx = df_oem[df_oem["代工單號"] == selected_oem].index[0]
                     oem_row = df_oem.loc[oem_idx]
@@ -5554,18 +5700,16 @@ if menu == "代工管理":
                 search_text = st.text_input(
                     label="",
                     label_visibility="collapsed",
-                    placeholder="輸入關鍵字（可搜尋客戶名稱、配方編號、代工單號）",
+                    placeholder="輸入關鍵字（可逗號多條件，例如：環瑩,27706）",
                     key=f"{key_prefix}_search_text"
                 ).strip()
-                normalized_search_text = search_text.lstrip("-").strip()
-
-                if search_text:
-                    filtered_df = filtered_df[
-                        filtered_df["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                        filtered_df["配方編號"].astype(str).str.contains(search_text, case=False, na=False) |
-                        filtered_df["代工單號"].astype(str).str.contains(search_text, case=False, na=False) |
-                        filtered_df["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_text, case=False, na=False)
-                    ]
+                keywords = _parse_multi_search_keywords(search_text)
+                if keywords:
+                    filtered_df = _filter_df_by_keywords(
+                        filtered_df,
+                        keywords,
+                        ["客戶名稱", "配方編號", "代工單號", "代工廠名稱"]
+                    )
 
                 use_date_filter = st.checkbox("啟用建立日期篩選", value=False, key=f"{key_prefix}_use_date_filter")
                 if use_date_filter:
