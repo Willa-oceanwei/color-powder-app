@@ -3496,67 +3496,76 @@ elif menu == "生產單管理":
 
         # ===== 搜尋表單 =====
         with st.form("search_add_form", clear_on_submit=False):
-            col1, col2, col3 = st.columns([4,1,1])
+        
+            col1, col2 = st.columns([5,1])
+        
             with col1:
-                search_text = st.text_input("配方編號或客戶名稱", value="", key="search_text_tab1")
+                search_text_tab1 = st.text_input(
+                    label="",
+                    placeholder="🔎 多條件搜尋：配方編號, 客戶名稱, 顏色",
+                    key="search_text_tab1"
+                )
+        
             with col2:
-                exact = st.checkbox("精準搜", key="exact_search_tab1")
-            with col3:
-                add_btn = st.form_submit_button("➕ 新增")
+                add_btn = st.form_submit_button("➕ 新增")        
         
-        # ===== 處理搜尋結果（不污染原始 df_recipe）=====
-        search_text_original = search_text.strip()
-        search_text_normalized = fix_leading_zero(search_text_original)
-        search_text_upper = search_text_original.upper()
-        
-        # 🔒 一律先 copy，搜尋只作用在 search_df
+        # ===== 關鍵字拆分 =====
+        keywords = split_search_keywords(search_text_tab1)
+               
+        # ===== 建立搜尋 dataframe（不污染原始資料）=====
         search_df = df_recipe.copy()
+             
+        # ===== 建立高速搜尋欄位 =====
+        if "_search_text" not in search_df.columns:
         
-        if search_text_normalized:
-            # 建立「僅供搜尋使用」的標準化配方編號
-            search_df["_配方編號標準"] = search_df["配方編號"].map(
-                lambda x: fix_leading_zero(clean_powder_id(x))
+            search_df["_search_text"] = (
+                search_df["配方編號"].astype(str) + " " +
+                search_df["客戶名稱"].astype(str) + " " +
+                search_df["顏色"].astype(str)
+            ).str.lower()        
+        
+        # ===== 多條件搜尋（AND）=====
+        if keywords:
+        
+            mask = pd.Series(True, index=search_df.index)
+        
+            for kw in keywords:
+                mask &= search_df["_search_text"].str.contains(kw.lower(), na=False)
+        
+            filtered = search_df[mask].copy()
+        
+        else:
+            filtered = search_df.copy()        
+        
+        # ===== 建立選單 =====
+        if not filtered.empty:
+        
+            filtered["label"] = filtered.apply(format_option_with_status, axis=1)
+        
+            option_map = dict(
+                zip(filtered["label"], filtered.to_dict(orient="records"))
             )
         
-            if exact:
-                filtered = search_df[
-                    (search_df["_配方編號標準"] == search_text_normalized) |
-                    (search_df["客戶名稱"].str.upper() == search_text_upper)
-                ]
-            else:
-                filtered = search_df[
-                    search_df["_配方編號標準"].str.contains(search_text_normalized, case=False, na=False) |
-                    search_df["客戶名稱"].str.contains(search_text_original, case=False, na=False)
-                ]
-        
-            # 搜尋結束後移除暫用欄位
-            filtered = filtered.drop(columns=["_配方編號標準"], errors="ignore")
-        
         else:
-            # 沒輸入搜尋字 → 顯示全部（仍是 copy）
-            filtered = search_df.copy()
-    
-        # 建立搜尋結果標籤與選項
-        if not filtered.empty:
-            filtered["label"] = filtered.apply(format_option_with_status, axis=1)
-            option_map = dict(zip(filtered["label"], filtered.to_dict(orient="records")))
-        else:
-            option_map = {}
-    
+            option_map = {}       
+        
         # ===== 顯示選擇結果 =====
-        if    not    option_map:
+        if not option_map:
+        
             st.warning("查無符合的配方")
-            selected_row    =    None
-            selected_label    =    None
-            
+        
+            selected_row = None
+            selected_label = None
+        
+        
         elif len(option_map) == 1:
+        
             selected_label = list(option_map.keys())[0]
             selected_row = option_map[selected_label].copy()
         
-            # 依當日最大流水號 +1 產生生產單號（避免刪單後重號）
+            # 依當日最大流水號 +1 產生生產單號
             new_id = generate_next_production_order_id()
         
-            # 自動建立 order
             order = {
                 "生產單號": new_id,
                 "生產日期": datetime.now().strftime("%Y-%m-%d"),
@@ -3576,34 +3585,29 @@ elif menu == "生產單管理":
             st.session_state["show_confirm_panel"] = True
         
             # 建立 recipe_row_cache
-            st.session_state["recipe_row_cache"] = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in selected_row.items()}
+            st.session_state["recipe_row_cache"] = {
+                k.strip(): ("" if v is None or pd.isna(v) else str(v))
+                for k, v in selected_row.items()
+            }
         
-            # 顯示選取訊息
             parts = selected_label.split(" | ", 1)
+        
             if len(parts) > 1:
                 display_label = f"{selected_row['配方編號']} | {parts[1]}"
             else:
-                display_label = selected_row['配方編號']
+                display_label = selected_row["配方編號"]
+        
             st.success(f"已自動選取：{display_label}")
-
+                
         else:
-            recipe_dropdown_filter_text = st.text_input(
-                "配方下拉搜尋（可多條件）",
-                value="",
-                placeholder="例如：27706,環瑩",
-                key="search_add_form_dropdown_filter_tab1"
-            )
-            recipe_dropdown_keywords = split_search_keywords(recipe_dropdown_filter_text)
-            filtered_option_labels = [
-                label for label in option_map.keys()
-                if matches_all_keywords(label, recipe_dropdown_keywords)
-            ]
+        
             selected_label = st.selectbox(
                 "選擇配方",
-                ["請選擇"] + filtered_option_labels,
+                ["請選擇"] + list(option_map.keys()),
                 index=0,
                 key="search_add_form_selected_recipe_tab1"
             )
+        
             if selected_label == "請選擇":
                 selected_row = None
             else:
