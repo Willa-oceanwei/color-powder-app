@@ -5002,6 +5002,49 @@ if menu == "代工管理":
         mask = st.session_state.df_oem["代工單號"] == oem_no
         st.session_state.df_oem.loc[mask, "狀態"] = new_status
 
+    def _parse_multi_search_keywords(raw_text):
+        """將使用者輸入拆成多條件關鍵字（支援逗號、頓號、空白、分號、換行）。"""
+        text = str(raw_text or "").strip()
+        if not text:
+            return []
+        tokens = re.split(r"[，,、;\s\n\t]+", text)
+        return [t.strip() for t in tokens if t and t.strip()]
+
+    def _filter_df_by_keywords(df, keywords, searchable_cols):
+        """
+        多條件 AND 搜尋：
+        - 每個 keyword 都必須在任一搜尋欄位命中
+        - 若沒有 keyword，回傳原 df
+        """
+        if not keywords or df.empty:
+            return df
+
+        matched_df = df.copy()
+        for kw in keywords:
+            norm_kw = str(kw).lstrip("-").strip()
+            per_kw_mask = pd.Series(False, index=matched_df.index)
+            for col in searchable_cols:
+                if col not in matched_df.columns:
+                    continue
+                per_kw_mask = per_kw_mask | matched_df[col].astype(str).str.contains(kw, case=False, na=False, regex=False)
+                if norm_kw and norm_kw != kw:
+                    per_kw_mask = per_kw_mask | matched_df[col].astype(str).str.lstrip("-").str.contains(norm_kw, case=False, na=False, regex=False)
+            matched_df = matched_df[per_kw_mask]
+            if matched_df.empty:
+                break
+        return matched_df
+
+    def _build_oem_dropdown_label(row):
+        """統一代工單下拉選單顯示格式，提升可讀性。"""
+        oem_no = str(row.get("代工單號", "") or "").strip()
+        recipe_no = str(row.get("配方編號", "") or "").strip()
+        customer = str(row.get("客戶名稱", "") or "").strip()
+        delivered = _safe_float(row.get("代工數量", 0), 0.0)
+        target = _safe_float(row.get("目標載回數量", delivered), delivered)
+        if target <= 0:
+            target = delivered
+        return f"{oem_no} | {recipe_no} | {customer} | 📦送{delivered:g} → 🎯應回{target:g}"
+
     # ================================================================
     # Tab 分頁
     # ================================================================
@@ -5133,10 +5176,7 @@ if menu == "代工管理":
             df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
             df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
 
-            oem_options = [
-                f"{row.get('客戶名稱','')} | {row.get('配方編號','')} | 送{row.get('代工數量',0)}kg/應回{row.get('目標載回數量', row.get('代工數量',0))}kg | {row.get('代工廠商','')} | {row['代工單號']}"
-                for _, row in df_oem_active.iterrows()
-            ]
+            oem_options = [_build_oem_dropdown_label(row) for _, row in df_oem_active.iterrows()]
 
             if not oem_options:
                 st.warning("⚠️ 目前沒有可編輯的代工單（全部已結案）")
@@ -5144,7 +5184,7 @@ if menu == "代工管理":
                 selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_edit")
 
                 if selected_option:
-                    selected_oem = selected_option.split(" | ")[-1]
+                    selected_oem = selected_option.split(" | ")[0].strip()
                     selected_row_df = df_oem_active[df_oem_active["代工單號"] == selected_oem]
                     if selected_row_df.empty:
                         st.warning("⚠️ 找不到對應代工單資料，請重新整理")
@@ -5383,14 +5423,11 @@ if menu == "代工管理":
             if df_oem_active.empty:
                 st.warning("⚠️ 目前沒有可載回的代工單（全部已結案）")
             else:
-                oem_options = [
-                    f"{row['代工單號']} | {row.get('配方編號','')} | {row.get('客戶名稱','')} | 送{row.get('代工數量',0)}kg/回{row.get('目標載回數量', row.get('代工數量',0))}kg"
-                    for _, row in df_oem_active.iterrows()
-                ]
+                oem_options = [_build_oem_dropdown_label(row) for _, row in df_oem_active.iterrows()]
                 selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_return")
 
                 if selected_option:
-                    selected_oem = selected_option.split(" | ")[0]
+                    selected_oem = selected_option.split(" | ")[0].strip()
 
                     oem_idx = df_oem[df_oem["代工單號"] == selected_oem].index[0]
                     oem_row = df_oem.loc[oem_idx]
@@ -5554,18 +5591,16 @@ if menu == "代工管理":
                 search_text = st.text_input(
                     label="",
                     label_visibility="collapsed",
-                    placeholder="輸入關鍵字（可搜尋客戶名稱、配方編號、代工單號）",
+                    placeholder="輸入關鍵字（可逗號多條件，例如：環瑩,27706）",
                     key=f"{key_prefix}_search_text"
                 ).strip()
-                normalized_search_text = search_text.lstrip("-").strip()
-
-                if search_text:
-                    filtered_df = filtered_df[
-                        filtered_df["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                        filtered_df["配方編號"].astype(str).str.contains(search_text, case=False, na=False) |
-                        filtered_df["代工單號"].astype(str).str.contains(search_text, case=False, na=False) |
-                        filtered_df["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_text, case=False, na=False)
-                    ]
+                keywords = _parse_multi_search_keywords(search_text)
+                if keywords:
+                    filtered_df = _filter_df_by_keywords(
+                        filtered_df,
+                        keywords,
+                        ["客戶名稱", "配方編號", "代工單號", "代工廠名稱"]
+                    )
 
                 use_date_filter = st.checkbox("啟用建立日期篩選", value=False, key=f"{key_prefix}_use_date_filter")
                 if use_date_filter:
