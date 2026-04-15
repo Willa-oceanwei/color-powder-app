@@ -8623,11 +8623,16 @@ elif menu == "洗車廠庫存":
                         init_row  = latest_init.iloc[0]
                         init_date = init_row["初始庫存日期_dt"]
                         init_qty  = init_row["初始數量_num"]
-                        unit      = str(init_row.get("單位", "")).strip() or "KG"
+                        unit      = str(init_row.get("單位", "")).strip()
                     else:
-                        init_date = None
-                        init_qty  = 0.0
-                        unit      = ""
+                         init_date = None
+                         init_qty  = 0.0
+                         unit      = ""
+
+                    # ✅ 若期初記錄沒有單位，從所有記錄（入/出庫）補齊
+                    if not unit:
+                        all_units = pid_df["單位"].astype(str).str.strip().replace("", pd.NA).dropna().tolist()
+                        unit = max(set(all_units), key=all_units.count) if all_units else "KG"
 
                     if init_date is not None:
                         in_mask = (
