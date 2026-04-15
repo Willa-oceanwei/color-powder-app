@@ -4396,7 +4396,7 @@ elif menu == "生產單管理":
             st.session_state.last_search_tab3_done = True
             
             # 📌 1. 關鍵字篩選（多條件 AND）
-            order_keywords_tab3 = split_search_keywords(search_order_tab3)
+            order_keywords_tab3 = split_search_keywords(search_order)
             df_filtered_tab3 = filter_df_by_keywords(
                 df_order,
                 order_keywords_tab3,
