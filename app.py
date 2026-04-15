@@ -8571,260 +8571,234 @@ elif menu == "洗車廠庫存":
                 st.rerun()
 
     # ── Tab C3：庫存查詢 ──
-    with tab_c3:
-        with st.form("cw_query_form"):
-            c1, c2 = st.columns([5, 1])
-            q_pid     = c1.text_input("產品編號（留空顯示全部）", key="cw_query_pid")
-            show_zero_inventory = st.checkbox(
-                "顯示數量為 0 之庫存",
-                value=False,
-                key="cw_query_show_zero_inventory"
-            )
-            do_query  = c2.form_submit_button("搜尋")
+    # ── Tab C3：庫存查詢 ──
+with tab_c3:
+    with st.form("cw_query_form"):
+        c1, c2 = st.columns([5, 1])
+        q_pid = c1.text_input("產品編號（留空顯示全部）", key="cw_query_pid")
 
-        if do_query:
-            q_pid = q_pid.strip()
+        show_zero_inventory = st.checkbox(
+            "顯示數量為 0 之庫存",
+            value=False,
+            key="cw_query_show_zero_inventory"
+        )
 
-            # 取得要查詢的 ID 清單
-            if q_pid:
-                pid_series = df_carwash["貨品編號"].astype(str).str.strip()
-                query_ids = sorted({
-                    pid for pid in pid_series.tolist()
-                    if pid and q_pid.lower() in pid.lower()
-                })
-            else:
-                query_ids = sorted({
-                    str(v).strip() for v in df_carwash["貨品編號"].tolist()
-                    if str(v).strip()
-                })
+        do_query = c2.form_submit_button("搜尋")
 
-            if not query_ids:
-                st.info("目前沒有可查詢的洗車廠庫存資料。")
-            else:
-                result_rows = []
-                today = datetime.now().date()
+    if do_query:
+        q_pid = q_pid.strip()
 
-                for pid in query_ids:
-                    pid_df = df_carwash[
-                        df_carwash["貨品編號"].astype(str).str.strip() == pid
+        # 取得要查詢的 ID 清單
+        if q_pid:
+            pid_series = df_carwash["貨品編號"].astype(str).str.strip()
+            query_ids = sorted({
+                pid for pid in pid_series.tolist()
+                if pid and q_pid.lower() in pid.lower()
+            })
+        else:
+            query_ids = sorted({
+                str(v).strip() for v in df_carwash["貨品編號"].tolist()
+                if str(v).strip()
+            })
+
+        if not query_ids:
+            st.info("目前沒有可查詢的洗車廠庫存資料。")
+
+        else:
+            result_rows = []
+            today = datetime.now().date()
+
+            for pid in query_ids:
+
+                pid_df = df_carwash[
+                    df_carwash["貨品編號"].astype(str).str.strip() == pid
+                ].copy()
+
+                pid_df["初始庫存日期_dt"] = pid_df["初始庫存日期"].map(_to_date)
+                pid_df["入庫日期_dt"] = pid_df["入庫日期"].map(_to_date)
+                pid_df["出庫日期_dt"] = pid_df["出庫日期"].map(_to_date)
+                pid_df["初始數量_num"] = pid_df["初始數量"].map(_to_float)
+                pid_df["數量_num"] = pid_df["數量"].map(_to_float)
+
+                latest_init = pid_df[
+                    pid_df["初始庫存日期_dt"].notna()
+                ].sort_values("初始庫存日期_dt", ascending=False)
+
+                if not latest_init.empty:
+                    init_row = latest_init.iloc[0]
+                    init_date = init_row["初始庫存日期_dt"]
+                    init_qty = init_row["初始數量_num"]
+                    unit = str(init_row.get("單位", "")).strip()
+                else:
+                    init_date = None
+                    init_qty = 0.0
+                    unit = ""
+
+                # 若期初記錄沒有單位，從所有記錄補齊
+                if not unit:
+                    all_units = pid_df["單位"].astype(str).str.strip().replace("", pd.NA).dropna().tolist()
+                    unit = max(set(all_units), key=all_units.count) if all_units else "KG"
+
+                if init_date is not None:
+
+                    in_mask = (
+                        (pid_df["類型"].astype(str).str.strip() == "入庫") &
+                        (pid_df["入庫日期_dt"].notna()) &
+                        (pid_df["入庫日期_dt"] >= init_date) &
+                        (pid_df["入庫日期_dt"] <= today)
+                    )
+
+                    out_mask = (
+                        (pid_df["類型"].astype(str).str.strip() == "出庫") &
+                        (pid_df["出庫日期_dt"].notna()) &
+                        (pid_df["出庫日期_dt"] >= init_date) &
+                        (pid_df["出庫日期_dt"] <= today)
+                    )
+
+                else:
+
+                    in_mask = (
+                        (pid_df["類型"].astype(str).str.strip() == "入庫") &
+                        (pid_df["入庫日期_dt"].notna()) &
+                        (pid_df["入庫日期_dt"] <= today)
+                    )
+
+                    out_mask = (
+                        (pid_df["類型"].astype(str).str.strip() == "出庫") &
+                        (pid_df["出庫日期_dt"].notna()) &
+                        (pid_df["出庫日期_dt"] <= today)
+                    )
+
+                in_qty = pid_df.loc[in_mask, "數量_num"].sum()
+                out_qty = pid_df.loc[out_mask, "數量_num"].sum()
+
+                current_qty = init_qty + in_qty - out_qty
+
+                # 出入庫歷程
+                history = []
+
+                if init_date is not None:
+
+                    init_registrar = str(init_row.get("登記人", "")).strip()
+
+                    history.append((
+                        init_date,
+                        f"{init_date.strftime('%Y-%m-%d')}｜期初庫存 {init_qty:g}{unit}｜{init_registrar}"
+                    ))
+
+                    history_source = pid_df[
+                        ((pid_df["類型"].astype(str).str.strip() == "入庫") &
+                         (pid_df["入庫日期_dt"] >= init_date)) |
+                        ((pid_df["類型"].astype(str).str.strip() == "出庫") &
+                         (pid_df["出庫日期_dt"] >= init_date))
                     ].copy()
 
-                    pid_df["初始庫存日期_dt"] = pid_df["初始庫存日期"].map(_to_date)
-                    pid_df["入庫日期_dt"]     = pid_df["入庫日期"].map(_to_date)
-                    pid_df["出庫日期_dt"]     = pid_df["出庫日期"].map(_to_date)
-                    pid_df["初始數量_num"]    = pid_df["初始數量"].map(_to_float)
-                    pid_df["數量_num"]        = pid_df["數量"].map(_to_float)
-
-                    latest_init = pid_df[
-                        pid_df["初始庫存日期_dt"].notna()
-                    ].sort_values("初始庫存日期_dt", ascending=False)
-
-                    if not latest_init.empty:
-                        init_row  = latest_init.iloc[0]
-                        init_date = init_row["初始庫存日期_dt"]
-                        init_qty  = init_row["初始數量_num"]
-                        unit      = str(init_row.get("單位", "")).strip()
-                    else:
-                         init_date = None
-                         init_qty  = 0.0
-                         unit      = ""
-
-                    # ✅ 若期初記錄沒有單位，從所有記錄（入/出庫）補齊
-                    if not unit:
-                        all_units = pid_df["單位"].astype(str).str.strip().replace("", pd.NA).dropna().tolist()
-                        unit = max(set(all_units), key=all_units.count) if all_units else "KG"
-
-                    if init_date is not None:
-                        in_mask = (
-                            (pid_df["類型"].astype(str).str.strip() == "入庫") &
-                            (pid_df["入庫日期_dt"].notna()) &
-                            (pid_df["入庫日期_dt"] >= init_date) &
-                            (pid_df["入庫日期_dt"] <= today)
-                        )
-                        out_mask = (
-                            (pid_df["類型"].astype(str).str.strip() == "出庫") &
-                            (pid_df["出庫日期_dt"].notna()) &
-                            (pid_df["出庫日期_dt"] >= init_date) &
-                            (pid_df["出庫日期_dt"] <= today)
-                        )
-                    else:
-                        in_mask = (
-                            (pid_df["類型"].astype(str).str.strip() == "入庫") &
-                            (pid_df["入庫日期_dt"].notna()) &
-                            (pid_df["入庫日期_dt"] <= today)
-                        )
-                        out_mask = (
-                            (pid_df["類型"].astype(str).str.strip() == "出庫") &
-                            (pid_df["出庫日期_dt"].notna()) &
-                            (pid_df["出庫日期_dt"] <= today)
-                        )
-
-                    in_qty      = pid_df.loc[in_mask,  "數量_num"].sum()
-                    out_qty     = pid_df.loc[out_mask, "數量_num"].sum()
-                    current_qty = init_qty + in_qty - out_qty
-
-                    # 出入庫歷程（從「最新期初庫存」開始，依時間順序列出）
-                    history = []
-                    if init_date is not None:
-                        init_registrar = str(init_row.get("登記人", "")).strip()
-                        history.append((
-                            init_date,
-                            f"{init_date.strftime('%Y-%m-%d')}｜期初庫存 {init_qty:g}{unit}｜{init_registrar}"
-                        ))
-                        history_source = pid_df[
-                            ((pid_df["類型"].astype(str).str.strip() == "入庫") &
-                             (pid_df["入庫日期_dt"] >= init_date)) |
-                            ((pid_df["類型"].astype(str).str.strip() == "出庫") &
-                             (pid_df["出庫日期_dt"] >= init_date))
-                        ].copy()
-                    else:
-                        history_source = pid_df[
-                            pid_df["類型"].astype(str).str.strip().isin(["入庫", "出庫"])
-                        ].copy()
-
-                    for _, row in history_source.iterrows():
-                        rec_type = str(row.get("類型", "")).strip()
-                        rec_date = (row.get("入庫日期_dt") if rec_type == "入庫"
-                                    else row.get("出庫日期_dt"))
-                        if rec_date is None:
-                            continue
-                        rec_qty  = _to_float(row.get("數量_num", 0))
-                        rec_unit = str(row.get("單位", "")).strip()
-                        rec_name = str(row.get("登記人", "")).strip()
-                        history.append((
-                            rec_date,
-                            f"{rec_date.strftime('%Y-%m-%d')}｜{rec_type} {rec_qty:g}{rec_unit}｜{rec_name}"
-                        ))
-
-                    history_text = "\n".join([
-                        h[1] for h in sorted(history, key=lambda x: x[0], reverse=True)
-                    ])
-                    note_candidates = []
-                    for _, row in pid_df.iterrows():
-                        note_text = str(row.get("備註", "")).strip()
-                        if note_text:
-                            rec_type = str(row.get("類型", "")).strip()
-                            candidate_dates = []
-                            if rec_type == "初始庫存":
-                                candidate_dates.append(row.get("初始庫存日期_dt"))
-                            elif rec_type == "入庫":
-                                candidate_dates.append(row.get("入庫日期_dt"))
-                            elif rec_type == "出庫":
-                                candidate_dates.append(row.get("出庫日期_dt"))
-                            else:
-                                candidate_dates.extend([
-                                    row.get("初始庫存日期_dt"),
-                                    row.get("入庫日期_dt"),
-                                    row.get("出庫日期_dt"),
-                                ])
-
-                            note_date = next((d for d in candidate_dates if d is not None), None)
-                            if note_date is not None:
-                                note_candidates.append((note_date, note_text))
-                            else:
-                                # 沒日期也保留，避免「有備註卻顯示空白」
-                                note_candidates.append((datetime.min.date(), note_text))
-
-                    latest_note = "-"
-                    if note_candidates:
-                        latest_note = sorted(note_candidates, key=lambda x: x[0], reverse=True)[0][1]
-
-                    result_rows.append({
-                        "產品編號":     pid,
-                        "期初庫存":     f"{init_qty:g} {unit}".strip(),
-                        "區間入庫":     f"{in_qty:g} {unit}".strip(),
-                        "區間出庫":     f"{out_qty:g} {unit}".strip(),
-                        "目前庫存數量": f"{current_qty:g} {unit}".strip(),
-                        "出入庫歷程":   history_text or "-",
-                        "備註":         latest_note,
-                        "_目前庫存數值": current_qty,
-                    })
-
-                result_df = pd.DataFrame(result_rows).sort_values("產品編號")
-                if not show_zero_inventory:
-                    result_df = result_df[result_df["_目前庫存數值"] != 0]
-
-                result_df = result_df.drop(columns=["_目前庫存數值"], errors="ignore")
-
-                if result_df.empty:
-                    st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
-           
                 else:
-                
-                    st.dataframe(
-                        result_df,
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
-                            "備註": st.column_config.TextColumn("備註", width="medium"),
-                            "目前庫存數量": st.column_config.TextColumn("目前庫存數量", width="small"),
-                        }
+
+                    history_source = pid_df[
+                        pid_df["類型"].astype(str).str.strip().isin(["入庫", "出庫"])
+                    ].copy()
+
+                for _, row in history_source.iterrows():
+
+                    rec_type = str(row.get("類型", "")).strip()
+
+                    rec_date = (
+                        row.get("入庫日期_dt") if rec_type == "入庫"
+                        else row.get("出庫日期_dt")
                     )
-                    """
-                
-                    # ===== 表頭 =====
-                    html += "<tr>"
-                
-                    for col in result_df.columns:
-                        html += f"""
-                        <th style='
-                            padding:8px;
-                            border-bottom:2px solid #ccc;
-                            text-align:left;
-                            white-space:nowrap;
-                            overflow:hidden;
-                            text-overflow:ellipsis;
-                        '>{col}</th>
-                        """
-                
-                    html += "</tr>"
-                
-                    # ===== 表身 =====
-                    for _, row in result_df.iterrows():
-                        html += "<tr>"
-                
-                        for col in result_df.columns:
-                            val = row[col]
-                
-                            # ===== 數字欄 =====
-                            if col in ["期初庫存", "區間入庫", "區間出庫", "目前庫存數量"]:
-                
-                                if col == "目前庫存數量":
-                                    html += f"""
-                                    <td style='
-                                        padding:8px;
-                                        text-align:right;
-                                        font-weight:800;
-                                        color:#d62828;
-                                        white-space:nowrap;
-                                    '>{val}</td>
-                                    """
-                                else:
-                                    html += f"""
-                                    <td style='
-                                        padding:8px;
-                                        text-align:right;
-                                        white-space:nowrap;
-                                    '>{val}</td>
-                                    """
-                
-                            else:
-                                html += f"""
-                                <td style='
-                                    padding:8px;
-                                    text-align:left;
-                                    white-space:nowrap;
-                                    overflow:hidden;
-                                    text-overflow:ellipsis;
-                                '>{val}</td>
-                                """
-                
-                        html += "</tr>"
-                
-                    html += "</table></div>"
-                
-                    st.markdown(html, unsafe_allow_html=True)
+
+                    if rec_date is None:
+                        continue
+
+                    rec_qty = _to_float(row.get("數量_num", 0))
+                    rec_unit = str(row.get("單位", "")).strip()
+                    rec_name = str(row.get("登記人", "")).strip()
+
+                    history.append((
+                        rec_date,
+                        f"{rec_date.strftime('%Y-%m-%d')}｜{rec_type} {rec_qty:g}{rec_unit}｜{rec_name}"
+                    ))
+
+                history_text = "\n".join([
+                    h[1] for h in sorted(history, key=lambda x: x[0], reverse=True)
+                ])
+
+                note_candidates = []
+
+                for _, row in pid_df.iterrows():
+
+                    note_text = str(row.get("備註", "")).strip()
+
+                    if note_text:
+
+                        rec_type = str(row.get("類型", "")).strip()
+
+                        candidate_dates = []
+
+                        if rec_type == "初始庫存":
+                            candidate_dates.append(row.get("初始庫存日期_dt"))
+
+                        elif rec_type == "入庫":
+                            candidate_dates.append(row.get("入庫日期_dt"))
+
+                        elif rec_type == "出庫":
+                            candidate_dates.append(row.get("出庫日期_dt"))
+
+                        else:
+                            candidate_dates.extend([
+                                row.get("初始庫存日期_dt"),
+                                row.get("入庫日期_dt"),
+                                row.get("出庫日期_dt"),
+                            ])
+
+                        note_date = next((d for d in candidate_dates if d is not None), None)
+
+                        if note_date is not None:
+                            note_candidates.append((note_date, note_text))
+
+                        else:
+                            note_candidates.append((datetime.min.date(), note_text))
+
+                latest_note = "-"
+
+                if note_candidates:
+                    latest_note = sorted(note_candidates, key=lambda x: x[0], reverse=True)[0][1]
+
+                result_rows.append({
+                    "產品編號": pid,
+                    "期初庫存": f"{init_qty:g} {unit}".strip(),
+                    "區間入庫": f"{in_qty:g} {unit}".strip(),
+                    "區間出庫": f"{out_qty:g} {unit}".strip(),
+                    "目前庫存數量": f"{current_qty:g} {unit}".strip(),
+                    "出入庫歷程": history_text or "-",
+                    "備註": latest_note,
+                    "_目前庫存數值": current_qty,
+                })
+
+            result_df = pd.DataFrame(result_rows).sort_values("產品編號")
+
+            if not show_zero_inventory:
+                result_df = result_df[result_df["_目前庫存數值"] != 0]
+
+            result_df = result_df.drop(columns=["_目前庫存數值"], errors="ignore")
+
+            if result_df.empty:
+
+                st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
+
+            else:
+
+                st.dataframe(
+                    result_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
+                        "備註": st.column_config.TextColumn("備註", width="medium"),
+                        "目前庫存數量": st.column_config.TextColumn("目前庫存數量", width="small"),
+                    }
+                )
                     
     # ── Tab C4：資料修改 ──
     with tab_c4:
