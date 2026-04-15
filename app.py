@@ -5179,7 +5179,6 @@ if menu == "代工管理":
                     new_multiplier = col_ratio.number_input(
                         "轉換倍率",
                         min_value=0.01,
-                        value=float(st.session_state.get("oem_multiplier", 1.0)),
                         step=0.01,
                         key="oem_multiplier"
                     )
