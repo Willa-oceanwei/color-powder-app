@@ -1,9 +1,7 @@
 # utils/color.py
 import streamlit as st
 import pandas as pd
-import os
-from datetime import datetime, date
-from .common import save_df_to_sheet, init_states, get_worksheet, get_sheet_df
+from .common import save_df_to_sheet, get_worksheet, get_sheet_df
 
 def show_color_page():
     """色粉管理主頁面"""

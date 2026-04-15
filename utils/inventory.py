@@ -1,10 +1,9 @@
 # utils/inventory.py
 import streamlit as st
 import pandas as pd
-import os
 import re
 from datetime import datetime, date
-from .common import get_worksheet, get_sheet_df, save_df_to_sheet, init_states
+from .common import get_worksheet, get_sheet_df
 
 def show_inventory_page():
     """庫存管理主頁面"""
@@ -193,7 +192,7 @@ def show_inventory_page():
             if df_order.empty or df_recipe.empty:
                 return 0.0
             return calc_usage_for_stock(pid, df_order, df_recipe, start_dt, end_dt)
-        except Exception as e:
+        except Exception:
             return 0.0
     
     # ================= 初始庫存設定 =================

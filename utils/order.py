@@ -1,19 +1,14 @@
 # utils/order.py - 完整版（單一檔案）
 import streamlit as st
 import pandas as pd
-import os
-import re
 from pathlib import Path
 from datetime import datetime, timedelta
 from .common import (
     get_sheet_df,
     get_worksheet,
-    save_df_to_sheet,
-    generate_production_order_print,
     generate_print_page_content,
     clean_powder_id,
     fix_leading_zero,
-    normalize_search_text,
     load_recipe
 )
 
@@ -242,14 +237,14 @@ def show_order_page():
             # 可編輯欄位
             c5, c6, c7, c8 = st.columns(4)
             c5.text_input("計量單位", value=recipe_row.get("計量單位", "kg"), disabled=True)
-            color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color")
-            pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", ""), key="form_pantone")
-            raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
+            c6.text_input("顏色", value=order.get("顏色", ""), key="form_color")
+            c7.text_input("Pantone 色號", value=order.get("Pantone 色號", ""), key="form_pantone")
+            c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material")
             
             c9, c10 = st.columns(2)
-            important_note = c9.text_input("重要提醒", value=order.get("重要提醒", ""), key="form_important_note")
-            total_category = c10.text_input("合計類別", value=order.get("合計類別", ""), key="form_total_category")
-            remark = st.text_area("備註", value=order.get("備註", ""), key="form_remark")
+            c9.text_input("重要提醒", value=order.get("重要提醒", ""), key="form_important_note")
+            c10.text_input("合計類別", value=order.get("合計類別", ""), key="form_total_category")
+            st.text_area("備註", value=order.get("備註", ""), key="form_remark")
             
             # 包裝重量與份數
             st.markdown("**包裝重量與份數**")
