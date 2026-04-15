@@ -8743,15 +8743,21 @@ elif menu == "洗車廠庫存":
 
                 if result_df.empty:
                     st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
-                else:
-                
+
+                else:            
                     html = "<div style='overflow-x:auto; width:100%;'>"
                     html += "<table style='border-collapse:collapse; font-size:14px; white-space:nowrap;'>"
                 
                     # ===== 表頭 =====
                     html += "<tr>"
                     for col in result_df.columns:
-                        html += f"<th style='padding:8px; border-bottom:2px solid #ccc; text-align:left;'>{col}</th>"
+                        html += f"""
+                        <th style='
+                            padding:8px;
+                            border-bottom:2px solid #ccc;
+                            text-align:left;
+                        '>{col}</th>
+                        """
                     html += "</tr>"
                 
                     # ===== 表身 =====
@@ -8761,10 +8767,34 @@ elif menu == "洗車廠庫存":
                         for col in result_df.columns:
                             val = row[col]
                 
-                            if col == "目前庫存數量":
-                                html += f"<td style='padding:8px; background:#d62828; color:white; font-weight:bold;'>{val}</td>"
+                            # ===== 數字欄右對齊 =====
+                            if col in ["期初庫存", "區間入庫", "區間出庫", "目前庫存數量"]:
+                                
+                                if col == "目前庫存數量":
+                                    html += f"""
+                                    <td style='
+                                        padding:8px;
+                                        text-align:right;
+                                        font-weight:800;
+                                        color:#d62828;
+                                        background:#111;
+                                    '>{val}</td>
+                                    """
+                                else:
+                                    html += f"""
+                                    <td style='
+                                        padding:8px;
+                                        text-align:right;
+                                    '>{val}</td>
+                                    """
+                
                             else:
-                                html += f"<td style='padding:8px;'>{val}</td>"
+                                html += f"""
+                                <td style='
+                                    padding:8px;
+                                    text-align:left;
+                                '>{val}</td>
+                                """
                 
                         html += "</tr>"
                 
