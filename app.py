@@ -2011,7 +2011,7 @@ elif menu == "配方管理":
             search_text_tab2 = st.text_input(
                 "搜尋（配方編號、客戶名稱/編號、Pantone）",
                 key="search_recipe_multi_tab2",
-                placeholder="可輸入多條件，例如：27706,環瑩"
+                placeholder="可輸入多條件，例如：編號, 公司名, 顏色, 生產單號"
             ).strip()
             search_keywords = split_search_keywords(search_text_tab2)
 
