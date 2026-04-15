@@ -4380,10 +4380,10 @@ elif menu == "生產單管理":
                 )
             
             # 🔍 搜尋關鍵字
-            search_order_tab3 = st.text_input(
-                "搜尋生產單 (生產單號、配方編號、客戶名稱、顏色)",
-                key="search_order_input_tab3",
-                value=""
+            search_order = st.text_input(
+                label="",
+                placeholder="可輸入多條件，例如：編號, 公司名, 顏色, 生產單號",
+                key="search_order_input_tab3"
             )
             
             # ✅ Form 提交按鈕
