@@ -5555,86 +5555,72 @@ if menu == "代工管理":
 
             df_progress_all = pd.DataFrame(progress_data)
             df_progress_all["建立時間_dt"] = pd.to_datetime(df_progress_all["建立時間"], errors="coerce")
-            df_progress = df_progress_all.copy()
 
-            show_open_only = st.checkbox("只顯示未結案代工單", value=True)
-            # 上方主表固定只顯示未結案，避免與下方已結案表重複
-            df_progress = df_progress[df_progress["狀態"] != "✅ 已結案"]
+            def _apply_tab4_filters(source_df, key_prefix):
+                filtered_df = source_df.copy()
+                search_text = st.text_input(
+                    "🔍 搜尋客戶名稱 / 配方編號 / 代工單號",
+                    placeholder="輸入關鍵字（可搜尋客戶名稱、配方編號、代工單號）",
+                    key=f"{key_prefix}_search_text"
+                ).strip()
+                normalized_search_text = search_text.lstrip("-").strip()
 
-            search_text = st.text_input(
-                "🔍 搜尋客戶名稱 / 配方編號 / 代工單號",
-                placeholder="輸入關鍵字（可搜尋客戶名稱、配方編號、代工單號）"
-            ).strip()
-            normalized_search_text = search_text.lstrip("-").strip()
+                if search_text:
+                    filtered_df = filtered_df[
+                        filtered_df["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
+                        filtered_df["配方編號"].astype(str).str.contains(search_text, case=False, na=False) |
+                        filtered_df["代工單號"].astype(str).str.contains(search_text, case=False, na=False) |
+                        filtered_df["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_text, case=False, na=False)
+                    ]
 
-            if search_text:
-                df_progress = df_progress[
-                    df_progress["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_progress["配方編號"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_progress["代工單號"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_progress["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_text, case=False, na=False)
-                ]
-            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
-            if search_text:
-                df_closed = df_closed[
-                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["代工單號"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_text, case=False, na=False)
-                ]
+                use_date_filter = st.checkbox("啟用建立日期篩選", value=False, key=f"{key_prefix}_use_date_filter")
+                if use_date_filter:
+                    today_date = datetime.today().date()
+                    default_start = today_date - timedelta(days=20)
+                    default_end = today_date
+                    dcol1, dcol2 = st.columns(2)
+                    date_start = dcol1.date_input("建立日期起", value=default_start, key=f"{key_prefix}_start_date")
+                    date_end = dcol2.date_input("建立日期迄", value=default_end, key=f"{key_prefix}_end_date")
 
-            use_date_filter = st.checkbox("啟用建立日期篩選", value=False, key="oem_tab4_use_date_filter")
-            if use_date_filter:
-                today_date = datetime.today().date()
-                default_start = today_date - timedelta(days=20)
-                default_end = today_date
-                dcol1, dcol2 = st.columns(2)
-                date_start = dcol1.date_input("建立日期起", value=default_start, key="oem_tab4_start_date")
-                date_end = dcol2.date_input("建立日期迄", value=default_end, key="oem_tab4_end_date")
+                    if date_start > date_end:
+                        st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
+                        return filtered_df.iloc[0:0]
 
-                if date_start > date_end:
-                    st.warning("⚠️ 日期區間設定錯誤：起日不可大於迄日")
-                    df_progress = df_progress.iloc[0:0]
-                else:
                     _ds = pd.Timestamp(date_start)
                     _de = pd.Timestamp(date_end) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-                    df_progress = df_progress[
+                    filtered_df = filtered_df[
                         (
-                            (df_progress["建立時間_dt"] >= _ds) &
-                            (df_progress["建立時間_dt"] <= _de)
+                            (filtered_df["建立時間_dt"] >= _ds) &
+                            (filtered_df["建立時間_dt"] <= _de)
                         ) |
-                        df_progress["建立時間_dt"].isna()
+                        filtered_df["建立時間_dt"].isna()
                     ]
-            
-            df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
-            if search_text:
-                df_closed = df_closed[
-                    df_closed["客戶名稱"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["配方編號"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["代工單號"].astype(str).str.contains(search_text, case=False, na=False) |
-                    df_closed["代工單號"].astype(str).str.lstrip("-").str.contains(normalized_search_text, case=False, na=False)
-                ]
-            if use_date_filter and date_start <= date_end:
-                df_closed = df_closed[
-                    (df_closed["建立時間_dt"] >= _ds) & (df_closed["建立時間_dt"] <= _de) |
-                    df_closed["建立時間_dt"].isna()
-                ]
-            
-            if not df_progress.empty:
-                df_progress["建立時間"] = df_progress["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
-                df_progress = df_progress.sort_values(
-                    by=["status_order", "建立時間_dt"], ascending=[True, False]
-                ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort"], errors="ignore")
-                st.dataframe(df_progress, use_container_width=True, hide_index=True)
-            else:
-                st.info("目前沒有符合條件的代工單")
-            
-            if not show_open_only:
-                st.markdown("---")
+
+                return filtered_df
+
+            open_tab, closed_tab = st.tabs(["📋 未結案代工單", "✅ 已結案代工單"])
+
+            with open_tab:
+                df_progress_open = df_progress_all[df_progress_all["狀態"] != "✅ 已結案"].copy()
+                df_progress_open = _apply_tab4_filters(df_progress_open, "oem_tab4_open")
+
+                if not df_progress_open.empty:
+                    df_progress_open["建立時間"] = df_progress_open["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
+                    df_progress_open = df_progress_open.sort_values(
+                        by=["status_order", "建立時間_dt"], ascending=[True, False]
+                    ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort"], errors="ignore")
+                    st.dataframe(df_progress_open, use_container_width=True, hide_index=True)
+                else:
+                    st.info("目前沒有符合條件的代工單")
+
+            with closed_tab:
                 st.markdown(
                     "<div style='font-size:16px; font-weight:600; color:#f4e8ff;'>✅ 已結案代工資料表</div>",
                     unsafe_allow_html=True
                 )
+
+                df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
+                df_closed = _apply_tab4_filters(df_closed, "oem_tab4_closed")
                 df_closed = df_closed.sort_values(by="最近載回日期_sort", ascending=False, na_position="last")
                 df_closed["建立時間"] = df_closed["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                 df_closed["已交貨"] = df_closed["已交貨"].astype(str).str.strip().isin(
@@ -5653,7 +5639,7 @@ if menu == "代工管理":
                         "載回日期及數量": st.column_config.TextColumn("載回日期及數量", width="small"),
                     }
                 )
-            
+
                 st.markdown(
                     "<div style='font-size:16px; font-weight:600; color:#f4e8ff;'>📝 已結案交貨註記</div>",
                     unsafe_allow_html=True
@@ -5667,7 +5653,7 @@ if menu == "代工管理":
                     closed_selector_options.append(
                         {"label": label, "代工單號": oem_no}
                     )
-            
+
                 if not closed_selector_options:
                     st.info("目前沒有已結案的代工單")
                 else:
@@ -5683,7 +5669,7 @@ if menu == "代工管理":
                     ].iloc[0]
                     delivered_default = bool(selected_closed_row.get("已交貨", False))
                     note_default = str(selected_closed_row.get("交貨備註", "") or "")
-            
+
                     with st.form("oem_closed_delivery_form_tab4"):
                         marked_delivered = st.checkbox(
                             "已交貨",
@@ -5692,7 +5678,7 @@ if menu == "代工管理":
                         )
                         delivery_note = st.text_input("交貨備註", value=note_default)
                         save_closed_delivery = st.form_submit_button("💾 儲存已結案交貨註記")
-            
+
                     if save_closed_delivery:
                         all_values = get_cached_sheet_values("代工管理")
                         headers = all_values[0] if all_values else []
@@ -5702,17 +5688,17 @@ if menu == "代工管理":
                                 headers.append(col_name)
                         delivery_col = headers.index("已交貨") + 1
                         delivery_note_col = headers.index("交貨備註") + 1
-            
+
                         oem_row_map = {}
                         for idx, row in enumerate(all_values[1:], start=2):
                             if row and row[0]:
                                 oem_row_map[str(row[0]).strip()] = idx
-            
+
                         oem_no = str(selected_closed_id).strip()
                         sheet_value = "是" if bool(marked_delivered) else ""
                         delivery_note_value = str(delivery_note or "").strip()
                         target_row = oem_row_map.get(oem_no)
-            
+
                         if target_row:
                             ws_oem.update_cell(target_row, delivery_col, sheet_value)
                             ws_oem.update_cell(target_row, delivery_note_col, delivery_note_value)
