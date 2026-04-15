@@ -8751,14 +8751,16 @@ elif menu == "洗車廠庫存":
            
                 else:
                 
-                    html = """
-                    <div style='overflow-x:auto; width:100%;'>
-                    <table style='
-                        border-collapse:collapse;
-                        font-size:14px;
-                        width:100%;
-                        table-layout:fixed;
-                    '>
+                    st.dataframe(
+                        result_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
+                            "備註": st.column_config.TextColumn("備註", width="medium"),
+                            "目前庫存數量": st.column_config.TextColumn("目前庫存數量", width="small"),
+                        }
+                    )
                     """
                 
                     # ===== 表頭 =====
