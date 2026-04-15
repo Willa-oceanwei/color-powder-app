@@ -5134,7 +5134,7 @@ if menu == "代工管理":
             df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
 
             oem_options = [
-                f"{row.get('客戶名稱','')} | {row.get('配方編號','')} | 送{row.get('代工數量',0)}kg/回{row.get('目標載回數量', row.get('代工數量',0))}kg | {row.get('代工廠商','')} | {row['代工單號']}"
+                f"{row.get('客戶名稱','')} | {row.get('配方編號','')} | 送{row.get('代工數量',0)}kg/應回{row.get('目標載回數量', row.get('代工數量',0))}kg | {row.get('代工廠商','')} | {row['代工單號']}"
                 for _, row in df_oem_active.iterrows()
             ]
 
