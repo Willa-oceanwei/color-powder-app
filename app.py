@@ -8812,7 +8812,7 @@ elif menu == "洗車廠庫存":
                     
                     html += "</table></div>"
                     
-                    st.markdown(html, unsafe_allow_html=True)
+                    st.components.v1.html(html, height=700, scrolling=True)
                     
     # ── Tab C4：資料修改 ──
     with tab_c4:
