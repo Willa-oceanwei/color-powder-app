@@ -8750,7 +8750,7 @@ elif menu == "洗車廠庫存":
                     # 表頭
                     html += "<tr>"
                     for col in result_df.columns:
-                        if col == "目前庫存數":
+                        if col == "目前庫存數量":
                             html += f"<th style='text-align:left; color:#d62828; font-weight:800; padding:6px;'>{col}</th>"
                         else:
                             html += f"<th style='text-align:left; padding:6px;'>{col}</th>"
