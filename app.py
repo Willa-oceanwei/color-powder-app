@@ -8789,6 +8789,11 @@ with tab_c3:
 
             else:
 
+                styled_df = result_df.style.set_properties(
+                    subset=["期初庫存", "區間入庫", "區間出庫", "目前庫存數量"],
+                    **{"text-align": "right"}
+                )
+
                 st.dataframe(
                     result_df,
                     use_container_width=True,
