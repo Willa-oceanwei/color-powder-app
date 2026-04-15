@@ -4,17 +4,13 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 import traceback
-import re
 from .common import (
     get_sheet_df,
     get_sheet_values,
     get_worksheet,
-    get_spreadsheet, 
     save_df_to_sheet, 
     init_states,
     clean_powder_id,
-    fix_leading_zero,
-    normalize_search_text
 )
 
 def show_recipe_page():
@@ -93,7 +89,6 @@ def show_recipe_page():
     
     # 載入資料
     try:
-        spreadsheet = get_spreadsheet()
         ws_recipe = get_worksheet("配方管理")
     except Exception as e:
         st.error(f"❌ 無法連線 Google Sheet：{e}")
@@ -353,7 +348,6 @@ def show_recipe_page():
             # ✅ 修正：先備份，再更新
             try:
                 # 1️⃣ 建立本地備份
-                import os
                 backup_dir = Path("data/backups")
                 backup_dir.mkdir(parents=True, exist_ok=True)
                 backup_file = backup_dir / f"recipe_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
@@ -431,11 +425,11 @@ def show_recipe_page():
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        search_recipe_bottom = st.text_input("配方編號", key="search_recipe_code_bottom")
+        st.text_input("配方編號", key="search_recipe_code_bottom")
     with col2:
-        search_customer_bottom = st.text_input("客戶名稱或編號", key="search_customer_bottom")
+        st.text_input("客戶名稱或編號", key="search_customer_bottom")
     with col3:
-        search_pantone_bottom = st.text_input("Pantone色號", key="search_pantone_bottom")
+        st.text_input("Pantone色號", key="search_pantone_bottom")
     
     # 篩選
     recipe_kw = st.session_state.get("search_recipe_code_bottom", "").strip()

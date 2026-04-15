@@ -4,12 +4,9 @@ import streamlit.components.v1 as components
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
-import os
 import json
 import time
-import base64
 import re
-import uuid
 from pathlib import Path        
 from datetime import datetime
 
@@ -606,7 +603,6 @@ def render_erp_nav():
     if "menu" not in st.session_state:
         st.session_state.menu = "生產單管理"
     render_erp_nav()          # ← 加這行來渲染 sidebar
-    menu = st.session_state.menu
 
     st.markdown(
         """
@@ -1263,7 +1259,6 @@ def init_states(keys):
 def load_recipe(force_reload=False):
         """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
         try:
-            ws_recipe = get_cached_worksheet("配方管理")
             df_loaded = get_cached_sheet_df("配方管理", force_reload=force_reload)
             if not df_loaded.empty:
                 return df_loaded
@@ -1283,9 +1278,6 @@ def load_recipe(force_reload=False):
         # 都失敗時，回傳空 df
         return pd.DataFrame()
     
-        # 統一使用 df_recipe
-        df_recipe = st.session_state.df_recipe
-
 if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 # ------------------------------
@@ -2818,7 +2810,6 @@ elif menu == "生產單管理":
     from datetime import datetime, timedelta
     import pandas as pd
     import re
-    import os
 
     # 建立資料夾（若尚未存在）
     Path("data").mkdir(parents=True, exist_ok=True)
@@ -5010,7 +5001,6 @@ if menu == "代工管理":
         # 同步 session_state
         mask = st.session_state.df_oem["代工單號"] == oem_no
         st.session_state.df_oem.loc[mask, "狀態"] = new_status
-        df_oem = st.session_state.df_oem  # 更新本地引用
 
     # ================================================================
     # Tab 分頁
@@ -5811,7 +5801,7 @@ elif menu == "採購管理":
     def get_or_create_worksheet(spreadsheet, title, rows=100, cols=10):
         try:
             return spreadsheet.worksheet(title)
-        except Exception as e:
+        except Exception:
             try:
                 return spreadsheet.add_worksheet(title, rows=rows, cols=cols)
             except Exception as e2:

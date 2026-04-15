@@ -1,10 +1,8 @@
 # utils/query.py
 import streamlit as st
 import pandas as pd
-import os
 import re
-from datetime import datetime, date
-from .common import get_spreadsheet, get_worksheet, get_sheet_df, save_df_to_sheet, init_states
+from .common import get_spreadsheet, get_worksheet, get_sheet_df
 
 
 def show_query_page(mode="pantone"):
@@ -18,9 +16,6 @@ def show_query_page(mode="pantone"):
     }
     </style>
     """, unsafe_allow_html=True)
-    
-    df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
-    df_order = st.session_state.get("df_order", pd.DataFrame())
     
     if mode == "pantone":
         show_pantone_page()
@@ -143,7 +138,7 @@ def show_cross_query_page():
     """交叉查詢頁面"""
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
     df_order = st.session_state.get("df_order", pd.DataFrame())
-    
+
     # ---------------- 第一段：交叉查詢 ----------------
     st.markdown(
         '<h1 style="font-size:22px; font-family:Arial; color:#dbd818;">♻️ 依色粉編號查配方</h1>',
