@@ -2533,92 +2533,140 @@ elif menu == "配方管理":
             st.rerun()
 
     # ============================================================
-    # Tab 5：色母換算
+    # Tab 5：色母換算（簡潔搜尋版）
     # ============================================================
     with tab5:
-
+    
         st.markdown('<h3 style="font-size:18px; color:#f1f5f2;">👹 色母換算工具</h3>', unsafe_allow_html=True)
-
+    
+        # ---------------------------
+        # session state init
+        # ---------------------------
         for key, default in [
-            ("master_batch_formula",       None),
-            ("master_batch_ratio",         "50:1"),
-            ("master_batch_additive",      "CA"),
-            ("master_batch_total_qty",     100000.0),
-            ("master_batch_material",      ""),
-            ("master_batch_material_qty",  60000.0),
-            ("master_batch_new_code",      ""),
+            ("master_batch_formula", None),
+            ("master_batch_ratio", "50:1"),
+            ("master_batch_additive", "CA"),
+            ("master_batch_total_qty", 100000.0),
+            ("master_batch_material", ""),
+            ("master_batch_material_qty", 60000.0),
+            ("master_batch_new_code", ""),
             ("master_batch_selected_code", ""),
-            ("master_batch_calculated",    None),
+            ("master_batch_calculated", None),
         ]:
             if key not in st.session_state:
                 st.session_state[key] = default
-
+    
         if st.session_state.master_batch_calculated is not None:
             if "additive_display" not in st.session_state.master_batch_calculated:
                 st.session_state.master_batch_calculated = None
-
-        st.markdown("**步驟 1：選擇原始配方**")
-
+    
+        st.markdown("**步驟 1：搜尋並選擇配方**")
+    
+        # ---------------------------
+        # build recipe list
+        # ---------------------------
         if not df_recipe.empty:
-            recipe_options = [""] + sorted(df_recipe["配方編號"].dropna().astype(str).unique().tolist())
+    
+            recipe_options = [""] + sorted(
+                df_recipe["配方編號"].dropna().astype(str).unique().tolist()
+            )
+    
             recipe_option_labels = {
                 code: "" if code == "" else " | ".join(
-                    df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0].astype(str)
+                    df_recipe[df_recipe["配方編號"] == code][
+                        ["配方編號", "顏色", "客戶名稱"]
+                    ].iloc[0].astype(str)
                 )
                 for code in recipe_options
             }
-
-            if st.session_state.master_batch_selected_code not in recipe_options:
-                st.session_state.master_batch_selected_code = ""
-
-            master_filter_text = st.text_input(
-                "配方下拉搜尋（可多條件）",
-                value="",
-                placeholder="例如：27706,環瑩",
-                key="master_batch_recipe_filter"
+    
+            # ---------------------------
+            # ONLY ONE SEARCH BOX
+            # ---------------------------
+            search_text = st.text_input(
+                "🔎 搜尋配方（編號 / 顏色 / 客戶）",
+                placeholder="例如：27706,環瑩,黑",
+                key="master_batch_recipe_search"
             )
-            master_filter_keywords = split_search_keywords(master_filter_text)
-            filtered_recipe_options = [
+    
+            keywords = split_search_keywords(search_text)
+    
+            filtered_options = [
                 code for code in recipe_options
-                if code == "" or matches_all_keywords(recipe_option_labels.get(code, ""), master_filter_keywords)
+                if code == "" or matches_all_keywords(
+                    recipe_option_labels.get(code, ""),
+                    keywords
+                )
             ]
-            current_master_code = st.session_state.master_batch_selected_code
-            if current_master_code and current_master_code not in filtered_recipe_options:
-                filtered_recipe_options.append(current_master_code)
-
+    
+            # keep selected item if still valid
+            current_code = st.session_state.master_batch_selected_code
+            if current_code and current_code not in filtered_options:
+                filtered_options.append(current_code)
+    
+            # ---------------------------
+            # selectbox (filtered only)
+            # ---------------------------
             selected_recipe_code = st.selectbox(
-                "配方編號", options=filtered_recipe_options,
-                index=filtered_recipe_options.index(current_master_code) if current_master_code in filtered_recipe_options else 0,
+                "配方編號",
+                options=filtered_options,
+                index=filtered_options.index(current_code)
+                if current_code in filtered_options else 0,
                 format_func=lambda code: recipe_option_labels.get(code, ""),
                 key="master_batch_recipe_select"
             )
+    
             st.session_state.master_batch_selected_code = selected_recipe_code
-
+    
+            # ---------------------------
+            # preview
+            # ---------------------------
             if selected_recipe_code:
-                recipe_data = df_recipe[df_recipe["配方編號"] == selected_recipe_code].iloc[0].to_dict()
+    
+                recipe_data = df_recipe[
+                    df_recipe["配方編號"] == selected_recipe_code
+                ].iloc[0].to_dict()
+    
                 st.session_state.master_batch_formula = recipe_data
-
+    
                 st.markdown("**原始配方預覽**")
-                info_parts = [f"編號：{recipe_data.get('配方編號', '')}",
-                              f"顏色：{recipe_data.get('顏色', '')}"]
+    
+                info_parts = [
+                    f"編號：{recipe_data.get('配方編號', '')}",
+                    f"顏色：{recipe_data.get('顏色', '')}"
+                ]
+    
                 if recipe_data.get("比例3"):
                     info_parts.append(f"比例：{recipe_data.get('比例3')}")
+    
                 info_parts.append(f"計量單位：{recipe_data.get('計量單位', '')}")
+    
                 if recipe_data.get("Pantone色號"):
                     info_parts.append(f"Pantone：{recipe_data.get('Pantone色號')}")
-                st.markdown(f"<div style='font-size:16px;font-family:Arial;margin-bottom:10px;'>{' 　 '.join(info_parts)}</div>", unsafe_allow_html=True)
-
+    
+                st.markdown(
+                    f"<div style='font-size:16px;font-family:Arial;margin-bottom:10px;'>"
+                    f"{' 　 '.join(info_parts)}</div>",
+                    unsafe_allow_html=True
+                )
+    
+                # ---------------------------
+                # powder preview
+                # ---------------------------
                 preview_rows = []
+    
                 for i in range(1, 9):
                     pid = str(recipe_data.get(f"色粉編號{i}", "")).strip()
                     pwt = str(recipe_data.get(f"色粉重量{i}", "")).strip()
                     if pid and pwt:
                         preview_rows.append((pid, pwt))
+    
                 total_cat = recipe_data.get("合計類別", "").strip()
-                net_wt    = str(recipe_data.get("淨重", "") or "").strip()
+                net_wt = str(recipe_data.get("淨重", "") or "").strip()
+    
                 if total_cat and total_cat != "無":
                     preview_rows.append((total_cat, net_wt))
-
+    
                 if preview_rows:
                     preview_df = pd.DataFrame(preview_rows, columns=["項目", "重量"])
                     st.dataframe(
@@ -2630,7 +2678,7 @@ elif menu == "配方管理":
                             "重量": st.column_config.TextColumn("重量", width="small"),
                         },
                     )
-
+    
                 st.markdown("---")
 
                 with st.form("master_batch_form"):
