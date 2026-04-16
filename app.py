@@ -2124,35 +2124,44 @@ elif menu == "配方管理":
                 st.session_state["show_delete_recipe_confirm"]    = False
             if "last_selected_recipe_code_tab3" not in st.session_state:
                 st.session_state["last_selected_recipe_code_tab3"] = ""
-
-            recipe_codes = [""] + sorted(df_recipe["配方編號"].dropna().unique().tolist())
-            code_label_map = {
-                code: "" if code == "" else " | ".join(
-                    df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0].astype(str)
-                )
-                for code in recipe_codes
-            }
+            
+            # 多條件搜尋欄
             recipe_filter_text = st.text_input(
-                "配方下拉搜尋（可多條件）",
-                value="",
-                placeholder="例如：27706,環瑩",
+                "搜尋配方（可多條件）",
+                placeholder="例如：27706, 環瑩, 黑",
                 key="recipe_code_filter_tab3"
             )
-            recipe_filter_keywords = split_search_keywords(recipe_filter_text)
-            filtered_recipe_codes = [
-                code for code in recipe_codes
-                if code == "" or matches_all_keywords(code_label_map.get(code, ""), recipe_filter_keywords)
-            ]
-            current_recipe_code = st.session_state["select_recipe_code_page_tab3"]
-            if current_recipe_code and current_recipe_code not in filtered_recipe_codes:
-                filtered_recipe_codes.append(current_recipe_code)
-
-            selected_code = st.selectbox(
-                "輸入配方", options=filtered_recipe_codes,
-                index=filtered_recipe_codes.index(current_recipe_code) if current_recipe_code in filtered_recipe_codes else 0,
-                format_func=lambda code: code_label_map.get(code, ""),
-                key="select_recipe_code_page_tab3"
+            
+            keywords = split_search_keywords(recipe_filter_text)
+            
+            # 建立搜尋文字來源（不污染原 dataframe）
+            df_search = df_recipe.copy()
+            df_search["_search_text"] = (
+                df_search["配方編號"].astype(str) + " " +
+                df_search["顏色"].astype(str) + " " +
+                df_search["客戶名稱"].astype(str)
             )
+            
+            # 套用搜尋
+            if keywords:
+                df_filtered = df_search[
+                    df_search["_search_text"].apply(lambda x: matches_all_keywords(x, keywords))
+                ]
+            else:
+                df_filtered = df_search.head(20)   # 沒搜尋時只顯示前20筆
+            
+            # 顯示結果
+            if not df_filtered.empty:
+                st.dataframe(
+                    df_filtered[["配方編號", "顏色", "客戶名稱"]],
+                    use_container_width=True,
+                    hide_index=True
+                )
+            
+                selected_code = df_filtered.iloc[0]["配方編號"]
+            else:
+                st.warning("找不到符合的配方")
+                selected_code = None
 
             # 只在切換配方時重置面板，避免按下刪除確認時被立即清掉狀態
             if st.session_state.get("last_selected_recipe_code_tab3") != selected_code:
