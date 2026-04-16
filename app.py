@@ -8799,7 +8799,7 @@ elif menu == "洗車廠庫存":
                             "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
                             "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
                             "目前庫存": st.column_config.NumberColumn(
-                                "目前庫存數量",
+                                "目前庫存",
                                 width="small",
                                 format="%.0f",          # 整數顯示，有小數就改成 "%.2f"
                             ),
