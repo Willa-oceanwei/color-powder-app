@@ -8769,7 +8769,8 @@ elif menu == "洗車廠庫存":
                         "期初庫存": f"{init_qty:g} {unit}".strip(),
                         "區間入庫": f"{in_qty:g} {unit}".strip(),
                         "區間出庫": f"{out_qty:g} {unit}".strip(),
-                        "目前庫存數量": f"{current_qty:g} {unit}".strip(),
+                        "目前庫存": current_qty,          # 純數值，讓 Streamlit 自動右對齊
+                        "單位": unit,                      # 另外一欄顯示單位
                         "出入庫歷程": history_text or "-",
                         "備註": latest_note,
                         "_目前庫存數值": current_qty,
@@ -8794,12 +8795,15 @@ elif menu == "洗車廠庫存":
                         hide_index=True,
                         column_config={
                             "產品編號": st.column_config.TextColumn("產品編號", width="small"),
-                
                             "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
                             "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
                             "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
-                            "目前庫存數量": st.column_config.TextColumn("目前庫存數量", width="small"),
-                
+                            "目前庫存": st.column_config.NumberColumn(
+                                "目前庫存數量",
+                                width="small",
+                                format="%.0f",          # 整數顯示，有小數就改成 "%.2f"
+                            ),
+                            "單位": st.column_config.TextColumn("單位", width="small"),
                             "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
                             "備註": st.column_config.TextColumn("備註", width="medium"),
                         }
