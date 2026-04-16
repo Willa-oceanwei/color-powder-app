@@ -2601,7 +2601,7 @@ elif menu == "配方管理":
             # ---------------------------
             if search_text.strip():
             
-                st.markdown("### 搜尋結果")
+                st.markdown("##### 搜尋結果")
             
                 if not filtered:
                     st.info("沒有符合的配方")
