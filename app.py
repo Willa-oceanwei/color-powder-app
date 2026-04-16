@@ -2584,8 +2584,8 @@ elif menu == "配方管理":
             # ONLY ONE SEARCH BOX
             # ---------------------------
             search_text = st.text_input(
-                "🔎 搜尋配方（編號 / 顏色 / 客戶）",
-                placeholder="例如：27706,環瑩,黑",
+                " ",
+                placeholder="多絛件搜尋：編號 / 顏色 / 客戶",
                 key="master_batch_recipe_search"
             )
     
