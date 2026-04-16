@@ -2124,44 +2124,35 @@ elif menu == "配方管理":
                 st.session_state["show_delete_recipe_confirm"]    = False
             if "last_selected_recipe_code_tab3" not in st.session_state:
                 st.session_state["last_selected_recipe_code_tab3"] = ""
-            
-            # 多條件搜尋欄
+
+            recipe_codes = [""] + sorted(df_recipe["配方編號"].dropna().unique().tolist())
+            code_label_map = {
+                code: "" if code == "" else " | ".join(
+                    df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0].astype(str)
+                )
+                for code in recipe_codes
+            }
             recipe_filter_text = st.text_input(
-                "搜尋配方（可多條件）",
-                placeholder="例如：27706, 環瑩, 黑",
+                "配方下拉搜尋（可多條件）",
+                value="",
+                placeholder="例如：27706,環瑩",
                 key="recipe_code_filter_tab3"
             )
-            
-            keywords = split_search_keywords(recipe_filter_text)
-            
-            # 建立搜尋文字來源（不污染原 dataframe）
-            df_search = df_recipe.copy()
-            df_search["_search_text"] = (
-                df_search["配方編號"].astype(str) + " " +
-                df_search["顏色"].astype(str) + " " +
-                df_search["客戶名稱"].astype(str)
+            recipe_filter_keywords = split_search_keywords(recipe_filter_text)
+            filtered_recipe_codes = [
+                code for code in recipe_codes
+                if code == "" or matches_all_keywords(code_label_map.get(code, ""), recipe_filter_keywords)
+            ]
+            current_recipe_code = st.session_state["select_recipe_code_page_tab3"]
+            if current_recipe_code and current_recipe_code not in filtered_recipe_codes:
+                filtered_recipe_codes.append(current_recipe_code)
+
+            selected_code = st.selectbox(
+                "輸入配方", options=filtered_recipe_codes,
+                index=filtered_recipe_codes.index(current_recipe_code) if current_recipe_code in filtered_recipe_codes else 0,
+                format_func=lambda code: code_label_map.get(code, ""),
+                key="select_recipe_code_page_tab3"
             )
-            
-            # 套用搜尋
-            if keywords:
-                df_filtered = df_search[
-                    df_search["_search_text"].apply(lambda x: matches_all_keywords(x, keywords))
-                ]
-            else:
-                df_filtered = df_search.head(20)   # 沒搜尋時只顯示前20筆
-            
-            # 顯示結果
-            if not df_filtered.empty:
-                st.dataframe(
-                    df_filtered[["配方編號", "顏色", "客戶名稱"]],
-                    use_container_width=True,
-                    hide_index=True
-                )
-            
-                selected_code = df_filtered.iloc[0]["配方編號"]
-            else:
-                st.warning("找不到符合的配方")
-                selected_code = None
 
             # 只在切換配方時重置面板，避免按下刪除確認時被立即清掉狀態
             if st.session_state.get("last_selected_recipe_code_tab3") != selected_code:
@@ -5312,19 +5303,12 @@ if menu == "代工管理":
                         key="oem_multiplier"
                     )
 
-                    vendor_options = ["", "弘旭", "良輝"]
-                    
-                    current_vendor = oem_row.get("代工廠商", "")
-                    
-                    if "oem_vendor" not in st.session_state:
-                        st.session_state.oem_vendor = current_vendor if current_vendor in vendor_options else ""
-                    
                     new_vendor = col_vendor.selectbox(
-                        "代工廠商",
-                        vendor_options,
+                        "代工廠商", ["", "弘旭", "良輝"],
+                        index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", ""))
+                              if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
                         key="oem_vendor"
                     )
-                    
                     status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
                     current_status = oem_row.get("狀態", "")
                     status_index   = status_options.index(current_status) if current_status in status_options else 0
@@ -8785,8 +8769,7 @@ elif menu == "洗車廠庫存":
                         "期初庫存": f"{init_qty:g} {unit}".strip(),
                         "區間入庫": f"{in_qty:g} {unit}".strip(),
                         "區間出庫": f"{out_qty:g} {unit}".strip(),
-                        "目前庫存": current_qty,          # 純數值，讓 Streamlit 自動右對齊
-                        "單位": unit,                      # 另外一欄顯示單位
+                        "目前庫存數量": f"{current_qty:g} {unit}".strip(),
                         "出入庫歷程": history_text or "-",
                         "備註": latest_note,
                         "_目前庫存數值": current_qty,
@@ -8811,15 +8794,12 @@ elif menu == "洗車廠庫存":
                         hide_index=True,
                         column_config={
                             "產品編號": st.column_config.TextColumn("產品編號", width="small"),
+                
                             "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
                             "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
                             "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
-                            "目前庫存": st.column_config.NumberColumn(
-                                "目前庫存",
-                                width="small",
-                                format="%.0f",          # 整數顯示，有小數就改成 "%.2f"
-                            ),
-                            "單位": st.column_config.TextColumn("單位", width="small"),
+                            "目前庫存數量": st.column_config.TextColumn("目前庫存數量", width="small"),
+                
                             "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
                             "備註": st.column_config.TextColumn("備註", width="medium"),
                         }
