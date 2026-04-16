@@ -2579,7 +2579,7 @@ elif menu == "配方管理":
                 )
                 for code in recipe_options
             }
-    
+
             # ---------------------------
             # SEARCH BOX ONLY
             # ---------------------------
@@ -2588,39 +2588,41 @@ elif menu == "配方管理":
                 placeholder="例如：27706,環瑩,黑",
                 key="master_batch_recipe_search"
             )
-    
+            
             keywords = split_search_keywords(search_text)
-    
+            
             filtered = [
                 code for code in recipe_options
                 if matches_all_keywords(recipe_option_labels.get(code, ""), keywords)
             ]
-    
+            
             # ---------------------------
-            # RESULT LIST (NO DROPDOWN)
+            # ONLY SHOW RESULTS WHEN USER TYPES
             # ---------------------------
-            st.markdown("### 搜尋結果")
-    
-            if not filtered:
-                st.info("沒有符合的配方")
-            else:
-                for code in filtered[:50]:  # 防止太長
-                    col1, col2, col3 = st.columns([6, 3, 2])
-    
-                    with col1:
-                        st.markdown(
-                            f"<div style='font-size:15px;font-family:Arial;'>"
-                            f"{recipe_option_labels.get(code, '')}</div>",
-                            unsafe_allow_html=True
-                        )
-    
-                    with col2:
-                        st.caption(code)
-    
-                    with col3:
-                        if st.button("選擇", key=f"select_{code}"):
-                            st.session_state.master_batch_selected_code = code
-                            st.rerun()
+            if search_text.strip():
+            
+                st.markdown("### 搜尋結果")
+            
+                if not filtered:
+                    st.info("沒有符合的配方")
+                else:
+                    for code in filtered[:50]:
+                        col1, col2, col3 = st.columns([6, 3, 2])
+            
+                        with col1:
+                            st.markdown(
+                                f"<div style='font-size:15px;font-family:Arial;'>"
+                                f"{recipe_option_labels.get(code, '')}</div>",
+                                unsafe_allow_html=True
+                            )
+            
+                        with col2:
+                            st.caption(code)
+            
+                        with col3:
+                            if st.button("選擇", key=f"select_{code}"):
+                                st.session_state.master_batch_selected_code = code
+                                st.rerun()
     
             # ---------------------------
             # PREVIEW
