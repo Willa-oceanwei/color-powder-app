@@ -2533,11 +2533,11 @@ elif menu == "配方管理":
             st.rerun()
 
     # ============================================================
-    # Tab 5：色母換算（簡潔搜尋版）
+    # Tab 5：色母換算（零下拉 ERP 搜尋版）
     # ============================================================
     with tab5:
     
-        st.markdown('<h3 style="font-size:18px; color:#f1f5f2;">👹 色母換算工具</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="font-size:18px; color:#f1f5f2;">👹 色母換算</h3>', unsafe_allow_html=True)
     
         # ---------------------------
         # session state init
@@ -2560,19 +2560,19 @@ elif menu == "配方管理":
             if "additive_display" not in st.session_state.master_batch_calculated:
                 st.session_state.master_batch_calculated = None
     
-        st.markdown("**步驟 1：搜尋並選擇配方**")
+        st.markdown("**步驟 1：搜尋並點選配方**")
     
         # ---------------------------
-        # build recipe list
+        # build data
         # ---------------------------
         if not df_recipe.empty:
     
-            recipe_options = [""] + sorted(
+            recipe_options = sorted(
                 df_recipe["配方編號"].dropna().astype(str).unique().tolist()
             )
     
             recipe_option_labels = {
-                code: "" if code == "" else " | ".join(
+                code: " | ".join(
                     df_recipe[df_recipe["配方編號"] == code][
                         ["配方編號", "顏色", "客戶名稱"]
                     ].iloc[0].astype(str)
@@ -2581,46 +2581,52 @@ elif menu == "配方管理":
             }
     
             # ---------------------------
-            # ONLY ONE SEARCH BOX
+            # SEARCH BOX ONLY
             # ---------------------------
             search_text = st.text_input(
-                " ",
-                placeholder="多絛件搜尋：編號 / 顏色 / 客戶",
+                "🔎 搜尋配方（編號 / 顏色 / 客戶）",
+                placeholder="例如：27706,環瑩,黑",
                 key="master_batch_recipe_search"
             )
     
             keywords = split_search_keywords(search_text)
     
-            filtered_options = [
+            filtered = [
                 code for code in recipe_options
-                if code == "" or matches_all_keywords(
-                    recipe_option_labels.get(code, ""),
-                    keywords
-                )
+                if matches_all_keywords(recipe_option_labels.get(code, ""), keywords)
             ]
     
-            # keep selected item if still valid
-            current_code = st.session_state.master_batch_selected_code
-            if current_code and current_code not in filtered_options:
-                filtered_options.append(current_code)
+            # ---------------------------
+            # RESULT LIST (NO DROPDOWN)
+            # ---------------------------
+            st.markdown("### 搜尋結果")
+    
+            if not filtered:
+                st.info("沒有符合的配方")
+            else:
+                for code in filtered[:50]:  # 防止太長
+                    col1, col2, col3 = st.columns([6, 3, 2])
+    
+                    with col1:
+                        st.markdown(
+                            f"<div style='font-size:15px;font-family:Arial;'>"
+                            f"{recipe_option_labels.get(code, '')}</div>",
+                            unsafe_allow_html=True
+                        )
+    
+                    with col2:
+                        st.caption(code)
+    
+                    with col3:
+                        if st.button("選擇", key=f"select_{code}"):
+                            st.session_state.master_batch_selected_code = code
+                            st.rerun()
     
             # ---------------------------
-            # selectbox (filtered only)
+            # PREVIEW
             # ---------------------------
-            selected_recipe_code = st.selectbox(
-                "配方編號",
-                options=filtered_options,
-                index=filtered_options.index(current_code)
-                if current_code in filtered_options else 0,
-                format_func=lambda code: recipe_option_labels.get(code, ""),
-                key="master_batch_recipe_select"
-            )
+            selected_recipe_code = st.session_state.master_batch_selected_code
     
-            st.session_state.master_batch_selected_code = selected_recipe_code
-    
-            # ---------------------------
-            # preview
-            # ---------------------------
             if selected_recipe_code:
     
                 recipe_data = df_recipe[
@@ -2629,6 +2635,7 @@ elif menu == "配方管理":
     
                 st.session_state.master_batch_formula = recipe_data
     
+                st.markdown("---")
                 st.markdown("**原始配方預覽**")
     
                 info_parts = [
@@ -2678,7 +2685,7 @@ elif menu == "配方管理":
                             "重量": st.column_config.TextColumn("重量", width="small"),
                         },
                     )
-    
+                    
                 st.markdown("---")
 
                 with st.form("master_batch_form"):
