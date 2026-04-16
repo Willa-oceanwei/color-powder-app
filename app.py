@@ -2133,9 +2133,9 @@ elif menu == "配方管理":
                 for code in recipe_codes
             }
             recipe_filter_text = st.text_input(
-                "配方下拉搜尋（可多條件）",
+                " ",
                 value="",
-                placeholder="例如：27706,環瑩",
+                placeholder="配方下拉搜尋（可多條件）",
                 key="recipe_code_filter_tab3"
             )
             recipe_filter_keywords = split_search_keywords(recipe_filter_text)
@@ -2238,9 +2238,9 @@ elif menu == "配方管理":
                         cust_name = fr.get("客戶名稱", "").strip()
                         current  = f"{cust_id} - {cust_name}" if cust_id else ""
                         customer_filter_text_edit = st.text_input(
-                            "客戶下拉搜尋（可多條件）",
+                            " ",
                             value="",
-                            placeholder="例如：環瑩,27706",
+                            placeholder="例如：客戶下拉搜尋（可多條件）",
                             key=f"edit_recipe_customer_filter_{code}"
                         )
                         customer_keywords_edit = split_search_keywords(customer_filter_text_edit)
@@ -2585,7 +2585,7 @@ elif menu == "配方管理":
             # ---------------------------
             search_text = st.text_input(
                 " ",
-                placeholder="例如：27706,環瑩,黑",
+                placeholder="多條件搜尋：客戶/配方編號/顏色",
                 key="master_batch_recipe_search"
             )
             
