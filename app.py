@@ -2237,21 +2237,18 @@ elif menu == "配方管理":
                         cust_id  = fr.get("客戶編號", "").strip()
                         cust_name = fr.get("客戶名稱", "").strip()
                         current  = f"{cust_id} - {cust_name}" if cust_id else ""
-                        customer_filter_text_edit = st.text_input(
-                            " ",
-                            value="",
-                            placeholder="例如：客戶下拉搜尋（可多條件）",
-                            key=f"edit_recipe_customer_filter_{code}"
+                    
+                        options = [""] + customer_options
+                    
+                        index_c = options.index(current) if current in options else 0
+                    
+                        selected = st.selectbox(
+                            "客戶編號",
+                            options,
+                            index=index_c,
+                            key=f"edit_recipe_customer_{code}"
                         )
-                        customer_keywords_edit = split_search_keywords(customer_filter_text_edit)
-                        filtered_options = [""] + [
-                            opt for opt in customer_options
-                            if matches_all_keywords(opt, customer_keywords_edit)
-                        ]
-                        if current and current not in filtered_options:
-                            filtered_options.append(current)
-                        index_c = filtered_options.index(current) if current in filtered_options else 0
-                        selected = st.selectbox("客戶編號", filtered_options, index=index_c, key=f"edit_recipe_customer_{code}")
+                    
                         if " - " in selected:
                             fr["客戶編號"], fr["客戶名稱"] = selected.split(" - ", 1)
                     with col4:
