@@ -2103,118 +2103,121 @@ elif menu == "配方管理":
     # ============================================================
     # Tab 3：配方預覽/修改/刪除
     # ============================================================
-    if st.session_state.get("recipe_tab3_toast"): 
-        st.toast(
-            st.session_state["recipe_tab3_toast"].get("msg", ""),
-            icon=st.session_state["recipe_tab3_toast"].get("icon", "ℹ️")
-        )
-        st.session_state.pop("recipe_tab3_toast", None)
-    
-    if not df_recipe.empty and "配方編號" in df_recipe.columns:
-        df_recipe["配方編號"] = df_recipe["配方編號"].fillna("").astype(str)
-    
-        if "select_recipe_code_page_tab3" not in st.session_state:
-            st.session_state["select_recipe_code_page_tab3"] = ""
-        if "editing_recipe_code" not in st.session_state:
-            st.session_state["editing_recipe_code"] = None
-        if "show_edit_recipe_panel" not in st.session_state:
-            st.session_state["show_edit_recipe_panel"] = False
-        if "show_delete_recipe_confirm" not in st.session_state:
-            st.session_state["show_delete_recipe_confirm"] = False
-        if "last_selected_recipe_code_tab3" not in st.session_state:
-            st.session_state["last_selected_recipe_code_tab3"] = ""
-    
-        recipe_codes = [""] + sorted(df_recipe["配方編號"].dropna().unique().tolist())
-    
-        code_label_map = {
-            code: "" if code == "" else " | ".join(
-                df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0].astype(str)
+    with tab3:
+        if st.session_state.get("recipe_tab3_toast"):
+            st.toast(
+                st.session_state["recipe_tab3_toast"].get("msg", ""),
+                icon=st.session_state["recipe_tab3_toast"].get("icon", "ℹ️")
             )
-            for code in recipe_codes
-        }
-    
-        selected_code = st.selectbox(
-            "輸入配方",
-            options=recipe_codes,
-            index=recipe_codes.index(st.session_state["select_recipe_code_page_tab3"])
-            if st.session_state["select_recipe_code_page_tab3"] in recipe_codes else 0,
-            format_func=lambda code: code_label_map.get(code, ""),
-            key="select_recipe_code_page_tab3"
-        )
-    
-        # 只在切換配方時重置面板
-        if st.session_state.get("last_selected_recipe_code_tab3") != selected_code:
-            st.session_state.show_edit_recipe_panel = False
-            st.session_state.editing_recipe_code = None
-            st.session_state.show_delete_recipe_confirm = False
-            st.session_state["last_selected_recipe_code_tab3"] = selected_code
-    
-        if selected_code:
-            df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
-            if not df_selected.empty:
-                recipe_row_preview = df_selected.iloc[0].to_dict()
-                preview_text_recipe = generate_recipe_preview_text(
-                    {"配方編號": recipe_row_preview.get("配方編號")},
-                    recipe_row_preview
+            st.session_state.pop("recipe_tab3_toast", None)
+
+        if not df_recipe.empty and "配方編號" in df_recipe.columns:
+            df_recipe["配方編號"] = df_recipe["配方編號"].fillna("").astype(str)
+
+            if "select_recipe_code_page_tab3"  not in st.session_state:
+                st.session_state["select_recipe_code_page_tab3"]  = ""
+            if "editing_recipe_code"           not in st.session_state:
+                st.session_state["editing_recipe_code"]           = None
+            if "show_edit_recipe_panel"        not in st.session_state:
+                st.session_state["show_edit_recipe_panel"]        = False
+            if "show_delete_recipe_confirm"    not in st.session_state:
+                st.session_state["show_delete_recipe_confirm"]    = False
+            if "last_selected_recipe_code_tab3" not in st.session_state:
+                st.session_state["last_selected_recipe_code_tab3"] = ""
+
+            recipe_codes = [""] + sorted(df_recipe["配方編號"].dropna().unique().tolist())
+            code_label_map = {
+                code: "" if code == "" else " | ".join(
+                    df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0].astype(str)
                 )
-                st.markdown(preview_text_recipe, unsafe_allow_html=True)
-    
-                col_left, col_right = st.columns(2)
-    
-                with col_left:
-                    if st.button("✏️ 修改", key=f"edit_recipe_btn_tab3_{selected_code}"):
-                        st.session_state.show_edit_recipe_panel = True
-                        st.session_state.editing_recipe_code = selected_code
-                        st.rerun()
-    
-                with col_right:
-                    if st.button("🗑️ 刪除", key=f"delete_recipe_btn_tab3_{selected_code}"):
-                        st.session_state.show_delete_recipe_confirm = True
-                        st.session_state.delete_recipe_code = selected_code
-    
-                if st.session_state.get("show_delete_recipe_confirm", False):
-                    code = st.session_state["delete_recipe_code"]
-                    idx = df_recipe[df_recipe["配方編號"] == code].index[0]
-    
-                    c1, c2 = st.columns(2)
-    
-                    with c1:
-                        if st.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
-                            st.session_state.pop("select_recipe_code_page_tab3", None)
-    
-                            df_recipe.drop(idx, inplace=True)
-                            df_recipe.reset_index(drop=True, inplace=True)
-    
-                            ws_recipe.clear()
-                            ws_recipe.update(
-                                "A1",
-                                [df_recipe.columns.tolist()] +
-                                df_recipe.fillna("").astype(str).values.tolist()
-                            )
-    
-                            invalidate_sheet_cache("配方管理")
-    
-                            st.session_state.df_recipe = df_recipe
-                            st.session_state.df = df_recipe
-    
-                            st.success(f"✅ 已刪除 {code}")
-    
-                            st.session_state.show_delete_recipe_confirm = False
-                            st.session_state["recipe_tab3_toast"] = {
-                                "msg": f"已刪除配方：{code}",
-                                "icon": "🗑️"
-                            }
-    
+                for code in recipe_codes
+            }
+            recipe_filter_text = st.text_input(
+                " ",
+                value="",
+                placeholder="配方下拉搜尋（可多條件）",
+                key="recipe_code_filter_tab3"
+            )
+            recipe_filter_keywords = split_search_keywords(recipe_filter_text)
+            filtered_recipe_codes = [
+                code for code in recipe_codes
+                if code == "" or matches_all_keywords(code_label_map.get(code, ""), recipe_filter_keywords)
+            ]
+            current_recipe_code = st.session_state["select_recipe_code_page_tab3"]
+            if current_recipe_code and current_recipe_code not in filtered_recipe_codes:
+                filtered_recipe_codes.append(current_recipe_code)
+
+            selected_code = st.selectbox(
+                "輸入配方", options=filtered_recipe_codes,
+                index=filtered_recipe_codes.index(current_recipe_code) if current_recipe_code in filtered_recipe_codes else 0,
+                format_func=lambda code: code_label_map.get(code, ""),
+                key="select_recipe_code_page_tab3"
+            )
+
+            # 只在切換配方時重置面板，避免按下刪除確認時被立即清掉狀態
+            if st.session_state.get("last_selected_recipe_code_tab3") != selected_code:
+                st.session_state.show_edit_recipe_panel     = False
+                st.session_state.editing_recipe_code        = None
+                st.session_state.show_delete_recipe_confirm = False
+                st.session_state["last_selected_recipe_code_tab3"] = selected_code
+
+            if selected_code:
+                df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
+                if not df_selected.empty:
+                    recipe_row_preview  = df_selected.iloc[0].to_dict()
+                    preview_text_recipe = generate_recipe_preview_text(
+                        {"配方編號": recipe_row_preview.get("配方編號")},
+                        recipe_row_preview
+                    )
+                    st.markdown(preview_text_recipe, unsafe_allow_html=True)
+
+                    col_left, col_right = st.columns(2)
+                    with col_left:
+                        if st.button("✏️ 修改", key=f"edit_recipe_btn_tab3_{selected_code}"):
+                            st.session_state.show_edit_recipe_panel = True
+                            st.session_state.editing_recipe_code    = selected_code
                             st.rerun()
-    
-                    with c2:
-                        if st.button("取消", key="confirm_delete_recipe_no_tab3"):
-                            st.session_state.show_delete_recipe_confirm = False
-                            st.session_state["recipe_tab3_toast"] = {
-                                "msg": "已取消刪除配方",
-                                "icon": "↩️"
-                            }
-                            st.rerun()
+                    with col_right:
+                        if st.button("🗑️ 刪除", key=f"delete_recipe_btn_tab3_{selected_code}"):
+                            st.session_state.show_delete_recipe_confirm = True
+                            st.session_state.delete_recipe_code         = selected_code
+
+                    if st.session_state.get("show_delete_recipe_confirm", False):
+                        code = st.session_state["delete_recipe_code"]
+                        idx  = df_recipe[df_recipe["配方編號"] == code].index[0]
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            if st.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
+                                st.session_state.pop("select_recipe_code_page_tab3", None)
+                                df_recipe.drop(idx, inplace=True)
+                                df_recipe.reset_index(drop=True, inplace=True)
+
+                                # ✅ 整表覆寫只在刪除時用（無法 append）
+                                ws_recipe.clear()
+                                ws_recipe.update(
+                                    "A1",
+                                    [df_recipe.columns.tolist()] +
+                                    df_recipe.fillna("").astype(str).values.tolist()
+                                )
+                                invalidate_sheet_cache("配方管理")
+                                st.session_state.df_recipe = df_recipe
+                                st.session_state.df        = df_recipe
+
+                                st.success(f"✅ 已刪除 {code}")
+                                st.session_state.show_delete_recipe_confirm = False
+                                st.session_state["recipe_tab3_toast"] = {
+                                    "msg": f"已刪除配方：{code}",
+                                    "icon": "🗑️"
+                                }
+                                st.rerun()
+                        with c2:
+                            if st.button("取消", key="confirm_delete_recipe_no_tab3"):
+                                st.session_state.show_delete_recipe_confirm = False
+                                st.session_state["recipe_tab3_toast"] = {
+                                    "msg": "已取消刪除配方",
+                                    "icon": "↩️"
+                                }
+                                st.rerun()
 
             # ── 修改配方面板 ──
             if st.session_state.get("show_edit_recipe_panel") and st.session_state.get("editing_recipe_code"):
