@@ -5365,9 +5365,25 @@ if menu == "代工管理":
                     )
                     status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
                     current_status = oem_row.get("狀態", "")
-                    status_index   = status_options.index(current_status) if current_status in status_options else 0
-                    new_status     = col_status.selectbox("狀態", status_options, index=status_index, key="oem_status")
-                    new_remark     = st.text_area("備註", value=oem_row.get("備註", ""), key="oem_remark", height=120)
+                    # 初始化 session state（避免 default value 衝突）
+                    if "oem_status" not in st.session_state:
+                        current_status = oem_row.get("狀態", "")
+                        if current_status not in status_options:
+                            current_status = ""
+                        st.session_state.oem_status = current_status
+                    
+                    new_status = col_status.selectbox(
+                        "狀態",
+                        status_options,
+                        key="oem_status"
+                    )
+                    
+                    new_remark = st.text_area(
+                        "備註",
+                        value=oem_row.get("備註", ""),
+                        key="oem_remark",
+                        height=120
+                    )
 
                     # 計算已送達 / 尚餘
                     df_this_delivery = df_delivery[df_delivery["代工單號"] == selected_oem] \
