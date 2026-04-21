@@ -3515,6 +3515,46 @@ elif menu == "生產單管理":
         )
         st.session_state.pop("order_toast", None)
 
+    components.html(
+        """
+        <script>
+        const storageKey = "order_mgmt_active_tab";
+        const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"];
+
+        function bindOrderTabs() {
+            const doc = window.parent.document;
+            const allTabs = Array.from(doc.querySelectorAll('button[role="tab"]'));
+            const targetTab = allTabs.find(btn => tabTexts.includes(btn.textContent.trim()));
+            if (!targetTab) return false;
+
+            const tablist = targetTab.closest('div[role="tablist"]');
+            if (!tablist) return false;
+
+            const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
+            const savedIndex = parseInt(sessionStorage.getItem(storageKey), 10);
+            if (!Number.isNaN(savedIndex) && tabs[savedIndex] && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
+                tabs[savedIndex].click();
+            }
+
+            tabs.forEach((tab, idx) => {
+                if (tab.dataset.orderPersistBound === '1') return;
+                tab.dataset.orderPersistBound = '1';
+                tab.addEventListener('click', () => sessionStorage.setItem(storageKey, String(idx)));
+            });
+            return true;
+        }
+
+        if (!bindOrderTabs()) {
+            const observer = new MutationObserver(() => {
+                if (bindOrderTabs()) observer.disconnect();
+            });
+            observer.observe(window.parent.document.body, { childList: true, subtree: true });
+        }
+        </script>
+        """,
+        height=0,
+    )
+
     tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"])
     # ============================================================
     # Tab 1: 生產單建立
@@ -4392,6 +4432,18 @@ elif menu == "生產單管理":
         if st.session_state.get("edit_success_message"):
             st.toast(st.session_state.edit_success_message, icon="🎉")
             del st.session_state.edit_success_message
+
+        def calc_order_oem_qty_kg(order_row):
+            """生產單 -> 代工數量（沿用建立代工單時的計算邏輯）。"""
+            total = 0.0
+            for i in range(1, 5):
+                try:
+                    w = parse_pack_value(order_row.get(f"包裝重量{i}", 0))
+                    n = parse_pack_value(order_row.get(f"包裝份數{i}", 0))
+                    total += w * 100 * n
+                except Exception:
+                    continue
+            return float(total)
     
         def delete_order_by_id(ws, order_id):
             all_values = get_cached_sheet_df(ws.title).to_dict("records")
@@ -4930,69 +4982,143 @@ elif menu == "生產單管理":
         
             cols_edit = st.columns([1, 1, 1])
         
-            with cols_edit[0]:
-                if st.button("💾 儲存修改", key="save_edit_button_tab3"):
-                    
-                    # ===== 更新 order_dict =====
-                    order_dict["客戶名稱"] = new_customer
-                    order_dict["顏色"] = new_color
-                    order_dict["備註"] = new_remark
-                    
-                    for i in range(1, 5):
-                        order_dict[f"包裝重量{i}"] = new_packing_weights[i-1]
-                        order_dict[f"包裝份數{i}"] = new_packing_counts[i-1]
-                    
-                    # ===== 寫回 Google Sheet（簡化版）=====
-                    try:
-                        with st.spinner("正在儲存修改..."):
-                            # 1️⃣ 找到該生產單在 Sheet 中的位置
-                            all_values = get_cached_sheet_values("生產單")
-                            header = all_values[0]
-                            
-                            target_row_idx = None
-                            for idx, row in enumerate(all_values[1:], start=2):
-                                if row[0] == order_no:
-                                    target_row_idx = idx
-                                    break
-                            
-                            if target_row_idx is None:
-                                st.error(f"❌ 找不到生產單號 {order_no} 在 Google Sheet 中")
-                                st.stop()
-                            
-                            # 2️⃣ 準備要更新的資料（按欄位順序）
-                            updated_row = []
-                            for col_name in header:
-                                updated_row.append(str(order_dict.get(col_name, "")))
-                            
-                            # 3️⃣ 使用 gspread 內建函式轉換欄位範圍
-                            import gspread.utils as utils
-                            end_col = utils.rowcol_to_a1(target_row_idx, len(header)).replace(str(target_row_idx), "")
-                            range_name = f"A{target_row_idx}:{end_col}{target_row_idx}"
-                            
-                            # 4️⃣ 一次更新整列
-                            ws_order.update(range_name, [updated_row])
-                            
-                            # 5️⃣ 同步更新本地 df_order
-                            mask = df_order["生產單號"] == order_no
-                            for key, val in order_dict.items():
-                                if key in df_order.columns:
-                                    df_order.loc[mask, key] = val
-                            
-                            st.session_state.df_order = df_order
+            def save_order_edit(updated_order_dict, sync_oem_qty=False, synced_qty=None):
+                try:
+                    with st.spinner("正在儲存修改..."):
+                        # 1️⃣ 找到該生產單在 Sheet 中的位置
+                        all_values = get_cached_sheet_values("生產單")
+                        header = all_values[0]
+
+                        target_row_idx = None
+                        for idx, row in enumerate(all_values[1:], start=2):
+                            if row[0] == order_no:
+                                target_row_idx = idx
+                                break
+
+                        if target_row_idx is None:
+                            st.error(f"❌ 找不到生產單號 {order_no} 在 Google Sheet 中")
+                            st.stop()
+
+                        # 2️⃣ 準備要更新的資料（按欄位順序）
+                        updated_row = [str(updated_order_dict.get(col_name, "")) for col_name in header]
+
+                        # 3️⃣ 一次更新整列
+                        import gspread.utils as utils
+                        end_col = utils.rowcol_to_a1(target_row_idx, len(header)).replace(str(target_row_idx), "")
+                        range_name = f"A{target_row_idx}:{end_col}{target_row_idx}"
+                        ws_order.update(range_name, [updated_row])
+
+                        # 4️⃣ 同步更新對應代工單（使用者確認後才做）
+                        if sync_oem_qty:
+                            ws_oem = get_cached_worksheet("代工管理")
+                            oem_values = get_cached_sheet_values("代工管理")
+                            if oem_values and len(oem_values) > 1:
+                                oem_header = oem_values[0]
+                                row_order_idx = oem_header.index("生產單號") if "生產單號" in oem_header else -1
+                                row_qty_idx = oem_header.index("代工數量") if "代工數量" in oem_header else -1
+                                row_target_idx = oem_header.index("目標載回數量") if "目標載回數量" in oem_header else -1
+                                if row_order_idx >= 0 and row_qty_idx >= 0:
+                                    for oem_row_idx, oem_row in enumerate(oem_values[1:], start=2):
+                                        current_order_no = oem_row[row_order_idx] if row_order_idx < len(oem_row) else ""
+                                        if str(current_order_no).strip() != str(order_no).strip():
+                                            continue
+                                        while len(oem_row) < len(oem_header):
+                                            oem_row.append("")
+                                        oem_row[row_qty_idx] = str(synced_qty)
+                                        if row_target_idx >= 0:
+                                            oem_row[row_target_idx] = str(synced_qty)
+                                        oem_end_col = utils.rowcol_to_a1(oem_row_idx, len(oem_header)).replace(str(oem_row_idx), "")
+                                        oem_range = f"A{oem_row_idx}:{oem_end_col}{oem_row_idx}"
+                                        ws_oem.update(oem_range, [oem_row[:len(oem_header)]])
+                                    invalidate_sheet_cache("代工管理")
+
+                        # 5️⃣ 同步更新本地 df_order
+                        mask = df_order["生產單號"] == order_no
+                        for key, val in updated_order_dict.items():
+                            if key in df_order.columns:
+                                df_order.loc[mask, key] = val
+
+                        st.session_state.df_order = df_order
+                        invalidate_sheet_cache("生產單")
+                        if sync_oem_qty:
+                            st.session_state["order_toast"] = {
+                                "msg": f"✅ 生產單 {order_no} 修改完成，並已同步代工單數量",
+                                "icon": "🎉"
+                            }
+                        else:
                             st.session_state["order_toast"] = {
                                 "msg": f"✅ 生產單 {order_no} 修改完成",
                                 "icon": "🎉"
                             }
-                        
-                    except Exception as e:
-                        st.error(f"❌ 儲存失敗：{e}")
-                        import traceback
-                        st.code(traceback.format_exc())
-                        st.stop()
-                    
-                    st.session_state.show_edit_panel = False
-                    st.session_state.editing_order = None
-                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ 儲存失敗：{e}")
+                    import traceback
+                    st.code(traceback.format_exc())
+                    st.stop()
+
+            with cols_edit[0]:
+                if st.button("💾 儲存修改", key="save_edit_button_tab3"):
+                    # ===== 先組出最新資料 =====
+                    updated_order_dict = order_dict.copy()
+                    updated_order_dict["客戶名稱"] = new_customer
+                    updated_order_dict["顏色"] = new_color
+                    updated_order_dict["備註"] = new_remark
+
+                    for i in range(1, 5):
+                        updated_order_dict[f"包裝重量{i}"] = new_packing_weights[i - 1]
+                        updated_order_dict[f"包裝份數{i}"] = new_packing_counts[i - 1]
+
+                    old_oem_qty = calc_order_oem_qty_kg(order_dict)
+                    new_oem_qty = calc_order_oem_qty_kg(updated_order_dict)
+
+                    try:
+                        df_oem_linked = get_cached_sheet_df("代工管理")
+                        has_linked_oem = (
+                            not df_oem_linked.empty
+                            and "生產單號" in df_oem_linked.columns
+                            and df_oem_linked["生產單號"].astype(str).str.strip().eq(str(order_no).strip()).any()
+                        )
+                    except Exception:
+                        has_linked_oem = False
+
+                    qty_changed = abs(new_oem_qty - old_oem_qty) > 1e-9
+                    if has_linked_oem and qty_changed:
+                        st.session_state["pending_order_update_tab3"] = updated_order_dict
+                        st.session_state["pending_oem_sync_qty_tab3"] = new_oem_qty
+                        st.session_state["pending_oem_sync_old_qty_tab3"] = old_oem_qty
+                        st.rerun()
+                    else:
+                        save_order_edit(updated_order_dict, sync_oem_qty=False)
+                        st.session_state.show_edit_panel = False
+                        st.session_state.editing_order = None
+                        st.rerun()
+
+            pending_order = st.session_state.get("pending_order_update_tab3")
+            if pending_order and str(pending_order.get("生產單號", "")).strip() == str(order_no).strip():
+                old_qty = float(st.session_state.get("pending_oem_sync_old_qty_tab3", 0.0))
+                new_qty = float(st.session_state.get("pending_oem_sync_qty_tab3", 0.0))
+                st.warning(
+                    f"⚠️ 此生產單有連動代工單，且數量由 {old_qty:.2f} 變更為 {new_qty:.2f} kg。\n\n是否同步更新對應代工單數量？"
+                )
+                c_sync_yes, c_sync_no = st.columns(2)
+                with c_sync_yes:
+                    if st.button("✅ 是，同步代工單", key="confirm_sync_oem_yes_tab3"):
+                        save_order_edit(pending_order, sync_oem_qty=True, synced_qty=new_qty)
+                        st.session_state.pop("pending_order_update_tab3", None)
+                        st.session_state.pop("pending_oem_sync_qty_tab3", None)
+                        st.session_state.pop("pending_oem_sync_old_qty_tab3", None)
+                        st.session_state.show_edit_panel = False
+                        st.session_state.editing_order = None
+                        st.rerun()
+                with c_sync_no:
+                    if st.button("略過同步（只改生產單）", key="confirm_sync_oem_no_tab3"):
+                        save_order_edit(pending_order, sync_oem_qty=False)
+                        st.session_state.pop("pending_order_update_tab3", None)
+                        st.session_state.pop("pending_oem_sync_qty_tab3", None)
+                        st.session_state.pop("pending_oem_sync_old_qty_tab3", None)
+                        st.session_state.show_edit_panel = False
+                        st.session_state.editing_order = None
+                        st.rerun()
         
             with cols_edit[1]:
                 if st.button("返回", key="return_button_tab3"):
