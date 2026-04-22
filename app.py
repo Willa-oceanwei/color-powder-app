@@ -126,7 +126,7 @@ def apply_modern_style():
 =================================================== */
 
 .block-container{
-    padding-top:8px;
+    padding-top:6px;
     padding-left:22px;
     padding-right:22px;
 }
