@@ -295,6 +295,77 @@ ul[role="listbox"] li:hover{
 
 </style>
 """, unsafe_allow_html=True)
+
+
+def apply_tab_persistence_fix():
+    """修正 Streamlit rerun 後 st.tabs 回到第一個分頁的問題。"""
+    components.html(
+        """
+        <script>
+        (function () {
+          const STORAGE_KEY = "cp_tab_state_v1";
+
+          function getTabLists() {
+            return Array.from(window.parent.document.querySelectorAll('[data-baseweb="tab-list"]'));
+          }
+
+          function getTabKey(tabList, idx) {
+            const labels = Array.from(tabList.querySelectorAll('button')).map(btn => (btn.innerText || '').trim()).join('|');
+            return `${idx}::${labels}`;
+          }
+
+          function loadState() {
+            try {
+              return JSON.parse(window.parent.localStorage.getItem(STORAGE_KEY) || "{}");
+            } catch (e) {
+              return {};
+            }
+          }
+
+          function saveState(state) {
+            window.parent.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          }
+
+          function attachListeners() {
+            const state = loadState();
+            const tabLists = getTabLists();
+
+            tabLists.forEach((tabList, idx) => {
+              const key = getTabKey(tabList, idx);
+              Array.from(tabList.querySelectorAll('button')).forEach((btn, tabIdx) => {
+                if (btn.dataset.cpBound === '1') return;
+                btn.dataset.cpBound = '1';
+                btn.addEventListener('click', () => {
+                  const latest = loadState();
+                  latest[key] = tabIdx;
+                  saveState(latest);
+                });
+              });
+
+              const storedIdx = state[key];
+              if (Number.isInteger(storedIdx)) {
+                const buttons = Array.from(tabList.querySelectorAll('button'));
+                const target = buttons[storedIdx];
+                if (target && target.getAttribute('aria-selected') !== 'true') {
+                  target.click();
+                }
+              }
+            });
+          }
+
+          // Streamlit 內容是動態渲染，重試幾次避免抓不到 tab
+          let retries = 0;
+          const timer = setInterval(() => {
+            attachListeners();
+            retries += 1;
+            if (retries >= 20) clearInterval(timer);
+          }, 200);
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
     
 # ======== Sidebar Menu ========
 
@@ -383,6 +454,7 @@ def apply_arrow_nav():
 # ======== ENABLE ========
 
 apply_modern_style()
+apply_tab_persistence_fix()
 apply_arrow_nav()
 render_sidebar()
 
