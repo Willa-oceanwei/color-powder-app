@@ -2792,6 +2792,7 @@ elif menu == "配方管理":
                     calculate = st.form_submit_button("🧮 計算色母配方")
 
                 if calculate:
+                    ratio = str(st.session_state.get("ratio_select", ratio)).strip()
                     st.session_state.master_batch_ratio        = ratio
                     st.session_state.master_batch_additive     = additive
                     st.session_state.master_batch_total_qty    = total_qty
@@ -2841,142 +2842,157 @@ elif menu == "配方管理":
                         "total_powder_weight": total_powder_weight,
                         "calculated_total": calculated_total,
                         "ratio": ratio, "recipe_data": recipe_data,
-                        "selected_recipe_code": selected_recipe_code
+                        "selected_recipe_code": selected_recipe_code,
+                        "input_signature": (
+                            selected_recipe_code,
+                            ratio,
+                            additive,
+                            float(total_qty),
+                            material_code.strip(),
+                            float(material_qty),
+                            new_code.strip(),
+                        ),
                     }
 
                 if st.session_state.master_batch_calculated is not None:
                     calc = st.session_state.master_batch_calculated
-                    st.success("✅ 色母配方計算完成")
-                    st.markdown("**色母配方預覽**")
-
-                    info_parts = [f"編號：{calc['new_code']}",
-                                  f"顏色：{calc['recipe_data'].get('顏色', '')}",
-                                  f"比例：{calc['ratio']}"]
-                    st.markdown(f"<div style='font-size:16px;font-family:Arial;margin-bottom:10px;'>{' 　 '.join(info_parts)}</div>", unsafe_allow_html=True)
-
-                    calc_rows = []
-                    for item in calc["powder_data"]:
-                        w = item["weight"]
-                        w_str = f"{int(w)}" if w == int(w) else f"{w:.2f}"
-                        calc_rows.append((item["id"], w_str))
-                    aq = calc["additive_qty"]
-                    aq_str = f"{int(aq)}" if aq == int(aq) else f"{aq:.2f}"
-                    calc_rows.append((calc["additive_display"], aq_str))
-                    mq = calc["material_qty"]
-                    mq_str = f"{int(mq)}" if mq == int(mq) else f"{mq:.2f}"
-                    calc_rows.append((calc["material_code"], mq_str))
-
-                    calc_df = pd.DataFrame(calc_rows, columns=["色粉編號", "重量"])
-                    st.dataframe(
-                        calc_df,
-                        use_container_width=False,
-                        hide_index=True,
-                        column_config={
-                            "色粉編號": st.column_config.TextColumn("色粉編號", width="medium"),
-                            "重量": st.column_config.TextColumn("重量", width="small"),
-                        },
+                    current_signature = (
+                        selected_recipe_code,
+                        ratio,
+                        additive,
+                        float(total_qty),
+                        material_code.strip(),
+                        float(material_qty),
+                        new_code.strip(),
                     )
-                    st.caption(f"✓ 色粉：{calc['total_powder_weight']:.2f}g + 添加劑：{calc['additive_qty']:.2f}g + 原料：{calc['material_qty']:.2f}g = {calc['calculated_total']:.2f}g")
+                    calc_is_stale = calc.get("input_signature") != current_signature
+                    if calc_is_stale:
+                        st.warning("⚠️ 目前表單內容已變更，請重新按「🧮 計算色母配方」後再下載，避免列印顯示舊比例。")
+                    else:
+                        st.success("✅ 色母配方計算完成")
+                        st.markdown("**色母配方預覽**")
 
-                    def generate_master_batch_html(calc_data):
-                        ratio_display = str(calc_data.get("ratio", "")).strip()
-                        unit_hint_map = {
-                            "12.5": "27K",
-                            "20:1": "42K",
-                            "25:1": "52K",
-                            "50:1": "100K",
-                            "100:1": "200K",
-                        }
-                        unit_hint = unit_hint_map.get(ratio_display, "")
-                        html_lines = [
-                            f"編號：{calc_data['new_code']}　顏色：{calc_data['recipe_data'].get('顏色', '')}　比例：{calc_data['ratio']}",
-                            "",
-                            f"{unit_hint:^20}" if unit_hint else "",
-                        ]
-                        for item in calc_data["powder_data"]:
+                        info_parts = [f"編號：{calc['new_code']}",
+                                      f"顏色：{calc['recipe_data'].get('顏色', '')}",
+                                      f"比例：{calc['ratio']}"]
+                        st.markdown(f"<div style='font-size:16px;font-family:Arial;margin-bottom:10px;'>{' 　 '.join(info_parts)}</div>", unsafe_allow_html=True)
+
+                        calc_rows = []
+                        for item in calc["powder_data"]:
                             w = item["weight"]
                             w_str = f"{int(w)}" if w == int(w) else f"{w:.2f}"
-                            html_lines.append(f"{item['id'].ljust(12)}{w_str.rjust(8)}")
-                        aq = calc_data["additive_qty"]
+                            calc_rows.append((item["id"], w_str))
+                        aq = calc["additive_qty"]
                         aq_str = f"{int(aq)}" if aq == int(aq) else f"{aq:.2f}"
-                        html_lines.append(f"{calc_data['additive_display'].ljust(12)}{aq_str.rjust(8)}")
-                        mq = calc_data["material_qty"]
+                        calc_rows.append((calc["additive_display"], aq_str))
+                        mq = calc["material_qty"]
                         mq_str = f"{int(mq)}" if mq == int(mq) else f"{mq:.2f}"
-                        html_lines.append(f"{calc_data['material_code'].ljust(12)}{mq_str.rjust(8)}")
-                        content = "<br>".join(html_lines)
-                        return f"""<html><head><meta charset="utf-8"><title>色母配方列印</title>
-                        <style>
-                        @page {{ size: A6 landscape; margin: 10mm; }}
-                        body {{ margin:0; font-family:'Courier New',Courier,monospace; font-size:24px; line-height:1.6; }}
-                        pre {{ white-space:pre-wrap; margin-left:25px; margin-top:10px; }}
-                        </style>
-                        <script>window.onload=function(){{window.print();}}</script>
-                        </head><body><pre>{content}</pre></body></html>"""
+                        calc_rows.append((calc["material_code"], mq_str))
 
-                    html_content = generate_master_batch_html(calc)
-
-                    col_download, col_save = st.columns([2, 2])
-                    with col_download:
-                        st.download_button(
-                            label="📥 下載 A5 列印 90%",
-                            data=html_content.encode("utf-8"),
-                            file_name=f"{calc['new_code']}_色母配方.html",
-                            mime="text/html",
-                            key="download_master_batch_html"
+                        calc_df = pd.DataFrame(calc_rows, columns=["色粉編號", "重量"])
+                        st.dataframe(
+                            calc_df,
+                            use_container_width=False,
+                            hide_index=True,
+                            column_config={
+                                "色粉編號": st.column_config.TextColumn("色粉編號", width="medium"),
+                                "重量": st.column_config.TextColumn("重量", width="small"),
+                            },
                         )
-                    with col_save:
-                        if st.button("💾 新增此配方到配方管理", key="save_master_batch_recipe"):
-                            if calc["new_code"] in df_recipe["配方編號"].astype(str).values:
-                                st.error(f"❌ 配方編號 {calc['new_code']} 已存在")
-                            else:
-                                try:
-                                    ratio_parts = calc["ratio"].split(":")
-                                    new_recipe = {
-                                        "配方編號": calc["new_code"],
-                                        "顏色":     calc["recipe_data"].get("顏色", ""),
-                                        "客戶編號": calc["recipe_data"].get("客戶編號", ""),
-                                        "客戶名稱": calc["recipe_data"].get("客戶名稱", ""),
-                                        "配方類別": "原始配方", "狀態": "啟用", "原始配方": "",
-                                        "色粉類別": "色母", "計量單位": "kg",
-                                        "Pantone色號": calc["recipe_data"].get("Pantone色號", ""),
-                                        "比例1": ratio_parts[0] if len(ratio_parts) > 0 else "",
-                                        "比例2": ratio_parts[1] if len(ratio_parts) > 1 else "",
-                                        "比例3": "",
-                                        "淨重":     str(calc["total_qty"]), "淨重單位": "g",
-                                        "合計類別": calc["material_code"],
-                                        "重要提醒": f"色母換算自 {calc['selected_recipe_code']}",
-                                        "備註":     calc["recipe_data"].get("備註", ""),
-                                        "建檔時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                    }
-                                    for i, item in enumerate(calc["powder_data"], 1):
-                                        new_recipe[f"色粉編號{i}"] = item["id"]
-                                        new_recipe[f"色粉重量{i}"] = str(item["weight"])
-                                    next_i = len(calc["powder_data"]) + 1
-                                    if next_i <= 8:
-                                        new_recipe[f"色粉編號{next_i}"] = calc["additive_display"]
-                                        new_recipe[f"色粉重量{next_i}"] = str(calc["additive_qty"])
-                                    for i in range(1, 9):
-                                        new_recipe.setdefault(f"色粉編號{i}", "")
-                                        new_recipe.setdefault(f"色粉重量{i}", "")
+                        st.caption(f"✓ 色粉：{calc['total_powder_weight']:.2f}g + 添加劑：{calc['additive_qty']:.2f}g + 原料：{calc['material_qty']:.2f}g = {calc['calculated_total']:.2f}g")
 
-                                    # ✅ 只 append 新列
-                                    all_vals = get_cached_sheet_values("配方管理")
-                                    existing_columns = all_vals[0] if all_vals else list(new_recipe.keys())
-                                    new_row = [new_recipe.get(col, "") for col in existing_columns]
-                                    ws_recipe.append_row(new_row)
-                                    invalidate_sheet_cache("配方管理")
+                        def generate_master_batch_html(calc_data, ratio_override=None):
+                            ratio_display = str(ratio_override if ratio_override is not None else calc_data.get("ratio", "")).strip()
+                            unit_hint = "100K"
+                            html_lines = [
+                                f"編號：{calc_data['new_code']}　顏色：{calc_data['recipe_data'].get('顏色', '')}　比例：{ratio_display}",
+                                "",
+                                f"{unit_hint:^20}" if unit_hint else "",
+                            ]
+                            for item in calc_data["powder_data"]:
+                                w = item["weight"]
+                                w_str = f"{int(w)}" if w == int(w) else f"{w:.2f}"
+                                html_lines.append(f"{item['id'].ljust(12)}{w_str.rjust(8)}")
+                            aq = calc_data["additive_qty"]
+                            aq_str = f"{int(aq)}" if aq == int(aq) else f"{aq:.2f}"
+                            html_lines.append(f"{calc_data['additive_display'].ljust(12)}{aq_str.rjust(8)}")
+                            mq = calc_data["material_qty"]
+                            mq_str = f"{int(mq)}" if mq == int(mq) else f"{mq:.2f}"
+                            html_lines.append(f"{calc_data['material_code'].ljust(12)}{mq_str.rjust(8)}")
+                            content = "<br>".join(html_lines)
+                            return f"""<html><head><meta charset="utf-8"><title>色母配方列印</title>
+                            <style>
+                            @page {{ size: A6 landscape; margin: 10mm; }}
+                            body {{ margin:0; font-family:'Courier New',Courier,monospace; font-size:24px; line-height:1.6; }}
+                            pre {{ white-space:pre-wrap; margin-left:25px; margin-top:10px; }}
+                            </style>
+                            <script>window.onload=function(){{window.print();}}</script>
+                            </head><body><pre>{content}</pre></body></html>"""
 
-                                    df_recipe_new = pd.concat(
-                                        [df_recipe, pd.DataFrame([new_recipe])], ignore_index=True
-                                    )
-                                    st.session_state.df_recipe = df_recipe_new
-                                    st.session_state.df        = df_recipe_new
-                                    st.success(f"✅ 配方 {calc['new_code']} 已新增！")
-                                    st.balloons()
-                                except Exception as e:
-                                    st.error(f"❌ 新增失敗：{e}")
-                                    import traceback
-                                    st.code(traceback.format_exc())
+                        html_content = generate_master_batch_html(calc, ratio_override=ratio)
+
+                        col_download, col_save = st.columns([2, 2])
+                        with col_download:
+                            st.download_button(
+                                label="📥 下載 A5 列印 90%",
+                                data=html_content.encode("utf-8"),
+                                file_name=f"{calc['new_code']}_色母配方.html",
+                                mime="text/html",
+                                key="download_master_batch_html",
+                            )
+                        with col_save:
+                            if st.button("💾 新增此配方到配方管理", key="save_master_batch_recipe"):
+                                if calc["new_code"] in df_recipe["配方編號"].astype(str).values:
+                                    st.error(f"❌ 配方編號 {calc['new_code']} 已存在")
+                                else:
+                                    try:
+                                        ratio_parts = calc["ratio"].split(":")
+                                        new_recipe = {
+                                            "配方編號": calc["new_code"],
+                                            "顏色":     calc["recipe_data"].get("顏色", ""),
+                                            "客戶編號": calc["recipe_data"].get("客戶編號", ""),
+                                            "客戶名稱": calc["recipe_data"].get("客戶名稱", ""),
+                                            "配方類別": "原始配方", "狀態": "啟用", "原始配方": "",
+                                            "色粉類別": "色母", "計量單位": "kg",
+                                            "Pantone色號": calc["recipe_data"].get("Pantone色號", ""),
+                                            "比例1": ratio_parts[0] if len(ratio_parts) > 0 else "",
+                                            "比例2": ratio_parts[1] if len(ratio_parts) > 1 else "",
+                                            "比例3": "",
+                                            "淨重":     str(calc["total_qty"]), "淨重單位": "g",
+                                            "合計類別": calc["material_code"],
+                                            "重要提醒": f"色母換算自 {calc['selected_recipe_code']}",
+                                            "備註":     calc["recipe_data"].get("備註", ""),
+                                            "建檔時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                        }
+                                        for i, item in enumerate(calc["powder_data"], 1):
+                                            new_recipe[f"色粉編號{i}"] = item["id"]
+                                            new_recipe[f"色粉重量{i}"] = str(item["weight"])
+                                        next_i = len(calc["powder_data"]) + 1
+                                        if next_i <= 8:
+                                            new_recipe[f"色粉編號{next_i}"] = calc["additive_display"]
+                                            new_recipe[f"色粉重量{next_i}"] = str(calc["additive_qty"])
+                                        for i in range(1, 9):
+                                            new_recipe.setdefault(f"色粉編號{i}", "")
+                                            new_recipe.setdefault(f"色粉重量{i}", "")
+
+                                        # ✅ 只 append 新列
+                                        all_vals = get_cached_sheet_values("配方管理")
+                                        existing_columns = all_vals[0] if all_vals else list(new_recipe.keys())
+                                        new_row = [new_recipe.get(col, "") for col in existing_columns]
+                                        ws_recipe.append_row(new_row)
+                                        invalidate_sheet_cache("配方管理")
+
+                                        df_recipe_new = pd.concat(
+                                            [df_recipe, pd.DataFrame([new_recipe])], ignore_index=True
+                                        )
+                                        st.session_state.df_recipe = df_recipe_new
+                                        st.session_state.df        = df_recipe_new
+                                        st.success(f"✅ 配方 {calc['new_code']} 已新增！")
+                                        st.balloons()
+                                    except Exception as e:
+                                        st.error(f"❌ 新增失敗：{e}")
+                                        import traceback
+                                        st.code(traceback.format_exc())
         else:
             st.info("⚠️ 目前沒有配方資料，請先至「配方建立」新增配方")
     
