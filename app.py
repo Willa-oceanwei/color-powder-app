@@ -2841,12 +2841,33 @@ elif menu == "配方管理":
                         "total_powder_weight": total_powder_weight,
                         "calculated_total": calculated_total,
                         "ratio": ratio, "recipe_data": recipe_data,
-                        "selected_recipe_code": selected_recipe_code
+                        "selected_recipe_code": selected_recipe_code,
+                        "input_signature": (
+                            selected_recipe_code,
+                            ratio,
+                            additive,
+                            float(total_qty),
+                            material_code.strip(),
+                            float(material_qty),
+                            new_code.strip(),
+                        ),
                     }
 
                 if st.session_state.master_batch_calculated is not None:
                     calc = st.session_state.master_batch_calculated
+                    current_signature = (
+                        selected_recipe_code,
+                        ratio,
+                        additive,
+                        float(total_qty),
+                        material_code.strip(),
+                        float(material_qty),
+                        new_code.strip(),
+                    )
+                    calc_is_stale = calc.get("input_signature") != current_signature
                     st.success("✅ 色母配方計算完成")
+                    if calc_is_stale:
+                        st.warning("⚠️ 目前表單內容已變更，請重新按「🧮 計算色母配方」後再下載，避免列印顯示舊比例。")
                     st.markdown("**色母配方預覽**")
 
                     info_parts = [f"編號：{calc['new_code']}",
@@ -2922,10 +2943,11 @@ elif menu == "配方管理":
                             data=html_content.encode("utf-8"),
                             file_name=f"{calc['new_code']}_色母配方.html",
                             mime="text/html",
-                            key="download_master_batch_html"
+                            key="download_master_batch_html",
+                            disabled=calc_is_stale,
                         )
                     with col_save:
-                        if st.button("💾 新增此配方到配方管理", key="save_master_batch_recipe"):
+                        if st.button("💾 新增此配方到配方管理", key="save_master_batch_recipe", disabled=calc_is_stale):
                             if calc["new_code"] in df_recipe["配方編號"].astype(str).values:
                                 st.error(f"❌ 配方編號 {calc['new_code']} 已存在")
                             else:
