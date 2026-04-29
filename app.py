@@ -6030,7 +6030,19 @@ if menu == "代工管理":
                 )
 
                 st.markdown(
-                    "<div style='font-size:16px; font-weight:600; color:#f4e8ff;'>📝 已結案交貨註記</div>",
+                    """
+                    <div style="
+                        margin-top: 14px;
+                        margin-bottom: 10px;
+                        padding: 12px 14px;
+                        border-radius: 10px;
+                        border: 1px solid rgba(244, 232, 255, 0.35);
+                        background: linear-gradient(135deg, rgba(123, 44, 191, 0.28), rgba(60, 9, 108, 0.18));
+                    ">
+                        <div style='font-size:17px; font-weight:700; color:#f4e8ff; margin-bottom:4px;'>📝 已結案交貨註記</div>
+                        <div style='font-size:12px; color:#e8d9ff;'>僅做交貨狀態補充，不會變更代工流程與庫存邏輯。</div>
+                    </div>
+                    """,
                     unsafe_allow_html=True
                 )
                 closed_selector_options = []
@@ -6047,10 +6059,11 @@ if menu == "代工管理":
                     st.info("目前沒有已結案的代工單")
                 else:
                     selected_closed_option = st.selectbox(
-                        "選擇代工單（代工單號｜配方編號｜客戶名稱）",
+                        "選擇代工單",
                         closed_selector_options,
                         format_func=lambda x: x["label"],
-                        key="oem_closed_delivery_target_id_tab4"
+                        key="oem_closed_delivery_target_id_tab4",
+                        help="格式：代工單號｜配方編號｜客戶名稱"
                     )
                     selected_closed_id = selected_closed_option["代工單號"]
                     selected_closed_row = df_closed[
@@ -6060,13 +6073,26 @@ if menu == "代工管理":
                     note_default = str(selected_closed_row.get("交貨備註", "") or "")
 
                     with st.form("oem_closed_delivery_form_tab4"):
-                        marked_delivered = st.checkbox(
-                            "已交貨",
-                            value=delivered_default,
-                            help="僅做註記，不影響其他流程"
+                        c1, c2 = st.columns([1, 1.4], vertical_alignment="bottom")
+                        with c1:
+                            marked_delivered = st.toggle(
+                                "已交貨",
+                                value=delivered_default,
+                                help="僅做註記，不影響其他流程"
+                            )
+                        with c2:
+                            st.caption("可選填備註（例如：交貨日期、簽收人、異常說明）")
+
+                        delivery_note = st.text_area(
+                            "交貨備註",
+                            value=note_default,
+                            height=88,
+                            placeholder="例：2026-04-28 已交貨，王先生簽收。"
                         )
-                        delivery_note = st.text_input("交貨備註", value=note_default)
-                        save_closed_delivery = st.form_submit_button("💾 儲存已結案交貨註記")
+                        save_closed_delivery = st.form_submit_button(
+                            "💾 儲存已結案交貨註記",
+                            use_container_width=True
+                        )
 
                     if save_closed_delivery:
                         all_values = get_cached_sheet_values("代工管理")
