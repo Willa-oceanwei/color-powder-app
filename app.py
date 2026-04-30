@@ -5585,10 +5585,12 @@ if menu == "代工管理":
                         key="oem_multiplier"
                     )
 
+                    vendor_options = ["", "弘旭", "良輝"]
+                    if st.session_state.get("oem_vendor") not in vendor_options:
+                        st.session_state.oem_vendor = ""
                     new_vendor = col_vendor.selectbox(
-                        "代工廠商", ["", "弘旭", "良輝"],
-                        index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", ""))
-                              if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
+                        "代工廠商",
+                        vendor_options,
                         key="oem_vendor"
                     )
                     status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
@@ -5608,7 +5610,6 @@ if menu == "代工管理":
                     
                     new_remark = st.text_area(
                         "備註",
-                        value=oem_row.get("備註", ""),
                         key="oem_remark",
                         height=120
                     )
