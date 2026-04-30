@@ -6040,6 +6040,7 @@ if menu == "代工管理":
                     column_config={
                         "送達日期及數量": st.column_config.TextColumn("送達日期及數量", width="small"),
                         "載回日期及數量": st.column_config.TextColumn("載回日期及數量", width="small"),
+                        "交貨備註": st.column_config.TextColumn("交貨備註", width="large"),
                     }
                 )
 
@@ -6059,8 +6060,22 @@ if menu == "代工管理":
                     """,
                     unsafe_allow_html=True
                 )
+                show_delivered_closed = st.toggle(
+                    "是否顯示已交貨代工單",
+                    value=False,
+                    key="oem_closed_delivery_show_delivered_tab4",
+                    help="關閉時只顯示尚未標記『已交貨』的已結案代工單，避免下拉選單過長。"
+                )
+                df_closed_for_selector = df_closed.sort_values(
+                    by=["最近載回日期_sort", "建立時間_dt"],
+                    ascending=[False, False],
+                    na_position="last"
+                )
+                if not show_delivered_closed:
+                    df_closed_for_selector = df_closed_for_selector[~df_closed_for_selector["已交貨"]]
+
                 closed_selector_options = []
-                for _, row in df_closed.iterrows():
+                for _, row in df_closed_for_selector.iterrows():
                     oem_no = str(row.get("代工單號", "") or "").strip()
                     recipe_no = str(row.get("配方編號", "") or "").strip()
                     customer_name = str(row.get("客戶名稱", "") or "").strip()
@@ -6070,7 +6085,7 @@ if menu == "代工管理":
                     )
 
                 if not closed_selector_options:
-                    st.info("目前沒有已結案的代工單")
+                    st.info("目前沒有符合條件的已結案代工單")
                 else:
                     selected_closed_option = st.selectbox(
                         "選擇代工單",
@@ -6080,8 +6095,8 @@ if menu == "代工管理":
                         help="格式：代工單號｜配方編號｜客戶名稱"
                     )
                     selected_closed_id = selected_closed_option["代工單號"]
-                    selected_closed_row = df_closed[
-                        df_closed["代工單號"].astype(str).str.strip() == str(selected_closed_id)
+                    selected_closed_row = df_closed_for_selector[
+                        df_closed_for_selector["代工單號"].astype(str).str.strip() == str(selected_closed_id)
                     ].iloc[0]
                     delivered_default = bool(selected_closed_row.get("已交貨", False))
                     note_default = str(selected_closed_row.get("交貨備註", "") or "")
@@ -6100,7 +6115,7 @@ if menu == "代工管理":
                         delivery_note = st.text_area(
                             "交貨備註",
                             value=note_default,
-                            height=88,
+                            height=180,
                             placeholder="例：2026-04-28 已交貨，王先生簽收。"
                         )
                         save_closed_delivery = st.form_submit_button(
