@@ -6040,6 +6040,7 @@ if menu == "代工管理":
                     column_config={
                         "送達日期及數量": st.column_config.TextColumn("送達日期及數量", width="small"),
                         "載回日期及數量": st.column_config.TextColumn("載回日期及數量", width="small"),
+                        "交貨備註": st.column_config.TextColumn("交貨備註", width="large"),
                     }
                 )
 
@@ -6100,7 +6101,7 @@ if menu == "代工管理":
                         delivery_note = st.text_area(
                             "交貨備註",
                             value=note_default,
-                            height=88,
+                            height=180,
                             placeholder="例：2026-04-28 已交貨，王先生簽收。"
                         )
                         save_closed_delivery = st.form_submit_button(
