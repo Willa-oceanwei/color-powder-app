@@ -4288,14 +4288,28 @@ elif menu == "生產單管理":
                                     ws_oem.update_cell(1, len(oem_headers) + 1, h)
                                     oem_headers.append(h)
 
+                        recipe_multiplier = 1.0
+                        try:
+                            order_recipe_id = str(order.get('配方編號', '')).strip()
+                            if order_recipe_id and not st.session_state.df_recipe.empty:
+                                matched_recipe = st.session_state.df_recipe[
+                                    st.session_state.df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id
+                                ]
+                                if not matched_recipe.empty:
+                                    recipe_multiplier = _safe_float(matched_recipe.iloc[0].get("代工轉換倍率", 1), 1.0)
+                        except:
+                            recipe_multiplier = 1.0
+                        if recipe_multiplier <= 0:
+                            recipe_multiplier = 1.0
+
                         oem_row_dict = {
                             "代工單號": oem_id,
                             "生產單號": order['生產單號'],
                             "配方編號": order.get('配方編號', ''),
                             "客戶名稱": order.get('客戶名稱', ''),
                             "代工數量": oem_qty,
-                            "目標載回數量": oem_qty,
-                            "轉換倍率": 1,
+                            "目標載回數量": oem_qty * recipe_multiplier,
+                            "轉換倍率": recipe_multiplier,
                             "代工廠商": "",
                             "備註": "",
                             "狀態": "🏭 在廠內",
