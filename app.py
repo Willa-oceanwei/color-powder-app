@@ -6793,6 +6793,20 @@ elif menu == "查詢區":
         "🧪 樣品提交表"
     ])
 
+    if st.session_state.get("query_toast"):
+        st.toast(
+            st.session_state["query_toast"].get("msg", "查詢完成"),
+            icon=st.session_state["query_toast"].get("icon", "🔍")
+        )
+        st.session_state.pop("query_toast", None)
+
+    if st.session_state.get("sample_toast"):
+        st.toast(
+            st.session_state["sample_toast"].get("msg", "已完成樣品操作"),
+            icon=st.session_state["sample_toast"].get("icon", "✅")
+        )
+        st.session_state.pop("sample_toast", None)
+
     # ========== Tab 1：依色粉編號查配方 ==========
     with tab1:
     
@@ -6828,6 +6842,7 @@ elif menu == "查詢區":
     
                 if matched.empty:
                     st.warning("⚠️ 找不到符合的配方")
+                    st.session_state["query_toast"] = {"msg": "查詢完成：沒有符合的配方", "icon": "⚠️"}
                 else:
                     results = []
                     for _, recipe in matched.iterrows():
@@ -6865,7 +6880,8 @@ elif menu == "查詢區":
                             lambda x: x.strftime("%Y-%m-%d") if pd.notnull(x) else ""
                         )
     
-                        st.dataframe(df_result, use_container_width=True) 
+                        st.dataframe(df_result, use_container_width=True)
+                        st.session_state["query_toast"] = {"msg": f"查詢完成：找到 {len(df_result)} 筆配方", "icon": "✅"}
 
     # ========== Tab 2：色粉用量查詢 ==========
     with tab2:
@@ -6889,6 +6905,10 @@ elif menu == "查詢區":
             # 提交按鈕
             submit = st.form_submit_button("查詢用量")
     
+        if submit and not powder_inputs:
+            st.warning("⚠️ 請至少輸入一個色粉編號")
+            st.session_state["query_toast"] = {"msg": "請先輸入色粉編號再查詢", "icon": "⚠️"}
+
         if submit and powder_inputs:
             results = []
             df_order_local = st.session_state.get("df_order", pd.DataFrame()).copy()
@@ -7328,10 +7348,12 @@ elif menu == "查詢區":
                         # ===== 修改 =====
                         df_sample.loc[st.session_state.edit_sample_index] = data
                         st.success("✅ 樣品已更新")
+                        st.session_state["sample_toast"] = {"msg": f"樣品 {data['樣品編號']} 已更新", "icon": "✏️"}
                     else:
                         # ===== 新增 =====
                         df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
                         st.success("✅ 新增完成")
+                        st.session_state["sample_toast"] = {"msg": f"樣品 {data['樣品編號']} 新增完成", "icon": "🎉"}
         
                     save_df_to_sheet(ws_sample, df_sample)
         
@@ -7401,6 +7423,7 @@ elif menu == "查詢區":
                     search_end,
                 )
                 st.session_state.sample_search_triggered = True
+                st.session_state["query_toast"] = {"msg": "樣品記錄查詢完成", "icon": "🔎"}
     
             if st.session_state.get("sample_search_triggered", False):
                 no_condition_input = (
@@ -7471,6 +7494,7 @@ elif menu == "查詢區":
                                 st.session_state.edit_sample_index = None
                                 st.session_state.form_sample = {}
                                 st.success(f"✅ 已刪除樣品：{row['樣品編號']} {row['樣品名稱']}")
+                                st.session_state["sample_toast"] = {"msg": f"已刪除樣品 {row['樣品編號']}", "icon": "🗑️"}
                                 st.rerun()
             else:
                 st.caption("請先設定條件後按「🔍 搜尋」；若條件留白再按搜尋，會顯示全部樣品記錄。")
