@@ -8161,26 +8161,31 @@ elif menu == "庫存區":
         subtab_form, subtab_query = st.tabs(["☑️ 新增/修改/刪除庫存", "🔍 個別客戶庫存查詢"])
 
         with subtab_form:
+            st.markdown("### 👤 個別客戶庫存維護")
             st.caption("ℹ️ 此分頁資料為獨立管理，不與其他庫存分頁互通。")
 
+            st.markdown("---")
             action_mode = st.radio("作業模式", ["新增", "修改", "刪除"], horizontal=True, key="cust_stock_action_mode")
-
-            edit_options = [
-                f"列 {i+2}｜{str(r['客戶名稱']).strip()}｜{str(r['配方編號']).strip()}｜{str(r['顏色']).strip()}｜{str(r['數量']).strip()} {str(r['單位']).strip()}"
-                for i, r in df_customer_stock.reset_index(drop=True).iterrows()
-            ]
 
             target_idx = -1
             target_row = None
             if action_mode in ["修改", "刪除"]:
-                if not edit_options:
+                if df_customer_stock.empty:
                     st.info("目前沒有可供修改/刪除的資料。")
                 else:
-                    selected_edit = st.selectbox("選擇要處理的資料", edit_options, key="cust_stock_edit_pick")
-                    target_idx = edit_options.index(selected_edit)
-                    target_row = df_customer_stock.iloc[target_idx]
+                    st.markdown("**🔽 選擇資料進行修改/刪除**")
+                    option_indices = list(df_customer_stock.index)
+                    selected_index = st.selectbox(
+                        "選擇資料",
+                        options=option_indices,
+                        key="cust_stock_edit_pick",
+                        format_func=lambda i: f"列 {i+2} | {str(df_customer_stock.at[i, '客戶名稱']).strip()} | {str(df_customer_stock.at[i, '配方編號']).strip()} | {str(df_customer_stock.at[i, '顏色']).strip()} | {str(df_customer_stock.at[i, '數量']).strip()} {str(df_customer_stock.at[i, '單位']).strip()}"
+                    )
+                    target_idx = int(selected_index)
+                    target_row = df_customer_stock.loc[selected_index]
 
             with st.form("customer_stock_form"):
+                st.markdown("<div style='font-size:12px; color:#9fb6cc;'>客戶與配方資訊</div>", unsafe_allow_html=True)
                 r1c1, r1c2, r1c3, r1c4 = st.columns(4)
                 customer_from_dropdown = r1c1.selectbox("客戶名稱（下拉）", ["（請選擇）"] + customer_choices,
                     index=0 if target_row is None else (["（請選擇）"] + customer_choices).index(target_row.get("客戶名稱", "")) if target_row.get("客戶名稱", "") in customer_choices else 0)
@@ -8206,6 +8211,7 @@ elif menu == "庫存區":
                 if action_mode == "新增" and auto_color:
                     color_default = auto_color
 
+                st.markdown("<div style='font-size:12px; color:#9fb6cc;'>庫存資訊</div>", unsafe_allow_html=True)
                 r2c1, r2c2, r2c3, r2c4 = st.columns(4)
                 color_input = r2c1.text_input("顏色", value=color_default, help="若配方已存在且有顏色資料，新增模式會自動帶入。")
                 qty_input = r2c2.number_input("數量", min_value=0.0, value=float(target_row.get("數量", 0) or 0) if target_row is not None else 0.0, step=1.0)
@@ -8254,6 +8260,7 @@ elif menu == "庫存區":
                         st.rerun()
 
         with subtab_query:
+            st.markdown("### 🔍 個別客戶庫存查詢")
             st.caption("ℹ️ 可用配方編號多條件篩選，輸入關鍵字快速查詢。")
             q1, q2 = st.columns([2, 3])
             selected_recipes = q1.multiselect("配方編號（可多選）", options=recipe_choices)
