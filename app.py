@@ -5620,10 +5620,13 @@ if menu == "代工管理":
                         if "代工單號" in df_delivery.columns else pd.DataFrame()
                     total_delivered = df_this_delivery["送達數量"].astype(float).sum() \
                         if not df_this_delivery.empty else 0.0
-                    oem_qty   = float(oem_row.get("代工數量", 0))
-                    remaining = oem_qty - total_delivered
+                    oem_qty = float(oem_row.get("代工數量", 0))
+                    # 送達上限以「目標載回數量」為準，避免建立代工單時的預設代工數量（如 100kg）
+                    # 無法覆蓋實際送達數量（例如含管料/色粉後為 106.76kg）。
+                    delivery_limit = float(new_target_qty) if float(new_target_qty) > 0 else oem_qty
+                    remaining = delivery_limit - total_delivered
 
-                    st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg")
+                    st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg（上限：{delivery_limit} kg）")
 
                     is_closed = oem_row.get("狀態") == "✅ 已結案"
                     if is_closed:
@@ -5776,7 +5779,7 @@ if menu == "代工管理":
                             )
 
                             new_total_delivered = total_delivered + delivery_qty
-                            new_remaining       = oem_qty - new_total_delivered
+                            new_remaining = delivery_limit - new_total_delivered
 
                             if new_remaining <= 0 and oem_row.get("狀態") != "✅ 已結案":
                                 update_oem_status(selected_oem, "⏳ 未載回")
