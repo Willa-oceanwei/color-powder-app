@@ -5565,6 +5565,8 @@ if menu == "代工管理":
                             _safe_float(oem_row.get("代工數量", 0), 0.0)
                         )
                         st.session_state.delivery_qty = 0.0
+                        st.session_state.delivery_edit_confirmed = False
+                        st.session_state.pending_delivery_edit = False
 
                     col1, col2, col3 = st.columns(3)
                     col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
@@ -5729,8 +5731,15 @@ if menu == "代工管理":
                             or float(new_target_qty) != _safe_float(oem_row.get("目標載回數量", oem_row.get("代工數量", 0)), 0.0)
                             or float(new_multiplier) != _safe_float(oem_row.get("轉換倍率", 1), 1.0)
                         )
+                        require_edit_confirm = (
+                            vendor_changed
+                            and total_delivered > 0
+                            and not st.session_state.get("delivery_edit_confirmed", False)
+                        )
 
-                        if remaining <= 0 and delivery_qty > 0:
+                        if require_edit_confirm:
+                            st.session_state.pending_delivery_edit = True
+                        elif remaining <= 0 and delivery_qty > 0:
                             st.error("❌ 已全數送達，無法再新增送達紀錄")
                         elif delivery_qty <= 0 and vendor_changed:
                             if is_closed:
@@ -5738,6 +5747,7 @@ if menu == "代工管理":
                             else:
                                 persist_oem_info(new_vendor, new_remark, new_status, new_target_qty, new_multiplier)
                                 st.session_state.toast_message = {"msg": "已更新代工廠商資訊（未新增送達）", "icon": "🏭"}
+                                st.session_state.delivery_edit_confirmed = False
                                 st.rerun()
                         elif delivery_qty <= 0:
                             st.warning("⚠️ 請輸入正確的送達數量")
@@ -5775,7 +5785,21 @@ if menu == "代工管理":
                                 toast_msg = f"已新增送達：{delivery_date.strftime('%Y/%m/%d')} / {delivery_qty} kg"
 
                             st.session_state.toast_message = {"msg": toast_msg, "icon": "🚚"}
+                            st.session_state.delivery_edit_confirmed = False
                             st.rerun()
+
+                    if st.session_state.get("pending_delivery_edit", False):
+                        st.warning("⚠️ 偵測到本單已有送達紀錄，且代工資訊有異動。是否確認修正後再執行「新增送達」？")
+                        dc1, dc2 = st.columns(2)
+                        with dc1:
+                            if st.button("確認資訊修正", key="confirm_delivery_edit"):
+                                st.session_state.delivery_edit_confirmed = True
+                                st.session_state.pending_delivery_edit = False
+                                st.info("✅ 已確認資訊修正，請再按一次「新增送達」執行。")
+                        with dc2:
+                            if st.button("取消", key="cancel_delivery_edit"):
+                                st.session_state.delivery_edit_confirmed = False
+                                st.session_state.pending_delivery_edit = False
 
         else:
             st.info("⚠️ 目前沒有代工單，請至「新增代工單」分頁建立")
