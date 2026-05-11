@@ -5620,10 +5620,13 @@ if menu == "代工管理":
                         if "代工單號" in df_delivery.columns else pd.DataFrame()
                     total_delivered = df_this_delivery["送達數量"].astype(float).sum() \
                         if not df_this_delivery.empty else 0.0
-                    oem_qty   = float(oem_row.get("代工數量", 0))
-                    remaining = oem_qty - total_delivered
+                    oem_qty = float(oem_row.get("代工數量", 0))
+                    # 送達上限以「目標載回數量」為準，避免建立代工單時的預設代工數量（如 100kg）
+                    # 無法覆蓋實際送達數量（例如含管料/色粉後為 106.76kg）。
+                    delivery_limit = float(new_target_qty) if float(new_target_qty) > 0 else oem_qty
+                    remaining = delivery_limit - total_delivered
 
-                    st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg")
+                    st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg（上限：{delivery_limit} kg）")
 
                     is_closed = oem_row.get("狀態") == "✅ 已結案"
                     if is_closed:
@@ -5752,7 +5755,30 @@ if menu == "代工管理":
                         elif delivery_qty <= 0:
                             st.warning("⚠️ 請輸入正確的送達數量")
                         elif delivery_qty > remaining:
-                            st.error("❌ 送達數量不可超過尚餘數量")
+                            if is_closed:
+                                st.error("❌ 已結案代工單不可修改")
+                            else:
+                                # 若單次送達超過目前上限，視為實際送達量調整，將目標載回數量自動擴充到可容納本次送達
+                                adjusted_target_qty = max(float(new_target_qty), total_delivered + delivery_qty)
+                                adjusted_multiplier = (
+                                    float(new_multiplier)
+                                    if oem_qty <= 0
+                                    else adjusted_target_qty / oem_qty
+                                )
+                                persist_oem_info(
+                                    new_vendor,
+                                    new_remark,
+                                    new_status,
+                                    adjusted_target_qty,
+                                    adjusted_multiplier
+                                )
+                                st.session_state.oem_target_qty = adjusted_target_qty
+                                st.session_state.oem_multiplier = adjusted_multiplier
+                                st.session_state.toast_message = {
+                                    "msg": f"已自動調整目標載回數量為 {adjusted_target_qty:.2f} kg，請再次點擊「新增送達」",
+                                    "icon": "📦"
+                                }
+                                st.rerun()
                         else:
                             if vendor_changed and not is_closed:
                                 persist_oem_info(new_vendor, new_remark, new_status, new_target_qty, new_multiplier)
@@ -5776,7 +5802,7 @@ if menu == "代工管理":
                             )
 
                             new_total_delivered = total_delivered + delivery_qty
-                            new_remaining       = oem_qty - new_total_delivered
+                            new_remaining = delivery_limit - new_total_delivered
 
                             if new_remaining <= 0 and oem_row.get("狀態") != "✅ 已結案":
                                 update_oem_status(selected_oem, "⏳ 未載回")
