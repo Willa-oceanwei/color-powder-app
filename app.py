@@ -5755,7 +5755,30 @@ if menu == "代工管理":
                         elif delivery_qty <= 0:
                             st.warning("⚠️ 請輸入正確的送達數量")
                         elif delivery_qty > remaining:
-                            st.error("❌ 送達數量不可超過尚餘數量")
+                            if is_closed:
+                                st.error("❌ 已結案代工單不可修改")
+                            else:
+                                # 若單次送達超過目前上限，視為實際送達量調整，將目標載回數量自動擴充到可容納本次送達
+                                adjusted_target_qty = max(float(new_target_qty), total_delivered + delivery_qty)
+                                adjusted_multiplier = (
+                                    float(new_multiplier)
+                                    if oem_qty <= 0
+                                    else adjusted_target_qty / oem_qty
+                                )
+                                persist_oem_info(
+                                    new_vendor,
+                                    new_remark,
+                                    new_status,
+                                    adjusted_target_qty,
+                                    adjusted_multiplier
+                                )
+                                st.session_state.oem_target_qty = adjusted_target_qty
+                                st.session_state.oem_multiplier = adjusted_multiplier
+                                st.session_state.toast_message = {
+                                    "msg": f"已自動調整目標載回數量為 {adjusted_target_qty:.2f} kg，請再次點擊「新增送達」",
+                                    "icon": "📦"
+                                }
+                                st.rerun()
                         else:
                             if vendor_changed and not is_closed:
                                 persist_oem_info(new_vendor, new_remark, new_status, new_target_qty, new_multiplier)
