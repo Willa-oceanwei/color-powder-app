@@ -8162,14 +8162,23 @@ elif menu == "庫存區":
 
         with subtab_form:
             st.caption("ℹ️ 此分頁資料為獨立管理，不與其他庫存分頁互通。")
-            edit_options = ["新增一筆新資料"] + [
+
+            action_mode = st.radio("作業模式", ["新增", "修改", "刪除"], horizontal=True, key="cust_stock_action_mode")
+
+            edit_options = [
                 f"列 {i+2}｜{str(r['客戶名稱']).strip()}｜{str(r['配方編號']).strip()}｜{str(r['顏色']).strip()}｜{str(r['數量']).strip()} {str(r['單位']).strip()}"
                 for i, r in df_customer_stock.reset_index(drop=True).iterrows()
             ]
-            selected_edit = st.selectbox("選擇作業資料", edit_options, key="cust_stock_edit_pick")
-            is_new = selected_edit == "新增一筆新資料"
-            target_idx = edit_options.index(selected_edit) - 1
-            target_row = df_customer_stock.iloc[target_idx] if (not is_new and 0 <= target_idx < len(df_customer_stock)) else None
+
+            target_idx = -1
+            target_row = None
+            if action_mode in ["修改", "刪除"]:
+                if not edit_options:
+                    st.info("目前沒有可供修改/刪除的資料。")
+                else:
+                    selected_edit = st.selectbox("選擇要處理的資料", edit_options, key="cust_stock_edit_pick")
+                    target_idx = edit_options.index(selected_edit)
+                    target_row = df_customer_stock.iloc[target_idx]
 
             with st.form("customer_stock_form"):
                 r1c1, r1c2, r1c3, r1c4 = st.columns(4)
@@ -8180,47 +8189,69 @@ elif menu == "庫存區":
                     index=0 if target_row is None else (["（請選擇）"] + recipe_choices).index(target_row.get("配方編號", "")) if target_row.get("配方編號", "") in recipe_choices else 0)
                 recipe_manual = r1c4.text_input("配方編號（手動輸入）", value="" if target_row is None else str(target_row.get("配方編號", "")))
 
+                recipe_no_preview = (recipe_manual.strip() or ("" if recipe_from_dropdown == "（請選擇）" else recipe_from_dropdown.strip()))
+                recipe_color_map = {}
+                df_recipe_for_color = st.session_state.get("df_recipe", pd.DataFrame()).copy()
+                if not df_recipe_for_color.empty and "配方編號" in df_recipe_for_color.columns:
+                    color_col = "顏色" if "顏色" in df_recipe_for_color.columns else ("色號" if "色號" in df_recipe_for_color.columns else None)
+                    if color_col:
+                        for _, rec in df_recipe_for_color.iterrows():
+                            rid = str(rec.get("配方編號", "")).strip()
+                            cval = str(rec.get(color_col, "")).strip()
+                            if rid and cval and rid not in recipe_color_map:
+                                recipe_color_map[rid] = cval
+
+                auto_color = recipe_color_map.get(recipe_no_preview, "") if recipe_no_preview else ""
                 color_default = "" if target_row is None else str(target_row.get("顏色", ""))
+                if action_mode == "新增" and auto_color:
+                    color_default = auto_color
+
                 r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-                color_input = r2c1.text_input("顏色", value=color_default)
+                color_input = r2c1.text_input("顏色", value=color_default, help="若配方已存在且有顏色資料，新增模式會自動帶入。")
                 qty_input = r2c2.number_input("數量", min_value=0.0, value=float(target_row.get("數量", 0) or 0) if target_row is not None else 0.0, step=1.0)
                 unit_input = r2c3.selectbox("單位", ["g", "kg", "桶", "罐", "箱", "包"], index=["g", "kg", "桶", "罐", "箱", "包"].index(str(target_row.get("單位", "g"))) if target_row is not None and str(target_row.get("單位", "g")) in ["g", "kg", "桶", "罐", "箱", "包"] else 0)
                 note_input = r2c4.text_input("備註", value="" if target_row is None else str(target_row.get("備註", "")))
 
-                b1, b2, b3 = st.columns(3)
-                submit_add = b1.form_submit_button("💾 新增" if is_new else "💾 儲存修改")
-                submit_update = b2.form_submit_button("✏️ 覆蓋修改") if not is_new else False
-                submit_delete = b3.form_submit_button("🗑️ 刪除") if not is_new else False
+                submit_action = st.form_submit_button(f"✅ 執行{action_mode}")
 
             customer_name = (customer_manual.strip() or ("" if customer_from_dropdown == "（請選擇）" else customer_from_dropdown.strip()))
             recipe_no = (recipe_manual.strip() or ("" if recipe_from_dropdown == "（請選擇）" else recipe_from_dropdown.strip()))
 
-            if submit_add or submit_update:
-                if not customer_name or not recipe_no:
-                    st.warning("⚠️ 客戶名稱與配方編號為必填。")
-                elif not color_input.strip():
-                    st.warning("⚠️ 顏色為必填。")
-                else:
-                    now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    payload = [customer_name, recipe_no, color_input.strip(), qty_input, unit_input, note_input.strip(), now_text, now_text]
-                    if is_new:
-                        ws_customer_stock.append_row(payload)
-                        st.success(f"✅ 已新增 {customer_name} / {recipe_no} 庫存資料")
+            if submit_action:
+                if action_mode == "刪除":
+                    if target_row is None or target_idx < 0:
+                        st.warning("⚠️ 請先選擇要刪除的資料。")
                     else:
                         row_no = target_idx + 2
-                        old_created = str(target_row.get("建立時間", "")).strip() if target_row is not None else ""
-                        payload[6] = old_created or now_text
-                        ws_customer_stock.update(f"A{row_no}:H{row_no}", [payload])
-                        st.success(f"✅ 已更新第 {row_no} 列資料")
-                    invalidate_sheet_cache("個別客戶庫存")
-                    st.rerun()
-
-            if submit_delete and not is_new:
-                row_no = target_idx + 2
-                ws_customer_stock.delete_rows(row_no)
-                invalidate_sheet_cache("個別客戶庫存")
-                st.success(f"✅ 已刪除第 {row_no} 列資料")
-                st.rerun()
+                        ws_customer_stock.delete_rows(row_no)
+                        invalidate_sheet_cache("個別客戶庫存")
+                        st.success(f"✅ 已刪除第 {row_no} 列資料")
+                        st.toast(f"已刪除：{str(target_row.get('客戶名稱', '')).strip()} / {str(target_row.get('配方編號', '')).strip()}", icon="🗑️")
+                        st.rerun()
+                else:
+                    if not customer_name or not recipe_no:
+                        st.warning("⚠️ 客戶名稱與配方編號為必填。")
+                    elif not color_input.strip():
+                        st.warning("⚠️ 顏色為必填。")
+                    else:
+                        now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        payload = [customer_name, recipe_no, color_input.strip(), qty_input, unit_input, note_input.strip(), now_text, now_text]
+                        if action_mode == "新增":
+                            ws_customer_stock.append_row(payload)
+                            st.success(f"✅ 已新增 {customer_name} / {recipe_no} 庫存資料")
+                            st.toast(f"已新增：{customer_name} / {recipe_no}", icon="✅")
+                        else:
+                            if target_row is None or target_idx < 0:
+                                st.warning("⚠️ 請先選擇要修改的資料。")
+                            else:
+                                row_no = target_idx + 2
+                                old_created = str(target_row.get("建立時間", "")).strip() if target_row is not None else ""
+                                payload[6] = old_created or now_text
+                                ws_customer_stock.update(f"A{row_no}:H{row_no}", [payload])
+                                st.success(f"✅ 已更新第 {row_no} 列資料")
+                                st.toast(f"已修改：{customer_name} / {recipe_no}", icon="✏️")
+                        invalidate_sheet_cache("個別客戶庫存")
+                        st.rerun()
 
         with subtab_query:
             st.caption("ℹ️ 可用配方編號多條件篩選，輸入關鍵字快速查詢。")
