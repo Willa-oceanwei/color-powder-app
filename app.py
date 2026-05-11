@@ -8172,22 +8172,20 @@ elif menu == "庫存區":
             target_row = df_customer_stock.iloc[target_idx] if (not is_new and 0 <= target_idx < len(df_customer_stock)) else None
 
             with st.form("customer_stock_form"):
-                c1, c2 = st.columns(2)
-                customer_from_dropdown = c1.selectbox("客戶名稱（下拉）", ["（請選擇）"] + customer_choices,
+                r1c1, r1c2, r1c3, r1c4 = st.columns(4)
+                customer_from_dropdown = r1c1.selectbox("客戶名稱（下拉）", ["（請選擇）"] + customer_choices,
                     index=0 if target_row is None else (["（請選擇）"] + customer_choices).index(target_row.get("客戶名稱", "")) if target_row.get("客戶名稱", "") in customer_choices else 0)
-                customer_manual = c2.text_input("客戶名稱（手動輸入）", value="" if target_row is None else str(target_row.get("客戶名稱", "")))
-
-                c3, c4 = st.columns(2)
-                recipe_from_dropdown = c3.selectbox("配方編號（下拉）", ["（請選擇）"] + recipe_choices,
+                customer_manual = r1c2.text_input("客戶名稱（手動輸入）", value="" if target_row is None else str(target_row.get("客戶名稱", "")))
+                recipe_from_dropdown = r1c3.selectbox("配方編號（下拉）", ["（請選擇）"] + recipe_choices,
                     index=0 if target_row is None else (["（請選擇）"] + recipe_choices).index(target_row.get("配方編號", "")) if target_row.get("配方編號", "") in recipe_choices else 0)
-                recipe_manual = c4.text_input("配方編號（手動輸入）", value="" if target_row is None else str(target_row.get("配方編號", "")))
+                recipe_manual = r1c4.text_input("配方編號（手動輸入）", value="" if target_row is None else str(target_row.get("配方編號", "")))
 
                 color_default = "" if target_row is None else str(target_row.get("顏色", ""))
-                color_input = st.text_input("顏色", value=color_default)
-                c5, c6 = st.columns(2)
-                qty_input = c5.number_input("數量", min_value=0.0, value=float(target_row.get("數量", 0) or 0) if target_row is not None else 0.0, step=1.0)
-                unit_input = c6.selectbox("單位", ["g", "kg", "桶", "罐", "箱", "包"], index=["g", "kg", "桶", "罐", "箱", "包"].index(str(target_row.get("單位", "g"))) if target_row is not None and str(target_row.get("單位", "g")) in ["g", "kg", "桶", "罐", "箱", "包"] else 0)
-                note_input = st.text_area("備註", value="" if target_row is None else str(target_row.get("備註", "")))
+                r2c1, r2c2, r2c3, r2c4 = st.columns(4)
+                color_input = r2c1.text_input("顏色", value=color_default)
+                qty_input = r2c2.number_input("數量", min_value=0.0, value=float(target_row.get("數量", 0) or 0) if target_row is not None else 0.0, step=1.0)
+                unit_input = r2c3.selectbox("單位", ["g", "kg", "桶", "罐", "箱", "包"], index=["g", "kg", "桶", "罐", "箱", "包"].index(str(target_row.get("單位", "g"))) if target_row is not None and str(target_row.get("單位", "g")) in ["g", "kg", "桶", "罐", "箱", "包"] else 0)
+                note_input = r2c4.text_input("備註", value="" if target_row is None else str(target_row.get("備註", "")))
 
                 b1, b2, b3 = st.columns(3)
                 submit_add = b1.form_submit_button("💾 新增" if is_new else "💾 儲存修改")
