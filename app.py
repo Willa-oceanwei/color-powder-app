@@ -8161,7 +8161,6 @@ elif menu == "庫存區":
         subtab_form, subtab_query = st.tabs(["☑️ 新增/修改/刪除庫存", "🔍 個別客戶庫存查詢"])
 
         with subtab_form:
-            st.markdown("### 👤 個別客戶庫存維護")
             st.caption("ℹ️ 此分頁資料為獨立管理，不與其他庫存分頁互通。")
 
             st.markdown("---")
@@ -8260,7 +8259,6 @@ elif menu == "庫存區":
                         st.rerun()
 
         with subtab_query:
-            st.markdown("### 🔍 個別客戶庫存查詢")
             st.caption("ℹ️ 可用配方編號多條件篩選，輸入關鍵字快速查詢。")
             q1, q2 = st.columns([2, 3])
             selected_recipes = q1.multiselect("配方編號（可多選）", options=recipe_choices)
