@@ -8174,8 +8174,20 @@ elif menu == "庫存區":
             if col not in df_customer_stock.columns:
                 df_customer_stock[col] = ""
 
+        df_customer_src = st.session_state.get("df_customer", pd.DataFrame()).copy()
+        df_recipe_customers = st.session_state.get("_recipe_customers", pd.DataFrame()).copy()
+        customer_master_set = set()
+        if not df_customer_src.empty:
+            name_col = "客戶名稱" if "客戶名稱" in df_customer_src.columns else ("客戶簡稱" if "客戶簡稱" in df_customer_src.columns else None)
+            if name_col:
+                customer_master_set |= {str(v).strip() for v in df_customer_src[name_col].tolist() if str(v).strip()}
+        if not df_recipe_customers.empty:
+            for name_col in ["客戶名稱", "客戶簡稱"]:
+                if name_col in df_recipe_customers.columns:
+                    customer_master_set |= {str(v).strip() for v in df_recipe_customers[name_col].tolist() if str(v).strip()}
+
         customer_choices = sorted(
-            {str(v).strip() for v in st.session_state.get("df_customer", pd.DataFrame()).get("客戶名稱", pd.Series(dtype=str)).tolist() if str(v).strip()}
+            customer_master_set
             | {str(v).strip() for v in df_customer_stock["客戶名稱"].tolist() if str(v).strip()}
         )
 
@@ -8226,12 +8238,17 @@ elif menu == "庫存區":
                     color_col = "顏色" if "顏色" in df_recipe_for_color.columns else ("色號" if "色號" in df_recipe_for_color.columns else None)
                     if color_col:
                         for _, rec in df_recipe_for_color.iterrows():
-                            rid = str(rec.get("配方編號", "")).strip()
+                            rid_raw = str(rec.get("配方編號", "")).strip()
+                            rid_norm = fix_leading_zero(clean_powder_id(rid_raw))
                             cval = str(rec.get(color_col, "")).strip()
-                            if rid and cval and rid not in recipe_color_map:
-                                recipe_color_map[rid] = cval
+                            if cval:
+                                if rid_raw and rid_raw not in recipe_color_map:
+                                    recipe_color_map[rid_raw] = cval
+                                if rid_norm and rid_norm not in recipe_color_map:
+                                    recipe_color_map[rid_norm] = cval
 
-                auto_color = recipe_color_map.get(recipe_no_preview, "") if recipe_no_preview else ""
+                recipe_no_norm = fix_leading_zero(clean_powder_id(recipe_no_preview)) if recipe_no_preview else ""
+                auto_color = recipe_color_map.get(recipe_no_preview, "") or recipe_color_map.get(recipe_no_norm, "")
                 color_default = "" if target_row is None else str(target_row.get("顏色", ""))
                 if action_mode == "新增" and auto_color:
                     color_default = auto_color
