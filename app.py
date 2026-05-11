@@ -8285,22 +8285,31 @@ elif menu == "庫存區":
                         st.rerun()
 
         with subtab_query:
-            st.caption("ℹ️ 可用配方編號多條件篩選，輸入關鍵字快速查詢。")
-            q1, q2 = st.columns([2, 3])
-            selected_recipes = q1.multiselect("配方編號（可多選）", options=recipe_choices)
-            keyword = q2.text_input("配方編號關鍵字", placeholder="例如：常勝")
+            st.caption("ℹ️ 以客戶名稱為主體查詢，可搭配配方編號與顏色條件。")
 
-            query_df = df_customer_stock.copy()
-            if selected_recipes:
-                query_df = query_df[query_df["配方編號"].astype(str).isin(selected_recipes)]
-            if keyword.strip():
-                query_df = query_df[query_df["配方編號"].astype(str).str.contains(keyword.strip(), case=False, na=False)]
+            with st.form("customer_stock_query_form"):
+                q1, q2, q3 = st.columns([2, 2, 2])
+                selected_recipes = q1.multiselect("配方編號（可多選）", options=recipe_choices)
+                customer_keyword = q2.text_input("客戶名稱搜尋", placeholder="例如：常勝")
+                color_keyword = q3.text_input("顏色搜尋", placeholder="例如：藍、黑、T9")
+                submit_query = st.form_submit_button("🔍 查詢")
 
-            show_cols = ["客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "更新時間"]
-            if query_df.empty:
-                st.info("查無符合條件的個別客戶庫存資料。")
+            if submit_query:
+                query_df = df_customer_stock.copy()
+                if selected_recipes:
+                    query_df = query_df[query_df["配方編號"].astype(str).isin(selected_recipes)]
+                if customer_keyword.strip():
+                    query_df = query_df[query_df["客戶名稱"].astype(str).str.contains(customer_keyword.strip(), case=False, na=False)]
+                if color_keyword.strip():
+                    query_df = query_df[query_df["顏色"].astype(str).str.contains(color_keyword.strip(), case=False, na=False)]
+
+                show_cols = ["客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "更新時間"]
+                if query_df.empty:
+                    st.info("查無符合條件的個別客戶庫存資料。")
+                else:
+                    st.dataframe(query_df[show_cols], use_container_width=True, hide_index=True)
             else:
-                st.dataframe(query_df[show_cols], use_container_width=True, hide_index=True)
+                st.caption("請先設定查詢條件後按下「🔍 查詢」。")
 
    
     # ====================================================================
