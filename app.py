@@ -8323,8 +8323,10 @@ elif menu == "庫存區":
                 show_cols = ["客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "更新時間"]
                 if query_df.empty:
                     st.info("查無符合條件的個別客戶庫存資料。")
+                    st.toast("查詢完成：0 筆資料", icon="ℹ️")
                 else:
                     st.dataframe(query_df[show_cols], use_container_width=True, hide_index=True)
+                    st.toast(f"查詢完成：{len(query_df)} 筆資料", icon="✅")
             else:
                 st.caption("請先設定查詢條件後按下「🔍 查詢」。")
 
