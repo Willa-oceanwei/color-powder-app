@@ -8211,15 +8211,16 @@ elif menu == "庫存區":
                     st.info("目前沒有可供修改/刪除的資料。")
                 else:
                     st.markdown("**🔽 選擇資料進行修改/刪除**")
-                    option_indices = list(df_customer_stock.index)
+                    option_indices = [None] + list(df_customer_stock.index)
                     selected_index = st.selectbox(
                         "選擇資料",
                         options=option_indices,
                         key="cust_stock_edit_pick",
-                        format_func=lambda i: f"列 {i+2} | {str(df_customer_stock.at[i, '客戶名稱']).strip()} | {str(df_customer_stock.at[i, '配方編號']).strip()} | {str(df_customer_stock.at[i, '顏色']).strip()} | {str(df_customer_stock.at[i, '數量']).strip()} {str(df_customer_stock.at[i, '單位']).strip()}"
+                        format_func=lambda i: "（請先選擇一筆資料）" if i is None else f"列 {i+2} | {str(df_customer_stock.at[i, '客戶名稱']).strip()} | {str(df_customer_stock.at[i, '配方編號']).strip()} | {str(df_customer_stock.at[i, '顏色']).strip()} | {str(df_customer_stock.at[i, '數量']).strip()} {str(df_customer_stock.at[i, '單位']).strip()}"
                     )
-                    target_idx = int(selected_index)
-                    target_row = df_customer_stock.loc[selected_index]
+                    if selected_index is not None:
+                        target_idx = int(selected_index)
+                        target_row = df_customer_stock.loc[selected_index]
 
             with st.form("customer_stock_form"):
                 st.markdown("<div style='font-size:12px; color:#9fb6cc;'>客戶與配方資訊</div>", unsafe_allow_html=True)
@@ -8285,6 +8286,19 @@ elif menu == "庫存區":
                         now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         payload = [customer_name, recipe_no, color_input.strip(), qty_input, unit_input, note_input.strip(), now_text, now_text]
                         if action_mode == "新增":
+                            dup_mask = (
+                                (df_customer_stock["客戶名稱"].astype(str).str.strip() == customer_name.strip()) &
+                                (df_customer_stock["配方編號"].astype(str).str.strip() == recipe_no.strip()) &
+                                (df_customer_stock["顏色"].astype(str).str.strip() == color_input.strip())
+                            )
+                            dup_count = int(dup_mask.sum())
+                            dup_confirm_key = f"_cust_stock_dup_confirm_{customer_name}|{recipe_no}|{color_input.strip()}"
+                            if dup_count > 0 and st.session_state.get("_cust_stock_dup_pending") != dup_confirm_key:
+                                st.session_state["_cust_stock_dup_pending"] = dup_confirm_key
+                                st.warning(f"⚠️ 發現重複資料（{dup_count} 筆）：{customer_name} / {recipe_no} / {color_input.strip()}。若仍要新增，請再按一次『✅ 執行新增』。")
+                                st.toast("偵測到重複資料，請再次確認新增", icon="⚠️")
+                                st.stop()
+                            st.session_state.pop("_cust_stock_dup_pending", None)
                             ws_customer_stock.append_row(payload)
                             st.success(f"✅ 已新增 {customer_name} / {recipe_no} 庫存資料")
                             st.toast(f"已新增：{customer_name} / {recipe_no}", icon="✅")
