@@ -8297,6 +8297,7 @@ elif menu == "庫存區":
                 if action_mode == "刪除":
                     if target_row is None or target_idx < 0:
                         st.warning("⚠️ 請先選擇要刪除的資料。")
+                        st.toast("請先選擇要刪除的資料", icon="⚠️")
                     else:
                         row_no = target_idx + 2
                         ws_customer_stock.delete_rows(row_no)
@@ -8307,8 +8308,10 @@ elif menu == "庫存區":
                 else:
                     if not customer_name or not recipe_no:
                         st.warning("⚠️ 客戶名稱與配方編號為必填。")
+                        st.toast("客戶名稱與配方編號為必填", icon="⚠️")
                     elif not color_input.strip():
                         st.warning("⚠️ 顏色為必填。")
+                        st.toast("顏色為必填", icon="⚠️")
                     else:
                         now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         payload = [customer_name, recipe_no, color_input.strip(), qty_input, unit_input, note_input.strip(), now_text, now_text]
@@ -8332,6 +8335,7 @@ elif menu == "庫存區":
                         else:
                             if target_row is None or target_idx < 0:
                                 st.warning("⚠️ 請先選擇要修改的資料。")
+                                st.toast("請先選擇要修改的資料", icon="⚠️")
                             else:
                                 row_no = target_idx + 2
                                 old_created = str(target_row.get("建立時間", "")).strip() if target_row is not None else ""
