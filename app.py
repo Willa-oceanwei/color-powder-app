@@ -7171,6 +7171,13 @@ elif menu == "查詢區":
     
         pantone_tab_add, pantone_tab_search = st.tabs(["☑️ 新增記錄", "🔍 查詢 Pantone 色號"])
 
+        if st.session_state.get("pantone_tab_toast"):
+            st.toast(
+                st.session_state["pantone_tab_toast"].get("msg", ""),
+                icon=st.session_state["pantone_tab_toast"].get("icon", "✅"),
+            )
+            st.session_state.pop("pantone_tab_toast", None)
+
         with pantone_tab_add:
             with st.form("add_pantone_tab"):
                 col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
@@ -7195,7 +7202,10 @@ elif menu == "查詢區":
                             st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
                         else:
                             ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
-                            st.success(f"✅ 已新增：Pantone {pantone_code}（配方編號 {formula_id}）")
+                            st.session_state["pantone_tab_toast"] = {
+                                "msg": f"已新增：Pantone {pantone_code}（配方編號 {formula_id}）",
+                                "icon": "✅",
+                            }
                             st.rerun()
     
         # ====== 統一顯示 Pantone 色號表函式 ======
@@ -7397,12 +7407,10 @@ elif menu == "查詢區":
                     if st.session_state.sample_mode == "edit":
                         # ===== 修改 =====
                         df_sample.loc[st.session_state.edit_sample_index] = data
-                        st.success("✅ 樣品已更新")
                         st.session_state["sample_toast"] = {"msg": f"樣品 {data['樣品編號']} 已更新", "icon": "✏️"}
                     else:
                         # ===== 新增 =====
                         df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
-                        st.success("✅ 新增完成")
                         st.session_state["sample_toast"] = {"msg": f"樣品 {data['樣品編號']} 新增完成", "icon": "🎉"}
         
                     save_df_to_sheet(ws_sample, df_sample)
@@ -7519,7 +7527,10 @@ elif menu == "查詢區":
                                 st.session_state.sample_mode = "edit"
                                 st.session_state.edit_sample_index = real_index
                                 st.session_state.form_sample = df_sample.loc[real_index].to_dict()
-                                st.success("✅ 已載入資料，請到上方表單修改後按「💾 儲存修改」")
+                                st.session_state["sample_toast"] = {
+                                    "msg": "已載入資料，請到上方表單修改後按「💾 儲存修改」",
+                                    "icon": "✅"
+                                }
                                 st.rerun()
     
                     with delete_tab:
@@ -7543,7 +7554,6 @@ elif menu == "查詢區":
                                 st.session_state.sample_mode = "add"
                                 st.session_state.edit_sample_index = None
                                 st.session_state.form_sample = {}
-                                st.success(f"✅ 已刪除樣品：{row['樣品編號']} {row['樣品名稱']}")
                                 st.session_state["sample_toast"] = {"msg": f"已刪除樣品 {row['樣品編號']}", "icon": "🗑️"}
                                 st.rerun()
             else:
@@ -7679,32 +7689,41 @@ elif menu == "庫存區":
             (df_order_local["生產時間"] <= e_dt)
         ]
     
+        # 先建一次「主配方 + 附加配方」查找表，避免每筆訂單都重複篩選 DataFrame
+        recipe_rows_map = {}
+        if not df_recipe.empty and "配方編號" in df_recipe.columns:
+            recipe_df_local = df_recipe.copy()
+            recipe_df_local["_rid_norm"] = recipe_df_local["配方編號"].map(normalize_recipe_id)
+
+            add_by_base = {}
+            if "配方類別" in recipe_df_local.columns and "原始配方" in recipe_df_local.columns:
+                add_df = recipe_df_local[
+                    recipe_df_local["配方類別"].astype(str).str.strip() == "附加配方"
+                ].copy()
+                if not add_df.empty:
+                    add_df["_base_norm"] = add_df["原始配方"].map(normalize_recipe_id)
+                    for base_id, grp in add_df.groupby("_base_norm", dropna=False):
+                        add_by_base[base_id] = grp.to_dict("records")
+
+            for rid, grp in recipe_df_local.groupby("_rid_norm", dropna=False):
+                if not rid:
+                    continue
+                rows = [grp.iloc[0].to_dict()]
+                rows.extend(add_by_base.get(rid, []))
+                recipe_rows_map[rid] = rows
+
         for _, order in orders_in_range.iterrows():
             packs_total_kg = calc_packs_total_kg(order)
-    
+
             if packs_total_kg <= 0:
                 continue
-    
+
             order_recipe_id = normalize_recipe_id(order.get("配方編號", ""))
             if not order_recipe_id:
                 continue
-    
-            # 取得主配方與附加配方
-            recipe_rows = []
-            if not df_recipe.empty:
-                recipe_norm = df_recipe["配方編號"].map(normalize_recipe_id)
-                main_df = df_recipe[recipe_norm == order_recipe_id]
-                if not main_df.empty:
-                    recipe_rows.append(main_df.iloc[0].to_dict())
-                if "配方類別" in df_recipe.columns and "原始配方" in df_recipe.columns:
-                    base_norm = df_recipe["原始配方"].map(normalize_recipe_id)
-                    add_df = df_recipe[
-                        (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
-                        (base_norm == order_recipe_id)
-                    ]
-                    if not add_df.empty:
-                        recipe_rows.extend(add_df.to_dict("records"))
-    
+
+            recipe_rows = recipe_rows_map.get(order_recipe_id, [])
+
             for rec in recipe_rows:
                 rec_id = normalize_recipe_id(rec.get("配方編號", ""))
     
@@ -7913,7 +7932,15 @@ elif menu == "庫存區":
             else:
                 ini_effective_start_dt = ini_dt
 
-            calc_start_dt = max(start_dt, ini_effective_start_dt) if pd.notna(ini_effective_start_dt) else start_dt
+            if pd.notna(ini_effective_start_dt):
+                calc_start_dt = max(start_dt, ini_effective_start_dt)
+            else:
+                # 沒有期初時，至少從該色粉最早庫存紀錄日開始，避免從 Timestamp.min 掃描全歷史
+                earliest_stock_dt = pd.to_datetime(df_pid["日期時間"], errors="coerce").min()
+                if pd.notna(earliest_stock_dt):
+                    calc_start_dt = max(start_dt, earliest_stock_dt.normalize())
+                else:
+                    calc_start_dt = start_dt
 
             purchase_types = {"進貨", "新增庫存"}
             in_qty = df_pid[
