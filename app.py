@@ -5929,10 +5929,7 @@ if menu == "代工管理":
                             remaining_after = target_qty - new_total
 
                             if remaining_after <= 0 and target_qty > 0:
-                                status_col_idx = int(df_oem.columns.get_loc("狀態")) + 1
-                                ws_oem.update_cell(row=oem_idx + 2, col=status_col_idx, value="✅ 已結案")
-                                # ✅ 同步 session_state
-                                st.session_state.df_oem.loc[oem_idx, "狀態"] = "✅ 已結案"
+                                update_oem_status(selected_oem, "✅ 已結案")
                                 if new_total > target_qty:
                                     over_qty = new_total - target_qty
                                     st.session_state.toast_msg = f"🎉 載回完成並超收 {over_qty:.2f} kg，代工單已結案"
