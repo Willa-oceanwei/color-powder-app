@@ -5890,6 +5890,19 @@ if menu == "代工管理":
                         return_qty  = col_r2.number_input("載回數量 (kg)", min_value=0.0, step=1.0, key="return_qty_input")
                         submitted   = st.form_submit_button("➕ 新增載回")
 
+                    close_col1, close_col2 = st.columns([1, 3])
+                    manual_close = close_col1.button("✅ 手動結案（短收/特例）", key="force_close_oem_return")
+                    close_col2.caption("當『已載回』與『目標載回數量』不一致但需結案時可使用。")
+
+                    if manual_close:
+                        if str(oem_row.get("狀態", "")).strip() == "✅ 已結案":
+                            st.warning("⚠️ 此代工單已結案")
+                        else:
+                            update_oem_status(selected_oem, "✅ 已結案")
+                            st.session_state.toast_msg = "已手動結案（適用短收/特例）"
+                            st.session_state.toast_icon = "✅"
+                            st.session_state["rerun_after_return_save"] = True
+
                     if submitted:
                         if return_qty <= 0:
                             st.warning("⚠️ 請輸入載回數量")
@@ -5916,10 +5929,7 @@ if menu == "代工管理":
                             remaining_after = target_qty - new_total
 
                             if remaining_after <= 0 and target_qty > 0:
-                                status_col_idx = int(df_oem.columns.get_loc("狀態")) + 1
-                                ws_oem.update_cell(row=oem_idx + 2, col=status_col_idx, value="✅ 已結案")
-                                # ✅ 同步 session_state
-                                st.session_state.df_oem.loc[oem_idx, "狀態"] = "✅ 已結案"
+                                update_oem_status(selected_oem, "✅ 已結案")
                                 if new_total > target_qty:
                                     over_qty = new_total - target_qty
                                     st.session_state.toast_msg = f"🎉 載回完成並超收 {over_qty:.2f} kg，代工單已結案"
@@ -5976,8 +5986,8 @@ if menu == "代工管理":
                 target_qty     = _safe_float(oem.get("目標載回數量", total_qty), total_qty)
                 if target_qty <= 0:
                     target_qty = total_qty
-                total_returned = df_this_return["載回數量"].astype(float).sum() \
-                    if not df_this_return.empty else 0.0
+                total_returned = df_this_return["載回數量"].astype(float).sum()                     if not df_this_return.empty else 0.0
+                total_delivered = df_this_delivery["送達數量"].astype(float).sum()                     if not df_this_delivery.empty else 0.0
 
                 manual_status = str(oem.get("狀態", "")).strip()
                 if manual_status:
@@ -5985,14 +5995,18 @@ if menu == "代工管理":
                 else:
                     status = compute_oem_progress_status(oem, total_returned)
 
-                variance_qty = total_returned - target_qty
+                # 手動結案但尚無載回紀錄時，進度表以送達量作為差異顯示基準，避免整筆目標量被判定短收。
+                effective_returned = total_returned
+                if status == "✅ 已結案" and total_returned <= 0 and total_delivered > 0:
+                    effective_returned = total_delivered
+
+                variance_qty = effective_returned - target_qty
                 if variance_qty > 0:
                     variance_text = f"超收 {variance_qty:.2f} kg"
                 elif variance_qty < 0:
                     variance_text = f"短收 {abs(variance_qty):.2f} kg"
                 else:
                     variance_text = "剛好達標"
-
                 progress_data.append({
                     "status_order":   status_order_map.get(status, 99),
                     "狀態":           status,
