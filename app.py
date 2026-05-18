@@ -5923,7 +5923,7 @@ if menu == "代工管理":
 
                         action_col1, action_col2, action_col3 = st.columns([1, 1, 3])
                         submitted = action_col1.form_submit_button("➕ 新增載回")
-                        manual_close = action_col2.form_submit_button("✅ 手動結案（短收/特例）")
+                        manual_close = action_col2.form_submit_button("✅ 手動結案")
                         action_col3.caption("當『已載回』與『目標載回數量』不一致但需結案時可使用。")
 
                     if manual_close:
