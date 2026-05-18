@@ -8225,6 +8225,19 @@ elif menu == "庫存區":
 
         subtab_form, subtab_query = st.tabs(["☑️ 新增/修改/刪除庫存", "🔍 個別客戶庫存查詢"])
 
+        cust_stock_flash = st.session_state.pop("_cust_stock_flash", None)
+        if cust_stock_flash:
+            flash_level = cust_stock_flash.get("level", "info")
+            flash_msg = cust_stock_flash.get("msg", "")
+            flash_icon = cust_stock_flash.get("icon", "ℹ️")
+            if flash_level == "success":
+                st.success(flash_msg)
+            elif flash_level == "warning":
+                st.warning(flash_msg)
+            else:
+                st.info(flash_msg)
+            st.toast(flash_msg, icon=flash_icon)
+
         with subtab_form:
             st.caption("ℹ️ 此分頁資料為獨立管理，不與其他庫存分頁互通。")
 
@@ -8302,8 +8315,11 @@ elif menu == "庫存區":
                         row_no = target_idx + 2
                         ws_customer_stock.delete_rows(row_no)
                         invalidate_sheet_cache("個別客戶庫存")
-                        st.success(f"✅ 已刪除第 {row_no} 列資料")
-                        st.toast(f"已刪除：{str(target_row.get('客戶名稱', '')).strip()} / {str(target_row.get('配方編號', '')).strip()}", icon="🗑️")
+                        st.session_state["_cust_stock_flash"] = {
+                            "level": "success",
+                            "msg": f"✅ 已刪除第 {row_no} 列資料",
+                            "icon": "🗑️"
+                        }
                         st.rerun()
                 else:
                     if not customer_name or not recipe_no:
@@ -8314,24 +8330,40 @@ elif menu == "庫存區":
                         st.toast("顏色為必填", icon="⚠️")
                     else:
                         now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        payload = [customer_name, recipe_no, color_input.strip(), qty_input, unit_input, note_input.strip(), now_text, now_text]
+                        short_date = datetime.now().strftime("%m/%d")
+                        event_note = f"（{short_date}）新增{qty_input:g}{unit_input}"
+                        input_note = note_input.strip() if note_input.strip() else event_note
+                        payload = [customer_name, recipe_no, color_input.strip(), qty_input, unit_input, input_note, now_text, now_text]
                         if action_mode == "新增":
-                            dup_mask = (
+                            same_key_mask = (
                                 (df_customer_stock["客戶名稱"].astype(str).str.strip() == customer_name.strip()) &
                                 (df_customer_stock["配方編號"].astype(str).str.strip() == recipe_no.strip()) &
-                                (df_customer_stock["顏色"].astype(str).str.strip() == color_input.strip())
+                                (df_customer_stock["顏色"].astype(str).str.strip() == color_input.strip()) &
+                                (pd.to_numeric(df_customer_stock["數量"], errors="coerce").fillna(-1) == float(qty_input)) &
+                                (df_customer_stock["單位"].astype(str).str.strip() == unit_input.strip())
                             )
-                            dup_count = int(dup_mask.sum())
-                            dup_confirm_key = f"_cust_stock_dup_confirm_{customer_name}|{recipe_no}|{color_input.strip()}"
-                            if dup_count > 0 and st.session_state.get("_cust_stock_dup_pending") != dup_confirm_key:
+                            recent_dup_count = 0
+                            if same_key_mask.any() and "建立時間" in df_customer_stock.columns:
+                                recent_df = df_customer_stock.loc[same_key_mask].copy()
+                                recent_df["_dt"] = pd.to_datetime(recent_df["建立時間"], errors="coerce")
+                                recent_df = recent_df.dropna(subset=["_dt"])
+                                if not recent_df.empty:
+                                    latest_dup_dt = recent_df["_dt"].max()
+                                    recent_dup_count = int((datetime.now() - latest_dup_dt.to_pydatetime()).total_seconds() <= 120)
+
+                            dup_confirm_key = f"_cust_stock_dup_confirm_{customer_name}|{recipe_no}|{color_input.strip()}|{qty_input}|{unit_input}"
+                            if recent_dup_count > 0 and st.session_state.get("_cust_stock_dup_pending") != dup_confirm_key:
                                 st.session_state["_cust_stock_dup_pending"] = dup_confirm_key
-                                st.warning(f"⚠️ 發現重複資料（{dup_count} 筆）：{customer_name} / {recipe_no} / {color_input.strip()}。若仍要新增，請再按一次『✅ 執行新增』。")
-                                st.toast("偵測到重複資料，請再次確認新增", icon="⚠️")
+                                st.warning("⚠️ 偵測到 2 分鐘內可能誤觸重覆儲存。若要繼續新增，請再按一次『✅ 執行新增』確認。")
+                                st.toast("偵測到短時間重覆儲存，請再次確認", icon="⚠️")
                                 st.stop()
                             st.session_state.pop("_cust_stock_dup_pending", None)
                             ws_customer_stock.append_row(payload)
-                            st.success(f"✅ 已新增 {customer_name} / {recipe_no} 庫存資料")
-                            st.toast(f"已新增：{customer_name} / {recipe_no}", icon="✅")
+                            st.session_state["_cust_stock_flash"] = {
+                                "level": "success",
+                                "msg": f"✅ 已新增 {customer_name} / {recipe_no} 庫存資料",
+                                "icon": "✅"
+                            }
                         else:
                             if target_row is None or target_idx < 0:
                                 st.warning("⚠️ 請先選擇要修改的資料。")
@@ -8339,10 +8371,14 @@ elif menu == "庫存區":
                             else:
                                 row_no = target_idx + 2
                                 old_created = str(target_row.get("建立時間", "")).strip() if target_row is not None else ""
+                                payload[5] = input_note
                                 payload[6] = old_created or now_text
                                 ws_customer_stock.update(f"A{row_no}:H{row_no}", [payload])
-                                st.success(f"✅ 已更新第 {row_no} 列資料")
-                                st.toast(f"已修改：{customer_name} / {recipe_no}", icon="✏️")
+                                st.session_state["_cust_stock_flash"] = {
+                                    "level": "success",
+                                    "msg": f"✅ 已更新第 {row_no} 列資料",
+                                    "icon": "✏️"
+                                }
                         invalidate_sheet_cache("個別客戶庫存")
                         st.rerun()
 
@@ -8370,8 +8406,37 @@ elif menu == "庫存區":
                     st.info("查無符合條件的個別客戶庫存資料。")
                     st.toast("查詢完成：0 筆資料", icon="ℹ️")
                 else:
-                    st.dataframe(query_df[show_cols], use_container_width=True, hide_index=True)
-                    st.toast(f"查詢完成：{len(query_df)} 筆資料", icon="✅")
+                    query_df["數量"] = pd.to_numeric(query_df["數量"], errors="coerce").fillna(0.0)
+                    query_df["更新時間_dt"] = pd.to_datetime(query_df["更新時間"], errors="coerce")
+                    query_df = query_df.sort_values("更新時間_dt", na_position="last")
+
+                    def _build_note(rows_df):
+                        chunks = []
+                        for _, r in rows_df.sort_values("更新時間_dt", na_position="last").iterrows():
+                            dt = r.get("更新時間_dt")
+                            d = dt.strftime("%m/%d") if pd.notna(dt) else "--/--"
+                            chunks.append(f"（{d}）新增{float(r.get('數量', 0)):g}{str(r.get('單位', '')).strip()}")
+                        return "，".join(chunks)
+
+                    agg_df = (
+                        query_df.groupby(["客戶名稱", "配方編號", "顏色", "單位"], dropna=False)
+                        .agg(
+                            數量=("數量", "sum"),
+                            備註=("備註", lambda s: ""),
+                            更新時間_dt=("更新時間_dt", "max")
+                        )
+                        .reset_index()
+                    )
+                    note_map = (
+                        query_df.groupby(["客戶名稱", "配方編號", "顏色", "單位"], dropna=False)
+                        .apply(_build_note)
+                        .reset_index(name="備註")
+                    )
+                    agg_df = agg_df.drop(columns=["備註"]).merge(note_map, on=["客戶名稱", "配方編號", "顏色", "單位"], how="left")
+                    agg_df["更新時間"] = agg_df["更新時間_dt"].dt.strftime("%Y-%m-%d %H:%M:%S").fillna("")
+                    agg_df = agg_df.sort_values(["客戶名稱", "配方編號", "顏色", "單位"]).reset_index(drop=True)
+                    st.dataframe(agg_df[show_cols], use_container_width=True, hide_index=True)
+                    st.toast(f"查詢完成：{len(agg_df)} 筆彙總資料", icon="✅")
             else:
                 st.caption("請先設定查詢條件後按下「🔍 查詢」。")
 
