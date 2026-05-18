@@ -8225,6 +8225,19 @@ elif menu == "庫存區":
 
         subtab_form, subtab_query = st.tabs(["☑️ 新增/修改/刪除庫存", "🔍 個別客戶庫存查詢"])
 
+        cust_stock_flash = st.session_state.pop("_cust_stock_flash", None)
+        if cust_stock_flash:
+            flash_level = cust_stock_flash.get("level", "info")
+            flash_msg = cust_stock_flash.get("msg", "")
+            flash_icon = cust_stock_flash.get("icon", "ℹ️")
+            if flash_level == "success":
+                st.success(flash_msg)
+            elif flash_level == "warning":
+                st.warning(flash_msg)
+            else:
+                st.info(flash_msg)
+            st.toast(flash_msg, icon=flash_icon)
+
         with subtab_form:
             st.caption("ℹ️ 此分頁資料為獨立管理，不與其他庫存分頁互通。")
 
@@ -8302,8 +8315,11 @@ elif menu == "庫存區":
                         row_no = target_idx + 2
                         ws_customer_stock.delete_rows(row_no)
                         invalidate_sheet_cache("個別客戶庫存")
-                        st.success(f"✅ 已刪除第 {row_no} 列資料")
-                        st.toast(f"已刪除：{str(target_row.get('客戶名稱', '')).strip()} / {str(target_row.get('配方編號', '')).strip()}", icon="🗑️")
+                        st.session_state["_cust_stock_flash"] = {
+                            "level": "success",
+                            "msg": f"✅ 已刪除第 {row_no} 列資料",
+                            "icon": "🗑️"
+                        }
                         st.rerun()
                 else:
                     if not customer_name or not recipe_no:
@@ -8343,8 +8359,11 @@ elif menu == "庫存區":
                                 st.stop()
                             st.session_state.pop("_cust_stock_dup_pending", None)
                             ws_customer_stock.append_row(payload)
-                            st.success(f"✅ 已新增 {customer_name} / {recipe_no} 庫存資料")
-                            st.toast(f"已新增：{customer_name} / {recipe_no}", icon="✅")
+                            st.session_state["_cust_stock_flash"] = {
+                                "level": "success",
+                                "msg": f"✅ 已新增 {customer_name} / {recipe_no} 庫存資料",
+                                "icon": "✅"
+                            }
                         else:
                             if target_row is None or target_idx < 0:
                                 st.warning("⚠️ 請先選擇要修改的資料。")
@@ -8355,8 +8374,11 @@ elif menu == "庫存區":
                                 payload[5] = input_note
                                 payload[6] = old_created or now_text
                                 ws_customer_stock.update(f"A{row_no}:H{row_no}", [payload])
-                                st.success(f"✅ 已更新第 {row_no} 列資料")
-                                st.toast(f"已修改：{customer_name} / {recipe_no}", icon="✏️")
+                                st.session_state["_cust_stock_flash"] = {
+                                    "level": "success",
+                                    "msg": f"✅ 已更新第 {row_no} 列資料",
+                                    "icon": "✏️"
+                                }
                         invalidate_sheet_cache("個別客戶庫存")
                         st.rerun()
 
