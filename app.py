@@ -6001,10 +6001,17 @@ if menu == "代工管理":
 
             progress_data = []
 
-            for _, oem in df_oem.iterrows():
-                oem_id = oem["代工單號"]
+            df_delivery_norm = df_delivery.copy()
+            df_return_norm = df_return.copy()
+            if not df_delivery_norm.empty and "代工單號" in df_delivery_norm.columns:
+                df_delivery_norm["_代工單號_norm"] = df_delivery_norm["代工單號"].astype(str).str.strip()
+            if not df_return_norm.empty and "代工單號" in df_return_norm.columns:
+                df_return_norm["_代工單號_norm"] = df_return_norm["代工單號"].astype(str).str.strip()
 
-                df_this_delivery = df_delivery[df_delivery["代工單號"] == oem_id]
+            for _, oem in df_oem.iterrows():
+                oem_id = str(oem["代工單號"]).strip()
+
+                df_this_delivery = df_delivery_norm[df_delivery_norm.get("_代工單號_norm", pd.Series(dtype=str)) == oem_id]
                 delivery_text = ""
                 if not df_this_delivery.empty:
                     delivery_text = "\n".join([
@@ -6012,7 +6019,7 @@ if menu == "代工管理":
                         for _, row in df_this_delivery.iterrows()
                     ])
 
-                df_this_return = df_return[df_return["代工單號"] == oem_id]
+                df_this_return = df_return_norm[df_return_norm.get("_代工單號_norm", pd.Series(dtype=str)) == oem_id]
                 return_text = ""
                 latest_return_date = pd.NaT
                 if not df_this_return.empty:
