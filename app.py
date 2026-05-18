@@ -5935,10 +5935,37 @@ if menu == "代工管理":
                         if str(oem_row.get("狀態", "")).strip() == "✅ 已結案":
                             st.warning("⚠️ 此代工單已結案")
                         else:
-                            appended = ensure_manual_close_return_record(selected_oem)
+                            pending_qty = float(st.session_state.get("return_qty_input", 0) or 0)
+                            pending_date = st.session_state.get("return_date_input", datetime.today())
+                            appended_zero = False
+                            appended_pending = False
+
+                            if pending_qty > 0:
+                                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                safe_append_row(ws_return, [
+                                    str(selected_oem),
+                                    pending_date.strftime("%Y/%m/%d"),
+                                    str(pending_qty),
+                                    created_at
+                                ])
+                                new_ret_df = pd.DataFrame([{
+                                    "代工單號": selected_oem,
+                                    "載回日期": pending_date.strftime("%Y/%m/%d"),
+                                    "載回數量": pending_qty,
+                                    "建立時間": created_at
+                                }])
+                                st.session_state.df_return = pd.concat(
+                                    [st.session_state.df_return, new_ret_df], ignore_index=True
+                                )
+                                appended_pending = True
+                            else:
+                                appended_zero = ensure_manual_close_return_record(selected_oem)
+
                             update_oem_status(selected_oem, "✅ 已結案")
                             st.session_state.toast_msg = "已手動結案（適用短收/特例）"
-                            if appended:
+                            if appended_pending:
+                                st.session_state.toast_msg += f"，並登記載回 {pending_qty} kg"
+                            elif appended_zero:
                                 st.session_state.toast_msg += "，並補登 0kg 載回紀錄"
                             st.session_state.toast_icon = "✅"
                             st.session_state["rerun_after_return_save"] = True
