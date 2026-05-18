@@ -5367,13 +5367,14 @@ if menu == "代工管理":
     def ensure_manual_close_return_record(oem_no, close_date=None):
         """手動結案時，若尚無載回紀錄則補一筆 0kg 紀錄，確保進度表與已結案列表可追蹤。"""
         close_date = close_date or datetime.today()
-        df_ret = st.session_state.get("df_return", pd.DataFrame())
-        has_record = False
-        if isinstance(df_ret, pd.DataFrame) and not df_ret.empty and "代工單號" in df_ret.columns:
-            has_record = (df_ret["代工單號"].astype(str).str.strip() == str(oem_no).strip()).any()
 
-        if has_record:
-            return False
+        # 以最新 sheet 為準，避免 session cache 過舊導致誤補 0kg。
+        df_ret_live = get_cached_sheet_df("代工載回記錄", force_reload=True)
+        if isinstance(df_ret_live, pd.DataFrame) and not df_ret_live.empty and "代工單號" in df_ret_live.columns:
+            has_record_live = (df_ret_live["代工單號"].astype(str).str.strip() == str(oem_no).strip()).any()
+            st.session_state.df_return = df_ret_live.copy()
+            if has_record_live:
+                return False
 
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         safe_append_row(ws_return, [
@@ -5389,6 +5390,7 @@ if menu == "代工管理":
             "載回數量": 0.0,
             "建立時間": created_at
         }])
+        df_ret = st.session_state.get("df_return", pd.DataFrame())
         if isinstance(df_ret, pd.DataFrame):
             st.session_state.df_return = pd.concat([df_ret, new_ret_df], ignore_index=True)
         else:
