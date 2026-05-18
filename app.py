@@ -5334,6 +5334,12 @@ if menu == "代工管理":
             return float(str(value).strip())
         except:
             return default
+    def _norm_oem_no(value):
+        """標準化代工單號：去除所有空白（含全形/隱藏空白）並轉大寫。"""
+        text = str(value or "")
+        text = re.sub(r"[\s　​‌‍﻿]+", "", text)
+        return text.upper().strip()
+
 
     def compute_oem_progress_status(oem_row, total_returned):
         target_qty = _safe_float(oem_row.get("目標載回數量", 0), 0.0)
@@ -5371,7 +5377,7 @@ if menu == "代工管理":
         # 以最新 sheet 為準，避免 session cache 過舊導致誤補 0kg。
         df_ret_live = get_cached_sheet_df("代工載回記錄", force_reload=True)
         if isinstance(df_ret_live, pd.DataFrame) and not df_ret_live.empty and "代工單號" in df_ret_live.columns:
-            has_record_live = (df_ret_live["代工單號"].astype(str).str.strip() == str(oem_no).strip()).any()
+            has_record_live = (df_ret_live["代工單號"].apply(_norm_oem_no) == _norm_oem_no(oem_no)).any()
             st.session_state.df_return = df_ret_live.copy()
             if has_record_live:
                 return False
@@ -6031,12 +6037,12 @@ if menu == "代工管理":
             df_delivery_norm = df_delivery.copy()
             df_return_norm = df_return.copy()
             if not df_delivery_norm.empty and "代工單號" in df_delivery_norm.columns:
-                df_delivery_norm["_代工單號_norm"] = df_delivery_norm["代工單號"].astype(str).str.strip()
+                df_delivery_norm["_代工單號_norm"] = df_delivery_norm["代工單號"].apply(_norm_oem_no)
             if not df_return_norm.empty and "代工單號" in df_return_norm.columns:
-                df_return_norm["_代工單號_norm"] = df_return_norm["代工單號"].astype(str).str.strip()
+                df_return_norm["_代工單號_norm"] = df_return_norm["代工單號"].apply(_norm_oem_no)
 
             for _, oem in df_oem.iterrows():
-                oem_id = str(oem["代工單號"]).strip()
+                oem_id = _norm_oem_no(oem["代工單號"])
 
                 df_this_delivery = df_delivery_norm[df_delivery_norm.get("_代工單號_norm", pd.Series(dtype=str)) == oem_id]
                 delivery_text = ""
