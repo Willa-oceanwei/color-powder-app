@@ -5931,7 +5931,50 @@ if menu == "代工管理":
                         col_r1, col_r2 = st.columns(2)
                         return_date = col_r1.date_input("載回日期", value=datetime.today(), key="return_date_input")
                         return_qty  = col_r2.number_input("載回數量 (kg)", min_value=0.0, step=1.0, key="return_qty_input")
-                        submitted   = st.form_submit_button("➕ 新增載回")
+
+                        action_col1, action_col2, action_col3 = st.columns([1, 1, 3])
+                        submitted = action_col1.form_submit_button("➕ 新增載回")
+                        manual_close = action_col2.form_submit_button("✅ 手動結案（短收/特例）")
+                        action_col3.caption("當『已載回』與『目標載回數量』不一致但需結案時可使用。")
+
+                    if manual_close:
+                        if str(oem_row.get("狀態", "")).strip() == "✅ 已結案":
+                            st.warning("⚠️ 此代工單已結案")
+                        else:
+                            pending_qty = float(return_qty or 0)
+                            pending_date = return_date
+                            appended_zero = False
+                            appended_pending = False
+
+                            if pending_qty > 0:
+                                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                safe_append_row(ws_return, [
+                                    str(selected_oem),
+                                    pending_date.strftime("%Y/%m/%d"),
+                                    str(pending_qty),
+                                    created_at
+                                ])
+                                new_ret_df = pd.DataFrame([{
+                                    "代工單號": selected_oem,
+                                    "載回日期": pending_date.strftime("%Y/%m/%d"),
+                                    "載回數量": pending_qty,
+                                    "建立時間": created_at
+                                }])
+                                st.session_state.df_return = pd.concat(
+                                    [st.session_state.df_return, new_ret_df], ignore_index=True
+                                )
+                                appended_pending = True
+                            else:
+                                appended_zero = ensure_manual_close_return_record(selected_oem)
+
+                            update_oem_status(selected_oem, "✅ 已結案")
+                            st.session_state.toast_msg = "已手動結案（適用短收/特例）"
+                            if appended_pending:
+                                st.session_state.toast_msg += f"，並登記載回 {pending_qty} kg"
+                            elif appended_zero:
+                                st.session_state.toast_msg += "，並補登 0kg 載回紀錄"
+                            st.session_state.toast_icon = "✅"
+                            st.session_state["rerun_after_return_save"] = True
 
                     close_col1, close_col2 = st.columns([1, 3])
                     manual_close = close_col1.button("✅ 手動結案（短收/特例）", key="force_close_oem_return")
