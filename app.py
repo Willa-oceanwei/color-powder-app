@@ -5364,6 +5364,37 @@ if menu == "代工管理":
         mask = st.session_state.df_oem["代工單號"] == oem_no
         st.session_state.df_oem.loc[mask, "狀態"] = new_status
 
+    def ensure_manual_close_return_record(oem_no, close_date=None):
+        """手動結案時，若尚無載回紀錄則補一筆 0kg 紀錄，確保進度表與已結案列表可追蹤。"""
+        close_date = close_date or datetime.today()
+        df_ret = st.session_state.get("df_return", pd.DataFrame())
+        has_record = False
+        if isinstance(df_ret, pd.DataFrame) and not df_ret.empty and "代工單號" in df_ret.columns:
+            has_record = (df_ret["代工單號"].astype(str).str.strip() == str(oem_no).strip()).any()
+
+        if has_record:
+            return False
+
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        safe_append_row(ws_return, [
+            str(oem_no),
+            close_date.strftime("%Y/%m/%d"),
+            "0",
+            created_at
+        ])
+
+        new_ret_df = pd.DataFrame([{
+            "代工單號": str(oem_no),
+            "載回日期": close_date.strftime("%Y/%m/%d"),
+            "載回數量": 0.0,
+            "建立時間": created_at
+        }])
+        if isinstance(df_ret, pd.DataFrame):
+            st.session_state.df_return = pd.concat([df_ret, new_ret_df], ignore_index=True)
+        else:
+            st.session_state.df_return = new_ret_df
+        return True
+
     def _parse_multi_search_keywords(raw_text):
         """將使用者輸入拆成多條件關鍵字（支援逗號、頓號、空白、分號、換行）。"""
         text = str(raw_text or "").strip()
@@ -5691,8 +5722,12 @@ if menu == "代工管理":
                             if is_closed:
                                 st.warning("⚠️ 此代工單已結案")
                             else:
+                                appended = ensure_manual_close_return_record(selected_oem)
                                 update_oem_status(selected_oem, "✅ 已結案")
-                                st.session_state.toast_message = {"msg": "已手動結案（適用短收/特例）", "icon": "✅"}
+                                msg = "已手動結案（適用短收/特例）"
+                                if appended:
+                                    msg += "，並補登 0kg 載回紀錄"
+                                st.session_state.toast_message = {"msg": msg, "icon": "✅"}
                                 st.rerun()
 
                     if st.session_state.get("show_delete_oem_confirm", False):
@@ -5898,8 +5933,11 @@ if menu == "代工管理":
                         if str(oem_row.get("狀態", "")).strip() == "✅ 已結案":
                             st.warning("⚠️ 此代工單已結案")
                         else:
+                            appended = ensure_manual_close_return_record(selected_oem)
                             update_oem_status(selected_oem, "✅ 已結案")
                             st.session_state.toast_msg = "已手動結案（適用短收/特例）"
+                            if appended:
+                                st.session_state.toast_msg += "，並補登 0kg 載回紀錄"
                             st.session_state.toast_icon = "✅"
                             st.session_state["rerun_after_return_save"] = True
 
