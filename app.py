@@ -6025,7 +6025,6 @@ if menu == "代工管理":
                 if target_qty <= 0:
                     target_qty = total_qty
                 total_returned = df_this_return["載回數量"].astype(float).sum()                     if not df_this_return.empty else 0.0
-                total_delivered = df_this_delivery["送達數量"].astype(float).sum()                     if not df_this_delivery.empty else 0.0
 
                 manual_status = str(oem.get("狀態", "")).strip()
                 if manual_status:
@@ -6033,12 +6032,8 @@ if menu == "代工管理":
                 else:
                     status = compute_oem_progress_status(oem, total_returned)
 
-                # 手動結案但尚無載回紀錄時，進度表以送達量作為差異顯示基準，避免整筆目標量被判定短收。
-                effective_returned = total_returned
-                if status == "✅ 已結案" and total_returned <= 0 and total_delivered > 0:
-                    effective_returned = total_delivered
-
-                variance_qty = effective_returned - target_qty
+                # 差異統一以「載回記錄」為基準計算，避免手動結案時誤顯示為剛好達標。
+                variance_qty = total_returned - target_qty
                 if variance_qty > 0:
                     variance_text = f"超收 {variance_qty:.2f} kg"
                 elif variance_qty < 0:
