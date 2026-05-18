@@ -5705,7 +5705,7 @@ if menu == "代工管理":
                         st.session_state.df_oem.loc[mask, "目標載回數量"] = target_qty
                         st.session_state.df_oem.loc[mask, "轉換倍率"] = multiplier
 
-                    b1, b2, b3 = st.columns(3)
+                    b1, b2 = st.columns(2)
 
                     with b1:
                         if st.button("💾 更新代工資訊", key="update_oem_info"):
@@ -5725,18 +5725,7 @@ if menu == "代工管理":
                             else:
                                 st.session_state.show_delete_oem_confirm = True
 
-                    with b3:
-                        if st.button("✅ 手動結案（短收/特例）", key="force_close_oem"):
-                            if is_closed:
-                                st.warning("⚠️ 此代工單已結案")
-                            else:
-                                appended = ensure_manual_close_return_record(selected_oem)
-                                update_oem_status(selected_oem, "✅ 已結案")
-                                msg = "已手動結案（適用短收/特例）"
-                                if appended:
-                                    msg += "，並補登 0kg 載回紀錄"
-                                st.session_state.toast_message = {"msg": msg, "icon": "✅"}
-                                st.rerun()
+                    st.caption("💡 手動結案請至「載回登入」分頁操作，系統會一併寫入載回紀錄，避免差異計算不一致。")
 
                     if st.session_state.get("show_delete_oem_confirm", False):
                         st.warning(f"⚠️ 確定刪除 {oem_row['代工單號']}？")
@@ -5976,49 +5965,6 @@ if menu == "代工管理":
                             st.session_state.toast_icon = "✅"
                             st.session_state["rerun_after_return_save"] = True
 
-                    close_col1, close_col2 = st.columns([1, 3])
-                    manual_close = close_col1.button("✅ 手動結案（短收/特例）", key="force_close_oem_return")
-                    close_col2.caption("當『已載回』與『目標載回數量』不一致但需結案時可使用。")
-
-                    if manual_close:
-                        if str(oem_row.get("狀態", "")).strip() == "✅ 已結案":
-                            st.warning("⚠️ 此代工單已結案")
-                        else:
-                            pending_qty = float(st.session_state.get("return_qty_input", 0) or 0)
-                            pending_date = st.session_state.get("return_date_input", datetime.today())
-                            appended_zero = False
-                            appended_pending = False
-
-                            if pending_qty > 0:
-                                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                safe_append_row(ws_return, [
-                                    str(selected_oem),
-                                    pending_date.strftime("%Y/%m/%d"),
-                                    str(pending_qty),
-                                    created_at
-                                ])
-                                new_ret_df = pd.DataFrame([{
-                                    "代工單號": selected_oem,
-                                    "載回日期": pending_date.strftime("%Y/%m/%d"),
-                                    "載回數量": pending_qty,
-                                    "建立時間": created_at
-                                }])
-                                st.session_state.df_return = pd.concat(
-                                    [st.session_state.df_return, new_ret_df], ignore_index=True
-                                )
-                                appended_pending = True
-                            else:
-                                appended_zero = ensure_manual_close_return_record(selected_oem)
-
-                            update_oem_status(selected_oem, "✅ 已結案")
-                            st.session_state.toast_msg = "已手動結案（適用短收/特例）"
-                            if appended_pending:
-                                st.session_state.toast_msg += f"，並登記載回 {pending_qty} kg"
-                            elif appended_zero:
-                                st.session_state.toast_msg += "，並補登 0kg 載回紀錄"
-                            st.session_state.toast_icon = "✅"
-                            st.session_state["rerun_after_return_save"] = True
-
                     if submitted:
                         if return_qty <= 0:
                             st.warning("⚠️ 請輸入載回數量")
@@ -6120,8 +6066,10 @@ if menu == "代工管理":
 
                 # 差異優先採用載回合計；若手動結案僅補了 0kg 載回紀錄，則改用送達量作為差異基準。
                 variance_base_qty = total_returned
+                use_delivery_estimate = False
                 if status == "✅ 已結案" and total_returned <= 0 and total_delivered > 0:
                     variance_base_qty = total_delivered
+                    use_delivery_estimate = True
                 variance_qty = variance_base_qty - target_qty
                 if variance_qty > 0:
                     variance_text = f"超收 {variance_qty:.2f} kg"
@@ -6129,6 +6077,8 @@ if menu == "代工管理":
                     variance_text = f"短收 {abs(variance_qty):.2f} kg"
                 else:
                     variance_text = "剛好達標"
+                if use_delivery_estimate:
+                    variance_text += "（送達估算）"
                 progress_data.append({
                     "status_order":   status_order_map.get(status, 99),
                     "狀態":           status,
