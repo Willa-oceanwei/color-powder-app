@@ -5898,9 +5898,7 @@ if menu == "代工管理":
                         if str(oem_row.get("狀態", "")).strip() == "✅ 已結案":
                             st.warning("⚠️ 此代工單已結案")
                         else:
-                            status_col_idx = int(df_oem.columns.get_loc("狀態")) + 1
-                            ws_oem.update_cell(row=oem_idx + 2, col=status_col_idx, value="✅ 已結案")
-                            st.session_state.df_oem.loc[oem_idx, "狀態"] = "✅ 已結案"
+                            update_oem_status(selected_oem, "✅ 已結案")
                             st.session_state.toast_msg = "已手動結案（適用短收/特例）"
                             st.session_state.toast_icon = "✅"
                             st.session_state["rerun_after_return_save"] = True
