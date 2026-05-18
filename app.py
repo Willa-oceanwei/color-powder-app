@@ -5364,6 +5364,39 @@ if menu == "代工管理":
         mask = st.session_state.df_oem["代工單號"] == oem_no
         st.session_state.df_oem.loc[mask, "狀態"] = new_status
 
+    def ensure_manual_close_return_record(oem_no, close_date=None):
+        """手動結案時，若尚無載回紀錄則補一筆 0kg 紀錄，確保進度表與已結案列表可追蹤。"""
+        close_date = close_date or datetime.today()
+
+        # 以最新 sheet 為準，避免 session cache 過舊導致誤補 0kg。
+        df_ret_live = get_cached_sheet_df("代工載回記錄", force_reload=True)
+        if isinstance(df_ret_live, pd.DataFrame) and not df_ret_live.empty and "代工單號" in df_ret_live.columns:
+            has_record_live = (df_ret_live["代工單號"].astype(str).str.strip() == str(oem_no).strip()).any()
+            st.session_state.df_return = df_ret_live.copy()
+            if has_record_live:
+                return False
+
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        safe_append_row(ws_return, [
+            str(oem_no),
+            close_date.strftime("%Y/%m/%d"),
+            "0",
+            created_at
+        ])
+
+        new_ret_df = pd.DataFrame([{
+            "代工單號": str(oem_no),
+            "載回日期": close_date.strftime("%Y/%m/%d"),
+            "載回數量": 0.0,
+            "建立時間": created_at
+        }])
+        df_ret = st.session_state.get("df_return", pd.DataFrame())
+        if isinstance(df_ret, pd.DataFrame):
+            st.session_state.df_return = pd.concat([df_ret, new_ret_df], ignore_index=True)
+        else:
+            st.session_state.df_return = new_ret_df
+        return True
+
     def _parse_multi_search_keywords(raw_text):
         """將使用者輸入拆成多條件關鍵字（支援逗號、頓號、空白、分號、換行）。"""
         text = str(raw_text or "").strip()
@@ -5691,8 +5724,12 @@ if menu == "代工管理":
                             if is_closed:
                                 st.warning("⚠️ 此代工單已結案")
                             else:
+                                appended = ensure_manual_close_return_record(selected_oem)
                                 update_oem_status(selected_oem, "✅ 已結案")
-                                st.session_state.toast_message = {"msg": "已手動結案（適用短收/特例）", "icon": "✅"}
+                                msg = "已手動結案（適用短收/特例）"
+                                if appended:
+                                    msg += "，並補登 0kg 載回紀錄"
+                                st.session_state.toast_message = {"msg": msg, "icon": "✅"}
                                 st.rerun()
 
                     if st.session_state.get("show_delete_oem_confirm", False):
@@ -5890,6 +5927,22 @@ if menu == "代工管理":
                         return_qty  = col_r2.number_input("載回數量 (kg)", min_value=0.0, step=1.0, key="return_qty_input")
                         submitted   = st.form_submit_button("➕ 新增載回")
 
+                    close_col1, close_col2 = st.columns([1, 3])
+                    manual_close = close_col1.button("✅ 手動結案（短收/特例）", key="force_close_oem_return")
+                    close_col2.caption("當『已載回』與『目標載回數量』不一致但需結案時可使用。")
+
+                    if manual_close:
+                        if str(oem_row.get("狀態", "")).strip() == "✅ 已結案":
+                            st.warning("⚠️ 此代工單已結案")
+                        else:
+                            appended = ensure_manual_close_return_record(selected_oem)
+                            update_oem_status(selected_oem, "✅ 已結案")
+                            st.session_state.toast_msg = "已手動結案（適用短收/特例）"
+                            if appended:
+                                st.session_state.toast_msg += "，並補登 0kg 載回紀錄"
+                            st.session_state.toast_icon = "✅"
+                            st.session_state["rerun_after_return_save"] = True
+
                     if submitted:
                         if return_qty <= 0:
                             st.warning("⚠️ 請輸入載回數量")
@@ -5916,10 +5969,7 @@ if menu == "代工管理":
                             remaining_after = target_qty - new_total
 
                             if remaining_after <= 0 and target_qty > 0:
-                                status_col_idx = int(df_oem.columns.get_loc("狀態")) + 1
-                                ws_oem.update_cell(row=oem_idx + 2, col=status_col_idx, value="✅ 已結案")
-                                # ✅ 同步 session_state
-                                st.session_state.df_oem.loc[oem_idx, "狀態"] = "✅ 已結案"
+                                update_oem_status(selected_oem, "✅ 已結案")
                                 if new_total > target_qty:
                                     over_qty = new_total - target_qty
                                     st.session_state.toast_msg = f"🎉 載回完成並超收 {over_qty:.2f} kg，代工單已結案"
@@ -5951,10 +6001,17 @@ if menu == "代工管理":
 
             progress_data = []
 
-            for _, oem in df_oem.iterrows():
-                oem_id = oem["代工單號"]
+            df_delivery_norm = df_delivery.copy()
+            df_return_norm = df_return.copy()
+            if not df_delivery_norm.empty and "代工單號" in df_delivery_norm.columns:
+                df_delivery_norm["_代工單號_norm"] = df_delivery_norm["代工單號"].astype(str).str.strip()
+            if not df_return_norm.empty and "代工單號" in df_return_norm.columns:
+                df_return_norm["_代工單號_norm"] = df_return_norm["代工單號"].astype(str).str.strip()
 
-                df_this_delivery = df_delivery[df_delivery["代工單號"] == oem_id]
+            for _, oem in df_oem.iterrows():
+                oem_id = str(oem["代工單號"]).strip()
+
+                df_this_delivery = df_delivery_norm[df_delivery_norm.get("_代工單號_norm", pd.Series(dtype=str)) == oem_id]
                 delivery_text = ""
                 if not df_this_delivery.empty:
                     delivery_text = "\n".join([
@@ -5962,7 +6019,7 @@ if menu == "代工管理":
                         for _, row in df_this_delivery.iterrows()
                     ])
 
-                df_this_return = df_return[df_return["代工單號"] == oem_id]
+                df_this_return = df_return_norm[df_return_norm.get("_代工單號_norm", pd.Series(dtype=str)) == oem_id]
                 return_text = ""
                 latest_return_date = pd.NaT
                 if not df_this_return.empty:
@@ -5976,8 +6033,8 @@ if menu == "代工管理":
                 target_qty     = _safe_float(oem.get("目標載回數量", total_qty), total_qty)
                 if target_qty <= 0:
                     target_qty = total_qty
-                total_returned = df_this_return["載回數量"].astype(float).sum() \
-                    if not df_this_return.empty else 0.0
+                total_returned = df_this_return["載回數量"].astype(float).sum()                     if not df_this_return.empty else 0.0
+                total_delivered = df_this_delivery["送達數量"].astype(float).sum()                     if not df_this_delivery.empty else 0.0
 
                 manual_status = str(oem.get("狀態", "")).strip()
                 if manual_status:
@@ -5985,14 +6042,17 @@ if menu == "代工管理":
                 else:
                     status = compute_oem_progress_status(oem, total_returned)
 
-                variance_qty = total_returned - target_qty
+                # 差異優先採用載回合計；若手動結案僅補了 0kg 載回紀錄，則改用送達量作為差異基準。
+                variance_base_qty = total_returned
+                if status == "✅ 已結案" and total_returned <= 0 and total_delivered > 0:
+                    variance_base_qty = total_delivered
+                variance_qty = variance_base_qty - target_qty
                 if variance_qty > 0:
                     variance_text = f"超收 {variance_qty:.2f} kg"
                 elif variance_qty < 0:
                     variance_text = f"短收 {abs(variance_qty):.2f} kg"
                 else:
                     variance_text = "剛好達標"
-
                 progress_data.append({
                     "status_order":   status_order_map.get(status, 99),
                     "狀態":           status,
@@ -6004,9 +6064,10 @@ if menu == "代工管理":
                     "目標載回":       f"{target_qty} kg",
                     "差異":           variance_text,
                     "送達日期及數量": delivery_text,
-                    "載回日期及數量": return_text,
+                    "載回日期及數量": return_text if return_text else "（無載回紀錄）",
                     "建立時間":       oem.get("建立時間", ""),
                     "最近載回日期_sort": latest_return_date,
+                    "最近進度日期_sort": latest_return_date if pd.notna(latest_return_date) else pd.to_datetime(oem.get("建立時間", ""), errors="coerce"),
                     "已交貨":         oem.get("已交貨", ""),
                     "交貨備註":       oem.get("交貨備註", "")
                 })
@@ -6065,7 +6126,7 @@ if menu == "代工管理":
                     df_progress_open["建立時間"] = df_progress_open["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                     df_progress_open = df_progress_open.sort_values(
                         by=["status_order", "建立時間_dt"], ascending=[True, False]
-                    ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort"], errors="ignore")
+                    ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort", "最近進度日期_sort"], errors="ignore")
                     st.dataframe(df_progress_open, use_container_width=True, hide_index=True)
                 else:
                     st.info("目前沒有符合條件的代工單")
@@ -6074,7 +6135,7 @@ if menu == "代工管理":
                 
                 df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
                 df_closed = _apply_tab4_filters(df_closed, "oem_tab4_closed")
-                df_closed = df_closed.sort_values(by="最近載回日期_sort", ascending=False, na_position="last")
+                df_closed = df_closed.sort_values(by=["最近進度日期_sort", "建立時間_dt"], ascending=[False, False], na_position="last")
                 df_closed["建立時間"] = df_closed["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                 df_closed["已交貨"] = df_closed["已交貨"].astype(str).str.strip().isin(
                     ["是", "TRUE", "True", "1", "Y", "y", "✅"]
@@ -6117,7 +6178,7 @@ if menu == "代工管理":
                     help="關閉時只顯示尚未標記『已交貨』的已結案代工單，避免下拉選單過長。"
                 )
                 df_closed_for_selector = df_closed.sort_values(
-                    by=["最近載回日期_sort", "建立時間_dt"],
+                    by=["最近進度日期_sort", "建立時間_dt"],
                     ascending=[False, False],
                     na_position="last"
                 )
