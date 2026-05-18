@@ -6018,9 +6018,10 @@ if menu == "代工管理":
                     "目標載回":       f"{target_qty} kg",
                     "差異":           variance_text,
                     "送達日期及數量": delivery_text,
-                    "載回日期及數量": return_text,
+                    "載回日期及數量": return_text if return_text else "（無載回紀錄）",
                     "建立時間":       oem.get("建立時間", ""),
                     "最近載回日期_sort": latest_return_date,
+                    "最近進度日期_sort": latest_return_date if pd.notna(latest_return_date) else pd.to_datetime(oem.get("建立時間", ""), errors="coerce"),
                     "已交貨":         oem.get("已交貨", ""),
                     "交貨備註":       oem.get("交貨備註", "")
                 })
@@ -6079,7 +6080,7 @@ if menu == "代工管理":
                     df_progress_open["建立時間"] = df_progress_open["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                     df_progress_open = df_progress_open.sort_values(
                         by=["status_order", "建立時間_dt"], ascending=[True, False]
-                    ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort"], errors="ignore")
+                    ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort", "最近進度日期_sort"], errors="ignore")
                     st.dataframe(df_progress_open, use_container_width=True, hide_index=True)
                 else:
                     st.info("目前沒有符合條件的代工單")
@@ -6088,7 +6089,7 @@ if menu == "代工管理":
                 
                 df_closed = df_progress_all[df_progress_all["狀態"] == "✅ 已結案"].copy()
                 df_closed = _apply_tab4_filters(df_closed, "oem_tab4_closed")
-                df_closed = df_closed.sort_values(by="最近載回日期_sort", ascending=False, na_position="last")
+                df_closed = df_closed.sort_values(by=["最近進度日期_sort", "建立時間_dt"], ascending=[False, False], na_position="last")
                 df_closed["建立時間"] = df_closed["建立時間_dt"].dt.strftime("%Y-%m-%d").fillna("")
                 df_closed["已交貨"] = df_closed["已交貨"].astype(str).str.strip().isin(
                     ["是", "TRUE", "True", "1", "Y", "y", "✅"]
@@ -6131,7 +6132,7 @@ if menu == "代工管理":
                     help="關閉時只顯示尚未標記『已交貨』的已結案代工單，避免下拉選單過長。"
                 )
                 df_closed_for_selector = df_closed.sort_values(
-                    by=["最近載回日期_sort", "建立時間_dt"],
+                    by=["最近進度日期_sort", "建立時間_dt"],
                     ascending=[False, False],
                     na_position="last"
                 )
