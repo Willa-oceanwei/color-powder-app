@@ -2066,7 +2066,26 @@ elif menu == "配方管理":
                                 st.rerun()
     
                     st.session_state.form_recipe       = {col:"" for col in columns}
+                    st.session_state.form_recipe.update({
+                        "配方類別": "原始配方",
+                        "狀態": "啟用",
+                        "色粉類別": "配方",
+                        "計量單位": "包",
+                        "淨重單位": "g",
+                        "合計類別": "無",
+                        "代工轉換倍率": 1
+                    })
                     st.session_state.edit_recipe_index = None
+                    st.session_state.num_powder_rows = 5
+                    reset_keys = [
+                        "form_recipe_配方編號", "form_recipe_顏色", "form_recipe_selected_customer",
+                        "form_recipe_配方類別", "form_recipe_狀態", "form_recipe_原始配方",
+                        "form_recipe_色粉類別", "form_recipe_計量單位", "form_recipe_Pantone色號",
+                        "form_recipe_oem_multiplier", "form_recipe_重要提醒", "ratio1", "ratio2", "ratio3",
+                        "form_recipe_備註", "form_recipe_淨重", "form_recipe_淨重單位", "form_recipe_合計類別"
+                    ] + [f"form_recipe_色粉編號{i}" for i in range(1, 9)] + [f"form_recipe_色粉重量{i}" for i in range(1, 9)]
+                    for key in reset_keys:
+                        st.session_state.pop(key, None)
                     st.rerun()
     
             # ── 新增色粉列 ──
