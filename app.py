@@ -1702,7 +1702,7 @@ elif menu == "配方管理":
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
         "原始配方", "色粉類別", "計量單位", "Pantone色號",
-        "代工轉換倍率",
+        "代工倍率",
         "比例1", "比例2", "比例3", "淨重", "淨重單位",
         *[f"色粉編號{i}" for i in range(1, 9)],
         *[f"色粉重量{i}" for i in range(1, 9)],
@@ -1951,13 +1951,13 @@ elif menu == "配方管理":
             with col10:
                 fr["淨重"] = st.text_input("色粉淨重", value=fr.get("淨重",""), key="form_recipe_淨重")
 
-            # ---------------- Pantone / 代工轉換倍率 / 重要提醒（2:0.5:2.5） ----------------
-            pantone_col, oem_ratio_col, important_col = st.columns([2, 0.5, 2.5])
+            # ---------------- Pantone / 代工倍率 / 重要提醒（1.5:0.5:3） ----------------
+            pantone_col, oem_ratio_col, important_col = st.columns([1.5, 0.5, 3])
             with pantone_col:
                 fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號",""), key="form_recipe_Pantone色號")
             with oem_ratio_col:
                 fr["代工轉換倍率"] = st.number_input(
-                    "代工轉換倍率",
+                    "代工倍率",
                     min_value=0.01,
                     value=float(fr.get("代工轉換倍率", 1) or 1),
                     step=0.01,
@@ -2071,7 +2071,7 @@ elif menu == "配方管理":
                         "計量單位": "包",
                         "淨重單位": "g",
                         "合計類別": "無",
-                        "代工轉換倍率": 1
+                        "代工倍率": 1
                     })
                     st.session_state.edit_recipe_index = None
                     st.session_state.num_powder_rows = 5
@@ -4334,7 +4334,7 @@ elif menu == "生產單管理":
                                     st.session_state.df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id
                                 ]
                                 if not matched_recipe.empty:
-                                    recipe_multiplier = _safe_float(matched_recipe.iloc[0].get("代工轉換倍率", 1), 1.0)
+                                    recipe_multiplier = _safe_float(matched_recipe.iloc[0].get("代工倍率", 1), 1.0)
                         except:
                             recipe_multiplier = 1.0
                         if recipe_multiplier <= 0:
@@ -5542,7 +5542,7 @@ if menu == "代工管理":
                     df_recipe_for_oem.get("配方編號", pd.Series(dtype=str)).astype(str).str.strip() == str(new_formula_id).strip()
                 ]
                 if not matched.empty:
-                    recipe_multiplier = _safe_float(matched.iloc[0].get("代工轉換倍率", 1), 1.0)
+                    recipe_multiplier = _safe_float(matched.iloc[0].get("代工倍率", 1), 1.0)
             except:
                 recipe_multiplier = 1.0
             if recipe_multiplier <= 0:
