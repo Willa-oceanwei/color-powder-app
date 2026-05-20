@@ -4403,6 +4403,16 @@ elif menu == "生產單管理":
                 st.session_state.pop("recipe_init_done", None)
                 st.rerun()
                         
+        st.markdown("---")
+        if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
+            try:
+                latest_order_df = get_cached_sheet_df("生產單", force_reload=True)
+                st.session_state.df_order = latest_order_df.copy()
+                st.toast("已從 Google Sheet 重新載入生產單資料", icon="🔄")
+            except Exception as e:
+                st.toast(f"重新載入失敗：{e}", icon="❌")
+            st.rerun()
+
     # ============================================================
     # Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
     # ============================================================
@@ -5577,6 +5587,16 @@ if menu == "代工管理":
                 st.session_state["oem_saved"] = new_oem_id
                 st.rerun()
 
+        st.markdown("---")
+        if st.button("📥 重新載入代工資料", key="reload_oem_tab1_bottom", use_container_width=True):
+            try:
+                latest_oem_df = get_cached_sheet_df("代工管理", force_reload=True)
+                st.session_state.df_oem = latest_oem_df.copy()
+                st.toast("已從 Google Sheet 重新載入代工資料", icon="🔄")
+            except Exception as e:
+                st.toast(f"重新載入失敗：{e}", icon="❌")
+            st.rerun()
+
     # ================================================================
     # Tab 2：編輯代工
     # ================================================================
@@ -6566,6 +6586,16 @@ elif menu == "採購管理":
                     )
     
                                
+        st.markdown("---")
+        if st.button("📥 重新載入庫存資料", key="reload_stock_tab1_bottom", use_container_width=True):
+            try:
+                latest_stock_df = get_cached_sheet_df("庫存記錄", force_reload=True)
+                st.session_state.df_stock = latest_stock_df.copy()
+                st.toast("已從 Google Sheet 重新載入庫存資料", icon="🔄")
+            except Exception as e:
+                st.toast(f"重新載入失敗：{e}", icon="❌")
+            st.rerun()
+
     # ========== Tab 2：進貨查詢 ==========
     with tab2:
               
@@ -9831,3 +9861,18 @@ if st.session_state.menu == "匯入備份":
             st.session_state.df_recipe = df_uploaded
             st.success("✅ 成功匯入備份檔！")
             st.dataframe(df_uploaded.head())
+# 讓重新載入按鍵高度與字體比例一致（避免文字擠壓）
+st.markdown(
+    """
+    <style>
+    div[data-testid="stButton"] > button[kind="secondary"] {
+        min-height: 2.35rem;
+        font-size: 0.98rem;
+        line-height: 1.2;
+        padding-top: 0.45rem;
+        padding-bottom: 0.45rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
