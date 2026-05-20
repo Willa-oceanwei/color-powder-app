@@ -1702,7 +1702,7 @@ elif menu == "配方管理":
     columns = [
         "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
         "原始配方", "色粉類別", "計量單位", "Pantone色號",
-        "代工轉換倍率",
+        "代工倍率",
         "比例1", "比例2", "比例3", "淨重", "淨重單位",
         *[f"色粉編號{i}" for i in range(1, 9)],
         *[f"色粉重量{i}" for i in range(1, 9)],
@@ -1908,8 +1908,8 @@ elif menu == "配方管理":
         fr = st.session_state.form_recipe
 
         with st.form("recipe_form"):
-            # ---------------- 基本資訊 ----------------
-            col1, col2, col3, col4 = st.columns(4)
+            # ---------------- 基本資訊（第一橫排：5 欄） ----------------
+            col1, col2, col3, col4, col5 = st.columns(5)
             with col1:
                 fr["配方編號"] = st.text_input("配方編號", value=fr.get("配方編號",""), key="form_recipe_配方編號")
             with col2:
@@ -1927,13 +1927,13 @@ elif menu == "配方管理":
                 opts = ["原始配方","附加配方"]
                 cur = fr.get("配方類別", opts[0])
                 fr["配方類別"] = st.selectbox("配方類別", opts, index=opts.index(cur) if cur in opts else 0, key="form_recipe_配方類別")
-
-            # ---------------- 狀態/原始配方/色粉類別/計量單位 ----------------
-            col5, col6, col7, col8 = st.columns(4)
             with col5:
                 opts = ["啟用","停用"]
                 cur = fr.get("狀態", opts[0])
                 fr["狀態"] = st.selectbox("狀態", opts, index=opts.index(cur) if cur in opts else 0, key="form_recipe_狀態")
+
+            # ---------------- 第二橫排：5 欄 ----------------
+            col6, col7, col8, col9, col10 = st.columns(5)
             with col6:
                 fr["原始配方"] = st.text_input("原始配方", value=fr.get("原始配方",""), key="form_recipe_原始配方")
             with col7:
@@ -1944,21 +1944,27 @@ elif menu == "配方管理":
                 opts = ["包","桶","kg","其他"]
                 cur = fr.get("計量單位", opts[0])
                 fr["計量單位"] = st.selectbox("計量單位", opts, index=opts.index(cur) if cur in opts else 0, key="form_recipe_計量單位")
+            with col9:
+                opts = ["g","kg"]
+                cur = fr.get("淨重單位", opts[0])
+                fr["淨重單位"] = st.selectbox("淨重單位", opts, index=opts.index(cur) if cur in opts else 0, key="form_recipe_淨重單位")
+            with col10:
+                fr["淨重"] = st.text_input("色粉淨重", value=fr.get("淨重",""), key="form_recipe_淨重")
 
-            pantone_col, oem_ratio_col = st.columns(2)
+            # ---------------- Pantone / 代工倍率 / 重要提醒（1.5:0.5:3） ----------------
+            pantone_col, oem_ratio_col, important_col = st.columns([1.5, 0.5, 3])
             with pantone_col:
                 fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號",""), key="form_recipe_Pantone色號")
             with oem_ratio_col:
                 fr["代工轉換倍率"] = st.number_input(
-                    "代工轉換倍率（僅代工管理生效）",
+                    "代工倍率",
                     min_value=0.01,
                     value=float(fr.get("代工轉換倍率", 1) or 1),
                     step=0.01,
                     key="form_recipe_oem_multiplier"
                 )
-    
-            # ---------------- 重要提醒 ----------------
-            fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒",""), key="form_recipe_重要提醒")
+            with important_col:
+                fr["重要提醒"] = st.text_input("重要提醒", value=fr.get("重要提醒",""), key="form_recipe_重要提醒")
     
             # ---------------- 比例欄位 ----------------
             colr1, col_colon, colr2, colr3, col_unit = st.columns([2,0.5,2,2,1])
@@ -1971,15 +1977,7 @@ elif menu == "配方管理":
                 st.markdown("<div style='display:flex;align-items:center;font-size:16px;height:36px;'>g/kg</div>", unsafe_allow_html=True)
     
             # ---------------- 備註 ----------------
-            fr["備註"] = st.text_area("備註", value=fr.get("備註",""), key="form_recipe_備註")
-    
-            # ---------------- 色粉淨重 ----------------
-            col1, col2 = st.columns(2)
-            with col1: fr["淨重"] = st.text_input("色粉淨重", value=fr.get("淨重",""), key="form_recipe_淨重")
-            with col2:
-                opts = ["g","kg"]
-                cur = fr.get("淨重單位", opts[0])
-                fr["淨重單位"] = st.selectbox("單位", opts, index=opts.index(cur) if cur in opts else 0, key="form_recipe_淨重單位")
+            fr["備註"] = st.text_area("備註", value=fr.get("備註",""), key="form_recipe_備註", height=80)
     
             # ---------------- 色粉設定 ----------------
             st.markdown("##### 色粉設定")
@@ -2073,7 +2071,7 @@ elif menu == "配方管理":
                         "計量單位": "包",
                         "淨重單位": "g",
                         "合計類別": "無",
-                        "代工轉換倍率": 1
+                        "代工倍率": 1
                     })
                     st.session_state.edit_recipe_index = None
                     st.session_state.num_powder_rows = 5
@@ -4336,7 +4334,7 @@ elif menu == "生產單管理":
                                     st.session_state.df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id
                                 ]
                                 if not matched_recipe.empty:
-                                    recipe_multiplier = _safe_float(matched_recipe.iloc[0].get("代工轉換倍率", 1), 1.0)
+                                    recipe_multiplier = _safe_float(matched_recipe.iloc[0].get("代工倍率", 1), 1.0)
                         except:
                             recipe_multiplier = 1.0
                         if recipe_multiplier <= 0:
@@ -5544,7 +5542,7 @@ if menu == "代工管理":
                     df_recipe_for_oem.get("配方編號", pd.Series(dtype=str)).astype(str).str.strip() == str(new_formula_id).strip()
                 ]
                 if not matched.empty:
-                    recipe_multiplier = _safe_float(matched.iloc[0].get("代工轉換倍率", 1), 1.0)
+                    recipe_multiplier = _safe_float(matched.iloc[0].get("代工倍率", 1), 1.0)
             except:
                 recipe_multiplier = 1.0
             if recipe_multiplier <= 0:
