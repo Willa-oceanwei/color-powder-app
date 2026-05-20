@@ -1786,6 +1786,7 @@ elif menu == "配方管理":
         修改用 update 單列（1 次 API）
         同時更新 session_state，不重讀整表
         """
+        all_values = []
         try:
             all_values = get_cached_sheet_values("配方管理")
             header     = all_values[0] if all_values else df_to_save.columns.tolist()
@@ -1824,6 +1825,7 @@ elif menu == "配方管理":
         invalidate_sheet_cache("配方管理")
         st.session_state.df        = df_to_save
         st.session_state.df_recipe = df_to_save
+        return True
 
     # ================================================================
     # Tab 架構
@@ -1904,7 +1906,7 @@ elif menu == "配方管理":
             st.session_state.add_powder_clicked = False
     
         fr = st.session_state.form_recipe
-    
+
         with st.form("recipe_form"):
             # ---------------- 基本資訊 ----------------
             col1, col2, col3, col4 = st.columns(4)
@@ -2041,8 +2043,12 @@ elif menu == "配方管理":
                     edit_idx = st.session_state.get("edit_recipe_index")
                     if edit_idx is not None:
                         df.iloc[edit_idx] = pd.Series(fr, index=df.columns)
-                        save_recipe_row(df, is_edit=True, edit_index=edit_idx)
-                        st.session_state.recipe_toast = {"msg": f"配方 {fr['配方編號']} 已更新！", "icon": "✏️"}
+                        try:
+                            save_recipe_row(df, is_edit=True, edit_index=edit_idx)
+                            st.session_state.recipe_toast = {"msg": f"配方 {fr['配方編號']} 已同步到 Google Sheet", "icon": "✅"}
+                        except Exception as e:
+                            st.session_state.recipe_toast = {"msg": f"更新失敗（未同步到 Google Sheet）：{e}", "icon": "❌"}
+                            st.rerun()
                     else:
                         new_recipe_code = clean_powder_id(fr["配方編號"])
                         existing_codes = set(df["配方編號"].astype(str).map(clean_powder_id))
@@ -2052,8 +2058,12 @@ elif menu == "配方管理":
                         else:
                             fr["建檔時間"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             df = pd.concat([df,pd.DataFrame([fr])], ignore_index=True)
-                            save_recipe_row(df, is_edit=False)
-                            st.session_state.recipe_toast = {"msg": f"新增配方 {fr['配方編號']} 成功！", "icon": "🎉"}
+                            try:
+                                save_recipe_row(df, is_edit=False)
+                                st.session_state.recipe_toast = {"msg": f"新增配方 {fr['配方編號']} 成功，已同步到 Google Sheet", "icon": "✅"}
+                            except Exception as e:
+                                st.session_state.recipe_toast = {"msg": f"新增失敗（未同步到 Google Sheet）：{e}", "icon": "❌"}
+                                st.rerun()
     
                     st.session_state.form_recipe       = {col:"" for col in columns}
                     st.session_state.edit_recipe_index = None
@@ -2070,6 +2080,17 @@ elif menu == "配方管理":
                 st.rerun()
             else:
                 st.session_state.add_powder_clicked = False
+
+        st.markdown("---")
+        if st.button("📥 重新載入配方資料", key="reload_recipe_data_tab1", use_container_width=True):
+            try:
+                latest_df = get_cached_sheet_df("配方管理", force_reload=True)
+                st.session_state.df = latest_df.copy()
+                st.session_state.df_recipe = latest_df.copy()
+                st.session_state.recipe_toast = {"msg": "已從 Google Sheet 重新載入配方資料", "icon": "🔄"}
+            except Exception as e:
+                st.session_state.recipe_toast = {"msg": f"重新載入失敗：{e}", "icon": "❌"}
+            st.rerun()
 
     # ============================================================
     # Tab 2：配方記錄表
