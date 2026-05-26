@@ -802,6 +802,35 @@ def safe_update_cell(ws, row, col, value):
     ws.spreadsheet.batch_update(body)
 
 # ===== 在最上方定義函式 =====
+
+
+def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
+    if df is None or df.empty:
+        st.info("目前無資料")
+        return
+    total = len(df)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page_key = f"{key_prefix}_page"
+    if page_key not in st.session_state:
+        st.session_state[page_key] = 1
+    st.session_state[page_key] = min(max(1, st.session_state[page_key]), total_pages)
+
+    start = (st.session_state[page_key] - 1) * page_size
+    end = start + page_size
+    st.dataframe(df.iloc[start:end], use_container_width=use_container_width)
+
+    c1, c2, c3, c4 = st.columns([1,1,2,1])
+    if c1.button("🏠首頁", key=f"{key_prefix}_first"):
+        st.session_state[page_key] = 1
+        st.rerun()
+    if c2.button("◀ 上頁", key=f"{key_prefix}_prev") and st.session_state[page_key] > 1:
+        st.session_state[page_key] -= 1
+        st.rerun()
+    c3.markdown(f"<div style='text-align:center;color:#9aa4b2;font-size:12px;'>第 {st.session_state[page_key]} / {total_pages} 頁（共 {total} 筆）</div>", unsafe_allow_html=True)
+    if c4.button("下頁 ▶", key=f"{key_prefix}_next") and st.session_state[page_key] < total_pages:
+        st.session_state[page_key] += 1
+        st.rerun()
+
 def set_form_style():
     st.markdown("""
     <style>
@@ -10023,7 +10052,7 @@ if menu == "試色記錄分析":
                         st.warning("找不到該配方編號"); st.toast("採購登入失敗：找不到配方", icon="⚠️")
 
     with sub2:
-        st.markdown("<div style='font-size:13px;color:#9aa4b2;margin-bottom:4px;'>分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>", unsafe_allow_html=True)
+        st.markdown("<div style='background:#141a22;border:1px solid #2f3c4d;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;color:#9aa4b2;'>分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([2,1,1])
         cust_df_q = get_cached_sheet_df("客戶名單")
         cust_opts_q = [""]
@@ -10076,11 +10105,13 @@ if menu == "試色記錄分析":
             group_count = dfv["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
             group_purchase = dfv[dfv["已採購"].astype(str)=="是"]["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
 
+            st.markdown("<div style='background:#1a2330;border:1px solid #32465f;border-radius:10px;padding:8px 10px;margin:6px 0 8px 0;'>", unsafe_allow_html=True)
             k1, k2, k3, k4 = st.columns(4)
             k1.metric("試色次數", trial_count)
             k2.metric("採購筆數", purchase_count)
             k3.metric("試色次數轉換率", f"{(purchase_count/trial_count*100):.1f}%" if trial_count else "0%")
             k4.metric("配方族群轉換率", f"{(group_purchase/group_count*100):.1f}%" if group_count else "0%")
+            st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色次數轉換率＝採購筆數 ÷ 試色筆數。ⓘ 配方族群轉換率＝已採購主配方數 ÷ 主配方數（52689/52689A 算同族群）。</div>", unsafe_allow_html=True)
 
             dup_groups = dfv.groupby("主配方編號").size().reset_index(name="試色次數")
@@ -10092,7 +10123,7 @@ if menu == "試色記錄分析":
             st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例</div>", unsafe_allow_html=True)
             mat = dfv.groupby("原料").agg(試色筆數=("配方編號","count"), 採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())).reset_index()
             mat["採購比例"] = (mat["採購筆數"] / mat["試色筆數"] * 100).round(1).astype(str) + "%"
-            st.dataframe(mat, use_container_width=True)
+            render_paginated_df(mat, "trial_mat", page_size=5)
 
             # 未採購追蹤名單
             st.markdown("<div style='background:#33241f;padding:8px 10px;border-radius:8px;color:#ffe5d0;font-size:14px;font-weight:600;margin:6px 0;'>未採購追蹤名單</div>", unsafe_allow_html=True)
@@ -10106,10 +10137,7 @@ if menu == "試色記錄分析":
                 pending_df["天數"] = (pd.Timestamp.now().normalize() - pending_df["試色日期"]).dt.days
                 pending_df = pending_df[pending_df["天數"] >= pending_days_default]
                 pending_df = pending_df.sort_values(["天數", "試色日期"], ascending=[False, True])
-                st.dataframe(
-                    pending_df[["配方編號", "主配方編號", "客戶名稱", "原料", "試色日期", "天數"]],
-                    use_container_width=True,
-                )
+                render_paginated_df(pending_df[["配方編號", "主配方編號", "客戶名稱", "原料", "試色日期", "天數"]], "trial_pending", page_size=5)
             else:
                 st.success("目前查詢區間內沒有未採購試色。"); st.toast("未採購追蹤：目前無資料", icon="ℹ️")
 
@@ -10147,10 +10175,7 @@ if menu == "試色記錄分析":
                 axis=1,
             )
             cust_stats = cust_stats.sort_values(["建議收費", "配方族群轉換率", "試色次數"], ascending=[False, True, False])
-            st.dataframe(
-                cust_stats[["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色次數轉換率", "配方族群轉換率", "建議收費"]],
-                use_container_width=True,
-            )
+            render_paginated_df(cust_stats[["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色次數轉換率", "配方族群轉換率", "建議收費"]], "trial_fee", page_size=5)
 
             rec_csv_df = cust_stats.copy()
             rec_csv_df["試色次數轉換率"] = rec_csv_df["試色次數轉換率"].map(lambda x: f"{x:.1f}%")
@@ -10163,7 +10188,7 @@ if menu == "試色記錄分析":
             show["試色日期"] = show["試色日期"].dt.strftime("%Y-%m-%d")
             show.loc[show["已採購"].astype(str) != "是", "採購日期"] = ""
             st.markdown("<div style='font-size:14px;font-weight:600;margin:6px 0;'>分析明細</div>", unsafe_allow_html=True)
-            st.dataframe(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], use_container_width=True)
+            render_paginated_df(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], "trial_detail", page_size=5)
 
             csv = show.to_csv(index=False).encode("utf-8-sig")
             st.download_button("匯出分析 CSV", data=csv, file_name=f"trial_analysis_{start_d}_{end_d}.csv", mime="text/csv")
