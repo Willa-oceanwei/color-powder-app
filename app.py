@@ -10087,7 +10087,9 @@ if menu == "試色記錄分析":
         strict_precise = opt2.checkbox("僅統計精確日期", value=False)
 
         dfv = get_cached_sheet_df("試色登錄")
-        if start_d > end_d:
+        if not keyword:
+            st.info("請先選擇客戶，分析資料將保持空白。")
+        elif start_d > end_d:
             st.warning("起日不可晚於迄日"); st.toast("請調整日期區間", icon="⚠️")
         elif not dfv.empty:
             dfv["試色日期"] = pd.to_datetime(dfv["試色日期"], errors="coerce")
@@ -10102,6 +10104,9 @@ if menu == "試色記錄分析":
 
             trial_count = len(dfv)
             purchase_count = int((dfv["已採購"].astype(str) == "是").sum())
+            root_counts = dfv["主配方編號"].astype(str).value_counts()
+            grouped_root_count = int((root_counts > 1).sum())
+            group_ratio = (grouped_root_count / trial_count * 100) if trial_count else 0
             group_count = dfv["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
             group_purchase = dfv[dfv["已採購"].astype(str)=="是"]["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
 
@@ -10110,15 +10115,18 @@ if menu == "試色記錄分析":
             k1.metric("試色次數", trial_count)
             k2.metric("採購筆數", purchase_count)
             k3.metric("試色次數轉換率", f"{(purchase_count/trial_count*100):.1f}%" if trial_count else "0%")
-            k4.metric("配方族群轉換率", f"{(group_purchase/group_count*100):.1f}%" if group_count else "0%")
+            k4.metric("配方族群占比", f"{group_ratio:.1f}%")
             st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色次數轉換率＝採購筆數 ÷ 試色筆數。ⓘ 配方族群轉換率＝已採購主配方數 ÷ 主配方數（52689/52689A 算同族群）。</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色次數轉換率＝採購筆數 ÷ 試色筆數。ⓘ 配方族群占比＝有 A/B 等族群的主配方數 ÷ 試色總筆數。</div>", unsafe_allow_html=True)
 
             dup_groups = dfv.groupby("主配方編號").size().reset_index(name="試色次數")
             dup_groups = dup_groups[dup_groups["試色次數"] > 1]
             if not dup_groups.empty:
                 extra = int((dup_groups["試色次數"] - 1).sum())
                 st.info(f"期間內有 {len(dup_groups)} 組主配方發生重複試色，額外增加 {extra} 次試色成本。")
+                grp_tbl = dup_groups.rename(columns={"主配方編號":"族群主配方","試色次數":"族群筆數"})
+                st.markdown("<div style='font-size:12px;color:#9aa4b2;margin:4px 0;'>族群明細</div>", unsafe_allow_html=True)
+                render_paginated_df(grp_tbl, "trial_grouped", page_size=5)
 
             st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例</div>", unsafe_allow_html=True)
             mat = dfv.groupby("原料").agg(試色筆數=("配方編號","count"), 採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())).reset_index()
@@ -10175,9 +10183,14 @@ if menu == "試色記錄分析":
                 axis=1,
             )
             cust_stats = cust_stats.sort_values(["建議收費", "配方族群轉換率", "試色次數"], ascending=[False, True, False])
-            render_paginated_df(cust_stats[["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色次數轉換率", "配方族群轉換率", "建議收費"]], "trial_fee", page_size=5)
+            recommend_df = cust_stats[cust_stats["建議收費"] == "是"].copy()
+            with st.expander(f"客戶別收費建議清單（{len(recommend_df)} 筆）", expanded=False):
+                if recommend_df.empty:
+                    st.caption("目前沒有達到收費條件的客戶。")
+                else:
+                    render_paginated_df(recommend_df[["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色次數轉換率", "配方族群轉換率", "建議收費"]], "trial_fee", page_size=5)
 
-            rec_csv_df = cust_stats.copy()
+            rec_csv_df = recommend_df.copy()
             rec_csv_df["試色次數轉換率"] = rec_csv_df["試色次數轉換率"].map(lambda x: f"{x:.1f}%")
             rec_csv_df["配方族群轉換率"] = rec_csv_df["配方族群轉換率"].map(lambda x: f"{x:.1f}%")
 
@@ -10311,6 +10324,8 @@ if st.session_state.menu == "匯入備份":
 st.markdown(
     """
     <style>
+    /* trial compact buttons */
+    div[data-testid="stButton"] > button {font-size:0.86rem !important; padding-top:0.3rem !important; padding-bottom:0.3rem !important;}
     div[data-testid="stButton"] > button[kind="secondary"] {
         min-height: 2.35rem;
         font-size: 0.98rem;
