@@ -10140,9 +10140,11 @@ if menu == "試色記錄分析":
                 st.vega_lite_chart(
                     pie_df,
                     {
-                        "width": 220,
-                        "height": 220,
-                        "mark": {"type": "arc", "innerRadius": 28, "outerRadius": 95},
+                        "width": 240,
+                        "height": 260,
+                        "autosize": {"type": "fit", "contains": "padding"},
+                        "padding": {"top": 12, "bottom": 42, "left": 12, "right": 12},
+                        "mark": {"type": "arc", "innerRadius": 28, "outerRadius": 88},
                         "encoding": {
                             "theta": {"field": "試色筆數", "type": "quantitative"},
                             "color": {"field": "原料", "type": "nominal", "legend": {"title": "原料", "orient": "bottom", "columns": 4}},
