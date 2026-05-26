@@ -9963,16 +9963,43 @@ if menu == "試色記錄分析":
                 extra = int((dup_groups["試色次數"] - 1).sum())
                 st.info(f"期間內有 {len(dup_groups)} 組主配方發生重複試色，額外增加 {extra} 次試色成本。")
 
+            st.markdown("#### 原料別採購比例")
             mat = dfv.groupby("原料").agg(試色筆數=("配方編號","count"), 採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())).reset_index()
             mat["採購比例"] = (mat["採購筆數"] / mat["試色筆數"] * 100).round(1).astype(str) + "%"
             st.dataframe(mat, use_container_width=True)
 
+            # 未採購追蹤名單
+            st.markdown("#### 未採購追蹤名單")
+            pending_df = dfv[dfv["已採購"].astype(str) != "是"].copy()
+            if not pending_df.empty:
+                pending_df["天數"] = (pd.Timestamp.now().normalize() - pending_df["試色日期"]).dt.days
+                pending_df = pending_df.sort_values(["天數", "試色日期"], ascending=[False, True])
+                st.dataframe(
+                    pending_df[["配方編號", "主配方編號", "客戶名稱", "原料", "試色日期", "天數"]],
+                    use_container_width=True,
+                )
+            else:
+                st.success("目前查詢區間內沒有未採購試色。")
+
+            # 收費門檻建議
+            st.markdown("#### 收費門檻建議")
+            threshold = st.slider("建議收費門檻（配方族群轉換率低於此值）", min_value=0, max_value=100, value=20, step=1)
+            min_samples = st.number_input("最小樣本數（試色次數）", min_value=1, max_value=500, value=10, step=1)
+            group_rate = (group_purchase / group_count * 100) if group_count else 0
+            if trial_count >= min_samples and group_rate < threshold:
+                st.warning(f"建議評估收取試色費：目前配方族群轉換率 {group_rate:.1f}% 低於門檻 {threshold}%（樣本 {trial_count} 筆）。")
+            else:
+                st.info(f"目前未達收費提醒條件（轉換率 {group_rate:.1f}%，樣本 {trial_count} 筆）。")
+
             show = dfv.copy()
             show["試色日期"] = show["試色日期"].dt.strftime("%Y-%m-%d")
+            st.markdown("#### 分析明細")
             st.dataframe(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","已採購","採購日期"]], use_container_width=True)
 
             csv = show.to_csv(index=False).encode("utf-8-sig")
             st.download_button("匯出分析 CSV", data=csv, file_name=f"trial_analysis_{start_d}_{end_d}.csv", mime="text/csv")
+            pending_csv = pending_df.to_csv(index=False).encode("utf-8-sig") if not pending_df.empty else "".encode("utf-8-sig")
+            st.download_button("匯出未採購追蹤 CSV", data=pending_csv, file_name=f"trial_pending_{start_d}_{end_d}.csv", mime="text/csv")
 
     recipe_df = get_cached_sheet_df("配方管理")
     if not recipe_df.empty and not df_trial.empty and "配方編號" in recipe_df.columns:
