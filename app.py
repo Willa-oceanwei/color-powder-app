@@ -9867,7 +9867,35 @@ if menu == "試色記錄分析":
         if c not in df_trial.columns:
             df_trial[c] = ""
 
-    sub1, sub2 = st.tabs(["試色登錄", "記錄分析"])
+    # 試色分析參數（可由 UI 維護）
+    param_defaults = {
+        "收費門檻百分比": "20",
+        "最小樣本數": "10",
+        "未採購追蹤天數": "30",
+    }
+    try:
+        ws_params = get_cached_worksheet("試色參數")
+    except Exception:
+        ws_params = spreadsheet.add_worksheet("試色參數", rows=50, cols=5)
+        ws_params.append_row(["參數", "值", "更新時間"])
+        for k, v in param_defaults.items():
+            ws_params.append_row([k, v, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+        invalidate_sheet_cache("試色參數")
+
+    df_params = get_cached_sheet_df("試色參數")
+    param_map = param_defaults.copy()
+    if not df_params.empty and "參數" in df_params.columns and "值" in df_params.columns:
+        for _, r in df_params.iterrows():
+            k = str(r.get("參數", "")).strip()
+            v = str(r.get("值", "")).strip()
+            if k:
+                param_map[k] = v
+
+    threshold_default = int(float(param_map.get("收費門檻百分比", "20") or 20))
+    min_samples_default = int(float(param_map.get("最小樣本數", "10") or 10))
+    pending_days_default = int(float(param_map.get("未採購追蹤天數", "30") or 30))
+
+    sub1, sub2, sub3 = st.tabs(["試色登錄", "記錄分析", "參數設定"])
 
     with sub1:
         t1, t2 = st.tabs(["新增", "採購登入"])
@@ -9973,6 +10001,7 @@ if menu == "試色記錄分析":
             pending_df = dfv[dfv["已採購"].astype(str) != "是"].copy()
             if not pending_df.empty:
                 pending_df["天數"] = (pd.Timestamp.now().normalize() - pending_df["試色日期"]).dt.days
+                pending_df = pending_df[pending_df["天數"] >= pending_days_default]
                 pending_df = pending_df.sort_values(["天數", "試色日期"], ascending=[False, True])
                 st.dataframe(
                     pending_df[["配方編號", "主配方編號", "客戶名稱", "原料", "試色日期", "天數"]],
@@ -9983,13 +10012,46 @@ if menu == "試色記錄分析":
 
             # 收費門檻建議
             st.markdown("#### 收費門檻建議")
-            threshold = st.slider("建議收費門檻（配方族群轉換率低於此值）", min_value=0, max_value=100, value=20, step=1)
-            min_samples = st.number_input("最小樣本數（試色次數）", min_value=1, max_value=500, value=10, step=1)
+            threshold = threshold_default
+            min_samples = min_samples_default
+            st.caption(f"目前參數：收費門檻 {threshold}%｜最小樣本 {min_samples}｜未採購追蹤天數 {pending_days_default} 天（可於『參數設定』調整）")
             group_rate = (group_purchase / group_count * 100) if group_count else 0
             if trial_count >= min_samples and group_rate < threshold:
                 st.warning(f"建議評估收取試色費：目前配方族群轉換率 {group_rate:.1f}% 低於門檻 {threshold}%（樣本 {trial_count} 筆）。")
             else:
                 st.info(f"目前未達收費提醒條件（轉換率 {group_rate:.1f}%，樣本 {trial_count} 筆）。")
+
+            st.markdown("#### 客戶別收費建議清單")
+            cust = dfv.copy()
+            cust["客戶顯示"] = cust["客戶名稱"].astype(str).str.strip()
+            cust.loc[cust["客戶顯示"] == "", "客戶顯示"] = cust["客戶編號"].astype(str).str.strip()
+            cust_stats = cust.groupby("客戶顯示", dropna=False).agg(
+                試色次數=("配方編號", "count"),
+                採購筆數=("已採購", lambda x: (x.astype(str) == "是").sum()),
+                主配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
+                已採購主配方數=("主配方編號", lambda x: x[cust.loc[x.index, "已採購"].astype(str)=="是"].astype(str).replace("", pd.NA).dropna().nunique()),
+            ).reset_index()
+            cust_stats["配方族群轉換率"] = cust_stats.apply(
+                lambda r: (r["已採購主配方數"] / r["主配方數"] * 100) if r["主配方數"] else 0,
+                axis=1,
+            )
+            cust_stats["試色次數轉換率"] = cust_stats.apply(
+                lambda r: (r["採購筆數"] / r["試色次數"] * 100) if r["試色次數"] else 0,
+                axis=1,
+            )
+            cust_stats["建議收費"] = cust_stats.apply(
+                lambda r: "是" if (r["試色次數"] >= min_samples and r["配方族群轉換率"] < threshold) else "否",
+                axis=1,
+            )
+            cust_stats = cust_stats.sort_values(["建議收費", "配方族群轉換率", "試色次數"], ascending=[False, True, False])
+            st.dataframe(
+                cust_stats[["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色次數轉換率", "配方族群轉換率", "建議收費"]],
+                use_container_width=True,
+            )
+
+            rec_csv_df = cust_stats.copy()
+            rec_csv_df["試色次數轉換率"] = rec_csv_df["試色次數轉換率"].map(lambda x: f"{x:.1f}%")
+            rec_csv_df["配方族群轉換率"] = rec_csv_df["配方族群轉換率"].map(lambda x: f"{x:.1f}%")
 
             show = dfv.copy()
             show["試色日期"] = show["試色日期"].dt.strftime("%Y-%m-%d")
@@ -10000,6 +10062,48 @@ if menu == "試色記錄分析":
             st.download_button("匯出分析 CSV", data=csv, file_name=f"trial_analysis_{start_d}_{end_d}.csv", mime="text/csv")
             pending_csv = pending_df.to_csv(index=False).encode("utf-8-sig") if not pending_df.empty else "".encode("utf-8-sig")
             st.download_button("匯出未採購追蹤 CSV", data=pending_csv, file_name=f"trial_pending_{start_d}_{end_d}.csv", mime="text/csv")
+            rec_csv = rec_csv_df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button("匯出客戶收費建議 CSV", data=rec_csv, file_name=f"trial_fee_recommendation_{start_d}_{end_d}.csv", mime="text/csv")
+
+    with sub3:
+        st.markdown("#### 試色分析參數設定")
+        with st.form("trial_param_form"):
+            p1, p2, p3 = st.columns(3)
+            fee_threshold = p1.slider("收費門檻百分比", min_value=0, max_value=100, value=threshold_default, step=1)
+            min_samples_ui = p2.number_input("最小樣本數", min_value=1, max_value=500, value=min_samples_default, step=1)
+            pending_days_ui = p3.number_input("未採購追蹤天數", min_value=0, max_value=3650, value=pending_days_default, step=1)
+            save_param = st.form_submit_button("💾 儲存參數")
+
+        if save_param:
+            now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            vals = get_cached_sheet_values("試色參數", force_reload=True)
+            if len(vals) <= 1:
+                ws_params.append_row(["參數", "值", "更新時間"])
+                vals = get_cached_sheet_values("試色參數", force_reload=True)
+            headers = vals[0]
+            kidx = headers.index("參數")
+            vidx = headers.index("值") + 1
+            tidx = headers.index("更新時間") + 1 if "更新時間" in headers else None
+            updates = {
+                "收費門檻百分比": str(fee_threshold),
+                "最小樣本數": str(int(min_samples_ui)),
+                "未採購追蹤天數": str(int(pending_days_ui)),
+            }
+            seen = set()
+            for ridx, row in enumerate(vals[1:], start=2):
+                if kidx < len(row):
+                    key = str(row[kidx]).strip()
+                    if key in updates:
+                        safe_update_cell(ws_params, ridx, vidx, updates[key])
+                        if tidx:
+                            safe_update_cell(ws_params, ridx, tidx, now_text)
+                        seen.add(key)
+            for k, v in updates.items():
+                if k not in seen:
+                    ws_params.append_row([k, v, now_text])
+            invalidate_sheet_cache("試色參數")
+            st.toast("試色分析參數已更新", icon="⚙️")
+            st.rerun()
 
     recipe_df = get_cached_sheet_df("配方管理")
     if not recipe_df.empty and not df_trial.empty and "配方編號" in recipe_df.columns:
