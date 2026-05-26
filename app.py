@@ -10037,14 +10037,30 @@ if menu == "試色記錄分析":
                         cust_opts_q.append(f"{cid} - {cn}" if cn else cid)
         selected_q_customer = c1.selectbox("客戶（可輸入編號或名稱搜尋）", cust_opts_q, index=0, key="analysis_customer_select")
         keyword = selected_q_customer.split(" - ",1)[0].strip() if selected_q_customer else ""
-        start_d = c2.date_input("起日", key="analysis_start")
-        end_d = c3.date_input("迄日", key="analysis_end")
+        dfv_seed = get_cached_sheet_df("試色登錄")
+        if not dfv_seed.empty and "試色日期" in dfv_seed.columns:
+            seed_dates = pd.to_datetime(dfv_seed["試色日期"], errors="coerce").dropna()
+            if len(seed_dates) > 0:
+                default_start = seed_dates.min().date()
+                default_end = seed_dates.max().date()
+            else:
+                default_start = datetime.now().date()
+                default_end = datetime.now().date()
+        else:
+            default_start = datetime.now().date()
+            default_end = datetime.now().date()
+
+        start_d = c2.date_input("起日", key="analysis_start", value=default_start)
+        end_d = c3.date_input("迄日", key="analysis_end", value=default_end)
+        c3.caption(f"預設區間：{default_start} ~ {default_end}")
         opt1, opt2 = st.columns(2)
         include_backfill = opt1.checkbox("分析包含歷史補登", value=True)
         strict_precise = opt2.checkbox("僅統計精確日期", value=False)
 
         dfv = get_cached_sheet_df("試色登錄")
-        if not dfv.empty:
+        if start_d > end_d:
+            st.warning("起日不可晚於迄日"); st.toast("請調整日期區間", icon="⚠️")
+        elif not dfv.empty:
             dfv["試色日期"] = pd.to_datetime(dfv["試色日期"], errors="coerce")
             dfv = dfv[(dfv["試色日期"] >= pd.to_datetime(start_d)) & (dfv["試色日期"] <= pd.to_datetime(end_d))]
             if keyword:
