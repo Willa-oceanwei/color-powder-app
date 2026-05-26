@@ -10087,6 +10087,9 @@ if menu == "試色記錄分析":
         strict_precise = opt2.checkbox("僅統計精確日期", value=False)
 
         dfv = get_cached_sheet_df("試色登錄")
+        rec_csv_df = pd.DataFrame(columns=["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色次數轉換率", "配方族群轉換率", "建議收費"])
+        pending_df = pd.DataFrame()
+        show = pd.DataFrame()
         if not keyword:
             st.info("請先選擇客戶，分析資料將保持空白。")
         elif start_d > end_d:
