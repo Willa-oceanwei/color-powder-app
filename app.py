@@ -9939,12 +9939,12 @@ if menu == "試色記錄分析":
                     customer_name_from_input = cust_map[selected_customer]["name"]
 
                 trial_date = c3.date_input("試色日期")
-                c4, c5, c6, c7 = st.columns(4)
+                c4, c5, c6, c7, c8 = st.columns(5)
                 material = c4.selectbox("原料", materials)
                 purchased = c5.selectbox("已採購", ["否", "是"])
                 date_precision = c6.selectbox("日期精度", ["精確", "僅年度"], index=0)
                 backfill = c7.selectbox("歷史補登", ["否", "是"], index=0, help="歷史補登建議日期填該年度 1/1")
-                purchase_date = c5.date_input("採購日期", disabled=(purchased != "是"), key="trial_purchase_date")
+                purchase_date = c8.date_input("採購日期", disabled=(purchased != "是"), key="trial_purchase_date")
                 submitted = st.form_submit_button("💾 新增試色")
 
             if material in df_trial["原料"].values:
@@ -9954,7 +9954,7 @@ if menu == "試色記錄分析":
 
             if submitted:
                 if not formula_code or not customer_id:
-                    st.warning("請填寫配方編號與客戶編號")
+                    st.warning("請填寫配方編號與客戶編號"); st.toast("請填寫必填欄位", icon="⚠️")
                 elif formula_code in df_trial["配方編號"].astype(str).str.upper().values:
                     st.toast(f"配方編號 {formula_code} 已存在，請勿重複", icon="🚫")
                 else:
@@ -9994,7 +9994,7 @@ if menu == "試色記錄分析":
                     if updated:
                         st.toast(f"已登入採購：{code_update}", icon="🧾")
                     else:
-                        st.warning("找不到該配方編號")
+                        st.warning("找不到該配方編號"); st.toast("採購登入失敗：找不到配方", icon="⚠️")
 
     with sub2:
         c1, c2, c3 = st.columns([2,1,1])
@@ -10056,7 +10056,7 @@ if menu == "試色記錄分析":
                     use_container_width=True,
                 )
             else:
-                st.success("目前查詢區間內沒有未採購試色。")
+                st.success("目前查詢區間內沒有未採購試色。"); st.toast("未採購追蹤：目前無資料", icon="ℹ️")
 
             # 收費門檻建議
             st.markdown("#### 收費門檻建議")
@@ -10102,6 +10102,9 @@ if menu == "試色記錄分析":
             rec_csv_df["配方族群轉換率"] = rec_csv_df["配方族群轉換率"].map(lambda x: f"{x:.1f}%")
 
             show = dfv.copy()
+            for col in ["日期精度", "歷史補登", "採購日期", "客戶名稱", "原料", "主配方編號", "已採購"]:
+                if col not in show.columns:
+                    show[col] = ""
             show["試色日期"] = show["試色日期"].dt.strftime("%Y-%m-%d")
             st.markdown("#### 分析明細")
             st.dataframe(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], use_container_width=True)
@@ -10140,7 +10143,7 @@ if menu == "試色記錄分析":
                 st.toast("試色分析參數已更新", icon="⚙️")
                 st.rerun()
             except Exception as e:
-                st.error(f"參數儲存失敗：{e}")
+                st.error(f"參數儲存失敗：{e}"); st.toast("參數儲存失敗", icon="❌")
 
     recipe_df = get_cached_sheet_df("配方管理")
     if not recipe_df.empty and not df_trial.empty and "配方編號" in recipe_df.columns:
