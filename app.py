@@ -9848,8 +9848,6 @@ def to_roc_date_text(d):
 
 
 if menu == "試色記錄分析":
-    st.markdown('<h2 style="font-size:22px;color:#ff8a57;">📊 試色記錄分析</h2>', unsafe_allow_html=True)
-
     trial_cols = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "原料", "已採購", "採購日期", "建立時間", "更新時間"]
     materials = ["B", "PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS"]
 
@@ -10066,12 +10064,15 @@ if menu == "試色記錄分析":
             st.download_button("匯出客戶收費建議 CSV", data=rec_csv, file_name=f"trial_fee_recommendation_{start_d}_{end_d}.csv", mime="text/csv")
 
     with sub3:
-        st.markdown("#### 試色分析參數設定")
+        st.caption("參數設定（灰字說明）：調整下列門檻後，會直接影響『記錄分析』中的收費建議與未採購追蹤名單。")
         with st.form("trial_param_form"):
             p1, p2, p3 = st.columns(3)
             fee_threshold = p1.slider("收費門檻百分比", min_value=0, max_value=100, value=threshold_default, step=1)
+            p1.caption("灰字說明：配方族群轉換率低於此百分比時，系統會建議評估收費。")
             min_samples_ui = p2.number_input("最小樣本數", min_value=1, max_value=500, value=min_samples_default, step=1)
+            p2.caption("灰字說明：至少達到此試色筆數，才會觸發收費建議判斷。")
             pending_days_ui = p3.number_input("未採購追蹤天數", min_value=0, max_value=3650, value=pending_days_default, step=1)
+            p3.caption("灰字說明：只顯示未採購且天數大於等於此值的追蹤資料。")
             save_param = st.form_submit_button("💾 儲存參數")
 
         if save_param:
