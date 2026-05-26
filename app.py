@@ -9901,7 +9901,47 @@ if menu == "試色記錄分析":
             with st.form("trial_add_form"):
                 c1, c2, c3 = st.columns(3)
                 formula_code = c1.text_input("配方編號").strip().upper()
-                customer_id = c2.text_input("客戶編號").strip()
+
+                cust_df_form = get_cached_sheet_df("客戶名單")
+                cust_opts = [""]
+                cust_map = {}
+                if not cust_df_form.empty and "客戶編號" in cust_df_form.columns and "客戶名稱" in cust_df_form.columns:
+                    for _, rr in cust_df_form[["客戶編號", "客戶名稱"]].dropna(how="all").iterrows():
+                        cid = str(rr.get("客戶編號", "")).strip()
+                        cname = str(rr.get("客戶名稱", "")).strip()
+                        if cid or cname:
+                            label = f"{cid}｜{cname}" if cname else cid
+                            cust_opts.append(label)
+                            cust_map[label] = {"id": cid, "name": cname}
+
+                selected_customer = c2.selectbox("客戶搜尋（編號/名稱）", cust_opts, index=0)
+                manual_customer = c2.text_input("或手動輸入（編號或名稱）", value="").strip()
+                customer_id = ""
+                customer_name_from_input = ""
+                if selected_customer and selected_customer in cust_map:
+                    customer_id = cust_map[selected_customer]["id"]
+                    customer_name_from_input = cust_map[selected_customer]["name"]
+                elif manual_customer:
+                    if "｜" in manual_customer:
+                        left, right = manual_customer.split("｜", 1)
+                        customer_id = left.strip()
+                        customer_name_from_input = right.strip()
+                    else:
+                        raw = manual_customer.strip()
+                        if not cust_df_form.empty and "客戶編號" in cust_df_form.columns and "客戶名稱" in cust_df_form.columns:
+                            hit_id = cust_df_form[cust_df_form["客戶編號"].astype(str).str.strip() == raw]
+                            hit_name = cust_df_form[cust_df_form["客戶名稱"].astype(str).str.strip() == raw]
+                            if not hit_id.empty:
+                                customer_id = raw
+                                customer_name_from_input = str(hit_id.iloc[0]["客戶名稱"]).strip()
+                            elif not hit_name.empty:
+                                customer_id = str(hit_name.iloc[0]["客戶編號"]).strip()
+                                customer_name_from_input = raw
+                            else:
+                                customer_id = raw
+                        else:
+                            customer_id = raw
+
                 trial_date = c3.date_input("試色日期")
                 c4, c5, c6 = st.columns(3)
                 material = c4.selectbox("原料", materials)
@@ -9921,8 +9961,8 @@ if menu == "試色記錄分析":
                     st.toast(f"配方編號 {formula_code} 已存在，請勿重複", icon="🚫")
                 else:
                     cust_df = get_cached_sheet_df("客戶名單")
-                    cust_name = ""
-                    if not cust_df.empty and "客戶編號" in cust_df.columns and "客戶名稱" in cust_df.columns:
+                    cust_name = customer_name_from_input
+                    if not cust_name and not cust_df.empty and "客戶編號" in cust_df.columns and "客戶名稱" in cust_df.columns:
                         hit = cust_df[cust_df["客戶編號"].astype(str).str.strip() == customer_id]
                         if not hit.empty:
                             cust_name = str(hit.iloc[0]["客戶名稱"]).strip()
