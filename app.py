@@ -9952,6 +9952,15 @@ if menu == "試色記錄分析":
                 if len(last_code):
                     st.caption(f"提示：原料 {material} 最後登錄編號：{last_code.iloc[0]}")
 
+            st.markdown("<div style='font-size:12px;color:#8a8a8a;'>歷史補登參考：各原料最後登錄編號</div>", unsafe_allow_html=True)
+            mat_last = []
+            for m in materials:
+                _d = df_trial[df_trial["原料"].astype(str) == m]
+                if not _d.empty:
+                    mat_last.append({"原料": m, "最後編號": str(_d["配方編號"].astype(str).iloc[-1])})
+            if mat_last:
+                st.dataframe(pd.DataFrame(mat_last), use_container_width=True, height=180)
+
             if submitted:
                 if not formula_code or not customer_id:
                     st.warning("請填寫配方編號與客戶編號"); st.toast("請填寫必填欄位", icon="⚠️")
@@ -10016,7 +10025,18 @@ if menu == "試色記錄分析":
     with sub2:
         st.markdown("<div style='font-size:13px;color:#9aa4b2;margin-bottom:4px;'>分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([2,1,1])
-        keyword = c1.text_input("客戶名稱 / 客戶編號")
+        cust_df_q = get_cached_sheet_df("客戶名單")
+        cust_opts_q = [""]
+        if not cust_df_q.empty and "客戶編號" in cust_df_q.columns:
+            name_col_q = "客戶簡稱" if "客戶簡稱" in cust_df_q.columns else ("客戶名稱" if "客戶名稱" in cust_df_q.columns else None)
+            if name_col_q:
+                qq = cust_df_q[["客戶編號", name_col_q]].fillna("")
+                for _, r in qq.iterrows():
+                    cid = str(r["客戶編號"]).strip(); cn = str(r[name_col_q]).strip()
+                    if cid or cn:
+                        cust_opts_q.append(f"{cid} - {cn}" if cn else cid)
+        selected_q_customer = c1.selectbox("客戶（可輸入編號或名稱搜尋）", cust_opts_q, index=0, key="analysis_customer_select")
+        keyword = selected_q_customer.split(" - ",1)[0].strip() if selected_q_customer else ""
         start_d = c2.date_input("起日", key="analysis_start")
         end_d = c3.date_input("迄日", key="analysis_end")
         opt1, opt2 = st.columns(2)
@@ -10045,6 +10065,7 @@ if menu == "試色記錄分析":
             k2.metric("採購筆數", purchase_count)
             k3.metric("試色次數轉換率", f"{(purchase_count/trial_count*100):.1f}%" if trial_count else "0%")
             k4.metric("配方族群轉換率", f"{(group_purchase/group_count*100):.1f}%" if group_count else "0%")
+            st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色次數轉換率＝採購筆數 ÷ 試色筆數。ⓘ 配方族群轉換率＝已採購主配方數 ÷ 主配方數（52689/52689A 算同族群）。</div>", unsafe_allow_html=True)
 
             dup_groups = dfv.groupby("主配方編號").size().reset_index(name="試色次數")
             dup_groups = dup_groups[dup_groups["試色次數"] > 1]
@@ -10052,13 +10073,13 @@ if menu == "試色記錄分析":
                 extra = int((dup_groups["試色次數"] - 1).sum())
                 st.info(f"期間內有 {len(dup_groups)} 組主配方發生重複試色，額外增加 {extra} 次試色成本。")
 
-            st.markdown("<div style='font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例</div>", unsafe_allow_html=True)
             mat = dfv.groupby("原料").agg(試色筆數=("配方編號","count"), 採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())).reset_index()
             mat["採購比例"] = (mat["採購筆數"] / mat["試色筆數"] * 100).round(1).astype(str) + "%"
             st.dataframe(mat, use_container_width=True)
 
             # 未採購追蹤名單
-            st.markdown("<div style='font-size:14px;font-weight:600;margin:6px 0;'>未採購追蹤名單</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background:#33241f;padding:8px 10px;border-radius:8px;color:#ffe5d0;font-size:14px;font-weight:600;margin:6px 0;'>未採購追蹤名單</div>", unsafe_allow_html=True)
             pending_mask = (dfv["已採購"].astype(str) != "是")
             if "歷史補登" in dfv.columns:
                 pending_mask = pending_mask & (dfv["歷史補登"].astype(str) != "是")
@@ -10077,7 +10098,7 @@ if menu == "試色記錄分析":
                 st.success("目前查詢區間內沒有未採購試色。"); st.toast("未採購追蹤：目前無資料", icon="ℹ️")
 
             # 收費門檻建議
-            st.markdown("<div style='font-size:14px;font-weight:600;margin:6px 0;'>收費門檻建議</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background:#2a2338;padding:8px 10px;border-radius:8px;color:#e9ddff;font-size:14px;font-weight:600;margin:6px 0;'>收費門檻建議</div>", unsafe_allow_html=True)
             threshold = threshold_default
             min_samples = min_samples_default
             st.caption(f"目前參數：收費門檻 {threshold}%｜最小樣本 {min_samples}｜未採購追蹤天數 {pending_days_default} 天（可於『參數設定』調整）")
@@ -10087,7 +10108,7 @@ if menu == "試色記錄分析":
             else:
                 st.info(f"目前未達收費提醒條件（轉換率 {group_rate:.1f}%，樣本 {trial_count} 筆）。")
 
-            st.markdown("#### 客戶別收費建議清單")
+            st.markdown("<div style='background:#1b2635;padding:8px 10px;border-radius:8px;color:#d5e6ff;font-size:14px;font-weight:600;margin-top:8px;'>客戶別收費建議清單</div>", unsafe_allow_html=True)
             cust = dfv.copy()
             cust["客戶顯示"] = cust["客戶名稱"].astype(str).str.strip()
             cust.loc[cust["客戶顯示"] == "", "客戶顯示"] = cust["客戶編號"].astype(str).str.strip()
@@ -10178,9 +10199,14 @@ if menu == "試色記錄分析":
                 di = headers.index("採購日期") + 1
                 for ridx, rv in enumerate(vals[1:], start=2):
                     if ci < len(rv) and clean_powder_id(rv[ci]) == code:
-                        safe_update_cell(ws_trial, ridx, pi, "是")
-                        safe_update_cell(ws_trial, ridx, di, datetime.now().strftime("%Y-%m-%d"))
-                        st.toast(f"配方 {code} 已在配方管理建立，自動轉為已採購", icon="🔔")
+                        try:
+                            p_col = gspread.utils.rowcol_to_a1(ridx, pi)
+                            d_col = gspread.utils.rowcol_to_a1(ridx, di)
+                            ws_trial.update(f"{p_col}:{d_col}", [["是", datetime.now().strftime("%Y-%m-%d")]])
+                            st.toast(f"配方 {code} 已在配方管理建立，自動轉為已採購", icon="🔔")
+                        except Exception as e:
+                            st.toast(f"自動採購同步失敗：{code}", icon="⚠️")
+                            st.error(f"自動採購同步失敗：{e}")
                         invalidate_sheet_cache("試色登錄")
                         break
 
