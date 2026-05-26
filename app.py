@@ -9921,10 +9921,10 @@ if menu == "試色記錄分析":
                         cust_map[label] = {"id": cid, "name": cname}
 
                 selected_customer = c2.selectbox(
-                    "客戶搜尋（可輸入編號或名稱）",
+                    "客戶編號",
                     cust_opts,
                     index=0,
-                    help="可直接在下拉框輸入客戶編號或客戶名稱進行搜尋。",
+                    help="可直接輸入客戶編號或客戶名稱來搜尋。",
                 )
 
                 customer_id = ""
@@ -10095,47 +10095,33 @@ if menu == "試色記錄分析":
             st.download_button("匯出客戶收費建議 CSV", data=rec_csv, file_name=f"trial_fee_recommendation_{start_d}_{end_d}.csv", mime="text/csv")
 
     with sub3:
-        st.caption("參數設定（灰字說明）：調整下列門檻後，會直接影響『記錄分析』中的收費建議與未採購追蹤名單。")
+        st.markdown("<span style='color:#8a8a8a;font-size:11px;'>ⓘ 調整下列門檻後，會直接影響「記錄分析」中的收費建議與未採購追蹤名單。</span>", unsafe_allow_html=True)
         with st.form("trial_param_form"):
             p1, p2, p3 = st.columns(3)
             fee_threshold = p1.slider("收費門檻百分比", min_value=0, max_value=100, value=threshold_default, step=1)
-            p1.caption("灰字說明：配方族群轉換率低於此百分比時，系統會建議評估收費。")
+            p1.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 配方族群轉換率低於此百分比時，系統會建議評估收費。</span>", unsafe_allow_html=True)
             min_samples_ui = p2.number_input("最小樣本數", min_value=1, max_value=500, value=min_samples_default, step=1)
-            p2.caption("灰字說明：至少達到此試色筆數，才會觸發收費建議判斷。")
+            p2.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 至少達到此試色筆數，才會觸發收費建議判斷。</span>", unsafe_allow_html=True)
             pending_days_ui = p3.number_input("未採購追蹤天數", min_value=0, max_value=3650, value=pending_days_default, step=1)
-            p3.caption("灰字說明：只顯示未採購且天數大於等於此值的追蹤資料。")
+            p3.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 只顯示未採購且天數大於等於此值的追蹤資料。</span>", unsafe_allow_html=True)
             save_param = st.form_submit_button("💾 儲存參數")
 
         if save_param:
             now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            vals = get_cached_sheet_values("試色參數", force_reload=True)
-            if len(vals) <= 1:
-                ws_params.append_row(["參數", "值", "更新時間"])
-                vals = get_cached_sheet_values("試色參數", force_reload=True)
-            headers = vals[0]
-            kidx = headers.index("參數")
-            vidx = headers.index("值") + 1
-            tidx = headers.index("更新時間") + 1 if "更新時間" in headers else None
             updates = {
                 "收費門檻百分比": str(fee_threshold),
                 "最小樣本數": str(int(min_samples_ui)),
                 "未採購追蹤天數": str(int(pending_days_ui)),
             }
-            seen = set()
-            for ridx, row in enumerate(vals[1:], start=2):
-                if kidx < len(row):
-                    key = str(row[kidx]).strip()
-                    if key in updates:
-                        safe_update_cell(ws_params, ridx, vidx, updates[key])
-                        if tidx:
-                            safe_update_cell(ws_params, ridx, tidx, now_text)
-                        seen.add(key)
-            for k, v in updates.items():
-                if k not in seen:
-                    ws_params.append_row([k, v, now_text])
-            invalidate_sheet_cache("試色參數")
-            st.toast("試色分析參數已更新", icon="⚙️")
-            st.rerun()
+            try:
+                rows = [["參數", "值", "更新時間"]] + [[k, v, now_text] for k, v in updates.items()]
+                ws_params.clear()
+                ws_params.update("A1", rows)
+                invalidate_sheet_cache("試色參數")
+                st.toast("試色分析參數已更新", icon="⚙️")
+                st.rerun()
+            except Exception as e:
+                st.error(f"參數儲存失敗：{e}")
 
     recipe_df = get_cached_sheet_df("配方管理")
     if not recipe_df.empty and not df_trial.empty and "配方編號" in recipe_df.columns:
