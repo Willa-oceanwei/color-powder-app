@@ -9905,26 +9905,31 @@ if menu == "試色記錄分析":
                 cust_df_form = get_cached_sheet_df("客戶名單")
                 if not cust_df_form.empty:
                     cust_df_form.columns = cust_df_form.columns.astype(str).str.strip()
+
+                # 與「新增配方」相同格式：客戶編號 - 客戶簡稱
                 cust_opts = [""]
                 cust_map = {}
-                if not cust_df_form.empty and "客戶編號" in cust_df_form.columns and "客戶名稱" in cust_df_form.columns:
-                    clean_cust = cust_df_form[["客戶編號", "客戶名稱"]].copy().fillna("")
-                    clean_cust["客戶編號"] = clean_cust["客戶編號"].astype(str).str.strip()
-                    clean_cust["客戶名稱"] = clean_cust["客戶名稱"].astype(str).str.strip()
-                    clean_cust = clean_cust[(clean_cust["客戶編號"] != "") | (clean_cust["客戶名稱"] != "")]
-                    clean_cust = clean_cust.drop_duplicates(subset=["客戶編號", "客戶名稱"])
-                    for _, rr in clean_cust.iterrows():
-                        cid = rr["客戶編號"]
-                        cname = rr["客戶名稱"]
-                        label = f"{cid}｜{cname}" if cname else cid
-                        cust_opts.append(label)
-                        cust_map[label] = {"id": cid, "name": cname}
+                if not cust_df_form.empty and "客戶編號" in cust_df_form.columns:
+                    name_col = "客戶簡稱" if "客戶簡稱" in cust_df_form.columns else ("客戶名稱" if "客戶名稱" in cust_df_form.columns else None)
+                    if name_col:
+                        clean_cust = cust_df_form[["客戶編號", name_col]].copy().fillna("")
+                        clean_cust["客戶編號"] = clean_cust["客戶編號"].astype(str).str.strip()
+                        clean_cust[name_col] = clean_cust[name_col].astype(str).str.strip()
+                        clean_cust = clean_cust[(clean_cust["客戶編號"] != "") | (clean_cust[name_col] != "")]
+                        clean_cust = clean_cust.drop_duplicates(subset=["客戶編號", name_col])
+                        for _, rr in clean_cust.iterrows():
+                            cid = rr["客戶編號"]
+                            cname = rr[name_col]
+                            label = f"{cid} - {cname}" if cname else cid
+                            cust_opts.append(label)
+                            cust_map[label] = {"id": cid, "name": cname}
 
                 selected_customer = c2.selectbox(
                     "客戶編號",
                     cust_opts,
                     index=0,
-                    help="可直接輸入客戶編號或客戶名稱來搜尋。",
+                    key="trial_selected_customer",
+                    help="可輸入客戶編號或名稱搜尋，下拉格式與新增配方一致。",
                 )
 
                 customer_id = ""
