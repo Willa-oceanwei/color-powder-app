@@ -380,6 +380,7 @@ def render_sidebar():
         {"group":"倉儲","key":"洗車廠庫存","label":"洗車廠庫存"},
         {"group":"倉儲","key":"採購管理","label":"採購管理"},
         {"group":"查詢","key":"查詢區","label":"查詢區"},
+        {"group":"數據","key":"試色記錄分析","label":"試色記錄分析"},
         {"group":"設定","key":"客戶名單","label":"客戶名單"},
         {"group":"設定","key":"匯入備份","label":"匯入備份"},
     ]
@@ -574,6 +575,7 @@ PRELOAD_SHEETS = {
     "色粉管理": "df_color",
     "生產單": "df_order",
     "代工管理": "df_oem",
+    "試色登錄": "df_trial",
 }
 
 
@@ -648,6 +650,7 @@ MENU_ITEMS = [
     {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
     {"key": "採購管理", "label": "採購管理", "group": "倉儲"},
     {"key": "查詢區", "label": "查詢區", "group": "查詢"},
+    {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
     {"key": "客戶名單", "label": "客戶名單", "group": "設定"},
     {"key": "匯入備份", "label": "匯入備份", "group": "設定"},
 ]
@@ -664,6 +667,7 @@ def render_erp_nav():
         {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
         {"key": "採購管理",   "label": "採購管理",   "group": "倉儲"},
         {"key": "查詢區",     "label": "查詢區",     "group": "查詢"},
+        {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
         {"key": "客戶名單",   "label": "客戶名單",   "group": "設定"},
         {"key": "匯入備份",   "label": "匯入備份",   "group": "設定"},
     ]
@@ -9821,6 +9825,174 @@ elif menu == "洗車廠庫存":
                             "icon": "🛠️"
                         }
                         st.rerun()
+
+
+
+def parse_formula_root(code):
+    raw = clean_powder_id(code)
+    m = re.match(r"^(\d+)([A-Z])$", raw)
+    return m.group(1) if m else raw
+
+
+def to_roc_date_text(d):
+    if not d:
+        return ""
+    if isinstance(d, str):
+        dt = pd.to_datetime(d, errors="coerce")
+    else:
+        dt = pd.to_datetime(d)
+    if pd.isna(dt):
+        return ""
+    return f"{dt.year - 1911:03d}/{dt.month:02d}/{dt.day:02d}"
+
+
+
+if menu == "試色記錄分析":
+    st.markdown('<h2 style="font-size:22px;color:#ff8a57;">📊 試色記錄分析</h2>', unsafe_allow_html=True)
+
+    trial_cols = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "原料", "已採購", "採購日期", "建立時間", "更新時間"]
+    materials = ["B", "PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS"]
+
+    try:
+        ws_trial = get_cached_worksheet("試色登錄")
+    except Exception:
+        ws_trial = spreadsheet.add_worksheet("試色登錄", rows=1000, cols=20)
+        ws_trial.append_row(trial_cols)
+        invalidate_sheet_cache("試色登錄")
+
+    df_trial = get_cached_sheet_df("試色登錄")
+    if df_trial.empty:
+        df_trial = pd.DataFrame(columns=trial_cols)
+    for c in trial_cols:
+        if c not in df_trial.columns:
+            df_trial[c] = ""
+
+    sub1, sub2 = st.tabs(["試色登錄", "記錄分析"])
+
+    with sub1:
+        t1, t2 = st.tabs(["新增", "採購登入"])
+        with t1:
+            with st.form("trial_add_form"):
+                c1, c2, c3 = st.columns(3)
+                formula_code = c1.text_input("配方編號").strip().upper()
+                customer_id = c2.text_input("客戶編號").strip()
+                trial_date = c3.date_input("試色日期")
+                c4, c5, c6 = st.columns(3)
+                material = c4.selectbox("原料", materials)
+                purchased = c5.selectbox("已採購", ["否", "是"])
+                purchase_date = c6.date_input("採購日期", disabled=(purchased != "是"))
+                submitted = st.form_submit_button("💾 新增試色")
+
+            if material in df_trial["原料"].values:
+                last_code = df_trial[df_trial["原料"] == material]["配方編號"].dropna().astype(str).tail(1)
+                if len(last_code):
+                    st.caption(f"提示：原料 {material} 最後登錄編號：{last_code.iloc[0]}")
+
+            if submitted:
+                if not formula_code or not customer_id:
+                    st.warning("請填寫配方編號與客戶編號")
+                elif formula_code in df_trial["配方編號"].astype(str).str.upper().values:
+                    st.toast(f"配方編號 {formula_code} 已存在，請勿重複", icon="🚫")
+                else:
+                    cust_df = get_cached_sheet_df("客戶名單")
+                    cust_name = ""
+                    if not cust_df.empty and "客戶編號" in cust_df.columns and "客戶名稱" in cust_df.columns:
+                        hit = cust_df[cust_df["客戶編號"].astype(str).str.strip() == customer_id]
+                        if not hit.empty:
+                            cust_name = str(hit.iloc[0]["客戶名稱"]).strip()
+                    now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    row = [formula_code, parse_formula_root(formula_code), customer_id, cust_name, trial_date.strftime("%Y-%m-%d"), material, purchased, purchase_date.strftime("%Y-%m-%d") if purchased == "是" else "", now_text, now_text]
+                    safe_append_row(ws_trial, row)
+                    st.toast(f"已新增試色記錄：{formula_code}", icon="✅")
+                    st.session_state.need_reload_sheet = "試色登錄"
+                    st.rerun()
+
+        with t2:
+            code_update = st.text_input("要標記採購的配方編號").strip().upper()
+            manual_date = st.date_input("採購日期", key="manual_purchase_date")
+            if st.button("✅ 採購登入"):
+                vals = get_cached_sheet_values("試色登錄", force_reload=True)
+                if len(vals) <= 1:
+                    st.warning("目前沒有試色資料")
+                else:
+                    headers = vals[0]
+                    code_idx = headers.index("配方編號") + 1
+                    purchased_idx = headers.index("已採購") + 1
+                    date_idx = headers.index("採購日期") + 1
+                    updated = False
+                    for i, r in enumerate(vals[1:], start=2):
+                        if code_idx-1 < len(r) and str(r[code_idx-1]).strip().upper() == code_update:
+                            safe_update_cell(ws_trial, i, purchased_idx, "是")
+                            safe_update_cell(ws_trial, i, date_idx, manual_date.strftime("%Y-%m-%d"))
+                            updated = True
+                            break
+                    invalidate_sheet_cache("試色登錄")
+                    if updated:
+                        st.toast(f"已登入採購：{code_update}", icon="🧾")
+                    else:
+                        st.warning("找不到該配方編號")
+
+    with sub2:
+        c1, c2, c3 = st.columns([2,1,1])
+        keyword = c1.text_input("客戶名稱 / 客戶編號")
+        start_d = c2.date_input("起日", key="analysis_start")
+        end_d = c3.date_input("迄日", key="analysis_end")
+
+        dfv = get_cached_sheet_df("試色登錄")
+        if not dfv.empty:
+            dfv["試色日期"] = pd.to_datetime(dfv["試色日期"], errors="coerce")
+            dfv = dfv[(dfv["試色日期"] >= pd.to_datetime(start_d)) & (dfv["試色日期"] <= pd.to_datetime(end_d))]
+            if keyword:
+                m = dfv["客戶名稱"].astype(str).str.contains(keyword, case=False, na=False) | dfv["客戶編號"].astype(str).str.contains(keyword, case=False, na=False)
+                dfv = dfv[m]
+
+            trial_count = len(dfv)
+            purchase_count = int((dfv["已採購"].astype(str) == "是").sum())
+            group_count = dfv["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
+            group_purchase = dfv[dfv["已採購"].astype(str)=="是"]["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
+
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("試色次數", trial_count)
+            k2.metric("採購筆數", purchase_count)
+            k3.metric("試色次數轉換率", f"{(purchase_count/trial_count*100):.1f}%" if trial_count else "0%")
+            k4.metric("配方族群轉換率", f"{(group_purchase/group_count*100):.1f}%" if group_count else "0%")
+
+            dup_groups = dfv.groupby("主配方編號").size().reset_index(name="試色次數")
+            dup_groups = dup_groups[dup_groups["試色次數"] > 1]
+            if not dup_groups.empty:
+                extra = int((dup_groups["試色次數"] - 1).sum())
+                st.info(f"期間內有 {len(dup_groups)} 組主配方發生重複試色，額外增加 {extra} 次試色成本。")
+
+            mat = dfv.groupby("原料").agg(試色筆數=("配方編號","count"), 採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())).reset_index()
+            mat["採購比例"] = (mat["採購筆數"] / mat["試色筆數"] * 100).round(1).astype(str) + "%"
+            st.dataframe(mat, use_container_width=True)
+
+            show = dfv.copy()
+            show["試色日期"] = show["試色日期"].dt.strftime("%Y-%m-%d")
+            st.dataframe(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","已採購","採購日期"]], use_container_width=True)
+
+            csv = show.to_csv(index=False).encode("utf-8-sig")
+            st.download_button("匯出分析 CSV", data=csv, file_name=f"trial_analysis_{start_d}_{end_d}.csv", mime="text/csv")
+
+    recipe_df = get_cached_sheet_df("配方管理")
+    if not recipe_df.empty and not df_trial.empty and "配方編號" in recipe_df.columns:
+        bought_codes = set(recipe_df["配方編號"].astype(str).map(clean_powder_id))
+        pending = df_trial[df_trial["已採購"].astype(str) != "是"]
+        for _, row in pending.iterrows():
+            code = clean_powder_id(row.get("配方編號", ""))
+            if code and code in bought_codes:
+                vals = get_cached_sheet_values("試色登錄", force_reload=True)
+                headers = vals[0]
+                ci = headers.index("配方編號")
+                pi = headers.index("已採購") + 1
+                di = headers.index("採購日期") + 1
+                for ridx, rv in enumerate(vals[1:], start=2):
+                    if ci < len(rv) and clean_powder_id(rv[ci]) == code:
+                        safe_update_cell(ws_trial, ridx, pi, "是")
+                        safe_update_cell(ws_trial, ridx, di, datetime.now().strftime("%Y-%m-%d"))
+                        st.toast(f"配方 {code} 已在配方管理建立，自動轉為已採購", icon="🔔")
+                        invalidate_sheet_cache("試色登錄")
+                        break
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
