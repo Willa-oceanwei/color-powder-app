@@ -380,6 +380,7 @@ def render_sidebar():
         {"group":"倉儲","key":"洗車廠庫存","label":"洗車廠庫存"},
         {"group":"倉儲","key":"採購管理","label":"採購管理"},
         {"group":"查詢","key":"查詢區","label":"查詢區"},
+        {"group":"數據","key":"試色記錄分析","label":"試色記錄分析"},
         {"group":"設定","key":"客戶名單","label":"客戶名單"},
         {"group":"設定","key":"匯入備份","label":"匯入備份"},
     ]
@@ -574,6 +575,7 @@ PRELOAD_SHEETS = {
     "色粉管理": "df_color",
     "生產單": "df_order",
     "代工管理": "df_oem",
+    "試色登錄": "df_trial",
 }
 
 
@@ -648,6 +650,7 @@ MENU_ITEMS = [
     {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
     {"key": "採購管理", "label": "採購管理", "group": "倉儲"},
     {"key": "查詢區", "label": "查詢區", "group": "查詢"},
+    {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
     {"key": "客戶名單", "label": "客戶名單", "group": "設定"},
     {"key": "匯入備份", "label": "匯入備份", "group": "設定"},
 ]
@@ -664,6 +667,7 @@ def render_erp_nav():
         {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
         {"key": "採購管理",   "label": "採購管理",   "group": "倉儲"},
         {"key": "查詢區",     "label": "查詢區",     "group": "查詢"},
+        {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
         {"key": "客戶名單",   "label": "客戶名單",   "group": "設定"},
         {"key": "匯入備份",   "label": "匯入備份",   "group": "設定"},
     ]
@@ -798,6 +802,35 @@ def safe_update_cell(ws, row, col, value):
     ws.spreadsheet.batch_update(body)
 
 # ===== 在最上方定義函式 =====
+
+
+def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
+    if df is None or df.empty:
+        st.info("目前無資料")
+        return
+    total = len(df)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page_key = f"{key_prefix}_page"
+    if page_key not in st.session_state:
+        st.session_state[page_key] = 1
+    st.session_state[page_key] = min(max(1, st.session_state[page_key]), total_pages)
+
+    start = (st.session_state[page_key] - 1) * page_size
+    end = start + page_size
+    st.dataframe(df.iloc[start:end], use_container_width=use_container_width)
+
+    c1, c2, c3, c4 = st.columns([1,1,2,1])
+    if c1.button("🏠首頁", key=f"{key_prefix}_first"):
+        st.session_state[page_key] = 1
+        st.rerun()
+    if c2.button("◀ 上頁", key=f"{key_prefix}_prev") and st.session_state[page_key] > 1:
+        st.session_state[page_key] -= 1
+        st.rerun()
+    c3.markdown(f"<div style='text-align:center;color:#9aa4b2;font-size:12px;'>第 {st.session_state[page_key]} / {total_pages} 頁（共 {total} 筆）</div>", unsafe_allow_html=True)
+    if c4.button("下頁 ▶", key=f"{key_prefix}_next") and st.session_state[page_key] < total_pages:
+        st.session_state[page_key] += 1
+        st.rerun()
+
 def set_form_style():
     st.markdown("""
     <style>
@@ -9822,6 +9855,437 @@ elif menu == "洗車廠庫存":
                         }
                         st.rerun()
 
+
+
+def parse_formula_root(code):
+    raw = clean_powder_id(code)
+    m = re.match(r"^(\d+)([A-Z])$", raw)
+    return m.group(1) if m else raw
+
+
+def to_roc_date_text(d):
+    if not d:
+        return ""
+    if isinstance(d, str):
+        dt = pd.to_datetime(d, errors="coerce")
+    else:
+        dt = pd.to_datetime(d)
+    if pd.isna(dt):
+        return ""
+    return f"{dt.year - 1911:03d}/{dt.month:02d}/{dt.day:02d}"
+
+
+
+if menu == "試色記錄分析":
+    trial_cols = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "日期精度", "歷史補登", "原料", "已採購", "採購日期", "建立時間", "更新時間"]
+    materials = ["B", "PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS"]
+
+    try:
+        ws_trial = get_cached_worksheet("試色登錄")
+    except Exception:
+        ws_trial = spreadsheet.add_worksheet("試色登錄", rows=1000, cols=20)
+        ws_trial.append_row(trial_cols)
+        invalidate_sheet_cache("試色登錄")
+
+    df_trial = get_cached_sheet_df("試色登錄")
+    if df_trial.empty:
+        df_trial = pd.DataFrame(columns=trial_cols)
+    for c in trial_cols:
+        if c not in df_trial.columns:
+            df_trial[c] = ""
+
+    # 試色分析參數（可由 UI 維護）
+    param_defaults = {
+        "收費門檻百分比": "20",
+        "最小樣本數": "10",
+        "未採購追蹤天數": "30",
+    }
+    try:
+        ws_params = get_cached_worksheet("試色參數")
+    except Exception:
+        ws_params = spreadsheet.add_worksheet("試色參數", rows=50, cols=5)
+        ws_params.append_row(["參數", "值", "更新時間"])
+        for k, v in param_defaults.items():
+            ws_params.append_row([k, v, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+        invalidate_sheet_cache("試色參數")
+
+    df_params = get_cached_sheet_df("試色參數")
+    param_map = param_defaults.copy()
+    if not df_params.empty and "參數" in df_params.columns and "值" in df_params.columns:
+        for _, r in df_params.iterrows():
+            k = str(r.get("參數", "")).strip()
+            v = str(r.get("值", "")).strip()
+            if k:
+                param_map[k] = v
+
+    threshold_default = int(float(param_map.get("收費門檻百分比", "20") or 20))
+    min_samples_default = int(float(param_map.get("最小樣本數", "10") or 10))
+    pending_days_default = int(float(param_map.get("未採購追蹤天數", "30") or 30))
+
+    sub1, sub2, sub3 = st.tabs(["試色登錄", "記錄分析", "參數設定"])
+
+    with sub1:
+        t1, t2 = st.tabs(["新增", "採購登入"])
+        with t1:
+            with st.form("trial_add_form"):
+                c1, c2, c3 = st.columns(3)
+                formula_code = c1.text_input("配方編號").strip().upper()
+
+                cust_df_form = get_cached_sheet_df("客戶名單")
+                if not cust_df_form.empty:
+                    cust_df_form.columns = cust_df_form.columns.astype(str).str.strip()
+
+                # 與「新增配方」相同格式：客戶編號 - 客戶簡稱
+                cust_opts = [""]
+                cust_map = {}
+                if not cust_df_form.empty and "客戶編號" in cust_df_form.columns:
+                    name_col = "客戶簡稱" if "客戶簡稱" in cust_df_form.columns else ("客戶名稱" if "客戶名稱" in cust_df_form.columns else None)
+                    if name_col:
+                        clean_cust = cust_df_form[["客戶編號", name_col]].copy().fillna("")
+                        clean_cust["客戶編號"] = clean_cust["客戶編號"].astype(str).str.strip()
+                        clean_cust[name_col] = clean_cust[name_col].astype(str).str.strip()
+                        clean_cust = clean_cust[(clean_cust["客戶編號"] != "") | (clean_cust[name_col] != "")]
+                        clean_cust = clean_cust.drop_duplicates(subset=["客戶編號", name_col])
+                        for _, rr in clean_cust.iterrows():
+                            cid = rr["客戶編號"]
+                            cname = rr[name_col]
+                            label = f"{cid} - {cname}" if cname else cid
+                            cust_opts.append(label)
+                            cust_map[label] = {"id": cid, "name": cname}
+
+                selected_customer = c2.selectbox(
+                    "客戶編號",
+                    cust_opts,
+                    index=0,
+                    key="trial_selected_customer",
+                    help="可輸入客戶編號或名稱搜尋，下拉格式與新增配方一致。",
+                )
+
+                customer_id = ""
+                customer_name_from_input = ""
+                if selected_customer and selected_customer in cust_map:
+                    customer_id = cust_map[selected_customer]["id"]
+                    customer_name_from_input = cust_map[selected_customer]["name"]
+
+                trial_date = c3.date_input("試色日期")
+                c4, c5, c6, c7, c8 = st.columns(5)
+                material = c4.selectbox("原料", materials)
+                purchased = c5.selectbox("已採購", ["否", "是"])
+                date_precision = c6.selectbox("日期精度", ["精確", "僅年度"], index=0)
+                backfill = c7.selectbox("歷史補登", ["否", "是"], index=0, help="歷史補登建議日期填該年度 1/1")
+                purchase_date = c8.date_input("採購日期", disabled=(purchased != "是"), key="trial_purchase_date")
+                submitted = st.form_submit_button("💾 新增試色")
+
+            if material in df_trial["原料"].values:
+                last_code = df_trial[df_trial["原料"] == material]["配方編號"].dropna().astype(str).tail(1)
+                if len(last_code):
+                    st.caption(f"提示：原料 {material} 最後登錄編號：{last_code.iloc[0]}")
+
+            st.markdown("<div style='font-size:12px;color:#8a8a8a;'>歷史補登參考：各原料最後登錄編號</div>", unsafe_allow_html=True)
+            mat_last = []
+            for m in materials:
+                _d = df_trial[df_trial["原料"].astype(str) == m]
+                if not _d.empty:
+                    mat_last.append({"原料": m, "最後編號": str(_d["配方編號"].astype(str).iloc[-1])})
+            if mat_last:
+                st.dataframe(pd.DataFrame(mat_last), use_container_width=True, height=180)
+
+            if submitted:
+                if not formula_code or not customer_id:
+                    st.warning("請填寫配方編號與客戶編號"); st.toast("請填寫必填欄位", icon="⚠️")
+                elif formula_code in df_trial["配方編號"].astype(str).str.upper().values:
+                    st.toast(f"配方編號 {formula_code} 已存在，請勿重複", icon="🚫")
+                else:
+                    cust_df = get_cached_sheet_df("客戶名單")
+                    cust_name = customer_name_from_input
+                    if not cust_name and not cust_df.empty and "客戶編號" in cust_df.columns and "客戶名稱" in cust_df.columns:
+                        hit = cust_df[cust_df["客戶編號"].astype(str).str.strip() == customer_id]
+                        if not hit.empty:
+                            cust_name = str(hit.iloc[0]["客戶名稱"]).strip()
+                    now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    record = {
+                        "配方編號": formula_code,
+                        "主配方編號": parse_formula_root(formula_code),
+                        "客戶編號": customer_id,
+                        "客戶名稱": cust_name,
+                        "試色日期": trial_date.strftime("%Y-%m-%d"),
+                        "日期精度": date_precision,
+                        "歷史補登": backfill,
+                        "原料": material,
+                        "已採購": purchased,
+                        "採購日期": purchase_date.strftime("%Y-%m-%d") if purchased == "是" else "",
+                        "建立時間": now_text,
+                        "更新時間": now_text,
+                    }
+                    header_vals = get_cached_sheet_values("試色登錄", force_reload=True)
+                    headers = header_vals[0] if header_vals else trial_cols
+                    row = [record.get(h, "") for h in headers]
+                    safe_append_row(ws_trial, row)
+                    st.toast(f"已新增試色記錄：{formula_code}", icon="✅")
+                    st.session_state.need_reload_sheet = "試色登錄"
+                    st.rerun()
+
+        with t2:
+            t2c1, t2c2 = st.columns(2)
+            code_update = t2c1.text_input("要標記採購的配方編號").strip().upper()
+            manual_date = t2c2.date_input("採購日期", key="manual_purchase_date")
+            if st.button("✅ 採購登入", use_container_width=True):
+                vals = get_cached_sheet_values("試色登錄", force_reload=True)
+                if len(vals) <= 1:
+                    st.warning("目前沒有試色資料")
+                else:
+                    headers = vals[0]
+                    code_idx = headers.index("配方編號") + 1
+                    purchased_idx = headers.index("已採購") + 1
+                    date_idx = headers.index("採購日期") + 1
+                    updated = False
+                    for i, r in enumerate(vals[1:], start=2):
+                        if code_idx-1 < len(r) and str(r[code_idx-1]).strip().upper() == code_update:
+                            safe_update_cell(ws_trial, i, purchased_idx, "是")
+                            safe_update_cell(ws_trial, i, date_idx, manual_date.strftime("%Y-%m-%d"))
+                            updated = True
+                            break
+                    invalidate_sheet_cache("試色登錄")
+                    if updated:
+                        st.toast(f"已登入採購：{code_update}", icon="🧾")
+                    else:
+                        st.warning("找不到該配方編號"); st.toast("採購登入失敗：找不到配方", icon="⚠️")
+
+    with sub2:
+        st.markdown("<div style='background:#141a22;border:1px solid #2f3c4d;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;color:#9aa4b2;'>分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns([2,1,1])
+        cust_df_q = get_cached_sheet_df("客戶名單")
+        cust_opts_q = [""]
+        if not cust_df_q.empty and "客戶編號" in cust_df_q.columns:
+            name_col_q = "客戶簡稱" if "客戶簡稱" in cust_df_q.columns else ("客戶名稱" if "客戶名稱" in cust_df_q.columns else None)
+            if name_col_q:
+                qq = cust_df_q[["客戶編號", name_col_q]].fillna("")
+                for _, r in qq.iterrows():
+                    cid = str(r["客戶編號"]).strip(); cn = str(r[name_col_q]).strip()
+                    if cid or cn:
+                        cust_opts_q.append(f"{cid} - {cn}" if cn else cid)
+        selected_q_customer = c1.selectbox("客戶（可輸入編號或名稱搜尋）", cust_opts_q, index=0, key="analysis_customer_select")
+        keyword = selected_q_customer.split(" - ",1)[0].strip() if selected_q_customer else ""
+        dfv_seed = get_cached_sheet_df("試色登錄")
+        if not dfv_seed.empty and "試色日期" in dfv_seed.columns:
+            seed_dates = pd.to_datetime(dfv_seed["試色日期"], errors="coerce").dropna()
+            if len(seed_dates) > 0:
+                default_start = seed_dates.min().date()
+                default_end = seed_dates.max().date()
+            else:
+                default_start = datetime.now().date()
+                default_end = datetime.now().date()
+        else:
+            default_start = datetime.now().date()
+            default_end = datetime.now().date()
+
+        start_d = c2.date_input("起日", key="analysis_start", value=default_start)
+        end_d = c3.date_input("迄日", key="analysis_end", value=default_end)
+        c3.caption(f"預設區間：{default_start} ~ {default_end}")
+        opt1, opt2 = st.columns(2)
+        include_backfill = opt1.checkbox("分析包含歷史補登", value=True)
+        strict_precise = opt2.checkbox("僅統計精確日期", value=False)
+
+        dfv = get_cached_sheet_df("試色登錄")
+        if not keyword:
+            st.info("請先選擇客戶，分析資料將保持空白。")
+        elif start_d > end_d:
+            st.warning("起日不可晚於迄日"); st.toast("請調整日期區間", icon="⚠️")
+        elif not dfv.empty:
+            dfv["試色日期"] = pd.to_datetime(dfv["試色日期"], errors="coerce")
+            dfv = dfv[(dfv["試色日期"] >= pd.to_datetime(start_d)) & (dfv["試色日期"] <= pd.to_datetime(end_d))]
+            if keyword:
+                m = dfv["客戶名稱"].astype(str).str.contains(keyword, case=False, na=False) | dfv["客戶編號"].astype(str).str.contains(keyword, case=False, na=False)
+                dfv = dfv[m]
+            if not include_backfill and "歷史補登" in dfv.columns:
+                dfv = dfv[dfv["歷史補登"].astype(str) != "是"]
+            if strict_precise and "日期精度" in dfv.columns:
+                dfv = dfv[dfv["日期精度"].astype(str) == "精確"]
+
+            trial_count = len(dfv)
+            purchase_count = int((dfv["已採購"].astype(str) == "是").sum())
+            root_counts = dfv["主配方編號"].astype(str).value_counts()
+            grouped_root_count = int((root_counts > 1).sum())
+            group_ratio = (grouped_root_count / trial_count * 100) if trial_count else 0
+            group_count = dfv["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
+            group_purchase = dfv[dfv["已採購"].astype(str)=="是"]["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
+
+            st.markdown("<div style='background:#1a2330;border:1px solid #32465f;border-radius:10px;padding:8px 10px;margin:6px 0 8px 0;'>", unsafe_allow_html=True)
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("試色次數", trial_count)
+            k2.metric("採購筆數", purchase_count)
+            k3.metric("試色次數轉換率", f"{(purchase_count/trial_count*100):.1f}%" if trial_count else "0%")
+            k4.metric("配方族群占比", f"{group_ratio:.1f}%")
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色次數轉換率＝採購筆數 ÷ 試色筆數。ⓘ 配方族群占比＝有 A/B 等族群的主配方數 ÷ 試色總筆數。</div>", unsafe_allow_html=True)
+
+            dup_groups = dfv.groupby("主配方編號").size().reset_index(name="試色次數")
+            dup_groups = dup_groups[dup_groups["試色次數"] > 1]
+            if not dup_groups.empty:
+                extra = int((dup_groups["試色次數"] - 1).sum())
+                st.info(f"期間內有 {len(dup_groups)} 組主配方發生重複試色，額外增加 {extra} 次試色成本。")
+                grp_tbl = dup_groups.rename(columns={"主配方編號":"族群主配方","試色次數":"族群筆數"})
+                st.markdown("<div style='font-size:12px;color:#9aa4b2;margin:4px 0;'>族群明細</div>", unsafe_allow_html=True)
+                render_paginated_df(grp_tbl, "trial_grouped", page_size=5)
+
+            st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例（圓餅圖）</div>", unsafe_allow_html=True)
+            mat = dfv.groupby("原料").agg(試色筆數=("配方編號","count"), 採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())).reset_index()
+            mat["採購比例數值"] = (mat["採購筆數"] / mat["試色筆數"] * 100).fillna(0)
+            mat["採購比例"] = mat["採購比例數值"].round(1).astype(str) + "%"
+            pie_df = mat[mat["試色筆數"] > 0].copy()
+            if not pie_df.empty:
+                st.vega_lite_chart(
+                    pie_df,
+                    {
+                        "mark": {"type": "arc", "innerRadius": 35},
+                        "encoding": {
+                            "theta": {"field": "試色筆數", "type": "quantitative"},
+                            "color": {"field": "原料", "type": "nominal", "legend": {"title": "原料"}},
+                            "tooltip": [
+                                {"field": "原料", "type": "nominal"},
+                                {"field": "試色筆數", "type": "quantitative"},
+                                {"field": "採購筆數", "type": "quantitative"},
+                                {"field": "採購比例", "type": "nominal"}
+                            ],
+                        },
+                    },
+                    use_container_width=True,
+                )
+            with st.expander("查看原料別表格", expanded=False):
+                render_paginated_df(mat[["原料","試色筆數","採購筆數","採購比例"]], "trial_mat", page_size=5)
+
+            # 未採購追蹤名單
+            st.markdown("<div style='background:#33241f;padding:8px 10px;border-radius:8px;color:#ffe5d0;font-size:14px;font-weight:600;margin:6px 0;'>未採購追蹤名單</div>", unsafe_allow_html=True)
+            pending_mask = (dfv["已採購"].astype(str) != "是")
+            if "歷史補登" in dfv.columns:
+                pending_mask = pending_mask & (dfv["歷史補登"].astype(str) != "是")
+            if "日期精度" in dfv.columns:
+                pending_mask = pending_mask & (dfv["日期精度"].astype(str) == "精確")
+            pending_df = dfv[pending_mask].copy()
+            if not pending_df.empty:
+                pending_df["天數"] = (pd.Timestamp.now().normalize() - pending_df["試色日期"]).dt.days
+                pending_df = pending_df[pending_df["天數"] >= pending_days_default]
+                pending_df = pending_df.sort_values(["天數", "試色日期"], ascending=[False, True])
+                render_paginated_df(pending_df[["配方編號", "主配方編號", "客戶名稱", "原料", "試色日期", "天數"]], "trial_pending", page_size=5)
+            else:
+                st.success("目前查詢區間內沒有未採購試色。"); st.toast("未採購追蹤：目前無資料", icon="ℹ️")
+
+            # 收費門檻結論（放在下方）
+            st.markdown("<div style='background:#2a2338;padding:8px 10px;border-radius:8px;color:#e9ddff;font-size:14px;font-weight:600;margin:6px 0;'>收費提醒條件結論</div>", unsafe_allow_html=True)
+            threshold = threshold_default
+            min_samples = min_samples_default
+            st.caption(f"目前參數：收費門檻 {threshold}%｜最小樣本 {min_samples}｜未採購追蹤天數 {pending_days_default} 天（可於『參數設定』調整）")
+            group_rate = (group_purchase / group_count * 100) if group_count else 0
+            if trial_count >= min_samples and group_rate < threshold:
+                st.warning(f"建議評估收取試色費：目前配方族群轉換率 {group_rate:.1f}% 低於門檻 {threshold}%（樣本 {trial_count} 筆）。")
+            else:
+                st.info(f"目前未達收費提醒條件（轉換率 {group_rate:.1f}%，樣本 {trial_count} 筆）。")
+
+            st.markdown("<div style='background:#1b2635;padding:8px 10px;border-radius:8px;color:#d5e6ff;font-size:14px;font-weight:600;margin-top:8px;'>客戶別收費建議清單</div>", unsafe_allow_html=True)
+            cust = dfv.copy()
+            cust["客戶顯示"] = cust["客戶名稱"].astype(str).str.strip()
+            cust.loc[cust["客戶顯示"] == "", "客戶顯示"] = cust["客戶編號"].astype(str).str.strip()
+            cust_stats = cust.groupby("客戶顯示", dropna=False).agg(
+                試色次數=("配方編號", "count"),
+                採購筆數=("已採購", lambda x: (x.astype(str) == "是").sum()),
+                主配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
+                已採購主配方數=("主配方編號", lambda x: x[cust.loc[x.index, "已採購"].astype(str)=="是"].astype(str).replace("", pd.NA).dropna().nunique()),
+            ).reset_index()
+            cust_stats["配方族群轉換率"] = cust_stats.apply(
+                lambda r: (r["已採購主配方數"] / r["主配方數"] * 100) if r["主配方數"] else 0,
+                axis=1,
+            )
+            cust_stats["試色次數轉換率"] = cust_stats.apply(
+                lambda r: (r["採購筆數"] / r["試色次數"] * 100) if r["試色次數"] else 0,
+                axis=1,
+            )
+            cust_stats["建議收費"] = cust_stats.apply(
+                lambda r: "是" if (r["試色次數"] >= min_samples and r["配方族群轉換率"] < threshold) else "否",
+                axis=1,
+            )
+            cust_stats = cust_stats.sort_values(["建議收費", "配方族群轉換率", "試色次數"], ascending=[False, True, False])
+            recommend_df = cust_stats[cust_stats["建議收費"] == "是"].copy()
+            with st.expander(f"客戶別收費建議清單（{len(recommend_df)} 筆）", expanded=False):
+                if recommend_df.empty:
+                    st.caption("目前沒有達到收費條件的客戶。")
+                else:
+                    render_paginated_df(recommend_df[["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色次數轉換率", "配方族群轉換率", "建議收費"]], "trial_fee", page_size=5)
+
+            rec_csv_df = recommend_df.copy()
+            rec_csv_df["試色次數轉換率"] = rec_csv_df["試色次數轉換率"].map(lambda x: f"{x:.1f}%")
+            rec_csv_df["配方族群轉換率"] = rec_csv_df["配方族群轉換率"].map(lambda x: f"{x:.1f}%")
+
+            show = dfv.copy()
+            for col in ["日期精度", "歷史補登", "採購日期", "客戶名稱", "原料", "主配方編號", "已採購"]:
+                if col not in show.columns:
+                    show[col] = ""
+            show["試色日期"] = show["試色日期"].dt.strftime("%Y-%m-%d")
+            show.loc[show["已採購"].astype(str) != "是", "採購日期"] = ""
+            with st.expander("分析明細（可展開查看）", expanded=False):
+                render_paginated_df(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], "trial_detail", page_size=5)
+
+            csv = show.to_csv(index=False).encode("utf-8-sig")
+            pending_csv = pending_df.to_csv(index=False).encode("utf-8-sig") if not pending_df.empty else "".encode("utf-8-sig")
+            rec_csv = rec_csv_df.to_csv(index=False).encode("utf-8-sig")
+            d1, d2, d3 = st.columns(3)
+            d1.download_button("匯出分析 CSV", data=csv, file_name=f"trial_analysis_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
+            d2.download_button("匯出未採購追蹤 CSV", data=pending_csv, file_name=f"trial_pending_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
+            d3.download_button("匯出客戶收費建議 CSV", data=rec_csv, file_name=f"trial_fee_recommendation_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
+
+    with sub3:
+        st.markdown("<span style='color:#8a8a8a;font-size:11px;'>ⓘ 調整下列門檻後，會直接影響「記錄分析」中的收費建議與未採購追蹤名單。</span>", unsafe_allow_html=True)
+        with st.form("trial_param_form"):
+            p1, p2, p3 = st.columns(3)
+            fee_threshold = p1.slider("收費門檻百分比", min_value=0, max_value=100, value=threshold_default, step=1)
+            p1.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 配方族群轉換率低於此百分比時，系統會建議評估收費。</span>", unsafe_allow_html=True)
+            min_samples_ui = p2.number_input("最小樣本數", min_value=1, max_value=500, value=min_samples_default, step=1)
+            p2.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 至少達到此試色筆數，才會觸發收費建議判斷。</span>", unsafe_allow_html=True)
+            pending_days_ui = p3.number_input("未採購追蹤天數", min_value=0, max_value=3650, value=pending_days_default, step=1)
+            p3.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 只顯示未採購且天數大於等於此值的追蹤資料。</span>", unsafe_allow_html=True)
+            save_param = st.form_submit_button("💾 儲存參數")
+
+        if save_param:
+            now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            updates = {
+                "收費門檻百分比": str(fee_threshold),
+                "最小樣本數": str(int(min_samples_ui)),
+                "未採購追蹤天數": str(int(pending_days_ui)),
+            }
+            try:
+                rows = [["參數", "值", "更新時間"]] + [[k, v, now_text] for k, v in updates.items()]
+                ws_params.clear()
+                ws_params.update("A1", rows)
+                invalidate_sheet_cache("試色參數")
+                st.toast("試色分析參數已更新", icon="⚙️")
+                st.rerun()
+            except Exception as e:
+                st.error(f"參數儲存失敗：{e}"); st.toast("參數儲存失敗", icon="❌")
+
+    recipe_df = get_cached_sheet_df("配方管理")
+    if not recipe_df.empty and not df_trial.empty and "配方編號" in recipe_df.columns:
+        bought_codes = set(recipe_df["配方編號"].astype(str).map(clean_powder_id))
+        pending = df_trial[df_trial["已採購"].astype(str) != "是"]
+        for _, row in pending.iterrows():
+            code = clean_powder_id(row.get("配方編號", ""))
+            if code and code in bought_codes:
+                vals = get_cached_sheet_values("試色登錄", force_reload=True)
+                headers = vals[0]
+                ci = headers.index("配方編號")
+                pi = headers.index("已採購") + 1
+                di = headers.index("採購日期") + 1
+                for ridx, rv in enumerate(vals[1:], start=2):
+                    if ci < len(rv) and clean_powder_id(rv[ci]) == code:
+                        try:
+                            p_col = gspread.utils.rowcol_to_a1(ridx, pi)
+                            d_col = gspread.utils.rowcol_to_a1(ridx, di)
+                            ws_trial.update(f"{p_col}:{d_col}", [["是", datetime.now().strftime("%Y-%m-%d")]])
+                            st.toast(f"配方 {code} 已在配方管理建立，自動轉為已採購", icon="🔔")
+                        except Exception as e:
+                            st.toast(f"自動採購同步失敗：{code}", icon="⚠️")
+                            st.error(f"自動採購同步失敗：{e}")
+                        invalidate_sheet_cache("試色登錄")
+                        break
+
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
 
@@ -9882,6 +10346,8 @@ if st.session_state.menu == "匯入備份":
 st.markdown(
     """
     <style>
+    /* trial compact buttons */
+    div[data-testid="stButton"] > button {font-size:0.86rem !important; padding-top:0.3rem !important; padding-bottom:0.3rem !important;}
     div[data-testid="stButton"] > button[kind="secondary"] {
         min-height: 2.35rem;
         font-size: 0.98rem;
