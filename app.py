@@ -9965,16 +9965,33 @@ if menu == "試色記錄分析":
                         if not hit.empty:
                             cust_name = str(hit.iloc[0]["客戶名稱"]).strip()
                     now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    row = [formula_code, parse_formula_root(formula_code), customer_id, cust_name, trial_date.strftime("%Y-%m-%d"), date_precision, backfill, material, purchased, purchase_date.strftime("%Y-%m-%d") if purchased == "是" else "", now_text, now_text]
+                    record = {
+                        "配方編號": formula_code,
+                        "主配方編號": parse_formula_root(formula_code),
+                        "客戶編號": customer_id,
+                        "客戶名稱": cust_name,
+                        "試色日期": trial_date.strftime("%Y-%m-%d"),
+                        "日期精度": date_precision,
+                        "歷史補登": backfill,
+                        "原料": material,
+                        "已採購": purchased,
+                        "採購日期": purchase_date.strftime("%Y-%m-%d") if purchased == "是" else "",
+                        "建立時間": now_text,
+                        "更新時間": now_text,
+                    }
+                    header_vals = get_cached_sheet_values("試色登錄", force_reload=True)
+                    headers = header_vals[0] if header_vals else trial_cols
+                    row = [record.get(h, "") for h in headers]
                     safe_append_row(ws_trial, row)
                     st.toast(f"已新增試色記錄：{formula_code}", icon="✅")
                     st.session_state.need_reload_sheet = "試色登錄"
                     st.rerun()
 
         with t2:
-            code_update = st.text_input("要標記採購的配方編號").strip().upper()
-            manual_date = st.date_input("採購日期", key="manual_purchase_date")
-            if st.button("✅ 採購登入"):
+            t2c1, t2c2 = st.columns(2)
+            code_update = t2c1.text_input("要標記採購的配方編號").strip().upper()
+            manual_date = t2c2.date_input("採購日期", key="manual_purchase_date")
+            if st.button("✅ 採購登入", use_container_width=True):
                 vals = get_cached_sheet_values("試色登錄", force_reload=True)
                 if len(vals) <= 1:
                     st.warning("目前沒有試色資料")
@@ -9997,6 +10014,7 @@ if menu == "試色記錄分析":
                         st.warning("找不到該配方編號"); st.toast("採購登入失敗：找不到配方", icon="⚠️")
 
     with sub2:
+        st.markdown("<div style='font-size:13px;color:#9aa4b2;margin-bottom:4px;'>分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([2,1,1])
         keyword = c1.text_input("客戶名稱 / 客戶編號")
         start_d = c2.date_input("起日", key="analysis_start")
@@ -10034,13 +10052,13 @@ if menu == "試色記錄分析":
                 extra = int((dup_groups["試色次數"] - 1).sum())
                 st.info(f"期間內有 {len(dup_groups)} 組主配方發生重複試色，額外增加 {extra} 次試色成本。")
 
-            st.markdown("#### 原料別採購比例")
+            st.markdown("<div style='font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例</div>", unsafe_allow_html=True)
             mat = dfv.groupby("原料").agg(試色筆數=("配方編號","count"), 採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())).reset_index()
             mat["採購比例"] = (mat["採購筆數"] / mat["試色筆數"] * 100).round(1).astype(str) + "%"
             st.dataframe(mat, use_container_width=True)
 
             # 未採購追蹤名單
-            st.markdown("#### 未採購追蹤名單")
+            st.markdown("<div style='font-size:14px;font-weight:600;margin:6px 0;'>未採購追蹤名單</div>", unsafe_allow_html=True)
             pending_mask = (dfv["已採購"].astype(str) != "是")
             if "歷史補登" in dfv.columns:
                 pending_mask = pending_mask & (dfv["歷史補登"].astype(str) != "是")
@@ -10059,7 +10077,7 @@ if menu == "試色記錄分析":
                 st.success("目前查詢區間內沒有未採購試色。"); st.toast("未採購追蹤：目前無資料", icon="ℹ️")
 
             # 收費門檻建議
-            st.markdown("#### 收費門檻建議")
+            st.markdown("<div style='font-size:14px;font-weight:600;margin:6px 0;'>收費門檻建議</div>", unsafe_allow_html=True)
             threshold = threshold_default
             min_samples = min_samples_default
             st.caption(f"目前參數：收費門檻 {threshold}%｜最小樣本 {min_samples}｜未採購追蹤天數 {pending_days_default} 天（可於『參數設定』調整）")
@@ -10106,7 +10124,8 @@ if menu == "試色記錄分析":
                 if col not in show.columns:
                     show[col] = ""
             show["試色日期"] = show["試色日期"].dt.strftime("%Y-%m-%d")
-            st.markdown("#### 分析明細")
+            show.loc[show["已採購"].astype(str) != "是", "採購日期"] = ""
+            st.markdown("<div style='font-size:14px;font-weight:600;margin:6px 0;'>分析明細</div>", unsafe_allow_html=True)
             st.dataframe(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], use_container_width=True)
 
             csv = show.to_csv(index=False).encode("utf-8-sig")
