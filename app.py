@@ -10137,10 +10137,12 @@ if menu == "試色記錄分析":
                 st.vega_lite_chart(
                     pie_df,
                     {
-                        "mark": {"type": "arc", "innerRadius": 35},
+                        "width": 220,
+                        "height": 220,
+                        "mark": {"type": "arc", "innerRadius": 28, "outerRadius": 95},
                         "encoding": {
                             "theta": {"field": "試色筆數", "type": "quantitative"},
-                            "color": {"field": "原料", "type": "nominal", "legend": {"title": "原料"}},
+                            "color": {"field": "原料", "type": "nominal", "legend": {"title": "原料", "orient": "bottom", "columns": 4}},
                             "tooltip": [
                                 {"field": "原料", "type": "nominal"},
                                 {"field": "試色筆數", "type": "quantitative"},
@@ -10154,76 +10156,37 @@ if menu == "試色記錄分析":
             with st.expander("查看原料別表格", expanded=False):
                 render_paginated_df(mat[["原料","試色筆數","採購筆數","採購比例"]], "trial_mat", page_size=5)
 
-            # 未採購追蹤名單
-            st.markdown("<div style='background:#33241f;padding:8px 10px;border-radius:8px;color:#ffe5d0;font-size:14px;font-weight:600;margin:6px 0;'>未採購追蹤名單</div>", unsafe_allow_html=True)
-            pending_mask = (dfv["已採購"].astype(str) != "是")
-            if "歷史補登" in dfv.columns:
-                pending_mask = pending_mask & (dfv["歷史補登"].astype(str) != "是")
-            if "日期精度" in dfv.columns:
-                pending_mask = pending_mask & (dfv["日期精度"].astype(str) == "精確")
-            pending_df = dfv[pending_mask].copy()
-            if not pending_df.empty:
-                pending_df["天數"] = (pd.Timestamp.now().normalize() - pending_df["試色日期"]).dt.days
-                pending_df = pending_df[pending_df["天數"] >= pending_days_default]
-                pending_df = pending_df.sort_values(["天數", "試色日期"], ascending=[False, True])
-                render_paginated_df(pending_df[["配方編號", "主配方編號", "客戶名稱", "原料", "試色日期", "天數"]], "trial_pending", page_size=5)
-            else:
-                st.success("目前查詢區間內沒有未採購試色。"); st.toast("未採購追蹤：目前無資料", icon="ℹ️")
+            st.markdown("<div style='background:#33241f;padding:8px 10px;border-radius:8px;color:#ffe5d0;font-size:14px;font-weight:600;margin:6px 0;'>追蹤清單</div>", unsafe_allow_html=True)
+            show_purchased = st.checkbox("是否顯示已採購", value=False, key="trial_show_purchased")
+            track_df = dfv.copy()
+            if not show_purchased:
+                track_df = track_df[track_df["已採購"].astype(str) != "是"]
+                if "歷史補登" in track_df.columns:
+                    track_df = track_df[track_df["歷史補登"].astype(str) != "是"]
+                if "日期精度" in track_df.columns:
+                    track_df = track_df[track_df["日期精度"].astype(str) == "精確"]
+            pending_df = track_df.copy()
+            if not pending_df.empty and "試色日期" in pending_df.columns:
+                pending_df["天數"] = (pd.Timestamp.now().normalize() - pd.to_datetime(pending_df["試色日期"], errors="coerce")).dt.days
+                pending_df = pending_df[pending_df["天數"].fillna(0) >= pending_days_default]
+            for col in ["日期精度", "歷史補登", "採購日期", "客戶名稱", "原料", "主配方編號", "已採購"]:
+                if col not in pending_df.columns:
+                    pending_df[col] = ""
+            pending_df["試色日期"] = pd.to_datetime(pending_df["試色日期"], errors="coerce").dt.strftime("%Y-%m-%d")
+            pending_df.loc[pending_df["已採購"].astype(str) != "是", "採購日期"] = ""
 
-            # 收費門檻結論（放在下方）
-            st.markdown("<div style='background:#2a2338;padding:8px 10px;border-radius:8px;color:#e9ddff;font-size:14px;font-weight:600;margin:6px 0;'>收費提醒條件結論</div>", unsafe_allow_html=True)
-            threshold = threshold_default
-            min_samples = min_samples_default
-            st.caption(f"目前參數：收費門檻 {threshold}%｜最小樣本 {min_samples}｜未採購追蹤天數 {pending_days_default} 天（可於『參數設定』調整）")
-            group_rate = (group_purchase / group_count * 100) if group_count else 0
-            if trial_count >= min_samples and group_rate < threshold:
-                st.warning(f"建議評估收取試色費：目前配方族群轉換率 {group_rate:.1f}% 低於門檻 {threshold}%（樣本 {trial_count} 筆）。")
-            else:
-                st.info(f"目前未達收費提醒條件（轉換率 {group_rate:.1f}%，樣本 {trial_count} 筆）。")
-
-            st.markdown("<div style='background:#1b2635;padding:8px 10px;border-radius:8px;color:#d5e6ff;font-size:14px;font-weight:600;margin-top:8px;'>客戶別收費建議清單</div>", unsafe_allow_html=True)
-            cust = dfv.copy()
-            cust["客戶顯示"] = cust["客戶名稱"].astype(str).str.strip()
-            cust.loc[cust["客戶顯示"] == "", "客戶顯示"] = cust["客戶編號"].astype(str).str.strip()
-            cust_stats = cust.groupby("客戶顯示", dropna=False).agg(
-                試色次數=("配方編號", "count"),
-                採購筆數=("已採購", lambda x: (x.astype(str) == "是").sum()),
-                主配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
-                已採購主配方數=("主配方編號", lambda x: x[cust.loc[x.index, "已採購"].astype(str)=="是"].astype(str).replace("", pd.NA).dropna().nunique()),
-            ).reset_index()
-            cust_stats["配方族群轉換率"] = cust_stats.apply(
-                lambda r: (r["已採購主配方數"] / r["主配方數"] * 100) if r["主配方數"] else 0,
-                axis=1,
-            )
-            cust_stats["試色次數轉換率"] = cust_stats.apply(
-                lambda r: (r["採購筆數"] / r["試色次數"] * 100) if r["試色次數"] else 0,
-                axis=1,
-            )
-            cust_stats["建議收費"] = cust_stats.apply(
-                lambda r: "是" if (r["試色次數"] >= min_samples and r["配方族群轉換率"] < threshold) else "否",
-                axis=1,
-            )
-            cust_stats = cust_stats.sort_values(["建議收費", "配方族群轉換率", "試色次數"], ascending=[False, True, False])
-            recommend_df = cust_stats[cust_stats["建議收費"] == "是"].copy()
-            with st.expander(f"客戶別收費建議清單（{len(recommend_df)} 筆）", expanded=False):
-                if recommend_df.empty:
-                    st.caption("目前沒有達到收費條件的客戶。")
+            with st.expander("追蹤清單明細（可展開查看）", expanded=False):
+                if pending_df.empty:
+                    st.caption("目前沒有符合條件的資料。")
                 else:
-                    render_paginated_df(recommend_df[["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色次數轉換率", "配方族群轉換率", "建議收費"]], "trial_fee", page_size=5)
-
-            rec_csv_df = recommend_df.copy()
-            rec_csv_df["試色次數轉換率"] = rec_csv_df["試色次數轉換率"].map(lambda x: f"{x:.1f}%")
-            rec_csv_df["配方族群轉換率"] = rec_csv_df["配方族群轉換率"].map(lambda x: f"{x:.1f}%")
+                    render_paginated_df(pending_df[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], "trial_detail", page_size=5)
 
             show = dfv.copy()
             for col in ["日期精度", "歷史補登", "採購日期", "客戶名稱", "原料", "主配方編號", "已採購"]:
                 if col not in show.columns:
                     show[col] = ""
-            show["試色日期"] = show["試色日期"].dt.strftime("%Y-%m-%d")
+            show["試色日期"] = pd.to_datetime(show["試色日期"], errors="coerce").dt.strftime("%Y-%m-%d")
             show.loc[show["已採購"].astype(str) != "是", "採購日期"] = ""
-            with st.expander("分析明細（可展開查看）", expanded=False):
-                render_paginated_df(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], "trial_detail", page_size=5)
-
             csv = show.to_csv(index=False).encode("utf-8-sig")
             pending_csv = pending_df.to_csv(index=False).encode("utf-8-sig") if not pending_df.empty else "".encode("utf-8-sig")
             rec_csv = rec_csv_df.to_csv(index=False).encode("utf-8-sig")
