@@ -10128,10 +10128,31 @@ if menu == "試色記錄分析":
                 st.markdown("<div style='font-size:12px;color:#9aa4b2;margin:4px 0;'>族群明細</div>", unsafe_allow_html=True)
                 render_paginated_df(grp_tbl, "trial_grouped", page_size=5)
 
-            st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例（圓餅圖）</div>", unsafe_allow_html=True)
             mat = dfv.groupby("原料").agg(試色筆數=("配方編號","count"), 採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())).reset_index()
-            mat["採購比例"] = (mat["採購筆數"] / mat["試色筆數"] * 100).round(1).astype(str) + "%"
-            render_paginated_df(mat, "trial_mat", page_size=5)
+            mat["採購比例數值"] = (mat["採購筆數"] / mat["試色筆數"] * 100).fillna(0)
+            mat["採購比例"] = mat["採購比例數值"].round(1).astype(str) + "%"
+            pie_df = mat[mat["試色筆數"] > 0].copy()
+            if not pie_df.empty:
+                st.vega_lite_chart(
+                    pie_df,
+                    {
+                        "mark": {"type": "arc", "innerRadius": 35},
+                        "encoding": {
+                            "theta": {"field": "試色筆數", "type": "quantitative"},
+                            "color": {"field": "原料", "type": "nominal", "legend": {"title": "原料"}},
+                            "tooltip": [
+                                {"field": "原料", "type": "nominal"},
+                                {"field": "試色筆數", "type": "quantitative"},
+                                {"field": "採購筆數", "type": "quantitative"},
+                                {"field": "採購比例", "type": "nominal"}
+                            ],
+                        },
+                    },
+                    use_container_width=True,
+                )
+            with st.expander("查看原料別表格", expanded=False):
+                render_paginated_df(mat[["原料","試色筆數","採購筆數","採購比例"]], "trial_mat", page_size=5)
 
             # 未採購追蹤名單
             st.markdown("<div style='background:#33241f;padding:8px 10px;border-radius:8px;color:#ffe5d0;font-size:14px;font-weight:600;margin:6px 0;'>未採購追蹤名單</div>", unsafe_allow_html=True)
@@ -10149,8 +10170,8 @@ if menu == "試色記錄分析":
             else:
                 st.success("目前查詢區間內沒有未採購試色。"); st.toast("未採購追蹤：目前無資料", icon="ℹ️")
 
-            # 收費門檻建議
-            st.markdown("<div style='background:#2a2338;padding:8px 10px;border-radius:8px;color:#e9ddff;font-size:14px;font-weight:600;margin:6px 0;'>收費門檻建議</div>", unsafe_allow_html=True)
+            # 收費門檻結論（放在下方）
+            st.markdown("<div style='background:#2a2338;padding:8px 10px;border-radius:8px;color:#e9ddff;font-size:14px;font-weight:600;margin:6px 0;'>收費提醒條件結論</div>", unsafe_allow_html=True)
             threshold = threshold_default
             min_samples = min_samples_default
             st.caption(f"目前參數：收費門檻 {threshold}%｜最小樣本 {min_samples}｜未採購追蹤天數 {pending_days_default} 天（可於『參數設定』調整）")
@@ -10200,15 +10221,16 @@ if menu == "試色記錄分析":
                     show[col] = ""
             show["試色日期"] = show["試色日期"].dt.strftime("%Y-%m-%d")
             show.loc[show["已採購"].astype(str) != "是", "採購日期"] = ""
-            st.markdown("<div style='font-size:14px;font-weight:600;margin:6px 0;'>分析明細</div>", unsafe_allow_html=True)
-            render_paginated_df(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], "trial_detail", page_size=5)
+            with st.expander("分析明細（可展開查看）", expanded=False):
+                render_paginated_df(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], "trial_detail", page_size=5)
 
             csv = show.to_csv(index=False).encode("utf-8-sig")
-            st.download_button("匯出分析 CSV", data=csv, file_name=f"trial_analysis_{start_d}_{end_d}.csv", mime="text/csv")
             pending_csv = pending_df.to_csv(index=False).encode("utf-8-sig") if not pending_df.empty else "".encode("utf-8-sig")
-            st.download_button("匯出未採購追蹤 CSV", data=pending_csv, file_name=f"trial_pending_{start_d}_{end_d}.csv", mime="text/csv")
             rec_csv = rec_csv_df.to_csv(index=False).encode("utf-8-sig")
-            st.download_button("匯出客戶收費建議 CSV", data=rec_csv, file_name=f"trial_fee_recommendation_{start_d}_{end_d}.csv", mime="text/csv")
+            d1, d2, d3 = st.columns(3)
+            d1.download_button("匯出分析 CSV", data=csv, file_name=f"trial_analysis_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
+            d2.download_button("匯出未採購追蹤 CSV", data=pending_csv, file_name=f"trial_pending_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
+            d3.download_button("匯出客戶收費建議 CSV", data=rec_csv, file_name=f"trial_fee_recommendation_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
 
     with sub3:
         st.markdown("<span style='color:#8a8a8a;font-size:11px;'>ⓘ 調整下列門檻後，會直接影響「記錄分析」中的收費建議與未採購追蹤名單。</span>", unsafe_allow_html=True)
