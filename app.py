@@ -9848,7 +9848,7 @@ def to_roc_date_text(d):
 
 
 if menu == "試色記錄分析":
-    trial_cols = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "原料", "已採購", "採購日期", "建立時間", "更新時間"]
+    trial_cols = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "日期精度", "歷史補登", "原料", "已採購", "採購日期", "建立時間", "更新時間"]
     materials = ["B", "PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS"]
 
     try:
@@ -9939,10 +9939,12 @@ if menu == "試色記錄分析":
                     customer_name_from_input = cust_map[selected_customer]["name"]
 
                 trial_date = c3.date_input("試色日期")
-                c4, c5, c6 = st.columns(3)
+                c4, c5, c6, c7 = st.columns(4)
                 material = c4.selectbox("原料", materials)
                 purchased = c5.selectbox("已採購", ["否", "是"])
-                purchase_date = c6.date_input("採購日期", disabled=(purchased != "是"))
+                date_precision = c6.selectbox("日期精度", ["精確", "僅年度"], index=0)
+                backfill = c7.selectbox("歷史補登", ["否", "是"], index=0, help="歷史補登建議日期填該年度 1/1")
+                purchase_date = c5.date_input("採購日期", disabled=(purchased != "是"), key="trial_purchase_date")
                 submitted = st.form_submit_button("💾 新增試色")
 
             if material in df_trial["原料"].values:
@@ -9963,7 +9965,7 @@ if menu == "試色記錄分析":
                         if not hit.empty:
                             cust_name = str(hit.iloc[0]["客戶名稱"]).strip()
                     now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    row = [formula_code, parse_formula_root(formula_code), customer_id, cust_name, trial_date.strftime("%Y-%m-%d"), material, purchased, purchase_date.strftime("%Y-%m-%d") if purchased == "是" else "", now_text, now_text]
+                    row = [formula_code, parse_formula_root(formula_code), customer_id, cust_name, trial_date.strftime("%Y-%m-%d"), date_precision, backfill, material, purchased, purchase_date.strftime("%Y-%m-%d") if purchased == "是" else "", now_text, now_text]
                     safe_append_row(ws_trial, row)
                     st.toast(f"已新增試色記錄：{formula_code}", icon="✅")
                     st.session_state.need_reload_sheet = "試色登錄"
@@ -9999,6 +10001,9 @@ if menu == "試色記錄分析":
         keyword = c1.text_input("客戶名稱 / 客戶編號")
         start_d = c2.date_input("起日", key="analysis_start")
         end_d = c3.date_input("迄日", key="analysis_end")
+        opt1, opt2 = st.columns(2)
+        include_backfill = opt1.checkbox("分析包含歷史補登", value=True)
+        strict_precise = opt2.checkbox("僅統計精確日期", value=False)
 
         dfv = get_cached_sheet_df("試色登錄")
         if not dfv.empty:
@@ -10007,6 +10012,10 @@ if menu == "試色記錄分析":
             if keyword:
                 m = dfv["客戶名稱"].astype(str).str.contains(keyword, case=False, na=False) | dfv["客戶編號"].astype(str).str.contains(keyword, case=False, na=False)
                 dfv = dfv[m]
+            if not include_backfill and "歷史補登" in dfv.columns:
+                dfv = dfv[dfv["歷史補登"].astype(str) != "是"]
+            if strict_precise and "日期精度" in dfv.columns:
+                dfv = dfv[dfv["日期精度"].astype(str) == "精確"]
 
             trial_count = len(dfv)
             purchase_count = int((dfv["已採購"].astype(str) == "是").sum())
@@ -10032,7 +10041,12 @@ if menu == "試色記錄分析":
 
             # 未採購追蹤名單
             st.markdown("#### 未採購追蹤名單")
-            pending_df = dfv[dfv["已採購"].astype(str) != "是"].copy()
+            pending_mask = (dfv["已採購"].astype(str) != "是")
+            if "歷史補登" in dfv.columns:
+                pending_mask = pending_mask & (dfv["歷史補登"].astype(str) != "是")
+            if "日期精度" in dfv.columns:
+                pending_mask = pending_mask & (dfv["日期精度"].astype(str) == "精確")
+            pending_df = dfv[pending_mask].copy()
             if not pending_df.empty:
                 pending_df["天數"] = (pd.Timestamp.now().normalize() - pending_df["試色日期"]).dt.days
                 pending_df = pending_df[pending_df["天數"] >= pending_days_default]
@@ -10090,7 +10104,7 @@ if menu == "試色記錄分析":
             show = dfv.copy()
             show["試色日期"] = show["試色日期"].dt.strftime("%Y-%m-%d")
             st.markdown("#### 分析明細")
-            st.dataframe(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","已採購","採購日期"]], use_container_width=True)
+            st.dataframe(show[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], use_container_width=True)
 
             csv = show.to_csv(index=False).encode("utf-8-sig")
             st.download_button("匯出分析 CSV", data=csv, file_name=f"trial_analysis_{start_d}_{end_d}.csv", mime="text/csv")
