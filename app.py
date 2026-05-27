@@ -9683,9 +9683,16 @@ elif menu == "洗車廠庫存":
                     st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
     
                 else:
-                    styled_result_df = result_df.style.map(
-                        lambda _: "background-color: rgba(255, 215, 0, 0.25); font-weight: 700; color: #ffffff; text-align: right;",
-                        subset=["目前庫存"],
+                    styled_result_df = (
+                        result_df.style
+                        .map(
+                            lambda _: "font-weight: 700;",
+                            subset=["產品編號"],
+                        )
+                        .map(
+                            lambda _: "background-color: rgba(255, 215, 0, 0.25); font-weight: 700; color: #ffffff; text-align: right;",
+                            subset=["目前庫存"],
+                        )
                     )
 
                     st.dataframe(
