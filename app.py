@@ -10024,6 +10024,12 @@ if menu == "試色記錄分析":
                 elif formula_code in df_trial["配方編號"].astype(str).str.upper().values:
                     st.toast(f"配方編號 {formula_code} 已存在，請勿重複", icon="🚫")
                 else:
+                    recipe_df_check = get_cached_sheet_df("配方管理")
+                    if not recipe_df_check.empty and "配方編號" in recipe_df_check.columns:
+                        existing_recipe_codes = set(recipe_df_check["配方編號"].astype(str).map(clean_powder_id))
+                        if clean_powder_id(formula_code) in existing_recipe_codes:
+                            st.warning(f"配方 {formula_code} 已存在於配方管理，請先確認是否要登錄為已採購。")
+                            st.toast("已在配方管理找到同編號，請人工確認採購狀態", icon="⚠️")
                     cust_df = get_cached_sheet_df("客戶名單")
                     cust_name = customer_name_from_input
                     if not cust_name and not cust_df.empty and "客戶編號" in cust_df.columns and "客戶名稱" in cust_df.columns:
@@ -10256,33 +10262,6 @@ if menu == "試色記錄分析":
             except Exception as e:
                 st.error(f"參數儲存失敗：{e}"); st.toast("參數儲存失敗", icon="❌")
 
-    recipe_df = get_cached_sheet_df("配方管理")
-    if not recipe_df.empty and not df_trial.empty and "配方編號" in recipe_df.columns:
-        bought_codes = set(recipe_df["配方編號"].astype(str).map(clean_powder_id))
-        pending = df_trial[df_trial["已採購"].astype(str) != "是"]
-        for _, row in pending.iterrows():
-            code = clean_powder_id(row.get("配方編號", ""))
-            if code and code in bought_codes:
-                vals = get_cached_sheet_values("試色登錄", force_reload=True)
-                headers = vals[0]
-                ci = headers.index("配方編號")
-                pi = headers.index("已採購") + 1
-                di = headers.index("採購日期") + 1
-                for ridx, rv in enumerate(vals[1:], start=2):
-                    if ci < len(rv) and clean_powder_id(rv[ci]) == code:
-                        try:
-                            p_col = gspread.utils.rowcol_to_a1(ridx, pi)
-                            d_col = gspread.utils.rowcol_to_a1(ridx, di)
-                            ws_trial.update(f"{p_col}:{d_col}", [["是", datetime.now().strftime("%Y-%m-%d")]])
-                            st.toast(f"配方 {code} 已在配方管理建立，自動轉為已採購", icon="🔔")
-                            if not has_linked_order_record(code):
-                                reminder = f"⚠️ 配方 {code} 已自動標記為已採購，但尚未找到對應生產單記錄，請再確認是否為實際採購。"
-                                st.session_state.setdefault("trial_accounting_reminders", []).append(reminder)
-                        except Exception as e:
-                            st.toast(f"自動採購同步失敗：{code}", icon="⚠️")
-                            st.error(f"自動採購同步失敗：{e}")
-                        invalidate_sheet_cache("試色登錄")
-                        break
 
 # ===== 匯入配方備份檔案 =====
 if st.session_state.menu == "匯入備份":
