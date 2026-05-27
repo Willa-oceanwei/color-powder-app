@@ -10071,7 +10071,7 @@ if menu == "試色記錄分析":
             seed_dates = pd.to_datetime(dfv_seed["試色日期"], errors="coerce").dropna()
             if len(seed_dates) > 0:
                 default_start = seed_dates.min().date()
-                default_end = seed_dates.max().date()
+                default_end = datetime.now().date()
             else:
                 default_start = datetime.now().date()
                 default_end = datetime.now().date()
@@ -10082,9 +10082,7 @@ if menu == "試色記錄分析":
         start_d = c2.date_input("起日", key="analysis_start", value=default_start)
         end_d = c3.date_input("迄日", key="analysis_end", value=default_end)
         c3.caption(f"預設區間：{default_start} ~ {default_end}")
-        opt1, opt2 = st.columns(2)
-        include_backfill = opt1.checkbox("分析包含歷史補登", value=True)
-        strict_precise = opt2.checkbox("僅統計精確日期", value=False)
+        include_backfill = st.checkbox("分析包含歷史補登", value=True)
 
         dfv = get_cached_sheet_df("試色登錄")
         rec_csv_df = pd.DataFrame(columns=["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色次數轉換率", "配方族群轉換率", "建議收費"])
@@ -10100,10 +10098,11 @@ if menu == "試色記錄分析":
             if keyword:
                 m = dfv["客戶名稱"].astype(str).str.contains(keyword, case=False, na=False) | dfv["客戶編號"].astype(str).str.contains(keyword, case=False, na=False)
                 dfv = dfv[m]
-            if not include_backfill and "歷史補登" in dfv.columns:
-                dfv = dfv[dfv["歷史補登"].astype(str) != "是"]
-            if strict_precise and "日期精度" in dfv.columns:
-                dfv = dfv[dfv["日期精度"].astype(str) == "精確"]
+            if not include_backfill:
+                if "歷史補登" in dfv.columns:
+                    dfv = dfv[dfv["歷史補登"].astype(str) != "是"]
+                if "日期精度" in dfv.columns:
+                    dfv = dfv[dfv["日期精度"].astype(str) == "精確"]
 
             trial_count = len(dfv)
             purchase_count = int((dfv["已採購"].astype(str) == "是").sum())
@@ -10143,8 +10142,8 @@ if menu == "試色記錄分析":
                         "width": 240,
                         "height": 260,
                         "autosize": {"type": "fit", "contains": "padding"},
-                        "padding": {"top": 12, "bottom": 42, "left": 12, "right": 12},
-                        "mark": {"type": "arc", "innerRadius": 28, "outerRadius": 88},
+                        "padding": {"top": 30, "bottom": 46, "left": 12, "right": 12},
+                        "mark": {"type": "arc", "innerRadius": 28, "outerRadius": 84},
                         "encoding": {
                             "theta": {"field": "試色筆數", "type": "quantitative"},
                             "color": {"field": "原料", "type": "nominal", "legend": {"title": "原料", "orient": "bottom", "columns": 4}},
@@ -10161,26 +10160,25 @@ if menu == "試色記錄分析":
             with st.expander("查看原料別表格", expanded=False):
                 render_paginated_df(mat[["原料","試色筆數","採購筆數","採購比例"]], "trial_mat", page_size=5)
 
-            st.markdown("<div style='background:#33241f;padding:8px 10px;border-radius:8px;color:#ffe5d0;font-size:14px;font-weight:600;margin:6px 0;'>追蹤清單</div>", unsafe_allow_html=True)
-            show_purchased = st.checkbox("是否顯示已採購", value=False, key="trial_show_purchased")
-            track_df = dfv.copy()
-            if not show_purchased:
-                track_df = track_df[track_df["已採購"].astype(str) != "是"]
-                if "歷史補登" in track_df.columns:
-                    track_df = track_df[track_df["歷史補登"].astype(str) != "是"]
-                if "日期精度" in track_df.columns:
-                    track_df = track_df[track_df["日期精度"].astype(str) == "精確"]
-            pending_df = track_df.copy()
-            if not pending_df.empty and "試色日期" in pending_df.columns:
-                pending_df["天數"] = (pd.Timestamp.now().normalize() - pd.to_datetime(pending_df["試色日期"], errors="coerce")).dt.days
-                pending_df = pending_df[pending_df["天數"].fillna(0) >= pending_days_default]
-            for col in ["日期精度", "歷史補登", "採購日期", "客戶名稱", "原料", "主配方編號", "已採購"]:
-                if col not in pending_df.columns:
-                    pending_df[col] = ""
-            pending_df["試色日期"] = pd.to_datetime(pending_df["試色日期"], errors="coerce").dt.strftime("%Y-%m-%d")
-            pending_df.loc[pending_df["已採購"].astype(str) != "是", "採購日期"] = ""
+            with st.expander("追蹤清單（含篩選與明細）", expanded=False):
+                show_purchased = st.checkbox("是否顯示已採購", value=False, key="trial_show_purchased")
+                track_df = dfv.copy()
+                if not show_purchased:
+                    track_df = track_df[track_df["已採購"].astype(str) != "是"]
+                    if "歷史補登" in track_df.columns:
+                        track_df = track_df[track_df["歷史補登"].astype(str) != "是"]
+                    if "日期精度" in track_df.columns:
+                        track_df = track_df[track_df["日期精度"].astype(str) == "精確"]
+                pending_df = track_df.copy()
+                if not pending_df.empty and "試色日期" in pending_df.columns:
+                    pending_df["天數"] = (pd.Timestamp.now().normalize() - pd.to_datetime(pending_df["試色日期"], errors="coerce")).dt.days
+                    pending_df = pending_df[pending_df["天數"].fillna(0) >= pending_days_default]
+                for col in ["日期精度", "歷史補登", "採購日期", "客戶名稱", "原料", "主配方編號", "已採購"]:
+                    if col not in pending_df.columns:
+                        pending_df[col] = ""
+                pending_df["試色日期"] = pd.to_datetime(pending_df["試色日期"], errors="coerce").dt.strftime("%Y-%m-%d")
+                pending_df.loc[pending_df["已採購"].astype(str) != "是", "採購日期"] = ""
 
-            with st.expander("追蹤清單明細（可展開查看）", expanded=False):
                 if pending_df.empty:
                     st.caption("目前沒有符合條件的資料。")
                 else:
