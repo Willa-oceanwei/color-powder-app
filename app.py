@@ -10052,10 +10052,6 @@ if menu == "試色記錄分析":
                         st.warning("找不到該配方編號"); st.toast("採購登入失敗：找不到配方", icon="⚠️")
 
     with sub2:
-        st.markdown(
-            "<div style='font-size:11px;color:#8a8a8a;margin-bottom:8px;'>ⓘ 分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>",
-            unsafe_allow_html=True
-        )
         c1, c2, c3 = st.columns([2,1,1])
         cust_df_q = get_cached_sheet_df("客戶名單")
         cust_opts_q = [""]
