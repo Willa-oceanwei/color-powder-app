@@ -9948,6 +9948,11 @@ if menu == "試色記錄分析":
     sub1, sub2, sub3 = st.tabs(["試色登錄", "記錄分析", "參數設定"])
 
     with sub1:
+        pending_msgs = st.session_state.pop("trial_accounting_reminders", [])
+        for _msg in pending_msgs:
+            st.warning(_msg)
+            st.toast("請確認是否已有實際採購（目前未串會計）", icon="🧾")
+
         t1, t2 = st.tabs(["新增", "採購登入"])
         with t1:
             with st.form("trial_add_form"):
@@ -10271,8 +10276,8 @@ if menu == "試色記錄分析":
                             ws_trial.update(f"{p_col}:{d_col}", [["是", datetime.now().strftime("%Y-%m-%d")]])
                             st.toast(f"配方 {code} 已在配方管理建立，自動轉為已採購", icon="🔔")
                             if not has_linked_order_record(code):
-                                st.warning(f"⚠️ 配方 {code} 已自動標記為已採購，但尚未找到對應生產單記錄，請再確認是否為實際採購。")
-                                st.toast("請確認是否已有實際採購（目前未串會計）", icon="🧾")
+                                reminder = f"⚠️ 配方 {code} 已自動標記為已採購，但尚未找到對應生產單記錄，請再確認是否為實際採購。"
+                                st.session_state.setdefault("trial_accounting_reminders", []).append(reminder)
                         except Exception as e:
                             st.toast(f"自動採購同步失敗：{code}", icon="⚠️")
                             st.error(f"自動採購同步失敗：{e}")
