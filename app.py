@@ -10087,6 +10087,7 @@ if menu == "試色記錄分析":
                         st.warning("找不到該配方編號"); st.toast("採購登入失敗：找不到配方", icon="⚠️")
 
     with sub2:
+        st.markdown("<div style='background:#141a22;border:1px solid #2f3c4d;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;color:#9aa4b2;'>分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([2,1,1])
         cust_df_q = get_cached_sheet_df("客戶名單")
         cust_opts_q = [""]
@@ -10307,6 +10308,7 @@ if menu == "試色記錄分析":
                         },
                         use_container_width=True,
                     )
+                st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 客戶分層說明：A＝試色配方數≥10 且 試色採購比例≥40%；B＝試色配方數≥5 且 試色採購比例≥20%；其餘為 C。</div>", unsafe_allow_html=True)
                 seg_csv = seg_stats.to_csv(index=False).encode("utf-8-sig")
 
             show = dfv.copy()
