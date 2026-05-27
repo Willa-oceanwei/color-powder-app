@@ -10168,8 +10168,12 @@ if menu == "試色記錄分析":
                 with st.expander("族群明細", expanded=False):
                     render_paginated_df(grp_tbl, "trial_grouped", page_size=5)
 
-            st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例（圓餅圖）</div>", unsafe_allow_html=True)
-            mat = dfv.groupby("原料").agg(試色筆數=("配方編號","count"), 採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())).reset_index()
+            st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例</div>", unsafe_allow_html=True)
+            mat = dfv.groupby("原料").agg(
+                試色筆數=("配方編號","count"),
+                試色配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
+                採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())
+            ).reset_index()
             mat["採購比例數值"] = (mat["採購筆數"] / mat["試色筆數"] * 100).fillna(0)
             mat["採購比例"] = mat["採購比例數值"].round(1).astype(str) + "%"
             pie_df = mat[mat["試色筆數"] > 0].copy()
@@ -10188,6 +10192,7 @@ if menu == "試色記錄分析":
                             "tooltip": [
                                 {"field": "原料", "type": "nominal"},
                                 {"field": "試色筆數", "type": "quantitative"},
+                                {"field": "試色配方數", "type": "quantitative"},
                                 {"field": "採購筆數", "type": "quantitative"},
                                 {"field": "採購比例", "type": "nominal"}
                             ],
@@ -10197,7 +10202,7 @@ if menu == "試色記錄分析":
                 )
             st.markdown(f"<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色配方數：{trial_recipe_count}（族群視為同一配方）。</div>", unsafe_allow_html=True)
             with st.expander("查看原料別表格", expanded=False):
-                render_paginated_df(mat[["原料","試色筆數","採購筆數","採購比例"]], "trial_mat", page_size=5)
+                render_paginated_df(mat[["原料","試色筆數","試色配方數","採購筆數","採購比例"]], "trial_mat", page_size=5)
 
             with st.expander("追蹤清單（含篩選與明細）", expanded=False):
                 show_purchased = st.checkbox("是否顯示已採購", value=False, key="trial_show_purchased")
