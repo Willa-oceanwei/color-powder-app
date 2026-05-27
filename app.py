@@ -9684,7 +9684,7 @@ elif menu == "洗車廠庫存":
     
                 else:
                     styled_result_df = result_df.style.map(
-                        lambda _: "background-color: rgba(255, 215, 0, 0.25); font-weight: 700; color: #0b3d91;",
+                        lambda _: "background-color: rgba(255, 215, 0, 0.25); font-weight: 700; color: #ffffff; text-align: right;",
                         subset=["目前庫存"],
                     )
 
