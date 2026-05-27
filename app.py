@@ -9657,13 +9657,15 @@ elif menu == "洗車廠庫存":
                     if note_candidates:
                         latest_note = sorted(note_candidates, key=lambda x: x[0], reverse=True)[0][1]
     
+                    current_qty_display = f"{current_qty:.6f}".rstrip("0").rstrip(".")
+
                     result_rows.append({
                         "產品編號": pid,
                         "期初庫存": f"{init_qty:g} {unit}".strip(),
                         "區間入庫": f"{in_qty:g} {unit}".strip(),
                         "區間出庫": f"{out_qty:g} {unit}".strip(),
-                        "目前庫存": current_qty,          # 純數值，讓 Streamlit 自動右對齊
-                        "單位": unit,                      # 另外一欄顯示單位
+                        "目前庫存": current_qty_display,
+                        "單位": unit,
                         "出入庫歷程": history_text or "-",
                         "備註": latest_note,
                         "_目前庫存數值": current_qty,
@@ -9681,9 +9683,13 @@ elif menu == "洗車廠庫存":
                     st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
     
                 else:
-                
+                    styled_result_df = result_df.style.map(
+                        lambda _: "background-color: rgba(255, 215, 0, 0.25); font-weight: 700; color: #ffffff; text-align: right;",
+                        subset=["目前庫存"],
+                    )
+
                     st.dataframe(
-                        result_df,
+                        styled_result_df,
                         use_container_width=True,
                         hide_index=True,
                         column_config={
@@ -9691,11 +9697,7 @@ elif menu == "洗車廠庫存":
                             "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
                             "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
                             "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
-                            "目前庫存": st.column_config.NumberColumn(
-                                "目前庫存",
-                                width="small",
-                                format="%.0f",          # 整數顯示，有小數就改成 "%.2f"
-                            ),
+                            "目前庫存": st.column_config.TextColumn("目前庫存", width="small"),
                             "單位": st.column_config.TextColumn("單位", width="small"),
                             "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
                             "備註": st.column_config.TextColumn("備註", width="medium"),
