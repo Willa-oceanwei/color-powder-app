@@ -10120,7 +10120,7 @@ if menu == "試色記錄分析":
         include_backfill = st.checkbox("分析包含歷史補登", value=True)
 
         dfv = get_cached_sheet_df("試色登錄")
-        rec_csv_df = pd.DataFrame(columns=["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色次數轉換率", "配方族群轉換率", "建議收費"])
+        rec_csv_df = pd.DataFrame(columns=["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色採購比例", "多次修色比例", "建議收費"])
         pending_df = pd.DataFrame()
         show = pd.DataFrame()
         if not keyword:
@@ -10144,7 +10144,7 @@ if menu == "試色記錄分析":
             purchase_count = int((dfv["已採購"].astype(str) == "是").sum())
             root_counts = dfv["主配方編號"].astype(str).value_counts()
             grouped_root_count = int((root_counts > 1).sum())
-            group_ratio = (grouped_root_count / trial_count * 100) if trial_count else 0
+            group_ratio = (grouped_root_count / trial_recipe_count * 100) if trial_recipe_count else 0
             group_count = dfv["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
             group_purchase = dfv[dfv["已採購"].astype(str)=="是"]["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
 
@@ -10153,10 +10153,10 @@ if menu == "試色記錄分析":
             k0.metric("試色配方數", trial_recipe_count)
             k1.metric("試色次數", trial_count)
             k2.metric("採購筆數", purchase_count)
-            k3.metric("試色次數轉換率", f"{(purchase_count/trial_count*100):.1f}%" if trial_count else "0%")
-            k4.metric("配方族群占比", f"{group_ratio:.1f}%")
+            k3.metric("試色採購比例", f"{(purchase_count/trial_recipe_count*100):.1f}%" if trial_recipe_count else "0%")
+            k4.metric("多次修色比例", f"{group_ratio:.1f}%")
             st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色次數轉換率＝採購筆數 ÷ 試色筆數。ⓘ 配方族群占比＝有 A/B 等族群的主配方數 ÷ 試色總筆數。</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色採購比例＝採購筆數 ÷ 試色配方數。ⓘ 多次修色比例＝有 A/B 等族群的主配方數 ÷ 試色配方數。</div>", unsafe_allow_html=True)
 
             dup_groups = dfv.groupby("主配方編號").size().reset_index(name="試色次數")
             dup_groups = dup_groups[dup_groups["試色次數"] > 1]
