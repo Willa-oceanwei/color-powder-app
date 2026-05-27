@@ -10222,6 +10222,69 @@ if menu == "試色記錄分析":
                 else:
                     render_paginated_df(pending_df[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], "trial_detail", page_size=5)
 
+
+            st.markdown("<div style='background:#1f2430;padding:8px 10px;border-radius:8px;color:#dbe7ff;font-size:14px;font-weight:600;margin:6px 0;'>客戶月趨勢（近12月）</div>", unsafe_allow_html=True)
+            trend_df = dfv.copy()
+            trend_df["月份"] = pd.to_datetime(trend_df["試色日期"], errors="coerce").dt.to_period("M").astype(str)
+            monthly = trend_df.groupby("月份").agg(
+                試色配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
+                試色次數=("配方編號", "count"),
+                採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum()),
+            ).reset_index().sort_values("月份").tail(12)
+            monthly["試色採購比例"] = (monthly["採購筆數"] / monthly["試色配方數"] * 100).fillna(0)
+
+            if not monthly.empty:
+                bar_long = monthly.melt(id_vars=["月份"], value_vars=["試色配方數","採購筆數"], var_name="指標", value_name="數值")
+                st.vega_lite_chart(
+                    bar_long,
+                    {
+                        "mark": "bar",
+                        "encoding": {
+                            "x": {"field": "月份", "type": "ordinal", "axis": {"labelAngle": -25}},
+                            "y": {"field": "數值", "type": "quantitative"},
+                            "color": {"field": "指標", "type": "nominal"},
+                            "xOffset": {"field": "指標"},
+                            "tooltip": [{"field":"月份"},{"field":"指標"},{"field":"數值"}],
+                        },
+                        "height": 240,
+                    },
+                    use_container_width=True,
+                )
+                st.line_chart(monthly.set_index("月份")["試色採購比例"], height=180)
+
+            st.markdown("<div style='background:#202b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>客戶分層（A/B/C）</div>", unsafe_allow_html=True)
+            seg = dfv.copy()
+            seg["客戶顯示"] = seg["客戶名稱"].astype(str).str.strip()
+            seg.loc[seg["客戶顯示"] == "", "客戶顯示"] = seg["客戶編號"].astype(str).str.strip()
+            seg_stats = seg.groupby("客戶顯示", dropna=False).agg(
+                試色配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
+                採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())
+            ).reset_index()
+            seg_stats["試色採購比例"] = (seg_stats["採購筆數"] / seg_stats["試色配方數"] * 100).fillna(0)
+            def _tier(r):
+                if r["試色配方數"] >= 10 and r["試色採購比例"] >= 40:
+                    return "A"
+                if r["試色配方數"] >= 5 and r["試色採購比例"] >= 20:
+                    return "B"
+                return "C"
+            seg_stats["客戶分層"] = seg_stats.apply(_tier, axis=1)
+            tier_counts = seg_stats["客戶分層"].value_counts().rename_axis("分層").reset_index(name="客戶數")
+            if not tier_counts.empty:
+                st.vega_lite_chart(
+                    tier_counts,
+                    {
+                        "mark": {"type":"arc","innerRadius":30},
+                        "encoding": {
+                            "theta": {"field":"客戶數","type":"quantitative"},
+                            "color": {"field":"分層","type":"nominal"},
+                            "tooltip": [{"field":"分層"},{"field":"客戶數"}],
+                        },
+                        "height": 220,
+                    },
+                    use_container_width=True,
+                )
+            seg_csv = seg_stats.to_csv(index=False).encode("utf-8-sig")
+
             show = dfv.copy()
             for col in ["日期精度", "歷史補登", "採購日期", "客戶名稱", "原料", "主配方編號", "已採購"]:
                 if col not in show.columns:
@@ -10231,10 +10294,11 @@ if menu == "試色記錄分析":
             csv = show.to_csv(index=False).encode("utf-8-sig")
             pending_csv = pending_df.to_csv(index=False).encode("utf-8-sig") if not pending_df.empty else "".encode("utf-8-sig")
             rec_csv = rec_csv_df.to_csv(index=False).encode("utf-8-sig")
-            d1, d2, d3 = st.columns(3)
+            d1, d2, d3, d4 = st.columns(4)
             d1.download_button("匯出分析 CSV", data=csv, file_name=f"trial_analysis_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
             d2.download_button("匯出未採購追蹤 CSV", data=pending_csv, file_name=f"trial_pending_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
             d3.download_button("匯出客戶收費建議 CSV", data=rec_csv, file_name=f"trial_fee_recommendation_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
+            d4.download_button("匯出客戶分層 CSV", data=seg_csv if 'seg_csv' in locals() else ''.encode('utf-8-sig'), file_name=f"trial_customer_tier_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
 
     with sub3:
         st.markdown("<span style='color:#8a8a8a;font-size:11px;'>ⓘ 調整下列門檻後，會直接影響「記錄分析」中的收費建議與未採購追蹤名單。</span>", unsafe_allow_html=True)
