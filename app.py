@@ -9878,7 +9878,7 @@ def to_roc_date_text(d):
 
 if menu == "試色記錄分析":
     trial_cols = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "日期精度", "歷史補登", "原料", "已採購", "採購日期", "建立時間", "更新時間"]
-    materials = ["B", "PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS"]
+    materials = ["PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS", "B"]
 
     try:
         ws_trial = get_cached_worksheet("試色登錄")
@@ -10089,7 +10089,7 @@ if menu == "試色記錄分析":
         pending_df = pd.DataFrame()
         show = pd.DataFrame()
         if not keyword:
-            st.info("請先選擇客戶，分析資料將保持空白。")
+            st.info("請先選擇客戶。")
         elif start_d > end_d:
             st.warning("起日不可晚於迄日"); st.toast("請調整日期區間", icon="⚠️")
         elif not dfv.empty:
