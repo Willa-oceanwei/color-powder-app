@@ -9865,6 +9865,20 @@ def parse_formula_root(code):
     return m.group(1) if m else raw
 
 
+
+
+def has_linked_order_record(formula_code):
+    """僅檢查是否有對應生產單記錄（不含會計收款判斷）。"""
+    try:
+        df_order_chk = get_cached_sheet_df("生產單")
+    except Exception:
+        return False
+    if df_order_chk.empty or "配方編號" not in df_order_chk.columns:
+        return False
+    code = clean_powder_id(formula_code)
+    hit = df_order_chk[df_order_chk["配方編號"].astype(str).map(clean_powder_id) == code]
+    return not hit.empty
+
 def to_roc_date_text(d):
     if not d:
         return ""
@@ -9880,7 +9894,7 @@ def to_roc_date_text(d):
 
 if menu == "試色記錄分析":
     trial_cols = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "日期精度", "歷史補登", "原料", "已採購", "採購日期", "建立時間", "更新時間"]
-    materials = ["PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS", "B"]
+    materials = ["B", "PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS"]
 
     try:
         ws_trial = get_cached_worksheet("試色登錄")
@@ -10050,10 +10064,12 @@ if menu == "試色記錄分析":
                     invalidate_sheet_cache("試色登錄")
                     if updated:
                         st.toast(f"已登入採購：{code_update}", icon="🧾")
+                        st.info("提醒：請確認這筆是否為實際採購（目前未串會計模組）。")
                     else:
                         st.warning("找不到該配方編號"); st.toast("採購登入失敗：找不到配方", icon="⚠️")
 
     with sub2:
+        st.markdown("<div style='background:#141a22;border:1px solid #2f3c4d;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;color:#9aa4b2;'>分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([2,1,1])
         cust_df_q = get_cached_sheet_df("客戶名單")
         cust_opts_q = [""]
@@ -10090,7 +10106,7 @@ if menu == "試色記錄分析":
         pending_df = pd.DataFrame()
         show = pd.DataFrame()
         if not keyword:
-            st.info("請先選擇客戶。")
+            st.info("請先選擇客戶，分析資料將保持空白。")
         elif start_d > end_d:
             st.warning("起日不可晚於迄日"); st.toast("請調整日期區間", icon="⚠️")
         elif not dfv.empty:
@@ -10247,6 +10263,9 @@ if menu == "試色記錄分析":
                             d_col = gspread.utils.rowcol_to_a1(ridx, di)
                             ws_trial.update(f"{p_col}:{d_col}", [["是", datetime.now().strftime("%Y-%m-%d")]])
                             st.toast(f"配方 {code} 已在配方管理建立，自動轉為已採購", icon="🔔")
+                            if not has_linked_order_record(code):
+                                st.warning(f"⚠️ 配方 {code} 已自動標記為已採購，但尚未找到對應生產單記錄，請再確認是否為實際採購。")
+                                st.toast("請確認是否已有實際採購（目前未串會計）", icon="🧾")
                         except Exception as e:
                             st.toast(f"自動採購同步失敗：{code}", icon="⚠️")
                             st.error(f"自動採購同步失敗：{e}")
