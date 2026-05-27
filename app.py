@@ -10139,6 +10139,7 @@ if menu == "試色記錄分析":
                 if "日期精度" in dfv.columns:
                     dfv = dfv[dfv["日期精度"].astype(str) == "精確"]
 
+            trial_recipe_count = dfv["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
             trial_count = len(dfv)
             purchase_count = int((dfv["已採購"].astype(str) == "是").sum())
             root_counts = dfv["主配方編號"].astype(str).value_counts()
@@ -10148,7 +10149,8 @@ if menu == "試色記錄分析":
             group_purchase = dfv[dfv["已採購"].astype(str)=="是"]["主配方編號"].astype(str).replace("", pd.NA).dropna().nunique()
 
             st.markdown("<div style='background:#1a2330;border:1px solid #32465f;border-radius:10px;padding:8px 10px;margin:6px 0 8px 0;'>", unsafe_allow_html=True)
-            k1, k2, k3, k4 = st.columns(4)
+            k0, k1, k2, k3, k4 = st.columns(5)
+            k0.metric("試色配方數", trial_recipe_count)
             k1.metric("試色次數", trial_count)
             k2.metric("採購筆數", purchase_count)
             k3.metric("試色次數轉換率", f"{(purchase_count/trial_count*100):.1f}%" if trial_count else "0%")
@@ -10162,8 +10164,8 @@ if menu == "試色記錄分析":
                 extra = int((dup_groups["試色次數"] - 1).sum())
                 st.info(f"期間內有 {len(dup_groups)} 組主配方發生重複試色，額外增加 {extra} 次試色成本。")
                 grp_tbl = dup_groups.rename(columns={"主配方編號":"族群主配方","試色次數":"族群筆數"})
-                st.markdown("<div style='font-size:12px;color:#9aa4b2;margin:4px 0;'>族群明細</div>", unsafe_allow_html=True)
-                render_paginated_df(grp_tbl, "trial_grouped", page_size=5)
+                with st.expander("族群明細", expanded=False):
+                    render_paginated_df(grp_tbl, "trial_grouped", page_size=5)
 
             st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例（圓餅圖）</div>", unsafe_allow_html=True)
             mat = dfv.groupby("原料").agg(試色筆數=("配方編號","count"), 採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())).reset_index()
@@ -10192,6 +10194,7 @@ if menu == "試色記錄分析":
                     },
                     use_container_width=True,
                 )
+            st.markdown(f"<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色配方數：{trial_recipe_count}（族群視為同一配方）。</div>", unsafe_allow_html=True)
             with st.expander("查看原料別表格", expanded=False):
                 render_paginated_df(mat[["原料","試色筆數","採購筆數","採購比例"]], "trial_mat", page_size=5)
 
