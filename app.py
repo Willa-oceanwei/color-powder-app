@@ -2672,7 +2672,8 @@ elif menu == "配方管理":
             st.session_state._tab4_need_rerun = False
             st.rerun()
 
-    # ============================================================
+   
+    #============================================================
     # Tab 5：色母換算（零下拉 ERP 搜尋版）
     # ============================================================
     with tab5:
@@ -3037,18 +3038,28 @@ elif menu == "配方管理":
 
                         # ── 列印 HTML 產生 ──
                         def generate_master_batch_html(calc_data, ratio_override=None):
-                            ratio_display = str(
-                                ratio_override if ratio_override is not None
-                                else calc_data.get("ratio", "")
-                            ).strip()
+                            # 1:1 時讀配方的比例1:比例2，其他比例用表單選的
+                            if calc_data.get("print_original"):
+                                r1 = str(calc_data["recipe_data"].get("比例1", "") or "").strip()
+                                r2 = str(calc_data["recipe_data"].get("比例2", "") or "").strip()
+                                if r1 and r2:
+                                    ratio_display = f"{r1}:{r2}"
+                                elif r1:
+                                    ratio_display = r1
+                                else:
+                                    ratio_display = ""
+                            else:
+                                ratio_display = str(
+                                    ratio_override if ratio_override is not None
+                                    else calc_data.get("ratio", "")
+                                ).strip()
 
-                            header = (
+                            # 全部放進同一個 <pre>，字體統一等寬
+                            header_line = (
                                 f"編號：{calc_data['new_code']}"
                                 f"　顏色：{calc_data['recipe_data'].get('顏色', '')}"
                                 f"　比例：{ratio_display}"
                             )
-
-                            # 100K 一律顯示，靠右對齊數字欄（數字可微調）
                             unit_line = f"{'100K':>16}"
 
                             body_lines = []
@@ -3070,7 +3081,8 @@ elif menu == "配方管理":
                                 f"{calc_data['material_code'].ljust(12)}{mq_str.rjust(8)}"
                             )
 
-                            body_text = "\n".join(body_lines)
+                            all_lines = [header_line, unit_line] + body_lines
+                            content = "\n".join(all_lines)
 
                             return f"""<html>
 <head>
@@ -3080,26 +3092,21 @@ elif menu == "配方管理":
 @page {{ size: A6 landscape; margin: 10mm; }}
 body {{
     margin: 0;
+    padding: 0;
+}}
+pre {{
     font-family: 'Courier New', Courier, monospace;
     font-size: 24px;
     line-height: 1.6;
-}}
-.header {{
-    margin-left: 25px;
-    margin-top: 10px;
-    margin-bottom: 2px;
-}}
-pre {{
     white-space: pre;
     margin-left: 25px;
-    margin-top: 0;
+    margin-top: 10px;
 }}
 </style>
 <script>window.onload = function() {{ window.print(); }}</script>
 </head>
 <body>
-  <div class="header">{header}</div>
-  <pre>{unit_line}\n{body_text}</pre>
+  <pre>{content}</pre>
 </body>
 </html>"""
 
@@ -3174,8 +3181,6 @@ pre {{
                                         st.code(traceback.format_exc())
         else:
             st.info("⚠️ 目前沒有配方資料，請先至「配方建立」新增配方")
-
-    # =============== Tab 架構結束 ===============
     
 # =============== Tab 架構結束 ===============                            
 # --- 生產單分頁 ----------------------------------------------------
