@@ -2672,8 +2672,7 @@ elif menu == "配方管理":
             st.session_state._tab4_need_rerun = False
             st.rerun()
 
-   
-    #============================================================
+    # ============================================================
     # Tab 5：色母換算（零下拉 ERP 搜尋版）
     # ============================================================
     with tab5:
@@ -3081,8 +3080,7 @@ elif menu == "配方管理":
                                 f"{calc_data['material_code'].ljust(12)}{mq_str.rjust(8)}"
                             )
 
-                            all_lines = [header_line, unit_line] + body_lines
-                            content = "\n".join(all_lines)
+                            content_body = "\n".join(body_lines)
 
                             return f"""<html>
 <head>
@@ -3093,20 +3091,27 @@ elif menu == "配方管理":
 body {{
     margin: 0;
     padding: 0;
-}}
-pre {{
     font-family: 'Courier New', Courier, monospace;
     font-size: 24px;
     line-height: 1.6;
-    white-space: pre;
+}}
+.header {{
     margin-left: 25px;
     margin-top: 10px;
+    margin-bottom: 2px;
+}}
+pre {{
+    white-space: pre;
+    margin-left: 25px;
+    margin-top: 0;
 }}
 </style>
 <script>window.onload = function() {{ window.print(); }}</script>
 </head>
 <body>
-  <pre>{content}</pre>
+  <div class="header">{header_line}</div>
+  <pre>{unit_line}
+{content_body}</pre>
 </body>
 </html>"""
 
@@ -3181,6 +3186,9 @@ pre {{
                                         st.code(traceback.format_exc())
         else:
             st.info("⚠️ 目前沒有配方資料，請先至「配方建立」新增配方")
+
+    # =============== Tab 架構結束 ===============
+
     
 # =============== Tab 架構結束 ===============                            
 # --- 生產單分頁 ----------------------------------------------------
