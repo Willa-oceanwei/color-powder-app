@@ -3099,7 +3099,7 @@ body {{
 pre {{
     font-family: 'Courier New', Courier, monospace;
     font-size: 24px;
-    font-weight: bold;
+    font-weight: normal;
     line-height: 1.6;
     white-space: pre;
     margin-left: 25px;
