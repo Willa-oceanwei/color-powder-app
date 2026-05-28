@@ -3000,7 +3000,7 @@ elif menu == "配方管理":
                             unit_hint = "" if calc_data.get("print_original") else "100K"
                             html_lines = [
                                 f"編號：{calc_data['new_code']}　顏色：{calc_data['recipe_data'].get('顏色', '')}　比例：{ratio_display}",
-                                f"{'100K':>16}",
+                                f"{'100K':>14}",
                             ]
                             for item in calc_data["powder_data"]:
                                 w = item["weight"]
