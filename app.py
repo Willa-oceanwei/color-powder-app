@@ -2830,37 +2830,54 @@ elif menu == "配方管理":
                     
                 st.markdown("---")
 
+                st.markdown("**步驟 2：設定色母比例**")
+                ratio_options = ["1:1", "12.5", "20:1", "25:1", "50:1", "100:1"]
+                if st.session_state.master_batch_ratio not in ratio_options:
+                    st.session_state.master_batch_ratio = "25:1"
+                ratio = st.selectbox("色母比例", ratio_options,
+                    index=ratio_options.index(st.session_state.master_batch_ratio), key="ratio_select")
+                is_one_to_one = ratio == "1:1"
+
+                def parse_weight_value(value):
+                    try:
+                        text = str(value or "").strip().replace(",", "")
+                        return float(text) if text else 0.0
+                    except Exception:
+                        return 0.0
+
                 with st.form("master_batch_form"):
-                    st.markdown("**步驟 2：設定色母比例**")
-                    ratio_options = ["12.5", "20:1", "25:1", "50:1", "100:1"]
-                    if st.session_state.master_batch_ratio not in ratio_options:
-                        st.session_state.master_batch_ratio = "25:1"
-                    ratio = st.selectbox("色母比例", ratio_options,
-                        index=ratio_options.index(st.session_state.master_batch_ratio), key="ratio_select")
-
-                    st.markdown("**步驟 3：選擇添加劑**")
-                    additive_options = ["CA", "LA", "CP(增韌劑)"]
-                    if st.session_state.master_batch_additive not in additive_options:
-                        st.session_state.master_batch_additive = "CA"
-                    additive = st.selectbox("添加劑", additive_options,
-                        index=additive_options.index(st.session_state.master_batch_additive), key="additive_select")
-
-                    st.markdown("**步驟 4：填寫合計資料**")
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        total_qty = st.number_input("總數量 (g)", min_value=0.0,
-                            value=st.session_state.master_batch_total_qty, step=1000.0, key="total_quantity_input")
-                    with col2:
+                    if is_one_to_one:
+                        st.markdown("**步驟 3：填寫料號**")
                         material_code = st.text_input("料號", value=st.session_state.master_batch_material,
                             placeholder="例如：PE5100", key="material_input")
-                    with col3:
-                        material_qty = st.number_input("原料數量 (g)", min_value=0.0,
-                            value=st.session_state.master_batch_material_qty, step=1000.0, key="material_quantity_input")
+                        additive = ""
+                        total_qty = parse_weight_value(recipe_data.get("淨重", ""))
+                        material_qty = total_qty
+                        new_code = selected_recipe_code
+                    else:
+                        st.markdown("**步驟 3：選擇添加劑**")
+                        additive_options = ["CA", "LA", "CP(增韌劑)"]
+                        if st.session_state.master_batch_additive not in additive_options:
+                            st.session_state.master_batch_additive = "CA"
+                        additive = st.selectbox("添加劑", additive_options,
+                            index=additive_options.index(st.session_state.master_batch_additive), key="additive_select")
 
-                    st.markdown("**步驟 5：新色母編號**")
-                    new_code  = st.text_input("新色母編號", value=st.session_state.master_batch_new_code,
-                        placeholder="例如：26820M", key="new_code_input")
-                    calculate = st.form_submit_button("🧮 計算色母配方")
+                        st.markdown("**步驟 4：填寫合計資料**")
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            total_qty = st.number_input("總數量 (g)", min_value=0.0,
+                                value=st.session_state.master_batch_total_qty, step=1000.0, key="total_quantity_input")
+                        with col2:
+                            material_code = st.text_input("料號", value=st.session_state.master_batch_material,
+                                placeholder="例如：PE5100", key="material_input")
+                        with col3:
+                            material_qty = st.number_input("原料數量 (g)", min_value=0.0,
+                                value=st.session_state.master_batch_material_qty, step=1000.0, key="material_quantity_input")
+
+                        st.markdown("**步驟 5：新色母編號**")
+                        new_code  = st.text_input("新色母編號", value=st.session_state.master_batch_new_code,
+                            placeholder="例如：26820M", key="new_code_input")
+                    calculate = st.form_submit_button("🖨️ 產生配方列印" if is_one_to_one else "🧮 計算色母配方")
 
                 if calculate:
                     ratio = str(st.session_state.get("ratio_select", ratio)).strip()
@@ -2871,17 +2888,18 @@ elif menu == "配方管理":
                     st.session_state.master_batch_material_qty = material_qty
                     st.session_state.master_batch_new_code     = new_code
 
-                    if total_qty <= 0:
-                        st.warning("⚠️ 請填寫總數量"); st.stop()
                     if not material_code.strip():
                         st.warning("⚠️ 請填寫料號"); st.stop()
-                    if material_qty <= 0:
-                        st.warning("⚠️ 請填寫原料數量"); st.stop()
-                    if not new_code.strip():
-                        st.warning("⚠️ 請填寫新色母編號"); st.stop()
+                    if not is_one_to_one:
+                        if total_qty <= 0:
+                            st.warning("⚠️ 請填寫總數量"); st.stop()
+                        if material_qty <= 0:
+                            st.warning("⚠️ 請填寫原料數量"); st.stop()
+                        if not new_code.strip():
+                            st.warning("⚠️ 請填寫新色母編號"); st.stop()
 
                     multiplier_map = {"12.5": 54, "20:1": 84, "25:1": 104, "50:1": 200, "100:1": 400}
-                    multiplier = multiplier_map[ratio]
+                    multiplier = 1 if is_one_to_one else multiplier_map[ratio]
 
                     powder_data         = []
                     total_powder_weight = 0.0
@@ -2897,10 +2915,10 @@ elif menu == "配方管理":
                             except:
                                 pass
 
-                    additive_qty     = total_qty - total_powder_weight - material_qty
-                    additive_display = additive.replace("(增韌劑)", "")
+                    additive_qty     = 0.0 if is_one_to_one else total_qty - total_powder_weight - material_qty
+                    additive_display = "" if is_one_to_one else additive.replace("(增韌劑)", "")
 
-                    if additive_qty < 0:
+                    if not is_one_to_one and additive_qty < 0:
                         st.error(f"❌ 總數量不足！需至少：{total_powder_weight + material_qty:.2f}g"); st.stop()
 
                     calculated_total = total_powder_weight + additive_qty + material_qty
@@ -2914,6 +2932,7 @@ elif menu == "配方管理":
                         "calculated_total": calculated_total,
                         "ratio": ratio, "recipe_data": recipe_data,
                         "selected_recipe_code": selected_recipe_code,
+                        "print_original": is_one_to_one,
                         "input_signature": (
                             selected_recipe_code,
                             ratio,
@@ -2953,9 +2972,10 @@ elif menu == "配方管理":
                             w = item["weight"]
                             w_str = f"{int(w)}" if w == int(w) else f"{w:.2f}"
                             calc_rows.append((item["id"], w_str))
-                        aq = calc["additive_qty"]
-                        aq_str = f"{int(aq)}" if aq == int(aq) else f"{aq:.2f}"
-                        calc_rows.append((calc["additive_display"], aq_str))
+                        if not calc.get("print_original"):
+                            aq = calc["additive_qty"]
+                            aq_str = f"{int(aq)}" if aq == int(aq) else f"{aq:.2f}"
+                            calc_rows.append((calc["additive_display"], aq_str))
                         mq = calc["material_qty"]
                         mq_str = f"{int(mq)}" if mq == int(mq) else f"{mq:.2f}"
                         calc_rows.append((calc["material_code"], mq_str))
@@ -2970,11 +2990,14 @@ elif menu == "配方管理":
                                 "重量": st.column_config.TextColumn("重量", width="small"),
                             },
                         )
-                        st.caption(f"✓ 色粉：{calc['total_powder_weight']:.2f}g + 添加劑：{calc['additive_qty']:.2f}g + 原料：{calc['material_qty']:.2f}g = {calc['calculated_total']:.2f}g")
+                        if calc.get("print_original"):
+                            st.caption("✓ 1:1 原配方列印：套用原有色粉重量與淨重，僅替換料號。")
+                        else:
+                            st.caption(f"✓ 色粉：{calc['total_powder_weight']:.2f}g + 添加劑：{calc['additive_qty']:.2f}g + 原料：{calc['material_qty']:.2f}g = {calc['calculated_total']:.2f}g")
 
                         def generate_master_batch_html(calc_data, ratio_override=None):
                             ratio_display = str(ratio_override if ratio_override is not None else calc_data.get("ratio", "")).strip()
-                            unit_hint = "100K"
+                            unit_hint = "" if calc_data.get("print_original") else "100K"
                             html_lines = [
                                 f"編號：{calc_data['new_code']}　顏色：{calc_data['recipe_data'].get('顏色', '')}　比例：{ratio_display}",
                                 "",
@@ -2984,9 +3007,10 @@ elif menu == "配方管理":
                                 w = item["weight"]
                                 w_str = f"{int(w)}" if w == int(w) else f"{w:.2f}"
                                 html_lines.append(f"{item['id'].ljust(12)}{w_str.rjust(8)}")
-                            aq = calc_data["additive_qty"]
-                            aq_str = f"{int(aq)}" if aq == int(aq) else f"{aq:.2f}"
-                            html_lines.append(f"{calc_data['additive_display'].ljust(12)}{aq_str.rjust(8)}")
+                            if not calc_data.get("print_original"):
+                                aq = calc_data["additive_qty"]
+                                aq_str = f"{int(aq)}" if aq == int(aq) else f"{aq:.2f}"
+                                html_lines.append(f"{calc_data['additive_display'].ljust(12)}{aq_str.rjust(8)}")
                             mq = calc_data["material_qty"]
                             mq_str = f"{int(mq)}" if mq == int(mq) else f"{mq:.2f}"
                             html_lines.append(f"{calc_data['material_code'].ljust(12)}{mq_str.rjust(8)}")
@@ -3012,7 +3036,9 @@ elif menu == "配方管理":
                                 key="download_master_batch_html",
                             )
                         with col_save:
-                            if st.button("💾 新增此配方到配方管理", key="save_master_batch_recipe"):
+                            if calc.get("print_original"):
+                                st.caption("1:1 僅供列印，不新增配方。")
+                            elif st.button("💾 新增此配方到配方管理", key="save_master_batch_recipe"):
                                 if calc["new_code"] in df_recipe["配方編號"].astype(str).values:
                                     st.error(f"❌ 配方編號 {calc['new_code']} 已存在")
                                 else:
