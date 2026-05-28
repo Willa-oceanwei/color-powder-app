@@ -3059,7 +3059,7 @@ elif menu == "配方管理":
                                 f"　顏色：{calc_data['recipe_data'].get('顏色', '')}"
                                 f"　比例：{ratio_display}"
                             )
-                            unit_line = f"{'100K':>16}"
+                            unit_line = f"{'100K':>14}"
 
                             body_lines = []
                             for item in calc_data["powder_data"]:
