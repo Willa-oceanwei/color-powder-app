@@ -2675,6 +2675,9 @@ elif menu == "配方管理":
     # ============================================================
     # Tab 5：色母換算（零下拉 ERP 搜尋版）
     # ============================================================
+        # ============================================================
+    # Tab 5：色母換算（零下拉 ERP 搜尋版）
+    # ============================================================
     with tab5:
 
         st.markdown('<h3 style="font-size:18px; color:#f1f5f2;">👹 色母換算</h3>', unsafe_allow_html=True)
@@ -3059,7 +3062,7 @@ elif menu == "配方管理":
                                 f"　顏色：{calc_data['recipe_data'].get('顏色', '')}"
                                 f"　比例：{ratio_display}"
                             )
-                            unit_line = f"{'100K':>14}"
+                            unit_line = f"{'100K':>16}"
 
                             body_lines = []
                             for item in calc_data["powder_data"]:
@@ -3081,6 +3084,7 @@ elif menu == "配方管理":
                             )
 
                             content_body = "\n".join(body_lines)
+                            content = f"{header_line}\n{unit_line}\n{content_body}"
 
                             return f"""<html>
 <head>
@@ -3091,27 +3095,21 @@ elif menu == "配方管理":
 body {{
     margin: 0;
     padding: 0;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 24px;
-    line-height: 1.6;
-}}
-.header {{
-    margin-left: 25px;
-    margin-top: 10px;
-    margin-bottom: 2px;
 }}
 pre {{
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 24px;
+    font-weight: normal;
+    line-height: 1.6;
     white-space: pre;
     margin-left: 25px;
-    margin-top: 0;
+    margin-top: 10px;
 }}
 </style>
 <script>window.onload = function() {{ window.print(); }}</script>
 </head>
 <body>
-  <div class="header">{header_line}</div>
-  <pre>{unit_line}
-{content_body}</pre>
+  <pre>{content}</pre>
 </body>
 </html>"""
 
@@ -3187,9 +3185,7 @@ pre {{
         else:
             st.info("⚠️ 目前沒有配方資料，請先至「配方建立」新增配方")
 
-    # =============== Tab 架構結束 ===============
-
-    
+   
 # =============== Tab 架構結束 ===============                            
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
