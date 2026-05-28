@@ -2898,7 +2898,7 @@ elif menu == "配方管理":
                         if not new_code.strip():
                             st.warning("⚠️ 請填寫新色母編號"); st.stop()
 
-                    multiplier_map = {"12.5": 54, "20:1": 84, "25:1": 104, "50:1": 200, "100:1": 400}
+                    multiplier_map = {"1:1": 1, "12.5": 54, "20:1": 84, "25:1": 104, "50:1": 200, "100:1": 400}
                     multiplier = 1 if is_one_to_one else multiplier_map[ratio]
 
                     powder_data         = []
