@@ -3099,7 +3099,7 @@ body {{
 pre {{
     font-family: 'Courier New', Courier, monospace;
     font-size: 24px;
-    font-weight: normal;
+    font-weight: bold;
     line-height: 1.6;
     white-space: pre;
     margin-left: 25px;
@@ -3185,7 +3185,6 @@ pre {{
         else:
             st.info("⚠️ 目前沒有配方資料，請先至「配方建立」新增配方")
 
-   
 # =============== Tab 架構結束 ===============                            
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
