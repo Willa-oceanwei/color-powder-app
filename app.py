@@ -9225,17 +9225,19 @@ elif menu == "庫存區":
                     return rid
 
                 for powder_id in powder_inputs:
-                    powder_kw = powder_id.strip().lower()
+                    powder_id_clean = powder_id.strip()
+                    powder_kw = powder_id_clean.lower()
                     total_usage_g = 0.0
                     monthly_usage = {}
 
-                    # 候選配方
+                    # 候選配方：與庫存查詢一致，採「完整色粉編號」命中；
+                    # 避免輸入 S 時把 AS、S-01 等包含 S 的色粉也算入 S。
                     if not df_recipe_local.empty:
                         mask = df_recipe_local[powder_cols].astype(str).apply(
-                            lambda row: any(powder_kw in str(v).strip().lower() for v in row.values),
+                            lambda row: any(str(v).strip().lower() == powder_kw for v in row.values),
                             axis=1
                         )
-                        candidate_ids = set(df_recipe_local[mask]["配方編號"].astype(str).tolist())
+                        candidate_ids = set(df_recipe_local[mask]["配方編號"].astype(str).str.strip().tolist())
                     else:
                         candidate_ids = set()
 
@@ -9253,12 +9255,12 @@ elif menu == "庫存區":
                             continue
 
                         recipe_rows = []
-                        main_df = df_recipe_local[df_recipe_local["配方編號"].astype(str) == order_recipe_id]
+                        main_df = df_recipe_local[df_recipe_local["配方編號"].astype(str).str.strip() == order_recipe_id]
                         if not main_df.empty:
                             recipe_rows.append(main_df.iloc[0].to_dict())
                         add_df = df_recipe_local[
-                            (df_recipe_local["配方類別"] == "附加配方") &
-                            (df_recipe_local["原始配方"].astype(str) == order_recipe_id)
+                            (df_recipe_local["配方類別"].astype(str).str.strip() == "附加配方") &
+                            (df_recipe_local["原始配方"].astype(str).str.strip() == order_recipe_id)
                         ]
                         if not add_df.empty:
                             recipe_rows.extend(add_df.to_dict("records"))
@@ -9299,7 +9301,7 @@ elif menu == "庫存區":
                             pvals = [str(rec.get(f"色粉編號{i}", "")).strip() for i in range(1, 9)]
                             match_indexes = [
                                 i for i, pval in enumerate(pvals, start=1)
-                                if powder_kw in pval.lower()
+                                if pval.strip().lower() == powder_kw
                             ]
                             if not match_indexes:
                                 continue

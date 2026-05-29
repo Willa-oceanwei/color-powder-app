@@ -323,12 +323,12 @@ def show_cross_query_page():
                     continue
                 
                 recipe_rows = []
-                main_df = df_recipe[df_recipe["配方編號"].astype(str) == order_recipe_id]
+                main_df = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id]
                 if not main_df.empty:
                     recipe_rows.append(main_df.iloc[0].to_dict())
                 add_df = df_recipe[
-                    (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"].astype(str) == order_recipe_id)
+                    (df_recipe["配方類別"].astype(str).str.strip() == "附加配方") &
+                    (df_recipe["原始配方"].astype(str).str.strip() == order_recipe_id)
                 ]
                 if not add_df.empty:
                     recipe_rows.extend(add_df.to_dict("records"))

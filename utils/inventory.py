@@ -165,7 +165,7 @@ def show_inventory_page():
             packs_total_kg = 0.0
             for j in range(1, 5):
                 n_key = f"包裝份數{j}"
-                pack_w = parse_pack_value(order.get(w_key, 0))
+                pack_w = parse_pack_value(order.get(f"包裝重量{j}", 0))
                 pack_n = parse_pack_value(order.get(n_key, 0))
                 packs_total_kg += pack_w * pack_n
             
