@@ -7149,13 +7149,6 @@ elif menu == "查詢區":
         "🧪 樣品提交表"
     ])
 
-    if st.session_state.get("query_toast"):
-        st.toast(
-            st.session_state["query_toast"].get("msg", "查詢完成"),
-            icon=st.session_state["query_toast"].get("icon", "🔍")
-        )
-        st.session_state.pop("query_toast", None)
-
     if st.session_state.get("sample_toast"):
         st.toast(
             st.session_state["sample_toast"].get("msg", "已完成樣品操作"),
@@ -7198,7 +7191,7 @@ elif menu == "查詢區":
     
                 if matched.empty:
                     st.warning("⚠️ 找不到符合的配方")
-                    st.session_state["query_toast"] = {"msg": "查詢完成：沒有符合的配方", "icon": "⚠️"}
+                    st.toast("查詢完成：沒有符合的配方", icon="⚠️")
                 else:
                     results = []
                     for _, recipe in matched.iterrows():
@@ -7237,7 +7230,7 @@ elif menu == "查詢區":
                         )
     
                         st.dataframe(df_result, use_container_width=True)
-                        st.session_state["query_toast"] = {"msg": f"查詢完成：找到 {len(df_result)} 筆配方", "icon": "✅"}
+                        st.toast(f"查詢完成：找到 {len(df_result)} 筆配方", icon="✅")
 
     # ========== Tab 2：色粉用量查詢 ==========
     with tab2:
@@ -7263,7 +7256,7 @@ elif menu == "查詢區":
     
         if submit and not powder_inputs:
             st.warning("⚠️ 請至少輸入一個色粉編號")
-            st.session_state["query_toast"] = {"msg": "請先輸入色粉編號再查詢", "icon": "⚠️"}
+            st.toast("請先輸入色粉編號再查詢", icon="⚠️")
 
         if submit and powder_inputs:
             results = []
@@ -7787,7 +7780,7 @@ elif menu == "查詢區":
                     search_end,
                 )
                 st.session_state.sample_search_triggered = True
-                st.session_state["query_toast"] = {"msg": "樣品記錄查詢完成", "icon": "🔎"}
+                st.toast("樣品記錄查詢完成", icon="🔎")
     
             if st.session_state.get("sample_search_triggered", False):
                 no_condition_input = (
