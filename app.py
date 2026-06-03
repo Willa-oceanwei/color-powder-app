@@ -615,30 +615,79 @@ def extract_formula_material_initial(formula_code):
     return cleaned_code[:1]
 
 
+def normalize_sheet_header(value):
+    """標準化 Google Sheet 欄名，避免空白或全形空白造成抓不到欄位。"""
+    return str(value).strip().replace("\u3000", "").replace(" ", "")
+
+
+def find_formula_id_column_index(header_row):
+    """在一列內容中找出「配方編號」欄位位置。"""
+    for idx, header in enumerate(header_row):
+        if normalize_sheet_header(header) == "配方編號":
+            return idx
+    return None
+
+
+def get_pantone_formula_codes_from_values(values):
+    """從 pantone資料表 原始內容判斷表頭位置，取出配方編號欄位資料。"""
+    for header_idx, row in enumerate(values):
+        formula_col_idx = find_formula_id_column_index(row)
+        if formula_col_idx is None:
+            continue
+
+        formula_codes = []
+        for data_row in values[header_idx + 1:]:
+            if formula_col_idx >= len(data_row):
+                continue
+            formula_code = str(data_row[formula_col_idx]).strip()
+            if formula_code and normalize_sheet_header(formula_code) != "配方編號":
+                formula_codes.append(formula_code)
+        return formula_codes
+
+    return []
+
+
+def get_pantone_formula_codes_from_df(df_pantone_reference):
+    """從已整理成 DataFrame 的 pantone資料表 取出配方編號欄位資料。"""
+    normalized_columns = {normalize_sheet_header(col): col for col in df_pantone_reference.columns}
+    formula_col = normalized_columns.get("配方編號")
+    if formula_col is None:
+        return []
+
+    return [
+        str(formula_code).strip()
+        for formula_code in df_pantone_reference[formula_col].tolist()
+        if str(formula_code).strip()
+    ]
+
+
 def build_pantone_backfill_reference_df(df_pantone_reference=None):
     """整理 pantone資料表 中各編號開頭的最後一筆配方編號。"""
     if df_pantone_reference is None:
         try:
-            df_pantone_reference = get_cached_sheet_df(PANTONE_BACKFILL_SHEET_NAME)
+            pantone_values = get_cached_sheet_values(PANTONE_BACKFILL_SHEET_NAME)
         except Exception:
-            df_pantone_reference = pd.DataFrame(columns=["配方編號"])
+            pantone_values = []
+        formula_codes = get_pantone_formula_codes_from_values(pantone_values)
+    elif isinstance(df_pantone_reference, pd.DataFrame):
+        formula_codes = get_pantone_formula_codes_from_df(df_pantone_reference)
+    else:
+        formula_codes = get_pantone_formula_codes_from_values(df_pantone_reference)
 
-    if df_pantone_reference.empty or "配方編號" not in df_pantone_reference.columns:
-        return pd.DataFrame(columns=["原料", "最後編號"])
+    ref_rows_by_initial = {}
+    display_order = []
+    for formula_code in formula_codes:
+        material_initial = extract_formula_material_initial(formula_code)
+        if not material_initial:
+            continue
+        if material_initial not in ref_rows_by_initial:
+            display_order.append(material_initial)
+        ref_rows_by_initial[material_initial] = str(formula_code).strip()
 
-    df_ref = df_pantone_reference.copy()
-    df_ref["_配方編號"] = df_ref["配方編號"].astype(str).str.strip()
-    df_ref["_原料"] = df_ref["_配方編號"].map(extract_formula_material_initial)
-    df_ref = df_ref[(df_ref["_配方編號"] != "") & (df_ref["_原料"] != "")]
-
-    display_order = list(dict.fromkeys(df_ref["_原料"].tolist()))
-
-    ref_rows = []
-    for material_initial in display_order:
-        material_rows = df_ref[df_ref["_原料"] == material_initial]
-        if not material_rows.empty:
-            ref_rows.append({"原料": material_initial, "最後編號": str(material_rows["_配方編號"].iloc[-1])})
-
+    ref_rows = [
+        {"原料": material_initial, "最後編號": ref_rows_by_initial[material_initial]}
+        for material_initial in display_order
+    ]
     return pd.DataFrame(ref_rows, columns=["原料", "最後編號"])
 
 
