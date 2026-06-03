@@ -567,6 +567,90 @@ def clean_powder_id(x):
     return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
 
 
+TRIAL_COLS = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "日期精度", "歷史補登", "原料", "已採購", "採購日期", "建立時間", "更新時間"]
+TRIAL_MATERIALS = ["B", "PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS"]
+
+
+def build_trial_backfill_reference_df(df_trial=None):
+    """整理各原料最後登錄編號，供歷史補登時參考。"""
+    if df_trial is None:
+        try:
+            df_trial = get_cached_sheet_df("試色登錄")
+        except Exception:
+            df_trial = pd.DataFrame(columns=TRIAL_COLS)
+
+    if df_trial.empty or "原料" not in df_trial.columns or "配方編號" not in df_trial.columns:
+        return pd.DataFrame(columns=["原料", "最後編號"])
+
+    ref_rows = []
+    for material in TRIAL_MATERIALS:
+        material_rows = df_trial[df_trial["原料"].astype(str).str.strip() == material].copy()
+        if material_rows.empty:
+            continue
+
+        material_rows["配方編號"] = material_rows["配方編號"].astype(str).str.strip()
+        material_rows = material_rows[material_rows["配方編號"] != ""]
+        if not material_rows.empty:
+            ref_rows.append({"原料": material, "最後編號": str(material_rows["配方編號"].iloc[-1])})
+
+    return pd.DataFrame(ref_rows, columns=["原料", "最後編號"])
+
+
+def show_trial_backfill_reference(df_trial=None):
+    """顯示試色登錄的歷史補登參考備註與各原料最後登錄編號。"""
+    st.markdown("<div style='font-size:12px;color:#8a8a8a;'>歷史補登參考：各原料最後登錄編號</div>", unsafe_allow_html=True)
+    ref_df = build_trial_backfill_reference_df(df_trial)
+    if ref_df.empty:
+        st.caption("目前沒有試色登錄資料可供參考。")
+    else:
+        st.dataframe(ref_df, use_container_width=True, height=180)
+
+
+PANTONE_BACKFILL_SHEET_NAME = "pantone資料表"
+
+
+def extract_formula_material_initial(formula_code):
+    """從配方編號抓第一個字元當原料分類，例如 68999 → 6、52668 → 5、C10492 → C。"""
+    cleaned_code = clean_powder_id(formula_code)
+    return cleaned_code[:1]
+
+
+def build_pantone_backfill_reference_df(df_pantone_reference=None):
+    """整理 pantone資料表 中各編號開頭的最後一筆配方編號。"""
+    if df_pantone_reference is None:
+        try:
+            df_pantone_reference = get_cached_sheet_df(PANTONE_BACKFILL_SHEET_NAME)
+        except Exception:
+            df_pantone_reference = pd.DataFrame(columns=["配方編號"])
+
+    if df_pantone_reference.empty or "配方編號" not in df_pantone_reference.columns:
+        return pd.DataFrame(columns=["原料", "最後編號"])
+
+    df_ref = df_pantone_reference.copy()
+    df_ref["_配方編號"] = df_ref["配方編號"].astype(str).str.strip()
+    df_ref["_原料"] = df_ref["_配方編號"].map(extract_formula_material_initial)
+    df_ref = df_ref[(df_ref["_配方編號"] != "") & (df_ref["_原料"] != "")]
+
+    display_order = list(dict.fromkeys(df_ref["_原料"].tolist()))
+
+    ref_rows = []
+    for material_initial in display_order:
+        material_rows = df_ref[df_ref["_原料"] == material_initial]
+        if not material_rows.empty:
+            ref_rows.append({"原料": material_initial, "最後編號": str(material_rows["_配方編號"].iloc[-1])})
+
+    return pd.DataFrame(ref_rows, columns=["原料", "最後編號"])
+
+
+def show_pantone_backfill_reference():
+    """顯示 pantone資料表 的歷史補登參考。"""
+    st.markdown("<div style='font-size:12px;color:#8a8a8a;'>歷史補登參考：各原料最後登錄編號</div>", unsafe_allow_html=True)
+    ref_df = build_pantone_backfill_reference_df()
+    if ref_df.empty:
+        st.caption(f"目前沒有 {PANTONE_BACKFILL_SHEET_NAME} 資料可供參考。")
+    else:
+        st.dataframe(ref_df, use_container_width=True, height=180)
+
 
 # 需要預載的 Sheet 對應表（Sheet名稱 → session_state key）
 PRELOAD_SHEETS = {
@@ -7558,6 +7642,9 @@ elif menu == "查詢區":
                             df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True),
                             use_container_width=True,
                         )
+
+        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        show_pantone_backfill_reference()
                     
     # ========== Tab 4：樣品記錄表 ==========
     from datetime import datetime, date
@@ -10013,8 +10100,8 @@ def to_roc_date_text(d):
 
 
 if menu == "試色記錄分析":
-    trial_cols = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "日期精度", "歷史補登", "原料", "已採購", "採購日期", "建立時間", "更新時間"]
-    materials = ["B", "PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS"]
+    trial_cols = TRIAL_COLS
+    materials = TRIAL_MATERIALS
 
     try:
         ws_trial = get_cached_worksheet("試色登錄")
@@ -10122,14 +10209,7 @@ if menu == "試色記錄分析":
                 if len(last_code):
                     st.caption(f"提示：原料 {material} 最後登錄編號：{last_code.iloc[0]}")
 
-            st.markdown("<div style='font-size:12px;color:#8a8a8a;'>歷史補登參考：各原料最後登錄編號</div>", unsafe_allow_html=True)
-            mat_last = []
-            for m in materials:
-                _d = df_trial[df_trial["原料"].astype(str) == m]
-                if not _d.empty:
-                    mat_last.append({"原料": m, "最後編號": str(_d["配方編號"].astype(str).iloc[-1])})
-            if mat_last:
-                st.dataframe(pd.DataFrame(mat_last), use_container_width=True, height=180)
+            show_trial_backfill_reference(df_trial)
 
             if submitted:
                 if not formula_code or not customer_id:
