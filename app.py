@@ -597,11 +597,57 @@ def build_trial_backfill_reference_df(df_trial=None):
 
 
 def show_trial_backfill_reference(df_trial=None):
-    """顯示歷史補登參考備註與各原料最後登錄編號。"""
+    """顯示試色登錄的歷史補登參考備註與各原料最後登錄編號。"""
     st.markdown("<div style='font-size:12px;color:#8a8a8a;'>歷史補登參考：各原料最後登錄編號</div>", unsafe_allow_html=True)
     ref_df = build_trial_backfill_reference_df(df_trial)
     if ref_df.empty:
         st.caption("目前沒有試色登錄資料可供參考。")
+    else:
+        st.dataframe(ref_df, use_container_width=True, height=180)
+
+
+PANTONE_BACKFILL_SHEET_NAME = "pantone資料表"
+
+
+def extract_formula_material_initial(formula_code):
+    """從配方編號抓第一個字元當原料分類，例如 68999 → 6、52668 → 5、C10492 → C。"""
+    cleaned_code = clean_powder_id(formula_code)
+    return cleaned_code[:1]
+
+
+def build_pantone_backfill_reference_df(df_pantone_reference=None):
+    """整理 pantone資料表 中各編號開頭的最後一筆配方編號。"""
+    if df_pantone_reference is None:
+        try:
+            df_pantone_reference = get_cached_sheet_df(PANTONE_BACKFILL_SHEET_NAME)
+        except Exception:
+            df_pantone_reference = pd.DataFrame(columns=["配方編號"])
+
+    if df_pantone_reference.empty or "配方編號" not in df_pantone_reference.columns:
+        return pd.DataFrame(columns=["原料", "最後編號"])
+
+    df_ref = df_pantone_reference.copy()
+    df_ref["_配方編號"] = df_ref["配方編號"].astype(str).str.strip()
+    df_ref["_原料"] = df_ref["_配方編號"].map(extract_formula_material_initial)
+    df_ref = df_ref[(df_ref["_配方編號"] != "") & (df_ref["_原料"] != "")]
+
+    display_order = list(dict.fromkeys(df_ref["_原料"].tolist()))
+
+    ref_rows = []
+    for material_initial in display_order:
+        material_rows = df_ref[df_ref["_原料"] == material_initial]
+        if not material_rows.empty:
+            ref_rows.append({"原料": material_initial, "最後編號": str(material_rows["_配方編號"].iloc[-1])})
+
+    return pd.DataFrame(ref_rows, columns=["原料", "最後編號"])
+
+
+def show_pantone_backfill_reference():
+    """顯示 pantone資料表 的歷史補登參考。"""
+    st.markdown("<div style='font-size:12px;color:#8a8a8a;'>歷史補登參考：各原料最後登錄編號</div>", unsafe_allow_html=True)
+    ref_df = build_pantone_backfill_reference_df()
+    if ref_df.empty:
+        st.caption(f"目前沒有 {PANTONE_BACKFILL_SHEET_NAME} 資料可供參考。")
     else:
         st.dataframe(ref_df, use_container_width=True, height=180)
 
@@ -7598,7 +7644,7 @@ elif menu == "查詢區":
                         )
 
         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-        show_trial_backfill_reference()
+        show_pantone_backfill_reference()
                     
     # ========== Tab 4：樣品記錄表 ==========
     from datetime import datetime, date
