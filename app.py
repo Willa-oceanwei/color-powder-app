@@ -924,15 +924,29 @@ def safe_append_row(ws, row_values):
 def safe_update_cell(ws, row, col, value):
     """
     穩定版單格更新（取代 update_cell）
+
+    gspread 的 Spreadsheet.batch_update 是 Google Sheets 結構更新 API，
+    不能用來寫入儲存格值；單格值更新需透過 Worksheet 的 values
+    batch update，避免送出錯誤 body 造成 APIError。
     """
-    body = {
-        "valueInputOption": "USER_ENTERED",
-        "data": [{
-            "range": gspread.utils.rowcol_to_a1(row, col),
-            "values": [[value]]
-        }]
-    }
-    ws.spreadsheet.batch_update(body)
+    clean_value = "" if value is None else str(value)
+    a1_range = gspread.utils.rowcol_to_a1(row, col)
+    ws.batch_update(
+        [{"range": a1_range, "values": [[clean_value]]}],
+        value_input_option="USER_ENTERED",
+    )
+
+    cache = st.session_state.get("_sheet_values_cache", {}).get(ws.title)
+    if cache and cache.get("values"):
+        updated_values = [cached_row[:] for cached_row in cache["values"]]
+        while len(updated_values) < row:
+            updated_values.append([])
+        while len(updated_values[row - 1]) < col:
+            updated_values[row - 1].append("")
+        updated_values[row - 1][col - 1] = clean_value
+        _set_sheet_values_cache(ws.title, updated_values)
+    else:
+        invalidate_sheet_cache(ws.title)
 
 # ===== 在最上方定義函式 =====
 
