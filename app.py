@@ -9958,21 +9958,39 @@ elif menu == "洗車廠庫存":
                         )
                     )
 
+                    carwash_inventory_column_config = {
+                        "產品編號": st.column_config.TextColumn("產品編號", width="small"),
+                        "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
+                        "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
+                        "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
+                        "目前庫存": st.column_config.TextColumn("目前庫存", width="small"),
+                        "單位": st.column_config.TextColumn("單位", width="small"),
+                        "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
+                        "備註": st.column_config.TextColumn("備註", width="medium"),
+                    }
+
                     st.dataframe(
                         styled_result_df,
                         use_container_width=True,
                         hide_index=True,
-                        column_config={
-                            "產品編號": st.column_config.TextColumn("產品編號", width="small"),
-                            "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
-                            "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
-                            "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
-                            "目前庫存": st.column_config.TextColumn("目前庫存", width="small"),
-                            "單位": st.column_config.TextColumn("單位", width="small"),
-                            "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
-                            "備註": st.column_config.TextColumn("備註", width="medium"),
-                        }
+                        column_config=carwash_inventory_column_config,
                     )
+
+                    screenshot_mode = st.toggle(
+                        "📸 放大表格截圖模式",
+                        value=False,
+                        key="cw_inventory_screenshot_mode",
+                    )
+
+                    if screenshot_mode:
+                        st.caption("已開啟截圖模式：下方表格加高顯示，可直接截圖；關閉開關即可回到一般大小。")
+                        st.dataframe(
+                            styled_result_df,
+                            use_container_width=True,
+                            hide_index=True,
+                            height=850,
+                            column_config=carwash_inventory_column_config,
+                        )
                     
     # ── Tab C4：資料修改 ──
     with tab_c4:
