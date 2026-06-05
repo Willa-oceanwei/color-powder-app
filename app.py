@@ -9977,23 +9977,21 @@ elif menu == "洗車廠庫存":
                     "備註": st.column_config.TextColumn("備註", width="medium"),
                 }
 
-                show_screenshot_table = st.toggle(
-                    "📸 顯示截圖用大表格",
-                    value=False,
-                    key="cw_inventory_show_screenshot_table",
-                )
-                table_height = 920 if show_screenshot_table else 650
-
-                if show_screenshot_table:
-                    st.subheader("📸 洗車廠庫存查詢截圖版")
-                    st.caption("目前已放大表格高度，截圖完成後關閉上方開關即可回到一般大小。")
-
                 st.dataframe(
                     styled_result_df,
                     use_container_width=True,
                     hide_index=True,
-                    height=table_height,
                     column_config=carwash_inventory_column_config,
+                )
+
+                export_csv = result_df.to_csv(index=False).encode("utf-8-sig")
+                st.download_button(
+                    "⬇️ 匯出庫存查詢 CSV",
+                    data=export_csv,
+                    file_name=f"carwash_inventory_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="cw_inventory_export_csv",
                 )
                     
     # ── Tab C4：資料修改 ──
