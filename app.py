@@ -9973,6 +9973,16 @@ elif menu == "洗車廠庫存":
                             "備註": st.column_config.TextColumn("備註", width="medium"),
                         }
                     )
+
+                    export_csv = result_df.to_csv(index=False).encode("utf-8-sig")
+                    st.download_button(
+                        "⬇️ 匯出庫存查詢 CSV",
+                        data=export_csv,
+                        file_name=f"carwash_inventory_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="cw_inventory_export_csv",
+                    )
                     
     # ── Tab C4：資料修改 ──
     with tab_c4:
