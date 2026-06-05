@@ -9977,52 +9977,22 @@ elif menu == "洗車廠庫存":
                     "備註": st.column_config.TextColumn("備註", width="medium"),
                 }
 
-                st.dataframe(
-                    styled_result_df,
-                    use_container_width=True,
-                    hide_index=True,
-                    height=650,
-                    column_config=carwash_inventory_column_config,
-                )
-
                 show_screenshot_table = st.toggle(
                     "📸 顯示截圖用大表格",
                     value=False,
                     key="cw_inventory_show_screenshot_table",
                 )
+                table_height = 920 if show_screenshot_table else 650
 
                 if show_screenshot_table:
-                    st.markdown(
-                        '<div style="font-size:22px; font-weight:700; color:#f0efa2; margin:10px 0 6px 0;">📸 洗車廠庫存查詢截圖版</div>',
-                        unsafe_allow_html=True,
-                    )
-                    st.caption("下方是放大高度的截圖版表格；截圖完成後，再關閉上方開關即可收起。")
-                    st.dataframe(
-                        styled_result_df,
-                        use_container_width=True,
-                        hide_index=True,
-                        height=920,
-                        column_config=carwash_inventory_column_config,
-                    )
-                )
+                    st.subheader("📸 洗車廠庫存查詢截圖版")
+                    st.caption("目前已放大表格高度，截圖完成後關閉上方開關即可回到一般大小。")
 
-                carwash_inventory_column_config = {
-                    "產品編號": st.column_config.TextColumn("產品編號", width="small"),
-                    "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
-                    "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
-                    "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
-                    "目前庫存": st.column_config.TextColumn("目前庫存", width="small"),
-                    "單位": st.column_config.TextColumn("單位", width="small"),
-                    "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
-                    "備註": st.column_config.TextColumn("備註", width="medium"),
-                }
-
-                st.caption("📸 截圖方式：將滑鼠移到表格右上角，點選全螢幕圖示（⛶）即可放大截圖。")
                 st.dataframe(
                     styled_result_df,
                     use_container_width=True,
                     hide_index=True,
-                    height=650,
+                    height=table_height,
                     column_config=carwash_inventory_column_config,
                 )
                     
