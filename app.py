@@ -9742,6 +9742,7 @@ elif menu == "洗車廠庫存":
     
         if do_query:
             q_pid = q_pid.strip()
+            st.session_state["cw_inventory_result_message"] = ""
     
             # 取得要查詢的 ID 清單
             if q_pid:
@@ -9757,7 +9758,8 @@ elif menu == "洗車廠庫存":
                 })
     
             if not query_ids:
-                st.info("目前沒有可查詢的洗車廠庫存資料。")
+                st.session_state["cw_inventory_result_df"] = pd.DataFrame()
+                st.session_state["cw_inventory_result_message"] = "目前沒有可查詢的洗車廠庫存資料。"
     
             else:
                 result_rows = []
@@ -9940,38 +9942,67 @@ elif menu == "洗車廠庫存":
                     result_df = result_df[result_df["_目前庫存數值"] != 0]
     
                 result_df = result_df.drop(columns=["_目前庫存數值"], errors="ignore")
-    
-                if result_df.empty:
-    
-                    st.info("目前查無符合條件的資料（已隱藏庫存為 0 的產品）。")
-    
-                else:
-                    styled_result_df = (
-                        result_df.style
-                        .map(
-                            lambda _: "font-weight: 700;",
-                            subset=["產品編號"],
-                        )
-                        .map(
-                            lambda _: "background-color: rgba(255, 215, 0, 0.25); font-weight: 700; color: #ffffff; text-align: right;",
-                            subset=["目前庫存"],
-                        )
-                    )
+                st.session_state["cw_inventory_result_df"] = result_df
 
+                if result_df.empty:
+                    st.session_state["cw_inventory_result_message"] = "目前查無符合條件的資料（已隱藏庫存為 0 的產品）。"
+    
+        result_df = st.session_state.get("cw_inventory_result_df")
+
+        if result_df is not None:
+            if result_df.empty:
+                st.info(st.session_state.get("cw_inventory_result_message", "目前查無符合條件的資料。"))
+
+            else:
+                styled_result_df = (
+                    result_df.style
+                    .map(
+                        lambda _: "font-weight: 700;",
+                        subset=["產品編號"],
+                    )
+                    .map(
+                        lambda _: "background-color: rgba(255, 215, 0, 0.25); font-weight: 700; color: #ffffff; text-align: right;",
+                        subset=["目前庫存"],
+                    )
+                )
+
+                carwash_inventory_column_config = {
+                    "產品編號": st.column_config.TextColumn("產品編號", width="small"),
+                    "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
+                    "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
+                    "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
+                    "目前庫存": st.column_config.TextColumn("目前庫存", width="small"),
+                    "單位": st.column_config.TextColumn("單位", width="small"),
+                    "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
+                    "備註": st.column_config.TextColumn("備註", width="medium"),
+                }
+
+                st.dataframe(
+                    styled_result_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=650,
+                    column_config=carwash_inventory_column_config,
+                )
+
+                show_screenshot_table = st.toggle(
+                    "📸 顯示截圖用大表格",
+                    value=False,
+                    key="cw_inventory_show_screenshot_table",
+                )
+
+                if show_screenshot_table:
+                    st.markdown(
+                        '<div style="font-size:22px; font-weight:700; color:#f0efa2; margin:10px 0 6px 0;">📸 洗車廠庫存查詢截圖版</div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.caption("下方是放大高度的截圖版表格；截圖完成後，再關閉上方開關即可收起。")
                     st.dataframe(
                         styled_result_df,
                         use_container_width=True,
                         hide_index=True,
-                        column_config={
-                            "產品編號": st.column_config.TextColumn("產品編號", width="small"),
-                            "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
-                            "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
-                            "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
-                            "目前庫存": st.column_config.TextColumn("目前庫存", width="small"),
-                            "單位": st.column_config.TextColumn("單位", width="small"),
-                            "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
-                            "備註": st.column_config.TextColumn("備註", width="medium"),
-                        }
+                        height=920,
+                        column_config=carwash_inventory_column_config,
                     )
                     
     # ── Tab C4：資料修改 ──
