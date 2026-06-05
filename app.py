@@ -10004,6 +10004,27 @@ elif menu == "洗車廠庫存":
                         height=920,
                         column_config=carwash_inventory_column_config,
                     )
+                )
+
+                carwash_inventory_column_config = {
+                    "產品編號": st.column_config.TextColumn("產品編號", width="small"),
+                    "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
+                    "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
+                    "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
+                    "目前庫存": st.column_config.TextColumn("目前庫存", width="small"),
+                    "單位": st.column_config.TextColumn("單位", width="small"),
+                    "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
+                    "備註": st.column_config.TextColumn("備註", width="medium"),
+                }
+
+                st.caption("📸 截圖方式：將滑鼠移到表格右上角，點選全螢幕圖示（⛶）即可放大截圖。")
+                st.dataframe(
+                    styled_result_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=650,
+                    column_config=carwash_inventory_column_config,
+                )
                     
     # ── Tab C4：資料修改 ──
     with tab_c4:
