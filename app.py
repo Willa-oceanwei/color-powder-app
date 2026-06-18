@@ -8421,13 +8421,13 @@ elif menu == "庫存區":
     # Tab 分頁
     # ================================================================
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "📦 初始庫存設定",
-        "📊 庫存查詢",
-        "📋 庫存盤點分析",
-        "🏆 色粉用量排行榜",
-        "🧮 色粉用量查詢",
-        "🧴 色母庫存查詢",
-        "👤 個別客戶庫存"
+        "📦 初始",
+        "📊 查詢",
+        "📋 盤點",
+        "🏆 排行",
+        "🧮 用量",
+        "🧴 色母",
+        "👤 客戶"
     ])
 
     # ====================================================================
@@ -8634,7 +8634,7 @@ elif menu == "庫存區":
     # Tab 3：庫存盤點分析
     # ====================================================================
     with tab3:
-        st.caption("月底盤點時，先下載盤點表給現場填寫，再匯入 Excel / CSV / ODS 自動比對系統庫存與實際庫存。")
+        st.caption("上傳現場既有的人工盤點表，系統會自動判讀欄位與盤點寫法，並與庫存查詢結果交叉比對。")
 
         AUDIT_NORMAL_LIMIT_KG = 0.5
         AUDIT_WARNING_LIMIT_KG = 2.0
@@ -8724,11 +8724,11 @@ elif menu == "庫存區":
             df = raw_df.copy()
             df.columns = [str(c).strip() for c in df.columns]
             aliases = {
-                "儲位": ["儲位", "位置", "區域"],
-                "色粉編號": ["色粉編號", "色粉", "編號", "原料編號"],
-                "已分裝(流動，kg)": ["已分裝(流動，kg)", "已分裝", "流動", "流動kg", "已分裝kg"],
-                "桶／箱 / 袋 (完整)": ["桶／箱 / 袋 (完整)", "桶/箱/袋(完整)", "桶／箱／袋", "完整", "完整包裝"],
-                "備註": ["備註", "說明", "memo", "Memo"],
+                "儲位": ["儲位", "位置", "區域", "倉位", "存放位置", "Location", "location"],
+                "色粉編號": ["色粉編號", "色粉", "編號", "原料編號", "品號", "貨號", "代號", "色粉代號"],
+                "已分裝(流動，kg)": ["已分裝(流動，kg)", "已分裝", "流動", "流動kg", "已分裝kg", "零散", "零散kg", "流動庫存"],
+                "桶／箱 / 袋 (完整)": ["桶／箱 / 袋 (完整)", "桶/箱/袋(完整)", "桶／箱／袋", "完整", "完整包裝", "桶", "箱", "袋", "整桶", "整箱", "整袋"],
+                "備註": ["備註", "說明", "memo", "Memo", "Remark", "remark"],
             }
             rename_map = {}
             for target, candidates in aliases.items():
@@ -8737,6 +8737,18 @@ elif menu == "庫存區":
                         rename_map[candidate] = target
                         break
             df = df.rename(columns=rename_map)
+
+            # 若人工盤點表欄名與預期完全不同，依常見順序自動補齊：
+            # 儲位 / 色粉 / 已分裝 / 完整包裝 / 備註。
+            missing_targets = [target for target in aliases if target not in df.columns]
+            if missing_targets:
+                ordered_targets = ["儲位", "色粉編號", "已分裝(流動，kg)", "桶／箱 / 袋 (完整)", "備註"]
+                for idx, target in enumerate(ordered_targets):
+                    if target not in df.columns and idx < len(df.columns):
+                        source_col = df.columns[idx]
+                        if source_col not in ordered_targets:
+                            df[target] = df[source_col]
+
             for col in aliases:
                 if col not in df.columns:
                     df[col] = ""
@@ -8761,24 +8773,31 @@ elif menu == "庫存區":
                 return "🟡 注意"
             return "🔴 重盤"
 
-        template_df = build_audit_template()
-        st.download_button(
-            "⬇️ 下載月底盤點表 CSV",
-            data=template_df.to_csv(index=False).encode("utf-8-sig"),
-            file_name=f"月底盤點表_{date.today().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
+        with st.expander("需要空白格式時才下載參考盤點表", expanded=False):
+            st.caption("你可以繼續使用原本的人工盤點表；這個下載只是備用參考格式，不會限制上傳檔案一定要由系統產生。")
+            template_df = build_audit_template()
+            st.download_button(
+                "⬇️ 下載參考盤點表 CSV",
+                data=template_df.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"月底盤點表參考格式_{date.today().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
 
         with st.form("form_stock_audit_analysis"):
             audit_date = st.date_input("盤點日期", value=date.today(), key="stock_audit_date")
-            uploaded_audit_file = st.file_uploader(
-                "上傳盤點表（支援 xlsx / csv / ods；欄位：儲位、色粉、已分裝(流動，kg)、桶／箱 / 袋 (完整)、備註）",
-                type=["xlsx", "csv", "ods"],
-                key="stock_audit_upload",
-            )
-            normal_limit_kg = st.number_input("正常容許差異（kg）", min_value=0.0, value=AUDIT_NORMAL_LIMIT_KG, step=0.1)
-            warning_limit_kg = st.number_input("注意上限（kg，超過即重盤）", min_value=0.0, value=AUDIT_WARNING_LIMIT_KG, step=0.1)
+            upload_col, normal_col, warning_col = st.columns([3, 1, 1])
+            with upload_col:
+                uploaded_audit_file = st.file_uploader(
+                    "上傳盤點表（xlsx / csv / ods）",
+                    type=["xlsx", "csv", "ods"],
+                    key="stock_audit_upload",
+                    help="可直接上傳你原本的人工盤點表；系統會盡量判定儲位、色粉、已分裝、完整包裝、備註欄位。",
+                )
+            with normal_col:
+                normal_limit_kg = st.number_input("容許差異 kg", min_value=0.0, value=AUDIT_NORMAL_LIMIT_KG, step=0.1)
+            with warning_col:
+                warning_limit_kg = st.number_input("注意上限 kg", min_value=0.0, value=AUDIT_WARNING_LIMIT_KG, step=0.1)
             show_only_abnormal = st.checkbox("只顯示異常（🟡 注意 / 🔴 重盤）", value=True)
             submit_audit = st.form_submit_button("產生盤點分析")
 
