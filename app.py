@@ -8420,9 +8420,10 @@ elif menu == "庫存區":
     # ================================================================
     # Tab 分頁
     # ================================================================
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📦 初始庫存設定",
         "📊 庫存查詢",
+        "📋 庫存盤點分析",
         "🏆 色粉用量排行榜",
         "🧮 色粉用量查詢",
         "🧴 色母庫存查詢",
@@ -8630,9 +8631,290 @@ elif menu == "庫存區":
                     st.caption("🌟 期末庫存 = 期初庫存 + 其後進貨 − 其後用量（單位皆以 g 計算）")
 
     # ====================================================================
-    # Tab 6：個別客戶庫存（獨立資料）
+    # Tab 3：庫存盤點分析
     # ====================================================================
-    with tab6:
+    with tab3:
+        st.caption("月底盤點時，先下載盤點表給現場填寫，再匯入 Excel / CSV / ODS 自動比對系統庫存與實際庫存。")
+
+        AUDIT_NORMAL_LIMIT_KG = 0.5
+        AUDIT_WARNING_LIMIT_KG = 2.0
+        audit_record_path = Path("inventory_audit.csv")
+
+        def parse_formatted_stock_to_kg(display_value):
+            """將庫存查詢顯示文字（例如 1.2 kg / 500 g）轉回 kg。"""
+            text = str(display_value or "").strip().lower().replace(",", "")
+            if not text or text == "—":
+                return 0.0
+            match = re.search(r"([-+]?\d+(?:\.\d+)?)", text)
+            if not match:
+                return 0.0
+            qty = float(match.group(1))
+            return qty / 1000 if "g" in text and "kg" not in text else qty
+
+        def format_stock_kg(value_kg):
+            try:
+                value_g = float(value_kg or 0) * 1000
+            except Exception:
+                value_g = 0.0
+            return format_usage(value_g)
+
+        def normalize_inventory_text(raw_value):
+            return (
+                str(raw_value or "")
+                .strip()
+                .replace("Ｋ", "K")
+                .replace("ｋ", "K")
+                .replace("公斤", "K")
+                .replace("kg", "K")
+                .replace("KG", "K")
+                .replace("×", "*")
+                .replace("x", "*")
+                .replace("X", "*")
+                .replace("＊", "*")
+                .replace("＋", "+")
+                .replace("，", "+")
+                .replace(",", "+")
+            )
+
+        def parse_inventory_text(raw_value):
+            """解析現場常見盤點寫法，回傳 kg 數、計算說明與失敗原因。"""
+            original = "" if pd.isna(raw_value) else str(raw_value).strip()
+            if not original:
+                return {"kg": 0.0, "ok": True, "說明": "空白視為 0", "失敗原因": ""}
+
+            text = normalize_inventory_text(original)
+            if re.search(r"半|剩|約|左右|不到|一些|少量", text):
+                return {"kg": 0.0, "ok": False, "說明": "", "失敗原因": "含模糊文字，需人工確認"}
+
+            # 保留括號內的實際算式，例如 30K(10K*3袋) 以 10K*3 為準。
+            paren_exprs = re.findall(r"[（(]([^()（）]+)[）)]", text)
+            parse_target = "+".join(paren_exprs) if paren_exprs else re.sub(r"[（(][^()（）]+[）)]", "", text)
+            parse_target = re.sub(r"(桶|箱|袋|包|罐|支|pcs|PCS)", "", parse_target)
+            parse_target = parse_target.replace(" ", "")
+
+            token_pattern = re.compile(r"(\d+(?:\.\d+)?)\s*K?(?:\s*\*\s*(\d+(?:\.\d+)?))?")
+            tokens = token_pattern.findall(parse_target)
+            if not tokens:
+                return {"kg": 0.0, "ok": False, "說明": "", "失敗原因": "找不到可解析的 kg 數字"}
+
+            used_text = "".join(f"{a}{('*' + b) if b else ''}" for a, b in tokens)
+            residue = re.sub(token_pattern, "", parse_target).replace("+", "").strip()
+            if residue:
+                return {"kg": 0.0, "ok": False, "說明": "", "失敗原因": f"含無法解析內容：{residue}"}
+
+            total = 0.0
+            explanations = []
+            for qty_text, multiplier_text in tokens:
+                qty = float(qty_text)
+                multiplier = float(multiplier_text) if multiplier_text else 1.0
+                total += qty * multiplier
+                explanations.append(f"{qty:g}×{multiplier:g}" if multiplier_text else f"{qty:g}")
+
+            return {"kg": total, "ok": True, "說明": "+".join(explanations), "失敗原因": ""}
+
+        def read_audit_upload(uploaded_file):
+            file_name = uploaded_file.name.lower()
+            if file_name.endswith(".csv"):
+                return pd.read_csv(uploaded_file)
+            if file_name.endswith((".xlsx", ".xls", ".ods")):
+                return pd.read_excel(uploaded_file)
+            raise ValueError("僅支援 xlsx、csv、ods 檔案。")
+
+        def normalize_audit_columns(raw_df):
+            df = raw_df.copy()
+            df.columns = [str(c).strip() for c in df.columns]
+            aliases = {
+                "儲位": ["儲位", "位置", "區域"],
+                "色粉編號": ["色粉編號", "色粉", "編號", "原料編號"],
+                "已分裝(流動，kg)": ["已分裝(流動，kg)", "已分裝", "流動", "流動kg", "已分裝kg"],
+                "桶／箱 / 袋 (完整)": ["桶／箱 / 袋 (完整)", "桶/箱/袋(完整)", "桶／箱／袋", "完整", "完整包裝"],
+                "備註": ["備註", "說明", "memo", "Memo"],
+            }
+            rename_map = {}
+            for target, candidates in aliases.items():
+                for candidate in candidates:
+                    if candidate in df.columns:
+                        rename_map[candidate] = target
+                        break
+            df = df.rename(columns=rename_map)
+            for col in aliases:
+                if col not in df.columns:
+                    df[col] = ""
+            return df[list(aliases.keys())]
+
+        def build_audit_template():
+            stock_summary, err_msg = build_stock_summary(query_start=None, query_end=date.today())
+            if err_msg or not stock_summary:
+                return pd.DataFrame(columns=["儲位", "色粉編號", "系統庫存", "已分裝(流動，kg)", "桶／箱 / 袋 (完整)", "備註"])
+            template_df = pd.DataFrame(stock_summary)
+            template_df = template_df.rename(columns={"期末庫存": "系統庫存"})
+            template_df.insert(0, "儲位", "")
+            template_df["已分裝(流動，kg)"] = ""
+            template_df["桶／箱 / 袋 (完整)"] = ""
+            return template_df[["儲位", "色粉編號", "系統庫存", "已分裝(流動，kg)", "桶／箱 / 袋 (完整)", "備註"]]
+
+        def classify_audit_status(diff_kg, normal_limit_kg, warning_limit_kg):
+            abs_diff = abs(diff_kg)
+            if abs_diff <= normal_limit_kg:
+                return "🟢 正常"
+            if abs_diff <= warning_limit_kg:
+                return "🟡 注意"
+            return "🔴 重盤"
+
+        template_df = build_audit_template()
+        st.download_button(
+            "⬇️ 下載月底盤點表 CSV",
+            data=template_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name=f"月底盤點表_{date.today().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+        with st.form("form_stock_audit_analysis"):
+            audit_date = st.date_input("盤點日期", value=date.today(), key="stock_audit_date")
+            uploaded_audit_file = st.file_uploader(
+                "上傳盤點表（支援 xlsx / csv / ods；欄位：儲位、色粉、已分裝(流動，kg)、桶／箱 / 袋 (完整)、備註）",
+                type=["xlsx", "csv", "ods"],
+                key="stock_audit_upload",
+            )
+            normal_limit_kg = st.number_input("正常容許差異（kg）", min_value=0.0, value=AUDIT_NORMAL_LIMIT_KG, step=0.1)
+            warning_limit_kg = st.number_input("注意上限（kg，超過即重盤）", min_value=0.0, value=AUDIT_WARNING_LIMIT_KG, step=0.1)
+            show_only_abnormal = st.checkbox("只顯示異常（🟡 注意 / 🔴 重盤）", value=True)
+            submit_audit = st.form_submit_button("產生盤點分析")
+
+        if submit_audit:
+            if uploaded_audit_file is None:
+                st.warning("請先上傳現場填寫後的盤點表。")
+            elif warning_limit_kg < normal_limit_kg:
+                st.error("注意上限不可小於正常容許差異。")
+            else:
+                try:
+                    raw_audit_df = read_audit_upload(uploaded_audit_file)
+                    audit_df = normalize_audit_columns(raw_audit_df)
+                    audit_df["色粉編號"] = audit_df["色粉編號"].astype(str).str.strip()
+                    audit_df = audit_df[audit_df["色粉編號"] != ""].copy()
+
+                    split_parsed = audit_df["已分裝(流動，kg)"].map(parse_inventory_text).apply(pd.Series).add_prefix("已分裝")
+                    pack_parsed = audit_df["桶／箱 / 袋 (完整)"].map(parse_inventory_text).apply(pd.Series).add_prefix("完整包裝")
+                    audit_df = pd.concat([audit_df, split_parsed, pack_parsed], axis=1)
+                    audit_df["解析成功"] = audit_df["已分裝ok"] & audit_df["完整包裝ok"]
+                    audit_df["盤點量_kg"] = audit_df["已分裝kg"] + audit_df["完整包裝kg"]
+                    audit_df["計算說明"] = (
+                        "已分裝：" + audit_df["已分裝說明"].astype(str) +
+                        "；完整：" + audit_df["完整包裝說明"].astype(str)
+                    )
+                    audit_df["解析失敗原因"] = (
+                        audit_df["已分裝失敗原因"].astype(str) + " " + audit_df["完整包裝失敗原因"].astype(str)
+                    ).str.strip()
+
+                    stock_summary, err_msg = build_stock_summary(query_start=None, query_end=audit_date)
+                    if err_msg:
+                        st.error(err_msg)
+                    else:
+                        system_df = pd.DataFrame(stock_summary)
+                        system_df["系統庫存_kg"] = system_df["期末庫存"].map(parse_formatted_stock_to_kg)
+                        merged_df = audit_df.merge(
+                            system_df[["色粉編號", "期初庫存", "區間進貨", "區間用量", "期末庫存", "系統庫存_kg", "備註"]].rename(columns={"備註": "系統備註"}),
+                            on="色粉編號",
+                            how="left",
+                        )
+                        merged_df["系統庫存_kg"] = merged_df["系統庫存_kg"].fillna(0)
+                        merged_df["期末庫存"] = merged_df["期末庫存"].fillna("0 g")
+                        merged_df["差異_kg"] = merged_df["盤點量_kg"] - merged_df["系統庫存_kg"]
+                        merged_df["差異率"] = merged_df.apply(
+                            lambda r: "—" if abs(r["系統庫存_kg"]) < 0.000001 else f"{(r['差異_kg'] / r['系統庫存_kg']) * 100:.2f}%",
+                            axis=1,
+                        )
+                        merged_df["狀態"] = merged_df.apply(
+                            lambda r: "⚠️ 待人工確認" if not r["解析成功"] else classify_audit_status(r["差異_kg"], normal_limit_kg, warning_limit_kg),
+                            axis=1,
+                        )
+                        merged_df["已確認"] = False
+                        merged_df["處理方式"] = ""
+                        merged_df["盤點量"] = merged_df["盤點量_kg"].map(format_stock_kg)
+                        merged_df["系統庫存"] = merged_df["系統庫存_kg"].map(format_stock_kg)
+                        merged_df["差異"] = merged_df["差異_kg"].map(format_stock_kg)
+
+                        result_cols = [
+                            "已確認", "處理方式", "狀態", "儲位", "色粉編號", "系統庫存", "盤點量", "差異", "差異率",
+                            "已分裝(流動，kg)", "桶／箱 / 袋 (完整)", "計算說明", "解析失敗原因", "期初庫存", "區間進貨", "區間用量", "系統備註", "備註",
+                        ]
+                        result_df = merged_df[result_cols].sort_values(["狀態", "儲位", "色粉編號"]).reset_index(drop=True)
+                        st.session_state["stock_audit_result"] = result_df
+                        st.session_state["stock_audit_date_label"] = audit_date.strftime("%Y-%m-%d")
+                        st.session_state["stock_audit_show_only_abnormal"] = show_only_abnormal
+                except Exception as e:
+                    st.error(f"盤點表解析失敗：{e}")
+
+        audit_result = st.session_state.get("stock_audit_result")
+        if audit_result is not None and not audit_result.empty:
+            st.markdown(f"#### 盤點分析結果（{st.session_state.get('stock_audit_date_label', '')}）")
+            total_count = len(audit_result)
+            abnormal_mask = ~audit_result["狀態"].astype(str).str.startswith("🟢")
+            abnormal_count = int(abnormal_mask.sum())
+            normal_count = total_count - abnormal_count
+            fail_count = int(audit_result["狀態"].astype(str).str.contains("待人工確認", na=False).sum())
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("總筆數", total_count)
+            c2.metric("正常筆數", normal_count)
+            c3.metric("異常筆數", abnormal_count)
+            c4.metric("解析失敗", fail_count)
+
+            location_options = ["全部"] + sorted([x for x in audit_result["儲位"].dropna().astype(str).unique().tolist() if x.strip()])
+            selected_location = st.selectbox("依儲位篩選", location_options, key="stock_audit_location_filter")
+            display_df = audit_result.copy()
+            if selected_location != "全部":
+                display_df = display_df[display_df["儲位"].astype(str) == selected_location]
+            if st.session_state.get("stock_audit_show_only_abnormal", True):
+                display_df = display_df[~display_df["狀態"].astype(str).str.startswith("🟢")]
+
+            edited_df = st.data_editor(
+                display_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "已確認": st.column_config.CheckboxColumn("已確認"),
+                    "處理方式": st.column_config.SelectboxColumn("處理方式", options=["", "已重盤", "現場確認", "已修正庫存"]),
+                    "備註": st.column_config.TextColumn(width="large"),
+                    "計算說明": st.column_config.TextColumn(width="large"),
+                    "解析失敗原因": st.column_config.TextColumn(width="large"),
+                },
+                key="stock_audit_editor",
+            )
+
+            col_save, col_download = st.columns(2)
+            with col_save:
+                if st.button("💾 儲存確認紀錄", use_container_width=True, key="save_stock_audit_confirm"):
+                    save_df = edited_df.copy()
+                    save_df.insert(0, "盤點日期", st.session_state.get("stock_audit_date_label", ""))
+                    save_df.insert(1, "儲存時間", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    if audit_record_path.exists():
+                        old_df = pd.read_csv(audit_record_path)
+                        save_df = pd.concat([old_df, save_df], ignore_index=True)
+                    save_df.to_csv(audit_record_path, index=False, encoding="utf-8-sig")
+                    st.success(f"已儲存確認紀錄：{audit_record_path}")
+            with col_download:
+                st.download_button(
+                    "⬇️ 匯出盤點差異報表 CSV",
+                    data=display_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"stock_audit_analysis_{st.session_state.get('stock_audit_date_label', 'today')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+
+            failed_df = audit_result[audit_result["狀態"].astype(str).str.contains("待人工確認", na=False)]
+            if not failed_df.empty:
+                st.markdown("#### 待人工確認")
+                st.dataframe(
+                    failed_df[["儲位", "色粉編號", "已分裝(流動，kg)", "桶／箱 / 袋 (完整)", "解析失敗原因"]],
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+    # ====================================================================
+    # Tab 7：個別客戶庫存（獨立資料）
+    # ====================================================================
+    with tab7:
         customer_stock_cols = ["客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "建立時間", "更新時間"]
         try:
             ws_customer_stock = get_cached_worksheet("個別客戶庫存")
@@ -8891,9 +9173,9 @@ elif menu == "庫存區":
 
    
     # ====================================================================
-    # Tab 5：色母庫存查詢（修復版）
+    # Tab 6：色母庫存查詢（修復版）
     # ====================================================================
-    with tab5:
+    with tab6:
         st.caption("ℹ️ 不選擇日期區間時，會顯示截至今日的累積庫存。")
 
         # checkbox 放在 form 外才能即時控制 disabled
@@ -9198,13 +9480,13 @@ elif menu == "庫存區":
                     st.caption("📅 未指定日期區間，計算截至今日的累積庫存")
 
     # ====================================================================
-    # Tab 3：色粉用量排行榜
+    # Tab 4：色粉用量排行榜
     # ====================================================================
     # ✅ 優化重點：
     #   1. 全程使用 session_state 的 df_order / df_recipe，不重讀 Sheet
     #   2. 排行結果快取到 session_state["rank_result"]，相同條件不重算
     # ====================================================================
-    with tab3:
+    with tab4:
 
         col1, col2 = st.columns(2)
         rank_start = col1.date_input("開始日期（排行榜）", key="rank_start_date")
@@ -9305,13 +9587,13 @@ elif menu == "庫存區":
                 st.info("⚠️ 查無用量資料")
 
     # ====================================================================
-    # Tab 4：色粉用量查詢
+    # Tab 5：色粉用量查詢
     # ====================================================================
     # ✅ 優化重點：
     #   1. 全程使用 session_state 的 df_order / df_recipe，不重讀 Sheet
     #   2. 結果快取到 session_state["tab4_usage_result"]，相同條件不重算
     # ====================================================================
-    with tab4:
+    with tab5:
 
         with st.form("form_powder_usage"):
             st.markdown("**🔍 色粉用量查詢**")
