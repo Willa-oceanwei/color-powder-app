@@ -8636,18 +8636,21 @@ elif menu == "庫存區":
     # ====================================================================
     with tab3:
         st.caption("上傳現場既有的人工盤點表，系統會自動判讀欄位與盤點寫法，並與庫存查詢結果交叉比對。")
-        with st.expander("目前支援的人工盤點表範例", expanded=False):
-            st.caption("以下格式可直接上傳；「已分裝」與「完整包裝」會相加成盤點量（單位皆以 kg 判讀）。")
-            st.dataframe(
-                pd.DataFrame([
-                    {"儲位": "Ａ", "色粉": "432", "已分裝(流動，kg)": "0K", "桶／箱 / 袋 (完整)": "", "解析盤點量": "0 kg"},
-                    {"儲位": "Ａ", "色粉": "4353", "已分裝(流動，kg)": "2.21", "桶／箱 / 袋 (完整)": "20K", "解析盤點量": "22.21 kg"},
-                    {"儲位": "Ａ", "色粉": "TBG", "已分裝(流動，kg)": "2", "桶／箱 / 袋 (完整)": "30K", "解析盤點量": "32 kg"},
-                    {"儲位": "Ａ", "色粉": "4356", "已分裝(流動，kg)": "16K", "桶／箱 / 袋 (完整)": "30K(10K*3袋)", "解析盤點量": "46 kg"},
-                ]),
-                use_container_width=True,
-                hide_index=True,
-            )
+        guide_col, template_col = st.columns(2)
+        with guide_col:
+            with st.expander("支援格式範例", expanded=False):
+                st.caption("已分裝＋完整包裝會加總為盤點量（kg）。")
+                st.dataframe(
+                    pd.DataFrame([
+                        {"儲位": "Ａ", "色粉": "432", "已分裝": "0K", "完整包裝": "", "盤點量": "0 kg"},
+                        {"儲位": "Ａ", "色粉": "4353", "已分裝": "2.21", "完整包裝": "20K", "盤點量": "22.21 kg"},
+                        {"儲位": "Ａ", "色粉": "TBG", "已分裝": "2", "完整包裝": "30K", "盤點量": "32 kg"},
+                        {"儲位": "Ａ", "色粉": "4356", "已分裝": "16K", "完整包裝": "30K(10K*3袋)", "盤點量": "46 kg"},
+                    ]),
+                    use_container_width=True,
+                    hide_index=True,
+                    height=178,
+                )
 
         AUDIT_NORMAL_LIMIT_KG = 0.5
         AUDIT_WARNING_LIMIT_KG = 2.0
@@ -8786,16 +8789,17 @@ elif menu == "庫存區":
                 return "🟡 注意"
             return "🔴 重盤"
 
-        with st.expander("需要空白格式時才下載參考盤點表", expanded=False):
-            st.caption("你可以繼續使用原本的人工盤點表；這個下載只是備用參考格式，不會限制上傳檔案一定要由系統產生。")
-            template_df = build_audit_template()
-            st.download_button(
-                "⬇️ 下載參考盤點表 CSV",
-                data=template_df.to_csv(index=False).encode("utf-8-sig"),
-                file_name=f"月底盤點表參考格式_{date.today().strftime('%Y%m%d')}.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
+        with template_col:
+            with st.expander("下載空白參考表", expanded=False):
+                st.caption("備用格式；仍可上傳原本的人工盤點表。")
+                template_df = build_audit_template()
+                st.download_button(
+                    "⬇️ 參考盤點表 CSV",
+                    data=template_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"月底盤點表參考格式_{date.today().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
 
         with st.form("form_stock_audit_analysis"):
             audit_date = st.date_input("盤點日期", value=date.today(), key="stock_audit_date")
@@ -8914,7 +8918,7 @@ elif menu == "庫存區":
                 key="stock_audit_editor",
             )
 
-            col_save, col_download = st.columns(2)
+            col_save, col_download_view, col_download_full = st.columns(3)
             with col_save:
                 if st.button("💾 儲存確認紀錄", use_container_width=True, key="save_stock_audit_confirm"):
                     save_df = edited_df.copy()
@@ -8925,11 +8929,19 @@ elif menu == "庫存區":
                         save_df = pd.concat([old_df, save_df], ignore_index=True)
                     save_df.to_csv(audit_record_path, index=False, encoding="utf-8-sig")
                     st.success(f"已儲存確認紀錄：{audit_record_path}")
-            with col_download:
+            with col_download_view:
                 st.download_button(
-                    "⬇️ 匯出盤點差異報表 CSV",
+                    "⬇️ 下載目前畫面 CSV",
                     data=display_df.to_csv(index=False).encode("utf-8-sig"),
-                    file_name=f"stock_audit_analysis_{st.session_state.get('stock_audit_date_label', 'today')}.csv",
+                    file_name=f"stock_audit_current_view_{st.session_state.get('stock_audit_date_label', 'today')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+            with col_download_full:
+                st.download_button(
+                    "⬇️ 下載完整分析 CSV",
+                    data=audit_result.to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"stock_audit_full_analysis_{st.session_state.get('stock_audit_date_label', 'today')}.csv",
                     mime="text/csv",
                     use_container_width=True,
                 )
