@@ -8444,6 +8444,10 @@ elif menu == "庫存區":
     # ====================================================================
     with tab1:
 
+        init_toast_message = st.session_state.pop("stock_init_toast_message", None)
+        if init_toast_message:
+            st.toast(init_toast_message, icon="📦")
+
         with st.form("form_ini_stock"):
             col1, col2, col3 = st.columns(3)
             ini_powder = col1.text_input("色粉編號", key="ini_color")
@@ -8518,8 +8522,8 @@ elif menu == "庫存區":
             st.session_state.stock_need_reload = True
             st.session_state.pop("stock_calc_time", None)   # 讓生產單頁的庫存也重算
 
+            st.session_state["stock_init_toast_message"] = f"✅ 初始庫存儲存成功：{powder_id}（{qty_val:g} {ini_unit}）"
             st.success(f"✅ 初始庫存已儲存　色粉：{powder_id}　數量：{qty_val} {ini_unit}")
-            st.toast(f"✅ 初始庫存儲存成功：{powder_id}", icon="📦")
             st.rerun()
 
     # ====================================================================
@@ -8639,14 +8643,26 @@ elif menu == "庫存區":
             """
             <style>
             .stock-audit-hero {
-                background: linear-gradient(135deg, rgba(47, 76, 112, 0.16), rgba(47, 112, 88, 0.10));
-                border: 1px solid rgba(120, 144, 166, 0.28);
-                border-radius: 14px;
-                padding: 14px 16px;
-                margin: 2px 0 12px 0;
+                background:
+                    radial-gradient(circle at top left, rgba(90, 173, 255, 0.22), transparent 32%),
+                    linear-gradient(135deg, rgba(34, 45, 66, 0.92), rgba(24, 41, 44, 0.86));
+                border: 1px solid rgba(148, 178, 205, 0.30);
+                border-radius: 18px;
+                padding: 16px 18px;
+                margin: 2px 0 14px 0;
+                box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
             }
-            .stock-audit-hero h4 { margin: 0 0 6px 0; font-size: 18px; }
-            .stock-audit-hero p { margin: 0; color: #8f9aa7; font-size: 13px; line-height: 1.45; }
+            .stock-audit-hero h4 { margin: 0 0 6px 0; font-size: 20px; letter-spacing: .02em; }
+            .stock-audit-hero p { margin: 0; color: #aeb8c4; font-size: 13px; line-height: 1.45; }
+            .stock-audit-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+            .stock-audit-badge {
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 999px;
+                color: #dbe7f3;
+                font-size: 12px;
+                padding: 4px 9px;
+            }
             .stock-audit-note {
                 background: rgba(255, 193, 7, 0.10);
                 border-left: 4px solid rgba(255, 193, 7, 0.72);
@@ -8658,15 +8674,27 @@ elif menu == "庫存區":
                 line-height: 1.45;
             }
             .stock-audit-section-title {
-                margin: 12px 0 6px 0;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                margin: 13px 0 7px 0;
+                padding: 5px 10px;
                 color: #d8dee9;
-                font-size: 14px;
+                background: rgba(120, 144, 166, 0.12);
+                border: 1px solid rgba(120, 144, 166, 0.20);
+                border-radius: 999px;
+                font-size: 13px;
                 font-weight: 700;
             }
             </style>
             <div class="stock-audit-hero">
                 <h4>📋 庫存盤點分析</h4>
                 <p>上傳現場盤點表後才會進行庫存比對；進入庫存區時不預先計算盤點資料。</p>
+                <div class="stock-audit-badges">
+                    <span class="stock-audit-badge">上傳後才比對</span>
+                    <span class="stock-audit-badge">支援 kg / g</span>
+                    <span class="stock-audit-badge">可下載完整分析</span>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -8864,9 +8892,12 @@ elif menu == "庫存區":
                 normal_limit_kg = st.number_input("容許差異 kg", min_value=0.0, value=AUDIT_NORMAL_LIMIT_KG, step=0.1)
             with warning_col:
                 warning_limit_kg = st.number_input("注意上限 kg", min_value=0.0, value=AUDIT_WARNING_LIMIT_KG, step=0.1)
-            show_only_abnormal = st.checkbox("只顯示異常（🟡 注意 / 🔴 重盤）", value=True)
-            include_unregistered = st.checkbox("包含未建檔色粉（全部比對）", value=False)
-            submit_audit = st.form_submit_button("產生盤點分析")
+            option_col1, option_col2 = st.columns(2)
+            with option_col1:
+                show_only_abnormal = st.checkbox("只顯示異常", value=True, help="隱藏 🟢 正常，只看需要處理的項目。")
+            with option_col2:
+                include_unregistered = st.checkbox("包含未建檔色粉", value=False, help="開啟後會像原本一樣列入所有上傳色粉編號。")
+            submit_audit = st.form_submit_button("產生盤點分析", use_container_width=True)
 
         if submit_audit:
             if uploaded_audit_file is None:
