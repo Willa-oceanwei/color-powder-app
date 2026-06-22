@@ -8635,16 +8635,55 @@ elif menu == "庫存區":
     # Tab 3：庫存盤點分析
     # ====================================================================
     with tab3:
-        st.caption("上傳現場既有的人工盤點表，系統會自動判讀欄位與盤點寫法，並與庫存查詢結果交叉比對。")
+        st.markdown(
+            """
+            <style>
+            .stock-audit-hero {
+                background: linear-gradient(135deg, rgba(47, 76, 112, 0.16), rgba(47, 112, 88, 0.10));
+                border: 1px solid rgba(120, 144, 166, 0.28);
+                border-radius: 14px;
+                padding: 14px 16px;
+                margin: 2px 0 12px 0;
+            }
+            .stock-audit-hero h4 { margin: 0 0 6px 0; font-size: 18px; }
+            .stock-audit-hero p { margin: 0; color: #8f9aa7; font-size: 13px; line-height: 1.45; }
+            .stock-audit-note {
+                background: rgba(255, 193, 7, 0.10);
+                border-left: 4px solid rgba(255, 193, 7, 0.72);
+                border-radius: 10px;
+                padding: 9px 11px;
+                margin-bottom: 10px;
+                color: #8f9aa7;
+                font-size: 12px;
+                line-height: 1.45;
+            }
+            .stock-audit-section-title {
+                margin: 12px 0 6px 0;
+                color: #d8dee9;
+                font-size: 14px;
+                font-weight: 700;
+            }
+            </style>
+            <div class="stock-audit-hero">
+                <h4>📋 庫存盤點分析</h4>
+                <p>上傳現場盤點表後才會進行庫存比對；進入庫存區時不預先計算盤點資料。</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown('<div class="stock-audit-section-title">① 格式參考</div>', unsafe_allow_html=True)
         guide_col, template_col = st.columns(2)
         with guide_col:
             with st.expander("支援格式範例", expanded=False):
-                st.caption("已分裝＋完整包裝會加總為盤點量（kg）。")
+                st.markdown(
+                    '<div class="stock-audit-note">已分裝＋完整包裝會加總為盤點量；g 會自動換算為 kg。</div>',
+                    unsafe_allow_html=True,
+                )
                 st.dataframe(
                     pd.DataFrame([
                         {"儲位": "Ａ", "色粉": "432", "已分裝": "0K", "完整包裝": "", "盤點量": "0 kg"},
-                        {"儲位": "Ａ", "色粉": "4353", "已分裝": "2.21", "完整包裝": "20K", "盤點量": "22.21 kg"},
-                        {"儲位": "Ａ", "色粉": "TBG", "已分裝": "2", "完整包裝": "30K", "盤點量": "32 kg"},
+                        {"儲位": "Ａ", "色粉": "4353", "已分裝": "已分5K", "完整包裝": "未分4K", "盤點量": "9 kg"},
+                        {"儲位": "Ａ", "色粉": "TBG", "已分裝": "樓上500g", "完整包裝": "樓下4K", "盤點量": "4.5 kg"},
                         {"儲位": "Ａ", "色粉": "4356", "已分裝": "16K", "完整包裝": "30K(10K*3袋)", "盤點量": "46 kg"},
                     ]),
                     use_container_width=True,
@@ -8779,15 +8818,13 @@ elif menu == "庫存區":
             return df[list(aliases.keys())]
 
         def build_audit_template():
-            stock_summary, err_msg = build_stock_summary(query_start=None, query_end=date.today())
-            if err_msg or not stock_summary:
-                return pd.DataFrame(columns=["儲位", "色粉編號", "系統庫存", "已分裝(流動，kg)", "桶／箱 / 袋 (完整)", "備註"])
-            template_df = pd.DataFrame(stock_summary)
-            template_df = template_df.rename(columns={"期末庫存": "系統庫存"})
-            template_df.insert(0, "儲位", "")
-            template_df["已分裝(流動，kg)"] = ""
-            template_df["桶／箱 / 袋 (完整)"] = ""
-            return template_df[["儲位", "色粉編號", "系統庫存", "已分裝(流動，kg)", "桶／箱 / 袋 (完整)", "備註"]]
+            # 保持參考表為空白格式，避免使用者只是進入庫存區時就觸發庫存彙總計算。
+            return pd.DataFrame(
+                [
+                    {"儲位": "", "色粉編號": "", "系統庫存": "", "已分裝(流動，kg)": "", "桶／箱 / 袋 (完整)": "", "備註": ""},
+                ],
+                columns=["儲位", "色粉編號", "系統庫存", "已分裝(流動，kg)", "桶／箱 / 袋 (完整)", "備註"],
+            )
 
         def classify_audit_status(diff_kg, normal_limit_kg, warning_limit_kg):
             abs_diff = abs(diff_kg)
@@ -8799,7 +8836,10 @@ elif menu == "庫存區":
 
         with template_col:
             with st.expander("下載空白參考表", expanded=False):
-                st.caption("備用格式；仍可上傳原本的人工盤點表。")
+                st.markdown(
+                    '<div class="stock-audit-note">純空白欄位格式，不會預先讀取或計算庫存資料。</div>',
+                    unsafe_allow_html=True,
+                )
                 template_df = build_audit_template()
                 st.download_button(
                     "⬇️ 參考盤點表 CSV",
@@ -8809,6 +8849,7 @@ elif menu == "庫存區":
                     use_container_width=True,
                 )
 
+        st.markdown('<div class="stock-audit-section-title">② 上傳並產生分析</div>', unsafe_allow_html=True)
         with st.form("form_stock_audit_analysis"):
             audit_date = st.date_input("盤點日期", value=date.today(), key="stock_audit_date")
             upload_col, normal_col, warning_col = st.columns([3, 1, 1])
@@ -8897,6 +8938,7 @@ elif menu == "庫存區":
 
         audit_result = st.session_state.get("stock_audit_result")
         if audit_result is not None and not audit_result.empty:
+            st.markdown('<div class="stock-audit-section-title">③ 分析結果</div>', unsafe_allow_html=True)
             st.markdown(f"#### 盤點分析結果（{st.session_state.get('stock_audit_date_label', '')}）")
             total_count = len(audit_result)
             abnormal_mask = ~audit_result["狀態"].astype(str).str.startswith("🟢")
