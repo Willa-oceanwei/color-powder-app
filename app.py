@@ -8681,8 +8681,13 @@ elif menu == "庫存區":
                 .replace("Ｋ", "K")
                 .replace("ｋ", "K")
                 .replace("公斤", "K")
+                .replace("公克", "G")
+                .replace("克", "G")
                 .replace("kg", "K")
                 .replace("KG", "K")
+                .replace("Kg", "K")
+                .replace("g", "G")
+                .replace("G", "G")
                 .replace("×", "*")
                 .replace("x", "*")
                 .replace("X", "*")
@@ -8708,23 +8713,26 @@ elif menu == "庫存區":
             parse_target = re.sub(r"(桶|箱|袋|包|罐|支|pcs|PCS)", "", parse_target)
             parse_target = parse_target.replace(" ", "")
 
-            token_pattern = re.compile(r"(\d+(?:\.\d+)?)\s*K?(?:\s*\*\s*(\d+(?:\.\d+)?))?")
+            token_pattern = re.compile(r"(\d+(?:\.\d+)?)\s*([KG])?(?:\s*\*\s*(\d+(?:\.\d+)?))?")
             tokens = token_pattern.findall(parse_target)
             if not tokens:
-                return {"kg": 0.0, "ok": False, "說明": "", "失敗原因": "找不到可解析的 kg 數字"}
+                return {"kg": 0.0, "ok": False, "說明": "", "失敗原因": "找不到可解析的 kg 或 g 數字"}
 
-            used_text = "".join(f"{a}{('*' + b) if b else ''}" for a, b in tokens)
             residue = re.sub(token_pattern, "", parse_target).replace("+", "").strip()
+            residue = re.sub(r"[A-Za-z一-鿿（）()\[\]{}／/\\_\-:：;；、。.]", "", residue).strip()
             if residue:
                 return {"kg": 0.0, "ok": False, "說明": "", "失敗原因": f"含無法解析內容：{residue}"}
 
             total = 0.0
             explanations = []
-            for qty_text, multiplier_text in tokens:
+            for qty_text, unit_text, multiplier_text in tokens:
                 qty = float(qty_text)
+                unit = unit_text or "K"
+                qty_kg = qty / 1000 if unit == "G" else qty
                 multiplier = float(multiplier_text) if multiplier_text else 1.0
-                total += qty * multiplier
-                explanations.append(f"{qty:g}×{multiplier:g}" if multiplier_text else f"{qty:g}")
+                total += qty_kg * multiplier
+                unit_label = "g" if unit == "G" else "kg"
+                explanations.append(f"{qty:g}{unit_label}×{multiplier:g}" if multiplier_text else f"{qty:g}{unit_label}")
 
             return {"kg": total, "ok": True, "說明": "+".join(explanations), "失敗原因": ""}
 
@@ -8816,6 +8824,7 @@ elif menu == "庫存區":
             with warning_col:
                 warning_limit_kg = st.number_input("注意上限 kg", min_value=0.0, value=AUDIT_WARNING_LIMIT_KG, step=0.1)
             show_only_abnormal = st.checkbox("只顯示異常（🟡 注意 / 🔴 重盤）", value=True)
+            include_unregistered = st.checkbox("包含未建檔色粉（全部比對）", value=False)
             submit_audit = st.form_submit_button("產生盤點分析")
 
         if submit_audit:
@@ -8854,6 +8863,9 @@ elif menu == "庫存區":
                             on="色粉編號",
                             how="left",
                         )
+                        merged_df["是否已建檔"] = merged_df["系統庫存_kg"].notna()
+                        if not include_unregistered:
+                            merged_df = merged_df[merged_df["是否已建檔"]].copy()
                         merged_df["系統庫存_kg"] = merged_df["系統庫存_kg"].fillna(0)
                         merged_df["期末庫存"] = merged_df["期末庫存"].fillna("0 g")
                         merged_df["差異_kg"] = merged_df["盤點量_kg"] - merged_df["系統庫存_kg"]
@@ -8872,13 +8884,14 @@ elif menu == "庫存區":
                         merged_df["差異"] = merged_df["差異_kg"].map(format_stock_kg)
 
                         result_cols = [
-                            "已確認", "處理方式", "狀態", "儲位", "色粉編號", "系統庫存", "盤點量", "差異", "差異率",
+                            "已確認", "處理方式", "狀態", "儲位", "色粉編號", "是否已建檔", "系統庫存", "盤點量", "差異", "差異率",
                             "已分裝(流動，kg)", "桶／箱 / 袋 (完整)", "計算說明", "解析失敗原因", "期初庫存", "區間進貨", "區間用量", "系統備註", "備註",
                         ]
                         result_df = merged_df[result_cols].sort_values(["狀態", "儲位", "色粉編號"]).reset_index(drop=True)
                         st.session_state["stock_audit_result"] = result_df
                         st.session_state["stock_audit_date_label"] = audit_date.strftime("%Y-%m-%d")
                         st.session_state["stock_audit_show_only_abnormal"] = show_only_abnormal
+                        st.session_state["stock_audit_include_unregistered"] = include_unregistered
                 except Exception as e:
                     st.error(f"盤點表解析失敗：{e}")
 
