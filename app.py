@@ -11071,7 +11071,24 @@ if st.session_state.menu == "匯入備份":
         """,
         unsafe_allow_html=True
     )
-  
+  # 📌 前往色板查詢
+    st.markdown(
+        """
+        <a href="https://color-match-ai.streamlit.app/" target="_blank">
+            <div style="
+                display:inline-block;
+                padding:6px 12px;
+                background:#dbd818;
+                color:black;
+                border-radius:6px;
+                margin-bottom:10px;
+            ">
+                🔗 前往色板查詢系統
+            </div>
+        </a>
+        """,
+        unsafe_allow_html=True
+    )
     # ===== 讀取備份函式 =====
     def load_recipe_backup_excel(file):
         try:
