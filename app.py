@@ -11060,8 +11060,8 @@ if st.session_state.menu == "匯入備份":
             <div style="
                 display:inline-block;
                 padding:6px 12px;
-                background:#dbd818;
-                color:black;
+                background:#124466;
+                color:#ffffff;
                 border-radius:6px;
                 margin-bottom:10px;
             ">
@@ -11079,7 +11079,7 @@ if st.session_state.menu == "匯入備份":
                 display:inline-block;
                 padding:6px 12px;
                 background:#c6582f;
-                color:black;
+                color:#ffffff;
                 border-radius:6px;
                 margin-bottom:10px;
             ">
