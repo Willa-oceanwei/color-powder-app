@@ -8969,7 +8969,7 @@ elif menu == "庫存區":
         audit_result = st.session_state.get("stock_audit_result")
         if audit_result is not None and not audit_result.empty:
             st.markdown('<div class="stock-audit-section-title">③ 分析結果</div>', unsafe_allow_html=True)
-            st.markdown(f"#####（{st.session_state.get('stock_audit_date_label', '')}）")
+            st.markdown(f"（{st.session_state.get('stock_audit_date_label', '')}）")
             total_count = len(audit_result)
             abnormal_mask = ~audit_result["狀態"].astype(str).str.startswith("🟢")
             abnormal_count = int(abnormal_mask.sum())
