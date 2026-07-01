@@ -8679,7 +8679,7 @@ elif menu == "庫存區":
                 gap: 6px;
                 margin: 13px 0 7px 0;
                 padding: 5px 10px;
-                color: #d8dee9;
+                color: #e06b3a;
                 background: rgba(120, 144, 166, 0.12);
                 border: 1px solid rgba(120, 144, 166, 0.20);
                 border-radius: 999px;
