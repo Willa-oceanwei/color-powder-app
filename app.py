@@ -8689,7 +8689,6 @@ elif menu == "庫存區":
             </style>
             <div class="stock-audit-hero">
                 <h4>📋 庫存盤點分析</h4>
-                <p>上傳現場盤點表後才會進行庫存比對；進入庫存區時不預先計算盤點資料。</p>
                 <div class="stock-audit-badges">
                     <span class="stock-audit-badge">上傳後才比對</span>
                     <span class="stock-audit-badge">支援 kg / g</span>
