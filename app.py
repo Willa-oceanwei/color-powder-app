@@ -5949,9 +5949,11 @@ if menu == "代工管理":
                     oem_row = selected_row_df.iloc[0].to_dict()
 
                     # 🔁 切換代工單時重置編輯欄位，避免沿用上一筆資料
+                    VENDOR_OPTIONS = ["", "弘旭", "良輝"]
                     if st.session_state.get("oem_edit_selected_id") != selected_oem:
                         st.session_state.oem_edit_selected_id = selected_oem
-                        st.session_state.oem_vendor = oem_row.get("代工廠商", "")
+                        raw_vendor = str(oem_row.get("代工廠商", "")).strip()
+                        st.session_state.oem_vendor = raw_vendor if raw_vendor in VENDOR_OPTIONS else ""
                         st.session_state.oem_status = oem_row.get("狀態", "")
                         st.session_state.oem_remark = oem_row.get("備註", "")
                         st.session_state.oem_multiplier = _safe_float(oem_row.get("轉換倍率", 1), 1.0)
@@ -5983,9 +5985,8 @@ if menu == "代工管理":
                     )
 
                     new_vendor = col_vendor.selectbox(
-                        "代工廠商", ["", "弘旭", "良輝"],
-                        index=["", "弘旭", "良輝"].index(oem_row.get("代工廠商", ""))
-                              if oem_row.get("代工廠商", "") in ["", "弘旭", "良輝"] else 0,
+                        "代工廠商",
+                        VENDOR_OPTIONS,
                         key="oem_vendor"
                     )
                     status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
