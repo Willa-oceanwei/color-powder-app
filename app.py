@@ -5519,6 +5519,9 @@ elif menu == "生產單管理":
                     old_oem_qty = calc_order_oem_qty_kg(order_dict)
                     new_oem_qty = calc_order_oem_qty_kg(updated_order_dict)
 
+                    st.write("DEBUG has_linked_oem:", has_linked_oem)
+                    st.write("DEBUG old_oem_qty:", old_oem_qty, "new_oem_qty:", new_oem_qty)
+
                     try:
                         df_oem_linked = get_cached_sheet_df("代工管理")
                         has_linked_oem = (
@@ -5540,9 +5543,6 @@ elif menu == "生產單管理":
                         st.session_state.show_edit_panel = False
                         st.session_state.editing_order = None
                         st.rerun()
-
-                    st.write("DEBUG has_linked_oem:", has_linked_oem)
-                    st.write("DEBUG old_oem_qty:", old_oem_qty, "new_oem_qty:", new_oem_qty)
 
             pending_order = st.session_state.get("pending_order_update_tab3")
             if pending_order and str(pending_order.get("生產單號", "")).strip() == str(order_no).strip():
