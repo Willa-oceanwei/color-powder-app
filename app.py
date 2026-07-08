@@ -5541,6 +5541,9 @@ elif menu == "生產單管理":
                         st.session_state.editing_order = None
                         st.rerun()
 
+                    st.write("DEBUG has_linked_oem:", has_linked_oem)
+                    st.write("DEBUG old_oem_qty:", old_oem_qty, "new_oem_qty:", new_oem_qty)
+
             pending_order = st.session_state.get("pending_order_update_tab3")
             if pending_order and str(pending_order.get("生產單號", "")).strip() == str(order_no).strip():
                 old_qty = float(st.session_state.get("pending_oem_sync_old_qty_tab3", 0.0))
