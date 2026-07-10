@@ -303,13 +303,12 @@ div[data-testid="stNumberInput"] input {
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* focus 時的光暈效果，取代預設紅框 */
-div[data-testid="stTextInput"] input:focus,
-div[data-testid="stTextArea"] textarea:focus,
-div[data-testid="stNumberInput"] input:focus {
-    border-color: #c6582f !important;
-    box-shadow: 0 0 0 2px rgba(198,88,47,0.25) !important;
-    outline: none !important;
+/* disabled（唯讀）欄位：降低視覺權重，跟可編輯欄位明顯區分 */
+div[data-testid="stTextInput"] input:disabled,
+div[data-testid="stTextArea"] textarea:disabled {
+    background-color: transparent !important;
+    border: 1px dashed rgba(255,255,255,0.12) !important;
+    color: #9fb6cc !important;
 }
 
 /* disabled（唯讀）欄位：降低視覺權重，跟可編輯欄位明顯區分 */
