@@ -292,31 +292,41 @@ ul[role="listbox"] li:hover{
    更像網頁表單、而不是預設的灰白輸入框 */
 
 /* 輸入框本體 */
-div[data-testid="stTextInput"] input,
-div[data-testid="stTextArea"] textarea,
-div[data-testid="stNumberInput"] input {
-    background-color: #0d1b2a !important;
-    border: 1px solid rgba(255,255,255,0.10) !important;
+/* ===== 可編輯欄位：要跳出來、明顯是「可以填寫的東西」===== */
+div[data-testid="stTextInput"] input:not(:disabled),
+div[data-testid="stTextArea"] textarea:not(:disabled),
+div[data-testid="stNumberInput"] input:not(:disabled) {
+    background-color: #16283a !important;   /* 比頁面底色稍亮，明顯有「一塊」的感覺 */
+    border: 1px solid rgba(255,255,255,0.22) !important;
+    border-left: 3px solid #c6582f !important;  /* 左側橘色細條，暗示「這裡可以動」 */
     border-radius: 8px !important;
     color: #ffffff !important;
     padding: 8px 12px !important;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
-/* disabled（唯讀）欄位：降低視覺權重，跟可編輯欄位明顯區分 */
+div[data-testid="stTextInput"] input:not(:disabled):hover,
+div[data-testid="stTextArea"] textarea:not(:disabled):hover {
+    background-color: #1b2f44 !important;
+}
+
+div[data-testid="stTextInput"] input:not(:disabled):focus,
+div[data-testid="stTextArea"] textarea:not(:disabled):focus,
+div[data-testid="stNumberInput"] input:not(:disabled):focus {
+    border-color: #c6582f !important;
+    box-shadow: 0 0 0 2px rgba(198,88,47,0.25) !important;
+    outline: none !important;
+}
+
+/* ===== 唯讀欄位：完全融入背景，不畫框、不畫底色，安靜地只是顯示文字 ===== */
 div[data-testid="stTextInput"] input:disabled,
 div[data-testid="stTextArea"] textarea:disabled {
     background-color: transparent !important;
-    border: 1px dashed rgba(255,255,255,0.12) !important;
-    color: #9fb6cc !important;
-}
-
-/* disabled（唯讀）欄位：降低視覺權重，跟可編輯欄位明顯區分 */
-div[data-testid="stTextInput"] input:disabled,
-div[data-testid="stTextArea"] textarea:disabled {
-    background-color: transparent !important;
-    border: 1px dashed rgba(255,255,255,0.12) !important;
-    color: #9fb6cc !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;  /* 極淡的底線，聊表區隔即可 */
+    border-radius: 0 !important;
+    color: #7b8ea3 !important;   /* 比原本更沉的灰藍，降低存在感 */
+    padding: 8px 2px !important;
 }
 
 /* label 文字：小寫、加字距，看起來更像正式表單標籤而不是隨手加的說明 */
