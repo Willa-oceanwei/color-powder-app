@@ -949,8 +949,66 @@ def safe_update_cell(ws, row, col, value):
         invalidate_sheet_cache(ws.title)
 
 # ===== 在最上方定義函式 =====
+# ===== 新增：代工單摘要卡片 + 狀態標籤 =====
+# 放在檔案裡任意函式定義區（例如 render_paginated_df 旁邊）即可，只需定義一次。
 
+def render_oem_status_cards(df):
+    """把代工單 DataFrame 渲染成卡片 + 狀態標籤列表，取代 st.dataframe。"""
 
+    status_style = {
+        "⏳ 未載回": {"bg": "rgba(230,171,2,0.15)",  "fg": "#e6ab02", "border": "rgba(230,171,2,0.35)"},
+        "🏭 在廠內": {"bg": "rgba(58,141,214,0.15)", "fg": "#5aa9e6", "border": "rgba(58,141,214,0.35)"},
+        "🔄 進行中": {"bg": "rgba(198,88,47,0.18)",  "fg": "#ff8a57", "border": "rgba(198,88,47,0.40)"},
+        "✅ 已結案": {"bg": "rgba(45,163,95,0.15)",  "fg": "#4fd17a", "border": "rgba(45,163,95,0.35)"},
+    }
+    default_style = {"bg": "rgba(255,255,255,0.06)", "fg": "#cfd8e3", "border": "rgba(255,255,255,0.15)"}
+
+    if df.empty:
+        st.info("目前沒有符合條件的代工單")
+        return
+
+    # ===== 摘要卡片（各狀態筆數）=====
+    counts = df["狀態"].value_counts()
+    summary_cols = st.columns(len(status_style))
+    for col, (label, style) in zip(summary_cols, status_style.items()):
+        n = int(counts.get(label, 0))
+        col.markdown(f"""
+        <div style="background:#0d1b2a;border:1px solid {style['border']};border-radius:10px;
+                    padding:10px 12px;text-align:center;">
+            <div style="font-size:11px;color:#9fb6cc;margin-bottom:4px;">{label}</div>
+            <div style="font-size:20px;font-weight:700;color:{style['fg']};">{n}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+
+    # ===== 逐筆卡片 =====
+    cards_html = ""
+    for _, row in df.iterrows():
+        s = status_style.get(row.get("狀態", ""), default_style)
+        cards_html += f"""
+        <div style="background:#0d1b2a;border:1px solid rgba(255,255,255,0.08);border-radius:10px;
+                    padding:12px 16px;margin-bottom:8px;display:flex;
+                    justify-content:space-between;align-items:center;">
+            <div>
+                <div style="font-size:13px;color:#ffffff;font-weight:600;">
+                    {row.get('代工單號','')}　|　{row.get('配方編號','')}　|　{row.get('客戶名稱','')}
+                </div>
+                <div style="font-size:11.5px;color:#9fb6cc;margin-top:3px;">
+                    {row.get('代工廠名稱','')}　·　代工 {row.get('代工數量','')}　
+                    目標 {row.get('目標載回','')}　{row.get('差異','')}
+                </div>
+            </div>
+            <div style="font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;
+                        background:{s['bg']};color:{s['fg']};border:1px solid {s['border']};
+                        white-space:nowrap;margin-left:12px;">
+                {row.get('狀態','')}
+            </div>
+        </div>
+        """
+
+    st.markdown(cards_html, unsafe_allow_html=True)
+    
 def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
     if df is None or df.empty:
         st.info("目前無資料")
