@@ -1058,6 +1058,7 @@ def render_oem_status_cards(df):
         """
 
     cards_html += "</div>"
+    cards_html = "\n".join(line.strip() for line in cards_html.split("\n"))
     st.markdown(cards_html, unsafe_allow_html=True)
     
 def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
