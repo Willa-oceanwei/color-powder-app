@@ -347,6 +347,13 @@ div[data-testid="stForm"] {
     padding: 20px 22px;
 }
 
+div[data-testid="stDataFrame"] {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
 /* ===================================================
    ✨ FONT
 =================================================== */
