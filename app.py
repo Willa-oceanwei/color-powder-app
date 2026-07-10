@@ -4438,11 +4438,17 @@ elif menu == "生產單管理":
             st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
             
         with st.form("order_detail_form_tab1"):
-            c1, c2, c3, c4 = st.columns(4)
-            c1.text_input("生產單號", value=order.get("生產單號", ""), disabled=True, key="form_order_no_tab1")
-            c2.text_input("配方編號", value=order.get("配方編號", ""), disabled=True, key="form_recipe_id_tab1")
-            c3.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True, key="form_cust_id_tab1")
-            c4.text_input("客戶名稱", value=order.get("客戶名稱", ""), disabled=True, key="form_cust_name_tab1")
+            st.markdown(f"""
+                <div style="display:flex;flex-wrap:wrap;gap:24px;padding:10px 4px 16px;
+                            border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:16px;">
+                    <div><span style="font-size:11px;color:#9fb6cc;">生產單號</span><br>
+                         <span style="font-size:14px;color:#fff;font-weight:600;">{order.get('生產單號','')}</span></div>
+                    <div><span style="font-size:11px;color:#9fb6cc;">配方編號</span><br>
+                         <span style="font-size:14px;color:#fff;font-weight:600;">{order.get('配方編號','')}</span></div>
+                    <div><span style="font-size:11px;color:#9fb6cc;">客戶</span><br>
+                         <span style="font-size:14px;color:#fff;font-weight:600;">{recipe_row.get('客戶編號','')} · {order.get('客戶名稱','')}</span></div>
+                </div>
+                """, unsafe_allow_html=True)
             
             c5, c6, c7, c8 = st.columns(4)
             c5.text_input("計量單位", value=recipe_row.get("計量單位", "kg"), disabled=True, key="form_unit_tab1")
