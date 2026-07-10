@@ -951,6 +951,22 @@ def safe_update_cell(ws, row, col, value):
 # ===== 在最上方定義函式 =====
 # ===== 新增：代工單摘要卡片 + 狀態標籤 =====
 # 放在檔案裡任意函式定義區（例如 render_paginated_df 旁邊）即可，只需定義一次。
+def render_metric_cards(items):
+    accent_style = {
+        "neutral": {"fg": "#ffffff", "sub": "#9fb6cc"},
+        "accent":  {"fg": "#ff8a57", "sub": "#e0a687"},
+        "warn":    {"fg": "#e6ab02", "sub": "#c9a24a"},
+    }
+    cols = st.columns(len(items))
+    for col, (label, value, accent) in zip(cols, items):
+        s = accent_style.get(accent, accent_style["neutral"])
+        col.markdown(f"""
+        <div style="background:#0d1b2a;border:1px solid rgba(255,255,255,0.08);
+                    border-radius:10px;padding:10px 14px;">
+            <div style="font-size:11px;color:{s['sub']};margin-bottom:4px;">{label}</div>
+            <div style="font-size:18px;font-weight:700;color:{s['fg']};">{value}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 def render_oem_status_cards(df):
     """把代工單 DataFrame 渲染成卡片 + 狀態標籤列表，取代 st.dataframe。"""
