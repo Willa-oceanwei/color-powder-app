@@ -287,6 +287,57 @@ ul[role="listbox"] li:hover{
     background:rgba(198,88,47,0.15) !important;
 }
 
+/* ===== 加進 apply_modern_style() 的 <style> 區塊裡 =====
+   讓所有 st.text_input / st.text_area / st.selectbox 統一變成
+   更像網頁表單、而不是預設的灰白輸入框 */
+
+/* 輸入框本體 */
+div[data-testid="stTextInput"] input,
+div[data-testid="stTextArea"] textarea,
+div[data-testid="stNumberInput"] input {
+    background-color: #0d1b2a !important;
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+    padding: 8px 12px !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* focus 時的光暈效果，取代預設紅框 */
+div[data-testid="stTextInput"] input:focus,
+div[data-testid="stTextArea"] textarea:focus,
+div[data-testid="stNumberInput"] input:focus {
+    border-color: #c6582f !important;
+    box-shadow: 0 0 0 2px rgba(198,88,47,0.25) !important;
+    outline: none !important;
+}
+
+/* disabled（唯讀）欄位：降低視覺權重，跟可編輯欄位明顯區分 */
+div[data-testid="stTextInput"] input:disabled,
+div[data-testid="stTextArea"] textarea:disabled {
+    background-color: transparent !important;
+    border: 1px dashed rgba(255,255,255,0.12) !important;
+    color: #9fb6cc !important;
+}
+
+/* label 文字：小寫、加字距，看起來更像正式表單標籤而不是隨手加的說明 */
+div[data-testid="stTextInput"] label p,
+div[data-testid="stTextArea"] label p,
+div[data-testid="stNumberInput"] label p {
+    font-size: 11px !important;
+    letter-spacing: 0.03em;
+    color: #9fb6cc !important;
+    text-transform: uppercase;
+}
+
+/* st.form 外框：讓整個表單本身有卡片感，而不是跟頁面背景融在一起 */
+div[data-testid="stForm"] {
+    background-color: #0a1622;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 20px 22px;
+}
+
 /* ===================================================
    ✨ FONT
 =================================================== */
