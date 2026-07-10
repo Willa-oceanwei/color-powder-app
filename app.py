@@ -10570,16 +10570,28 @@ elif menu == "洗車廠庫存":
                     "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
                     "目前庫存": st.column_config.TextColumn("目前庫存", width="small"),
                     "單位": st.column_config.TextColumn("單位", width="small"),
-                    "出入庫歷程": st.column_config.TextColumn("出入庫歷程", width="large"),
                     "備註": st.column_config.TextColumn("備註", width="medium"),
                 }
-
-                st.dataframe(
-                    styled_result_df,
+                
+                # 主表格不再放歷程欄，維持一列一品項，畫面高度不會被拉長
+                event = st.dataframe(
+                    styled_result_df.drop(columns=["出入庫歷程"]),
                     use_container_width=True,
                     hide_index=True,
                     column_config=carwash_inventory_column_config,
+                    on_select="rerun",
+                    selection_mode="single-row",
                 )
+                
+                # 點選某一列才展開該品項的出入庫歷程
+                if event.selection and event.selection.get("rows"):
+                    sel_idx = event.selection["rows"][0]
+                    sel_row = result_df.iloc[sel_idx]
+                    with st.container(border=True):
+                        st.markdown(f"**{sel_row.get('產品編號','')} 出入庫歷程**")
+                        st.markdown(
+                            str(sel_row.get("出入庫歷程", "")).replace("\n", "  \n"),
+                        )
 
                 export_csv = result_df.to_csv(index=False).encode("utf-8-sig")
                 st.download_button(
