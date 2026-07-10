@@ -6320,11 +6320,12 @@ if menu == "代工管理":
                         if not df_this_return.empty else 0.0
                     remaining_qty   = target_qty - total_returned
 
-                    col1, col2, col3 = st.columns(3)
-                    col1.text_input("配方編號",    value=oem_row.get("配方編號", ""),  disabled=True, key="oem_recipe_no_display")
-                    col2.text_input("代工數量 (kg)", value=total_qty, disabled=True, key="oem_total_qty_display")
-                    col3.text_input("目標載回數量 (kg)", value=target_qty, disabled=True, key="oem_target_qty_display")
-                    st.info(f"🚚 已載回：{total_returned} kg / 目標：{target_qty} kg / 尚餘：{remaining_qty} kg")
+                    render_metric_cards([
+                        ("配方編號", oem_row.get("配方編號", ""), "neutral"),
+                        ("代工數量 (kg)", f"{total_qty:g}", "neutral"),
+                        ("已載回 (kg)", f"{total_returned:g}", "neutral"),
+                        ("尚餘 (kg)", f"{remaining_qty:g}", "accent"),
+                    ])
 
                     if not df_this_return.empty:
                         st.dataframe(
