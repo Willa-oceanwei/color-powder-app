@@ -968,8 +968,11 @@ def render_metric_cards(items):
         </div>
         """, unsafe_allow_html=True)
 
+# ===== 更新版：代工單卡片改為方塊網格排列 + 長內容可展開 =====
+# 取代原本的 render_oem_status_cards 函式（整個函式覆蓋掉即可）
+
 def render_oem_status_cards(df):
-    """把代工單 DataFrame 渲染成卡片 + 狀態標籤列表，取代 st.dataframe。"""
+    """把代工單 DataFrame 渲染成網格卡片；內容較長的欄位收進可展開區塊。"""
 
     status_style = {
         "⏳ 未載回": {"bg": "rgba(230,171,2,0.15)",  "fg": "#e6ab02", "border": "rgba(230,171,2,0.35)"},
@@ -983,7 +986,7 @@ def render_oem_status_cards(df):
         st.info("目前沒有符合條件的代工單")
         return
 
-    # ===== 摘要卡片（各狀態筆數）=====
+    # ===== 摘要卡片（各狀態筆數）維持不變 =====
     counts = df["狀態"].value_counts()
     summary_cols = st.columns(len(status_style))
     for col, (label, style) in zip(summary_cols, status_style.items()):
@@ -996,33 +999,65 @@ def render_oem_status_cards(df):
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
-    # ===== 逐筆卡片 =====
-    cards_html = ""
+    # ===== 卡片網格（一排自動排 2~3 張，視版面寬度而定）=====
+    cards_html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">'
+
     for _, row in df.iterrows():
         s = status_style.get(row.get("狀態", ""), default_style)
+
+        delivery_text = str(row.get("送達日期及數量", "") or "").strip()
+        return_text   = str(row.get("載回日期及數量", "") or "").strip()
+        has_extra = (
+            (delivery_text and delivery_text != "（無送達紀錄）") or
+            (return_text and return_text != "（無載回紀錄）")
+        )
+
+        extra_html = ""
+        if has_extra:
+            extra_lines = ""
+            if delivery_text:
+                extra_lines += f"<div style='margin-bottom:4px;'><b>送達：</b>{delivery_text.replace(chr(10), '<br>')}</div>"
+            if return_text:
+                extra_lines += f"<div><b>載回：</b>{return_text.replace(chr(10), '<br>')}</div>"
+            extra_html = f"""
+            <details style="margin-top:6px;">
+                <summary style="font-size:11px;color:#5aa9e6;cursor:pointer;">更多紀錄</summary>
+                <div style="font-size:11px;color:#9fb6cc;margin-top:6px;line-height:1.6;">
+                    {extra_lines}
+                </div>
+            </details>
+            """
+
         cards_html += f"""
         <div style="background:#0d1b2a;border:1px solid rgba(255,255,255,0.08);border-radius:10px;
-                    padding:12px 16px;margin-bottom:8px;display:flex;
-                    justify-content:space-between;align-items:center;">
-            <div>
-                <div style="font-size:13px;color:#ffffff;font-weight:600;">
-                    {row.get('代工單號','')}　|　{row.get('配方編號','')}　|　{row.get('客戶名稱','')}
-                </div>
-                <div style="font-size:11.5px;color:#9fb6cc;margin-top:3px;">
-                    {row.get('代工廠名稱','')}　·　代工 {row.get('代工數量','')}　
-                    目標 {row.get('目標載回','')}　{row.get('差異','')}
+                    padding:12px 14px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+                <div style="font-size:13px;color:#ffffff;font-weight:600;">{row.get('代工單號','')}</div>
+                <div style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;
+                            background:{s['bg']};color:{s['fg']};border:1px solid {s['border']};
+                            white-space:nowrap;margin-left:8px;">
+                    {row.get('狀態','')}
                 </div>
             </div>
-            <div style="font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;
-                        background:{s['bg']};color:{s['fg']};border:1px solid {s['border']};
-                        white-space:nowrap;margin-left:12px;">
-                {row.get('狀態','')}
+            <div style="font-size:12px;color:#cfd8e3;margin-bottom:2px;">
+                {row.get('配方編號','')}　|　{row.get('客戶名稱','')}
             </div>
+            <div style="font-size:11.5px;color:#9fb6cc;margin-bottom:6px;">
+                {row.get('代工廠名稱','')}
+            </div>
+            <div style="font-size:11.5px;color:#9fb6cc;">
+                代工 {row.get('代工數量','')}　目標 {row.get('目標載回','')}
+            </div>
+            <div style="font-size:11.5px;color:#9fb6cc;">
+                {row.get('差異','')}
+            </div>
+            {extra_html}
         </div>
         """
 
+    cards_html += "</div>"
     st.markdown(cards_html, unsafe_allow_html=True)
     
 def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
