@@ -4498,12 +4498,13 @@ elif menu == "生產單管理":
                 key="form_remark_tab1"
             )
             
-            st.markdown("**包裝重量與份數**")
-            w_cols = st.columns(4)
-            c_cols = st.columns(4)
-            for i in range(1, 5):
-                w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}_tab1")
-                c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
+            with st.container(border=True):
+                st.markdown("**📦 包裝重量與份數**")
+                w_cols = st.columns(4)
+                c_cols = st.columns(4)
+                for i in range(1, 5):
+                    w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}_tab1")
+                    c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
             
             st.markdown("###### 色粉用量（編號與重量）")
             main_powders = []
