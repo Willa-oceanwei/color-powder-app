@@ -6083,7 +6083,11 @@ if menu == "代工管理":
                     delivery_limit = float(new_target_qty) if float(new_target_qty) > 0 else oem_qty
                     remaining = delivery_limit - total_delivered
 
-                    st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg（上限：{delivery_limit} kg）")
+                    render_metric_cards([
+                        ("已送達 (kg)", f"{total_delivered:g}", "neutral"),
+                        ("尚餘 (kg)", f"{remaining:g}", "accent"),
+                        ("上限 (kg)", f"{delivery_limit:g}", "neutral"),
+                    ])
 
                     is_closed = oem_row.get("狀態") == "✅ 已結案"
                     if is_closed:
