@@ -10558,8 +10558,10 @@ elif menu == "洗車廠庫存":
                 st.info(st.session_state.get("cw_inventory_result_message", "目前查無符合條件的資料。"))
 
             else:
+                display_df = result_df.drop(columns=["出入庫歷程"])
+                
                 styled_result_df = (
-                    result_df.style
+                    display_df.style
                     .map(
                         lambda _: "font-weight: 700;",
                         subset=["產品編號"],
