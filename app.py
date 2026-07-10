@@ -6571,7 +6571,7 @@ if menu == "代工管理":
                     df_progress_open = df_progress_open.sort_values(
                         by=["status_order", "建立時間_dt"], ascending=[True, False]
                     ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort", "最近進度日期_sort"], errors="ignore")
-                    st.dataframe(df_progress_open, use_container_width=True, hide_index=True)
+                    render_oem_status_cards(df_progress_open)
                 else:
                     st.info("目前沒有符合條件的代工單")
 
