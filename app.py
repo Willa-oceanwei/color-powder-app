@@ -10583,13 +10583,11 @@ elif menu == "洗車廠庫存":
                 }
                 
                 # 主表格不再放歷程欄，維持一列一品項，畫面高度不會被拉長
-                event = st.dataframe(
+                st.dataframe(
                     styled_result_df,
                     use_container_width=True,
                     hide_index=True,
                     column_config=carwash_inventory_column_config,
-                    on_select="rerun",
-                    selection_mode="single-row",
                 )
                 
                 # 點選某一列才展開該品項的出入庫歷程
