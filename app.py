@@ -287,6 +287,66 @@ ul[role="listbox"] li:hover{
     background:rgba(198,88,47,0.15) !important;
 }
 
+/* ===== 加進 apply_modern_style() 的 <style> 區塊裡 =====
+   讓所有 st.text_input / st.text_area / st.selectbox 統一變成
+   更像網頁表單、而不是預設的灰白輸入框 */
+
+/* 輸入框本體 */
+/* ===== 可編輯欄位：要跳出來、明顯是「可以填寫的東西」===== */
+div[data-testid="stTextInput"] input:not(:disabled),
+div[data-testid="stTextArea"] textarea:not(:disabled),
+div[data-testid="stNumberInput"] input:not(:disabled) {
+    background-color: #16283a !important;   /* 比頁面底色稍亮，明顯有「一塊」的感覺 */
+    border: 1px solid rgba(255,255,255,0.22) !important;
+    border-left: 3px solid #c6582f !important;  /* 左側橘色細條，暗示「這裡可以動」 */
+    border-radius: 8px !important;
+    color: #ffffff !important;
+    padding: 8px 12px !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+div[data-testid="stTextInput"] input:not(:disabled):hover,
+div[data-testid="stTextArea"] textarea:not(:disabled):hover {
+    background-color: #1b2f44 !important;
+}
+
+div[data-testid="stTextInput"] input:not(:disabled):focus,
+div[data-testid="stTextArea"] textarea:not(:disabled):focus,
+div[data-testid="stNumberInput"] input:not(:disabled):focus {
+    border-color: #c6582f !important;
+    box-shadow: 0 0 0 2px rgba(198,88,47,0.25) !important;
+    outline: none !important;
+}
+
+/* ===== 唯讀欄位：完全融入背景，不畫框、不畫底色，安靜地只是顯示文字 ===== */
+div[data-testid="stTextInput"] input:disabled,
+div[data-testid="stTextArea"] textarea:disabled {
+    background-color: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;  /* 極淡的底線，聊表區隔即可 */
+    border-radius: 0 !important;
+    color: #7b8ea3 !important;   /* 比原本更沉的灰藍，降低存在感 */
+    padding: 8px 2px !important;
+}
+
+/* label 文字：小寫、加字距，看起來更像正式表單標籤而不是隨手加的說明 */
+div[data-testid="stTextInput"] label p,
+div[data-testid="stTextArea"] label p,
+div[data-testid="stNumberInput"] label p {
+    font-size: 11px !important;
+    letter-spacing: 0.03em;
+    color: #9fb6cc !important;
+    text-transform: uppercase;
+}
+
+/* st.form 外框：讓整個表單本身有卡片感，而不是跟頁面背景融在一起 */
+div[data-testid="stForm"] {
+    background-color: #0a1622;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 20px 22px;
+}
+
 /* ===================================================
    ✨ FONT
 =================================================== */
@@ -949,8 +1009,118 @@ def safe_update_cell(ws, row, col, value):
         invalidate_sheet_cache(ws.title)
 
 # ===== 在最上方定義函式 =====
+# ===== 新增：代工單摘要卡片 + 狀態標籤 =====
+# 放在檔案裡任意函式定義區（例如 render_paginated_df 旁邊）即可，只需定義一次。
+def render_metric_cards(items):
+    accent_style = {
+        "neutral": {"fg": "#ffffff", "sub": "#9fb6cc"},
+        "accent":  {"fg": "#ff8a57", "sub": "#e0a687"},
+        "warn":    {"fg": "#e6ab02", "sub": "#c9a24a"},
+    }
+    cols = st.columns(len(items))
+    for col, (label, value, accent) in zip(cols, items):
+        s = accent_style.get(accent, accent_style["neutral"])
+        col.markdown(f"""
+        <div style="background:#0d1b2a;border:1px solid rgba(255,255,255,0.08);
+                    border-radius:10px;padding:10px 14px;">
+            <div style="font-size:11px;color:{s['sub']};margin-bottom:4px;">{label}</div>
+            <div style="font-size:18px;font-weight:700;color:{s['fg']};">{value}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
+# ===== 更新版：代工單卡片改為方塊網格排列 + 長內容可展開 =====
+# 取代原本的 render_oem_status_cards 函式（整個函式覆蓋掉即可）
 
+def render_oem_status_cards(df):
+    """把代工單 DataFrame 渲染成網格卡片；內容較長的欄位收進可展開區塊。"""
+
+    status_style = {
+        "⏳ 未載回": {"bg": "rgba(230,171,2,0.15)",  "fg": "#e6ab02", "border": "rgba(230,171,2,0.35)"},
+        "🏭 在廠內": {"bg": "rgba(58,141,214,0.15)", "fg": "#5aa9e6", "border": "rgba(58,141,214,0.35)"},
+        "🔄 進行中": {"bg": "rgba(198,88,47,0.18)",  "fg": "#ff8a57", "border": "rgba(198,88,47,0.40)"},
+        "✅ 已結案": {"bg": "rgba(45,163,95,0.15)",  "fg": "#4fd17a", "border": "rgba(45,163,95,0.35)"},
+    }
+    default_style = {"bg": "rgba(255,255,255,0.06)", "fg": "#cfd8e3", "border": "rgba(255,255,255,0.15)"}
+
+    if df.empty:
+        st.info("目前沒有符合條件的代工單")
+        return
+
+    # ===== 摘要卡片（各狀態筆數）維持不變 =====
+    counts = df["狀態"].value_counts()
+    summary_cols = st.columns(len(status_style))
+    for col, (label, style) in zip(summary_cols, status_style.items()):
+        n = int(counts.get(label, 0))
+        col.markdown(f"""
+        <div style="background:#0d1b2a;border:1px solid {style['border']};border-radius:10px;
+                    padding:10px 12px;text-align:center;">
+            <div style="font-size:11px;color:#9fb6cc;margin-bottom:4px;">{label}</div>
+            <div style="font-size:20px;font-weight:700;color:{style['fg']};">{n}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+
+    # ===== 卡片網格（一排自動排 2~3 張，視版面寬度而定）=====
+    cards_html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">'
+
+    for _, row in df.iterrows():
+        s = status_style.get(row.get("狀態", ""), default_style)
+
+        delivery_text = str(row.get("送達日期及數量", "") or "").strip()
+        return_text   = str(row.get("載回日期及數量", "") or "").strip()
+        has_extra = (
+            (delivery_text and delivery_text != "（無送達紀錄）") or
+            (return_text and return_text != "（無載回紀錄）")
+        )
+
+        extra_html = ""
+        if has_extra:
+            extra_lines = ""
+            if delivery_text:
+                extra_lines += f"<div style='margin-bottom:4px;'><b>送達：</b>{delivery_text.replace(chr(10), '<br>')}</div>"
+            if return_text:
+                extra_lines += f"<div><b>載回：</b>{return_text.replace(chr(10), '<br>')}</div>"
+            extra_html = f"""
+            <details style="margin-top:6px;">
+                <summary style="font-size:11px;color:#5aa9e6;cursor:pointer;">更多紀錄</summary>
+                <div style="font-size:11px;color:#9fb6cc;margin-top:6px;line-height:1.6;">
+                    {extra_lines}
+                </div>
+            </details>
+            """
+
+        cards_html += f"""
+        <div style="background:#0d1b2a;border:1px solid rgba(255,255,255,0.08);border-radius:10px;
+                    padding:12px 14px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+                <div style="font-size:13px;color:#ffffff;font-weight:600;">{row.get('代工單號','')}</div>
+                <div style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;
+                            background:{s['bg']};color:{s['fg']};border:1px solid {s['border']};
+                            white-space:nowrap;margin-left:8px;">
+                    {row.get('狀態','')}
+                </div>
+            </div>
+            <div style="font-size:12px;color:#cfd8e3;margin-bottom:2px;">
+                {row.get('配方編號','')}　|　{row.get('客戶名稱','')}
+            </div>
+            <div style="font-size:11.5px;color:#9fb6cc;margin-bottom:6px;">
+                {row.get('代工廠名稱','')}
+            </div>
+            <div style="font-size:11.5px;color:#9fb6cc;">
+                代工 {row.get('代工數量','')}　目標 {row.get('目標載回','')}
+            </div>
+            <div style="font-size:11.5px;color:#9fb6cc;">
+                {row.get('差異','')}
+            </div>
+            {extra_html}
+        </div>
+        """
+
+    cards_html += "</div>"
+    cards_html = "\n".join(line.strip() for line in cards_html.split("\n"))
+    st.markdown(cards_html, unsafe_allow_html=True)
+    
 def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
     if df is None or df.empty:
         st.info("目前無資料")
@@ -4277,11 +4447,17 @@ elif menu == "生產單管理":
             st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
             
         with st.form("order_detail_form_tab1"):
-            c1, c2, c3, c4 = st.columns(4)
-            c1.text_input("生產單號", value=order.get("生產單號", ""), disabled=True, key="form_order_no_tab1")
-            c2.text_input("配方編號", value=order.get("配方編號", ""), disabled=True, key="form_recipe_id_tab1")
-            c3.text_input("客戶編號", value=recipe_row.get("客戶編號", ""), disabled=True, key="form_cust_id_tab1")
-            c4.text_input("客戶名稱", value=order.get("客戶名稱", ""), disabled=True, key="form_cust_name_tab1")
+            st.markdown(f"""
+                <div style="display:flex;flex-wrap:wrap;gap:24px;padding:10px 4px 16px;
+                            border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:16px;">
+                    <div><span style="font-size:11px;color:#9fb6cc;">生產單號</span><br>
+                         <span style="font-size:14px;color:#fff;font-weight:600;">{order.get('生產單號','')}</span></div>
+                    <div><span style="font-size:11px;color:#9fb6cc;">配方編號</span><br>
+                         <span style="font-size:14px;color:#fff;font-weight:600;">{order.get('配方編號','')}</span></div>
+                    <div><span style="font-size:11px;color:#9fb6cc;">客戶</span><br>
+                         <span style="font-size:14px;color:#fff;font-weight:600;">{recipe_row.get('客戶編號','')} · {order.get('客戶名稱','')}</span></div>
+                </div>
+                """, unsafe_allow_html=True)
             
             c5, c6, c7, c8 = st.columns(4)
             c5.text_input("計量單位", value=recipe_row.get("計量單位", "kg"), disabled=True, key="form_unit_tab1")
@@ -4331,12 +4507,13 @@ elif menu == "生產單管理":
                 key="form_remark_tab1"
             )
             
-            st.markdown("**包裝重量與份數**")
-            w_cols = st.columns(4)
-            c_cols = st.columns(4)
-            for i in range(1, 5):
-                w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}_tab1")
-                c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
+            with st.container(border=True):
+                st.markdown("**📦 包裝重量與份數**")
+                w_cols = st.columns(4)
+                c_cols = st.columns(4)
+                for i in range(1, 5):
+                    w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}_tab1")
+                    c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
             
             st.markdown("###### 色粉用量（編號與重量）")
             main_powders = []
@@ -6025,7 +6202,11 @@ if menu == "代工管理":
                     delivery_limit = float(new_target_qty) if float(new_target_qty) > 0 else oem_qty
                     remaining = delivery_limit - total_delivered
 
-                    st.info(f"📦 已送達：{total_delivered} kg / 尚餘：{remaining} kg（上限：{delivery_limit} kg）")
+                    render_metric_cards([
+                        ("已送達 (kg)", f"{total_delivered:g}", "neutral"),
+                        ("尚餘 (kg)", f"{remaining:g}", "accent"),
+                        ("上限 (kg)", f"{delivery_limit:g}", "neutral"),
+                    ])
 
                     is_closed = oem_row.get("狀態") == "✅ 已結案"
                     if is_closed:
@@ -6262,11 +6443,12 @@ if menu == "代工管理":
                         if not df_this_return.empty else 0.0
                     remaining_qty   = target_qty - total_returned
 
-                    col1, col2, col3 = st.columns(3)
-                    col1.text_input("配方編號",    value=oem_row.get("配方編號", ""),  disabled=True, key="oem_recipe_no_display")
-                    col2.text_input("代工數量 (kg)", value=total_qty, disabled=True, key="oem_total_qty_display")
-                    col3.text_input("目標載回數量 (kg)", value=target_qty, disabled=True, key="oem_target_qty_display")
-                    st.info(f"🚚 已載回：{total_returned} kg / 目標：{target_qty} kg / 尚餘：{remaining_qty} kg")
+                    render_metric_cards([
+                        ("配方編號", oem_row.get("配方編號", ""), "neutral"),
+                        ("代工數量 (kg)", f"{total_qty:g}", "neutral"),
+                        ("已載回 (kg)", f"{total_returned:g}", "neutral"),
+                        ("尚餘 (kg)", f"{remaining_qty:g}", "accent"),
+                    ])
 
                     if not df_this_return.empty:
                         st.dataframe(
@@ -6513,7 +6695,7 @@ if menu == "代工管理":
                     df_progress_open = df_progress_open.sort_values(
                         by=["status_order", "建立時間_dt"], ascending=[True, False]
                     ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort", "最近進度日期_sort"], errors="ignore")
-                    st.dataframe(df_progress_open, use_container_width=True, hide_index=True)
+                    render_oem_status_cards(df_progress_open)
                 else:
                     st.info("目前沒有符合條件的代工單")
 
