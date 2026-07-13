@@ -1,5 +1,7 @@
 streamlit==1.38.0
 pandas==2.2.2
+numpy==1.26.4
+pyarrow==14.0.2
 gspread==5.8.0
 google-auth==2.20.0
 odfpy==1.4.1
