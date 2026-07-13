@@ -1123,7 +1123,7 @@ def render_oem_status_cards(df):
     
 def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
     if df is None or df.empty:
-        st.info("目前無資料")
+        render_empty_state("目前無資料")
         return
     total = len(df)
     total_pages = max(1, (total + page_size - 1) // page_size)
@@ -1136,17 +1136,71 @@ def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
     end = start + page_size
     st.dataframe(df.iloc[start:end], use_container_width=use_container_width)
 
-    c1, c2, c3, c4 = st.columns([1,1,2,1])
-    if c1.button("🏠首頁", key=f"{key_prefix}_first"):
-        st.session_state[page_key] = 1
-        st.rerun()
-    if c2.button("◀ 上頁", key=f"{key_prefix}_prev") and st.session_state[page_key] > 1:
-        st.session_state[page_key] -= 1
-        st.rerun()
-    c3.markdown(f"<div style='text-align:center;color:#9aa4b2;font-size:12px;'>第 {st.session_state[page_key]} / {total_pages} 頁（共 {total} 筆）</div>", unsafe_allow_html=True)
-    if c4.button("下頁 ▶", key=f"{key_prefix}_next") and st.session_state[page_key] < total_pages:
-        st.session_state[page_key] += 1
-        st.rerun()
+    render_pagination_bar(
+        page_key=page_key,
+        total_pages=total_pages,
+        total_rows=total,
+        key_prefix=key_prefix
+    )
+
+def render_search_summary(total_rows, extra=""):
+    """搜尋結果統計列。只在有輸入搜尋條件時呼叫，取代原本各頁籤各自的 st.info(f"🔍 搜尋結果...")。"""
+    extra_html = f"　·　{extra}" if extra else ""
+    st.markdown(f"""
+    <div style="font-size:12px;color:#9fb6cc;margin:2px 0 10px;">
+        🔍 共 <span style="color:#ffffff;font-weight:600;">{total_rows}</span> 筆符合{extra_html}
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def render_empty_state(message, hint=""):
+    """查無資料的空狀態卡片。取代散落各頁籤的 st.info("查無符合...") / st.warning("查無符合...")。"""
+    hint_html = f"<div style='font-size:11.5px;color:#6f8299;margin-top:4px;'>{hint}</div>" if hint else ""
+    st.markdown(f"""
+    <div style="background:#0d1b2a;border:1px solid rgba(255,255,255,0.08);border-radius:10px;
+                padding:22px 16px;text-align:center;margin:6px 0;">
+        <div style="font-size:13px;color:#9fb6cc;">{message}</div>
+        {hint_html}
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def render_pagination_bar(page_key, total_pages, total_rows, limit_key=None, limit_options=None, key_prefix=""):
+    """統一分頁列（首頁/上頁/下頁/跳頁/每頁筆數）。取代各頁籤各自實作的 🏠🔼🔽 emoji 按鈕列。
+    page_key / limit_key 沿用呼叫端既有的 session_state 變數名稱，不影響原本的資料邏輯。"""
+    key_prefix = key_prefix or page_key
+    current_page = st.session_state.get(page_key, 1)
+
+    cols = st.columns([1, 1, 1, 2, 1] if (limit_key and limit_options) else [1, 1, 1, 2])
+    with cols[0]:
+        if st.button("首頁", key=f"{key_prefix}_first_page", use_container_width=True):
+            st.session_state[page_key] = 1
+            st.rerun()
+    with cols[1]:
+        if st.button("◀ 上頁", key=f"{key_prefix}_prev_page", use_container_width=True) and current_page > 1:
+            st.session_state[page_key] = current_page - 1
+            st.rerun()
+    with cols[2]:
+        if st.button("下頁 ▶", key=f"{key_prefix}_next_page", use_container_width=True) and current_page < total_pages:
+            st.session_state[page_key] = current_page + 1
+            st.rerun()
+    with cols[3]:
+        jump_page = st.number_input("", min_value=1, max_value=total_pages,
+            value=min(current_page, total_pages), key=f"{key_prefix}_jump_page", label_visibility="collapsed")
+        if jump_page != current_page:
+            st.session_state[page_key] = jump_page
+    if limit_key and limit_options:
+        with cols[4]:
+            st.selectbox("", options=limit_options,
+                index=limit_options.index(st.session_state.get(limit_key, limit_options[0])),
+                key=limit_key, label_visibility="collapsed")
+
+    st.markdown(
+        f"<div style='text-align:center;color:#9fb6cc;font-size:11.5px;margin-top:4px;'>"
+        f"第 {st.session_state.get(page_key, current_page)} / {total_pages} 頁　·　共 {total_rows} 筆</div>",
+        unsafe_allow_html=True
+    )
+
 
 def set_form_style():
     st.markdown("""
@@ -1974,7 +2028,7 @@ elif menu == "客戶名單":
         ]
     
         if df_filtered.empty:
-            st.warning("❗ 查無符合的資料")
+            render_empty_state("查無符合的資料")
     
     # ===== 表格顯示 =====
     if not df_filtered.empty:
@@ -2507,7 +2561,7 @@ elif menu == "配方管理":
                 st.session_state.last_search_signature_tab2 = search_signature
 
             if search_keywords:
-                st.info(f"🔍 搜尋結果：共 {total_rows} 筆資料｜固定 {st.session_state.get('recipe_cols_tab2', 1)} 欄顯示")
+                render_search_summary(total_rows, extra=f"固定 {st.session_state.get('recipe_cols_tab2', 1)} 欄顯示")
 
             limit_options = [1, 5, 10, 20, 50, 100]
             if "limit_per_page_tab2" not in st.session_state:
@@ -2537,28 +2591,16 @@ elif menu == "配方管理":
                              use_container_width=True, hide_index=True)
             else:
                 if search_keywords:
-                    st.info("查無符合的配方")
+                    render_empty_state("查無符合的配方", hint="試試調整關鍵字或減少搜尋條件")
 
-            cols_page = st.columns([1, 1, 1, 2, 1])
-            with cols_page[0]:
-                if st.button("🏠首頁", key="first_page_tab2"):
-                    st.session_state.page_tab2 = 1; st.rerun()
-            with cols_page[1]:
-                if st.button("🔼上頁", key="prev_page_tab2") and st.session_state.page_tab2 > 1:
-                    st.session_state.page_tab2 -= 1; st.rerun()
-            with cols_page[2]:
-                if st.button("🔽下頁", key="next_page_tab2") and st.session_state.page_tab2 < total_pages:
-                    st.session_state.page_tab2 += 1; st.rerun()
-            with cols_page[3]:
-                jump_page = st.number_input("", min_value=1, max_value=total_pages,
-                    value=st.session_state.page_tab2, key="jump_page_tab2", label_visibility="collapsed")
-                if jump_page != st.session_state.page_tab2:
-                    st.session_state.page_tab2 = jump_page
-            with cols_page[4]:
-                st.selectbox("", options=limit_options,
-                    index=limit_options.index(limit), key="limit_per_page_tab2", label_visibility="collapsed")
-
-            st.caption(f"頁碼 {st.session_state.page_tab2} / {total_pages}，總筆數 {total_rows}")
+            render_pagination_bar(
+                page_key="page_tab2",
+                total_pages=total_pages,
+                total_rows=total_rows,
+                limit_key="limit_per_page_tab2",
+                limit_options=limit_options,
+                key_prefix="recipe_tab2"
+            )
 
     # ============================================================
     # Tab 3：配方預覽/修改/刪除
@@ -2956,7 +2998,7 @@ elif menu == "配方管理":
                     df_color["國際色號"].str.contains(keyword, case=False, na=False)
                 ]
                 if df_show.empty:
-                    st.info("⚠️ 查無符合的色粉")
+                    render_empty_state("查無符合的色粉")
                 else:
                     for i, row in df_show.iterrows():
                         c1, c2, c3 = st.columns([4, 1, 1])
@@ -4240,7 +4282,7 @@ elif menu == "生產單管理":
         # ===== 顯示選擇結果 =====
         if not option_map:
         
-            st.warning("查無符合的配方")
+            render_empty_state("查無符合的配方")
         
             selected_row = None
             selected_label = None
@@ -4931,6 +4973,11 @@ elif menu == "生產單管理":
     
         if "selectbox_order_limit_tab2" not in st.session_state:
             st.session_state.selectbox_order_limit_tab2 = 5
+        if "last_limit_order_tab2" not in st.session_state:
+            st.session_state.last_limit_order_tab2 = st.session_state.selectbox_order_limit_tab2
+        if st.session_state.last_limit_order_tab2 != st.session_state.selectbox_order_limit_tab2:
+            st.session_state.order_page_tab2 = 1
+            st.session_state.last_limit_order_tab2 = st.session_state.selectbox_order_limit_tab2
     
         total_rows = len(df_filtered)
         limit = st.session_state.selectbox_order_limit_tab2
@@ -4995,58 +5042,16 @@ elif menu == "生產單管理":
                 hide_index=True
             )
         else:
-            st.info("查無符合的資料（分頁結果）")
-    
-        cols_page = st.columns([2, 2, 2, 2, 2])
-    
-        with cols_page[0]:
-            if st.button("🏠首頁", key="first_page_tab2"):
-                st.session_state.order_page_tab2 = 1
-                st.rerun()
-    
-        with cols_page[1]:
-            if st.button("🔼上頁", key="prev_page_tab2") and st.session_state.order_page_tab2 > 1:
-                st.session_state.order_page_tab2 -= 1
-                st.rerun()
-    
-        with cols_page[2]:
-            if st.button("🔽下頁", key="next_page_tab2") and st.session_state.order_page_tab2 < total_pages:
-                st.session_state.order_page_tab2 += 1
-                st.rerun()
-    
-        with cols_page[3]:
-            jump_page = st.number_input(
-                "",
-                min_value=1,
-                max_value=total_pages,
-                value=st.session_state.order_page_tab2,
-                key="jump_page_tab2",
-                label_visibility="collapsed"
-            )
-            if jump_page != st.session_state.order_page_tab2:
-                st.session_state.order_page_tab2 = jump_page
-                st.rerun()
-    
-        with cols_page[4]:
-            options_list = [5, 10, 20, 50, 75, 100]
-            current_limit = st.session_state.get("selectbox_order_limit_tab2", 5)
-            if current_limit not in options_list:
-                current_limit = 5
-    
-            new_limit = st.selectbox(
-                label=" ",
-                options=options_list,
-                index=options_list.index(current_limit),
-                key="selectbox_order_limit_tab2_widget",
-                label_visibility="collapsed"
-            )
-    
-            if new_limit != st.session_state.selectbox_order_limit_tab2:
-                st.session_state.selectbox_order_limit_tab2 = new_limit
-                st.session_state.order_page_tab2 = 1
-                st.rerun()
-    
-        st.caption(f"頁碼 {st.session_state.order_page_tab2} / {total_pages}，總筆數 {total_rows}")
+            render_empty_state("查無符合的生產單資料", hint="試試調整關鍵字或減少搜尋條件")
+
+        render_pagination_bar(
+            page_key="order_page_tab2",
+            total_pages=total_pages,
+            total_rows=total_rows,
+            limit_key="selectbox_order_limit_tab2",
+            limit_options=[5, 10, 20, 50, 75, 100],
+            key_prefix="order_tab2"
+        )
 
     # ============================================================
     # Tab 3: 生產單預覽/修改/刪除
@@ -5228,44 +5233,18 @@ elif menu == "生產單管理":
                         hide_index=True
                     )
 
-                    st.markdown("""
-                    <style>
-                    .tab3-pager-note {
-                        font-size: 12px;
-                        color: #9aa0a6;
-                        text-align: right;
-                        margin-top: -2px;
-                        margin-bottom: 4px;
-                    }
-                    </style>
-                    """, unsafe_allow_html=True)
-
-                    pager_left, pager_size_col, pager_page_col = st.columns([8.6, 1.0, 1.0], vertical_alignment="bottom")
-                    with pager_left:
-                        st.markdown(
-                            f"<div class='tab3-pager-note'>共 {len(df_display_tab3)} 筆 · 第 {page}/{total_pages} 頁</div>",
-                            unsafe_allow_html=True
-                        )
-                    with pager_size_col:
-                        st.selectbox(
-                            "每頁",
-                            [5, 10, 20, 50, 100],
-                            key="tab3_page_size",
-                            label_visibility="collapsed"
-                        )
-                    with pager_page_col:
-                        st.number_input(
-                            "頁碼",
-                            min_value=1,
-                            max_value=total_pages,
-                            step=1,
-                            key="tab3_page_number",
-                            label_visibility="collapsed"
-                        )
+                    render_pagination_bar(
+                        page_key="tab3_page_number",
+                        total_pages=total_pages,
+                        total_rows=len(df_display_tab3),
+                        limit_key="tab3_page_size",
+                        limit_options=[5, 10, 20, 50, 100],
+                        key_prefix="order_tab3"
+                    )
                 else:
-                    st.info("⚠️ 沒有符合條件的生產單")
+                    render_empty_state("沒有符合條件的生產單")
             else:
-                st.warning("⚠️ 查無符合的生產單，請確認輸入的編號或篩選條件。")
+                render_empty_state("查無符合的生產單", hint="請確認輸入的編號或篩選條件")
     
             # 📌 4. 下拉選單
             if not df_filtered_tab3.empty:
@@ -7425,7 +7404,7 @@ elif menu == "採購管理":
                     df["供應商簡稱"].str.contains(keyword, case=False, na=False)
                 ]
                 if df_filtered.empty:
-                    st.warning("❗ 查無符合的資料")
+                    render_empty_state("查無符合的資料")
 
             if not df_filtered.empty:
                 st.dataframe(df_filtered[columns], use_container_width=True, hide_index=True)
@@ -7872,7 +7851,7 @@ elif menu == "查詢區":
                     df_result_recipe = pd.DataFrame()
 
                 if df_result_pantone.empty and df_result_recipe.empty:
-                    st.warning("查無符合的 Pantone 色號資料。")
+                    render_empty_state("查無符合的 Pantone 色號資料")
                 else:
                     if not df_result_pantone.empty:
                         st.markdown(
@@ -8132,7 +8111,7 @@ elif menu == "查詢區":
                 st.caption(f"目前顯示 {len(df_show)} 筆樣品記錄")
     
                 if df_show.empty:
-                    st.info("⚠️ 查無資料")
+                    render_empty_state("查無資料")
                 else:
                     st.dataframe(
                         df_show[["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"]].reset_index(drop=True),
@@ -8804,11 +8783,11 @@ elif menu == "庫存區":
         cached_result = st.session_state.get("stock_query_result")
         if cached_result is not None:
             if not cached_result:  # 空列表 / 無資料
-                st.info("查無符合條件的庫存資料。")
+                render_empty_state("查無符合條件的庫存資料")
             else:
                 df_result = pd.DataFrame(cached_result)
                 if df_result.empty:
-                    st.info("查無符合條件的庫存資料。")
+                    render_empty_state("查無符合條件的庫存資料")
                 else:
                     st.dataframe(
                         df_result,
@@ -9449,7 +9428,7 @@ elif menu == "庫存區":
 
                 show_cols = ["客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "更新時間"]
                 if query_df.empty:
-                    st.info("查無符合條件的個別客戶庫存資料。")
+                    render_empty_state("查無符合條件的個別客戶庫存資料")
                     st.toast("查詢完成：0 筆資料", icon="ℹ️")
                 else:
                     query_df["數量"] = pd.to_numeric(query_df["數量"], errors="coerce").fillna(0.0)
@@ -9772,7 +9751,7 @@ elif menu == "庫存區":
         if cached is not None:
             df_result = pd.DataFrame(cached)
             if df_result.empty:
-                st.info("⚠️ 查無符合條件的色母庫存資料。")
+                render_empty_state("查無符合條件的色母庫存資料")
             else:
                 st.dataframe(
                     df_result,
@@ -9899,7 +9878,7 @@ elif menu == "庫存區":
                     mime="text/csv"
                 )
             else:
-                st.info("⚠️ 查無用量資料")
+                render_empty_state("查無用量資料")
 
     # ====================================================================
     # Tab 5：色粉用量查詢
@@ -10112,7 +10091,7 @@ elif menu == "庫存區":
         cached_t4 = st.session_state.get("tab4_usage_result")
         if cached_t4 is not None:
             if not cached_t4:  # 空列表 / 無資料
-                st.info("查無符合條件的用量資料。")
+                render_empty_state("查無符合條件的用量資料")
             else:
                 df_usage = pd.DataFrame(cached_t4)
 
@@ -10548,7 +10527,7 @@ elif menu == "洗車廠庫存":
 
         if result_df is not None:
             if result_df.empty:
-                st.info(st.session_state.get("cw_inventory_result_message", "目前查無符合條件的資料。"))
+                render_empty_state(st.session_state.get("cw_inventory_result_message", "目前查無符合條件的資料"))
 
             else:
                 styled_result_df = (
