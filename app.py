@@ -10559,18 +10559,7 @@ elif menu == "洗車廠庫存":
 
             else:
                 display_df = result_df.drop(columns=["出入庫歷程"])
-                
-                styled_result_df = (
-                    display_df.style
-                    .map(
-                        lambda _: "font-weight: 700;",
-                        subset=["產品編號"],
-                    )
-                    .map(
-                        lambda _: "background-color: rgba(255, 215, 0, 0.25); font-weight: 700; color: #ffffff; text-align: right;",
-                        subset=["目前庫存"],
-                    )
-                )
+                styled_result_df = display_df
 
                 carwash_inventory_column_config = {
                     "產品編號": st.column_config.TextColumn("產品編號", width="small"),
