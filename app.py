@@ -10550,45 +10550,16 @@ elif menu == "洗車廠庫存":
 
                 if result_df.empty:
                     st.session_state["cw_inventory_result_message"] = "目前查無符合條件的資料（已隱藏庫存為 0 的產品）。"
-    
+ 
         result_df = st.session_state.get("cw_inventory_result_df")
-
+        
         if result_df is not None:
             if result_df.empty:
                 st.info(st.session_state.get("cw_inventory_result_message", "目前查無符合條件的資料。"))
-
+        
             else:
-                display_df = result_df.drop(columns=["出入庫歷程"])
-                styled_result_df = display_df
-
-                carwash_inventory_column_config = {
-                    "產品編號": st.column_config.TextColumn("產品編號", width="small"),
-                    "期初庫存": st.column_config.TextColumn("期初庫存", width="small"),
-                    "區間入庫": st.column_config.TextColumn("區間入庫", width="small"),
-                    "區間出庫": st.column_config.TextColumn("區間出庫", width="small"),
-                    "目前庫存": st.column_config.TextColumn("目前庫存", width="small"),
-                    "單位": st.column_config.TextColumn("單位", width="small"),
-                    "備註": st.column_config.TextColumn("備註", width="medium"),
-                }
-                
-                # 主表格不再放歷程欄，維持一列一品項，畫面高度不會被拉長
-                st.dataframe(
-                    styled_result_df,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config=carwash_inventory_column_config,
-                )
-                
-                # 點選某一列才展開該品項的出入庫歷程
-                if event.selection and event.selection.get("rows"):
-                    sel_idx = event.selection["rows"][0]
-                    sel_row = result_df.iloc[sel_idx]
-                    with st.container(border=True):
-                        st.markdown(f"**{sel_row.get('產品編號','')} 出入庫歷程**")
-                        st.markdown(
-                            str(sel_row.get("出入庫歷程", "")).replace("\n", "  \n"),
-                        )
-
+                st.dataframe(result_df, use_container_width=True, hide_index=True)
+        
                 export_csv = result_df.to_csv(index=False).encode("utf-8-sig")
                 st.download_button(
                     "⬇️ 匯出庫存查詢 CSV",
