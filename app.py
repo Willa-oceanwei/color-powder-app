@@ -5465,112 +5465,112 @@ elif menu == "生產單管理":
                     st.stop()
 
             with cols_edit[0]:
-                    if st.button("💾 儲存修改", key="save_edit_button_tab3"):
-                        # ===== 先組出最新資料 =====
-                        updated_order_dict = order_dict.copy()
-                        updated_order_dict["客戶名稱"] = new_customer
-                        updated_order_dict["顏色"] = new_color
-                        updated_order_dict["備註"] = new_remark
+                if st.button("💾 儲存修改", key="save_edit_button_tab3"):
+                # ===== 先組出最新資料 =====
+                updated_order_dict = order_dict.copy()
+                updated_order_dict["客戶名稱"] = new_customer
+                updated_order_dict["顏色"] = new_color
+                updated_order_dict["備註"] = new_remark
                 
-                        for i in range(1, 5):
-                            updated_order_dict[f"包裝重量{i}"] = new_packing_weights[i - 1]
-                            updated_order_dict[f"包裝份數{i}"] = new_packing_counts[i - 1]
+                for i in range(1, 5):
+                    updated_order_dict[f"包裝重量{i}"] = new_packing_weights[i - 1]
+                    updated_order_dict[f"包裝份數{i}"] = new_packing_counts[i - 1]
                 
-                        # ===== 計算修改前後代工數量 =====
-                        old_oem_qty = calc_order_oem_qty_kg(order_dict)
-                        new_oem_qty = calc_order_oem_qty_kg(updated_order_dict)
+                # ===== 計算修改前後代工數量 =====
+                old_oem_qty = calc_order_oem_qty_kg(order_dict)
+                new_oem_qty = calc_order_oem_qty_kg(updated_order_dict)
                 
-                        # ===== 檢查是否已有連動代工單 =====
-                        has_linked_oem = False
-                        try:
-                            df_oem_linked = get_cached_sheet_df("代工管理")
-                            has_linked_oem = (
-                                not df_oem_linked.empty
-                                and "生產單號" in df_oem_linked.columns
-                                and df_oem_linked["生產單號"]
-                                    .astype(str)
-                                    .str.strip()
-                                    .eq(str(order_no).strip())
-                                    .any()
-                            )
-                        except Exception as e:
-                            st.warning(f"讀取代工管理失敗：{e}")
-                
-                        qty_changed = abs(new_oem_qty - old_oem_qty) > 1e-9
-                
-                        # ===== DEBUG =====
-                        st.write({
-                            "has_linked_oem": has_linked_oem,
-                            "old_oem_qty": old_oem_qty,
-                            "new_oem_qty": new_oem_qty,
-                            "qty_changed": qty_changed,
-                        })
-                
-                        # ===== 若已有連動代工單且數量變更，先詢問是否同步 =====
-                        if has_linked_oem and qty_changed:
-                            st.session_state["pending_order_update_tab3"] = updated_order_dict
-                            st.session_state["pending_oem_sync_qty_tab3"] = new_oem_qty
-                            st.session_state["pending_oem_sync_old_qty_tab3"] = old_oem_qty
-                            st.rerun()
-                
-                        # ===== 否則直接儲存 =====
-                        else:
-                            save_order_edit(updated_order_dict, sync_oem_qty=False)
-                            st.session_state.show_edit_panel = False
-                            st.session_state.editing_order = None
-                            st.rerun()
-                
-                pending_order = st.session_state.get("pending_order_update_tab3")
-                
-                if (
-                    pending_order
-                    and str(pending_order.get("生產單號", "")).strip() == str(order_no).strip()
-                ):
-                    old_qty = float(st.session_state.get("pending_oem_sync_old_qty_tab3", 0.0))
-                    new_qty = float(st.session_state.get("pending_oem_sync_qty_tab3", 0.0))
-                
-                    st.warning(
-                        f"⚠️ 此生產單有連動代工單，且數量由 {old_qty:.2f} kg "
-                        f"變更為 {new_qty:.2f} kg。\n\n"
-                        "是否同步更新對應代工單數量？"
+                # ===== 檢查是否已有連動代工單 =====
+                has_linked_oem = False
+                try:
+                    df_oem_linked = get_cached_sheet_df("代工管理")
+                    has_linked_oem = (
+                        not df_oem_linked.empty
+                        and "生產單號" in df_oem_linked.columns
+                        and df_oem_linked["生產單號"]
+                            .astype(str)
+                            .str.strip()
+                            .eq(str(order_no).strip())
+                            .any()
                     )
+                except Exception as e:
+                    st.warning(f"讀取代工管理失敗：{e}")
                 
-                    c_sync_yes, c_sync_no = st.columns(2)
+                qty_changed = abs(new_oem_qty - old_oem_qty) > 1e-9
                 
-                    with c_sync_yes:
-                        if st.button("✅ 是，同步代工單", key="confirm_sync_oem_yes_tab3"):
-                            save_order_edit(
-                                pending_order,
-                                sync_oem_qty=True,
-                                synced_qty=new_qty,
-                            )
+                # ===== DEBUG =====
+                st.write({
+                    "has_linked_oem": has_linked_oem,
+                    "old_oem_qty": old_oem_qty,
+                     "new_oem_qty": new_oem_qty,
+                    "qty_changed": qty_changed,
+                })
                 
-                            st.session_state.pop("pending_order_update_tab3", None)
-                            st.session_state.pop("pending_oem_sync_qty_tab3", None)
-                            st.session_state.pop("pending_oem_sync_old_qty_tab3", None)
-                            st.session_state.show_edit_panel = False
-                            st.session_state.editing_order = None
-                            st.rerun()
+                # ===== 若已有連動代工單且數量變更，先詢問是否同步 =====
+                if has_linked_oem and qty_changed:
+                    st.session_state["pending_order_update_tab3"] = updated_order_dict
+                    st.session_state["pending_oem_sync_qty_tab3"] = new_oem_qty
+                    st.session_state["pending_oem_sync_old_qty_tab3"] = old_oem_qty
+                    st.rerun()
                 
-                    with c_sync_no:
-                        if st.button("略過同步（只改生產單）", key="confirm_sync_oem_no_tab3"):
-                            save_order_edit(
-                                pending_order,
-                                sync_oem_qty=False,
-                            )
-                
-                            st.session_state.pop("pending_order_update_tab3", None)
-                            st.session_state.pop("pending_oem_sync_qty_tab3", None)
-                            st.session_state.pop("pending_oem_sync_old_qty_tab3", None)
-                            st.session_state.show_edit_panel = False
-                            st.session_state.editing_order = None
-                            st.rerun()
-        
-            with cols_edit[1]:
-                if st.button("返回", key="return_button_tab3"):
+                # ===== 否則直接儲存 =====
+                else:
+                    save_order_edit(updated_order_dict, sync_oem_qty=False)
                     st.session_state.show_edit_panel = False
                     st.session_state.editing_order = None
                     st.rerun()
+                
+                    pending_order = st.session_state.get("pending_order_update_tab3")
+                
+                    if (
+                        pending_order
+                        and str(pending_order.get("生產單號", "")).strip() == str(order_no).strip()
+                    ):
+                        old_qty = float(st.session_state.get("pending_oem_sync_old_qty_tab3", 0.0))
+                        new_qty = float(st.session_state.get("pending_oem_sync_qty_tab3", 0.0))
+                
+                        st.warning(
+                            f"⚠️ 此生產單有連動代工單，且數量由 {old_qty:.2f} kg "
+                            f"變更為 {new_qty:.2f} kg。\n\n"
+                            "是否同步更新對應代工單數量？"
+                        )
+                
+                        c_sync_yes, c_sync_no = st.columns(2)
+                
+                        with c_sync_yes:
+                            if st.button("✅ 是，同步代工單", key="confirm_sync_oem_yes_tab3"):
+                                save_order_edit(
+                                    pending_order,
+                                    sync_oem_qty=True,
+                                    synced_qty=new_qty,
+                                )
+                
+                                st.session_state.pop("pending_order_update_tab3", None)
+                                st.session_state.pop("pending_oem_sync_qty_tab3", None)
+                                st.session_state.pop("pending_oem_sync_old_qty_tab3", None)
+                                st.session_state.show_edit_panel = False
+                                st.session_state.editing_order = None
+                                st.rerun()
+                
+                        with c_sync_no:
+                            if st.button("略過同步（只改生產單）", key="confirm_sync_oem_no_tab3"):
+                                save_order_edit(
+                                    pending_order,
+                                    sync_oem_qty=False,
+                                )
+                
+                                st.session_state.pop("pending_order_update_tab3", None)
+                                st.session_state.pop("pending_oem_sync_qty_tab3", None)
+                                st.session_state.pop("pending_oem_sync_old_qty_tab3", None)
+                                st.session_state.show_edit_panel = False
+                                st.session_state.editing_order = None
+                                st.rerun()
+        
+                with cols_edit[1]:
+                    if st.button("返回", key="return_button_tab3"):
+                        st.session_state.show_edit_panel = False
+                        st.session_state.editing_order = None
+                        st.rerun()
  
 # ======== 代工管理分頁 =========
 if menu == "代工管理":
