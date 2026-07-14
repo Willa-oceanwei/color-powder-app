@@ -3506,10 +3506,8 @@ body {{
     padding: 0;
 }}
 pre {{
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 24px;
-    font-weight: bold;
-    line-height: 1.6;
+    font-size: 22px;
+    line-height: 1.4;
     white-space: pre;
     margin-left: 25px;
     margin-top: 10px;
