@@ -5479,9 +5479,6 @@ elif menu == "生產單管理":
                     old_oem_qty = calc_order_oem_qty_kg(order_dict)
                     new_oem_qty = calc_order_oem_qty_kg(updated_order_dict)
 
-                    st.write("DEBUG has_linked_oem:", has_linked_oem)
-                    st.write("DEBUG old_oem_qty:", old_oem_qty, "new_oem_qty:", new_oem_qty)
-
                     try:
                         df_oem_linked = get_cached_sheet_df("代工管理")
                         has_linked_oem = (
@@ -5491,6 +5488,9 @@ elif menu == "生產單管理":
                         )
                     except Exception:
                         has_linked_oem = False
+
+                    st.write("DEBUG has_linked_oem:", has_linked_oem)
+                    st.write("DEBUG old_oem_qty:", old_oem_qty, "new_oem_qty:", new_oem_qty)
 
                     qty_changed = abs(new_oem_qty - old_oem_qty) > 1e-9
                     if has_linked_oem and qty_changed:
