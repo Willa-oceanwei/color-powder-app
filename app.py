@@ -3493,7 +3493,7 @@ elif menu == "配方管理":
                             )
 
                             content_body = "\n".join(body_lines)
-                            content = f"{header_line}\n{unit_line}\n{content_body}"
+                            content = f"{header_line}\n\n{unit_line}\n{content_body}"
 
                             return f"""<html>
 <head>
