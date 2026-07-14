@@ -1136,7 +1136,10 @@ def render_oem_status_cards(df):
         <div style="background:#0d1b2a;border:1px solid rgba(255,255,255,0.08);border-radius:10px;
                     padding:12px 14px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
-                <div style="font-size:13px;color:#ffffff;font-weight:600;">{row.get('配方編號','')}</div>
+                <div style="font-size:13px;color:#ffffff;font-weight:600;">
+                    {row.get('配方編號','')}
+                    <span style="color:#8fd6c4;font-weight:500;">　{row.get('顏色','')}</span>
+                </div>
                 <div style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;
                             background:{s['bg']};color:{s['fg']};border:1px solid {s['border']};
                             white-space:nowrap;margin-left:8px;">
@@ -6340,6 +6343,15 @@ if menu == "代工管理":
 
             progress_data = []
 
+            # 配方編號 -> 顏色 查詢表，供下面卡片顯示用
+            df_recipe_for_color = st.session_state.get("df_recipe", pd.DataFrame())
+            recipe_color_map = {}
+            if not df_recipe_for_color.empty and "配方編號" in df_recipe_for_color.columns and "顏色" in df_recipe_for_color.columns:
+                recipe_color_map = dict(zip(
+                    df_recipe_for_color["配方編號"].astype(str),
+                    df_recipe_for_color["顏色"].astype(str)
+                ))
+
             df_delivery_norm = df_delivery.copy()
             df_return_norm = df_return.copy()
             if not df_delivery_norm.empty and "代工單號" in df_delivery_norm.columns:
@@ -6402,6 +6414,7 @@ if menu == "代工管理":
                     "代工單號":       oem_id,
                     "代工廠名稱":     oem.get("代工廠商", ""),
                     "配方編號":       oem.get("配方編號", ""),
+                    "顏色":           recipe_color_map.get(str(oem.get("配方編號", "")), ""),
                     "客戶名稱":       oem.get("客戶名稱", ""),
                     "代工數量":       f"{oem.get('代工數量', 0)} kg",
                     "目標載回":       f"{target_qty} kg",
