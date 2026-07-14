@@ -3507,8 +3507,9 @@ body {{
 }}
 pre {{
     font-family: 'Courier New', Courier, monospace;
-    font-size: 22px;
-    line-height: 1.4;
+    font-size: 24px;
+    font-weight: bold;
+    line-height: 1.6;
     white-space: pre;
     margin-left: 25px;
     margin-top: 10px;
