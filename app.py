@@ -4503,7 +4503,7 @@ elif menu == "生產單管理":
                 # 📌 4️⃣ 低庫存檢查（統一與庫存區邏輯）
                 # ============================================================
 
-                last_stock = st.session_state.get("last_final_stock", {}).copy()
+                last_stock = calculate_current_stock().copy()
                 normalized_last_stock = {
                     str(k).strip().upper(): v for k, v in last_stock.items()
                 }
