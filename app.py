@@ -3898,11 +3898,26 @@ elif menu == "生產單管理":
         or (now - last_calc_time).total_seconds() > stock_recalc_interval_sec
     )
 
+    st.write(
+        "should_recalc_stock =",
+        should_recalc_stock,
+        "last_calc_time =",
+        last_calc_time
+    )
+
     if should_recalc_stock:
+        st.write("🔄 重新計算庫存")
         # 讓既有 sheet TTL 快取先判斷是否需要打 API
         load_recipe(force_reload=False)
         st.session_state["last_final_stock"] = calculate_current_stock()
         st.session_state["stock_calc_time"] = now
+    else:
+        st.write("⚠️ 使用 Session 的 last_final_stock")
+
+    st.write(
+        "AH135 Session =",
+        st.session_state.get("last_final_stock", {}).get("AH135")
+    )
     
     # ============================================================
     # 共用顯示函式（正式流程使用）
