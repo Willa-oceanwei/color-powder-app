@@ -4565,12 +4565,12 @@ elif menu == "生產單管理":
 
                         預估剩餘：{(last_stock_before-total_used_g)/1000:.2f} kg
                         """
-                           )
+                            )
 
-                           st.write(
-                           "Session AH135 =",
-                           st.session_state.get("last_final_stock", {}).get("AH135")
-                           )
+                            st.write(
+                            "Session AH135 =",
+                            st.session_state.get("last_final_stock", {}).get("AH135")
+                            )
                         
                         new_stock = last_stock_before - total_used_g
                         normalized_last_stock[pid] = new_stock
