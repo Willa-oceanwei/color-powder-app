@@ -4554,6 +4554,17 @@ elif menu == "生產單管理":
 
                         # 扣庫存
                         last_stock_before = _safe_float_local(normalized_last_stock.get(pid, 0), 0.0)
+
+                        if pid == "AH135":
+                            st.error(
+                                f"""【AH135 Debug】
+                        目前庫存(last_stock_before)：{last_stock_before/1000:.2f} kg
+                        本次耗用(total_used_g)：{total_used_g/1000:.2f} kg
+                        預估剩餘(new_stock)：{(last_stock_before-total_used_g)/1000:.2f} kg
+                        黃色警戒值：{yellow_threshold/1000:.2f} kg
+                        """
+                            )
+                        
                         new_stock = last_stock_before - total_used_g
                         normalized_last_stock[pid] = new_stock
                         last_stock[pid] = new_stock
