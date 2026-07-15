@@ -3898,26 +3898,11 @@ elif menu == "生產單管理":
         or (now - last_calc_time).total_seconds() > stock_recalc_interval_sec
     )
 
-    st.write(
-        "should_recalc_stock =",
-        should_recalc_stock,
-        "last_calc_time =",
-        last_calc_time
-    )
-
     if should_recalc_stock:
-        st.write("🔄 重新計算庫存")
         # 讓既有 sheet TTL 快取先判斷是否需要打 API
         load_recipe(force_reload=False)
         st.session_state["last_final_stock"] = calculate_current_stock()
         st.session_state["stock_calc_time"] = now
-    else:
-        st.write("⚠️ 使用 Session 的 last_final_stock")
-
-    st.write(
-        "AH135 Session =",
-        st.session_state.get("last_final_stock", {}).get("AH135")
-    )
     
     # ============================================================
     # 共用顯示函式（正式流程使用）
@@ -4503,7 +4488,7 @@ elif menu == "生產單管理":
                 # 📌 4️⃣ 低庫存檢查（統一與庫存區邏輯）
                 # ============================================================
 
-                last_stock = calculate_current_stock().copy()
+                last_stock = st.session_state.get("last_final_stock", {}).copy()
                 normalized_last_stock = {
                     str(k).strip().upper(): v for k, v in last_stock.items()
                 }
@@ -4569,24 +4554,6 @@ elif menu == "生產單管理":
 
                         # 扣庫存
                         last_stock_before = _safe_float_local(normalized_last_stock.get(pid, 0), 0.0)
-
-                        if pid == "AH135":
-                            st.error(
-                                f"""【AH135 Debug】
-
-                        目前庫存(last_stock_before)：{last_stock_before/1000:.2f} kg
-
-                        本次耗用(total_used_g)：{total_used_g/1000:.2f} kg
-
-                        預估剩餘：{(last_stock_before-total_used_g)/1000:.2f} kg
-                        """
-                            )
-
-                            st.write(
-                            "Session AH135 =",
-                            st.session_state.get("last_final_stock", {}).get("AH135")
-                            )
-                        
                         new_stock = last_stock_before - total_used_g
                         normalized_last_stock[pid] = new_stock
                         last_stock[pid] = new_stock
