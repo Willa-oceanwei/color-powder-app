@@ -752,10 +752,10 @@ def build_pantone_backfill_reference_df(df_pantone_reference=None):
     return pd.DataFrame(ref_rows, columns=["原料", "最後編號"])
 
 
-def show_pantone_backfill_reference():
-    """顯示 pantone資料表 的歷史補登參考。"""
+def show_pantone_backfill_reference(df_pantone_reference=None):
+    """顯示 pantone資料表 的歷史補登參考。若有傳入已讀取的 df_pantone，直接沿用，不重複打 API。"""
     st.markdown("<div style='font-size:12px;color:#8a8a8a;'>歷史補登參考：各原料最後登錄編號</div>", unsafe_allow_html=True)
-    ref_df = build_pantone_backfill_reference_df()
+    ref_df = build_pantone_backfill_reference_df(df_pantone_reference)
     if ref_df.empty:
         st.caption(f"目前沒有 {PANTONE_BACKFILL_SHEET_NAME} 資料可供參考。")
     else:
@@ -7715,7 +7715,7 @@ elif menu == "查詢區":
                         )
 
         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-        show_pantone_backfill_reference()
+        show_pantone_backfill_reference(df_pantone)
                     
     # ========== Tab 4：樣品記錄表 ==========
     from datetime import datetime, date
