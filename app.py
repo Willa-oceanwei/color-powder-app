@@ -711,6 +711,9 @@ def get_pantone_formula_codes_from_values(values):
         st.write("第一列資料 =", values[0])
         st.write("第二列資料 =", values[1])
         st.write("第三列資料 =", values[2])
+        st.write("Header row =", header_idx)
+        st.write("Formula column =", formula_col_idx)
+        st.write("前5筆公式 =", formula_codes[:5])
         
         return formula_codes
 
