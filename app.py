@@ -2691,20 +2691,30 @@ elif menu == "配方管理":
                 key="recipe_code_filter_tab3"
             )
             recipe_filter_keywords = split_search_keywords(recipe_filter_text)
-            filtered_recipe_codes = [
+
+            # 只在「非空白」選項中比對符合的配方（空白選項另外處理，避免它一直混在結果裡）
+            matched_codes = [
                 code for code in recipe_codes
-                if code == "" or matches_all_keywords(code_label_map.get(code, ""), recipe_filter_keywords)
+                if code != "" and matches_all_keywords(code_label_map.get(code, ""), recipe_filter_keywords)
             ]
             current_recipe_code = st.session_state["select_recipe_code_page_tab3"]
-            if current_recipe_code and current_recipe_code not in filtered_recipe_codes:
-                filtered_recipe_codes.append(current_recipe_code)
 
-            selected_code = st.selectbox(
-                "輸入配方", options=filtered_recipe_codes,
-                index=filtered_recipe_codes.index(current_recipe_code) if current_recipe_code in filtered_recipe_codes else 0,
-                format_func=lambda code: code_label_map.get(code, ""),
-                key="select_recipe_code_page_tab3"
-            )
+            if recipe_filter_keywords and len(matched_codes) == 1:
+                # ✅ 只符合一筆 → 直接自動選取，省去手動點下拉的步驟
+                selected_code = matched_codes[0]
+                st.session_state["select_recipe_code_page_tab3"] = selected_code
+                st.success(f"已自動選取：{code_label_map.get(selected_code, selected_code)}")
+            else:
+                filtered_recipe_codes = [""] + matched_codes
+                if current_recipe_code and current_recipe_code not in filtered_recipe_codes:
+                    filtered_recipe_codes.append(current_recipe_code)
+
+                selected_code = st.selectbox(
+                    "輸入配方", options=filtered_recipe_codes,
+                    index=filtered_recipe_codes.index(current_recipe_code) if current_recipe_code in filtered_recipe_codes else 0,
+                    format_func=lambda code: code_label_map.get(code, ""),
+                    key="select_recipe_code_page_tab3"
+                )
 
             # 只在切換配方時重置面板，避免按下刪除確認時被立即清掉狀態
             if st.session_state.get("last_selected_recipe_code_tab3") != selected_code:
@@ -3792,7 +3802,17 @@ elif menu == "生產單管理":
         df_order_hist = st.session_state.get("df_order", pd.DataFrame()).copy()
         if df_order_hist.empty:
             return stock_dict
-        
+
+        # ✅ 防止同一張生產單因重複寫入而被多次計算（保留最新一筆）
+        if "生產單號" in df_order_hist.columns:
+            if "建立時間" in df_order_hist.columns:
+                df_order_hist["建立時間"] = pd.to_datetime(df_order_hist["建立時間"], errors="coerce")
+                df_order_hist = df_order_hist.sort_values("建立時間").drop_duplicates(
+                    subset="生產單號", keep="last"
+                )
+            else:
+                df_order_hist = df_order_hist.drop_duplicates(subset="生產單號", keep="last")
+
         if "生產日期" in df_order_hist.columns:
             df_order_hist["生產日期"] = pd.to_datetime(df_order_hist["生產日期"], errors="coerce")
         
