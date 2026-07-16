@@ -567,6 +567,9 @@ def _load_sheet_values_with_cache(sheet_name, force_reload=False, ttl_seconds=SH
 
     ws = get_cached_worksheet(sheet_name)
     values = ws.get_all_values()
+    st.write("Sheet Name =", sheet_name)
+    st.write("Worksheet Title =", ws.title)
+    st.write("Rows =", len(values))
     st.write("Pantone rows:", len(values))
     cache[sheet_name] = {"timestamp": now, "values": [row[:] for row in values]}
     return values
