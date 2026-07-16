@@ -28,7 +28,7 @@ if "authenticated" not in st.session_state:
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
     st.markdown(
-        "<h3 style='text-align:center; color:#f0efa2;'>👻 密碼咧 👻</h3>",
+        "<h3 style='text-align:center; color:#f0efa2;'>👻 黑皮啵斯爹 👻</h3>",
         unsafe_allow_html=True,
     )
     _, login_col, _ = st.columns([2, 3, 2])
