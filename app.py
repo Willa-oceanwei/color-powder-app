@@ -3792,6 +3792,14 @@ elif menu == "生產單管理":
         df_order_hist = st.session_state.get("df_order", pd.DataFrame()).copy()
         if df_order_hist.empty:
             return stock_dict
+
+        # ✅ 防止同一張生產單被重複計算（保留最新一筆）
+        if "生產單號" in df_order_hist.columns:
+            if "建立時間" in df_order_hist.columns:
+                df_order_hist["建立時間"] = pd.to_datetime(df_order_hist["建立時間"], errors="coerce")
+                df_order_hist = df_order_hist.sort_values("建立時間").drop_duplicates(subset="生產單號", keep="last")
+            else:
+                df_order_hist = df_order_hist.drop_duplicates(subset="生產單號", keep="last")
         
         if "生產日期" in df_order_hist.columns:
             df_order_hist["生產日期"] = pd.to_datetime(df_order_hist["生產日期"], errors="coerce")
