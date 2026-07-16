@@ -28,7 +28,7 @@ if "authenticated" not in st.session_state:
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
     st.markdown(
-        "<h3 style='text-align:center; color:#f0efa2;'>👻 生日快樂 👻</h3>",
+        "<h3 style='text-align:center; color:#f0efa2;'>👻 密碼咧 👻</h3>",
         unsafe_allow_html=True,
     )
     _, login_col, _ = st.columns([2, 3, 2])
@@ -3792,14 +3792,6 @@ elif menu == "生產單管理":
         df_order_hist = st.session_state.get("df_order", pd.DataFrame()).copy()
         if df_order_hist.empty:
             return stock_dict
-
-        # ✅ 防止同一張生產單被重複計算（保留最新一筆）
-        if "生產單號" in df_order_hist.columns:
-            if "建立時間" in df_order_hist.columns:
-                df_order_hist["建立時間"] = pd.to_datetime(df_order_hist["建立時間"], errors="coerce")
-                df_order_hist = df_order_hist.sort_values("建立時間").drop_duplicates(subset="生產單號", keep="last")
-            else:
-                df_order_hist = df_order_hist.drop_duplicates(subset="生產單號", keep="last")
         
         if "生產日期" in df_order_hist.columns:
             df_order_hist["生產日期"] = pd.to_datetime(df_order_hist["生產日期"], errors="coerce")
@@ -5037,10 +5029,12 @@ elif menu == "生產單管理":
                 
                 # ===== 顯示表格 =====
                 if not df_page.empty and existing_cols:
+                    table_height = min(400, 38 * (len(df_page) + 1) + 3)
                     st.dataframe(
                         df_page[existing_cols].reset_index(drop=True),
                         use_container_width=True,
-                        hide_index=True
+                        hide_index=True,
+                        height=table_height
                     )
 
                     render_pagination_bar(
@@ -5056,23 +5050,32 @@ elif menu == "生產單管理":
             else:
                 render_empty_state("查無符合的生產單", hint="請確認輸入的編號或篩選條件")
     
-            # 📌 4. 下拉選單
+            # 📌 4. 下拉選單（只有一筆符合時直接自動選取，省去手動點下拉）
             if not df_filtered_tab3.empty:
                 df_filtered_tab3['配方編號'] = df_filtered_tab3['配方編號'].fillna('').astype(str)
 
-                st.markdown("---")  # 分隔線
-                st.markdown("**🔽 選擇生產單進行預覽/修改/刪除**")
+                if len(df_filtered_tab3) == 1:
+                    selected_index = df_filtered_tab3.index[0]
+                    selected_order = df_filtered_tab3.loc[selected_index]
+                    selected_code_edit = selected_order["生產單號"]
+                    st.success(
+                        f"已自動選取：{selected_code_edit} | {selected_order['配方編號']} | "
+                        f"{selected_order['顏色']} | {selected_order['客戶名稱']}"
+                    )
+                else:
+                    st.markdown("---")  # 分隔線
+                    st.markdown("**🔽 選擇生產單進行預覽/修改/刪除**")
 
-                selected_index = st.selectbox(
-                    "選擇生產單",
-                    options=df_filtered_tab3.index,
-                    format_func=lambda i: f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
-                    key="select_order_code_tab3",
-                    index=0
-                )
+                    selected_index = st.selectbox(
+                        "選擇生產單",
+                        options=df_filtered_tab3.index,
+                        format_func=lambda i: f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
+                        key="select_order_code_tab3",
+                        index=0
+                    )
 
-                selected_order = df_filtered_tab3.loc[selected_index]
-                selected_code_edit = selected_order["生產單號"]
+                    selected_order = df_filtered_tab3.loc[selected_index]
+                    selected_code_edit = selected_order["生產單號"]
             else:
                 selected_index, selected_order, selected_code_edit = None, None, None
     
