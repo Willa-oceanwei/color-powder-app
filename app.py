@@ -567,10 +567,6 @@ def _load_sheet_values_with_cache(sheet_name, force_reload=False, ttl_seconds=SH
 
     ws = get_cached_worksheet(sheet_name)
     values = ws.get_all_values()
-    st.write("Sheet Name =", sheet_name)
-    st.write("Worksheet Title =", ws.title)
-    st.write("Rows =", len(values))
-    st.write("Pantone rows:", len(values))
     cache[sheet_name] = {"timestamp": now, "values": [row[:] for row in values]}
     return values
 
@@ -707,17 +703,6 @@ def get_pantone_formula_codes_from_values(values):
             formula_code = str(data_row[formula_col_idx]).strip()
             if formula_code and normalize_sheet_header(formula_code) != "配方編號":
                 formula_codes.append(formula_code)
-                
-        st.write("Header row =", header_idx)
-        st.write("Formula column =", formula_col_idx)
-        st.write("前5筆公式 =", formula_codes[:5])
-        st.write("第一列資料 =", values[0])
-        st.write("第二列資料 =", values[1])
-        st.write("第三列資料 =", values[2])
-        st.write("Header row =", header_idx)
-        st.write("Formula column =", formula_col_idx)
-        st.write("前5筆公式 =", formula_codes[:5])
-        
         return formula_codes
 
     return []
