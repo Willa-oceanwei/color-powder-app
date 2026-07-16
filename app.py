@@ -704,9 +704,14 @@ def get_pantone_formula_codes_from_values(values):
             formula_code = str(data_row[formula_col_idx]).strip()
             if formula_code and normalize_sheet_header(formula_code) != "配方編號":
                 formula_codes.append(formula_code)
+                
         st.write("Header row =", header_idx)
         st.write("Formula column =", formula_col_idx)
         st.write("前5筆公式 =", formula_codes[:5])
+        st.write("第一列資料 =", values[0])
+        st.write("第二列資料 =", values[1])
+        st.write("第三列資料 =", values[2])
+        
         return formula_codes
 
     return []
