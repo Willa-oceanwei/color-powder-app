@@ -667,7 +667,7 @@ def show_trial_backfill_reference(df_trial=None):
         st.dataframe(ref_df, use_container_width=True, height=180)
 
 
-PANTONE_BACKFILL_SHEET_NAME = "pantone資料表"
+PANTONE_BACKFILL_SHEET_NAME = "Pantone色號表"
 
 
 def extract_formula_material_initial(formula_code):
