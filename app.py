@@ -28,7 +28,7 @@ if "authenticated" not in st.session_state:
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
     st.markdown(
-        "<h3 style='text-align:center; color:#f0efa2;'>👻 生日快樂 👻</h3>",
+        "<h3 style='text-align:center; color:#f0efa2;'>👻 密碼咧 👻</h3>",
         unsafe_allow_html=True,
     )
     _, login_col, _ = st.columns([2, 3, 2])
@@ -567,7 +567,6 @@ def _load_sheet_values_with_cache(sheet_name, force_reload=False, ttl_seconds=SH
 
     ws = get_cached_worksheet(sheet_name)
     values = ws.get_all_values()
-    st.write("Pantone rows:", len(values))
     cache[sheet_name] = {"timestamp": now, "values": [row[:] for row in values]}
     return values
 
@@ -668,7 +667,7 @@ def show_trial_backfill_reference(df_trial=None):
         st.dataframe(ref_df, use_container_width=True, height=180)
 
 
-PANTONE_BACKFILL_SHEET_NAME = "pantone色號表"
+PANTONE_BACKFILL_SHEET_NAME = "pantone資料表"
 
 
 def extract_formula_material_initial(formula_code):
@@ -725,11 +724,11 @@ def get_pantone_formula_codes_from_df(df_pantone_reference):
 
 def build_pantone_backfill_reference_df(df_pantone_reference=None):
     """整理 pantone資料表 中各編號開頭的最後一筆配方編號。"""
-    try:
-        pantone_values = get_cached_sheet_values(PANTONE_BACKFILL_SHEET_NAME)
-    except Exception as e:
-        st.error(f"Pantone讀取失敗：{type(e).__name__}: {e}")
-        pantone_values = []
+    if df_pantone_reference is None:
+        try:
+            pantone_values = get_cached_sheet_values(PANTONE_BACKFILL_SHEET_NAME)
+        except Exception:
+            pantone_values = []
         formula_codes = get_pantone_formula_codes_from_values(pantone_values)
     elif isinstance(df_pantone_reference, pd.DataFrame):
         formula_codes = get_pantone_formula_codes_from_df(df_pantone_reference)
