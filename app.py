@@ -724,11 +724,11 @@ def get_pantone_formula_codes_from_df(df_pantone_reference):
 
 def build_pantone_backfill_reference_df(df_pantone_reference=None):
     """整理 pantone資料表 中各編號開頭的最後一筆配方編號。"""
-    if df_pantone_reference is None:
-        try:
-            pantone_values = get_cached_sheet_values(PANTONE_BACKFILL_SHEET_NAME)
-        except Exception:
-            pantone_values = []
+    try:
+        pantone_values = get_cached_sheet_values(PANTONE_BACKFILL_SHEET_NAME)
+    except Exception as e:
+        st.error(f"Pantone讀取失敗：{type(e).__name__}: {e}")
+        pantone_values = []
         formula_codes = get_pantone_formula_codes_from_values(pantone_values)
     elif isinstance(df_pantone_reference, pd.DataFrame):
         formula_codes = get_pantone_formula_codes_from_df(df_pantone_reference)
