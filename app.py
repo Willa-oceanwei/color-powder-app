@@ -31,10 +31,6 @@ if not st.session_state.authenticated:
         "<h3 style='text-align:center; color:#f0efa2;'>👻 啵啵啵 👻</h3>",
         unsafe_allow_html=True,
     )
-    _, login_col, _ = st.columns([2, 3, 2])
-    with login_col:
-        password_input = st.text_input("密碼：", type="password", key="login_password")
-
     # ✅ 支援按 Enter 或按鈕登入
     _, login_col, _ = st.columns([2, 3, 2])
     with login_col:
