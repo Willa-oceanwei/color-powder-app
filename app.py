@@ -36,17 +36,19 @@ if not st.session_state.authenticated:
         password_input = st.text_input("密碼：", type="password", key="login_password")
 
     # ✅ 支援按 Enter 或按鈕登入
-    if password_input == APP_PASSWORD:
-        st.session_state.authenticated = True
-        st.success("✅ 登入成功！請稍候...")
-        time.sleep(0.8)
-        st.rerun()
-    elif password_input != "":
-        # 使用者輸入錯誤密碼時立即顯示錯誤
-        st.error("❌ 密碼錯誤，請再試一次。")
-        st.stop()
+    _, login_col, _ = st.columns([2, 3, 2])
+    with login_col:
+        password_input = st.text_input("密碼：", type="password", key="login_password")
 
-    # 尚未輸入密碼時停止執行
+        if password_input == APP_PASSWORD:
+            st.session_state.authenticated = True
+            st.success("✅ 登入成功！請稍候...")
+            time.sleep(0.8)
+            st.rerun()
+        elif password_input != "":
+            st.error("❌ 密碼錯誤，請再試一次。")
+            st.stop()
+
     st.stop()
     
 # ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
