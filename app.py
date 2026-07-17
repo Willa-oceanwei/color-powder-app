@@ -10098,6 +10098,14 @@ elif menu == "洗車廠庫存":
             io_qty        = r2c2.number_input("數量", min_value=0.0, step=1.0, key="cw_io_qty")
             io_unit       = r2c3.selectbox("單位", ["KG", "包"], key="cw_io_unit")
             io_note       = r2c4.text_input("備註", key="cw_io_note")
+
+            transfer_to_stock = st.checkbox(
+                "🔁 出庫後同步轉入廠內色粉庫存區（自動新增一筆「進貨」記錄到【庫存區】）",
+                key="cw_io_transfer_to_stock",
+                disabled=(io_type == "入庫"),
+                help="僅「出庫」時可勾選；勾選後會以相同貨品編號與數量，在【庫存區】的庫存記錄中新增一筆類型為「進貨」的紀錄。若單位為「包」，因無法自動換算為 g/kg，請改到【庫存區】手動新增進貨記錄。"
+            )
+
             submit_io    = st.form_submit_button("💾 儲存入/出庫")
 
         if submit_io:
@@ -10137,8 +10145,46 @@ elif menu == "洗車廠庫存":
                 ])
                 invalidate_sheet_cache("洗車廠庫存")
                 st.session_state.carwash_need_reload = True
+
+                transfer_note = ""
+                if io_type == "出庫" and transfer_to_stock:
+                    if io_unit == "包":
+                        st.warning("⚠️ 單位為「包」，無法自動換算轉入色粉庫存區，請至【庫存區】手動新增進貨記錄。")
+                    else:
+                        try:
+                            ws_main_stock = get_cached_worksheet("庫存記錄")
+                        except Exception:
+                            ws_main_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
+                            ws_main_stock.append_row(
+                                ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註"]
+                            )
+                            invalidate_sheet_cache("庫存記錄")
+
+                        try:
+                            stock_header = get_cached_sheet_values("庫存記錄")[0]
+                        except Exception:
+                            stock_header = ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註"]
+
+                        transfer_stock_note = "洗車廠出庫轉入" + (f"（{io_note}）" if io_note.strip() else "")
+                        stock_field_map = {
+                            "類型": "進貨",
+                            "色粉編號": io_product_id,
+                            "日期": out_date.strftime("%Y/%m/%d"),
+                            "數量": io_qty,
+                            "單位": "kg" if io_unit == "KG" else io_unit,
+                            "廠商編號": "",
+                            "廠商名稱": "",
+                            "備註": transfer_stock_note,
+                        }
+                        new_stock_row = [stock_field_map.get(col, "") for col in stock_header]
+                        safe_append_row(ws_main_stock, new_stock_row)
+                        invalidate_sheet_cache("庫存記錄")
+                        st.session_state.stock_need_reload = True
+                        st.session_state.pop("stock_calc_time", None)
+                        transfer_note = f"，並已轉入色粉庫存區 +{io_qty:g} {stock_field_map['單位']}"
+
                 st.session_state["carwash_toast"] = {
-                    "msg": f"✅ 已登錄 {io_type}：{io_product_id} {io_qty} {io_unit}",
+                    "msg": f"✅ 已登錄 {io_type}：{io_product_id} {io_qty} {io_unit}{transfer_note}",
                     "icon": "🧾"
                 }
                 st.rerun()
