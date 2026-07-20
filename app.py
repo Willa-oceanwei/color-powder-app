@@ -38,8 +38,6 @@ if not st.session_state.authenticated:
 
         if password_input == APP_PASSWORD:
             st.session_state.authenticated = True
-            st.success("✅ 登入成功！請稍候...")
-            time.sleep(0.8)
             st.rerun()
         elif password_input != "":
             st.error("❌ 密碼錯誤，請再試一次。")
@@ -520,26 +518,37 @@ render_sidebar()
 
 
 # ======== GCP SERVICE ACCOUNT =========
-service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
-creds = Credentials.from_service_account_info(
-    service_account_info,
-    scopes=[
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ],
-)
-client = gspread.authorize(creds)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1NVI1HHSd87BhFT66ycZKsXNsfsOzk6cXzTSc_XXp_bk/edit#gid=0"
 
-# ======== 建立 Spreadsheet 物件 (避免重複連線) =========
-if "spreadsheet" not in st.session_state:
-    try:
-        st.session_state["spreadsheet"] = client.open_by_url(SHEET_URL)
-    except Exception as e:
-        st.error(f"❗ 無法連線 Google Sheet：{e}")
-        st.stop()
+@st.cache_resource(show_spinner=False)
+def _get_gspread_client():
+    """憑證解析 + gspread 連線建立只做一次（跨所有使用者、跨所有 rerun 共用），
+    而不是像原本那樣每次互動（每個按鈕、每次 rerun）都重新 parse JSON 憑證。"""
+    service_account_info = json.loads(st.secrets["gcp"]["gcp_service_account"])
+    creds = Credentials.from_service_account_info(
+        service_account_info,
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ],
+    )
+    return gspread.authorize(creds)
 
-spreadsheet = st.session_state["spreadsheet"]
+@st.cache_resource(show_spinner=False)
+def _get_spreadsheet():
+    return _get_gspread_client().open_by_url(SHEET_URL)
+
+client = _get_gspread_client()
+
+# ======== 建立 Spreadsheet 物件 (避免重複連線) =========
+try:
+    spreadsheet = _get_spreadsheet()
+except Exception as e:
+    st.error(f"❗ 無法連線 Google Sheet：{e}")
+    st.stop()
+
+# 保留舊的 session_state 存放位置，避免其他地方仍讀取 st.session_state["spreadsheet"]
+st.session_state["spreadsheet"] = spreadsheet
 
 SHEET_CACHE_TTL_SECONDS = 300
 
@@ -2707,9 +2716,17 @@ elif menu == "配方管理":
                 if current_recipe_code and current_recipe_code not in filtered_recipe_codes:
                     filtered_recipe_codes.append(current_recipe_code)
 
+                # ⚠️ 不再同時傳入 index：一旦 session_state 已經有這個 key 的值
+                # （例如上面自動選取那個分支寫入的），Streamlit 會因為「index 預設值」
+                # 與「session_state 的值」來源衝突而跳出警告。
+                # 改成只用 key 讀取現有值，若目前值不在這次選項中，才手動校正一次。
+                if st.session_state.get("select_recipe_code_page_tab3") not in filtered_recipe_codes:
+                    st.session_state["select_recipe_code_page_tab3"] = (
+                        current_recipe_code if current_recipe_code in filtered_recipe_codes else filtered_recipe_codes[0]
+                    )
+
                 selected_code = st.selectbox(
                     "輸入配方", options=filtered_recipe_codes,
-                    index=filtered_recipe_codes.index(current_recipe_code) if current_recipe_code in filtered_recipe_codes else 0,
                     format_func=lambda code: code_label_map.get(code, ""),
                     key="select_recipe_code_page_tab3"
                 )
@@ -3963,6 +3980,66 @@ elif menu == "生產單管理":
 
         return f"{today_str}-{max_seq + 1:03d}"
 
+    def find_active_oem_duplicate(recipe_code):
+        """色母生產單新增前檢查：「代工進度表」（代工管理工作表）裡是否已有同配方編號、
+        且尚未結案（狀態 ≠ ✅ 已結案）的代工單。有的話回傳最新（依建立時間排序）的那一筆。"""
+        recipe_code = str(recipe_code or "").strip()
+        if not recipe_code:
+            return None
+        try:
+            df_oem_check = get_cached_sheet_df("代工管理")
+        except Exception:
+            return None
+        if df_oem_check.empty or "配方編號" not in df_oem_check.columns:
+            return None
+
+        df_oem_check = df_oem_check.copy()
+        df_oem_check["配方編號"] = df_oem_check["配方編號"].astype(str).str.strip()
+        if "狀態" in df_oem_check.columns:
+            df_oem_check["狀態"] = df_oem_check["狀態"].astype(str).str.strip()
+        else:
+            df_oem_check["狀態"] = ""
+
+        matches = df_oem_check[
+            (df_oem_check["配方編號"] == recipe_code) &
+            (df_oem_check["狀態"] != "✅ 已結案")
+        ]
+        if matches.empty:
+            return None
+
+        if "建立時間" in matches.columns:
+            matches = matches.sort_values("建立時間", ascending=False)
+        return matches.iloc[0].to_dict()
+
+    def find_same_day_order_duplicate(recipe_code):
+        """非色母生產單新增前檢查：「生產單」工作表裡是否已有同配方編號、且生產日期為今天的舊單。
+        有的話回傳最新（依建立時間排序）的那一筆。"""
+        recipe_code = str(recipe_code or "").strip()
+        if not recipe_code:
+            return None
+        try:
+            df_order_check = get_cached_sheet_df("生產單", force_reload=True)
+        except Exception:
+            return None
+        if df_order_check.empty or "配方編號" not in df_order_check.columns:
+            return None
+
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        df_order_check = df_order_check.copy()
+        df_order_check["配方編號"] = df_order_check["配方編號"].astype(str).str.strip()
+        df_order_check["生產日期"] = df_order_check.get("生產日期", "").astype(str).str.strip()
+
+        matches = df_order_check[
+            (df_order_check["配方編號"] == recipe_code) &
+            (df_order_check["生產日期"] == today_str)
+        ]
+        if matches.empty:
+            return None
+
+        if "建立時間" in matches.columns:
+            matches = matches.sort_values("建立時間", ascending=False)
+        return matches.iloc[0].to_dict()
+
     # =============== Tab 架構開始 ===============
     if st.session_state.get("order_toast"):
         st.toast(
@@ -4308,6 +4385,53 @@ elif menu == "生產單管理":
             st.markdown("---")
             st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
             
+        # =========================================================
+        # 🔁 重複配方檢查：
+        # 　色母 → 比對「代工進度表」（代工管理）裡尚未結案的代工單
+        # 　非色母 → 比對「生產單」裡今天已建立的舊單
+        # 找到的話提示是否要合併，而不是另外建立一張新的。
+        # =========================================================
+        order_no_for_dup = str(order.get("生產單號", "")).strip()
+        recipe_code_for_dup = str(order.get("配方編號", "")).strip()
+        is_colorant_for_dup = (recipe_row.get("色粉類別", "").strip() == "色母")
+        merge_decision_key = f"merge_decision_{order_no_for_dup}"
+        merge_match_key = f"merge_match_{order_no_for_dup}"
+
+        if order_no_for_dup and recipe_code_for_dup and merge_match_key not in st.session_state:
+            if is_colorant_for_dup:
+                st.session_state[merge_match_key] = find_active_oem_duplicate(recipe_code_for_dup) or {}
+            else:
+                st.session_state[merge_match_key] = find_same_day_order_duplicate(recipe_code_for_dup) or {}
+
+        dup_match = st.session_state.get(merge_match_key) or {}
+
+        if dup_match:
+            if is_colorant_for_dup:
+                st.warning(
+                    f"⚠️ 配方【{recipe_code_for_dup}】目前已有進行中的代工單 "
+                    f"**{dup_match.get('代工單號','')}**（狀態：{dup_match.get('狀態','')}，"
+                    f"目前代工數量 {dup_match.get('代工數量','')}）。要合併到這張代工單，還是仍要另外建立新的？"
+                )
+            else:
+                st.warning(
+                    f"⚠️ 配方【{recipe_code_for_dup}】今天已建立過生產單 "
+                    f"**{dup_match.get('生產單號','')}**。要合併成同一張生產單（會刪除舊單），"
+                    f"還是仍要另外建立新的？"
+                )
+
+            merge_radio = st.radio(
+                "處理方式",
+                ["🔗 合併，不建立新的", "➕ 不合併，仍建立新單"],
+                key=f"merge_radio_{order_no_for_dup}",
+                horizontal=True,
+            )
+            st.session_state[merge_decision_key] = "merge" if merge_radio.startswith("🔗") else "new"
+
+            if st.session_state[merge_decision_key] == "merge":
+                st.info("💡 下方欄位請只填這次**追加**的數量，合併後的總量與代工單/生產單更新由系統自動計算。")
+        else:
+            st.session_state[merge_decision_key] = "new"
+
         with st.form("order_detail_form_tab1"):
             st.markdown(f"""
                 <div style="display:flex;flex-wrap:wrap;gap:24px;padding:10px 4px 16px;
@@ -4448,6 +4572,13 @@ elif menu == "生產單管理":
                 for i in range(1, 5):
                     order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}_tab1", "").strip()
                     order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}_tab1", "").strip()
+
+                # 這次表單填寫的一律視為「本次追加的數量」，先存一份快照，
+                # 之後不管有沒有合併，列印時都可以選擇要顯示追加量還是合併後總量。
+                order["_delta_包裝"] = {
+                    i: (order.get(f"包裝重量{i}", ""), order.get(f"包裝份數{i}", ""))
+                    for i in range(1, 5)
+                }
             
                 # =================================================
                 # 🔒 Step 1：建立本次儲存內容快照（防重複）
@@ -4594,6 +4725,64 @@ elif menu == "生產單管理":
 
                 order_no = str(order.get("生產單號", "")).strip()
 
+                # 讀取「重複配方」合併決定（由表單上方的合併提示 UI 寫入）
+                merge_decision = st.session_state.get(f"merge_decision_{order_no}", "new")
+                merge_match = st.session_state.get(f"merge_match_{order_no}") or {}
+
+                # 要刪除的舊生產單號：一定包含自己（避免同單重複儲存），
+                # 若是「非色母 + 選擇合併」，還要一併刪除今天比對到的那張舊單，
+                # 避免同一份需求留下兩列重複的生產單紀錄。
+                order_nos_to_delete = {order_no}
+                if merge_decision == "merge" and not is_colorant and merge_match.get("生產單號"):
+                    old_order_no_for_merge = str(merge_match.get("生產單號", "")).strip()
+                    order_nos_to_delete.add(old_order_no_for_merge)
+
+                    # ===== 系統自動計算合併後總量：依「重量數值」比對合併，不是依欄位順序 =====
+                    def _fmt_num(v):
+                        if v == int(v):
+                            return str(int(v))
+                        return str(v)
+
+                    # 先把舊單、追加單的四組包裝分別攤開成 {重量: 份數}，重量相同的直接累加
+                    combined = {}  # {重量: 份數}
+                    slot_order = []  # 記錄重量第一次出現的順序，決定寫回欄位1~4的順序
+
+                    for i in range(1, 5):
+                        old_w = safe_float_convert(merge_match.get(f"包裝重量{i}", ""), 0.0)
+                        old_c = safe_float_convert(merge_match.get(f"包裝份數{i}", ""), 0.0)
+                        if old_w and old_c:
+                            combined[old_w] = combined.get(old_w, 0.0) + old_c
+                            if old_w not in slot_order:
+                                slot_order.append(old_w)
+
+                    for i in range(1, 5):
+                        delta_w = safe_float_convert(order.get(f"包裝重量{i}", ""), 0.0)
+                        delta_c = safe_float_convert(order.get(f"包裝份數{i}", ""), 0.0)
+                        if delta_w and delta_c:
+                            combined[delta_w] = combined.get(delta_w, 0.0) + delta_c
+                            if delta_w not in slot_order:
+                                slot_order.append(delta_w)
+
+                    # 清空四個欄位，再照 slot_order 依序寫回（最多只有4組欄位）
+                    for i in range(1, 5):
+                        order[f"包裝重量{i}"] = ""
+                        order[f"包裝份數{i}"] = ""
+
+                    if len(slot_order) > 4:
+                        st.warning(
+                            f"⚠️ 合併後總共有 {len(slot_order)} 種包裝重量規格，但生產單只有4組欄位可填，"
+                            f"多出來的規格已被省略，請至「代工進度表」/生產單手動確認、必要時另外處理！"
+                        )
+
+                    for i, w in enumerate(slot_order[:4], start=1):
+                        order[f"包裝重量{i}"] = _fmt_num(w)
+                        order[f"包裝份數{i}"] = _fmt_num(combined[w])
+
+                    merge_note = f"+ 合併自舊單 {old_order_no_for_merge}（追加後已更新為合併總量）"
+                    order["備註"] = (str(order.get("備註", "")).strip() + "\n" + merge_note).strip()
+                    order["_merge_applied"] = "non_colorant"
+                    order["_merge_old_order_no"] = old_order_no_for_merge
+
                 try:
                     # ⚠️ 修改後立即重存時，若吃到快取可能找不到舊單而重複 append
                     # 這裡強制重讀最新資料，確保先刪舊列再寫新列。
@@ -4601,7 +4790,7 @@ elif menu == "生產單管理":
                     rows_to_delete = []
                     
                     for idx, row in enumerate(sheet_data, start=2):
-                        if str(row.get("生產單號", "")).strip() == order_no:
+                        if str(row.get("生產單號", "")).strip() in order_nos_to_delete:
                             rows_to_delete.append(idx)
                 
                     for r in reversed(rows_to_delete):
@@ -4611,7 +4800,7 @@ elif menu == "生產單管理":
                     st.error(f"❌ 刪除舊生產單失敗：{e}")
                 
                 try:
-                    df_order = df_order[df_order["生產單號"].astype(str) != order_no]
+                    df_order = df_order[~df_order["生產單號"].astype(str).isin(order_nos_to_delete)]
                 except:
                     pass
                 
@@ -4629,7 +4818,61 @@ elif menu == "生產單管理":
                     # ✅【防止重複儲存】只有真的寫入成功才記住
                     st.session_state.last_saved_order_snapshot = current_snapshot
                 
-                    if continue_to_oem:
+                    if merge_decision == "merge" and is_colorant and merge_match.get("代工單號"):
+                        # ===== 色母合併：不建立新代工單，改成更新既有代工單的數量 =====
+                        try:
+                            target_oem_no = str(merge_match.get("代工單號", "")).strip()
+                            multiplier = _safe_float_local(merge_match.get("轉換倍率", 1), 1.0) or 1.0
+
+                            # 這次表單填寫的是「追加量」，自動加上舊代工單原本的數量
+                            delta_oem_qty = 0.0
+                            for i in range(1, 5):
+                                try:
+                                    w = float(order.get(f"包裝重量{i}", 0) or 0)
+                                    n = float(order.get(f"包裝份數{i}", 0) or 0)
+                                    delta_oem_qty += w * 100 * n
+                                except:
+                                    pass
+                            old_qty = _safe_float_local(merge_match.get("代工數量", 0), 0.0)
+                            final_qty = old_qty + delta_oem_qty
+
+                            ws_oem_merge = get_cached_worksheet("代工管理")
+                            oem_headers_merge = ws_oem_merge.row_values(1)
+                            no_col = oem_headers_merge.index("代工單號") if "代工單號" in oem_headers_merge else 0
+                            qty_col = oem_headers_merge.index("代工數量") + 1 if "代工數量" in oem_headers_merge else None
+                            target_col = oem_headers_merge.index("目標載回數量") + 1 if "目標載回數量" in oem_headers_merge else None
+                            remark_col = oem_headers_merge.index("備註") + 1 if "備註" in oem_headers_merge else None
+
+                            all_oem_values = get_cached_sheet_values("代工管理", force_reload=True)
+                            found_row = False
+                            for idx, row in enumerate(all_oem_values[1:], start=2):
+                                if no_col < len(row) and str(row[no_col]).strip() == target_oem_no:
+                                    if qty_col:
+                                        ws_oem_merge.update_cell(idx, qty_col, final_qty)
+                                    if target_col:
+                                        ws_oem_merge.update_cell(idx, target_col, final_qty * multiplier)
+                                    if remark_col:
+                                        old_remark = row[remark_col - 1] if remark_col - 1 < len(row) else ""
+                                        merge_note = (
+                                            f"+ 合併生產單 {order['生產單號']}"
+                                            f"（追加 {delta_oem_qty} kg，原 {old_qty} kg → 合併後 {final_qty} kg）"
+                                        )
+                                        new_remark = f"{old_remark}\n{merge_note}".strip()
+                                        ws_oem_merge.update_cell(idx, remark_col, new_remark)
+                                    found_row = True
+                                    break
+
+                            invalidate_sheet_cache("代工管理")
+                            order["_merge_applied"] = "colorant"
+                            order["_merge_old_order_no"] = str(merge_match.get("生產單號", "")).strip()
+                            if found_row:
+                                st.toast(f"🔗 已合併至既有代工單 {target_oem_no}（合併後代工數量 {final_qty} kg）")
+                            else:
+                                st.warning(f"⚠️ 找不到代工單 {target_oem_no}，合併失敗，請至「代工管理」手動確認")
+                        except Exception as e:
+                            st.error(f"❌ 合併代工單失敗：{e}")
+
+                    elif continue_to_oem:
                         oem_id = f"OEM{order['生產單號']}"
                 
                         oem_qty = 0.0
@@ -4671,7 +4914,7 @@ elif menu == "生產單管理":
                                     st.session_state.df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id
                                 ]
                                 if not matched_recipe.empty:
-                                    recipe_multiplier = _safe_float(matched_recipe.iloc[0].get("代工倍率", 1), 1.0)
+                                    recipe_multiplier = _safe_float_local(matched_recipe.iloc[0].get("代工倍率", 1), 1.0)
                         except:
                             recipe_multiplier = 1.0
                         if recipe_multiplier <= 0:
@@ -4696,14 +4939,48 @@ elif menu == "生產單管理":
                 
                         oem_msg = f"🎉 已建立代工單號：{oem_id}（{oem_qty} kg）\n💡 請至「代工管理」分頁編輯"
                         st.toast(oem_msg)
+
+                    # 合併存檔成功後：強制立刻重新整批計算一次庫存，
+                    # 不等原本的 3 分鐘節流，讓合併後的庫存警示馬上是最新正確的數字。
+                    if merge_decision == "merge":
+                        try:
+                            st.session_state["last_final_stock"] = calculate_current_stock()
+                            st.session_state["stock_calc_time"] = datetime.now()
+                        except Exception as e:
+                            st.warning(f"⚠️ 合併後重新計算庫存失敗，將於下次自動重算：{e}")
+
+                    # 儲存完成，清掉這張單的合併決定暫存狀態
+                    for _k in (
+                        f"merge_decision_{order_no}", f"merge_match_{order_no}",
+                        f"merge_final_qty_{order_no}", f"merge_radio_{order_no}",
+                    ):
+                        st.session_state.pop(_k, None)
             
                 except Exception as e:
                     st.error(f"❌ 寫入失敗：{e}")
                 
         # 產生列印 HTML 按鈕
         show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
+
+        print_order = order
+        if order.get("_merge_applied"):
+            print_mode = st.radio(
+                "生產單列印顯示方式",
+                ["合併後總量", "僅顯示這次追加數量"],
+                key=f"print_mode_{order.get('生產單號','')}",
+                horizontal=True,
+                help="這個選項只影響列印畫面顯示的數字，不會改變已經存檔的合併後總量。",
+            )
+            if print_mode == "僅顯示這次追加數量":
+                print_order = order.copy()
+                delta_packaging = order.get("_delta_包裝", {})
+                for i in range(1, 5):
+                    w, c = delta_packaging.get(i, ("", ""))
+                    print_order[f"包裝重量{i}"] = w
+                    print_order[f"包裝份數{i}"] = c
+
         print_html = generate_print_page_content(
-            order=order,
+            order=print_order,
             recipe_row=recipe_row,
             additional_recipe_rows=order.get("附加配方", []),
             show_additional_ids=show_ids
