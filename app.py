@@ -4425,7 +4425,8 @@ elif menu == "生產單管理":
 
             merge_radio = st.radio(
                 "處理方式",
-                ["🔗 合併，不建立新的", "➕ 不合併，仍建立新單"],
+                ["➕ 不合併，仍建立新單", "🔗 合併，不建立新的"],
+                index=0,
                 key=f"merge_radio_{dup_cache_key_base}",
                 horizontal=True,
             )
@@ -4535,6 +4536,12 @@ elif menu == "生產單管理":
                             col.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
                             col.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
             
+            confirm_ready = st.checkbox(
+                "✅ 我已確認以上內容正確，可以儲存",
+                key="form_confirm_ready_tab1",
+                help="必須手動勾選才能儲存；避免在欄位裡按 Enter 鍵時不小心把表單送出去。"
+            )
+
             col_submit1, col_submit2 = st.columns([1, 1])
             with col_submit1:
                 submitted = st.form_submit_button("💾 僅儲存生產單")
@@ -4546,6 +4553,10 @@ elif menu == "生產單管理":
                 else:
                     continue_to_oem = False
             
+            if (submitted or continue_to_oem) and not confirm_ready:
+                st.warning("⚠️ 請先勾選上方「我已確認以上內容正確，可以儲存」再儲存（避免 Enter 鍵誤觸送出）。")
+                st.stop()
+
             if submitted or continue_to_oem:
             
                 # ===== 檢查是否至少有一個包裝 =====
