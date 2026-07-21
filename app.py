@@ -4394,10 +4394,14 @@ elif menu == "生產單管理":
         order_no_for_dup = str(order.get("生產單號", "")).strip()
         recipe_code_for_dup = str(order.get("配方編號", "")).strip()
         is_colorant_for_dup = (recipe_row.get("色粉類別", "").strip() == "色母")
-        merge_decision_key = f"merge_decision_{order_no_for_dup}"
-        merge_match_key = f"merge_match_{order_no_for_dup}"
+        # ⚠️ 用「配方編號＋類型」當快取 key，不要用生產單號：
+        # 生產單號要等真正存檔才會定案，換配方重新搜尋時常常還是同一個草稿單號，
+        # 用單號當 key 會導致換配方後還沿用上一個配方算出來的舊結果。
+        dup_cache_key_base = f"{recipe_code_for_dup}_{'oem' if is_colorant_for_dup else 'sameday'}"
+        merge_decision_key = f"merge_decision_{dup_cache_key_base}"
+        merge_match_key = f"merge_match_{dup_cache_key_base}"
 
-        if order_no_for_dup and recipe_code_for_dup and merge_match_key not in st.session_state:
+        if recipe_code_for_dup and merge_match_key not in st.session_state:
             if is_colorant_for_dup:
                 st.session_state[merge_match_key] = find_active_oem_duplicate(recipe_code_for_dup) or {}
             else:
@@ -4422,7 +4426,7 @@ elif menu == "生產單管理":
             merge_radio = st.radio(
                 "處理方式",
                 ["🔗 合併，不建立新的", "➕ 不合併，仍建立新單"],
-                key=f"merge_radio_{order_no_for_dup}",
+                key=f"merge_radio_{dup_cache_key_base}",
                 horizontal=True,
             )
             st.session_state[merge_decision_key] = "merge" if merge_radio.startswith("🔗") else "new"
@@ -4725,9 +4729,11 @@ elif menu == "生產單管理":
 
                 order_no = str(order.get("生產單號", "")).strip()
 
-                # 讀取「重複配方」合併決定（由表單上方的合併提示 UI 寫入）
-                merge_decision = st.session_state.get(f"merge_decision_{order_no}", "new")
-                merge_match = st.session_state.get(f"merge_match_{order_no}") or {}
+                # 讀取「重複配方」合併決定（由表單上方的合併提示 UI 寫入，key 用配方編號＋類型，跟上方一致）
+                recipe_code_for_save = str(order.get("配方編號", "")).strip()
+                dup_cache_key_base_save = f"{recipe_code_for_save}_{'oem' if is_colorant else 'sameday'}"
+                merge_decision = st.session_state.get(f"merge_decision_{dup_cache_key_base_save}", "new")
+                merge_match = st.session_state.get(f"merge_match_{dup_cache_key_base_save}") or {}
 
                 # 要刪除的舊生產單號：一定包含自己（避免同單重複儲存），
                 # 若是「非色母 + 選擇合併」，還要一併刪除今天比對到的那張舊單，
@@ -4951,8 +4957,8 @@ elif menu == "生產單管理":
 
                     # 儲存完成，清掉這張單的合併決定暫存狀態
                     for _k in (
-                        f"merge_decision_{order_no}", f"merge_match_{order_no}",
-                        f"merge_final_qty_{order_no}", f"merge_radio_{order_no}",
+                        f"merge_decision_{dup_cache_key_base_save}", f"merge_match_{dup_cache_key_base_save}",
+                        f"merge_radio_{dup_cache_key_base_save}",
                     ):
                         st.session_state.pop(_k, None)
             
