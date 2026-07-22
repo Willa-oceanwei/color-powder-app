@@ -10377,12 +10377,17 @@ elif menu == "洗車廠庫存":
 
     # ── Tab C2：入/出庫登錄 ──
     with tab_c2:
+        # ⚠️ 這個選單故意放在表單外面：它會決定下面日期欄位跟
+        # 「同步轉廠內」checkbox 是否可以勾選/編輯，如果放在表單裡，
+        # 選了「出庫」也要等表單送出才會生效，checkbox 會一直卡在舊的
+        # disabled 狀態、看起來永遠點不動。
+        io_type = st.selectbox("出/入庫", ["入庫", "出庫"], key="cw_io_type")
+
         with st.form("carwash_inout_form"):
-            r1c1, r1c2, r1c3, r1c4 = st.columns(4)
-            io_type = r1c1.selectbox("出/入庫", ["入庫", "出庫"], key="cw_io_type")
-            io_registrar = r1c2.selectbox("登記人", ["德", "Q"], key="cw_io_registrar")
-            in_date  = r1c3.date_input("入庫日期",  key="cw_in_date",  disabled=(io_type == "出庫"))
-            out_date = r1c4.date_input("出庫日期", key="cw_out_date", disabled=(io_type == "入庫"))
+            r1c1, r1c2, r1c3 = st.columns(3)
+            io_registrar = r1c1.selectbox("登記人", ["德", "Q"], key="cw_io_registrar")
+            in_date  = r1c2.date_input("入庫日期",  key="cw_in_date",  disabled=(io_type == "出庫"))
+            out_date = r1c3.date_input("出庫日期", key="cw_out_date", disabled=(io_type == "入庫"))
 
             r2c1, r2c2, r2c3, r2c4 = st.columns(4)
             io_product_id = r2c1.text_input("貨品編號", key="cw_io_product_id")
