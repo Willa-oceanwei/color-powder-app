@@ -4122,19 +4122,20 @@ elif menu == "生產單管理":
         order = st.session_state["new_order"]
 
         # ===== 搜尋表單 =====
-        with st.form("search_add_form", clear_on_submit=False):
-        
-            col1, col2 = st.columns([5,1])
-        
-            with col1:
-                search_text_tab1 = st.text_input(
-                    label="",
-                    placeholder="🔎 多條件搜尋：配方編號, 客戶名稱, 顏色",
-                    key="search_text_tab1"
-                )
-        
-            with col2:
-                add_btn = st.form_submit_button("➕ 新增")        
+        # ⚠️ 這裡故意不用 st.form：表單裡的欄位要等「送出」才會生效，
+        # 之前搜尋框包在表單裡，換配方編號打完字後下面的結果不會馬上更新，
+        # 一定要按 Enter/新增或重新整理才會生效，改成一般元件後打完就會立刻反應。
+        col1, col2 = st.columns([5, 1])
+
+        with col1:
+            search_text_tab1 = st.text_input(
+                label="",
+                placeholder="🔎 多條件搜尋：配方編號, 客戶名稱, 顏色",
+                key="search_text_tab1"
+            )
+
+        with col2:
+            add_btn = st.button("➕ 新增", key="search_add_btn_tab1")
         
         # ===== 關鍵字拆分 =====
         keywords = split_search_keywords(search_text_tab1)
@@ -4542,12 +4543,6 @@ elif menu == "生產單管理":
                             col.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
                             col.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
             
-            confirm_ready = st.checkbox(
-                "✅ 我已確認以上內容正確，可以儲存",
-                key="form_confirm_ready_tab1",
-                help="必須手動勾選才能儲存；避免在欄位裡按 Enter 鍵時不小心把表單送出去。"
-            )
-
             col_submit1, col_submit2 = st.columns([1, 1])
             with col_submit1:
                 submitted = st.form_submit_button("💾 僅儲存生產單")
@@ -4558,10 +4553,6 @@ elif menu == "生產單管理":
                     continue_to_oem = st.form_submit_button("✅ 儲存並轉代工管理")
                 else:
                     continue_to_oem = False
-            
-            if (submitted or continue_to_oem) and not confirm_ready:
-                st.warning("⚠️ 請先勾選上方「我已確認以上內容正確，可以儲存」再儲存（避免 Enter 鍵誤觸送出）。")
-                st.stop()
 
             if submitted or continue_to_oem:
             
