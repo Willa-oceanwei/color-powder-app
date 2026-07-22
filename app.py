@@ -4390,24 +4390,30 @@ elif menu == "生產單管理":
         # 　色母 → 比對「代工進度表」（代工管理）裡尚未結案的代工單
         # 　非色母 → 比對「生產單」裡今天已建立的舊單
         # 找到的話提示是否要合併，而不是另外建立一張新的。
+        # ⚠️ 這張單「這次」如果已經成功存檔過了，就不用再檢查/顯示了，
+        # 不然存檔成功後畫面沒收起來，會被自己剛存好的那張單嚇到，
+        # 誤以為又冒出一張重複的單。
         # =========================================================
-        order_no_for_dup = str(order.get("生產單號", "")).strip()
-        recipe_code_for_dup = str(order.get("配方編號", "")).strip()
-        is_colorant_for_dup = (recipe_row.get("色粉類別", "").strip() == "色母")
-        # ⚠️ 用「配方編號＋類型」當快取 key，不要用生產單號：
-        # 生產單號要等真正存檔才會定案，換配方重新搜尋時常常還是同一個草稿單號，
-        # 用單號當 key 會導致換配方後還沿用上一個配方算出來的舊結果。
-        dup_cache_key_base = f"{recipe_code_for_dup}_{'oem' if is_colorant_for_dup else 'sameday'}"
-        merge_decision_key = f"merge_decision_{dup_cache_key_base}"
-        merge_match_key = f"merge_match_{dup_cache_key_base}"
+        if st.session_state.get("new_order_saved", False):
+            dup_match = {}
+        else:
+            order_no_for_dup = str(order.get("生產單號", "")).strip()
+            recipe_code_for_dup = str(order.get("配方編號", "")).strip()
+            is_colorant_for_dup = (recipe_row.get("色粉類別", "").strip() == "色母")
+            # ⚠️ 用「配方編號＋類型」當快取 key，不要用生產單號：
+            # 生產單號要等真正存檔才會定案，換配方重新搜尋時常常還是同一個草稿單號，
+            # 用單號當 key 會導致換配方後還沿用上一個配方算出來的舊結果。
+            dup_cache_key_base = f"{recipe_code_for_dup}_{'oem' if is_colorant_for_dup else 'sameday'}"
+            merge_decision_key = f"merge_decision_{dup_cache_key_base}"
+            merge_match_key = f"merge_match_{dup_cache_key_base}"
 
-        if recipe_code_for_dup and merge_match_key not in st.session_state:
-            if is_colorant_for_dup:
-                st.session_state[merge_match_key] = find_active_oem_duplicate(recipe_code_for_dup) or {}
-            else:
-                st.session_state[merge_match_key] = find_same_day_order_duplicate(recipe_code_for_dup) or {}
+            if recipe_code_for_dup and merge_match_key not in st.session_state:
+                if is_colorant_for_dup:
+                    st.session_state[merge_match_key] = find_active_oem_duplicate(recipe_code_for_dup) or {}
+                else:
+                    st.session_state[merge_match_key] = find_same_day_order_duplicate(recipe_code_for_dup) or {}
 
-        dup_match = st.session_state.get(merge_match_key) or {}
+            dup_match = st.session_state.get(merge_match_key) or {}
 
         if dup_match:
             if is_colorant_for_dup:
@@ -4434,7 +4440,7 @@ elif menu == "生產單管理":
 
             if st.session_state[merge_decision_key] == "merge":
                 st.info("💡 下方欄位請只填這次**追加**的數量，合併後的總量與代工單/生產單更新由系統自動計算。")
-        else:
+        elif not st.session_state.get("new_order_saved", False):
             st.session_state[merge_decision_key] = "new"
 
         with st.form("order_detail_form_tab1"):
