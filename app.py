@@ -18,15 +18,17 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ======== 🎛️ 全站 Toggle / Checkbox 統一美化（只需注入一次，全站套用） ========
-# 說明：Streamlit 的 st.toggle 本身已經是滑動開關樣式，這裡只重新上色成 ERP 主題的
-# 深藍底＋橘色滑塊；st.checkbox 預設是方框勾選，這裡改用「隱藏原生外觀＋用
-# :checked 偽類畫一顆膠囊滑塊」的做法，讓畫面上看起來跟 st.toggle 是同一套視覺語言。
+# ======== 🎛️ 全站 Toggle 統一美化（只需注入一次，全站套用） ========
+# 說明：原本散落在各處的 st.checkbox 已經全部改成 st.toggle（原生就是滑動開關），
+# 這裡只需要統一重新上色成 ERP 主題的深藍底＋橘色滑塊即可，不用再靠 CSS 硬把方框
+# 勾選畫成滑塊，畫面呈現會更穩定、不受不同 Streamlit 版本內部結構影響。
 # ⚠️ 若實際畫面套用後某些舊版 Streamlit 的內部結構不同、顏色沒吃到，
 #    把截圖給我，我再依實際 DOM 微調 selector 即可，不影響功能本身。
 st.markdown("""
 <style>
 /* ---- st.toggle 重新上色：深藍底、橘色滑塊 ---- */
+/* 全站現在統一用 st.toggle（原本的 st.checkbox 呼叫都已經改成 st.toggle），
+   所以這裡的樣式會套用到全站所有「顯示/隱藏」類的切換開關。 */
 /* 外層可見軌道 */
 div[data-testid="stToggle"] label div[data-baseweb="toggle"],
 div[data-testid="stToggle"] [role="switch"] {
@@ -49,58 +51,28 @@ div[data-testid="stToggle"] input[type="checkbox"] {
     accent-color: #ff8a57 !important;
 }
 
-/* ---- st.checkbox 改畫成同款膠囊滑塊（深藍底、橘色滑塊） ---- */
-div[data-testid="stCheckbox"] input[type="checkbox"] {
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    width: 34px !important;
-    height: 18px !important;
-    min-width: 34px !important;
-    border-radius: 999px !important;
-    background: #16202e !important;
-    border: 1px solid rgba(255,138,87,0.30) !important;
-    position: relative !important;
-    cursor: pointer !important;
-    vertical-align: middle !important;
-    transition: background 0.18s ease, border-color 0.18s ease !important;
-    margin-right: 4px !important;
-}
-div[data-testid="stCheckbox"] input[type="checkbox"]::after {
-    content: "" !important;
-    position: absolute !important;
-    top: 1px !important;
-    left: 1px !important;
-    width: 14px !important;
-    height: 14px !important;
-    border-radius: 50% !important;
-    background: #ff8a57 !important;
-    transition: left 0.18s ease, background 0.18s ease !important;
-}
-div[data-testid="stCheckbox"] input[type="checkbox"]:checked {
-    background: rgba(255,138,87,0.28) !important;
-    border-color: rgba(255,138,87,0.75) !important;
-}
-div[data-testid="stCheckbox"] input[type="checkbox"]:checked::after {
-    left: 17px !important;
-    background: #ffffff !important;
-}
-
-/* ---- 卡片右下角的「👁 預覽」小按鈕：深藍底、橘色描邊膠囊 ---- */
+/* ---- 卡片右下角的「👁 預覽」小按鈕：縮小、細邊框膠囊，貼近設計稿 ---- */
 div[data-testid="stPopover"] > button {
-    font-size: 12px !important;
-    padding: 4px 14px !important;
-    height: 28px !important;
-    min-height: 28px !important;
+    font-size: 11px !important;
+    padding: 2px 12px !important;
+    height: 24px !important;
+    min-height: 24px !important;
     line-height: 1.1 !important;
     border-radius: 999px !important;
     background: #131c28 !important;
     color: #f1f5f9 !important;
     border: 1px solid rgba(255,138,87,0.55) !important;
+    box-shadow: none !important;
+    gap: 2px !important;
 }
 div[data-testid="stPopover"] > button:hover {
     background: #1b2632 !important;
     border-color: rgba(255,138,87,0.9) !important;
     color: #ffffff !important;
+}
+/* 嘗試隱藏按鈕內建的展開箭頭圖示（不同版本結構可能不同，抓不到也不影響功能） */
+div[data-testid="stPopover"] > button svg {
+    display: none !important;
 }
 
 /* ---- 「👁 預覽」彈出的內容面板：縮小約 40%，內容過寬時改成內部橫向捲動 ---- */
@@ -5303,7 +5275,7 @@ elif menu == "生產單管理":
                     st.error(f"❌ 寫入失敗：{e}")
                 
         # 產生列印 HTML 按鈕
-        show_ids = st.checkbox("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
+        show_ids = st.toggle("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
 
         print_order = order
         if order.get("_merge_applied"):
@@ -5733,18 +5705,6 @@ elif menu == "生產單管理":
             recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
             recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
             current_order_no = str(selected_order.get("生產單號", "")).strip()
-    
-            st.markdown("""
-            <style>
-            div[data-testid="stCheckbox"] label p {
-                color: #888 !important;
-                font-size: 0.9rem !important;
-            }
-            div[data-testid="stCheckbox"] input[type="checkbox"] {
-                accent-color: #aaa !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
     
             preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 刪除"])
     
@@ -6967,7 +6927,7 @@ if menu == "代工管理":
                         ["客戶名稱", "配方編號", "代工單號", "代工廠名稱"]
                     )
 
-                use_date_filter = st.checkbox("啟用建立日期篩選", value=False, key=f"{key_prefix}_use_date_filter")
+                use_date_filter = st.toggle("啟用建立日期篩選", value=False, key=f"{key_prefix}_use_date_filter")
                 if use_date_filter:
                     today_date = datetime.today().date()
                     default_start = today_date - timedelta(days=20)
@@ -9114,7 +9074,7 @@ elif menu == "庫存區":
             return err_text_local
 
         use_date_range_key = "stock_use_date_range"
-        use_date_range = st.checkbox(
+        use_date_range = st.toggle(
             "使用日期區間",
             value=st.session_state.get(use_date_range_key, False),
             key=f"{use_date_range_key}_cb",
@@ -9444,9 +9404,9 @@ elif menu == "庫存區":
                 warning_limit_kg = st.number_input("注意上限 kg", min_value=0.0, value=AUDIT_WARNING_LIMIT_KG, step=0.1)
             option_col1, option_col2 = st.columns(2)
             with option_col1:
-                show_only_abnormal = st.checkbox("只顯示異常", value=True, help="隱藏 🟢 正常，只看需要處理的項目。")
+                show_only_abnormal = st.toggle("只顯示異常", value=True, help="隱藏 🟢 正常，只看需要處理的項目。")
             with option_col2:
-                include_unregistered = st.checkbox("包含未建檔色粉", value=False, help="開啟後會像原本一樣列入所有上傳色粉編號。")
+                include_unregistered = st.toggle("包含未建檔色粉", value=False, help="開啟後會像原本一樣列入所有上傳色粉編號。")
             submit_audit = st.form_submit_button("產生盤點分析", use_container_width=True)
 
         if submit_audit:
@@ -9859,7 +9819,7 @@ elif menu == "庫存區":
         st.caption("ℹ️ 不選擇日期區間時，會顯示截至今日的累積庫存。")
 
         # checkbox 放在 form 外才能即時控制 disabled
-        use_date_range = st.checkbox(
+        use_date_range = st.toggle(
             "使用日期區間",
             value=st.session_state.get("_tab5_use_date_range", False),
             key="_tab5_use_date_range_cb"
@@ -10649,7 +10609,7 @@ elif menu == "洗車廠庫存":
             io_unit       = r2c3.selectbox("單位", ["KG", "包"], key="cw_io_unit")
             io_note       = r2c4.text_input("備註", key="cw_io_note")
 
-            transfer_to_stock = st.checkbox(
+            transfer_to_stock = st.toggle(
                 "🔁 出庫後同步轉入廠內色粉庫存區（自動新增一筆「進貨」記錄到【庫存區】）",
                 key="cw_io_transfer_to_stock",
                 disabled=(io_type == "入庫"),
@@ -10745,7 +10705,7 @@ elif menu == "洗車廠庫存":
             c1, c2 = st.columns([5, 1])
             q_pid = c1.text_input("產品編號（留空顯示全部）", key="cw_query_pid")
     
-            show_zero_inventory = st.checkbox(
+            show_zero_inventory = st.toggle(
                 "顯示數量為 0 之庫存",
                 value=False,
                 key="cw_query_show_zero_inventory"
@@ -11406,7 +11366,7 @@ if menu == "試色記錄分析":
         start_d = c2.date_input("起日", key="analysis_start", value=default_start)
         end_d = c3.date_input("迄日", key="analysis_end", value=default_end)
         c3.caption(f"預設區間：{default_start} ~ {default_end}")
-        include_backfill = st.checkbox("分析包含歷史補登", value=True)
+        include_backfill = st.toggle("分析包含歷史補登", value=True)
 
         dfv = get_cached_sheet_df("試色登錄")
         rec_csv_df = pd.DataFrame(columns=["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色採購比例", "多次修色比例", "建議收費"])
@@ -11494,7 +11454,7 @@ if menu == "試色記錄分析":
                 render_paginated_df(mat[["原料","試色筆數","試色配方數","採購筆數","採購比例"]], "trial_mat", page_size=5)
 
             with st.expander("追蹤清單（含篩選與明細）", expanded=False):
-                show_purchased = st.checkbox("是否顯示已採購", value=False, key="trial_show_purchased")
+                show_purchased = st.toggle("是否顯示已採購", value=False, key="trial_show_purchased")
                 track_df = dfv.copy()
                 if not show_purchased:
                     track_df = track_df[track_df["已採購"].astype(str) != "是"]
