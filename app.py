@@ -1187,8 +1187,7 @@ def render_oem_status_cards(df, df_order=None, df_recipe=None):
                 production_order_no = str(row.get("生產單號", "") or "").strip() if can_preview else ""
 
                 if can_preview and production_order_no:
-                    popover_key = f"oem_card_preview_{oem_no}_{start}_{row_pos}"
-                    with st.popover("🔍 預覽生產單", use_container_width=True, key=popover_key):
+                    with st.popover(f"🔍 預覽生產單｜{oem_no}"):
                         matched_order = df_order[
                             df_order["生產單號"].astype(str).str.strip() == production_order_no
                         ] if "生產單號" in df_order.columns else pd.DataFrame()
