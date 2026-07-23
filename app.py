@@ -19,25 +19,28 @@ st.set_page_config(
 )
 
 # ======== 🎛️ 全站 Toggle / Checkbox 統一美化（只需注入一次，全站套用） ========
-# 說明：Streamlit 的 st.toggle 本身已經是滑動開關樣式，這裡只重新上色成 ERP 主題色；
-# st.checkbox 預設是方框勾選，這裡改用「隱藏原生外觀＋用 :checked 偽類畫一顆膠囊滑塊」
-# 的做法，讓畫面上看起來跟 st.toggle 是同一套視覺語言。
+# 說明：Streamlit 的 st.toggle 本身已經是滑動開關樣式，這裡只重新上色成 ERP 主題的
+# 深藍底＋橘色滑塊；st.checkbox 預設是方框勾選，這裡改用「隱藏原生外觀＋用
+# :checked 偽類畫一顆膠囊滑塊」的做法，讓畫面上看起來跟 st.toggle 是同一套視覺語言。
 # ⚠️ 若實際畫面套用後某些舊版 Streamlit 的內部結構不同、顏色沒吃到，
 #    把截圖給我，我再依實際 DOM 微調 selector 即可，不影響功能本身。
 st.markdown("""
 <style>
-/* ---- st.toggle 重新上色（維持原生滑動開關結構，只換色） ---- */
+/* ---- st.toggle 重新上色：深藍底、橘色滑塊 ---- */
 div[data-testid="stToggle"] label div[data-baseweb="toggle"],
 div[data-testid="stToggle"] [role="switch"] {
-    background-color: rgba(255,255,255,0.15) !important;
-    border: 1px solid rgba(255,255,255,0.25) !important;
+    background-color: #16202e !important;
+    border: 1px solid rgba(255,138,87,0.30) !important;
 }
 div[data-testid="stToggle"] [role="switch"][aria-checked="true"] {
-    background-color: rgba(90,169,230,0.55) !important;
-    border-color: rgba(90,169,230,0.85) !important;
+    background-color: rgba(255,138,87,0.28) !important;
+    border-color: rgba(255,138,87,0.75) !important;
+}
+div[data-testid="stToggle"] [role="switch"] > div {
+    background-color: #ff8a57 !important;
 }
 
-/* ---- st.checkbox 改畫成同款膠囊滑塊 ---- */
+/* ---- st.checkbox 改畫成同款膠囊滑塊（深藍底、橘色滑塊） ---- */
 div[data-testid="stCheckbox"] input[type="checkbox"] {
     appearance: none !important;
     -webkit-appearance: none !important;
@@ -45,8 +48,8 @@ div[data-testid="stCheckbox"] input[type="checkbox"] {
     height: 18px !important;
     min-width: 34px !important;
     border-radius: 999px !important;
-    background: rgba(255,255,255,0.15) !important;
-    border: 1px solid rgba(255,255,255,0.25) !important;
+    background: #16202e !important;
+    border: 1px solid rgba(255,138,87,0.30) !important;
     position: relative !important;
     cursor: pointer !important;
     vertical-align: middle !important;
@@ -61,34 +64,34 @@ div[data-testid="stCheckbox"] input[type="checkbox"]::after {
     width: 14px !important;
     height: 14px !important;
     border-radius: 50% !important;
-    background: #cfd8e3 !important;
+    background: #ff8a57 !important;
     transition: left 0.18s ease, background 0.18s ease !important;
 }
 div[data-testid="stCheckbox"] input[type="checkbox"]:checked {
-    background: rgba(90,169,230,0.55) !important;
-    border-color: rgba(90,169,230,0.85) !important;
+    background: rgba(255,138,87,0.28) !important;
+    border-color: rgba(255,138,87,0.75) !important;
 }
 div[data-testid="stCheckbox"] input[type="checkbox"]:checked::after {
     left: 17px !important;
     background: #ffffff !important;
 }
 
-/* ---- 卡片右下角的「👁 預覽」小按鈕：縮小、膠囊化、ERP 配色 ---- */
+/* ---- 卡片右下角的「👁 預覽」小按鈕：深藍底、橘色描邊膠囊 ---- */
 div[data-testid="stPopover"] > button {
-    font-size: 11px !important;
-    padding: 2px 12px !important;
-    height: 24px !important;
-    min-height: 24px !important;
+    font-size: 12px !important;
+    padding: 4px 14px !important;
+    height: 28px !important;
+    min-height: 28px !important;
     line-height: 1.1 !important;
     border-radius: 999px !important;
-    background: rgba(90,169,230,0.15) !important;
-    color: #5aa9e6 !important;
-    border: 1px solid rgba(90,169,230,0.35) !important;
+    background: #131c28 !important;
+    color: #f1f5f9 !important;
+    border: 1px solid rgba(255,138,87,0.55) !important;
 }
 div[data-testid="stPopover"] > button:hover {
-    background: rgba(90,169,230,0.28) !important;
-    border-color: rgba(90,169,230,0.6) !important;
-    color: #eaf4ff !important;
+    background: #1b2632 !important;
+    border-color: rgba(255,138,87,0.9) !important;
+    color: #ffffff !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -6994,12 +6997,38 @@ if menu == "代工管理":
 
                 # ===== 頁面最底部：滑動開關，控制每張卡片是否出現「👁 預覽」按鈕 =====
                 st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
-                st.toggle(
-                    "顯示代工卡片「👁 預覽」按鈕",
-                    key=show_preview_key,
-                    help="開啟後，每張未結案代工單卡片右下角會出現「👁 預覽」按鈕，"
-                         "點下去可直接看到對應生產單的配方內容與備註，不需要切回「生產單管理」分頁。",
-                )
+
+                try:
+                    preview_toggle_box = st.container(border=True)
+                except TypeError:
+                    # 較舊版本的 st.container 不支援 border 參數，退回一般容器
+                    preview_toggle_box = st.container()
+
+                with preview_toggle_box:
+                    label_col, state_col, switch_col = st.columns([5, 1, 1])
+                    with label_col:
+                        st.markdown(
+                            "<div style='padding-top:6px;font-size:14px;color:#e8edf3;'>👁 生產單預覽</div>",
+                            unsafe_allow_html=True,
+                        )
+                    with state_col:
+                        state_label = "ON" if show_card_preview else "OFF"
+                        state_color = "#ff8a57" if show_card_preview else "#9fb6cc"
+                        st.markdown(
+                            f"<div style='padding-top:8px;text-align:right;font-size:13px;"
+                            f"font-weight:600;color:{state_color};'>{state_label}</div>",
+                            unsafe_allow_html=True,
+                        )
+                    with switch_col:
+                        try:
+                            st.toggle("生產單預覽開關", key=show_preview_key, label_visibility="collapsed")
+                        except TypeError:
+                            # 較舊版本不支援 label_visibility 參數
+                            st.toggle("生產單預覽開關", key=show_preview_key)
+
+                    st.caption(
+                        "關閉時不建立任何預覽按鈕；開啟後才會在每張代工卡片顯示「👁 預覽」。"
+                    )
 
             with closed_tab:
                 
