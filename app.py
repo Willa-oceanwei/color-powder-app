@@ -19,37 +19,56 @@ st.set_page_config(
 )
 
 # ======== 🎛️ 全站 Toggle 統一美化（只需注入一次，全站套用） ========
-# 說明：原本散落在各處的 st.checkbox 已經全部改成 st.toggle（原生就是滑動開關），
-# 這裡只需要統一重新上色成 ERP 主題的深藍底＋橘色滑塊即可，不用再靠 CSS 硬把方框
-# 勾選畫成滑塊，畫面呈現會更穩定、不受不同 Streamlit 版本內部結構影響。
-# ⚠️ 若實際畫面套用後某些舊版 Streamlit 的內部結構不同、顏色沒吃到，
-#    把截圖給我，我再依實際 DOM 微調 selector 即可，不影響功能本身。
+# 說明：實際檢查過畫面的 HTML 結構後發現，你們這個 Streamlit 版本裡
+# st.toggle() 底層渲染出來的 data-testid 其實是 "stCheckbox"（不是 "stToggle"），
+# 跟 st.checkbox() 是同一顆元件。所以這裡統一鎖定 stCheckbox，直接在真正的
+# <input type="checkbox"> 上用 :checked 偽類畫一顆膠囊滑塊，並把 Streamlit
+# 自己原生畫的那顆滑塊（class 是每次改版都會變的亂數 st-xx）藏起來，
+# 只保留我們畫的這顆，避免兩顆滑塊疊在一起。
 st.markdown("""
 <style>
-/* ---- st.toggle 重新上色：深藍底、橘色滑塊 ---- */
-/* 全站現在統一用 st.toggle（原本的 st.checkbox 呼叫都已經改成 st.toggle），
-   所以這裡的樣式會套用到全站所有「顯示/隱藏」類的切換開關。 */
-/* 外層可見軌道 */
-div[data-testid="stToggle"] label div[data-baseweb="toggle"],
-div[data-testid="stToggle"] [role="switch"] {
-    background-color: #16202e !important;
+/* ---- 開關滑塊上色：深藍底、橘色滑塊（涵蓋全站的 st.toggle） ---- */
+div[data-testid="stCheckbox"] input[type="checkbox"] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    width: 34px !important;
+    height: 18px !important;
+    min-width: 34px !important;
+    border-radius: 999px !important;
+    background: #16202e !important;
     border: 1px solid rgba(255,138,87,0.30) !important;
+    position: relative !important;
+    cursor: pointer !important;
+    vertical-align: middle !important;
+    transition: background 0.18s ease, border-color 0.18s ease !important;
+    margin-right: 4px !important;
+    opacity: 1 !important;
 }
-div[data-testid="stToggle"] [role="switch"][aria-checked="true"] {
-    background-color: rgba(255,138,87,0.28) !important;
+div[data-testid="stCheckbox"] input[type="checkbox"]::after {
+    content: "" !important;
+    position: absolute !important;
+    top: 1px !important;
+    left: 1px !important;
+    width: 14px !important;
+    height: 14px !important;
+    border-radius: 50% !important;
+    background: #ff8a57 !important;
+    transition: left 0.18s ease, background 0.18s ease !important;
+}
+div[data-testid="stCheckbox"] input[type="checkbox"]:checked {
+    background: rgba(255,138,87,0.28) !important;
     border-color: rgba(255,138,87,0.75) !important;
 }
-/* 滑塊圓點：不同 Streamlit 版本巢狀層級不太一樣，這裡放寬成
-   「switch 底下任一層 div」都套用，盡量涵蓋到實際的那顆圓點 */
-div[data-testid="stToggle"] [role="switch"] div {
-    background-color: #ff8a57 !important;
-    box-shadow: none !important;
-    border: none !important;
+div[data-testid="stCheckbox"] input[type="checkbox"]:checked::after {
+    left: 17px !important;
+    background: #ffffff !important;
 }
-/* 保險：直接對底層原生 input 也上色，涵蓋「圓點其實是原生 input 本身」的版本 */
-div[data-testid="stToggle"] input[type="checkbox"] {
-    accent-color: #ff8a57 !important;
+/* 藏起 Streamlit 自己原生畫的那顆滑塊 div（label 底下的第一個子層），
+   只留我們畫在 input 上面的那顆，避免看到兩顆滑塊 */
+div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
+    display: none !important;
 }
+
 
 /* ---- 卡片右下角的「👁 預覽」小按鈕：縮小、細邊框膠囊，貼近設計稿 ---- */
 div[data-testid="stPopover"] > button {
