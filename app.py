@@ -27,6 +27,7 @@ st.set_page_config(
 st.markdown("""
 <style>
 /* ---- st.toggle 重新上色：深藍底、橘色滑塊 ---- */
+/* 外層可見軌道 */
 div[data-testid="stToggle"] label div[data-baseweb="toggle"],
 div[data-testid="stToggle"] [role="switch"] {
     background-color: #16202e !important;
@@ -36,8 +37,16 @@ div[data-testid="stToggle"] [role="switch"][aria-checked="true"] {
     background-color: rgba(255,138,87,0.28) !important;
     border-color: rgba(255,138,87,0.75) !important;
 }
-div[data-testid="stToggle"] [role="switch"] > div {
+/* 滑塊圓點：不同 Streamlit 版本巢狀層級不太一樣，這裡放寬成
+   「switch 底下任一層 div」都套用，盡量涵蓋到實際的那顆圓點 */
+div[data-testid="stToggle"] [role="switch"] div {
     background-color: #ff8a57 !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+/* 保險：直接對底層原生 input 也上色，涵蓋「圓點其實是原生 input 本身」的版本 */
+div[data-testid="stToggle"] input[type="checkbox"] {
+    accent-color: #ff8a57 !important;
 }
 
 /* ---- st.checkbox 改畫成同款膠囊滑塊（深藍底、橘色滑塊） ---- */
@@ -92,6 +101,31 @@ div[data-testid="stPopover"] > button:hover {
     background: #1b2632 !important;
     border-color: rgba(255,138,87,0.9) !important;
     color: #ffffff !important;
+}
+
+/* ---- 「👁 預覽」彈出的內容面板：縮小約 40%，內容過寬時改成內部橫向捲動 ---- */
+/* Streamlit 的 popover 面板通常是用 baseweb 的 Popover 元件，實際內容常是
+   透過 portal 掛在別的節點，不一定包在 stPopover 底下，所以這裡多抓幾個
+   可能的 selector 來提高命中率 */
+div[data-testid="stPopoverBody"],
+div[data-baseweb="popover"] div[data-testid="stVerticalBlock"] {
+    max-width: 230px !important;
+    width: 230px !important;
+    padding: 8px 10px !important;
+}
+div[data-testid="stPopoverBody"] pre,
+div[data-baseweb="popover"] pre {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+    padding: 6px 8px !important;
+    max-height: 320px !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    white-space: pre !important;
+}
+div[data-testid="stPopoverBody"] p,
+div[data-baseweb="popover"] p {
+    font-size: 11px !important;
 }
 </style>
 """, unsafe_allow_html=True)
