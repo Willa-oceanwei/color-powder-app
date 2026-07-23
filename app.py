@@ -4040,6 +4040,20 @@ elif menu == "生產單管理":
             matches = matches.sort_values("建立時間", ascending=False)
         return matches.iloc[0].to_dict()
 
+    def reset_order_draft_state_if_new(new_order_no):
+        """開始一張全新的生產單草稿時（生產單號跟目前記錄的不一樣），
+        清掉上一張單殘留的包裝重量/份數、是否已下載、是否已存檔等暫存狀態，
+        避免新單一開始就沿用舊單的數字，或誤顯示「已下載」。"""
+        prev_order = st.session_state.get("new_order") or {}
+        if str(prev_order.get("生產單號", "")).strip() == str(new_order_no).strip():
+            return  # 同一張單（例如只是重新 rerun），不用清
+        for i in range(1, 5):
+            st.session_state.pop(f"form_weight{i}_tab1", None)
+            st.session_state.pop(f"form_count{i}_tab1", None)
+        st.session_state["downloaded_html_tab1"] = False
+        st.session_state["new_order_saved"] = False
+        st.session_state.pop("recipe_init_done", None)
+
     # =============== Tab 架構開始 ===============
     if st.session_state.get("order_toast"):
         st.toast(
@@ -4193,6 +4207,7 @@ elif menu == "生產單管理":
         
             # 依當日最大流水號 +1 產生生產單號
             new_id = generate_next_production_order_id()
+            reset_order_draft_state_if_new(new_id)
         
             order = {
                 "生產單號": new_id,
@@ -4252,6 +4267,7 @@ elif menu == "生產單管理":
                     order = {}
     
                     new_id = generate_next_production_order_id()
+                    reset_order_draft_state_if_new(new_id)
     
                     main_recipe_code = selected_row.get("配方編號", "").strip()
                     df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
