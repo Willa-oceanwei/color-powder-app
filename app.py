@@ -1080,8 +1080,12 @@ def render_metric_cards(items):
 # ===== 更新版：代工單卡片改為方塊網格排列 + 長內容可展開 =====
 # 取代原本的 render_oem_status_cards 函式（整個函式覆蓋掉即可）
 
-def render_oem_status_cards(df):
-    """把代工單 DataFrame 渲染成網格卡片；內容較長的欄位收進可展開區塊。"""
+def render_oem_status_cards(df, df_order=None, df_recipe=None):
+    """把代工單 DataFrame 渲染成網格卡片；內容較長的欄位收進可展開區塊。
+
+    若有傳入 df_order（生產單）與 df_recipe（配方管理），每張卡片會多一顆
+    「🔍 預覽生產單」小按鈕；點下去會直接彈出對應生產單的配方內容、備註等，
+    不需要再切回「生產單管理」分頁。"""
 
     status_style = {
         "⏳ 未載回": {"bg": "rgba(230,171,2,0.15)",  "fg": "#e6ab02", "border": "rgba(230,171,2,0.35)"},
@@ -1110,68 +1114,110 @@ def render_oem_status_cards(df):
 
     st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
-    # ===== 卡片網格（一排自動排 2~3 張，視版面寬度而定）=====
-    cards_html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">'
+    can_preview = (df_order is not None) and (df_recipe is not None) and ("生產單號" in df.columns)
 
-    for _, row in df.iterrows():
-        s = status_style.get(row.get("狀態", ""), default_style)
+    # ===== 卡片網格：改用 st.columns 排版，讓每張卡片可以嵌入真正的預覽按鈕 =====
+    cards_per_row = 3
+    rows_df = df.reset_index(drop=True)
 
-        delivery_text = str(row.get("送達日期及數量", "") or "").strip()
-        return_text   = str(row.get("載回日期及數量", "") or "").strip()
-        has_extra = (
-            (delivery_text and delivery_text != "（無送達紀錄）") or
-            (return_text and return_text != "（無載回紀錄）")
-        )
+    for start in range(0, len(rows_df), cards_per_row):
+        chunk = rows_df.iloc[start:start + cards_per_row]
+        cols = st.columns(cards_per_row)
+        for col, (row_pos, row) in zip(cols, chunk.iterrows()):
+            with col:
+                s = status_style.get(row.get("狀態", ""), default_style)
 
-        extra_html = ""
-        if has_extra:
-            extra_lines = ""
-            if delivery_text:
-                extra_lines += f"<div style='margin-bottom:4px;'><b>送達：</b>{delivery_text.replace(chr(10), '<br>')}</div>"
-            if return_text:
-                extra_lines += f"<div><b>載回：</b>{return_text.replace(chr(10), '<br>')}</div>"
-            extra_html = f"""
-            <details style="margin-top:6px;">
-                <summary style="font-size:11px;color:#5aa9e6;cursor:pointer;">更多紀錄</summary>
-                <div style="font-size:11px;color:#9fb6cc;margin-top:6px;line-height:1.6;">
-                    {extra_lines}
+                delivery_text = str(row.get("送達日期及數量", "") or "").strip()
+                return_text   = str(row.get("載回日期及數量", "") or "").strip()
+                has_extra = (
+                    (delivery_text and delivery_text != "（無送達紀錄）") or
+                    (return_text and return_text != "（無載回紀錄）")
+                )
+
+                extra_html = ""
+                if has_extra:
+                    extra_lines = ""
+                    if delivery_text:
+                        extra_lines += f"<div style='margin-bottom:4px;'><b>送達：</b>{delivery_text.replace(chr(10), '<br>')}</div>"
+                    if return_text:
+                        extra_lines += f"<div><b>載回：</b>{return_text.replace(chr(10), '<br>')}</div>"
+                    extra_html = f"""
+                    <details style="margin-top:6px;">
+                        <summary style="font-size:11px;color:#5aa9e6;cursor:pointer;">更多紀錄</summary>
+                        <div style="font-size:11px;color:#9fb6cc;margin-top:6px;line-height:1.6;">
+                            {extra_lines}
+                        </div>
+                    </details>
+                    """
+
+                card_html = f"""
+                <div style="background:#0d1b2a;border:1px solid rgba(255,255,255,0.08);border-radius:10px;
+                            padding:12px 14px;margin-bottom:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+                        <div style="font-size:13px;color:#ffffff;font-weight:600;">
+                            {row.get('配方編號','')}
+                            <span style="color:#8fd6c4;font-weight:500;">　{row.get('顏色','')}</span>
+                        </div>
+                        <div style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;
+                                    background:{s['bg']};color:{s['fg']};border:1px solid {s['border']};
+                                    white-space:nowrap;margin-left:8px;">
+                            {row.get('狀態','')}
+                        </div>
+                    </div>
+                    <div style="font-size:12px;color:#cfd8e3;margin-bottom:2px;">
+                        {row.get('代工單號','')}　|　{row.get('客戶名稱','')}
+                    </div>
+                    <div style="font-size:11.5px;color:#9fb6cc;margin-bottom:6px;">
+                        {row.get('代工廠名稱','')}
+                    </div>
+                    <div style="font-size:11.5px;color:#9fb6cc;">
+                        代工 {row.get('代工數量','')}　目標 {row.get('目標載回','')}
+                    </div>
+                    <div style="font-size:11.5px;color:#9fb6cc;">
+                        {row.get('差異','')}
+                    </div>
+                    {extra_html}
                 </div>
-            </details>
-            """
+                """
+                card_html = "\n".join(line.strip() for line in card_html.split("\n"))
+                st.markdown(card_html, unsafe_allow_html=True)
 
-        cards_html += f"""
-        <div style="background:#0d1b2a;border:1px solid rgba(255,255,255,0.08);border-radius:10px;
-                    padding:12px 14px;">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
-                <div style="font-size:13px;color:#ffffff;font-weight:600;">
-                    {row.get('配方編號','')}
-                    <span style="color:#8fd6c4;font-weight:500;">　{row.get('顏色','')}</span>
-                </div>
-                <div style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;
-                            background:{s['bg']};color:{s['fg']};border:1px solid {s['border']};
-                            white-space:nowrap;margin-left:8px;">
-                    {row.get('狀態','')}
-                </div>
-            </div>
-            <div style="font-size:12px;color:#cfd8e3;margin-bottom:2px;">
-                {row.get('代工單號','')}　|　{row.get('客戶名稱','')}
-            </div>
-            <div style="font-size:11.5px;color:#9fb6cc;margin-bottom:6px;">
-                {row.get('代工廠名稱','')}
-            </div>
-            <div style="font-size:11.5px;color:#9fb6cc;">
-                代工 {row.get('代工數量','')}　目標 {row.get('目標載回','')}
-            </div>
-            <div style="font-size:11.5px;color:#9fb6cc;">
-                {row.get('差異','')}
-            </div>
-            {extra_html}
-        </div>
-        """
+                # ===== 🔍 生產單內容預覽（不切換分頁）=====
+                oem_no = str(row.get("代工單號", "") or "").strip()
+                production_order_no = str(row.get("生產單號", "") or "").strip() if can_preview else ""
 
-    cards_html += "</div>"
-    cards_html = "\n".join(line.strip() for line in cards_html.split("\n"))
-    st.markdown(cards_html, unsafe_allow_html=True)
+                if can_preview and production_order_no:
+                    popover_key = f"oem_card_preview_{oem_no}_{start}_{row_pos}"
+                    with st.popover("🔍 預覽生產單", use_container_width=True, key=popover_key):
+                        matched_order = df_order[
+                            df_order["生產單號"].astype(str).str.strip() == production_order_no
+                        ] if "生產單號" in df_order.columns else pd.DataFrame()
+
+                        if matched_order.empty:
+                            st.info(f"⚠️ 找不到對應的生產單（{production_order_no}）")
+                        else:
+                            order_dict = matched_order.iloc[0].to_dict()
+                            order_dict = {
+                                k: "" if v is None or pd.isna(v) else str(v)
+                                for k, v in order_dict.items()
+                            }
+                            recipe_code = order_dict.get("配方編號", "")
+                            recipe_rows = (
+                                df_recipe[df_recipe["配方編號"] == recipe_code]
+                                if "配方編號" in df_recipe.columns else pd.DataFrame()
+                            )
+                            recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
+
+                            st.caption(
+                                f"生產單 {production_order_no}｜{order_dict.get('顏色','')}｜"
+                                f"{order_dict.get('客戶名稱','')}"
+                            )
+                            preview_text = generate_order_preview_text(
+                                order_dict, recipe_row, df_recipe, show_additional_ids=True
+                            )
+                            st.markdown(preview_text, unsafe_allow_html=True)
+                elif can_preview:
+                    st.caption("（此代工單未記錄生產單號，無法預覽）")
     
 def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
     if df is None or df.empty:
@@ -1724,6 +1770,148 @@ def generate_production_order_print(
     return "<br>".join(lines)
 
 # --------------- 新增：列印專用 HTML 生成函式 ---------------
+def generate_order_preview_text(order, recipe_row, df_recipe, show_additional_ids=True):
+    """共用的生產單預覽文字產生器（配方內容＋備註）。
+    原本只有「生產單管理」分頁內部使用，抽成全域函式後，
+    「代工管理」分頁的代工單卡片預覽鍵也可以呼叫同一份邏輯。"""
+    category_colorant = str(recipe_row.get("色粉類別", "")).strip()
+
+    # 色母預覽改用專用版型（保留正確的下方顯示樣式）
+    if category_colorant == "色母":
+        html_text = ""
+
+        def fmt_num_colorant(x: float) -> str:
+            if abs(x - int(x)) < 1e-9:
+                return str(int(x))
+            return f"{x:g}"
+
+        order_note = str(order.get("備註", "")).strip()
+        if order_note:
+            html_text += f"【生產單備註】{order_note}<br><br>"
+
+        pack_weights_display = [float(order.get(f"包裝重量{i}", 0) or 0) for i in range(1, 5)]
+        pack_counts_display = [float(order.get(f"包裝份數{i}", 0) or 0) for i in range(1, 5)]
+
+        id_col_width = 14
+        value_col_width = 12
+        active_pack_cols = []
+        for w, c in zip(pack_weights_display, pack_counts_display):
+            if w > 0 and c > 0:
+                val = 100 if abs(w - 1.0) < 1e-9 else int(w * 100)
+                active_pack_cols.append(f"{val}K × {int(c)}")
+
+        if active_pack_cols:
+            pack_line = (" " * id_col_width) + "".join(
+                f"{col:>{value_col_width}}" for col in active_pack_cols
+            )
+            html_text += pack_line + "<br>"
+
+        colorant_weights = [float(recipe_row.get(f"色粉重量{i}", 0) or 0) for i in range(1, 9)]
+        powder_ids = [str(recipe_row.get(f"色粉編號{i}", "") or "").strip() for i in range(1, 9)]
+
+        for pid, wgt in zip(powder_ids, colorant_weights):
+            if pid and wgt > 0:
+                pid_display = pid[:id_col_width]
+                line = pid_display.ljust(id_col_width)
+                for w, c in zip(pack_weights_display, pack_counts_display):
+                    if w > 0 and c > 0:
+                        val = wgt * w
+                        line += f"{fmt_num_colorant(val):>{value_col_width}}"
+                html_text += line + "<br>"
+
+        total_colorant = float(recipe_row.get("淨重", 0) or 0) - sum(colorant_weights)
+        total_line_colorant = "料".ljust(id_col_width)
+        for w, c in zip(pack_weights_display, pack_counts_display):
+            if w > 0 and c > 0:
+                val = total_colorant * w
+                total_line_colorant += f"{fmt_num_colorant(val):>{value_col_width}}"
+
+        html_text += total_line_colorant + "<br>"
+
+        text_with_newlines = html_text.replace("<br>", "\n")
+        plain_text = re.sub(r"<.*?>", "", text_with_newlines)
+        return "```\n" + plain_text.strip() + "\n```"
+
+    html_text = generate_production_order_print(
+        order,
+        recipe_row,
+        additional_recipe_rows=None,
+        show_additional_ids=show_additional_ids,
+        include_remark=False
+    )
+
+    main_code = str(order.get("配方編號", "")).strip()
+    if main_code and df_recipe is not None and not df_recipe.empty and "配方類別" in df_recipe.columns:
+        additional_recipe_rows = df_recipe[
+            (df_recipe["配方類別"] == "附加配方") &
+            (df_recipe["原始配方"].astype(str).str.strip() == main_code)
+        ].to_dict("records")
+    else:
+        additional_recipe_rows = []
+
+    if additional_recipe_rows:
+        powder_label_width = 12
+        number_col_width = 7
+        multipliers = []
+        for j in range(1, 5):
+            try:
+                w = float(order.get(f"包裝重量{j}", 0) or 0)
+            except Exception:
+                w = 0
+            if w > 0:
+                multipliers.append(w)
+        if not multipliers:
+            multipliers = [1.0]
+
+        def fmt_num(x: float) -> str:
+            if abs(x - int(x)) < 1e-9:
+                return str(int(x))
+            return f"{x:g}"
+
+        html_text += "<br>=== 附加配方 ===<br>"
+
+        for idx, sub in enumerate(additional_recipe_rows, 1):
+            if show_additional_ids:
+                html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>"
+            else:
+                html_text += f"附加配方 {idx}<br>"
+
+            for i in range(1, 9):
+                c_id = str(sub.get(f"色粉編號{i}", "") or "").strip()
+                try:
+                    base_w = float(sub.get(f"色粉重量{i}", 0) or 0)
+                except Exception:
+                    base_w = 0.0
+
+                if c_id and base_w > 0:
+                    cells = []
+                    for m in multipliers:
+                        val = base_w * m
+                        cells.append(fmt_num(val).rjust(number_col_width))
+                    row = c_id.ljust(powder_label_width) + "".join(cells)
+                    html_text += row + "<br>"
+
+            total_label = str(sub.get("合計類別", "=") or "=")
+            try:
+                net = float(sub.get("淨重", 0) or 0)
+            except Exception:
+                net = 0.0
+            total_line = total_label.ljust(powder_label_width)
+            for idx, m in enumerate(multipliers):
+                val = net * m
+                total_line += fmt_num(val).rjust(number_col_width)
+            html_text += total_line + "<br>"
+
+    # ===== 備註顯示（區分來源） =====
+    order_note = str(order.get("備註", "")).strip()
+    if order_note:
+        html_text += f"【生產單備註】{order_note}<br><br>"
+
+    text_with_newlines = html_text.replace("<br>", "\n")
+    plain_text = re.sub(r"<.*?>", "", text_with_newlines)
+    return "```\n" + plain_text.strip() + "\n```"
+
+
 def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, show_additional_ids=True):
     if recipe_row is None:
         recipe_row = {}
@@ -5409,142 +5597,9 @@ elif menu == "生產單管理":
             selected_order = None
     
         def generate_order_preview_text_tab3(order, recipe_row, show_additional_ids=True):
-            category_colorant = str(recipe_row.get("色粉類別", "")).strip()
-
-            # 色母預覽改用專用版型（保留正確的下方顯示樣式）
-            if category_colorant == "色母":
-                html_text = ""
-
-                def fmt_num_colorant(x: float) -> str:
-                    if abs(x - int(x)) < 1e-9:
-                        return str(int(x))
-                    return f"{x:g}"
-
-                order_note = str(order.get("備註", "")).strip()
-                if order_note:
-                    html_text += f"【生產單備註】{order_note}<br><br>"
-
-                pack_weights_display = [float(order.get(f"包裝重量{i}", 0) or 0) for i in range(1, 5)]
-                pack_counts_display = [float(order.get(f"包裝份數{i}", 0) or 0) for i in range(1, 5)]
-
-                id_col_width = 14
-                value_col_width = 12
-                active_pack_cols = []
-                for w, c in zip(pack_weights_display, pack_counts_display):
-                    if w > 0 and c > 0:
-                        val = 100 if abs(w - 1.0) < 1e-9 else int(w * 100)
-                        active_pack_cols.append(f"{val}K × {int(c)}")
-
-                if active_pack_cols:
-                    pack_line = (" " * id_col_width) + "".join(
-                        f"{col:>{value_col_width}}" for col in active_pack_cols
-                    )
-                    html_text += pack_line + "<br>"
-
-                colorant_weights = [float(recipe_row.get(f"色粉重量{i}", 0) or 0) for i in range(1, 9)]
-                powder_ids = [str(recipe_row.get(f"色粉編號{i}", "") or "").strip() for i in range(1, 9)]
-
-                for pid, wgt in zip(powder_ids, colorant_weights):
-                    if pid and wgt > 0:
-                        pid_display = pid[:id_col_width]
-                        line = pid_display.ljust(id_col_width)
-                        for w, c in zip(pack_weights_display, pack_counts_display):
-                            if w > 0 and c > 0:
-                                val = wgt * w
-                                line += f"{fmt_num_colorant(val):>{value_col_width}}"
-                        html_text += line + "<br>"
-
-                total_colorant = float(recipe_row.get("淨重", 0) or 0) - sum(colorant_weights)
-                total_line_colorant = "料".ljust(id_col_width)
-                for w, c in zip(pack_weights_display, pack_counts_display):
-                    if w > 0 and c > 0:
-                        val = total_colorant * w
-                        total_line_colorant += f"{fmt_num_colorant(val):>{value_col_width}}"
-
-                html_text += total_line_colorant + "<br>"
-
-                text_with_newlines = html_text.replace("<br>", "\n")
-                plain_text = re.sub(r"<.*?>", "", text_with_newlines)
-                return "```\n" + plain_text.strip() + "\n```"
-
-            html_text = generate_production_order_print(
-                order,
-                recipe_row,
-                additional_recipe_rows=None,
-                show_additional_ids=show_additional_ids,
-                include_remark=False
-            )
-    
-            main_code = str(order.get("配方編號", "")).strip()
-            if main_code:
-                additional_recipe_rows = df_recipe[
-                    (df_recipe["配方類別"] == "附加配方") &
-                    (df_recipe["原始配方"].astype(str).str.strip() == main_code)
-                ].to_dict("records")
-            else:
-                additional_recipe_rows = []
-    
-            if additional_recipe_rows:
-                powder_label_width = 12
-                number_col_width = 7
-                multipliers = []
-                for j in range(1, 5):
-                    try:
-                        w = float(order.get(f"包裝重量{j}", 0) or 0)
-                    except Exception:
-                        w = 0
-                    if w > 0:
-                        multipliers.append(w)
-                if not multipliers:
-                    multipliers = [1.0]
-    
-                def fmt_num(x: float) -> str:
-                    if abs(x - int(x)) < 1e-9:
-                        return str(int(x))
-                    return f"{x:g}"
-    
-                html_text += "<br>=== 附加配方 ===<br>"
-    
-                for idx, sub in enumerate(additional_recipe_rows, 1):
-                    if show_additional_ids:
-                        html_text += f"附加配方 {idx}：{sub.get('配方編號','')}<br>"
-                    else:
-                        html_text += f"附加配方 {idx}<br>"
-    
-                    for i in range(1, 9):
-                        c_id = str(sub.get(f"色粉編號{i}", "") or "").strip()
-                        try:
-                            base_w = float(sub.get(f"色粉重量{i}", 0) or 0)
-                        except Exception:
-                            base_w = 0.0
-    
-                        if c_id and base_w > 0:
-                            cells = []
-                            for m in multipliers:
-                                val = base_w * m
-                                cells.append(fmt_num(val).rjust(number_col_width))
-                            row = c_id.ljust(powder_label_width) + "".join(cells)
-                            html_text += row + "<br>"
-    
-                    total_label = str(sub.get("合計類別", "=") or "=")
-                    try:
-                        net = float(sub.get("淨重", 0) or 0)
-                    except Exception:
-                        net = 0.0
-                    total_line = total_label.ljust(powder_label_width)
-                    for idx, m in enumerate(multipliers):
-                        val = net * m
-                        total_line += fmt_num(val).rjust(number_col_width)
-                    html_text += total_line + "<br>"
-    
-            # ===== 備註顯示（區分來源） =====
-            order_note = str(order.get("備註", "")).strip()
-            if order_note:
-                html_text += f"【生產單備註】{order_note}<br><br>"
-
-            text_with_newlines = html_text.replace("<br>", "\n")
-            plain_text = re.sub(r"<.*?>", "", text_with_newlines)
-            return "```\n" + plain_text.strip() + "\n```"
+            # 邏輯已抽成全域函式 generate_order_preview_text（見檔案上方），
+            # 這裡只是保留原本呼叫名稱，改為委派給共用函式。
+            return generate_order_preview_text(order, recipe_row, df_recipe, show_additional_ids=show_additional_ids)
     
         if selected_order is not None:
             order_dict = selected_order.to_dict()
@@ -6751,6 +6806,7 @@ if menu == "代工管理":
                     "status_order":   status_order_map.get(status, 99),
                     "狀態":           status,
                     "代工單號":       oem_id,
+                    "生產單號":       oem.get("生產單號", ""),
                     "代工廠名稱":     oem.get("代工廠商", ""),
                     "配方編號":       oem.get("配方編號", ""),
                     "顏色":           recipe_color_map.get(str(oem.get("配方編號", "")), ""),
@@ -6822,7 +6878,21 @@ if menu == "代工管理":
                     df_progress_open = df_progress_open.sort_values(
                         by=["status_order", "建立時間_dt"], ascending=[True, False]
                     ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort", "最近進度日期_sort"], errors="ignore")
-                    render_oem_status_cards(df_progress_open)
+
+                    # 讀取「生產單」「配方管理」供卡片上的「🔍 預覽生產單」按鈕使用
+                    # （即使還沒切過「生產單管理」分頁也能正常預覽）
+                    df_order_for_preview = st.session_state.get("df_order")
+                    if df_order_for_preview is None or df_order_for_preview.empty:
+                        df_order_for_preview = get_cached_sheet_df("生產單")
+                    df_recipe_for_preview = st.session_state.get("df_recipe")
+                    if df_recipe_for_preview is None or df_recipe_for_preview.empty:
+                        df_recipe_for_preview = get_cached_sheet_df("配方管理")
+
+                    render_oem_status_cards(
+                        df_progress_open,
+                        df_order=df_order_for_preview,
+                        df_recipe=df_recipe_for_preview,
+                    )
                 else:
                     st.info("目前沒有符合條件的代工單")
 
