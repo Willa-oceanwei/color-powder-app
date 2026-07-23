@@ -18,6 +18,81 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ======== 🎛️ 全站 Toggle / Checkbox 統一美化（只需注入一次，全站套用） ========
+# 說明：Streamlit 的 st.toggle 本身已經是滑動開關樣式，這裡只重新上色成 ERP 主題色；
+# st.checkbox 預設是方框勾選，這裡改用「隱藏原生外觀＋用 :checked 偽類畫一顆膠囊滑塊」
+# 的做法，讓畫面上看起來跟 st.toggle 是同一套視覺語言。
+# ⚠️ 若實際畫面套用後某些舊版 Streamlit 的內部結構不同、顏色沒吃到，
+#    把截圖給我，我再依實際 DOM 微調 selector 即可，不影響功能本身。
+st.markdown("""
+<style>
+/* ---- st.toggle 重新上色（維持原生滑動開關結構，只換色） ---- */
+div[data-testid="stToggle"] label div[data-baseweb="toggle"],
+div[data-testid="stToggle"] [role="switch"] {
+    background-color: rgba(255,255,255,0.15) !important;
+    border: 1px solid rgba(255,255,255,0.25) !important;
+}
+div[data-testid="stToggle"] [role="switch"][aria-checked="true"] {
+    background-color: rgba(90,169,230,0.55) !important;
+    border-color: rgba(90,169,230,0.85) !important;
+}
+
+/* ---- st.checkbox 改畫成同款膠囊滑塊 ---- */
+div[data-testid="stCheckbox"] input[type="checkbox"] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    width: 34px !important;
+    height: 18px !important;
+    min-width: 34px !important;
+    border-radius: 999px !important;
+    background: rgba(255,255,255,0.15) !important;
+    border: 1px solid rgba(255,255,255,0.25) !important;
+    position: relative !important;
+    cursor: pointer !important;
+    vertical-align: middle !important;
+    transition: background 0.18s ease, border-color 0.18s ease !important;
+    margin-right: 4px !important;
+}
+div[data-testid="stCheckbox"] input[type="checkbox"]::after {
+    content: "" !important;
+    position: absolute !important;
+    top: 1px !important;
+    left: 1px !important;
+    width: 14px !important;
+    height: 14px !important;
+    border-radius: 50% !important;
+    background: #cfd8e3 !important;
+    transition: left 0.18s ease, background 0.18s ease !important;
+}
+div[data-testid="stCheckbox"] input[type="checkbox"]:checked {
+    background: rgba(90,169,230,0.55) !important;
+    border-color: rgba(90,169,230,0.85) !important;
+}
+div[data-testid="stCheckbox"] input[type="checkbox"]:checked::after {
+    left: 17px !important;
+    background: #ffffff !important;
+}
+
+/* ---- 卡片右下角的「👁 預覽」小按鈕：縮小、膠囊化、ERP 配色 ---- */
+div[data-testid="stPopover"] > button {
+    font-size: 11px !important;
+    padding: 2px 12px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    line-height: 1.1 !important;
+    border-radius: 999px !important;
+    background: rgba(90,169,230,0.15) !important;
+    color: #5aa9e6 !important;
+    border: 1px solid rgba(90,169,230,0.35) !important;
+}
+div[data-testid="stPopover"] > button:hover {
+    background: rgba(90,169,230,0.28) !important;
+    border-color: rgba(90,169,230,0.6) !important;
+    color: #eaf4ff !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ======== 🔐 簡易登入驗證區 ========
 APP_PASSWORD = "'"  # ✅ 直接在程式中設定密碼
 
@@ -1080,12 +1155,13 @@ def render_metric_cards(items):
 # ===== 更新版：代工單卡片改為方塊網格排列 + 長內容可展開 =====
 # 取代原本的 render_oem_status_cards 函式（整個函式覆蓋掉即可）
 
-def render_oem_status_cards(df, df_order=None, df_recipe=None):
+def render_oem_status_cards(df, df_order=None, df_recipe=None, show_preview=False):
     """把代工單 DataFrame 渲染成網格卡片；內容較長的欄位收進可展開區塊。
 
-    若有傳入 df_order（生產單）與 df_recipe（配方管理），每張卡片會多一顆
-    「🔍 預覽生產單」小按鈕；點下去會直接彈出對應生產單的配方內容、備註等，
-    不需要再切回「生產單管理」分頁。"""
+    若有傳入 df_order（生產單）與 df_recipe（配方管理）且 show_preview=True，
+    每張卡片右下角會多一顆小小的「👁 預覽」按鈕；點下去會直接彈出對應生產單的
+    配方內容、備註等，不需要再切回「生產單管理」分頁。show_preview 預設 False，
+    也就是預覽按鈕預設完全不顯示，交由外層的滑動開關控制是否開啟。"""
 
     status_style = {
         "⏳ 未載回": {"bg": "rgba(230,171,2,0.15)",  "fg": "#e6ab02", "border": "rgba(230,171,2,0.35)"},
@@ -1182,41 +1258,54 @@ def render_oem_status_cards(df, df_order=None, df_recipe=None):
                 card_html = "\n".join(line.strip() for line in card_html.split("\n"))
                 st.markdown(card_html, unsafe_allow_html=True)
 
-                # ===== 🔍 生產單內容預覽（不切換分頁）=====
-                oem_no = str(row.get("代工單號", "") or "").strip()
-                production_order_no = str(row.get("生產單號", "") or "").strip() if can_preview else ""
+                # ===== 👁 生產單內容預覽（不切換分頁；預設隱藏，由外層滑動開關控制）=====
+                if show_preview and can_preview:
+                    production_order_no = str(row.get("生產單號", "") or "").strip()
 
-                if can_preview and production_order_no:
-                    with st.popover(f"🔍 預覽生產單｜{oem_no}"):
-                        matched_order = df_order[
-                            df_order["生產單號"].astype(str).str.strip() == production_order_no
-                        ] if "生產單號" in df_order.columns else pd.DataFrame()
+                    if production_order_no:
+                        # 標籤文字統一顯示「👁 預覽」，但用看不見的零寬字元讓每顆按鈕
+                        # 的底層文字略有不同，避免舊版 Streamlit 在迴圈中對同名按鈕
+                        # 判定成「重複元件」而報錯（畫面上完全看不出差異）。
+                        invisible_suffix = "\u200b" * (row_pos + 1)
+                        popover_label = "👁 預覽" + invisible_suffix
 
-                        if matched_order.empty:
-                            st.info(f"⚠️ 找不到對應的生產單（{production_order_no}）")
-                        else:
-                            order_dict = matched_order.iloc[0].to_dict()
-                            order_dict = {
-                                k: "" if v is None or pd.isna(v) else str(v)
-                                for k, v in order_dict.items()
-                            }
-                            recipe_code = order_dict.get("配方編號", "")
-                            recipe_rows = (
-                                df_recipe[df_recipe["配方編號"] == recipe_code]
-                                if "配方編號" in df_recipe.columns else pd.DataFrame()
-                            )
-                            recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
+                        # 靠右排列：用空白欄位把按鈕推到卡片右下角
+                        _, btn_col = st.columns([2, 1])
+                        with btn_col:
+                            try:
+                                popover_ctx = st.popover(popover_label, use_container_width=False)
+                            except TypeError:
+                                # 少數較舊版本的 st.popover 不支援 use_container_width 參數
+                                popover_ctx = st.popover(popover_label)
 
-                            st.caption(
-                                f"生產單 {production_order_no}｜{order_dict.get('顏色','')}｜"
-                                f"{order_dict.get('客戶名稱','')}"
-                            )
-                            preview_text = generate_order_preview_text(
-                                order_dict, recipe_row, df_recipe, show_additional_ids=True
-                            )
-                            st.markdown(preview_text, unsafe_allow_html=True)
-                elif can_preview:
-                    st.caption("（此代工單未記錄生產單號，無法預覽）")
+                            with popover_ctx:
+                                matched_order = df_order[
+                                    df_order["生產單號"].astype(str).str.strip() == production_order_no
+                                ] if "生產單號" in df_order.columns else pd.DataFrame()
+
+                                if matched_order.empty:
+                                    st.info(f"⚠️ 找不到對應的生產單（{production_order_no}）")
+                                else:
+                                    order_dict = matched_order.iloc[0].to_dict()
+                                    order_dict = {
+                                        k: "" if v is None or pd.isna(v) else str(v)
+                                        for k, v in order_dict.items()
+                                    }
+                                    recipe_code = order_dict.get("配方編號", "")
+                                    recipe_rows = (
+                                        df_recipe[df_recipe["配方編號"] == recipe_code]
+                                        if "配方編號" in df_recipe.columns else pd.DataFrame()
+                                    )
+                                    recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
+
+                                    st.caption(
+                                        f"生產單 {production_order_no}｜{order_dict.get('顏色','')}｜"
+                                        f"{order_dict.get('客戶名稱','')}"
+                                    )
+                                    preview_text = generate_order_preview_text(
+                                        order_dict, recipe_row, df_recipe, show_additional_ids=True
+                                    )
+                                    st.markdown(preview_text, unsafe_allow_html=True)
     
 def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
     if df is None or df.empty:
@@ -6869,6 +6958,13 @@ if menu == "代工管理":
             open_tab, closed_tab = st.tabs([" 未結案代工單", " 已結案代工單"])
 
             with open_tab:
+                # 卡片預覽按鈕的開關狀態；預設 False（完全不顯示預覽按鈕）。
+                # 這裡先讀出目前值供卡片渲染使用，實際的滑動開關元件放在本頁最底部。
+                show_preview_key = "oem_tab4_show_card_preview"
+                if show_preview_key not in st.session_state:
+                    st.session_state[show_preview_key] = False
+                show_card_preview = st.session_state[show_preview_key]
+
                 df_progress_open = df_progress_all[df_progress_all["狀態"] != "✅ 已結案"].copy()
                 df_progress_open = _apply_tab4_filters(df_progress_open, "oem_tab4_open")
 
@@ -6878,7 +6974,7 @@ if menu == "代工管理":
                         by=["status_order", "建立時間_dt"], ascending=[True, False]
                     ).drop(columns=["status_order", "已交貨", "交貨備註", "建立時間_dt", "最近載回日期_sort", "最近進度日期_sort"], errors="ignore")
 
-                    # 讀取「生產單」「配方管理」供卡片上的「🔍 預覽生產單」按鈕使用
+                    # 讀取「生產單」「配方管理」供卡片上的「👁 預覽」按鈕使用
                     # （即使還沒切過「生產單管理」分頁也能正常預覽）
                     df_order_for_preview = st.session_state.get("df_order")
                     if df_order_for_preview is None or df_order_for_preview.empty:
@@ -6891,9 +6987,19 @@ if menu == "代工管理":
                         df_progress_open,
                         df_order=df_order_for_preview,
                         df_recipe=df_recipe_for_preview,
+                        show_preview=show_card_preview,
                     )
                 else:
                     st.info("目前沒有符合條件的代工單")
+
+                # ===== 頁面最底部：滑動開關，控制每張卡片是否出現「👁 預覽」按鈕 =====
+                st.markdown("<div style='height:18px;'></div>", unsafe_allow_html=True)
+                st.toggle(
+                    "顯示代工卡片「👁 預覽」按鈕",
+                    key=show_preview_key,
+                    help="開啟後，每張未結案代工單卡片右下角會出現「👁 預覽」按鈕，"
+                         "點下去可直接看到對應生產單的配方內容與備註，不需要切回「生產單管理」分頁。",
+                )
 
             with closed_tab:
                 
