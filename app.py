@@ -86,11 +86,11 @@ div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] {
     border: 1px solid rgba(255,138,87,0.35) !important;
     box-shadow: none !important;
     gap: 2px !important;
-    height: 18px !important;
-    min-height: 18px !important;
+    height: 24px !important;
+    min-height: 24px !important;
 }
 div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] p {
-    font-size: 6px !important;
+    font-size: 14px !important;
 }
 div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"]:hover {
     background: rgba(255,138,87,0.28) !important;
