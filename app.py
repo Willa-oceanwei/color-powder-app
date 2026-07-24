@@ -121,6 +121,7 @@ div[data-baseweb="popover"] pre {
     overflow-x: auto !important;
     overflow-y: auto !important;
     white-space: pre !important;
+    color: #5aa9e6 !important;
 }
 div[data-testid="stPopoverBody"] p,
 div[data-baseweb="popover"] p {
