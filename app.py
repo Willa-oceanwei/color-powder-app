@@ -73,21 +73,20 @@ div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
 /* ---- 卡片右下角的「👁 預覽」小按鈕：縮小、細邊框膠囊，貼近設計稿 ---- */
 div[data-testid="stPopover"] > button {
     font-size: 11px !important;
-    padding: 2px 12px !important;
-    height: 24px !important;
-    min-height: 24px !important;
-    line-height: 1.1 !important;
+    font-weight: 600 !important;
+    padding: 2px 9px !important;
+    line-height: 1.6 !important;
     border-radius: 999px !important;
-    background: #131c28 !important;
-    color: #f1f5f9 !important;
-    border: 1px solid rgba(255,138,87,0.55) !important;
+    background: rgba(255,138,87,0.15) !important;
+    color: #ff8a57 !important;
+    border: 1px solid rgba(255,138,87,0.35) !important;
     box-shadow: none !important;
     gap: 2px !important;
 }
 div[data-testid="stPopover"] > button:hover {
-    background: #1b2632 !important;
-    border-color: rgba(255,138,87,0.9) !important;
-    color: #ffffff !important;
+    background: rgba(255,138,87,0.28) !important;
+    border-color: rgba(255,138,87,0.65) !important;
+    color: #ffb98d !important;
 }
 /* 嘗試隱藏按鈕內建的展開箭頭圖示（不同版本結構可能不同，抓不到也不影響功能） */
 div[data-testid="stPopover"] > button svg {
