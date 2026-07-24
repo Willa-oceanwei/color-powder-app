@@ -76,7 +76,7 @@ div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
    改用「aria-haspopup="true" 的外層 div」來限定範圍——這個屬性只有
    st.popover 的觸發按鈕外層才會有，st.button 不會有，可以精準只選到這顆。 */
 div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] {
-    font-size: 10px !important;
+    font-size: 12px !important;
     font-weight: 600 !important;
     padding: 1px 4px !important;
     line-height: 1.3 !important;
@@ -86,6 +86,8 @@ div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] {
     border: 1px solid rgba(255,138,87,0.35) !important;
     box-shadow: none !important;
     gap: 2px !important;
+    height: 18px !important;
+    min-height: 18px !important;
 }
 div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] p {
     font-size: 6px !important;
