@@ -71,14 +71,18 @@ div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
 
 
 /* ---- 卡片右下角的「👁 預覽」小按鈕：縮小、細邊框膠囊，貼近設計稿 ---- */
+/* 實測發現這顆按鈕真正的 data-testid 是 "stBaseButton-secondary"，
+   但那是全站「次要樣式按鈕」共用的 testid，不能直接鎖，否則全站按鈕都會被改到。
+   改用「aria-haspopup="true" 的外層 div」來限定範圍——這個屬性只有
+   st.popover 的觸發按鈕外層才會有，st.button 不會有，可以精準只選到這顆。 */
 div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] {
-    font-size: 10px !important;
+    font-size: 14px !important;
     font-weight: 600 !important;
     padding: 1px 4px !important;
     line-height: 1.3 !important;
     border-radius: 999px !important;
     background: rgba(255,138,87,0.15) !important;
-    color: #3a8dd6 !important;
+    color: #ff8a57 !important;
     border: 1px solid rgba(255,138,87,0.35) !important;
     box-shadow: none !important;
     gap: 2px !important;
@@ -87,13 +91,13 @@ div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] {
 }
 div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] p {
     font-size: 14px !important;
-    color: #3a8dd6 !important;
 }
 div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"]:hover {
     background: rgba(255,138,87,0.28) !important;
     border-color: rgba(255,138,87,0.65) !important;
     color: #ffb98d !important;
 }
+/* 隱藏按鈕內建的展開箭頭圖示（確認過就是這顆按鈕內的 svg，直接藏起來） */
 div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] svg {
     display: none !important;
 }
@@ -117,7 +121,6 @@ div[data-baseweb="popover"] pre {
     overflow-x: auto !important;
     overflow-y: auto !important;
     white-space: pre !important;
-    color: #5aa9e6 !important;
 }
 div[data-testid="stPopoverBody"] p,
 div[data-baseweb="popover"] p {
@@ -4515,7 +4518,21 @@ elif menu == "生產單管理":
             selected_row = option_map[selected_label].copy()
         
             # 依當日最大流水號 +1 產生生產單號
-            new_id = generate_next_production_order_id()
+            # ⚠️ 但如果這張單這次已經存檔成功、選的配方也還是同一個，
+            # 就要沿用原本的單號，不能再重新算一次「下一號」。
+            # 不然存檔成功後，只要畫面又 rerun 一次（例如按下載 A5），
+            # Sheet 裡已經多了剛存的那筆，「下一號」就會往前推一號，
+            # 程式會誤判成「使用者又開了一張全新的單」，把已存檔的記號重設掉，
+            # 導致重複檢查又跑一次、抓到自己剛存的那筆，變成自己嚇自己。
+            _prev_order_for_id = st.session_state.get("new_order") or {}
+            if (
+                st.session_state.get("new_order_saved", False)
+                and str(_prev_order_for_id.get("配方編號", "")).strip()
+                    == str(selected_row.get("配方編號", "")).strip()
+            ):
+                new_id = _prev_order_for_id.get("生產單號", "") or generate_next_production_order_id()
+            else:
+                new_id = generate_next_production_order_id()
             reset_order_draft_state_if_new(new_id)
         
             order = {
@@ -4740,6 +4757,10 @@ elif menu == "生產單管理":
                     st.session_state[merge_match_key] = find_same_day_order_duplicate(recipe_code_for_dup) or {}
 
             dup_match = st.session_state.get(merge_match_key) or {}
+            # 🛡️ 保險：比對到的那張單如果生產單號剛好跟目前這張一模一樣，
+            # 一定是自己抓到自己，不是真的重複，直接視為沒有重複。
+            if dup_match and str(dup_match.get("生產單號", "")).strip() == order_no_for_dup:
+                dup_match = {}
 
         if dup_match:
             if is_colorant_for_dup:
