@@ -82,7 +82,7 @@ div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] {
     line-height: 1.3 !important;
     border-radius: 999px !important;
     background: rgba(255,138,87,0.15) !important;
-    color: #ffffff  !important;
+    color: #3a8dd6  !important;
     border: 1px solid rgba(255,138,87,0.35) !important;
     box-shadow: none !important;
     gap: 2px !important;
