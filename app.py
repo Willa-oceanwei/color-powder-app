@@ -71,7 +71,11 @@ div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
 
 
 /* ---- 卡片右下角的「👁 預覽」小按鈕：縮小、細邊框膠囊，貼近設計稿 ---- */
-div[data-testid="stPopover"] > button {
+/* 實測發現這顆按鈕真正的 data-testid 是 "stBaseButton-secondary"，
+   但那是全站「次要樣式按鈕」共用的 testid，不能直接鎖，否則全站按鈕都會被改到。
+   改用「aria-haspopup="true" 的外層 div」來限定範圍——這個屬性只有
+   st.popover 的觸發按鈕外層才會有，st.button 不會有，可以精準只選到這顆。 */
+div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] {
     font-size: 11px !important;
     font-weight: 600 !important;
     padding: 2px 9px !important;
@@ -83,13 +87,13 @@ div[data-testid="stPopover"] > button {
     box-shadow: none !important;
     gap: 2px !important;
 }
-div[data-testid="stPopover"] > button:hover {
+div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"]:hover {
     background: rgba(255,138,87,0.28) !important;
     border-color: rgba(255,138,87,0.65) !important;
     color: #ffb98d !important;
 }
-/* 嘗試隱藏按鈕內建的展開箭頭圖示（不同版本結構可能不同，抓不到也不影響功能） */
-div[data-testid="stPopover"] > button svg {
+/* 隱藏按鈕內建的展開箭頭圖示（確認過就是這顆按鈕內的 svg，直接藏起來） */
+div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] svg {
     display: none !important;
 }
 
