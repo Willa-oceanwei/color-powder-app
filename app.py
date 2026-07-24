@@ -87,6 +87,9 @@ div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] {
     box-shadow: none !important;
     gap: 2px !important;
 }
+div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] p {
+    font-size: 6px !important;
+}
 div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"]:hover {
     background: rgba(255,138,87,0.28) !important;
     border-color: rgba(255,138,87,0.65) !important;
