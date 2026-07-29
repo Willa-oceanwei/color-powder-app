@@ -35,8 +35,8 @@ div[data-testid="stCheckbox"] input[type="checkbox"] {
     height: 18px !important;
     min-width: 34px !important;
     border-radius: 999px !important;
-    background: #16202e !important;
-    border: 1px solid rgba(255,138,87,0.30) !important;
+    background: #2b333d !important;              /* 關閉：深灰底 */
+    border: 1px solid rgba(255,255,255,0.18) !important;
     position: relative !important;
     cursor: pointer !important;
     vertical-align: middle !important;
@@ -52,21 +52,32 @@ div[data-testid="stCheckbox"] input[type="checkbox"]::after {
     width: 14px !important;
     height: 14px !important;
     border-radius: 50% !important;
-    background: #ff8a57 !important;
+    background: #8a94a3 !important;               /* 關閉：灰色圓點 */
     transition: left 0.18s ease, background 0.18s ease !important;
 }
 div[data-testid="stCheckbox"] input[type="checkbox"]:checked {
-    background: rgba(255,138,87,0.28) !important;
-    border-color: rgba(255,138,87,0.75) !important;
+    background: #ff8a57 !important;               /* 開啟：橘色實心底 */
+    border-color: #ff8a57 !important;
 }
 div[data-testid="stCheckbox"] input[type="checkbox"]:checked::after {
     left: 17px !important;
-    background: #ffffff !important;
+    background: #ffffff !important;               /* 開啟：白色圓點 */
 }
 /* 藏起 Streamlit 自己原生畫的那顆滑塊 div（label 底下的第一個子層），
    只留我們畫在 input 上面的那顆，避免看到兩顆滑塊 */
 div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
     display: none !important;
+}
+/* ---- 開關文字：關閉時反白（淡化變灰），開啟時恢復清楚、加粗（涵蓋全站） ---- */
+div[data-testid="stCheckbox"] label:has(input:not(:checked)) div[data-testid="stMarkdownContainer"] p {
+    color: rgba(235,238,242,0.35) !important;
+    font-weight: 400 !important;
+    transition: color 0.18s ease !important;
+}
+div[data-testid="stCheckbox"] label:has(input:checked) div[data-testid="stMarkdownContainer"] p {
+    color: #f5f7fa !important;
+    font-weight: 600 !important;
+    transition: color 0.18s ease !important;
 }
 
 
