@@ -4364,12 +4364,20 @@ elif menu == "生產單管理":
         return matches.iloc[0].to_dict()
 
     def reset_order_draft_state_if_new(new_order_no):
-        """開始一張全新的生產單草稿時（生產單號跟目前記錄的不一樣），
-        清掉上一張單殘留的包裝重量/份數、是否已下載、是否已存檔等暫存狀態，
-        避免新單一開始就沿用舊單的數字，或誤顯示「已下載」。"""
+        """開始一張全新的生產單草稿時，清掉上一張單殘留的包裝重量/份數、是否已下載、
+        是否已存檔等暫存狀態，避免新單一開始就沿用舊單的數字，或誤顯示「已下載」。
+        ⚠️ 只有「上一張單還沒存檔、且單號沒變」才視為同一張草稿（例如只是重新 rerun），
+        不清空；只要上一張單已經存檔成功，不論這次算出來的單號是否剛好跟上一張一樣
+        （例如 Sheet 尚未即時反映最新流水號），都一律視為要開始新的一筆，強制清空，
+        避免包裝重量/份數殘留到下一筆。"""
         prev_order = st.session_state.get("new_order") or {}
-        if str(prev_order.get("生產單號", "")).strip() == str(new_order_no).strip():
-            return  # 同一張單（例如只是重新 rerun），不用清
+        already_saved = st.session_state.get("new_order_saved", False)
+        same_draft = (
+            not already_saved
+            and str(prev_order.get("生產單號", "")).strip() == str(new_order_no).strip()
+        )
+        if same_draft:
+            return  # 同一張還沒存檔的單（例如只是重新 rerun），不用清
         for i in range(1, 5):
             st.session_state.pop(f"form_weight{i}_tab1", None)
             st.session_state.pop(f"form_count{i}_tab1", None)
@@ -7489,10 +7497,11 @@ elif menu == "採購管理":
             df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
         
         # --- 篩選欄位 ---
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         search_code = col1.text_input("色粉編號", key="in_search_code")
         search_start = col2.date_input("進貨日期(起)", key="in_search_start")
         search_end = col3.date_input("進貨日期(迄)", key="in_search_end")
+        search_supplier = col4.text_input("廠商（編號或名稱）", key="in_search_supplier")
         
         if st.button("查詢進貨", key="btn_search_in_v3"):
             df_result = df_stock[df_stock["類型"] == "進貨"].copy()
@@ -7500,6 +7509,19 @@ elif menu == "採購管理":
             # 1️⃣ 依色粉編號篩選
             if search_code.strip():
                 df_result = df_result[df_result["色粉編號"].astype(str).str.contains(search_code.strip(), case=False)]
+
+            # 1️⃣b 依廠商編號或廠商名稱篩選
+            if search_supplier.strip():
+                supplier_kw = search_supplier.strip()
+                if "廠商編號" not in df_result.columns:
+                    df_result["廠商編號"] = ""
+                if "廠商名稱" not in df_result.columns:
+                    df_result["廠商名稱"] = ""
+                supplier_mask = (
+                    df_result["廠商編號"].astype(str).str.contains(supplier_kw, case=False, na=False) |
+                    df_result["廠商名稱"].astype(str).str.contains(supplier_kw, case=False, na=False)
+                )
+                df_result = df_result[supplier_mask]
             
             # 2️⃣ 日期欄轉換格式
             df_result["日期_dt"] = pd.to_datetime(df_result["日期"], errors="coerce").dt.normalize()
@@ -7530,6 +7552,7 @@ elif menu == "採購管理":
             if not df_result.empty:
                 show_cols = {
                     "色粉編號": "色粉編號",
+                    "廠商編號": "廠商編號",
                     "廠商名稱": "供應商簡稱",
                     "日期_dt": "日期",
                     "數量": "數量",
@@ -7537,7 +7560,9 @@ elif menu == "採購管理":
                     "備註": "備註"
                 }
             
-                # ✅ 若舊資料沒有廠商名稱欄位，補空值（避免 KeyError）
+                # ✅ 若舊資料沒有廠商編號/廠商名稱欄位，補空值（避免 KeyError）
+                if "廠商編號" not in df_result.columns:
+                    df_result["廠商編號"] = ""
                 if "廠商名稱" not in df_result.columns:
                     df_result["廠商名稱"] = ""
             
