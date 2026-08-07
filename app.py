@@ -6666,8 +6666,7 @@ if menu == "代工管理":
                                     adjusted_target_qty,
                                     adjusted_multiplier
                                 )
-                                st.session_state.oem_target_qty = adjusted_target_qty
-                                st.session_state.oem_multiplier = adjusted_multiplier
+                                st.session_state.oem_edit_selected_id = None
                                 st.session_state.toast_message = {
                                     "msg": f"已自動調整目標載回數量為 {adjusted_target_qty:.2f} kg，請再次點擊「新增送達」",
                                     "icon": "📦"
