@@ -10,6 +10,11 @@ import re
 from pathlib import Path        
 from datetime import datetime
 import concurrent.futures
+from utils.database import initialize_database
+
+# SQLite is initialized automatically on startup. Web queries should migrate toward
+# SQLite as the Source of Truth; Google Sheets remains a sync/reporting surface.
+SQLITE_DB_PATH = initialize_database()
 
 st.set_page_config(
     page_title="配方管理系統",
