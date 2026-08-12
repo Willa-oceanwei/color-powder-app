@@ -10,6 +10,11 @@ import re
 from pathlib import Path        
 from datetime import datetime
 import concurrent.futures
+from utils.database import initialize_database
+
+# SQLite is initialized automatically on startup. Web queries should migrate toward
+# SQLite as the Source of Truth; Google Sheets remains a sync/reporting surface.
+SQLITE_DB_PATH = initialize_database()
 
 st.set_page_config(
     page_title="配方管理系統",
@@ -660,17 +665,26 @@ def _get_gspread_client():
 def _get_spreadsheet():
     return _get_gspread_client().open_by_url(SHEET_URL)
 
-client = _get_gspread_client()
+class LazySpreadsheet:
+    """Delay Google Sheets connection until a page actually needs worksheet data.
 
-# ======== 建立 Spreadsheet 物件 (避免重複連線) =========
-try:
-    spreadsheet = _get_spreadsheet()
-except Exception as e:
-    st.error(f"❗ 無法連線 Google Sheet：{e}")
-    st.stop()
+    This keeps the post-login shell responsive and prevents the first authenticated
+    rerun from blocking on Google API network latency before the UI is painted.
+    """
 
-# 保留舊的 session_state 存放位置，避免其他地方仍讀取 st.session_state["spreadsheet"]
-st.session_state["spreadsheet"] = spreadsheet
+    def _spreadsheet(self):
+        ss = _get_spreadsheet()
+        st.session_state["spreadsheet"] = ss
+        return ss
+
+    def __getattr__(self, name):
+        return getattr(self._spreadsheet(), name)
+
+
+# Lazily keep the legacy global/session access pattern without opening Google
+# Sheets during login/main-shell rendering.
+spreadsheet = LazySpreadsheet()
+st.session_state.setdefault("spreadsheet", spreadsheet)
 
 SHEET_CACHE_TTL_SECONDS = 300
 
