@@ -1,6 +1,25 @@
 # color-powder-app
 My color powder management system
 
+
+## 現在怎麼開始
+
+1. 安裝 Python 依賴：
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. 啟動 Streamlit：
+
+   ```bash
+   streamlit run app.py
+   ```
+
+3. 第一次啟動會自動建立 `data/colorpowder.db` 與 SQLite schema。登入後主畫面會先完成 UI rendering；Google Sheets 連線已改為 lazy loading，只有進入需要工作表資料的功能時才會連線。
+
+4. 若要先把現有 Google Sheets 安全複製進 SQLite，請執行下方「第一次安全匯入 Google Sheets」指令。這個匯入不會修改原始 Google Sheets。
+
 ## SQLite 主資料庫升級（第一階段）
 
 本專案正在由 Google Sheets 主要資料來源逐步升級為：
