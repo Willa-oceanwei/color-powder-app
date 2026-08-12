@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def utc_now_iso() -> str:
@@ -51,6 +51,15 @@ def connect(db_path: str | Path | None = None):
         raise
     finally:
         conn.close()
+
+
+def _table_columns(conn: sqlite3.Connection, table_name: str) -> set[str]:
+    return {row[1] for row in conn.execute(f"PRAGMA table_info({table_name})")}
+
+
+def _add_column_if_missing(conn: sqlite3.Connection, table_name: str, column_name: str, column_sql: str) -> None:
+    if column_name not in _table_columns(conn, table_name):
+        conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_sql}")
 
 
 def initialize_database(db_path: str | Path | None = None) -> Path:
@@ -88,11 +97,23 @@ def initialize_database(db_path: str | Path | None = None) -> Path:
                 version INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                last_synced_at TEXT
+                last_synced_at TEXT,
+                sheet_row_key TEXT UNIQUE
+            );
+
+            CREATE TABLE IF NOT EXISTS supplier_aliases (
+                alias TEXT PRIMARY KEY,
+                supplier_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id)
+                    ON UPDATE CASCADE ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS inventory_movements (
                 movement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                movement_key TEXT UNIQUE,
+                sheet_name TEXT,
+                sheet_row_key TEXT,
                 movement_type TEXT NOT NULL,
                 colorpowder_id TEXT NOT NULL,
                 movement_date TEXT,
@@ -105,7 +126,8 @@ def initialize_database(db_path: str | Path | None = None) -> Path:
                 updated_at TEXT NOT NULL,
                 last_synced_at TEXT,
                 FOREIGN KEY (colorpowder_id) REFERENCES color_powders(colorpowder_id)
-                    ON UPDATE CASCADE ON DELETE RESTRICT
+                    ON UPDATE CASCADE ON DELETE RESTRICT,
+                UNIQUE(sheet_name, sheet_row_key)
             );
 
             CREATE TABLE IF NOT EXISTS sheet_rows (
@@ -116,6 +138,8 @@ def initialize_database(db_path: str | Path | None = None) -> Path:
                 source TEXT NOT NULL DEFAULT 'google_sheets',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
+                sheet_updated_at TEXT,
+                last_seen_at TEXT NOT NULL,
                 last_synced_at TEXT,
                 PRIMARY KEY (sheet_name, row_key)
             );
@@ -156,6 +180,14 @@ def initialize_database(db_path: str | Path | None = None) -> Path:
             );
             """
         )
+        # Lightweight migrations for databases created by schema version 1.
+        _add_column_if_missing(conn, "suppliers", "sheet_row_key", "TEXT")
+        _add_column_if_missing(conn, "inventory_movements", "movement_key", "TEXT")
+        _add_column_if_missing(conn, "inventory_movements", "sheet_name", "TEXT")
+        _add_column_if_missing(conn, "inventory_movements", "sheet_row_key", "TEXT")
+        _add_column_if_missing(conn, "sheet_rows", "sheet_updated_at", "TEXT")
+        _add_column_if_missing(conn, "sheet_rows", "last_seen_at", "TEXT")
+        conn.execute("UPDATE sheet_rows SET last_seen_at = COALESCE(last_seen_at, updated_at, ?) WHERE last_seen_at IS NULL", (utc_now_iso(),))
         conn.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, utc_now_iso()),
@@ -166,7 +198,11 @@ def initialize_database(db_path: str | Path | None = None) -> Path:
             CREATE INDEX IF NOT EXISTS idx_color_powders_category ON color_powders(category);
             CREATE INDEX IF NOT EXISTS idx_inventory_powder_date ON inventory_movements(colorpowder_id, movement_date);
             CREATE INDEX IF NOT EXISTS idx_inventory_updated_at ON inventory_movements(updated_at);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_sheet_row_key ON suppliers(sheet_row_key) WHERE sheet_row_key IS NOT NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_movement_key ON inventory_movements(movement_key) WHERE movement_key IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_inventory_sheet_row ON inventory_movements(sheet_name, sheet_row_key);
             CREATE INDEX IF NOT EXISTS idx_sheet_rows_updated_at ON sheet_rows(sheet_name, updated_at);
+            CREATE INDEX IF NOT EXISTS idx_sheet_rows_hash ON sheet_rows(sheet_name, row_hash);
             CREATE INDEX IF NOT EXISTS idx_sync_conflicts_status ON sync_conflicts(status, detected_at);
             """
         )
@@ -194,15 +230,36 @@ def record_sync_log(conn: sqlite3.Connection, *, sync_name: str, direction: str,
     )
 
 
-def upsert_sheet_row(conn: sqlite3.Connection, sheet_name: str, row_key: str, payload: dict[str, Any], row_hash: str) -> None:
-    now = utc_now_iso()
+def record_sync_conflict(conn: sqlite3.Connection, *, entity_type: str, entity_id: str,
+                         sqlite_payload: dict[str, Any] | None, sheet_payload: dict[str, Any] | None,
+                         reason: str) -> None:
     conn.execute(
-        """INSERT INTO sheet_rows(sheet_name, row_key, payload_json, row_hash, created_at, updated_at, last_synced_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+        """INSERT INTO sync_conflicts(entity_type, entity_id, sqlite_payload_json, sheet_payload_json, reason, detected_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (entity_type, entity_id,
+         json.dumps(sqlite_payload, ensure_ascii=False, default=str) if sqlite_payload is not None else None,
+         json.dumps(sheet_payload, ensure_ascii=False, default=str) if sheet_payload is not None else None,
+         reason, utc_now_iso()),
+    )
+
+
+def upsert_sheet_row(conn: sqlite3.Connection, sheet_name: str, row_key: str, payload: dict[str, Any],
+                     row_hash: str, sheet_updated_at: str | None = None) -> None:
+    observed_at = utc_now_iso()
+    conn.execute(
+        """INSERT INTO sheet_rows(sheet_name, row_key, payload_json, row_hash, created_at, updated_at,
+               sheet_updated_at, last_seen_at, last_synced_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(sheet_name, row_key) DO UPDATE SET
                payload_json=excluded.payload_json,
                row_hash=excluded.row_hash,
-               updated_at=excluded.updated_at,
+               updated_at=CASE
+                   WHEN sheet_rows.row_hash != excluded.row_hash THEN excluded.updated_at
+                   ELSE sheet_rows.updated_at
+               END,
+               sheet_updated_at=excluded.sheet_updated_at,
+               last_seen_at=excluded.last_seen_at,
                last_synced_at=excluded.last_synced_at""",
-        (sheet_name, row_key, json.dumps(payload, ensure_ascii=False), row_hash, now, now, now),
+        (sheet_name, row_key, json.dumps(payload, ensure_ascii=False), row_hash,
+         observed_at, sheet_updated_at or observed_at, sheet_updated_at, observed_at, observed_at),
     )

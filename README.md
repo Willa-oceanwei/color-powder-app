@@ -68,3 +68,47 @@ python scripts/import_google_sheets_to_sqlite.py \
 4. 使用者直接修改 Google Sheets 時，由同步程序依 `updated_at` / hash / sync metadata 判斷增量變更並寫回 SQLite。
 5. 無法安全判斷雙邊修改時，必須寫入 `sync_conflicts`，保留人工處理空間，不可靜默覆蓋。
 6. SQLite 備份可由 `utils.database.backup_database()` 建立 timestamped backup。
+
+## Streamlit Cloud 持久化注意事項（正式匯入前必讀）
+
+Streamlit app process、SQLite file、Google Sheets、background sync 是四個不同角色：
+
+- **Streamlit app process**：執行 `app.py` 的 Python process，可重新啟動、redeploy 或 rebuild。
+- **SQLite file**：目前預設為 `data/colorpowder.db`，只適合作為可靠磁碟存在時的 Source of Truth。
+- **Google Sheets**：同步副本、報表、管理介面，可被使用者偶爾直接修改，但不應阻塞網站查詢。
+- **background sync**：未來負責 SQLite ↔ Google Sheets 的背景同步；一般網站查詢仍應走 `Web → Python → SQLite`。
+
+在 **Streamlit Cloud** 上，本地 filesystem 通常不應視為永久持久化資料庫儲存。app redeploy、restart、rebuild 或 container 被替換後，`data/colorpowder.db` 可能遺失或回到 repository 內的初始狀態。因此，在確認 SQLite 檔案有可靠持久化方案以前，**不要把正式 Google Sheets 大量匯入只存在於 Streamlit Cloud 本地磁碟的 SQLite**。
+
+最小且安全的持久化方案建議：
+
+1. **短期驗證 / dry-run**：可在本機或暫時環境執行 `--dry-run`，只檢查筆數、重複 ID、validation errors、預計新增/更新數，不寫入正式 SQLite 資料。
+2. **正式匯入前**：先選定可靠的 SQLite 檔案持久化位置，例如部署在有 persistent disk / volume 的 VM、NAS-backed server、或可掛載持久磁碟的平台。
+3. **備份策略**：正式 SQLite 需定期備份，可使用 `utils.database.backup_database()` 產生 timestamped backup；Google Sheets 同步失敗不得刪除或覆寫 SQLite。
+4. **未來替代**：若無法提供可靠 persistent disk，應暫緩正式切換 Source of Truth，或改部署到支援持久化 volume 的環境；目前仍不需要 PostgreSQL，但不可假設 Streamlit Cloud ephemeral filesystem 可永久保存 SQLite。
+
+## Dry-run / validation 模式
+
+在正式匯入前，先使用 dry-run 檢查 Google Sheets 與目前 SQLite 狀態。dry-run 不會寫入 `color_powders`、`inventory_movements`、`suppliers` 或 `sheet_rows`：
+
+```bash
+python scripts/import_google_sheets_to_sqlite.py \
+  --credentials-json /path/to/service-account.json \
+  --sheet-url "https://docs.google.com/spreadsheets/d/.../edit" \
+  --db data/colorpowder.db \
+  --dry-run
+```
+
+輸出會包含：
+
+- Google Sheets 工作表筆數
+- SQLite 目前已知筆數
+- 預計新增數 `insert`
+- 預計更新數 `update`
+- 未變更數 `unchanged`
+- duplicate IDs
+- validation errors
+- conflicts
+- inventory duplicate risk
+
+如果 Google Sheets 沒有明確的 `updated_at` / `更新時間` 欄位，同步程式不會把「匯入當下時間」誤當成 Sheet 修改時間；會改用 `sheet_rows.row_hash` 做增量變更偵測，並在 SQLite 端自上次同步後也有修改時記錄 conflict，避免靜默覆蓋較新的 SQLite 資料。
