@@ -31,8 +31,6 @@ st.set_page_config(
 # TURSO_DATABASE_URL and TURSO_AUTH_TOKEN secrets select the Turso/libsql backend;
 # partial Turso credentials fail fast and never silently fall back to local SQLite.
 try:
-    st.write("DEBUG secret keys:", sorted(st.secrets.keys()))   
-    
     DATABASE_SECRET_PRESENCE = secret_presence_from_secrets(st.secrets)
     DATABASE_CONFIG = database_config_from_secrets(st.secrets)
     DATABASE_BACKEND = DATABASE_CONFIG.backend
