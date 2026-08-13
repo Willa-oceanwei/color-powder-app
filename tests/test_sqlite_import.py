@@ -140,3 +140,41 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     assert "Schema version: 2" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)
+
+
+class NonIterableCursor:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def fetchone(self):
+        return self._cursor.fetchone()
+
+    def fetchall(self):
+        return self._cursor.fetchall()
+
+    def __iter__(self):
+        raise TypeError("'builtins.Cursor' object is not iterable")
+
+
+class NonIterableCursorConnection:
+    """SQLite-backed test double matching libsql 0.1.11 non-iterable cursors."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, sql, parameters=()):
+        return NonIterableCursor(self._conn.execute(sql, parameters))
+
+
+def test_initialize_schema_does_not_iterate_cursor_directly(tmp_path):
+    from utils.database import _initialize_schema
+
+    db = tmp_path / "colorpowder.db"
+    with connect(db) as conn:
+        non_iterable_conn = NonIterableCursorConnection(conn)
+        _initialize_schema(non_iterable_conn)
+        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        inventory_cols = conn.execute("PRAGMA table_info(inventory_movements)").fetchall()
+
+    assert "color_powders" in {row[0] for row in tables}
+    assert "movement_key" in {row[1] for row in inventory_cols}

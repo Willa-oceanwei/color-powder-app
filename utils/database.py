@@ -173,11 +173,22 @@ def connect(db_path: str | Path | None = None):
         conn.close()
 
 
-def _table_columns(conn: sqlite3.Connection, table_name: str) -> set[str]:
-    return {row[1] for row in conn.execute(f"PRAGMA table_info({table_name})")}
+def _fetchall(cursor: Any) -> list[Any]:
+    """Return all rows from DB-API cursors that are not directly iterable.
+
+    Python's sqlite3 cursor supports direct iteration, but libsql 0.1.11's
+    builtins.Cursor does not. Always using fetchall() keeps SQLite behavior while
+    avoiding Turso startup failures.
+    """
+    return cursor.fetchall()
 
 
-def _add_column_if_missing(conn: sqlite3.Connection, table_name: str, column_name: str, column_sql: str) -> None:
+def _table_columns(conn: SqlExecutor, table_name: str) -> set[str]:
+    rows = _fetchall(conn.execute(f"PRAGMA table_info({table_name})"))
+    return {row[1] for row in rows}
+
+
+def _add_column_if_missing(conn: SqlExecutor, table_name: str, column_name: str, column_sql: str) -> None:
     if column_name not in _table_columns(conn, table_name):
         conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_sql}")
 
