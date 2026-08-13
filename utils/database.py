@@ -8,6 +8,7 @@ or service/repository wrappers instead of calling Sheets directly.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import sqlite3
@@ -19,6 +20,7 @@ from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
 SCHEMA_VERSION = 2
+LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
     "suppliers",
@@ -97,6 +99,54 @@ def database_config_from_secrets(secrets: Any | None = None) -> DatabaseConfig:
     if url and token:
         return DatabaseConfig(backend="turso", path=None, turso_database_url=url, turso_auth_token=token)
     return DatabaseConfig(backend="sqlite", path=DEFAULT_DB_PATH)
+
+
+def secret_presence_from_secrets(secrets: Any | None = None) -> dict[str, bool]:
+    """Return safe Turso secret presence flags without exposing secret values."""
+    url_present = bool(_clean_secret(os.environ.get("TURSO_DATABASE_URL")))
+    token_present = bool(_clean_secret(os.environ.get("TURSO_AUTH_TOKEN")))
+    if secrets is not None:
+        try:
+            url_present = bool(_clean_secret(secrets.get("TURSO_DATABASE_URL"))) or url_present
+            token_present = bool(_clean_secret(secrets.get("TURSO_AUTH_TOKEN"))) or token_present
+        except Exception:
+            url_present = bool(_clean_secret(getattr(secrets, "TURSO_DATABASE_URL", None))) or url_present
+            token_present = bool(_clean_secret(getattr(secrets, "TURSO_AUTH_TOKEN", None))) or token_present
+    return {
+        "TURSO_DATABASE_URL": url_present,
+        "TURSO_AUTH_TOKEN": token_present,
+    }
+
+
+def format_database_startup_diagnostics(
+    config: DatabaseConfig,
+    health: DatabaseHealth,
+    secret_presence: dict[str, bool] | None = None,
+) -> list[str]:
+    """Format safe startup diagnostics for Streamlit logs/UI without token values."""
+    lines = [
+        f"Database backend: {config.backend}",
+        f"Database health: {'OK' if health.select_1_ok and health.main_tables_exist else 'FAILED'}",
+        f"Schema version: {health.schema_version}",
+        f"Main tables present: {health.main_tables_exist}",
+    ]
+    if secret_presence is not None:
+        lines.extend([
+            f"TURSO_DATABASE_URL configured: {secret_presence.get('TURSO_DATABASE_URL', False)}",
+            f"TURSO_AUTH_TOKEN configured: {secret_presence.get('TURSO_AUTH_TOKEN', False)}",
+        ])
+    return lines
+
+
+def log_database_startup_diagnostics(
+    config: DatabaseConfig,
+    health: DatabaseHealth,
+    secret_presence: dict[str, bool] | None = None,
+) -> None:
+    """Emit safe startup diagnostics to Streamlit Cloud logs."""
+    for line in format_database_startup_diagnostics(config, health, secret_presence):
+        LOGGER.warning(line)
+        print(line, flush=True)
 
 
 def get_db_path(path: str | Path | None = None) -> Path:
@@ -302,6 +352,8 @@ def initialize_database_from_config(config: DatabaseConfig) -> str | Path:
     client = _connect_turso(config)
     try:
         _initialize_schema(client)
+        if hasattr(client, "commit"):
+            client.commit()
     except Exception as exc:
         raise DatabaseStartupError(f"Could not initialize Turso database schema v{SCHEMA_VERSION}: {exc}") from exc
     finally:

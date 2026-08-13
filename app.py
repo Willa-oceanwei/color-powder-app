@@ -14,7 +14,10 @@ from utils.database import (
     DatabaseStartupError,
     database_config_from_secrets,
     database_health_check,
+    format_database_startup_diagnostics,
     initialize_database_from_config,
+    log_database_startup_diagnostics,
+    secret_presence_from_secrets,
 )
 
 st.set_page_config(
@@ -28,16 +31,35 @@ st.set_page_config(
 # TURSO_DATABASE_URL and TURSO_AUTH_TOKEN secrets select the Turso/libsql backend;
 # partial Turso credentials fail fast and never silently fall back to local SQLite.
 try:
+    DATABASE_SECRET_PRESENCE = secret_presence_from_secrets(st.secrets)
     DATABASE_CONFIG = database_config_from_secrets(st.secrets)
     DATABASE_BACKEND = DATABASE_CONFIG.backend
     DATABASE_INITIALIZED = initialize_database_from_config(DATABASE_CONFIG)
     DATABASE_HEALTH = database_health_check(DATABASE_CONFIG)
+    log_database_startup_diagnostics(DATABASE_CONFIG, DATABASE_HEALTH, DATABASE_SECRET_PRESENCE)
+    if not DATABASE_HEALTH.select_1_ok or not DATABASE_HEALTH.main_tables_exist:
+        raise DatabaseStartupError(
+            f"Database health check failed: SELECT 1 ok={DATABASE_HEALTH.select_1_ok}, "
+            f"schema_version={DATABASE_HEALTH.schema_version}, "
+            f"main_tables_present={DATABASE_HEALTH.main_tables_exist}."
+        )
 except DatabaseStartupError as exc:
     st.error(f"Database startup failed: {exc}")
-    st.stop()
+    st.exception(exc)
+    raise
+except Exception as exc:
+    st.error(f"Unexpected database startup failure: {type(exc).__name__}: {exc}")
+    st.exception(exc)
+    raise
 
 # Backward-compatible name for legacy code paths that still expect a local path.
 SQLITE_DB_PATH = DATABASE_INITIALIZED
+
+with st.sidebar.expander("Database startup", expanded=False):
+    for diagnostic_line in format_database_startup_diagnostics(
+        DATABASE_CONFIG, DATABASE_HEALTH, DATABASE_SECRET_PRESENCE
+    ):
+        st.caption(diagnostic_line)
 
 
 # ======== 🎛️ 全站 Toggle 統一美化（只需注入一次，全站套用） ========

@@ -5,6 +5,7 @@ from utils.database import (
     connect,
     database_config_from_secrets,
     database_health_check,
+    format_database_startup_diagnostics,
     initialize_database,
 )
 from utils.sheet_import import import_sheet_values
@@ -121,3 +122,21 @@ def test_complete_turso_credentials_select_turso_backend(monkeypatch):
     assert config.path is None
     assert config.turso_database_url == "libsql://example.turso.io"
     assert config.turso_auth_token == "secret-token"
+
+
+def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = database_config_from_secrets({})
+    config = config.__class__(backend="sqlite", path=db)
+    health = database_health_check(config)
+    lines = format_database_startup_diagnostics(
+        config,
+        health,
+        {"TURSO_DATABASE_URL": True, "TURSO_AUTH_TOKEN": True},
+    )
+    assert "Database backend: sqlite" in lines
+    assert "Database health: OK" in lines
+    assert "Schema version: 2" in lines
+    assert "TURSO_AUTH_TOKEN configured: True" in lines
+    assert "secret-token" not in "\n".join(lines)
