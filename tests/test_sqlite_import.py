@@ -1,4 +1,12 @@
-from utils.database import initialize_database, connect
+import pytest
+
+from utils.database import (
+    DatabaseStartupError,
+    connect,
+    database_config_from_secrets,
+    database_health_check,
+    initialize_database,
+)
 from utils.sheet_import import import_sheet_values
 
 
@@ -79,3 +87,37 @@ def test_supplier_without_id_uses_stable_sheet_row_identity(tmp_path):
     assert len(suppliers) == 1
     assert suppliers[0]["supplier_id"] == "sheet:row-2"
     assert suppliers[0]["name"] == "新名稱"
+
+
+def test_database_health_check_reports_schema_v2(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = database_config_from_secrets({})
+    config = config.__class__(backend="sqlite", path=db)
+    health = database_health_check(config)
+    assert health.backend == "sqlite"
+    assert health.select_1_ok
+    assert health.schema_version == 2
+    assert health.main_tables_exist
+
+
+def test_partial_turso_credentials_fail_fast(monkeypatch):
+    monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
+    monkeypatch.delenv("TURSO_AUTH_TOKEN", raising=False)
+    with pytest.raises(DatabaseStartupError, match="missing TURSO_AUTH_TOKEN"):
+        database_config_from_secrets({"TURSO_DATABASE_URL": "libsql://example.turso.io"})
+    with pytest.raises(DatabaseStartupError, match="missing TURSO_DATABASE_URL"):
+        database_config_from_secrets({"TURSO_AUTH_TOKEN": "secret-token"})
+
+
+def test_complete_turso_credentials_select_turso_backend(monkeypatch):
+    monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
+    monkeypatch.delenv("TURSO_AUTH_TOKEN", raising=False)
+    config = database_config_from_secrets({
+        "TURSO_DATABASE_URL": "libsql://example.turso.io",
+        "TURSO_AUTH_TOKEN": "secret-token",
+    })
+    assert config.backend == "turso"
+    assert config.path is None
+    assert config.turso_database_url == "libsql://example.turso.io"
+    assert config.turso_auth_token == "secret-token"

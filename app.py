@@ -10,11 +10,12 @@ import re
 from pathlib import Path        
 from datetime import datetime
 import concurrent.futures
-from utils.database import initialize_database
-
-# SQLite is initialized automatically on startup. Web queries should migrate toward
-# SQLite as the Source of Truth; Google Sheets remains a sync/reporting surface.
-SQLITE_DB_PATH = initialize_database()
+from utils.database import (
+    DatabaseStartupError,
+    database_config_from_secrets,
+    database_health_check,
+    initialize_database_from_config,
+)
 
 st.set_page_config(
     page_title="配方管理系統",
@@ -22,6 +23,22 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# Database is initialized automatically on startup. On Streamlit Cloud, complete
+# TURSO_DATABASE_URL and TURSO_AUTH_TOKEN secrets select the Turso/libsql backend;
+# partial Turso credentials fail fast and never silently fall back to local SQLite.
+try:
+    DATABASE_CONFIG = database_config_from_secrets(st.secrets)
+    DATABASE_BACKEND = DATABASE_CONFIG.backend
+    DATABASE_INITIALIZED = initialize_database_from_config(DATABASE_CONFIG)
+    DATABASE_HEALTH = database_health_check(DATABASE_CONFIG)
+except DatabaseStartupError as exc:
+    st.error(f"Database startup failed: {exc}")
+    st.stop()
+
+# Backward-compatible name for legacy code paths that still expect a local path.
+SQLITE_DB_PATH = DATABASE_INITIALIZED
+
 
 # ======== 🎛️ 全站 Toggle 統一美化（只需注入一次，全站套用） ========
 # 說明：實際檢查過畫面的 HTML 結構後發現，你們這個 Streamlit 版本裡
