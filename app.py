@@ -55,13 +55,6 @@ except Exception as exc:
 # Backward-compatible name for legacy code paths that still expect a local path.
 SQLITE_DB_PATH = DATABASE_INITIALIZED
 
-with st.sidebar.expander("Database startup", expanded=False):
-    for diagnostic_line in format_database_startup_diagnostics(
-        DATABASE_CONFIG, DATABASE_HEALTH, DATABASE_SECRET_PRESENCE
-    ):
-        st.caption(diagnostic_line)
-
-
 # ======== 🎛️ 全站 Toggle 統一美化（只需注入一次，全站套用） ========
 # 說明：實際檢查過畫面的 HTML 結構後發現，你們這個 Streamlit 版本裡
 # st.toggle() 底層渲染出來的 data-testid 其實是 "stCheckbox"（不是 "stToggle"），
