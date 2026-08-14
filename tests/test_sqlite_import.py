@@ -10,10 +10,12 @@ from utils.database import (
     connect_from_config,
     database_config_from_secrets,
     database_health_check,
+    enqueue_sheet_sync,
     format_database_startup_diagnostics,
     initialize_database,
     log_database_startup_diagnostics,
 )
+from utils.sheet_export import sync_color_powder_outbox
 from utils.sheet_import import (
     ImportAbortedError,
     SheetReadError,
@@ -40,6 +42,18 @@ class SequencedWorksheet:
         if isinstance(outcome, Exception):
             raise outcome
         return outcome
+
+
+class WritableWorksheet:
+    def __init__(self):
+        self.appended = []
+        self.updated = []
+
+    def append_row(self, values):
+        self.appended.append(values)
+
+    def update(self, cell, values):
+        self.updated.append((cell, values))
 
 
 def test_sheet_read_retries_transient_google_errors():
@@ -98,6 +112,7 @@ def test_initialize_database_creates_core_tables(tmp_path):
     assert "supplier_aliases" in tables
     assert "sync_log" in tables
     assert "sync_conflicts" in tables
+    assert "sync_outbox" in tables
     assert "movement_key" in inventory_cols
     assert "supplier_id" in inventory_cols
     assert "supplier_name" in inventory_cols
@@ -186,6 +201,66 @@ def test_incremental_color_apply_inserts_and_updates_then_converges(tmp_path):
         "P001": ("Updated", "changed"),
         "P002": ("New", "added"),
     }
+
+
+def test_color_outbox_dry_run_and_apply_updates_unchanged_sheet(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    baseline = [
+        ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"],
+        ["P001", "I1", "Old", "色粉", "袋", ""],
+    ]
+    import_sheet_values("色粉管理", baseline, db_path=db, abort_on_issues=True)
+    with connect(db) as conn:
+        conn.execute(
+            "UPDATE color_powders SET name='New', version=version+1, updated_at=? WHERE colorpowder_id='P001'",
+            ("2026-08-15T00:00:00+00:00",),
+        )
+        entity = dict(conn.execute("SELECT * FROM color_powders WHERE colorpowder_id='P001'").fetchone())
+        enqueue_sheet_sync(
+            conn, sheet_name="色粉管理", row_key="P001", operation="update",
+            payload={
+                "色粉編號": "P001", "國際色號": "I1", "名稱": "New",
+                "色粉類別": "色粉", "包裝": "袋", "備註": "",
+            }, entity_version=entity["version"],
+        )
+    worksheet = WritableWorksheet()
+    config = DatabaseConfig(backend="sqlite", path=db)
+
+    preflight = sync_color_powder_outbox(worksheet, baseline, db_config=config, dry_run=True)
+    applied = sync_color_powder_outbox(worksheet, baseline, db_config=config, dry_run=False)
+
+    assert preflight.to_update == 1
+    assert preflight.written == 0
+    assert applied.written == 1
+    assert worksheet.updated == [("A2", [["P001", "I1", "New", "色粉", "袋", ""]])]
+    with connect(db) as conn:
+        outbox = conn.execute("SELECT status FROM sync_outbox").fetchone()
+    assert outbox["status"] == "completed"
+
+
+def test_color_outbox_blocks_concurrent_sheet_edit(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    baseline = [["色粉編號", "名稱"], ["P001", "Old"]]
+    import_sheet_values("色粉管理", baseline, db_path=db, abort_on_issues=True)
+    with connect(db) as conn:
+        enqueue_sheet_sync(
+            conn, sheet_name="色粉管理", row_key="P001", operation="update",
+            payload={"色粉編號": "P001", "名稱": "Database edit"}, entity_version=2,
+        )
+    worksheet = WritableWorksheet()
+    changed_sheet = [["色粉編號", "名稱"], ["P001", "Sheet edit"]]
+
+    result = sync_color_powder_outbox(
+        worksheet, changed_sheet,
+        db_config=DatabaseConfig(backend="sqlite", path=db), dry_run=False,
+    )
+
+    assert result.conflicts == 1
+    assert result.written == 0
+    assert worksheet.updated == []
+    with connect(db) as conn:
+        assert conn.execute("SELECT status FROM sync_outbox").fetchone()[0] == "conflict"
+        assert conn.execute("SELECT COUNT(*) FROM sync_conflicts").fetchone()[0] == 1
 
 
 def test_recipe_import_persists_components_and_is_idempotent(tmp_path):
@@ -450,7 +525,7 @@ def test_supplier_import_accepts_supplier_code_and_short_name_headers(tmp_path):
     assert supplier["notes"] == "常用"
 
 
-def test_database_health_check_reports_schema_v4(tmp_path):
+def test_database_health_check_reports_schema_v5(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
     config = database_config_from_secrets({})
@@ -458,7 +533,7 @@ def test_database_health_check_reports_schema_v4(tmp_path):
     health = database_health_check(config)
     assert health.backend == "sqlite"
     assert health.select_1_ok
-    assert health.schema_version == 4
+    assert health.schema_version == 5
     assert health.main_tables_exist
     assert health.schema_compatible
     assert health.missing_required_columns == {}
@@ -738,7 +813,7 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     )
     assert "Database backend: sqlite" in lines
     assert "Database health: OK" in lines
-    assert "Schema version: 4" in lines
+    assert "Schema version: 5" in lines
     assert "Required columns present: True" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)
