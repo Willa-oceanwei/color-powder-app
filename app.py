@@ -7,11 +7,13 @@ import pandas as pd
 import json
 import time
 import re
+import uuid
 import html as html_escape
 from pathlib import Path        
 from datetime import datetime
 import concurrent.futures
 from utils.database import (
+    SCHEMA_VERSION,
     DatabaseStartupError,
     database_config_from_secrets,
     database_health_check,
@@ -19,6 +21,13 @@ from utils.database import (
     initialize_database_from_config,
     log_database_startup_diagnostics,
     secret_presence_from_secrets,
+)
+from utils.sheet_import import (
+    ImportAbortedError,
+    SHEET_KEY_COLUMNS,
+    import_sheet_values,
+    missing_inventory_sync_id_updates,
+    read_worksheet_values_with_retry,
 )
 
 st.set_page_config(
@@ -28,33 +37,21 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Database is initialized automatically on startup. On Streamlit Cloud, complete
-# TURSO_DATABASE_URL and TURSO_AUTH_TOKEN secrets select the Turso/libsql backend;
-# partial Turso credentials fail fast and never silently fall back to local SQLite.
-try:
-    DATABASE_SECRET_PRESENCE = secret_presence_from_secrets(st.secrets)
-    DATABASE_CONFIG = database_config_from_secrets(st.secrets)
-    DATABASE_BACKEND = DATABASE_CONFIG.backend
-    DATABASE_INITIALIZED = initialize_database_from_config(DATABASE_CONFIG)
-    DATABASE_HEALTH = database_health_check(DATABASE_CONFIG)
-    log_database_startup_diagnostics(DATABASE_CONFIG, DATABASE_HEALTH, DATABASE_SECRET_PRESENCE)
-    if not DATABASE_HEALTH.select_1_ok or not DATABASE_HEALTH.main_tables_exist:
+@st.cache_resource(show_spinner=False)
+def _initialize_database_once(config, secret_presence, schema_version):
+    """Initialize the remote backend once per process, not on every Streamlit rerun."""
+    del schema_version  # Included in the cache key so each migration version runs once.
+    initialized = initialize_database_from_config(config)
+    health = database_health_check(config)
+    log_database_startup_diagnostics(config, health, secret_presence)
+    if not health.select_1_ok or not health.schema_compatible:
         raise DatabaseStartupError(
-            f"Database health check failed: SELECT 1 ok={DATABASE_HEALTH.select_1_ok}, "
-            f"schema_version={DATABASE_HEALTH.schema_version}, "
-            f"main_tables_present={DATABASE_HEALTH.main_tables_exist}."
+            f"Database health check failed: SELECT 1 ok={health.select_1_ok}, "
+            f"schema_version={health.schema_version}, "
+            f"main_tables_present={health.main_tables_exist}, "
+            f"missing_required_columns={health.missing_required_columns}."
         )
-except DatabaseStartupError as exc:
-    st.error(f"Database startup failed: {exc}")
-    st.exception(exc)
-    raise
-except Exception as exc:
-    st.error(f"Unexpected database startup failure: {type(exc).__name__}: {exc}")
-    st.exception(exc)
-    raise
-
-# Backward-compatible name for legacy code paths that still expect a local path.
-SQLITE_DB_PATH = DATABASE_INITIALIZED
+    return initialized, health
 
 # ======== 🎛️ 全站 Toggle 統一美化（只需注入一次，全站套用） ========
 # 說明：實際檢查過畫面的 HTML 結構後發現，你們這個 Streamlit 版本裡
@@ -204,6 +201,30 @@ if not st.session_state.authenticated:
             st.stop()
 
     st.stop()
+
+# Database startup is deliberately after authentication so the password screen
+# never waits for Turso. cache_resource prevents remote schema and health calls
+# from repeating for every widget interaction/rerun after login.
+try:
+    DATABASE_SECRET_PRESENCE = secret_presence_from_secrets(st.secrets)
+    DATABASE_CONFIG = database_config_from_secrets(st.secrets)
+    DATABASE_BACKEND = DATABASE_CONFIG.backend
+    DATABASE_INITIALIZED, DATABASE_HEALTH = _initialize_database_once(
+        DATABASE_CONFIG,
+        DATABASE_SECRET_PRESENCE,
+        SCHEMA_VERSION,
+    )
+except DatabaseStartupError as exc:
+    st.error(f"Database startup failed: {exc}")
+    st.exception(exc)
+    raise
+except Exception as exc:
+    st.error(f"Unexpected database startup failure: {type(exc).__name__}: {exc}")
+    st.exception(exc)
+    raise
+
+# Backward-compatible name for legacy code paths that still expect a local path.
+SQLITE_DB_PATH = DATABASE_INITIALIZED
     
 # ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
 # ======== 🚀 SaaS ERP UI (Notion + SAP Hybrid) ========
@@ -599,6 +620,7 @@ def render_sidebar():
         {"group":"查詢","key":"查詢區","label":"查詢區"},
         {"group":"數據","key":"試色記錄分析","label":"試色記錄分析"},
         {"group":"設定","key":"客戶名單","label":"客戶名單"},
+        {"group":"設定","key":"同步檢查","label":"同步檢查"},
         {"group":"設定","key":"匯入備份","label":"匯入備份"},
     ]
 
@@ -742,7 +764,7 @@ def _load_sheet_values_with_cache(sheet_name, force_reload=False, ttl_seconds=SH
         return [row[:] for row in cached["values"]]
 
     ws = get_cached_worksheet(sheet_name)
-    values = ws.get_all_values()
+    values = read_worksheet_values_with_retry(ws)
     cache[sheet_name] = {"timestamp": now, "values": [row[:] for row in values]}
     return values
 
@@ -953,7 +975,7 @@ def _fetch_sheet_raw_values(sheet_name):
     """在背景執行緒執行：只負責打 API 抓資料，完全不觸碰 st.session_state
     （st.session_state 不保證多執行緒安全，所以寫入快取一律留到主執行緒做）。"""
     ws = spreadsheet.worksheet(sheet_name)
-    return ws.get_all_values()
+    return read_worksheet_values_with_retry(ws)
 
 
 def preload_all_data(force=False):
@@ -1031,8 +1053,8 @@ def preload_all_data(force=False):
     st.session_state.recipe_data_loaded = True
     st.session_state.oem_data_loaded = True
 
-# ── App 第一次啟動時，執行一次預載 ──
-if "app_data_loaded" not in st.session_state:
+# ── App 第一次啟動時，執行一次預載；同步檢查頁只讀使用者選定的 Sheet ──
+if "app_data_loaded" not in st.session_state and st.session_state.get("menu") != "同步檢查":
     with st.spinner("載入資料中..."):
         preload_all_data(force=False)
     st.session_state.app_data_loaded = True
@@ -1063,6 +1085,7 @@ MENU_ITEMS = [
     {"key": "查詢區", "label": "查詢區", "group": "查詢"},
     {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
     {"key": "客戶名單", "label": "客戶名單", "group": "設定"},
+    {"key": "同步檢查", "label": "同步檢查", "group": "設定"},
     {"key": "匯入備份", "label": "匯入備份", "group": "設定"},
 ]
 
@@ -1080,6 +1103,7 @@ def render_erp_nav():
         {"key": "查詢區",     "label": "查詢區",     "group": "查詢"},
         {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
         {"key": "客戶名單",   "label": "客戶名單",   "group": "設定"},
+        {"key": "同步檢查",   "label": "同步檢查",   "group": "設定"},
         {"key": "匯入備份",   "label": "匯入備份",   "group": "設定"},
     ]
 
@@ -7595,7 +7619,7 @@ elif menu == "採購管理":
             df_stock = pd.DataFrame(records)
         else:
             df_stock = pd.DataFrame(
-                columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"]
+                columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註","_sync_id"]
             )
     
         # 🔒 舊庫存補時間
@@ -7698,18 +7722,14 @@ elif menu == "採購管理":
                         "單位": st.session_state.form_in_stock["單位"],
                         "廠商編號": st.session_state.form_in_stock["廠商編號"].strip(),
                         "廠商名稱": st.session_state.form_in_stock["廠商名稱"].strip(),
-                        "備註": st.session_state.form_in_stock["備註"]
+                        "備註": st.session_state.form_in_stock["備註"],
+                        "_sync_id": uuid.uuid4().hex,
                     }
-    
-                    df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
-    
-                    # ✅ 寫回 Google Sheet
-                    df_to_upload = df_stock.copy()
-                    df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce")\
-                                             .dt.strftime("%Y/%m/%d").fillna("")
-                    df_to_upload = df_to_upload.astype(str)
-                    ws_stock.clear()
-                    ws_stock.update([df_to_upload.columns.tolist()] + df_to_upload.values.tolist())
+
+                    # 只 append 新增列，不再為新增一筆而 clear/update 整張庫存表。
+                    stock_values = get_cached_sheet_values("庫存記錄")
+                    stock_header = stock_values[0] if stock_values else list(new_row.keys())
+                    safe_append_row(ws_stock, [new_row.get(column, "") for column in stock_header])
                     invalidate_sheet_cache("庫存記錄")
                     st.session_state.stock_need_reload = True
     
@@ -8881,7 +8901,7 @@ elif menu == "庫存區":
         ws_stock = get_cached_worksheet("庫存記錄")
     except Exception:
         ws_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
-        ws_stock.append_row(["類型", "色粉編號", "日期", "數量", "單位", "備註"])
+        ws_stock.append_row(["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"])
         invalidate_sheet_cache("庫存記錄")
 
     # ================================================================
@@ -9354,15 +9374,22 @@ elif menu == "庫存區":
                 st.warning(f"⚠️ 無法刪除舊初始庫存：{e}")
 
             # ── 步驟 3：append 一列新資料（1 次 API）──
-            new_row_values = [
-                "初始",
-                powder_id,
-                ini_datetime,
-                str(qty_val),
-                ini_unit,
-                ini_note
-            ]
-            ws_stock.append_row(new_row_values, value_input_option="RAW")
+            try:
+                stock_header = get_cached_sheet_values("庫存記錄", force_reload=True)[0]
+            except Exception:
+                stock_header = ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"]
+            initial_stock_row = {
+                "類型": "初始",
+                "色粉編號": powder_id,
+                "日期": ini_datetime,
+                "數量": str(qty_val),
+                "單位": ini_unit,
+                "備註": ini_note,
+                "廠商編號": "",
+                "廠商名稱": "",
+                "_sync_id": uuid.uuid4().hex,
+            }
+            safe_append_row(ws_stock, [initial_stock_row.get(column, "") for column in stock_header])
 
             # ── 步驟 4：讓下次讀取強制 reload ──
             invalidate_sheet_cache("庫存記錄")
@@ -11002,14 +11029,14 @@ elif menu == "洗車廠庫存":
                         except Exception:
                             ws_main_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
                             ws_main_stock.append_row(
-                                ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註"]
+                                ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註", "_sync_id"]
                             )
                             invalidate_sheet_cache("庫存記錄")
 
                         try:
                             stock_header = get_cached_sheet_values("庫存記錄")[0]
                         except Exception:
-                            stock_header = ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註"]
+                            stock_header = ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註", "_sync_id"]
 
                         transfer_stock_note = "洗車廠出庫轉入" + (f"（{io_note}）" if io_note.strip() else "")
                         stock_field_map = {
@@ -11021,6 +11048,7 @@ elif menu == "洗車廠庫存":
                             "廠商編號": "",
                             "廠商名稱": "",
                             "備註": transfer_stock_note,
+                            "_sync_id": uuid.uuid4().hex,
                         }
                         new_stock_row = [stock_field_map.get(col, "") for col in stock_header]
                         safe_append_row(ws_main_stock, new_stock_row)
@@ -11939,6 +11967,377 @@ if menu == "試色記錄分析":
                 st.rerun()
             except Exception as e:
                 st.error(f"參數儲存失敗：{e}"); st.toast("參數儲存失敗", icon="❌")
+
+
+# ===== Turso / Google Sheets 唯讀同步檢查 =====
+if st.session_state.menu == "同步檢查":
+    st.markdown("### Sheet ↔ Turso 同步檢查")
+    st.caption("只讀取 Google Sheets 並以 transaction rollback 比對 Turso；不會修改 Sheet，也不會匯入資料。")
+
+    backend_col, health_col, schema_col = st.columns(3)
+    backend_col.metric("Database backend", DATABASE_BACKEND)
+    health_col.metric(
+        "Database health",
+        "OK" if DATABASE_HEALTH.select_1_ok and DATABASE_HEALTH.main_tables_exist else "FAILED",
+    )
+    schema_col.metric("Schema version", DATABASE_HEALTH.schema_version or "—")
+
+    if DATABASE_BACKEND != "turso":
+        st.error("目前 backend 不是 Turso。請先確認 TURSO_DATABASE_URL 與 TURSO_AUTH_TOKEN secrets。")
+    else:
+        st.success("Turso 連線與 schema 健康檢查正常。")
+
+    completed_import = st.session_state.pop("sync_import_success", None)
+    if completed_import:
+        st.success(
+            f"首次正式匯入完成：{completed_import['sheet_name']} 寫入 "
+            f"{completed_import['written']} 筆；匯入後驗證 unchanged="
+            f"{completed_import['unchanged']}。"
+        )
+    completed_apply = st.session_state.pop("sync_apply_success", None)
+    if completed_apply:
+        st.success(
+            f"增量套用完成：{completed_apply['sheet_name']} 寫入 {completed_apply['written']} 筆；"
+            f"匯入後驗證 unchanged={completed_apply['unchanged']}。"
+        )
+
+    selected_sync_sheet = st.selectbox(
+        "選擇要檢查的工作表",
+        options=list(SHEET_KEY_COLUMNS.keys()),
+        key="sync_audit_sheet",
+        help="大型工作表一次只檢查一張，避免同時讀取所有 Sheet。",
+    )
+    sync_id_message = st.session_state.pop("inventory_sync_id_message", None)
+    if sync_id_message:
+        st.success(sync_id_message)
+
+    if selected_sync_sheet == "庫存記錄":
+        with st.expander("準備庫存永久 _sync_id", expanded=True):
+            st.caption(
+                "只會替有資料且 _sync_id 空白的列產生永久 ID；不修改既有 ID 或其他欄位。"
+                "排序、插列或移動資料後，這個 ID 仍保持不變。"
+            )
+            prepare_confirmation = st.text_input(
+                "請輸入 PREPARE 庫存記錄",
+                key="inventory_sync_id_confirmation",
+            )
+            prepare_sync_ids = st.button(
+                "批次補齊空白 _sync_id",
+                disabled=prepare_confirmation.strip() != "PREPARE 庫存記錄",
+            )
+            if prepare_sync_ids:
+                try:
+                    with st.spinner("正在檢查並補齊庫存 _sync_id..."):
+                        inventory_values = get_cached_sheet_values("庫存記錄", force_reload=True)
+                        id_updates = missing_inventory_sync_id_updates(inventory_values)
+                        if id_updates:
+                            inventory_ws = get_cached_worksheet("庫存記錄")
+                            batch_size = 200
+                            for start in range(0, len(id_updates), batch_size):
+                                batch = id_updates[start:start + batch_size]
+                                inventory_ws.batch_update(
+                                    [
+                                        {
+                                            "range": gspread.utils.rowcol_to_a1(row_number, column_number),
+                                            "values": [[sync_id]],
+                                        }
+                                        for row_number, column_number, sync_id in batch
+                                    ],
+                                    value_input_option="RAW",
+                                )
+                            invalidate_sheet_cache("庫存記錄")
+                            st.session_state["inventory_sync_id_message"] = (
+                                f"已補齊 {len(id_updates)} 筆 _sync_id；既有 ID 與其他欄位未修改。"
+                            )
+                            st.rerun()
+                        else:
+                            st.success("所有有資料的庫存列都已具備 _sync_id，不需要修改。")
+                except Exception as exc:
+                    st.error(f"補齊 _sync_id 失敗：{type(exc).__name__}: {exc}")
+
+    st.info(
+        "大型 Sheet 需要讀取所選工作表的 used range 才能計算 row hash；"
+        "檢查只在按下按鈕後執行，且不會整表寫回。Google 暫時回傳 502/503/429 時會自動重試。"
+    )
+
+    run_sync_audit = st.button(
+        "執行唯讀 Dry-run",
+        type="primary",
+        disabled=DATABASE_BACKEND != "turso",
+        use_container_width=False,
+    )
+    if run_sync_audit:
+        try:
+            with st.spinner(f"正在讀取「{selected_sync_sheet}」並比對 Turso..."):
+                audit_started = time.perf_counter()
+                sheet_values = get_cached_sheet_values(selected_sync_sheet, force_reload=True)
+                audit_result = import_sheet_values(
+                    selected_sync_sheet,
+                    sheet_values,
+                    db_config=DATABASE_CONFIG,
+                    dry_run=True,
+                    initialize_schema=False,
+                )
+                audit_elapsed = time.perf_counter() - audit_started
+            st.session_state["sync_audit_result"] = audit_result
+            st.session_state["sync_audit_result_sheet"] = selected_sync_sheet
+            st.session_state["sync_audit_elapsed"] = audit_elapsed
+        except Exception as exc:
+            st.session_state.pop("sync_audit_result", None)
+            st.error(f"Dry-run 失敗：{type(exc).__name__}: {exc}")
+
+    audit_result = st.session_state.get("sync_audit_result")
+    audit_sheet = st.session_state.get("sync_audit_result_sheet")
+    if audit_result is not None and audit_sheet == selected_sync_sheet:
+        st.markdown(f"#### 檢查結果：{audit_sheet}")
+        st.caption(f"耗時 {st.session_state.get('sync_audit_elapsed', 0):.2f} 秒；written 永遠應為 0。")
+
+        metric_values = [
+            ("Sheet 筆數", audit_result.sheet_rows),
+            ("Turso 已知筆數", audit_result.sqlite_rows),
+            ("新增", audit_result.to_insert),
+            ("修改", audit_result.to_update),
+            ("未變更", audit_result.unchanged),
+        ]
+        for column, (label, value) in zip(st.columns(len(metric_values)), metric_values):
+            column.metric(label, value)
+
+        risk_values = [
+            ("實際寫入（應為 0）", audit_result.inserted_or_updated),
+            ("錯誤", len(audit_result.errors)),
+            ("Duplicate", len(audit_result.duplicate_ids)),
+            ("Conflict", audit_result.conflicts),
+            ("庫存重複風險", audit_result.inventory_duplicate_risk),
+        ]
+        for column, (label, value) in zip(st.columns(len(risk_values)), risk_values):
+            column.metric(label, value)
+
+        if audit_result.inserted_or_updated != 0:
+            st.error("Dry-run 出現非零寫入計數，請停止後續操作並檢查程式。")
+        elif audit_result.ok:
+            st.success("Dry-run 完成：沒有 validation error、duplicate 或 conflict。")
+        else:
+            st.warning("Dry-run 完成，但有需要人工確認的項目；目前沒有寫入 Turso。")
+
+        detail_groups = [
+            ("Errors", audit_result.errors),
+            ("Duplicate IDs", audit_result.duplicate_ids),
+            ("Warnings", audit_result.warnings),
+        ]
+        for title, details in detail_groups:
+            if details:
+                with st.expander(f"{title}（{len(details)}）", expanded=title != "Warnings"):
+                    for detail in details[:100]:
+                        st.code(str(detail), language=None)
+                    if len(details) > 100:
+                        st.caption(f"畫面只顯示前 100 筆；完整 {len(details)} 筆請下載 JSON 報告。")
+
+        report = {
+            "backend": DATABASE_BACKEND,
+            "sheet_name": audit_sheet,
+            "dry_run": True,
+            "sheet_rows": audit_result.sheet_rows,
+            "database_rows": audit_result.sqlite_rows,
+            "insert": audit_result.to_insert,
+            "update": audit_result.to_update,
+            "unchanged": audit_result.unchanged,
+            "written": audit_result.inserted_or_updated,
+            "errors": audit_result.errors,
+            "duplicate_ids": audit_result.duplicate_ids,
+            "conflicts": audit_result.conflicts,
+            "inventory_duplicate_risk": audit_result.inventory_duplicate_risk,
+            "warnings": audit_result.warnings,
+        }
+        st.download_button(
+            "下載 Dry-run 報告",
+            data=json.dumps(report, ensure_ascii=False, indent=2),
+            file_name=f"turso_dry_run_{audit_sheet}.json",
+            mime="application/json",
+        )
+
+        can_initial_import = (
+            DATABASE_BACKEND == "turso"
+            and audit_result.ok
+            and audit_result.inserted_or_updated == 0
+            and audit_result.sqlite_rows == 0
+        )
+        if can_initial_import:
+            st.divider()
+            st.markdown("#### 第一次正式匯入")
+            st.warning(
+                "此動作會建立 Turso 正式資料與 Sheet row-hash baseline，但不會修改 Google Sheets。"
+                "按下後會重新讀取 Sheet、再次 dry-run；任何 error、duplicate 或 conflict 都會整批 rollback。"
+            )
+            backup_confirmed = st.checkbox(
+                "我已備份 Google Sheet，並確認上方 dry-run 結果正確",
+                key=f"sync_import_backup_{audit_sheet}",
+            )
+            required_confirmation = f"IMPORT {audit_sheet}"
+            confirmation_text = st.text_input(
+                f"請輸入 {required_confirmation}",
+                key=f"sync_import_confirmation_{audit_sheet}",
+            )
+            start_initial_import = st.button(
+                "建立 Turso 初始資料與同步 baseline",
+                type="primary",
+                disabled=not backup_confirmed or confirmation_text.strip() != required_confirmation,
+            )
+            if start_initial_import:
+                write_committed = False
+                try:
+                    with st.spinner(f"重新檢查並正式匯入「{audit_sheet}」..."):
+                        latest_values = get_cached_sheet_values(audit_sheet, force_reload=True)
+                        preflight = import_sheet_values(
+                            audit_sheet,
+                            latest_values,
+                            db_config=DATABASE_CONFIG,
+                            dry_run=True,
+                            initialize_schema=False,
+                        )
+                        if not preflight.ok or preflight.sqlite_rows != 0:
+                            st.session_state["sync_audit_result"] = preflight
+                            st.session_state["sync_audit_result_sheet"] = audit_sheet
+                            raise RuntimeError(
+                                "最新 preflight 已改變或 baseline 已存在；正式匯入已取消，請重新檢查報告。"
+                            )
+                        write_result = import_sheet_values(
+                            audit_sheet,
+                            latest_values,
+                            db_config=DATABASE_CONFIG,
+                            dry_run=False,
+                            initialize_schema=False,
+                            abort_on_issues=True,
+                        )
+                        write_committed = True
+                        verification = import_sheet_values(
+                            audit_sheet,
+                            latest_values,
+                            db_config=DATABASE_CONFIG,
+                            dry_run=True,
+                            initialize_schema=False,
+                        )
+                        if (
+                            not verification.ok
+                            or verification.to_insert != 0
+                            or verification.to_update != 0
+                            or verification.unchanged != verification.sheet_rows
+                        ):
+                            raise RuntimeError(
+                                "正式匯入已完成，但匯入後驗證未完全 unchanged；請下載最新報告並停止後續匯入。"
+                            )
+                    st.session_state["sync_audit_result"] = verification
+                    st.session_state["sync_audit_result_sheet"] = audit_sheet
+                    st.session_state["sync_import_success"] = {
+                        "sheet_name": audit_sheet,
+                        "written": write_result.inserted_or_updated,
+                        "unchanged": verification.unchanged,
+                    }
+                    st.rerun()
+                except ImportAbortedError as exc:
+                    st.session_state["sync_audit_result"] = exc.result
+                    st.session_state["sync_audit_result_sheet"] = audit_sheet
+                    st.error(f"正式匯入已完整 rollback：{exc}")
+                except Exception as exc:
+                    if write_committed:
+                        st.error(
+                            "正式匯入 transaction 已提交，但匯入後驗證失敗。請勿再次按正式匯入；"
+                            f"請重新執行唯讀 Dry-run。錯誤：{type(exc).__name__}: {exc}"
+                        )
+                    else:
+                        st.error(f"正式匯入已停止：{type(exc).__name__}: {exc}")
+        elif (
+            audit_result.ok
+            and audit_result.sqlite_rows > 0
+            and audit_sheet in {"色粉管理", "供應商管理", "庫存記錄", "配方管理"}
+        ):
+            pending_changes = audit_result.to_insert + audit_result.to_update
+            if pending_changes == 0:
+                st.info("此工作表已存在 Turso baseline，且目前沒有需要套用的新增或修改。")
+            else:
+                st.divider()
+                st.markdown("#### 套用 Sheet 增量變更到 Turso")
+                st.warning(
+                    f"本次預計新增 {audit_result.to_insert} 筆、修改 {audit_result.to_update} 筆。"
+                    "此功能不處理 Sheet 刪除；按下後會重新讀取並再次 preflight，"
+                    "任何 error、duplicate 或 conflict 都會整批 rollback。"
+                )
+                required_apply_confirmation = f"APPLY {audit_sheet}"
+                apply_confirmation = st.text_input(
+                    f"請輸入 {required_apply_confirmation}",
+                    key=f"sync_apply_confirmation_{audit_sheet}",
+                )
+                apply_changes = st.button(
+                    "套用新增／修改到 Turso",
+                    type="primary",
+                    disabled=apply_confirmation.strip() != required_apply_confirmation,
+                )
+                if apply_changes:
+                    apply_committed = False
+                    try:
+                        with st.spinner(f"重新檢查並套用「{audit_sheet}」增量變更..."):
+                            latest_values = get_cached_sheet_values(audit_sheet, force_reload=True)
+                            preflight = import_sheet_values(
+                                audit_sheet,
+                                latest_values,
+                                db_config=DATABASE_CONFIG,
+                                dry_run=True,
+                                initialize_schema=False,
+                            )
+                            if not preflight.ok:
+                                st.session_state["sync_audit_result"] = preflight
+                                st.session_state["sync_audit_result_sheet"] = audit_sheet
+                                raise RuntimeError(
+                                    "最新 preflight 出現 error、duplicate 或 conflict；增量套用已取消。"
+                                )
+                            if preflight.to_insert + preflight.to_update == 0:
+                                raise RuntimeError("最新 preflight 已沒有待套用變更，請重新執行 dry-run。")
+                            apply_result = import_sheet_values(
+                                audit_sheet,
+                                latest_values,
+                                db_config=DATABASE_CONFIG,
+                                dry_run=False,
+                                initialize_schema=False,
+                                abort_on_issues=True,
+                            )
+                            apply_committed = True
+                            verification = import_sheet_values(
+                                audit_sheet,
+                                latest_values,
+                                db_config=DATABASE_CONFIG,
+                                dry_run=True,
+                                initialize_schema=False,
+                            )
+                            if (
+                                not verification.ok
+                                or verification.to_insert != 0
+                                or verification.to_update != 0
+                                or verification.unchanged != verification.sheet_rows
+                            ):
+                                raise RuntimeError(
+                                    "增量 transaction 已提交，但套用後驗證未完全 unchanged；請勿重按。"
+                                )
+                        st.session_state["sync_audit_result"] = verification
+                        st.session_state["sync_audit_result_sheet"] = audit_sheet
+                        st.session_state["sync_apply_success"] = {
+                            "sheet_name": audit_sheet,
+                            "written": apply_result.inserted_or_updated,
+                            "unchanged": verification.unchanged,
+                        }
+                        st.rerun()
+                    except ImportAbortedError as exc:
+                        st.session_state["sync_audit_result"] = exc.result
+                        st.session_state["sync_audit_result_sheet"] = audit_sheet
+                        st.error(f"增量套用已完整 rollback：{exc}")
+                    except Exception as exc:
+                        if apply_committed:
+                            st.error(
+                                "增量 transaction 已提交，但驗證失敗。請勿再次按套用；"
+                                f"請重新執行唯讀 Dry-run。錯誤：{type(exc).__name__}: {exc}"
+                            )
+                        else:
+                            st.error(f"增量套用已停止：{type(exc).__name__}: {exc}")
+        elif audit_result.ok and audit_result.sqlite_rows > 0:
+            st.info("此工作表目前只建立與檢查 row-hash baseline，尚未開放業務資料增量套用。")
 
 
 # ===== 匯入配方備份檔案 =====
