@@ -16,6 +16,13 @@ from utils.database import (
     log_database_startup_diagnostics,
 )
 from utils.sheet_export import sync_color_powder_outbox
+from utils.color_powder_repository import (
+    ColorPowderAlreadyExists,
+    ColorPowderInput,
+    create_color_powder,
+    list_color_powders,
+    update_color_powder,
+)
 from utils.sheet_import import (
     ImportAbortedError,
     SheetReadError,
@@ -261,6 +268,86 @@ def test_color_outbox_blocks_concurrent_sheet_edit(tmp_path):
     with connect(db) as conn:
         assert conn.execute("SELECT status FROM sync_outbox").fetchone()[0] == "conflict"
         assert conn.execute("SELECT COUNT(*) FROM sync_conflicts").fetchone()[0] == 1
+
+
+def test_color_repository_create_is_atomic_with_outbox(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+
+    created = create_color_powder(
+        config,
+        ColorPowderInput(" P001 ", " I1 ", " Red ", "色粉", "袋", " note "),
+    )
+
+    assert created["colorpowder_id"] == "P001"
+    assert created["name"] == "Red"
+    assert created["version"] == 1
+    assert created["last_synced_at"] is None
+    with connect(db) as conn:
+        outbox = conn.execute("SELECT * FROM sync_outbox").fetchone()
+    assert outbox["row_key"] == "P001"
+    assert outbox["operation"] == "insert"
+    assert outbox["entity_version"] == 1
+    assert outbox["status"] == "pending"
+
+
+def test_color_repository_update_increments_version_and_queues_payload(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001", name="Old"))
+
+    updated = update_color_powder(
+        config, ColorPowderInput("P001", international_code="I2", name="New", notes="changed")
+    )
+
+    assert updated["version"] == 2
+    assert updated["name"] == "New"
+    assert list_color_powders(config)[0]["international_code"] == "I2"
+    with connect(db) as conn:
+        events = conn.execute(
+            "SELECT operation, entity_version, payload_json FROM sync_outbox ORDER BY id"
+        ).fetchall()
+    assert [(row["operation"], row["entity_version"]) for row in events] == [
+        ("insert", 1), ("update", 2),
+    ]
+    assert '"名稱": "New"' in events[1]["payload_json"]
+
+
+def test_color_repository_duplicate_does_not_queue_second_event(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001", name="First"))
+
+    with pytest.raises(ColorPowderAlreadyExists):
+        create_color_powder(config, ColorPowderInput("P001", name="Duplicate"))
+
+    with connect(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM color_powders").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM sync_outbox").fetchone()[0] == 1
+
+
+def test_color_outbox_coalesces_unsynced_create_and_update(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001", name="First"))
+    update_color_powder(config, ColorPowderInput("P001", name="Latest"))
+    worksheet = WritableWorksheet()
+    values = [["色粉編號", "名稱"]]
+
+    preflight = sync_color_powder_outbox(worksheet, values, db_config=config, dry_run=True)
+    applied = sync_color_powder_outbox(worksheet, values, db_config=config, dry_run=False)
+
+    assert preflight.queued == 1
+    assert preflight.to_insert == 1
+    assert applied.written == 1
+    assert worksheet.appended == [["P001", "Latest"]]
+    with connect(db) as conn:
+        statuses = conn.execute("SELECT status FROM sync_outbox ORDER BY id").fetchall()
+    assert [row["status"] for row in statuses] == ["completed", "completed"]
 
 
 def test_recipe_import_persists_components_and_is_idempotent(tmp_path):

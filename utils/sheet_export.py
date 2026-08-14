@@ -92,10 +92,19 @@ def sync_color_powder_outbox(
     started_at = utc_now_iso()
     with connect_from_config(db_config) as conn:
         pending = conn.execute(
-            """SELECT id, row_key, operation, payload_json, entity_version
-               FROM sync_outbox
-               WHERE sheet_name = '色粉管理' AND status IN ('pending', 'failed')
-               ORDER BY id"""
+            """SELECT event.id, event.row_key, event.operation, event.payload_json,
+                      event.entity_version
+               FROM sync_outbox AS event
+               WHERE event.sheet_name = '色粉管理'
+                 AND event.status IN ('pending', 'failed')
+                 AND event.entity_version = (
+                     SELECT MAX(latest.entity_version)
+                     FROM sync_outbox AS latest
+                     WHERE latest.sheet_name = event.sheet_name
+                       AND latest.row_key = event.row_key
+                       AND latest.status IN ('pending', 'failed')
+                 )
+               ORDER BY event.id"""
         ).fetchall()
         result.queued = len(pending)
         for raw_entry in pending:
@@ -108,8 +117,10 @@ def sync_color_powder_outbox(
                 result.warnings.append(f"{row_key}: delete is blocked until tombstones are implemented")
                 if not dry_run:
                     conn.execute(
-                        "UPDATE sync_outbox SET status='conflict', last_error=? WHERE id=?",
-                        ("Delete requires tombstone workflow", entry["id"]),
+                        """UPDATE sync_outbox SET status='conflict', last_error=?
+                           WHERE sheet_name='色粉管理' AND row_key=?
+                             AND entity_version <= ? AND status IN ('pending', 'failed')""",
+                        ("Delete requires tombstone workflow", row_key, entry["entity_version"]),
                     )
                 continue
             payload = json.loads(entry["payload_json"] or "{}")
@@ -129,8 +140,10 @@ def sync_color_powder_outbox(
                             sqlite_payload=desired, sheet_payload=None, reason=reason,
                         )
                         conn.execute(
-                            "UPDATE sync_outbox SET status='conflict', last_error=? WHERE id=?",
-                            (reason, entry["id"]),
+                            """UPDATE sync_outbox SET status='conflict', last_error=?
+                               WHERE sheet_name='色粉管理' AND row_key=?
+                                 AND entity_version <= ? AND status IN ('pending', 'failed')""",
+                            (reason, row_key, entry["entity_version"]),
                         )
                     continue
                 result.to_insert += 1
@@ -143,8 +156,10 @@ def sync_color_powder_outbox(
                     result.unchanged += 1
                     if not dry_run:
                         conn.execute(
-                            "UPDATE sync_outbox SET status='completed', processed_at=?, last_error=NULL WHERE id=?",
-                            (utc_now_iso(), entry["id"]),
+                            """UPDATE sync_outbox SET status='completed', processed_at=?, last_error=NULL
+                               WHERE sheet_name='色粉管理' AND row_key=?
+                                 AND entity_version <= ? AND status IN ('pending', 'failed')""",
+                            (utc_now_iso(), row_key, entry["entity_version"]),
                         )
                     continue
                 sheet_changed = baseline is None or baseline["row_hash"] != _row_hash(current)
@@ -157,8 +172,10 @@ def sync_color_powder_outbox(
                             sqlite_payload=desired, sheet_payload=current, reason=reason,
                         )
                         conn.execute(
-                            "UPDATE sync_outbox SET status='conflict', last_error=? WHERE id=?",
-                            (reason, entry["id"]),
+                            """UPDATE sync_outbox SET status='conflict', last_error=?
+                               WHERE sheet_name='色粉管理' AND row_key=?
+                                 AND entity_version <= ? AND status IN ('pending', 'failed')""",
+                            (reason, row_key, entry["entity_version"]),
                         )
                     continue
                 result.to_update += 1
@@ -176,8 +193,10 @@ def sync_color_powder_outbox(
                 )
                 conn.execute(
                     """UPDATE sync_outbox SET status='completed', attempt_count=attempt_count+1,
-                           processed_at=?, last_error=NULL WHERE id=?""",
-                    (synced_at, entry["id"]),
+                           processed_at=?, last_error=NULL
+                       WHERE sheet_name='色粉管理' AND row_key=?
+                         AND entity_version <= ? AND status IN ('pending', 'failed')""",
+                    (synced_at, row_key, entry["entity_version"]),
                 )
                 result.written += 1
         if not dry_run:

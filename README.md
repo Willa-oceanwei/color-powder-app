@@ -122,6 +122,13 @@ python scripts/sync_color_powders_to_sheet.py \
 `sync_conflicts` 而不覆蓋。成功後才完成 outbox 並更新 baseline。刪除目前一律阻擋，
 等待 tombstone 階段完成後才會開放。
 
+網站「配方管理 → 色粉管理」的清單、新增與修改已改以 Turso 為正式資料來源。
+每次新增或修改會在同一個 database transaction 更新 `color_powders` 並建立 outbox；
+網站不再直接 append/update 色粉 Sheet。若同一筆新色粉在送出前連續修改，worker
+只傳送最新 entity version，完成後一併關閉較舊事件，避免 Sheet 出現重複列。
+色粉編號是永久 ID，修改時不可變更；刪除按鈕目前只顯示 tombstone 尚未開放，
+不會刪除 Turso 或 Sheet 資料。
+
 可以只匯入指定工作表：
 
 ```bash
