@@ -1,4 +1,4 @@
-"""Google Sheets -> SQLite validation/import helpers.
+"""Google Sheets -> SQLite-compatible database validation/import helpers.
 
 The importer is read-only for Google Sheets. It supports dry-run validation and
 idempotent writes so repeated syncs of the same Sheet rows do not duplicate
@@ -12,12 +12,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from .database import (
-    connect,
-    initialize_database,
+    DatabaseConfig,
+    connect_from_config,
+    initialize_database_from_config,
     record_sync_conflict,
     record_sync_log,
     upsert_sheet_row,
@@ -38,6 +40,49 @@ SUPPLIER_NAME_COLUMNS = ["供應商名稱", "名稱"]
 UPDATED_AT_COLUMNS = ["updated_at", "更新時間", "修改時間", "last_modified_at"]
 COLOR_COLUMNS = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
 INVENTORY_COLUMNS = ["類型", "色粉編號", "日期", "數量", "單位", "備註"]
+TRANSIENT_GOOGLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
+
+class SheetReadError(RuntimeError):
+    """A concise Google Sheets read error safe to show in the web UI."""
+
+
+def _google_api_status_code(exc: Exception) -> int | None:
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    if isinstance(status, int):
+        return status
+    text = str(exc)
+    for candidate in TRANSIENT_GOOGLE_STATUS_CODES:
+        if str(candidate) in text[:200]:
+            return candidate
+    return None
+
+
+def read_worksheet_values_with_retry(
+    worksheet,
+    *,
+    attempts: int = 4,
+    base_delay_seconds: float = 1.0,
+    sleep: Callable[[float], None] = time.sleep,
+) -> list[list[Any]]:
+    """Read one worksheet, retrying only transient Google/API failures."""
+    if attempts < 1:
+        raise ValueError("attempts must be at least 1")
+    for attempt in range(1, attempts + 1):
+        try:
+            return worksheet.get_all_values()
+        except Exception as exc:
+            status = _google_api_status_code(exc)
+            is_transient = status in TRANSIENT_GOOGLE_STATUS_CODES
+            if not is_transient or attempt == attempts:
+                status_text = f"HTTP {status}" if status else type(exc).__name__
+                retry_text = f" after {attempt} attempts" if is_transient else ""
+                raise SheetReadError(
+                    f"Google Sheets read failed ({status_text}){retry_text}. "
+                    "Please wait 30 seconds and try again."
+                ) from exc
+            sleep(base_delay_seconds * (2 ** (attempt - 1)))
 
 
 @dataclass
@@ -142,20 +187,35 @@ def _entity_changed_since_sync(entity_row) -> bool:
     return bool(last_synced_at and updated_at and updated_at > last_synced_at)
 
 
-def import_sheet_values(sheet_name: str, values: list[list[Any]], db_path=None, *, dry_run: bool = False) -> ImportResult:
-    """Validate/copy worksheet values into SQLite.
+def import_sheet_values(
+    sheet_name: str,
+    values: list[list[Any]],
+    db_path=None,
+    *,
+    db_config: DatabaseConfig | None = None,
+    dry_run: bool = False,
+    initialize_schema: bool = True,
+) -> ImportResult:
+    """Validate/copy worksheet values into local SQLite or configured Turso.
 
     dry_run=True performs all validations and insert/update counting without
-    modifying the target SQLite database.
+    modifying the target database. ``db_path`` remains supported for local
+    SQLite callers; production callers should pass ``db_config``. Callers that
+    already completed startup health checks may set ``initialize_schema=False``
+    to keep an interactive dry-run free of schema-maintenance statements.
     """
-    initialize_database(db_path)
+    if db_config is not None and db_path is not None:
+        raise ValueError("Pass either db_config or db_path, not both.")
+    config = db_config or DatabaseConfig(backend="sqlite", path=db_path)
+    if initialize_schema:
+        initialize_database_from_config(config)
     result = ImportResult(sheet_name=sheet_name, dry_run=dry_run)
     rows = _records_from_values(values)
     result.sheet_rows = len(rows)
     seen: set[str] = set()
     started_at = utc_now_iso()
 
-    with connect(db_path) as conn:
+    with connect_from_config(config) as conn:
         for index, row in enumerate(rows):
             row_key = _row_key(sheet_name, row, index)
             if not row_key:
@@ -307,11 +367,26 @@ def import_sheet_values(sheet_name: str, values: list[list[Any]], db_path=None, 
     return result
 
 
-def import_worksheets(spreadsheet, sheet_names: Iterable[str] | None = None, db_path=None, *, dry_run: bool = False) -> list[ImportResult]:
-    """Read selected worksheets from Google Sheets and validate/copy them into SQLite."""
+def import_worksheets(
+    spreadsheet,
+    sheet_names: Iterable[str] | None = None,
+    db_path=None,
+    *,
+    db_config: DatabaseConfig | None = None,
+    dry_run: bool = False,
+) -> list[ImportResult]:
+    """Read selected worksheets and validate/copy them into SQLite or Turso."""
     names = list(sheet_names or SHEET_KEY_COLUMNS.keys())
     results = []
     for name in names:
         ws = spreadsheet.worksheet(name)
-        results.append(import_sheet_values(name, ws.get_all_values(), db_path=db_path, dry_run=dry_run))
+        results.append(
+            import_sheet_values(
+                name,
+                read_worksheet_values_with_retry(ws),
+                db_path=db_path,
+                db_config=db_config,
+                dry_run=dry_run,
+            )
+        )
     return results
