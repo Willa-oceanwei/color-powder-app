@@ -3661,6 +3661,10 @@ elif menu == "配方管理":
                             if st.button("✏️ 改", key=f"edit_color_{i}"):
                                 st.session_state.form_color       = row.to_dict()
                                 st.session_state.edit_color_index = i
+                                st.session_state.color_toast = f"已載入 {row['色粉編號']}，請在新增 / 編輯表單修改"
+                                # 表單在這個搜尋清單之前已渲染；必須立即 rerun，
+                                # 才會以剛寫入的 form_color 顯示待修改內容。
+                                st.rerun()
                         with c3:
                             if st.button("🗑️ 刪", key=f"del_color_{i}"):
                                 st.warning("⚠️ 雙向同步刪除將在 tombstone 階段開放，目前未刪除任何資料。")
