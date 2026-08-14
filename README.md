@@ -136,6 +136,12 @@ preflight，下載包含 queued/insert/update/unchanged/conflict 的 JSON。只�
 可重用的控制流程；但各工作表的永久 ID、外鍵、數量 ledger、component transaction
 與 tombstone 規則仍須分別測試，不能只因色粉通過就直接全面開放。
 
+`採購管理 → 供應商管理` 也已使用相同的 Turso-first/outbox/PUSH 流程：供應商編號
+是永久 ID，新增與修改會原子更新 `suppliers`、保留新舊名稱於 `supplier_aliases`，
+並建立 `供應商管理` outbox。進貨表單的供應商選項也直接讀 Turso，因此不必等待
+Sheet PUSH 才能選到新供應商。「設定 → 同步檢查」提供獨立的供應商 preflight JSON
+與 `PUSH 供應商管理`；刪除仍須等待 tombstone。
+
 可以只匯入指定工作表：
 
 ```bash

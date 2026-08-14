@@ -38,6 +38,15 @@ from utils.color_powder_repository import (
     update_color_powder,
 )
 from utils.sheet_export import sync_color_powder_outbox
+from utils.sheet_export import sync_supplier_outbox
+from utils.supplier_repository import (
+    SupplierAlreadyExists,
+    SupplierError,
+    SupplierInput,
+    create_supplier,
+    list_suppliers,
+    update_supplier,
+)
 
 st.set_page_config(
     page_title="配方管理系統",
@@ -7740,9 +7749,15 @@ elif menu == "採購管理":
     
             # --- 廠商欄位，下拉選單 + 自動帶出名稱 ---
             try:
-                ws_supplier = get_cached_worksheet("供應商管理")
-                df_supplier = get_cached_sheet_df("供應商管理").astype(str)
-            except:
+                df_supplier = pd.DataFrame([
+                    {
+                        "供應商編號": row.get("supplier_id", ""),
+                        "供應商簡稱": row.get("name", ""),
+                    }
+                    for row in list_suppliers(DATABASE_CONFIG)
+                ], columns=["供應商編號", "供應商簡稱"]).fillna("").astype(str)
+            except Exception as exc:
+                st.error(f"❌ 無法從 Turso 載入供應商：{exc}")
                 df_supplier = pd.DataFrame(columns=["供應商編號", "供應商簡稱"])
             for col in ["供應商編號", "供應商簡稱"]:
                 if col not in df_supplier.columns:
@@ -8021,12 +8036,6 @@ elif menu == "採購管理":
     # ========== Tab 4：供應商管理 ==========
     with tab4:
     
-        # ===== 讀取或建立 Google Sheet =====
-        try:
-            ws_supplier = get_cached_worksheet("供應商管理")
-        except:
-            ws_supplier = spreadsheet.add_worksheet("供應商管理", rows=100, cols=10)
-    
         columns = ["供應商編號", "供應商簡稱", "備註"]
     
         # 安全初始化 form_supplier
@@ -8040,11 +8049,19 @@ elif menu == "採購管理":
             "show_delete_supplier_confirm": False
         })
     
-        # 讀取 Google Sheet 資料
+        # Turso 是供應商正式資料來源；Sheet 由 outbox PUSH 更新。
         try:
-            df = get_cached_sheet_df("供應商管理")
-        except:
-            df = pd.DataFrame(columns=columns)
+            df = pd.DataFrame([
+                {
+                    "供應商編號": row.get("supplier_id", ""),
+                    "供應商簡稱": row.get("name", ""),
+                    "備註": row.get("notes", ""),
+                }
+                for row in list_suppliers(DATABASE_CONFIG)
+            ], columns=columns).fillna("").astype(str)
+        except Exception as exc:
+            st.error(f"❌ 無法從 Turso 載入供應商：{exc}")
+            st.stop()
         
         for col in columns:
             if col not in df.columns:
@@ -8122,41 +8139,38 @@ elif menu == "採購管理":
 
                 edit_id = st.session_state.get("edit_supplier_id")
 
-                if edit_id:  # 修改模式
-                    mask = df["供應商編號"] == edit_id
-                    if mask.any():
-                        df.loc[mask, df.columns] = pd.Series(new_data)
-                        st.success("✅ 供應商已更新！")
+                data = SupplierInput(
+                    supplier_id=new_data["供應商編號"],
+                    name=new_data["供應商簡稱"],
+                    notes=new_data["備註"],
+                )
+                try:
+                    if edit_id:
+                        if data.supplier_id.strip() != str(edit_id).strip():
+                            st.error("❌ 供應商編號是永久 ID，修改時不可變更")
+                            st.stop()
+                        update_supplier(DATABASE_CONFIG, data)
+                        st.session_state["supplier_toast"] = "已更新 Turso；等待同步至 Sheet"
                     else:
-                        st.error("⚠️ 原供應商不存在，請重新選擇")
-                        st.stop()
-                else:  # 新增模式
-                    if new_data["供應商編號"] in df["供應商編號"].values:
-                        st.warning("⚠️ 此供應商編號已存在！")
-                        st.stop()
-                    df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-                    st.success("✅ 新增成功！")
-
-                save_df_to_sheet(ws_supplier, df)
+                        create_supplier(DATABASE_CONFIG, data)
+                        st.session_state["supplier_toast"] = "已新增至 Turso；等待同步至 Sheet"
+                except SupplierAlreadyExists as exc:
+                    st.warning(f"⚠️ {exc}")
+                    st.stop()
+                except SupplierError as exc:
+                    st.error(f"❌ {exc}")
+                    st.stop()
+                except Exception as exc:
+                    st.error(f"❌ 儲存 Turso 失敗，未建立同步事件：{exc}")
+                    st.stop()
                 st.session_state.form_supplier = {col: "" for col in columns}
                 st.session_state.edit_supplier_id = None
                 st.rerun()
     
         # ===== 刪除確認 =====
-        if st.session_state.show_delete_supplier_confirm and st.session_state.delete_supplier_index in df.index:
-            row = df.loc[st.session_state.delete_supplier_index]
-            st.warning(f"⚠️ 確定要刪除 {row['供應商編號']} {row['供應商簡稱']}？")
-            c1, c2 = st.columns(2)
-            if c1.button("刪除", key="confirm_delete_supplier_tab3"):
-                df.drop(index=st.session_state.delete_supplier_index, inplace=True)
-                df.reset_index(drop=True, inplace=True)
-                save_df_to_sheet(ws_supplier, df)
-                st.success("✅ 刪除成功！")
-                st.session_state.show_delete_supplier_confirm = False
-                st.rerun()
-            if c2.button("取消", key="cancel_delete_supplier_tab3"):
-                st.session_state.show_delete_supplier_confirm = False
-                st.rerun()
+        supplier_toast = st.session_state.pop("supplier_toast", None)
+        if supplier_toast:
+            st.toast(supplier_toast, icon="✅")
         
         with supplier_tab_manage:
             st.markdown("---")
@@ -8191,12 +8205,11 @@ elif menu == "採購管理":
                         if st.button("✏️ 改", key=f"edit_supplier_{i}"):
                             st.session_state.edit_supplier_id = row["供應商編號"]
                             st.session_state.form_supplier = row.to_dict()
-                            st.success("已帶入資料到「新增 / 修改」分頁，可直接儲存更新。")
+                            st.session_state["supplier_toast"] = "已帶入供應商資料"
+                            st.rerun()
                     with c3:
                         if st.button("🗑️ 刪", key=f"delete_supplier_{i}"):
-                            st.session_state.delete_supplier_index = i
-                            st.session_state.show_delete_supplier_confirm = True
-                            st.rerun()
+                            st.warning("⚠️ 雙向同步刪除將在 tombstone 階段開放，目前未刪除任何資料。")
 
 # ======== 交叉查詢分頁 =========
 if "menu" not in st.session_state:
@@ -12211,6 +12224,117 @@ if st.session_state.menu == "同步檢查":
                     st.session_state["sync_push_success"] = {
                         "sheet_name": "色粉管理",
                         "written": applied.written,
+                        "queued": verification.queued,
+                    }
+                    st.rerun()
+                except Exception as exc:
+                    if write_started:
+                        st.error(
+                            "推送可能已部分寫入 Google Sheet；請勿再次按 PUSH，先重新執行唯讀檢查。"
+                            f"錯誤：{type(exc).__name__}: {exc}"
+                        )
+                    else:
+                        st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
+
+    st.markdown("#### Turso → Sheet：供應商 outbox")
+    st.caption("供應商編號是永久 ID；PUSH 會保留 Turso 中的歷史 supplier aliases，不會自動刪除資料。")
+    if st.button(
+        "檢查待推送供應商（唯讀）",
+        disabled=DATABASE_BACKEND != "turso",
+        key="supplier_push_dry_run",
+    ):
+        try:
+            supplier_values = get_cached_sheet_values("供應商管理", force_reload=True)
+            st.session_state["supplier_push_result"] = sync_supplier_outbox(
+                get_cached_worksheet("供應商管理"), supplier_values,
+                db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+            )
+        except Exception as exc:
+            st.session_state.pop("supplier_push_result", None)
+            st.error(f"供應商推送 preflight 失敗：{type(exc).__name__}: {exc}")
+
+    supplier_push_result = st.session_state.get("supplier_push_result")
+    if supplier_push_result is not None:
+        supplier_metrics = [
+            ("Queued", supplier_push_result.queued),
+            ("新增至 Sheet", supplier_push_result.to_insert),
+            ("更新 Sheet", supplier_push_result.to_update),
+            ("內容已一致", supplier_push_result.unchanged),
+            ("Conflict", supplier_push_result.conflicts),
+            ("Errors", len(supplier_push_result.errors)),
+        ]
+        for column, (label, value) in zip(st.columns(len(supplier_metrics)), supplier_metrics):
+            column.metric(label, value)
+        if supplier_push_result.ok and supplier_push_result.queued:
+            st.success("供應商 preflight 完成：待推送事件沒有偵測到衝突。")
+        elif supplier_push_result.ok:
+            st.info("目前沒有待推送的供應商事件。")
+        else:
+            st.warning("供應商 preflight 發現衝突或錯誤；PUSH 已停用。")
+        for title, details in (("Errors", supplier_push_result.errors), ("Warnings", supplier_push_result.warnings)):
+            if details:
+                with st.expander(f"供應商 {title}（{len(details)}）", expanded=True):
+                    for detail in details[:100]:
+                        st.code(str(detail), language=None)
+        supplier_report = {
+            "backend": DATABASE_BACKEND,
+            "direction": "turso_to_google_sheets",
+            "sheet_name": "供應商管理",
+            "dry_run": True,
+            "queued": supplier_push_result.queued,
+            "insert": supplier_push_result.to_insert,
+            "update": supplier_push_result.to_update,
+            "unchanged": supplier_push_result.unchanged,
+            "written": supplier_push_result.written,
+            "conflicts": supplier_push_result.conflicts,
+            "errors": supplier_push_result.errors,
+            "warnings": supplier_push_result.warnings,
+        }
+        st.download_button(
+            "下載供應商推送 Preflight JSON",
+            data=json.dumps(supplier_report, ensure_ascii=False, indent=2),
+            file_name="turso_to_sheet_suppliers.json",
+            mime="application/json",
+        )
+        if supplier_push_result.ok and supplier_push_result.queued > 0:
+            supplier_confirmation = st.text_input(
+                "請輸入 PUSH 供應商管理", key="supplier_push_confirmation"
+            )
+            if st.button(
+                "推送供應商新增／修改到 Sheet",
+                type="primary",
+                disabled=supplier_confirmation.strip() != "PUSH 供應商管理",
+            ):
+                write_started = False
+                try:
+                    latest_values = get_cached_sheet_values("供應商管理", force_reload=True)
+                    worksheet = get_cached_worksheet("供應商管理")
+                    preflight = sync_supplier_outbox(
+                        worksheet, latest_values, db_config=DATABASE_CONFIG,
+                        dry_run=True, initialize_schema=False,
+                    )
+                    if not preflight.ok or preflight.queued == 0:
+                        st.session_state["supplier_push_result"] = preflight
+                        raise RuntimeError("最新 preflight 不安全或已沒有 pending event；推送已取消。")
+                    write_started = True
+                    applied = sync_supplier_outbox(
+                        worksheet, latest_values, db_config=DATABASE_CONFIG,
+                        dry_run=False, initialize_schema=False,
+                    )
+                    if not applied.ok:
+                        st.session_state["supplier_push_result"] = applied
+                        raise RuntimeError("推送期間偵測到 conflict 或 error。")
+                    invalidate_sheet_cache("供應商管理")
+                    verification = sync_supplier_outbox(
+                        worksheet,
+                        get_cached_sheet_values("供應商管理", force_reload=True),
+                        db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+                    )
+                    if not verification.ok or verification.queued != 0:
+                        raise RuntimeError("Sheet 已寫入，但驗證仍有 pending/conflict；請勿重按 PUSH。")
+                    st.session_state["supplier_push_result"] = verification
+                    st.session_state["sync_push_success"] = {
+                        "sheet_name": "供應商管理", "written": applied.written,
                         "queued": verification.queued,
                     }
                     st.rerun()

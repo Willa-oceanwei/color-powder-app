@@ -15,13 +15,20 @@ from utils.database import (
     initialize_database,
     log_database_startup_diagnostics,
 )
-from utils.sheet_export import sync_color_powder_outbox
+from utils.sheet_export import sync_color_powder_outbox, sync_supplier_outbox
 from utils.color_powder_repository import (
     ColorPowderAlreadyExists,
     ColorPowderInput,
     create_color_powder,
     list_color_powders,
     update_color_powder,
+)
+from utils.supplier_repository import (
+    SupplierAlreadyExists,
+    SupplierInput,
+    create_supplier,
+    list_suppliers,
+    update_supplier,
 )
 from utils.sheet_import import (
     ImportAbortedError,
@@ -375,6 +382,69 @@ def test_color_outbox_matching_sheet_completes_metadata_without_write(tmp_path):
     assert powder["last_synced_at"]
     assert event["status"] == "completed"
     assert baseline["row_hash"]
+
+
+def test_supplier_repository_create_update_aliases_and_outbox(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+
+    created = create_supplier(config, SupplierInput(" S001 ", " First Name ", " note "))
+    updated = update_supplier(config, SupplierInput("S001", "New Name", "changed"))
+
+    assert created["supplier_id"] == "S001"
+    assert updated["version"] == 2
+    assert list_suppliers(config)[0]["name"] == "New Name"
+    with connect(db) as conn:
+        aliases = conn.execute(
+            "SELECT alias FROM supplier_aliases WHERE supplier_id='S001' ORDER BY alias"
+        ).fetchall()
+        events = conn.execute(
+            "SELECT operation, entity_version FROM sync_outbox WHERE sheet_name='供應商管理' ORDER BY id"
+        ).fetchall()
+    assert [row["alias"] for row in aliases] == ["First Name", "New Name"]
+    assert [(row["operation"], row["entity_version"]) for row in events] == [
+        ("insert", 1), ("update", 2),
+    ]
+
+
+def test_supplier_repository_duplicate_does_not_queue_second_event(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_supplier(config, SupplierInput("S001", "Supplier"))
+
+    with pytest.raises(SupplierAlreadyExists):
+        create_supplier(config, SupplierInput("S001", "Duplicate"))
+
+    with connect(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM suppliers").fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT COUNT(*) FROM sync_outbox WHERE sheet_name='供應商管理'"
+        ).fetchone()[0] == 1
+
+
+def test_supplier_outbox_coalesces_and_pushes_latest_payload(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_supplier(config, SupplierInput("S001", "First"))
+    update_supplier(config, SupplierInput("S001", "Latest", "note"))
+    worksheet = WritableWorksheet()
+    values = [["供應商編號", "供應商簡稱", "備註"]]
+
+    preflight = sync_supplier_outbox(worksheet, values, db_config=config, dry_run=True)
+    applied = sync_supplier_outbox(worksheet, values, db_config=config, dry_run=False)
+
+    assert preflight.queued == 1
+    assert preflight.to_insert == 1
+    assert applied.written == 1
+    assert worksheet.appended == [["S001", "Latest", "note"]]
+    with connect(db) as conn:
+        statuses = conn.execute(
+            "SELECT status FROM sync_outbox WHERE sheet_name='供應商管理' ORDER BY id"
+        ).fetchall()
+    assert [row["status"] for row in statuses] == ["completed", "completed"]
 
 
 def test_recipe_import_persists_components_and_is_idempotent(tmp_path):
