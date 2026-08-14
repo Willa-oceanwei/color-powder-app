@@ -20,13 +20,15 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
     "suppliers",
     "supplier_aliases",
     "inventory_movements",
+    "recipes",
+    "recipe_components",
     "sheet_rows",
     "sync_state",
     "sync_log",
@@ -339,6 +341,47 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             UNIQUE(sheet_name, sheet_row_key)
         );
 
+        CREATE TABLE IF NOT EXISTS recipes (
+            recipe_id TEXT PRIMARY KEY,
+            color TEXT,
+            customer_id TEXT,
+            customer_name TEXT,
+            recipe_category TEXT,
+            status TEXT,
+            original_recipe TEXT,
+            powder_category TEXT,
+            measurement_unit TEXT,
+            pantone_code TEXT,
+            ratio1 TEXT,
+            ratio2 TEXT,
+            ratio3 TEXT,
+            net_weight REAL,
+            net_weight_unit TEXT,
+            total_category TEXT,
+            sheet_created_at TEXT,
+            notes TEXT,
+            important_notice TEXT,
+            source TEXT NOT NULL DEFAULT 'sqlite',
+            version INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_synced_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS recipe_components (
+            recipe_id TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            colorpowder_id TEXT NOT NULL,
+            weight REAL NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (recipe_id, position),
+            FOREIGN KEY (recipe_id) REFERENCES recipes(recipe_id)
+                ON UPDATE CASCADE ON DELETE CASCADE,
+            FOREIGN KEY (colorpowder_id) REFERENCES color_powders(colorpowder_id)
+                ON UPDATE CASCADE ON DELETE RESTRICT
+        );
+
         CREATE TABLE IF NOT EXISTS sheet_rows (
             sheet_name TEXT NOT NULL,
             row_key TEXT NOT NULL,
@@ -411,6 +454,9 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE INDEX IF NOT EXISTS idx_inventory_powder_date ON inventory_movements(colorpowder_id, movement_date);
         CREATE INDEX IF NOT EXISTS idx_inventory_updated_at ON inventory_movements(updated_at);
         CREATE INDEX IF NOT EXISTS idx_inventory_supplier_id ON inventory_movements(supplier_id);
+        CREATE INDEX IF NOT EXISTS idx_recipes_updated_at ON recipes(updated_at);
+        CREATE INDEX IF NOT EXISTS idx_recipes_customer_id ON recipes(customer_id);
+        CREATE INDEX IF NOT EXISTS idx_recipe_components_powder ON recipe_components(colorpowder_id);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_sheet_row_key ON suppliers(sheet_row_key) WHERE sheet_row_key IS NOT NULL;
         CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_movement_key ON inventory_movements(movement_key) WHERE movement_key IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_inventory_sheet_row ON inventory_movements(sheet_name, sheet_row_key);

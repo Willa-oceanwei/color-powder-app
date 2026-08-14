@@ -95,8 +95,12 @@ error。正式匯入不會自動建立空白色粉或未知供應商資料。
 preflight、以 atomic transaction 寫入 Turso，再驗證所有 rows 均為 unchanged。
 這個階段不會將 Sheet 中消失的 row 當成刪除，刪除仍需後續 tombstone 流程。
 Streamlit 的 database startup cache 會把 `SCHEMA_VERSION` 納入 cache key；每次
-schema 升級都會重新執行 Turso migration。Health check 也會驗證 v3 必要欄位，
+schema 升級都會重新執行 Turso migration。Health check 也會驗證必要欄位，
 避免只看到 migration version、但實際 table column 尚未建立就開始正式匯入。
+Schema v4 新增 `recipes` 與 `recipe_components`：配方主資料保存客戶、類別、狀態、
+Pantone、比例、淨重與備註，每個配方最多 8 個色粉位置會拆成 component rows。
+配方 dry-run 會驗證非空的色粉編號已存在 `color_powders`，首次匯入及後續修改都只
+替換該配方自己的 components，不重寫其他配方。
 
 可以只匯入指定工作表：
 

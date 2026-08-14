@@ -41,6 +41,7 @@ SUPPLIER_NAME_COLUMNS = ["供應商名稱", "供應商簡稱", "名稱"]
 UPDATED_AT_COLUMNS = ["updated_at", "更新時間", "修改時間", "last_modified_at"]
 COLOR_COLUMNS = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
 INVENTORY_COLUMNS = ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"]
+RECIPE_COMPONENT_POSITIONS = range(1, 9)
 TRANSIENT_GOOGLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
 
 
@@ -283,6 +284,12 @@ def import_sheet_values(
                 str(db_row[0]).strip()
                 for db_row in conn.execute("SELECT supplier_id FROM suppliers").fetchall()
             }
+        known_recipe_powder_ids: set[str] | None = None
+        if sheet_name == "配方管理":
+            known_recipe_powder_ids = {
+                str(db_row[0]).strip()
+                for db_row in conn.execute("SELECT colorpowder_id FROM color_powders").fetchall()
+            }
         for index, row in enumerate(rows):
             row_key = _row_key(sheet_name, row, index)
             if not row_key:
@@ -396,6 +403,130 @@ def import_sheet_values(
                         "INSERT OR IGNORE INTO supplier_aliases(alias, supplier_id, created_at) VALUES (?, ?, ?)",
                         (name, supplier_id, synced_at),
                     )
+                    result.inserted_or_updated += 1
+
+            elif sheet_name == "配方管理":
+                recipe_id = row.get("配方編號", "").strip()
+                if not recipe_id:
+                    result.errors.append(f"row {index + 2}: missing 配方編號")
+                    continue
+                components = []
+                component_error = False
+                for position in RECIPE_COMPONENT_POSITIONS:
+                    powder_id = row.get(f"色粉編號{position}", "").strip()
+                    weight_text = row.get(f"色粉重量{position}", "").strip()
+                    if not powder_id:
+                        if weight_text and _safe_float(weight_text) != 0:
+                            result.errors.append(
+                                f"row {index + 2}: 色粉重量{position} has value but 色粉編號{position} is empty"
+                            )
+                            component_error = True
+                        continue
+                    if known_recipe_powder_ids is not None and powder_id not in known_recipe_powder_ids:
+                        result.errors.append(
+                            f"row {index + 2}: unknown 色粉編號{position} {powder_id}; import 色粉管理 first"
+                        )
+                        component_error = True
+                        continue
+                    components.append((position, powder_id, _safe_float(weight_text)))
+                if component_error:
+                    continue
+                entity = _fetchone_mapping(
+                    conn.execute("SELECT * FROM recipes WHERE recipe_id = ?", (recipe_id,))
+                )
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn,
+                            entity_type="recipe",
+                            entity_id=recipe_id,
+                            sqlite_payload=dict(entity),
+                            sheet_payload=row,
+                            reason="Database recipe exists but no Sheet sync baseline exists",
+                        )
+                    continue
+                if existed and _entity_changed_since_sync(entity):
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn,
+                            entity_type="recipe",
+                            entity_id=recipe_id,
+                            sqlite_payload=dict(entity),
+                            sheet_payload=row,
+                            reason="Sheet recipe changed after database recipe was modified since last sync",
+                        )
+                    continue
+                if not dry_run:
+                    synced_at = utc_now_iso()
+                    entity_updated_at = _sheet_updated_at(row) or synced_at
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
+                    conn.execute(
+                        """INSERT INTO recipes(
+                               recipe_id, color, customer_id, customer_name, recipe_category, status,
+                               original_recipe, powder_category, measurement_unit, pantone_code,
+                               ratio1, ratio2, ratio3, net_weight, net_weight_unit, total_category,
+                               sheet_created_at, notes, important_notice, source, created_at, updated_at,
+                               last_synced_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                                   'google_sheets_import', ?, ?, ?)
+                           ON CONFLICT(recipe_id) DO UPDATE SET
+                               color=excluded.color,
+                               customer_id=excluded.customer_id,
+                               customer_name=excluded.customer_name,
+                               recipe_category=excluded.recipe_category,
+                               status=excluded.status,
+                               original_recipe=excluded.original_recipe,
+                               powder_category=excluded.powder_category,
+                               measurement_unit=excluded.measurement_unit,
+                               pantone_code=excluded.pantone_code,
+                               ratio1=excluded.ratio1,
+                               ratio2=excluded.ratio2,
+                               ratio3=excluded.ratio3,
+                               net_weight=excluded.net_weight,
+                               net_weight_unit=excluded.net_weight_unit,
+                               total_category=excluded.total_category,
+                               sheet_created_at=excluded.sheet_created_at,
+                               notes=excluded.notes,
+                               important_notice=excluded.important_notice,
+                               source=excluded.source,
+                               version=recipes.version + 1,
+                               updated_at=excluded.updated_at,
+                               last_synced_at=excluded.last_synced_at""",
+                        (
+                            recipe_id,
+                            row.get("顏色", ""),
+                            row.get("客戶編號", ""),
+                            row.get("客戶名稱", ""),
+                            row.get("配方類別", ""),
+                            row.get("狀態", ""),
+                            row.get("原始配方", ""),
+                            row.get("色粉類別", ""),
+                            row.get("計量單位", ""),
+                            row.get("Pantone色號", ""),
+                            row.get("比例1", ""),
+                            row.get("比例2", ""),
+                            row.get("比例3", ""),
+                            _safe_float(row.get("淨重", 0)),
+                            row.get("淨重單位", ""),
+                            row.get("合計類別", ""),
+                            row.get("建檔時間", ""),
+                            row.get("備註", ""),
+                            row.get("重要提醒", ""),
+                            synced_at if entity is None else entity["created_at"],
+                            entity_updated_at,
+                            synced_at,
+                        ),
+                    )
+                    conn.execute("DELETE FROM recipe_components WHERE recipe_id = ?", (recipe_id,))
+                    for position, powder_id, weight in components:
+                        conn.execute(
+                            """INSERT INTO recipe_components(
+                                   recipe_id, position, colorpowder_id, weight, created_at, updated_at
+                               ) VALUES (?, ?, ?, ?, ?, ?)""",
+                            (recipe_id, position, powder_id, weight, synced_at, synced_at),
+                        )
                     result.inserted_or_updated += 1
 
             elif sheet_name == "庫存記錄":

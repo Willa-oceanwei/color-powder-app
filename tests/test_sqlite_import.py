@@ -93,6 +93,8 @@ def test_initialize_database_creates_core_tables(tmp_path):
         inventory_cols = {row[1] for row in conn.execute("PRAGMA table_info(inventory_movements)")}
     assert "color_powders" in tables
     assert "inventory_movements" in tables
+    assert "recipes" in tables
+    assert "recipe_components" in tables
     assert "supplier_aliases" in tables
     assert "sync_log" in tables
     assert "sync_conflicts" in tables
@@ -101,7 +103,7 @@ def test_initialize_database_creates_core_tables(tmp_path):
     assert "supplier_name" in inventory_cols
 
 
-def test_schema_v3_migrates_inventory_supplier_columns(tmp_path):
+def test_current_schema_migrates_inventory_supplier_columns(tmp_path):
     db = tmp_path / "legacy.db"
     with connect(db) as conn:
         conn.execute(
@@ -184,6 +186,56 @@ def test_incremental_color_apply_inserts_and_updates_then_converges(tmp_path):
         "P001": ("Updated", "changed"),
         "P002": ("New", "added"),
     }
+
+
+def test_recipe_import_persists_components_and_is_idempotent(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    with connect(db) as conn:
+        for powder_id in ("P001", "P002"):
+            conn.execute(
+                """INSERT INTO color_powders(
+                       colorpowder_id, created_at, updated_at, last_synced_at
+                   ) VALUES (?, ?, ?, ?)""",
+                (powder_id, "2026-08-14T00:00:00+00:00", "2026-08-14T00:00:00+00:00", None),
+            )
+    values = [
+        [
+            "配方編號", "顏色", "客戶編號", "客戶名稱", "配方類別", "狀態",
+            "色粉編號1", "色粉編號2", "色粉重量1", "色粉重量2", "淨重", "淨重單位", "備註",
+        ],
+        ["R001", "紅", "C001", "客戶甲", "正式", "啟用", "P001", "P002", "2.5", "1.5", "4", "kg", "test"],
+    ]
+
+    first = import_sheet_values("配方管理", values, db_path=db, abort_on_issues=True)
+    second = import_sheet_values("配方管理", values, db_path=db, dry_run=True)
+
+    assert first.inserted_or_updated == 1
+    assert second.unchanged == 1
+    with connect(db) as conn:
+        recipe = conn.execute("SELECT * FROM recipes WHERE recipe_id = 'R001'").fetchone()
+        components = conn.execute(
+            "SELECT position, colorpowder_id, weight FROM recipe_components WHERE recipe_id = 'R001' ORDER BY position"
+        ).fetchall()
+    assert recipe["color"] == "紅"
+    assert recipe["customer_id"] == "C001"
+    assert recipe["net_weight"] == 4
+    assert [(row["position"], row["colorpowder_id"], row["weight"]) for row in components] == [
+        (1, "P001", 2.5),
+        (2, "P002", 1.5),
+    ]
+
+
+def test_recipe_dry_run_rejects_unknown_component_powder(tmp_path):
+    values = [
+        ["配方編號", "色粉編號1", "色粉重量1"],
+        ["R001", "UNKNOWN", "1"],
+    ]
+
+    result = import_sheet_values("配方管理", values, db_path=tmp_path / "colorpowder.db", dry_run=True)
+
+    assert result.errors == ["row 2: unknown 色粉編號1 UNKNOWN; import 色粉管理 first"]
+    assert result.inserted_or_updated == 0
 
 
 def test_atomic_import_rolls_back_every_row_when_duplicate_is_found(tmp_path):
@@ -398,7 +450,7 @@ def test_supplier_import_accepts_supplier_code_and_short_name_headers(tmp_path):
     assert supplier["notes"] == "常用"
 
 
-def test_database_health_check_reports_schema_v3(tmp_path):
+def test_database_health_check_reports_schema_v4(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
     config = database_config_from_secrets({})
@@ -406,7 +458,7 @@ def test_database_health_check_reports_schema_v3(tmp_path):
     health = database_health_check(config)
     assert health.backend == "sqlite"
     assert health.select_1_ok
-    assert health.schema_version == 3
+    assert health.schema_version == 4
     assert health.main_tables_exist
     assert health.schema_compatible
     assert health.missing_required_columns == {}
@@ -686,7 +738,7 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     )
     assert "Database backend: sqlite" in lines
     assert "Database health: OK" in lines
-    assert "Schema version: 3" in lines
+    assert "Schema version: 4" in lines
     assert "Required columns present: True" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)
