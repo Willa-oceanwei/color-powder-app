@@ -217,6 +217,33 @@ def test_supplier_without_id_uses_stable_sheet_row_identity(tmp_path):
     assert suppliers[0]["name"] == "新名稱"
 
 
+def test_supplier_import_accepts_supplier_code_and_short_name_headers(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    values = [
+        ["供應商編號", "供應商簡稱", "備註"],
+        ["SUP-001", "甲供應商", "常用"],
+    ]
+
+    dry_run = import_sheet_values("供應商管理", values, db_path=db, dry_run=True)
+
+    assert dry_run.ok
+    assert dry_run.to_insert == 1
+    assert dry_run.errors == []
+
+    result = import_sheet_values("供應商管理", values, db_path=db)
+
+    assert result.ok
+    assert result.inserted_or_updated == 1
+    with connect(db) as conn:
+        supplier = conn.execute(
+            "SELECT supplier_id, name, notes FROM suppliers WHERE supplier_id = ?",
+            ("SUP-001",),
+        ).fetchone()
+    assert supplier["supplier_id"] == "SUP-001"
+    assert supplier["name"] == "甲供應商"
+    assert supplier["notes"] == "常用"
+
+
 def test_database_health_check_reports_schema_v2(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)

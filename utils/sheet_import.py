@@ -36,7 +36,7 @@ SHEET_KEY_COLUMNS = {
 }
 
 SUPPLIER_ID_COLUMNS = ["supplier_id", "供應商ID", "供應商編號"]
-SUPPLIER_NAME_COLUMNS = ["供應商名稱", "名稱"]
+SUPPLIER_NAME_COLUMNS = ["供應商名稱", "供應商簡稱", "名稱"]
 UPDATED_AT_COLUMNS = ["updated_at", "更新時間", "修改時間", "last_modified_at"]
 COLOR_COLUMNS = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
 INVENTORY_COLUMNS = ["類型", "色粉編號", "日期", "數量", "單位", "備註"]

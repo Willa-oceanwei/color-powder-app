@@ -82,6 +82,8 @@ atomic transaction 匯入。任何安全問題都會整批 rollback，成功後�
 所有資料皆為 unchanged。已存在 baseline 的工作表不會再顯示首次匯入按鈕。
 libsql 回傳的 tuple rows 會先依 cursor column metadata 正規化成欄位 mapping，
 因此匯入後驗證可和本機 SQLite 的 `sqlite3.Row` 使用相同的增量判斷。
+`供應商管理` 可使用 `供應商編號` 作為永久 ID，名稱欄則接受 `供應商名稱`、
+`供應商簡稱` 或 `名稱`；因此既有的「供應商編號／供應商簡稱／備註」格式不需改欄名。
 
 可以只匯入指定工作表：
 
