@@ -75,6 +75,12 @@ python scripts/import_google_sheets_to_sqlite.py \
 500、502、503 或 504，讀取會以短暫 exponential backoff 自動重試最多四次；
 仍失敗時只顯示簡短狀態，不會把整張 Google HTML 錯誤頁塞進畫面。
 
+當某張工作表的首次 dry-run 顯示 Turso baseline 為 0，且 error、duplicate、
+conflict 都是 0 時，頁面會顯示受控的「第一次正式匯入」。使用者必須確認已備份
+並輸入 `IMPORT <工作表名稱>`；系統會重新讀取 Sheet、再次 preflight，接著以
+atomic transaction 匯入。任何安全問題都會整批 rollback，成功後會自動驗證
+所有資料皆為 unchanged。已存在 baseline 的工作表不會再顯示首次匯入按鈕。
+
 可以只匯入指定工作表：
 
 ```bash

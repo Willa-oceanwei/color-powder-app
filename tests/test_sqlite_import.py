@@ -15,6 +15,7 @@ from utils.database import (
     log_database_startup_diagnostics,
 )
 from utils.sheet_import import (
+    ImportAbortedError,
     SheetReadError,
     import_sheet_values,
     read_worksheet_values_with_retry,
@@ -109,6 +110,56 @@ def test_import_color_powders_validates_duplicates(tmp_path):
     with connect(tmp_path / "colorpowder.db") as conn:
         count = conn.execute("SELECT COUNT(*) FROM color_powders").fetchone()[0]
     assert count == 1
+
+
+def test_atomic_import_rolls_back_every_row_when_duplicate_is_found(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    values = [
+        ["色粉編號", "名稱"],
+        ["P001", "First"],
+        ["P002", "Second"],
+        ["P001", "Duplicate"],
+    ]
+
+    with pytest.raises(ImportAbortedError) as error:
+        import_sheet_values(
+            "色粉管理",
+            values,
+            db_path=db,
+            abort_on_issues=True,
+        )
+
+    assert error.value.result.duplicate_ids == ["P001"]
+    with connect(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM color_powders").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM sheet_rows").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM sync_log").fetchone()[0] == 0
+
+
+def test_dry_run_flags_database_entity_without_sheet_baseline_as_conflict(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    with connect(db) as conn:
+        conn.execute(
+            """INSERT INTO color_powders(
+                   colorpowder_id, name, created_at, updated_at, last_synced_at
+               ) VALUES (?, ?, ?, ?, ?)""",
+            ("P001", "Turso value", "2026-08-14T00:00:00+00:00", "2026-08-14T00:00:00+00:00", None),
+        )
+
+    result = import_sheet_values(
+        "色粉管理",
+        [["色粉編號", "名稱"], ["P001", "Sheet value"]],
+        db_path=db,
+        dry_run=True,
+    )
+
+    assert result.conflicts == 1
+    assert result.inserted_or_updated == 0
+    with connect(db) as conn:
+        assert conn.execute(
+            "SELECT name FROM color_powders WHERE colorpowder_id = ?", ("P001",)
+        ).fetchone()[0] == "Turso value"
 
 
 def test_import_inventory_is_idempotent_for_same_sheet_row(tmp_path):

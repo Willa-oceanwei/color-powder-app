@@ -106,6 +106,17 @@ class ImportResult:
         return not self.errors and not self.duplicate_ids and not self.conflicts
 
 
+class ImportAbortedError(RuntimeError):
+    """Raised after rolling back an atomic import that found unsafe issues."""
+
+    def __init__(self, result: ImportResult):
+        self.result = result
+        super().__init__(
+            f"Import aborted: errors={len(result.errors)}, "
+            f"duplicates={len(result.duplicate_ids)}, conflicts={result.conflicts}"
+        )
+
+
 def _row_hash(row: dict[str, Any]) -> str:
     payload = json.dumps(row, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -195,6 +206,7 @@ def import_sheet_values(
     db_config: DatabaseConfig | None = None,
     dry_run: bool = False,
     initialize_schema: bool = True,
+    abort_on_issues: bool = False,
 ) -> ImportResult:
     """Validate/copy worksheet values into local SQLite or configured Turso.
 
@@ -202,7 +214,9 @@ def import_sheet_values(
     modifying the target database. ``db_path`` remains supported for local
     SQLite callers; production callers should pass ``db_config``. Callers that
     already completed startup health checks may set ``initialize_schema=False``
-    to keep an interactive dry-run free of schema-maintenance statements.
+    to keep an interactive dry-run free of schema-maintenance statements. Set
+    ``abort_on_issues=True`` for a formal import that must roll back completely
+    when any validation error, duplicate, or conflict is found.
     """
     if db_config is not None and db_path is not None:
         raise ValueError("Pass either db_config or db_path, not both.")
@@ -242,6 +256,18 @@ def import_sheet_values(
                     result.errors.append(f"row {index + 2}: missing 色粉編號")
                     continue
                 entity = conn.execute("SELECT * FROM color_powders WHERE colorpowder_id = ?", (powder_id,)).fetchone()
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn,
+                            entity_type="color_powder",
+                            entity_id=powder_id,
+                            sqlite_payload=dict(entity),
+                            sheet_payload=row,
+                            reason="Database entity exists but no Sheet sync baseline exists",
+                        )
+                    continue
                 if existed and _entity_changed_since_sync(entity):
                     result.conflicts += 1
                     if not dry_run:
@@ -275,6 +301,18 @@ def import_sheet_values(
                     continue
                 supplier_id = _supplier_id(row, row_key)
                 entity = conn.execute("SELECT * FROM suppliers WHERE supplier_id = ?", (supplier_id,)).fetchone()
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn,
+                            entity_type="supplier",
+                            entity_id=supplier_id,
+                            sqlite_payload=dict(entity),
+                            sheet_payload=row,
+                            reason="Database entity exists but no Sheet sync baseline exists",
+                        )
+                    continue
                 if existed and _entity_changed_since_sync(entity):
                     result.conflicts += 1
                     if not dry_run:
@@ -313,6 +351,18 @@ def import_sheet_values(
                 ).fetchone()
                 if existing_movement and changed:
                     result.inventory_duplicate_risk += 1
+                if not existed and existing_movement is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn,
+                            entity_type="inventory_movement",
+                            entity_id=movement_key,
+                            sqlite_payload=dict(existing_movement),
+                            sheet_payload=row,
+                            reason="Database movement exists but no Sheet sync baseline exists",
+                        )
+                    continue
                 if existing_movement and _entity_changed_since_sync(existing_movement):
                     result.conflicts += 1
                     if not dry_run:
@@ -353,6 +403,8 @@ def import_sheet_values(
         result.sqlite_rows = conn.execute(
             "SELECT COUNT(*) FROM sheet_rows WHERE sheet_name = ?", (sheet_name,)
         ).fetchone()[0]
+        if not dry_run and abort_on_issues and not result.ok:
+            raise ImportAbortedError(result)
         if dry_run:
             conn.rollback()
         else:

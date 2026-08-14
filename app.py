@@ -21,6 +21,7 @@ from utils.database import (
     secret_presence_from_secrets,
 )
 from utils.sheet_import import (
+    ImportAbortedError,
     SHEET_KEY_COLUMNS,
     import_sheet_values,
     read_worksheet_values_with_retry,
@@ -11976,6 +11977,14 @@ if st.session_state.menu == "同步檢查":
     else:
         st.success("Turso 連線與 schema 健康檢查正常。")
 
+    completed_import = st.session_state.pop("sync_import_success", None)
+    if completed_import:
+        st.success(
+            f"首次正式匯入完成：{completed_import['sheet_name']} 寫入 "
+            f"{completed_import['written']} 筆；匯入後驗證 unchanged="
+            f"{completed_import['unchanged']}。"
+        )
+
     selected_sync_sheet = st.selectbox(
         "選擇要檢查的工作表",
         options=list(SHEET_KEY_COLUMNS.keys()),
@@ -12081,6 +12090,91 @@ if st.session_state.menu == "同步檢查":
             file_name=f"turso_dry_run_{audit_sheet}.json",
             mime="application/json",
         )
+
+        can_initial_import = (
+            DATABASE_BACKEND == "turso"
+            and audit_result.ok
+            and audit_result.inserted_or_updated == 0
+            and audit_result.sqlite_rows == 0
+        )
+        if can_initial_import:
+            st.divider()
+            st.markdown("#### 第一次正式匯入")
+            st.warning(
+                "此動作會建立 Turso 正式資料與 Sheet row-hash baseline，但不會修改 Google Sheets。"
+                "按下後會重新讀取 Sheet、再次 dry-run；任何 error、duplicate 或 conflict 都會整批 rollback。"
+            )
+            backup_confirmed = st.checkbox(
+                "我已備份 Google Sheet，並確認上方 dry-run 結果正確",
+                key=f"sync_import_backup_{audit_sheet}",
+            )
+            required_confirmation = f"IMPORT {audit_sheet}"
+            confirmation_text = st.text_input(
+                f"請輸入 {required_confirmation}",
+                key=f"sync_import_confirmation_{audit_sheet}",
+            )
+            start_initial_import = st.button(
+                "建立 Turso 初始資料與同步 baseline",
+                type="primary",
+                disabled=not backup_confirmed or confirmation_text.strip() != required_confirmation,
+            )
+            if start_initial_import:
+                try:
+                    with st.spinner(f"重新檢查並正式匯入「{audit_sheet}」..."):
+                        latest_values = get_cached_sheet_values(audit_sheet, force_reload=True)
+                        preflight = import_sheet_values(
+                            audit_sheet,
+                            latest_values,
+                            db_config=DATABASE_CONFIG,
+                            dry_run=True,
+                            initialize_schema=False,
+                        )
+                        if not preflight.ok or preflight.sqlite_rows != 0:
+                            st.session_state["sync_audit_result"] = preflight
+                            st.session_state["sync_audit_result_sheet"] = audit_sheet
+                            raise RuntimeError(
+                                "最新 preflight 已改變或 baseline 已存在；正式匯入已取消，請重新檢查報告。"
+                            )
+                        write_result = import_sheet_values(
+                            audit_sheet,
+                            latest_values,
+                            db_config=DATABASE_CONFIG,
+                            dry_run=False,
+                            initialize_schema=False,
+                            abort_on_issues=True,
+                        )
+                        verification = import_sheet_values(
+                            audit_sheet,
+                            latest_values,
+                            db_config=DATABASE_CONFIG,
+                            dry_run=True,
+                            initialize_schema=False,
+                        )
+                        if (
+                            not verification.ok
+                            or verification.to_insert != 0
+                            or verification.to_update != 0
+                            or verification.unchanged != verification.sheet_rows
+                        ):
+                            raise RuntimeError(
+                                "正式匯入已完成，但匯入後驗證未完全 unchanged；請下載最新報告並停止後續匯入。"
+                            )
+                    st.session_state["sync_audit_result"] = verification
+                    st.session_state["sync_audit_result_sheet"] = audit_sheet
+                    st.session_state["sync_import_success"] = {
+                        "sheet_name": audit_sheet,
+                        "written": write_result.inserted_or_updated,
+                        "unchanged": verification.unchanged,
+                    }
+                    st.rerun()
+                except ImportAbortedError as exc:
+                    st.session_state["sync_audit_result"] = exc.result
+                    st.session_state["sync_audit_result_sheet"] = audit_sheet
+                    st.error(f"正式匯入已完整 rollback：{exc}")
+                except Exception as exc:
+                    st.error(f"正式匯入已停止：{type(exc).__name__}: {exc}")
+        elif audit_result.ok and audit_result.sqlite_rows > 0:
+            st.info("此工作表已存在 Turso baseline；第一次正式匯入按鈕已停用，請使用 dry-run 監看後續差異。")
 
 
 # ===== 匯入配方備份檔案 =====
