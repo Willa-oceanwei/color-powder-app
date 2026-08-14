@@ -2199,11 +2199,19 @@ def format_label_ratio(order):
 
 def build_big_label_rows(order):
     """依生產單的包裝重量/份數展開成一張張標籤資料（每一份包裝對應一張標籤）。
-    回傳的是可直接放進 st.data_editor 的 list[dict]，方便使用者列印前再調整。"""
+    回傳的是可直接放進 st.data_editor 的 list[dict]，方便使用者列印前再調整。
+
+    ⚠️ 色母的「包裝重量」存的是以 100kg 為單位的倍率（例如 0.5 代表 50kg），
+    跟色粉「包裝重量＝實際每包公斤數」不是同一種意義，所以這裡只能算出
+    「這筆包裝的總重量」當作初始建議值，無法自動猜出你實際打算怎麼分裝
+    （例如 50kg 要印成 25kg×2 還是 50kg×1，這是包裝現場才決定的事，
+    資料裡沒有記錄）。下方產生的列，數量和張數都要當作「起始建議」，
+    列印前請直接在表格裡修改／增減列數，改成你實際要印的分裝方式。"""
     label_no = str(order.get("配方編號", "") or "").strip()
     label_name = str(order.get("顏色", "") or "").strip()
     label_ratio = format_label_ratio(order)
     label_date = to_roc_date(order.get("生產日期", ""))
+    is_colorant = str(order.get("色粉類別", "") or "").strip() == "色母"
 
     rows = []
     for i in range(1, 5):
@@ -2217,7 +2225,9 @@ def build_big_label_rows(order):
             c = 0.0
         if w <= 0 or c <= 0:
             continue
-        qty_display = str(int(w)) if abs(w - int(w)) < 1e-9 else f"{w:g}"
+        # 色母：包裝重量是 100kg 為單位的倍率，要乘 100 才是實際公斤數
+        actual_kg = w * 100 if is_colorant else w
+        qty_display = str(int(actual_kg)) if abs(actual_kg - int(actual_kg)) < 1e-9 else f"{actual_kg:g}"
         for _ in range(int(c)):
             rows.append({
                 "編號": label_no,
@@ -2245,9 +2255,17 @@ def generate_big_label_html(label_rows):
 
     left_col_x_cm = 0.3
     right_col_x_cm = left_col_x_cm + 4.5  # 編號→日期水平距離 4.5cm
-    row1_y_cm = 0.3
-    row2_y_cm = 1.3
-    row3_y_cm = row1_y_cm + 2.0            # 編號→名稱垂直距離 2cm
+
+    # ⚠️ 上半部可印內容高度只有 3.2cm（7.7cm 標籤高 − 4.5cm 下方公司資訊保留區）。
+    # 18pt 字實際行高約 0.64cm，row3_y_cm + 文字高度必須留在 3.2cm 以內，
+    # 否則名稱/數量會被印到下方預印區。目前設定已經是安全上限（約 2.3cm 間距），
+    # 若之後字體變小、或想再拉大距離，可以調整下面兩個數字，
+    # 但 ROW3_Y_CM 建議不要超過 2.5cm。
+    ROW1_Y_CM = 0.2         # 第一行（編號/日期）距離標籤頂端
+    ROW3_Y_CM = 2.5          # 第三行（名稱/數量）距離標籤頂端 → 編號到名稱距離 = ROW3_Y_CM - ROW1_Y_CM
+    row1_y_cm = ROW1_Y_CM
+    row2_y_cm = round((ROW1_Y_CM + ROW3_Y_CM) / 2, 3)  # 比例：置中在第一行與第三行之間
+    row3_y_cm = ROW3_Y_CM
 
     def esc(v):
         return html_escape.escape(str(v or ""))
@@ -2303,6 +2321,7 @@ body {{ margin: 0; padding: 0; }}
     position: absolute;
     font-family: 'Arial Rounded MT Bold', 'Comfortaa', sans-serif;
     white-space: nowrap;
+    line-height: 1;
 }}
 .field.left {{ font-size: 18pt; }}
 .field.right {{ font-size: 17pt; }}
