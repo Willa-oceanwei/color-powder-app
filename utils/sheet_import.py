@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 
@@ -29,7 +30,7 @@ from .database import (
 SHEET_KEY_COLUMNS = {
     "色粉管理": "色粉編號",
     "供應商管理": "supplier_id",
-    "庫存記錄": None,
+    "庫存記錄": "_sync_id",
     "配方管理": "配方編號",
     "客戶名單": "客戶名稱",
     "生產單": "生產單號",
@@ -39,7 +40,7 @@ SUPPLIER_ID_COLUMNS = ["supplier_id", "供應商ID", "供應商編號"]
 SUPPLIER_NAME_COLUMNS = ["供應商名稱", "供應商簡稱", "名稱"]
 UPDATED_AT_COLUMNS = ["updated_at", "更新時間", "修改時間", "last_modified_at"]
 COLOR_COLUMNS = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
-INVENTORY_COLUMNS = ["類型", "色粉編號", "日期", "數量", "單位", "備註"]
+INVENTORY_COLUMNS = ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"]
 TRANSIENT_GOOGLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
 
 
@@ -117,6 +118,31 @@ class ImportAbortedError(RuntimeError):
         )
 
 
+def missing_inventory_sync_id_updates(
+    values: list[list[Any]],
+    *,
+    id_factory: Callable[[], str] = lambda: uuid.uuid4().hex,
+) -> list[tuple[int, int, str]]:
+    """Return ``(row, column, id)`` updates for non-empty inventory rows missing IDs."""
+    if not values:
+        raise ValueError("庫存記錄沒有 header")
+    headers = [str(value).strip() for value in values[0]]
+    if "_sync_id" not in headers:
+        raise ValueError("庫存記錄缺少 _sync_id 欄位")
+    sync_column = headers.index("_sync_id")
+    updates = []
+    for row_number, raw_row in enumerate(values[1:], start=2):
+        padded = list(raw_row) + [""] * max(0, len(headers) - len(raw_row))
+        has_business_data = any(
+            str(padded[index]).strip()
+            for index in range(len(headers))
+            if index != sync_column
+        )
+        if has_business_data and not str(padded[sync_column]).strip():
+            updates.append((row_number, sync_column + 1, id_factory()))
+    return updates
+
+
 def _row_hash(row: dict[str, Any]) -> str:
     payload = json.dumps(row, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -173,6 +199,8 @@ def _row_key(sheet_name: str, row: dict[str, Any], index: int) -> str:
         explicit_id = _first_value(row, SUPPLIER_ID_COLUMNS)
         if explicit_id:
             return explicit_id
+    if sheet_name == "庫存記錄":
+        return ""
     return f"row-{index + 2}"
 
 
@@ -247,7 +275,8 @@ def import_sheet_values(
         for index, row in enumerate(rows):
             row_key = _row_key(sheet_name, row, index)
             if not row_key:
-                result.errors.append(f"row {index + 2}: missing required ID")
+                missing_column = "_sync_id" if sheet_name == "庫存記錄" else "required ID"
+                result.errors.append(f"row {index + 2}: missing {missing_column}")
                 continue
             if row_key in seen:
                 result.duplicate_ids.append(row_key)
@@ -399,8 +428,9 @@ def import_sheet_values(
                     )
                     conn.execute(
                         """INSERT INTO inventory_movements(movement_key, sheet_name, sheet_row_key, movement_type,
-                               colorpowder_id, movement_date, quantity, unit, notes, source, created_at, updated_at, last_synced_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'google_sheets_import', ?, ?, ?)
+                               colorpowder_id, movement_date, quantity, unit, notes, supplier_id, supplier_name,
+                               source, created_at, updated_at, last_synced_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'google_sheets_import', ?, ?, ?)
                            ON CONFLICT(movement_key) DO UPDATE SET
                                movement_type=excluded.movement_type,
                                colorpowder_id=excluded.colorpowder_id,
@@ -408,9 +438,12 @@ def import_sheet_values(
                                quantity=excluded.quantity,
                                unit=excluded.unit,
                                notes=excluded.notes,
+                               supplier_id=excluded.supplier_id,
+                               supplier_name=excluded.supplier_name,
                                last_synced_at=excluded.last_synced_at""",
                         (movement_key, sheet_name, row_key, row.get("類型", ""), powder_id, row.get("日期", ""),
                          _safe_float(row.get("數量", 0)), row.get("單位", "g") or "g", row.get("備註", ""),
+                         row.get("廠商編號", ""), row.get("廠商名稱", ""),
                          synced_at, _sheet_updated_at(row) or (existing_movement["updated_at"] if existing_movement else synced_at), synced_at),
                     )
                     result.inserted_or_updated += 1

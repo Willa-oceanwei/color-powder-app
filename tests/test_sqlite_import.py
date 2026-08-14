@@ -18,6 +18,7 @@ from utils.sheet_import import (
     ImportAbortedError,
     SheetReadError,
     import_sheet_values,
+    missing_inventory_sync_id_updates,
     read_worksheet_values_with_retry,
 )
 
@@ -96,6 +97,8 @@ def test_initialize_database_creates_core_tables(tmp_path):
     assert "sync_log" in tables
     assert "sync_conflicts" in tables
     assert "movement_key" in inventory_cols
+    assert "supplier_id" in inventory_cols
+    assert "supplier_name" in inventory_cols
 
 
 def test_import_color_powders_validates_duplicates(tmp_path):
@@ -164,8 +167,8 @@ def test_dry_run_flags_database_entity_without_sheet_baseline_as_conflict(tmp_pa
 
 def test_import_inventory_is_idempotent_for_same_sheet_row(tmp_path):
     values = [
-        ["類型", "色粉編號", "日期", "數量", "單位", "備註"],
-        ["入庫", "P001", "2026-08-12", "15", "kg", "direct sheet import"],
+        ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"],
+        ["進貨", "P001", "2026-08-12", "15", "kg", "direct sheet import", "SUP-1", "甲廠商", "sync-001"],
     ]
     db = tmp_path / "colorpowder.db"
     first = import_sheet_values("庫存記錄", values, db_path=db)
@@ -175,8 +178,41 @@ def test_import_inventory_is_idempotent_for_same_sheet_row(tmp_path):
     with connect(db) as conn:
         powder_count = conn.execute("SELECT COUNT(*) FROM color_powders WHERE colorpowder_id='P001'").fetchone()[0]
         movement_count = conn.execute("SELECT COUNT(*) FROM inventory_movements WHERE colorpowder_id='P001'").fetchone()[0]
+        movement = conn.execute(
+            "SELECT movement_key, supplier_id, supplier_name FROM inventory_movements WHERE colorpowder_id='P001'"
+        ).fetchone()
     assert powder_count == 1
     assert movement_count == 1
+    assert movement["movement_key"] == "sheet:庫存記錄:sync-001"
+    assert movement["supplier_id"] == "SUP-1"
+    assert movement["supplier_name"] == "甲廠商"
+
+
+def test_inventory_dry_run_requires_sync_id(tmp_path):
+    values = [
+        ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"],
+        ["初始", "P001", "2026-08-12", "15", "kg", "", "", "", ""],
+    ]
+
+    result = import_sheet_values("庫存記錄", values, db_path=tmp_path / "colorpowder.db", dry_run=True)
+
+    assert result.errors == ["row 2: missing _sync_id"]
+    assert result.to_insert == 0
+
+
+def test_missing_inventory_sync_id_updates_only_nonempty_rows():
+    counter = iter(["generated-1", "generated-2"])
+    values = [
+        ["類型", "色粉編號", "_sync_id"],
+        ["初始", "P001", ""],
+        ["進貨", "P002", "existing-id"],
+        ["", "", ""],
+        ["進貨", "P003", ""],
+    ]
+
+    updates = missing_inventory_sync_id_updates(values, id_factory=lambda: next(counter))
+
+    assert updates == [(2, 3, "generated-1"), (5, 3, "generated-2")]
 
 
 def test_dry_run_reports_changes_without_writing_rows(tmp_path):
@@ -244,7 +280,7 @@ def test_supplier_import_accepts_supplier_code_and_short_name_headers(tmp_path):
     assert supplier["notes"] == "常用"
 
 
-def test_database_health_check_reports_schema_v2(tmp_path):
+def test_database_health_check_reports_schema_v3(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
     config = database_config_from_secrets({})
@@ -252,7 +288,7 @@ def test_database_health_check_reports_schema_v2(tmp_path):
     health = database_health_check(config)
     assert health.backend == "sqlite"
     assert health.select_1_ok
-    assert health.schema_version == 2
+    assert health.schema_version == 3
     assert health.main_tables_exist
 
 
@@ -530,7 +566,7 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     )
     assert "Database backend: sqlite" in lines
     assert "Database health: OK" in lines
-    assert "Schema version: 2" in lines
+    assert "Schema version: 3" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)
 

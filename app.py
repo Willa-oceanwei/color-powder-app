@@ -7,6 +7,7 @@ import pandas as pd
 import json
 import time
 import re
+import uuid
 import html as html_escape
 from pathlib import Path        
 from datetime import datetime
@@ -24,6 +25,7 @@ from utils.sheet_import import (
     ImportAbortedError,
     SHEET_KEY_COLUMNS,
     import_sheet_values,
+    missing_inventory_sync_id_updates,
     read_worksheet_values_with_retry,
 )
 
@@ -7674,7 +7676,7 @@ elif menu == "採購管理":
             df_stock = pd.DataFrame(records)
         else:
             df_stock = pd.DataFrame(
-                columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"]
+                columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註","_sync_id"]
             )
     
         # 🔒 舊庫存補時間
@@ -7777,18 +7779,14 @@ elif menu == "採購管理":
                         "單位": st.session_state.form_in_stock["單位"],
                         "廠商編號": st.session_state.form_in_stock["廠商編號"].strip(),
                         "廠商名稱": st.session_state.form_in_stock["廠商名稱"].strip(),
-                        "備註": st.session_state.form_in_stock["備註"]
+                        "備註": st.session_state.form_in_stock["備註"],
+                        "_sync_id": uuid.uuid4().hex,
                     }
-    
-                    df_stock = pd.concat([df_stock, pd.DataFrame([new_row])], ignore_index=True)
-    
-                    # ✅ 寫回 Google Sheet
-                    df_to_upload = df_stock.copy()
-                    df_to_upload["日期"] = pd.to_datetime(df_to_upload["日期"], errors="coerce")\
-                                             .dt.strftime("%Y/%m/%d").fillna("")
-                    df_to_upload = df_to_upload.astype(str)
-                    ws_stock.clear()
-                    ws_stock.update([df_to_upload.columns.tolist()] + df_to_upload.values.tolist())
+
+                    # 只 append 新增列，不再為新增一筆而 clear/update 整張庫存表。
+                    stock_values = get_cached_sheet_values("庫存記錄")
+                    stock_header = stock_values[0] if stock_values else list(new_row.keys())
+                    safe_append_row(ws_stock, [new_row.get(column, "") for column in stock_header])
                     invalidate_sheet_cache("庫存記錄")
                     st.session_state.stock_need_reload = True
     
@@ -8960,7 +8958,7 @@ elif menu == "庫存區":
         ws_stock = get_cached_worksheet("庫存記錄")
     except Exception:
         ws_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
-        ws_stock.append_row(["類型", "色粉編號", "日期", "數量", "單位", "備註"])
+        ws_stock.append_row(["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"])
         invalidate_sheet_cache("庫存記錄")
 
     # ================================================================
@@ -9433,15 +9431,22 @@ elif menu == "庫存區":
                 st.warning(f"⚠️ 無法刪除舊初始庫存：{e}")
 
             # ── 步驟 3：append 一列新資料（1 次 API）──
-            new_row_values = [
-                "初始",
-                powder_id,
-                ini_datetime,
-                str(qty_val),
-                ini_unit,
-                ini_note
-            ]
-            ws_stock.append_row(new_row_values, value_input_option="RAW")
+            try:
+                stock_header = get_cached_sheet_values("庫存記錄", force_reload=True)[0]
+            except Exception:
+                stock_header = ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"]
+            initial_stock_row = {
+                "類型": "初始",
+                "色粉編號": powder_id,
+                "日期": ini_datetime,
+                "數量": str(qty_val),
+                "單位": ini_unit,
+                "備註": ini_note,
+                "廠商編號": "",
+                "廠商名稱": "",
+                "_sync_id": uuid.uuid4().hex,
+            }
+            safe_append_row(ws_stock, [initial_stock_row.get(column, "") for column in stock_header])
 
             # ── 步驟 4：讓下次讀取強制 reload ──
             invalidate_sheet_cache("庫存記錄")
@@ -11081,14 +11086,14 @@ elif menu == "洗車廠庫存":
                         except Exception:
                             ws_main_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
                             ws_main_stock.append_row(
-                                ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註"]
+                                ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註", "_sync_id"]
                             )
                             invalidate_sheet_cache("庫存記錄")
 
                         try:
                             stock_header = get_cached_sheet_values("庫存記錄")[0]
                         except Exception:
-                            stock_header = ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註"]
+                            stock_header = ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註", "_sync_id"]
 
                         transfer_stock_note = "洗車廠出庫轉入" + (f"（{io_note}）" if io_note.strip() else "")
                         stock_field_map = {
@@ -11100,6 +11105,7 @@ elif menu == "洗車廠庫存":
                             "廠商編號": "",
                             "廠商名稱": "",
                             "備註": transfer_stock_note,
+                            "_sync_id": uuid.uuid4().hex,
                         }
                         new_stock_row = [stock_field_map.get(col, "") for col in stock_header]
                         safe_append_row(ws_main_stock, new_stock_row)
@@ -12052,6 +12058,54 @@ if st.session_state.menu == "同步檢查":
         key="sync_audit_sheet",
         help="大型工作表一次只檢查一張，避免同時讀取所有 Sheet。",
     )
+    sync_id_message = st.session_state.pop("inventory_sync_id_message", None)
+    if sync_id_message:
+        st.success(sync_id_message)
+
+    if selected_sync_sheet == "庫存記錄":
+        with st.expander("準備庫存永久 _sync_id", expanded=True):
+            st.caption(
+                "只會替有資料且 _sync_id 空白的列產生永久 ID；不修改既有 ID 或其他欄位。"
+                "排序、插列或移動資料後，這個 ID 仍保持不變。"
+            )
+            prepare_confirmation = st.text_input(
+                "請輸入 PREPARE 庫存記錄",
+                key="inventory_sync_id_confirmation",
+            )
+            prepare_sync_ids = st.button(
+                "批次補齊空白 _sync_id",
+                disabled=prepare_confirmation.strip() != "PREPARE 庫存記錄",
+            )
+            if prepare_sync_ids:
+                try:
+                    with st.spinner("正在檢查並補齊庫存 _sync_id..."):
+                        inventory_values = get_cached_sheet_values("庫存記錄", force_reload=True)
+                        id_updates = missing_inventory_sync_id_updates(inventory_values)
+                        if id_updates:
+                            inventory_ws = get_cached_worksheet("庫存記錄")
+                            batch_size = 200
+                            for start in range(0, len(id_updates), batch_size):
+                                batch = id_updates[start:start + batch_size]
+                                inventory_ws.batch_update(
+                                    [
+                                        {
+                                            "range": gspread.utils.rowcol_to_a1(row_number, column_number),
+                                            "values": [[sync_id]],
+                                        }
+                                        for row_number, column_number, sync_id in batch
+                                    ],
+                                    value_input_option="RAW",
+                                )
+                            invalidate_sheet_cache("庫存記錄")
+                            st.session_state["inventory_sync_id_message"] = (
+                                f"已補齊 {len(id_updates)} 筆 _sync_id；既有 ID 與其他欄位未修改。"
+                            )
+                            st.rerun()
+                        else:
+                            st.success("所有有資料的庫存列都已具備 _sync_id，不需要修改。")
+                except Exception as exc:
+                    st.error(f"補齊 _sync_id 失敗：{type(exc).__name__}: {exc}")
+
     st.info(
         "大型 Sheet 需要讀取所選工作表的 used range 才能計算 row hash；"
         "檢查只在按下按鈕後執行，且不會整表寫回。Google 暫時回傳 502/503/429 時會自動重試。"

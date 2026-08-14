@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -262,7 +262,7 @@ def _add_column_if_missing(conn: SqlExecutor, table_name: str, column_name: str,
 
 
 def _initialize_schema(conn: SqlExecutor) -> None:
-    """Create/validate schema v2 on an open SQLite-compatible connection."""
+    """Create/validate the current schema on an open SQLite-compatible connection."""
     _execute_script(
         conn,
         """
@@ -318,6 +318,8 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             quantity REAL NOT NULL DEFAULT 0,
             unit TEXT NOT NULL DEFAULT 'g',
             notes TEXT,
+            supplier_id TEXT,
+            supplier_name TEXT,
             source TEXT NOT NULL DEFAULT 'sqlite',
             version INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
@@ -383,6 +385,8 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     _add_column_if_missing(conn, "inventory_movements", "movement_key", "TEXT")
     _add_column_if_missing(conn, "inventory_movements", "sheet_name", "TEXT")
     _add_column_if_missing(conn, "inventory_movements", "sheet_row_key", "TEXT")
+    _add_column_if_missing(conn, "inventory_movements", "supplier_id", "TEXT")
+    _add_column_if_missing(conn, "inventory_movements", "supplier_name", "TEXT")
     _add_column_if_missing(conn, "sheet_rows", "sheet_updated_at", "TEXT")
     _add_column_if_missing(conn, "sheet_rows", "last_seen_at", "TEXT")
     conn.execute("UPDATE sheet_rows SET last_seen_at = COALESCE(last_seen_at, updated_at, ?) WHERE last_seen_at IS NULL", (utc_now_iso(),))
@@ -397,6 +401,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE INDEX IF NOT EXISTS idx_color_powders_category ON color_powders(category);
         CREATE INDEX IF NOT EXISTS idx_inventory_powder_date ON inventory_movements(colorpowder_id, movement_date);
         CREATE INDEX IF NOT EXISTS idx_inventory_updated_at ON inventory_movements(updated_at);
+        CREATE INDEX IF NOT EXISTS idx_inventory_supplier_id ON inventory_movements(supplier_id);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_sheet_row_key ON suppliers(sheet_row_key) WHERE sheet_row_key IS NOT NULL;
         CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_movement_key ON inventory_movements(movement_key) WHERE movement_key IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_inventory_sheet_row ON inventory_movements(sheet_name, sheet_row_key);
