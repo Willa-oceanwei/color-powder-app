@@ -1,8 +1,12 @@
+from contextlib import contextmanager
+
 import pytest
 
 from utils.database import (
+    DatabaseConfig,
     DatabaseStartupError,
     connect,
+    connect_from_config,
     database_config_from_secrets,
     database_health_check,
     format_database_startup_diagnostics,
@@ -122,6 +126,120 @@ def test_complete_turso_credentials_select_turso_backend(monkeypatch):
     assert config.path is None
     assert config.turso_database_url == "libsql://example.turso.io"
     assert config.turso_auth_token == "secret-token"
+
+
+def test_connect_from_config_uses_turso_transaction_lifecycle(monkeypatch):
+    events = []
+
+    class FakeTursoConnection:
+        def commit(self):
+            events.append("commit")
+
+        def rollback(self):
+            events.append("rollback")
+
+        def close(self):
+            events.append("close")
+
+    fake = FakeTursoConnection()
+    monkeypatch.setattr("utils.database._connect_turso", lambda config: fake)
+    config = DatabaseConfig(
+        backend="turso",
+        path=None,
+        turso_database_url="libsql://example.turso.io",
+        turso_auth_token="secret-token",
+    )
+
+    with connect_from_config(config) as conn:
+        assert conn is fake
+
+    assert events == ["commit", "close"]
+
+
+def test_connect_from_config_rolls_back_failed_turso_transaction(monkeypatch):
+    events = []
+
+    class FakeTursoConnection:
+        def commit(self):
+            events.append("commit")
+
+        def rollback(self):
+            events.append("rollback")
+
+        def close(self):
+            events.append("close")
+
+    monkeypatch.setattr("utils.database._connect_turso", lambda config: FakeTursoConnection())
+    config = DatabaseConfig(
+        backend="turso",
+        path=None,
+        turso_database_url="libsql://example.turso.io",
+        turso_auth_token="secret-token",
+    )
+
+    with pytest.raises(RuntimeError, match="write failed"):
+        with connect_from_config(config):
+            raise RuntimeError("write failed")
+
+    assert events == ["rollback", "close"]
+
+
+def test_import_sheet_values_accepts_database_config(tmp_path):
+    db = tmp_path / "configured.db"
+    config = DatabaseConfig(backend="sqlite", path=db)
+    values = [
+        ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"],
+        ["P-CONFIG", "I-CONFIG", "Configured", "色粉", "袋", ""],
+    ]
+
+    result = import_sheet_values("色粉管理", values, db_config=config)
+
+    assert result.to_insert == 1
+    with connect(db) as conn:
+        assert conn.execute(
+            "SELECT name FROM color_powders WHERE colorpowder_id = ?", ("P-CONFIG",)
+        ).fetchone()[0] == "Configured"
+
+
+def test_import_sheet_values_routes_turso_config_through_shared_connection(monkeypatch, tmp_path):
+    db = tmp_path / "turso-test-double.db"
+    initialize_database(db)
+    seen_configs = []
+
+    @contextmanager
+    def fake_connect_from_config(config):
+        seen_configs.append(config)
+        with connect(db) as conn:
+            yield conn
+
+    monkeypatch.setattr("utils.sheet_import.initialize_database_from_config", lambda config: None)
+    monkeypatch.setattr("utils.sheet_import.connect_from_config", fake_connect_from_config)
+    config = DatabaseConfig(
+        backend="turso",
+        path=None,
+        turso_database_url="libsql://example.turso.io",
+        turso_auth_token="secret-token",
+    )
+    values = [
+        ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"],
+        ["P-TURSO", "I-TURSO", "Remote", "色粉", "袋", ""],
+    ]
+
+    result = import_sheet_values("色粉管理", values, db_config=config)
+
+    assert result.inserted_or_updated == 1
+    assert seen_configs == [config]
+    with connect(db) as conn:
+        assert conn.execute(
+            "SELECT name FROM color_powders WHERE colorpowder_id = ?", ("P-TURSO",)
+        ).fetchone()[0] == "Remote"
+
+
+def test_import_sheet_values_rejects_path_and_config_together(tmp_path):
+    config = DatabaseConfig(backend="sqlite", path=tmp_path / "configured.db")
+
+    with pytest.raises(ValueError, match="either db_config or db_path"):
+        import_sheet_values("色粉管理", [], db_path=tmp_path / "other.db", db_config=config)
 
 
 def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):

@@ -1,8 +1,9 @@
-"""SQLite database layer for the color powder management system.
+"""SQLite-compatible database layer for the color powder management system.
 
-SQLite is the source of truth. Google Sheets is treated as a synchronized copy
-and reporting/admin surface; web features should read/write through this module
-or service/repository wrappers instead of calling Sheets directly.
+Turso is the production source of truth when configured, while local SQLite is
+kept for development and tests. Google Sheets remains a synchronized human
+interface; web features should read/write through this module or repository
+wrappers instead of calling Sheets directly.
 """
 
 from __future__ import annotations
@@ -171,6 +172,29 @@ def connect(db_path: str | Path | None = None):
         raise
     finally:
         conn.close()
+
+
+@contextmanager
+def connect_from_config(config: DatabaseConfig):
+    """Open the configured SQLite-compatible backend with one transaction policy."""
+    if config.backend == "sqlite":
+        with connect(config.path) as conn:
+            yield conn
+        return
+    if config.backend != "turso":
+        raise DatabaseStartupError(f"Unsupported database backend: {config.backend}")
+
+    client = _connect_turso(config)
+    try:
+        yield client
+        if hasattr(client, "commit"):
+            client.commit()
+    except Exception:
+        if hasattr(client, "rollback"):
+            client.rollback()
+        raise
+    finally:
+        client.close()
 
 
 def _fetchall(cursor: Any) -> list[Any]:

@@ -49,6 +49,20 @@ python scripts/import_google_sheets_to_sqlite.py \
   --db data/colorpowder.db
 ```
 
+若部署環境已設定 `TURSO_DATABASE_URL` 與 `TURSO_AUTH_TOKEN`，省略 `--db`
+即可把資料匯入 Turso；Google Sheets 仍會永久保留作為人工操作介面，匯入程式不會修改它：
+
+```bash
+python scripts/import_google_sheets_to_sqlite.py \
+  --credentials-json /path/to/service-account.json \
+  --sheet-url "https://docs.google.com/spreadsheets/d/.../edit" \
+  --dry-run
+```
+
+建議先用 `--dry-run` 檢查 Turso 與 Sheet 的新增、修改、未變更、duplicate
+及 conflict 統計，確認後再移除 `--dry-run`。若要明確使用本機 SQLite，才傳入
+`--db data/colorpowder.db`。程式啟動時只會顯示所選 backend，不會輸出 Turso token。
+
 可以只匯入指定工作表：
 
 ```bash
