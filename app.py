@@ -12051,6 +12051,12 @@ if st.session_state.menu == "同步檢查":
             f"{completed_import['written']} 筆；匯入後驗證 unchanged="
             f"{completed_import['unchanged']}。"
         )
+    completed_apply = st.session_state.pop("sync_apply_success", None)
+    if completed_apply:
+        st.success(
+            f"增量套用完成：{completed_apply['sheet_name']} 寫入 {completed_apply['written']} 筆；"
+            f"匯入後驗證 unchanged={completed_apply['unchanged']}。"
+        )
 
     selected_sync_sheet = st.selectbox(
         "選擇要檢查的工作表",
@@ -12296,8 +12302,99 @@ if st.session_state.menu == "同步檢查":
                         )
                     else:
                         st.error(f"正式匯入已停止：{type(exc).__name__}: {exc}")
+        elif (
+            audit_result.ok
+            and audit_result.sqlite_rows > 0
+            and audit_sheet in {"色粉管理", "供應商管理", "庫存記錄"}
+        ):
+            pending_changes = audit_result.to_insert + audit_result.to_update
+            if pending_changes == 0:
+                st.info("此工作表已存在 Turso baseline，且目前沒有需要套用的新增或修改。")
+            else:
+                st.divider()
+                st.markdown("#### 套用 Sheet 增量變更到 Turso")
+                st.warning(
+                    f"本次預計新增 {audit_result.to_insert} 筆、修改 {audit_result.to_update} 筆。"
+                    "此功能不處理 Sheet 刪除；按下後會重新讀取並再次 preflight，"
+                    "任何 error、duplicate 或 conflict 都會整批 rollback。"
+                )
+                required_apply_confirmation = f"APPLY {audit_sheet}"
+                apply_confirmation = st.text_input(
+                    f"請輸入 {required_apply_confirmation}",
+                    key=f"sync_apply_confirmation_{audit_sheet}",
+                )
+                apply_changes = st.button(
+                    "套用新增／修改到 Turso",
+                    type="primary",
+                    disabled=apply_confirmation.strip() != required_apply_confirmation,
+                )
+                if apply_changes:
+                    apply_committed = False
+                    try:
+                        with st.spinner(f"重新檢查並套用「{audit_sheet}」增量變更..."):
+                            latest_values = get_cached_sheet_values(audit_sheet, force_reload=True)
+                            preflight = import_sheet_values(
+                                audit_sheet,
+                                latest_values,
+                                db_config=DATABASE_CONFIG,
+                                dry_run=True,
+                                initialize_schema=False,
+                            )
+                            if not preflight.ok:
+                                st.session_state["sync_audit_result"] = preflight
+                                st.session_state["sync_audit_result_sheet"] = audit_sheet
+                                raise RuntimeError(
+                                    "最新 preflight 出現 error、duplicate 或 conflict；增量套用已取消。"
+                                )
+                            if preflight.to_insert + preflight.to_update == 0:
+                                raise RuntimeError("最新 preflight 已沒有待套用變更，請重新執行 dry-run。")
+                            apply_result = import_sheet_values(
+                                audit_sheet,
+                                latest_values,
+                                db_config=DATABASE_CONFIG,
+                                dry_run=False,
+                                initialize_schema=False,
+                                abort_on_issues=True,
+                            )
+                            apply_committed = True
+                            verification = import_sheet_values(
+                                audit_sheet,
+                                latest_values,
+                                db_config=DATABASE_CONFIG,
+                                dry_run=True,
+                                initialize_schema=False,
+                            )
+                            if (
+                                not verification.ok
+                                or verification.to_insert != 0
+                                or verification.to_update != 0
+                                or verification.unchanged != verification.sheet_rows
+                            ):
+                                raise RuntimeError(
+                                    "增量 transaction 已提交，但套用後驗證未完全 unchanged；請勿重按。"
+                                )
+                        st.session_state["sync_audit_result"] = verification
+                        st.session_state["sync_audit_result_sheet"] = audit_sheet
+                        st.session_state["sync_apply_success"] = {
+                            "sheet_name": audit_sheet,
+                            "written": apply_result.inserted_or_updated,
+                            "unchanged": verification.unchanged,
+                        }
+                        st.rerun()
+                    except ImportAbortedError as exc:
+                        st.session_state["sync_audit_result"] = exc.result
+                        st.session_state["sync_audit_result_sheet"] = audit_sheet
+                        st.error(f"增量套用已完整 rollback：{exc}")
+                    except Exception as exc:
+                        if apply_committed:
+                            st.error(
+                                "增量 transaction 已提交，但驗證失敗。請勿再次按套用；"
+                                f"請重新執行唯讀 Dry-run。錯誤：{type(exc).__name__}: {exc}"
+                            )
+                        else:
+                            st.error(f"增量套用已停止：{type(exc).__name__}: {exc}")
         elif audit_result.ok and audit_result.sqlite_rows > 0:
-            st.info("此工作表已存在 Turso baseline；第一次正式匯入按鈕已停用，請使用 dry-run 監看後續差異。")
+            st.info("此工作表目前只建立與檢查 row-hash baseline，尚未開放業務資料增量套用。")
 
 
 # ===== 匯入配方備份檔案 =====

@@ -115,6 +115,47 @@ def test_import_color_powders_validates_duplicates(tmp_path):
     assert count == 1
 
 
+def test_incremental_color_apply_inserts_and_updates_then_converges(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initial_values = [
+        ["色粉編號", "名稱", "備註"],
+        ["P001", "Original", ""],
+    ]
+    import_sheet_values("色粉管理", initial_values, db_path=db, abort_on_issues=True)
+    changed_values = [
+        ["色粉編號", "名稱", "備註"],
+        ["P001", "Updated", "changed"],
+        ["P002", "New", "added"],
+    ]
+
+    preflight = import_sheet_values("色粉管理", changed_values, db_path=db, dry_run=True)
+    applied = import_sheet_values(
+        "色粉管理",
+        changed_values,
+        db_path=db,
+        abort_on_issues=True,
+    )
+    verification = import_sheet_values("色粉管理", changed_values, db_path=db, dry_run=True)
+
+    assert preflight.to_insert == 1
+    assert preflight.to_update == 1
+    assert applied.inserted_or_updated == 2
+    assert verification.to_insert == 0
+    assert verification.to_update == 0
+    assert verification.unchanged == 2
+    with connect(db) as conn:
+        powders = {
+            row["colorpowder_id"]: (row["name"], row["notes"])
+            for row in conn.execute(
+                "SELECT colorpowder_id, name, notes FROM color_powders ORDER BY colorpowder_id"
+            ).fetchall()
+        }
+    assert powders == {
+        "P001": ("Updated", "changed"),
+        "P002": ("New", "added"),
+    }
+
+
 def test_atomic_import_rolls_back_every_row_when_duplicate_is_found(tmp_path):
     db = tmp_path / "colorpowder.db"
     values = [

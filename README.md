@@ -90,6 +90,10 @@ libsql 回傳的 tuple rows 會先依 cursor column metadata 正規化成欄位 
 庫存 dry-run 也會一次載入 Turso 的已知色粉與供應商 ID 集合；任何不存在於
 `color_powders` 的色粉編號，或非空但不存在於 `suppliers` 的廠商編號，都會列為
 error。正式匯入不會自動建立空白色粉或未知供應商資料。
+已有 baseline 的 `色粉管理`、`供應商管理` 與 `庫存記錄` 若 dry-run 發現新增或
+修改，頁面會提供受控的增量套用：使用者輸入 `APPLY <工作表名稱>` 後，系統重新
+preflight、以 atomic transaction 寫入 Turso，再驗證所有 rows 均為 unchanged。
+這個階段不會將 Sheet 中消失的 row 當成刪除，刪除仍需後續 tombstone 流程。
 
 可以只匯入指定工作表：
 
