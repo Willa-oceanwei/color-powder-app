@@ -189,6 +189,10 @@ def test_dry_run_reports_changes_without_writing_rows(tmp_path):
     assert result.dry_run
     assert result.to_insert == 1
     assert result.inserted_or_updated == 0
+    assert result.warnings == [
+        "Sheet has no explicit updated_at/更新時間 column; row_hash is used for change detection, "
+        "and conflicts protect database edits, including Turso."
+    ]
     with connect(db) as conn:
         assert conn.execute("SELECT COUNT(*) FROM color_powders").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM sheet_rows").fetchone()[0] == 0

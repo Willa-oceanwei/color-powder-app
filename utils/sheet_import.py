@@ -435,7 +435,10 @@ def import_sheet_values(
                             error_count=len(result.errors) + len(result.duplicate_ids) + result.conflicts,
                             message="; ".join((result.errors + result.warnings)[:5]))
     if not any(_sheet_updated_at(row) for row in rows):
-        result.warnings.append("Sheet has no explicit updated_at/更新時間 column; row_hash is used for change detection, and conflicts protect local SQLite edits.")
+        result.warnings.append(
+            "Sheet has no explicit updated_at/更新時間 column; row_hash is used for change detection, "
+            "and conflicts protect database edits, including Turso."
+        )
     return result
 
 
