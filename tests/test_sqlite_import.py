@@ -14,7 +14,73 @@ from utils.database import (
     initialize_database,
     log_database_startup_diagnostics,
 )
-from utils.sheet_import import import_sheet_values
+from utils.sheet_import import (
+    SheetReadError,
+    import_sheet_values,
+    read_worksheet_values_with_retry,
+)
+
+
+class FakeGoogleApiError(Exception):
+    def __init__(self, status_code, body=""):
+        super().__init__(body or f"HTTP {status_code}")
+        self.response = type("Response", (), {"status_code": status_code})()
+
+
+class SequencedWorksheet:
+    def __init__(self, outcomes):
+        self.outcomes = iter(outcomes)
+        self.calls = 0
+
+    def get_all_values(self):
+        self.calls += 1
+        outcome = next(self.outcomes)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+def test_sheet_read_retries_transient_google_errors():
+    worksheet = SequencedWorksheet([
+        FakeGoogleApiError(502, "temporary HTML response"),
+        FakeGoogleApiError(503, "temporarily unavailable"),
+        [["色粉編號"], ["P001"]],
+    ])
+    delays = []
+
+    values = read_worksheet_values_with_retry(worksheet, sleep=delays.append)
+
+    assert values == [["色粉編號"], ["P001"]]
+    assert worksheet.calls == 3
+    assert delays == [1.0, 2.0]
+
+
+def test_sheet_read_does_not_retry_permanent_google_errors():
+    worksheet = SequencedWorksheet([FakeGoogleApiError(403, "permission denied")])
+    delays = []
+
+    with pytest.raises(SheetReadError, match="HTTP 403"):
+        read_worksheet_values_with_retry(worksheet, sleep=delays.append)
+
+    assert worksheet.calls == 1
+    assert delays == []
+
+
+def test_sheet_read_hides_google_html_after_retry_exhaustion():
+    html = "<!DOCTYPE html><html>very long Google error page</html>"
+    worksheet = SequencedWorksheet([FakeGoogleApiError(502, html) for _ in range(4)])
+
+    with pytest.raises(SheetReadError) as error:
+        read_worksheet_values_with_retry(
+            worksheet,
+            base_delay_seconds=0,
+            sleep=lambda _delay: None,
+        )
+
+    assert worksheet.calls == 4
+    assert "HTTP 502" in str(error.value)
+    assert "after 4 attempts" in str(error.value)
+    assert "<!DOCTYPE html>" not in str(error.value)
 
 
 def test_initialize_database_creates_core_tables(tmp_path):

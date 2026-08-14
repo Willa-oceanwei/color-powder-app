@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from .database import (
     DatabaseConfig,
@@ -39,6 +40,49 @@ SUPPLIER_NAME_COLUMNS = ["供應商名稱", "名稱"]
 UPDATED_AT_COLUMNS = ["updated_at", "更新時間", "修改時間", "last_modified_at"]
 COLOR_COLUMNS = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
 INVENTORY_COLUMNS = ["類型", "色粉編號", "日期", "數量", "單位", "備註"]
+TRANSIENT_GOOGLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
+
+class SheetReadError(RuntimeError):
+    """A concise Google Sheets read error safe to show in the web UI."""
+
+
+def _google_api_status_code(exc: Exception) -> int | None:
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    if isinstance(status, int):
+        return status
+    text = str(exc)
+    for candidate in TRANSIENT_GOOGLE_STATUS_CODES:
+        if str(candidate) in text[:200]:
+            return candidate
+    return None
+
+
+def read_worksheet_values_with_retry(
+    worksheet,
+    *,
+    attempts: int = 4,
+    base_delay_seconds: float = 1.0,
+    sleep: Callable[[float], None] = time.sleep,
+) -> list[list[Any]]:
+    """Read one worksheet, retrying only transient Google/API failures."""
+    if attempts < 1:
+        raise ValueError("attempts must be at least 1")
+    for attempt in range(1, attempts + 1):
+        try:
+            return worksheet.get_all_values()
+        except Exception as exc:
+            status = _google_api_status_code(exc)
+            is_transient = status in TRANSIENT_GOOGLE_STATUS_CODES
+            if not is_transient or attempt == attempts:
+                status_text = f"HTTP {status}" if status else type(exc).__name__
+                retry_text = f" after {attempt} attempts" if is_transient else ""
+                raise SheetReadError(
+                    f"Google Sheets read failed ({status_text}){retry_text}. "
+                    "Please wait 30 seconds and try again."
+                ) from exc
+            sleep(base_delay_seconds * (2 ** (attempt - 1)))
 
 
 @dataclass
@@ -339,7 +383,7 @@ def import_worksheets(
         results.append(
             import_sheet_values(
                 name,
-                ws.get_all_values(),
+                read_worksheet_values_with_retry(ws),
                 db_path=db_path,
                 db_config=db_config,
                 dry_run=dry_run,

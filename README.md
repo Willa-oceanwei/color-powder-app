@@ -71,7 +71,9 @@ python scripts/import_google_sheets_to_sqlite.py \
 登入網站後也可從側欄「設定 → 同步檢查」逐張執行相同的唯讀 dry-run，
 查看 Sheet/Turso 筆數、新增、修改、未變更、duplicate、conflict、錯誤與警告，
 並下載不含 Turso token 的 JSON 報告。大型 Sheet 會一次只讀取選定的工作表，
-不會因開啟頁面就自動掃描所有工作表。
+不會因開啟頁面就自動掃描所有工作表。Google API 若暫時回傳 408、429、
+500、502、503 或 504，讀取會以短暫 exponential backoff 自動重試最多四次；
+仍失敗時只顯示簡短狀態，不會把整張 Google HTML 錯誤頁塞進畫面。
 
 可以只匯入指定工作表：
 

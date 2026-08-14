@@ -20,7 +20,11 @@ from utils.database import (
     log_database_startup_diagnostics,
     secret_presence_from_secrets,
 )
-from utils.sheet_import import SHEET_KEY_COLUMNS, import_sheet_values
+from utils.sheet_import import (
+    SHEET_KEY_COLUMNS,
+    import_sheet_values,
+    read_worksheet_values_with_retry,
+)
 
 st.set_page_config(
     page_title="配方管理系統",
@@ -753,7 +757,7 @@ def _load_sheet_values_with_cache(sheet_name, force_reload=False, ttl_seconds=SH
         return [row[:] for row in cached["values"]]
 
     ws = get_cached_worksheet(sheet_name)
-    values = ws.get_all_values()
+    values = read_worksheet_values_with_retry(ws)
     cache[sheet_name] = {"timestamp": now, "values": [row[:] for row in values]}
     return values
 
@@ -964,7 +968,7 @@ def _fetch_sheet_raw_values(sheet_name):
     """在背景執行緒執行：只負責打 API 抓資料，完全不觸碰 st.session_state
     （st.session_state 不保證多執行緒安全，所以寫入快取一律留到主執行緒做）。"""
     ws = spreadsheet.worksheet(sheet_name)
-    return ws.get_all_values()
+    return read_worksheet_values_with_retry(ws)
 
 
 def preload_all_data(force=False):
@@ -11980,7 +11984,7 @@ if st.session_state.menu == "同步檢查":
     )
     st.info(
         "大型 Sheet 需要讀取所選工作表的 used range 才能計算 row hash；"
-        "檢查只在按下按鈕後執行，且不會整表寫回。"
+        "檢查只在按下按鈕後執行，且不會整表寫回。Google 暫時回傳 502/503/429 時會自動重試。"
     )
 
     run_sync_audit = st.button(
