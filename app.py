@@ -29,6 +29,14 @@ from utils.sheet_import import (
     missing_inventory_sync_id_updates,
     read_worksheet_values_with_retry,
 )
+from utils.color_powder_repository import (
+    ColorPowderAlreadyExists,
+    ColorPowderError,
+    ColorPowderInput,
+    create_color_powder,
+    list_color_powders,
+    update_color_powder,
+)
 
 st.set_page_config(
     page_title="配方管理系統",
@@ -3541,13 +3549,25 @@ elif menu == "配方管理":
 
         REQUIRED_COLUMNS = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
 
-        # ── 使用 session_state 的 df_color，不重讀 Sheet ──
-        if "df_color" not in st.session_state:
-            st.session_state.df_color     = df_powders
-            st.session_state.color_dirty  = False
-            st.session_state.edit_color_index = None
+        # Turso 是正式資料來源；Sheet 由 sync_outbox 在人工確認後更新。
+        try:
+            powder_entities = list_color_powders(DATABASE_CONFIG)
+            df_color = pd.DataFrame([
+                {
+                    "色粉編號": row.get("colorpowder_id", ""),
+                    "國際色號": row.get("international_code", ""),
+                    "名稱": row.get("name", ""),
+                    "色粉類別": row.get("category", ""),
+                    "包裝": row.get("package", ""),
+                    "備註": row.get("notes", ""),
+                }
+                for row in powder_entities
+            ], columns=REQUIRED_COLUMNS).fillna("").astype(str)
+            st.session_state.df_color = df_color
+        except Exception as exc:
+            st.error(f"❌ 無法從 Turso 載入色粉：{exc}")
+            st.stop()
 
-        df_color = st.session_state.df_color
         for c in REQUIRED_COLUMNS:
             if c not in df_color.columns:
                 df_color[c] = ""
@@ -3583,38 +3603,36 @@ elif menu == "配方管理":
                 if new_row["色粉編號"] == "":
                     st.warning("⚠️ 請輸入色粉編號")
                 else:
-                    ws_powder = get_cached_worksheet("色粉管理")
-                    if st.session_state.edit_color_index is not None:
-                        idx_c = st.session_state.edit_color_index
-                        for k in new_row:
-                            df_color.at[idx_c, k] = new_row[k]
-
-                        # ✅ 單列更新
-                        try:
-                            all_vals = get_cached_sheet_values("色粉管理")
-                            header_c = all_vals[0] if all_vals else list(new_row.keys())
-                            updated_c = [str(df_color.loc[idx_c].get(col, "")) for col in header_c]
-                            import gspread.utils as gu
-                            sheet_row = idx_c + 2
-                            end_col_c = gu.rowcol_to_a1(sheet_row, len(header_c)).rstrip("0123456789")
-                            ws_powder.update(f"A{sheet_row}:{end_col_c}{sheet_row}", [updated_c])
-                            invalidate_sheet_cache("色粉管理")
-                        except Exception as e:
-                            st.error(f"❌ 更新色粉失敗：{e}")
-
-                        st.session_state.color_toast = "✏️ 已更新色粉"
-                        st.session_state.edit_color_index = None
-                    else:
-                        if new_row["色粉編號"] in df_color["色粉編號"].values:
-                            st.warning("⚠️ 此色粉編號已存在")
+                    data = ColorPowderInput(
+                        colorpowder_id=new_row["色粉編號"],
+                        international_code=new_row["國際色號"],
+                        name=new_row["名稱"], category=new_row["色粉類別"],
+                        package=new_row["包裝"], notes=new_row["備註"],
+                    )
+                    try:
+                        if st.session_state.edit_color_index is not None:
+                            original_id = str(
+                                df_color.loc[st.session_state.edit_color_index, "色粉編號"]
+                            ).strip()
+                            if data.colorpowder_id != original_id:
+                                st.error("❌ 色粉編號是永久 ID，修改時不可變更")
+                                st.stop()
+                            update_color_powder(DATABASE_CONFIG, data)
+                            st.session_state.color_toast = "✏️ 已更新 Turso；等待同步至 Sheet"
                         else:
-                            df_color = pd.concat([df_color, pd.DataFrame([new_row])], ignore_index=True)
-                            # ✅ 只 append 新列
-                            ws_powder.append_row([str(new_row.get(col, "")) for col in REQUIRED_COLUMNS])
-                            invalidate_sheet_cache("色粉管理")
-                            st.session_state.color_toast = "➕ 已新增色粉"
+                            create_color_powder(DATABASE_CONFIG, data)
+                            st.session_state.color_toast = "➕ 已新增至 Turso；等待同步至 Sheet"
+                    except ColorPowderAlreadyExists as exc:
+                        st.warning(f"⚠️ {exc}")
+                        st.stop()
+                    except ColorPowderError as exc:
+                        st.error(f"❌ {exc}")
+                        st.stop()
+                    except Exception as exc:
+                        st.error(f"❌ 儲存 Turso 失敗，未建立同步事件：{exc}")
+                        st.stop()
 
-                    st.session_state.df_color = df_color
+                    st.session_state.edit_color_index = None
                     st.session_state.form_color = {
                         "色粉編號": "", "國際色號": "", "名稱": "",
                         "色粉類別": "色粉", "包裝": "袋", "備註": ""
@@ -3645,22 +3663,7 @@ elif menu == "配方管理":
                                 st.session_state.edit_color_index = i
                         with c3:
                             if st.button("🗑️ 刪", key=f"del_color_{i}"):
-                                ws_powder = get_cached_worksheet("色粉管理")
-                                # ✅ 刪除單列
-                                try:
-                                    all_vals = get_cached_sheet_values("色粉管理")
-                                    target_id = str(row["色粉編號"]).strip()
-                                    for r_idx, r_row in enumerate(all_vals[1:], start=2):
-                                        if r_row[0].strip() == target_id:
-                                            ws_powder.delete_rows(r_idx)
-                                            invalidate_sheet_cache("色粉管理")
-                                            break
-                                except Exception as e:
-                                    st.error(f"❌ 刪除色粉失敗：{e}")
-
-                                st.session_state.df_color = df_color.drop(index=i).reset_index(drop=True)
-                                st.session_state.color_toast = "🗑️ 已刪除色粉"
-                                st.session_state._tab4_need_rerun = True
+                                st.warning("⚠️ 雙向同步刪除將在 tombstone 階段開放，目前未刪除任何資料。")
 
         if st.session_state.get("_tab4_need_rerun", False):
             st.session_state._tab4_need_rerun = False
