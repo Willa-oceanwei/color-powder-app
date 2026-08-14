@@ -7,6 +7,7 @@ import pandas as pd
 import json
 import time
 import re
+import html as html_escape
 from pathlib import Path        
 from datetime import datetime
 import concurrent.futures
@@ -2167,6 +2168,152 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
 
     html = html_template.replace("{created_time}", created_time).replace("{content}", content)
     return html
+
+# --------------- 新增：生產單大標列印 ---------------
+def to_roc_date(date_value):
+    """把西元日期（YYYY-MM-DD 或含時間戳）轉成民國年字串，例如 2026-08-14 -> 115/08/14。
+    轉換失敗時原樣回傳字串，不讓標籤印出空白。"""
+    s = str(date_value or "").strip()
+    if not s:
+        return ""
+    try:
+        dt = pd.to_datetime(s)
+    except Exception:
+        return s
+    roc_year = dt.year - 1911
+    return f"{roc_year}/{dt.month:02d}/{dt.day:02d}"
+
+
+def format_label_ratio(order):
+    """標籤用比例顯示：優先用比例3（單一比例，顯示 Xg/kg），
+    沒有比例3才退回比例1:比例2，邏輯與色母換算模組一致。"""
+    ratio3 = str(order.get("比例3", "") or "").strip()
+    if ratio3:
+        return f"{ratio3}g/kg"
+    r1 = str(order.get("比例1", "") or "").strip()
+    r2 = str(order.get("比例2", "") or "").strip()
+    if r1 and r2:
+        return f"{r1}:{r2}"
+    return r1
+
+
+def build_big_label_rows(order):
+    """依生產單的包裝重量/份數展開成一張張標籤資料（每一份包裝對應一張標籤）。
+    回傳的是可直接放進 st.data_editor 的 list[dict]，方便使用者列印前再調整。"""
+    label_no = str(order.get("配方編號", "") or "").strip()
+    label_name = str(order.get("顏色", "") or "").strip()
+    label_ratio = format_label_ratio(order)
+    label_date = to_roc_date(order.get("生產日期", ""))
+
+    rows = []
+    for i in range(1, 5):
+        try:
+            w = float(order.get(f"包裝重量{i}", 0) or 0)
+        except Exception:
+            w = 0.0
+        try:
+            c = float(order.get(f"包裝份數{i}", 0) or 0)
+        except Exception:
+            c = 0.0
+        if w <= 0 or c <= 0:
+            continue
+        qty_display = str(int(w)) if abs(w - int(w)) < 1e-9 else f"{w:g}"
+        for _ in range(int(c)):
+            rows.append({
+                "編號": label_no,
+                "名稱": label_name,
+                "比例": label_ratio,
+                "日期": label_date,
+                "數量": qty_display,
+            })
+    return rows
+
+
+def generate_big_label_html(label_rows):
+    """把標籤資料排成大標 HTML：每張紙 12x32cm 直排 4 格，每格 10.8x7.7cm，
+    下方 4.5cm 保留給預印公司資訊、不列印任何內容。超過 4 張自動分頁，
+    列印時一張一張手動進紙。"""
+    if not label_rows:
+        return ""
+
+    label_w_cm = 10.8
+    label_h_cm = 7.7
+    sheet_w_cm = 12.0
+    sheet_h_cm = 32.0
+    side_margin_cm = round((sheet_w_cm - label_w_cm) / 2, 3)   # 左右留白
+    slot_gap_cm = round((sheet_h_cm - 4 * label_h_cm) / 5, 3)  # 上緣＋3個間距＋下緣
+
+    left_col_x_cm = 0.3
+    right_col_x_cm = left_col_x_cm + 4.5  # 編號→日期水平距離 4.5cm
+    row1_y_cm = 0.3
+    row2_y_cm = 1.3
+    row3_y_cm = row1_y_cm + 2.0            # 編號→名稱垂直距離 2cm
+
+    def esc(v):
+        return html_escape.escape(str(v or ""))
+
+    def render_label(entry):
+        if entry is None:
+            return ""
+        return f"""<div class="label">
+<div class="field left" style="left:{left_col_x_cm}cm; top:{row1_y_cm}cm;">{esc(entry.get('編號'))}</div>
+<div class="field right" style="left:{right_col_x_cm}cm; top:{row1_y_cm}cm;">{esc(entry.get('日期'))}</div>
+<div class="field right" style="left:{right_col_x_cm}cm; top:{row2_y_cm}cm;">{esc(entry.get('比例'))}</div>
+<div class="field left" style="left:{left_col_x_cm}cm; top:{row3_y_cm}cm;">{esc(entry.get('名稱'))}</div>
+<div class="field right" style="left:{right_col_x_cm}cm; top:{row3_y_cm}cm;">{esc(entry.get('數量'))}</div>
+</div>"""
+
+    sheets_html = []
+    for start in range(0, len(label_rows), 4):
+        group = label_rows[start:start + 4]
+        group = group + [None] * (4 - len(group))
+        slots_html = []
+        for idx, entry in enumerate(group):
+            top = round(slot_gap_cm + idx * (label_h_cm + slot_gap_cm), 3)
+            slots_html.append(
+                f'<div class="label-slot" style="top:{top}cm; left:{side_margin_cm}cm;">{render_label(entry)}</div>'
+            )
+        sheets_html.append(f'<div class="sheet">{"".join(slots_html)}</div>')
+
+    sheets_joined = "\n".join(sheets_html)
+
+    return f"""<html>
+<head>
+<meta charset="utf-8">
+<title>生產單大標列印</title>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&display=swap" rel="stylesheet">
+<style>
+@page {{ size: {sheet_w_cm}cm {sheet_h_cm}cm; margin: 0; }}
+* {{ box-sizing: border-box; }}
+body {{ margin: 0; padding: 0; }}
+.sheet {{
+    position: relative;
+    width: {sheet_w_cm}cm;
+    height: {sheet_h_cm}cm;
+    page-break-after: always;
+}}
+.sheet:last-child {{ page-break-after: auto; }}
+.label-slot {{
+    position: absolute;
+    width: {label_w_cm}cm;
+    height: {label_h_cm}cm;
+}}
+.label {{ position: relative; width: 100%; height: 100%; }}
+.field {{
+    position: absolute;
+    font-family: 'Arial Rounded MT Bold', 'Comfortaa', sans-serif;
+    white-space: nowrap;
+}}
+.field.left {{ font-size: 18pt; }}
+.field.right {{ font-size: 17pt; }}
+</style>
+<script>window.onload = function() {{ window.print(); }}</script>
+</head>
+<body>
+{sheets_joined}
+</body>
+</html>"""
+
 
 # ======== 共用儲存函式 =========
 def save_df_to_sheet(ws, df):
@@ -5458,7 +5605,51 @@ elif menu == "生產單管理":
                 st.session_state.downloaded_html_tab1 = False
                 st.session_state.pop("recipe_init_done", None)
                 st.rerun()
-                        
+
+        # --------------- 新增：生產單大標列印 ---------------
+        st.markdown("---")
+        with st.expander("🏷️ 列印大標", expanded=False):
+            if not st.session_state.get("new_order_saved", False):
+                st.caption("請先儲存生產單，才能列印標籤。")
+            else:
+                label_rows_key = f"big_label_rows_{order.get('生產單號', '')}"
+                if label_rows_key not in st.session_state:
+                    st.session_state[label_rows_key] = build_big_label_rows(order)
+
+                st.caption("下方欄位已依生產單內容帶入，列印前可自行修改；每一列對應一張標籤。")
+                edited_label_df = st.data_editor(
+                    pd.DataFrame(st.session_state[label_rows_key]),
+                    num_rows="dynamic",
+                    use_container_width=True,
+                    key=f"big_label_editor_{order.get('生產單號', '')}",
+                    column_config={
+                        "編號": st.column_config.TextColumn("編號"),
+                        "名稱": st.column_config.TextColumn("名稱"),
+                        "比例": st.column_config.TextColumn("比例"),
+                        "日期": st.column_config.TextColumn("日期"),
+                        "數量": st.column_config.TextColumn("數量"),
+                    },
+                )
+
+                label_rows_for_print = edited_label_df.fillna("").to_dict("records")
+
+                if not label_rows_for_print:
+                    st.info("目前沒有任何包裝資料，無法產生標籤。")
+                else:
+                    sheets_needed = -(-len(label_rows_for_print) // 4)  # 無條件進位
+                    st.caption(f"共 {len(label_rows_for_print)} 張標籤，需要 {sheets_needed} 張大標紙（手動一張一張進紙）。")
+
+                    big_label_html = generate_big_label_html(label_rows_for_print)
+                    safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order.get("生產單號", "未命名")))
+
+                    st.download_button(
+                        label="📥 下載大標 HTML（開啟後自動列印）",
+                        data=big_label_html.encode("utf-8"),
+                        file_name=f"{safe_order_no}_大標.html",
+                        mime="text/html",
+                        key=f"download_big_label_{order.get('生產單號', '')}",
+                    )
+
         st.markdown("---")
         if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
             try:
