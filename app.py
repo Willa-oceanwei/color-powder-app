@@ -2254,7 +2254,7 @@ def generate_big_label_html(label_rows):
     slot_gap_cm = round((sheet_h_cm - 4 * label_h_cm) / 5, 3)  # 上緣＋3個間距＋下緣
 
     left_col_x_cm = 0.3
-    right_col_x_cm = left_col_x_cm + 5.5  # 編號→日期水平距離 4.5cm
+    right_col_x_cm = left_col_x_cm + 4.5  # 編號→日期水平距離 4.5cm
 
     # ⚠️ 上半部可印內容高度只有 3.2cm（7.7cm 標籤高 − 4.5cm 下方公司資訊保留區）。
     # 18pt 字實際行高約 0.64cm，row3_y_cm + 文字高度必須留在 3.2cm 以內，
