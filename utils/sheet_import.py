@@ -1,4 +1,4 @@
-"""Google Sheets -> SQLite validation/import helpers.
+"""Google Sheets -> SQLite-compatible database validation/import helpers.
 
 The importer is read-only for Google Sheets. It supports dry-run validation and
 idempotent writes so repeated syncs of the same Sheet rows do not duplicate
@@ -12,12 +12,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
+import uuid
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from .database import (
-    connect,
-    initialize_database,
+    DatabaseConfig,
+    connect_from_config,
+    initialize_database_from_config,
     record_sync_conflict,
     record_sync_log,
     upsert_sheet_row,
@@ -27,17 +30,60 @@ from .database import (
 SHEET_KEY_COLUMNS = {
     "色粉管理": "色粉編號",
     "供應商管理": "supplier_id",
-    "庫存記錄": None,
+    "庫存記錄": "_sync_id",
     "配方管理": "配方編號",
     "客戶名單": "客戶名稱",
     "生產單": "生產單號",
 }
 
 SUPPLIER_ID_COLUMNS = ["supplier_id", "供應商ID", "供應商編號"]
-SUPPLIER_NAME_COLUMNS = ["供應商名稱", "名稱"]
+SUPPLIER_NAME_COLUMNS = ["供應商名稱", "供應商簡稱", "名稱"]
 UPDATED_AT_COLUMNS = ["updated_at", "更新時間", "修改時間", "last_modified_at"]
 COLOR_COLUMNS = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
-INVENTORY_COLUMNS = ["類型", "色粉編號", "日期", "數量", "單位", "備註"]
+INVENTORY_COLUMNS = ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"]
+TRANSIENT_GOOGLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
+
+class SheetReadError(RuntimeError):
+    """A concise Google Sheets read error safe to show in the web UI."""
+
+
+def _google_api_status_code(exc: Exception) -> int | None:
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    if isinstance(status, int):
+        return status
+    text = str(exc)
+    for candidate in TRANSIENT_GOOGLE_STATUS_CODES:
+        if str(candidate) in text[:200]:
+            return candidate
+    return None
+
+
+def read_worksheet_values_with_retry(
+    worksheet,
+    *,
+    attempts: int = 4,
+    base_delay_seconds: float = 1.0,
+    sleep: Callable[[float], None] = time.sleep,
+) -> list[list[Any]]:
+    """Read one worksheet, retrying only transient Google/API failures."""
+    if attempts < 1:
+        raise ValueError("attempts must be at least 1")
+    for attempt in range(1, attempts + 1):
+        try:
+            return worksheet.get_all_values()
+        except Exception as exc:
+            status = _google_api_status_code(exc)
+            is_transient = status in TRANSIENT_GOOGLE_STATUS_CODES
+            if not is_transient or attempt == attempts:
+                status_text = f"HTTP {status}" if status else type(exc).__name__
+                retry_text = f" after {attempt} attempts" if is_transient else ""
+                raise SheetReadError(
+                    f"Google Sheets read failed ({status_text}){retry_text}. "
+                    "Please wait 30 seconds and try again."
+                ) from exc
+            sleep(base_delay_seconds * (2 ** (attempt - 1)))
 
 
 @dataclass
@@ -59,6 +105,42 @@ class ImportResult:
     @property
     def ok(self) -> bool:
         return not self.errors and not self.duplicate_ids and not self.conflicts
+
+
+class ImportAbortedError(RuntimeError):
+    """Raised after rolling back an atomic import that found unsafe issues."""
+
+    def __init__(self, result: ImportResult):
+        self.result = result
+        super().__init__(
+            f"Import aborted: errors={len(result.errors)}, "
+            f"duplicates={len(result.duplicate_ids)}, conflicts={result.conflicts}"
+        )
+
+
+def missing_inventory_sync_id_updates(
+    values: list[list[Any]],
+    *,
+    id_factory: Callable[[], str] = lambda: uuid.uuid4().hex,
+) -> list[tuple[int, int, str]]:
+    """Return ``(row, column, id)`` updates for non-empty inventory rows missing IDs."""
+    if not values:
+        raise ValueError("庫存記錄沒有 header")
+    headers = [str(value).strip() for value in values[0]]
+    if "_sync_id" not in headers:
+        raise ValueError("庫存記錄缺少 _sync_id 欄位")
+    sync_column = headers.index("_sync_id")
+    updates = []
+    for row_number, raw_row in enumerate(values[1:], start=2):
+        padded = list(raw_row) + [""] * max(0, len(headers) - len(raw_row))
+        has_business_data = any(
+            str(padded[index]).strip()
+            for index in range(len(headers))
+            if index != sync_column
+        )
+        if has_business_data and not str(padded[sync_column]).strip():
+            updates.append((row_number, sync_column + 1, id_factory()))
+    return updates
 
 
 def _row_hash(row: dict[str, Any]) -> str:
@@ -117,6 +199,8 @@ def _row_key(sheet_name: str, row: dict[str, Any], index: int) -> str:
         explicit_id = _first_value(row, SUPPLIER_ID_COLUMNS)
         if explicit_id:
             return explicit_id
+    if sheet_name == "庫存記錄":
+        return ""
     return f"row-{index + 2}"
 
 
@@ -124,11 +208,25 @@ def _inventory_movement_key(sheet_name: str, row_key: str) -> str:
     return f"sheet:{sheet_name}:{row_key}"
 
 
+def _fetchone_mapping(cursor) -> dict[str, Any] | None:
+    """Normalize sqlite3.Row and libsql tuple rows to a column-name mapping."""
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    if hasattr(row, "keys"):
+        return {key: row[key] for key in row.keys()}
+    description = getattr(cursor, "description", None)
+    if not description:
+        raise TypeError("Database cursor returned a tuple row without column metadata")
+    columns = [column[0] for column in description]
+    return dict(zip(columns, row))
+
+
 def _row_changed_in_sqlite(conn, sheet_name: str, row_key: str, row_hash: str) -> tuple[bool, bool]:
-    existing = conn.execute(
+    existing = _fetchone_mapping(conn.execute(
         "SELECT row_hash FROM sheet_rows WHERE sheet_name = ? AND row_key = ?",
         (sheet_name, row_key),
-    ).fetchone()
+    ))
     if existing is None:
         return True, False
     return existing["row_hash"] != row_hash, True
@@ -142,24 +240,54 @@ def _entity_changed_since_sync(entity_row) -> bool:
     return bool(last_synced_at and updated_at and updated_at > last_synced_at)
 
 
-def import_sheet_values(sheet_name: str, values: list[list[Any]], db_path=None, *, dry_run: bool = False) -> ImportResult:
-    """Validate/copy worksheet values into SQLite.
+def import_sheet_values(
+    sheet_name: str,
+    values: list[list[Any]],
+    db_path=None,
+    *,
+    db_config: DatabaseConfig | None = None,
+    dry_run: bool = False,
+    initialize_schema: bool = True,
+    abort_on_issues: bool = False,
+) -> ImportResult:
+    """Validate/copy worksheet values into local SQLite or configured Turso.
 
     dry_run=True performs all validations and insert/update counting without
-    modifying the target SQLite database.
+    modifying the target database. ``db_path`` remains supported for local
+    SQLite callers; production callers should pass ``db_config``. Callers that
+    already completed startup health checks may set ``initialize_schema=False``
+    to keep an interactive dry-run free of schema-maintenance statements. Set
+    ``abort_on_issues=True`` for a formal import that must roll back completely
+    when any validation error, duplicate, or conflict is found.
     """
-    initialize_database(db_path)
+    if db_config is not None and db_path is not None:
+        raise ValueError("Pass either db_config or db_path, not both.")
+    config = db_config or DatabaseConfig(backend="sqlite", path=db_path)
+    if initialize_schema:
+        initialize_database_from_config(config)
     result = ImportResult(sheet_name=sheet_name, dry_run=dry_run)
     rows = _records_from_values(values)
     result.sheet_rows = len(rows)
     seen: set[str] = set()
     started_at = utc_now_iso()
 
-    with connect(db_path) as conn:
+    with connect_from_config(config) as conn:
+        known_inventory_powder_ids: set[str] | None = None
+        known_inventory_supplier_ids: set[str] | None = None
+        if sheet_name == "庫存記錄":
+            known_inventory_powder_ids = {
+                str(db_row[0]).strip()
+                for db_row in conn.execute("SELECT colorpowder_id FROM color_powders").fetchall()
+            }
+            known_inventory_supplier_ids = {
+                str(db_row[0]).strip()
+                for db_row in conn.execute("SELECT supplier_id FROM suppliers").fetchall()
+            }
         for index, row in enumerate(rows):
             row_key = _row_key(sheet_name, row, index)
             if not row_key:
-                result.errors.append(f"row {index + 2}: missing required ID")
+                missing_column = "_sync_id" if sheet_name == "庫存記錄" else "required ID"
+                result.errors.append(f"row {index + 2}: missing {missing_column}")
                 continue
             if row_key in seen:
                 result.duplicate_ids.append(row_key)
@@ -181,7 +309,21 @@ def import_sheet_values(sheet_name: str, values: list[list[Any]], db_path=None, 
                 if not powder_id:
                     result.errors.append(f"row {index + 2}: missing 色粉編號")
                     continue
-                entity = conn.execute("SELECT * FROM color_powders WHERE colorpowder_id = ?", (powder_id,)).fetchone()
+                entity = _fetchone_mapping(
+                    conn.execute("SELECT * FROM color_powders WHERE colorpowder_id = ?", (powder_id,))
+                )
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn,
+                            entity_type="color_powder",
+                            entity_id=powder_id,
+                            sqlite_payload=dict(entity),
+                            sheet_payload=row,
+                            reason="Database entity exists but no Sheet sync baseline exists",
+                        )
+                    continue
                 if existed and _entity_changed_since_sync(entity):
                     result.conflicts += 1
                     if not dry_run:
@@ -214,7 +356,21 @@ def import_sheet_values(sheet_name: str, values: list[list[Any]], db_path=None, 
                     result.errors.append(f"row {index + 2}: missing 供應商名稱")
                     continue
                 supplier_id = _supplier_id(row, row_key)
-                entity = conn.execute("SELECT * FROM suppliers WHERE supplier_id = ?", (supplier_id,)).fetchone()
+                entity = _fetchone_mapping(
+                    conn.execute("SELECT * FROM suppliers WHERE supplier_id = ?", (supplier_id,))
+                )
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn,
+                            entity_type="supplier",
+                            entity_id=supplier_id,
+                            sqlite_payload=dict(entity),
+                            sheet_payload=row,
+                            reason="Database entity exists but no Sheet sync baseline exists",
+                        )
+                    continue
                 if existed and _entity_changed_since_sync(entity):
                     result.conflicts += 1
                     if not dry_run:
@@ -247,12 +403,41 @@ def import_sheet_values(sheet_name: str, values: list[list[Any]], db_path=None, 
                 if not powder_id:
                     result.errors.append(f"row {index + 2}: missing 色粉編號")
                     continue
+                if known_inventory_powder_ids is not None and powder_id not in known_inventory_powder_ids:
+                    result.errors.append(
+                        f"row {index + 2}: unknown 色粉編號 {powder_id}; import 色粉管理 first"
+                    )
+                    continue
+                supplier_id = row.get("廠商編號", "").strip()
+                if (
+                    supplier_id
+                    and known_inventory_supplier_ids is not None
+                    and supplier_id not in known_inventory_supplier_ids
+                ):
+                    result.errors.append(
+                        f"row {index + 2}: unknown 廠商編號 {supplier_id}; import 供應商管理 first"
+                    )
+                    continue
                 movement_key = _inventory_movement_key(sheet_name, row_key)
-                existing_movement = conn.execute(
-                    "SELECT * FROM inventory_movements WHERE movement_key = ?", (movement_key,)
-                ).fetchone()
+                existing_movement = _fetchone_mapping(
+                    conn.execute(
+                        "SELECT * FROM inventory_movements WHERE movement_key = ?", (movement_key,)
+                    )
+                )
                 if existing_movement and changed:
                     result.inventory_duplicate_risk += 1
+                if not existed and existing_movement is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn,
+                            entity_type="inventory_movement",
+                            entity_id=movement_key,
+                            sqlite_payload=dict(existing_movement),
+                            sheet_payload=row,
+                            reason="Database movement exists but no Sheet sync baseline exists",
+                        )
+                    continue
                 if existing_movement and _entity_changed_since_sync(existing_movement):
                     result.conflicts += 1
                     if not dry_run:
@@ -264,13 +449,10 @@ def import_sheet_values(sheet_name: str, values: list[list[Any]], db_path=None, 
                     synced_at = utc_now_iso()
                     upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
                     conn.execute(
-                        "INSERT OR IGNORE INTO color_powders(colorpowder_id, created_at, updated_at, last_synced_at) VALUES (?, ?, ?, ?)",
-                        (powder_id, synced_at, synced_at, synced_at),
-                    )
-                    conn.execute(
                         """INSERT INTO inventory_movements(movement_key, sheet_name, sheet_row_key, movement_type,
-                               colorpowder_id, movement_date, quantity, unit, notes, source, created_at, updated_at, last_synced_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'google_sheets_import', ?, ?, ?)
+                               colorpowder_id, movement_date, quantity, unit, notes, supplier_id, supplier_name,
+                               source, created_at, updated_at, last_synced_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'google_sheets_import', ?, ?, ?)
                            ON CONFLICT(movement_key) DO UPDATE SET
                                movement_type=excluded.movement_type,
                                colorpowder_id=excluded.colorpowder_id,
@@ -278,9 +460,12 @@ def import_sheet_values(sheet_name: str, values: list[list[Any]], db_path=None, 
                                quantity=excluded.quantity,
                                unit=excluded.unit,
                                notes=excluded.notes,
+                               supplier_id=excluded.supplier_id,
+                               supplier_name=excluded.supplier_name,
                                last_synced_at=excluded.last_synced_at""",
                         (movement_key, sheet_name, row_key, row.get("類型", ""), powder_id, row.get("日期", ""),
                          _safe_float(row.get("數量", 0)), row.get("單位", "g") or "g", row.get("備註", ""),
+                         supplier_id, row.get("廠商名稱", ""),
                          synced_at, _sheet_updated_at(row) or (existing_movement["updated_at"] if existing_movement else synced_at), synced_at),
                     )
                     result.inserted_or_updated += 1
@@ -293,6 +478,8 @@ def import_sheet_values(sheet_name: str, values: list[list[Any]], db_path=None, 
         result.sqlite_rows = conn.execute(
             "SELECT COUNT(*) FROM sheet_rows WHERE sheet_name = ?", (sheet_name,)
         ).fetchone()[0]
+        if not dry_run and abort_on_issues and not result.ok:
+            raise ImportAbortedError(result)
         if dry_run:
             conn.rollback()
         else:
@@ -303,15 +490,33 @@ def import_sheet_values(sheet_name: str, values: list[list[Any]], db_path=None, 
                             error_count=len(result.errors) + len(result.duplicate_ids) + result.conflicts,
                             message="; ".join((result.errors + result.warnings)[:5]))
     if not any(_sheet_updated_at(row) for row in rows):
-        result.warnings.append("Sheet has no explicit updated_at/更新時間 column; row_hash is used for change detection, and conflicts protect local SQLite edits.")
+        result.warnings.append(
+            "Sheet has no explicit updated_at/更新時間 column; row_hash is used for change detection, "
+            "and conflicts protect database edits, including Turso."
+        )
     return result
 
 
-def import_worksheets(spreadsheet, sheet_names: Iterable[str] | None = None, db_path=None, *, dry_run: bool = False) -> list[ImportResult]:
-    """Read selected worksheets from Google Sheets and validate/copy them into SQLite."""
+def import_worksheets(
+    spreadsheet,
+    sheet_names: Iterable[str] | None = None,
+    db_path=None,
+    *,
+    db_config: DatabaseConfig | None = None,
+    dry_run: bool = False,
+) -> list[ImportResult]:
+    """Read selected worksheets and validate/copy them into SQLite or Turso."""
     names = list(sheet_names or SHEET_KEY_COLUMNS.keys())
     results = []
     for name in names:
         ws = spreadsheet.worksheet(name)
-        results.append(import_sheet_values(name, ws.get_all_values(), db_path=db_path, dry_run=dry_run))
+        results.append(
+            import_sheet_values(
+                name,
+                read_worksheet_values_with_retry(ws),
+                db_path=db_path,
+                db_config=db_config,
+                dry_run=dry_run,
+            )
+        )
     return results
