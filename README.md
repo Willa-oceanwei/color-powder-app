@@ -49,6 +49,38 @@ python scripts/import_google_sheets_to_sqlite.py \
   --db data/colorpowder.db
 ```
 
+若部署環境已設定 `TURSO_DATABASE_URL` 與 `TURSO_AUTH_TOKEN`，省略 `--db`
+即可把資料匯入 Turso；Google Sheets 仍會永久保留作為人工操作介面，匯入程式不會修改它：
+
+Streamlit secrets 可使用頂層鍵，也支援 `[turso]` 或 `[connections.turso]`
+區段中的 `database_url` / `url` 與 `auth_token` / `token`。登入畫面不會連線
+Turso；登入成功後的 schema 初始化與健康檢查會在同一個 app process 內快取，
+避免每次輸入或操作 widget 都重新連線。
+
+```bash
+python scripts/import_google_sheets_to_sqlite.py \
+  --credentials-json /path/to/service-account.json \
+  --sheet-url "https://docs.google.com/spreadsheets/d/.../edit" \
+  --dry-run
+```
+
+建議先用 `--dry-run` 檢查 Turso 與 Sheet 的新增、修改、未變更、duplicate
+及 conflict 統計，確認後再移除 `--dry-run`。若要明確使用本機 SQLite，才傳入
+`--db data/colorpowder.db`。程式啟動時只會顯示所選 backend，不會輸出 Turso token。
+
+登入網站後也可從側欄「設定 → 同步檢查」逐張執行相同的唯讀 dry-run，
+查看 Sheet/Turso 筆數、新增、修改、未變更、duplicate、conflict、錯誤與警告，
+並下載不含 Turso token 的 JSON 報告。大型 Sheet 會一次只讀取選定的工作表，
+不會因開啟頁面就自動掃描所有工作表。Google API 若暫時回傳 408、429、
+500、502、503 或 504，讀取會以短暫 exponential backoff 自動重試最多四次；
+仍失敗時只顯示簡短狀態，不會把整張 Google HTML 錯誤頁塞進畫面。
+
+當某張工作表的首次 dry-run 顯示 Turso baseline 為 0，且 error、duplicate、
+conflict 都是 0 時，頁面會顯示受控的「第一次正式匯入」。使用者必須確認已備份
+並輸入 `IMPORT <工作表名稱>`；系統會重新讀取 Sheet、再次 preflight，接著以
+atomic transaction 匯入。任何安全問題都會整批 rollback，成功後會自動驗證
+所有資料皆為 unchanged。已存在 baseline 的工作表不會再顯示首次匯入按鈕。
+
 可以只匯入指定工作表：
 
 ```bash
