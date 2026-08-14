@@ -171,6 +171,20 @@ def test_import_inventory_is_idempotent_for_same_sheet_row(tmp_path):
         ["進貨", "P001", "2026-08-12", "15", "kg", "direct sheet import", "SUP-1", "甲廠商", "sync-001"],
     ]
     db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    with connect(db) as conn:
+        conn.execute(
+            """INSERT INTO color_powders(
+                   colorpowder_id, created_at, updated_at, last_synced_at
+               ) VALUES (?, ?, ?, ?)""",
+            ("P001", "2026-08-14T00:00:00+00:00", "2026-08-14T00:00:00+00:00", None),
+        )
+        conn.execute(
+            """INSERT INTO suppliers(
+                   supplier_id, name, created_at, updated_at, last_synced_at
+               ) VALUES (?, ?, ?, ?, ?)""",
+            ("SUP-1", "甲廠商", "2026-08-14T00:00:00+00:00", "2026-08-14T00:00:00+00:00", None),
+        )
     first = import_sheet_values("庫存記錄", values, db_path=db)
     second = import_sheet_values("庫存記錄", values, db_path=db)
     assert first.ok
@@ -198,6 +212,39 @@ def test_inventory_dry_run_requires_sync_id(tmp_path):
 
     assert result.errors == ["row 2: missing _sync_id"]
     assert result.to_insert == 0
+
+
+def test_inventory_dry_run_rejects_unknown_color_powder(tmp_path):
+    values = [
+        ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"],
+        ["進貨", "UNKNOWN", "2026-08-12", "15", "kg", "", "", "", "sync-001"],
+    ]
+
+    result = import_sheet_values("庫存記錄", values, db_path=tmp_path / "colorpowder.db", dry_run=True)
+
+    assert result.errors == ["row 2: unknown 色粉編號 UNKNOWN; import 色粉管理 first"]
+    assert result.inserted_or_updated == 0
+
+
+def test_inventory_dry_run_rejects_unknown_supplier(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    with connect(db) as conn:
+        conn.execute(
+            """INSERT INTO color_powders(
+                   colorpowder_id, created_at, updated_at, last_synced_at
+               ) VALUES (?, ?, ?, ?)""",
+            ("P001", "2026-08-14T00:00:00+00:00", "2026-08-14T00:00:00+00:00", None),
+        )
+    values = [
+        ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"],
+        ["進貨", "P001", "2026-08-12", "15", "kg", "", "UNKNOWN", "未知", "sync-001"],
+    ]
+
+    result = import_sheet_values("庫存記錄", values, db_path=db, dry_run=True)
+
+    assert result.errors == ["row 2: unknown 廠商編號 UNKNOWN; import 供應商管理 first"]
+    assert result.inserted_or_updated == 0
 
 
 def test_missing_inventory_sync_id_updates_only_nonempty_rows():

@@ -87,6 +87,9 @@ libsql 回傳的 tuple rows 會先依 cursor column metadata 正規化成欄位 
 `庫存記錄` 必須使用永久 `_sync_id`；同步檢查頁可用單次 batch requests 只補齊
 空白 ID。Turso schema v3 會保存 `廠商編號`／`廠商名稱`，網站新增「初始」或
 「進貨」記錄時也會自動建立 `_sync_id`，新增一筆不再清空並重寫整張庫存表。
+庫存 dry-run 也會一次載入 Turso 的已知色粉與供應商 ID 集合；任何不存在於
+`color_powders` 的色粉編號，或非空但不存在於 `suppliers` 的廠商編號，都會列為
+error。正式匯入不會自動建立空白色粉或未知供應商資料。
 
 可以只匯入指定工作表：
 

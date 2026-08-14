@@ -272,6 +272,17 @@ def import_sheet_values(
     started_at = utc_now_iso()
 
     with connect_from_config(config) as conn:
+        known_inventory_powder_ids: set[str] | None = None
+        known_inventory_supplier_ids: set[str] | None = None
+        if sheet_name == "庫存記錄":
+            known_inventory_powder_ids = {
+                str(db_row[0]).strip()
+                for db_row in conn.execute("SELECT colorpowder_id FROM color_powders").fetchall()
+            }
+            known_inventory_supplier_ids = {
+                str(db_row[0]).strip()
+                for db_row in conn.execute("SELECT supplier_id FROM suppliers").fetchall()
+            }
         for index, row in enumerate(rows):
             row_key = _row_key(sheet_name, row, index)
             if not row_key:
@@ -392,6 +403,21 @@ def import_sheet_values(
                 if not powder_id:
                     result.errors.append(f"row {index + 2}: missing 色粉編號")
                     continue
+                if known_inventory_powder_ids is not None and powder_id not in known_inventory_powder_ids:
+                    result.errors.append(
+                        f"row {index + 2}: unknown 色粉編號 {powder_id}; import 色粉管理 first"
+                    )
+                    continue
+                supplier_id = row.get("廠商編號", "").strip()
+                if (
+                    supplier_id
+                    and known_inventory_supplier_ids is not None
+                    and supplier_id not in known_inventory_supplier_ids
+                ):
+                    result.errors.append(
+                        f"row {index + 2}: unknown 廠商編號 {supplier_id}; import 供應商管理 first"
+                    )
+                    continue
                 movement_key = _inventory_movement_key(sheet_name, row_key)
                 existing_movement = _fetchone_mapping(
                     conn.execute(
@@ -423,10 +449,6 @@ def import_sheet_values(
                     synced_at = utc_now_iso()
                     upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
                     conn.execute(
-                        "INSERT OR IGNORE INTO color_powders(colorpowder_id, created_at, updated_at, last_synced_at) VALUES (?, ?, ?, ?)",
-                        (powder_id, synced_at, synced_at, synced_at),
-                    )
-                    conn.execute(
                         """INSERT INTO inventory_movements(movement_key, sheet_name, sheet_row_key, movement_type,
                                colorpowder_id, movement_date, quantity, unit, notes, supplier_id, supplier_name,
                                source, created_at, updated_at, last_synced_at)
@@ -443,7 +465,7 @@ def import_sheet_values(
                                last_synced_at=excluded.last_synced_at""",
                         (movement_key, sheet_name, row_key, row.get("類型", ""), powder_id, row.get("日期", ""),
                          _safe_float(row.get("數量", 0)), row.get("單位", "g") or "g", row.get("備註", ""),
-                         row.get("廠商編號", ""), row.get("廠商名稱", ""),
+                         supplier_id, row.get("廠商名稱", ""),
                          synced_at, _sheet_updated_at(row) or (existing_movement["updated_at"] if existing_movement else synced_at), synced_at),
                     )
                     result.inserted_or_updated += 1
