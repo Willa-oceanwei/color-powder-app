@@ -28,33 +28,19 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Database is initialized automatically on startup. On Streamlit Cloud, complete
-# TURSO_DATABASE_URL and TURSO_AUTH_TOKEN secrets select the Turso/libsql backend;
-# partial Turso credentials fail fast and never silently fall back to local SQLite.
-try:
-    DATABASE_SECRET_PRESENCE = secret_presence_from_secrets(st.secrets)
-    DATABASE_CONFIG = database_config_from_secrets(st.secrets)
-    DATABASE_BACKEND = DATABASE_CONFIG.backend
-    DATABASE_INITIALIZED = initialize_database_from_config(DATABASE_CONFIG)
-    DATABASE_HEALTH = database_health_check(DATABASE_CONFIG)
-    log_database_startup_diagnostics(DATABASE_CONFIG, DATABASE_HEALTH, DATABASE_SECRET_PRESENCE)
-    if not DATABASE_HEALTH.select_1_ok or not DATABASE_HEALTH.main_tables_exist:
+@st.cache_resource(show_spinner=False)
+def _initialize_database_once(config, secret_presence):
+    """Initialize the remote backend once per process, not on every Streamlit rerun."""
+    initialized = initialize_database_from_config(config)
+    health = database_health_check(config)
+    log_database_startup_diagnostics(config, health, secret_presence)
+    if not health.select_1_ok or not health.main_tables_exist:
         raise DatabaseStartupError(
-            f"Database health check failed: SELECT 1 ok={DATABASE_HEALTH.select_1_ok}, "
-            f"schema_version={DATABASE_HEALTH.schema_version}, "
-            f"main_tables_present={DATABASE_HEALTH.main_tables_exist}."
+            f"Database health check failed: SELECT 1 ok={health.select_1_ok}, "
+            f"schema_version={health.schema_version}, "
+            f"main_tables_present={health.main_tables_exist}."
         )
-except DatabaseStartupError as exc:
-    st.error(f"Database startup failed: {exc}")
-    st.exception(exc)
-    raise
-except Exception as exc:
-    st.error(f"Unexpected database startup failure: {type(exc).__name__}: {exc}")
-    st.exception(exc)
-    raise
-
-# Backward-compatible name for legacy code paths that still expect a local path.
-SQLITE_DB_PATH = DATABASE_INITIALIZED
+    return initialized, health
 
 # ======== 🎛️ 全站 Toggle 統一美化（只需注入一次，全站套用） ========
 # 說明：實際檢查過畫面的 HTML 結構後發現，你們這個 Streamlit 版本裡
@@ -204,6 +190,29 @@ if not st.session_state.authenticated:
             st.stop()
 
     st.stop()
+
+# Database startup is deliberately after authentication so the password screen
+# never waits for Turso. cache_resource prevents remote schema and health calls
+# from repeating for every widget interaction/rerun after login.
+try:
+    DATABASE_SECRET_PRESENCE = secret_presence_from_secrets(st.secrets)
+    DATABASE_CONFIG = database_config_from_secrets(st.secrets)
+    DATABASE_BACKEND = DATABASE_CONFIG.backend
+    DATABASE_INITIALIZED, DATABASE_HEALTH = _initialize_database_once(
+        DATABASE_CONFIG,
+        DATABASE_SECRET_PRESENCE,
+    )
+except DatabaseStartupError as exc:
+    st.error(f"Database startup failed: {exc}")
+    st.exception(exc)
+    raise
+except Exception as exc:
+    st.error(f"Unexpected database startup failure: {type(exc).__name__}: {exc}")
+    st.exception(exc)
+    raise
+
+# Backward-compatible name for legacy code paths that still expect a local path.
+SQLITE_DB_PATH = DATABASE_INITIALIZED
     
 # ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
 # ======== 🚀 SaaS ERP UI (Notion + SAP Hybrid) ========
