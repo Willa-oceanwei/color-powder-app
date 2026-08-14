@@ -129,6 +129,13 @@ python scripts/sync_color_powders_to_sheet.py \
 色粉編號是永久 ID，修改時不可變更；刪除按鈕目前只顯示 tombstone 尚未開放，
 不會刪除 Turso 或 Sheet 資料。
 
+登入網站後可在「設定 → 同步檢查」的「Turso → Sheet：色粉 outbox」先執行唯讀
+preflight，下載包含 queued/insert/update/unchanged/conflict 的 JSON。只有結果安全且
+仍有 pending event 時才會出現 PUSH；輸入 `PUSH 色粉管理` 後，系統會重新讀取 Sheet、
+再次 preflight、套用 outbox，最後強制重讀 Sheet 並驗證 queued 已歸零。這是後續工作表
+可重用的控制流程；但各工作表的永久 ID、外鍵、數量 ledger、component transaction
+與 tombstone 規則仍須分別測試，不能只因色粉通過就直接全面開放。
+
 可以只匯入指定工作表：
 
 ```bash

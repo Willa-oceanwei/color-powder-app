@@ -155,11 +155,17 @@ def sync_color_powder_outbox(
                 if current == desired:
                     result.unchanged += 1
                     if not dry_run:
+                        synced_at = utc_now_iso()
+                        upsert_sheet_row(conn, "色粉管理", row_key, desired, _row_hash(desired))
+                        conn.execute(
+                            "UPDATE color_powders SET last_synced_at=? WHERE colorpowder_id=?",
+                            (synced_at, row_key),
+                        )
                         conn.execute(
                             """UPDATE sync_outbox SET status='completed', processed_at=?, last_error=NULL
                                WHERE sheet_name='色粉管理' AND row_key=?
                                  AND entity_version <= ? AND status IN ('pending', 'failed')""",
-                            (utc_now_iso(), row_key, entry["entity_version"]),
+                            (synced_at, row_key, entry["entity_version"]),
                         )
                     continue
                 sheet_changed = baseline is None or baseline["row_hash"] != _row_hash(current)

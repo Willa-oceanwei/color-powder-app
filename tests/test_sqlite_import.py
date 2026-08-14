@@ -350,6 +350,33 @@ def test_color_outbox_coalesces_unsynced_create_and_update(tmp_path):
     assert [row["status"] for row in statuses] == ["completed", "completed"]
 
 
+def test_color_outbox_matching_sheet_completes_metadata_without_write(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001", name="Already there"))
+    worksheet = WritableWorksheet()
+    values = [["色粉編號", "名稱"], ["P001", "Already there"]]
+
+    applied = sync_color_powder_outbox(worksheet, values, db_config=config, dry_run=False)
+
+    assert applied.unchanged == 1
+    assert applied.written == 0
+    assert worksheet.appended == []
+    assert worksheet.updated == []
+    with connect(db) as conn:
+        powder = conn.execute(
+            "SELECT last_synced_at FROM color_powders WHERE colorpowder_id='P001'"
+        ).fetchone()
+        event = conn.execute("SELECT status FROM sync_outbox").fetchone()
+        baseline = conn.execute(
+            "SELECT row_hash FROM sheet_rows WHERE sheet_name='色粉管理' AND row_key='P001'"
+        ).fetchone()
+    assert powder["last_synced_at"]
+    assert event["status"] == "completed"
+    assert baseline["row_hash"]
+
+
 def test_recipe_import_persists_components_and_is_idempotent(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
