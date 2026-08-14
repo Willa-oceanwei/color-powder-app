@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+import logging
 
 import pytest
 
@@ -11,6 +12,7 @@ from utils.database import (
     database_health_check,
     format_database_startup_diagnostics,
     initialize_database,
+    log_database_startup_diagnostics,
 )
 from utils.sheet_import import import_sheet_values
 
@@ -283,6 +285,30 @@ def test_import_sheet_values_rejects_path_and_config_together(tmp_path):
         import_sheet_values("色粉管理", [], db_path=tmp_path / "other.db", db_config=config)
 
 
+def test_import_sheet_values_can_skip_schema_initialization(monkeypatch, tmp_path):
+    db = tmp_path / "already-initialized.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+
+    def unexpected_initialization(_config):
+        raise AssertionError("schema initialization should have been skipped")
+
+    monkeypatch.setattr(
+        "utils.sheet_import.initialize_database_from_config",
+        unexpected_initialization,
+    )
+    result = import_sheet_values(
+        "色粉管理",
+        [["色粉編號", "名稱"], ["P001", "Blue"]],
+        db_config=config,
+        dry_run=True,
+        initialize_schema=False,
+    )
+
+    assert result.to_insert == 1
+    assert result.inserted_or_updated == 0
+
+
 def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
@@ -299,6 +325,24 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     assert "Schema version: 2" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)
+
+
+def test_database_startup_diagnostics_are_logged_once(caplog, tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    health = database_health_check(config)
+
+    with caplog.at_level(logging.WARNING, logger="utils.database"):
+        log_database_startup_diagnostics(
+            config,
+            health,
+            {"TURSO_DATABASE_URL": False, "TURSO_AUTH_TOKEN": False},
+        )
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages.count("Database backend: sqlite") == 1
+    assert messages.count("Database health: OK") == 1
 
 
 class NonIterableCursor:

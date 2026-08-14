@@ -189,10 +189,9 @@ def log_database_startup_diagnostics(
     health: DatabaseHealth,
     secret_presence: dict[str, bool] | None = None,
 ) -> None:
-    """Emit safe startup diagnostics to Streamlit Cloud logs."""
+    """Emit safe startup diagnostics once through the configured logger."""
     for line in format_database_startup_diagnostics(config, health, secret_presence):
         LOGGER.warning(line)
-        print(line, flush=True)
 
 
 def get_db_path(path: str | Path | None = None) -> Path:

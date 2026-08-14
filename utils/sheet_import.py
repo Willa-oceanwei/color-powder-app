@@ -150,17 +150,21 @@ def import_sheet_values(
     *,
     db_config: DatabaseConfig | None = None,
     dry_run: bool = False,
+    initialize_schema: bool = True,
 ) -> ImportResult:
     """Validate/copy worksheet values into local SQLite or configured Turso.
 
     dry_run=True performs all validations and insert/update counting without
     modifying the target database. ``db_path`` remains supported for local
-    SQLite callers; production callers should pass ``db_config``.
+    SQLite callers; production callers should pass ``db_config``. Callers that
+    already completed startup health checks may set ``initialize_schema=False``
+    to keep an interactive dry-run free of schema-maintenance statements.
     """
     if db_config is not None and db_path is not None:
         raise ValueError("Pass either db_config or db_path, not both.")
     config = db_config or DatabaseConfig(backend="sqlite", path=db_path)
-    initialize_database_from_config(config)
+    if initialize_schema:
+        initialize_database_from_config(config)
     result = ImportResult(sheet_name=sheet_name, dry_run=dry_run)
     rows = _records_from_values(values)
     result.sheet_rows = len(rows)

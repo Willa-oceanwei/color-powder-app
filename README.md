@@ -68,6 +68,11 @@ python scripts/import_google_sheets_to_sqlite.py \
 及 conflict 統計，確認後再移除 `--dry-run`。若要明確使用本機 SQLite，才傳入
 `--db data/colorpowder.db`。程式啟動時只會顯示所選 backend，不會輸出 Turso token。
 
+登入網站後也可從側欄「設定 → 同步檢查」逐張執行相同的唯讀 dry-run，
+查看 Sheet/Turso 筆數、新增、修改、未變更、duplicate、conflict、錯誤與警告，
+並下載不含 Turso token 的 JSON 報告。大型 Sheet 會一次只讀取選定的工作表，
+不會因開啟頁面就自動掃描所有工作表。
+
 可以只匯入指定工作表：
 
 ```bash
