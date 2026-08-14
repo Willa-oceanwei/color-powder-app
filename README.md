@@ -80,6 +80,8 @@ conflict 都是 0 時，頁面會顯示受控的「第一次正式匯入」。�
 並輸入 `IMPORT <工作表名稱>`；系統會重新讀取 Sheet、再次 preflight，接著以
 atomic transaction 匯入。任何安全問題都會整批 rollback，成功後會自動驗證
 所有資料皆為 unchanged。已存在 baseline 的工作表不會再顯示首次匯入按鈕。
+libsql 回傳的 tuple rows 會先依 cursor column metadata 正規化成欄位 mapping，
+因此匯入後驗證可和本機 SQLite 的 `sqlite3.Row` 使用相同的增量判斷。
 
 可以只匯入指定工作表：
 

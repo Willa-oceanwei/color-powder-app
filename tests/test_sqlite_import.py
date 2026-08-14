@@ -395,6 +395,66 @@ def test_import_sheet_values_routes_turso_config_through_shared_connection(monke
         ).fetchone()[0] == "Remote"
 
 
+def test_importer_normalizes_libsql_tuple_rows(monkeypatch, tmp_path):
+    db = tmp_path / "tuple-row-test-double.db"
+    initialize_database(db)
+
+    class TupleCursor:
+        def __init__(self, cursor):
+            self._cursor = cursor
+
+        @property
+        def description(self):
+            return self._cursor.description
+
+        def fetchone(self):
+            row = self._cursor.fetchone()
+            return tuple(row) if row is not None else None
+
+        def fetchall(self):
+            return [tuple(row) for row in self._cursor.fetchall()]
+
+    class TupleRowConnection:
+        def __init__(self, conn):
+            self._conn = conn
+
+        def execute(self, sql, parameters=()):
+            return TupleCursor(self._conn.execute(sql, parameters))
+
+        def rollback(self):
+            return self._conn.rollback()
+
+    @contextmanager
+    def fake_connect_from_config(_config):
+        with connect(db) as conn:
+            yield TupleRowConnection(conn)
+
+    monkeypatch.setattr("utils.sheet_import.initialize_database_from_config", lambda config: None)
+    monkeypatch.setattr("utils.sheet_import.connect_from_config", fake_connect_from_config)
+    config = DatabaseConfig(
+        backend="turso",
+        path=None,
+        turso_database_url="libsql://example.turso.io",
+        turso_auth_token="secret-token",
+    )
+
+    first = import_sheet_values(
+        "色粉管理",
+        [["色粉編號", "名稱"], ["P001", "Original"]],
+        db_config=config,
+    )
+    changed = import_sheet_values(
+        "色粉管理",
+        [["色粉編號", "名稱"], ["P001", "Changed"]],
+        db_config=config,
+        dry_run=True,
+    )
+
+    assert first.inserted_or_updated == 1
+    assert changed.to_update == 1
+    assert changed.conflicts == 0
+
+
 def test_import_sheet_values_rejects_path_and_config_together(tmp_path):
     config = DatabaseConfig(backend="sqlite", path=tmp_path / "configured.db")
 

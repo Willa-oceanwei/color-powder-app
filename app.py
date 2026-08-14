@@ -12180,6 +12180,7 @@ if st.session_state.menu == "同步檢查":
                 disabled=not backup_confirmed or confirmation_text.strip() != required_confirmation,
             )
             if start_initial_import:
+                write_committed = False
                 try:
                     with st.spinner(f"重新檢查並正式匯入「{audit_sheet}」..."):
                         latest_values = get_cached_sheet_values(audit_sheet, force_reload=True)
@@ -12204,6 +12205,7 @@ if st.session_state.menu == "同步檢查":
                             initialize_schema=False,
                             abort_on_issues=True,
                         )
+                        write_committed = True
                         verification = import_sheet_values(
                             audit_sheet,
                             latest_values,
@@ -12233,7 +12235,13 @@ if st.session_state.menu == "同步檢查":
                     st.session_state["sync_audit_result_sheet"] = audit_sheet
                     st.error(f"正式匯入已完整 rollback：{exc}")
                 except Exception as exc:
-                    st.error(f"正式匯入已停止：{type(exc).__name__}: {exc}")
+                    if write_committed:
+                        st.error(
+                            "正式匯入 transaction 已提交，但匯入後驗證失敗。請勿再次按正式匯入；"
+                            f"請重新執行唯讀 Dry-run。錯誤：{type(exc).__name__}: {exc}"
+                        )
+                    else:
+                        st.error(f"正式匯入已停止：{type(exc).__name__}: {exc}")
         elif audit_result.ok and audit_result.sqlite_rows > 0:
             st.info("此工作表已存在 Turso baseline；第一次正式匯入按鈕已停用，請使用 dry-run 監看後續差異。")
 

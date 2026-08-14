@@ -180,11 +180,25 @@ def _inventory_movement_key(sheet_name: str, row_key: str) -> str:
     return f"sheet:{sheet_name}:{row_key}"
 
 
+def _fetchone_mapping(cursor) -> dict[str, Any] | None:
+    """Normalize sqlite3.Row and libsql tuple rows to a column-name mapping."""
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    if hasattr(row, "keys"):
+        return {key: row[key] for key in row.keys()}
+    description = getattr(cursor, "description", None)
+    if not description:
+        raise TypeError("Database cursor returned a tuple row without column metadata")
+    columns = [column[0] for column in description]
+    return dict(zip(columns, row))
+
+
 def _row_changed_in_sqlite(conn, sheet_name: str, row_key: str, row_hash: str) -> tuple[bool, bool]:
-    existing = conn.execute(
+    existing = _fetchone_mapping(conn.execute(
         "SELECT row_hash FROM sheet_rows WHERE sheet_name = ? AND row_key = ?",
         (sheet_name, row_key),
-    ).fetchone()
+    ))
     if existing is None:
         return True, False
     return existing["row_hash"] != row_hash, True
@@ -255,7 +269,9 @@ def import_sheet_values(
                 if not powder_id:
                     result.errors.append(f"row {index + 2}: missing 色粉編號")
                     continue
-                entity = conn.execute("SELECT * FROM color_powders WHERE colorpowder_id = ?", (powder_id,)).fetchone()
+                entity = _fetchone_mapping(
+                    conn.execute("SELECT * FROM color_powders WHERE colorpowder_id = ?", (powder_id,))
+                )
                 if not existed and entity is not None:
                     result.conflicts += 1
                     if not dry_run:
@@ -300,7 +316,9 @@ def import_sheet_values(
                     result.errors.append(f"row {index + 2}: missing 供應商名稱")
                     continue
                 supplier_id = _supplier_id(row, row_key)
-                entity = conn.execute("SELECT * FROM suppliers WHERE supplier_id = ?", (supplier_id,)).fetchone()
+                entity = _fetchone_mapping(
+                    conn.execute("SELECT * FROM suppliers WHERE supplier_id = ?", (supplier_id,))
+                )
                 if not existed and entity is not None:
                     result.conflicts += 1
                     if not dry_run:
@@ -346,9 +364,11 @@ def import_sheet_values(
                     result.errors.append(f"row {index + 2}: missing 色粉編號")
                     continue
                 movement_key = _inventory_movement_key(sheet_name, row_key)
-                existing_movement = conn.execute(
-                    "SELECT * FROM inventory_movements WHERE movement_key = ?", (movement_key,)
-                ).fetchone()
+                existing_movement = _fetchone_mapping(
+                    conn.execute(
+                        "SELECT * FROM inventory_movements WHERE movement_key = ?", (movement_key,)
+                    )
+                )
                 if existing_movement and changed:
                     result.inventory_duplicate_risk += 1
                 if not existed and existing_movement is not None:
