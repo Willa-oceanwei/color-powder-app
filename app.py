@@ -13,6 +13,7 @@ from pathlib import Path
 from datetime import datetime
 import concurrent.futures
 from utils.database import (
+    SCHEMA_VERSION,
     DatabaseStartupError,
     database_config_from_secrets,
     database_health_check,
@@ -37,16 +38,18 @@ st.set_page_config(
 )
 
 @st.cache_resource(show_spinner=False)
-def _initialize_database_once(config, secret_presence):
+def _initialize_database_once(config, secret_presence, schema_version):
     """Initialize the remote backend once per process, not on every Streamlit rerun."""
+    del schema_version  # Included in the cache key so each migration version runs once.
     initialized = initialize_database_from_config(config)
     health = database_health_check(config)
     log_database_startup_diagnostics(config, health, secret_presence)
-    if not health.select_1_ok or not health.main_tables_exist:
+    if not health.select_1_ok or not health.schema_compatible:
         raise DatabaseStartupError(
             f"Database health check failed: SELECT 1 ok={health.select_1_ok}, "
             f"schema_version={health.schema_version}, "
-            f"main_tables_present={health.main_tables_exist}."
+            f"main_tables_present={health.main_tables_exist}, "
+            f"missing_required_columns={health.missing_required_columns}."
         )
     return initialized, health
 
@@ -209,6 +212,7 @@ try:
     DATABASE_INITIALIZED, DATABASE_HEALTH = _initialize_database_once(
         DATABASE_CONFIG,
         DATABASE_SECRET_PRESENCE,
+        SCHEMA_VERSION,
     )
 except DatabaseStartupError as exc:
     st.error(f"Database startup failed: {exc}")

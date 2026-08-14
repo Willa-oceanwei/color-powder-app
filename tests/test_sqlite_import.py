@@ -101,6 +101,36 @@ def test_initialize_database_creates_core_tables(tmp_path):
     assert "supplier_name" in inventory_cols
 
 
+def test_schema_v3_migrates_inventory_supplier_columns(tmp_path):
+    db = tmp_path / "legacy.db"
+    with connect(db) as conn:
+        conn.execute(
+            """CREATE TABLE inventory_movements (
+                movement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                movement_key TEXT UNIQUE,
+                sheet_name TEXT,
+                sheet_row_key TEXT,
+                movement_type TEXT NOT NULL,
+                colorpowder_id TEXT NOT NULL,
+                movement_date TEXT,
+                quantity REAL NOT NULL DEFAULT 0,
+                unit TEXT NOT NULL DEFAULT 'g',
+                notes TEXT,
+                source TEXT NOT NULL DEFAULT 'sqlite',
+                version INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_synced_at TEXT
+            )"""
+        )
+
+    initialize_database(db)
+
+    with connect(db) as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(inventory_movements)")}
+    assert {"supplier_id", "supplier_name"}.issubset(columns)
+
+
 def test_import_color_powders_validates_duplicates(tmp_path):
     values = [
         ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"],
@@ -378,6 +408,8 @@ def test_database_health_check_reports_schema_v3(tmp_path):
     assert health.select_1_ok
     assert health.schema_version == 3
     assert health.main_tables_exist
+    assert health.schema_compatible
+    assert health.missing_required_columns == {}
 
 
 def test_partial_turso_credentials_fail_fast(monkeypatch):
@@ -655,6 +687,7 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     assert "Database backend: sqlite" in lines
     assert "Database health: OK" in lines
     assert "Schema version: 3" in lines
+    assert "Required columns present: True" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)
 

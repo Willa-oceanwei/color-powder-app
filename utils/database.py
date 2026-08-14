@@ -32,6 +32,9 @@ MAIN_TABLES = {
     "sync_log",
     "sync_conflicts",
 }
+REQUIRED_TABLE_COLUMNS = {
+    "inventory_movements": {"supplier_id", "supplier_name"},
+}
 
 
 class DatabaseStartupError(RuntimeError):
@@ -58,10 +61,15 @@ class DatabaseHealth:
     select_1_ok: bool
     schema_version: int | None
     existing_tables: set[str]
+    missing_required_columns: dict[str, set[str]]
 
     @property
     def main_tables_exist(self) -> bool:
         return MAIN_TABLES.issubset(self.existing_tables)
+
+    @property
+    def schema_compatible(self) -> bool:
+        return self.main_tables_exist and not self.missing_required_columns
 
 
 def utc_now_iso() -> str:
@@ -172,9 +180,10 @@ def format_database_startup_diagnostics(
     """Format safe startup diagnostics for Streamlit logs/UI without token values."""
     lines = [
         f"Database backend: {config.backend}",
-        f"Database health: {'OK' if health.select_1_ok and health.main_tables_exist else 'FAILED'}",
+        f"Database health: {'OK' if health.select_1_ok and health.schema_compatible else 'FAILED'}",
         f"Schema version: {health.schema_version}",
         f"Main tables present: {health.main_tables_exist}",
+        f"Required columns present: {not health.missing_required_columns}",
     ]
     if secret_presence is not None:
         lines.extend([
@@ -464,7 +473,23 @@ def database_health_check(config: DatabaseConfig) -> DatabaseHealth:
         schema_version = schema_row[0] if schema_row else None
         table_rows = conn.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchall()
         existing_tables = {row[0] for row in table_rows}
-        return DatabaseHealth(config.backend, select_1_ok, schema_version, existing_tables)
+        missing_required_columns = {}
+        for table_name, required_columns in REQUIRED_TABLE_COLUMNS.items():
+            if table_name not in existing_tables:
+                continue
+            existing_columns = {
+                row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+            }
+            missing = required_columns - existing_columns
+            if missing:
+                missing_required_columns[table_name] = missing
+        return DatabaseHealth(
+            config.backend,
+            select_1_ok,
+            schema_version,
+            existing_tables,
+            missing_required_columns,
+        )
     except DatabaseStartupError:
         raise
     except Exception as exc:

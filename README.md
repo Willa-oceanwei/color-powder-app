@@ -94,6 +94,9 @@ error。正式匯入不會自動建立空白色粉或未知供應商資料。
 修改，頁面會提供受控的增量套用：使用者輸入 `APPLY <工作表名稱>` 後，系統重新
 preflight、以 atomic transaction 寫入 Turso，再驗證所有 rows 均為 unchanged。
 這個階段不會將 Sheet 中消失的 row 當成刪除，刪除仍需後續 tombstone 流程。
+Streamlit 的 database startup cache 會把 `SCHEMA_VERSION` 納入 cache key；每次
+schema 升級都會重新執行 Turso migration。Health check 也會驗證 v3 必要欄位，
+避免只看到 migration version、但實際 table column 尚未建立就開始正式匯入。
 
 可以只匯入指定工作表：
 
