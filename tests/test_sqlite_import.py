@@ -128,6 +128,47 @@ def test_complete_turso_credentials_select_turso_backend(monkeypatch):
     assert config.turso_auth_token == "secret-token"
 
 
+@pytest.mark.parametrize(
+    "secrets",
+    [
+        {
+            "turso": {
+                "database_url": "libsql://nested.turso.io",
+                "auth_token": "nested-token",
+            }
+        },
+        {
+            "connections": {
+                "turso": {
+                    "url": "libsql://nested.turso.io",
+                    "token": "nested-token",
+                }
+            }
+        },
+    ],
+)
+def test_nested_streamlit_secrets_select_turso_backend(monkeypatch, secrets):
+    monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
+    monkeypatch.delenv("TURSO_AUTH_TOKEN", raising=False)
+
+    config = database_config_from_secrets(secrets)
+
+    assert config.backend == "turso"
+    assert config.path is None
+    assert config.turso_database_url == "libsql://nested.turso.io"
+    assert config.turso_auth_token == "nested-token"
+
+
+def test_partial_nested_turso_credentials_fail_fast(monkeypatch):
+    monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
+    monkeypatch.delenv("TURSO_AUTH_TOKEN", raising=False)
+
+    with pytest.raises(DatabaseStartupError, match="missing TURSO_AUTH_TOKEN"):
+        database_config_from_secrets(
+            {"connections": {"turso": {"url": "libsql://nested.turso.io"}}}
+        )
+
+
 def test_connect_from_config_uses_turso_transaction_lifecycle(monkeypatch):
     events = []
 

@@ -83,17 +83,66 @@ def _clean_secret(value: Any) -> str | None:
     return cleaned or None
 
 
+def _secret_value(container: Any, *names: str) -> str | None:
+    """Read the first non-empty value from mapping- or attribute-style secrets."""
+    if container is None:
+        return None
+    for name in names:
+        try:
+            value = container.get(name)
+        except (AttributeError, KeyError, TypeError):
+            value = getattr(container, name, None)
+        cleaned = _clean_secret(value)
+        if cleaned:
+            return cleaned
+    return None
+
+
+def _secret_section(container: Any, name: str) -> Any | None:
+    if container is None:
+        return None
+    try:
+        return container.get(name)
+    except (AttributeError, KeyError, TypeError):
+        return getattr(container, name, None)
+
+
+def _turso_credentials_from_secrets(secrets: Any | None) -> tuple[str | None, str | None]:
+    """Support top-level, ``[turso]``, and ``[connections.turso]`` secrets."""
+    if secrets is None:
+        return None, None
+    turso = _secret_section(secrets, "turso")
+    connections = _secret_section(secrets, "connections")
+    connection_turso = _secret_section(connections, "turso")
+    url = _secret_value(secrets, "TURSO_DATABASE_URL")
+    token = _secret_value(secrets, "TURSO_AUTH_TOKEN")
+    sections = (turso, connection_turso)
+    url = url or next(
+        (
+            value
+            for section in sections
+            if (value := _secret_value(section, "TURSO_DATABASE_URL", "database_url", "url"))
+        ),
+        None,
+    )
+    token = token or next(
+        (
+            value
+            for section in sections
+            if (value := _secret_value(section, "TURSO_AUTH_TOKEN", "auth_token", "token"))
+        ),
+        None,
+    )
+    return url, token
+
+
 def database_config_from_secrets(secrets: Any | None = None) -> DatabaseConfig:
     """Build database config from Streamlit secrets/env without exposing tokens."""
     url = _clean_secret(os.environ.get("TURSO_DATABASE_URL"))
     token = _clean_secret(os.environ.get("TURSO_AUTH_TOKEN"))
-    if secrets is not None:
-        try:
-            url = _clean_secret(secrets.get("TURSO_DATABASE_URL", url))
-            token = _clean_secret(secrets.get("TURSO_AUTH_TOKEN", token))
-        except Exception:
-            url = _clean_secret(getattr(secrets, "TURSO_DATABASE_URL", url))
-            token = _clean_secret(getattr(secrets, "TURSO_AUTH_TOKEN", token))
+    secret_url, secret_token = _turso_credentials_from_secrets(secrets)
+    url = secret_url or url
+    token = secret_token or token
     if bool(url) != bool(token):
         missing = "TURSO_AUTH_TOKEN" if url else "TURSO_DATABASE_URL"
         raise DatabaseStartupError(f"Turso credentials are incomplete: missing {missing}.")
@@ -106,13 +155,9 @@ def secret_presence_from_secrets(secrets: Any | None = None) -> dict[str, bool]:
     """Return safe Turso secret presence flags without exposing secret values."""
     url_present = bool(_clean_secret(os.environ.get("TURSO_DATABASE_URL")))
     token_present = bool(_clean_secret(os.environ.get("TURSO_AUTH_TOKEN")))
-    if secrets is not None:
-        try:
-            url_present = bool(_clean_secret(secrets.get("TURSO_DATABASE_URL"))) or url_present
-            token_present = bool(_clean_secret(secrets.get("TURSO_AUTH_TOKEN"))) or token_present
-        except Exception:
-            url_present = bool(_clean_secret(getattr(secrets, "TURSO_DATABASE_URL", None))) or url_present
-            token_present = bool(_clean_secret(getattr(secrets, "TURSO_AUTH_TOKEN", None))) or token_present
+    secret_url, secret_token = _turso_credentials_from_secrets(secrets)
+    url_present = bool(secret_url) or url_present
+    token_present = bool(secret_token) or token_present
     return {
         "TURSO_DATABASE_URL": url_present,
         "TURSO_AUTH_TOKEN": token_present,

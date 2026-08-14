@@ -52,6 +52,11 @@ python scripts/import_google_sheets_to_sqlite.py \
 若部署環境已設定 `TURSO_DATABASE_URL` 與 `TURSO_AUTH_TOKEN`，省略 `--db`
 即可把資料匯入 Turso；Google Sheets 仍會永久保留作為人工操作介面，匯入程式不會修改它：
 
+Streamlit secrets 可使用頂層鍵，也支援 `[turso]` 或 `[connections.turso]`
+區段中的 `database_url` / `url` 與 `auth_token` / `token`。登入畫面不會連線
+Turso；登入成功後的 schema 初始化與健康檢查會在同一個 app process 內快取，
+避免每次輸入或操作 widget 都重新連線。
+
 ```bash
 python scripts/import_google_sheets_to_sqlite.py \
   --credentials-json /path/to/service-account.json \
