@@ -546,6 +546,18 @@ def import_sheet_values(
                 entity = _fetchone_mapping(conn.execute(
                     "SELECT * FROM production_orders WHERE production_order_id=?", (order_id,)
                 ))
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn,
+                            entity_type="production_order",
+                            entity_id=order_id,
+                            sqlite_payload=dict(entity),
+                            sheet_payload=row,
+                            reason="Database production order exists but no Sheet sync baseline exists",
+                        )
+                    continue
                 if existed and _entity_changed_since_sync(entity):
                     result.conflicts += 1
                     continue

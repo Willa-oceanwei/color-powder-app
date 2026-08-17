@@ -649,6 +649,30 @@ def test_schema_v7_backfills_production_orders_and_packages_from_baseline(tmp_pa
     assert (package["package_weight"], package["package_count"]) == (2, 3)
 
 
+def test_production_order_sheet_increment_imports_new_order_after_baseline(tmp_path):
+    db = tmp_path / "production-increment.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {"配方編號": "R001", "色粉編號1": "P001", "色粉重量1": "1"})
+    headers = [
+        "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量1", "包裝份數1",
+    ]
+    baseline = [headers, ["O001", "2026-08-16", "R001", "Red", "Customer", "1", "2"]]
+    import_sheet_values("生產單", baseline, db_path=db, abort_on_issues=True)
+
+    latest = baseline + [["O002", "2026-08-17", "R001", "Blue", "Customer", "2", "3"]]
+    preflight = import_sheet_values("生產單", latest, db_path=db, dry_run=True)
+    assert preflight.to_insert == 1
+    assert preflight.unchanged == 1
+
+    applied = import_sheet_values("生產單", latest, db_path=db, abort_on_issues=True)
+    verification = import_sheet_values("生產單", latest, db_path=db, dry_run=True)
+    assert applied.inserted_or_updated == 1
+    assert verification.unchanged == 2
+    assert {row["生產單號"] for row in list_production_orders(config)} == {"O001", "O002"}
+
+
 def test_recipe_import_persists_components_and_is_idempotent(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)

@@ -12624,7 +12624,7 @@ if st.session_state.menu == "同步檢查":
         elif (
             audit_result.ok
             and audit_result.sqlite_rows > 0
-            and audit_sheet in {"色粉管理", "供應商管理", "庫存記錄", "配方管理"}
+            and audit_sheet in {"色粉管理", "供應商管理", "庫存記錄", "配方管理", "生產單"}
         ):
             pending_changes = audit_result.to_insert + audit_result.to_update
             if pending_changes == 0:
