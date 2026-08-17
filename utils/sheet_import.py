@@ -467,9 +467,9 @@ def import_sheet_values(
                                recipe_id, color, customer_id, customer_name, recipe_category, status,
                                original_recipe, powder_category, measurement_unit, pantone_code,
                                ratio1, ratio2, ratio3, net_weight, net_weight_unit, total_category,
-                               sheet_created_at, notes, important_notice, source, created_at, updated_at,
+                               sheet_created_at, notes, important_notice, oem_multiplier, source, created_at, updated_at,
                                last_synced_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                                    'google_sheets_import', ?, ?, ?)
                            ON CONFLICT(recipe_id) DO UPDATE SET
                                color=excluded.color,
@@ -490,6 +490,7 @@ def import_sheet_values(
                                sheet_created_at=excluded.sheet_created_at,
                                notes=excluded.notes,
                                important_notice=excluded.important_notice,
+                               oem_multiplier=excluded.oem_multiplier,
                                source=excluded.source,
                                version=recipes.version + 1,
                                updated_at=excluded.updated_at,
@@ -514,6 +515,7 @@ def import_sheet_values(
                             row.get("建檔時間", ""),
                             row.get("備註", ""),
                             row.get("重要提醒", ""),
+                            _safe_float(row.get("代工倍率", 1)) or 1,
                             synced_at if entity is None else entity["created_at"],
                             entity_updated_at,
                             synced_at,
