@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -38,8 +38,13 @@ MAIN_TABLES = {
     "sync_outbox",
 }
 REQUIRED_TABLE_COLUMNS = {
-    "inventory_movements": {"supplier_id", "supplier_name"},
-    "recipes": {"oem_multiplier"},
+    "color_powders": {"lifecycle_status", "deleted_at", "delete_reason"},
+    "suppliers": {"lifecycle_status", "deleted_at", "delete_reason"},
+    "inventory_movements": {
+        "supplier_id", "supplier_name", "reversal_of_movement_key", "reversed_at",
+    },
+    "recipes": {"oem_multiplier", "lifecycle_status", "deleted_at", "delete_reason"},
+    "production_orders": {"cancelled_at", "cancel_reason"},
 }
 
 
@@ -293,6 +298,9 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             category TEXT,
             package TEXT,
             notes TEXT,
+            lifecycle_status TEXT NOT NULL DEFAULT 'active',
+            deleted_at TEXT,
+            delete_reason TEXT,
             source TEXT NOT NULL DEFAULT 'sqlite',
             version INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
@@ -306,6 +314,9 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             phone TEXT,
             contact_person TEXT,
             notes TEXT,
+            lifecycle_status TEXT NOT NULL DEFAULT 'active',
+            deleted_at TEXT,
+            delete_reason TEXT,
             source TEXT NOT NULL DEFAULT 'sqlite',
             version INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
@@ -335,6 +346,8 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             notes TEXT,
             supplier_id TEXT,
             supplier_name TEXT,
+            reversal_of_movement_key TEXT,
+            reversed_at TEXT,
             source TEXT NOT NULL DEFAULT 'sqlite',
             version INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
@@ -366,6 +379,9 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             notes TEXT,
             important_notice TEXT,
             oem_multiplier REAL NOT NULL DEFAULT 1,
+            lifecycle_status TEXT NOT NULL DEFAULT 'active',
+            deleted_at TEXT,
+            delete_reason TEXT,
             source TEXT NOT NULL DEFAULT 'sqlite',
             version INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
@@ -394,6 +410,8 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             color TEXT,
             customer_name TEXT,
             status TEXT NOT NULL DEFAULT 'draft',
+            cancelled_at TEXT,
+            cancel_reason TEXT,
             payload_json TEXT NOT NULL,
             recipe_version INTEGER,
             recipe_snapshot_json TEXT,
@@ -494,6 +512,14 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     _add_column_if_missing(conn, "sheet_rows", "sheet_updated_at", "TEXT")
     _add_column_if_missing(conn, "sheet_rows", "last_seen_at", "TEXT")
     _add_column_if_missing(conn, "recipes", "oem_multiplier", "REAL NOT NULL DEFAULT 1")
+    for table_name in ("color_powders", "suppliers", "recipes"):
+        _add_column_if_missing(conn, table_name, "lifecycle_status", "TEXT NOT NULL DEFAULT 'active'")
+        _add_column_if_missing(conn, table_name, "deleted_at", "TEXT")
+        _add_column_if_missing(conn, table_name, "delete_reason", "TEXT")
+    _add_column_if_missing(conn, "inventory_movements", "reversal_of_movement_key", "TEXT")
+    _add_column_if_missing(conn, "inventory_movements", "reversed_at", "TEXT")
+    _add_column_if_missing(conn, "production_orders", "cancelled_at", "TEXT")
+    _add_column_if_missing(conn, "production_orders", "cancel_reason", "TEXT")
     conn.execute(
         """UPDATE recipes
            SET oem_multiplier = COALESCE(
@@ -557,6 +583,13 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_sheet_row_key ON suppliers(sheet_row_key) WHERE sheet_row_key IS NOT NULL;
         CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_movement_key ON inventory_movements(movement_key) WHERE movement_key IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_inventory_sheet_row ON inventory_movements(sheet_name, sheet_row_key);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_single_reversal
+            ON inventory_movements(reversal_of_movement_key)
+            WHERE reversal_of_movement_key IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_color_powders_lifecycle ON color_powders(lifecycle_status);
+        CREATE INDEX IF NOT EXISTS idx_suppliers_lifecycle ON suppliers(lifecycle_status);
+        CREATE INDEX IF NOT EXISTS idx_recipes_lifecycle ON recipes(lifecycle_status);
+        CREATE INDEX IF NOT EXISTS idx_production_orders_status ON production_orders(status);
         CREATE INDEX IF NOT EXISTS idx_sheet_rows_updated_at ON sheet_rows(sheet_name, updated_at);
         CREATE INDEX IF NOT EXISTS idx_sheet_rows_hash ON sheet_rows(sheet_name, row_hash);
         CREATE INDEX IF NOT EXISTS idx_sync_conflicts_status ON sync_conflicts(status, detected_at);

@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 import json
 import logging
+import sqlite3
 
 import pytest
 
@@ -148,6 +149,52 @@ def test_initialize_database_creates_core_tables(tmp_path):
     assert "movement_key" in inventory_cols
     assert "supplier_id" in inventory_cols
     assert "supplier_name" in inventory_cols
+
+
+def test_schema_v8_adds_lifecycle_and_reversal_foundations(tmp_path):
+    db = tmp_path / "lifecycle-v8.db"
+    initialize_database(db)
+    with connect(db) as conn:
+        columns = {
+            table: {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+            for table in ("color_powders", "suppliers", "recipes", "inventory_movements", "production_orders")
+        }
+        now = "2026-08-17T00:00:00+00:00"
+        conn.execute(
+            "INSERT INTO color_powders(colorpowder_id, created_at, updated_at) VALUES ('P001', ?, ?)",
+            (now, now),
+        )
+        lifecycle = conn.execute(
+            "SELECT lifecycle_status, deleted_at, delete_reason FROM color_powders WHERE colorpowder_id='P001'"
+        ).fetchone()
+        conn.execute(
+            """INSERT INTO inventory_movements(
+                   movement_key, movement_type, colorpowder_id, quantity, created_at, updated_at)
+               VALUES ('original', '進貨', 'P001', 10, ?, ?)""",
+            (now, now),
+        )
+        conn.execute(
+            """INSERT INTO inventory_movements(
+                   movement_key, movement_type, colorpowder_id, quantity,
+                   reversal_of_movement_key, created_at, updated_at)
+               VALUES ('reversal-1', '沖銷', 'P001', -10, 'original', ?, ?)""",
+            (now, now),
+        )
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                """INSERT INTO inventory_movements(
+                       movement_key, movement_type, colorpowder_id, quantity,
+                       reversal_of_movement_key, created_at, updated_at)
+                   VALUES ('reversal-2', '沖銷', 'P001', -10, 'original', ?, ?)""",
+                (now, now),
+            )
+
+    assert {"lifecycle_status", "deleted_at", "delete_reason"} <= columns["color_powders"]
+    assert {"lifecycle_status", "deleted_at", "delete_reason"} <= columns["suppliers"]
+    assert {"lifecycle_status", "deleted_at", "delete_reason"} <= columns["recipes"]
+    assert {"reversal_of_movement_key", "reversed_at"} <= columns["inventory_movements"]
+    assert {"cancelled_at", "cancel_reason"} <= columns["production_orders"]
+    assert tuple(lifecycle) == ("active", None, None)
 
 
 def test_current_schema_migrates_inventory_supplier_columns(tmp_path):
@@ -1001,7 +1048,7 @@ def test_database_health_check_reports_schema_v7(tmp_path):
     health = database_health_check(config)
     assert health.backend == "sqlite"
     assert health.select_1_ok
-    assert health.schema_version == 7
+    assert health.schema_version == 8
     assert health.main_tables_exist
     assert health.schema_compatible
     assert health.missing_required_columns == {}
@@ -1281,7 +1328,7 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     )
     assert "Database backend: sqlite" in lines
     assert "Database health: OK" in lines
-    assert "Schema version: 7" in lines
+    assert "Schema version: 8" in lines
     assert "Required columns present: True" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)

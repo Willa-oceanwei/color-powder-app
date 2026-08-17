@@ -225,3 +225,18 @@ python scripts/import_google_sheets_to_sqlite.py \
 - inventory duplicate risk
 
 如果 Google Sheets 沒有明確的 `updated_at` / `更新時間` 欄位，同步程式不會把「匯入當下時間」誤當成 Sheet 修改時間；會改用 `sheet_rows.row_hash` 做增量變更偵測，並在 SQLite 端自上次同步後也有修改時記錄 conflict，避免靜默覆蓋較新的 SQLite 資料。
+
+## Schema v8 lifecycle 基礎
+
+Schema v8 先建立安全的 lifecycle 資料層，尚不將 UI 的「刪除」改成可用：
+
+- 色粉、供應商、配方使用 `lifecycle_status` / `deleted_at` / `delete_reason`
+  保留歷史引用，不實體刪除。
+- 庫存記錄使用 `reversal_of_movement_key` / `reversed_at` 準備沖銷鏈；
+  同一筆 movement 只允許一筆 reversal。
+- 生產單使用現有 `status` 搭配 `cancelled_at` / `cancel_reason`，
+  後續將實作「取消」而不是刪除永久單號。
+
+目前 Turso → Sheet 仍採人工 preflight + `PUSH`。在 lifecycle/reversal 測試完整
+之前不啟用自動 worker；後續可改為定時自動傳送，只將 conflict
+與 failed event 留給人工處理。
