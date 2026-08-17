@@ -113,6 +113,28 @@ def _sync_outbox(
             (sheet_name,),
         ).fetchall()
         result.queued = len(pending)
+        claimed_ids: set[int] = set()
+        if not dry_run:
+            # Claim all currently claimable events in one short-lived session before
+            # any Google Sheets I/O. This avoids both concurrent appends and a
+            # mid-session libsql commit.
+            with connect_from_config(db_config) as claim_conn:
+                for raw_entry in pending:
+                    candidate = dict(raw_entry) if hasattr(raw_entry, "keys") else dict(
+                        zip(("id", "row_key", "operation", "payload_json", "entity_version", "status"), raw_entry)
+                    )
+                    if candidate["status"] == "processing":
+                        continue
+                    claimed_row = claim_conn.execute(
+                        """UPDATE sync_outbox
+                           SET status='processing', attempt_count=attempt_count+1,
+                               processed_at=?, last_error=NULL
+                           WHERE id=? AND status IN ('pending', 'failed')
+                           RETURNING id""",
+                        (utc_now_iso(), candidate["id"]),
+                    ).fetchone()
+                    if claimed_row is not None:
+                        claimed_ids.add(int(candidate["id"]))
         for raw_entry in pending:
             entry = dict(raw_entry) if hasattr(raw_entry, "keys") else dict(
                 zip(("id", "row_key", "operation", "payload_json", "entity_version", "status"), raw_entry)
@@ -120,22 +142,9 @@ def _sync_outbox(
             row_key = str(entry["row_key"])
             recovering_uncertain_write = entry["status"] == "processing"
             if not dry_run and not recovering_uncertain_write:
-                # Google Sheets append is not transactional. Claim the event and
-                # commit that claim before writing so two concurrent Streamlit runs
-                # cannot both append the same permanent key.
-                conn.execute(
-                    """UPDATE sync_outbox
-                       SET status='processing', attempt_count=attempt_count+1,
-                           processed_at=?, last_error=NULL
-                       WHERE id=? AND status IN ('pending', 'failed')""",
-                    (utc_now_iso(), entry["id"]),
-                )
-                claimed = int(conn.execute("SELECT changes()").fetchone()[0])
-                if claimed == 0:
+                if int(entry["id"]) not in claimed_ids:
                     result.queued -= 1
                     continue
-                if hasattr(conn, "commit"):
-                    conn.commit()
             if entry["operation"] == "delete":
                 result.conflicts += 1
                 result.warnings.append(f"{row_key}: delete is blocked until tombstones are implemented")
@@ -184,8 +193,6 @@ def _sync_outbox(
                             "UPDATE sync_outbox SET status='failed', last_error=? WHERE id=? AND status='processing'",
                             (f"{type(exc).__name__}: {exc}", entry["id"]),
                         )
-                        if hasattr(conn, "commit"):
-                            conn.commit()
                         raise
             else:
                 row_number, current = current_info
@@ -234,8 +241,6 @@ def _sync_outbox(
                             "UPDATE sync_outbox SET status='failed', last_error=? WHERE id=? AND status='processing'",
                             (f"{type(exc).__name__}: {exc}", entry["id"]),
                         )
-                        if hasattr(conn, "commit"):
-                            conn.commit()
                         raise
             if not dry_run:
                 synced_at = utc_now_iso()
