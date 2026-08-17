@@ -35,6 +35,7 @@ from utils.color_powder_repository import (
     ColorPowderInput,
     create_color_powder,
     list_color_powders,
+    set_color_powder_active,
     update_color_powder,
 )
 from utils.sheet_export import sync_color_powder_outbox
@@ -50,6 +51,7 @@ from utils.supplier_repository import (
     SupplierInput,
     create_supplier,
     list_suppliers,
+    set_supplier_active,
     update_supplier,
 )
 from utils.recipe_repository import (
@@ -57,6 +59,7 @@ from utils.recipe_repository import (
     RecipeError,
     create_recipe,
     list_recipes,
+    set_recipe_active,
     update_recipe,
 )
 from utils.inventory_repository import (
@@ -2789,7 +2792,7 @@ elif menu == "配方管理":
         "比例1", "比例2", "比例3", "淨重", "淨重單位",
         *[f"色粉編號{i}" for i in range(1, 9)],
         *[f"色粉重量{i}" for i in range(1, 9)],
-        "合計類別", "重要提醒", "備註", "建檔時間"
+        "合計類別", "重要提醒", "備註", "建檔時間", "生命週期", "停用時間", "停用原因"
     ]
 
     # ================================================================
@@ -2800,7 +2803,7 @@ elif menu == "配方管理":
 
         # 1️⃣ 配方管理
         try:
-            df_r = pd.DataFrame(list_recipes(DATABASE_CONFIG), columns=columns).fillna("").astype(str)
+            df_r = pd.DataFrame(list_recipes(DATABASE_CONFIG, include_inactive=True), columns=columns).fillna("").astype(str)
         except Exception as exc:
             st.error(f"❌ 無法從 Turso 載入配方：{exc}")
             st.stop()
@@ -3148,7 +3151,7 @@ elif menu == "配方管理":
         st.markdown("---")
         if st.button("📥 重新載入配方資料", key="reload_recipe_data_tab1", use_container_width=True):
             try:
-                latest_df = pd.DataFrame(list_recipes(DATABASE_CONFIG))
+                latest_df = pd.DataFrame(list_recipes(DATABASE_CONFIG, include_inactive=True))
                 st.session_state.df = latest_df.copy()
                 st.session_state.df_recipe = latest_df.copy()
                 st.session_state.recipe_toast = {"msg": "已從 Google Sheet 重新載入配方資料", "icon": "🔄"}
@@ -3341,8 +3344,14 @@ elif menu == "配方管理":
                             st.session_state.editing_recipe_code    = selected_code
                             st.rerun()
                     with col_right:
-                        if st.button("🗑️ 刪除", key=f"delete_recipe_btn_tab3_{selected_code}"):
-                            st.warning("⚠️ 配方刪除將在 tombstone 階段開放，目前未刪除任何資料。")
+                        is_active = recipe_row_preview.get("生命週期", "active") == "active"
+                        if st.button("⏸️ 停用配方" if is_active else "▶️ 恢復配方", key=f"toggle_recipe_btn_tab3_{selected_code}"):
+                            set_recipe_active(DATABASE_CONFIG, selected_code, active=not is_active)
+                            st.session_state.recipe_data_loaded = False
+                            st.session_state["recipe_tab3_toast"] = {
+                                "msg": f"已{'恢復' if not is_active else '停用'}配方 {selected_code}", "icon": "✅"
+                            }
+                            st.rerun()
 
                     if st.session_state.get("show_delete_recipe_confirm", False):
                         st.session_state.show_delete_recipe_confirm = False
@@ -3530,11 +3539,11 @@ elif menu == "配方管理":
         if "edit_color_index" not in st.session_state:
             st.session_state.edit_color_index = None
 
-        REQUIRED_COLUMNS = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
+        REQUIRED_COLUMNS = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註", "生命週期", "停用原因"]
 
         # Turso 是正式資料來源；Sheet 由 sync_outbox 在人工確認後更新。
         try:
-            powder_entities = list_color_powders(DATABASE_CONFIG)
+            powder_entities = list_color_powders(DATABASE_CONFIG, include_inactive=True)
             df_color = pd.DataFrame([
                 {
                     "色粉編號": row.get("colorpowder_id", ""),
@@ -3543,6 +3552,8 @@ elif menu == "配方管理":
                     "色粉類別": row.get("category", ""),
                     "包裝": row.get("package", ""),
                     "備註": row.get("notes", ""),
+                    "生命週期": row.get("lifecycle_status", "active"),
+                    "停用原因": row.get("delete_reason", ""),
                 }
                 for row in powder_entities
             ], columns=REQUIRED_COLUMNS).fillna("").astype(str)
@@ -3639,7 +3650,8 @@ elif menu == "配方管理":
                     for i, row in df_show.iterrows():
                         c1, c2, c3 = st.columns([4, 1, 1])
                         with c1:
-                            st.markdown(f"🔸 {row['色粉編號']}　{row['名稱']}")
+                            state_label = "啟用" if row["生命週期"] == "active" else "停用"
+                            st.markdown(f"🔸 {row['色粉編號']}　{row['名稱']}　`{state_label}`")
                         with c2:
                             if st.button("✏️ 改", key=f"edit_color_{i}"):
                                 st.session_state.form_color       = row.to_dict()
@@ -3649,8 +3661,11 @@ elif menu == "配方管理":
                                 # 才會以剛寫入的 form_color 顯示待修改內容。
                                 st.rerun()
                         with c3:
-                            if st.button("🗑️ 刪", key=f"del_color_{i}"):
-                                st.warning("⚠️ 雙向同步刪除將在 tombstone 階段開放，目前未刪除任何資料。")
+                            active = row["生命週期"] == "active"
+                            if st.button("⏸️ 停用" if active else "▶️ 恢復", key=f"toggle_color_{i}"):
+                                set_color_powder_active(DATABASE_CONFIG, row["色粉編號"], active=not active)
+                                st.session_state.color_toast = f"已{'恢復' if not active else '停用'} {row['色粉編號']}"
+                                st.rerun()
 
         if st.session_state.get("_tab4_need_rerun", False):
             st.session_state._tab4_need_rerun = False
@@ -3694,8 +3709,9 @@ elif menu == "配方管理":
         # ---------------------------
         if not df_recipe.empty:
 
+            active_recipe_df = df_recipe[df_recipe.get("生命週期", "active") == "active"]
             recipe_options = sorted(
-                df_recipe["配方編號"].dropna().astype(str).unique().tolist()
+                active_recipe_df["配方編號"].dropna().astype(str).unique().tolist()
             )
 
             recipe_option_labels = {
@@ -7876,7 +7892,7 @@ elif menu == "採購管理":
     # ========== Tab 4：供應商管理 ==========
     with tab4:
     
-        columns = ["供應商編號", "供應商簡稱", "備註"]
+        columns = ["供應商編號", "供應商簡稱", "備註", "生命週期", "停用原因"]
     
         # 安全初始化 form_supplier
         if "form_supplier" not in st.session_state or not isinstance(st.session_state.form_supplier, dict):
@@ -7896,8 +7912,10 @@ elif menu == "採購管理":
                     "供應商編號": row.get("supplier_id", ""),
                     "供應商簡稱": row.get("name", ""),
                     "備註": row.get("notes", ""),
+                    "生命週期": row.get("lifecycle_status", "active"),
+                    "停用原因": row.get("delete_reason", ""),
                 }
-                for row in list_suppliers(DATABASE_CONFIG)
+                for row in list_suppliers(DATABASE_CONFIG, include_inactive=True)
             ], columns=columns).fillna("").astype(str)
         except Exception as exc:
             st.error(f"❌ 無法從 Turso 載入供應商：{exc}")
@@ -8038,7 +8056,8 @@ elif menu == "採購管理":
                     c1, c2, c3 = st.columns([3, 1, 1])
                     with c1:
                         st.markdown(
-                            f"<div style='font-family:Arial;color:#FFFFFF;'>🔹 {row['供應商編號']}　{row['供應商簡稱']}</div>",
+                            f"<div style='font-family:Arial;color:#FFFFFF;'>🔹 {row['供應商編號']}　{row['供應商簡稱']}　"
+                            f"({'啟用' if row['生命週期'] == 'active' else '停用'})</div>",
                             unsafe_allow_html=True
                         )
                     with c2:
@@ -8048,8 +8067,11 @@ elif menu == "採購管理":
                             st.session_state["supplier_toast"] = "已帶入供應商資料"
                             st.rerun()
                     with c3:
-                        if st.button("🗑️ 刪", key=f"delete_supplier_{i}"):
-                            st.warning("⚠️ 雙向同步刪除將在 tombstone 階段開放，目前未刪除任何資料。")
+                        active = row["生命週期"] == "active"
+                        if st.button("⏸️ 停用" if active else "▶️ 恢復", key=f"toggle_supplier_{i}"):
+                            set_supplier_active(DATABASE_CONFIG, row["供應商編號"], active=not active)
+                            st.session_state["supplier_toast"] = f"已{'恢復' if not active else '停用'} {row['供應商編號']}"
+                            st.rerun()
 
 # ======== 交叉查詢分頁 =========
 if "menu" not in st.session_state:

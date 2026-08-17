@@ -140,9 +140,10 @@ def update_recipe(config: DatabaseConfig, row: dict[str, Any]) -> dict[str, str]
     return _save_recipe(config, row, create=False)
 
 
-def list_recipes(config: DatabaseConfig) -> list[dict[str, str]]:
+def list_recipes(config: DatabaseConfig, *, include_inactive: bool = False) -> list[dict[str, str]]:
     with connect_from_config(config) as conn:
-        recipes = _mappings(conn.execute("SELECT * FROM recipes ORDER BY recipe_id"))
+        where = "" if include_inactive else "WHERE lifecycle_status='active'"
+        recipes = _mappings(conn.execute(f"SELECT * FROM recipes {where} ORDER BY recipe_id"))
         components = _mappings(conn.execute(
             "SELECT recipe_id, position, colorpowder_id, weight FROM recipe_components ORDER BY recipe_id, position"
         ))
@@ -162,6 +163,8 @@ def list_recipes(config: DatabaseConfig) -> list[dict[str, str]]:
             "淨重": str(entity.get("net_weight") or ""), "淨重單位": entity.get("net_weight_unit") or "",
             "合計類別": entity.get("total_category") or "", "重要提醒": entity.get("important_notice") or "",
             "備註": entity.get("notes") or "", "建檔時間": entity.get("sheet_created_at") or "",
+            "生命週期": entity.get("lifecycle_status") or "active",
+            "停用時間": entity.get("deleted_at") or "", "停用原因": entity.get("delete_reason") or "",
         }
         for component in by_recipe.get(str(entity["recipe_id"]), []):
             position = int(component["position"])
@@ -169,3 +172,20 @@ def list_recipes(config: DatabaseConfig) -> list[dict[str, str]]:
             row[f"色粉重量{position}"] = str(component["weight"])
         result.append(row)
     return result
+
+
+def set_recipe_active(config: DatabaseConfig, recipe_id: str, *, active: bool, reason: str = "") -> dict[str, Any]:
+    """Soft-disable or restore a recipe; components and order snapshots remain readable."""
+    recipe_id = str(recipe_id or "").strip()
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        existing = _mapping(conn.execute("SELECT * FROM recipes WHERE recipe_id=?", (recipe_id,)))
+        if existing is None:
+            raise RecipeNotFound(f"找不到配方編號 {recipe_id}")
+        conn.execute(
+            """UPDATE recipes SET lifecycle_status=?, deleted_at=?, delete_reason=?,
+                      version=version+1, updated_at=? WHERE recipe_id=?""",
+            ("active" if active else "inactive", None if active else now,
+             None if active else str(reason or "").strip(), now, recipe_id),
+        )
+        return _mapping(conn.execute("SELECT * FROM recipes WHERE recipe_id=?", (recipe_id,)))
