@@ -5698,7 +5698,7 @@ elif menu == "生產單管理":
             try:
                 latest_order_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
                 st.session_state.df_order = latest_order_df.copy()
-                st.toast("已從 Google Sheet 重新載入生產單資料", icon="🔄")
+                st.toast("已從 Turso 重新載入生產單資料", icon="🔄")
             except Exception as e:
                 st.toast(f"重新載入失敗：{e}", icon="❌")
             st.rerun()
@@ -5872,7 +5872,19 @@ elif menu == "生產單管理":
     
         # ===== 只有按下搜尋才執行篩選 =====
         if submit_search or st.session_state.get("last_search_tab3_done", False):
-            
+
+            # 搜尋送出時一定重讀 Turso。生產單建立表單與查詢分頁在同一個
+            # Streamlit run 內，若只沿用頁面開始時的 df_order，剛建立的資料可能
+            # 要等到下一次整頁 rerun 才出現。以儲存庫即時結果取代舊快照。
+            if submit_search:
+                try:
+                    df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
+                    if not df_order.empty:
+                        df_order = df_order.fillna("").astype(str)
+                    st.session_state.df_order = df_order.copy()
+                except Exception as e:
+                    st.error(f"❌ 無法從 Turso 更新生產單查詢資料：{e}")
+
             # 標記已搜尋過（避免 rerun 後消失）
             st.session_state.last_search_tab3_done = True
             
