@@ -31,6 +31,7 @@ from utils.color_powder_repository import (
     create_color_powder,
     list_color_powders,
     update_color_powder,
+    set_color_powder_active,
 )
 from utils.supplier_repository import (
     SupplierAlreadyExists,
@@ -38,8 +39,9 @@ from utils.supplier_repository import (
     create_supplier,
     list_suppliers,
     update_supplier,
+    set_supplier_active,
 )
-from utils.recipe_repository import create_recipe, list_recipes, update_recipe
+from utils.recipe_repository import create_recipe, list_recipes, set_recipe_active, update_recipe
 from utils.inventory_repository import (
     create_inventory_movement,
     list_inventory_movements,
@@ -499,6 +501,36 @@ def test_supplier_repository_create_update_aliases_and_outbox(tmp_path):
     assert [(row["operation"], row["entity_version"]) for row in events] == [
         ("insert", 1), ("update", 2),
     ]
+
+
+def test_master_data_lifecycle_filters_choices_but_keeps_history_readable(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001", name="Powder"))
+    create_supplier(config, SupplierInput("S001", "Supplier"))
+    create_recipe(config, {"配方編號": "R001", "色粉編號1": "P001", "色粉重量1": "2"})
+
+    powder = set_color_powder_active(config, "P001", active=False, reason="不再採購")
+    supplier = set_supplier_active(config, "S001", active=False, reason="停止合作")
+    recipe = set_recipe_active(config, "R001", active=False, reason="舊版")
+
+    assert powder["lifecycle_status"] == supplier["lifecycle_status"] == recipe["lifecycle_status"] == "inactive"
+    assert list_color_powders(config) == []
+    assert list_suppliers(config) == []
+    assert list_recipes(config) == []
+    assert list_color_powders(config, include_inactive=True)[0]["delete_reason"] == "不再採購"
+    assert list_suppliers(config, include_inactive=True)[0]["delete_reason"] == "停止合作"
+    historical_recipe = list_recipes(config, include_inactive=True)[0]
+    assert historical_recipe["停用原因"] == "舊版"
+    assert historical_recipe["色粉編號1"] == "P001"
+
+    set_color_powder_active(config, "P001", active=True)
+    set_supplier_active(config, "S001", active=True)
+    set_recipe_active(config, "R001", active=True)
+    assert list_color_powders(config)[0]["deleted_at"] is None
+    assert list_suppliers(config)[0]["delete_reason"] is None
+    assert list_recipes(config)[0]["生命週期"] == "active"
 
 
 def test_supplier_repository_duplicate_does_not_queue_second_event(tmp_path):
