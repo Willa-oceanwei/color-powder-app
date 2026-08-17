@@ -11848,6 +11848,24 @@ if menu == "試色記錄分析":
 # ===== Turso / Google Sheets 唯讀同步檢查 =====
 if st.session_state.menu == "同步檢查":
     st.markdown("### Sheet ↔ Turso 同步檢查")
+    st.markdown(
+        """
+        <style>
+        .sync-section-title {
+            font-size: 1rem;
+            font-weight: 650;
+            line-height: 1.35;
+            margin: 1.1rem 0 0.35rem;
+            color: inherit;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    def render_sync_section_title(title):
+        st.markdown(f'<h4 class="sync-section-title">{title}</h4>', unsafe_allow_html=True)
+
     st.caption(
         "所有檢查預設唯讀；Sheet → Turso 使用 APPLY，Turso → Sheet 色粉同步使用 PUSH，"
         "兩者都必須通過最新 preflight 並輸入指定確認文字才會寫入。"
@@ -11887,7 +11905,7 @@ if st.session_state.menu == "同步檢查":
             f"{completed_push['written']} 筆；驗證後 queued={completed_push['queued']}。"
         )
 
-    st.markdown("#### Turso → Sheet：色粉 outbox")
+    render_sync_section_title("Turso → Sheet：色粉 outbox")
     st.caption(
         "先執行唯讀 preflight；只有輸入 PUSH 色粉管理才會把安全的 pending event 寫入 Sheet。"
         "若 Sheet 同一列已被人工修改，系統會建立 conflict 並停止覆蓋。"
@@ -12030,7 +12048,7 @@ if st.session_state.menu == "同步檢查":
                     else:
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
-    st.markdown("#### Turso → Sheet：供應商 outbox")
+    render_sync_section_title("Turso → Sheet：供應商 outbox")
     st.caption("供應商編號是永久 ID；PUSH 會保留 Turso 中的歷史 supplier aliases，不會自動刪除資料。")
     if st.button(
         "檢查待推送供應商（唯讀）",
@@ -12141,7 +12159,7 @@ if st.session_state.menu == "同步檢查":
                     else:
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
-    st.markdown("#### Turso → Sheet：配方 outbox")
+    render_sync_section_title("Turso → Sheet：配方 outbox")
     st.caption("每筆配方的主資料與最多 8 筆 components 已在 Turso transaction 內完成；PUSH 只更新該配方 Sheet row。")
     if st.button("檢查待推送配方（唯讀）", disabled=DATABASE_BACKEND != "turso", key="recipe_push_dry_run"):
         try:
@@ -12228,7 +12246,7 @@ if st.session_state.menu == "同步檢查":
                     else:
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
-    st.markdown("#### Turso → Sheet：庫存 outbox")
+    render_sync_section_title("Turso → Sheet：庫存 outbox")
     st.caption("每筆 movement 使用永久 _sync_id；同一 event 重送不會新增第二筆庫存 movement。")
     if st.button("檢查待推送庫存（唯讀）", disabled=DATABASE_BACKEND != "turso", key="inventory_push_dry_run"):
         try:
@@ -12301,7 +12319,7 @@ if st.session_state.menu == "同步檢查":
                     else:
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
-    st.markdown("#### Turso → Sheet：生產單 outbox")
+    render_sync_section_title("Turso → Sheet：生產單 outbox")
     st.caption("生產單保存 recipe version/snapshot；PUSH 重送只更新同一永久生產單號，不會重複扣庫存。")
     if st.button("檢查待推送生產單（唯讀）", disabled=DATABASE_BACKEND != "turso", key="production_push_dry_run"):
         try:
@@ -12375,7 +12393,7 @@ if st.session_state.menu == "同步檢查":
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
     st.divider()
-    st.markdown("#### Sheet → Turso")
+    render_sync_section_title("Sheet → Turso")
 
     selected_sync_sheet = st.selectbox(
         "選擇要檢查的工作表",
