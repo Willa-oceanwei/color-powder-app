@@ -102,6 +102,52 @@ Pantone、比例、淨重與備註，每個配方最多 8 個色粉位置會拆�
 配方 dry-run 會驗證非空的色粉編號已存在 `color_powders`，首次匯入及後續修改都只
 替換該配方自己的 components，不重寫其他配方。
 
+第二階段的 Turso → Sheet 同步先從 `色粉管理` 開始。網站或 repository 在同一個
+database transaction 更新色粉後，須呼叫 `enqueue_sheet_sync()`，將該 entity version
+寫入 `sync_outbox`。傳送程式預設只做 dry-run；只有加上 `--apply` 才會寫入 Sheet：
+
+```bash
+python scripts/sync_color_powders_to_sheet.py \
+  --credentials-json /path/to/service-account.json \
+  --sheet-url "https://docs.google.com/spreadsheets/d/.../edit"
+
+# 確認 insert/update/conflict 統計後才執行：
+python scripts/sync_color_powders_to_sheet.py \
+  --credentials-json /path/to/service-account.json \
+  --sheet-url "https://docs.google.com/spreadsheets/d/.../edit" \
+  --apply
+```
+
+傳送前會把目前 Sheet row 與 `sheet_rows` baseline 比較；若人工已修改 Sheet，會寫入
+`sync_conflicts` 而不覆蓋。成功後才完成 outbox 並更新 baseline。刪除目前一律阻擋，
+等待 tombstone 階段完成後才會開放。
+
+網站「配方管理 → 色粉管理」的清單、新增與修改已改以 Turso 為正式資料來源。
+每次新增或修改會在同一個 database transaction 更新 `color_powders` 並建立 outbox；
+網站不再直接 append/update 色粉 Sheet。若同一筆新色粉在送出前連續修改，worker
+只傳送最新 entity version，完成後一併關閉較舊事件，避免 Sheet 出現重複列。
+色粉編號是永久 ID，修改時不可變更；刪除按鈕目前只顯示 tombstone 尚未開放，
+不會刪除 Turso 或 Sheet 資料。
+
+登入網站後可在「設定 → 同步檢查」的「Turso → Sheet：色粉 outbox」先執行唯讀
+preflight，下載包含 queued/insert/update/unchanged/conflict 的 JSON。只有結果安全且
+仍有 pending event 時才會出現 PUSH；輸入 `PUSH 色粉管理` 後，系統會重新讀取 Sheet、
+再次 preflight、套用 outbox，最後強制重讀 Sheet 並驗證 queued 已歸零。這是後續工作表
+可重用的控制流程；但各工作表的永久 ID、外鍵、數量 ledger、component transaction
+與 tombstone 規則仍須分別測試，不能只因色粉通過就直接全面開放。
+
+`採購管理 → 供應商管理` 也已使用相同的 Turso-first/outbox/PUSH 流程：供應商編號
+是永久 ID，新增與修改會原子更新 `suppliers`、保留新舊名稱於 `supplier_aliases`，
+並建立 `供應商管理` outbox。進貨表單的供應商選項也直接讀 Turso，因此不必等待
+Sheet PUSH 才能選到新供應商。「設定 → 同步檢查」提供獨立的供應商 preflight JSON
+與 `PUSH 供應商管理`；刪除仍須等待 tombstone。
+
+Schema v6 將 `配方管理` 改為 Turso-first，並在 `recipes` 保存 `oem_multiplier`；升級時
+會從既有 `sheet_rows` baseline 回填倍率，避免舊配方遺失資料。配方新增或修改會在
+同一 transaction 寫入 recipe 主表、完整替換該配方最多 8 筆 components，並建立
+versioned outbox。生產單頁也直接讀 Turso 配方。「設定 → 同步檢查」提供
+`PUSH 配方管理`；配方刪除同樣等待 tombstone。
+
 可以只匯入指定工作表：
 
 ```bash

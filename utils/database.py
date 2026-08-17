@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 6
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -33,9 +33,11 @@ MAIN_TABLES = {
     "sync_state",
     "sync_log",
     "sync_conflicts",
+    "sync_outbox",
 }
 REQUIRED_TABLE_COLUMNS = {
     "inventory_movements": {"supplier_id", "supplier_name"},
+    "recipes": {"oem_multiplier"},
 }
 
 
@@ -361,6 +363,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             sheet_created_at TEXT,
             notes TEXT,
             important_notice TEXT,
+            oem_multiplier REAL NOT NULL DEFAULT 1,
             source TEXT NOT NULL DEFAULT 'sqlite',
             version INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
@@ -430,6 +433,22 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             resolved_at TEXT,
             resolution_notes TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS sync_outbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sheet_name TEXT NOT NULL,
+            row_key TEXT NOT NULL,
+            operation TEXT NOT NULL CHECK(operation IN ('insert', 'update', 'delete')),
+            payload_json TEXT,
+            entity_version INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending'
+                CHECK(status IN ('pending', 'processing', 'completed', 'failed', 'conflict')),
+            attempt_count INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT,
+            created_at TEXT NOT NULL,
+            processed_at TEXT,
+            UNIQUE(sheet_name, row_key, entity_version)
+        );
         """
     )
     # Lightweight migrations for databases created by schema version 1.
@@ -441,6 +460,19 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     _add_column_if_missing(conn, "inventory_movements", "supplier_name", "TEXT")
     _add_column_if_missing(conn, "sheet_rows", "sheet_updated_at", "TEXT")
     _add_column_if_missing(conn, "sheet_rows", "last_seen_at", "TEXT")
+    _add_column_if_missing(conn, "recipes", "oem_multiplier", "REAL NOT NULL DEFAULT 1")
+    conn.execute(
+        """UPDATE recipes
+           SET oem_multiplier = COALESCE(
+               (SELECT CAST(json_extract(sheet_rows.payload_json, '$."代工倍率"') AS REAL)
+                FROM sheet_rows
+                WHERE sheet_rows.sheet_name='配方管理'
+                  AND sheet_rows.row_key=recipes.recipe_id
+                  AND TRIM(COALESCE(json_extract(sheet_rows.payload_json, '$."代工倍率"'), '')) != ''),
+               oem_multiplier
+           )
+           WHERE recipes.source != 'app'"""
+    )
     conn.execute("UPDATE sheet_rows SET last_seen_at = COALESCE(last_seen_at, updated_at, ?) WHERE last_seen_at IS NULL", (utc_now_iso(),))
     conn.execute(
         "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
@@ -463,6 +495,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE INDEX IF NOT EXISTS idx_sheet_rows_updated_at ON sheet_rows(sheet_name, updated_at);
         CREATE INDEX IF NOT EXISTS idx_sheet_rows_hash ON sheet_rows(sheet_name, row_hash);
         CREATE INDEX IF NOT EXISTS idx_sync_conflicts_status ON sync_conflicts(status, detected_at);
+        CREATE INDEX IF NOT EXISTS idx_sync_outbox_pending ON sync_outbox(status, sheet_name, created_at);
         """
     )
 
@@ -578,6 +611,34 @@ def record_sync_conflict(conn: sqlite3.Connection, *, entity_type: str, entity_i
          json.dumps(sqlite_payload, ensure_ascii=False, default=str) if sqlite_payload is not None else None,
          json.dumps(sheet_payload, ensure_ascii=False, default=str) if sheet_payload is not None else None,
          reason, utc_now_iso()),
+    )
+
+
+def enqueue_sheet_sync(
+    conn: sqlite3.Connection,
+    *,
+    sheet_name: str,
+    row_key: str,
+    operation: str,
+    payload: dict[str, Any] | None,
+    entity_version: int,
+) -> None:
+    """Durably queue one entity version for delivery to Google Sheets."""
+    if operation not in {"insert", "update", "delete"}:
+        raise ValueError(f"Unsupported sync operation: {operation}")
+    conn.execute(
+        """INSERT INTO sync_outbox(
+               sheet_name, row_key, operation, payload_json, entity_version, created_at
+           ) VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(sheet_name, row_key, entity_version) DO NOTHING""",
+        (
+            sheet_name,
+            row_key,
+            operation,
+            json.dumps(payload, ensure_ascii=False, default=str) if payload is not None else None,
+            entity_version,
+            utc_now_iso(),
+        ),
     )
 
 
