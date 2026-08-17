@@ -7862,6 +7862,7 @@ elif menu == "採購管理":
             # 4️⃣ 顯示結果
             if not df_result.empty:
                 show_cols = {
+                    "_sync_id": "永久 _sync_id",
                     "色粉編號": "色粉編號",
                     "廠商編號": "廠商編號",
                     "廠商名稱": "供應商簡稱",
@@ -7913,7 +7914,10 @@ elif menu == "採購管理":
             else:
                 df_in_edit["row_no"] = df_in_edit.index + 2
                 record_options = df_in_edit.apply(
-                    lambda r: f"列 {r['row_no']}｜{r.get('色粉編號','')}｜{r.get('日期','')}｜{r.get('數量','')} {r.get('單位','')}",
+                    lambda r: (
+                        f"列 {r['row_no']}｜{r.get('色粉編號','')}｜{r.get('日期','')}｜"
+                        f"{r.get('數量','')} {r.get('單位','')}｜ID …{str(r.get('_sync_id',''))[-8:]}"
+                    ),
                     axis=1
                 ).tolist()
                 selected_record = st.selectbox("選擇進貨記錄", [""] + record_options, key="purchase_edit_record")
@@ -7922,6 +7926,7 @@ elif menu == "採購管理":
                     selected_idx = record_options.index(selected_record)
                     target_row = df_in_edit.iloc[selected_idx].to_dict()
                     sync_id = str(target_row.get("_sync_id", "")).strip()
+                    st.caption(f"永久 _sync_id：{sync_id}（修改前後不會改變）")
 
                     try:
                         edit_date = pd.to_datetime(target_row.get("日期", ""), errors="coerce").date()
