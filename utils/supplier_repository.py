@@ -61,12 +61,31 @@ def supplier_sheet_payload(entity: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def list_suppliers(config: DatabaseConfig) -> list[dict[str, Any]]:
+def list_suppliers(config: DatabaseConfig, *, include_inactive: bool = False) -> list[dict[str, Any]]:
     with connect_from_config(config) as conn:
+        where = "" if include_inactive else "WHERE lifecycle_status='active'"
         return _mappings(conn.execute(
-            """SELECT supplier_id, name, notes, version, updated_at, last_synced_at
-               FROM suppliers ORDER BY supplier_id"""
+            f"""SELECT supplier_id, name, notes, lifecycle_status, deleted_at, delete_reason,
+                       version, updated_at, last_synced_at
+                FROM suppliers {where} ORDER BY supplier_id"""
         ))
+
+
+def set_supplier_active(config: DatabaseConfig, supplier_id: str, *, active: bool, reason: str = "") -> dict[str, Any]:
+    """Soft-disable or restore a supplier while preserving historical references."""
+    supplier_id = str(supplier_id or "").strip()
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        existing = _mapping(conn.execute("SELECT * FROM suppliers WHERE supplier_id=?", (supplier_id,)))
+        if existing is None:
+            raise SupplierNotFound(f"找不到供應商編號 {supplier_id}")
+        conn.execute(
+            """UPDATE suppliers SET lifecycle_status=?, deleted_at=?, delete_reason=?,
+                      version=version+1, updated_at=? WHERE supplier_id=?""",
+            ("active" if active else "inactive", None if active else now,
+             None if active else str(reason or "").strip(), now, supplier_id),
+        )
+        return _mapping(conn.execute("SELECT * FROM suppliers WHERE supplier_id=?", (supplier_id,)))
 
 
 def _validate(data: SupplierInput) -> SupplierInput:
