@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+import json
 import logging
 
 import pytest
@@ -10,9 +11,42 @@ from utils.database import (
     connect_from_config,
     database_config_from_secrets,
     database_health_check,
+    enqueue_sheet_sync,
     format_database_startup_diagnostics,
     initialize_database,
     log_database_startup_diagnostics,
+)
+from utils.sheet_export import (
+    sync_color_powder_outbox,
+    sync_inventory_outbox,
+    sync_production_order_outbox,
+    sync_recipe_outbox,
+    sync_supplier_outbox,
+)
+from utils.color_powder_repository import (
+    ColorPowderAlreadyExists,
+    ColorPowderInput,
+    create_color_powder,
+    list_color_powders,
+    update_color_powder,
+)
+from utils.supplier_repository import (
+    SupplierAlreadyExists,
+    SupplierInput,
+    create_supplier,
+    list_suppliers,
+    update_supplier,
+)
+from utils.recipe_repository import create_recipe, list_recipes, update_recipe
+from utils.inventory_repository import (
+    create_inventory_movement,
+    list_inventory_movements,
+    update_inventory_movement,
+)
+from utils.production_order_repository import (
+    create_production_order,
+    list_production_orders,
+    update_production_order,
 )
 from utils.sheet_import import (
     ImportAbortedError,
@@ -40,6 +74,18 @@ class SequencedWorksheet:
         if isinstance(outcome, Exception):
             raise outcome
         return outcome
+
+
+class WritableWorksheet:
+    def __init__(self):
+        self.appended = []
+        self.updated = []
+
+    def append_row(self, values):
+        self.appended.append(values)
+
+    def update(self, cell, values):
+        self.updated.append((cell, values))
 
 
 def test_sheet_read_retries_transient_google_errors():
@@ -98,6 +144,7 @@ def test_initialize_database_creates_core_tables(tmp_path):
     assert "supplier_aliases" in tables
     assert "sync_log" in tables
     assert "sync_conflicts" in tables
+    assert "sync_outbox" in tables
     assert "movement_key" in inventory_cols
     assert "supplier_id" in inventory_cols
     assert "supplier_name" in inventory_cols
@@ -131,6 +178,33 @@ def test_current_schema_migrates_inventory_supplier_columns(tmp_path):
     with connect(db) as conn:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(inventory_movements)")}
     assert {"supplier_id", "supplier_name"}.issubset(columns)
+
+
+def test_schema_v6_backfills_recipe_oem_multiplier_from_sheet_baseline(tmp_path):
+    db = tmp_path / "legacy-recipe.db"
+    initialize_database(db)
+    with connect(db) as conn:
+        conn.execute("DELETE FROM schema_migrations WHERE version=6")
+        conn.execute(
+            """INSERT INTO recipes(recipe_id, source, created_at, updated_at, oem_multiplier)
+               VALUES ('R001', 'google_sheets_import', '2026-01-01', '2026-01-01', 1)"""
+        )
+        conn.execute(
+            """INSERT INTO sheet_rows(
+                   sheet_name, row_key, payload_json, row_hash, created_at, updated_at,
+                   last_seen_at, last_synced_at)
+               VALUES ('配方管理', 'R001', ?, 'hash', '2026-01-01', '2026-01-01',
+                       '2026-01-01', '2026-01-01')""",
+            (json.dumps({"配方編號": "R001", "代工倍率": "2.5"}, ensure_ascii=False),),
+        )
+
+    initialize_database(db)
+
+    with connect(db) as conn:
+        multiplier = conn.execute(
+            "SELECT oem_multiplier FROM recipes WHERE recipe_id='R001'"
+        ).fetchone()[0]
+    assert multiplier == 2.5
 
 
 def test_import_color_powders_validates_duplicates(tmp_path):
@@ -186,6 +260,475 @@ def test_incremental_color_apply_inserts_and_updates_then_converges(tmp_path):
         "P001": ("Updated", "changed"),
         "P002": ("New", "added"),
     }
+
+
+def test_color_outbox_dry_run_and_apply_updates_unchanged_sheet(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    baseline = [
+        ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"],
+        ["P001", "I1", "Old", "色粉", "袋", ""],
+    ]
+    import_sheet_values("色粉管理", baseline, db_path=db, abort_on_issues=True)
+    with connect(db) as conn:
+        conn.execute(
+            "UPDATE color_powders SET name='New', version=version+1, updated_at=? WHERE colorpowder_id='P001'",
+            ("2026-08-15T00:00:00+00:00",),
+        )
+        entity = dict(conn.execute("SELECT * FROM color_powders WHERE colorpowder_id='P001'").fetchone())
+        enqueue_sheet_sync(
+            conn, sheet_name="色粉管理", row_key="P001", operation="update",
+            payload={
+                "色粉編號": "P001", "國際色號": "I1", "名稱": "New",
+                "色粉類別": "色粉", "包裝": "袋", "備註": "",
+            }, entity_version=entity["version"],
+        )
+    worksheet = WritableWorksheet()
+    config = DatabaseConfig(backend="sqlite", path=db)
+
+    preflight = sync_color_powder_outbox(worksheet, baseline, db_config=config, dry_run=True)
+    applied = sync_color_powder_outbox(worksheet, baseline, db_config=config, dry_run=False)
+
+    assert preflight.to_update == 1
+    assert preflight.written == 0
+    assert applied.written == 1
+    assert worksheet.updated == [("A2", [["P001", "I1", "New", "色粉", "袋", ""]])]
+    with connect(db) as conn:
+        outbox = conn.execute("SELECT status FROM sync_outbox").fetchone()
+    assert outbox["status"] == "completed"
+
+
+def test_color_outbox_blocks_concurrent_sheet_edit(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    baseline = [["色粉編號", "名稱"], ["P001", "Old"]]
+    import_sheet_values("色粉管理", baseline, db_path=db, abort_on_issues=True)
+    with connect(db) as conn:
+        enqueue_sheet_sync(
+            conn, sheet_name="色粉管理", row_key="P001", operation="update",
+            payload={"色粉編號": "P001", "名稱": "Database edit"}, entity_version=2,
+        )
+    worksheet = WritableWorksheet()
+    changed_sheet = [["色粉編號", "名稱"], ["P001", "Sheet edit"]]
+
+    result = sync_color_powder_outbox(
+        worksheet, changed_sheet,
+        db_config=DatabaseConfig(backend="sqlite", path=db), dry_run=False,
+    )
+
+    assert result.conflicts == 1
+    assert result.written == 0
+    assert worksheet.updated == []
+    with connect(db) as conn:
+        assert conn.execute("SELECT status FROM sync_outbox").fetchone()[0] == "conflict"
+        assert conn.execute("SELECT COUNT(*) FROM sync_conflicts").fetchone()[0] == 1
+
+
+def test_color_repository_create_is_atomic_with_outbox(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+
+    created = create_color_powder(
+        config,
+        ColorPowderInput(" P001 ", " I1 ", " Red ", "色粉", "袋", " note "),
+    )
+
+    assert created["colorpowder_id"] == "P001"
+    assert created["name"] == "Red"
+    assert created["version"] == 1
+    assert created["last_synced_at"] is None
+    with connect(db) as conn:
+        outbox = conn.execute("SELECT * FROM sync_outbox").fetchone()
+    assert outbox["row_key"] == "P001"
+    assert outbox["operation"] == "insert"
+    assert outbox["entity_version"] == 1
+    assert outbox["status"] == "pending"
+
+
+def test_color_repository_update_increments_version_and_queues_payload(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001", name="Old"))
+
+    updated = update_color_powder(
+        config, ColorPowderInput("P001", international_code="I2", name="New", notes="changed")
+    )
+
+    assert updated["version"] == 2
+    assert updated["name"] == "New"
+    assert list_color_powders(config)[0]["international_code"] == "I2"
+    with connect(db) as conn:
+        events = conn.execute(
+            "SELECT operation, entity_version, payload_json FROM sync_outbox ORDER BY id"
+        ).fetchall()
+    assert [(row["operation"], row["entity_version"]) for row in events] == [
+        ("insert", 1), ("update", 2),
+    ]
+    assert '"名稱": "New"' in events[1]["payload_json"]
+
+
+def test_color_repository_duplicate_does_not_queue_second_event(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001", name="First"))
+
+    with pytest.raises(ColorPowderAlreadyExists):
+        create_color_powder(config, ColorPowderInput("P001", name="Duplicate"))
+
+    with connect(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM color_powders").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM sync_outbox").fetchone()[0] == 1
+
+
+def test_color_outbox_coalesces_unsynced_create_and_update(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001", name="First"))
+    update_color_powder(config, ColorPowderInput("P001", name="Latest"))
+    worksheet = WritableWorksheet()
+    values = [["色粉編號", "名稱"]]
+
+    preflight = sync_color_powder_outbox(worksheet, values, db_config=config, dry_run=True)
+    applied = sync_color_powder_outbox(worksheet, values, db_config=config, dry_run=False)
+
+    assert preflight.queued == 1
+    assert preflight.to_insert == 1
+    assert applied.written == 1
+    assert worksheet.appended == [["P001", "Latest"]]
+    with connect(db) as conn:
+        statuses = conn.execute("SELECT status FROM sync_outbox ORDER BY id").fetchall()
+    assert [row["status"] for row in statuses] == ["completed", "completed"]
+
+
+def test_color_outbox_matching_sheet_completes_metadata_without_write(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001", name="Already there"))
+    worksheet = WritableWorksheet()
+    values = [["色粉編號", "名稱"], ["P001", "Already there"]]
+
+    applied = sync_color_powder_outbox(worksheet, values, db_config=config, dry_run=False)
+
+    assert applied.unchanged == 1
+    assert applied.written == 0
+    assert worksheet.appended == []
+    assert worksheet.updated == []
+    with connect(db) as conn:
+        powder = conn.execute(
+            "SELECT last_synced_at FROM color_powders WHERE colorpowder_id='P001'"
+        ).fetchone()
+        event = conn.execute("SELECT status FROM sync_outbox").fetchone()
+        baseline = conn.execute(
+            "SELECT row_hash FROM sheet_rows WHERE sheet_name='色粉管理' AND row_key='P001'"
+        ).fetchone()
+    assert powder["last_synced_at"]
+    assert event["status"] == "completed"
+    assert baseline["row_hash"]
+
+
+def test_supplier_repository_create_update_aliases_and_outbox(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+
+    created = create_supplier(config, SupplierInput(" S001 ", " First Name ", " note "))
+    updated = update_supplier(config, SupplierInput("S001", "New Name", "changed"))
+
+    assert created["supplier_id"] == "S001"
+    assert updated["version"] == 2
+    assert list_suppliers(config)[0]["name"] == "New Name"
+    with connect(db) as conn:
+        aliases = conn.execute(
+            "SELECT alias FROM supplier_aliases WHERE supplier_id='S001' ORDER BY alias"
+        ).fetchall()
+        events = conn.execute(
+            "SELECT operation, entity_version FROM sync_outbox WHERE sheet_name='供應商管理' ORDER BY id"
+        ).fetchall()
+    assert [row["alias"] for row in aliases] == ["First Name", "New Name"]
+    assert [(row["operation"], row["entity_version"]) for row in events] == [
+        ("insert", 1), ("update", 2),
+    ]
+
+
+def test_supplier_repository_duplicate_does_not_queue_second_event(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_supplier(config, SupplierInput("S001", "Supplier"))
+
+    with pytest.raises(SupplierAlreadyExists):
+        create_supplier(config, SupplierInput("S001", "Duplicate"))
+
+    with connect(db) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM suppliers").fetchone()[0] == 1
+        assert conn.execute(
+            "SELECT COUNT(*) FROM sync_outbox WHERE sheet_name='供應商管理'"
+        ).fetchone()[0] == 1
+
+
+def test_supplier_outbox_coalesces_and_pushes_latest_payload(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_supplier(config, SupplierInput("S001", "First"))
+    update_supplier(config, SupplierInput("S001", "Latest", "note"))
+    worksheet = WritableWorksheet()
+    values = [["供應商編號", "供應商簡稱", "備註"]]
+
+    preflight = sync_supplier_outbox(worksheet, values, db_config=config, dry_run=True)
+    applied = sync_supplier_outbox(worksheet, values, db_config=config, dry_run=False)
+
+    assert preflight.queued == 1
+    assert preflight.to_insert == 1
+    assert applied.written == 1
+    assert worksheet.appended == [["S001", "Latest", "note"]]
+    with connect(db) as conn:
+        statuses = conn.execute(
+            "SELECT status FROM sync_outbox WHERE sheet_name='供應商管理' ORDER BY id"
+        ).fetchall()
+    assert [row["status"] for row in statuses] == ["completed", "completed"]
+
+
+def test_recipe_repository_atomically_replaces_components_and_queues(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_color_powder(config, ColorPowderInput("P002"))
+    create_recipe(config, {
+        "配方編號": "R001", "顏色": "Red", "代工倍率": "1.5",
+        "色粉編號1": "P001", "色粉重量1": "2",
+    })
+    update_recipe(config, {
+        "配方編號": "R001", "顏色": "Dark Red", "代工倍率": "2",
+        "色粉編號1": "P002", "色粉重量1": "3",
+    })
+
+    recipes = list_recipes(config)
+    assert recipes[0]["顏色"] == "Dark Red"
+    assert recipes[0]["代工倍率"] == "2.0"
+    assert recipes[0]["色粉編號1"] == "P002"
+    with connect(db) as conn:
+        components = conn.execute(
+            "SELECT colorpowder_id, weight FROM recipe_components WHERE recipe_id='R001'"
+        ).fetchall()
+        events = conn.execute(
+            "SELECT operation, entity_version FROM sync_outbox WHERE sheet_name='配方管理' ORDER BY id"
+        ).fetchall()
+    assert [(row["colorpowder_id"], row["weight"]) for row in components] == [("P002", 3)]
+    assert [(row["operation"], row["entity_version"]) for row in events] == [
+        ("insert", 1), ("update", 2),
+    ]
+
+
+def test_recipe_outbox_pushes_latest_full_row(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {"配方編號": "R001", "顏色": "First", "色粉編號1": "P001", "色粉重量1": "1"})
+    update_recipe(config, {"配方編號": "R001", "顏色": "Latest", "色粉編號1": "P001", "色粉重量1": "2"})
+    worksheet = WritableWorksheet()
+    values = [["配方編號", "顏色", "色粉編號1", "色粉重量1"]]
+
+    preflight = sync_recipe_outbox(worksheet, values, db_config=config, dry_run=True)
+    applied = sync_recipe_outbox(worksheet, values, db_config=config, dry_run=False)
+
+    assert preflight.queued == 1
+    assert preflight.to_insert == 1
+    assert applied.written == 1
+    assert worksheet.appended == [["R001", "Latest", "P001", "2"]]
+
+
+def test_inventory_repository_create_update_and_push_is_idempotent(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_supplier(config, SupplierInput("S001", "Supplier"))
+    create_inventory_movement(config, {
+        "類型": "進貨", "色粉編號": "P001", "日期": "2026/08/17",
+        "數量": 2, "單位": "kg", "廠商編號": "S001", "廠商名稱": "Supplier",
+        "備註": "first", "_sync_id": "INV001",
+    })
+    update_inventory_movement(config, "INV001", {
+        "類型": "進貨", "色粉編號": "P001", "日期": "2026/08/17",
+        "數量": 3, "單位": "kg", "廠商編號": "S001", "廠商名稱": "Supplier",
+        "備註": "latest",
+    })
+    assert list_inventory_movements(config)[0]["數量"] == "3.0"
+    worksheet = WritableWorksheet()
+    values = [["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"]]
+
+    preflight = sync_inventory_outbox(worksheet, values, db_config=config, dry_run=True)
+    applied = sync_inventory_outbox(worksheet, values, db_config=config, dry_run=False)
+    verification = sync_inventory_outbox(
+        worksheet,
+        [values[0], worksheet.appended[0]],
+        db_config=config,
+        dry_run=True,
+    )
+
+    assert preflight.queued == 1
+    assert preflight.to_insert == 1
+    assert applied.written == 1
+    assert worksheet.appended[0][-1] == "INV001"
+    assert worksheet.appended[0][3] == "3.0"
+    assert verification.queued == 0
+
+
+def test_production_order_repository_snapshots_recipe_and_pushes_latest(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {
+        "配方編號": "R001", "顏色": "Red", "色粉編號1": "P001", "色粉重量1": "2",
+    })
+    create_production_order(config, {
+        "生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001",
+        "顏色": "Red", "客戶名稱": "Customer", "包裝重量1": "1", "包裝份數1": "2",
+    })
+    update_production_order(config, {
+        "生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001",
+        "顏色": "Dark Red", "客戶名稱": "Customer", "包裝重量1": "1", "包裝份數1": "3",
+    })
+
+    assert list_production_orders(config)[0]["顏色"] == "Dark Red"
+    with connect(db) as conn:
+        order = conn.execute("SELECT * FROM production_orders WHERE production_order_id='O001'").fetchone()
+        package = conn.execute(
+            "SELECT package_count FROM production_order_packages WHERE production_order_id='O001'"
+        ).fetchone()
+    assert order["recipe_version"] == 1
+    assert '"colorpowder_id": "P001"' in order["recipe_snapshot_json"]
+    assert package["package_count"] == 3
+
+    worksheet = WritableWorksheet()
+    values = [["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量1", "包裝份數1"]]
+    preflight = sync_production_order_outbox(worksheet, values, db_config=config, dry_run=True)
+    applied = sync_production_order_outbox(worksheet, values, db_config=config, dry_run=False)
+    assert preflight.queued == 1
+    assert preflight.to_insert == 1
+    assert applied.written == 1
+    assert worksheet.appended[0] == ["O001", "2026-08-17", "R001", "Dark Red", "Customer", "1", "3"]
+
+
+def test_outbox_claim_prevents_concurrent_duplicate_production_append(tmp_path):
+    db = tmp_path / "production-concurrent-push.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {"配方編號": "R001", "色粉編號1": "P001", "色粉重量1": "1"})
+    create_production_order(config, {
+        "生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001", "顏色": "Red",
+    })
+    values = [["生產單號", "生產日期", "配方編號", "顏色"]]
+
+    class ConcurrentWorksheet(WritableWorksheet):
+        def __init__(self):
+            super().__init__()
+            self.concurrent_result = None
+
+        def append_row(self, row):
+            self.concurrent_result = sync_production_order_outbox(
+                self, values, db_config=config, dry_run=False,
+            )
+            super().append_row(row)
+
+    worksheet = ConcurrentWorksheet()
+    applied = sync_production_order_outbox(worksheet, values, db_config=config, dry_run=False)
+
+    assert applied.written == 1
+    assert len(worksheet.appended) == 1
+    assert worksheet.concurrent_result.written == 0
+    assert worksheet.concurrent_result.conflicts == 1
+
+
+def test_processing_outbox_is_reconciled_without_second_append(tmp_path):
+    db = tmp_path / "production-processing-recovery.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {"配方編號": "R001", "色粉編號1": "P001", "色粉重量1": "1"})
+    create_production_order(config, {
+        "生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001", "顏色": "Red",
+    })
+    with connect(db) as conn:
+        conn.execute("UPDATE sync_outbox SET status='completed' WHERE sheet_name != '生產單'")
+        conn.execute("UPDATE sync_outbox SET status='processing' WHERE sheet_name = '生產單'")
+    values = [
+        ["生產單號", "生產日期", "配方編號", "顏色"],
+        ["O001", "2026-08-17", "R001", "Red"],
+    ]
+    worksheet = WritableWorksheet()
+
+    recovered = sync_production_order_outbox(worksheet, values, db_config=config, dry_run=False)
+    verification = sync_production_order_outbox(worksheet, values, db_config=config, dry_run=True)
+
+    assert recovered.unchanged == 1
+    assert recovered.written == 0
+    assert worksheet.appended == []
+    assert verification.queued == 0
+
+
+def test_schema_v7_backfills_production_orders_and_packages_from_baseline(tmp_path):
+    db = tmp_path / "legacy-production.db"
+    initialize_database(db)
+    payload = {
+        "生產單號": "O001", "生產日期": "2026-08-17", "顏色": "Red",
+        "客戶名稱": "Customer", "包裝重量1": "2", "包裝份數1": "3",
+    }
+    with connect(db) as conn:
+        conn.execute("DELETE FROM schema_migrations WHERE version=7")
+        conn.execute("DROP TABLE production_order_packages")
+        conn.execute("DROP TABLE production_orders")
+        conn.execute(
+            """INSERT INTO sheet_rows(
+                   sheet_name, row_key, payload_json, row_hash, created_at, updated_at,
+                   last_seen_at, last_synced_at)
+               VALUES ('生產單', 'O001', ?, 'hash', '2026-01-01', '2026-01-01',
+                       '2026-01-01', '2026-01-01')""",
+            (json.dumps(payload, ensure_ascii=False),),
+        )
+
+    initialize_database(db)
+
+    with connect(db) as conn:
+        order = conn.execute("SELECT * FROM production_orders WHERE production_order_id='O001'").fetchone()
+        package = conn.execute(
+            "SELECT package_weight, package_count FROM production_order_packages WHERE production_order_id='O001'"
+        ).fetchone()
+    assert order["customer_name"] == "Customer"
+    assert json.loads(order["payload_json"])["顏色"] == "Red"
+    assert (package["package_weight"], package["package_count"]) == (2, 3)
+
+
+def test_production_order_sheet_increment_imports_new_order_after_baseline(tmp_path):
+    db = tmp_path / "production-increment.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {"配方編號": "R001", "色粉編號1": "P001", "色粉重量1": "1"})
+    headers = [
+        "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量1", "包裝份數1",
+    ]
+    baseline = [headers, ["O001", "2026-08-16", "R001", "Red", "Customer", "1", "2"]]
+    import_sheet_values("生產單", baseline, db_path=db, abort_on_issues=True)
+
+    latest = baseline + [["O002", "2026-08-17", "R001", "Blue", "Customer", "2", "3"]]
+    preflight = import_sheet_values("生產單", latest, db_path=db, dry_run=True)
+    assert preflight.to_insert == 1
+    assert preflight.unchanged == 1
+
+    applied = import_sheet_values("生產單", latest, db_path=db, abort_on_issues=True)
+    verification = import_sheet_values("生產單", latest, db_path=db, dry_run=True)
+    assert applied.inserted_or_updated == 1
+    assert verification.unchanged == 2
+    assert {row["生產單號"] for row in list_production_orders(config)} == {"O001", "O002"}
 
 
 def test_recipe_import_persists_components_and_is_idempotent(tmp_path):
@@ -450,7 +993,7 @@ def test_supplier_import_accepts_supplier_code_and_short_name_headers(tmp_path):
     assert supplier["notes"] == "常用"
 
 
-def test_database_health_check_reports_schema_v4(tmp_path):
+def test_database_health_check_reports_schema_v7(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
     config = database_config_from_secrets({})
@@ -458,7 +1001,7 @@ def test_database_health_check_reports_schema_v4(tmp_path):
     health = database_health_check(config)
     assert health.backend == "sqlite"
     assert health.select_1_ok
-    assert health.schema_version == 4
+    assert health.schema_version == 7
     assert health.main_tables_exist
     assert health.schema_compatible
     assert health.missing_required_columns == {}
@@ -738,7 +1281,7 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     )
     assert "Database backend: sqlite" in lines
     assert "Database health: OK" in lines
-    assert "Schema version: 4" in lines
+    assert "Schema version: 7" in lines
     assert "Required columns present: True" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)
