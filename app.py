@@ -5589,6 +5589,7 @@ elif menu == "生產單管理":
                 st.rerun()
 
         # --------------- 新增：生產單大標列印 ---------------
+        # --------------- 新增：生產單大標列印 ---------------
         st.markdown("""
             <style>
             .label-print-card {
@@ -5611,14 +5612,14 @@ elif menu == "生產單管理":
             }
             </style>
         """, unsafe_allow_html=True)
- 
+
         st.markdown("""
             <div class="label-print-card">
                 <div class="lp-title">🏷️ 列印大標</div>
                 <div class="lp-subtitle">依生產單內容自動帶入，下方可自由編輯、增減列數，確認後再產生下載檔</div>
             </div>
         """, unsafe_allow_html=True)
- 
+
         if not st.session_state.get("new_order_saved", False):
             st.caption("請先儲存生產單，才能列印標籤。")
         else:
@@ -5626,12 +5627,12 @@ elif menu == "生產單管理":
             label_rows_key = f"big_label_rows_{order_no_for_label}"
             label_version_key = f"big_label_version_{order_no_for_label}"
             label_confirmed_key = f"big_label_confirmed_{order_no_for_label}"
- 
+
             if label_rows_key not in st.session_state:
                 st.session_state[label_rows_key] = build_big_label_rows(order)
             if label_version_key not in st.session_state:
                 st.session_state[label_version_key] = 0
- 
+
             with st.container(border=True):
                 with st.form(f"big_label_form_{order_no_for_label}", border=False):
                     edited_label_df = st.data_editor(
@@ -5647,18 +5648,18 @@ elif menu == "生產單管理":
                             "數量": st.column_config.TextColumn("數量"),
                         },
                     )
- 
-                    copy_col, count_col, confirm_col = st.columns([1.2, 1, 1.4])
+
+                    copy_col, count_col, confirm_col = st.columns([1.2, 1.3, 1.5])
                     with copy_col:
                         copy_clicked = st.form_submit_button("➕ 複製最後一列", use_container_width=True)
                     with count_col:
                         copy_times = st.number_input(
-                            "複製幾份", min_value=1, max_value=20, value=1, step=1,
-                            key=f"big_label_copy_times_{order_no_for_label}", label_visibility="collapsed"
+                            "複製幾份（張）", min_value=1, max_value=20, value=1, step=1,
+                            key=f"big_label_copy_times_{order_no_for_label}"
                         )
                     with confirm_col:
-                        confirm_clicked = st.form_submit_button("✅ 確認內容，產生下載檔", type="primary", use_container_width=True)
- 
+                        confirm_clicked = st.form_submit_button("✅ 確認內容，產生下載檔", use_container_width=True)
+
                 if copy_clicked:
                     current_rows = edited_label_df.fillna("").to_dict("records")
                     if current_rows:
@@ -5667,20 +5668,22 @@ elif menu == "生產單管理":
                     st.session_state[label_rows_key] = current_rows
                     st.session_state[label_version_key] += 1
                     st.session_state[label_confirmed_key] = None
+                    st.toast(f"已複製 {int(copy_times)} 列，請往下捲動查看", icon="➕")
                     st.rerun()
- 
+
                 if confirm_clicked:
                     st.session_state[label_rows_key] = edited_label_df.fillna("").to_dict("records")
                     st.session_state[label_confirmed_key] = list(st.session_state[label_rows_key])
- 
+                    st.toast("已確認內容，下載按鈕已產生，請往下捲動查看", icon="✅")
+
             confirmed_rows = st.session_state.get(label_confirmed_key)
             if confirmed_rows:
                 sheets_needed = -(-len(confirmed_rows) // 4)  # 無條件進位
                 st.caption(f"共 {len(confirmed_rows)} 張標籤，需要 {sheets_needed} 張大標紙（手動一張一張進紙）。")
- 
+
                 big_label_html = generate_big_label_html(confirmed_rows)
                 safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
- 
+
                 st.download_button(
                     label="📥 下載大標 HTML（開啟後自動列印）",
                     data=big_label_html.encode("utf-8"),
@@ -5690,8 +5693,6 @@ elif menu == "生產單管理":
                 )
             else:
                 st.caption("編輯完成後，請按上方「✅ 確認內容，產生下載檔」才會出現下載按鈕。")
- 
-        st.markdown("---")
  
         if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
             try:
@@ -7749,6 +7750,7 @@ elif menu == "採購管理":
             # 4️⃣ 顯示結果
             if not df_result.empty:
                 show_cols = {
+                    "_sync_id": "永久 _sync_id",
                     "色粉編號": "色粉編號",
                     "廠商編號": "廠商編號",
                     "廠商名稱": "供應商簡稱",
@@ -7800,7 +7802,10 @@ elif menu == "採購管理":
             else:
                 df_in_edit["row_no"] = df_in_edit.index + 2
                 record_options = df_in_edit.apply(
-                    lambda r: f"列 {r['row_no']}｜{r.get('色粉編號','')}｜{r.get('日期','')}｜{r.get('數量','')} {r.get('單位','')}",
+                    lambda r: (
+                        f"列 {r['row_no']}｜{r.get('色粉編號','')}｜{r.get('日期','')}｜"
+                        f"{r.get('數量','')} {r.get('單位','')}｜ID …{str(r.get('_sync_id',''))[-8:]}"
+                    ),
                     axis=1
                 ).tolist()
                 selected_record = st.selectbox("選擇進貨記錄", [""] + record_options, key="purchase_edit_record")
