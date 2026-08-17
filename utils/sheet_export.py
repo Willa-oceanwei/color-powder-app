@@ -98,16 +98,16 @@ def _sync_outbox(
     with connect_from_config(db_config) as conn:
         pending = conn.execute(
             """SELECT event.id, event.row_key, event.operation, event.payload_json,
-                      event.entity_version
+                      event.entity_version, event.status
                FROM sync_outbox AS event
                WHERE event.sheet_name = ?
-                 AND event.status IN ('pending', 'failed')
+                 AND event.status IN ('pending', 'failed', 'processing')
                  AND event.entity_version = (
                      SELECT MAX(latest.entity_version)
                      FROM sync_outbox AS latest
                      WHERE latest.sheet_name = event.sheet_name
                        AND latest.row_key = event.row_key
-                       AND latest.status IN ('pending', 'failed')
+                       AND latest.status IN ('pending', 'failed', 'processing')
                  )
                ORDER BY event.id""",
             (sheet_name,),
@@ -115,9 +115,27 @@ def _sync_outbox(
         result.queued = len(pending)
         for raw_entry in pending:
             entry = dict(raw_entry) if hasattr(raw_entry, "keys") else dict(
-                zip(("id", "row_key", "operation", "payload_json", "entity_version"), raw_entry)
+                zip(("id", "row_key", "operation", "payload_json", "entity_version", "status"), raw_entry)
             )
             row_key = str(entry["row_key"])
+            recovering_uncertain_write = entry["status"] == "processing"
+            if not dry_run and not recovering_uncertain_write:
+                # Google Sheets append is not transactional. Claim the event and
+                # commit that claim before writing so two concurrent Streamlit runs
+                # cannot both append the same permanent key.
+                conn.execute(
+                    """UPDATE sync_outbox
+                       SET status='processing', attempt_count=attempt_count+1,
+                           processed_at=?, last_error=NULL
+                       WHERE id=? AND status IN ('pending', 'failed')""",
+                    (utc_now_iso(), entry["id"]),
+                )
+                claimed = int(conn.execute("SELECT changes()").fetchone()[0])
+                if claimed == 0:
+                    result.queued -= 1
+                    continue
+                if hasattr(conn, "commit"):
+                    conn.commit()
             if entry["operation"] == "delete":
                 result.conflicts += 1
                 result.warnings.append(f"{row_key}: delete is blocked until tombstones are implemented")
@@ -125,7 +143,7 @@ def _sync_outbox(
                     conn.execute(
                         """UPDATE sync_outbox SET status='conflict', last_error=?
                            WHERE sheet_name=? AND row_key=?
-                             AND entity_version <= ? AND status IN ('pending', 'failed')""",
+                             AND entity_version <= ? AND status IN ('pending', 'failed', 'processing')""",
                         ("Delete requires tombstone workflow", sheet_name, row_key, entry["entity_version"]),
                     )
                 continue
@@ -137,6 +155,11 @@ def _sync_outbox(
                 (sheet_name, row_key),
             ))
             if current_info is None:
+                if recovering_uncertain_write:
+                    reason = "Previous Sheet write outcome is uncertain and the row is absent; automatic retry is blocked"
+                    result.conflicts += 1
+                    result.warnings.append(f"{row_key}: {reason}")
+                    continue
                 if baseline is not None:
                     reason = "Sheet row disappeared after the last sync; automatic recreation is blocked"
                     result.conflicts += 1
@@ -148,13 +171,22 @@ def _sync_outbox(
                         conn.execute(
                             """UPDATE sync_outbox SET status='conflict', last_error=?
                                WHERE sheet_name=? AND row_key=?
-                                 AND entity_version <= ? AND status IN ('pending', 'failed')""",
+                                 AND entity_version <= ? AND status IN ('pending', 'failed', 'processing')""",
                             (reason, sheet_name, row_key, entry["entity_version"]),
                         )
                     continue
                 result.to_insert += 1
                 if not dry_run:
-                    worksheet.append_row([desired.get(header, "") for header in headers])
+                    try:
+                        worksheet.append_row([desired.get(header, "") for header in headers])
+                    except Exception as exc:
+                        conn.execute(
+                            "UPDATE sync_outbox SET status='failed', last_error=? WHERE id=? AND status='processing'",
+                            (f"{type(exc).__name__}: {exc}", entry["id"]),
+                        )
+                        if hasattr(conn, "commit"):
+                            conn.commit()
+                        raise
             else:
                 row_number, current = current_info
                 current = _normalized_payload(current, headers)
@@ -170,7 +202,7 @@ def _sync_outbox(
                         conn.execute(
                             """UPDATE sync_outbox SET status='completed', processed_at=?, last_error=NULL
                                WHERE sheet_name=? AND row_key=?
-                                 AND entity_version <= ? AND status IN ('pending', 'failed')""",
+                                 AND entity_version <= ? AND status IN ('pending', 'failed', 'processing')""",
                             (synced_at, sheet_name, row_key, entry["entity_version"]),
                         )
                     continue
@@ -186,16 +218,25 @@ def _sync_outbox(
                         conn.execute(
                             """UPDATE sync_outbox SET status='conflict', last_error=?
                                WHERE sheet_name=? AND row_key=?
-                                 AND entity_version <= ? AND status IN ('pending', 'failed')""",
+                                 AND entity_version <= ? AND status IN ('pending', 'failed', 'processing')""",
                             (reason, sheet_name, row_key, entry["entity_version"]),
                         )
                     continue
                 result.to_update += 1
                 if not dry_run:
-                    worksheet.update(
-                        f"A{row_number}",
-                        [[desired.get(header, "") for header in headers]],
-                    )
+                    try:
+                        worksheet.update(
+                            f"A{row_number}",
+                            [[desired.get(header, "") for header in headers]],
+                        )
+                    except Exception as exc:
+                        conn.execute(
+                            "UPDATE sync_outbox SET status='failed', last_error=? WHERE id=? AND status='processing'",
+                            (f"{type(exc).__name__}: {exc}", entry["id"]),
+                        )
+                        if hasattr(conn, "commit"):
+                            conn.commit()
+                        raise
             if not dry_run:
                 synced_at = utc_now_iso()
                 upsert_sheet_row(conn, sheet_name, row_key, desired, _row_hash(desired))
@@ -204,10 +245,10 @@ def _sync_outbox(
                     (synced_at, row_key),
                 )
                 conn.execute(
-                    """UPDATE sync_outbox SET status='completed', attempt_count=attempt_count+1,
+                    """UPDATE sync_outbox SET status='completed',
                            processed_at=?, last_error=NULL
                        WHERE sheet_name=? AND row_key=?
-                         AND entity_version <= ? AND status IN ('pending', 'failed')""",
+                         AND entity_version <= ? AND status IN ('pending', 'failed', 'processing')""",
                     (synced_at, sheet_name, row_key, entry["entity_version"]),
                 )
                 result.written += 1

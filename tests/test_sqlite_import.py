@@ -617,6 +617,64 @@ def test_production_order_repository_snapshots_recipe_and_pushes_latest(tmp_path
     assert worksheet.appended[0] == ["O001", "2026-08-17", "R001", "Dark Red", "Customer", "1", "3"]
 
 
+def test_outbox_claim_prevents_concurrent_duplicate_production_append(tmp_path):
+    db = tmp_path / "production-concurrent-push.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {"配方編號": "R001", "色粉編號1": "P001", "色粉重量1": "1"})
+    create_production_order(config, {
+        "生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001", "顏色": "Red",
+    })
+    values = [["生產單號", "生產日期", "配方編號", "顏色"]]
+
+    class ConcurrentWorksheet(WritableWorksheet):
+        def __init__(self):
+            super().__init__()
+            self.concurrent_result = None
+
+        def append_row(self, row):
+            self.concurrent_result = sync_production_order_outbox(
+                self, values, db_config=config, dry_run=False,
+            )
+            super().append_row(row)
+
+    worksheet = ConcurrentWorksheet()
+    applied = sync_production_order_outbox(worksheet, values, db_config=config, dry_run=False)
+
+    assert applied.written == 1
+    assert len(worksheet.appended) == 1
+    assert worksheet.concurrent_result.written == 0
+    assert worksheet.concurrent_result.conflicts == 1
+
+
+def test_processing_outbox_is_reconciled_without_second_append(tmp_path):
+    db = tmp_path / "production-processing-recovery.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {"配方編號": "R001", "色粉編號1": "P001", "色粉重量1": "1"})
+    create_production_order(config, {
+        "生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001", "顏色": "Red",
+    })
+    with connect(db) as conn:
+        conn.execute("UPDATE sync_outbox SET status='completed' WHERE sheet_name != '生產單'")
+        conn.execute("UPDATE sync_outbox SET status='processing' WHERE sheet_name = '生產單'")
+    values = [
+        ["生產單號", "生產日期", "配方編號", "顏色"],
+        ["O001", "2026-08-17", "R001", "Red"],
+    ]
+    worksheet = WritableWorksheet()
+
+    recovered = sync_production_order_outbox(worksheet, values, db_config=config, dry_run=False)
+    verification = sync_production_order_outbox(worksheet, values, db_config=config, dry_run=True)
+
+    assert recovered.unchanged == 1
+    assert recovered.written == 0
+    assert worksheet.appended == []
+    assert verification.queued == 0
+
+
 def test_schema_v7_backfills_production_orders_and_packages_from_baseline(tmp_path):
     db = tmp_path / "legacy-production.db"
     initialize_database(db)
