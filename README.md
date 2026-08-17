@@ -154,6 +154,14 @@ versioned outbox。生產單頁也直接讀 Turso 配方。「設定 → 同步�
 Sheet row 再 append。同步檢查提供 `PUSH 庫存記錄`，而刪除則等待 reversal/tombstone，
 避免歷史庫存無法稽核或重送時重複計量。
 
+Schema v7 新增 `production_orders` 與 `production_order_packages`，並從既有「生產單」
+`sheet_rows` baseline 回填歷史主資料與包裝組。網站建立或修改生產單時會保存當下的
+recipe version/snapshot、最多 4 組包裝資料與完整 Sheet payload，再建立 versioned
+outbox；生產單查詢、預覽與列印改讀 Turso。一般合併會沿用既有生產單永久 ID，
+不再刪除舊 Sheet row 後新增另一個 ID。同步檢查提供 `PUSH 生產單`；取消／刪除留待
+lifecycle 階段。庫存 `_sync_id` 仍永久保存在 Turso、outbox 與 Sheet，但一般網站查詢
+已隱藏此技術欄位，畫面只顯示業務資料。
+
 可以只匯入指定工作表：
 
 ```bash

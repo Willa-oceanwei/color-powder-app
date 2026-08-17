@@ -263,3 +263,15 @@ def sync_inventory_outbox(
         entity_type="inventory_movement", entity_table="inventory_movements",
         entity_id_column="sheet_row_key", dry_run=dry_run, initialize_schema=initialize_schema,
     )
+
+
+def sync_production_order_outbox(
+    worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
+    dry_run: bool = True, initialize_schema: bool = True,
+) -> ExportResult:
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="生產單", key_column="生產單號",
+        entity_type="production_order", entity_table="production_orders",
+        entity_id_column="production_order_id", dry_run=dry_run,
+        initialize_schema=initialize_schema,
+    )

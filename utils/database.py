@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -29,6 +29,8 @@ MAIN_TABLES = {
     "inventory_movements",
     "recipes",
     "recipe_components",
+    "production_orders",
+    "production_order_packages",
     "sheet_rows",
     "sync_state",
     "sync_log",
@@ -385,6 +387,37 @@ def _initialize_schema(conn: SqlExecutor) -> None:
                 ON UPDATE CASCADE ON DELETE RESTRICT
         );
 
+        CREATE TABLE IF NOT EXISTS production_orders (
+            production_order_id TEXT PRIMARY KEY,
+            production_date TEXT,
+            recipe_id TEXT,
+            color TEXT,
+            customer_name TEXT,
+            status TEXT NOT NULL DEFAULT 'draft',
+            payload_json TEXT NOT NULL,
+            recipe_version INTEGER,
+            recipe_snapshot_json TEXT,
+            source TEXT NOT NULL DEFAULT 'sqlite',
+            version INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_synced_at TEXT,
+            FOREIGN KEY (recipe_id) REFERENCES recipes(recipe_id)
+                ON UPDATE CASCADE ON DELETE RESTRICT
+        );
+
+        CREATE TABLE IF NOT EXISTS production_order_packages (
+            production_order_id TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            package_weight REAL NOT NULL DEFAULT 0,
+            package_count REAL NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (production_order_id, position),
+            FOREIGN KEY (production_order_id) REFERENCES production_orders(production_order_id)
+                ON UPDATE CASCADE ON DELETE CASCADE
+        );
+
         CREATE TABLE IF NOT EXISTS sheet_rows (
             sheet_name TEXT NOT NULL,
             row_key TEXT NOT NULL,
@@ -473,6 +506,36 @@ def _initialize_schema(conn: SqlExecutor) -> None:
            )
            WHERE recipes.source != 'app'"""
     )
+    conn.execute(
+        """INSERT OR IGNORE INTO production_orders(
+               production_order_id, production_date, recipe_id, color, customer_name,
+               payload_json, source, version, created_at, updated_at, last_synced_at)
+           SELECT row_key,
+                  json_extract(payload_json, '$."生產日期"'),
+                  CASE WHEN EXISTS(
+                      SELECT 1 FROM recipes
+                      WHERE recipes.recipe_id=json_extract(sheet_rows.payload_json, '$."配方編號"')
+                  ) THEN NULLIF(json_extract(payload_json, '$."配方編號"'), '') ELSE NULL END,
+                  json_extract(payload_json, '$."顏色"'),
+                  json_extract(payload_json, '$."客戶名稱"'),
+                  payload_json, 'google_sheets_import', 1,
+                  COALESCE(last_synced_at, created_at), updated_at, last_synced_at
+           FROM sheet_rows WHERE sheet_name='生產單'"""
+    )
+    for position in range(1, 5):
+        conn.execute(
+            f"""INSERT OR IGNORE INTO production_order_packages(
+                    production_order_id, position, package_weight, package_count, created_at, updated_at)
+                SELECT row_key, ?,
+                       CAST(COALESCE(NULLIF(json_extract(payload_json, '$."包裝重量{position}"'), ''), 0) AS REAL),
+                       CAST(COALESCE(NULLIF(json_extract(payload_json, '$."包裝份數{position}"'), ''), 0) AS REAL),
+                       COALESCE(last_synced_at, created_at), updated_at
+                FROM sheet_rows
+                WHERE sheet_name='生產單'
+                  AND (TRIM(COALESCE(json_extract(payload_json, '$."包裝重量{position}"'), '')) != ''
+                       OR TRIM(COALESCE(json_extract(payload_json, '$."包裝份數{position}"'), '')) != '')""",
+            (position,),
+        )
     conn.execute("UPDATE sheet_rows SET last_seen_at = COALESCE(last_seen_at, updated_at, ?) WHERE last_seen_at IS NULL", (utc_now_iso(),))
     conn.execute(
         "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
@@ -489,6 +552,8 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE INDEX IF NOT EXISTS idx_recipes_updated_at ON recipes(updated_at);
         CREATE INDEX IF NOT EXISTS idx_recipes_customer_id ON recipes(customer_id);
         CREATE INDEX IF NOT EXISTS idx_recipe_components_powder ON recipe_components(colorpowder_id);
+        CREATE INDEX IF NOT EXISTS idx_production_orders_recipe ON production_orders(recipe_id);
+        CREATE INDEX IF NOT EXISTS idx_production_orders_date ON production_orders(production_date);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_sheet_row_key ON suppliers(sheet_row_key) WHERE sheet_row_key IS NOT NULL;
         CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_movement_key ON inventory_movements(movement_key) WHERE movement_key IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_inventory_sheet_row ON inventory_movements(sheet_name, sheet_row_key);

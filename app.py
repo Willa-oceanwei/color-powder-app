@@ -38,7 +38,12 @@ from utils.color_powder_repository import (
     update_color_powder,
 )
 from utils.sheet_export import sync_color_powder_outbox
-from utils.sheet_export import sync_inventory_outbox, sync_recipe_outbox, sync_supplier_outbox
+from utils.sheet_export import (
+    sync_inventory_outbox,
+    sync_production_order_outbox,
+    sync_recipe_outbox,
+    sync_supplier_outbox,
+)
 from utils.supplier_repository import (
     SupplierAlreadyExists,
     SupplierError,
@@ -59,6 +64,12 @@ from utils.inventory_repository import (
     create_inventory_movement,
     list_inventory_movements,
     update_inventory_movement,
+)
+from utils.production_order_repository import (
+    ProductionOrderError,
+    list_production_orders,
+    update_production_order,
+    upsert_production_order,
 )
 
 st.set_page_config(
@@ -994,7 +1005,6 @@ def show_pantone_backfill_reference(df_pantone_reference=None):
 # 需要預載的 Sheet 對應表（Sheet名稱 → session_state key）
 PRELOAD_SHEETS = {
     "客戶名單": "_recipe_customers",
-    "生產單": "df_order",
     "代工管理": "df_oem",
     "試色登錄": "df_trial",
 }
@@ -1081,6 +1091,11 @@ def preload_all_data(force=False):
             ])
         except Exception:
             st.session_state.df_color = pd.DataFrame()
+    if force or not isinstance(st.session_state.get("df_order"), pd.DataFrame):
+        try:
+            st.session_state.df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
+        except Exception:
+            st.session_state.df_order = pd.DataFrame()
 
     # 相容舊程式：配方管理同時會讀 st.session_state.df
     if "df_recipe" in st.session_state:
@@ -4187,11 +4202,11 @@ elif menu == "生產單管理":
     # 這裡原本重複定義了一份一模一樣的版本，每次 load_recipe() 執行都會重建這 3 個函式物件，
     # 已移除，直接沿用模組層級的版本即可，行為完全相同。
 
-    # 生產單 Sheet 尚未遷移；配方則直接讀 Turso。
+    # 生產單與配方都直接讀 Turso；Sheet 由 outbox PUSH 更新。
     try:
-        ws_order = get_cached_worksheet("生產單")
+        df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
     except Exception as e:
-        st.error(f"❌ 無法載入工作表：{e}")
+        st.error(f"❌ 無法從 Turso 載入生產單：{e}")
         st.stop()
     
     # 載入配方管理表
@@ -4212,34 +4227,9 @@ elif menu == "生產單管理":
         st.error(f"❌ 從 Turso 讀取配方失敗：{e}")
         st.stop()
     
-    # 載入生產單表
-    try:
-        df_order = get_cached_sheet_df("生產單")
-        if not df_order.empty:
-            df_order = df_order.astype(str)
-        else:
-            header = [
-                "生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "建立時間",
-                "Pantone 色號", "計量單位", "原料",
-                "包裝重量1", "包裝重量2", "包裝重量3", "包裝重量4",
-                "包裝份數1", "包裝份數2", "包裝份數3", "包裝份數4",
-                "重要提醒", "備註",
-                "色粉編號1", "色粉編號2", "色粉編號3", "色粉編號4",
-                "色粉編號5", "色粉編號6", "色粉編號7", "色粉編號8", "色粉合計",
-                "合計類別"
-            ]
-            ws_order.append_row(header)
-            invalidate_sheet_cache("生產單")
-            df_order = pd.DataFrame(columns=header)
-        st.session_state.df_order = df_order
-    except Exception as e:
-        if order_file.exists():
-            st.warning("⚠️ 無法連線 Google Sheets，改用本地 CSV")
-            df_order = pd.read_csv(order_file, dtype=str).fillna("")
-            st.session_state.df_order = df_order
-        else:
-            st.error(f"❌ 無法讀取生產單資料：{e}")
-            st.stop()
+    if not df_order.empty:
+        df_order = df_order.fillna("").astype(str)
+    st.session_state.df_order = df_order
     
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
@@ -4494,7 +4484,7 @@ elif menu == "生產單管理":
 
         # 優先從最新 Sheet 讀取（避免 session_state 舊資料導致重號）
         try:
-            latest_df = get_cached_sheet_df("生產單", force_reload=True)
+            latest_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
         except Exception:
             latest_df = st.session_state.get("df_order", pd.DataFrame()).copy()
 
@@ -4548,7 +4538,7 @@ elif menu == "生產單管理":
         if not recipe_code:
             return None
         try:
-            df_order_check = get_cached_sheet_df("生產單", force_reload=True)
+            df_order_check = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
         except Exception:
             return None
         if df_order_check.empty or "配方編號" not in df_order_check.columns:
@@ -5322,6 +5312,9 @@ elif menu == "生產單管理":
                 if merge_decision == "merge" and not is_colorant and merge_match.get("生產單號"):
                     old_order_no_for_merge = str(merge_match.get("生產單號", "")).strip()
                     order_nos_to_delete.add(old_order_no_for_merge)
+                    # 合併沿用既有生產單永久 ID，不再刪除舊列後建立新 ID。
+                    order["生產單號"] = old_order_no_for_merge
+                    order_no = old_order_no_for_merge
 
                     # ===== 系統自動計算合併後總量：依「重量數值」比對合併，不是依欄位順序 =====
                     def _fmt_num(v):
@@ -5370,37 +5363,12 @@ elif menu == "生產單管理":
                     order["_merge_old_order_no"] = old_order_no_for_merge
 
                 try:
-                    # ⚠️ 修改後立即重存時，若吃到快取可能找不到舊單而重複 append
-                    # 這裡強制重讀最新資料，確保先刪舊列再寫新列。
-                    sheet_data = get_cached_sheet_df("生產單", force_reload=True).to_dict("records")
-                    rows_to_delete = []
-                    
-                    for idx, row in enumerate(sheet_data, start=2):
-                        if str(row.get("生產單號", "")).strip() in order_nos_to_delete:
-                            rows_to_delete.append(idx)
-                
-                    for r in reversed(rows_to_delete):
-                        ws_order.delete_rows(r)
-                
-                except Exception as e:
-                    st.error(f"❌ 刪除舊生產單失敗：{e}")
-                
-                try:
-                    df_order = df_order[~df_order["生產單號"].astype(str).isin(order_nos_to_delete)]
-                except:
-                    pass
-                
-                try:
-                    header = [col for col in df_order.columns if col and str(col).strip() != ""]
-                    row_data = [str(order.get(col, "")).strip() if order.get(col) is not None else "" for col in header]
-                    ws_order.append_row(row_data)
-                    df_new = pd.DataFrame([order], columns=df_order.columns)
-                    df_order = pd.concat([df_order, df_new], ignore_index=True)
+                    upsert_production_order(DATABASE_CONFIG, order)
+                    df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG)).fillna("").astype(str)
                     df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
-                    invalidate_sheet_cache("生產單")
                     st.session_state.new_order_saved = True
-                    st.success(f"✅ 生產單 {order['生產單號']} 已存！")
+                    st.success(f"✅ 生產單 {order['生產單號']} 已存至 Turso，等待 Sheet PUSH！")
                     # ✅【防止重複儲存】只有真的寫入成功才記住
                     st.session_state.last_saved_order_snapshot = current_snapshot
                 
@@ -5728,7 +5696,7 @@ elif menu == "生產單管理":
  
         if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
             try:
-                latest_order_df = get_cached_sheet_df("生產單", force_reload=True)
+                latest_order_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
                 st.session_state.df_order = latest_order_df.copy()
                 st.toast("已從 Google Sheet 重新載入生產單資料", icon="🔄")
             except Exception as e:
@@ -5862,21 +5830,6 @@ elif menu == "生產單管理":
                 except Exception:
                     continue
             return float(total)
-    
-        def delete_order_by_id(ws, order_id):
-            all_values = get_cached_sheet_df(ws.title).to_dict("records")
-            df = pd.DataFrame(all_values)
-
-            if df.empty:
-                return 0
-
-            target_idx = df.index[df["生產單號"].astype(str) == str(order_id)].tolist()
-            if not target_idx:
-                return 0
-
-            for idx in sorted(target_idx, reverse=True):
-                ws.delete_rows(idx + 2)
-            return len(target_idx)
     
         # ===== 刪除代工單函式 =====
         def delete_oem_by_order_id(ws_oem, order_id):
@@ -6121,54 +6074,10 @@ elif menu == "生產單管理":
                         st.session_state["editing_order"] = order_dict
                 with col_btn2:
                     if st.button("🗑️ 刪除生產單", key="delete_order_btn_tab3"):
-                        st.session_state["delete_target_id"] = selected_code_edit
-                        st.session_state["show_delete_confirm"] = True
+                        st.warning("⚠️ 生產單取消／刪除將在 lifecycle 階段開放，目前未刪除資料。")
 
                 if st.session_state.get("show_delete_confirm", False):
-                    order_id = st.session_state.get("delete_target_id")
-                    order_label = order_id or "未指定生產單"
-
-                    st.warning(f"⚠️ 確定要刪除生產單？\n\n👉 {order_label}")
-
-                    c1, c2 = st.columns(2)
-
-                    if c1.button("✅ 是，刪除", key="confirm_delete_yes_tab3"):
-                        if not order_id:
-                            st.error("❌ 未指定要刪除的生產單 ID")
-                        else:
-                            order_id_str = str(order_id)
-                            try:
-                                # ===== 先刪代工單 =====
-                                deleted_oem_count = 0
-                                try:
-                                    ws_oem = get_cached_worksheet("代工管理")
-                                    deleted_oem_count = delete_oem_by_order_id(ws_oem, order_id_str)
-                                except:
-                                    ws_oem = None
-
-                                if deleted_oem_count > 0:
-                                    st.toast(f"🧹 已自動刪除 {deleted_oem_count} 筆對應代工單")
-
-                                # ===== 再刪生產單 =====
-                                deleted_count = delete_order_by_id(ws_order, order_id_str)
-
-                                if deleted_count > 0:
-                                    invalidate_sheet_cache("生產單")
-                                    st.session_state.df_order = st.session_state.df_order[
-                                        st.session_state.df_order["生產單號"].astype(str) != order_id_str
-                                    ].copy()
-                                    st.session_state["order_toast"] = {
-                                        "msg": f"✅ 已刪除生產單 {order_label}",
-                                        "icon": "🗑️"
-                                    }
-                                else:
-                                    st.error("❌ 找不到該生產單，刪除失敗")
-
-                            except Exception as e:
-                                st.error(f"❌ 刪除時發生錯誤：{e}")
-
-                        st.session_state["show_delete_confirm"] = False
-                        st.rerun()
+                    st.session_state["show_delete_confirm"] = False
            
         # ====== 修改面板（⚠️ 一定要在外層） ======
         if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
@@ -6179,7 +6088,7 @@ elif menu == "生產單管理":
                 unsafe_allow_html=True
             )
         
-            st.caption("⚠️：『儲存修改』僅同步更新 Google Sheets 記錄；若需列印需先刪除原生產單後並重新建立新生產單。")
+            st.caption("修改會先更新 Turso 並建立 Sheet outbox；生產單號是永久 ID。")
         
             order_no = st.session_state.editing_order["生產單號"]
         
@@ -6243,31 +6152,11 @@ elif menu == "生產單管理":
             def save_order_edit(updated_order_dict, sync_oem_qty=False, synced_qty=None):
                 try:
                     with st.spinner("正在儲存修改..."):
-                        # 1️⃣ 找到該生產單在 Sheet 中的位置
-                        all_values = get_cached_sheet_values("生產單")
-                        header = all_values[0]
+                        update_production_order(DATABASE_CONFIG, updated_order_dict)
 
-                        target_row_idx = None
-                        for idx, row in enumerate(all_values[1:], start=2):
-                            if row[0] == order_no:
-                                target_row_idx = idx
-                                break
-
-                        if target_row_idx is None:
-                            st.error(f"❌ 找不到生產單號 {order_no} 在 Google Sheet 中")
-                            st.stop()
-
-                        # 2️⃣ 準備要更新的資料（按欄位順序）
-                        updated_row = [str(updated_order_dict.get(col_name, "")) for col_name in header]
-
-                        # 3️⃣ 一次更新整列
-                        import gspread.utils as utils
-                        end_col = utils.rowcol_to_a1(target_row_idx, len(header)).replace(str(target_row_idx), "")
-                        range_name = f"A{target_row_idx}:{end_col}{target_row_idx}"
-                        ws_order.update(range_name, [updated_row])
-
-                        # 4️⃣ 同步更新對應代工單（使用者確認後才做）
+                        # 同步更新對應代工單（使用者確認後才做）
                         if sync_oem_qty:
+                            import gspread.utils as utils
                             ws_oem = get_cached_worksheet("代工管理")
                             oem_values = get_cached_sheet_values("代工管理")
                             if oem_values and len(oem_values) > 1:
@@ -6290,14 +6179,13 @@ elif menu == "生產單管理":
                                         ws_oem.update(oem_range, [oem_row[:len(oem_header)]])
                                     invalidate_sheet_cache("代工管理")
 
-                        # 5️⃣ 同步更新本地 df_order
+                        # 同步更新本地 df_order
                         mask = df_order["生產單號"] == order_no
                         for key, val in updated_order_dict.items():
                             if key in df_order.columns:
                                 df_order.loc[mask, key] = val
 
                         st.session_state.df_order = df_order
-                        invalidate_sheet_cache("生產單")
                         if sync_oem_qty:
                             st.session_state["order_toast"] = {
                                 "msg": f"✅ 生產單 {order_no} 修改完成，並已同步代工單數量",
@@ -7350,7 +7238,7 @@ if menu == "代工管理":
                     # （即使還沒切過「生產單管理」分頁也能正常預覽）
                     df_order_for_preview = st.session_state.get("df_order")
                     if df_order_for_preview is None or df_order_for_preview.empty:
-                        df_order_for_preview = get_cached_sheet_df("生產單")
+                        df_order_for_preview = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
                     df_recipe_for_preview = st.session_state.get("df_recipe")
                     if df_recipe_for_preview is None or df_recipe_for_preview.empty:
                         df_recipe_for_preview = pd.DataFrame(list_recipes(DATABASE_CONFIG))
@@ -7926,7 +7814,6 @@ elif menu == "採購管理":
                     selected_idx = record_options.index(selected_record)
                     target_row = df_in_edit.iloc[selected_idx].to_dict()
                     sync_id = str(target_row.get("_sync_id", "")).strip()
-                    st.caption(f"永久 _sync_id：{sync_id}（修改前後不會改變）")
 
                     try:
                         edit_date = pd.to_datetime(target_row.get("日期", ""), errors="coerce").date()
@@ -11474,7 +11361,7 @@ def parse_formula_root(code):
 def has_linked_order_record(formula_code):
     """僅檢查是否有對應生產單記錄（不含會計收款判斷）。"""
     try:
-        df_order_chk = get_cached_sheet_df("生產單")
+        df_order_chk = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
     except Exception:
         return False
     if df_order_chk.empty or "配方編號" not in df_order_chk.columns:
@@ -12394,6 +12281,79 @@ if st.session_state.menu == "同步檢查":
                     st.session_state["inventory_push_result"] = verification
                     st.session_state["sync_push_success"] = {
                         "sheet_name": "庫存記錄", "written": applied.written, "queued": verification.queued,
+                    }
+                    st.rerun()
+                except Exception as exc:
+                    if write_started:
+                        st.error("推送可能已部分寫入 Sheet；請勿重按，先重新唯讀檢查。" f"錯誤：{type(exc).__name__}: {exc}")
+                    else:
+                        st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
+
+    st.markdown("#### Turso → Sheet：生產單 outbox")
+    st.caption("生產單保存 recipe version/snapshot；PUSH 重送只更新同一永久生產單號，不會重複扣庫存。")
+    if st.button("檢查待推送生產單（唯讀）", disabled=DATABASE_BACKEND != "turso", key="production_push_dry_run"):
+        try:
+            order_values = get_cached_sheet_values("生產單", force_reload=True)
+            st.session_state["production_push_result"] = sync_production_order_outbox(
+                get_cached_worksheet("生產單"), order_values,
+                db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+            )
+        except Exception as exc:
+            st.session_state.pop("production_push_result", None)
+            st.error(f"生產單推送 preflight 失敗：{type(exc).__name__}: {exc}")
+    production_push_result = st.session_state.get("production_push_result")
+    if production_push_result is not None:
+        values = [
+            ("Queued", production_push_result.queued), ("新增至 Sheet", production_push_result.to_insert),
+            ("更新 Sheet", production_push_result.to_update), ("內容已一致", production_push_result.unchanged),
+            ("Conflict", production_push_result.conflicts), ("Errors", len(production_push_result.errors)),
+        ]
+        for column, (label, value) in zip(st.columns(len(values)), values):
+            column.metric(label, value)
+        if production_push_result.ok and production_push_result.queued:
+            st.success("生產單 preflight 完成：待推送事件安全。")
+        elif production_push_result.ok:
+            st.info("目前沒有待推送的生產單事件。")
+        else:
+            st.warning("生產單 preflight 發現衝突或錯誤；PUSH 已停用。")
+        for title, details in (("Errors", production_push_result.errors), ("Warnings", production_push_result.warnings)):
+            if details:
+                with st.expander(f"生產單 {title}（{len(details)}）", expanded=True):
+                    for detail in details[:100]:
+                        st.code(str(detail), language=None)
+        if production_push_result.ok and production_push_result.queued > 0:
+            confirmation = st.text_input("請輸入 PUSH 生產單", key="production_push_confirmation")
+            if st.button(
+                "推送生產單新增／修改到 Sheet", type="primary",
+                disabled=confirmation.strip() != "PUSH 生產單",
+            ):
+                write_started = False
+                try:
+                    latest_values = get_cached_sheet_values("生產單", force_reload=True)
+                    worksheet = get_cached_worksheet("生產單")
+                    preflight = sync_production_order_outbox(
+                        worksheet, latest_values, db_config=DATABASE_CONFIG,
+                        dry_run=True, initialize_schema=False,
+                    )
+                    if not preflight.ok or preflight.queued == 0:
+                        raise RuntimeError("最新 preflight 不安全或已沒有 pending event；推送已取消。")
+                    write_started = True
+                    applied = sync_production_order_outbox(
+                        worksheet, latest_values, db_config=DATABASE_CONFIG,
+                        dry_run=False, initialize_schema=False,
+                    )
+                    if not applied.ok:
+                        raise RuntimeError("推送期間偵測到 conflict 或 error。")
+                    invalidate_sheet_cache("生產單")
+                    verification = sync_production_order_outbox(
+                        worksheet, get_cached_sheet_values("生產單", force_reload=True),
+                        db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+                    )
+                    if not verification.ok or verification.queued != 0:
+                        raise RuntimeError("Sheet 已寫入，但驗證仍有 pending/conflict；請勿重按 PUSH。")
+                    st.session_state["production_push_result"] = verification
+                    st.session_state["sync_push_success"] = {
+                        "sheet_name": "生產單", "written": applied.written, "queued": verification.queued,
                     }
                     st.rerun()
                 except Exception as exc:

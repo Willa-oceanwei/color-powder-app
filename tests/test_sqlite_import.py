@@ -19,6 +19,7 @@ from utils.database import (
 from utils.sheet_export import (
     sync_color_powder_outbox,
     sync_inventory_outbox,
+    sync_production_order_outbox,
     sync_recipe_outbox,
     sync_supplier_outbox,
 )
@@ -41,6 +42,11 @@ from utils.inventory_repository import (
     create_inventory_movement,
     list_inventory_movements,
     update_inventory_movement,
+)
+from utils.production_order_repository import (
+    create_production_order,
+    list_production_orders,
+    update_production_order,
 )
 from utils.sheet_import import (
     ImportAbortedError,
@@ -574,6 +580,75 @@ def test_inventory_repository_create_update_and_push_is_idempotent(tmp_path):
     assert verification.queued == 0
 
 
+def test_production_order_repository_snapshots_recipe_and_pushes_latest(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {
+        "配方編號": "R001", "顏色": "Red", "色粉編號1": "P001", "色粉重量1": "2",
+    })
+    create_production_order(config, {
+        "生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001",
+        "顏色": "Red", "客戶名稱": "Customer", "包裝重量1": "1", "包裝份數1": "2",
+    })
+    update_production_order(config, {
+        "生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001",
+        "顏色": "Dark Red", "客戶名稱": "Customer", "包裝重量1": "1", "包裝份數1": "3",
+    })
+
+    assert list_production_orders(config)[0]["顏色"] == "Dark Red"
+    with connect(db) as conn:
+        order = conn.execute("SELECT * FROM production_orders WHERE production_order_id='O001'").fetchone()
+        package = conn.execute(
+            "SELECT package_count FROM production_order_packages WHERE production_order_id='O001'"
+        ).fetchone()
+    assert order["recipe_version"] == 1
+    assert '"colorpowder_id": "P001"' in order["recipe_snapshot_json"]
+    assert package["package_count"] == 3
+
+    worksheet = WritableWorksheet()
+    values = [["生產單號", "生產日期", "配方編號", "顏色", "客戶名稱", "包裝重量1", "包裝份數1"]]
+    preflight = sync_production_order_outbox(worksheet, values, db_config=config, dry_run=True)
+    applied = sync_production_order_outbox(worksheet, values, db_config=config, dry_run=False)
+    assert preflight.queued == 1
+    assert preflight.to_insert == 1
+    assert applied.written == 1
+    assert worksheet.appended[0] == ["O001", "2026-08-17", "R001", "Dark Red", "Customer", "1", "3"]
+
+
+def test_schema_v7_backfills_production_orders_and_packages_from_baseline(tmp_path):
+    db = tmp_path / "legacy-production.db"
+    initialize_database(db)
+    payload = {
+        "生產單號": "O001", "生產日期": "2026-08-17", "顏色": "Red",
+        "客戶名稱": "Customer", "包裝重量1": "2", "包裝份數1": "3",
+    }
+    with connect(db) as conn:
+        conn.execute("DELETE FROM schema_migrations WHERE version=7")
+        conn.execute("DROP TABLE production_order_packages")
+        conn.execute("DROP TABLE production_orders")
+        conn.execute(
+            """INSERT INTO sheet_rows(
+                   sheet_name, row_key, payload_json, row_hash, created_at, updated_at,
+                   last_seen_at, last_synced_at)
+               VALUES ('生產單', 'O001', ?, 'hash', '2026-01-01', '2026-01-01',
+                       '2026-01-01', '2026-01-01')""",
+            (json.dumps(payload, ensure_ascii=False),),
+        )
+
+    initialize_database(db)
+
+    with connect(db) as conn:
+        order = conn.execute("SELECT * FROM production_orders WHERE production_order_id='O001'").fetchone()
+        package = conn.execute(
+            "SELECT package_weight, package_count FROM production_order_packages WHERE production_order_id='O001'"
+        ).fetchone()
+    assert order["customer_name"] == "Customer"
+    assert json.loads(order["payload_json"])["顏色"] == "Red"
+    assert (package["package_weight"], package["package_count"]) == (2, 3)
+
+
 def test_recipe_import_persists_components_and_is_idempotent(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
@@ -836,7 +911,7 @@ def test_supplier_import_accepts_supplier_code_and_short_name_headers(tmp_path):
     assert supplier["notes"] == "常用"
 
 
-def test_database_health_check_reports_schema_v6(tmp_path):
+def test_database_health_check_reports_schema_v7(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
     config = database_config_from_secrets({})
@@ -844,7 +919,7 @@ def test_database_health_check_reports_schema_v6(tmp_path):
     health = database_health_check(config)
     assert health.backend == "sqlite"
     assert health.select_1_ok
-    assert health.schema_version == 6
+    assert health.schema_version == 7
     assert health.main_tables_exist
     assert health.schema_compatible
     assert health.missing_required_columns == {}
@@ -1124,7 +1199,7 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     )
     assert "Database backend: sqlite" in lines
     assert "Database health: OK" in lines
-    assert "Schema version: 6" in lines
+    assert "Schema version: 7" in lines
     assert "Required columns present: True" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)
