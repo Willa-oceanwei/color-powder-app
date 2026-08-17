@@ -43,8 +43,10 @@ from utils.supplier_repository import (
 )
 from utils.recipe_repository import create_recipe, list_recipes, set_recipe_active, update_recipe
 from utils.inventory_repository import (
+    InventoryError,
     create_inventory_movement,
     list_inventory_movements,
+    reverse_inventory_movement,
     update_inventory_movement,
 )
 from utils.production_order_repository import (
@@ -658,6 +660,72 @@ def test_inventory_repository_create_update_and_push_is_idempotent(tmp_path):
     assert worksheet.appended[0][-1] == "INV001"
     assert worksheet.appended[0][3] == "3.0"
     assert verification.queued == 0
+
+
+def test_inventory_reversal_is_append_only_and_queued_for_sheet(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_supplier(config, SupplierInput("S001", "Supplier"))
+    create_inventory_movement(config, {
+        "類型": "進貨", "色粉編號": "P001", "日期": "2026/08/17",
+        "數量": 3, "單位": "kg", "廠商編號": "S001", "廠商名稱": "Supplier",
+        "備註": "original", "_sync_id": "INV001",
+    })
+
+    reversal = reverse_inventory_movement(
+        config, "INV001", reason="數量輸入錯誤", reversal_sync_id="REV001"
+    )
+    movements = list_inventory_movements(config)
+
+    assert reversal["類型"] == "沖銷"
+    assert reversal["數量"] == "-3.0"
+    assert [(row["_sync_id"], row["沖銷狀態"]) for row in movements] == [
+        ("INV001", "已沖銷"), ("REV001", "沖銷記錄"),
+    ]
+    assert movements[0]["沖銷記錄ID"] == "REV001"
+    assert movements[1]["沖銷原始ID"] == "sheet:庫存記錄:INV001"
+    with connect(db) as conn:
+        rows = conn.execute(
+            "SELECT quantity, reversed_at, reversal_of_movement_key FROM inventory_movements ORDER BY movement_id"
+        ).fetchall()
+        event = conn.execute(
+            "SELECT operation, row_key, entity_version FROM sync_outbox WHERE row_key='REV001'"
+        ).fetchone()
+    assert sum(row["quantity"] for row in rows) == 0
+    assert rows[0]["reversed_at"]
+    assert rows[1]["reversal_of_movement_key"] == "sheet:庫存記錄:INV001"
+    assert tuple(event) == ("insert", "REV001", 1)
+
+    with pytest.raises(InventoryError, match="已沖銷"):
+        reverse_inventory_movement(config, "INV001", reason="再次沖銷")
+    with pytest.raises(InventoryError, match="不可修改"):
+        update_inventory_movement(config, "INV001", {
+            "類型": "進貨", "色粉編號": "P001", "日期": "2026/08/17",
+            "數量": 1, "單位": "kg",
+        })
+
+
+def test_inventory_reversal_requires_reason_without_changing_original(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_inventory_movement(config, {
+        "類型": "進貨", "色粉編號": "P001", "日期": "2026/08/17",
+        "數量": 2, "單位": "kg", "_sync_id": "INV001",
+    })
+
+    with pytest.raises(InventoryError, match="沖銷原因"):
+        reverse_inventory_movement(config, "INV001", reason="")
+
+    with connect(db) as conn:
+        rows = conn.execute(
+            "SELECT reversed_at FROM inventory_movements WHERE sheet_name='庫存記錄'"
+        ).fetchall()
+    assert len(rows) == 1
+    assert rows[0]["reversed_at"] is None
 
 
 def test_production_order_repository_snapshots_recipe_and_pushes_latest(tmp_path):

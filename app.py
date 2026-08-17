@@ -66,6 +66,7 @@ from utils.inventory_repository import (
     InventoryError,
     create_inventory_movement,
     list_inventory_movements,
+    reverse_inventory_movement,
     update_inventory_movement,
 )
 from utils.production_order_repository import (
@@ -7785,7 +7786,9 @@ elif menu == "採購管理":
                     "日期_dt": "日期",
                     "數量": "數量",
                     "單位": "單位",
-                    "備註": "備註"
+                    "備註": "備註",
+                    "沖銷狀態": "沖銷狀態",
+                    "沖銷記錄ID": "沖銷記錄ID",
                 }
             
                 # ✅ 若舊資料沒有廠商編號/廠商名稱欄位，補空值（避免 KeyError）
@@ -7793,6 +7796,9 @@ elif menu == "採購管理":
                     df_result["廠商編號"] = ""
                 if "廠商名稱" not in df_result.columns:
                     df_result["廠商名稱"] = ""
+                for lifecycle_col in ("沖銷狀態", "沖銷記錄ID"):
+                    if lifecycle_col not in df_result.columns:
+                        df_result[lifecycle_col] = "有效" if lifecycle_col == "沖銷狀態" else ""
             
                 df_display = df_result[list(show_cols.keys())].rename(columns=show_cols)
             
@@ -7814,7 +7820,7 @@ elif menu == "採購管理":
             else:
                 st.info("ℹ️ 沒有符合條件的進貨資料")
     
-    # ========== Tab 3：進貨編輯 / 刪除 ==========
+    # ========== Tab 3：進貨編輯 / 沖銷 ==========
     with tab3:
         try:
             df_stock = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
@@ -7832,7 +7838,8 @@ elif menu == "採購管理":
                 record_options = df_in_edit.apply(
                     lambda r: (
                         f"列 {r['row_no']}｜{r.get('色粉編號','')}｜{r.get('日期','')}｜"
-                        f"{r.get('數量','')} {r.get('單位','')}｜ID …{str(r.get('_sync_id',''))[-8:]}"
+                        f"{r.get('數量','')} {r.get('單位','')}｜{r.get('沖銷狀態','有效')}｜"
+                        f"ID …{str(r.get('_sync_id',''))[-8:]}"
                     ),
                     axis=1
                 ).tolist()
@@ -7842,6 +7849,13 @@ elif menu == "採購管理":
                     selected_idx = record_options.index(selected_record)
                     target_row = df_in_edit.iloc[selected_idx].to_dict()
                     sync_id = str(target_row.get("_sync_id", "")).strip()
+                    is_reversed = str(target_row.get("沖銷狀態", "有效")) == "已沖銷"
+
+                    if is_reversed:
+                        st.warning(
+                            f"此筆進貨已沖銷；沖銷記錄 ID：{target_row.get('沖銷記錄ID', '')}。"
+                            "原始記錄保留供歷史查閱，不能再修改或重複沖銷。"
+                        )
 
                     try:
                         edit_date = pd.to_datetime(target_row.get("日期", ""), errors="coerce").date()
@@ -7866,10 +7880,15 @@ elif menu == "採購管理":
                         edit_supplier_id = c5.text_input("廠商編號", value=str(target_row.get("廠商編號", "")).strip())
                         edit_supplier_name = c6.text_input("廠商名稱", value=str(target_row.get("廠商名稱", "")).strip())
                         edit_note = st.text_input("備註", value=str(target_row.get("備註", "")))
+                        reversal_reason = st.text_input(
+                            "沖銷原因（執行沖銷時必填）",
+                            placeholder="例如：進貨登錄錯誤、數量輸入錯誤",
+                            disabled=is_reversed,
+                        )
 
                         e1, e2 = st.columns(2)
-                        submit_edit = e1.form_submit_button("💾 儲存進貨修改")
-                        submit_delete = e2.form_submit_button("🗑️ 刪除此筆進貨")
+                        submit_edit = e1.form_submit_button("💾 儲存進貨修改", disabled=is_reversed)
+                        submit_reverse = e2.form_submit_button("↩️ 沖銷此筆進貨", disabled=is_reversed)
 
                     if submit_edit:
                         if not edit_powder.strip():
@@ -7886,8 +7905,22 @@ elif menu == "採購管理":
                             st.toast(f"已更新進貨：{edit_powder.strip()}", icon="💾")
                             st.rerun()
 
-                    if submit_delete:
-                        st.warning("⚠️ 庫存 movement 刪除將在 reversal/tombstone 階段開放，目前未刪除資料。")
+                    if submit_reverse:
+                        try:
+                            reversal = reverse_inventory_movement(
+                                DATABASE_CONFIG, sync_id, reason=reversal_reason
+                            )
+                        except InventoryError as exc:
+                            st.error(f"❌ {exc}")
+                        else:
+                            st.session_state.stock_need_reload = True
+                            st.success("✅ 已建立沖銷記錄；原始進貨記錄仍保留")
+                            st.toast(
+                                f"已沖銷 {target_row.get('色粉編號', '')} "
+                                f"{target_row.get('數量', '')} {target_row.get('單位', '')}",
+                                icon="↩️",
+                            )
+                            st.rerun()
 
     # ========== Tab 4：供應商管理 ==========
     with tab4:
