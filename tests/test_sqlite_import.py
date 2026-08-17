@@ -16,7 +16,12 @@ from utils.database import (
     initialize_database,
     log_database_startup_diagnostics,
 )
-from utils.sheet_export import sync_color_powder_outbox, sync_recipe_outbox, sync_supplier_outbox
+from utils.sheet_export import (
+    sync_color_powder_outbox,
+    sync_inventory_outbox,
+    sync_recipe_outbox,
+    sync_supplier_outbox,
+)
 from utils.color_powder_repository import (
     ColorPowderAlreadyExists,
     ColorPowderInput,
@@ -32,6 +37,11 @@ from utils.supplier_repository import (
     update_supplier,
 )
 from utils.recipe_repository import create_recipe, list_recipes, update_recipe
+from utils.inventory_repository import (
+    create_inventory_movement,
+    list_inventory_movements,
+    update_inventory_movement,
+)
 from utils.sheet_import import (
     ImportAbortedError,
     SheetReadError,
@@ -525,6 +535,43 @@ def test_recipe_outbox_pushes_latest_full_row(tmp_path):
     assert preflight.to_insert == 1
     assert applied.written == 1
     assert worksheet.appended == [["R001", "Latest", "P001", "2"]]
+
+
+def test_inventory_repository_create_update_and_push_is_idempotent(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_supplier(config, SupplierInput("S001", "Supplier"))
+    create_inventory_movement(config, {
+        "類型": "進貨", "色粉編號": "P001", "日期": "2026/08/17",
+        "數量": 2, "單位": "kg", "廠商編號": "S001", "廠商名稱": "Supplier",
+        "備註": "first", "_sync_id": "INV001",
+    })
+    update_inventory_movement(config, "INV001", {
+        "類型": "進貨", "色粉編號": "P001", "日期": "2026/08/17",
+        "數量": 3, "單位": "kg", "廠商編號": "S001", "廠商名稱": "Supplier",
+        "備註": "latest",
+    })
+    assert list_inventory_movements(config)[0]["數量"] == "3.0"
+    worksheet = WritableWorksheet()
+    values = [["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"]]
+
+    preflight = sync_inventory_outbox(worksheet, values, db_config=config, dry_run=True)
+    applied = sync_inventory_outbox(worksheet, values, db_config=config, dry_run=False)
+    verification = sync_inventory_outbox(
+        worksheet,
+        [values[0], worksheet.appended[0]],
+        db_config=config,
+        dry_run=True,
+    )
+
+    assert preflight.queued == 1
+    assert preflight.to_insert == 1
+    assert applied.written == 1
+    assert worksheet.appended[0][-1] == "INV001"
+    assert worksheet.appended[0][3] == "3.0"
+    assert verification.queued == 0
 
 
 def test_recipe_import_persists_components_and_is_idempotent(tmp_path):

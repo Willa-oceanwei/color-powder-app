@@ -148,6 +148,12 @@ Schema v6 將 `配方管理` 改為 Turso-first，並在 `recipes` 保存 `oem_m
 versioned outbox。生產單頁也直接讀 Turso 配方。「設定 → 同步檢查」提供
 `PUSH 配方管理`；配方刪除同樣等待 tombstone。
 
+`庫存記錄` 已改為 Turso-first movement ledger。進貨新增、進貨修改、初始庫存與洗車廠
+轉入都先原子寫入 `inventory_movements`，並以永久 `_sync_id` 建立 versioned outbox；
+查詢與庫存計算直接讀 Turso。初始庫存再次儲存會更新同一個永久 movement，不會先刪
+Sheet row 再 append。同步檢查提供 `PUSH 庫存記錄`，而刪除則等待 reversal/tombstone，
+避免歷史庫存無法稽核或重送時重複計量。
+
 可以只匯入指定工作表：
 
 ```bash

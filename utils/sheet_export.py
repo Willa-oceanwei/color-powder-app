@@ -252,3 +252,14 @@ def sync_recipe_outbox(
         entity_type="recipe", entity_table="recipes", entity_id_column="recipe_id",
         dry_run=dry_run, initialize_schema=initialize_schema,
     )
+
+
+def sync_inventory_outbox(
+    worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
+    dry_run: bool = True, initialize_schema: bool = True,
+) -> ExportResult:
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="庫存記錄", key_column="_sync_id",
+        entity_type="inventory_movement", entity_table="inventory_movements",
+        entity_id_column="sheet_row_key", dry_run=dry_run, initialize_schema=initialize_schema,
+    )

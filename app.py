@@ -38,7 +38,7 @@ from utils.color_powder_repository import (
     update_color_powder,
 )
 from utils.sheet_export import sync_color_powder_outbox
-from utils.sheet_export import sync_recipe_outbox, sync_supplier_outbox
+from utils.sheet_export import sync_inventory_outbox, sync_recipe_outbox, sync_supplier_outbox
 from utils.supplier_repository import (
     SupplierAlreadyExists,
     SupplierError,
@@ -53,6 +53,12 @@ from utils.recipe_repository import (
     create_recipe,
     list_recipes,
     update_recipe,
+)
+from utils.inventory_repository import (
+    InventoryError,
+    create_inventory_movement,
+    list_inventory_movements,
+    update_inventory_movement,
 )
 
 st.set_page_config(
@@ -4248,7 +4254,7 @@ elif menu == "生產單管理":
         stock_dict = {}
         
         try:
-            df_stock = get_cached_sheet_df("庫存記錄")
+            df_stock = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
         except Exception as e:
             st.warning(f"⚠️ 無法讀取庫存記錄：{e}")
             return stock_dict
@@ -7638,9 +7644,8 @@ elif menu == "採購管理":
     # ========== Tab 1：進貨新增（Form 版） ==========
     with tab1:
     
-        # ✅ 讀取庫存記錄表（防 rerun）
-        ws_stock = get_or_create_worksheet(spreadsheet, "庫存記錄", rows=100, cols=10)
-        records = get_cached_sheet_df("庫存記錄").to_dict("records")
+        # ✅ Turso 是庫存 movement 正式資料來源
+        records = list_inventory_movements(DATABASE_CONFIG)
         if records:
             df_stock = pd.DataFrame(records)
         else:
@@ -7758,11 +7763,11 @@ elif menu == "採購管理":
                         "_sync_id": uuid.uuid4().hex,
                     }
 
-                    # 只 append 新增列，不再為新增一筆而 clear/update 整張庫存表。
-                    stock_values = get_cached_sheet_values("庫存記錄")
-                    stock_header = stock_values[0] if stock_values else list(new_row.keys())
-                    safe_append_row(ws_stock, [new_row.get(column, "") for column in stock_header])
-                    invalidate_sheet_cache("庫存記錄")
+                    try:
+                        create_inventory_movement(DATABASE_CONFIG, new_row)
+                    except InventoryError as exc:
+                        st.error(f"❌ {exc}")
+                        st.stop()
                     st.session_state.stock_need_reload = True
     
                     # 清空表單
@@ -7786,9 +7791,9 @@ elif menu == "採購管理":
         st.markdown("---")
         if st.button("📥 重新載入庫存資料", key="reload_stock_tab1_bottom", use_container_width=True):
             try:
-                latest_stock_df = get_cached_sheet_df("庫存記錄", force_reload=True)
+                latest_stock_df = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
                 st.session_state.df_stock = latest_stock_df.copy()
-                st.toast("已從 Google Sheet 重新載入庫存資料", icon="🔄")
+                st.toast("已從 Turso 重新載入庫存資料", icon="🔄")
             except Exception as e:
                 st.toast(f"重新載入失敗：{e}", icon="❌")
             st.rerun()
@@ -7798,8 +7803,7 @@ elif menu == "採購管理":
               
         # 讀取庫存記錄表
         try:
-            ws_stock = get_cached_worksheet("庫存記錄")
-            df_stock = get_cached_sheet_df("庫存記錄")
+            df_stock = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
         except:
             df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","備註"])
         
@@ -7896,8 +7900,7 @@ elif menu == "採購管理":
     # ========== Tab 3：進貨編輯 / 刪除 ==========
     with tab3:
         try:
-            ws_stock = get_cached_worksheet("庫存記錄")
-            df_stock = get_cached_sheet_df("庫存記錄")
+            df_stock = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
         except Exception:
             df_stock = pd.DataFrame(columns=["類型","色粉編號","日期","數量","單位","廠商編號","廠商名稱","備註"])
 
@@ -7918,7 +7921,7 @@ elif menu == "採購管理":
                 if selected_record:
                     selected_idx = record_options.index(selected_record)
                     target_row = df_in_edit.iloc[selected_idx].to_dict()
-                    sheet_idx = int(target_row["row_no"]) - 2
+                    sync_id = str(target_row.get("_sync_id", "")).strip()
 
                     try:
                         edit_date = pd.to_datetime(target_row.get("日期", ""), errors="coerce").date()
@@ -7952,34 +7955,19 @@ elif menu == "採購管理":
                         if not edit_powder.strip():
                             st.warning("⚠️ 請輸入色粉編號！")
                         else:
-                            df_stock.loc[sheet_idx, "類型"] = "進貨"
-                            df_stock.loc[sheet_idx, "色粉編號"] = edit_powder.strip()
-                            df_stock.loc[sheet_idx, "日期"] = edit_in_date.strftime("%Y/%m/%d")
-                            df_stock.loc[sheet_idx, "數量"] = edit_qty
-                            df_stock.loc[sheet_idx, "單位"] = edit_unit
-                            df_stock.loc[sheet_idx, "廠商編號"] = edit_supplier_id.strip()
-                            df_stock.loc[sheet_idx, "廠商名稱"] = edit_supplier_name.strip()
-                            df_stock.loc[sheet_idx, "備註"] = edit_note
-
-                            df_upload = df_stock.fillna("").astype(str)
-                            ws_stock.clear()
-                            ws_stock.update([df_upload.columns.tolist()] + df_upload.values.tolist())
-                            invalidate_sheet_cache("庫存記錄")
+                            update_inventory_movement(DATABASE_CONFIG, sync_id, {
+                                "類型": "進貨", "色粉編號": edit_powder.strip(),
+                                "日期": edit_in_date.strftime("%Y/%m/%d"), "數量": edit_qty,
+                                "單位": edit_unit, "廠商編號": edit_supplier_id.strip(),
+                                "廠商名稱": edit_supplier_name.strip(), "備註": edit_note,
+                            })
                             st.session_state.stock_need_reload = True
                             st.success("✅ 進貨紀錄已更新")
                             st.toast(f"已更新進貨：{edit_powder.strip()}", icon="💾")
                             st.rerun()
 
                     if submit_delete:
-                        df_stock = df_stock.drop(index=sheet_idx).reset_index(drop=True)
-                        df_upload = df_stock.fillna("").astype(str)
-                        ws_stock.clear()
-                        ws_stock.update([df_upload.columns.tolist()] + df_upload.values.tolist())
-                        invalidate_sheet_cache("庫存記錄")
-                        st.session_state.stock_need_reload = True
-                        st.success("✅ 已刪除進貨紀錄")
-                        st.toast("已刪除進貨紀錄", icon="🗑️")
-                        st.rerun()
+                        st.warning("⚠️ 庫存 movement 刪除將在 reversal/tombstone 階段開放，目前未刪除資料。")
 
     # ========== Tab 4：供應商管理 ==========
     with tab4:
@@ -8927,13 +8915,6 @@ elif menu == "庫存區":
     # ================================================================
     # ✅ 優化 2：ws_stock 只取一次，4 個 Tab 共用同一個物件
     # ================================================================
-    try:
-        ws_stock = get_cached_worksheet("庫存記錄")
-    except Exception:
-        ws_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
-        ws_stock.append_row(["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"])
-        invalidate_sheet_cache("庫存記錄")
-
     # ================================================================
     # ✅ 優化 3：df_stock 用 TTL 快取，避免每次 rerun 都打 API
     #    只有「寫入成功後」才強制 force_reload=True
@@ -8944,7 +8925,7 @@ elif menu == "庫存區":
     force_reload_stock = st.session_state.pop("stock_need_reload", False)
 
     try:
-        records = get_cached_sheet_df("庫存記錄", force_reload=force_reload_stock).to_dict("records")
+        records = list_inventory_movements(DATABASE_CONFIG)
         df_stock = pd.DataFrame(records) if records else pd.DataFrame(
             columns=["類型", "色粉編號", "日期", "數量", "單位", "備註"]
         )
@@ -9378,36 +9359,6 @@ elif menu == "庫存區":
             # 期初庫存採「日期語意」，寫入日期字串即可（不再要求時間欄位）
             ini_datetime = ini_date.strftime("%Y/%m/%d")
 
-            # ── 步驟 1：找出舊的「初始」列（從快取取，不多打 API）──
-            try:
-                all_values = get_cached_sheet_values("庫存記錄")
-                header = all_values[0] if all_values else []
-
-                # 找出欄位索引
-                try:
-                    type_col_idx  = header.index("類型")
-                    pid_col_idx   = header.index("色粉編號")
-                except ValueError:
-                    type_col_idx, pid_col_idx = 0, 1
-
-                rows_to_delete = []
-                for i, row in enumerate(all_values[1:], start=2):
-                    if (len(row) > type_col_idx and row[type_col_idx].strip() == "初始" and
-                            len(row) > pid_col_idx and row[pid_col_idx].strip() == powder_id):
-                        rows_to_delete.append(i)
-
-                # ── 步驟 2：由後往前刪，避免列號偏移 ──
-                for row_num in reversed(rows_to_delete):
-                    ws_stock.delete_rows(row_num)
-
-            except Exception as e:
-                st.warning(f"⚠️ 無法刪除舊初始庫存：{e}")
-
-            # ── 步驟 3：append 一列新資料（1 次 API）──
-            try:
-                stock_header = get_cached_sheet_values("庫存記錄", force_reload=True)[0]
-            except Exception:
-                stock_header = ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"]
             initial_stock_row = {
                 "類型": "初始",
                 "色粉編號": powder_id,
@@ -9419,10 +9370,17 @@ elif menu == "庫存區":
                 "廠商名稱": "",
                 "_sync_id": uuid.uuid4().hex,
             }
-            safe_append_row(ws_stock, [initial_stock_row.get(column, "") for column in stock_header])
+            existing_initial = df_stock[
+                (df_stock.get("類型", "").astype(str).str.strip() == "初始") &
+                (df_stock.get("色粉編號", "").astype(str).str.strip() == powder_id)
+            ] if not df_stock.empty else pd.DataFrame()
+            if not existing_initial.empty:
+                existing_sync_id = str(existing_initial.iloc[-1].get("_sync_id", "")).strip()
+                update_inventory_movement(DATABASE_CONFIG, existing_sync_id, initial_stock_row)
+            else:
+                create_inventory_movement(DATABASE_CONFIG, initial_stock_row)
 
             # ── 步驟 4：讓下次讀取強制 reload ──
-            invalidate_sheet_cache("庫存記錄")
             st.session_state.stock_need_reload = True
             st.session_state.pop("stock_calc_time", None)   # 讓生產單頁的庫存也重算
 
@@ -10362,7 +10320,7 @@ elif menu == "庫存區":
 
             # ── Step 6: 庫存記錄 ──
             try:
-                df_stock_local = get_cached_sheet_df("庫存記錄").copy()
+                df_stock_local = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
             except Exception:
                 df_stock_local = pd.DataFrame()
 
@@ -11054,20 +11012,6 @@ elif menu == "洗車廠庫存":
                     if io_unit == "包":
                         st.warning("⚠️ 單位為「包」，無法自動換算轉入色粉庫存區，請至【庫存區】手動新增進貨記錄。")
                     else:
-                        try:
-                            ws_main_stock = get_cached_worksheet("庫存記錄")
-                        except Exception:
-                            ws_main_stock = spreadsheet.add_worksheet("庫存記錄", rows=100, cols=10)
-                            ws_main_stock.append_row(
-                                ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註", "_sync_id"]
-                            )
-                            invalidate_sheet_cache("庫存記錄")
-
-                        try:
-                            stock_header = get_cached_sheet_values("庫存記錄")[0]
-                        except Exception:
-                            stock_header = ["類型", "色粉編號", "日期", "數量", "單位", "廠商編號", "廠商名稱", "備註", "_sync_id"]
-
                         transfer_stock_note = "洗車廠出庫轉入" + (f"（{io_note}）" if io_note.strip() else "")
                         stock_field_map = {
                             "類型": "進貨",
@@ -11080,9 +11024,7 @@ elif menu == "洗車廠庫存":
                             "備註": transfer_stock_note,
                             "_sync_id": uuid.uuid4().hex,
                         }
-                        new_stock_row = [stock_field_map.get(col, "") for col in stock_header]
-                        safe_append_row(ws_main_stock, new_stock_row)
-                        invalidate_sheet_cache("庫存記錄")
+                        create_inventory_movement(DATABASE_CONFIG, stock_field_map)
                         st.session_state.stock_need_reload = True
                         st.session_state.pop("stock_calc_time", None)
                         transfer_note = f"，並已轉入色粉庫存區 +{io_qty:g} {stock_field_map['單位']}"
@@ -12374,6 +12316,79 @@ if st.session_state.menu == "同步檢查":
                     st.session_state["recipe_push_result"] = verification
                     st.session_state["sync_push_success"] = {
                         "sheet_name": "配方管理", "written": applied.written, "queued": verification.queued,
+                    }
+                    st.rerun()
+                except Exception as exc:
+                    if write_started:
+                        st.error("推送可能已部分寫入 Sheet；請勿重按，先重新唯讀檢查。" f"錯誤：{type(exc).__name__}: {exc}")
+                    else:
+                        st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
+
+    st.markdown("#### Turso → Sheet：庫存 outbox")
+    st.caption("每筆 movement 使用永久 _sync_id；同一 event 重送不會新增第二筆庫存 movement。")
+    if st.button("檢查待推送庫存（唯讀）", disabled=DATABASE_BACKEND != "turso", key="inventory_push_dry_run"):
+        try:
+            inventory_values = get_cached_sheet_values("庫存記錄", force_reload=True)
+            st.session_state["inventory_push_result"] = sync_inventory_outbox(
+                get_cached_worksheet("庫存記錄"), inventory_values,
+                db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+            )
+        except Exception as exc:
+            st.session_state.pop("inventory_push_result", None)
+            st.error(f"庫存推送 preflight 失敗：{type(exc).__name__}: {exc}")
+    inventory_push_result = st.session_state.get("inventory_push_result")
+    if inventory_push_result is not None:
+        values = [
+            ("Queued", inventory_push_result.queued), ("新增至 Sheet", inventory_push_result.to_insert),
+            ("更新 Sheet", inventory_push_result.to_update), ("內容已一致", inventory_push_result.unchanged),
+            ("Conflict", inventory_push_result.conflicts), ("Errors", len(inventory_push_result.errors)),
+        ]
+        for column, (label, value) in zip(st.columns(len(values)), values):
+            column.metric(label, value)
+        if inventory_push_result.ok and inventory_push_result.queued:
+            st.success("庫存 preflight 完成：永久 ID 與待推送事件安全。")
+        elif inventory_push_result.ok:
+            st.info("目前沒有待推送的庫存事件。")
+        else:
+            st.warning("庫存 preflight 發現衝突或錯誤；PUSH 已停用。")
+        for title, details in (("Errors", inventory_push_result.errors), ("Warnings", inventory_push_result.warnings)):
+            if details:
+                with st.expander(f"庫存 {title}（{len(details)}）", expanded=True):
+                    for detail in details[:100]:
+                        st.code(str(detail), language=None)
+        if inventory_push_result.ok and inventory_push_result.queued > 0:
+            confirmation = st.text_input("請輸入 PUSH 庫存記錄", key="inventory_push_confirmation")
+            if st.button(
+                "推送庫存新增／修改到 Sheet", type="primary",
+                disabled=confirmation.strip() != "PUSH 庫存記錄",
+            ):
+                write_started = False
+                try:
+                    latest_values = get_cached_sheet_values("庫存記錄", force_reload=True)
+                    worksheet = get_cached_worksheet("庫存記錄")
+                    preflight = sync_inventory_outbox(
+                        worksheet, latest_values, db_config=DATABASE_CONFIG,
+                        dry_run=True, initialize_schema=False,
+                    )
+                    if not preflight.ok or preflight.queued == 0:
+                        raise RuntimeError("最新 preflight 不安全或已沒有 pending event；推送已取消。")
+                    write_started = True
+                    applied = sync_inventory_outbox(
+                        worksheet, latest_values, db_config=DATABASE_CONFIG,
+                        dry_run=False, initialize_schema=False,
+                    )
+                    if not applied.ok:
+                        raise RuntimeError("推送期間偵測到 conflict 或 error。")
+                    invalidate_sheet_cache("庫存記錄")
+                    verification = sync_inventory_outbox(
+                        worksheet, get_cached_sheet_values("庫存記錄", force_reload=True),
+                        db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+                    )
+                    if not verification.ok or verification.queued != 0:
+                        raise RuntimeError("Sheet 已寫入，但驗證仍有 pending/conflict；請勿重按 PUSH。")
+                    st.session_state["inventory_push_result"] = verification
+                    st.session_state["sync_push_success"] = {
+                        "sheet_name": "庫存記錄", "written": applied.written, "queued": verification.queued,
                     }
                     st.rerun()
                 except Exception as exc:
