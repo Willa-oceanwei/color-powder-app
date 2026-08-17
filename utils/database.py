@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -37,6 +37,7 @@ MAIN_TABLES = {
 }
 REQUIRED_TABLE_COLUMNS = {
     "inventory_movements": {"supplier_id", "supplier_name"},
+    "recipes": {"oem_multiplier"},
 }
 
 
@@ -362,6 +363,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             sheet_created_at TEXT,
             notes TEXT,
             important_notice TEXT,
+            oem_multiplier REAL NOT NULL DEFAULT 1,
             source TEXT NOT NULL DEFAULT 'sqlite',
             version INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
@@ -458,6 +460,19 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     _add_column_if_missing(conn, "inventory_movements", "supplier_name", "TEXT")
     _add_column_if_missing(conn, "sheet_rows", "sheet_updated_at", "TEXT")
     _add_column_if_missing(conn, "sheet_rows", "last_seen_at", "TEXT")
+    _add_column_if_missing(conn, "recipes", "oem_multiplier", "REAL NOT NULL DEFAULT 1")
+    conn.execute(
+        """UPDATE recipes
+           SET oem_multiplier = COALESCE(
+               (SELECT CAST(json_extract(sheet_rows.payload_json, '$."代工倍率"') AS REAL)
+                FROM sheet_rows
+                WHERE sheet_rows.sheet_name='配方管理'
+                  AND sheet_rows.row_key=recipes.recipe_id
+                  AND TRIM(COALESCE(json_extract(sheet_rows.payload_json, '$."代工倍率"'), '')) != ''),
+               oem_multiplier
+           )
+           WHERE recipes.source != 'app'"""
+    )
     conn.execute("UPDATE sheet_rows SET last_seen_at = COALESCE(last_seen_at, updated_at, ?) WHERE last_seen_at IS NULL", (utc_now_iso(),))
     conn.execute(
         "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",

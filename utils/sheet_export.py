@@ -241,3 +241,14 @@ def sync_supplier_outbox(
         entity_type="supplier", entity_table="suppliers", entity_id_column="supplier_id",
         dry_run=dry_run, initialize_schema=initialize_schema,
     )
+
+
+def sync_recipe_outbox(
+    worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
+    dry_run: bool = True, initialize_schema: bool = True,
+) -> ExportResult:
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="配方管理", key_column="配方編號",
+        entity_type="recipe", entity_table="recipes", entity_id_column="recipe_id",
+        dry_run=dry_run, initialize_schema=initialize_schema,
+    )

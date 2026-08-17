@@ -38,7 +38,7 @@ from utils.color_powder_repository import (
     update_color_powder,
 )
 from utils.sheet_export import sync_color_powder_outbox
-from utils.sheet_export import sync_supplier_outbox
+from utils.sheet_export import sync_recipe_outbox, sync_supplier_outbox
 from utils.supplier_repository import (
     SupplierAlreadyExists,
     SupplierError,
@@ -46,6 +46,13 @@ from utils.supplier_repository import (
     create_supplier,
     list_suppliers,
     update_supplier,
+)
+from utils.recipe_repository import (
+    RecipeAlreadyExists,
+    RecipeError,
+    create_recipe,
+    list_recipes,
+    update_recipe,
 )
 
 st.set_page_config(
@@ -980,9 +987,7 @@ def show_pantone_backfill_reference(df_pantone_reference=None):
 
 # 需要預載的 Sheet 對應表（Sheet名稱 → session_state key）
 PRELOAD_SHEETS = {
-    "配方管理": "df_recipe",
     "客戶名單": "_recipe_customers",
-    "色粉管理": "df_color",
     "生產單": "df_order",
     "代工管理": "df_oem",
     "試色登錄": "df_trial",
@@ -1052,6 +1057,24 @@ def preload_all_data(force=False):
             df["配方編號"] = df["配方編號"].astype(str).map(clean_powder_id)
 
         st.session_state[state_key] = df
+
+    if force or not isinstance(st.session_state.get("df_recipe"), pd.DataFrame):
+        try:
+            st.session_state.df_recipe = pd.DataFrame(list_recipes(DATABASE_CONFIG))
+        except Exception:
+            st.session_state.df_recipe = pd.DataFrame()
+    if force or not isinstance(st.session_state.get("df_color"), pd.DataFrame):
+        try:
+            st.session_state.df_color = pd.DataFrame([
+                {
+                    "色粉編號": row.get("colorpowder_id", ""), "國際色號": row.get("international_code", ""),
+                    "名稱": row.get("name", ""), "色粉類別": row.get("category", ""),
+                    "包裝": row.get("package", ""), "備註": row.get("notes", ""),
+                }
+                for row in list_color_powders(DATABASE_CONFIG)
+            ])
+        except Exception:
+            st.session_state.df_color = pd.DataFrame()
 
     # 相容舊程式：配方管理同時會讀 st.session_state.df
     if "df_recipe" in st.session_state:
@@ -2407,7 +2430,7 @@ def init_states(keys):
 def load_recipe(force_reload=False):
         """嘗試依序載入配方資料，來源：Google Sheet > CSV > 空 DataFrame"""
         try:
-            df_loaded = get_cached_sheet_df("配方管理", force_reload=force_reload)
+            df_loaded = pd.DataFrame(list_recipes(DATABASE_CONFIG))
             if not df_loaded.empty:
                 return df_loaded
         except Exception as e:
@@ -2752,13 +2775,14 @@ elif menu == "配方管理":
     # 📌 資料載入：只有第一次進入、或寫入後才重新讀 Google Sheet
     # ================================================================
     def load_recipe_section_data():
-        """重新從 Google Sheet 讀取配方管理所需的三張表"""
+        """從 Turso 讀取配方/色粉，客戶名單暫由 Google Sheet 提供。"""
 
         # 1️⃣ 配方管理
         try:
-            df_r = get_cached_sheet_df("配方管理", force_reload=True)
-        except:
-            df_r = pd.DataFrame(columns=columns)
+            df_r = pd.DataFrame(list_recipes(DATABASE_CONFIG), columns=columns).fillna("").astype(str)
+        except Exception as exc:
+            st.error(f"❌ 無法從 Turso 載入配方：{exc}")
+            st.stop()
 
         for col in columns:
             if col not in df_r.columns:
@@ -2768,11 +2792,19 @@ elif menu == "配方管理":
 
         # 2️⃣ 色粉管理
         try:
-            df_p = get_cached_sheet_df("色粉管理", force_reload=True)
+            df_p = pd.DataFrame([
+                {
+                    "色粉編號": row.get("colorpowder_id", ""), "國際色號": row.get("international_code", ""),
+                    "名稱": row.get("name", ""), "色粉類別": row.get("category", ""),
+                    "包裝": row.get("package", ""), "備註": row.get("notes", ""),
+                }
+                for row in list_color_powders(DATABASE_CONFIG)
+            ])
             if "色粉編號" not in df_p.columns:
                 df_p = pd.DataFrame(columns=["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"])
-        except:
-            df_p = pd.DataFrame(columns=["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"])
+        except Exception as exc:
+            st.error(f"❌ 無法從 Turso 載入色粉：{exc}")
+            st.stop()
 
         # 3️⃣ 客戶名單
         try:
@@ -2789,16 +2821,6 @@ elif menu == "配方管理":
     # ── 只有第一次進入、或寫入後重置旗標才重讀 ──
     if not st.session_state.get("recipe_data_loaded", False):
         load_recipe_section_data()
-
-    # 取出 worksheet 物件（不耗 quota）
-    try:
-        ws_recipe = get_cached_worksheet("配方管理")
-    except:
-        try:
-            ws_recipe = spreadsheet.add_worksheet("配方管理", rows=500, cols=50)
-        except:
-            st.error("❌ 無法建立工作表")
-            st.stop()
 
     # 取出 DataFrame（全程用 session_state，不重讀 Sheet）
     df           = st.session_state.df
@@ -2817,51 +2839,16 @@ elif menu == "配方管理":
     ]
 
     # ================================================================
-    # ✅ 共用：儲存配方到 Google Sheet（append 或 update 單列，不整表覆寫）
+    # ✅ 共用：原子寫入 Turso 主表/components 並建立 outbox
     # ================================================================
     def save_recipe_row(df_to_save, is_edit=False, edit_index=None):
-        """
-        新增用 append_row（1 次 API）
-        修改用 update 單列（1 次 API）
-        同時更新 session_state，不重讀整表
-        """
-        all_values = []
-        try:
-            all_values = get_cached_sheet_values("配方管理")
-            header     = all_values[0] if all_values else df_to_save.columns.tolist()
-        except:
-            header = df_to_save.columns.tolist()
-
         if is_edit and edit_index is not None:
-            # 找到這筆配方在 Sheet 中的列號
-            recipe_id = str(df_to_save.loc[edit_index, "配方編號"]).strip()
-            target_row_idx = None
-            if all_values:
-                for i, row in enumerate(all_values[1:], start=2):
-                    if row[0].strip() == recipe_id:
-                        target_row_idx = i
-                        break
-
-            if target_row_idx:
-                import gspread.utils as gu
-                updated_row = [str(df_to_save.loc[edit_index].get(col, "")) for col in header]
-                end_col = gu.rowcol_to_a1(target_row_idx, len(header)).rstrip("0123456789")
-                ws_recipe.update(
-                    f"A{target_row_idx}:{end_col}{target_row_idx}",
-                    [updated_row]
-                )
-            else:
-                # 找不到就 append（保險機制）
-                new_row = [str(df_to_save.loc[edit_index].get(col, "")) for col in header]
-                ws_recipe.append_row(new_row)
+            update_recipe(DATABASE_CONFIG, df_to_save.loc[edit_index].to_dict())
         else:
-            # 新增：只 append 最後一列
             last_idx = df_to_save.index[-1]
-            new_row  = [str(df_to_save.loc[last_idx].get(col, "")) for col in header]
-            ws_recipe.append_row(new_row)
+            create_recipe(DATABASE_CONFIG, df_to_save.loc[last_idx].to_dict())
 
         # 同步 session_state
-        invalidate_sheet_cache("配方管理")
         st.session_state.df        = df_to_save
         st.session_state.df_recipe = df_to_save
         return True
@@ -3082,9 +3069,9 @@ elif menu == "配方管理":
                         df.iloc[edit_idx] = pd.Series(fr, index=df.columns)
                         try:
                             save_recipe_row(df, is_edit=True, edit_index=edit_idx)
-                            st.session_state.recipe_toast = {"msg": f"配方 {fr['配方編號']} 已同步到 Google Sheet", "icon": "✅"}
+                            st.session_state.recipe_toast = {"msg": f"配方 {fr['配方編號']} 已更新 Turso，等待 Sheet PUSH", "icon": "✅"}
                         except Exception as e:
-                            st.session_state.recipe_toast = {"msg": f"更新失敗（未同步到 Google Sheet）：{e}", "icon": "❌"}
+                            st.session_state.recipe_toast = {"msg": f"更新 Turso 失敗：{e}", "icon": "❌"}
                             st.rerun()
                     else:
                         new_recipe_code = clean_powder_id(fr["配方編號"])
@@ -3097,9 +3084,9 @@ elif menu == "配方管理":
                             df = pd.concat([df,pd.DataFrame([fr])], ignore_index=True)
                             try:
                                 save_recipe_row(df, is_edit=False)
-                                st.session_state.recipe_toast = {"msg": f"新增配方 {fr['配方編號']} 成功，已同步到 Google Sheet", "icon": "✅"}
+                                st.session_state.recipe_toast = {"msg": f"新增配方 {fr['配方編號']} 至 Turso，等待 Sheet PUSH", "icon": "✅"}
                             except Exception as e:
-                                st.session_state.recipe_toast = {"msg": f"新增失敗（未同步到 Google Sheet）：{e}", "icon": "❌"}
+                                st.session_state.recipe_toast = {"msg": f"新增 Turso 失敗：{e}", "icon": "❌"}
                                 st.rerun()
     
                     st.session_state.form_recipe       = {col:"" for col in columns}
@@ -3140,7 +3127,7 @@ elif menu == "配方管理":
         st.markdown("---")
         if st.button("📥 重新載入配方資料", key="reload_recipe_data_tab1", use_container_width=True):
             try:
-                latest_df = get_cached_sheet_df("配方管理", force_reload=True)
+                latest_df = pd.DataFrame(list_recipes(DATABASE_CONFIG))
                 st.session_state.df = latest_df.copy()
                 st.session_state.df_recipe = latest_df.copy()
                 st.session_state.recipe_toast = {"msg": "已從 Google Sheet 重新載入配方資料", "icon": "🔄"}
@@ -3334,45 +3321,10 @@ elif menu == "配方管理":
                             st.rerun()
                     with col_right:
                         if st.button("🗑️ 刪除", key=f"delete_recipe_btn_tab3_{selected_code}"):
-                            st.session_state.show_delete_recipe_confirm = True
-                            st.session_state.delete_recipe_code         = selected_code
+                            st.warning("⚠️ 配方刪除將在 tombstone 階段開放，目前未刪除任何資料。")
 
                     if st.session_state.get("show_delete_recipe_confirm", False):
-                        code = st.session_state["delete_recipe_code"]
-                        idx  = df_recipe[df_recipe["配方編號"] == code].index[0]
-                        c1, c2 = st.columns(2)
-                        with c1:
-                            if st.button("✅ 是，刪除", key="confirm_delete_recipe_yes_tab3"):
-                                st.session_state.pop("select_recipe_code_page_tab3", None)
-                                df_recipe.drop(idx, inplace=True)
-                                df_recipe.reset_index(drop=True, inplace=True)
-
-                                # ✅ 整表覆寫只在刪除時用（無法 append）
-                                ws_recipe.clear()
-                                ws_recipe.update(
-                                    "A1",
-                                    [df_recipe.columns.tolist()] +
-                                    df_recipe.fillna("").astype(str).values.tolist()
-                                )
-                                invalidate_sheet_cache("配方管理")
-                                st.session_state.df_recipe = df_recipe
-                                st.session_state.df        = df_recipe
-
-                                st.success(f"✅ 已刪除 {code}")
-                                st.session_state.show_delete_recipe_confirm = False
-                                st.session_state["recipe_tab3_toast"] = {
-                                    "msg": f"已刪除配方：{code}",
-                                    "icon": "🗑️"
-                                }
-                                st.rerun()
-                        with c2:
-                            if st.button("取消", key="confirm_delete_recipe_no_tab3"):
-                                st.session_state.show_delete_recipe_confirm = False
-                                st.session_state["recipe_tab3_toast"] = {
-                                    "msg": "已取消刪除配方",
-                                    "icon": "↩️"
-                                }
-                                st.rerun()
+                        st.session_state.show_delete_recipe_confirm = False
 
             # ── 修改配方面板 ──
             if st.session_state.get("show_edit_recipe_panel") and st.session_state.get("editing_recipe_code"):
@@ -4174,18 +4126,14 @@ pre {{
                                             new_recipe.setdefault(f"色粉編號{i}", "")
                                             new_recipe.setdefault(f"色粉重量{i}", "")
 
-                                        all_vals = get_cached_sheet_values("配方管理")
-                                        existing_columns = all_vals[0] if all_vals else list(new_recipe.keys())
-                                        new_row = [new_recipe.get(col, "") for col in existing_columns]
-                                        ws_recipe.append_row(new_row)
-                                        invalidate_sheet_cache("配方管理")
+                                        create_recipe(DATABASE_CONFIG, new_recipe)
 
                                         df_recipe_new = pd.concat(
                                             [df_recipe, pd.DataFrame([new_recipe])], ignore_index=True
                                         )
                                         st.session_state.df_recipe = df_recipe_new
                                         st.session_state.df        = df_recipe_new
-                                        st.success(f"✅ 配方 {calc['new_code']} 已新增！")
+                                        st.success(f"✅ 配方 {calc['new_code']} 已新增至 Turso，等待 Sheet PUSH！")
                                         st.balloons()
                                     except Exception as e:
                                         st.error(f"❌ 新增失敗：{e}")
@@ -4233,9 +4181,8 @@ elif menu == "生產單管理":
     # 這裡原本重複定義了一份一模一樣的版本，每次 load_recipe() 執行都會重建這 3 個函式物件，
     # 已移除，直接沿用模組層級的版本即可，行為完全相同。
 
-    # 先嘗試取得 Google Sheet 兩個工作表 ws_recipe、ws_order
+    # 生產單 Sheet 尚未遷移；配方則直接讀 Turso。
     try:
-        ws_recipe = get_cached_worksheet("配方管理")
         ws_order = get_cached_worksheet("生產單")
     except Exception as e:
         st.error(f"❌ 無法載入工作表：{e}")
@@ -4243,7 +4190,7 @@ elif menu == "生產單管理":
     
     # 載入配方管理表
     try:
-        df_recipe = get_cached_sheet_df("配方管理")
+        df_recipe = pd.DataFrame(list_recipes(DATABASE_CONFIG))
         df_recipe.columns = df_recipe.columns.str.strip()
         df_recipe.fillna("", inplace=True)
     
@@ -4256,7 +4203,7 @@ elif menu == "生產單管理":
     
         st.session_state.df_recipe = df_recipe
     except Exception as e:
-        st.error(f"❌ 讀取『配方管理』工作表失敗：{e}")
+        st.error(f"❌ 從 Turso 讀取配方失敗：{e}")
         st.stop()
     
     # 載入生產單表
@@ -7400,7 +7347,7 @@ if menu == "代工管理":
                         df_order_for_preview = get_cached_sheet_df("生產單")
                     df_recipe_for_preview = st.session_state.get("df_recipe")
                     if df_recipe_for_preview is None or df_recipe_for_preview.empty:
-                        df_recipe_for_preview = get_cached_sheet_df("配方管理")
+                        df_recipe_for_preview = pd.DataFrame(list_recipes(DATABASE_CONFIG))
 
                     render_oem_status_cards(
                         df_progress_open,
@@ -11720,7 +11667,7 @@ if menu == "試色記錄分析":
                 elif formula_code in df_trial["配方編號"].astype(str).str.upper().values:
                     st.toast(f"配方編號 {formula_code} 已存在，請勿重複", icon="🚫")
                 else:
-                    recipe_df_check = get_cached_sheet_df("配方管理")
+                    recipe_df_check = pd.DataFrame(list_recipes(DATABASE_CONFIG))
                     if not recipe_df_check.empty and "配方編號" in recipe_df_check.columns:
                         existing_recipe_codes = set(recipe_df_check["配方編號"].astype(str).map(clean_powder_id))
                         if clean_powder_id(formula_code) in existing_recipe_codes:
@@ -12345,6 +12292,93 @@ if st.session_state.menu == "同步檢查":
                             "推送可能已部分寫入 Google Sheet；請勿再次按 PUSH，先重新執行唯讀檢查。"
                             f"錯誤：{type(exc).__name__}: {exc}"
                         )
+                    else:
+                        st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
+
+    st.markdown("#### Turso → Sheet：配方 outbox")
+    st.caption("每筆配方的主資料與最多 8 筆 components 已在 Turso transaction 內完成；PUSH 只更新該配方 Sheet row。")
+    if st.button("檢查待推送配方（唯讀）", disabled=DATABASE_BACKEND != "turso", key="recipe_push_dry_run"):
+        try:
+            recipe_values = get_cached_sheet_values("配方管理", force_reload=True)
+            st.session_state["recipe_push_result"] = sync_recipe_outbox(
+                get_cached_worksheet("配方管理"), recipe_values,
+                db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+            )
+        except Exception as exc:
+            st.session_state.pop("recipe_push_result", None)
+            st.error(f"配方推送 preflight 失敗：{type(exc).__name__}: {exc}")
+
+    recipe_push_result = st.session_state.get("recipe_push_result")
+    if recipe_push_result is not None:
+        recipe_metrics = [
+            ("Queued", recipe_push_result.queued), ("新增至 Sheet", recipe_push_result.to_insert),
+            ("更新 Sheet", recipe_push_result.to_update), ("內容已一致", recipe_push_result.unchanged),
+            ("Conflict", recipe_push_result.conflicts), ("Errors", len(recipe_push_result.errors)),
+        ]
+        for column, (label, value) in zip(st.columns(len(recipe_metrics)), recipe_metrics):
+            column.metric(label, value)
+        if recipe_push_result.ok and recipe_push_result.queued:
+            st.success("配方 preflight 完成：待推送事件沒有偵測到衝突。")
+        elif recipe_push_result.ok:
+            st.info("目前沒有待推送的配方事件。")
+        else:
+            st.warning("配方 preflight 發現衝突或錯誤；PUSH 已停用。")
+        for title, details in (("Errors", recipe_push_result.errors), ("Warnings", recipe_push_result.warnings)):
+            if details:
+                with st.expander(f"配方 {title}（{len(details)}）", expanded=True):
+                    for detail in details[:100]:
+                        st.code(str(detail), language=None)
+        recipe_report = {
+            "backend": DATABASE_BACKEND, "direction": "turso_to_google_sheets",
+            "sheet_name": "配方管理", "dry_run": True, "queued": recipe_push_result.queued,
+            "insert": recipe_push_result.to_insert, "update": recipe_push_result.to_update,
+            "unchanged": recipe_push_result.unchanged, "written": recipe_push_result.written,
+            "conflicts": recipe_push_result.conflicts, "errors": recipe_push_result.errors,
+            "warnings": recipe_push_result.warnings,
+        }
+        st.download_button(
+            "下載配方推送 Preflight JSON", data=json.dumps(recipe_report, ensure_ascii=False, indent=2),
+            file_name="turso_to_sheet_recipes.json", mime="application/json",
+        )
+        if recipe_push_result.ok and recipe_push_result.queued > 0:
+            recipe_confirmation = st.text_input("請輸入 PUSH 配方管理", key="recipe_push_confirmation")
+            if st.button(
+                "推送配方新增／修改到 Sheet", type="primary",
+                disabled=recipe_confirmation.strip() != "PUSH 配方管理",
+            ):
+                write_started = False
+                try:
+                    latest_values = get_cached_sheet_values("配方管理", force_reload=True)
+                    worksheet = get_cached_worksheet("配方管理")
+                    preflight = sync_recipe_outbox(
+                        worksheet, latest_values, db_config=DATABASE_CONFIG,
+                        dry_run=True, initialize_schema=False,
+                    )
+                    if not preflight.ok or preflight.queued == 0:
+                        st.session_state["recipe_push_result"] = preflight
+                        raise RuntimeError("最新 preflight 不安全或已沒有 pending event；推送已取消。")
+                    write_started = True
+                    applied = sync_recipe_outbox(
+                        worksheet, latest_values, db_config=DATABASE_CONFIG,
+                        dry_run=False, initialize_schema=False,
+                    )
+                    if not applied.ok:
+                        raise RuntimeError("推送期間偵測到 conflict 或 error。")
+                    invalidate_sheet_cache("配方管理")
+                    verification = sync_recipe_outbox(
+                        worksheet, get_cached_sheet_values("配方管理", force_reload=True),
+                        db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+                    )
+                    if not verification.ok or verification.queued != 0:
+                        raise RuntimeError("Sheet 已寫入，但驗證仍有 pending/conflict；請勿重按 PUSH。")
+                    st.session_state["recipe_push_result"] = verification
+                    st.session_state["sync_push_success"] = {
+                        "sheet_name": "配方管理", "written": applied.written, "queued": verification.queued,
+                    }
+                    st.rerun()
+                except Exception as exc:
+                    if write_started:
+                        st.error("推送可能已部分寫入 Sheet；請勿重按，先重新唯讀檢查。" f"錯誤：{type(exc).__name__}: {exc}")
                     else:
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 

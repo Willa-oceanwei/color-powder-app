@@ -142,6 +142,12 @@ preflight，下載包含 queued/insert/update/unchanged/conflict 的 JSON。只�
 Sheet PUSH 才能選到新供應商。「設定 → 同步檢查」提供獨立的供應商 preflight JSON
 與 `PUSH 供應商管理`；刪除仍須等待 tombstone。
 
+Schema v6 將 `配方管理` 改為 Turso-first，並在 `recipes` 保存 `oem_multiplier`；升級時
+會從既有 `sheet_rows` baseline 回填倍率，避免舊配方遺失資料。配方新增或修改會在
+同一 transaction 寫入 recipe 主表、完整替換該配方最多 8 筆 components，並建立
+versioned outbox。生產單頁也直接讀 Turso 配方。「設定 → 同步檢查」提供
+`PUSH 配方管理`；配方刪除同樣等待 tombstone。
+
 可以只匯入指定工作表：
 
 ```bash

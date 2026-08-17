@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+import json
 import logging
 
 import pytest
@@ -15,7 +16,7 @@ from utils.database import (
     initialize_database,
     log_database_startup_diagnostics,
 )
-from utils.sheet_export import sync_color_powder_outbox, sync_supplier_outbox
+from utils.sheet_export import sync_color_powder_outbox, sync_recipe_outbox, sync_supplier_outbox
 from utils.color_powder_repository import (
     ColorPowderAlreadyExists,
     ColorPowderInput,
@@ -30,6 +31,7 @@ from utils.supplier_repository import (
     list_suppliers,
     update_supplier,
 )
+from utils.recipe_repository import create_recipe, list_recipes, update_recipe
 from utils.sheet_import import (
     ImportAbortedError,
     SheetReadError,
@@ -160,6 +162,33 @@ def test_current_schema_migrates_inventory_supplier_columns(tmp_path):
     with connect(db) as conn:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(inventory_movements)")}
     assert {"supplier_id", "supplier_name"}.issubset(columns)
+
+
+def test_schema_v6_backfills_recipe_oem_multiplier_from_sheet_baseline(tmp_path):
+    db = tmp_path / "legacy-recipe.db"
+    initialize_database(db)
+    with connect(db) as conn:
+        conn.execute("DELETE FROM schema_migrations WHERE version=6")
+        conn.execute(
+            """INSERT INTO recipes(recipe_id, source, created_at, updated_at, oem_multiplier)
+               VALUES ('R001', 'google_sheets_import', '2026-01-01', '2026-01-01', 1)"""
+        )
+        conn.execute(
+            """INSERT INTO sheet_rows(
+                   sheet_name, row_key, payload_json, row_hash, created_at, updated_at,
+                   last_seen_at, last_synced_at)
+               VALUES ('配方管理', 'R001', ?, 'hash', '2026-01-01', '2026-01-01',
+                       '2026-01-01', '2026-01-01')""",
+            (json.dumps({"配方編號": "R001", "代工倍率": "2.5"}, ensure_ascii=False),),
+        )
+
+    initialize_database(db)
+
+    with connect(db) as conn:
+        multiplier = conn.execute(
+            "SELECT oem_multiplier FROM recipes WHERE recipe_id='R001'"
+        ).fetchone()[0]
+    assert multiplier == 2.5
 
 
 def test_import_color_powders_validates_duplicates(tmp_path):
@@ -447,6 +476,57 @@ def test_supplier_outbox_coalesces_and_pushes_latest_payload(tmp_path):
     assert [row["status"] for row in statuses] == ["completed", "completed"]
 
 
+def test_recipe_repository_atomically_replaces_components_and_queues(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_color_powder(config, ColorPowderInput("P002"))
+    create_recipe(config, {
+        "配方編號": "R001", "顏色": "Red", "代工倍率": "1.5",
+        "色粉編號1": "P001", "色粉重量1": "2",
+    })
+    update_recipe(config, {
+        "配方編號": "R001", "顏色": "Dark Red", "代工倍率": "2",
+        "色粉編號1": "P002", "色粉重量1": "3",
+    })
+
+    recipes = list_recipes(config)
+    assert recipes[0]["顏色"] == "Dark Red"
+    assert recipes[0]["代工倍率"] == "2.0"
+    assert recipes[0]["色粉編號1"] == "P002"
+    with connect(db) as conn:
+        components = conn.execute(
+            "SELECT colorpowder_id, weight FROM recipe_components WHERE recipe_id='R001'"
+        ).fetchall()
+        events = conn.execute(
+            "SELECT operation, entity_version FROM sync_outbox WHERE sheet_name='配方管理' ORDER BY id"
+        ).fetchall()
+    assert [(row["colorpowder_id"], row["weight"]) for row in components] == [("P002", 3)]
+    assert [(row["operation"], row["entity_version"]) for row in events] == [
+        ("insert", 1), ("update", 2),
+    ]
+
+
+def test_recipe_outbox_pushes_latest_full_row(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {"配方編號": "R001", "顏色": "First", "色粉編號1": "P001", "色粉重量1": "1"})
+    update_recipe(config, {"配方編號": "R001", "顏色": "Latest", "色粉編號1": "P001", "色粉重量1": "2"})
+    worksheet = WritableWorksheet()
+    values = [["配方編號", "顏色", "色粉編號1", "色粉重量1"]]
+
+    preflight = sync_recipe_outbox(worksheet, values, db_config=config, dry_run=True)
+    applied = sync_recipe_outbox(worksheet, values, db_config=config, dry_run=False)
+
+    assert preflight.queued == 1
+    assert preflight.to_insert == 1
+    assert applied.written == 1
+    assert worksheet.appended == [["R001", "Latest", "P001", "2"]]
+
+
 def test_recipe_import_persists_components_and_is_idempotent(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
@@ -709,7 +789,7 @@ def test_supplier_import_accepts_supplier_code_and_short_name_headers(tmp_path):
     assert supplier["notes"] == "常用"
 
 
-def test_database_health_check_reports_schema_v5(tmp_path):
+def test_database_health_check_reports_schema_v6(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
     config = database_config_from_secrets({})
@@ -717,7 +797,7 @@ def test_database_health_check_reports_schema_v5(tmp_path):
     health = database_health_check(config)
     assert health.backend == "sqlite"
     assert health.select_1_ok
-    assert health.schema_version == 5
+    assert health.schema_version == 6
     assert health.main_tables_exist
     assert health.schema_compatible
     assert health.missing_required_columns == {}
@@ -997,7 +1077,7 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     )
     assert "Database backend: sqlite" in lines
     assert "Database health: OK" in lines
-    assert "Schema version: 5" in lines
+    assert "Schema version: 6" in lines
     assert "Required columns present: True" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)
