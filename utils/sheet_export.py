@@ -95,8 +95,8 @@ def _sync_outbox(
         return result
 
     started_at = utc_now_iso()
-    with connect_from_config(db_config) as conn:
-        pending = conn.execute(
+    with connect_from_config(db_config) as read_conn:
+        pending = read_conn.execute(
             """SELECT event.id, event.row_key, event.operation, event.payload_json,
                       event.entity_version, event.status
                FROM sync_outbox AS event
@@ -112,59 +112,62 @@ def _sync_outbox(
                ORDER BY event.id""",
             (sheet_name,),
         ).fetchall()
-        result.queued = len(pending)
-        claimed_ids: set[int] = set()
-        if not dry_run:
-            # Claim all currently claimable events in one short-lived session before
-            # any Google Sheets I/O. This avoids both concurrent appends and a
-            # mid-session libsql commit.
-            with connect_from_config(db_config) as claim_conn:
-                for raw_entry in pending:
-                    candidate = dict(raw_entry) if hasattr(raw_entry, "keys") else dict(
-                        zip(("id", "row_key", "operation", "payload_json", "entity_version", "status"), raw_entry)
-                    )
-                    if candidate["status"] == "processing":
-                        continue
-                    claimed_row = claim_conn.execute(
-                        """UPDATE sync_outbox
-                           SET status='processing', attempt_count=attempt_count+1,
-                               processed_at=?, last_error=NULL
-                           WHERE id=? AND status IN ('pending', 'failed')
-                           RETURNING id""",
-                        (utc_now_iso(), candidate["id"]),
-                    ).fetchone()
-                    if claimed_row is not None:
-                        claimed_ids.add(int(candidate["id"]))
-        for raw_entry in pending:
-            entry = dict(raw_entry) if hasattr(raw_entry, "keys") else dict(
-                zip(("id", "row_key", "operation", "payload_json", "entity_version", "status"), raw_entry)
-            )
-            row_key = str(entry["row_key"])
-            recovering_uncertain_write = entry["status"] == "processing"
-            if not dry_run and not recovering_uncertain_write:
-                if int(entry["id"]) not in claimed_ids:
-                    result.queued -= 1
+    entries = [
+        dict(row) if hasattr(row, "keys") else dict(
+            zip(("id", "row_key", "operation", "payload_json", "entity_version", "status"), row)
+        )
+        for row in pending
+    ]
+    result.queued = len(entries)
+
+    claimed_ids: set[int] = set()
+    if not dry_run:
+        # Claim in a fully isolated session. No read/processing connection remains
+        # open while this transaction commits, which is required by remote libsql.
+        with connect_from_config(db_config) as claim_conn:
+            for entry in entries:
+                if entry["status"] == "processing":
                     continue
+                claimed = claim_conn.execute(
+                    """UPDATE sync_outbox
+                       SET status='processing', attempt_count=attempt_count+1,
+                           processed_at=?, last_error=NULL
+                       WHERE id=? AND status IN ('pending', 'failed')
+                       RETURNING id""",
+                    (utc_now_iso(), entry["id"]),
+                ).fetchone()
+                if claimed is not None:
+                    claimed_ids.add(int(entry["id"]))
+
+    for entry in entries:
+        row_key = str(entry["row_key"])
+        recovering = entry["status"] == "processing"
+        if not dry_run and not recovering and int(entry["id"]) not in claimed_ids:
+            result.queued -= 1
+            continue
+        payload = json.loads(entry["payload_json"] or "{}")
+        desired = _normalized_payload(payload, headers)
+        current_info = sheet_rows.get(row_key)
+        action: str | None = None
+
+        with connect_from_config(db_config) as decision_conn:
+            baseline = _fetchone_mapping(decision_conn.execute(
+                "SELECT row_hash FROM sheet_rows WHERE sheet_name=? AND row_key=?",
+                (sheet_name, row_key),
+            ))
             if entry["operation"] == "delete":
                 result.conflicts += 1
                 result.warnings.append(f"{row_key}: delete is blocked until tombstones are implemented")
                 if not dry_run:
-                    conn.execute(
+                    decision_conn.execute(
                         """UPDATE sync_outbox SET status='conflict', last_error=?
-                           WHERE sheet_name=? AND row_key=?
-                             AND entity_version <= ? AND status IN ('pending', 'failed', 'processing')""",
+                           WHERE sheet_name=? AND row_key=? AND entity_version <= ?
+                             AND status IN ('pending', 'failed', 'processing')""",
                         ("Delete requires tombstone workflow", sheet_name, row_key, entry["entity_version"]),
                     )
                 continue
-            payload = json.loads(entry["payload_json"] or "{}")
-            desired = _normalized_payload(payload, headers)
-            current_info = sheet_rows.get(row_key)
-            baseline = _fetchone_mapping(conn.execute(
-                "SELECT row_hash FROM sheet_rows WHERE sheet_name=? AND row_key=?",
-                (sheet_name, row_key),
-            ))
             if current_info is None:
-                if recovering_uncertain_write:
+                if recovering:
                     reason = "Previous Sheet write outcome is uncertain and the row is absent; automatic retry is blocked"
                     result.conflicts += 1
                     result.warnings.append(f"{row_key}: {reason}")
@@ -174,92 +177,82 @@ def _sync_outbox(
                     result.conflicts += 1
                     if not dry_run:
                         record_sync_conflict(
-                            conn, entity_type=entity_type, entity_id=row_key,
+                            decision_conn, entity_type=entity_type, entity_id=row_key,
                             sqlite_payload=desired, sheet_payload=None, reason=reason,
                         )
-                        conn.execute(
+                        decision_conn.execute(
                             """UPDATE sync_outbox SET status='conflict', last_error=?
-                               WHERE sheet_name=? AND row_key=?
-                                 AND entity_version <= ? AND status IN ('pending', 'failed', 'processing')""",
+                               WHERE sheet_name=? AND row_key=? AND entity_version <= ?
+                                 AND status IN ('pending', 'failed', 'processing')""",
                             (reason, sheet_name, row_key, entry["entity_version"]),
                         )
                     continue
                 result.to_insert += 1
-                if not dry_run:
-                    try:
-                        worksheet.append_row([desired.get(header, "") for header in headers])
-                    except Exception as exc:
-                        conn.execute(
-                            "UPDATE sync_outbox SET status='failed', last_error=? WHERE id=? AND status='processing'",
-                            (f"{type(exc).__name__}: {exc}", entry["id"]),
-                        )
-                        raise
+                action = "insert"
             else:
-                row_number, current = current_info
-                current = _normalized_payload(current, headers)
+                row_number, raw_current = current_info
+                current = _normalized_payload(raw_current, headers)
                 if current == desired:
                     result.unchanged += 1
-                    if not dry_run:
-                        synced_at = utc_now_iso()
-                        upsert_sheet_row(conn, sheet_name, row_key, desired, _row_hash(desired))
-                        conn.execute(
-                            f"UPDATE {entity_table} SET last_synced_at=? WHERE {entity_id_column}=?",
-                            (synced_at, row_key),
-                        )
-                        conn.execute(
-                            """UPDATE sync_outbox SET status='completed', processed_at=?, last_error=NULL
-                               WHERE sheet_name=? AND row_key=?
-                                 AND entity_version <= ? AND status IN ('pending', 'failed', 'processing')""",
-                            (synced_at, sheet_name, row_key, entry["entity_version"]),
-                        )
-                    continue
-                sheet_changed = baseline is None or baseline["row_hash"] != _row_hash(current)
-                if sheet_changed:
+                    action = "acknowledge"
+                elif baseline is None or baseline["row_hash"] != _row_hash(current):
                     reason = "Both Turso and Google Sheet changed after the last sync"
                     result.conflicts += 1
                     if not dry_run:
                         record_sync_conflict(
-                            conn, entity_type=entity_type, entity_id=row_key,
+                            decision_conn, entity_type=entity_type, entity_id=row_key,
                             sqlite_payload=desired, sheet_payload=current, reason=reason,
                         )
-                        conn.execute(
+                        decision_conn.execute(
                             """UPDATE sync_outbox SET status='conflict', last_error=?
-                               WHERE sheet_name=? AND row_key=?
-                                 AND entity_version <= ? AND status IN ('pending', 'failed', 'processing')""",
+                               WHERE sheet_name=? AND row_key=? AND entity_version <= ?
+                                 AND status IN ('pending', 'failed', 'processing')""",
                             (reason, sheet_name, row_key, entry["entity_version"]),
                         )
                     continue
-                result.to_update += 1
-                if not dry_run:
-                    try:
-                        worksheet.update(
-                            f"A{row_number}",
-                            [[desired.get(header, "") for header in headers]],
-                        )
-                    except Exception as exc:
-                        conn.execute(
-                            "UPDATE sync_outbox SET status='failed', last_error=? WHERE id=? AND status='processing'",
-                            (f"{type(exc).__name__}: {exc}", entry["id"]),
-                        )
-                        raise
-            if not dry_run:
-                synced_at = utc_now_iso()
-                upsert_sheet_row(conn, sheet_name, row_key, desired, _row_hash(desired))
-                conn.execute(
-                    f"UPDATE {entity_table} SET last_synced_at=? WHERE {entity_id_column}=?",
-                    (synced_at, row_key),
+                else:
+                    result.to_update += 1
+                    action = "update"
+
+        if dry_run:
+            continue
+        try:
+            # Never keep a Turso/libsql session open during Google API I/O.
+            if action == "insert":
+                worksheet.append_row([desired.get(header, "") for header in headers])
+            elif action == "update":
+                worksheet.update(
+                    f"A{current_info[0]}",
+                    [[desired.get(header, "") for header in headers]],
                 )
-                conn.execute(
-                    """UPDATE sync_outbox SET status='completed',
-                           processed_at=?, last_error=NULL
-                       WHERE sheet_name=? AND row_key=?
-                         AND entity_version <= ? AND status IN ('pending', 'failed', 'processing')""",
-                    (synced_at, sheet_name, row_key, entry["entity_version"]),
+        except Exception as exc:
+            with connect_from_config(db_config) as failure_conn:
+                failure_conn.execute(
+                    "UPDATE sync_outbox SET status='failed', last_error=? WHERE id=? AND status='processing'",
+                    (f"{type(exc).__name__}: {exc}", entry["id"]),
                 )
-                result.written += 1
-        if not dry_run:
+            raise
+
+        synced_at = utc_now_iso()
+        with connect_from_config(db_config) as finalize_conn:
+            upsert_sheet_row(finalize_conn, sheet_name, row_key, desired, _row_hash(desired))
+            finalize_conn.execute(
+                f"UPDATE {entity_table} SET last_synced_at=? WHERE {entity_id_column}=?",
+                (synced_at, row_key),
+            )
+            finalize_conn.execute(
+                """UPDATE sync_outbox SET status='completed', processed_at=?, last_error=NULL
+                   WHERE sheet_name=? AND row_key=? AND entity_version <= ?
+                     AND status IN ('pending', 'failed', 'processing')""",
+                (synced_at, sheet_name, row_key, entry["entity_version"]),
+            )
+        if action in {"insert", "update"}:
+            result.written += 1
+
+    if not dry_run:
+        with connect_from_config(db_config) as log_conn:
             record_sync_log(
-                conn, sync_name=f"outbox:{sheet_name}", direction="turso_to_google_sheets",
+                log_conn, sync_name=f"outbox:{sheet_name}", direction="turso_to_google_sheets",
                 status="success" if result.ok else "completed_with_conflicts",
                 started_at=started_at, finished_at=utc_now_iso(), read_count=result.queued,
                 written_count=result.written, error_count=len(result.errors) + result.conflicts,

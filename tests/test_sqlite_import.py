@@ -4,6 +4,7 @@ import logging
 import sqlite3
 
 import pytest
+import utils.sheet_export as sheet_export_module
 
 from utils.database import (
     DatabaseConfig,
@@ -720,6 +721,42 @@ def test_processing_outbox_is_reconciled_without_second_append(tmp_path):
     assert recovered.written == 0
     assert worksheet.appended == []
     assert verification.queued == 0
+
+
+def test_outbox_push_never_overlaps_database_sessions(tmp_path, monkeypatch):
+    db = tmp_path / "isolated-outbox-sessions.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {"配方編號": "R001", "色粉編號1": "P001", "色粉重量1": "1"})
+    create_production_order(config, {
+        "生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001", "顏色": "Red",
+    })
+    original_connect = sheet_export_module.connect_from_config
+    active_sessions = 0
+
+    @contextmanager
+    def tracked_connect(tracked_config):
+        nonlocal active_sessions
+        assert active_sessions == 0, "outbox opened overlapping database sessions"
+        active_sessions += 1
+        try:
+            with original_connect(tracked_config) as conn:
+                yield conn
+        finally:
+            active_sessions -= 1
+
+    monkeypatch.setattr(sheet_export_module, "connect_from_config", tracked_connect)
+    worksheet = WritableWorksheet()
+    applied = sync_production_order_outbox(
+        worksheet,
+        [["生產單號", "生產日期", "配方編號", "顏色"]],
+        db_config=config,
+        dry_run=False,
+    )
+
+    assert applied.written == 1
+    assert active_sessions == 0
 
 
 def test_schema_v7_backfills_production_orders_and_packages_from_baseline(tmp_path):
