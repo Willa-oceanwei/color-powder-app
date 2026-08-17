@@ -290,6 +290,12 @@ def import_sheet_values(
                 str(db_row[0]).strip()
                 for db_row in conn.execute("SELECT colorpowder_id FROM color_powders").fetchall()
             }
+        known_production_recipe_ids: set[str] | None = None
+        if sheet_name == "生產單":
+            known_production_recipe_ids = {
+                str(db_row[0]).strip()
+                for db_row in conn.execute("SELECT recipe_id FROM recipes").fetchall()
+            }
         for index, row in enumerate(rows):
             row_key = _row_key(sheet_name, row, index)
             if not row_key:
@@ -467,9 +473,9 @@ def import_sheet_values(
                                recipe_id, color, customer_id, customer_name, recipe_category, status,
                                original_recipe, powder_category, measurement_unit, pantone_code,
                                ratio1, ratio2, ratio3, net_weight, net_weight_unit, total_category,
-                               sheet_created_at, notes, important_notice, source, created_at, updated_at,
+                               sheet_created_at, notes, important_notice, oem_multiplier, source, created_at, updated_at,
                                last_synced_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                                    'google_sheets_import', ?, ?, ?)
                            ON CONFLICT(recipe_id) DO UPDATE SET
                                color=excluded.color,
@@ -490,6 +496,7 @@ def import_sheet_values(
                                sheet_created_at=excluded.sheet_created_at,
                                notes=excluded.notes,
                                important_notice=excluded.important_notice,
+                               oem_multiplier=excluded.oem_multiplier,
                                source=excluded.source,
                                version=recipes.version + 1,
                                updated_at=excluded.updated_at,
@@ -514,6 +521,7 @@ def import_sheet_values(
                             row.get("建檔時間", ""),
                             row.get("備註", ""),
                             row.get("重要提醒", ""),
+                            _safe_float(row.get("代工倍率", 1)) or 1,
                             synced_at if entity is None else entity["created_at"],
                             entity_updated_at,
                             synced_at,
@@ -527,6 +535,64 @@ def import_sheet_values(
                                ) VALUES (?, ?, ?, ?, ?, ?)""",
                             (recipe_id, position, powder_id, weight, synced_at, synced_at),
                         )
+                    result.inserted_or_updated += 1
+
+            elif sheet_name == "生產單":
+                order_id = row.get("生產單號", "").strip()
+                recipe_id = row.get("配方編號", "").strip()
+                if recipe_id and known_production_recipe_ids is not None and recipe_id not in known_production_recipe_ids:
+                    result.errors.append(f"row {index + 2}: unknown 配方編號 {recipe_id}; import 配方管理 first")
+                    continue
+                entity = _fetchone_mapping(conn.execute(
+                    "SELECT * FROM production_orders WHERE production_order_id=?", (order_id,)
+                ))
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn,
+                            entity_type="production_order",
+                            entity_id=order_id,
+                            sqlite_payload=dict(entity),
+                            sheet_payload=row,
+                            reason="Database production order exists but no Sheet sync baseline exists",
+                        )
+                    continue
+                if existed and _entity_changed_since_sync(entity):
+                    result.conflicts += 1
+                    continue
+                if not dry_run:
+                    synced_at = utc_now_iso()
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
+                    conn.execute(
+                        """INSERT INTO production_orders(
+                               production_order_id, production_date, recipe_id, color, customer_name,
+                               payload_json, source, created_at, updated_at, last_synced_at)
+                           VALUES (?, ?, ?, ?, ?, ?, 'google_sheets_import', ?, ?, ?)
+                           ON CONFLICT(production_order_id) DO UPDATE SET
+                               production_date=excluded.production_date, recipe_id=excluded.recipe_id,
+                               color=excluded.color, customer_name=excluded.customer_name,
+                               payload_json=excluded.payload_json, source=excluded.source,
+                               version=production_orders.version+1, updated_at=excluded.updated_at,
+                               last_synced_at=excluded.last_synced_at""",
+                        (
+                            order_id, row.get("生產日期", ""), recipe_id or None,
+                            row.get("顏色", ""), row.get("客戶名稱", ""),
+                            json.dumps(row, ensure_ascii=False), synced_at,
+                            _sheet_updated_at(row) or synced_at, synced_at,
+                        ),
+                    )
+                    conn.execute("DELETE FROM production_order_packages WHERE production_order_id=?", (order_id,))
+                    for position in range(1, 5):
+                        weight = _safe_float(row.get(f"包裝重量{position}", 0))
+                        count = _safe_float(row.get(f"包裝份數{position}", 0))
+                        if weight or count:
+                            conn.execute(
+                                """INSERT INTO production_order_packages(
+                                       production_order_id, position, package_weight, package_count,
+                                       created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)""",
+                                (order_id, position, weight, count, synced_at, synced_at),
+                            )
                     result.inserted_or_updated += 1
 
             elif sheet_name == "庫存記錄":
