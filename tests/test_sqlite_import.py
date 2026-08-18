@@ -50,8 +50,10 @@ from utils.inventory_repository import (
     update_inventory_movement,
 )
 from utils.production_order_repository import (
+    ProductionOrderError,
     create_production_order,
     list_production_orders,
+    set_production_order_cancelled,
     update_production_order,
 )
 from utils.sheet_import import (
@@ -763,6 +765,65 @@ def test_production_order_repository_snapshots_recipe_and_pushes_latest(tmp_path
     assert preflight.to_insert == 1
     assert applied.written == 1
     assert worksheet.appended[0] == ["O001", "2026-08-17", "R001", "Dark Red", "Customer", "1", "3"]
+
+
+def test_production_order_cancel_restore_preserves_history_and_queues_updates(tmp_path):
+    db = tmp_path / "production-lifecycle.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {"配方編號": "R001", "色粉編號1": "P001", "色粉重量1": "1"})
+    create_production_order(config, {
+        "生產單號": "O001", "生產日期": "2026-08-17", "配方編號": "R001",
+        "顏色": "Red", "客戶名稱": "Customer", "包裝重量1": "1", "包裝份數1": "2",
+    })
+
+    cancelled = set_production_order_cancelled(
+        config, "O001", cancelled=True, reason="客戶取消"
+    )
+
+    assert cancelled["取消狀態"] == "已取消"
+    assert list_production_orders(config) == []
+    historical = list_production_orders(config, include_cancelled=True)[0]
+    assert historical["生產單號"] == "O001"
+    assert historical["取消原因"] == "客戶取消"
+    with connect(db) as conn:
+        entity = conn.execute(
+            "SELECT cancelled_at, cancel_reason, recipe_snapshot_json FROM production_orders WHERE production_order_id='O001'"
+        ).fetchone()
+        events = conn.execute(
+            "SELECT operation, entity_version FROM sync_outbox WHERE sheet_name='生產單' ORDER BY id"
+        ).fetchall()
+    assert entity["cancelled_at"]
+    assert entity["cancel_reason"] == "客戶取消"
+    assert '"colorpowder_id": "P001"' in entity["recipe_snapshot_json"]
+    assert [tuple(row) for row in events] == [("insert", 1), ("update", 2)]
+
+    with pytest.raises(ProductionOrderError, match="已取消"):
+        update_production_order(config, historical)
+    with pytest.raises(ProductionOrderError, match="已取消"):
+        set_production_order_cancelled(config, "O001", cancelled=True, reason="再次取消")
+
+    restored = set_production_order_cancelled(config, "O001", cancelled=False)
+    assert restored["取消狀態"] == "有效"
+    assert list_production_orders(config)[0]["生產單號"] == "O001"
+    with connect(db) as conn:
+        entity = conn.execute(
+            "SELECT status, cancelled_at, cancel_reason FROM production_orders WHERE production_order_id='O001'"
+        ).fetchone()
+    assert tuple(entity) == ("draft", None, None)
+
+
+def test_production_order_cancel_requires_reason(tmp_path):
+    db = tmp_path / "production-cancel-reason.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_production_order(config, {"生產單號": "O001", "生產日期": "2026-08-17"})
+
+    with pytest.raises(ProductionOrderError, match="取消原因"):
+        set_production_order_cancelled(config, "O001", cancelled=True, reason="")
+
+    assert list_production_orders(config)[0]["取消狀態"] == "有效"
 
 
 def test_outbox_claim_prevents_concurrent_duplicate_production_append(tmp_path):

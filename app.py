@@ -72,6 +72,7 @@ from utils.inventory_repository import (
 from utils.production_order_repository import (
     ProductionOrderError,
     list_production_orders,
+    set_production_order_cancelled,
     update_production_order,
     upsert_production_order,
 )
@@ -4221,7 +4222,7 @@ elif menu == "生產單管理":
 
     # 生產單與配方都直接讀 Turso；Sheet 由 outbox PUSH 更新。
     try:
-        df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
+        df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
     except Exception as e:
         st.error(f"❌ 無法從 Turso 載入生產單：{e}")
         st.stop()
@@ -4501,7 +4502,7 @@ elif menu == "生產單管理":
 
         # 優先從最新 Sheet 讀取（避免 session_state 舊資料導致重號）
         try:
-            latest_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
+            latest_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
         except Exception:
             latest_df = st.session_state.get("df_order", pd.DataFrame()).copy()
 
@@ -4555,7 +4556,7 @@ elif menu == "生產單管理":
         if not recipe_code:
             return None
         try:
-            df_order_check = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
+            df_order_check = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
         except Exception:
             return None
         if df_order_check.empty or "配方編號" not in df_order_check.columns:
@@ -4611,7 +4612,7 @@ elif menu == "生產單管理":
         """
         <script>
         const storageKey = "order_mgmt_active_tab";
-        const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"];
+        const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/取消"];
 
         function bindOrderTabs() {
             const doc = window.parent.document;
@@ -4647,7 +4648,7 @@ elif menu == "生產單管理":
         height=0,
     )
 
-    tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/刪除"])
+    tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/取消"])
     # ============================================================
     # Tab 1: 生產單建立
     # ============================================================
@@ -5381,7 +5382,7 @@ elif menu == "生產單管理":
 
                 try:
                     upsert_production_order(DATABASE_CONFIG, order)
-                    df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG)).fillna("").astype(str)
+                    df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True)).fillna("").astype(str)
                     df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
                     st.session_state.new_order_saved = True
@@ -5713,7 +5714,7 @@ elif menu == "生產單管理":
  
         if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
             try:
-                latest_order_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
+                latest_order_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
                 st.session_state.df_order = latest_order_df.copy()
                 st.toast("已從 Turso 重新載入生產單資料", icon="🔄")
             except Exception as e:
@@ -5805,7 +5806,7 @@ elif menu == "生產單管理":
         if not page_data.empty:
             page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
     
-        display_cols = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "建立時間"]
+        display_cols = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "取消狀態", "取消原因", "建立時間"]
         existing_cols = [c for c in display_cols if c in page_data.columns]
     
         if not page_data.empty and existing_cols:
@@ -5827,7 +5828,7 @@ elif menu == "生產單管理":
         )
 
     # ============================================================
-    # Tab 3: 生產單預覽/修改/刪除
+    # Tab 3: 生產單預覽/修改/取消
     # ============================================================
     with tab3:
     
@@ -5895,7 +5896,7 @@ elif menu == "生產單管理":
             # 要等到下一次整頁 rerun 才出現。以儲存庫即時結果取代舊快照。
             if submit_search:
                 try:
-                    df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
+                    df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
                     if not df_order.empty:
                         df_order = df_order.fillna("").astype(str)
                     st.session_state.df_order = df_order.copy()
@@ -6064,7 +6065,7 @@ elif menu == "生產單管理":
             recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
             current_order_no = str(selected_order.get("生產單號", "")).strip()
     
-            preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 刪除"])
+            preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 取消"])
     
             with preview_tab:
                 head_col, opt_col = st.columns([6, 2])
@@ -6090,23 +6091,64 @@ elif menu == "生產單管理":
                 st.markdown(preview_text, unsafe_allow_html=True)
 
             with manage_tab:
+                is_cancelled = order_dict.get("取消狀態", "有效") == "已取消"
                 st.info(
                     f"目前選擇：{order_dict.get('生產單號','')}｜{order_dict.get('配方編號','')}｜"
                     f"{order_dict.get('顏色','')}｜{order_dict.get('客戶名稱','')}"
                 )
+                if is_cancelled:
+                    st.warning(
+                        f"此生產單已取消｜原因：{order_dict.get('取消原因', '')}｜"
+                        f"時間：{order_dict.get('取消時間', '')}"
+                    )
 
             with manage_tab:
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
-                    if st.button("✏️ 修改生產單", key="edit_order_btn_tab3"):
+                    if st.button("✏️ 修改生產單", key="edit_order_btn_tab3", disabled=is_cancelled):
                         st.session_state["show_edit_panel"] = True
                         st.session_state["editing_order"] = order_dict
                 with col_btn2:
-                    if st.button("🗑️ 刪除生產單", key="delete_order_btn_tab3"):
-                        st.warning("⚠️ 生產單取消／刪除將在 lifecycle 階段開放，目前未刪除資料。")
+                    toggle_label = "▶️ 恢復生產單" if is_cancelled else "⏸️ 取消生產單"
+                    if st.button(toggle_label, key="toggle_order_cancel_btn_tab3"):
+                        st.session_state["confirm_order_lifecycle_id"] = current_order_no
 
-                if st.session_state.get("show_delete_confirm", False):
-                    st.session_state["show_delete_confirm"] = False
+                if st.session_state.get("confirm_order_lifecycle_id") == current_order_no:
+                    st.warning(
+                        "請再次確認恢復此生產單。" if is_cancelled
+                        else "取消後不會刪除歷史、配方快照或 Sheet 列；請填寫原因並再次確認。"
+                    )
+                    cancel_reason = st.text_input(
+                        "取消原因",
+                        key=f"cancel_order_reason_{current_order_no}",
+                        disabled=is_cancelled,
+                    )
+                    confirm_col, back_col = st.columns(2)
+                    with confirm_col:
+                        if st.button(
+                            "✅ 確認恢復" if is_cancelled else "✅ 確認取消",
+                            key=f"confirm_order_lifecycle_{current_order_no}",
+                        ):
+                            try:
+                                set_production_order_cancelled(
+                                    DATABASE_CONFIG, current_order_no,
+                                    cancelled=not is_cancelled, reason=cancel_reason,
+                                )
+                            except ProductionOrderError as exc:
+                                st.error(f"❌ {exc}")
+                            else:
+                                st.session_state.pop("confirm_order_lifecycle_id", None)
+                                st.session_state["show_edit_panel"] = False
+                                st.session_state["editing_order"] = None
+                                st.toast(
+                                    f"已{'恢復' if is_cancelled else '取消'}生產單 {current_order_no}",
+                                    icon="✅",
+                                )
+                                st.rerun()
+                    with back_col:
+                        if st.button("返回", key=f"cancel_order_lifecycle_{current_order_no}"):
+                            st.session_state.pop("confirm_order_lifecycle_id", None)
+                            st.rerun()
            
         # ====== 修改面板（⚠️ 一定要在外層） ======
         if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
@@ -7779,7 +7821,6 @@ elif menu == "採購管理":
             # 4️⃣ 顯示結果
             if not df_result.empty:
                 show_cols = {
-                    "_sync_id": "永久 _sync_id",
                     "色粉編號": "色粉編號",
                     "廠商編號": "廠商編號",
                     "廠商名稱": "供應商簡稱",
@@ -7788,7 +7829,6 @@ elif menu == "採購管理":
                     "單位": "單位",
                     "備註": "備註",
                     "沖銷狀態": "沖銷狀態",
-                    "沖銷記錄ID": "沖銷記錄ID",
                 }
             
                 # ✅ 若舊資料沒有廠商編號/廠商名稱欄位，補空值（避免 KeyError）
@@ -7796,9 +7836,9 @@ elif menu == "採購管理":
                     df_result["廠商編號"] = ""
                 if "廠商名稱" not in df_result.columns:
                     df_result["廠商名稱"] = ""
-                for lifecycle_col in ("沖銷狀態", "沖銷記錄ID"):
+                for lifecycle_col in ("沖銷狀態",):
                     if lifecycle_col not in df_result.columns:
-                        df_result[lifecycle_col] = "有效" if lifecycle_col == "沖銷狀態" else ""
+                        df_result[lifecycle_col] = "有效"
             
                 df_display = df_result[list(show_cols.keys())].rename(columns=show_cols)
             
@@ -7830,7 +7870,11 @@ elif menu == "採購管理":
         if df_stock.empty or "類型" not in df_stock.columns:
             st.info("目前沒有可編輯的進貨資料")
         else:
-            df_in_edit = df_stock[df_stock["類型"].astype(str).str.strip() == "進貨"].copy().reset_index(drop=True)
+            df_in_edit = df_stock[df_stock["類型"].astype(str).str.strip() == "進貨"].copy()
+            df_in_edit["_sort_date"] = pd.to_datetime(df_in_edit["日期"], errors="coerce")
+            df_in_edit = df_in_edit.sort_values(
+                by=["_sort_date", "_sync_id"], ascending=[False, False], na_position="last"
+            ).drop(columns=["_sort_date"]).reset_index(drop=True)
             if df_in_edit.empty:
                 st.info("目前沒有可編輯的進貨資料")
             else:
@@ -7838,8 +7882,7 @@ elif menu == "採購管理":
                 record_options = df_in_edit.apply(
                     lambda r: (
                         f"列 {r['row_no']}｜{r.get('色粉編號','')}｜{r.get('日期','')}｜"
-                        f"{r.get('數量','')} {r.get('單位','')}｜{r.get('沖銷狀態','有效')}｜"
-                        f"ID …{str(r.get('_sync_id',''))[-8:]}"
+                        f"{r.get('數量','')} {r.get('單位','')}｜{r.get('沖銷狀態','有效')}"
                     ),
                     axis=1
                 ).tolist()
@@ -7853,8 +7896,7 @@ elif menu == "採購管理":
 
                     if is_reversed:
                         st.warning(
-                            f"此筆進貨已沖銷；沖銷記錄 ID：{target_row.get('沖銷記錄ID', '')}。"
-                            "原始記錄保留供歷史查閱，不能再修改或重複沖銷。"
+                            "此筆進貨已沖銷。原始記錄保留供歷史查閱，不能再修改或重複沖銷。"
                         )
 
                     try:
