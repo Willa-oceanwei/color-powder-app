@@ -58,6 +58,9 @@ def supplier_sheet_payload(entity: dict[str, Any]) -> dict[str, str]:
         "供應商編號": str(entity.get("supplier_id") or ""),
         "供應商簡稱": str(entity.get("name") or ""),
         "備註": str(entity.get("notes") or ""),
+        "生命週期": str(entity.get("lifecycle_status") or "active"),
+        "停用時間": str(entity.get("deleted_at") or ""),
+        "停用原因": str(entity.get("delete_reason") or ""),
     }
 
 
@@ -85,7 +88,12 @@ def set_supplier_active(config: DatabaseConfig, supplier_id: str, *, active: boo
             ("active" if active else "inactive", None if active else now,
              None if active else str(reason or "").strip(), now, supplier_id),
         )
-        return _mapping(conn.execute("SELECT * FROM suppliers WHERE supplier_id=?", (supplier_id,)))
+        entity = _mapping(conn.execute("SELECT * FROM suppliers WHERE supplier_id=?", (supplier_id,)))
+        enqueue_sheet_sync(
+            conn, sheet_name="供應商管理", row_key=supplier_id, operation="update",
+            payload=supplier_sheet_payload(entity), entity_version=int(entity["version"]),
+        )
+        return entity
 
 
 def _validate(data: SupplierInput) -> SupplierInput:

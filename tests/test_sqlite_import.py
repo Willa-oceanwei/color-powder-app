@@ -528,6 +528,15 @@ def test_master_data_lifecycle_filters_choices_but_keeps_history_readable(tmp_pa
     historical_recipe = list_recipes(config, include_inactive=True)[0]
     assert historical_recipe["停用原因"] == "舊版"
     assert historical_recipe["色粉編號1"] == "P001"
+    with connect(db) as conn:
+        lifecycle_events = conn.execute(
+            """SELECT sheet_name, operation, entity_version, payload_json
+               FROM sync_outbox WHERE entity_version=2 ORDER BY sheet_name"""
+        ).fetchall()
+    assert [(row["sheet_name"], row["operation"], row["entity_version"]) for row in lifecycle_events] == [
+        ("供應商管理", "update", 2), ("色粉管理", "update", 2), ("配方管理", "update", 2),
+    ]
+    assert all('"生命週期": "inactive"' in row["payload_json"] for row in lifecycle_events)
 
     set_color_powder_active(config, "P001", active=True)
     set_supplier_active(config, "S001", active=True)
@@ -535,6 +544,13 @@ def test_master_data_lifecycle_filters_choices_but_keeps_history_readable(tmp_pa
     assert list_color_powders(config)[0]["deleted_at"] is None
     assert list_suppliers(config)[0]["delete_reason"] is None
     assert list_recipes(config)[0]["生命週期"] == "active"
+    with connect(db) as conn:
+        restored_events = conn.execute(
+            "SELECT sheet_name, entity_version FROM sync_outbox WHERE entity_version=3 ORDER BY sheet_name"
+        ).fetchall()
+    assert [tuple(row) for row in restored_events] == [
+        ("供應商管理", 3), ("色粉管理", 3), ("配方管理", 3),
+    ]
 
 
 def test_supplier_repository_duplicate_does_not_queue_second_event(tmp_path):

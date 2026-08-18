@@ -5741,6 +5741,8 @@ elif menu == "生產單管理":
             order_keywords_tab2,
             ["生產單號", "配方編號", "客戶名稱", "顏色"]
         ).copy()
+        if "取消狀態" in df_filtered.columns:
+            df_filtered = df_filtered[df_filtered["取消狀態"] != "已取消"].copy()
     
         df_filtered["建立時間"] = pd.to_datetime(df_filtered["建立時間"], errors="coerce")
         df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
@@ -5793,7 +5795,7 @@ elif menu == "生產單管理":
                         weight = float(row.get(f"包裝重量{i}", 0))
                         count = int(float(row.get(f"包裝份數{i}", 0)))
                         if weight > 0 and count > 0:
-                            show_weight = int(weight * multiplier) if label == "K" else weight
+                            show_weight = fmt_num(weight * multiplier, 2) if label == "K" else fmt_num(weight, 2)
                             results.append(f"{show_weight}{label}*{count}")
                     except Exception:
                         continue
@@ -5860,6 +5862,13 @@ elif menu == "生產單管理":
                 ws_oem.delete_rows(idx + 2)
             return len(target_idxs)
     
+        show_cancelled_orders = st.toggle(
+            "顯示已取消生產單",
+            value=False,
+            key="show_cancelled_orders_tab3",
+            help="開啟後，搜尋結果與選擇清單會包含已取消生產單，以便查看或恢復。",
+        )
+
         # ===== 🔥 用 Form 包起來（搜尋 + 日期 + 選擇生產單）=====
         with st.form("search_order_form_tab3"):
             
@@ -5913,6 +5922,10 @@ elif menu == "生產單管理":
                 order_keywords_tab3,
                 ["生產單號", "配方編號", "客戶名稱", "顏色"]
             ).copy()
+            if not show_cancelled_orders and "取消狀態" in df_filtered_tab3.columns:
+                df_filtered_tab3 = df_filtered_tab3[
+                    df_filtered_tab3["取消狀態"] != "已取消"
+                ].copy()
     
             # 📌 2. 日期篩選（新增）
             if "生產日期" in df_filtered_tab3.columns:
@@ -5966,7 +5979,7 @@ elif menu == "生產單管理":
                                 weight = float(row.get(f"包裝重量{i}", 0))
                                 count = int(float(row.get(f"包裝份數{i}", 0)))
                                 if weight > 0 and count > 0:
-                                    show_weight = int(weight * multiplier) if label == "K" else weight
+                                    show_weight = fmt_num(weight * multiplier, 2) if label == "K" else fmt_num(weight, 2)
                                     results.append(f"{show_weight}{label}*{count}")
                             except Exception:
                                 continue

@@ -83,7 +83,14 @@ def set_color_powder_active(config: DatabaseConfig, colorpowder_id: str, *, acti
             ("active" if active else "inactive", None if active else now,
              None if active else str(reason or "").strip(), now, colorpowder_id),
         )
-        return _mapping(conn.execute("SELECT * FROM color_powders WHERE colorpowder_id=?", (colorpowder_id,)))
+        entity = _mapping(conn.execute(
+            "SELECT * FROM color_powders WHERE colorpowder_id=?", (colorpowder_id,)
+        ))
+        enqueue_sheet_sync(
+            conn, sheet_name="色粉管理", row_key=colorpowder_id, operation="update",
+            payload=color_powder_sheet_payload(entity), entity_version=int(entity["version"]),
+        )
+        return entity
 
 
 def create_color_powder(config: DatabaseConfig, data: ColorPowderInput) -> dict[str, Any]:
