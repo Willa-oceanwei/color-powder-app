@@ -12047,6 +12047,7 @@ if st.session_state.menu == "同步檢查":
             ("Queued", color_push_result.queued),
             ("新增至 Sheet", color_push_result.to_insert),
             ("更新 Sheet", color_push_result.to_update),
+            ("從 Sheet 移除", color_push_result.to_delete),
             ("內容已一致", color_push_result.unchanged),
             ("Conflict", color_push_result.conflicts),
             ("Errors", len(color_push_result.errors)),
@@ -12079,6 +12080,7 @@ if st.session_state.menu == "同步檢查":
             "queued": color_push_result.queued,
             "insert": color_push_result.to_insert,
             "update": color_push_result.to_update,
+            "delete": color_push_result.to_delete,
             "unchanged": color_push_result.unchanged,
             "written": color_push_result.written,
             "conflicts": color_push_result.conflicts,
@@ -12098,7 +12100,7 @@ if st.session_state.menu == "同步檢查":
                 key="color_push_confirmation",
             )
             push_color_powders = st.button(
-                "推送色粉新增／修改到 Sheet",
+                "推送色粉新增／修改／停用到 Sheet",
                 type="primary",
                 disabled=push_confirmation.strip() != "PUSH 色粉管理",
             )
@@ -12159,7 +12161,7 @@ if st.session_state.menu == "同步檢查":
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
     render_sync_section_title("Turso → Sheet：供應商 outbox")
-    st.caption("供應商編號是永久 ID；PUSH 會保留 Turso 中的歷史 supplier aliases，不會自動刪除資料。")
+    st.caption("供應商編號是永久 ID；停用 PUSH 會從 Sheet 移除列，Turso 仍保留歷史與 aliases。")
     if st.button(
         "檢查待推送供應商（唯讀）",
         disabled=DATABASE_BACKEND != "turso",
@@ -12181,6 +12183,7 @@ if st.session_state.menu == "同步檢查":
             ("Queued", supplier_push_result.queued),
             ("新增至 Sheet", supplier_push_result.to_insert),
             ("更新 Sheet", supplier_push_result.to_update),
+            ("從 Sheet 移除", supplier_push_result.to_delete),
             ("內容已一致", supplier_push_result.unchanged),
             ("Conflict", supplier_push_result.conflicts),
             ("Errors", len(supplier_push_result.errors)),
@@ -12206,6 +12209,7 @@ if st.session_state.menu == "同步檢查":
             "queued": supplier_push_result.queued,
             "insert": supplier_push_result.to_insert,
             "update": supplier_push_result.to_update,
+            "delete": supplier_push_result.to_delete,
             "unchanged": supplier_push_result.unchanged,
             "written": supplier_push_result.written,
             "conflicts": supplier_push_result.conflicts,
@@ -12223,7 +12227,7 @@ if st.session_state.menu == "同步檢查":
                 "請輸入 PUSH 供應商管理", key="supplier_push_confirmation"
             )
             if st.button(
-                "推送供應商新增／修改到 Sheet",
+                "推送供應商新增／修改／停用到 Sheet",
                 type="primary",
                 disabled=supplier_confirmation.strip() != "PUSH 供應商管理",
             ):
@@ -12287,6 +12291,7 @@ if st.session_state.menu == "同步檢查":
         recipe_metrics = [
             ("Queued", recipe_push_result.queued), ("新增至 Sheet", recipe_push_result.to_insert),
             ("更新 Sheet", recipe_push_result.to_update), ("內容已一致", recipe_push_result.unchanged),
+            ("從 Sheet 移除", recipe_push_result.to_delete),
             ("Conflict", recipe_push_result.conflicts), ("Errors", len(recipe_push_result.errors)),
         ]
         for column, (label, value) in zip(st.columns(len(recipe_metrics)), recipe_metrics):
@@ -12306,6 +12311,7 @@ if st.session_state.menu == "同步檢查":
             "backend": DATABASE_BACKEND, "direction": "turso_to_google_sheets",
             "sheet_name": "配方管理", "dry_run": True, "queued": recipe_push_result.queued,
             "insert": recipe_push_result.to_insert, "update": recipe_push_result.to_update,
+            "delete": recipe_push_result.to_delete,
             "unchanged": recipe_push_result.unchanged, "written": recipe_push_result.written,
             "conflicts": recipe_push_result.conflicts, "errors": recipe_push_result.errors,
             "warnings": recipe_push_result.warnings,
@@ -12317,7 +12323,7 @@ if st.session_state.menu == "同步檢查":
         if recipe_push_result.ok and recipe_push_result.queued > 0:
             recipe_confirmation = st.text_input("請輸入 PUSH 配方管理", key="recipe_push_confirmation")
             if st.button(
-                "推送配方新增／修改到 Sheet", type="primary",
+                "推送配方新增／修改／停用到 Sheet", type="primary",
                 disabled=recipe_confirmation.strip() != "PUSH 配方管理",
             ):
                 write_started = False
@@ -12357,7 +12363,7 @@ if st.session_state.menu == "同步檢查":
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
     render_sync_section_title("Turso → Sheet：庫存 outbox")
-    st.caption("每筆 movement 使用永久 _sync_id；同一 event 重送不會新增第二筆庫存 movement。")
+    st.caption("每筆 movement 使用永久 _sync_id；沖銷 PUSH 會移除 Sheet 原列，Turso 保留完整沖銷稽核軌跡。")
     if st.button("檢查待推送庫存（唯讀）", disabled=DATABASE_BACKEND != "turso", key="inventory_push_dry_run"):
         try:
             inventory_values = get_cached_sheet_values("庫存記錄", force_reload=True)
@@ -12373,6 +12379,7 @@ if st.session_state.menu == "同步檢查":
         values = [
             ("Queued", inventory_push_result.queued), ("新增至 Sheet", inventory_push_result.to_insert),
             ("更新 Sheet", inventory_push_result.to_update), ("內容已一致", inventory_push_result.unchanged),
+            ("從 Sheet 移除", inventory_push_result.to_delete),
             ("Conflict", inventory_push_result.conflicts), ("Errors", len(inventory_push_result.errors)),
         ]
         for column, (label, value) in zip(st.columns(len(values)), values):
@@ -12391,7 +12398,7 @@ if st.session_state.menu == "同步檢查":
         if inventory_push_result.ok and inventory_push_result.queued > 0:
             confirmation = st.text_input("請輸入 PUSH 庫存記錄", key="inventory_push_confirmation")
             if st.button(
-                "推送庫存新增／修改到 Sheet", type="primary",
+                "推送庫存新增／修改／沖銷到 Sheet", type="primary",
                 disabled=confirmation.strip() != "PUSH 庫存記錄",
             ):
                 write_started = False
@@ -12430,7 +12437,7 @@ if st.session_state.menu == "同步檢查":
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
     render_sync_section_title("Turso → Sheet：生產單 outbox")
-    st.caption("生產單保存 recipe version/snapshot；PUSH 重送只更新同一永久生產單號，不會重複扣庫存。")
+    st.caption("生產單保存 recipe version/snapshot；取消 PUSH 會移除 Sheet 列，Turso 仍保留完整歷史。")
     if st.button("檢查待推送生產單（唯讀）", disabled=DATABASE_BACKEND != "turso", key="production_push_dry_run"):
         try:
             order_values = get_cached_sheet_values("生產單", force_reload=True)
@@ -12446,6 +12453,7 @@ if st.session_state.menu == "同步檢查":
         values = [
             ("Queued", production_push_result.queued), ("新增至 Sheet", production_push_result.to_insert),
             ("更新 Sheet", production_push_result.to_update), ("內容已一致", production_push_result.unchanged),
+            ("從 Sheet 移除", production_push_result.to_delete),
             ("Conflict", production_push_result.conflicts), ("Errors", len(production_push_result.errors)),
         ]
         for column, (label, value) in zip(st.columns(len(values)), values):
@@ -12464,7 +12472,7 @@ if st.session_state.menu == "同步檢查":
         if production_push_result.ok and production_push_result.queued > 0:
             confirmation = st.text_input("請輸入 PUSH 生產單", key="production_push_confirmation")
             if st.button(
-                "推送生產單新增／修改到 Sheet", type="primary",
+                "推送生產單新增／修改／取消到 Sheet", type="primary",
                 disabled=confirmation.strip() != "PUSH 生產單",
             ):
                 write_started = False

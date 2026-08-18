@@ -90,8 +90,10 @@ def set_supplier_active(config: DatabaseConfig, supplier_id: str, *, active: boo
         )
         entity = _mapping(conn.execute("SELECT * FROM suppliers WHERE supplier_id=?", (supplier_id,)))
         enqueue_sheet_sync(
-            conn, sheet_name="供應商管理", row_key=supplier_id, operation="update",
-            payload=supplier_sheet_payload(entity), entity_version=int(entity["version"]),
+            conn, sheet_name="供應商管理", row_key=supplier_id,
+            operation="update" if active else "delete",
+            payload=supplier_sheet_payload(entity) if active else None,
+            entity_version=int(entity["version"]),
         )
         return entity
 

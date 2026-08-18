@@ -87,8 +87,10 @@ def set_color_powder_active(config: DatabaseConfig, colorpowder_id: str, *, acti
             "SELECT * FROM color_powders WHERE colorpowder_id=?", (colorpowder_id,)
         ))
         enqueue_sheet_sync(
-            conn, sheet_name="色粉管理", row_key=colorpowder_id, operation="update",
-            payload=color_powder_sheet_payload(entity), entity_version=int(entity["version"]),
+            conn, sheet_name="色粉管理", row_key=colorpowder_id,
+            operation="update" if active else "delete",
+            payload=color_powder_sheet_payload(entity) if active else None,
+            entity_version=int(entity["version"]),
         )
         return entity
 

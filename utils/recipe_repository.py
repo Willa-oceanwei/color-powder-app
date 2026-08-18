@@ -199,7 +199,9 @@ def set_recipe_active(config: DatabaseConfig, recipe_id: str, *, active: bool, r
             (recipe_id,),
         ))
         enqueue_sheet_sync(
-            conn, sheet_name="配方管理", row_key=recipe_id, operation="update",
-            payload=_recipe_sheet_payload(entity, components), entity_version=int(entity["version"]),
+            conn, sheet_name="配方管理", row_key=recipe_id,
+            operation="update" if active else "delete",
+            payload=_recipe_sheet_payload(entity, components) if active else None,
+            entity_version=int(entity["version"]),
         )
         return entity

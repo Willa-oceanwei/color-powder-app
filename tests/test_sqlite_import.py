@@ -88,12 +88,16 @@ class WritableWorksheet:
     def __init__(self):
         self.appended = []
         self.updated = []
+        self.deleted = []
 
     def append_row(self, values):
         self.appended.append(values)
 
     def update(self, cell, values):
         self.updated.append((cell, values))
+
+    def delete_rows(self, row_number):
+        self.deleted.append(row_number)
 
 
 def test_sheet_read_retries_transient_google_errors():
@@ -534,9 +538,9 @@ def test_master_data_lifecycle_filters_choices_but_keeps_history_readable(tmp_pa
                FROM sync_outbox WHERE entity_version=2 ORDER BY sheet_name"""
         ).fetchall()
     assert [(row["sheet_name"], row["operation"], row["entity_version"]) for row in lifecycle_events] == [
-        ("供應商管理", "update", 2), ("色粉管理", "update", 2), ("配方管理", "update", 2),
+        ("供應商管理", "delete", 2), ("色粉管理", "delete", 2), ("配方管理", "delete", 2),
     ]
-    assert all('"生命週期": "inactive"' in row["payload_json"] for row in lifecycle_events)
+    assert all(row["payload_json"] is None for row in lifecycle_events)
 
     set_color_powder_active(config, "P001", active=True)
     set_supplier_active(config, "S001", active=True)
@@ -551,6 +555,36 @@ def test_master_data_lifecycle_filters_choices_but_keeps_history_readable(tmp_pa
     assert [tuple(row) for row in restored_events] == [
         ("供應商管理", 3), ("色粉管理", 3), ("配方管理", 3),
     ]
+
+
+def test_sheet_tombstone_physically_deletes_synchronized_master_row(tmp_path):
+    db = tmp_path / "tombstone.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001", name="Powder"))
+    worksheet = WritableWorksheet()
+    header = ["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
+    inserted = sync_color_powder_outbox(
+        worksheet, [header], db_config=config, dry_run=False
+    )
+    assert inserted.written == 1
+
+    set_color_powder_active(config, "P001", active=False, reason="停用")
+    values = [header, worksheet.appended[0]]
+    preflight = sync_color_powder_outbox(
+        worksheet, values, db_config=config, dry_run=True
+    )
+    applied = sync_color_powder_outbox(
+        worksheet, values, db_config=config, dry_run=False
+    )
+
+    assert preflight.to_delete == 1
+    assert applied.written == 1
+    assert worksheet.deleted == [2]
+    with connect(db) as conn:
+        assert conn.execute(
+            "SELECT status FROM sync_outbox WHERE sheet_name='色粉管理' ORDER BY id DESC LIMIT 1"
+        ).fetchone()[0] == "completed"
 
 
 def test_supplier_repository_duplicate_does_not_queue_second_event(tmp_path):
@@ -708,13 +742,16 @@ def test_inventory_reversal_is_append_only_and_queued_for_sheet(tmp_path):
         rows = conn.execute(
             "SELECT quantity, reversed_at, reversal_of_movement_key FROM inventory_movements ORDER BY movement_id"
         ).fetchall()
-        event = conn.execute(
-            "SELECT operation, row_key, entity_version FROM sync_outbox WHERE row_key='REV001'"
-        ).fetchone()
+        events = conn.execute(
+            """SELECT operation, row_key, entity_version FROM sync_outbox
+               WHERE row_key IN ('INV001','REV001') AND operation='delete' ORDER BY row_key"""
+        ).fetchall()
     assert sum(row["quantity"] for row in rows) == 0
     assert rows[0]["reversed_at"]
     assert rows[1]["reversal_of_movement_key"] == "sheet:庫存記錄:INV001"
-    assert tuple(event) == ("insert", "REV001", 1)
+    assert [tuple(event) for event in events] == [
+        ("delete", "INV001", 2), ("delete", "REV001", 1),
+    ]
 
     with pytest.raises(InventoryError, match="已沖銷"):
         reverse_inventory_movement(config, "INV001", reason="再次沖銷")
@@ -813,7 +850,7 @@ def test_production_order_cancel_restore_preserves_history_and_queues_updates(tm
     assert entity["cancelled_at"]
     assert entity["cancel_reason"] == "客戶取消"
     assert '"colorpowder_id": "P001"' in entity["recipe_snapshot_json"]
-    assert [tuple(row) for row in events] == [("insert", 1), ("update", 2)]
+    assert [tuple(row) for row in events] == [("insert", 1), ("delete", 2)]
 
     with pytest.raises(ProductionOrderError, match="已取消"):
         update_production_order(config, historical)
@@ -840,6 +877,44 @@ def test_production_order_cancel_requires_reason(tmp_path):
         set_production_order_cancelled(config, "O001", cancelled=True, reason="")
 
     assert list_production_orders(config)[0]["取消狀態"] == "有效"
+
+
+def test_cancelled_order_and_reversed_inventory_are_removed_from_sheet(tmp_path):
+    db = tmp_path / "operational-tombstones.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_inventory_movement(config, {
+        "類型": "進貨", "色粉編號": "P001", "日期": "2026/08/17",
+        "數量": 5, "單位": "kg", "_sync_id": "INV001",
+    })
+    create_production_order(config, {"生產單號": "O001", "生產日期": "2026-08-17"})
+    inventory_ws = WritableWorksheet()
+    inventory_header = ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"]
+    order_ws = WritableWorksheet()
+    order_header = ["生產單號", "生產日期"]
+    sync_inventory_outbox(inventory_ws, [inventory_header], db_config=config, dry_run=False)
+    sync_production_order_outbox(order_ws, [order_header], db_config=config, dry_run=False)
+
+    reverse_inventory_movement(config, "INV001", reason="登錄錯誤", reversal_sync_id="REV001")
+    set_production_order_cancelled(config, "O001", cancelled=True, reason="取消")
+    inventory_values = [inventory_header, inventory_ws.appended[0]]
+    order_values = [order_header, order_ws.appended[0]]
+    inventory_preflight = sync_inventory_outbox(
+        inventory_ws, inventory_values, db_config=config, dry_run=True
+    )
+    order_preflight = sync_production_order_outbox(
+        order_ws, order_values, db_config=config, dry_run=True
+    )
+    sync_inventory_outbox(inventory_ws, inventory_values, db_config=config, dry_run=False)
+    sync_production_order_outbox(order_ws, order_values, db_config=config, dry_run=False)
+
+    assert inventory_preflight.to_delete == 1
+    assert order_preflight.to_delete == 1
+    assert inventory_ws.deleted == [2]
+    assert order_ws.deleted == [2]
+    assert len(list_inventory_movements(config)) == 2
+    assert list_production_orders(config, include_cancelled=True)[0]["取消狀態"] == "已取消"
 
 
 def test_outbox_claim_prevents_concurrent_duplicate_production_append(tmp_path):

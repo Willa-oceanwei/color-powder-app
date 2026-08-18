@@ -221,7 +221,13 @@ def reverse_inventory_movement(
         ))
         payload = inventory_sheet_payload(reversal)
         enqueue_sheet_sync(
-            conn, sheet_name="庫存記錄", row_key=reversal_sync_id, operation="insert",
-            payload=payload, entity_version=1,
+            conn, sheet_name="庫存記錄", row_key=sync_id, operation="delete",
+            payload=None, entity_version=int(original["version"]) + 1,
+        )
+        # Reversals remain in Turso as an immutable audit trail. A delete
+        # tombstone also removes a reversal row produced by older releases.
+        enqueue_sheet_sync(
+            conn, sheet_name="庫存記錄", row_key=reversal_sync_id, operation="delete",
+            payload=None, entity_version=1,
         )
         return payload

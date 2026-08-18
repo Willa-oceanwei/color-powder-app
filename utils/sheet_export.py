@@ -26,6 +26,7 @@ class ExportResult:
     unchanged: int = 0
     to_insert: int = 0
     to_update: int = 0
+    to_delete: int = 0
     written: int = 0
     conflicts: int = 0
     errors: list[str] = field(default_factory=list)
@@ -55,6 +56,46 @@ def _normalized_payload(payload: dict[str, Any], headers: list[str]) -> dict[str
     return {header: str(payload.get(header, "") or "").strip() for header in headers if header}
 
 
+def _ensure_tombstone_outbox(conn, sheet_name: str) -> None:
+    """Backfill one pending delete event for lifecycle rows created before tombstones."""
+    queries = {
+        "色粉管理": ("color_powders", "colorpowder_id", "lifecycle_status='inactive'"),
+        "供應商管理": ("suppliers", "supplier_id", "lifecycle_status='inactive'"),
+        "配方管理": ("recipes", "recipe_id", "lifecycle_status='inactive'"),
+        "生產單": ("production_orders", "production_order_id", "cancelled_at IS NOT NULL"),
+        "庫存記錄": (
+            "inventory_movements", "sheet_row_key",
+            "sheet_name='庫存記錄' AND (reversed_at IS NOT NULL OR reversal_of_movement_key IS NOT NULL)",
+        ),
+    }
+    if sheet_name not in queries:
+        return
+    table, id_column, condition = queries[sheet_name]
+    rows = conn.execute(
+        f"SELECT {id_column}, version FROM {table} WHERE {condition} AND {id_column} IS NOT NULL"
+    ).fetchall()
+    for row in rows:
+        row_key, entity_version = str(row[0]), int(row[1])
+        existing_delete = conn.execute(
+            """SELECT 1 FROM sync_outbox
+               WHERE sheet_name=? AND row_key=? AND operation='delete'
+                 AND status IN ('pending','failed','processing','completed') LIMIT 1""",
+            (sheet_name, row_key),
+        ).fetchone()
+        if existing_delete:
+            continue
+        max_version = conn.execute(
+            "SELECT COALESCE(MAX(entity_version), 0) FROM sync_outbox WHERE sheet_name=? AND row_key=?",
+            (sheet_name, row_key),
+        ).fetchone()[0]
+        conn.execute(
+            """INSERT INTO sync_outbox(
+                   sheet_name, row_key, operation, payload_json, entity_version, created_at)
+               VALUES (?, ?, 'delete', NULL, ?, ?)""",
+            (sheet_name, row_key, max(entity_version, int(max_version) + 1), utc_now_iso()),
+        )
+
+
 def _sync_outbox(
     worksheet,
     values: list[list[Any]],
@@ -71,8 +112,8 @@ def _sync_outbox(
     """Preflight or deliver pending color-powder outbox entries.
 
     A queued database edit is written only when the current Sheet row still
-    matches its last synchronized baseline. Deletes intentionally remain
-    blocked until the tombstone phase.
+    matches its last synchronized baseline. Tombstones physically remove the
+    Sheet row while retaining the canonical Turso history.
     """
     if initialize_schema:
         initialize_database_from_config(db_config)
@@ -99,6 +140,7 @@ def _sync_outbox(
 
     started_at = utc_now_iso()
     with connect_from_config(db_config) as read_conn:
+        _ensure_tombstone_outbox(read_conn, sheet_name)
         pending = read_conn.execute(
             """SELECT event.id, event.row_key, event.operation, event.payload_json,
                       event.entity_version, event.status
@@ -121,6 +163,10 @@ def _sync_outbox(
         )
         for row in pending
     ]
+    entries.sort(key=lambda entry: (
+        entry["operation"] == "delete",
+        -(sheet_rows.get(str(entry["row_key"]), (0, {}))[0]) if entry["operation"] == "delete" else 0,
+    ))
     result.queued = len(entries)
 
     claimed_ids: set[int] = set()
@@ -159,17 +205,25 @@ def _sync_outbox(
                 (sheet_name, row_key),
             ))
             if entry["operation"] == "delete":
-                result.conflicts += 1
-                result.warnings.append(f"{row_key}: delete is blocked until tombstones are implemented")
-                if not dry_run:
-                    decision_conn.execute(
-                        """UPDATE sync_outbox SET status='conflict', last_error=?
-                           WHERE sheet_name=? AND row_key=? AND entity_version <= ?
-                             AND status IN ('pending', 'failed', 'processing')""",
-                        ("Delete requires tombstone workflow", sheet_name, row_key, entry["entity_version"]),
-                    )
-                continue
-            if current_info is None:
+                if current_info is None:
+                    result.unchanged += 1
+                    action = "acknowledge_delete"
+                elif baseline is None or baseline["row_hash"] != _row_hash(
+                    _normalized_payload(current_info[1], headers)
+                ):
+                    reason = "Sheet row changed or has no synchronized baseline; tombstone delete is blocked"
+                    result.conflicts += 1
+                    result.warnings.append(f"{row_key}: {reason}")
+                    if not dry_run:
+                        record_sync_conflict(
+                            decision_conn, entity_type=entity_type, entity_id=row_key,
+                            sqlite_payload=None, sheet_payload=current_info[1], reason=reason,
+                        )
+                    continue
+                else:
+                    result.to_delete += 1
+                    action = "delete"
+            elif current_info is None:
                 if recovering:
                     reason = "Previous Sheet write outcome is uncertain and the row is absent; automatic retry is blocked"
                     result.conflicts += 1
@@ -228,6 +282,8 @@ def _sync_outbox(
                     f"A{current_info[0]}",
                     [[desired.get(header, "") for header in headers]],
                 )
+            elif action == "delete":
+                worksheet.delete_rows(current_info[0])
         except Exception as exc:
             with connect_from_config(db_config) as failure_conn:
                 failure_conn.execute(
@@ -238,7 +294,12 @@ def _sync_outbox(
 
         synced_at = utc_now_iso()
         with connect_from_config(db_config) as finalize_conn:
-            upsert_sheet_row(finalize_conn, sheet_name, row_key, desired, _row_hash(desired))
+            if action in {"delete", "acknowledge_delete"}:
+                finalize_conn.execute(
+                    "DELETE FROM sheet_rows WHERE sheet_name=? AND row_key=?", (sheet_name, row_key)
+                )
+            else:
+                upsert_sheet_row(finalize_conn, sheet_name, row_key, desired, _row_hash(desired))
             finalize_conn.execute(
                 f"UPDATE {entity_table} SET last_synced_at=? WHERE {entity_id_column}=?",
                 (synced_at, row_key),
@@ -249,7 +310,7 @@ def _sync_outbox(
                      AND status IN ('pending', 'failed', 'processing')""",
                 (synced_at, sheet_name, row_key, entry["entity_version"]),
             )
-        if action in {"insert", "update"}:
+        if action in {"insert", "update", "delete"}:
             result.written += 1
 
     if not dry_run:

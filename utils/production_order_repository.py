@@ -204,7 +204,8 @@ def set_production_order_cancelled(
             ),
         )
         enqueue_sheet_sync(
-            conn, sheet_name="生產單", row_key=order_id, operation="update",
-            payload=payload, entity_version=version,
+            conn, sheet_name="生產單", row_key=order_id,
+            operation="delete" if cancelled else "update",
+            payload=None if cancelled else payload, entity_version=version,
         )
         return payload
