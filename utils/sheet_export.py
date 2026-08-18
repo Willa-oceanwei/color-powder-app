@@ -45,6 +45,9 @@ def color_powder_sheet_payload(entity: dict[str, Any]) -> dict[str, str]:
         "色粉類別": str(entity.get("category") or ""),
         "包裝": str(entity.get("package") or ""),
         "備註": str(entity.get("notes") or ""),
+        "生命週期": str(entity.get("lifecycle_status") or "active"),
+        "停用時間": str(entity.get("deleted_at") or ""),
+        "停用原因": str(entity.get("delete_reason") or ""),
     }
 
 

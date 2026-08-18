@@ -62,12 +62,26 @@ def _recipe_snapshot(conn, recipe_id: str) -> tuple[int | None, str | None]:
     return int(recipe["version"]), json.dumps(snapshot, ensure_ascii=False, default=str)
 
 
-def list_production_orders(config: DatabaseConfig) -> list[dict[str, str]]:
+def list_production_orders(
+    config: DatabaseConfig, *, include_cancelled: bool = False,
+) -> list[dict[str, str]]:
     with connect_from_config(config) as conn:
+        where = "" if include_cancelled else "WHERE cancelled_at IS NULL"
         rows = _mappings(conn.execute(
-            "SELECT payload_json FROM production_orders ORDER BY production_date, production_order_id"
+            f"""SELECT payload_json, cancelled_at, cancel_reason
+                FROM production_orders {where}
+                ORDER BY production_date, production_order_id"""
         ))
-    return [json.loads(row["payload_json"]) for row in rows]
+    result = []
+    for row in rows:
+        payload = json.loads(row["payload_json"])
+        payload.update({
+            "取消狀態": "已取消" if row.get("cancelled_at") else "有效",
+            "取消時間": str(row.get("cancelled_at") or ""),
+            "取消原因": str(row.get("cancel_reason") or ""),
+        })
+        result.append(payload)
+    return result
 
 
 def _save(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -> dict[str, str]:
@@ -85,6 +99,8 @@ def _save(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -> dict[
             raise ProductionOrderError(f"生產單號 {order_id} 已存在")
         if not create and existing is None:
             raise ProductionOrderError(f"找不到生產單號 {order_id}")
+        if existing is not None and existing.get("cancelled_at"):
+            raise ProductionOrderError("已取消的生產單不可修改；請先恢復生產單")
         recipe_version, snapshot_json = _recipe_snapshot(conn, recipe_id)
         version = 1 if existing is None else int(existing["version"]) + 1
         created_at = now if existing is None else existing["created_at"]
@@ -141,3 +157,54 @@ def upsert_production_order(config: DatabaseConfig, row: dict[str, Any]) -> dict
             "SELECT production_order_id FROM production_orders WHERE production_order_id=?", (order_id,)
         )) is not None
     return _save(config, row, create=not exists)
+
+
+def set_production_order_cancelled(
+    config: DatabaseConfig,
+    order_id: str,
+    *,
+    cancelled: bool,
+    reason: str = "",
+) -> dict[str, str]:
+    """Cancel or restore an order without deleting its payload or recipe snapshot."""
+    order_id = str(order_id or "").strip()
+    reason = str(reason or "").strip()
+    if not order_id:
+        raise ProductionOrderError("缺少生產單號")
+    if cancelled and not reason:
+        raise ProductionOrderError("請輸入取消原因")
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        existing = _mapping(conn.execute(
+            "SELECT * FROM production_orders WHERE production_order_id=?", (order_id,)
+        ))
+        if existing is None:
+            raise ProductionOrderError(f"找不到生產單號 {order_id}")
+        if cancelled and existing.get("cancelled_at"):
+            raise ProductionOrderError("此生產單已取消")
+        if not cancelled and not existing.get("cancelled_at"):
+            raise ProductionOrderError("此生產單目前未取消")
+
+        payload = json.loads(existing["payload_json"])
+        payload.update({
+            "取消狀態": "已取消" if cancelled else "有效",
+            "取消時間": now if cancelled else "",
+            "取消原因": reason if cancelled else "",
+        })
+        version = int(existing["version"]) + 1
+        conn.execute(
+            """UPDATE production_orders
+               SET status=?, cancelled_at=?, cancel_reason=?, payload_json=?,
+                   source='app', version=?, updated_at=?
+               WHERE production_order_id=?""",
+            (
+                "cancelled" if cancelled else "draft", now if cancelled else None,
+                reason if cancelled else None, json.dumps(payload, ensure_ascii=False),
+                version, now, order_id,
+            ),
+        )
+        enqueue_sheet_sync(
+            conn, sheet_name="生產單", row_key=order_id, operation="update",
+            payload=payload, entity_version=version,
+        )
+        return payload

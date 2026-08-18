@@ -140,32 +140,66 @@ def update_recipe(config: DatabaseConfig, row: dict[str, Any]) -> dict[str, str]
     return _save_recipe(config, row, create=False)
 
 
-def list_recipes(config: DatabaseConfig) -> list[dict[str, str]]:
+def _recipe_sheet_payload(entity: dict[str, Any], components: list[dict[str, Any]]) -> dict[str, str]:
+    row = {
+        "配方編號": entity["recipe_id"], "顏色": entity.get("color") or "",
+        "客戶編號": entity.get("customer_id") or "", "客戶名稱": entity.get("customer_name") or "",
+        "配方類別": entity.get("recipe_category") or "", "狀態": entity.get("status") or "",
+        "原始配方": entity.get("original_recipe") or "", "色粉類別": entity.get("powder_category") or "",
+        "計量單位": entity.get("measurement_unit") or "", "Pantone色號": entity.get("pantone_code") or "",
+        "代工倍率": str(entity.get("oem_multiplier") or 1), "比例1": entity.get("ratio1") or "",
+        "比例2": entity.get("ratio2") or "", "比例3": entity.get("ratio3") or "",
+        "淨重": str(entity.get("net_weight") or ""), "淨重單位": entity.get("net_weight_unit") or "",
+        "合計類別": entity.get("total_category") or "", "重要提醒": entity.get("important_notice") or "",
+        "備註": entity.get("notes") or "", "建檔時間": entity.get("sheet_created_at") or "",
+        "生命週期": entity.get("lifecycle_status") or "active",
+        "停用時間": entity.get("deleted_at") or "", "停用原因": entity.get("delete_reason") or "",
+    }
+    for component in components:
+        position = int(component["position"])
+        row[f"色粉編號{position}"] = str(component["colorpowder_id"])
+        row[f"色粉重量{position}"] = str(component["weight"])
+    return row
+
+
+def list_recipes(config: DatabaseConfig, *, include_inactive: bool = False) -> list[dict[str, str]]:
     with connect_from_config(config) as conn:
-        recipes = _mappings(conn.execute("SELECT * FROM recipes ORDER BY recipe_id"))
+        where = "" if include_inactive else "WHERE lifecycle_status='active'"
+        recipes = _mappings(conn.execute(f"SELECT * FROM recipes {where} ORDER BY recipe_id"))
         components = _mappings(conn.execute(
             "SELECT recipe_id, position, colorpowder_id, weight FROM recipe_components ORDER BY recipe_id, position"
         ))
     by_recipe: dict[str, list[dict[str, Any]]] = {}
     for component in components:
         by_recipe.setdefault(str(component["recipe_id"]), []).append(component)
-    result = []
-    for entity in recipes:
-        row = {
-            "配方編號": entity["recipe_id"], "顏色": entity.get("color") or "",
-            "客戶編號": entity.get("customer_id") or "", "客戶名稱": entity.get("customer_name") or "",
-            "配方類別": entity.get("recipe_category") or "", "狀態": entity.get("status") or "",
-            "原始配方": entity.get("original_recipe") or "", "色粉類別": entity.get("powder_category") or "",
-            "計量單位": entity.get("measurement_unit") or "", "Pantone色號": entity.get("pantone_code") or "",
-            "代工倍率": str(entity.get("oem_multiplier") or 1), "比例1": entity.get("ratio1") or "",
-            "比例2": entity.get("ratio2") or "", "比例3": entity.get("ratio3") or "",
-            "淨重": str(entity.get("net_weight") or ""), "淨重單位": entity.get("net_weight_unit") or "",
-            "合計類別": entity.get("total_category") or "", "重要提醒": entity.get("important_notice") or "",
-            "備註": entity.get("notes") or "", "建檔時間": entity.get("sheet_created_at") or "",
-        }
-        for component in by_recipe.get(str(entity["recipe_id"]), []):
-            position = int(component["position"])
-            row[f"色粉編號{position}"] = str(component["colorpowder_id"])
-            row[f"色粉重量{position}"] = str(component["weight"])
-        result.append(row)
-    return result
+    return [
+        _recipe_sheet_payload(entity, by_recipe.get(str(entity["recipe_id"]), []))
+        for entity in recipes
+    ]
+
+
+def set_recipe_active(config: DatabaseConfig, recipe_id: str, *, active: bool, reason: str = "") -> dict[str, Any]:
+    """Soft-disable or restore a recipe; components and order snapshots remain readable."""
+    recipe_id = str(recipe_id or "").strip()
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        existing = _mapping(conn.execute("SELECT * FROM recipes WHERE recipe_id=?", (recipe_id,)))
+        if existing is None:
+            raise RecipeNotFound(f"找不到配方編號 {recipe_id}")
+        conn.execute(
+            """UPDATE recipes SET lifecycle_status=?, deleted_at=?, delete_reason=?,
+                      version=version+1, updated_at=? WHERE recipe_id=?""",
+            ("active" if active else "inactive", None if active else now,
+             None if active else str(reason or "").strip(), now, recipe_id),
+        )
+        entity = _mapping(conn.execute("SELECT * FROM recipes WHERE recipe_id=?", (recipe_id,)))
+        components = _mappings(conn.execute(
+            """SELECT position, colorpowder_id, weight FROM recipe_components
+               WHERE recipe_id=? ORDER BY position""",
+            (recipe_id,),
+        ))
+        enqueue_sheet_sync(
+            conn, sheet_name="配方管理", row_key=recipe_id, operation="update",
+            payload=_recipe_sheet_payload(entity, components), entity_version=int(entity["version"]),
+        )
+        return entity
