@@ -57,14 +57,42 @@ def _mappings(cursor) -> list[dict[str, Any]]:
     return [dict(zip(columns, row)) for row in rows]
 
 
-def list_color_powders(config: DatabaseConfig) -> list[dict[str, Any]]:
+def list_color_powders(config: DatabaseConfig, *, include_inactive: bool = False) -> list[dict[str, Any]]:
     """Return canonical color powders from the configured source of truth."""
     with connect_from_config(config) as conn:
+        where = "" if include_inactive else "WHERE lifecycle_status='active'"
         return _mappings(conn.execute(
-            """SELECT colorpowder_id, international_code, name, category, package,
-                      notes, version, updated_at, last_synced_at
-               FROM color_powders ORDER BY colorpowder_id"""
+            f"""SELECT colorpowder_id, international_code, name, category, package,
+                       notes, lifecycle_status, deleted_at, delete_reason,
+                       version, updated_at, last_synced_at
+                FROM color_powders {where} ORDER BY colorpowder_id"""
         ))
+
+
+def set_color_powder_active(config: DatabaseConfig, colorpowder_id: str, *, active: bool, reason: str = "") -> dict[str, Any]:
+    """Soft-disable or restore a powder without deleting inventory history."""
+    colorpowder_id = str(colorpowder_id or "").strip()
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        existing = _mapping(conn.execute("SELECT * FROM color_powders WHERE colorpowder_id=?", (colorpowder_id,)))
+        if existing is None:
+            raise ColorPowderNotFound(f"找不到色粉編號 {colorpowder_id}")
+        conn.execute(
+            """UPDATE color_powders SET lifecycle_status=?, deleted_at=?, delete_reason=?,
+                      version=version+1, updated_at=? WHERE colorpowder_id=?""",
+            ("active" if active else "inactive", None if active else now,
+             None if active else str(reason or "").strip(), now, colorpowder_id),
+        )
+        entity = _mapping(conn.execute(
+            "SELECT * FROM color_powders WHERE colorpowder_id=?", (colorpowder_id,)
+        ))
+        enqueue_sheet_sync(
+            conn, sheet_name="色粉管理", row_key=colorpowder_id,
+            operation="update" if active else "delete",
+            payload=color_powder_sheet_payload(entity) if active else None,
+            entity_version=int(entity["version"]),
+        )
+        return entity
 
 
 def create_color_powder(config: DatabaseConfig, data: ColorPowderInput) -> dict[str, Any]:
