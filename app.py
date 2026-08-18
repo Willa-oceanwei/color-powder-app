@@ -223,8 +223,8 @@ div[data-baseweb="popover"] p {
 """, unsafe_allow_html=True)
 
 # ======== 🔐 簡易登入驗證區 ========
-APP_PASSWORD = "'"  # ✅ 直接在程式中設定密碼
-
+APP_PASSWORD = st.secrets["APP_PASSWORD"]
+    
 # 初始化登入狀態
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
