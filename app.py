@@ -5386,6 +5386,10 @@ elif menu == "生產單管理":
                     df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
                     st.session_state.df_order = df_order
                     st.session_state.new_order_saved = True
+                    st.session_state["saved_label_snapshot"] = {
+                        "order": dict(order),
+                        "a5_downloaded": False,
+                    }
                     st.success(f"✅ 生產單 {order['生產單號']} 已存至 Turso，等待 Sheet PUSH！")
                     # ✅【防止重複儲存】只有真的寫入成功才記住
                     st.session_state.last_saved_order_snapshot = current_snapshot
