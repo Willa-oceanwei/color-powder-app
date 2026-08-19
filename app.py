@@ -6689,14 +6689,23 @@ if menu == "代工管理":
             elif new_target_qty <= 0:
                 st.error("❌ 目標載回數量必須大於 0")
             else:
-                new_row_data = [
-                    new_oem_id, new_production_id, new_formula_id,
-                    new_customer, new_oem_qty, new_target_qty, new_multiplier, new_vendor, new_remark,
-                    "🏭 在廠內",
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "",
-                    ""
-                ]
+                new_row_dict = {
+                    "代工單號": new_oem_id,
+                    "生產單號": new_production_id,
+                    "配方編號": new_formula_id,
+                    "客戶名稱": new_customer,
+                    "代工數量": new_oem_qty,
+                    "代工廠商": new_vendor,
+                    "備註": new_remark,
+                    "狀態": "🏭 在廠內",
+                    "建立時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "已交貨": "",
+                    "交貨備註": "",
+                    "目標載回數量": new_target_qty,
+                    "轉換倍率": new_multiplier,
+                }
+                oem_headers_live = ws_oem.row_values(1)
+                new_row_data = [new_row_dict.get(h, "") for h in oem_headers_live]
                 ws_oem.append_row(new_row_data)
 
                 # ✅ 直接更新 session_state，不重讀 Sheet
