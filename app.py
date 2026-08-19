@@ -6773,7 +6773,9 @@ if menu == "代工管理":
                         st.session_state.oem_edit_selected_id = selected_oem
                         raw_vendor = str(oem_row.get("代工廠商", "")).strip()
                         st.session_state.oem_vendor = raw_vendor if raw_vendor in VENDOR_OPTIONS else ""
-                        st.session_state.oem_status = oem_row.get("狀態", "")
+                        _status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
+                        _raw_status = str(oem_row.get("狀態", "")).strip()
+                        st.session_state.oem_status = _raw_status if _raw_status in _status_options else ""
                         st.session_state.oem_remark = oem_row.get("備註", "")
                         st.session_state.oem_multiplier = _safe_float(oem_row.get("轉換倍率", 1), 1.0)
                         st.session_state.oem_target_qty = _safe_float(
