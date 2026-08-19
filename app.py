@@ -7206,7 +7206,7 @@ if menu == "代工管理":
                     ])
                     latest_return_date = pd.to_datetime(df_this_return["載回日期"], errors="coerce").max()
 
-                total_qty      = float(oem.get("代工數量", 0))
+                total_qty      = _safe_float(oem.get("代工數量", 0), 0.0)
                 target_qty     = _safe_float(oem.get("目標載回數量", total_qty), total_qty)
                 if target_qty <= 0:
                     target_qty = total_qty
