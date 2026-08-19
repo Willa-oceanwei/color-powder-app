@@ -5564,6 +5564,9 @@ elif menu == "生產單管理":
 
         def mark_html_downloaded():
             st.session_state.downloaded_html_tab1 = True
+            snap = st.session_state.get("saved_label_snapshot")
+            if snap and str(snap.get("order", {}).get("生產單號", "")) == str(order.get("生產單號", "")):
+                snap["a5_downloaded"] = True
                 
         col1, col2, col3 = st.columns([3,1,3])
         with col1:           
