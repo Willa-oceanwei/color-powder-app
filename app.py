@@ -5614,7 +5614,12 @@ elif menu == "生產單管理":
                 st.rerun()
 
         # --------------- 新增：生產單大標列印 ---------------
-        # --------------- 新增：生產單大標列印 ---------------
+        snapshot = st.session_state.get("saved_label_snapshot")
+        snapshot_belongs_to_this_order = (
+            snapshot is not None
+            and str(snapshot.get("order", {}).get("生產單號", "")) == str(order.get("生產單號", ""))
+        )
+
         st.markdown("""
             <style>
             .label-print-card {
@@ -5638,86 +5643,108 @@ elif menu == "生產單管理":
             </style>
         """, unsafe_allow_html=True)
 
-        st.markdown("""
-            <div class="label-print-card">
-                <div class="lp-title">🏷️ 列印大標</div>
-                <div class="lp-subtitle">依生產單內容自動帶入，下方可自由編輯、增減列數，確認後再產生下載檔</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        if not st.session_state.get("new_order_saved", False):
-            st.caption("請先儲存生產單，才能列印標籤。")
+        if not snapshot_belongs_to_this_order:
+            st.markdown("""
+                <div class="label-print-card">
+                    <div class="lp-title">🏷️ 列印大標</div>
+                    <div class="lp-subtitle">請先儲存生產單，才能列印標籤。</div>
+                </div>
+            """, unsafe_allow_html=True)
         else:
-            order_no_for_label = order.get("生產單號", "")
+            snapshot_order = snapshot["order"]
+            order_no_for_label = snapshot_order.get("生產單號", "")
+
+            show_label_key = f"show_big_label_{order_no_for_label}"
+            bypass_a5_key = f"big_label_bypass_a5_{order_no_for_label}"
             label_rows_key = f"big_label_rows_{order_no_for_label}"
             label_version_key = f"big_label_version_{order_no_for_label}"
             label_confirmed_key = f"big_label_confirmed_{order_no_for_label}"
 
-            if label_rows_key not in st.session_state:
-                st.session_state[label_rows_key] = build_big_label_rows(order)
-            if label_version_key not in st.session_state:
-                st.session_state[label_version_key] = 0
+            a5_downloaded = snapshot.get("a5_downloaded", False)
 
-            with st.container(border=True):
-                with st.form(f"big_label_form_{order_no_for_label}", border=False):
-                    edited_label_df = st.data_editor(
-                        pd.DataFrame(st.session_state[label_rows_key]),
-                        num_rows="dynamic",
-                        use_container_width=True,
-                        key=f"big_label_editor_{order_no_for_label}_{st.session_state[label_version_key]}",
-                        column_config={
-                            "編號": st.column_config.TextColumn("編號"),
-                            "名稱": st.column_config.TextColumn("名稱"),
-                            "比例": st.column_config.TextColumn("比例"),
-                            "日期": st.column_config.TextColumn("日期"),
-                            "數量": st.column_config.TextColumn("數量"),
-                        },
-                    )
+            header_col, toggle_col = st.columns([5, 1])
+            with header_col:
+                st.markdown(f"""
+                    <div class="label-print-card">
+                        <div class="lp-title">🏷️ 列印大標</div>
+                        <div class="lp-subtitle">生產單 {order_no_for_label}，{'已下載 A5' if a5_downloaded else '尚未下載 A5'}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with toggle_col:
+                show_label_section = st.toggle("展開", key=show_label_key, value=False)
 
-                    copy_col, count_col, confirm_col = st.columns([1.2, 1.3, 1.5])
-                    with copy_col:
-                        copy_clicked = st.form_submit_button("➕ 複製最後一列", use_container_width=True)
-                    with count_col:
-                        copy_times = st.number_input(
-                            "複製幾份（張）", min_value=1, max_value=20, value=1, step=1,
-                            key=f"big_label_copy_times_{order_no_for_label}"
+            if show_label_section:
+                if not a5_downloaded and not st.session_state.get(bypass_a5_key, False):
+                    st.warning("⚠️ 你還沒下載 A5 生產單，確定要先列印標籤嗎？")
+                    if st.button("我了解，仍要繼續列印標籤", key=f"bypass_a5_btn_{order_no_for_label}"):
+                        st.session_state[bypass_a5_key] = True
+                        st.rerun()
+                else:
+                    if label_rows_key not in st.session_state:
+                        st.session_state[label_rows_key] = build_big_label_rows(snapshot_order)
+                    if label_version_key not in st.session_state:
+                        st.session_state[label_version_key] = 0
+
+                    with st.container(border=True):
+                        with st.form(f"big_label_form_{order_no_for_label}", border=False):
+                            edited_label_df = st.data_editor(
+                                pd.DataFrame(st.session_state[label_rows_key]),
+                                num_rows="dynamic",
+                                use_container_width=True,
+                                key=f"big_label_editor_{order_no_for_label}_{st.session_state[label_version_key]}",
+                                column_config={
+                                    "編號": st.column_config.TextColumn("編號"),
+                                    "名稱": st.column_config.TextColumn("名稱"),
+                                    "比例": st.column_config.TextColumn("比例"),
+                                    "日期": st.column_config.TextColumn("日期"),
+                                    "數量": st.column_config.TextColumn("數量"),
+                                },
+                            )
+
+                            copy_col, count_col, confirm_col = st.columns([1.2, 1.3, 1.5])
+                            with copy_col:
+                                copy_clicked = st.form_submit_button("➕ 複製最後一列", use_container_width=True)
+                            with count_col:
+                                copy_times = st.number_input(
+                                    "複製幾份（張）", min_value=1, max_value=20, value=1, step=1,
+                                    key=f"big_label_copy_times_{order_no_for_label}"
+                                )
+                            with confirm_col:
+                                confirm_clicked = st.form_submit_button("✅ 確認內容，產生下載檔", use_container_width=True)
+
+                        if copy_clicked:
+                            current_rows = edited_label_df.fillna("").to_dict("records")
+                            if current_rows:
+                                last_row = dict(current_rows[-1])
+                                current_rows.extend([dict(last_row) for _ in range(int(copy_times))])
+                            st.session_state[label_rows_key] = current_rows
+                            st.session_state[label_version_key] += 1
+                            st.session_state[label_confirmed_key] = None
+                            st.toast(f"已複製 {int(copy_times)} 列，請往下捲動查看", icon="➕")
+                            st.rerun()
+
+                        if confirm_clicked:
+                            st.session_state[label_rows_key] = edited_label_df.fillna("").to_dict("records")
+                            st.session_state[label_confirmed_key] = list(st.session_state[label_rows_key])
+                            st.toast("已確認內容，下載按鈕已產生，請往下捲動查看", icon="✅")
+
+                    confirmed_rows = st.session_state.get(label_confirmed_key)
+                    if confirmed_rows:
+                        sheets_needed = -(-len(confirmed_rows) // 4)  # 無條件進位
+                        st.caption(f"共 {len(confirmed_rows)} 張標籤，需要 {sheets_needed} 張大標紙（手動一張一張進紙）。")
+
+                        big_label_html = generate_big_label_html(confirmed_rows)
+                        safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
+
+                        st.download_button(
+                            label="📥 下載大標 HTML（開啟後自動列印）",
+                            data=big_label_html.encode("utf-8"),
+                            file_name=f"{safe_order_no}_大標.html",
+                            mime="text/html",
+                            key=f"download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
                         )
-                    with confirm_col:
-                        confirm_clicked = st.form_submit_button("✅ 確認內容，產生下載檔", use_container_width=True)
-
-                if copy_clicked:
-                    current_rows = edited_label_df.fillna("").to_dict("records")
-                    if current_rows:
-                        last_row = dict(current_rows[-1])
-                        current_rows.extend([dict(last_row) for _ in range(int(copy_times))])
-                    st.session_state[label_rows_key] = current_rows
-                    st.session_state[label_version_key] += 1
-                    st.session_state[label_confirmed_key] = None
-                    st.toast(f"已複製 {int(copy_times)} 列，請往下捲動查看", icon="➕")
-                    st.rerun()
-
-                if confirm_clicked:
-                    st.session_state[label_rows_key] = edited_label_df.fillna("").to_dict("records")
-                    st.session_state[label_confirmed_key] = list(st.session_state[label_rows_key])
-                    st.toast("已確認內容，下載按鈕已產生，請往下捲動查看", icon="✅")
-
-            confirmed_rows = st.session_state.get(label_confirmed_key)
-            if confirmed_rows:
-                sheets_needed = -(-len(confirmed_rows) // 4)  # 無條件進位
-                st.caption(f"共 {len(confirmed_rows)} 張標籤，需要 {sheets_needed} 張大標紙（手動一張一張進紙）。")
-
-                big_label_html = generate_big_label_html(confirmed_rows)
-                safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
-
-                st.download_button(
-                    label="📥 下載大標 HTML（開啟後自動列印）",
-                    data=big_label_html.encode("utf-8"),
-                    file_name=f"{safe_order_no}_大標.html",
-                    mime="text/html",
-                    key=f"download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
-                )
-            else:
-                st.caption("編輯完成後，請按上方「✅ 確認內容，產生下載檔」才會出現下載按鈕。")
+                    else:
+                        st.caption("編輯完成後，請按上方「✅ 確認內容，產生下載檔」才會出現下載按鈕。")
  
         if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
             try:
