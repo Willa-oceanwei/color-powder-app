@@ -1,19 +1,27 @@
 # Lifecycle、沖銷與 Tombstone 正式環境驗收清單
 
 本清單用於 Schema v8 上線驗收。目標是確認 Turso 永遠保留可稽核的業務歷史，且
-Google Sheets 副本只會在 row 仍符合同步 baseline 時被移除。**請先使用測試 Sheet；
-尚未完成全部放行條件前，不得啟用自動 worker。**
+Google Sheets 副本只會在 row 仍符合同步 baseline 時被移除。此流程支援完全使用
+Streamlit Community Cloud，不需要另備 VM 或常駐主機。**請使用隔離的測試 app、測試
+Turso database 與測試 Sheet；尚未完成全部放行條件前，不得啟用自動 worker。**
 
-## 1. 驗收前準備
+## 1. Streamlit Cloud 驗收拓撲
 
-- [ ] 備份正式 Turso，並記錄備份時間與還原方式。
-- [ ] 複製正式 Google Spreadsheet 作為獨立測試 Sheet。
-- [ ] 確認測試環境的 credentials 只能存取測試 Sheet。
-- [ ] 執行完整測試，結果必須全部通過：`python -m pytest -q`。
-- [ ] 啟動網站並確認 database health check 顯示 Schema v8。
+- [ ] 在 Turso 建立獨立的測試 database；不可讓驗收 app 指向正式 database。
+- [ ] 複製正式 Google Spreadsheet 作為獨立測試 Sheet，並移除不需要的正式資料。
+- [ ] 建立獨立的 Google service account，權限只授予測試 Sheet。
+- [ ] 在 Streamlit Community Cloud 建立獨立的測試 app，可部署同一 repository 的測試 branch。
+- [ ] 測試 app 的 Secrets 只填入測試 Turso URL/token、測試 Sheet URL 與測試 service account。
+- [ ] 不要把正式 secrets 複製到測試 app，也不要把任何 token 寫入 repository 或驗收報告。
+- [ ] GitHub Actions 的 `tests` workflow 必須通過；Streamlit app process 不負責執行 pytest。
+- [ ] 開啟測試 app，登入後確認 database health check 顯示 Schema v8。
 - [ ] 為色粉、供應商、配方、庫存與生產單各建立一筆容易辨識的測試資料。
 - [ ] 對五張工作表執行一次安全 PUSH，建立可供 tombstone 比對的 `sheet_rows` baseline。
 - [ ] 下載並保存每次 preflight JSON；紀錄測試人員、時間、環境與測試資料 ID。
+
+Streamlit Cloud 的 filesystem 不是備份位置，也不適合常駐排程。驗收證據應下載至管理者
+可控的持久儲存；未來自動 worker 應部署在具有排程觸發能力的服務，而不是依賴 Streamlit
+app session 持續運行。
 
 ## 2. 色粉、供應商與配方
 
@@ -62,23 +70,35 @@ Google Sheets 副本只會在 row 仍符合同步 baseline 時被移除。**請�
 
 ## 6. 失敗與重送
 
-- [ ] 模擬 Google API 暫時錯誤，確認 retry/backoff 不會產生重複 Sheet row。
+- [ ] 在自動測試中模擬 Google API 暫時錯誤，確認 retry/backoff 不會產生重複 Sheet row。
 - [ ] 模擬寫入結果不確定，確認系統要求重新 preflight，而不是盲目重送。
 - [ ] 同一 entity 的較舊 version 不會覆蓋較新的 pending event。
 - [ ] failed event 與錯誤摘要可從同步檢查頁辨識，且不洩漏 Turso token。
-- [ ] 重啟 Streamlit process 後，pending outbox、baseline 與 conflict 仍存在。
+- [ ] 從 Streamlit Cloud 重新啟動測試 app 後，pending outbox、baseline 與 conflict 仍存在於 Turso。
 
 ## 7. 放行條件
 
 只有同時滿足下列條件，才能開始實作或啟用排程 worker：
 
-- [ ] 自動測試全部通過。
+- [ ] GitHub Actions 的自動測試全部通過。
 - [ ] 第 2～6 節所有測試均在測試 Sheet 通過。
 - [ ] 每張工作表都有成功、衝突及失敗案例的 preflight JSON 證據。
-- [ ] 已完成 Turso 還原演練，並確認 Sheet 不能取代 Source of Truth。
+- [ ] 已依所選 Turso 備份方案完成還原演練，並確認 Sheet 不能取代 Source of Truth。
 - [ ] 已指定 conflict/failed event 的人工負責人與處理時限。
 - [ ] worker 初期仍保留人工 PUSH 作為復原與除錯管道。
 
 驗收通過後，下一階段 worker 應具備單一執行鎖、批次上限、有限重試、exponential
 backoff、結構化 sync log，以及「只自動處理安全事件」的預設策略；conflict 與 failed
 event 必須留給人工處理。
+
+## 8. 備份後的安全模式 worker
+
+若已完成 Turso 與 Google Spreadsheet 備份，可先使用 GitHub Actions 的
+`safe Turso to Sheets sync`，不必先啟用定時排程：
+
+1. 在 repository Actions secrets 設定 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、
+   `GOOGLE_SERVICE_ACCOUNT_JSON` 與 `GOOGLE_SHEET_URL`。
+2. 從 Actions 頁面手動執行 `dry-run`，batch size 保持預設 25。
+3. 確認 JSON 結果沒有 error/conflict，再手動執行 `apply`。
+4. `apply` 只處理 insert/update；`skipped_deletes` 大於零是預期結果，delete 仍回網站人工 PUSH。
+5. 初期每次執行後抽查 Sheet；穩定運作一段時間後，才另行評估加入 schedule。

@@ -248,3 +248,25 @@ Schema v8 已建立 lifecycle 資料層與受控 UI；網站不會實體刪除 T
 
 正式環境驗收與放行條件請依 [`docs/lifecycle-acceptance-checklist.md`](docs/lifecycle-acceptance-checklist.md)
 逐項執行並保存 preflight JSON；所有項目通過後才進入排程 worker 階段。
+
+若系統完全部署在 Streamlit Community Cloud，不需要另外準備主機。請建立一個獨立的
+Streamlit Cloud 測試 app（可使用同一 repository 的測試 branch），讓它連到獨立的測試
+Turso database 與正式 Spreadsheet 的測試副本。自動測試交由 GitHub Actions 執行；
+不要在 Streamlit app process 中執行 pytest、排程常駐 worker，或把本機 SQLite file
+當成備份。Cloud 專用步驟與 secrets 隔離方式請見驗收清單。
+
+### 安全模式 worker（手動 GitHub Actions）
+
+備份完成後可從 GitHub repository 的 **Actions → safe Turso to Sheets sync → Run workflow**
+執行單次 worker。第一次請選 `dry-run`；確認輸出無 error/conflict 後才選 `apply`。
+此 worker 每次最多處理指定 batch（預設 25 筆），只自動傳送 insert/update；所有 delete、
+tombstone、沖銷移除與取消移除都保留給網站既有的人工 preflight + `PUSH`。Database lock
+與 GitHub concurrency 會阻止兩個 apply worker 同時傳送。
+
+請先在 GitHub Actions secrets 設定 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、
+`GOOGLE_SERVICE_ACCOUNT_JSON`、`GOOGLE_SHEET_URL`。這些值只放在 GitHub Secrets，不能
+提交到 repository。workflow 目前只有手動觸發，尚未設定定時排程。
+
+Schema v9 新增 `sync_worker_locks`。Apply worker 會取得具期限的 database lock，結束時只
+能釋放自己持有的 lock；若另一個 worker 已持有 lock，本次執行會安全停止。即使 GitHub
+Actions concurrency 設定失效，database lock 仍提供第二層重複傳送保護。
