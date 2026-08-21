@@ -2,6 +2,7 @@ from utils.color_powder_repository import ColorPowderInput, create_color_powder
 from utils.database import DatabaseConfig, connect, initialize_database
 from utils.inbound_worker import run_controlled_inbound_worker
 from utils.sheet_import import import_sheet_values
+import utils.sheet_import as sheet_import_module
 
 
 class Worksheet:
@@ -18,6 +19,26 @@ class Spreadsheet:
 
     def worksheet(self, name):
         return self.sheets[name]
+
+
+def test_import_preflight_bulk_loads_baselines_instead_of_querying_each_row(tmp_path, monkeypatch):
+    db = tmp_path / "bulk-baseline.db"
+    values = [["色粉編號", "名稱"]] + [
+        [f"P{index:03d}", f"Powder {index}"] for index in range(30)
+    ]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+
+    monkeypatch.setattr(
+        sheet_import_module,
+        "_row_changed_in_sqlite",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("preflight performed a per-row baseline query")
+        ),
+    )
+    result = import_sheet_values("色粉管理", values, db_path=db, dry_run=True)
+
+    assert result.unchanged == 30
+    assert result.to_insert == result.to_update == 0
 
 
 def test_controlled_inbound_preflights_then_applies_sheet_update(tmp_path):

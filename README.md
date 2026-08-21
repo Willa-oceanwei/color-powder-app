@@ -295,3 +295,5 @@ event，因此不會形成雙向同步迴圈。Apply 與 outbound worker 共用�
 group 與 Turso lock。每次執行會保存 14 天 JSON artifact。scheduled dry-run 若偵測到變更，
 會以 Success 保存 preflight 報告但不套用；若發現 conflict/error/duplicate 或超過變更上限，
 workflow 會顯示 Failure，必須人工檢查。正式開放 scheduled apply 前，先觀察唯讀排程結果。
+Inbound preflight 會一次載入每張表的 `sheet_rows` baseline hashes，再於記憶體比較所有 row，
+避免大型 Sheet 對遠端 Turso 逐列查詢；workflow 仍設有 25 分鐘 timeout 防止異常卡住。
