@@ -117,3 +117,4 @@ event 必須留給人工處理。
 - 每次排程仍產生保留 14 天的 JSON artifact，可由 Actions 執行紀錄抽查。
 - 若 scheduled run 出現 conflict/error，worker 會停止後續工作表並以失敗狀態提醒人工處理。
 - 緊急暫停請使用 workflow 頁面的 **Disable workflow**；不要刪除 outbox 或 database lock row。
+- 合併後先確認第一筆 `schedule` 觸發的 run 為 Success，再用一次網站新增／修改驗證無需人工操作即可進入 Sheet。
