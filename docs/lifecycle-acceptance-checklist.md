@@ -131,11 +131,12 @@ event 必須留給人工處理。
 消失的 row 永遠不當成刪除；inbound 不建立 outbound event。
 建議第一次只修改一筆既有資料的備註，不要測試停用、取消、沖銷或大量新增。
 
-## 11. Inbound 唯讀排程觀察
+## 11. Inbound 安全自動套用
 
-- 每小時 UTC 第 7、37 分自動對全部支援工作表執行 dry-run，不會寫入 Turso。
+- 每小時 UTC 第 7、37 分自動對全部支援工作表重新讀取、preflight，再安全 apply。
 - 排程與 outbound apply 錯開 10 分鐘，且仍共用 concurrency group。
 - 無變更時所有工作表應為 `to_insert: 0`、`to_update: 0`、`conflicts: 0`、`errors: []`。
-- 有安全變更時 run 可以 Success，但只會出現在 artifact 的 preflight，需人工執行 apply。
-- conflict、duplicate、validation error 或超過 25 個變更會使 run Failure，不得直接 apply。
-- 至少觀察數次 scheduled dry-run 後，才評估讓 inbound 自動套用安全更新。
+- 有安全 insert/update 時，preflight 全部通過才寫入 Turso，結果記錄於 `applied`。
+- conflict、duplicate、validation error 或超過 25 個變更會在任何寫入前使 run Failure。
+- Sheet row 消失不視為刪除；停用、取消、沖銷及其他 lifecycle 操作仍由網站人工流程處理。
+- scheduled run 失敗時先下載 artifact 確認原因，不得以手動 apply 繞過安全檢查。

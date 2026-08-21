@@ -284,7 +284,7 @@ lock，因此即使時間重疊也不會同時傳送。若要暫停排程，可�
 ### 受控 Google Sheets → Turso inbound sync
 
 GitHub Actions 的 **controlled Sheets to Turso sync** 可手動執行，並在每小時 UTC 第 7、37
-分對全部五張 Turso-first 工作表執行唯讀 scheduled dry-run；排程目前絕不寫入 Turso。
+分對全部五張 Turso-first 工作表執行 scheduled safe apply。
 手動執行可選單一工作表或全部工作表；第一次必須選 `dry-run`。`apply` 會在同一
 次 run 重新讀取 Sheet、對所有選定工作表完成 preflight，只有全部沒有 validation error、
 duplicate ID、conflict，且變更總數不超過 `max_changes`（預設 25）才開始寫入。
@@ -292,8 +292,9 @@ duplicate ID、conflict，且變更總數不超過 `max_changes`（預設 25）�
 
 Inbound worker 不會把 Sheet 中消失的 row 視為刪除，也不會為 Sheet 匯入結果建立 outbound
 event，因此不會形成雙向同步迴圈。Apply 與 outbound worker 共用同一個 GitHub concurrency
-group 與 Turso lock。每次執行會保存 14 天 JSON artifact。scheduled dry-run 若偵測到變更，
-會以 Success 保存 preflight 報告但不套用；若發現 conflict/error/duplicate 或超過變更上限，
-workflow 會顯示 Failure，必須人工檢查。正式開放 scheduled apply 前，先觀察唯讀排程結果。
+group 與 Turso lock。每次執行會保存 14 天 JSON artifact。Scheduled apply 每次都會先重新
+讀取全部 Sheet 並執行 preflight；只有全部工作表沒有 conflict/error/duplicate，且總變更
+不超過 25 筆，才會套用 insert/update。任何不安全結果都會在寫入前停止並顯示 Failure；
+Sheet 中消失的 row 仍永遠不會被自動刪除。
 Inbound preflight 會一次載入每張表的 `sheet_rows` baseline hashes，再於記憶體比較所有 row，
 避免大型 Sheet 對遠端 Turso 逐列查詢；workflow 仍設有 25 分鐘 timeout 防止異常卡住。

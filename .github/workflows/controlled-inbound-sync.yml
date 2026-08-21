@@ -2,7 +2,7 @@ name: controlled Sheets to Turso sync
 
 on:
   schedule:
-    # Observation phase: read-only inbound preflight, offset from outbound apply.
+    # Safe inbound apply, offset from outbound delivery.
     - cron: "7,37 * * * *"
   workflow_dispatch:
     inputs:
@@ -89,7 +89,8 @@ jobs:
 
       - name: Run controlled inbound sync
         env:
-          APPLY_FLAG: ${{ inputs.mode == 'apply' && '--apply' || '' }}
+          # Scheduled runs auto-apply only after the worker's fresh all-Sheet preflight passes.
+          APPLY_FLAG: ${{ (github.event_name == 'schedule' || inputs.mode == 'apply') && '--apply' || '' }}
         run: |
           sheets=()
           if [ "$SELECTED_SHEET" != "all" ]; then
@@ -104,7 +105,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: inbound-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.mode || 'scheduled-dry-run' }}
+          name: inbound-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.mode || 'scheduled-apply' }}
           path: reports/*.json
           if-no-files-found: ignore
           retention-days: 14
