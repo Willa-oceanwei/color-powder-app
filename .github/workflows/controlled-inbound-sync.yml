@@ -1,6 +1,9 @@
 name: controlled Sheets to Turso sync
 
 on:
+  schedule:
+    # Observation phase: read-only inbound preflight, offset from outbound apply.
+    - cron: "7,37 * * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -48,8 +51,8 @@ jobs:
       TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
       GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
       GOOGLE_SHEET_URL: ${{ secrets.GOOGLE_SHEET_URL }}
-      SELECTED_SHEET: ${{ inputs.sheet }}
-      MAX_CHANGES: ${{ inputs.max_changes }}
+      SELECTED_SHEET: ${{ inputs.sheet || 'all' }}
+      MAX_CHANGES: ${{ inputs.max_changes || '25' }}
       APPLY_CONFIRMATION: ${{ inputs.confirmation }}
 
     steps:
@@ -101,7 +104,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: inbound-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.mode }}
+          name: inbound-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.mode || 'scheduled-dry-run' }}
           path: reports/*.json
           if-no-files-found: ignore
           retention-days: 14

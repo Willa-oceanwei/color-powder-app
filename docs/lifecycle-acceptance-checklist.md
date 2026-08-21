@@ -128,5 +128,14 @@ event 必須留給人工處理。
 5. 從 Artifacts 下載 `inbound-...` JSON 留存；若任何安全檢查失敗，不得反覆重按 apply。
 
 安全限制：一次最多 25 個變更（可手動降低）；選定工作表必須全部安全才開始 apply；Sheet
-消失的 row 永遠不當成刪除；inbound 不建立 outbound event；目前不設定 inbound schedule。
+消失的 row 永遠不當成刪除；inbound 不建立 outbound event。
 建議第一次只修改一筆既有資料的備註，不要測試停用、取消、沖銷或大量新增。
+
+## 11. Inbound 唯讀排程觀察
+
+- 每小時 UTC 第 7、37 分自動對全部支援工作表執行 dry-run，不會寫入 Turso。
+- 排程與 outbound apply 錯開 10 分鐘，且仍共用 concurrency group。
+- 無變更時所有工作表應為 `to_insert: 0`、`to_update: 0`、`conflicts: 0`、`errors: []`。
+- 有安全變更時 run 可以 Success，但只會出現在 artifact 的 preflight，需人工執行 apply。
+- conflict、duplicate、validation error 或超過 25 個變更會使 run Failure，不得直接 apply。
+- 至少觀察數次 scheduled dry-run 後，才評估讓 inbound 自動套用安全更新。
