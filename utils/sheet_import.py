@@ -223,6 +223,20 @@ def _fetchone_mapping(cursor) -> dict[str, Any] | None:
     return dict(zip(columns, row))
 
 
+def _fetchall_mappings(cursor) -> list[dict[str, Any]]:
+    """Normalize sqlite3 and libsql result sets without per-row database calls."""
+    rows = cursor.fetchall()
+    if not rows:
+        return []
+    if hasattr(rows[0], "keys"):
+        return [{key: row[key] for key in row.keys()} for row in rows]
+    description = getattr(cursor, "description", None)
+    if not description:
+        raise TypeError("Database cursor returned tuple rows without column metadata")
+    columns = [column[0] for column in description]
+    return [dict(zip(columns, row)) for row in rows]
+
+
 def _row_changed_in_sqlite(conn, sheet_name: str, row_key: str, row_hash: str) -> tuple[bool, bool]:
     existing = _fetchone_mapping(conn.execute(
         "SELECT row_hash FROM sheet_rows WHERE sheet_name = ? AND row_key = ?",
@@ -273,6 +287,13 @@ def import_sheet_values(
     started_at = utc_now_iso()
 
     with connect_from_config(config) as conn:
+        baseline_hashes = {
+            str(db_row["row_key"]): str(db_row["row_hash"])
+            for db_row in _fetchall_mappings(conn.execute(
+                "SELECT row_key, row_hash FROM sheet_rows WHERE sheet_name = ?",
+                (sheet_name,),
+            ))
+        }
         known_inventory_powder_ids: set[str] | None = None
         known_inventory_supplier_ids: set[str] | None = None
         if sheet_name == "庫存記錄":
@@ -308,7 +329,8 @@ def import_sheet_values(
             seen.add(row_key)
 
             row_hash = _row_hash(row)
-            changed, existed = _row_changed_in_sqlite(conn, sheet_name, row_key, row_hash)
+            existed = row_key in baseline_hashes
+            changed = not existed or baseline_hashes[row_key] != row_hash
             if not changed:
                 result.unchanged += 1
                 continue
