@@ -31,6 +31,7 @@ class ExportResult:
     conflicts: int = 0
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    skipped_deletes: int = 0
 
     @property
     def ok(self) -> bool:
@@ -108,6 +109,8 @@ def _sync_outbox(
     entity_id_column: str,
     dry_run: bool = True,
     initialize_schema: bool = True,
+    max_entries: int | None = None,
+    allow_deletes: bool = True,
 ) -> ExportResult:
     """Preflight or deliver pending color-powder outbox entries.
 
@@ -167,6 +170,17 @@ def _sync_outbox(
         entry["operation"] == "delete",
         -(sheet_rows.get(str(entry["row_key"]), (0, {}))[0]) if entry["operation"] == "delete" else 0,
     ))
+    if not allow_deletes:
+        result.skipped_deletes = sum(entry["operation"] == "delete" for entry in entries)
+        entries = [entry for entry in entries if entry["operation"] != "delete"]
+        if result.skipped_deletes:
+            result.warnings.append(
+                f"safe mode retained {result.skipped_deletes} delete event(s) for manual PUSH"
+            )
+    if max_entries is not None:
+        if max_entries < 1:
+            raise ValueError("max_entries must be at least 1")
+        entries = entries[:max_entries]
     result.queued = len(entries)
 
     claimed_ids: set[int] = set()
@@ -327,54 +341,64 @@ def _sync_outbox(
 def sync_color_powder_outbox(
     worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
     dry_run: bool = True, initialize_schema: bool = True,
+    max_entries: int | None = None, allow_deletes: bool = True,
 ) -> ExportResult:
     return _sync_outbox(
         worksheet, values, db_config=db_config, sheet_name="色粉管理", key_column="色粉編號",
         entity_type="color_powder", entity_table="color_powders", entity_id_column="colorpowder_id",
         dry_run=dry_run, initialize_schema=initialize_schema,
+        max_entries=max_entries, allow_deletes=allow_deletes,
     )
 
 
 def sync_supplier_outbox(
     worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
     dry_run: bool = True, initialize_schema: bool = True,
+    max_entries: int | None = None, allow_deletes: bool = True,
 ) -> ExportResult:
     return _sync_outbox(
         worksheet, values, db_config=db_config, sheet_name="供應商管理", key_column="供應商編號",
         entity_type="supplier", entity_table="suppliers", entity_id_column="supplier_id",
         dry_run=dry_run, initialize_schema=initialize_schema,
+        max_entries=max_entries, allow_deletes=allow_deletes,
     )
 
 
 def sync_recipe_outbox(
     worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
     dry_run: bool = True, initialize_schema: bool = True,
+    max_entries: int | None = None, allow_deletes: bool = True,
 ) -> ExportResult:
     return _sync_outbox(
         worksheet, values, db_config=db_config, sheet_name="配方管理", key_column="配方編號",
         entity_type="recipe", entity_table="recipes", entity_id_column="recipe_id",
         dry_run=dry_run, initialize_schema=initialize_schema,
+        max_entries=max_entries, allow_deletes=allow_deletes,
     )
 
 
 def sync_inventory_outbox(
     worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
     dry_run: bool = True, initialize_schema: bool = True,
+    max_entries: int | None = None, allow_deletes: bool = True,
 ) -> ExportResult:
     return _sync_outbox(
         worksheet, values, db_config=db_config, sheet_name="庫存記錄", key_column="_sync_id",
         entity_type="inventory_movement", entity_table="inventory_movements",
         entity_id_column="sheet_row_key", dry_run=dry_run, initialize_schema=initialize_schema,
+        max_entries=max_entries, allow_deletes=allow_deletes,
     )
 
 
 def sync_production_order_outbox(
     worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
     dry_run: bool = True, initialize_schema: bool = True,
+    max_entries: int | None = None, allow_deletes: bool = True,
 ) -> ExportResult:
     return _sync_outbox(
         worksheet, values, db_config=db_config, sheet_name="生產單", key_column="生產單號",
         entity_type="production_order", entity_table="production_orders",
         entity_id_column="production_order_id", dry_run=dry_run,
-        initialize_schema=initialize_schema,
+        initialize_schema=initialize_schema, max_entries=max_entries,
+        allow_deletes=allow_deletes,
     )
