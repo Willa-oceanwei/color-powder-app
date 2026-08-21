@@ -1,6 +1,9 @@
 name: safe Turso to Sheets sync
 
 on:
+  schedule:
+    # Run away from the top of the hour to reduce GitHub scheduler congestion.
+    - cron: "17,47 * * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -35,10 +38,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -74,11 +77,19 @@ jobs:
           --report-path reports/safe-sync-${{ github.run_id }}-${{ github.run_attempt }}.json
           --apply
 
+      - name: Apply scheduled safe insert and update events
+        if: github.event_name == 'schedule'
+        run: >-
+          python scripts/run_safe_sync_worker.py
+          --batch-size 25
+          --report-path reports/safe-sync-${{ github.run_id }}-${{ github.run_attempt }}.json
+          --apply
+
       - name: Upload safe-sync observation report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: safe-sync-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.mode }}
+          name: safe-sync-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.mode || 'scheduled-apply' }}
           path: reports/*.json
           if-no-files-found: ignore
           retention-days: 14

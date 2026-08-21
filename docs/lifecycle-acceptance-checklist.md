@@ -109,3 +109,11 @@ event 必須留給人工處理。
 三組成功循環，每組包含 dry-run、apply、再次 dry-run，並確認最後一次 `queued` 為 0、
 `conflicts` 為 0、`errors` 為空。若 `skipped_deletes` 大於 0，改回網站人工 PUSH，不把
 它視為 safe worker 失敗。三組紀錄通過後，才開始加入定時 schedule。
+
+## 9. 定時 schedule
+
+- 排程在每小時 UTC 第 17、47 分執行一次，每次最多處理 25 筆安全事件。
+- schedule 只執行 apply insert/update；delete、tombstone、沖銷移除與取消移除不會自動執行。
+- 每次排程仍產生保留 14 天的 JSON artifact，可由 Actions 執行紀錄抽查。
+- 若 scheduled run 出現 conflict/error，worker 會停止後續工作表並以失敗狀態提醒人工處理。
+- 緊急暫停請使用 workflow 頁面的 **Disable workflow**；不要刪除 outbox 或 database lock row。

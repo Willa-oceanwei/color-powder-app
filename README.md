@@ -265,7 +265,8 @@ tombstone、沖銷移除與取消移除都保留給網站既有的人工 preflig
 
 請先在 GitHub Actions secrets 設定 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、
 `GOOGLE_SERVICE_ACCOUNT_JSON`、`GOOGLE_SHEET_URL`。這些值只放在 GitHub Secrets，不能
-提交到 repository。workflow 目前只有手動觸發，尚未設定定時排程。
+提交到 repository。workflow 保留手動 dry-run/apply，並在預設 branch 每小時的第 17、47
+分鐘執行安全 apply；GitHub 排程可能因平台繁忙而延遲，並非即時同步。
 
 Schema v9 新增 `sync_worker_locks`。Apply worker 會取得具期限的 database lock，結束時只
 能釋放自己持有的 lock；若另一個 worker 已持有 lock，本次執行會安全停止。即使 GitHub
@@ -274,3 +275,8 @@ Actions concurrency 設定失效，database lock 仍提供第二層重複傳送�
 每次手動執行都會產生保留 14 天的 `safe-sync-...` JSON artifact，方便比較 dry-run 與
 apply 的 queued/written/conflict/error 結果。正式加入 schedule 前，建議至少完成三組
 「網站新增或修改 → dry-run → apply → 再次 dry-run queued 歸零」，並下載報告留存。
+
+定時執行仍固定使用 batch 25，且沿用安全模式限制：只傳送 insert/update，delete 永遠
+留待網站人工 PUSH。排程和手動 apply 共用 GitHub concurrency group 與 Turso database
+lock，因此即使時間重疊也不會同時傳送。若要暫停排程，可在 GitHub Actions 的 workflow
+頁面選擇 **Disable workflow**；重新啟用後既有 pending outbox 仍會保留。
