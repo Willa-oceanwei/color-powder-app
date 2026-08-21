@@ -280,3 +280,16 @@ apply 的 queued/written/conflict/error 結果。正式加入 schedule 前，建
 留待網站人工 PUSH。排程和手動 apply 共用 GitHub concurrency group 與 Turso database
 lock，因此即使時間重疊也不會同時傳送。若要暫停排程，可在 GitHub Actions 的 workflow
 頁面選擇 **Disable workflow**；重新啟用後既有 pending outbox 仍會保留。
+
+### 受控 Google Sheets → Turso inbound sync
+
+GitHub Actions 的 **controlled Sheets to Turso sync** 目前只允許手動執行，不設 schedule。
+可選單一工作表或全部五張 Turso-first 工作表；第一次必須選 `dry-run`。`apply` 會在同一
+次 run 重新讀取 Sheet、對所有選定工作表完成 preflight，只有全部沒有 validation error、
+duplicate ID、conflict，且變更總數不超過 `max_changes`（預設 25）才開始寫入。
+選擇 `apply` 時還必須輸入完整確認字串 `APPLY SHEET TO TURSO`。
+
+Inbound worker 不會把 Sheet 中消失的 row 視為刪除，也不會為 Sheet 匯入結果建立 outbound
+event，因此不會形成雙向同步迴圈。Apply 與 outbound worker 共用同一個 GitHub concurrency
+group 與 Turso lock。每次執行會保存 14 天 JSON artifact；正式開放 inbound schedule 前，
+仍須以單一工作表進行人工 dry-run/apply 驗收。

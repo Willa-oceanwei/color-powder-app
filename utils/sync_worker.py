@@ -26,6 +26,7 @@ SAFE_SHEETS: tuple[tuple[str, Callable[..., ExportResult]], ...] = (
     ("庫存記錄", sync_inventory_outbox),
     ("生產單", sync_production_order_outbox),
 )
+SYNC_WORKER_LOCK_NAME = "turso-sheets-worker"
 
 
 @dataclass
@@ -98,7 +99,7 @@ def run_safe_worker(
     initialize_database_from_config(db_config)
     result = SafeWorkerResult(dry_run=dry_run, batch_size=batch_size)
     owner_id = f"safe-worker-{uuid4().hex}"
-    lock_name = "turso-to-sheets-safe-worker"
+    lock_name = SYNC_WORKER_LOCK_NAME
     if not dry_run:
         result.lock_acquired = acquire_worker_lock(
             db_config, lock_name=lock_name, owner_id=owner_id, ttl_seconds=lock_ttl_seconds

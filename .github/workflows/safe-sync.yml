@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: safe-turso-to-sheets-worker
+  group: turso-sheets-sync-worker
   cancel-in-progress: false
 
 jobs:
