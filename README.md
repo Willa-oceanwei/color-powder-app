@@ -270,3 +270,7 @@ tombstone、沖銷移除與取消移除都保留給網站既有的人工 preflig
 Schema v9 新增 `sync_worker_locks`。Apply worker 會取得具期限的 database lock，結束時只
 能釋放自己持有的 lock；若另一個 worker 已持有 lock，本次執行會安全停止。即使 GitHub
 Actions concurrency 設定失效，database lock 仍提供第二層重複傳送保護。
+
+每次手動執行都會產生保留 14 天的 `safe-sync-...` JSON artifact，方便比較 dry-run 與
+apply 的 queued/written/conflict/error 結果。正式加入 schedule 前，建議至少完成三組
+「網站新增或修改 → dry-run → apply → 再次 dry-run queued 歸零」，並下載報告留存。

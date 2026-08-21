@@ -33,6 +33,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--batch-size", type=int, default=25)
     parser.add_argument(
+        "--report-path",
+        help="Also save the structured JSON result as an Actions artifact file.",
+    )
+    parser.add_argument(
         "--apply", action="store_true",
         help="Write safe insert/update events. The default is a read-only dry-run.",
     )
@@ -47,7 +51,12 @@ def main() -> None:
         dry_run=not args.apply,
         batch_size=args.batch_size,
     )
-    print(json.dumps(asdict(result), ensure_ascii=False, indent=2))
+    report = json.dumps(asdict(result), ensure_ascii=False, indent=2)
+    print(report)
+    if args.report_path:
+        report_path = Path(args.report_path)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(report + "\n", encoding="utf-8")
     raise SystemExit(0 if result.ok else 2)
 
 

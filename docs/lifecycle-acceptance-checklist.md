@@ -102,3 +102,10 @@ event 必須留給人工處理。
 3. 確認 JSON 結果沒有 error/conflict，再手動執行 `apply`。
 4. `apply` 只處理 insert/update；`skipped_deletes` 大於零是預期結果，delete 仍回網站人工 PUSH。
 5. 初期每次執行後抽查 Sheet；穩定運作一段時間後，才另行評估加入 schedule。
+
+### 手動觀察紀錄
+
+每次 workflow 完成後，從該次 run 的 **Artifacts** 下載 `safe-sync-...` JSON。至少記錄
+三組成功循環，每組包含 dry-run、apply、再次 dry-run，並確認最後一次 `queued` 為 0、
+`conflicts` 為 0、`errors` 為空。若 `skipped_deletes` 大於 0，改回網站人工 PUSH，不把
+它視為 safe worker 失敗。三組紀錄通過後，才開始加入定時 schedule。

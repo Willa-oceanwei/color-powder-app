@@ -61,8 +61,24 @@ jobs:
 
       - name: Run read-only preflight
         if: inputs.mode == 'dry-run'
-        run: python scripts/run_safe_sync_worker.py --batch-size "${{ inputs.batch_size }}"
+        run: >-
+          python scripts/run_safe_sync_worker.py
+          --batch-size "${{ inputs.batch_size }}"
+          --report-path reports/safe-sync-${{ github.run_id }}-${{ github.run_attempt }}.json
 
       - name: Apply safe insert and update events
         if: inputs.mode == 'apply'
-        run: python scripts/run_safe_sync_worker.py --batch-size "${{ inputs.batch_size }}" --apply
+        run: >-
+          python scripts/run_safe_sync_worker.py
+          --batch-size "${{ inputs.batch_size }}"
+          --report-path reports/safe-sync-${{ github.run_id }}-${{ github.run_attempt }}.json
+          --apply
+
+      - name: Upload safe-sync observation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safe-sync-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.mode }}
+          path: reports/*.json
+          if-no-files-found: ignore
+          retention-days: 14
