@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -36,6 +36,7 @@ MAIN_TABLES = {
     "sync_log",
     "sync_conflicts",
     "sync_outbox",
+    "sync_worker_locks",
 }
 REQUIRED_TABLE_COLUMNS = {
     "color_powders": {"lifecycle_status", "deleted_at", "delete_reason"},
@@ -499,6 +500,13 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             created_at TEXT NOT NULL,
             processed_at TEXT,
             UNIQUE(sheet_name, row_key, entity_version)
+        );
+
+        CREATE TABLE IF NOT EXISTS sync_worker_locks (
+            lock_name TEXT PRIMARY KEY,
+            owner_id TEXT NOT NULL,
+            acquired_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
         );
         """
     )
