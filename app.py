@@ -7513,14 +7513,37 @@ if menu == "代工管理":
         ]
         all_deliveries = list_outsourcing_events(DATABASE_CONFIG, "delivery")
         all_returns = list_outsourcing_events(DATABASE_CONFIG, "return")
+        recipe_name_map = {}
+        recipe_rows_for_archive = st.session_state.get("df_recipe", pd.DataFrame())
+        if (
+            isinstance(recipe_rows_for_archive, pd.DataFrame)
+            and not recipe_rows_for_archive.empty
+            and "配方編號" in recipe_rows_for_archive.columns
+        ):
+            name_column = "品名" if "品名" in recipe_rows_for_archive.columns else "顏色"
+            if name_column in recipe_rows_for_archive.columns:
+                recipe_name_map = dict(zip(
+                    recipe_rows_for_archive["配方編號"].astype(str).str.strip(),
+                    recipe_rows_for_archive[name_column].astype(str).str.strip(),
+                ))
+
+        def archive_order_label(item):
+            order_id = str(item.get("代工單號", "") or "").strip()
+            recipe_id = str(item.get("配方編號", "") or "").strip()
+            product_name = str(item.get("品名", "") or "").strip() or recipe_name_map.get(recipe_id, "")
+            customer_name = str(item.get("客戶名稱", "") or "").strip()
+            return f"{order_id} ｜ 品名：{product_name or '-'} ｜ 客戶：{customer_name or '-'}"
 
         archive_tab, restore_tab = st.tabs(["封存已結案代工單", "恢復已封存代工單"])
         with archive_tab:
             if not active_closed:
                 st.info("目前沒有可封存的已結案代工單。")
             else:
-                archive_ids = [str(item.get("代工單號", "")) for item in active_closed]
-                archive_id = st.selectbox("選擇已結案代工單", archive_ids, key="archive_oem_id")
+                archive_by_id = {str(item.get("代工單號", "")): item for item in active_closed}
+                archive_id = st.selectbox(
+                    "選擇已結案代工單", list(archive_by_id), key="archive_oem_id",
+                    format_func=lambda value: archive_order_label(archive_by_id[value]),
+                )
                 delivery_count = sum(str(item.get("代工單號", "")) == archive_id for item in all_deliveries)
                 return_count = sum(str(item.get("代工單號", "")) == archive_id for item in all_returns)
                 st.info(f"這張代工單包含 {delivery_count} 筆送達、{return_count} 筆載回歷程。")
@@ -7550,9 +7573,12 @@ if menu == "代工管理":
             if not inactive_orders:
                 st.info("目前沒有已封存代工單。")
             else:
-                restore_ids = [str(item.get("代工單號", "")) for item in inactive_orders]
-                restore_id = st.selectbox("選擇已封存代工單", restore_ids, key="restore_oem_id")
-                selected_inactive = next(item for item in inactive_orders if item.get("代工單號") == restore_id)
+                restore_by_id = {str(item.get("代工單號", "")): item for item in inactive_orders}
+                restore_id = st.selectbox(
+                    "選擇已封存代工單", list(restore_by_id), key="restore_oem_id",
+                    format_func=lambda value: archive_order_label(restore_by_id[value]),
+                )
+                selected_inactive = restore_by_id[restore_id]
                 st.warning(
                     f"封存原因：{selected_inactive.get('停用原因', '') or '未填寫'}｜"
                     f"封存時間：{selected_inactive.get('停用時間', '') or '未記錄'}"
