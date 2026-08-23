@@ -26,6 +26,9 @@ Turso database 與測試 Sheet；尚未完成全部放行條件前，不得啟�
 - [ ] dry-run 沒有 duplicate、orphan、validation error 或 conflict 後才執行 IMPORT。
 - [ ] 每張表 IMPORT 後重跑 dry-run，確認全部為 unchanged。
 - [ ] 確認生產單的代工查詢與數量連動只讀寫 Turso，不直接修改 Sheet。
+- [ ] 封存一張已結案測試代工單，確認三張 Sheet 副本經 baseline 保護後移除。
+- [ ] 確認 Turso 仍保留主檔、封存原因、送達與載回歷程。
+- [ ] 恢復該代工單，確認原代工單號與 ledger `_sync_id` 重新建立 Sheet 副本且無重複。
 
 Streamlit Cloud 的 filesystem 不是備份位置，也不適合常駐排程。驗收證據應下載至管理者
 可控的持久儲存；未來自動 worker 應部署在具有排程觸發能力的服務，而不是依賴 Streamlit

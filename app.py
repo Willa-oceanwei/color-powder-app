@@ -84,10 +84,12 @@ from utils.outsourcing_repository import (
     OutsourcingError,
     add_outsourcing_delivery,
     add_outsourcing_return,
+    archive_outsourcing_order,
     create_outsourcing_order,
     deactivate_outsourcing_order,
     list_outsourcing_events,
     list_outsourcing_orders,
+    restore_outsourcing_order,
     update_outsourcing_order,
 )
 from utils.conflict_repository import (
@@ -6518,12 +6520,13 @@ if menu == "代工管理":
     # ================================================================
     # Tab 分頁
     # ================================================================
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "📋 新增代工單",
         "✏️ 編輯代工",
         "📥 載回登入",
         "🆗 代工進度表",
-        "🚚 代工歷程查詢"
+        "🚚 代工歷程查詢",
+        "🗄️ 封存管理",
     ])
 
     # ================================================================
@@ -7485,6 +7488,93 @@ if menu == "代工管理":
                 df_display["建立時間"] = df_display["建立時間"].dt.strftime("%Y-%m-%d").fillna("")
                 display_cols = [c for c in df_display.columns if c not in ["已交貨"]]
                 st.dataframe(df_display[display_cols].reset_index(drop=True), use_container_width=True)
+
+    # ================================================================
+    # Tab 6：已結案代工單受控封存／恢復
+    # ================================================================
+    with tab6:
+        st.caption(
+            "封存只會從一般畫面與三張 Sheet 移除副本；"
+            "Turso 的主檔、送達與載回歷程都會永久保留。"
+        )
+        try:
+            all_lifecycle_orders = list_outsourcing_orders(DATABASE_CONFIG, include_inactive=True)
+        except OutsourcingError as exc:
+            st.error(f"無法載入封存資料：{exc}")
+            all_lifecycle_orders = []
+
+        active_closed = [
+            item for item in all_lifecycle_orders
+            if item.get("生命週期", "active") == "active"
+            and str(item.get("狀態", "")).strip() == "✅ 已結案"
+        ]
+        inactive_orders = [
+            item for item in all_lifecycle_orders if item.get("生命週期") == "inactive"
+        ]
+        all_deliveries = list_outsourcing_events(DATABASE_CONFIG, "delivery")
+        all_returns = list_outsourcing_events(DATABASE_CONFIG, "return")
+
+        archive_tab, restore_tab = st.tabs(["封存已結案代工單", "恢復已封存代工單"])
+        with archive_tab:
+            if not active_closed:
+                st.info("目前沒有可封存的已結案代工單。")
+            else:
+                archive_ids = [str(item.get("代工單號", "")) for item in active_closed]
+                archive_id = st.selectbox("選擇已結案代工單", archive_ids, key="archive_oem_id")
+                delivery_count = sum(str(item.get("代工單號", "")) == archive_id for item in all_deliveries)
+                return_count = sum(str(item.get("代工單號", "")) == archive_id for item in all_returns)
+                st.info(f"這張代工單包含 {delivery_count} 筆送達、{return_count} 筆載回歷程。")
+                archive_reason = st.text_input("封存原因", key="archive_oem_reason")
+                archive_phrase = f"ARCHIVE {archive_id}"
+                archive_confirmation = st.text_input(
+                    f"請輸入 {archive_phrase}", key="archive_oem_confirmation"
+                )
+                if st.button(
+                    "封存代工單與 Sheet 副本", type="primary",
+                    disabled=not archive_reason.strip() or archive_confirmation.strip() != archive_phrase,
+                ):
+                    try:
+                        counts = archive_outsourcing_order(
+                            DATABASE_CONFIG, archive_id, reason=archive_reason.strip()
+                        )
+                        st.session_state.oem_data_loaded = False
+                        st.session_state.toast_message = {
+                            "msg": f"已封存 {archive_id}；保留 {counts['deliveries']} 筆送達、{counts['returns']} 筆載回歷程",
+                            "icon": "🗄️",
+                        }
+                        st.rerun()
+                    except OutsourcingError as exc:
+                        st.error(f"封存失敗：{exc}")
+
+        with restore_tab:
+            if not inactive_orders:
+                st.info("目前沒有已封存代工單。")
+            else:
+                restore_ids = [str(item.get("代工單號", "")) for item in inactive_orders]
+                restore_id = st.selectbox("選擇已封存代工單", restore_ids, key="restore_oem_id")
+                selected_inactive = next(item for item in inactive_orders if item.get("代工單號") == restore_id)
+                st.warning(
+                    f"封存原因：{selected_inactive.get('停用原因', '') or '未填寫'}｜"
+                    f"封存時間：{selected_inactive.get('停用時間', '') or '未記錄'}"
+                )
+                restore_phrase = f"RESTORE {restore_id}"
+                restore_confirmation = st.text_input(
+                    f"請輸入 {restore_phrase}", key="restore_oem_confirmation"
+                )
+                if st.button(
+                    "恢復代工單與 Sheet 副本", type="primary",
+                    disabled=restore_confirmation.strip() != restore_phrase,
+                ):
+                    try:
+                        counts = restore_outsourcing_order(DATABASE_CONFIG, restore_id)
+                        st.session_state.oem_data_loaded = False
+                        st.session_state.toast_message = {
+                            "msg": f"已恢復 {restore_id}；重新排入 {counts['deliveries']} 筆送達、{counts['returns']} 筆載回副本",
+                            "icon": "♻️",
+                        }
+                        st.rerun()
+                    except OutsourcingError as exc:
+                        st.error(f"恢復失敗：{exc}")
             
                
 # ======== 採購管理分頁 =========

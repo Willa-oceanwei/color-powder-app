@@ -172,6 +172,9 @@ Google Sheets 僅為受 baseline 保護的同步副本。停用代工單不會�
 既有代工資料請在「設定 → 同步檢查」依序處理 `代工管理`、`代工送達記錄`、
 `代工載回記錄`；兩張 ledger 需先使用 PREPARE 補齊永久 `_sync_id`，再 dry-run 與
 `IMPORT <工作表>`。每張表匯入後必須再次 dry-run 並確認全部 unchanged。
+「代工管理 → 封存管理」可對已結案代工單執行受控封存／恢復；操作需填寫
+原因與精確確認文字。封存會為主檔、送達與載回建立 Sheet tombstone，
+但 Turso 中的主檔與 ledger 不會實體刪除；恢復沿用原代工單號與 `_sync_id`。
 
 可以只匯入指定工作表：
 

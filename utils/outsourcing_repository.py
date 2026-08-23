@@ -144,7 +144,36 @@ def upsert_outsourcing_order(config: DatabaseConfig, row: dict[str, Any]) -> dic
     return _save_order(config, row, create=not bool(exists))
 
 
-def deactivate_outsourcing_order(config: DatabaseConfig, order_id: str, *, reason: str) -> None:
+def _queue_outsourcing_event_tombstones(conn, order_id: str, *, restore: bool) -> dict[str, int]:
+    counts = {"deliveries": 0, "returns": 0}
+    for table, id_column, sheet_name, count_key in (
+        ("outsourcing_deliveries", "delivery_id", "代工送達記錄", "deliveries"),
+        ("outsourcing_returns", "return_id", "代工載回記錄", "returns"),
+    ):
+        events = _mappings(conn.execute(
+            f"SELECT {id_column}, payload_json, version FROM {table} WHERE outsourcing_order_id=?",
+            (order_id,),
+        ))
+        for event in events:
+            version = int(event["version"]) + 1
+            conn.execute(
+                f"UPDATE {table} SET version=?, updated_at=? WHERE {id_column}=?",
+                (version, utc_now_iso(), event[id_column]),
+            )
+            enqueue_sheet_sync(
+                conn, sheet_name=sheet_name, row_key=event[id_column],
+                operation="insert" if restore else "delete",
+                payload=json.loads(event["payload_json"]) if restore else None,
+                entity_version=version,
+            )
+            counts[count_key] += 1
+    return counts
+
+
+def archive_outsourcing_order(
+    config: DatabaseConfig, order_id: str, *, reason: str
+) -> dict[str, int]:
+    """Archive an order and tombstone all Sheet copies while retaining Turso history."""
     order_id, reason = str(order_id).strip(), str(reason).strip()
     if not reason:
         raise OutsourcingError("請輸入停用原因")
@@ -158,6 +187,38 @@ def deactivate_outsourcing_order(config: DatabaseConfig, order_id: str, *, reaso
                      (now, reason, version, now, order_id))
         enqueue_sheet_sync(conn, sheet_name="代工管理", row_key=order_id,
                            operation="delete", payload=None, entity_version=version)
+        counts = _queue_outsourcing_event_tombstones(conn, order_id, restore=False)
+    return counts
+
+
+def deactivate_outsourcing_order(config: DatabaseConfig, order_id: str, *, reason: str) -> None:
+    """Backward-compatible alias for lifecycle archival."""
+    archive_outsourcing_order(config, order_id, reason=reason)
+
+
+def restore_outsourcing_order(config: DatabaseConfig, order_id: str) -> dict[str, int]:
+    """Restore an archived order and requeue its original Sheet copies atomically."""
+    order_id = str(order_id or "").strip()
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        row = _mapping(conn.execute(
+            "SELECT * FROM outsourcing_orders WHERE outsourcing_order_id=?", (order_id,)
+        ))
+        if not row or row["lifecycle_status"] != "inactive":
+            raise OutsourcingError("找不到已封存代工單")
+        version = int(row["version"]) + 1
+        conn.execute(
+            """UPDATE outsourcing_orders
+               SET lifecycle_status='active', deleted_at=NULL, delete_reason=NULL,
+                   version=?, updated_at=? WHERE outsourcing_order_id=?""",
+            (version, now, order_id),
+        )
+        enqueue_sheet_sync(
+            conn, sheet_name="代工管理", row_key=order_id, operation="insert",
+            payload=json.loads(row["payload_json"]), entity_version=version,
+        )
+        counts = _queue_outsourcing_event_tombstones(conn, order_id, restore=True)
+    return counts
 
 
 def _add_event(config: DatabaseConfig, order_id: str, date: str, quantity: float, *, kind: str) -> dict[str, str]:

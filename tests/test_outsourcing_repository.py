@@ -7,10 +7,12 @@ from utils.outsourcing_repository import (
     OutsourcingError,
     add_outsourcing_delivery,
     add_outsourcing_return,
+    archive_outsourcing_order,
     create_outsourcing_order,
     deactivate_outsourcing_order,
     list_outsourcing_events,
     list_outsourcing_orders,
+    restore_outsourcing_order,
     update_outsourcing_order,
 )
 from utils.sheet_import import import_sheet_values, missing_outsourcing_sync_id_updates
@@ -81,6 +83,34 @@ def test_deactivate_retains_history_and_queues_tombstone(config):
             "SELECT operation FROM sync_outbox WHERE sheet_name='代工管理' AND entity_version=2"
         ).fetchone()
     assert tombstone[0] == "delete"
+
+
+def test_archive_and_restore_queue_all_sheet_copies_without_deleting_history(config):
+    create_outsourcing_order(config, order())
+    delivery = add_outsourcing_delivery(config, "OEM001", "2026/08/23", 100)
+    returned = add_outsourcing_return(config, "OEM001", "2026/08/24", 100)
+
+    archived = archive_outsourcing_order(config, "OEM001", reason="上線測試資料")
+    restored = restore_outsourcing_order(config, "OEM001")
+
+    assert archived == restored == {"deliveries": 1, "returns": 1}
+    assert list_outsourcing_orders(config)[0]["代工單號"] == "OEM001"
+    assert len(list_outsourcing_events(config, "delivery")) == 1
+    assert len(list_outsourcing_events(config, "return")) == 1
+    with connect(config.path) as conn:
+        lifecycle = conn.execute(
+            "SELECT lifecycle_status, deleted_at, delete_reason FROM outsourcing_orders WHERE outsourcing_order_id='OEM001'"
+        ).fetchone()
+        events = conn.execute(
+            """SELECT sheet_name, row_key, operation, entity_version
+               FROM sync_outbox WHERE row_key IN (?, ?) ORDER BY row_key, entity_version""",
+            (delivery["_sync_id"], returned["_sync_id"]),
+        ).fetchall()
+    assert tuple(lifecycle) == ("active", None, None)
+    assert [tuple(row)[2:] for row in events] == [
+        ("insert", 1), ("delete", 2), ("insert", 3),
+        ("insert", 1), ("delete", 2), ("insert", 3),
+    ]
 
 
 def test_rejects_events_for_unknown_order(config):
