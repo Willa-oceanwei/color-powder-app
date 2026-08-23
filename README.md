@@ -169,6 +169,9 @@ Schema v10 將「代工管理」改為 Turso-first：代工主檔、送達記錄
 分別保存在 `outsourcing_orders` 與兩張 append-only ledger。網站新增、修改、
 送達、載回和交貨註記都先在同一個 Turso transaction 建立 versioned outbox；
 Google Sheets 僅為受 baseline 保護的同步副本。停用代工單不會刪除 Turso 中的主檔或歷程。
+既有代工資料請在「設定 → 同步檢查」依序處理 `代工管理`、`代工送達記錄`、
+`代工載回記錄`；兩張 ledger 需先使用 PREPARE 補齊永久 `_sync_id`，再 dry-run 與
+`IMPORT <工作表>`。每張表匯入後必須再次 dry-run 並確認全部 unchanged。
 
 可以只匯入指定工作表：
 

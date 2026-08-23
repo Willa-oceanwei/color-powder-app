@@ -13,6 +13,7 @@ from utils.outsourcing_repository import (
     list_outsourcing_orders,
     update_outsourcing_order,
 )
+from utils.sheet_import import import_sheet_values, missing_outsourcing_sync_id_updates
 
 
 @pytest.fixture
@@ -85,3 +86,48 @@ def test_deactivate_retains_history_and_queues_tombstone(config):
 def test_rejects_events_for_unknown_order(config):
     with pytest.raises(OutsourcingError, match="找不到有效代工單"):
         add_outsourcing_delivery(config, "missing", "2026/08/23", 1)
+
+
+def test_initial_sheet_import_preserves_order_and_event_baselines(config):
+    orders = [["代工單號", "代工數量", "目標載回數量", "轉換倍率", "狀態"],
+              ["OEM-OLD", "100", "105", "1.05", "🏭 在廠內"]]
+    deliveries = [["代工單號", "送達日期", "送達數量", "_sync_id"],
+                  ["OEM-OLD", "2026/08/20", "105", "delivery:old-1"]]
+    returns = [["代工單號", "載回日期", "載回數量", "_sync_id"],
+               ["OEM-OLD", "2026/08/21", "0", "return:old-1"]]
+
+    for sheet_name, values in (("代工管理", orders), ("代工送達記錄", deliveries),
+                               ("代工載回記錄", returns)):
+        result = import_sheet_values(
+            sheet_name, values, db_config=config, abort_on_issues=True,
+            initialize_schema=False,
+        )
+        assert result.ok and result.inserted_or_updated == 1
+        verification = import_sheet_values(
+            sheet_name, values, db_config=config, dry_run=True, initialize_schema=False,
+        )
+        assert verification.unchanged == 1
+
+    assert list_outsourcing_orders(config)[0]["代工單號"] == "OEM-OLD"
+    assert list_outsourcing_events(config, "delivery")[0]["_sync_id"] == "delivery:old-1"
+    assert list_outsourcing_events(config, "return")[0]["載回數量"] == "0"
+
+
+def test_outsourcing_event_import_rejects_orphan(config):
+    values = [["代工單號", "送達日期", "送達數量", "_sync_id"],
+              ["MISSING", "2026/08/20", "5", "delivery:orphan"]]
+    result = import_sheet_values(
+        "代工送達記錄", values, db_config=config, dry_run=True,
+        initialize_schema=False,
+    )
+    assert not result.ok
+    assert "unknown 代工單號 MISSING" in result.errors[0]
+
+
+def test_missing_outsourcing_sync_ids_are_prefixed_and_do_not_replace_existing():
+    values = [["代工單號", "送達數量", "_sync_id"],
+              ["OEM1", "5", ""], ["OEM2", "6", "delivery:existing"], ["", "", ""]]
+    updates = missing_outsourcing_sync_id_updates(
+        values, id_prefix="delivery", id_factory=lambda: "generated"
+    )
+    assert updates == [(2, 3, "delivery:generated")]
