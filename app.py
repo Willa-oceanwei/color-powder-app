@@ -27,6 +27,7 @@ from utils.sheet_import import (
     SHEET_KEY_COLUMNS,
     import_sheet_values,
     missing_inventory_sync_id_updates,
+    missing_outsourcing_sync_id_updates,
     read_worksheet_values_with_retry,
 )
 from utils.color_powder_repository import (
@@ -41,6 +42,9 @@ from utils.color_powder_repository import (
 from utils.sheet_export import sync_color_powder_outbox
 from utils.sheet_export import (
     sync_inventory_outbox,
+    sync_outsourcing_delivery_outbox,
+    sync_outsourcing_order_outbox,
+    sync_outsourcing_return_outbox,
     sync_production_order_outbox,
     sync_recipe_outbox,
     sync_supplier_outbox,
@@ -75,6 +79,16 @@ from utils.production_order_repository import (
     set_production_order_cancelled,
     update_production_order,
     upsert_production_order,
+)
+from utils.outsourcing_repository import (
+    OutsourcingError,
+    add_outsourcing_delivery,
+    add_outsourcing_return,
+    create_outsourcing_order,
+    deactivate_outsourcing_order,
+    list_outsourcing_events,
+    list_outsourcing_orders,
+    update_outsourcing_order,
 )
 from utils.conflict_repository import (
     ConflictError,
@@ -2804,7 +2818,7 @@ elif menu == "配方管理":
     ]
 
     # ================================================================
-    # 📌 資料載入：只有第一次進入、或寫入後才重新讀 Google Sheet
+    # 📌 Turso 是代工單與送達／載回 ledger 的正式資料來源。
     # ================================================================
     def load_recipe_section_data():
         """從 Turso 讀取配方/色粉，客戶名單暫由 Google Sheet 提供。"""
@@ -4525,13 +4539,13 @@ elif menu == "生產單管理":
         return f"{today_str}-{max_seq + 1:03d}"
 
     def find_active_oem_duplicate(recipe_code):
-        """色母生產單新增前檢查：「代工進度表」（代工管理工作表）裡是否已有同配方編號、
+        """色母生產單新增前檢查：Turso 是否已有同配方編號、
         且尚未結案（狀態 ≠ ✅ 已結案）的代工單。有的話回傳最新（依建立時間排序）的那一筆。"""
         recipe_code = str(recipe_code or "").strip()
         if not recipe_code:
             return None
         try:
-            df_oem_check = get_cached_sheet_df("代工管理")
+            df_oem_check = pd.DataFrame(list_outsourcing_orders(DATABASE_CONFIG))
         except Exception:
             return None
         if df_oem_check.empty or "配方編號" not in df_oem_check.columns:
@@ -5418,33 +5432,16 @@ elif menu == "生產單管理":
                             old_qty = _safe_float_local(merge_match.get("代工數量", 0), 0.0)
                             final_qty = old_qty + delta_oem_qty
 
-                            ws_oem_merge = get_cached_worksheet("代工管理")
-                            oem_headers_merge = ws_oem_merge.row_values(1)
-                            no_col = oem_headers_merge.index("代工單號") if "代工單號" in oem_headers_merge else 0
-                            qty_col = oem_headers_merge.index("代工數量") + 1 if "代工數量" in oem_headers_merge else None
-                            target_col = oem_headers_merge.index("目標載回數量") + 1 if "目標載回數量" in oem_headers_merge else None
-                            remark_col = oem_headers_merge.index("備註") + 1 if "備註" in oem_headers_merge else None
-
-                            all_oem_values = get_cached_sheet_values("代工管理", force_reload=True)
-                            found_row = False
-                            for idx, row in enumerate(all_oem_values[1:], start=2):
-                                if no_col < len(row) and str(row[no_col]).strip() == target_oem_no:
-                                    if qty_col:
-                                        ws_oem_merge.update_cell(idx, qty_col, final_qty)
-                                    if target_col:
-                                        ws_oem_merge.update_cell(idx, target_col, final_qty * multiplier)
-                                    if remark_col:
-                                        old_remark = row[remark_col - 1] if remark_col - 1 < len(row) else ""
-                                        merge_note = (
-                                            f"+ 合併生產單 {order['生產單號']}"
-                                            f"（追加 {delta_oem_qty} kg，原 {old_qty} kg → 合併後 {final_qty} kg）"
-                                        )
-                                        new_remark = f"{old_remark}\n{merge_note}".strip()
-                                        ws_oem_merge.update_cell(idx, remark_col, new_remark)
-                                    found_row = True
-                                    break
-
-                            invalidate_sheet_cache("代工管理")
+                            existing_oem = next((item for item in list_outsourcing_orders(DATABASE_CONFIG)
+                                                 if str(item.get("代工單號", "")).strip() == target_oem_no), None)
+                            found_row = existing_oem is not None
+                            if existing_oem:
+                                merge_note = (f"+ 合併生產單 {order['生產單號']}"
+                                              f"（追加 {delta_oem_qty} kg，原 {old_qty} kg → 合併後 {final_qty} kg）")
+                                existing_oem.update({"代工數量": final_qty,
+                                                     "目標載回數量": final_qty * multiplier,
+                                                     "備註": f"{existing_oem.get('備註', '')}\n{merge_note}".strip()})
+                                update_outsourcing_order(DATABASE_CONFIG, existing_oem)
                             order["_merge_applied"] = "colorant"
                             order["_merge_old_order_no"] = str(merge_match.get("生產單號", "")).strip()
                             if found_row:
@@ -5466,28 +5463,6 @@ elif menu == "生產單管理":
                             except:
                                 pass
                 
-                        try:
-                            ws_oem = get_cached_worksheet("代工管理")
-                        except:
-                            ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
-                            ws_oem.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱", 
-                                                               "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
-
-                        # 兼容舊版表頭：先補齊必要欄位，再按目前表頭順序組裝資料，避免欄位錯位
-                        required_oem_headers = [
-                            "代工單號", "生產單號", "配方編號", "客戶名稱",
-                            "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"
-                        ]
-                        oem_headers = ws_oem.row_values(1)
-                        if not oem_headers:
-                            ws_oem.append_row(required_oem_headers)
-                            oem_headers = required_oem_headers.copy()
-                        else:
-                            for h in required_oem_headers:
-                                if h not in oem_headers:
-                                    ws_oem.update_cell(1, len(oem_headers) + 1, h)
-                                    oem_headers.append(h)
-
                         recipe_multiplier = 1.0
                         try:
                             order_recipe_id = str(order.get('配方編號', '')).strip()
@@ -5517,7 +5492,7 @@ elif menu == "生產單管理":
                             "已交貨": "",
                             "交貨備註": ""
                         }
-                        ws_oem.append_row([oem_row_dict.get(h, "") for h in oem_headers])
+                        create_outsourcing_order(DATABASE_CONFIG, oem_row_dict)
                 
                         oem_msg = f"🎉 已建立代工單號：{oem_id}（{oem_qty} kg）\n💡 請至「代工管理」分頁編輯"
                         st.toast(oem_msg)
@@ -5890,17 +5865,6 @@ elif menu == "生產單管理":
                 except Exception:
                     continue
             return float(total)
-    
-        # ===== 刪除代工單函式 =====
-        def delete_oem_by_order_id(ws_oem, order_id):
-            all_values = get_cached_sheet_df("代工管理").to_dict("records")
-            df = pd.DataFrame(all_values)
-            if df.empty or "生產單號" not in df.columns:
-                return 0
-            target_idxs = df.index[df["生產單號"].astype(str) == str(order_id)].tolist()
-            for idx in sorted(target_idxs, reverse=True):
-                ws_oem.delete_rows(idx + 2)
-            return len(target_idxs)
     
         show_cancelled_orders = st.toggle(
             "顯示已取消生產單",
@@ -6280,28 +6244,17 @@ elif menu == "生產單管理":
 
                         # 同步更新對應代工單（使用者確認後才做）
                         if sync_oem_qty:
-                            import gspread.utils as utils
-                            ws_oem = get_cached_worksheet("代工管理")
-                            oem_values = get_cached_sheet_values("代工管理")
-                            if oem_values and len(oem_values) > 1:
-                                oem_header = oem_values[0]
-                                row_order_idx = oem_header.index("生產單號") if "生產單號" in oem_header else -1
-                                row_qty_idx = oem_header.index("代工數量") if "代工數量" in oem_header else -1
-                                row_target_idx = oem_header.index("目標載回數量") if "目標載回數量" in oem_header else -1
-                                if row_order_idx >= 0 and row_qty_idx >= 0:
-                                    for oem_row_idx, oem_row in enumerate(oem_values[1:], start=2):
-                                        current_order_no = oem_row[row_order_idx] if row_order_idx < len(oem_row) else ""
-                                        if str(current_order_no).strip() != str(order_no).strip():
-                                            continue
-                                        while len(oem_row) < len(oem_header):
-                                            oem_row.append("")
-                                        oem_row[row_qty_idx] = str(synced_qty)
-                                        if row_target_idx >= 0:
-                                            oem_row[row_target_idx] = str(synced_qty)
-                                        oem_end_col = utils.rowcol_to_a1(oem_row_idx, len(oem_header)).replace(str(oem_row_idx), "")
-                                        oem_range = f"A{oem_row_idx}:{oem_end_col}{oem_row_idx}"
-                                        ws_oem.update(oem_range, [oem_row[:len(oem_header)]])
-                                    invalidate_sheet_cache("代工管理")
+                            linked_orders = [
+                                item for item in list_outsourcing_orders(DATABASE_CONFIG)
+                                if str(item.get("生產單號", "")).strip() == str(order_no).strip()
+                            ]
+                            for linked_order in linked_orders:
+                                old_quantity = float(linked_order.get("代工數量", 0) or 0)
+                                old_target = float(linked_order.get("目標載回數量", old_quantity) or old_quantity)
+                                ratio = old_target / old_quantity if old_quantity > 0 else float(linked_order.get("轉換倍率", 1) or 1)
+                                linked_order["代工數量"] = synced_qty
+                                linked_order["目標載回數量"] = float(synced_qty) * ratio
+                                update_outsourcing_order(DATABASE_CONFIG, linked_order)
 
                         # 同步更新本地 df_order
                         mask = df_order["生產單號"] == order_no
@@ -6342,7 +6295,7 @@ elif menu == "生產單管理":
                     new_oem_qty = calc_order_oem_qty_kg(updated_order_dict)
 
                     try:
-                        df_oem_linked = get_cached_sheet_df("代工管理")
+                        df_oem_linked = pd.DataFrame(list_outsourcing_orders(DATABASE_CONFIG))
                         has_linked_oem = (
                             not df_oem_linked.empty
                             and "生產單號" in df_oem_linked.columns
@@ -6350,9 +6303,6 @@ elif menu == "生產單管理":
                         )
                     except Exception:
                         has_linked_oem = False
-
-                    st.write("DEBUG has_linked_oem:", has_linked_oem)
-                    st.write("DEBUG old_oem_qty:", old_oem_qty, "new_oem_qty:", new_oem_qty)
 
                     qty_changed = abs(new_oem_qty - old_oem_qty) > 1e-9
                     if has_linked_oem and qty_changed:
@@ -6415,40 +6365,16 @@ if menu == "代工管理":
     # 📌 資料載入：只有第一次進入、或寫入後才重新讀 Google Sheet
     # ================================================================
     def load_oem_data():
-        """重新從 Google Sheet 讀取代工三張表，存入 session_state"""
+        """重新從 Turso 讀取代工主檔與不可變 ledger。"""
         try:
-            ws_oem_ = get_cached_worksheet("代工管理")
-            df_oem_ = get_cached_sheet_df("代工管理", force_reload=True)
-        except:
-            try:
-                ws_oem_ = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
-                ws_oem_.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱",
-                                    "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
-            except:
-                pass
+            df_oem_ = pd.DataFrame(list_outsourcing_orders(DATABASE_CONFIG))
+            df_delivery_ = pd.DataFrame(list_outsourcing_events(DATABASE_CONFIG, "delivery"))
+            df_return_ = pd.DataFrame(list_outsourcing_events(DATABASE_CONFIG, "return"))
+        except Exception as exc:
+            st.error(f"❌ 無法從 Turso 載入代工資料：{exc}")
             df_oem_ = pd.DataFrame(columns=["代工單號", "生產單號", "配方編號", "客戶名稱",
                                              "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
-
-        try:
-            ws_delivery_ = get_cached_worksheet("代工送達記錄")
-            df_delivery_ = get_cached_sheet_df("代工送達記錄", force_reload=True)
-        except:
-            try:
-                ws_delivery_ = spreadsheet.add_worksheet("代工送達記錄", rows=100, cols=10)
-                ws_delivery_.append_row(["代工單號", "送達日期", "送達數量", "建立時間"])
-            except:
-                pass
             df_delivery_ = pd.DataFrame(columns=["代工單號", "送達日期", "送達數量", "建立時間"])
-
-        try:
-            ws_return_ = get_cached_worksheet("代工載回記錄")
-            df_return_ = get_cached_sheet_df("代工載回記錄", force_reload=True)
-        except:
-            try:
-                ws_return_ = spreadsheet.add_worksheet("代工載回記錄", rows=100, cols=10)
-                ws_return_.append_row(["代工單號", "載回日期", "載回數量", "建立時間"])
-            except:
-                pass
             df_return_ = pd.DataFrame(columns=["代工單號", "載回日期", "載回數量", "建立時間"])
 
         # 補齊必要欄位
@@ -6465,28 +6391,13 @@ if menu == "代工管理":
         st.session_state.df_return   = df_return_
         st.session_state.oem_data_loaded = True
 
-    # ── 只有第一次進入時才讀 Sheet，rerun 時直接用 session_state ──
+    # ── 只有第一次進入時才讀 Turso，rerun 時直接用 session_state ──
     # 也防禦舊 session：若旗標存在但必要資料缺漏，仍強制補載
     oem_keys_ready = all(k in st.session_state for k in ["df_oem", "df_delivery", "df_return"])
     if (not st.session_state.get("oem_data_loaded", False)) or (not oem_keys_ready):
         load_oem_data()
 
-    # 取出工作表物件（worksheet 物件本身有 _ws_cache，不耗 quota）
-    ws_oem      = get_cached_worksheet("代工管理")
-    ws_delivery = get_cached_worksheet("代工送達記錄")
-    ws_return   = get_cached_worksheet("代工載回記錄")
-
-    # 若舊版工作表缺少交貨相關欄位，自動補上（只做一次）
-    try:
-        oem_headers = ws_oem.row_values(1)
-        for col_name in ["目標載回數量", "轉換倍率", "已交貨", "交貨備註"]:
-            if col_name not in oem_headers:
-                ws_oem.update_cell(1, len(oem_headers) + 1, col_name)
-                oem_headers.append(col_name)
-    except:
-        pass
-
-    # 取出 DataFrame（全程用 session_state，不重讀 Sheet）
+    # 取出 DataFrame（全程用 session_state，不重讀 Turso）
     df_oem      = st.session_state.df_oem
     df_delivery = st.session_state.df_delivery
     df_return   = st.session_state.df_return
@@ -6524,29 +6435,19 @@ if menu == "代工管理":
         return "⏳ 未載回"
 
     def update_oem_status(oem_no, new_status):
-        """更新代工單狀態（單格寫入）並同步 session_state"""
-        status_col_idx = 8
-        try:
-            oem_headers = ws_oem.row_values(1)
-            if "狀態" in oem_headers:
-                status_col_idx = oem_headers.index("狀態") + 1
-        except:
-            pass
-        all_values = get_cached_sheet_values("代工管理")
-        for idx, row in enumerate(all_values[1:], start=2):
-            if row[0] == oem_no:
-                ws_oem.update_cell(idx, status_col_idx, new_status)
-                break
-        # 同步 session_state
         mask = st.session_state.df_oem["代工單號"] == oem_no
+        if not mask.any():
+            raise OutsourcingError(f"找不到代工單號 {oem_no}")
+        payload = st.session_state.df_oem.loc[mask].iloc[0].to_dict()
+        payload["狀態"] = new_status
+        update_outsourcing_order(DATABASE_CONFIG, payload)
         st.session_state.df_oem.loc[mask, "狀態"] = new_status
 
     def ensure_manual_close_return_record(oem_no, close_date=None):
         """手動結案時，若尚無載回紀錄則補一筆 0kg 紀錄，確保進度表與已結案列表可追蹤。"""
         close_date = close_date or datetime.today()
 
-        # 以最新 sheet 為準，避免 session cache 過舊導致誤補 0kg。
-        df_ret_live = get_cached_sheet_df("代工載回記錄", force_reload=True)
+        df_ret_live = pd.DataFrame(list_outsourcing_events(DATABASE_CONFIG, "return"))
         if isinstance(df_ret_live, pd.DataFrame) and not df_ret_live.empty and "代工單號" in df_ret_live.columns:
             has_record_live = (df_ret_live["代工單號"].apply(_norm_oem_no) == _norm_oem_no(oem_no)).any()
             st.session_state.df_return = df_ret_live.copy()
@@ -6554,18 +6455,15 @@ if menu == "代工管理":
                 return False
 
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        safe_append_row(ws_return, [
-            str(oem_no),
-            close_date.strftime("%Y/%m/%d"),
-            "0",
-            created_at
-        ])
+        saved_return = add_outsourcing_return(
+            DATABASE_CONFIG, str(oem_no), close_date.strftime("%Y/%m/%d"), 0
+        )
 
         new_ret_df = pd.DataFrame([{
             "代工單號": str(oem_no),
             "載回日期": close_date.strftime("%Y/%m/%d"),
             "載回數量": 0.0,
-            "建立時間": created_at
+            "建立時間": saved_return["建立時間"]
         }])
         df_ret = st.session_state.get("df_return", pd.DataFrame())
         if isinstance(df_ret, pd.DataFrame):
@@ -6710,9 +6608,7 @@ if menu == "代工管理":
                     "目標載回數量": new_target_qty,
                     "轉換倍率": new_multiplier,
                 }
-                oem_headers_live = ws_oem.row_values(1)
-                new_row_data = [new_row_dict.get(h, "") for h in oem_headers_live]
-                ws_oem.append_row(new_row_data)
+                create_outsourcing_order(DATABASE_CONFIG, new_row_dict)
 
                 # ✅ 直接更新 session_state，不重讀 Sheet
                 new_df_row = pd.DataFrame([{
@@ -6739,9 +6635,8 @@ if menu == "代工管理":
         st.markdown("---")
         if st.button("📥 重新載入代工資料", key="reload_oem_tab1_bottom", use_container_width=True):
             try:
-                latest_oem_df = get_cached_sheet_df("代工管理", force_reload=True)
-                st.session_state.df_oem = latest_oem_df.copy()
-                st.toast("已從 Google Sheet 重新載入代工資料", icon="🔄")
+                load_oem_data()
+                st.toast("已從 Turso 重新載入代工資料", icon="🔄")
             except Exception as e:
                 st.toast(f"重新載入失敗：{e}", icon="❌")
             st.rerun()
@@ -6869,33 +6764,11 @@ if menu == "代工管理":
                         st.warning("⚠️ 此代工單已結案，禁止再修改")
 
                     def persist_oem_info(vendor, remark, status, target_qty, multiplier):
-                        all_values = get_cached_sheet_values("代工管理")
-                        headers = all_values[0] if all_values else []
-                        for idx, row in enumerate(all_values[1:], start=2):
-                            if row[0] == selected_oem:
-                                import gspread.utils as gu
-                                vendor_col = headers.index("代工廠商") + 1 if "代工廠商" in headers else 6
-                                remark_col = headers.index("備註") + 1 if "備註" in headers else 7
-                                status_col = headers.index("狀態") + 1 if "狀態" in headers else 8
-                                target_col = headers.index("目標載回數量") + 1 if "目標載回數量" in headers else 6
-                                ratio_col = headers.index("轉換倍率") + 1 if "轉換倍率" in headers else 7
-                                start_col = min(vendor_col, remark_col, status_col, target_col, ratio_col)
-                                end_col = max(vendor_col, remark_col, status_col, target_col, ratio_col)
-                                row_payload = [""] * (end_col - start_col + 1)
-                                row_payload[vendor_col - start_col] = vendor
-                                row_payload[remark_col - start_col] = remark
-                                row_payload[status_col - start_col] = status
-                                row_payload[target_col - start_col] = str(target_qty)
-                                row_payload[ratio_col - start_col] = str(multiplier)
-                                col_s = gu.rowcol_to_a1(idx, start_col).rstrip("0123456789")
-                                col_e = gu.rowcol_to_a1(idx, end_col).rstrip("0123456789")
-                                ws_oem.update(
-                                    f"{col_s}{idx}:{col_e}{idx}",
-                                    [row_payload]
-                                )
-                                break
-
                         mask = st.session_state.df_oem["代工單號"] == selected_oem
+                        payload = st.session_state.df_oem.loc[mask].iloc[0].to_dict()
+                        payload.update({"代工廠商": vendor, "備註": remark, "狀態": status,
+                                        "目標載回數量": target_qty, "轉換倍率": multiplier})
+                        update_outsourcing_order(DATABASE_CONFIG, payload)
                         st.session_state.df_oem.loc[mask, "代工廠商"] = vendor
                         st.session_state.df_oem.loc[mask, "備註"] = remark
                         st.session_state.df_oem.loc[mask, "狀態"] = status
@@ -6929,11 +6802,9 @@ if menu == "代工管理":
                         c1, c2 = st.columns(2)
                         with c1:
                             if st.button("確認刪除", key="confirm_delete_oem"):
-                                all_values = get_cached_sheet_values("代工管理")
-                                for idx, row in enumerate(all_values[1:], start=2):
-                                    if row[0] == oem_row["代工單號"]:
-                                        ws_oem.delete_row(idx)
-                                        break
+                                deactivate_outsourcing_order(
+                                    DATABASE_CONFIG, oem_row["代工單號"], reason="使用者從代工管理停用"
+                                )
                                 # ✅ 同步 session_state
                                 st.session_state.df_oem = st.session_state.df_oem[
                                     st.session_state.df_oem["代工單號"] != oem_row["代工單號"]
@@ -7010,20 +6881,17 @@ if menu == "代工管理":
                         else:
                             if vendor_changed and not is_closed:
                                 persist_oem_info(new_vendor, new_remark, new_status, new_target_qty, new_multiplier)
-                            new_delivery_row = [
-                                selected_oem,
-                                delivery_date.strftime("%Y/%m/%d"),
-                                delivery_qty,
-                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            ]
-                            ws_delivery.append_row(new_delivery_row)
+                            saved_delivery = add_outsourcing_delivery(
+                                DATABASE_CONFIG, selected_oem,
+                                delivery_date.strftime("%Y/%m/%d"), delivery_qty
+                            )
 
                             # ✅ 直接更新 session_state，不重讀 Sheet
                             new_del_df = pd.DataFrame([{
                                 "代工單號": selected_oem,
                                 "送達日期": delivery_date.strftime("%Y/%m/%d"),
                                 "送達數量": delivery_qty,
-                                "建立時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                "建立時間": saved_delivery["建立時間"]
                             }])
                             st.session_state.df_delivery = pd.concat(
                                 [st.session_state.df_delivery, new_del_df], ignore_index=True
@@ -7133,18 +7001,15 @@ if menu == "代工管理":
                             appended_pending = False
 
                             if pending_qty > 0:
-                                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                safe_append_row(ws_return, [
-                                    str(selected_oem),
-                                    pending_date.strftime("%Y/%m/%d"),
-                                    str(pending_qty),
-                                    created_at
-                                ])
+                                saved_return = add_outsourcing_return(
+                                    DATABASE_CONFIG, selected_oem,
+                                    pending_date.strftime("%Y/%m/%d"), pending_qty
+                                )
                                 new_ret_df = pd.DataFrame([{
                                     "代工單號": selected_oem,
                                     "載回日期": pending_date.strftime("%Y/%m/%d"),
                                     "載回數量": pending_qty,
-                                    "建立時間": created_at
+                                    "建立時間": saved_return["建立時間"]
                                 }])
                                 st.session_state.df_return = pd.concat(
                                     [st.session_state.df_return, new_ret_df], ignore_index=True
@@ -7166,19 +7031,17 @@ if menu == "代工管理":
                         if return_qty <= 0:
                             st.warning("⚠️ 請輸入載回數量")
                         else:
-                            safe_append_row(ws_return, [
-                                str(selected_oem),
-                                return_date.strftime("%Y/%m/%d"),
-                                str(return_qty),
-                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            ])
+                            saved_return = add_outsourcing_return(
+                                DATABASE_CONFIG, selected_oem,
+                                return_date.strftime("%Y/%m/%d"), return_qty
+                            )
 
                             # ✅ 直接更新 session_state，不重讀 Sheet
                             new_ret_df = pd.DataFrame([{
                                 "代工單號": selected_oem,
                                 "載回日期": return_date.strftime("%Y/%m/%d"),
                                 "載回數量": return_qty,
-                                "建立時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                "建立時間": saved_return["建立時間"]
                             }])
                             st.session_state.df_return = pd.concat(
                                 [st.session_state.df_return, new_ret_df], ignore_index=True
@@ -7526,28 +7389,14 @@ if menu == "代工管理":
                         )
 
                     if save_closed_delivery:
-                        all_values = get_cached_sheet_values("代工管理")
-                        headers = all_values[0] if all_values else []
-                        for col_name in ["已交貨", "交貨備註"]:
-                            if col_name not in headers:
-                                ws_oem.update_cell(1, len(headers) + 1, col_name)
-                                headers.append(col_name)
-                        delivery_col = headers.index("已交貨") + 1
-                        delivery_note_col = headers.index("交貨備註") + 1
-
-                        oem_row_map = {}
-                        for idx, row in enumerate(all_values[1:], start=2):
-                            if row and row[0]:
-                                oem_row_map[str(row[0]).strip()] = idx
-
                         oem_no = str(selected_closed_id).strip()
                         sheet_value = "是" if bool(marked_delivered) else ""
                         delivery_note_value = str(delivery_note or "").strip()
-                        target_row = oem_row_map.get(oem_no)
-
-                        if target_row:
-                            ws_oem.update_cell(target_row, delivery_col, sheet_value)
-                            ws_oem.update_cell(target_row, delivery_note_col, delivery_note_value)
+                        mask = st.session_state.df_oem["代工單號"] == oem_no
+                        if mask.any():
+                            payload = st.session_state.df_oem.loc[mask].iloc[0].to_dict()
+                            payload.update({"已交貨": sheet_value, "交貨備註": delivery_note_value})
+                            update_outsourcing_order(DATABASE_CONFIG, payload)
                             mask = st.session_state.df_oem["代工單號"] == oem_no
                             st.session_state.df_oem.loc[mask, "已交貨"] = sheet_value
                             st.session_state.df_oem.loc[mask, "交貨備註"] = delivery_note_value
@@ -12665,6 +12514,109 @@ if st.session_state.menu == "同步檢查":
                     else:
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
+    def render_outsourcing_push_section(sheet_name, sync_function, label):
+        """Render one guarded outsourcing outbox preflight/PUSH workflow."""
+        state_key = f"outsourcing_push_result_{sheet_name}"
+        render_sync_section_title(f"Turso → Sheet：{sheet_name} outbox")
+        st.caption(
+            f"{label}。所有寫入都會先比對 Sheet baseline；若 Sheet 已被人工修改，會阻擋並建立 conflict。"
+        )
+        if st.button(
+            f"檢查待推送{sheet_name}（唯讀）",
+            disabled=DATABASE_BACKEND != "turso",
+            key=f"outsourcing_push_dry_run_{sheet_name}",
+        ):
+            try:
+                latest_values = get_cached_sheet_values(sheet_name, force_reload=True)
+                st.session_state[state_key] = sync_function(
+                    get_cached_worksheet(sheet_name), latest_values,
+                    db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+                )
+            except Exception as exc:
+                st.session_state.pop(state_key, None)
+                st.error(f"{sheet_name} preflight 失敗：{type(exc).__name__}: {exc}")
+
+        push_result = st.session_state.get(state_key)
+        if push_result is None:
+            return
+        metrics = [
+            ("Queued", push_result.queued), ("新增至 Sheet", push_result.to_insert),
+            ("更新 Sheet", push_result.to_update), ("內容已一致", push_result.unchanged),
+            ("從 Sheet 移除", push_result.to_delete), ("Conflict", push_result.conflicts),
+            ("Errors", len(push_result.errors)),
+        ]
+        for column, (metric_label, value) in zip(st.columns(len(metrics)), metrics):
+            column.metric(metric_label, value)
+        if push_result.ok and push_result.queued:
+            st.success(f"{sheet_name} preflight 完成：待推送事件安全。")
+        elif push_result.ok:
+            st.info(f"目前沒有待推送的{sheet_name}事件。")
+        else:
+            st.warning(f"{sheet_name} preflight 發現 conflict 或 error；PUSH 已停用。")
+        for title, details in (("Errors", push_result.errors), ("Warnings", push_result.warnings)):
+            if details:
+                with st.expander(f"{sheet_name} {title}（{len(details)}）", expanded=title == "Errors"):
+                    for detail in details[:100]:
+                        st.code(str(detail), language=None)
+        if not push_result.ok or push_result.queued == 0:
+            return
+
+        required_confirmation = f"PUSH {sheet_name}"
+        confirmation = st.text_input(
+            f"請輸入 {required_confirmation}", key=f"outsourcing_push_confirmation_{sheet_name}"
+        )
+        if not st.button(
+            f"推送{sheet_name}到 Sheet", type="primary",
+            disabled=confirmation.strip() != required_confirmation,
+            key=f"outsourcing_push_apply_{sheet_name}",
+        ):
+            return
+        write_started = False
+        try:
+            worksheet = get_cached_worksheet(sheet_name)
+            latest_values = get_cached_sheet_values(sheet_name, force_reload=True)
+            preflight = sync_function(
+                worksheet, latest_values, db_config=DATABASE_CONFIG,
+                dry_run=True, initialize_schema=False,
+            )
+            if not preflight.ok or preflight.queued == 0:
+                st.session_state[state_key] = preflight
+                raise RuntimeError("最新 preflight 不安全或已沒有 pending event；推送已取消。")
+            write_started = True
+            applied = sync_function(
+                worksheet, latest_values, db_config=DATABASE_CONFIG,
+                dry_run=False, initialize_schema=False,
+            )
+            if not applied.ok:
+                raise RuntimeError("推送期間偵測到 conflict 或 error。")
+            invalidate_sheet_cache(sheet_name)
+            verification = sync_function(
+                worksheet, get_cached_sheet_values(sheet_name, force_reload=True),
+                db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+            )
+            if not verification.ok or verification.queued != 0:
+                raise RuntimeError("Sheet 已寫入，但驗證仍有 pending/conflict；請勿重按 PUSH。")
+            st.session_state[state_key] = verification
+            st.session_state["sync_push_success"] = {
+                "sheet_name": sheet_name, "written": applied.written, "queued": 0,
+            }
+            st.rerun()
+        except Exception as exc:
+            if write_started:
+                st.error(f"推送可能已部分寫入 Sheet；請勿重按，先重新唯讀檢查。錯誤：{type(exc).__name__}: {exc}")
+            else:
+                st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
+
+    render_outsourcing_push_section(
+        "代工管理", sync_outsourcing_order_outbox, "代工單號是永久 ID，停用只移除 Sheet 副本"
+    )
+    render_outsourcing_push_section(
+        "代工送達記錄", sync_outsourcing_delivery_outbox, "送達 ledger 使用永久 _sync_id"
+    )
+    render_outsourcing_push_section(
+        "代工載回記錄", sync_outsourcing_return_outbox, "載回 ledger 使用永久 _sync_id"
+    )
+
     st.divider()
     render_sync_section_title("Sheet → Turso")
 
@@ -12721,6 +12673,48 @@ if st.session_state.menu == "同步檢查":
                             st.success("所有有資料的庫存列都已具備 _sync_id，不需要修改。")
                 except Exception as exc:
                     st.error(f"補齊 _sync_id 失敗：{type(exc).__name__}: {exc}")
+
+    if selected_sync_sheet in {"代工送達記錄", "代工載回記錄"}:
+        with st.expander("準備代工歷程永久 _sync_id", expanded=True):
+            st.caption(
+                "只會新增缺少的 _sync_id header，並替有資料但 ID 空白的列產生永久 ID；"
+                "不會修改既有 ID 或其他業務欄位。"
+            )
+            required_prepare = f"PREPARE {selected_sync_sheet}"
+            prepare_confirmation = st.text_input(
+                f"請輸入 {required_prepare}", key="outsourcing_sync_id_confirmation"
+            )
+            if st.button(
+                "批次補齊代工歷程 _sync_id",
+                disabled=prepare_confirmation.strip() != required_prepare,
+            ):
+                try:
+                    worksheet = get_cached_worksheet(selected_sync_sheet)
+                    ledger_values = get_cached_sheet_values(selected_sync_sheet, force_reload=True)
+                    if not ledger_values:
+                        raise ValueError(f"{selected_sync_sheet} 沒有 header")
+                    headers = [str(value).strip() for value in ledger_values[0]]
+                    if "_sync_id" not in headers:
+                        worksheet.update_cell(1, len(headers) + 1, "_sync_id")
+                        invalidate_sheet_cache(selected_sync_sheet)
+                        ledger_values = get_cached_sheet_values(selected_sync_sheet, force_reload=True)
+                    id_updates = missing_outsourcing_sync_id_updates(
+                        ledger_values,
+                        id_prefix="delivery" if selected_sync_sheet == "代工送達記錄" else "return",
+                    )
+                    for start in range(0, len(id_updates), 200):
+                        batch = id_updates[start:start + 200]
+                        worksheet.batch_update(
+                            [{
+                                "range": gspread.utils.rowcol_to_a1(row_number, column_number),
+                                "values": [[sync_id]],
+                            } for row_number, column_number, sync_id in batch],
+                            value_input_option="RAW",
+                        )
+                    invalidate_sheet_cache(selected_sync_sheet)
+                    st.success(f"已補齊 {len(id_updates)} 筆永久 _sync_id。")
+                except Exception as exc:
+                    st.error(f"補齊代工歷程 _sync_id 失敗：{type(exc).__name__}: {exc}")
 
     st.info(
         "大型 Sheet 需要讀取所選工作表的 used range 才能計算 row hash；"
@@ -12915,7 +12909,7 @@ if st.session_state.menu == "同步檢查":
         elif (
             audit_result.ok
             and audit_result.sqlite_rows > 0
-            and audit_sheet in {"色粉管理", "供應商管理", "庫存記錄", "配方管理", "生產單"}
+            and audit_sheet in set(SHEET_KEY_COLUMNS)
         ):
             pending_changes = audit_result.to_insert + audit_result.to_update
             if pending_changes == 0:
