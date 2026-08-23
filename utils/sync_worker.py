@@ -12,6 +12,9 @@ from .sheet_export import (
     ExportResult,
     sync_color_powder_outbox,
     sync_inventory_outbox,
+    sync_outsourcing_delivery_outbox,
+    sync_outsourcing_order_outbox,
+    sync_outsourcing_return_outbox,
     sync_production_order_outbox,
     sync_recipe_outbox,
     sync_supplier_outbox,
@@ -25,6 +28,9 @@ SAFE_SHEETS: tuple[tuple[str, Callable[..., ExportResult]], ...] = (
     ("配方管理", sync_recipe_outbox),
     ("庫存記錄", sync_inventory_outbox),
     ("生產單", sync_production_order_outbox),
+    ("代工管理", sync_outsourcing_order_outbox),
+    ("代工送達記錄", sync_outsourcing_delivery_outbox),
+    ("代工載回記錄", sync_outsourcing_return_outbox),
 )
 SYNC_WORKER_LOCK_NAME = "turso-sheets-worker"
 
