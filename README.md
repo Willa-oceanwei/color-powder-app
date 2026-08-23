@@ -165,6 +165,11 @@ outbox；生產單查詢、預覽與列印改讀 Turso。一般合併會沿用�
 `_sync_id` 仍永久保存在 Turso、outbox 與 Sheet，但一般網站查詢已隱藏此技術欄位，
 畫面只顯示業務資料。
 
+Schema v10 將「代工管理」改為 Turso-first：代工主檔、送達記錄與載回記錄
+分別保存在 `outsourcing_orders` 與兩張 append-only ledger。網站新增、修改、
+送達、載回和交貨註記都先在同一個 Turso transaction 建立 versioned outbox；
+Google Sheets 僅為受 baseline 保護的同步副本。停用代工單不會刪除 Turso 中的主檔或歷程。
+
 可以只匯入指定工作表：
 
 ```bash
