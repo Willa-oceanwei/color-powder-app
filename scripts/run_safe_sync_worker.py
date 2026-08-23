@@ -40,6 +40,10 @@ def main() -> None:
         "--apply", action="store_true",
         help="Write safe insert/update events. The default is a read-only dry-run.",
     )
+    parser.add_argument(
+        "--allow-deletes", action="store_true",
+        help="Include baseline-protected delete events; requires workflow confirmation.",
+    )
     args = parser.parse_args()
     credentials_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
     sheet_url = os.environ.get("GOOGLE_SHEET_URL", "").strip()
@@ -50,6 +54,7 @@ def main() -> None:
         db_config=database_config_from_secrets(),
         dry_run=not args.apply,
         batch_size=args.batch_size,
+        allow_deletes=args.allow_deletes,
     )
     report = json.dumps(asdict(result), ensure_ascii=False, indent=2)
     print(report)

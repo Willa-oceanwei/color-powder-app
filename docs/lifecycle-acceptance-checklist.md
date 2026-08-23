@@ -148,3 +148,14 @@ event 必須留給人工處理。
 - 同一 workflow 同時間只保留一張 open alert Issue；後續成功會自動關閉。
 - 管理者須在 **Watch → Custom → Issues** 訂閱通知，否則 Issue 存在但不一定收到 Email。
 - Alert Issue 不取代 JSON artifact；處理 conflict/error 前仍須下載報告確認實際工作表與數量。
+
+## 13. 受控 lifecycle/delete PUSH
+
+1. 從 `safe Turso to Sheets sync` 手動選 `dry-run`，勾選 `allow_deletes`。
+2. 確認 `to_delete` 只包含預期的停用、取消或沖銷事件，且 conflict/error 為 0。
+3. 建立新的手動 run，選 `apply`、勾選 `allow_deletes`，輸入 `APPLY SAFE DELETES`。
+4. Apply 仍會重讀 Sheet 並重新檢查 baseline；任何人工變更都會阻擋刪除。
+5. 確認 Sheet 副本移除，但 Turso lifecycle/history 仍完整保留。
+
+定時 outbound schedule 不會自動開啟 deletes。完成色粉、供應商、配方、庫存沖銷與生產單
+取消的受控測試以前，delete 必須維持上述手動雙重確認流程。

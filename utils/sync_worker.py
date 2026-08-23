@@ -33,6 +33,7 @@ SYNC_WORKER_LOCK_NAME = "turso-sheets-worker"
 class SafeWorkerResult:
     dry_run: bool
     batch_size: int
+    allow_deletes: bool = False
     lock_acquired: bool = True
     sheets: list[dict[str, Any]] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -92,12 +93,15 @@ def run_safe_worker(
     dry_run: bool = True,
     batch_size: int = 25,
     lock_ttl_seconds: int = 900,
+    allow_deletes: bool = False,
 ) -> SafeWorkerResult:
-    """Deliver bounded inserts/updates; retain every delete for manual PUSH."""
+    """Deliver a bounded batch; deletes require an explicit controlled opt-in."""
     if batch_size < 1:
         raise ValueError("batch_size must be at least 1")
     initialize_database_from_config(db_config)
-    result = SafeWorkerResult(dry_run=dry_run, batch_size=batch_size)
+    result = SafeWorkerResult(
+        dry_run=dry_run, batch_size=batch_size, allow_deletes=allow_deletes
+    )
     owner_id = f"safe-worker-{uuid4().hex}"
     lock_name = SYNC_WORKER_LOCK_NAME
     if not dry_run:
@@ -123,7 +127,7 @@ def run_safe_worker(
                     dry_run=dry_run,
                     initialize_schema=False,
                     max_entries=remaining,
-                    allow_deletes=False,
+                    allow_deletes=allow_deletes,
                 )
                 result.sheets.append(asdict(sheet_result))
                 remaining -= sheet_result.queued

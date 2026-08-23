@@ -18,6 +18,15 @@ on:
         description: Maximum outbox events handled in this pass
         required: true
         default: "25"
+      allow_deletes:
+        description: Include baseline-protected lifecycle/delete events
+        required: true
+        type: boolean
+        default: false
+      delete_confirmation:
+        description: For apply with deletes, enter APPLY SAFE DELETES
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -64,19 +73,35 @@ jobs:
               raise SystemExit("batch_size must be between 1 and 100")
           PY
 
+      - name: Validate controlled delete confirmation
+        if: inputs.mode == 'apply' && inputs.allow_deletes
+        env:
+          DELETE_CONFIRMATION: ${{ inputs.delete_confirmation }}
+        run: |
+          if [ "$DELETE_CONFIRMATION" != "APPLY SAFE DELETES" ]; then
+            echo "Delete apply blocked: confirmation must exactly match APPLY SAFE DELETES"
+            exit 2
+          fi
+
       - name: Run read-only preflight
         if: inputs.mode == 'dry-run'
+        env:
+          DELETE_FLAG: ${{ inputs.allow_deletes && '--allow-deletes' || '' }}
         run: >-
           python scripts/run_safe_sync_worker.py
           --batch-size "${{ inputs.batch_size }}"
           --report-path reports/safe-sync-${{ github.run_id }}-${{ github.run_attempt }}.json
+          $DELETE_FLAG
 
       - name: Apply safe insert and update events
         if: inputs.mode == 'apply'
+        env:
+          DELETE_FLAG: ${{ inputs.allow_deletes && '--allow-deletes' || '' }}
         run: >-
           python scripts/run_safe_sync_worker.py
           --batch-size "${{ inputs.batch_size }}"
           --report-path reports/safe-sync-${{ github.run_id }}-${{ github.run_attempt }}.json
+          $DELETE_FLAG
           --apply
 
       - name: Apply scheduled safe insert and update events

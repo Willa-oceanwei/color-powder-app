@@ -1713,6 +1713,50 @@ def test_safe_mode_retains_delete_events_for_manual_push(tmp_path):
     assert tuple(latest) == ("delete", "pending")
 
 
+def test_controlled_worker_applies_baseline_protected_delete(tmp_path):
+    db = tmp_path / "controlled-delete.db"
+    values = [["色粉編號", "名稱"], ["P001", "Red"]]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    set_color_powder_active(config, "P001", active=False, reason="停止使用")
+
+    class DeleteWorksheet(WritableWorksheet):
+        def get_all_values(self):
+            return values
+
+    class DeleteSpreadsheet:
+        def __init__(self):
+            self.sheet = DeleteWorksheet()
+
+        def worksheet(self, name):
+            assert name == "色粉管理"
+            return self.sheet
+
+    spreadsheet = DeleteSpreadsheet()
+    result = run_safe_worker(
+        spreadsheet,
+        db_config=config,
+        dry_run=False,
+        batch_size=1,
+        allow_deletes=True,
+    )
+
+    assert result.ok
+    assert result.allow_deletes
+    assert result.sheets[0]["to_delete"] == 1
+    assert result.sheets[0]["written"] == 1
+    assert spreadsheet.sheet.deleted == [2]
+    with connect(db) as conn:
+        lifecycle = conn.execute(
+            "SELECT lifecycle_status FROM color_powders WHERE colorpowder_id='P001'"
+        ).fetchone()[0]
+        status = conn.execute(
+            "SELECT status FROM sync_outbox ORDER BY entity_version DESC LIMIT 1"
+        ).fetchone()[0]
+    assert lifecycle == "inactive"
+    assert status == "completed"
+
+
 def test_safe_worker_applies_only_one_bounded_insert(tmp_path):
     db = tmp_path / "safe-batch.db"
     initialize_database(db)

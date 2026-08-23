@@ -263,6 +263,11 @@ Turso database 與正式 Spreadsheet 的測試副本。自動測試交由 GitHub
 tombstone、沖銷移除與取消移除都保留給網站既有的人工 preflight + `PUSH`。Database lock
 與 GitHub concurrency 會阻止兩個 apply worker 同時傳送。
 
+手動 workflow 可勾選 `allow_deletes` 檢查受 baseline 保護的 lifecycle/delete events。
+Dry-run 不需確認；真正 apply 時必須另外輸入 `APPLY SAFE DELETES`。任何 Sheet row 已被人工
+修改或沒有 baseline 時仍會產生 conflict 並阻擋刪除。定時 outbound worker 永遠不傳
+`--allow-deletes`，因此 schedule 仍只自動處理 insert/update。
+
 請先在 GitHub Actions secrets 設定 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、
 `GOOGLE_SERVICE_ACCOUNT_JSON`、`GOOGLE_SHEET_URL`。這些值只放在 GitHub Secrets，不能
 提交到 repository。workflow 保留手動 dry-run/apply，並在預設 branch 每小時的第 17、47
