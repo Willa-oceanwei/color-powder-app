@@ -76,6 +76,12 @@ from utils.production_order_repository import (
     update_production_order,
     upsert_production_order,
 )
+from utils.conflict_repository import (
+    ConflictError,
+    list_sync_conflicts,
+    reopen_sync_conflict,
+    resolve_sync_conflict,
+)
 
 st.set_page_config(
     page_title="配方管理系統",
@@ -12059,6 +12065,90 @@ if st.session_state.menu == "同步檢查":
             f"Turso → Sheet 推送完成：{completed_push['sheet_name']} 寫入 "
             f"{completed_push['written']} 筆；驗證後 queued={completed_push['queued']}。"
         )
+
+    render_sync_section_title("同步 Conflict 管理")
+    st.caption(
+        "這裡只管理 conflict 的人工處理紀錄，不會自動選擇 Turso 或 Sheet 覆寫另一方。"
+        "請先依 run report 修正資料並重新 preflight，確認安全後才將 conflict 標記結案。"
+    )
+    conflict_status_label = st.radio(
+        "顯示狀態",
+        options=["未結案", "已結案", "全部"],
+        horizontal=True,
+        key="sync_conflict_status_filter",
+    )
+    conflict_status = {"未結案": "open", "已結案": "resolved", "全部": "all"}[
+        conflict_status_label
+    ]
+    try:
+        sync_conflicts = list_sync_conflicts(
+            DATABASE_CONFIG, status=conflict_status, limit=100
+        )
+    except Exception as exc:
+        sync_conflicts = []
+        st.error(f"讀取 conflict 失敗：{type(exc).__name__}: {exc}")
+
+    open_conflict_count = sum(item["status"] == "open" for item in sync_conflicts)
+    c1, c2 = st.columns(2)
+    c1.metric("目前顯示", len(sync_conflicts))
+    c2.metric("顯示中的未結案", open_conflict_count)
+    if not sync_conflicts:
+        st.info("目前沒有符合篩選條件的 conflict。")
+    for conflict in sync_conflicts:
+        state_text = "未結案" if conflict["status"] == "open" else "已結案"
+        with st.expander(
+            f"#{conflict['id']}｜{state_text}｜{conflict['entity_type']}｜{conflict['entity_id']}",
+            expanded=False,
+        ):
+            st.write(f"**偵測時間：** {conflict['detected_at']}")
+            st.write(f"**原因：** {conflict['reason']}")
+            payload_left, payload_right = st.columns(2)
+            with payload_left:
+                st.markdown("**Turso payload**")
+                st.json(conflict["turso_payload"])
+            with payload_right:
+                st.markdown("**Sheet payload**")
+                st.json(conflict["sheet_payload"])
+
+            if conflict["status"] == "open":
+                resolution_notes = st.text_area(
+                    "人工處理紀錄（必填）",
+                    key=f"conflict_resolution_notes_{conflict['id']}",
+                    placeholder="例如：已保留 Turso 值，並將 Sheet 修正後重新 preflight 通過。",
+                )
+                resolution_confirmation = st.text_input(
+                    f"請輸入 RESOLVE {conflict['id']}",
+                    key=f"conflict_resolution_confirmation_{conflict['id']}",
+                )
+                if st.button(
+                    "標記已人工處理",
+                    key=f"resolve_conflict_{conflict['id']}",
+                    disabled=(
+                        not resolution_notes.strip()
+                        or resolution_confirmation.strip() != f"RESOLVE {conflict['id']}"
+                    ),
+                ):
+                    try:
+                        resolve_sync_conflict(
+                            DATABASE_CONFIG, conflict["id"], notes=resolution_notes
+                        )
+                        st.toast(f"Conflict #{conflict['id']} 已標記結案", icon="✅")
+                        st.rerun()
+                    except ConflictError as exc:
+                        st.error(str(exc))
+            else:
+                st.write(f"**結案時間：** {conflict['resolved_at'] or '—'}")
+                st.write(f"**處理紀錄：** {conflict['resolution_notes'] or '—'}")
+                if st.button(
+                    "重新開啟",
+                    key=f"reopen_conflict_{conflict['id']}",
+                ):
+                    try:
+                        reopen_sync_conflict(DATABASE_CONFIG, conflict["id"])
+                        st.toast(f"Conflict #{conflict['id']} 已重新開啟", icon="↩️")
+                        st.rerun()
+                    except ConflictError as exc:
+                        st.error(str(exc))
 
     render_sync_section_title("Turso → Sheet：色粉 outbox")
     st.caption(

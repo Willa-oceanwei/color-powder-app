@@ -160,3 +160,14 @@ event 必須留給人工處理。
 定時 outbound schedule 已開啟 baseline-protected deletes。色粉、供應商、配方停用、庫存
 沖銷與生產單取消會自動移除 Sheet 副本，但 Turso 歷史資料不會實體刪除。若 baseline 不存在
 或 Sheet row 已被人工修改，run 必須 Failure 並建立 Sync Alert，不得自動覆寫或刪除。
+
+## 14. Conflict 人工結案
+
+1. 到網站「設定 → 同步檢查 → 同步 Conflict 管理」查看未結案項目。
+2. 比對 Turso／Sheet payload 與 reason，先在正確資料來源完成修正。
+3. 重新執行對應 preflight，確認 conflict 已不再發生；不要先結案再處理資料。
+4. 填寫處理方式，輸入 `RESOLVE <id>` 後標記已人工處理。
+5. 若誤結案，使用「重新開啟」恢復 open；所有時間與處理紀錄留在 Turso。
+
+Conflict 結案功能不會自動採用 Turso 或 Sheet payload，也不會重新排入 outbox。資料選邊與
+重送仍必須透過既有安全 preflight/apply/PUSH 流程完成。

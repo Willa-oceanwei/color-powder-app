@@ -315,3 +315,8 @@ Inbound 或 outbound workflow 失敗時，GitHub Actions 會以內建 `GITHUB_TO
 通知步驟使用 `continue-on-error`，因此 GitHub Issues API 暫時失敗不會把原本成功的同步
 標成失敗；同步真實狀態仍以 workflow 結果與 JSON artifact 為準。Issue 只包含 workflow
 名稱與 run URL，不包含 Turso token、Google credentials 或資料 payload。
+
+網站「設定 → 同步檢查」提供 **同步 Conflict 管理**：可篩選未結案／已結案紀錄，並排
+顯示 Turso 與 Sheet payload、偵測原因和時間。管理員必須先在資料來源修正衝突並重新
+preflight，接著輸入 `RESOLVE <conflict id>` 與處理紀錄才能結案；結案只留下稽核狀態，
+不會自動選邊覆寫。誤結案可重新開啟。
