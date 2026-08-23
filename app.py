@@ -42,6 +42,9 @@ from utils.color_powder_repository import (
 from utils.sheet_export import sync_color_powder_outbox
 from utils.sheet_export import (
     sync_inventory_outbox,
+    sync_outsourcing_delivery_outbox,
+    sync_outsourcing_order_outbox,
+    sync_outsourcing_return_outbox,
     sync_production_order_outbox,
     sync_recipe_outbox,
     sync_supplier_outbox,
@@ -12510,6 +12513,109 @@ if st.session_state.menu == "同步檢查":
                         st.error("推送可能已部分寫入 Sheet；請勿重按，先重新唯讀檢查。" f"錯誤：{type(exc).__name__}: {exc}")
                     else:
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
+
+    def render_outsourcing_push_section(sheet_name, sync_function, label):
+        """Render one guarded outsourcing outbox preflight/PUSH workflow."""
+        state_key = f"outsourcing_push_result_{sheet_name}"
+        render_sync_section_title(f"Turso → Sheet：{sheet_name} outbox")
+        st.caption(
+            f"{label}。所有寫入都會先比對 Sheet baseline；若 Sheet 已被人工修改，會阻擋並建立 conflict。"
+        )
+        if st.button(
+            f"檢查待推送{sheet_name}（唯讀）",
+            disabled=DATABASE_BACKEND != "turso",
+            key=f"outsourcing_push_dry_run_{sheet_name}",
+        ):
+            try:
+                latest_values = get_cached_sheet_values(sheet_name, force_reload=True)
+                st.session_state[state_key] = sync_function(
+                    get_cached_worksheet(sheet_name), latest_values,
+                    db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+                )
+            except Exception as exc:
+                st.session_state.pop(state_key, None)
+                st.error(f"{sheet_name} preflight 失敗：{type(exc).__name__}: {exc}")
+
+        push_result = st.session_state.get(state_key)
+        if push_result is None:
+            return
+        metrics = [
+            ("Queued", push_result.queued), ("新增至 Sheet", push_result.to_insert),
+            ("更新 Sheet", push_result.to_update), ("內容已一致", push_result.unchanged),
+            ("從 Sheet 移除", push_result.to_delete), ("Conflict", push_result.conflicts),
+            ("Errors", len(push_result.errors)),
+        ]
+        for column, (metric_label, value) in zip(st.columns(len(metrics)), metrics):
+            column.metric(metric_label, value)
+        if push_result.ok and push_result.queued:
+            st.success(f"{sheet_name} preflight 完成：待推送事件安全。")
+        elif push_result.ok:
+            st.info(f"目前沒有待推送的{sheet_name}事件。")
+        else:
+            st.warning(f"{sheet_name} preflight 發現 conflict 或 error；PUSH 已停用。")
+        for title, details in (("Errors", push_result.errors), ("Warnings", push_result.warnings)):
+            if details:
+                with st.expander(f"{sheet_name} {title}（{len(details)}）", expanded=title == "Errors"):
+                    for detail in details[:100]:
+                        st.code(str(detail), language=None)
+        if not push_result.ok or push_result.queued == 0:
+            return
+
+        required_confirmation = f"PUSH {sheet_name}"
+        confirmation = st.text_input(
+            f"請輸入 {required_confirmation}", key=f"outsourcing_push_confirmation_{sheet_name}"
+        )
+        if not st.button(
+            f"推送{sheet_name}到 Sheet", type="primary",
+            disabled=confirmation.strip() != required_confirmation,
+            key=f"outsourcing_push_apply_{sheet_name}",
+        ):
+            return
+        write_started = False
+        try:
+            worksheet = get_cached_worksheet(sheet_name)
+            latest_values = get_cached_sheet_values(sheet_name, force_reload=True)
+            preflight = sync_function(
+                worksheet, latest_values, db_config=DATABASE_CONFIG,
+                dry_run=True, initialize_schema=False,
+            )
+            if not preflight.ok or preflight.queued == 0:
+                st.session_state[state_key] = preflight
+                raise RuntimeError("最新 preflight 不安全或已沒有 pending event；推送已取消。")
+            write_started = True
+            applied = sync_function(
+                worksheet, latest_values, db_config=DATABASE_CONFIG,
+                dry_run=False, initialize_schema=False,
+            )
+            if not applied.ok:
+                raise RuntimeError("推送期間偵測到 conflict 或 error。")
+            invalidate_sheet_cache(sheet_name)
+            verification = sync_function(
+                worksheet, get_cached_sheet_values(sheet_name, force_reload=True),
+                db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+            )
+            if not verification.ok or verification.queued != 0:
+                raise RuntimeError("Sheet 已寫入，但驗證仍有 pending/conflict；請勿重按 PUSH。")
+            st.session_state[state_key] = verification
+            st.session_state["sync_push_success"] = {
+                "sheet_name": sheet_name, "written": applied.written, "queued": 0,
+            }
+            st.rerun()
+        except Exception as exc:
+            if write_started:
+                st.error(f"推送可能已部分寫入 Sheet；請勿重按，先重新唯讀檢查。錯誤：{type(exc).__name__}: {exc}")
+            else:
+                st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
+
+    render_outsourcing_push_section(
+        "代工管理", sync_outsourcing_order_outbox, "代工單號是永久 ID，停用只移除 Sheet 副本"
+    )
+    render_outsourcing_push_section(
+        "代工送達記錄", sync_outsourcing_delivery_outbox, "送達 ledger 使用永久 _sync_id"
+    )
+    render_outsourcing_push_section(
+        "代工載回記錄", sync_outsourcing_return_outbox, "載回 ledger 使用永久 _sync_id"
+    )
 
     st.divider()
     render_sync_section_title("Sheet → Turso")
