@@ -166,8 +166,10 @@ event 必須留給人工處理。
 1. 到網站「設定 → 同步檢查 → 同步 Conflict 管理」查看未結案項目。
 2. 比對 Turso／Sheet payload 與 reason，先在正確資料來源完成修正。
 3. 重新執行對應 preflight，確認 conflict 已不再發生；不要先結案再處理資料。
-4. 填寫處理方式，輸入 `RESOLVE <id>` 後標記已人工處理。
-5. 若誤結案，使用「重新開啟」恢復 open；所有時間與處理紀錄留在 Turso。
+4. 若資料已由其他方式同步完成，填寫處理方式並輸入 `RESOLVE <id>`，只記錄結案。
+5. 若已修正 Sheet 並要讓 Turso 重新推送，選重送、輸入 `RETRY <id>`；下一次 worker 仍須通過 baseline。
+6. 若誤結案，使用「重新開啟」恢復 open；所有時間與處理紀錄留在 Turso。
 
-Conflict 結案功能不會自動採用 Turso 或 Sheet payload，也不會重新排入 outbox。資料選邊與
-重送仍必須透過既有安全 preflight/apply/PUSH 流程完成。
+Conflict 結案功能不會自動採用 Turso 或 Sheet payload。只有明確選擇重送時才會將既有
+outbox conflict event 改回 pending；若找不到相符 event，系統會拒絕結案。Inbound conflict
+沒有 outbound event 時，仍須先透過既有安全 preflight/apply 流程處理後再只記錄結案。

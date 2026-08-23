@@ -319,4 +319,6 @@ Inbound 或 outbound workflow 失敗時，GitHub Actions 會以內建 `GITHUB_TO
 網站「設定 → 同步檢查」提供 **同步 Conflict 管理**：可篩選未結案／已結案紀錄，並排
 顯示 Turso 與 Sheet payload、偵測原因和時間。管理員必須先在資料來源修正衝突並重新
 preflight，接著輸入 `RESOLVE <conflict id>` 與處理紀錄才能結案；結案只留下稽核狀態，
-不會自動選邊覆寫。誤結案可重新開啟。
+不會自動選邊覆寫。若已將 Sheet 修正回可由 Turso 推送的狀態，可選「重新排入
+Turso → Sheet」並輸入 `RETRY <conflict id>`；系統只把原 conflict outbox event 改回
+pending，下一次 worker 仍會重新檢查 baseline。誤結案可重新開啟。

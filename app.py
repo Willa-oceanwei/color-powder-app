@@ -12111,13 +12111,27 @@ if st.session_state.menu == "同步檢查":
                 st.json(conflict["sheet_payload"])
 
             if conflict["status"] == "open":
+                resolution_action = st.radio(
+                    "結案方式",
+                    options=["只記錄結案，不重送", "已修正 Sheet，重新排入 Turso → Sheet"],
+                    key=f"conflict_resolution_action_{conflict['id']}",
+                )
+                retry_outbox = resolution_action.startswith("已修正 Sheet")
+                if retry_outbox:
+                    st.warning(
+                        "只有在 Sheet 已修正回正確內容，且要讓 Turso 再次推送時才能選此項。"
+                        "系統只重新排入 outbox；下一次 worker 仍會重新檢查 baseline。"
+                    )
                 resolution_notes = st.text_area(
                     "人工處理紀錄（必填）",
                     key=f"conflict_resolution_notes_{conflict['id']}",
                     placeholder="例如：已保留 Turso 值，並將 Sheet 修正後重新 preflight 通過。",
                 )
+                required_resolution_confirmation = (
+                    f"RETRY {conflict['id']}" if retry_outbox else f"RESOLVE {conflict['id']}"
+                )
                 resolution_confirmation = st.text_input(
-                    f"請輸入 RESOLVE {conflict['id']}",
+                    f"請輸入 {required_resolution_confirmation}",
                     key=f"conflict_resolution_confirmation_{conflict['id']}",
                 )
                 if st.button(
@@ -12125,14 +12139,20 @@ if st.session_state.menu == "同步檢查":
                     key=f"resolve_conflict_{conflict['id']}",
                     disabled=(
                         not resolution_notes.strip()
-                        or resolution_confirmation.strip() != f"RESOLVE {conflict['id']}"
+                        or resolution_confirmation.strip() != required_resolution_confirmation
                     ),
                 ):
                     try:
-                        resolve_sync_conflict(
-                            DATABASE_CONFIG, conflict["id"], notes=resolution_notes
+                        requeued = resolve_sync_conflict(
+                            DATABASE_CONFIG,
+                            conflict["id"],
+                            notes=resolution_notes,
+                            resolution="retry_outbox" if retry_outbox else "acknowledge",
                         )
-                        st.toast(f"Conflict #{conflict['id']} 已標記結案", icon="✅")
+                        toast_text = f"Conflict #{conflict['id']} 已標記結案"
+                        if requeued:
+                            toast_text += f"；已重新排入 {requeued} 筆 outbox event"
+                        st.toast(toast_text, icon="✅")
                         st.rerun()
                     except ConflictError as exc:
                         st.error(str(exc))
