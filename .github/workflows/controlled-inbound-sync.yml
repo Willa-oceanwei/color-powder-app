@@ -1,0 +1,132 @@
+name: controlled Sheets to Turso sync
+
+on:
+  schedule:
+    # Safe inbound apply, offset from outbound delivery.
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Run read-only preflight or controlled apply
+        required: true
+        type: choice
+        default: dry-run
+        options:
+          - dry-run
+          - apply
+      sheet:
+        description: Limit the run to one Sheet or inspect all supported Sheets
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - 色粉管理
+          - 供應商管理
+          - 配方管理
+          - 庫存記錄
+          - 生產單
+      max_changes:
+        description: Abort before writing if preflight finds more changes
+        required: true
+        default: "25"
+      confirmation:
+        description: For apply only, enter APPLY SHEET TO TURSO
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: turso-sheets-sync-worker
+  cancel-in-progress: false
+
+jobs:
+  inbound:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+      TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      GOOGLE_SHEET_URL: ${{ secrets.GOOGLE_SHEET_URL }}
+      SELECTED_SHEET: ${{ inputs.sheet || 'all' }}
+      MAX_CHANGES: ${{ inputs.max_changes || '25' }}
+      APPLY_CONFIRMATION: ${{ inputs.confirmation }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Validate change limit
+        run: |
+          python - <<'PY'
+          import os
+          value = int(os.environ["MAX_CHANGES"])
+          if not 1 <= value <= 100:
+              raise SystemExit("max_changes must be between 1 and 100")
+          PY
+
+      - name: Validate apply confirmation
+        if: inputs.mode == 'apply'
+        run: |
+          if [ "$APPLY_CONFIRMATION" != "APPLY SHEET TO TURSO" ]; then
+            echo "Apply blocked: confirmation must exactly match APPLY SHEET TO TURSO"
+            exit 2
+          fi
+
+      - name: Run controlled inbound sync
+        env:
+          # Scheduled runs auto-apply only after the worker's fresh all-Sheet preflight passes.
+          APPLY_FLAG: ${{ (github.event_name == 'schedule' || inputs.mode == 'apply') && '--apply' || '' }}
+        run: |
+          sheets=()
+          if [ "$SELECTED_SHEET" != "all" ]; then
+            sheets=(--sheets "$SELECTED_SHEET")
+          fi
+          python scripts/run_controlled_inbound_worker.py \
+            --max-changes "$MAX_CHANGES" \
+            --report-path "reports/inbound-${{ github.run_id }}-${{ github.run_attempt }}.json" \
+            "${sheets[@]}" $APPLY_FLAG
+
+      - name: Upload inbound report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inbound-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.mode || 'scheduled-apply' }}
+          path: reports/*.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Open or update inbound failure alert
+        if: failure()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/manage_sync_alert.py --status failure
+          --workflow "controlled Sheets to Turso sync"
+          --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Resolve previous inbound failure alert
+        if: success()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/manage_sync_alert.py --status success
+          --workflow "controlled Sheets to Turso sync"
+          --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
