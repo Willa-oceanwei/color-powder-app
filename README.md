@@ -298,3 +298,14 @@ group 與 Turso lock。每次執行會保存 14 天 JSON artifact。Scheduled ap
 Sheet 中消失的 row 仍永遠不會被自動刪除。
 Inbound preflight 會一次載入每張表的 `sheet_rows` baseline hashes，再於記憶體比較所有 row，
 避免大型 Sheet 對遠端 Turso 逐列查詢；workflow 仍設有 25 分鐘 timeout 防止異常卡住。
+
+### 同步失敗通知
+
+Inbound 或 outbound workflow 失敗時，GitHub Actions 會以內建 `GITHUB_TOKEN` 建立對應的
+`[Sync Alert]` Issue；相同 workflow 再次失敗只會在同一張 open Issue 留言，不會每次建立
+新 Issue。後續 run 成功時，系統會留言並自動關閉該 Issue。請在 GitHub repository 的
+**Watch → Custom → Issues** 開啟 Issue 通知，才能收到 GitHub 網頁／Email 通知。
+
+通知步驟使用 `continue-on-error`，因此 GitHub Issues API 暫時失敗不會把原本成功的同步
+標成失敗；同步真實狀態仍以 workflow 結果與 JSON artifact 為準。Issue 只包含 workflow
+名稱與 run URL，不包含 Turso token、Google credentials 或資料 payload。

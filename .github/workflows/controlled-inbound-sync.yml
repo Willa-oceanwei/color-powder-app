@@ -37,6 +37,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: turso-sheets-sync-worker
@@ -109,3 +110,23 @@ jobs:
           path: reports/*.json
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Open or update inbound failure alert
+        if: failure()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/manage_sync_alert.py --status failure
+          --workflow "controlled Sheets to Turso sync"
+          --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Resolve previous inbound failure alert
+        if: success()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/manage_sync_alert.py --status success
+          --workflow "controlled Sheets to Turso sync"
+          --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

@@ -140,3 +140,11 @@ event 必須留給人工處理。
 - conflict、duplicate、validation error 或超過 25 個變更會在任何寫入前使 run Failure。
 - Sheet row 消失不視為刪除；停用、取消、沖銷及其他 lifecycle 操作仍由網站人工流程處理。
 - scheduled run 失敗時先下載 artifact 確認原因，不得以手動 apply 繞過安全檢查。
+
+## 12. 失敗通知
+
+- Repository Actions workflow 權限需允許 `issues: write`；不需要新增另一組 token secret。
+- 同步失敗會建立或更新 `[Sync Alert] <workflow> failed` Issue，內容只提供 run URL。
+- 同一 workflow 同時間只保留一張 open alert Issue；後續成功會自動關閉。
+- 管理者須在 **Watch → Custom → Issues** 訂閱通知，否則 Issue 存在但不一定收到 Email。
+- Alert Issue 不取代 JSON artifact；處理 conflict/error 前仍須下載報告確認實際工作表與數量。
