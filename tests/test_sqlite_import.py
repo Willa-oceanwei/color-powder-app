@@ -63,6 +63,7 @@ from utils.sheet_import import (
     missing_inventory_sync_id_updates,
     read_worksheet_values_with_retry,
 )
+from utils.sync_worker import acquire_worker_lock, release_worker_lock, run_safe_worker
 
 
 class FakeGoogleApiError(Exception):
@@ -1329,7 +1330,7 @@ def test_supplier_import_accepts_supplier_code_and_short_name_headers(tmp_path):
     assert supplier["notes"] == "常用"
 
 
-def test_database_health_check_reports_schema_v7(tmp_path):
+def test_database_health_check_reports_schema_v9(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
     config = database_config_from_secrets({})
@@ -1337,7 +1338,7 @@ def test_database_health_check_reports_schema_v7(tmp_path):
     health = database_health_check(config)
     assert health.backend == "sqlite"
     assert health.select_1_ok
-    assert health.schema_version == 8
+    assert health.schema_version == 9
     assert health.main_tables_exist
     assert health.schema_compatible
     assert health.missing_required_columns == {}
@@ -1617,7 +1618,7 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     )
     assert "Database backend: sqlite" in lines
     assert "Database health: OK" in lines
-    assert "Schema version: 8" in lines
+    assert "Schema version: 9" in lines
     assert "Required columns present: True" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)
@@ -1677,3 +1678,117 @@ def test_initialize_schema_does_not_iterate_cursor_directly(tmp_path):
 
     assert "color_powders" in {row[0] for row in tables}
     assert "movement_key" in {row[1] for row in inventory_cols}
+
+
+def test_safe_worker_lock_is_exclusive_and_releasable(tmp_path):
+    db = tmp_path / "worker-lock.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+
+    assert acquire_worker_lock(config, lock_name="worker", owner_id="first")
+    assert not acquire_worker_lock(config, lock_name="worker", owner_id="second")
+    release_worker_lock(config, lock_name="worker", owner_id="first")
+    assert acquire_worker_lock(config, lock_name="worker", owner_id="second")
+
+
+def test_safe_mode_retains_delete_events_for_manual_push(tmp_path):
+    db = tmp_path / "safe-delete.db"
+    values = [["色粉編號", "名稱"], ["P001", "Red"]]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    set_color_powder_active(config, "P001", active=False, reason="停止使用")
+
+    result = sync_color_powder_outbox(
+        WritableWorksheet(), values, db_config=config, dry_run=False,
+        allow_deletes=False, max_entries=25,
+    )
+
+    assert result.queued == 0
+    assert result.written == 0
+    assert result.skipped_deletes == 1
+    with connect(db) as conn:
+        latest = conn.execute(
+            "SELECT operation, status FROM sync_outbox ORDER BY entity_version DESC LIMIT 1"
+        ).fetchone()
+    assert tuple(latest) == ("delete", "pending")
+
+
+def test_controlled_worker_applies_baseline_protected_delete(tmp_path):
+    db = tmp_path / "controlled-delete.db"
+    values = [["色粉編號", "名稱"], ["P001", "Red"]]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    set_color_powder_active(config, "P001", active=False, reason="停止使用")
+
+    class DeleteWorksheet(WritableWorksheet):
+        def get_all_values(self):
+            return values
+
+    class DeleteSpreadsheet:
+        def __init__(self):
+            self.sheet = DeleteWorksheet()
+
+        def worksheet(self, name):
+            assert name == "色粉管理"
+            return self.sheet
+
+    spreadsheet = DeleteSpreadsheet()
+    result = run_safe_worker(
+        spreadsheet,
+        db_config=config,
+        dry_run=False,
+        batch_size=1,
+        allow_deletes=True,
+    )
+
+    assert result.ok
+    assert result.allow_deletes
+    assert result.sheets[0]["to_delete"] == 1
+    assert result.sheets[0]["written"] == 1
+    assert spreadsheet.sheet.deleted == [2]
+    with connect(db) as conn:
+        lifecycle = conn.execute(
+            "SELECT lifecycle_status FROM color_powders WHERE colorpowder_id='P001'"
+        ).fetchone()[0]
+        status = conn.execute(
+            "SELECT status FROM sync_outbox ORDER BY entity_version DESC LIMIT 1"
+        ).fetchone()[0]
+    assert lifecycle == "inactive"
+    assert status == "completed"
+
+
+def test_safe_worker_applies_only_one_bounded_insert(tmp_path):
+    db = tmp_path / "safe-batch.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_color_powder(config, ColorPowderInput("P001", name="Red"))
+    create_color_powder(config, ColorPowderInput("P002", name="Blue"))
+
+    class WorkerWorksheet(WritableWorksheet):
+        def get_all_values(self):
+            return [["色粉編號", "名稱"]]
+
+    class WorkerSpreadsheet:
+        def __init__(self):
+            self.sheet = WorkerWorksheet()
+
+        def worksheet(self, name):
+            assert name == "色粉管理"
+            return self.sheet
+
+    spreadsheet = WorkerSpreadsheet()
+    result = run_safe_worker(
+        spreadsheet, db_config=config, dry_run=False, batch_size=1,
+    )
+
+    assert result.ok
+    assert result.sheets[0]["queued"] == 1
+    assert result.sheets[0]["written"] == 1
+    assert len(spreadsheet.sheet.appended) == 1
+    with connect(db) as conn:
+        statuses = conn.execute(
+            "SELECT status FROM sync_outbox WHERE sheet_name='色粉管理' ORDER BY id"
+        ).fetchall()
+        locks = conn.execute("SELECT COUNT(*) FROM sync_worker_locks").fetchone()[0]
+    assert [row[0] for row in statuses] == ["completed", "pending"]
+    assert locks == 0
