@@ -11910,10 +11910,16 @@ if st.session_state.menu == "同步檢查":
 
     completed_push = st.session_state.pop("sync_push_success", None)
     if completed_push:
-        st.success(
-            f"Turso → Sheet 推送完成：{completed_push['sheet_name']} 寫入 "
-            f"{completed_push['written']} 筆；驗證後 queued={completed_push['queued']}。"
-        )
+        if completed_push.get("already_delivered"):
+            st.success(
+                f"{completed_push['sheet_name']} 的事件已由排程 worker 或另一位管理者安全推送；"
+                "最新驗證 queued=0，不需要重複 PUSH。"
+            )
+        else:
+            st.success(
+                f"Turso → Sheet 推送完成：{completed_push['sheet_name']} 寫入 "
+                f"{completed_push['written']} 筆；驗證後 queued={completed_push['queued']}。"
+            )
 
     render_sync_section_title("同步 Conflict 管理")
     st.caption(
@@ -12579,9 +12585,19 @@ if st.session_state.menu == "同步檢查":
                 worksheet, latest_values, db_config=DATABASE_CONFIG,
                 dry_run=True, initialize_schema=False,
             )
-            if not preflight.ok or preflight.queued == 0:
+            if not preflight.ok:
                 st.session_state[state_key] = preflight
-                raise RuntimeError("最新 preflight 不安全或已沒有 pending event；推送已取消。")
+                raise RuntimeError("最新 preflight 偵測到 conflict 或 error；推送已取消。")
+            if preflight.queued == 0:
+                # A scheduled worker or another administrator may have safely
+                # delivered the event after the displayed preflight. Treat that
+                # race as an idempotent success rather than a frightening error.
+                st.session_state[state_key] = preflight
+                st.session_state["sync_push_success"] = {
+                    "sheet_name": sheet_name, "written": 0, "queued": 0,
+                    "already_delivered": True,
+                }
+                st.rerun()
             write_started = True
             applied = sync_function(
                 worksheet, latest_values, db_config=DATABASE_CONFIG,
