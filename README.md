@@ -259,14 +259,15 @@ Turso database 與正式 Spreadsheet 的測試副本。自動測試交由 GitHub
 
 備份完成後可從 GitHub repository 的 **Actions → safe Turso to Sheets sync → Run workflow**
 執行單次 worker。第一次請選 `dry-run`；確認輸出無 error/conflict 後才選 `apply`。
-此 worker 每次最多處理指定 batch（預設 25 筆），只自動傳送 insert/update；所有 delete、
-tombstone、沖銷移除與取消移除都保留給網站既有的人工 preflight + `PUSH`。Database lock
-與 GitHub concurrency 會阻止兩個 apply worker 同時傳送。
+此 worker 每次最多處理指定 batch（預設 25 筆）。Insert/update 會正常傳送；delete、
+tombstone、沖銷移除與取消移除只有在目前 Sheet row 仍符合已同步 baseline 時才會執行。
+Database lock 與 GitHub concurrency 會阻止兩個 apply worker 同時傳送。
 
 手動 workflow 可勾選 `allow_deletes` 檢查受 baseline 保護的 lifecycle/delete events。
 Dry-run 不需確認；真正 apply 時必須另外輸入 `APPLY SAFE DELETES`。任何 Sheet row 已被人工
-修改或沒有 baseline 時仍會產生 conflict 並阻擋刪除。定時 outbound worker 永遠不傳
-`--allow-deletes`，因此 schedule 仍只自動處理 insert/update。
+修改或沒有 baseline 時仍會產生 conflict 並阻擋刪除。定時 outbound worker 現在會傳入
+`--allow-deletes`，但不會降低任何 baseline/conflict 檢查；不安全事件會使 run Failure，
+並建立 Sync Alert Issue 留待人工處理。
 
 請先在 GitHub Actions secrets 設定 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、
 `GOOGLE_SERVICE_ACCOUNT_JSON`、`GOOGLE_SHEET_URL`。這些值只放在 GitHub Secrets，不能
@@ -281,10 +282,10 @@ Actions concurrency 設定失效，database lock 仍提供第二層重複傳送�
 apply 的 queued/written/conflict/error 結果。正式加入 schedule 前，建議至少完成三組
 「網站新增或修改 → dry-run → apply → 再次 dry-run queued 歸零」，並下載報告留存。
 
-定時執行仍固定使用 batch 25，且沿用安全模式限制：只傳送 insert/update，delete 永遠
-留待網站人工 PUSH。排程和手動 apply 共用 GitHub concurrency group 與 Turso database
-lock，因此即使時間重疊也不會同時傳送。若要暫停排程，可在 GitHub Actions 的 workflow
-頁面選擇 **Disable workflow**；重新啟用後既有 pending outbox 仍會保留。
+定時執行固定使用 batch 25；安全 insert/update 與通過 baseline 的 delete 都可套用。排程
+和手動 apply 共用 GitHub concurrency group 與 Turso database lock，因此即使時間重疊也
+不會同時傳送。若要暫停排程，可在 GitHub Actions 的 workflow 頁面選擇
+**Disable workflow**；重新啟用後既有 pending outbox 仍會保留。
 
 ### 受控 Google Sheets → Turso inbound sync
 

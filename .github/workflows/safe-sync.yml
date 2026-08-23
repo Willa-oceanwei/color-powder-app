@@ -104,12 +104,13 @@ jobs:
           $DELETE_FLAG
           --apply
 
-      - name: Apply scheduled safe insert and update events
+      - name: Apply scheduled baseline-protected events
         if: github.event_name == 'schedule'
         run: >-
           python scripts/run_safe_sync_worker.py
           --batch-size 25
           --report-path reports/safe-sync-${{ github.run_id }}-${{ github.run_attempt }}.json
+          --allow-deletes
           --apply
 
       - name: Upload safe-sync observation report

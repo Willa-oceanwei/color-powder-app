@@ -113,7 +113,7 @@ event 必須留給人工處理。
 ## 9. 定時 schedule
 
 - 排程在每小時 UTC 第 17、47 分執行一次，每次最多處理 25 筆安全事件。
-- schedule 只執行 apply insert/update；delete、tombstone、沖銷移除與取消移除不會自動執行。
+- schedule 會套用 insert/update 與通過 baseline 檢查的 delete；任何 Sheet 人工修改都會阻擋 delete。
 - 每次排程仍產生保留 14 天的 JSON artifact，可由 Actions 執行紀錄抽查。
 - 若 scheduled run 出現 conflict/error，worker 會停止後續工作表並以失敗狀態提醒人工處理。
 - 緊急暫停請使用 workflow 頁面的 **Disable workflow**；不要刪除 outbox 或 database lock row。
@@ -157,5 +157,6 @@ event 必須留給人工處理。
 4. Apply 仍會重讀 Sheet 並重新檢查 baseline；任何人工變更都會阻擋刪除。
 5. 確認 Sheet 副本移除，但 Turso lifecycle/history 仍完整保留。
 
-定時 outbound schedule 不會自動開啟 deletes。完成色粉、供應商、配方、庫存沖銷與生產單
-取消的受控測試以前，delete 必須維持上述手動雙重確認流程。
+定時 outbound schedule 已開啟 baseline-protected deletes。色粉、供應商、配方停用、庫存
+沖銷與生產單取消會自動移除 Sheet 副本，但 Turso 歷史資料不會實體刪除。若 baseline 不存在
+或 Sheet row 已被人工修改，run 必須 Failure 並建立 Sync Alert，不得自動覆寫或刪除。
