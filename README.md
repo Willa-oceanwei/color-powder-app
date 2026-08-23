@@ -126,8 +126,9 @@ python scripts/sync_color_powders_to_sheet.py \
 每次新增或修改會在同一個 database transaction 更新 `color_powders` 並建立 outbox；
 網站不再直接 append/update 色粉 Sheet。若同一筆新色粉在送出前連續修改，worker
 只傳送最新 entity version，完成後一併關閉較舊事件，避免 Sheet 出現重複列。
-色粉編號是永久 ID，修改時不可變更；刪除按鈕目前只顯示 tombstone 尚未開放，
-不會刪除 Turso 或 Sheet 資料。
+色粉編號是永久 ID，修改時不可變更。停用會在 Turso 保留資料與歷史引用，並建立
+tombstone outbox；只有 Sheet row 仍符合已同步 baseline 時，後續 PUSH 才會移除 Sheet
+副本。停用資料可由網站恢復。
 
 登入網站後可在「設定 → 同步檢查」的「Turso → Sheet：色粉 outbox」先執行唯讀
 preflight，下載包含 queued/insert/update/unchanged/conflict 的 JSON。只有結果安全且
@@ -140,27 +141,29 @@ preflight，下載包含 queued/insert/update/unchanged/conflict 的 JSON。只�
 是永久 ID，新增與修改會原子更新 `suppliers`、保留新舊名稱於 `supplier_aliases`，
 並建立 `供應商管理` outbox。進貨表單的供應商選項也直接讀 Turso，因此不必等待
 Sheet PUSH 才能選到新供應商。「設定 → 同步檢查」提供獨立的供應商 preflight JSON
-與 `PUSH 供應商管理`；刪除仍須等待 tombstone。
+與 `PUSH 供應商管理`；供應商停用、恢復及受 baseline 保護的 tombstone 已開放。
 
 Schema v6 將 `配方管理` 改為 Turso-first，並在 `recipes` 保存 `oem_multiplier`；升級時
 會從既有 `sheet_rows` baseline 回填倍率，避免舊配方遺失資料。配方新增或修改會在
 同一 transaction 寫入 recipe 主表、完整替換該配方最多 8 筆 components，並建立
 versioned outbox。生產單頁也直接讀 Turso 配方。「設定 → 同步檢查」提供
-`PUSH 配方管理`；配方刪除同樣等待 tombstone。
+`PUSH 配方管理`；配方停用、恢復及受 baseline 保護的 tombstone 已開放。
 
 `庫存記錄` 已改為 Turso-first movement ledger。進貨新增、進貨修改、初始庫存與洗車廠
 轉入都先原子寫入 `inventory_movements`，並以永久 `_sync_id` 建立 versioned outbox；
 查詢與庫存計算直接讀 Turso。初始庫存再次儲存會更新同一個永久 movement，不會先刪
-Sheet row 再 append。同步檢查提供 `PUSH 庫存記錄`，而刪除則等待 reversal/tombstone，
-避免歷史庫存無法稽核或重送時重複計量。
+Sheet row 再 append。進貨可用 append-only 沖銷，原始 movement 與反向 movement 都保留
+於 Turso，且已沖銷記錄不可再次修改或重複沖銷。同步檢查提供 `PUSH 庫存記錄`；安全的
+tombstone 只移除 Sheet 副本，不會破壞 Turso 的庫存稽核軌跡。
 
 Schema v7 新增 `production_orders` 與 `production_order_packages`，並從既有「生產單」
 `sheet_rows` baseline 回填歷史主資料與包裝組。網站建立或修改生產單時會保存當下的
 recipe version/snapshot、最多 4 組包裝資料與完整 Sheet payload，再建立 versioned
 outbox；生產單查詢、預覽與列印改讀 Turso。一般合併會沿用既有生產單永久 ID，
-不再刪除舊 Sheet row 後新增另一個 ID。同步檢查提供 `PUSH 生產單`；取消／刪除留待
-lifecycle 階段。庫存 `_sync_id` 仍永久保存在 Turso、outbox 與 Sheet，但一般網站查詢
-已隱藏此技術欄位，畫面只顯示業務資料。
+不再刪除舊 Sheet row 後新增另一個 ID。同步檢查提供 `PUSH 生產單`；生產單可取消或
+恢復，取消原因與 recipe snapshot 會保留在 Turso，安全 PUSH 才移除 Sheet 副本。庫存
+`_sync_id` 仍永久保存在 Turso、outbox 與 Sheet，但一般網站查詢已隱藏此技術欄位，
+畫面只顯示業務資料。
 
 可以只匯入指定工作表：
 
@@ -226,17 +229,88 @@ python scripts/import_google_sheets_to_sqlite.py \
 
 如果 Google Sheets 沒有明確的 `updated_at` / `更新時間` 欄位，同步程式不會把「匯入當下時間」誤當成 Sheet 修改時間；會改用 `sheet_rows.row_hash` 做增量變更偵測，並在 SQLite 端自上次同步後也有修改時記錄 conflict，避免靜默覆蓋較新的 SQLite 資料。
 
-## Schema v8 lifecycle 基礎
+## Schema v8 lifecycle、沖銷與 tombstone
 
-Schema v8 先建立安全的 lifecycle 資料層，尚不將 UI 的「刪除」改成可用：
+Schema v8 已建立 lifecycle 資料層與受控 UI；網站不會實體刪除 Turso 的業務歷史：
 
 - 色粉、供應商、配方使用 `lifecycle_status` / `deleted_at` / `delete_reason`
   保留歷史引用，不實體刪除。
-- 庫存記錄使用 `reversal_of_movement_key` / `reversed_at` 準備沖銷鏈；
-  同一筆 movement 只允許一筆 reversal。
+- 庫存記錄使用 `reversal_of_movement_key` / `reversed_at` 建立 append-only 沖銷鏈；
+  同一筆 movement 只允許一筆 reversal，且沖銷原因必填。
 - 生產單使用現有 `status` 搭配 `cancelled_at` / `cancel_reason`，
-  後續將實作「取消」而不是刪除永久單號。
+  以「取消／恢復」取代刪除永久單號並保留 recipe snapshot。
+- lifecycle、沖銷及取消會建立 versioned delete outbox；PUSH 前若 Sheet row 已被人工修改，
+  系統會建立 conflict 並阻擋刪除，不會靜默覆寫。
 
 目前 Turso → Sheet 仍採人工 preflight + `PUSH`。在 lifecycle/reversal 測試完整
 之前不啟用自動 worker；後續可改為定時自動傳送，只將 conflict
 與 failed event 留給人工處理。
+
+正式環境驗收與放行條件請依 [`docs/lifecycle-acceptance-checklist.md`](docs/lifecycle-acceptance-checklist.md)
+逐項執行並保存 preflight JSON；所有項目通過後才進入排程 worker 階段。
+
+若系統完全部署在 Streamlit Community Cloud，不需要另外準備主機。請建立一個獨立的
+Streamlit Cloud 測試 app（可使用同一 repository 的測試 branch），讓它連到獨立的測試
+Turso database 與正式 Spreadsheet 的測試副本。自動測試交由 GitHub Actions 執行；
+不要在 Streamlit app process 中執行 pytest、排程常駐 worker，或把本機 SQLite file
+當成備份。Cloud 專用步驟與 secrets 隔離方式請見驗收清單。
+
+### 安全模式 worker（手動 GitHub Actions）
+
+備份完成後可從 GitHub repository 的 **Actions → safe Turso to Sheets sync → Run workflow**
+執行單次 worker。第一次請選 `dry-run`；確認輸出無 error/conflict 後才選 `apply`。
+此 worker 每次最多處理指定 batch（預設 25 筆），只自動傳送 insert/update；所有 delete、
+tombstone、沖銷移除與取消移除都保留給網站既有的人工 preflight + `PUSH`。Database lock
+與 GitHub concurrency 會阻止兩個 apply worker 同時傳送。
+
+手動 workflow 可勾選 `allow_deletes` 檢查受 baseline 保護的 lifecycle/delete events。
+Dry-run 不需確認；真正 apply 時必須另外輸入 `APPLY SAFE DELETES`。任何 Sheet row 已被人工
+修改或沒有 baseline 時仍會產生 conflict 並阻擋刪除。定時 outbound worker 永遠不傳
+`--allow-deletes`，因此 schedule 仍只自動處理 insert/update。
+
+請先在 GitHub Actions secrets 設定 `TURSO_DATABASE_URL`、`TURSO_AUTH_TOKEN`、
+`GOOGLE_SERVICE_ACCOUNT_JSON`、`GOOGLE_SHEET_URL`。這些值只放在 GitHub Secrets，不能
+提交到 repository。workflow 保留手動 dry-run/apply，並在預設 branch 每小時的第 17、47
+分鐘執行安全 apply；GitHub 排程可能因平台繁忙而延遲，並非即時同步。
+
+Schema v9 新增 `sync_worker_locks`。Apply worker 會取得具期限的 database lock，結束時只
+能釋放自己持有的 lock；若另一個 worker 已持有 lock，本次執行會安全停止。即使 GitHub
+Actions concurrency 設定失效，database lock 仍提供第二層重複傳送保護。
+
+每次手動執行都會產生保留 14 天的 `safe-sync-...` JSON artifact，方便比較 dry-run 與
+apply 的 queued/written/conflict/error 結果。正式加入 schedule 前，建議至少完成三組
+「網站新增或修改 → dry-run → apply → 再次 dry-run queued 歸零」，並下載報告留存。
+
+定時執行仍固定使用 batch 25，且沿用安全模式限制：只傳送 insert/update，delete 永遠
+留待網站人工 PUSH。排程和手動 apply 共用 GitHub concurrency group 與 Turso database
+lock，因此即使時間重疊也不會同時傳送。若要暫停排程，可在 GitHub Actions 的 workflow
+頁面選擇 **Disable workflow**；重新啟用後既有 pending outbox 仍會保留。
+
+### 受控 Google Sheets → Turso inbound sync
+
+GitHub Actions 的 **controlled Sheets to Turso sync** 可手動執行，並在每小時 UTC 第 7、37
+分對全部五張 Turso-first 工作表執行 scheduled safe apply。
+手動執行可選單一工作表或全部工作表；第一次必須選 `dry-run`。`apply` 會在同一
+次 run 重新讀取 Sheet、對所有選定工作表完成 preflight，只有全部沒有 validation error、
+duplicate ID、conflict，且變更總數不超過 `max_changes`（預設 25）才開始寫入。
+選擇 `apply` 時還必須輸入完整確認字串 `APPLY SHEET TO TURSO`。
+
+Inbound worker 不會把 Sheet 中消失的 row 視為刪除，也不會為 Sheet 匯入結果建立 outbound
+event，因此不會形成雙向同步迴圈。Apply 與 outbound worker 共用同一個 GitHub concurrency
+group 與 Turso lock。每次執行會保存 14 天 JSON artifact。Scheduled apply 每次都會先重新
+讀取全部 Sheet 並執行 preflight；只有全部工作表沒有 conflict/error/duplicate，且總變更
+不超過 25 筆，才會套用 insert/update。任何不安全結果都會在寫入前停止並顯示 Failure；
+Sheet 中消失的 row 仍永遠不會被自動刪除。
+Inbound preflight 會一次載入每張表的 `sheet_rows` baseline hashes，再於記憶體比較所有 row，
+避免大型 Sheet 對遠端 Turso 逐列查詢；workflow 仍設有 25 分鐘 timeout 防止異常卡住。
+
+### 同步失敗通知
+
+Inbound 或 outbound workflow 失敗時，GitHub Actions 會以內建 `GITHUB_TOKEN` 建立對應的
+`[Sync Alert]` Issue；相同 workflow 再次失敗只會在同一張 open Issue 留言，不會每次建立
+新 Issue。後續 run 成功時，系統會留言並自動關閉該 Issue。請在 GitHub repository 的
+**Watch → Custom → Issues** 開啟 Issue 通知，才能收到 GitHub 網頁／Email 通知。
+
+通知步驟使用 `continue-on-error`，因此 GitHub Issues API 暫時失敗不會把原本成功的同步
+標成失敗；同步真實狀態仍以 workflow 結果與 JSON artifact 為準。Issue 只包含 workflow
+名稱與 run URL，不包含 Turso token、Google credentials 或資料 payload。
