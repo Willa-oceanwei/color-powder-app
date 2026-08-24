@@ -44,6 +44,7 @@ from utils.sheet_export import (
     sync_inventory_outbox,
     sync_customer_outbox,
     sync_customer_inventory_outbox,
+    sync_carwash_inventory_outbox,
     sync_outsourcing_delivery_outbox,
     sync_outsourcing_order_outbox,
     sync_outsourcing_return_outbox,
@@ -82,6 +83,11 @@ from utils.customer_inventory_repository import (
     archive_customer_inventory_record,
     list_customer_inventory_records,
     save_customer_inventory_record,
+)
+from utils.carwash_inventory_repository import (
+    CarwashInventoryError,
+    list_carwash_inventory_movements,
+    save_carwash_inventory_movement,
 )
 from utils.recipe_repository import (
     RecipeAlreadyExists,
@@ -10608,22 +10614,11 @@ elif menu == "洗車廠庫存":
     </style>
     """, unsafe_allow_html=True)
 
+    st.caption("ℹ️ Turso 是洗車廠庫存正式資料來源；Google Sheet 僅為同步副本。")
     carwash_headers = [
         "類型", "初始庫存日期", "初始數量", "貨品編號", "入庫日期", "出庫日期",
-        "數量", "單位", "登記人", "備註"
+        "數量", "單位", "登記人", "備註", "_sync_id"
     ]
-
-    try:
-        ws_carwash = get_cached_worksheet("洗車廠庫存")
-    except Exception:
-        ws_carwash = spreadsheet.add_worksheet("洗車廠庫存", rows=1000, cols=16)
-        ws_carwash.append_row(carwash_headers)
-        invalidate_sheet_cache("洗車廠庫存")
-
-    if "carwash_need_reload" not in st.session_state:
-        st.session_state.carwash_need_reload = False
-
-    reload_carwash = st.session_state.pop("carwash_need_reload", False)
 
     if st.session_state.get("carwash_toast"):
         st.toast(
@@ -10632,16 +10627,15 @@ elif menu == "洗車廠庫存":
         )
         st.session_state.pop("carwash_toast", None)
 
-    try:
-        df_carwash = get_cached_sheet_df("洗車廠庫存", force_reload=reload_carwash)
-    except Exception:
-        df_carwash = pd.DataFrame(columns=carwash_headers)
-
-    for col in carwash_headers:
-        if col not in df_carwash.columns:
-            df_carwash[col] = ""
-
-    df_carwash = df_carwash[carwash_headers].fillna("")
+    df_carwash = pd.DataFrame([{
+        "類型": item["movement_type"], "初始庫存日期": item["initial_date"] or "",
+        "初始數量": item["initial_quantity"] if item["initial_quantity"] is not None else "",
+        "貨品編號": item["product_id"], "入庫日期": item["inbound_date"] or "",
+        "出庫日期": item["outbound_date"] or "",
+        "數量": item["quantity"] if item["quantity"] is not None else "",
+        "單位": item["unit"], "登記人": item["registrar"] or "",
+        "備註": item["notes"] or "", "_sync_id": item["movement_id"],
+    } for item in list_carwash_inventory_movements(DATABASE_CONFIG)], columns=carwash_headers).fillna("")
 
     def _to_date(s):
         return pd.to_datetime(s, errors="coerce").date() if str(s).strip() else None
@@ -10662,12 +10656,7 @@ elif menu == "洗車廠庫存":
             return False
         return (cur_norm in ex_norm) or (ex_norm in cur_norm)
 
-    def _save_carwash_df(df_to_save):
-        upload_df = df_to_save.copy().fillna("")
-        ws_carwash.clear()
-        ws_carwash.update([carwash_headers] + upload_df[carwash_headers].astype(str).values.tolist())
-        invalidate_sheet_cache("洗車廠庫存")
-        st.session_state.carwash_need_reload = True
+
 
     tab_c1, tab_c2, tab_c3, tab_c4 = st.tabs([
         "洗車廠初始庫存",
@@ -10706,12 +10695,11 @@ elif menu == "洗車廠庫存":
                 )
                 if st.session_state.get(zero_confirm_key) == expected_signature:
                     st.session_state.pop(zero_confirm_key, None)
-                    safe_append_row(ws_carwash, [
-                        "初始庫存", init_date.strftime("%Y-%m-%d"), init_qty, product_id,
-                        "", "", "", init_unit, registrar, note
-                    ])
-                    invalidate_sheet_cache("洗車廠庫存")
-                    st.session_state.carwash_need_reload = True
+                    save_carwash_inventory_movement(DATABASE_CONFIG, {
+                        "類型": "初始庫存", "初始庫存日期": init_date.strftime("%Y-%m-%d"),
+                        "初始數量": init_qty, "貨品編號": product_id, "單位": init_unit,
+                        "登記人": registrar, "備註": note,
+                    }, create=True)
                     st.session_state["carwash_toast"] = {
                         "msg": f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}",
                         "icon": "📦"
@@ -10722,12 +10710,11 @@ elif menu == "洗車廠庫存":
                     st.warning("⚠️ 數量為 0，請再次按下「💾 儲存初始庫存」確認資料無誤。")
                     st.stop()
             else:
-                safe_append_row(ws_carwash, [
-                    "初始庫存", init_date.strftime("%Y-%m-%d"), init_qty, product_id,
-                    "", "", "", init_unit, registrar, note
-                ])
-                invalidate_sheet_cache("洗車廠庫存")
-                st.session_state.carwash_need_reload = True
+                save_carwash_inventory_movement(DATABASE_CONFIG, {
+                    "類型": "初始庫存", "初始庫存日期": init_date.strftime("%Y-%m-%d"),
+                    "初始數量": init_qty, "貨品編號": product_id, "單位": init_unit,
+                    "登記人": registrar, "備註": note,
+                }, create=True)
                 st.session_state["carwash_toast"] = {
                     "msg": f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}",
                     "icon": "📦"
@@ -10792,14 +10779,12 @@ elif menu == "洗車廠庫存":
                         )
                         st.stop()
                 st.session_state.pop(confirm_key, None)
-                safe_append_row(ws_carwash, [
-                    io_type, "", "", io_product_id,
-                    in_date.strftime("%Y-%m-%d")  if io_type == "入庫" else "",
-                    out_date.strftime("%Y-%m-%d") if io_type == "出庫" else "",
-                    io_qty, io_unit, io_registrar, io_note
-                ])
-                invalidate_sheet_cache("洗車廠庫存")
-                st.session_state.carwash_need_reload = True
+                save_carwash_inventory_movement(DATABASE_CONFIG, {
+                    "類型": io_type, "貨品編號": io_product_id,
+                    "入庫日期": in_date.strftime("%Y-%m-%d") if io_type == "入庫" else "",
+                    "出庫日期": out_date.strftime("%Y-%m-%d") if io_type == "出庫" else "",
+                    "數量": io_qty, "單位": io_unit, "登記人": io_registrar, "備註": io_note,
+                }, create=True)
 
                 transfer_note = ""
                 if io_type == "出庫" and transfer_to_stock:
@@ -11153,19 +11138,12 @@ elif menu == "洗車廠庫存":
                     if not edit_product_id:
                         st.warning("⚠️ 貨品編號不可空白")
                     else:
-                        sheet_idx = int(selected_init_row["sheet_idx"])
-                        df_carwash.loc[sheet_idx, "類型"] = "初始庫存"
-                        df_carwash.loc[sheet_idx, "初始庫存日期"] = edit_init_date.strftime("%Y-%m-%d")
-                        df_carwash.loc[sheet_idx, "初始數量"] = edit_init_qty
-                        df_carwash.loc[sheet_idx, "貨品編號"] = edit_product_id
-                        df_carwash.loc[sheet_idx, "入庫日期"] = ""
-                        df_carwash.loc[sheet_idx, "出庫日期"] = ""
-                        df_carwash.loc[sheet_idx, "數量"] = ""
-                        df_carwash.loc[sheet_idx, "單位"] = edit_init_unit
-                        df_carwash.loc[sheet_idx, "登記人"] = edit_registrar
-                        df_carwash.loc[sheet_idx, "備註"] = edit_note
-
-                        _save_carwash_df(df_carwash)
+                        save_carwash_inventory_movement(DATABASE_CONFIG, {
+                            "_sync_id": selected_init_row["_sync_id"], "類型": "初始庫存",
+                            "初始庫存日期": edit_init_date.strftime("%Y-%m-%d"),
+                            "初始數量": edit_init_qty, "貨品編號": edit_product_id,
+                            "單位": edit_init_unit, "登記人": edit_registrar, "備註": edit_note,
+                        }, create=False)
                         st.session_state["carwash_toast"] = {
                             "msg": f"✅ 已更新初始庫存：{edit_product_id}",
                             "icon": "🛠️"
@@ -11231,19 +11209,14 @@ elif menu == "洗車廠庫存":
                     elif edit_io_qty <= 0:
                         st.warning("⚠️ 數量需大於 0")
                     else:
-                        sheet_idx = int(selected_io_row["sheet_idx"])
-                        df_carwash.loc[sheet_idx, "類型"] = edit_io_type
-                        df_carwash.loc[sheet_idx, "初始庫存日期"] = ""
-                        df_carwash.loc[sheet_idx, "初始數量"] = ""
-                        df_carwash.loc[sheet_idx, "貨品編號"] = edit_io_product_id
-                        df_carwash.loc[sheet_idx, "入庫日期"] = edit_io_in_date.strftime("%Y-%m-%d") if edit_io_type == "入庫" else ""
-                        df_carwash.loc[sheet_idx, "出庫日期"] = edit_io_out_date.strftime("%Y-%m-%d") if edit_io_type == "出庫" else ""
-                        df_carwash.loc[sheet_idx, "數量"] = edit_io_qty
-                        df_carwash.loc[sheet_idx, "單位"] = edit_io_unit
-                        df_carwash.loc[sheet_idx, "登記人"] = edit_io_registrar
-                        df_carwash.loc[sheet_idx, "備註"] = edit_io_note
-
-                        _save_carwash_df(df_carwash)
+                        save_carwash_inventory_movement(DATABASE_CONFIG, {
+                            "_sync_id": selected_io_row["_sync_id"], "類型": edit_io_type,
+                            "貨品編號": edit_io_product_id,
+                            "入庫日期": edit_io_in_date.strftime("%Y-%m-%d") if edit_io_type == "入庫" else "",
+                            "出庫日期": edit_io_out_date.strftime("%Y-%m-%d") if edit_io_type == "出庫" else "",
+                            "數量": edit_io_qty, "單位": edit_io_unit,
+                            "登記人": edit_io_registrar, "備註": edit_io_note,
+                        }, create=False)
                         st.session_state["carwash_toast"] = {
                             "msg": f"✅ 已更新{edit_io_type}記錄：{edit_io_product_id}",
                             "icon": "🛠️"
@@ -12516,6 +12489,9 @@ if st.session_state.menu == "同步檢查":
         "個別客戶庫存", sync_customer_inventory_outbox, "_sync_id 是每筆庫存的永久 ID，封存只移除 Sheet 副本"
     )
     render_outsourcing_push_section(
+        "洗車廠庫存", sync_carwash_inventory_outbox, "_sync_id 是每筆初始／入／出庫 movement 的永久 ID"
+    )
+    render_outsourcing_push_section(
         "代工管理", sync_outsourcing_order_outbox, "代工單號是永久 ID，停用只移除 Sheet 副本"
     )
     render_outsourcing_push_section(
@@ -12538,7 +12514,7 @@ if st.session_state.menu == "同步檢查":
     if sync_id_message:
         st.success(sync_id_message)
 
-    if selected_sync_sheet in {"庫存記錄", "個別客戶庫存"}:
+    if selected_sync_sheet in {"庫存記錄", "個別客戶庫存", "洗車廠庫存"}:
         with st.expander("準備庫存永久 _sync_id", expanded=True):
             st.caption(
                 "只會替有資料且 _sync_id 空白的列產生永久 ID；不修改既有 ID 或其他欄位。"

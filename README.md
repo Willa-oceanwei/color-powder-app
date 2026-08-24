@@ -192,6 +192,10 @@ Schema v14 將 `個別客戶庫存` 改為 Turso-first。每筆資料使用永�
 `customer_inventory_records` 與 versioned outbox 的同一交易完成；既有 Sheet 請先執行
 `PREPARE 個別客戶庫存` 補齊 ID，再進行唯讀檢查與首次匯入。
 
+Schema v15 將 `洗車廠庫存` 改為 Turso-first movement ledger。初始庫存、入庫與出庫都使用永久
+`_sync_id`，新增與修改會先寫入 `carwash_inventory_movements` 及 versioned outbox。既有 Sheet
+上線前請先執行 `PREPARE 洗車廠庫存`，再以 dry-run 確認後首次匯入。
+
 可以只匯入指定工作表：
 
 ```bash

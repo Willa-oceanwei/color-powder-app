@@ -36,6 +36,7 @@ SHEET_KEY_COLUMNS = {
     "Pantone色號表": "配方編號",
     "樣品記錄": "樣品編號",
     "個別客戶庫存": "_sync_id",
+    "洗車廠庫存": "_sync_id",
     "生產單": "生產單號",
     "代工管理": "代工單號",
     "代工送達記錄": "_sync_id",
@@ -755,6 +756,69 @@ def import_sheet_values(
                                updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
                         (record_id, customer_name, recipe_id, color, quantity, unit,
                          row.get("備註", ""), row.get("建立時間", ""), row.get("更新時間", ""),
+                         entity["created_at"] if entity else synced_at,
+                         _sheet_updated_at(row) or synced_at, synced_at),
+                    )
+                    result.inserted_or_updated += 1
+
+            elif sheet_name == "洗車廠庫存":
+                movement_id = row.get("_sync_id", "").strip()
+                movement_type = row.get("類型", "").strip()
+                product_id = row.get("貨品編號", "").strip()
+                unit = row.get("單位", "").strip()
+                quantity_key = "初始數量" if movement_type == "初始庫存" else "數量"
+                try:
+                    amount = float(row.get(quantity_key, 0) or 0)
+                except ValueError:
+                    result.errors.append(f"row {index + 2}: 數量必須是數字")
+                    continue
+                date_value = {
+                    "初始庫存": row.get("初始庫存日期", "").strip(),
+                    "入庫": row.get("入庫日期", "").strip(),
+                    "出庫": row.get("出庫日期", "").strip(),
+                }.get(movement_type, "")
+                if not movement_id or not product_id or not unit or not date_value:
+                    result.errors.append(
+                        f"row {index + 2}: _sync_id、類型對應日期、貨品編號與單位必填"
+                    )
+                    continue
+                if movement_type not in {"初始庫存", "入庫", "出庫"}:
+                    result.errors.append(f"row {index + 2}: unknown 類型 {movement_type}")
+                    continue
+                if amount < 0 or (movement_type != "初始庫存" and amount == 0):
+                    result.errors.append(f"row {index + 2}: 入出庫數量必須大於 0")
+                    continue
+                entity = _fetchone_mapping(conn.execute(
+                    "SELECT * FROM carwash_inventory_movements WHERE movement_id=?", (movement_id,)
+                ))
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    continue
+                if existed and _entity_changed_since_sync(entity):
+                    result.conflicts += 1
+                    continue
+                if not dry_run:
+                    synced_at = utc_now_iso()
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
+                    conn.execute(
+                        """INSERT INTO carwash_inventory_movements(
+                               movement_id,movement_type,initial_date,initial_quantity,product_id,
+                               inbound_date,outbound_date,quantity,unit,registrar,notes,source,
+                               created_at,updated_at,last_synced_at)
+                           VALUES (?,?,?,?,?,?,?,?,?,?,?,'google_sheets_import',?,?,?)
+                           ON CONFLICT(movement_id) DO UPDATE SET
+                               movement_type=excluded.movement_type,initial_date=excluded.initial_date,
+                               initial_quantity=excluded.initial_quantity,product_id=excluded.product_id,
+                               inbound_date=excluded.inbound_date,outbound_date=excluded.outbound_date,
+                               quantity=excluded.quantity,unit=excluded.unit,registrar=excluded.registrar,
+                               notes=excluded.notes,source=excluded.source,
+                               version=carwash_inventory_movements.version+1,
+                               updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
+                        (movement_id, movement_type, row.get("初始庫存日期", "") or None,
+                         amount if movement_type == "初始庫存" else None, product_id,
+                         row.get("入庫日期", "") or None, row.get("出庫日期", "") or None,
+                         amount if movement_type != "初始庫存" else None, unit,
+                         row.get("登記人", ""), row.get("備註", ""),
                          entity["created_at"] if entity else synced_at,
                          _sheet_updated_at(row) or synced_at, synced_at),
                     )
