@@ -1,6 +1,6 @@
-# Lifecycle、沖銷與 Tombstone 正式環境驗收清單
+# Lifecycle、沖銷與 Tombstone 正式環境驗收清單（Schema v13）
 
-本清單用於 Schema v8 上線驗收。目標是確認 Turso 永遠保留可稽核的業務歷史，且
+本清單用於 Schema v13 上線驗收。目標是確認 Turso 永遠保留可稽核的業務歷史，且
 Google Sheets 副本只會在 row 仍符合同步 baseline 時被移除。此流程支援完全使用
 Streamlit Community Cloud，不需要另備 VM 或常駐主機。**請使用隔離的測試 app、測試
 Turso database 與測試 Sheet；尚未完成全部放行條件前，不得啟用自動 worker。**
@@ -14,10 +14,40 @@ Turso database 與測試 Sheet；尚未完成全部放行條件前，不得啟�
 - [ ] 測試 app 的 Secrets 只填入測試 Turso URL/token、測試 Sheet URL 與測試 service account。
 - [ ] 不要把正式 secrets 複製到測試 app，也不要把任何 token 寫入 repository 或驗收報告。
 - [ ] GitHub Actions 的 `tests` workflow 必須通過；Streamlit app process 不負責執行 pytest。
-- [ ] 開啟測試 app，登入後確認 database health check 顯示 Schema v8。
+- [ ] 開啟測試 app，登入後確認 database health check 顯示 Schema v13。
 - [ ] 為色粉、供應商、配方、庫存與生產單各建立一筆容易辨識的測試資料。
 - [ ] 對五張工作表執行一次安全 PUSH，建立可供 tombstone 比對的 `sheet_rows` baseline。
 - [ ] 下載並保存每次 preflight JSON；紀錄測試人員、時間、環境與測試資料 ID。
+
+## 1.1 既有代工資料初始化
+
+- [ ] 依序 dry-run `代工管理` → `代工送達記錄` → `代工載回記錄`。
+- [ ] 兩張歷程表先執行 PREPARE，只補 `_sync_id` header 與空白永久 ID。
+- [ ] dry-run 沒有 duplicate、orphan、validation error 或 conflict 後才執行 IMPORT。
+- [ ] 每張表 IMPORT 後重跑 dry-run，確認全部為 unchanged。
+- [ ] 確認生產單的代工查詢與數量連動只讀寫 Turso，不直接修改 Sheet。
+- [ ] 封存一張已結案測試代工單，確認三張 Sheet 副本經 baseline 保護後移除。
+- [ ] 確認 Turso 仍保留主檔、封存原因、送達與載回歷程。
+- [ ] 恢復該代工單，確認原代工單號與 ledger `_sync_id` 重新建立 Sheet 副本且無重複。
+
+## 1.2 既有客戶名單初始化
+
+- [ ] dry-run `客戶名單`，確認每列都有唯一 `客戶編號` 與非空白簡稱。
+- [ ] duplicate、validation error 與 conflict 都為 0 後執行 `IMPORT 客戶名單`。
+- [ ] IMPORT 後重跑 dry-run，確認全部 unchanged。
+- [ ] 從網站新增、改名、停用與恢復測試客戶，確認 Sheet baseline/conflict 保護正常。
+
+## 1.3 Pantone 色號表初始化
+
+- [ ] dry-run `Pantone色號表`，確認每列都有 Pantone 色號與唯一配方編號。
+- [ ] duplicate、validation error 與 conflict 都為 0 後執行 `IMPORT Pantone色號表`。
+- [ ] IMPORT 後重跑 dry-run，確認全部 unchanged，再從網站新增一筆並驗證 outbox PUSH。
+
+## 1.4 樣品記錄初始化
+
+- [ ] dry-run `樣品記錄`，確認每列都有唯一樣品編號，無 duplicate/conflict 後 initial IMPORT。
+- [ ] IMPORT 後重跑 dry-run，確認全部 unchanged。
+- [ ] 從網站新增、修改與停用樣品，確認 Sheet outbox 與 tombstone 保護正常。
 
 Streamlit Cloud 的 filesystem 不是備份位置，也不適合常駐排程。驗收證據應下載至管理者
 可控的持久儲存；未來自動 worker 應部署在具有排程觸發能力的服務，而不是依賴 Streamlit
