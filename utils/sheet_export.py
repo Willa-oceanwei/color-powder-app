@@ -62,6 +62,7 @@ def _ensure_tombstone_outbox(conn, sheet_name: str) -> None:
     queries = {
         "色粉管理": ("color_powders", "colorpowder_id", "lifecycle_status='inactive'"),
         "供應商管理": ("suppliers", "supplier_id", "lifecycle_status='inactive'"),
+        "客戶名單": ("customers", "customer_id", "lifecycle_status='inactive'"),
         "配方管理": ("recipes", "recipe_id", "lifecycle_status='inactive'"),
         "生產單": ("production_orders", "production_order_id", "cancelled_at IS NOT NULL"),
         "庫存記錄": (
@@ -364,6 +365,32 @@ def sync_supplier_outbox(
     )
 
 
+def sync_customer_outbox(
+    worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
+    dry_run: bool = True, initialize_schema: bool = True,
+    max_entries: int | None = None, allow_deletes: bool = True,
+) -> ExportResult:
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="客戶名單", key_column="客戶編號",
+        entity_type="customer", entity_table="customers", entity_id_column="customer_id",
+        dry_run=dry_run, initialize_schema=initialize_schema,
+        max_entries=max_entries, allow_deletes=allow_deletes,
+    )
+
+
+def sync_pantone_outbox(
+    worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
+    dry_run: bool = True, initialize_schema: bool = True,
+    max_entries: int | None = None, allow_deletes: bool = True,
+) -> ExportResult:
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="Pantone色號表", key_column="配方編號",
+        entity_type="pantone_record", entity_table="pantone_records", entity_id_column="formula_id",
+        dry_run=dry_run, initialize_schema=initialize_schema,
+        max_entries=max_entries, allow_deletes=allow_deletes,
+    )
+
+
 def sync_recipe_outbox(
     worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
     dry_run: bool = True, initialize_schema: bool = True,
@@ -401,4 +428,34 @@ def sync_production_order_outbox(
         entity_id_column="production_order_id", dry_run=dry_run,
         initialize_schema=initialize_schema, max_entries=max_entries,
         allow_deletes=allow_deletes,
+    )
+
+
+def sync_outsourcing_order_outbox(worksheet, values, *, db_config, dry_run=True,
+                                   initialize_schema=True, max_entries=None, allow_deletes=True):
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="代工管理", key_column="代工單號",
+        entity_type="outsourcing_order", entity_table="outsourcing_orders",
+        entity_id_column="outsourcing_order_id", dry_run=dry_run,
+        initialize_schema=initialize_schema, max_entries=max_entries, allow_deletes=allow_deletes,
+    )
+
+
+def sync_outsourcing_delivery_outbox(worksheet, values, *, db_config, dry_run=True,
+                                      initialize_schema=True, max_entries=None, allow_deletes=True):
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="代工送達記錄", key_column="_sync_id",
+        entity_type="outsourcing_delivery", entity_table="outsourcing_deliveries",
+        entity_id_column="delivery_id", dry_run=dry_run,
+        initialize_schema=initialize_schema, max_entries=max_entries, allow_deletes=allow_deletes,
+    )
+
+
+def sync_outsourcing_return_outbox(worksheet, values, *, db_config, dry_run=True,
+                                    initialize_schema=True, max_entries=None, allow_deletes=True):
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="代工載回記錄", key_column="_sync_id",
+        entity_type="outsourcing_return", entity_table="outsourcing_returns",
+        entity_id_column="return_id", dry_run=dry_run,
+        initialize_schema=initialize_schema, max_entries=max_entries, allow_deletes=allow_deletes,
     )
