@@ -181,6 +181,10 @@ Schema v11 將 `客戶名單` 改為 Turso-first：`客戶編號` 是永久 ID�
 也已改讀 Turso。既有資料請先在「設定 → 同步檢查」對 `客戶名單` dry-run，
 確認客戶編號、duplicate 與 conflict 均正確後再執行 initial IMPORT。
 
+Schema v12 將 `Pantone色號表` 改為 Turso-first，以 `配方編號` 作為永久 ID。新增記錄會先
+原子寫入 `pantone_records` 與 outbox，查詢與歷史補登參考直接讀 Turso。既有資料請在
+「設定 → 同步檢查」dry-run `Pantone色號表`，確認無 duplicate/conflict 後再 initial IMPORT。
+
 可以只匯入指定工作表：
 
 ```bash

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -36,6 +36,7 @@ MAIN_TABLES = {
     "outsourcing_returns",
     "customers",
     "customer_aliases",
+    "pantone_records",
     "sheet_rows",
     "sync_state",
     "sync_log",
@@ -53,6 +54,7 @@ REQUIRED_TABLE_COLUMNS = {
     "production_orders": {"cancelled_at", "cancel_reason"},
     "outsourcing_orders": {"lifecycle_status", "deleted_at", "delete_reason"},
     "customers": {"lifecycle_status", "deleted_at", "delete_reason"},
+    "pantone_records": {"lifecycle_status", "deleted_at", "delete_reason"},
 }
 
 
@@ -520,6 +522,21 @@ def _initialize_schema(conn: SqlExecutor) -> None:
                 ON UPDATE CASCADE ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS pantone_records (
+            formula_id TEXT PRIMARY KEY,
+            pantone_code TEXT NOT NULL,
+            customer_name TEXT,
+            material_no TEXT,
+            lifecycle_status TEXT NOT NULL DEFAULT 'active',
+            deleted_at TEXT,
+            delete_reason TEXT,
+            source TEXT NOT NULL DEFAULT 'sqlite',
+            version INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_synced_at TEXT
+        );
+
         CREATE TABLE IF NOT EXISTS sheet_rows (
             sheet_name TEXT NOT NULL,
             row_key TEXT NOT NULL,
@@ -675,6 +692,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE INDEX IF NOT EXISTS idx_outsourcing_deliveries_order ON outsourcing_deliveries(outsourcing_order_id);
         CREATE INDEX IF NOT EXISTS idx_outsourcing_returns_order ON outsourcing_returns(outsourcing_order_id);
         CREATE INDEX IF NOT EXISTS idx_customers_lifecycle ON customers(lifecycle_status);
+        CREATE INDEX IF NOT EXISTS idx_pantone_records_code ON pantone_records(pantone_code);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_sheet_row_key ON suppliers(sheet_row_key) WHERE sheet_row_key IS NOT NULL;
         CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_movement_key ON inventory_movements(movement_key) WHERE movement_key IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_inventory_sheet_row ON inventory_movements(sheet_name, sheet_row_key);

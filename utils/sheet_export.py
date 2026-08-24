@@ -378,6 +378,19 @@ def sync_customer_outbox(
     )
 
 
+def sync_pantone_outbox(
+    worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
+    dry_run: bool = True, initialize_schema: bool = True,
+    max_entries: int | None = None, allow_deletes: bool = True,
+) -> ExportResult:
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="Pantone色號表", key_column="配方編號",
+        entity_type="pantone_record", entity_table="pantone_records", entity_id_column="formula_id",
+        dry_run=dry_run, initialize_schema=initialize_schema,
+        max_entries=max_entries, allow_deletes=allow_deletes,
+    )
+
+
 def sync_recipe_outbox(
     worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
     dry_run: bool = True, initialize_schema: bool = True,

@@ -46,6 +46,7 @@ from utils.sheet_export import (
     sync_outsourcing_delivery_outbox,
     sync_outsourcing_order_outbox,
     sync_outsourcing_return_outbox,
+    sync_pantone_outbox,
     sync_production_order_outbox,
     sync_recipe_outbox,
     sync_supplier_outbox,
@@ -67,6 +68,11 @@ from utils.customer_repository import (
     list_customers,
     set_customer_active,
     update_customer,
+)
+from utils.pantone_repository import (
+    PantoneError,
+    create_pantone_record,
+    list_pantone_records,
 )
 from utils.recipe_repository import (
     RecipeAlreadyExists,
@@ -8435,19 +8441,12 @@ elif menu == "查詢區":
     # ========== Tab 3：Pantone色號表 ==========
     with tab3:
     
-        # 讀取 Google Sheets
-        try:
-            ws_pantone = get_cached_worksheet("Pantone色號表")
-        except:
-            ws_pantone = spreadsheet.add_worksheet(title="Pantone色號表", rows=100, cols=4)
-    
-        df_pantone = get_cached_sheet_df("Pantone色號表")
-    
-        # 如果表格是空的，補上欄位名稱
-        if df_pantone.empty:
-            ws_pantone.clear()
-            ws_pantone.append_row(["Pantone色號", "配方編號", "客戶名稱", "料號"])
-            df_pantone = pd.DataFrame(columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
+        # Turso 是 Pantone 對照表正式資料來源；Sheet 由 outbox 同步。
+        df_pantone = pd.DataFrame([{
+            "Pantone色號": item.get("pantone_code", ""), "配方編號": item.get("formula_id", ""),
+            "客戶名稱": item.get("customer_name", ""), "料號": item.get("material_no", ""),
+        } for item in list_pantone_records(DATABASE_CONFIG)],
+            columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
     
         pantone_tab_add, pantone_tab_search = st.tabs(["☑️ 新增記錄", "🔍 查詢 Pantone 色號"])
 
@@ -8481,7 +8480,14 @@ elif menu == "查詢區":
                         elif formula_id in df_pantone["配方編號"].astype(str).values:
                             st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
                         else:
-                            ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
+                            try:
+                                create_pantone_record(
+                                    DATABASE_CONFIG, formula_id=formula_id, pantone_code=pantone_code,
+                                    customer_name=customer, material_no=material_no,
+                                )
+                            except PantoneError as exc:
+                                st.error(str(exc))
+                                st.stop()
                             st.session_state["pantone_tab_toast"] = {
                                 "msg": f"已新增：Pantone {pantone_code}（配方編號 {formula_id}）",
                                 "icon": "✅",
@@ -12660,6 +12666,9 @@ if st.session_state.menu == "同步檢查":
 
     render_outsourcing_push_section(
         "客戶名單", sync_customer_outbox, "客戶編號是永久 ID，停用只移除 Sheet 副本"
+    )
+    render_outsourcing_push_section(
+        "Pantone色號表", sync_pantone_outbox, "配方編號是 Pantone 對照表永久 ID"
     )
     render_outsourcing_push_section(
         "代工管理", sync_outsourcing_order_outbox, "代工單號是永久 ID，停用只移除 Sheet 副本"
