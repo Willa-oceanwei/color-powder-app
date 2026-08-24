@@ -165,6 +165,37 @@ outbox；生產單查詢、預覽與列印改讀 Turso。一般合併會沿用�
 `_sync_id` 仍永久保存在 Turso、outbox 與 Sheet，但一般網站查詢已隱藏此技術欄位，
 畫面只顯示業務資料。
 
+Schema v10 將「代工管理」改為 Turso-first：代工主檔、送達記錄與載回記錄
+分別保存在 `outsourcing_orders` 與兩張 append-only ledger。網站新增、修改、
+送達、載回和交貨註記都先在同一個 Turso transaction 建立 versioned outbox；
+Google Sheets 僅為受 baseline 保護的同步副本。停用代工單不會刪除 Turso 中的主檔或歷程。
+既有代工資料請在「設定 → 同步檢查」依序處理 `代工管理`、`代工送達記錄`、
+`代工載回記錄`；兩張 ledger 需先使用 PREPARE 補齊永久 `_sync_id`，再 dry-run 與
+`IMPORT <工作表>`。每張表匯入後必須再次 dry-run 並確認全部 unchanged。
+「代工管理 → 封存管理」可對已結案代工單執行受控封存／恢復；操作需填寫
+原因與精確確認文字。封存會為主檔、送達與載回建立 Sheet tombstone，
+但 Turso 中的主檔與 ledger 不會實體刪除；恢復沿用原代工單號與 `_sync_id`。
+
+Schema v11 將 `客戶名單` 改為 Turso-first：`客戶編號` 是永久 ID，簡稱變更會保留 alias，
+新增、修改、停用與恢復都會原子建立 `客戶名單` outbox。配方與試色頁的客戶選單
+也已改讀 Turso。既有資料請先在「設定 → 同步檢查」對 `客戶名單` dry-run，
+確認客戶編號、duplicate 與 conflict 均正確後再執行 initial IMPORT。
+
+Schema v12 將 `Pantone色號表` 改為 Turso-first，以 `配方編號` 作為永久 ID。新增記錄會先
+原子寫入 `pantone_records` 與 outbox，查詢與歷史補登參考直接讀 Turso。既有資料請在
+「設定 → 同步檢查」dry-run `Pantone色號表`，確認無 duplicate/conflict 後再 initial IMPORT。
+
+Schema v13 將 `樣品記錄` 改為 Turso-first，以 `樣品編號` 作為永久 ID。新增與修改會先寫入
+`sample_records` 與 outbox；畫面上的刪除改為 lifecycle 停用與 Sheet tombstone，Turso 仍保留歷史。
+
+Schema v14 將 `個別客戶庫存` 改為 Turso-first。每筆資料使用永久 `_sync_id`，新增、修改與封存會在
+`customer_inventory_records` 與 versioned outbox 的同一交易完成；既有 Sheet 請先執行
+`PREPARE 個別客戶庫存` 補齊 ID，再進行唯讀檢查與首次匯入。
+
+Schema v15 將 `洗車廠庫存` 改為 Turso-first movement ledger。初始庫存、入庫與出庫都使用永久
+`_sync_id`，新增與修改會先寫入 `carwash_inventory_movements` 及 versioned outbox。既有 Sheet
+上線前請先執行 `PREPARE 洗車廠庫存`，再以 dry-run 確認後首次匯入。
+
 可以只匯入指定工作表：
 
 ```bash
