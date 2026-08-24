@@ -11,6 +11,7 @@ from .database import DatabaseConfig, connect_from_config, initialize_database_f
 from .sheet_export import (
     ExportResult,
     sync_color_powder_outbox,
+    sync_customer_outbox,
     sync_inventory_outbox,
     sync_outsourcing_delivery_outbox,
     sync_outsourcing_order_outbox,
@@ -25,6 +26,7 @@ from .sheet_import import read_worksheet_values_with_retry
 SAFE_SHEETS: tuple[tuple[str, Callable[..., ExportResult]], ...] = (
     ("色粉管理", sync_color_powder_outbox),
     ("供應商管理", sync_supplier_outbox),
+    ("客戶名單", sync_customer_outbox),
     ("配方管理", sync_recipe_outbox),
     ("庫存記錄", sync_inventory_outbox),
     ("生產單", sync_production_order_outbox),

@@ -62,6 +62,7 @@ def _ensure_tombstone_outbox(conn, sheet_name: str) -> None:
     queries = {
         "色粉管理": ("color_powders", "colorpowder_id", "lifecycle_status='inactive'"),
         "供應商管理": ("suppliers", "supplier_id", "lifecycle_status='inactive'"),
+        "客戶名單": ("customers", "customer_id", "lifecycle_status='inactive'"),
         "配方管理": ("recipes", "recipe_id", "lifecycle_status='inactive'"),
         "生產單": ("production_orders", "production_order_id", "cancelled_at IS NOT NULL"),
         "庫存記錄": (
@@ -359,6 +360,19 @@ def sync_supplier_outbox(
     return _sync_outbox(
         worksheet, values, db_config=db_config, sheet_name="供應商管理", key_column="供應商編號",
         entity_type="supplier", entity_table="suppliers", entity_id_column="supplier_id",
+        dry_run=dry_run, initialize_schema=initialize_schema,
+        max_entries=max_entries, allow_deletes=allow_deletes,
+    )
+
+
+def sync_customer_outbox(
+    worksheet, values: list[list[Any]], *, db_config: DatabaseConfig,
+    dry_run: bool = True, initialize_schema: bool = True,
+    max_entries: int | None = None, allow_deletes: bool = True,
+) -> ExportResult:
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="客戶名單", key_column="客戶編號",
+        entity_type="customer", entity_table="customers", entity_id_column="customer_id",
         dry_run=dry_run, initialize_schema=initialize_schema,
         max_entries=max_entries, allow_deletes=allow_deletes,
     )

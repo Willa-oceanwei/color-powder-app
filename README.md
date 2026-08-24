@@ -176,6 +176,11 @@ Google Sheets 僅為受 baseline 保護的同步副本。停用代工單不會�
 原因與精確確認文字。封存會為主檔、送達與載回建立 Sheet tombstone，
 但 Turso 中的主檔與 ledger 不會實體刪除；恢復沿用原代工單號與 `_sync_id`。
 
+Schema v11 將 `客戶名單` 改為 Turso-first：`客戶編號` 是永久 ID，簡稱變更會保留 alias，
+新增、修改、停用與恢復都會原子建立 `客戶名單` outbox。配方與試色頁的客戶選單
+也已改讀 Turso。既有資料請先在「設定 → 同步檢查」對 `客戶名單` dry-run，
+確認客戶編號、duplicate 與 conflict 均正確後再執行 initial IMPORT。
+
 可以只匯入指定工作表：
 
 ```bash

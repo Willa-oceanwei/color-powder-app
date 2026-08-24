@@ -42,6 +42,7 @@ from utils.color_powder_repository import (
 from utils.sheet_export import sync_color_powder_outbox
 from utils.sheet_export import (
     sync_inventory_outbox,
+    sync_customer_outbox,
     sync_outsourcing_delivery_outbox,
     sync_outsourcing_order_outbox,
     sync_outsourcing_return_outbox,
@@ -57,6 +58,15 @@ from utils.supplier_repository import (
     list_suppliers,
     set_supplier_active,
     update_supplier,
+)
+from utils.customer_repository import (
+    CustomerAlreadyExists,
+    CustomerError,
+    CustomerInput,
+    create_customer,
+    list_customers,
+    set_customer_active,
+    update_customer,
 )
 from utils.recipe_repository import (
     RecipeAlreadyExists,
@@ -294,6 +304,16 @@ except Exception as exc:
 
 # Backward-compatible name for legacy code paths that still expect a local path.
 SQLITE_DB_PATH = DATABASE_INITIALIZED
+
+
+def customer_dataframe(*, include_inactive=False):
+    """Return Turso customer data in the legacy UI column shape."""
+    return pd.DataFrame([
+        {"客戶編號": item.get("customer_id", ""), "客戶簡稱": item.get("name", ""),
+         "客戶名稱": item.get("name", ""), "備註": item.get("notes", ""),
+         "生命週期": item.get("lifecycle_status", "active")}
+        for item in list_customers(DATABASE_CONFIG, include_inactive=include_inactive)
+    ], columns=["客戶編號", "客戶簡稱", "客戶名稱", "備註", "生命週期"])
     
 # ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
 # ======== 🚀 SaaS ERP UI (Notion + SAP Hybrid) ========
@@ -2603,196 +2623,95 @@ if menu == "色粉管理":
     
 # ======== 客戶名單 =========
 elif menu == "客戶名單":
-
-    # ===== 縮小頁面空白 =====
-    st.markdown("""
-    <style>
-    div.block-container { padding-top: 5px; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ===== 讀取或建立 Google Sheet =====
-    try:
-        ws_customer = get_cached_worksheet("客戶名單")
-    except:
-        ws_customer = spreadsheet.add_worksheet("客戶名單", rows=100, cols=10)
-
+    st.caption("Turso 是客戶主檔正式資料來源；Google Sheet 由 versioned outbox 同步。客戶編號建立後不可修改。")
     columns = ["客戶編號", "客戶簡稱", "備註"]
-
-    # ===== 初始化 session_state =====
-    st.session_state.setdefault("form_customer", {col: "" for col in columns})
-    init_states([
-        "edit_customer_index",
-        "delete_customer_index",
-        "show_delete_customer_confirm",
-        "search_customer"
-    ])
-
-    # ===== 載入資料 =====
+    
     try:
-        df = get_cached_sheet_df("客戶名單")
-    except:
-        df = pd.DataFrame(columns=columns)
+        customer_entities = list_customers(DATABASE_CONFIG, include_inactive=True)
+    except CustomerError as exc:
+        st.error(f"無法從 Turso 載入客戶：{exc}")
+        customer_entities = []
+    customer_rows = [{
+        "客戶編號": item.get("customer_id", ""), "客戶簡稱": item.get("name", ""),
+        "備註": item.get("notes", ""), "生命週期": item.get("lifecycle_status", "active"),
+        "停用時間": item.get("deleted_at", ""), "停用原因": item.get("delete_reason", ""),
+    } for item in customer_entities]
+    df = pd.DataFrame(customer_rows, columns=columns + ["生命週期", "停用時間", "停用原因"])
+    active_df = df[df["生命週期"] == "active"].copy() if not df.empty else df.copy()
 
-    df = df.astype(str)
-    for col in columns:
-        if col not in df.columns:
-            df[col] = ""
+    st.session_state.setdefault("editing_customer_id", "")
+    editing_id = st.session_state.editing_customer_id
+    editing_row = active_df[active_df["客戶編號"] == editing_id]
+    defaults = editing_row.iloc[0].to_dict() if not editing_row.empty else {col: "" for col in columns}
 
-    # =====================================================
-    # 📝 新增 / 編輯 客戶
-    # =====================================================
-    st.markdown(
-        '<h2 style="font-size:16px; font-family:Arial; color:#f1f5f2;">☑️ 新增客戶</h3>',
-        unsafe_allow_html=True
-    )
-    
-    with st.form("customer_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            cid = st.text_input("客戶編號", st.session_state.form_customer.get("客戶編號", ""))
-            cname = st.text_input("客戶簡稱", st.session_state.form_customer.get("客戶簡稱", ""))
-        with col2:
-            note = st.text_input("備註", st.session_state.form_customer.get("備註", ""))
-    
-        submit = st.form_submit_button("💾 儲存")
-    
-    if submit:
-        new_data = {
-            "客戶編號": cid.strip(),
-            "客戶簡稱": cname.strip(),
-            "備註": note.strip()
-        }
-    
-        if not new_data["客戶編號"]:
-            st.warning("⚠️ 請輸入客戶編號！")
-        else:
-            if st.session_state.edit_customer_index is not None:
-                # 編輯模式
-                idx = st.session_state.edit_customer_index
-                for col in df.columns:
-                    if col in new_data:
-                        df.at[idx, col] = new_data[col]
-                st.success("✅ 客戶已更新！")
-                st.session_state.edit_customer_index = None
-            else:
-                # 新增模式
-                if new_data["客戶編號"] in df["客戶編號"].values:
-                    st.warning("⚠️ 此客戶編號已存在！")
-                else:
-                    df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-                    st.success("✅ 新增成功！")
-    
-            # 寫回 Google Sheet
-            save_df_to_sheet(ws_customer, df)
-    
-            # 清空表單
-            st.session_state.form_customer = {col: "" for col in df.columns}
-    
-            # 立即更新前端列表
-            st.rerun()
-    
-    # =====================================================
-    # 🗑️ 刪除確認
-    # =====================================================
-    if st.session_state.show_delete_customer_confirm:
-        target_row = df.iloc[st.session_state.delete_customer_index]
-        st.warning(f"⚠️ 確定要刪除 {target_row['客戶編號']} {target_row['客戶簡稱']}？")
-
+    st.markdown("### 新增／編輯客戶")
+    with st.form("customer_turso_form"):
         c1, c2 = st.columns(2)
-        if c1.button("刪除"):
-            df.drop(index=st.session_state.delete_customer_index, inplace=True)
-            df.reset_index(drop=True, inplace=True)
-            save_df_to_sheet(ws_customer, df)
-            st.session_state.show_delete_customer_confirm = False
-            st.success("✅ 刪除成功！")
+        customer_id = c1.text_input("客戶編號", value=str(defaults.get("客戶編號", "")), disabled=bool(editing_id))
+        customer_name = c1.text_input("客戶簡稱", value=str(defaults.get("客戶簡稱", "")))
+        customer_notes = c2.text_input("備註", value=str(defaults.get("備註", "")))
+        save_customer = st.form_submit_button("💾 儲存至 Turso")
+    if save_customer:
+        data = CustomerInput(editing_id or customer_id, customer_name, customer_notes)
+        try:
+            if editing_id:
+                update_customer(DATABASE_CONFIG, data)
+                message = f"已更新客戶 {editing_id}"
+            else:
+                create_customer(DATABASE_CONFIG, data)
+                message = f"已新增客戶 {customer_id.strip()}"
+            st.session_state.editing_customer_id = ""
+            st.toast(f"{message}；等待同步至 Sheet", icon="✅")
             st.rerun()
+        except (CustomerError, CustomerAlreadyExists) as exc:
+            st.error(str(exc))
+    if editing_id and st.button("取消編輯", key="cancel_customer_edit"):
+        st.session_state.editing_customer_id = ""
+        st.rerun()
 
-        if c2.button("取消"):
-            st.session_state.show_delete_customer_confirm = False
-            st.rerun()
-
-    # =====================================================
-    # 📋 客戶清單（搜尋 / 編輯 / 刪除）
-    # =====================================================
-    st.markdown('<h2 style="font-size:16px; font-family:Arial; color:#f1f5f2;">🛠️ 客戶修改 / 刪除</h3>', unsafe_allow_html=True)
-    
-    # 搜尋輸入
-    keyword = st.text_input(
-        "請輸入客戶編號或簡稱",
-        st.session_state.get("search_customer", "")
-    )
-    st.session_state.search_customer = keyword.strip()
-    
-    # 預設顯示用資料
-    df_filtered = pd.DataFrame()
-    
-    if keyword:
-        df_filtered = df[
-            df["客戶編號"].str.contains(keyword, case=False, na=False) |
-            df["客戶簡稱"].str.contains(keyword, case=False, na=False)
+    st.markdown("### 客戶清單")
+    keyword = st.text_input("搜尋客戶編號或簡稱", key="customer_search_turso").strip()
+    filtered = active_df
+    if keyword and not filtered.empty:
+        filtered = filtered[
+            filtered["客戶編號"].astype(str).str.contains(keyword, case=False, na=False, regex=False)
+            | filtered["客戶簡稱"].astype(str).str.contains(keyword, case=False, na=False, regex=False)
         ]
-    
-        if df_filtered.empty:
-            render_empty_state("查無符合的資料")
-    
-    # ===== 表格顯示 =====
-    if not df_filtered.empty:
-        st.dataframe(
-            df_filtered[columns],
-            use_container_width=True,
-            hide_index=True,
-            height=420
+    if filtered.empty:
+        st.info("目前沒有符合的有效客戶。")
+    else:
+        st.dataframe(filtered[columns], use_container_width=True, hide_index=True)
+        selected_id = st.selectbox(
+            "選擇客戶", filtered["客戶編號"].tolist(), key="customer_action_id",
+            format_func=lambda cid: f"{cid}｜{filtered.loc[filtered['客戶編號']==cid, '客戶簡稱'].iloc[0]}",
         )
-    
-        st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
-    
-        st.markdown(
-            "<p style='font-size:14px; font-family:Arial; color:gray;'>🛈 請於上方新增欄位進行修改</p>",
-            unsafe_allow_html=True
-        )
-    
-        # --- 按鈕樣式 ---
-        st.markdown("""
-        <style>
-        div.stButton > button {
-            font-size:16px !important;
-            padding:2px 8px !important;
-            border-radius:8px;
-            background-color:#333333 !important;
-            color:white !important;
-            border:1px solid #555555;
-        }
-        div.stButton > button:hover {
-            background-color:#555555 !important;
-            border-color:#dbd818 !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-    
-        # ===== 列出清單（重點：index 對回原 df）=====
-        for _, row in df_filtered.iterrows():
-            real_idx = df.index[
-                (df["客戶編號"] == row["客戶編號"]) &
-                (df["客戶簡稱"] == row["客戶簡稱"])
-            ][0]
-    
-            c1, c2, c3 = st.columns([3, 1, 1])
-            with c1:
-                st.markdown(
-                    f"<div style='font-family:Arial;'>🔹 {row['客戶編號']}　{row['客戶簡稱']}</div>",
-                    unsafe_allow_html=True
-                )
-            with c2:
-                if st.button("✏️ 改", key=f"edit_customer_{real_idx}"):
-                    st.session_state.edit_customer_index = real_idx
-                    st.session_state.form_customer = row.to_dict()
+        b1, b2 = st.columns(2)
+        if b1.button("✏️ 編輯選取客戶", use_container_width=True):
+            st.session_state.editing_customer_id = selected_id
+            st.rerun()
+        archive_reason = st.text_input("停用原因", key="customer_archive_reason")
+        if b2.button("🗄️ 停用選取客戶", use_container_width=True, disabled=not archive_reason.strip()):
+            try:
+                set_customer_active(DATABASE_CONFIG, selected_id, active=False, reason=archive_reason)
+                st.toast(f"已停用 {selected_id}；Turso 保留歷史，等待 Sheet tombstone", icon="🗄️")
+                st.rerun()
+            except CustomerError as exc:
+                st.error(str(exc))
+
+    inactive_df = df[df["生命週期"] == "inactive"].copy() if not df.empty else df.copy()
+    with st.expander(f"已停用客戶（{len(inactive_df)}）"):
+        if inactive_df.empty:
+            st.info("目前沒有已停用客戶。")
+        else:
+            st.dataframe(inactive_df[columns + ["停用時間", "停用原因"]], use_container_width=True, hide_index=True)
+            restore_id = st.selectbox("選擇要恢復的客戶", inactive_df["客戶編號"].tolist(), key="restore_customer_id")
+            if st.button("♻️ 恢復客戶", key="restore_customer"):
+                try:
+                    set_customer_active(DATABASE_CONFIG, restore_id, active=True)
+                    st.toast(f"已恢復 {restore_id}；等待同步至 Sheet", icon="♻️")
                     st.rerun()
-            with c3:
-                if st.button("🗑️ 刪", key=f"delete_customer_{real_idx}"):
-                    st.session_state.delete_customer_index = real_idx
-                    st.session_state.show_delete_customer_confirm = True
-                    st.rerun()
+                except CustomerError as exc:
+                    st.error(str(exc))
 
 #==========================================================
 # ======== 配方管理分頁 =========
@@ -2823,7 +2742,7 @@ elif menu == "配方管理":
     # 📌 Turso 是代工單與送達／載回 ledger 的正式資料來源。
     # ================================================================
     def load_recipe_section_data():
-        """從 Turso 讀取配方/色粉，客戶名單暫由 Google Sheet 提供。"""
+        """從 Turso 讀取配方、色粉與客戶主檔。"""
 
         # 1️⃣ 配方管理
         try:
@@ -2856,7 +2775,7 @@ elif menu == "配方管理":
 
         # 3️⃣ 客戶名單
         try:
-            df_c = get_cached_sheet_df("客戶名單", force_reload=True)
+            df_c = customer_dataframe()
         except:
             df_c = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
 
@@ -11581,7 +11500,7 @@ if menu == "試色記錄分析":
                 c1, c2, c3 = st.columns(3)
                 formula_code = c1.text_input("配方編號").strip().upper()
 
-                cust_df_form = get_cached_sheet_df("客戶名單")
+                cust_df_form = customer_dataframe()
                 if not cust_df_form.empty:
                     cust_df_form.columns = cust_df_form.columns.astype(str).str.strip()
 
@@ -11645,7 +11564,7 @@ if menu == "試色記錄分析":
                         if clean_powder_id(formula_code) in existing_recipe_codes:
                             st.warning(f"配方 {formula_code} 已存在於配方管理，請先確認是否要登錄為已採購。")
                             st.toast("已在配方管理找到同編號，請人工確認採購狀態", icon="⚠️")
-                    cust_df = get_cached_sheet_df("客戶名單")
+                    cust_df = customer_dataframe()
                     cust_name = customer_name_from_input
                     if not cust_name and not cust_df.empty and "客戶編號" in cust_df.columns and "客戶名稱" in cust_df.columns:
                         hit = cust_df[cust_df["客戶編號"].astype(str).str.strip() == customer_id]
@@ -11704,7 +11623,7 @@ if menu == "試色記錄分析":
     with sub2:
         st.markdown("<div style='background:#141a22;border:1px solid #2f3c4d;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;color:#9aa4b2;'>分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([2,1,1])
-        cust_df_q = get_cached_sheet_df("客戶名單")
+        cust_df_q = customer_dataframe()
         cust_opts_q = [""]
         if not cust_df_q.empty and "客戶編號" in cust_df_q.columns:
             name_col_q = "客戶簡稱" if "客戶簡稱" in cust_df_q.columns else ("客戶名稱" if "客戶名稱" in cust_df_q.columns else None)
@@ -12739,6 +12658,9 @@ if st.session_state.menu == "同步檢查":
             else:
                 st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
+    render_outsourcing_push_section(
+        "客戶名單", sync_customer_outbox, "客戶編號是永久 ID，停用只移除 Sheet 副本"
+    )
     render_outsourcing_push_section(
         "代工管理", sync_outsourcing_order_outbox, "代工單號是永久 ID，停用只移除 Sheet 副本"
     )

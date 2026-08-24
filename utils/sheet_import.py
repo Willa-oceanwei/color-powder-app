@@ -32,7 +32,7 @@ SHEET_KEY_COLUMNS = {
     "供應商管理": "supplier_id",
     "庫存記錄": "_sync_id",
     "配方管理": "配方編號",
-    "客戶名單": "客戶名稱",
+    "客戶名單": "客戶編號",
     "生產單": "生產單號",
     "代工管理": "代工單號",
     "代工送達記錄": "_sync_id",
@@ -321,6 +321,7 @@ def import_sheet_values(
     rows = _records_from_values(values)
     result.sheet_rows = len(rows)
     seen: set[str] = set()
+    seen_customer_names: dict[str, str] = {}
     started_at = utc_now_iso()
 
     with connect_from_config(config) as conn:
@@ -476,6 +477,60 @@ def import_sheet_values(
                         "INSERT OR IGNORE INTO supplier_aliases(alias, supplier_id, created_at) VALUES (?, ?, ?)",
                         (name, supplier_id, synced_at),
                     )
+                    result.inserted_or_updated += 1
+
+            elif sheet_name == "客戶名單":
+                customer_id = row.get("客戶編號", "").strip()
+                name = (row.get("客戶簡稱") or row.get("客戶名稱") or "").strip()
+                if not customer_id:
+                    result.errors.append(f"row {index + 2}: missing 客戶編號")
+                    continue
+                if not name:
+                    result.errors.append(f"row {index + 2}: missing 客戶簡稱")
+                    continue
+                prior_customer = seen_customer_names.get(name)
+                if prior_customer and prior_customer != customer_id:
+                    result.errors.append(
+                        f"row {index + 2}: 客戶簡稱 {name} 也由 {prior_customer} 使用"
+                    )
+                    continue
+                seen_customer_names[name] = customer_id
+                alias_owner = _fetchone_mapping(conn.execute(
+                    "SELECT customer_id FROM customer_aliases WHERE alias=?", (name,)
+                ))
+                if alias_owner is not None and alias_owner["customer_id"] != customer_id:
+                    result.errors.append(
+                        f"row {index + 2}: 客戶簡稱 {name} 已由 {alias_owner['customer_id']} 使用"
+                    )
+                    continue
+                entity = _fetchone_mapping(conn.execute(
+                    "SELECT * FROM customers WHERE customer_id=?", (customer_id,)
+                ))
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(conn, entity_type="customer", entity_id=customer_id,
+                                             sqlite_payload=dict(entity), sheet_payload=row,
+                                             reason="Database customer exists but no Sheet sync baseline exists")
+                    continue
+                if existed and _entity_changed_since_sync(entity):
+                    result.conflicts += 1
+                    continue
+                if not dry_run:
+                    synced_at = utc_now_iso()
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
+                    conn.execute(
+                        """INSERT INTO customers(customer_id,name,notes,source,created_at,updated_at,last_synced_at)
+                           VALUES (?,?,?,'google_sheets_import',?,?,?)
+                           ON CONFLICT(customer_id) DO UPDATE SET name=excluded.name,notes=excluded.notes,
+                               source=excluded.source,version=customers.version+1,
+                               updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
+                        (customer_id, name, row.get("備註", ""),
+                         entity["created_at"] if entity else synced_at,
+                         _sheet_updated_at(row) or synced_at, synced_at),
+                    )
+                    conn.execute("INSERT OR IGNORE INTO customer_aliases(alias,customer_id,created_at) VALUES (?,?,?)",
+                                 (name, customer_id, synced_at))
                     result.inserted_or_updated += 1
 
             elif sheet_name == "配方管理":
