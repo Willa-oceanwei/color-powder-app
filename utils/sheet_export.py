@@ -64,6 +64,9 @@ def _ensure_tombstone_outbox(conn, sheet_name: str) -> None:
         "供應商管理": ("suppliers", "supplier_id", "lifecycle_status='inactive'"),
         "客戶名單": ("customers", "customer_id", "lifecycle_status='inactive'"),
         "樣品記錄": ("sample_records", "sample_id", "lifecycle_status='inactive'"),
+        "個別客戶庫存": (
+            "customer_inventory_records", "record_id", "lifecycle_status='inactive'",
+        ),
         "配方管理": ("recipes", "recipe_id", "lifecycle_status='inactive'"),
         "生產單": ("production_orders", "production_order_id", "cancelled_at IS NOT NULL"),
         "庫存記錄": (
@@ -396,6 +399,19 @@ def sync_sample_outbox(worksheet, values, *, db_config, dry_run=True, initialize
     return _sync_outbox(worksheet,values,db_config=db_config,sheet_name="樣品記錄",key_column="樣品編號",
         entity_type="sample_record",entity_table="sample_records",entity_id_column="sample_id",dry_run=dry_run,
         initialize_schema=initialize_schema,max_entries=max_entries,allow_deletes=allow_deletes)
+
+
+def sync_customer_inventory_outbox(
+    worksheet, values, *, db_config, dry_run=True, initialize_schema=True,
+    max_entries=None, allow_deletes=True,
+):
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="個別客戶庫存",
+        key_column="_sync_id", entity_type="customer_inventory_record",
+        entity_table="customer_inventory_records", entity_id_column="record_id",
+        dry_run=dry_run, initialize_schema=initialize_schema,
+        max_entries=max_entries, allow_deletes=allow_deletes,
+    )
 
 
 def sync_recipe_outbox(

@@ -188,6 +188,10 @@ Schema v12 將 `Pantone色號表` 改為 Turso-first，以 `配方編號` 作為
 Schema v13 將 `樣品記錄` 改為 Turso-first，以 `樣品編號` 作為永久 ID。新增與修改會先寫入
 `sample_records` 與 outbox；畫面上的刪除改為 lifecycle 停用與 Sheet tombstone，Turso 仍保留歷史。
 
+Schema v14 將 `個別客戶庫存` 改為 Turso-first。每筆資料使用永久 `_sync_id`，新增、修改與封存會在
+`customer_inventory_records` 與 versioned outbox 的同一交易完成；既有 Sheet 請先執行
+`PREPARE 個別客戶庫存` 補齊 ID，再進行唯讀檢查與首次匯入。
+
 可以只匯入指定工作表：
 
 ```bash

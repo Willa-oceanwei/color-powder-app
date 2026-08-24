@@ -43,6 +43,7 @@ from utils.sheet_export import sync_color_powder_outbox
 from utils.sheet_export import (
     sync_inventory_outbox,
     sync_customer_outbox,
+    sync_customer_inventory_outbox,
     sync_outsourcing_delivery_outbox,
     sync_outsourcing_order_outbox,
     sync_outsourcing_return_outbox,
@@ -76,6 +77,12 @@ from utils.pantone_repository import (
     list_pantone_records,
 )
 from utils.sample_repository import SampleError, archive_sample_record, list_sample_records, save_sample_record
+from utils.customer_inventory_repository import (
+    CustomerInventoryError,
+    archive_customer_inventory_record,
+    list_customer_inventory_records,
+    save_customer_inventory_record,
+)
 from utils.recipe_repository import (
     RecipeAlreadyExists,
     RecipeError,
@@ -9852,266 +9859,104 @@ elif menu == "庫存區":
                 )
 
     # ====================================================================
-    # Tab 7：個別客戶庫存（獨立資料）
+    # Tab 7：個別客戶庫存（Turso-first）
     # ====================================================================
     with tab7:
-        customer_stock_cols = ["客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "建立時間", "更新時間"]
-        try:
-            ws_customer_stock = get_cached_worksheet("個別客戶庫存")
-        except Exception:
-            ws_customer_stock = spreadsheet.add_worksheet("個別客戶庫存", rows=1000, cols=12)
-            ws_customer_stock.append_row(customer_stock_cols)
-            invalidate_sheet_cache("個別客戶庫存")
+        st.caption("ℹ️ Turso 是個別客戶庫存正式資料來源；Google Sheet 僅為同步副本。")
+        customer_stock_cols = ["_sync_id", "客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "建立時間", "更新時間"]
+        df_customer_stock = pd.DataFrame([{
+            "_sync_id": item["record_id"], "客戶名稱": item["customer_name"],
+            "配方編號": item["recipe_id"], "顏色": item["color"], "數量": item["quantity"],
+            "單位": item["unit"], "備註": item["notes"] or "",
+            "建立時間": item["sheet_created_at"] or item["created_at"],
+            "更新時間": item["sheet_updated_at"] or item["updated_at"],
+        } for item in list_customer_inventory_records(DATABASE_CONFIG)], columns=customer_stock_cols)
 
-        try:
-            df_customer_stock = get_cached_sheet_df("個別客戶庫存").copy()
-        except Exception:
-            df_customer_stock = pd.DataFrame(columns=customer_stock_cols)
-
-        for col in customer_stock_cols:
-            if col not in df_customer_stock.columns:
-                df_customer_stock[col] = ""
-
-        df_customer_src = st.session_state.get("df_customer", pd.DataFrame()).copy()
-        df_recipe_customers = st.session_state.get("_recipe_customers", pd.DataFrame()).copy()
-        customer_master_set = set()
-        if not df_customer_src.empty:
-            name_col = "客戶名稱" if "客戶名稱" in df_customer_src.columns else ("客戶簡稱" if "客戶簡稱" in df_customer_src.columns else None)
-            if name_col:
-                customer_master_set |= {str(v).strip() for v in df_customer_src[name_col].tolist() if str(v).strip()}
-        if not df_recipe_customers.empty:
-            for name_col in ["客戶名稱", "客戶簡稱"]:
-                if name_col in df_recipe_customers.columns:
-                    customer_master_set |= {str(v).strip() for v in df_recipe_customers[name_col].tolist() if str(v).strip()}
-
-        customer_choices = sorted(
-            customer_master_set
-            | {str(v).strip() for v in df_customer_stock["客戶名稱"].tolist() if str(v).strip()}
-        )
-
-        recipe_choices = sorted(
-            {str(v).strip() for v in st.session_state.get("df_recipe", pd.DataFrame()).get("配方編號", pd.Series(dtype=str)).tolist() if str(v).strip()}
-            | {str(v).strip() for v in df_customer_stock["配方編號"].tolist() if str(v).strip()}
-        )
-
-        subtab_form, subtab_query = st.tabs(["☑️ 新增/修改/刪除庫存", "🔍 個別客戶庫存查詢"])
-
-        cust_stock_flash = st.session_state.pop("_cust_stock_flash", None)
-        if cust_stock_flash:
-            flash_level = cust_stock_flash.get("level", "info")
-            flash_msg = cust_stock_flash.get("msg", "")
-            flash_icon = cust_stock_flash.get("icon", "ℹ️")
-            if flash_level == "success":
-                st.success(flash_msg)
-            elif flash_level == "warning":
-                st.warning(flash_msg)
-            else:
-                st.info(flash_msg)
-            st.toast(flash_msg, icon=flash_icon)
+        customer_choices = sorted({str(v).strip() for v in st.session_state.get("df_customer", pd.DataFrame()).get("客戶名稱", pd.Series(dtype=str)) if str(v).strip()}
+                                  | {str(v).strip() for v in df_customer_stock.get("客戶名稱", pd.Series(dtype=str)) if str(v).strip()})
+        recipe_choices = sorted({str(v).strip() for v in st.session_state.get("df_recipe", pd.DataFrame()).get("配方編號", pd.Series(dtype=str)) if str(v).strip()}
+                                | {str(v).strip() for v in df_customer_stock.get("配方編號", pd.Series(dtype=str)) if str(v).strip()})
+        subtab_form, subtab_query = st.tabs(["☑️ 新增／修改／封存", "🔍 個別客戶庫存查詢"])
 
         with subtab_form:
-            st.caption("ℹ️ 此分頁資料為獨立管理，不與其他庫存分頁互通。")
-
-            st.markdown("---")
-            action_mode = st.radio("作業模式", ["新增", "修改", "刪除"], horizontal=True, key="cust_stock_action_mode")
-
-            target_idx = -1
+            action_mode = st.radio("作業模式", ["新增", "修改", "封存"], horizontal=True, key="cust_stock_action_mode")
             target_row = None
-            if action_mode in ["修改", "刪除"]:
-                if df_customer_stock.empty:
-                    st.info("目前沒有可供修改/刪除的資料。")
-                else:
-                    st.markdown("**🔽 選擇資料進行修改/刪除**")
-                    option_indices = [None] + list(df_customer_stock.index)
-                    selected_index = st.selectbox(
-                        "選擇資料",
-                        options=option_indices,
-                        key="cust_stock_edit_pick",
-                        format_func=lambda i: "（請先選擇一筆資料）" if i is None else f"列 {i+2} | {str(df_customer_stock.at[i, '客戶名稱']).strip()} | {str(df_customer_stock.at[i, '配方編號']).strip()} | {str(df_customer_stock.at[i, '顏色']).strip()} | {str(df_customer_stock.at[i, '數量']).strip()} {str(df_customer_stock.at[i, '單位']).strip()}"
-                    )
-                    if selected_index is not None:
-                        target_idx = int(selected_index)
-                        target_row = df_customer_stock.loc[selected_index]
+            if action_mode != "新增" and not df_customer_stock.empty:
+                record_options = [""] + df_customer_stock["_sync_id"].tolist()
+                selected_id = st.selectbox(
+                    "選擇資料", record_options, key="cust_stock_edit_pick",
+                    format_func=lambda rid: "（請先選擇一筆資料）" if not rid else (
+                        lambda row: f"{row['客戶名稱']}｜{row['配方編號']}｜{row['顏色']}｜{row['數量']:g} {row['單位']}"
+                    )(df_customer_stock[df_customer_stock["_sync_id"] == rid].iloc[0]),
+                )
+                if selected_id:
+                    target_row = df_customer_stock[df_customer_stock["_sync_id"] == selected_id].iloc[0]
+            elif action_mode != "新增":
+                st.info("目前沒有可修改或封存的資料。")
 
             with st.form("customer_stock_form"):
-                st.markdown("<div style='font-size:12px; color:#9fb6cc;'>客戶與配方資訊</div>", unsafe_allow_html=True)
-                r1c1, r1c2, r1c3, r1c4 = st.columns(4)
-                customer_from_dropdown = r1c1.selectbox("客戶名稱（下拉）", ["（請選擇）"] + customer_choices,
-                    index=0 if target_row is None else (["（請選擇）"] + customer_choices).index(target_row.get("客戶名稱", "")) if target_row.get("客戶名稱", "") in customer_choices else 0)
-                customer_manual = r1c2.text_input("客戶名稱（手動輸入）", value="" if target_row is None else str(target_row.get("客戶名稱", "")))
-                recipe_from_dropdown = r1c3.selectbox("配方編號（下拉）", ["（請選擇）"] + recipe_choices,
-                    index=0 if target_row is None else (["（請選擇）"] + recipe_choices).index(target_row.get("配方編號", "")) if target_row.get("配方編號", "") in recipe_choices else 0)
-                recipe_manual = r1c4.text_input("配方編號（手動輸入）", value="" if target_row is None else str(target_row.get("配方編號", "")))
+                customer_input = st.selectbox(
+                    "客戶名稱", [""] + customer_choices,
+                    index=([""] + customer_choices).index(str(target_row["客戶名稱"])) if target_row is not None and str(target_row["客戶名稱"]) in customer_choices else 0,
+                )
+                c1, c2, c3, c4 = st.columns(4)
+                recipe_input = c1.selectbox(
+                    "配方編號", [""] + recipe_choices,
+                    index=([""] + recipe_choices).index(str(target_row["配方編號"])) if target_row is not None and str(target_row["配方編號"]) in recipe_choices else 0,
+                )
+                color_input = c2.text_input("顏色", value="" if target_row is None else str(target_row["顏色"]))
+                qty_input = c3.number_input("數量", min_value=0.0, value=0.0 if target_row is None else float(target_row["數量"]), step=1.0)
+                units = ["g", "kg", "桶", "罐", "箱", "包"]
+                current_unit = "g" if target_row is None else str(target_row["單位"])
+                unit_input = c4.selectbox("單位", units, index=units.index(current_unit) if current_unit in units else 0)
+                note_input = st.text_input("備註", value="" if target_row is None else str(target_row["備註"]))
+                submitted = st.form_submit_button(f"✅ 執行{action_mode}")
 
-                recipe_no_preview = (recipe_manual.strip() or ("" if recipe_from_dropdown == "（請選擇）" else recipe_from_dropdown.strip()))
-                recipe_color_map = {}
-                df_recipe_for_color = st.session_state.get("df_recipe", pd.DataFrame()).copy()
-                if not df_recipe_for_color.empty and "配方編號" in df_recipe_for_color.columns:
-                    color_col = "顏色" if "顏色" in df_recipe_for_color.columns else ("色號" if "色號" in df_recipe_for_color.columns else None)
-                    if color_col:
-                        for _, rec in df_recipe_for_color.iterrows():
-                            rid_raw = str(rec.get("配方編號", "")).strip()
-                            rid_norm = fix_leading_zero(clean_powder_id(rid_raw))
-                            cval = str(rec.get(color_col, "")).strip()
-                            if cval:
-                                if rid_raw and rid_raw not in recipe_color_map:
-                                    recipe_color_map[rid_raw] = cval
-                                if rid_norm and rid_norm not in recipe_color_map:
-                                    recipe_color_map[rid_norm] = cval
-
-                recipe_no_norm = fix_leading_zero(clean_powder_id(recipe_no_preview)) if recipe_no_preview else ""
-                auto_color = recipe_color_map.get(recipe_no_preview, "") or recipe_color_map.get(recipe_no_norm, "")
-                color_default = "" if target_row is None else str(target_row.get("顏色", ""))
-                if action_mode == "新增" and auto_color:
-                    color_default = auto_color
-
-                st.markdown("<div style='font-size:12px; color:#9fb6cc;'>庫存資訊</div>", unsafe_allow_html=True)
-                r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-                color_input = r2c1.text_input("顏色", value=color_default, help="若配方已存在且有顏色資料，新增模式會自動帶入。")
-                qty_input = r2c2.number_input("數量", min_value=0.0, value=float(target_row.get("數量", 0) or 0) if target_row is not None else 0.0, step=1.0)
-                unit_input = r2c3.selectbox("單位", ["g", "kg", "桶", "罐", "箱", "包"], index=["g", "kg", "桶", "罐", "箱", "包"].index(str(target_row.get("單位", "g"))) if target_row is not None and str(target_row.get("單位", "g")) in ["g", "kg", "桶", "罐", "箱", "包"] else 0)
-                note_input = r2c4.text_input("備註", value="" if target_row is None else str(target_row.get("備註", "")))
-
-                submit_action = st.form_submit_button(f"✅ 執行{action_mode}")
-
-            customer_name = (customer_manual.strip() or ("" if customer_from_dropdown == "（請選擇）" else customer_from_dropdown.strip()))
-            recipe_no = (recipe_manual.strip() or ("" if recipe_from_dropdown == "（請選擇）" else recipe_from_dropdown.strip()))
-
-            if submit_action:
-                if action_mode == "刪除":
-                    if target_row is None or target_idx < 0:
-                        st.warning("⚠️ 請先選擇要刪除的資料。")
-                        st.toast("請先選擇要刪除的資料", icon="⚠️")
+            if submitted:
+                try:
+                    if action_mode == "封存":
+                        if target_row is None:
+                            raise CustomerInventoryError("請先選擇要封存的資料")
+                        archive_customer_inventory_record(
+                            DATABASE_CONFIG, target_row["_sync_id"], reason="使用者從個別客戶庫存封存",
+                        )
+                        st.success("已封存；Turso 保留歷史，Sheet 副本將由 outbox 移除。")
                     else:
-                        row_no = target_idx + 2
-                        ws_customer_stock.delete_rows(row_no)
-                        invalidate_sheet_cache("個別客戶庫存")
-                        st.session_state["_cust_stock_flash"] = {
-                            "level": "success",
-                            "msg": f"✅ 已刪除第 {row_no} 列資料",
-                            "icon": "🗑️"
-                        }
-                        st.rerun()
-                else:
-                    if not customer_name or not recipe_no:
-                        st.warning("⚠️ 客戶名稱與配方編號為必填。")
-                        st.toast("客戶名稱與配方編號為必填", icon="⚠️")
-                    elif not color_input.strip():
-                        st.warning("⚠️ 顏色為必填。")
-                        st.toast("顏色為必填", icon="⚠️")
-                    else:
+                        if action_mode == "修改" and target_row is None:
+                            raise CustomerInventoryError("請先選擇要修改的資料")
                         now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        short_date = datetime.now().strftime("%m/%d")
-                        event_note = f"（{short_date}）新增{qty_input:g}{unit_input}"
-                        input_note = note_input.strip() if note_input.strip() else event_note
-                        payload = [customer_name, recipe_no, color_input.strip(), qty_input, unit_input, input_note, now_text, now_text]
-                        if action_mode == "新增":
-                            same_key_mask = (
-                                (df_customer_stock["客戶名稱"].astype(str).str.strip() == customer_name.strip()) &
-                                (df_customer_stock["配方編號"].astype(str).str.strip() == recipe_no.strip()) &
-                                (df_customer_stock["顏色"].astype(str).str.strip() == color_input.strip()) &
-                                (pd.to_numeric(df_customer_stock["數量"], errors="coerce").fillna(-1) == float(qty_input)) &
-                                (df_customer_stock["單位"].astype(str).str.strip() == unit_input.strip())
-                            )
-                            recent_dup_count = 0
-                            if same_key_mask.any() and "建立時間" in df_customer_stock.columns:
-                                recent_df = df_customer_stock.loc[same_key_mask].copy()
-                                recent_df["_dt"] = pd.to_datetime(recent_df["建立時間"], errors="coerce")
-                                recent_df = recent_df.dropna(subset=["_dt"])
-                                if not recent_df.empty:
-                                    latest_dup_dt = recent_df["_dt"].max()
-                                    recent_dup_count = int((datetime.now() - latest_dup_dt.to_pydatetime()).total_seconds() <= 120)
-
-                            dup_confirm_key = f"_cust_stock_dup_confirm_{customer_name}|{recipe_no}|{color_input.strip()}|{qty_input}|{unit_input}"
-                            if recent_dup_count > 0 and st.session_state.get("_cust_stock_dup_pending") != dup_confirm_key:
-                                st.session_state["_cust_stock_dup_pending"] = dup_confirm_key
-                                st.warning("⚠️ 偵測到 2 分鐘內可能誤觸重覆儲存。若要繼續新增，請再按一次『✅ 執行新增』確認。")
-                                st.toast("偵測到短時間重覆儲存，請再次確認", icon="⚠️")
-                                st.stop()
-                            st.session_state.pop("_cust_stock_dup_pending", None)
-                            ws_customer_stock.append_row(payload)
-                            st.session_state["_cust_stock_flash"] = {
-                                "level": "success",
-                                "msg": f"✅ 已新增 {customer_name} / {recipe_no} 庫存資料",
-                                "icon": "✅"
-                            }
-                        else:
-                            if target_row is None or target_idx < 0:
-                                st.warning("⚠️ 請先選擇要修改的資料。")
-                                st.toast("請先選擇要修改的資料", icon="⚠️")
-                            else:
-                                row_no = target_idx + 2
-                                old_created = str(target_row.get("建立時間", "")).strip() if target_row is not None else ""
-                                payload[5] = input_note
-                                payload[6] = old_created or now_text
-                                ws_customer_stock.update(f"A{row_no}:H{row_no}", [payload])
-                                st.session_state["_cust_stock_flash"] = {
-                                    "level": "success",
-                                    "msg": f"✅ 已更新第 {row_no} 列資料",
-                                    "icon": "✏️"
-                                }
-                        invalidate_sheet_cache("個別客戶庫存")
-                        st.rerun()
+                        save_customer_inventory_record(DATABASE_CONFIG, {
+                            "_sync_id": "" if target_row is None else target_row["_sync_id"],
+                            "客戶名稱": customer_input, "配方編號": recipe_input,
+                            "顏色": color_input, "數量": qty_input, "單位": unit_input,
+                            "備註": note_input, "建立時間": "" if target_row is None else target_row["建立時間"],
+                            "更新時間": now_text,
+                        }, create=action_mode == "新增")
+                        st.success(f"已{action_mode}個別客戶庫存，並排入 Sheet outbox。")
+                    st.rerun()
+                except CustomerInventoryError as exc:
+                    st.error(str(exc))
 
         with subtab_query:
-            st.caption("ℹ️ 以客戶名稱為主體查詢，可搭配配方編號與顏色條件。")
-
-            with st.form("customer_stock_query_form"):
-                q1, q2, q3 = st.columns([2, 2, 2])
-                selected_recipes = q1.multiselect("配方編號（可多選）", options=recipe_choices)
-                customer_keyword = q2.text_input("客戶名稱搜尋", placeholder="例如：常勝")
-                color_keyword = q3.text_input("顏色搜尋", placeholder="例如：藍、黑、T9")
-                submit_query = st.form_submit_button("🔍 查詢")
-
-            if submit_query:
-                query_df = df_customer_stock.copy()
-                if selected_recipes:
-                    query_df = query_df[query_df["配方編號"].astype(str).isin(selected_recipes)]
-                if customer_keyword.strip():
-                    query_df = query_df[query_df["客戶名稱"].astype(str).str.contains(customer_keyword.strip(), case=False, na=False)]
-                if color_keyword.strip():
-                    query_df = query_df[query_df["顏色"].astype(str).str.contains(color_keyword.strip(), case=False, na=False)]
-
-                show_cols = ["客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "更新時間"]
-                if query_df.empty:
-                    render_empty_state("查無符合條件的個別客戶庫存資料")
-                    st.toast("查詢完成：0 筆資料", icon="ℹ️")
-                else:
-                    query_df["數量"] = pd.to_numeric(query_df["數量"], errors="coerce").fillna(0.0)
-                    query_df["更新時間_dt"] = pd.to_datetime(query_df["更新時間"], errors="coerce")
-                    query_df = query_df.sort_values("更新時間_dt", na_position="last")
-
-                    def _build_note(rows_df):
-                        chunks = []
-                        for _, r in rows_df.sort_values("更新時間_dt", na_position="last").iterrows():
-                            dt = r.get("更新時間_dt")
-                            d = dt.strftime("%m/%d") if pd.notna(dt) else "--/--"
-                            chunks.append(f"（{d}）新增{float(r.get('數量', 0)):g}{str(r.get('單位', '')).strip()}")
-                        return "，".join(chunks)
-
-                    agg_df = (
-                        query_df.groupby(["客戶名稱", "配方編號", "顏色", "單位"], dropna=False)
-                        .agg(
-                            數量=("數量", "sum"),
-                            備註=("備註", lambda s: ""),
-                            更新時間_dt=("更新時間_dt", "max")
-                        )
-                        .reset_index()
-                    )
-                    note_map = (
-                        query_df.groupby(["客戶名稱", "配方編號", "顏色", "單位"], dropna=False)
-                        .apply(_build_note)
-                        .reset_index(name="備註")
-                    )
-                    agg_df = agg_df.drop(columns=["備註"]).merge(note_map, on=["客戶名稱", "配方編號", "顏色", "單位"], how="left")
-                    agg_df["更新時間"] = agg_df["更新時間_dt"].dt.strftime("%Y-%m-%d %H:%M:%S").fillna("")
-                    agg_df = agg_df.sort_values(["客戶名稱", "配方編號", "顏色", "單位"]).reset_index(drop=True)
-                    st.dataframe(agg_df[show_cols], use_container_width=True, hide_index=True)
-                    st.toast(f"查詢完成：{len(agg_df)} 筆彙總資料", icon="✅")
+            q1, q2, q3 = st.columns(3)
+            selected_recipes = q1.multiselect("配方編號（可多選）", recipe_choices)
+            customer_keyword = q2.text_input("客戶名稱搜尋")
+            color_keyword = q3.text_input("顏色搜尋")
+            query_df = df_customer_stock.copy()
+            if selected_recipes:
+                query_df = query_df[query_df["配方編號"].isin(selected_recipes)]
+            if customer_keyword.strip():
+                query_df = query_df[query_df["客戶名稱"].str.contains(customer_keyword.strip(), case=False, na=False)]
+            if color_keyword.strip():
+                query_df = query_df[query_df["顏色"].str.contains(color_keyword.strip(), case=False, na=False)]
+            if query_df.empty:
+                render_empty_state("查無符合條件的個別客戶庫存資料")
             else:
-                st.caption("請先設定查詢條件後按下「🔍 查詢」。")
+                summary = (query_df.groupby(["客戶名稱", "配方編號", "顏色", "單位"], as_index=False)
+                           .agg(數量=("數量", "sum"), 備註=("備註", lambda values: "，".join(v for v in map(str, values) if v.strip())),
+                                更新時間=("更新時間", "max")))
+                st.dataframe(summary, use_container_width=True, hide_index=True)
 
-   
     # ====================================================================
     # Tab 6：色母庫存查詢（修復版）
     # ====================================================================
@@ -12668,6 +12513,9 @@ if st.session_state.menu == "同步檢查":
         "樣品記錄", sync_sample_outbox, "樣品編號是永久 ID，停用只移除 Sheet 副本"
     )
     render_outsourcing_push_section(
+        "個別客戶庫存", sync_customer_inventory_outbox, "_sync_id 是每筆庫存的永久 ID，封存只移除 Sheet 副本"
+    )
+    render_outsourcing_push_section(
         "代工管理", sync_outsourcing_order_outbox, "代工單號是永久 ID，停用只移除 Sheet 副本"
     )
     render_outsourcing_push_section(
@@ -12690,27 +12538,32 @@ if st.session_state.menu == "同步檢查":
     if sync_id_message:
         st.success(sync_id_message)
 
-    if selected_sync_sheet == "庫存記錄":
+    if selected_sync_sheet in {"庫存記錄", "個別客戶庫存"}:
         with st.expander("準備庫存永久 _sync_id", expanded=True):
             st.caption(
                 "只會替有資料且 _sync_id 空白的列產生永久 ID；不修改既有 ID 或其他欄位。"
                 "排序、插列或移動資料後，這個 ID 仍保持不變。"
             )
             prepare_confirmation = st.text_input(
-                "請輸入 PREPARE 庫存記錄",
+                f"請輸入 PREPARE {selected_sync_sheet}",
                 key="inventory_sync_id_confirmation",
             )
             prepare_sync_ids = st.button(
                 "批次補齊空白 _sync_id",
-                disabled=prepare_confirmation.strip() != "PREPARE 庫存記錄",
+                disabled=prepare_confirmation.strip() != f"PREPARE {selected_sync_sheet}",
             )
             if prepare_sync_ids:
                 try:
                     with st.spinner("正在檢查並補齊庫存 _sync_id..."):
-                        inventory_values = get_cached_sheet_values("庫存記錄", force_reload=True)
+                        inventory_values = get_cached_sheet_values(selected_sync_sheet, force_reload=True)
+                        if inventory_values and "_sync_id" not in [str(v).strip() for v in inventory_values[0]]:
+                            inventory_ws = get_cached_worksheet(selected_sync_sheet)
+                            inventory_ws.update_cell(1, len(inventory_values[0]) + 1, "_sync_id")
+                            invalidate_sheet_cache(selected_sync_sheet)
+                            inventory_values = get_cached_sheet_values(selected_sync_sheet, force_reload=True)
                         id_updates = missing_inventory_sync_id_updates(inventory_values)
                         if id_updates:
-                            inventory_ws = get_cached_worksheet("庫存記錄")
+                            inventory_ws = get_cached_worksheet(selected_sync_sheet)
                             batch_size = 200
                             for start in range(0, len(id_updates), batch_size):
                                 batch = id_updates[start:start + batch_size]
@@ -12724,7 +12577,7 @@ if st.session_state.menu == "同步檢查":
                                     ],
                                     value_input_option="RAW",
                                 )
-                            invalidate_sheet_cache("庫存記錄")
+                            invalidate_sheet_cache(selected_sync_sheet)
                             st.session_state["inventory_sync_id_message"] = (
                                 f"已補齊 {len(id_updates)} 筆 _sync_id；既有 ID 與其他欄位未修改。"
                             )

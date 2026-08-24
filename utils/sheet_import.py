@@ -35,6 +35,7 @@ SHEET_KEY_COLUMNS = {
     "客戶名單": "客戶編號",
     "Pantone色號表": "配方編號",
     "樣品記錄": "樣品編號",
+    "個別客戶庫存": "_sync_id",
     "生產單": "生產單號",
     "代工管理": "代工單號",
     "代工送達記錄": "_sync_id",
@@ -707,6 +708,56 @@ def import_sheet_values(
                     updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
                     (sample_id,row.get("日期",""),row.get("客戶名稱",""),row.get("樣品名稱",""),row.get("樣品數量",""),
                      entity["created_at"] if entity else synced_at,_sheet_updated_at(row) or synced_at,synced_at))
+                    result.inserted_or_updated += 1
+
+            elif sheet_name == "個別客戶庫存":
+                record_id = row.get("_sync_id", "").strip()
+                customer_name = row.get("客戶名稱", "").strip()
+                recipe_id = row.get("配方編號", "").strip()
+                color = row.get("顏色", "").strip()
+                unit = row.get("單位", "").strip()
+                try:
+                    quantity = float(row.get("數量", 0) or 0)
+                except ValueError:
+                    result.errors.append(f"row {index + 2}: 數量必須是數字")
+                    continue
+                if not record_id or not customer_name or not recipe_id or not color or not unit:
+                    result.errors.append(
+                        f"row {index + 2}: _sync_id、客戶名稱、配方編號、顏色與單位必填"
+                    )
+                    continue
+                if quantity < 0:
+                    result.errors.append(f"row {index + 2}: 數量不可小於 0")
+                    continue
+                entity = _fetchone_mapping(conn.execute(
+                    "SELECT * FROM customer_inventory_records WHERE record_id=?", (record_id,)
+                ))
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    continue
+                if existed and _entity_changed_since_sync(entity):
+                    result.conflicts += 1
+                    continue
+                if not dry_run:
+                    synced_at = utc_now_iso()
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
+                    conn.execute(
+                        """INSERT INTO customer_inventory_records(
+                               record_id,customer_name,recipe_id,color,quantity,unit,notes,
+                               sheet_created_at,sheet_updated_at,source,created_at,updated_at,last_synced_at)
+                           VALUES (?,?,?,?,?,?,?,?,?,'google_sheets_import',?,?,?)
+                           ON CONFLICT(record_id) DO UPDATE SET
+                               customer_name=excluded.customer_name,recipe_id=excluded.recipe_id,
+                               color=excluded.color,quantity=excluded.quantity,unit=excluded.unit,
+                               notes=excluded.notes,sheet_created_at=excluded.sheet_created_at,
+                               sheet_updated_at=excluded.sheet_updated_at,source=excluded.source,
+                               version=customer_inventory_records.version+1,
+                               updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
+                        (record_id, customer_name, recipe_id, color, quantity, unit,
+                         row.get("備註", ""), row.get("建立時間", ""), row.get("更新時間", ""),
+                         entity["created_at"] if entity else synced_at,
+                         _sheet_updated_at(row) or synced_at, synced_at),
+                    )
                     result.inserted_or_updated += 1
 
             elif sheet_name == "生產單":

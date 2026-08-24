@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -38,6 +38,7 @@ MAIN_TABLES = {
     "customer_aliases",
     "pantone_records",
     "sample_records",
+    "customer_inventory_records",
     "sheet_rows",
     "sync_state",
     "sync_log",
@@ -57,6 +58,7 @@ REQUIRED_TABLE_COLUMNS = {
     "customers": {"lifecycle_status", "deleted_at", "delete_reason"},
     "pantone_records": {"lifecycle_status", "deleted_at", "delete_reason"},
     "sample_records": {"lifecycle_status", "deleted_at", "delete_reason"},
+    "customer_inventory_records": {"lifecycle_status", "deleted_at", "delete_reason"},
 }
 
 
@@ -555,6 +557,26 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             last_synced_at TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS customer_inventory_records (
+            record_id TEXT PRIMARY KEY,
+            customer_name TEXT NOT NULL,
+            recipe_id TEXT NOT NULL,
+            color TEXT NOT NULL,
+            quantity REAL NOT NULL DEFAULT 0,
+            unit TEXT NOT NULL,
+            notes TEXT,
+            sheet_created_at TEXT,
+            sheet_updated_at TEXT,
+            lifecycle_status TEXT NOT NULL DEFAULT 'active',
+            deleted_at TEXT,
+            delete_reason TEXT,
+            source TEXT NOT NULL DEFAULT 'sqlite',
+            version INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_synced_at TEXT
+        );
+
         CREATE TABLE IF NOT EXISTS sheet_rows (
             sheet_name TEXT NOT NULL,
             row_key TEXT NOT NULL,
@@ -712,6 +734,8 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE INDEX IF NOT EXISTS idx_customers_lifecycle ON customers(lifecycle_status);
         CREATE INDEX IF NOT EXISTS idx_pantone_records_code ON pantone_records(pantone_code);
         CREATE INDEX IF NOT EXISTS idx_sample_records_date ON sample_records(sample_date);
+        CREATE INDEX IF NOT EXISTS idx_customer_inventory_customer ON customer_inventory_records(customer_name);
+        CREATE INDEX IF NOT EXISTS idx_customer_inventory_recipe ON customer_inventory_records(recipe_id);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_sheet_row_key ON suppliers(sheet_row_key) WHERE sheet_row_key IS NOT NULL;
         CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_movement_key ON inventory_movements(movement_key) WHERE movement_key IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_inventory_sheet_row ON inventory_movements(sheet_name, sheet_row_key);
