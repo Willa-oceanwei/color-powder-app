@@ -11,7 +11,16 @@ from .database import DatabaseConfig, connect_from_config, initialize_database_f
 from .sheet_export import (
     ExportResult,
     sync_color_powder_outbox,
+    sync_customer_outbox,
+    sync_customer_inventory_outbox,
+    sync_carwash_inventory_outbox,
+    sync_trial_outbox,
     sync_inventory_outbox,
+    sync_outsourcing_delivery_outbox,
+    sync_outsourcing_order_outbox,
+    sync_outsourcing_return_outbox,
+    sync_pantone_outbox,
+    sync_sample_outbox,
     sync_production_order_outbox,
     sync_recipe_outbox,
     sync_supplier_outbox,
@@ -22,9 +31,18 @@ from .sheet_import import read_worksheet_values_with_retry
 SAFE_SHEETS: tuple[tuple[str, Callable[..., ExportResult]], ...] = (
     ("色粉管理", sync_color_powder_outbox),
     ("供應商管理", sync_supplier_outbox),
+    ("客戶名單", sync_customer_outbox),
+    ("Pantone色號表", sync_pantone_outbox),
+    ("樣品記錄", sync_sample_outbox),
+    ("個別客戶庫存", sync_customer_inventory_outbox),
+    ("洗車廠庫存", sync_carwash_inventory_outbox),
+    ("試色登錄", sync_trial_outbox),
     ("配方管理", sync_recipe_outbox),
     ("庫存記錄", sync_inventory_outbox),
     ("生產單", sync_production_order_outbox),
+    ("代工管理", sync_outsourcing_order_outbox),
+    ("代工送達記錄", sync_outsourcing_delivery_outbox),
+    ("代工載回記錄", sync_outsourcing_return_outbox),
 )
 SYNC_WORKER_LOCK_NAME = "turso-sheets-worker"
 
