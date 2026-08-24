@@ -23,9 +23,16 @@ on:
           - all
           - 色粉管理
           - 供應商管理
+          - 客戶名單
+          - Pantone色號表
+          - 樣品記錄
+          - 個別客戶庫存
           - 配方管理
           - 庫存記錄
           - 生產單
+          - 代工管理
+          - 代工送達記錄
+          - 代工載回記錄
       max_changes:
         description: Abort before writing if preflight finds more changes
         required: true

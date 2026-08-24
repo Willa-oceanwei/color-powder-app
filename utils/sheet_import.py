@@ -32,8 +32,14 @@ SHEET_KEY_COLUMNS = {
     "供應商管理": "supplier_id",
     "庫存記錄": "_sync_id",
     "配方管理": "配方編號",
-    "客戶名單": "客戶名稱",
+    "客戶名單": "客戶編號",
+    "Pantone色號表": "配方編號",
+    "樣品記錄": "樣品編號",
+    "個別客戶庫存": "_sync_id",
     "生產單": "生產單號",
+    "代工管理": "代工單號",
+    "代工送達記錄": "_sync_id",
+    "代工載回記錄": "_sync_id",
 }
 
 SUPPLIER_ID_COLUMNS = ["supplier_id", "供應商ID", "供應商編號"]
@@ -144,6 +150,32 @@ def missing_inventory_sync_id_updates(
     return updates
 
 
+def missing_outsourcing_sync_id_updates(
+    values: list[list[Any]],
+    *,
+    id_prefix: str,
+    id_factory: Callable[[], str] = lambda: uuid.uuid4().hex,
+) -> list[tuple[int, int, str]]:
+    """Return safe permanent-ID updates for non-empty outsourcing ledger rows."""
+    if id_prefix not in {"delivery", "return"}:
+        raise ValueError("id_prefix must be delivery or return")
+    if not values:
+        raise ValueError("代工歷程工作表沒有 header")
+    headers = [str(value).strip() for value in values[0]]
+    if "_sync_id" not in headers:
+        raise ValueError("代工歷程工作表缺少 _sync_id 欄位")
+    sync_column = headers.index("_sync_id")
+    updates = []
+    for row_number, raw_row in enumerate(values[1:], start=2):
+        padded = list(raw_row) + [""] * max(0, len(headers) - len(raw_row))
+        has_business_data = any(
+            str(padded[index]).strip() for index in range(len(headers)) if index != sync_column
+        )
+        if has_business_data and not str(padded[sync_column]).strip():
+            updates.append((row_number, sync_column + 1, f"{id_prefix}:{id_factory()}"))
+    return updates
+
+
 def _row_hash(row: dict[str, Any]) -> str:
     payload = json.dumps(row, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -179,6 +211,14 @@ def _safe_float(value: Any) -> float:
         return 0.0
 
 
+def _is_number(value: Any) -> bool:
+    try:
+        float(str(value).replace(",", "").strip())
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
 def _supplier_name(row: dict[str, Any]) -> str:
     return _first_value(row, SUPPLIER_NAME_COLUMNS)
 
@@ -200,7 +240,7 @@ def _row_key(sheet_name: str, row: dict[str, Any], index: int) -> str:
         explicit_id = _first_value(row, SUPPLIER_ID_COLUMNS)
         if explicit_id:
             return explicit_id
-    if sheet_name == "庫存記錄":
+    if sheet_name in {"庫存記錄", "代工送達記錄", "代工載回記錄"}:
         return ""
     return f"row-{index + 2}"
 
@@ -284,6 +324,7 @@ def import_sheet_values(
     rows = _records_from_values(values)
     result.sheet_rows = len(rows)
     seen: set[str] = set()
+    seen_customer_names: dict[str, str] = {}
     started_at = utc_now_iso()
 
     with connect_from_config(config) as conn:
@@ -316,6 +357,14 @@ def import_sheet_values(
             known_production_recipe_ids = {
                 str(db_row[0]).strip()
                 for db_row in conn.execute("SELECT recipe_id FROM recipes").fetchall()
+            }
+        known_outsourcing_order_ids: set[str] | None = None
+        if sheet_name in {"代工送達記錄", "代工載回記錄"}:
+            known_outsourcing_order_ids = {
+                str(db_row[0]).strip()
+                for db_row in conn.execute(
+                    "SELECT outsourcing_order_id FROM outsourcing_orders"
+                ).fetchall()
             }
         for index, row in enumerate(rows):
             row_key = _row_key(sheet_name, row, index)
@@ -431,6 +480,60 @@ def import_sheet_values(
                         "INSERT OR IGNORE INTO supplier_aliases(alias, supplier_id, created_at) VALUES (?, ?, ?)",
                         (name, supplier_id, synced_at),
                     )
+                    result.inserted_or_updated += 1
+
+            elif sheet_name == "客戶名單":
+                customer_id = row.get("客戶編號", "").strip()
+                name = (row.get("客戶簡稱") or row.get("客戶名稱") or "").strip()
+                if not customer_id:
+                    result.errors.append(f"row {index + 2}: missing 客戶編號")
+                    continue
+                if not name:
+                    result.errors.append(f"row {index + 2}: missing 客戶簡稱")
+                    continue
+                prior_customer = seen_customer_names.get(name)
+                if prior_customer and prior_customer != customer_id:
+                    result.errors.append(
+                        f"row {index + 2}: 客戶簡稱 {name} 也由 {prior_customer} 使用"
+                    )
+                    continue
+                seen_customer_names[name] = customer_id
+                alias_owner = _fetchone_mapping(conn.execute(
+                    "SELECT customer_id FROM customer_aliases WHERE alias=?", (name,)
+                ))
+                if alias_owner is not None and alias_owner["customer_id"] != customer_id:
+                    result.errors.append(
+                        f"row {index + 2}: 客戶簡稱 {name} 已由 {alias_owner['customer_id']} 使用"
+                    )
+                    continue
+                entity = _fetchone_mapping(conn.execute(
+                    "SELECT * FROM customers WHERE customer_id=?", (customer_id,)
+                ))
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(conn, entity_type="customer", entity_id=customer_id,
+                                             sqlite_payload=dict(entity), sheet_payload=row,
+                                             reason="Database customer exists but no Sheet sync baseline exists")
+                    continue
+                if existed and _entity_changed_since_sync(entity):
+                    result.conflicts += 1
+                    continue
+                if not dry_run:
+                    synced_at = utc_now_iso()
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
+                    conn.execute(
+                        """INSERT INTO customers(customer_id,name,notes,source,created_at,updated_at,last_synced_at)
+                           VALUES (?,?,?,'google_sheets_import',?,?,?)
+                           ON CONFLICT(customer_id) DO UPDATE SET name=excluded.name,notes=excluded.notes,
+                               source=excluded.source,version=customers.version+1,
+                               updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
+                        (customer_id, name, row.get("備註", ""),
+                         entity["created_at"] if entity else synced_at,
+                         _sheet_updated_at(row) or synced_at, synced_at),
+                    )
+                    conn.execute("INSERT OR IGNORE INTO customer_aliases(alias,customer_id,created_at) VALUES (?,?,?)",
+                                 (name, customer_id, synced_at))
                     result.inserted_or_updated += 1
 
             elif sheet_name == "配方管理":
@@ -559,6 +662,104 @@ def import_sheet_values(
                         )
                     result.inserted_or_updated += 1
 
+            elif sheet_name == "Pantone色號表":
+                formula_id = row.get("配方編號", "").strip()
+                pantone_code = row.get("Pantone色號", "").strip()
+                if not formula_id or not pantone_code:
+                    result.errors.append(f"row {index + 2}: Pantone色號與配方編號必填")
+                    continue
+                entity = _fetchone_mapping(conn.execute(
+                    "SELECT * FROM pantone_records WHERE formula_id=?", (formula_id,)
+                ))
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    continue
+                if existed and _entity_changed_since_sync(entity):
+                    result.conflicts += 1
+                    continue
+                if not dry_run:
+                    synced_at = utc_now_iso()
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
+                    conn.execute("""INSERT INTO pantone_records(
+                        formula_id,pantone_code,customer_name,material_no,source,created_at,updated_at,last_synced_at)
+                        VALUES (?,?,?,?,'google_sheets_import',?,?,?)
+                        ON CONFLICT(formula_id) DO UPDATE SET pantone_code=excluded.pantone_code,
+                        customer_name=excluded.customer_name,material_no=excluded.material_no,
+                        source=excluded.source,version=pantone_records.version+1,
+                        updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
+                        (formula_id, pantone_code, row.get("客戶名稱", ""), row.get("料號", ""),
+                         entity["created_at"] if entity else synced_at,
+                         _sheet_updated_at(row) or synced_at, synced_at))
+                    result.inserted_or_updated += 1
+
+            elif sheet_name == "樣品記錄":
+                sample_id=row.get("樣品編號","").strip()
+                if not sample_id:
+                    result.errors.append(f"row {index + 2}: missing 樣品編號"); continue
+                entity=_fetchone_mapping(conn.execute("SELECT * FROM sample_records WHERE sample_id=?",(sample_id,)))
+                if not existed and entity is not None: result.conflicts += 1; continue
+                if existed and _entity_changed_since_sync(entity): result.conflicts += 1; continue
+                if not dry_run:
+                    synced_at=utc_now_iso(); upsert_sheet_row(conn,sheet_name,row_key,row,row_hash,_sheet_updated_at(row))
+                    conn.execute("""INSERT INTO sample_records(sample_id,sample_date,customer_name,sample_name,quantity,source,created_at,updated_at,last_synced_at)
+                    VALUES (?,?,?,?,?,'google_sheets_import',?,?,?) ON CONFLICT(sample_id) DO UPDATE SET
+                    sample_date=excluded.sample_date,customer_name=excluded.customer_name,sample_name=excluded.sample_name,
+                    quantity=excluded.quantity,source=excluded.source,version=sample_records.version+1,
+                    updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
+                    (sample_id,row.get("日期",""),row.get("客戶名稱",""),row.get("樣品名稱",""),row.get("樣品數量",""),
+                     entity["created_at"] if entity else synced_at,_sheet_updated_at(row) or synced_at,synced_at))
+                    result.inserted_or_updated += 1
+
+            elif sheet_name == "個別客戶庫存":
+                record_id = row.get("_sync_id", "").strip()
+                customer_name = row.get("客戶名稱", "").strip()
+                recipe_id = row.get("配方編號", "").strip()
+                color = row.get("顏色", "").strip()
+                unit = row.get("單位", "").strip()
+                try:
+                    quantity = float(row.get("數量", 0) or 0)
+                except ValueError:
+                    result.errors.append(f"row {index + 2}: 數量必須是數字")
+                    continue
+                if not record_id or not customer_name or not recipe_id or not color or not unit:
+                    result.errors.append(
+                        f"row {index + 2}: _sync_id、客戶名稱、配方編號、顏色與單位必填"
+                    )
+                    continue
+                if quantity < 0:
+                    result.errors.append(f"row {index + 2}: 數量不可小於 0")
+                    continue
+                entity = _fetchone_mapping(conn.execute(
+                    "SELECT * FROM customer_inventory_records WHERE record_id=?", (record_id,)
+                ))
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    continue
+                if existed and _entity_changed_since_sync(entity):
+                    result.conflicts += 1
+                    continue
+                if not dry_run:
+                    synced_at = utc_now_iso()
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
+                    conn.execute(
+                        """INSERT INTO customer_inventory_records(
+                               record_id,customer_name,recipe_id,color,quantity,unit,notes,
+                               sheet_created_at,sheet_updated_at,source,created_at,updated_at,last_synced_at)
+                           VALUES (?,?,?,?,?,?,?,?,?,'google_sheets_import',?,?,?)
+                           ON CONFLICT(record_id) DO UPDATE SET
+                               customer_name=excluded.customer_name,recipe_id=excluded.recipe_id,
+                               color=excluded.color,quantity=excluded.quantity,unit=excluded.unit,
+                               notes=excluded.notes,sheet_created_at=excluded.sheet_created_at,
+                               sheet_updated_at=excluded.sheet_updated_at,source=excluded.source,
+                               version=customer_inventory_records.version+1,
+                               updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
+                        (record_id, customer_name, recipe_id, color, quantity, unit,
+                         row.get("備註", ""), row.get("建立時間", ""), row.get("更新時間", ""),
+                         entity["created_at"] if entity else synced_at,
+                         _sheet_updated_at(row) or synced_at, synced_at),
+                    )
+                    result.inserted_or_updated += 1
+
             elif sheet_name == "生產單":
                 order_id = row.get("生產單號", "").strip()
                 recipe_id = row.get("配方編號", "").strip()
@@ -615,6 +816,131 @@ def import_sheet_values(
                                        created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)""",
                                 (order_id, position, weight, count, synced_at, synced_at),
                             )
+                    result.inserted_or_updated += 1
+
+            elif sheet_name == "代工管理":
+                order_id = row.get("代工單號", "").strip()
+                quantity_text = row.get("代工數量", "").strip()
+                target_text = row.get("目標載回數量", "").strip()
+                multiplier_text = row.get("轉換倍率", "").strip()
+                if not _is_number(quantity_text) or _safe_float(quantity_text) <= 0:
+                    result.errors.append(f"row {index + 2}: 代工數量必須是大於 0 的數字")
+                    continue
+                if target_text and (not _is_number(target_text) or _safe_float(target_text) <= 0):
+                    result.errors.append(f"row {index + 2}: 目標載回數量必須是大於 0 的數字")
+                    continue
+                if multiplier_text and (not _is_number(multiplier_text) or _safe_float(multiplier_text) <= 0):
+                    result.errors.append(f"row {index + 2}: 轉換倍率必須是大於 0 的數字")
+                    continue
+                entity = _fetchone_mapping(conn.execute(
+                    "SELECT * FROM outsourcing_orders WHERE outsourcing_order_id=?", (order_id,)
+                ))
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn, entity_type="outsourcing_order", entity_id=order_id,
+                            sqlite_payload=dict(entity), sheet_payload=row,
+                            reason="Database outsourcing order exists but no Sheet sync baseline exists",
+                        )
+                    continue
+                if existed and _entity_changed_since_sync(entity):
+                    result.conflicts += 1
+                    continue
+                if not dry_run:
+                    synced_at = utc_now_iso()
+                    created_at = entity["created_at"] if entity else synced_at
+                    updated_at = _sheet_updated_at(row) or synced_at
+                    target = _safe_float(target_text) if target_text else _safe_float(quantity_text)
+                    multiplier = _safe_float(multiplier_text) if multiplier_text else 1.0
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
+                    conn.execute(
+                        """INSERT INTO outsourcing_orders(
+                               outsourcing_order_id, production_order_id, recipe_id, customer_name,
+                               quantity, target_return_quantity, conversion_multiplier, vendor_name,
+                               notes, status, delivered, delivery_notes, payload_json, source,
+                               created_at, updated_at, last_synced_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'google_sheets_import', ?, ?, ?)
+                           ON CONFLICT(outsourcing_order_id) DO UPDATE SET
+                               production_order_id=excluded.production_order_id,
+                               recipe_id=excluded.recipe_id, customer_name=excluded.customer_name,
+                               quantity=excluded.quantity,
+                               target_return_quantity=excluded.target_return_quantity,
+                               conversion_multiplier=excluded.conversion_multiplier,
+                               vendor_name=excluded.vendor_name, notes=excluded.notes,
+                               status=excluded.status, delivered=excluded.delivered,
+                               delivery_notes=excluded.delivery_notes, payload_json=excluded.payload_json,
+                               source=excluded.source, version=outsourcing_orders.version+1,
+                               updated_at=excluded.updated_at, last_synced_at=excluded.last_synced_at""",
+                        (
+                            order_id, row.get("生產單號") or None, row.get("配方編號") or None,
+                            row.get("客戶名稱", ""), _safe_float(quantity_text), target, multiplier,
+                            row.get("代工廠商", ""), row.get("備註", ""),
+                            row.get("狀態", "🏭 在廠內") or "🏭 在廠內",
+                            1 if row.get("已交貨", "").strip() else 0,
+                            row.get("交貨備註", ""), json.dumps(row, ensure_ascii=False),
+                            created_at, updated_at, synced_at,
+                        ),
+                    )
+                    result.inserted_or_updated += 1
+
+            elif sheet_name in {"代工送達記錄", "代工載回記錄"}:
+                order_id = row.get("代工單號", "").strip()
+                if not order_id:
+                    result.errors.append(f"row {index + 2}: missing 代工單號")
+                    continue
+                if known_outsourcing_order_ids is not None and order_id not in known_outsourcing_order_ids:
+                    result.errors.append(
+                        f"row {index + 2}: unknown 代工單號 {order_id}; import 代工管理 first"
+                    )
+                    continue
+                is_delivery = sheet_name == "代工送達記錄"
+                quantity_column = "送達數量" if is_delivery else "載回數量"
+                date_column = "送達日期" if is_delivery else "載回日期"
+                quantity_text = row.get(quantity_column, "").strip()
+                if not _is_number(quantity_text) or _safe_float(quantity_text) < 0:
+                    result.errors.append(f"row {index + 2}: {quantity_column} 必須是非負數字")
+                    continue
+                if is_delivery and _safe_float(quantity_text) <= 0:
+                    result.errors.append(f"row {index + 2}: 送達數量必須大於 0")
+                    continue
+                table = "outsourcing_deliveries" if is_delivery else "outsourcing_returns"
+                id_column = "delivery_id" if is_delivery else "return_id"
+                sql_date_column = "delivery_date" if is_delivery else "return_date"
+                entity = _fetchone_mapping(conn.execute(
+                    f"SELECT * FROM {table} WHERE {id_column}=?", (row_key,)
+                ))
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn, entity_type="outsourcing_delivery" if is_delivery else "outsourcing_return",
+                            entity_id=row_key, sqlite_payload=dict(entity), sheet_payload=row,
+                            reason="Database outsourcing event exists but no Sheet sync baseline exists",
+                        )
+                    continue
+                if existed and _entity_changed_since_sync(entity):
+                    result.conflicts += 1
+                    continue
+                if not dry_run:
+                    synced_at = utc_now_iso()
+                    created_at = entity["created_at"] if entity else synced_at
+                    updated_at = _sheet_updated_at(row) or synced_at
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
+                    conn.execute(
+                        f"""INSERT INTO {table}(
+                                {id_column}, outsourcing_order_id, {sql_date_column}, quantity,
+                                payload_json, source, created_at, updated_at, last_synced_at)
+                            VALUES (?, ?, ?, ?, ?, 'google_sheets_import', ?, ?, ?)
+                            ON CONFLICT({id_column}) DO UPDATE SET
+                                outsourcing_order_id=excluded.outsourcing_order_id,
+                                {sql_date_column}=excluded.{sql_date_column}, quantity=excluded.quantity,
+                                payload_json=excluded.payload_json, source=excluded.source,
+                                version={table}.version+1, updated_at=excluded.updated_at,
+                                last_synced_at=excluded.last_synced_at""",
+                        (row_key, order_id, row.get(date_column, ""), _safe_float(quantity_text),
+                         json.dumps(row, ensure_ascii=False), created_at, updated_at, synced_at),
+                    )
                     result.inserted_or_updated += 1
 
             elif sheet_name == "庫存記錄":
