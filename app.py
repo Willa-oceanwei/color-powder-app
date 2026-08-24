@@ -47,6 +47,7 @@ from utils.sheet_export import (
     sync_outsourcing_order_outbox,
     sync_outsourcing_return_outbox,
     sync_pantone_outbox,
+    sync_sample_outbox,
     sync_production_order_outbox,
     sync_recipe_outbox,
     sync_supplier_outbox,
@@ -74,6 +75,7 @@ from utils.pantone_repository import (
     create_pantone_record,
     list_pantone_records,
 )
+from utils.sample_repository import SampleError, archive_sample_record, list_sample_records, save_sample_record
 from utils.recipe_repository import (
     RecipeAlreadyExists,
     RecipeError,
@@ -8569,21 +8571,13 @@ elif menu == "查詢區":
     
     with tab4:
     
-        # ===== Sheet 讀取 =====
-        try:
-            ws_sample = get_cached_worksheet("樣品記錄")
-        except:
-            ws_sample = spreadsheet.add_worksheet("樣品記錄", rows=100, cols=10)
-            ws_sample.append_row(["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
-            invalidate_sheet_cache("樣品記錄")
-    
-        try:
-            df_sample = get_cached_sheet_df("樣品記錄")
-        except:
-            df_sample = pd.DataFrame()
-    
-        if df_sample.empty:
-            df_sample = pd.DataFrame(columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
+        # Turso 是樣品記錄正式資料來源；Sheet 由 outbox 同步。
+        df_sample = pd.DataFrame([{
+            "日期": item.get("sample_date", ""), "客戶名稱": item.get("customer_name", ""),
+            "樣品編號": item.get("sample_id", ""), "樣品名稱": item.get("sample_name", ""),
+            "樣品數量": item.get("quantity", ""),
+        } for item in list_sample_records(DATABASE_CONFIG)],
+            columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
     
         # ===== session_state 初始化 =====
         if "form_sample" not in st.session_state:
@@ -8655,7 +8649,8 @@ elif menu == "查詢區":
                     sample_code = st.text_input(
                         "樣品編號",
                         value=st.session_state.form_sample.get("樣品編號", ""),
-                        key="form_sample_code"
+                        key="form_sample_code",
+                        disabled=st.session_state.sample_mode == "edit",
                     )
         
                 c4, c5 = st.columns(2)
@@ -8693,16 +8688,14 @@ elif menu == "查詢區":
                 if not data["樣品編號"]:
                     st.warning("⚠️ 請輸入樣品編號")
                 else:
-                    if st.session_state.sample_mode == "edit":
-                        # ===== 修改 =====
-                        df_sample.loc[st.session_state.edit_sample_index] = data
-                        st.session_state["sample_toast"] = {"msg": f"樣品 {data['樣品編號']} 已更新", "icon": "✏️"}
-                    else:
-                        # ===== 新增 =====
-                        df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
-                        st.session_state["sample_toast"] = {"msg": f"樣品 {data['樣品編號']} 新增完成", "icon": "🎉"}
-        
-                    save_df_to_sheet(ws_sample, df_sample)
+                    try:
+                        save_sample_record(DATABASE_CONFIG, data, create=st.session_state.sample_mode != "edit")
+                    except SampleError as exc:
+                        st.error(str(exc)); st.stop()
+                    st.session_state["sample_toast"] = {
+                        "msg": f"樣品 {data['樣品編號']} {'已更新' if st.session_state.sample_mode == 'edit' else '新增完成'}",
+                        "icon": "✏️" if st.session_state.sample_mode == "edit" else "🎉",
+                    }
         
                     # ===== 重置狀態 =====
                     st.session_state.sample_mode = "add"
@@ -8836,10 +8829,11 @@ elif menu == "查詢區":
                                 idx = options.index(selected_delete)
                                 real_index = int(df_show.iloc[idx]["index"])
                                 row = df_sample.loc[real_index]
-                                df_sample.drop(index=real_index, inplace=True)
-                                df_sample.reset_index(drop=True, inplace=True)
-                                save_df_to_sheet(ws_sample, df_sample)
-                                st.session_state.sample_filtered_df = df_sample.reset_index(drop=False)
+                                try:
+                                    archive_sample_record(DATABASE_CONFIG, row["樣品編號"], reason="使用者從樣品記錄停用")
+                                except SampleError as exc:
+                                    st.error(str(exc)); st.stop()
+                                st.session_state.sample_filtered_df = pd.DataFrame()
                                 st.session_state.sample_mode = "add"
                                 st.session_state.edit_sample_index = None
                                 st.session_state.form_sample = {}
@@ -12669,6 +12663,9 @@ if st.session_state.menu == "同步檢查":
     )
     render_outsourcing_push_section(
         "Pantone色號表", sync_pantone_outbox, "配方編號是 Pantone 對照表永久 ID"
+    )
+    render_outsourcing_push_section(
+        "樣品記錄", sync_sample_outbox, "樣品編號是永久 ID，停用只移除 Sheet 副本"
     )
     render_outsourcing_push_section(
         "代工管理", sync_outsourcing_order_outbox, "代工單號是永久 ID，停用只移除 Sheet 副本"

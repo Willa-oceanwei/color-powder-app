@@ -34,6 +34,7 @@ SHEET_KEY_COLUMNS = {
     "配方管理": "配方編號",
     "客戶名單": "客戶編號",
     "Pantone色號表": "配方編號",
+    "樣品記錄": "樣品編號",
     "生產單": "生產單號",
     "代工管理": "代工單號",
     "代工送達記錄": "_sync_id",
@@ -688,6 +689,24 @@ def import_sheet_values(
                         (formula_id, pantone_code, row.get("客戶名稱", ""), row.get("料號", ""),
                          entity["created_at"] if entity else synced_at,
                          _sheet_updated_at(row) or synced_at, synced_at))
+                    result.inserted_or_updated += 1
+
+            elif sheet_name == "樣品記錄":
+                sample_id=row.get("樣品編號","").strip()
+                if not sample_id:
+                    result.errors.append(f"row {index + 2}: missing 樣品編號"); continue
+                entity=_fetchone_mapping(conn.execute("SELECT * FROM sample_records WHERE sample_id=?",(sample_id,)))
+                if not existed and entity is not None: result.conflicts += 1; continue
+                if existed and _entity_changed_since_sync(entity): result.conflicts += 1; continue
+                if not dry_run:
+                    synced_at=utc_now_iso(); upsert_sheet_row(conn,sheet_name,row_key,row,row_hash,_sheet_updated_at(row))
+                    conn.execute("""INSERT INTO sample_records(sample_id,sample_date,customer_name,sample_name,quantity,source,created_at,updated_at,last_synced_at)
+                    VALUES (?,?,?,?,?,'google_sheets_import',?,?,?) ON CONFLICT(sample_id) DO UPDATE SET
+                    sample_date=excluded.sample_date,customer_name=excluded.customer_name,sample_name=excluded.sample_name,
+                    quantity=excluded.quantity,source=excluded.source,version=sample_records.version+1,
+                    updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
+                    (sample_id,row.get("日期",""),row.get("客戶名稱",""),row.get("樣品名稱",""),row.get("樣品數量",""),
+                     entity["created_at"] if entity else synced_at,_sheet_updated_at(row) or synced_at,synced_at))
                     result.inserted_or_updated += 1
 
             elif sheet_name == "生產單":

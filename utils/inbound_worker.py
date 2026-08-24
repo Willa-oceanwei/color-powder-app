@@ -12,7 +12,7 @@ from .sync_worker import SYNC_WORKER_LOCK_NAME, acquire_worker_lock, release_wor
 
 
 INBOUND_SHEETS = (
-    "色粉管理", "供應商管理", "客戶名單", "配方管理", "Pantone色號表", "庫存記錄", "生產單",
+    "色粉管理", "供應商管理", "客戶名單", "配方管理", "Pantone色號表", "樣品記錄", "庫存記錄", "生產單",
     "代工管理", "代工送達記錄", "代工載回記錄",
 )
 

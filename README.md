@@ -185,6 +185,9 @@ Schema v12 將 `Pantone色號表` 改為 Turso-first，以 `配方編號` 作為
 原子寫入 `pantone_records` 與 outbox，查詢與歷史補登參考直接讀 Turso。既有資料請在
 「設定 → 同步檢查」dry-run `Pantone色號表`，確認無 duplicate/conflict 後再 initial IMPORT。
 
+Schema v13 將 `樣品記錄` 改為 Turso-first，以 `樣品編號` 作為永久 ID。新增與修改會先寫入
+`sample_records` 與 outbox；畫面上的刪除改為 lifecycle 停用與 Sheet tombstone，Turso 仍保留歷史。
+
 可以只匯入指定工作表：
 
 ```bash
