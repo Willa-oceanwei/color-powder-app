@@ -117,6 +117,53 @@ def mark_trial_purchased(config: DatabaseConfig, formula_code: str, purchase_dat
         return entity
 
 
+def archive_trial_record(
+    config: DatabaseConfig, trial_id: str, *, reason: str = "使用者封存"
+):
+    """Archive a trial while retaining its auditable Turso history."""
+    trial_id = str(trial_id).strip()
+    reason = str(reason).strip()
+    if not reason:
+        raise TrialError("封存原因不可空白")
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        old = _mapping(conn.execute("SELECT * FROM trial_records WHERE trial_id=?", (trial_id,)))
+        if not old or old["lifecycle_status"] != "active":
+            raise TrialError("找不到有效的試色記錄")
+        version = int(old["version"]) + 1
+        conn.execute(
+            """UPDATE trial_records SET lifecycle_status='inactive',deleted_at=?,delete_reason=?,
+               version=?,updated_at=? WHERE trial_id=?""",
+            (now, reason, version, now, trial_id),
+        )
+        enqueue_sheet_sync(
+            conn, sheet_name="試色登錄", row_key=trial_id, operation="delete",
+            payload=None, entity_version=version,
+        )
+
+
+def restore_trial_record(config: DatabaseConfig, trial_id: str):
+    """Restore an archived trial and requeue its Sheet copy."""
+    trial_id = str(trial_id).strip()
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        old = _mapping(conn.execute("SELECT * FROM trial_records WHERE trial_id=?", (trial_id,)))
+        if not old or old["lifecycle_status"] != "inactive":
+            raise TrialError("找不到已封存的試色記錄")
+        version = int(old["version"]) + 1
+        conn.execute(
+            """UPDATE trial_records SET lifecycle_status='active',deleted_at=NULL,delete_reason=NULL,
+               version=?,updated_at=? WHERE trial_id=?""",
+            (version, now, trial_id),
+        )
+        entity = _mapping(conn.execute("SELECT * FROM trial_records WHERE trial_id=?", (trial_id,)))
+        enqueue_sheet_sync(
+            conn, sheet_name="試色登錄", row_key=trial_id, operation="insert",
+            payload=trial_sheet_payload(entity), entity_version=version,
+        )
+        return entity
+
+
 def get_trial_settings(config: DatabaseConfig) -> dict[str, str]:
     with connect_from_config(config) as conn:
         stored = {row[0]: str(row[1]) for row in conn.execute(

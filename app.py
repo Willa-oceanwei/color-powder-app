@@ -92,10 +92,12 @@ from utils.carwash_inventory_repository import (
 )
 from utils.trial_repository import (
     TrialError,
+    archive_trial_record,
     create_trial_record,
     get_trial_settings,
     list_trial_records,
     mark_trial_purchased,
+    restore_trial_record,
     save_trial_settings,
 )
 from utils.recipe_repository import (
@@ -949,7 +951,7 @@ TRIAL_COLS = ["配方編號", "主配方編號", "客戶編號", "客戶名稱",
 TRIAL_MATERIALS = ["B", "PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS"]
 
 
-def trial_dataframe():
+def trial_dataframe(*, include_inactive=False):
     """Return active Turso trial records using the legacy UI column names."""
     return pd.DataFrame([{
         "配方編號": item["formula_code"], "主配方編號": item["root_formula_code"] or "",
@@ -960,7 +962,10 @@ def trial_dataframe():
         "建立時間": item["sheet_created_at"] or item["created_at"],
         "更新時間": item["sheet_updated_at"] or item["updated_at"],
         "_sync_id": item["trial_id"],
-    } for item in list_trial_records(DATABASE_CONFIG)], columns=TRIAL_COLS)
+        "生命週期": item["lifecycle_status"], "停用時間": item["deleted_at"] or "",
+        "停用原因": item["delete_reason"] or "",
+    } for item in list_trial_records(DATABASE_CONFIG, include_inactive=include_inactive)],
+        columns=TRIAL_COLS + ["生命週期", "停用時間", "停用原因"])
 
 
 def build_trial_backfill_reference_df(df_trial=None):
@@ -11307,7 +11312,7 @@ if menu == "試色記錄分析":
             st.warning(_msg)
             st.toast("請確認是否已有實際採購（目前未串會計）", icon="🧾")
 
-        t1, t2 = st.tabs(["新增", "採購登入"])
+        t1, t2, t3 = st.tabs(["新增", "採購登入", "封存／恢復"])
         with t1:
             with st.form("trial_add_form"):
                 c1, c2, c3 = st.columns(3)
@@ -11417,6 +11422,54 @@ if menu == "試色記錄分析":
                     st.rerun()
                 except TrialError as exc:
                     st.warning(str(exc)); st.toast("採購登入失敗", icon="⚠️")
+
+        with t3:
+            st.caption("封存會從 Sheet 副本移除資料，但 Turso 永久保留歷史；需要時可受控恢復。")
+            lifecycle_df = trial_dataframe(include_inactive=True)
+            active_trials = lifecycle_df[lifecycle_df["生命週期"] == "active"]
+            inactive_trials = lifecycle_df[lifecycle_df["生命週期"] == "inactive"]
+            archive_col, restore_col = st.columns(2)
+            with archive_col:
+                st.markdown("#### 封存有效記錄")
+                archive_options = [""] + active_trials["_sync_id"].tolist()
+                archive_id = st.selectbox(
+                    "選擇要封存的試色記錄", archive_options, key="trial_archive_id",
+                    format_func=lambda value: "（請選擇）" if not value else (
+                        lambda row: f"{row['配方編號']}｜{row['客戶名稱']}｜{row['試色日期']}"
+                    )(active_trials[active_trials["_sync_id"] == value].iloc[0]),
+                )
+                archive_reason = st.text_input("封存原因", key="trial_archive_reason")
+                archive_confirmation = st.text_input("請輸入 ARCHIVE", key="trial_archive_confirmation")
+                if st.button(
+                    "封存試色記錄", key="trial_archive_button", type="primary",
+                    disabled=not archive_id or not archive_reason.strip() or archive_confirmation.strip() != "ARCHIVE",
+                ):
+                    try:
+                        archive_trial_record(DATABASE_CONFIG, archive_id, reason=archive_reason)
+                        st.toast("試色記錄已封存", icon="🗄️")
+                        st.rerun()
+                    except TrialError as exc:
+                        st.error(str(exc))
+            with restore_col:
+                st.markdown("#### 恢復封存記錄")
+                restore_options = [""] + inactive_trials["_sync_id"].tolist()
+                restore_id = st.selectbox(
+                    "選擇要恢復的試色記錄", restore_options, key="trial_restore_id",
+                    format_func=lambda value: "（請選擇）" if not value else (
+                        lambda row: f"{row['配方編號']}｜{row['客戶名稱']}｜{row['停用原因']}"
+                    )(inactive_trials[inactive_trials["_sync_id"] == value].iloc[0]),
+                )
+                restore_confirmation = st.text_input("請輸入 RESTORE", key="trial_restore_confirmation")
+                if st.button(
+                    "恢復試色記錄", key="trial_restore_button",
+                    disabled=not restore_id or restore_confirmation.strip() != "RESTORE",
+                ):
+                    try:
+                        restore_trial_record(DATABASE_CONFIG, restore_id)
+                        st.toast("試色記錄已恢復", icon="♻️")
+                        st.rerun()
+                    except TrialError as exc:
+                        st.error(str(exc))
 
     with sub2:
         st.markdown("<div style='background:#141a22;border:1px solid #2f3c4d;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;color:#9aa4b2;'>分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>", unsafe_allow_html=True)
