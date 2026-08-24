@@ -42,3 +42,20 @@ def test_initial_import_and_prepare(tmp_path):
     assert import_sheet_values("洗車廠庫存", values, db_path=path, dry_run=True).unchanged == 1
     missing = [values[0], values[1][:-1] + [""]]
     assert missing_inventory_sync_id_updates(missing, id_factory=lambda: "cw-2") == [(2, 11, "cw-2")]
+
+
+def test_import_normalizes_legacy_outbound_date_in_inbound_column(tmp_path):
+    path, _ = config(tmp_path)
+    values = [
+        ["類型", "初始庫存日期", "初始數量", "貨品編號", "入庫日期", "出庫日期", "數量", "單位", "登記人", "備註", "_sync_id"],
+        ["出庫", "", "", "ABS709", "2026-07-08", "", "375", "KG", "德", "", "legacy-out-1"],
+    ]
+    result = import_sheet_values("洗車廠庫存", values, db_path=path, abort_on_issues=True)
+    assert result.inserted_or_updated == 1
+    assert result.errors == []
+    assert "已正規化" in result.warnings[0]
+    with connect(path) as conn:
+        movement = conn.execute(
+            "SELECT inbound_date,outbound_date FROM carwash_inventory_movements WHERE movement_id='legacy-out-1'"
+        ).fetchone()
+    assert tuple(movement) == (None, "2026-07-08")

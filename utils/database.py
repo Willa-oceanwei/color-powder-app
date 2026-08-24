@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -40,6 +40,8 @@ MAIN_TABLES = {
     "sample_records",
     "customer_inventory_records",
     "carwash_inventory_movements",
+    "trial_records",
+    "trial_settings",
     "sheet_rows",
     "sync_state",
     "sync_log",
@@ -61,6 +63,7 @@ REQUIRED_TABLE_COLUMNS = {
     "sample_records": {"lifecycle_status", "deleted_at", "delete_reason"},
     "customer_inventory_records": {"lifecycle_status", "deleted_at", "delete_reason"},
     "carwash_inventory_movements": {"lifecycle_status", "deleted_at", "delete_reason"},
+    "trial_records": {"lifecycle_status", "deleted_at", "delete_reason"},
 }
 
 
@@ -601,6 +604,36 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             last_synced_at TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS trial_records (
+            trial_id TEXT PRIMARY KEY,
+            formula_code TEXT NOT NULL UNIQUE,
+            root_formula_code TEXT,
+            customer_id TEXT,
+            customer_name TEXT,
+            trial_date TEXT NOT NULL,
+            date_precision TEXT,
+            historical_backfill TEXT,
+            material TEXT NOT NULL,
+            purchased TEXT NOT NULL DEFAULT '否',
+            purchase_date TEXT,
+            sheet_created_at TEXT,
+            sheet_updated_at TEXT,
+            lifecycle_status TEXT NOT NULL DEFAULT 'active',
+            deleted_at TEXT,
+            delete_reason TEXT,
+            source TEXT NOT NULL DEFAULT 'sqlite',
+            version INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_synced_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS trial_settings (
+            setting_key TEXT PRIMARY KEY,
+            setting_value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS sheet_rows (
             sheet_name TEXT NOT NULL,
             row_key TEXT NOT NULL,
@@ -761,6 +794,8 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE INDEX IF NOT EXISTS idx_customer_inventory_customer ON customer_inventory_records(customer_name);
         CREATE INDEX IF NOT EXISTS idx_customer_inventory_recipe ON customer_inventory_records(recipe_id);
         CREATE INDEX IF NOT EXISTS idx_carwash_inventory_product ON carwash_inventory_movements(product_id);
+        CREATE INDEX IF NOT EXISTS idx_trial_records_date ON trial_records(trial_date);
+        CREATE INDEX IF NOT EXISTS idx_trial_records_customer ON trial_records(customer_id);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_sheet_row_key ON suppliers(sheet_row_key) WHERE sheet_row_key IS NOT NULL;
         CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_movement_key ON inventory_movements(movement_key) WHERE movement_key IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_inventory_sheet_row ON inventory_movements(sheet_name, sheet_row_key);

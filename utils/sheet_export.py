@@ -70,6 +70,7 @@ def _ensure_tombstone_outbox(conn, sheet_name: str) -> None:
         "洗車廠庫存": (
             "carwash_inventory_movements", "movement_id", "lifecycle_status='inactive'",
         ),
+        "試色登錄": ("trial_records", "trial_id", "lifecycle_status='inactive'"),
         "配方管理": ("recipes", "recipe_id", "lifecycle_status='inactive'"),
         "生產單": ("production_orders", "production_order_id", "cancelled_at IS NOT NULL"),
         "庫存記錄": (
@@ -425,6 +426,19 @@ def sync_carwash_inventory_outbox(
         worksheet, values, db_config=db_config, sheet_name="洗車廠庫存",
         key_column="_sync_id", entity_type="carwash_inventory_movement",
         entity_table="carwash_inventory_movements", entity_id_column="movement_id",
+        dry_run=dry_run, initialize_schema=initialize_schema,
+        max_entries=max_entries, allow_deletes=allow_deletes,
+    )
+
+
+def sync_trial_outbox(
+    worksheet, values, *, db_config, dry_run=True, initialize_schema=True,
+    max_entries=None, allow_deletes=True,
+):
+    return _sync_outbox(
+        worksheet, values, db_config=db_config, sheet_name="試色登錄",
+        key_column="_sync_id", entity_type="trial_record",
+        entity_table="trial_records", entity_id_column="trial_id",
         dry_run=dry_run, initialize_schema=initialize_schema,
         max_entries=max_entries, allow_deletes=allow_deletes,
     )

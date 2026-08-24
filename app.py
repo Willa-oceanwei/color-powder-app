@@ -45,6 +45,7 @@ from utils.sheet_export import (
     sync_customer_outbox,
     sync_customer_inventory_outbox,
     sync_carwash_inventory_outbox,
+    sync_trial_outbox,
     sync_outsourcing_delivery_outbox,
     sync_outsourcing_order_outbox,
     sync_outsourcing_return_outbox,
@@ -88,6 +89,14 @@ from utils.carwash_inventory_repository import (
     CarwashInventoryError,
     list_carwash_inventory_movements,
     save_carwash_inventory_movement,
+)
+from utils.trial_repository import (
+    TrialError,
+    create_trial_record,
+    get_trial_settings,
+    list_trial_records,
+    mark_trial_purchased,
+    save_trial_settings,
 )
 from utils.recipe_repository import (
     RecipeAlreadyExists,
@@ -936,15 +945,29 @@ def clean_powder_id(x):
     return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
 
 
-TRIAL_COLS = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "日期精度", "歷史補登", "原料", "已採購", "採購日期", "建立時間", "更新時間"]
+TRIAL_COLS = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "日期精度", "歷史補登", "原料", "已採購", "採購日期", "建立時間", "更新時間", "_sync_id"]
 TRIAL_MATERIALS = ["B", "PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS"]
+
+
+def trial_dataframe():
+    """Return active Turso trial records using the legacy UI column names."""
+    return pd.DataFrame([{
+        "配方編號": item["formula_code"], "主配方編號": item["root_formula_code"] or "",
+        "客戶編號": item["customer_id"] or "", "客戶名稱": item["customer_name"] or "",
+        "試色日期": item["trial_date"], "日期精度": item["date_precision"] or "",
+        "歷史補登": item["historical_backfill"] or "", "原料": item["material"],
+        "已採購": item["purchased"], "採購日期": item["purchase_date"] or "",
+        "建立時間": item["sheet_created_at"] or item["created_at"],
+        "更新時間": item["sheet_updated_at"] or item["updated_at"],
+        "_sync_id": item["trial_id"],
+    } for item in list_trial_records(DATABASE_CONFIG)], columns=TRIAL_COLS)
 
 
 def build_trial_backfill_reference_df(df_trial=None):
     """整理各原料最後登錄編號，供歷史補登時參考。"""
     if df_trial is None:
         try:
-            df_trial = get_cached_sheet_df("試色登錄")
+            df_trial = trial_dataframe()
         except Exception:
             df_trial = pd.DataFrame(columns=TRIAL_COLS)
 
@@ -1074,7 +1097,6 @@ def show_pantone_backfill_reference(df_pantone_reference=None):
 PRELOAD_SHEETS = {
     "客戶名單": "_recipe_customers",
     "代工管理": "df_oem",
-    "試色登錄": "df_trial",
 }
 
 
@@ -11262,43 +11284,16 @@ if menu == "試色記錄分析":
     trial_cols = TRIAL_COLS
     materials = TRIAL_MATERIALS
 
-    try:
-        ws_trial = get_cached_worksheet("試色登錄")
-    except Exception:
-        ws_trial = spreadsheet.add_worksheet("試色登錄", rows=1000, cols=20)
-        ws_trial.append_row(trial_cols)
-        invalidate_sheet_cache("試色登錄")
-
-    df_trial = get_cached_sheet_df("試色登錄")
+    st.caption("ℹ️ Turso 是試色登錄正式資料來源；Google Sheet 僅為同步副本。")
+    df_trial = trial_dataframe()
     if df_trial.empty:
         df_trial = pd.DataFrame(columns=trial_cols)
     for c in trial_cols:
         if c not in df_trial.columns:
             df_trial[c] = ""
 
-    # 試色分析參數（可由 UI 維護）
-    param_defaults = {
-        "收費門檻百分比": "20",
-        "最小樣本數": "10",
-        "未採購追蹤天數": "30",
-    }
-    try:
-        ws_params = get_cached_worksheet("試色參數")
-    except Exception:
-        ws_params = spreadsheet.add_worksheet("試色參數", rows=50, cols=5)
-        ws_params.append_row(["參數", "值", "更新時間"])
-        for k, v in param_defaults.items():
-            ws_params.append_row([k, v, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-        invalidate_sheet_cache("試色參數")
-
-    df_params = get_cached_sheet_df("試色參數")
-    param_map = param_defaults.copy()
-    if not df_params.empty and "參數" in df_params.columns and "值" in df_params.columns:
-        for _, r in df_params.iterrows():
-            k = str(r.get("參數", "")).strip()
-            v = str(r.get("值", "")).strip()
-            if k:
-                param_map[k] = v
+    # 試色分析參數同樣由 Turso 保存，不再直接寫入試色參數 Sheet。
+    param_map = get_trial_settings(DATABASE_CONFIG)
 
     threshold_default = int(float(param_map.get("收費門檻百分比", "20") or 20))
     min_samples_default = int(float(param_map.get("最小樣本數", "10") or 10))
@@ -11403,40 +11398,25 @@ if menu == "試色記錄分析":
                         "建立時間": now_text,
                         "更新時間": now_text,
                     }
-                    header_vals = get_cached_sheet_values("試色登錄", force_reload=True)
-                    headers = header_vals[0] if header_vals else trial_cols
-                    row = [record.get(h, "") for h in headers]
-                    safe_append_row(ws_trial, row)
-                    st.toast(f"已新增試色記錄：{formula_code}", icon="✅")
-                    st.session_state.need_reload_sheet = "試色登錄"
-                    st.rerun()
+                    try:
+                        create_trial_record(DATABASE_CONFIG, record)
+                        st.toast(f"已新增試色記錄：{formula_code}", icon="✅")
+                        st.rerun()
+                    except TrialError as exc:
+                        st.error(str(exc))
 
         with t2:
             t2c1, t2c2 = st.columns(2)
             code_update = t2c1.text_input("要標記採購的配方編號").strip().upper()
             manual_date = t2c2.date_input("採購日期", key="manual_purchase_date")
             if st.button("✅ 採購登入", use_container_width=True):
-                vals = get_cached_sheet_values("試色登錄", force_reload=True)
-                if len(vals) <= 1:
-                    st.warning("目前沒有試色資料")
-                else:
-                    headers = vals[0]
-                    code_idx = headers.index("配方編號") + 1
-                    purchased_idx = headers.index("已採購") + 1
-                    date_idx = headers.index("採購日期") + 1
-                    updated = False
-                    for i, r in enumerate(vals[1:], start=2):
-                        if code_idx-1 < len(r) and str(r[code_idx-1]).strip().upper() == code_update:
-                            safe_update_cell(ws_trial, i, purchased_idx, "是")
-                            safe_update_cell(ws_trial, i, date_idx, manual_date.strftime("%Y-%m-%d"))
-                            updated = True
-                            break
-                    invalidate_sheet_cache("試色登錄")
-                    if updated:
-                        st.toast(f"已登入採購：{code_update}", icon="🧾")
-                        st.info("提醒：請確認這筆是否為實際採購（目前未串會計模組）。")
-                    else:
-                        st.warning("找不到該配方編號"); st.toast("採購登入失敗：找不到配方", icon="⚠️")
+                try:
+                    mark_trial_purchased(DATABASE_CONFIG, code_update, manual_date.strftime("%Y-%m-%d"))
+                    st.toast(f"已登入採購：{code_update}", icon="🧾")
+                    st.info("提醒：請確認這筆是否為實際採購（目前未串會計模組）。")
+                    st.rerun()
+                except TrialError as exc:
+                    st.warning(str(exc)); st.toast("採購登入失敗", icon="⚠️")
 
     with sub2:
         st.markdown("<div style='background:#141a22;border:1px solid #2f3c4d;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;color:#9aa4b2;'>分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>", unsafe_allow_html=True)
@@ -11453,7 +11433,7 @@ if menu == "試色記錄分析":
                         cust_opts_q.append(f"{cid} - {cn}" if cn else cid)
         selected_q_customer = c1.selectbox("客戶（可輸入編號或名稱搜尋）", cust_opts_q, index=0, key="analysis_customer_select")
         keyword = selected_q_customer.split(" - ",1)[0].strip() if selected_q_customer else ""
-        dfv_seed = get_cached_sheet_df("試色登錄")
+        dfv_seed = df_trial.copy()
         if not dfv_seed.empty and "試色日期" in dfv_seed.columns:
             seed_dates = pd.to_datetime(dfv_seed["試色日期"], errors="coerce").dropna()
             if len(seed_dates) > 0:
@@ -11471,7 +11451,7 @@ if menu == "試色記錄分析":
         c3.caption(f"預設區間：{default_start} ~ {default_end}")
         include_backfill = st.toggle("分析包含歷史補登", value=True)
 
-        dfv = get_cached_sheet_df("試色登錄")
+        dfv = df_trial.copy()
         rec_csv_df = pd.DataFrame(columns=["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色採購比例", "多次修色比例", "建議收費"])
         seg_csv = "".encode("utf-8-sig")
         pending_df = pd.DataFrame()
@@ -11698,14 +11678,11 @@ if menu == "試色記錄分析":
                 "未採購追蹤天數": str(int(pending_days_ui)),
             }
             try:
-                rows = [["參數", "值", "更新時間"]] + [[k, v, now_text] for k, v in updates.items()]
-                ws_params.clear()
-                ws_params.update("A1", rows)
-                invalidate_sheet_cache("試色參數")
+                save_trial_settings(DATABASE_CONFIG, updates)
                 st.toast("試色分析參數已更新", icon="⚙️")
                 st.rerun()
-            except Exception as e:
-                st.error(f"參數儲存失敗：{e}"); st.toast("參數儲存失敗", icon="❌")
+            except TrialError as exc:
+                st.error(f"參數儲存失敗：{exc}"); st.toast("參數儲存失敗", icon="❌")
 
 
 # ===== Turso / Google Sheets 唯讀同步檢查 =====
@@ -12492,6 +12469,9 @@ if st.session_state.menu == "同步檢查":
         "洗車廠庫存", sync_carwash_inventory_outbox, "_sync_id 是每筆初始／入／出庫 movement 的永久 ID"
     )
     render_outsourcing_push_section(
+        "試色登錄", sync_trial_outbox, "_sync_id 是每筆試色記錄的永久 ID"
+    )
+    render_outsourcing_push_section(
         "代工管理", sync_outsourcing_order_outbox, "代工單號是永久 ID，停用只移除 Sheet 副本"
     )
     render_outsourcing_push_section(
@@ -12514,7 +12494,7 @@ if st.session_state.menu == "同步檢查":
     if sync_id_message:
         st.success(sync_id_message)
 
-    if selected_sync_sheet in {"庫存記錄", "個別客戶庫存", "洗車廠庫存"}:
+    if selected_sync_sheet in {"庫存記錄", "個別客戶庫存", "洗車廠庫存", "試色登錄"}:
         with st.expander("準備庫存永久 _sync_id", expanded=True):
             st.caption(
                 "只會替有資料且 _sync_id 空白的列產生永久 ID；不修改既有 ID 或其他欄位。"

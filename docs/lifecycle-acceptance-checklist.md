@@ -1,6 +1,6 @@
-# Lifecycle、沖銷與 Tombstone 正式環境驗收清單（Schema v15）
+# Lifecycle、沖銷與 Tombstone 正式環境驗收清單（Schema v16）
 
-本清單用於 Schema v15 上線驗收。目標是確認 Turso 永遠保留可稽核的業務歷史，且
+本清單用於 Schema v16 上線驗收。目標是確認 Turso 永遠保留可稽核的業務歷史，且
 Google Sheets 副本只會在 row 仍符合同步 baseline 時被移除。此流程支援完全使用
 Streamlit Community Cloud，不需要另備 VM 或常駐主機。**請使用隔離的測試 app、測試
 Turso database 與測試 Sheet；尚未完成全部放行條件前，不得啟用自動 worker。**
@@ -14,7 +14,7 @@ Turso database 與測試 Sheet；尚未完成全部放行條件前，不得啟�
 - [ ] 測試 app 的 Secrets 只填入測試 Turso URL/token、測試 Sheet URL 與測試 service account。
 - [ ] 不要把正式 secrets 複製到測試 app，也不要把任何 token 寫入 repository 或驗收報告。
 - [ ] GitHub Actions 的 `tests` workflow 必須通過；Streamlit app process 不負責執行 pytest。
-- [ ] 開啟測試 app，登入後確認 database health check 顯示 Schema v15。
+- [ ] 開啟測試 app，登入後確認 database health check 顯示 Schema v16。
 - [ ] 為色粉、供應商、配方、庫存與生產單各建立一筆容易辨識的測試資料。
 - [ ] 對五張工作表執行一次安全 PUSH，建立可供 tombstone 比對的 `sheet_rows` baseline。
 - [ ] 下載並保存每次 preflight JSON；紀錄測試人員、時間、環境與測試資料 ID。

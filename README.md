@@ -196,6 +196,10 @@ Schema v15 將 `洗車廠庫存` 改為 Turso-first movement ledger。初始庫�
 `_sync_id`，新增與修改會先寫入 `carwash_inventory_movements` 及 versioned outbox。既有 Sheet
 上線前請先執行 `PREPARE 洗車廠庫存`，再以 dry-run 確認後首次匯入。
 
+Schema v16 將 `試色登錄` 與分析參數改為 Turso-first。試色記錄使用永久 `_sync_id`，新增及採購
+登入會原子寫入 `trial_records` 與 versioned outbox；分析門檻保存於 `trial_settings`。既有 Sheet
+請先執行 `PREPARE 試色登錄`，再以 dry-run 確認後首次匯入。
+
 可以只匯入指定工作表：
 
 ```bash

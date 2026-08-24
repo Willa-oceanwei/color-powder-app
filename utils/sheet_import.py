@@ -37,6 +37,7 @@ SHEET_KEY_COLUMNS = {
     "樣品記錄": "樣品編號",
     "個別客戶庫存": "_sync_id",
     "洗車廠庫存": "_sync_id",
+    "試色登錄": "_sync_id",
     "生產單": "生產單號",
     "代工管理": "代工單號",
     "代工送達記錄": "_sync_id",
@@ -766,6 +767,22 @@ def import_sheet_values(
                 movement_type = row.get("類型", "").strip()
                 product_id = row.get("貨品編號", "").strip()
                 unit = row.get("單位", "").strip()
+                initial_date = row.get("初始庫存日期", "").strip()
+                inbound_date = row.get("入庫日期", "").strip()
+                outbound_date = row.get("出庫日期", "").strip()
+                # Older rows occasionally stored an outbound date in 入庫日期
+                # (or the reverse). The movement type is authoritative, so
+                # normalize the single available movement date during import.
+                if movement_type == "出庫" and not outbound_date and inbound_date:
+                    outbound_date, inbound_date = inbound_date, ""
+                    result.warnings.append(
+                        f"row {index + 2}: 出庫日期原填在入庫日期欄，匯入時已正規化"
+                    )
+                elif movement_type == "入庫" and not inbound_date and outbound_date:
+                    inbound_date, outbound_date = outbound_date, ""
+                    result.warnings.append(
+                        f"row {index + 2}: 入庫日期原填在出庫日期欄，匯入時已正規化"
+                    )
                 quantity_key = "初始數量" if movement_type == "初始庫存" else "數量"
                 try:
                     amount = float(row.get(quantity_key, 0) or 0)
@@ -773,9 +790,9 @@ def import_sheet_values(
                     result.errors.append(f"row {index + 2}: 數量必須是數字")
                     continue
                 date_value = {
-                    "初始庫存": row.get("初始庫存日期", "").strip(),
-                    "入庫": row.get("入庫日期", "").strip(),
-                    "出庫": row.get("出庫日期", "").strip(),
+                    "初始庫存": initial_date,
+                    "入庫": inbound_date,
+                    "出庫": outbound_date,
                 }.get(movement_type, "")
                 if not movement_id or not product_id or not unit or not date_value:
                     result.errors.append(
@@ -814,11 +831,73 @@ def import_sheet_values(
                                notes=excluded.notes,source=excluded.source,
                                version=carwash_inventory_movements.version+1,
                                updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
-                        (movement_id, movement_type, row.get("初始庫存日期", "") or None,
+                        (movement_id, movement_type, initial_date or None,
                          amount if movement_type == "初始庫存" else None, product_id,
-                         row.get("入庫日期", "") or None, row.get("出庫日期", "") or None,
+                         inbound_date or None, outbound_date or None,
                          amount if movement_type != "初始庫存" else None, unit,
                          row.get("登記人", ""), row.get("備註", ""),
+                         entity["created_at"] if entity else synced_at,
+                         _sheet_updated_at(row) or synced_at, synced_at),
+                    )
+                    result.inserted_or_updated += 1
+
+            elif sheet_name == "試色登錄":
+                trial_id = row.get("_sync_id", "").strip()
+                formula_code = row.get("配方編號", "").strip().upper()
+                customer_id = row.get("客戶編號", "").strip()
+                trial_date = row.get("試色日期", "").strip()
+                material = row.get("原料", "").strip()
+                purchased = row.get("已採購", "否").strip() or "否"
+                purchase_date = row.get("採購日期", "").strip()
+                if not trial_id or not formula_code or not customer_id or not trial_date or not material:
+                    result.errors.append(
+                        f"row {index + 2}: _sync_id、配方編號、客戶編號、試色日期與原料必填"
+                    )
+                    continue
+                if purchased not in {"是", "否"}:
+                    result.errors.append(f"row {index + 2}: 已採購只能是『是』或『否』")
+                    continue
+                if purchased == "是" and not purchase_date:
+                    result.errors.append(f"row {index + 2}: 已採購記錄缺少採購日期")
+                    continue
+                entity = _fetchone_mapping(conn.execute(
+                    "SELECT * FROM trial_records WHERE trial_id=?", (trial_id,)
+                ))
+                formula_owner = conn.execute(
+                    "SELECT trial_id FROM trial_records WHERE formula_code=?", (formula_code,)
+                ).fetchone()
+                if formula_owner and str(formula_owner[0]) != trial_id:
+                    result.errors.append(f"row {index + 2}: duplicate 配方編號 {formula_code}")
+                    continue
+                if not existed and entity is not None:
+                    result.conflicts += 1
+                    continue
+                if existed and _entity_changed_since_sync(entity):
+                    result.conflicts += 1
+                    continue
+                if not dry_run:
+                    synced_at = utc_now_iso()
+                    upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
+                    conn.execute(
+                        """INSERT INTO trial_records(
+                               trial_id,formula_code,root_formula_code,customer_id,customer_name,
+                               trial_date,date_precision,historical_backfill,material,purchased,
+                               purchase_date,sheet_created_at,sheet_updated_at,source,
+                               created_at,updated_at,last_synced_at)
+                           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'google_sheets_import',?,?,?)
+                           ON CONFLICT(trial_id) DO UPDATE SET
+                               formula_code=excluded.formula_code,root_formula_code=excluded.root_formula_code,
+                               customer_id=excluded.customer_id,customer_name=excluded.customer_name,
+                               trial_date=excluded.trial_date,date_precision=excluded.date_precision,
+                               historical_backfill=excluded.historical_backfill,material=excluded.material,
+                               purchased=excluded.purchased,purchase_date=excluded.purchase_date,
+                               sheet_created_at=excluded.sheet_created_at,sheet_updated_at=excluded.sheet_updated_at,
+                               source=excluded.source,version=trial_records.version+1,
+                               updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
+                        (trial_id, formula_code, row.get("主配方編號", ""), customer_id,
+                         row.get("客戶名稱", ""), trial_date, row.get("日期精度", ""),
+                         row.get("歷史補登", ""), material, purchased, purchase_date or None,
+                         row.get("建立時間", ""), row.get("更新時間", ""),
                          entity["created_at"] if entity else synced_at,
                          _sheet_updated_at(row) or synced_at, synced_at),
                     )
