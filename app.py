@@ -27,6 +27,7 @@ from utils.sheet_import import (
     SHEET_KEY_COLUMNS,
     import_sheet_values,
     missing_inventory_sync_id_updates,
+    missing_outsourcing_sync_id_updates,
     read_worksheet_values_with_retry,
 )
 from utils.color_powder_repository import (
@@ -41,6 +42,15 @@ from utils.color_powder_repository import (
 from utils.sheet_export import sync_color_powder_outbox
 from utils.sheet_export import (
     sync_inventory_outbox,
+    sync_customer_outbox,
+    sync_customer_inventory_outbox,
+    sync_carwash_inventory_outbox,
+    sync_trial_outbox,
+    sync_outsourcing_delivery_outbox,
+    sync_outsourcing_order_outbox,
+    sync_outsourcing_return_outbox,
+    sync_pantone_outbox,
+    sync_sample_outbox,
     sync_production_order_outbox,
     sync_recipe_outbox,
     sync_supplier_outbox,
@@ -53,6 +63,42 @@ from utils.supplier_repository import (
     list_suppliers,
     set_supplier_active,
     update_supplier,
+)
+from utils.customer_repository import (
+    CustomerAlreadyExists,
+    CustomerError,
+    CustomerInput,
+    create_customer,
+    list_customers,
+    set_customer_active,
+    update_customer,
+)
+from utils.pantone_repository import (
+    PantoneError,
+    create_pantone_record,
+    list_pantone_records,
+)
+from utils.sample_repository import SampleError, archive_sample_record, list_sample_records, save_sample_record
+from utils.customer_inventory_repository import (
+    CustomerInventoryError,
+    archive_customer_inventory_record,
+    list_customer_inventory_records,
+    save_customer_inventory_record,
+)
+from utils.carwash_inventory_repository import (
+    CarwashInventoryError,
+    list_carwash_inventory_movements,
+    save_carwash_inventory_movement,
+)
+from utils.trial_repository import (
+    TrialError,
+    archive_trial_record,
+    create_trial_record,
+    get_trial_settings,
+    list_trial_records,
+    mark_trial_purchased,
+    restore_trial_record,
+    save_trial_settings,
 )
 from utils.recipe_repository import (
     RecipeAlreadyExists,
@@ -75,6 +121,18 @@ from utils.production_order_repository import (
     set_production_order_cancelled,
     update_production_order,
     upsert_production_order,
+)
+from utils.outsourcing_repository import (
+    OutsourcingError,
+    add_outsourcing_delivery,
+    add_outsourcing_return,
+    archive_outsourcing_order,
+    create_outsourcing_order,
+    deactivate_outsourcing_order,
+    list_outsourcing_events,
+    list_outsourcing_orders,
+    restore_outsourcing_order,
+    update_outsourcing_order,
 )
 from utils.conflict_repository import (
     ConflictError,
@@ -278,6 +336,16 @@ except Exception as exc:
 
 # Backward-compatible name for legacy code paths that still expect a local path.
 SQLITE_DB_PATH = DATABASE_INITIALIZED
+
+
+def customer_dataframe(*, include_inactive=False):
+    """Return Turso customer data in the legacy UI column shape."""
+    return pd.DataFrame([
+        {"客戶編號": item.get("customer_id", ""), "客戶簡稱": item.get("name", ""),
+         "客戶名稱": item.get("name", ""), "備註": item.get("notes", ""),
+         "生命週期": item.get("lifecycle_status", "active")}
+        for item in list_customers(DATABASE_CONFIG, include_inactive=include_inactive)
+    ], columns=["客戶編號", "客戶簡稱", "客戶名稱", "備註", "生命週期"])
     
 # ======== 🎨 ERP UI THEME (ENTERPRISE DARK) ========
 # ======== 🚀 SaaS ERP UI (Notion + SAP Hybrid) ========
@@ -879,15 +947,32 @@ def clean_powder_id(x):
     return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
 
 
-TRIAL_COLS = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "日期精度", "歷史補登", "原料", "已採購", "採購日期", "建立時間", "更新時間"]
+TRIAL_COLS = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "日期精度", "歷史補登", "原料", "已採購", "採購日期", "建立時間", "更新時間", "_sync_id"]
 TRIAL_MATERIALS = ["B", "PP", "ABS", "NY", "PC", "綜合", "PE", "TPR", "PH", "AS", "PS"]
+
+
+def trial_dataframe(*, include_inactive=False):
+    """Return active Turso trial records using the legacy UI column names."""
+    return pd.DataFrame([{
+        "配方編號": item["formula_code"], "主配方編號": item["root_formula_code"] or "",
+        "客戶編號": item["customer_id"] or "", "客戶名稱": item["customer_name"] or "",
+        "試色日期": item["trial_date"], "日期精度": item["date_precision"] or "",
+        "歷史補登": item["historical_backfill"] or "", "原料": item["material"],
+        "已採購": item["purchased"], "採購日期": item["purchase_date"] or "",
+        "建立時間": item["sheet_created_at"] or item["created_at"],
+        "更新時間": item["sheet_updated_at"] or item["updated_at"],
+        "_sync_id": item["trial_id"],
+        "生命週期": item["lifecycle_status"], "停用時間": item["deleted_at"] or "",
+        "停用原因": item["delete_reason"] or "",
+    } for item in list_trial_records(DATABASE_CONFIG, include_inactive=include_inactive)],
+        columns=TRIAL_COLS + ["生命週期", "停用時間", "停用原因"])
 
 
 def build_trial_backfill_reference_df(df_trial=None):
     """整理各原料最後登錄編號，供歷史補登時參考。"""
     if df_trial is None:
         try:
-            df_trial = get_cached_sheet_df("試色登錄")
+            df_trial = trial_dataframe()
         except Exception:
             df_trial = pd.DataFrame(columns=TRIAL_COLS)
 
@@ -1017,7 +1102,6 @@ def show_pantone_backfill_reference(df_pantone_reference=None):
 PRELOAD_SHEETS = {
     "客戶名單": "_recipe_customers",
     "代工管理": "df_oem",
-    "試色登錄": "df_trial",
 }
 
 
@@ -2587,196 +2671,95 @@ if menu == "色粉管理":
     
 # ======== 客戶名單 =========
 elif menu == "客戶名單":
-
-    # ===== 縮小頁面空白 =====
-    st.markdown("""
-    <style>
-    div.block-container { padding-top: 5px; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ===== 讀取或建立 Google Sheet =====
-    try:
-        ws_customer = get_cached_worksheet("客戶名單")
-    except:
-        ws_customer = spreadsheet.add_worksheet("客戶名單", rows=100, cols=10)
-
+    st.caption("Turso 是客戶主檔正式資料來源；Google Sheet 由 versioned outbox 同步。客戶編號建立後不可修改。")
     columns = ["客戶編號", "客戶簡稱", "備註"]
-
-    # ===== 初始化 session_state =====
-    st.session_state.setdefault("form_customer", {col: "" for col in columns})
-    init_states([
-        "edit_customer_index",
-        "delete_customer_index",
-        "show_delete_customer_confirm",
-        "search_customer"
-    ])
-
-    # ===== 載入資料 =====
+    
     try:
-        df = get_cached_sheet_df("客戶名單")
-    except:
-        df = pd.DataFrame(columns=columns)
+        customer_entities = list_customers(DATABASE_CONFIG, include_inactive=True)
+    except CustomerError as exc:
+        st.error(f"無法從 Turso 載入客戶：{exc}")
+        customer_entities = []
+    customer_rows = [{
+        "客戶編號": item.get("customer_id", ""), "客戶簡稱": item.get("name", ""),
+        "備註": item.get("notes", ""), "生命週期": item.get("lifecycle_status", "active"),
+        "停用時間": item.get("deleted_at", ""), "停用原因": item.get("delete_reason", ""),
+    } for item in customer_entities]
+    df = pd.DataFrame(customer_rows, columns=columns + ["生命週期", "停用時間", "停用原因"])
+    active_df = df[df["生命週期"] == "active"].copy() if not df.empty else df.copy()
 
-    df = df.astype(str)
-    for col in columns:
-        if col not in df.columns:
-            df[col] = ""
+    st.session_state.setdefault("editing_customer_id", "")
+    editing_id = st.session_state.editing_customer_id
+    editing_row = active_df[active_df["客戶編號"] == editing_id]
+    defaults = editing_row.iloc[0].to_dict() if not editing_row.empty else {col: "" for col in columns}
 
-    # =====================================================
-    # 📝 新增 / 編輯 客戶
-    # =====================================================
-    st.markdown(
-        '<h2 style="font-size:16px; font-family:Arial; color:#f1f5f2;">☑️ 新增客戶</h3>',
-        unsafe_allow_html=True
-    )
-    
-    with st.form("customer_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            cid = st.text_input("客戶編號", st.session_state.form_customer.get("客戶編號", ""))
-            cname = st.text_input("客戶簡稱", st.session_state.form_customer.get("客戶簡稱", ""))
-        with col2:
-            note = st.text_input("備註", st.session_state.form_customer.get("備註", ""))
-    
-        submit = st.form_submit_button("💾 儲存")
-    
-    if submit:
-        new_data = {
-            "客戶編號": cid.strip(),
-            "客戶簡稱": cname.strip(),
-            "備註": note.strip()
-        }
-    
-        if not new_data["客戶編號"]:
-            st.warning("⚠️ 請輸入客戶編號！")
-        else:
-            if st.session_state.edit_customer_index is not None:
-                # 編輯模式
-                idx = st.session_state.edit_customer_index
-                for col in df.columns:
-                    if col in new_data:
-                        df.at[idx, col] = new_data[col]
-                st.success("✅ 客戶已更新！")
-                st.session_state.edit_customer_index = None
-            else:
-                # 新增模式
-                if new_data["客戶編號"] in df["客戶編號"].values:
-                    st.warning("⚠️ 此客戶編號已存在！")
-                else:
-                    df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-                    st.success("✅ 新增成功！")
-    
-            # 寫回 Google Sheet
-            save_df_to_sheet(ws_customer, df)
-    
-            # 清空表單
-            st.session_state.form_customer = {col: "" for col in df.columns}
-    
-            # 立即更新前端列表
-            st.rerun()
-    
-    # =====================================================
-    # 🗑️ 刪除確認
-    # =====================================================
-    if st.session_state.show_delete_customer_confirm:
-        target_row = df.iloc[st.session_state.delete_customer_index]
-        st.warning(f"⚠️ 確定要刪除 {target_row['客戶編號']} {target_row['客戶簡稱']}？")
-
+    st.markdown("### 新增／編輯客戶")
+    with st.form("customer_turso_form"):
         c1, c2 = st.columns(2)
-        if c1.button("刪除"):
-            df.drop(index=st.session_state.delete_customer_index, inplace=True)
-            df.reset_index(drop=True, inplace=True)
-            save_df_to_sheet(ws_customer, df)
-            st.session_state.show_delete_customer_confirm = False
-            st.success("✅ 刪除成功！")
+        customer_id = c1.text_input("客戶編號", value=str(defaults.get("客戶編號", "")), disabled=bool(editing_id))
+        customer_name = c1.text_input("客戶簡稱", value=str(defaults.get("客戶簡稱", "")))
+        customer_notes = c2.text_input("備註", value=str(defaults.get("備註", "")))
+        save_customer = st.form_submit_button("💾 儲存至 Turso")
+    if save_customer:
+        data = CustomerInput(editing_id or customer_id, customer_name, customer_notes)
+        try:
+            if editing_id:
+                update_customer(DATABASE_CONFIG, data)
+                message = f"已更新客戶 {editing_id}"
+            else:
+                create_customer(DATABASE_CONFIG, data)
+                message = f"已新增客戶 {customer_id.strip()}"
+            st.session_state.editing_customer_id = ""
+            st.toast(f"{message}；等待同步至 Sheet", icon="✅")
             st.rerun()
+        except (CustomerError, CustomerAlreadyExists) as exc:
+            st.error(str(exc))
+    if editing_id and st.button("取消編輯", key="cancel_customer_edit"):
+        st.session_state.editing_customer_id = ""
+        st.rerun()
 
-        if c2.button("取消"):
-            st.session_state.show_delete_customer_confirm = False
-            st.rerun()
-
-    # =====================================================
-    # 📋 客戶清單（搜尋 / 編輯 / 刪除）
-    # =====================================================
-    st.markdown('<h2 style="font-size:16px; font-family:Arial; color:#f1f5f2;">🛠️ 客戶修改 / 刪除</h3>', unsafe_allow_html=True)
-    
-    # 搜尋輸入
-    keyword = st.text_input(
-        "請輸入客戶編號或簡稱",
-        st.session_state.get("search_customer", "")
-    )
-    st.session_state.search_customer = keyword.strip()
-    
-    # 預設顯示用資料
-    df_filtered = pd.DataFrame()
-    
-    if keyword:
-        df_filtered = df[
-            df["客戶編號"].str.contains(keyword, case=False, na=False) |
-            df["客戶簡稱"].str.contains(keyword, case=False, na=False)
+    st.markdown("### 客戶清單")
+    keyword = st.text_input("搜尋客戶編號或簡稱", key="customer_search_turso").strip()
+    filtered = active_df
+    if keyword and not filtered.empty:
+        filtered = filtered[
+            filtered["客戶編號"].astype(str).str.contains(keyword, case=False, na=False, regex=False)
+            | filtered["客戶簡稱"].astype(str).str.contains(keyword, case=False, na=False, regex=False)
         ]
-    
-        if df_filtered.empty:
-            render_empty_state("查無符合的資料")
-    
-    # ===== 表格顯示 =====
-    if not df_filtered.empty:
-        st.dataframe(
-            df_filtered[columns],
-            use_container_width=True,
-            hide_index=True,
-            height=420
+    if filtered.empty:
+        st.info("目前沒有符合的有效客戶。")
+    else:
+        st.dataframe(filtered[columns], use_container_width=True, hide_index=True)
+        selected_id = st.selectbox(
+            "選擇客戶", filtered["客戶編號"].tolist(), key="customer_action_id",
+            format_func=lambda cid: f"{cid}｜{filtered.loc[filtered['客戶編號']==cid, '客戶簡稱'].iloc[0]}",
         )
-    
-        st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
-    
-        st.markdown(
-            "<p style='font-size:14px; font-family:Arial; color:gray;'>🛈 請於上方新增欄位進行修改</p>",
-            unsafe_allow_html=True
-        )
-    
-        # --- 按鈕樣式 ---
-        st.markdown("""
-        <style>
-        div.stButton > button {
-            font-size:16px !important;
-            padding:2px 8px !important;
-            border-radius:8px;
-            background-color:#333333 !important;
-            color:white !important;
-            border:1px solid #555555;
-        }
-        div.stButton > button:hover {
-            background-color:#555555 !important;
-            border-color:#dbd818 !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-    
-        # ===== 列出清單（重點：index 對回原 df）=====
-        for _, row in df_filtered.iterrows():
-            real_idx = df.index[
-                (df["客戶編號"] == row["客戶編號"]) &
-                (df["客戶簡稱"] == row["客戶簡稱"])
-            ][0]
-    
-            c1, c2, c3 = st.columns([3, 1, 1])
-            with c1:
-                st.markdown(
-                    f"<div style='font-family:Arial;'>🔹 {row['客戶編號']}　{row['客戶簡稱']}</div>",
-                    unsafe_allow_html=True
-                )
-            with c2:
-                if st.button("✏️ 改", key=f"edit_customer_{real_idx}"):
-                    st.session_state.edit_customer_index = real_idx
-                    st.session_state.form_customer = row.to_dict()
+        b1, b2 = st.columns(2)
+        if b1.button("✏️ 編輯選取客戶", use_container_width=True):
+            st.session_state.editing_customer_id = selected_id
+            st.rerun()
+        archive_reason = st.text_input("停用原因", key="customer_archive_reason")
+        if b2.button("🗄️ 停用選取客戶", use_container_width=True, disabled=not archive_reason.strip()):
+            try:
+                set_customer_active(DATABASE_CONFIG, selected_id, active=False, reason=archive_reason)
+                st.toast(f"已停用 {selected_id}；Turso 保留歷史，等待 Sheet tombstone", icon="🗄️")
+                st.rerun()
+            except CustomerError as exc:
+                st.error(str(exc))
+
+    inactive_df = df[df["生命週期"] == "inactive"].copy() if not df.empty else df.copy()
+    with st.expander(f"已停用客戶（{len(inactive_df)}）"):
+        if inactive_df.empty:
+            st.info("目前沒有已停用客戶。")
+        else:
+            st.dataframe(inactive_df[columns + ["停用時間", "停用原因"]], use_container_width=True, hide_index=True)
+            restore_id = st.selectbox("選擇要恢復的客戶", inactive_df["客戶編號"].tolist(), key="restore_customer_id")
+            if st.button("♻️ 恢復客戶", key="restore_customer"):
+                try:
+                    set_customer_active(DATABASE_CONFIG, restore_id, active=True)
+                    st.toast(f"已恢復 {restore_id}；等待同步至 Sheet", icon="♻️")
                     st.rerun()
-            with c3:
-                if st.button("🗑️ 刪", key=f"delete_customer_{real_idx}"):
-                    st.session_state.delete_customer_index = real_idx
-                    st.session_state.show_delete_customer_confirm = True
-                    st.rerun()
+                except CustomerError as exc:
+                    st.error(str(exc))
 
 #==========================================================
 # ======== 配方管理分頁 =========
@@ -2804,10 +2787,10 @@ elif menu == "配方管理":
     ]
 
     # ================================================================
-    # 📌 資料載入：只有第一次進入、或寫入後才重新讀 Google Sheet
+    # 📌 Turso 是代工單與送達／載回 ledger 的正式資料來源。
     # ================================================================
     def load_recipe_section_data():
-        """從 Turso 讀取配方/色粉，客戶名單暫由 Google Sheet 提供。"""
+        """從 Turso 讀取配方、色粉與客戶主檔。"""
 
         # 1️⃣ 配方管理
         try:
@@ -2840,7 +2823,7 @@ elif menu == "配方管理":
 
         # 3️⃣ 客戶名單
         try:
-            df_c = get_cached_sheet_df("客戶名單", force_reload=True)
+            df_c = customer_dataframe()
         except:
             df_c = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
 
@@ -4525,13 +4508,13 @@ elif menu == "生產單管理":
         return f"{today_str}-{max_seq + 1:03d}"
 
     def find_active_oem_duplicate(recipe_code):
-        """色母生產單新增前檢查：「代工進度表」（代工管理工作表）裡是否已有同配方編號、
+        """色母生產單新增前檢查：Turso 是否已有同配方編號、
         且尚未結案（狀態 ≠ ✅ 已結案）的代工單。有的話回傳最新（依建立時間排序）的那一筆。"""
         recipe_code = str(recipe_code or "").strip()
         if not recipe_code:
             return None
         try:
-            df_oem_check = get_cached_sheet_df("代工管理")
+            df_oem_check = pd.DataFrame(list_outsourcing_orders(DATABASE_CONFIG))
         except Exception:
             return None
         if df_oem_check.empty or "配方編號" not in df_oem_check.columns:
@@ -5418,33 +5401,16 @@ elif menu == "生產單管理":
                             old_qty = _safe_float_local(merge_match.get("代工數量", 0), 0.0)
                             final_qty = old_qty + delta_oem_qty
 
-                            ws_oem_merge = get_cached_worksheet("代工管理")
-                            oem_headers_merge = ws_oem_merge.row_values(1)
-                            no_col = oem_headers_merge.index("代工單號") if "代工單號" in oem_headers_merge else 0
-                            qty_col = oem_headers_merge.index("代工數量") + 1 if "代工數量" in oem_headers_merge else None
-                            target_col = oem_headers_merge.index("目標載回數量") + 1 if "目標載回數量" in oem_headers_merge else None
-                            remark_col = oem_headers_merge.index("備註") + 1 if "備註" in oem_headers_merge else None
-
-                            all_oem_values = get_cached_sheet_values("代工管理", force_reload=True)
-                            found_row = False
-                            for idx, row in enumerate(all_oem_values[1:], start=2):
-                                if no_col < len(row) and str(row[no_col]).strip() == target_oem_no:
-                                    if qty_col:
-                                        ws_oem_merge.update_cell(idx, qty_col, final_qty)
-                                    if target_col:
-                                        ws_oem_merge.update_cell(idx, target_col, final_qty * multiplier)
-                                    if remark_col:
-                                        old_remark = row[remark_col - 1] if remark_col - 1 < len(row) else ""
-                                        merge_note = (
-                                            f"+ 合併生產單 {order['生產單號']}"
-                                            f"（追加 {delta_oem_qty} kg，原 {old_qty} kg → 合併後 {final_qty} kg）"
-                                        )
-                                        new_remark = f"{old_remark}\n{merge_note}".strip()
-                                        ws_oem_merge.update_cell(idx, remark_col, new_remark)
-                                    found_row = True
-                                    break
-
-                            invalidate_sheet_cache("代工管理")
+                            existing_oem = next((item for item in list_outsourcing_orders(DATABASE_CONFIG)
+                                                 if str(item.get("代工單號", "")).strip() == target_oem_no), None)
+                            found_row = existing_oem is not None
+                            if existing_oem:
+                                merge_note = (f"+ 合併生產單 {order['生產單號']}"
+                                              f"（追加 {delta_oem_qty} kg，原 {old_qty} kg → 合併後 {final_qty} kg）")
+                                existing_oem.update({"代工數量": final_qty,
+                                                     "目標載回數量": final_qty * multiplier,
+                                                     "備註": f"{existing_oem.get('備註', '')}\n{merge_note}".strip()})
+                                update_outsourcing_order(DATABASE_CONFIG, existing_oem)
                             order["_merge_applied"] = "colorant"
                             order["_merge_old_order_no"] = str(merge_match.get("生產單號", "")).strip()
                             if found_row:
@@ -5466,28 +5432,6 @@ elif menu == "生產單管理":
                             except:
                                 pass
                 
-                        try:
-                            ws_oem = get_cached_worksheet("代工管理")
-                        except:
-                            ws_oem = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
-                            ws_oem.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱", 
-                                                               "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
-
-                        # 兼容舊版表頭：先補齊必要欄位，再按目前表頭順序組裝資料，避免欄位錯位
-                        required_oem_headers = [
-                            "代工單號", "生產單號", "配方編號", "客戶名稱",
-                            "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"
-                        ]
-                        oem_headers = ws_oem.row_values(1)
-                        if not oem_headers:
-                            ws_oem.append_row(required_oem_headers)
-                            oem_headers = required_oem_headers.copy()
-                        else:
-                            for h in required_oem_headers:
-                                if h not in oem_headers:
-                                    ws_oem.update_cell(1, len(oem_headers) + 1, h)
-                                    oem_headers.append(h)
-
                         recipe_multiplier = 1.0
                         try:
                             order_recipe_id = str(order.get('配方編號', '')).strip()
@@ -5517,7 +5461,7 @@ elif menu == "生產單管理":
                             "已交貨": "",
                             "交貨備註": ""
                         }
-                        ws_oem.append_row([oem_row_dict.get(h, "") for h in oem_headers])
+                        create_outsourcing_order(DATABASE_CONFIG, oem_row_dict)
                 
                         oem_msg = f"🎉 已建立代工單號：{oem_id}（{oem_qty} kg）\n💡 請至「代工管理」分頁編輯"
                         st.toast(oem_msg)
@@ -5890,17 +5834,6 @@ elif menu == "生產單管理":
                 except Exception:
                     continue
             return float(total)
-    
-        # ===== 刪除代工單函式 =====
-        def delete_oem_by_order_id(ws_oem, order_id):
-            all_values = get_cached_sheet_df("代工管理").to_dict("records")
-            df = pd.DataFrame(all_values)
-            if df.empty or "生產單號" not in df.columns:
-                return 0
-            target_idxs = df.index[df["生產單號"].astype(str) == str(order_id)].tolist()
-            for idx in sorted(target_idxs, reverse=True):
-                ws_oem.delete_rows(idx + 2)
-            return len(target_idxs)
     
         show_cancelled_orders = st.toggle(
             "顯示已取消生產單",
@@ -6280,28 +6213,17 @@ elif menu == "生產單管理":
 
                         # 同步更新對應代工單（使用者確認後才做）
                         if sync_oem_qty:
-                            import gspread.utils as utils
-                            ws_oem = get_cached_worksheet("代工管理")
-                            oem_values = get_cached_sheet_values("代工管理")
-                            if oem_values and len(oem_values) > 1:
-                                oem_header = oem_values[0]
-                                row_order_idx = oem_header.index("生產單號") if "生產單號" in oem_header else -1
-                                row_qty_idx = oem_header.index("代工數量") if "代工數量" in oem_header else -1
-                                row_target_idx = oem_header.index("目標載回數量") if "目標載回數量" in oem_header else -1
-                                if row_order_idx >= 0 and row_qty_idx >= 0:
-                                    for oem_row_idx, oem_row in enumerate(oem_values[1:], start=2):
-                                        current_order_no = oem_row[row_order_idx] if row_order_idx < len(oem_row) else ""
-                                        if str(current_order_no).strip() != str(order_no).strip():
-                                            continue
-                                        while len(oem_row) < len(oem_header):
-                                            oem_row.append("")
-                                        oem_row[row_qty_idx] = str(synced_qty)
-                                        if row_target_idx >= 0:
-                                            oem_row[row_target_idx] = str(synced_qty)
-                                        oem_end_col = utils.rowcol_to_a1(oem_row_idx, len(oem_header)).replace(str(oem_row_idx), "")
-                                        oem_range = f"A{oem_row_idx}:{oem_end_col}{oem_row_idx}"
-                                        ws_oem.update(oem_range, [oem_row[:len(oem_header)]])
-                                    invalidate_sheet_cache("代工管理")
+                            linked_orders = [
+                                item for item in list_outsourcing_orders(DATABASE_CONFIG)
+                                if str(item.get("生產單號", "")).strip() == str(order_no).strip()
+                            ]
+                            for linked_order in linked_orders:
+                                old_quantity = float(linked_order.get("代工數量", 0) or 0)
+                                old_target = float(linked_order.get("目標載回數量", old_quantity) or old_quantity)
+                                ratio = old_target / old_quantity if old_quantity > 0 else float(linked_order.get("轉換倍率", 1) or 1)
+                                linked_order["代工數量"] = synced_qty
+                                linked_order["目標載回數量"] = float(synced_qty) * ratio
+                                update_outsourcing_order(DATABASE_CONFIG, linked_order)
 
                         # 同步更新本地 df_order
                         mask = df_order["生產單號"] == order_no
@@ -6342,7 +6264,7 @@ elif menu == "生產單管理":
                     new_oem_qty = calc_order_oem_qty_kg(updated_order_dict)
 
                     try:
-                        df_oem_linked = get_cached_sheet_df("代工管理")
+                        df_oem_linked = pd.DataFrame(list_outsourcing_orders(DATABASE_CONFIG))
                         has_linked_oem = (
                             not df_oem_linked.empty
                             and "生產單號" in df_oem_linked.columns
@@ -6350,9 +6272,6 @@ elif menu == "生產單管理":
                         )
                     except Exception:
                         has_linked_oem = False
-
-                    st.write("DEBUG has_linked_oem:", has_linked_oem)
-                    st.write("DEBUG old_oem_qty:", old_oem_qty, "new_oem_qty:", new_oem_qty)
 
                     qty_changed = abs(new_oem_qty - old_oem_qty) > 1e-9
                     if has_linked_oem and qty_changed:
@@ -6415,40 +6334,16 @@ if menu == "代工管理":
     # 📌 資料載入：只有第一次進入、或寫入後才重新讀 Google Sheet
     # ================================================================
     def load_oem_data():
-        """重新從 Google Sheet 讀取代工三張表，存入 session_state"""
+        """重新從 Turso 讀取代工主檔與不可變 ledger。"""
         try:
-            ws_oem_ = get_cached_worksheet("代工管理")
-            df_oem_ = get_cached_sheet_df("代工管理", force_reload=True)
-        except:
-            try:
-                ws_oem_ = spreadsheet.add_worksheet("代工管理", rows=100, cols=20)
-                ws_oem_.append_row(["代工單號", "生產單號", "配方編號", "客戶名稱",
-                                    "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
-            except:
-                pass
+            df_oem_ = pd.DataFrame(list_outsourcing_orders(DATABASE_CONFIG))
+            df_delivery_ = pd.DataFrame(list_outsourcing_events(DATABASE_CONFIG, "delivery"))
+            df_return_ = pd.DataFrame(list_outsourcing_events(DATABASE_CONFIG, "return"))
+        except Exception as exc:
+            st.error(f"❌ 無法從 Turso 載入代工資料：{exc}")
             df_oem_ = pd.DataFrame(columns=["代工單號", "生產單號", "配方編號", "客戶名稱",
                                              "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
-
-        try:
-            ws_delivery_ = get_cached_worksheet("代工送達記錄")
-            df_delivery_ = get_cached_sheet_df("代工送達記錄", force_reload=True)
-        except:
-            try:
-                ws_delivery_ = spreadsheet.add_worksheet("代工送達記錄", rows=100, cols=10)
-                ws_delivery_.append_row(["代工單號", "送達日期", "送達數量", "建立時間"])
-            except:
-                pass
             df_delivery_ = pd.DataFrame(columns=["代工單號", "送達日期", "送達數量", "建立時間"])
-
-        try:
-            ws_return_ = get_cached_worksheet("代工載回記錄")
-            df_return_ = get_cached_sheet_df("代工載回記錄", force_reload=True)
-        except:
-            try:
-                ws_return_ = spreadsheet.add_worksheet("代工載回記錄", rows=100, cols=10)
-                ws_return_.append_row(["代工單號", "載回日期", "載回數量", "建立時間"])
-            except:
-                pass
             df_return_ = pd.DataFrame(columns=["代工單號", "載回日期", "載回數量", "建立時間"])
 
         # 補齊必要欄位
@@ -6465,28 +6360,13 @@ if menu == "代工管理":
         st.session_state.df_return   = df_return_
         st.session_state.oem_data_loaded = True
 
-    # ── 只有第一次進入時才讀 Sheet，rerun 時直接用 session_state ──
+    # ── 只有第一次進入時才讀 Turso，rerun 時直接用 session_state ──
     # 也防禦舊 session：若旗標存在但必要資料缺漏，仍強制補載
     oem_keys_ready = all(k in st.session_state for k in ["df_oem", "df_delivery", "df_return"])
     if (not st.session_state.get("oem_data_loaded", False)) or (not oem_keys_ready):
         load_oem_data()
 
-    # 取出工作表物件（worksheet 物件本身有 _ws_cache，不耗 quota）
-    ws_oem      = get_cached_worksheet("代工管理")
-    ws_delivery = get_cached_worksheet("代工送達記錄")
-    ws_return   = get_cached_worksheet("代工載回記錄")
-
-    # 若舊版工作表缺少交貨相關欄位，自動補上（只做一次）
-    try:
-        oem_headers = ws_oem.row_values(1)
-        for col_name in ["目標載回數量", "轉換倍率", "已交貨", "交貨備註"]:
-            if col_name not in oem_headers:
-                ws_oem.update_cell(1, len(oem_headers) + 1, col_name)
-                oem_headers.append(col_name)
-    except:
-        pass
-
-    # 取出 DataFrame（全程用 session_state，不重讀 Sheet）
+    # 取出 DataFrame（全程用 session_state，不重讀 Turso）
     df_oem      = st.session_state.df_oem
     df_delivery = st.session_state.df_delivery
     df_return   = st.session_state.df_return
@@ -6524,29 +6404,19 @@ if menu == "代工管理":
         return "⏳ 未載回"
 
     def update_oem_status(oem_no, new_status):
-        """更新代工單狀態（單格寫入）並同步 session_state"""
-        status_col_idx = 8
-        try:
-            oem_headers = ws_oem.row_values(1)
-            if "狀態" in oem_headers:
-                status_col_idx = oem_headers.index("狀態") + 1
-        except:
-            pass
-        all_values = get_cached_sheet_values("代工管理")
-        for idx, row in enumerate(all_values[1:], start=2):
-            if row[0] == oem_no:
-                ws_oem.update_cell(idx, status_col_idx, new_status)
-                break
-        # 同步 session_state
         mask = st.session_state.df_oem["代工單號"] == oem_no
+        if not mask.any():
+            raise OutsourcingError(f"找不到代工單號 {oem_no}")
+        payload = st.session_state.df_oem.loc[mask].iloc[0].to_dict()
+        payload["狀態"] = new_status
+        update_outsourcing_order(DATABASE_CONFIG, payload)
         st.session_state.df_oem.loc[mask, "狀態"] = new_status
 
     def ensure_manual_close_return_record(oem_no, close_date=None):
         """手動結案時，若尚無載回紀錄則補一筆 0kg 紀錄，確保進度表與已結案列表可追蹤。"""
         close_date = close_date or datetime.today()
 
-        # 以最新 sheet 為準，避免 session cache 過舊導致誤補 0kg。
-        df_ret_live = get_cached_sheet_df("代工載回記錄", force_reload=True)
+        df_ret_live = pd.DataFrame(list_outsourcing_events(DATABASE_CONFIG, "return"))
         if isinstance(df_ret_live, pd.DataFrame) and not df_ret_live.empty and "代工單號" in df_ret_live.columns:
             has_record_live = (df_ret_live["代工單號"].apply(_norm_oem_no) == _norm_oem_no(oem_no)).any()
             st.session_state.df_return = df_ret_live.copy()
@@ -6554,18 +6424,15 @@ if menu == "代工管理":
                 return False
 
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        safe_append_row(ws_return, [
-            str(oem_no),
-            close_date.strftime("%Y/%m/%d"),
-            "0",
-            created_at
-        ])
+        saved_return = add_outsourcing_return(
+            DATABASE_CONFIG, str(oem_no), close_date.strftime("%Y/%m/%d"), 0
+        )
 
         new_ret_df = pd.DataFrame([{
             "代工單號": str(oem_no),
             "載回日期": close_date.strftime("%Y/%m/%d"),
             "載回數量": 0.0,
-            "建立時間": created_at
+            "建立時間": saved_return["建立時間"]
         }])
         df_ret = st.session_state.get("df_return", pd.DataFrame())
         if isinstance(df_ret, pd.DataFrame):
@@ -6620,12 +6487,13 @@ if menu == "代工管理":
     # ================================================================
     # Tab 分頁
     # ================================================================
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "📋 新增代工單",
         "✏️ 編輯代工",
         "📥 載回登入",
         "🆗 代工進度表",
-        "🚚 代工歷程查詢"
+        "🚚 代工歷程查詢",
+        "🗄️ 封存管理",
     ])
 
     # ================================================================
@@ -6710,9 +6578,7 @@ if menu == "代工管理":
                     "目標載回數量": new_target_qty,
                     "轉換倍率": new_multiplier,
                 }
-                oem_headers_live = ws_oem.row_values(1)
-                new_row_data = [new_row_dict.get(h, "") for h in oem_headers_live]
-                ws_oem.append_row(new_row_data)
+                create_outsourcing_order(DATABASE_CONFIG, new_row_dict)
 
                 # ✅ 直接更新 session_state，不重讀 Sheet
                 new_df_row = pd.DataFrame([{
@@ -6739,9 +6605,8 @@ if menu == "代工管理":
         st.markdown("---")
         if st.button("📥 重新載入代工資料", key="reload_oem_tab1_bottom", use_container_width=True):
             try:
-                latest_oem_df = get_cached_sheet_df("代工管理", force_reload=True)
-                st.session_state.df_oem = latest_oem_df.copy()
-                st.toast("已從 Google Sheet 重新載入代工資料", icon="🔄")
+                load_oem_data()
+                st.toast("已從 Turso 重新載入代工資料", icon="🔄")
             except Exception as e:
                 st.toast(f"重新載入失敗：{e}", icon="❌")
             st.rerun()
@@ -6869,33 +6734,11 @@ if menu == "代工管理":
                         st.warning("⚠️ 此代工單已結案，禁止再修改")
 
                     def persist_oem_info(vendor, remark, status, target_qty, multiplier):
-                        all_values = get_cached_sheet_values("代工管理")
-                        headers = all_values[0] if all_values else []
-                        for idx, row in enumerate(all_values[1:], start=2):
-                            if row[0] == selected_oem:
-                                import gspread.utils as gu
-                                vendor_col = headers.index("代工廠商") + 1 if "代工廠商" in headers else 6
-                                remark_col = headers.index("備註") + 1 if "備註" in headers else 7
-                                status_col = headers.index("狀態") + 1 if "狀態" in headers else 8
-                                target_col = headers.index("目標載回數量") + 1 if "目標載回數量" in headers else 6
-                                ratio_col = headers.index("轉換倍率") + 1 if "轉換倍率" in headers else 7
-                                start_col = min(vendor_col, remark_col, status_col, target_col, ratio_col)
-                                end_col = max(vendor_col, remark_col, status_col, target_col, ratio_col)
-                                row_payload = [""] * (end_col - start_col + 1)
-                                row_payload[vendor_col - start_col] = vendor
-                                row_payload[remark_col - start_col] = remark
-                                row_payload[status_col - start_col] = status
-                                row_payload[target_col - start_col] = str(target_qty)
-                                row_payload[ratio_col - start_col] = str(multiplier)
-                                col_s = gu.rowcol_to_a1(idx, start_col).rstrip("0123456789")
-                                col_e = gu.rowcol_to_a1(idx, end_col).rstrip("0123456789")
-                                ws_oem.update(
-                                    f"{col_s}{idx}:{col_e}{idx}",
-                                    [row_payload]
-                                )
-                                break
-
                         mask = st.session_state.df_oem["代工單號"] == selected_oem
+                        payload = st.session_state.df_oem.loc[mask].iloc[0].to_dict()
+                        payload.update({"代工廠商": vendor, "備註": remark, "狀態": status,
+                                        "目標載回數量": target_qty, "轉換倍率": multiplier})
+                        update_outsourcing_order(DATABASE_CONFIG, payload)
                         st.session_state.df_oem.loc[mask, "代工廠商"] = vendor
                         st.session_state.df_oem.loc[mask, "備註"] = remark
                         st.session_state.df_oem.loc[mask, "狀態"] = status
@@ -6929,11 +6772,9 @@ if menu == "代工管理":
                         c1, c2 = st.columns(2)
                         with c1:
                             if st.button("確認刪除", key="confirm_delete_oem"):
-                                all_values = get_cached_sheet_values("代工管理")
-                                for idx, row in enumerate(all_values[1:], start=2):
-                                    if row[0] == oem_row["代工單號"]:
-                                        ws_oem.delete_row(idx)
-                                        break
+                                deactivate_outsourcing_order(
+                                    DATABASE_CONFIG, oem_row["代工單號"], reason="使用者從代工管理停用"
+                                )
                                 # ✅ 同步 session_state
                                 st.session_state.df_oem = st.session_state.df_oem[
                                     st.session_state.df_oem["代工單號"] != oem_row["代工單號"]
@@ -7010,20 +6851,17 @@ if menu == "代工管理":
                         else:
                             if vendor_changed and not is_closed:
                                 persist_oem_info(new_vendor, new_remark, new_status, new_target_qty, new_multiplier)
-                            new_delivery_row = [
-                                selected_oem,
-                                delivery_date.strftime("%Y/%m/%d"),
-                                delivery_qty,
-                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            ]
-                            ws_delivery.append_row(new_delivery_row)
+                            saved_delivery = add_outsourcing_delivery(
+                                DATABASE_CONFIG, selected_oem,
+                                delivery_date.strftime("%Y/%m/%d"), delivery_qty
+                            )
 
                             # ✅ 直接更新 session_state，不重讀 Sheet
                             new_del_df = pd.DataFrame([{
                                 "代工單號": selected_oem,
                                 "送達日期": delivery_date.strftime("%Y/%m/%d"),
                                 "送達數量": delivery_qty,
-                                "建立時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                "建立時間": saved_delivery["建立時間"]
                             }])
                             st.session_state.df_delivery = pd.concat(
                                 [st.session_state.df_delivery, new_del_df], ignore_index=True
@@ -7133,18 +6971,15 @@ if menu == "代工管理":
                             appended_pending = False
 
                             if pending_qty > 0:
-                                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                safe_append_row(ws_return, [
-                                    str(selected_oem),
-                                    pending_date.strftime("%Y/%m/%d"),
-                                    str(pending_qty),
-                                    created_at
-                                ])
+                                saved_return = add_outsourcing_return(
+                                    DATABASE_CONFIG, selected_oem,
+                                    pending_date.strftime("%Y/%m/%d"), pending_qty
+                                )
                                 new_ret_df = pd.DataFrame([{
                                     "代工單號": selected_oem,
                                     "載回日期": pending_date.strftime("%Y/%m/%d"),
                                     "載回數量": pending_qty,
-                                    "建立時間": created_at
+                                    "建立時間": saved_return["建立時間"]
                                 }])
                                 st.session_state.df_return = pd.concat(
                                     [st.session_state.df_return, new_ret_df], ignore_index=True
@@ -7166,19 +7001,17 @@ if menu == "代工管理":
                         if return_qty <= 0:
                             st.warning("⚠️ 請輸入載回數量")
                         else:
-                            safe_append_row(ws_return, [
-                                str(selected_oem),
-                                return_date.strftime("%Y/%m/%d"),
-                                str(return_qty),
-                                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            ])
+                            saved_return = add_outsourcing_return(
+                                DATABASE_CONFIG, selected_oem,
+                                return_date.strftime("%Y/%m/%d"), return_qty
+                            )
 
                             # ✅ 直接更新 session_state，不重讀 Sheet
                             new_ret_df = pd.DataFrame([{
                                 "代工單號": selected_oem,
                                 "載回日期": return_date.strftime("%Y/%m/%d"),
                                 "載回數量": return_qty,
-                                "建立時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                "建立時間": saved_return["建立時間"]
                             }])
                             st.session_state.df_return = pd.concat(
                                 [st.session_state.df_return, new_ret_df], ignore_index=True
@@ -7526,28 +7359,14 @@ if menu == "代工管理":
                         )
 
                     if save_closed_delivery:
-                        all_values = get_cached_sheet_values("代工管理")
-                        headers = all_values[0] if all_values else []
-                        for col_name in ["已交貨", "交貨備註"]:
-                            if col_name not in headers:
-                                ws_oem.update_cell(1, len(headers) + 1, col_name)
-                                headers.append(col_name)
-                        delivery_col = headers.index("已交貨") + 1
-                        delivery_note_col = headers.index("交貨備註") + 1
-
-                        oem_row_map = {}
-                        for idx, row in enumerate(all_values[1:], start=2):
-                            if row and row[0]:
-                                oem_row_map[str(row[0]).strip()] = idx
-
                         oem_no = str(selected_closed_id).strip()
                         sheet_value = "是" if bool(marked_delivered) else ""
                         delivery_note_value = str(delivery_note or "").strip()
-                        target_row = oem_row_map.get(oem_no)
-
-                        if target_row:
-                            ws_oem.update_cell(target_row, delivery_col, sheet_value)
-                            ws_oem.update_cell(target_row, delivery_note_col, delivery_note_value)
+                        mask = st.session_state.df_oem["代工單號"] == oem_no
+                        if mask.any():
+                            payload = st.session_state.df_oem.loc[mask].iloc[0].to_dict()
+                            payload.update({"已交貨": sheet_value, "交貨備註": delivery_note_value})
+                            update_outsourcing_order(DATABASE_CONFIG, payload)
                             mask = st.session_state.df_oem["代工單號"] == oem_no
                             st.session_state.df_oem.loc[mask, "已交貨"] = sheet_value
                             st.session_state.df_oem.loc[mask, "交貨備註"] = delivery_note_value
@@ -7636,6 +7455,119 @@ if menu == "代工管理":
                 df_display["建立時間"] = df_display["建立時間"].dt.strftime("%Y-%m-%d").fillna("")
                 display_cols = [c for c in df_display.columns if c not in ["已交貨"]]
                 st.dataframe(df_display[display_cols].reset_index(drop=True), use_container_width=True)
+
+    # ================================================================
+    # Tab 6：已結案代工單受控封存／恢復
+    # ================================================================
+    with tab6:
+        st.caption(
+            "封存只會從一般畫面與三張 Sheet 移除副本；"
+            "Turso 的主檔、送達與載回歷程都會永久保留。"
+        )
+        try:
+            all_lifecycle_orders = list_outsourcing_orders(DATABASE_CONFIG, include_inactive=True)
+        except OutsourcingError as exc:
+            st.error(f"無法載入封存資料：{exc}")
+            all_lifecycle_orders = []
+
+        active_closed = [
+            item for item in all_lifecycle_orders
+            if item.get("生命週期", "active") == "active"
+            and str(item.get("狀態", "")).strip() == "✅ 已結案"
+        ]
+        inactive_orders = [
+            item for item in all_lifecycle_orders if item.get("生命週期") == "inactive"
+        ]
+        all_deliveries = list_outsourcing_events(DATABASE_CONFIG, "delivery")
+        all_returns = list_outsourcing_events(DATABASE_CONFIG, "return")
+        recipe_name_map = {}
+        recipe_rows_for_archive = st.session_state.get("df_recipe", pd.DataFrame())
+        if (
+            isinstance(recipe_rows_for_archive, pd.DataFrame)
+            and not recipe_rows_for_archive.empty
+            and "配方編號" in recipe_rows_for_archive.columns
+        ):
+            name_column = "品名" if "品名" in recipe_rows_for_archive.columns else "顏色"
+            if name_column in recipe_rows_for_archive.columns:
+                recipe_name_map = dict(zip(
+                    recipe_rows_for_archive["配方編號"].astype(str).str.strip(),
+                    recipe_rows_for_archive[name_column].astype(str).str.strip(),
+                ))
+
+        def archive_order_label(item):
+            order_id = str(item.get("代工單號", "") or "").strip()
+            recipe_id = str(item.get("配方編號", "") or "").strip()
+            product_name = str(item.get("品名", "") or "").strip() or recipe_name_map.get(recipe_id, "")
+            customer_name = str(item.get("客戶名稱", "") or "").strip()
+            return f"{order_id} ｜ 品名：{product_name or '-'} ｜ 客戶：{customer_name or '-'}"
+
+        archive_tab, restore_tab = st.tabs(["封存已結案代工單", "恢復已封存代工單"])
+        with archive_tab:
+            if not active_closed:
+                st.info("目前沒有可封存的已結案代工單。")
+            else:
+                archive_by_id = {str(item.get("代工單號", "")): item for item in active_closed}
+                archive_id = st.selectbox(
+                    "選擇已結案代工單", list(archive_by_id), key="archive_oem_id",
+                    format_func=lambda value: archive_order_label(archive_by_id[value]),
+                )
+                delivery_count = sum(str(item.get("代工單號", "")) == archive_id for item in all_deliveries)
+                return_count = sum(str(item.get("代工單號", "")) == archive_id for item in all_returns)
+                st.info(f"這張代工單包含 {delivery_count} 筆送達、{return_count} 筆載回歷程。")
+                archive_reason = st.text_input("封存原因", key="archive_oem_reason")
+                archive_phrase = f"ARCHIVE {archive_id}"
+                archive_confirmation = st.text_input(
+                    f"請輸入 {archive_phrase}", key="archive_oem_confirmation"
+                )
+                if st.button(
+                    "封存代工單與 Sheet 副本", type="primary",
+                    disabled=not archive_reason.strip() or archive_confirmation.strip() != archive_phrase,
+                ):
+                    try:
+                        counts = archive_outsourcing_order(
+                            DATABASE_CONFIG, archive_id, reason=archive_reason.strip()
+                        )
+                        st.session_state.oem_data_loaded = False
+                        st.session_state.toast_message = {
+                            "msg": f"已封存 {archive_id}；保留 {counts['deliveries']} 筆送達、{counts['returns']} 筆載回歷程",
+                            "icon": "🗄️",
+                        }
+                        st.rerun()
+                    except OutsourcingError as exc:
+                        st.error(f"封存失敗：{exc}")
+
+        with restore_tab:
+            if not inactive_orders:
+                st.info("目前沒有已封存代工單。")
+            else:
+                restore_by_id = {str(item.get("代工單號", "")): item for item in inactive_orders}
+                restore_id = st.selectbox(
+                    "選擇已封存代工單", list(restore_by_id), key="restore_oem_id",
+                    format_func=lambda value: archive_order_label(restore_by_id[value]),
+                )
+                selected_inactive = restore_by_id[restore_id]
+                st.warning(
+                    f"封存原因：{selected_inactive.get('停用原因', '') or '未填寫'}｜"
+                    f"封存時間：{selected_inactive.get('停用時間', '') or '未記錄'}"
+                )
+                restore_phrase = f"RESTORE {restore_id}"
+                restore_confirmation = st.text_input(
+                    f"請輸入 {restore_phrase}", key="restore_oem_confirmation"
+                )
+                if st.button(
+                    "恢復代工單與 Sheet 副本", type="primary",
+                    disabled=restore_confirmation.strip() != restore_phrase,
+                ):
+                    try:
+                        counts = restore_outsourcing_order(DATABASE_CONFIG, restore_id)
+                        st.session_state.oem_data_loaded = False
+                        st.session_state.toast_message = {
+                            "msg": f"已恢復 {restore_id}；重新排入 {counts['deliveries']} 筆送達、{counts['returns']} 筆載回副本",
+                            "icon": "♻️",
+                        }
+                        st.rerun()
+                    except OutsourcingError as exc:
+                        st.error(f"恢復失敗：{exc}")
             
                
 # ======== 採購管理分頁 =========
@@ -8551,19 +8483,12 @@ elif menu == "查詢區":
     # ========== Tab 3：Pantone色號表 ==========
     with tab3:
     
-        # 讀取 Google Sheets
-        try:
-            ws_pantone = get_cached_worksheet("Pantone色號表")
-        except:
-            ws_pantone = spreadsheet.add_worksheet(title="Pantone色號表", rows=100, cols=4)
-    
-        df_pantone = get_cached_sheet_df("Pantone色號表")
-    
-        # 如果表格是空的，補上欄位名稱
-        if df_pantone.empty:
-            ws_pantone.clear()
-            ws_pantone.append_row(["Pantone色號", "配方編號", "客戶名稱", "料號"])
-            df_pantone = pd.DataFrame(columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
+        # Turso 是 Pantone 對照表正式資料來源；Sheet 由 outbox 同步。
+        df_pantone = pd.DataFrame([{
+            "Pantone色號": item.get("pantone_code", ""), "配方編號": item.get("formula_id", ""),
+            "客戶名稱": item.get("customer_name", ""), "料號": item.get("material_no", ""),
+        } for item in list_pantone_records(DATABASE_CONFIG)],
+            columns=["Pantone色號", "配方編號", "客戶名稱", "料號"])
     
         pantone_tab_add, pantone_tab_search = st.tabs(["☑️ 新增記錄", "🔍 查詢 Pantone 色號"])
 
@@ -8597,7 +8522,14 @@ elif menu == "查詢區":
                         elif formula_id in df_pantone["配方編號"].astype(str).values:
                             st.error(f"❌ 配方編號 {formula_id} 已經在 Pantone 色號表裡")
                         else:
-                            ws_pantone.append_row([pantone_code, formula_id, customer, material_no])
+                            try:
+                                create_pantone_record(
+                                    DATABASE_CONFIG, formula_id=formula_id, pantone_code=pantone_code,
+                                    customer_name=customer, material_no=material_no,
+                                )
+                            except PantoneError as exc:
+                                st.error(str(exc))
+                                st.stop()
                             st.session_state["pantone_tab_toast"] = {
                                 "msg": f"已新增：Pantone {pantone_code}（配方編號 {formula_id}）",
                                 "icon": "✅",
@@ -8679,21 +8611,13 @@ elif menu == "查詢區":
     
     with tab4:
     
-        # ===== Sheet 讀取 =====
-        try:
-            ws_sample = get_cached_worksheet("樣品記錄")
-        except:
-            ws_sample = spreadsheet.add_worksheet("樣品記錄", rows=100, cols=10)
-            ws_sample.append_row(["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
-            invalidate_sheet_cache("樣品記錄")
-    
-        try:
-            df_sample = get_cached_sheet_df("樣品記錄")
-        except:
-            df_sample = pd.DataFrame()
-    
-        if df_sample.empty:
-            df_sample = pd.DataFrame(columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
+        # Turso 是樣品記錄正式資料來源；Sheet 由 outbox 同步。
+        df_sample = pd.DataFrame([{
+            "日期": item.get("sample_date", ""), "客戶名稱": item.get("customer_name", ""),
+            "樣品編號": item.get("sample_id", ""), "樣品名稱": item.get("sample_name", ""),
+            "樣品數量": item.get("quantity", ""),
+        } for item in list_sample_records(DATABASE_CONFIG)],
+            columns=["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"])
     
         # ===== session_state 初始化 =====
         if "form_sample" not in st.session_state:
@@ -8765,7 +8689,8 @@ elif menu == "查詢區":
                     sample_code = st.text_input(
                         "樣品編號",
                         value=st.session_state.form_sample.get("樣品編號", ""),
-                        key="form_sample_code"
+                        key="form_sample_code",
+                        disabled=st.session_state.sample_mode == "edit",
                     )
         
                 c4, c5 = st.columns(2)
@@ -8803,16 +8728,14 @@ elif menu == "查詢區":
                 if not data["樣品編號"]:
                     st.warning("⚠️ 請輸入樣品編號")
                 else:
-                    if st.session_state.sample_mode == "edit":
-                        # ===== 修改 =====
-                        df_sample.loc[st.session_state.edit_sample_index] = data
-                        st.session_state["sample_toast"] = {"msg": f"樣品 {data['樣品編號']} 已更新", "icon": "✏️"}
-                    else:
-                        # ===== 新增 =====
-                        df_sample = pd.concat([df_sample, pd.DataFrame([data])], ignore_index=True)
-                        st.session_state["sample_toast"] = {"msg": f"樣品 {data['樣品編號']} 新增完成", "icon": "🎉"}
-        
-                    save_df_to_sheet(ws_sample, df_sample)
+                    try:
+                        save_sample_record(DATABASE_CONFIG, data, create=st.session_state.sample_mode != "edit")
+                    except SampleError as exc:
+                        st.error(str(exc)); st.stop()
+                    st.session_state["sample_toast"] = {
+                        "msg": f"樣品 {data['樣品編號']} {'已更新' if st.session_state.sample_mode == 'edit' else '新增完成'}",
+                        "icon": "✏️" if st.session_state.sample_mode == "edit" else "🎉",
+                    }
         
                     # ===== 重置狀態 =====
                     st.session_state.sample_mode = "add"
@@ -8946,10 +8869,11 @@ elif menu == "查詢區":
                                 idx = options.index(selected_delete)
                                 real_index = int(df_show.iloc[idx]["index"])
                                 row = df_sample.loc[real_index]
-                                df_sample.drop(index=real_index, inplace=True)
-                                df_sample.reset_index(drop=True, inplace=True)
-                                save_df_to_sheet(ws_sample, df_sample)
-                                st.session_state.sample_filtered_df = df_sample.reset_index(drop=False)
+                                try:
+                                    archive_sample_record(DATABASE_CONFIG, row["樣品編號"], reason="使用者從樣品記錄停用")
+                                except SampleError as exc:
+                                    st.error(str(exc)); st.stop()
+                                st.session_state.sample_filtered_df = pd.DataFrame()
                                 st.session_state.sample_mode = "add"
                                 st.session_state.edit_sample_index = None
                                 st.session_state.form_sample = {}
@@ -9968,266 +9892,104 @@ elif menu == "庫存區":
                 )
 
     # ====================================================================
-    # Tab 7：個別客戶庫存（獨立資料）
+    # Tab 7：個別客戶庫存（Turso-first）
     # ====================================================================
     with tab7:
-        customer_stock_cols = ["客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "建立時間", "更新時間"]
-        try:
-            ws_customer_stock = get_cached_worksheet("個別客戶庫存")
-        except Exception:
-            ws_customer_stock = spreadsheet.add_worksheet("個別客戶庫存", rows=1000, cols=12)
-            ws_customer_stock.append_row(customer_stock_cols)
-            invalidate_sheet_cache("個別客戶庫存")
+        st.caption("ℹ️ Turso 是個別客戶庫存正式資料來源；Google Sheet 僅為同步副本。")
+        customer_stock_cols = ["_sync_id", "客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "建立時間", "更新時間"]
+        df_customer_stock = pd.DataFrame([{
+            "_sync_id": item["record_id"], "客戶名稱": item["customer_name"],
+            "配方編號": item["recipe_id"], "顏色": item["color"], "數量": item["quantity"],
+            "單位": item["unit"], "備註": item["notes"] or "",
+            "建立時間": item["sheet_created_at"] or item["created_at"],
+            "更新時間": item["sheet_updated_at"] or item["updated_at"],
+        } for item in list_customer_inventory_records(DATABASE_CONFIG)], columns=customer_stock_cols)
 
-        try:
-            df_customer_stock = get_cached_sheet_df("個別客戶庫存").copy()
-        except Exception:
-            df_customer_stock = pd.DataFrame(columns=customer_stock_cols)
-
-        for col in customer_stock_cols:
-            if col not in df_customer_stock.columns:
-                df_customer_stock[col] = ""
-
-        df_customer_src = st.session_state.get("df_customer", pd.DataFrame()).copy()
-        df_recipe_customers = st.session_state.get("_recipe_customers", pd.DataFrame()).copy()
-        customer_master_set = set()
-        if not df_customer_src.empty:
-            name_col = "客戶名稱" if "客戶名稱" in df_customer_src.columns else ("客戶簡稱" if "客戶簡稱" in df_customer_src.columns else None)
-            if name_col:
-                customer_master_set |= {str(v).strip() for v in df_customer_src[name_col].tolist() if str(v).strip()}
-        if not df_recipe_customers.empty:
-            for name_col in ["客戶名稱", "客戶簡稱"]:
-                if name_col in df_recipe_customers.columns:
-                    customer_master_set |= {str(v).strip() for v in df_recipe_customers[name_col].tolist() if str(v).strip()}
-
-        customer_choices = sorted(
-            customer_master_set
-            | {str(v).strip() for v in df_customer_stock["客戶名稱"].tolist() if str(v).strip()}
-        )
-
-        recipe_choices = sorted(
-            {str(v).strip() for v in st.session_state.get("df_recipe", pd.DataFrame()).get("配方編號", pd.Series(dtype=str)).tolist() if str(v).strip()}
-            | {str(v).strip() for v in df_customer_stock["配方編號"].tolist() if str(v).strip()}
-        )
-
-        subtab_form, subtab_query = st.tabs(["☑️ 新增/修改/刪除庫存", "🔍 個別客戶庫存查詢"])
-
-        cust_stock_flash = st.session_state.pop("_cust_stock_flash", None)
-        if cust_stock_flash:
-            flash_level = cust_stock_flash.get("level", "info")
-            flash_msg = cust_stock_flash.get("msg", "")
-            flash_icon = cust_stock_flash.get("icon", "ℹ️")
-            if flash_level == "success":
-                st.success(flash_msg)
-            elif flash_level == "warning":
-                st.warning(flash_msg)
-            else:
-                st.info(flash_msg)
-            st.toast(flash_msg, icon=flash_icon)
+        customer_choices = sorted({str(v).strip() for v in st.session_state.get("df_customer", pd.DataFrame()).get("客戶名稱", pd.Series(dtype=str)) if str(v).strip()}
+                                  | {str(v).strip() for v in df_customer_stock.get("客戶名稱", pd.Series(dtype=str)) if str(v).strip()})
+        recipe_choices = sorted({str(v).strip() for v in st.session_state.get("df_recipe", pd.DataFrame()).get("配方編號", pd.Series(dtype=str)) if str(v).strip()}
+                                | {str(v).strip() for v in df_customer_stock.get("配方編號", pd.Series(dtype=str)) if str(v).strip()})
+        subtab_form, subtab_query = st.tabs(["☑️ 新增／修改／封存", "🔍 個別客戶庫存查詢"])
 
         with subtab_form:
-            st.caption("ℹ️ 此分頁資料為獨立管理，不與其他庫存分頁互通。")
-
-            st.markdown("---")
-            action_mode = st.radio("作業模式", ["新增", "修改", "刪除"], horizontal=True, key="cust_stock_action_mode")
-
-            target_idx = -1
+            action_mode = st.radio("作業模式", ["新增", "修改", "封存"], horizontal=True, key="cust_stock_action_mode")
             target_row = None
-            if action_mode in ["修改", "刪除"]:
-                if df_customer_stock.empty:
-                    st.info("目前沒有可供修改/刪除的資料。")
-                else:
-                    st.markdown("**🔽 選擇資料進行修改/刪除**")
-                    option_indices = [None] + list(df_customer_stock.index)
-                    selected_index = st.selectbox(
-                        "選擇資料",
-                        options=option_indices,
-                        key="cust_stock_edit_pick",
-                        format_func=lambda i: "（請先選擇一筆資料）" if i is None else f"列 {i+2} | {str(df_customer_stock.at[i, '客戶名稱']).strip()} | {str(df_customer_stock.at[i, '配方編號']).strip()} | {str(df_customer_stock.at[i, '顏色']).strip()} | {str(df_customer_stock.at[i, '數量']).strip()} {str(df_customer_stock.at[i, '單位']).strip()}"
-                    )
-                    if selected_index is not None:
-                        target_idx = int(selected_index)
-                        target_row = df_customer_stock.loc[selected_index]
+            if action_mode != "新增" and not df_customer_stock.empty:
+                record_options = [""] + df_customer_stock["_sync_id"].tolist()
+                selected_id = st.selectbox(
+                    "選擇資料", record_options, key="cust_stock_edit_pick",
+                    format_func=lambda rid: "（請先選擇一筆資料）" if not rid else (
+                        lambda row: f"{row['客戶名稱']}｜{row['配方編號']}｜{row['顏色']}｜{row['數量']:g} {row['單位']}"
+                    )(df_customer_stock[df_customer_stock["_sync_id"] == rid].iloc[0]),
+                )
+                if selected_id:
+                    target_row = df_customer_stock[df_customer_stock["_sync_id"] == selected_id].iloc[0]
+            elif action_mode != "新增":
+                st.info("目前沒有可修改或封存的資料。")
 
             with st.form("customer_stock_form"):
-                st.markdown("<div style='font-size:12px; color:#9fb6cc;'>客戶與配方資訊</div>", unsafe_allow_html=True)
-                r1c1, r1c2, r1c3, r1c4 = st.columns(4)
-                customer_from_dropdown = r1c1.selectbox("客戶名稱（下拉）", ["（請選擇）"] + customer_choices,
-                    index=0 if target_row is None else (["（請選擇）"] + customer_choices).index(target_row.get("客戶名稱", "")) if target_row.get("客戶名稱", "") in customer_choices else 0)
-                customer_manual = r1c2.text_input("客戶名稱（手動輸入）", value="" if target_row is None else str(target_row.get("客戶名稱", "")))
-                recipe_from_dropdown = r1c3.selectbox("配方編號（下拉）", ["（請選擇）"] + recipe_choices,
-                    index=0 if target_row is None else (["（請選擇）"] + recipe_choices).index(target_row.get("配方編號", "")) if target_row.get("配方編號", "") in recipe_choices else 0)
-                recipe_manual = r1c4.text_input("配方編號（手動輸入）", value="" if target_row is None else str(target_row.get("配方編號", "")))
+                customer_input = st.selectbox(
+                    "客戶名稱", [""] + customer_choices,
+                    index=([""] + customer_choices).index(str(target_row["客戶名稱"])) if target_row is not None and str(target_row["客戶名稱"]) in customer_choices else 0,
+                )
+                c1, c2, c3, c4 = st.columns(4)
+                recipe_input = c1.selectbox(
+                    "配方編號", [""] + recipe_choices,
+                    index=([""] + recipe_choices).index(str(target_row["配方編號"])) if target_row is not None and str(target_row["配方編號"]) in recipe_choices else 0,
+                )
+                color_input = c2.text_input("顏色", value="" if target_row is None else str(target_row["顏色"]))
+                qty_input = c3.number_input("數量", min_value=0.0, value=0.0 if target_row is None else float(target_row["數量"]), step=1.0)
+                units = ["g", "kg", "桶", "罐", "箱", "包"]
+                current_unit = "g" if target_row is None else str(target_row["單位"])
+                unit_input = c4.selectbox("單位", units, index=units.index(current_unit) if current_unit in units else 0)
+                note_input = st.text_input("備註", value="" if target_row is None else str(target_row["備註"]))
+                submitted = st.form_submit_button(f"✅ 執行{action_mode}")
 
-                recipe_no_preview = (recipe_manual.strip() or ("" if recipe_from_dropdown == "（請選擇）" else recipe_from_dropdown.strip()))
-                recipe_color_map = {}
-                df_recipe_for_color = st.session_state.get("df_recipe", pd.DataFrame()).copy()
-                if not df_recipe_for_color.empty and "配方編號" in df_recipe_for_color.columns:
-                    color_col = "顏色" if "顏色" in df_recipe_for_color.columns else ("色號" if "色號" in df_recipe_for_color.columns else None)
-                    if color_col:
-                        for _, rec in df_recipe_for_color.iterrows():
-                            rid_raw = str(rec.get("配方編號", "")).strip()
-                            rid_norm = fix_leading_zero(clean_powder_id(rid_raw))
-                            cval = str(rec.get(color_col, "")).strip()
-                            if cval:
-                                if rid_raw and rid_raw not in recipe_color_map:
-                                    recipe_color_map[rid_raw] = cval
-                                if rid_norm and rid_norm not in recipe_color_map:
-                                    recipe_color_map[rid_norm] = cval
-
-                recipe_no_norm = fix_leading_zero(clean_powder_id(recipe_no_preview)) if recipe_no_preview else ""
-                auto_color = recipe_color_map.get(recipe_no_preview, "") or recipe_color_map.get(recipe_no_norm, "")
-                color_default = "" if target_row is None else str(target_row.get("顏色", ""))
-                if action_mode == "新增" and auto_color:
-                    color_default = auto_color
-
-                st.markdown("<div style='font-size:12px; color:#9fb6cc;'>庫存資訊</div>", unsafe_allow_html=True)
-                r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-                color_input = r2c1.text_input("顏色", value=color_default, help="若配方已存在且有顏色資料，新增模式會自動帶入。")
-                qty_input = r2c2.number_input("數量", min_value=0.0, value=float(target_row.get("數量", 0) or 0) if target_row is not None else 0.0, step=1.0)
-                unit_input = r2c3.selectbox("單位", ["g", "kg", "桶", "罐", "箱", "包"], index=["g", "kg", "桶", "罐", "箱", "包"].index(str(target_row.get("單位", "g"))) if target_row is not None and str(target_row.get("單位", "g")) in ["g", "kg", "桶", "罐", "箱", "包"] else 0)
-                note_input = r2c4.text_input("備註", value="" if target_row is None else str(target_row.get("備註", "")))
-
-                submit_action = st.form_submit_button(f"✅ 執行{action_mode}")
-
-            customer_name = (customer_manual.strip() or ("" if customer_from_dropdown == "（請選擇）" else customer_from_dropdown.strip()))
-            recipe_no = (recipe_manual.strip() or ("" if recipe_from_dropdown == "（請選擇）" else recipe_from_dropdown.strip()))
-
-            if submit_action:
-                if action_mode == "刪除":
-                    if target_row is None or target_idx < 0:
-                        st.warning("⚠️ 請先選擇要刪除的資料。")
-                        st.toast("請先選擇要刪除的資料", icon="⚠️")
+            if submitted:
+                try:
+                    if action_mode == "封存":
+                        if target_row is None:
+                            raise CustomerInventoryError("請先選擇要封存的資料")
+                        archive_customer_inventory_record(
+                            DATABASE_CONFIG, target_row["_sync_id"], reason="使用者從個別客戶庫存封存",
+                        )
+                        st.success("已封存；Turso 保留歷史，Sheet 副本將由 outbox 移除。")
                     else:
-                        row_no = target_idx + 2
-                        ws_customer_stock.delete_rows(row_no)
-                        invalidate_sheet_cache("個別客戶庫存")
-                        st.session_state["_cust_stock_flash"] = {
-                            "level": "success",
-                            "msg": f"✅ 已刪除第 {row_no} 列資料",
-                            "icon": "🗑️"
-                        }
-                        st.rerun()
-                else:
-                    if not customer_name or not recipe_no:
-                        st.warning("⚠️ 客戶名稱與配方編號為必填。")
-                        st.toast("客戶名稱與配方編號為必填", icon="⚠️")
-                    elif not color_input.strip():
-                        st.warning("⚠️ 顏色為必填。")
-                        st.toast("顏色為必填", icon="⚠️")
-                    else:
+                        if action_mode == "修改" and target_row is None:
+                            raise CustomerInventoryError("請先選擇要修改的資料")
                         now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        short_date = datetime.now().strftime("%m/%d")
-                        event_note = f"（{short_date}）新增{qty_input:g}{unit_input}"
-                        input_note = note_input.strip() if note_input.strip() else event_note
-                        payload = [customer_name, recipe_no, color_input.strip(), qty_input, unit_input, input_note, now_text, now_text]
-                        if action_mode == "新增":
-                            same_key_mask = (
-                                (df_customer_stock["客戶名稱"].astype(str).str.strip() == customer_name.strip()) &
-                                (df_customer_stock["配方編號"].astype(str).str.strip() == recipe_no.strip()) &
-                                (df_customer_stock["顏色"].astype(str).str.strip() == color_input.strip()) &
-                                (pd.to_numeric(df_customer_stock["數量"], errors="coerce").fillna(-1) == float(qty_input)) &
-                                (df_customer_stock["單位"].astype(str).str.strip() == unit_input.strip())
-                            )
-                            recent_dup_count = 0
-                            if same_key_mask.any() and "建立時間" in df_customer_stock.columns:
-                                recent_df = df_customer_stock.loc[same_key_mask].copy()
-                                recent_df["_dt"] = pd.to_datetime(recent_df["建立時間"], errors="coerce")
-                                recent_df = recent_df.dropna(subset=["_dt"])
-                                if not recent_df.empty:
-                                    latest_dup_dt = recent_df["_dt"].max()
-                                    recent_dup_count = int((datetime.now() - latest_dup_dt.to_pydatetime()).total_seconds() <= 120)
-
-                            dup_confirm_key = f"_cust_stock_dup_confirm_{customer_name}|{recipe_no}|{color_input.strip()}|{qty_input}|{unit_input}"
-                            if recent_dup_count > 0 and st.session_state.get("_cust_stock_dup_pending") != dup_confirm_key:
-                                st.session_state["_cust_stock_dup_pending"] = dup_confirm_key
-                                st.warning("⚠️ 偵測到 2 分鐘內可能誤觸重覆儲存。若要繼續新增，請再按一次『✅ 執行新增』確認。")
-                                st.toast("偵測到短時間重覆儲存，請再次確認", icon="⚠️")
-                                st.stop()
-                            st.session_state.pop("_cust_stock_dup_pending", None)
-                            ws_customer_stock.append_row(payload)
-                            st.session_state["_cust_stock_flash"] = {
-                                "level": "success",
-                                "msg": f"✅ 已新增 {customer_name} / {recipe_no} 庫存資料",
-                                "icon": "✅"
-                            }
-                        else:
-                            if target_row is None or target_idx < 0:
-                                st.warning("⚠️ 請先選擇要修改的資料。")
-                                st.toast("請先選擇要修改的資料", icon="⚠️")
-                            else:
-                                row_no = target_idx + 2
-                                old_created = str(target_row.get("建立時間", "")).strip() if target_row is not None else ""
-                                payload[5] = input_note
-                                payload[6] = old_created or now_text
-                                ws_customer_stock.update(f"A{row_no}:H{row_no}", [payload])
-                                st.session_state["_cust_stock_flash"] = {
-                                    "level": "success",
-                                    "msg": f"✅ 已更新第 {row_no} 列資料",
-                                    "icon": "✏️"
-                                }
-                        invalidate_sheet_cache("個別客戶庫存")
-                        st.rerun()
+                        save_customer_inventory_record(DATABASE_CONFIG, {
+                            "_sync_id": "" if target_row is None else target_row["_sync_id"],
+                            "客戶名稱": customer_input, "配方編號": recipe_input,
+                            "顏色": color_input, "數量": qty_input, "單位": unit_input,
+                            "備註": note_input, "建立時間": "" if target_row is None else target_row["建立時間"],
+                            "更新時間": now_text,
+                        }, create=action_mode == "新增")
+                        st.success(f"已{action_mode}個別客戶庫存，並排入 Sheet outbox。")
+                    st.rerun()
+                except CustomerInventoryError as exc:
+                    st.error(str(exc))
 
         with subtab_query:
-            st.caption("ℹ️ 以客戶名稱為主體查詢，可搭配配方編號與顏色條件。")
-
-            with st.form("customer_stock_query_form"):
-                q1, q2, q3 = st.columns([2, 2, 2])
-                selected_recipes = q1.multiselect("配方編號（可多選）", options=recipe_choices)
-                customer_keyword = q2.text_input("客戶名稱搜尋", placeholder="例如：常勝")
-                color_keyword = q3.text_input("顏色搜尋", placeholder="例如：藍、黑、T9")
-                submit_query = st.form_submit_button("🔍 查詢")
-
-            if submit_query:
-                query_df = df_customer_stock.copy()
-                if selected_recipes:
-                    query_df = query_df[query_df["配方編號"].astype(str).isin(selected_recipes)]
-                if customer_keyword.strip():
-                    query_df = query_df[query_df["客戶名稱"].astype(str).str.contains(customer_keyword.strip(), case=False, na=False)]
-                if color_keyword.strip():
-                    query_df = query_df[query_df["顏色"].astype(str).str.contains(color_keyword.strip(), case=False, na=False)]
-
-                show_cols = ["客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "更新時間"]
-                if query_df.empty:
-                    render_empty_state("查無符合條件的個別客戶庫存資料")
-                    st.toast("查詢完成：0 筆資料", icon="ℹ️")
-                else:
-                    query_df["數量"] = pd.to_numeric(query_df["數量"], errors="coerce").fillna(0.0)
-                    query_df["更新時間_dt"] = pd.to_datetime(query_df["更新時間"], errors="coerce")
-                    query_df = query_df.sort_values("更新時間_dt", na_position="last")
-
-                    def _build_note(rows_df):
-                        chunks = []
-                        for _, r in rows_df.sort_values("更新時間_dt", na_position="last").iterrows():
-                            dt = r.get("更新時間_dt")
-                            d = dt.strftime("%m/%d") if pd.notna(dt) else "--/--"
-                            chunks.append(f"（{d}）新增{float(r.get('數量', 0)):g}{str(r.get('單位', '')).strip()}")
-                        return "，".join(chunks)
-
-                    agg_df = (
-                        query_df.groupby(["客戶名稱", "配方編號", "顏色", "單位"], dropna=False)
-                        .agg(
-                            數量=("數量", "sum"),
-                            備註=("備註", lambda s: ""),
-                            更新時間_dt=("更新時間_dt", "max")
-                        )
-                        .reset_index()
-                    )
-                    note_map = (
-                        query_df.groupby(["客戶名稱", "配方編號", "顏色", "單位"], dropna=False)
-                        .apply(_build_note)
-                        .reset_index(name="備註")
-                    )
-                    agg_df = agg_df.drop(columns=["備註"]).merge(note_map, on=["客戶名稱", "配方編號", "顏色", "單位"], how="left")
-                    agg_df["更新時間"] = agg_df["更新時間_dt"].dt.strftime("%Y-%m-%d %H:%M:%S").fillna("")
-                    agg_df = agg_df.sort_values(["客戶名稱", "配方編號", "顏色", "單位"]).reset_index(drop=True)
-                    st.dataframe(agg_df[show_cols], use_container_width=True, hide_index=True)
-                    st.toast(f"查詢完成：{len(agg_df)} 筆彙總資料", icon="✅")
+            q1, q2, q3 = st.columns(3)
+            selected_recipes = q1.multiselect("配方編號（可多選）", recipe_choices)
+            customer_keyword = q2.text_input("客戶名稱搜尋")
+            color_keyword = q3.text_input("顏色搜尋")
+            query_df = df_customer_stock.copy()
+            if selected_recipes:
+                query_df = query_df[query_df["配方編號"].isin(selected_recipes)]
+            if customer_keyword.strip():
+                query_df = query_df[query_df["客戶名稱"].str.contains(customer_keyword.strip(), case=False, na=False)]
+            if color_keyword.strip():
+                query_df = query_df[query_df["顏色"].str.contains(color_keyword.strip(), case=False, na=False)]
+            if query_df.empty:
+                render_empty_state("查無符合條件的個別客戶庫存資料")
             else:
-                st.caption("請先設定查詢條件後按下「🔍 查詢」。")
+                summary = (query_df.groupby(["客戶名稱", "配方編號", "顏色", "單位"], as_index=False)
+                           .agg(數量=("數量", "sum"), 備註=("備註", lambda values: "，".join(v for v in map(str, values) if v.strip())),
+                                更新時間=("更新時間", "max")))
+                st.dataframe(summary, use_container_width=True, hide_index=True)
 
-   
     # ====================================================================
     # Tab 6：色母庫存查詢（修復版）
     # ====================================================================
@@ -10879,22 +10641,11 @@ elif menu == "洗車廠庫存":
     </style>
     """, unsafe_allow_html=True)
 
+    st.caption("ℹ️ Turso 是洗車廠庫存正式資料來源；Google Sheet 僅為同步副本。")
     carwash_headers = [
         "類型", "初始庫存日期", "初始數量", "貨品編號", "入庫日期", "出庫日期",
-        "數量", "單位", "登記人", "備註"
+        "數量", "單位", "登記人", "備註", "_sync_id"
     ]
-
-    try:
-        ws_carwash = get_cached_worksheet("洗車廠庫存")
-    except Exception:
-        ws_carwash = spreadsheet.add_worksheet("洗車廠庫存", rows=1000, cols=16)
-        ws_carwash.append_row(carwash_headers)
-        invalidate_sheet_cache("洗車廠庫存")
-
-    if "carwash_need_reload" not in st.session_state:
-        st.session_state.carwash_need_reload = False
-
-    reload_carwash = st.session_state.pop("carwash_need_reload", False)
 
     if st.session_state.get("carwash_toast"):
         st.toast(
@@ -10903,16 +10654,15 @@ elif menu == "洗車廠庫存":
         )
         st.session_state.pop("carwash_toast", None)
 
-    try:
-        df_carwash = get_cached_sheet_df("洗車廠庫存", force_reload=reload_carwash)
-    except Exception:
-        df_carwash = pd.DataFrame(columns=carwash_headers)
-
-    for col in carwash_headers:
-        if col not in df_carwash.columns:
-            df_carwash[col] = ""
-
-    df_carwash = df_carwash[carwash_headers].fillna("")
+    df_carwash = pd.DataFrame([{
+        "類型": item["movement_type"], "初始庫存日期": item["initial_date"] or "",
+        "初始數量": item["initial_quantity"] if item["initial_quantity"] is not None else "",
+        "貨品編號": item["product_id"], "入庫日期": item["inbound_date"] or "",
+        "出庫日期": item["outbound_date"] or "",
+        "數量": item["quantity"] if item["quantity"] is not None else "",
+        "單位": item["unit"], "登記人": item["registrar"] or "",
+        "備註": item["notes"] or "", "_sync_id": item["movement_id"],
+    } for item in list_carwash_inventory_movements(DATABASE_CONFIG)], columns=carwash_headers).fillna("")
 
     def _to_date(s):
         return pd.to_datetime(s, errors="coerce").date() if str(s).strip() else None
@@ -10933,12 +10683,7 @@ elif menu == "洗車廠庫存":
             return False
         return (cur_norm in ex_norm) or (ex_norm in cur_norm)
 
-    def _save_carwash_df(df_to_save):
-        upload_df = df_to_save.copy().fillna("")
-        ws_carwash.clear()
-        ws_carwash.update([carwash_headers] + upload_df[carwash_headers].astype(str).values.tolist())
-        invalidate_sheet_cache("洗車廠庫存")
-        st.session_state.carwash_need_reload = True
+
 
     tab_c1, tab_c2, tab_c3, tab_c4 = st.tabs([
         "洗車廠初始庫存",
@@ -10977,12 +10722,11 @@ elif menu == "洗車廠庫存":
                 )
                 if st.session_state.get(zero_confirm_key) == expected_signature:
                     st.session_state.pop(zero_confirm_key, None)
-                    safe_append_row(ws_carwash, [
-                        "初始庫存", init_date.strftime("%Y-%m-%d"), init_qty, product_id,
-                        "", "", "", init_unit, registrar, note
-                    ])
-                    invalidate_sheet_cache("洗車廠庫存")
-                    st.session_state.carwash_need_reload = True
+                    save_carwash_inventory_movement(DATABASE_CONFIG, {
+                        "類型": "初始庫存", "初始庫存日期": init_date.strftime("%Y-%m-%d"),
+                        "初始數量": init_qty, "貨品編號": product_id, "單位": init_unit,
+                        "登記人": registrar, "備註": note,
+                    }, create=True)
                     st.session_state["carwash_toast"] = {
                         "msg": f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}",
                         "icon": "📦"
@@ -10993,12 +10737,11 @@ elif menu == "洗車廠庫存":
                     st.warning("⚠️ 數量為 0，請再次按下「💾 儲存初始庫存」確認資料無誤。")
                     st.stop()
             else:
-                safe_append_row(ws_carwash, [
-                    "初始庫存", init_date.strftime("%Y-%m-%d"), init_qty, product_id,
-                    "", "", "", init_unit, registrar, note
-                ])
-                invalidate_sheet_cache("洗車廠庫存")
-                st.session_state.carwash_need_reload = True
+                save_carwash_inventory_movement(DATABASE_CONFIG, {
+                    "類型": "初始庫存", "初始庫存日期": init_date.strftime("%Y-%m-%d"),
+                    "初始數量": init_qty, "貨品編號": product_id, "單位": init_unit,
+                    "登記人": registrar, "備註": note,
+                }, create=True)
                 st.session_state["carwash_toast"] = {
                     "msg": f"✅ 已儲存 {product_id} 初始庫存：{init_qty} {init_unit}",
                     "icon": "📦"
@@ -11063,14 +10806,12 @@ elif menu == "洗車廠庫存":
                         )
                         st.stop()
                 st.session_state.pop(confirm_key, None)
-                safe_append_row(ws_carwash, [
-                    io_type, "", "", io_product_id,
-                    in_date.strftime("%Y-%m-%d")  if io_type == "入庫" else "",
-                    out_date.strftime("%Y-%m-%d") if io_type == "出庫" else "",
-                    io_qty, io_unit, io_registrar, io_note
-                ])
-                invalidate_sheet_cache("洗車廠庫存")
-                st.session_state.carwash_need_reload = True
+                save_carwash_inventory_movement(DATABASE_CONFIG, {
+                    "類型": io_type, "貨品編號": io_product_id,
+                    "入庫日期": in_date.strftime("%Y-%m-%d") if io_type == "入庫" else "",
+                    "出庫日期": out_date.strftime("%Y-%m-%d") if io_type == "出庫" else "",
+                    "數量": io_qty, "單位": io_unit, "登記人": io_registrar, "備註": io_note,
+                }, create=True)
 
                 transfer_note = ""
                 if io_type == "出庫" and transfer_to_stock:
@@ -11424,19 +11165,12 @@ elif menu == "洗車廠庫存":
                     if not edit_product_id:
                         st.warning("⚠️ 貨品編號不可空白")
                     else:
-                        sheet_idx = int(selected_init_row["sheet_idx"])
-                        df_carwash.loc[sheet_idx, "類型"] = "初始庫存"
-                        df_carwash.loc[sheet_idx, "初始庫存日期"] = edit_init_date.strftime("%Y-%m-%d")
-                        df_carwash.loc[sheet_idx, "初始數量"] = edit_init_qty
-                        df_carwash.loc[sheet_idx, "貨品編號"] = edit_product_id
-                        df_carwash.loc[sheet_idx, "入庫日期"] = ""
-                        df_carwash.loc[sheet_idx, "出庫日期"] = ""
-                        df_carwash.loc[sheet_idx, "數量"] = ""
-                        df_carwash.loc[sheet_idx, "單位"] = edit_init_unit
-                        df_carwash.loc[sheet_idx, "登記人"] = edit_registrar
-                        df_carwash.loc[sheet_idx, "備註"] = edit_note
-
-                        _save_carwash_df(df_carwash)
+                        save_carwash_inventory_movement(DATABASE_CONFIG, {
+                            "_sync_id": selected_init_row["_sync_id"], "類型": "初始庫存",
+                            "初始庫存日期": edit_init_date.strftime("%Y-%m-%d"),
+                            "初始數量": edit_init_qty, "貨品編號": edit_product_id,
+                            "單位": edit_init_unit, "登記人": edit_registrar, "備註": edit_note,
+                        }, create=False)
                         st.session_state["carwash_toast"] = {
                             "msg": f"✅ 已更新初始庫存：{edit_product_id}",
                             "icon": "🛠️"
@@ -11502,19 +11236,14 @@ elif menu == "洗車廠庫存":
                     elif edit_io_qty <= 0:
                         st.warning("⚠️ 數量需大於 0")
                     else:
-                        sheet_idx = int(selected_io_row["sheet_idx"])
-                        df_carwash.loc[sheet_idx, "類型"] = edit_io_type
-                        df_carwash.loc[sheet_idx, "初始庫存日期"] = ""
-                        df_carwash.loc[sheet_idx, "初始數量"] = ""
-                        df_carwash.loc[sheet_idx, "貨品編號"] = edit_io_product_id
-                        df_carwash.loc[sheet_idx, "入庫日期"] = edit_io_in_date.strftime("%Y-%m-%d") if edit_io_type == "入庫" else ""
-                        df_carwash.loc[sheet_idx, "出庫日期"] = edit_io_out_date.strftime("%Y-%m-%d") if edit_io_type == "出庫" else ""
-                        df_carwash.loc[sheet_idx, "數量"] = edit_io_qty
-                        df_carwash.loc[sheet_idx, "單位"] = edit_io_unit
-                        df_carwash.loc[sheet_idx, "登記人"] = edit_io_registrar
-                        df_carwash.loc[sheet_idx, "備註"] = edit_io_note
-
-                        _save_carwash_df(df_carwash)
+                        save_carwash_inventory_movement(DATABASE_CONFIG, {
+                            "_sync_id": selected_io_row["_sync_id"], "類型": edit_io_type,
+                            "貨品編號": edit_io_product_id,
+                            "入庫日期": edit_io_in_date.strftime("%Y-%m-%d") if edit_io_type == "入庫" else "",
+                            "出庫日期": edit_io_out_date.strftime("%Y-%m-%d") if edit_io_type == "出庫" else "",
+                            "數量": edit_io_qty, "單位": edit_io_unit,
+                            "登記人": edit_io_registrar, "備註": edit_io_note,
+                        }, create=False)
                         st.session_state["carwash_toast"] = {
                             "msg": f"✅ 已更新{edit_io_type}記錄：{edit_io_product_id}",
                             "icon": "🛠️"
@@ -11560,43 +11289,16 @@ if menu == "試色記錄分析":
     trial_cols = TRIAL_COLS
     materials = TRIAL_MATERIALS
 
-    try:
-        ws_trial = get_cached_worksheet("試色登錄")
-    except Exception:
-        ws_trial = spreadsheet.add_worksheet("試色登錄", rows=1000, cols=20)
-        ws_trial.append_row(trial_cols)
-        invalidate_sheet_cache("試色登錄")
-
-    df_trial = get_cached_sheet_df("試色登錄")
+    st.caption("ℹ️ Turso 是試色登錄正式資料來源；Google Sheet 僅為同步副本。")
+    df_trial = trial_dataframe()
     if df_trial.empty:
         df_trial = pd.DataFrame(columns=trial_cols)
     for c in trial_cols:
         if c not in df_trial.columns:
             df_trial[c] = ""
 
-    # 試色分析參數（可由 UI 維護）
-    param_defaults = {
-        "收費門檻百分比": "20",
-        "最小樣本數": "10",
-        "未採購追蹤天數": "30",
-    }
-    try:
-        ws_params = get_cached_worksheet("試色參數")
-    except Exception:
-        ws_params = spreadsheet.add_worksheet("試色參數", rows=50, cols=5)
-        ws_params.append_row(["參數", "值", "更新時間"])
-        for k, v in param_defaults.items():
-            ws_params.append_row([k, v, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-        invalidate_sheet_cache("試色參數")
-
-    df_params = get_cached_sheet_df("試色參數")
-    param_map = param_defaults.copy()
-    if not df_params.empty and "參數" in df_params.columns and "值" in df_params.columns:
-        for _, r in df_params.iterrows():
-            k = str(r.get("參數", "")).strip()
-            v = str(r.get("值", "")).strip()
-            if k:
-                param_map[k] = v
+    # 試色分析參數同樣由 Turso 保存，不再直接寫入試色參數 Sheet。
+    param_map = get_trial_settings(DATABASE_CONFIG)
 
     threshold_default = int(float(param_map.get("收費門檻百分比", "20") or 20))
     min_samples_default = int(float(param_map.get("最小樣本數", "10") or 10))
@@ -11608,15 +11310,15 @@ if menu == "試色記錄分析":
         pending_msgs = st.session_state.pop("trial_accounting_reminders", [])
         for _msg in pending_msgs:
             st.warning(_msg)
-            st.toast("請確認是否已有實際採購（目前未串會計）", icon="🧾")
+            st.toast("請確認這筆試色是否已轉成正式訂單", icon="🧾")
 
-        t1, t2 = st.tabs(["新增", "採購登入"])
+        t1, t2, t3 = st.tabs(["新增", "轉單確認", "封存／恢復"])
         with t1:
             with st.form("trial_add_form"):
                 c1, c2, c3 = st.columns(3)
                 formula_code = c1.text_input("配方編號").strip().upper()
 
-                cust_df_form = get_cached_sheet_df("客戶名單")
+                cust_df_form = customer_dataframe()
                 if not cust_df_form.empty:
                     cust_df_form.columns = cust_df_form.columns.astype(str).str.strip()
 
@@ -11655,10 +11357,10 @@ if menu == "試色記錄分析":
                 trial_date = c3.date_input("試色日期")
                 c4, c5, c6, c7, c8 = st.columns(5)
                 material = c4.selectbox("原料", materials)
-                purchased = c5.selectbox("已採購", ["否", "是"])
+                purchased = c5.selectbox("已轉單", ["否", "是"])
                 date_precision = c6.selectbox("日期精度", ["精確", "僅年度"], index=0)
                 backfill = c7.selectbox("歷史補登", ["否", "是"], index=0, help="歷史補登建議日期填該年度 1/1")
-                purchase_date = c8.date_input("採購日期", disabled=(purchased != "是"), key="trial_purchase_date")
+                purchase_date = c8.date_input("轉單日期", disabled=(purchased != "是"), key="trial_purchase_date")
                 submitted = st.form_submit_button("💾 新增試色")
 
             if material in df_trial["原料"].values:
@@ -11678,9 +11380,9 @@ if menu == "試色記錄分析":
                     if not recipe_df_check.empty and "配方編號" in recipe_df_check.columns:
                         existing_recipe_codes = set(recipe_df_check["配方編號"].astype(str).map(clean_powder_id))
                         if clean_powder_id(formula_code) in existing_recipe_codes:
-                            st.warning(f"配方 {formula_code} 已存在於配方管理，請先確認是否要登錄為已採購。")
-                            st.toast("已在配方管理找到同編號，請人工確認採購狀態", icon="⚠️")
-                    cust_df = get_cached_sheet_df("客戶名單")
+                            st.warning(f"配方 {formula_code} 已存在於配方管理，請先確認是否要登錄為已轉單。")
+                            st.toast("已在配方管理找到同編號，請人工確認轉單狀態", icon="⚠️")
+                    cust_df = customer_dataframe()
                     cust_name = customer_name_from_input
                     if not cust_name and not cust_df.empty and "客戶編號" in cust_df.columns and "客戶名稱" in cust_df.columns:
                         hit = cust_df[cust_df["客戶編號"].astype(str).str.strip() == customer_id]
@@ -11701,45 +11403,78 @@ if menu == "試色記錄分析":
                         "建立時間": now_text,
                         "更新時間": now_text,
                     }
-                    header_vals = get_cached_sheet_values("試色登錄", force_reload=True)
-                    headers = header_vals[0] if header_vals else trial_cols
-                    row = [record.get(h, "") for h in headers]
-                    safe_append_row(ws_trial, row)
-                    st.toast(f"已新增試色記錄：{formula_code}", icon="✅")
-                    st.session_state.need_reload_sheet = "試色登錄"
-                    st.rerun()
+                    try:
+                        create_trial_record(DATABASE_CONFIG, record)
+                        st.toast(f"已新增試色記錄：{formula_code}", icon="✅")
+                        st.rerun()
+                    except TrialError as exc:
+                        st.error(str(exc))
 
         with t2:
             t2c1, t2c2 = st.columns(2)
-            code_update = t2c1.text_input("要標記採購的配方編號").strip().upper()
-            manual_date = t2c2.date_input("採購日期", key="manual_purchase_date")
-            if st.button("✅ 採購登入", use_container_width=True):
-                vals = get_cached_sheet_values("試色登錄", force_reload=True)
-                if len(vals) <= 1:
-                    st.warning("目前沒有試色資料")
-                else:
-                    headers = vals[0]
-                    code_idx = headers.index("配方編號") + 1
-                    purchased_idx = headers.index("已採購") + 1
-                    date_idx = headers.index("採購日期") + 1
-                    updated = False
-                    for i, r in enumerate(vals[1:], start=2):
-                        if code_idx-1 < len(r) and str(r[code_idx-1]).strip().upper() == code_update:
-                            safe_update_cell(ws_trial, i, purchased_idx, "是")
-                            safe_update_cell(ws_trial, i, date_idx, manual_date.strftime("%Y-%m-%d"))
-                            updated = True
-                            break
-                    invalidate_sheet_cache("試色登錄")
-                    if updated:
-                        st.toast(f"已登入採購：{code_update}", icon="🧾")
-                        st.info("提醒：請確認這筆是否為實際採購（目前未串會計模組）。")
-                    else:
-                        st.warning("找不到該配方編號"); st.toast("採購登入失敗：找不到配方", icon="⚠️")
+            code_update = t2c1.text_input("要確認轉單的配方編號").strip().upper()
+            manual_date = t2c2.date_input("轉單日期", key="manual_purchase_date")
+            if st.button("✅ 確認轉單", use_container_width=True):
+                try:
+                    mark_trial_purchased(DATABASE_CONFIG, code_update, manual_date.strftime("%Y-%m-%d"))
+                    st.toast(f"已確認轉單：{code_update}", icon="🧾")
+                    st.info("已將這筆試色標記為客戶已轉單。")
+                    st.rerun()
+                except TrialError as exc:
+                    st.warning(str(exc)); st.toast("轉單確認失敗", icon="⚠️")
+
+        with t3:
+            st.caption("封存會從 Sheet 副本移除資料，但 Turso 永久保留歷史；需要時可受控恢復。")
+            lifecycle_df = trial_dataframe(include_inactive=True)
+            active_trials = lifecycle_df[lifecycle_df["生命週期"] == "active"]
+            inactive_trials = lifecycle_df[lifecycle_df["生命週期"] == "inactive"]
+            archive_col, restore_col = st.columns(2)
+            with archive_col:
+                st.markdown("#### 封存有效記錄")
+                archive_options = [""] + active_trials["_sync_id"].tolist()
+                archive_id = st.selectbox(
+                    "選擇要封存的試色記錄", archive_options, key="trial_archive_id",
+                    format_func=lambda value: "（請選擇）" if not value else (
+                        lambda row: f"{row['配方編號']}｜{row['客戶名稱']}｜{row['試色日期']}"
+                    )(active_trials[active_trials["_sync_id"] == value].iloc[0]),
+                )
+                archive_reason = st.text_input("封存原因", key="trial_archive_reason")
+                archive_confirmation = st.text_input("請輸入 ARCHIVE", key="trial_archive_confirmation")
+                if st.button(
+                    "封存試色記錄", key="trial_archive_button", type="primary",
+                    disabled=not archive_id or not archive_reason.strip() or archive_confirmation.strip() != "ARCHIVE",
+                ):
+                    try:
+                        archive_trial_record(DATABASE_CONFIG, archive_id, reason=archive_reason)
+                        st.toast("試色記錄已封存", icon="🗄️")
+                        st.rerun()
+                    except TrialError as exc:
+                        st.error(str(exc))
+            with restore_col:
+                st.markdown("#### 恢復封存記錄")
+                restore_options = [""] + inactive_trials["_sync_id"].tolist()
+                restore_id = st.selectbox(
+                    "選擇要恢復的試色記錄", restore_options, key="trial_restore_id",
+                    format_func=lambda value: "（請選擇）" if not value else (
+                        lambda row: f"{row['配方編號']}｜{row['客戶名稱']}｜{row['停用原因']}"
+                    )(inactive_trials[inactive_trials["_sync_id"] == value].iloc[0]),
+                )
+                restore_confirmation = st.text_input("請輸入 RESTORE", key="trial_restore_confirmation")
+                if st.button(
+                    "恢復試色記錄", key="trial_restore_button",
+                    disabled=not restore_id or restore_confirmation.strip() != "RESTORE",
+                ):
+                    try:
+                        restore_trial_record(DATABASE_CONFIG, restore_id)
+                        st.toast("試色記錄已恢復", icon="♻️")
+                        st.rerun()
+                    except TrialError as exc:
+                        st.error(str(exc))
 
     with sub2:
         st.markdown("<div style='background:#141a22;border:1px solid #2f3c4d;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;color:#9aa4b2;'>分析視圖（精簡版）：可依日期區間與客戶篩選，並切換是否納入歷史補登資料。</div>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([2,1,1])
-        cust_df_q = get_cached_sheet_df("客戶名單")
+        cust_df_q = customer_dataframe()
         cust_opts_q = [""]
         if not cust_df_q.empty and "客戶編號" in cust_df_q.columns:
             name_col_q = "客戶簡稱" if "客戶簡稱" in cust_df_q.columns else ("客戶名稱" if "客戶名稱" in cust_df_q.columns else None)
@@ -11751,7 +11486,7 @@ if menu == "試色記錄分析":
                         cust_opts_q.append(f"{cid} - {cn}" if cn else cid)
         selected_q_customer = c1.selectbox("客戶（可輸入編號或名稱搜尋）", cust_opts_q, index=0, key="analysis_customer_select")
         keyword = selected_q_customer.split(" - ",1)[0].strip() if selected_q_customer else ""
-        dfv_seed = get_cached_sheet_df("試色登錄")
+        dfv_seed = df_trial.copy()
         if not dfv_seed.empty and "試色日期" in dfv_seed.columns:
             seed_dates = pd.to_datetime(dfv_seed["試色日期"], errors="coerce").dropna()
             if len(seed_dates) > 0:
@@ -11769,8 +11504,8 @@ if menu == "試色記錄分析":
         c3.caption(f"預設區間：{default_start} ~ {default_end}")
         include_backfill = st.toggle("分析包含歷史補登", value=True)
 
-        dfv = get_cached_sheet_df("試色登錄")
-        rec_csv_df = pd.DataFrame(columns=["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色採購比例", "多次修色比例", "建議收費"])
+        dfv = df_trial.copy()
+        rec_csv_df = pd.DataFrame(columns=["客戶顯示", "試色次數", "轉單筆數", "主配方數", "已轉單主配方數", "試色轉單率", "多次修色比例", "建議收費"])
         seg_csv = "".encode("utf-8-sig")
         pending_df = pd.DataFrame()
         show = pd.DataFrame()
@@ -11803,11 +11538,11 @@ if menu == "試色記錄分析":
             k0, k1, k2, k3, k4 = st.columns(5)
             k0.metric("試色配方數", trial_recipe_count)
             k1.metric("試色次數", trial_count)
-            k2.metric("採購筆數", purchase_count)
-            k3.metric("試色採購比例", f"{(purchase_count/trial_recipe_count*100):.1f}%" if trial_recipe_count else "0%")
+            k2.metric("轉單筆數", purchase_count)
+            k3.metric("試色轉單率", f"{(purchase_count/trial_recipe_count*100):.1f}%" if trial_recipe_count else "0%")
             k4.metric("多次修色比例", f"{group_ratio:.1f}%")
             st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色採購比例＝採購筆數 ÷ 試色配方數。ⓘ 多次修色比例＝有 A/B 等族群的主配方數 ÷ 試色配方數。</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色轉單率＝轉單筆數 ÷ 試色配方數。ⓘ 多次修色比例＝有 A/B 等族群的主配方數 ÷ 試色配方數。</div>", unsafe_allow_html=True)
 
             dup_groups = dfv.groupby("主配方編號").size().reset_index(name="試色次數")
             dup_groups = dup_groups[dup_groups["試色次數"] > 1]
@@ -11818,14 +11553,14 @@ if menu == "試色記錄分析":
                 with st.expander("族群明細", expanded=False):
                     render_paginated_df(grp_tbl, "trial_grouped", page_size=5)
 
-            st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別轉單率</div>", unsafe_allow_html=True)
             mat = dfv.groupby("原料").agg(
                 試色筆數=("配方編號","count"),
                 試色配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
-                採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())
+                轉單筆數=("已採購", lambda x: (x.astype(str)=="是").sum())
             ).reset_index()
-            mat["採購比例數值"] = (mat["採購筆數"] / mat["試色筆數"] * 100).fillna(0)
-            mat["採購比例"] = mat["採購比例數值"].round(1).astype(str) + "%"
+            mat["轉單率數值"] = (mat["轉單筆數"] / mat["試色筆數"] * 100).fillna(0)
+            mat["轉單率"] = mat["轉單率數值"].round(1).astype(str) + "%"
             pie_df = mat[mat["試色筆數"] > 0].copy()
             if not pie_df.empty:
                 st.vega_lite_chart(
@@ -11843,8 +11578,8 @@ if menu == "試色記錄分析":
                                 {"field": "原料", "type": "nominal"},
                                 {"field": "試色筆數", "type": "quantitative"},
                                 {"field": "試色配方數", "type": "quantitative"},
-                                {"field": "採購筆數", "type": "quantitative"},
-                                {"field": "採購比例", "type": "nominal"}
+                                {"field": "轉單筆數", "type": "quantitative"},
+                                {"field": "轉單率", "type": "nominal"}
                             ],
                         },
                     },
@@ -11852,10 +11587,10 @@ if menu == "試色記錄分析":
                 )
             st.markdown(f"<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色配方數：{trial_recipe_count}（族群視為同一配方）。</div>", unsafe_allow_html=True)
             with st.expander("查看原料別表格", expanded=False):
-                render_paginated_df(mat[["原料","試色筆數","試色配方數","採購筆數","採購比例"]], "trial_mat", page_size=5)
+                render_paginated_df(mat[["原料","試色筆數","試色配方數","轉單筆數","轉單率"]], "trial_mat", page_size=5)
 
             with st.expander("追蹤清單（含篩選與明細）", expanded=False):
-                show_purchased = st.toggle("是否顯示已採購", value=False, key="trial_show_purchased")
+                show_purchased = st.toggle("是否顯示已轉單", value=False, key="trial_show_purchased")
                 track_df = dfv.copy()
                 if not show_purchased:
                     track_df = track_df[track_df["已採購"].astype(str) != "是"]
@@ -11876,7 +11611,11 @@ if menu == "試色記錄分析":
                 if pending_df.empty:
                     st.caption("目前沒有符合條件的資料。")
                 else:
-                    render_paginated_df(pending_df[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], "trial_detail", page_size=5)
+                    render_paginated_df(
+                        pending_df[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]]
+                        .rename(columns={"已採購": "已轉單", "採購日期": "轉單日期"}),
+                        "trial_detail", page_size=5,
+                    )
 
 
             with st.expander("客戶月趨勢（近12月）", expanded=False):
@@ -11885,12 +11624,12 @@ if menu == "試色記錄分析":
                 monthly = trend_df.groupby("月份").agg(
                     試色配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
                     試色次數=("配方編號", "count"),
-                    採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum()),
+                    轉單筆數=("已採購", lambda x: (x.astype(str)=="是").sum()),
                 ).reset_index().sort_values("月份").tail(12)
-                monthly["試色採購比例"] = (monthly["採購筆數"] / monthly["試色配方數"] * 100).fillna(0)
+                monthly["試色轉單率"] = (monthly["轉單筆數"] / monthly["試色配方數"] * 100).fillna(0)
 
                 if not monthly.empty:
-                    bar_long = monthly.melt(id_vars=["月份"], value_vars=["試色配方數","採購筆數"], var_name="指標", value_name="數值")
+                    bar_long = monthly.melt(id_vars=["月份"], value_vars=["試色配方數","轉單筆數"], var_name="指標", value_name="數值")
                     mc1, mc2 = st.columns([2, 1.4])
                     with mc1:
                         st.vega_lite_chart(
@@ -11915,8 +11654,8 @@ if menu == "試色記錄分析":
                                 "mark": {"type": "line", "point": True},
                                 "encoding": {
                                     "x": {"field": "月份", "type": "ordinal", "axis": {"labelAngle": -25}},
-                                    "y": {"field": "試色採購比例", "type": "quantitative"},
-                                    "tooltip": [{"field":"月份"},{"field":"試色採購比例"}],
+                                    "y": {"field": "試色轉單率", "type": "quantitative"},
+                                    "tooltip": [{"field":"月份"},{"field":"試色轉單率"}],
                                 },
                                 "height": 260,
                             },
@@ -11929,14 +11668,14 @@ if menu == "試色記錄分析":
                 seg.loc[seg["客戶顯示"] == "", "客戶顯示"] = seg["客戶編號"].astype(str).str.strip()
                 seg_stats = seg.groupby("客戶顯示", dropna=False).agg(
                     試色配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
-                    採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())
+                    轉單筆數=("已採購", lambda x: (x.astype(str)=="是").sum())
                 ).reset_index()
-                seg_stats["試色採購比例"] = (seg_stats["採購筆數"] / seg_stats["試色配方數"] * 100).fillna(0)
+                seg_stats["試色轉單率"] = (seg_stats["轉單筆數"] / seg_stats["試色配方數"] * 100).fillna(0)
 
                 def _tier(r):
-                    if r["試色配方數"] >= 10 and r["試色採購比例"] >= 40:
+                    if r["試色配方數"] >= 10 and r["試色轉單率"] >= 40:
                         return "A"
-                    if r["試色配方數"] >= 5 and r["試色採購比例"] >= 20:
+                    if r["試色配方數"] >= 5 and r["試色轉單率"] >= 20:
                         return "B"
                     return "C"
 
@@ -11958,7 +11697,7 @@ if menu == "試色記錄分析":
                         },
                         use_container_width=True,
                     )
-                st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 客戶分層說明：A＝試色配方數≥10 且 試色採購比例≥40%；B＝試色配方數≥5 且 試色採購比例≥20%；其餘為 C。</div>", unsafe_allow_html=True)
+                st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 客戶分層說明：A＝試色配方數≥10 且 試色轉單率≥40%；B＝試色配方數≥5 且 試色轉單率≥20%；其餘為 C。</div>", unsafe_allow_html=True)
                 seg_csv = seg_stats.to_csv(index=False).encode("utf-8-sig")
 
             show = dfv.copy()
@@ -11967,25 +11706,29 @@ if menu == "試色記錄分析":
                     show[col] = ""
             show["試色日期"] = pd.to_datetime(show["試色日期"], errors="coerce").dt.strftime("%Y-%m-%d")
             show.loc[show["已採購"].astype(str) != "是", "採購日期"] = ""
-            csv = show.to_csv(index=False).encode("utf-8-sig")
-            pending_csv = pending_df.to_csv(index=False).encode("utf-8-sig") if not pending_df.empty else "".encode("utf-8-sig")
+            display_column_names = {"已採購": "已轉單", "採購日期": "轉單日期"}
+            csv = show.rename(columns=display_column_names).to_csv(index=False).encode("utf-8-sig")
+            pending_csv = (
+                pending_df.rename(columns=display_column_names).to_csv(index=False).encode("utf-8-sig")
+                if not pending_df.empty else "".encode("utf-8-sig")
+            )
             rec_csv = rec_csv_df.to_csv(index=False).encode("utf-8-sig")
             d1, d2, d3, d4 = st.columns(4)
             d1.download_button("匯出分析 CSV", data=csv, file_name=f"trial_analysis_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
-            d2.download_button("匯出未採購追蹤 CSV", data=pending_csv, file_name=f"trial_pending_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
+            d2.download_button("匯出未轉單追蹤 CSV", data=pending_csv, file_name=f"trial_pending_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
             d3.download_button("匯出客戶收費建議 CSV", data=rec_csv, file_name=f"trial_fee_recommendation_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
             d4.download_button("匯出客戶分層 CSV", data=seg_csv if 'seg_csv' in locals() else ''.encode('utf-8-sig'), file_name=f"trial_customer_tier_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
 
     with sub3:
-        st.markdown("<span style='color:#8a8a8a;font-size:11px;'>ⓘ 調整下列門檻後，會直接影響「記錄分析」中的收費建議與未採購追蹤名單。</span>", unsafe_allow_html=True)
+        st.markdown("<span style='color:#8a8a8a;font-size:11px;'>ⓘ 調整下列門檻後，會直接影響「記錄分析」中的收費建議與未轉單追蹤名單。</span>", unsafe_allow_html=True)
         with st.form("trial_param_form"):
             p1, p2, p3 = st.columns(3)
             fee_threshold = p1.slider("收費門檻百分比", min_value=0, max_value=100, value=threshold_default, step=1)
             p1.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 配方族群轉換率低於此百分比時，系統會建議評估收費。</span>", unsafe_allow_html=True)
             min_samples_ui = p2.number_input("最小樣本數", min_value=1, max_value=500, value=min_samples_default, step=1)
             p2.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 至少達到此試色筆數，才會觸發收費建議判斷。</span>", unsafe_allow_html=True)
-            pending_days_ui = p3.number_input("未採購追蹤天數", min_value=0, max_value=3650, value=pending_days_default, step=1)
-            p3.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 只顯示未採購且天數大於等於此值的追蹤資料。</span>", unsafe_allow_html=True)
+            pending_days_ui = p3.number_input("未轉單追蹤天數", min_value=0, max_value=3650, value=pending_days_default, step=1)
+            p3.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 只顯示未轉單且天數大於等於此值的追蹤資料。</span>", unsafe_allow_html=True)
             save_param = st.form_submit_button("💾 儲存參數")
 
         if save_param:
@@ -11996,14 +11739,11 @@ if menu == "試色記錄分析":
                 "未採購追蹤天數": str(int(pending_days_ui)),
             }
             try:
-                rows = [["參數", "值", "更新時間"]] + [[k, v, now_text] for k, v in updates.items()]
-                ws_params.clear()
-                ws_params.update("A1", rows)
-                invalidate_sheet_cache("試色參數")
+                save_trial_settings(DATABASE_CONFIG, updates)
                 st.toast("試色分析參數已更新", icon="⚙️")
                 st.rerun()
-            except Exception as e:
-                st.error(f"參數儲存失敗：{e}"); st.toast("參數儲存失敗", icon="❌")
+            except TrialError as exc:
+                st.error(f"參數儲存失敗：{exc}"); st.toast("參數儲存失敗", icon="❌")
 
 
 # ===== Turso / Google Sheets 唯讀同步檢查 =====
@@ -12061,10 +11801,16 @@ if st.session_state.menu == "同步檢查":
 
     completed_push = st.session_state.pop("sync_push_success", None)
     if completed_push:
-        st.success(
-            f"Turso → Sheet 推送完成：{completed_push['sheet_name']} 寫入 "
-            f"{completed_push['written']} 筆；驗證後 queued={completed_push['queued']}。"
-        )
+        if completed_push.get("already_delivered"):
+            st.success(
+                f"{completed_push['sheet_name']} 的事件已由排程 worker 或另一位管理者安全推送；"
+                "最新驗證 queued=0，不需要重複 PUSH。"
+            )
+        else:
+            st.success(
+                f"Turso → Sheet 推送完成：{completed_push['sheet_name']} 寫入 "
+                f"{completed_push['written']} 筆；驗證後 queued={completed_push['queued']}。"
+            )
 
     render_sync_section_title("同步 Conflict 管理")
     st.caption(
@@ -12665,6 +12411,137 @@ if st.session_state.menu == "同步檢查":
                     else:
                         st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
+    def render_outsourcing_push_section(sheet_name, sync_function, label):
+        """Render one guarded outsourcing outbox preflight/PUSH workflow."""
+        state_key = f"outsourcing_push_result_{sheet_name}"
+        render_sync_section_title(f"Turso → Sheet：{sheet_name} outbox")
+        st.caption(
+            f"{label}。所有寫入都會先比對 Sheet baseline；若 Sheet 已被人工修改，會阻擋並建立 conflict。"
+        )
+        if st.button(
+            f"檢查待推送{sheet_name}（唯讀）",
+            disabled=DATABASE_BACKEND != "turso",
+            key=f"outsourcing_push_dry_run_{sheet_name}",
+        ):
+            try:
+                latest_values = get_cached_sheet_values(sheet_name, force_reload=True)
+                st.session_state[state_key] = sync_function(
+                    get_cached_worksheet(sheet_name), latest_values,
+                    db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+                )
+            except Exception as exc:
+                st.session_state.pop(state_key, None)
+                st.error(f"{sheet_name} preflight 失敗：{type(exc).__name__}: {exc}")
+
+        push_result = st.session_state.get(state_key)
+        if push_result is None:
+            return
+        metrics = [
+            ("Queued", push_result.queued), ("新增至 Sheet", push_result.to_insert),
+            ("更新 Sheet", push_result.to_update), ("內容已一致", push_result.unchanged),
+            ("從 Sheet 移除", push_result.to_delete), ("Conflict", push_result.conflicts),
+            ("Errors", len(push_result.errors)),
+        ]
+        for column, (metric_label, value) in zip(st.columns(len(metrics)), metrics):
+            column.metric(metric_label, value)
+        if push_result.ok and push_result.queued:
+            st.success(f"{sheet_name} preflight 完成：待推送事件安全。")
+        elif push_result.ok:
+            st.info(f"目前沒有待推送的{sheet_name}事件。")
+        else:
+            st.warning(f"{sheet_name} preflight 發現 conflict 或 error；PUSH 已停用。")
+        for title, details in (("Errors", push_result.errors), ("Warnings", push_result.warnings)):
+            if details:
+                with st.expander(f"{sheet_name} {title}（{len(details)}）", expanded=title == "Errors"):
+                    for detail in details[:100]:
+                        st.code(str(detail), language=None)
+        if not push_result.ok or push_result.queued == 0:
+            return
+
+        required_confirmation = f"PUSH {sheet_name}"
+        confirmation = st.text_input(
+            f"請輸入 {required_confirmation}", key=f"outsourcing_push_confirmation_{sheet_name}"
+        )
+        if not st.button(
+            f"推送{sheet_name}到 Sheet", type="primary",
+            disabled=confirmation.strip() != required_confirmation,
+            key=f"outsourcing_push_apply_{sheet_name}",
+        ):
+            return
+        write_started = False
+        try:
+            worksheet = get_cached_worksheet(sheet_name)
+            latest_values = get_cached_sheet_values(sheet_name, force_reload=True)
+            preflight = sync_function(
+                worksheet, latest_values, db_config=DATABASE_CONFIG,
+                dry_run=True, initialize_schema=False,
+            )
+            if not preflight.ok:
+                st.session_state[state_key] = preflight
+                raise RuntimeError("最新 preflight 偵測到 conflict 或 error；推送已取消。")
+            if preflight.queued == 0:
+                # A scheduled worker or another administrator may have safely
+                # delivered the event after the displayed preflight. Treat that
+                # race as an idempotent success rather than a frightening error.
+                st.session_state[state_key] = preflight
+                st.session_state["sync_push_success"] = {
+                    "sheet_name": sheet_name, "written": 0, "queued": 0,
+                    "already_delivered": True,
+                }
+                st.rerun()
+            write_started = True
+            applied = sync_function(
+                worksheet, latest_values, db_config=DATABASE_CONFIG,
+                dry_run=False, initialize_schema=False,
+            )
+            if not applied.ok:
+                raise RuntimeError("推送期間偵測到 conflict 或 error。")
+            invalidate_sheet_cache(sheet_name)
+            verification = sync_function(
+                worksheet, get_cached_sheet_values(sheet_name, force_reload=True),
+                db_config=DATABASE_CONFIG, dry_run=True, initialize_schema=False,
+            )
+            if not verification.ok or verification.queued != 0:
+                raise RuntimeError("Sheet 已寫入，但驗證仍有 pending/conflict；請勿重按 PUSH。")
+            st.session_state[state_key] = verification
+            st.session_state["sync_push_success"] = {
+                "sheet_name": sheet_name, "written": applied.written, "queued": 0,
+            }
+            st.rerun()
+        except Exception as exc:
+            if write_started:
+                st.error(f"推送可能已部分寫入 Sheet；請勿重按，先重新唯讀檢查。錯誤：{type(exc).__name__}: {exc}")
+            else:
+                st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
+
+    render_outsourcing_push_section(
+        "客戶名單", sync_customer_outbox, "客戶編號是永久 ID，停用只移除 Sheet 副本"
+    )
+    render_outsourcing_push_section(
+        "Pantone色號表", sync_pantone_outbox, "配方編號是 Pantone 對照表永久 ID"
+    )
+    render_outsourcing_push_section(
+        "樣品記錄", sync_sample_outbox, "樣品編號是永久 ID，停用只移除 Sheet 副本"
+    )
+    render_outsourcing_push_section(
+        "個別客戶庫存", sync_customer_inventory_outbox, "_sync_id 是每筆庫存的永久 ID，封存只移除 Sheet 副本"
+    )
+    render_outsourcing_push_section(
+        "洗車廠庫存", sync_carwash_inventory_outbox, "_sync_id 是每筆初始／入／出庫 movement 的永久 ID"
+    )
+    render_outsourcing_push_section(
+        "試色登錄", sync_trial_outbox, "_sync_id 是每筆試色記錄的永久 ID"
+    )
+    render_outsourcing_push_section(
+        "代工管理", sync_outsourcing_order_outbox, "代工單號是永久 ID，停用只移除 Sheet 副本"
+    )
+    render_outsourcing_push_section(
+        "代工送達記錄", sync_outsourcing_delivery_outbox, "送達 ledger 使用永久 _sync_id"
+    )
+    render_outsourcing_push_section(
+        "代工載回記錄", sync_outsourcing_return_outbox, "載回 ledger 使用永久 _sync_id"
+    )
+
     st.divider()
     render_sync_section_title("Sheet → Turso")
 
@@ -12678,27 +12555,32 @@ if st.session_state.menu == "同步檢查":
     if sync_id_message:
         st.success(sync_id_message)
 
-    if selected_sync_sheet == "庫存記錄":
+    if selected_sync_sheet in {"庫存記錄", "個別客戶庫存", "洗車廠庫存", "試色登錄"}:
         with st.expander("準備庫存永久 _sync_id", expanded=True):
             st.caption(
                 "只會替有資料且 _sync_id 空白的列產生永久 ID；不修改既有 ID 或其他欄位。"
                 "排序、插列或移動資料後，這個 ID 仍保持不變。"
             )
             prepare_confirmation = st.text_input(
-                "請輸入 PREPARE 庫存記錄",
+                f"請輸入 PREPARE {selected_sync_sheet}",
                 key="inventory_sync_id_confirmation",
             )
             prepare_sync_ids = st.button(
                 "批次補齊空白 _sync_id",
-                disabled=prepare_confirmation.strip() != "PREPARE 庫存記錄",
+                disabled=prepare_confirmation.strip() != f"PREPARE {selected_sync_sheet}",
             )
             if prepare_sync_ids:
                 try:
                     with st.spinner("正在檢查並補齊庫存 _sync_id..."):
-                        inventory_values = get_cached_sheet_values("庫存記錄", force_reload=True)
+                        inventory_values = get_cached_sheet_values(selected_sync_sheet, force_reload=True)
+                        if inventory_values and "_sync_id" not in [str(v).strip() for v in inventory_values[0]]:
+                            inventory_ws = get_cached_worksheet(selected_sync_sheet)
+                            inventory_ws.update_cell(1, len(inventory_values[0]) + 1, "_sync_id")
+                            invalidate_sheet_cache(selected_sync_sheet)
+                            inventory_values = get_cached_sheet_values(selected_sync_sheet, force_reload=True)
                         id_updates = missing_inventory_sync_id_updates(inventory_values)
                         if id_updates:
-                            inventory_ws = get_cached_worksheet("庫存記錄")
+                            inventory_ws = get_cached_worksheet(selected_sync_sheet)
                             batch_size = 200
                             for start in range(0, len(id_updates), batch_size):
                                 batch = id_updates[start:start + batch_size]
@@ -12712,7 +12594,7 @@ if st.session_state.menu == "同步檢查":
                                     ],
                                     value_input_option="RAW",
                                 )
-                            invalidate_sheet_cache("庫存記錄")
+                            invalidate_sheet_cache(selected_sync_sheet)
                             st.session_state["inventory_sync_id_message"] = (
                                 f"已補齊 {len(id_updates)} 筆 _sync_id；既有 ID 與其他欄位未修改。"
                             )
@@ -12721,6 +12603,48 @@ if st.session_state.menu == "同步檢查":
                             st.success("所有有資料的庫存列都已具備 _sync_id，不需要修改。")
                 except Exception as exc:
                     st.error(f"補齊 _sync_id 失敗：{type(exc).__name__}: {exc}")
+
+    if selected_sync_sheet in {"代工送達記錄", "代工載回記錄"}:
+        with st.expander("準備代工歷程永久 _sync_id", expanded=True):
+            st.caption(
+                "只會新增缺少的 _sync_id header，並替有資料但 ID 空白的列產生永久 ID；"
+                "不會修改既有 ID 或其他業務欄位。"
+            )
+            required_prepare = f"PREPARE {selected_sync_sheet}"
+            prepare_confirmation = st.text_input(
+                f"請輸入 {required_prepare}", key="outsourcing_sync_id_confirmation"
+            )
+            if st.button(
+                "批次補齊代工歷程 _sync_id",
+                disabled=prepare_confirmation.strip() != required_prepare,
+            ):
+                try:
+                    worksheet = get_cached_worksheet(selected_sync_sheet)
+                    ledger_values = get_cached_sheet_values(selected_sync_sheet, force_reload=True)
+                    if not ledger_values:
+                        raise ValueError(f"{selected_sync_sheet} 沒有 header")
+                    headers = [str(value).strip() for value in ledger_values[0]]
+                    if "_sync_id" not in headers:
+                        worksheet.update_cell(1, len(headers) + 1, "_sync_id")
+                        invalidate_sheet_cache(selected_sync_sheet)
+                        ledger_values = get_cached_sheet_values(selected_sync_sheet, force_reload=True)
+                    id_updates = missing_outsourcing_sync_id_updates(
+                        ledger_values,
+                        id_prefix="delivery" if selected_sync_sheet == "代工送達記錄" else "return",
+                    )
+                    for start in range(0, len(id_updates), 200):
+                        batch = id_updates[start:start + 200]
+                        worksheet.batch_update(
+                            [{
+                                "range": gspread.utils.rowcol_to_a1(row_number, column_number),
+                                "values": [[sync_id]],
+                            } for row_number, column_number, sync_id in batch],
+                            value_input_option="RAW",
+                        )
+                    invalidate_sheet_cache(selected_sync_sheet)
+                    st.success(f"已補齊 {len(id_updates)} 筆永久 _sync_id。")
+                except Exception as exc:
+                    st.error(f"補齊代工歷程 _sync_id 失敗：{type(exc).__name__}: {exc}")
 
     st.info(
         "大型 Sheet 需要讀取所選工作表的 used range 才能計算 row hash；"
@@ -12915,7 +12839,7 @@ if st.session_state.menu == "同步檢查":
         elif (
             audit_result.ok
             and audit_result.sqlite_rows > 0
-            and audit_sheet in {"色粉管理", "供應商管理", "庫存記錄", "配方管理", "生產單"}
+            and audit_sheet in set(SHEET_KEY_COLUMNS)
         ):
             pending_changes = audit_result.to_insert + audit_result.to_update
             if pending_changes == 0:
