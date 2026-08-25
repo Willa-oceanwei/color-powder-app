@@ -16,9 +16,8 @@ from utils.database import (
     SCHEMA_VERSION,
     DatabaseStartupError,
     database_config_from_secrets,
-    database_health_check,
     format_database_startup_diagnostics,
-    initialize_database_from_config,
+    initialize_database_with_health,
     log_database_startup_diagnostics,
     secret_presence_from_secrets,
 )
@@ -152,8 +151,7 @@ st.set_page_config(
 def _initialize_database_once(config, secret_presence, schema_version):
     """Initialize the remote backend once per process, not on every Streamlit rerun."""
     del schema_version  # Included in the cache key so each migration version runs once.
-    initialized = initialize_database_from_config(config)
-    health = database_health_check(config)
+    initialized, health = initialize_database_with_health(config)
     log_database_startup_diagnostics(config, health, secret_presence)
     if not health.select_1_ok or not health.schema_compatible:
         raise DatabaseStartupError(
@@ -1098,148 +1096,8 @@ def show_pantone_backfill_reference(df_pantone_reference=None):
         st.dataframe(ref_df, use_container_width=True, height=180)
 
 
-# 需要預載的 Sheet 對應表（Sheet名稱 → session_state key）
-# 業務主檔已改由 Turso 提供。Google Sheet 只在同步檢查或明確操作時才讀取，
-# 避免使用者登入後尚未進入相關頁面，就先等待 Google API 的網路往返。
-PRELOAD_SHEETS = {}
-
-
-def _fetch_sheet_raw_values(sheet_name):
-    """在背景執行緒執行：只負責打 API 抓資料，完全不觸碰 st.session_state
-    （st.session_state 不保證多執行緒安全，所以寫入快取一律留到主執行緒做）。"""
-    ws = spreadsheet.worksheet(sheet_name)
-    return read_worksheet_values_with_retry(ws)
-
-
-def preload_all_data(force=False):
-    """
-    一次性把所有常用 Sheet 載入 session_state。
-    force=False（預設）：session_state 已有非空資料就跳過，不打 API。
-    force=True：強制重讀（寫入後才用）。
-
-    需要重新讀取的表，改用多執行緒同時發出 API 請求（原本是 6 張表依序讀取，
-    等於 6 次網路來回時間加總；平行後大約只要「最慢那一張表」的時間）。
-    等全部請求都回來，才回到主執行緒把結果寫進 st.session_state 快取。
-    """
-    sheets_to_fetch = []
-    for sheet_name, state_key in PRELOAD_SHEETS.items():
-        if not force:
-            existing = st.session_state.get(state_key)
-            if isinstance(existing, pd.DataFrame) and not existing.empty:
-                continue
-        sheets_to_fetch.append(sheet_name)
-
-    if sheets_to_fetch:
-        now = datetime.now().timestamp()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(sheets_to_fetch)) as executor:
-            future_to_sheet = {
-                executor.submit(_fetch_sheet_raw_values, name): name
-                for name in sheets_to_fetch
-            }
-            for future in concurrent.futures.as_completed(future_to_sheet):
-                sheet_name = future_to_sheet[future]
-                try:
-                    values = future.result()
-                except Exception:
-                    continue  # 這張表抓失敗，下面組 DataFrame 時會走原本的例外處理，回傳空表
-
-                st.session_state.setdefault("_sheet_values_cache", {})[sheet_name] = {
-                    "timestamp": now,
-                    "values": [row[:] for row in values],
-                }
-                st.session_state.get("_sheet_df_cache", {}).pop(sheet_name, None)
-
-    for sheet_name, state_key in PRELOAD_SHEETS.items():
-        if not force:
-            existing = st.session_state.get(state_key)
-            if isinstance(existing, pd.DataFrame) and not existing.empty:
-                continue
-
-        try:
-            # 上面平行請求已經把最新資料寫進快取了，這裡一律 force_reload=False
-            # 直接吃快取，避免重複打第二次 API。
-            df = get_cached_sheet_df(sheet_name, force_reload=False)
-        except Exception:
-            df = pd.DataFrame()
-
-        # 配方管理額外清理配方編號
-        if sheet_name == "配方管理" and not df.empty and "配方編號" in df.columns:
-            df["配方編號"] = df["配方編號"].astype(str).map(clean_powder_id)
-
-        st.session_state[state_key] = df
-
-    needs_database_data = force or any(
-        not isinstance(st.session_state.get(key), pd.DataFrame)
-        for key in ("df_recipe", "df_color", "df_order", "_recipe_customers")
-    )
-    if needs_database_data:
-        # 四個 repository 各自使用獨立連線，可安全地平行查詢。登入後的首次
-        # 載入時間因此接近最慢的一次 Turso 往返，而不是四次往返的總和。
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            recipes_future = executor.submit(list_recipes, DATABASE_CONFIG)
-            powders_future = executor.submit(list_color_powders, DATABASE_CONFIG)
-            orders_future = executor.submit(list_production_orders, DATABASE_CONFIG)
-            customers_future = executor.submit(customer_dataframe)
-
-        try:
-            st.session_state.df_recipe = pd.DataFrame(recipes_future.result())
-        except Exception:
-            st.session_state.df_recipe = pd.DataFrame()
-        try:
-            st.session_state.df_color = pd.DataFrame([
-                {
-                    "色粉編號": row.get("colorpowder_id", ""), "國際色號": row.get("international_code", ""),
-                    "名稱": row.get("name", ""), "色粉類別": row.get("category", ""),
-                    "包裝": row.get("package", ""), "備註": row.get("notes", ""),
-                }
-                for row in powders_future.result()
-            ])
-        except Exception:
-            st.session_state.df_color = pd.DataFrame()
-        try:
-            st.session_state.df_order = pd.DataFrame(orders_future.result())
-        except Exception:
-            st.session_state.df_order = pd.DataFrame()
-        try:
-            st.session_state._recipe_customers = customers_future.result()
-        except Exception:
-            st.session_state._recipe_customers = pd.DataFrame(
-                columns=["客戶編號", "客戶簡稱", "客戶名稱", "備註", "生命週期"]
-            )
-
-    # 相容舊程式：配方管理同時會讀 st.session_state.df
-    if "df_recipe" in st.session_state:
-        st.session_state.df = st.session_state.df_recipe
-
-    # 僅在配方管理所需資料齊備時，才標記已載入
-    recipe_ready = all(
-        key in st.session_state and isinstance(st.session_state.get(key), pd.DataFrame)
-        for key in ["df_recipe", "df_color", "_recipe_customers"]
-    )
-    if recipe_ready:
-        st.session_state.recipe_data_loaded = True
-
-    # 代工管理還需要 df_delivery / df_return，由該頁首次開啟時再載入。
-
-# ── App 第一次啟動時，執行一次預載；同步檢查頁只讀使用者選定的 Sheet ──
-if "app_data_loaded" not in st.session_state and st.session_state.get("menu") != "同步檢查":
-    with st.spinner("載入資料中..."):
-        preload_all_data(force=False)
-    st.session_state.app_data_loaded = True
-
-# ── 若某分頁寫入後設了 need_reload_sheet，只重載那一張表 ──
-if st.session_state.get("need_reload_sheet"):
-    sheet_to_reload = st.session_state.pop("need_reload_sheet")
-    state_key = PRELOAD_SHEETS.get(sheet_to_reload)
-    if state_key:
-        try:
-            invalidate_sheet_cache(sheet_to_reload)
-            df = get_cached_sheet_df(sheet_to_reload, force_reload=True)
-            if sheet_to_reload == "配方管理" and not df.empty and "配方編號" in df.columns:
-                df["配方編號"] = df["配方編號"].astype(str).map(clean_powder_id)
-            st.session_state[state_key] = df
-        except Exception:
-            pass
+# Turso 主檔採分頁延遲載入：登入與「外部連結」等不需要業務資料的頁面，
+# 不先查詢配方、色粉、生產單或客戶。各頁只在真正開啟時讀取所需資料。
 
 
 # ======== ERP HTML Shell（僅替換畫面層，保留後端邏輯）=========
@@ -2803,9 +2661,15 @@ elif menu == "配方管理":
     def load_recipe_section_data():
         """從 Turso 讀取配方、色粉與客戶主檔。"""
 
+        # 三份主檔互不相依，平行查詢可避免累加 Turso 網路延遲。
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            recipes_future = executor.submit(list_recipes, DATABASE_CONFIG, include_inactive=True)
+            powders_future = executor.submit(list_color_powders, DATABASE_CONFIG)
+            customers_future = executor.submit(customer_dataframe)
+
         # 1️⃣ 配方管理
         try:
-            df_r = pd.DataFrame(list_recipes(DATABASE_CONFIG, include_inactive=True), columns=columns).fillna("").astype(str)
+            df_r = pd.DataFrame(recipes_future.result(), columns=columns).fillna("").astype(str)
         except Exception as exc:
             st.error(f"❌ 無法從 Turso 載入配方：{exc}")
             st.stop()
@@ -2824,7 +2688,7 @@ elif menu == "配方管理":
                     "名稱": row.get("name", ""), "色粉類別": row.get("category", ""),
                     "包裝": row.get("package", ""), "備註": row.get("notes", ""),
                 }
-                for row in list_color_powders(DATABASE_CONFIG)
+                for row in powders_future.result()
             ])
             if "色粉編號" not in df_p.columns:
                 df_p = pd.DataFrame(columns=["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"])
@@ -2834,8 +2698,8 @@ elif menu == "配方管理":
 
         # 3️⃣ 客戶名單
         try:
-            df_c = customer_dataframe()
-        except:
+            df_c = customers_future.result()
+        except Exception:
             df_c = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
 
         st.session_state.df_recipe          = df_r
@@ -4185,13 +4049,6 @@ pre {{
 # --- 生產單分頁 ----------------------------------------------------
 elif menu == "生產單管理":
 
-    # ✅ 優化：不再強制 force_reload，資料由預載層準備好
-    # 萬一預載層未跑到（極少數情況），才補讀（用快取，不強制）
-    if "df_recipe" not in st.session_state or \
-       not isinstance(st.session_state.get("df_recipe"), pd.DataFrame) or \
-       st.session_state.df_recipe.empty:
-        load_recipe(force_reload=False)
-    
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
     <style>
@@ -4220,34 +4077,41 @@ elif menu == "生產單管理":
     # 這裡原本重複定義了一份一模一樣的版本，每次 load_recipe() 執行都會重建這 3 個函式物件，
     # 已移除，直接沿用模組層級的版本即可，行為完全相同。
 
-    # 生產單與配方都直接讀 Turso；Sheet 由 outbox PUSH 更新。
-    try:
-        df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
-    except Exception as e:
-        st.error(f"❌ 無法從 Turso 載入生產單：{e}")
-        st.stop()
-    
-    # 載入配方管理表
-    try:
-        df_recipe = pd.DataFrame(list_recipes(DATABASE_CONFIG))
-        df_recipe.columns = df_recipe.columns.str.strip()
-        df_recipe.fillna("", inplace=True)
-    
-        if "配方編號" in df_recipe.columns:
-            df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
-        if "客戶名稱" in df_recipe.columns:
-            df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
-        if "原始配方" in df_recipe.columns:
-            df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
-    
+    if not st.session_state.get("production_data_loaded", False):
+        # 生產單與配方互不相依，首次開頁時並行讀取；後續 widget rerun
+        # 直接沿用 session_state，避免每次輸入或切 tab 都重打兩次 Turso。
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            orders_future = executor.submit(
+                list_production_orders, DATABASE_CONFIG, include_cancelled=True
+            )
+            recipes_future = executor.submit(list_recipes, DATABASE_CONFIG)
+
+        try:
+            df_order = pd.DataFrame(orders_future.result())
+        except Exception as e:
+            st.error(f"❌ 無法從 Turso 載入生產單：{e}")
+            st.stop()
+
+        try:
+            df_recipe = pd.DataFrame(recipes_future.result())
+            df_recipe.columns = df_recipe.columns.str.strip()
+            df_recipe.fillna("", inplace=True)
+
+            if "配方編號" in df_recipe.columns:
+                df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
+            if "客戶名稱" in df_recipe.columns:
+                df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
+            if "原始配方" in df_recipe.columns:
+                df_recipe["原始配方"] = df_recipe["原始配方"].map(clean_powder_id)
+        except Exception as e:
+            st.error(f"❌ 從 Turso 讀取配方失敗：{e}")
+            st.stop()
+
+        if not df_order.empty:
+            df_order = df_order.fillna("").astype(str)
+        st.session_state.df_order = df_order
         st.session_state.df_recipe = df_recipe
-    except Exception as e:
-        st.error(f"❌ 從 Turso 讀取配方失敗：{e}")
-        st.stop()
-    
-    if not df_order.empty:
-        df_order = df_order.fillna("").astype(str)
-    st.session_state.df_order = df_order
+        st.session_state.production_data_loaded = True
     
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
