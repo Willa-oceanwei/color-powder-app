@@ -742,7 +742,7 @@ def render_sidebar():
         {"group":"數據","key":"試色記錄分析","label":"試色記錄分析"},
         {"group":"設定","key":"客戶名單","label":"客戶名單"},
         {"group":"設定","key":"同步檢查","label":"同步檢查"},
-        {"group":"設定","key":"匯入備份","label":"匯入備份"},
+        {"group":"設定","key":"外部連結","label":"外部連結"},
     ]
 
     if "menu" not in st.session_state:
@@ -1099,10 +1099,9 @@ def show_pantone_backfill_reference(df_pantone_reference=None):
 
 
 # 需要預載的 Sheet 對應表（Sheet名稱 → session_state key）
-PRELOAD_SHEETS = {
-    "客戶名單": "_recipe_customers",
-    "代工管理": "df_oem",
-}
+# 業務主檔已改由 Turso 提供。Google Sheet 只在同步檢查或明確操作時才讀取，
+# 避免使用者登入後尚未進入相關頁面，就先等待 Google API 的網路往返。
+PRELOAD_SHEETS = {}
 
 
 def _fetch_sheet_raw_values(sheet_name):
@@ -1169,12 +1168,23 @@ def preload_all_data(force=False):
 
         st.session_state[state_key] = df
 
-    if force or not isinstance(st.session_state.get("df_recipe"), pd.DataFrame):
+    needs_database_data = force or any(
+        not isinstance(st.session_state.get(key), pd.DataFrame)
+        for key in ("df_recipe", "df_color", "df_order", "_recipe_customers")
+    )
+    if needs_database_data:
+        # 四個 repository 各自使用獨立連線，可安全地平行查詢。登入後的首次
+        # 載入時間因此接近最慢的一次 Turso 往返，而不是四次往返的總和。
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            recipes_future = executor.submit(list_recipes, DATABASE_CONFIG)
+            powders_future = executor.submit(list_color_powders, DATABASE_CONFIG)
+            orders_future = executor.submit(list_production_orders, DATABASE_CONFIG)
+            customers_future = executor.submit(customer_dataframe)
+
         try:
-            st.session_state.df_recipe = pd.DataFrame(list_recipes(DATABASE_CONFIG))
+            st.session_state.df_recipe = pd.DataFrame(recipes_future.result())
         except Exception:
             st.session_state.df_recipe = pd.DataFrame()
-    if force or not isinstance(st.session_state.get("df_color"), pd.DataFrame):
         try:
             st.session_state.df_color = pd.DataFrame([
                 {
@@ -1182,15 +1192,20 @@ def preload_all_data(force=False):
                     "名稱": row.get("name", ""), "色粉類別": row.get("category", ""),
                     "包裝": row.get("package", ""), "備註": row.get("notes", ""),
                 }
-                for row in list_color_powders(DATABASE_CONFIG)
+                for row in powders_future.result()
             ])
         except Exception:
             st.session_state.df_color = pd.DataFrame()
-    if force or not isinstance(st.session_state.get("df_order"), pd.DataFrame):
         try:
-            st.session_state.df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
+            st.session_state.df_order = pd.DataFrame(orders_future.result())
         except Exception:
             st.session_state.df_order = pd.DataFrame()
+        try:
+            st.session_state._recipe_customers = customers_future.result()
+        except Exception:
+            st.session_state._recipe_customers = pd.DataFrame(
+                columns=["客戶編號", "客戶簡稱", "客戶名稱", "備註", "生命週期"]
+            )
 
     # 相容舊程式：配方管理同時會讀 st.session_state.df
     if "df_recipe" in st.session_state:
@@ -1204,11 +1219,7 @@ def preload_all_data(force=False):
     if recipe_ready:
         st.session_state.recipe_data_loaded = True
 
-    # ⚠️ 代工管理還需要 df_delivery / df_return，這裡不要先設 oem_data_loaded
-    # 讓代工分頁自己的 load_oem_data() 仍可正常建立完整資料
-    # 讓各分頁舊版「已載入」旗標同步設好，避免它們自己重讀
-    st.session_state.recipe_data_loaded = True
-    st.session_state.oem_data_loaded = True
+    # 代工管理還需要 df_delivery / df_return，由該頁首次開啟時再載入。
 
 # ── App 第一次啟動時，執行一次預載；同步檢查頁只讀使用者選定的 Sheet ──
 if "app_data_loaded" not in st.session_state and st.session_state.get("menu") != "同步檢查":
@@ -1243,7 +1254,7 @@ MENU_ITEMS = [
     {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
     {"key": "客戶名單", "label": "客戶名單", "group": "設定"},
     {"key": "同步檢查", "label": "同步檢查", "group": "設定"},
-    {"key": "匯入備份", "label": "匯入備份", "group": "設定"},
+    {"key": "外部連結", "label": "外部連結", "group": "設定"},
 ]
 
 # ======== ERP Nav（sidebar 配色改為 #23272D，群組字改為 #bf6030）========
@@ -1261,7 +1272,7 @@ def render_erp_nav():
         {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
         {"key": "客戶名單",   "label": "客戶名單",   "group": "設定"},
         {"key": "同步檢查",   "label": "同步檢查",   "group": "設定"},
-        {"key": "匯入備份",   "label": "匯入備份",   "group": "設定"},
+        {"key": "外部連結",   "label": "外部連結",   "group": "設定"},
     ]
 
     groups = {}
@@ -12931,8 +12942,12 @@ if st.session_state.menu == "同步檢查":
             st.info("此工作表目前只建立與檢查 row-hash baseline，尚未開放業務資料增量套用。")
 
 
-# ===== 匯入配方備份檔案 =====
+# ===== 外部系統連結 =====
+# 舊 session 若停留在已移除的頁面，直接導向新的外部連結頁。
 if st.session_state.menu == "匯入備份":
+    st.session_state.menu = "外部連結"
+
+if st.session_state.menu == "外部連結":
 
     # 📌 標題
     # st.markdown(
@@ -12976,34 +12991,6 @@ if st.session_state.menu == "匯入備份":
         """,
         unsafe_allow_html=True
     )
-    # ===== 讀取備份函式 =====
-    def load_recipe_backup_excel(file):
-        try:
-            df = pd.read_excel(file)
-            df.columns = df.columns.str.strip()
-            df = df.dropna(how='all')
-            df = df.fillna("")
-
-            # 檢查必要欄位
-            required_columns = ["配方編號", "顏色", "客戶編號", "色粉編號1"]
-            missing = [col for col in required_columns if col not in df.columns]
-            if missing:
-                raise ValueError(f"缺少必要欄位：{missing}")
-
-            return df
-        except Exception as e:
-            st.error(f"❌ 備份檔讀取失敗：{e}")
-            return None
-
-    # ===== 上傳檔案 =====
-    uploaded_file = st.file_uploader("請上傳備份 Excel (.xlsx)", type=["xlsx"], key="upload_backup")
-
-    if uploaded_file:
-        df_uploaded = load_recipe_backup_excel(uploaded_file)
-        if df_uploaded is not None:
-            st.session_state.df_recipe = df_uploaded
-            st.success("✅ 成功匯入備份檔！")
-            st.dataframe(df_uploaded.head())
 # 讓重新載入按鍵高度與字體比例一致（避免文字擠壓）
 st.markdown(
     """
