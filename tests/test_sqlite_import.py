@@ -16,6 +16,7 @@ from utils.database import (
     enqueue_sheet_sync,
     format_database_startup_diagnostics,
     initialize_database,
+    initialize_database_with_health,
     log_database_startup_diagnostics,
 )
 from utils.sheet_export import (
@@ -1342,6 +1343,20 @@ def test_database_health_check_reports_schema_v16(tmp_path):
     assert health.main_tables_exist
     assert health.schema_compatible
     assert health.missing_required_columns == {}
+
+
+def test_initialize_database_with_health_initializes_and_validates_once(tmp_path):
+    db = tmp_path / "combined-startup.db"
+    config = DatabaseConfig(backend="sqlite", path=db)
+
+    initialized, health = initialize_database_with_health(config)
+
+    assert initialized == db
+    assert db.exists()
+    assert health.backend == "sqlite"
+    assert health.select_1_ok
+    assert health.schema_version == 16
+    assert health.schema_compatible
 
 
 def test_partial_turso_credentials_fail_fast(monkeypatch):

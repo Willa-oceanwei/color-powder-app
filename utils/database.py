@@ -847,6 +847,51 @@ def initialize_database_from_config(config: DatabaseConfig) -> str | Path:
     return "turso"
 
 
+def _database_health_from_connection(config: DatabaseConfig, conn: SqlExecutor) -> DatabaseHealth:
+    """Collect startup health information using an already-open connection."""
+    select_1_ok = bool(conn.execute("SELECT 1").fetchone()[0] == 1)
+    schema_row = conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()
+    schema_version = schema_row[0] if schema_row else None
+    table_rows = conn.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchall()
+    existing_tables = {row[0] for row in table_rows}
+    missing_required_columns = {}
+    for table_name, required_columns in REQUIRED_TABLE_COLUMNS.items():
+        if table_name not in existing_tables:
+            continue
+        existing_columns = {
+            row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        }
+        missing = required_columns - existing_columns
+        if missing:
+            missing_required_columns[table_name] = missing
+    return DatabaseHealth(
+        config.backend,
+        select_1_ok,
+        schema_version,
+        existing_tables,
+        missing_required_columns,
+    )
+
+
+def initialize_database_with_health(config: DatabaseConfig) -> tuple[str | Path, DatabaseHealth]:
+    """Initialize and validate the backend over a single database connection.
+
+    Turso connection setup is a network operation. Combining schema initialization
+    and health validation avoids opening a second connection during process startup.
+    """
+    initialized: str | Path = get_db_path(config.path) if config.backend == "sqlite" else "turso"
+    try:
+        with connect_from_config(config) as conn:
+            _initialize_schema(conn)
+            health = _database_health_from_connection(config, conn)
+    except Exception as exc:
+        raise DatabaseStartupError(
+            f"Could not initialize or validate {config.backend} database schema "
+            f"v{SCHEMA_VERSION}: {exc}"
+        ) from exc
+    return initialized, health
+
+
 def database_health_check(config: DatabaseConfig) -> DatabaseHealth:
     """Run non-destructive startup checks: SELECT 1, schema_migrations, and table presence."""
     conn_manager = None
@@ -861,28 +906,7 @@ def database_health_check(config: DatabaseConfig) -> DatabaseHealth:
             conn = client
         else:
             raise DatabaseStartupError(f"Unsupported database backend: {config.backend}")
-        select_1_ok = bool(conn.execute("SELECT 1").fetchone()[0] == 1)
-        schema_row = conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()
-        schema_version = schema_row[0] if schema_row else None
-        table_rows = conn.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchall()
-        existing_tables = {row[0] for row in table_rows}
-        missing_required_columns = {}
-        for table_name, required_columns in REQUIRED_TABLE_COLUMNS.items():
-            if table_name not in existing_tables:
-                continue
-            existing_columns = {
-                row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
-            }
-            missing = required_columns - existing_columns
-            if missing:
-                missing_required_columns[table_name] = missing
-        return DatabaseHealth(
-            config.backend,
-            select_1_ok,
-            schema_version,
-            existing_tables,
-            missing_required_columns,
-        )
+        return _database_health_from_connection(config, conn)
     except DatabaseStartupError:
         raise
     except Exception as exc:
