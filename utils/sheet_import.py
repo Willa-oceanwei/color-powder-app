@@ -855,10 +855,10 @@ def import_sheet_values(
                     )
                     continue
                 if purchased not in {"是", "否"}:
-                    result.errors.append(f"row {index + 2}: 已採購只能是『是』或『否』")
+                    result.errors.append(f"row {index + 2}: 已轉單（Sheet 欄位：已採購）只能是『是』或『否』")
                     continue
                 if purchased == "是" and not purchase_date:
-                    result.errors.append(f"row {index + 2}: 已採購記錄缺少採購日期")
+                    result.errors.append(f"row {index + 2}: 已轉單記錄缺少轉單日期（Sheet 欄位：採購日期）")
                     continue
                 entity = _fetchone_mapping(conn.execute(
                     "SELECT * FROM trial_records WHERE trial_id=?", (trial_id,)

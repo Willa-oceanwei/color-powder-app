@@ -11310,9 +11310,9 @@ if menu == "試色記錄分析":
         pending_msgs = st.session_state.pop("trial_accounting_reminders", [])
         for _msg in pending_msgs:
             st.warning(_msg)
-            st.toast("請確認是否已有實際採購（目前未串會計）", icon="🧾")
+            st.toast("請確認這筆試色是否已轉成正式訂單", icon="🧾")
 
-        t1, t2, t3 = st.tabs(["新增", "採購登入", "封存／恢復"])
+        t1, t2, t3 = st.tabs(["新增", "轉單確認", "封存／恢復"])
         with t1:
             with st.form("trial_add_form"):
                 c1, c2, c3 = st.columns(3)
@@ -11357,10 +11357,10 @@ if menu == "試色記錄分析":
                 trial_date = c3.date_input("試色日期")
                 c4, c5, c6, c7, c8 = st.columns(5)
                 material = c4.selectbox("原料", materials)
-                purchased = c5.selectbox("已採購", ["否", "是"])
+                purchased = c5.selectbox("已轉單", ["否", "是"])
                 date_precision = c6.selectbox("日期精度", ["精確", "僅年度"], index=0)
                 backfill = c7.selectbox("歷史補登", ["否", "是"], index=0, help="歷史補登建議日期填該年度 1/1")
-                purchase_date = c8.date_input("採購日期", disabled=(purchased != "是"), key="trial_purchase_date")
+                purchase_date = c8.date_input("轉單日期", disabled=(purchased != "是"), key="trial_purchase_date")
                 submitted = st.form_submit_button("💾 新增試色")
 
             if material in df_trial["原料"].values:
@@ -11380,8 +11380,8 @@ if menu == "試色記錄分析":
                     if not recipe_df_check.empty and "配方編號" in recipe_df_check.columns:
                         existing_recipe_codes = set(recipe_df_check["配方編號"].astype(str).map(clean_powder_id))
                         if clean_powder_id(formula_code) in existing_recipe_codes:
-                            st.warning(f"配方 {formula_code} 已存在於配方管理，請先確認是否要登錄為已採購。")
-                            st.toast("已在配方管理找到同編號，請人工確認採購狀態", icon="⚠️")
+                            st.warning(f"配方 {formula_code} 已存在於配方管理，請先確認是否要登錄為已轉單。")
+                            st.toast("已在配方管理找到同編號，請人工確認轉單狀態", icon="⚠️")
                     cust_df = customer_dataframe()
                     cust_name = customer_name_from_input
                     if not cust_name and not cust_df.empty and "客戶編號" in cust_df.columns and "客戶名稱" in cust_df.columns:
@@ -11412,16 +11412,16 @@ if menu == "試色記錄分析":
 
         with t2:
             t2c1, t2c2 = st.columns(2)
-            code_update = t2c1.text_input("要標記採購的配方編號").strip().upper()
-            manual_date = t2c2.date_input("採購日期", key="manual_purchase_date")
-            if st.button("✅ 採購登入", use_container_width=True):
+            code_update = t2c1.text_input("要確認轉單的配方編號").strip().upper()
+            manual_date = t2c2.date_input("轉單日期", key="manual_purchase_date")
+            if st.button("✅ 確認轉單", use_container_width=True):
                 try:
                     mark_trial_purchased(DATABASE_CONFIG, code_update, manual_date.strftime("%Y-%m-%d"))
-                    st.toast(f"已登入採購：{code_update}", icon="🧾")
-                    st.info("提醒：請確認這筆是否為實際採購（目前未串會計模組）。")
+                    st.toast(f"已確認轉單：{code_update}", icon="🧾")
+                    st.info("已將這筆試色標記為客戶已轉單。")
                     st.rerun()
                 except TrialError as exc:
-                    st.warning(str(exc)); st.toast("採購登入失敗", icon="⚠️")
+                    st.warning(str(exc)); st.toast("轉單確認失敗", icon="⚠️")
 
         with t3:
             st.caption("封存會從 Sheet 副本移除資料，但 Turso 永久保留歷史；需要時可受控恢復。")
@@ -11505,7 +11505,7 @@ if menu == "試色記錄分析":
         include_backfill = st.toggle("分析包含歷史補登", value=True)
 
         dfv = df_trial.copy()
-        rec_csv_df = pd.DataFrame(columns=["客戶顯示", "試色次數", "採購筆數", "主配方數", "已採購主配方數", "試色採購比例", "多次修色比例", "建議收費"])
+        rec_csv_df = pd.DataFrame(columns=["客戶顯示", "試色次數", "轉單筆數", "主配方數", "已轉單主配方數", "試色轉單率", "多次修色比例", "建議收費"])
         seg_csv = "".encode("utf-8-sig")
         pending_df = pd.DataFrame()
         show = pd.DataFrame()
@@ -11538,11 +11538,11 @@ if menu == "試色記錄分析":
             k0, k1, k2, k3, k4 = st.columns(5)
             k0.metric("試色配方數", trial_recipe_count)
             k1.metric("試色次數", trial_count)
-            k2.metric("採購筆數", purchase_count)
-            k3.metric("試色採購比例", f"{(purchase_count/trial_recipe_count*100):.1f}%" if trial_recipe_count else "0%")
+            k2.metric("轉單筆數", purchase_count)
+            k3.metric("試色轉單率", f"{(purchase_count/trial_recipe_count*100):.1f}%" if trial_recipe_count else "0%")
             k4.metric("多次修色比例", f"{group_ratio:.1f}%")
             st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色採購比例＝採購筆數 ÷ 試色配方數。ⓘ 多次修色比例＝有 A/B 等族群的主配方數 ÷ 試色配方數。</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色轉單率＝轉單筆數 ÷ 試色配方數。ⓘ 多次修色比例＝有 A/B 等族群的主配方數 ÷ 試色配方數。</div>", unsafe_allow_html=True)
 
             dup_groups = dfv.groupby("主配方編號").size().reset_index(name="試色次數")
             dup_groups = dup_groups[dup_groups["試色次數"] > 1]
@@ -11553,14 +11553,14 @@ if menu == "試色記錄分析":
                 with st.expander("族群明細", expanded=False):
                     render_paginated_df(grp_tbl, "trial_grouped", page_size=5)
 
-            st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別採購比例</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background:#1f2b22;padding:8px 10px;border-radius:8px;color:#d8f3dc;font-size:14px;font-weight:600;margin:6px 0;'>原料別轉單率</div>", unsafe_allow_html=True)
             mat = dfv.groupby("原料").agg(
                 試色筆數=("配方編號","count"),
                 試色配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
-                採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())
+                轉單筆數=("已採購", lambda x: (x.astype(str)=="是").sum())
             ).reset_index()
-            mat["採購比例數值"] = (mat["採購筆數"] / mat["試色筆數"] * 100).fillna(0)
-            mat["採購比例"] = mat["採購比例數值"].round(1).astype(str) + "%"
+            mat["轉單率數值"] = (mat["轉單筆數"] / mat["試色筆數"] * 100).fillna(0)
+            mat["轉單率"] = mat["轉單率數值"].round(1).astype(str) + "%"
             pie_df = mat[mat["試色筆數"] > 0].copy()
             if not pie_df.empty:
                 st.vega_lite_chart(
@@ -11578,8 +11578,8 @@ if menu == "試色記錄分析":
                                 {"field": "原料", "type": "nominal"},
                                 {"field": "試色筆數", "type": "quantitative"},
                                 {"field": "試色配方數", "type": "quantitative"},
-                                {"field": "採購筆數", "type": "quantitative"},
-                                {"field": "採購比例", "type": "nominal"}
+                                {"field": "轉單筆數", "type": "quantitative"},
+                                {"field": "轉單率", "type": "nominal"}
                             ],
                         },
                     },
@@ -11587,10 +11587,10 @@ if menu == "試色記錄分析":
                 )
             st.markdown(f"<div style='font-size:11px;color:#8a8a8a;'>ⓘ 試色配方數：{trial_recipe_count}（族群視為同一配方）。</div>", unsafe_allow_html=True)
             with st.expander("查看原料別表格", expanded=False):
-                render_paginated_df(mat[["原料","試色筆數","試色配方數","採購筆數","採購比例"]], "trial_mat", page_size=5)
+                render_paginated_df(mat[["原料","試色筆數","試色配方數","轉單筆數","轉單率"]], "trial_mat", page_size=5)
 
             with st.expander("追蹤清單（含篩選與明細）", expanded=False):
-                show_purchased = st.toggle("是否顯示已採購", value=False, key="trial_show_purchased")
+                show_purchased = st.toggle("是否顯示已轉單", value=False, key="trial_show_purchased")
                 track_df = dfv.copy()
                 if not show_purchased:
                     track_df = track_df[track_df["已採購"].astype(str) != "是"]
@@ -11611,7 +11611,11 @@ if menu == "試色記錄分析":
                 if pending_df.empty:
                     st.caption("目前沒有符合條件的資料。")
                 else:
-                    render_paginated_df(pending_df[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]], "trial_detail", page_size=5)
+                    render_paginated_df(
+                        pending_df[["配方編號","主配方編號","客戶名稱","原料","試色日期","日期精度","歷史補登","已採購","採購日期"]]
+                        .rename(columns={"已採購": "已轉單", "採購日期": "轉單日期"}),
+                        "trial_detail", page_size=5,
+                    )
 
 
             with st.expander("客戶月趨勢（近12月）", expanded=False):
@@ -11620,12 +11624,12 @@ if menu == "試色記錄分析":
                 monthly = trend_df.groupby("月份").agg(
                     試色配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
                     試色次數=("配方編號", "count"),
-                    採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum()),
+                    轉單筆數=("已採購", lambda x: (x.astype(str)=="是").sum()),
                 ).reset_index().sort_values("月份").tail(12)
-                monthly["試色採購比例"] = (monthly["採購筆數"] / monthly["試色配方數"] * 100).fillna(0)
+                monthly["試色轉單率"] = (monthly["轉單筆數"] / monthly["試色配方數"] * 100).fillna(0)
 
                 if not monthly.empty:
-                    bar_long = monthly.melt(id_vars=["月份"], value_vars=["試色配方數","採購筆數"], var_name="指標", value_name="數值")
+                    bar_long = monthly.melt(id_vars=["月份"], value_vars=["試色配方數","轉單筆數"], var_name="指標", value_name="數值")
                     mc1, mc2 = st.columns([2, 1.4])
                     with mc1:
                         st.vega_lite_chart(
@@ -11650,8 +11654,8 @@ if menu == "試色記錄分析":
                                 "mark": {"type": "line", "point": True},
                                 "encoding": {
                                     "x": {"field": "月份", "type": "ordinal", "axis": {"labelAngle": -25}},
-                                    "y": {"field": "試色採購比例", "type": "quantitative"},
-                                    "tooltip": [{"field":"月份"},{"field":"試色採購比例"}],
+                                    "y": {"field": "試色轉單率", "type": "quantitative"},
+                                    "tooltip": [{"field":"月份"},{"field":"試色轉單率"}],
                                 },
                                 "height": 260,
                             },
@@ -11664,14 +11668,14 @@ if menu == "試色記錄分析":
                 seg.loc[seg["客戶顯示"] == "", "客戶顯示"] = seg["客戶編號"].astype(str).str.strip()
                 seg_stats = seg.groupby("客戶顯示", dropna=False).agg(
                     試色配方數=("主配方編號", lambda x: x.astype(str).replace("", pd.NA).dropna().nunique()),
-                    採購筆數=("已採購", lambda x: (x.astype(str)=="是").sum())
+                    轉單筆數=("已採購", lambda x: (x.astype(str)=="是").sum())
                 ).reset_index()
-                seg_stats["試色採購比例"] = (seg_stats["採購筆數"] / seg_stats["試色配方數"] * 100).fillna(0)
+                seg_stats["試色轉單率"] = (seg_stats["轉單筆數"] / seg_stats["試色配方數"] * 100).fillna(0)
 
                 def _tier(r):
-                    if r["試色配方數"] >= 10 and r["試色採購比例"] >= 40:
+                    if r["試色配方數"] >= 10 and r["試色轉單率"] >= 40:
                         return "A"
-                    if r["試色配方數"] >= 5 and r["試色採購比例"] >= 20:
+                    if r["試色配方數"] >= 5 and r["試色轉單率"] >= 20:
                         return "B"
                     return "C"
 
@@ -11693,7 +11697,7 @@ if menu == "試色記錄分析":
                         },
                         use_container_width=True,
                     )
-                st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 客戶分層說明：A＝試色配方數≥10 且 試色採購比例≥40%；B＝試色配方數≥5 且 試色採購比例≥20%；其餘為 C。</div>", unsafe_allow_html=True)
+                st.markdown("<div style='font-size:11px;color:#8a8a8a;'>ⓘ 客戶分層說明：A＝試色配方數≥10 且 試色轉單率≥40%；B＝試色配方數≥5 且 試色轉單率≥20%；其餘為 C。</div>", unsafe_allow_html=True)
                 seg_csv = seg_stats.to_csv(index=False).encode("utf-8-sig")
 
             show = dfv.copy()
@@ -11702,25 +11706,29 @@ if menu == "試色記錄分析":
                     show[col] = ""
             show["試色日期"] = pd.to_datetime(show["試色日期"], errors="coerce").dt.strftime("%Y-%m-%d")
             show.loc[show["已採購"].astype(str) != "是", "採購日期"] = ""
-            csv = show.to_csv(index=False).encode("utf-8-sig")
-            pending_csv = pending_df.to_csv(index=False).encode("utf-8-sig") if not pending_df.empty else "".encode("utf-8-sig")
+            display_column_names = {"已採購": "已轉單", "採購日期": "轉單日期"}
+            csv = show.rename(columns=display_column_names).to_csv(index=False).encode("utf-8-sig")
+            pending_csv = (
+                pending_df.rename(columns=display_column_names).to_csv(index=False).encode("utf-8-sig")
+                if not pending_df.empty else "".encode("utf-8-sig")
+            )
             rec_csv = rec_csv_df.to_csv(index=False).encode("utf-8-sig")
             d1, d2, d3, d4 = st.columns(4)
             d1.download_button("匯出分析 CSV", data=csv, file_name=f"trial_analysis_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
-            d2.download_button("匯出未採購追蹤 CSV", data=pending_csv, file_name=f"trial_pending_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
+            d2.download_button("匯出未轉單追蹤 CSV", data=pending_csv, file_name=f"trial_pending_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
             d3.download_button("匯出客戶收費建議 CSV", data=rec_csv, file_name=f"trial_fee_recommendation_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
             d4.download_button("匯出客戶分層 CSV", data=seg_csv if 'seg_csv' in locals() else ''.encode('utf-8-sig'), file_name=f"trial_customer_tier_{start_d}_{end_d}.csv", mime="text/csv", use_container_width=True)
 
     with sub3:
-        st.markdown("<span style='color:#8a8a8a;font-size:11px;'>ⓘ 調整下列門檻後，會直接影響「記錄分析」中的收費建議與未採購追蹤名單。</span>", unsafe_allow_html=True)
+        st.markdown("<span style='color:#8a8a8a;font-size:11px;'>ⓘ 調整下列門檻後，會直接影響「記錄分析」中的收費建議與未轉單追蹤名單。</span>", unsafe_allow_html=True)
         with st.form("trial_param_form"):
             p1, p2, p3 = st.columns(3)
             fee_threshold = p1.slider("收費門檻百分比", min_value=0, max_value=100, value=threshold_default, step=1)
             p1.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 配方族群轉換率低於此百分比時，系統會建議評估收費。</span>", unsafe_allow_html=True)
             min_samples_ui = p2.number_input("最小樣本數", min_value=1, max_value=500, value=min_samples_default, step=1)
             p2.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 至少達到此試色筆數，才會觸發收費建議判斷。</span>", unsafe_allow_html=True)
-            pending_days_ui = p3.number_input("未採購追蹤天數", min_value=0, max_value=3650, value=pending_days_default, step=1)
-            p3.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 只顯示未採購且天數大於等於此值的追蹤資料。</span>", unsafe_allow_html=True)
+            pending_days_ui = p3.number_input("未轉單追蹤天數", min_value=0, max_value=3650, value=pending_days_default, step=1)
+            p3.markdown("<span style='color:#8a8a8a;font-size:10px;'>ⓘ 只顯示未轉單且天數大於等於此值的追蹤資料。</span>", unsafe_allow_html=True)
             save_param = st.form_submit_button("💾 儲存參數")
 
         if save_param:

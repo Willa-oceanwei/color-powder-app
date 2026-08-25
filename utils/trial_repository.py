@@ -68,9 +68,9 @@ def create_trial_record(config: DatabaseConfig, row: dict[str, Any]):
     purchased = str(row.get("已採購") or "否").strip()
     purchase_date = str(row.get("採購日期") or "").strip()
     if purchased not in {"是", "否"}:
-        raise TrialError("已採購只能是『是』或『否』")
+        raise TrialError("已轉單只能是『是』或『否』")
     if purchased == "是" and not purchase_date:
-        raise TrialError("已採購記錄必須填寫採購日期")
+        raise TrialError("已轉單記錄必須填寫轉單日期")
     now = utc_now_iso()
     with connect_from_config(config) as conn:
         if conn.execute("SELECT 1 FROM trial_records WHERE formula_code=?", (formula_code,)).fetchone():
@@ -97,7 +97,7 @@ def create_trial_record(config: DatabaseConfig, row: dict[str, Any]):
 def mark_trial_purchased(config: DatabaseConfig, formula_code: str, purchase_date: str):
     formula_code = str(formula_code).strip().upper()
     if not formula_code or not str(purchase_date).strip():
-        raise TrialError("請填寫配方編號與採購日期")
+        raise TrialError("請填寫配方編號與轉單日期")
     now = utc_now_iso()
     with connect_from_config(config) as conn:
         old = _mapping(conn.execute(
