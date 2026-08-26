@@ -2290,30 +2290,29 @@ def build_big_label_rows(order):
 
 
 def generate_big_label_html(label_rows):
-    """把標籤資料排成大標 HTML：每張紙 12x32cm 直排 4 格，每格 10.8x7.7cm，
-    下方 4.5cm 保留給預印公司資訊、不列印任何內容。超過 4 張自動分頁，
+    """把標籤資料排成大標 HTML：每張紙 12x32cm 直排 4 格，每格 10.8x7.8cm，
+    下方 4.7cm 保留給預印公司資訊、不列印任何內容。超過 4 張自動分頁，
     列印時一張一張手動進紙。"""
     if not label_rows:
         return ""
 
     label_w_cm = 10.8
-    label_h_cm = 7.7
+    label_h_cm = 7.8
     sheet_w_cm = 12.0
     sheet_h_cm = 32.0
-    side_margin_cm = round((sheet_w_cm - label_w_cm) / 2, 3)   # 左右留白
-    slot_gap_cm = round((sheet_h_cm - 4 * label_h_cm) / 5, 3)  # 上緣＋3個間距＋下緣
+    side_margin_cm = 0.6
+    slot_gap_cm = 0.3
 
-    GLOBAL_X_SHIFT_CM = -1.0   # 整體左右欄一起位移，負值＝往左移，正值＝往右移
-    left_col_x_cm = 0.3 + GLOBAL_X_SHIFT_CM
-    right_col_x_cm = left_col_x_cm + 4.5  # 編號→日期水平距離 4.5cm
+    # 欄位定位以整張 12cm 紙的左緣為基準：2.5cm、8cm。label-slot 本身
+    # 已從紙張左緣內縮 0.6cm，因此換算成標籤內座標時要扣掉該留白。
+    left_col_x_cm = 2.5 - side_margin_cm
+    right_col_x_cm = 8.0 - side_margin_cm
 
-    # ⚠️ 上半部可印內容高度只有 3.2cm（7.7cm 標籤高 − 4.5cm 下方公司資訊保留區）。
-    # 18pt 字實際行高約 0.64cm，row3_y_cm + 文字高度必須留在 3.2cm 以內，
-    # 否則名稱/數量會被印到下方預印區。目前設定已經是安全上限（約 2.3cm 間距），
-    # 若之後字體變小、或想再拉大距離，可以調整下面兩個數字，
-    # 但 ROW3_Y_CM 建議不要超過 2.5cm。
-    ROW1_Y_CM = 0.2         # 第一行（編號/日期）距離標籤頂端
-    ROW3_Y_CM = 2.5          # 第三行（名稱/數量）距離標籤頂端 → 編號到名稱距離 = ROW3_Y_CM - ROW1_Y_CM
+    # 標籤上方僅 3.1cm 可列印（7.8cm − 4.7cm 預印公司資訊）。上下兩行
+    # 分別距可列印區上、下緣 1cm；比例則置於兩行正中央。
+    PRINTABLE_H_CM = label_h_cm - 4.7
+    ROW1_Y_CM = 1.0
+    ROW3_Y_CM = round(PRINTABLE_H_CM - 1.0, 3)
     row1_y_cm = ROW1_Y_CM
     row2_y_cm = round((ROW1_Y_CM + ROW3_Y_CM) / 2, 3)  # 比例：置中在第一行與第三行之間
     row3_y_cm = ROW3_Y_CM
@@ -2338,7 +2337,7 @@ def generate_big_label_html(label_rows):
         group = group + [None] * (4 - len(group))
         slots_html = []
         for idx, entry in enumerate(group):
-            top = round(slot_gap_cm + idx * (label_h_cm + slot_gap_cm), 3)
+            top = round(idx * (label_h_cm + slot_gap_cm), 3)
             slots_html.append(
                 f'<div class="label-slot" style="top:{top}cm; left:{side_margin_cm}cm;">{render_label(entry)}</div>'
             )
