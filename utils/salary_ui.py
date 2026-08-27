@@ -151,22 +151,23 @@ def _monthly_tab(config):
 
     monthly_extras = get_salary_monthly_extras(config, year, month)
     with st.expander("每月附加數值區"):
-        st.caption("此區完全由人工輸入，儲存後固定輸出在本月 Excel 最下方。")
-        employee_values = {}
-        extra_columns = st.columns(3)
-        for position, employee in enumerate(employees):
-            employee_values[employee["employee_id"]] = extra_columns[position % 3].number_input(
-                employee["name"], value=float(monthly_extras["employee_values"].get(employee["employee_id"], 0)),
-                key=f"monthly_extra_employee_{period}_{employee['employee_id']}",
-            )
-        previous_col, addition_col, total_col = st.columns(3)
-        previous_value = previous_col.number_input("上月", value=float(monthly_extras.get("previous_value", 0)), key=f"monthly_extra_previous_{period}")
-        monthly_addition = addition_col.number_input("+本月新增", value=float(monthly_extras.get("monthly_addition", 0)), key=f"monthly_extra_addition_{period}")
-        monthly_total = total_col.number_input("餘本月總計", value=float(monthly_extras.get("monthly_total", 0)), key=f"monthly_extra_total_{period}")
-        if st.button("儲存每月附加數值", key=f"save_monthly_extras_{period}"):
-            save_salary_monthly_extras(config, year, month, employee_values, previous_value, monthly_addition, monthly_total)
-            st.toast("每月附加數值已儲存")
-            st.rerun()
+        st.caption("可先完成所有欄位再一次儲存；儲存後會更新本月每位員工薪資條的當月說明。")
+        with st.form(f"monthly_extras_form_{period}"):
+            employee_values = {}
+            extra_columns = st.columns(3)
+            for position, employee in enumerate(employees):
+                employee_values[employee["employee_id"]] = extra_columns[position % 3].number_input(
+                    employee["name"], value=float(monthly_extras["employee_values"].get(employee["employee_id"], 0)),
+                    key=f"monthly_extra_employee_{period}_{employee['employee_id']}",
+                )
+            previous_col, addition_col, total_col = st.columns(3)
+            previous_value = previous_col.number_input("上月", value=float(monthly_extras.get("previous_value", 0)), key=f"monthly_extra_previous_{period}")
+            monthly_addition = addition_col.number_input("+本月新增", value=float(monthly_extras.get("monthly_addition", 0)), key=f"monthly_extra_addition_{period}")
+            monthly_total = total_col.number_input("餘本月總計", value=float(monthly_extras.get("monthly_total", 0)), key=f"monthly_extra_total_{period}")
+            if st.form_submit_button("儲存每月附加數值"):
+                save_salary_monthly_extras(config, year, month, employee_values, previous_value, monthly_addition, monthly_total)
+                st.toast("每月附加數值已儲存，Excel 將使用最新數值")
+                st.rerun()
 
     # 月份層級報表：只從資料庫重新讀取已結算快照，不使用畫面草稿。
     month_rows = get_month_salaries(config, year, month)

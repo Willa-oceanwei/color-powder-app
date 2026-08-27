@@ -118,18 +118,22 @@ def test_leave_rounding_and_same_sheet_excel():
                                                    "職務津貼", "勞健保", "遲到", "小計", "特別加給", "扣除額", "薪資總計"]
     assert [cell.value for cell in sheet[3]] == ["08月份 甲", 29500, -1229, 3000, 500, 3000, 1000,
                                                    -2168, -30, 33573, 1800, 0, 35373]
-    assert "請假1日2小時" in sheet["A4"].value
-    assert "特休1日4小時，共1.5日，餘7.5日" in sheet["A4"].value
-    assert "8/15補發制服費" in sheet["A4"].value
+    assert sheet["A4"].value == "8/15補發制服費"
     assert sheet["D4"].value == "公司負擔：\n甲公司負擔"
     assert "甲歷年制說明" in sheet["H4"].value
-    assert sheet["A5"].value == "上月13,873 + 本月新增30 = 本月總計13,903"
+    assert sheet["A5"].value == "當月說明：上月13,873 + 本月新增30 = 本月總計13,903"
     assert "餐費" not in sheet["A4"].value
     assert sum(cell.value == "底薪" for row in sheet for cell in row) == 5
     assert any("乙" in str(cell.value) for row in sheet for cell in row)
     assert not any(cell.value == "歷年制特休" for row in sheet for cell in row)
     assert not any(cell.value == "每月附加數值區" for row in sheet for cell in row)
-    assert sum(cell.value == "上月13,873 + 本月新增30 = 本月總計13,903" for row in sheet for cell in row) == 5
+    assert sum(cell.value == "當月說明：上月13,873 + 本月新增30 = 本月總計13,903" for row in sheet for cell in row) == 5
+    for coordinate in ("A4", "C4", "D4", "G4", "H4", "M4", "A5", "M5"):
+        cell = sheet[coordinate]
+        assert cell.border.top.style == "thin"
+        assert cell.border.bottom.style in ("thin", "medium")
+    assert all(sheet[cell].border.left.style == "thin" for cell in ("A4", "D4", "H4", "A5"))
+    assert all(sheet[cell].border.right.style == "thin" for cell in ("C4", "G4", "M4", "M5"))
     assert sheet.max_row == 25
     assert sheet.sheet_properties.pageSetUpPr.fitToPage
     assert sheet.page_setup.orientation == "landscape"
@@ -144,7 +148,7 @@ def test_excel_note_contains_leave_only():
     assert note == "請假1日2小時；特休1日4小時，共1.5日，餘7.5日"
     assert "餐費" not in note
     assert _monthly_summary({"previous_value":13873, "monthly_addition":30, "monthly_total":13903}) == (
-        "上月13,873 + 本月新增30 = 本月總計13,903"
+        "當月說明：上月13,873 + 本月新增30 = 本月總計13,903"
     )
 
 

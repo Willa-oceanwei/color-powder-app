@@ -49,7 +49,7 @@ def _format_extra_number(value):
 
 def _monthly_summary(monthly_extras):
     return (
-        f"上月{_format_extra_number(monthly_extras.get('previous_value', 0))}"
+        f"當月說明：上月{_format_extra_number(monthly_extras.get('previous_value', 0))}"
         f" + 本月新增{_format_extra_number(monthly_extras.get('monthly_addition', 0))}"
         f" = 本月總計{_format_extra_number(monthly_extras.get('monthly_total', 0))}"
     )
@@ -122,16 +122,20 @@ def generate_salary_workbook(year, month, salaries, monthly_extras=None):
                 cell.fill = total_fill
         ws.row_dimensions[row + 1].height = 24
 
-        # Style every underlying cell before merging so each of the three blocks
-        # has one complete outline without fragmented interior borders.
-        for column in range(1, 14):
-            ws.cell(row + 2, column).border = border
         ws.merge_cells(start_row=row + 2, start_column=1, end_row=row + 2, end_column=3)
         ws.merge_cells(start_row=row + 2, start_column=4, end_row=row + 2, end_column=7)
         ws.merge_cells(start_row=row + 2, start_column=8, end_row=row + 2, end_column=13)
-        automatic_note = _payroll_leave_note({**salary, "annual_leave_note_snapshot": ""})
-        personal_note = str(salary.get("manual_note") or "").strip()
-        ws.cell(row + 2, 1, "\n".join(part for part in (automatic_note, personal_note) if part))
+        # Apply each merged range's outer border after merging. This avoids the
+        # fragmented borders that openpyxl can otherwise leave on merged cells.
+        for start, end in ((1, 3), (4, 7), (8, 13)):
+            for column in range(start, end + 1):
+                ws.cell(row + 2, column).border = Border(
+                    left=thin if column == start else None,
+                    right=thin if column == end else None,
+                    top=thin, bottom=thin,
+                )
+        # A:C is exclusively the manual note stored in this month's snapshot.
+        ws.cell(row + 2, 1, str(salary.get("manual_note") or "").strip())
         company_text = str(salary.get("company_cost_note") or "").strip()
         ws.cell(row + 2, 4, f"公司負擔：\n{company_text}" if company_text else "公司負擔：")
         annual_text = salary.get("annual_leave_personal_note") or salary.get("annual_leave_note_snapshot") or ""
@@ -142,9 +146,13 @@ def generate_salary_workbook(year, month, salaries, monthly_extras=None):
             cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
         ws.row_dimensions[row + 2].height = 64
 
-        for column in range(1, 14):
-            ws.cell(row + 3, column).border = Border(left=thin, right=thin, top=thin, bottom=medium)
         ws.merge_cells(start_row=row + 3, start_column=1, end_row=row + 3, end_column=13)
+        for column in range(1, 14):
+            ws.cell(row + 3, column).border = Border(
+                left=thin if column == 1 else None,
+                right=thin if column == 13 else None,
+                top=thin, bottom=medium,
+            )
         note_cell = ws.cell(row + 3, 1, _monthly_summary(monthly_extras))
         note_cell.font = Font(name="Microsoft JhengHei", size=8)
         note_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
