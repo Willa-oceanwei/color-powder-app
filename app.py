@@ -115,6 +115,7 @@ from utils.inventory_repository import (
     update_inventory_movement,
 )
 from utils.production_order_repository import (
+    merge_production_order_packages,
     ProductionOrderError,
     list_production_orders,
     set_production_order_cancelled,
@@ -5214,6 +5215,43 @@ elif menu == "生產單管理":
                 merge_decision = st.session_state.get(f"merge_decision_{dup_cache_key_base_save}", "new")
                 merge_match = st.session_state.get(f"merge_match_{dup_cache_key_base_save}") or {}
 
+                # 色母合併也必須沿用代工單所連結的原生產單，否則代工預覽仍會
+                # 讀到舊數量，而庫存又會同時計算新、舊兩張生產單。
+                if merge_decision == "merge" and is_colorant:
+                    linked_order_no = str(merge_match.get("生產單號", "")).strip()
+                    existing_order = next(
+                        (
+                            item for item in list_production_orders(DATABASE_CONFIG)
+                            if str(item.get("生產單號", "")).strip() == linked_order_no
+                        ),
+                        None,
+                    )
+                    if not linked_order_no or existing_order is None:
+                        st.error("❌ 代工單找不到所連結的有效生產單，已停止合併，避免庫存重複扣料")
+                        st.stop()
+
+                    delta_total_kg = sum(
+                        safe_float_convert(order.get(f"包裝重量{i}", ""), 0.0)
+                        * safe_float_convert(order.get(f"包裝份數{i}", ""), 0.0)
+                        for i in range(1, 5)
+                    )
+                    merged_total_kg = delta_total_kg + sum(
+                        safe_float_convert(existing_order.get(f"包裝重量{i}", ""), 0.0)
+                        * safe_float_convert(existing_order.get(f"包裝份數{i}", ""), 0.0)
+                        for i in range(1, 5)
+                    )
+                    merge_note = (
+                        f"{datetime.now().strftime('%Y%m%d')}合併{delta_total_kg:g}Kg"
+                        f"共計{merged_total_kg:g}kg"
+                    )
+                    delta_snapshot = order.get("_delta_包裝", {})
+                    order = merge_production_order_packages(existing_order, order, note=merge_note)
+                    order["_delta_包裝"] = delta_snapshot
+                    order["_merge_applied"] = "colorant"
+                    order["_merge_old_order_no"] = linked_order_no
+                    order["生產單號"] = linked_order_no
+                    order_no = linked_order_no
+
                 # 要刪除的舊生產單號：一定包含自己（避免同單重複儲存），
                 # 若是「非色母 + 選擇合併」，還要一併刪除今天比對到的那張舊單，
                 # 避免同一份需求留下兩列重複的生產單紀錄。
@@ -5291,12 +5329,13 @@ elif menu == "生產單管理":
                             target_oem_no = str(merge_match.get("代工單號", "")).strip()
                             multiplier = _safe_float_local(merge_match.get("轉換倍率", 1), 1.0) or 1.0
 
-                            # 這次表單填寫的是「追加量」，自動加上舊代工單原本的數量
+                            # 生產單此時已是合併總量；代工數量只加本次表單快照，避免重複累加。
                             delta_oem_qty = 0.0
                             for i in range(1, 5):
                                 try:
-                                    w = float(order.get(f"包裝重量{i}", 0) or 0)
-                                    n = float(order.get(f"包裝份數{i}", 0) or 0)
+                                    w, n = order.get("_delta_包裝", {}).get(i, (0, 0))
+                                    w = float(w or 0)
+                                    n = float(n or 0)
                                     delta_oem_qty += w * 100 * n
                                 except:
                                     pass

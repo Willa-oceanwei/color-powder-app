@@ -15,6 +15,10 @@ from utils.outsourcing_repository import (
     restore_outsourcing_order,
     update_outsourcing_order,
 )
+from utils.production_order_repository import (
+    ProductionOrderError,
+    merge_production_order_packages,
+)
 from utils.sheet_import import import_sheet_values, missing_outsourcing_sync_id_updates
 
 
@@ -37,6 +41,37 @@ def order(order_id="OEM001"):
         "代工廠商": "弘旭",
         "狀態": "🏭 在廠內",
     }
+
+
+def test_merge_production_packages_updates_linked_order_total_and_note():
+    existing = {
+        "生產單號": "P001", "備註": "原備註",
+        "包裝重量1": "500", "包裝份數1": "1",
+    }
+    delta = {
+        "生產單號": "P002", "包裝重量1": "500", "包裝份數1": "1",
+        "包裝重量2": "250", "包裝份數2": "2",
+    }
+
+    merged = merge_production_order_packages(
+        existing, delta, note="20260827合併1000Kg共計1500kg"
+    )
+
+    assert merged["生產單號"] == "P001"
+    assert (merged["包裝重量1"], merged["包裝份數1"]) == ("500", "2")
+    assert (merged["包裝重量2"], merged["包裝份數2"]) == ("250", "2")
+    assert merged["備註"] == "原備註\n20260827合併1000Kg共計1500kg"
+
+
+def test_merge_production_packages_rejects_unrepresentable_fifth_weight():
+    existing = {
+        f"包裝重量{i}": str(i * 100) for i in range(1, 5)
+    } | {f"包裝份數{i}": "1" for i in range(1, 5)}
+
+    with pytest.raises(ProductionOrderError, match="超過 4 種"):
+        merge_production_order_packages(
+            existing, {"包裝重量1": "500", "包裝份數1": "1"}
+        )
 
 
 def test_order_write_and_update_are_atomic_with_outbox(config):
