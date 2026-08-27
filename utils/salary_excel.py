@@ -40,7 +40,28 @@ def generate_salary_workbook(year, month, salaries):
         ws.cell(note_row, 1).alignment = Alignment(wrap_text=True, vertical="top")
         ws.row_dimensions[note_row].height = 34
         row = note_row + 2
-    ws.print_area = f"A1:B{max(row - 1, 1)}"
+    # 原始薪資表下半部：每位員工的年度設定與本月異動集中列示。
+    row += 1
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+    ws.cell(row, 1, "歷年制特休（個人年度設定＋每月異動）")
+    ws.cell(row, 1).font = Font(bold=True)
+    ws.cell(row, 1).fill = PatternFill("solid", fgColor="D9EAD3")
+    headers = ("員工", "年度特休", "本月使用", "剩餘", "說明")
+    for col, header in enumerate(headers, 1):
+        ws.cell(row + 1, col, header).font = Font(bold=True)
+        ws.cell(row + 1, col).border = border
+    for offset, salary in enumerate(salaries, 2):
+        hours = float(salary.get("standard_hours_snapshot") or 8)
+        used = float(salary.get("annual_leave_days") or 0) + float(salary.get("annual_leave_hours") or 0) / hours
+        values = (salary["employee_name_snapshot"], salary.get("annual_leave_entitlement_snapshot", 0),
+                  used, salary.get("annual_leave_balance_after", 0), salary.get("annual_leave_note_snapshot", ""))
+        for col, value in enumerate(values, 1):
+            ws.cell(row + offset, col, value); ws.cell(row + offset, col).border = border
+    row += len(salaries) + 2
+    ws.column_dimensions["C"].width = 14
+    ws.column_dimensions["D"].width = 14
+    ws.column_dimensions["E"].width = 28
+    ws.print_area = f"A1:E{max(row - 1, 1)}"
     ws.page_setup.fitToWidth = 1; ws.sheet_properties.pageSetUpPr.fitToPage = True
     output = BytesIO(); wb.save(output); output.seek(0)
     return output.getvalue()

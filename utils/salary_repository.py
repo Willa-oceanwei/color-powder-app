@@ -1,6 +1,7 @@
 """Persistence for employee current settings and immutable-by-default salary snapshots."""
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Mapping
 
@@ -71,13 +72,14 @@ def save_salary(config, data: Mapping, adjustments=(), settle=False):
     with connect_from_config(config) as conn:
         old = conn.execute("SELECT salary_id FROM salary_monthly WHERE year=? AND month=? AND employee_id=?", (data["year"], data["month"], data["employee_id"])).fetchone()
         salary_id = old[0] if old else str(data.get("salary_id") or uuid.uuid4())
-        columns = ["employee_name_snapshot", "base_salary_snapshot", "attendance_bonus_snapshot", "cooling_allowance_snapshot", "allowance_snapshot", "position_allowance_snapshot", "insurance_snapshot", "standard_hours_snapshot", "leave_days", "leave_hours", "leave_deduction", "annual_leave_days", "annual_leave_hours", "annual_leave_balance_before", "annual_leave_balance_after", "late_deduction", "total_additions", "total_deductions", "final_salary", "system_note", "manual_note"]
-        values = [data.get(k, "" if k.endswith("note") else 0) for k in columns]
+        columns = ["employee_name_snapshot", "base_salary_snapshot", "attendance_bonus_snapshot", "cooling_allowance_snapshot", "allowance_snapshot", "position_allowance_snapshot", "insurance_snapshot", "standard_hours_snapshot", "leave_days", "leave_hours", "leave_deduction", "annual_leave_days", "annual_leave_hours", "annual_leave_balance_before", "annual_leave_balance_after", "annual_leave_entitlement_snapshot", "annual_leave_note_snapshot", "late_deduction", "total_additions", "total_deductions", "final_salary", "system_note", "manual_note"]
+        values = [data.get(k, "" if "note" in k else 0) for k in columns]
         status = "settled" if settle else "draft"
         conn.execute(f"""INSERT INTO salary_monthly(salary_id,year,month,employee_id,{','.join(columns)},status,created_at,updated_at,settled_at)
-            VALUES ({','.join(['?'] * 29)}) ON CONFLICT(year,month,employee_id) DO UPDATE SET
+            VALUES ({','.join(['?'] * 31)}) ON CONFLICT(year,month,employee_id) DO UPDATE SET
             {','.join(f'{k}=excluded.{k}' for k in columns)},status=excluded.status,updated_at=excluded.updated_at,
-            settled_at=CASE WHEN excluded.status='settled' THEN excluded.settled_at ELSE salary_monthly.settled_at END""",
+            settled_at=CASE WHEN excluded.status='settled' THEN excluded.settled_at ELSE salary_monthly.settled_at END,
+            is_deleted=0,deleted_at=NULL""",
             (salary_id, data["year"], data["month"], data["employee_id"], *values, status, now, now, now if settle else None))
         conn.execute("DELETE FROM salary_adjustments WHERE salary_id=?", (salary_id,))
         for item in adjustments:
@@ -85,10 +87,10 @@ def save_salary(config, data: Mapping, adjustments=(), settle=False):
     return salary_id
 
 
-def list_salaries(config, year=None, month=None, name=""):
-    sql = "SELECT * FROM salary_monthly WHERE (? IS NULL OR year=?) AND (? IS NULL OR month=?) AND employee_name_snapshot LIKE ? ORDER BY year DESC,month DESC,employee_id"
+def list_salaries(config, year=None, month=None, name="", employee_id=None):
+    sql = "SELECT * FROM salary_monthly WHERE is_deleted=0 AND (? IS NULL OR year=?) AND (? IS NULL OR month=?) AND employee_name_snapshot LIKE ? AND (? IS NULL OR employee_id=?) ORDER BY year DESC,month DESC,employee_id"
     with connect_from_config(config) as conn:
-        salaries = _rows(conn.execute(sql, (year, year, month, month, f"%{name.strip()}%")))
+        salaries = _rows(conn.execute(sql, (year, year, month, month, f"%{name.strip()}%", employee_id, employee_id)))
         for salary in salaries:
             salary["adjustments"] = _rows(conn.execute("SELECT * FROM salary_adjustments WHERE salary_id=? ORDER BY type, adjustment_id", (salary["salary_id"],)))
     return salaries
@@ -103,11 +105,48 @@ def get_settled_month_salaries(config, year, month):
     return [row for row in list_salaries(config, year, month) if row["status"] == "settled"]
 
 
-def delete_salary(config, salary_id):
-    """Explicitly delete one mistaken/test snapshot; employee settings are untouched."""
+def get_annual_leave_setting(config, employee_id, year):
     with connect_from_config(config) as conn:
-        exists = conn.execute("SELECT 1 FROM salary_monthly WHERE salary_id=?", (salary_id,)).fetchone()
-        if not exists:
+        cursor = conn.execute("SELECT * FROM employee_annual_leave_settings WHERE employee_id=? AND year=?", (employee_id, year))
+        rows = _rows(cursor)
+    return rows[0] if rows else None
+
+
+def save_annual_leave_setting(config, employee_id, year, annual_entitlement, opening_balance, opening_month, note=""):
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        conn.execute("""INSERT INTO employee_annual_leave_settings
+            (employee_id,year,annual_entitlement,opening_balance,opening_month,note,created_at,updated_at)
+            VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(employee_id,year) DO UPDATE SET
+            annual_entitlement=excluded.annual_entitlement,opening_balance=excluded.opening_balance,
+            opening_month=excluded.opening_month,note=excluded.note,updated_at=excluded.updated_at""",
+            (employee_id, year, annual_entitlement, opening_balance, opening_month, note, now, now))
+
+
+def annual_leave_balance_before_month(config, employee_id, year, month):
+    setting = get_annual_leave_setting(config, employee_id, year)
+    if not setting:
+        return 0.0
+    with connect_from_config(config) as conn:
+        row = conn.execute("""SELECT COALESCE(SUM(annual_leave_days + annual_leave_hours /
+            CASE WHEN standard_hours_snapshot > 0 THEN standard_hours_snapshot ELSE 8 END), 0)
+            FROM salary_monthly WHERE employee_id=? AND year=? AND month>=? AND month<?
+            AND status='settled' AND is_deleted=0""",
+            (employee_id, year, setting["opening_month"], month)).fetchone()
+    return float(setting["opening_balance"]) - float(row[0] or 0)
+
+
+def delete_salary(config, salary_id):
+    """Soft-delete a snapshot while archiving its complete pre-delete state."""
+    with connect_from_config(config) as conn:
+        cursor = conn.execute("SELECT * FROM salary_monthly WHERE salary_id=? AND is_deleted=0", (salary_id,))
+        rows = _rows(cursor)
+        if not rows:
             raise ValueError("找不到要刪除的薪資資料")
-        conn.execute("DELETE FROM salary_adjustments WHERE salary_id=?", (salary_id,))
-        conn.execute("DELETE FROM salary_monthly WHERE salary_id=?", (salary_id,))
+        adjustments = _rows(conn.execute("SELECT * FROM salary_adjustments WHERE salary_id=?", (salary_id,)))
+        now = utc_now_iso()
+        conn.execute("INSERT INTO salary_deletion_audit VALUES(?,?,?,?,?)",
+                     (str(uuid.uuid4()), salary_id, json.dumps(rows[0], ensure_ascii=False),
+                      json.dumps(adjustments, ensure_ascii=False), now))
+        conn.execute("UPDATE salary_monthly SET is_deleted=1,deleted_at=?,updated_at=? WHERE salary_id=?",
+                     (now, now, salary_id))

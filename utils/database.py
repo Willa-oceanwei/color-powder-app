@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -53,6 +53,8 @@ MAIN_TABLES = {
     "salary_adjustments",
     "annual_leave_history",
     "salary_rules",
+    "employee_annual_leave_settings",
+    "salary_deletion_audit",
 }
 REQUIRED_TABLE_COLUMNS = {
     "color_powders": {"lifecycle_status", "deleted_at", "delete_reason"},
@@ -69,6 +71,8 @@ REQUIRED_TABLE_COLUMNS = {
     "customer_inventory_records": {"lifecycle_status", "deleted_at", "delete_reason"},
     "carwash_inventory_movements": {"lifecycle_status", "deleted_at", "delete_reason"},
     "trial_records": {"lifecycle_status", "deleted_at", "delete_reason"},
+    "salary_monthly": {"annual_leave_entitlement_snapshot", "annual_leave_note_snapshot", "is_deleted", "deleted_at"},
+    "employee_annual_leave_settings": {"annual_entitlement", "opening_balance", "opening_month"},
 }
 
 
@@ -755,6 +759,8 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             annual_leave_hours REAL NOT NULL DEFAULT 0,
             annual_leave_balance_before REAL NOT NULL DEFAULT 0,
             annual_leave_balance_after REAL NOT NULL DEFAULT 0,
+            annual_leave_entitlement_snapshot REAL NOT NULL DEFAULT 0,
+            annual_leave_note_snapshot TEXT,
             late_deduction INTEGER NOT NULL DEFAULT 0,
             total_additions INTEGER NOT NULL DEFAULT 0,
             total_deductions INTEGER NOT NULL DEFAULT 0,
@@ -765,6 +771,8 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             settled_at TEXT,
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            deleted_at TEXT,
             FOREIGN KEY(employee_id) REFERENCES employee_master(employee_id) ON DELETE RESTRICT,
             UNIQUE(year, month, employee_id)
         );
@@ -788,6 +796,27 @@ def _initialize_schema(conn: SqlExecutor) -> None:
 
         CREATE TABLE IF NOT EXISTS salary_rules (
             rule_key TEXT PRIMARY KEY, rule_value TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS employee_annual_leave_settings (
+            employee_id TEXT NOT NULL,
+            year INTEGER NOT NULL,
+            annual_entitlement REAL NOT NULL DEFAULT 0,
+            opening_balance REAL NOT NULL DEFAULT 0,
+            opening_month INTEGER NOT NULL DEFAULT 1,
+            note TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(employee_id, year),
+            FOREIGN KEY(employee_id) REFERENCES employee_master(employee_id) ON DELETE RESTRICT
+        );
+
+        CREATE TABLE IF NOT EXISTS salary_deletion_audit (
+            audit_id TEXT PRIMARY KEY,
+            salary_id TEXT NOT NULL,
+            snapshot_json TEXT NOT NULL,
+            adjustments_json TEXT NOT NULL,
+            deleted_at TEXT NOT NULL
         );
         """
     )
@@ -815,6 +844,10 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     _add_column_if_missing(conn, "employee_master", "default_deduction_enabled", "INTEGER NOT NULL DEFAULT 0")
     _add_column_if_missing(conn, "employee_master", "default_deduction_amount", "INTEGER NOT NULL DEFAULT 0")
     _add_column_if_missing(conn, "employee_master", "default_deduction_note", "TEXT")
+    _add_column_if_missing(conn, "salary_monthly", "annual_leave_entitlement_snapshot", "REAL NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "salary_monthly", "annual_leave_note_snapshot", "TEXT")
+    _add_column_if_missing(conn, "salary_monthly", "is_deleted", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "salary_monthly", "deleted_at", "TEXT")
     conn.execute(
         """UPDATE recipes
            SET oem_multiplier = COALESCE(
@@ -904,6 +937,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE INDEX IF NOT EXISTS idx_salary_employee ON salary_monthly(employee_id);
         CREATE INDEX IF NOT EXISTS idx_adjustments_salary ON salary_adjustments(salary_id);
         CREATE INDEX IF NOT EXISTS idx_annual_leave_employee_date ON annual_leave_history(employee_id, date);
+        CREATE INDEX IF NOT EXISTS idx_salary_active_month ON salary_monthly(year, month, is_deleted, status);
         """
     )
     now = utc_now_iso()

@@ -6,9 +6,11 @@ import streamlit as st
 
 from .salary_calculator import calculate_salary, generate_salary_note
 from .salary_excel import generate_salary_workbook
-from .salary_repository import (delete_salary, get_month_salaries, get_rules, get_settled_month_salaries,
-                                list_employees, list_salaries,
-                                save_employee, save_rules, save_salary, set_employee_active)
+from .salary_repository import (annual_leave_balance_before_month, delete_salary,
+                                get_annual_leave_setting, get_month_salaries, get_rules,
+                                get_settled_month_salaries, list_employees, list_salaries,
+                                save_annual_leave_setting, save_employee, save_rules, save_salary,
+                                set_employee_active)
 
 
 MONEY_FIELDS = ("base_salary", "attendance_bonus", "cooling_allowance", "allowance", "position_allowance", "insurance")
@@ -38,9 +40,7 @@ def _employee_tab(config):
         names = {"base_salary":"底薪", "attendance_bonus":"全勤", "cooling_allowance":"涼水", "allowance":"固定津貼", "position_allowance":"職務津貼", "insurance":"勞健保扣款"}
         for idx, field in enumerate(MONEY_FIELDS):
             values[field] = columns[idx % 3].number_input(names[field], min_value=0, step=100, value=int(current.get(field, 0)), key=f"employee_{field}_{employee_key}")
-        h, leave = st.columns(2)
-        standard_hours = h.number_input("每日標準工時", min_value=0.5, value=float(current.get("standard_hours", 8)), key=f"employee_hours_{employee_key}")
-        annual_leave = leave.number_input("特休期初餘額", min_value=0.0, value=float(current.get("annual_leave_base", 0)), key=f"employee_leave_{employee_key}", help="開始使用薪資模組時可用的特休餘額，不代表依法或年度給予天數。")
+        standard_hours = st.number_input("每日標準工時", min_value=0.5, value=float(current.get("standard_hours", 8)), key=f"employee_hours_{employee_key}")
         st.markdown("##### 每月預設彈性項目")
         add_enabled = st.toggle("預設啟用特別加給", value=bool(current.get("special_addition_enabled", 0)), key=f"employee_special_enabled_{employee_key}")
         ca, cn = st.columns([1, 2])
@@ -54,18 +54,35 @@ def _employee_tab(config):
         submit_label = "新增員工" if not current else "儲存修改"
         if st.form_submit_button(submit_label, type="primary"):
             save_employee(config, {"employee_id":employee_id, "name":name, "join_date":join_date.isoformat(), "active":active,
-                **values, "standard_hours":standard_hours, "annual_leave_base":annual_leave,
+                **values, "standard_hours":standard_hours, "annual_leave_base":current.get("annual_leave_base", 0),
                 "special_addition_enabled":add_enabled, "special_addition_amount":add_amount, "special_addition_note":add_note,
                 "default_deduction_enabled":deduct_enabled, "default_deduction_amount":deduct_amount,
                 "default_deduction_note":deduct_note, "note":note})
             st.toast("員工目前設定已儲存；歷史快照不受影響"); st.rerun()
     if current and st.button("停用／離職" if current.get("active") else "恢復在職"):
         set_employee_active(config, current["employee_id"], not current.get("active")); st.rerun()
+    if current:
+        st.divider()
+        st.markdown("<div style='font-size:16px;font-weight:700;'>個人年度特休設定</div>", unsafe_allow_html=True)
+        leave_year = st.selectbox("年度", range(date.today().year - 5, date.today().year + 3), index=5,
+                                  key=f"annual_leave_year_{employee_key}")
+        setting = get_annual_leave_setting(config, current["employee_id"], leave_year) or {}
+        with st.form(f"annual_leave_setting_{employee_key}_{leave_year}"):
+            c1, c2, c3 = st.columns(3)
+            entitlement = c1.number_input("當年度特休核定天數", min_value=0.0, value=float(setting.get("annual_entitlement", 0)))
+            opening_balance = c2.number_input("期初剩餘天數", min_value=0.0, value=float(setting.get("opening_balance", 0)),
+                                              help="系統於年度中導入時，填寫截至導入月份的實際剩餘天數。")
+            opening_month = c3.selectbox("開始計算月份", range(1, 13), index=int(setting.get("opening_month", 1)) - 1)
+            leave_note = st.text_input("個人特休說明", value=setting.get("note") or "")
+            if st.form_submit_button("儲存年度特休設定", type="primary"):
+                save_annual_leave_setting(config, current["employee_id"], leave_year, entitlement,
+                                          opening_balance, opening_month, leave_note)
+                st.toast("個人年度特休設定已儲存"); st.rerun()
     active_count = len(list_employees(config))
     st.caption(f"目前共有 {active_count} 筆在職的員工資料。為保護薪資隱私，本頁不直接攤開完整清單；請使用上方「修改員工」搜尋及選取。")
 
 
-def _new_block(employee):
+def _new_block(employee, annual_setting=None, leave_balance=0):
     adjustments = []
     if employee.get("special_addition_enabled"):
         adjustments.append({"type":"addition", "item_name":"特別加給", "amount":employee.get("special_addition_amount", 0), "note":employee.get("special_addition_note") or ""})
@@ -73,17 +90,13 @@ def _new_block(employee):
         adjustments.append({"type":"deduction", "item_name":"扣除額", "amount":employee.get("default_deduction_amount", 0), "note":employee.get("default_deduction_note") or ""})
     return {"employee_id": employee["employee_id"], "employee_name_snapshot": employee["name"],
             **{f"{k}_snapshot": employee[k] for k in MONEY_FIELDS}, "standard_hours_snapshot": employee["standard_hours"],
-            "annual_leave_balance_before": employee["annual_leave_base"], "leave_days":0.0, "leave_hours":0.0,
+            "annual_leave_entitlement_snapshot": (annual_setting or {}).get("annual_entitlement", 0),
+            "annual_leave_note_snapshot": (annual_setting or {}).get("note", ""),
+            "annual_leave_balance_before": leave_balance, "leave_days":0.0, "leave_hours":0.0,
             "annual_leave_days":0.0, "annual_leave_hours":0.0, "late_deduction":0, "manual_note":"", "adjustments":adjustments}
 
 
 def _monthly_tab(config):
-    pending = st.session_state.pop("salary_pending_revision", None)
-    if pending:
-        st.session_state.salary_year = pending["year"]
-        st.session_state.salary_month = pending["month"]
-        st.session_state.salary_period = f"{pending['year']:04d}-{pending['month']:02d}"
-        st.session_state.salary_blocks = [pending]
     now = date.today(); ycol, mcol = st.columns(2)
     year = ycol.selectbox("年份", range(now.year - 5, now.year + 3), index=5, key="salary_year")
     month = mcol.selectbox("月份", range(1, 13), index=now.month - 1, key="salary_month")
@@ -94,9 +107,13 @@ def _monthly_tab(config):
     blocks = st.session_state.setdefault("salary_blocks", [])
     employees = list_employees(config)
     by_id = {x["employee_id"]: x for x in employees}
+    def new_month_block(employee):
+        setting = get_annual_leave_setting(config, employee["employee_id"], year)
+        balance = annual_leave_balance_before_month(config, employee["employee_id"], year, month)
+        return _new_block(employee, setting, balance)
     if st.button("＋ 新增人員", disabled=not employees):
         available = next((x for x in employees if x["employee_id"] not in {b.get("employee_id") for b in blocks}), employees[0])
-        blocks.append(_new_block(available)); st.rerun()
+        blocks.append(new_month_block(available)); st.rerun()
     rules = get_rules(config)
     for index, block in enumerate(list(blocks)):
         with st.container(border=True):
@@ -106,7 +123,7 @@ def _monthly_tab(config):
             if current_id not in options: options.insert(0, current_id)
             selected_id = top.selectbox("姓名", options, index=options.index(current_id), format_func=lambda x: by_id.get(x, {"name":block.get("employee_name_snapshot", x)})["name"], key=f"sal_emp_{period}_{index}")
             if selected_id != current_id:
-                blocks[index] = _new_block(by_id[selected_id]); st.rerun()
+                blocks[index] = new_month_block(by_id[selected_id]); st.rerun()
             if remove.button("－ 移除此人員", key=f"sal_remove_{period}_{index}"):
                 blocks.pop(index); st.rerun()
             labels = [("base_salary_snapshot","底薪"),("attendance_bonus_snapshot","全勤"),("cooling_allowance_snapshot","涼水"),("allowance_snapshot","固定津貼"),("position_allowance_snapshot","職務津貼"),("insurance_snapshot","勞健保")]
@@ -118,7 +135,8 @@ def _monthly_tab(config):
             block["late_deduction"] = st.number_input("遲到扣款", min_value=0, value=int(block.get("late_deduction", 0)), key=f"late_{period}_{index}")
             before = float(block.get("annual_leave_balance_before", 0)); used = block["annual_leave_days"] + block["annual_leave_hours"] / float(block.get("standard_hours_snapshot") or 8)
             block["annual_leave_balance_after"] = before - used
-            st.caption(f"本月特休共 {used:g} 日；使用前 {before:g} 日，使用後 {before-used:g} 日")
+            entitlement = float(block.get("annual_leave_entitlement_snapshot", 0))
+            st.caption(f"年度核定 {entitlement:g} 日；本月使用 {used:g} 日；使用前 {before:g} 日，使用後 {before-used:g} 日")
             st.markdown("##### 當月彈性項目")
             for kind, title, item_name in (("addition", "特別加給", "特別加給"), ("deduction", "扣除額", "扣除額")):
                 adjustments = block.setdefault("adjustments", [])
@@ -165,33 +183,54 @@ def _monthly_tab(config):
 
 
 def _history_tab(config):
-    y,m,n = st.columns(3); year = y.number_input("年", min_value=2000, max_value=2100, value=date.today().year); month = m.selectbox("月", [0]+list(range(1,13)), format_func=lambda x:"全部" if x==0 else str(x)); name=n.text_input("姓名")
-    rows = list_salaries(config, int(year), month or None, name)
-    if rows:
-        display = pd.DataFrame([{ "年月":f"{x['year']}/{x['month']:02d}", "姓名":x["employee_name_snapshot"], "當月底薪":x["base_salary_snapshot"], "加給":x["total_additions"], "扣除":x["total_deductions"], "請假":x["leave_deduction"], "特休":f"{x['annual_leave_days']}日{x['annual_leave_hours']}時", "薪資總計":x["final_salary"], "說明":x["system_note"], "狀態":x["status"], "最後修改":x["updated_at"]} for x in rows])
-        st.dataframe(display, use_container_width=True, hide_index=True)
-        chosen = st.selectbox("選擇要修正的薪資", range(len(rows)), format_func=lambda i:f"{rows[i]['year']}/{rows[i]['month']:02d} {rows[i]['employee_name_snapshot']}")
-        if st.button("修正薪資"):
-            st.session_state.salary_pending_revision = rows[chosen]
-            st.toast("已載入當時快照；請至「每月薪資」修正後重新結算"); st.rerun()
-        selected_salary = rows[chosen]
-        with st.expander("刪除錯誤／測試薪資資料"):
-            st.warning("刪除後該月份快照與加扣明細會永久移除；員工基本資料不受影響。正式資料若只是金額錯誤，建議使用「修正薪資」。")
-            confirm = st.checkbox(
-                f"確認刪除 {selected_salary['year']}/{selected_salary['month']:02d} {selected_salary['employee_name_snapshot']} 的薪資資料",
-                key=f"delete_salary_confirm_{selected_salary['salary_id']}",
-            )
-            if st.button("永久刪除此筆薪資", type="primary", disabled=not confirm,
-                         key=f"delete_salary_{selected_salary['salary_id']}"):
-                delete_salary(config, selected_salary["salary_id"])
-                period = f"{selected_salary['year']:04d}-{selected_salary['month']:02d}"
-                if st.session_state.get("salary_period") == period:
-                    st.session_state.salary_blocks = get_month_salaries(
-                        config, selected_salary["year"], selected_salary["month"]
-                    )
-                st.toast("錯誤／測試薪資資料已刪除")
-                st.rerun()
-    else: st.info("查無薪資快照")
+    query_mode = st.selectbox("查詢方式", ["請選擇", "全部", "依月份", "依員工"], key="salary_history_query_mode")
+    if query_mode == "請選擇":
+        return
+    if query_mode == "全部":
+        rows = list_salaries(config)
+    elif query_mode == "依月份":
+        y, m = st.columns(2)
+        year = y.selectbox("年份", range(date.today().year - 10, date.today().year + 3), index=10,
+                           key="salary_history_year")
+        month = m.selectbox("月份", range(1, 13), index=date.today().month - 1, key="salary_history_month")
+        rows = list_salaries(config, year, month)
+    else:
+        employees = list_employees(config, include_inactive=True)
+        if not employees:
+            st.info("目前沒有員工資料。")
+            return
+        employee_id = st.selectbox("員工姓名", [item["employee_id"] for item in employees],
+                                   format_func=lambda value: next(item["name"] for item in employees if item["employee_id"] == value),
+                                   key="salary_history_employee")
+        rows = list_salaries(config, employee_id=employee_id)
+    rows = [row for row in rows if row["status"] == "settled"]
+    if not rows:
+        st.info("查無已結算薪資資料。草稿請回「每月薪資」繼續修改。")
+        return
+    display = pd.DataFrame([{ "年月":f"{x['year']}/{x['month']:02d}", "姓名":x["employee_name_snapshot"], "當月底薪":x["base_salary_snapshot"], "加給":x["total_additions"], "扣除":x["total_deductions"], "請假":x["leave_deduction"], "特休":f"{x['annual_leave_days']}日{x['annual_leave_hours']}時", "薪資總計":x["final_salary"], "說明":x["system_note"], "狀態":x["status"], "最後修改":x["updated_at"]} for x in rows])
+    st.dataframe(display, use_container_width=True, hide_index=True)
+    chosen = st.selectbox("選擇薪資", range(len(rows)), format_func=lambda i:f"{rows[i]['year']}/{rows[i]['month']:02d} {rows[i]['employee_name_snapshot']}")
+    selected_salary = rows[chosen]
+    pending_id = st.session_state.get("salary_delete_pending")
+    if pending_id != selected_salary["salary_id"]:
+        if st.button("刪除薪資"):
+            st.session_state.salary_delete_pending = selected_salary["salary_id"]
+            st.rerun()
+        return
+    st.warning(f"確定刪除「{selected_salary['employee_name_snapshot']} {selected_salary['year']}年{selected_salary['month']:02d}月」已結算薪資？")
+    st.caption("刪除後，此筆資料將不再納入薪資歷史與本月 Excel，可回「每月薪資」重新建立。")
+    confirm, cancel = st.columns(2)
+    if confirm.button("確認刪除", type="primary"):
+        delete_salary(config, selected_salary["salary_id"])
+        st.session_state.pop("salary_delete_pending", None)
+        period = f"{selected_salary['year']:04d}-{selected_salary['month']:02d}"
+        if st.session_state.get("salary_period") == period:
+            st.session_state.salary_blocks = get_month_salaries(config, selected_salary["year"], selected_salary["month"])
+        st.toast("薪資已刪除，可回每月薪資重新建立")
+        st.rerun()
+    if cancel.button("取消"):
+        st.session_state.pop("salary_delete_pending", None)
+        st.rerun()
 
 
 def _rules_tab(config):
