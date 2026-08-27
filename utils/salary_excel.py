@@ -1,67 +1,179 @@
-"""Compact, same-sheet salary slips modelled after the supplied legacy layout."""
+"""Generate a compact, landscape, single-sheet monthly payroll report."""
 from io import BytesIO
+
+
+PAYROLL_HEADERS = (
+    "月份／姓名", "底薪", "請假", "全勤", "涼水", "津貼", "職務津貼",
+    "勞健保", "遲到", "小計", "特別加給", "扣除額", "薪資總計",
+)
+LEAVE_HEADERS = ("姓名", "年度特休", "本月新增／異動", "本月使用", "剩餘", "說明")
+
+
+def _adjustment_total(salary, adjustment_type):
+    return sum(
+        int(item.get("amount") or 0)
+        for item in salary.get("adjustments", [])
+        if item.get("type") == adjustment_type
+    )
+
+
+def _leave_used_days(salary):
+    hours_per_day = float(salary.get("standard_hours_snapshot") or 8)
+    return float(salary.get("annual_leave_days") or 0) + float(salary.get("annual_leave_hours") or 0) / hours_per_day
+
+
+def _payroll_leave_note(salary):
+    """Excel notes deliberately contain leave facts only, never adjustment notes."""
+    parts = []
+    leave_days = float(salary.get("leave_days") or 0)
+    leave_hours = float(salary.get("leave_hours") or 0)
+    if leave_days or leave_hours:
+        parts.append(f"請假{leave_days:g}日{leave_hours:g}小時")
+    annual_days = float(salary.get("annual_leave_days") or 0)
+    annual_hours = float(salary.get("annual_leave_hours") or 0)
+    annual_used = _leave_used_days(salary)
+    if annual_used:
+        balance = float(salary.get("annual_leave_balance_after") or 0)
+        parts.append(f"特休{annual_days:g}日{annual_hours:g}小時，共{annual_used:g}日，餘{balance:g}日")
+    return "；".join(parts)
+
 
 def generate_salary_workbook(year, month, salaries):
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.page import PageMargins
 
+    salaries = list(salaries)
     wb = Workbook()
     ws = wb.active
     ws.title = f"{year}年{month:02d}月薪資"
     ws.sheet_view.showGridLines = False
-    ws.column_dimensions["A"].width = 20
-    ws.column_dimensions["B"].width = 16
-    thin = Side(style="thin", color="666666")
+    ws.freeze_panes = "A3"
+
+    thin = Side(style="thin", color="777777")
+    medium = Side(style="medium", color="444444")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    row = 1
+    header_fill = PatternFill("solid", fgColor="D9EAF7")
+    total_fill = PatternFill("solid", fgColor="FFF2CC")
+    leave_fill = PatternFill("solid", fgColor="D9EAD3")
+    centered = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    # One report title and one fixed header row for every employee.
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(PAYROLL_HEADERS))
+    title = ws.cell(1, 1, f"{year}年{month:02d}月薪資")
+    title.font = Font(name="Microsoft JhengHei", size=14, bold=True)
+    title.alignment = centered
+    ws.row_dimensions[1].height = 25
+    for column, header in enumerate(PAYROLL_HEADERS, 1):
+        cell = ws.cell(2, column, header)
+        cell.font = Font(name="Microsoft JhengHei", size=9, bold=True)
+        cell.alignment = centered
+        cell.fill = header_fill
+        cell.border = border
+    ws.row_dimensions[2].height = 30
+
+    row = 3
     for salary in salaries:
-        additions = [x for x in salary.get("adjustments", []) if x["type"] == "addition"]
-        deductions = [x for x in salary.get("adjustments", []) if x["type"] == "deduction"]
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
-        cell = ws.cell(row, 1, f"{month:02d}月份　{salary['employee_name_snapshot']}")
-        cell.font = Font(size=14, bold=True); cell.alignment = Alignment(horizontal="center")
-        cell.fill = PatternFill("solid", fgColor="D9EAF7")
-        items = [("底薪", salary["base_salary_snapshot"]), ("+全勤", salary["attendance_bonus_snapshot"]),
-                 ("+涼水", salary["cooling_allowance_snapshot"]), ("+津貼", salary["allowance_snapshot"]),
-                 ("+職務津貼", salary["position_allowance_snapshot"]), ("-請假", -salary["leave_deduction"]),
-                 ("-勞健保", -salary["insurance_snapshot"]), ("-遲到", -salary["late_deduction"])]
-        items += [(f"+{x['item_name']}", x["amount"]) for x in additions]
-        items += [(f"-{x['item_name']}", -x["amount"]) for x in deductions]
-        items.append(("薪資總計", salary["final_salary"]))
-        for offset, (label, amount) in enumerate(items, 1):
-            ws.cell(row + offset, 1, label); ws.cell(row + offset, 2, amount)
-            ws.cell(row + offset, 2).number_format = '#,##0;[Red]-#,##0'
-            if label == "薪資總計":
-                ws.cell(row + offset, 1).font = ws.cell(row + offset, 2).font = Font(bold=True)
-            for col in (1, 2): ws.cell(row + offset, col).border = border
-        note_row = row + len(items) + 1
-        ws.merge_cells(start_row=note_row, start_column=1, end_row=note_row, end_column=2)
-        ws.cell(note_row, 1, " ".join(filter(None, [salary.get("system_note", ""), salary.get("manual_note", "")])))
-        ws.cell(note_row, 1).alignment = Alignment(wrap_text=True, vertical="top")
-        ws.row_dimensions[note_row].height = 34
-        row = note_row + 2
-    # 原始薪資表下半部：每位員工的年度設定與本月異動集中列示。
+        additions = _adjustment_total(salary, "addition")
+        deductions = _adjustment_total(salary, "deduction")
+        final_salary = int(salary.get("final_salary") or 0)
+        subtotal = final_salary - additions + deductions
+        values = (
+            f"{month:02d}月份 {salary['employee_name_snapshot']}",
+            int(salary.get("base_salary_snapshot") or 0),
+            -int(salary.get("leave_deduction") or 0),
+            int(salary.get("attendance_bonus_snapshot") or 0),
+            int(salary.get("cooling_allowance_snapshot") or 0),
+            int(salary.get("allowance_snapshot") or 0),
+            int(salary.get("position_allowance_snapshot") or 0),
+            -int(salary.get("insurance_snapshot") or 0),
+            -int(salary.get("late_deduction") or 0),
+            subtotal,
+            additions,
+            deductions,
+            final_salary,
+        )
+        for column, value in enumerate(values, 1):
+            cell = ws.cell(row, column, value)
+            cell.font = Font(name="Microsoft JhengHei", size=9, bold=column == 13)
+            cell.alignment = centered
+            cell.border = border
+            if column > 1:
+                cell.number_format = '#,##0;[Red]-#,##0;0'
+            if column in (10, 13):
+                cell.fill = total_fill
+        ws.row_dimensions[row].height = 24
+
+        note = _payroll_leave_note(salary)
+        if note:
+            ws.cell(row + 1, 1, "說明")
+            ws.cell(row + 1, 1).font = Font(name="Microsoft JhengHei", size=8, bold=True)
+            ws.cell(row + 1, 1).alignment = centered
+            ws.cell(row + 1, 1).border = border
+            ws.merge_cells(start_row=row + 1, start_column=2, end_row=row + 1, end_column=len(PAYROLL_HEADERS))
+            note_cell = ws.cell(row + 1, 2, note)
+            note_cell.font = Font(name="Microsoft JhengHei", size=8)
+            note_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            note_cell.border = Border(top=thin, bottom=medium, left=thin, right=medium)
+            ws.row_dimensions[row + 1].height = 20
+            row += 2
+        else:
+            # A slightly heavier bottom edge separates adjacent employees without wasting a row.
+            for column in range(1, len(PAYROLL_HEADERS) + 1):
+                ws.cell(row, column).border = Border(left=thin, right=thin, top=thin, bottom=medium)
+            row += 1
+
+    # Personal annual-leave settings and this month's movement always come last.
     row += 1
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
-    ws.cell(row, 1, "歷年制特休（個人年度設定＋每月異動）")
-    ws.cell(row, 1).font = Font(bold=True)
-    ws.cell(row, 1).fill = PatternFill("solid", fgColor="D9EAD3")
-    headers = ("員工", "年度特休", "本月使用", "剩餘", "說明")
-    for col, header in enumerate(headers, 1):
-        ws.cell(row + 1, col, header).font = Font(bold=True)
-        ws.cell(row + 1, col).border = border
-    for offset, salary in enumerate(salaries, 2):
-        hours = float(salary.get("standard_hours_snapshot") or 8)
-        used = float(salary.get("annual_leave_days") or 0) + float(salary.get("annual_leave_hours") or 0) / hours
-        values = (salary["employee_name_snapshot"], salary.get("annual_leave_entitlement_snapshot", 0),
-                  used, salary.get("annual_leave_balance_after", 0), salary.get("annual_leave_note_snapshot", ""))
-        for col, value in enumerate(values, 1):
-            ws.cell(row + offset, col, value); ws.cell(row + offset, col).border = border
-    row += len(salaries) + 2
-    ws.column_dimensions["C"].width = 14
-    ws.column_dimensions["D"].width = 14
-    ws.column_dimensions["E"].width = 28
-    ws.print_area = f"A1:E{max(row - 1, 1)}"
-    ws.page_setup.fitToWidth = 1; ws.sheet_properties.pageSetUpPr.fitToPage = True
-    output = BytesIO(); wb.save(output); output.seek(0)
+    leave_title_row = row
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=len(LEAVE_HEADERS))
+    leave_title = ws.cell(row, 1, "歷年制特休")
+    leave_title.font = Font(name="Microsoft JhengHei", size=11, bold=True)
+    leave_title.alignment = Alignment(horizontal="left", vertical="center")
+    leave_title.fill = leave_fill
+    row += 1
+    for column, header in enumerate(LEAVE_HEADERS, 1):
+        cell = ws.cell(row, column, header)
+        cell.font = Font(name="Microsoft JhengHei", size=9, bold=True)
+        cell.alignment = centered
+        cell.fill = leave_fill
+        cell.border = border
+    for salary in salaries:
+        row += 1
+        used = _leave_used_days(salary)
+        values = (
+            salary["employee_name_snapshot"],
+            float(salary.get("annual_leave_entitlement_snapshot") or 0),
+            0,  # No separate monthly grant snapshot exists yet; keep the fixed legacy column.
+            used,
+            float(salary.get("annual_leave_balance_after") or 0),
+            salary.get("annual_leave_note_snapshot") or "",
+        )
+        for column, value in enumerate(values, 1):
+            cell = ws.cell(row, column, value)
+            cell.font = Font(name="Microsoft JhengHei", size=9)
+            cell.alignment = centered if column < 6 else Alignment(horizontal="left", vertical="center", wrap_text=True)
+            cell.border = border
+            if 1 < column < 6:
+                cell.number_format = '0.##'
+
+    widths = (18, 11, 10, 10, 10, 11, 12, 11, 9, 12, 12, 11, 13)
+    for column, width in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(column)].width = width
+    ws.row_dimensions[leave_title_row].height = 22
+
+    ws.print_area = f"A1:M{max(row, 1)}"
+    ws.print_title_rows = "1:2"
+    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_margins = PageMargins(left=0.25, right=0.25, top=0.35, bottom=0.35, header=0.15, footer=0.15)
+    ws.sheet_properties.pageSetUpPr.autoPageBreaks = False
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
     return output.getvalue()

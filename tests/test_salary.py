@@ -2,6 +2,7 @@ from pathlib import Path
 
 from utils.database import DatabaseConfig, connect_from_config, initialize_database_with_health
 from utils.salary_calculator import calculate_leave_deduction, calculate_salary
+from utils.salary_excel import _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
                                      get_month_salaries, get_settled_month_salaries,
                                      list_employees, save_annual_leave_setting, save_employee, save_salary)
@@ -89,15 +90,39 @@ def test_leave_rounding_and_same_sheet_excel():
     from openpyxl import load_workbook
     from utils.salary_excel import generate_salary_workbook
     assert calculate_leave_deduction(29500, 1, 2, 30, 8) == 1229
-    salary = {"employee_name_snapshot":"甲","base_salary_snapshot":29500,"attendance_bonus_snapshot":0,
-              "cooling_allowance_snapshot":0,"allowance_snapshot":0,"position_allowance_snapshot":0,
-              "leave_deduction":0,"insurance_snapshot":0,"late_deduction":0,"final_salary":29500,
-              "adjustments":[],"system_note":"","manual_note":"", "standard_hours_snapshot":8,
+    salary = {"employee_name_snapshot":"甲","base_salary_snapshot":29500,"attendance_bonus_snapshot":3000,
+              "cooling_allowance_snapshot":500,"allowance_snapshot":3000,"position_allowance_snapshot":1000,
+              "leave_days":1,"leave_hours":2,"leave_deduction":1229,"insurance_snapshot":2168,
+              "late_deduction":30,"final_salary":35373,
+              "adjustments":[{"type":"addition","item_name":"特別加給","amount":1800,"note":"餐費"}],
+              "system_note":"另有特別加給1,800元（餐費）。","manual_note":"", "standard_hours_snapshot":8,
               "annual_leave_days":1,"annual_leave_hours":4,"annual_leave_entitlement_snapshot":14,
               "annual_leave_balance_after":7.5,"annual_leave_note_snapshot":"歷年制特休14日"}
     from io import BytesIO
     workbook = load_workbook(BytesIO(generate_salary_workbook(2026, 8, [salary, {**salary,"employee_name_snapshot":"乙"}])))
     assert workbook.sheetnames == ["2026年08月薪資"]
-    assert "甲" in workbook.active["A1"].value
-    assert any("乙" in str(cell.value) for row in workbook.active for cell in row)
-    assert any("歷年制特休（個人年度設定＋每月異動）" in str(cell.value) for row in workbook.active for cell in row)
+    sheet = workbook.active
+    assert sheet.max_column == 13
+    assert sheet["A1"].value == "2026年08月薪資"
+    assert [cell.value for cell in sheet[2]] == ["月份／姓名", "底薪", "請假", "全勤", "涼水", "津貼",
+                                                   "職務津貼", "勞健保", "遲到", "小計", "特別加給", "扣除額", "薪資總計"]
+    assert [cell.value for cell in sheet[3]] == ["08月份 甲", 29500, -1229, 3000, 500, 3000, 1000,
+                                                   -2168, -30, 33573, 1800, 0, 35373]
+    assert "請假1日2小時" in sheet["B4"].value
+    assert "特休1日4小時，共1.5日，餘7.5日" in sheet["B4"].value
+    assert "餐費" not in sheet["B4"].value
+    assert sum(cell.value == "底薪" for row in sheet for cell in row) == 1
+    assert any("乙" in str(cell.value) for row in sheet for cell in row)
+    assert any(cell.value == "歷年制特休" for row in sheet for cell in row)
+    assert sheet.sheet_properties.pageSetUpPr.fitToPage
+    assert sheet.page_setup.orientation == "landscape"
+    assert sheet.page_setup.fitToWidth == 1
+
+
+def test_excel_note_contains_leave_only():
+    salary = {"leave_days":1, "leave_hours":2, "annual_leave_days":1, "annual_leave_hours":4,
+              "standard_hours_snapshot":8, "annual_leave_balance_after":7.5,
+              "system_note":"另有特別加給1,800元（餐費）。"}
+    note = _payroll_leave_note(salary)
+    assert note == "請假1日2小時；特休1日4小時，共1.5日，餘7.5日"
+    assert "餐費" not in note
