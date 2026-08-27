@@ -28,7 +28,8 @@ def save_employee(config, data: Mapping):
               "position_allowance", "insurance", "standard_hours", "annual_leave_base",
               "special_addition_enabled", "special_addition_amount", "special_addition_note",
               "default_deduction_enabled", "default_deduction_amount", "default_deduction_note", "note")
-    values = [data.get(k, "" if k == "join_date" or k.endswith("note") else 0) for k in fields]
+    defaults = {"active": 1, "standard_hours": 8}
+    values = [data.get(k, "" if k == "join_date" or k.endswith("note") else defaults.get(k, 0)) for k in fields]
     with connect_from_config(config) as conn:
         conn.execute(f"""INSERT INTO employee_master(employee_id,name,{','.join(fields)},created_at,updated_at)
             VALUES ({','.join(['?'] * 21)}) ON CONFLICT(employee_id) DO UPDATE SET name=excluded.name,
@@ -95,3 +96,13 @@ def list_salaries(config, year=None, month=None, name=""):
 
 def get_month_salaries(config, year, month):
     return list_salaries(config, year, month)
+
+
+def delete_salary(config, salary_id):
+    """Explicitly delete one mistaken/test snapshot; employee settings are untouched."""
+    with connect_from_config(config) as conn:
+        exists = conn.execute("SELECT 1 FROM salary_monthly WHERE salary_id=?", (salary_id,)).fetchone()
+        if not exists:
+            raise ValueError("找不到要刪除的薪資資料")
+        conn.execute("DELETE FROM salary_adjustments WHERE salary_id=?", (salary_id,))
+        conn.execute("DELETE FROM salary_monthly WHERE salary_id=?", (salary_id,))

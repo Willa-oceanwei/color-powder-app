@@ -6,7 +6,7 @@ import streamlit as st
 
 from .salary_calculator import calculate_salary, generate_salary_note
 from .salary_excel import generate_salary_workbook
-from .salary_repository import (get_month_salaries, get_rules, list_employees, list_salaries,
+from .salary_repository import (delete_salary, get_month_salaries, get_rules, list_employees, list_salaries,
                                 save_employee, save_rules, save_salary, set_employee_active)
 
 
@@ -60,7 +60,8 @@ def _employee_tab(config):
             st.toast("員工目前設定已儲存；歷史快照不受影響", icon="✅"); st.rerun()
     if current and st.button("停用／離職" if current.get("active") else "恢復在職"):
         set_employee_active(config, current["employee_id"], not current.get("active")); st.rerun()
-    st.caption(f"目前共有 {len(employees)} 筆符合條件的員工資料。為保護薪資隱私，本頁不直接攤開完整清單；請使用上方「修改員工」搜尋及選取。")
+    active_count = len(list_employees(config))
+    st.caption(f"目前共有 {active_count} 筆在職的員工資料。為保護薪資隱私，本頁不直接攤開完整清單；請使用上方「修改員工」搜尋及選取。")
 
 
 def _new_block(employee):
@@ -160,6 +161,23 @@ def _history_tab(config):
         if st.button("✏️ 修正薪資"):
             st.session_state.salary_pending_revision = rows[chosen]
             st.toast("已載入當時快照；請至「每月薪資」修正後重新結算", icon="✏️"); st.rerun()
+        selected_salary = rows[chosen]
+        with st.expander("🗑️ 刪除錯誤／測試薪資資料"):
+            st.warning("刪除後該月份快照與加扣明細會永久移除；員工基本資料不受影響。正式資料若只是金額錯誤，建議使用「修正薪資」。")
+            confirm = st.checkbox(
+                f"確認刪除 {selected_salary['year']}/{selected_salary['month']:02d} {selected_salary['employee_name_snapshot']} 的薪資資料",
+                key=f"delete_salary_confirm_{selected_salary['salary_id']}",
+            )
+            if st.button("永久刪除此筆薪資", type="primary", disabled=not confirm,
+                         key=f"delete_salary_{selected_salary['salary_id']}"):
+                delete_salary(config, selected_salary["salary_id"])
+                period = f"{selected_salary['year']:04d}-{selected_salary['month']:02d}"
+                if st.session_state.get("salary_period") == period:
+                    st.session_state.salary_blocks = get_month_salaries(
+                        config, selected_salary["year"], selected_salary["month"]
+                    )
+                st.toast("錯誤／測試薪資資料已刪除", icon="🗑️")
+                st.rerun()
     else: st.info("查無薪資快照")
 
 
@@ -176,7 +194,7 @@ def _rules_tab(config):
 
 
 def render_salary_management(config):
-    st.markdown("#### 人力｜薪資管理")
+    st.markdown("<div style='font-size:20px;font-weight:700;margin:0 0 0.6rem;'>👥 人力｜💰 薪資管理</div>", unsafe_allow_html=True)
     tabs = st.tabs(["👤 員工薪資設定", "🧾 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則"])
     with tabs[0]: _employee_tab(config)
     with tabs[1]: _monthly_tab(config)

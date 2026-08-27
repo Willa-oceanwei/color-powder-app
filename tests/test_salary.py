@@ -2,7 +2,7 @@ from pathlib import Path
 
 from utils.database import DatabaseConfig, initialize_database_with_health
 from utils.salary_calculator import calculate_leave_deduction, calculate_salary
-from utils.salary_repository import list_employees, save_employee, save_salary, get_month_salaries
+from utils.salary_repository import delete_salary, list_employees, save_employee, save_salary, get_month_salaries
 
 
 def test_salary_snapshot_survives_employee_raise(tmp_path: Path):
@@ -30,6 +30,20 @@ def test_salary_snapshot_survives_employee_raise(tmp_path: Path):
     assert updated["special_addition_amount"] == 1800
     assert updated["default_deduction_note"] == "借支"
     assert get_month_salaries(config, 2026, 8)[0]["base_salary_snapshot"] == 29500
+
+
+def test_mistaken_salary_can_be_deleted_without_deleting_employee(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "delete-salary.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E001", "name":"測試員工", "join_date":"2026-01-01"})
+    data = {"year":2026, "month":7, "employee_id":"E001", "employee_name_snapshot":"測試員工"}
+    data.update(calculate_salary(data))
+    salary_id = save_salary(config, data, [{"type":"addition", "item_name":"特別加給", "amount":100, "note":"測試"}])
+
+    delete_salary(config, salary_id)
+
+    assert get_month_salaries(config, 2026, 7) == []
+    assert list_employees(config)[0]["employee_id"] == "E001"
 
 
 def test_leave_rounding_and_same_sheet_excel():
