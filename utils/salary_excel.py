@@ -23,8 +23,11 @@ def _leave_used_days(salary):
 
 
 def _payroll_leave_note(salary):
-    """Excel notes deliberately contain leave facts only, never adjustment notes."""
+    """Excel notes contain personal annual-leave/leave facts, never adjustment notes."""
     parts = []
+    annual_note = str(salary.get("annual_leave_note_snapshot") or "").strip()
+    if annual_note:
+        parts.append(annual_note)
     leave_days = float(salary.get("leave_days") or 0)
     leave_hours = float(salary.get("leave_hours") or 0)
     if leave_days or leave_hours:

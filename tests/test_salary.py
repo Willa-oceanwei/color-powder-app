@@ -4,7 +4,7 @@ from utils.database import DatabaseConfig, connect_from_config, initialize_datab
 from utils.salary_calculator import calculate_leave_deduction, calculate_salary
 from utils.salary_excel import _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
-                                     get_month_salaries, get_settled_month_salaries,
+                                     get_annual_leave_setting, get_month_salaries, get_settled_month_salaries,
                                      list_employees, save_annual_leave_setting, save_employee, save_salary)
 
 
@@ -110,6 +110,7 @@ def test_leave_rounding_and_same_sheet_excel():
                                                    -2168, -30, 33573, 1800, 0, 35373]
     assert "請假1日2小時" in sheet["B4"].value
     assert "特休1日4小時，共1.5日，餘7.5日" in sheet["B4"].value
+    assert "歷年制特休14日" in sheet["B4"].value
     assert "餐費" not in sheet["B4"].value
     assert sum(cell.value == "底薪" for row in sheet for cell in row) == 1
     assert any("乙" in str(cell.value) for row in sheet for cell in row)
@@ -126,3 +127,17 @@ def test_excel_note_contains_leave_only():
     note = _payroll_leave_note(salary)
     assert note == "請假1日2小時；特休1日4小時，共1.5日，餘7.5日"
     assert "餐費" not in note
+
+
+def test_annual_leave_settings_are_scoped_by_employee_and_year(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "personal-annual-leave.db")
+    initialize_database_with_health(config)
+    for employee_id, name in (("E1", "甲"), ("E2", "乙")):
+        save_employee(config, {"employee_id":employee_id, "name":name, "join_date":"2026-01-01"})
+    save_annual_leave_setting(config, "E1", 2026, 14, 9, 8, "甲的2026年說明")
+    save_annual_leave_setting(config, "E1", 2027, 15, 15, 1, "甲的2027年說明")
+    save_annual_leave_setting(config, "E2", 2026, 10, 6, 8, "乙的2026年說明")
+
+    assert get_annual_leave_setting(config, "E1", 2026)["note"] == "甲的2026年說明"
+    assert get_annual_leave_setting(config, "E1", 2027)["annual_entitlement"] == 15
+    assert get_annual_leave_setting(config, "E2", 2026)["note"] == "乙的2026年說明"

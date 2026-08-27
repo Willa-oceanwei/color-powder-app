@@ -61,23 +61,6 @@ def _employee_tab(config):
             st.toast("員工目前設定已儲存；歷史快照不受影響"); st.rerun()
     if current and st.button("停用／離職" if current.get("active") else "恢復在職"):
         set_employee_active(config, current["employee_id"], not current.get("active")); st.rerun()
-    if current:
-        st.divider()
-        st.markdown("<div style='font-size:16px;font-weight:700;'>個人年度特休設定</div>", unsafe_allow_html=True)
-        leave_year = st.selectbox("年度", range(date.today().year - 5, date.today().year + 3), index=5,
-                                  key=f"annual_leave_year_{employee_key}")
-        setting = get_annual_leave_setting(config, current["employee_id"], leave_year) or {}
-        with st.form(f"annual_leave_setting_{employee_key}_{leave_year}"):
-            c1, c2, c3 = st.columns(3)
-            entitlement = c1.number_input("當年度特休核定天數", min_value=0.0, value=float(setting.get("annual_entitlement", 0)))
-            opening_balance = c2.number_input("期初剩餘天數", min_value=0.0, value=float(setting.get("opening_balance", 0)),
-                                              help="系統於年度中導入時，填寫截至導入月份的實際剩餘天數。")
-            opening_month = c3.selectbox("開始計算月份", range(1, 13), index=int(setting.get("opening_month", 1)) - 1)
-            leave_note = st.text_input("個人特休說明", value=setting.get("note") or "")
-            if st.form_submit_button("儲存年度特休設定", type="primary"):
-                save_annual_leave_setting(config, current["employee_id"], leave_year, entitlement,
-                                          opening_balance, opening_month, leave_note)
-                st.toast("個人年度特休設定已儲存"); st.rerun()
     active_count = len(list_employees(config))
     st.caption(f"目前共有 {active_count} 筆在職的員工資料。為保護薪資隱私，本頁不直接攤開完整清單；請使用上方「修改員工」搜尋及選取。")
 
@@ -243,6 +226,49 @@ def _rules_tab(config):
         allowance = st.toggle("請假影響津貼", value=bool(rules.get("leave_affects_allowance")))
         if st.form_submit_button("儲存薪資規則", type="primary"):
             save_rules(config, {"monthly_days":days,"standard_hours":hours,"leave_affects_attendance":attendance,"leave_affects_cooling":cooling,"leave_affects_allowance":allowance}); st.toast("薪資規則已儲存")
+
+    st.divider()
+    st.markdown("<div style='font-size:16px;font-weight:700;'>員工年度特休說明</div>", unsafe_allow_html=True)
+    st.caption("此處是每位員工、每一年度各自的設定，不會套用至其他員工。每月使用量與剩餘量仍由每月薪資快照管理。")
+    employees = list_employees(config, include_inactive=True)
+    if not employees:
+        st.info("請先至「員工薪資設定」建立員工資料。")
+        return
+    selector_year, selector_employee = st.columns(2)
+    leave_year = selector_year.selectbox(
+        "年度", range(date.today().year - 5, date.today().year + 3), index=5,
+        key="rules_annual_leave_year",
+    )
+    employee_id = selector_employee.selectbox(
+        "員工", [item["employee_id"] for item in employees],
+        format_func=lambda value: next(
+            f"{item['employee_id']}｜{item['name']}" for item in employees if item["employee_id"] == value
+        ),
+        key="rules_annual_leave_employee",
+    )
+    setting = get_annual_leave_setting(config, employee_id, leave_year) or {}
+    with st.form(f"rules_annual_leave_setting_{employee_id}_{leave_year}"):
+        c1, c2, c3 = st.columns(3)
+        entitlement = c1.number_input(
+            "當年度特休總天數", min_value=0.0, value=float(setting.get("annual_entitlement", 0))
+        )
+        opening_balance = c2.number_input(
+            "期初剩餘天數", min_value=0.0, value=float(setting.get("opening_balance", 0)),
+            help="系統於年度中導入時，填寫截至導入月份的實際剩餘天數。",
+        )
+        opening_month = c3.selectbox(
+            "開始計算月份", range(1, 13), index=int(setting.get("opening_month", 1)) - 1
+        )
+        leave_note = st.text_area(
+            "歷年制特休說明", value=setting.get("note") or "",
+            help="例如：歷年制特休14日。此文字只屬於目前選擇的員工與年度。",
+        )
+        if st.form_submit_button("儲存員工年度特休說明", type="primary"):
+            save_annual_leave_setting(
+                config, employee_id, leave_year, entitlement, opening_balance, opening_month, leave_note
+            )
+            st.toast("員工年度特休說明已儲存")
+            st.rerun()
 
 
 def render_salary_management(config):
