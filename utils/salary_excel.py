@@ -6,7 +6,6 @@ PAYROLL_HEADERS = (
     "月份／姓名", "底薪", "請假", "全勤", "涼水", "津貼", "職務津貼",
     "勞健保", "遲到", "小計", "特別加給", "扣除額", "薪資總計",
 )
-LEAVE_HEADERS = ("姓名", "年度特休", "本月新增／異動", "本月使用", "剩餘", "說明")
 
 
 def _adjustment_total(salary, adjustment_type):
@@ -41,18 +40,19 @@ def _payroll_leave_note(salary):
     return "；".join(parts)
 
 
-def generate_salary_workbook(year, month, salaries):
+def generate_salary_workbook(year, month, salaries, monthly_extras=None):
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
     from openpyxl.worksheet.page import PageMargins
 
     salaries = list(salaries)
+    monthly_extras = monthly_extras or {}
     wb = Workbook()
     ws = wb.active
     ws.title = f"{year}年{month:02d}月薪資"
     ws.sheet_view.showGridLines = False
-    ws.freeze_panes = "A3"
+    ws.freeze_panes = "A2"
 
     thin = Side(style="thin", color="777777")
     medium = Side(style="medium", color="444444")
@@ -62,22 +62,22 @@ def generate_salary_workbook(year, month, salaries):
     leave_fill = PatternFill("solid", fgColor="D9EAD3")
     centered = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-    # One report title and one fixed header row for every employee.
+    # Every employee receives the same five-row slip: header, values, personal
+    # notes, monthly leave note, and one blank separator.
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(PAYROLL_HEADERS))
     title = ws.cell(1, 1, f"{year}年{month:02d}月薪資")
     title.font = Font(name="Microsoft JhengHei", size=14, bold=True)
     title.alignment = centered
     ws.row_dimensions[1].height = 25
-    for column, header in enumerate(PAYROLL_HEADERS, 1):
-        cell = ws.cell(2, column, header)
-        cell.font = Font(name="Microsoft JhengHei", size=9, bold=True)
-        cell.alignment = centered
-        cell.fill = header_fill
-        cell.border = border
-    ws.row_dimensions[2].height = 30
-
-    row = 3
+    row = 2
     for salary in salaries:
+        for column, header in enumerate(PAYROLL_HEADERS, 1):
+            cell = ws.cell(row, column, header)
+            cell.font = Font(name="Microsoft JhengHei", size=9, bold=True)
+            cell.alignment = centered
+            cell.fill = header_fill
+            cell.border = border
+        ws.row_dimensions[row].height = 28
         additions = _adjustment_total(salary, "addition")
         deductions = _adjustment_total(salary, "deduction")
         final_salary = int(salary.get("final_salary") or 0)
@@ -98,7 +98,7 @@ def generate_salary_workbook(year, month, salaries):
             final_salary,
         )
         for column, value in enumerate(values, 1):
-            cell = ws.cell(row, column, value)
+            cell = ws.cell(row + 1, column, value)
             cell.font = Font(name="Microsoft JhengHei", size=9, bold=column == 13)
             cell.alignment = centered
             cell.border = border
@@ -106,68 +106,58 @@ def generate_salary_workbook(year, month, salaries):
                 cell.number_format = '#,##0;[Red]-#,##0;0'
             if column in (10, 13):
                 cell.fill = total_fill
-        ws.row_dimensions[row].height = 24
+        ws.row_dimensions[row + 1].height = 24
 
-        note = _payroll_leave_note(salary)
-        if note:
-            ws.cell(row + 1, 1, "說明")
-            ws.cell(row + 1, 1).font = Font(name="Microsoft JhengHei", size=8, bold=True)
-            ws.cell(row + 1, 1).alignment = centered
-            ws.cell(row + 1, 1).border = border
-            ws.merge_cells(start_row=row + 1, start_column=2, end_row=row + 1, end_column=len(PAYROLL_HEADERS))
-            note_cell = ws.cell(row + 1, 2, note)
-            note_cell.font = Font(name="Microsoft JhengHei", size=8)
-            note_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-            note_cell.border = Border(top=thin, bottom=medium, left=thin, right=medium)
-            ws.row_dimensions[row + 1].height = 20
-            row += 2
-        else:
-            # A slightly heavier bottom edge separates adjacent employees without wasting a row.
-            for column in range(1, len(PAYROLL_HEADERS) + 1):
-                ws.cell(row, column).border = Border(left=thin, right=thin, top=thin, bottom=medium)
-            row += 1
+        ws.merge_cells(start_row=row + 2, start_column=1, end_row=row + 2, end_column=3)
+        ws.merge_cells(start_row=row + 2, start_column=4, end_row=row + 2, end_column=7)
+        ws.merge_cells(start_row=row + 2, start_column=8, end_row=row + 2, end_column=13)
+        ws.cell(row + 2, 1, "公司負擔：")
+        ws.cell(row + 2, 4, salary.get("company_cost_note") or "")
+        annual_text = salary.get("annual_leave_personal_note") or salary.get("annual_leave_note_snapshot") or ""
+        ws.cell(row + 2, 8, f"歷年制特休：\n{annual_text}" if annual_text else "歷年制特休：")
+        for start in (1, 4, 8):
+            cell = ws.cell(row + 2, start)
+            cell.font = Font(name="Microsoft JhengHei", size=8, bold=start in (1, 8))
+            cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+            cell.border = border
+        ws.row_dimensions[row + 2].height = 48
 
-    # Personal annual-leave settings and this month's movement always come last.
-    row += 1
-    leave_title_row = row
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=len(LEAVE_HEADERS))
-    leave_title = ws.cell(row, 1, "歷年制特休")
-    leave_title.font = Font(name="Microsoft JhengHei", size=11, bold=True)
-    leave_title.alignment = Alignment(horizontal="left", vertical="center")
-    leave_title.fill = leave_fill
-    row += 1
-    for column, header in enumerate(LEAVE_HEADERS, 1):
-        cell = ws.cell(row, column, header)
-        cell.font = Font(name="Microsoft JhengHei", size=9, bold=True)
-        cell.alignment = centered
-        cell.fill = leave_fill
-        cell.border = border
+        monthly_note = _payroll_leave_note({**salary, "annual_leave_note_snapshot": ""})
+        ws.merge_cells(start_row=row + 3, start_column=1, end_row=row + 3, end_column=13)
+        note_cell = ws.cell(row + 3, 1, f"當月說明：{monthly_note}" if monthly_note else "當月說明：")
+        note_cell.font = Font(name="Microsoft JhengHei", size=8)
+        note_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        note_cell.border = Border(left=thin, right=thin, top=thin, bottom=medium)
+        ws.row_dimensions[row + 3].height = 22
+        ws.row_dimensions[row + 4].height = 9
+        row += 5
+
+    # The legacy monthly manual-value area remains once at the bottom.
+    extras_start = row
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
+    ws.cell(row, 1, "每月附加數值區").font = Font(name="Microsoft JhengHei", size=10, bold=True)
+    ws.cell(row, 1).fill = leave_fill
+    employee_values = monthly_extras.get("employee_values", {})
     for salary in salaries:
         row += 1
-        used = _leave_used_days(salary)
-        values = (
-            salary["employee_name_snapshot"],
-            float(salary.get("annual_leave_entitlement_snapshot") or 0),
-            0,  # No separate monthly grant snapshot exists yet; keep the fixed legacy column.
-            used,
-            float(salary.get("annual_leave_balance_after") or 0),
-            salary.get("annual_leave_note_snapshot") or "",
-        )
-        for column, value in enumerate(values, 1):
-            cell = ws.cell(row, column, value)
-            cell.font = Font(name="Microsoft JhengHei", size=9)
-            cell.alignment = centered if column < 6 else Alignment(horizontal="left", vertical="center", wrap_text=True)
-            cell.border = border
-            if 1 < column < 6:
-                cell.number_format = '0.##'
+        ws.cell(row, 1, salary["employee_name_snapshot"])
+        ws.cell(row, 2, float(employee_values.get(salary["employee_id"], 0) or 0))
+    for label, key in (("上月", "previous_value"), ("+本月新增", "monthly_addition"), ("餘本月總計", "monthly_total")):
+        row += 1
+        ws.cell(row, 1, label)
+        ws.cell(row, 2, float(monthly_extras.get(key, 0) or 0))
+    for current_row in range(extras_start + 1, row + 1):
+        for column in (1, 2):
+            ws.cell(current_row, column).border = border
+            ws.cell(current_row, column).font = Font(name="Microsoft JhengHei", size=9)
+        ws.cell(current_row, 2).number_format = '0.##'
 
     widths = (18, 11, 10, 10, 10, 11, 12, 11, 9, 12, 12, 11, 13)
     for column, width in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(column)].width = width
-    ws.row_dimensions[leave_title_row].height = 22
 
     ws.print_area = f"A1:M{max(row, 1)}"
-    ws.print_title_rows = "1:2"
+    ws.print_title_rows = "1:1"
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_setup.fitToWidth = 1

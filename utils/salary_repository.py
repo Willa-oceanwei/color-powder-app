@@ -123,6 +123,48 @@ def save_annual_leave_setting(config, employee_id, year, annual_entitlement, ope
             (employee_id, year, annual_entitlement, opening_balance, opening_month, note, now, now))
 
 
+def get_employee_salary_note(config, employee_id, year):
+    with connect_from_config(config) as conn:
+        rows = _rows(conn.execute(
+            "SELECT * FROM employee_salary_notes WHERE employee_id=? AND year=?", (employee_id, year)
+        ))
+    return rows[0] if rows else None
+
+
+def save_employee_salary_note(config, employee_id, year, company_cost_note="", annual_leave_note=""):
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        conn.execute("""INSERT INTO employee_salary_notes
+            (employee_id,year,company_cost_note,annual_leave_note,created_at,updated_at)
+            VALUES(?,?,?,?,?,?) ON CONFLICT(employee_id,year) DO UPDATE SET
+            company_cost_note=excluded.company_cost_note,annual_leave_note=excluded.annual_leave_note,
+            updated_at=excluded.updated_at""",
+            (employee_id, year, company_cost_note, annual_leave_note, now, now))
+
+
+def get_salary_monthly_extras(config, year, month):
+    with connect_from_config(config) as conn:
+        rows = _rows(conn.execute("SELECT * FROM salary_monthly_extras WHERE year=? AND month=?", (year, month)))
+    if not rows:
+        return {"employee_values": {}, "previous_value": 0, "monthly_addition": 0, "monthly_total": 0}
+    row = rows[0]
+    row["employee_values"] = json.loads(row.pop("employee_values_json") or "{}")
+    return row
+
+
+def save_salary_monthly_extras(config, year, month, employee_values, previous_value, monthly_addition, monthly_total):
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        conn.execute("""INSERT INTO salary_monthly_extras
+            (year,month,employee_values_json,previous_value,monthly_addition,monthly_total,created_at,updated_at)
+            VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(year,month) DO UPDATE SET
+            employee_values_json=excluded.employee_values_json,previous_value=excluded.previous_value,
+            monthly_addition=excluded.monthly_addition,monthly_total=excluded.monthly_total,
+            updated_at=excluded.updated_at""",
+            (year, month, json.dumps(employee_values, ensure_ascii=False), previous_value,
+             monthly_addition, monthly_total, now, now))
+
+
 def annual_leave_balance_before_month(config, employee_id, year, month):
     setting = get_annual_leave_setting(config, employee_id, year)
     if not setting:

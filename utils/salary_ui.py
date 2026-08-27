@@ -7,9 +7,11 @@ import streamlit as st
 from .salary_calculator import calculate_salary, generate_salary_note
 from .salary_excel import generate_salary_workbook
 from .salary_repository import (annual_leave_balance_before_month, delete_salary,
-                                get_annual_leave_setting, get_month_salaries, get_rules,
+                                get_annual_leave_setting, get_employee_salary_note, get_month_salaries, get_rules,
+                                get_salary_monthly_extras,
                                 get_settled_month_salaries, list_employees, list_salaries,
-                                save_annual_leave_setting, save_employee, save_rules, save_salary,
+                                save_annual_leave_setting, save_employee, save_employee_salary_note,
+                                save_rules, save_salary, save_salary_monthly_extras,
                                 set_employee_active)
 
 
@@ -147,6 +149,25 @@ def _monthly_tab(config):
         for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], settle=True)
         st.toast("正式薪資快照已結算／更新")
 
+    monthly_extras = get_salary_monthly_extras(config, year, month)
+    with st.expander("每月附加數值區"):
+        st.caption("此區完全由人工輸入，儲存後固定輸出在本月 Excel 最下方。")
+        employee_values = {}
+        extra_columns = st.columns(3)
+        for position, employee in enumerate(employees):
+            employee_values[employee["employee_id"]] = extra_columns[position % 3].number_input(
+                employee["name"], value=float(monthly_extras["employee_values"].get(employee["employee_id"], 0)),
+                key=f"monthly_extra_employee_{period}_{employee['employee_id']}",
+            )
+        previous_col, addition_col, total_col = st.columns(3)
+        previous_value = previous_col.number_input("上月", value=float(monthly_extras.get("previous_value", 0)), key=f"monthly_extra_previous_{period}")
+        monthly_addition = addition_col.number_input("+本月新增", value=float(monthly_extras.get("monthly_addition", 0)), key=f"monthly_extra_addition_{period}")
+        monthly_total = total_col.number_input("餘本月總計", value=float(monthly_extras.get("monthly_total", 0)), key=f"monthly_extra_total_{period}")
+        if st.button("儲存每月附加數值", key=f"save_monthly_extras_{period}"):
+            save_salary_monthly_extras(config, year, month, employee_values, previous_value, monthly_addition, monthly_total)
+            st.toast("每月附加數值已儲存")
+            st.rerun()
+
     # 月份層級報表：只從資料庫重新讀取已結算快照，不使用畫面草稿。
     month_rows = get_month_salaries(config, year, month)
     settled_rows = get_settled_month_salaries(config, year, month)
@@ -160,7 +181,19 @@ def _monthly_tab(config):
     if settled_people < total_people:
         st.warning("目前仍有人尚未結算；下載的 Excel 僅包含已結算人員。")
     if settled_rows:
-        st.download_button("下載本月薪資表", generate_salary_workbook(year, month, settled_rows), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        report_rows = []
+        missing_notes = []
+        for salary in settled_rows:
+            personal_note = get_employee_salary_note(config, salary["employee_id"], year) or {}
+            report_rows.append({**salary,
+                "company_cost_note": personal_note.get("company_cost_note", ""),
+                "annual_leave_personal_note": personal_note.get("annual_leave_note", ""),
+            })
+            if not personal_note:
+                missing_notes.append(salary["employee_name_snapshot"])
+        if missing_notes:
+            st.warning(f"尚未設定 {year} 年個人薪資說明：{'、'.join(missing_notes)}；仍可結算與下載，Excel 將留白。")
+        st.download_button("下載本月薪資表", generate_salary_workbook(year, month, report_rows, monthly_extras), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.button("下載本月薪資表", disabled=True, help="目前沒有已結算薪資可供下載。")
 
@@ -228,8 +261,8 @@ def _rules_tab(config):
             save_rules(config, {"monthly_days":days,"standard_hours":hours,"leave_affects_attendance":attendance,"leave_affects_cooling":cooling,"leave_affects_allowance":allowance}); st.toast("薪資規則已儲存")
 
     st.divider()
-    st.markdown("<div style='font-size:16px;font-weight:700;'>員工年度特休說明</div>", unsafe_allow_html=True)
-    st.caption("此處是每位員工、每一年度各自的設定，不會套用至其他員工。每月使用量與剩餘量仍由每月薪資快照管理。")
+    st.markdown("<div style='font-size:16px;font-weight:700;'>員工個人薪資說明設定</div>", unsafe_allow_html=True)
+    st.caption("公司負擔與歷年制特休說明均以員工＋年度保存，不會套用至其他員工。每月使用量與剩餘量仍由每月薪資快照管理。")
     employees = list_employees(config, include_inactive=True)
     if not employees:
         st.info("請先至「員工薪資設定」建立員工資料。")
@@ -247,6 +280,7 @@ def _rules_tab(config):
         key="rules_annual_leave_employee",
     )
     setting = get_annual_leave_setting(config, employee_id, leave_year) or {}
+    personal_note = get_employee_salary_note(config, employee_id, leave_year) or {}
     with st.form(f"rules_annual_leave_setting_{employee_id}_{leave_year}"):
         c1, c2, c3 = st.columns(3)
         entitlement = c1.number_input(
@@ -259,15 +293,20 @@ def _rules_tab(config):
         opening_month = c3.selectbox(
             "開始計算月份", range(1, 13), index=int(setting.get("opening_month", 1)) - 1
         )
+        company_cost_note = st.text_area(
+            "公司負擔說明", value=personal_note.get("company_cost_note") or "",
+            help="例如：勞保2582+健保1428+勞退1770+職保62=5842。此文字不會自動計算。",
+        )
         leave_note = st.text_area(
-            "歷年制特休說明", value=setting.get("note") or "",
+            "歷年制特休說明", value=personal_note.get("annual_leave_note") or setting.get("note") or "",
             help="例如：歷年制特休14日。此文字只屬於目前選擇的員工與年度。",
         )
         if st.form_submit_button("儲存員工年度特休說明", type="primary"):
             save_annual_leave_setting(
                 config, employee_id, leave_year, entitlement, opening_balance, opening_month, leave_note
             )
-            st.toast("員工年度特休說明已儲存")
+            save_employee_salary_note(config, employee_id, leave_year, company_cost_note, leave_note)
+            st.toast("員工個人薪資說明已儲存／更新")
             st.rerun()
 
 

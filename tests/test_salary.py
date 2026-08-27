@@ -4,8 +4,10 @@ from utils.database import DatabaseConfig, connect_from_config, initialize_datab
 from utils.salary_calculator import calculate_leave_deduction, calculate_salary
 from utils.salary_excel import _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
-                                     get_annual_leave_setting, get_month_salaries, get_settled_month_salaries,
+                                     get_annual_leave_setting, get_employee_salary_note, get_month_salaries,
+                                     get_salary_monthly_extras, get_settled_month_salaries,
                                      list_employees, save_annual_leave_setting, save_employee, save_salary)
+from utils.salary_repository import save_employee_salary_note, save_salary_monthly_extras
 
 
 def test_salary_snapshot_survives_employee_raise(tmp_path: Path):
@@ -90,7 +92,7 @@ def test_leave_rounding_and_same_sheet_excel():
     from openpyxl import load_workbook
     from utils.salary_excel import generate_salary_workbook
     assert calculate_leave_deduction(29500, 1, 2, 30, 8) == 1229
-    salary = {"employee_name_snapshot":"甲","base_salary_snapshot":29500,"attendance_bonus_snapshot":3000,
+    salary = {"employee_id":"E1","employee_name_snapshot":"甲","base_salary_snapshot":29500,"attendance_bonus_snapshot":3000,
               "cooling_allowance_snapshot":500,"allowance_snapshot":3000,"position_allowance_snapshot":1000,
               "leave_days":1,"leave_hours":2,"leave_deduction":1229,"insurance_snapshot":2168,
               "late_deduction":30,"final_salary":35373,
@@ -99,7 +101,15 @@ def test_leave_rounding_and_same_sheet_excel():
               "annual_leave_days":1,"annual_leave_hours":4,"annual_leave_entitlement_snapshot":14,
               "annual_leave_balance_after":7.5,"annual_leave_note_snapshot":"歷年制特休14日"}
     from io import BytesIO
-    workbook = load_workbook(BytesIO(generate_salary_workbook(2026, 8, [salary, {**salary,"employee_name_snapshot":"乙"}])))
+    first = {**salary, "company_cost_note":"甲公司負擔", "annual_leave_personal_note":"甲歷年制說明"}
+    salaries = [first] + [
+        {**salary, "employee_id":f"E{index}", "employee_name_snapshot":name,
+         "company_cost_note":f"{name}公司負擔", "annual_leave_personal_note":f"{name}歷年制說明"}
+        for index, name in enumerate(("乙", "丙", "丁", "戊"), 2)
+    ]
+    extras = {"employee_values":{"E1":30,"E2":0,"E3":10,"E4":0,"E5":5}, "previous_value":13873,
+              "monthly_addition":30, "monthly_total":13903}
+    workbook = load_workbook(BytesIO(generate_salary_workbook(2026, 8, salaries, extras)))
     assert workbook.sheetnames == ["2026年08月薪資"]
     sheet = workbook.active
     assert sheet.max_column == 13
@@ -108,13 +118,18 @@ def test_leave_rounding_and_same_sheet_excel():
                                                    "職務津貼", "勞健保", "遲到", "小計", "特別加給", "扣除額", "薪資總計"]
     assert [cell.value for cell in sheet[3]] == ["08月份 甲", 29500, -1229, 3000, 500, 3000, 1000,
                                                    -2168, -30, 33573, 1800, 0, 35373]
-    assert "請假1日2小時" in sheet["B4"].value
-    assert "特休1日4小時，共1.5日，餘7.5日" in sheet["B4"].value
-    assert "歷年制特休14日" in sheet["B4"].value
-    assert "餐費" not in sheet["B4"].value
-    assert sum(cell.value == "底薪" for row in sheet for cell in row) == 1
+    assert sheet["A4"].value == "公司負擔："
+    assert sheet["D4"].value == "甲公司負擔"
+    assert "甲歷年制說明" in sheet["H4"].value
+    assert "請假1日2小時" in sheet["A5"].value
+    assert "特休1日4小時，共1.5日，餘7.5日" in sheet["A5"].value
+    assert "餐費" not in sheet["A5"].value
+    assert sum(cell.value == "底薪" for row in sheet for cell in row) == 5
     assert any("乙" in str(cell.value) for row in sheet for cell in row)
-    assert any(cell.value == "歷年制特休" for row in sheet for cell in row)
+    assert not any(cell.value == "歷年制特休" for row in sheet for cell in row)
+    assert any(cell.value == "每月附加數值區" for row in sheet for cell in row)
+    assert any(cell.value == 13903 for row in sheet for cell in row)
+    assert sheet.max_row == 35  # title + 5 employees x 5 rows + extras title/rows
     assert sheet.sheet_properties.pageSetUpPr.fitToPage
     assert sheet.page_setup.orientation == "landscape"
     assert sheet.page_setup.fitToWidth == 1
@@ -141,3 +156,19 @@ def test_annual_leave_settings_are_scoped_by_employee_and_year(tmp_path: Path):
     assert get_annual_leave_setting(config, "E1", 2026)["note"] == "甲的2026年說明"
     assert get_annual_leave_setting(config, "E1", 2027)["annual_entitlement"] == 15
     assert get_annual_leave_setting(config, "E2", 2026)["note"] == "乙的2026年說明"
+
+
+def test_personal_salary_notes_and_monthly_extras_are_editable(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "salary-notes.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E1", "name":"甲", "join_date":"2026-01-01"})
+    save_employee_salary_note(config, "E1", 2026, "公司負擔A", "特休說明A")
+    save_employee_salary_note(config, "E1", 2027, "公司負擔B", "特休說明B")
+    save_employee_salary_note(config, "E1", 2026, "公司負擔A-更新", "特休說明A-更新")
+    assert get_employee_salary_note(config, "E1", 2026)["company_cost_note"] == "公司負擔A-更新"
+    assert get_employee_salary_note(config, "E1", 2027)["annual_leave_note"] == "特休說明B"
+
+    save_salary_monthly_extras(config, 2026, 7, {"E1":30}, 13873, 30, 13903)
+    extras = get_salary_monthly_extras(config, 2026, 7)
+    assert extras["employee_values"] == {"E1":30}
+    assert extras["monthly_total"] == 13903

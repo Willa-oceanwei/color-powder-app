@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -55,6 +55,8 @@ MAIN_TABLES = {
     "salary_rules",
     "employee_annual_leave_settings",
     "salary_deletion_audit",
+    "employee_salary_notes",
+    "salary_monthly_extras",
 }
 REQUIRED_TABLE_COLUMNS = {
     "color_powders": {"lifecycle_status", "deleted_at", "delete_reason"},
@@ -817,6 +819,29 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             snapshot_json TEXT NOT NULL,
             adjustments_json TEXT NOT NULL,
             deleted_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS employee_salary_notes (
+            employee_id TEXT NOT NULL,
+            year INTEGER NOT NULL,
+            company_cost_note TEXT,
+            annual_leave_note TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(employee_id, year),
+            FOREIGN KEY(employee_id) REFERENCES employee_master(employee_id) ON DELETE RESTRICT
+        );
+
+        CREATE TABLE IF NOT EXISTS salary_monthly_extras (
+            year INTEGER NOT NULL,
+            month INTEGER NOT NULL,
+            employee_values_json TEXT NOT NULL DEFAULT '{}',
+            previous_value REAL NOT NULL DEFAULT 0,
+            monthly_addition REAL NOT NULL DEFAULT 0,
+            monthly_total REAL NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(year, month)
         );
         """
     )
