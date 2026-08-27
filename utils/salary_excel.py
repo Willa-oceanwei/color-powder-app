@@ -40,6 +40,21 @@ def _payroll_leave_note(salary):
     return "；".join(parts)
 
 
+def _format_extra_number(value):
+    number = float(value or 0)
+    if number.is_integer():
+        return f"{number:,.0f}"
+    return f"{number:,.2f}".rstrip("0").rstrip(".")
+
+
+def _monthly_summary(monthly_extras):
+    return (
+        f"上月{_format_extra_number(monthly_extras.get('previous_value', 0))}"
+        f" + 本月新增{_format_extra_number(monthly_extras.get('monthly_addition', 0))}"
+        f" = 本月總計{_format_extra_number(monthly_extras.get('monthly_total', 0))}"
+    )
+
+
 def generate_salary_workbook(year, month, salaries, monthly_extras=None):
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -59,7 +74,6 @@ def generate_salary_workbook(year, month, salaries, monthly_extras=None):
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     header_fill = PatternFill("solid", fgColor="D9EAF7")
     total_fill = PatternFill("solid", fgColor="FFF2CC")
-    leave_fill = PatternFill("solid", fgColor="D9EAD3")
     centered = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
     # Every employee receives the same five-row slip: header, values, personal
@@ -108,49 +122,35 @@ def generate_salary_workbook(year, month, salaries, monthly_extras=None):
                 cell.fill = total_fill
         ws.row_dimensions[row + 1].height = 24
 
+        # Style every underlying cell before merging so each of the three blocks
+        # has one complete outline without fragmented interior borders.
+        for column in range(1, 14):
+            ws.cell(row + 2, column).border = border
         ws.merge_cells(start_row=row + 2, start_column=1, end_row=row + 2, end_column=3)
         ws.merge_cells(start_row=row + 2, start_column=4, end_row=row + 2, end_column=7)
         ws.merge_cells(start_row=row + 2, start_column=8, end_row=row + 2, end_column=13)
-        ws.cell(row + 2, 1, "公司負擔：")
-        ws.cell(row + 2, 4, salary.get("company_cost_note") or "")
+        automatic_note = _payroll_leave_note({**salary, "annual_leave_note_snapshot": ""})
+        personal_note = str(salary.get("manual_note") or "").strip()
+        ws.cell(row + 2, 1, "\n".join(part for part in (automatic_note, personal_note) if part))
+        company_text = str(salary.get("company_cost_note") or "").strip()
+        ws.cell(row + 2, 4, f"公司負擔：\n{company_text}" if company_text else "公司負擔：")
         annual_text = salary.get("annual_leave_personal_note") or salary.get("annual_leave_note_snapshot") or ""
         ws.cell(row + 2, 8, f"歷年制特休：\n{annual_text}" if annual_text else "歷年制特休：")
         for start in (1, 4, 8):
             cell = ws.cell(row + 2, start)
-            cell.font = Font(name="Microsoft JhengHei", size=8, bold=start in (1, 8))
+            cell.font = Font(name="Microsoft JhengHei", size=8, bold=False)
             cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-            cell.border = border
-        ws.row_dimensions[row + 2].height = 48
+        ws.row_dimensions[row + 2].height = 64
 
-        monthly_note = _payroll_leave_note({**salary, "annual_leave_note_snapshot": ""})
+        for column in range(1, 14):
+            ws.cell(row + 3, column).border = Border(left=thin, right=thin, top=thin, bottom=medium)
         ws.merge_cells(start_row=row + 3, start_column=1, end_row=row + 3, end_column=13)
-        note_cell = ws.cell(row + 3, 1, f"當月說明：{monthly_note}" if monthly_note else "當月說明：")
+        note_cell = ws.cell(row + 3, 1, _monthly_summary(monthly_extras))
         note_cell.font = Font(name="Microsoft JhengHei", size=8)
         note_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-        note_cell.border = Border(left=thin, right=thin, top=thin, bottom=medium)
         ws.row_dimensions[row + 3].height = 22
         ws.row_dimensions[row + 4].height = 9
         row += 5
-
-    # The legacy monthly manual-value area remains once at the bottom.
-    extras_start = row
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
-    ws.cell(row, 1, "每月附加數值區").font = Font(name="Microsoft JhengHei", size=10, bold=True)
-    ws.cell(row, 1).fill = leave_fill
-    employee_values = monthly_extras.get("employee_values", {})
-    for salary in salaries:
-        row += 1
-        ws.cell(row, 1, salary["employee_name_snapshot"])
-        ws.cell(row, 2, float(employee_values.get(salary["employee_id"], 0) or 0))
-    for label, key in (("上月", "previous_value"), ("+本月新增", "monthly_addition"), ("餘本月總計", "monthly_total")):
-        row += 1
-        ws.cell(row, 1, label)
-        ws.cell(row, 2, float(monthly_extras.get(key, 0) or 0))
-    for current_row in range(extras_start + 1, row + 1):
-        for column in (1, 2):
-            ws.cell(current_row, column).border = border
-            ws.cell(current_row, column).font = Font(name="Microsoft JhengHei", size=9)
-        ws.cell(current_row, 2).number_format = '0.##'
 
     widths = (18, 11, 10, 10, 10, 11, 12, 11, 9, 12, 12, 11, 13)
     for column, width in enumerate(widths, 1):

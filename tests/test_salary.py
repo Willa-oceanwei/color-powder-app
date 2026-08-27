@@ -2,7 +2,7 @@ from pathlib import Path
 
 from utils.database import DatabaseConfig, connect_from_config, initialize_database_with_health
 from utils.salary_calculator import calculate_leave_deduction, calculate_salary
-from utils.salary_excel import _payroll_leave_note
+from utils.salary_excel import _monthly_summary, _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
                                      get_annual_leave_setting, get_employee_salary_note, get_month_salaries,
                                      get_salary_monthly_extras, get_settled_month_salaries,
@@ -97,7 +97,7 @@ def test_leave_rounding_and_same_sheet_excel():
               "leave_days":1,"leave_hours":2,"leave_deduction":1229,"insurance_snapshot":2168,
               "late_deduction":30,"final_salary":35373,
               "adjustments":[{"type":"addition","item_name":"特別加給","amount":1800,"note":"餐費"}],
-              "system_note":"另有特別加給1,800元（餐費）。","manual_note":"", "standard_hours_snapshot":8,
+              "system_note":"另有特別加給1,800元（餐費）。","manual_note":"8/15補發制服費", "standard_hours_snapshot":8,
               "annual_leave_days":1,"annual_leave_hours":4,"annual_leave_entitlement_snapshot":14,
               "annual_leave_balance_after":7.5,"annual_leave_note_snapshot":"歷年制特休14日"}
     from io import BytesIO
@@ -118,18 +118,19 @@ def test_leave_rounding_and_same_sheet_excel():
                                                    "職務津貼", "勞健保", "遲到", "小計", "特別加給", "扣除額", "薪資總計"]
     assert [cell.value for cell in sheet[3]] == ["08月份 甲", 29500, -1229, 3000, 500, 3000, 1000,
                                                    -2168, -30, 33573, 1800, 0, 35373]
-    assert sheet["A4"].value == "公司負擔："
-    assert sheet["D4"].value == "甲公司負擔"
+    assert "請假1日2小時" in sheet["A4"].value
+    assert "特休1日4小時，共1.5日，餘7.5日" in sheet["A4"].value
+    assert "8/15補發制服費" in sheet["A4"].value
+    assert sheet["D4"].value == "公司負擔：\n甲公司負擔"
     assert "甲歷年制說明" in sheet["H4"].value
-    assert "請假1日2小時" in sheet["A5"].value
-    assert "特休1日4小時，共1.5日，餘7.5日" in sheet["A5"].value
-    assert "餐費" not in sheet["A5"].value
+    assert sheet["A5"].value == "上月13,873 + 本月新增30 = 本月總計13,903"
+    assert "餐費" not in sheet["A4"].value
     assert sum(cell.value == "底薪" for row in sheet for cell in row) == 5
     assert any("乙" in str(cell.value) for row in sheet for cell in row)
     assert not any(cell.value == "歷年制特休" for row in sheet for cell in row)
-    assert any(cell.value == "每月附加數值區" for row in sheet for cell in row)
-    assert any(cell.value == 13903 for row in sheet for cell in row)
-    assert sheet.max_row == 35  # title + 5 employees x 5 rows + extras title/rows
+    assert not any(cell.value == "每月附加數值區" for row in sheet for cell in row)
+    assert sum(cell.value == "上月13,873 + 本月新增30 = 本月總計13,903" for row in sheet for cell in row) == 5
+    assert sheet.max_row == 25
     assert sheet.sheet_properties.pageSetUpPr.fitToPage
     assert sheet.page_setup.orientation == "landscape"
     assert sheet.page_setup.fitToWidth == 1
@@ -142,6 +143,9 @@ def test_excel_note_contains_leave_only():
     note = _payroll_leave_note(salary)
     assert note == "請假1日2小時；特休1日4小時，共1.5日，餘7.5日"
     assert "餐費" not in note
+    assert _monthly_summary({"previous_value":13873, "monthly_addition":30, "monthly_total":13903}) == (
+        "上月13,873 + 本月新增30 = 本月總計13,903"
+    )
 
 
 def test_annual_leave_settings_are_scoped_by_employee_and_year(tmp_path: Path):
