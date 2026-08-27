@@ -7,6 +7,7 @@ import pytest
 import utils.sheet_export as sheet_export_module
 
 from utils.database import (
+    SCHEMA_VERSION,
     DatabaseConfig,
     DatabaseStartupError,
     connect,
@@ -1331,7 +1332,7 @@ def test_supplier_import_accepts_supplier_code_and_short_name_headers(tmp_path):
     assert supplier["notes"] == "常用"
 
 
-def test_database_health_check_reports_schema_v16(tmp_path):
+def test_database_health_check_reports_current_schema(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
     config = database_config_from_secrets({})
@@ -1339,7 +1340,7 @@ def test_database_health_check_reports_schema_v16(tmp_path):
     health = database_health_check(config)
     assert health.backend == "sqlite"
     assert health.select_1_ok
-    assert health.schema_version == 16
+    assert health.schema_version == SCHEMA_VERSION
     assert health.main_tables_exist
     assert health.schema_compatible
     assert health.missing_required_columns == {}
@@ -1355,7 +1356,7 @@ def test_initialize_database_with_health_initializes_and_validates_once(tmp_path
     assert db.exists()
     assert health.backend == "sqlite"
     assert health.select_1_ok
-    assert health.schema_version == 16
+    assert health.schema_version == SCHEMA_VERSION
     assert health.schema_compatible
 
 
@@ -1633,7 +1634,7 @@ def test_database_startup_diagnostics_do_not_include_token_value(tmp_path):
     )
     assert "Database backend: sqlite" in lines
     assert "Database health: OK" in lines
-    assert "Schema version: 16" in lines
+    assert f"Schema version: {SCHEMA_VERSION}" in lines
     assert "Required columns present: True" in lines
     assert "TURSO_AUTH_TOKEN configured: True" in lines
     assert "secret-token" not in "\n".join(lines)
