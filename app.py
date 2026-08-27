@@ -739,7 +739,7 @@ def render_sidebar():
         {"group":"倉儲","key":"採購管理","label":"採購管理"},
         {"group":"查詢","key":"查詢區","label":"查詢區"},
         {"group":"數據","key":"試色記錄分析","label":"試色記錄分析"},
-        {"group":"👥 人力","key":"薪資管理","label":"💰 薪資管理"},
+        {"group":"人力","key":"薪資管理","label":"薪資管理"},
         {"group":"設定","key":"客戶名單","label":"客戶名單"},
         {"group":"設定","key":"同步檢查","label":"同步檢查"},
         {"group":"設定","key":"外部連結","label":"外部連結"},
@@ -758,7 +758,7 @@ def render_sidebar():
             section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary p {
                 color: #bf6030 !important;
                 font-size: 10px !important;
-                font-weight: 400 !important;
+                font-weight: 700 !important;
                 letter-spacing: 0.8px !important;
             }
             section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary {
@@ -1133,7 +1133,7 @@ MENU_ITEMS = [
     {"key": "採購管理", "label": "採購管理", "group": "倉儲"},
     {"key": "查詢區", "label": "查詢區", "group": "查詢"},
     {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
-    {"key": "薪資管理", "label": "💰 薪資管理", "group": "👥 人力"},
+    {"key": "薪資管理", "label": "薪資管理", "group": "人力"},
     {"key": "客戶名單", "label": "客戶名單", "group": "設定"},
     {"key": "同步檢查", "label": "同步檢查", "group": "設定"},
     {"key": "外部連結", "label": "外部連結", "group": "設定"},
@@ -1152,7 +1152,7 @@ def render_erp_nav():
         {"key": "採購管理",   "label": "採購管理",   "group": "倉儲"},
         {"key": "查詢區",     "label": "查詢區",     "group": "查詢"},
         {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
-        {"key": "薪資管理", "label": "💰 薪資管理", "group": "👥 人力"},
+        {"key": "薪資管理", "label": "薪資管理", "group": "人力"},
         {"key": "客戶名單",   "label": "客戶名單",   "group": "設定"},
         {"key": "同步檢查",   "label": "同步檢查",   "group": "設定"},
         {"key": "外部連結",   "label": "外部連結",   "group": "設定"},

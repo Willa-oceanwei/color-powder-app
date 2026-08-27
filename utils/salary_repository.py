@@ -98,6 +98,11 @@ def get_month_salaries(config, year, month):
     return list_salaries(config, year, month)
 
 
+def get_settled_month_salaries(config, year, month):
+    """Return only persisted, settled snapshots for month-level reporting."""
+    return [row for row in list_salaries(config, year, month) if row["status"] == "settled"]
+
+
 def delete_salary(config, salary_id):
     """Explicitly delete one mistaken/test snapshot; employee settings are untouched."""
     with connect_from_config(config) as conn:

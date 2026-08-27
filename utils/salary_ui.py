@@ -6,7 +6,8 @@ import streamlit as st
 
 from .salary_calculator import calculate_salary, generate_salary_note
 from .salary_excel import generate_salary_workbook
-from .salary_repository import (delete_salary, get_month_salaries, get_rules, list_employees, list_salaries,
+from .salary_repository import (delete_salary, get_month_salaries, get_rules, get_settled_month_salaries,
+                                list_employees, list_salaries,
                                 save_employee, save_rules, save_salary, set_employee_active)
 
 
@@ -14,14 +15,14 @@ MONEY_FIELDS = ("base_salary", "attendance_bonus", "cooling_allowance", "allowan
 
 
 def _employee_tab(config):
-    mode = st.radio("員工資料操作", ["➕ 新增員工", "✏️ 修改員工"], horizontal=True)
-    search = st.text_input("搜尋員工編號／姓名", key="salary_employee_search") if mode.startswith("✏️") else ""
+    mode = st.radio("員工資料操作", ["新增員工", "修改員工"], horizontal=True)
+    search = st.text_input("搜尋員工編號／姓名", key="salary_employee_search") if mode == "修改員工" else ""
     employees = list_employees(config, True, search)
-    if mode.startswith("✏️") and not employees:
+    if mode == "修改員工" and not employees:
         st.info("找不到可修改的員工資料。")
         return
     current = {}
-    if mode.startswith("✏️"):
+    if mode == "修改員工":
         selected_id = st.selectbox("選擇要修改的員工", [x["employee_id"] for x in employees],
                                    format_func=lambda value: next(f"{x['employee_id']}｜{x['name']} {'(停用)' if not x['active'] else ''}" for x in employees if x["employee_id"] == value))
         current = next(x for x in employees if x["employee_id"] == selected_id)
@@ -50,14 +51,14 @@ def _employee_tab(config):
         deduct_amount = da.number_input("扣除額預設金額", min_value=0, value=int(current.get("default_deduction_amount", 0)), key=f"employee_deduct_amount_{employee_key}")
         deduct_note = dn.text_input("扣除額預設說明", value=current.get("default_deduction_note") or "", key=f"employee_deduct_note_{employee_key}")
         note = st.text_area("備註", value=current.get("note", ""), key=f"employee_note_{employee_key}")
-        submit_label = "➕ 新增員工" if not current else "💾 儲存修改"
+        submit_label = "新增員工" if not current else "儲存修改"
         if st.form_submit_button(submit_label, type="primary"):
             save_employee(config, {"employee_id":employee_id, "name":name, "join_date":join_date.isoformat(), "active":active,
                 **values, "standard_hours":standard_hours, "annual_leave_base":annual_leave,
                 "special_addition_enabled":add_enabled, "special_addition_amount":add_amount, "special_addition_note":add_note,
                 "default_deduction_enabled":deduct_enabled, "default_deduction_amount":deduct_amount,
                 "default_deduction_note":deduct_note, "note":note})
-            st.toast("員工目前設定已儲存；歷史快照不受影響", icon="✅"); st.rerun()
+            st.toast("員工目前設定已儲存；歷史快照不受影響"); st.rerun()
     if current and st.button("停用／離職" if current.get("active") else "恢復在職"):
         set_employee_active(config, current["employee_id"], not current.get("active")); st.rerun()
     active_count = len(list_employees(config))
@@ -138,17 +139,29 @@ def _monthly_tab(config):
             block["manual_note"] = st.text_area("人工備註", block.get("manual_note", ""), key=f"manual_{period}_{index}")
             st.markdown(f"**薪資總計：{block['final_salary']:,} 元**"); st.caption(block["system_note"] or "本月無特殊說明")
     c1,c2 = st.columns(2)
-    if c1.button("💾 儲存草稿", disabled=not blocks):
+    if c1.button("儲存草稿", disabled=not blocks):
         for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"])
-        st.toast("草稿已儲存", icon="💾")
-    if c2.button("🔒 結算薪資", type="primary", disabled=not blocks):
+        st.toast("草稿已儲存")
+    if c2.button("結算薪資", type="primary", disabled=not blocks):
         for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], settle=True)
-        st.toast("正式薪資快照已結算／更新", icon="✅")
-    source = get_month_salaries(config, year, month) or [{**b,"year":year,"month":month} for b in blocks]
-    if source:
-        st.download_button("📥 下載本月薪資表", generate_salary_workbook(year, month, source), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.toast("正式薪資快照已結算／更新")
+
+    # 月份層級報表：只從資料庫重新讀取已結算快照，不使用畫面草稿。
+    month_rows = get_month_salaries(config, year, month)
+    settled_rows = get_settled_month_salaries(config, year, month)
+    payroll_employee_ids = {employee["employee_id"] for employee in employees}
+    payroll_employee_ids.update(row["employee_id"] for row in month_rows)
+    total_people = len(payroll_employee_ids)
+    settled_people = len({row["employee_id"] for row in settled_rows})
+    st.divider()
+    st.markdown("<div style='font-size:16px;font-weight:700;'>本月薪資表</div>", unsafe_allow_html=True)
+    st.caption(f"當月已結算 {settled_people} / 總人數 {total_people}")
+    if settled_people < total_people:
+        st.warning("目前仍有人尚未結算；下載的 Excel 僅包含已結算人員。")
+    if settled_rows:
+        st.download_button("下載本月薪資表", generate_salary_workbook(year, month, settled_rows), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
-        st.button("📥 下載本月薪資表", disabled=True, help="請先新增人員或儲存本月薪資。")
+        st.button("下載本月薪資表", disabled=True, help="目前沒有已結算薪資可供下載。")
 
 
 def _history_tab(config):
@@ -158,11 +171,11 @@ def _history_tab(config):
         display = pd.DataFrame([{ "年月":f"{x['year']}/{x['month']:02d}", "姓名":x["employee_name_snapshot"], "當月底薪":x["base_salary_snapshot"], "加給":x["total_additions"], "扣除":x["total_deductions"], "請假":x["leave_deduction"], "特休":f"{x['annual_leave_days']}日{x['annual_leave_hours']}時", "薪資總計":x["final_salary"], "說明":x["system_note"], "狀態":x["status"], "最後修改":x["updated_at"]} for x in rows])
         st.dataframe(display, use_container_width=True, hide_index=True)
         chosen = st.selectbox("選擇要修正的薪資", range(len(rows)), format_func=lambda i:f"{rows[i]['year']}/{rows[i]['month']:02d} {rows[i]['employee_name_snapshot']}")
-        if st.button("✏️ 修正薪資"):
+        if st.button("修正薪資"):
             st.session_state.salary_pending_revision = rows[chosen]
-            st.toast("已載入當時快照；請至「每月薪資」修正後重新結算", icon="✏️"); st.rerun()
+            st.toast("已載入當時快照；請至「每月薪資」修正後重新結算"); st.rerun()
         selected_salary = rows[chosen]
-        with st.expander("🗑️ 刪除錯誤／測試薪資資料"):
+        with st.expander("刪除錯誤／測試薪資資料"):
             st.warning("刪除後該月份快照與加扣明細會永久移除；員工基本資料不受影響。正式資料若只是金額錯誤，建議使用「修正薪資」。")
             confirm = st.checkbox(
                 f"確認刪除 {selected_salary['year']}/{selected_salary['month']:02d} {selected_salary['employee_name_snapshot']} 的薪資資料",
@@ -176,7 +189,7 @@ def _history_tab(config):
                     st.session_state.salary_blocks = get_month_salaries(
                         config, selected_salary["year"], selected_salary["month"]
                     )
-                st.toast("錯誤／測試薪資資料已刪除", icon="🗑️")
+                st.toast("錯誤／測試薪資資料已刪除")
                 st.rerun()
     else: st.info("查無薪資快照")
 
@@ -190,12 +203,12 @@ def _rules_tab(config):
         cooling = st.toggle("請假影響涼水", value=bool(rules.get("leave_affects_cooling")))
         allowance = st.toggle("請假影響津貼", value=bool(rules.get("leave_affects_allowance")))
         if st.form_submit_button("儲存薪資規則", type="primary"):
-            save_rules(config, {"monthly_days":days,"standard_hours":hours,"leave_affects_attendance":attendance,"leave_affects_cooling":cooling,"leave_affects_allowance":allowance}); st.toast("薪資規則已儲存", icon="✅")
+            save_rules(config, {"monthly_days":days,"standard_hours":hours,"leave_affects_attendance":attendance,"leave_affects_cooling":cooling,"leave_affects_allowance":allowance}); st.toast("薪資規則已儲存")
 
 
 def render_salary_management(config):
-    st.markdown("<div style='font-size:20px;font-weight:700;margin:0 0 0.6rem;'>👥 人力｜💰 薪資管理</div>", unsafe_allow_html=True)
-    tabs = st.tabs(["👤 員工薪資設定", "🧾 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則"])
+    st.markdown("<div style='font-size:20px;font-weight:700;margin:0 0 0.6rem;'>人力｜薪資管理</div>", unsafe_allow_html=True)
+    tabs = st.tabs(["員工薪資設定", "每月薪資", "薪資歷史", "薪資規則"])
     with tabs[0]: _employee_tab(config)
     with tabs[1]: _monthly_tab(config)
     with tabs[2]: _history_tab(config)

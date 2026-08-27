@@ -2,7 +2,8 @@ from pathlib import Path
 
 from utils.database import DatabaseConfig, initialize_database_with_health
 from utils.salary_calculator import calculate_leave_deduction, calculate_salary
-from utils.salary_repository import delete_salary, list_employees, save_employee, save_salary, get_month_salaries
+from utils.salary_repository import (delete_salary, get_month_salaries, get_settled_month_salaries,
+                                     list_employees, save_employee, save_salary)
 
 
 def test_salary_snapshot_survives_employee_raise(tmp_path: Path):
@@ -39,11 +40,25 @@ def test_mistaken_salary_can_be_deleted_without_deleting_employee(tmp_path: Path
     data = {"year":2026, "month":7, "employee_id":"E001", "employee_name_snapshot":"測試員工"}
     data.update(calculate_salary(data))
     salary_id = save_salary(config, data, [{"type":"addition", "item_name":"特別加給", "amount":100, "note":"測試"}])
+    assert get_settled_month_salaries(config, 2026, 7) == []
 
     delete_salary(config, salary_id)
 
     assert get_month_salaries(config, 2026, 7) == []
     assert list_employees(config)[0]["employee_id"] == "E001"
+
+
+def test_month_report_returns_only_settled_snapshots(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "settled-report.db")
+    initialize_database_with_health(config)
+    for employee_id, name in (("E1", "甲"), ("E2", "乙")):
+        save_employee(config, {"employee_id":employee_id, "name":name, "join_date":"2026-01-01"})
+        data = {"year":2026, "month":7, "employee_id":employee_id, "employee_name_snapshot":name}
+        data.update(calculate_salary(data))
+        save_salary(config, data, settle=employee_id == "E1")
+
+    settled = get_settled_month_salaries(config, 2026, 7)
+    assert [row["employee_id"] for row in settled] == ["E1"]
 
 
 def test_leave_rounding_and_same_sheet_excel():
