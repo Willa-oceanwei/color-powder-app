@@ -142,7 +142,7 @@ def _rules_tab(config):
 
 
 def render_salary_management(config):
-    st.markdown("### 👥 人力｜💰 薪資管理")
+    st.markdown("#### 👥 人力｜💰 薪資管理")
     tabs = st.tabs(["👤 員工薪資設定", "🧾 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則"])
     with tabs[0]: _employee_tab(config)
     with tabs[1]: _monthly_tab(config)
