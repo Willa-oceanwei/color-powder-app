@@ -14,11 +14,17 @@ MONEY_FIELDS = ("base_salary", "attendance_bonus", "cooling_allowance", "allowan
 
 
 def _employee_tab(config):
-    search = st.text_input("搜尋員工編號／姓名", key="salary_employee_search")
+    mode = st.radio("員工資料操作", ["➕ 新增員工", "✏️ 修改員工"], horizontal=True)
+    search = st.text_input("搜尋員工編號／姓名", key="salary_employee_search") if mode.startswith("✏️") else ""
     employees = list_employees(config, True, search)
-    labels = ["＋ 新增員工"] + [f"{x['employee_id']}｜{x['name']} {'(停用)' if not x['active'] else ''}" for x in employees]
-    selected = st.selectbox("新增／修改", labels)
-    current = {} if selected.startswith("＋") else employees[labels.index(selected) - 1]
+    if mode.startswith("✏️") and not employees:
+        st.info("找不到可修改的員工資料。")
+        return
+    current = {}
+    if mode.startswith("✏️"):
+        selected_id = st.selectbox("選擇要修改的員工", [x["employee_id"] for x in employees],
+                                   format_func=lambda value: next(f"{x['employee_id']}｜{x['name']} {'(停用)' if not x['active'] else ''}" for x in employees if x["employee_id"] == value))
+        current = next(x for x in employees if x["employee_id"] == selected_id)
     employee_key = current.get("employee_id", "new")
     with st.form(f"employee_salary_setting_{employee_key}"):
         a, b, c, d = st.columns(4)
@@ -33,23 +39,40 @@ def _employee_tab(config):
             values[field] = columns[idx % 3].number_input(names[field], min_value=0, step=100, value=int(current.get(field, 0)), key=f"employee_{field}_{employee_key}")
         h, leave = st.columns(2)
         standard_hours = h.number_input("每日標準工時", min_value=0.5, value=float(current.get("standard_hours", 8)), key=f"employee_hours_{employee_key}")
-        annual_leave = leave.number_input("特休目前基準天數", min_value=0.0, value=float(current.get("annual_leave_base", 0)), key=f"employee_leave_{employee_key}")
+        annual_leave = leave.number_input("特休期初餘額", min_value=0.0, value=float(current.get("annual_leave_base", 0)), key=f"employee_leave_{employee_key}", help="開始使用薪資模組時可用的特休餘額，不代表依法或年度給予天數。")
+        st.markdown("##### 每月預設彈性項目")
+        add_enabled = st.toggle("預設啟用特別加給", value=bool(current.get("special_addition_enabled", 0)), key=f"employee_special_enabled_{employee_key}")
+        ca, cn = st.columns([1, 2])
+        add_amount = ca.number_input("特別加給預設金額", min_value=0, value=int(current.get("special_addition_amount", 0)), key=f"employee_special_amount_{employee_key}")
+        add_note = cn.text_input("特別加給預設說明", value=current.get("special_addition_note") or "", key=f"employee_special_note_{employee_key}")
+        deduct_enabled = st.toggle("預設啟用扣除額", value=bool(current.get("default_deduction_enabled", 0)), key=f"employee_deduct_enabled_{employee_key}")
+        da, dn = st.columns([1, 2])
+        deduct_amount = da.number_input("扣除額預設金額", min_value=0, value=int(current.get("default_deduction_amount", 0)), key=f"employee_deduct_amount_{employee_key}")
+        deduct_note = dn.text_input("扣除額預設說明", value=current.get("default_deduction_note") or "", key=f"employee_deduct_note_{employee_key}")
         note = st.text_area("備註", value=current.get("note", ""), key=f"employee_note_{employee_key}")
-        if st.form_submit_button("💾 儲存員工設定", type="primary"):
+        submit_label = "➕ 新增員工" if not current else "💾 儲存修改"
+        if st.form_submit_button(submit_label, type="primary"):
             save_employee(config, {"employee_id":employee_id, "name":name, "join_date":join_date.isoformat(), "active":active,
-                **values, "standard_hours":standard_hours, "annual_leave_base":annual_leave, "note":note})
+                **values, "standard_hours":standard_hours, "annual_leave_base":annual_leave,
+                "special_addition_enabled":add_enabled, "special_addition_amount":add_amount, "special_addition_note":add_note,
+                "default_deduction_enabled":deduct_enabled, "default_deduction_amount":deduct_amount,
+                "default_deduction_note":deduct_note, "note":note})
             st.toast("員工目前設定已儲存；歷史快照不受影響", icon="✅"); st.rerun()
     if current and st.button("停用／離職" if current.get("active") else "恢復在職"):
         set_employee_active(config, current["employee_id"], not current.get("active")); st.rerun()
-    if employees:
-        st.dataframe(pd.DataFrame(employees), use_container_width=True, hide_index=True)
+    st.caption(f"目前共有 {len(employees)} 筆符合條件的員工資料。為保護薪資隱私，本頁不直接攤開完整清單；請使用上方「修改員工」搜尋及選取。")
 
 
 def _new_block(employee):
+    adjustments = []
+    if employee.get("special_addition_enabled"):
+        adjustments.append({"type":"addition", "item_name":"特別加給", "amount":employee.get("special_addition_amount", 0), "note":employee.get("special_addition_note") or ""})
+    if employee.get("default_deduction_enabled"):
+        adjustments.append({"type":"deduction", "item_name":"扣除額", "amount":employee.get("default_deduction_amount", 0), "note":employee.get("default_deduction_note") or ""})
     return {"employee_id": employee["employee_id"], "employee_name_snapshot": employee["name"],
             **{f"{k}_snapshot": employee[k] for k in MONEY_FIELDS}, "standard_hours_snapshot": employee["standard_hours"],
             "annual_leave_balance_before": employee["annual_leave_base"], "leave_days":0.0, "leave_hours":0.0,
-            "annual_leave_days":0.0, "annual_leave_hours":0.0, "late_deduction":0, "manual_note":"", "adjustments":[]}
+            "annual_leave_days":0.0, "annual_leave_hours":0.0, "late_deduction":0, "manual_note":"", "adjustments":adjustments}
 
 
 def _monthly_tab(config):
@@ -94,13 +117,21 @@ def _monthly_tab(config):
             before = float(block.get("annual_leave_balance_before", 0)); used = block["annual_leave_days"] + block["annual_leave_hours"] / float(block.get("standard_hours_snapshot") or 8)
             block["annual_leave_balance_after"] = before - used
             st.caption(f"本月特休共 {used:g} 日；使用前 {before:g} 日，使用後 {before-used:g} 日")
-            for kind, title in (("addition", "加給"), ("deduction", "扣除")):
-                items = [x for x in block.setdefault("adjustments", []) if x["type"] == kind]
-                for item_no, item in enumerate(items):
-                    c1,c2,c3 = st.columns([2,1,0.6]); item["item_name"] = c1.text_input(f"{title}項目", item.get("item_name", ""), key=f"{kind}_name_{period}_{index}_{item_no}"); item["amount"] = c2.number_input("金額", min_value=0, value=int(item.get("amount",0)), key=f"{kind}_amount_{period}_{index}_{item_no}")
-                    if c3.button("刪除", key=f"{kind}_delete_{period}_{index}_{item_no}"):
-                        block["adjustments"].remove(item); st.rerun()
-                if st.button(f"＋ 新增{title}", key=f"add_{kind}_{period}_{index}"): block["adjustments"].append({"type":kind,"item_name":"","amount":0}); st.rerun()
+            st.markdown("##### 當月彈性項目")
+            for kind, title, item_name in (("addition", "特別加給", "特別加給"), ("deduction", "扣除額", "扣除額")):
+                adjustments = block.setdefault("adjustments", [])
+                item = next((x for x in adjustments if x["type"] == kind), None)
+                enabled = st.toggle(f"啟用{title}", value=item is not None, key=f"{kind}_enabled_{period}_{index}")
+                if enabled:
+                    if item is None:
+                        item = {"type":kind, "item_name":item_name, "amount":0, "note":""}
+                        adjustments.append(item)
+                    amount_col, note_col = st.columns([1, 2])
+                    item["item_name"] = item_name
+                    item["amount"] = amount_col.number_input(f"{title}金額", min_value=0, value=int(item.get("amount", 0)), key=f"{kind}_amount_{period}_{index}")
+                    item["note"] = note_col.text_input(f"{title}說明", value=item.get("note") or "", key=f"{kind}_note_{period}_{index}", help="餐費、獎金或借支原因等內容統一填在此處，不再細分類別。")
+                elif item is not None:
+                    adjustments.remove(item)
             additions = [x for x in block["adjustments"] if x["type"] == "addition"]; deductions = [x for x in block["adjustments"] if x["type"] == "deduction"]
             block.update(calculate_salary(block, additions, deductions, rules)); block["system_note"] = generate_salary_note(block, additions, deductions)
             block["manual_note"] = st.text_area("人工備註", block.get("manual_note", ""), key=f"manual_{period}_{index}")
@@ -113,7 +144,10 @@ def _monthly_tab(config):
         for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], settle=True)
         st.toast("正式薪資快照已結算／更新", icon="✅")
     source = get_month_salaries(config, year, month) or [{**b,"year":year,"month":month} for b in blocks]
-    st.download_button("📥 下載本月薪資表", generate_salary_workbook(year, month, source), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", disabled=not source)
+    if source:
+        st.download_button("📥 下載本月薪資表", generate_salary_workbook(year, month, source), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    else:
+        st.button("📥 下載本月薪資表", disabled=True, help="請先新增人員或儲存本月薪資。")
 
 
 def _history_tab(config):
@@ -142,7 +176,7 @@ def _rules_tab(config):
 
 
 def render_salary_management(config):
-    st.markdown("#### 👥 人力｜薪資管理")
+    st.markdown("## 👥 人力｜💰 薪資管理")
     tabs = st.tabs(["👤 員工薪資設定", "🧾 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則"])
     with tabs[0]: _employee_tab(config)
     with tabs[1]: _monthly_tab(config)

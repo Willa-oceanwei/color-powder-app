@@ -25,11 +25,13 @@ def save_employee(config, data: Mapping):
         raise ValueError("員工編號與姓名為必填")
     now = utc_now_iso()
     fields = ("join_date", "active", "base_salary", "attendance_bonus", "cooling_allowance", "allowance",
-              "position_allowance", "insurance", "standard_hours", "annual_leave_base", "note")
-    values = [data.get(k, "" if k in ("join_date", "note") else 0) for k in fields]
+              "position_allowance", "insurance", "standard_hours", "annual_leave_base",
+              "special_addition_enabled", "special_addition_amount", "special_addition_note",
+              "default_deduction_enabled", "default_deduction_amount", "default_deduction_note", "note")
+    values = [data.get(k, "" if k == "join_date" or k.endswith("note") else 0) for k in fields]
     with connect_from_config(config) as conn:
         conn.execute(f"""INSERT INTO employee_master(employee_id,name,{','.join(fields)},created_at,updated_at)
-            VALUES ({','.join(['?'] * 15)}) ON CONFLICT(employee_id) DO UPDATE SET name=excluded.name,
+            VALUES ({','.join(['?'] * 21)}) ON CONFLICT(employee_id) DO UPDATE SET name=excluded.name,
             {','.join(f'{k}=excluded.{k}' for k in fields)}, updated_at=excluded.updated_at""",
             (employee_id, name, *values, now, now))
 

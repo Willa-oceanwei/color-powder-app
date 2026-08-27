@@ -11,7 +11,10 @@ def test_salary_snapshot_survives_employee_raise(tmp_path: Path):
     employee = {"employee_id":"E001", "name":"王美文", "join_date":"2026-01-01", "active":1,
                 "base_salary":29500, "attendance_bonus":2000, "cooling_allowance":500,
                 "allowance":3100, "position_allowance":0, "insurance":1196,
-                "standard_hours":8, "annual_leave_base":11, "note":""}
+                "standard_hours":8, "annual_leave_base":11,
+                "special_addition_enabled":1, "special_addition_amount":1800,
+                "special_addition_note":"每月預設", "default_deduction_enabled":1,
+                "default_deduction_amount":500, "default_deduction_note":"借支", "note":""}
     save_employee(config, employee)
     snapshot = {"year":2026,"month":8,"employee_id":"E001","employee_name_snapshot":"王美文",
                 "base_salary_snapshot":29500,"attendance_bonus_snapshot":2000,"cooling_allowance_snapshot":500,
@@ -22,7 +25,10 @@ def test_salary_snapshot_survives_employee_raise(tmp_path: Path):
     snapshot.update(calculate_salary(snapshot))
     save_salary(config, snapshot, settle=True)
     save_employee(config, {**employee, "base_salary":32000})
-    assert list_employees(config)[0]["base_salary"] == 32000
+    updated = list_employees(config)[0]
+    assert updated["base_salary"] == 32000
+    assert updated["special_addition_amount"] == 1800
+    assert updated["default_deduction_note"] == "借支"
     assert get_month_salaries(config, 2026, 8)[0]["base_salary_snapshot"] == 29500
 
 

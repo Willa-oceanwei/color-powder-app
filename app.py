@@ -753,21 +753,28 @@ def render_sidebar():
         st.markdown("<div class='erp-title'>配方管理系統</div>", unsafe_allow_html=True)
         st.markdown("<div class='erp-sub'>v2.1 · ERP Edition</div>", unsafe_allow_html=True)
 
-        current_group = None
-
+        groups = {}
         for item in MENU_ITEMS:
+            groups.setdefault(item["group"], []).append(item)
 
-            if item["group"] != current_group:
-                st.markdown(f"<div class='erp-group'>{item['group']}</div>", unsafe_allow_html=True)
-                current_group = item["group"]
+        def render_items(items):
+            for item in items:
+                if st.button(
+                    item["label"], key=item["key"], use_container_width=True,
+                    type="primary" if st.session_state.menu == item["key"] else "secondary"
+                ):
+                    st.session_state.menu = item["key"]
+                    st.rerun()
 
-            if st.button(
-                item["label"],
-                key=item["key"],
-                use_container_width=True,
-                type="primary" if st.session_state.menu == item["key"] else "secondary"
-            ):
-                st.session_state.menu = item["key"]
+        # 常用的生產、倉儲維持展開；其餘分類收合以縮短工作列。
+        for group, items in groups.items():
+            if group in ("生產", "倉儲"):
+                st.markdown(f"<div class='erp-group'>{group}</div>", unsafe_allow_html=True)
+                render_items(items)
+            else:
+                is_current_group = any(item["key"] == st.session_state.menu for item in items)
+                with st.expander(group, expanded=is_current_group):
+                    render_items(items)
                 
 #=======apply_arrow_nav()======
 

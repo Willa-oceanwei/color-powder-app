@@ -55,8 +55,10 @@ def generate_salary_note(data: Mapping, additions: Iterable[Mapping] = (), deduc
         parts.append(f"特休{data.get('annual_leave_days', 0):g}日{data.get('annual_leave_hours', 0):g}小時，共{used:g}日，結餘{_d(data.get('annual_leave_balance_after')):g}日")
     for item in additions:
         if money(item.get("amount")):
-            parts.append(f"另有{item.get('item_name') or '加給'}{money(item.get('amount')):,}元")
+            detail = f"（{item.get('note')}）" if item.get("note") else ""
+            parts.append(f"另有{item.get('item_name') or '加給'}{money(item.get('amount')):,}元{detail}")
     for item in deductions:
         if money(item.get("amount")):
-            parts.append(f"另扣{item.get('item_name') or '扣除'}{money(item.get('amount')):,}元")
+            detail = f"（{item.get('note')}）" if item.get("note") else ""
+            parts.append(f"另扣{item.get('item_name') or '扣除'}{money(item.get('amount')):,}元{detail}")
     return "；".join(parts) + ("。" if parts else "")

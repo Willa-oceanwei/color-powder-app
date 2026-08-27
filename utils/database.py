@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 18
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -724,6 +724,12 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             insurance INTEGER NOT NULL DEFAULT 0,
             standard_hours REAL NOT NULL DEFAULT 8,
             annual_leave_base REAL NOT NULL DEFAULT 0,
+            special_addition_enabled INTEGER NOT NULL DEFAULT 0,
+            special_addition_amount INTEGER NOT NULL DEFAULT 0,
+            special_addition_note TEXT,
+            default_deduction_enabled INTEGER NOT NULL DEFAULT 0,
+            default_deduction_amount INTEGER NOT NULL DEFAULT 0,
+            default_deduction_note TEXT,
             note TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
@@ -803,6 +809,12 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     _add_column_if_missing(conn, "inventory_movements", "reversed_at", "TEXT")
     _add_column_if_missing(conn, "production_orders", "cancelled_at", "TEXT")
     _add_column_if_missing(conn, "production_orders", "cancel_reason", "TEXT")
+    _add_column_if_missing(conn, "employee_master", "special_addition_enabled", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "employee_master", "special_addition_amount", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "employee_master", "special_addition_note", "TEXT")
+    _add_column_if_missing(conn, "employee_master", "default_deduction_enabled", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "employee_master", "default_deduction_amount", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "employee_master", "default_deduction_note", "TEXT")
     conn.execute(
         """UPDATE recipes
            SET oem_multiplier = COALESCE(

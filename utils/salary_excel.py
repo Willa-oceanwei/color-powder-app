@@ -1,11 +1,10 @@
 """Compact, same-sheet salary slips modelled after the supplied legacy layout."""
 from io import BytesIO
 
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-
-
 def generate_salary_workbook(year, month, salaries):
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
     wb = Workbook()
     ws = wb.active
     ws.title = f"{year}年{month:02d}月薪資"
