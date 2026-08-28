@@ -191,15 +191,17 @@ def test_dated_leave_records_are_linked_to_salary_and_editable(tmp_path: Path):
     initialize_database_with_health(config)
     save_employee(config, {"employee_id":"E1", "name":"甲", "join_date":"2026-01-01", "standard_hours":8})
     data = {"year":2026,"month":8,"employee_id":"E1","employee_name_snapshot":"甲",
-            "standard_hours_snapshot":8,"annual_leave_days":1,"annual_leave_hours":4,
-            "annual_leave_balance_before":9,"annual_leave_balance_after":7.5}
+            "standard_hours_snapshot":8,"annual_leave_days":1.2,"annual_leave_hours":4,
+            "annual_leave_balance_before":9,"annual_leave_balance_after":7.3}
     data.update(calculate_salary(data))
     save_salary(config, data, settle=True, annual_leave_records=[
         {"date":"2026-08-03","days":1,"hours":0,"note":""},
         {"date":"2026-08-12","days":0,"hours":4,"note":"下午特休"},
+        {"date":"","days":0.2,"hours":0,"note":"未記日期"},
     ])
     records = list_annual_leave_history(config, "E1", 2026)
-    assert [item["equivalent_days"] for item in records] == [1, 0.5]
+    assert [item["equivalent_days"] for item in records] == [1, 0.5, 0.2]
+    assert records[-1]["date"] == ""
     assert all(item["salary_status"] == "settled" for item in records)
 
     save_annual_leave_history_record(config, {**records[1], "hours":2, "standard_hours":8})
@@ -207,7 +209,7 @@ def test_dated_leave_records_are_linked_to_salary_and_editable(tmp_path: Path):
     assert updated[1]["equivalent_days"] == 0.25
     assert get_settled_month_salaries(config, 2026, 8)[0]["annual_leave_hours"] == 4
     delete_annual_leave_history_record(config, updated[0]["id"])
-    assert len(list_annual_leave_history(config, "E1", 2026)) == 1
+    assert len(list_annual_leave_history(config, "E1", 2026)) == 2
 
 
 def test_salary_total_range_uses_only_settled_active_snapshots(tmp_path: Path):

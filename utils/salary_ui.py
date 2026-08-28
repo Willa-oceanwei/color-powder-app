@@ -122,29 +122,35 @@ def _monthly_tab(config):
             st.markdown("##### 特休日期明細")
             records = block.setdefault("annual_leave_records", [])
             if st.button("＋ 新增特休紀錄", key=f"add_leave_record_{period}_{index}"):
-                records.append({"date":date(year, month, 1).isoformat(), "days":0.0, "hours":0.0, "note":""})
+                records.append({"date":"", "days":0.0, "hours":0.0, "note":""})
                 st.rerun()
             for record_index, record in enumerate(list(records)):
-                record_cols = st.columns([1.4, 0.8, 0.8, 2, 0.7])
+                record_cols = st.columns([0.8, 1.4, 0.8, 0.8, 2, 0.7])
+                has_date = record_cols[0].checkbox(
+                    "記日期", value=bool(record.get("date")), key=f"leave_has_date_{period}_{index}_{record_index}",
+                    help="日期為非必要欄位；若只想記錄本月合計可不勾選。",
+                )
                 raw_date = record.get("date") or date(year, month, 1).isoformat()
                 record_date = date.fromisoformat(str(raw_date)[:10])
-                record["date"] = record_cols[0].date_input(
-                    "日期", value=record_date, min_value=date(year, month, 1),
+                selected_date = record_cols[1].date_input(
+                    "特休日期（非必填）", value=record_date, min_value=date(year, month, 1),
                     max_value=date(year, month, monthrange(year, month)[1]),
                     key=f"leave_date_{period}_{index}_{record_index}",
-                ).isoformat()
-                record["days"] = record_cols[1].number_input(
+                    disabled=not has_date,
+                )
+                record["date"] = selected_date.isoformat() if has_date else ""
+                record["days"] = record_cols[2].number_input(
                     "日數", min_value=0.0, value=float(record.get("days", 0)),
                     key=f"leave_days_{period}_{index}_{record_index}",
                 )
-                record["hours"] = record_cols[2].number_input(
+                record["hours"] = record_cols[3].number_input(
                     "時數", min_value=0.0, value=float(record.get("hours", 0)),
                     key=f"leave_hours_{period}_{index}_{record_index}",
                 )
-                record["note"] = record_cols[3].text_input(
+                record["note"] = record_cols[4].text_input(
                     "備註", value=record.get("note") or "", key=f"leave_note_{period}_{index}_{record_index}",
                 )
-                if record_cols[4].button("刪除", key=f"delete_leave_{period}_{index}_{record_index}"):
+                if record_cols[5].button("刪除", key=f"delete_leave_{period}_{index}_{record_index}"):
                     records.pop(record_index); st.rerun()
             if records:
                 block["annual_leave_days"] = sum(float(record.get("days") or 0) for record in records)

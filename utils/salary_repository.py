@@ -110,7 +110,7 @@ def list_salaries(config, year=None, month=None, name="", employee_id=None):
         for salary in salaries:
             salary["adjustments"] = _rows(conn.execute("SELECT * FROM salary_adjustments WHERE salary_id=? ORDER BY type, adjustment_id", (salary["salary_id"],)))
             salary["annual_leave_records"] = _rows(conn.execute(
-                "SELECT * FROM annual_leave_history WHERE salary_id=? AND is_deleted=0 ORDER BY date,id",
+                "SELECT * FROM annual_leave_history WHERE salary_id=? AND is_deleted=0 ORDER BY CASE WHEN date='' THEN 1 ELSE 0 END,date,id",
                 (salary["salary_id"],),
             ))
     return salaries
@@ -203,7 +203,8 @@ def list_annual_leave_history(config, employee_id, year):
         return _rows(conn.execute("""SELECT h.*, s.status AS salary_status, s.is_deleted AS salary_deleted
             FROM annual_leave_history h LEFT JOIN salary_monthly s ON s.salary_id=h.salary_id
             WHERE h.employee_id=? AND h.year=? AND h.is_deleted=0
-              AND (s.salary_id IS NULL OR s.is_deleted=0) ORDER BY h.date,h.id""", (employee_id, year)))
+              AND (s.salary_id IS NULL OR s.is_deleted=0)
+            ORDER BY CASE WHEN h.date='' THEN 1 ELSE 0 END,h.date,h.id""", (employee_id, year)))
 
 
 def save_annual_leave_history_record(config, record):
@@ -211,8 +212,11 @@ def save_annual_leave_history_record(config, record):
     record_id = str(record.get("id") or uuid.uuid4())
     standard_hours = float(record.get("standard_hours") or 8)
     days, hours = float(record.get("days") or 0), float(record.get("hours") or 0)
-    leave_date = str(record["date"])
-    year, month = int(leave_date[:4]), int(leave_date[5:7])
+    leave_date = str(record.get("date") or "")
+    if leave_date:
+        year, month = int(leave_date[:4]), int(leave_date[5:7])
+    else:
+        year, month = int(record["year"]), int(record["month"])
     with connect_from_config(config) as conn:
         conn.execute("""INSERT INTO annual_leave_history
             (id,employee_id,date,type,days,hours,equivalent_days,year,month,salary_id,note,created_at,updated_at,is_deleted)
