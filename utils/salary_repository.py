@@ -66,7 +66,7 @@ def save_rules(config, rules: Mapping):
             conn.execute("INSERT INTO salary_rules VALUES(?,?,?) ON CONFLICT(rule_key) DO UPDATE SET rule_value=excluded.rule_value, updated_at=excluded.updated_at", (key, encoded, now))
 
 
-def save_salary(config, data: Mapping, adjustments=(), settle=False):
+def save_salary(config, data: Mapping, adjustments=(), settle=False, annual_leave_records=None):
     """Upsert the sole effective year/month/employee snapshot; never touches employee_master."""
     now = utc_now_iso()
     with connect_from_config(config) as conn:
@@ -84,6 +84,22 @@ def save_salary(config, data: Mapping, adjustments=(), settle=False):
         conn.execute("DELETE FROM salary_adjustments WHERE salary_id=?", (salary_id,))
         for item in adjustments:
             conn.execute("INSERT INTO salary_adjustments VALUES(?,?,?,?,?,?)", (str(uuid.uuid4()), salary_id, item["type"], item.get("item_name") or "未命名", int(item.get("amount") or 0), item.get("note", "")))
+        if annual_leave_records is not None:
+            conn.execute("UPDATE annual_leave_history SET is_deleted=1,updated_at=? WHERE salary_id=?", (now, salary_id))
+            standard_hours = float(data.get("standard_hours_snapshot") or 8)
+            for record in annual_leave_records:
+                leave_date = str(record.get("date") or "")
+                days, hours = float(record.get("days") or 0), float(record.get("hours") or 0)
+                equivalent = days + hours / standard_hours
+                record_id = str(record.get("id") or uuid.uuid4())
+                conn.execute("""INSERT INTO annual_leave_history
+                    (id,employee_id,date,type,days,hours,equivalent_days,year,month,salary_id,note,created_at,updated_at,is_deleted)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0) ON CONFLICT(id) DO UPDATE SET
+                    date=excluded.date,days=excluded.days,hours=excluded.hours,equivalent_days=excluded.equivalent_days,
+                    year=excluded.year,month=excluded.month,salary_id=excluded.salary_id,note=excluded.note,
+                    updated_at=excluded.updated_at,is_deleted=0""",
+                    (record_id, data["employee_id"], leave_date, "usage", days, hours, equivalent,
+                     data["year"], data["month"], salary_id, record.get("note", ""), now, now))
     return salary_id
 
 
@@ -93,6 +109,10 @@ def list_salaries(config, year=None, month=None, name="", employee_id=None):
         salaries = _rows(conn.execute(sql, (year, year, month, month, f"%{name.strip()}%", employee_id, employee_id)))
         for salary in salaries:
             salary["adjustments"] = _rows(conn.execute("SELECT * FROM salary_adjustments WHERE salary_id=? ORDER BY type, adjustment_id", (salary["salary_id"],)))
+            salary["annual_leave_records"] = _rows(conn.execute(
+                "SELECT * FROM annual_leave_history WHERE salary_id=? AND is_deleted=0 ORDER BY date,id",
+                (salary["salary_id"],),
+            ))
     return salaries
 
 
@@ -178,6 +198,44 @@ def annual_leave_balance_before_month(config, employee_id, year, month):
     return float(setting["opening_balance"]) - float(row[0] or 0)
 
 
+def list_annual_leave_history(config, employee_id, year):
+    with connect_from_config(config) as conn:
+        return _rows(conn.execute("""SELECT h.*, s.status AS salary_status, s.is_deleted AS salary_deleted
+            FROM annual_leave_history h LEFT JOIN salary_monthly s ON s.salary_id=h.salary_id
+            WHERE h.employee_id=? AND h.year=? AND h.is_deleted=0
+              AND (s.salary_id IS NULL OR s.is_deleted=0) ORDER BY h.date,h.id""", (employee_id, year)))
+
+
+def save_annual_leave_history_record(config, record):
+    now = utc_now_iso()
+    record_id = str(record.get("id") or uuid.uuid4())
+    standard_hours = float(record.get("standard_hours") or 8)
+    days, hours = float(record.get("days") or 0), float(record.get("hours") or 0)
+    leave_date = str(record["date"])
+    year, month = int(leave_date[:4]), int(leave_date[5:7])
+    with connect_from_config(config) as conn:
+        conn.execute("""INSERT INTO annual_leave_history
+            (id,employee_id,date,type,days,hours,equivalent_days,year,month,salary_id,note,created_at,updated_at,is_deleted)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0) ON CONFLICT(id) DO UPDATE SET
+            date=excluded.date,days=excluded.days,hours=excluded.hours,equivalent_days=excluded.equivalent_days,
+            year=excluded.year,month=excluded.month,note=excluded.note,updated_at=excluded.updated_at,is_deleted=0""",
+            (record_id, record["employee_id"], leave_date, "usage", days, hours, days + hours / standard_hours,
+             year, month, record.get("salary_id"), record.get("note", ""), now, now))
+    return record_id
+
+
+def delete_annual_leave_history_record(config, record_id):
+    with connect_from_config(config) as conn:
+        conn.execute("UPDATE annual_leave_history SET is_deleted=1,updated_at=? WHERE id=?", (utc_now_iso(), record_id))
+
+
+def list_settled_salaries_in_range(config, employee_id, start_year, start_month, end_year, end_month):
+    start_key, end_key = start_year * 100 + start_month, end_year * 100 + end_month
+    rows = list_salaries(config, employee_id=employee_id)
+    selected = [row for row in rows if row["status"] == "settled" and start_key <= row["year"] * 100 + row["month"] <= end_key]
+    return sorted(selected, key=lambda row: (row["year"], row["month"]))
+
+
 def delete_salary(config, salary_id):
     """Soft-delete a snapshot while archiving its complete pre-delete state."""
     with connect_from_config(config) as conn:
@@ -192,3 +250,4 @@ def delete_salary(config, salary_id):
                       json.dumps(adjustments, ensure_ascii=False), now))
         conn.execute("UPDATE salary_monthly SET is_deleted=1,deleted_at=?,updated_at=? WHERE salary_id=?",
                      (now, now, salary_id))
+        conn.execute("UPDATE annual_leave_history SET is_deleted=1,updated_at=? WHERE salary_id=?", (now, salary_id))

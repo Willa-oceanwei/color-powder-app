@@ -1,5 +1,6 @@
 """Streamlit salary-management page; business rules and persistence live elsewhere."""
 from datetime import date
+from calendar import monthrange
 
 import pandas as pd
 import streamlit as st
@@ -78,7 +79,8 @@ def _new_block(employee, annual_setting=None, leave_balance=0):
             "annual_leave_entitlement_snapshot": (annual_setting or {}).get("annual_entitlement", 0),
             "annual_leave_note_snapshot": (annual_setting or {}).get("note", ""),
             "annual_leave_balance_before": leave_balance, "leave_days":0.0, "leave_hours":0.0,
-            "annual_leave_days":0.0, "annual_leave_hours":0.0, "late_deduction":0, "manual_note":"", "adjustments":adjustments}
+            "annual_leave_days":0.0, "annual_leave_hours":0.0, "late_deduction":0, "manual_note":"",
+            "annual_leave_records":[], "adjustments":adjustments}
 
 
 def _monthly_tab(config):
@@ -114,9 +116,44 @@ def _monthly_tab(config):
             labels = [("base_salary_snapshot","底薪"),("attendance_bonus_snapshot","全勤"),("cooling_allowance_snapshot","涼水"),("allowance_snapshot","固定津貼"),("position_allowance_snapshot","職務津貼"),("insurance_snapshot","勞健保")]
             cols = st.columns(3)
             for pos, (field, label) in enumerate(labels): block[field] = cols[pos % 3].number_input(label, min_value=0, value=int(block.get(field, 0)), key=f"{field}_{period}_{index}")
-            cols = st.columns(4)
-            for pos, (field, label) in enumerate((("leave_days","請假日數"),("leave_hours","請假時數"),("annual_leave_days","特休日數"),("annual_leave_hours","特休時數"))):
+            cols = st.columns(2)
+            for pos, (field, label) in enumerate((("leave_days","請假日數"),("leave_hours","請假時數"))):
                 block[field] = cols[pos].number_input(label, min_value=0.0, value=float(block.get(field, 0)), key=f"{field}_{period}_{index}")
+            st.markdown("##### 特休日期明細")
+            records = block.setdefault("annual_leave_records", [])
+            if st.button("＋ 新增特休紀錄", key=f"add_leave_record_{period}_{index}"):
+                records.append({"date":date(year, month, 1).isoformat(), "days":0.0, "hours":0.0, "note":""})
+                st.rerun()
+            for record_index, record in enumerate(list(records)):
+                record_cols = st.columns([1.4, 0.8, 0.8, 2, 0.7])
+                raw_date = record.get("date") or date(year, month, 1).isoformat()
+                record_date = date.fromisoformat(str(raw_date)[:10])
+                record["date"] = record_cols[0].date_input(
+                    "日期", value=record_date, min_value=date(year, month, 1),
+                    max_value=date(year, month, monthrange(year, month)[1]),
+                    key=f"leave_date_{period}_{index}_{record_index}",
+                ).isoformat()
+                record["days"] = record_cols[1].number_input(
+                    "日數", min_value=0.0, value=float(record.get("days", 0)),
+                    key=f"leave_days_{period}_{index}_{record_index}",
+                )
+                record["hours"] = record_cols[2].number_input(
+                    "時數", min_value=0.0, value=float(record.get("hours", 0)),
+                    key=f"leave_hours_{period}_{index}_{record_index}",
+                )
+                record["note"] = record_cols[3].text_input(
+                    "備註", value=record.get("note") or "", key=f"leave_note_{period}_{index}_{record_index}",
+                )
+                if record_cols[4].button("刪除", key=f"delete_leave_{period}_{index}_{record_index}"):
+                    records.pop(record_index); st.rerun()
+            if records:
+                block["annual_leave_days"] = sum(float(record.get("days") or 0) for record in records)
+                block["annual_leave_hours"] = sum(float(record.get("hours") or 0) for record in records)
+            elif block.get("salary_id") and (block.get("annual_leave_days") or block.get("annual_leave_hours")):
+                st.warning("此筆為舊有月合計，尚無日期明細；目前保留原合計。新增日期紀錄後將改以逐筆明細自動合計。")
+            else:
+                block["annual_leave_days"] = 0.0
+                block["annual_leave_hours"] = 0.0
             block["late_deduction"] = st.number_input("遲到扣款", min_value=0, value=int(block.get("late_deduction", 0)), key=f"late_{period}_{index}")
             before = float(block.get("annual_leave_balance_before", 0)); used = block["annual_leave_days"] + block["annual_leave_hours"] / float(block.get("standard_hours_snapshot") or 8)
             block["annual_leave_balance_after"] = before - used
@@ -143,10 +180,10 @@ def _monthly_tab(config):
             st.markdown(f"**薪資總計：{block['final_salary']:,} 元**"); st.caption(block["system_note"] or "本月無特殊說明")
     c1,c2 = st.columns(2)
     if c1.button("儲存草稿", disabled=not blocks):
-        for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"])
+        for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], annual_leave_records=block.get("annual_leave_records", []))
         st.toast("草稿已儲存")
     if c2.button("結算薪資", type="primary", disabled=not blocks):
-        for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], settle=True)
+        for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], settle=True, annual_leave_records=block.get("annual_leave_records", []))
         st.toast("正式薪資快照已結算／更新")
 
     monthly_extras = get_salary_monthly_extras(config, year, month)

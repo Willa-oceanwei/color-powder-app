@@ -174,3 +174,35 @@ def generate_salary_workbook(year, month, salaries, monthly_extras=None):
     wb.save(output)
     output.seek(0)
     return output.getvalue()
+
+
+def generate_salary_total_workbook(employee_name, start_period, end_period, salaries):
+    """Generate a separate settled-salary query report."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "薪資總計"
+    sheet.append([f"{employee_name}　{start_period}～{end_period} 薪資總計"])
+    sheet.merge_cells("A1:F1")
+    sheet["A1"].font = Font(bold=True, size=14)
+    sheet["A1"].alignment = Alignment(horizontal="center")
+    headers = ("年月", "底薪", "小計", "特別加給", "扣除額", "薪資總計")
+    sheet.append(headers)
+    for cell in sheet[2]:
+        cell.font = Font(bold=True); cell.fill = PatternFill("solid", fgColor="D9EAF7")
+    for salary in salaries:
+        additions = _adjustment_total(salary, "addition")
+        deductions = _adjustment_total(salary, "deduction")
+        final_salary = int(salary.get("final_salary") or 0)
+        sheet.append([f"{salary['year']}/{salary['month']:02d}", salary.get("base_salary_snapshot", 0),
+                      final_salary - additions + deductions, additions, deductions, final_salary])
+    sheet.append(["期間合計", sum(float(item.get("base_salary_snapshot") or 0) for item in salaries), "", "", "",
+                  sum(float(item.get("final_salary") or 0) for item in salaries)])
+    for row in sheet.iter_rows(min_row=3, min_col=2, max_col=6):
+        for cell in row: cell.number_format = '#,##0;[Red]-#,##0;0'
+    for column, width in zip("ABCDEF", (14, 14, 14, 14, 14, 16)):
+        sheet.column_dimensions[column].width = width
+    output = BytesIO(); workbook.save(output); output.seek(0)
+    return output.getvalue()

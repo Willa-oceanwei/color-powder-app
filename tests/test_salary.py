@@ -4,9 +4,11 @@ from utils.database import DatabaseConfig, connect_from_config, initialize_datab
 from utils.salary_calculator import calculate_leave_deduction, calculate_salary
 from utils.salary_excel import _monthly_summary, _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
+                                     delete_annual_leave_history_record,
                                      get_annual_leave_setting, get_employee_salary_note, get_month_salaries,
                                      get_salary_monthly_extras, get_settled_month_salaries,
-                                     list_employees, save_annual_leave_setting, save_employee, save_salary)
+                                     list_annual_leave_history, list_employees, list_settled_salaries_in_range,
+                                     save_annual_leave_history_record, save_annual_leave_setting, save_employee, save_salary)
 from utils.salary_repository import save_employee_salary_note, save_salary_monthly_extras
 
 
@@ -182,3 +184,43 @@ def test_personal_salary_notes_and_monthly_extras_are_editable(tmp_path: Path):
     extras = get_salary_monthly_extras(config, 2026, 7)
     assert extras["employee_values"] == {"E1":30}
     assert extras["monthly_total"] == 13903
+
+
+def test_dated_leave_records_are_linked_to_salary_and_editable(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "dated-leave.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E1", "name":"甲", "join_date":"2026-01-01", "standard_hours":8})
+    data = {"year":2026,"month":8,"employee_id":"E1","employee_name_snapshot":"甲",
+            "standard_hours_snapshot":8,"annual_leave_days":1,"annual_leave_hours":4,
+            "annual_leave_balance_before":9,"annual_leave_balance_after":7.5}
+    data.update(calculate_salary(data))
+    save_salary(config, data, settle=True, annual_leave_records=[
+        {"date":"2026-08-03","days":1,"hours":0,"note":""},
+        {"date":"2026-08-12","days":0,"hours":4,"note":"下午特休"},
+    ])
+    records = list_annual_leave_history(config, "E1", 2026)
+    assert [item["equivalent_days"] for item in records] == [1, 0.5]
+    assert all(item["salary_status"] == "settled" for item in records)
+
+    save_annual_leave_history_record(config, {**records[1], "hours":2, "standard_hours":8})
+    updated = list_annual_leave_history(config, "E1", 2026)
+    assert updated[1]["equivalent_days"] == 0.25
+    assert get_settled_month_salaries(config, 2026, 8)[0]["annual_leave_hours"] == 4
+    delete_annual_leave_history_record(config, updated[0]["id"])
+    assert len(list_annual_leave_history(config, "E1", 2026)) == 1
+
+
+def test_salary_total_range_uses_only_settled_active_snapshots(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "salary-range.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E1", "name":"甲", "join_date":"2026-01-01"})
+    salary_ids = {}
+    for month, settled in ((1, True), (2, False), (3, True), (8, True)):
+        data = {"year":2026,"month":month,"employee_id":"E1","employee_name_snapshot":"甲",
+                "base_salary_snapshot":30000}
+        data.update(calculate_salary(data))
+        salary_ids[month] = save_salary(config, data, settle=settled)
+    delete_salary(config, salary_ids[3])
+
+    rows = list_settled_salaries_in_range(config, "E1", 2026, 1, 2026, 7)
+    assert [(item["year"], item["month"]) for item in rows] == [(2026, 1)]

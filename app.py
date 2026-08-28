@@ -141,6 +141,7 @@ from utils.conflict_repository import (
     resolve_sync_conflict,
 )
 from utils.salary_ui import render_salary_management
+from utils.hr_query_ui import render_hr_query
 
 st.set_page_config(
     page_title="配方管理系統",
@@ -741,6 +742,7 @@ def render_sidebar():
         {"group":"查詢","key":"查詢區","label":"查詢區"},
         {"group":"數據","key":"試色記錄分析","label":"試色記錄分析"},
         {"group":"人力","key":"薪資管理","label":"薪資管理"},
+        {"group":"人力","key":"人力查詢","label":"人力查詢"},
         {"group":"設定","key":"客戶名單","label":"客戶名單"},
         {"group":"設定","key":"同步檢查","label":"同步檢查"},
         {"group":"設定","key":"外部連結","label":"外部連結"},
@@ -1134,7 +1136,8 @@ MENU_ITEMS = [
     {"key": "採購管理", "label": "採購管理", "group": "倉儲"},
     {"key": "查詢區", "label": "查詢區", "group": "查詢"},
     {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
-    {"key": "薪資管理", "label": "薪資管理", "group": "人力"},
+    {"key": "薪資管理", "label": " 薪資管理", "group": " 人力"},
+    {"key": "人力查詢", "label": " 人力查詢", "group": " 人力"},
     {"key": "客戶名單", "label": "客戶名單", "group": "設定"},
     {"key": "同步檢查", "label": "同步檢查", "group": "設定"},
     {"key": "外部連結", "label": "外部連結", "group": "設定"},
@@ -1153,7 +1156,8 @@ def render_erp_nav():
         {"key": "採購管理",   "label": "採購管理",   "group": "倉儲"},
         {"key": "查詢區",     "label": "查詢區",     "group": "查詢"},
         {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
-        {"key": "薪資管理", "label": "薪資管理", "group": "人力"},
+        {"key": "薪資管理", "label": " 薪資管理", "group": " 人力"},
+        {"key": "人力查詢", "label": " 人力查詢", "group": " 人力"},
         {"key": "客戶名單",   "label": "客戶名單",   "group": "設定"},
         {"key": "同步檢查",   "label": "同步檢查",   "group": "設定"},
         {"key": "外部連結",   "label": "外部連結",   "group": "設定"},
@@ -2466,6 +2470,8 @@ menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 
 if menu == "薪資管理":
     render_salary_management(DATABASE_CONFIG)
+elif menu == "人力查詢":
+    render_hr_query(DATABASE_CONFIG)
 
 # ======== 色粉管理 =========
 if menu == "色粉管理":

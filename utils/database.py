@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -76,6 +76,7 @@ REQUIRED_TABLE_COLUMNS = {
     "trial_records": {"lifecycle_status", "deleted_at", "delete_reason"},
     "salary_monthly": {"annual_leave_entitlement_snapshot", "annual_leave_note_snapshot", "is_deleted", "deleted_at"},
     "employee_annual_leave_settings": {"annual_entitlement", "opening_balance", "opening_month"},
+    "annual_leave_history": {"equivalent_days", "year", "month", "salary_id", "updated_at", "is_deleted"},
 }
 
 
@@ -793,7 +794,8 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE TABLE IF NOT EXISTS annual_leave_history (
             id TEXT PRIMARY KEY, employee_id TEXT NOT NULL, date TEXT NOT NULL,
             type TEXT NOT NULL, days REAL NOT NULL DEFAULT 0, hours REAL NOT NULL DEFAULT 0,
-            note TEXT, created_at TEXT NOT NULL,
+            equivalent_days REAL NOT NULL DEFAULT 0, year INTEGER, month INTEGER, salary_id TEXT,
+            note TEXT, created_at TEXT NOT NULL, updated_at TEXT, is_deleted INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY(employee_id) REFERENCES employee_master(employee_id) ON DELETE RESTRICT
         );
 
@@ -874,6 +876,12 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     _add_column_if_missing(conn, "salary_monthly", "annual_leave_note_snapshot", "TEXT")
     _add_column_if_missing(conn, "salary_monthly", "is_deleted", "INTEGER NOT NULL DEFAULT 0")
     _add_column_if_missing(conn, "salary_monthly", "deleted_at", "TEXT")
+    _add_column_if_missing(conn, "annual_leave_history", "equivalent_days", "REAL NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "annual_leave_history", "year", "INTEGER")
+    _add_column_if_missing(conn, "annual_leave_history", "month", "INTEGER")
+    _add_column_if_missing(conn, "annual_leave_history", "salary_id", "TEXT")
+    _add_column_if_missing(conn, "annual_leave_history", "updated_at", "TEXT")
+    _add_column_if_missing(conn, "annual_leave_history", "is_deleted", "INTEGER NOT NULL DEFAULT 0")
     conn.execute(
         """UPDATE recipes
            SET oem_multiplier = COALESCE(
@@ -963,6 +971,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE INDEX IF NOT EXISTS idx_salary_employee ON salary_monthly(employee_id);
         CREATE INDEX IF NOT EXISTS idx_adjustments_salary ON salary_adjustments(salary_id);
         CREATE INDEX IF NOT EXISTS idx_annual_leave_employee_date ON annual_leave_history(employee_id, date);
+        CREATE INDEX IF NOT EXISTS idx_annual_leave_employee_year ON annual_leave_history(employee_id, year, is_deleted);
         CREATE INDEX IF NOT EXISTS idx_salary_active_month ON salary_monthly(year, month, is_deleted, status);
         """
     )
