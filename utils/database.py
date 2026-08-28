@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 20
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -48,6 +48,15 @@ MAIN_TABLES = {
     "sync_conflicts",
     "sync_outbox",
     "sync_worker_locks",
+    "employee_master",
+    "salary_monthly",
+    "salary_adjustments",
+    "annual_leave_history",
+    "salary_rules",
+    "employee_annual_leave_settings",
+    "salary_deletion_audit",
+    "employee_salary_notes",
+    "salary_monthly_extras",
 }
 REQUIRED_TABLE_COLUMNS = {
     "color_powders": {"lifecycle_status", "deleted_at", "delete_reason"},
@@ -64,6 +73,8 @@ REQUIRED_TABLE_COLUMNS = {
     "customer_inventory_records": {"lifecycle_status", "deleted_at", "delete_reason"},
     "carwash_inventory_movements": {"lifecycle_status", "deleted_at", "delete_reason"},
     "trial_records": {"lifecycle_status", "deleted_at", "delete_reason"},
+    "salary_monthly": {"annual_leave_entitlement_snapshot", "annual_leave_note_snapshot", "is_deleted", "deleted_at"},
+    "employee_annual_leave_settings": {"annual_entitlement", "opening_balance", "opening_month"},
 }
 
 
@@ -705,6 +716,133 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             acquired_at TEXT NOT NULL,
             expires_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS employee_master (
+            employee_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            join_date TEXT NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            base_salary INTEGER NOT NULL DEFAULT 0,
+            attendance_bonus INTEGER NOT NULL DEFAULT 0,
+            cooling_allowance INTEGER NOT NULL DEFAULT 0,
+            allowance INTEGER NOT NULL DEFAULT 0,
+            position_allowance INTEGER NOT NULL DEFAULT 0,
+            insurance INTEGER NOT NULL DEFAULT 0,
+            standard_hours REAL NOT NULL DEFAULT 8,
+            annual_leave_base REAL NOT NULL DEFAULT 0,
+            special_addition_enabled INTEGER NOT NULL DEFAULT 0,
+            special_addition_amount INTEGER NOT NULL DEFAULT 0,
+            special_addition_note TEXT,
+            default_deduction_enabled INTEGER NOT NULL DEFAULT 0,
+            default_deduction_amount INTEGER NOT NULL DEFAULT 0,
+            default_deduction_note TEXT,
+            note TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS salary_monthly (
+            salary_id TEXT PRIMARY KEY,
+            year INTEGER NOT NULL,
+            month INTEGER NOT NULL,
+            employee_id TEXT NOT NULL,
+            employee_name_snapshot TEXT NOT NULL,
+            base_salary_snapshot INTEGER NOT NULL DEFAULT 0,
+            attendance_bonus_snapshot INTEGER NOT NULL DEFAULT 0,
+            cooling_allowance_snapshot INTEGER NOT NULL DEFAULT 0,
+            allowance_snapshot INTEGER NOT NULL DEFAULT 0,
+            position_allowance_snapshot INTEGER NOT NULL DEFAULT 0,
+            insurance_snapshot INTEGER NOT NULL DEFAULT 0,
+            standard_hours_snapshot REAL NOT NULL DEFAULT 8,
+            leave_days REAL NOT NULL DEFAULT 0,
+            leave_hours REAL NOT NULL DEFAULT 0,
+            leave_deduction INTEGER NOT NULL DEFAULT 0,
+            annual_leave_days REAL NOT NULL DEFAULT 0,
+            annual_leave_hours REAL NOT NULL DEFAULT 0,
+            annual_leave_balance_before REAL NOT NULL DEFAULT 0,
+            annual_leave_balance_after REAL NOT NULL DEFAULT 0,
+            annual_leave_entitlement_snapshot REAL NOT NULL DEFAULT 0,
+            annual_leave_note_snapshot TEXT,
+            late_deduction INTEGER NOT NULL DEFAULT 0,
+            total_additions INTEGER NOT NULL DEFAULT 0,
+            total_deductions INTEGER NOT NULL DEFAULT 0,
+            final_salary INTEGER NOT NULL DEFAULT 0,
+            system_note TEXT,
+            manual_note TEXT,
+            status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','settled')),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            settled_at TEXT,
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            deleted_at TEXT,
+            FOREIGN KEY(employee_id) REFERENCES employee_master(employee_id) ON DELETE RESTRICT,
+            UNIQUE(year, month, employee_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS salary_adjustments (
+            adjustment_id TEXT PRIMARY KEY,
+            salary_id TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('addition','deduction')),
+            item_name TEXT NOT NULL,
+            amount INTEGER NOT NULL DEFAULT 0,
+            note TEXT,
+            FOREIGN KEY(salary_id) REFERENCES salary_monthly(salary_id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS annual_leave_history (
+            id TEXT PRIMARY KEY, employee_id TEXT NOT NULL, date TEXT NOT NULL,
+            type TEXT NOT NULL, days REAL NOT NULL DEFAULT 0, hours REAL NOT NULL DEFAULT 0,
+            note TEXT, created_at TEXT NOT NULL,
+            FOREIGN KEY(employee_id) REFERENCES employee_master(employee_id) ON DELETE RESTRICT
+        );
+
+        CREATE TABLE IF NOT EXISTS salary_rules (
+            rule_key TEXT PRIMARY KEY, rule_value TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS employee_annual_leave_settings (
+            employee_id TEXT NOT NULL,
+            year INTEGER NOT NULL,
+            annual_entitlement REAL NOT NULL DEFAULT 0,
+            opening_balance REAL NOT NULL DEFAULT 0,
+            opening_month INTEGER NOT NULL DEFAULT 1,
+            note TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(employee_id, year),
+            FOREIGN KEY(employee_id) REFERENCES employee_master(employee_id) ON DELETE RESTRICT
+        );
+
+        CREATE TABLE IF NOT EXISTS salary_deletion_audit (
+            audit_id TEXT PRIMARY KEY,
+            salary_id TEXT NOT NULL,
+            snapshot_json TEXT NOT NULL,
+            adjustments_json TEXT NOT NULL,
+            deleted_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS employee_salary_notes (
+            employee_id TEXT NOT NULL,
+            year INTEGER NOT NULL,
+            company_cost_note TEXT,
+            annual_leave_note TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(employee_id, year),
+            FOREIGN KEY(employee_id) REFERENCES employee_master(employee_id) ON DELETE RESTRICT
+        );
+
+        CREATE TABLE IF NOT EXISTS salary_monthly_extras (
+            year INTEGER NOT NULL,
+            month INTEGER NOT NULL,
+            employee_values_json TEXT NOT NULL DEFAULT '{}',
+            previous_value REAL NOT NULL DEFAULT 0,
+            monthly_addition REAL NOT NULL DEFAULT 0,
+            monthly_total REAL NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(year, month)
+        );
         """
     )
     # Lightweight migrations for databases created by schema version 1.
@@ -725,6 +863,16 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     _add_column_if_missing(conn, "inventory_movements", "reversed_at", "TEXT")
     _add_column_if_missing(conn, "production_orders", "cancelled_at", "TEXT")
     _add_column_if_missing(conn, "production_orders", "cancel_reason", "TEXT")
+    _add_column_if_missing(conn, "employee_master", "special_addition_enabled", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "employee_master", "special_addition_amount", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "employee_master", "special_addition_note", "TEXT")
+    _add_column_if_missing(conn, "employee_master", "default_deduction_enabled", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "employee_master", "default_deduction_amount", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "employee_master", "default_deduction_note", "TEXT")
+    _add_column_if_missing(conn, "salary_monthly", "annual_leave_entitlement_snapshot", "REAL NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "salary_monthly", "annual_leave_note_snapshot", "TEXT")
+    _add_column_if_missing(conn, "salary_monthly", "is_deleted", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "salary_monthly", "deleted_at", "TEXT")
     conn.execute(
         """UPDATE recipes
            SET oem_multiplier = COALESCE(
@@ -810,8 +958,20 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         CREATE INDEX IF NOT EXISTS idx_sheet_rows_hash ON sheet_rows(sheet_name, row_hash);
         CREATE INDEX IF NOT EXISTS idx_sync_conflicts_status ON sync_conflicts(status, detected_at);
         CREATE INDEX IF NOT EXISTS idx_sync_outbox_pending ON sync_outbox(status, sheet_name, created_at);
+        CREATE INDEX IF NOT EXISTS idx_salary_month ON salary_monthly(year, month);
+        CREATE INDEX IF NOT EXISTS idx_salary_employee ON salary_monthly(employee_id);
+        CREATE INDEX IF NOT EXISTS idx_adjustments_salary ON salary_adjustments(salary_id);
+        CREATE INDEX IF NOT EXISTS idx_annual_leave_employee_date ON annual_leave_history(employee_id, date);
+        CREATE INDEX IF NOT EXISTS idx_salary_active_month ON salary_monthly(year, month, is_deleted, status);
         """
     )
+    now = utc_now_iso()
+    for key, value in (("monthly_days", "30"), ("standard_hours", "8"),
+                       ("leave_affects_attendance", "false"),
+                       ("leave_affects_cooling", "false"),
+                       ("leave_affects_allowance", "false")):
+        conn.execute("INSERT OR IGNORE INTO salary_rules(rule_key, rule_value, updated_at) VALUES (?, ?, ?)",
+                     (key, value, now))
 
 def initialize_database(db_path: str | Path | None = None) -> Path:
     """Create/validate the local SQLite database, schema, and indexes automatically."""
