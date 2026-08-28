@@ -81,7 +81,10 @@ from utils.sample_repository import SampleError, archive_sample_record, list_sam
 from utils.customer_inventory_repository import (
     CustomerInventoryError,
     archive_customer_inventory_record,
+    find_matching_customer_inventory,
     list_customer_inventory_records,
+    merge_customer_inventory_record,
+    quantity_in_kg,
     save_customer_inventory_record,
 )
 from utils.carwash_inventory_repository import (
