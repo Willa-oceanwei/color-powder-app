@@ -13,6 +13,7 @@ import logging
 import os
 import shutil
 import sqlite3
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -1042,23 +1043,73 @@ def _database_health_from_connection(config: DatabaseConfig, conn: SqlExecutor) 
     )
 
 
+def _is_missing_schema_migrations_error(exc: Exception) -> bool:
+    """Return whether a health check failed because this is an uninitialized DB."""
+    message = str(exc).lower()
+    return "schema_migrations" in message and (
+        "no such table" in message or "does not exist" in message
+    )
+
+
+def _is_transient_turso_session_error(exc: Exception) -> bool:
+    """Recognize libsql's intermittent cold-session initialization failure."""
+    normalized = "".join(str(exc).lower().split())
+    return "sessioninfobeforeitwasinitialized" in normalized
+
+
+def _initialize_database_connection(
+    config: DatabaseConfig,
+) -> DatabaseHealth:
+    """Validate one connection, migrating only an absent, stale, or invalid schema."""
+    with connect_from_config(config) as conn:
+        try:
+            health = _database_health_from_connection(config, conn)
+        except Exception as exc:
+            if not _is_missing_schema_migrations_error(exc):
+                raise
+            health = None
+
+        if (
+            health is None
+            or health.schema_version != SCHEMA_VERSION
+            or not health.schema_compatible
+        ):
+            _initialize_schema(conn)
+            health = _database_health_from_connection(config, conn)
+        return health
+
+
 def initialize_database_with_health(config: DatabaseConfig) -> tuple[str | Path, DatabaseHealth]:
     """Initialize and validate the backend over a single database connection.
 
     Turso connection setup is a network operation. Combining schema initialization
     and health validation avoids opening a second connection during process startup.
+    A healthy database already at the current schema version takes the fast path:
+    it is validated without replaying the complete schema DDL on every cold app
+    process. This is especially important for Turso, where each statement adds a
+    network round trip immediately after login.
     """
     initialized: str | Path = get_db_path(config.path) if config.backend == "sqlite" else "turso"
-    try:
-        with connect_from_config(config) as conn:
-            _initialize_schema(conn)
-            health = _database_health_from_connection(config, conn)
-    except Exception as exc:
-        raise DatabaseStartupError(
-            f"Could not initialize or validate {config.backend} database schema "
-            f"v{SCHEMA_VERSION}: {exc}"
-        ) from exc
-    return initialized, health
+    attempts = 3 if config.backend == "turso" else 1
+    for attempt in range(attempts):
+        try:
+            health = _initialize_database_connection(config)
+            return initialized, health
+        except Exception as exc:
+            can_retry = (
+                config.backend == "turso"
+                and _is_transient_turso_session_error(exc)
+                and attempt + 1 < attempts
+            )
+            if can_retry:
+                time.sleep(0.2 * (attempt + 1))
+                continue
+            raise DatabaseStartupError(
+                f"Could not initialize or validate {config.backend} database schema "
+                f"v{SCHEMA_VERSION}: {exc}"
+            ) from exc
+
+    raise AssertionError("database startup retry loop ended unexpectedly")
 
 
 def database_health_check(config: DatabaseConfig) -> DatabaseHealth:
