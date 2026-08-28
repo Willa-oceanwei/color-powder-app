@@ -54,8 +54,9 @@ python scripts/import_google_sheets_to_sqlite.py \
 
 Streamlit secrets 可使用頂層鍵，也支援 `[turso]` 或 `[connections.turso]`
 區段中的 `database_url` / `url` 與 `auth_token` / `token`。登入畫面不會連線
-Turso；登入成功後的 schema 初始化與健康檢查會在同一個 app process 內快取，
-避免每次輸入或操作 widget 都重新連線。
+Turso；登入成功後會先檢查 schema 狀態，只有版本落後或結構不完整時才執行 schema
+初始化，健康且已是最新版的資料庫不會在每次冷啟動重跑整套 DDL。結果也會在同一個
+app process 內快取，避免每次輸入或操作 widget 都重新連線。
 
 ```bash
 python scripts/import_google_sheets_to_sqlite.py \

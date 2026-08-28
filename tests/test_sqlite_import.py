@@ -4,6 +4,7 @@ import logging
 import sqlite3
 
 import pytest
+import utils.database as database_module
 import utils.sheet_export as sheet_export_module
 
 from utils.database import (
@@ -1358,6 +1359,28 @@ def test_initialize_database_with_health_initializes_and_validates_once(tmp_path
     assert health.select_1_ok
     assert health.schema_version == SCHEMA_VERSION
     assert health.schema_compatible
+
+
+def test_initialize_database_with_health_skips_schema_ddl_when_current(tmp_path, monkeypatch):
+    db = tmp_path / "current-schema.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    schema_initializations = 0
+    original_initialize_schema = database_module._initialize_schema
+
+    def counted_initialize_schema(conn):
+        nonlocal schema_initializations
+        schema_initializations += 1
+        return original_initialize_schema(conn)
+
+    monkeypatch.setattr(database_module, "_initialize_schema", counted_initialize_schema)
+
+    initialized, health = initialize_database_with_health(config)
+
+    assert initialized == db
+    assert health.schema_version == SCHEMA_VERSION
+    assert health.schema_compatible
+    assert schema_initializations == 0
 
 
 def test_partial_turso_credentials_fail_fast(monkeypatch):
