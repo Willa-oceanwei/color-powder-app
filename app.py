@@ -81,7 +81,10 @@ from utils.sample_repository import SampleError, archive_sample_record, list_sam
 from utils.customer_inventory_repository import (
     CustomerInventoryError,
     archive_customer_inventory_record,
+    find_matching_customer_inventory,
     list_customer_inventory_records,
+    merge_customer_inventory_record,
+    quantity_in_kg,
     save_customer_inventory_record,
 )
 from utils.carwash_inventory_repository import (
@@ -9916,6 +9919,48 @@ elif menu == "庫存區":
             elif action_mode != "新增":
                 st.info("目前沒有可修改或封存的資料。")
 
+            pending_merge = st.session_state.get("customer_stock_pending_merge")
+            if pending_merge and action_mode == "新增":
+                matching_rows = pending_merge["matching_rows"]
+                total_kg = sum(
+                    quantity_in_kg(row["quantity"], row["unit"]) or 0
+                    for row in matching_rows
+                )
+                st.warning(
+                    f"廠內已有客戶「{pending_merge['row']['客戶名稱']}」、配方編號"
+                    f"「{pending_merge['row']['配方編號']}」的庫存，共 {total_kg:g} kg。是否合併計算？"
+                )
+                note_preview = [
+                    pending_merge["row"].get("備註", ""),
+                    *(row.get("notes", "") for row in matching_rows),
+                ]
+                note_preview = [str(note).strip() for note in note_preview if str(note).strip()]
+                if note_preview:
+                    st.caption("合併後備註（新到舊）：")
+                    st.code("\n".join(note_preview), language=None)
+                merge_col, separate_col, cancel_col = st.columns(3)
+                if merge_col.button("合併計算", type="primary", use_container_width=True):
+                    try:
+                        merge_customer_inventory_record(
+                            DATABASE_CONFIG, matching_rows[0], pending_merge["row"]
+                        )
+                        del st.session_state["customer_stock_pending_merge"]
+                        st.success("已合併數量，備註已依時間由新到舊列出。")
+                        st.rerun()
+                    except CustomerInventoryError as exc:
+                        st.error(str(exc))
+                if separate_col.button("不要合併，分開新增", use_container_width=True):
+                    try:
+                        save_customer_inventory_record(DATABASE_CONFIG, pending_merge["row"], create=True)
+                        del st.session_state["customer_stock_pending_merge"]
+                        st.success("已分開新增個別客戶庫存。")
+                        st.rerun()
+                    except CustomerInventoryError as exc:
+                        st.error(str(exc))
+                if cancel_col.button("取消", use_container_width=True):
+                    del st.session_state["customer_stock_pending_merge"]
+                    st.rerun()
+
             with st.form("customer_stock_form"):
                 customer_input = st.selectbox(
                     "客戶名稱", [""] + customer_choices,
@@ -9947,13 +9992,24 @@ elif menu == "庫存區":
                         if action_mode == "修改" and target_row is None:
                             raise CustomerInventoryError("請先選擇要修改的資料")
                         now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        save_customer_inventory_record(DATABASE_CONFIG, {
+                        stock_row = {
                             "_sync_id": "" if target_row is None else target_row["_sync_id"],
                             "客戶名稱": customer_input, "配方編號": recipe_input,
                             "顏色": color_input, "數量": qty_input, "單位": unit_input,
                             "備註": note_input, "建立時間": "" if target_row is None else target_row["建立時間"],
                             "更新時間": now_text,
-                        }, create=action_mode == "新增")
+                        }
+                        matching_rows = find_matching_customer_inventory(
+                            DATABASE_CONFIG, customer_name=customer_input, recipe_id=recipe_input,
+                        ) if action_mode == "新增" else []
+                        if matching_rows:
+                            st.session_state["customer_stock_pending_merge"] = {
+                                "row": stock_row, "matching_rows": matching_rows,
+                            }
+                            st.rerun()
+                        save_customer_inventory_record(
+                            DATABASE_CONFIG, stock_row, create=action_mode == "新增"
+                        )
                         st.success(f"已{action_mode}個別客戶庫存，並排入 Sheet outbox。")
                     st.rerun()
                 except CustomerInventoryError as exc:

@@ -1,6 +1,9 @@
 from utils.customer_inventory_repository import (
     archive_customer_inventory_record,
+    find_matching_customer_inventory,
     list_customer_inventory_records,
+    merge_customer_inventory_record,
+    quantity_in_kg,
     save_customer_inventory_record,
 )
 from utils.database import DatabaseConfig, connect, initialize_database
@@ -40,3 +43,36 @@ def test_initial_import_and_permanent_id_prepare(tmp_path):
     assert import_sheet_values("個別客戶庫存", values, db_path=path, dry_run=True).unchanged == 1
     missing = [values[0], values[1][:-1] + [""]]
     assert missing_inventory_sync_id_updates(missing, id_factory=lambda: "stock-2") == [(2, 9, "stock-2")]
+
+
+def test_duplicate_recipe_can_be_found_and_merged_with_newest_note_first(tmp_path):
+    _, db_config = config(tmp_path)
+    existing = save_customer_inventory_record(db_config, {
+        "客戶名稱": "甲公司", "配方編號": "52804M", "顏色": "紅",
+        "數量": 10, "單位": "kg", "備註": "（06/12）新增10kg",
+    }, create=True)
+
+    matches = find_matching_customer_inventory(
+        db_config, customer_name="甲公司", recipe_id="52804m"
+    )
+    assert [row["record_id"] for row in matches] == [existing["record_id"]]
+    merged = merge_customer_inventory_record(db_config, matches[0], {
+        "數量": 10_000, "單位": "g", "備註": "8/28留10K,交客人990K",
+    })
+
+    assert merged["quantity"] == 20
+    assert merged["unit"] == "kg"
+    assert merged["notes"] == "8/28留10K,交客人990K\n（06/12）新增10kg"
+    assert quantity_in_kg(500, "g") == 0.5
+    assert quantity_in_kg(2, "桶") is None
+
+
+def test_duplicate_lookup_is_limited_to_same_customer(tmp_path):
+    _, db_config = config(tmp_path)
+    save_customer_inventory_record(db_config, {
+        "客戶名稱": "甲公司", "配方編號": "R001", "顏色": "紅",
+        "數量": 10, "單位": "kg",
+    }, create=True)
+    assert find_matching_customer_inventory(
+        db_config, customer_name="乙公司", recipe_id="R001"
+    ) == []
