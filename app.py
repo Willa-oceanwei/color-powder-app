@@ -4442,13 +4442,14 @@ elif menu == "生產單管理":
         return matches.iloc[0].to_dict()
 
     def find_same_day_order_duplicate(recipe_code):
-        """非色母生產單新增前檢查：「生產單」工作表裡是否已有同配方編號、且生產日期為今天的舊單。
+        """非色母生產單新增前檢查：是否已有同配方編號、且生產日期為今天的有效舊單。
         有的話回傳最新（依建立時間排序）的那一筆。"""
         recipe_code = str(recipe_code or "").strip()
         if not recipe_code:
             return None
         try:
-            df_order_check = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
+            # 合併只能以有效單為目標；已取消單不可因同配方再觸發合併提示。
+            df_order_check = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
         except Exception:
             return None
         if df_order_check.empty or "配方編號" not in df_order_check.columns:
@@ -4469,6 +4470,20 @@ elif menu == "生產單管理":
         if "建立時間" in matches.columns:
             matches = matches.sort_values("建立時間", ascending=False)
         return matches.iloc[0].to_dict()
+
+    def clear_production_merge_cache(recipe_code):
+        """生產單生命週期改變後，清除該配方的重複檢查結果。"""
+        recipe_code = str(recipe_code or "").strip()
+        if not recipe_code:
+            return
+        cache_prefixes = (
+            f"merge_match_{recipe_code}_",
+            f"merge_decision_{recipe_code}_",
+            f"merge_radio_{recipe_code}_",
+        )
+        for key in list(st.session_state.keys()):
+            if key.startswith(cache_prefixes):
+                st.session_state.pop(key, None)
 
     def reset_order_draft_state_if_new(new_order_no):
         """開始一張全新的生產單草稿時，清掉上一張單殘留的包裝重量/份數、是否已下載、
@@ -6064,6 +6079,11 @@ elif menu == "生產單管理":
                             except ProductionOrderError as exc:
                                 st.error(f"❌ {exc}")
                             else:
+                                # 立即以 Turso 最新狀態取代頁面快取，新增單的重複檢查不必等使用者按「重新整理」。
+                                st.session_state.df_order = pd.DataFrame(
+                                    list_production_orders(DATABASE_CONFIG, include_cancelled=True)
+                                ).fillna("").astype(str)
+                                clear_production_merge_cache(order_dict.get("配方編號", ""))
                                 st.session_state.pop("confirm_order_lifecycle_id", None)
                                 st.session_state["show_edit_panel"] = False
                                 st.session_state["editing_order"] = None
@@ -7913,8 +7933,6 @@ elif menu == "採購管理":
         # 初始化其他 session_state
         init_states({
             "edit_supplier_id": None,
-            "delete_supplier_index": None,
-            "show_delete_supplier_confirm": False
         })
     
         # Turso 是供應商正式資料來源；Sheet 由 outbox PUSH 更新。
@@ -7963,17 +7981,16 @@ elif menu == "採購管理":
     
         next_code, current_code = get_next_supplier_code(df)
     
-        if not st.session_state.get("edit_supplier_id"):
+        supplier_tab_form, supplier_tab_manage = st.tabs(["➕ 新增供應商", "🛠️ 查詢與維護"])
+
+        with supplier_tab_form:
+            st.caption("這裡只用於建立新資料；修改、停用與恢復請到「查詢與維護」。")
             if current_code:
                 st.info(f"📌 目前已新增到：{current_code}　➡ 建議下一號：{next_code}")
             else:
                 st.info(f"📌 尚無供應商資料，建議從：{next_code} 開始")
-    
-        supplier_tab_form, supplier_tab_manage = st.tabs(["📝 新增 / 修改", "🛠️ 查詢 / 刪除"])
 
-        with supplier_tab_form:
-            # ===== 表單模式（欄位縮窄） =====
-            with st.form("form_supplier_tab3"):
+            with st.form("form_supplier_create"):
                 col1, col2, col3, col4 = st.columns([1.1, 1.1, 1.6, 0.9])
                 with col1:
                     st.session_state.form_supplier["供應商編號"] = st.text_input(
@@ -7989,7 +8006,6 @@ elif menu == "採購管理":
                     st.session_state.form_supplier["備註"] = st.text_input(
                         "備註",
                         st.session_state.form_supplier.get("備註", ""),
-                        key="form_supplier_note_tab3"
                     )
                 with col4:
                     st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
@@ -7997,7 +8013,7 @@ elif menu == "採購管理":
 
                 submit = st.form_submit_button("💾 儲存")
 
-            if use_next_code and not st.session_state.get("edit_supplier_id"):
+            if use_next_code:
                 st.session_state.form_supplier["供應商編號"] = next_code
                 st.rerun()
 
@@ -8007,23 +8023,14 @@ elif menu == "採購管理":
                     st.warning("⚠️ 請輸入供應商編號！")
                     st.stop()
 
-                edit_id = st.session_state.get("edit_supplier_id")
-
                 data = SupplierInput(
                     supplier_id=new_data["供應商編號"],
                     name=new_data["供應商簡稱"],
                     notes=new_data["備註"],
                 )
                 try:
-                    if edit_id:
-                        if data.supplier_id.strip() != str(edit_id).strip():
-                            st.error("❌ 供應商編號是永久 ID，修改時不可變更")
-                            st.stop()
-                        update_supplier(DATABASE_CONFIG, data)
-                        st.session_state["supplier_toast"] = "已更新 Turso；等待同步至 Sheet"
-                    else:
-                        create_supplier(DATABASE_CONFIG, data)
-                        st.session_state["supplier_toast"] = "已新增至 Turso；等待同步至 Sheet"
+                    create_supplier(DATABASE_CONFIG, data)
+                    st.session_state["supplier_toast"] = "已新增至 Turso；等待同步至 Sheet"
                 except SupplierAlreadyExists as exc:
                     st.warning(f"⚠️ {exc}")
                     st.stop()
@@ -8034,32 +8041,69 @@ elif menu == "採購管理":
                     st.error(f"❌ 儲存 Turso 失敗，未建立同步事件：{exc}")
                     st.stop()
                 st.session_state.form_supplier = {col: "" for col in columns}
-                st.session_state.edit_supplier_id = None
                 st.rerun()
     
-        # ===== 刪除確認 =====
         supplier_toast = st.session_state.pop("supplier_toast", None)
         if supplier_toast:
             st.toast(supplier_toast, icon="✅")
         
         with supplier_tab_manage:
-            st.markdown("---")
-            st.markdown(
-                '<h3 style="font-size:16px; font-family:Arial; color:#f6efff;">🛠️ 供應商修改/刪除</h3>',
-                unsafe_allow_html=True
+            st.caption("搜尋後可直接在本頁修改，不需要切回新增頁。供應商編號為永久 ID，不可修改。")
+            keyword = st.text_input(
+                "搜尋供應商編號或簡稱",
+                st.session_state.get("search_supplier_keyword", ""),
+                placeholder="留白即顯示全部供應商",
             )
-
-            keyword = st.text_input("請輸入供應商編號或簡稱", st.session_state.get("search_supplier_keyword", ""))
             st.session_state.search_supplier_keyword = keyword.strip()
-            df_filtered = pd.DataFrame()
-
-            if keyword:
+            df_filtered = df
+            if keyword.strip():
                 df_filtered = df[
                     df["供應商編號"].str.contains(keyword, case=False, na=False) |
                     df["供應商簡稱"].str.contains(keyword, case=False, na=False)
                 ]
-                if df_filtered.empty:
-                    render_empty_state("查無符合的資料")
+
+            edit_id = st.session_state.get("edit_supplier_id")
+            if edit_id:
+                edit_rows = df[df["供應商編號"] == str(edit_id)]
+                if edit_rows.empty:
+                    st.warning("找不到要修改的供應商，請重新選擇。")
+                    st.session_state.edit_supplier_id = None
+                else:
+                    edit_row = edit_rows.iloc[0]
+                    st.markdown(f"#### ✏️ 修改 {edit_id} — {edit_row['供應商簡稱']}")
+                    with st.form("form_supplier_edit"):
+                        edit_col1, edit_col2, edit_col3 = st.columns([1.1, 1.1, 1.6])
+                        with edit_col1:
+                            st.text_input("供應商編號", value=str(edit_id), disabled=True)
+                        with edit_col2:
+                            edit_name = st.text_input("供應商簡稱", value=edit_row["供應商簡稱"])
+                        with edit_col3:
+                            edit_notes = st.text_input("備註", value=edit_row["備註"])
+                        save_edit = st.form_submit_button("💾 儲存修改", type="primary")
+                        cancel_edit = st.form_submit_button("取消")
+
+                    if cancel_edit:
+                        st.session_state.edit_supplier_id = None
+                        st.rerun()
+                    if save_edit:
+                        try:
+                            update_supplier(
+                                DATABASE_CONFIG,
+                                SupplierInput(str(edit_id), edit_name, edit_notes),
+                            )
+                        except SupplierError as exc:
+                            st.error(f"❌ {exc}")
+                        except Exception as exc:
+                            st.error(f"❌ 儲存 Turso 失敗，未建立同步事件：{exc}")
+                        else:
+                            st.session_state.edit_supplier_id = None
+                            st.session_state["supplier_toast"] = "已更新 Turso；等待同步至 Sheet"
+                            st.rerun()
+
+                    st.markdown("---")
+
+            if df_filtered.empty:
+                render_empty_state("查無符合的資料")
 
             if not df_filtered.empty:
                 st.dataframe(df_filtered[columns], use_container_width=True, hide_index=True)
@@ -8075,8 +8119,6 @@ elif menu == "採購管理":
                     with c2:
                         if st.button("✏️ 改", key=f"edit_supplier_{i}"):
                             st.session_state.edit_supplier_id = row["供應商編號"]
-                            st.session_state.form_supplier = row.to_dict()
-                            st.session_state["supplier_toast"] = "已帶入供應商資料"
                             st.rerun()
                     with c3:
                         active = row["生命週期"] == "active"
