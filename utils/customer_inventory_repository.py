@@ -53,6 +53,63 @@ def list_customer_inventory_records(config: DatabaseConfig, *, include_inactive:
         ))
 
 
+def find_matching_customer_inventory(
+    config: DatabaseConfig, *, customer_name: str, recipe_id: str
+):
+    """Return active stock rows for the same customer and recipe, newest first."""
+    with connect_from_config(config) as conn:
+        return _mappings(conn.execute(
+            """SELECT * FROM customer_inventory_records
+               WHERE lifecycle_status='active'
+                 AND customer_name=? COLLATE NOCASE
+                 AND recipe_id=? COLLATE NOCASE
+               ORDER BY sheet_updated_at DESC, updated_at DESC, record_id DESC""",
+            (str(customer_name).strip(), str(recipe_id).strip()),
+        ))
+
+
+def quantity_in_kg(quantity: Any, unit: str) -> float | None:
+    """Convert supported mass units to kg; non-mass package units return None."""
+    try:
+        value = float(quantity)
+    except (TypeError, ValueError):
+        return None
+    normalized_unit = str(unit).strip().lower()
+    if normalized_unit == "kg":
+        return value
+    if normalized_unit == "g":
+        return value / 1000
+    return None
+
+
+def merge_customer_inventory_record(
+    config: DatabaseConfig, existing: dict[str, Any], new_row: dict[str, Any]
+):
+    """Add a new mass quantity to an existing row and put the newest note first."""
+    existing_kg = quantity_in_kg(existing.get("quantity"), existing.get("unit", ""))
+    new_kg = quantity_in_kg(new_row.get("數量"), new_row.get("單位", ""))
+    if existing_kg is None or new_kg is None:
+        raise CustomerInventoryError("只有 g 與 kg 可自動換算合併；其他單位請分開新增")
+
+    existing_unit = str(existing.get("unit") or "").strip()
+    merged_quantity = (existing_kg + new_kg) * (1000 if existing_unit.lower() == "g" else 1)
+    notes = [
+        str(new_row.get("備註") or "").strip(),
+        str(existing.get("notes") or "").strip(),
+    ]
+    return save_customer_inventory_record(config, {
+        "_sync_id": existing["record_id"],
+        "客戶名稱": existing["customer_name"],
+        "配方編號": existing["recipe_id"],
+        "顏色": existing["color"],
+        "數量": merged_quantity,
+        "單位": existing_unit,
+        "備註": "\n".join(note for note in notes if note),
+        "建立時間": existing.get("sheet_created_at") or "",
+        "更新時間": str(new_row.get("更新時間") or "").strip(),
+    }, create=False)
+
+
 def save_customer_inventory_record(
     config: DatabaseConfig, row: dict[str, Any], *, create: bool
 ):
