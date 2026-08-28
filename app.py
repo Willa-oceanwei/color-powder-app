@@ -4442,13 +4442,14 @@ elif menu == "生產單管理":
         return matches.iloc[0].to_dict()
 
     def find_same_day_order_duplicate(recipe_code):
-        """非色母生產單新增前檢查：「生產單」工作表裡是否已有同配方編號、且生產日期為今天的舊單。
+        """非色母生產單新增前檢查：是否已有同配方編號、且生產日期為今天的有效舊單。
         有的話回傳最新（依建立時間排序）的那一筆。"""
         recipe_code = str(recipe_code or "").strip()
         if not recipe_code:
             return None
         try:
-            df_order_check = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
+            # 合併只能以有效單為目標；已取消單不可因同配方再觸發合併提示。
+            df_order_check = pd.DataFrame(list_production_orders(DATABASE_CONFIG))
         except Exception:
             return None
         if df_order_check.empty or "配方編號" not in df_order_check.columns:
@@ -4469,6 +4470,20 @@ elif menu == "生產單管理":
         if "建立時間" in matches.columns:
             matches = matches.sort_values("建立時間", ascending=False)
         return matches.iloc[0].to_dict()
+
+    def clear_production_merge_cache(recipe_code):
+        """生產單生命週期改變後，清除該配方的重複檢查結果。"""
+        recipe_code = str(recipe_code or "").strip()
+        if not recipe_code:
+            return
+        cache_prefixes = (
+            f"merge_match_{recipe_code}_",
+            f"merge_decision_{recipe_code}_",
+            f"merge_radio_{recipe_code}_",
+        )
+        for key in list(st.session_state.keys()):
+            if key.startswith(cache_prefixes):
+                st.session_state.pop(key, None)
 
     def reset_order_draft_state_if_new(new_order_no):
         """開始一張全新的生產單草稿時，清掉上一張單殘留的包裝重量/份數、是否已下載、
@@ -6064,6 +6079,11 @@ elif menu == "生產單管理":
                             except ProductionOrderError as exc:
                                 st.error(f"❌ {exc}")
                             else:
+                                # 立即以 Turso 最新狀態取代頁面快取，新增單的重複檢查不必等使用者按「重新整理」。
+                                st.session_state.df_order = pd.DataFrame(
+                                    list_production_orders(DATABASE_CONFIG, include_cancelled=True)
+                                ).fillna("").astype(str)
+                                clear_production_merge_cache(order_dict.get("配方編號", ""))
                                 st.session_state.pop("confirm_order_lifecycle_id", None)
                                 st.session_state["show_edit_panel"] = False
                                 st.session_state["editing_order"] = None
