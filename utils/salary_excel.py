@@ -22,22 +22,17 @@ def _leave_used_days(salary):
 
 
 def _payroll_leave_note(salary):
-    """Excel notes contain personal annual-leave/leave facts, never adjustment notes."""
+    """Build the compact monthly leave text shown in the slip's A:C note block."""
     parts = []
-    annual_note = str(salary.get("annual_leave_note_snapshot") or "").strip()
-    if annual_note:
-        parts.append(annual_note)
-    leave_days = float(salary.get("leave_days") or 0)
-    leave_hours = float(salary.get("leave_hours") or 0)
-    if leave_days or leave_hours:
-        parts.append(f"請假{leave_days:g}日{leave_hours:g}小時")
-    annual_days = float(salary.get("annual_leave_days") or 0)
-    annual_hours = float(salary.get("annual_leave_hours") or 0)
     annual_used = _leave_used_days(salary)
     if annual_used:
         balance = float(salary.get("annual_leave_balance_after") or 0)
-        parts.append(f"特休{annual_days:g}日{annual_hours:g}小時，共{annual_used:g}日，餘{balance:g}日")
-    return "；".join(parts)
+        parts.append(f"［特休{annual_used:g}日，餘{balance:g}日］")
+    hours_per_day = float(salary.get("standard_hours_snapshot") or 8)
+    leave_used = float(salary.get("leave_days") or 0) + float(salary.get("leave_hours") or 0) / hours_per_day
+    if leave_used:
+        parts.append(f"［請假{leave_used:g}日］")
+    return "\n".join(parts)
 
 
 def _format_extra_number(value):
@@ -134,8 +129,9 @@ def generate_salary_workbook(year, month, salaries, monthly_extras=None):
                     right=thin if column == end else None,
                     top=thin, bottom=thin,
                 )
-        # A:C is exclusively the manual note stored in this month's snapshot.
-        ws.cell(row + 2, 1, str(salary.get("manual_note") or "").strip())
+        automatic_note = _payroll_leave_note(salary)
+        manual_note = str(salary.get("manual_note") or "").strip()
+        ws.cell(row + 2, 1, "\n".join(part for part in (automatic_note, manual_note) if part))
         company_text = str(salary.get("company_cost_note") or "").strip()
         ws.cell(row + 2, 4, f"公司負擔：\n{company_text}" if company_text else "公司負擔：")
         annual_text = salary.get("annual_leave_personal_note") or salary.get("annual_leave_note_snapshot") or ""

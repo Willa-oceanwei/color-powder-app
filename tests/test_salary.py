@@ -118,7 +118,7 @@ def test_leave_rounding_and_same_sheet_excel():
                                                    "職務津貼", "勞健保", "遲到", "小計", "特別加給", "扣除額", "薪資總計"]
     assert [cell.value for cell in sheet[3]] == ["08月份 甲", 29500, -1229, 3000, 500, 3000, 1000,
                                                    -2168, -30, 33573, 1800, 0, 35373]
-    assert sheet["A4"].value == "8/15補發制服費"
+    assert sheet["A4"].value == "［特休1.5日，餘7.5日］\n［請假1.25日］\n8/15補發制服費"
     assert sheet["D4"].value == "公司負擔：\n甲公司負擔"
     assert "甲歷年制說明" in sheet["H4"].value
     assert sheet["A5"].value == "當月說明：上月13,873 + 本月新增30 = 本月總計13,903"
@@ -145,8 +145,10 @@ def test_excel_note_contains_leave_only():
               "standard_hours_snapshot":8, "annual_leave_balance_after":7.5,
               "system_note":"另有特別加給1,800元（餐費）。"}
     note = _payroll_leave_note(salary)
-    assert note == "請假1日2小時；特休1日4小時，共1.5日，餘7.5日"
+    assert note == "［特休1.5日，餘7.5日］\n［請假1.25日］"
     assert "餐費" not in note
+    assert _payroll_leave_note({"annual_leave_days":1.2, "annual_leave_balance_after":4.8,
+                                "standard_hours_snapshot":8}) == "［特休1.2日，餘4.8日］"
     assert _monthly_summary({"previous_value":13873, "monthly_addition":30, "monthly_total":13903}) == (
         "當月說明：上月13,873 + 本月新增30 = 本月總計13,903"
     )
