@@ -1038,12 +1038,29 @@ def initialize_database_with_health(config: DatabaseConfig) -> tuple[str | Path,
 
     Turso connection setup is a network operation. Combining schema initialization
     and health validation avoids opening a second connection during process startup.
+    A healthy database already at the current schema version takes the fast path:
+    it is validated without replaying the complete schema DDL on every cold app
+    process. This is especially important for Turso, where each statement adds a
+    network round trip immediately after login.
     """
     initialized: str | Path = get_db_path(config.path) if config.backend == "sqlite" else "turso"
     try:
         with connect_from_config(config) as conn:
-            _initialize_schema(conn)
-            health = _database_health_from_connection(config, conn)
+            try:
+                health = _database_health_from_connection(config, conn)
+            except Exception:
+                # A new or legacy database may not have schema_migrations yet.
+                # Initialization below creates or repairs it, and the final health
+                # check still enforces the same startup safety guarantees.
+                health = None
+
+            if (
+                health is None
+                or health.schema_version != SCHEMA_VERSION
+                or not health.schema_compatible
+            ):
+                _initialize_schema(conn)
+                health = _database_health_from_connection(config, conn)
     except Exception as exc:
         raise DatabaseStartupError(
             f"Could not initialize or validate {config.backend} database schema "
