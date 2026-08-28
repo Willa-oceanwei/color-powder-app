@@ -139,6 +139,8 @@ from utils.conflict_repository import (
     reopen_sync_conflict,
     resolve_sync_conflict,
 )
+from utils.salary_ui import render_salary_management
+from utils.hr_query_ui import render_hr_query
 
 st.set_page_config(
     page_title="配方管理系統",
@@ -738,6 +740,8 @@ def render_sidebar():
         {"group":"倉儲","key":"採購管理","label":"採購管理"},
         {"group":"查詢","key":"查詢區","label":"查詢區"},
         {"group":"數據","key":"試色記錄分析","label":"試色記錄分析"},
+        {"group":"👥 人力","key":"薪資管理","label":"💰 薪資管理"},
+        {"group":"👥 人力","key":"人力查詢","label":"📊 人力查詢"},
         {"group":"設定","key":"客戶名單","label":"客戶名單"},
         {"group":"設定","key":"同步檢查","label":"同步檢查"},
         {"group":"設定","key":"外部連結","label":"外部連結"},
@@ -750,22 +754,43 @@ def render_sidebar():
 
         st.markdown("<div class='erp-title'>配方管理系統</div>", unsafe_allow_html=True)
         st.markdown("<div class='erp-sub'>v2.1 · ERP Edition</div>", unsafe_allow_html=True)
+        st.markdown("""
+            <style>
+            /* 收合分類沿用「生產／倉儲」分類字體，不使用 Streamlit 預設大字。 */
+            section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary p {
+                color: #bf6030 !important;
+                font-size: 10px !important;
+                font-weight: 700 !important;
+                letter-spacing: 0.8px !important;
+            }
+            section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary {
+                padding: 0.35rem 0.15rem !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
 
-        current_group = None
-
+        groups = {}
         for item in MENU_ITEMS:
+            groups.setdefault(item["group"], []).append(item)
 
-            if item["group"] != current_group:
-                st.markdown(f"<div class='erp-group'>{item['group']}</div>", unsafe_allow_html=True)
-                current_group = item["group"]
+        def render_items(items):
+            for item in items:
+                if st.button(
+                    item["label"], key=item["key"], use_container_width=True,
+                    type="primary" if st.session_state.menu == item["key"] else "secondary"
+                ):
+                    st.session_state.menu = item["key"]
+                    st.rerun()
 
-            if st.button(
-                item["label"],
-                key=item["key"],
-                use_container_width=True,
-                type="primary" if st.session_state.menu == item["key"] else "secondary"
-            ):
-                st.session_state.menu = item["key"]
+        # 常用的生產、倉儲維持展開；其餘分類收合以縮短工作列。
+        for group, items in groups.items():
+            if group in ("生產", "倉儲"):
+                st.markdown(f"<div class='erp-group'>{group}</div>", unsafe_allow_html=True)
+                render_items(items)
+            else:
+                is_current_group = any(item["key"] == st.session_state.menu for item in items)
+                with st.expander(group, expanded=is_current_group):
+                    render_items(items)
                 
 #=======apply_arrow_nav()======
 
@@ -1110,6 +1135,8 @@ MENU_ITEMS = [
     {"key": "採購管理", "label": "採購管理", "group": "倉儲"},
     {"key": "查詢區", "label": "查詢區", "group": "查詢"},
     {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
+    {"key": "薪資管理", "label": "💰 薪資管理", "group": "👥 人力"},
+    {"key": "人力查詢", "label": "📊 人力查詢", "group": "👥 人力"},
     {"key": "客戶名單", "label": "客戶名單", "group": "設定"},
     {"key": "同步檢查", "label": "同步檢查", "group": "設定"},
     {"key": "外部連結", "label": "外部連結", "group": "設定"},
@@ -1128,6 +1155,8 @@ def render_erp_nav():
         {"key": "採購管理",   "label": "採購管理",   "group": "倉儲"},
         {"key": "查詢區",     "label": "查詢區",     "group": "查詢"},
         {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
+        {"key": "薪資管理", "label": "💰 薪資管理", "group": "👥 人力"},
+        {"key": "人力查詢", "label": "📊 人力查詢", "group": "👥 人力"},
         {"key": "客戶名單",   "label": "客戶名單",   "group": "設定"},
         {"key": "同步檢查",   "label": "同步檢查",   "group": "設定"},
         {"key": "外部連結",   "label": "外部連結",   "group": "設定"},
@@ -2437,6 +2466,11 @@ if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
+
+if menu == "薪資管理":
+    render_salary_management(DATABASE_CONFIG)
+elif menu == "人力查詢":
+    render_hr_query(DATABASE_CONFIG)
 
 # ======== 色粉管理 =========
 if menu == "色粉管理":
