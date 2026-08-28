@@ -143,6 +143,63 @@ from utils.conflict_repository import (
 from utils.salary_ui import render_salary_management
 from utils.hr_query_ui import render_hr_query
 
+
+# Keep the inventory screen dependent only on the repository's long-standing public
+# API.  Streamlit Cloud can briefly run app.py with an older cached utils package
+# during a deployment; importing newly-added helper names here would make the whole
+# application fail before it can render.
+def _customer_stock_quantity_in_kg(quantity, unit):
+    try:
+        value = float(quantity)
+    except (TypeError, ValueError):
+        return None
+    normalized_unit = str(unit).strip().lower()
+    if normalized_unit == "kg":
+        return value
+    if normalized_unit == "g":
+        return value / 1000
+    return None
+
+
+def _find_matching_customer_stock(records, customer_name, recipe_id):
+    customer_key = str(customer_name).strip().casefold()
+    recipe_key = str(recipe_id).strip().casefold()
+    matches = [
+        row for row in records
+        if str(row.get("customer_name", "")).strip().casefold() == customer_key
+        and str(row.get("recipe_id", "")).strip().casefold() == recipe_key
+    ]
+    return sorted(
+        matches,
+        key=lambda row: (
+            str(row.get("sheet_updated_at") or ""),
+            str(row.get("updated_at") or ""),
+            str(row.get("record_id") or ""),
+        ),
+        reverse=True,
+    )
+
+
+def _merge_customer_stock(existing, new_row):
+    existing_kg = _customer_stock_quantity_in_kg(existing.get("quantity"), existing.get("unit"))
+    new_kg = _customer_stock_quantity_in_kg(new_row.get("數量"), new_row.get("單位"))
+    if existing_kg is None or new_kg is None:
+        raise CustomerInventoryError("只有 g 與 kg 可自動換算合併；其他單位請分開新增")
+    existing_unit = str(existing.get("unit") or "").strip()
+    notes = [str(new_row.get("備註") or "").strip(), str(existing.get("notes") or "").strip()]
+    return {
+        "_sync_id": existing["record_id"],
+        "客戶名稱": existing["customer_name"],
+        "配方編號": existing["recipe_id"],
+        "顏色": existing["color"],
+        "數量": (existing_kg + new_kg) * (1000 if existing_unit.lower() == "g" else 1),
+        "單位": existing_unit,
+        "備註": "\n".join(note for note in notes if note),
+        "建立時間": existing.get("sheet_created_at") or "",
+        "更新時間": str(new_row.get("更新時間") or "").strip(),
+    }
+
+
 st.set_page_config(
     page_title="配方管理系統",
     page_icon="🍺",
@@ -9886,13 +9943,14 @@ elif menu == "庫存區":
     with tab7:
         st.caption("ℹ️ Turso 是個別客戶庫存正式資料來源；Google Sheet 僅為同步副本。")
         customer_stock_cols = ["_sync_id", "客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "建立時間", "更新時間"]
+        customer_stock_records = list_customer_inventory_records(DATABASE_CONFIG)
         df_customer_stock = pd.DataFrame([{
             "_sync_id": item["record_id"], "客戶名稱": item["customer_name"],
             "配方編號": item["recipe_id"], "顏色": item["color"], "數量": item["quantity"],
             "單位": item["unit"], "備註": item["notes"] or "",
             "建立時間": item["sheet_created_at"] or item["created_at"],
             "更新時間": item["sheet_updated_at"] or item["updated_at"],
-        } for item in list_customer_inventory_records(DATABASE_CONFIG)], columns=customer_stock_cols)
+        } for item in customer_stock_records], columns=customer_stock_cols)
 
         customer_choices = sorted({str(v).strip() for v in st.session_state.get("df_customer", pd.DataFrame()).get("客戶名稱", pd.Series(dtype=str)) if str(v).strip()}
                                   | {str(v).strip() for v in df_customer_stock.get("客戶名稱", pd.Series(dtype=str)) if str(v).strip()})
@@ -9915,6 +9973,50 @@ elif menu == "庫存區":
                     target_row = df_customer_stock[df_customer_stock["_sync_id"] == selected_id].iloc[0]
             elif action_mode != "新增":
                 st.info("目前沒有可修改或封存的資料。")
+
+            pending_merge = st.session_state.get("customer_stock_pending_merge")
+            if pending_merge and action_mode == "新增":
+                matching_rows = pending_merge["matching_rows"]
+                total_kg = sum(
+                    _customer_stock_quantity_in_kg(row["quantity"], row["unit"]) or 0
+                    for row in matching_rows
+                )
+                st.warning(
+                    f"廠內已有客戶「{pending_merge['row']['客戶名稱']}」、配方編號"
+                    f"「{pending_merge['row']['配方編號']}」的庫存，共 {total_kg:g} kg。是否合併計算？"
+                )
+                note_preview = [
+                    pending_merge["row"].get("備註", ""),
+                    *(row.get("notes", "") for row in matching_rows),
+                ]
+                note_preview = [str(note).strip() for note in note_preview if str(note).strip()]
+                if note_preview:
+                    st.caption("合併後備註（新到舊）：")
+                    st.code("\n".join(note_preview), language=None)
+                merge_col, separate_col, cancel_col = st.columns(3)
+                if merge_col.button("合併計算", type="primary", use_container_width=True):
+                    try:
+                        save_customer_inventory_record(
+                            DATABASE_CONFIG,
+                            _merge_customer_stock(matching_rows[0], pending_merge["row"]),
+                            create=False,
+                        )
+                        del st.session_state["customer_stock_pending_merge"]
+                        st.success("已合併數量，備註已依時間由新到舊列出。")
+                        st.rerun()
+                    except CustomerInventoryError as exc:
+                        st.error(str(exc))
+                if separate_col.button("不要合併，分開新增", use_container_width=True):
+                    try:
+                        save_customer_inventory_record(DATABASE_CONFIG, pending_merge["row"], create=True)
+                        del st.session_state["customer_stock_pending_merge"]
+                        st.success("已分開新增個別客戶庫存。")
+                        st.rerun()
+                    except CustomerInventoryError as exc:
+                        st.error(str(exc))
+                if cancel_col.button("取消", use_container_width=True):
+                    del st.session_state["customer_stock_pending_merge"]
+                    st.rerun()
 
             with st.form("customer_stock_form"):
                 customer_input = st.selectbox(
@@ -9947,13 +10049,24 @@ elif menu == "庫存區":
                         if action_mode == "修改" and target_row is None:
                             raise CustomerInventoryError("請先選擇要修改的資料")
                         now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        save_customer_inventory_record(DATABASE_CONFIG, {
+                        stock_row = {
                             "_sync_id": "" if target_row is None else target_row["_sync_id"],
                             "客戶名稱": customer_input, "配方編號": recipe_input,
                             "顏色": color_input, "數量": qty_input, "單位": unit_input,
                             "備註": note_input, "建立時間": "" if target_row is None else target_row["建立時間"],
                             "更新時間": now_text,
-                        }, create=action_mode == "新增")
+                        }
+                        matching_rows = _find_matching_customer_stock(
+                            customer_stock_records, customer_input, recipe_input,
+                        ) if action_mode == "新增" else []
+                        if matching_rows:
+                            st.session_state["customer_stock_pending_merge"] = {
+                                "row": stock_row, "matching_rows": matching_rows,
+                            }
+                            st.rerun()
+                        save_customer_inventory_record(
+                            DATABASE_CONFIG, stock_row, create=action_mode == "新增"
+                        )
                         st.success(f"已{action_mode}個別客戶庫存，並排入 Sheet outbox。")
                     st.rerun()
                 except CustomerInventoryError as exc:
