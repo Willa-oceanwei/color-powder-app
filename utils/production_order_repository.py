@@ -46,6 +46,50 @@ def _payload(row: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def merge_production_order_packages(
+    existing: dict[str, Any], delta: dict[str, Any], *, note: str = ""
+) -> dict[str, Any]:
+    """Return one production-order payload containing old and added packages.
+
+    Package slots are matched by numeric package weight instead of slot number.  This
+    is intentionally independent of persistence so the caller can update the linked
+    outsourcing order only after the complete merged payload has been validated.
+    """
+    merged = dict(existing)
+    counts_by_weight: dict[float, float] = {}
+    weight_order: list[float] = []
+
+    for source in (existing, delta):
+        for position in range(1, 5):
+            weight = _number(source.get(f"包裝重量{position}"))
+            count = _number(source.get(f"包裝份數{position}"))
+            if weight <= 0 or count <= 0:
+                continue
+            if weight not in counts_by_weight:
+                counts_by_weight[weight] = 0
+                weight_order.append(weight)
+            counts_by_weight[weight] += count
+
+    if len(weight_order) > 4:
+        raise ProductionOrderError("合併後超過 4 種包裝重量，無法完整保存生產單")
+
+    def format_number(value: float) -> str:
+        return str(int(value)) if value.is_integer() else str(value)
+
+    for position in range(1, 5):
+        merged[f"包裝重量{position}"] = ""
+        merged[f"包裝份數{position}"] = ""
+    for position, weight in enumerate(weight_order, start=1):
+        merged[f"包裝重量{position}"] = format_number(weight)
+        merged[f"包裝份數{position}"] = format_number(counts_by_weight[weight])
+
+    if note.strip():
+        merged["備註"] = "\n".join(
+            part for part in (str(existing.get("備註") or "").strip(), note.strip()) if part
+        )
+    return merged
+
+
 def _recipe_snapshot(conn, recipe_id: str) -> tuple[int | None, str | None]:
     if not recipe_id:
         return None, None
