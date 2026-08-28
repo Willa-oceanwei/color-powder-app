@@ -4,6 +4,7 @@ import logging
 import sqlite3
 
 import pytest
+import utils.database as database_module
 import utils.sheet_export as sheet_export_module
 
 from utils.database import (
@@ -1358,6 +1359,86 @@ def test_initialize_database_with_health_initializes_and_validates_once(tmp_path
     assert health.select_1_ok
     assert health.schema_version == SCHEMA_VERSION
     assert health.schema_compatible
+
+
+def test_initialize_database_with_health_skips_schema_ddl_when_current(tmp_path, monkeypatch):
+    db = tmp_path / "current-schema.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    schema_initializations = 0
+    original_initialize_schema = database_module._initialize_schema
+
+    def counted_initialize_schema(conn):
+        nonlocal schema_initializations
+        schema_initializations += 1
+        return original_initialize_schema(conn)
+
+    monkeypatch.setattr(database_module, "_initialize_schema", counted_initialize_schema)
+
+    initialized, health = initialize_database_with_health(config)
+
+    assert initialized == db
+    assert health.schema_version == SCHEMA_VERSION
+    assert health.schema_compatible
+    assert schema_initializations == 0
+
+
+def test_initialize_database_with_health_retries_transient_turso_session_error(monkeypatch):
+    config = DatabaseConfig(
+        backend="turso",
+        path=None,
+        turso_database_url="libsql://example.turso.io",
+        turso_auth_token="token",
+    )
+    attempts = 0
+    expected_health = database_module.DatabaseHealth(
+        backend="turso",
+        select_1_ok=True,
+        schema_version=SCHEMA_VERSION,
+        existing_tables=set(database_module.MAIN_TABLES),
+        missing_required_columns={},
+    )
+
+    def initialize_connection(_config):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("Tried to use SessionInfo before it was initialized")
+        return expected_health
+
+    monkeypatch.setattr(database_module, "_initialize_database_connection", initialize_connection)
+    monkeypatch.setattr(database_module.time, "sleep", lambda _delay: None)
+
+    initialized, health = initialize_database_with_health(config)
+
+    assert initialized == "turso"
+    assert health is expected_health
+    assert attempts == 2
+
+
+def test_initialize_database_connection_does_not_treat_session_error_as_missing_schema(monkeypatch):
+    config = DatabaseConfig(backend="sqlite")
+    schema_initializations = 0
+
+    @contextmanager
+    def fake_connection(_config):
+        yield object()
+
+    def failed_health_check(_config, _conn):
+        raise RuntimeError("Tried to use SessionInfo before it was initialized")
+
+    def counted_initialize_schema(_conn):
+        nonlocal schema_initializations
+        schema_initializations += 1
+
+    monkeypatch.setattr(database_module, "connect_from_config", fake_connection)
+    monkeypatch.setattr(database_module, "_database_health_from_connection", failed_health_check)
+    monkeypatch.setattr(database_module, "_initialize_schema", counted_initialize_schema)
+
+    with pytest.raises(RuntimeError, match="SessionInfo"):
+        database_module._initialize_database_connection(config)
+
+    assert schema_initializations == 0
 
 
 def test_partial_turso_credentials_fail_fast(monkeypatch):
