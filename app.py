@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils import database as database_utils
+from utils.number_format import format_optional_decimals
 from utils.database import (
     SCHEMA_VERSION,
     DatabaseStartupError,
@@ -3773,13 +3774,13 @@ elif menu == "配方管理":
                     pid = str(recipe_data.get(f"色粉編號{i}", "")).strip()
                     pwt = str(recipe_data.get(f"色粉重量{i}", "")).strip()
                     if pid and pwt:
-                        preview_rows.append((pid, pwt))
+                        preview_rows.append((pid, format_optional_decimals(pwt)))
 
                 total_cat = recipe_data.get("合計類別", "").strip()
                 net_wt = str(recipe_data.get("淨重", "") or "").strip()
 
                 if total_cat and total_cat != "無":
-                    preview_rows.append((total_cat, net_wt))
+                    preview_rows.append((total_cat, format_optional_decimals(net_wt)))
 
                 if preview_rows:
                     preview_df = pd.DataFrame(preview_rows, columns=["項目", "重量"])
@@ -3909,7 +3910,8 @@ elif menu == "配方管理":
                         calculated_total = total_powder_weight + additive_qty + material_qty
 
                         if additive_qty < 0:
-                            st.error(f"❌ 總數量不足！需至少：{total_powder_weight + material_qty:.2f}g"); st.stop()
+                            minimum_qty = format_optional_decimals(total_powder_weight + material_qty)
+                            st.error(f"❌ 總數量不足！需至少：{minimum_qty}g"); st.stop()
 
                     st.session_state.master_batch_calculated = {
                         "new_code":            new_code,
@@ -3968,15 +3970,12 @@ elif menu == "配方管理":
 
                         calc_rows = []
                         for item in calc["powder_data"]:
-                            w = item["weight"]
-                            w_str = f"{int(w)}" if w == int(w) else f"{w:.2f}"
+                            w_str = format_optional_decimals(item["weight"])
                             calc_rows.append((item["id"], w_str))
                         if not calc.get("print_original"):
-                            aq = calc["additive_qty"]
-                            aq_str = f"{int(aq)}" if aq == int(aq) else f"{aq:.2f}"
+                            aq_str = format_optional_decimals(calc["additive_qty"])
                             calc_rows.append((calc["additive_display"], aq_str))
-                        mq = calc["material_qty"]
-                        mq_str = f"{int(mq)}" if mq == int(mq) else f"{mq:.2f}"
+                        mq_str = format_optional_decimals(calc["material_qty"])
                         calc_rows.append((calc["material_code"], mq_str))
 
                         calc_df = pd.DataFrame(calc_rows, columns=["色粉編號", "重量"])
@@ -3994,10 +3993,10 @@ elif menu == "配方管理":
                             st.caption("✓ 1:1 原配方列印：套用原有色粉重量與淨重，僅替換料號。")
                         else:
                             st.caption(
-                                f"✓ 色粉：{calc['total_powder_weight']:.2f}g"
-                                f" + 添加劑：{calc['additive_qty']:.2f}g"
-                                f" + 原料：{calc['material_qty']:.2f}g"
-                                f" = {calc['calculated_total']:.2f}g"
+                                f"✓ 色粉：{format_optional_decimals(calc['total_powder_weight'])}g"
+                                f" + 添加劑：{format_optional_decimals(calc['additive_qty'])}g"
+                                f" + 原料：{format_optional_decimals(calc['material_qty'])}g"
+                                f" = {format_optional_decimals(calc['calculated_total'])}g"
                             )
 
                         # ── 列印 HTML 產生 ──
@@ -4028,19 +4027,16 @@ elif menu == "配方管理":
 
                             body_lines = []
                             for item in calc_data["powder_data"]:
-                                w = item["weight"]
-                                w_str = f"{int(w)}" if w == int(w) else f"{w:.2f}"
+                                w_str = format_optional_decimals(item["weight"])
                                 body_lines.append(f"{item['id'].ljust(12)}{w_str.rjust(8)}")
 
                             if not calc_data.get("print_original"):
-                                aq = calc_data["additive_qty"]
-                                aq_str = f"{int(aq)}" if aq == int(aq) else f"{aq:.2f}"
+                                aq_str = format_optional_decimals(calc_data["additive_qty"])
                                 body_lines.append(
                                     f"{calc_data['additive_display'].ljust(12)}{aq_str.rjust(8)}"
                                 )
 
-                            mq = calc_data["material_qty"]
-                            mq_str = f"{int(mq)}" if mq == int(mq) else f"{mq:.2f}"
+                            mq_str = format_optional_decimals(calc_data["material_qty"])
                             body_lines.append(
                                 f"{calc_data['material_code'].ljust(12)}{mq_str.rjust(8)}"
                             )
