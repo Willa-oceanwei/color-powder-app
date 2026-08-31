@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import shutil
 import sqlite3
@@ -86,6 +87,41 @@ class DatabaseStartupError(RuntimeError):
 
 class SqlExecutor(Protocol):
     def execute(self, sql: str, parameters: tuple[Any, ...] = ()) -> Any: ...
+
+
+def _normalize_sql_parameter(value: Any) -> Any:
+    """Return a value that can be represented safely by SQLite/Hrana.
+
+    Pandas and spreadsheet workflows commonly represent an empty numeric cell
+    as NaN.  Hrana tags that value as a float, but JSON cannot represent NaN or
+    infinity, resulting in a ``float`` parameter whose JSON value is ``null``.
+    Convert all non-finite real numbers to a genuine SQL NULL before libsql
+    serializes the request.  NumPy scalar values are also converted to their
+    native Python equivalents when possible.
+    """
+    item = getattr(value, "item", None)
+    if callable(item) and not isinstance(value, (str, bytes, bytearray)):
+        try:
+            value = item()
+        except (TypeError, ValueError):
+            pass
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value
+
+
+class _SafeParameterConnection:
+    """DB-API connection proxy that prevents invalid Hrana float payloads."""
+
+    def __init__(self, connection: Any):
+        self._connection = connection
+
+    def execute(self, sql: str, parameters: tuple[Any, ...] = ()) -> Any:
+        normalized = tuple(_normalize_sql_parameter(value) for value in parameters)
+        return self._connection.execute(sql, normalized)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._connection, name)
 
 
 def _execute_script(conn: SqlExecutor, sql_script: str) -> None:
@@ -280,7 +316,8 @@ def connect_from_config(config: DatabaseConfig):
     if config.backend != "turso":
         raise DatabaseStartupError(f"Unsupported database backend: {config.backend}")
 
-    client = _connect_turso(config)
+    raw_client = _connect_turso(config)
+    client = _SafeParameterConnection(raw_client)
     try:
         yield client
         if hasattr(client, "commit"):

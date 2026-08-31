@@ -1583,7 +1583,7 @@ def test_connect_from_config_uses_turso_transaction_lifecycle(monkeypatch):
     )
 
     with connect_from_config(config) as conn:
-        assert conn is fake
+        assert conn._connection is fake
 
     assert events == ["commit", "close"]
 
@@ -1945,3 +1945,39 @@ def test_safe_worker_applies_only_one_bounded_insert(tmp_path):
         locks = conn.execute("SELECT COUNT(*) FROM sync_worker_locks").fetchone()[0]
     assert [row[0] for row in statuses] == ["completed", "pending"]
     assert locks == 0
+
+
+@pytest.mark.parametrize("invalid_number", [float("nan"), float("inf"), float("-inf")])
+def test_turso_connection_converts_non_finite_float_parameters_to_sql_null(
+    monkeypatch, invalid_number,
+):
+    class FakeClient:
+        def __init__(self):
+            self.calls = []
+            self.committed = False
+            self.closed = False
+
+        def execute(self, sql, parameters=()):
+            self.calls.append((sql, parameters))
+
+        def commit(self):
+            self.committed = True
+
+        def close(self):
+            self.closed = True
+
+    raw_client = FakeClient()
+    monkeypatch.setattr(database_module, "_connect_turso", lambda config: raw_client)
+    config = DatabaseConfig(
+        backend="turso",
+        path=None,
+        turso_database_url="libsql://example.turso.io",
+        turso_auth_token="token",
+    )
+
+    with connect_from_config(config) as conn:
+        conn.execute("INSERT INTO measurements VALUES (?, ?)", (invalid_number, 3.5))
+
+    assert raw_client.calls == [("INSERT INTO measurements VALUES (?, ?)", (None, 3.5))]
+    assert raw_client.committed
+    assert raw_client.closed
