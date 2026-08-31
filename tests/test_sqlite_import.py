@@ -824,6 +824,31 @@ def test_production_order_repository_snapshots_recipe_and_pushes_latest(tmp_path
     assert worksheet.appended[0] == ["O001", "2026-08-17", "R001", "Dark Red", "Customer", "1", "3"]
 
 
+def test_production_order_edit_keeps_original_order_id(tmp_path):
+    db = tmp_path / "production-order-edit.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    create_production_order(config, {
+        "生產單號": "O001", "生產日期": "2026-08-17", "顏色": "Red",
+    })
+
+    updated = update_production_order(
+        config,
+        {"生產單號": "O999", "生產日期": "2026-08-17", "顏色": "Blue"},
+        original_order_id="O001",
+    )
+
+    assert updated["生產單號"] == "O001"
+    assert [(row["生產單號"], row["顏色"]) for row in list_production_orders(config)] == [
+        ("O001", "Blue")
+    ]
+    with connect(db) as conn:
+        order_ids = conn.execute(
+            "SELECT production_order_id FROM production_orders ORDER BY production_order_id"
+        ).fetchall()
+    assert [row["production_order_id"] for row in order_ids] == ["O001"]
+
+
 def test_production_order_cancel_restore_preserves_history_and_queues_updates(tmp_path):
     db = tmp_path / "production-lifecycle.db"
     initialize_database(db)

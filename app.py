@@ -6175,6 +6175,13 @@ elif menu == "生產單管理":
             st.caption("修改會先更新 Turso 並建立 Sheet outbox；生產單號是永久 ID。")
         
             order_no = st.session_state.editing_order["生產單號"]
+
+            st.text_input(
+                "生產單號（編輯時保留原單號）",
+                value=order_no,
+                disabled=True,
+                key="edit_order_no_tab3",
+            )
         
             order_row = df_order[df_order["生產單號"] == order_no]
             if order_row.empty:
@@ -6236,7 +6243,13 @@ elif menu == "生產單管理":
             def save_order_edit(updated_order_dict, sync_oem_qty=False, synced_qty=None):
                 try:
                     with st.spinner("正在儲存修改..."):
-                        update_production_order(DATABASE_CONFIG, updated_order_dict)
+                        # 編輯只能更新選取的永久 ID；即使 widget/session state 混入
+                        # 其他單號，repository 仍會強制保留原生產單號。
+                        update_production_order(
+                            DATABASE_CONFIG,
+                            updated_order_dict,
+                            original_order_id=order_no,
+                        )
 
                         # 同步更新對應代工單（使用者確認後才做）
                         if sync_oem_qty:
