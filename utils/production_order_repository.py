@@ -190,8 +190,27 @@ def create_production_order(config: DatabaseConfig, row: dict[str, Any]) -> dict
     return _save(config, row, create=True)
 
 
-def update_production_order(config: DatabaseConfig, row: dict[str, Any]) -> dict[str, str]:
-    return _save(config, row, create=False)
+def update_production_order(
+    config: DatabaseConfig,
+    row: dict[str, Any],
+    *,
+    original_order_id: str | None = None,
+) -> dict[str, str]:
+    """Update an order without allowing its permanent ID to be replaced.
+
+    ``original_order_id`` should be supplied by editing UIs from the selected
+    persisted record.  Restoring it into the payload prevents stale widget or
+    session-state values from accidentally turning an edit into another order.
+    The optional argument keeps repository callers that already submit the
+    persisted ID backwards compatible.
+    """
+    updated_row = dict(row)
+    if original_order_id is not None:
+        original_order_id = str(original_order_id).strip()
+        if not original_order_id:
+            raise ProductionOrderError("缺少原生產單號")
+        updated_row["生產單號"] = original_order_id
+    return _save(config, updated_row, create=False)
 
 
 def upsert_production_order(config: DatabaseConfig, row: dict[str, Any]) -> dict[str, str]:

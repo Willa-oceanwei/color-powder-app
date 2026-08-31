@@ -10,13 +10,15 @@ import re
 import uuid
 import html as html_escape
 from pathlib import Path        
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils.database import (
     SCHEMA_VERSION,
     DatabaseStartupError,
     database_config_from_secrets,
     format_database_startup_diagnostics,
+    get_latest_sync_log,
     initialize_database_with_health,
     log_database_startup_diagnostics,
     secret_presence_from_secrets,
@@ -6175,6 +6177,13 @@ elif menu == "生產單管理":
             st.caption("修改會先更新 Turso 並建立 Sheet outbox；生產單號是永久 ID。")
         
             order_no = st.session_state.editing_order["生產單號"]
+
+            st.text_input(
+                "生產單號（編輯時保留原單號）",
+                value=order_no,
+                disabled=True,
+                key="edit_order_no_tab3",
+            )
         
             order_row = df_order[df_order["生產單號"] == order_no]
             if order_row.empty:
@@ -6236,7 +6245,13 @@ elif menu == "生產單管理":
             def save_order_edit(updated_order_dict, sync_oem_qty=False, synced_qty=None):
                 try:
                     with st.spinner("正在儲存修改..."):
-                        update_production_order(DATABASE_CONFIG, updated_order_dict)
+                        # 編輯只能更新選取的永久 ID；即使 widget/session state 混入
+                        # 其他單號，repository 仍會強制保留原生產單號。
+                        update_production_order(
+                            DATABASE_CONFIG,
+                            updated_order_dict,
+                            original_order_id=order_no,
+                        )
 
                         # 同步更新對應代工單（使用者確認後才做）
                         if sync_oem_qty:
@@ -11884,6 +11899,52 @@ if st.session_state.menu == "同步檢查":
         "OK" if DATABASE_HEALTH.select_1_ok and DATABASE_HEALTH.main_tables_exist else "FAILED",
     )
     schema_col.metric("Schema version", DATABASE_HEALTH.schema_version or "—")
+
+    latest_outbound_sync = get_latest_sync_log(
+        DATABASE_CONFIG, direction="turso_to_google_sheets"
+    )
+    if latest_outbound_sync:
+        finished_at = datetime.fromisoformat(latest_outbound_sync["finished_at"])
+        if finished_at.tzinfo is None:
+            finished_at = finished_at.replace(tzinfo=timezone.utc)
+        finished_at = finished_at.astimezone(timezone.utc)
+        elapsed_seconds = max(
+            0, int((datetime.now(timezone.utc) - finished_at).total_seconds())
+        )
+        elapsed_minutes = elapsed_seconds // 60
+        elapsed_label = (
+            f"{elapsed_minutes // 60} 小時 {elapsed_minutes % 60} 分鐘"
+            if elapsed_minutes >= 60
+            else f"{elapsed_minutes} 分鐘"
+        )
+        taipei_finished_at = finished_at.astimezone(ZoneInfo("Asia/Taipei"))
+        sync_time_col, elapsed_col, status_col = st.columns(3)
+        sync_time_col.metric(
+            "最近 Turso → Sheet 同步",
+            taipei_finished_at.strftime("%Y/%m/%d %H:%M:%S"),
+            help="顯示 Turso sync_log 中最近一次完成的 outbound sync（台灣時間）。",
+        )
+        elapsed_col.metric("距今", elapsed_label)
+        sync_status = str(latest_outbound_sync.get("status") or "unknown")
+        status_col.metric(
+            "最近同步狀態",
+            "成功" if sync_status == "success" else sync_status,
+            help=f"最近完成項目：{latest_outbound_sync['sync_name']}",
+        )
+        if sync_status != "success":
+            st.warning(
+                f"最近一次 Turso → Sheet 同步狀態為 {sync_status}；請先查看同步頁面的"
+                " conflict/error，或檢查 GitHub Actions 執行紀錄。"
+            )
+        elif elapsed_minutes > 90:
+            st.warning(
+                "最近一次 Turso → Sheet 同步已超過 90 分鐘；資料本身可能沒有問題，"
+                "但 GitHub Actions 排程可能延遲或未觸發，請查看 safe Turso to Sheets sync。"
+            )
+        else:
+            st.caption("最近 outbound sync 在 90 分鐘內完成；GitHub 排程目前沒有逾時跡象。")
+    else:
+        st.warning("尚無 Turso → Sheet 完成紀錄；請確認 GitHub Actions 排程至少成功執行一次。")
 
     if DATABASE_BACKEND != "turso":
         st.error("目前 backend 不是 Turso。請先確認 TURSO_DATABASE_URL 與 TURSO_AUTH_TOKEN secrets。")
