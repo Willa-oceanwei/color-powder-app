@@ -1159,6 +1159,28 @@ def record_sync_log(conn: sqlite3.Connection, *, sync_name: str, direction: str,
     )
 
 
+def get_latest_sync_log(
+    config: DatabaseConfig, *, direction: str
+) -> dict[str, Any] | None:
+    """Return the most recently finished sync attempt for one direction."""
+    with connect_from_config(config) as conn:
+        cursor = conn.execute(
+            """SELECT sync_name, direction, status, started_at, finished_at,
+                      read_count, written_count, error_count, message
+               FROM sync_log
+               WHERE direction=? AND finished_at IS NOT NULL
+               ORDER BY finished_at DESC, id DESC
+               LIMIT 1""",
+            (direction,),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        if hasattr(row, "keys"):
+            return {key: row[key] for key in row.keys()}
+        return dict(zip((column[0] for column in cursor.description), row))
+
+
 def record_sync_conflict(conn: sqlite3.Connection, *, entity_type: str, entity_id: str,
                          sqlite_payload: dict[str, Any] | None, sheet_payload: dict[str, Any] | None,
                          reason: str) -> None:

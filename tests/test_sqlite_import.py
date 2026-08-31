@@ -17,9 +17,11 @@ from utils.database import (
     database_health_check,
     enqueue_sheet_sync,
     format_database_startup_diagnostics,
+    get_latest_sync_log,
     initialize_database,
     initialize_database_with_health,
     log_database_startup_diagnostics,
+    record_sync_log,
 )
 from utils.sheet_export import (
     sync_color_powder_outbox,
@@ -86,6 +88,35 @@ class SequencedWorksheet:
         if isinstance(outcome, Exception):
             raise outcome
         return outcome
+
+
+def test_get_latest_sync_log_returns_most_recent_completed_direction(tmp_path):
+    db = tmp_path / "latest-sync.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    with connect(db) as conn:
+        record_sync_log(
+            conn, sync_name="outbox:色粉管理", direction="turso_to_google_sheets",
+            status="success", started_at="2026-08-31T01:00:00+00:00",
+            finished_at="2026-08-31T01:01:00+00:00", written_count=2,
+        )
+        record_sync_log(
+            conn, sync_name="initial_import:色粉管理", direction="google_sheets_to_sqlite",
+            status="success", started_at="2026-08-31T03:00:00+00:00",
+            finished_at="2026-08-31T03:01:00+00:00", written_count=9,
+        )
+        record_sync_log(
+            conn, sync_name="outbox:生產單", direction="turso_to_google_sheets",
+            status="success", started_at="2026-08-31T02:00:00+00:00",
+            finished_at="2026-08-31T02:01:00+00:00", written_count=6,
+        )
+
+    latest = get_latest_sync_log(config, direction="turso_to_google_sheets")
+
+    assert latest is not None
+    assert latest["sync_name"] == "outbox:生產單"
+    assert latest["finished_at"] == "2026-08-31T02:01:00+00:00"
+    assert latest["written_count"] == 6
 
 
 class WritableWorksheet:
