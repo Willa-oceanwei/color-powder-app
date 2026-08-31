@@ -13,12 +13,12 @@ from pathlib import Path
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import concurrent.futures
+from utils import database as database_utils
 from utils.database import (
     SCHEMA_VERSION,
     DatabaseStartupError,
     database_config_from_secrets,
     format_database_startup_diagnostics,
-    get_latest_sync_log,
     initialize_database_with_health,
     log_database_startup_diagnostics,
     secret_presence_from_secrets,
@@ -11900,8 +11900,17 @@ if st.session_state.menu == "同步檢查":
     )
     schema_col.metric("Schema version", DATABASE_HEALTH.schema_version or "—")
 
-    latest_outbound_sync = get_latest_sync_log(
-        DATABASE_CONFIG, direction="turso_to_google_sheets"
+    # Keep this non-essential diagnostic out of the startup import list.  A
+    # rolling Streamlit deployment can briefly run a new app.py process while
+    # an older utils.database module is still cached; that must not prevent the
+    # entire application from starting.
+    get_latest_sync_log = getattr(database_utils, "get_latest_sync_log", None)
+    latest_outbound_sync = (
+        get_latest_sync_log(
+            DATABASE_CONFIG, direction="turso_to_google_sheets"
+        )
+        if get_latest_sync_log is not None
+        else None
     )
     if latest_outbound_sync:
         finished_at = datetime.fromisoformat(latest_outbound_sync["finished_at"])
@@ -11943,6 +11952,8 @@ if st.session_state.menu == "同步檢查":
             )
         else:
             st.caption("最近 outbound sync 在 90 分鐘內完成；GitHub 排程目前沒有逾時跡象。")
+    elif get_latest_sync_log is None:
+        st.info("同步狀態診斷尚未載入；應用程式其他功能可正常使用，請重新整理後再查看。")
     else:
         st.warning("尚無 Turso → Sheet 完成紀錄；請確認 GitHub Actions 排程至少成功執行一次。")
 
