@@ -109,7 +109,10 @@ from utils.recipe_repository import (
     RecipeAlreadyExists,
     RecipeError,
     create_recipe,
+    find_recipes_using_color_powder,
     list_recipes,
+    normalize_color_powder_id,
+    replace_color_powder_in_recipes,
     set_recipe_active,
     update_recipe,
 )
@@ -1031,7 +1034,7 @@ def clean_powder_id(x):
     """清理色粉ID，移除空白、全形空白，轉大寫"""
     if pd.isna(x) or x == "":
         return ""
-    return str(x).strip().replace('\u3000', '').replace(' ', '').upper()
+    return normalize_color_powder_id(x)
 
 
 TRIAL_COLS = ["配方編號", "主配方編號", "客戶編號", "客戶名稱", "試色日期", "日期精度", "歷史補登", "原料", "已採購", "採購日期", "建立時間", "更新時間", "_sync_id"]
@@ -3529,7 +3532,9 @@ elif menu == "配方管理":
             if c not in df_color.columns:
                 df_color[c] = ""
 
-        subtab_add_edit, subtab_modify_delete = st.tabs(["☑️ 新增 / 編輯色粉", "🛠️ 色粉修改 / 刪除"])
+        subtab_add_edit, subtab_modify_delete, subtab_replace = st.tabs([
+            "☑️ 色粉資料管理", "🛠️ 色粉修改 / 刪除", "🔄 色粉編號替代"
+        ])
 
         with subtab_add_edit:
             if "form_color" not in st.session_state:
@@ -3629,6 +3634,76 @@ elif menu == "配方管理":
                                 set_color_powder_active(DATABASE_CONFIG, row["色粉編號"], active=not active)
                                 st.session_state.color_toast = f"已{'恢復' if not active else '停用'} {row['色粉編號']}"
                                 st.rerun()
+
+        with subtab_replace:
+            st.markdown("#### 🔄 色粉編號替代")
+            st.caption("只更新目前配方主檔；生產單、庫存、進貨與其他歷史紀錄不會變更。")
+            replace_col1, replace_col2, replace_col3 = st.columns(3)
+            with replace_col1:
+                old_powder_input = st.text_input("舊色粉編號", key="replace_old_powder_id")
+            with replace_col2:
+                new_powder_input = st.text_input("新色粉編號", key="replace_new_powder_id")
+            with replace_col3:
+                replacement_date = st.date_input("更換日期", key="replace_powder_date")
+
+            old_powder = clean_powder_id(old_powder_input)
+            new_powder = clean_powder_id(new_powder_input)
+            preview_key = (old_powder, new_powder, replacement_date.isoformat())
+            all_powder_ids = {
+                clean_powder_id(item.get("colorpowder_id", "")) for item in powder_entities
+            }
+
+            if st.button("🔍 檢查受影響配方", key="check_powder_replacement"):
+                st.session_state.pop("powder_replacement_preview", None)
+                if not old_powder or not new_powder:
+                    st.warning("⚠️ 請輸入舊色粉編號與新色粉編號。")
+                elif old_powder == new_powder:
+                    st.error("⚠️ 新舊色粉編號不可相同。")
+                elif old_powder not in all_powder_ids:
+                    st.error(f"⚠️ 找不到舊色粉編號 {old_powder}。")
+                elif new_powder not in all_powder_ids:
+                    st.error(
+                        f"⚠️ 找不到新色粉編號 {new_powder}，"
+                        "請先至「色粉資料管理」建立此色粉。"
+                    )
+                else:
+                    try:
+                        preview_rows = find_recipes_using_color_powder(DATABASE_CONFIG, old_powder)
+                        st.session_state.powder_replacement_preview = {
+                            "key": preview_key, "rows": preview_rows,
+                        }
+                    except RecipeError as exc:
+                        st.error(f"❌ 檢查失敗：{exc}")
+                    except Exception as exc:
+                        st.error(f"❌ 無法檢查受影響配方：{exc}")
+
+            preview = st.session_state.get("powder_replacement_preview")
+            if preview and preview.get("key") == preview_key:
+                preview_rows = preview.get("rows", [])
+                st.info(f"找到 {len(preview_rows)} 個使用 {old_powder} 的配方")
+                if preview_rows:
+                    st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
+                    if st.button("✅ 確認執行替代", key="confirm_powder_replacement", type="primary"):
+                        try:
+                            updated_rows = replace_color_powder_in_recipes(
+                                DATABASE_CONFIG, old_powder, new_powder, replacement_date
+                            )
+                        except RecipeError as exc:
+                            st.error(f"❌ 色粉編號替代失敗，未完成任何修改：{exc}")
+                        except Exception as exc:
+                            st.error(f"❌ 色粉編號替代失敗，未完成任何修改：{exc}")
+                        else:
+                            st.session_state.pop("powder_replacement_preview", None)
+                            st.session_state.recipe_data_loaded = False
+                            st.success(
+                                f"✅ 色粉編號替代完成\n\n{old_powder} → {new_powder}\n\n"
+                                f"共更新 {len(updated_rows)} 個配方"
+                            )
+                            st.dataframe(
+                                pd.DataFrame(updated_rows), use_container_width=True, hide_index=True
+                            )
+            elif preview:
+                st.warning("⚠️ 輸入內容已變更，請重新檢查受影響配方。")
 
         if st.session_state.get("_tab4_need_rerun", False):
             st.session_state._tab4_need_rerun = False
