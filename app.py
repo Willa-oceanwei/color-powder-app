@@ -2385,6 +2385,39 @@ def build_big_label_rows(order):
     return rows
 
 
+def build_quick_label_defaults(order, row_count=4):
+    """Return up to four weight/count suggestions for the one-off print form."""
+    grouped = {}
+    for label in build_big_label_rows(order):
+        weight = str(label.get("數量", "") or "").strip()
+        if weight:
+            weight = f"{weight}K"
+            grouped[weight] = grouped.get(weight, 0) + 1
+    rows = [{"weight": weight, "qty": qty} for weight, qty in grouped.items()]
+    return (rows + [{"weight": "", "qty": 0} for _ in range(row_count)])[:row_count]
+
+
+def build_quick_labels(order, label_content, quick_rows):
+    """Expand weight/count inputs into printable label dictionaries."""
+    base = {
+        "編號": str(order.get("配方編號", "") or "").strip(),
+        "名稱": str(label_content or "").strip(),
+        "比例": format_label_ratio(order),
+        "日期": to_roc_date(order.get("生產日期", "")),
+    }
+    labels = []
+    for row in quick_rows:
+        weight = str(row.get("weight", "") or "").strip()
+        qty = int(row.get("qty", 0) or 0)
+        labels.extend([{**base, "數量": weight} for _ in range(qty)])
+    return labels
+
+
+def chunk_label_pages(labels, page_size=4):
+    """Split printable labels into real sheets before HTML rendering."""
+    return [labels[i:i + page_size] for i in range(0, len(labels), page_size)]
+
+
 def get_saved_label_order(saved_snapshot):
     """Return the last successfully saved order that can be used for labels.
 
@@ -2446,8 +2479,7 @@ def generate_big_label_html(label_rows):
 </div>"""
 
     sheets_html = []
-    for start in range(0, len(label_rows), 4):
-        group = label_rows[start:start + 4]
+    for group in chunk_label_pages(label_rows):
         group = group + [None] * (4 - len(group))
         slots_html = []
         for idx, entry in enumerate(group):
@@ -2473,8 +2505,11 @@ body {{ margin: 0; padding: 0; }}
     width: {sheet_w_cm}cm;
     height: {sheet_h_cm}cm;
     page-break-after: always;
+    break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid-page;
 }}
-.sheet:last-child {{ page-break-after: auto; }}
+.sheet:last-child {{ page-break-after: auto; break-after: auto; }}
 .label-slot {{
     position: absolute;
     width: {label_w_cm}cm;
@@ -5714,9 +5749,9 @@ elif menu == "生產單管理":
             order_no_for_label = snapshot_order.get("生產單號", "")
 
             show_label_key = f"show_big_label_{order_no_for_label}"
-            label_rows_key = f"big_label_rows_{order_no_for_label}"
             label_version_key = f"big_label_version_{order_no_for_label}"
             label_confirmed_key = f"big_label_confirmed_{order_no_for_label}"
+            quick_defaults_key = f"big_label_quick_defaults_{order_no_for_label}"
 
             a5_downloaded = snapshot.get("a5_downloaded", False)
 
@@ -5734,58 +5769,76 @@ elif menu == "生產單管理":
             if show_label_section:
                 if not a5_downloaded:
                     st.caption("ℹ️ 尚未下載 A5 生產單；仍可直接編輯及列印標籤。")
-                if label_rows_key not in st.session_state:
-                    st.session_state[label_rows_key] = build_big_label_rows(snapshot_order)
+                if quick_defaults_key not in st.session_state:
+                    st.session_state[quick_defaults_key] = build_quick_label_defaults(snapshot_order)
                 if label_version_key not in st.session_state:
                     st.session_state[label_version_key] = 0
 
                 with st.container(border=True):
                     with st.form(f"big_label_form_{order_no_for_label}", border=False):
-                        edited_label_df = st.data_editor(
-                            pd.DataFrame(st.session_state[label_rows_key]),
-                            num_rows="dynamic",
-                            use_container_width=True,
-                            key=f"big_label_editor_{order_no_for_label}_{st.session_state[label_version_key]}",
-                            column_config={
-                                "編號": st.column_config.TextColumn("編號"),
-                                "名稱": st.column_config.TextColumn("名稱"),
-                                "比例": st.column_config.TextColumn("比例"),
-                                "日期": st.column_config.TextColumn("日期"),
-                                "數量": st.column_config.TextColumn("數量"),
-                            },
+                        label_content = st.text_input(
+                            "標籤內容",
+                            value=str(snapshot_order.get("顏色", "") or ""),
+                            key=f"big_label_content_{order_no_for_label}",
+                            help="預設帶入原本的顏色名稱，可在本次列印前修改。",
+                        )
+                        header_weight, header_qty = st.columns([3, 1])
+                        header_weight.markdown("**重量 / 數量**")
+                        header_qty.markdown("**列印張數**")
+                        quick_rows = []
+                        for row_index, default in enumerate(st.session_state[quick_defaults_key]):
+                            weight_col, qty_col = st.columns([3, 1])
+                            with weight_col:
+                                weight = st.text_input(
+                                    f"第 {row_index + 1} 列重量 / 數量",
+                                    value=default["weight"],
+                                    key=f"big_label_weight_{order_no_for_label}_{row_index}",
+                                    label_visibility="collapsed",
+                                    placeholder="例如 25K、500g",
+                                )
+                            with qty_col:
+                                qty = st.number_input(
+                                    f"第 {row_index + 1} 列列印張數",
+                                    min_value=0,
+                                    value=int(default["qty"]),
+                                    step=1,
+                                    key=f"big_label_qty_{order_no_for_label}_{row_index}",
+                                    label_visibility="collapsed",
+                                )
+                            quick_rows.append({"weight": weight, "qty": int(qty)})
+
+                        confirm_clicked = st.form_submit_button(
+                            "✅ 預覽並產生下載檔", use_container_width=True
                         )
 
-                        copy_col, count_col, confirm_col = st.columns([1.2, 1.3, 1.5])
-                        with copy_col:
-                            copy_clicked = st.form_submit_button("➕ 複製最後一列", use_container_width=True)
-                        with count_col:
-                            copy_times = st.number_input(
-                                "複製幾份（張）", min_value=1, max_value=20, value=1, step=1,
-                                key=f"big_label_copy_times_{order_no_for_label}"
-                            )
-                        with confirm_col:
-                            confirm_clicked = st.form_submit_button("✅ 確認內容，產生下載檔", use_container_width=True)
-
-                    if copy_clicked:
-                        current_rows = edited_label_df.fillna("").to_dict("records")
-                        if current_rows:
-                            last_row = dict(current_rows[-1])
-                            current_rows.extend([dict(last_row) for _ in range(int(copy_times))])
-                        st.session_state[label_rows_key] = current_rows
-                        st.session_state[label_version_key] += 1
-                        st.session_state[label_confirmed_key] = None
-                        st.toast(f"已複製 {int(copy_times)} 列，請往下捲動查看", icon="➕")
-                        st.rerun()
-
                     if confirm_clicked:
-                        st.session_state[label_rows_key] = edited_label_df.fillna("").to_dict("records")
-                        st.session_state[label_confirmed_key] = list(st.session_state[label_rows_key])
-                        st.toast("已確認內容，下載按鈕已產生，請往下捲動查看", icon="✅")
+                        missing_weights = [
+                            index + 1 for index, row in enumerate(quick_rows)
+                            if row["qty"] > 0 and not row["weight"].strip()
+                        ]
+                        total_qty = sum(row["qty"] for row in quick_rows)
+                        if missing_weights:
+                            st.error(
+                                f"第 {', '.join(map(str, missing_weights))} 列已設定張數，請輸入重量 / 數量。"
+                            )
+                            st.session_state[label_confirmed_key] = None
+                        elif total_qty == 0:
+                            st.warning("請至少設定一張標籤")
+                            st.session_state[label_confirmed_key] = None
+                        else:
+                            labels = build_quick_labels(snapshot_order, label_content, quick_rows)
+                            st.session_state[label_confirmed_key] = labels
+                            st.session_state[label_version_key] += 1
+                            st.toast("預覽已更新，下載按鈕已產生", icon="✅")
 
                 confirmed_rows = st.session_state.get(label_confirmed_key)
                 if confirmed_rows:
                     sheets_needed = -(-len(confirmed_rows) // 4)  # 無條件進位
                     st.caption(f"共 {len(confirmed_rows)} 張標籤，需要 {sheets_needed} 張大標紙（手動一張一張進紙）。")
+                    preview_weights = [str(row.get("數量", "")) for row in confirmed_rows]
+                    st.markdown("**預覽（每 4 張為一頁）**")
+                    for page_number, page in enumerate(chunk_label_pages(preview_weights), start=1):
+                        st.caption(f"第 {page_number} 頁：{'、'.join(page)}")
 
                     big_label_html = generate_big_label_html(confirmed_rows)
                     safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
@@ -5798,7 +5851,7 @@ elif menu == "生產單管理":
                         key=f"download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
                     )
                 else:
-                    st.caption("編輯完成後，請按上方「✅ 確認內容，產生下載檔」才會出現下載按鈕。")
+                    st.caption("設定完成後，請按上方「✅ 預覽並產生下載檔」才會出現下載按鈕。")
  
         if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
             try:
