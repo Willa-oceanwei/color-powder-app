@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
+from .sheet_export import color_powder_sheet_payload
 
 RECIPE_COMPONENT_POSITIONS = range(1, 9)
 
@@ -19,6 +21,13 @@ class RecipeAlreadyExists(RecipeError):
 
 class RecipeNotFound(RecipeError):
     pass
+
+
+def normalize_color_powder_id(value: Any) -> str:
+    """Apply the same whitespace/case normalization used by the recipe UI."""
+    if value is None:
+        return ""
+    return str(value).strip().replace("\u3000", "").replace(" ", "").upper()
 
 
 def _mapping(cursor) -> dict[str, Any] | None:
@@ -176,6 +185,156 @@ def list_recipes(config: DatabaseConfig, *, include_inactive: bool = False) -> l
         _recipe_sheet_payload(entity, by_recipe.get(str(entity["recipe_id"]), []))
         for entity in recipes
     ]
+
+
+def find_recipes_using_color_powder(
+    config: DatabaseConfig, colorpowder_id: str
+) -> list[dict[str, Any]]:
+    """Return one preview row per recipe whose component ID exactly normalizes to the ID."""
+    target = normalize_color_powder_id(colorpowder_id)
+    if not target:
+        raise RecipeError("請輸入舊色粉編號")
+    with connect_from_config(config) as conn:
+        rows = _mappings(conn.execute(
+            """SELECT r.recipe_id, r.customer_name, r.color, c.position, c.colorpowder_id
+               FROM recipes AS r JOIN recipe_components AS c ON c.recipe_id=r.recipe_id
+               ORDER BY r.recipe_id, c.position"""
+        ))
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if normalize_color_powder_id(row["colorpowder_id"]) != target:
+            continue
+        recipe_id = str(row["recipe_id"])
+        item = grouped.setdefault(recipe_id, {
+            "配方編號": recipe_id,
+            "客戶": str(row.get("customer_name") or ""),
+            "顏色": str(row.get("color") or ""),
+            "使用位置": [],
+        })
+        item["使用位置"].append(f"色粉{int(row['position'])}")
+    return [
+        {**item, "使用位置": "、".join(item["使用位置"])}
+        for item in grouped.values()
+    ]
+
+
+def replace_color_powder_in_recipes(
+    config: DatabaseConfig, old_colorpowder_id: str, new_colorpowder_id: str,
+    replacement_date: date,
+) -> list[dict[str, str]]:
+    """Atomically replace current recipe components, append notices, and queue Sheet updates."""
+    old_normalized = normalize_color_powder_id(old_colorpowder_id)
+    new_normalized = normalize_color_powder_id(new_colorpowder_id)
+    if not old_normalized or not new_normalized:
+        raise RecipeError("請輸入舊色粉編號與新色粉編號")
+    if old_normalized == new_normalized:
+        raise RecipeError("新舊色粉編號不可相同")
+    if not isinstance(replacement_date, date):
+        raise RecipeError("更換日期格式不正確")
+
+    notice = (
+        f"{replacement_date.year - 1911:03d}/{replacement_date.month:02d}/{replacement_date.day:02d}"
+        f"原色粉編號{old_normalized}更換成{new_normalized}"
+    )
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        powders = _mappings(conn.execute(
+            "SELECT colorpowder_id, lifecycle_status FROM color_powders"
+        ))
+        old_matches = [p for p in powders if normalize_color_powder_id(p["colorpowder_id"]) == old_normalized]
+        new_matches = [p for p in powders if normalize_color_powder_id(p["colorpowder_id"]) == new_normalized]
+        if not old_matches:
+            raise RecipeError(f"找不到舊色粉編號 {old_normalized}")
+        if not new_matches:
+            raise RecipeError(
+                f"找不到新色粉編號 {new_normalized}，請先至「色粉資料管理」建立此色粉。"
+            )
+        if len(old_matches) != 1 or len(new_matches) != 1:
+            raise RecipeError("色粉主檔有標準化後重複的編號，請先整理主檔")
+        old_id = str(old_matches[0]["colorpowder_id"])
+        new_id = str(new_matches[0]["colorpowder_id"])
+
+        components = _mappings(conn.execute(
+            """SELECT recipe_id, position, colorpowder_id FROM recipe_components
+               ORDER BY recipe_id, position"""
+        ))
+        affected: dict[str, list[int]] = {}
+        for component in components:
+            if normalize_color_powder_id(component["colorpowder_id"]) == old_normalized:
+                affected.setdefault(str(component["recipe_id"]), []).append(int(component["position"]))
+
+        if not affected:
+            return []
+
+        if new_matches[0].get("lifecycle_status") != "active":
+            conn.execute(
+                """UPDATE color_powders SET lifecycle_status='active', deleted_at=NULL,
+                          delete_reason=NULL, source='app', version=version+1, updated_at=?
+                   WHERE colorpowder_id=?""",
+                (now, new_id),
+            )
+            new_entity = _mapping(conn.execute(
+                "SELECT * FROM color_powders WHERE colorpowder_id=?", (new_id,)
+            ))
+            enqueue_sheet_sync(
+                conn, sheet_name="色粉管理", row_key=new_id, operation="update",
+                payload=color_powder_sheet_payload(new_entity),
+                entity_version=int(new_entity["version"]),
+            )
+
+        results: list[dict[str, str]] = []
+        for recipe_id, positions in affected.items():
+            recipe = _mapping(conn.execute("SELECT * FROM recipes WHERE recipe_id=?", (recipe_id,)))
+            if recipe is None:
+                raise RecipeError(f"找不到配方編號 {recipe_id}")
+            existing_notice = str(recipe.get("important_notice") or "").strip()
+            notice_lines = existing_notice.splitlines()
+            updated_notice = existing_notice if notice in notice_lines else "\n".join(
+                part for part in (existing_notice, notice) if part
+            )
+            conn.execute(
+                """UPDATE recipe_components SET colorpowder_id=?, updated_at=?
+                   WHERE recipe_id=? AND colorpowder_id=?""",
+                (new_id, now, recipe_id, old_id),
+            )
+            conn.execute(
+                """UPDATE recipes SET important_notice=?, source='app', version=version+1,
+                          updated_at=? WHERE recipe_id=?""",
+                (updated_notice, now, recipe_id),
+            )
+            updated_recipe = _mapping(conn.execute("SELECT * FROM recipes WHERE recipe_id=?", (recipe_id,)))
+            updated_components = _mappings(conn.execute(
+                """SELECT position, colorpowder_id, weight FROM recipe_components
+                   WHERE recipe_id=? ORDER BY position""", (recipe_id,)
+            ))
+            enqueue_sheet_sync(
+                conn, sheet_name="配方管理", row_key=recipe_id, operation="update",
+                payload=_recipe_sheet_payload(updated_recipe, updated_components),
+                entity_version=int(updated_recipe["version"]),
+            )
+            results.append({
+                "配方編號": recipe_id,
+                "客戶": str(recipe.get("customer_name") or ""),
+                "顏色": str(recipe.get("color") or ""),
+                "更換欄位": "、".join(f"色粉{position}" for position in positions),
+                "重要提醒新增內容": notice,
+            })
+
+        if old_matches[0].get("lifecycle_status") == "active":
+            conn.execute(
+                """UPDATE color_powders SET lifecycle_status='inactive', deleted_at=?,
+                          delete_reason=?, source='app', version=version+1, updated_at=?
+                   WHERE colorpowder_id=?""",
+                (now, f"色粉編號替代為 {new_id}", now, old_id),
+            )
+            old_entity = _mapping(conn.execute(
+                "SELECT * FROM color_powders WHERE colorpowder_id=?", (old_id,)
+            ))
+            enqueue_sheet_sync(
+                conn, sheet_name="色粉管理", row_key=old_id, operation="delete",
+                payload=None, entity_version=int(old_entity["version"]),
+            )
+        return results
 
 
 def set_recipe_active(config: DatabaseConfig, recipe_id: str, *, active: bool, reason: str = "") -> dict[str, Any]:
