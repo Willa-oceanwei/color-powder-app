@@ -17,6 +17,20 @@ def _load_generate_big_label_html():
     return namespace["generate_big_label_html"]
 
 
+def _load_get_saved_label_order():
+    """Load the snapshot selector without executing the Streamlit app."""
+    source = Path("app.py").read_text(encoding="utf-8")
+    module = ast.parse(source)
+    function = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.FunctionDef) and node.name == "get_saved_label_order"
+    )
+    namespace = {}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), "app.py", "exec"), namespace)
+    return namespace["get_saved_label_order"]
+
+
 def test_big_label_html_uses_physical_stock_dimensions_and_anchors():
     generate = _load_generate_big_label_html()
 
@@ -48,3 +62,18 @@ def test_big_label_html_escapes_user_content():
 
     assert "<script>alert(1)</script>" not in result
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in result
+
+
+def test_saved_label_order_is_independent_of_live_draft_flow():
+    get_saved_order = _load_get_saved_label_order()
+    saved_order = {"生產單號": "P001", "配方編號": "R001"}
+
+    assert get_saved_order({"order": saved_order, "a5_downloaded": False}) is saved_order
+
+
+def test_saved_label_order_rejects_incomplete_snapshots():
+    get_saved_order = _load_get_saved_label_order()
+
+    assert get_saved_order(None) is None
+    assert get_saved_order({}) is None
+    assert get_saved_order({"order": {"配方編號": "R001"}}) is None
