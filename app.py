@@ -11986,13 +11986,16 @@ if st.session_state.menu == "同步檢查":
         "兩者都必須通過最新 preflight 並輸入指定確認文字才會寫入。"
     )
 
-    backend_col, health_col, schema_col = st.columns(3)
-    backend_col.metric("Database backend", DATABASE_BACKEND)
-    health_col.metric(
-        "Database health",
-        "OK" if DATABASE_HEALTH.select_1_ok and DATABASE_HEALTH.main_tables_exist else "FAILED",
+    database_is_healthy = (
+        DATABASE_HEALTH.select_1_ok and DATABASE_HEALTH.main_tables_exist
     )
-    schema_col.metric("Schema version", DATABASE_HEALTH.schema_version or "—")
+    # 跟「代工進度表」共用同一套小型摘要卡，不再使用 st.metric 的超大數字。
+    render_metric_cards([
+        ("DATABASE BACKEND", DATABASE_BACKEND, "neutral"),
+        ("DATABASE HEALTH", "OK" if database_is_healthy else "FAILED",
+         "neutral" if database_is_healthy else "warn"),
+        ("SCHEMA VERSION", DATABASE_HEALTH.schema_version or "—", "neutral"),
+    ])
 
     # Keep this non-essential diagnostic out of the startup import list.  A
     # rolling Streamlit deployment can briefly run a new app.py process while
@@ -12021,19 +12024,15 @@ if st.session_state.menu == "同步檢查":
             else f"{elapsed_minutes} 分鐘"
         )
         taipei_finished_at = finished_at.astimezone(ZoneInfo("Asia/Taipei"))
-        sync_time_col, elapsed_col, status_col = st.columns(3)
-        sync_time_col.metric(
-            "最近 Turso → Sheet 同步",
-            taipei_finished_at.strftime("%Y/%m/%d %H:%M:%S"),
-            help="顯示 Turso sync_log 中最近一次完成的 outbound sync（台灣時間）。",
-        )
-        elapsed_col.metric("距今", elapsed_label)
         sync_status = str(latest_outbound_sync.get("status") or "unknown")
-        status_col.metric(
-            "最近同步狀態",
-            "成功" if sync_status == "success" else sync_status,
-            help=f"最近完成項目：{latest_outbound_sync['sync_name']}",
-        )
+        render_metric_cards([
+            ("最近 TURSO → SHEET 同步",
+             taipei_finished_at.strftime("%Y/%m/%d %H:%M:%S"), "neutral"),
+            ("距今", elapsed_label, "neutral"),
+            ("最近同步狀態", "成功" if sync_status == "success" else sync_status,
+             "neutral" if sync_status == "success" else "warn"),
+        ])
+        st.caption(f"最近完成項目：{latest_outbound_sync['sync_name']}")
         if sync_status != "success":
             st.warning(
                 f"最近一次 Turso → Sheet 同步狀態為 {sync_status}；請先查看同步頁面的"
