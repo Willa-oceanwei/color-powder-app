@@ -2385,6 +2385,24 @@ def build_big_label_rows(order):
     return rows
 
 
+def get_saved_label_order(saved_snapshot):
+    """Return the last successfully saved order that can be used for labels.
+
+    Label printing deliberately follows the saved snapshot instead of the live
+    production-order draft.  Actions such as downloading A5, merging an order,
+    or creating an outsourcing order can rerun the page and replace the live
+    draft; the saved order remains the authoritative printable record.
+    """
+    if not isinstance(saved_snapshot, dict):
+        return None
+    saved_order = saved_snapshot.get("order")
+    if not isinstance(saved_order, dict):
+        return None
+    if not str(saved_order.get("生產單號", "") or "").strip():
+        return None
+    return saved_order
+
+
 def generate_big_label_html(label_rows):
     """把標籤資料排成大標 HTML：每張紙 12x32cm 直排 4 格，每格 10.8x7.8cm，
     下方 4.7cm 保留給預印公司資訊、不列印任何內容。超過 4 張自動分頁，
@@ -5660,10 +5678,7 @@ elif menu == "生產單管理":
 
         # --------------- 新增：生產單大標列印 ---------------
         snapshot = st.session_state.get("saved_label_snapshot")
-        snapshot_belongs_to_this_order = (
-            snapshot is not None
-            and str(snapshot.get("order", {}).get("生產單號", "")) == str(order.get("生產單號", ""))
-        )
+        snapshot_order = get_saved_label_order(snapshot)
 
         st.markdown("""
             <style>
@@ -5688,7 +5703,7 @@ elif menu == "生產單管理":
             </style>
         """, unsafe_allow_html=True)
 
-        if not snapshot_belongs_to_this_order:
+        if snapshot_order is None:
             st.markdown("""
                 <div class="label-print-card">
                     <div class="lp-title">🏷️ 列印大標</div>
@@ -5696,11 +5711,9 @@ elif menu == "生產單管理":
                 </div>
             """, unsafe_allow_html=True)
         else:
-            snapshot_order = snapshot["order"]
             order_no_for_label = snapshot_order.get("生產單號", "")
 
             show_label_key = f"show_big_label_{order_no_for_label}"
-            bypass_a5_key = f"big_label_bypass_a5_{order_no_for_label}"
             label_rows_key = f"big_label_rows_{order_no_for_label}"
             label_version_key = f"big_label_version_{order_no_for_label}"
             label_confirmed_key = f"big_label_confirmed_{order_no_for_label}"
@@ -5716,80 +5729,76 @@ elif menu == "生產單管理":
                     </div>
                 """, unsafe_allow_html=True)
             with toggle_col:
-                show_label_section = st.toggle("展開", key=show_label_key, value=False)
+                show_label_section = st.toggle("開啟標籤", key=show_label_key, value=False)
 
             if show_label_section:
-                if not a5_downloaded and not st.session_state.get(bypass_a5_key, False):
-                    st.warning("⚠️ 你還沒下載 A5 生產單，確定要先列印標籤嗎？")
-                    if st.button("我了解，仍要繼續列印標籤", key=f"bypass_a5_btn_{order_no_for_label}"):
-                        st.session_state[bypass_a5_key] = True
-                        st.rerun()
-                else:
-                    if label_rows_key not in st.session_state:
-                        st.session_state[label_rows_key] = build_big_label_rows(snapshot_order)
-                    if label_version_key not in st.session_state:
-                        st.session_state[label_version_key] = 0
+                if not a5_downloaded:
+                    st.caption("ℹ️ 尚未下載 A5 生產單；仍可直接編輯及列印標籤。")
+                if label_rows_key not in st.session_state:
+                    st.session_state[label_rows_key] = build_big_label_rows(snapshot_order)
+                if label_version_key not in st.session_state:
+                    st.session_state[label_version_key] = 0
 
-                    with st.container(border=True):
-                        with st.form(f"big_label_form_{order_no_for_label}", border=False):
-                            edited_label_df = st.data_editor(
-                                pd.DataFrame(st.session_state[label_rows_key]),
-                                num_rows="dynamic",
-                                use_container_width=True,
-                                key=f"big_label_editor_{order_no_for_label}_{st.session_state[label_version_key]}",
-                                column_config={
-                                    "編號": st.column_config.TextColumn("編號"),
-                                    "名稱": st.column_config.TextColumn("名稱"),
-                                    "比例": st.column_config.TextColumn("比例"),
-                                    "日期": st.column_config.TextColumn("日期"),
-                                    "數量": st.column_config.TextColumn("數量"),
-                                },
-                            )
-
-                            copy_col, count_col, confirm_col = st.columns([1.2, 1.3, 1.5])
-                            with copy_col:
-                                copy_clicked = st.form_submit_button("➕ 複製最後一列", use_container_width=True)
-                            with count_col:
-                                copy_times = st.number_input(
-                                    "複製幾份（張）", min_value=1, max_value=20, value=1, step=1,
-                                    key=f"big_label_copy_times_{order_no_for_label}"
-                                )
-                            with confirm_col:
-                                confirm_clicked = st.form_submit_button("✅ 確認內容，產生下載檔", use_container_width=True)
-
-                        if copy_clicked:
-                            current_rows = edited_label_df.fillna("").to_dict("records")
-                            if current_rows:
-                                last_row = dict(current_rows[-1])
-                                current_rows.extend([dict(last_row) for _ in range(int(copy_times))])
-                            st.session_state[label_rows_key] = current_rows
-                            st.session_state[label_version_key] += 1
-                            st.session_state[label_confirmed_key] = None
-                            st.toast(f"已複製 {int(copy_times)} 列，請往下捲動查看", icon="➕")
-                            st.rerun()
-
-                        if confirm_clicked:
-                            st.session_state[label_rows_key] = edited_label_df.fillna("").to_dict("records")
-                            st.session_state[label_confirmed_key] = list(st.session_state[label_rows_key])
-                            st.toast("已確認內容，下載按鈕已產生，請往下捲動查看", icon="✅")
-
-                    confirmed_rows = st.session_state.get(label_confirmed_key)
-                    if confirmed_rows:
-                        sheets_needed = -(-len(confirmed_rows) // 4)  # 無條件進位
-                        st.caption(f"共 {len(confirmed_rows)} 張標籤，需要 {sheets_needed} 張大標紙（手動一張一張進紙）。")
-
-                        big_label_html = generate_big_label_html(confirmed_rows)
-                        safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
-
-                        st.download_button(
-                            label="📥 下載大標 HTML（開啟後自動列印）",
-                            data=big_label_html.encode("utf-8"),
-                            file_name=f"{safe_order_no}_大標.html",
-                            mime="text/html",
-                            key=f"download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
+                with st.container(border=True):
+                    with st.form(f"big_label_form_{order_no_for_label}", border=False):
+                        edited_label_df = st.data_editor(
+                            pd.DataFrame(st.session_state[label_rows_key]),
+                            num_rows="dynamic",
+                            use_container_width=True,
+                            key=f"big_label_editor_{order_no_for_label}_{st.session_state[label_version_key]}",
+                            column_config={
+                                "編號": st.column_config.TextColumn("編號"),
+                                "名稱": st.column_config.TextColumn("名稱"),
+                                "比例": st.column_config.TextColumn("比例"),
+                                "日期": st.column_config.TextColumn("日期"),
+                                "數量": st.column_config.TextColumn("數量"),
+                            },
                         )
-                    else:
-                        st.caption("編輯完成後，請按上方「✅ 確認內容，產生下載檔」才會出現下載按鈕。")
+
+                        copy_col, count_col, confirm_col = st.columns([1.2, 1.3, 1.5])
+                        with copy_col:
+                            copy_clicked = st.form_submit_button("➕ 複製最後一列", use_container_width=True)
+                        with count_col:
+                            copy_times = st.number_input(
+                                "複製幾份（張）", min_value=1, max_value=20, value=1, step=1,
+                                key=f"big_label_copy_times_{order_no_for_label}"
+                            )
+                        with confirm_col:
+                            confirm_clicked = st.form_submit_button("✅ 確認內容，產生下載檔", use_container_width=True)
+
+                    if copy_clicked:
+                        current_rows = edited_label_df.fillna("").to_dict("records")
+                        if current_rows:
+                            last_row = dict(current_rows[-1])
+                            current_rows.extend([dict(last_row) for _ in range(int(copy_times))])
+                        st.session_state[label_rows_key] = current_rows
+                        st.session_state[label_version_key] += 1
+                        st.session_state[label_confirmed_key] = None
+                        st.toast(f"已複製 {int(copy_times)} 列，請往下捲動查看", icon="➕")
+                        st.rerun()
+
+                    if confirm_clicked:
+                        st.session_state[label_rows_key] = edited_label_df.fillna("").to_dict("records")
+                        st.session_state[label_confirmed_key] = list(st.session_state[label_rows_key])
+                        st.toast("已確認內容，下載按鈕已產生，請往下捲動查看", icon="✅")
+
+                confirmed_rows = st.session_state.get(label_confirmed_key)
+                if confirmed_rows:
+                    sheets_needed = -(-len(confirmed_rows) // 4)  # 無條件進位
+                    st.caption(f"共 {len(confirmed_rows)} 張標籤，需要 {sheets_needed} 張大標紙（手動一張一張進紙）。")
+
+                    big_label_html = generate_big_label_html(confirmed_rows)
+                    safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
+
+                    st.download_button(
+                        label="📥 下載大標 HTML（開啟後自動列印）",
+                        data=big_label_html.encode("utf-8"),
+                        file_name=f"{safe_order_no}_大標.html",
+                        mime="text/html",
+                        key=f"download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
+                    )
+                else:
+                    st.caption("編輯完成後，請按上方「✅ 確認內容，產生下載檔」才會出現下載按鈕。")
  
         if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
             try:
@@ -11939,10 +11948,20 @@ if menu == "試色記錄分析":
 
 # ===== Turso / Google Sheets 唯讀同步檢查 =====
 if st.session_state.menu == "同步檢查":
-    st.markdown("### Sheet ↔ Turso 同步檢查")
     st.markdown(
         """
         <style>
+        .sync-page-title {
+            background: #0d1b2a;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin: 0 0 0.65rem;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 650;
+            line-height: 1.35;
+        }
         .sync-section-title {
             font-size: 1rem;
             font-weight: 650;
@@ -11954,6 +11973,10 @@ if st.session_state.menu == "同步檢查":
         """,
         unsafe_allow_html=True,
     )
+    st.markdown(
+        '<div class="sync-page-title">🔄 Sheet ↔ Turso 同步檢查</div>',
+        unsafe_allow_html=True,
+    )
 
     def render_sync_section_title(title):
         st.markdown(f'<h4 class="sync-section-title">{title}</h4>', unsafe_allow_html=True)
@@ -11963,13 +11986,16 @@ if st.session_state.menu == "同步檢查":
         "兩者都必須通過最新 preflight 並輸入指定確認文字才會寫入。"
     )
 
-    backend_col, health_col, schema_col = st.columns(3)
-    backend_col.metric("Database backend", DATABASE_BACKEND)
-    health_col.metric(
-        "Database health",
-        "OK" if DATABASE_HEALTH.select_1_ok and DATABASE_HEALTH.main_tables_exist else "FAILED",
+    database_is_healthy = (
+        DATABASE_HEALTH.select_1_ok and DATABASE_HEALTH.main_tables_exist
     )
-    schema_col.metric("Schema version", DATABASE_HEALTH.schema_version or "—")
+    # 跟「代工進度表」共用同一套小型摘要卡，不再使用 st.metric 的超大數字。
+    render_metric_cards([
+        ("DATABASE BACKEND", DATABASE_BACKEND, "neutral"),
+        ("DATABASE HEALTH", "OK" if database_is_healthy else "FAILED",
+         "neutral" if database_is_healthy else "warn"),
+        ("SCHEMA VERSION", DATABASE_HEALTH.schema_version or "—", "neutral"),
+    ])
 
     # Keep this non-essential diagnostic out of the startup import list.  A
     # rolling Streamlit deployment can briefly run a new app.py process while
@@ -11998,19 +12024,15 @@ if st.session_state.menu == "同步檢查":
             else f"{elapsed_minutes} 分鐘"
         )
         taipei_finished_at = finished_at.astimezone(ZoneInfo("Asia/Taipei"))
-        sync_time_col, elapsed_col, status_col = st.columns(3)
-        sync_time_col.metric(
-            "最近 Turso → Sheet 同步",
-            taipei_finished_at.strftime("%Y/%m/%d %H:%M:%S"),
-            help="顯示 Turso sync_log 中最近一次完成的 outbound sync（台灣時間）。",
-        )
-        elapsed_col.metric("距今", elapsed_label)
         sync_status = str(latest_outbound_sync.get("status") or "unknown")
-        status_col.metric(
-            "最近同步狀態",
-            "成功" if sync_status == "success" else sync_status,
-            help=f"最近完成項目：{latest_outbound_sync['sync_name']}",
-        )
+        render_metric_cards([
+            ("最近 TURSO → SHEET 同步",
+             taipei_finished_at.strftime("%Y/%m/%d %H:%M:%S"), "neutral"),
+            ("距今", elapsed_label, "neutral"),
+            ("最近同步狀態", "成功" if sync_status == "success" else sync_status,
+             "neutral" if sync_status == "success" else "warn"),
+        ])
+        st.caption(f"最近完成項目：{latest_outbound_sync['sync_name']}")
         if sync_status != "success":
             st.warning(
                 f"最近一次 Turso → Sheet 同步狀態為 {sync_status}；請先查看同步頁面的"
