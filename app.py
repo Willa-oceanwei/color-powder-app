@@ -6122,7 +6122,7 @@ elif menu == "生產單管理":
                 if st.session_state.get("confirm_order_lifecycle_id") == current_order_no:
                     st.warning(
                         "請再次確認恢復此生產單。" if is_cancelled
-                        else "取消後不會刪除歷史、配方快照或 Sheet 列；請填寫原因並再次確認。"
+                        else "取消後會一併停用對應代工單，但會保留歷史與配方快照；請填寫原因並再次確認。"
                     )
                     cancel_reason = st.text_input(
                         "取消原因",

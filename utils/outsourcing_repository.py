@@ -170,6 +170,37 @@ def _queue_outsourcing_event_tombstones(conn, order_id: str, *, restore: bool) -
     return counts
 
 
+def archive_outsourcing_orders_for_production(
+    conn, production_order_id: str, *, reason: str
+) -> int:
+    """Archive every active outsourcing order linked to a production order.
+
+    The caller owns the transaction so cancelling the production order and all
+    related outsourcing records either succeed or roll back together.
+    """
+    rows = _mappings(conn.execute(
+        """SELECT * FROM outsourcing_orders
+           WHERE production_order_id=? AND lifecycle_status='active'""",
+        (production_order_id,),
+    ))
+    now = utc_now_iso()
+    for row in rows:
+        order_id = row["outsourcing_order_id"]
+        version = int(row["version"]) + 1
+        conn.execute(
+            """UPDATE outsourcing_orders
+               SET lifecycle_status='inactive', deleted_at=?, delete_reason=?,
+                   version=?, updated_at=? WHERE outsourcing_order_id=?""",
+            (now, reason, version, now, order_id),
+        )
+        enqueue_sheet_sync(
+            conn, sheet_name="代工管理", row_key=order_id,
+            operation="delete", payload=None, entity_version=version,
+        )
+        _queue_outsourcing_event_tombstones(conn, order_id, restore=False)
+    return len(rows)
+
+
 def archive_outsourcing_order(
     config: DatabaseConfig, order_id: str, *, reason: str
 ) -> dict[str, int]:
