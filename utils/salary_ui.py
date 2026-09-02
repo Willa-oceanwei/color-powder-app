@@ -23,10 +23,17 @@ def _annual_leave_editor_rows(records):
     rows = [{
         "日期（可留空）": record.get("date") or "",
         "日數": float(record.get("days") or 0),
-        "時數": float(record.get("hours") or 0),
+        # Keep zero hours blank in the editor, while allowing entered values to
+        # retain two decimal places (for example, 1.25 hours).
+        "時數": float(record.get("hours")) if record.get("hours") else None,
         "備註": record.get("note") or "",
     } for record in records]
     return pd.DataFrame(rows, columns=columns)
+
+
+def _annual_leave_editor_key(period, index, employee_id):
+    """Return an editor key scoped to the employee occupying a salary block."""
+    return f"leave_editor_{period}_{index}_{employee_id}"
 
 
 def _parse_annual_leave_date(value, default_year):
@@ -200,6 +207,11 @@ def _monthly_tab(config):
             if current_id not in options: options.insert(0, current_id)
             selected_id = top.selectbox("姓名", options, index=options.index(current_id), format_func=lambda x: by_id.get(x, {"name":block.get("employee_name_snapshot", x)})["name"], key=f"sal_emp_{period}_{index}")
             if selected_id != current_id:
+                # data_editor keeps its own widget state. Clear both identities
+                # before replacing the block so one employee's dates cannot
+                # appear when another employee is selected in the same slot.
+                st.session_state.pop(_annual_leave_editor_key(period, index, current_id), None)
+                st.session_state.pop(_annual_leave_editor_key(period, index, selected_id), None)
                 blocks[index] = new_month_block(by_id[selected_id]); st.rerun()
             if remove.button("－ 移除此人員", key=f"sal_remove_{period}_{index}"):
                 blocks.pop(index); st.rerun()
@@ -216,7 +228,7 @@ def _monthly_tab(config):
             with st.form(f"annual_leave_records_{period}_{index}"):
                 edited_records = st.data_editor(
                     _annual_leave_editor_rows(records),
-                    key=f"leave_editor_{period}_{index}",
+                    key=_annual_leave_editor_key(period, index, block.get("employee_id")),
                     num_rows="dynamic",
                     hide_index=True,
                     use_container_width=True,
@@ -226,7 +238,10 @@ def _monthly_tab(config):
                             help="可直接輸入 08/07、0807 或 2026-08-07，不限制只能選薪資月份。",
                         ),
                         "日數": st.column_config.NumberColumn("日數", min_value=0.0, step=0.5),
-                        "時數": st.column_config.NumberColumn("時數", min_value=0.0, step=0.5),
+                        "時數": st.column_config.NumberColumn(
+                            "時數", min_value=0.0, step=0.01, format="%.2f",
+                            help="可輸入至小數點後 2 位；0 會保持空白。",
+                        ),
                         "備註": st.column_config.TextColumn("備註"),
                     },
                 )
@@ -269,7 +284,15 @@ def _monthly_tab(config):
             additions = [x for x in block["adjustments"] if x["type"] == "addition"]; deductions = [x for x in block["adjustments"] if x["type"] == "deduction"]
             block.update(calculate_salary(block, additions, deductions, rules)); block["system_note"] = generate_salary_note(block, additions, deductions)
             block["manual_note"] = st.text_area("人工備註", block.get("manual_note", ""), key=f"manual_{period}_{index}")
-            st.markdown(f"**薪資總計：{block['final_salary']:,} 元**"); st.caption(block["system_note"] or "本月無特殊說明")
+            st.markdown("##### 儲存前備註預覽")
+            st.caption("特休明細請先按「套用特休明細」；套用後即可在這裡確認自動生成內容，再儲存草稿或結算薪資。")
+            preview_lines = []
+            if block["system_note"]:
+                preview_lines.append(f"自動生成：{block['system_note']}")
+            if block["manual_note"].strip():
+                preview_lines.append(f"人工備註：{block['manual_note'].strip()}")
+            st.info("\n\n".join(preview_lines) if preview_lines else "本月目前沒有備註內容。")
+            st.markdown(f"**薪資總計：{block['final_salary']:,} 元**")
     c1,c2 = st.columns(2)
     if c1.button("儲存草稿", disabled=not blocks):
         for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], annual_leave_records=block.get("annual_leave_records", []))

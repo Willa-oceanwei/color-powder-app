@@ -234,14 +234,21 @@ def test_dated_leave_records_are_linked_to_salary_and_editable(tmp_path: Path):
 def test_annual_leave_batch_editor_normalizes_rows_and_ignores_empty_rows():
     import pytest
     pd = pytest.importorskip("pandas")
-    from utils.salary_ui import _annual_leave_editor_rows, _annual_leave_records_from_editor
+    from utils.salary_ui import (_annual_leave_editor_key, _annual_leave_editor_rows,
+                                 _annual_leave_records_from_editor)
 
     existing = [{"date":"2026-08-03", "days":1, "hours":0, "note":"上午"},
                 {"date":"", "days":0, "hours":2, "note":""}]
     editor_rows = _annual_leave_editor_rows(existing)
+    assert pd.isna(editor_rows.loc[0, "時數"])
+    assert editor_rows.loc[1, "時數"] == 2.0
+    assert _annual_leave_editor_key("2026-08", 0, "E1") != _annual_leave_editor_key("2026-08", 0, "E2")
     editor_rows.loc[len(editor_rows)] = [None, None, None, None]
 
     assert _annual_leave_records_from_editor(editor_rows, 2026) == existing
+
+    editor_rows.loc[1, "時數"] = 1.25
+    assert _annual_leave_records_from_editor(editor_rows, 2026)[1]["hours"] == 1.25
 
     editor_rows.loc[0, "日期（可留空）"] = "8/3"
     assert _annual_leave_records_from_editor(editor_rows, 2026)[0]["date"] == "2026-08-03"
