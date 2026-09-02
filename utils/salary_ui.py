@@ -19,6 +19,33 @@ from .salary_repository import (annual_leave_balance_before_month, delete_salary
 MONEY_FIELDS = ("base_salary", "attendance_bonus", "cooling_allowance", "allowance", "position_allowance", "insurance")
 
 
+def _annual_leave_editor_rows(records):
+    """Return rows suitable for the batch annual-leave editor."""
+    columns = ["日期（可留空）", "日數", "時數", "備註"]
+    rows = [{
+        "日期（可留空）": pd.to_datetime(record.get("date") or None),
+        "日數": float(record.get("days") or 0),
+        "時數": float(record.get("hours") or 0),
+        "備註": record.get("note") or "",
+    } for record in records]
+    return pd.DataFrame(rows, columns=columns)
+
+
+def _annual_leave_records_from_editor(rows):
+    """Normalize batch-editor rows and discard its completely empty rows."""
+    records = []
+    for row in rows.to_dict("records") if isinstance(rows, pd.DataFrame) else rows:
+        raw_date = row.get("日期（可留空）")
+        record_date = "" if pd.isna(raw_date) else pd.to_datetime(raw_date).date().isoformat()
+        days = 0.0 if pd.isna(row.get("日數")) else float(row.get("日數") or 0)
+        hours = 0.0 if pd.isna(row.get("時數")) else float(row.get("時數") or 0)
+        raw_note = row.get("備註")
+        note = "" if pd.isna(raw_note) else str(raw_note).strip()
+        if record_date or days or hours or note:
+            records.append({"date": record_date, "days": days, "hours": hours, "note": note})
+    return records
+
+
 def _employee_tab(config):
     mode = st.radio("員工資料操作", ["新增員工", "修改員工"], horizontal=True)
     search = st.text_input("搜尋員工編號／姓名", key="salary_employee_search") if mode == "修改員工" else ""
@@ -121,37 +148,27 @@ def _monthly_tab(config):
                 block[field] = cols[pos].number_input(label, min_value=0.0, value=float(block.get(field, 0)), key=f"{field}_{period}_{index}")
             st.markdown("##### 特休日期明細")
             records = block.setdefault("annual_leave_records", [])
-            if st.button("＋ 新增特休紀錄", key=f"add_leave_record_{period}_{index}"):
-                records.append({"date":"", "days":0.0, "hours":0.0, "note":""})
-                st.rerun()
-            for record_index, record in enumerate(list(records)):
-                record_cols = st.columns([0.8, 1.4, 0.8, 0.8, 2, 0.7])
-                has_date = record_cols[0].checkbox(
-                    "記日期", value=bool(record.get("date")), key=f"leave_has_date_{period}_{index}_{record_index}",
-                    help="日期為非必要欄位；若只想記錄本月合計可不勾選。",
+            st.caption("可一次新增、修改或刪除多筆；編輯期間不會重跑頁面，完成後再按套用。")
+            with st.form(f"annual_leave_records_{period}_{index}"):
+                edited_records = st.data_editor(
+                    _annual_leave_editor_rows(records),
+                    key=f"leave_editor_{period}_{index}",
+                    num_rows="dynamic",
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "日期（可留空）": st.column_config.DateColumn(
+                            "日期（可留空）", min_value=date(year, month, 1),
+                            max_value=date(year, month, monthrange(year, month)[1]), format="YYYY-MM-DD",
+                        ),
+                        "日數": st.column_config.NumberColumn("日數", min_value=0.0, step=0.5),
+                        "時數": st.column_config.NumberColumn("時數", min_value=0.0, step=0.5),
+                        "備註": st.column_config.TextColumn("備註"),
+                    },
                 )
-                raw_date = record.get("date") or date(year, month, 1).isoformat()
-                record_date = date.fromisoformat(str(raw_date)[:10])
-                selected_date = record_cols[1].date_input(
-                    "特休日期（非必填）", value=record_date, min_value=date(year, month, 1),
-                    max_value=date(year, month, monthrange(year, month)[1]),
-                    key=f"leave_date_{period}_{index}_{record_index}",
-                    disabled=not has_date,
-                )
-                record["date"] = selected_date.isoformat() if has_date else ""
-                record["days"] = record_cols[2].number_input(
-                    "日數", min_value=0.0, value=float(record.get("days", 0)),
-                    key=f"leave_days_{period}_{index}_{record_index}",
-                )
-                record["hours"] = record_cols[3].number_input(
-                    "時數", min_value=0.0, value=float(record.get("hours", 0)),
-                    key=f"leave_hours_{period}_{index}_{record_index}",
-                )
-                record["note"] = record_cols[4].text_input(
-                    "備註", value=record.get("note") or "", key=f"leave_note_{period}_{index}_{record_index}",
-                )
-                if record_cols[5].button("刪除", key=f"delete_leave_{period}_{index}_{record_index}"):
-                    records.pop(record_index); st.rerun()
+                if st.form_submit_button("套用特休明細", type="primary"):
+                    records[:] = _annual_leave_records_from_editor(edited_records)
+                    st.toast("特休明細已套用；請再儲存草稿或結算薪資")
             if records:
                 block["annual_leave_days"] = sum(float(record.get("days") or 0) for record in records)
                 block["annual_leave_hours"] = sum(float(record.get("hours") or 0) for record in records)
