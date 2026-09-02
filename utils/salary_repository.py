@@ -6,6 +6,7 @@ import uuid
 from typing import Mapping
 
 from .database import connect_from_config, utc_now_iso
+from .salary_calculator import validate_dated_leave_records
 
 
 def _rows(cursor):
@@ -68,6 +69,12 @@ def save_rules(config, rules: Mapping):
 
 def save_salary(config, data: Mapping, adjustments=(), settle=False, annual_leave_records=None):
     """Upsert the sole effective year/month/employee snapshot; never touches employee_master."""
+    if settle and annual_leave_records is not None:
+        problems = validate_dated_leave_records(
+            annual_leave_records, data["year"], data["month"], data.get("standard_hours_snapshot") or 8
+        )
+        if problems:
+            raise ValueError("結算前除錯未通過：" + "；".join(problems))
     now = utc_now_iso()
     with connect_from_config(config) as conn:
         old = conn.execute("SELECT salary_id FROM salary_monthly WHERE year=? AND month=? AND employee_id=?", (data["year"], data["month"], data["employee_id"])).fetchone()
