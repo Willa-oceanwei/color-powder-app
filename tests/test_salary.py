@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from utils.database import DatabaseConfig, connect_from_config, initialize_database_with_health
-from utils.salary_calculator import calculate_leave_deduction, calculate_salary
+from utils.salary_calculator import calculate_leave_deduction, calculate_salary, validate_dated_leave_records
 from utils.salary_excel import _monthly_summary, _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
                                      delete_annual_leave_history_record,
@@ -140,6 +140,41 @@ def test_leave_rounding_and_same_sheet_excel():
     assert sheet.sheet_properties.pageSetUpPr.fitToPage
     assert sheet.page_setup.orientation == "landscape"
     assert sheet.page_setup.fitToWidth == 1
+
+
+def test_leave_preflight_detects_duplicate_date_and_more_than_one_day():
+    problems = validate_dated_leave_records([
+        {"date":"2026-08-03", "days":1, "hours":0},
+        {"date":"2026-08-03", "days":0, "hours":4},
+    ], 2026, 8, 8)
+
+    assert any("有 2 筆特休紀錄" in problem for problem in problems)
+    assert any("合計 1.5 日" in problem for problem in problems)
+
+
+def test_leave_preflight_allows_distinct_dates_and_undated_monthly_total():
+    assert validate_dated_leave_records([
+        {"date":"2026-08-03", "days":1, "hours":0},
+        {"date":"2026-08-04", "days":0, "hours":4},
+        {"date":"", "days":0.2, "hours":0},
+    ], 2026, 8, 8) == []
+
+
+def test_settlement_rejects_duplicate_dated_leave(tmp_path: Path):
+    import pytest
+
+    config = DatabaseConfig("sqlite", tmp_path / "duplicate-leave.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E1", "name":"甲", "join_date":"2026-01-01"})
+    data = {"year":2026, "month":8, "employee_id":"E1", "employee_name_snapshot":"甲",
+            "standard_hours_snapshot":8}
+    data.update(calculate_salary(data))
+
+    with pytest.raises(ValueError, match="同一人於 2026-08-03 有 2 筆"):
+        save_salary(config, data, settle=True, annual_leave_records=[
+            {"date":"2026-08-03", "days":0.5, "hours":0},
+            {"date":"2026-08-03", "days":0, "hours":4},
+        ])
 
 
 def test_excel_note_contains_leave_only():

@@ -1,6 +1,7 @@
 """Pure, UI-independent salary rules. Monetary results are whole TWD."""
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable, Mapping
 
@@ -18,6 +19,44 @@ def calculate_leave_deduction(base_salary, leave_days, leave_hours, monthly_days
     if days <= 0 or hours <= 0:
         raise ValueError("每月計薪天數與每日工時必須大於 0")
     return money(_d(base_salary) / days * _d(leave_days) + _d(base_salary) / days / hours * _d(leave_hours))
+
+
+def validate_dated_leave_records(records: Iterable[Mapping], year: int, month: int,
+                                 standard_hours=8) -> list[str]:
+    """Return settlement-blocking problems in an employee's dated leave details."""
+    hours_per_day = _d(standard_hours)
+    if hours_per_day <= 0:
+        return ["每日標準工時必須大於 0"]
+
+    dated_totals: dict[str, Decimal] = {}
+    dated_counts: dict[str, int] = {}
+    problems: list[str] = []
+    for index, record in enumerate(records, 1):
+        raw_date = str(record.get("date") or "").strip()
+        days, hours = _d(record.get("days")), _d(record.get("hours"))
+        if days < 0 or hours < 0:
+            problems.append(f"第 {index} 筆特休的日數／時數不可小於 0")
+        if days == 0 and hours == 0:
+            problems.append(f"第 {index} 筆特休尚未填寫日數或時數")
+        if not raw_date:
+            continue
+        try:
+            leave_date = date.fromisoformat(raw_date[:10])
+        except ValueError:
+            problems.append(f"第 {index} 筆特休日期格式不正確：{raw_date}")
+            continue
+        if (leave_date.year, leave_date.month) != (int(year), int(month)):
+            problems.append(f"第 {index} 筆特休日期 {leave_date.isoformat()} 不在結算月份內")
+        key = leave_date.isoformat()
+        dated_counts[key] = dated_counts.get(key, 0) + 1
+        dated_totals[key] = dated_totals.get(key, Decimal("0")) + days + hours / hours_per_day
+
+    for leave_date, count in sorted(dated_counts.items()):
+        if count > 1:
+            problems.append(f"同一人於 {leave_date} 有 {count} 筆特休紀錄，請合併或確認後再結算")
+        if dated_totals[leave_date] > 1:
+            problems.append(f"同一人於 {leave_date} 合計 {dated_totals[leave_date]:g} 日，超過單日 1 日")
+    return problems
 
 
 def calculate_attendance_bonus(amount, has_leave: bool, rules: Mapping) -> int:

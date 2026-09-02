@@ -5,7 +5,7 @@ from calendar import monthrange
 import pandas as pd
 import streamlit as st
 
-from .salary_calculator import calculate_salary, generate_salary_note
+from .salary_calculator import calculate_salary, generate_salary_note, validate_dated_leave_records
 from .salary_excel import generate_salary_workbook
 from .salary_repository import (annual_leave_balance_before_month, delete_salary,
                                 get_annual_leave_setting, get_employee_salary_note, get_month_salaries, get_rules,
@@ -184,11 +184,29 @@ def _monthly_tab(config):
             block.update(calculate_salary(block, additions, deductions, rules)); block["system_note"] = generate_salary_note(block, additions, deductions)
             block["manual_note"] = st.text_area("人工備註", block.get("manual_note", ""), key=f"manual_{period}_{index}")
             st.markdown(f"**薪資總計：{block['final_salary']:,} 元**"); st.caption(block["system_note"] or "本月無特殊說明")
+    preflight_problems = []
+    for block in blocks:
+        employee_name = block.get("employee_name_snapshot") or block.get("employee_id") or "未指定人員"
+        preflight_problems.extend(
+            f"{employee_name}：{problem}" for problem in validate_dated_leave_records(
+                block.get("annual_leave_records", []), year, month,
+                block.get("standard_hours_snapshot") or 8,
+            )
+        )
+    st.markdown("##### 結算前除錯")
+    if preflight_problems:
+        st.error("除錯未通過，請先修正下列資料；系統不會進行正式結算：\n\n- " + "\n- ".join(preflight_problems))
+    else:
+        st.success("除錯通過：未發現重複日期、單日超過 1 日或無效的特休明細。")
+    if st.button("重新執行結算前除錯", disabled=not blocks):
+        st.toast("除錯完成" if not preflight_problems else f"發現 {len(preflight_problems)} 個問題")
+
     c1,c2 = st.columns(2)
     if c1.button("儲存草稿", disabled=not blocks):
         for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], annual_leave_records=block.get("annual_leave_records", []))
         st.toast("草稿已儲存")
-    if c2.button("結算薪資", type="primary", disabled=not blocks):
+    if c2.button("結算薪資", type="primary", disabled=not blocks or bool(preflight_problems),
+                 help="請先修正結算前除錯問題" if preflight_problems else None):
         for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], settle=True, annual_leave_records=block.get("annual_leave_records", []))
         st.toast("正式薪資快照已結算／更新")
 
