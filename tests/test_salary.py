@@ -245,6 +245,10 @@ def test_annual_leave_batch_editor_normalizes_rows_and_ignores_empty_rows():
 
     editor_rows.loc[0, "日期（可留空）"] = "8/3"
     assert _annual_leave_records_from_editor(editor_rows, 2026)[0]["date"] == "2026-08-03"
+    editor_rows.loc[0, "日期（可留空）"] = "0824"
+    assert _annual_leave_records_from_editor(editor_rows, 2026)[0]["date"] == "2026-08-24"
+    editor_rows.loc[0, "日期（可留空）"] = "20260807"
+    assert _annual_leave_records_from_editor(editor_rows, 2026)[0]["date"] == "2026-08-07"
     editor_rows.loc[0, "日期（可留空）"] = "2/30"
     with pytest.raises(ValueError, match="不是有效日期"):
         _annual_leave_records_from_editor(editor_rows, 2026)

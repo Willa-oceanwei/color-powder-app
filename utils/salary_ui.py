@@ -30,16 +30,21 @@ def _annual_leave_editor_rows(records):
 
 
 def _parse_annual_leave_date(value, default_year):
-    """Parse either YYYY-MM-DD or the quicker M/D annual-leave input."""
+    """Parse YYYY-MM-DD, M/D, MMDD, or their Chinese equivalents."""
     if pd.isna(value) or not str(value).strip():
         return ""
     text = str(value).strip().replace("年", "-").replace("月", "-").replace("日", "")
     text = text.replace("/", "-")
-    parts = [part.strip() for part in text.split("-") if part.strip()]
+    if text.isdigit() and len(text) == 4:
+        parts = [str(default_year), text[:2], text[2:]]
+    elif text.isdigit() and len(text) == 8:
+        parts = [text[:4], text[4:6], text[6:]]
+    else:
+        parts = [part.strip() for part in text.split("-") if part.strip()]
     if len(parts) == 2:
         parts.insert(0, str(default_year))
     if len(parts) != 3:
-        raise ValueError(f"日期「{value}」格式不正確，請輸入 M/D 或 YYYY-MM-DD")
+        raise ValueError(f"日期「{value}」格式不正確，請輸入 08/07、0807 或 2026-08-07")
     try:
         return date(*(int(part) for part in parts)).isoformat()
     except ValueError as error:
@@ -207,6 +212,7 @@ def _monthly_tab(config):
             st.markdown("##### 特休日期明細")
             records = block.setdefault("annual_leave_records", [])
             st.caption("可一次新增、修改或刪除多筆；編輯期間不會重跑頁面，完成後再按套用。")
+            st.info("日期輸入方式：`08/07`、`0807` 或 `2026-08-07`；日期也可以留空白。")
             with st.form(f"annual_leave_records_{period}_{index}"):
                 edited_records = st.data_editor(
                     _annual_leave_editor_rows(records),
@@ -217,7 +223,7 @@ def _monthly_tab(config):
                     column_config={
                         "日期（可留空）": st.column_config.TextColumn(
                             "日期（可留空）",
-                            help="可直接輸入 8/15 或 2026-08-15，不限制只能選薪資月份。",
+                            help="可直接輸入 08/07、0807 或 2026-08-07，不限制只能選薪資月份。",
                         ),
                         "日數": st.column_config.NumberColumn("日數", min_value=0.0, step=0.5),
                         "時數": st.column_config.NumberColumn("時數", min_value=0.0, step=0.5),
