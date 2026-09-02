@@ -124,3 +124,27 @@ def test_saved_label_order_rejects_incomplete_snapshots():
     assert get_saved_order(None) is None
     assert get_saved_order({}) is None
     assert get_saved_order({"order": {"配方編號": "R001"}}) is None
+
+
+def test_saved_order_a5_download_has_print_setup_and_safe_filename():
+    source = Path("app.py").read_text(encoding="utf-8")
+    module = ast.parse(source)
+    wanted = {"generate_production_order_print", "generate_print_page_content", "build_a5_production_order_download"}
+    functions = [node for node in module.body if isinstance(node, ast.FunctionDef) and node.name in wanted]
+
+    # Filename behavior can be validated without a pandas fixture by using an empty recipe table.
+    class EmptyRecipes:
+        empty = True
+
+    namespace = {"pd": type("PD", (), {"isna": staticmethod(lambda _: False)}), "re": __import__("re")}
+    exec(compile(ast.Module(body=functions, type_ignores=[]), "app.py", "exec"), namespace)
+
+    data, filename = namespace["build_a5_production_order_download"](
+        {"生產單號": "PO/001", "配方編號": "R:01", "建立時間": "2026-09-02"},
+        EmptyRecipes(),
+    )
+
+    html = data.decode("utf-8")
+    assert filename == "PO-001_R-01_A5列印.html"
+    assert "size: A5 landscape" in html
+    assert "window.print()" in html
