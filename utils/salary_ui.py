@@ -36,6 +36,17 @@ def _annual_leave_editor_key(period, index, employee_id):
     return f"leave_editor_{period}_{index}_{employee_id}"
 
 
+def _sync_generated_note_state(state, note_key, generated_note, saved_note=""):
+    """Refresh an untouched generated note while preserving a user's edits."""
+    generated_key = f"{note_key}_source"
+    previous_generated = state.get(generated_key)
+    if note_key not in state:
+        state[note_key] = saved_note or generated_note
+    elif state[note_key] == previous_generated:
+        state[note_key] = generated_note
+    state[generated_key] = generated_note
+
+
 def _parse_annual_leave_date(value, default_year):
     """Parse YYYY-MM-DD, M/D, MMDD, or their Chinese equivalents."""
     if pd.isna(value) or not str(value).strip():
@@ -212,6 +223,11 @@ def _monthly_tab(config):
                 # appear when another employee is selected in the same slot.
                 st.session_state.pop(_annual_leave_editor_key(period, index, current_id), None)
                 st.session_state.pop(_annual_leave_editor_key(period, index, selected_id), None)
+                for employee_id in (current_id, selected_id):
+                    note_key = f"system_note_{period}_{index}_{employee_id}"
+                    st.session_state.pop(note_key, None)
+                    st.session_state.pop(f"{note_key}_source", None)
+                    st.session_state.pop(f"manual_{period}_{index}_{employee_id}", None)
                 blocks[index] = new_month_block(by_id[selected_id]); st.rerun()
             if remove.button("－ 移除此人員", key=f"sal_remove_{period}_{index}"):
                 blocks.pop(index); st.rerun()
@@ -282,10 +298,22 @@ def _monthly_tab(config):
                 elif item is not None:
                     adjustments.remove(item)
             additions = [x for x in block["adjustments"] if x["type"] == "addition"]; deductions = [x for x in block["adjustments"] if x["type"] == "deduction"]
-            block.update(calculate_salary(block, additions, deductions, rules)); block["system_note"] = generate_salary_note(block, additions, deductions)
-            block["manual_note"] = st.text_area("人工備註", block.get("manual_note", ""), key=f"manual_{period}_{index}")
+            block.update(calculate_salary(block, additions, deductions, rules))
+            generated_note = generate_salary_note(block, additions, deductions)
+            system_note_key = f"system_note_{period}_{index}_{block.get('employee_id')}"
+            _sync_generated_note_state(
+                st.session_state, system_note_key, generated_note, block.get("system_note", ""),
+            )
+            block["system_note"] = st.text_area(
+                "自動生成備註（可編輯）", key=system_note_key,
+                help="內容會隨薪資資料自動更新；手動修改後，系統會保留您的版本。",
+            )
+            block["manual_note"] = st.text_area(
+                "人工備註", block.get("manual_note", ""),
+                key=f"manual_{period}_{index}_{block.get('employee_id')}",
+            )
             st.markdown("##### 儲存前備註預覽")
-            st.caption("特休明細請先按「套用特休明細」；套用後即可在這裡確認自動生成內容，再儲存草稿或結算薪資。")
+            st.caption("特休明細請先按「套用特休明細」；自動生成內容可直接修改，確認後再儲存草稿或結算薪資。")
             preview_lines = []
             if block["system_note"]:
                 preview_lines.append(f"自動生成：{block['system_note']}")

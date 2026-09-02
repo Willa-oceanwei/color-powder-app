@@ -261,6 +261,27 @@ def test_annual_leave_batch_editor_normalizes_rows_and_ignores_empty_rows():
         _annual_leave_records_from_editor(editor_rows, 2026)
 
 
+def test_generated_salary_note_refreshes_until_user_edits_it():
+    import pytest
+    pytest.importorskip("pandas")
+    from utils.salary_ui import _sync_generated_note_state
+
+    state = {}
+    _sync_generated_note_state(state, "note_E1", "自動內容一")
+    assert state["note_E1"] == "自動內容一"
+
+    _sync_generated_note_state(state, "note_E1", "自動內容二")
+    assert state["note_E1"] == "自動內容二"
+
+    state["note_E1"] = "自行修改內容"
+    _sync_generated_note_state(state, "note_E1", "自動內容三")
+    assert state["note_E1"] == "自行修改內容"
+
+    saved_state = {}
+    _sync_generated_note_state(saved_state, "note_E2", "重新計算內容", "已儲存的編輯內容")
+    assert saved_state["note_E2"] == "已儲存的編輯內容"
+
+
 def test_salary_total_range_uses_only_settled_active_snapshots(tmp_path: Path):
     config = DatabaseConfig("sqlite", tmp_path / "salary-range.db")
     initialize_database_with_health(config)
