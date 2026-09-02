@@ -88,6 +88,25 @@ def test_personal_annual_leave_opening_balance_and_monthly_usage(tmp_path: Path)
     assert saved["annual_leave_balance_after"] == 7.5
 
 
+def test_annual_leave_balance_falls_back_to_employee_current_days(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "annual-leave-fallback.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E1", "name":"甲", "join_date":"2026-01-01",
+                           "standard_hours":8, "annual_leave_base":10})
+    january = {"year":2026, "month":1, "employee_id":"E1", "employee_name_snapshot":"甲",
+               "standard_hours_snapshot":8, "annual_leave_days":1, "annual_leave_hours":4,
+               "annual_leave_balance_before":10, "annual_leave_balance_after":8.5}
+    january.update(calculate_salary(january))
+    save_salary(config, january, settle=True)
+
+    assert get_annual_leave_setting(config, "E1", 2026) is None
+    assert annual_leave_balance_before_month(config, "E1", 2026, 1) == 10
+    assert annual_leave_balance_before_month(config, "E1", 2026, 2) == 10
+
+    save_annual_leave_setting(config, "E1", 2026, 10, 10, 1, "")
+    assert annual_leave_balance_before_month(config, "E1", 2026, 2) == 8.5
+
+
 def test_leave_rounding_and_same_sheet_excel():
     import pytest
     openpyxl = pytest.importorskip("openpyxl")
@@ -210,6 +229,57 @@ def test_dated_leave_records_are_linked_to_salary_and_editable(tmp_path: Path):
     assert get_settled_month_salaries(config, 2026, 8)[0]["annual_leave_hours"] == 4
     delete_annual_leave_history_record(config, updated[0]["id"])
     assert len(list_annual_leave_history(config, "E1", 2026)) == 2
+
+
+def test_annual_leave_batch_editor_normalizes_rows_and_ignores_empty_rows():
+    import pytest
+    pd = pytest.importorskip("pandas")
+    from utils.salary_ui import (_annual_leave_editor_key, _annual_leave_editor_rows,
+                                 _annual_leave_records_from_editor)
+
+    existing = [{"date":"2026-08-03", "days":1, "hours":0, "note":"上午"},
+                {"date":"", "days":0, "hours":2, "note":""}]
+    editor_rows = _annual_leave_editor_rows(existing)
+    assert pd.isna(editor_rows.loc[0, "時數"])
+    assert editor_rows.loc[1, "時數"] == 2.0
+    assert _annual_leave_editor_key("2026-08", 0, "E1") != _annual_leave_editor_key("2026-08", 0, "E2")
+    editor_rows.loc[len(editor_rows)] = [None, None, None, None]
+
+    assert _annual_leave_records_from_editor(editor_rows, 2026) == existing
+
+    editor_rows.loc[1, "時數"] = 1.25
+    assert _annual_leave_records_from_editor(editor_rows, 2026)[1]["hours"] == 1.25
+
+    editor_rows.loc[0, "日期（可留空）"] = "8/3"
+    assert _annual_leave_records_from_editor(editor_rows, 2026)[0]["date"] == "2026-08-03"
+    editor_rows.loc[0, "日期（可留空）"] = "0824"
+    assert _annual_leave_records_from_editor(editor_rows, 2026)[0]["date"] == "2026-08-24"
+    editor_rows.loc[0, "日期（可留空）"] = "20260807"
+    assert _annual_leave_records_from_editor(editor_rows, 2026)[0]["date"] == "2026-08-07"
+    editor_rows.loc[0, "日期（可留空）"] = "2/30"
+    with pytest.raises(ValueError, match="不是有效日期"):
+        _annual_leave_records_from_editor(editor_rows, 2026)
+
+
+def test_generated_salary_note_refreshes_until_user_edits_it():
+    import pytest
+    pytest.importorskip("pandas")
+    from utils.salary_ui import _sync_generated_note_state
+
+    state = {}
+    _sync_generated_note_state(state, "note_E1", "自動內容一")
+    assert state["note_E1"] == "自動內容一"
+
+    _sync_generated_note_state(state, "note_E1", "自動內容二")
+    assert state["note_E1"] == "自動內容二"
+
+    state["note_E1"] = "自行修改內容"
+    _sync_generated_note_state(state, "note_E1", "自動內容三")
+    assert state["note_E1"] == "自行修改內容"
+
+    saved_state = {}
+    _sync_generated_note_state(saved_state, "note_E2", "重新計算內容", "已儲存的編輯內容")
+    assert saved_state["note_E2"] == "已儲存的編輯內容"
 
 
 def test_salary_total_range_uses_only_settled_active_snapshots(tmp_path: Path):
