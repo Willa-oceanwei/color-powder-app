@@ -212,6 +212,19 @@ def test_dated_leave_records_are_linked_to_salary_and_editable(tmp_path: Path):
     assert len(list_annual_leave_history(config, "E1", 2026)) == 2
 
 
+def test_annual_leave_batch_editor_normalizes_rows_and_ignores_empty_rows():
+    import pytest
+    pd = pytest.importorskip("pandas")
+    from utils.salary_ui import _annual_leave_editor_rows, _annual_leave_records_from_editor
+
+    existing = [{"date":"2026-08-03", "days":1, "hours":0, "note":"上午"},
+                {"date":"", "days":0, "hours":2, "note":""}]
+    editor_rows = _annual_leave_editor_rows(existing)
+    editor_rows.loc[len(editor_rows)] = [pd.NaT, None, None, None]
+
+    assert _annual_leave_records_from_editor(editor_rows) == existing
+
+
 def test_salary_total_range_uses_only_settled_active_snapshots(tmp_path: Path):
     config = DatabaseConfig("sqlite", tmp_path / "salary-range.db")
     initialize_database_with_health(config)
