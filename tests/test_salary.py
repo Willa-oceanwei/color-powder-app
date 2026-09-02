@@ -101,6 +101,9 @@ def test_annual_leave_balance_falls_back_to_employee_current_days(tmp_path: Path
 
     assert get_annual_leave_setting(config, "E1", 2026) is None
     assert annual_leave_balance_before_month(config, "E1", 2026, 1) == 10
+    assert annual_leave_balance_before_month(config, "E1", 2026, 2) == 10
+
+    save_annual_leave_setting(config, "E1", 2026, 10, 10, 1, "")
     assert annual_leave_balance_before_month(config, "E1", 2026, 2) == 8.5
 
 

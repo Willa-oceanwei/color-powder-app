@@ -191,15 +191,15 @@ def annual_leave_balance_before_month(config, employee_id, year, month):
         opening_balance = float(setting["opening_balance"])
         opening_month = int(setting["opening_month"])
     else:
-        # Older employee records keep the current entitlement in annual_leave_base.
-        # Use it until an employee/year setting is explicitly created so a newly
-        # added payroll row does not incorrectly start from zero.
+        # Older employee records keep the current balance in annual_leave_base.
+        # Treat it as current for the requested month; there is no reliable
+        # historical opening month until an employee/year setting is saved.
         with connect_from_config(config) as conn:
             row = conn.execute(
                 "SELECT annual_leave_base FROM employee_master WHERE employee_id=?", (employee_id,)
             ).fetchone()
         opening_balance = float(row[0] or 0) if row else 0.0
-        opening_month = 1
+        opening_month = month
     with connect_from_config(config) as conn:
         row = conn.execute("""SELECT COALESCE(SUM(annual_leave_days + annual_leave_hours /
             CASE WHEN standard_hours_snapshot > 0 THEN standard_hours_snapshot ELSE 8 END), 0)
