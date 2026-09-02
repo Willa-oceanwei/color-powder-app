@@ -1,7 +1,5 @@
 """Streamlit salary-management page; business rules and persistence live elsewhere."""
 from datetime import date
-from calendar import monthrange
-
 import pandas as pd
 import streamlit as st
 
@@ -23,7 +21,7 @@ def _annual_leave_editor_rows(records):
     """Return rows suitable for the batch annual-leave editor."""
     columns = ["日期（可留空）", "日數", "時數", "備註"]
     rows = [{
-        "日期（可留空）": pd.to_datetime(record.get("date") or None),
+        "日期（可留空）": record.get("date") or "",
         "日數": float(record.get("days") or 0),
         "時數": float(record.get("hours") or 0),
         "備註": record.get("note") or "",
@@ -31,12 +29,28 @@ def _annual_leave_editor_rows(records):
     return pd.DataFrame(rows, columns=columns)
 
 
-def _annual_leave_records_from_editor(rows):
+def _parse_annual_leave_date(value, default_year):
+    """Parse either YYYY-MM-DD or the quicker M/D annual-leave input."""
+    if pd.isna(value) or not str(value).strip():
+        return ""
+    text = str(value).strip().replace("年", "-").replace("月", "-").replace("日", "")
+    text = text.replace("/", "-")
+    parts = [part.strip() for part in text.split("-") if part.strip()]
+    if len(parts) == 2:
+        parts.insert(0, str(default_year))
+    if len(parts) != 3:
+        raise ValueError(f"日期「{value}」格式不正確，請輸入 M/D 或 YYYY-MM-DD")
+    try:
+        return date(*(int(part) for part in parts)).isoformat()
+    except ValueError as error:
+        raise ValueError(f"日期「{value}」不是有效日期") from error
+
+
+def _annual_leave_records_from_editor(rows, default_year=None):
     """Normalize batch-editor rows and discard its completely empty rows."""
     records = []
     for row in rows.to_dict("records") if isinstance(rows, pd.DataFrame) else rows:
-        raw_date = row.get("日期（可留空）")
-        record_date = "" if pd.isna(raw_date) else pd.to_datetime(raw_date).date().isoformat()
+        record_date = _parse_annual_leave_date(row.get("日期（可留空）"), default_year or date.today().year)
         days = 0.0 if pd.isna(row.get("日數")) else float(row.get("日數") or 0)
         hours = 0.0 if pd.isna(row.get("時數")) else float(row.get("時數") or 0)
         raw_note = row.get("備註")
@@ -201,9 +215,9 @@ def _monthly_tab(config):
                     hide_index=True,
                     use_container_width=True,
                     column_config={
-                        "日期（可留空）": st.column_config.DateColumn(
-                            "日期（可留空）", min_value=date(year, month, 1),
-                            max_value=date(year, month, monthrange(year, month)[1]), format="YYYY-MM-DD",
+                        "日期（可留空）": st.column_config.TextColumn(
+                            "日期（可留空）",
+                            help="可直接輸入 8/15 或 2026-08-15，不限制只能選薪資月份。",
                         ),
                         "日數": st.column_config.NumberColumn("日數", min_value=0.0, step=0.5),
                         "時數": st.column_config.NumberColumn("時數", min_value=0.0, step=0.5),
@@ -211,8 +225,13 @@ def _monthly_tab(config):
                     },
                 )
                 if st.form_submit_button("套用特休明細", type="primary"):
-                    records[:] = _annual_leave_records_from_editor(edited_records)
-                    st.toast("特休明細已套用；請再儲存草稿或結算薪資")
+                    try:
+                        normalized_records = _annual_leave_records_from_editor(edited_records, year)
+                    except ValueError as error:
+                        st.error(str(error))
+                    else:
+                        records[:] = normalized_records
+                        st.toast("特休明細已套用；請再儲存草稿或結算薪資")
             if records:
                 block["annual_leave_days"] = sum(float(record.get("days") or 0) for record in records)
                 block["annual_leave_hours"] = sum(float(record.get("hours") or 0) for record in records)

@@ -239,9 +239,15 @@ def test_annual_leave_batch_editor_normalizes_rows_and_ignores_empty_rows():
     existing = [{"date":"2026-08-03", "days":1, "hours":0, "note":"上午"},
                 {"date":"", "days":0, "hours":2, "note":""}]
     editor_rows = _annual_leave_editor_rows(existing)
-    editor_rows.loc[len(editor_rows)] = [pd.NaT, None, None, None]
+    editor_rows.loc[len(editor_rows)] = [None, None, None, None]
 
-    assert _annual_leave_records_from_editor(editor_rows) == existing
+    assert _annual_leave_records_from_editor(editor_rows, 2026) == existing
+
+    editor_rows.loc[0, "日期（可留空）"] = "8/3"
+    assert _annual_leave_records_from_editor(editor_rows, 2026)[0]["date"] == "2026-08-03"
+    editor_rows.loc[0, "日期（可留空）"] = "2/30"
+    with pytest.raises(ValueError, match="不是有效日期"):
+        _annual_leave_records_from_editor(editor_rows, 2026)
 
 
 def test_salary_total_range_uses_only_settled_active_snapshots(tmp_path: Path):
