@@ -2315,6 +2315,39 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
     html = html_template.replace("{created_time}", created_time).replace("{content}", content)
     return html
 
+
+def build_a5_production_order_download(order, df_recipe, show_additional_ids=True):
+    """Build the A5 print file for an already-saved production order."""
+    order_dict = {
+        key: "" if value is None or pd.isna(value) else str(value)
+        for key, value in dict(order).items()
+    }
+    recipe_code = order_dict.get("配方編號", "").strip()
+    recipe_row = {}
+    additional_recipe_rows = []
+
+    if df_recipe is not None and not df_recipe.empty and "配方編號" in df_recipe.columns:
+        recipe_matches = df_recipe[df_recipe["配方編號"].astype(str).str.strip() == recipe_code]
+        if not recipe_matches.empty:
+            recipe_row = recipe_matches.iloc[0].to_dict()
+
+        if {"配方類別", "原始配方"}.issubset(df_recipe.columns):
+            additional_recipe_rows = df_recipe[
+                (df_recipe["配方類別"].astype(str).str.strip() == "附加配方")
+                & (df_recipe["原始配方"].astype(str).str.strip() == recipe_code)
+            ].to_dict("records")
+
+    html = generate_print_page_content(
+        order=order_dict,
+        recipe_row=recipe_row,
+        additional_recipe_rows=additional_recipe_rows,
+        show_additional_ids=show_additional_ids,
+    )
+    raw_order_no = order_dict.get("生產單號", "").strip() or "未命名"
+    safe_order_no = re.sub(r'[\\/:*?"<>|]', "-", raw_order_no)
+    safe_recipe_no = re.sub(r'[\\/:*?"<>|]', "-", recipe_code or "無配方")
+    return html.encode("utf-8"), f"{safe_order_no}_{safe_recipe_no}_A5列印.html"
+
 # --------------- 新增：生產單大標列印 ---------------
 def to_roc_date(date_value):
     """把西元日期（YYYY-MM-DD 或含時間戳）轉成民國年字串，例如 2026-08-14 -> 115/08/14。
@@ -5958,6 +5991,29 @@ elif menu == "生產單管理":
                 use_container_width=True,
                 hide_index=True
             )
+
+            st.markdown("**📥 下載這一頁的生產單**")
+            download_index = st.selectbox(
+                "選擇要下載的生產單",
+                options=page_data.index,
+                format_func=lambda i: (
+                    f"{page_data.at[i, '生產單號']} | {page_data.at[i, '配方編號']} | "
+                    f"{page_data.at[i, '顏色']} | {page_data.at[i, '客戶名稱']}"
+                ),
+                key="download_order_select_tab2",
+            )
+            tab2_download_order = page_data.loc[download_index].to_dict()
+            tab2_a5_data, tab2_a5_filename = build_a5_production_order_download(
+                tab2_download_order, df_recipe, show_additional_ids=True
+            )
+            st.download_button(
+                "📥 下載 A5（開啟後自動列印）",
+                data=tab2_a5_data,
+                file_name=tab2_a5_filename,
+                mime="text/html",
+                key=f"download_a5_tab2_{tab2_download_order.get('生產單號', '')}",
+                use_container_width=True,
+            )
         else:
             render_empty_state("查無符合的生產單資料", hint="試試調整關鍵字或減少搜尋條件")
 
@@ -6211,7 +6267,7 @@ elif menu == "生產單管理":
             preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 取消"])
     
             with preview_tab:
-                head_col, opt_col = st.columns([6, 2])
+                head_col, opt_col, download_col = st.columns([5, 2, 2])
                 with head_col:
                     st.caption("下方為目前選擇生產單的完整列印預覽內容。")
                 with opt_col:
@@ -6225,6 +6281,20 @@ elif menu == "生產單管理":
                         key="show_ids_mode_tab3"
                     )
                     show_ids = (show_ids_mode == "顯示")
+
+                preview_a5_data, preview_a5_filename = build_a5_production_order_download(
+                    order_dict, df_recipe, show_additional_ids=show_ids
+                )
+                with download_col:
+                    st.download_button(
+                        "📥 下載 A5",
+                        data=preview_a5_data,
+                        file_name=preview_a5_filename,
+                        mime="text/html",
+                        key=f"download_a5_tab3_{current_order_no}",
+                        help="下載 A5 橫式生產單 HTML，開啟檔案後會自動顯示列印視窗。",
+                        use_container_width=True,
+                    )
     
                 preview_text = generate_order_preview_text_tab3(
                     order_dict,
