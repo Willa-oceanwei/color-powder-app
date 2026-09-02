@@ -88,6 +88,22 @@ def test_personal_annual_leave_opening_balance_and_monthly_usage(tmp_path: Path)
     assert saved["annual_leave_balance_after"] == 7.5
 
 
+def test_annual_leave_balance_falls_back_to_employee_current_days(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "annual-leave-fallback.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E1", "name":"甲", "join_date":"2026-01-01",
+                           "standard_hours":8, "annual_leave_base":10})
+    january = {"year":2026, "month":1, "employee_id":"E1", "employee_name_snapshot":"甲",
+               "standard_hours_snapshot":8, "annual_leave_days":1, "annual_leave_hours":4,
+               "annual_leave_balance_before":10, "annual_leave_balance_after":8.5}
+    january.update(calculate_salary(january))
+    save_salary(config, january, settle=True)
+
+    assert get_annual_leave_setting(config, "E1", 2026) is None
+    assert annual_leave_balance_before_month(config, "E1", 2026, 1) == 10
+    assert annual_leave_balance_before_month(config, "E1", 2026, 2) == 8.5
+
+
 def test_leave_rounding_and_same_sheet_excel():
     import pytest
     openpyxl = pytest.importorskip("openpyxl")

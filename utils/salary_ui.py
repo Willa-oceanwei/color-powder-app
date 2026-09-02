@@ -101,9 +101,11 @@ def _new_block(employee, annual_setting=None, leave_balance=0):
         adjustments.append({"type":"addition", "item_name":"特別加給", "amount":employee.get("special_addition_amount", 0), "note":employee.get("special_addition_note") or ""})
     if employee.get("default_deduction_enabled"):
         adjustments.append({"type":"deduction", "item_name":"扣除額", "amount":employee.get("default_deduction_amount", 0), "note":employee.get("default_deduction_note") or ""})
+    entitlement = ((annual_setting or {}).get("annual_entitlement")
+                   if annual_setting else employee.get("annual_leave_base", 0))
     return {"employee_id": employee["employee_id"], "employee_name_snapshot": employee["name"],
             **{f"{k}_snapshot": employee[k] for k in MONEY_FIELDS}, "standard_hours_snapshot": employee["standard_hours"],
-            "annual_leave_entitlement_snapshot": (annual_setting or {}).get("annual_entitlement", 0),
+            "annual_leave_entitlement_snapshot": entitlement or 0,
             "annual_leave_note_snapshot": (annual_setting or {}).get("note", ""),
             "annual_leave_balance_before": leave_balance, "leave_days":0.0, "leave_hours":0.0,
             "annual_leave_days":0.0, "annual_leave_hours":0.0, "late_deduction":0, "manual_note":"",
@@ -125,6 +127,20 @@ def _monthly_tab(config):
         setting = get_annual_leave_setting(config, employee["employee_id"], year)
         balance = annual_leave_balance_before_month(config, employee["employee_id"], year, month)
         return _new_block(employee, setting, balance)
+    # Repair older drafts that were created with zero leave values even though
+    # the employee has a current balance. Settled snapshots remain immutable.
+    for block in blocks:
+        employee = by_id.get(block.get("employee_id"))
+        if (employee and block.get("status") != "settled"
+                and not block.get("annual_leave_entitlement_snapshot")
+                and not block.get("annual_leave_balance_before")):
+            setting = get_annual_leave_setting(config, employee["employee_id"], year)
+            entitlement = ((setting or {}).get("annual_entitlement")
+                           if setting else employee.get("annual_leave_base", 0))
+            balance = annual_leave_balance_before_month(config, employee["employee_id"], year, month)
+            if entitlement or balance:
+                block["annual_leave_entitlement_snapshot"] = entitlement or 0
+                block["annual_leave_balance_before"] = balance
     if st.button("＋ 新增人員", disabled=not employees):
         available = next((x for x in employees if x["employee_id"] not in {b.get("employee_id") for b in blocks}), employees[0])
         blocks.append(new_month_block(available)); st.rerun()
@@ -340,7 +356,13 @@ def _rules_tab(config):
         ),
         key="rules_annual_leave_employee",
     )
-    setting = get_annual_leave_setting(config, employee_id, leave_year) or {}
+    selected_employee = next(item for item in employees if item["employee_id"] == employee_id)
+    setting = get_annual_leave_setting(config, employee_id, leave_year) or {
+        "annual_entitlement": selected_employee.get("annual_leave_base", 0),
+        "opening_balance": selected_employee.get("annual_leave_base", 0),
+        "opening_month": 1,
+        "note": "",
+    }
     personal_note = get_employee_salary_note(config, employee_id, leave_year) or {}
     with st.form(f"rules_annual_leave_setting_{employee_id}_{leave_year}"):
         c1, c2, c3 = st.columns(3)
