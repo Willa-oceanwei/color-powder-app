@@ -335,6 +335,22 @@ def test_annual_leave_batch_editor_normalizes_rows_and_ignores_empty_rows():
         _annual_leave_records_from_editor(editor_rows, 2026)
 
 
+def test_salary_drafts_reload_when_session_blocks_are_missing():
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    from utils.salary_ui import _should_reload_salary_blocks
+
+    assert _should_reload_salary_blocks({}, "2026-08")
+    assert _should_reload_salary_blocks({"salary_period": "2026-08"}, "2026-08")
+    assert _should_reload_salary_blocks(
+        {"salary_period": "2026-07", "salary_blocks": []}, "2026-08",
+    )
+    assert not _should_reload_salary_blocks(
+        {"salary_period": "2026-08", "salary_blocks": []}, "2026-08",
+    )
+
+
 def test_generated_salary_note_refreshes_until_user_edits_it():
     import pytest
     pytest.importorskip("pandas")
