@@ -28,6 +28,13 @@ def calculate_allowance(amount, has_leave: bool, rule_key: str, rules: Mapping) 
     return 0 if has_leave and rules.get(rule_key, False) else money(amount)
 
 
+def calculate_monthly_extra_totals(previous_value, employee_values: Mapping) -> tuple[float, float]:
+    """Return the employee-value sum and the carried-forward monthly total."""
+    monthly_addition = sum((_d(value) for value in employee_values.values()), Decimal("0"))
+    monthly_total = _d(previous_value) + monthly_addition
+    return float(monthly_addition), float(monthly_total)
+
+
 def calculate_salary(data: Mapping, additions: Iterable[Mapping] = (), deductions: Iterable[Mapping] = (), rules: Mapping | None = None) -> dict:
     rules = rules or {}
     has_leave = _d(data.get("leave_days")) > 0 or _d(data.get("leave_hours")) > 0
@@ -52,7 +59,15 @@ def generate_salary_note(data: Mapping, additions: Iterable[Mapping] = (), deduc
         parts.append(f"本月請假{data.get('leave_days', 0):g}日{data.get('leave_hours', 0):g}小時，請假扣款{money(data.get('leave_deduction')):,}元")
     used = _d(data.get("annual_leave_days")) + _d(data.get("annual_leave_hours")) / _d(data.get("standard_hours_snapshot") or 8)
     if used:
-        parts.append(f"特休{data.get('annual_leave_days', 0):g}日{data.get('annual_leave_hours', 0):g}小時，共{used:g}日，結餘{_d(data.get('annual_leave_balance_after')):g}日")
+        leave_dates = []
+        for record in data.get("annual_leave_records", ()):
+            leave_date = str(record.get("date") or "")
+            if leave_date:
+                display_date = leave_date[5:].replace("-", "/") if len(leave_date) >= 10 else leave_date
+                if display_date not in leave_dates:
+                    leave_dates.append(display_date)
+        date_note = f"，日期{'、'.join(leave_dates)}" if leave_dates else ""
+        parts.append(f"特休{data.get('annual_leave_days', 0):g}日{data.get('annual_leave_hours', 0):g}小時，共{used:g}日{date_note}，結餘{_d(data.get('annual_leave_balance_after')):g}日")
     for item in additions:
         if money(item.get("amount")):
             detail = f"（{item.get('note')}）" if item.get("note") else ""

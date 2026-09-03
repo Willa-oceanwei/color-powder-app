@@ -151,6 +151,20 @@ def get_employee_salary_note(config, employee_id, year):
     return rows[0] if rows else None
 
 
+def get_employee_salary_notes(config, employee_ids, year):
+    """Return one year's personal salary notes keyed by employee ID."""
+    employee_ids = list(dict.fromkeys(employee_ids))
+    if not employee_ids:
+        return {}
+    placeholders = ",".join("?" for _ in employee_ids)
+    with connect_from_config(config) as conn:
+        rows = _rows(conn.execute(
+            f"SELECT * FROM employee_salary_notes WHERE year=? AND employee_id IN ({placeholders})",
+            (year, *employee_ids),
+        ))
+    return {row["employee_id"]: row for row in rows}
+
+
 def save_employee_salary_note(config, employee_id, year, company_cost_note="", annual_leave_note=""):
     now = utc_now_iso()
     with connect_from_config(config) as conn:
@@ -187,15 +201,26 @@ def save_salary_monthly_extras(config, year, month, employee_values, previous_va
 
 def annual_leave_balance_before_month(config, employee_id, year, month):
     setting = get_annual_leave_setting(config, employee_id, year)
-    if not setting:
-        return 0.0
+    if setting:
+        opening_balance = float(setting["opening_balance"])
+        opening_month = int(setting["opening_month"])
+    else:
+        # Older employee records keep the current balance in annual_leave_base.
+        # Treat it as current for the requested month; there is no reliable
+        # historical opening month until an employee/year setting is saved.
+        with connect_from_config(config) as conn:
+            row = conn.execute(
+                "SELECT annual_leave_base FROM employee_master WHERE employee_id=?", (employee_id,)
+            ).fetchone()
+        opening_balance = float(row[0] or 0) if row else 0.0
+        opening_month = month
     with connect_from_config(config) as conn:
         row = conn.execute("""SELECT COALESCE(SUM(annual_leave_days + annual_leave_hours /
             CASE WHEN standard_hours_snapshot > 0 THEN standard_hours_snapshot ELSE 8 END), 0)
             FROM salary_monthly WHERE employee_id=? AND year=? AND month>=? AND month<?
             AND status='settled' AND is_deleted=0""",
-            (employee_id, year, setting["opening_month"], month)).fetchone()
-    return float(setting["opening_balance"]) - float(row[0] or 0)
+            (employee_id, year, opening_month, month)).fetchone()
+    return opening_balance - float(row[0] or 0)
 
 
 def list_annual_leave_history(config, employee_id, year):
