@@ -63,6 +63,19 @@ def _salary_report_rows(config, rows, year):
     return report_rows, missing_notes
 
 
+def _deduplicate_salary_blocks(blocks):
+    """Remove repeated employees while retaining their first salary block."""
+    seen = set()
+    unique = []
+    for block in blocks:
+        employee_id = block.get("employee_id")
+        if employee_id in seen:
+            continue
+        seen.add(employee_id)
+        unique.append(block)
+    return unique
+
+
 def _parse_annual_leave_date(value, default_year):
     """Parse YYYY-MM-DD, M/D, MMDD, or their Chinese equivalents."""
     if pd.isna(value) or not str(value).strip():
@@ -202,6 +215,10 @@ def _monthly_tab(config):
         st.session_state.salary_period = period
         st.session_state.salary_blocks = get_month_salaries(config, year, month)
     blocks = st.session_state.setdefault("salary_blocks", [])
+    unique_blocks = _deduplicate_salary_blocks(blocks)
+    if len(unique_blocks) != len(blocks):
+        blocks[:] = unique_blocks
+        st.toast("已自動移除重複新增的薪資人員")
     employees = list_employees(config)
     by_id = {x["employee_id"]: x for x in employees}
     def new_month_block(employee):
@@ -222,10 +239,21 @@ def _monthly_tab(config):
             if entitlement or balance:
                 block["annual_leave_entitlement_snapshot"] = entitlement or 0
                 block["annual_leave_balance_before"] = balance
-    if st.button("＋ 新增人員", disabled=not employees):
-        available = next((x for x in employees if x["employee_id"] not in {b.get("employee_id") for b in blocks}), employees[0])
-        blocks.append(new_month_block(available)); st.rerun()
     rules = get_rules(config)
+    existing_employee_ids = {block.get("employee_id") for block in blocks}
+    available_employees = [x for x in employees if x["employee_id"] not in existing_employee_ids]
+    if st.button("＋ 新增人員", disabled=not available_employees,
+                 help="所有在職員工都已加入" if employees and not available_employees else None):
+        new_block = new_month_block(available_employees[0])
+        new_block.update(calculate_salary(new_block, rules=rules))
+        new_block["system_note"] = generate_salary_note(new_block)
+        new_block["salary_id"] = save_salary(
+            config, {**new_block, "year": year, "month": month}, new_block["adjustments"],
+            annual_leave_records=[],
+        )
+        blocks.append(new_block)
+        st.toast("新增人員已自動儲存為草稿")
+        st.rerun()
     for index, block in enumerate(list(blocks)):
         employee_label = block.get("employee_name_snapshot") or by_id.get(
             block.get("employee_id"), {"name": block.get("employee_id", "未指定員工")}
@@ -236,7 +264,8 @@ def _monthly_tab(config):
             expanded=index == 0,
         ):
             top, remove = st.columns([5, 1])
-            options = list(by_id)
+            other_employee_ids = {item.get("employee_id") for position, item in enumerate(blocks) if position != index}
+            options = [employee_id for employee_id in by_id if employee_id not in other_employee_ids]
             current_id = block.get("employee_id")
             if current_id not in options: options.insert(0, current_id)
             selected_id = top.selectbox("姓名", options, index=options.index(current_id), format_func=lambda x: by_id.get(x, {"name":block.get("employee_name_snapshot", x)})["name"], key=f"sal_emp_{period}_{index}")
@@ -265,6 +294,7 @@ def _monthly_tab(config):
             st.caption("可一次新增、修改或刪除多筆；編輯期間不會重跑頁面，完成後再按套用。")
             st.info("日期輸入方式：`08/07`、`0807` 或 `2026-08-07`；日期也可以留空白。")
             with st.form(f"annual_leave_records_{period}_{index}"):
+                annual_leave_applied = False
                 edited_records = st.data_editor(
                     _annual_leave_editor_rows(records),
                     key=_annual_leave_editor_key(period, index, block.get("employee_id")),
@@ -291,7 +321,7 @@ def _monthly_tab(config):
                         st.error(str(error))
                     else:
                         records[:] = normalized_records
-                        st.toast("特休明細已套用；請再儲存草稿或結算薪資")
+                        annual_leave_applied = True
             if records:
                 block["annual_leave_days"] = sum(float(record.get("days") or 0) for record in records)
                 block["annual_leave_hours"] = sum(float(record.get("hours") or 0) for record in records)
@@ -338,6 +368,12 @@ def _monthly_tab(config):
                 placeholder="本月目前沒有自動生成的備註內容。",
                 help="未修改時會隨薪資資料自動更新；手動修改後，系統會保留您的版本。",
             )
+            if annual_leave_applied:
+                block["salary_id"] = save_salary(
+                    config, {**block, "year": year, "month": month}, block["adjustments"],
+                    annual_leave_records=records,
+                )
+                st.toast("特休明細已套用並自動儲存草稿")
             if block["manual_note"].strip():
                 st.caption(f"人工備註預覽：{block['manual_note'].strip()}")
             st.markdown(f"**薪資總計：{block['final_salary']:,} 元**")

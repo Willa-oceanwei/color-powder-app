@@ -2,7 +2,7 @@ from pathlib import Path
 
 from utils.database import DatabaseConfig, connect_from_config, initialize_database_with_health
 from utils.salary_calculator import (calculate_leave_deduction, calculate_monthly_extra_totals,
-                                     calculate_salary)
+                                     calculate_salary, generate_salary_note)
 from utils.salary_excel import _monthly_summary, _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
                                      delete_annual_leave_history_record,
@@ -214,6 +214,23 @@ def test_monthly_extras_sum_employees_and_carry_previous_total():
     assert monthly_total == 13945.5
 
 
+def test_generated_salary_note_includes_unique_annual_leave_dates():
+    note = generate_salary_note({
+        "annual_leave_days": 1,
+        "annual_leave_hours": 2.5,
+        "annual_leave_balance_after": 6.6875,
+        "standard_hours_snapshot": 8,
+        "annual_leave_records": [
+            {"date": "2026-08-07"},
+            {"date": "2026-08-07"},
+            {"date": "2026-08-24"},
+            {"date": ""},
+        ],
+    })
+    assert "日期08/07、08/24" in note
+    assert note.count("08/07") == 1
+
+
 def test_dated_leave_records_are_linked_to_salary_and_editable(tmp_path: Path):
     config = DatabaseConfig("sqlite", tmp_path / "dated-leave.db")
     initialize_database_with_health(config)
@@ -289,6 +306,17 @@ def test_generated_salary_note_refreshes_until_user_edits_it():
     saved_state = {}
     _sync_generated_note_state(saved_state, "note_E2", "重新計算內容", "已儲存的編輯內容")
     assert saved_state["note_E2"] == "已儲存的編輯內容"
+
+
+def test_duplicate_salary_blocks_keep_only_first_employee_entry():
+    import pytest
+    pytest.importorskip("pandas")
+    from utils.salary_ui import _deduplicate_salary_blocks
+
+    first = {"employee_id": "E1", "manual_note": "保留這筆"}
+    duplicate = {"employee_id": "E1", "manual_note": "刪除這筆"}
+    second = {"employee_id": "E2"}
+    assert _deduplicate_salary_blocks([first, duplicate, second]) == [first, second]
 
 
 def test_draft_report_rows_include_employee_notes(tmp_path: Path):
