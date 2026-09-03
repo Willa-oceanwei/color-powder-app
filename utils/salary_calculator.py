@@ -28,6 +28,13 @@ def calculate_allowance(amount, has_leave: bool, rule_key: str, rules: Mapping) 
     return 0 if has_leave and rules.get(rule_key, False) else money(amount)
 
 
+def calculate_monthly_extra_totals(previous_value, employee_values: Mapping) -> tuple[float, float]:
+    """Return the employee-value sum and the carried-forward monthly total."""
+    monthly_addition = sum((_d(value) for value in employee_values.values()), Decimal("0"))
+    monthly_total = _d(previous_value) + monthly_addition
+    return float(monthly_addition), float(monthly_total)
+
+
 def calculate_salary(data: Mapping, additions: Iterable[Mapping] = (), deductions: Iterable[Mapping] = (), rules: Mapping | None = None) -> dict:
     rules = rules or {}
     has_leave = _d(data.get("leave_days")) > 0 or _d(data.get("leave_hours")) > 0
