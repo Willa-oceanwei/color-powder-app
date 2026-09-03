@@ -6,7 +6,8 @@ from utils.salary_calculator import (calculate_leave_deduction, calculate_monthl
 from utils.salary_excel import _monthly_summary, _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
                                      delete_annual_leave_history_record,
-                                     get_annual_leave_setting, get_employee_salary_note, get_month_salaries,
+                                     get_annual_leave_setting, get_employee_salary_note,
+                                     get_employee_salary_notes, get_month_salaries,
                                      get_salary_monthly_extras, get_settled_month_salaries,
                                      list_annual_leave_history, list_employees, list_settled_salaries_in_range,
                                      save_annual_leave_history_record, save_annual_leave_setting, save_employee, save_salary)
@@ -199,6 +200,8 @@ def test_personal_salary_notes_and_monthly_extras_are_editable(tmp_path: Path):
     save_employee_salary_note(config, "E1", 2026, "公司負擔A-更新", "特休說明A-更新")
     assert get_employee_salary_note(config, "E1", 2026)["company_cost_note"] == "公司負擔A-更新"
     assert get_employee_salary_note(config, "E1", 2027)["annual_leave_note"] == "特休說明B"
+    assert get_employee_salary_notes(config, ["E1", "missing", "E1"], 2026)["E1"]["annual_leave_note"] == "特休說明A-更新"
+    assert get_employee_salary_notes(config, [], 2026) == {}
 
     save_salary_monthly_extras(config, 2026, 7, {"E1":30}, 13873, 30, 13903)
     extras = get_salary_monthly_extras(config, 2026, 7)

@@ -151,6 +151,20 @@ def get_employee_salary_note(config, employee_id, year):
     return rows[0] if rows else None
 
 
+def get_employee_salary_notes(config, employee_ids, year):
+    """Return one year's personal salary notes keyed by employee ID."""
+    employee_ids = list(dict.fromkeys(employee_ids))
+    if not employee_ids:
+        return {}
+    placeholders = ",".join("?" for _ in employee_ids)
+    with connect_from_config(config) as conn:
+        rows = _rows(conn.execute(
+            f"SELECT * FROM employee_salary_notes WHERE year=? AND employee_id IN ({placeholders})",
+            (year, *employee_ids),
+        ))
+    return {row["employee_id"]: row for row in rows}
+
+
 def save_employee_salary_note(config, employee_id, year, company_cost_note="", annual_leave_note=""):
     now = utc_now_iso()
     with connect_from_config(config) as conn:

@@ -6,15 +6,21 @@ import streamlit as st
 from .salary_calculator import calculate_monthly_extra_totals, calculate_salary, generate_salary_note
 from .salary_excel import generate_salary_workbook
 from .salary_repository import (annual_leave_balance_before_month, delete_salary,
-                                get_annual_leave_setting, get_employee_salary_note, get_month_salaries, get_rules,
-                                get_salary_monthly_extras,
-                                get_settled_month_salaries, list_employees, list_salaries,
+                                get_annual_leave_setting, get_employee_salary_note, get_employee_salary_notes,
+                                get_month_salaries, get_rules,
+                                get_salary_monthly_extras, list_employees, list_salaries,
                                 save_annual_leave_setting, save_employee, save_employee_salary_note,
                                 save_rules, save_salary, save_salary_monthly_extras,
                                 set_employee_active)
 
 
 MONEY_FIELDS = ("base_salary", "attendance_bonus", "cooling_allowance", "allowance", "position_allowance", "insurance")
+
+
+@st.cache_data(show_spinner=False)
+def _cached_salary_workbook(year, month, salaries, monthly_extras):
+    """Cache expensive workbook rendering until its actual inputs change."""
+    return generate_salary_workbook(year, month, salaries, monthly_extras)
 
 
 def _annual_leave_editor_rows(records):
@@ -51,8 +57,11 @@ def _salary_report_rows(config, rows, year):
     """Attach the per-employee notes required by the salary workbook."""
     report_rows = []
     missing_notes = []
+    notes_by_employee = get_employee_salary_notes(
+        config, (salary["employee_id"] for salary in rows), year,
+    )
     for salary in rows:
-        personal_note = get_employee_salary_note(config, salary["employee_id"], year) or {}
+        personal_note = notes_by_employee.get(salary["employee_id"], {})
         report_rows.append({
             **salary,
             "company_cost_note": personal_note.get("company_cost_note", ""),
@@ -421,7 +430,7 @@ def _monthly_tab(config):
     if blocks:
         c3.download_button(
             "草稿預覽（Excel）",
-            generate_salary_workbook(year, month, preview_rows, current_monthly_extras),
+            _cached_salary_workbook(year, month, preview_rows, current_monthly_extras),
             f"{year}年{month:02d}月薪資草稿預覽.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             help="直接使用目前畫面內容產生預覽，不必先儲存或結算。",
@@ -431,7 +440,7 @@ def _monthly_tab(config):
 
     # 月份層級報表：只從資料庫重新讀取已結算快照，不使用畫面草稿。
     month_rows = get_month_salaries(config, year, month)
-    settled_rows = get_settled_month_salaries(config, year, month)
+    settled_rows = [row for row in month_rows if row["status"] == "settled"]
     payroll_employee_ids = {employee["employee_id"] for employee in employees}
     payroll_employee_ids.update(row["employee_id"] for row in month_rows)
     total_people = len(payroll_employee_ids)
@@ -445,7 +454,7 @@ def _monthly_tab(config):
         report_rows, missing_notes = _salary_report_rows(config, settled_rows, year)
         if missing_notes:
             st.warning(f"尚未設定 {year} 年個人薪資說明：{'、'.join(missing_notes)}；仍可結算與下載，Excel 將留白。")
-        st.download_button("下載本月薪資表", generate_salary_workbook(year, month, report_rows, monthly_extras), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button("下載本月薪資表", _cached_salary_workbook(year, month, report_rows, monthly_extras), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.button("下載本月薪資表", disabled=True, help="目前沒有已結算薪資可供下載。")
 
@@ -570,8 +579,14 @@ def _rules_tab(config):
 
 def render_salary_management(config):
     st.markdown("<div style='font-size:20px;font-weight:700;margin:0 0 0.6rem;'>人力｜薪資管理</div>", unsafe_allow_html=True)
-    tabs = st.tabs(["員工薪資設定", "每月薪資", "薪資歷史", "薪資規則"])
-    with tabs[0]: _employee_tab(config)
-    with tabs[1]: _monthly_tab(config)
-    with tabs[2]: _history_tab(config)
-    with tabs[3]: _rules_tab(config)
+    pages = {
+        "員工薪資設定": _employee_tab,
+        "每月薪資": _monthly_tab,
+        "薪資歷史": _history_tab,
+        "薪資規則": _rules_tab,
+    }
+    selected_page = st.radio(
+        "薪資功能", list(pages), horizontal=True, key="salary_management_page",
+        label_visibility="collapsed",
+    )
+    pages[selected_page](config)
