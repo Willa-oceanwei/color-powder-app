@@ -161,9 +161,11 @@ def test_leave_rounding_and_same_sheet_excel():
                                                    "職務津貼", "勞健保", "遲到", "小計", "特別加給", "扣除額", "薪資總計"]
     assert [cell.value for cell in sheet[3]] == ["08月份 甲", 29500, -1229, 3000, 500, 3000, 1000,
                                                    -2168, -30, 33573, 1800, 0, 35373]
+    assert sheet["A3"].font.bold
     assert sheet["A4"].value == "另有特別加給1,800元（餐費）。\n8/15補發制服費"
-    assert sheet["D4"].value == "公司負擔：\n甲公司負擔"
-    assert "甲歷年制說明" in sheet["H4"].value
+    assert sheet["F4"].value == "公司負擔：\n甲公司負擔"
+    assert "甲歷年制說明" in sheet["J4"].value
+    assert {str(cell_range) for cell_range in sheet.merged_cells.ranges} >= {"A4:E4", "F4:I4", "J4:M4"}
     assert sheet["A5"].value == "當月說明：上月13,873 + 本月新增30 = 本月總計13,903"
     assert "餐費" in sheet["A4"].value
     assert sum(cell.value == "底薪" for row in sheet for cell in row) == 5
@@ -171,12 +173,12 @@ def test_leave_rounding_and_same_sheet_excel():
     assert not any(cell.value == "歷年制特休" for row in sheet for cell in row)
     assert not any(cell.value == "每月附加數值區" for row in sheet for cell in row)
     assert sum(cell.value == "當月說明：上月13,873 + 本月新增30 = 本月總計13,903" for row in sheet for cell in row) == 5
-    for coordinate in ("A4", "C4", "D4", "G4", "H4", "M4", "A5", "M5"):
+    for coordinate in ("A4", "E4", "F4", "I4", "J4", "M4", "A5", "M5"):
         cell = sheet[coordinate]
         assert cell.border.top.style == "thin"
         assert cell.border.bottom.style in ("thin", "medium")
-    assert all(sheet[cell].border.left.style == "thin" for cell in ("A4", "D4", "H4", "A5"))
-    assert all(sheet[cell].border.right.style == "thin" for cell in ("C4", "G4", "M4", "M5"))
+    assert all(sheet[cell].border.left.style == "thin" for cell in ("A4", "F4", "J4", "A5"))
+    assert all(sheet[cell].border.right.style == "thin" for cell in ("E4", "I4", "M4", "M5"))
     assert sheet.max_row == 25
     assert sheet.sheet_properties.pageSetUpPr.fitToPage
     assert sheet.page_setup.orientation == "landscape"
