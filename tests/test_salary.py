@@ -79,6 +79,34 @@ def test_database_reinitialization_preserves_saved_salary_draft(tmp_path: Path):
     assert restored["annual_leave_records"][0]["date"] == "2026-09-03"
 
 
+def test_repeated_draft_autosave_preserves_edited_notes_and_leave_dates(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "draft-autosave.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E001", "name":"測試員工", "join_date":"2026-01-01"})
+    draft = {
+        "year": 2026, "month": 8, "employee_id": "E001",
+        "employee_name_snapshot": "測試員工", "standard_hours_snapshot": 8,
+        "annual_leave_days": 1, "annual_leave_hours": 2.5,
+        "system_note": "特休日期08/07、08/24", "manual_note": "保留我的備註",
+    }
+    records = [
+        {"date":"2026-08-07", "days":1, "hours":0, "note":"全天"},
+        {"date":"2026-08-24", "days":0, "hours":2.5, "note":"下午"},
+    ]
+    salary_id = save_salary(config, draft, annual_leave_records=records)
+
+    restored = get_month_salaries(config, 2026, 8)[0]
+    save_salary(config, restored, restored["adjustments"], annual_leave_records=restored["annual_leave_records"])
+
+    autosaved = get_month_salaries(config, 2026, 8)[0]
+    assert autosaved["salary_id"] == salary_id
+    assert autosaved["system_note"] == "特休日期08/07、08/24"
+    assert autosaved["manual_note"] == "保留我的備註"
+    assert [(item["date"], item["note"]) for item in autosaved["annual_leave_records"]] == [
+        ("2026-08-07", "全天"), ("2026-08-24", "下午"),
+    ]
+
+
 def test_month_report_returns_only_settled_snapshots(tmp_path: Path):
     config = DatabaseConfig("sqlite", tmp_path / "settled-report.db")
     initialize_database_with_health(config)

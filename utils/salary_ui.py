@@ -378,8 +378,20 @@ def _monthly_tab(config):
                     annual_leave_records=records,
                 )
                 st.toast("特休明細已套用並自動儲存草稿")
+            elif block.get("status") != "settled":
+                # Persist every rendered draft after all widgets have written
+                # their current values back to the block.  Streamlit session
+                # state is not durable across deployments or reconnects, so
+                # relying only on the bottom-of-page save button can otherwise
+                # lose edited notes when the process restarts.
+                block["salary_id"] = save_salary(
+                    config, {**block, "year": year, "month": month}, block["adjustments"],
+                    annual_leave_records=records,
+                )
             if block["manual_note"].strip():
                 st.caption(f"人工備註預覽：{block['manual_note'].strip()}")
+            if block.get("status") != "settled":
+                st.caption("草稿內容已自動儲存；重新連線或系統更新後仍會從資料庫載入。")
             st.markdown(f"**薪資總計：{block['final_salary']:,} 元**")
     monthly_extras = get_salary_monthly_extras(config, year, month)
     previous_year, previous_month = (year - 1, 12) if month == 1 else (year, month - 1)
