@@ -272,26 +272,14 @@ def _monthly_tab(config):
             f"👤 {employee_label}｜{period}｜{status_label}",
             expanded=index == 0,
         ):
-            top, remove = st.columns([5, 1])
-            other_employee_ids = {item.get("employee_id") for position, item in enumerate(blocks) if position != index}
-            options = [employee_id for employee_id in by_id if employee_id not in other_employee_ids]
             current_id = block.get("employee_id")
-            if current_id not in options: options.insert(0, current_id)
-            selected_id = top.selectbox("姓名", options, index=options.index(current_id), format_func=lambda x: by_id.get(x, {"name":block.get("employee_name_snapshot", x)})["name"], key=f"sal_emp_{period}_{index}")
-            if selected_id != current_id:
-                # data_editor keeps its own widget state. Clear both identities
-                # before replacing the block so one employee's dates cannot
-                # appear when another employee is selected in the same slot.
-                st.session_state.pop(_annual_leave_editor_key(period, index, current_id), None)
-                st.session_state.pop(_annual_leave_editor_key(period, index, selected_id), None)
-                for employee_id in (current_id, selected_id):
-                    note_key = f"system_note_{period}_{index}_{employee_id}"
-                    st.session_state.pop(note_key, None)
-                    st.session_state.pop(f"{note_key}_source", None)
-                    st.session_state.pop(f"manual_{period}_{index}_{employee_id}", None)
-                blocks[index] = new_month_block(by_id[selected_id]); st.rerun()
+            top, remove = st.columns([5, 1])
+            top.markdown(f"**薪資人員：{employee_label}**")
             if remove.button("－ 移除此人員", key=f"sal_remove_{period}_{index}"):
-                blocks.pop(index); st.rerun()
+                removed_block = blocks.pop(index)
+                if removed_block.get("salary_id") and removed_block.get("status") != "settled":
+                    delete_salary(config, removed_block["salary_id"])
+                st.rerun()
             labels = [("base_salary_snapshot","底薪"),("attendance_bonus_snapshot","全勤"),("cooling_allowance_snapshot","涼水"),("allowance_snapshot","固定津貼"),("position_allowance_snapshot","職務津貼"),("insurance_snapshot","勞健保")]
             cols = st.columns(3)
             for pos, (field, label) in enumerate(labels): block[field] = cols[pos % 3].number_input(label, min_value=0, value=int(block.get(field, 0)), key=f"{field}_{period}_{index}")
@@ -323,7 +311,7 @@ def _monthly_tab(config):
                         "備註": st.column_config.TextColumn("備註"),
                     },
                 )
-                if st.form_submit_button("套用特休明細", type="primary"):
+                if st.form_submit_button("套用並儲存特休明細", type="primary"):
                     try:
                         normalized_records = _annual_leave_records_from_editor(edited_records, year)
                     except ValueError as error:
@@ -388,11 +376,13 @@ def _monthly_tab(config):
             st.markdown(f"**薪資總計：{block['final_salary']:,} 元**")
     monthly_extras = get_salary_monthly_extras(config, year, month)
     previous_year, previous_month = (year - 1, 12) if month == 1 else (year, month - 1)
-    previous_value = float(
-        get_salary_monthly_extras(config, previous_year, previous_month).get("monthly_total", 0)
+    previous_extras = get_salary_monthly_extras(config, previous_year, previous_month)
+    previous_default = float(
+        previous_extras.get("monthly_total", 0)
+        if previous_extras.get("created_at") else monthly_extras.get("previous_value", 0)
     )
     with st.expander("每月附加數值區"):
-        st.caption("上月自動承接前一個月的餘額；本月新增與本月總計會依員工輸入即時計算。")
+        st.caption("上月會優先承接前一個月的餘額；若年中首次使用或前月尚無資料，也可直接填寫。")
         employee_values = {}
         extra_columns = st.columns(3)
         for position, employee in enumerate(employees):
@@ -400,9 +390,11 @@ def _monthly_tab(config):
                 employee["name"], value=float(monthly_extras["employee_values"].get(employee["employee_id"], 0)),
                 key=f"monthly_extra_employee_{period}_{employee['employee_id']}",
             )
-        monthly_addition, monthly_total = calculate_monthly_extra_totals(previous_value, employee_values)
         previous_col, addition_col, total_col = st.columns(3)
-        previous_col.metric("上月", f"{previous_value:g}")
+        previous_value = previous_col.number_input(
+            "上月", value=previous_default, key=f"monthly_extra_previous_{period}",
+        )
+        monthly_addition, monthly_total = calculate_monthly_extra_totals(previous_value, employee_values)
         addition_col.metric("+本月新增（員工總和）", f"{monthly_addition:g}")
         total_col.metric("餘本月總計", f"{monthly_total:g}")
         if st.button("儲存每月附加數值", key=f"save_monthly_extras_{period}"):
@@ -579,44 +571,21 @@ def _rules_tab(config):
 
 def render_salary_management(config):
     st.markdown("<div style='font-size:20px;font-weight:700;margin:0 0 0.6rem;'>人力｜薪資管理</div>", unsafe_allow_html=True)
-    # Keep only the selected page executing (unlike st.tabs, which renders all
-    # tabs on every rerun), but present the selector as familiar page tabs
-    # instead of radio dots.
-    st.markdown(
-        """
-        <style>
-        div[role="radiogroup"][aria-label="薪資管理分頁"] {
-            gap: .35rem;
-            padding: .25rem;
-            border-radius: .75rem;
-            background: rgba(128, 128, 128, .10);
-        }
-        div[role="radiogroup"][aria-label="薪資管理分頁"] label {
-            padding: .45rem .9rem;
-            border-radius: .55rem;
-            border: 1px solid transparent;
-        }
-        div[role="radiogroup"][aria-label="薪資管理分頁"] label:has([aria-checked="true"]) {
-            color: white;
-            background: #21a366;
-            border-color: #18864f;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
-        }
-        div[role="radiogroup"][aria-label="薪資管理分頁"] [role="radio"] {
-            display: none;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
     pages = {
         "👤 員工薪資設定": _employee_tab,
         "📅 每月薪資": _monthly_tab,
         "📚 薪資歷史": _history_tab,
         "⚙️ 薪資規則": _rules_tab,
     }
-    selected_page = st.radio(
-        "薪資管理分頁", list(pages), horizontal=True, key="salary_management_page",
-        label_visibility="collapsed",
-    )
+    selected_page = st.session_state.get("salary_management_page", next(iter(pages)))
+    if selected_page not in pages:
+        selected_page = next(iter(pages))
+    navigation_columns = st.columns(len(pages))
+    for column, page_name in zip(navigation_columns, pages):
+        if column.button(
+            page_name, key=f"salary_page_{page_name}", use_container_width=True,
+            type="primary" if page_name == selected_page else "secondary",
+        ):
+            st.session_state.salary_management_page = page_name
+            st.rerun()
     pages[selected_page](config)

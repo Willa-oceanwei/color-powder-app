@@ -240,7 +240,8 @@ def test_dated_leave_records_are_linked_to_salary_and_editable(tmp_path: Path):
     save_employee(config, {"employee_id":"E1", "name":"甲", "join_date":"2026-01-01", "standard_hours":8})
     data = {"year":2026,"month":8,"employee_id":"E1","employee_name_snapshot":"甲",
             "standard_hours_snapshot":8,"annual_leave_days":1.2,"annual_leave_hours":4,
-            "annual_leave_balance_before":9,"annual_leave_balance_after":7.3}
+            "annual_leave_balance_before":9,"annual_leave_balance_after":7.3,
+            "system_note":"可修改的自動備註", "manual_note":"人工備註"}
     data.update(calculate_salary(data))
     save_salary(config, data, settle=True, annual_leave_records=[
         {"date":"2026-08-03","days":1,"hours":0,"note":""},
@@ -251,6 +252,13 @@ def test_dated_leave_records_are_linked_to_salary_and_editable(tmp_path: Path):
     assert [item["equivalent_days"] for item in records] == [1, 0.5, 0.2]
     assert records[-1]["date"] == ""
     assert all(item["salary_status"] == "settled" for item in records)
+
+    # Saving the same salary again must not hide its existing dated records.
+    save_salary(config, data, settle=True, annual_leave_records=records)
+    assert len(list_annual_leave_history(config, "E1", 2026)) == 3
+    resaved = get_settled_month_salaries(config, 2026, 8)[0]
+    assert resaved["system_note"] == "可修改的自動備註"
+    assert resaved["manual_note"] == "人工備註"
 
     save_annual_leave_history_record(config, {**records[1], "hours":2, "standard_hours":8})
     updated = list_annual_leave_history(config, "E1", 2026)
