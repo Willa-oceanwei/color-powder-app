@@ -22,7 +22,16 @@ def _leave_used_days(salary):
 
 
 def _payroll_leave_note(salary):
-    """Build the compact monthly leave text shown in the slip's A:C note block."""
+    """Build the automatic text shown in the slip's A:C note block.
+
+    ``system_note`` is editable in the monthly salary screen, so it is the
+    authoritative preview text when present.  The compact summary remains a
+    fallback for older salary snapshots that predate editable generated notes.
+    """
+    system_note = str(salary.get("system_note") or "").strip()
+    if system_note:
+        return system_note
+
     parts = []
     annual_used = _leave_used_days(salary)
     if annual_used:
