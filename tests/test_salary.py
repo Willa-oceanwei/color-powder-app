@@ -282,6 +282,25 @@ def test_generated_salary_note_refreshes_until_user_edits_it():
     assert saved_state["note_E2"] == "已儲存的編輯內容"
 
 
+def test_draft_report_rows_include_employee_notes(tmp_path: Path):
+    import pytest
+    pytest.importorskip("pandas")
+    from utils.salary_ui import _salary_report_rows
+
+    config = DatabaseConfig("sqlite", tmp_path / "draft-preview.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E1", "name":"甲", "join_date":"2026-01-01"})
+    save_employee_salary_note(config, "E1", 2026, "公司負擔", "個人特休說明")
+
+    rows, missing = _salary_report_rows(
+        config, [{"employee_id":"E1", "employee_name_snapshot":"甲"}], 2026,
+    )
+
+    assert rows[0]["company_cost_note"] == "公司負擔"
+    assert rows[0]["annual_leave_personal_note"] == "個人特休說明"
+    assert missing == []
+
+
 def test_salary_total_range_uses_only_settled_active_snapshots(tmp_path: Path):
     config = DatabaseConfig("sqlite", tmp_path / "salary-range.db")
     initialize_database_with_health(config)

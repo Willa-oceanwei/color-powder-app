@@ -47,6 +47,22 @@ def _sync_generated_note_state(state, note_key, generated_note, saved_note=""):
     state[generated_key] = generated_note
 
 
+def _salary_report_rows(config, rows, year):
+    """Attach the per-employee notes required by the salary workbook."""
+    report_rows = []
+    missing_notes = []
+    for salary in rows:
+        personal_note = get_employee_salary_note(config, salary["employee_id"], year) or {}
+        report_rows.append({
+            **salary,
+            "company_cost_note": personal_note.get("company_cost_note", ""),
+            "annual_leave_personal_note": personal_note.get("annual_leave_note", ""),
+        })
+        if not personal_note:
+            missing_notes.append(salary["employee_name_snapshot"])
+    return report_rows, missing_notes
+
+
 def _parse_annual_leave_date(value, default_year):
     """Parse YYYY-MM-DD, M/D, MMDD, or their Chinese equivalents."""
     if pd.isna(value) or not str(value).strip():
@@ -211,7 +227,14 @@ def _monthly_tab(config):
         blocks.append(new_month_block(available)); st.rerun()
     rules = get_rules(config)
     for index, block in enumerate(list(blocks)):
-        with st.container(border=True):
+        employee_label = block.get("employee_name_snapshot") or by_id.get(
+            block.get("employee_id"), {"name": block.get("employee_id", "未指定員工")}
+        )["name"]
+        status_label = "已結算" if block.get("status") == "settled" else "草稿"
+        with st.expander(
+            f"👤 {employee_label}｜{period}｜{status_label}",
+            expanded=index == 0,
+        ):
             top, remove = st.columns([5, 1])
             options = list(by_id)
             current_id = block.get("employee_id")
@@ -304,32 +327,40 @@ def _monthly_tab(config):
             _sync_generated_note_state(
                 st.session_state, system_note_key, generated_note, block.get("system_note", ""),
             )
-            block["system_note"] = st.text_area(
-                "自動生成備註（可編輯）", key=system_note_key,
-                help="內容會隨薪資資料自動更新；手動修改後，系統會保留您的版本。",
-            )
             block["manual_note"] = st.text_area(
                 "人工備註", block.get("manual_note", ""),
                 key=f"manual_{period}_{index}_{block.get('employee_id')}",
             )
-            st.markdown("##### 儲存前備註預覽")
-            st.caption("特休明細請先按「套用特休明細」；自動生成內容可直接修改，確認後再儲存草稿或結算薪資。")
-            preview_lines = []
-            if block["system_note"]:
-                preview_lines.append(f"自動生成：{block['system_note']}")
+            st.markdown("##### 儲存前備註預覽（可編輯）")
+            st.caption("特休明細請先按「套用特休明細」；下方就是會儲存的自動備註，可直接點入修改。")
+            block["system_note"] = st.text_area(
+                "自動生成備註", key=system_note_key,
+                placeholder="本月目前沒有自動生成的備註內容。",
+                help="未修改時會隨薪資資料自動更新；手動修改後，系統會保留您的版本。",
+            )
             if block["manual_note"].strip():
-                preview_lines.append(f"人工備註：{block['manual_note'].strip()}")
-            st.info("\n\n".join(preview_lines) if preview_lines else "本月目前沒有備註內容。")
+                st.caption(f"人工備註預覽：{block['manual_note'].strip()}")
             st.markdown(f"**薪資總計：{block['final_salary']:,} 元**")
-    c1,c2 = st.columns(2)
+    monthly_extras = get_salary_monthly_extras(config, year, month)
+    preview_rows, _ = _salary_report_rows(config, blocks, year)
+    c1, c2, c3 = st.columns(3)
     if c1.button("儲存草稿", disabled=not blocks):
         for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], annual_leave_records=block.get("annual_leave_records", []))
         st.toast("草稿已儲存")
     if c2.button("結算薪資", type="primary", disabled=not blocks):
         for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], settle=True, annual_leave_records=block.get("annual_leave_records", []))
         st.toast("正式薪資快照已結算／更新")
+    if blocks:
+        c3.download_button(
+            "草稿預覽（Excel）",
+            generate_salary_workbook(year, month, preview_rows, monthly_extras),
+            f"{year}年{month:02d}月薪資草稿預覽.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            help="直接使用目前畫面內容產生預覽，不必先儲存或結算。",
+        )
+    else:
+        c3.button("草稿預覽（Excel）", disabled=True, help="請先新增薪資人員。")
 
-    monthly_extras = get_salary_monthly_extras(config, year, month)
     with st.expander("每月附加數值區"):
         st.caption("可先完成所有欄位再一次儲存；儲存後會更新本月每位員工薪資條的當月說明。")
         with st.form(f"monthly_extras_form_{period}"):
@@ -362,16 +393,7 @@ def _monthly_tab(config):
     if settled_people < total_people:
         st.warning("目前仍有人尚未結算；下載的 Excel 僅包含已結算人員。")
     if settled_rows:
-        report_rows = []
-        missing_notes = []
-        for salary in settled_rows:
-            personal_note = get_employee_salary_note(config, salary["employee_id"], year) or {}
-            report_rows.append({**salary,
-                "company_cost_note": personal_note.get("company_cost_note", ""),
-                "annual_leave_personal_note": personal_note.get("annual_leave_note", ""),
-            })
-            if not personal_note:
-                missing_notes.append(salary["employee_name_snapshot"])
+        report_rows, missing_notes = _salary_report_rows(config, settled_rows, year)
         if missing_notes:
             st.warning(f"尚未設定 {year} 年個人薪資說明：{'、'.join(missing_notes)}；仍可結算與下載，Excel 將留白。")
         st.download_button("下載本月薪資表", generate_salary_workbook(year, month, report_rows, monthly_extras), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
