@@ -1,16 +1,14 @@
 """Streamlit salary-management page; business rules and persistence live elsewhere."""
 from datetime import date
-from calendar import monthrange
-
 import pandas as pd
 import streamlit as st
 
-from .salary_calculator import calculate_salary, generate_salary_note
+from .salary_calculator import calculate_monthly_extra_totals, calculate_salary, generate_salary_note
 from .salary_excel import generate_salary_workbook
 from .salary_repository import (annual_leave_balance_before_month, delete_salary,
-                                get_annual_leave_setting, get_employee_salary_note, get_month_salaries, get_rules,
-                                get_salary_monthly_extras,
-                                get_settled_month_salaries, list_employees, list_salaries,
+                                get_annual_leave_setting, get_employee_salary_note, get_employee_salary_notes,
+                                get_month_salaries, get_rules,
+                                get_salary_monthly_extras, list_employees, list_salaries,
                                 save_annual_leave_setting, save_employee, save_employee_salary_note,
                                 save_rules, save_salary, save_salary_monthly_extras,
                                 set_employee_active)
@@ -19,7 +17,112 @@ from .salary_repository import (annual_leave_balance_before_month, delete_salary
 MONEY_FIELDS = ("base_salary", "attendance_bonus", "cooling_allowance", "allowance", "position_allowance", "insurance")
 
 
+@st.cache_data(show_spinner=False)
+def _cached_salary_workbook(year, month, salaries, monthly_extras):
+    """Cache expensive workbook rendering until its actual inputs change."""
+    return generate_salary_workbook(year, month, salaries, monthly_extras)
+
+
+def _annual_leave_editor_rows(records):
+    """Return rows suitable for the batch annual-leave editor."""
+    columns = ["日期（可留空）", "日數", "時數", "備註"]
+    rows = [{
+        "日期（可留空）": record.get("date") or "",
+        "日數": float(record.get("days") or 0),
+        # Keep zero hours blank in the editor, while allowing entered values to
+        # retain two decimal places (for example, 1.25 hours).
+        "時數": float(record.get("hours")) if record.get("hours") else None,
+        "備註": record.get("note") or "",
+    } for record in records]
+    return pd.DataFrame(rows, columns=columns)
+
+
+def _annual_leave_editor_key(period, index, employee_id):
+    """Return an editor key scoped to the employee occupying a salary block."""
+    return f"leave_editor_{period}_{index}_{employee_id}"
+
+
+def _sync_generated_note_state(state, note_key, generated_note, saved_note=""):
+    """Refresh an untouched generated note while preserving a user's edits."""
+    generated_key = f"{note_key}_source"
+    previous_generated = state.get(generated_key)
+    if note_key not in state:
+        state[note_key] = saved_note or generated_note
+    elif state[note_key] == previous_generated:
+        state[note_key] = generated_note
+    state[generated_key] = generated_note
+
+
+def _salary_report_rows(config, rows, year):
+    """Attach the per-employee notes required by the salary workbook."""
+    report_rows = []
+    missing_notes = []
+    notes_by_employee = get_employee_salary_notes(
+        config, (salary["employee_id"] for salary in rows), year,
+    )
+    for salary in rows:
+        personal_note = notes_by_employee.get(salary["employee_id"], {})
+        report_rows.append({
+            **salary,
+            "company_cost_note": personal_note.get("company_cost_note", ""),
+            "annual_leave_personal_note": personal_note.get("annual_leave_note", ""),
+        })
+        if not personal_note:
+            missing_notes.append(salary["employee_name_snapshot"])
+    return report_rows, missing_notes
+
+
+def _deduplicate_salary_blocks(blocks):
+    """Remove repeated employees while retaining their first salary block."""
+    seen = set()
+    unique = []
+    for block in blocks:
+        employee_id = block.get("employee_id")
+        if employee_id in seen:
+            continue
+        seen.add(employee_id)
+        unique.append(block)
+    return unique
+
+
+def _parse_annual_leave_date(value, default_year):
+    """Parse YYYY-MM-DD, M/D, MMDD, or their Chinese equivalents."""
+    if pd.isna(value) or not str(value).strip():
+        return ""
+    text = str(value).strip().replace("年", "-").replace("月", "-").replace("日", "")
+    text = text.replace("/", "-")
+    if text.isdigit() and len(text) == 4:
+        parts = [str(default_year), text[:2], text[2:]]
+    elif text.isdigit() and len(text) == 8:
+        parts = [text[:4], text[4:6], text[6:]]
+    else:
+        parts = [part.strip() for part in text.split("-") if part.strip()]
+    if len(parts) == 2:
+        parts.insert(0, str(default_year))
+    if len(parts) != 3:
+        raise ValueError(f"日期「{value}」格式不正確，請輸入 08/07、0807 或 2026-08-07")
+    try:
+        return date(*(int(part) for part in parts)).isoformat()
+    except ValueError as error:
+        raise ValueError(f"日期「{value}」不是有效日期") from error
+
+
+def _annual_leave_records_from_editor(rows, default_year=None):
+    """Normalize batch-editor rows and discard its completely empty rows."""
+    records = []
+    for row in rows.to_dict("records") if isinstance(rows, pd.DataFrame) else rows:
+        record_date = _parse_annual_leave_date(row.get("日期（可留空）"), default_year or date.today().year)
+        days = 0.0 if pd.isna(row.get("日數")) else float(row.get("日數") or 0)
+        hours = 0.0 if pd.isna(row.get("時數")) else float(row.get("時數") or 0)
+        raw_note = row.get("備註")
+        note = "" if pd.isna(raw_note) else str(raw_note).strip()
+        if record_date or days or hours or note:
+            records.append({"date": record_date, "days": days, "hours": hours, "note": note})
+    return records
+
+
 def _employee_tab(config):
+    today = date.today()
     mode = st.radio("員工資料操作", ["新增員工", "修改員工"], horizontal=True)
     search = st.text_input("搜尋員工編號／姓名", key="salary_employee_search") if mode == "修改員工" else ""
     employees = list_employees(config, True, search)
@@ -31,6 +134,11 @@ def _employee_tab(config):
         selected_id = st.selectbox("選擇要修改的員工", [x["employee_id"] for x in employees],
                                    format_func=lambda value: next(f"{x['employee_id']}｜{x['name']} {'(停用)' if not x['active'] else ''}" for x in employees if x["employee_id"] == value))
         current = next(x for x in employees if x["employee_id"] == selected_id)
+    current_leave_setting = (get_annual_leave_setting(config, current["employee_id"], today.year)
+                             if current else None) or {}
+    current_leave_default = (annual_leave_balance_before_month(
+        config, current["employee_id"], today.year, today.month
+    ) if current else 0.0)
     employee_key = current.get("employee_id", "new")
     with st.form(f"employee_salary_setting_{employee_key}"):
         a, b, c, d = st.columns(4)
@@ -44,6 +152,24 @@ def _employee_tab(config):
         for idx, field in enumerate(MONEY_FIELDS):
             values[field] = columns[idx % 3].number_input(names[field], min_value=0, step=100, value=int(current.get(field, 0)), key=f"employee_{field}_{employee_key}")
         standard_hours = st.number_input("每日標準工時", min_value=0.5, value=float(current.get("standard_hours", 8)), key=f"employee_hours_{employee_key}")
+        st.markdown(f"##### {today.year} 年特休")
+        st.caption("填寫目前實際剩餘天數；從本月起，每月會接續上月餘額並扣除當月使用量。")
+        leave_columns = st.columns(3)
+        current_leave_balance = leave_columns[0].number_input(
+            "目前剩餘特休天數", min_value=0.0,
+            value=float(current_leave_default),
+            key=f"employee_current_leave_{employee_key}",
+        )
+        annual_leave_entitlement = leave_columns[1].number_input(
+            "本年度核定特休天數", min_value=0.0,
+            value=float(current_leave_setting.get("annual_entitlement", current.get("annual_leave_base", 0))),
+            key=f"employee_leave_entitlement_{employee_key}",
+        )
+        leave_columns[2].text_input(
+            "餘額開始計算月份", value=f"{today.month} 月", disabled=True,
+            key=f"employee_leave_month_{employee_key}",
+            help="目前餘額會從本月開始計算；下個月自動承接扣除後的餘額。",
+        )
         st.markdown("##### 每月預設彈性項目")
         add_enabled = st.toggle("預設啟用特別加給", value=bool(current.get("special_addition_enabled", 0)), key=f"employee_special_enabled_{employee_key}")
         ca, cn = st.columns([1, 2])
@@ -57,10 +183,14 @@ def _employee_tab(config):
         submit_label = "新增員工" if not current else "儲存修改"
         if st.form_submit_button(submit_label, type="primary"):
             save_employee(config, {"employee_id":employee_id, "name":name, "join_date":join_date.isoformat(), "active":active,
-                **values, "standard_hours":standard_hours, "annual_leave_base":current.get("annual_leave_base", 0),
+                **values, "standard_hours":standard_hours, "annual_leave_base":current_leave_balance,
                 "special_addition_enabled":add_enabled, "special_addition_amount":add_amount, "special_addition_note":add_note,
                 "default_deduction_enabled":deduct_enabled, "default_deduction_amount":deduct_amount,
                 "default_deduction_note":deduct_note, "note":note})
+            save_annual_leave_setting(
+                config, employee_id, today.year, annual_leave_entitlement,
+                current_leave_balance, today.month, current_leave_setting.get("note", ""),
+            )
             st.toast("員工目前設定已儲存；歷史快照不受影響"); st.rerun()
     if current and st.button("停用／離職" if current.get("active") else "恢復在職"):
         set_employee_active(config, current["employee_id"], not current.get("active")); st.rerun()
@@ -74,9 +204,11 @@ def _new_block(employee, annual_setting=None, leave_balance=0):
         adjustments.append({"type":"addition", "item_name":"特別加給", "amount":employee.get("special_addition_amount", 0), "note":employee.get("special_addition_note") or ""})
     if employee.get("default_deduction_enabled"):
         adjustments.append({"type":"deduction", "item_name":"扣除額", "amount":employee.get("default_deduction_amount", 0), "note":employee.get("default_deduction_note") or ""})
+    entitlement = ((annual_setting or {}).get("annual_entitlement")
+                   if annual_setting else employee.get("annual_leave_base", 0))
     return {"employee_id": employee["employee_id"], "employee_name_snapshot": employee["name"],
             **{f"{k}_snapshot": employee[k] for k in MONEY_FIELDS}, "standard_hours_snapshot": employee["standard_hours"],
-            "annual_leave_entitlement_snapshot": (annual_setting or {}).get("annual_entitlement", 0),
+            "annual_leave_entitlement_snapshot": entitlement or 0,
             "annual_leave_note_snapshot": (annual_setting or {}).get("note", ""),
             "annual_leave_balance_before": leave_balance, "leave_days":0.0, "leave_hours":0.0,
             "annual_leave_days":0.0, "annual_leave_hours":0.0, "late_deduction":0, "manual_note":"",
@@ -92,24 +224,71 @@ def _monthly_tab(config):
         st.session_state.salary_period = period
         st.session_state.salary_blocks = get_month_salaries(config, year, month)
     blocks = st.session_state.setdefault("salary_blocks", [])
+    unique_blocks = _deduplicate_salary_blocks(blocks)
+    if len(unique_blocks) != len(blocks):
+        blocks[:] = unique_blocks
+        st.toast("已自動移除重複新增的薪資人員")
     employees = list_employees(config)
     by_id = {x["employee_id"]: x for x in employees}
     def new_month_block(employee):
         setting = get_annual_leave_setting(config, employee["employee_id"], year)
         balance = annual_leave_balance_before_month(config, employee["employee_id"], year, month)
         return _new_block(employee, setting, balance)
-    if st.button("＋ 新增人員", disabled=not employees):
-        available = next((x for x in employees if x["employee_id"] not in {b.get("employee_id") for b in blocks}), employees[0])
-        blocks.append(new_month_block(available)); st.rerun()
+    # Repair older drafts that were created with zero leave values even though
+    # the employee has a current balance. Settled snapshots remain immutable.
+    for block in blocks:
+        employee = by_id.get(block.get("employee_id"))
+        if (employee and block.get("status") != "settled"
+                and not block.get("annual_leave_entitlement_snapshot")
+                and not block.get("annual_leave_balance_before")):
+            setting = get_annual_leave_setting(config, employee["employee_id"], year)
+            entitlement = ((setting or {}).get("annual_entitlement")
+                           if setting else employee.get("annual_leave_base", 0))
+            balance = annual_leave_balance_before_month(config, employee["employee_id"], year, month)
+            if entitlement or balance:
+                block["annual_leave_entitlement_snapshot"] = entitlement or 0
+                block["annual_leave_balance_before"] = balance
     rules = get_rules(config)
+    existing_employee_ids = {block.get("employee_id") for block in blocks}
+    available_employees = [x for x in employees if x["employee_id"] not in existing_employee_ids]
+    if st.button("＋ 新增人員", disabled=not available_employees,
+                 help="所有在職員工都已加入" if employees and not available_employees else None):
+        new_block = new_month_block(available_employees[0])
+        new_block.update(calculate_salary(new_block, rules=rules))
+        new_block["system_note"] = generate_salary_note(new_block)
+        new_block["salary_id"] = save_salary(
+            config, {**new_block, "year": year, "month": month}, new_block["adjustments"],
+            annual_leave_records=[],
+        )
+        blocks.append(new_block)
+        st.toast("新增人員已自動儲存為草稿")
+        st.rerun()
     for index, block in enumerate(list(blocks)):
-        with st.container(border=True):
+        employee_label = block.get("employee_name_snapshot") or by_id.get(
+            block.get("employee_id"), {"name": block.get("employee_id", "未指定員工")}
+        )["name"]
+        status_label = "已結算" if block.get("status") == "settled" else "草稿"
+        with st.expander(
+            f"👤 {employee_label}｜{period}｜{status_label}",
+            expanded=index == 0,
+        ):
             top, remove = st.columns([5, 1])
-            options = list(by_id)
+            other_employee_ids = {item.get("employee_id") for position, item in enumerate(blocks) if position != index}
+            options = [employee_id for employee_id in by_id if employee_id not in other_employee_ids]
             current_id = block.get("employee_id")
             if current_id not in options: options.insert(0, current_id)
             selected_id = top.selectbox("姓名", options, index=options.index(current_id), format_func=lambda x: by_id.get(x, {"name":block.get("employee_name_snapshot", x)})["name"], key=f"sal_emp_{period}_{index}")
             if selected_id != current_id:
+                # data_editor keeps its own widget state. Clear both identities
+                # before replacing the block so one employee's dates cannot
+                # appear when another employee is selected in the same slot.
+                st.session_state.pop(_annual_leave_editor_key(period, index, current_id), None)
+                st.session_state.pop(_annual_leave_editor_key(period, index, selected_id), None)
+                for employee_id in (current_id, selected_id):
+                    note_key = f"system_note_{period}_{index}_{employee_id}"
+                    st.session_state.pop(note_key, None)
+                    st.session_state.pop(f"{note_key}_source", None)
+                    st.session_state.pop(f"manual_{period}_{index}_{employee_id}", None)
                 blocks[index] = new_month_block(by_id[selected_id]); st.rerun()
             if remove.button("－ 移除此人員", key=f"sal_remove_{period}_{index}"):
                 blocks.pop(index); st.rerun()
@@ -121,37 +300,37 @@ def _monthly_tab(config):
                 block[field] = cols[pos].number_input(label, min_value=0.0, value=float(block.get(field, 0)), key=f"{field}_{period}_{index}")
             st.markdown("##### 特休日期明細")
             records = block.setdefault("annual_leave_records", [])
-            if st.button("＋ 新增特休紀錄", key=f"add_leave_record_{period}_{index}"):
-                records.append({"date":"", "days":0.0, "hours":0.0, "note":""})
-                st.rerun()
-            for record_index, record in enumerate(list(records)):
-                record_cols = st.columns([0.8, 1.4, 0.8, 0.8, 2, 0.7])
-                has_date = record_cols[0].checkbox(
-                    "記日期", value=bool(record.get("date")), key=f"leave_has_date_{period}_{index}_{record_index}",
-                    help="日期為非必要欄位；若只想記錄本月合計可不勾選。",
+            st.caption("可一次新增、修改或刪除多筆；編輯期間不會重跑頁面，完成後再按套用。")
+            st.info("日期輸入方式：`08/07`、`0807` 或 `2026-08-07`；日期也可以留空白。")
+            with st.form(f"annual_leave_records_{period}_{index}"):
+                annual_leave_applied = False
+                edited_records = st.data_editor(
+                    _annual_leave_editor_rows(records),
+                    key=_annual_leave_editor_key(period, index, block.get("employee_id")),
+                    num_rows="dynamic",
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "日期（可留空）": st.column_config.TextColumn(
+                            "日期（可留空）",
+                            help="可直接輸入 08/07、0807 或 2026-08-07，不限制只能選薪資月份。",
+                        ),
+                        "日數": st.column_config.NumberColumn("日數", min_value=0.0, step=0.5),
+                        "時數": st.column_config.NumberColumn(
+                            "時數", min_value=0.0, step=0.01, format="%.2f",
+                            help="可輸入至小數點後 2 位；0 會保持空白。",
+                        ),
+                        "備註": st.column_config.TextColumn("備註"),
+                    },
                 )
-                raw_date = record.get("date") or date(year, month, 1).isoformat()
-                record_date = date.fromisoformat(str(raw_date)[:10])
-                selected_date = record_cols[1].date_input(
-                    "特休日期（非必填）", value=record_date, min_value=date(year, month, 1),
-                    max_value=date(year, month, monthrange(year, month)[1]),
-                    key=f"leave_date_{period}_{index}_{record_index}",
-                    disabled=not has_date,
-                )
-                record["date"] = selected_date.isoformat() if has_date else ""
-                record["days"] = record_cols[2].number_input(
-                    "日數", min_value=0.0, value=float(record.get("days", 0)),
-                    key=f"leave_days_{period}_{index}_{record_index}",
-                )
-                record["hours"] = record_cols[3].number_input(
-                    "時數", min_value=0.0, value=float(record.get("hours", 0)),
-                    key=f"leave_hours_{period}_{index}_{record_index}",
-                )
-                record["note"] = record_cols[4].text_input(
-                    "備註", value=record.get("note") or "", key=f"leave_note_{period}_{index}_{record_index}",
-                )
-                if record_cols[5].button("刪除", key=f"delete_leave_{period}_{index}_{record_index}"):
-                    records.pop(record_index); st.rerun()
+                if st.form_submit_button("套用特休明細", type="primary"):
+                    try:
+                        normalized_records = _annual_leave_records_from_editor(edited_records, year)
+                    except ValueError as error:
+                        st.error(str(error))
+                    else:
+                        records[:] = normalized_records
+                        annual_leave_applied = True
             if records:
                 block["annual_leave_days"] = sum(float(record.get("days") or 0) for record in records)
                 block["annual_leave_hours"] = sum(float(record.get("hours") or 0) for record in records)
@@ -181,40 +360,87 @@ def _monthly_tab(config):
                 elif item is not None:
                     adjustments.remove(item)
             additions = [x for x in block["adjustments"] if x["type"] == "addition"]; deductions = [x for x in block["adjustments"] if x["type"] == "deduction"]
-            block.update(calculate_salary(block, additions, deductions, rules)); block["system_note"] = generate_salary_note(block, additions, deductions)
-            block["manual_note"] = st.text_area("人工備註", block.get("manual_note", ""), key=f"manual_{period}_{index}")
-            st.markdown(f"**薪資總計：{block['final_salary']:,} 元**"); st.caption(block["system_note"] or "本月無特殊說明")
-    c1,c2 = st.columns(2)
+            block.update(calculate_salary(block, additions, deductions, rules))
+            generated_note = generate_salary_note(block, additions, deductions)
+            system_note_key = f"system_note_{period}_{index}_{block.get('employee_id')}"
+            _sync_generated_note_state(
+                st.session_state, system_note_key, generated_note, block.get("system_note", ""),
+            )
+            block["manual_note"] = st.text_area(
+                "人工備註", block.get("manual_note", ""),
+                key=f"manual_{period}_{index}_{block.get('employee_id')}",
+            )
+            st.markdown("##### 儲存前備註預覽（可編輯）")
+            st.caption("特休明細請先按「套用特休明細」；下方就是會儲存的自動備註，可直接點入修改。")
+            block["system_note"] = st.text_area(
+                "自動生成備註", key=system_note_key,
+                placeholder="本月目前沒有自動生成的備註內容。",
+                help="未修改時會隨薪資資料自動更新；手動修改後，系統會保留您的版本。",
+            )
+            if annual_leave_applied:
+                block["salary_id"] = save_salary(
+                    config, {**block, "year": year, "month": month}, block["adjustments"],
+                    annual_leave_records=records,
+                )
+                st.toast("特休明細已套用並自動儲存草稿")
+            if block["manual_note"].strip():
+                st.caption(f"人工備註預覽：{block['manual_note'].strip()}")
+            st.markdown(f"**薪資總計：{block['final_salary']:,} 元**")
+    monthly_extras = get_salary_monthly_extras(config, year, month)
+    previous_year, previous_month = (year - 1, 12) if month == 1 else (year, month - 1)
+    previous_value = float(
+        get_salary_monthly_extras(config, previous_year, previous_month).get("monthly_total", 0)
+    )
+    with st.expander("每月附加數值區"):
+        st.caption("上月自動承接前一個月的餘額；本月新增與本月總計會依員工輸入即時計算。")
+        employee_values = {}
+        extra_columns = st.columns(3)
+        for position, employee in enumerate(employees):
+            employee_values[employee["employee_id"]] = extra_columns[position % 3].number_input(
+                employee["name"], value=float(monthly_extras["employee_values"].get(employee["employee_id"], 0)),
+                key=f"monthly_extra_employee_{period}_{employee['employee_id']}",
+            )
+        monthly_addition, monthly_total = calculate_monthly_extra_totals(previous_value, employee_values)
+        previous_col, addition_col, total_col = st.columns(3)
+        previous_col.metric("上月", f"{previous_value:g}")
+        addition_col.metric("+本月新增（員工總和）", f"{monthly_addition:g}")
+        total_col.metric("餘本月總計", f"{monthly_total:g}")
+        if st.button("儲存每月附加數值", key=f"save_monthly_extras_{period}"):
+            save_salary_monthly_extras(
+                config, year, month, employee_values, previous_value, monthly_addition, monthly_total,
+            )
+            st.toast("每月附加數值已儲存，Excel 將使用最新數值")
+            st.rerun()
+
+    current_monthly_extras = {
+        **monthly_extras,
+        "employee_values": employee_values,
+        "previous_value": previous_value,
+        "monthly_addition": monthly_addition,
+        "monthly_total": monthly_total,
+    }
+    preview_rows, _ = _salary_report_rows(config, blocks, year)
+    c1, c2, c3 = st.columns(3)
     if c1.button("儲存草稿", disabled=not blocks):
         for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], annual_leave_records=block.get("annual_leave_records", []))
         st.toast("草稿已儲存")
     if c2.button("結算薪資", type="primary", disabled=not blocks):
         for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], settle=True, annual_leave_records=block.get("annual_leave_records", []))
         st.toast("正式薪資快照已結算／更新")
-
-    monthly_extras = get_salary_monthly_extras(config, year, month)
-    with st.expander("每月附加數值區"):
-        st.caption("可先完成所有欄位再一次儲存；儲存後會更新本月每位員工薪資條的當月說明。")
-        with st.form(f"monthly_extras_form_{period}"):
-            employee_values = {}
-            extra_columns = st.columns(3)
-            for position, employee in enumerate(employees):
-                employee_values[employee["employee_id"]] = extra_columns[position % 3].number_input(
-                    employee["name"], value=float(monthly_extras["employee_values"].get(employee["employee_id"], 0)),
-                    key=f"monthly_extra_employee_{period}_{employee['employee_id']}",
-                )
-            previous_col, addition_col, total_col = st.columns(3)
-            previous_value = previous_col.number_input("上月", value=float(monthly_extras.get("previous_value", 0)), key=f"monthly_extra_previous_{period}")
-            monthly_addition = addition_col.number_input("+本月新增", value=float(monthly_extras.get("monthly_addition", 0)), key=f"monthly_extra_addition_{period}")
-            monthly_total = total_col.number_input("餘本月總計", value=float(monthly_extras.get("monthly_total", 0)), key=f"monthly_extra_total_{period}")
-            if st.form_submit_button("儲存每月附加數值"):
-                save_salary_monthly_extras(config, year, month, employee_values, previous_value, monthly_addition, monthly_total)
-                st.toast("每月附加數值已儲存，Excel 將使用最新數值")
-                st.rerun()
+    if blocks:
+        c3.download_button(
+            "草稿預覽（Excel）",
+            _cached_salary_workbook(year, month, preview_rows, current_monthly_extras),
+            f"{year}年{month:02d}月薪資草稿預覽.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            help="直接使用目前畫面內容產生預覽，不必先儲存或結算。",
+        )
+    else:
+        c3.button("草稿預覽（Excel）", disabled=True, help="請先新增薪資人員。")
 
     # 月份層級報表：只從資料庫重新讀取已結算快照，不使用畫面草稿。
     month_rows = get_month_salaries(config, year, month)
-    settled_rows = get_settled_month_salaries(config, year, month)
+    settled_rows = [row for row in month_rows if row["status"] == "settled"]
     payroll_employee_ids = {employee["employee_id"] for employee in employees}
     payroll_employee_ids.update(row["employee_id"] for row in month_rows)
     total_people = len(payroll_employee_ids)
@@ -225,19 +451,10 @@ def _monthly_tab(config):
     if settled_people < total_people:
         st.warning("目前仍有人尚未結算；下載的 Excel 僅包含已結算人員。")
     if settled_rows:
-        report_rows = []
-        missing_notes = []
-        for salary in settled_rows:
-            personal_note = get_employee_salary_note(config, salary["employee_id"], year) or {}
-            report_rows.append({**salary,
-                "company_cost_note": personal_note.get("company_cost_note", ""),
-                "annual_leave_personal_note": personal_note.get("annual_leave_note", ""),
-            })
-            if not personal_note:
-                missing_notes.append(salary["employee_name_snapshot"])
+        report_rows, missing_notes = _salary_report_rows(config, settled_rows, year)
         if missing_notes:
             st.warning(f"尚未設定 {year} 年個人薪資說明：{'、'.join(missing_notes)}；仍可結算與下載，Excel 將留白。")
-        st.download_button("下載本月薪資表", generate_salary_workbook(year, month, report_rows, monthly_extras), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button("下載本月薪資表", _cached_salary_workbook(year, month, report_rows, monthly_extras), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.button("下載本月薪資表", disabled=True, help="目前沒有已結算薪資可供下載。")
 
@@ -323,7 +540,13 @@ def _rules_tab(config):
         ),
         key="rules_annual_leave_employee",
     )
-    setting = get_annual_leave_setting(config, employee_id, leave_year) or {}
+    selected_employee = next(item for item in employees if item["employee_id"] == employee_id)
+    setting = get_annual_leave_setting(config, employee_id, leave_year) or {
+        "annual_entitlement": selected_employee.get("annual_leave_base", 0),
+        "opening_balance": selected_employee.get("annual_leave_base", 0),
+        "opening_month": 1,
+        "note": "",
+    }
     personal_note = get_employee_salary_note(config, employee_id, leave_year) or {}
     with st.form(f"rules_annual_leave_setting_{employee_id}_{leave_year}"):
         c1, c2, c3 = st.columns(3)
@@ -356,8 +579,14 @@ def _rules_tab(config):
 
 def render_salary_management(config):
     st.markdown("<div style='font-size:20px;font-weight:700;margin:0 0 0.6rem;'>人力｜薪資管理</div>", unsafe_allow_html=True)
-    tabs = st.tabs(["員工薪資設定", "每月薪資", "薪資歷史", "薪資規則"])
-    with tabs[0]: _employee_tab(config)
-    with tabs[1]: _monthly_tab(config)
-    with tabs[2]: _history_tab(config)
-    with tabs[3]: _rules_tab(config)
+    pages = {
+        "員工薪資設定": _employee_tab,
+        "每月薪資": _monthly_tab,
+        "薪資歷史": _history_tab,
+        "薪資規則": _rules_tab,
+    }
+    selected_page = st.radio(
+        "薪資功能", list(pages), horizontal=True, key="salary_management_page",
+        label_visibility="collapsed",
+    )
+    pages[selected_page](config)
