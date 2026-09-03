@@ -1,7 +1,8 @@
 from pathlib import Path
 
 from utils.database import DatabaseConfig, connect_from_config, initialize_database_with_health
-from utils.salary_calculator import calculate_leave_deduction, calculate_salary
+from utils.salary_calculator import (calculate_leave_deduction, calculate_monthly_extra_totals,
+                                     calculate_salary)
 from utils.salary_excel import _monthly_summary, _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
                                      delete_annual_leave_history_record,
@@ -203,6 +204,14 @@ def test_personal_salary_notes_and_monthly_extras_are_editable(tmp_path: Path):
     extras = get_salary_monthly_extras(config, 2026, 7)
     assert extras["employee_values"] == {"E1":30}
     assert extras["monthly_total"] == 13903
+
+
+def test_monthly_extras_sum_employees_and_carry_previous_total():
+    monthly_addition, monthly_total = calculate_monthly_extra_totals(
+        13903, {"E1": 30, "E2": 12.5, "E3": 0},
+    )
+    assert monthly_addition == 42.5
+    assert monthly_total == 13945.5
 
 
 def test_dated_leave_records_are_linked_to_salary_and_editable(tmp_path: Path):
