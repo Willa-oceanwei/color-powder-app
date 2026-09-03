@@ -579,14 +579,44 @@ def _rules_tab(config):
 
 def render_salary_management(config):
     st.markdown("<div style='font-size:20px;font-weight:700;margin:0 0 0.6rem;'>人力｜薪資管理</div>", unsafe_allow_html=True)
+    # Keep only the selected page executing (unlike st.tabs, which renders all
+    # tabs on every rerun), but present the selector as familiar page tabs
+    # instead of radio dots.
+    st.markdown(
+        """
+        <style>
+        div[role="radiogroup"][aria-label="薪資管理分頁"] {
+            gap: .35rem;
+            padding: .25rem;
+            border-radius: .75rem;
+            background: rgba(128, 128, 128, .10);
+        }
+        div[role="radiogroup"][aria-label="薪資管理分頁"] label {
+            padding: .45rem .9rem;
+            border-radius: .55rem;
+            border: 1px solid transparent;
+        }
+        div[role="radiogroup"][aria-label="薪資管理分頁"] label:has([aria-checked="true"]) {
+            color: white;
+            background: #21a366;
+            border-color: #18864f;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+        }
+        div[role="radiogroup"][aria-label="薪資管理分頁"] [role="radio"] {
+            display: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     pages = {
-        "員工薪資設定": _employee_tab,
-        "每月薪資": _monthly_tab,
-        "薪資歷史": _history_tab,
-        "薪資規則": _rules_tab,
+        "👤 員工薪資設定": _employee_tab,
+        "📅 每月薪資": _monthly_tab,
+        "📚 薪資歷史": _history_tab,
+        "⚙️ 薪資規則": _rules_tab,
     }
     selected_page = st.radio(
-        "薪資功能", list(pages), horizontal=True, key="salary_management_page",
+        "薪資管理分頁", list(pages), horizontal=True, key="salary_management_page",
         label_visibility="collapsed",
     )
     pages[selected_page](config)
