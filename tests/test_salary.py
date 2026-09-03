@@ -161,35 +161,36 @@ def test_leave_rounding_and_same_sheet_excel():
                                                    "職務津貼", "勞健保", "遲到", "小計", "特別加給", "扣除額", "薪資總計"]
     assert [cell.value for cell in sheet[3]] == ["08月份 甲", 29500, -1229, 3000, 500, 3000, 1000,
                                                    -2168, -30, 33573, 1800, 0, 35373]
-    assert sheet["A4"].value == "［特休1.5日，餘7.5日］\n［請假1.25日］\n8/15補發制服費"
-    assert sheet["D4"].value == "公司負擔：\n甲公司負擔"
-    assert "甲歷年制說明" in sheet["H4"].value
+    assert sheet["A3"].font.bold
+    assert sheet["A4"].value == "另有特別加給1,800元（餐費）。\n8/15補發制服費"
+    assert sheet["F4"].value == "公司負擔：\n甲公司負擔"
+    assert "甲歷年制說明" in sheet["J4"].value
+    assert {str(cell_range) for cell_range in sheet.merged_cells.ranges} >= {"A4:E4", "F4:I4", "J4:M4"}
     assert sheet["A5"].value == "當月說明：上月13,873 + 本月新增30 = 本月總計13,903"
-    assert "餐費" not in sheet["A4"].value
+    assert "餐費" in sheet["A4"].value
     assert sum(cell.value == "底薪" for row in sheet for cell in row) == 5
     assert any("乙" in str(cell.value) for row in sheet for cell in row)
     assert not any(cell.value == "歷年制特休" for row in sheet for cell in row)
     assert not any(cell.value == "每月附加數值區" for row in sheet for cell in row)
     assert sum(cell.value == "當月說明：上月13,873 + 本月新增30 = 本月總計13,903" for row in sheet for cell in row) == 5
-    for coordinate in ("A4", "C4", "D4", "G4", "H4", "M4", "A5", "M5"):
+    for coordinate in ("A4", "E4", "F4", "I4", "J4", "M4", "A5", "M5"):
         cell = sheet[coordinate]
         assert cell.border.top.style == "thin"
         assert cell.border.bottom.style in ("thin", "medium")
-    assert all(sheet[cell].border.left.style == "thin" for cell in ("A4", "D4", "H4", "A5"))
-    assert all(sheet[cell].border.right.style == "thin" for cell in ("C4", "G4", "M4", "M5"))
+    assert all(sheet[cell].border.left.style == "thin" for cell in ("A4", "F4", "J4", "A5"))
+    assert all(sheet[cell].border.right.style == "thin" for cell in ("E4", "I4", "M4", "M5"))
     assert sheet.max_row == 25
     assert sheet.sheet_properties.pageSetUpPr.fitToPage
     assert sheet.page_setup.orientation == "landscape"
     assert sheet.page_setup.fitToWidth == 1
 
 
-def test_excel_note_contains_leave_only():
+def test_excel_note_uses_editable_generated_note_and_falls_back_to_leave_summary():
     salary = {"leave_days":1, "leave_hours":2, "annual_leave_days":1, "annual_leave_hours":4,
               "standard_hours_snapshot":8, "annual_leave_balance_after":7.5,
-              "system_note":"另有特別加給1,800元（餐費）。"}
+              "system_note":"8/13與8/14共請假12.5hr，計6.25hr\n29500/30/8*14.25=1752\n未扣全勤津貼"}
     note = _payroll_leave_note(salary)
-    assert note == "［特休1.5日，餘7.5日］\n［請假1.25日］"
-    assert "餐費" not in note
+    assert note == salary["system_note"]
     assert _payroll_leave_note({"annual_leave_days":1.2, "annual_leave_balance_after":4.8,
                                 "standard_hours_snapshot":8}) == "［特休1.2日，餘4.8日］"
     assert _monthly_summary({"previous_value":13873, "monthly_addition":30, "monthly_total":13903}) == (
@@ -252,6 +253,22 @@ def test_generated_salary_note_includes_unique_annual_leave_dates():
     })
     assert "日期08/07、08/24" in note
     assert note.count("08/07") == 1
+
+
+def test_excel_preview_contains_generated_annual_leave_dates():
+    annual_leave = {
+        "annual_leave_days": 1,
+        "annual_leave_hours": 2.5,
+        "annual_leave_balance_after": 6.6875,
+        "standard_hours_snapshot": 8,
+        "annual_leave_records": [
+            {"date": "2026-08-07"},
+            {"date": "2026-08-24"},
+        ],
+    }
+    annual_leave["system_note"] = generate_salary_note(annual_leave)
+
+    assert "日期08/07、08/24" in _payroll_leave_note(annual_leave)
 
 
 def test_dated_leave_records_are_linked_to_salary_and_editable(tmp_path: Path):
