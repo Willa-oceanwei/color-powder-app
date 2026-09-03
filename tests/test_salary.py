@@ -59,6 +59,26 @@ def test_mistaken_salary_can_be_deleted_without_deleting_employee(tmp_path: Path
         assert conn.execute("SELECT COUNT(*) FROM salary_deletion_audit WHERE salary_id=?", (salary_id,)).fetchone()[0] == 1
 
 
+def test_database_reinitialization_preserves_saved_salary_draft(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "persistent-draft.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E001", "name":"測試員工", "join_date":"2026-01-01"})
+    draft = {"year":2026, "month":9, "employee_id":"E001", "employee_name_snapshot":"測試員工",
+             "system_note":"保留自動備註", "manual_note":"保留人工備註"}
+    draft.update(calculate_salary(draft))
+    save_salary(config, draft, annual_leave_records=[
+        {"date":"2026-09-03", "days":1, "hours":0, "note":"保留特休日期"},
+    ])
+
+    initialize_database_with_health(config)
+
+    restored = get_month_salaries(config, 2026, 9)[0]
+    assert restored["status"] == "draft"
+    assert restored["system_note"] == "保留自動備註"
+    assert restored["manual_note"] == "保留人工備註"
+    assert restored["annual_leave_records"][0]["date"] == "2026-09-03"
+
+
 def test_month_report_returns_only_settled_snapshots(tmp_path: Path):
     config = DatabaseConfig("sqlite", tmp_path / "settled-report.db")
     initialize_database_with_health(config)

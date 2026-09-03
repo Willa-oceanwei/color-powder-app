@@ -571,21 +571,16 @@ def _rules_tab(config):
 
 def render_salary_management(config):
     st.markdown("<div style='font-size:20px;font-weight:700;margin:0 0 0.6rem;'>人力｜薪資管理</div>", unsafe_allow_html=True)
-    pages = {
-        "👤 員工薪資設定": _employee_tab,
-        "📅 每月薪資": _monthly_tab,
-        "📚 薪資歷史": _history_tab,
-        "⚙️ 薪資規則": _rules_tab,
-    }
-    selected_page = st.session_state.get("salary_management_page", next(iter(pages)))
-    if selected_page not in pages:
-        selected_page = next(iter(pages))
-    navigation_columns = st.columns(len(pages))
-    for column, page_name in zip(navigation_columns, pages):
-        if column.button(
-            page_name, key=f"salary_page_{page_name}", use_container_width=True,
-            type="primary" if page_name == selected_page else "secondary",
-        ):
-            st.session_state.salary_management_page = page_name
-            st.rerun()
-    pages[selected_page](config)
+    if config.backend == "turso":
+        st.caption("薪資草稿儲存在雲端資料庫，更新程式不會清除已儲存草稿。")
+    else:
+        st.warning("目前使用本機資料庫；程式更新不會主動刪除草稿，但部署平台若重建磁碟，未使用雲端資料庫的資料可能遺失。")
+    tabs = st.tabs(["👤 員工薪資設定", "📅 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則"])
+    with tabs[0]:
+        _employee_tab(config)
+    with tabs[1]:
+        _monthly_tab(config)
+    with tabs[2]:
+        _history_tab(config)
+    with tabs[3]:
+        _rules_tab(config)
