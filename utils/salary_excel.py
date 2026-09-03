@@ -22,7 +22,16 @@ def _leave_used_days(salary):
 
 
 def _payroll_leave_note(salary):
-    """Build the compact monthly leave text shown in the slip's A:C note block."""
+    """Build the automatic text shown in the slip's A:C note block.
+
+    ``system_note`` is editable in the monthly salary screen, so it is the
+    authoritative preview text when present.  The compact summary remains a
+    fallback for older salary snapshots that predate editable generated notes.
+    """
+    system_note = str(salary.get("system_note") or "").strip()
+    if system_note:
+        return system_note
+
     parts = []
     annual_used = _leave_used_days(salary)
     if annual_used:
@@ -108,7 +117,7 @@ def generate_salary_workbook(year, month, salaries, monthly_extras=None):
         )
         for column, value in enumerate(values, 1):
             cell = ws.cell(row + 1, column, value)
-            cell.font = Font(name="Microsoft JhengHei", size=9, bold=column == 13)
+            cell.font = Font(name="Microsoft JhengHei", size=9, bold=column in (1, 13))
             cell.alignment = centered
             cell.border = border
             if column > 1:
@@ -117,12 +126,12 @@ def generate_salary_workbook(year, month, salaries, monthly_extras=None):
                 cell.fill = total_fill
         ws.row_dimensions[row + 1].height = 24
 
-        ws.merge_cells(start_row=row + 2, start_column=1, end_row=row + 2, end_column=3)
-        ws.merge_cells(start_row=row + 2, start_column=4, end_row=row + 2, end_column=7)
-        ws.merge_cells(start_row=row + 2, start_column=8, end_row=row + 2, end_column=13)
+        ws.merge_cells(start_row=row + 2, start_column=1, end_row=row + 2, end_column=5)
+        ws.merge_cells(start_row=row + 2, start_column=6, end_row=row + 2, end_column=9)
+        ws.merge_cells(start_row=row + 2, start_column=10, end_row=row + 2, end_column=13)
         # Apply each merged range's outer border after merging. This avoids the
         # fragmented borders that openpyxl can otherwise leave on merged cells.
-        for start, end in ((1, 3), (4, 7), (8, 13)):
+        for start, end in ((1, 5), (6, 9), (10, 13)):
             for column in range(start, end + 1):
                 ws.cell(row + 2, column).border = Border(
                     left=thin if column == start else None,
@@ -133,10 +142,10 @@ def generate_salary_workbook(year, month, salaries, monthly_extras=None):
         manual_note = str(salary.get("manual_note") or "").strip()
         ws.cell(row + 2, 1, "\n".join(part for part in (automatic_note, manual_note) if part))
         company_text = str(salary.get("company_cost_note") or "").strip()
-        ws.cell(row + 2, 4, f"公司負擔：\n{company_text}" if company_text else "公司負擔：")
+        ws.cell(row + 2, 6, f"公司負擔：\n{company_text}" if company_text else "公司負擔：")
         annual_text = salary.get("annual_leave_personal_note") or salary.get("annual_leave_note_snapshot") or ""
-        ws.cell(row + 2, 8, f"歷年制特休：\n{annual_text}" if annual_text else "歷年制特休：")
-        for start in (1, 4, 8):
+        ws.cell(row + 2, 10, f"歷年制特休：\n{annual_text}" if annual_text else "歷年制特休：")
+        for start in (1, 6, 10):
             cell = ws.cell(row + 2, start)
             cell.font = Font(name="Microsoft JhengHei", size=8, bold=False)
             cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)

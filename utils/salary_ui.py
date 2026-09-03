@@ -15,12 +15,19 @@ from .salary_repository import (annual_leave_balance_before_month, delete_salary
 
 
 MONEY_FIELDS = ("base_salary", "attendance_bonus", "cooling_allowance", "allowance", "position_allowance", "insurance")
+SALARY_WORKBOOK_LAYOUT_VERSION = 2
 
 
 @st.cache_data(show_spinner=False)
-def _cached_salary_workbook(year, month, salaries, monthly_extras):
-    """Cache expensive workbook rendering until its actual inputs change."""
+def _cached_salary_workbook(year, month, salaries, monthly_extras, layout_version):
+    """Cache workbook rendering, explicitly scoped to its current layout."""
+    del layout_version  # Its value is part of Streamlit's cache key.
     return generate_salary_workbook(year, month, salaries, monthly_extras)
+
+
+def _should_reload_salary_blocks(state, period):
+    """Reload persisted drafts when the period changes or session data is lost."""
+    return state.get("salary_period") != period or "salary_blocks" not in state
 
 
 def _annual_leave_editor_rows(records):
@@ -220,7 +227,7 @@ def _monthly_tab(config):
     year = ycol.selectbox("年份", range(now.year - 5, now.year + 3), index=5, key="salary_year")
     month = mcol.selectbox("月份", range(1, 13), index=now.month - 1, key="salary_month")
     period = f"{year:04d}-{month:02d}"
-    if st.session_state.get("salary_period") != period:
+    if _should_reload_salary_blocks(st.session_state, period):
         st.session_state.salary_period = period
         st.session_state.salary_blocks = get_month_salaries(config, year, month)
     blocks = st.session_state.setdefault("salary_blocks", [])
@@ -371,8 +378,20 @@ def _monthly_tab(config):
                     annual_leave_records=records,
                 )
                 st.toast("特休明細已套用並自動儲存草稿")
+            elif block.get("status") != "settled":
+                # Persist every rendered draft after all widgets have written
+                # their current values back to the block.  Streamlit session
+                # state is not durable across deployments or reconnects, so
+                # relying only on the bottom-of-page save button can otherwise
+                # lose edited notes when the process restarts.
+                block["salary_id"] = save_salary(
+                    config, {**block, "year": year, "month": month}, block["adjustments"],
+                    annual_leave_records=records,
+                )
             if block["manual_note"].strip():
                 st.caption(f"人工備註預覽：{block['manual_note'].strip()}")
+            if block.get("status") != "settled":
+                st.caption("草稿內容已自動儲存；重新連線或系統更新後仍會從資料庫載入。")
             st.markdown(f"**薪資總計：{block['final_salary']:,} 元**")
     monthly_extras = get_salary_monthly_extras(config, year, month)
     previous_year, previous_month = (year - 1, 12) if month == 1 else (year, month - 1)
@@ -422,7 +441,10 @@ def _monthly_tab(config):
     if blocks:
         c3.download_button(
             "草稿預覽（Excel）",
-            _cached_salary_workbook(year, month, preview_rows, current_monthly_extras),
+            _cached_salary_workbook(
+                year, month, preview_rows, current_monthly_extras,
+                SALARY_WORKBOOK_LAYOUT_VERSION,
+            ),
             f"{year}年{month:02d}月薪資草稿預覽.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             help="直接使用目前畫面內容產生預覽，不必先儲存或結算。",
@@ -446,7 +468,15 @@ def _monthly_tab(config):
         report_rows, missing_notes = _salary_report_rows(config, settled_rows, year)
         if missing_notes:
             st.warning(f"尚未設定 {year} 年個人薪資說明：{'、'.join(missing_notes)}；仍可結算與下載，Excel 將留白。")
-        st.download_button("下載本月薪資表", _cached_salary_workbook(year, month, report_rows, monthly_extras), f"{year}年{month:02d}月薪資.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button(
+            "下載本月薪資表",
+            _cached_salary_workbook(
+                year, month, report_rows, monthly_extras,
+                SALARY_WORKBOOK_LAYOUT_VERSION,
+            ),
+            f"{year}年{month:02d}月薪資.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
     else:
         st.button("下載本月薪資表", disabled=True, help="目前沒有已結算薪資可供下載。")
 
