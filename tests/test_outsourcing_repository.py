@@ -9,6 +9,7 @@ from utils.outsourcing_repository import (
     add_outsourcing_return,
     archive_outsourcing_order,
     create_outsourcing_order,
+    correct_outsourcing_return,
     deactivate_outsourcing_order,
     list_outsourcing_events,
     list_outsourcing_orders,
@@ -102,6 +103,42 @@ def test_delivery_and_return_use_permanent_sync_ids(config):
         ).fetchall()
     assert len(events) == 2
     assert all(json.loads(row[2])["_sync_id"] == row[1] for row in events)
+
+
+def test_return_can_be_corrected_with_reason_and_same_sync_id(config):
+    create_outsourcing_order(config, order())
+    returned = add_outsourcing_return(config, "OEM001", "2026/08/24", 104)
+
+    corrected = correct_outsourcing_return(
+        config, returned["_sync_id"], "2026/08/25", 14, reason="數量多打一個零"
+    )
+
+    assert corrected["_sync_id"] == returned["_sync_id"]
+    assert corrected["載回日期"] == "2026/08/25"
+    assert corrected["載回數量"] == "14.0"
+    assert corrected["更正原因"] == "數量多打一個零"
+    assert list_outsourcing_events(config, "return") == [corrected]
+    with connect(config.path) as conn:
+        event = conn.execute(
+            "SELECT return_date, quantity, version FROM outsourcing_returns WHERE return_id=?",
+            (returned["_sync_id"],),
+        ).fetchone()
+        outbox = conn.execute(
+            "SELECT operation, entity_version FROM sync_outbox WHERE row_key=? ORDER BY entity_version",
+            (returned["_sync_id"],),
+        ).fetchall()
+    assert tuple(event) == ("2026/08/25", 14.0, 2)
+    assert [tuple(row) for row in outbox] == [("insert", 1), ("update", 2)]
+
+
+def test_return_correction_requires_reason(config):
+    create_outsourcing_order(config, order())
+    returned = add_outsourcing_return(config, "OEM001", "2026/08/24", 104)
+
+    with pytest.raises(OutsourcingError, match="更正原因"):
+        correct_outsourcing_return(
+            config, returned["_sync_id"], "2026/08/25", 14, reason=""
+        )
 
 
 def test_deactivate_retains_history_and_queues_tombstone(config):
