@@ -9207,6 +9207,48 @@ elif menu == "庫存區":
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
     df_order  = st.session_state.get("df_order",  pd.DataFrame())
 
+    # 「排行」與「用量」也必須能在直接進入庫存區時使用，而不是等使用者先造訪
+    # 配方管理或生產單管理後才取得資料。
+    if "df_recipe" not in st.session_state:
+        try:
+            df_recipe = pd.DataFrame(list_recipes(DATABASE_CONFIG)).fillna("")
+            st.session_state.df_recipe = df_recipe
+        except Exception as exc:
+            st.error(f"❌ 無法從 Turso 載入配方資料：{exc}")
+    if "df_order" not in st.session_state:
+        try:
+            df_order = pd.DataFrame(
+                list_production_orders(DATABASE_CONFIG, include_cancelled=True)
+            ).fillna("")
+            st.session_state.df_order = df_order
+        except Exception as exc:
+            st.error(f"❌ 無法從 Turso 載入生產單資料：{exc}")
+
+    # 庫存區可以從側邊欄直接進入，不能假設使用者曾先開啟「配方管理」。
+    # 色粉／色母主檔的正式來源已是 Turso，因此在此頁自行載入並更新 session
+    # 快取，避免仍依賴「配方管理」頁面才會建立的 df_color。
+    try:
+        color_powder_records = list_color_powders(DATABASE_CONFIG)
+        df_color = pd.DataFrame([
+            {
+                "色粉編號": row.get("colorpowder_id", ""),
+                "國際色號": row.get("international_code", ""),
+                "名稱": row.get("name", ""),
+                "色粉類別": row.get("category", ""),
+                "包裝": row.get("package", ""),
+                "備註": row.get("notes", ""),
+            }
+            for row in color_powder_records
+        ], columns=["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]).fillna("")
+        st.session_state.df_color = df_color.astype(str)
+    except Exception as exc:
+        st.error(f"❌ 無法從 Turso 載入色粉管理資料：{exc}")
+        # 保留已成功載入過的快取，讓短暫連線異常不會清空整個庫存頁。
+        if "df_color" not in st.session_state:
+            st.session_state.df_color = pd.DataFrame(
+                columns=["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"]
+            )
+
     # ================================================================
     # ✅ 優化 2：ws_stock 只取一次，4 個 Tab 共用同一個物件
     # ================================================================
@@ -10405,17 +10447,16 @@ elif menu == "庫存區":
                     or "色粉編號"  not in df_color_local.columns
                     or "色粉類別" not in df_color_local.columns):
                 st.warning("⚠️ 缺少色粉管理資料，請先至「色粉管理」建立色母資料。")
-                st.stop()
+                master_ids_all = set()
+            else:
+                master_ids_all = set(
+                    df_color_local[
+                        df_color_local["色粉類別"].astype(str).str.strip() == "色母"
+                    ]["色粉編號"].astype(str).str.strip().tolist()
+                )
 
-            master_ids_all = set(
-                df_color_local[
-                    df_color_local["色粉類別"].astype(str).str.strip() == "色母"
-                ]["色粉編號"].astype(str).str.strip().tolist()
-            )
-
-            if not master_ids_all:
+            if not master_ids_all and not df_color_local.empty:
                 st.warning("⚠️ 色粉管理中沒有「色母」類別的資料。")
-                st.stop()
 
             if powder_keyword:
                 if master_match_mode == "精準匹配":
@@ -10427,9 +10468,8 @@ elif menu == "庫存區":
             else:
                 master_ids_filtered = master_ids_all
 
-            if not master_ids_filtered:
+            if master_ids_all and not master_ids_filtered:
                 st.warning(f"⚠️ 找不到符合「{powder_keyword}」的色母編號。")
-                st.stop()
 
             # ── Step 2: 生產單 ──
             df_order_local = st.session_state.get("df_order", pd.DataFrame()).copy()
