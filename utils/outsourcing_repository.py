@@ -249,3 +249,57 @@ def add_outsourcing_delivery(config: DatabaseConfig, order_id: str, date: str, q
 
 def add_outsourcing_return(config: DatabaseConfig, order_id: str, date: str, quantity: float) -> dict[str, str]:
     return _add_event(config, order_id, date, quantity, kind="return")
+
+
+def correct_outsourcing_return(
+    config: DatabaseConfig,
+    return_id: str,
+    date: str,
+    quantity: float,
+    *,
+    reason: str,
+) -> dict[str, str]:
+    """Correct a return ledger entry while retaining its permanent sync ID and versions."""
+    return_id, reason = str(return_id or "").strip(), str(reason or "").strip()
+    quantity = _number(quantity)
+    if not return_id:
+        raise OutsourcingError("請選擇要更正的載回紀錄")
+    if not reason:
+        raise OutsourcingError("請輸入更正原因")
+    if quantity < 0:
+        raise OutsourcingError("載回數量不可小於 0")
+
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        existing = _mapping(conn.execute(
+            "SELECT * FROM outsourcing_returns WHERE return_id=?", (return_id,)
+        ))
+        if not existing:
+            raise OutsourcingError("找不到載回紀錄")
+        order = _mapping(conn.execute(
+            "SELECT lifecycle_status FROM outsourcing_orders WHERE outsourcing_order_id=?",
+            (existing["outsourcing_order_id"],),
+        ))
+        if not order or order["lifecycle_status"] != "active":
+            raise OutsourcingError("已封存代工單的載回紀錄不可更正")
+
+        version = int(existing["version"]) + 1
+        payload = json.loads(existing["payload_json"])
+        payload.update({
+            "_sync_id": return_id,
+            "載回日期": str(date),
+            "載回數量": str(quantity),
+            "更正原因": reason,
+            "更正時間": now,
+        })
+        conn.execute(
+            """UPDATE outsourcing_returns
+               SET return_date=?, quantity=?, payload_json=?, source='app',
+                   version=?, updated_at=? WHERE return_id=?""",
+            (str(date), quantity, json.dumps(payload, ensure_ascii=False), version, now, return_id),
+        )
+        enqueue_sheet_sync(
+            conn, sheet_name="代工載回記錄", row_key=return_id,
+            operation="update", payload=payload, entity_version=version,
+        )
+    return payload

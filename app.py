@@ -136,6 +136,7 @@ from utils.outsourcing_repository import (
     add_outsourcing_delivery,
     add_outsourcing_return,
     archive_outsourcing_order,
+    correct_outsourcing_return,
     create_outsourcing_order,
     deactivate_outsourcing_order,
     list_outsourcing_events,
@@ -6673,12 +6674,7 @@ if menu == "代工管理":
             DATABASE_CONFIG, str(oem_no), close_date.strftime("%Y/%m/%d"), 0
         )
 
-        new_ret_df = pd.DataFrame([{
-            "代工單號": str(oem_no),
-            "載回日期": close_date.strftime("%Y/%m/%d"),
-            "載回數量": 0.0,
-            "建立時間": saved_return["建立時間"]
-        }])
+        new_ret_df = pd.DataFrame([saved_return])
         df_ret = st.session_state.get("df_return", pd.DataFrame())
         if isinstance(df_ret, pd.DataFrame):
             st.session_state.df_return = pd.concat([df_ret, new_ret_df], ignore_index=True)
@@ -7157,10 +7153,11 @@ if menu == "代工管理":
             df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
             df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
 
-            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].sort_values("日期排序", ascending=False)
+            # 已結案的代工單仍需保留在這裡，使用者才能更正誤登的載回紀錄。
+            df_oem_active = df_oem.sort_values("日期排序", ascending=False)
 
             if df_oem_active.empty:
-                st.warning("⚠️ 目前沒有可載回的代工單（全部已結案）")
+                st.warning("⚠️ 目前沒有可載回的代工單")
             else:
                 oem_options = [_build_oem_dropdown_label(row) for _, row in df_oem_active.iterrows()]
                 selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_return")
@@ -7190,9 +7187,61 @@ if menu == "代工管理":
 
                     if not df_this_return.empty:
                         st.dataframe(
-                            df_this_return[["載回日期", "載回數量"]],
+                            df_this_return.reindex(columns=["載回日期", "載回數量", "更正原因"]).dropna(axis=1, how="all"),
                             use_container_width=True, hide_index=True
                         )
+
+                        with st.expander("✏️ 更正載回紀錄"):
+                            st.caption("更正會沿用原紀錄 ID 並留下版本及原因，不會新增一筆重複載回。")
+                            correction_rows = df_this_return.reset_index(drop=True)
+                            correction_options = {
+                                f"{row.get('載回日期', '')}｜{_safe_float(row.get('載回數量', 0)):g} kg｜{str(row.get('_sync_id', ''))[-8:]}": row
+                                for _, row in correction_rows.iterrows()
+                            }
+                            correction_label = st.selectbox(
+                                "選擇要更正的紀錄", [""] + list(correction_options),
+                                key=f"return_correction_record_{selected_oem}",
+                            )
+                            if correction_label:
+                                correction_row = correction_options[correction_label]
+                                correction_id = str(correction_row.get("_sync_id", "")).strip()
+                                original_date = pd.to_datetime(
+                                    correction_row.get("載回日期"), errors="coerce"
+                                )
+                                if pd.isna(original_date):
+                                    original_date = pd.Timestamp.today()
+                                with st.form(f"return_correction_form_{correction_id}"):
+                                    fix_col1, fix_col2 = st.columns(2)
+                                    corrected_date = fix_col1.date_input(
+                                        "正確載回日期", value=original_date.date()
+                                    )
+                                    corrected_qty = fix_col2.number_input(
+                                        "正確載回數量 (kg)", min_value=0.0, step=1.0,
+                                        value=_safe_float(correction_row.get("載回數量", 0)),
+                                    )
+                                    correction_reason = st.text_input(
+                                        "更正原因（必填）", placeholder="例如：數量輸入錯誤"
+                                    )
+                                    correction_submitted = st.form_submit_button("💾 儲存更正")
+
+                                if correction_submitted:
+                                    if not correction_reason.strip():
+                                        st.warning("⚠️ 請輸入更正原因")
+                                    else:
+                                        correct_outsourcing_return(
+                                            DATABASE_CONFIG, correction_id,
+                                            corrected_date.strftime("%Y/%m/%d"), corrected_qty,
+                                            reason=correction_reason,
+                                        )
+                                        corrected_total = total_returned \
+                                            - _safe_float(correction_row.get("載回數量", 0)) + corrected_qty
+                                        corrected_status = compute_oem_progress_status(oem_row, corrected_total)
+                                        if corrected_status != str(oem_row.get("狀態", "")):
+                                            update_oem_status(selected_oem, corrected_status)
+                                        load_oem_data()
+                                        st.session_state.toast_msg = "載回紀錄已更正"
+                                        st.session_state.toast_icon = "✏️"
+                                        st.session_state["rerun_after_return_save"] = True
 
                     st.markdown("---")
 
@@ -7220,12 +7269,7 @@ if menu == "代工管理":
                                     DATABASE_CONFIG, selected_oem,
                                     pending_date.strftime("%Y/%m/%d"), pending_qty
                                 )
-                                new_ret_df = pd.DataFrame([{
-                                    "代工單號": selected_oem,
-                                    "載回日期": pending_date.strftime("%Y/%m/%d"),
-                                    "載回數量": pending_qty,
-                                    "建立時間": saved_return["建立時間"]
-                                }])
+                                new_ret_df = pd.DataFrame([saved_return])
                                 st.session_state.df_return = pd.concat(
                                     [st.session_state.df_return, new_ret_df], ignore_index=True
                                 )
@@ -7252,12 +7296,7 @@ if menu == "代工管理":
                             )
 
                             # ✅ 直接更新 session_state，不重讀 Sheet
-                            new_ret_df = pd.DataFrame([{
-                                "代工單號": selected_oem,
-                                "載回日期": return_date.strftime("%Y/%m/%d"),
-                                "載回數量": return_qty,
-                                "建立時間": saved_return["建立時間"]
-                            }])
+                            new_ret_df = pd.DataFrame([saved_return])
                             st.session_state.df_return = pd.concat(
                                 [st.session_state.df_return, new_ret_df], ignore_index=True
                             )
