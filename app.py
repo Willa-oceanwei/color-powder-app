@@ -7153,14 +7153,41 @@ if menu == "代工管理":
             df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
             df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
 
-            # 已結案的代工單仍需保留在這裡，使用者才能更正誤登的載回紀錄。
-            df_oem_active = df_oem.sort_values("日期排序", ascending=False)
+            return_mode = st.radio(
+                "作業類型",
+                ["📥 待載回", "✏️ 更正已載回"],
+                horizontal=True,
+                key="outsourcing_return_mode",
+                help="日常登入只顯示未結案代工單；需要修改舊紀錄時再切換至更正模式。",
+            )
+            correction_mode = return_mode == "✏️ 更正已載回"
+
+            if correction_mode:
+                # 更正模式只列出真的有載回紀錄可修改的代工單，
+                # 避免把沒有紀錄的歷史代工單也塞進下拉選單。
+                return_order_ids = set()
+                if not df_return.empty and "代工單號" in df_return.columns:
+                    return_order_ids = set(df_return["代工單號"].astype(str))
+                df_oem_active = df_oem[
+                    df_oem["代工單號"].astype(str).isin(return_order_ids)
+                ].sort_values("日期排序", ascending=False)
+                st.caption("💡 此處只顯示有載回紀錄的代工單，包含已結案資料。")
+            else:
+                # 日常作業維持原本精簡清單：已結案資料不混入載回登入。
+                df_oem_active = df_oem[
+                    df_oem["狀態"].astype(str).str.strip() != "✅ 已結案"
+                ].sort_values("日期排序", ascending=False)
+                st.caption("💡 只顯示尚未結案的代工單；誤登修改請切換至「更正已載回」。")
 
             if df_oem_active.empty:
-                st.warning("⚠️ 目前沒有可載回的代工單")
+                empty_message = "目前沒有可更正的載回紀錄" if correction_mode else "目前沒有待載回的代工單"
+                st.info(f"✅ {empty_message}")
             else:
                 oem_options = [_build_oem_dropdown_label(row) for _, row in df_oem_active.iterrows()]
-                selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_return")
+                selected_option = st.selectbox(
+                    "選擇代工單號", [""] + oem_options,
+                    key=f"select_oem_return_{'correction' if correction_mode else 'pending'}",
+                )
 
                 if selected_option:
                     selected_oem = selected_option.split(" | ")[0].strip()
@@ -7191,6 +7218,7 @@ if menu == "代工管理":
                             use_container_width=True, hide_index=True
                         )
 
+                    if correction_mode and not df_this_return.empty:
                         with st.expander("✏️ 更正載回紀錄"):
                             st.caption("更正會沿用原紀錄 ID 並留下版本及原因，不會新增一筆重複載回。")
                             correction_rows = df_this_return.reset_index(drop=True)
@@ -7243,19 +7271,21 @@ if menu == "代工管理":
                                         st.session_state.toast_icon = "✏️"
                                         st.session_state["rerun_after_return_save"] = True
 
-                    st.markdown("---")
+                    if not correction_mode:
+                        st.markdown("---")
 
-                    with st.form("return_form"):
-                        col_r1, col_r2 = st.columns(2)
-                        return_date = col_r1.date_input("載回日期", value=datetime.today(), key="return_date_input")
-                        return_qty  = col_r2.number_input("載回數量 (kg)", min_value=0.0, step=1.0, key="return_qty_input")
+                    if not correction_mode:
+                        with st.form("return_form"):
+                            col_r1, col_r2 = st.columns(2)
+                            return_date = col_r1.date_input("載回日期", value=datetime.today(), key="return_date_input")
+                            return_qty = col_r2.number_input("載回數量 (kg)", min_value=0.0, step=1.0, key="return_qty_input")
 
-                        action_col1, action_col2, action_col3 = st.columns([1, 1, 3])
-                        submitted = action_col1.form_submit_button("➕ 新增載回")
-                        manual_close = action_col2.form_submit_button("✅ 手動結案")
-                        action_col3.caption("當『已載回』與『目標載回數量』不一致但需結案時可使用。")
+                            action_col1, action_col2, action_col3 = st.columns([1, 1, 3])
+                            submitted = action_col1.form_submit_button("➕ 新增載回")
+                            manual_close = action_col2.form_submit_button("✅ 手動結案")
+                            action_col3.caption("當『已載回』與『目標載回數量』不一致但需結案時可使用。")
 
-                    if manual_close:
+                    if not correction_mode and manual_close:
                         if str(oem_row.get("狀態", "")).strip() == "✅ 已結案":
                             st.warning("⚠️ 此代工單已結案")
                         else:
@@ -7286,7 +7316,7 @@ if menu == "代工管理":
                             st.session_state.toast_icon = "✅"
                             st.session_state["rerun_after_return_save"] = True
 
-                    if submitted:
+                    if not correction_mode and submitted:
                         if return_qty <= 0:
                             st.warning("⚠️ 請輸入載回數量")
                         else:
