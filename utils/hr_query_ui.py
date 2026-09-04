@@ -1,9 +1,9 @@
 """Privacy-first HR queries for dated annual leave and settled salary totals."""
 from datetime import date
-
-import pandas as pd
 import streamlit as st
 
+from .hr_card_ui import detail_card as _detail_card
+from .hr_card_ui import summary_card as _summary_card
 from .salary_excel import generate_salary_total_workbook
 from .salary_repository import (
     delete_annual_leave_history_record,
@@ -13,6 +13,13 @@ from .salary_repository import (
     list_settled_salaries_in_range,
     save_annual_leave_history_record,
 )
+
+
+def _render_card_grid(cards, columns=3):
+    for start in range(0, len(cards), columns):
+        cols = st.columns(columns)
+        for col, card in zip(cols, cards[start:start + columns]):
+            col.markdown(card, unsafe_allow_html=True)
 
 
 def _employee_selector(employees, key):
@@ -45,20 +52,29 @@ def _annual_leave_tab(config):
     used = sum(float(item.get("equivalent_days") or 0) for item in records)
     opening = float(setting.get("opening_balance", 0))
     st.markdown(f"<div style='font-size:16px;font-weight:700;'>{year} {employee['name']}</div>", unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("年度特休", f"{float(setting.get('annual_entitlement', 0)):g} 日")
-    c2.metric("期初剩餘", f"{opening:g} 日")
-    c3.metric("本年度已使用", f"{used:g} 日")
-    c4.metric("目前剩餘", f"{opening-used:g} 日")
+    summary = st.columns(4)
+    summary[0].markdown(_summary_card("年度特休", f"{float(setting.get('annual_entitlement', 0)):g} 日", "blue"), unsafe_allow_html=True)
+    summary[1].markdown(_summary_card("期初剩餘", f"{opening:g} 日", "gold"), unsafe_allow_html=True)
+    summary[2].markdown(_summary_card("本年度已使用", f"{used:g} 日", "orange"), unsafe_allow_html=True)
+    remaining = opening - used
+    summary[3].markdown(_summary_card("目前剩餘", f"{remaining:g} 日", "green" if remaining >= 0 else "orange"), unsafe_allow_html=True)
     if not records:
         st.info("此年度尚無逐筆特休紀錄。請至「每月薪資」新增特休日期。")
         return
-    display = pd.DataFrame([{
-        "月份": f"{int(item['month']):02d}", "日期": item["date"] or "未填日期", "日數": item["days"],
-        "時數": item["hours"], "換算日數": item["equivalent_days"], "備註": item.get("note", ""),
-        "薪資狀態": item.get("salary_status") or "未關聯",
-    } for item in records])
-    st.dataframe(display, use_container_width=True, hide_index=True)
+    st.markdown("#### 特休使用紀錄")
+    leave_cards = []
+    for item in records:
+        settled = item.get("salary_status") == "settled"
+        leave_cards.append(_detail_card(
+            item.get("date") or f"{int(item['month']):02d} 月（未填日期）",
+            "已納入薪資" if settled else "未關聯薪資",
+            [("使用額度", f"{float(item['equivalent_days']):g} 日"),
+             ("日／時", f"{float(item['days']):g} 日・{float(item['hours']):g} 時"),
+             ("備註", item.get("note") or "—")],
+            "green" if settled else "gold",
+        ))
+    _render_card_grid(leave_cards)
+    st.markdown("#### 紀錄管理")
     selected = st.selectbox("選擇要修改／刪除的紀錄", range(len(records)),
                             format_func=lambda index: f"{records[index]['date'] or '未填日期'}｜{records[index]['equivalent_days']:g}日")
     record = records[selected]
@@ -107,7 +123,9 @@ def _salary_total_tab(config):
     st.caption("薪資為月結資料，本查詢以月份為單位統計，且只包含已結算、未刪除的薪資快照。")
     total = sum(float(item.get("final_salary") or 0) for item in rows)
     st.markdown(f"**員工：{employee['name']}　期間：{start_year}/{int(start_month):02d}～{end_year}/{int(end_month):02d}**")
-    a, b = st.columns(2); a.metric("已結算月份", f"{len(rows)} 個月"); b.metric("薪資總計", f"{total:,.0f}")
+    a, b = st.columns(2)
+    a.markdown(_summary_card("已結算月份", f"{len(rows)} 個月", "blue", "查詢期間內的有效薪資快照"), unsafe_allow_html=True)
+    b.markdown(_summary_card("薪資總計", f"NT$ {total:,.0f}", "green", "已結算且未刪除"), unsafe_allow_html=True)
     details = []
     for item in rows:
         additions = sum(int(x.get("amount") or 0) for x in item["adjustments"] if x["type"] == "addition")
@@ -115,7 +133,21 @@ def _salary_total_tab(config):
         details.append({"年月":f"{item['year']}/{item['month']:02d}", "底薪":item["base_salary_snapshot"],
                         "小計":item["final_salary"]-additions+deductions, "特別加給":additions,
                         "扣除額":deductions, "薪資總計":item["final_salary"]})
-    st.dataframe(pd.DataFrame(details), use_container_width=True, hide_index=True)
+    if details:
+        st.markdown("#### 每月薪資明細")
+        salary_cards = [
+            _detail_card(
+                item["年月"], f"NT$ {float(item['薪資總計']):,.0f}",
+                [("底薪", f"NT$ {float(item['底薪']):,.0f}"),
+                 ("薪資小計", f"NT$ {float(item['小計']):,.0f}"),
+                 ("特別加給", f"+ NT$ {float(item['特別加給']):,.0f}"),
+                 ("扣除額", f"- NT$ {float(item['扣除額']):,.0f}")],
+                "green",
+            ) for item in details
+        ]
+        _render_card_grid(salary_cards)
+    else:
+        st.info("此期間沒有已結算的薪資資料。")
     if rows:
         start = f"{start_year}{int(start_month):02d}"; end = f"{end_year}{int(end_month):02d}"
         st.download_button("下載薪資總計", generate_salary_total_workbook(employee["name"], start, end, rows),
