@@ -448,6 +448,26 @@ def test_salary_drafts_reload_when_session_blocks_are_missing():
     )
 
 
+def test_monthly_context_is_always_complete(monkeypatch):
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    import utils.salary_ui as salary_ui
+
+    employees = [{"employee_id": "E1", "name": "甲"}]
+    salaries = [{"salary_id": "S1"}]
+    monkeypatch.setattr(salary_ui, "list_employees", lambda config: employees)
+    monkeypatch.setattr(salary_ui, "get_month_salaries", lambda config, year, month: salaries)
+    monkeypatch.setattr(salary_ui, "get_rules", lambda config: {"monthly_days": 30})
+
+    context = salary_ui._monthly_context(object(), 2026, 8)
+
+    assert context["employees"] == employees
+    assert context["employees_by_id"] == {"E1": employees[0]}
+    assert context["saved_salaries"] == salaries
+    assert context["rules"] == {"monthly_days": 30}
+
+
 def test_generated_salary_note_refreshes_until_user_edits_it():
     import pytest
     pytest.importorskip("pandas")

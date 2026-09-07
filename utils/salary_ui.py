@@ -95,6 +95,17 @@ def _deduplicate_salary_blocks(blocks):
     return unique
 
 
+def _monthly_context(config, year, month):
+    """Load all monthly-page dependencies before any branch reads them."""
+    employees = list_employees(config)
+    return {
+        "employees": employees,
+        "employees_by_id": {employee["employee_id"]: employee for employee in employees},
+        "saved_salaries": get_month_salaries(config, year, month),
+        "rules": get_rules(config),
+    }
+
+
 def _parse_annual_leave_date(value, default_year):
     """Parse YYYY-MM-DD, M/D, MMDD, or their Chinese equivalents."""
     if pd.isna(value) or not str(value).strip():
@@ -244,28 +255,20 @@ def _monthly_tab(config):
         f"目前編製的是 **{period} 薪資**。月份代表薪資歸屬月份，不是實際操作或發薪月份；"
         "例如 9 月處理 8 月薪資，請選 8 月。"
     )
+    # Initialize this unconditionally. Streamlit reruns with an existing period
+    # still need these values; defining context only in the reload branch caused
+    # the monthly page to fail before the tab bar could finish rendering.
+    context = _monthly_context(config, year, month)
     if _should_reload_salary_blocks(st.session_state, period):
         st.session_state.salary_period = period
-        st.session_state.salary_blocks = get_month_salaries(config, year, month)
-        employees = list_employees(config)
-        previous_year, previous_month = (year - 1, 12) if month == 1 else (year, month - 1)
-        context = {
-            "period": period,
-            "employees": employees,
-            "leave_contexts": get_annual_leave_contexts(config, employees, year, month),
-            "rules": get_rules(config),
-            "monthly_extras": get_salary_monthly_extras(config, year, month),
-            "previous_extras": get_salary_monthly_extras(config, previous_year, previous_month),
-        }
-        st.session_state.salary_month_context = context
+        st.session_state.salary_blocks = context["saved_salaries"]
     blocks = st.session_state.setdefault("salary_blocks", [])
     unique_blocks = _deduplicate_salary_blocks(blocks)
     if len(unique_blocks) != len(blocks):
         blocks[:] = unique_blocks
         st.toast("已自動移除重複新增的薪資人員")
     employees = context["employees"]
-    by_id = {x["employee_id"]: x for x in employees}
-    leave_contexts = context["leave_contexts"]
+    by_id = context["employees_by_id"]
     def new_month_block(employee):
         context = leave_contexts[employee["employee_id"]]
         return _new_block(employee, context["setting"], context["balance"])
