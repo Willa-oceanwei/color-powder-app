@@ -18,7 +18,9 @@ from utils.outsourcing_repository import (
 )
 from utils.production_order_repository import (
     ProductionOrderError,
+    create_production_order,
     merge_production_order_packages,
+    set_production_order_cancelled,
 )
 from utils.sheet_import import import_sheet_values, missing_outsourcing_sync_id_updates
 
@@ -182,6 +184,31 @@ def test_archive_and_restore_queue_all_sheet_copies_without_deleting_history(con
     assert [tuple(row)[2:] for row in events] == [
         ("insert", 1), ("delete", 2), ("insert", 3),
         ("insert", 1), ("delete", 2), ("insert", 3),
+    ]
+
+
+def test_cancelling_production_order_archives_linked_outsourcing_history(config):
+    create_production_order(config, {"生產單號": "P001", "生產日期": "2026-09-01"})
+    create_outsourcing_order(config, order("OEM001"))
+    create_outsourcing_order(config, order("OEM002"))
+    delivery = add_outsourcing_delivery(config, "OEM001", "2026/09/01", 100)
+
+    set_production_order_cancelled(config, "P001", cancelled=True, reason="客戶取消")
+
+    assert list_outsourcing_orders(config) == []
+    archived = list_outsourcing_orders(config, include_inactive=True)
+    assert {item["代工單號"] for item in archived} == {"OEM001", "OEM002"}
+    assert {item["停用原因"] for item in archived} == {"生產單取消：客戶取消"}
+    with connect(config.path) as conn:
+        tombstones = conn.execute(
+            """SELECT sheet_name, row_key, operation FROM sync_outbox
+               WHERE operation='delete' ORDER BY sheet_name, row_key"""
+        ).fetchall()
+    assert [tuple(row) for row in tombstones] == [
+        ("代工管理", "OEM001", "delete"),
+        ("代工管理", "OEM002", "delete"),
+        ("代工送達記錄", delivery["_sync_id"], "delete"),
+        ("生產單", "P001", "delete"),
     ]
 
 

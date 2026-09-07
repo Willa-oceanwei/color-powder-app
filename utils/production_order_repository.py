@@ -271,4 +271,12 @@ def set_production_order_cancelled(
             operation="delete" if cancelled else "update",
             payload=None if cancelled else payload, entity_version=version,
         )
+        if cancelled:
+            # Keep the cascade in this transaction so a partial cancellation
+            # cannot leave an active outsourcing order behind.
+            from .outsourcing_repository import archive_outsourcing_orders_for_production
+
+            archive_outsourcing_orders_for_production(
+                conn, order_id, reason=f"生產單取消：{reason}",
+            )
         return payload
