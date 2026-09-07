@@ -7,7 +7,7 @@ from utils.salary_calculator import (calculate_leave_deduction, calculate_monthl
 from utils.salary_excel import _monthly_summary, _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
                                      delete_annual_leave_history_record,
-                                     get_annual_leave_setting, get_employee_salary_note,
+                                     get_annual_leave_contexts, get_annual_leave_setting, get_employee_salary_note,
                                      get_employee_salary_notes, get_month_salaries,
                                      get_salary_monthly_extras, get_settled_month_salaries,
                                      list_annual_leave_history, list_employees, list_settled_salaries_in_range,
@@ -180,6 +180,31 @@ def test_personal_annual_leave_opening_balance_and_monthly_usage(tmp_path: Path)
     saved = get_settled_month_salaries(config, 2026, 8)[0]
     assert saved["annual_leave_entitlement_snapshot"] == 14
     assert saved["annual_leave_balance_after"] == 7.5
+
+
+def test_bulk_annual_leave_contexts_match_settings_and_previous_usage(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "bulk-annual-leave.db")
+    initialize_database_with_health(config)
+    employees = [
+        {"employee_id": "E1", "name": "甲", "join_date": "2026-01-01", "annual_leave_base": 3},
+        {"employee_id": "E2", "name": "乙", "join_date": "2026-01-01", "annual_leave_base": 6},
+    ]
+    for employee in employees:
+        save_employee(config, employee)
+    save_annual_leave_setting(config, "E1", 2026, 14, 10, 7, "甲設定")
+    used = {
+        "year": 2026, "month": 8, "employee_id": "E1", "employee_name_snapshot": "甲",
+        "standard_hours_snapshot": 8, "annual_leave_days": 1, "annual_leave_hours": 4,
+    }
+    used.update(calculate_salary(used))
+    save_salary(config, used, settle=True)
+
+    contexts = get_annual_leave_contexts(config, list_employees(config), 2026, 9)
+
+    assert contexts["E1"]["setting"]["note"] == "甲設定"
+    assert contexts["E1"]["balance"] == 8.5
+    assert contexts["E2"]["setting"] is None
+    assert contexts["E2"]["balance"] == 6
 
 
 def test_annual_leave_balance_falls_back_to_employee_current_days(tmp_path: Path):

@@ -7,12 +7,13 @@ from .salary_calculator import (calculate_monthly_extra_totals, calculate_salary
                                 default_salary_period, generate_salary_note)
 from .salary_excel import generate_salary_workbook
 from .salary_repository import (annual_leave_balance_before_month, delete_salary,
+                                get_annual_leave_contexts,
                                 get_annual_leave_setting, get_employee_salary_note, get_employee_salary_notes,
                                 get_month_salaries, get_rules,
                                 get_salary_monthly_extras, list_employees, list_salaries,
                                 move_salary_drafts,
                                 save_annual_leave_setting, save_employee, save_employee_salary_note,
-                                save_rules, save_salary, save_salary_monthly_extras,
+                                save_rules, save_salary, save_salaries, save_salary_monthly_extras,
                                 set_employee_active)
 
 
@@ -200,9 +201,12 @@ def _employee_tab(config):
                 config, employee_id, today.year, annual_leave_entitlement,
                 current_leave_balance, today.month, current_leave_setting.get("note", ""),
             )
+            st.session_state.pop("salary_month_context", None)
             st.toast("員工目前設定已儲存；歷史快照不受影響"); st.rerun()
     if current and st.button("停用／離職" if current.get("active") else "恢復在職"):
-        set_employee_active(config, current["employee_id"], not current.get("active")); st.rerun()
+        set_employee_active(config, current["employee_id"], not current.get("active"))
+        st.session_state.pop("salary_month_context", None)
+        st.rerun()
     active_count = len(list_employees(config))
     st.caption(f"目前共有 {active_count} 筆在職的員工資料。為保護薪資隱私，本頁不直接攤開完整清單；請使用上方「修改員工」搜尋及選取。")
 
@@ -243,17 +247,28 @@ def _monthly_tab(config):
     if _should_reload_salary_blocks(st.session_state, period):
         st.session_state.salary_period = period
         st.session_state.salary_blocks = get_month_salaries(config, year, month)
+        employees = list_employees(config)
+        previous_year, previous_month = (year - 1, 12) if month == 1 else (year, month - 1)
+        context = {
+            "period": period,
+            "employees": employees,
+            "leave_contexts": get_annual_leave_contexts(config, employees, year, month),
+            "rules": get_rules(config),
+            "monthly_extras": get_salary_monthly_extras(config, year, month),
+            "previous_extras": get_salary_monthly_extras(config, previous_year, previous_month),
+        }
+        st.session_state.salary_month_context = context
     blocks = st.session_state.setdefault("salary_blocks", [])
     unique_blocks = _deduplicate_salary_blocks(blocks)
     if len(unique_blocks) != len(blocks):
         blocks[:] = unique_blocks
         st.toast("已自動移除重複新增的薪資人員")
-    employees = list_employees(config)
+    employees = context["employees"]
     by_id = {x["employee_id"]: x for x in employees}
+    leave_contexts = context["leave_contexts"]
     def new_month_block(employee):
-        setting = get_annual_leave_setting(config, employee["employee_id"], year)
-        balance = annual_leave_balance_before_month(config, employee["employee_id"], year, month)
-        return _new_block(employee, setting, balance)
+        context = leave_contexts[employee["employee_id"]]
+        return _new_block(employee, context["setting"], context["balance"])
     # Repair older drafts that were created with zero leave values even though
     # the employee has a current balance. Settled snapshots remain immutable.
     for block in blocks:
@@ -261,14 +276,15 @@ def _monthly_tab(config):
         if (employee and block.get("status") != "settled"
                 and not block.get("annual_leave_entitlement_snapshot")
                 and not block.get("annual_leave_balance_before")):
-            setting = get_annual_leave_setting(config, employee["employee_id"], year)
+            context = leave_contexts[employee["employee_id"]]
+            setting = context["setting"]
             entitlement = ((setting or {}).get("annual_entitlement")
                            if setting else employee.get("annual_leave_base", 0))
-            balance = annual_leave_balance_before_month(config, employee["employee_id"], year, month)
+            balance = context["balance"]
             if entitlement or balance:
                 block["annual_leave_entitlement_snapshot"] = entitlement or 0
                 block["annual_leave_balance_before"] = balance
-    rules = get_rules(config)
+    rules = context["rules"]
     existing_employee_ids = {block.get("employee_id") for block in blocks}
     available_employees = [x for x in employees if x["employee_id"] not in existing_employee_ids]
     if st.button("＋ 新增人員", disabled=not available_employees,
@@ -391,24 +407,13 @@ def _monthly_tab(config):
                     annual_leave_records=records,
                 )
                 st.toast("特休明細已套用並自動儲存草稿")
-            elif block.get("status") != "settled":
-                # Persist every rendered draft after all widgets have written
-                # their current values back to the block.  Streamlit session
-                # state is not durable across deployments or reconnects, so
-                # relying only on the bottom-of-page save button can otherwise
-                # lose edited notes when the process restarts.
-                block["salary_id"] = save_salary(
-                    config, {**block, "year": year, "month": month}, block["adjustments"],
-                    annual_leave_records=records,
-                )
             if block["manual_note"].strip():
                 st.caption(f"人工備註預覽：{block['manual_note'].strip()}")
             if block.get("status") != "settled":
-                st.caption("草稿內容已自動儲存；重新連線或系統更新後仍會從資料庫載入。")
+                st.caption("修改完成後請按下方「儲存草稿」；特休明細套用時仍會立即儲存。")
             st.markdown(f"**薪資總計：{block['final_salary']:,} 元**")
-    monthly_extras = get_salary_monthly_extras(config, year, month)
-    previous_year, previous_month = (year - 1, 12) if month == 1 else (year, month - 1)
-    previous_extras = get_salary_monthly_extras(config, previous_year, previous_month)
+    monthly_extras = context["monthly_extras"]
+    previous_extras = context["previous_extras"]
     previous_default = float(
         previous_extras.get("monthly_total", 0)
         if previous_extras.get("created_at") else monthly_extras.get("previous_value", 0)
@@ -433,6 +438,14 @@ def _monthly_tab(config):
             save_salary_monthly_extras(
                 config, year, month, employee_values, previous_value, monthly_addition, monthly_total,
             )
+            context["monthly_extras"] = {
+                **monthly_extras,
+                "employee_values": employee_values,
+                "previous_value": previous_value,
+                "monthly_addition": monthly_addition,
+                "monthly_total": monthly_total,
+                "created_at": monthly_extras.get("created_at") or "saved",
+            }
             st.toast("每月附加數值已儲存，Excel 將使用最新數值")
             st.rerun()
 
@@ -588,7 +601,9 @@ def _rules_tab(config):
         cooling = st.toggle("請假影響涼水", value=bool(rules.get("leave_affects_cooling")))
         allowance = st.toggle("請假影響津貼", value=bool(rules.get("leave_affects_allowance")))
         if st.form_submit_button("儲存薪資規則", type="primary"):
-            save_rules(config, {"monthly_days":days,"standard_hours":hours,"leave_affects_attendance":attendance,"leave_affects_cooling":cooling,"leave_affects_allowance":allowance}); st.toast("薪資規則已儲存")
+            save_rules(config, {"monthly_days":days,"standard_hours":hours,"leave_affects_attendance":attendance,"leave_affects_cooling":cooling,"leave_affects_allowance":allowance})
+            st.session_state.pop("salary_month_context", None)
+            st.toast("薪資規則已儲存")
 
     st.divider()
     st.markdown("<div style='font-size:16px;font-weight:700;'>員工個人薪資說明設定</div>", unsafe_allow_html=True)
@@ -642,6 +657,7 @@ def _rules_tab(config):
                 config, employee_id, leave_year, entitlement, opening_balance, opening_month, leave_note
             )
             save_employee_salary_note(config, employee_id, leave_year, company_cost_note, leave_note)
+            st.session_state.pop("salary_month_context", None)
             st.toast("員工個人薪資說明已儲存／更新")
             st.rerun()
 
@@ -652,12 +668,16 @@ def render_salary_management(config):
         st.caption("薪資草稿儲存在雲端資料庫，更新程式不會清除已儲存草稿。")
     else:
         st.warning("目前使用本機資料庫；程式更新不會主動刪除草稿，但部署平台若重建磁碟，未使用雲端資料庫的資料可能遺失。")
-    tabs = st.tabs(["👤 員工薪資設定", "📅 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則"])
-    with tabs[0]:
+    sections = ["👤 員工薪資設定", "📅 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則"]
+    section = st.radio(
+        "薪資功能", sections, horizontal=True, label_visibility="collapsed",
+        key="salary_management_section",
+    )
+    if section == sections[0]:
         _employee_tab(config)
-    with tabs[1]:
+    elif section == sections[1]:
         _monthly_tab(config)
-    with tabs[2]:
+    elif section == sections[2]:
         _history_tab(config)
-    with tabs[3]:
+    else:
         _rules_tab(config)
