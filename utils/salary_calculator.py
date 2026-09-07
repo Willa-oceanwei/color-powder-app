@@ -5,6 +5,13 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable, Mapping
 
 
+def default_salary_period(today) -> tuple[int, int]:
+    """Return the preceding payroll month, including the January rollover."""
+    if today.month == 1:
+        return today.year - 1, 12
+    return today.year, today.month - 1
+
+
 def _d(value) -> Decimal:
     return Decimal(str(value or 0))
 
