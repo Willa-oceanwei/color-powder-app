@@ -148,25 +148,35 @@ def _save(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -> dict[
         recipe_version, snapshot_json = _recipe_snapshot(conn, recipe_id)
         version = 1 if existing is None else int(existing["version"]) + 1
         created_at = now if existing is None else existing["created_at"]
-        conn.execute(
-            """INSERT INTO production_orders(
-                   production_order_id, production_date, recipe_id, color, customer_name,
-                   status, payload_json, recipe_version, recipe_snapshot_json, source,
-                   version, created_at, updated_at, last_synced_at)
-               VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, 'app', ?, ?, ?, NULL)
-               ON CONFLICT(production_order_id) DO UPDATE SET
-                   production_date=excluded.production_date, recipe_id=excluded.recipe_id,
-                   color=excluded.color, customer_name=excluded.customer_name,
-                   payload_json=excluded.payload_json, recipe_version=excluded.recipe_version,
-                   recipe_snapshot_json=excluded.recipe_snapshot_json, source='app',
-                   version=excluded.version, updated_at=excluded.updated_at""",
-            (
-                order_id, payload.get("生產日期", ""), recipe_id or None,
-                payload.get("顏色", ""), payload.get("客戶名稱", ""),
-                json.dumps(payload, ensure_ascii=False), recipe_version, snapshot_json,
-                version, created_at, now,
-            ),
+        persisted_values = (
+            payload.get("生產日期", ""), recipe_id or None,
+            payload.get("顏色", ""), payload.get("客戶名稱", ""),
+            json.dumps(payload, ensure_ascii=False), recipe_version, snapshot_json,
+            version, now,
         )
+        if create:
+            conn.execute(
+                """INSERT INTO production_orders(
+                       production_order_id, production_date, recipe_id, color, customer_name,
+                       status, payload_json, recipe_version, recipe_snapshot_json, source,
+                       version, created_at, updated_at, last_synced_at)
+                   VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, 'app', ?, ?, ?, NULL)""",
+                (order_id, *persisted_values[:-1], created_at, persisted_values[-1]),
+            )
+        else:
+            # An edit must be an UPDATE in both intent and SQL.  Using an upsert here
+            # could recreate a row if it disappeared between the existence check and
+            # the write, making a weight/count edit look like a brand-new order.
+            cursor = conn.execute(
+                """UPDATE production_orders
+                   SET production_date=?, recipe_id=?, color=?, customer_name=?,
+                       payload_json=?, recipe_version=?, recipe_snapshot_json=?, source='app',
+                       version=?, updated_at=?
+                   WHERE production_order_id=?""",
+                (*persisted_values, order_id),
+            )
+            if cursor.rowcount != 1:
+                raise ProductionOrderError(f"找不到生產單號 {order_id}")
         conn.execute("DELETE FROM production_order_packages WHERE production_order_id=?", (order_id,))
         for position in range(1, 5):
             weight = _number(payload.get(f"包裝重量{position}"))

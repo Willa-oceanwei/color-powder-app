@@ -875,11 +875,15 @@ def test_production_order_edit_keeps_original_order_id(tmp_path):
     config = DatabaseConfig(backend="sqlite", path=db)
     create_production_order(config, {
         "生產單號": "O001", "生產日期": "2026-08-17", "顏色": "Red",
+        "包裝重量1": "10", "包裝份數1": "2",
     })
 
     updated = update_production_order(
         config,
-        {"生產單號": "O999", "生產日期": "2026-08-17", "顏色": "Blue"},
+        {
+            "生產單號": "O999", "生產日期": "2026-08-17", "顏色": "Blue",
+            "包裝重量1": "20", "包裝份數1": "3",
+        },
         original_order_id="O001",
     )
 
@@ -891,7 +895,17 @@ def test_production_order_edit_keeps_original_order_id(tmp_path):
         order_ids = conn.execute(
             "SELECT production_order_id FROM production_orders ORDER BY production_order_id"
         ).fetchall()
+        packages = conn.execute(
+            """SELECT production_order_id, package_weight, package_count
+               FROM production_order_packages ORDER BY production_order_id, position"""
+        ).fetchall()
+        outbox = conn.execute(
+            """SELECT row_key, operation FROM sync_outbox
+               WHERE sheet_name='生產單' ORDER BY entity_version"""
+        ).fetchall()
     assert [row["production_order_id"] for row in order_ids] == ["O001"]
+    assert [tuple(row) for row in packages] == [("O001", 20, 3)]
+    assert [tuple(row) for row in outbox] == [("O001", "insert"), ("O001", "update")]
 
 
 def test_production_order_cancel_restore_preserves_history_and_queues_updates(tmp_path):
