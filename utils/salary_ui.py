@@ -3,12 +3,14 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from .salary_calculator import calculate_monthly_extra_totals, calculate_salary, generate_salary_note
+from .salary_calculator import (calculate_monthly_extra_totals, calculate_salary,
+                                default_salary_period, generate_salary_note)
 from .salary_excel import generate_salary_workbook
 from .salary_repository import (annual_leave_balance_before_month, delete_salary,
                                 get_annual_leave_setting, get_employee_salary_note, get_employee_salary_notes,
                                 get_month_salaries, get_rules,
                                 get_salary_monthly_extras, list_employees, list_salaries,
+                                move_salary_drafts,
                                 save_annual_leave_setting, save_employee, save_employee_salary_note,
                                 save_rules, save_salary, save_salary_monthly_extras,
                                 set_employee_active)
@@ -90,6 +92,17 @@ def _deduplicate_salary_blocks(blocks):
         seen.add(employee_id)
         unique.append(block)
     return unique
+
+
+def _monthly_context(config, year, month):
+    """Load all monthly-page dependencies before any branch reads them."""
+    employees = list_employees(config)
+    return {
+        "employees": employees,
+        "employees_by_id": {employee["employee_id"]: employee for employee in employees},
+        "saved_salaries": get_month_salaries(config, year, month),
+        "rules": get_rules(config),
+    }
 
 
 def _parse_annual_leave_date(value, default_year):
@@ -223,20 +236,35 @@ def _new_block(employee, annual_setting=None, leave_balance=0):
 
 
 def _monthly_tab(config):
-    now = date.today(); ycol, mcol = st.columns(2)
-    year = ycol.selectbox("年份", range(now.year - 5, now.year + 3), index=5, key="salary_year")
-    month = mcol.selectbox("月份", range(1, 13), index=now.month - 1, key="salary_month")
+    now = date.today()
+    default_year, default_month = default_salary_period(now)
+    available_years = list(range(now.year - 5, now.year + 3))
+    ycol, mcol = st.columns(2)
+    year = ycol.selectbox(
+        "薪資歸屬年份", available_years, index=available_years.index(default_year), key="salary_year"
+    )
+    month = mcol.selectbox(
+        "薪資歸屬月份", range(1, 13), index=default_month - 1, key="salary_month"
+    )
     period = f"{year:04d}-{month:02d}"
+    st.caption(
+        f"目前編製的是 **{period} 薪資**。月份代表薪資歸屬月份，不是實際操作或發薪月份；"
+        "例如 9 月處理 8 月薪資，請選 8 月。"
+    )
+    # Initialize this unconditionally. Streamlit reruns with an existing period
+    # still need these values; defining context only in the reload branch caused
+    # the monthly page to fail before the tab bar could finish rendering.
+    context = _monthly_context(config, year, month)
     if _should_reload_salary_blocks(st.session_state, period):
         st.session_state.salary_period = period
-        st.session_state.salary_blocks = get_month_salaries(config, year, month)
+        st.session_state.salary_blocks = context["saved_salaries"]
     blocks = st.session_state.setdefault("salary_blocks", [])
     unique_blocks = _deduplicate_salary_blocks(blocks)
     if len(unique_blocks) != len(blocks):
         blocks[:] = unique_blocks
         st.toast("已自動移除重複新增的薪資人員")
-    employees = list_employees(config)
-    by_id = {x["employee_id"]: x for x in employees}
+    employees = context["employees"]
+    by_id = context["employees_by_id"]
     def new_month_block(employee):
         setting = get_annual_leave_setting(config, employee["employee_id"], year)
         balance = annual_leave_balance_before_month(config, employee["employee_id"], year, month)
@@ -255,7 +283,7 @@ def _monthly_tab(config):
             if entitlement or balance:
                 block["annual_leave_entitlement_snapshot"] = entitlement or 0
                 block["annual_leave_balance_before"] = balance
-    rules = get_rules(config)
+    rules = context["rules"]
     existing_employee_ids = {block.get("employee_id") for block in blocks}
     available_employees = [x for x in employees if x["employee_id"] not in existing_employee_ids]
     if st.button("＋ 新增人員", disabled=not available_employees,
@@ -276,7 +304,7 @@ def _monthly_tab(config):
         )["name"]
         status_label = "已結算" if block.get("status") == "settled" else "草稿"
         with st.expander(
-            f"👤 {employee_label}｜{period}｜{status_label}",
+            f"👤 {employee_label}｜薪資歸屬 {period}｜{status_label}",
             expanded=index == 0,
         ):
             current_id = block.get("employee_id")
@@ -432,12 +460,23 @@ def _monthly_tab(config):
     }
     preview_rows, _ = _salary_report_rows(config, blocks, year)
     c1, c2, c3 = st.columns(3)
-    if c1.button("儲存草稿", disabled=not blocks):
-        for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], annual_leave_records=block.get("annual_leave_records", []))
+    draft_blocks = [block for block in blocks if block.get("status") != "settled"]
+    if c1.button("儲存草稿", disabled=not draft_blocks):
+        for block in draft_blocks:
+            save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], annual_leave_records=block.get("annual_leave_records", []))
         st.toast("草稿已儲存")
     if c2.button("結算薪資", type="primary", disabled=not blocks):
-        for block in blocks: save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], settle=True, annual_leave_records=block.get("annual_leave_records", []))
+        for block in blocks:
+            block["salary_id"] = save_salary(
+                config, {**block,"year":year,"month":month}, block["adjustments"], settle=True,
+                annual_leave_records=block.get("annual_leave_records", []),
+            )
+            # Keep session state aligned with the persisted snapshot. Otherwise
+            # a subsequent Streamlit rerun sees the stale "draft" value and its
+            # automatic draft save silently reverses the settlement.
+            block["status"] = "settled"
         st.toast("正式薪資快照已結算／更新")
+        st.rerun()
     if blocks:
         c3.download_button(
             "草稿預覽（Excel）",
@@ -451,6 +490,29 @@ def _monthly_tab(config):
         )
     else:
         c3.button("草稿預覽（Excel）", disabled=True, help="請先新增薪資人員。")
+
+    with st.expander("搬移本月草稿到其他歸屬月份"):
+        st.caption("一次搬移目前月份的全部草稿；已結算薪資不會搬移，內容與特休明細都會保留。")
+        target_year_col, target_month_col = st.columns(2)
+        suggested_year, suggested_month = default_salary_period(date(year, month, 1))
+        target_years = list(range(now.year - 10, now.year + 3))
+        target_year = target_year_col.selectbox(
+            "搬移至年份", target_years, index=target_years.index(suggested_year),
+            key=f"salary_move_year_{period}",
+        )
+        target_month = target_month_col.selectbox(
+            "搬移至月份", range(1, 13), index=suggested_month - 1,
+            key=f"salary_move_month_{period}",
+        )
+        if st.button("確認搬移全部草稿", disabled=not draft_blocks, key=f"salary_move_{period}"):
+            try:
+                moved = move_salary_drafts(config, year, month, target_year, target_month)
+            except ValueError as error:
+                st.error(str(error))
+            else:
+                st.session_state.salary_blocks = get_month_salaries(config, year, month)
+                st.toast(f"已將 {moved} 筆草稿搬移至 {target_year:04d}-{target_month:02d}")
+                st.rerun()
 
     # 月份層級報表：只從資料庫重新讀取已結算快照，不使用畫面草稿。
     month_rows = get_month_salaries(config, year, month)
