@@ -1,8 +1,9 @@
+from datetime import date
 from pathlib import Path
 
 from utils.database import DatabaseConfig, connect_from_config, initialize_database_with_health
 from utils.salary_calculator import (calculate_leave_deduction, calculate_monthly_extra_totals,
-                                     calculate_salary, generate_salary_note)
+                                     calculate_salary, default_salary_period, generate_salary_note)
 from utils.salary_excel import _monthly_summary, _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
                                      delete_annual_leave_history_record,
@@ -10,7 +11,8 @@ from utils.salary_repository import (annual_leave_balance_before_month, delete_s
                                      get_employee_salary_notes, get_month_salaries,
                                      get_salary_monthly_extras, get_settled_month_salaries,
                                      list_annual_leave_history, list_employees, list_settled_salaries_in_range,
-                                     save_annual_leave_history_record, save_annual_leave_setting, save_employee, save_salary)
+                                     move_salary_drafts, save_annual_leave_history_record,
+                                     save_annual_leave_setting, save_employee, save_salary)
 from utils.salary_repository import save_employee_salary_note, save_salary_monthly_extras
 
 
@@ -118,6 +120,48 @@ def test_month_report_returns_only_settled_snapshots(tmp_path: Path):
 
     settled = get_settled_month_salaries(config, 2026, 7)
     assert [row["employee_id"] for row in settled] == ["E1"]
+
+
+def test_default_salary_period_is_previous_month_and_rolls_back_year():
+    assert default_salary_period(date(2026, 9, 7)) == (2026, 8)
+    assert default_salary_period(date(2026, 1, 10)) == (2025, 12)
+
+
+def test_move_salary_drafts_preserves_contents_and_does_not_move_settled_rows(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "move-salary.db")
+    initialize_database_with_health(config)
+    for employee_id in ("E1", "E2"):
+        save_employee(config, {"employee_id":employee_id, "name":employee_id, "join_date":"2026-01-01"})
+    draft = {"year":2026, "month":9, "employee_id":"E1", "employee_name_snapshot":"E1",
+             "manual_note":"保留內容", "standard_hours_snapshot":8}
+    draft_id = save_salary(config, draft, [{"type":"addition", "item_name":"特別加給", "amount":500}],
+                           annual_leave_records=[{"date":"2026-08-20", "days":1, "hours":0}])
+    settled = {"year":2026, "month":9, "employee_id":"E2", "employee_name_snapshot":"E2"}
+    save_salary(config, settled, settle=True)
+
+    assert move_salary_drafts(config, 2026, 9, 2026, 8) == 1
+    moved = get_month_salaries(config, 2026, 8)[0]
+    assert moved["salary_id"] == draft_id
+    assert moved["manual_note"] == "保留內容"
+    assert moved["adjustments"][0]["amount"] == 500
+    assert moved["annual_leave_records"][0]["date"] == "2026-08-20"
+    assert moved["annual_leave_records"][0]["month"] == 8
+    assert [row["employee_id"] for row in get_month_salaries(config, 2026, 9)] == ["E2"]
+
+
+def test_move_salary_drafts_rejects_target_employee_conflict_atomically(tmp_path: Path):
+    import pytest
+
+    config = DatabaseConfig("sqlite", tmp_path / "move-conflict.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E1", "name":"甲", "join_date":"2026-01-01"})
+    for month in (8, 9):
+        save_salary(config, {"year":2026, "month":month, "employee_id":"E1",
+                             "employee_name_snapshot":"甲"})
+
+    with pytest.raises(ValueError, match="目標月份已有"):
+        move_salary_drafts(config, 2026, 9, 2026, 8)
+    assert get_month_salaries(config, 2026, 9)[0]["status"] == "draft"
 
 
 def test_personal_annual_leave_opening_balance_and_monthly_usage(tmp_path: Path):
@@ -376,6 +420,47 @@ def test_salary_drafts_reload_when_session_blocks_are_missing():
     )
     assert not _should_reload_salary_blocks(
         {"salary_period": "2026-08", "salary_blocks": []}, "2026-08",
+    )
+
+
+def test_monthly_context_is_always_complete(monkeypatch):
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    import utils.salary_ui as salary_ui
+
+    employees = [{"employee_id": "E1", "name": "甲"}]
+    salaries = [{"salary_id": "S1"}]
+    monkeypatch.setattr(salary_ui, "list_employees", lambda config: employees)
+    monkeypatch.setattr(salary_ui, "get_month_salaries", lambda config, year, month: salaries)
+    monkeypatch.setattr(salary_ui, "get_rules", lambda config: {"monthly_days": 30})
+    extras_by_month = {
+        (2026, 7): {"monthly_total": 100},
+        (2026, 8): {"monthly_total": 120},
+    }
+    monkeypatch.setattr(
+        salary_ui, "get_salary_monthly_extras",
+        lambda config, year, month: extras_by_month[(year, month)],
+    )
+
+    context = salary_ui._monthly_context(object(), 2026, 8)
+
+    assert context["employees"] == employees
+    assert context["employees_by_id"] == {"E1": employees[0]}
+    assert context["saved_salaries"] == salaries
+    assert context["rules"] == {"monthly_days": 30}
+    assert context["monthly_extras"] == {"monthly_total": 120}
+    assert context["previous_extras"] == {"monthly_total": 100}
+
+
+def test_salary_top_level_tabs_match_outsourcing_tab_style():
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    from utils.salary_ui import SALARY_TAB_LABELS
+
+    assert SALARY_TAB_LABELS == (
+        "👤 員工薪資設定", "📅 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則",
     )
 
 
