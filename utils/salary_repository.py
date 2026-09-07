@@ -168,6 +168,75 @@ def get_settled_month_salaries(config, year, month):
     return [row for row in list_salaries(config, year, month) if row["status"] == "settled"]
 
 
+def move_salary_drafts(config, source_year, source_month, target_year, target_month):
+    """Atomically move every active draft in one payroll period to another."""
+    source = (int(source_year), int(source_month))
+    target = (int(target_year), int(target_month))
+    if not 1 <= target[1] <= 12:
+        raise ValueError("目標月份必須介於 1 到 12 月")
+    if source == target:
+        raise ValueError("目標月份不可與目前薪資歸屬月份相同")
+
+    now = utc_now_iso()
+    with connect_from_config(config) as conn:
+        drafts = conn.execute(
+            """SELECT salary_id,employee_id FROM salary_monthly
+               WHERE year=? AND month=? AND status='draft' AND is_deleted=0""",
+            source,
+        ).fetchall()
+        if not drafts:
+            raise ValueError("目前月份沒有可搬移的草稿")
+
+        employee_ids = [row[1] for row in drafts]
+        placeholders = ",".join("?" for _ in employee_ids)
+        conflicts = conn.execute(
+            f"""SELECT employee_name_snapshot FROM salary_monthly
+                WHERE year=? AND month=? AND employee_id IN ({placeholders}) AND is_deleted=0""",
+            (*target, *employee_ids),
+        ).fetchall()
+        if conflicts:
+            names = "、".join(row[0] for row in conflicts)
+            raise ValueError(f"目標月份已有以下人員的薪資資料，未進行搬移：{names}")
+
+        # A soft-deleted snapshot still occupies the database uniqueness key.
+        # Remove only those invisible target rows so a previously deleted
+        # mistake does not prevent the user from moving the replacement draft.
+        deleted_targets = conn.execute(
+            f"""SELECT salary_id FROM salary_monthly
+                WHERE year=? AND month=? AND employee_id IN ({placeholders}) AND is_deleted=1""",
+            (*target, *employee_ids),
+        ).fetchall()
+        deleted_target_ids = [row[0] for row in deleted_targets]
+        if deleted_target_ids:
+            deleted_placeholders = ",".join("?" for _ in deleted_target_ids)
+            conn.execute(
+                f"DELETE FROM salary_adjustments WHERE salary_id IN ({deleted_placeholders})",
+                tuple(deleted_target_ids),
+            )
+            conn.execute(
+                f"DELETE FROM annual_leave_history WHERE salary_id IN ({deleted_placeholders})",
+                tuple(deleted_target_ids),
+            )
+            conn.execute(
+                f"DELETE FROM salary_monthly WHERE salary_id IN ({deleted_placeholders})",
+                tuple(deleted_target_ids),
+            )
+
+        conn.execute(
+            """UPDATE salary_monthly SET year=?,month=?,updated_at=?
+               WHERE year=? AND month=? AND status='draft' AND is_deleted=0""",
+            (*target, now, *source),
+        )
+        salary_ids = [row[0] for row in drafts]
+        salary_placeholders = ",".join("?" for _ in salary_ids)
+        conn.execute(
+            f"""UPDATE annual_leave_history SET year=?,month=?,updated_at=?
+                WHERE salary_id IN ({salary_placeholders}) AND is_deleted=0""",
+            (*target, now, *salary_ids),
+        )
+    return len(drafts)
+
+
 def get_annual_leave_setting(config, employee_id, year):
     with connect_from_config(config) as conn:
         cursor = conn.execute("SELECT * FROM employee_annual_leave_settings WHERE employee_id=? AND year=?", (employee_id, year))

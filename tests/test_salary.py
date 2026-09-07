@@ -11,8 +11,8 @@ from utils.salary_repository import (annual_leave_balance_before_month, delete_s
                                      get_employee_salary_notes, get_month_salaries,
                                      get_salary_monthly_extras, get_settled_month_salaries,
                                      list_annual_leave_history, list_employees, list_settled_salaries_in_range,
-                                     save_annual_leave_history_record, save_annual_leave_setting, save_employee,
-                                     save_salaries, save_salary)
+                                     move_salary_drafts, save_annual_leave_history_record,
+                                     save_annual_leave_setting, save_employee, save_salary)
 from utils.salary_repository import save_employee_salary_note, save_salary_monthly_extras
 
 
@@ -122,35 +122,46 @@ def test_month_report_returns_only_settled_snapshots(tmp_path: Path):
     assert [row["employee_id"] for row in settled] == ["E1"]
 
 
-def test_batch_save_preserves_each_salary_details_and_settles_together(tmp_path: Path):
-    config = DatabaseConfig("sqlite", tmp_path / "batch-save.db")
+def test_default_salary_period_is_previous_month_and_rolls_back_year():
+    assert default_salary_period(date(2026, 9, 7)) == (2026, 8)
+    assert default_salary_period(date(2026, 1, 10)) == (2025, 12)
+
+
+def test_move_salary_drafts_preserves_contents_and_does_not_move_settled_rows(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "move-salary.db")
     initialize_database_with_health(config)
-    salaries = []
-    for employee_id, name in (("E1", "甲"), ("E2", "乙")):
-        save_employee(config, {
-            "employee_id": employee_id, "name": name, "join_date": "2026-01-01",
-        })
-        data = {
-            "year": 2026, "month": 9, "employee_id": employee_id,
-            "employee_name_snapshot": name, "standard_hours_snapshot": 8,
-            "annual_leave_days": 0.5,
-            "adjustments": [{
-                "type": "addition", "item_name": "特別加給", "amount": 100, "note": name,
-            }],
-            "annual_leave_records": [{
-                "date": f"2026-09-0{len(salaries) + 1}", "days": 0.5, "hours": 0, "note": name,
-            }],
-        }
-        data.update(calculate_salary(data, additions=data["adjustments"]))
-        salaries.append(data)
+    for employee_id in ("E1", "E2"):
+        save_employee(config, {"employee_id":employee_id, "name":employee_id, "join_date":"2026-01-01"})
+    draft = {"year":2026, "month":9, "employee_id":"E1", "employee_name_snapshot":"E1",
+             "manual_note":"保留內容", "standard_hours_snapshot":8}
+    draft_id = save_salary(config, draft, [{"type":"addition", "item_name":"特別加給", "amount":500}],
+                           annual_leave_records=[{"date":"2026-08-20", "days":1, "hours":0}])
+    settled = {"year":2026, "month":9, "employee_id":"E2", "employee_name_snapshot":"E2"}
+    save_salary(config, settled, settle=True)
 
-    salary_ids = save_salaries(config, salaries, settle=True)
+    assert move_salary_drafts(config, 2026, 9, 2026, 8) == 1
+    moved = get_month_salaries(config, 2026, 8)[0]
+    assert moved["salary_id"] == draft_id
+    assert moved["manual_note"] == "保留內容"
+    assert moved["adjustments"][0]["amount"] == 500
+    assert moved["annual_leave_records"][0]["date"] == "2026-08-20"
+    assert moved["annual_leave_records"][0]["month"] == 8
+    assert [row["employee_id"] for row in get_month_salaries(config, 2026, 9)] == ["E2"]
 
-    saved = get_month_salaries(config, 2026, 9)
-    assert len(set(salary_ids)) == 2
-    assert [row["status"] for row in saved] == ["settled", "settled"]
-    assert [row["adjustments"][0]["note"] for row in saved] == ["甲", "乙"]
-    assert [row["annual_leave_records"][0]["note"] for row in saved] == ["甲", "乙"]
+
+def test_move_salary_drafts_rejects_target_employee_conflict_atomically(tmp_path: Path):
+    import pytest
+
+    config = DatabaseConfig("sqlite", tmp_path / "move-conflict.db")
+    initialize_database_with_health(config)
+    save_employee(config, {"employee_id":"E1", "name":"甲", "join_date":"2026-01-01"})
+    for month in (8, 9):
+        save_salary(config, {"year":2026, "month":month, "employee_id":"E1",
+                             "employee_name_snapshot":"甲"})
+
+    with pytest.raises(ValueError, match="目標月份已有"):
+        move_salary_drafts(config, 2026, 9, 2026, 8)
+    assert get_month_salaries(config, 2026, 9)[0]["status"] == "draft"
 
 
 def test_personal_annual_leave_opening_balance_and_monthly_usage(tmp_path: Path):
