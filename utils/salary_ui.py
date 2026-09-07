@@ -19,6 +19,12 @@ from .salary_repository import (annual_leave_balance_before_month, delete_salary
 
 MONEY_FIELDS = ("base_salary", "attendance_bonus", "cooling_allowance", "allowance", "position_allowance", "insurance")
 SALARY_WORKBOOK_LAYOUT_VERSION = 2
+SALARY_TAB_LABELS = (
+    "👤 員工薪資設定",
+    "📅 每月薪資",
+    "📚 薪資歷史",
+    "⚙️ 薪資規則",
+)
 
 
 @st.cache_data(show_spinner=False)
@@ -98,11 +104,14 @@ def _deduplicate_salary_blocks(blocks):
 def _monthly_context(config, year, month):
     """Load all monthly-page dependencies before any branch reads them."""
     employees = list_employees(config)
+    previous_year, previous_month = (year - 1, 12) if month == 1 else (year, month - 1)
     return {
         "employees": employees,
         "employees_by_id": {employee["employee_id"]: employee for employee in employees},
         "saved_salaries": get_month_salaries(config, year, month),
         "rules": get_rules(config),
+        "monthly_extras": get_salary_monthly_extras(config, year, month),
+        "previous_extras": get_salary_monthly_extras(config, previous_year, previous_month),
     }
 
 
@@ -671,16 +680,14 @@ def render_salary_management(config):
         st.caption("薪資草稿儲存在雲端資料庫，更新程式不會清除已儲存草稿。")
     else:
         st.warning("目前使用本機資料庫；程式更新不會主動刪除草稿，但部署平台若重建磁碟，未使用雲端資料庫的資料可能遺失。")
-    sections = ["👤 員工薪資設定", "📅 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則"]
-    section = st.radio(
-        "薪資功能", sections, horizontal=True, label_visibility="collapsed",
-        key="salary_management_section",
-    )
-    if section == sections[0]:
+    # Keep the same top-level tab pattern used by 代工管理 so the four salary
+    # sections remain visible as page tabs rather than falling back to a menu.
+    employee_tab, monthly_tab, history_tab, rules_tab = st.tabs(SALARY_TAB_LABELS)
+    with employee_tab:
         _employee_tab(config)
-    elif section == sections[1]:
+    with monthly_tab:
         _monthly_tab(config)
-    elif section == sections[2]:
+    with history_tab:
         _history_tab(config)
-    else:
+    with rules_tab:
         _rules_tab(config)

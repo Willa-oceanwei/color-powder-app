@@ -459,6 +459,14 @@ def test_monthly_context_is_always_complete(monkeypatch):
     monkeypatch.setattr(salary_ui, "list_employees", lambda config: employees)
     monkeypatch.setattr(salary_ui, "get_month_salaries", lambda config, year, month: salaries)
     monkeypatch.setattr(salary_ui, "get_rules", lambda config: {"monthly_days": 30})
+    extras_by_month = {
+        (2026, 7): {"monthly_total": 100},
+        (2026, 8): {"monthly_total": 120},
+    }
+    monkeypatch.setattr(
+        salary_ui, "get_salary_monthly_extras",
+        lambda config, year, month: extras_by_month[(year, month)],
+    )
 
     context = salary_ui._monthly_context(object(), 2026, 8)
 
@@ -466,6 +474,19 @@ def test_monthly_context_is_always_complete(monkeypatch):
     assert context["employees_by_id"] == {"E1": employees[0]}
     assert context["saved_salaries"] == salaries
     assert context["rules"] == {"monthly_days": 30}
+    assert context["monthly_extras"] == {"monthly_total": 120}
+    assert context["previous_extras"] == {"monthly_total": 100}
+
+
+def test_salary_top_level_tabs_match_outsourcing_tab_style():
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    from utils.salary_ui import SALARY_TAB_LABELS
+
+    assert SALARY_TAB_LABELS == (
+        "👤 員工薪資設定", "📅 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則",
+    )
 
 
 def test_generated_salary_note_refreshes_until_user_edits_it():
