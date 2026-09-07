@@ -693,6 +693,20 @@ def test_recipe_repository_atomically_replaces_components_and_queues(tmp_path):
     ]
 
 
+def test_recipe_repository_defaults_non_finite_oem_multiplier(tmp_path):
+    db = tmp_path / "colorpowder.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+
+    create_recipe(config, {"配方編號": "R001", "代工倍率": float("nan")})
+
+    with connect(db) as conn:
+        multiplier = conn.execute(
+            "SELECT oem_multiplier FROM recipes WHERE recipe_id='R001'"
+        ).fetchone()[0]
+    assert multiplier == 1
+
+
 def test_recipe_outbox_pushes_latest_full_row(tmp_path):
     db = tmp_path / "colorpowder.db"
     initialize_database(db)
