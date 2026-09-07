@@ -3059,10 +3059,10 @@ elif menu == "配方管理":
             with pantone_col:
                 fr["Pantone色號"] = st.text_input("Pantone色號", value=fr.get("Pantone色號",""), key="form_recipe_Pantone色號")
             with oem_ratio_col:
-                fr["代工轉換倍率"] = st.number_input(
+                fr["代工倍率"] = st.number_input(
                     "代工倍率",
                     min_value=0.01,
-                    value=float(fr.get("代工轉換倍率", 1) or 1),
+                    value=float(fr.get("代工倍率", 1) or 1),
                     step=0.01,
                     key="form_recipe_oem_multiplier"
                 )
@@ -3475,10 +3475,10 @@ elif menu == "配方管理":
                     with pantone_col:
                         fr["Pantone色號"] = st.text_input("Pantone色號", fr.get("Pantone色號", ""), key=f"edit_recipe_pantone_{code}")
                     with oem_ratio_col:
-                        fr["代工轉換倍率"] = st.number_input(
+                        fr["代工倍率"] = st.number_input(
                             "代工轉換倍率（僅代工管理生效）",
                             min_value=0.01,
-                            value=float(fr.get("代工轉換倍率", 1) or 1),
+                            value=float(fr.get("代工倍率", 1) or 1),
                             step=0.01,
                             key=f"edit_recipe_oem_multiplier_{code}"
                         )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import date
 from typing import Any
 
@@ -55,7 +56,8 @@ def _text(row: dict[str, Any], key: str) -> str:
 
 def _number(value: Any, default: float = 0) -> float:
     try:
-        return float(str(value).replace(",", "").strip() or default)
+        number = float(str(value).replace(",", "").strip() or default)
+        return number if math.isfinite(number) else default
     except (TypeError, ValueError):
         return default
 
