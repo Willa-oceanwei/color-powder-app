@@ -1,8 +1,9 @@
+from datetime import date
 from pathlib import Path
 
 from utils.database import DatabaseConfig, connect_from_config, initialize_database_with_health
 from utils.salary_calculator import (calculate_leave_deduction, calculate_monthly_extra_totals,
-                                     calculate_salary, generate_salary_note)
+                                     calculate_salary, default_salary_period, generate_salary_note)
 from utils.salary_excel import _monthly_summary, _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
                                      delete_annual_leave_history_record,

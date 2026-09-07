@@ -3,7 +3,8 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from .salary_calculator import calculate_monthly_extra_totals, calculate_salary, generate_salary_note
+from .salary_calculator import (calculate_monthly_extra_totals, calculate_salary,
+                                default_salary_period, generate_salary_note)
 from .salary_excel import generate_salary_workbook
 from .salary_repository import (annual_leave_balance_before_month, delete_salary,
                                 get_annual_leave_contexts,
@@ -227,9 +228,16 @@ def _new_block(employee, annual_setting=None, leave_balance=0):
 
 
 def _monthly_tab(config):
-    now = date.today(); ycol, mcol = st.columns(2)
-    year = ycol.selectbox("年份", range(now.year - 5, now.year + 3), index=5, key="salary_year")
-    month = mcol.selectbox("月份", range(1, 13), index=now.month - 1, key="salary_month")
+    now = date.today()
+    default_year, default_month = default_salary_period(now)
+    available_years = list(range(now.year - 5, now.year + 3))
+    ycol, mcol = st.columns(2)
+    year = ycol.selectbox(
+        "薪資歸屬年份", available_years, index=available_years.index(default_year), key="salary_year"
+    )
+    month = mcol.selectbox(
+        "薪資歸屬月份", range(1, 13), index=default_month - 1, key="salary_month"
+    )
     period = f"{year:04d}-{month:02d}"
     context = st.session_state.get("salary_month_context")
     if (_should_reload_salary_blocks(st.session_state, period)
@@ -294,7 +302,7 @@ def _monthly_tab(config):
         )["name"]
         status_label = "已結算" if block.get("status") == "settled" else "草稿"
         with st.expander(
-            f"👤 {employee_label}｜{period}｜{status_label}",
+            f"👤 {employee_label}｜薪資歸屬 {period}｜{status_label}",
             expanded=index == 0,
         ):
             current_id = block.get("employee_id")
@@ -463,6 +471,7 @@ def _monthly_tab(config):
             block["salary_id"] = salary_id
             block["status"] = "settled"
         st.toast("正式薪資快照已結算／更新")
+        st.rerun()
     if blocks:
         c3.download_button(
             "草稿預覽（Excel）",
