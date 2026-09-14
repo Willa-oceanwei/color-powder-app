@@ -1773,6 +1773,97 @@ def calc_packs_total_kg(order_row):
         )
     return packs_total
 
+def calculate_shipment_display(order_row, recipe_df):
+    """Format the package summary using the recipe's current measurement unit.
+
+    Production-order payloads contain a unit snapshot, but older/stale payloads can
+    disagree with the recipe used by the printable order.  Prefer the matching
+    recipe so the record table and print preview apply the same conversion.
+    """
+    formula_id = str(order_row.get("配方編號", "") or "").strip()
+    if not formula_id:
+        return ""
+
+    unit = str(order_row.get("計量單位", "") or "").strip()
+    category = str(order_row.get("色粉類別", "") or "").strip()
+    try:
+        recipe_records = recipe_df.to_dict("records")
+    except AttributeError:
+        recipe_records = recipe_df or []
+    try:
+        recipe = next(
+            item
+            for item in recipe_records
+            if str(item.get("配方編號", "") or "").strip() == formula_id
+        )
+    except (StopIteration, TypeError):
+        recipe = None
+    if recipe is not None:
+        try:
+            recipe_unit = str(recipe.get("計量單位", "") or "").strip()
+            recipe_category = str(recipe.get("色粉類別", "") or "").strip()
+            unit = recipe_unit or unit
+            category = recipe_category or category
+        except (TypeError, AttributeError):
+            pass
+
+    if unit == "kg" and category == "色母":
+        multiplier, label = 100, "K"
+    else:
+        multiplier = {"包": 25, "桶": 100, "kg": 1}.get(unit, 1)
+        label = {"包": "K", "桶": "K", "kg": "kg"}.get(unit, "")
+
+    results = []
+    for i in range(1, 5):
+        weight = parse_pack_value(order_row.get(f"包裝重量{i}", 0))
+        count = parse_pack_value(order_row.get(f"包裝份數{i}", 0))
+        if weight > 0 and count > 0:
+            show_weight = weight * multiplier if label == "K" else weight
+            results.append(f"{fmt_num(show_weight, 2)}{label}*{fmt_num(count, 2)}")
+    return " + ".join(results)
+
+def reset_production_order_draft_state(session_state, new_order_no, new_recipe_code):
+    """Clear recipe-dependent widgets when the production-order draft changes.
+
+    A newly selected recipe can receive the same next order number as the previous
+    unsaved draft.  The recipe code therefore has to be part of the identity check;
+    otherwise Streamlit keeps values belonging to the previously selected recipe.
+    """
+    previous_order = session_state.get("new_order") or {}
+    same_draft = (
+        not session_state.get("new_order_saved", False)
+        and str(previous_order.get("生產單號", "")).strip() == str(new_order_no).strip()
+        and str(previous_order.get("配方編號", "")).strip() == str(new_recipe_code).strip()
+    )
+    if same_draft:
+        return False
+
+    recipe_widget_keys = (
+        "form_remark_tab1",
+        "form_color_tab1",
+        "form_pantone_tab1",
+        "form_raw_material_tab1",
+        "form_important_note_tab1",
+        "form_total_category_tab1",
+        "form_unit_tab1",
+        "form_ratio_tab1",
+    )
+    for key in recipe_widget_keys:
+        session_state.pop(key, None)
+    for i in range(1, 5):
+        session_state.pop(f"form_weight{i}_tab1", None)
+        session_state.pop(f"form_count{i}_tab1", None)
+    for key in list(session_state.keys()):
+        if key.startswith(("form_main_color_", "form_add_color_")):
+            session_state.pop(key, None)
+
+    session_state["downloaded_html_tab1"] = False
+    session_state["new_order_saved"] = False
+    session_state.pop("recipe_init_done", None)
+    session_state.pop("recipe_row_cache", None)
+    session_state.pop("last_saved_order_snapshot", None)
+    return True
+
 def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
     """生成配方預覽文字（用於生產單）"""
     html_text = ""
@@ -4711,27 +4802,16 @@ elif menu == "生產單管理":
             if key.startswith(cache_prefixes):
                 st.session_state.pop(key, None)
 
-    def reset_order_draft_state_if_new(new_order_no):
+    def reset_order_draft_state_if_new(new_order_no, new_recipe_code):
         """開始一張全新的生產單草稿時，清掉上一張單殘留的包裝重量/份數、是否已下載、
         是否已存檔等暫存狀態，避免新單一開始就沿用舊單的數字，或誤顯示「已下載」。
         ⚠️ 只有「上一張單還沒存檔、且單號沒變」才視為同一張草稿（例如只是重新 rerun），
         不清空；只要上一張單已經存檔成功，不論這次算出來的單號是否剛好跟上一張一樣
         （例如 Sheet 尚未即時反映最新流水號），都一律視為要開始新的一筆，強制清空，
         避免包裝重量/份數殘留到下一筆。"""
-        prev_order = st.session_state.get("new_order") or {}
-        already_saved = st.session_state.get("new_order_saved", False)
-        same_draft = (
-            not already_saved
-            and str(prev_order.get("生產單號", "")).strip() == str(new_order_no).strip()
+        reset_production_order_draft_state(
+            st.session_state, new_order_no, new_recipe_code
         )
-        if same_draft:
-            return  # 同一張還沒存檔的單（例如只是重新 rerun），不用清
-        for i in range(1, 5):
-            st.session_state.pop(f"form_weight{i}_tab1", None)
-            st.session_state.pop(f"form_count{i}_tab1", None)
-        st.session_state["downloaded_html_tab1"] = False
-        st.session_state["new_order_saved"] = False
-        st.session_state.pop("recipe_init_done", None)
 
     # =============== Tab 架構開始 ===============
     if st.session_state.get("order_toast"):
@@ -4900,7 +4980,9 @@ elif menu == "生產單管理":
                 new_id = _prev_order_for_id.get("生產單號", "") or generate_next_production_order_id()
             else:
                 new_id = generate_next_production_order_id()
-            reset_order_draft_state_if_new(new_id)
+            reset_order_draft_state_if_new(
+                new_id, selected_row.get("配方編號", "")
+            )
         
             order = {
                 "生產單號": new_id,
@@ -4948,6 +5030,25 @@ elif menu == "生產單管理":
                 selected_row = None
             else:
                 selected_row = option_map.get(selected_label)
+
+        # 搜尋條件改變後，不可繼續顯示上一個配方的可編輯表單。多筆結果必須
+        # 重新按「新增」確認；查無結果或尚未選取時則直接收起舊資料區。
+        active_order = st.session_state.get("new_order") or {}
+        active_recipe_code = str(active_order.get("配方編號", "")).strip()
+        selected_recipe_code = str(
+            (selected_row or {}).get("配方編號", "")
+        ).strip()
+        should_hide_stale_draft = (
+            bool(active_recipe_code)
+            and (
+                not selected_recipe_code
+                or (len(option_map) > 1 and selected_recipe_code != active_recipe_code)
+            )
+        )
+        if should_hide_stale_draft:
+            reset_order_draft_state_if_new("", "")
+            st.session_state["new_order"] = None
+            st.session_state["show_confirm_panel"] = False
         
         # === 處理「新增」按鈕 ===
         if add_btn:
@@ -4960,7 +5061,9 @@ elif menu == "生產單管理":
                     order = {}
     
                     new_id = generate_next_production_order_id()
-                    reset_order_draft_state_if_new(new_id)
+                    reset_order_draft_state_if_new(
+                        new_id, selected_row.get("配方編號", "")
+                    )
     
                     main_recipe_code = selected_row.get("配方編號", "").strip()
                     df_recipe["配方類別"] = df_recipe["配方類別"].astype(str).str.strip()
@@ -5941,47 +6044,10 @@ elif menu == "生產單管理":
         end_idx = start_idx + limit
         page_data = df_filtered.iloc[start_idx:end_idx].copy()
     
-        def calculate_shipment(row):
-            try:
-                unit = str(row.get("計量單位", "")).strip()
-                formula_id = str(row.get("配方編號", "")).strip()
-                multipliers = {"包": 25, "桶": 100, "kg": 1}
-                unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
-    
-                if not formula_id:
-                    return ""
-    
-                try:
-                    matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
-                    category = matched.values[0] if not matched.empty else ""
-                except Exception:
-                    category = ""
-    
-                if unit == "kg" and category == "色母":
-                    multiplier = 100
-                    label = "K"
-                else:
-                    multiplier = multipliers.get(unit, 1)
-                    label = unit_labels.get(unit, "")
-    
-                results = []
-                for i in range(1, 5):
-                    try:
-                        weight = float(row.get(f"包裝重量{i}", 0))
-                        count = int(float(row.get(f"包裝份數{i}", 0)))
-                        if weight > 0 and count > 0:
-                            show_weight = fmt_num(weight * multiplier, 2) if label == "K" else fmt_num(weight, 2)
-                            results.append(f"{show_weight}{label}*{count}")
-                    except Exception:
-                        continue
-    
-                return " + ".join(results) if results else ""
-    
-            except Exception:
-                return ""
-    
         if not page_data.empty:
-            page_data["出貨數量"] = page_data.apply(calculate_shipment, axis=1)
+            page_data["出貨數量"] = page_data.apply(
+                lambda row: calculate_shipment_display(row, df_recipe), axis=1
+            )
     
         display_cols = ["生產單號", "配方編號", "顏色", "客戶名稱", "出貨數量", "取消狀態", "取消原因", "建立時間"]
         existing_cols = [c for c in display_cols if c in page_data.columns]
@@ -6136,49 +6202,11 @@ elif menu == "生產單管理":
     
             # ===== 📊 顯示搜尋結果表格（新增回來）=====
             if not df_filtered_tab3.empty:
-                # 計算出貨數量函式
-                def calculate_shipment(row):
-                    try:
-                        unit = str(row.get("計量單位", "")).strip()
-                        formula_id = str(row.get("配方編號", "")).strip()
-                        multipliers = {"包": 25, "桶": 100, "kg": 1}
-                        unit_labels = {"包": "K", "桶": "K", "kg": "kg"}
-    
-                        if not formula_id:
-                            return ""
-    
-                        try:
-                            matched = df_recipe.loc[df_recipe["配方編號"] == formula_id, "色粉類別"]
-                            category = matched.values[0] if not matched.empty else ""
-                        except Exception:
-                            category = ""
-    
-                        if unit == "kg" and category == "色母":
-                            multiplier = 100
-                            label = "K"
-                        else:
-                            multiplier = multipliers.get(unit, 1)
-                            label = unit_labels.get(unit, "")
-    
-                        results = []
-                        for i in range(1, 5):
-                            try:
-                                weight = float(row.get(f"包裝重量{i}", 0))
-                                count = int(float(row.get(f"包裝份數{i}", 0)))
-                                if weight > 0 and count > 0:
-                                    show_weight = fmt_num(weight * multiplier, 2) if label == "K" else fmt_num(weight, 2)
-                                    results.append(f"{show_weight}{label}*{count}")
-                            except Exception:
-                                continue
-    
-                        return " + ".join(results) if results else ""
-    
-                    except Exception:
-                        return ""
-    
                 # 新增出貨數量欄位
                 df_display_tab3 = df_filtered_tab3.copy()
-                df_display_tab3["出貨數量"] = df_display_tab3.apply(calculate_shipment, axis=1)
+                df_display_tab3["出貨數量"] = df_display_tab3.apply(
+                    lambda row: calculate_shipment_display(row, df_recipe), axis=1
+                )
     
                 # ===== 分頁資料（控制元件改放到表格右下角）=====
                 page_size = int(st.session_state.get("tab3_page_size", 10))
