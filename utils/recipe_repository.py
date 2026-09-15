@@ -85,18 +85,45 @@ def _validated_payload(conn, row: dict[str, Any]) -> tuple[dict[str, str], list[
     return payload, components
 
 
-def _save_recipe(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -> dict[str, str]:
+def _save_recipe(
+    config: DatabaseConfig,
+    row: dict[str, Any],
+    *,
+    create: bool,
+    original_recipe_id: str | None = None,
+) -> dict[str, str]:
     now = utc_now_iso()
     with connect_from_config(config) as conn:
         payload, components = _validated_payload(conn, row)
         recipe_id = payload["配方編號"]
-        existing = _mapping(conn.execute("SELECT * FROM recipes WHERE recipe_id=?", (recipe_id,)))
+        lookup_id = str(original_recipe_id or recipe_id).strip()
+        existing = _mapping(conn.execute("SELECT * FROM recipes WHERE recipe_id=?", (lookup_id,)))
         if create and existing is not None:
             raise RecipeAlreadyExists(f"配方編號 {recipe_id} 已存在")
         if not create and existing is None:
-            raise RecipeNotFound(f"找不到配方編號 {recipe_id}")
+            raise RecipeNotFound(f"找不到配方編號 {lookup_id}")
+        renaming = not create and lookup_id != recipe_id
+        if renaming and _mapping(
+            conn.execute("SELECT recipe_id FROM recipes WHERE recipe_id=?", (recipe_id,))
+        ) is not None:
+            raise RecipeAlreadyExists(f"配方編號 {recipe_id} 已存在")
         version = 1 if existing is None else int(existing["version"]) + 1
         created_at = now if existing is None else existing["created_at"]
+        renamed_dependents: list[str] = []
+        if renaming:
+            # The component and production-order foreign keys use ON UPDATE CASCADE.
+            # Keep additional recipes that point at this recipe consistent as well.
+            conn.execute("UPDATE recipes SET recipe_id=? WHERE recipe_id=?", (recipe_id, lookup_id))
+            renamed_dependents = [
+                str(item["recipe_id"])
+                for item in _mappings(conn.execute(
+                    "SELECT recipe_id FROM recipes WHERE original_recipe=?", (lookup_id,)
+                ))
+            ]
+            conn.execute(
+                "UPDATE recipes SET original_recipe=?, version=version+1, updated_at=? WHERE original_recipe=?",
+                (recipe_id, now, lookup_id),
+            )
         conn.execute(
             """INSERT INTO recipes(
                    recipe_id, color, customer_id, customer_name, recipe_category, status,
@@ -135,11 +162,31 @@ def _save_recipe(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -
                    VALUES (?, ?, ?, ?, ?, ?)""",
                 (recipe_id, position, powder_id, weight, now, now),
             )
-        operation = "insert" if create else "update"
+        operation = "insert" if create or renaming else "update"
         enqueue_sheet_sync(
             conn, sheet_name="配方管理", row_key=recipe_id, operation=operation,
             payload=payload, entity_version=version,
         )
+        if renaming:
+            # A Sheet key cannot be updated in place by the outbox protocol: remove
+            # the old keyed row and insert the renamed recipe as a new keyed row.
+            enqueue_sheet_sync(
+                conn, sheet_name="配方管理", row_key=lookup_id, operation="delete",
+                payload=None, entity_version=version,
+            )
+            for dependent_id in renamed_dependents:
+                dependent = _mapping(conn.execute(
+                    "SELECT * FROM recipes WHERE recipe_id=?", (dependent_id,)
+                ))
+                dependent_components = _mappings(conn.execute(
+                    """SELECT position, colorpowder_id, weight FROM recipe_components
+                       WHERE recipe_id=? ORDER BY position""", (dependent_id,)
+                ))
+                enqueue_sheet_sync(
+                    conn, sheet_name="配方管理", row_key=dependent_id, operation="update",
+                    payload=_recipe_sheet_payload(dependent, dependent_components),
+                    entity_version=int(dependent["version"]),
+                )
         return payload
 
 
@@ -147,8 +194,13 @@ def create_recipe(config: DatabaseConfig, row: dict[str, Any]) -> dict[str, str]
     return _save_recipe(config, row, create=True)
 
 
-def update_recipe(config: DatabaseConfig, row: dict[str, Any]) -> dict[str, str]:
-    return _save_recipe(config, row, create=False)
+def update_recipe(
+    config: DatabaseConfig, row: dict[str, Any], *, original_recipe_id: str | None = None
+) -> dict[str, str]:
+    """Update a recipe, optionally changing its permanent key from ``original_recipe_id``."""
+    return _save_recipe(
+        config, row, create=False, original_recipe_id=original_recipe_id
+    )
 
 
 def _recipe_sheet_payload(entity: dict[str, Any], components: list[dict[str, Any]]) -> dict[str, str]:
