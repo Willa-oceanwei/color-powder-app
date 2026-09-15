@@ -3634,15 +3634,32 @@ elif menu == "配方管理":
                         index=cat_opts.index(default if default in cat_opts else "\u2002"),
                         key=f"edit_recipe_total_category_{code}")
 
+                    entered_recipe_code = clean_powder_id(fr.get("配方編號", ""))
+                    original_recipe_code = clean_powder_id(code)
+                    recipe_code_changed = entered_recipe_code != original_recipe_code
+                    rename_confirmed = True
+                    if recipe_code_changed:
+                        st.warning(
+                            f"⚠️ 確認要將「配方編號」由 "
+                            f"{original_recipe_code} 修改為 {entered_recipe_code or '（空白）'}？"
+                        )
+                        rename_confirmed = st.checkbox(
+                            "我已確認要修改配方編號",
+                            key=f"confirm_recipe_code_change_{code}",
+                        )
+
                     col_save, col_back = st.columns(2)
                     submitted_edit = col_save.form_submit_button("💾 儲存修改")
                     cancel         = col_back.form_submit_button("返回")
 
                     if submitted_edit:
-                        new_recipe_code = clean_powder_id(fr.get("配方編號", ""))
+                        new_recipe_code = entered_recipe_code
                         fr["配方編號"] = new_recipe_code
                         if not new_recipe_code:
                             st.error("❌ 請輸入配方編號！")
+                            st.stop()
+                        if recipe_code_changed and not rename_confirmed:
+                            st.error("❌ 修改配方編號前，請先勾選確認訊息")
                             st.stop()
                         other_codes = set(
                             df_recipe.drop(index=idx)["配方編號"].astype(str).map(clean_powder_id)
@@ -3663,9 +3680,15 @@ elif menu == "配方管理":
                             )
                             st.session_state.df_recipe = df_recipe
                             st.session_state.df        = df_recipe
-                            st.success(f"✅ 配方 {fr['配方編號']} 已成功更新！")
+                            success_message = (
+                                f"配方編號已由 {original_recipe_code} 修改為 {new_recipe_code}，"
+                                "配方資料已成功更新！"
+                                if recipe_code_changed
+                                else f"配方 {new_recipe_code} 已成功更新！"
+                            )
+                            st.success(f"✅ {success_message}")
                             st.session_state["recipe_tab3_toast"] = {
-                                "msg": f"配方 {fr['配方編號']} 已更新",
+                                "msg": success_message,
                                 "icon": "💾"
                             }
                         except Exception as e:
