@@ -10,6 +10,7 @@ from utils.recipe_repository import (
     find_recipes_using_color_powder,
     list_recipes,
     replace_color_powder_in_recipes,
+    update_recipe,
 )
 
 
@@ -83,3 +84,40 @@ def test_replacement_rejects_same_normalized_id(tmp_path):
     _, config = config_for(tmp_path)
     with pytest.raises(RecipeError, match="新舊色粉編號不可相同"):
         replace_color_powder_in_recipes(config, "H 135", "h135", date(2026, 3, 7))
+
+
+def test_update_recipe_can_rename_recipe_id_atomically(tmp_path):
+    path, config = config_for(tmp_path)
+    create_color_powder(config, ColorPowderInput("P001"))
+    create_recipe(config, {
+        "配方編號": "OLD", "顏色": "紅", "色粉編號1": "P001", "色粉重量1": "2",
+    })
+    create_recipe(config, {"配方編號": "CHILD", "配方類別": "附加配方", "原始配方": "OLD"})
+
+    update_recipe(config, {
+        "配方編號": "NEW", "顏色": "藍", "色粉編號1": "P001", "色粉重量1": "3",
+    }, original_recipe_id="OLD")
+
+    recipes = {
+        row["配方編號"]: row for row in list_recipes(config, include_inactive=True)
+    }
+    assert "OLD" not in recipes
+    assert recipes["NEW"]["顏色"] == "藍"
+    assert recipes["NEW"]["色粉重量1"] == "3.0"
+    assert recipes["CHILD"]["原始配方"] == "NEW"
+    with connect(path) as conn:
+        queued = conn.execute(
+            "SELECT row_key, operation FROM sync_outbox WHERE row_key IN ('OLD', 'NEW') ORDER BY id"
+        ).fetchall()
+    assert [tuple(row) for row in queued][-2:] == [("NEW", "insert"), ("OLD", "delete")]
+
+
+def test_rename_recipe_rejects_an_existing_id(tmp_path):
+    _, config = config_for(tmp_path)
+    create_recipe(config, {"配方編號": "OLD"})
+    create_recipe(config, {"配方編號": "TAKEN"})
+
+    with pytest.raises(RecipeError, match="配方編號 TAKEN 已存在"):
+        update_recipe(config, {"配方編號": "TAKEN"}, original_recipe_id="OLD")
+
+    assert {row["配方編號"] for row in list_recipes(config)} == {"OLD", "TAKEN"}

@@ -3009,9 +3009,13 @@ elif menu == "配方管理":
     # ================================================================
     # ✅ 共用：原子寫入 Turso 主表/components 並建立 outbox
     # ================================================================
-    def save_recipe_row(df_to_save, is_edit=False, edit_index=None):
+    def save_recipe_row(df_to_save, is_edit=False, edit_index=None, original_recipe_id=None):
         if is_edit and edit_index is not None:
-            update_recipe(DATABASE_CONFIG, df_to_save.loc[edit_index].to_dict())
+            update_recipe(
+                DATABASE_CONFIG,
+                df_to_save.loc[edit_index].to_dict(),
+                original_recipe_id=original_recipe_id,
+            )
         else:
             last_idx = df_to_save.index[-1]
             create_recipe(DATABASE_CONFIG, df_to_save.loc[last_idx].to_dict())
@@ -3635,12 +3639,28 @@ elif menu == "配方管理":
                     cancel         = col_back.form_submit_button("返回")
 
                     if submitted_edit:
+                        new_recipe_code = clean_powder_id(fr.get("配方編號", ""))
+                        fr["配方編號"] = new_recipe_code
+                        if not new_recipe_code:
+                            st.error("❌ 請輸入配方編號！")
+                            st.stop()
+                        other_codes = set(
+                            df_recipe.drop(index=idx)["配方編號"].astype(str).map(clean_powder_id)
+                        )
+                        if new_recipe_code in other_codes:
+                            st.error(f"❌ 配方編號 {new_recipe_code} 已存在，請使用其他編號")
+                            st.stop()
                         for k, v in fr.items():
                             df_recipe.at[idx, k] = v
 
                         # ✅ 單列更新，不整表覆寫
                         try:
-                            save_recipe_row(df_recipe, is_edit=True, edit_index=idx)
+                            save_recipe_row(
+                                df_recipe,
+                                is_edit=True,
+                                edit_index=idx,
+                                original_recipe_id=code,
+                            )
                             st.session_state.df_recipe = df_recipe
                             st.session_state.df        = df_recipe
                             st.success(f"✅ 配方 {fr['配方編號']} 已成功更新！")
