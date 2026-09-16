@@ -1864,6 +1864,39 @@ def reset_production_order_draft_state(session_state, new_order_no, new_recipe_c
     session_state.pop("last_saved_order_snapshot", None)
     return True
 
+
+def initialize_production_order_recipe_widgets(session_state, order, recipe_row):
+    """Seed recipe-dependent widgets once for a newly selected recipe.
+
+    Streamlit keeps the value already stored under a widget key and ignores the
+    widget's ``value=`` argument on later reruns.  Seeding these keys from the
+    selected recipe (instead of pre-creating them as empty strings) prevents a
+    valid recipe value, such as its color, from appearing blank in a new order.
+    """
+    if session_state.get("recipe_init_done", False):
+        return False
+
+    defaults = {
+        "form_color_tab1": order.get("顏色", recipe_row.get("顏色", "")),
+        "form_pantone_tab1": order.get(
+            "Pantone 色號", recipe_row.get("Pantone色號", "")
+        ),
+        "form_raw_material_tab1": order.get("原料", ""),
+        "form_remark_tab1": order.get("備註", recipe_row.get("備註", "")),
+        "form_important_note_tab1": order.get(
+            "重要提醒", recipe_row.get("重要提醒", "")
+        ),
+        "form_total_category_tab1": order.get(
+            "合計類別", recipe_row.get("合計類別", "")
+        ),
+    }
+    for key, value in defaults.items():
+        session_state[key] = "" if value is None else str(value)
+
+    session_state["recipe_init_done"] = True
+    return True
+
+
 def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
     """生成配方預覽文字（用於生產單）"""
     html_text = ""
@@ -4922,11 +4955,6 @@ elif menu == "生產單管理":
         if "downloaded_html_tab1" not in st.session_state:
             st.session_state["downloaded_html_tab1"] = False
         
-        # 初始化表單欄位，避免 AttributeError
-        for key in ["form_remark_tab1", "form_color_tab1", "form_pantone_tab1", "form_raw_material_tab1", "form_important_note_tab1", "form_total_category_tab1"]:
-            if key not in st.session_state:
-                st.session_state[key] = ""
-        
         for i in range(1, 5):
             if f"form_weight{i}_tab1" not in st.session_state:
                 st.session_state[f"form_weight{i}_tab1"] = ""
@@ -5233,11 +5261,12 @@ elif menu == "生產單管理":
     if show_confirm_panel:
         
         # ✅【關鍵】第一次進入時，從配方帶入預設值
-        if "recipe_init_done" not in st.session_state:
+        if initialize_production_order_recipe_widgets(
+            st.session_state, order, recipe_row
+        ):
             order["備註"] = recipe_row.get("備註", "")
             order["重要提醒"] = recipe_row.get("重要提醒", "")
             order["合計類別"] = recipe_row.get("合計類別", "")
-            st.session_state.recipe_init_done = True
             st.markdown("---")
             st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
             
