@@ -30,6 +30,20 @@ def _load_draft_reset_helper():
     return namespace["reset_production_order_draft_state"]
 
 
+def _load_recipe_widget_initializer():
+    source = Path("app.py").read_text(encoding="utf-8")
+    module = ast.parse(source)
+    function = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "initialize_production_order_recipe_widgets"
+    )
+    namespace = {}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), "app.py", "exec"), namespace)
+    return namespace["initialize_production_order_recipe_widgets"]
+
+
 def test_barrel_recipe_displays_quarter_as_25k_even_with_stale_order_unit():
     calculate = _load_shipment_helpers()
     recipes = [{"配方編號": "R001", "計量單位": "桶", "色粉類別": "配方"}]
@@ -92,3 +106,28 @@ def test_same_unsaved_recipe_draft_keeps_widget_input_during_rerun():
 
     assert changed is False
     assert state["form_weight1_tab1"] == "0.25"
+
+
+def test_new_order_widgets_are_initialized_from_selected_recipe():
+    initialize = _load_recipe_widget_initializer()
+    state = {}
+    order = {"顏色": "海軍藍", "Pantone 色號": "19-3832", "備註": "先過篩"}
+
+    changed = initialize(state, order, {"顏色": "不應覆蓋", "重要提醒": "低速攪拌"})
+
+    assert changed is True
+    assert state["form_color_tab1"] == "海軍藍"
+    assert state["form_pantone_tab1"] == "19-3832"
+    assert state["form_remark_tab1"] == "先過篩"
+    assert state["form_important_note_tab1"] == "低速攪拌"
+    assert state["recipe_init_done"] is True
+
+
+def test_recipe_widget_initializer_preserves_user_edits_on_rerun():
+    initialize = _load_recipe_widget_initializer()
+    state = {"recipe_init_done": True, "form_color_tab1": "人工調整色"}
+
+    changed = initialize(state, {"顏色": "配方原色"}, {"顏色": "配方原色"})
+
+    assert changed is False
+    assert state["form_color_tab1"] == "人工調整色"
