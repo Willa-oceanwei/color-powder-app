@@ -1467,6 +1467,29 @@ def test_initialize_database_with_health_skips_schema_ddl_when_current(tmp_path,
     assert schema_initializations == 0
 
 
+def test_database_health_batches_required_column_checks(tmp_path):
+    db = tmp_path / "batched-health.db"
+    initialize_database(db)
+    config = DatabaseConfig(backend="sqlite", path=db)
+
+    with connect(db) as conn:
+        statements = []
+
+        class CountingConnection:
+            def execute(self, sql, parameters=()):
+                statements.append(sql)
+                return conn.execute(sql, parameters)
+
+        health = database_module._database_health_from_connection(config, CountingConnection())
+
+    assert health.schema_compatible
+    metadata_statements = [sql for sql in statements if "pragma_table_info" in sql]
+    assert len(metadata_statements) == 1
+    assert metadata_statements[0].count("pragma_table_info") == len(
+        database_module.REQUIRED_TABLE_COLUMNS
+    )
+
+
 def test_initialize_database_with_health_retries_transient_turso_session_error(monkeypatch):
     config = DatabaseConfig(
         backend="turso",
