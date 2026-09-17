@@ -58,6 +58,8 @@ Turso；登入成功後會先檢查 schema 狀態，只有版本落後或結構�
 初始化，健康且已是最新版的資料庫不會在每次冷啟動重跑整套 DDL。結果也會在同一個
 app process 內快取，避免每次輸入或操作 widget 都重新連線。若 Turso 冷啟動暫時回報
 `SessionInfo` 尚未初始化，系統會以新連線短暫重試，而不會誤判成缺少 schema 並直接中止。
+登入後的 Turso 健康檢查也會把所有必要欄位合併成單一 metadata query，避免逐表查詢造成
+多次連續網路往返；仍會完整檢查必要 table 與 column，並在 schema 不相容時才執行 migration。
 
 ```bash
 python scripts/import_google_sheets_to_sqlite.py \
