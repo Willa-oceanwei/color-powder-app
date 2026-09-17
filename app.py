@@ -13,6 +13,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import concurrent.futures
+from utils.ui_theme import REFINED_VISUAL_STYLE, apply_refined_shell, selected_visual_style
 from utils import database as database_utils
 from utils.number_format import format_optional_decimals
 from utils.database import (
@@ -800,19 +801,19 @@ def render_sidebar():
     import streamlit as st
 
     MENU_ITEMS = [
-        {"group":"生產","key":"生產單管理","label":"生產單管理"},
-        {"group":"生產","key":"配方管理","label":"配方管理"},
-        {"group":"生產","key":"代工管理","label":"代工管理"},
-        {"group":"倉儲","key":"庫存區","label":"庫存區"},
-        {"group":"倉儲","key":"洗車廠庫存","label":"洗車廠庫存"},
-        {"group":"倉儲","key":"採購管理","label":"採購管理"},
-        {"group":"查詢","key":"查詢區","label":"查詢區"},
-        {"group":"數據","key":"試色記錄分析","label":"試色記錄分析"},
-        {"group":"人力","key":"薪資管理","label":"薪資管理"},
-        {"group":"人力","key":"人力查詢","label":"人力查詢"},
-        {"group":"設定","key":"客戶名單","label":"客戶名單"},
-        {"group":"設定","key":"同步檢查","label":"同步檢查"},
-        {"group":"設定","key":"外部連結","label":"外部連結"},
+        {"group":"生產","key":"生產單管理","label":"生產單管理","icon":"▤"},
+        {"group":"生產","key":"配方管理","label":"配方管理","icon":"◇"},
+        {"group":"生產","key":"代工管理","label":"代工管理","icon":"□"},
+        {"group":"倉儲","key":"庫存區","label":"庫存區","icon":"▣"},
+        {"group":"倉儲","key":"洗車廠庫存","label":"洗車廠庫存","icon":"▥"},
+        {"group":"倉儲","key":"採購管理","label":"採購管理","icon":"▽"},
+        {"group":"查詢","key":"查詢區","label":"查詢區","icon":"⌕"},
+        {"group":"數據","key":"試色記錄分析","label":"試色記錄分析","icon":"◉"},
+        {"group":"人力","key":"薪資管理","label":"薪資管理","icon":"◎"},
+        {"group":"人力","key":"人力查詢","label":"人力查詢","icon":"♙"},
+        {"group":"設定","key":"客戶名單","label":"客戶名單","icon":"♧"},
+        {"group":"設定","key":"同步檢查","label":"同步檢查","icon":"↻"},
+        {"group":"設定","key":"外部連結","label":"外部連結","icon":"↗"},
     ]
 
     if "menu" not in st.session_state:
@@ -843,8 +844,11 @@ def render_sidebar():
 
         def render_items(items):
             for item in items:
+                button_label = item["label"]
+                if selected_visual_style() == REFINED_VISUAL_STYLE:
+                    button_label = f'{item["icon"]}　{button_label}'
                 if st.button(
-                    item["label"], key=item["key"], use_container_width=True,
+                    button_label, key=item["key"], use_container_width=True,
                     type="primary" if st.session_state.menu == item["key"] else "secondary"
                 ):
                     st.session_state.menu = item["key"]
@@ -1333,6 +1337,7 @@ st.markdown("""
 
 # 重新套用主題，確保切換任何功能分頁後仍維持紫色主題樣式
 apply_modern_style()
+apply_refined_shell(st)
 
 # ================= 共用 Google Sheet 穩定寫入工具 =================
 def safe_append_row(ws, row_values):

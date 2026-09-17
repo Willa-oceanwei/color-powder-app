@@ -18,6 +18,8 @@ My color powder management system
 
 3. 第一次啟動會自動建立 `data/colorpowder.db` 與 SQLite schema。登入後主畫面會先完成 UI rendering；Google Sheets 連線已改為 lazy loading，只有進入需要工作表資料的功能時才會連線。
 
+   預設會使用精簡 ERP 外框；這只調整排版、元件造型與間距，既有配色、文字、選單及功能不變。如需立即切回原本視覺，可在部署環境設定 `VISUAL_STYLE=legacy`，移除或設為 `refined` 即可恢復新版外框。
+
 4. 若要先把現有 Google Sheets 安全複製進 SQLite，請執行下方「第一次安全匯入 Google Sheets」指令。這個匯入不會修改原始 Google Sheets。
 
 ## SQLite 主資料庫升級（第一階段）
