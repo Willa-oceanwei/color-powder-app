@@ -18,6 +18,8 @@ My color powder management system
 
 3. 第一次啟動會自動建立 `data/colorpowder.db` 與 SQLite schema。登入後主畫面會先完成 UI rendering；Google Sheets 連線已改為 lazy loading，只有進入需要工作表資料的功能時才會連線。
 
+   預設會使用精簡 ERP 外框；這只調整排版、元件造型與間距，既有配色、文字、選單及功能不變。如需立即切回原本視覺，可在部署環境設定 `VISUAL_STYLE=legacy`，移除或設為 `refined` 即可恢復新版外框。
+
 4. 若要先把現有 Google Sheets 安全複製進 SQLite，請執行下方「第一次安全匯入 Google Sheets」指令。這個匯入不會修改原始 Google Sheets。
 
 ## SQLite 主資料庫升級（第一階段）
@@ -58,6 +60,8 @@ Turso；登入成功後會先檢查 schema 狀態，只有版本落後或結構�
 初始化，健康且已是最新版的資料庫不會在每次冷啟動重跑整套 DDL。結果也會在同一個
 app process 內快取，避免每次輸入或操作 widget 都重新連線。若 Turso 冷啟動暫時回報
 `SessionInfo` 尚未初始化，系統會以新連線短暫重試，而不會誤判成缺少 schema 並直接中止。
+登入後的 Turso 健康檢查也會把所有必要欄位合併成單一 metadata query，避免逐表查詢造成
+多次連續網路往返；仍會完整檢查必要 table 與 column，並在 schema 不相容時才執行 migration。
 
 ```bash
 python scripts/import_google_sheets_to_sqlite.py \
