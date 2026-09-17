@@ -1061,16 +1061,32 @@ def _database_health_from_connection(config: DatabaseConfig, conn: SqlExecutor) 
     schema_version = schema_row[0] if schema_row else None
     table_rows = conn.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchall()
     existing_tables = {row[0] for row in table_rows}
-    missing_required_columns = {}
-    for table_name, required_columns in REQUIRED_TABLE_COLUMNS.items():
-        if table_name not in existing_tables:
-            continue
-        existing_columns = {
-            row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
-        }
-        missing = required_columns - existing_columns
-        if missing:
-            missing_required_columns[table_name] = missing
+    # Fetch all required column metadata in one statement.  With remote Turso,
+    # issuing one PRAGMA per table turns this health check into many sequential
+    # network round trips immediately after login.  SQLite's table-valued PRAGMA
+    # gives us the same validation while keeping startup to a single metadata
+    # round trip (in addition to the basic version/table checks above).
+    tables_to_check = sorted(REQUIRED_TABLE_COLUMNS.keys() & existing_tables)
+    existing_columns_by_table = {table_name: set() for table_name in tables_to_check}
+    if tables_to_check:
+        column_query = " UNION ALL ".join(
+            "SELECT ? AS table_name, name FROM pragma_table_info(?)"
+            for _ in tables_to_check
+        )
+        parameters = tuple(
+            value
+            for table_name in tables_to_check
+            for value in (table_name, table_name)
+        )
+        for table_name, column_name in conn.execute(column_query, parameters).fetchall():
+            existing_columns_by_table[table_name].add(column_name)
+
+    missing_required_columns = {
+        table_name: missing
+        for table_name, required_columns in REQUIRED_TABLE_COLUMNS.items()
+        if table_name in existing_columns_by_table
+        and (missing := required_columns - existing_columns_by_table[table_name])
+    }
     return DatabaseHealth(
         config.backend,
         select_1_ok,
