@@ -215,8 +215,16 @@ def apply_refined_shell(st) -> bool:
     """Render the optional visual shell and return whether it was enabled."""
     if selected_visual_style() != REFINED_VISUAL_STYLE:
         return False
+    # Keep the style element in its own Markdown block.  CommonMark ends a
+    # generic HTML block at the first blank line; concatenating ``<div>`` and
+    # ``<style>`` made Streamlit render the CSS following that blank line as
+    # visible page text instead of applying it.
     st.markdown(
-        '<div class="cp-app-header">配方管理系統</div>' + REFINED_SHELL_CSS,
+        REFINED_SHELL_CSS,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="cp-app-header">配方管理系統</div>',
         unsafe_allow_html=True,
     )
     return True
