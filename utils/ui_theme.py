@@ -38,7 +38,7 @@ REFINED_SHELL_CSS = """
     position: fixed;
     inset: 0 0 auto 0;
     z-index: 999991;
-    height: 54px;
+    height: 60px;
     display: flex;
     align-items: center;
     padding: 0 20px;
@@ -52,16 +52,20 @@ REFINED_SHELL_CSS = """
 }
 
 header[data-testid="stHeader"] {
-    top: 54px;
+    top: 60px;
     height: 0;
     background: transparent;
 }
 
 section[data-testid="stSidebar"] {
-    top: 54px;
-    height: calc(100vh - 54px);
+    top: 60px;
+    width: 250px !important;
+    min-width: 250px !important;
+    max-width: 250px !important;
+    height: calc(100vh - 60px);
     border-right: 1px solid rgba(255,255,255,0.12);
     box-shadow: none;
+    transition: transform .3s ease, width .3s ease;
 }
 
 section[data-testid="stSidebar"] > div:first-child {
@@ -135,7 +139,7 @@ section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary:h
 button[data-testid="stSidebarCollapseButton"],
 button[data-testid="stSidebarCollapsedControl"] {
     position: fixed;
-    top: 66px;
+    top: 72px;
     width: 34px;
     height: 34px;
     border-radius: 50% !important;
@@ -143,6 +147,20 @@ button[data-testid="stSidebarCollapsedControl"] {
     color: var(--cp-text) !important;
     border: 1px solid rgba(255,255,255,0.12) !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.24) !important;
+    transition: left .3s ease, background-color .15s ease;
+}
+
+button[data-testid="stSidebarCollapseButton"] {
+    left: 234px;
+}
+
+button[data-testid="stSidebarCollapsedControl"] {
+    left: 10px;
+}
+
+button[data-testid="stSidebarCollapseButton"]:hover,
+button[data-testid="stSidebarCollapsedControl"]:hover {
+    background: var(--cp-hover) !important;
 }
 
 .stApp, [data-testid="stAppViewContainer"] {
@@ -151,7 +169,7 @@ button[data-testid="stSidebarCollapsedControl"] {
 
 div[data-testid="stAppViewBlockContainer"],
 .main .block-container {
-    padding-top: 74px !important;
+    padding-top: 80px !important;
     padding-left: 30px !important;
     padding-right: 30px !important;
     max-width: none;
@@ -180,6 +198,9 @@ div[data-testid="stTextArea"] textarea {
     section[data-testid="stSidebar"] {
         top: 48px;
         height: calc(100vh - 48px);
+        width: 250px !important;
+        min-width: 250px !important;
+        max-width: 250px !important;
     }
     div[data-testid="stAppViewBlockContainer"],
     .main .block-container {

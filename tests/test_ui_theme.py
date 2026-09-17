@@ -22,3 +22,11 @@ def test_refined_shell_reuses_existing_palette():
     expected_existing_colors = {"#0b2f4a", "#0a0a0a", "#c6582f", "#ffffff", "#9fb6cc", "#124466"}
     for color in expected_existing_colors:
         assert color in REFINED_SHELL_CSS
+
+
+def test_refined_shell_follows_reference_dimensions_without_copying_its_colors():
+    assert "height: 60px" in REFINED_SHELL_CSS
+    assert "width: 250px !important" in REFINED_SHELL_CSS
+    assert "left: 234px" in REFINED_SHELL_CSS
+    assert "#2c3e50" not in REFINED_SHELL_CSS
+    assert "#dbd818" not in REFINED_SHELL_CSS
