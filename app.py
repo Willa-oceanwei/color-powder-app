@@ -1912,6 +1912,69 @@ def initialize_production_order_recipe_widgets(session_state, order, recipe_row)
     return True
 
 
+PRODUCTION_ORDER_EDIT_WIDGET_KEYS = (
+    "edit_customer_name_tab3",
+    "edit_color_tab3",
+    "edit_remark_tab3",
+    "edit_colorant_quantity_mode_tab3",
+)
+
+
+def clear_production_order_edit_state(session_state):
+    """Close Tab 3's lower editor and discard values belonging to its old order."""
+    session_state["show_edit_panel"] = False
+    session_state["editing_order"] = None
+    for key in PRODUCTION_ORDER_EDIT_WIDGET_KEYS:
+        session_state.pop(key, None)
+    for i in range(1, 5):
+        session_state.pop(f"edit_packing_weight_tab3_{i}", None)
+        session_state.pop(f"edit_packing_count_tab3_{i}", None)
+    for key in (
+        "pending_order_update_tab3",
+        "pending_oem_sync_qty_tab3",
+        "pending_oem_sync_old_qty_tab3",
+    ):
+        session_state.pop(key, None)
+
+
+def sync_selected_production_order_state(session_state, selected_order_no):
+    """Prevent controls below the selector from referring to another order."""
+    selected_order_no = str(selected_order_no or "").strip()
+    editing_order = session_state.get("editing_order") or {}
+    editing_order_no = str(editing_order.get("生產單號", "")).strip()
+    if editing_order_no and editing_order_no != selected_order_no:
+        clear_production_order_edit_state(session_state)
+
+    lifecycle_order_no = str(
+        session_state.get("confirm_order_lifecycle_id", "") or ""
+    ).strip()
+    if lifecycle_order_no and lifecycle_order_no != selected_order_no:
+        session_state.pop("confirm_order_lifecycle_id", None)
+
+    session_state["selected_order_no_tab3"] = selected_order_no
+
+
+def begin_production_order_edit(session_state, order):
+    """Open Tab 3's editor with widget state seeded from the selected order."""
+    clear_production_order_edit_state(session_state)
+    order = dict(order)
+    session_state["editing_order"] = order
+    session_state["show_edit_panel"] = True
+    session_state["edit_customer_name_tab3"] = order.get("客戶名稱", "") or ""
+    session_state["edit_color_tab3"] = order.get("顏色", "") or ""
+    session_state["edit_remark_tab3"] = order.get("備註", "") or ""
+    session_state["edit_colorant_quantity_mode_tab3"] = (
+        order.get("出貨數量顯示方式") or order.get("色母數量模式")
+    ) == "實際公斤（1 = 1kg）"
+    for i in range(1, 5):
+        session_state[f"edit_packing_weight_tab3_{i}"] = (
+            order.get(f"包裝重量{i}", "") or ""
+        )
+        session_state[f"edit_packing_count_tab3_{i}"] = (
+            order.get(f"包裝份數{i}", "") or ""
+        )
+
+
 def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
     """生成配方預覽文字（用於生產單）"""
     html_text = ""
@@ -6399,6 +6462,7 @@ elif menu == "生產單管理":
             recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
             recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
             current_order_no = str(selected_order.get("生產單號", "")).strip()
+            sync_selected_production_order_state(st.session_state, current_order_no)
     
             preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 取消"])
     
@@ -6455,11 +6519,12 @@ elif menu == "生產單管理":
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
                     if st.button("✏️ 修改生產單", key="edit_order_btn_tab3", disabled=is_cancelled):
-                        st.session_state["show_edit_panel"] = True
-                        st.session_state["editing_order"] = order_dict
+                        begin_production_order_edit(st.session_state, order_dict)
+                        st.session_state.pop("confirm_order_lifecycle_id", None)
                 with col_btn2:
                     toggle_label = "▶️ 恢復生產單" if is_cancelled else "⏸️ 取消生產單"
                     if st.button(toggle_label, key="toggle_order_cancel_btn_tab3"):
+                        clear_production_order_edit_state(st.session_state)
                         st.session_state["confirm_order_lifecycle_id"] = current_order_no
 
                 if st.session_state.get("confirm_order_lifecycle_id") == current_order_no:
@@ -6543,10 +6608,6 @@ elif menu == "生產單管理":
             if is_editing_colorant:
                 edit_display_as_actual_kg = st.toggle(
                     "實際公斤顯示（關閉：1 = 100kg／開啟：1 = 1kg）",
-                    value=(
-                        order_dict.get("出貨數量顯示方式")
-                        or order_dict.get("色母數量模式")
-                    ) == "實際公斤（1 = 1kg）",
                     key="edit_colorant_quantity_mode_tab3",
                     help="只改變記錄表顯示；舊單未記錄時維持顯示 100kg 倍率。",
                 )
@@ -6562,13 +6623,11 @@ elif menu == "生產單管理":
             with col_cust:
                 new_customer = st.text_input(
                     "客戶名稱",
-                    value=order_dict.get("客戶名稱", ""),
                     key="edit_customer_name_tab3"
                 )
             with col_color:
                 new_color = st.text_input(
                     "顏色",
-                    value=order_dict.get("顏色", ""),
                     key="edit_color_tab3"
                 )
         
@@ -6577,7 +6636,6 @@ elif menu == "生產單管理":
             for i in range(1, 5):
                 weight = pack_weights_cols[i - 1].text_input(
                     f"包裝重量{i}",
-                    value=order_dict.get(f"包裝重量{i}", ""),
                     key=f"edit_packing_weight_tab3_{i}"
                 )
                 new_packing_weights.append(weight)
@@ -6587,14 +6645,12 @@ elif menu == "生產單管理":
             for i in range(1, 5):
                 count = pack_counts_cols[i - 1].text_input(
                     f"包裝份數{i}",
-                    value=order_dict.get(f"包裝份數{i}", ""),
                     key=f"edit_packing_count_tab3_{i}"
                 )
                 new_packing_counts.append(count)
         
             new_remark = st.text_area(
                 "備註",
-                value=order_dict.get("備註", ""),
                 key="edit_remark_tab3"
             )
         
