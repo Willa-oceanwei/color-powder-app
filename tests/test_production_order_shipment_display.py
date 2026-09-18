@@ -47,6 +47,32 @@ def _load_recipe_widget_initializer():
     return namespace["initialize_production_order_recipe_widgets"]
 
 
+def _load_order_edit_state_helpers():
+    source = Path("app.py").read_text(encoding="utf-8")
+    module = ast.parse(source)
+    wanted = {
+        "clear_production_order_edit_state",
+        "sync_selected_production_order_state",
+        "begin_production_order_edit",
+    }
+    nodes = [
+        node for node in module.body
+        if (
+            isinstance(node, ast.FunctionDef) and node.name in wanted
+        ) or (
+            isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name)
+                and target.id == "PRODUCTION_ORDER_EDIT_WIDGET_KEYS"
+                for target in node.targets
+            )
+        )
+    ]
+    namespace = {}
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), "app.py", "exec"), namespace)
+    return namespace
+
+
 def test_barrel_recipe_displays_quarter_as_25k_even_with_stale_order_unit():
     calculate = _load_shipment_helpers()
     recipes = [{"配方編號": "R001", "計量單位": "桶", "色粉類別": "配方"}]
@@ -185,3 +211,85 @@ def test_initialized_recipe_widgets_do_not_also_declare_widget_defaults():
 
     assert calls_by_key.keys() == initialized_keys
     assert all("value" not in keywords for keywords in calls_by_key.values())
+
+
+def test_changing_selected_order_closes_editor_and_old_confirmation():
+    helpers = _load_order_edit_state_helpers()
+    state = {
+        "show_edit_panel": True,
+        "editing_order": {"生產單號": "OLD"},
+        "edit_customer_name_tab3": "舊客戶",
+        "edit_packing_weight_tab3_1": "99",
+        "confirm_order_lifecycle_id": "OLD",
+        "pending_order_update_tab3": {"生產單號": "OLD"},
+    }
+
+    helpers["sync_selected_production_order_state"](state, "NEW")
+
+    assert state == {
+        "show_edit_panel": False,
+        "editing_order": None,
+        "selected_order_no_tab3": "NEW",
+    }
+
+
+def test_opening_editor_seeds_every_widget_from_selected_order():
+    helpers = _load_order_edit_state_helpers()
+    state = {
+        "editing_order": {"生產單號": "OLD"},
+        "edit_customer_name_tab3": "舊客戶",
+    }
+    order = {
+        "生產單號": "NEW",
+        "客戶名稱": "新客戶",
+        "顏色": "寶藍",
+        "備註": "新備註",
+        "包裝重量1": "25",
+        "包裝份數1": "4",
+        "出貨數量顯示方式": "實際公斤（1 = 1kg）",
+    }
+
+    helpers["begin_production_order_edit"](state, order)
+
+    assert state["editing_order"] == order
+    assert state["show_edit_panel"] is True
+    assert state["edit_customer_name_tab3"] == "新客戶"
+    assert state["edit_color_tab3"] == "寶藍"
+    assert state["edit_remark_tab3"] == "新備註"
+    assert state["edit_packing_weight_tab3_1"] == "25"
+    assert state["edit_packing_count_tab3_1"] == "4"
+    assert state["edit_colorant_quantity_mode_tab3"] is True
+
+
+def test_order_edit_widgets_use_only_synchronized_session_state_defaults():
+    source = Path("app.py").read_text(encoding="utf-8")
+    module = ast.parse(source)
+    edit_key_prefixes = (
+        "edit_customer_name_tab3",
+        "edit_color_tab3",
+        "edit_remark_tab3",
+        "edit_colorant_quantity_mode_tab3",
+        "edit_packing_weight_tab3_",
+        "edit_packing_count_tab3_",
+    )
+
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call):
+            continue
+        keywords = {keyword.arg: keyword for keyword in node.keywords if keyword.arg}
+        key = keywords.get("key")
+        if key and any(prefix in ast.unparse(key.value) for prefix in edit_key_prefixes):
+            assert "value" not in keywords
+
+
+def test_edit_and_cancel_actions_clear_the_opposite_lower_panel():
+    source = Path("app.py").read_text(encoding="utf-8")
+    assert (
+        'begin_production_order_edit(st.session_state, order_dict)\n'
+        '                        st.session_state.pop("confirm_order_lifecycle_id", None)'
+    ) in source
+    assert (
+        'if st.button(toggle_label, key="toggle_order_cancel_btn_tab3"):\n'
+        '                        clear_production_order_edit_state(st.session_state)\n'
+        '                        st.session_state["confirm_order_lifecycle_id"] = current_order_no'
+    ) in source
