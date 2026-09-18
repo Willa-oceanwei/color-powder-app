@@ -1773,6 +1773,19 @@ def calc_packs_total_kg(order_row):
         )
     return packs_total
 
+def colorant_shipment_display_multiplier(order_row):
+    """Return the multiplier used only by the production-order record display.
+
+    Existing orders did not store this field and historically used 100 kg per
+    entered unit, so a missing value deliberately keeps that behaviour.
+    """
+    mode = str(
+        order_row.get("出貨數量顯示方式", "")
+        or order_row.get("色母數量模式", "")
+        or ""
+    ).strip()
+    return 1 if mode == "實際公斤（1 = 1kg）" else 100
+
 def calculate_shipment_display(order_row, recipe_df):
     """Format the package summary using the recipe's current measurement unit.
 
@@ -1808,7 +1821,8 @@ def calculate_shipment_display(order_row, recipe_df):
             pass
 
     if unit == "kg" and category == "色母":
-        multiplier, label = 100, "K"
+        multiplier = colorant_shipment_display_multiplier(order_row)
+        label = "K" if multiplier == 100 else "kg"
     else:
         multiplier = {"包": 25, "桶": 100, "kg": 1}.get(unit, 1)
         label = {"包": "K", "桶": "K", "kg": "kg"}.get(unit, "")
@@ -1847,6 +1861,7 @@ def reset_production_order_draft_state(session_state, new_order_no, new_recipe_c
         "form_total_category_tab1",
         "form_unit_tab1",
         "form_ratio_tab1",
+        "form_colorant_quantity_mode_tab1",
     )
     for key in recipe_widget_keys:
         session_state.pop(key, None)
@@ -2064,7 +2079,6 @@ def generate_production_order_print(
         w = packing_weights[i]
         c = packing_counts[i]
         if w > 0 or c > 0:
-            # 特例：色母類別 + w==1 時，強制 real_w=100
             if category == "色母":
                 if w == 1:
                     unit_str = "100K"
@@ -2529,7 +2543,6 @@ def build_big_label_rows(order):
             c = 0.0
         if w <= 0 or c <= 0:
             continue
-        # 色母：包裝重量是 100kg 為單位的倍率，要乘 100 才是實際公斤數
         actual_kg = w * 100 if is_colorant else w
         qty_display = str(int(actual_kg)) if abs(actual_kg - int(actual_kg)) < 1e-9 else f"{actual_kg:g}"
         for _ in range(int(c)):
@@ -5269,7 +5282,26 @@ elif menu == "生產單管理":
             order["合計類別"] = recipe_row.get("合計類別", "")
             st.markdown("---")
             st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
-            
+
+        recipe_is_colorant = recipe_row.get("色粉類別", "").strip() == "色母"
+        if recipe_is_colorant:
+            display_as_actual_kg = st.toggle(
+                "實際公斤顯示（關閉：1 = 100kg／開啟：1 = 1kg）",
+                value=(
+                    order.get("出貨數量顯示方式") or order.get("色母數量模式")
+                ) == "實際公斤（1 = 1kg）",
+                key="form_colorant_quantity_mode_tab1",
+                help="此選項只改變生產單記錄表的顯示文字，不影響庫存、配方、標籤或代工數量計算。",
+            )
+            colorant_quantity_mode = (
+                "實際公斤（1 = 1kg）"
+                if display_as_actual_kg
+                else "100kg 倍率（1 = 100kg）"
+            )
+            st.caption("💡 只影響記錄表：選「實際公斤」後輸入 1，出貨數量顯示 1kg；其餘計算維持原邏輯。")
+        else:
+            colorant_quantity_mode = ""
+
         # =========================================================
         # 🔁 重複配方檢查：
         # 　色母 → 比對「代工進度表」（代工管理）裡尚未結案的代工單
@@ -5284,7 +5316,7 @@ elif menu == "生產單管理":
         else:
             order_no_for_dup = str(order.get("生產單號", "")).strip()
             recipe_code_for_dup = str(order.get("配方編號", "")).strip()
-            is_colorant_for_dup = (recipe_row.get("色粉類別", "").strip() == "色母")
+            is_colorant_for_dup = recipe_is_colorant
             # ⚠️ 用「配方編號＋類型」當快取 key，不要用生產單號：
             # 生產單號要等真正存檔才會定案，換配方重新搜尋時常常還是同一個草稿單號，
             # 用單號當 key 會導致換配方後還沿用上一個配方算出來的舊結果。
@@ -5435,7 +5467,7 @@ elif menu == "生產單管理":
             with col_submit1:
                 submitted = st.form_submit_button("💾 僅儲存生產單")
             
-            is_colorant = (recipe_row.get("色粉類別", "").strip() == "色母")
+            is_colorant = recipe_is_colorant
             with col_submit2:
                 if is_colorant:
                     continue_to_oem = st.form_submit_button("✅ 儲存並轉代工管理")
@@ -5464,6 +5496,7 @@ elif menu == "生產單管理":
                 order["備註"] = st.session_state.form_remark_tab1
                 order["重要提醒"] = st.session_state.form_important_note_tab1
                 order["合計類別"] = st.session_state.form_total_category_tab1
+                order["出貨數量顯示方式"] = colorant_quantity_mode
             
                 order["比例1"] = recipe_row.get("比例1", "")
                 order["比例2"] = recipe_row.get("比例2", "")
@@ -5490,6 +5523,7 @@ elif menu == "生產單管理":
                     "備註": order["備註"],
                     "重要提醒": order["重要提醒"],
                     "合計類別": order["合計類別"],
+                    "出貨數量顯示方式": order["出貨數量顯示方式"],
                     "包裝": [
                         (
                             order.get(f"包裝重量{i}", ""),
@@ -6503,6 +6537,25 @@ elif menu == "生產單管理":
                 st.stop()
         
             recipe_row = recipe_rows.iloc[0].to_dict()
+
+            is_editing_colorant = str(recipe_row.get("色粉類別", "")).strip() == "色母"
+            if is_editing_colorant:
+                edit_display_as_actual_kg = st.toggle(
+                    "實際公斤顯示（關閉：1 = 100kg／開啟：1 = 1kg）",
+                    value=(
+                        order_dict.get("出貨數量顯示方式")
+                        or order_dict.get("色母數量模式")
+                    ) == "實際公斤（1 = 1kg）",
+                    key="edit_colorant_quantity_mode_tab3",
+                    help="只改變記錄表顯示；舊單未記錄時維持顯示 100kg 倍率。",
+                )
+                edit_colorant_quantity_mode = (
+                    "實際公斤（1 = 1kg）"
+                    if edit_display_as_actual_kg
+                    else "100kg 倍率（1 = 100kg）"
+                )
+            else:
+                edit_colorant_quantity_mode = ""
         
             col_cust, col_color = st.columns(2)
             with col_cust:
@@ -6601,6 +6654,7 @@ elif menu == "生產單管理":
                     updated_order_dict["客戶名稱"] = new_customer
                     updated_order_dict["顏色"] = new_color
                     updated_order_dict["備註"] = new_remark
+                    updated_order_dict["出貨數量顯示方式"] = edit_colorant_quantity_mode
 
                     for i in range(1, 5):
                         updated_order_dict[f"包裝重量{i}"] = new_packing_weights[i - 1]
