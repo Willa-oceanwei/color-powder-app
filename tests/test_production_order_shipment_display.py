@@ -155,3 +155,33 @@ def test_recipe_widget_initializer_preserves_user_edits_on_rerun():
 
     assert changed is False
     assert state["form_color_tab1"] == "人工調整色"
+
+
+def test_initialized_recipe_widgets_do_not_also_declare_widget_defaults():
+    """Session State must be the only default source for initialized widgets."""
+    source = Path("app.py").read_text(encoding="utf-8")
+    module = ast.parse(source)
+    initialized_keys = {
+        "form_color_tab1",
+        "form_pantone_tab1",
+        "form_raw_material_tab1",
+        "form_important_note_tab1",
+        "form_total_category_tab1",
+        "form_remark_tab1",
+    }
+
+    calls_by_key = {}
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call):
+            continue
+        keywords = {keyword.arg: keyword for keyword in node.keywords if keyword.arg}
+        key_node = keywords.get("key")
+        if (
+            key_node
+            and isinstance(key_node.value, ast.Constant)
+            and key_node.value.value in initialized_keys
+        ):
+            calls_by_key[key_node.value.value] = keywords
+
+    assert calls_by_key.keys() == initialized_keys
+    assert all("value" not in keywords for keywords in calls_by_key.values())
