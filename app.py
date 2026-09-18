@@ -5379,9 +5379,13 @@ elif menu == "生產單管理":
             
             c5, c6, c7, c8 = st.columns(4)
             c5.text_input("計量單位", value=recipe_row.get("計量單位", "kg"), disabled=True, key="form_unit_tab1")
-            color = c6.text_input("顏色", value=order.get("顏色", ""), key="form_color_tab1")
-            pantone = c7.text_input("Pantone 色號", value=order.get("Pantone 色號", recipe_row.get("Pantone色號", "")), key="form_pantone_tab1")
-            raw_material = c8.text_input("原料", value=order.get("原料", ""), key="form_raw_material_tab1")
+            # These widget keys are seeded by
+            # initialize_production_order_recipe_widgets().  Do not also pass a
+            # value= argument: Streamlit treats that as a second default source
+            # and intermittently displays a Session State conflict warning.
+            color = c6.text_input("顏色", key="form_color_tab1")
+            pantone = c7.text_input("Pantone 色號", key="form_pantone_tab1")
+            raw_material = c8.text_input("原料", key="form_raw_material_tab1")
             
             # ===== 重要提醒 / 合計類別 / 比例（同一橫列）=====
             col_note, col_total, col_ratio = st.columns([0.5, 0.25, 0.25])
@@ -5389,14 +5393,12 @@ elif menu == "生產單管理":
             with col_note:
                 important_note = st.text_input(
                     "重要提醒",
-                    value=order.get("重要提醒", ""),
                     key="form_important_note_tab1"
                 )
             
             with col_total:
                 total_category = st.text_input(
                     "合計類別",
-                    value=order.get("合計類別", recipe_row.get("合計類別", "")),
                     disabled=True,
                     key="form_total_category_tab1"
                 )
@@ -5420,7 +5422,6 @@ elif menu == "生產單管理":
             # ===== 備註（整行橫條）=====
             remark = st.text_area(
                 "備註",
-                value=order.get("備註", ""),
                 height=100,
                 key="form_remark_tab1"
             )
