@@ -5285,18 +5285,18 @@ elif menu == "生產單管理":
 
         recipe_is_colorant = recipe_row.get("色粉類別", "").strip() == "色母"
         if recipe_is_colorant:
-            colorant_quantity_mode = st.radio(
-                "生產單記錄表的出貨數量顯示方式",
-                ["100kg 倍率（1 = 100kg）", "實際公斤（1 = 1kg）"],
-                index=(
-                    1 if (
-                        order.get("出貨數量顯示方式") or order.get("色母數量模式")
-                    ) == "實際公斤（1 = 1kg）"
-                    else 0
-                ),
-                horizontal=True,
+            display_as_actual_kg = st.toggle(
+                "實際公斤顯示（關閉：1 = 100kg／開啟：1 = 1kg）",
+                value=(
+                    order.get("出貨數量顯示方式") or order.get("色母數量模式")
+                ) == "實際公斤（1 = 1kg）",
                 key="form_colorant_quantity_mode_tab1",
                 help="此選項只改變生產單記錄表的顯示文字，不影響庫存、配方、標籤或代工數量計算。",
+            )
+            colorant_quantity_mode = (
+                "實際公斤（1 = 1kg）"
+                if display_as_actual_kg
+                else "100kg 倍率（1 = 100kg）"
             )
             st.caption("💡 只影響記錄表：選「實際公斤」後輸入 1，出貨數量顯示 1kg；其餘計算維持原邏輯。")
         else:
@@ -6540,19 +6540,19 @@ elif menu == "生產單管理":
 
             is_editing_colorant = str(recipe_row.get("色粉類別", "")).strip() == "色母"
             if is_editing_colorant:
-                edit_colorant_quantity_mode = st.radio(
-                    "生產單記錄表的出貨數量顯示方式",
-                    ["100kg 倍率（1 = 100kg）", "實際公斤（1 = 1kg）"],
-                    index=(
-                        1 if (
-                            order_dict.get("出貨數量顯示方式")
-                            or order_dict.get("色母數量模式")
-                        ) == "實際公斤（1 = 1kg）"
-                        else 0
-                    ),
-                    horizontal=True,
+                edit_display_as_actual_kg = st.toggle(
+                    "實際公斤顯示（關閉：1 = 100kg／開啟：1 = 1kg）",
+                    value=(
+                        order_dict.get("出貨數量顯示方式")
+                        or order_dict.get("色母數量模式")
+                    ) == "實際公斤（1 = 1kg）",
                     key="edit_colorant_quantity_mode_tab3",
                     help="只改變記錄表顯示；舊單未記錄時維持顯示 100kg 倍率。",
+                )
+                edit_colorant_quantity_mode = (
+                    "實際公斤（1 = 1kg）"
+                    if edit_display_as_actual_kg
+                    else "100kg 倍率（1 = 100kg）"
                 )
             else:
                 edit_colorant_quantity_mode = ""
