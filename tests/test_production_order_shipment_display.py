@@ -5,7 +5,10 @@ def _load_shipment_helpers():
     """Load pure formatting helpers without executing the Streamlit app."""
     source = Path("app.py").read_text(encoding="utf-8")
     module = ast.parse(source)
-    wanted = {"fmt_num", "parse_pack_value", "calculate_shipment_display"}
+    wanted = {
+        "fmt_num", "parse_pack_value", "colorant_shipment_display_multiplier",
+        "calculate_shipment_display",
+    }
     functions = [
         node
         for node in module.body
@@ -69,6 +72,27 @@ def test_shipment_display_formats_multiple_packages_and_unit_suffixes():
     }
 
     assert calculate(order, recipes) == "25kg*2 + 10kg*1.5"
+
+
+def test_colorant_defaults_to_legacy_hundred_kg_multiplier():
+    calculate = _load_shipment_helpers()
+    recipes = [{"配方編號": "M001", "計量單位": "kg", "色粉類別": "色母"}]
+    order = {"配方編號": "M001", "包裝重量1": "1", "包裝份數1": "1"}
+
+    assert calculate(order, recipes) == "100K*1"
+
+
+def test_colorant_can_use_actual_kg_for_stock_shipment():
+    calculate = _load_shipment_helpers()
+    recipes = [{"配方編號": "M001", "計量單位": "kg", "色粉類別": "色母"}]
+    order = {
+        "配方編號": "M001",
+        "出貨數量顯示方式": "實際公斤（1 = 1kg）",
+        "包裝重量1": "1",
+        "包裝份數1": "1",
+    }
+
+    assert calculate(order, recipes) == "1kg*1"
 
 
 def test_switching_recipe_clears_all_recipe_dependent_draft_widgets():
