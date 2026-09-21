@@ -277,9 +277,12 @@ div[data-testid="stCheckbox"] input[type="checkbox"]:checked::after {
     left: 17px !important;
     background: #ffffff !important;               /* 開啟：白色圓點 */
 }
-/* 藏起 Streamlit 自己原生畫的那顆滑塊 div（label 底下的第一個子層），
-   只留我們畫在 input 上面的那顆，避免看到兩顆滑塊 */
+/* 藏起 Streamlit 原生控件的裝飾圖層，只留我們畫在 input 上的橘色滑塊。
+   新版 Streamlit 會用 SVG 畫 checkbox 的紅色勾號，因此也要明確隱藏 SVG。 */
 div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
+    display: none !important;
+}
+div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] svg {
     display: none !important;
 }
 /* ---- 開關文字：關閉時反白（淡化變灰），開啟時恢復清楚、加粗（涵蓋全站） ---- */
@@ -1327,7 +1330,20 @@ def render_erp_nav():
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
     <style>
-    .block-container { margin-top: -0.4rem !important; }
+    /* 利用頂部原本的空白，將 sidebar 右側的主工作區往上收。 */
+    @media (min-width: 769px) {
+        div[data-testid="stAppViewContainer"] .block-container {
+            /* 保留頂部工具列的高度，避免第一層頁籤被裁切。 */
+            margin-top: -7rem !important;
+        }
+    }
+
+    /* 窄螢幕保留必要間距，避免內容被 Streamlit 頂部工具列遮住。 */
+    @media (max-width: 768px) {
+        div[data-testid="stAppViewContainer"] .block-container {
+            margin-top: -1rem !important;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -1937,13 +1953,18 @@ def clear_production_order_edit_state(session_state):
         session_state.pop(key, None)
 
 
-def sync_selected_production_order_state(session_state, selected_order_no):
-    """Prevent controls below the selector from referring to another order."""
+def sync_selected_production_order_state(
+    session_state, selected_order_no, selected_order=None
+):
+    """Keep the open lower editor synchronized with the newly selected order."""
     selected_order_no = str(selected_order_no or "").strip()
     editing_order = session_state.get("editing_order") or {}
     editing_order_no = str(editing_order.get("生產單號", "")).strip()
     if editing_order_no and editing_order_no != selected_order_no:
-        clear_production_order_edit_state(session_state)
+        if session_state.get("show_edit_panel") and selected_order is not None:
+            begin_production_order_edit(session_state, selected_order)
+        else:
+            clear_production_order_edit_state(session_state)
 
     lifecycle_order_no = str(
         session_state.get("confirm_order_lifecycle_id", "") or ""
@@ -6462,7 +6483,9 @@ elif menu == "生產單管理":
             recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
             recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
             current_order_no = str(selected_order.get("生產單號", "")).strip()
-            sync_selected_production_order_state(st.session_state, current_order_no)
+            sync_selected_production_order_state(
+                st.session_state, current_order_no, order_dict
+            )
     
             preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 取消"])
     

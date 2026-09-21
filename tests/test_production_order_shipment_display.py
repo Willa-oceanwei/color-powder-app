@@ -233,6 +233,38 @@ def test_changing_selected_order_closes_editor_and_old_confirmation():
     }
 
 
+def test_changing_selected_order_refreshes_open_editor_fields_immediately():
+    helpers = _load_order_edit_state_helpers()
+    state = {
+        "show_edit_panel": True,
+        "editing_order": {"生產單號": "OLD"},
+        "edit_customer_name_tab3": "舊客戶",
+        "edit_color_tab3": "舊顏色",
+        "edit_packing_weight_tab3_1": "99",
+        "confirm_order_lifecycle_id": "OLD",
+    }
+    new_order = {
+        "生產單號": "NEW",
+        "客戶名稱": "新客戶",
+        "顏色": "新顏色",
+        "備註": "新備註",
+        "包裝重量1": "25",
+        "包裝份數1": "4",
+    }
+
+    helpers["sync_selected_production_order_state"](state, "NEW", new_order)
+
+    assert state["show_edit_panel"] is True
+    assert state["editing_order"] == new_order
+    assert state["edit_customer_name_tab3"] == "新客戶"
+    assert state["edit_color_tab3"] == "新顏色"
+    assert state["edit_remark_tab3"] == "新備註"
+    assert state["edit_packing_weight_tab3_1"] == "25"
+    assert state["edit_packing_count_tab3_1"] == "4"
+    assert state["selected_order_no_tab3"] == "NEW"
+    assert "confirm_order_lifecycle_id" not in state
+
+
 def test_opening_editor_seeds_every_widget_from_selected_order():
     helpers = _load_order_edit_state_helpers()
     state = {
