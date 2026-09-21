@@ -1330,7 +1330,8 @@ st.markdown("""
     /* 利用頂部原本的空白，將 sidebar 右側的主工作區往上收。 */
     @media (min-width: 769px) {
         div[data-testid="stAppViewContainer"] .block-container {
-            margin-top: -10rem !important;
+            /* 保留頂部工具列的高度，避免第一層頁籤被裁切。 */
+            margin-top: -7rem !important;
         }
     }
 
