@@ -277,9 +277,12 @@ div[data-testid="stCheckbox"] input[type="checkbox"]:checked::after {
     left: 17px !important;
     background: #ffffff !important;               /* 開啟：白色圓點 */
 }
-/* 藏起 Streamlit 自己原生畫的那顆滑塊 div（label 底下的第一個子層），
-   只留我們畫在 input 上面的那顆，避免看到兩顆滑塊 */
+/* 藏起 Streamlit 原生控件的裝飾圖層，只留我們畫在 input 上的橘色滑塊。
+   新版 Streamlit 會用 SVG 畫 checkbox 的紅色勾號，因此也要明確隱藏 SVG。 */
 div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
+    display: none !important;
+}
+div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] svg {
     display: none !important;
 }
 /* ---- 開關文字：關閉時反白（淡化變灰），開啟時恢復清楚、加粗（涵蓋全站） ---- */
@@ -1327,7 +1330,20 @@ def render_erp_nav():
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
     <style>
-    .block-container { margin-top: -0.4rem !important; }
+    /* 利用頂部原本的空白，將 sidebar 右側的主工作區往上收。 */
+    @media (min-width: 769px) {
+        div[data-testid="stAppViewContainer"] .block-container {
+            /* 保留頂部工具列的高度，避免第一層頁籤被裁切。 */
+            margin-top: -7rem !important;
+        }
+    }
+
+    /* 窄螢幕保留必要間距，避免內容被 Streamlit 頂部工具列遮住。 */
+    @media (max-width: 768px) {
+        div[data-testid="stAppViewContainer"] .block-container {
+            margin-top: -1rem !important;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
