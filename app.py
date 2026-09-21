@@ -1327,9 +1327,18 @@ def render_erp_nav():
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
     <style>
-    /* 將 sidebar 右側的主工作區微幅上移，讓頁籤與內容更貼近頁面頂端。 */
-    div[data-testid="stAppViewContainer"] .block-container {
-        margin-top: -1rem !important;
+    /* 利用頂部原本的空白，將 sidebar 右側的主工作區往上收。 */
+    @media (min-width: 769px) {
+        div[data-testid="stAppViewContainer"] .block-container {
+            margin-top: -10rem !important;
+        }
+    }
+
+    /* 窄螢幕保留必要間距，避免內容被 Streamlit 頂部工具列遮住。 */
+    @media (max-width: 768px) {
+        div[data-testid="stAppViewContainer"] .block-container {
+            margin-top: -1rem !important;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
