@@ -4994,46 +4994,9 @@ elif menu == "生產單管理":
         )
         st.session_state.pop("order_toast", None)
 
-    components.html(
-        """
-        <script>
-        const storageKey = "order_mgmt_active_tab";
-        const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/取消"];
-
-        function bindOrderTabs() {
-            const doc = window.parent.document;
-            const allTabs = Array.from(doc.querySelectorAll('button[role="tab"]'));
-            const targetTab = allTabs.find(btn => tabTexts.includes(btn.textContent.trim()));
-            if (!targetTab) return false;
-
-            const tablist = targetTab.closest('div[role="tablist"]');
-            if (!tablist) return false;
-
-            const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
-            const savedIndex = parseInt(sessionStorage.getItem(storageKey), 10);
-            if (!Number.isNaN(savedIndex) && tabs[savedIndex] && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
-                tabs[savedIndex].click();
-            }
-
-            tabs.forEach((tab, idx) => {
-                if (tab.dataset.orderPersistBound === '1') return;
-                tab.dataset.orderPersistBound = '1';
-                tab.addEventListener('click', () => sessionStorage.setItem(storageKey, String(idx)));
-            });
-            return true;
-        }
-
-        if (!bindOrderTabs()) {
-            const observer = new MutationObserver(() => {
-                if (bindOrderTabs()) observer.disconnect();
-            });
-            observer.observe(window.parent.document.body, { childList: true, subtree: true });
-        }
-        </script>
-        """,
-        height=0,
-    )
-
+    # 分頁狀態統一交由頁面層的 apply_tab_persistence_fix() 管理。
+    # 此處過去另有一套 sessionStorage + MutationObserver：兩套機制會在 rerun
+    # 後先後點擊不同分頁，短暫露出非目前分頁的大量內容，造成切換時畫面混亂。
     tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/取消"])
     # ============================================================
     # Tab 1: 生產單建立
