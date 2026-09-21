@@ -734,6 +734,9 @@ def apply_tab_persistence_fix():
         <script>
         (function () {
           const STORAGE_KEY = "cp_tab_state_v1";
+          const PAGE_MANAGED_TAB_LABELS = new Set([
+            "🛸 生產單建立|📜 生產單記錄表|👀 生產單預覽/修改/取消",
+          ]);
 
           function getTabLists() {
             return Array.from(window.parent.document.querySelectorAll('[data-baseweb="tab-list"]'));
@@ -742,6 +745,12 @@ def apply_tab_persistence_fix():
           function getTabKey(tabList, idx) {
             const labels = Array.from(tabList.querySelectorAll('button')).map(btn => (btn.innerText || '').trim()).join('|');
             return `${idx}::${labels}`;
+          }
+
+          function getTabLabels(tabList) {
+            return Array.from(tabList.querySelectorAll('button'))
+              .map(btn => (btn.innerText || '').trim())
+              .join('|');
           }
 
           function loadState() {
@@ -761,6 +770,10 @@ def apply_tab_persistence_fix():
             const tabLists = getTabLists();
 
             tabLists.forEach((tabList, idx) => {
+              // 生產單頁有自己的 session-scoped controller；共用 controller
+              // 不可再綁定或還原它，否則兩邊會互相切換分頁。
+              if (PAGE_MANAGED_TAB_LABELS.has(getTabLabels(tabList))) return;
+
               const key = getTabKey(tabList, idx);
               Array.from(tabList.querySelectorAll('button')).forEach((btn, tabIdx) => {
                 if (btn.dataset.cpBound === '1') return;
@@ -4994,44 +5007,53 @@ elif menu == "生產單管理":
         )
         st.session_state.pop("order_toast", None)
 
+    # 生產單主分頁使用 session-scoped 狀態，不與其他頁面共用儲存 key。
+    # apply_tab_persistence_fix() 會明確略過這組 labels，避免兩套 controller 競爭。
     components.html(
         """
         <script>
-        const storageKey = "order_mgmt_active_tab";
-        const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/取消"];
+        (function () {
+          const storageKey = "order_mgmt_active_tab";
+          const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/取消"];
 
-        function bindOrderTabs() {
+          function bindOrderTabs() {
             const doc = window.parent.document;
-            const allTabs = Array.from(doc.querySelectorAll('button[role="tab"]'));
-            const targetTab = allTabs.find(btn => tabTexts.includes(btn.textContent.trim()));
-            if (!targetTab) return false;
-
-            const tablist = targetTab.closest('div[role="tablist"]');
+            const tablists = Array.from(doc.querySelectorAll('div[role="tablist"]'));
+            const tablist = tablists.find(candidate => {
+              const labels = Array.from(candidate.querySelectorAll('button[role="tab"]'))
+                .map(tab => tab.textContent.trim());
+              return labels.length === tabTexts.length && tabTexts.every((label, idx) => labels[idx] === label);
+            });
             if (!tablist) return false;
 
             const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
-            const savedIndex = parseInt(sessionStorage.getItem(storageKey), 10);
-            if (!Number.isNaN(savedIndex) && tabs[savedIndex] && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
-                tabs[savedIndex].click();
+            const savedIndex = Number.parseInt(window.parent.sessionStorage.getItem(storageKey), 10);
+            if (Number.isInteger(savedIndex) && tabs[savedIndex]
+                && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
+              tabs[savedIndex].click();
             }
 
             tabs.forEach((tab, idx) => {
-                if (tab.dataset.orderPersistBound === '1') return;
-                tab.dataset.orderPersistBound = '1';
-                tab.addEventListener('click', () => sessionStorage.setItem(storageKey, String(idx)));
+              if (tab.dataset.orderPersistBound === '1') return;
+              tab.dataset.orderPersistBound = '1';
+              tab.addEventListener('click', () => {
+                window.parent.sessionStorage.setItem(storageKey, String(idx));
+              });
             });
             return true;
-        }
+          }
 
-        if (!bindOrderTabs()) {
+          if (!bindOrderTabs()) {
             const observer = new MutationObserver(() => {
-                if (bindOrderTabs()) observer.disconnect();
+              if (bindOrderTabs()) observer.disconnect();
             });
             observer.observe(window.parent.document.body, { childList: true, subtree: true });
-        }
+          }
+        })();
         </script>
         """,
         height=0,
+        width=0,
     )
 
     tab1, tab2, tab3 = st.tabs(["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/取消"])
