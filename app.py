@@ -1327,7 +1327,10 @@ def render_erp_nav():
 # ===== 調整整體主內容上方距離 =====
 st.markdown("""
     <style>
-    .block-container { margin-top: -0.4rem !important; }
+    /* 將 sidebar 右側的主工作區微幅上移，讓頁籤與內容更貼近頁面頂端。 */
+    div[data-testid="stAppViewContainer"] .block-container {
+        margin-top: -1rem !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
