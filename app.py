@@ -1953,13 +1953,18 @@ def clear_production_order_edit_state(session_state):
         session_state.pop(key, None)
 
 
-def sync_selected_production_order_state(session_state, selected_order_no):
-    """Prevent controls below the selector from referring to another order."""
+def sync_selected_production_order_state(
+    session_state, selected_order_no, selected_order=None
+):
+    """Keep the open lower editor synchronized with the newly selected order."""
     selected_order_no = str(selected_order_no or "").strip()
     editing_order = session_state.get("editing_order") or {}
     editing_order_no = str(editing_order.get("生產單號", "")).strip()
     if editing_order_no and editing_order_no != selected_order_no:
-        clear_production_order_edit_state(session_state)
+        if session_state.get("show_edit_panel") and selected_order is not None:
+            begin_production_order_edit(session_state, selected_order)
+        else:
+            clear_production_order_edit_state(session_state)
 
     lifecycle_order_no = str(
         session_state.get("confirm_order_lifecycle_id", "") or ""
@@ -6478,7 +6483,9 @@ elif menu == "生產單管理":
             recipe_rows = df_recipe[df_recipe["配方編號"] == order_dict.get("配方編號", "")]
             recipe_row = recipe_rows.iloc[0].to_dict() if not recipe_rows.empty else {}
             current_order_no = str(selected_order.get("生產單號", "")).strip()
-            sync_selected_production_order_state(st.session_state, current_order_no)
+            sync_selected_production_order_state(
+                st.session_state, current_order_no, order_dict
+            )
     
             preview_tab, manage_tab = st.tabs(["👀 預覽", "🛠️ 修改 / 取消"])
     
