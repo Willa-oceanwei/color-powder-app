@@ -277,9 +277,12 @@ div[data-testid="stCheckbox"] input[type="checkbox"]:checked::after {
     left: 17px !important;
     background: #ffffff !important;               /* 開啟：白色圓點 */
 }
-/* 藏起 Streamlit 自己原生畫的那顆滑塊 div（label 底下的第一個子層），
-   只留我們畫在 input 上面的那顆，避免看到兩顆滑塊 */
+/* 藏起 Streamlit 原生控件的裝飾圖層，只留我們畫在 input 上的橘色滑塊。
+   新版 Streamlit 會用 SVG 畫 checkbox 的紅色勾號，因此也要明確隱藏 SVG。 */
 div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
+    display: none !important;
+}
+div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] svg {
     display: none !important;
 }
 /* ---- 開關文字：關閉時反白（淡化變灰），開啟時恢復清楚、加粗（涵蓋全站） ---- */
