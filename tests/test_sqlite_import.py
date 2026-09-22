@@ -1374,6 +1374,11 @@ def test_unchanged_sheet_repairs_legacy_app_label_without_pending_outbox(tmp_pat
                SET category='色粉', source='app'
                WHERE colorpowder_id='P002'"""
         )
+        conn.execute(
+            """INSERT INTO color_powders(
+                   colorpowder_id, category, lifecycle_status, created_at, updated_at
+               ) VALUES ('OLD-INACTIVE', '色粉', 'inactive', '2026-01-01', '2026-01-01')"""
+        )
 
     preflight = import_sheet_values("色粉管理", values, db_path=db, dry_run=True)
     applied = import_sheet_values("色粉管理", values, db_path=db)

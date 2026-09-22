@@ -13655,26 +13655,34 @@ if st.session_state.menu == "同步檢查":
 
         if audit_sheet == "色粉管理":
             st.markdown("#### 色粉類別實際值核對")
-            category_names = sorted(
-                set(audit_result.sheet_category_counts)
-                | set(audit_result.database_category_counts)
+            sheet_category_counts = getattr(audit_result, "sheet_category_counts", None)
+            database_category_counts = getattr(
+                audit_result, "database_category_counts", None
             )
-            st.dataframe(
-                pd.DataFrame([
-                    {
-                        "色粉類別": category,
-                        "Sheet 筆數": audit_result.sheet_category_counts.get(category, 0),
-                        "Turso 筆數": audit_result.database_category_counts.get(category, 0),
-                    }
-                    for category in category_names
-                ]),
-                hide_index=True,
-                use_container_width=True,
-            )
-            st.caption(
-                f"依色粉編號逐筆比較後，色粉類別不一致共 {audit_result.category_mismatches} 筆。"
-                "下拉選單中存在某個選項，不代表 Sheet 實際資料列有使用該類別。"
-            )
+            if sheet_category_counts is None or database_category_counts is None:
+                st.info("這是更新前保留的 Dry-run 結果；請重新執行 Dry-run 以顯示類別核對。")
+            else:
+                category_names = sorted(
+                    set(sheet_category_counts) | set(database_category_counts)
+                )
+                st.dataframe(
+                    pd.DataFrame([
+                        {
+                            "色粉類別": category,
+                            "Sheet 筆數": sheet_category_counts.get(category, 0),
+                            "Turso 啟用筆數": database_category_counts.get(category, 0),
+                        }
+                        for category in category_names
+                    ]),
+                    hide_index=True,
+                    use_container_width=True,
+                )
+                st.caption(
+                    "Turso 僅統計啟用資料，停用但保留歷史的主檔不列入。"
+                    f"依色粉編號逐筆比較後，色粉類別不一致共 "
+                    f"{getattr(audit_result, 'category_mismatches', 0)} 筆。"
+                    "下拉選單中存在某個選項，不代表 Sheet 實際資料列有使用該類別。"
+                )
 
         if audit_result.inserted_or_updated != 0:
             st.error("Dry-run 出現非零寫入計數，請停止後續操作並檢查程式。")
@@ -13711,9 +13719,11 @@ if st.session_state.menu == "同步檢查":
             "conflicts": audit_result.conflicts,
             "inventory_duplicate_risk": audit_result.inventory_duplicate_risk,
             "warnings": audit_result.warnings,
-            "sheet_category_counts": audit_result.sheet_category_counts,
-            "database_category_counts": audit_result.database_category_counts,
-            "category_mismatches": audit_result.category_mismatches,
+            "sheet_category_counts": getattr(audit_result, "sheet_category_counts", {}),
+            "database_category_counts": getattr(
+                audit_result, "database_category_counts", {}
+            ),
+            "category_mismatches": getattr(audit_result, "category_mismatches", 0),
         }
         st.download_button(
             "下載 Dry-run 報告",

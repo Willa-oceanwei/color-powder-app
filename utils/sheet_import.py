@@ -369,7 +369,8 @@ def import_sheet_values(
                     result.sheet_category_counts.get(category, 0) + 1
                 )
             for db_row in conn.execute(
-                "SELECT category, COUNT(*) FROM color_powders GROUP BY category"
+                """SELECT category, COUNT(*) FROM color_powders
+                   WHERE lifecycle_status='active' GROUP BY category"""
             ).fetchall():
                 category = str(db_row[0] or "").strip() or "（空白）"
                 result.database_category_counts[category] = int(db_row[1])
