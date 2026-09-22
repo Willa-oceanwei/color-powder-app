@@ -324,6 +324,7 @@ def import_sheet_values(
     dry_run: bool = False,
     initialize_schema: bool = True,
     abort_on_issues: bool = False,
+    prefer_sheet_for_color_powders: bool = False,
 ) -> ImportResult:
     """Validate/copy worksheet values into local SQLite or configured Turso.
 
@@ -333,7 +334,9 @@ def import_sheet_values(
     already completed startup health checks may set ``initialize_schema=False``
     to keep an interactive dry-run free of schema-maintenance statements. Set
     ``abort_on_issues=True`` for a formal import that must roll back completely
-    when any validation error, duplicate, or conflict is found.
+    when any validation error, duplicate, or conflict is found. The explicit
+    ``prefer_sheet_for_color_powders`` operator choice lets 色粉管理 supersede
+    pending app outbox values; it is intentionally disabled by default.
     """
     if db_config is not None and db_path is not None:
         raise ValueError("Pass either db_config or db_path, not both.")
@@ -428,7 +431,8 @@ def import_sheet_values(
                     not changed
                     and not _color_powder_matches_sheet(color_powder_entity, row)
                     and not (
-                        color_powder_entity.get("source") == "app"
+                        not prefer_sheet_for_color_powders
+                        and color_powder_entity.get("source") == "app"
                         and row_key in pending_color_powder_outbox_ids
                     )
                 ):
@@ -465,7 +469,11 @@ def import_sheet_values(
                             reason="Database entity exists but no Sheet sync baseline exists",
                         )
                     continue
-                if existed and _entity_changed_since_sync(entity):
+                if (
+                    existed
+                    and _entity_changed_since_sync(entity)
+                    and not prefer_sheet_for_color_powders
+                ):
                     result.conflicts += 1
                     if not dry_run:
                         record_sync_conflict(conn, entity_type="color_powder", entity_id=powder_id,
@@ -485,10 +493,20 @@ def import_sheet_values(
                                category=excluded.category,
                                package=excluded.package,
                                notes=excluded.notes,
+                               source=excluded.source,
                                last_synced_at=excluded.last_synced_at""",
                         (powder_id, row.get("國際色號", ""), row.get("名稱", ""), row.get("色粉類別", ""),
                          row.get("包裝", ""), row.get("備註", ""), synced_at, _sheet_updated_at(row) or (entity["updated_at"] if entity else synced_at), synced_at),
                     )
+                    if prefer_sheet_for_color_powders:
+                        conn.execute(
+                            """UPDATE sync_outbox
+                               SET status='completed', processed_at=?,
+                                   last_error='Superseded by approved Sheet to Turso reconciliation'
+                               WHERE sheet_name='色粉管理' AND row_key=?
+                                 AND status IN ('pending', 'failed', 'processing', 'conflict')""",
+                            (synced_at, row_key),
+                        )
                     result.inserted_or_updated += 1
 
             elif sheet_name == "供應商管理":

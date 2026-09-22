@@ -1388,6 +1388,51 @@ def test_unchanged_sheet_repairs_legacy_app_label_without_pending_outbox(tmp_pat
     assert category == "配方"
 
 
+def test_explicit_sheet_authority_reconciles_pending_app_color_category(tmp_path):
+    db = tmp_path / "sheet-authority-color-powder-category.db"
+    values = [
+        ["色粉編號", "名稱", "色粉類別"],
+        ["P002", "Formula", "配方"],
+    ]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    update_color_powder(
+        config,
+        ColorPowderInput("P002", name="Formula", category="添加劑"),
+    )
+
+    preflight = import_sheet_values(
+        "色粉管理",
+        values,
+        db_path=db,
+        dry_run=True,
+        prefer_sheet_for_color_powders=True,
+    )
+    applied = import_sheet_values(
+        "色粉管理",
+        values,
+        db_path=db,
+        abort_on_issues=True,
+        prefer_sheet_for_color_powders=True,
+    )
+
+    assert preflight.to_update == 1
+    assert preflight.conflicts == 0
+    assert applied.inserted_or_updated == 1
+    with connect(db) as conn:
+        powder = conn.execute(
+            "SELECT category, source FROM color_powders WHERE colorpowder_id='P002'"
+        ).fetchone()
+        outbox = conn.execute(
+            """SELECT status, last_error FROM sync_outbox
+               WHERE sheet_name='色粉管理' AND row_key='P002'
+               ORDER BY id DESC LIMIT 1"""
+        ).fetchone()
+    assert tuple(powder) == ("配方", "google_sheets_import")
+    assert outbox["status"] == "completed"
+    assert "Superseded" in outbox["last_error"]
+
+
 def test_import_inventory_is_idempotent_for_same_sheet_row(tmp_path):
     values = [
         ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"],

@@ -13472,6 +13472,19 @@ if st.session_state.menu == "同步檢查":
         key="sync_audit_sheet",
         help="大型工作表一次只檢查一張，避免同時讀取所有 Sheet。",
     )
+    prefer_sheet_for_color_powders = False
+    if selected_sync_sheet == "色粉管理":
+        prefer_sheet_for_color_powders = st.checkbox(
+            "以 Sheet「色粉管理」為準，校正 Turso 現有值",
+            value=False,
+            help=(
+                "勾選後，Dry-run 會比較實際欄位，不受既有 outbox 保護影響；"
+                "APPLY 會以 Sheet 覆寫不同的 Turso 色粉主檔值，並結束被取代的舊 outbox 事件。"
+            ),
+        )
+        st.caption(
+            "目前要把 Turso 色粉類別校正成 Sheet 時，請勾選此項後重新執行 Dry-run。"
+        )
     sync_id_message = st.session_state.pop("inventory_sync_id_message", None)
     if sync_id_message:
         st.success(sync_id_message)
@@ -13589,18 +13602,27 @@ if st.session_state.menu == "同步檢查":
                     db_config=DATABASE_CONFIG,
                     dry_run=True,
                     initialize_schema=False,
+                    prefer_sheet_for_color_powders=prefer_sheet_for_color_powders,
                 )
                 audit_elapsed = time.perf_counter() - audit_started
             st.session_state["sync_audit_result"] = audit_result
             st.session_state["sync_audit_result_sheet"] = selected_sync_sheet
             st.session_state["sync_audit_elapsed"] = audit_elapsed
+            st.session_state["sync_audit_prefer_sheet_color"] = (
+                prefer_sheet_for_color_powders
+            )
         except Exception as exc:
             st.session_state.pop("sync_audit_result", None)
             st.error(f"Dry-run 失敗：{type(exc).__name__}: {exc}")
 
     audit_result = st.session_state.get("sync_audit_result")
     audit_sheet = st.session_state.get("sync_audit_result_sheet")
-    if audit_result is not None and audit_sheet == selected_sync_sheet:
+    if (
+        audit_result is not None
+        and audit_sheet == selected_sync_sheet
+        and st.session_state.get("sync_audit_prefer_sheet_color", False)
+        == prefer_sheet_for_color_powders
+    ):
         st.markdown(f"#### 檢查結果：{audit_sheet}")
         st.caption(f"耗時 {st.session_state.get('sync_audit_elapsed', 0):.2f} 秒；written 永遠應為 0。")
 
@@ -13705,6 +13727,7 @@ if st.session_state.menu == "同步檢查":
                             db_config=DATABASE_CONFIG,
                             dry_run=True,
                             initialize_schema=False,
+                            prefer_sheet_for_color_powders=prefer_sheet_for_color_powders,
                         )
                         if not preflight.ok or preflight.sqlite_rows != 0:
                             st.session_state["sync_audit_result"] = preflight
@@ -13719,6 +13742,7 @@ if st.session_state.menu == "同步檢查":
                             dry_run=False,
                             initialize_schema=False,
                             abort_on_issues=True,
+                            prefer_sheet_for_color_powders=prefer_sheet_for_color_powders,
                         )
                         write_committed = True
                         verification = import_sheet_values(
@@ -13727,6 +13751,7 @@ if st.session_state.menu == "同步檢查":
                             db_config=DATABASE_CONFIG,
                             dry_run=True,
                             initialize_schema=False,
+                            prefer_sheet_for_color_powders=prefer_sheet_for_color_powders,
                         )
                         if (
                             not verification.ok
@@ -13797,6 +13822,7 @@ if st.session_state.menu == "同步檢查":
                                 db_config=DATABASE_CONFIG,
                                 dry_run=True,
                                 initialize_schema=False,
+                                prefer_sheet_for_color_powders=prefer_sheet_for_color_powders,
                             )
                             if not preflight.ok:
                                 st.session_state["sync_audit_result"] = preflight
@@ -13813,6 +13839,7 @@ if st.session_state.menu == "同步檢查":
                                 dry_run=False,
                                 initialize_schema=False,
                                 abort_on_issues=True,
+                                prefer_sheet_for_color_powders=prefer_sheet_for_color_powders,
                             )
                             apply_committed = True
                             verification = import_sheet_values(
@@ -13821,6 +13848,7 @@ if st.session_state.menu == "同步檢查":
                                 db_config=DATABASE_CONFIG,
                                 dry_run=True,
                                 initialize_schema=False,
+                                prefer_sheet_for_color_powders=prefer_sheet_for_color_powders,
                             )
                             if (
                                 not verification.ok
