@@ -110,6 +110,9 @@ class ImportResult:
     errors: list[str] = field(default_factory=list)
     duplicate_ids: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    sheet_category_counts: dict[str, int] = field(default_factory=dict)
+    database_category_counts: dict[str, int] = field(default_factory=dict)
+    category_mismatches: int = 0
 
     @property
     def ok(self) -> bool:
@@ -360,6 +363,16 @@ def import_sheet_values(
         }
         pending_color_powder_outbox_ids: set[str] = set()
         if sheet_name == "色粉管理":
+            for row in rows:
+                category = str(row.get("色粉類別") or "").strip() or "（空白）"
+                result.sheet_category_counts[category] = (
+                    result.sheet_category_counts.get(category, 0) + 1
+                )
+            for db_row in conn.execute(
+                "SELECT category, COUNT(*) FROM color_powders GROUP BY category"
+            ).fetchall():
+                category = str(db_row[0] or "").strip() or "（空白）"
+                result.database_category_counts[category] = int(db_row[1])
             pending_color_powder_outbox_ids = {
                 str(db_row[0])
                 for db_row in conn.execute(
@@ -421,6 +434,12 @@ def import_sheet_values(
                         (row_key,),
                     )
                 )
+                if (
+                    color_powder_entity is not None
+                    and str(color_powder_entity.get("category") or "").strip()
+                    != str(row.get("色粉類別") or "").strip()
+                ):
+                    result.category_mismatches += 1
                 # A Sheet baseline describes the last synchronized source row;
                 # it is not evidence that the target entity still exists.  A
                 # missing target has no competing value to reconcile, so repair

@@ -3853,7 +3853,7 @@ elif menu == "配方管理":
                             f"⚠️ 確認要將「配方編號」由 "
                             f"{original_recipe_code} 修改為 {entered_recipe_code or '（空白）'}？"
                         )
-                        rename_confirmed = st.checkbox(
+                        rename_confirmed = st.toggle(
                             "我已確認要修改配方編號",
                             key=f"confirm_recipe_code_change_{code}",
                         )
@@ -13474,7 +13474,7 @@ if st.session_state.menu == "同步檢查":
     )
     prefer_sheet_for_color_powders = False
     if selected_sync_sheet == "色粉管理":
-        prefer_sheet_for_color_powders = st.checkbox(
+        prefer_sheet_for_color_powders = st.toggle(
             "以 Sheet「色粉管理」為準，校正 Turso 現有值",
             value=False,
             help=(
@@ -13646,6 +13646,29 @@ if st.session_state.menu == "同步檢查":
         for column, (label, value) in zip(st.columns(len(risk_values)), risk_values):
             column.metric(label, value)
 
+        if audit_sheet == "色粉管理":
+            st.markdown("#### 色粉類別實際值核對")
+            category_names = sorted(
+                set(audit_result.sheet_category_counts)
+                | set(audit_result.database_category_counts)
+            )
+            st.dataframe(
+                pd.DataFrame([
+                    {
+                        "色粉類別": category,
+                        "Sheet 筆數": audit_result.sheet_category_counts.get(category, 0),
+                        "Turso 筆數": audit_result.database_category_counts.get(category, 0),
+                    }
+                    for category in category_names
+                ]),
+                hide_index=True,
+                use_container_width=True,
+            )
+            st.caption(
+                f"依色粉編號逐筆比較後，色粉類別不一致共 {audit_result.category_mismatches} 筆。"
+                "下拉選單中存在某個選項，不代表 Sheet 實際資料列有使用該類別。"
+            )
+
         if audit_result.inserted_or_updated != 0:
             st.error("Dry-run 出現非零寫入計數，請停止後續操作並檢查程式。")
         elif audit_result.ok:
@@ -13681,6 +13704,9 @@ if st.session_state.menu == "同步檢查":
             "conflicts": audit_result.conflicts,
             "inventory_duplicate_risk": audit_result.inventory_duplicate_risk,
             "warnings": audit_result.warnings,
+            "sheet_category_counts": audit_result.sheet_category_counts,
+            "database_category_counts": audit_result.database_category_counts,
+            "category_mismatches": audit_result.category_mismatches,
         }
         st.download_button(
             "下載 Dry-run 報告",
@@ -13702,7 +13728,7 @@ if st.session_state.menu == "同步檢查":
                 "此動作會建立 Turso 正式資料與 Sheet row-hash baseline，但不會修改 Google Sheets。"
                 "按下後會重新讀取 Sheet、再次 dry-run；任何 error、duplicate 或 conflict 都會整批 rollback。"
             )
-            backup_confirmed = st.checkbox(
+            backup_confirmed = st.toggle(
                 "我已備份 Google Sheet，並確認上方 dry-run 結果正確",
                 key=f"sync_import_backup_{audit_sheet}",
             )

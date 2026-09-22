@@ -1380,6 +1380,9 @@ def test_unchanged_sheet_repairs_legacy_app_label_without_pending_outbox(tmp_pat
 
     assert preflight.to_update == 1
     assert preflight.conflicts == 0
+    assert preflight.sheet_category_counts == {"配方": 1}
+    assert preflight.database_category_counts == {"色粉": 1}
+    assert preflight.category_mismatches == 1
     assert applied.inserted_or_updated == 1
     with connect(db) as conn:
         category = conn.execute(
@@ -1418,6 +1421,9 @@ def test_explicit_sheet_authority_reconciles_pending_app_color_category(tmp_path
 
     assert preflight.to_update == 1
     assert preflight.conflicts == 0
+    assert preflight.sheet_category_counts == {"配方": 1}
+    assert preflight.database_category_counts == {"添加劑": 1}
+    assert preflight.category_mismatches == 1
     assert applied.inserted_or_updated == 1
     with connect(db) as conn:
         powder = conn.execute(
