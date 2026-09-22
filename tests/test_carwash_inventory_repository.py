@@ -1,5 +1,8 @@
+from datetime import date
+
 from utils.carwash_inventory_repository import (
     archive_carwash_inventory_movement,
+    calculate_carwash_inventory_balances,
     list_carwash_inventory_movements,
     save_carwash_inventory_movement,
 )
@@ -59,3 +62,24 @@ def test_import_normalizes_legacy_outbound_date_in_inbound_column(tmp_path):
             "SELECT inbound_date,outbound_date FROM carwash_inventory_movements WHERE movement_id='legacy-out-1'"
         ).fetchone()
     assert tuple(movement) == (None, "2026-07-08")
+
+
+def test_calculate_balances_uses_latest_initial_and_following_movements():
+    records = [
+        {"movement_type": "初始庫存", "initial_date": "2026-01-01", "initial_quantity": 20,
+         "product_id": " MB-01 ", "unit": "KG"},
+        {"movement_type": "入庫", "inbound_date": "2026-01-03", "quantity": 7,
+         "product_id": "mb-01", "unit": "KG"},
+        {"movement_type": "初始庫存", "initial_date": "2026-02-01", "initial_quantity": 10,
+         "product_id": "MB-01", "unit": "KG"},
+        {"movement_type": "出庫", "outbound_date": "2026-02-02", "quantity": 2.5,
+         "product_id": "MB-01", "unit": "KG"},
+        {"movement_type": "入庫", "inbound_date": "2026-04-01", "quantity": 99,
+         "product_id": "MB-01", "unit": "KG"},
+        {"movement_type": "初始庫存", "initial_date": "2026-05-01", "initial_quantity": 500,
+         "product_id": "MB-01", "unit": "KG"},
+    ]
+
+    assert calculate_carwash_inventory_balances(
+        records, as_of=date(2026, 3, 1)
+    ) == {"mb-01": (7.5, "KG")}
