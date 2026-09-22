@@ -297,6 +297,24 @@ def _entity_changed_since_sync(entity_row) -> bool:
     return bool(last_synced_at and updated_at and updated_at > last_synced_at)
 
 
+def _color_powder_matches_sheet(entity: dict[str, Any], row: dict[str, Any]) -> bool:
+    """Compare only fields owned by the 色粉管理 worksheet."""
+    field_pairs = (
+        ("colorpowder_id", "色粉編號"),
+        ("international_code", "國際色號"),
+        ("name", "名稱"),
+        ("category", "色粉類別"),
+        ("package", "包裝"),
+        ("notes", "備註"),
+    )
+    return all(
+        str(entity.get(database_field) or "").strip()
+        == str(row.get(sheet_field) or "").strip()
+        for database_field, sheet_field in field_pairs
+        if sheet_field in row
+    )
+
+
 def import_sheet_values(
     sheet_name: str,
     values: list[list[Any]],
@@ -382,10 +400,35 @@ def import_sheet_values(
             row_hash = _row_hash(row)
             existed = row_key in baseline_hashes
             changed = not existed or baseline_hashes[row_key] != row_hash
+            color_powder_entity = None
+            if sheet_name == "色粉管理":
+                color_powder_entity = _fetchone_mapping(
+                    conn.execute(
+                        "SELECT * FROM color_powders WHERE colorpowder_id = ?",
+                        (row_key,),
+                    )
+                )
+                # A Sheet baseline describes the last synchronized source row;
+                # it is not evidence that the target entity still exists.  A
+                # missing target has no competing value to reconcile, so repair
+                # it from Sheet rather than creating a false conflict.
+                if color_powder_entity is None:
+                    changed = True
+                elif (
+                    not changed
+                    and color_powder_entity.get("source") != "app"
+                    and not _color_powder_matches_sheet(color_powder_entity, row)
+                ):
+                    # Repair stale imported/migrated values even when the Sheet
+                    # itself has not changed since its stored baseline. App
+                    # edits remain Turso-authoritative and flow through outbox.
+                    changed = True
             if not changed:
                 result.unchanged += 1
                 continue
-            if existed:
+            if sheet_name == "色粉管理" and color_powder_entity is None:
+                result.to_insert += 1
+            elif existed:
                 result.to_update += 1
             else:
                 result.to_insert += 1
@@ -395,9 +438,7 @@ def import_sheet_values(
                 if not powder_id:
                     result.errors.append(f"row {index + 2}: missing 色粉編號")
                     continue
-                entity = _fetchone_mapping(
-                    conn.execute("SELECT * FROM color_powders WHERE colorpowder_id = ?", (powder_id,))
-                )
+                entity = color_powder_entity
                 if not existed and entity is not None:
                     result.conflicts += 1
                     if not dry_run:

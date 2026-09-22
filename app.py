@@ -33,6 +33,7 @@ from utils.sheet_import import (
     read_worksheet_values_with_retry,
 )
 from utils.color_powder_repository import (
+    COLOR_POWDER_CATEGORIES,
     ColorPowderAlreadyExists,
     ColorPowderError,
     ColorPowderInput,
@@ -2915,8 +2916,13 @@ if menu == "色粉管理":
         st.session_state.form_color["國際色號"] = st.text_input("國際色號", st.session_state.form_color["國際色號"])
         st.session_state.form_color["名稱"] = st.text_input("名稱", st.session_state.form_color["名稱"])
     with col2:
-        st.session_state.form_color["色粉類別"] = st.selectbox("色粉類別", ["色粉", "色母", "添加劑"],
-            index=["色粉", "色母", "添加劑"].index(st.session_state.form_color["色粉類別"]) if st.session_state.form_color["色粉類別"] in ["色粉", "色母", "添加劑"] else 0)
+        category_options = list(COLOR_POWDER_CATEGORIES)
+        current_category = st.session_state.form_color["色粉類別"]
+        st.session_state.form_color["色粉類別"] = st.selectbox(
+            "色粉類別",
+            category_options,
+            index=category_options.index(current_category) if current_category in category_options else 0,
+        )
         st.session_state.form_color["包裝"] = st.selectbox("包裝", ["袋", "箱", "kg"],
             index=["袋", "箱", "kg"].index(st.session_state.form_color["包裝"]) if st.session_state.form_color["包裝"] in ["袋", "箱", "kg"] else 0)
         st.session_state.form_color["備註"] = st.text_input("備註", st.session_state.form_color["備註"])
@@ -3696,7 +3702,7 @@ elif menu == "配方管理":
                         fr["原始配方"] = st.text_input("原始配方", fr.get("原始配方", ""), key=f"edit_recipe_origin_{code}")
 
                     with col7:
-                        color_type_options = ["色粉", "色母"]
+                        color_type_options = ["配方", "色母", "色粉", "添加劑", "其他"]
                         cur_ct = fr.get("色粉類別", color_type_options[0])
                         if cur_ct not in color_type_options:
                             cur_ct = color_type_options[0]
@@ -3915,8 +3921,17 @@ elif menu == "配方管理":
                     intl = st.text_input("國際色號",  st.session_state.form_color["國際色號"])
                     name = st.text_input("名稱",       st.session_state.form_color["名稱"])
                 with col2:
-                    ctype = st.selectbox("色粉類別", ["色粉", "色母", "添加劑"],
-                        index=["色粉", "色母", "添加劑"].index(st.session_state.form_color["色粉類別"]))
+                    category_options = list(COLOR_POWDER_CATEGORIES)
+                    current_category = st.session_state.form_color["色粉類別"]
+                    ctype = st.selectbox(
+                        "色粉類別",
+                        category_options,
+                        index=(
+                            category_options.index(current_category)
+                            if current_category in category_options
+                            else 0
+                        ),
+                    )
                     pack  = st.selectbox("包裝", ["袋", "箱", "kg"],
                         index=["袋", "箱", "kg"].index(st.session_state.form_color["包裝"]))
                     note  = st.text_input("備註", st.session_state.form_color["備註"])
@@ -13371,9 +13386,14 @@ if st.session_state.menu == "同步檢查":
 
     st.divider()
     render_sync_section_title("Sheet → Turso")
+    st.info(
+        "色粉類別校正路徑：① 選擇「色粉管理」→ ② 執行唯讀 Dry-run → "
+        "③ 確認 Conflict 為 0 且『修改』筆數合理 → ④ 輸入 APPLY 色粉管理並套用。"
+        "Dry-run 不會寫入 Turso；只有最後的 APPLY 會更新資料。"
+    )
 
     selected_sync_sheet = st.selectbox(
-        "選擇要檢查的工作表",
+        "① 選擇要檢查的工作表",
         options=list(SHEET_KEY_COLUMNS.keys()),
         key="sync_audit_sheet",
         help="大型工作表一次只檢查一張，避免同時讀取所有 Sheet。",
@@ -13479,7 +13499,7 @@ if st.session_state.menu == "同步檢查":
     )
 
     run_sync_audit = st.button(
-        "執行唯讀 Dry-run",
+        "② 執行唯讀 Dry-run",
         type="primary",
         disabled=DATABASE_BACKEND != "turso",
         use_container_width=False,
@@ -13673,7 +13693,7 @@ if st.session_state.menu == "同步檢查":
                 st.info("此工作表已存在 Turso baseline，且目前沒有需要套用的新增或修改。")
             else:
                 st.divider()
-                st.markdown("#### 套用 Sheet 增量變更到 Turso")
+                st.markdown("#### ③ 套用 Sheet 增量變更到 Turso")
                 st.warning(
                     f"本次預計新增 {audit_result.to_insert} 筆、修改 {audit_result.to_update} 筆。"
                     "此功能不處理 Sheet 刪除；按下後會重新讀取並再次 preflight，"
