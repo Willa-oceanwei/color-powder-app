@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 
-from .database import DatabaseConfig, connect_from_config, utc_now_iso
+from .database import (
+    DatabaseConfig,
+    connect_from_config,
+    upsert_sheet_row,
+    utc_now_iso,
+)
 
 
 class ConflictError(RuntimeError):
@@ -38,6 +44,11 @@ def _decode_payload(value: str | None) -> Any:
         return json.loads(value)
     except (TypeError, json.JSONDecodeError):
         return value
+
+
+def _row_hash(payload: dict[str, Any]) -> str:
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def list_sync_conflicts(
@@ -74,11 +85,13 @@ def resolve_sync_conflict(
     notes = str(notes or "").strip()
     if not notes:
         raise ConflictError("請輸入實際處理方式或確認結果")
-    if resolution not in {"acknowledge", "retry_outbox"}:
-        raise ValueError("resolution must be acknowledge or retry_outbox")
+    if resolution not in {"acknowledge", "retry_outbox", "overwrite_sheet"}:
+        raise ValueError(
+            "resolution must be acknowledge, retry_outbox, or overwrite_sheet"
+        )
     with connect_from_config(config) as conn:
         conflict_rows = _mappings(conn.execute(
-            """SELECT id, entity_type, entity_id FROM sync_conflicts
+            """SELECT id, entity_type, entity_id, sheet_payload_json FROM sync_conflicts
                WHERE id=? AND status='open'""",
             (int(conflict_id),),
         ))
@@ -86,13 +99,27 @@ def resolve_sync_conflict(
             raise ConflictError("找不到尚未結案的 conflict，請重新整理")
         conflict = conflict_rows[0]
         requeued = 0
-        if resolution == "retry_outbox":
+        if resolution in {"retry_outbox", "overwrite_sheet"}:
             sheet_name = OUTBOX_ENTITY_SHEETS.get(conflict["entity_type"])
             if sheet_name is None:
                 raise ConflictError("此 conflict 類型不支援 outbound 重送")
             row_key = str(conflict["entity_id"])
             if sheet_name == "庫存記錄" and row_key.startswith("sheet:庫存記錄:"):
                 row_key = row_key.removeprefix("sheet:庫存記錄:")
+            if resolution == "overwrite_sheet":
+                sheet_payload = _decode_payload(conflict["sheet_payload_json"])
+                if not isinstance(sheet_payload, dict):
+                    raise ConflictError("Conflict 沒有可核准的 Sheet 快照，無法安全覆寫")
+                # Approve only the exact Sheet snapshot shown to the administrator.
+                # The outbound worker still compares the live row with this baseline,
+                # so a later Sheet edit creates a new conflict instead of being lost.
+                upsert_sheet_row(
+                    conn,
+                    sheet_name,
+                    row_key,
+                    sheet_payload,
+                    _row_hash(sheet_payload),
+                )
             requeued_rows = _mappings(conn.execute(
                 """UPDATE sync_outbox
                    SET status='pending', processed_at=NULL, last_error=NULL
