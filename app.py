@@ -736,6 +736,7 @@ def apply_tab_persistence_fix():
           const STORAGE_KEY = "cp_tab_state_v1";
           const PAGE_MANAGED_TAB_LABELS = new Set([
             "🛸 生產單建立|📜 生產單記錄表|👀 生產單預覽/修改/取消",
+            "📦 初始|📊 查詢|📋 盤點|🏆 排行|🧮 用量|🧴 色母|👤 客戶",
           ]);
 
           function getTabLists() {
@@ -9919,6 +9920,59 @@ elif menu == "庫存區":
     # ================================================================
     # Tab 分頁
     # ================================================================
+    # 庫存區的表單、查詢與儲存動作都會觸發 Streamlit rerun。
+    # 以 sessionStorage 記住當前分頁，避免每次 rerun 都跳回「初始」，
+    # 並以完整 label 組合定位，不會誤切到其他頁面的 tabs。
+    components.html(
+        """
+        <script>
+        (function () {
+          const storageKey = "inventory_active_tab";
+          const tabTexts = ["📦 初始", "📊 查詢", "📋 盤點", "🏆 排行", "🧮 用量", "🧴 色母", "👤 客戶"];
+
+          function bindInventoryTabs() {
+            const doc = window.parent.document;
+            const tablist = Array.from(doc.querySelectorAll('div[role="tablist"]')).find(candidate => {
+              const labels = Array.from(candidate.querySelectorAll('button[role="tab"]'))
+                .map(tab => tab.textContent.trim());
+              return labels.length === tabTexts.length
+                && tabTexts.every((label, idx) => labels[idx] === label);
+            });
+            if (!tablist) return false;
+
+            const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
+            tabs.forEach((tab, idx) => {
+              if (tab.dataset.inventoryPersistBound === '1') return;
+              tab.dataset.inventoryPersistBound = '1';
+              tab.addEventListener('click', () => {
+                window.parent.sessionStorage.setItem(storageKey, String(idx));
+              });
+            });
+
+            const savedIndex = Number.parseInt(
+              window.parent.sessionStorage.getItem(storageKey), 10
+            );
+            if (Number.isInteger(savedIndex) && tabs[savedIndex]
+                && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
+              tabs[savedIndex].click();
+            }
+            return true;
+          }
+
+          if (!bindInventoryTabs()) {
+            const observer = new MutationObserver(() => {
+              if (bindInventoryTabs()) observer.disconnect();
+            });
+            observer.observe(window.parent.document.body, { childList: true, subtree: true });
+            window.setTimeout(() => observer.disconnect(), 10000);
+          }
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📦 初始",
         "📊 查詢",

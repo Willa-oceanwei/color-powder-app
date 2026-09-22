@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from utils.conflict_repository import (
