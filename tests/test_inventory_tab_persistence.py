@@ -45,3 +45,16 @@ def test_carwash_movement_editor_can_archive_duplicate_records():
     assert "我確認這筆是重覆新增的資料" in editor_source
     assert "archive_carwash_inventory_movement(" in editor_source
     assert 'reason="使用者刪除重覆新增的出入庫資料"' in editor_source
+
+
+def test_all_selection_controls_use_toggle_switches_instead_of_checkboxes():
+    project_root = Path(__file__).parents[1]
+    python_sources = [project_root / "app.py", *(project_root / "utils").glob("*.py")]
+
+    checkbox_calls = [
+        path.relative_to(project_root)
+        for path in python_sources
+        if "st.checkbox(" in path.read_text(encoding="utf-8")
+    ]
+
+    assert checkbox_calls == []

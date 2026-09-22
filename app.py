@@ -289,8 +289,8 @@ def _initialize_database_once(config, secret_presence, schema_version):
 
 # ======== 🎛️ 全站 Toggle 統一美化（只需注入一次，全站套用） ========
 # 說明：實際檢查過畫面的 HTML 結構後發現，你們這個 Streamlit 版本裡
-# st.toggle() 底層渲染出來的 data-testid 其實是 "stCheckbox"（不是 "stToggle"），
-# 跟 st.checkbox() 是同一顆元件。所以這裡統一鎖定 stCheckbox，直接在真正的
+# st.toggle() 底層渲染出來的 data-testid 其實是 "stCheckbox"（不是 "stToggle"）。
+# 所以這裡統一鎖定 stCheckbox，直接在真正的
 # <input type="checkbox"> 上用 :checked 偽類畫一顆膠囊滑塊，並把 Streamlit
 # 自己原生畫的那顆滑塊（class 是每次改版都會變的亂數 st-xx）藏起來，
 # 只保留我們畫的這顆，避免兩顆滑塊疊在一起。
@@ -12100,7 +12100,7 @@ elif menu == "洗車廠庫存":
                 st.divider()
                 st.markdown("#### 🗑️ 刪除重覆記錄")
                 st.caption("刪除後會同步移除該筆資料，庫存數量也會重新計算；請只刪除確認為重覆新增的記錄。")
-                confirm_delete_io = st.checkbox(
+                confirm_delete_io = st.toggle(
                     "我確認這筆是重覆新增的資料",
                     key=f"cw_confirm_delete_io_{selected_io_row['_sync_id']}",
                 )

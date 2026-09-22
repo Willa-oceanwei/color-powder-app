@@ -81,7 +81,7 @@ def _annual_leave_tab(config):
     if record.get("salary_status") == "settled":
         st.warning(f"此特休紀錄已納入 {record['year']}/{int(record['month']):02d} 薪資，修改後請重新確認該月薪資。")
     with st.form(f"edit_leave_record_{record['id']}"):
-        has_date = st.checkbox("記錄特休日期", value=bool(record.get("date")), help="日期為非必要欄位。")
+        has_date = st.toggle("記錄特休日期", value=bool(record.get("date")), help="日期為非必要欄位。")
         cols = st.columns(3)
         default_date = date.fromisoformat(record["date"][:10]) if record.get("date") else date(int(record["year"]), int(record["month"]), 1)
         leave_date = cols[0].date_input("日期（非必填）", value=default_date, disabled=not has_date)
@@ -94,7 +94,7 @@ def _annual_leave_tab(config):
                                                        "standard_hours":employee.get("standard_hours", 8)})
             st.toast("特休紀錄已修改；已結算薪資快照不會自動變動")
             st.rerun()
-    confirm = st.checkbox("確認刪除此筆特休紀錄", key=f"confirm_delete_leave_{record['id']}")
+    confirm = st.toggle("確認刪除此筆特休紀錄", key=f"confirm_delete_leave_{record['id']}")
     if st.button("刪除特休紀錄", disabled=not confirm, key=f"delete_leave_record_{record['id']}"):
         delete_annual_leave_history_record(config, record["id"]); st.toast("特休紀錄已刪除"); st.rerun()
 
