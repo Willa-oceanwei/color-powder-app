@@ -148,3 +148,21 @@ def test_saved_order_a5_download_has_print_setup_and_safe_filename():
     assert filename == "PO-001_R-01_A5列印.html"
     assert "size: A5 landscape" in html
     assert "window.print()" in html
+
+
+def test_a5_print_ignores_malformed_additional_recipe_rows():
+    source = Path("app.py").read_text(encoding="utf-8")
+    module = ast.parse(source)
+    wanted = {"generate_production_order_print", "generate_print_page_content"}
+    functions = [node for node in module.body if isinstance(node, ast.FunctionDef) and node.name in wanted]
+    namespace = {}
+    exec(compile(ast.Module(body=functions, type_ignores=[]), "app.py", "exec"), namespace)
+
+    html = namespace["generate_print_page_content"](
+        order={"生產單號": "P001"},
+        recipe_row={"配方編號": "R001"},
+        additional_recipe_rows=["stale recipe id", None, {"配方編號": "A001"}],
+    )
+
+    assert "附加配方 1：A001" in html
+    assert "stale recipe id" not in html

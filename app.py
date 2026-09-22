@@ -93,6 +93,7 @@ from utils.customer_inventory_repository import (
 )
 from utils.carwash_inventory_repository import (
     CarwashInventoryError,
+    calculate_carwash_inventory_balances,
     list_carwash_inventory_movements,
     save_carwash_inventory_movement,
 )
@@ -159,6 +160,59 @@ from utils.hr_query_ui import render_hr_query
 # API.  Streamlit Cloud can briefly run app.py with an older cached utils package
 # during a deployment; importing newly-added helper names here would make the whole
 # application fail before it can render.
+def _calculate_carwash_inventory_balances(records, *, as_of=None):
+    """Calculate wash-facility balances without extending the repository import API."""
+    cutoff = as_of or datetime.now().date()
+
+    def parse_date(value):
+        try:
+            return datetime.strptime(str(value).strip()[:10], "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            return None
+
+    def quantity(value):
+        try:
+            return float(value or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    grouped = {}
+    for record in records:
+        product_key = str(record.get("product_id") or "").strip().casefold()
+        if product_key:
+            grouped.setdefault(product_key, []).append(record)
+
+    balances = {}
+    for product_key, movements in grouped.items():
+        initial_movements = [
+            (parsed_date, movement)
+            for movement in movements
+            if (parsed_date := parse_date(movement.get("initial_date"))) is not None
+            and parsed_date <= cutoff
+        ]
+        latest_initial = max(initial_movements, key=lambda item: item[0]) if initial_movements else None
+        initial_date = latest_initial[0] if latest_initial else None
+        initial_record = latest_initial[1] if latest_initial else {}
+        current_quantity = quantity(initial_record.get("initial_quantity"))
+        unit = str(initial_record.get("unit") or "").strip()
+
+        for movement in movements:
+            movement_type = str(movement.get("movement_type") or "").strip()
+            date_field = "inbound_date" if movement_type == "入庫" else "outbound_date"
+            movement_date = parse_date(movement.get(date_field))
+            if movement_type not in {"入庫", "出庫"} or movement_date is None:
+                continue
+            if movement_date > cutoff or (initial_date is not None and movement_date < initial_date):
+                continue
+            amount = quantity(movement.get("quantity"))
+            current_quantity += amount if movement_type == "入庫" else -amount
+            if not unit:
+                unit = str(movement.get("unit") or "").strip()
+
+        balances[product_key] = (current_quantity, unit or "KG")
+    return balances
+
+
 def _customer_stock_quantity_in_kg(quantity, unit):
     try:
         value = float(quantity)
@@ -1744,6 +1798,17 @@ def safe_float_convert(value, default=0.0):
     except (ValueError, TypeError):
         return default
 
+
+def calculate_production_package_total_kg(order, is_colorant=False):
+    """Return the actual kilograms represented by a production order's packages."""
+    unit_multiplier = 100 if is_colorant else 1
+    return sum(
+        safe_float_convert(order.get(f"包裝重量{i}", ""), 0.0)
+        * safe_float_convert(order.get(f"包裝份數{i}", ""), 0.0)
+        * unit_multiplier
+        for i in range(1, 5)
+    )
+
 def safe_int_convert(value, default=0):
     """安全地將值轉換為整數"""
     if pd.isna(value) or value == '' or value is None:
@@ -2253,7 +2318,13 @@ def generate_production_order_print(
            
     # 多筆附加配方列印
     if additional_recipe_rows and isinstance(additional_recipe_rows, list):
-        for idx, sub in enumerate(additional_recipe_rows, 1):
+        # Session state and older saved orders can contain stale scalar values in
+        # this list.  Only recipe-like rows support the field lookups below.
+        valid_additional_rows = [
+            sub for sub in additional_recipe_rows
+            if callable(getattr(sub, "get", None))
+        ]
+        for idx, sub in enumerate(valid_additional_rows, 1):
             lines.append("")
             if show_additional_ids:
                 lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
@@ -5803,15 +5874,11 @@ elif menu == "生產單管理":
                         st.error("❌ 代工單找不到所連結的有效生產單，已停止合併，避免庫存重複扣料")
                         st.stop()
 
-                    delta_total_kg = sum(
-                        safe_float_convert(order.get(f"包裝重量{i}", ""), 0.0)
-                        * safe_float_convert(order.get(f"包裝份數{i}", ""), 0.0)
-                        for i in range(1, 5)
+                    delta_total_kg = calculate_production_package_total_kg(
+                        order, is_colorant=True
                     )
-                    merged_total_kg = delta_total_kg + sum(
-                        safe_float_convert(existing_order.get(f"包裝重量{i}", ""), 0.0)
-                        * safe_float_convert(existing_order.get(f"包裝份數{i}", ""), 0.0)
-                        for i in range(1, 5)
+                    merged_total_kg = delta_total_kg + calculate_production_package_total_kg(
+                        existing_order, is_colorant=True
                     )
                     merge_note = (
                         f"{datetime.now().strftime('%Y%m%d')}合併{delta_total_kg:g}Kg"
@@ -11032,6 +11099,19 @@ elif menu == "庫存區":
             if df_result.empty:
                 render_empty_state("查無符合條件的色母庫存資料")
             else:
+                # 只顯示另一存放地點的個別數量，不併入廠內色母庫存計算。
+                carwash_balances = _calculate_carwash_inventory_balances(
+                    list_carwash_inventory_movements(DATABASE_CONFIG)
+                )
+                carwash_quantity_labels = {
+                    product_id: f"{format_optional_decimals(quantity)} {unit}"
+                    for product_id, (quantity, unit) in carwash_balances.items()
+                }
+                df_result["洗車廠數量"] = df_result["色母編號"].map(
+                    lambda powder_id: carwash_quantity_labels.get(
+                        str(powder_id).strip().casefold(), ""
+                    )
+                )
                 st.dataframe(
                     df_result,
                     use_container_width=True,
@@ -11043,6 +11123,7 @@ elif menu == "庫存區":
                         "區間用量": st.column_config.TextColumn("區間用量", width="small"),
                         "期末庫存": st.column_config.TextColumn("期末庫存", width="small"),
                         "備註":     st.column_config.TextColumn("備註",     width="medium"),
+                        "洗車廠數量": st.column_config.TextColumn("洗車廠數量", width="small"),
                     },
                 )
                 st.caption("🌟 條件：色粉管理「色粉類別」= 色母")
