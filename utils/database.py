@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 22
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "color_powders",
@@ -744,6 +744,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
                 CHECK(status IN ('pending', 'processing', 'completed', 'failed', 'conflict')),
             attempt_count INTEGER NOT NULL DEFAULT 0,
             last_error TEXT,
+            approved_sheet_hash TEXT,
             created_at TEXT NOT NULL,
             processed_at TEXT,
             UNIQUE(sheet_name, row_key, entity_version)
@@ -919,6 +920,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     _add_column_if_missing(conn, "annual_leave_history", "salary_id", "TEXT")
     _add_column_if_missing(conn, "annual_leave_history", "updated_at", "TEXT")
     _add_column_if_missing(conn, "annual_leave_history", "is_deleted", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_missing(conn, "sync_outbox", "approved_sheet_hash", "TEXT")
     conn.execute(
         """UPDATE recipes
            SET oem_multiplier = COALESCE(

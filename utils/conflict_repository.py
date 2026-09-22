@@ -9,7 +9,6 @@ from typing import Any
 from .database import (
     DatabaseConfig,
     connect_from_config,
-    upsert_sheet_row,
     utc_now_iso,
 )
 
@@ -110,22 +109,17 @@ def resolve_sync_conflict(
                 sheet_payload = _decode_payload(conflict["sheet_payload_json"])
                 if not isinstance(sheet_payload, dict):
                     raise ConflictError("Conflict 沒有可核准的 Sheet 快照，無法安全覆寫")
-                # Approve only the exact Sheet snapshot shown to the administrator.
-                # The outbound worker still compares the live row with this baseline,
-                # so a later Sheet edit creates a new conflict instead of being lost.
-                upsert_sheet_row(
-                    conn,
-                    sheet_name,
-                    row_key,
-                    sheet_payload,
-                    _row_hash(sheet_payload),
-                )
+                approved_sheet_hash = _row_hash(sheet_payload)
+            else:
+                approved_sheet_hash = None
             requeued_rows = _mappings(conn.execute(
                 """UPDATE sync_outbox
-                   SET status='pending', processed_at=NULL, last_error=NULL
+                   SET status='pending', processed_at=NULL, last_error=NULL,
+                       approved_sheet_hash=?
                    WHERE sheet_name=? AND row_key=? AND status='conflict'
+                     AND operation='update'
                    RETURNING id""",
-                (sheet_name, row_key),
+                (approved_sheet_hash, sheet_name, row_key),
             ))
             requeued = len(requeued_rows)
             if requeued == 0:

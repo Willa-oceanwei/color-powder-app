@@ -155,7 +155,7 @@ def _sync_outbox(
         _ensure_tombstone_outbox(read_conn, sheet_name)
         pending = read_conn.execute(
             """SELECT event.id, event.row_key, event.operation, event.payload_json,
-                      event.entity_version, event.status
+                      event.entity_version, event.status, event.approved_sheet_hash
                FROM sync_outbox AS event
                WHERE event.sheet_name = ?
                  AND event.status IN ('pending', 'failed', 'processing')
@@ -171,7 +171,8 @@ def _sync_outbox(
         ).fetchall()
     entries = [
         dict(row) if hasattr(row, "keys") else dict(
-            zip(("id", "row_key", "operation", "payload_json", "entity_version", "status"), row)
+            zip(("id", "row_key", "operation", "payload_json", "entity_version", "status",
+                 "approved_sheet_hash"), row)
         )
         for row in pending
     ]
@@ -275,6 +276,9 @@ def _sync_outbox(
                 if current == desired:
                     result.unchanged += 1
                     action = "acknowledge"
+                elif entry.get("approved_sheet_hash") == _row_hash(current):
+                    result.to_update += 1
+                    action = "update"
                 elif baseline is None or baseline["row_hash"] != _row_hash(current):
                     reason = "Both Turso and Google Sheet changed after the last sync"
                     result.conflicts += 1
@@ -284,7 +288,8 @@ def _sync_outbox(
                             sqlite_payload=desired, sheet_payload=current, reason=reason,
                         )
                         decision_conn.execute(
-                            """UPDATE sync_outbox SET status='conflict', last_error=?
+                            """UPDATE sync_outbox
+                               SET status='conflict', last_error=?, approved_sheet_hash=NULL
                                WHERE sheet_name=? AND row_key=? AND entity_version <= ?
                                  AND status IN ('pending', 'failed', 'processing')""",
                             (reason, sheet_name, row_key, entry["entity_version"]),
@@ -328,7 +333,8 @@ def _sync_outbox(
                 (synced_at, row_key),
             )
             finalize_conn.execute(
-                """UPDATE sync_outbox SET status='completed', processed_at=?, last_error=NULL
+                """UPDATE sync_outbox SET status='completed', processed_at=?, last_error=NULL,
+                                      approved_sheet_hash=NULL
                    WHERE sheet_name=? AND row_key=? AND entity_version <= ?
                      AND status IN ('pending', 'failed', 'processing')""",
                 (synced_at, sheet_name, row_key, entry["entity_version"]),
