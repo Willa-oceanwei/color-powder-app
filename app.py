@@ -2307,7 +2307,13 @@ def generate_production_order_print(
            
     # 多筆附加配方列印
     if additional_recipe_rows and isinstance(additional_recipe_rows, list):
-        for idx, sub in enumerate(additional_recipe_rows, 1):
+        # Session state and older saved orders can contain stale scalar values in
+        # this list.  Only recipe-like rows support the field lookups below.
+        valid_additional_rows = [
+            sub for sub in additional_recipe_rows
+            if callable(getattr(sub, "get", None))
+        ]
+        for idx, sub in enumerate(valid_additional_rows, 1):
             lines.append("")
             if show_additional_ids:
                 lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
