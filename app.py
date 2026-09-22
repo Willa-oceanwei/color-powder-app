@@ -92,6 +92,7 @@ from utils.customer_inventory_repository import (
 )
 from utils.carwash_inventory_repository import (
     CarwashInventoryError,
+    calculate_carwash_inventory_balances,
     list_carwash_inventory_movements,
     save_carwash_inventory_movement,
 )

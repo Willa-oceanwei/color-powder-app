@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Any
 
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
@@ -10,6 +11,62 @@ from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, u
 
 class CarwashInventoryError(RuntimeError):
     """Raised when a wash-facility inventory write is invalid or unsafe."""
+
+
+def calculate_carwash_inventory_balances(
+    records: list[dict[str, Any]], *, as_of: date | None = None
+) -> dict[str, tuple[float, str]]:
+    """Return current wash-facility quantity and unit keyed by normalized product ID."""
+    cutoff = as_of or date.today()
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        product_key = str(record.get("product_id") or "").strip().casefold()
+        if product_key:
+            grouped.setdefault(product_key, []).append(record)
+
+    balances: dict[str, tuple[float, str]] = {}
+    for product_key, movements in grouped.items():
+        initial_movements = [
+            (parsed_date, movement)
+            for movement in movements
+            if (parsed_date := _parse_inventory_date(movement.get("initial_date"))) is not None
+            and parsed_date <= cutoff
+        ]
+        latest_initial = max(initial_movements, key=lambda item: item[0]) if initial_movements else None
+        initial_date = latest_initial[0] if latest_initial else None
+        initial_record = latest_initial[1] if latest_initial else {}
+        quantity = _quantity(initial_record.get("initial_quantity"))
+        unit = str(initial_record.get("unit") or "").strip()
+
+        for movement in movements:
+            movement_type = str(movement.get("movement_type") or "").strip()
+            date_field = "inbound_date" if movement_type == "入庫" else "outbound_date"
+            movement_date = _parse_inventory_date(movement.get(date_field))
+            if movement_type not in {"入庫", "出庫"} or movement_date is None:
+                continue
+            if movement_date > cutoff or (initial_date is not None and movement_date < initial_date):
+                continue
+            amount = _quantity(movement.get("quantity"))
+            quantity += amount if movement_type == "入庫" else -amount
+            if not unit:
+                unit = str(movement.get("unit") or "").strip()
+
+        balances[product_key] = (quantity, unit or "KG")
+    return balances
+
+
+def _parse_inventory_date(value: Any) -> date | None:
+    try:
+        return date.fromisoformat(str(value).strip()[:10])
+    except (TypeError, ValueError):
+        return None
+
+
+def _quantity(value: Any) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _mapping(cursor):
