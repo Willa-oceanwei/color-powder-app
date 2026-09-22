@@ -1798,6 +1798,17 @@ def safe_float_convert(value, default=0.0):
     except (ValueError, TypeError):
         return default
 
+
+def calculate_production_package_total_kg(order, is_colorant=False):
+    """Return the actual kilograms represented by a production order's packages."""
+    unit_multiplier = 100 if is_colorant else 1
+    return sum(
+        safe_float_convert(order.get(f"包裝重量{i}", ""), 0.0)
+        * safe_float_convert(order.get(f"包裝份數{i}", ""), 0.0)
+        * unit_multiplier
+        for i in range(1, 5)
+    )
+
 def safe_int_convert(value, default=0):
     """安全地將值轉換為整數"""
     if pd.isna(value) or value == '' or value is None:
@@ -2307,7 +2318,13 @@ def generate_production_order_print(
            
     # 多筆附加配方列印
     if additional_recipe_rows and isinstance(additional_recipe_rows, list):
-        for idx, sub in enumerate(additional_recipe_rows, 1):
+        # Session state and older saved orders can contain stale scalar values in
+        # this list.  Only recipe-like rows support the field lookups below.
+        valid_additional_rows = [
+            sub for sub in additional_recipe_rows
+            if callable(getattr(sub, "get", None))
+        ]
+        for idx, sub in enumerate(valid_additional_rows, 1):
             lines.append("")
             if show_additional_ids:
                 lines.append(f"附加配方 {idx}：{sub.get('配方編號', '')}")
@@ -5857,15 +5874,11 @@ elif menu == "生產單管理":
                         st.error("❌ 代工單找不到所連結的有效生產單，已停止合併，避免庫存重複扣料")
                         st.stop()
 
-                    delta_total_kg = sum(
-                        safe_float_convert(order.get(f"包裝重量{i}", ""), 0.0)
-                        * safe_float_convert(order.get(f"包裝份數{i}", ""), 0.0)
-                        for i in range(1, 5)
+                    delta_total_kg = calculate_production_package_total_kg(
+                        order, is_colorant=True
                     )
-                    merged_total_kg = delta_total_kg + sum(
-                        safe_float_convert(existing_order.get(f"包裝重量{i}", ""), 0.0)
-                        * safe_float_convert(existing_order.get(f"包裝份數{i}", ""), 0.0)
-                        for i in range(1, 5)
+                    merged_total_kg = delta_total_kg + calculate_production_package_total_kg(
+                        existing_order, is_colorant=True
                     )
                     merge_note = (
                         f"{datetime.now().strftime('%Y%m%d')}合併{delta_total_kg:g}Kg"
