@@ -297,6 +297,24 @@ def _entity_changed_since_sync(entity_row) -> bool:
     return bool(last_synced_at and updated_at and updated_at > last_synced_at)
 
 
+def _color_powder_matches_sheet(entity: dict[str, Any], row: dict[str, Any]) -> bool:
+    """Compare only fields owned by the 色粉管理 worksheet."""
+    field_pairs = (
+        ("colorpowder_id", "色粉編號"),
+        ("international_code", "國際色號"),
+        ("name", "名稱"),
+        ("category", "色粉類別"),
+        ("package", "包裝"),
+        ("notes", "備註"),
+    )
+    return all(
+        str(entity.get(database_field) or "").strip()
+        == str(row.get(sheet_field) or "").strip()
+        for database_field, sheet_field in field_pairs
+        if sheet_field in row
+    )
+
+
 def import_sheet_values(
     sheet_name: str,
     values: list[list[Any]],
@@ -306,6 +324,7 @@ def import_sheet_values(
     dry_run: bool = False,
     initialize_schema: bool = True,
     abort_on_issues: bool = False,
+    prefer_sheet_for_color_powders: bool = False,
 ) -> ImportResult:
     """Validate/copy worksheet values into local SQLite or configured Turso.
 
@@ -315,7 +334,9 @@ def import_sheet_values(
     already completed startup health checks may set ``initialize_schema=False``
     to keep an interactive dry-run free of schema-maintenance statements. Set
     ``abort_on_issues=True`` for a formal import that must roll back completely
-    when any validation error, duplicate, or conflict is found.
+    when any validation error, duplicate, or conflict is found. The explicit
+    ``prefer_sheet_for_color_powders`` operator choice lets 色粉管理 supersede
+    pending app outbox values; it is intentionally disabled by default.
     """
     if db_config is not None and db_path is not None:
         raise ValueError("Pass either db_config or db_path, not both.")
@@ -337,6 +358,16 @@ def import_sheet_values(
                 (sheet_name,),
             ))
         }
+        pending_color_powder_outbox_ids: set[str] = set()
+        if sheet_name == "色粉管理":
+            pending_color_powder_outbox_ids = {
+                str(db_row[0])
+                for db_row in conn.execute(
+                    """SELECT DISTINCT row_key FROM sync_outbox
+                       WHERE sheet_name='色粉管理'
+                         AND status IN ('pending', 'failed', 'processing', 'conflict')"""
+                ).fetchall()
+            }
         known_inventory_powder_ids: set[str] | None = None
         known_inventory_supplier_ids: set[str] | None = None
         if sheet_name == "庫存記錄":
@@ -382,10 +413,40 @@ def import_sheet_values(
             row_hash = _row_hash(row)
             existed = row_key in baseline_hashes
             changed = not existed or baseline_hashes[row_key] != row_hash
+            color_powder_entity = None
+            if sheet_name == "色粉管理":
+                color_powder_entity = _fetchone_mapping(
+                    conn.execute(
+                        "SELECT * FROM color_powders WHERE colorpowder_id = ?",
+                        (row_key,),
+                    )
+                )
+                # A Sheet baseline describes the last synchronized source row;
+                # it is not evidence that the target entity still exists.  A
+                # missing target has no competing value to reconcile, so repair
+                # it from Sheet rather than creating a false conflict.
+                if color_powder_entity is None:
+                    changed = True
+                elif (
+                    not changed
+                    and not _color_powder_matches_sheet(color_powder_entity, row)
+                    and not (
+                        not prefer_sheet_for_color_powders
+                        and color_powder_entity.get("source") == "app"
+                        and row_key in pending_color_powder_outbox_ids
+                    )
+                ):
+                    # Repair stale imported/migrated values even when the Sheet
+                    # itself has not changed since its stored baseline. Only an
+                    # app edit with an active outbox event remains Turso-first;
+                    # legacy app-labelled rows without queued work are repaired.
+                    changed = True
             if not changed:
                 result.unchanged += 1
                 continue
-            if existed:
+            if sheet_name == "色粉管理" and color_powder_entity is None:
+                result.to_insert += 1
+            elif existed:
                 result.to_update += 1
             else:
                 result.to_insert += 1
@@ -395,9 +456,7 @@ def import_sheet_values(
                 if not powder_id:
                     result.errors.append(f"row {index + 2}: missing 色粉編號")
                     continue
-                entity = _fetchone_mapping(
-                    conn.execute("SELECT * FROM color_powders WHERE colorpowder_id = ?", (powder_id,))
-                )
+                entity = color_powder_entity
                 if not existed and entity is not None:
                     result.conflicts += 1
                     if not dry_run:
@@ -410,7 +469,11 @@ def import_sheet_values(
                             reason="Database entity exists but no Sheet sync baseline exists",
                         )
                     continue
-                if existed and _entity_changed_since_sync(entity):
+                if (
+                    existed
+                    and _entity_changed_since_sync(entity)
+                    and not prefer_sheet_for_color_powders
+                ):
                     result.conflicts += 1
                     if not dry_run:
                         record_sync_conflict(conn, entity_type="color_powder", entity_id=powder_id,
@@ -430,10 +493,20 @@ def import_sheet_values(
                                category=excluded.category,
                                package=excluded.package,
                                notes=excluded.notes,
+                               source=excluded.source,
                                last_synced_at=excluded.last_synced_at""",
                         (powder_id, row.get("國際色號", ""), row.get("名稱", ""), row.get("色粉類別", ""),
                          row.get("包裝", ""), row.get("備註", ""), synced_at, _sheet_updated_at(row) or (entity["updated_at"] if entity else synced_at), synced_at),
                     )
+                    if prefer_sheet_for_color_powders:
+                        conn.execute(
+                            """UPDATE sync_outbox
+                               SET status='completed', processed_at=?,
+                                   last_error='Superseded by approved Sheet to Turso reconciliation'
+                               WHERE sheet_name='色粉管理' AND row_key=?
+                                 AND status IN ('pending', 'failed', 'processing', 'conflict')""",
+                            (synced_at, row_key),
+                        )
                     result.inserted_or_updated += 1
 
             elif sheet_name == "供應商管理":

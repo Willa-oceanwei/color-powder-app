@@ -9,6 +9,9 @@ from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, u
 from .sheet_export import color_powder_sheet_payload
 
 
+COLOR_POWDER_CATEGORIES = ("色粉", "色母", "配方", "添加劑")
+
+
 class ColorPowderError(RuntimeError):
     """Base error safe for the color-powder UI to present."""
 
