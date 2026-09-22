@@ -12615,11 +12615,21 @@ if st.session_state.menu == "同步檢查":
             if conflict["status"] == "open":
                 resolution_action = st.radio(
                     "結案方式",
-                    options=["只記錄結案，不重送", "已修正 Sheet，重新排入 Turso → Sheet"],
+                    options=[
+                        "只記錄結案，不重送",
+                        "已手動修正 Sheet，重新排入 Turso → Sheet",
+                        "保留 Turso，安全覆寫 Sheet",
+                    ],
                     key=f"conflict_resolution_action_{conflict['id']}",
                 )
-                retry_outbox = resolution_action.startswith("已修正 Sheet")
-                if retry_outbox:
+                retry_outbox = resolution_action != "只記錄結案，不重送"
+                overwrite_sheet = resolution_action.startswith("保留 Turso")
+                if overwrite_sheet:
+                    st.warning(
+                        "系統會核准畫面中的 Sheet 快照並重新排入 outbox，讓 Turso 覆寫該列。"
+                        "worker 執行前若 Sheet 又被修改，仍會再次阻擋，不會覆蓋新的人工編輯。"
+                    )
+                elif retry_outbox:
                     st.warning(
                         "只有在 Sheet 已修正回正確內容，且要讓 Turso 再次推送時才能選此項。"
                         "系統只重新排入 outbox；下一次 worker 仍會重新檢查 baseline。"
@@ -12629,9 +12639,12 @@ if st.session_state.menu == "同步檢查":
                     key=f"conflict_resolution_notes_{conflict['id']}",
                     placeholder="例如：已保留 Turso 值，並將 Sheet 修正後重新 preflight 通過。",
                 )
-                required_resolution_confirmation = (
-                    f"RETRY {conflict['id']}" if retry_outbox else f"RESOLVE {conflict['id']}"
-                )
+                if overwrite_sheet:
+                    required_resolution_confirmation = f"OVERWRITE {conflict['id']}"
+                elif retry_outbox:
+                    required_resolution_confirmation = f"RETRY {conflict['id']}"
+                else:
+                    required_resolution_confirmation = f"RESOLVE {conflict['id']}"
                 resolution_confirmation = st.text_input(
                     f"請輸入 {required_resolution_confirmation}",
                     key=f"conflict_resolution_confirmation_{conflict['id']}",
@@ -12649,7 +12662,11 @@ if st.session_state.menu == "同步檢查":
                             DATABASE_CONFIG,
                             conflict["id"],
                             notes=resolution_notes,
-                            resolution="retry_outbox" if retry_outbox else "acknowledge",
+                            resolution=(
+                                "overwrite_sheet"
+                                if overwrite_sheet
+                                else "retry_outbox" if retry_outbox else "acknowledge"
+                            ),
                         )
                         toast_text = f"Conflict #{conflict['id']} 已標記結案"
                         if requeued:

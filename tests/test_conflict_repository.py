@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from utils.conflict_repository import (
@@ -143,3 +145,45 @@ def test_retry_resolution_requires_matching_outbox_event(tmp_path):
             resolution="retry_outbox",
         )
     assert list_sync_conflicts(config)[0]["status"] == "open"
+
+
+def test_resolve_can_approve_current_sheet_snapshot_for_turso_overwrite(tmp_path):
+    db, config = _config(tmp_path)
+    sheet_payload = {"配方編號": "R001", "淨重": "60"}
+    with connect(db) as conn:
+        enqueue_sheet_sync(
+            conn,
+            sheet_name="配方管理",
+            row_key="R001",
+            operation="update",
+            payload={"配方編號": "R001", "淨重": "60.0"},
+            entity_version=2,
+        )
+        conn.execute("UPDATE sync_outbox SET status='conflict'")
+        record_sync_conflict(
+            conn,
+            entity_type="recipe",
+            entity_id="R001",
+            sqlite_payload={"配方編號": "R001", "淨重": "60.0"},
+            sheet_payload=sheet_payload,
+            reason="both changed",
+        )
+    conflict_id = list_sync_conflicts(config)[0]["id"]
+
+    requeued = resolve_sync_conflict(
+        config,
+        conflict_id,
+        notes="核准目前 Sheet 快照並保留 Turso",
+        resolution="overwrite_sheet",
+    )
+
+    assert requeued == 1
+    with connect(db) as conn:
+        event = conn.execute("SELECT status FROM sync_outbox").fetchone()
+        baseline = conn.execute(
+            "SELECT payload_json, row_hash FROM sheet_rows WHERE sheet_name=? AND row_key=?",
+            ("配方管理", "R001"),
+        ).fetchone()
+    assert event[0] == "pending"
+    assert json.loads(baseline[0]) == sheet_payload
+    assert baseline[1]
