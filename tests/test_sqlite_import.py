@@ -1343,12 +1343,11 @@ def test_unchanged_sheet_does_not_overwrite_turso_first_app_category(tmp_path):
         ["P002", "Formula", "配方"],
     ]
     import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
-    with connect(db) as conn:
-        conn.execute(
-            """UPDATE color_powders
-               SET category='添加劑', source='app'
-               WHERE colorpowder_id='P002'"""
-        )
+    config = DatabaseConfig(backend="sqlite", path=db)
+    update_color_powder(
+        config,
+        ColorPowderInput("P002", name="Formula", category="添加劑"),
+    )
 
     result = import_sheet_values("色粉管理", values, db_path=db)
 
@@ -1360,6 +1359,33 @@ def test_unchanged_sheet_does_not_overwrite_turso_first_app_category(tmp_path):
             "SELECT category FROM color_powders WHERE colorpowder_id='P002'"
         ).fetchone()[0]
     assert category == "添加劑"
+
+
+def test_unchanged_sheet_repairs_legacy_app_label_without_pending_outbox(tmp_path):
+    db = tmp_path / "legacy-app-color-powder-category.db"
+    values = [
+        ["色粉編號", "名稱", "色粉類別"],
+        ["P002", "Formula", "配方"],
+    ]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+    with connect(db) as conn:
+        conn.execute(
+            """UPDATE color_powders
+               SET category='色粉', source='app'
+               WHERE colorpowder_id='P002'"""
+        )
+
+    preflight = import_sheet_values("色粉管理", values, db_path=db, dry_run=True)
+    applied = import_sheet_values("色粉管理", values, db_path=db)
+
+    assert preflight.to_update == 1
+    assert preflight.conflicts == 0
+    assert applied.inserted_or_updated == 1
+    with connect(db) as conn:
+        category = conn.execute(
+            "SELECT category FROM color_powders WHERE colorpowder_id='P002'"
+        ).fetchone()[0]
+    assert category == "配方"
 
 
 def test_import_inventory_is_idempotent_for_same_sheet_row(tmp_path):

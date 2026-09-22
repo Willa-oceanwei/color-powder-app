@@ -355,6 +355,16 @@ def import_sheet_values(
                 (sheet_name,),
             ))
         }
+        pending_color_powder_outbox_ids: set[str] = set()
+        if sheet_name == "色粉管理":
+            pending_color_powder_outbox_ids = {
+                str(db_row[0])
+                for db_row in conn.execute(
+                    """SELECT DISTINCT row_key FROM sync_outbox
+                       WHERE sheet_name='色粉管理'
+                         AND status IN ('pending', 'failed', 'processing', 'conflict')"""
+                ).fetchall()
+            }
         known_inventory_powder_ids: set[str] | None = None
         known_inventory_supplier_ids: set[str] | None = None
         if sheet_name == "庫存記錄":
@@ -416,12 +426,16 @@ def import_sheet_values(
                     changed = True
                 elif (
                     not changed
-                    and color_powder_entity.get("source") != "app"
                     and not _color_powder_matches_sheet(color_powder_entity, row)
+                    and not (
+                        color_powder_entity.get("source") == "app"
+                        and row_key in pending_color_powder_outbox_ids
+                    )
                 ):
                     # Repair stale imported/migrated values even when the Sheet
-                    # itself has not changed since its stored baseline. App
-                    # edits remain Turso-authoritative and flow through outbox.
+                    # itself has not changed since its stored baseline. Only an
+                    # app edit with an active outbox event remains Turso-first;
+                    # legacy app-labelled rows without queued work are repaired.
                     changed = True
             if not changed:
                 result.unchanged += 1

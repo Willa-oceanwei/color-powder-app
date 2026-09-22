@@ -13758,7 +13758,10 @@ if st.session_state.menu == "同步檢查":
         ):
             pending_changes = audit_result.to_insert + audit_result.to_update
             if pending_changes == 0:
-                st.info("此工作表已存在 Turso baseline，且目前沒有需要套用的新增或修改。")
+                st.info(
+                    "此工作表已存在 Turso baseline，且目前沒有需要套用的新增或修改；"
+                    "因此不會顯示 APPLY 輸入框，也不需要按套用。"
+                )
             else:
                 st.divider()
                 st.markdown("#### ③ 套用 Sheet 增量變更到 Turso")
