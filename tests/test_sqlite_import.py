@@ -1255,6 +1255,195 @@ def test_dry_run_flags_database_entity_without_sheet_baseline_as_conflict(tmp_pa
         ).fetchone()[0] == "Turso value"
 
 
+def test_unchanged_sheet_baseline_repairs_missing_color_powders_without_conflicts(tmp_path):
+    db = tmp_path / "missing-color-powder.db"
+    values = [
+        ["色粉編號", "名稱", "色粉類別"],
+        ["P001", "Red", "色粉"],
+        ["P002", "Formula", "配方"],
+        ["P003", "Masterbatch", "色母"],
+        ["P004", "Additive", "添加劑"],
+    ]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+    with connect(db) as conn:
+        conn.execute("DELETE FROM color_powders WHERE colorpowder_id IN ('P002', 'P004')")
+
+    preflight = import_sheet_values("色粉管理", values, db_path=db, dry_run=True)
+    result = import_sheet_values("色粉管理", values, db_path=db)
+
+    assert preflight.conflicts == 0
+    assert preflight.to_insert == 2
+    assert preflight.unchanged == 2
+    assert result.conflicts == 0
+    assert result.inserted_or_updated == 2
+    with connect(db) as conn:
+        categories = {
+            row[0]
+            for row in conn.execute("SELECT DISTINCT category FROM color_powders")
+        }
+        conflict_count = conn.execute("SELECT COUNT(*) FROM sync_conflicts").fetchone()[0]
+    assert categories == {"色粉", "配方", "色母", "添加劑"}
+    assert conflict_count == 0
+
+
+def test_missing_color_powder_baseline_drift_restores_sheet_payload(tmp_path):
+    db = tmp_path / "missing-color-powder-conflict.db"
+    values = [
+        ["色粉編號", "名稱", "色粉類別"],
+        ["P002", "Formula", "配方"],
+    ]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+    with connect(db) as conn:
+        conn.execute("DELETE FROM color_powders WHERE colorpowder_id='P002'")
+
+    result = import_sheet_values("色粉管理", values, db_path=db)
+
+    assert result.conflicts == 0
+    assert result.to_insert == 1
+    assert result.inserted_or_updated == 1
+    with connect(db) as conn:
+        restored = conn.execute(
+            "SELECT name, category FROM color_powders WHERE colorpowder_id='P002'"
+        ).fetchone()
+        conflict_count = conn.execute("SELECT COUNT(*) FROM sync_conflicts").fetchone()[0]
+    assert tuple(restored) == ("Formula", "配方")
+    assert conflict_count == 0
+
+
+def test_unchanged_sheet_repairs_stale_imported_color_powder_category(tmp_path):
+    db = tmp_path / "stale-color-powder-category.db"
+    values = [
+        ["色粉編號", "名稱", "色粉類別"],
+        ["P002", "Formula", "配方"],
+    ]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+    with connect(db) as conn:
+        conn.execute(
+            "UPDATE color_powders SET category='色粉' WHERE colorpowder_id='P002'"
+        )
+
+    preflight = import_sheet_values("色粉管理", values, db_path=db, dry_run=True)
+    applied = import_sheet_values("色粉管理", values, db_path=db)
+
+    assert preflight.conflicts == 0
+    assert preflight.to_update == 1
+    assert applied.conflicts == 0
+    assert applied.inserted_or_updated == 1
+    with connect(db) as conn:
+        category = conn.execute(
+            "SELECT category FROM color_powders WHERE colorpowder_id='P002'"
+        ).fetchone()[0]
+    assert category == "配方"
+
+
+def test_unchanged_sheet_does_not_overwrite_turso_first_app_category(tmp_path):
+    db = tmp_path / "app-color-powder-category.db"
+    values = [
+        ["色粉編號", "名稱", "色粉類別"],
+        ["P002", "Formula", "配方"],
+    ]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    update_color_powder(
+        config,
+        ColorPowderInput("P002", name="Formula", category="添加劑"),
+    )
+
+    result = import_sheet_values("色粉管理", values, db_path=db)
+
+    assert result.conflicts == 0
+    assert result.unchanged == 1
+    assert result.inserted_or_updated == 0
+    with connect(db) as conn:
+        category = conn.execute(
+            "SELECT category FROM color_powders WHERE colorpowder_id='P002'"
+        ).fetchone()[0]
+    assert category == "添加劑"
+
+
+def test_unchanged_sheet_repairs_legacy_app_label_without_pending_outbox(tmp_path):
+    db = tmp_path / "legacy-app-color-powder-category.db"
+    values = [
+        ["色粉編號", "名稱", "色粉類別"],
+        ["P002", "Formula", "配方"],
+    ]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+    with connect(db) as conn:
+        conn.execute(
+            """UPDATE color_powders
+               SET category='色粉', source='app'
+               WHERE colorpowder_id='P002'"""
+        )
+        conn.execute(
+            """INSERT INTO color_powders(
+                   colorpowder_id, category, lifecycle_status, created_at, updated_at
+               ) VALUES ('OLD-INACTIVE', '色粉', 'inactive', '2026-01-01', '2026-01-01')"""
+        )
+
+    preflight = import_sheet_values("色粉管理", values, db_path=db, dry_run=True)
+    applied = import_sheet_values("色粉管理", values, db_path=db)
+
+    assert preflight.to_update == 1
+    assert preflight.conflicts == 0
+    assert preflight.sheet_category_counts == {"配方": 1}
+    assert preflight.database_category_counts == {"色粉": 1}
+    assert preflight.category_mismatches == 1
+    assert applied.inserted_or_updated == 1
+    with connect(db) as conn:
+        category = conn.execute(
+            "SELECT category FROM color_powders WHERE colorpowder_id='P002'"
+        ).fetchone()[0]
+    assert category == "配方"
+
+
+def test_explicit_sheet_authority_reconciles_pending_app_color_category(tmp_path):
+    db = tmp_path / "sheet-authority-color-powder-category.db"
+    values = [
+        ["色粉編號", "名稱", "色粉類別"],
+        ["P002", "Formula", "配方"],
+    ]
+    import_sheet_values("色粉管理", values, db_path=db, abort_on_issues=True)
+    config = DatabaseConfig(backend="sqlite", path=db)
+    update_color_powder(
+        config,
+        ColorPowderInput("P002", name="Formula", category="添加劑"),
+    )
+
+    preflight = import_sheet_values(
+        "色粉管理",
+        values,
+        db_path=db,
+        dry_run=True,
+        prefer_sheet_for_color_powders=True,
+    )
+    applied = import_sheet_values(
+        "色粉管理",
+        values,
+        db_path=db,
+        abort_on_issues=True,
+        prefer_sheet_for_color_powders=True,
+    )
+
+    assert preflight.to_update == 1
+    assert preflight.conflicts == 0
+    assert preflight.sheet_category_counts == {"配方": 1}
+    assert preflight.database_category_counts == {"添加劑": 1}
+    assert preflight.category_mismatches == 1
+    assert applied.inserted_or_updated == 1
+    with connect(db) as conn:
+        powder = conn.execute(
+            "SELECT category, source FROM color_powders WHERE colorpowder_id='P002'"
+        ).fetchone()
+        outbox = conn.execute(
+            """SELECT status, last_error FROM sync_outbox
+               WHERE sheet_name='色粉管理' AND row_key='P002'
+               ORDER BY id DESC LIMIT 1"""
+        ).fetchone()
+    assert tuple(powder) == ("配方", "google_sheets_import")
+    assert outbox["status"] == "completed"
+    assert "Superseded" in outbox["last_error"]
+
+
 def test_import_inventory_is_idempotent_for_same_sheet_row(tmp_path):
     values = [
         ["類型", "色粉編號", "日期", "數量", "單位", "備註", "廠商編號", "廠商名稱", "_sync_id"],
