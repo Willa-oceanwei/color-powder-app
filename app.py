@@ -92,6 +92,7 @@ from utils.customer_inventory_repository import (
 )
 from utils.carwash_inventory_repository import (
     CarwashInventoryError,
+    calculate_carwash_inventory_balances,
     list_carwash_inventory_movements,
     save_carwash_inventory_movement,
 )
@@ -11017,6 +11018,19 @@ elif menu == "庫存區":
             if df_result.empty:
                 render_empty_state("查無符合條件的色母庫存資料")
             else:
+                # 只顯示另一存放地點的個別數量，不併入廠內色母庫存計算。
+                carwash_balances = calculate_carwash_inventory_balances(
+                    list_carwash_inventory_movements(DATABASE_CONFIG)
+                )
+                carwash_quantity_labels = {
+                    product_id: f"{format_optional_decimals(quantity)} {unit}"
+                    for product_id, (quantity, unit) in carwash_balances.items()
+                }
+                df_result["洗車廠數量"] = df_result["色母編號"].map(
+                    lambda powder_id: carwash_quantity_labels.get(
+                        str(powder_id).strip().casefold(), ""
+                    )
+                )
                 st.dataframe(
                     df_result,
                     use_container_width=True,
@@ -11028,6 +11042,7 @@ elif menu == "庫存區":
                         "區間用量": st.column_config.TextColumn("區間用量", width="small"),
                         "期末庫存": st.column_config.TextColumn("期末庫存", width="small"),
                         "備註":     st.column_config.TextColumn("備註",     width="medium"),
+                        "洗車廠數量": st.column_config.TextColumn("洗車廠數量", width="small"),
                     },
                 )
                 st.caption("🌟 條件：色粉管理「色粉類別」= 色母")
