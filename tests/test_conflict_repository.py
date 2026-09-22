@@ -13,6 +13,16 @@ from utils.database import (
     initialize_database,
     record_sync_conflict,
 )
+from utils.sheet_export import sync_color_powder_outbox
+from utils.sheet_import import import_sheet_values
+
+
+class Worksheet:
+    def __init__(self):
+        self.updated = []
+
+    def update(self, range_name, values):
+        self.updated.append((range_name, values))
 
 
 def _config(tmp_path):
@@ -143,3 +153,88 @@ def test_retry_resolution_requires_matching_outbox_event(tmp_path):
             resolution="retry_outbox",
         )
     assert list_sync_conflicts(config)[0]["status"] == "open"
+
+
+def test_resolve_can_approve_current_sheet_snapshot_for_turso_overwrite(tmp_path):
+    db, config = _config(tmp_path)
+    sheet_payload = {"配方編號": "R001", "淨重": "60"}
+    with connect(db) as conn:
+        enqueue_sheet_sync(
+            conn,
+            sheet_name="配方管理",
+            row_key="R001",
+            operation="update",
+            payload={"配方編號": "R001", "淨重": "60.0"},
+            entity_version=2,
+        )
+        conn.execute("UPDATE sync_outbox SET status='conflict'")
+        record_sync_conflict(
+            conn,
+            entity_type="recipe",
+            entity_id="R001",
+            sqlite_payload={"配方編號": "R001", "淨重": "60.0"},
+            sheet_payload=sheet_payload,
+            reason="both changed",
+        )
+    conflict_id = list_sync_conflicts(config)[0]["id"]
+
+    requeued = resolve_sync_conflict(
+        config,
+        conflict_id,
+        notes="核准目前 Sheet 快照並保留 Turso",
+        resolution="overwrite_sheet",
+    )
+
+    assert requeued == 1
+    with connect(db) as conn:
+        event = conn.execute(
+            "SELECT status, approved_sheet_hash FROM sync_outbox"
+        ).fetchone()
+        baseline = conn.execute(
+            "SELECT COUNT(*) FROM sheet_rows WHERE sheet_name=? AND row_key=?",
+            ("配方管理", "R001"),
+        ).fetchone()[0]
+    assert event[0] == "pending"
+    assert event[1]
+    assert baseline == 0
+
+
+def test_approved_turso_overwrite_writes_only_the_approved_sheet_snapshot(tmp_path):
+    db, config = _config(tmp_path)
+    baseline = [["色粉編號", "名稱"], ["P001", "Original"]]
+    import_sheet_values("色粉管理", baseline, db_path=db, abort_on_issues=True)
+    with connect(db) as conn:
+        enqueue_sheet_sync(
+            conn,
+            sheet_name="色粉管理",
+            row_key="P001",
+            operation="update",
+            payload={"色粉編號": "P001", "名稱": "Turso"},
+            entity_version=2,
+        )
+    changed = [["色粉編號", "名稱"], ["P001", "Sheet"]]
+    first = sync_color_powder_outbox(
+        Worksheet(), changed, db_config=config, dry_run=False
+    )
+    assert first.conflicts == 1
+    conflict_id = list_sync_conflicts(config)[0]["id"]
+    resolve_sync_conflict(
+        config,
+        conflict_id,
+        notes="保留 Turso",
+        resolution="overwrite_sheet",
+    )
+
+    worksheet = Worksheet()
+    applied = sync_color_powder_outbox(
+        worksheet, changed, db_config=config, dry_run=False
+    )
+
+    assert applied.conflicts == 0
+    assert applied.written == 1
+    assert worksheet.updated == [("A2", [["P001", "Turso"]])]
+    with connect(db) as conn:
+        event = conn.execute(
+            "SELECT status, approved_sheet_hash FROM sync_outbox"
+        ).fetchone()
+    assert tuple(event) == ("completed", None)
