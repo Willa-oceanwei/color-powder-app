@@ -159,6 +159,59 @@ from utils.hr_query_ui import render_hr_query
 # API.  Streamlit Cloud can briefly run app.py with an older cached utils package
 # during a deployment; importing newly-added helper names here would make the whole
 # application fail before it can render.
+def _calculate_carwash_inventory_balances(records, *, as_of=None):
+    """Calculate wash-facility balances without extending the repository import API."""
+    cutoff = as_of or datetime.now().date()
+
+    def parse_date(value):
+        try:
+            return datetime.strptime(str(value).strip()[:10], "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            return None
+
+    def quantity(value):
+        try:
+            return float(value or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    grouped = {}
+    for record in records:
+        product_key = str(record.get("product_id") or "").strip().casefold()
+        if product_key:
+            grouped.setdefault(product_key, []).append(record)
+
+    balances = {}
+    for product_key, movements in grouped.items():
+        initial_movements = [
+            (parsed_date, movement)
+            for movement in movements
+            if (parsed_date := parse_date(movement.get("initial_date"))) is not None
+            and parsed_date <= cutoff
+        ]
+        latest_initial = max(initial_movements, key=lambda item: item[0]) if initial_movements else None
+        initial_date = latest_initial[0] if latest_initial else None
+        initial_record = latest_initial[1] if latest_initial else {}
+        current_quantity = quantity(initial_record.get("initial_quantity"))
+        unit = str(initial_record.get("unit") or "").strip()
+
+        for movement in movements:
+            movement_type = str(movement.get("movement_type") or "").strip()
+            date_field = "inbound_date" if movement_type == "入庫" else "outbound_date"
+            movement_date = parse_date(movement.get(date_field))
+            if movement_type not in {"入庫", "出庫"} or movement_date is None:
+                continue
+            if movement_date > cutoff or (initial_date is not None and movement_date < initial_date):
+                continue
+            amount = quantity(movement.get("quantity"))
+            current_quantity += amount if movement_type == "入庫" else -amount
+            if not unit:
+                unit = str(movement.get("unit") or "").strip()
+
+        balances[product_key] = (current_quantity, unit or "KG")
+    return balances
+
+
 def _customer_stock_quantity_in_kg(quantity, unit):
     try:
         value = float(quantity)
@@ -11019,7 +11072,7 @@ elif menu == "庫存區":
                 render_empty_state("查無符合條件的色母庫存資料")
             else:
                 # 只顯示另一存放地點的個別數量，不併入廠內色母庫存計算。
-                carwash_balances = calculate_carwash_inventory_balances(
+                carwash_balances = _calculate_carwash_inventory_balances(
                     list_carwash_inventory_movements(DATABASE_CONFIG)
                 )
                 carwash_quantity_labels = {
