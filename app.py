@@ -93,7 +93,7 @@ from utils.customer_inventory_repository import (
 )
 from utils.carwash_inventory_repository import (
     CarwashInventoryError,
-    calculate_carwash_inventory_balances,
+    archive_carwash_inventory_movement,
     list_carwash_inventory_movements,
     save_carwash_inventory_movement,
 )
@@ -289,8 +289,8 @@ def _initialize_database_once(config, secret_presence, schema_version):
 
 # ======== 🎛️ 全站 Toggle 統一美化（只需注入一次，全站套用） ========
 # 說明：實際檢查過畫面的 HTML 結構後發現，你們這個 Streamlit 版本裡
-# st.toggle() 底層渲染出來的 data-testid 其實是 "stCheckbox"（不是 "stToggle"），
-# 跟 st.checkbox() 是同一顆元件。所以這裡統一鎖定 stCheckbox，直接在真正的
+# st.toggle() 底層渲染出來的 data-testid 其實是 "stCheckbox"（不是 "stToggle"）。
+# 所以這裡統一鎖定 stCheckbox，直接在真正的
 # <input type="checkbox"> 上用 :checked 偽類畫一顆膠囊滑塊，並把 Streamlit
 # 自己原生畫的那顆滑塊（class 是每次改版都會變的亂數 st-xx）藏起來，
 # 只保留我們畫的這顆，避免兩顆滑塊疊在一起。
@@ -12020,12 +12020,22 @@ elif menu == "洗車廠庫存":
                 st.info("目前沒有可修改的出/入庫記錄。")
             else:
                 io_df["sheet_idx"] = io_df.index
-                io_df = io_df.reset_index(drop=True)
                 io_df["row_no"] = io_df["sheet_idx"] + 2
                 io_df["紀錄日期"] = io_df.apply(
                     lambda r: str(r.get("入庫日期", "")).strip() if str(r.get("類型", "")).strip() == "入庫"
                     else str(r.get("出庫日期", "")).strip(),
                     axis=1
+                )
+                # 修改區只保留日期最新的五筆；相同日期時，後建立的記錄排在前面。
+                io_df["紀錄日期排序"] = pd.to_datetime(io_df["紀錄日期"], errors="coerce")
+                io_df = (
+                    io_df.sort_values(
+                        ["紀錄日期排序", "sheet_idx"],
+                        ascending=[False, False],
+                        na_position="last",
+                    )
+                    .head(5)
+                    .reset_index(drop=True)
                 )
                 io_df["選擇標籤"] = io_df.apply(
                     lambda r: f"列 {r['row_no']}｜{str(r.get('類型', '')).strip()}｜{str(r.get('貨品編號', '')).strip()}｜{str(r.get('紀錄日期', '')).strip()}｜{str(r.get('數量', '')).strip()} {str(r.get('單位', '')).strip()}",
@@ -12033,10 +12043,11 @@ elif menu == "洗車廠庫存":
                 )
 
                 selected_io_label = st.selectbox(
-                    "選擇要修改的出/入庫記錄",
+                    "選擇要修改或刪除的出/入庫記錄（最近五筆）",
                     options=io_df["選擇標籤"].tolist(),
                     key="cw_edit_io_select"
                 )
+                st.caption("僅列出最近五筆出/入庫資料，並依紀錄日期由近到遠排列。")
                 selected_io_row = io_df[io_df["選擇標籤"] == selected_io_label].iloc[0]
                 selected_io_type = str(selected_io_row.get("類型", "入庫")).strip() or "入庫"
                 selected_io_qty = _to_float(selected_io_row.get("數量", 0))
@@ -12085,6 +12096,30 @@ elif menu == "洗車廠庫存":
                             "icon": "🛠️"
                         }
                         st.rerun()
+
+                st.divider()
+                st.markdown("#### 🗑️ 刪除重覆記錄")
+                st.caption("刪除後會同步移除該筆資料，庫存數量也會重新計算；請只刪除確認為重覆新增的記錄。")
+                confirm_delete_io = st.toggle(
+                    "我確認這筆是重覆新增的資料",
+                    key=f"cw_confirm_delete_io_{selected_io_row['_sync_id']}",
+                )
+                if st.button(
+                    "🗑️ 刪除這筆出/入庫記錄",
+                    type="primary",
+                    disabled=not confirm_delete_io,
+                    key=f"cw_delete_io_{selected_io_row['_sync_id']}",
+                ):
+                    archive_carwash_inventory_movement(
+                        DATABASE_CONFIG,
+                        selected_io_row["_sync_id"],
+                        reason="使用者刪除重覆新增的出入庫資料",
+                    )
+                    st.session_state["carwash_toast"] = {
+                        "msg": f"已刪除重覆的{selected_io_type}記錄：{str(selected_io_row.get('貨品編號', '')).strip()}",
+                        "icon": "🗑️",
+                    }
+                    st.rerun()
 
 
 
