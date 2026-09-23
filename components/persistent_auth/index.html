@@ -4,13 +4,14 @@
   <body>
     <script>
       const STORAGE_KEY = "color_powder_remember";
+      const NO_TOKEN = "__browser_token_missing__";
       let hasResponded = false;
 
       function readToken() {
         try {
-          return window.localStorage.getItem(STORAGE_KEY);
+          return window.localStorage.getItem(STORAGE_KEY) || NO_TOKEN;
         } catch (error) {
-          return null;
+          return NO_TOKEN;
         }
       }
 
@@ -31,7 +32,7 @@
           try {
             window.localStorage.setItem(STORAGE_KEY, args.token);
           } catch (error) {
-            sendValue(null);
+            sendValue(NO_TOKEN);
             return;
           }
         } else if (args.clear) {
@@ -62,7 +63,7 @@
       // Never leave the Python app on its loading sentinel indefinitely if a
       // browser blocks storage or a render message is unexpectedly missed.
       window.setTimeout(() => {
-        if (!hasResponded) sendValue(null);
+        if (!hasResponded) sendValue(NO_TOKEN);
       }, 1500);
     </script>
   </body>
