@@ -64,3 +64,6 @@ def test_initial_production_queries_run_in_parallel_without_duplicate_recipe_loa
     assert "load_recipe(force_reload=False)" not in section
     assert '"production_initial_data"' in section
     assert '"production_stock_calculation"' in section
+    assert "main_recipe_by_id = {}" in section
+    assert "additions_by_original = {}" in section
+    assert 'df_recipe_hist[df_recipe_hist["配方編號"]' not in section

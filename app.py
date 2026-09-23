@@ -4890,7 +4890,8 @@ elif menu == "生產單管理":
         # === 步驟 1：找出每個色粉的「最新初始庫存」及其日期 ===
         initial_stocks = {}
         
-        for idx, row in df_stock.iterrows():
+        stock_records = df_stock.to_dict("records")
+        for row in stock_records:
             if row["類型"] != "初始":
                 continue
             
@@ -4929,7 +4930,7 @@ elif menu == "生產單管理":
                 initial_stocks[pid] = {"qty": 0.0, "date": min_in_date}
                 stock_dict[pid] = 0.0
         
-        for idx, row in df_stock.iterrows():
+        for row in stock_records:
             if row["類型"] != "進貨":
                 continue
             
@@ -4978,14 +4979,26 @@ elif menu == "生產單管理":
             df_order_hist["生產日期"] = pd.to_datetime(df_order_hist["生產日期"], errors="coerce")
         
         df_recipe_hist = st.session_state.get("df_recipe", pd.DataFrame()).copy()
-        
-        # ✅ 確保必要欄位存在
+
+        # ✅ 確保必要欄位存在，並預先建立 O(1) lookup。舊版會對每張
+        # 生產單掃描整份配方表兩次，資料量大時會呈平方成長。
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
         for c in powder_cols + ["配方編號", "配方類別", "原始配方"]:
             if c not in df_recipe_hist.columns:
                 df_recipe_hist[c] = ""
-        
-        for _, order_hist in df_order_hist.iterrows():
+
+        main_recipe_by_id = {}
+        additions_by_original = {}
+        for recipe_row in df_recipe_hist.to_dict("records"):
+            recipe_id = str(recipe_row.get("配方編號", "")).strip()
+            recipe_type = str(recipe_row.get("配方類別", "")).strip()
+            original_id = str(recipe_row.get("原始配方", "")).strip()
+            if recipe_id and recipe_id not in main_recipe_by_id:
+                main_recipe_by_id[recipe_id] = recipe_row
+            if recipe_type == "附加配方" and original_id:
+                additions_by_original.setdefault(original_id, []).append(recipe_row)
+
+        for order_hist in df_order_hist.to_dict("records"):
             order_date = order_hist.get("生產日期")
             
             # ✅ 沒有日期的訂單直接跳過
@@ -4996,19 +5009,12 @@ elif menu == "生產單管理":
             if not recipe_id:
                 continue
             
-            # ✅ 關鍵修正：只處理「這張訂單的配方」，避免重複計算
-            # 取得主配方與附加配方
+            # ✅ 只處理這張訂單的主配方與附加配方；lookup 已在迴圈外建立。
             recipe_rows = []
-            main_df = df_recipe_hist[df_recipe_hist["配方編號"].astype(str).str.strip() == recipe_id]
-            if not main_df.empty:
-                recipe_rows.append(main_df.iloc[0].to_dict())
-            
-            add_df = df_recipe_hist[
-                (df_recipe_hist["配方類別"].astype(str).str.strip() == "附加配方") &
-                (df_recipe_hist["原始配方"].astype(str).str.strip() == recipe_id)
-            ]
-            if not add_df.empty:
-                recipe_rows.extend(add_df.to_dict("records"))
+            main_recipe = main_recipe_by_id.get(recipe_id)
+            if main_recipe is not None:
+                recipe_rows.append(main_recipe)
+            recipe_rows.extend(additions_by_original.get(recipe_id, ()))
             
             # 計算包裝總量（kg）
             packs_total_kg = calc_packs_total_kg(order_hist)
