@@ -87,3 +87,29 @@ def test_outsourcing_initial_queries_run_in_parallel_and_lifecycle_tab_reuses_th
     lifecycle_tab = section.split("# Tab 6：已結案代工單受控封存／恢復", 1)[1]
     assert "list_outsourcing_orders" not in lifecycle_tab
     assert "list_outsourcing_events" not in lifecycle_tab
+
+
+def test_creation_detail_panel_stays_inside_creation_tab():
+    source = APP_SOURCE.read_text(encoding="utf-8")
+    module = ast.parse(source)
+
+    tab1_with = next(
+        node for node in ast.walk(module)
+        if isinstance(node, ast.With)
+        and any(isinstance(item.context_expr, ast.Name) and item.context_expr.id == "tab1"
+                for item in node.items)
+        and any(
+            isinstance(child, ast.Constant)
+            and isinstance(child.value, str)
+            and "新增生產單詳情填寫" in child.value
+            for child in ast.walk(node)
+        )
+    )
+
+    detail_heading = next(
+        child for child in ast.walk(tab1_with)
+        if isinstance(child, ast.Constant)
+        and isinstance(child.value, str)
+        and "新增生產單詳情填寫" in child.value
+    )
+    assert tab1_with.lineno < detail_heading.lineno < tab1_with.end_lineno
