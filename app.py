@@ -169,7 +169,10 @@ def log_performance(stage, started_at, **fields):
     """Write timing-only diagnostics without credentials or business data."""
     elapsed_ms = round((time.perf_counter() - started_at) * 1000, 1)
     details = " ".join(f"{key}={value}" for key, value in sorted(fields.items()))
-    PERFORMANCE_LOGGER.info("[PERF] stage=%s elapsed_ms=%.1f %s", stage, elapsed_ms, details)
+    # Streamlit Cloud's default log level can suppress INFO records. WARNING is
+    # used deliberately so operators can always see the timing line in app logs;
+    # the payload remains timing-only and contains no credentials or row data.
+    PERFORMANCE_LOGGER.warning("[PERF] stage=%s elapsed_ms=%.1f %s", stage, elapsed_ms, details)
     return elapsed_ms
 
 

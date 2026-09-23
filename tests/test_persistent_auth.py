@@ -55,3 +55,4 @@ def test_app_logs_non_sensitive_startup_performance_stages():
         assert f'"{stage}"' in app_source
 
     assert 'logging.getLogger("color_powder.performance")' in app_source
+    assert 'PERFORMANCE_LOGGER.warning("[PERF]' in app_source
