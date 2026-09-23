@@ -157,8 +157,8 @@ from utils.hr_query_ui import render_hr_query
 from utils.persistent_auth import create_remember_token, validate_remember_token
 
 
-_persistent_auth_cookie = components.declare_component(
-    "persistent_auth_cookie",
+_persistent_auth_storage = components.declare_component(
+    "persistent_auth_storage",
     path=str(Path(__file__).parent / "components" / "persistent_auth"),
 )
 
@@ -424,15 +424,17 @@ APP_PASSWORD = st.secrets["APP_PASSWORD"]
 REMEMBER_LOGIN_HOURS = int(st.secrets.get("REMEMBER_LOGIN_HOURS", 4))
 REMEMBER_LOGIN_SECONDS = max(1, REMEMBER_LOGIN_HOURS) * 60 * 60
 
-# The component reads a same-device browser cookie. Its value is signed and
-# expires server-side too, so editing the cookie cannot bypass the password.
+# The component reads same-browser storage. Its value is signed and expires
+# server-side too, so editing the stored value cannot bypass the password.
 pending_remember_token = st.session_state.get("_pending_remember_token")
 clear_remember_token = st.session_state.get("_clear_remember_token", False)
-remember_token = _persistent_auth_cookie(
+BROWSER_TOKEN_LOADING = "__browser_token_loading__"
+remember_token = _persistent_auth_storage(
     token=pending_remember_token,
     max_age=REMEMBER_LOGIN_SECONDS,
     clear=clear_remember_token,
-    key="persistent_auth_cookie",
+    key="persistent_auth_storage",
+    default=BROWSER_TOKEN_LOADING,
 )
 
 # 初始化登入狀態
@@ -440,11 +442,11 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if clear_remember_token:
-    # Keep the session logged out while the browser component removes its cookie.
+    # Keep the session logged out while the browser component removes its token.
     # Wait for the component's deletion acknowledgement before normal login
     # validation can resume, so a stale cookie cannot immediately sign back in.
     st.session_state.authenticated = False
-    if remember_token == "__cookie_cleared__":
+    if remember_token == "__browser_token_cleared__":
         st.session_state.pop("_clear_remember_token", None)
 elif not st.session_state.authenticated and validate_remember_token(remember_token, APP_PASSWORD):
     st.session_state.authenticated = True
@@ -452,6 +454,12 @@ elif not st.session_state.authenticated and validate_remember_token(remember_tok
 if not clear_remember_token and pending_remember_token and validate_remember_token(remember_token, APP_PASSWORD):
     st.session_state.pop("_pending_remember_token", None)
     st.session_state.authenticated = True
+
+# On a fresh page load, give the browser component one short render to read its
+# stored token instead of flashing a password prompt that may not be needed.
+if remember_token == BROWSER_TOKEN_LOADING and not st.session_state.authenticated:
+    st.caption("正在確認登入狀態…")
+    st.stop()
 
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
@@ -469,6 +477,10 @@ if not st.session_state.authenticated:
                 APP_PASSWORD,
                 REMEMBER_LOGIN_SECONDS,
             )
+            # Admit this already-verified session immediately. The next render
+            # persists the signed token in the browser without showing the login
+            # screen again while the component acknowledges the write.
+            st.session_state.authenticated = True
             st.rerun()
         elif password_input != "":
             st.error("❌ 密碼錯誤，請再試一次。")
@@ -477,7 +489,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 def request_logout():
-    """End the current session and remove its remembered-login cookie."""
+    """End the current session and remove its remembered browser token."""
     st.session_state.authenticated = False
     st.session_state.pop("_pending_remember_token", None)
     st.session_state["_clear_remember_token"] = True

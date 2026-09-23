@@ -3,12 +3,10 @@
   <head><meta charset="utf-8" /></head>
   <body>
     <script>
-      const COOKIE_NAME = "color_powder_remember";
+      const STORAGE_KEY = "color_powder_remember";
 
-      function readCookie() {
-        const prefix = `${COOKIE_NAME}=`;
-        const item = document.cookie.split("; ").find((value) => value.startsWith(prefix));
-        return item ? decodeURIComponent(item.slice(prefix.length)) : null;
+      function readToken() {
+        return window.localStorage.getItem(STORAGE_KEY);
       }
 
       function sendValue(value) {
@@ -23,14 +21,15 @@
         if (!event.data || event.data.type !== "streamlit:render") return;
         const args = event.data.args || {};
         if (args.token) {
-          const secure = window.location.protocol === "https:" ? "; Secure" : "";
-          document.cookie = `${COOKIE_NAME}=${encodeURIComponent(args.token)}; Max-Age=${args.max_age}; Path=/; SameSite=Lax${secure}`;
+          window.localStorage.setItem(STORAGE_KEY, args.token);
         } else if (args.clear) {
-          document.cookie = `${COOKIE_NAME}=; Max-Age=0; Path=/; SameSite=Lax`;
-          sendValue("__cookie_cleared__");
+          window.localStorage.removeItem(STORAGE_KEY);
+          // Remove cookies created by the earlier implementation as well.
+          document.cookie = `${STORAGE_KEY}=; Max-Age=0; Path=/; SameSite=Lax`;
+          sendValue("__browser_token_cleared__");
           return;
         }
-        sendValue(readCookie());
+        sendValue(readToken());
       });
 
       window.parent.postMessage({

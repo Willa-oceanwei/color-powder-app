@@ -24,8 +24,14 @@ def test_remember_token_rejects_malformed_values():
 
 def test_app_defaults_to_four_hours_and_provides_logout():
     app_source = (Path(__file__).parents[1] / "app.py").read_text()
+    component_source = (
+        Path(__file__).parents[1] / "components" / "persistent_auth" / "index.html"
+    ).read_text()
 
     assert 'st.secrets.get("REMEMBER_LOGIN_HOURS", 4)' in app_source
+    assert "st.session_state.authenticated = True\n            st.rerun()" in app_source
     assert '"↪ 登出"' in app_source
     assert "on_click=request_logout" in app_source
     assert 'st.session_state["_clear_remember_token"] = True' in app_source
+    assert "window.localStorage.setItem(STORAGE_KEY, args.token)" in component_source
+    assert "window.localStorage.removeItem(STORAGE_KEY)" in component_source
