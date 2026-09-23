@@ -67,3 +67,9 @@ def test_initial_production_queries_run_in_parallel_without_duplicate_recipe_loa
     assert "main_recipe_by_id = {}" in section
     assert "additions_by_original = {}" in section
     assert 'df_recipe_hist[df_recipe_hist["配方編號"]' not in section
+
+
+def test_streamlit_widgets_do_not_use_empty_keyword_labels():
+    source = APP_SOURCE.read_text(encoding="utf-8")
+
+    assert 'label=""' not in source

@@ -5318,7 +5318,8 @@ elif menu == "生產單管理":
 
         with col1:
             search_text_tab1 = st.text_input(
-                label="",
+                label="搜尋配方",
+                label_visibility="collapsed",
                 placeholder="🔎 多條件搜尋：配方編號, 客戶名稱, 顏色",
                 key="search_text_tab1"
             )
@@ -6440,7 +6441,8 @@ elif menu == "生產單管理":
     with tab2:
 
         search_order = st.text_input(
-            label="",   # 不顯示上方標題
+            label="搜尋生產單記錄",
+            label_visibility="collapsed",
             placeholder="多條件搜尋：編號, 公司名, 顏色, 生產單號",
             key="search_order_input_tab2"
         )
@@ -6577,7 +6579,8 @@ elif menu == "生產單管理":
             
             # 🔍 搜尋關鍵字
             search_order = st.text_input(
-                label="",
+                label="搜尋生產單預覽",
+                label_visibility="collapsed",
                 placeholder="可輸入多條件，例如：編號, 公司名, 顏色, 生產單號",
                 key="search_order_input_tab3"
             )
@@ -7939,7 +7942,7 @@ if menu == "代工管理":
             def _apply_tab4_filters(source_df, key_prefix):
                 filtered_df = source_df.copy()
                 search_text = st.text_input(
-                    label="",
+                    label="搜尋代工進度",
                     label_visibility="collapsed",
                     placeholder="輸入關鍵字（可輸入多條件，例如：編號, 公司名, 顏色, 生產單號）",
                     key=f"{key_prefix}_search_text"
