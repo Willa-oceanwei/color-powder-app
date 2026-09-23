@@ -1804,13 +1804,13 @@ def render_pagination_bar(page_key, total_pages, total_rows, limit_key=None, lim
             st.session_state[page_key] = current_page + 1
             st.rerun()
     with cols[3]:
-        jump_page = st.number_input("", min_value=1, max_value=total_pages,
+        jump_page = st.number_input("跳至頁碼", min_value=1, max_value=total_pages,
             value=min(current_page, total_pages), key=f"{key_prefix}_jump_page", label_visibility="collapsed")
         if jump_page != current_page:
             st.session_state[page_key] = jump_page
     if limit_key and limit_options:
         with cols[4]:
-            st.selectbox("", options=limit_options,
+            st.selectbox("每頁筆數", options=limit_options,
                 index=limit_options.index(st.session_state.get(limit_key, limit_options[0])),
                 key=limit_key, label_visibility="collapsed")
 
@@ -3495,11 +3495,11 @@ elif menu == "配方管理":
     
             # ---------------- 比例欄位 ----------------
             colr1, col_colon, colr2, colr3, col_unit = st.columns([2,0.5,2,2,1])
-            with colr1: fr["比例1"] = st.text_input("", value=fr.get("比例1",""), key="ratio1", label_visibility="collapsed")
+            with colr1: fr["比例1"] = st.text_input("比例1", value=fr.get("比例1",""), key="ratio1", label_visibility="collapsed")
             with col_colon:
                 st.markdown("<div style='display:flex;justify-content:center;align-items:center;font-size:18px;font-weight:bold;height:36px;'>:</div>", unsafe_allow_html=True)
-            with colr2: fr["比例2"] = st.text_input("", value=fr.get("比例2",""), key="ratio2", label_visibility="collapsed")
-            with colr3: fr["比例3"] = st.text_input("", value=fr.get("比例3",""), key="ratio3", label_visibility="collapsed")
+            with colr2: fr["比例2"] = st.text_input("比例2", value=fr.get("比例2",""), key="ratio2", label_visibility="collapsed")
+            with colr3: fr["比例3"] = st.text_input("比例3", value=fr.get("比例3",""), key="ratio3", label_visibility="collapsed")
             with col_unit:
                 st.markdown("<div style='display:flex;align-items:center;font-size:16px;height:36px;'>g/kg</div>", unsafe_allow_html=True)
     
@@ -4803,14 +4803,17 @@ elif menu == "生產單管理":
     # 這裡原本重複定義了一份一模一樣的版本，每次 load_recipe() 執行都會重建這 3 個函式物件，
     # 已移除，直接沿用模組層級的版本即可，行為完全相同。
 
-    if not st.session_state.get("production_data_loaded", False):
+    production_data_started_at = time.perf_counter()
+    production_data_cached = st.session_state.get("production_data_loaded", False)
+    if not production_data_cached:
         # 生產單與配方互不相依，首次開頁時並行讀取；後續 widget rerun
         # 直接沿用 session_state，避免每次輸入或切 tab 都重打兩次 Turso。
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             orders_future = executor.submit(
                 list_production_orders, DATABASE_CONFIG, include_cancelled=True
             )
             recipes_future = executor.submit(list_recipes, DATABASE_CONFIG)
+            inventory_future = executor.submit(list_inventory_movements, DATABASE_CONFIG)
 
         try:
             df_order = pd.DataFrame(orders_future.result())
@@ -4833,29 +4836,44 @@ elif menu == "生產單管理":
             st.error(f"❌ 從 Turso 讀取配方失敗：{e}")
             st.stop()
 
+        try:
+            initial_inventory_movements = pd.DataFrame(inventory_future.result())
+        except Exception as e:
+            st.warning(f"⚠️ 無法預先載入庫存記錄：{e}")
+            initial_inventory_movements = None
+
         if not df_order.empty:
             df_order = df_order.fillna("").astype(str)
         st.session_state.df_order = df_order
         st.session_state.df_recipe = df_recipe
+        st.session_state["_initial_production_inventory"] = initial_inventory_movements
         st.session_state.production_data_loaded = True
     
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
+    log_performance(
+        "production_initial_data",
+        production_data_started_at,
+        cached=production_data_cached,
+    )
 
     # ===== 完整初始化庫存（初始 + 進貨 - 已用） =====
     # ===== 庫存計算函式 =====
-    def calculate_current_stock():
+    def calculate_current_stock(preloaded_movements=None):
         """
         計算截至「今天」的實際庫存
         邏輯：與庫存區 calc_usage_for_stock() 完全一致
         """
         stock_dict = {}
         
-        try:
-            df_stock = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
-        except Exception as e:
-            st.warning(f"⚠️ 無法讀取庫存記錄：{e}")
-            return stock_dict
+        if preloaded_movements is not None:
+            df_stock = preloaded_movements.copy()
+        else:
+            try:
+                df_stock = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
+            except Exception as e:
+                st.warning(f"⚠️ 無法讀取庫存記錄：{e}")
+                return stock_dict
         
         if df_stock.empty:
             return stock_dict
@@ -5061,11 +5079,18 @@ elif menu == "生產單管理":
         or (now - last_calc_time).total_seconds() > stock_recalc_interval_sec
     )
 
+    stock_calculation_started_at = time.perf_counter()
     if should_recalc_stock:
-        # 讓既有 sheet TTL 快取先判斷是否需要打 API
-        load_recipe(force_reload=False)
-        st.session_state["last_final_stock"] = calculate_current_stock()
+        # 首次開頁沿用與生產單、配方並行取得的庫存快照，避免先等完
+        # 兩個 Turso query 後又串行等待第三個。三分鐘到期後才重新讀取。
+        initial_inventory = st.session_state.pop("_initial_production_inventory", None)
+        st.session_state["last_final_stock"] = calculate_current_stock(initial_inventory)
         st.session_state["stock_calc_time"] = now
+    log_performance(
+        "production_stock_calculation",
+        stock_calculation_started_at,
+        cached=not should_recalc_stock,
+    )
     
     # ============================================================
     # 共用顯示函式（正式流程使用）
@@ -7315,7 +7340,9 @@ if menu == "代工管理":
 
             df_oem["狀態"] = df_oem["狀態"].astype(str).str.strip()
             df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
-            df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
+            df_oem["日期排序"] = pd.to_datetime(
+                df_oem["日期排序"], format="mixed", errors="coerce"
+            )
 
             df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
             df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
@@ -7598,7 +7625,9 @@ if menu == "代工管理":
             st.info("⚠️ 目前沒有代工單")
         else:
             df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
-            df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
+            df_oem["日期排序"] = pd.to_datetime(
+                df_oem["日期排序"], format="mixed", errors="coerce"
+            )
 
             def _render_return_workspace(df_oem_active, *, correction_mode):
                 if df_oem_active.empty:
@@ -9332,7 +9361,10 @@ elif menu == "查詢區":
             with c1:
                 search_code = st.text_input("輸入 Pantone 色號", key="search_pantone_tab")
             with c2:
-                search_mode = st.selectbox("", ["部分匹配", "精準匹配"], key="pantone_search_mode")
+                search_mode = st.selectbox(
+                    "搜尋模式", ["部分匹配", "精準匹配"],
+                    key="pantone_search_mode", label_visibility="collapsed",
+                )
 
             if search_code:
                 if search_mode == "精準匹配":
