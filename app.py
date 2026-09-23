@@ -7231,6 +7231,21 @@ if menu == "代工管理":
             target = delivered
         return f"{oem_no} | {recipe_no} | {customer} | 📦送{delivered:g} → 🎯應回{target:g}"
 
+    # Both progress/history tabs need the same ledger rows. Build the indexes
+    # once so rendering each OEM order does not scan both complete DataFrames.
+    def _group_oem_events(source_df):
+        grouped = {}
+        if source_df.empty or "代工單號" not in source_df.columns:
+            return grouped
+        for event in source_df.to_dict("records"):
+            grouped.setdefault(_norm_oem_no(event.get("代工單號", "")), []).append(event)
+        return grouped
+
+    oem_event_index_started_at = time.perf_counter()
+    deliveries_by_oem = _group_oem_events(df_delivery)
+    returns_by_oem = _group_oem_events(df_return)
+    log_performance("outsourcing_event_index", oem_event_index_started_at)
+
     # ================================================================
     # Tab 分頁
     # ================================================================
@@ -7884,40 +7899,32 @@ if menu == "代工管理":
                     df_recipe_for_color["顏色"].astype(str)
                 ))
 
-            df_delivery_norm = df_delivery.copy()
-            df_return_norm = df_return.copy()
-            if not df_delivery_norm.empty and "代工單號" in df_delivery_norm.columns:
-                df_delivery_norm["_代工單號_norm"] = df_delivery_norm["代工單號"].apply(_norm_oem_no)
-            if not df_return_norm.empty and "代工單號" in df_return_norm.columns:
-                df_return_norm["_代工單號_norm"] = df_return_norm["代工單號"].apply(_norm_oem_no)
-
-            for _, oem in df_oem.iterrows():
+            progress_build_started_at = time.perf_counter()
+            for oem in df_oem.to_dict("records"):
                 oem_id = _norm_oem_no(oem["代工單號"])
 
-                df_this_delivery = df_delivery_norm[df_delivery_norm.get("_代工單號_norm", pd.Series(dtype=str)) == oem_id]
-                delivery_text = ""
-                if not df_this_delivery.empty:
-                    delivery_text = "\n".join([
-                        f"{row['送達日期']} ({row['送達數量']} kg)"
-                        for _, row in df_this_delivery.iterrows()
-                    ])
-
-                df_this_return = df_return_norm[df_return_norm.get("_代工單號_norm", pd.Series(dtype=str)) == oem_id]
-                return_text = ""
+                delivery_rows = deliveries_by_oem.get(oem_id, ())
+                return_rows = returns_by_oem.get(oem_id, ())
+                delivery_text = "\n".join(
+                    f"{row.get('送達日期', '')} ({row.get('送達數量', '')} kg)"
+                    for row in delivery_rows
+                )
+                return_text = "\n".join(
+                    f"{row.get('載回日期', '')} ({row.get('載回數量', '')} kg)"
+                    for row in return_rows
+                )
                 latest_return_date = pd.NaT
-                if not df_this_return.empty:
-                    return_text = "\n".join([
-                        f"{row['載回日期']} ({row['載回數量']} kg)"
-                        for _, row in df_this_return.iterrows()
-                    ])
-                    latest_return_date = pd.to_datetime(df_this_return["載回日期"], errors="coerce").max()
+                if return_rows:
+                    latest_return_date = pd.to_datetime(
+                        [row.get("載回日期", "") for row in return_rows], errors="coerce"
+                    ).max()
 
                 total_qty      = _safe_float(oem.get("代工數量", 0), 0.0)
                 target_qty     = _safe_float(oem.get("目標載回數量", total_qty), total_qty)
                 if target_qty <= 0:
                     target_qty = total_qty
-                total_returned = df_this_return["載回數量"].astype(float).sum()                     if not df_this_return.empty else 0.0
-                total_delivered = df_this_delivery["送達數量"].astype(float).sum()                     if not df_this_delivery.empty else 0.0
+                total_returned = sum(_safe_float(row.get("載回數量", 0)) for row in return_rows)
+                total_delivered = sum(_safe_float(row.get("送達數量", 0)) for row in delivery_rows)
 
                 manual_status = str(oem.get("狀態", "")).strip()
                 if manual_status:
@@ -7963,6 +7970,7 @@ if menu == "代工管理":
 
             df_progress_all = pd.DataFrame(progress_data)
             df_progress_all["建立時間_dt"] = pd.to_datetime(df_progress_all["建立時間"], errors="coerce")
+            log_performance("outsourcing_progress_build", progress_build_started_at)
 
             def _apply_tab4_filters(source_df, key_prefix):
                 filtered_df = source_df.copy()
@@ -8213,24 +8221,20 @@ if menu == "代工管理":
         else:
             progress_data = []
 
-            for _, oem in df_oem.iterrows():
+            for oem in df_oem.to_dict("records"):
                 oem_id = oem.get("代工單號", "")
+                normalized_oem_id = _norm_oem_no(oem_id)
                 status = oem.get("狀態", "")
                 status_order = 0 if status != "✅ 已結案" else 1
 
-                df_del = df_delivery[df_delivery["代工單號"] == oem_id] \
-                    if "代工單號" in df_delivery.columns else pd.DataFrame()
-                delivery_text = "\n".join([
-                    f"{row['送達日期']} → {row['送達數量']} kg"
-                    for _, row in df_del.iterrows()
-                ]) if not df_del.empty else ""
-
-                df_ret = df_return[df_return["代工單號"] == oem_id] \
-                    if "代工單號" in df_return.columns else pd.DataFrame()
-                return_text = "\n".join([
-                    f"{row['載回日期']} → {row['載回數量']} kg"
-                    for _, row in df_ret.iterrows()
-                ]) if not df_ret.empty else ""
+                delivery_text = "\n".join(
+                    f"{row.get('送達日期', '')} → {row.get('送達數量', '')} kg"
+                    for row in deliveries_by_oem.get(normalized_oem_id, ())
+                )
+                return_text = "\n".join(
+                    f"{row.get('載回日期', '')} → {row.get('載回數量', '')} kg"
+                    for row in returns_by_oem.get(normalized_oem_id, ())
+                )
 
                 progress_data.append({
                     "status_order": status_order,
