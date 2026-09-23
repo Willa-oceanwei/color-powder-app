@@ -5558,884 +5558,884 @@ elif menu == "生產單管理":
         
         show_confirm_panel = st.session_state.get("show_confirm_panel", False)
 
-    # ===== 將配方欄位帶入 order =====
-    for field in ["合計類別", "備註", "重要提醒"]:
-        if field in recipe_row:
-            order[field] = recipe_row.get(field, "")
+        # ===== 將配方欄位帶入 order =====
+        for field in ["合計類別", "備註", "重要提醒"]:
+            if field in recipe_row:
+                order[field] = recipe_row.get(field, "")
 
-    # ===== 處理附加配方 =====
-    if recipe_id:
+        # ===== 處理附加配方 =====
+        if recipe_id:
 
-        # 📌 附加配方只查詢一次
-        def get_additional_recipes(df, main_recipe_code):
-            df = df.copy()
-            df["配方類別"] = df["配方類別"].astype(str).str.strip()
-            df["原始配方"] = df["原始配方"].astype(str).str.strip()
-            main_code = str(main_recipe_code).strip()
-            return df[
-                (df["配方類別"] == "附加配方") &
-                (df["原始配方"] == main_code)
-            ]
+            # 📌 附加配方只查詢一次
+            def get_additional_recipes(df, main_recipe_code):
+                df = df.copy()
+                df["配方類別"] = df["配方類別"].astype(str).str.strip()
+                df["原始配方"] = df["原始配方"].astype(str).str.strip()
+                main_code = str(main_recipe_code).strip()
+                return df[
+                    (df["配方類別"] == "附加配方") &
+                    (df["原始配方"] == main_code)
+                ]
 
-        additional_recipes = get_additional_recipes(df_recipe, recipe_id)
+            additional_recipes = get_additional_recipes(df_recipe, recipe_id)
 
-        if additional_recipes.empty:
-            order["附加配方"] = []
+            if additional_recipes.empty:
+                order["附加配方"] = []
 
-        else:
-            st.markdown(
-                f"<span style='font-size:14px; font-weight:bold;'>附加配方清單（共 {len(additional_recipes)} 筆）</span>",
-                unsafe_allow_html=True
-            )
-
-            order["附加配方"] = [
-                {
-                    k.strip(): (
-                        "" if v is None or pd.isna(v) else str(v)
-                    )
-                    for k, v in row.to_dict().items()
-                }
-                for _, row in additional_recipes.iterrows()
-            ]
-
-    else:
-        order["附加配方"] = []
-    
-    st.session_state.new_order = order
-    
-    # ===== 顯示詳情填寫表單 =====
-    if show_confirm_panel:
-        
-        # ✅【關鍵】第一次進入時，從配方帶入預設值
-        if initialize_production_order_recipe_widgets(
-            st.session_state, order, recipe_row
-        ):
-            order["備註"] = recipe_row.get("備註", "")
-            order["重要提醒"] = recipe_row.get("重要提醒", "")
-            order["合計類別"] = recipe_row.get("合計類別", "")
-            st.markdown("---")
-            st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
-
-        recipe_is_colorant = recipe_row.get("色粉類別", "").strip() == "色母"
-        if recipe_is_colorant:
-            display_as_actual_kg = st.toggle(
-                "實際公斤顯示（關閉：1 = 100kg／開啟：1 = 1kg）",
-                value=(
-                    order.get("出貨數量顯示方式") or order.get("色母數量模式")
-                ) == "實際公斤（1 = 1kg）",
-                key="form_colorant_quantity_mode_tab1",
-                help="此選項只改變生產單記錄表的顯示文字，不影響庫存、配方、標籤或代工數量計算。",
-            )
-            colorant_quantity_mode = (
-                "實際公斤（1 = 1kg）"
-                if display_as_actual_kg
-                else "100kg 倍率（1 = 100kg）"
-            )
-            st.caption("💡 只影響記錄表：選「實際公斤」後輸入 1，出貨數量顯示 1kg；其餘計算維持原邏輯。")
-        else:
-            colorant_quantity_mode = ""
-
-        # =========================================================
-        # 🔁 重複配方檢查：
-        # 　色母 → 比對「代工進度表」（代工管理）裡尚未結案的代工單
-        # 　非色母 → 比對「生產單」裡今天已建立的舊單
-        # 找到的話提示是否要合併，而不是另外建立一張新的。
-        # ⚠️ 這張單「這次」如果已經成功存檔過了，就不用再檢查/顯示了，
-        # 不然存檔成功後畫面沒收起來，會被自己剛存好的那張單嚇到，
-        # 誤以為又冒出一張重複的單。
-        # =========================================================
-        if st.session_state.get("new_order_saved", False):
-            dup_match = {}
-        else:
-            order_no_for_dup = str(order.get("生產單號", "")).strip()
-            recipe_code_for_dup = str(order.get("配方編號", "")).strip()
-            is_colorant_for_dup = recipe_is_colorant
-            # ⚠️ 用「配方編號＋類型」當快取 key，不要用生產單號：
-            # 生產單號要等真正存檔才會定案，換配方重新搜尋時常常還是同一個草稿單號，
-            # 用單號當 key 會導致換配方後還沿用上一個配方算出來的舊結果。
-            dup_cache_key_base = f"{recipe_code_for_dup}_{'oem' if is_colorant_for_dup else 'sameday'}"
-            merge_decision_key = f"merge_decision_{dup_cache_key_base}"
-            merge_match_key = f"merge_match_{dup_cache_key_base}"
-
-            if recipe_code_for_dup and merge_match_key not in st.session_state:
-                if is_colorant_for_dup:
-                    st.session_state[merge_match_key] = find_active_oem_duplicate(recipe_code_for_dup) or {}
-                else:
-                    st.session_state[merge_match_key] = find_same_day_order_duplicate(recipe_code_for_dup) or {}
-
-            dup_match = st.session_state.get(merge_match_key) or {}
-            # 🛡️ 保險：比對到的那張單如果生產單號剛好跟目前這張一模一樣，
-            # 一定是自己抓到自己，不是真的重複，直接視為沒有重複。
-            if dup_match and str(dup_match.get("生產單號", "")).strip() == order_no_for_dup:
-                dup_match = {}
-
-        if dup_match:
-            if is_colorant_for_dup:
-                st.warning(
-                    f"⚠️ 配方【{recipe_code_for_dup}】目前已有進行中的代工單 "
-                    f"**{dup_match.get('代工單號','')}**（狀態：{dup_match.get('狀態','')}，"
-                    f"目前代工數量 {dup_match.get('代工數量','')}）。要合併到這張代工單，還是仍要另外建立新的？"
-                )
             else:
-                st.warning(
-                    f"⚠️ 配方【{recipe_code_for_dup}】今天已建立過生產單 "
-                    f"**{dup_match.get('生產單號','')}**。要合併成同一張生產單（會刪除舊單），"
-                    f"還是仍要另外建立新的？"
+                st.markdown(
+                    f"<span style='font-size:14px; font-weight:bold;'>附加配方清單（共 {len(additional_recipes)} 筆）</span>",
+                    unsafe_allow_html=True
                 )
 
-            merge_radio = st.radio(
-                "處理方式",
-                ["➕ 不合併，仍建立新單", "🔗 合併，不建立新的"],
-                index=0,
-                key=f"merge_radio_{dup_cache_key_base}",
-                horizontal=True,
-            )
-            st.session_state[merge_decision_key] = "merge" if merge_radio.startswith("🔗") else "new"
-
-            if st.session_state[merge_decision_key] == "merge":
-                st.info("💡 下方欄位請只填這次**追加**的數量，合併後的總量與代工單/生產單更新由系統自動計算。")
-        elif not st.session_state.get("new_order_saved", False):
-            st.session_state[merge_decision_key] = "new"
-
-        with st.form("order_detail_form_tab1"):
-            st.markdown(f"""
-                <div style="display:flex;flex-wrap:wrap;gap:24px;padding:10px 4px 16px;
-                            border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:16px;">
-                    <div><span style="font-size:11px;color:#9fb6cc;">生產單號</span><br>
-                         <span style="font-size:14px;color:#fff;font-weight:600;">{order.get('生產單號','')}</span></div>
-                    <div><span style="font-size:11px;color:#9fb6cc;">配方編號</span><br>
-                         <span style="font-size:14px;color:#fff;font-weight:600;">{order.get('配方編號','')}</span></div>
-                    <div><span style="font-size:11px;color:#9fb6cc;">客戶</span><br>
-                         <span style="font-size:14px;color:#fff;font-weight:600;">{recipe_row.get('客戶編號','')} · {order.get('客戶名稱','')}</span></div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            c5, c6, c7, c8 = st.columns(4)
-            c5.text_input("計量單位", value=recipe_row.get("計量單位", "kg"), disabled=True, key="form_unit_tab1")
-            # These widget keys are seeded by
-            # initialize_production_order_recipe_widgets().  Do not also pass a
-            # value= argument: Streamlit treats that as a second default source
-            # and intermittently displays a Session State conflict warning.
-            color = c6.text_input("顏色", key="form_color_tab1")
-            pantone = c7.text_input("Pantone 色號", key="form_pantone_tab1")
-            raw_material = c8.text_input("原料", key="form_raw_material_tab1")
-            
-            # ===== 重要提醒 / 合計類別 / 比例（同一橫列）=====
-            col_note, col_total, col_ratio = st.columns([0.5, 0.25, 0.25])
-            
-            with col_note:
-                important_note = st.text_input(
-                    "重要提醒",
-                    key="form_important_note_tab1"
-                )
-            
-            with col_total:
-                total_category = st.text_input(
-                    "合計類別",
-                    disabled=True,
-                    key="form_total_category_tab1"
-                )
-            
-            with col_ratio:
-                r1 = recipe_row.get("比例1", "")
-                r2 = recipe_row.get("比例2", "")
-                r3 = recipe_row.get("比例3", "")
-            
-                ratio_text = ""
-                if r1 or r2 or r3:
-                    ratio_text = ":".join([p for p in [r1, r2, r3] if p]) + " g/kg"
-            
-                st.text_input(
-                    "比例",
-                    value=ratio_text,
-                    disabled=True,
-                    key="form_ratio_tab1"
-                )
-            
-            # ===== 備註（整行橫條）=====
-            remark = st.text_area(
-                "備註",
-                height=100,
-                key="form_remark_tab1"
-            )
-            
-            with st.container(border=True):
-                st.markdown("**📦 包裝重量與份數**")
-                w_cols = st.columns(4)
-                c_cols = st.columns(4)
-                for i in range(1, 5):
-                    w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}_tab1")
-                    c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
-            
-            st.markdown("###### 色粉用量（編號與重量）")
-            main_powders = []
-            for i in range(1, 9):
-                color_id = recipe_row.get(f"色粉編號{i}", "").strip()
-                color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
-                if color_id or color_wt:
-                    main_powders.append((i, color_id, color_wt))
-            if main_powders:
-                powder_cols = st.columns(len(main_powders))
-                for col, (i, color_id, color_wt) in zip(powder_cols, main_powders):
-                    col.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}_tab1")
-                    col.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}_tab1")
-            
-            additional_recipes = order.get("附加配方", [])
-            if additional_recipes:
-                st.markdown("###### 附加配方色粉用量（編號與重量）")
-                for idx, r in enumerate(additional_recipes, 1):
-                    st.markdown(f"附加配方 {idx}")
-                    add_powders = []
-                    for i in range(1, 9):
-                        color_id = r.get(f"色粉編號{i}", "").strip()
-                        color_wt = r.get(f"色粉重量{i}", "").strip()
-                        if color_id or color_wt:
-                            add_powders.append((i, color_id, color_wt))
-                    if add_powders:
-                        add_cols = st.columns(len(add_powders))
-                        for col, (i, color_id, color_wt) in zip(add_cols, add_powders):
-                            col.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
-                            col.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
-            
-            col_submit1, col_submit2 = st.columns([1, 1])
-            with col_submit1:
-                submitted = st.form_submit_button("💾 僅儲存生產單")
-            
-            is_colorant = recipe_is_colorant
-            with col_submit2:
-                if is_colorant:
-                    continue_to_oem = st.form_submit_button("✅ 儲存並轉代工管理")
-                else:
-                    continue_to_oem = False
-
-            if submitted or continue_to_oem:
-            
-                # ===== 檢查是否至少有一個包裝 =====
-                all_empty = True
-                for i in range(1, 5):
-                    weight = st.session_state.get(f"form_weight{i}_tab1", "").strip()
-                    count  = st.session_state.get(f"form_count{i}_tab1", "").strip()
-                    if weight or count:
-                        all_empty = False
-                        break
-            
-                if all_empty:
-                    st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
-                    st.stop()
-            
-                # ===== 寫回 order（你原本的邏輯）=====
-                order["顏色"] = st.session_state.form_color_tab1
-                order["Pantone 色號"] = st.session_state.form_pantone_tab1
-                order["料"] = st.session_state.form_raw_material_tab1
-                order["備註"] = st.session_state.form_remark_tab1
-                order["重要提醒"] = st.session_state.form_important_note_tab1
-                order["合計類別"] = st.session_state.form_total_category_tab1
-                order["出貨數量顯示方式"] = colorant_quantity_mode
-            
-                order["比例1"] = recipe_row.get("比例1", "")
-                order["比例2"] = recipe_row.get("比例2", "")
-                order["比例3"] = recipe_row.get("比例3", "")
-            
-                for i in range(1, 5):
-                    order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}_tab1", "").strip()
-                    order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}_tab1", "").strip()
-
-                # 這次表單填寫的一律視為「本次追加的數量」，先存一份快照，
-                # 之後不管有沒有合併，列印時都可以選擇要顯示追加量還是合併後總量。
-                order["_delta_包裝"] = {
-                    i: (order.get(f"包裝重量{i}", ""), order.get(f"包裝份數{i}", ""))
-                    for i in range(1, 5)
-                }
-            
-                # =================================================
-                # 🔒 Step 1：建立本次儲存內容快照（防重複）
-                # =================================================
-                current_snapshot = {
-                    "顏色": order["顏色"],
-                    "Pantone 色號": order["Pantone 色號"],
-                    "原料": order["料"],
-                    "備註": order["備註"],
-                    "重要提醒": order["重要提醒"],
-                    "合計類別": order["合計類別"],
-                    "出貨數量顯示方式": order["出貨數量顯示方式"],
-                    "包裝": [
-                        (
-                            order.get(f"包裝重量{i}", ""),
-                            order.get(f"包裝份數{i}", "")
+                order["附加配方"] = [
+                    {
+                        k.strip(): (
+                            "" if v is None or pd.isna(v) else str(v)
                         )
-                        for i in range(1, 5)
-                    ]
-                }
-            
-                # =================================================
-                # 🛑 Step 2：若與上次儲存完全相同 → 阻止
-                # =================================================
-                last_snapshot = st.session_state.get("last_saved_order_snapshot")
-                if last_snapshot == current_snapshot:
-                    st.warning("⚠️ 此生產單內容未變更，已避免重複儲存")
-                    st.stop()
-            
-                # ===== 你原本的色粉 / 淨重計算 =====
-                raw_net_weight = recipe_row.get("淨重", 0)
-                try:
-                    net_weight = float(raw_net_weight)
-                except:
-                    net_weight = 0.0
-            
-                color_weight_list = []
-                for i in range(1, 5):
-                    w_str = st.session_state.get(f"form_weight{i}_tab1", "").strip()
-                    weight = float(w_str) if w_str else 0.0
-                    if weight > 0:
-                        color_weight_list.append({
-                            "項次": i,
-                            "重量": weight,
-                            "結果": net_weight * weight
-                        })
-            
-                order["色粉合計清單"] = color_weight_list
-                order["色粉合計類別"] = recipe_row.get("合計類別", "")
-            
-                # =================================================
-                # ✅ Step 3：儲存成功後，記住這次內容
-                # =================================================
-                st.session_state.last_saved_order_snapshot = current_snapshot
-            
-                # 低庫存檢查
-                # 📌 4️⃣ 低庫存檢查（統一與庫存區邏輯）
-                # ============================================================
-
-                last_stock = st.session_state.get("last_final_stock", {}).copy()
-                normalized_last_stock = {
-                    str(k).strip().upper(): v for k, v in last_stock.items()
-                }
-                alerts = []
-
-                # 取得本張生產單的主配方與附加配方
-                all_recipes_for_check = [recipe_row]
-                if additional_recipes:
-                    all_recipes_for_check.extend(additional_recipes)
-
-                def parse_numeric_input(raw_val):
-                    """容忍 30K / 25kg / 1,200 等輸入格式。"""
-                    if raw_val is None:
-                        return 0.0
-                    text = str(raw_val).strip()
-                    if not text:
-                        return 0.0
-                    text = text.replace(",", "")
-                    match = re.search(r"-?\d+(?:\.\d+)?", text)
-                    if not match:
-                        return 0.0
-                    try:
-                        return float(match.group(0))
-                    except Exception:
-                        return 0.0
-
-                def _safe_float_local(value, default=0.0):
-                    try:
-                        return float(str(value).strip())
-                    except Exception:
-                        return default
-
-                for rec in all_recipes_for_check:
-                    for i in range(1, 9):
-                        pid = str(rec.get(f"色粉編號{i}", "")).strip().upper()
-                        if not pid:
-                            continue
-
-                        # 排除尾碼 01 / 001 / 0001
-                        if pid.endswith(("01", "001", "0001")):
-                            continue
-
-                        # 若該色粉沒有初始庫存，略過
-                        if pid not in normalized_last_stock:
-                            continue
-
-                        # 取得色粉重量（每 kg 產品用量）
-                        try:
-                            ratio_g = float(rec.get(f"色粉重量{i}", 0))
-                        except:
-                            ratio_g = 0.0
-
-                        # 計算用量：比例 * 包裝重量 * 包裝份數
-                        total_used_g = 0
-                        for j in range(1, 5):
-                            w_val = parse_numeric_input(
-                                st.session_state.get(f"form_weight{j}_tab1", 0)
-                            )
-                            n_val = parse_numeric_input(
-                                st.session_state.get(f"form_count{j}_tab1", 0)
-                            )
-                            total_used_g += ratio_g * w_val * n_val
-
-                        # 扣庫存
-                        last_stock_before = _safe_float_local(normalized_last_stock.get(pid, 0), 0.0)
-                        new_stock = last_stock_before - total_used_g
-                        normalized_last_stock[pid] = new_stock
-                        last_stock[pid] = new_stock
-
-                        # 分級提醒
-                        final_kg = new_stock / 1000
-                        if final_kg < 0:
-                            alerts.append(f"🔴 {pid} → 庫存不足（需 {abs(final_kg):.2f} kg）")
-                        elif final_kg < 0.5:
-                            alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
-                        elif final_kg < 1:
-                            alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
-                        elif final_kg < 3:
-                            alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
-
-                if alerts:
-                    st.warning("💀 以下色粉庫存過低：\n" + "\n".join(alerts))
-
-                st.session_state["last_final_stock"] = last_stock
-
-                order_no = str(order.get("生產單號", "")).strip()
-
-                # 讀取「重複配方」合併決定（由表單上方的合併提示 UI 寫入，key 用配方編號＋類型，跟上方一致）
-                recipe_code_for_save = str(order.get("配方編號", "")).strip()
-                dup_cache_key_base_save = f"{recipe_code_for_save}_{'oem' if is_colorant else 'sameday'}"
-                merge_decision = st.session_state.get(f"merge_decision_{dup_cache_key_base_save}", "new")
-                merge_match = st.session_state.get(f"merge_match_{dup_cache_key_base_save}") or {}
-
-                # 色母合併也必須沿用代工單所連結的原生產單，否則代工預覽仍會
-                # 讀到舊數量，而庫存又會同時計算新、舊兩張生產單。
-                if merge_decision == "merge" and is_colorant:
-                    linked_order_no = str(merge_match.get("生產單號", "")).strip()
-                    existing_order = next(
-                        (
-                            item for item in list_production_orders(DATABASE_CONFIG)
-                            if str(item.get("生產單號", "")).strip() == linked_order_no
-                        ),
-                        None,
-                    )
-                    if not linked_order_no or existing_order is None:
-                        st.error("❌ 代工單找不到所連結的有效生產單，已停止合併，避免庫存重複扣料")
-                        st.stop()
-
-                    delta_total_kg = calculate_production_package_total_kg(
-                        order, is_colorant=True
-                    )
-                    merged_total_kg = delta_total_kg + calculate_production_package_total_kg(
-                        existing_order, is_colorant=True
-                    )
-                    merge_note = (
-                        f"{datetime.now().strftime('%Y%m%d')}合併{delta_total_kg:g}Kg"
-                        f"共計{merged_total_kg:g}kg"
-                    )
-                    delta_snapshot = order.get("_delta_包裝", {})
-                    order = merge_production_order_packages(existing_order, order, note=merge_note)
-                    order["_delta_包裝"] = delta_snapshot
-                    order["_merge_applied"] = "colorant"
-                    order["_merge_old_order_no"] = linked_order_no
-                    order["生產單號"] = linked_order_no
-                    order_no = linked_order_no
-
-                # 要刪除的舊生產單號：一定包含自己（避免同單重複儲存），
-                # 若是「非色母 + 選擇合併」，還要一併刪除今天比對到的那張舊單，
-                # 避免同一份需求留下兩列重複的生產單紀錄。
-                order_nos_to_delete = {order_no}
-                if merge_decision == "merge" and not is_colorant and merge_match.get("生產單號"):
-                    old_order_no_for_merge = str(merge_match.get("生產單號", "")).strip()
-                    order_nos_to_delete.add(old_order_no_for_merge)
-                    # 合併沿用既有生產單永久 ID，不再刪除舊列後建立新 ID。
-                    order["生產單號"] = old_order_no_for_merge
-                    order_no = old_order_no_for_merge
-
-                    # ===== 系統自動計算合併後總量：依「重量數值」比對合併，不是依欄位順序 =====
-                    def _fmt_num(v):
-                        if v == int(v):
-                            return str(int(v))
-                        return str(v)
-
-                    # 先把舊單、追加單的四組包裝分別攤開成 {重量: 份數}，重量相同的直接累加
-                    combined = {}  # {重量: 份數}
-                    slot_order = []  # 記錄重量第一次出現的順序，決定寫回欄位1~4的順序
-
-                    for i in range(1, 5):
-                        old_w = safe_float_convert(merge_match.get(f"包裝重量{i}", ""), 0.0)
-                        old_c = safe_float_convert(merge_match.get(f"包裝份數{i}", ""), 0.0)
-                        if old_w and old_c:
-                            combined[old_w] = combined.get(old_w, 0.0) + old_c
-                            if old_w not in slot_order:
-                                slot_order.append(old_w)
-
-                    for i in range(1, 5):
-                        delta_w = safe_float_convert(order.get(f"包裝重量{i}", ""), 0.0)
-                        delta_c = safe_float_convert(order.get(f"包裝份數{i}", ""), 0.0)
-                        if delta_w and delta_c:
-                            combined[delta_w] = combined.get(delta_w, 0.0) + delta_c
-                            if delta_w not in slot_order:
-                                slot_order.append(delta_w)
-
-                    # 清空四個欄位，再照 slot_order 依序寫回（最多只有4組欄位）
-                    for i in range(1, 5):
-                        order[f"包裝重量{i}"] = ""
-                        order[f"包裝份數{i}"] = ""
-
-                    if len(slot_order) > 4:
-                        st.warning(
-                            f"⚠️ 合併後總共有 {len(slot_order)} 種包裝重量規格，但生產單只有4組欄位可填，"
-                            f"多出來的規格已被省略，請至「代工進度表」/生產單手動確認、必要時另外處理！"
-                        )
-
-                    for i, w in enumerate(slot_order[:4], start=1):
-                        order[f"包裝重量{i}"] = _fmt_num(w)
-                        order[f"包裝份數{i}"] = _fmt_num(combined[w])
-
-                    merge_note = f"+ 合併自舊單 {old_order_no_for_merge}（追加後已更新為合併總量）"
-                    order["備註"] = (str(order.get("備註", "")).strip() + "\n" + merge_note).strip()
-                    order["_merge_applied"] = "non_colorant"
-                    order["_merge_old_order_no"] = old_order_no_for_merge
-
-                try:
-                    upsert_production_order(DATABASE_CONFIG, order)
-                    df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True)).fillna("").astype(str)
-                    df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
-                    st.session_state.df_order = df_order
-                    st.session_state.new_order_saved = True
-                    st.session_state["saved_label_snapshot"] = {
-                        "order": dict(order),
-                        "a5_downloaded": False,
+                        for k, v in row.to_dict().items()
                     }
-                    st.success(f"✅ 生產單 {order['生產單號']} 已存至 Turso，等待 Sheet PUSH！")
-                    # ✅【防止重複儲存】只有真的寫入成功才記住
-                    st.session_state.last_saved_order_snapshot = current_snapshot
-                
-                    if merge_decision == "merge" and is_colorant and merge_match.get("代工單號"):
-                        # ===== 色母合併：不建立新代工單，改成更新既有代工單的數量 =====
-                        try:
-                            target_oem_no = str(merge_match.get("代工單號", "")).strip()
-                            multiplier = _safe_float_local(merge_match.get("轉換倍率", 1), 1.0) or 1.0
+                    for _, row in additional_recipes.iterrows()
+                ]
 
-                            # 生產單此時已是合併總量；代工數量只加本次表單快照，避免重複累加。
-                            delta_oem_qty = 0.0
+        else:
+            order["附加配方"] = []
+    
+        st.session_state.new_order = order
+    
+        # ===== 顯示詳情填寫表單 =====
+        if show_confirm_panel:
+        
+            # ✅【關鍵】第一次進入時，從配方帶入預設值
+            if initialize_production_order_recipe_widgets(
+                st.session_state, order, recipe_row
+            ):
+                order["備註"] = recipe_row.get("備註", "")
+                order["重要提醒"] = recipe_row.get("重要提醒", "")
+                order["合計類別"] = recipe_row.get("合計類別", "")
+                st.markdown("---")
+                st.markdown("<span style='font-size:20px; font-weight:bold;'>新增生產單詳情填寫</span>", unsafe_allow_html=True)
+
+            recipe_is_colorant = recipe_row.get("色粉類別", "").strip() == "色母"
+            if recipe_is_colorant:
+                display_as_actual_kg = st.toggle(
+                    "實際公斤顯示（關閉：1 = 100kg／開啟：1 = 1kg）",
+                    value=(
+                        order.get("出貨數量顯示方式") or order.get("色母數量模式")
+                    ) == "實際公斤（1 = 1kg）",
+                    key="form_colorant_quantity_mode_tab1",
+                    help="此選項只改變生產單記錄表的顯示文字，不影響庫存、配方、標籤或代工數量計算。",
+                )
+                colorant_quantity_mode = (
+                    "實際公斤（1 = 1kg）"
+                    if display_as_actual_kg
+                    else "100kg 倍率（1 = 100kg）"
+                )
+                st.caption("💡 只影響記錄表：選「實際公斤」後輸入 1，出貨數量顯示 1kg；其餘計算維持原邏輯。")
+            else:
+                colorant_quantity_mode = ""
+
+            # =========================================================
+            # 🔁 重複配方檢查：
+            # 　色母 → 比對「代工進度表」（代工管理）裡尚未結案的代工單
+            # 　非色母 → 比對「生產單」裡今天已建立的舊單
+            # 找到的話提示是否要合併，而不是另外建立一張新的。
+            # ⚠️ 這張單「這次」如果已經成功存檔過了，就不用再檢查/顯示了，
+            # 不然存檔成功後畫面沒收起來，會被自己剛存好的那張單嚇到，
+            # 誤以為又冒出一張重複的單。
+            # =========================================================
+            if st.session_state.get("new_order_saved", False):
+                dup_match = {}
+            else:
+                order_no_for_dup = str(order.get("生產單號", "")).strip()
+                recipe_code_for_dup = str(order.get("配方編號", "")).strip()
+                is_colorant_for_dup = recipe_is_colorant
+                # ⚠️ 用「配方編號＋類型」當快取 key，不要用生產單號：
+                # 生產單號要等真正存檔才會定案，換配方重新搜尋時常常還是同一個草稿單號，
+                # 用單號當 key 會導致換配方後還沿用上一個配方算出來的舊結果。
+                dup_cache_key_base = f"{recipe_code_for_dup}_{'oem' if is_colorant_for_dup else 'sameday'}"
+                merge_decision_key = f"merge_decision_{dup_cache_key_base}"
+                merge_match_key = f"merge_match_{dup_cache_key_base}"
+
+                if recipe_code_for_dup and merge_match_key not in st.session_state:
+                    if is_colorant_for_dup:
+                        st.session_state[merge_match_key] = find_active_oem_duplicate(recipe_code_for_dup) or {}
+                    else:
+                        st.session_state[merge_match_key] = find_same_day_order_duplicate(recipe_code_for_dup) or {}
+
+                dup_match = st.session_state.get(merge_match_key) or {}
+                # 🛡️ 保險：比對到的那張單如果生產單號剛好跟目前這張一模一樣，
+                # 一定是自己抓到自己，不是真的重複，直接視為沒有重複。
+                if dup_match and str(dup_match.get("生產單號", "")).strip() == order_no_for_dup:
+                    dup_match = {}
+
+            if dup_match:
+                if is_colorant_for_dup:
+                    st.warning(
+                        f"⚠️ 配方【{recipe_code_for_dup}】目前已有進行中的代工單 "
+                        f"**{dup_match.get('代工單號','')}**（狀態：{dup_match.get('狀態','')}，"
+                        f"目前代工數量 {dup_match.get('代工數量','')}）。要合併到這張代工單，還是仍要另外建立新的？"
+                    )
+                else:
+                    st.warning(
+                        f"⚠️ 配方【{recipe_code_for_dup}】今天已建立過生產單 "
+                        f"**{dup_match.get('生產單號','')}**。要合併成同一張生產單（會刪除舊單），"
+                        f"還是仍要另外建立新的？"
+                    )
+
+                merge_radio = st.radio(
+                    "處理方式",
+                    ["➕ 不合併，仍建立新單", "🔗 合併，不建立新的"],
+                    index=0,
+                    key=f"merge_radio_{dup_cache_key_base}",
+                    horizontal=True,
+                )
+                st.session_state[merge_decision_key] = "merge" if merge_radio.startswith("🔗") else "new"
+
+                if st.session_state[merge_decision_key] == "merge":
+                    st.info("💡 下方欄位請只填這次**追加**的數量，合併後的總量與代工單/生產單更新由系統自動計算。")
+            elif not st.session_state.get("new_order_saved", False):
+                st.session_state[merge_decision_key] = "new"
+
+            with st.form("order_detail_form_tab1"):
+                st.markdown(f"""
+                    <div style="display:flex;flex-wrap:wrap;gap:24px;padding:10px 4px 16px;
+                                border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:16px;">
+                        <div><span style="font-size:11px;color:#9fb6cc;">生產單號</span><br>
+                             <span style="font-size:14px;color:#fff;font-weight:600;">{order.get('生產單號','')}</span></div>
+                        <div><span style="font-size:11px;color:#9fb6cc;">配方編號</span><br>
+                             <span style="font-size:14px;color:#fff;font-weight:600;">{order.get('配方編號','')}</span></div>
+                        <div><span style="font-size:11px;color:#9fb6cc;">客戶</span><br>
+                             <span style="font-size:14px;color:#fff;font-weight:600;">{recipe_row.get('客戶編號','')} · {order.get('客戶名稱','')}</span></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+                c5, c6, c7, c8 = st.columns(4)
+                c5.text_input("計量單位", value=recipe_row.get("計量單位", "kg"), disabled=True, key="form_unit_tab1")
+                # These widget keys are seeded by
+                # initialize_production_order_recipe_widgets().  Do not also pass a
+                # value= argument: Streamlit treats that as a second default source
+                # and intermittently displays a Session State conflict warning.
+                color = c6.text_input("顏色", key="form_color_tab1")
+                pantone = c7.text_input("Pantone 色號", key="form_pantone_tab1")
+                raw_material = c8.text_input("原料", key="form_raw_material_tab1")
+            
+                # ===== 重要提醒 / 合計類別 / 比例（同一橫列）=====
+                col_note, col_total, col_ratio = st.columns([0.5, 0.25, 0.25])
+            
+                with col_note:
+                    important_note = st.text_input(
+                        "重要提醒",
+                        key="form_important_note_tab1"
+                    )
+            
+                with col_total:
+                    total_category = st.text_input(
+                        "合計類別",
+                        disabled=True,
+                        key="form_total_category_tab1"
+                    )
+            
+                with col_ratio:
+                    r1 = recipe_row.get("比例1", "")
+                    r2 = recipe_row.get("比例2", "")
+                    r3 = recipe_row.get("比例3", "")
+            
+                    ratio_text = ""
+                    if r1 or r2 or r3:
+                        ratio_text = ":".join([p for p in [r1, r2, r3] if p]) + " g/kg"
+            
+                    st.text_input(
+                        "比例",
+                        value=ratio_text,
+                        disabled=True,
+                        key="form_ratio_tab1"
+                    )
+            
+                # ===== 備註（整行橫條）=====
+                remark = st.text_area(
+                    "備註",
+                    height=100,
+                    key="form_remark_tab1"
+                )
+            
+                with st.container(border=True):
+                    st.markdown("**📦 包裝重量與份數**")
+                    w_cols = st.columns(4)
+                    c_cols = st.columns(4)
+                    for i in range(1, 5):
+                        w_cols[i - 1].text_input(f"包裝重量{i}", value=order.get(f"包裝重量{i}", ""), key=f"form_weight{i}_tab1")
+                        c_cols[i - 1].text_input(f"包裝份數{i}", value=order.get(f"包裝份數{i}", ""), key=f"form_count{i}_tab1")
+            
+                st.markdown("###### 色粉用量（編號與重量）")
+                main_powders = []
+                for i in range(1, 9):
+                    color_id = recipe_row.get(f"色粉編號{i}", "").strip()
+                    color_wt = recipe_row.get(f"色粉重量{i}", "").strip()
+                    if color_id or color_wt:
+                        main_powders.append((i, color_id, color_wt))
+                if main_powders:
+                    powder_cols = st.columns(len(main_powders))
+                    for col, (i, color_id, color_wt) in zip(powder_cols, main_powders):
+                        col.text_input(f"色粉編號{i}", value=color_id, disabled=True, key=f"form_main_color_id_{i}_tab1")
+                        col.text_input(f"色粉重量{i}", value=color_wt, disabled=True, key=f"form_main_color_weight_{i}_tab1")
+            
+                additional_recipes = order.get("附加配方", [])
+                if additional_recipes:
+                    st.markdown("###### 附加配方色粉用量（編號與重量）")
+                    for idx, r in enumerate(additional_recipes, 1):
+                        st.markdown(f"附加配方 {idx}")
+                        add_powders = []
+                        for i in range(1, 9):
+                            color_id = r.get(f"色粉編號{i}", "").strip()
+                            color_wt = r.get(f"色粉重量{i}", "").strip()
+                            if color_id or color_wt:
+                                add_powders.append((i, color_id, color_wt))
+                        if add_powders:
+                            add_cols = st.columns(len(add_powders))
+                            for col, (i, color_id, color_wt) in zip(add_cols, add_powders):
+                                col.text_input(f"附加色粉編號_{idx}_{i}", value=color_id, disabled=True, key=f"form_add_color_id_{idx}_{i}_tab1")
+                                col.text_input(f"附加色粉重量_{idx}_{i}", value=color_wt, disabled=True, key=f"form_add_color_wt_{idx}_{i}_tab1")
+            
+                col_submit1, col_submit2 = st.columns([1, 1])
+                with col_submit1:
+                    submitted = st.form_submit_button("💾 僅儲存生產單")
+            
+                is_colorant = recipe_is_colorant
+                with col_submit2:
+                    if is_colorant:
+                        continue_to_oem = st.form_submit_button("✅ 儲存並轉代工管理")
+                    else:
+                        continue_to_oem = False
+
+                if submitted or continue_to_oem:
+            
+                    # ===== 檢查是否至少有一個包裝 =====
+                    all_empty = True
+                    for i in range(1, 5):
+                        weight = st.session_state.get(f"form_weight{i}_tab1", "").strip()
+                        count  = st.session_state.get(f"form_count{i}_tab1", "").strip()
+                        if weight or count:
+                            all_empty = False
+                            break
+            
+                    if all_empty:
+                        st.warning("⚠️ 請至少填寫一個包裝重量或包裝份數，才能儲存生產單！")
+                        st.stop()
+            
+                    # ===== 寫回 order（你原本的邏輯）=====
+                    order["顏色"] = st.session_state.form_color_tab1
+                    order["Pantone 色號"] = st.session_state.form_pantone_tab1
+                    order["料"] = st.session_state.form_raw_material_tab1
+                    order["備註"] = st.session_state.form_remark_tab1
+                    order["重要提醒"] = st.session_state.form_important_note_tab1
+                    order["合計類別"] = st.session_state.form_total_category_tab1
+                    order["出貨數量顯示方式"] = colorant_quantity_mode
+            
+                    order["比例1"] = recipe_row.get("比例1", "")
+                    order["比例2"] = recipe_row.get("比例2", "")
+                    order["比例3"] = recipe_row.get("比例3", "")
+            
+                    for i in range(1, 5):
+                        order[f"包裝重量{i}"] = st.session_state.get(f"form_weight{i}_tab1", "").strip()
+                        order[f"包裝份數{i}"] = st.session_state.get(f"form_count{i}_tab1", "").strip()
+
+                    # 這次表單填寫的一律視為「本次追加的數量」，先存一份快照，
+                    # 之後不管有沒有合併，列印時都可以選擇要顯示追加量還是合併後總量。
+                    order["_delta_包裝"] = {
+                        i: (order.get(f"包裝重量{i}", ""), order.get(f"包裝份數{i}", ""))
+                        for i in range(1, 5)
+                    }
+            
+                    # =================================================
+                    # 🔒 Step 1：建立本次儲存內容快照（防重複）
+                    # =================================================
+                    current_snapshot = {
+                        "顏色": order["顏色"],
+                        "Pantone 色號": order["Pantone 色號"],
+                        "原料": order["料"],
+                        "備註": order["備註"],
+                        "重要提醒": order["重要提醒"],
+                        "合計類別": order["合計類別"],
+                        "出貨數量顯示方式": order["出貨數量顯示方式"],
+                        "包裝": [
+                            (
+                                order.get(f"包裝重量{i}", ""),
+                                order.get(f"包裝份數{i}", "")
+                            )
+                            for i in range(1, 5)
+                        ]
+                    }
+            
+                    # =================================================
+                    # 🛑 Step 2：若與上次儲存完全相同 → 阻止
+                    # =================================================
+                    last_snapshot = st.session_state.get("last_saved_order_snapshot")
+                    if last_snapshot == current_snapshot:
+                        st.warning("⚠️ 此生產單內容未變更，已避免重複儲存")
+                        st.stop()
+            
+                    # ===== 你原本的色粉 / 淨重計算 =====
+                    raw_net_weight = recipe_row.get("淨重", 0)
+                    try:
+                        net_weight = float(raw_net_weight)
+                    except:
+                        net_weight = 0.0
+
+                    color_weight_list = []
+                    for i in range(1, 5):
+                        w_str = st.session_state.get(f"form_weight{i}_tab1", "").strip()
+                        weight = float(w_str) if w_str else 0.0
+                        if weight > 0:
+                            color_weight_list.append({
+                                "項次": i,
+                                "重量": weight,
+                                "結果": net_weight * weight
+                            })
+            
+                    order["色粉合計清單"] = color_weight_list
+                    order["色粉合計類別"] = recipe_row.get("合計類別", "")
+            
+                    # =================================================
+                    # ✅ Step 3：儲存成功後，記住這次內容
+                    # =================================================
+                    st.session_state.last_saved_order_snapshot = current_snapshot
+            
+                    # 低庫存檢查
+                    # 📌 4️⃣ 低庫存檢查（統一與庫存區邏輯）
+                    # ============================================================
+
+                    last_stock = st.session_state.get("last_final_stock", {}).copy()
+                    normalized_last_stock = {
+                        str(k).strip().upper(): v for k, v in last_stock.items()
+                    }
+                    alerts = []
+
+                    # 取得本張生產單的主配方與附加配方
+                    all_recipes_for_check = [recipe_row]
+                    if additional_recipes:
+                        all_recipes_for_check.extend(additional_recipes)
+
+                    def parse_numeric_input(raw_val):
+                        """容忍 30K / 25kg / 1,200 等輸入格式。"""
+                        if raw_val is None:
+                            return 0.0
+                        text = str(raw_val).strip()
+                        if not text:
+                            return 0.0
+                        text = text.replace(",", "")
+                        match = re.search(r"-?\d+(?:\.\d+)?", text)
+                        if not match:
+                            return 0.0
+                        try:
+                            return float(match.group(0))
+                        except Exception:
+                            return 0.0
+
+                    def _safe_float_local(value, default=0.0):
+                        try:
+                            return float(str(value).strip())
+                        except Exception:
+                            return default
+
+                    for rec in all_recipes_for_check:
+                        for i in range(1, 9):
+                            pid = str(rec.get(f"色粉編號{i}", "")).strip().upper()
+                            if not pid:
+                                continue
+
+                            # 排除尾碼 01 / 001 / 0001
+                            if pid.endswith(("01", "001", "0001")):
+                                continue
+
+                            # 若該色粉沒有初始庫存，略過
+                            if pid not in normalized_last_stock:
+                                continue
+
+                            # 取得色粉重量（每 kg 產品用量）
+                            try:
+                                ratio_g = float(rec.get(f"色粉重量{i}", 0))
+                            except:
+                                ratio_g = 0.0
+
+                            # 計算用量：比例 * 包裝重量 * 包裝份數
+                            total_used_g = 0
+                            for j in range(1, 5):
+                                w_val = parse_numeric_input(
+                                    st.session_state.get(f"form_weight{j}_tab1", 0)
+                                )
+                                n_val = parse_numeric_input(
+                                    st.session_state.get(f"form_count{j}_tab1", 0)
+                                )
+                                total_used_g += ratio_g * w_val * n_val
+
+                            # 扣庫存
+                            last_stock_before = _safe_float_local(normalized_last_stock.get(pid, 0), 0.0)
+                            new_stock = last_stock_before - total_used_g
+                            normalized_last_stock[pid] = new_stock
+                            last_stock[pid] = new_stock
+
+                            # 分級提醒
+                            final_kg = new_stock / 1000
+                            if final_kg < 0:
+                                alerts.append(f"🔴 {pid} → 庫存不足（需 {abs(final_kg):.2f} kg）")
+                            elif final_kg < 0.5:
+                                alerts.append(f"🔴 {pid} → 僅剩 {final_kg:.2f} kg（嚴重不足）")
+                            elif final_kg < 1:
+                                alerts.append(f"🟠 {pid} → 僅剩 {final_kg:.2f} kg（請盡快補料）")
+                            elif final_kg < 3:
+                                alerts.append(f"🟡 {pid} → 僅剩 {final_kg:.2f} kg（偏低）")
+
+                    if alerts:
+                        st.warning("💀 以下色粉庫存過低：\n" + "\n".join(alerts))
+
+                    st.session_state["last_final_stock"] = last_stock
+
+                    order_no = str(order.get("生產單號", "")).strip()
+
+                    # 讀取「重複配方」合併決定（由表單上方的合併提示 UI 寫入，key 用配方編號＋類型，跟上方一致）
+                    recipe_code_for_save = str(order.get("配方編號", "")).strip()
+                    dup_cache_key_base_save = f"{recipe_code_for_save}_{'oem' if is_colorant else 'sameday'}"
+                    merge_decision = st.session_state.get(f"merge_decision_{dup_cache_key_base_save}", "new")
+                    merge_match = st.session_state.get(f"merge_match_{dup_cache_key_base_save}") or {}
+
+                    # 色母合併也必須沿用代工單所連結的原生產單，否則代工預覽仍會
+                    # 讀到舊數量，而庫存又會同時計算新、舊兩張生產單。
+                    if merge_decision == "merge" and is_colorant:
+                        linked_order_no = str(merge_match.get("生產單號", "")).strip()
+                        existing_order = next(
+                            (
+                                item for item in list_production_orders(DATABASE_CONFIG)
+                                if str(item.get("生產單號", "")).strip() == linked_order_no
+                            ),
+                            None,
+                        )
+                        if not linked_order_no or existing_order is None:
+                            st.error("❌ 代工單找不到所連結的有效生產單，已停止合併，避免庫存重複扣料")
+                            st.stop()
+
+                        delta_total_kg = calculate_production_package_total_kg(
+                            order, is_colorant=True
+                        )
+                        merged_total_kg = delta_total_kg + calculate_production_package_total_kg(
+                            existing_order, is_colorant=True
+                        )
+                        merge_note = (
+                            f"{datetime.now().strftime('%Y%m%d')}合併{delta_total_kg:g}Kg"
+                            f"共計{merged_total_kg:g}kg"
+                        )
+                        delta_snapshot = order.get("_delta_包裝", {})
+                        order = merge_production_order_packages(existing_order, order, note=merge_note)
+                        order["_delta_包裝"] = delta_snapshot
+                        order["_merge_applied"] = "colorant"
+                        order["_merge_old_order_no"] = linked_order_no
+                        order["生產單號"] = linked_order_no
+                        order_no = linked_order_no
+
+                    # 要刪除的舊生產單號：一定包含自己（避免同單重複儲存），
+                    # 若是「非色母 + 選擇合併」，還要一併刪除今天比對到的那張舊單，
+                    # 避免同一份需求留下兩列重複的生產單紀錄。
+                    order_nos_to_delete = {order_no}
+                    if merge_decision == "merge" and not is_colorant and merge_match.get("生產單號"):
+                        old_order_no_for_merge = str(merge_match.get("生產單號", "")).strip()
+                        order_nos_to_delete.add(old_order_no_for_merge)
+                        # 合併沿用既有生產單永久 ID，不再刪除舊列後建立新 ID。
+                        order["生產單號"] = old_order_no_for_merge
+                        order_no = old_order_no_for_merge
+
+                        # ===== 系統自動計算合併後總量：依「重量數值」比對合併，不是依欄位順序 =====
+                        def _fmt_num(v):
+                            if v == int(v):
+                                return str(int(v))
+                            return str(v)
+
+                        # 先把舊單、追加單的四組包裝分別攤開成 {重量: 份數}，重量相同的直接累加
+                        combined = {}  # {重量: 份數}
+                        slot_order = []  # 記錄重量第一次出現的順序，決定寫回欄位1~4的順序
+
+                        for i in range(1, 5):
+                            old_w = safe_float_convert(merge_match.get(f"包裝重量{i}", ""), 0.0)
+                            old_c = safe_float_convert(merge_match.get(f"包裝份數{i}", ""), 0.0)
+                            if old_w and old_c:
+                                combined[old_w] = combined.get(old_w, 0.0) + old_c
+                                if old_w not in slot_order:
+                                    slot_order.append(old_w)
+
+                        for i in range(1, 5):
+                            delta_w = safe_float_convert(order.get(f"包裝重量{i}", ""), 0.0)
+                            delta_c = safe_float_convert(order.get(f"包裝份數{i}", ""), 0.0)
+                            if delta_w and delta_c:
+                                combined[delta_w] = combined.get(delta_w, 0.0) + delta_c
+                                if delta_w not in slot_order:
+                                    slot_order.append(delta_w)
+
+                        # 清空四個欄位，再照 slot_order 依序寫回（最多只有4組欄位）
+                        for i in range(1, 5):
+                            order[f"包裝重量{i}"] = ""
+                            order[f"包裝份數{i}"] = ""
+
+                        if len(slot_order) > 4:
+                            st.warning(
+                                f"⚠️ 合併後總共有 {len(slot_order)} 種包裝重量規格，但生產單只有4組欄位可填，"
+                                f"多出來的規格已被省略，請至「代工進度表」/生產單手動確認、必要時另外處理！"
+                            )
+
+                        for i, w in enumerate(slot_order[:4], start=1):
+                            order[f"包裝重量{i}"] = _fmt_num(w)
+                            order[f"包裝份數{i}"] = _fmt_num(combined[w])
+
+                        merge_note = f"+ 合併自舊單 {old_order_no_for_merge}（追加後已更新為合併總量）"
+                        order["備註"] = (str(order.get("備註", "")).strip() + "\n" + merge_note).strip()
+                        order["_merge_applied"] = "non_colorant"
+                        order["_merge_old_order_no"] = old_order_no_for_merge
+
+                    try:
+                        upsert_production_order(DATABASE_CONFIG, order)
+                        df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True)).fillna("").astype(str)
+                        df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+                        st.session_state.df_order = df_order
+                        st.session_state.new_order_saved = True
+                        st.session_state["saved_label_snapshot"] = {
+                            "order": dict(order),
+                            "a5_downloaded": False,
+                        }
+                        st.success(f"✅ 生產單 {order['生產單號']} 已存至 Turso，等待 Sheet PUSH！")
+                        # ✅【防止重複儲存】只有真的寫入成功才記住
+                        st.session_state.last_saved_order_snapshot = current_snapshot
+                
+                        if merge_decision == "merge" and is_colorant and merge_match.get("代工單號"):
+                            # ===== 色母合併：不建立新代工單，改成更新既有代工單的數量 =====
+                            try:
+                                target_oem_no = str(merge_match.get("代工單號", "")).strip()
+                                multiplier = _safe_float_local(merge_match.get("轉換倍率", 1), 1.0) or 1.0
+
+                                # 生產單此時已是合併總量；代工數量只加本次表單快照，避免重複累加。
+                                delta_oem_qty = 0.0
+                                for i in range(1, 5):
+                                    try:
+                                        w, n = order.get("_delta_包裝", {}).get(i, (0, 0))
+                                        w = float(w or 0)
+                                        n = float(n or 0)
+                                        delta_oem_qty += w * 100 * n
+                                    except:
+                                        pass
+                                old_qty = _safe_float_local(merge_match.get("代工數量", 0), 0.0)
+                                final_qty = old_qty + delta_oem_qty
+
+                                existing_oem = next((item for item in list_outsourcing_orders(DATABASE_CONFIG)
+                                                     if str(item.get("代工單號", "")).strip() == target_oem_no), None)
+                                found_row = existing_oem is not None
+                                if existing_oem:
+                                    merge_note = (f"+ 合併生產單 {order['生產單號']}"
+                                                  f"（追加 {delta_oem_qty} kg，原 {old_qty} kg → 合併後 {final_qty} kg）")
+                                    existing_oem.update({"代工數量": final_qty,
+                                                         "目標載回數量": final_qty * multiplier,
+                                                         "備註": f"{existing_oem.get('備註', '')}\n{merge_note}".strip()})
+                                    update_outsourcing_order(DATABASE_CONFIG, existing_oem)
+                                order["_merge_applied"] = "colorant"
+                                order["_merge_old_order_no"] = str(merge_match.get("生產單號", "")).strip()
+                                if found_row:
+                                    st.toast(f"🔗 已合併至既有代工單 {target_oem_no}（合併後代工數量 {final_qty} kg）")
+                                else:
+                                    st.warning(f"⚠️ 找不到代工單 {target_oem_no}，合併失敗，請至「代工管理」手動確認")
+                            except Exception as e:
+                                st.error(f"❌ 合併代工單失敗：{e}")
+
+                        elif continue_to_oem:
+                            oem_id = f"OEM{order['生產單號']}"
+
+                            oem_qty = 0.0
                             for i in range(1, 5):
                                 try:
-                                    w, n = order.get("_delta_包裝", {}).get(i, (0, 0))
-                                    w = float(w or 0)
-                                    n = float(n or 0)
-                                    delta_oem_qty += w * 100 * n
+                                    w = float(order.get(f"包裝重量{i}", 0) or 0)
+                                    n = float(order.get(f"包裝份數{i}", 0) or 0)
+                                    oem_qty += w * 100 * n
                                 except:
                                     pass
-                            old_qty = _safe_float_local(merge_match.get("代工數量", 0), 0.0)
-                            final_qty = old_qty + delta_oem_qty
-
-                            existing_oem = next((item for item in list_outsourcing_orders(DATABASE_CONFIG)
-                                                 if str(item.get("代工單號", "")).strip() == target_oem_no), None)
-                            found_row = existing_oem is not None
-                            if existing_oem:
-                                merge_note = (f"+ 合併生產單 {order['生產單號']}"
-                                              f"（追加 {delta_oem_qty} kg，原 {old_qty} kg → 合併後 {final_qty} kg）")
-                                existing_oem.update({"代工數量": final_qty,
-                                                     "目標載回數量": final_qty * multiplier,
-                                                     "備註": f"{existing_oem.get('備註', '')}\n{merge_note}".strip()})
-                                update_outsourcing_order(DATABASE_CONFIG, existing_oem)
-                            order["_merge_applied"] = "colorant"
-                            order["_merge_old_order_no"] = str(merge_match.get("生產單號", "")).strip()
-                            if found_row:
-                                st.toast(f"🔗 已合併至既有代工單 {target_oem_no}（合併後代工數量 {final_qty} kg）")
-                            else:
-                                st.warning(f"⚠️ 找不到代工單 {target_oem_no}，合併失敗，請至「代工管理」手動確認")
-                        except Exception as e:
-                            st.error(f"❌ 合併代工單失敗：{e}")
-
-                    elif continue_to_oem:
-                        oem_id = f"OEM{order['生產單號']}"
                 
-                        oem_qty = 0.0
-                        for i in range(1, 5):
+                            recipe_multiplier = 1.0
                             try:
-                                w = float(order.get(f"包裝重量{i}", 0) or 0)
-                                n = float(order.get(f"包裝份數{i}", 0) or 0)
-                                oem_qty += w * 100 * n
+                                order_recipe_id = str(order.get('配方編號', '')).strip()
+                                if order_recipe_id and not st.session_state.df_recipe.empty:
+                                    matched_recipe = st.session_state.df_recipe[
+                                        st.session_state.df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id
+                                    ]
+                                    if not matched_recipe.empty:
+                                        recipe_multiplier = _safe_float_local(matched_recipe.iloc[0].get("代工倍率", 1), 1.0)
                             except:
-                                pass
+                                recipe_multiplier = 1.0
+                            if recipe_multiplier <= 0:
+                                recipe_multiplier = 1.0
+
+                            oem_row_dict = {
+                                "代工單號": oem_id,
+                                "生產單號": order['生產單號'],
+                                "配方編號": order.get('配方編號', ''),
+                                "客戶名稱": order.get('客戶名稱', ''),
+                                "代工數量": oem_qty,
+                                "目標載回數量": oem_qty * recipe_multiplier,
+                                "轉換倍率": recipe_multiplier,
+                                "代工廠商": "",
+                                "備註": "",
+                                "狀態": "🏭 在廠內",
+                                "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
+                                "已交貨": "",
+                                "交貨備註": ""
+                            }
+                            create_outsourcing_order(DATABASE_CONFIG, oem_row_dict)
                 
-                        recipe_multiplier = 1.0
-                        try:
-                            order_recipe_id = str(order.get('配方編號', '')).strip()
-                            if order_recipe_id and not st.session_state.df_recipe.empty:
-                                matched_recipe = st.session_state.df_recipe[
-                                    st.session_state.df_recipe["配方編號"].astype(str).str.strip() == order_recipe_id
-                                ]
-                                if not matched_recipe.empty:
-                                    recipe_multiplier = _safe_float_local(matched_recipe.iloc[0].get("代工倍率", 1), 1.0)
-                        except:
-                            recipe_multiplier = 1.0
-                        if recipe_multiplier <= 0:
-                            recipe_multiplier = 1.0
+                            oem_msg = f"🎉 已建立代工單號：{oem_id}（{oem_qty} kg）\n💡 請至「代工管理」分頁編輯"
+                            st.toast(oem_msg)
 
-                        oem_row_dict = {
-                            "代工單號": oem_id,
-                            "生產單號": order['生產單號'],
-                            "配方編號": order.get('配方編號', ''),
-                            "客戶名稱": order.get('客戶名稱', ''),
-                            "代工數量": oem_qty,
-                            "目標載回數量": oem_qty * recipe_multiplier,
-                            "轉換倍率": recipe_multiplier,
-                            "代工廠商": "",
-                            "備註": "",
-                            "狀態": "🏭 在廠內",
-                            "建立時間": (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S"),
-                            "已交貨": "",
-                            "交貨備註": ""
-                        }
-                        create_outsourcing_order(DATABASE_CONFIG, oem_row_dict)
-                
-                        oem_msg = f"🎉 已建立代工單號：{oem_id}（{oem_qty} kg）\n💡 請至「代工管理」分頁編輯"
-                        st.toast(oem_msg)
+                        # 合併存檔成功後：強制立刻重新整批計算一次庫存，
+                        # 不等原本的 3 分鐘節流，讓合併後的庫存警示馬上是最新正確的數字。
+                        if merge_decision == "merge":
+                            try:
+                                st.session_state["last_final_stock"] = calculate_current_stock()
+                                st.session_state["stock_calc_time"] = datetime.now()
+                            except Exception as e:
+                                st.warning(f"⚠️ 合併後重新計算庫存失敗，將於下次自動重算：{e}")
 
-                    # 合併存檔成功後：強制立刻重新整批計算一次庫存，
-                    # 不等原本的 3 分鐘節流，讓合併後的庫存警示馬上是最新正確的數字。
-                    if merge_decision == "merge":
-                        try:
-                            st.session_state["last_final_stock"] = calculate_current_stock()
-                            st.session_state["stock_calc_time"] = datetime.now()
-                        except Exception as e:
-                            st.warning(f"⚠️ 合併後重新計算庫存失敗，將於下次自動重算：{e}")
-
-                    # 儲存完成，清掉這張單的合併決定暫存狀態
-                    for _k in (
-                        f"merge_decision_{dup_cache_key_base_save}", f"merge_match_{dup_cache_key_base_save}",
-                        f"merge_radio_{dup_cache_key_base_save}",
-                    ):
-                        st.session_state.pop(_k, None)
+                        # 儲存完成，清掉這張單的合併決定暫存狀態
+                        for _k in (
+                            f"merge_decision_{dup_cache_key_base_save}", f"merge_match_{dup_cache_key_base_save}",
+                            f"merge_radio_{dup_cache_key_base_save}",
+                        ):
+                            st.session_state.pop(_k, None)
             
-                except Exception as e:
-                    st.error(f"❌ 寫入失敗：{e}")
+                    except Exception as e:
+                        st.error(f"❌ 寫入失敗：{e}")
                 
-        # 產生列印 HTML 按鈕
-        show_ids = st.toggle("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
+            # 產生列印 HTML 按鈕
+            show_ids = st.toggle("列印時顯示附加配方編號", value=False, key="show_ids_tab1")
 
-        print_order = order
-        if order.get("_merge_applied"):
-            print_mode = st.radio(
-                "生產單列印顯示方式",
-                ["合併後總量", "僅顯示這次追加數量"],
-                key=f"print_mode_{order.get('生產單號','')}",
-                horizontal=True,
-                help="這個選項只影響列印畫面顯示的數字，不會改變已經存檔的合併後總量。",
+            print_order = order
+            if order.get("_merge_applied"):
+                print_mode = st.radio(
+                    "生產單列印顯示方式",
+                    ["合併後總量", "僅顯示這次追加數量"],
+                    key=f"print_mode_{order.get('生產單號','')}",
+                    horizontal=True,
+                    help="這個選項只影響列印畫面顯示的數字，不會改變已經存檔的合併後總量。",
+                )
+                if print_mode == "僅顯示這次追加數量":
+                    print_order = order.copy()
+                    delta_packaging = order.get("_delta_包裝", {})
+                    for i in range(1, 5):
+                        w, c = delta_packaging.get(i, ("", ""))
+                        print_order[f"包裝重量{i}"] = w
+                        print_order[f"包裝份數{i}"] = c
+
+            print_html = generate_print_page_content(
+                order=print_order,
+                recipe_row=recipe_row,
+                additional_recipe_rows=order.get("附加配方", []),
+                show_additional_ids=show_ids
             )
-            if print_mode == "僅顯示這次追加數量":
-                print_order = order.copy()
-                delta_packaging = order.get("_delta_包裝", {})
-                for i in range(1, 5):
-                    w, c = delta_packaging.get(i, ("", ""))
-                    print_order[f"包裝重量{i}"] = w
-                    print_order[f"包裝份數{i}"] = c
 
-        print_html = generate_print_page_content(
-            order=print_order,
-            recipe_row=recipe_row,
-            additional_recipe_rows=order.get("附加配方", []),
-            show_additional_ids=show_ids
-        )
-
-        def mark_html_downloaded():
-            st.session_state.downloaded_html_tab1 = True
-            snap = st.session_state.get("saved_label_snapshot")
-            if snap and str(snap.get("order", {}).get("生產單號", "")) == str(order.get("生產單號", "")):
-                snap["a5_downloaded"] = True
+            def mark_html_downloaded():
+                st.session_state.downloaded_html_tab1 = True
+                snap = st.session_state.get("saved_label_snapshot")
+                if snap and str(snap.get("order", {}).get("生產單號", "")) == str(order.get("生產單號", "")):
+                    snap["a5_downloaded"] = True
                 
-        col1, col2, col3 = st.columns([3,1,3])
-        with col1:           
-            # ---------- 產生安全檔名 ----------
-            raw_order_no = str(order.get("生產單號", "未命名")).strip()
-            raw_recipe_no = str(recipe_row.get("配方編號", "無配方")).strip()
+            col1, col2, col3 = st.columns([3,1,3])
+            with col1:
+                # ---------- 產生安全檔名 ----------
+                raw_order_no = str(order.get("生產單號", "未命名")).strip()
+                raw_recipe_no = str(recipe_row.get("配方編號", "無配方")).strip()
             
-            def make_safe_filename(text):
-                # 移除 Windows 不允許的字元
-                text = re.sub(r'[\\/:*?"<>|]', '-', text)
-                # 將多餘空白轉成單一底線
-                text = re.sub(r'\s+', '_', text)
-                return text
+                def make_safe_filename(text):
+                    # 移除 Windows 不允許的字元
+                    text = re.sub(r'[\\/:*?"<>|]', '-', text)
+                    # 將多餘空白轉成單一底線
+                    text = re.sub(r'\s+', '_', text)
+                    return text
             
-            safe_order_no = make_safe_filename(raw_order_no)
-            safe_recipe_no = make_safe_filename(raw_recipe_no)
+                safe_order_no = make_safe_filename(raw_order_no)
+                safe_recipe_no = make_safe_filename(raw_recipe_no)
             
-            file_name = f"{safe_order_no}_{safe_recipe_no}_列印.html"
+                file_name = f"{safe_order_no}_{safe_recipe_no}_列印.html"
             
-            # ---------- 動態按鈕文字 ----------
-            download_label = (
-                "✅ 已下載 A5 HTML"
-                if st.session_state.get("downloaded_html_tab1", False)
-                else "📥 下載 A5 HTML"
-            )
+                # ---------- 動態按鈕文字 ----------
+                download_label = (
+                    "✅ 已下載 A5 HTML"
+                    if st.session_state.get("downloaded_html_tab1", False)
+                    else "📥 下載 A5 HTML"
+                )
             
-            # ---------- 下載按鈕 ----------
-            st.download_button(
-                label=download_label,
-                data=print_html.encode("utf-8"),
-                file_name=file_name,
-                mime="text/html",
-                key="download_html_tab1",
-                disabled=not st.session_state.get("new_order_saved", False),
-                on_click=mark_html_downloaded
-            )
+                # ---------- 下載按鈕 ----------
+                st.download_button(
+                    label=download_label,
+                    data=print_html.encode("utf-8"),
+                    file_name=file_name,
+                    mime="text/html",
+                    key="download_html_tab1",
+                    disabled=not st.session_state.get("new_order_saved", False),
+                    on_click=mark_html_downloaded
+                )
                 
-        with col3:
-            if st.button("🔙 返回", key="back_button_tab1"):
-                st.session_state.new_order = None
-                st.session_state.show_confirm_panel = False
-                st.session_state.new_order_saved = False
-                st.session_state.downloaded_html_tab1 = False
-                st.session_state.pop("recipe_init_done", None)
-                st.rerun()
+            with col3:
+                if st.button("🔙 返回", key="back_button_tab1"):
+                    st.session_state.new_order = None
+                    st.session_state.show_confirm_panel = False
+                    st.session_state.new_order_saved = False
+                    st.session_state.downloaded_html_tab1 = False
+                    st.session_state.pop("recipe_init_done", None)
+                    st.rerun()
 
-        # --------------- 新增：生產單大標列印 ---------------
-        snapshot = st.session_state.get("saved_label_snapshot")
-        snapshot_order = get_saved_label_order(snapshot)
+            # --------------- 新增：生產單大標列印 ---------------
+            snapshot = st.session_state.get("saved_label_snapshot")
+            snapshot_order = get_saved_label_order(snapshot)
 
-        st.markdown("""
-            <style>
-            .label-print-card {
-                background: linear-gradient(180deg, #0d1b2a 0%, #0b2f4a 100%);
-                border: 1px solid rgba(255,255,255,0.08);
-                border-radius: 10px;
-                padding: 16px 18px 4px;
-                margin: 20px 0 10px;
-            }
-            .label-print-card .lp-title {
-                color: #ffffff;
-                font-weight: 700;
-                font-size: 16px;
-                margin-bottom: 2px;
-            }
-            .label-print-card .lp-subtitle {
-                color: #9fb6cc;
-                font-size: 12px;
-                margin-bottom: 14px;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-
-        if snapshot_order is None:
             st.markdown("""
-                <div class="label-print-card">
-                    <div class="lp-title">🏷️ 列印大標</div>
-                    <div class="lp-subtitle">請先儲存生產單，才能列印標籤。</div>
-                </div>
+                <style>
+                .label-print-card {
+                    background: linear-gradient(180deg, #0d1b2a 0%, #0b2f4a 100%);
+                    border: 1px solid rgba(255,255,255,0.08);
+                    border-radius: 10px;
+                    padding: 16px 18px 4px;
+                    margin: 20px 0 10px;
+                }
+                .label-print-card .lp-title {
+                    color: #ffffff;
+                    font-weight: 700;
+                    font-size: 16px;
+                    margin-bottom: 2px;
+                }
+                .label-print-card .lp-subtitle {
+                    color: #9fb6cc;
+                    font-size: 12px;
+                    margin-bottom: 14px;
+                }
+                </style>
             """, unsafe_allow_html=True)
-        else:
-            order_no_for_label = snapshot_order.get("生產單號", "")
 
-            show_label_key = f"show_big_label_{order_no_for_label}"
-            label_version_key = f"big_label_version_{order_no_for_label}"
-            label_confirmed_key = f"big_label_confirmed_{order_no_for_label}"
-            quick_defaults_key = f"big_label_quick_defaults_{order_no_for_label}"
-
-            a5_downloaded = snapshot.get("a5_downloaded", False)
-
-            header_col, toggle_col = st.columns([5, 1])
-            with header_col:
-                st.markdown(f"""
+            if snapshot_order is None:
+                st.markdown("""
                     <div class="label-print-card">
                         <div class="lp-title">🏷️ 列印大標</div>
-                        <div class="lp-subtitle">生產單 {order_no_for_label}，{'已下載 A5' if a5_downloaded else '尚未下載 A5'}</div>
+                        <div class="lp-subtitle">請先儲存生產單，才能列印標籤。</div>
                     </div>
                 """, unsafe_allow_html=True)
-            with toggle_col:
-                show_label_section = st.toggle("開啟標籤", key=show_label_key, value=False)
+            else:
+                order_no_for_label = snapshot_order.get("生產單號", "")
 
-            if show_label_section:
-                if not a5_downloaded:
-                    st.caption("ℹ️ 尚未下載 A5 生產單；仍可直接編輯及列印標籤。")
-                if quick_defaults_key not in st.session_state:
-                    st.session_state[quick_defaults_key] = build_quick_label_defaults(snapshot_order)
-                if label_version_key not in st.session_state:
-                    st.session_state[label_version_key] = 0
+                show_label_key = f"show_big_label_{order_no_for_label}"
+                label_version_key = f"big_label_version_{order_no_for_label}"
+                label_confirmed_key = f"big_label_confirmed_{order_no_for_label}"
+                quick_defaults_key = f"big_label_quick_defaults_{order_no_for_label}"
 
-                with st.container(border=True):
-                    with st.form(f"big_label_form_{order_no_for_label}", border=False):
-                        label_content = st.text_input(
-                            "標籤內容",
-                            value=str(snapshot_order.get("顏色", "") or ""),
-                            key=f"big_label_content_{order_no_for_label}",
-                            help="預設帶入原本的顏色名稱，可在本次列印前修改。",
-                        )
-                        header_weight, header_qty = st.columns([3, 1])
-                        header_weight.markdown("**重量 / 數量**")
-                        header_qty.markdown("**列印張數**")
-                        quick_rows = []
-                        for row_index, default in enumerate(st.session_state[quick_defaults_key]):
-                            weight_col, qty_col = st.columns([3, 1])
-                            with weight_col:
-                                weight = st.text_input(
-                                    f"第 {row_index + 1} 列重量 / 數量",
-                                    value=default["weight"],
-                                    key=f"big_label_weight_{order_no_for_label}_{row_index}",
-                                    label_visibility="collapsed",
-                                    placeholder="例如 25K、500g",
-                                )
-                            with qty_col:
-                                qty = st.number_input(
-                                    f"第 {row_index + 1} 列列印張數",
-                                    min_value=0,
-                                    value=int(default["qty"]),
-                                    step=1,
-                                    key=f"big_label_qty_{order_no_for_label}_{row_index}",
-                                    label_visibility="collapsed",
-                                )
-                            quick_rows.append({"weight": weight, "qty": int(qty)})
+                a5_downloaded = snapshot.get("a5_downloaded", False)
 
-                        confirm_clicked = st.form_submit_button(
-                            "✅ 預覽並產生下載檔", use_container_width=True
-                        )
+                header_col, toggle_col = st.columns([5, 1])
+                with header_col:
+                    st.markdown(f"""
+                        <div class="label-print-card">
+                            <div class="lp-title">🏷️ 列印大標</div>
+                            <div class="lp-subtitle">生產單 {order_no_for_label}，{'已下載 A5' if a5_downloaded else '尚未下載 A5'}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                with toggle_col:
+                    show_label_section = st.toggle("開啟標籤", key=show_label_key, value=False)
 
-                    if confirm_clicked:
-                        missing_weights = [
-                            index + 1 for index, row in enumerate(quick_rows)
-                            if row["qty"] > 0 and not row["weight"].strip()
-                        ]
-                        total_qty = sum(row["qty"] for row in quick_rows)
-                        if missing_weights:
-                            st.error(
-                                f"第 {', '.join(map(str, missing_weights))} 列已設定張數，請輸入重量 / 數量。"
+                if show_label_section:
+                    if not a5_downloaded:
+                        st.caption("ℹ️ 尚未下載 A5 生產單；仍可直接編輯及列印標籤。")
+                    if quick_defaults_key not in st.session_state:
+                        st.session_state[quick_defaults_key] = build_quick_label_defaults(snapshot_order)
+                    if label_version_key not in st.session_state:
+                        st.session_state[label_version_key] = 0
+
+                    with st.container(border=True):
+                        with st.form(f"big_label_form_{order_no_for_label}", border=False):
+                            label_content = st.text_input(
+                                "標籤內容",
+                                value=str(snapshot_order.get("顏色", "") or ""),
+                                key=f"big_label_content_{order_no_for_label}",
+                                help="預設帶入原本的顏色名稱，可在本次列印前修改。",
                             )
-                            st.session_state[label_confirmed_key] = None
-                        elif total_qty == 0:
-                            st.warning("請至少設定一張標籤")
-                            st.session_state[label_confirmed_key] = None
-                        else:
-                            labels = build_quick_labels(snapshot_order, label_content, quick_rows)
-                            st.session_state[label_confirmed_key] = labels
-                            st.session_state[label_version_key] += 1
-                            st.toast("預覽已更新，下載按鈕已產生", icon="✅")
+                            header_weight, header_qty = st.columns([3, 1])
+                            header_weight.markdown("**重量 / 數量**")
+                            header_qty.markdown("**列印張數**")
+                            quick_rows = []
+                            for row_index, default in enumerate(st.session_state[quick_defaults_key]):
+                                weight_col, qty_col = st.columns([3, 1])
+                                with weight_col:
+                                    weight = st.text_input(
+                                        f"第 {row_index + 1} 列重量 / 數量",
+                                        value=default["weight"],
+                                        key=f"big_label_weight_{order_no_for_label}_{row_index}",
+                                        label_visibility="collapsed",
+                                        placeholder="例如 25K、500g",
+                                    )
+                                with qty_col:
+                                    qty = st.number_input(
+                                        f"第 {row_index + 1} 列列印張數",
+                                        min_value=0,
+                                        value=int(default["qty"]),
+                                        step=1,
+                                        key=f"big_label_qty_{order_no_for_label}_{row_index}",
+                                        label_visibility="collapsed",
+                                    )
+                                quick_rows.append({"weight": weight, "qty": int(qty)})
 
-                confirmed_rows = st.session_state.get(label_confirmed_key)
-                if confirmed_rows:
-                    sheets_needed = -(-len(confirmed_rows) // 4)  # 無條件進位
-                    st.caption(f"共 {len(confirmed_rows)} 張標籤，需要 {sheets_needed} 張大標紙（手動一張一張進紙）。")
-                    preview_weights = [str(row.get("數量", "")) for row in confirmed_rows]
-                    st.markdown("**預覽（每 4 張為一頁）**")
-                    for page_number, page in enumerate(chunk_label_pages(preview_weights), start=1):
-                        st.caption(f"第 {page_number} 頁：{'、'.join(page)}")
+                            confirm_clicked = st.form_submit_button(
+                                "✅ 預覽並產生下載檔", use_container_width=True
+                            )
 
-                    big_label_html = generate_big_label_html(confirmed_rows)
-                    safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
+                        if confirm_clicked:
+                            missing_weights = [
+                                index + 1 for index, row in enumerate(quick_rows)
+                                if row["qty"] > 0 and not row["weight"].strip()
+                            ]
+                            total_qty = sum(row["qty"] for row in quick_rows)
+                            if missing_weights:
+                                st.error(
+                                    f"第 {', '.join(map(str, missing_weights))} 列已設定張數，請輸入重量 / 數量。"
+                                )
+                                st.session_state[label_confirmed_key] = None
+                            elif total_qty == 0:
+                                st.warning("請至少設定一張標籤")
+                                st.session_state[label_confirmed_key] = None
+                            else:
+                                labels = build_quick_labels(snapshot_order, label_content, quick_rows)
+                                st.session_state[label_confirmed_key] = labels
+                                st.session_state[label_version_key] += 1
+                                st.toast("預覽已更新，下載按鈕已產生", icon="✅")
 
-                    st.download_button(
-                        label="📥 下載大標 HTML（開啟後自動列印）",
-                        data=big_label_html.encode("utf-8"),
-                        file_name=f"{safe_order_no}_大標.html",
-                        mime="text/html",
-                        key=f"download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
-                    )
-                else:
-                    st.caption("設定完成後，請按上方「✅ 預覽並產生下載檔」才會出現下載按鈕。")
+                    confirmed_rows = st.session_state.get(label_confirmed_key)
+                    if confirmed_rows:
+                        sheets_needed = -(-len(confirmed_rows) // 4)  # 無條件進位
+                        st.caption(f"共 {len(confirmed_rows)} 張標籤，需要 {sheets_needed} 張大標紙（手動一張一張進紙）。")
+                        preview_weights = [str(row.get("數量", "")) for row in confirmed_rows]
+                        st.markdown("**預覽（每 4 張為一頁）**")
+                        for page_number, page in enumerate(chunk_label_pages(preview_weights), start=1):
+                            st.caption(f"第 {page_number} 頁：{'、'.join(page)}")
+
+                        big_label_html = generate_big_label_html(confirmed_rows)
+                        safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
+
+                        st.download_button(
+                            label="📥 下載大標 HTML（開啟後自動列印）",
+                            data=big_label_html.encode("utf-8"),
+                            file_name=f"{safe_order_no}_大標.html",
+                            mime="text/html",
+                            key=f"download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
+                        )
+                    else:
+                        st.caption("設定完成後，請按上方「✅ 預覽並產生下載檔」才會出現下載按鈕。")
  
-        if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
-            try:
-                latest_order_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
-                st.session_state.df_order = latest_order_df.copy()
-                st.toast("已從 Turso 重新載入生產單資料", icon="🔄")
-            except Exception as e:
-                st.toast(f"重新載入失敗：{e}", icon="❌")
-            st.rerun()
+            if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
+                try:
+                    latest_order_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
+                    st.session_state.df_order = latest_order_df.copy()
+                    st.toast("已從 Turso 重新載入生產單資料", icon="🔄")
+                except Exception as e:
+                    st.toast(f"重新載入失敗：{e}", icon="❌")
+                st.rerun()
 
-    # ============================================================
+        # ============================================================
     # Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
     # ============================================================
     with tab2:
