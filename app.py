@@ -154,6 +154,13 @@ from utils.conflict_repository import (
 )
 from utils.salary_ui import render_salary_management
 from utils.hr_query_ui import render_hr_query
+from utils.persistent_auth import create_remember_token, validate_remember_token
+
+
+_persistent_auth_cookie = components.declare_component(
+    "persistent_auth_cookie",
+    path=str(Path(__file__).parent / "components" / "persistent_auth"),
+)
 
 
 # Keep the inventory screen dependent only on the repository's long-standing public
@@ -414,10 +421,37 @@ div[data-baseweb="popover"] p {
 
 # ======== 🔐 簡易登入驗證區 ========
 APP_PASSWORD = st.secrets["APP_PASSWORD"]
-    
+REMEMBER_LOGIN_HOURS = int(st.secrets.get("REMEMBER_LOGIN_HOURS", 4))
+REMEMBER_LOGIN_SECONDS = max(1, REMEMBER_LOGIN_HOURS) * 60 * 60
+
+# The component reads a same-device browser cookie. Its value is signed and
+# expires server-side too, so editing the cookie cannot bypass the password.
+pending_remember_token = st.session_state.get("_pending_remember_token")
+clear_remember_token = st.session_state.get("_clear_remember_token", False)
+remember_token = _persistent_auth_cookie(
+    token=pending_remember_token,
+    max_age=REMEMBER_LOGIN_SECONDS,
+    clear=clear_remember_token,
+    key="persistent_auth_cookie",
+)
+
 # 初始化登入狀態
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+
+if clear_remember_token:
+    # Keep the session logged out while the browser component removes its cookie.
+    # Wait for the component's deletion acknowledgement before normal login
+    # validation can resume, so a stale cookie cannot immediately sign back in.
+    st.session_state.authenticated = False
+    if remember_token == "__cookie_cleared__":
+        st.session_state.pop("_clear_remember_token", None)
+elif not st.session_state.authenticated and validate_remember_token(remember_token, APP_PASSWORD):
+    st.session_state.authenticated = True
+
+if not clear_remember_token and pending_remember_token and validate_remember_token(remember_token, APP_PASSWORD):
+    st.session_state.pop("_pending_remember_token", None)
+    st.session_state.authenticated = True
 
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
@@ -431,13 +465,22 @@ if not st.session_state.authenticated:
         password_input = st.text_input("密碼：", type="password", key="login_password")
 
         if password_input == APP_PASSWORD:
-            st.session_state.authenticated = True
+            st.session_state["_pending_remember_token"] = create_remember_token(
+                APP_PASSWORD,
+                REMEMBER_LOGIN_SECONDS,
+            )
             st.rerun()
         elif password_input != "":
             st.error("❌ 密碼錯誤，請再試一次。")
             st.stop()
 
     st.stop()
+
+if st.sidebar.button("🚪 登出", key="logout_button", use_container_width=True):
+    st.session_state.authenticated = False
+    st.session_state.pop("_pending_remember_token", None)
+    st.session_state["_clear_remember_token"] = True
+    st.rerun()
 
 # Database startup is deliberately after authentication so the password screen
 # never waits for Turso. cache_resource prevents remote schema and health calls
