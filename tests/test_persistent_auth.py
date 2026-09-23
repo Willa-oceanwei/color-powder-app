@@ -23,10 +23,10 @@ def test_remember_token_rejects_malformed_values():
 
 
 def test_app_defaults_to_four_hours_and_provides_logout():
-    app_source = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
+    app_source = (Path(__file__).parents[1] / "app.py").read_text()
     component_source = (
         Path(__file__).parents[1] / "components" / "persistent_auth" / "index.html"
-    ).read_text(encoding="utf-8")
+    ).read_text()
 
     assert 'st.secrets.get("REMEMBER_LOGIN_HOURS", 4)' in app_source
     assert "st.session_state.authenticated = True\n            st.rerun()" in app_source
@@ -35,8 +35,7 @@ def test_app_defaults_to_four_hours_and_provides_logout():
     assert 'st.session_state["_clear_remember_token"] = True' in app_source
     assert "window.localStorage.setItem(STORAGE_KEY, args.token)" in component_source
     assert "window.localStorage.removeItem(STORAGE_KEY)" in component_source
+    assert "Do not\n            // send the token back" in component_source
+    assert "if (args.authenticated)" in component_source
     assert 'dataType: "json"' in component_source
-    assert 'const NO_TOKEN = "__browser_token_missing__"' in component_source
-    assert "if (!hasResponded) sendValue(NO_TOKEN)" in component_source
-    assert "sendValue(null)" not in component_source
-    assert "if remember_token == BROWSER_TOKEN_MISSING:" in app_source
+    assert "if (!hasResponded) sendValue(null)" in component_source

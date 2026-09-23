@@ -429,16 +429,19 @@ REMEMBER_LOGIN_SECONDS = max(1, REMEMBER_LOGIN_HOURS) * 60 * 60
 pending_remember_token = st.session_state.get("_pending_remember_token")
 clear_remember_token = st.session_state.get("_clear_remember_token", False)
 BROWSER_TOKEN_LOADING = "__browser_token_loading__"
-BROWSER_TOKEN_MISSING = "__browser_token_missing__"
 remember_token = _persistent_auth_storage(
     token=pending_remember_token,
     max_age=REMEMBER_LOGIN_SECONDS,
     clear=clear_remember_token,
+    authenticated=st.session_state.get("authenticated", False),
     key="persistent_auth_storage",
     default=BROWSER_TOKEN_LOADING,
 )
-if remember_token == BROWSER_TOKEN_MISSING:
-    remember_token = None
+# Rendering the component has already queued the token write in the browser.
+# Do not wait for a success acknowledgement: that extra component response would
+# rerun the entire authenticated app (including its startup work) a second time.
+if pending_remember_token:
+    st.session_state.pop("_pending_remember_token", None)
 
 # 初始化登入狀態
 if "authenticated" not in st.session_state:
@@ -452,10 +455,6 @@ if clear_remember_token:
     if remember_token == "__browser_token_cleared__":
         st.session_state.pop("_clear_remember_token", None)
 elif not st.session_state.authenticated and validate_remember_token(remember_token, APP_PASSWORD):
-    st.session_state.authenticated = True
-
-if not clear_remember_token and pending_remember_token and validate_remember_token(remember_token, APP_PASSWORD):
-    st.session_state.pop("_pending_remember_token", None)
     st.session_state.authenticated = True
 
 # On a fresh page load, give the browser component one short render to read its

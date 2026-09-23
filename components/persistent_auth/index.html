@@ -4,14 +4,13 @@
   <body>
     <script>
       const STORAGE_KEY = "color_powder_remember";
-      const NO_TOKEN = "__browser_token_missing__";
       let hasResponded = false;
 
       function readToken() {
         try {
-          return window.localStorage.getItem(STORAGE_KEY) || NO_TOKEN;
+          return window.localStorage.getItem(STORAGE_KEY);
         } catch (error) {
-          return NO_TOKEN;
+          return null;
         }
       }
 
@@ -31,8 +30,12 @@
         if (args.token) {
           try {
             window.localStorage.setItem(STORAGE_KEY, args.token);
+            // The Python session has already authenticated this password. Do not
+            // send the token back and trigger a second full Streamlit rerun.
+            hasResponded = true;
+            return;
           } catch (error) {
-            sendValue(NO_TOKEN);
+            sendValue(null);
             return;
           }
         } else if (args.clear) {
@@ -44,6 +47,12 @@
           // Remove cookies created by the earlier implementation as well.
           document.cookie = `${STORAGE_KEY}=; Max-Age=0; Path=/; SameSite=Lax`;
           sendValue("__browser_token_cleared__");
+          return;
+        }
+        if (args.authenticated) {
+          // Normal widget reruns and a reconnected live session need no browser
+          // response; sending one would cause redundant application work.
+          hasResponded = true;
           return;
         }
         sendValue(readToken());
@@ -63,7 +72,7 @@
       // Never leave the Python app on its loading sentinel indefinitely if a
       // browser blocks storage or a render message is unexpectedly missed.
       window.setTimeout(() => {
-        if (!hasResponded) sendValue(NO_TOKEN);
+        if (!hasResponded) sendValue(null);
       }, 1500);
     </script>
   </body>
