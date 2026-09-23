@@ -163,11 +163,13 @@ from utils.persistent_auth import create_remember_token, validate_remember_token
 
 PERFORMANCE_LOGGER = logging.getLogger("color_powder.performance")
 PERFORMANCE_LOGGER.setLevel(logging.INFO)
+PERFORMANCE_DIAGNOSTICS_VERSION = "2026-09-outsourcing-v3"
 
 
 def log_performance(stage, started_at, **fields):
     """Write timing-only diagnostics without credentials or business data."""
     elapsed_ms = round((time.perf_counter() - started_at) * 1000, 1)
+    fields.setdefault("diag", PERFORMANCE_DIAGNOSTICS_VERSION)
     details = " ".join(f"{key}={value}" for key, value in sorted(fields.items()))
     # Streamlit Cloud's default log level can suppress INFO records. WARNING is
     # used deliberately so operators can always see the timing line in app logs;
@@ -3035,6 +3037,7 @@ if "menu" not in st.session_state:
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 page_render_started_at = time.perf_counter()
+log_performance("menu_selected", page_render_started_at, menu=menu)
 
 if menu == "薪資管理":
     render_salary_management(DATABASE_CONFIG)

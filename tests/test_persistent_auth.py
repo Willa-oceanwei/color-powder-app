@@ -49,6 +49,7 @@ def test_app_logs_non_sensitive_startup_performance_stages():
         "authentication_ready",
         "database_startup",
         "application_shell",
+        "menu_selected",
         "page_render",
         "total_authenticated_run",
     ):
@@ -56,3 +57,4 @@ def test_app_logs_non_sensitive_startup_performance_stages():
 
     assert 'logging.getLogger("color_powder.performance")' in app_source
     assert 'PERFORMANCE_LOGGER.warning("[PERF]' in app_source
+    assert 'PERFORMANCE_DIAGNOSTICS_VERSION = "2026-09-outsourcing-v3"' in app_source
