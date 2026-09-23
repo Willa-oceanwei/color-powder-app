@@ -476,11 +476,11 @@ if not st.session_state.authenticated:
 
     st.stop()
 
-if st.sidebar.button("🚪 登出", key="logout_button", use_container_width=True):
+def request_logout():
+    """End the current session and remove its remembered-login cookie."""
     st.session_state.authenticated = False
     st.session_state.pop("_pending_remember_token", None)
     st.session_state["_clear_remember_token"] = True
-    st.rerun()
 
 # Database startup is deliberately after authentication so the password screen
 # never waits for Turso. cache_resource prevents remote schema and health calls
@@ -974,6 +974,22 @@ def render_sidebar():
                 is_current_group = any(item["key"] == st.session_state.menu for item in items)
                 with st.expander(group, expanded=is_current_group):
                     render_items(items)
+
+        # Keep session actions visually separate from navigation. Placing logout
+        # here avoids the previous floating button above the application title.
+        st.markdown(
+            """
+            <div style="margin:0.9rem 0 0.35rem;border-top:1px solid rgba(255,255,255,0.10);"></div>
+            <div class="erp-group" style="margin-top:0;">工作階段</div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.button(
+            "↪ 登出",
+            key="logout_button",
+            use_container_width=True,
+            on_click=request_logout,
+        )
                 
 #=======apply_arrow_nav()======
 

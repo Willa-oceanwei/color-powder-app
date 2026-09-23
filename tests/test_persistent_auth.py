@@ -26,5 +26,6 @@ def test_app_defaults_to_four_hours_and_provides_logout():
     app_source = (Path(__file__).parents[1] / "app.py").read_text()
 
     assert 'st.secrets.get("REMEMBER_LOGIN_HOURS", 4)' in app_source
-    assert 'st.sidebar.button("🚪 登出"' in app_source
+    assert '"↪ 登出"' in app_source
+    assert "on_click=request_logout" in app_source
     assert 'st.session_state["_clear_remember_token"] = True' in app_source
