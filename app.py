@@ -1,11 +1,15 @@
 # ===== app.py =====
+import logging
+import time
+
+APP_RUN_STARTED_AT = time.perf_counter()
+
 import streamlit as st
 import streamlit.components.v1 as components
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 import json
-import time
 import re
 import uuid
 import html as html_escape
@@ -155,6 +159,18 @@ from utils.conflict_repository import (
 from utils.salary_ui import render_salary_management
 from utils.hr_query_ui import render_hr_query
 from utils.persistent_auth import create_remember_token, validate_remember_token
+
+
+PERFORMANCE_LOGGER = logging.getLogger("color_powder.performance")
+PERFORMANCE_LOGGER.setLevel(logging.INFO)
+
+
+def log_performance(stage, started_at, **fields):
+    """Write timing-only diagnostics without credentials or business data."""
+    elapsed_ms = round((time.perf_counter() - started_at) * 1000, 1)
+    details = " ".join(f"{key}={value}" for key, value in sorted(fields.items()))
+    PERFORMANCE_LOGGER.info("[PERF] stage=%s elapsed_ms=%.1f %s", stage, elapsed_ms, details)
+    return elapsed_ms
 
 
 _persistent_auth_storage = components.declare_component(
@@ -460,6 +476,7 @@ elif not st.session_state.authenticated and validate_remember_token(remember_tok
 # On a fresh page load, give the browser component one short render to read its
 # stored token instead of flashing a password prompt that may not be needed.
 if remember_token == BROWSER_TOKEN_LOADING and not st.session_state.authenticated:
+    log_performance("browser_token_wait", APP_RUN_STARTED_AT)
     st.caption("正在確認登入狀態…")
     st.stop()
 
@@ -496,9 +513,16 @@ def request_logout():
     st.session_state.pop("_pending_remember_token", None)
     st.session_state["_clear_remember_token"] = True
 
+log_performance(
+    "authentication_ready",
+    APP_RUN_STARTED_AT,
+    restored=bool(remember_token and not pending_remember_token),
+)
+
 # Database startup is deliberately after authentication so the password screen
 # never waits for Turso. cache_resource prevents remote schema and health calls
 # from repeating for every widget interaction/rerun after login.
+database_started_at = time.perf_counter()
 try:
     DATABASE_SECRET_PRESENCE = secret_presence_from_secrets(st.secrets)
     DATABASE_CONFIG = database_config_from_secrets(st.secrets)
@@ -507,6 +531,11 @@ try:
         DATABASE_CONFIG,
         DATABASE_SECRET_PRESENCE,
         SCHEMA_VERSION,
+    )
+    log_performance(
+        "database_startup",
+        database_started_at,
+        backend=DATABASE_BACKEND,
     )
 except DatabaseStartupError as exc:
     st.error(f"Database startup failed: {exc}")
@@ -1050,10 +1079,12 @@ def apply_arrow_nav():
 
 # ======== ENABLE ========
 
+shell_started_at = time.perf_counter()
 apply_modern_style()
 apply_tab_persistence_fix()
 apply_arrow_nav()
 render_sidebar()
+log_performance("application_shell", shell_started_at)
 
 
 # ======== GCP SERVICE ACCOUNT =========
@@ -3000,6 +3031,7 @@ if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
+page_render_started_at = time.perf_counter()
 
 if menu == "薪資管理":
     render_salary_management(DATABASE_CONFIG)
@@ -14100,3 +14132,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+log_performance("page_render", page_render_started_at, menu=menu)
+log_performance("total_authenticated_run", APP_RUN_STARTED_AT, menu=menu)

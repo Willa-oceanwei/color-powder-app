@@ -39,3 +39,19 @@ def test_app_defaults_to_four_hours_and_provides_logout():
     assert "if (args.authenticated)" in component_source
     assert 'dataType: "json"' in component_source
     assert "if (!hasResponded) sendValue(null)" in component_source
+
+
+def test_app_logs_non_sensitive_startup_performance_stages():
+    app_source = (Path(__file__).parents[1] / "app.py").read_text()
+
+    for stage in (
+        "browser_token_wait",
+        "authentication_ready",
+        "database_startup",
+        "application_shell",
+        "page_render",
+        "total_authenticated_run",
+    ):
+        assert f'"{stage}"' in app_source
+
+    assert 'logging.getLogger("color_powder.performance")' in app_source
