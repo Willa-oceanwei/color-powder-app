@@ -51,3 +51,16 @@ def test_colorant_package_total_converts_hundred_kg_multipliers():
 
     assert delta_total_kg == 150
     assert merged_total_kg == 250
+
+
+def test_initial_production_queries_run_in_parallel_without_duplicate_recipe_load():
+    source = APP_SOURCE.read_text(encoding="utf-8")
+    section = source.split('elif menu == "生產單管理":', 1)[1]
+    section = section.split("# ======== 代工管理分頁 =========", 1)[0]
+
+    assert "ThreadPoolExecutor(max_workers=3)" in section
+    assert "inventory_future = executor.submit(list_inventory_movements" in section
+    assert 'st.session_state["_initial_production_inventory"]' in section
+    assert "load_recipe(force_reload=False)" not in section
+    assert '"production_initial_data"' in section
+    assert '"production_stock_calculation"' in section
