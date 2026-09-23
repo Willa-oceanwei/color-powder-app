@@ -35,3 +35,5 @@ def test_app_defaults_to_four_hours_and_provides_logout():
     assert 'st.session_state["_clear_remember_token"] = True' in app_source
     assert "window.localStorage.setItem(STORAGE_KEY, args.token)" in component_source
     assert "window.localStorage.removeItem(STORAGE_KEY)" in component_source
+    assert 'dataType: "json"' in component_source
+    assert "if (!hasResponded) sendValue(null)" in component_source

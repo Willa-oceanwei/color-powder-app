@@ -4,16 +4,23 @@
   <body>
     <script>
       const STORAGE_KEY = "color_powder_remember";
+      let hasResponded = false;
 
       function readToken() {
-        return window.localStorage.getItem(STORAGE_KEY);
+        try {
+          return window.localStorage.getItem(STORAGE_KEY);
+        } catch (error) {
+          return null;
+        }
       }
 
       function sendValue(value) {
+        hasResponded = true;
         window.parent.postMessage({
           isStreamlitMessage: true,
           type: "streamlit:setComponentValue",
           value: value,
+          dataType: "json",
         }, "*");
       }
 
@@ -21,9 +28,18 @@
         if (!event.data || event.data.type !== "streamlit:render") return;
         const args = event.data.args || {};
         if (args.token) {
-          window.localStorage.setItem(STORAGE_KEY, args.token);
+          try {
+            window.localStorage.setItem(STORAGE_KEY, args.token);
+          } catch (error) {
+            sendValue(null);
+            return;
+          }
         } else if (args.clear) {
-          window.localStorage.removeItem(STORAGE_KEY);
+          try {
+            window.localStorage.removeItem(STORAGE_KEY);
+          } catch (error) {
+            // Still acknowledge logout: the server session is already invalid.
+          }
           // Remove cookies created by the earlier implementation as well.
           document.cookie = `${STORAGE_KEY}=; Max-Age=0; Path=/; SameSite=Lax`;
           sendValue("__browser_token_cleared__");
@@ -42,6 +58,12 @@
         type: "streamlit:setFrameHeight",
         height: 0,
       }, "*");
+
+      // Never leave the Python app on its loading sentinel indefinitely if a
+      // browser blocks storage or a render message is unexpectedly missed.
+      window.setTimeout(() => {
+        if (!hasResponded) sendValue(null);
+      }, 1500);
     </script>
   </body>
 </html>
