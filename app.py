@@ -1,11 +1,15 @@
 # ===== app.py =====
+import logging
+import time
+
+APP_RUN_STARTED_AT = time.perf_counter()
+
 import streamlit as st
 import streamlit.components.v1 as components
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 import json
-import time
 import re
 import uuid
 import html as html_escape
@@ -154,6 +158,28 @@ from utils.conflict_repository import (
 )
 from utils.salary_ui import render_salary_management
 from utils.hr_query_ui import render_hr_query
+from utils.persistent_auth import create_remember_token, validate_remember_token
+
+
+PERFORMANCE_LOGGER = logging.getLogger("color_powder.performance")
+PERFORMANCE_LOGGER.setLevel(logging.INFO)
+
+
+def log_performance(stage, started_at, **fields):
+    """Write timing-only diagnostics without credentials or business data."""
+    elapsed_ms = round((time.perf_counter() - started_at) * 1000, 1)
+    details = " ".join(f"{key}={value}" for key, value in sorted(fields.items()))
+    # Streamlit Cloud's default log level can suppress INFO records. WARNING is
+    # used deliberately so operators can always see the timing line in app logs;
+    # the payload remains timing-only and contains no credentials or row data.
+    PERFORMANCE_LOGGER.warning("[PERF] stage=%s elapsed_ms=%.1f %s", stage, elapsed_ms, details)
+    return elapsed_ms
+
+
+_persistent_auth_storage = components.declare_component(
+    "persistent_auth_storage",
+    path=str(Path(__file__).parent / "components" / "persistent_auth"),
+)
 
 
 # Keep the inventory screen dependent only on the repository's long-standing public
@@ -414,10 +440,48 @@ div[data-baseweb="popover"] p {
 
 # ======== 🔐 簡易登入驗證區 ========
 APP_PASSWORD = st.secrets["APP_PASSWORD"]
-    
+REMEMBER_LOGIN_HOURS = int(st.secrets.get("REMEMBER_LOGIN_HOURS", 4))
+REMEMBER_LOGIN_SECONDS = max(1, REMEMBER_LOGIN_HOURS) * 60 * 60
+
+# The component reads same-browser storage. Its value is signed and expires
+# server-side too, so editing the stored value cannot bypass the password.
+pending_remember_token = st.session_state.get("_pending_remember_token")
+clear_remember_token = st.session_state.get("_clear_remember_token", False)
+BROWSER_TOKEN_LOADING = "__browser_token_loading__"
+remember_token = _persistent_auth_storage(
+    token=pending_remember_token,
+    max_age=REMEMBER_LOGIN_SECONDS,
+    clear=clear_remember_token,
+    authenticated=st.session_state.get("authenticated", False),
+    key="persistent_auth_storage",
+    default=BROWSER_TOKEN_LOADING,
+)
+# Rendering the component has already queued the token write in the browser.
+# Do not wait for a success acknowledgement: that extra component response would
+# rerun the entire authenticated app (including its startup work) a second time.
+if pending_remember_token:
+    st.session_state.pop("_pending_remember_token", None)
+
 # 初始化登入狀態
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+
+if clear_remember_token:
+    # Keep the session logged out while the browser component removes its token.
+    # Wait for the component's deletion acknowledgement before normal login
+    # validation can resume, so a stale cookie cannot immediately sign back in.
+    st.session_state.authenticated = False
+    if remember_token == "__browser_token_cleared__":
+        st.session_state.pop("_clear_remember_token", None)
+elif not st.session_state.authenticated and validate_remember_token(remember_token, APP_PASSWORD):
+    st.session_state.authenticated = True
+
+# On a fresh page load, give the browser component one short render to read its
+# stored token instead of flashing a password prompt that may not be needed.
+if remember_token == BROWSER_TOKEN_LOADING and not st.session_state.authenticated:
+    log_performance("browser_token_wait", APP_RUN_STARTED_AT)
+    st.caption("正在確認登入狀態…")
+    st.stop()
 
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
@@ -431,6 +495,13 @@ if not st.session_state.authenticated:
         password_input = st.text_input("密碼：", type="password", key="login_password")
 
         if password_input == APP_PASSWORD:
+            st.session_state["_pending_remember_token"] = create_remember_token(
+                APP_PASSWORD,
+                REMEMBER_LOGIN_SECONDS,
+            )
+            # Admit this already-verified session immediately. The next render
+            # persists the signed token in the browser without showing the login
+            # screen again while the component acknowledges the write.
             st.session_state.authenticated = True
             st.rerun()
         elif password_input != "":
@@ -439,9 +510,22 @@ if not st.session_state.authenticated:
 
     st.stop()
 
+def request_logout():
+    """End the current session and remove its remembered browser token."""
+    st.session_state.authenticated = False
+    st.session_state.pop("_pending_remember_token", None)
+    st.session_state["_clear_remember_token"] = True
+
+log_performance(
+    "authentication_ready",
+    APP_RUN_STARTED_AT,
+    restored=bool(remember_token and not pending_remember_token),
+)
+
 # Database startup is deliberately after authentication so the password screen
 # never waits for Turso. cache_resource prevents remote schema and health calls
 # from repeating for every widget interaction/rerun after login.
+database_started_at = time.perf_counter()
 try:
     DATABASE_SECRET_PRESENCE = secret_presence_from_secrets(st.secrets)
     DATABASE_CONFIG = database_config_from_secrets(st.secrets)
@@ -450,6 +534,11 @@ try:
         DATABASE_CONFIG,
         DATABASE_SECRET_PRESENCE,
         SCHEMA_VERSION,
+    )
+    log_performance(
+        "database_startup",
+        database_started_at,
+        backend=DATABASE_BACKEND,
     )
 except DatabaseStartupError as exc:
     st.error(f"Database startup failed: {exc}")
@@ -931,6 +1020,22 @@ def render_sidebar():
                 is_current_group = any(item["key"] == st.session_state.menu for item in items)
                 with st.expander(group, expanded=is_current_group):
                     render_items(items)
+
+        # Keep session actions visually separate from navigation. Placing logout
+        # here avoids the previous floating button above the application title.
+        st.markdown(
+            """
+            <div style="margin:0.9rem 0 0.35rem;border-top:1px solid rgba(255,255,255,0.10);"></div>
+            <div class="erp-group" style="margin-top:0;">工作階段</div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.button(
+            "↪ 登出",
+            key="logout_button",
+            use_container_width=True,
+            on_click=request_logout,
+        )
                 
 #=======apply_arrow_nav()======
 
@@ -977,10 +1082,12 @@ def apply_arrow_nav():
 
 # ======== ENABLE ========
 
+shell_started_at = time.perf_counter()
 apply_modern_style()
 apply_tab_persistence_fix()
 apply_arrow_nav()
 render_sidebar()
+log_performance("application_shell", shell_started_at)
 
 
 # ======== GCP SERVICE ACCOUNT =========
@@ -1697,13 +1804,13 @@ def render_pagination_bar(page_key, total_pages, total_rows, limit_key=None, lim
             st.session_state[page_key] = current_page + 1
             st.rerun()
     with cols[3]:
-        jump_page = st.number_input("", min_value=1, max_value=total_pages,
+        jump_page = st.number_input("跳至頁碼", min_value=1, max_value=total_pages,
             value=min(current_page, total_pages), key=f"{key_prefix}_jump_page", label_visibility="collapsed")
         if jump_page != current_page:
             st.session_state[page_key] = jump_page
     if limit_key and limit_options:
         with cols[4]:
-            st.selectbox("", options=limit_options,
+            st.selectbox("每頁筆數", options=limit_options,
                 index=limit_options.index(st.session_state.get(limit_key, limit_options[0])),
                 key=limit_key, label_visibility="collapsed")
 
@@ -2927,6 +3034,7 @@ if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
+page_render_started_at = time.perf_counter()
 
 if menu == "薪資管理":
     render_salary_management(DATABASE_CONFIG)
@@ -3387,11 +3495,11 @@ elif menu == "配方管理":
     
             # ---------------- 比例欄位 ----------------
             colr1, col_colon, colr2, colr3, col_unit = st.columns([2,0.5,2,2,1])
-            with colr1: fr["比例1"] = st.text_input("", value=fr.get("比例1",""), key="ratio1", label_visibility="collapsed")
+            with colr1: fr["比例1"] = st.text_input("比例1", value=fr.get("比例1",""), key="ratio1", label_visibility="collapsed")
             with col_colon:
                 st.markdown("<div style='display:flex;justify-content:center;align-items:center;font-size:18px;font-weight:bold;height:36px;'>:</div>", unsafe_allow_html=True)
-            with colr2: fr["比例2"] = st.text_input("", value=fr.get("比例2",""), key="ratio2", label_visibility="collapsed")
-            with colr3: fr["比例3"] = st.text_input("", value=fr.get("比例3",""), key="ratio3", label_visibility="collapsed")
+            with colr2: fr["比例2"] = st.text_input("比例2", value=fr.get("比例2",""), key="ratio2", label_visibility="collapsed")
+            with colr3: fr["比例3"] = st.text_input("比例3", value=fr.get("比例3",""), key="ratio3", label_visibility="collapsed")
             with col_unit:
                 st.markdown("<div style='display:flex;align-items:center;font-size:16px;height:36px;'>g/kg</div>", unsafe_allow_html=True)
     
@@ -4695,14 +4803,17 @@ elif menu == "生產單管理":
     # 這裡原本重複定義了一份一模一樣的版本，每次 load_recipe() 執行都會重建這 3 個函式物件，
     # 已移除，直接沿用模組層級的版本即可，行為完全相同。
 
-    if not st.session_state.get("production_data_loaded", False):
+    production_data_started_at = time.perf_counter()
+    production_data_cached = st.session_state.get("production_data_loaded", False)
+    if not production_data_cached:
         # 生產單與配方互不相依，首次開頁時並行讀取；後續 widget rerun
         # 直接沿用 session_state，避免每次輸入或切 tab 都重打兩次 Turso。
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             orders_future = executor.submit(
                 list_production_orders, DATABASE_CONFIG, include_cancelled=True
             )
             recipes_future = executor.submit(list_recipes, DATABASE_CONFIG)
+            inventory_future = executor.submit(list_inventory_movements, DATABASE_CONFIG)
 
         try:
             df_order = pd.DataFrame(orders_future.result())
@@ -4725,29 +4836,44 @@ elif menu == "生產單管理":
             st.error(f"❌ 從 Turso 讀取配方失敗：{e}")
             st.stop()
 
+        try:
+            initial_inventory_movements = pd.DataFrame(inventory_future.result())
+        except Exception as e:
+            st.warning(f"⚠️ 無法預先載入庫存記錄：{e}")
+            initial_inventory_movements = None
+
         if not df_order.empty:
             df_order = df_order.fillna("").astype(str)
         st.session_state.df_order = df_order
         st.session_state.df_recipe = df_recipe
+        st.session_state["_initial_production_inventory"] = initial_inventory_movements
         st.session_state.production_data_loaded = True
     
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
+    log_performance(
+        "production_initial_data",
+        production_data_started_at,
+        cached=production_data_cached,
+    )
 
     # ===== 完整初始化庫存（初始 + 進貨 - 已用） =====
     # ===== 庫存計算函式 =====
-    def calculate_current_stock():
+    def calculate_current_stock(preloaded_movements=None):
         """
         計算截至「今天」的實際庫存
         邏輯：與庫存區 calc_usage_for_stock() 完全一致
         """
         stock_dict = {}
         
-        try:
-            df_stock = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
-        except Exception as e:
-            st.warning(f"⚠️ 無法讀取庫存記錄：{e}")
-            return stock_dict
+        if preloaded_movements is not None:
+            df_stock = preloaded_movements.copy()
+        else:
+            try:
+                df_stock = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
+            except Exception as e:
+                st.warning(f"⚠️ 無法讀取庫存記錄：{e}")
+                return stock_dict
         
         if df_stock.empty:
             return stock_dict
@@ -4764,7 +4890,8 @@ elif menu == "生產單管理":
         # === 步驟 1：找出每個色粉的「最新初始庫存」及其日期 ===
         initial_stocks = {}
         
-        for idx, row in df_stock.iterrows():
+        stock_records = df_stock.to_dict("records")
+        for row in stock_records:
             if row["類型"] != "初始":
                 continue
             
@@ -4803,7 +4930,7 @@ elif menu == "生產單管理":
                 initial_stocks[pid] = {"qty": 0.0, "date": min_in_date}
                 stock_dict[pid] = 0.0
         
-        for idx, row in df_stock.iterrows():
+        for row in stock_records:
             if row["類型"] != "進貨":
                 continue
             
@@ -4852,14 +4979,26 @@ elif menu == "生產單管理":
             df_order_hist["生產日期"] = pd.to_datetime(df_order_hist["生產日期"], errors="coerce")
         
         df_recipe_hist = st.session_state.get("df_recipe", pd.DataFrame()).copy()
-        
-        # ✅ 確保必要欄位存在
+
+        # ✅ 確保必要欄位存在，並預先建立 O(1) lookup。舊版會對每張
+        # 生產單掃描整份配方表兩次，資料量大時會呈平方成長。
         powder_cols = [f"色粉編號{i}" for i in range(1, 9)]
         for c in powder_cols + ["配方編號", "配方類別", "原始配方"]:
             if c not in df_recipe_hist.columns:
                 df_recipe_hist[c] = ""
-        
-        for _, order_hist in df_order_hist.iterrows():
+
+        main_recipe_by_id = {}
+        additions_by_original = {}
+        for recipe_row in df_recipe_hist.to_dict("records"):
+            recipe_id = str(recipe_row.get("配方編號", "")).strip()
+            recipe_type = str(recipe_row.get("配方類別", "")).strip()
+            original_id = str(recipe_row.get("原始配方", "")).strip()
+            if recipe_id and recipe_id not in main_recipe_by_id:
+                main_recipe_by_id[recipe_id] = recipe_row
+            if recipe_type == "附加配方" and original_id:
+                additions_by_original.setdefault(original_id, []).append(recipe_row)
+
+        for order_hist in df_order_hist.to_dict("records"):
             order_date = order_hist.get("生產日期")
             
             # ✅ 沒有日期的訂單直接跳過
@@ -4870,19 +5009,12 @@ elif menu == "生產單管理":
             if not recipe_id:
                 continue
             
-            # ✅ 關鍵修正：只處理「這張訂單的配方」，避免重複計算
-            # 取得主配方與附加配方
+            # ✅ 只處理這張訂單的主配方與附加配方；lookup 已在迴圈外建立。
             recipe_rows = []
-            main_df = df_recipe_hist[df_recipe_hist["配方編號"].astype(str).str.strip() == recipe_id]
-            if not main_df.empty:
-                recipe_rows.append(main_df.iloc[0].to_dict())
-            
-            add_df = df_recipe_hist[
-                (df_recipe_hist["配方類別"].astype(str).str.strip() == "附加配方") &
-                (df_recipe_hist["原始配方"].astype(str).str.strip() == recipe_id)
-            ]
-            if not add_df.empty:
-                recipe_rows.extend(add_df.to_dict("records"))
+            main_recipe = main_recipe_by_id.get(recipe_id)
+            if main_recipe is not None:
+                recipe_rows.append(main_recipe)
+            recipe_rows.extend(additions_by_original.get(recipe_id, ()))
             
             # 計算包裝總量（kg）
             packs_total_kg = calc_packs_total_kg(order_hist)
@@ -4953,11 +5085,18 @@ elif menu == "生產單管理":
         or (now - last_calc_time).total_seconds() > stock_recalc_interval_sec
     )
 
+    stock_calculation_started_at = time.perf_counter()
     if should_recalc_stock:
-        # 讓既有 sheet TTL 快取先判斷是否需要打 API
-        load_recipe(force_reload=False)
-        st.session_state["last_final_stock"] = calculate_current_stock()
+        # 首次開頁沿用與生產單、配方並行取得的庫存快照，避免先等完
+        # 兩個 Turso query 後又串行等待第三個。三分鐘到期後才重新讀取。
+        initial_inventory = st.session_state.pop("_initial_production_inventory", None)
+        st.session_state["last_final_stock"] = calculate_current_stock(initial_inventory)
         st.session_state["stock_calc_time"] = now
+    log_performance(
+        "production_stock_calculation",
+        stock_calculation_started_at,
+        cached=not should_recalc_stock,
+    )
     
     # ============================================================
     # 共用顯示函式（正式流程使用）
@@ -5179,7 +5318,8 @@ elif menu == "生產單管理":
 
         with col1:
             search_text_tab1 = st.text_input(
-                label="",
+                label="搜尋配方",
+                label_visibility="collapsed",
                 placeholder="🔎 多條件搜尋：配方編號, 客戶名稱, 顏色",
                 key="search_text_tab1"
             )
@@ -6301,7 +6441,8 @@ elif menu == "生產單管理":
     with tab2:
 
         search_order = st.text_input(
-            label="",   # 不顯示上方標題
+            label="搜尋生產單記錄",
+            label_visibility="collapsed",
             placeholder="多條件搜尋：編號, 公司名, 顏色, 生產單號",
             key="search_order_input_tab2"
         )
@@ -6438,7 +6579,8 @@ elif menu == "生產單管理":
             
             # 🔍 搜尋關鍵字
             search_order = st.text_input(
-                label="",
+                label="搜尋生產單預覽",
+                label_visibility="collapsed",
                 placeholder="可輸入多條件，例如：編號, 公司名, 顏色, 生產單號",
                 key="search_order_input_tab3"
             )
@@ -6921,11 +7063,30 @@ if menu == "代工管理":
     def load_oem_data():
         """重新從 Turso 讀取代工主檔與不可變 ledger。"""
         try:
-            df_oem_ = pd.DataFrame(list_outsourcing_orders(DATABASE_CONFIG))
-            df_delivery_ = pd.DataFrame(list_outsourcing_events(DATABASE_CONFIG, "delivery"))
-            df_return_ = pd.DataFrame(list_outsourcing_events(DATABASE_CONFIG, "return"))
+            # 三份資料互不相依；並行取得以避免三次 Turso round trip 串行累加。
+            # 主檔一次包含 active/inactive，封存分頁直接重用，不再額外查詢。
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                orders_future = executor.submit(
+                    list_outsourcing_orders, DATABASE_CONFIG, include_inactive=True
+                )
+                deliveries_future = executor.submit(
+                    list_outsourcing_events, DATABASE_CONFIG, "delivery"
+                )
+                returns_future = executor.submit(
+                    list_outsourcing_events, DATABASE_CONFIG, "return"
+                )
+            all_lifecycle_orders_ = orders_future.result()
+            delivery_rows_ = deliveries_future.result()
+            return_rows_ = returns_future.result()
+            df_oem_ = pd.DataFrame([
+                item for item in all_lifecycle_orders_
+                if item.get("生命週期", "active") == "active"
+            ])
+            df_delivery_ = pd.DataFrame(delivery_rows_)
+            df_return_ = pd.DataFrame(return_rows_)
         except Exception as exc:
             st.error(f"❌ 無法從 Turso 載入代工資料：{exc}")
+            all_lifecycle_orders_ = []
             df_oem_ = pd.DataFrame(columns=["代工單號", "生產單號", "配方編號", "客戶名稱",
                                              "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
             df_delivery_ = pd.DataFrame(columns=["代工單號", "送達日期", "送達數量", "建立時間"])
@@ -6943,13 +7104,19 @@ if menu == "代工管理":
         st.session_state.df_oem      = df_oem_
         st.session_state.df_delivery = df_delivery_
         st.session_state.df_return   = df_return_
+        st.session_state.oem_all_lifecycle_orders = all_lifecycle_orders_
         st.session_state.oem_data_loaded = True
 
     # ── 只有第一次進入時才讀 Turso，rerun 時直接用 session_state ──
     # 也防禦舊 session：若旗標存在但必要資料缺漏，仍強制補載
-    oem_keys_ready = all(k in st.session_state for k in ["df_oem", "df_delivery", "df_return"])
+    oem_keys_ready = all(k in st.session_state for k in [
+        "df_oem", "df_delivery", "df_return", "oem_all_lifecycle_orders",
+    ])
+    oem_data_started_at = time.perf_counter()
+    oem_data_cached = st.session_state.get("oem_data_loaded", False) and oem_keys_ready
     if (not st.session_state.get("oem_data_loaded", False)) or (not oem_keys_ready):
         load_oem_data()
+    log_performance("outsourcing_initial_data", oem_data_started_at, cached=oem_data_cached)
 
     # 取出 DataFrame（全程用 session_state，不重讀 Turso）
     df_oem      = st.session_state.df_oem
@@ -7063,6 +7230,21 @@ if menu == "代工管理":
         if target <= 0:
             target = delivered
         return f"{oem_no} | {recipe_no} | {customer} | 📦送{delivered:g} → 🎯應回{target:g}"
+
+    # Both progress/history tabs need the same ledger rows. Build the indexes
+    # once so rendering each OEM order does not scan both complete DataFrames.
+    def _group_oem_events(source_df):
+        grouped = {}
+        if source_df.empty or "代工單號" not in source_df.columns:
+            return grouped
+        for event in source_df.to_dict("records"):
+            grouped.setdefault(_norm_oem_no(event.get("代工單號", "")), []).append(event)
+        return grouped
+
+    oem_event_index_started_at = time.perf_counter()
+    deliveries_by_oem = _group_oem_events(df_delivery)
+    returns_by_oem = _group_oem_events(df_return)
+    log_performance("outsourcing_event_index", oem_event_index_started_at)
 
     # ================================================================
     # Tab 分頁
@@ -7207,7 +7389,9 @@ if menu == "代工管理":
 
             df_oem["狀態"] = df_oem["狀態"].astype(str).str.strip()
             df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
-            df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
+            df_oem["日期排序"] = pd.to_datetime(
+                df_oem["日期排序"], format="mixed", errors="coerce"
+            )
 
             df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
             df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
@@ -7490,7 +7674,9 @@ if menu == "代工管理":
             st.info("⚠️ 目前沒有代工單")
         else:
             df_oem["日期排序"] = df_oem["代工單號"].str.split("-").str[0].apply(tw_to_ad)
-            df_oem["日期排序"] = pd.to_datetime(df_oem["日期排序"], errors="coerce")
+            df_oem["日期排序"] = pd.to_datetime(
+                df_oem["日期排序"], format="mixed", errors="coerce"
+            )
 
             def _render_return_workspace(df_oem_active, *, correction_mode):
                 if df_oem_active.empty:
@@ -7713,40 +7899,32 @@ if menu == "代工管理":
                     df_recipe_for_color["顏色"].astype(str)
                 ))
 
-            df_delivery_norm = df_delivery.copy()
-            df_return_norm = df_return.copy()
-            if not df_delivery_norm.empty and "代工單號" in df_delivery_norm.columns:
-                df_delivery_norm["_代工單號_norm"] = df_delivery_norm["代工單號"].apply(_norm_oem_no)
-            if not df_return_norm.empty and "代工單號" in df_return_norm.columns:
-                df_return_norm["_代工單號_norm"] = df_return_norm["代工單號"].apply(_norm_oem_no)
-
-            for _, oem in df_oem.iterrows():
+            progress_build_started_at = time.perf_counter()
+            for oem in df_oem.to_dict("records"):
                 oem_id = _norm_oem_no(oem["代工單號"])
 
-                df_this_delivery = df_delivery_norm[df_delivery_norm.get("_代工單號_norm", pd.Series(dtype=str)) == oem_id]
-                delivery_text = ""
-                if not df_this_delivery.empty:
-                    delivery_text = "\n".join([
-                        f"{row['送達日期']} ({row['送達數量']} kg)"
-                        for _, row in df_this_delivery.iterrows()
-                    ])
-
-                df_this_return = df_return_norm[df_return_norm.get("_代工單號_norm", pd.Series(dtype=str)) == oem_id]
-                return_text = ""
+                delivery_rows = deliveries_by_oem.get(oem_id, ())
+                return_rows = returns_by_oem.get(oem_id, ())
+                delivery_text = "\n".join(
+                    f"{row.get('送達日期', '')} ({row.get('送達數量', '')} kg)"
+                    for row in delivery_rows
+                )
+                return_text = "\n".join(
+                    f"{row.get('載回日期', '')} ({row.get('載回數量', '')} kg)"
+                    for row in return_rows
+                )
                 latest_return_date = pd.NaT
-                if not df_this_return.empty:
-                    return_text = "\n".join([
-                        f"{row['載回日期']} ({row['載回數量']} kg)"
-                        for _, row in df_this_return.iterrows()
-                    ])
-                    latest_return_date = pd.to_datetime(df_this_return["載回日期"], errors="coerce").max()
+                if return_rows:
+                    latest_return_date = pd.to_datetime(
+                        [row.get("載回日期", "") for row in return_rows], errors="coerce"
+                    ).max()
 
                 total_qty      = _safe_float(oem.get("代工數量", 0), 0.0)
                 target_qty     = _safe_float(oem.get("目標載回數量", total_qty), total_qty)
                 if target_qty <= 0:
                     target_qty = total_qty
-                total_returned = df_this_return["載回數量"].astype(float).sum()                     if not df_this_return.empty else 0.0
-                total_delivered = df_this_delivery["送達數量"].astype(float).sum()                     if not df_this_delivery.empty else 0.0
+                total_returned = sum(_safe_float(row.get("載回數量", 0)) for row in return_rows)
+                total_delivered = sum(_safe_float(row.get("送達數量", 0)) for row in delivery_rows)
 
                 manual_status = str(oem.get("狀態", "")).strip()
                 if manual_status:
@@ -7792,11 +7970,12 @@ if menu == "代工管理":
 
             df_progress_all = pd.DataFrame(progress_data)
             df_progress_all["建立時間_dt"] = pd.to_datetime(df_progress_all["建立時間"], errors="coerce")
+            log_performance("outsourcing_progress_build", progress_build_started_at)
 
             def _apply_tab4_filters(source_df, key_prefix):
                 filtered_df = source_df.copy()
                 search_text = st.text_input(
-                    label="",
+                    label="搜尋代工進度",
                     label_visibility="collapsed",
                     placeholder="輸入關鍵字（可輸入多條件，例如：編號, 公司名, 顏色, 生產單號）",
                     key=f"{key_prefix}_search_text"
@@ -8042,24 +8221,20 @@ if menu == "代工管理":
         else:
             progress_data = []
 
-            for _, oem in df_oem.iterrows():
+            for oem in df_oem.to_dict("records"):
                 oem_id = oem.get("代工單號", "")
+                normalized_oem_id = _norm_oem_no(oem_id)
                 status = oem.get("狀態", "")
                 status_order = 0 if status != "✅ 已結案" else 1
 
-                df_del = df_delivery[df_delivery["代工單號"] == oem_id] \
-                    if "代工單號" in df_delivery.columns else pd.DataFrame()
-                delivery_text = "\n".join([
-                    f"{row['送達日期']} → {row['送達數量']} kg"
-                    for _, row in df_del.iterrows()
-                ]) if not df_del.empty else ""
-
-                df_ret = df_return[df_return["代工單號"] == oem_id] \
-                    if "代工單號" in df_return.columns else pd.DataFrame()
-                return_text = "\n".join([
-                    f"{row['載回日期']} → {row['載回數量']} kg"
-                    for _, row in df_ret.iterrows()
-                ]) if not df_ret.empty else ""
+                delivery_text = "\n".join(
+                    f"{row.get('送達日期', '')} → {row.get('送達數量', '')} kg"
+                    for row in deliveries_by_oem.get(normalized_oem_id, ())
+                )
+                return_text = "\n".join(
+                    f"{row.get('載回日期', '')} → {row.get('載回數量', '')} kg"
+                    for row in returns_by_oem.get(normalized_oem_id, ())
+                )
 
                 progress_data.append({
                     "status_order": status_order,
@@ -8115,11 +8290,15 @@ if menu == "代工管理":
             "封存只會從一般畫面與三張 Sheet 移除副本；"
             "Turso 的主檔、送達與載回歷程都會永久保留。"
         )
-        try:
-            all_lifecycle_orders = list_outsourcing_orders(DATABASE_CONFIG, include_inactive=True)
-        except OutsourcingError as exc:
-            st.error(f"無法載入封存資料：{exc}")
-            all_lifecycle_orders = []
+        # Active rows may have been edited in this run, so combine the live
+        # session DataFrame with the cached inactive rows from the initial query.
+        inactive_lifecycle_orders = [
+            item for item in st.session_state.get("oem_all_lifecycle_orders", [])
+            if item.get("生命週期") == "inactive"
+        ]
+        all_lifecycle_orders = (
+            st.session_state.df_oem.to_dict("records") + inactive_lifecycle_orders
+        )
 
         active_closed = [
             item for item in all_lifecycle_orders
@@ -8129,8 +8308,8 @@ if menu == "代工管理":
         inactive_orders = [
             item for item in all_lifecycle_orders if item.get("生命週期") == "inactive"
         ]
-        all_deliveries = list_outsourcing_events(DATABASE_CONFIG, "delivery")
-        all_returns = list_outsourcing_events(DATABASE_CONFIG, "return")
+        all_deliveries = st.session_state.df_delivery.to_dict("records")
+        all_returns = st.session_state.df_return.to_dict("records")
         recipe_name_map = {}
         recipe_rows_for_archive = st.session_state.get("df_recipe", pd.DataFrame())
         if (
@@ -9224,7 +9403,10 @@ elif menu == "查詢區":
             with c1:
                 search_code = st.text_input("輸入 Pantone 色號", key="search_pantone_tab")
             with c2:
-                search_mode = st.selectbox("", ["部分匹配", "精準匹配"], key="pantone_search_mode")
+                search_mode = st.selectbox(
+                    "搜尋模式", ["部分匹配", "精準匹配"],
+                    key="pantone_search_mode", label_visibility="collapsed",
+                )
 
             if search_code:
                 if search_mode == "精準匹配":
@@ -14027,3 +14209,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+log_performance("page_render", page_render_started_at, menu=menu)
+log_performance("total_authenticated_run", APP_RUN_STARTED_AT, menu=menu)
