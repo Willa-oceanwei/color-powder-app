@@ -73,3 +73,17 @@ def test_streamlit_widgets_do_not_use_empty_keyword_labels():
     source = APP_SOURCE.read_text(encoding="utf-8")
 
     assert 'label=""' not in source
+
+
+def test_outsourcing_initial_queries_run_in_parallel_and_lifecycle_tab_reuses_them():
+    source = APP_SOURCE.read_text(encoding="utf-8")
+    section = source.split('if menu == "代工管理":', 1)[1]
+    section = section.split('elif menu == "採購管理":', 1)[0]
+
+    assert "ThreadPoolExecutor(max_workers=3)" in section
+    assert "include_inactive=True" in section
+    assert "st.session_state.oem_all_lifecycle_orders" in section
+    assert '"outsourcing_initial_data"' in section
+    lifecycle_tab = section.split("# Tab 6：已結案代工單受控封存／恢復", 1)[1]
+    assert "list_outsourcing_orders" not in lifecycle_tab
+    assert "list_outsourcing_events" not in lifecycle_tab

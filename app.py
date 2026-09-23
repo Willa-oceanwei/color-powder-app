@@ -7063,11 +7063,30 @@ if menu == "代工管理":
     def load_oem_data():
         """重新從 Turso 讀取代工主檔與不可變 ledger。"""
         try:
-            df_oem_ = pd.DataFrame(list_outsourcing_orders(DATABASE_CONFIG))
-            df_delivery_ = pd.DataFrame(list_outsourcing_events(DATABASE_CONFIG, "delivery"))
-            df_return_ = pd.DataFrame(list_outsourcing_events(DATABASE_CONFIG, "return"))
+            # 三份資料互不相依；並行取得以避免三次 Turso round trip 串行累加。
+            # 主檔一次包含 active/inactive，封存分頁直接重用，不再額外查詢。
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                orders_future = executor.submit(
+                    list_outsourcing_orders, DATABASE_CONFIG, include_inactive=True
+                )
+                deliveries_future = executor.submit(
+                    list_outsourcing_events, DATABASE_CONFIG, "delivery"
+                )
+                returns_future = executor.submit(
+                    list_outsourcing_events, DATABASE_CONFIG, "return"
+                )
+            all_lifecycle_orders_ = orders_future.result()
+            delivery_rows_ = deliveries_future.result()
+            return_rows_ = returns_future.result()
+            df_oem_ = pd.DataFrame([
+                item for item in all_lifecycle_orders_
+                if item.get("生命週期", "active") == "active"
+            ])
+            df_delivery_ = pd.DataFrame(delivery_rows_)
+            df_return_ = pd.DataFrame(return_rows_)
         except Exception as exc:
             st.error(f"❌ 無法從 Turso 載入代工資料：{exc}")
+            all_lifecycle_orders_ = []
             df_oem_ = pd.DataFrame(columns=["代工單號", "生產單號", "配方編號", "客戶名稱",
                                              "代工數量", "目標載回數量", "轉換倍率", "代工廠商", "備註", "狀態", "建立時間", "已交貨", "交貨備註"])
             df_delivery_ = pd.DataFrame(columns=["代工單號", "送達日期", "送達數量", "建立時間"])
@@ -7085,13 +7104,19 @@ if menu == "代工管理":
         st.session_state.df_oem      = df_oem_
         st.session_state.df_delivery = df_delivery_
         st.session_state.df_return   = df_return_
+        st.session_state.oem_all_lifecycle_orders = all_lifecycle_orders_
         st.session_state.oem_data_loaded = True
 
     # ── 只有第一次進入時才讀 Turso，rerun 時直接用 session_state ──
     # 也防禦舊 session：若旗標存在但必要資料缺漏，仍強制補載
-    oem_keys_ready = all(k in st.session_state for k in ["df_oem", "df_delivery", "df_return"])
+    oem_keys_ready = all(k in st.session_state for k in [
+        "df_oem", "df_delivery", "df_return", "oem_all_lifecycle_orders",
+    ])
+    oem_data_started_at = time.perf_counter()
+    oem_data_cached = st.session_state.get("oem_data_loaded", False) and oem_keys_ready
     if (not st.session_state.get("oem_data_loaded", False)) or (not oem_keys_ready):
         load_oem_data()
+    log_performance("outsourcing_initial_data", oem_data_started_at, cached=oem_data_cached)
 
     # 取出 DataFrame（全程用 session_state，不重讀 Turso）
     df_oem      = st.session_state.df_oem
@@ -8261,11 +8286,15 @@ if menu == "代工管理":
             "封存只會從一般畫面與三張 Sheet 移除副本；"
             "Turso 的主檔、送達與載回歷程都會永久保留。"
         )
-        try:
-            all_lifecycle_orders = list_outsourcing_orders(DATABASE_CONFIG, include_inactive=True)
-        except OutsourcingError as exc:
-            st.error(f"無法載入封存資料：{exc}")
-            all_lifecycle_orders = []
+        # Active rows may have been edited in this run, so combine the live
+        # session DataFrame with the cached inactive rows from the initial query.
+        inactive_lifecycle_orders = [
+            item for item in st.session_state.get("oem_all_lifecycle_orders", [])
+            if item.get("生命週期") == "inactive"
+        ]
+        all_lifecycle_orders = (
+            st.session_state.df_oem.to_dict("records") + inactive_lifecycle_orders
+        )
 
         active_closed = [
             item for item in all_lifecycle_orders
@@ -8275,8 +8304,8 @@ if menu == "代工管理":
         inactive_orders = [
             item for item in all_lifecycle_orders if item.get("生命週期") == "inactive"
         ]
-        all_deliveries = list_outsourcing_events(DATABASE_CONFIG, "delivery")
-        all_returns = list_outsourcing_events(DATABASE_CONFIG, "return")
+        all_deliveries = st.session_state.df_delivery.to_dict("records")
+        all_returns = st.session_state.df_return.to_dict("records")
         recipe_name_map = {}
         recipe_rows_for_archive = st.session_state.get("df_recipe", pd.DataFrame())
         if (
