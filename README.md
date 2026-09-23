@@ -18,6 +18,10 @@ My color powder management system
 
 3. 第一次啟動會自動建立 `data/colorpowder.db` 與 SQLite schema。登入後主畫面會先完成 UI rendering；Google Sheets 連線已改為 lazy loading，只有進入需要工作表資料的功能時才會連線。
 
+   登入成功後，同一台裝置的同一個瀏覽器會記住登入狀態 4 小時，期間重新整理不必再次輸入密碼。可在 Streamlit secrets 設定 `REMEMBER_LOGIN_HOURS` 調整時數；修改 `APP_PASSWORD` 會立即讓既有登入失效。若使用共用裝置，可按側邊欄的「登出」立即清除登入狀態。
+
+   若要診斷登入後的讀取速度，可在 Streamlit Cloud 的 **Manage app → Logs** 搜尋 `[PERF]`。紀錄只包含登入確認、資料庫啟動、介面外框、目前頁面與整次執行的毫秒數，不會輸出密碼、登入 token、資料庫憑證或業務資料。
+
 4. 若要先把現有 Google Sheets 安全複製進 SQLite，請執行下方「第一次安全匯入 Google Sheets」指令。這個匯入不會修改原始 Google Sheets。
 
 ## SQLite 主資料庫升級（第一階段）

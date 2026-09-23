@@ -1,11 +1,15 @@
 # ===== app.py =====
+import logging
+import time
+
+APP_RUN_STARTED_AT = time.perf_counter()
+
 import streamlit as st
 import streamlit.components.v1 as components
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 import json
-import time
 import re
 import uuid
 import html as html_escape
@@ -154,6 +158,25 @@ from utils.conflict_repository import (
 )
 from utils.salary_ui import render_salary_management
 from utils.hr_query_ui import render_hr_query
+from utils.persistent_auth import create_remember_token, validate_remember_token
+
+
+PERFORMANCE_LOGGER = logging.getLogger("color_powder.performance")
+PERFORMANCE_LOGGER.setLevel(logging.INFO)
+
+
+def log_performance(stage, started_at, **fields):
+    """Write timing-only diagnostics without credentials or business data."""
+    elapsed_ms = round((time.perf_counter() - started_at) * 1000, 1)
+    details = " ".join(f"{key}={value}" for key, value in sorted(fields.items()))
+    PERFORMANCE_LOGGER.info("[PERF] stage=%s elapsed_ms=%.1f %s", stage, elapsed_ms, details)
+    return elapsed_ms
+
+
+_persistent_auth_storage = components.declare_component(
+    "persistent_auth_storage",
+    path=str(Path(__file__).parent / "components" / "persistent_auth"),
+)
 
 
 # Keep the inventory screen dependent only on the repository's long-standing public
@@ -414,10 +437,48 @@ div[data-baseweb="popover"] p {
 
 # ======== 🔐 簡易登入驗證區 ========
 APP_PASSWORD = st.secrets["APP_PASSWORD"]
-    
+REMEMBER_LOGIN_HOURS = int(st.secrets.get("REMEMBER_LOGIN_HOURS", 4))
+REMEMBER_LOGIN_SECONDS = max(1, REMEMBER_LOGIN_HOURS) * 60 * 60
+
+# The component reads same-browser storage. Its value is signed and expires
+# server-side too, so editing the stored value cannot bypass the password.
+pending_remember_token = st.session_state.get("_pending_remember_token")
+clear_remember_token = st.session_state.get("_clear_remember_token", False)
+BROWSER_TOKEN_LOADING = "__browser_token_loading__"
+remember_token = _persistent_auth_storage(
+    token=pending_remember_token,
+    max_age=REMEMBER_LOGIN_SECONDS,
+    clear=clear_remember_token,
+    authenticated=st.session_state.get("authenticated", False),
+    key="persistent_auth_storage",
+    default=BROWSER_TOKEN_LOADING,
+)
+# Rendering the component has already queued the token write in the browser.
+# Do not wait for a success acknowledgement: that extra component response would
+# rerun the entire authenticated app (including its startup work) a second time.
+if pending_remember_token:
+    st.session_state.pop("_pending_remember_token", None)
+
 # 初始化登入狀態
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+
+if clear_remember_token:
+    # Keep the session logged out while the browser component removes its token.
+    # Wait for the component's deletion acknowledgement before normal login
+    # validation can resume, so a stale cookie cannot immediately sign back in.
+    st.session_state.authenticated = False
+    if remember_token == "__browser_token_cleared__":
+        st.session_state.pop("_clear_remember_token", None)
+elif not st.session_state.authenticated and validate_remember_token(remember_token, APP_PASSWORD):
+    st.session_state.authenticated = True
+
+# On a fresh page load, give the browser component one short render to read its
+# stored token instead of flashing a password prompt that may not be needed.
+if remember_token == BROWSER_TOKEN_LOADING and not st.session_state.authenticated:
+    log_performance("browser_token_wait", APP_RUN_STARTED_AT)
+    st.caption("正在確認登入狀態…")
+    st.stop()
 
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
@@ -431,6 +492,13 @@ if not st.session_state.authenticated:
         password_input = st.text_input("密碼：", type="password", key="login_password")
 
         if password_input == APP_PASSWORD:
+            st.session_state["_pending_remember_token"] = create_remember_token(
+                APP_PASSWORD,
+                REMEMBER_LOGIN_SECONDS,
+            )
+            # Admit this already-verified session immediately. The next render
+            # persists the signed token in the browser without showing the login
+            # screen again while the component acknowledges the write.
             st.session_state.authenticated = True
             st.rerun()
         elif password_input != "":
@@ -439,9 +507,22 @@ if not st.session_state.authenticated:
 
     st.stop()
 
+def request_logout():
+    """End the current session and remove its remembered browser token."""
+    st.session_state.authenticated = False
+    st.session_state.pop("_pending_remember_token", None)
+    st.session_state["_clear_remember_token"] = True
+
+log_performance(
+    "authentication_ready",
+    APP_RUN_STARTED_AT,
+    restored=bool(remember_token and not pending_remember_token),
+)
+
 # Database startup is deliberately after authentication so the password screen
 # never waits for Turso. cache_resource prevents remote schema and health calls
 # from repeating for every widget interaction/rerun after login.
+database_started_at = time.perf_counter()
 try:
     DATABASE_SECRET_PRESENCE = secret_presence_from_secrets(st.secrets)
     DATABASE_CONFIG = database_config_from_secrets(st.secrets)
@@ -450,6 +531,11 @@ try:
         DATABASE_CONFIG,
         DATABASE_SECRET_PRESENCE,
         SCHEMA_VERSION,
+    )
+    log_performance(
+        "database_startup",
+        database_started_at,
+        backend=DATABASE_BACKEND,
     )
 except DatabaseStartupError as exc:
     st.error(f"Database startup failed: {exc}")
@@ -931,6 +1017,22 @@ def render_sidebar():
                 is_current_group = any(item["key"] == st.session_state.menu for item in items)
                 with st.expander(group, expanded=is_current_group):
                     render_items(items)
+
+        # Keep session actions visually separate from navigation. Placing logout
+        # here avoids the previous floating button above the application title.
+        st.markdown(
+            """
+            <div style="margin:0.9rem 0 0.35rem;border-top:1px solid rgba(255,255,255,0.10);"></div>
+            <div class="erp-group" style="margin-top:0;">工作階段</div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.button(
+            "↪ 登出",
+            key="logout_button",
+            use_container_width=True,
+            on_click=request_logout,
+        )
                 
 #=======apply_arrow_nav()======
 
@@ -977,10 +1079,12 @@ def apply_arrow_nav():
 
 # ======== ENABLE ========
 
+shell_started_at = time.perf_counter()
 apply_modern_style()
 apply_tab_persistence_fix()
 apply_arrow_nav()
 render_sidebar()
+log_performance("application_shell", shell_started_at)
 
 
 # ======== GCP SERVICE ACCOUNT =========
@@ -2927,6 +3031,7 @@ if "menu" not in st.session_state:
     st.session_state.menu = "生產單管理"
 # ------------------------------
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
+page_render_started_at = time.perf_counter()
 
 if menu == "薪資管理":
     render_salary_management(DATABASE_CONFIG)
@@ -14027,3 +14132,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+log_performance("page_render", page_render_started_at, menu=menu)
+log_performance("total_authenticated_run", APP_RUN_STARTED_AT, menu=menu)
