@@ -154,6 +154,13 @@ from utils.conflict_repository import (
 )
 from utils.salary_ui import render_salary_management
 from utils.hr_query_ui import render_hr_query
+from utils.persistent_auth import create_remember_token, validate_remember_token
+
+
+_persistent_auth_cookie = components.declare_component(
+    "persistent_auth_cookie",
+    path=str(Path(__file__).parent / "components" / "persistent_auth"),
+)
 
 
 # Keep the inventory screen dependent only on the repository's long-standing public
@@ -414,10 +421,37 @@ div[data-baseweb="popover"] p {
 
 # ======== 🔐 簡易登入驗證區 ========
 APP_PASSWORD = st.secrets["APP_PASSWORD"]
-    
+REMEMBER_LOGIN_HOURS = int(st.secrets.get("REMEMBER_LOGIN_HOURS", 4))
+REMEMBER_LOGIN_SECONDS = max(1, REMEMBER_LOGIN_HOURS) * 60 * 60
+
+# The component reads a same-device browser cookie. Its value is signed and
+# expires server-side too, so editing the cookie cannot bypass the password.
+pending_remember_token = st.session_state.get("_pending_remember_token")
+clear_remember_token = st.session_state.get("_clear_remember_token", False)
+remember_token = _persistent_auth_cookie(
+    token=pending_remember_token,
+    max_age=REMEMBER_LOGIN_SECONDS,
+    clear=clear_remember_token,
+    key="persistent_auth_cookie",
+)
+
 # 初始化登入狀態
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+
+if clear_remember_token:
+    # Keep the session logged out while the browser component removes its cookie.
+    # Wait for the component's deletion acknowledgement before normal login
+    # validation can resume, so a stale cookie cannot immediately sign back in.
+    st.session_state.authenticated = False
+    if remember_token == "__cookie_cleared__":
+        st.session_state.pop("_clear_remember_token", None)
+elif not st.session_state.authenticated and validate_remember_token(remember_token, APP_PASSWORD):
+    st.session_state.authenticated = True
+
+if not clear_remember_token and pending_remember_token and validate_remember_token(remember_token, APP_PASSWORD):
+    st.session_state.pop("_pending_remember_token", None)
+    st.session_state.authenticated = True
 
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
@@ -431,13 +465,22 @@ if not st.session_state.authenticated:
         password_input = st.text_input("密碼：", type="password", key="login_password")
 
         if password_input == APP_PASSWORD:
-            st.session_state.authenticated = True
+            st.session_state["_pending_remember_token"] = create_remember_token(
+                APP_PASSWORD,
+                REMEMBER_LOGIN_SECONDS,
+            )
             st.rerun()
         elif password_input != "":
             st.error("❌ 密碼錯誤，請再試一次。")
             st.stop()
 
     st.stop()
+
+def request_logout():
+    """End the current session and remove its remembered-login cookie."""
+    st.session_state.authenticated = False
+    st.session_state.pop("_pending_remember_token", None)
+    st.session_state["_clear_remember_token"] = True
 
 # Database startup is deliberately after authentication so the password screen
 # never waits for Turso. cache_resource prevents remote schema and health calls
@@ -931,6 +974,22 @@ def render_sidebar():
                 is_current_group = any(item["key"] == st.session_state.menu for item in items)
                 with st.expander(group, expanded=is_current_group):
                     render_items(items)
+
+        # Keep session actions visually separate from navigation. Placing logout
+        # here avoids the previous floating button above the application title.
+        st.markdown(
+            """
+            <div style="margin:0.9rem 0 0.35rem;border-top:1px solid rgba(255,255,255,0.10);"></div>
+            <div class="erp-group" style="margin-top:0;">工作階段</div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.button(
+            "↪ 登出",
+            key="logout_button",
+            use_container_width=True,
+            on_click=request_logout,
+        )
                 
 #=======apply_arrow_nav()======
 
