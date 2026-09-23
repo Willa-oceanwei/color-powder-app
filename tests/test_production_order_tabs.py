@@ -51,3 +51,39 @@ def test_colorant_package_total_converts_hundred_kg_multipliers():
 
     assert delta_total_kg == 150
     assert merged_total_kg == 250
+
+
+def test_initial_production_queries_run_in_parallel_without_duplicate_recipe_load():
+    source = APP_SOURCE.read_text(encoding="utf-8")
+    section = source.split('elif menu == "生產單管理":', 1)[1]
+    section = section.split("# ======== 代工管理分頁 =========", 1)[0]
+
+    assert "ThreadPoolExecutor(max_workers=3)" in section
+    assert "inventory_future = executor.submit(list_inventory_movements" in section
+    assert 'st.session_state["_initial_production_inventory"]' in section
+    assert "load_recipe(force_reload=False)" not in section
+    assert '"production_initial_data"' in section
+    assert '"production_stock_calculation"' in section
+    assert "main_recipe_by_id = {}" in section
+    assert "additions_by_original = {}" in section
+    assert 'df_recipe_hist[df_recipe_hist["配方編號"]' not in section
+
+
+def test_streamlit_widgets_do_not_use_empty_keyword_labels():
+    source = APP_SOURCE.read_text(encoding="utf-8")
+
+    assert 'label=""' not in source
+
+
+def test_outsourcing_initial_queries_run_in_parallel_and_lifecycle_tab_reuses_them():
+    source = APP_SOURCE.read_text(encoding="utf-8")
+    section = source.split('if menu == "代工管理":', 1)[1]
+    section = section.split('elif menu == "採購管理":', 1)[0]
+
+    assert "ThreadPoolExecutor(max_workers=3)" in section
+    assert "include_inactive=True" in section
+    assert "st.session_state.oem_all_lifecycle_orders" in section
+    assert '"outsourcing_initial_data"' in section
+    lifecycle_tab = section.split("# Tab 6：已結案代工單受控封存／恢復", 1)[1]
+    assert "list_outsourcing_orders" not in lifecycle_tab
+    assert "list_outsourcing_events" not in lifecycle_tab
