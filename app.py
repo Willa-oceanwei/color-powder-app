@@ -429,6 +429,7 @@ REMEMBER_LOGIN_SECONDS = max(1, REMEMBER_LOGIN_HOURS) * 60 * 60
 pending_remember_token = st.session_state.get("_pending_remember_token")
 clear_remember_token = st.session_state.get("_clear_remember_token", False)
 BROWSER_TOKEN_LOADING = "__browser_token_loading__"
+BROWSER_TOKEN_MISSING = "__browser_token_missing__"
 remember_token = _persistent_auth_storage(
     token=pending_remember_token,
     max_age=REMEMBER_LOGIN_SECONDS,
@@ -436,6 +437,8 @@ remember_token = _persistent_auth_storage(
     key="persistent_auth_storage",
     default=BROWSER_TOKEN_LOADING,
 )
+if remember_token == BROWSER_TOKEN_MISSING:
+    remember_token = None
 
 # 初始化登入狀態
 if "authenticated" not in st.session_state:
