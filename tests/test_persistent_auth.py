@@ -58,3 +58,10 @@ def test_app_logs_non_sensitive_startup_performance_stages():
     assert 'logging.getLogger("color_powder.performance")' in app_source
     assert 'PERFORMANCE_LOGGER.warning("[PERF]' in app_source
     assert 'PERFORMANCE_DIAGNOSTICS_VERSION = "2026-09-outsourcing-v3"' in app_source
+
+
+def test_browser_token_check_does_not_flash_a_loading_message():
+    app_source = (Path(__file__).parents[1] / "app.py").read_text()
+
+    assert 'log_performance("browser_token_wait", APP_RUN_STARTED_AT)' in app_source
+    assert "正在確認登入狀態" not in app_source

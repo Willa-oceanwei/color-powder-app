@@ -480,9 +480,11 @@ elif not st.session_state.authenticated and validate_remember_token(remember_tok
 
 # On a fresh page load, give the browser component one short render to read its
 # stored token instead of flashing a password prompt that may not be needed.
+# Keep this pass visually empty: deployment timings show the server-side wait is
+# only a few milliseconds, so rendering a status message causes more noticeable
+# flicker than the authentication check itself.
 if remember_token == BROWSER_TOKEN_LOADING and not st.session_state.authenticated:
     log_performance("browser_token_wait", APP_RUN_STARTED_AT)
-    st.caption("正在確認登入狀態…")
     st.stop()
 
 # 尚未登入時，顯示登入介面
