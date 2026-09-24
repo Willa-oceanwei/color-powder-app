@@ -60,8 +60,12 @@ def test_app_logs_non_sensitive_startup_performance_stages():
     assert 'PERFORMANCE_DIAGNOSTICS_VERSION = "2026-09-outsourcing-v3"' in app_source
 
 
-def test_browser_token_check_does_not_flash_a_loading_message():
+def test_browser_token_check_does_not_block_mobile_login_form():
     app_source = (Path(__file__).parents[1] / "app.py").read_text()
 
     assert 'log_performance("browser_token_wait", APP_RUN_STARTED_AT)' in app_source
+    token_wait_section = app_source.split(
+        "if remember_token == BROWSER_TOKEN_LOADING", 1
+    )[1].split("# 尚未登入時", 1)[0]
+    assert "st.stop()" not in token_wait_section
     assert "正在確認登入狀態" not in app_source

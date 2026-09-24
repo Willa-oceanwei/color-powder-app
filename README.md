@@ -20,6 +20,8 @@ My color powder management system
 
    登入成功後，同一台裝置的同一個瀏覽器會記住登入狀態 4 小時，期間重新整理不必再次輸入密碼。可在 Streamlit secrets 設定 `REMEMBER_LOGIN_HOURS` 調整時數；修改 `APP_PASSWORD` 會立即讓既有登入失效。若使用共用裝置，可按側邊欄的「登出」立即清除登入狀態。
 
+   手機瀏覽器若延遲讀取本機登入狀態，頁面仍會立即顯示密碼欄位，不會因等待瀏覽器儲存元件而停在空白畫面；若讀到仍有效的登入狀態，則會自動進入系統。
+
    若要診斷登入後的讀取速度，可在 Streamlit Cloud 的 **Manage app → Logs** 搜尋 `[PERF]`；計時紀錄會使用 warning 層級，避免被 Streamlit Cloud 預設的 log level 過濾。紀錄只包含登入確認、資料庫啟動、介面外框、目前頁面與整次執行的毫秒數，不會輸出密碼、登入 token、資料庫憑證或業務資料。
    每一行亦會包含 `diag` 診斷版本；`menu_selected` 會記錄後端實際收到的功能頁名稱，可用來分辨尚未部署的新版本或側邊欄切頁尚未送達伺服器。
 
