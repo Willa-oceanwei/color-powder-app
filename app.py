@@ -145,6 +145,7 @@ from utils.outsourcing_repository import (
     correct_outsourcing_return,
     create_outsourcing_order,
     deactivate_outsourcing_order,
+    has_pending_outsourcing_return,
     list_outsourcing_events,
     list_outsourcing_orders,
     restore_outsourcing_order,
@@ -7858,11 +7859,23 @@ if menu == "代工管理":
             ])
 
             with pending_return_tab:
-                # 日常作業維持原本精簡清單：已結案資料不混入載回登入。
-                df_oem_pending = df_oem[
-                    df_oem["狀態"].astype(str).str.strip() != "✅ 已結案"
-                ].sort_values("日期排序", ascending=False)
-                st.caption("💡 只顯示尚未結案的代工單；誤登修改請切換至「更正已載回」。")
+                # 只開放已送達且仍有待載回數量的代工單；尚在廠內與已結案皆不列入。
+                pending_return_mask = df_oem.apply(
+                    lambda row: has_pending_outsourcing_return(
+                        row.to_dict(),
+                        sum(
+                            _safe_float(event.get("載回數量", 0))
+                            for event in returns_by_oem.get(
+                                _norm_oem_no(row.get("代工單號", "")), []
+                            )
+                        ),
+                    ),
+                    axis=1,
+                )
+                df_oem_pending = df_oem[pending_return_mask].sort_values(
+                    "日期排序", ascending=False
+                )
+                st.caption("💡 下拉選單只顯示尚有數量未載回的代工單；誤登修改請切換至「更正載回紀錄」。")
                 _render_return_workspace(df_oem_pending, correction_mode=False)
 
             with correction_return_tab:
@@ -8603,9 +8616,25 @@ elif menu == "採購管理":
         search_start = col2.date_input("進貨日期(起)", key="in_search_start")
         search_end = col3.date_input("進貨日期(迄)", key="in_search_end")
         search_supplier = col4.text_input("廠商（編號或名稱）", key="in_search_supplier")
+
+        include_carwash_transfers = st.toggle(
+            "包含洗車廠轉入明細",
+            value=False,
+            key="purchase_search_include_carwash_transfers",
+            help="預設只查看新採購品項；開啟後一併顯示由洗車廠出庫轉入的進貨紀錄。",
+        )
         
         if st.button("查詢進貨", key="btn_search_in_v3"):
             df_result = df_stock[df_stock["類型"] == "進貨"].copy()
+
+            # 新採購查詢預設排除系統由洗車廠出庫建立的轉入紀錄。
+            if not include_carwash_transfers:
+                transfer_notes = df_result.get(
+                    "備註", pd.Series("", index=df_result.index, dtype=str)
+                ).fillna("").astype(str).str.strip()
+                df_result = df_result[
+                    ~transfer_notes.str.startswith("洗車廠出庫轉入")
+                ]
             
             # 1️⃣ 依色粉編號篩選
             if search_code.strip():

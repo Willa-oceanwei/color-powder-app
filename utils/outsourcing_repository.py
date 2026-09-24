@@ -39,6 +39,26 @@ def _number(value: Any, default: float = 0) -> float:
         return default
 
 
+def has_pending_outsourcing_return(
+    order: dict[str, Any], total_returned: Any
+) -> bool:
+    """Return whether an order is eligible for another return entry.
+
+    Orders only become returnable after delivery changes their status to
+    ``未載回``. Partially returned orders remain eligible until their accumulated
+    return quantity reaches the target.
+    """
+    status = str(order.get("狀態", "") or "").strip()
+    if status not in {"⏳ 未載回", "🔄 進行中"}:
+        return False
+
+    quantity = _number(order.get("代工數量"))
+    target = _number(order.get("目標載回數量"), quantity)
+    if target <= 0:
+        target = quantity
+    return target > 0 and _number(total_returned) < target
+
+
 def _payload(row: dict[str, Any]) -> dict[str, str]:
     return {
         str(key): "" if value is None else str(value).strip()

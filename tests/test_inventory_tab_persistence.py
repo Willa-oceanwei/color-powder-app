@@ -58,3 +58,17 @@ def test_all_selection_controls_use_toggle_switches_instead_of_checkboxes():
     ]
 
     assert checkbox_calls == []
+
+
+def test_purchase_search_hides_carwash_transfers_until_toggle_is_enabled():
+    purchase_source = APP_SOURCE[
+        APP_SOURCE.index('elif menu == "採購管理":'):
+        APP_SOURCE.index('# ======== 庫存區分頁 =========')
+    ]
+
+    assert '"包含洗車廠轉入明細"' in purchase_source
+    assert 'key="purchase_search_include_carwash_transfers"' in purchase_source
+    assert "value=False" in purchase_source
+    assert "if not include_carwash_transfers:" in purchase_source
+    assert '.str.startswith("洗車廠出庫轉入")' in purchase_source
+    assert "is_carwash_transfer_inventory_movement" not in APP_SOURCE
