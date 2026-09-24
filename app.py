@@ -8630,11 +8630,11 @@ elif menu == "採購管理":
 
             # 新採購查詢預設排除系統由洗車廠出庫建立的轉入紀錄。
             if not include_carwash_transfers:
+                transfer_notes = df_result.get(
+                    "備註", pd.Series("", index=df_result.index, dtype=str)
+                ).fillna("").astype(str).str.strip()
                 df_result = df_result[
-                    ~df_result.apply(
-                        lambda row: is_carwash_transfer_inventory_movement(row.to_dict()),
-                        axis=1,
-                    )
+                    ~transfer_notes.str.startswith("洗車廠出庫轉入")
                 ]
             
             # 1️⃣ 依色粉編號篩選

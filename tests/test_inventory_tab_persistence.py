@@ -70,4 +70,5 @@ def test_purchase_search_hides_carwash_transfers_until_toggle_is_enabled():
     assert 'key="purchase_search_include_carwash_transfers"' in purchase_source
     assert "value=False" in purchase_source
     assert "if not include_carwash_transfers:" in purchase_source
-    assert "is_carwash_transfer_inventory_movement" in purchase_source
+    assert '.str.startswith("洗車廠出庫轉入")' in purchase_source
+    assert "is_carwash_transfer_inventory_movement" not in APP_SOURCE
