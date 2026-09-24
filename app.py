@@ -125,6 +125,7 @@ from utils.recipe_repository import (
 from utils.inventory_repository import (
     InventoryError,
     create_inventory_movement,
+    is_carwash_transfer_inventory_movement,
     list_inventory_movements,
     reverse_inventory_movement,
     update_inventory_movement,

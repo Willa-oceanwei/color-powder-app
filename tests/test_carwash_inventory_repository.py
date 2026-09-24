@@ -7,6 +7,7 @@ from utils.carwash_inventory_repository import (
     save_carwash_inventory_movement,
 )
 from utils.database import DatabaseConfig, connect, initialize_database
+from utils.inventory_repository import is_carwash_transfer_inventory_movement
 from utils.sheet_import import import_sheet_values, missing_inventory_sync_id_updates
 
 
@@ -14,6 +15,15 @@ def config(tmp_path):
     path = tmp_path / "carwash.db"
     initialize_database(path)
     return path, DatabaseConfig(backend="sqlite", path=path)
+
+
+def test_carwash_transfer_inventory_movement_is_identified_by_system_note():
+    assert is_carwash_transfer_inventory_movement({"備註": "洗車廠出庫轉入"})
+    assert is_carwash_transfer_inventory_movement(
+        {"備註": "  洗車廠出庫轉入（例行補貨）  "}
+    )
+    assert not is_carwash_transfer_inventory_movement({"備註": "一般採購"})
+    assert not is_carwash_transfer_inventory_movement({"備註": None})
 
 
 def test_movement_create_update_archive_outbox(tmp_path):
