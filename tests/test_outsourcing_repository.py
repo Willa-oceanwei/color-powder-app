@@ -11,6 +11,7 @@ from utils.outsourcing_repository import (
     create_outsourcing_order,
     correct_outsourcing_return,
     deactivate_outsourcing_order,
+    has_pending_outsourcing_return,
     list_outsourcing_events,
     list_outsourcing_orders,
     restore_outsourcing_order,
@@ -42,6 +43,25 @@ def order(order_id="OEM001"):
         "代工廠商": "弘旭",
         "狀態": "🏭 在廠內",
     }
+
+
+@pytest.mark.parametrize(
+    ("status", "returned", "expected"),
+    [
+        ("🏭 在廠內", 0, False),
+        ("⏳ 未載回", 0, True),
+        ("🔄 進行中", 50, True),
+        ("🔄 進行中", 105, False),
+        ("✅ 已結案", 0, False),
+    ],
+)
+def test_pending_return_requires_returnable_status_and_remaining_quantity(
+    status, returned, expected
+):
+    outsourcing_order = order()
+    outsourcing_order["狀態"] = status
+
+    assert has_pending_outsourcing_return(outsourcing_order, returned) is expected
 
 
 def test_merge_production_packages_updates_linked_order_total_and_note():
