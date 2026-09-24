@@ -478,14 +478,14 @@ if clear_remember_token:
 elif not st.session_state.authenticated and validate_remember_token(remember_token, APP_PASSWORD):
     st.session_state.authenticated = True
 
-# On a fresh page load, give the browser component one short render to read its
-# stored token instead of flashing a password prompt that may not be needed.
-# Keep this pass visually empty: deployment timings show the server-side wait is
-# only a few milliseconds, so rendering a status message causes more noticeable
-# flicker than the authentication check itself.
+# On a fresh page load the browser component may still be reading its stored
+# token.  Do not stop this run while waiting: some mobile browsers delay or
+# suspend hidden component iframes, which previously left the whole page blank
+# instead of showing the password field.  Render the login form as a safe
+# fallback; a valid remembered token will still trigger the component rerun and
+# admit the session normally.
 if remember_token == BROWSER_TOKEN_LOADING and not st.session_state.authenticated:
     log_performance("browser_token_wait", APP_RUN_STARTED_AT)
-    st.stop()
 
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
