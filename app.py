@@ -147,6 +147,7 @@ from utils.outsourcing_repository import (
     create_outsourcing_order,
     deactivate_outsourcing_order,
     has_pending_outsourcing_return,
+    is_outsourcing_order_completed,
     list_outsourcing_events,
     list_outsourcing_orders,
     restore_outsourcing_order,
@@ -486,19 +487,80 @@ elif not st.session_state.authenticated and validate_remember_token(remember_tok
 # instead of showing the password field.  Render the login form as a safe
 # fallback; a valid remembered token will still trigger the component rerun and
 # admit the session normally.
-if remember_token == BROWSER_TOKEN_LOADING and not st.session_state.authenticated:
-    log_performance("browser_token_wait", APP_RUN_STARTED_AT)
-
-# 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
     st.markdown(
         "<h3 style='text-align:center; color:#f0efa2;'>👻 配方管理系統 👻</h3>",
         unsafe_allow_html=True,
     )
+
+if remember_token == BROWSER_TOKEN_LOADING and not st.session_state.authenticated:
+    log_performance("browser_token_wait", APP_RUN_STARTED_AT)
+
+    # Make a remembered-login check visually distinct from the ordinary login
+    # form.  The password fallback stays available in an expander because some
+    # mobile browsers can delay the hidden storage component indefinitely.
+    st.markdown(
+        """
+        <style>
+        .remember-login-status {
+            max-width: 520px;
+            margin: 1rem auto 1.25rem;
+            padding: 1.25rem 1.4rem;
+            border: 1px solid rgba(240, 239, 162, 0.5);
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(240, 239, 162, 0.16), rgba(255, 255, 255, 0.05));
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+            text-align: center;
+        }
+        .remember-login-status__spinner {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            margin-bottom: 0.65rem;
+            border: 3px solid rgba(240, 239, 162, 0.28);
+            border-top-color: #f0efa2;
+            border-radius: 50%;
+            animation: remember-login-spin 0.85s linear infinite;
+        }
+        .remember-login-status__title {
+            margin-bottom: 0.35rem;
+            color: #f0efa2;
+            font-size: 1.08rem;
+            font-weight: 700;
+        }
+        .remember-login-status__message {
+            margin: 0;
+            color: rgba(255, 255, 255, 0.88);
+            line-height: 1.65;
+        }
+        @keyframes remember-login-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            .remember-login-status__spinner { animation: none; }
+        }
+        </style>
+        <div class="remember-login-status" role="status" aria-live="polite">
+            <span class="remember-login-status__spinner" aria-hidden="true"></span>
+            <div class="remember-login-status__title">正在確認免登入狀態</div>
+            <p class="remember-login-status__message">
+                若您在免登入時間內，<strong>不需要再次輸入密碼</strong>，<br>
+                請稍候，確認完成後會自動進入系統。
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# 尚未登入時，顯示登入介面
+if not st.session_state.authenticated:
     # ✅ 支援按 Enter 或按鈕登入
     _, login_col, _ = st.columns([2, 3, 2])
     with login_col:
-        password_input = st.text_input("密碼：", type="password", key="login_password")
+        if remember_token == BROWSER_TOKEN_LOADING:
+            with st.expander("等待較久？改用密碼登入"):
+                st.caption("只有畫面沒有自動進入時，才需要在此輸入密碼。")
+                password_input = st.text_input("密碼：", type="password", key="login_password")
+        else:
+            password_input = st.text_input("密碼：", type="password", key="login_password")
 
         if password_input == APP_PASSWORD:
             st.session_state["_pending_remember_token"] = create_remember_token(
@@ -7400,7 +7462,21 @@ if menu == "代工管理":
                 df_oem["日期排序"], format="mixed", errors="coerce"
             )
 
-            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
+            # Do not rely only on the status field: older orders can have a
+            # completed return ledger while their saved status is still stale.
+            editable_mask = df_oem.apply(
+                lambda row: not is_outsourcing_order_completed(
+                    row.to_dict(),
+                    sum(
+                        _safe_float(event.get("載回數量", 0), 0.0)
+                        for event in returns_by_oem.get(
+                            _norm_oem_no(row.get("代工單號", "")), []
+                        )
+                    ),
+                ),
+                axis=1,
+            )
+            df_oem_active = df_oem[editable_mask].copy()
             df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
 
             oem_options = [_build_oem_dropdown_label(row) for _, row in df_oem_active.iterrows()]
