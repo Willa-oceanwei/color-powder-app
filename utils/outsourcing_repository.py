@@ -59,6 +59,26 @@ def has_pending_outsourcing_return(
     return target > 0 and _number(total_returned) < target
 
 
+def is_outsourcing_order_completed(
+    order: dict[str, Any], total_returned: Any
+) -> bool:
+    """Return whether an order should be excluded from editable work.
+
+    Completion is derived from both the saved status and the immutable return
+    ledger.  This keeps legacy/stale orders out of edit selectors even when a
+    completed return total was recorded before the order status was updated.
+    """
+    status = str(order.get("狀態", "") or "").strip()
+    if status in {"✅ 已結案", "已結案", "✅ 已完成", "已完成"}:
+        return True
+
+    quantity = _number(order.get("代工數量"))
+    target = _number(order.get("目標載回數量"), quantity)
+    if target <= 0:
+        target = quantity
+    return target > 0 and _number(total_returned) >= target
+
+
 def _payload(row: dict[str, Any]) -> dict[str, str]:
     return {
         str(key): "" if value is None else str(value).strip()

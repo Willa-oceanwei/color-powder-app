@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +13,7 @@ from utils.outsourcing_repository import (
     correct_outsourcing_return,
     deactivate_outsourcing_order,
     has_pending_outsourcing_return,
+    is_outsourcing_order_completed,
     list_outsourcing_events,
     list_outsourcing_orders,
     restore_outsourcing_order,
@@ -62,6 +64,45 @@ def test_pending_return_requires_returnable_status_and_remaining_quantity(
     outsourcing_order["狀態"] = status
 
     assert has_pending_outsourcing_return(outsourcing_order, returned) is expected
+
+
+@pytest.mark.parametrize(
+    ("status", "target", "returned", "expected"),
+    [
+        ("✅ 已結案", 105, 0, True),
+        ("已完成", 105, 0, True),
+        ("🔄 進行中", 105, 105, True),
+        ("🔄 進行中", 105, 104.99, False),
+        ("🏭 在廠內", 0, 100, True),
+    ],
+)
+def test_completed_orders_include_closed_status_and_fully_returned_ledger(
+    status, target, returned, expected
+):
+    outsourcing_order = order()
+    outsourcing_order["狀態"] = status
+    outsourcing_order["目標載回數量"] = target
+
+    assert is_outsourcing_order_completed(outsourcing_order, returned) is expected
+
+
+def test_order_without_a_positive_target_is_not_treated_as_completed():
+    outsourcing_order = order()
+    outsourcing_order["代工數量"] = 0
+    outsourcing_order["目標載回數量"] = 0
+
+    assert not is_outsourcing_order_completed(outsourcing_order, 999)
+
+
+def test_edit_outsourcing_selector_excludes_completed_orders():
+    app_source = (Path(__file__).parents[1] / "app.py").read_text()
+    edit_section = app_source.split("# Tab 2：編輯代工", 1)[1].split(
+        "# Tab 3：載回登入", 1
+    )[0]
+
+    assert "is_outsourcing_order_completed" in edit_section
+    assert "returns_by_oem.get" in edit_section
+    assert "df_oem[editable_mask]" in edit_section
 
 
 def test_merge_production_packages_updates_linked_order_total_and_note():

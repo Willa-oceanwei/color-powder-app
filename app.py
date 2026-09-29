@@ -147,6 +147,7 @@ from utils.outsourcing_repository import (
     create_outsourcing_order,
     deactivate_outsourcing_order,
     has_pending_outsourcing_return,
+    is_outsourcing_order_completed,
     list_outsourcing_events,
     list_outsourcing_orders,
     restore_outsourcing_order,
@@ -7461,7 +7462,21 @@ if menu == "代工管理":
                 df_oem["日期排序"], format="mixed", errors="coerce"
             )
 
-            df_oem_active = df_oem[df_oem["狀態"] != "✅ 已結案"].copy()
+            # Do not rely only on the status field: older orders can have a
+            # completed return ledger while their saved status is still stale.
+            editable_mask = df_oem.apply(
+                lambda row: not is_outsourcing_order_completed(
+                    row.to_dict(),
+                    sum(
+                        _safe_float(event.get("載回數量", 0), 0.0)
+                        for event in returns_by_oem.get(
+                            _norm_oem_no(row.get("代工單號", "")), []
+                        )
+                    ),
+                ),
+                axis=1,
+            )
+            df_oem_active = df_oem[editable_mask].copy()
             df_oem_active = df_oem_active.sort_values("日期排序", ascending=False)
 
             oem_options = [_build_oem_dropdown_label(row) for _, row in df_oem_active.iterrows()]
