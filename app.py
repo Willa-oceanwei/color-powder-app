@@ -125,7 +125,6 @@ from utils.recipe_repository import (
 from utils.inventory_repository import (
     InventoryError,
     create_inventory_movement,
-    is_carwash_transfer_inventory_movement,
     list_inventory_movements,
     reverse_inventory_movement,
     update_inventory_movement,
@@ -8808,6 +8807,12 @@ elif menu == "採購管理":
             st.info("目前沒有可編輯的進貨資料")
         else:
             df_in_edit = df_stock[df_stock["類型"].astype(str).str.strip() == "進貨"].copy()
+            # 已沖銷紀錄只保留在查詢歷程，不再塞進「編輯／沖銷」下拉選單。
+            # 欄位不存在時代表舊資料，仍視為有效進貨以維持相容性。
+            if "沖銷狀態" in df_in_edit.columns:
+                df_in_edit = df_in_edit[
+                    df_in_edit["沖銷狀態"].fillna("").astype(str).str.strip() != "已沖銷"
+                ].copy()
             df_in_edit["_sort_date"] = pd.to_datetime(df_in_edit["日期"], errors="coerce")
             df_in_edit = df_in_edit.sort_values(
                 by=["_sort_date", "_sync_id"], ascending=[False, False], na_position="last"
