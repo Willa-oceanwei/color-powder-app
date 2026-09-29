@@ -60,7 +60,7 @@ def test_app_logs_non_sensitive_startup_performance_stages():
     assert 'PERFORMANCE_DIAGNOSTICS_VERSION = "2026-09-outsourcing-v3"' in app_source
 
 
-def test_browser_token_check_does_not_block_mobile_login_form():
+def test_browser_token_check_explains_auto_login_and_keeps_mobile_fallback():
     app_source = (Path(__file__).parents[1] / "app.py").read_text()
 
     assert 'log_performance("browser_token_wait", APP_RUN_STARTED_AT)' in app_source
@@ -68,4 +68,8 @@ def test_browser_token_check_does_not_block_mobile_login_form():
         "if remember_token == BROWSER_TOKEN_LOADING", 1
     )[1].split("# 尚未登入時", 1)[0]
     assert "st.stop()" not in token_wait_section
-    assert "正在確認登入狀態" not in app_source
+    assert "正在確認免登入狀態" in token_wait_section
+    assert "不需要再次輸入密碼" in token_wait_section
+    assert "確認完成後會自動進入系統" in token_wait_section
+    assert 'with st.expander("等待較久？改用密碼登入")' in app_source
+    assert "只有畫面沒有自動進入時" in app_source
