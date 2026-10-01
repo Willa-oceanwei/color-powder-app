@@ -1,6 +1,7 @@
 # ===== app.py =====
 import logging
 import time
+import csv
 
 APP_RUN_STARTED_AT = time.perf_counter()
 
@@ -19,6 +20,7 @@ from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils import database as database_utils
 from utils.number_format import format_optional_decimals
+from utils.inventory_audit import recent_confirmed_audit_keys
 from utils.database import (
     SCHEMA_VERSION,
     DatabaseStartupError,
@@ -10562,6 +10564,9 @@ elif menu == "庫存區":
     # Tab 3：庫存盤點分析
     # ====================================================================
     with tab3:
+        saved_audit_message = st.session_state.pop("stock_audit_saved_message", None)
+        if saved_audit_message:
+            st.success(saved_audit_message)
         st.markdown(
             """
             <style>
@@ -10895,6 +10900,27 @@ elif menu == "庫存區":
                     st.error(f"盤點表解析失敗：{e}")
 
         audit_result = st.session_state.get("stock_audit_result")
+        hidden_confirmed_count = 0
+        if audit_result is not None and not audit_result.empty:
+            try:
+                confirmed_keys = recent_confirmed_audit_keys(
+                    audit_record_path,
+                    st.session_state.get("stock_audit_date_label", ""),
+                )
+                if confirmed_keys:
+                    confirmed_mask = audit_result.apply(
+                        lambda row: (
+                            str(row.get("儲位", "") or "").strip(),
+                            str(row.get("色粉編號", "") or "").strip(),
+                        ) in confirmed_keys,
+                        axis=1,
+                    )
+                    hidden_confirmed_count = int(confirmed_mask.sum())
+                    audit_result = audit_result[~confirmed_mask].copy()
+                    st.session_state["stock_audit_result"] = audit_result
+            except (OSError, UnicodeError, csv.Error) as exc:
+                st.warning(f"無法讀取已儲存的盤點確認紀錄，已顯示完整分析：{exc}")
+
         if audit_result is not None and not audit_result.empty:
             st.markdown('<div class="stock-audit-section-title">③ 分析結果</div>', unsafe_allow_html=True)
             st.markdown(f"（{st.session_state.get('stock_audit_date_label', '')}）")
@@ -10937,11 +10963,18 @@ elif menu == "庫存區":
                     save_df = edited_df.copy()
                     save_df.insert(0, "盤點日期", st.session_state.get("stock_audit_date_label", ""))
                     save_df.insert(1, "儲存時間", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    confirmed_count = int(save_df["已確認"].fillna(False).astype(bool).sum())
                     if audit_record_path.exists():
                         old_df = pd.read_csv(audit_record_path)
                         save_df = pd.concat([old_df, save_df], ignore_index=True)
                     save_df.to_csv(audit_record_path, index=False, encoding="utf-8-sig")
-                    st.success(f"已儲存確認紀錄：{audit_record_path}")
+                    st.session_state["stock_audit_saved_message"] = (
+                        f"已儲存確認紀錄；{confirmed_count} 筆已確認品項會在同一盤點日的後續分析中隱藏 24 小時。"
+                    )
+                    st.session_state["stock_audit_editor_revision"] = (
+                        st.session_state.get("stock_audit_editor_revision", 0) + 1
+                    )
+                    st.rerun()
             with col_download_view:
                 st.download_button(
                     "⬇️ 下載目前畫面 CSV",
@@ -10967,6 +11000,8 @@ elif menu == "庫存區":
                     use_container_width=True,
                     hide_index=True,
                 )
+        elif hidden_confirmed_count:
+            st.success(f"本次分析的 {hidden_confirmed_count} 筆品項皆已確認，24 小時內不再重複顯示。")
 
     # ====================================================================
     # Tab 7：個別客戶庫存（Turso-first）

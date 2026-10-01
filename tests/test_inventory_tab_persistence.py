@@ -45,6 +45,15 @@ def test_saving_initial_stock_invalidates_previous_audit_snapshot():
     assert 'st.session_state.pop("stock_audit_result", None)' in initial_stock_source
 
 
+def test_saved_audit_confirmation_message_belongs_to_inventory_audit_tab():
+    audit_source = APP_SOURCE[
+        APP_SOURCE.index("# Tab 3：庫存盤點分析"):
+        APP_SOURCE.index("# Tab 7：個別客戶庫存")
+    ]
+
+    assert 'st.session_state.pop("stock_audit_saved_message", None)' in audit_source
+
+
 def test_carwash_movement_editor_only_shows_five_most_recent_records():
     editor_source = APP_SOURCE[
         APP_SOURCE.index('with edit_tab2:') : APP_SOURCE.index('\ndef parse_formula_root')
