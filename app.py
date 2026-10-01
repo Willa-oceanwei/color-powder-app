@@ -1,6 +1,7 @@
 # ===== app.py =====
 import logging
 import time
+import csv
 
 APP_RUN_STARTED_AT = time.perf_counter()
 
@@ -19,6 +20,11 @@ from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils import database as database_utils
 from utils.number_format import format_optional_decimals
+from utils.inventory_audit import (
+    duplicate_initial_inventory_sync_ids,
+    latest_initial_inventory_record,
+    recent_confirmed_audit_keys,
+)
 from utils.database import (
     SCHEMA_VERSION,
     DatabaseStartupError,
@@ -184,6 +190,23 @@ _persistent_auth_storage = components.declare_component(
     "persistent_auth_storage",
     path=str(Path(__file__).parent / "components" / "persistent_auth"),
 )
+
+
+def invalidate_inventory_caches():
+    """Discard every derived inventory view after an inventory movement changes."""
+    for key in (
+        "stock_calc_time",
+        "last_final_stock",
+        "stock_query_result",
+        "stock_query_signature",
+        "master_stock_query_result",
+        "stock_audit_result",
+    ):
+        st.session_state.pop(key, None)
+    st.session_state["stock_need_reload"] = True
+    st.session_state["stock_audit_editor_revision"] = (
+        st.session_state.get("stock_audit_editor_revision", 0) + 1
+    )
 
 
 # Keep the inventory screen dependent only on the repository's long-standing public
@@ -3056,7 +3079,7 @@ def save_df_to_sheet(ws, df):
     _set_sheet_values_cache(ws.title, values)
 
     if ws.title == "庫存記錄":
-        st.session_state.pop("stock_calc_time", None)
+        invalidate_inventory_caches()
 
 
 def init_states(keys):
@@ -4981,7 +5004,8 @@ elif menu == "生產單管理":
             
             if pid not in initial_stocks:
                 initial_stocks[pid] = {"qty": qty, "date": row_date}
-            elif row_date > initial_stocks[pid]["date"]:
+            # 同一天可能有多筆歷史期初；repository 順序較後者是較新的寫入。
+            elif row_date >= initial_stocks[pid]["date"]:
                 initial_stocks[pid] = {"qty": qty, "date": row_date}
         
         for pid, data in initial_stocks.items():
@@ -8647,7 +8671,7 @@ elif menu == "採購管理":
                     except InventoryError as exc:
                         st.error(f"❌ {exc}")
                         st.stop()
-                    st.session_state.stock_need_reload = True
+                    invalidate_inventory_caches()
     
                     # 清空表單
                     st.session_state.form_in_stock = {
@@ -8884,7 +8908,7 @@ elif menu == "採購管理":
                                 "單位": edit_unit, "廠商編號": edit_supplier_id.strip(),
                                 "廠商名稱": edit_supplier_name.strip(), "備註": edit_note,
                             })
-                            st.session_state.stock_need_reload = True
+                            invalidate_inventory_caches()
                             st.success("✅ 進貨紀錄已更新")
                             st.toast(f"已更新進貨：{edit_powder.strip()}", icon="💾")
                             st.rerun()
@@ -8897,7 +8921,7 @@ elif menu == "採購管理":
                         except InventoryError as exc:
                             st.error(f"❌ {exc}")
                         else:
-                            st.session_state.stock_need_reload = True
+                            invalidate_inventory_caches()
                             st.success("✅ 已建立沖銷記錄；原始進貨記錄仍保留")
                             st.toast(
                                 f"已沖銷 {target_row.get('色粉編號', '')} "
@@ -10240,7 +10264,9 @@ elif menu == "庫存區":
 
             df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
             if not df_ini.empty:
-                latest_ini = df_ini.sort_values("日期時間", ascending=False).iloc[0]
+                latest_ini = pd.Series(
+                    latest_initial_inventory_record(df_ini.to_dict("records"))
+                )
                 ini_value = latest_ini["數量_g"]
                 ini_dt = latest_ini["日期時間"]
                 if pd.isna(ini_dt) and "日期" in latest_ini and pd.notna(latest_ini["日期"]):
@@ -10430,18 +10456,65 @@ elif menu == "庫存區":
                 (df_stock.get("色粉編號", "").astype(str).str.strip() == powder_id)
             ] if not df_stock.empty else pd.DataFrame()
             if not existing_initial.empty:
-                existing_sync_id = str(existing_initial.iloc[-1].get("_sync_id", "")).strip()
+                existing_record = latest_initial_inventory_record(existing_initial.to_dict("records"))
+                existing_sync_id = str((existing_record or {}).get("_sync_id", "")).strip()
                 update_inventory_movement(DATABASE_CONFIG, existing_sync_id, initial_stock_row)
             else:
                 create_inventory_movement(DATABASE_CONFIG, initial_stock_row)
 
-            # ── 步驟 4：讓下次讀取強制 reload ──
-            st.session_state.stock_need_reload = True
-            st.session_state.pop("stock_calc_time", None)   # 讓生產單頁的庫存也重算
+            # 初始庫存同時影響查詢、盤點、生產單及色母庫存；所有衍生結果
+            # 必須一起失效，不能讓「查詢」繼續顯示儲存前的 session 快照。
+            invalidate_inventory_caches()
 
             st.session_state["stock_init_toast_message"] = f"✅ 初始庫存儲存成功：{powder_id}（{qty_val:g} {ini_unit}）"
             st.success(f"✅ 初始庫存已儲存　色粉：{powder_id}　數量：{qty_val} {ini_unit}")
             st.rerun()
+
+        with st.expander("清理同日完全重複的初始庫存", expanded=False):
+            st.caption("只會沖銷同一色粉中，設定日期、數量、單位及備註完全相同的舊紀錄；最後寫入的一筆會保留。")
+            cleanup_powder_id = st.text_input(
+                "要檢查的色粉編號",
+                key="duplicate_initial_powder",
+                help="可只檢查單一色粉，或開啟下方選項掃描全部庫存資料。",
+            )
+            scan_all_initials = st.toggle(
+                "掃描全部色粉的初始庫存",
+                value=False,
+                key="scan_all_duplicate_initials",
+            )
+            scan_duplicates = scan_all_initials or bool(cleanup_powder_id.strip())
+            duplicate_sync_ids = duplicate_initial_inventory_sync_ids(
+                df_stock.to_dict("records"), "" if scan_all_initials else cleanup_powder_id,
+            ) if scan_duplicates and not df_stock.empty else []
+            if scan_duplicates:
+                st.info(f"找到 {len(duplicate_sync_ids)} 筆可安全沖銷的完全重複舊紀錄。")
+                if duplicate_sync_ids:
+                    duplicate_preview = df_stock[
+                        df_stock["_sync_id"].astype(str).isin(duplicate_sync_ids)
+                    ][["色粉編號", "日期", "數量", "單位", "備註"]].copy()
+                    st.dataframe(duplicate_preview, use_container_width=True, hide_index=True)
+            confirm_duplicate_cleanup = st.toggle(
+                "我確認只清理完全相同的重複初始庫存",
+                value=False,
+                key="confirm_duplicate_initial_cleanup",
+            )
+            if st.button(
+                "清理重複初始庫存",
+                disabled=not duplicate_sync_ids or not confirm_duplicate_cleanup,
+                key="cleanup_duplicate_initial_stock",
+            ):
+                for duplicate_sync_id in duplicate_sync_ids:
+                    reverse_inventory_movement(
+                        DATABASE_CONFIG,
+                        duplicate_sync_id,
+                        reason="清理同日且資料完全相同的重複初始庫存",
+                    )
+                invalidate_inventory_caches()
+                cleanup_scope = "全部色粉" if scan_all_initials else cleanup_powder_id.strip()
+                st.session_state["stock_init_toast_message"] = (
+                    f"已清理 {cleanup_scope} 的 {len(duplicate_sync_ids)} 筆重複初始庫存"
+                )
+                st.rerun()
 
     # ====================================================================
     # Tab 2：庫存查詢
@@ -10556,6 +10629,9 @@ elif menu == "庫存區":
     # Tab 3：庫存盤點分析
     # ====================================================================
     with tab3:
+        saved_audit_message = st.session_state.pop("stock_audit_saved_message", None)
+        if saved_audit_message:
+            st.success(saved_audit_message)
         st.markdown(
             """
             <style>
@@ -10880,10 +10956,36 @@ elif menu == "庫存區":
                         st.session_state["stock_audit_date_label"] = audit_date.strftime("%Y-%m-%d")
                         st.session_state["stock_audit_show_only_abnormal"] = show_only_abnormal
                         st.session_state["stock_audit_include_unregistered"] = include_unregistered
+                        # data_editor 有固定 key 時會保留上一次的表格狀態，蓋過剛重算的
+                        # DataFrame。每次分析使用新 revision，確保畫面顯示最新系統庫存。
+                        st.session_state["stock_audit_editor_revision"] = (
+                            st.session_state.get("stock_audit_editor_revision", 0) + 1
+                        )
                 except Exception as e:
                     st.error(f"盤點表解析失敗：{e}")
 
         audit_result = st.session_state.get("stock_audit_result")
+        hidden_confirmed_count = 0
+        if audit_result is not None and not audit_result.empty:
+            try:
+                confirmed_keys = recent_confirmed_audit_keys(
+                    audit_record_path,
+                    st.session_state.get("stock_audit_date_label", ""),
+                )
+                if confirmed_keys:
+                    confirmed_mask = audit_result.apply(
+                        lambda row: (
+                            str(row.get("儲位", "") or "").strip(),
+                            str(row.get("色粉編號", "") or "").strip(),
+                        ) in confirmed_keys,
+                        axis=1,
+                    )
+                    hidden_confirmed_count = int(confirmed_mask.sum())
+                    audit_result = audit_result[~confirmed_mask].copy()
+                    st.session_state["stock_audit_result"] = audit_result
+            except (OSError, UnicodeError, csv.Error) as exc:
+                st.warning(f"無法讀取已儲存的盤點確認紀錄，已顯示完整分析：{exc}")
+
         if audit_result is not None and not audit_result.empty:
             st.markdown('<div class="stock-audit-section-title">③ 分析結果</div>', unsafe_allow_html=True)
             st.markdown(f"（{st.session_state.get('stock_audit_date_label', '')}）")
@@ -10917,7 +11019,7 @@ elif menu == "庫存區":
                     "計算說明": st.column_config.TextColumn(width="large"),
                     "解析失敗原因": st.column_config.TextColumn(width="large"),
                 },
-                key="stock_audit_editor",
+                key=f"stock_audit_editor_{st.session_state.get('stock_audit_editor_revision', 0)}",
             )
 
             col_save, col_download_view, col_download_full = st.columns(3)
@@ -10926,11 +11028,18 @@ elif menu == "庫存區":
                     save_df = edited_df.copy()
                     save_df.insert(0, "盤點日期", st.session_state.get("stock_audit_date_label", ""))
                     save_df.insert(1, "儲存時間", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    confirmed_count = int(save_df["已確認"].fillna(False).astype(bool).sum())
                     if audit_record_path.exists():
                         old_df = pd.read_csv(audit_record_path)
                         save_df = pd.concat([old_df, save_df], ignore_index=True)
                     save_df.to_csv(audit_record_path, index=False, encoding="utf-8-sig")
-                    st.success(f"已儲存確認紀錄：{audit_record_path}")
+                    st.session_state["stock_audit_saved_message"] = (
+                        f"已儲存確認紀錄；{confirmed_count} 筆已確認品項會在同一盤點日的後續分析中隱藏 24 小時。"
+                    )
+                    st.session_state["stock_audit_editor_revision"] = (
+                        st.session_state.get("stock_audit_editor_revision", 0) + 1
+                    )
+                    st.rerun()
             with col_download_view:
                 st.download_button(
                     "⬇️ 下載目前畫面 CSV",
@@ -10956,6 +11065,8 @@ elif menu == "庫存區":
                     use_container_width=True,
                     hide_index=True,
                 )
+        elif hidden_confirmed_count:
+            st.success(f"本次分析的 {hidden_confirmed_count} 筆品項皆已確認，24 小時內不再重複顯示。")
 
     # ====================================================================
     # Tab 7：個別客戶庫存（Turso-first）
@@ -11304,7 +11415,9 @@ elif menu == "庫存區":
                     df_pid = df_stock_local[df_stock_local["色粉編號"] == pid]
                     df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
                     if not df_ini.empty:
-                        latest_ini = df_ini.sort_values("日期_dt", ascending=False).iloc[0]
+                        latest_ini = pd.Series(
+                            latest_initial_inventory_record(df_ini.to_dict("records"))
+                        )
                         ini_value  = latest_ini["數量_g"]
                         ini_dt_raw = latest_ini["日期_dt"]
                         ini_dt     = ini_dt_raw if pd.notna(ini_dt_raw) else pd.Timestamp.min
@@ -11965,8 +12078,7 @@ elif menu == "洗車廠庫存":
                             "_sync_id": uuid.uuid4().hex,
                         }
                         create_inventory_movement(DATABASE_CONFIG, stock_field_map)
-                        st.session_state.stock_need_reload = True
-                        st.session_state.pop("stock_calc_time", None)
+                        invalidate_inventory_caches()
                         transfer_note = f"，並已轉入色粉庫存區 +{io_qty:g} {stock_field_map['單位']}"
 
                 st.session_state["carwash_toast"] = {
