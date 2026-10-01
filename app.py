@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils import database as database_utils
 from utils.number_format import format_optional_decimals
-from utils.inventory_audit import recent_confirmed_audit_keys
+from utils.inventory_audit import latest_initial_inventory_record, recent_confirmed_audit_keys
 from utils.database import (
     SCHEMA_VERSION,
     DatabaseStartupError,
@@ -4983,7 +4983,8 @@ elif menu == "生產單管理":
             
             if pid not in initial_stocks:
                 initial_stocks[pid] = {"qty": qty, "date": row_date}
-            elif row_date > initial_stocks[pid]["date"]:
+            # 同一天可能有多筆歷史期初；repository 順序較後者是較新的寫入。
+            elif row_date >= initial_stocks[pid]["date"]:
                 initial_stocks[pid] = {"qty": qty, "date": row_date}
         
         for pid, data in initial_stocks.items():
@@ -10242,7 +10243,9 @@ elif menu == "庫存區":
 
             df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
             if not df_ini.empty:
-                latest_ini = df_ini.sort_values("日期時間", ascending=False).iloc[0]
+                latest_ini = pd.Series(
+                    latest_initial_inventory_record(df_ini.to_dict("records"))
+                )
                 ini_value = latest_ini["數量_g"]
                 ini_dt = latest_ini["日期時間"]
                 if pd.isna(ini_dt) and "日期" in latest_ini and pd.notna(latest_ini["日期"]):
@@ -10432,7 +10435,8 @@ elif menu == "庫存區":
                 (df_stock.get("色粉編號", "").astype(str).str.strip() == powder_id)
             ] if not df_stock.empty else pd.DataFrame()
             if not existing_initial.empty:
-                existing_sync_id = str(existing_initial.iloc[-1].get("_sync_id", "")).strip()
+                existing_record = latest_initial_inventory_record(existing_initial.to_dict("records"))
+                existing_sync_id = str((existing_record or {}).get("_sync_id", "")).strip()
                 update_inventory_movement(DATABASE_CONFIG, existing_sync_id, initial_stock_row)
             else:
                 create_inventory_movement(DATABASE_CONFIG, initial_stock_row)
@@ -11350,7 +11354,9 @@ elif menu == "庫存區":
                     df_pid = df_stock_local[df_stock_local["色粉編號"] == pid]
                     df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
                     if not df_ini.empty:
-                        latest_ini = df_ini.sort_values("日期_dt", ascending=False).iloc[0]
+                        latest_ini = pd.Series(
+                            latest_initial_inventory_record(df_ini.to_dict("records"))
+                        )
                         ini_value  = latest_ini["數量_g"]
                         ini_dt_raw = latest_ini["日期_dt"]
                         ini_dt     = ini_dt_raw if pd.notna(ini_dt_raw) else pd.Timestamp.min

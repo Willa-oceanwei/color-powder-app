@@ -5,10 +5,47 @@ from __future__ import annotations
 import csv
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, Iterable
 
 
 def _is_checked(value: object) -> bool:
     return str(value or "").strip().lower() in {"true", "1", "yes", "y"}
+
+
+def _inventory_date(value: object) -> datetime:
+    """Parse the date formats historically used by inventory movements."""
+    text = str(value or "").strip().replace("/", "-")
+    if not text:
+        return datetime.min
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return datetime.min
+
+
+def latest_initial_inventory_record(
+    records: Iterable[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Pick the newest initial record, preferring the last write on date ties.
+
+    Old Sheet data can contain several ``初始`` rows for one powder on the same
+    date.  Repository results are in movement creation order, so the later row
+    must win when dates tie; choosing only by date would keep the stale first row.
+    """
+    candidates = [
+        (index, record)
+        for index, record in enumerate(records)
+        if str(record.get("類型") or record.get("movement_type") or "").strip() == "初始"
+    ]
+    if not candidates:
+        return None
+    return max(
+        candidates,
+        key=lambda item: (
+            _inventory_date(item[1].get("日期") or item[1].get("movement_date")),
+            item[0],
+        ),
+    )[1]
 
 
 def recent_confirmed_audit_keys(
