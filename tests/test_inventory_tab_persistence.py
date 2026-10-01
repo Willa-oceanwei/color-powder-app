@@ -26,6 +26,56 @@ def test_inventory_controller_targets_the_complete_unique_tab_set():
     assert "tabTexts.every((label, idx) => labels[idx] === label)" in APP_SOURCE
 
 
+def test_recalculated_inventory_audit_uses_a_fresh_editor_state():
+    audit_source = APP_SOURCE[
+        APP_SOURCE.index("# Tab 3：庫存盤點分析"):
+        APP_SOURCE.index("# Tab 7：個別客戶庫存")
+    ]
+
+    assert 'st.session_state["stock_audit_editor_revision"] = (' in audit_source
+    assert 'key=f"stock_audit_editor_{st.session_state.get(\'stock_audit_editor_revision\', 0)}"' in audit_source
+
+
+def test_saving_initial_stock_invalidates_previous_audit_snapshot():
+    initial_stock_source = APP_SOURCE[
+        APP_SOURCE.index("# Tab 1：初始庫存設定"):
+        APP_SOURCE.index("# Tab 2：庫存查詢")
+    ]
+
+    assert "invalidate_inventory_caches()" in initial_stock_source
+
+
+def test_inventory_cache_invalidator_clears_every_derived_stock_view():
+    helper_source = APP_SOURCE[
+        APP_SOURCE.index("def invalidate_inventory_caches():"):
+        APP_SOURCE.index("def _calculate_carwash_inventory_balances")
+    ]
+
+    for key in (
+        "stock_calc_time",
+        "last_final_stock",
+        "stock_query_result",
+        "stock_query_signature",
+        "master_stock_query_result",
+        "stock_audit_result",
+    ):
+        assert f'"{key}"' in helper_source
+    assert 'st.session_state["stock_need_reload"] = True' in helper_source
+
+
+def test_all_app_inventory_writes_invalidate_derived_stock_views():
+    assert APP_SOURCE.count("invalidate_inventory_caches()") >= 7
+
+
+def test_saved_audit_confirmation_message_belongs_to_inventory_audit_tab():
+    audit_source = APP_SOURCE[
+        APP_SOURCE.index("# Tab 3：庫存盤點分析"):
+        APP_SOURCE.index("# Tab 7：個別客戶庫存")
+    ]
+
+    assert 'st.session_state.pop("stock_audit_saved_message", None)' in audit_source
+
+
 def test_carwash_movement_editor_only_shows_five_most_recent_records():
     editor_source = APP_SOURCE[
         APP_SOURCE.index('with edit_tab2:') : APP_SOURCE.index('\ndef parse_formula_root')
