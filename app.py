@@ -10438,6 +10438,12 @@ elif menu == "庫存區":
             # ── 步驟 4：讓下次讀取強制 reload ──
             st.session_state.stock_need_reload = True
             st.session_state.pop("stock_calc_time", None)   # 讓生產單頁的庫存也重算
+            # 盤點分析結果包含當時的系統庫存快照。期初庫存一變更，舊結果
+            # 就不能繼續顯示，否則會讓使用者誤以為盤點沒有重新計算。
+            st.session_state.pop("stock_audit_result", None)
+            st.session_state["stock_audit_editor_revision"] = (
+                st.session_state.get("stock_audit_editor_revision", 0) + 1
+            )
 
             st.session_state["stock_init_toast_message"] = f"✅ 初始庫存儲存成功：{powder_id}（{qty_val:g} {ini_unit}）"
             st.success(f"✅ 初始庫存已儲存　色粉：{powder_id}　數量：{qty_val} {ini_unit}")
@@ -10880,6 +10886,11 @@ elif menu == "庫存區":
                         st.session_state["stock_audit_date_label"] = audit_date.strftime("%Y-%m-%d")
                         st.session_state["stock_audit_show_only_abnormal"] = show_only_abnormal
                         st.session_state["stock_audit_include_unregistered"] = include_unregistered
+                        # data_editor 有固定 key 時會保留上一次的表格狀態，蓋過剛重算的
+                        # DataFrame。每次分析使用新 revision，確保畫面顯示最新系統庫存。
+                        st.session_state["stock_audit_editor_revision"] = (
+                            st.session_state.get("stock_audit_editor_revision", 0) + 1
+                        )
                 except Exception as e:
                     st.error(f"盤點表解析失敗：{e}")
 
@@ -10917,7 +10928,7 @@ elif menu == "庫存區":
                     "計算說明": st.column_config.TextColumn(width="large"),
                     "解析失敗原因": st.column_config.TextColumn(width="large"),
                 },
-                key="stock_audit_editor",
+                key=f"stock_audit_editor_{st.session_state.get('stock_audit_editor_revision', 0)}",
             )
 
             col_save, col_download_view, col_download_full = st.columns(3)
