@@ -1,6 +1,7 @@
 # ===== app.py =====
 import logging
 import time
+import csv
 
 APP_RUN_STARTED_AT = time.perf_counter()
 
@@ -19,6 +20,7 @@ from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils import database as database_utils
 from utils.number_format import format_optional_decimals
+from utils.inventory_audit import latest_initial_inventory_record, recent_confirmed_audit_keys
 from utils.database import (
     SCHEMA_VERSION,
     DatabaseStartupError,
@@ -4981,7 +4983,8 @@ elif menu == "生產單管理":
             
             if pid not in initial_stocks:
                 initial_stocks[pid] = {"qty": qty, "date": row_date}
-            elif row_date > initial_stocks[pid]["date"]:
+            # 同一天可能有多筆歷史期初；repository 順序較後者是較新的寫入。
+            elif row_date >= initial_stocks[pid]["date"]:
                 initial_stocks[pid] = {"qty": qty, "date": row_date}
         
         for pid, data in initial_stocks.items():
@@ -10240,7 +10243,9 @@ elif menu == "庫存區":
 
             df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
             if not df_ini.empty:
-                latest_ini = df_ini.sort_values("日期時間", ascending=False).iloc[0]
+                latest_ini = pd.Series(
+                    latest_initial_inventory_record(df_ini.to_dict("records"))
+                )
                 ini_value = latest_ini["數量_g"]
                 ini_dt = latest_ini["日期時間"]
                 if pd.isna(ini_dt) and "日期" in latest_ini and pd.notna(latest_ini["日期"]):
@@ -10430,7 +10435,8 @@ elif menu == "庫存區":
                 (df_stock.get("色粉編號", "").astype(str).str.strip() == powder_id)
             ] if not df_stock.empty else pd.DataFrame()
             if not existing_initial.empty:
-                existing_sync_id = str(existing_initial.iloc[-1].get("_sync_id", "")).strip()
+                existing_record = latest_initial_inventory_record(existing_initial.to_dict("records"))
+                existing_sync_id = str((existing_record or {}).get("_sync_id", "")).strip()
                 update_inventory_movement(DATABASE_CONFIG, existing_sync_id, initial_stock_row)
             else:
                 create_inventory_movement(DATABASE_CONFIG, initial_stock_row)
@@ -10438,6 +10444,12 @@ elif menu == "庫存區":
             # ── 步驟 4：讓下次讀取強制 reload ──
             st.session_state.stock_need_reload = True
             st.session_state.pop("stock_calc_time", None)   # 讓生產單頁的庫存也重算
+            # 盤點分析結果包含當時的系統庫存快照。期初庫存一變更，舊結果
+            # 就不能繼續顯示，否則會讓使用者誤以為盤點沒有重新計算。
+            st.session_state.pop("stock_audit_result", None)
+            st.session_state["stock_audit_editor_revision"] = (
+                st.session_state.get("stock_audit_editor_revision", 0) + 1
+            )
 
             st.session_state["stock_init_toast_message"] = f"✅ 初始庫存儲存成功：{powder_id}（{qty_val:g} {ini_unit}）"
             st.success(f"✅ 初始庫存已儲存　色粉：{powder_id}　數量：{qty_val} {ini_unit}")
@@ -10556,6 +10568,9 @@ elif menu == "庫存區":
     # Tab 3：庫存盤點分析
     # ====================================================================
     with tab3:
+        saved_audit_message = st.session_state.pop("stock_audit_saved_message", None)
+        if saved_audit_message:
+            st.success(saved_audit_message)
         st.markdown(
             """
             <style>
@@ -10880,10 +10895,36 @@ elif menu == "庫存區":
                         st.session_state["stock_audit_date_label"] = audit_date.strftime("%Y-%m-%d")
                         st.session_state["stock_audit_show_only_abnormal"] = show_only_abnormal
                         st.session_state["stock_audit_include_unregistered"] = include_unregistered
+                        # data_editor 有固定 key 時會保留上一次的表格狀態，蓋過剛重算的
+                        # DataFrame。每次分析使用新 revision，確保畫面顯示最新系統庫存。
+                        st.session_state["stock_audit_editor_revision"] = (
+                            st.session_state.get("stock_audit_editor_revision", 0) + 1
+                        )
                 except Exception as e:
                     st.error(f"盤點表解析失敗：{e}")
 
         audit_result = st.session_state.get("stock_audit_result")
+        hidden_confirmed_count = 0
+        if audit_result is not None and not audit_result.empty:
+            try:
+                confirmed_keys = recent_confirmed_audit_keys(
+                    audit_record_path,
+                    st.session_state.get("stock_audit_date_label", ""),
+                )
+                if confirmed_keys:
+                    confirmed_mask = audit_result.apply(
+                        lambda row: (
+                            str(row.get("儲位", "") or "").strip(),
+                            str(row.get("色粉編號", "") or "").strip(),
+                        ) in confirmed_keys,
+                        axis=1,
+                    )
+                    hidden_confirmed_count = int(confirmed_mask.sum())
+                    audit_result = audit_result[~confirmed_mask].copy()
+                    st.session_state["stock_audit_result"] = audit_result
+            except (OSError, UnicodeError, csv.Error) as exc:
+                st.warning(f"無法讀取已儲存的盤點確認紀錄，已顯示完整分析：{exc}")
+
         if audit_result is not None and not audit_result.empty:
             st.markdown('<div class="stock-audit-section-title">③ 分析結果</div>', unsafe_allow_html=True)
             st.markdown(f"（{st.session_state.get('stock_audit_date_label', '')}）")
@@ -10917,7 +10958,7 @@ elif menu == "庫存區":
                     "計算說明": st.column_config.TextColumn(width="large"),
                     "解析失敗原因": st.column_config.TextColumn(width="large"),
                 },
-                key="stock_audit_editor",
+                key=f"stock_audit_editor_{st.session_state.get('stock_audit_editor_revision', 0)}",
             )
 
             col_save, col_download_view, col_download_full = st.columns(3)
@@ -10926,11 +10967,18 @@ elif menu == "庫存區":
                     save_df = edited_df.copy()
                     save_df.insert(0, "盤點日期", st.session_state.get("stock_audit_date_label", ""))
                     save_df.insert(1, "儲存時間", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    confirmed_count = int(save_df["已確認"].fillna(False).astype(bool).sum())
                     if audit_record_path.exists():
                         old_df = pd.read_csv(audit_record_path)
                         save_df = pd.concat([old_df, save_df], ignore_index=True)
                     save_df.to_csv(audit_record_path, index=False, encoding="utf-8-sig")
-                    st.success(f"已儲存確認紀錄：{audit_record_path}")
+                    st.session_state["stock_audit_saved_message"] = (
+                        f"已儲存確認紀錄；{confirmed_count} 筆已確認品項會在同一盤點日的後續分析中隱藏 24 小時。"
+                    )
+                    st.session_state["stock_audit_editor_revision"] = (
+                        st.session_state.get("stock_audit_editor_revision", 0) + 1
+                    )
+                    st.rerun()
             with col_download_view:
                 st.download_button(
                     "⬇️ 下載目前畫面 CSV",
@@ -10956,6 +11004,8 @@ elif menu == "庫存區":
                     use_container_width=True,
                     hide_index=True,
                 )
+        elif hidden_confirmed_count:
+            st.success(f"本次分析的 {hidden_confirmed_count} 筆品項皆已確認，24 小時內不再重複顯示。")
 
     # ====================================================================
     # Tab 7：個別客戶庫存（Turso-first）
@@ -11304,7 +11354,9 @@ elif menu == "庫存區":
                     df_pid = df_stock_local[df_stock_local["色粉編號"] == pid]
                     df_ini = df_pid[df_pid["類型"].astype(str).str.strip() == "初始"]
                     if not df_ini.empty:
-                        latest_ini = df_ini.sort_values("日期_dt", ascending=False).iloc[0]
+                        latest_ini = pd.Series(
+                            latest_initial_inventory_record(df_ini.to_dict("records"))
+                        )
                         ini_value  = latest_ini["數量_g"]
                         ini_dt_raw = latest_ini["日期_dt"]
                         ini_dt     = ini_dt_raw if pd.notna(ini_dt_raw) else pd.Timestamp.min
