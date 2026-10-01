@@ -42,7 +42,29 @@ def test_saving_initial_stock_invalidates_previous_audit_snapshot():
         APP_SOURCE.index("# Tab 2：庫存查詢")
     ]
 
-    assert 'st.session_state.pop("stock_audit_result", None)' in initial_stock_source
+    assert "invalidate_inventory_caches()" in initial_stock_source
+
+
+def test_inventory_cache_invalidator_clears_every_derived_stock_view():
+    helper_source = APP_SOURCE[
+        APP_SOURCE.index("def invalidate_inventory_caches():"):
+        APP_SOURCE.index("def _calculate_carwash_inventory_balances")
+    ]
+
+    for key in (
+        "stock_calc_time",
+        "last_final_stock",
+        "stock_query_result",
+        "stock_query_signature",
+        "master_stock_query_result",
+        "stock_audit_result",
+    ):
+        assert f'"{key}"' in helper_source
+    assert 'st.session_state["stock_need_reload"] = True' in helper_source
+
+
+def test_all_app_inventory_writes_invalidate_derived_stock_views():
+    assert APP_SOURCE.count("invalidate_inventory_caches()") >= 7
 
 
 def test_saved_audit_confirmation_message_belongs_to_inventory_audit_tab():

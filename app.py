@@ -188,6 +188,23 @@ _persistent_auth_storage = components.declare_component(
 )
 
 
+def invalidate_inventory_caches():
+    """Discard every derived inventory view after an inventory movement changes."""
+    for key in (
+        "stock_calc_time",
+        "last_final_stock",
+        "stock_query_result",
+        "stock_query_signature",
+        "master_stock_query_result",
+        "stock_audit_result",
+    ):
+        st.session_state.pop(key, None)
+    st.session_state["stock_need_reload"] = True
+    st.session_state["stock_audit_editor_revision"] = (
+        st.session_state.get("stock_audit_editor_revision", 0) + 1
+    )
+
+
 # Keep the inventory screen dependent only on the repository's long-standing public
 # API.  Streamlit Cloud can briefly run app.py with an older cached utils package
 # during a deployment; importing newly-added helper names here would make the whole
@@ -3058,7 +3075,7 @@ def save_df_to_sheet(ws, df):
     _set_sheet_values_cache(ws.title, values)
 
     if ws.title == "庫存記錄":
-        st.session_state.pop("stock_calc_time", None)
+        invalidate_inventory_caches()
 
 
 def init_states(keys):
@@ -8650,7 +8667,7 @@ elif menu == "採購管理":
                     except InventoryError as exc:
                         st.error(f"❌ {exc}")
                         st.stop()
-                    st.session_state.stock_need_reload = True
+                    invalidate_inventory_caches()
     
                     # 清空表單
                     st.session_state.form_in_stock = {
@@ -8887,7 +8904,7 @@ elif menu == "採購管理":
                                 "單位": edit_unit, "廠商編號": edit_supplier_id.strip(),
                                 "廠商名稱": edit_supplier_name.strip(), "備註": edit_note,
                             })
-                            st.session_state.stock_need_reload = True
+                            invalidate_inventory_caches()
                             st.success("✅ 進貨紀錄已更新")
                             st.toast(f"已更新進貨：{edit_powder.strip()}", icon="💾")
                             st.rerun()
@@ -8900,7 +8917,7 @@ elif menu == "採購管理":
                         except InventoryError as exc:
                             st.error(f"❌ {exc}")
                         else:
-                            st.session_state.stock_need_reload = True
+                            invalidate_inventory_caches()
                             st.success("✅ 已建立沖銷記錄；原始進貨記錄仍保留")
                             st.toast(
                                 f"已沖銷 {target_row.get('色粉編號', '')} "
@@ -10441,15 +10458,9 @@ elif menu == "庫存區":
             else:
                 create_inventory_movement(DATABASE_CONFIG, initial_stock_row)
 
-            # ── 步驟 4：讓下次讀取強制 reload ──
-            st.session_state.stock_need_reload = True
-            st.session_state.pop("stock_calc_time", None)   # 讓生產單頁的庫存也重算
-            # 盤點分析結果包含當時的系統庫存快照。期初庫存一變更，舊結果
-            # 就不能繼續顯示，否則會讓使用者誤以為盤點沒有重新計算。
-            st.session_state.pop("stock_audit_result", None)
-            st.session_state["stock_audit_editor_revision"] = (
-                st.session_state.get("stock_audit_editor_revision", 0) + 1
-            )
+            # 初始庫存同時影響查詢、盤點、生產單及色母庫存；所有衍生結果
+            # 必須一起失效，不能讓「查詢」繼續顯示儲存前的 session 快照。
+            invalidate_inventory_caches()
 
             st.session_state["stock_init_toast_message"] = f"✅ 初始庫存儲存成功：{powder_id}（{qty_val:g} {ini_unit}）"
             st.success(f"✅ 初始庫存已儲存　色粉：{powder_id}　數量：{qty_val} {ini_unit}")
@@ -12017,8 +12028,7 @@ elif menu == "洗車廠庫存":
                             "_sync_id": uuid.uuid4().hex,
                         }
                         create_inventory_movement(DATABASE_CONFIG, stock_field_map)
-                        st.session_state.stock_need_reload = True
-                        st.session_state.pop("stock_calc_time", None)
+                        invalidate_inventory_caches()
                         transfer_note = f"，並已轉入色粉庫存區 +{io_qty:g} {stock_field_map['單位']}"
 
                 st.session_state["carwash_toast"] = {
