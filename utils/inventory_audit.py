@@ -36,6 +36,7 @@ def latest_initial_inventory_record(
         (index, record)
         for index, record in enumerate(records)
         if str(record.get("類型") or record.get("movement_type") or "").strip() == "初始"
+        and str(record.get("沖銷狀態") or "有效").strip() == "有效"
     ]
     if not candidates:
         return None
@@ -46,6 +47,35 @@ def latest_initial_inventory_record(
             item[0],
         ),
     )[1]
+
+
+def duplicate_initial_inventory_sync_ids(
+    records: Iterable[dict[str, Any]], powder_id: str,
+) -> list[str]:
+    """Return older exact duplicate initial rows, retaining the last write."""
+    groups: dict[tuple[object, ...], list[str]] = {}
+    target = str(powder_id or "").strip()
+    for record in records:
+        if str(record.get("類型") or "").strip() != "初始":
+            continue
+        if str(record.get("色粉編號") or "").strip() != target:
+            continue
+        if str(record.get("沖銷狀態") or "有效").strip() != "有效":
+            continue
+        sync_id = str(record.get("_sync_id") or "").strip()
+        if not sync_id:
+            continue
+        try:
+            quantity = float(record.get("數量") or 0)
+        except (TypeError, ValueError):
+            continue
+        key = (
+            _inventory_date(record.get("日期")), quantity,
+            str(record.get("單位") or "g").strip().casefold(),
+            str(record.get("備註") or "").strip(),
+        )
+        groups.setdefault(key, []).append(sync_id)
+    return [sync_id for ids in groups.values() for sync_id in ids[:-1]]
 
 
 def recent_confirmed_audit_keys(

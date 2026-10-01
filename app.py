@@ -20,7 +20,11 @@ from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils import database as database_utils
 from utils.number_format import format_optional_decimals
-from utils.inventory_audit import latest_initial_inventory_record, recent_confirmed_audit_keys
+from utils.inventory_audit import (
+    duplicate_initial_inventory_sync_ids,
+    latest_initial_inventory_record,
+    recent_confirmed_audit_keys,
+)
 from utils.database import (
     SCHEMA_VERSION,
     DatabaseStartupError,
@@ -10465,6 +10469,36 @@ elif menu == "庫存區":
             st.session_state["stock_init_toast_message"] = f"✅ 初始庫存儲存成功：{powder_id}（{qty_val:g} {ini_unit}）"
             st.success(f"✅ 初始庫存已儲存　色粉：{powder_id}　數量：{qty_val} {ini_unit}")
             st.rerun()
+
+        with st.expander("清理同日完全重複的初始庫存", expanded=False):
+            st.caption("只會沖銷同一色粉中，設定日期、數量、單位及備註完全相同的舊紀錄；最後寫入的一筆會保留。")
+            cleanup_powder_id = st.text_input("要清理的色粉編號", key="duplicate_initial_powder")
+            duplicate_sync_ids = duplicate_initial_inventory_sync_ids(
+                df_stock.to_dict("records"), cleanup_powder_id,
+            ) if cleanup_powder_id.strip() and not df_stock.empty else []
+            if cleanup_powder_id.strip():
+                st.info(f"找到 {len(duplicate_sync_ids)} 筆可安全沖銷的完全重複舊紀錄。")
+            confirm_duplicate_cleanup = st.toggle(
+                "我確認只清理完全相同的重複初始庫存",
+                value=False,
+                key="confirm_duplicate_initial_cleanup",
+            )
+            if st.button(
+                "清理重複初始庫存",
+                disabled=not duplicate_sync_ids or not confirm_duplicate_cleanup,
+                key="cleanup_duplicate_initial_stock",
+            ):
+                for duplicate_sync_id in duplicate_sync_ids:
+                    reverse_inventory_movement(
+                        DATABASE_CONFIG,
+                        duplicate_sync_id,
+                        reason="清理同日且資料完全相同的重複初始庫存",
+                    )
+                invalidate_inventory_caches()
+                st.session_state["stock_init_toast_message"] = (
+                    f"已清理 {cleanup_powder_id.strip()} 的 {len(duplicate_sync_ids)} 筆重複初始庫存"
+                )
+                st.rerun()
 
     # ====================================================================
     # Tab 2：庫存查詢

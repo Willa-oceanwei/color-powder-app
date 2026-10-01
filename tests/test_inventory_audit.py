@@ -1,7 +1,11 @@
 import csv
 from datetime import datetime, timedelta
 
-from utils.inventory_audit import latest_initial_inventory_record, recent_confirmed_audit_keys
+from utils.inventory_audit import (
+    duplicate_initial_inventory_sync_ids,
+    latest_initial_inventory_record,
+    recent_confirmed_audit_keys,
+)
 
 
 def _write_records(path, rows):
@@ -58,6 +62,28 @@ def test_latest_initial_record_compares_mixed_historical_date_formats():
     records = [
         {"類型": "初始", "日期": "2026/09/30", "數量": "100"},
         {"類型": "初始", "日期": "2026-10-01", "數量": "120"},
+    ]
+
+    assert latest_initial_inventory_record(records)["數量"] == "120"
+
+
+def test_duplicate_initial_cleanup_only_selects_older_exact_matches():
+    records = [
+        {"類型": "初始", "色粉編號": "E25P", "日期": "2026/10/01", "數量": "111.5",
+         "單位": "kg", "備註": "盤點", "廠商編號": "legacy", "_sync_id": "old", "沖銷狀態": "有效"},
+        {"類型": "初始", "色粉編號": "E25P", "日期": "2026-10-01", "數量": 111.5,
+         "單位": "KG", "備註": "盤點", "_sync_id": "keep", "沖銷狀態": "有效"},
+        {"類型": "初始", "色粉編號": "E25P", "日期": "2026-10-01", "數量": 112,
+         "單位": "kg", "備註": "盤點", "_sync_id": "different", "沖銷狀態": "有效"},
+    ]
+
+    assert duplicate_initial_inventory_sync_ids(records, "E25P") == ["old"]
+
+
+def test_latest_initial_record_ignores_cleaned_reversed_duplicate():
+    records = [
+        {"類型": "初始", "日期": "2026-10-01", "數量": "100", "沖銷狀態": "已沖銷"},
+        {"類型": "初始", "日期": "2026-10-01", "數量": "120", "沖銷狀態": "有效"},
     ]
 
     assert latest_initial_inventory_record(records)["數量"] == "120"
