@@ -10472,12 +10472,27 @@ elif menu == "庫存區":
 
         with st.expander("清理同日完全重複的初始庫存", expanded=False):
             st.caption("只會沖銷同一色粉中，設定日期、數量、單位及備註完全相同的舊紀錄；最後寫入的一筆會保留。")
-            cleanup_powder_id = st.text_input("要清理的色粉編號", key="duplicate_initial_powder")
+            cleanup_powder_id = st.text_input(
+                "要檢查的色粉編號",
+                key="duplicate_initial_powder",
+                help="可只檢查單一色粉，或開啟下方選項掃描全部庫存資料。",
+            )
+            scan_all_initials = st.toggle(
+                "掃描全部色粉的初始庫存",
+                value=False,
+                key="scan_all_duplicate_initials",
+            )
+            scan_duplicates = scan_all_initials or bool(cleanup_powder_id.strip())
             duplicate_sync_ids = duplicate_initial_inventory_sync_ids(
-                df_stock.to_dict("records"), cleanup_powder_id,
-            ) if cleanup_powder_id.strip() and not df_stock.empty else []
-            if cleanup_powder_id.strip():
+                df_stock.to_dict("records"), "" if scan_all_initials else cleanup_powder_id,
+            ) if scan_duplicates and not df_stock.empty else []
+            if scan_duplicates:
                 st.info(f"找到 {len(duplicate_sync_ids)} 筆可安全沖銷的完全重複舊紀錄。")
+                if duplicate_sync_ids:
+                    duplicate_preview = df_stock[
+                        df_stock["_sync_id"].astype(str).isin(duplicate_sync_ids)
+                    ][["色粉編號", "日期", "數量", "單位", "備註"]].copy()
+                    st.dataframe(duplicate_preview, use_container_width=True, hide_index=True)
             confirm_duplicate_cleanup = st.toggle(
                 "我確認只清理完全相同的重複初始庫存",
                 value=False,
@@ -10495,8 +10510,9 @@ elif menu == "庫存區":
                         reason="清理同日且資料完全相同的重複初始庫存",
                     )
                 invalidate_inventory_caches()
+                cleanup_scope = "全部色粉" if scan_all_initials else cleanup_powder_id.strip()
                 st.session_state["stock_init_toast_message"] = (
-                    f"已清理 {cleanup_powder_id.strip()} 的 {len(duplicate_sync_ids)} 筆重複初始庫存"
+                    f"已清理 {cleanup_scope} 的 {len(duplicate_sync_ids)} 筆重複初始庫存"
                 )
                 st.rerun()
 

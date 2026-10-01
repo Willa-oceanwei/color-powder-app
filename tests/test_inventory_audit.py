@@ -87,3 +87,18 @@ def test_latest_initial_record_ignores_cleaned_reversed_duplicate():
     ]
 
     assert latest_initial_inventory_record(records)["數量"] == "120"
+
+
+def test_blank_powder_filter_scans_duplicates_across_all_powders():
+    records = [
+        {"類型": "初始", "色粉編號": "A", "日期": "2026-10-01", "數量": 10,
+         "單位": "kg", "備註": "", "_sync_id": "a-old"},
+        {"類型": "初始", "色粉編號": "A", "日期": "2026-10-01", "數量": 10,
+         "單位": "kg", "備註": "", "_sync_id": "a-keep"},
+        {"類型": "初始", "色粉編號": "B", "日期": "2026-10-01", "數量": 10,
+         "單位": "kg", "備註": "", "_sync_id": "b-old"},
+        {"類型": "初始", "色粉編號": "B", "日期": "2026-10-01", "數量": 10,
+         "單位": "kg", "備註": "", "_sync_id": "b-keep"},
+    ]
+
+    assert duplicate_initial_inventory_sync_ids(records, "") == ["a-old", "b-old"]

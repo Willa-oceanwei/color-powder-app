@@ -52,13 +52,14 @@ def latest_initial_inventory_record(
 def duplicate_initial_inventory_sync_ids(
     records: Iterable[dict[str, Any]], powder_id: str,
 ) -> list[str]:
-    """Return older exact duplicate initial rows, retaining the last write."""
+    """Return older exact duplicates, scanning every powder when ID is blank."""
     groups: dict[tuple[object, ...], list[str]] = {}
     target = str(powder_id or "").strip()
     for record in records:
         if str(record.get("類型") or "").strip() != "初始":
             continue
-        if str(record.get("色粉編號") or "").strip() != target:
+        record_powder_id = str(record.get("色粉編號") or "").strip()
+        if target and record_powder_id != target:
             continue
         if str(record.get("沖銷狀態") or "有效").strip() != "有效":
             continue
@@ -70,7 +71,7 @@ def duplicate_initial_inventory_sync_ids(
         except (TypeError, ValueError):
             continue
         key = (
-            _inventory_date(record.get("日期")), quantity,
+            record_powder_id, _inventory_date(record.get("日期")), quantity,
             str(record.get("單位") or "g").strip().casefold(),
             str(record.get("備註") or "").strip(),
         )
