@@ -406,7 +406,7 @@ def test_annual_leave_batch_editor_normalizes_rows_and_ignores_empty_rows():
     import pytest
     pd = pytest.importorskip("pandas")
     from utils.salary_ui import (_annual_leave_editor_key, _annual_leave_editor_rows,
-                                 _annual_leave_records_from_editor)
+                                 _annual_leave_records_from_editor, _annual_leave_totals)
 
     existing = [{"date":"2026-08-03", "days":1, "hours":0, "note":"上午"},
                 {"date":"", "days":0, "hours":2, "note":""}]
@@ -417,6 +417,7 @@ def test_annual_leave_batch_editor_normalizes_rows_and_ignores_empty_rows():
     editor_rows.loc[len(editor_rows)] = [None, None, None, None]
 
     assert _annual_leave_records_from_editor(editor_rows, 2026) == existing
+    assert _annual_leave_totals(existing) == (1.0, 2.0)
 
     editor_rows.loc[1, "時數"] = 1.25
     assert _annual_leave_records_from_editor(editor_rows, 2026)[1]["hours"] == 1.25
@@ -508,6 +509,8 @@ def test_salary_editors_group_existing_fields_into_compact_tabs():
 
     assert '"👤 基本／薪資", "🌿 年度特休", "⚙️ 每月預設"' in source
     assert '"💵 薪資基礎", "🌿 請假／特休", "➕ 加扣／備註"' in source
+    assert '_annual_leave_totals(\n                        visible_records\n                    )' in source
+    assert 'if st.button(\n                    "儲存特休明細"' in source
     assert 'st.form_submit_button(submit_label, type="primary")' in source
     assert 'if c1.button("儲存草稿", disabled=not draft_blocks):' in source
 

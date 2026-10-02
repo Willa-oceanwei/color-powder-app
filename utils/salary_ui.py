@@ -58,6 +58,14 @@ def _annual_leave_editor_key(period, index, employee_id):
     return f"leave_editor_{period}_{index}_{employee_id}"
 
 
+def _annual_leave_totals(records):
+    """Return the day and hour totals currently shown in the leave editor."""
+    return (
+        sum(float(record.get("days") or 0) for record in records),
+        sum(float(record.get("hours") or 0) for record in records),
+    )
+
+
 def _sync_generated_note_state(state, note_key, generated_note, saved_note=""):
     """Refresh an untouched generated note while preserving a user's edits."""
     generated_key = f"{note_key}_source"
@@ -370,40 +378,47 @@ def _monthly_tab(config, employees=None, rules=None):
                     block[field] = cols[pos].number_input(label, min_value=0.0, value=float(block.get(field, 0)), key=f"{field}_{period}_{index}")
                 st.markdown("##### 特休日期明細")
                 records = block.setdefault("annual_leave_records", [])
-                st.caption("可一次新增、修改或刪除多筆；編輯期間不會重跑頁面，完成後再按套用。")
+                st.caption("編輯後會立即重新計算下方特休數字；完成後請按「儲存特休明細」寫入草稿。")
                 st.info("日期輸入方式：`08/07`、`0807` 或 `2026-08-07`；日期也可以留空白。")
-                with st.form(f"annual_leave_records_{period}_{index}"):
-                    annual_leave_applied = False
-                    edited_records = st.data_editor(
-                        _annual_leave_editor_rows(records),
-                        key=_annual_leave_editor_key(period, index, block.get("employee_id")),
-                        num_rows="dynamic",
-                        hide_index=True,
-                        use_container_width=True,
-                        column_config={
-                            "日期（可留空）": st.column_config.TextColumn(
-                                "日期（可留空）",
-                                help="可直接輸入 08/07、0807 或 2026-08-07，不限制只能選薪資月份。",
-                            ),
-                            "日數": st.column_config.NumberColumn("日數", min_value=0.0, step=0.5),
-                            "時數": st.column_config.NumberColumn(
-                                "時數", min_value=0.0, step=0.01, format="%.2f",
-                                help="可輸入至小數點後 2 位；0 會保持空白。",
-                            ),
-                            "備註": st.column_config.TextColumn("備註"),
-                        },
+                edited_records = st.data_editor(
+                    _annual_leave_editor_rows(records),
+                    key=_annual_leave_editor_key(period, index, block.get("employee_id")),
+                    num_rows="dynamic",
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "日期（可留空）": st.column_config.TextColumn(
+                            "日期（可留空）",
+                            help="可直接輸入 08/07、0807 或 2026-08-07，不限制只能選薪資月份。",
+                        ),
+                        "日數": st.column_config.NumberColumn("日數", min_value=0.0, step=0.5),
+                        "時數": st.column_config.NumberColumn(
+                            "時數", min_value=0.0, step=0.01, format="%.2f",
+                            help="可輸入至小數點後 2 位；0 會保持空白。",
+                        ),
+                        "備註": st.column_config.TextColumn("備註"),
+                    },
+                )
+                annual_leave_applied = False
+                leave_editor_valid = True
+                try:
+                    visible_records = _annual_leave_records_from_editor(edited_records, year)
+                except ValueError as error:
+                    st.error(str(error))
+                    visible_records = records
+                    leave_editor_valid = False
+                if st.button(
+                    "儲存特休明細",
+                    type="primary",
+                    key=f"save_leave_{period}_{index}",
+                    disabled=not leave_editor_valid,
+                ):
+                    records[:] = visible_records
+                    annual_leave_applied = True
+                if visible_records:
+                    block["annual_leave_days"], block["annual_leave_hours"] = _annual_leave_totals(
+                        visible_records
                     )
-                    if st.form_submit_button("套用並儲存特休明細", type="primary"):
-                        try:
-                            normalized_records = _annual_leave_records_from_editor(edited_records, year)
-                        except ValueError as error:
-                            st.error(str(error))
-                        else:
-                            records[:] = normalized_records
-                            annual_leave_applied = True
-                if records:
-                    block["annual_leave_days"] = sum(float(record.get("days") or 0) for record in records)
-                    block["annual_leave_hours"] = sum(float(record.get("hours") or 0) for record in records)
                 elif block.get("salary_id") and (block.get("annual_leave_days") or block.get("annual_leave_hours")):
                     st.warning("此筆為舊有月合計，尚無日期明細；目前保留原合計。新增日期紀錄後將改以逐筆明細自動合計。")
                 else:
