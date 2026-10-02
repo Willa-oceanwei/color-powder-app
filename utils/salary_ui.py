@@ -191,45 +191,51 @@ def _employee_tab(config, all_employees=None):
     current_leave_default = current_leave_context["balance"]
     employee_key = current.get("employee_id", "new")
     with st.form(f"employee_salary_setting_{employee_key}"):
-        a, b, c, d = st.columns(4)
-        employee_id = a.text_input("員工編號", value=str(current.get("employee_id", "")), disabled=bool(current), key=f"employee_id_{employee_key}")
-        name = b.text_input("姓名", value=current.get("name", ""), key=f"employee_name_{employee_key}")
-        join_date = c.date_input("到職日", value=date.fromisoformat(current.get("join_date") or date.today().isoformat()), key=f"employee_join_{employee_key}")
-        active = d.toggle("在職狀態", value=bool(current.get("active", 1)), key=f"employee_active_{employee_key}")
-        values = {}
-        columns = st.columns(3)
-        names = {"base_salary":"底薪", "attendance_bonus":"全勤", "cooling_allowance":"涼水", "allowance":"固定津貼", "position_allowance":"職務津貼", "insurance":"勞健保扣款"}
-        for idx, field in enumerate(MONEY_FIELDS):
-            values[field] = columns[idx % 3].number_input(names[field], min_value=0, step=100, value=int(current.get(field, 0)), key=f"employee_{field}_{employee_key}")
-        standard_hours = st.number_input("每日標準工時", min_value=0.5, value=float(current.get("standard_hours", 8)), key=f"employee_hours_{employee_key}")
-        st.markdown(f"##### {today.year} 年特休")
-        st.caption("填寫目前實際剩餘天數；從本月起，每月會接續上月餘額並扣除當月使用量。")
-        leave_columns = st.columns(3)
-        current_leave_balance = leave_columns[0].number_input(
-            "目前剩餘特休天數", min_value=0.0,
-            value=float(current_leave_default),
-            key=f"employee_current_leave_{employee_key}",
-        )
-        annual_leave_entitlement = leave_columns[1].number_input(
-            "本年度核定特休天數", min_value=0.0,
-            value=float(current_leave_setting.get("annual_entitlement", current.get("annual_leave_base", 0))),
-            key=f"employee_leave_entitlement_{employee_key}",
-        )
-        leave_columns[2].text_input(
-            "餘額開始計算月份", value=f"{today.month} 月", disabled=True,
-            key=f"employee_leave_month_{employee_key}",
-            help="目前餘額會從本月開始計算；下個月自動承接扣除後的餘額。",
-        )
-        st.markdown("##### 每月預設彈性項目")
-        add_enabled = st.toggle("預設啟用特別加給", value=bool(current.get("special_addition_enabled", 0)), key=f"employee_special_enabled_{employee_key}")
-        ca, cn = st.columns([1, 2])
-        add_amount = ca.number_input("特別加給預設金額", min_value=0, value=int(current.get("special_addition_amount", 0)), key=f"employee_special_amount_{employee_key}")
-        add_note = cn.text_input("特別加給預設說明", value=current.get("special_addition_note") or "", key=f"employee_special_note_{employee_key}")
-        deduct_enabled = st.toggle("預設啟用扣除額", value=bool(current.get("default_deduction_enabled", 0)), key=f"employee_deduct_enabled_{employee_key}")
-        da, dn = st.columns([1, 2])
-        deduct_amount = da.number_input("扣除額預設金額", min_value=0, value=int(current.get("default_deduction_amount", 0)), key=f"employee_deduct_amount_{employee_key}")
-        deduct_note = dn.text_input("扣除額預設說明", value=current.get("default_deduction_note") or "", key=f"employee_deduct_note_{employee_key}")
-        note = st.text_area("備註", value=current.get("note", ""), key=f"employee_note_{employee_key}")
+        profile_tab, leave_tab, defaults_tab = st.tabs([
+            "👤 基本／薪資", "🌿 年度特休", "⚙️ 每月預設",
+        ])
+        with profile_tab:
+            a, b, c, d = st.columns(4)
+            employee_id = a.text_input("員工編號", value=str(current.get("employee_id", "")), disabled=bool(current), key=f"employee_id_{employee_key}")
+            name = b.text_input("姓名", value=current.get("name", ""), key=f"employee_name_{employee_key}")
+            join_date = c.date_input("到職日", value=date.fromisoformat(current.get("join_date") or date.today().isoformat()), key=f"employee_join_{employee_key}")
+            active = d.toggle("在職狀態", value=bool(current.get("active", 1)), key=f"employee_active_{employee_key}")
+            values = {}
+            columns = st.columns(3)
+            names = {"base_salary":"底薪", "attendance_bonus":"全勤", "cooling_allowance":"涼水", "allowance":"固定津貼", "position_allowance":"職務津貼", "insurance":"勞健保扣款"}
+            for idx, field in enumerate(MONEY_FIELDS):
+                values[field] = columns[idx % 3].number_input(names[field], min_value=0, step=100, value=int(current.get(field, 0)), key=f"employee_{field}_{employee_key}")
+            standard_hours = st.number_input("每日標準工時", min_value=0.5, value=float(current.get("standard_hours", 8)), key=f"employee_hours_{employee_key}")
+        with leave_tab:
+            st.markdown(f"##### {today.year} 年特休")
+            st.caption("填寫目前實際剩餘天數；從本月起，每月會接續上月餘額並扣除當月使用量。")
+            leave_columns = st.columns(3)
+            current_leave_balance = leave_columns[0].number_input(
+                "目前剩餘特休天數", min_value=0.0,
+                value=float(current_leave_default),
+                key=f"employee_current_leave_{employee_key}",
+            )
+            annual_leave_entitlement = leave_columns[1].number_input(
+                "本年度核定特休天數", min_value=0.0,
+                value=float(current_leave_setting.get("annual_entitlement", current.get("annual_leave_base", 0))),
+                key=f"employee_leave_entitlement_{employee_key}",
+            )
+            leave_columns[2].text_input(
+                "餘額開始計算月份", value=f"{today.month} 月", disabled=True,
+                key=f"employee_leave_month_{employee_key}",
+                help="目前餘額會從本月開始計算；下個月自動承接扣除後的餘額。",
+            )
+        with defaults_tab:
+            st.markdown("##### 每月預設彈性項目")
+            add_enabled = st.toggle("預設啟用特別加給", value=bool(current.get("special_addition_enabled", 0)), key=f"employee_special_enabled_{employee_key}")
+            ca, cn = st.columns([1, 2])
+            add_amount = ca.number_input("特別加給預設金額", min_value=0, value=int(current.get("special_addition_amount", 0)), key=f"employee_special_amount_{employee_key}")
+            add_note = cn.text_input("特別加給預設說明", value=current.get("special_addition_note") or "", key=f"employee_special_note_{employee_key}")
+            deduct_enabled = st.toggle("預設啟用扣除額", value=bool(current.get("default_deduction_enabled", 0)), key=f"employee_deduct_enabled_{employee_key}")
+            da, dn = st.columns([1, 2])
+            deduct_amount = da.number_input("扣除額預設金額", min_value=0, value=int(current.get("default_deduction_amount", 0)), key=f"employee_deduct_amount_{employee_key}")
+            deduct_note = dn.text_input("扣除額預設說明", value=current.get("default_deduction_note") or "", key=f"employee_deduct_note_{employee_key}")
+            note = st.text_area("備註", value=current.get("note", ""), key=f"employee_note_{employee_key}")
         submit_label = "新增員工" if not current else "儲存修改"
         if st.form_submit_button(submit_label, type="primary"):
             save_employee(config, {"employee_id":employee_id, "name":name, "join_date":join_date.isoformat(), "active":active,
@@ -350,91 +356,98 @@ def _monthly_tab(config, employees=None, rules=None):
                 if removed_block.get("salary_id") and removed_block.get("status") != "settled":
                     delete_salary(config, removed_block["salary_id"])
                 st.rerun()
-            labels = [("base_salary_snapshot","底薪"),("attendance_bonus_snapshot","全勤"),("cooling_allowance_snapshot","涼水"),("allowance_snapshot","固定津貼"),("position_allowance_snapshot","職務津貼"),("insurance_snapshot","勞健保")]
-            cols = st.columns(3)
-            for pos, (field, label) in enumerate(labels): block[field] = cols[pos % 3].number_input(label, min_value=0, value=int(block.get(field, 0)), key=f"{field}_{period}_{index}")
-            cols = st.columns(2)
-            for pos, (field, label) in enumerate((("leave_days","請假日數"),("leave_hours","請假時數"))):
-                block[field] = cols[pos].number_input(label, min_value=0.0, value=float(block.get(field, 0)), key=f"{field}_{period}_{index}")
-            st.markdown("##### 特休日期明細")
-            records = block.setdefault("annual_leave_records", [])
-            st.caption("可一次新增、修改或刪除多筆；編輯期間不會重跑頁面，完成後再按套用。")
-            st.info("日期輸入方式：`08/07`、`0807` 或 `2026-08-07`；日期也可以留空白。")
-            with st.form(f"annual_leave_records_{period}_{index}"):
-                annual_leave_applied = False
-                edited_records = st.data_editor(
-                    _annual_leave_editor_rows(records),
-                    key=_annual_leave_editor_key(period, index, block.get("employee_id")),
-                    num_rows="dynamic",
-                    hide_index=True,
-                    use_container_width=True,
-                    column_config={
-                        "日期（可留空）": st.column_config.TextColumn(
-                            "日期（可留空）",
-                            help="可直接輸入 08/07、0807 或 2026-08-07，不限制只能選薪資月份。",
-                        ),
-                        "日數": st.column_config.NumberColumn("日數", min_value=0.0, step=0.5),
-                        "時數": st.column_config.NumberColumn(
-                            "時數", min_value=0.0, step=0.01, format="%.2f",
-                            help="可輸入至小數點後 2 位；0 會保持空白。",
-                        ),
-                        "備註": st.column_config.TextColumn("備註"),
-                    },
+            pay_tab, leave_tab, adjustment_tab = st.tabs([
+                "💵 薪資基礎", "🌿 請假／特休", "➕ 加扣／備註",
+            ])
+            with pay_tab:
+                labels = [("base_salary_snapshot","底薪"),("attendance_bonus_snapshot","全勤"),("cooling_allowance_snapshot","涼水"),("allowance_snapshot","固定津貼"),("position_allowance_snapshot","職務津貼"),("insurance_snapshot","勞健保")]
+                cols = st.columns(3)
+                for pos, (field, label) in enumerate(labels): block[field] = cols[pos % 3].number_input(label, min_value=0, value=int(block.get(field, 0)), key=f"{field}_{period}_{index}")
+                st.caption("這裡只放固定薪資欄位；請假、特休與加扣項已分到其他分頁。")
+            with leave_tab:
+                cols = st.columns(2)
+                for pos, (field, label) in enumerate((("leave_days","請假日數"),("leave_hours","請假時數"))):
+                    block[field] = cols[pos].number_input(label, min_value=0.0, value=float(block.get(field, 0)), key=f"{field}_{period}_{index}")
+                st.markdown("##### 特休日期明細")
+                records = block.setdefault("annual_leave_records", [])
+                st.caption("可一次新增、修改或刪除多筆；編輯期間不會重跑頁面，完成後再按套用。")
+                st.info("日期輸入方式：`08/07`、`0807` 或 `2026-08-07`；日期也可以留空白。")
+                with st.form(f"annual_leave_records_{period}_{index}"):
+                    annual_leave_applied = False
+                    edited_records = st.data_editor(
+                        _annual_leave_editor_rows(records),
+                        key=_annual_leave_editor_key(period, index, block.get("employee_id")),
+                        num_rows="dynamic",
+                        hide_index=True,
+                        use_container_width=True,
+                        column_config={
+                            "日期（可留空）": st.column_config.TextColumn(
+                                "日期（可留空）",
+                                help="可直接輸入 08/07、0807 或 2026-08-07，不限制只能選薪資月份。",
+                            ),
+                            "日數": st.column_config.NumberColumn("日數", min_value=0.0, step=0.5),
+                            "時數": st.column_config.NumberColumn(
+                                "時數", min_value=0.0, step=0.01, format="%.2f",
+                                help="可輸入至小數點後 2 位；0 會保持空白。",
+                            ),
+                            "備註": st.column_config.TextColumn("備註"),
+                        },
+                    )
+                    if st.form_submit_button("套用並儲存特休明細", type="primary"):
+                        try:
+                            normalized_records = _annual_leave_records_from_editor(edited_records, year)
+                        except ValueError as error:
+                            st.error(str(error))
+                        else:
+                            records[:] = normalized_records
+                            annual_leave_applied = True
+                if records:
+                    block["annual_leave_days"] = sum(float(record.get("days") or 0) for record in records)
+                    block["annual_leave_hours"] = sum(float(record.get("hours") or 0) for record in records)
+                elif block.get("salary_id") and (block.get("annual_leave_days") or block.get("annual_leave_hours")):
+                    st.warning("此筆為舊有月合計，尚無日期明細；目前保留原合計。新增日期紀錄後將改以逐筆明細自動合計。")
+                else:
+                    block["annual_leave_days"] = 0.0
+                    block["annual_leave_hours"] = 0.0
+                block["late_deduction"] = st.number_input("遲到扣款", min_value=0, value=int(block.get("late_deduction", 0)), key=f"late_{period}_{index}")
+                before = float(block.get("annual_leave_balance_before", 0)); used = block["annual_leave_days"] + block["annual_leave_hours"] / float(block.get("standard_hours_snapshot") or 8)
+                block["annual_leave_balance_after"] = before - used
+                entitlement = float(block.get("annual_leave_entitlement_snapshot", 0))
+                st.caption(f"年度核定 {entitlement:g} 日；本月使用 {used:g} 日；使用前 {before:g} 日，使用後 {before-used:g} 日")
+            with adjustment_tab:
+                st.markdown("##### 當月彈性項目")
+                for kind, title, item_name in (("addition", "特別加給", "特別加給"), ("deduction", "扣除額", "扣除額")):
+                    adjustments = block.setdefault("adjustments", [])
+                    item = next((x for x in adjustments if x["type"] == kind), None)
+                    enabled = st.toggle(f"啟用{title}", value=item is not None, key=f"{kind}_enabled_{period}_{index}")
+                    if enabled:
+                        if item is None:
+                            item = {"type":kind, "item_name":item_name, "amount":0, "note":""}
+                            adjustments.append(item)
+                        amount_col, note_col = st.columns([1, 2])
+                        item["item_name"] = item_name
+                        item["amount"] = amount_col.number_input(f"{title}金額", min_value=0, value=int(item.get("amount", 0)), key=f"{kind}_amount_{period}_{index}")
+                        item["note"] = note_col.text_input(f"{title}說明", value=item.get("note") or "", key=f"{kind}_note_{period}_{index}", help="餐費、獎金或借支原因等內容統一填在此處，不再細分類別。")
+                    elif item is not None:
+                        adjustments.remove(item)
+                additions = [x for x in block["adjustments"] if x["type"] == "addition"]; deductions = [x for x in block["adjustments"] if x["type"] == "deduction"]
+                block.update(calculate_salary(block, additions, deductions, rules))
+                generated_note = generate_salary_note(block, additions, deductions)
+                system_note_key = f"system_note_{period}_{index}_{block.get('employee_id')}"
+                _sync_generated_note_state(
+                    st.session_state, system_note_key, generated_note, block.get("system_note", ""),
                 )
-                if st.form_submit_button("套用並儲存特休明細", type="primary"):
-                    try:
-                        normalized_records = _annual_leave_records_from_editor(edited_records, year)
-                    except ValueError as error:
-                        st.error(str(error))
-                    else:
-                        records[:] = normalized_records
-                        annual_leave_applied = True
-            if records:
-                block["annual_leave_days"] = sum(float(record.get("days") or 0) for record in records)
-                block["annual_leave_hours"] = sum(float(record.get("hours") or 0) for record in records)
-            elif block.get("salary_id") and (block.get("annual_leave_days") or block.get("annual_leave_hours")):
-                st.warning("此筆為舊有月合計，尚無日期明細；目前保留原合計。新增日期紀錄後將改以逐筆明細自動合計。")
-            else:
-                block["annual_leave_days"] = 0.0
-                block["annual_leave_hours"] = 0.0
-            block["late_deduction"] = st.number_input("遲到扣款", min_value=0, value=int(block.get("late_deduction", 0)), key=f"late_{period}_{index}")
-            before = float(block.get("annual_leave_balance_before", 0)); used = block["annual_leave_days"] + block["annual_leave_hours"] / float(block.get("standard_hours_snapshot") or 8)
-            block["annual_leave_balance_after"] = before - used
-            entitlement = float(block.get("annual_leave_entitlement_snapshot", 0))
-            st.caption(f"年度核定 {entitlement:g} 日；本月使用 {used:g} 日；使用前 {before:g} 日，使用後 {before-used:g} 日")
-            st.markdown("##### 當月彈性項目")
-            for kind, title, item_name in (("addition", "特別加給", "特別加給"), ("deduction", "扣除額", "扣除額")):
-                adjustments = block.setdefault("adjustments", [])
-                item = next((x for x in adjustments if x["type"] == kind), None)
-                enabled = st.toggle(f"啟用{title}", value=item is not None, key=f"{kind}_enabled_{period}_{index}")
-                if enabled:
-                    if item is None:
-                        item = {"type":kind, "item_name":item_name, "amount":0, "note":""}
-                        adjustments.append(item)
-                    amount_col, note_col = st.columns([1, 2])
-                    item["item_name"] = item_name
-                    item["amount"] = amount_col.number_input(f"{title}金額", min_value=0, value=int(item.get("amount", 0)), key=f"{kind}_amount_{period}_{index}")
-                    item["note"] = note_col.text_input(f"{title}說明", value=item.get("note") or "", key=f"{kind}_note_{period}_{index}", help="餐費、獎金或借支原因等內容統一填在此處，不再細分類別。")
-                elif item is not None:
-                    adjustments.remove(item)
-            additions = [x for x in block["adjustments"] if x["type"] == "addition"]; deductions = [x for x in block["adjustments"] if x["type"] == "deduction"]
-            block.update(calculate_salary(block, additions, deductions, rules))
-            generated_note = generate_salary_note(block, additions, deductions)
-            system_note_key = f"system_note_{period}_{index}_{block.get('employee_id')}"
-            _sync_generated_note_state(
-                st.session_state, system_note_key, generated_note, block.get("system_note", ""),
-            )
-            block["manual_note"] = st.text_area(
-                "人工備註", block.get("manual_note", ""),
-                key=f"manual_{period}_{index}_{block.get('employee_id')}",
-            )
-            st.markdown("##### 儲存前備註預覽（可編輯）")
-            st.caption("特休明細請先按「套用特休明細」；下方就是會儲存的自動備註，可直接點入修改。")
-            block["system_note"] = st.text_area(
-                "自動生成備註", key=system_note_key,
-                placeholder="本月目前沒有自動生成的備註內容。",
-                help="未修改時會隨薪資資料自動更新；手動修改後，系統會保留您的版本。",
-            )
+                block["manual_note"] = st.text_area(
+                    "人工備註", block.get("manual_note", ""),
+                    key=f"manual_{period}_{index}_{block.get('employee_id')}",
+                )
+                st.markdown("##### 儲存前備註預覽（可編輯）")
+                st.caption("特休明細請先按「套用特休明細」；下方就是會儲存的自動備註，可直接點入修改。")
+                block["system_note"] = st.text_area(
+                    "自動生成備註", key=system_note_key,
+                    placeholder="本月目前沒有自動生成的備註內容。",
+                    help="未修改時會隨薪資資料自動更新；手動修改後，系統會保留您的版本。",
+                )
             if annual_leave_applied:
                 block["salary_id"] = save_salary(
                     config, {**block, "year": year, "month": month}, block["adjustments"],
@@ -445,7 +458,9 @@ def _monthly_tab(config, employees=None, rules=None):
                 st.caption(f"人工備註預覽：{block['manual_note'].strip()}")
             if block.get("status") != "settled":
                 st.caption("修改完成後請按下方「儲存草稿」；特休明細套用時仍會立即儲存。")
-            st.markdown(f"**薪資總計：{block['final_salary']:,} 元**")
+            total_col, state_col = st.columns([2, 1])
+            total_col.metric("本月薪資總計", f"{block['final_salary']:,} 元")
+            state_col.metric("目前狀態", status_label)
     monthly_extras = context["monthly_extras"]
     previous_extras = context["previous_extras"]
     previous_default = float(

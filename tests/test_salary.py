@@ -503,6 +503,15 @@ def test_salary_top_level_tabs_match_outsourcing_tab_style():
     )
 
 
+def test_salary_editors_group_existing_fields_into_compact_tabs():
+    source = (Path(__file__).parents[1] / "utils" / "salary_ui.py").read_text(encoding="utf-8")
+
+    assert '"👤 基本／薪資", "🌿 年度特休", "⚙️ 每月預設"' in source
+    assert '"💵 薪資基礎", "🌿 請假／特休", "➕ 加扣／備註"' in source
+    assert 'st.form_submit_button(submit_label, type="primary")' in source
+    assert 'if c1.button("儲存草稿", disabled=not draft_blocks):' in source
+
+
 def test_generated_salary_note_refreshes_until_user_edits_it():
     import pytest
     pytest.importorskip("pandas")
