@@ -456,9 +456,20 @@ def test_monthly_context_is_always_complete(monkeypatch):
 
     employees = [{"employee_id": "E1", "name": "甲"}]
     salaries = [{"salary_id": "S1"}]
-    monkeypatch.setattr(salary_ui, "list_employees", lambda config: employees)
+    monkeypatch.setattr(
+        salary_ui, "list_employees",
+        lambda config: (_ for _ in ()).throw(AssertionError("employees loaded twice")),
+    )
+    leave_contexts = {"E1": {"setting": None, "balance": 7}}
+    monkeypatch.setattr(
+        salary_ui, "get_annual_leave_contexts",
+        lambda config, employee_rows, year, month: leave_contexts,
+    )
     monkeypatch.setattr(salary_ui, "get_month_salaries", lambda config, year, month: salaries)
-    monkeypatch.setattr(salary_ui, "get_rules", lambda config: {"monthly_days": 30})
+    monkeypatch.setattr(
+        salary_ui, "get_rules",
+        lambda config: (_ for _ in ()).throw(AssertionError("rules loaded twice")),
+    )
     extras_by_month = {
         (2026, 7): {"monthly_total": 100},
         (2026, 8): {"monthly_total": 120},
@@ -468,10 +479,13 @@ def test_monthly_context_is_always_complete(monkeypatch):
         lambda config, year, month: extras_by_month[(year, month)],
     )
 
-    context = salary_ui._monthly_context(object(), 2026, 8)
+    context = salary_ui._monthly_context(
+        object(), 2026, 8, employees=employees, rules={"monthly_days": 30},
+    )
 
     assert context["employees"] == employees
     assert context["employees_by_id"] == {"E1": employees[0]}
+    assert context["leave_contexts"] == leave_contexts
     assert context["saved_salaries"] == salaries
     assert context["rules"] == {"monthly_days": 30}
     assert context["monthly_extras"] == {"monthly_total": 120}
@@ -487,6 +501,15 @@ def test_salary_top_level_tabs_match_outsourcing_tab_style():
     assert SALARY_TAB_LABELS == (
         "👤 員工薪資設定", "📅 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則",
     )
+
+
+def test_salary_editors_group_existing_fields_into_compact_tabs():
+    source = (Path(__file__).parents[1] / "utils" / "salary_ui.py").read_text(encoding="utf-8")
+
+    assert '"👤 基本／薪資", "🌿 年度特休", "⚙️ 每月預設"' in source
+    assert '"💵 薪資基礎", "🌿 請假／特休", "➕ 加扣／備註"' in source
+    assert 'st.form_submit_button(submit_label, type="primary")' in source
+    assert 'if c1.button("儲存草稿", disabled=not draft_blocks):' in source
 
 
 def test_generated_salary_note_refreshes_until_user_edits_it():
