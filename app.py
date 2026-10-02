@@ -4202,8 +4202,17 @@ elif menu == "配方管理":
                             else 0
                         ),
                     )
-                    pack  = st.selectbox("包裝", ["袋", "箱", "kg"],
-                        index=["袋", "箱", "kg"].index(st.session_state.form_color["包裝"]))
+                    package_options = ["袋", "箱", "kg"]
+                    current_package = st.session_state.form_color.get("包裝", "袋")
+                    pack = st.selectbox(
+                        "包裝",
+                        package_options,
+                        index=(
+                            package_options.index(current_package)
+                            if current_package in package_options
+                            else 0
+                        ),
+                    )
                     note  = st.text_input("備註", st.session_state.form_color["備註"])
                 submit_color = st.form_submit_button("💾 新增 / 修改")
 
