@@ -140,8 +140,39 @@ def test_switching_recipe_clears_all_recipe_dependent_draft_widgets():
     changed = reset_draft(state, "20260914-001", "NEW")
 
     assert changed is True
-    assert state == {"new_order": {"生產單號": "20260914-001", "配方編號": "OLD"},
-                     "new_order_saved": False, "downloaded_html_tab1": False}
+    assert state == {
+        "new_order": None,
+        "show_confirm_panel": False,
+        "new_order_saved": False,
+        "downloaded_html_tab1": False,
+    }
+
+
+def test_switching_recipe_after_save_discards_saved_package_fields_and_snapshot():
+    reset_draft = _load_draft_reset_helper()
+    state = {
+        "new_order": {
+            "生產單號": "20260914-001",
+            "配方編號": "OLD",
+            "包裝重量1": "25",
+            "包裝份數1": "4",
+        },
+        "new_order_saved": True,
+        "show_confirm_panel": True,
+        "form_weight1_tab1": "25",
+        "form_count1_tab1": "4",
+        "saved_label_snapshot": {"order": {"配方編號": "OLD"}},
+    }
+
+    changed = reset_draft(state, "20260914-002", "NEW")
+
+    assert changed is True
+    assert state == {
+        "new_order": None,
+        "show_confirm_panel": False,
+        "new_order_saved": False,
+        "downloaded_html_tab1": False,
+    }
 
 
 def test_same_unsaved_recipe_draft_keeps_widget_input_during_rerun():
