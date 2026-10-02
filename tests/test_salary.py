@@ -457,6 +457,11 @@ def test_monthly_context_is_always_complete(monkeypatch):
     employees = [{"employee_id": "E1", "name": "甲"}]
     salaries = [{"salary_id": "S1"}]
     monkeypatch.setattr(salary_ui, "list_employees", lambda config: employees)
+    leave_contexts = {"E1": {"setting": None, "balance": 7}}
+    monkeypatch.setattr(
+        salary_ui, "get_annual_leave_contexts",
+        lambda config, employee_rows, year, month: leave_contexts,
+    )
     monkeypatch.setattr(salary_ui, "get_month_salaries", lambda config, year, month: salaries)
     monkeypatch.setattr(salary_ui, "get_rules", lambda config: {"monthly_days": 30})
     extras_by_month = {
@@ -472,6 +477,7 @@ def test_monthly_context_is_always_complete(monkeypatch):
 
     assert context["employees"] == employees
     assert context["employees_by_id"] == {"E1": employees[0]}
+    assert context["leave_contexts"] == leave_contexts
     assert context["saved_salaries"] == salaries
     assert context["rules"] == {"monthly_days": 30}
     assert context["monthly_extras"] == {"monthly_total": 120}
