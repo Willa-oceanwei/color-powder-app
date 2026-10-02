@@ -2165,11 +2165,18 @@ def reset_production_order_draft_state(session_state, new_order_no, new_recipe_c
         if key.startswith(("form_main_color_", "form_add_color_")):
             session_state.pop(key, None)
 
+    # Remove the old draft object as well as its widget values.  Clearing only the
+    # widgets is not sufficient after a save: on the next rerun Streamlit can seed
+    # the newly-created widgets again from ``new_order`` (including its package
+    # values) before the replacement recipe has become the active draft.
+    session_state["new_order"] = None
+    session_state["show_confirm_panel"] = False
     session_state["downloaded_html_tab1"] = False
     session_state["new_order_saved"] = False
     session_state.pop("recipe_init_done", None)
     session_state.pop("recipe_row_cache", None)
     session_state.pop("last_saved_order_snapshot", None)
+    session_state.pop("saved_label_snapshot", None)
     return True
 
 
