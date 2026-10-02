@@ -108,6 +108,7 @@ def _monthly_context(config, year, month):
     return {
         "employees": employees,
         "employees_by_id": {employee["employee_id"]: employee for employee in employees},
+        "leave_contexts": get_annual_leave_contexts(config, employees, year, month),
         "saved_salaries": get_month_salaries(config, year, month),
         "rules": get_rules(config),
         "monthly_extras": get_salary_monthly_extras(config, year, month),
@@ -278,9 +279,11 @@ def _monthly_tab(config):
         st.toast("已自動移除重複新增的薪資人員")
     employees = context["employees"]
     by_id = context["employees_by_id"]
+    leave_contexts = context["leave_contexts"]
+
     def new_month_block(employee):
-        context = leave_contexts[employee["employee_id"]]
-        return _new_block(employee, context["setting"], context["balance"])
+        leave_context = leave_contexts[employee["employee_id"]]
+        return _new_block(employee, leave_context["setting"], leave_context["balance"])
     # Repair older drafts that were created with zero leave values even though
     # the employee has a current balance. Settled snapshots remain immutable.
     for block in blocks:
@@ -288,11 +291,11 @@ def _monthly_tab(config):
         if (employee and block.get("status") != "settled"
                 and not block.get("annual_leave_entitlement_snapshot")
                 and not block.get("annual_leave_balance_before")):
-            context = leave_contexts[employee["employee_id"]]
-            setting = context["setting"]
+            leave_context = leave_contexts[employee["employee_id"]]
+            setting = leave_context["setting"]
             entitlement = ((setting or {}).get("annual_entitlement")
                            if setting else employee.get("annual_leave_base", 0))
-            balance = context["balance"]
+            balance = leave_context["balance"]
             if entitlement or balance:
                 block["annual_leave_entitlement_snapshot"] = entitlement or 0
                 block["annual_leave_balance_before"] = balance
