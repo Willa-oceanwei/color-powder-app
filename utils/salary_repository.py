@@ -290,8 +290,8 @@ def get_annual_leave_contexts(config, employees, year, month):
         usage_by_employee[row["employee_id"]].append(row)
     latest_balance_by_employee = {}
     for row in previous_snapshots:
-        latest_balance_by_employee[row["employee_id"]] = float(
-            row["annual_leave_balance_after"] or 0
+        latest_balance_by_employee[row["employee_id"]] = max(
+            0.0, float(row["annual_leave_balance_after"] or 0),
         )
     contexts = {}
     for employee in employees:
@@ -409,7 +409,7 @@ def annual_leave_balance_before_month(config, employee_id, year, month):
             (employee_id, year, month),
         ).fetchone()
         if previous is not None:
-            return float(previous[0] or 0)
+            return max(0.0, float(previous[0] or 0))
         row = conn.execute("""SELECT COALESCE(SUM(annual_leave_days + annual_leave_hours /
             CASE WHEN standard_hours_snapshot > 0 THEN standard_hours_snapshot ELSE 8 END), 0)
             FROM salary_monthly WHERE employee_id=? AND year=? AND month>=? AND month<?

@@ -2,8 +2,9 @@ from datetime import date
 from pathlib import Path
 
 from utils.database import DatabaseConfig, connect_from_config, initialize_database_with_health
-from utils.salary_calculator import (calculate_leave_deduction, calculate_monthly_extra_totals,
-                                     calculate_salary, default_salary_period, generate_salary_note)
+from utils.salary_calculator import (calculate_annual_leave_balance, calculate_leave_deduction, calculate_monthly_extra_totals,
+                                     calculate_salary, default_salary_period, generate_salary_note,
+                                     reclassify_annual_leave_when_exhausted)
 from utils.salary_excel import _monthly_summary, _payroll_leave_note
 from utils.salary_repository import (annual_leave_balance_before_month, delete_salary,
                                      delete_annual_leave_history_record,
@@ -435,6 +436,56 @@ def test_monthly_extras_sum_employees_and_carry_previous_total():
     )
     assert monthly_addition == 42.5
     assert monthly_total == 13945.5
+
+
+def test_annual_leave_balance_never_becomes_negative():
+    assert calculate_annual_leave_balance(0, 0, 2.5, 8) == 0
+    note = generate_salary_note({
+        "annual_leave_days": 0,
+        "annual_leave_hours": 2.5,
+        "annual_leave_balance_after": -0.3125,
+        "standard_hours_snapshot": 8,
+    })
+
+    assert "結餘0日" in note
+    assert "結餘-" not in note
+    assert "餘-" not in _payroll_leave_note({
+        "annual_leave_hours": 2.5,
+        "annual_leave_balance_after": -0.3125,
+        "standard_hours_snapshot": 8,
+    })
+
+
+def test_annual_leave_is_reclassified_as_leave_when_balance_is_zero():
+    assert reclassify_annual_leave_when_exhausted(0, 0, 2.5, 1, 2.5) == (
+        1.0, 5.0, 0.0, 0.0,
+    )
+
+    leave_days, leave_hours, annual_days, annual_hours = (
+        reclassify_annual_leave_when_exhausted(0, 0, 0, 0, 2.5)
+    )
+    salary = {
+        "base_salary_snapshot": 29500,
+        "standard_hours_snapshot": 8,
+        "leave_days": leave_days,
+        "leave_hours": leave_hours,
+        "annual_leave_days": annual_days,
+        "annual_leave_hours": annual_hours,
+        "annual_leave_balance_before": 0,
+        "annual_leave_balance_after": 0,
+    }
+    salary.update(calculate_salary(salary))
+    note = generate_salary_note(salary)
+
+    assert salary["leave_deduction"] == 307
+    assert "本月請假0日2.5小時，請假扣款307元" in note
+    assert "本月特休0日，餘0日" in note
+
+
+def test_annual_leave_is_not_reclassified_while_balance_remains():
+    assert reclassify_annual_leave_when_exhausted(0.5, 1, 2, 0, 2.5) == (
+        1.0, 2.0, 0.0, 2.5,
+    )
 
 
 def test_generated_salary_note_includes_unique_annual_leave_dates():

@@ -5,8 +5,9 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from .salary_calculator import (calculate_monthly_extra_totals, calculate_salary,
-                                default_salary_period, generate_salary_note)
+from .salary_calculator import (calculate_annual_leave_balance, calculate_monthly_extra_totals,
+                                calculate_salary, default_salary_period, generate_salary_note)
+from .salary_calculator import reclassify_annual_leave_when_exhausted
 from .salary_excel import generate_salary_workbook
 from .salary_repository import (delete_salary, get_annual_leave_contexts,
                                 get_annual_leave_setting, get_employee_salary_note, get_employee_salary_notes,
@@ -514,11 +515,33 @@ def _monthly_tab(config, employees=None, rules=None):
                 else:
                     block["annual_leave_days"] = 0.0
                     block["annual_leave_hours"] = 0.0
+                before = max(0.0, float(block.get("annual_leave_balance_before", 0)))
+                requested_annual_leave = bool(
+                    block["annual_leave_days"] or block["annual_leave_hours"]
+                )
+                if before == 0 and requested_annual_leave:
+                    (block["leave_days"], block["leave_hours"],
+                     block["annual_leave_days"], block["annual_leave_hours"]) = (
+                        reclassify_annual_leave_when_exhausted(
+                            before, block["leave_days"], block["leave_hours"],
+                            block["annual_leave_days"], block["annual_leave_hours"],
+                        )
+                    )
+                    records.clear()
+                    refreshed_leave_employee_ids.add(current_id)
+                    if annual_leave_applied:
+                        visible_records = []
+                    st.warning("可用特休為 0 日，本次輸入已自動改列為請假並計算請假扣款。")
                 block["late_deduction"] = st.number_input("遲到扣款", min_value=0, value=int(block.get("late_deduction", 0)), key=f"late_{period}_{index}")
-                before = float(block.get("annual_leave_balance_before", 0)); used = block["annual_leave_days"] + block["annual_leave_hours"] / float(block.get("standard_hours_snapshot") or 8)
-                block["annual_leave_balance_after"] = before - used
+                used = block["annual_leave_days"] + block["annual_leave_hours"] / float(block.get("standard_hours_snapshot") or 8)
+                block["annual_leave_balance_after"] = calculate_annual_leave_balance(
+                    before, block["annual_leave_days"], block["annual_leave_hours"],
+                    block.get("standard_hours_snapshot") or 8,
+                )
                 entitlement = float(block.get("annual_leave_entitlement_snapshot", 0))
-                st.caption(f"年度核定 {entitlement:g} 日；本月使用 {used:g} 日；使用前 {before:g} 日，使用後 {before-used:g} 日")
+                if used > before:
+                    st.warning(f"本月特休使用 {used:g} 日已超過可用的 {before:g} 日，剩餘天數以 0 日計算。")
+                st.caption(f"年度核定 {entitlement:g} 日；本月使用 {used:g} 日；使用前 {before:g} 日，使用後 {block['annual_leave_balance_after']:g} 日")
             with adjustment_tab:
                 st.markdown("##### 當月彈性項目")
                 for kind, title, item_name in (("addition", "特別加給", "特別加給"), ("deduction", "扣除額", "扣除額")):
