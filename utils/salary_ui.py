@@ -122,11 +122,15 @@ def _annual_leave_totals(records):
     )
 
 
-def _sync_generated_note_state(state, note_key, generated_note, saved_note=""):
+def _sync_generated_note_state(
+    state, note_key, generated_note, saved_note="", *, force_refresh=False,
+):
     """Refresh an untouched generated note while preserving a user's edits."""
     generated_key = f"{note_key}_source"
     previous_generated = state.get(generated_key)
-    if note_key not in state:
+    if force_refresh:
+        state[note_key] = generated_note
+    elif note_key not in state:
         state[note_key] = saved_note or generated_note
     elif state[note_key] == previous_generated:
         state[note_key] = generated_note
@@ -341,7 +345,12 @@ def _new_block(employee, annual_setting=None, leave_balance=0):
 def _refresh_draft_leave_context(block, employee, leave_context):
     """Refresh derived opening leave values without changing settled snapshots."""
     if block.get("status") == "settled":
-        return
+        return False
+    previous_values = (
+        block.get("annual_leave_entitlement_snapshot"),
+        block.get("annual_leave_note_snapshot"),
+        block.get("annual_leave_balance_before"),
+    )
     setting = leave_context.get("setting") or {}
     block["annual_leave_entitlement_snapshot"] = (
         setting.get("annual_entitlement")
@@ -349,6 +358,11 @@ def _refresh_draft_leave_context(block, employee, leave_context):
     ) or 0
     block["annual_leave_note_snapshot"] = setting.get("note", "")
     block["annual_leave_balance_before"] = leave_context.get("balance", 0)
+    return previous_values != (
+        block["annual_leave_entitlement_snapshot"],
+        block["annual_leave_note_snapshot"],
+        block["annual_leave_balance_before"],
+    )
 
 
 def _monthly_tab(config, employees=None, rules=None):
@@ -389,12 +403,13 @@ def _monthly_tab(config, employees=None, rules=None):
     # Opening leave values are derived from earlier months. Always refresh them
     # for drafts because a draft may have been created before the previous month
     # was saved or settled. Settled snapshots remain immutable.
+    refreshed_leave_employee_ids = set()
     for block in blocks:
         employee = by_id.get(block.get("employee_id"))
-        if employee:
-            _refresh_draft_leave_context(
+        if employee and _refresh_draft_leave_context(
                 block, employee, leave_contexts[employee["employee_id"]],
-            )
+        ):
+            refreshed_leave_employee_ids.add(employee["employee_id"])
     rules = context["rules"]
     existing_employee_ids = {block.get("employee_id") for block in blocks}
     available_employees = [x for x in employees if x["employee_id"] not in existing_employee_ids]
@@ -514,6 +529,7 @@ def _monthly_tab(config, employees=None, rules=None):
                 system_note_key = f"system_note_{period}_{index}_{block.get('employee_id')}"
                 _sync_generated_note_state(
                     st.session_state, system_note_key, generated_note, block.get("system_note", ""),
+                    force_refresh=current_id in refreshed_leave_employee_ids,
                 )
                 block["manual_note"] = st.text_area(
                     "人工備註", block.get("manual_note", ""),

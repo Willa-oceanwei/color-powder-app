@@ -277,8 +277,9 @@ def test_existing_salary_draft_refreshes_stale_opening_leave_balance():
         "annual_leave_balance_before": 10,
     }
 
-    _refresh_draft_leave_context(stale_draft, employee, leave_context)
+    changed = _refresh_draft_leave_context(stale_draft, employee, leave_context)
 
+    assert changed is True
     assert stale_draft["annual_leave_entitlement_snapshot"] == 14
     assert stale_draft["annual_leave_note_snapshot"] == "歷年制"
     assert stale_draft["annual_leave_balance_before"] == 8.5
@@ -295,12 +296,13 @@ def test_settled_salary_keeps_immutable_leave_snapshot():
         "annual_leave_note_snapshot": "舊說明", "annual_leave_balance_before": 7,
     }
 
-    _refresh_draft_leave_context(
+    changed = _refresh_draft_leave_context(
         settled,
         {"employee_id": "E1", "annual_leave_base": 10},
         {"setting": {"annual_entitlement": 14, "note": "新說明"}, "balance": 8.5},
     )
 
+    assert changed is False
     assert settled == {
         "status": "settled", "annual_leave_entitlement_snapshot": 12,
         "annual_leave_note_snapshot": "舊說明", "annual_leave_balance_before": 7,
@@ -646,6 +648,27 @@ def test_generated_salary_note_refreshes_until_user_edits_it():
     saved_state = {}
     _sync_generated_note_state(saved_state, "note_E2", "重新計算內容", "已儲存的編輯內容")
     assert saved_state["note_E2"] == "已儲存的編輯內容"
+
+
+def test_generated_salary_note_force_refreshes_after_leave_balance_changes():
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    from utils.salary_ui import _sync_generated_note_state
+
+    state = {"note_E1": "特休1日，結餘6日。"}
+
+    _sync_generated_note_state(
+        state,
+        "note_E1",
+        "特休1日，結餘2.0875日。",
+        saved_note="特休1日，結餘6日。",
+        force_refresh=True,
+    )
+
+    assert state["note_E1"] == "特休1日，結餘2.0875日。"
+    assert state["note_E1_source"] == "特休1日，結餘2.0875日。"
+    assert _payroll_leave_note({"system_note": state["note_E1"]}) == "特休1日，結餘2.0875日。"
 
 
 def test_duplicate_salary_blocks_keep_only_first_employee_entry():
