@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from .salary_calculator import (calculate_monthly_extra_totals, calculate_salary,
                                 default_salary_period, generate_salary_note)
@@ -25,6 +26,61 @@ SALARY_TAB_LABELS = (
     "📚 薪資歷史",
     "⚙️ 薪資規則",
 )
+
+
+def _render_salary_tab_persistence():
+    """Keep the selected salary tab active across Streamlit reruns."""
+    components.html(
+        """
+        <script>
+        (function () {
+          const storageKey = "salary_mgmt_active_tab";
+          const tabTexts = [
+            "👤 員工薪資設定", "📅 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則"
+          ];
+
+          function bindSalaryTabs() {
+            const doc = window.parent.document;
+            const tablist = Array.from(doc.querySelectorAll('div[role="tablist"]')).find(candidate => {
+              const labels = Array.from(candidate.querySelectorAll('button[role="tab"]'))
+                .map(tab => tab.textContent.trim());
+              return labels.length === tabTexts.length
+                && tabTexts.every((label, idx) => labels[idx] === label);
+            });
+            if (!tablist) return false;
+
+            const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
+            tabs.forEach((tab, idx) => {
+              if (tab.dataset.salaryPersistBound === '1') return;
+              tab.dataset.salaryPersistBound = '1';
+              tab.addEventListener('click', () => {
+                window.parent.sessionStorage.setItem(storageKey, String(idx));
+              });
+            });
+
+            const savedIndex = Number.parseInt(
+              window.parent.sessionStorage.getItem(storageKey), 10
+            );
+            if (Number.isInteger(savedIndex) && tabs[savedIndex]
+                && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
+              tabs[savedIndex].click();
+            }
+            return true;
+          }
+
+          if (!bindSalaryTabs()) {
+            const observer = new MutationObserver(() => {
+              if (bindSalaryTabs()) observer.disconnect();
+            });
+            observer.observe(window.parent.document.body, { childList: true, subtree: true });
+            window.setTimeout(() => observer.disconnect(), 10000);
+          }
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
 
 @st.cache_data(show_spinner=False)
@@ -282,6 +338,19 @@ def _new_block(employee, annual_setting=None, leave_balance=0):
             "annual_leave_records":[], "adjustments":adjustments}
 
 
+def _refresh_draft_leave_context(block, employee, leave_context):
+    """Refresh derived opening leave values without changing settled snapshots."""
+    if block.get("status") == "settled":
+        return
+    setting = leave_context.get("setting") or {}
+    block["annual_leave_entitlement_snapshot"] = (
+        setting.get("annual_entitlement")
+        if setting else employee.get("annual_leave_base", 0)
+    ) or 0
+    block["annual_leave_note_snapshot"] = setting.get("note", "")
+    block["annual_leave_balance_before"] = leave_context.get("balance", 0)
+
+
 def _monthly_tab(config, employees=None, rules=None):
     now = date.today()
     default_year, default_month = default_salary_period(now)
@@ -317,21 +386,15 @@ def _monthly_tab(config, employees=None, rules=None):
     def new_month_block(employee):
         leave_context = leave_contexts[employee["employee_id"]]
         return _new_block(employee, leave_context["setting"], leave_context["balance"])
-    # Repair older drafts that were created with zero leave values even though
-    # the employee has a current balance. Settled snapshots remain immutable.
+    # Opening leave values are derived from earlier months. Always refresh them
+    # for drafts because a draft may have been created before the previous month
+    # was saved or settled. Settled snapshots remain immutable.
     for block in blocks:
         employee = by_id.get(block.get("employee_id"))
-        if (employee and block.get("status") != "settled"
-                and not block.get("annual_leave_entitlement_snapshot")
-                and not block.get("annual_leave_balance_before")):
-            leave_context = leave_contexts[employee["employee_id"]]
-            setting = leave_context["setting"]
-            entitlement = ((setting or {}).get("annual_entitlement")
-                           if setting else employee.get("annual_leave_base", 0))
-            balance = leave_context["balance"]
-            if entitlement or balance:
-                block["annual_leave_entitlement_snapshot"] = entitlement or 0
-                block["annual_leave_balance_before"] = balance
+        if employee:
+            _refresh_draft_leave_context(
+                block, employee, leave_contexts[employee["employee_id"]],
+            )
     rules = context["rules"]
     existing_employee_ids = {block.get("employee_id") for block in blocks}
     available_employees = [x for x in employees if x["employee_id"] not in existing_employee_ids]
@@ -754,6 +817,9 @@ def render_salary_management(config):
 
     # Keep the same top-level tab pattern used by 代工管理 so the four salary
     # sections remain visible as page tabs rather than falling back to a menu.
+    # Salary actions such as adding a person trigger a rerun, so restore the
+    # selected tab instead of letting Streamlit return to the first tab.
+    _render_salary_tab_persistence()
     employee_tab, monthly_tab, history_tab, rules_tab = st.tabs(SALARY_TAB_LABELS)
     with employee_tab:
         _employee_tab(config, all_employees)

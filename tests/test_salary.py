@@ -207,6 +207,77 @@ def test_bulk_annual_leave_contexts_match_settings_and_previous_usage(tmp_path: 
     assert contexts["E2"]["balance"] == 6
 
 
+def test_annual_leave_context_carries_forward_previous_month_draft(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "draft-annual-leave.db")
+    initialize_database_with_health(config)
+    employee = {
+        "employee_id": "E1", "name": "甲", "join_date": "2026-01-01",
+        "standard_hours": 8, "annual_leave_base": 10,
+    }
+    save_employee(config, employee)
+    save_annual_leave_setting(config, "E1", 2026, 14, 10, 7, "甲設定")
+    august_draft = {
+        "year": 2026, "month": 8, "employee_id": "E1",
+        "employee_name_snapshot": "甲", "standard_hours_snapshot": 8,
+        "annual_leave_days": 1, "annual_leave_hours": 4,
+        "annual_leave_balance_before": 10, "annual_leave_balance_after": 8.5,
+    }
+    august_draft.update(calculate_salary(august_draft))
+    save_salary(config, august_draft)
+
+    contexts = get_annual_leave_contexts(config, list_employees(config), 2026, 9)
+
+    assert get_month_salaries(config, 2026, 8)[0]["status"] == "draft"
+    assert contexts["E1"]["balance"] == 8.5
+    assert annual_leave_balance_before_month(config, "E1", 2026, 9) == 8.5
+
+
+def test_existing_salary_draft_refreshes_stale_opening_leave_balance():
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    from utils.salary_ui import _refresh_draft_leave_context
+
+    employee = {"employee_id": "E1", "annual_leave_base": 10}
+    leave_context = {
+        "setting": {"annual_entitlement": 14, "note": "歷年制"},
+        "balance": 8.5,
+    }
+    stale_draft = {
+        "status": "draft", "annual_leave_entitlement_snapshot": 14,
+        "annual_leave_balance_before": 10,
+    }
+
+    _refresh_draft_leave_context(stale_draft, employee, leave_context)
+
+    assert stale_draft["annual_leave_entitlement_snapshot"] == 14
+    assert stale_draft["annual_leave_note_snapshot"] == "歷年制"
+    assert stale_draft["annual_leave_balance_before"] == 8.5
+
+
+def test_settled_salary_keeps_immutable_leave_snapshot():
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    from utils.salary_ui import _refresh_draft_leave_context
+
+    settled = {
+        "status": "settled", "annual_leave_entitlement_snapshot": 12,
+        "annual_leave_note_snapshot": "舊說明", "annual_leave_balance_before": 7,
+    }
+
+    _refresh_draft_leave_context(
+        settled,
+        {"employee_id": "E1", "annual_leave_base": 10},
+        {"setting": {"annual_entitlement": 14, "note": "新說明"}, "balance": 8.5},
+    )
+
+    assert settled == {
+        "status": "settled", "annual_leave_entitlement_snapshot": 12,
+        "annual_leave_note_snapshot": "舊說明", "annual_leave_balance_before": 7,
+    }
+
+
 def test_annual_leave_balance_falls_back_to_employee_current_days(tmp_path: Path):
     config = DatabaseConfig("sqlite", tmp_path / "annual-leave-fallback.db")
     initialize_database_with_health(config)
@@ -502,6 +573,18 @@ def test_salary_top_level_tabs_match_outsourcing_tab_style():
     assert SALARY_TAB_LABELS == (
         "👤 員工薪資設定", "📅 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則",
     )
+
+
+def test_salary_tabs_remain_selected_after_rerun():
+    source = (Path(__file__).parents[1] / "utils" / "salary_ui.py").read_text(encoding="utf-8")
+    app_source = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
+
+    assert 'const storageKey = "salary_mgmt_active_tab";' in source
+    assert "function bindSalaryTabs()" in source
+    assert "window.parent.sessionStorage.setItem(storageKey, String(idx));" in source
+    assert "tabTexts.every((label, idx) => labels[idx] === label)" in source
+    assert "_render_salary_tab_persistence()" in source
+    assert "👤 員工薪資設定|📅 每月薪資|📚 薪資歷史|⚙️ 薪資規則" in app_source
 
 
 def test_salary_editors_group_existing_fields_into_compact_tabs():
