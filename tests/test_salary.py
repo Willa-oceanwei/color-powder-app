@@ -195,6 +195,7 @@ def test_bulk_annual_leave_contexts_match_settings_and_previous_usage(tmp_path: 
     used = {
         "year": 2026, "month": 8, "employee_id": "E1", "employee_name_snapshot": "甲",
         "standard_hours_snapshot": 8, "annual_leave_days": 1, "annual_leave_hours": 4,
+        "annual_leave_balance_before": 10, "annual_leave_balance_after": 8.5,
     }
     used.update(calculate_salary(used))
     save_salary(config, used, settle=True)
@@ -230,6 +231,34 @@ def test_annual_leave_context_carries_forward_previous_month_draft(tmp_path: Pat
     assert get_month_salaries(config, 2026, 8)[0]["status"] == "draft"
     assert contexts["E1"]["balance"] == 8.5
     assert annual_leave_balance_before_month(config, "E1", 2026, 9) == 8.5
+
+
+def test_previous_closing_balance_wins_over_inconsistent_annual_opening_setting(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "closing-balance.db")
+    initialize_database_with_health(config)
+    employee = {
+        "employee_id": "E1", "name": "佟慧卿", "join_date": "2026-01-01",
+        "standard_hours": 8, "annual_leave_base": 7,
+    }
+    save_employee(config, employee)
+    # This later setting previously caused September to start from 7 and end at
+    # 6, even though the settled August snapshot already closed at 3.1.
+    save_annual_leave_setting(config, "E1", 2026, 7, 7, 9, "")
+    august = {
+        "year": 2026, "month": 8, "employee_id": "E1",
+        "employee_name_snapshot": "佟慧卿", "standard_hours_snapshot": 8,
+        "annual_leave_balance_before": 4.1, "annual_leave_days": 1,
+        "annual_leave_hours": 0, "annual_leave_balance_after": 3.1,
+    }
+    august.update(calculate_salary(august))
+    save_salary(config, august, settle=True)
+
+    context = get_annual_leave_contexts(config, list_employees(config), 2026, 9)["E1"]
+    september_after_one_day = context["balance"] - 1
+
+    assert context["balance"] == 3.1
+    assert annual_leave_balance_before_month(config, "E1", 2026, 9) == 3.1
+    assert september_after_one_day == 2.1
 
 
 def test_existing_salary_draft_refreshes_stale_opening_leave_balance():
@@ -291,7 +320,7 @@ def test_annual_leave_balance_falls_back_to_employee_current_days(tmp_path: Path
 
     assert get_annual_leave_setting(config, "E1", 2026) is None
     assert annual_leave_balance_before_month(config, "E1", 2026, 1) == 10
-    assert annual_leave_balance_before_month(config, "E1", 2026, 2) == 10
+    assert annual_leave_balance_before_month(config, "E1", 2026, 2) == 8.5
 
     save_annual_leave_setting(config, "E1", 2026, 10, 10, 1, "")
     assert annual_leave_balance_before_month(config, "E1", 2026, 2) == 8.5
