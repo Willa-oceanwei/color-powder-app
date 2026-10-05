@@ -504,6 +504,18 @@ def test_salary_top_level_tabs_match_outsourcing_tab_style():
     )
 
 
+def test_salary_tabs_remain_selected_after_rerun():
+    source = (Path(__file__).parents[1] / "utils" / "salary_ui.py").read_text(encoding="utf-8")
+    app_source = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
+
+    assert 'const storageKey = "salary_mgmt_active_tab";' in source
+    assert "function bindSalaryTabs()" in source
+    assert "window.parent.sessionStorage.setItem(storageKey, String(idx));" in source
+    assert "tabTexts.every((label, idx) => labels[idx] === label)" in source
+    assert "_render_salary_tab_persistence()" in source
+    assert "👤 員工薪資設定|📅 每月薪資|📚 薪資歷史|⚙️ 薪資規則" in app_source
+
+
 def test_salary_editors_group_existing_fields_into_compact_tabs():
     source = (Path(__file__).parents[1] / "utils" / "salary_ui.py").read_text(encoding="utf-8")
 
