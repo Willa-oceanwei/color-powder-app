@@ -3,9 +3,11 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
-from .salary_calculator import (calculate_monthly_extra_totals, calculate_salary,
-                                default_salary_period, generate_salary_note)
+from .salary_calculator import (calculate_annual_leave_balance, calculate_monthly_extra_totals,
+                                calculate_salary, default_salary_period, generate_salary_note)
+from .salary_calculator import reclassify_annual_leave_when_exhausted
 from .salary_excel import generate_salary_workbook
 from .salary_repository import (delete_salary, get_annual_leave_contexts,
                                 get_annual_leave_setting, get_employee_salary_note, get_employee_salary_notes,
@@ -25,6 +27,61 @@ SALARY_TAB_LABELS = (
     "📚 薪資歷史",
     "⚙️ 薪資規則",
 )
+
+
+def _render_salary_tab_persistence():
+    """Keep the selected salary tab active across Streamlit reruns."""
+    components.html(
+        """
+        <script>
+        (function () {
+          const storageKey = "salary_mgmt_active_tab";
+          const tabTexts = [
+            "👤 員工薪資設定", "📅 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則"
+          ];
+
+          function bindSalaryTabs() {
+            const doc = window.parent.document;
+            const tablist = Array.from(doc.querySelectorAll('div[role="tablist"]')).find(candidate => {
+              const labels = Array.from(candidate.querySelectorAll('button[role="tab"]'))
+                .map(tab => tab.textContent.trim());
+              return labels.length === tabTexts.length
+                && tabTexts.every((label, idx) => labels[idx] === label);
+            });
+            if (!tablist) return false;
+
+            const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
+            tabs.forEach((tab, idx) => {
+              if (tab.dataset.salaryPersistBound === '1') return;
+              tab.dataset.salaryPersistBound = '1';
+              tab.addEventListener('click', () => {
+                window.parent.sessionStorage.setItem(storageKey, String(idx));
+              });
+            });
+
+            const savedIndex = Number.parseInt(
+              window.parent.sessionStorage.getItem(storageKey), 10
+            );
+            if (Number.isInteger(savedIndex) && tabs[savedIndex]
+                && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
+              tabs[savedIndex].click();
+            }
+            return true;
+          }
+
+          if (!bindSalaryTabs()) {
+            const observer = new MutationObserver(() => {
+              if (bindSalaryTabs()) observer.disconnect();
+            });
+            observer.observe(window.parent.document.body, { childList: true, subtree: true });
+            window.setTimeout(() => observer.disconnect(), 10000);
+          }
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
 
 @st.cache_data(show_spinner=False)
@@ -66,12 +123,27 @@ def _annual_leave_totals(records):
     )
 
 
-def _sync_generated_note_state(state, note_key, generated_note, saved_note=""):
+def _sync_generated_note_state(
+    state, note_key, generated_note, saved_note="", *, force_refresh=False,
+    ensure_leave_summary=False,
+):
     """Refresh an untouched generated note while preserving a user's edits."""
+    saved_note = str(saved_note or "")
     generated_key = f"{note_key}_source"
     previous_generated = state.get(generated_key)
-    if note_key not in state:
-        state[note_key] = saved_note or generated_note
+    if force_refresh:
+        state[note_key] = generated_note
+    elif note_key not in state:
+        state[note_key] = (
+            generated_note
+            if ensure_leave_summary and "特休" not in saved_note
+            else saved_note or generated_note
+        )
+    elif (ensure_leave_summary and previous_generated is None
+          and "特休" not in str(state[note_key])):
+        # Upgrade notes loaded from drafts saved before zero-use leave summaries
+        # were generated. Once a source is recorded, later user edits remain intact.
+        state[note_key] = generated_note
     elif state[note_key] == previous_generated:
         state[note_key] = generated_note
     state[generated_key] = generated_note
@@ -277,9 +349,33 @@ def _new_block(employee, annual_setting=None, leave_balance=0):
             **{f"{k}_snapshot": employee[k] for k in MONEY_FIELDS}, "standard_hours_snapshot": employee["standard_hours"],
             "annual_leave_entitlement_snapshot": entitlement or 0,
             "annual_leave_note_snapshot": (annual_setting or {}).get("note", ""),
-            "annual_leave_balance_before": leave_balance, "leave_days":0.0, "leave_hours":0.0,
+            "annual_leave_balance_before": leave_balance, "annual_leave_balance_after": leave_balance,
+            "leave_days":0.0, "leave_hours":0.0,
             "annual_leave_days":0.0, "annual_leave_hours":0.0, "late_deduction":0, "manual_note":"",
             "annual_leave_records":[], "adjustments":adjustments}
+
+
+def _refresh_draft_leave_context(block, employee, leave_context):
+    """Refresh derived opening leave values without changing settled snapshots."""
+    if block.get("status") == "settled":
+        return False
+    previous_values = (
+        block.get("annual_leave_entitlement_snapshot"),
+        block.get("annual_leave_note_snapshot"),
+        block.get("annual_leave_balance_before"),
+    )
+    setting = leave_context.get("setting") or {}
+    block["annual_leave_entitlement_snapshot"] = (
+        setting.get("annual_entitlement")
+        if setting else employee.get("annual_leave_base", 0)
+    ) or 0
+    block["annual_leave_note_snapshot"] = setting.get("note", "")
+    block["annual_leave_balance_before"] = leave_context.get("balance", 0)
+    return previous_values != (
+        block["annual_leave_entitlement_snapshot"],
+        block["annual_leave_note_snapshot"],
+        block["annual_leave_balance_before"],
+    )
 
 
 def _monthly_tab(config, employees=None, rules=None):
@@ -317,21 +413,16 @@ def _monthly_tab(config, employees=None, rules=None):
     def new_month_block(employee):
         leave_context = leave_contexts[employee["employee_id"]]
         return _new_block(employee, leave_context["setting"], leave_context["balance"])
-    # Repair older drafts that were created with zero leave values even though
-    # the employee has a current balance. Settled snapshots remain immutable.
+    # Opening leave values are derived from earlier months. Always refresh them
+    # for drafts because a draft may have been created before the previous month
+    # was saved or settled. Settled snapshots remain immutable.
+    refreshed_leave_employee_ids = set()
     for block in blocks:
         employee = by_id.get(block.get("employee_id"))
-        if (employee and block.get("status") != "settled"
-                and not block.get("annual_leave_entitlement_snapshot")
-                and not block.get("annual_leave_balance_before")):
-            leave_context = leave_contexts[employee["employee_id"]]
-            setting = leave_context["setting"]
-            entitlement = ((setting or {}).get("annual_entitlement")
-                           if setting else employee.get("annual_leave_base", 0))
-            balance = leave_context["balance"]
-            if entitlement or balance:
-                block["annual_leave_entitlement_snapshot"] = entitlement or 0
-                block["annual_leave_balance_before"] = balance
+        if employee and _refresh_draft_leave_context(
+                block, employee, leave_contexts[employee["employee_id"]],
+        ):
+            refreshed_leave_employee_ids.add(employee["employee_id"])
     rules = context["rules"]
     existing_employee_ids = {block.get("employee_id") for block in blocks}
     available_employees = [x for x in employees if x["employee_id"] not in existing_employee_ids]
@@ -354,7 +445,7 @@ def _monthly_tab(config, employees=None, rules=None):
         status_label = "已結算" if block.get("status") == "settled" else "草稿"
         with st.expander(
             f"👤 {employee_label}｜薪資歸屬 {period}｜{status_label}",
-            expanded=index == 0,
+            expanded=False,
         ):
             current_id = block.get("employee_id")
             top, remove = st.columns([5, 1])
@@ -424,11 +515,33 @@ def _monthly_tab(config, employees=None, rules=None):
                 else:
                     block["annual_leave_days"] = 0.0
                     block["annual_leave_hours"] = 0.0
+                before = max(0.0, float(block.get("annual_leave_balance_before", 0)))
+                requested_annual_leave = bool(
+                    block["annual_leave_days"] or block["annual_leave_hours"]
+                )
+                if before == 0 and requested_annual_leave:
+                    (block["leave_days"], block["leave_hours"],
+                     block["annual_leave_days"], block["annual_leave_hours"]) = (
+                        reclassify_annual_leave_when_exhausted(
+                            before, block["leave_days"], block["leave_hours"],
+                            block["annual_leave_days"], block["annual_leave_hours"],
+                        )
+                    )
+                    records.clear()
+                    refreshed_leave_employee_ids.add(current_id)
+                    if annual_leave_applied:
+                        visible_records = []
+                    st.warning("可用特休為 0 日，本次輸入已自動改列為請假並計算請假扣款。")
                 block["late_deduction"] = st.number_input("遲到扣款", min_value=0, value=int(block.get("late_deduction", 0)), key=f"late_{period}_{index}")
-                before = float(block.get("annual_leave_balance_before", 0)); used = block["annual_leave_days"] + block["annual_leave_hours"] / float(block.get("standard_hours_snapshot") or 8)
-                block["annual_leave_balance_after"] = before - used
+                used = block["annual_leave_days"] + block["annual_leave_hours"] / float(block.get("standard_hours_snapshot") or 8)
+                block["annual_leave_balance_after"] = calculate_annual_leave_balance(
+                    before, block["annual_leave_days"], block["annual_leave_hours"],
+                    block.get("standard_hours_snapshot") or 8,
+                )
                 entitlement = float(block.get("annual_leave_entitlement_snapshot", 0))
-                st.caption(f"年度核定 {entitlement:g} 日；本月使用 {used:g} 日；使用前 {before:g} 日，使用後 {before-used:g} 日")
+                if used > before:
+                    st.warning(f"本月特休使用 {used:g} 日已超過可用的 {before:g} 日，剩餘天數以 0 日計算。")
+                st.caption(f"年度核定 {entitlement:g} 日；本月使用 {used:g} 日；使用前 {before:g} 日，使用後 {block['annual_leave_balance_after']:g} 日")
             with adjustment_tab:
                 st.markdown("##### 當月彈性項目")
                 for kind, title, item_name in (("addition", "特別加給", "特別加給"), ("deduction", "扣除額", "扣除額")):
@@ -451,6 +564,8 @@ def _monthly_tab(config, employees=None, rules=None):
                 system_note_key = f"system_note_{period}_{index}_{block.get('employee_id')}"
                 _sync_generated_note_state(
                     st.session_state, system_note_key, generated_note, block.get("system_note", ""),
+                    force_refresh=current_id in refreshed_leave_employee_ids,
+                    ensure_leave_summary=True,
                 )
                 block["manual_note"] = st.text_area(
                     "人工備註", block.get("manual_note", ""),
@@ -754,6 +869,9 @@ def render_salary_management(config):
 
     # Keep the same top-level tab pattern used by 代工管理 so the four salary
     # sections remain visible as page tabs rather than falling back to a menu.
+    # Salary actions such as adding a person trigger a rerun, so restore the
+    # selected tab instead of letting Streamlit return to the first tab.
+    _render_salary_tab_persistence()
     employee_tab, monthly_tab, history_tab, rules_tab = st.tabs(SALARY_TAB_LABELS)
     with employee_tab:
         _employee_tab(config, all_employees)

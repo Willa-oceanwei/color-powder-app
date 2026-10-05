@@ -261,22 +261,38 @@ def get_annual_leave_contexts(config, employees, year, month):
             f"AND employee_id IN ({placeholders})",
             (year, *employee_ids),
         ))
-        # Sum all earlier settled months once.  The opening-month condition is
-        # applied below because each employee can have a different opening month.
+        # Sum all earlier saved months once. Drafts are effective payroll records
+        # too: users commonly prepare the next month before formally settling the
+        # previous one, and the leave balance must still continue from that saved
+        # usage. The uniqueness constraint guarantees only one effective snapshot
+        # per employee/month.
         usage = _rows(conn.execute(
             f"""SELECT employee_id,month,
                 SUM(annual_leave_days + annual_leave_hours /
                     CASE WHEN standard_hours_snapshot > 0 THEN standard_hours_snapshot ELSE 8 END) AS used
                 FROM salary_monthly
                 WHERE employee_id IN ({placeholders}) AND year=? AND month<?
-                  AND status='settled' AND is_deleted=0
+                  AND is_deleted=0
                 GROUP BY employee_id,month""",
+            (*employee_ids, year, month),
+        ))
+        previous_snapshots = _rows(conn.execute(
+            f"""SELECT employee_id,month,annual_leave_balance_after
+                FROM salary_monthly
+                WHERE employee_id IN ({placeholders}) AND year=? AND month<?
+                  AND is_deleted=0
+                ORDER BY employee_id,month""",
             (*employee_ids, year, month),
         ))
     settings_by_employee = {row["employee_id"]: row for row in settings}
     usage_by_employee = {employee_id: [] for employee_id in employee_ids}
     for row in usage:
         usage_by_employee[row["employee_id"]].append(row)
+    latest_balance_by_employee = {}
+    for row in previous_snapshots:
+        latest_balance_by_employee[row["employee_id"]] = max(
+            0.0, float(row["annual_leave_balance_after"] or 0),
+        )
     contexts = {}
     for employee in employees:
         employee_id = employee["employee_id"]
@@ -292,9 +308,13 @@ def get_annual_leave_contexts(config, employees, year, month):
             for row in usage_by_employee[employee_id]
             if opening_month <= int(row["month"]) < month
         )
+        # A saved prior-month closing balance is the authoritative continuation
+        # point. This prevents a later-edited annual opening setting from making
+        # the balance jump backwards (for example, 3.1 days becoming 7 days).
+        balance = latest_balance_by_employee.get(employee_id, opening_balance - used)
         contexts[employee_id] = {
             "setting": setting,
-            "balance": opening_balance - used,
+            "balance": balance,
         }
     return contexts
 
@@ -382,10 +402,18 @@ def annual_leave_balance_before_month(config, employee_id, year, month):
         opening_balance = float(row[0] or 0) if row else 0.0
         opening_month = month
     with connect_from_config(config) as conn:
+        previous = conn.execute(
+            """SELECT annual_leave_balance_after FROM salary_monthly
+               WHERE employee_id=? AND year=? AND month<? AND is_deleted=0
+               ORDER BY month DESC LIMIT 1""",
+            (employee_id, year, month),
+        ).fetchone()
+        if previous is not None:
+            return max(0.0, float(previous[0] or 0))
         row = conn.execute("""SELECT COALESCE(SUM(annual_leave_days + annual_leave_hours /
             CASE WHEN standard_hours_snapshot > 0 THEN standard_hours_snapshot ELSE 8 END), 0)
             FROM salary_monthly WHERE employee_id=? AND year=? AND month>=? AND month<?
-            AND status='settled' AND is_deleted=0""",
+            AND is_deleted=0""",
             (employee_id, year, opening_month, month)).fetchone()
     return opening_balance - float(row[0] or 0)
 

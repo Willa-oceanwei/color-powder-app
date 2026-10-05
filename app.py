@@ -971,6 +971,7 @@ def apply_tab_persistence_fix():
           const PAGE_MANAGED_TAB_LABELS = new Set([
             "🛸 生產單建立|📜 生產單記錄表|👀 生產單預覽/修改/取消",
             "📦 初始|📊 查詢|📋 盤點|🏆 排行|🧮 用量|🧴 色母|👤 客戶",
+            "👤 員工薪資設定|📅 每月薪資|📚 薪資歷史|⚙️ 薪資規則",
           ]);
 
           function getTabLists() {

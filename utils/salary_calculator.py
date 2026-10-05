@@ -42,6 +42,35 @@ def calculate_monthly_extra_totals(previous_value, employee_values: Mapping) -> 
     return float(monthly_addition), float(monthly_total)
 
 
+def calculate_annual_leave_balance(balance_before, leave_days, leave_hours, standard_hours=8) -> float:
+    """Return remaining annual leave without allowing a negative balance."""
+    hours_per_day = _d(standard_hours or 8)
+    if hours_per_day <= 0:
+        raise ValueError("每日標準工時必須大於 0")
+    used = _d(leave_days) + _d(leave_hours) / hours_per_day
+    return float(max(Decimal("0"), _d(balance_before) - used))
+
+
+def reclassify_annual_leave_when_exhausted(
+    balance_before, leave_days, leave_hours, annual_leave_days, annual_leave_hours,
+) -> tuple[float, float, float, float]:
+    """Move requested annual leave to unpaid leave when no balance is available.
+
+    Days and hours stay in their original units so the normal salary deduction
+    calculation can process them without introducing rounding conversions.
+    """
+    if _d(balance_before) > 0:
+        return tuple(float(_d(value)) for value in (
+            leave_days, leave_hours, annual_leave_days, annual_leave_hours,
+        ))
+    return (
+        float(_d(leave_days) + _d(annual_leave_days)),
+        float(_d(leave_hours) + _d(annual_leave_hours)),
+        0.0,
+        0.0,
+    )
+
+
 def calculate_salary(data: Mapping, additions: Iterable[Mapping] = (), deductions: Iterable[Mapping] = (), rules: Mapping | None = None) -> dict:
     rules = rules or {}
     has_leave = _d(data.get("leave_days")) > 0 or _d(data.get("leave_hours")) > 0
@@ -74,7 +103,13 @@ def generate_salary_note(data: Mapping, additions: Iterable[Mapping] = (), deduc
                 if display_date not in leave_dates:
                     leave_dates.append(display_date)
         date_note = f"，日期{'、'.join(leave_dates)}" if leave_dates else ""
-        parts.append(f"特休{data.get('annual_leave_days', 0):g}日{data.get('annual_leave_hours', 0):g}小時，共{used:g}日{date_note}，結餘{_d(data.get('annual_leave_balance_after')):g}日")
+        balance = max(Decimal("0"), _d(data.get("annual_leave_balance_after")))
+        parts.append(f"特休{data.get('annual_leave_days', 0):g}日{data.get('annual_leave_hours', 0):g}小時，共{used:g}日{date_note}，結餘{balance:g}日")
+    else:
+        balance = max(Decimal("0"), _d(data.get(
+            "annual_leave_balance_after", data.get("annual_leave_balance_before")
+        )))
+        parts.append(f"本月特休0日，餘{balance:g}日")
     for item in additions:
         if money(item.get("amount")):
             detail = f"（{item.get('note')}）" if item.get("note") else ""

@@ -35,8 +35,13 @@ def _payroll_leave_note(salary):
     parts = []
     annual_used = _leave_used_days(salary)
     if annual_used:
-        balance = float(salary.get("annual_leave_balance_after") or 0)
+        balance = max(0.0, float(salary.get("annual_leave_balance_after") or 0))
         parts.append(f"［特休{annual_used:g}日，餘{balance:g}日］")
+    else:
+        balance = max(0.0, float(salary.get(
+            "annual_leave_balance_after", salary.get("annual_leave_balance_before", 0)
+        ) or 0))
+        parts.append(f"［本月特休0日，餘{balance:g}日］")
     hours_per_day = float(salary.get("standard_hours_snapshot") or 8)
     leave_used = float(salary.get("leave_days") or 0) + float(salary.get("leave_hours") or 0) / hours_per_day
     if leave_used:
