@@ -124,14 +124,25 @@ def _annual_leave_totals(records):
 
 def _sync_generated_note_state(
     state, note_key, generated_note, saved_note="", *, force_refresh=False,
+    ensure_leave_summary=False,
 ):
     """Refresh an untouched generated note while preserving a user's edits."""
+    saved_note = str(saved_note or "")
     generated_key = f"{note_key}_source"
     previous_generated = state.get(generated_key)
     if force_refresh:
         state[note_key] = generated_note
     elif note_key not in state:
-        state[note_key] = saved_note or generated_note
+        state[note_key] = (
+            generated_note
+            if ensure_leave_summary and "特休" not in saved_note
+            else saved_note or generated_note
+        )
+    elif (ensure_leave_summary and previous_generated is None
+          and "特休" not in str(state[note_key])):
+        # Upgrade notes loaded from drafts saved before zero-use leave summaries
+        # were generated. Once a source is recorded, later user edits remain intact.
+        state[note_key] = generated_note
     elif state[note_key] == previous_generated:
         state[note_key] = generated_note
     state[generated_key] = generated_note
@@ -531,6 +542,7 @@ def _monthly_tab(config, employees=None, rules=None):
                 _sync_generated_note_state(
                     st.session_state, system_note_key, generated_note, block.get("system_note", ""),
                     force_refresh=current_id in refreshed_leave_employee_ids,
+                    ensure_leave_summary=True,
                 )
                 block["manual_note"] = st.text_area(
                     "人工備註", block.get("manual_note", ""),

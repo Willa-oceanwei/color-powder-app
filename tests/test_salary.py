@@ -691,6 +691,34 @@ def test_generated_salary_note_force_refreshes_after_leave_balance_changes():
     assert _payroll_leave_note({"system_note": state["note_E1"]}) == "特休1日，結餘2.0875日。"
 
 
+def test_legacy_saved_note_is_upgraded_with_zero_use_leave_summary():
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    from utils.salary_ui import _sync_generated_note_state
+
+    state = {}
+    generated = "本月特休0日，餘3.0875日；另有特別加給1,000元。"
+    _sync_generated_note_state(
+        state,
+        "note_E1",
+        generated,
+        saved_note="另有特別加給1,000元。",
+        ensure_leave_summary=True,
+    )
+
+    assert state["note_E1"] == generated
+
+    state["note_E1"] = "使用者自行修改"
+    _sync_generated_note_state(
+        state,
+        "note_E1",
+        "本月特休0日，餘2日。",
+        ensure_leave_summary=True,
+    )
+    assert state["note_E1"] == "使用者自行修改"
+
+
 def test_duplicate_salary_blocks_keep_only_first_employee_entry():
     import pytest
     pytest.importorskip("pandas")
