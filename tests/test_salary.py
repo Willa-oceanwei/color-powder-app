@@ -195,6 +195,7 @@ def test_bulk_annual_leave_contexts_match_settings_and_previous_usage(tmp_path: 
     used = {
         "year": 2026, "month": 8, "employee_id": "E1", "employee_name_snapshot": "甲",
         "standard_hours_snapshot": 8, "annual_leave_days": 1, "annual_leave_hours": 4,
+        "annual_leave_balance_before": 10, "annual_leave_balance_after": 8.5,
     }
     used.update(calculate_salary(used))
     save_salary(config, used, settle=True)
@@ -205,6 +206,107 @@ def test_bulk_annual_leave_contexts_match_settings_and_previous_usage(tmp_path: 
     assert contexts["E1"]["balance"] == 8.5
     assert contexts["E2"]["setting"] is None
     assert contexts["E2"]["balance"] == 6
+
+
+def test_annual_leave_context_carries_forward_previous_month_draft(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "draft-annual-leave.db")
+    initialize_database_with_health(config)
+    employee = {
+        "employee_id": "E1", "name": "甲", "join_date": "2026-01-01",
+        "standard_hours": 8, "annual_leave_base": 10,
+    }
+    save_employee(config, employee)
+    save_annual_leave_setting(config, "E1", 2026, 14, 10, 7, "甲設定")
+    august_draft = {
+        "year": 2026, "month": 8, "employee_id": "E1",
+        "employee_name_snapshot": "甲", "standard_hours_snapshot": 8,
+        "annual_leave_days": 1, "annual_leave_hours": 4,
+        "annual_leave_balance_before": 10, "annual_leave_balance_after": 8.5,
+    }
+    august_draft.update(calculate_salary(august_draft))
+    save_salary(config, august_draft)
+
+    contexts = get_annual_leave_contexts(config, list_employees(config), 2026, 9)
+
+    assert get_month_salaries(config, 2026, 8)[0]["status"] == "draft"
+    assert contexts["E1"]["balance"] == 8.5
+    assert annual_leave_balance_before_month(config, "E1", 2026, 9) == 8.5
+
+
+def test_previous_closing_balance_wins_over_inconsistent_annual_opening_setting(tmp_path: Path):
+    config = DatabaseConfig("sqlite", tmp_path / "closing-balance.db")
+    initialize_database_with_health(config)
+    employee = {
+        "employee_id": "E1", "name": "佟慧卿", "join_date": "2026-01-01",
+        "standard_hours": 8, "annual_leave_base": 7,
+    }
+    save_employee(config, employee)
+    # This later setting previously caused September to start from 7 and end at
+    # 6, even though the settled August snapshot already closed at 3.1.
+    save_annual_leave_setting(config, "E1", 2026, 7, 7, 9, "")
+    august = {
+        "year": 2026, "month": 8, "employee_id": "E1",
+        "employee_name_snapshot": "佟慧卿", "standard_hours_snapshot": 8,
+        "annual_leave_balance_before": 4.1, "annual_leave_days": 1,
+        "annual_leave_hours": 0, "annual_leave_balance_after": 3.1,
+    }
+    august.update(calculate_salary(august))
+    save_salary(config, august, settle=True)
+
+    context = get_annual_leave_contexts(config, list_employees(config), 2026, 9)["E1"]
+    september_after_one_day = context["balance"] - 1
+
+    assert context["balance"] == 3.1
+    assert annual_leave_balance_before_month(config, "E1", 2026, 9) == 3.1
+    assert september_after_one_day == 2.1
+
+
+def test_existing_salary_draft_refreshes_stale_opening_leave_balance():
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    from utils.salary_ui import _refresh_draft_leave_context
+
+    employee = {"employee_id": "E1", "annual_leave_base": 10}
+    leave_context = {
+        "setting": {"annual_entitlement": 14, "note": "歷年制"},
+        "balance": 8.5,
+    }
+    stale_draft = {
+        "status": "draft", "annual_leave_entitlement_snapshot": 14,
+        "annual_leave_balance_before": 10,
+    }
+
+    changed = _refresh_draft_leave_context(stale_draft, employee, leave_context)
+
+    assert changed is True
+    assert stale_draft["annual_leave_entitlement_snapshot"] == 14
+    assert stale_draft["annual_leave_note_snapshot"] == "歷年制"
+    assert stale_draft["annual_leave_balance_before"] == 8.5
+
+
+def test_settled_salary_keeps_immutable_leave_snapshot():
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    from utils.salary_ui import _refresh_draft_leave_context
+
+    settled = {
+        "status": "settled", "annual_leave_entitlement_snapshot": 12,
+        "annual_leave_note_snapshot": "舊說明", "annual_leave_balance_before": 7,
+    }
+
+    changed = _refresh_draft_leave_context(
+        settled,
+        {"employee_id": "E1", "annual_leave_base": 10},
+        {"setting": {"annual_entitlement": 14, "note": "新說明"}, "balance": 8.5},
+    )
+
+    assert changed is False
+    assert settled == {
+        "status": "settled", "annual_leave_entitlement_snapshot": 12,
+        "annual_leave_note_snapshot": "舊說明", "annual_leave_balance_before": 7,
+    }
 
 
 def test_annual_leave_balance_falls_back_to_employee_current_days(tmp_path: Path):
@@ -220,7 +322,7 @@ def test_annual_leave_balance_falls_back_to_employee_current_days(tmp_path: Path
 
     assert get_annual_leave_setting(config, "E1", 2026) is None
     assert annual_leave_balance_before_month(config, "E1", 2026, 1) == 10
-    assert annual_leave_balance_before_month(config, "E1", 2026, 2) == 10
+    assert annual_leave_balance_before_month(config, "E1", 2026, 2) == 8.5
 
     save_annual_leave_setting(config, "E1", 2026, 10, 10, 1, "")
     assert annual_leave_balance_before_month(config, "E1", 2026, 2) == 8.5
@@ -350,6 +452,24 @@ def test_generated_salary_note_includes_unique_annual_leave_dates():
     })
     assert "日期08/07、08/24" in note
     assert note.count("08/07") == 1
+
+
+def test_generated_salary_note_carries_balance_when_month_has_no_annual_leave():
+    note = generate_salary_note({
+        "annual_leave_days": 0,
+        "annual_leave_hours": 0,
+        "annual_leave_balance_before": 3.0875,
+        "annual_leave_balance_after": 3.0875,
+        "standard_hours_snapshot": 8,
+    })
+
+    assert note == "本月特休0日，餘3.0875日。"
+    assert _payroll_leave_note({
+        "annual_leave_days": 0,
+        "annual_leave_hours": 0,
+        "annual_leave_balance_after": 3.0875,
+        "standard_hours_snapshot": 8,
+    }) == "［本月特休0日，餘3.0875日］"
 
 
 def test_excel_preview_contains_generated_annual_leave_dates():
@@ -504,6 +624,18 @@ def test_salary_top_level_tabs_match_outsourcing_tab_style():
     )
 
 
+def test_salary_tabs_remain_selected_after_rerun():
+    source = (Path(__file__).parents[1] / "utils" / "salary_ui.py").read_text(encoding="utf-8")
+    app_source = (Path(__file__).parents[1] / "app.py").read_text(encoding="utf-8")
+
+    assert 'const storageKey = "salary_mgmt_active_tab";' in source
+    assert "function bindSalaryTabs()" in source
+    assert "window.parent.sessionStorage.setItem(storageKey, String(idx));" in source
+    assert "tabTexts.every((label, idx) => labels[idx] === label)" in source
+    assert "_render_salary_tab_persistence()" in source
+    assert "👤 員工薪資設定|📅 每月薪資|📚 薪資歷史|⚙️ 薪資規則" in app_source
+
+
 def test_salary_editors_group_existing_fields_into_compact_tabs():
     source = (Path(__file__).parents[1] / "utils" / "salary_ui.py").read_text(encoding="utf-8")
 
@@ -513,6 +645,8 @@ def test_salary_editors_group_existing_fields_into_compact_tabs():
     assert 'if st.button(\n                    "儲存特休明細"' in source
     assert 'st.form_submit_button(submit_label, type="primary")' in source
     assert 'if c1.button("儲存草稿", disabled=not draft_blocks):' in source
+    assert 'expanded=False,' in source
+    assert 'expanded=index == 0' not in source
 
 
 def test_generated_salary_note_refreshes_until_user_edits_it():
@@ -534,6 +668,55 @@ def test_generated_salary_note_refreshes_until_user_edits_it():
     saved_state = {}
     _sync_generated_note_state(saved_state, "note_E2", "重新計算內容", "已儲存的編輯內容")
     assert saved_state["note_E2"] == "已儲存的編輯內容"
+
+
+def test_generated_salary_note_force_refreshes_after_leave_balance_changes():
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    from utils.salary_ui import _sync_generated_note_state
+
+    state = {"note_E1": "特休1日，結餘6日。"}
+
+    _sync_generated_note_state(
+        state,
+        "note_E1",
+        "特休1日，結餘2.0875日。",
+        saved_note="特休1日，結餘6日。",
+        force_refresh=True,
+    )
+
+    assert state["note_E1"] == "特休1日，結餘2.0875日。"
+    assert state["note_E1_source"] == "特休1日，結餘2.0875日。"
+    assert _payroll_leave_note({"system_note": state["note_E1"]}) == "特休1日，結餘2.0875日。"
+
+
+def test_legacy_saved_note_is_upgraded_with_zero_use_leave_summary():
+    import pytest
+    pytest.importorskip("pandas")
+    pytest.importorskip("streamlit")
+    from utils.salary_ui import _sync_generated_note_state
+
+    state = {}
+    generated = "本月特休0日，餘3.0875日；另有特別加給1,000元。"
+    _sync_generated_note_state(
+        state,
+        "note_E1",
+        generated,
+        saved_note="另有特別加給1,000元。",
+        ensure_leave_summary=True,
+    )
+
+    assert state["note_E1"] == generated
+
+    state["note_E1"] = "使用者自行修改"
+    _sync_generated_note_state(
+        state,
+        "note_E1",
+        "本月特休0日，餘2日。",
+        ensure_leave_summary=True,
+    )
+    assert state["note_E1"] == "使用者自行修改"
 
 
 def test_duplicate_salary_blocks_keep_only_first_employee_entry():
