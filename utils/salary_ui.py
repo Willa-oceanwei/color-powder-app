@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from .salary_calculator import (calculate_monthly_extra_totals, calculate_salary,
                                 default_salary_period, generate_salary_note)
@@ -25,6 +26,61 @@ SALARY_TAB_LABELS = (
     "📚 薪資歷史",
     "⚙️ 薪資規則",
 )
+
+
+def _render_salary_tab_persistence():
+    """Keep the selected salary tab active across Streamlit reruns."""
+    components.html(
+        """
+        <script>
+        (function () {
+          const storageKey = "salary_mgmt_active_tab";
+          const tabTexts = [
+            "👤 員工薪資設定", "📅 每月薪資", "📚 薪資歷史", "⚙️ 薪資規則"
+          ];
+
+          function bindSalaryTabs() {
+            const doc = window.parent.document;
+            const tablist = Array.from(doc.querySelectorAll('div[role="tablist"]')).find(candidate => {
+              const labels = Array.from(candidate.querySelectorAll('button[role="tab"]'))
+                .map(tab => tab.textContent.trim());
+              return labels.length === tabTexts.length
+                && tabTexts.every((label, idx) => labels[idx] === label);
+            });
+            if (!tablist) return false;
+
+            const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
+            tabs.forEach((tab, idx) => {
+              if (tab.dataset.salaryPersistBound === '1') return;
+              tab.dataset.salaryPersistBound = '1';
+              tab.addEventListener('click', () => {
+                window.parent.sessionStorage.setItem(storageKey, String(idx));
+              });
+            });
+
+            const savedIndex = Number.parseInt(
+              window.parent.sessionStorage.getItem(storageKey), 10
+            );
+            if (Number.isInteger(savedIndex) && tabs[savedIndex]
+                && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
+              tabs[savedIndex].click();
+            }
+            return true;
+          }
+
+          if (!bindSalaryTabs()) {
+            const observer = new MutationObserver(() => {
+              if (bindSalaryTabs()) observer.disconnect();
+            });
+            observer.observe(window.parent.document.body, { childList: true, subtree: true });
+            window.setTimeout(() => observer.disconnect(), 10000);
+          }
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
 
 @st.cache_data(show_spinner=False)
@@ -754,6 +810,9 @@ def render_salary_management(config):
 
     # Keep the same top-level tab pattern used by 代工管理 so the four salary
     # sections remain visible as page tabs rather than falling back to a menu.
+    # Salary actions such as adding a person trigger a rerun, so restore the
+    # selected tab instead of letting Streamlit return to the first tab.
+    _render_salary_tab_persistence()
     employee_tab, monthly_tab, history_tab, rules_tab = st.tabs(SALARY_TAB_LABELS)
     with employee_tab:
         _employee_tab(config, all_employees)
