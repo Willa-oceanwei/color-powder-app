@@ -337,7 +337,8 @@ def _new_block(employee, annual_setting=None, leave_balance=0):
             **{f"{k}_snapshot": employee[k] for k in MONEY_FIELDS}, "standard_hours_snapshot": employee["standard_hours"],
             "annual_leave_entitlement_snapshot": entitlement or 0,
             "annual_leave_note_snapshot": (annual_setting or {}).get("note", ""),
-            "annual_leave_balance_before": leave_balance, "leave_days":0.0, "leave_hours":0.0,
+            "annual_leave_balance_before": leave_balance, "annual_leave_balance_after": leave_balance,
+            "leave_days":0.0, "leave_hours":0.0,
             "annual_leave_days":0.0, "annual_leave_hours":0.0, "late_deduction":0, "manual_note":"",
             "annual_leave_records":[], "adjustments":adjustments}
 
@@ -432,7 +433,7 @@ def _monthly_tab(config, employees=None, rules=None):
         status_label = "已結算" if block.get("status") == "settled" else "草稿"
         with st.expander(
             f"👤 {employee_label}｜薪資歸屬 {period}｜{status_label}",
-            expanded=index == 0,
+            expanded=False,
         ):
             current_id = block.get("employee_id")
             top, remove = st.columns([5, 1])

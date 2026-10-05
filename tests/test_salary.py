@@ -454,6 +454,24 @@ def test_generated_salary_note_includes_unique_annual_leave_dates():
     assert note.count("08/07") == 1
 
 
+def test_generated_salary_note_carries_balance_when_month_has_no_annual_leave():
+    note = generate_salary_note({
+        "annual_leave_days": 0,
+        "annual_leave_hours": 0,
+        "annual_leave_balance_before": 3.0875,
+        "annual_leave_balance_after": 3.0875,
+        "standard_hours_snapshot": 8,
+    })
+
+    assert note == "本月特休0日，餘3.0875日。"
+    assert _payroll_leave_note({
+        "annual_leave_days": 0,
+        "annual_leave_hours": 0,
+        "annual_leave_balance_after": 3.0875,
+        "standard_hours_snapshot": 8,
+    }) == "［本月特休0日，餘3.0875日］"
+
+
 def test_excel_preview_contains_generated_annual_leave_dates():
     annual_leave = {
         "annual_leave_days": 1,
@@ -627,6 +645,8 @@ def test_salary_editors_group_existing_fields_into_compact_tabs():
     assert 'if st.button(\n                    "儲存特休明細"' in source
     assert 'st.form_submit_button(submit_label, type="primary")' in source
     assert 'if c1.button("儲存草稿", disabled=not draft_blocks):' in source
+    assert 'expanded=False,' in source
+    assert 'expanded=index == 0' not in source
 
 
 def test_generated_salary_note_refreshes_until_user_edits_it():
