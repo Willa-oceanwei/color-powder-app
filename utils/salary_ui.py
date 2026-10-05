@@ -338,6 +338,19 @@ def _new_block(employee, annual_setting=None, leave_balance=0):
             "annual_leave_records":[], "adjustments":adjustments}
 
 
+def _refresh_draft_leave_context(block, employee, leave_context):
+    """Refresh derived opening leave values without changing settled snapshots."""
+    if block.get("status") == "settled":
+        return
+    setting = leave_context.get("setting") or {}
+    block["annual_leave_entitlement_snapshot"] = (
+        setting.get("annual_entitlement")
+        if setting else employee.get("annual_leave_base", 0)
+    ) or 0
+    block["annual_leave_note_snapshot"] = setting.get("note", "")
+    block["annual_leave_balance_before"] = leave_context.get("balance", 0)
+
+
 def _monthly_tab(config, employees=None, rules=None):
     now = date.today()
     default_year, default_month = default_salary_period(now)
@@ -373,21 +386,15 @@ def _monthly_tab(config, employees=None, rules=None):
     def new_month_block(employee):
         leave_context = leave_contexts[employee["employee_id"]]
         return _new_block(employee, leave_context["setting"], leave_context["balance"])
-    # Repair older drafts that were created with zero leave values even though
-    # the employee has a current balance. Settled snapshots remain immutable.
+    # Opening leave values are derived from earlier months. Always refresh them
+    # for drafts because a draft may have been created before the previous month
+    # was saved or settled. Settled snapshots remain immutable.
     for block in blocks:
         employee = by_id.get(block.get("employee_id"))
-        if (employee and block.get("status") != "settled"
-                and not block.get("annual_leave_entitlement_snapshot")
-                and not block.get("annual_leave_balance_before")):
-            leave_context = leave_contexts[employee["employee_id"]]
-            setting = leave_context["setting"]
-            entitlement = ((setting or {}).get("annual_entitlement")
-                           if setting else employee.get("annual_leave_base", 0))
-            balance = leave_context["balance"]
-            if entitlement or balance:
-                block["annual_leave_entitlement_snapshot"] = entitlement or 0
-                block["annual_leave_balance_before"] = balance
+        if employee:
+            _refresh_draft_leave_context(
+                block, employee, leave_contexts[employee["employee_id"]],
+            )
     rules = context["rules"]
     existing_employee_ids = {block.get("employee_id") for block in blocks}
     available_employees = [x for x in employees if x["employee_id"] not in existing_employee_ids]

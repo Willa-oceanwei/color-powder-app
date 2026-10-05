@@ -261,15 +261,18 @@ def get_annual_leave_contexts(config, employees, year, month):
             f"AND employee_id IN ({placeholders})",
             (year, *employee_ids),
         ))
-        # Sum all earlier settled months once.  The opening-month condition is
-        # applied below because each employee can have a different opening month.
+        # Sum all earlier saved months once. Drafts are effective payroll records
+        # too: users commonly prepare the next month before formally settling the
+        # previous one, and the leave balance must still continue from that saved
+        # usage. The uniqueness constraint guarantees only one effective snapshot
+        # per employee/month.
         usage = _rows(conn.execute(
             f"""SELECT employee_id,month,
                 SUM(annual_leave_days + annual_leave_hours /
                     CASE WHEN standard_hours_snapshot > 0 THEN standard_hours_snapshot ELSE 8 END) AS used
                 FROM salary_monthly
                 WHERE employee_id IN ({placeholders}) AND year=? AND month<?
-                  AND status='settled' AND is_deleted=0
+                  AND is_deleted=0
                 GROUP BY employee_id,month""",
             (*employee_ids, year, month),
         ))
@@ -385,7 +388,7 @@ def annual_leave_balance_before_month(config, employee_id, year, month):
         row = conn.execute("""SELECT COALESCE(SUM(annual_leave_days + annual_leave_hours /
             CASE WHEN standard_hours_snapshot > 0 THEN standard_hours_snapshot ELSE 8 END), 0)
             FROM salary_monthly WHERE employee_id=? AND year=? AND month>=? AND month<?
-            AND status='settled' AND is_deleted=0""",
+            AND is_deleted=0""",
             (employee_id, year, opening_month, month)).fetchone()
     return opening_balance - float(row[0] or 0)
 
