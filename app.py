@@ -117,6 +117,10 @@ from utils.trial_repository import (
     restore_trial_record,
     save_trial_settings,
 )
+from utils.recipe_page_data import (
+    invalidate_recipe_powders, load_recipe_powders, recipe_powder_dataframe,
+    remember_recipe_powders,
+)
 from utils.recipe_repository import (
     RecipeAlreadyExists,
     RecipeError,
@@ -3370,7 +3374,7 @@ elif menu == "配方管理":
         # 三份主檔互不相依，平行查詢可避免累加 Turso 網路延遲。
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             recipes_future = executor.submit(list_recipes, DATABASE_CONFIG, include_inactive=True)
-            powders_future = executor.submit(list_color_powders, DATABASE_CONFIG)
+            powders_future = executor.submit(list_color_powders, DATABASE_CONFIG, include_inactive=True)
             customers_future = executor.submit(customer_dataframe)
 
         # 1️⃣ 配方管理
@@ -3388,16 +3392,9 @@ elif menu == "配方管理":
 
         # 2️⃣ 色粉管理
         try:
-            df_p = pd.DataFrame([
-                {
-                    "色粉編號": row.get("colorpowder_id", ""), "國際色號": row.get("international_code", ""),
-                    "名稱": row.get("name", ""), "色粉類別": row.get("category", ""),
-                    "包裝": row.get("package", ""), "備註": row.get("notes", ""),
-                }
-                for row in powders_future.result()
-            ])
-            if "色粉編號" not in df_p.columns:
-                df_p = pd.DataFrame(columns=["色粉編號", "國際色號", "名稱", "色粉類別", "包裝", "備註"])
+            initial_powders = powders_future.result()
+            remember_recipe_powders(DATABASE_CONFIG, st.session_state, initial_powders)
+            df_p = recipe_powder_dataframe(initial_powders)
         except Exception as exc:
             st.error(f"❌ 無法從 Turso 載入色粉：{exc}")
             st.stop()
@@ -3422,7 +3419,12 @@ elif menu == "配方管理":
     df           = st.session_state.df
     df_recipe    = st.session_state.df_recipe
     df_customers = st.session_state._recipe_customers
-    df_powders   = st.session_state.df_color
+    try:
+        recipe_powder_entities = load_recipe_powders(DATABASE_CONFIG, st.session_state)
+        df_powders = recipe_powder_dataframe(recipe_powder_entities)
+    except Exception as exc:
+        st.error(f"❌ 無法從 Turso 載入色粉：{exc}")
+        st.stop()
 
     existing_powders     = set(df_powders["色粉編號"].map(clean_powder_id).unique()) \
                            if "色粉編號" in df_powders.columns else set()
@@ -3727,6 +3729,7 @@ elif menu == "配方管理":
         st.markdown("---")
         if st.button("📥 重新載入配方資料", key="reload_recipe_data_tab1", use_container_width=True):
             try:
+                invalidate_recipe_powders(st.session_state)
                 latest_df = pd.DataFrame(list_recipes(DATABASE_CONFIG, include_inactive=True))
                 st.session_state.df = latest_df.copy()
                 st.session_state.df_recipe = latest_df.copy()
@@ -4158,20 +4161,8 @@ elif menu == "配方管理":
 
         # Turso 是正式資料來源；Sheet 由 sync_outbox 在人工確認後更新。
         try:
-            powder_entities = list_color_powders(DATABASE_CONFIG, include_inactive=True)
-            df_color = pd.DataFrame([
-                {
-                    "色粉編號": row.get("colorpowder_id", ""),
-                    "國際色號": row.get("international_code", ""),
-                    "名稱": row.get("name", ""),
-                    "色粉類別": row.get("category", ""),
-                    "包裝": row.get("package", ""),
-                    "備註": row.get("notes", ""),
-                    "生命週期": row.get("lifecycle_status", "active"),
-                    "停用原因": row.get("delete_reason", ""),
-                }
-                for row in powder_entities
-            ], columns=REQUIRED_COLUMNS).fillna("").astype(str)
+            powder_entities = recipe_powder_entities
+            df_color = recipe_powder_dataframe(powder_entities, include_inactive=True)
             st.session_state.df_color = df_color
         except Exception as exc:
             st.error(f"❌ 無法從 Turso 載入色粉：{exc}")
@@ -4261,6 +4252,7 @@ elif menu == "配方管理":
                         st.error(f"❌ 儲存 Turso 失敗，未建立同步事件：{exc}")
                         st.stop()
 
+                    invalidate_recipe_powders(st.session_state)
                     st.session_state.edit_color_index = None
                     st.session_state.form_color = {
                         "色粉編號": "", "國際色號": "", "名稱": "",
@@ -4299,6 +4291,7 @@ elif menu == "配方管理":
                             active = row["生命週期"] == "active"
                             if st.button("⏸️ 停用" if active else "▶️ 恢復", key=f"toggle_color_{i}"):
                                 set_color_powder_active(DATABASE_CONFIG, row["色粉編號"], active=not active)
+                                invalidate_recipe_powders(st.session_state)
                                 st.session_state.color_toast = f"已{'恢復' if not active else '停用'} {row['色粉編號']}"
                                 st.rerun()
 
@@ -4360,6 +4353,7 @@ elif menu == "配方管理":
                         except Exception as exc:
                             st.error(f"❌ 色粉編號替代失敗，未完成任何修改：{exc}")
                         else:
+                            invalidate_recipe_powders(st.session_state)
                             st.session_state.pop("powder_replacement_preview", None)
                             st.session_state.recipe_data_loaded = False
                             st.success(
