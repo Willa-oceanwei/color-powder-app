@@ -643,6 +643,7 @@ def _monthly_tab(config, employees=None, rules=None):
             save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], annual_leave_records=block.get("annual_leave_records", []))
         st.toast("草稿已儲存")
     if c2.button("結算薪資", type="primary", disabled=not blocks):
+        replaces_settlement = any(block.get("status") == "settled" for block in blocks)
         salary_ids = settle_salary_month(
             config, year, month, blocks, current_monthly_extras,
         )
@@ -652,7 +653,10 @@ def _monthly_tab(config, employees=None, rules=None):
             # a subsequent Streamlit rerun sees the stale "draft" value and its
             # automatic draft save silently reverses the settlement.
             block["status"] = "settled"
-        st.toast("正式薪資快照已結算／更新")
+        st.toast(
+            "本月薪資已重新結算，前一版結算資料已覆蓋"
+            if replaces_settlement else "本月薪資已結算"
+        )
         st.rerun()
     if blocks:
         c3.download_button(

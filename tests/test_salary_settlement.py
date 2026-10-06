@@ -122,8 +122,29 @@ def test_monthly_ui_settles_extras_and_blocks_outdated_download(tmp_path):
     assert get_salary_monthly_extras(config, 2026, 9)["monthly_total"] == 14153
     download = next(item for item in app.get("download_button") if item.proto.label == "下載本月薪資表")
     assert not download.proto.disabled
+    original_salary_id = get_settled_month_salaries(config, 2026, 9)[0]["salary_id"]
     app.number_input(key="base_salary_snapshot_2026-09_0").set_value(35000).run()
     assert not app.exception
     download = next(item for item in app.get("download_button") if item.proto.label == "下載本月薪資表")
     assert download.proto.disabled
     assert any("重新按" in warning.value for warning in app.warning)
+    app.text_area(key="manual_2026-09_0_E1").set_value("Corrected note")
+    app.number_input(key="monthly_extra_employee_2026-09_E1").set_value(200.0)
+    next(button for button in app.button if button.label == "結算薪資").click().run()
+    assert not app.exception
+    saved = get_settled_month_salaries(config, 2026, 9)
+    assert len(saved) == 1
+    assert saved[0]["salary_id"] == original_salary_id
+    assert saved[0]["base_salary_snapshot"] == 35000
+    assert saved[0]["manual_note"] == "Corrected note"
+    assert get_salary_monthly_extras(config, 2026, 9)["monthly_total"] == 14228
+    download = next(item for item in app.get("download_button") if item.proto.label == "下載本月薪資表")
+    assert not download.proto.disabled
+    preview = load_workbook(BytesIO(generate_salary_workbook(
+        2026, 9, app.session_state["salary_blocks"],
+        get_salary_monthly_extras(config, 2026, 9),
+    ))).active
+    report = load_workbook(BytesIO(generate_salary_workbook(
+        2026, 9, saved, get_salary_monthly_extras(config, 2026, 9),
+    ))).active
+    assert list(preview.values) == list(report.values)
