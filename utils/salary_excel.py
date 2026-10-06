@@ -64,6 +64,46 @@ def _monthly_summary(monthly_extras):
     )
 
 
+def _payroll_values(month, salary):
+    additions = _adjustment_total(salary, "addition")
+    deductions = _adjustment_total(salary, "deduction")
+    final_salary = int(salary.get("final_salary") or 0)
+    return (
+        f"{month:02d}月份 {salary['employee_name_snapshot']}",
+        int(salary.get("base_salary_snapshot") or 0),
+        -int(salary.get("leave_deduction") or 0),
+        int(salary.get("attendance_bonus_snapshot") or 0),
+        int(salary.get("cooling_allowance_snapshot") or 0),
+        int(salary.get("allowance_snapshot") or 0),
+        int(salary.get("position_allowance_snapshot") or 0),
+        -int(salary.get("insurance_snapshot") or 0),
+        -int(salary.get("late_deduction") or 0),
+        final_salary - additions + deductions,
+        additions, deductions, final_salary,
+    )
+
+
+def _payroll_notes(salary):
+    automatic_note = _payroll_leave_note(salary)
+    manual_note = str(salary.get("manual_note") or "").strip()
+    company_text = str(salary.get("company_cost_note") or "").strip()
+    annual_text = salary.get("annual_leave_personal_note") or salary.get("annual_leave_note_snapshot") or ""
+    return (
+        "\n".join(part for part in (automatic_note, manual_note) if part),
+        f"公司負擔：\n{company_text}" if company_text else "公司負擔：",
+        f"歷年制特休：\n{annual_text}" if annual_text else "歷年制特休：",
+    )
+
+
+def salary_report_signature(month, salaries, monthly_extras):
+    """Compare exactly the values and notes rendered in the payroll workbook."""
+    return (
+        tuple((salary["employee_id"], _payroll_values(month, salary), _payroll_notes(salary))
+              for salary in salaries),
+        _monthly_summary(monthly_extras),
+    )
+
+
 def generate_salary_workbook(year, month, salaries, monthly_extras=None):
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -101,25 +141,7 @@ def generate_salary_workbook(year, month, salaries, monthly_extras=None):
             cell.fill = header_fill
             cell.border = border
         ws.row_dimensions[row].height = 28
-        additions = _adjustment_total(salary, "addition")
-        deductions = _adjustment_total(salary, "deduction")
-        final_salary = int(salary.get("final_salary") or 0)
-        subtotal = final_salary - additions + deductions
-        values = (
-            f"{month:02d}月份 {salary['employee_name_snapshot']}",
-            int(salary.get("base_salary_snapshot") or 0),
-            -int(salary.get("leave_deduction") or 0),
-            int(salary.get("attendance_bonus_snapshot") or 0),
-            int(salary.get("cooling_allowance_snapshot") or 0),
-            int(salary.get("allowance_snapshot") or 0),
-            int(salary.get("position_allowance_snapshot") or 0),
-            -int(salary.get("insurance_snapshot") or 0),
-            -int(salary.get("late_deduction") or 0),
-            subtotal,
-            additions,
-            deductions,
-            final_salary,
-        )
+        values = _payroll_values(month, salary)
         for column, value in enumerate(values, 1):
             cell = ws.cell(row + 1, column, value)
             cell.font = Font(name="Microsoft JhengHei", size=9, bold=column in (1, 13))
@@ -143,13 +165,8 @@ def generate_salary_workbook(year, month, salaries, monthly_extras=None):
                     right=thin if column == end else None,
                     top=thin, bottom=thin,
                 )
-        automatic_note = _payroll_leave_note(salary)
-        manual_note = str(salary.get("manual_note") or "").strip()
-        ws.cell(row + 2, 1, "\n".join(part for part in (automatic_note, manual_note) if part))
-        company_text = str(salary.get("company_cost_note") or "").strip()
-        ws.cell(row + 2, 6, f"公司負擔：\n{company_text}" if company_text else "公司負擔：")
-        annual_text = salary.get("annual_leave_personal_note") or salary.get("annual_leave_note_snapshot") or ""
-        ws.cell(row + 2, 10, f"歷年制特休：\n{annual_text}" if annual_text else "歷年制特休：")
+        for column, text in zip((1, 6, 10), _payroll_notes(salary)):
+            ws.cell(row + 2, column, text)
         for start in (1, 6, 10):
             cell = ws.cell(row + 2, start)
             cell.font = Font(name="Microsoft JhengHei", size=8, bold=False)

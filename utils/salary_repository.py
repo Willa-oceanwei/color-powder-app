@@ -123,6 +123,25 @@ def save_salaries(config, salaries, settle=False):
     return salary_ids
 
 
+def settle_salary_month(config, year, month, salaries, monthly_extras):
+    """Persist the preview's salaries and extras in one transaction."""
+    now = utc_now_iso()
+    salary_ids = []
+    with connect_from_config(config) as conn:
+        for salary in salaries:
+            salary_ids.append(_save_salary_on_connection(
+                conn, {**salary, "year": year, "month": month},
+                salary.get("adjustments", ()), True,
+                salary.get("annual_leave_records", []), now,
+            ))
+        _save_salary_monthly_extras_on_connection(
+            conn, year, month, monthly_extras["employee_values"],
+            monthly_extras["previous_value"], monthly_extras["monthly_addition"],
+            monthly_extras["monthly_total"], now,
+        )
+    return salary_ids
+
+
 def list_salaries(config, year=None, month=None, name="", employee_id=None):
     sql = "SELECT * FROM salary_monthly WHERE is_deleted=0 AND (? IS NULL OR year=?) AND (? IS NULL OR month=?) AND employee_name_snapshot LIKE ? AND (? IS NULL OR employee_id=?) ORDER BY year DESC,month DESC,employee_id"
     with connect_from_config(config) as conn:
@@ -376,14 +395,23 @@ def get_salary_monthly_extras(config, year, month):
 def save_salary_monthly_extras(config, year, month, employee_values, previous_value, monthly_addition, monthly_total):
     now = utc_now_iso()
     with connect_from_config(config) as conn:
-        conn.execute("""INSERT INTO salary_monthly_extras
+        _save_salary_monthly_extras_on_connection(
+            conn, year, month, employee_values, previous_value,
+            monthly_addition, monthly_total, now,
+        )
+
+
+def _save_salary_monthly_extras_on_connection(
+    conn, year, month, employee_values, previous_value, monthly_addition, monthly_total, now,
+):
+    conn.execute("""INSERT INTO salary_monthly_extras
             (year,month,employee_values_json,previous_value,monthly_addition,monthly_total,created_at,updated_at)
             VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(year,month) DO UPDATE SET
             employee_values_json=excluded.employee_values_json,previous_value=excluded.previous_value,
             monthly_addition=excluded.monthly_addition,monthly_total=excluded.monthly_total,
             updated_at=excluded.updated_at""",
-            (year, month, json.dumps(employee_values, ensure_ascii=False), previous_value,
-             monthly_addition, monthly_total, now, now))
+        (year, month, json.dumps(employee_values, ensure_ascii=False), previous_value,
+         monthly_addition, monthly_total, now, now))
 
 
 def annual_leave_balance_before_month(config, employee_id, year, month):

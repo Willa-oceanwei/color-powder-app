@@ -8,7 +8,7 @@ import streamlit.components.v1 as components
 from .salary_calculator import (calculate_annual_leave_balance, calculate_monthly_extra_totals,
                                 calculate_salary, default_salary_period, generate_salary_note)
 from .salary_calculator import reclassify_annual_leave_when_exhausted
-from .salary_excel import generate_salary_workbook
+from .salary_excel import generate_salary_workbook, salary_report_signature
 from .salary_repository import (delete_salary, get_annual_leave_contexts,
                                 get_annual_leave_setting, get_employee_salary_note, get_employee_salary_notes,
                                 get_month_salaries, get_rules,
@@ -16,7 +16,7 @@ from .salary_repository import (delete_salary, get_annual_leave_contexts,
                                 move_salary_drafts,
                                 save_annual_leave_setting, save_employee, save_employee_salary_note,
                                 save_rules, save_salary, save_salary_monthly_extras,
-                                set_employee_active)
+                                set_employee_active, settle_salary_month)
 
 
 MONEY_FIELDS = ("base_salary", "attendance_bonus", "cooling_allowance", "allowance", "position_allowance", "insurance")
@@ -643,11 +643,11 @@ def _monthly_tab(config, employees=None, rules=None):
             save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], annual_leave_records=block.get("annual_leave_records", []))
         st.toast("草稿已儲存")
     if c2.button("結算薪資", type="primary", disabled=not blocks):
-        for block in blocks:
-            block["salary_id"] = save_salary(
-                config, {**block,"year":year,"month":month}, block["adjustments"], settle=True,
-                annual_leave_records=block.get("annual_leave_records", []),
-            )
+        salary_ids = settle_salary_month(
+            config, year, month, blocks, current_monthly_extras,
+        )
+        for block, salary_id in zip(blocks, salary_ids):
+            block["salary_id"] = salary_id
             # Keep session state aligned with the persisted snapshot. Otherwise
             # a subsequent Streamlit rerun sees the stale "draft" value and its
             # automatic draft save silently reverses the settlement.
@@ -704,7 +704,14 @@ def _monthly_tab(config, employees=None, rules=None):
     if settled_people < total_people:
         st.warning("目前仍有人尚未結算；下載的 Excel 僅包含已結算人員。")
     if settled_rows:
+        preview_order = {row["employee_id"]: index for index, row in enumerate(preview_rows)}
+        settled_rows.sort(key=lambda row: preview_order.get(row["employee_id"], len(preview_order)))
         report_rows, missing_notes = _salary_report_rows(config, settled_rows, year)
+        report_changed = salary_report_signature(month, preview_rows, current_monthly_extras) != salary_report_signature(
+            month, report_rows, monthly_extras,
+        )
+        if report_changed:
+            st.warning("目前畫面與已結算薪資表的欄位或備註不同，請確認草稿預覽後重新按「結算薪資」再下載。")
         if missing_notes:
             st.warning(f"尚未設定 {year} 年個人薪資說明：{'、'.join(missing_notes)}；仍可結算與下載，Excel 將留白。")
         st.download_button(
@@ -715,6 +722,7 @@ def _monthly_tab(config, employees=None, rules=None):
             ),
             f"{year}年{month:02d}月薪資.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            disabled=report_changed,
         )
     else:
         st.button("下載本月薪資表", disabled=True, help="目前沒有已結算薪資可供下載。")
