@@ -1,6 +1,9 @@
 """Streamlit salary-management page; business rules and persistence live elsewhere."""
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from datetime import date
+import logging
+from time import perf_counter
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -21,6 +24,8 @@ from .salary_repository import (delete_salary, get_annual_leave_contexts,
 
 MONEY_FIELDS = ("base_salary", "attendance_bonus", "cooling_allowance", "allowance", "position_allowance", "insurance")
 SALARY_WORKBOOK_LAYOUT_VERSION = 2
+SALARY_REFERENCE_CACHE_SECONDS = 10
+LOGGER = logging.getLogger(__name__)
 SALARY_TAB_LABELS = (
     "👤 員工薪資設定",
     "📅 每月薪資",
@@ -96,6 +101,50 @@ def _should_reload_salary_blocks(state, period):
     return state.get("salary_period") != period or "salary_blocks" not in state
 
 
+def _salary_reference_read(config, key, loader):
+    """Briefly reuse reference data within one session, never payroll snapshots."""
+    started = perf_counter()
+    cache = st.session_state.setdefault("salary_reference_cache", {})
+    if cache.get("config") != config:
+        cache.clear()
+        cache["config"] = config
+    entries = cache.setdefault("entries", {})
+    entry = entries.get(key)
+    cached = entry is not None and started - entry[0] < SALARY_REFERENCE_CACHE_SECONDS
+    if not cached:
+        value = loader()
+        entries = {item_key: item for item_key, item in entries.items()
+                   if perf_counter() - item[0] < SALARY_REFERENCE_CACHE_SECONDS}
+        entries[key] = (perf_counter(), deepcopy(value))
+        cache["entries"] = entries
+    else:
+        value = entry[1]
+    LOGGER.warning(
+        "[PERF] stage=salary_reference_read group=%s cached=%s elapsed_ms=%.1f",
+        key[0], cached, (perf_counter() - started) * 1000,
+    )
+    return deepcopy(value)
+
+
+def _invalidate_salary_reference_cache():
+    st.session_state.pop("salary_reference_cache", None)
+    st.session_state.pop("salary_month_context", None)
+
+
+def _salary_master_data(config):
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        employees = executor.submit(list_employees, config, include_inactive=True)
+        rules = executor.submit(get_rules, config)
+    return employees.result(), rules.result()
+
+
+def _employee_annual_details(config, employee_id, year):
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        setting = executor.submit(get_annual_leave_setting, config, employee_id, year)
+        note = executor.submit(get_employee_salary_note, config, employee_id, year)
+    return setting.result(), note.result()
+
+
 def _annual_leave_editor_rows(records):
     """Return rows suitable for the batch annual-leave editor."""
     columns = ["日期（可留空）", "日數", "時數", "備註"]
@@ -149,13 +198,14 @@ def _sync_generated_note_state(
     state[generated_key] = generated_note
 
 
-def _salary_report_rows(config, rows, year):
+def _salary_report_rows(config, rows, year, notes_by_employee=None):
     """Attach the per-employee notes required by the salary workbook."""
     report_rows = []
     missing_notes = []
-    notes_by_employee = get_employee_salary_notes(
-        config, (salary["employee_id"] for salary in rows), year,
-    )
+    if notes_by_employee is None:
+        notes_by_employee = get_employee_salary_notes(
+            config, (salary["employee_id"] for salary in rows), year,
+        )
     for salary in rows:
         personal_note = notes_by_employee.get(salary["employee_id"], {})
         report_rows.append({
@@ -181,14 +231,14 @@ def _deduplicate_salary_blocks(blocks):
     return unique
 
 
-def _monthly_context(config, year, month, employees=None, rules=None):
+def _monthly_context(config, year, month, employees=None, rules=None, leave_contexts=None):
     """Load all monthly-page dependencies before any branch reads them."""
     employees = list_employees(config) if employees is None else employees
     previous_year, previous_month = (year - 1, 12) if month == 1 else (year, month - 1)
     with ThreadPoolExecutor(max_workers=5) as executor:
         leave_future = executor.submit(
             get_annual_leave_contexts, config, employees, year, month,
-        )
+        ) if leave_contexts is None else None
         salaries_future = executor.submit(get_month_salaries, config, year, month)
         extras_future = executor.submit(get_salary_monthly_extras, config, year, month)
         previous_extras_future = executor.submit(
@@ -198,7 +248,7 @@ def _monthly_context(config, year, month, employees=None, rules=None):
     return {
         "employees": employees,
         "employees_by_id": {employee["employee_id"]: employee for employee in employees},
-        "leave_contexts": leave_future.result(),
+        "leave_contexts": leave_future.result() if leave_future is not None else leave_contexts,
         "saved_salaries": salaries_future.result(),
         "rules": rules_future.result() if rules_future is not None else rules,
         "monthly_extras": extras_future.result(),
@@ -264,7 +314,10 @@ def _employee_tab(config, all_employees=None):
                                    format_func=lambda value: next(f"{x['employee_id']}｜{x['name']} {'(停用)' if not x['active'] else ''}" for x in employees if x["employee_id"] == value))
         current = next(x for x in employees if x["employee_id"] == selected_id)
     current_leave_context = (
-        get_annual_leave_contexts(config, [current], today.year, today.month)[current["employee_id"]]
+        _salary_reference_read(
+            config, ("employee_leave", current["employee_id"], today.year, today.month),
+            lambda: get_annual_leave_contexts(config, [current], today.year, today.month),
+        )[current["employee_id"]]
         if current else {"setting": None, "balance": 0.0}
     )
     current_leave_setting = current_leave_context["setting"] or {}
@@ -327,11 +380,11 @@ def _employee_tab(config, all_employees=None):
                 config, employee_id, today.year, annual_leave_entitlement,
                 current_leave_balance, today.month, current_leave_setting.get("note", ""),
             )
-            st.session_state.pop("salary_month_context", None)
+            _invalidate_salary_reference_cache()
             st.toast("員工目前設定已儲存；歷史快照不受影響"); st.rerun()
     if current and st.button("停用／離職" if current.get("active") else "恢復在職"):
         set_employee_active(config, current["employee_id"], not current.get("active"))
-        st.session_state.pop("salary_month_context", None)
+        _invalidate_salary_reference_cache()
         st.rerun()
     active_count = sum(bool(employee.get("active")) for employee in all_employees)
     st.caption(f"目前共有 {active_count} 筆在職的員工資料。為保護薪資隱私，本頁不直接攤開完整清單；請使用上方「修改員工」搜尋及選取。")
@@ -397,7 +450,15 @@ def _monthly_tab(config, employees=None, rules=None):
     # Initialize this unconditionally. Streamlit reruns with an existing period
     # still need these values; defining context only in the reload branch caused
     # the monthly page to fail before the tab bar could finish rendering.
-    context = _monthly_context(config, year, month, employees=employees, rules=rules)
+    leave_contexts = (
+        _salary_reference_read(
+            config, ("monthly_leave", year, month, tuple(employee["employee_id"] for employee in employees)),
+            lambda: get_annual_leave_contexts(config, employees, year, month),
+        ) if employees is not None else None
+    )
+    context = _monthly_context(
+        config, year, month, employees=employees, rules=rules, leave_contexts=leave_contexts,
+    )
     if _should_reload_salary_blocks(st.session_state, period):
         st.session_state.salary_period = period
         st.session_state.salary_blocks = context["saved_salaries"]
@@ -435,6 +496,7 @@ def _monthly_tab(config, employees=None, rules=None):
             config, {**new_block, "year": year, "month": month}, new_block["adjustments"],
             annual_leave_records=[],
         )
+        _invalidate_salary_reference_cache()
         blocks.append(new_block)
         st.toast("新增人員已自動儲存為草稿")
         st.rerun()
@@ -454,6 +516,7 @@ def _monthly_tab(config, employees=None, rules=None):
                 removed_block = blocks.pop(index)
                 if removed_block.get("salary_id") and removed_block.get("status") != "settled":
                     delete_salary(config, removed_block["salary_id"])
+                    _invalidate_salary_reference_cache()
                 st.rerun()
             pay_tab, leave_tab, adjustment_tab = st.tabs([
                 "💵 薪資基礎", "🌿 請假／特休", "➕ 加扣／備註",
@@ -583,6 +646,7 @@ def _monthly_tab(config, employees=None, rules=None):
                     config, {**block, "year": year, "month": month}, block["adjustments"],
                     annual_leave_records=records,
                 )
+                _invalidate_salary_reference_cache()
                 st.toast("特休明細已套用並自動儲存草稿")
             if block["manual_note"].strip():
                 st.caption(f"人工備註預覽：{block['manual_note'].strip()}")
@@ -617,6 +681,7 @@ def _monthly_tab(config, employees=None, rules=None):
             save_salary_monthly_extras(
                 config, year, month, employee_values, previous_value, monthly_addition, monthly_total,
             )
+            _invalidate_salary_reference_cache()
             context["monthly_extras"] = {
                 **monthly_extras,
                 "employee_values": employee_values,
@@ -635,18 +700,27 @@ def _monthly_tab(config, employees=None, rules=None):
         "monthly_addition": monthly_addition,
         "monthly_total": monthly_total,
     }
-    preview_rows, _ = _salary_report_rows(config, blocks, year)
+    report_employee_ids = tuple(sorted({
+        row["employee_id"] for row in [*blocks, *context["saved_salaries"]]
+    }))
+    notes_by_employee = _salary_reference_read(
+        config, ("report_notes", year, report_employee_ids),
+        lambda: get_employee_salary_notes(config, report_employee_ids, year),
+    )
+    preview_rows, _ = _salary_report_rows(config, blocks, year, notes_by_employee)
     c1, c2, c3 = st.columns(3)
     draft_blocks = [block for block in blocks if block.get("status") != "settled"]
     if c1.button("儲存草稿", disabled=not draft_blocks):
         for block in draft_blocks:
             save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], annual_leave_records=block.get("annual_leave_records", []))
         st.toast("草稿已儲存")
+        _invalidate_salary_reference_cache()
     if c2.button("結算薪資", type="primary", disabled=not blocks):
         replaces_settlement = any(block.get("status") == "settled" for block in blocks)
         salary_ids = settle_salary_month(
             config, year, month, blocks, current_monthly_extras,
         )
+        _invalidate_salary_reference_cache()
         for block, salary_id in zip(blocks, salary_ids):
             block["salary_id"] = salary_id
             # Keep session state aligned with the persisted snapshot. Otherwise
@@ -692,6 +766,7 @@ def _monthly_tab(config, employees=None, rules=None):
                 st.error(str(error))
             else:
                 st.session_state.salary_blocks = get_month_salaries(config, year, month)
+                _invalidate_salary_reference_cache()
                 st.toast(f"已將 {moved} 筆草稿搬移至 {target_year:04d}-{target_month:02d}")
                 st.rerun()
 
@@ -710,7 +785,7 @@ def _monthly_tab(config, employees=None, rules=None):
     if settled_rows:
         preview_order = {row["employee_id"]: index for index, row in enumerate(preview_rows)}
         settled_rows.sort(key=lambda row: preview_order.get(row["employee_id"], len(preview_order)))
-        report_rows, missing_notes = _salary_report_rows(config, settled_rows, year)
+        report_rows, missing_notes = _salary_report_rows(config, settled_rows, year, notes_by_employee)
         report_changed = salary_report_signature(month, preview_rows, current_monthly_extras) != salary_report_signature(
             month, report_rows, monthly_extras,
         )
@@ -732,7 +807,7 @@ def _monthly_tab(config, employees=None, rules=None):
         st.button("下載本月薪資表", disabled=True, help="目前沒有已結算薪資可供下載。")
 
 
-def _history_tab(config):
+def _history_tab(config, employees=None):
     query_mode = st.selectbox("查詢方式", ["請選擇", "全部", "依月份", "依員工"], key="salary_history_query_mode")
     if query_mode == "請選擇":
         return
@@ -745,7 +820,8 @@ def _history_tab(config):
         month = m.selectbox("月份", range(1, 13), index=date.today().month - 1, key="salary_history_month")
         rows = list_salaries(config, year, month)
     else:
-        employees = list_employees(config, include_inactive=True)
+        if employees is None:
+            employees = list_employees(config, include_inactive=True)
         if not employees:
             st.info("目前沒有員工資料。")
             return
@@ -772,6 +848,7 @@ def _history_tab(config):
     confirm, cancel = st.columns(2)
     if confirm.button("確認刪除", type="primary"):
         delete_salary(config, selected_salary["salary_id"])
+        _invalidate_salary_reference_cache()
         st.session_state.pop("salary_delete_pending", None)
         period = f"{selected_salary['year']:04d}-{selected_salary['month']:02d}"
         if st.session_state.get("salary_period") == period:
@@ -793,7 +870,7 @@ def _rules_tab(config, rules=None, employees=None):
         allowance = st.toggle("請假影響津貼", value=bool(rules.get("leave_affects_allowance")))
         if st.form_submit_button("儲存薪資規則", type="primary"):
             save_rules(config, {"monthly_days":days,"standard_hours":hours,"leave_affects_attendance":attendance,"leave_affects_cooling":cooling,"leave_affects_allowance":allowance})
-            st.session_state.pop("salary_month_context", None)
+            _invalidate_salary_reference_cache()
             st.toast("薪資規則已儲存")
 
     st.divider()
@@ -819,15 +896,11 @@ def _rules_tab(config, rules=None, employees=None):
         key="rules_annual_leave_employee",
     )
     selected_employee = next(item for item in employees if item["employee_id"] == employee_id)
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        setting_future = executor.submit(
-            get_annual_leave_setting, config, employee_id, leave_year,
-        )
-        note_future = executor.submit(
-            get_employee_salary_note, config, employee_id, leave_year,
-        )
-        saved_setting = setting_future.result()
-        personal_note = note_future.result() or {}
+    saved_setting, personal_note = _salary_reference_read(
+        config, ("annual_details", employee_id, leave_year),
+        lambda: _employee_annual_details(config, employee_id, leave_year),
+    )
+    personal_note = personal_note or {}
     setting = saved_setting or {
         "annual_entitlement": selected_employee.get("annual_leave_base", 0),
         "opening_balance": selected_employee.get("annual_leave_base", 0),
@@ -859,7 +932,7 @@ def _rules_tab(config, rules=None, employees=None):
                 config, employee_id, leave_year, entitlement, opening_balance, opening_month, leave_note
             )
             save_employee_salary_note(config, employee_id, leave_year, company_cost_note, leave_note)
-            st.session_state.pop("salary_month_context", None)
+            _invalidate_salary_reference_cache()
             st.toast("員工個人薪資說明已儲存／更新")
             st.rerun()
 
@@ -872,11 +945,9 @@ def render_salary_management(config):
         st.warning("目前使用本機資料庫；程式更新不會主動刪除草稿，但部署平台若重建磁碟，未使用雲端資料庫的資料可能遺失。")
     # Streamlit renders every tab on each rerun. Load shared dependencies once so
     # remote databases do not receive the same employee/rule queries per tab.
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        employees_future = executor.submit(list_employees, config, include_inactive=True)
-        rules_future = executor.submit(get_rules, config)
-        all_employees = employees_future.result()
-        rules = rules_future.result()
+    all_employees, rules = _salary_reference_read(
+        config, ("master",), lambda: _salary_master_data(config),
+    )
     active_employees = [employee for employee in all_employees if employee.get("active")]
 
     # Keep the same top-level tab pattern used by 代工管理 so the four salary
@@ -890,6 +961,6 @@ def render_salary_management(config):
     with monthly_tab:
         _monthly_tab(config, active_employees, rules)
     with history_tab:
-        _history_tab(config)
+        _history_tab(config, all_employees)
     with rules_tab:
         _rules_tab(config, rules, all_employees)
