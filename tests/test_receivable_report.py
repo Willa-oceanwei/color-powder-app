@@ -158,7 +158,7 @@ def test_pagination_escape_totals_and_no_mutation(config):
     statements = build_statements(config, "2026-10-01", "2026-10-31")
     original = deepcopy(statements)
     pages = statement_pages(statements)
-    assert len(pages) >= 3 and all(len(p["rows"]) <= 19 for p in pages)
+    assert len(pages) >= 3 and all(len(p["rows"]) <= 15 for p in pages)
     assert statements == original
     html = render_statement_print(pages)
     assert "<script>bad" not in html and "&lt;script&gt;" in html

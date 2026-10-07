@@ -74,7 +74,7 @@ FIELDS = (("kind", 6), ("date", 12), ("number", 16), ("code", 14), ("name", 18),
           ("quantity", 10), ("unit", 6), ("price", 12), ("amount", 14), ("notes", 24))
 
 
-def statement_pages(statements, capacity=19):
+def statement_pages(statements, capacity=15):
     pages = []
     for statement in statements:
         rows, context = [], []
