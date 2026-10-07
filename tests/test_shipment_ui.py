@@ -79,3 +79,24 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     app.button(key='shipment_save').click().run()
     assert not app.exception
     assert get_shipment(config, first['id'])['shipment_number'] == '000123'
+    from utils.recipe_repository import create_recipe
+    create_recipe(config, {'配方編號': 'P1', '顏色': '藍', '客戶編號': 'C01'})
+    app.button(key='shipment_new').click().run()
+    next(widget for widget in app.selectbox if widget.label == '客戶').set_value('C01').run()
+    next(widget for widget in app.selectbox if widget.label == '配方').set_value('P1').run()
+    next(widget for widget in app.text_input if widget.label == '銷售單位').set_value('包').run()
+    app.button(key='shipment_add_recipe').click().run()
+    assert not app.exception
+    assert app.session_state['shipment_draft']['items'][0]['code'] == 'P1'
+    assert str(app.session_state['shipment_draft']['items'][0]['price']) in ('260', '260.0')
+    epoch = app.session_state['shipment_epoch']
+    grid = app.session_state['shipment_grid_epoch']
+    app.session_state[f'shipment_{epoch}_items_{grid}'] = {
+        'edited_rows': {0: {'單價': 299.0}}, 'added_rows': [], 'deleted_rows': []}
+    app.button(key='shipment_add_recipe').click().run()
+    assert not app.exception
+    assert app.session_state['shipment_draft']['items'][0]['price'] == 299.0
+    assert len(app.session_state['shipment_draft']['items']) == 2
+    app.button(key='shipment_save').click().run()
+    assert not app.exception
+    assert get_shipment(config, app.session_state['shipment_selected'])['items'][0]['price'] == '299.0'

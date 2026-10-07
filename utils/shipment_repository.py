@@ -75,6 +75,32 @@ def copy_shipment(document):
     return result
 
 
+def list_shipment_recipes(config, customer_id):
+    """Load sales-facing recipe fields without powder/component data."""
+    if not customer_id:
+        return []
+    with connect_from_config(config) as conn:
+        return _mappings(conn.execute(
+            "SELECT recipe_id,color FROM recipes WHERE lifecycle_status='active' "
+            "AND customer_id=? ORDER BY recipe_id", (customer_id,)))
+
+
+def recent_shipment_price(config, customer_id, code, unit, *, shipment_date, tax_mode, exclude_id=""):
+    """Use saved, non-void documents on or before the new shipment date."""
+    if not all((customer_id, code, unit)):
+        return None
+    with connect_from_config(config) as conn:
+        return _mapping(conn.execute(
+            "SELECT json_extract(i.payload_json,'$.price') AS price,s.shipment_number,s.shipment_date "
+            "FROM shipment_orders s JOIN shipment_order_items i ON i.shipment_id=s.id "
+            "WHERE s.status='draft' AND s.customer_id=? AND s.id<>? AND s.shipment_date<=? "
+            "AND UPPER(TRIM(json_extract(i.payload_json,'$.code')))=UPPER(TRIM(?)) "
+            "AND UPPER(TRIM(json_extract(i.payload_json,'$.unit')))=UPPER(TRIM(?)) "
+            "AND json_extract(s.payload_json,'$.tax_mode')=? "
+            "ORDER BY s.shipment_date DESC,s.created_at DESC,s.shipment_number DESC,i.line_number DESC LIMIT 1",
+            (customer_id, exclude_id or "", shipment_date, code, unit, tax_mode)))
+
+
 def _valid_date(value, label, optional=False):
     if optional and not value:
         return ""
