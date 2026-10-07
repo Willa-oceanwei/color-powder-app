@@ -5,7 +5,7 @@ from copy import deepcopy
 import streamlit as st
 
 from .product_repository import (
-    ProductError, blank_product, list_products, product_references, save_product, set_product_active,
+    ProductError, blank_product, list_products, product_references, product_from_recipe, save_product, set_product_active,
 )
 from .shipment_repository import TAX_MODES
 from .shipment_ui import COMPACT_STYLE
@@ -38,6 +38,22 @@ def _fill_recipe(prefix, recipes):
             st.session_state[prefix + "product_id"] = code
         if not st.session_state.get(prefix + "name", ""):
             st.session_state[prefix + "name"] = recipes[code]["color"] or code
+        defaults = product_from_recipe(recipes[code])
+        for field in ("specification", "base_unit", "sales_unit"):
+            st.session_state[prefix + field] = defaults[field]
+
+
+def _open_recipe(config, recipe):
+    existing = next((p for p in list_products(config, include_inactive=True)
+                     if p["product_id"] == recipe["recipe_id"].upper()), None)
+    if existing:
+        st.session_state.product_selected = existing["product_id"]
+        st.session_state.product_search = ""
+        st.session_state.product_show_inactive = existing["lifecycle_status"] != "active"
+        if existing["lifecycle_status"] == "active":
+            _begin(existing)
+    else:
+        _begin(product_from_recipe(recipe))
 
 
 def render_product_management(config):
@@ -48,10 +64,18 @@ def render_product_management(config):
         st.caption(notice)
     draft = st.session_state.get("product_draft")
     editing = draft is not None
-    with st.expander("查詢", expanded=False):
+    recipes, suppliers = product_references(config)
+    with st.expander("查詢／配方定價", expanded=True):
         search, status = st.columns([4, 1])
         query = search.text_input("貨品編號 / 名稱 / 配方 / 規格", key="product_search", disabled=editing)
         include_inactive = status.toggle("包含已刪除", key="product_show_inactive", disabled=editing)
+        active_recipes = {r["recipe_id"]: r for r in recipes if r["lifecycle_status"] == "active"}
+        picker, open_col = st.columns([4, 1])
+        code = picker.selectbox("查找現有配方編號", [""] + list(active_recipes),
+                                format_func=lambda c: f"{c} · {active_recipes[c]['color']}" if c else "選擇配方",
+                                key="product_recipe_search", disabled=editing)
+        open_col.button("補上定價", key="product_recipe_open", disabled=editing or not code,
+                        on_click=_open_recipe, args=(config, active_recipes.get(code)))
     records = list_products(config, query=query, include_inactive=include_inactive)
     ids = [row["product_id"] for row in records]
     selected = st.session_state.get("product_selected")
@@ -113,7 +137,6 @@ def render_product_management(config):
         if editing:
             document[field] = str(value)
 
-    recipes, suppliers = product_references(config)
     by_recipe = {row["recipe_id"]: row for row in recipes if row["lifecycle_status"] == "active" or row["recipe_id"] == document["recipe_id"]}
     by_supplier = {row["supplier_id"]: row for row in suppliers if row["lifecycle_status"] == "active" or row["supplier_id"] == document["supplier_id"]}
     header = st.columns([1.4, 2.5, 2])
@@ -136,12 +159,10 @@ def render_product_management(config):
         if editing:
             document["supplier_id"] = supplier_id
         text(row[2], "基本單位", "base_unit")
-        row = st.columns([2, 1, 1, 1, 1])
+        row = st.columns([2, 1, 1])
         text(row[0], "規格", "specification")
         text(row[1], "內包裝單位", "inner_unit")
         number(row[2], "內包裝容量（基本單位）", "inner_quantity")
-        text(row[3], "外包裝單位", "outer_unit")
-        number(row[4], "外包裝數量（內包裝）", "outer_quantity")
         row = st.columns([1, 2, 2])
         text(row[0], "銷售單位", "sales_unit")
         text(row[1], "備註", "notes")
@@ -151,8 +172,7 @@ def render_product_management(config):
         row = st.columns(3)
         for col, label, field in zip(row, ("標準成本", "期初成本", "現行成本"), ("standard_cost", "opening_cost", "current_cost")):
             number(col, label, field)
-        for labels, fields in ((('標準售價', '售價 A', '售價 B'), ('standard_price', 'price_a', 'price_b')),
-                                (('售價 C', '售價 D', '售價 E'), ('price_c', 'price_d', 'price_e'))):
+        for labels, fields in ((('標準售價', '售價 A', '售價 B'), ('standard_price', 'price_a', 'price_b')),):
             row = st.columns(3)
             for col, label, field in zip(row, labels, fields):
                 number(col, label, field)

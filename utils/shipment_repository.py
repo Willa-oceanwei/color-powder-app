@@ -81,8 +81,8 @@ def list_shipment_recipes(config, customer_id):
         return []
     with connect_from_config(config) as conn:
         return _mappings(conn.execute(
-            "SELECT recipe_id,color FROM recipes WHERE lifecycle_status='active' "
-            "AND customer_id=? ORDER BY recipe_id", (customer_id,)))
+            "SELECT recipe_id,color,measurement_unit FROM recipes WHERE lifecycle_status='active' "
+            "AND (customer_id=? OR COALESCE(customer_id,'')='') ORDER BY recipe_id", (customer_id,)))
 
 
 def recent_shipment_price(config, customer_id, code, unit, *, shipment_date, tax_mode, exclude_id=""):
@@ -196,7 +196,7 @@ def _next_number(conn, shipment_date):
     return prefix + f"{reserved['last_number']:04d}"
 
 
-def save_shipment(config, document):
+def save_shipment(config, document, *, sync_products=False):
     header, items, invoice, amounts = _validated(document)
     shipment_id, now = document.get("id") or str(uuid4()), utc_now_iso()
     number = str(document.get("shipment_number") or "").strip()
@@ -261,6 +261,9 @@ def save_shipment(config, document):
         conn.execute("""INSERT INTO shipment_invoices(shipment_id,invoice_number,payload_json) VALUES (?,?,?)
                      ON CONFLICT(shipment_id) DO UPDATE SET invoice_number=excluded.invoice_number,payload_json=excluded.payload_json""",
                      (shipment_id, invoice["number"] or None, json.dumps(invoice, ensure_ascii=False)))
+        if sync_products:
+            from .shipment_catalog import sync_shipment_products
+            sync_shipment_products(config, conn, items, header["tax_mode"])
     return get_shipment(config, shipment_id)
 
 
