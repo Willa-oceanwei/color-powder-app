@@ -3271,7 +3271,7 @@ if menu == "色粉管理":
 # ======== 客戶名單 =========
 elif menu == "客戶名單":
     st.caption("Turso 是客戶主檔正式資料來源；Google Sheet 由 versioned outbox 同步。客戶編號建立後不可修改。")
-    columns = ["客戶編號", "客戶簡稱", "備註"]
+    columns = ["客戶編號", "客戶簡稱", "地址", "電話", "傳真", "聯絡人", "統一編號", "備註"]
     
     try:
         customer_entities = list_customers(DATABASE_CONFIG, include_inactive=True)
@@ -3281,6 +3281,8 @@ elif menu == "客戶名單":
     customer_rows = [{
         "客戶編號": item.get("customer_id", ""), "客戶簡稱": item.get("name", ""),
         "備註": item.get("notes", ""), "生命週期": item.get("lifecycle_status", "active"),
+        "地址": item.get("address", ""), "電話": item.get("phone", ""), "傳真": item.get("fax", ""),
+        "聯絡人": item.get("contact", ""), "統一編號": item.get("tax_id", ""),
         "停用時間": item.get("deleted_at", ""), "停用原因": item.get("delete_reason", ""),
     } for item in customer_entities]
     df = pd.DataFrame(customer_rows, columns=columns + ["生命週期", "停用時間", "停用原因"])
@@ -3292,14 +3294,23 @@ elif menu == "客戶名單":
     defaults = editing_row.iloc[0].to_dict() if not editing_row.empty else {col: "" for col in columns}
 
     st.markdown("### 新增／編輯客戶")
-    with st.form("customer_turso_form"):
-        c1, c2 = st.columns(2)
+    with st.form(f"customer_turso_form_{editing_id or 'new'}_{st.session_state.get('customer_form_epoch', 0)}"):
+        c1, c2, c3 = st.columns(3)
         customer_id = c1.text_input("客戶編號", value=str(defaults.get("客戶編號", "")), disabled=bool(editing_id))
-        customer_name = c1.text_input("客戶簡稱", value=str(defaults.get("客戶簡稱", "")))
+        customer_name = c2.text_input("客戶簡稱", value=str(defaults.get("客戶簡稱", "")))
+        customer_contact = c3.text_input("聯絡人", value=str(defaults.get("聯絡人", "")))
+        c1, c2, c3 = st.columns(3)
+        customer_phone = c1.text_input("電話", value=str(defaults.get("電話", "")))
+        customer_fax = c2.text_input("傳真", value=str(defaults.get("傳真", "")))
+        customer_tax_id = c3.text_input("統一編號", value=str(defaults.get("統一編號", "")))
+        c1, c2 = st.columns([3, 1])
+        customer_address = c1.text_input("地址", value=str(defaults.get("地址", "")))
         customer_notes = c2.text_input("備註", value=str(defaults.get("備註", "")))
         save_customer = st.form_submit_button("💾 儲存至 Turso")
     if save_customer:
-        data = CustomerInput(editing_id or customer_id, customer_name, customer_notes)
+        data = CustomerInput(editing_id or customer_id, customer_name, customer_notes,
+                             address=customer_address, phone=customer_phone, fax=customer_fax,
+                             contact=customer_contact, tax_id=customer_tax_id)
         try:
             if editing_id:
                 update_customer(DATABASE_CONFIG, data)
@@ -3308,6 +3319,7 @@ elif menu == "客戶名單":
                 create_customer(DATABASE_CONFIG, data)
                 message = f"已新增客戶 {customer_id.strip()}"
             st.session_state.editing_customer_id = ""
+            st.session_state.customer_form_epoch = st.session_state.get("customer_form_epoch", 0) + 1
             st.toast(f"{message}；等待同步至 Sheet", icon="✅")
             st.rerun()
         except (CustomerError, CustomerAlreadyExists) as exc:

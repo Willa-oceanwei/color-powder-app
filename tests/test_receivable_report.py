@@ -177,7 +177,7 @@ def test_schema_26_upgrade_preserves_data(config):
         conn.execute("DROP TABLE shipment_receipts")
         conn.execute("DELETE FROM schema_migrations WHERE version=26")
     initialize_database(config.path)
-    assert database_health_check(config).schema_version == 26
+    assert database_health_check(config).schema_version == 27
     assert get_shipment(config, d["id"])["total_amount"] == "210"
     assert not list_receipts(config, d["id"])
 

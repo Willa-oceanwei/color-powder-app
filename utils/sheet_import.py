@@ -16,6 +16,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
+from .customer_repository import CONTACT_FIELDS
 
 from .database import (
     DatabaseConfig,
@@ -618,12 +619,15 @@ def import_sheet_values(
                     synced_at = utc_now_iso()
                     upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
                     conn.execute(
-                        """INSERT INTO customers(customer_id,name,notes,source,created_at,updated_at,last_synced_at)
-                           VALUES (?,?,?,'google_sheets_import',?,?,?)
+                        """INSERT INTO customers(customer_id,name,notes,address,phone,fax,contact,tax_id,source,created_at,updated_at,last_synced_at)
+                           VALUES (?,?,?,?,?,?,?,?,'google_sheets_import',?,?,?)
                            ON CONFLICT(customer_id) DO UPDATE SET name=excluded.name,notes=excluded.notes,
+                               address=excluded.address,phone=excluded.phone,fax=excluded.fax,contact=excluded.contact,tax_id=excluded.tax_id,
                                source=excluded.source,version=customers.version+1,
                                updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
                         (customer_id, name, row.get("備註", ""),
+                         *(row[label].strip() if label in row else ((entity.get(key) or "") if entity else "")
+                           for key, label in CONTACT_FIELDS.items()),
                          entity["created_at"] if entity else synced_at,
                          _sheet_updated_at(row) or synced_at, synced_at),
                     )

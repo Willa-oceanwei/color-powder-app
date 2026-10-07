@@ -222,14 +222,19 @@ def render_shipment_management(config):
     with header[3]:
         if editing:
             available = {row["customer_id"]: row["name"] for row in customers if row["lifecycle_status"] == "active"}
-            if document.get("customer_id"):
-                available.setdefault(document["customer_id"], document["customer_name"])
+            original = st.session_state.get("shipment_original", document)
+            if original.get("customer_id"):
+                available.setdefault(original["customer_id"], original["customer_name"])
             options = [""] + list(available)
-            chosen = st.selectbox("客戶", options, index=options.index(document["customer_id"]),
+            # Keep widget identity stable while the selected customer changes.
+            chosen = st.selectbox("客戶", options, index=options.index(original.get("customer_id", "")),
                                   format_func=lambda value: f"{value} · {available[value]}" if value else "請選擇客戶", key=prefix + "customer_picker")
             if chosen != document["customer_id"]:
                 document.update(customer_id=chosen, customer_name=available.get(chosen, ""), recipient_id=chosen, recipient_name=available.get(chosen, ""))
-                for field in ("recipient_id", "recipient_name"):
+                customer = next((row for row in customers if row["customer_id"] == chosen), {})
+                for field in ("address", "phone", "fax", "contact", "tax_id"):
+                    document[field] = customer.get(field) or ""
+                for field in ("recipient_id", "recipient_name", "address", "phone", "fax", "contact", "tax_id"):
                     st.session_state[prefix + field] = document[field]
         else:
             st.text_input("客戶", value=f"{document['customer_id']} · {document['customer_name']}", disabled=True)
