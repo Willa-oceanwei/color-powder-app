@@ -22,9 +22,10 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 24
+SCHEMA_VERSION = 25
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
+    "products",
     "shipment_number_sequences",
     "shipment_orders",
     "shipment_order_items",
@@ -380,6 +381,21 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS products (
+            product_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            recipe_id TEXT REFERENCES recipes(recipe_id) ON UPDATE CASCADE ON DELETE SET NULL,
+            supplier_id TEXT REFERENCES suppliers(supplier_id) ON UPDATE CASCADE ON DELETE SET NULL,
+            sales_unit TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            lifecycle_status TEXT NOT NULL DEFAULT 'active' CHECK(lifecycle_status IN ('active','inactive')),
+            deleted_at TEXT,
+            delete_reason TEXT,
+            version INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_products_recipe ON products(recipe_id);
         CREATE TABLE IF NOT EXISTS shipment_number_sequences (
             date_prefix TEXT PRIMARY KEY,
             last_number INTEGER NOT NULL
