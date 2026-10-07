@@ -1,6 +1,7 @@
 """A5 landscape shipment printout, with amounts omitted at the source when requested."""
 
 from html import escape
+from decimal import Decimal
 from unicodedata import east_asian_width
 
 COMPANY = {"name": "佳味實業有限公司", "address": "台南市永康區中正南路309號",
@@ -24,6 +25,11 @@ def _text(value):
     return escape(str(value if value is not None else ''))
 
 
+def display_price(value):
+    text = format(Decimal(str(value)), 'f')
+    return text.rstrip('0').rstrip('.') if '.' in text else text
+
+
 def render_shipment_print(document, *, show_prices=True):
     fields = [('code', '貨品編號', 16), ('name', '品名', 22), ('quantity', '數量', 10), ('unit', '單位', 6)]
     if show_prices:
@@ -31,7 +37,7 @@ def render_shipment_print(document, *, show_prices=True):
     fields.append(('order_number', '採購單號', 20 if show_prices else 30))
     pages, page_rows, used = [], [], 0
     for item in document['items']:
-        cells = [_wrap(item.get(key, ''), width) for key, _, width in fields]
+        cells = [_wrap(display_price(item[key]) if key == 'price' else item.get(key, ''), width) for key, _, width in fields]
         if item.get('notes'):
             cells[1].extend(_wrap(item['notes'], 22))
         height = max(map(len, cells))

@@ -133,7 +133,7 @@ def render_product_management(config):
 
     def number(col, label, field):
         value = col.number_input(label, min_value=0.0, max_value=1e12, value=float(document.get(field) or 0),
-                                 step=1.0, format="%.3f", key=prefix + field, disabled=not editing)
+                                 step=1.0, format="%.15g", key=prefix + field, disabled=not editing)
         if editing:
             document[field] = str(value)
 

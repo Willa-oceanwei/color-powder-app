@@ -148,6 +148,5 @@ def shipment_products(config, customer_id):
         rows = _mappings(conn.execute(
             "SELECT p.* FROM products p LEFT JOIN recipes r ON r.recipe_id=p.recipe_id "
             "WHERE p.lifecycle_status='active' AND (p.recipe_id IS NULL OR "
-            "(r.lifecycle_status='active' AND (COALESCE(r.customer_id,'')='' OR r.customer_id=?))) ORDER BY p.product_id",
-            (customer_id,)))
+            "r.lifecycle_status='active') ORDER BY p.product_id"))
     return [_document(row) for row in rows]
