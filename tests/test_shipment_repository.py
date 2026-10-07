@@ -137,10 +137,10 @@ def test_upgrade_preserves_existing_data(config):
     with connect(config.path) as conn:
         for table in ('shipment_invoices', 'shipment_order_items', 'shipment_orders', 'shipment_number_sequences'):
             conn.execute(f'DROP TABLE {table}')
-        conn.execute('DELETE FROM schema_migrations WHERE version=24')
+        conn.execute('DELETE FROM schema_migrations WHERE version=25')
         conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (22,'2026-10-01')")
     _, health = initialize_database_with_health(config)
-    assert health.schema_version == 24
+    assert health.schema_version == 25
     assert health.schema_compatible
     with connect(config.path) as conn:
         assert conn.execute("SELECT name FROM customers WHERE customer_id='C01'").fetchone()[0] == '範例客戶'

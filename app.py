@@ -21,6 +21,7 @@ import concurrent.futures
 from utils import database as database_utils
 from utils.number_format import format_optional_decimals
 from utils.shipment_ui import render_shipment_management
+from utils.product_ui import render_product_management
 from utils.inventory_audit import (
     duplicate_initial_inventory_sync_ids,
     latest_initial_inventory_record,
@@ -1061,6 +1062,7 @@ def render_sidebar():
         {"group":"生產","key":"配方管理","label":"配方管理"},
         {"group":"生產","key":"代工管理","label":"代工管理"},
         {"group":"會計","key":"出貨單","label":"出貨單"},
+        {"group":"會計","key":"貨品","label":"貨品"},
         {"group":"倉儲","key":"庫存區","label":"庫存區"},
         {"group":"倉儲","key":"洗車廠庫存","label":"洗車廠庫存"},
         {"group":"倉儲","key":"採購管理","label":"採購管理"},
@@ -1104,7 +1106,8 @@ def render_sidebar():
                 if st.button(
                     item["label"], key=item["key"], use_container_width=True,
                     type="primary" if st.session_state.menu == item["key"] else "secondary",
-                    disabled=bool(st.session_state.get("shipment_draft")) and item["key"] != "出貨單",
+                    disabled=(bool(st.session_state.get("shipment_draft")) and item["key"] != "出貨單")
+                             or (bool(st.session_state.get("product_draft")) and item["key"] != "貨品"),
                 ):
                     st.session_state.menu = item["key"]
                     st.rerun()
@@ -1476,6 +1479,7 @@ MENU_ITEMS = [
     {"key": "配方管理", "label": "配方管理", "group": "生產"},
     {"key": "代工管理", "label": "代工管理", "group": "生產"},
     {"key": "出貨單", "label": "出貨單", "group": "會計"},
+    {"key": "貨品", "label": "貨品", "group": "會計"},
     {"key": "庫存區", "label": "庫存區", "group": "倉儲"},
     {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
     {"key": "採購管理", "label": "採購管理", "group": "倉儲"},
@@ -1497,6 +1501,7 @@ def render_erp_nav():
         {"key": "配方管理",   "label": "配方管理",   "group": "生產"},
         {"key": "代工管理",   "label": "代工管理",   "group": "生產"},
         {"key": "出貨單", "label": "出貨單", "group": "會計"},
+        {"key": "貨品", "label": "貨品", "group": "會計"},
         {"key": "庫存區",     "label": "庫存區",     "group": "倉儲"},
         {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
         {"key": "採購管理",   "label": "採購管理",   "group": "倉儲"},
@@ -3146,6 +3151,8 @@ log_performance("menu_selected", page_render_started_at, menu=menu)
 
 if menu == "出貨單":
     render_shipment_management(DATABASE_CONFIG)
+elif menu == "貨品":
+    render_product_management(DATABASE_CONFIG)
 elif menu == "薪資管理":
     render_salary_management(DATABASE_CONFIG)
 elif menu == "人力查詢":

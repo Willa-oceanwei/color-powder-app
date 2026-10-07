@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+from .product_repository import shipment_products, list_products
 from .customer_repository import list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
@@ -80,6 +81,12 @@ def _finish(message=""):
 def _remember_print_settings():
     st.session_state.shipment_preview_preference = st.session_state.get("shipment_print_preview", False)
     st.session_state.shipment_hide_preference = st.session_state.get("shipment_hide_prices", False)
+
+
+def _fill_product_unit(prefix, products, picker_key):
+    selected = st.session_state.get(picker_key, "")
+    if selected in products:
+        st.session_state[prefix + "sale_unit"] = products[selected]["sales_unit"]
 
 
 def render_shipment_management(config):
@@ -203,25 +210,38 @@ def render_shipment_management(config):
     source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
     requested_item = None
     if editing:
-        with st.expander("加入配方品項", expanded=False):
-            recipes = list_shipment_recipes(config, document["customer_id"])
-            by_code = {row["recipe_id"]: row for row in recipes}
+        with st.expander("加入貨品／配方", expanded=False):
+            products = {row["product_id"]: row for row in shipment_products(config, document["customer_id"])}
+            master_codes = {row["product_id"] for row in list_products(config, include_inactive=True)}
+            choices = {row["recipe_id"]: dict(name=row["color"] or row["recipe_id"], sales_unit="",
+                                               standard_price=None, specification="")
+                       for row in list_shipment_recipes(config, document["customer_id"])
+                       if row["recipe_id"] not in master_codes}
+            choices.update(products)
             picker, unit_col, quantity_col, add_col = st.columns([3, 1, 1, 1])
-            recipe_code = picker.selectbox("配方", [""] + list(by_code),
-                                           format_func=lambda code: f"{code} · {by_code[code]['color']}" if code else "請選擇配方",
-                                           key=prefix + "recipe_picker_" + document["customer_id"])
-            sale_unit = unit_col.text_input("銷售單位", value="KG", key=prefix + "sale_unit").strip()
+            picker_key = prefix + "recipe_picker_" + document["customer_id"]
+            code = picker.selectbox("貨品／配方", [""] + list(choices),
+                                    format_func=lambda key: f"{key} · {choices[key]['name']}" if key else "請選擇貨品或配方",
+                                    key=picker_key, on_change=_fill_product_unit, args=(prefix, products, picker_key))
+            unit = unit_col.text_input("銷售單位", value="KG", key=prefix + "sale_unit").strip()
             quantity = quantity_col.number_input("加入數量", min_value=0.001, value=1.0, step=1.0, key=prefix + "add_quantity")
-            previous = recent_shipment_price(config, document["customer_id"], recipe_code, sale_unit,
+            previous = recent_shipment_price(config, document["customer_id"], code, unit,
                                              shipment_date=document["shipment_date"], tax_mode=document["tax_mode"],
                                              exclude_id=document.get("id", ""))
+            chosen = choices.get(code)
+            price = "0"
             if previous:
-                st.caption(f"前次單價：{previous['price']} / {sale_unit} · {previous['shipment_date']} · {previous['shipment_number']}")
-            if add_col.button("加入", key="shipment_add_recipe", disabled=not recipe_code or not sale_unit, use_container_width=True):
-                requested_item = dict(code=recipe_code, name=by_code[recipe_code]["color"] or recipe_code,
-                                              quantity=str(quantity), unit=sale_unit,
-                                              price=str(previous["price"]) if previous else "0",
-                                              order_number="", notes="")
+                price = str(previous["price"])
+                st.caption(f"前次單價：{price} / {unit} · {previous['shipment_date']} · {previous['shipment_number']}")
+            elif code in products:
+                if chosen["sales_unit"].upper() == unit.upper() and chosen["tax_mode"] == document["tax_mode"]:
+                    price = chosen["standard_price"]
+                    st.caption(f"標準售價：{price} / {unit}")
+                else:
+                    st.caption("無相符單位或課稅方式的單價，加入後請自行填價")
+            if add_col.button("加入", key="shipment_add_recipe", disabled=not code or not unit, use_container_width=True):
+                requested_item = dict(code=code, name=chosen["name"], quantity=str(quantity), unit=unit,
+                                      price=price, order_number="", notes=chosen["specification"])
     frame = pd.DataFrame(source_items, columns=list(COLUMNS)).rename(columns=COLUMNS)
     for column in ("數量", "單價"):
         frame[column] = pd.to_numeric(frame[column], errors="coerce").astype(float)
