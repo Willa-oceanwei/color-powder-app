@@ -48,6 +48,7 @@ def test_reject_invalid_numbers(quantity, price, rate):
 def test_roundtrip_filter_copy_and_historical_snapshot(config):
     d = document()
     d['shipment_number'] = '025619'
+    d['number_mode'] = 'manual'
     saved = save_shipment(config, d)
     assert saved['shipment_number'] == '025619'
     assert saved['items'][0]['amount'] == '13000'
@@ -111,12 +112,12 @@ def test_void_preserves_history_and_blocks_update(config):
 
 def test_upgrade_preserves_existing_data(config):
     with connect(config.path) as conn:
-        for table in ('shipment_invoices', 'shipment_order_items', 'shipment_orders'):
+        for table in ('shipment_invoices', 'shipment_order_items', 'shipment_orders', 'shipment_number_sequences'):
             conn.execute(f'DROP TABLE {table}')
-        conn.execute('DELETE FROM schema_migrations WHERE version=23')
+        conn.execute('DELETE FROM schema_migrations WHERE version=24')
         conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (22,'2026-10-01')")
     _, health = initialize_database_with_health(config)
-    assert health.schema_version == 23
+    assert health.schema_version == 24
     assert health.schema_compatible
     with connect(config.path) as conn:
         assert conn.execute("SELECT name FROM customers WHERE customer_id='C01'").fetchone()[0] == '範例客戶'
@@ -129,3 +130,59 @@ def test_print_escapes_user_text(config):
     assert '<script>' not in html
     assert '&lt;script&gt;' in html
     assert '依據單號' not in html
+
+
+def test_date_sequences_and_manual_numbers(config):
+    d = document()
+    d['shipment_date'] = '2026-10-07'
+    first = save_shipment(config, d)
+    assert first['shipment_number'] == '2610070001'
+    assert save_shipment(config, d)['shipment_number'] == '2610070002'
+    d.update(number_mode='manual', shipment_number='2610070009')
+    save_shipment(config, d)
+    d.update(number_mode='date', shipment_number='')
+    assert save_shipment(config, d)['shipment_number'] == '2610070010'
+    assert save_shipment(config, first)['shipment_number'] == '2610070001'
+    first['number_mode'] = 'manual'
+    first['shipment_number'] = '000123'
+    first['version'] = 2
+    assert save_shipment(config, first)['shipment_number'] == '000123'
+    d['shipment_date'] = '2026-10-08'
+    assert save_shipment(config, d)['shipment_number'] == '2610080001'
+
+
+def test_manual_duplicate_and_empty_number(config):
+    d = document()
+    d.update(number_mode='manual', shipment_number='')
+    with pytest.raises(ShipmentError, match='輸入出貨單號'):
+        save_shipment(config, d)
+    d['shipment_number'] = '000012'
+    save_shipment(config, d)
+    with pytest.raises(ShipmentError, match='已存在'):
+        save_shipment(config, d)
+
+
+def test_automatic_number_reservation_rolls_back(config):
+    d = document()
+    d['invoice'].update(number='X1', date='2026-10-01')
+    save_shipment(config, d)
+    with pytest.raises(ShipmentError):
+        save_shipment(config, d)
+    d['invoice']['number'] = ''
+    assert save_shipment(config, d)['shipment_number'] == '2610010002'
+
+
+def test_a5_price_free_print_and_pagination(config):
+    d = document()
+    d['items'][0]['price'] = '9876543'
+    d['items'] *= 12
+    saved = save_shipment(config, d)
+    html = printable_shipment(saved, show_prices=False)
+    assert 'size:A5 landscape' in html
+    assert '佳味實業有限公司' in html
+    assert '單價' not in html and '<span>合計' not in html and '<span>稅額' not in html
+    assert '9876543' not in html
+    assert saved['total_amount'] not in html
+    assert html.count('class="sheet"') == 3
+    assert html.count('69570M') == 12
+    assert '簽收' in html and '採購單號' in html

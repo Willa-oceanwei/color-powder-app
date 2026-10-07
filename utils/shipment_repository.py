@@ -6,7 +6,6 @@ import json
 from copy import deepcopy
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from html import escape
 from uuid import uuid4
 
 from .customer_repository import _mapping, _mappings
@@ -14,7 +13,8 @@ from .database import connect_from_config, utc_now_iso
 
 TAX_MODES = ("外加", "內含", "免稅", "零稅率")
 HEADER_FIELDS = ("shipment_date", "customer_id", "customer_name", "recipient_id", "recipient_name",
-                 "address", "tax_mode", "tax_rate", "account_date", "payment_terms", "notes", "order_number")
+                 "address", "tax_mode", "tax_rate", "account_date", "payment_terms", "notes", "order_number", "number_mode",
+                 "contact", "phone", "fax", "tax_id")
 ITEM_FIELDS = ("code", "name", "quantity", "unit", "price", "order_number", "notes")
 INVOICE_FIELDS = ("date", "number", "method", "type", "amount")
 
@@ -61,7 +61,7 @@ def calculate(items, tax_mode, tax_rate):
 
 def blank_shipment():
     today = date.today().isoformat()
-    return {"shipment_number": "", "shipment_date": today, "customer_id": "", "customer_name": "",
+    return {"shipment_number": "", "number_mode": "date", "shipment_date": today, "customer_id": "", "customer_name": "",
             "recipient_id": "", "recipient_name": "", "address": "", "tax_mode": "外加", "tax_rate": "5",
             "account_date": today, "payment_terms": "", "notes": "", "order_number": "", "items": [],
             "invoice": {"date": "", "number": "", "method": "", "type": "", "amount": ""}}
@@ -71,6 +71,7 @@ def copy_shipment(document):
     result = blank_shipment()
     result.update({key: deepcopy(document.get(key, result.get(key, ""))) for key in HEADER_FIELDS})
     result["items"] = deepcopy(document["items"])
+    result["number_mode"] = "date"
     return result
 
 
@@ -85,6 +86,9 @@ def _valid_date(value, label, optional=False):
 
 def _validated(document):
     header = {key: str(document.get(key) or "").strip() for key in HEADER_FIELDS}
+    header["number_mode"] = document.get("number_mode") or ("manual" if document.get("shipment_number") else "date")
+    if header["number_mode"] not in ("manual", "date"):
+        raise ShipmentError("請選擇單號方式")
     header["shipment_date"] = _valid_date(header["shipment_date"], "出貨日期")
     header["account_date"] = _valid_date(header["account_date"], "帳款日期")
     if not header["customer_id"] or not header["customer_name"]:
@@ -139,12 +143,45 @@ def get_shipment(config, shipment_id):
         return result
 
 
+def _next_number(conn, shipment_date):
+    prefix = date.fromisoformat(shipment_date).strftime("%y%m%d")
+    # Reserve in the same transaction as the document; include manual/void numbers.
+    row = _mapping(conn.execute("""SELECT COALESCE(MAX(CAST(substr(shipment_number,7,4) AS INTEGER)),0) AS maximum
+                   FROM shipment_orders WHERE length(shipment_number)=10 AND shipment_number LIKE ?
+                   AND shipment_number NOT GLOB '*[^0-9]*'""", (prefix + "%",)))
+    reserved = _mapping(conn.execute("""INSERT INTO shipment_number_sequences(date_prefix,last_number) VALUES (?,?)
+                         ON CONFLICT(date_prefix) DO UPDATE SET last_number=MAX(last_number+1,excluded.last_number)
+                         RETURNING last_number""", (prefix, int(row["maximum"]) + 1)))
+    if reserved["last_number"] > 9999:
+        raise ShipmentError("當日流水號已滿 9999 筆，請使用手動單號")
+    return prefix + f"{reserved['last_number']:04d}"
+
+
 def save_shipment(config, document):
     header, items, invoice, amounts = _validated(document)
     shipment_id, now = document.get("id") or str(uuid4()), utc_now_iso()
     number = str(document.get("shipment_number") or "").strip()
     with connect_from_config(config) as conn:
         existing = _mapping(conn.execute("SELECT * FROM shipment_orders WHERE id=?", (shipment_id,)))
+        if document.get("id") and not existing:
+            raise ShipmentError("原出貨單已不存在，不能另存為新單")
+        if existing and existing["status"] != "draft":
+            raise ShipmentError("已作廢出貨單不可修改")
+        if existing and existing["version"] != document.get("version"):
+            raise ShipmentError("單據已被其他人修改或作廢，請取消編輯後重新讀取")
+        if header["number_mode"] == "date":
+            prior_mode = json.loads(existing["payload_json"]).get("number_mode", "manual") if existing else None
+            if existing and prior_mode == "date" and header["shipment_date"] == existing["shipment_date"]:
+                number = existing["shipment_number"]
+            else:
+                number = _next_number(conn, header["shipment_date"])
+        elif not number:
+            raise ShipmentError("請輸入出貨單號")
+        if len(number) > 40 or any(char in number for char in ('/', '\\', '\n', '\r')):
+            raise ShipmentError("出貨單號最多 40 字，不能含斜線或換行")
+        duplicate = _mapping(conn.execute("SELECT id FROM shipment_orders WHERE shipment_number=? AND id!=?", (number, shipment_id)))
+        if duplicate:
+            raise ShipmentError("出貨單號已存在，請使用其他單號")
         if not existing or existing["customer_id"] != header["customer_id"]:
             customer = _mapping(conn.execute("SELECT name,lifecycle_status FROM customers WHERE customer_id=?", (header["customer_id"],)))
             if not customer or customer["lifecycle_status"] != "active":
@@ -154,19 +191,16 @@ def save_shipment(config, document):
             if existing["status"] != "draft":
                 raise ShipmentError("已作廢出貨單不可修改")
             changed = _mapping(conn.execute(
-                """UPDATE shipment_orders SET shipment_date=?,customer_id=?,customer_name=?,payload_json=?,
+                """UPDATE shipment_orders SET shipment_number=?,shipment_date=?,customer_id=?,customer_name=?,payload_json=?,
                    net_amount=?,tax_amount=?,total_amount=?,version=version+1,updated_at=?
                    WHERE id=? AND version=? AND status='draft' RETURNING id""",
-                (header["shipment_date"], header["customer_id"], header["customer_name"], json.dumps(header, ensure_ascii=False),
+                (number, header["shipment_date"], header["customer_id"], header["customer_name"], json.dumps(header, ensure_ascii=False),
                  amounts["net_amount"], amounts["tax_amount"], amounts["total_amount"], now, shipment_id, document.get("version"))))
             if not changed:
                 raise ShipmentError("單據已被其他人修改，請取消編輯後重新讀取")
-            number = existing["shipment_number"]
         else:
             if document.get("id"):
                 raise ShipmentError("原出貨單已不存在，不能另存為新單")
-            # Use a generated identifier rather than a read-then-increment counter.
-            number = number or header["shipment_date"].replace("-", "") + "-" + uuid4().hex[:8].upper()
             conn.execute("""INSERT INTO shipment_orders(id,shipment_number,shipment_date,customer_id,customer_name,
                          payload_json,net_amount,tax_amount,total_amount,created_at,updated_at)
                          VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
@@ -196,20 +230,6 @@ def void_shipment(config, shipment_id, version, reason):
             raise ShipmentError("單據已修改或作廢，請重新讀取")
 
 
-def printable_shipment(document):
-    def text(value):
-        return escape(str(value or ""))
-    rows = ''.join('<tr>' + ''.join(f'<td>{text(item.get(key))}</td>' for key in
-                   ('code', 'name', 'quantity', 'unit', 'price', 'amount', 'order_number', 'notes')) + '</tr>'
-                   for item in document['items'])
-    invoice = document['invoice']
-    return ('<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><title>出貨單</title>'
-            '<style>body{font:14px sans-serif;padding:24px}table{width:100%;border-collapse:collapse}'
-            'th,td{border:1px solid #bbb;padding:8px;text-align:left}p{white-space:pre-wrap}</style>'
-            f'<h1>出貨單 {text(document["shipment_number"])}</h1><p>日期：{text(document["shipment_date"])}　狀態：{text(document["status"])}</p>'
-            f'<p>客戶：{text(document["customer_id"])} {text(document["customer_name"])}</p>'
-            f'<p>指送：{text(document.get("recipient_name"))}　地址：{text(document.get("address"))}</p>'
-            '<table><thead><tr><th>貨品編號</th><th>品名</th><th>數量</th><th>單位</th><th>單價</th><th>金額</th><th>訂單編號</th><th>附註說明</th></tr></thead>'
-            f'<tbody>{rows}</tbody></table><p>未稅：{text(document["net_amount"])}　稅額：{text(document["tax_amount"])}　總計：{text(document["total_amount"])} TWD</p>'
-            f'<p>發票日期：{text(invoice["date"])}　編號：{text(invoice["number"])}　金額：{text(invoice["amount"])}</p>'
-            f'<p>備註：{text(document.get("notes"))}</p></html>')
+def printable_shipment(document, *, show_prices=True):
+    from .shipment_print import render_shipment_print
+    return render_shipment_print(document, show_prices=show_prices)
