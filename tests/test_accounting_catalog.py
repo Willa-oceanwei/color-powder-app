@@ -10,7 +10,7 @@ from streamlit.testing.v1 import AppTest
 from utils.accounting_export import statement_excel, statement_pdf, ranking_excel, ranking_pdf
 from utils.customer_repository import CustomerInput, create_customer
 from utils.database import DatabaseConfig, initialize_database
-from utils.product_repository import blank_product, get_product, list_products, product_references, product_from_recipe, save_product
+from utils.product_repository import blank_product, get_product, list_products, product_references, product_from_recipe, save_product, set_product_active
 from utils.recipe_repository import create_recipe
 from utils.receivable_report import build_statements, statement_pages
 from utils.shipment_catalog import complete_items, shipment_choices
@@ -64,21 +64,59 @@ def test_optional_bidirectional_sync_and_atomic_rollback(config):
     assert not list_products(config)
     save_shipment(config, shipment("160"), sync_products=True)
     product = get_product(config, "R1")
-    assert product["standard_price"] == "160" and product["recipe_id"] == "R1"
+    assert product["standard_price"] == "0" and product["recipe_id"] == "R1"
+    product["standard_price"] = "200"
+    product = save_product(config, product)
+    assert "R1" in shipment_choices(config, "C02")
     save_shipment(config, shipment("180"), sync_products=True)
-    assert get_product(config, "R1")["standard_price"] == "180"
+    assert get_product(config, "R1")["standard_price"] == "200"
+    save_shipment(config, shipment("260", customer_id="C02", customer_name="其他客戶"), sync_products=True)
+    from utils.shipment_catalog import item_price
+    assert item_price(config, shipment(shipment_date="2026-10-02"), "R1", "包", product) == "180"
+    assert item_price(config, shipment(customer_id="C02", shipment_date="2026-10-02"), "R1", "包", product) == "260"
+    set_product_active(config, "R1", product["version"], active=False, reason="test")
     before = len(list_shipments(config))
     bad = shipment()
     bad["items"] += [dict(code="NEW", name="新貨品", unit="KG", quantity="1", price="1"),
                       dict(code="R1", name="藍", unit="桶", quantity="1", price="2")]
-    with pytest.raises(ShipmentError, match="不同單位或單價"):
+    with pytest.raises(ShipmentError, match="已刪除貨品"):
         save_shipment(config, bad, sync_products=True)
-    assert len(list_shipments(config)) == before and len(list_products(config)) == 1
+    assert len(list_shipments(config)) == before and len(list_products(config, include_inactive=True)) == 1
     bad = shipment()
     bad["items"][0]["unit"] = "桶"
-    with pytest.raises(ShipmentError, match="單位或課稅方式不同"):
+    with pytest.raises(ShipmentError, match="已刪除貨品"):
         save_shipment(config, bad, sync_products=True)
     assert len(list_shipments(config)) == before
+
+
+@pytest.mark.parametrize("value,expected", [("260.000", "260"), ("260.500", "260.5"), ("0.000", "0"), ("1000000.125", "1000000.125")])
+def test_display_price(value, expected):
+    from utils.shipment_print import display_price
+    assert display_price(value) == expected
+
+
+def test_tax_choices_sync_with_invoice_mode(config):
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0,{root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    app.button(key="shipment_new").click().run()
+    epoch = app.session_state["shipment_epoch"]
+    key = f"shipment_{epoch}_"
+    app.selectbox(key=key + "tax_rate").set_value(0).run()
+    assert not app.exception
+    assert app.session_state["shipment_draft"]["tax_mode"] == "免稅"
+    assert app.session_state["shipment_draft"]["tax_rate"] == "0"
+    app.selectbox(key=key + "tax_rate").set_value(5).run()
+    assert not app.exception and app.session_state["shipment_draft"]["tax_mode"] == "外加"
+    app.selectbox(key=key + "tax_mode").set_value("內含").run()
+    assert not app.exception and app.session_state["shipment_draft"]["tax_rate"] == "5"
+    app.selectbox(key=key + "tax_mode").set_value("免稅").run()
+    assert not app.exception and app.session_state["shipment_draft"]["tax_rate"] == "0"
 
 
 def test_report_exports_keep_totals_and_text_safe(config):

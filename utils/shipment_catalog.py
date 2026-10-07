@@ -54,29 +54,21 @@ def complete_items(config, document, items, previous, *, choices=None):
 
 
 def sync_shipment_products(config, conn, items, tax_mode):
-    candidates = {}
-    for item in items:
-        code = item["code"].upper()
-        value = (item["unit"].upper(), item["price"])
-        if code in candidates and candidates[code] != value:
-            raise ShipmentError("同貨品在本單有不同單位或單價，請改由貨品資料設定標準售價")
-        candidates[code] = value
-    for code, (unit, price) in candidates.items():
+    # Customer prices live in shipment history; never overwrite the shared base price.
+    candidates = {item["code"].upper(): item for item in reversed(items)}
+    for code, item in candidates.items():
         entity = _mapping(conn.execute("SELECT * FROM products WHERE product_id=?", (code,)))
-        item = next(i for i in items if i["code"].upper() == code)
         if entity:
             data = _document(entity)
             if data["lifecycle_status"] != "active":
                 raise ShipmentError("已刪除貨品不可更新定價，請先恢復貨品")
-            if data["sales_unit"].upper() != unit or data["tax_mode"] != tax_mode:
-                raise ShipmentError("本單與貨品的單位或課稅方式不同，不可直接更新標準售價")
+            continue
         else:
             recipe = _mapping(conn.execute("SELECT recipe_id,color,measurement_unit FROM recipes "
                                            "WHERE UPPER(recipe_id)=? AND lifecycle_status='active'", (code,)))
             data = product_from_recipe(recipe) if recipe else blank_product()
             data.update(product_id=code, name=item["name"], sales_unit=item["unit"],
                         base_unit=item["unit"], tax_mode=tax_mode)
-        data["standard_price"] = price
         try:
             save_product(config, data, _connection=conn)
         except ProductError as exc:

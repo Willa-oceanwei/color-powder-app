@@ -6,7 +6,7 @@ from html import escape
 
 from .customer_repository import _mappings
 from .database import connect_from_config
-from .shipment_print import COMPANY, _wrap
+from .shipment_print import COMPANY, _wrap, display_price
 from .shipment_repository import ShipmentError, _valid_date
 
 
@@ -83,7 +83,7 @@ def statement_pages(statements, capacity=15):
             rows.append(header)
             context.append(header)
             for item in document["items"]:
-                cells = [_wrap(item.get(key, ""), width) for key, width in FIELDS]
+                cells = [_wrap(display_price(item[key]) if key == "price" else item.get(key, ""), width) for key, width in FIELDS]
                 for line in range(max(map(len, cells))):
                     rows.append([cell[line] if line < len(cell) else "" for cell in cells])
                     context.append(header)

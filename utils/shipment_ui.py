@@ -9,6 +9,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from .shipment_catalog import shipment_choices, complete_items
+from .shipment_print import display_price
 from .customer_repository import list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
@@ -87,6 +88,17 @@ def _fill_product_unit(prefix, products, picker_key):
     selected = st.session_state.get(picker_key, "")
     if selected in products:
         st.session_state[prefix + "sale_unit"] = products[selected]["sales_unit"]
+
+
+def _tax_changed(prefix, source):
+    state = st.session_state
+    if source == "rate":
+        if state[prefix + "tax_rate"] == 0:
+            state[prefix + "tax_mode"] = "免稅"
+        elif state.get(prefix + "tax_mode") in ("免稅", "零稅率"):
+            state[prefix + "tax_mode"] = "外加"
+    else:
+        state[prefix + "tax_rate"] = 0 if state[prefix + "tax_mode"] in ("免稅", "零稅率") else 5
 
 
 def render_shipment_management(config):
@@ -179,7 +191,8 @@ def render_shipment_management(config):
     print_controls = st.columns([1, 1, 3])
     preview = print_controls[0].toggle("預覽／列印", value=st.session_state.get("shipment_preview_preference", False), key="shipment_print_preview", disabled=editing, on_change=_remember_print_settings)
     hide_prices = print_controls[1].toggle("隱藏單價與金額", value=st.session_state.get("shipment_hide_preference", False), key="shipment_hide_prices", disabled=editing, on_change=_remember_print_settings)
-    sync_products = print_controls[2].toggle("更新貨品標準售價（共用）", key=prefix + "sync_products", disabled=not editing)
+    sync_products = print_controls[2].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
+                                            help="成交價依客戶、貨品與單位保存於出貨紀錄，不覆蓋共用標準售價")
     if preview and not editing:
         print_html = printable_shipment(document, show_prices=not hide_prices)
         print_controls[2].download_button("下載 A5 列印版", data=print_html,
@@ -263,11 +276,11 @@ def render_shipment_management(config):
             price = "0"
             if previous:
                 price = str(previous["price"])
-                st.caption(f"前次單價：{price} / {unit} · {previous['shipment_date']} · {previous['shipment_number']}")
+                st.caption(f"前次單價：{display_price(price)} / {unit} · {previous['shipment_date']} · {previous['shipment_number']}")
             elif code in choices:
                 if chosen["sales_unit"].upper() == unit.upper() and chosen["tax_mode"] == document["tax_mode"]:
                     price = chosen["standard_price"]
-                    st.caption(f"標準售價：{price} / {unit}")
+                    st.caption(f"標準售價：{display_price(price)} / {unit}")
                 else:
                     st.caption("無相符單位或課稅方式的單價，加入後請自行填價")
             if add_col.button("加入", key="shipment_add_recipe", disabled=not code or not unit, use_container_width=True):
@@ -282,7 +295,7 @@ def render_shipment_management(config):
                                use_container_width=True, hide_index=True, column_config={
                                    "訂單編號": None,
                                    "數量": st.column_config.NumberColumn("數量", min_value=0.001, step=0.001, required=True),
-                                   "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, required=True)})
+                                   "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, format="%.15g", required=True)})
         raw_items = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
         document["items"] = complete_items(config, document, raw_items, document["items"], choices=choices)
         if document["items"] != raw_items:
@@ -296,7 +309,8 @@ def render_shipment_management(config):
             st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
             st.rerun()
     else:
-        st.dataframe(frame, height=185, hide_index=True, use_container_width=True, column_config={"訂單編號": None})
+        st.dataframe(frame, height=185, hide_index=True, use_container_width=True,
+                     column_config={"訂單編號": None, "單價": st.column_config.NumberColumn(format="%.15g")})
     details, summary, clearance = st.columns([3.7, 1.3, 1])
     with details:
         transaction, invoice_tab, account, related = st.tabs(["交易明細", "發票資料", "帳款資料", "相關資料"])
@@ -308,7 +322,8 @@ def render_shipment_management(config):
             invoice = document["invoice"]
             row = st.columns(3)
             with row[0]:
-                mode = st.selectbox("課稅類別", TAX_MODES, index=TAX_MODES.index(document["tax_mode"]), key=prefix + "tax_mode", disabled=not editing)
+                mode = st.selectbox("課稅類別", TAX_MODES, index=TAX_MODES.index(document["tax_mode"]), key=prefix + "tax_mode", disabled=not editing,
+                                    on_change=_tax_changed, args=(prefix, "mode"))
                 if editing:
                     document["tax_mode"] = mode
                 text("開立方式", "method", target=invoice)
@@ -333,10 +348,13 @@ def render_shipment_management(config):
                 st.caption(f"建立：{document['created_at']}　更新：{document['updated_at']}")
                 st.caption("已作廢" if document["status"] == "void" else "草稿")
     with summary:
-        rate = st.number_input("稅率 (%)", value=float(document["tax_rate"]), min_value=0.0, max_value=100.0,
-                               step=0.1, key=prefix + "tax_rate", disabled=not editing)
         if editing:
+            rate = st.selectbox("稅率", (0, 5), index=0 if document["tax_mode"] in ("免稅", "零稅率") or float(document["tax_rate"]) == 0 else 1,
+                                format_func=lambda value: "0%（免稅）" if value == 0 else "5%",
+                                key=prefix + "tax_rate", on_change=_tax_changed, args=(prefix, "rate"))
             document["tax_rate"] = str(rate)
+        else:
+            st.text_input("稅率", value=f"{float(document['tax_rate']):g}%", disabled=True)
         try:
             totals = calculate(document["items"], document["tax_mode"], document["tax_rate"]) if editing else document
             st.markdown(''.join(f'<div class="shipment-total"><span>{label}</span><span>{int(totals[key]):,}</span></div>'
