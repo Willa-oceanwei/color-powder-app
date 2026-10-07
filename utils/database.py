@@ -22,9 +22,10 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 25
+SCHEMA_VERSION = 26
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
+    "shipment_receipts",
     "products",
     "shipment_number_sequences",
     "shipment_orders",
@@ -411,6 +412,20 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             invoice_number TEXT,
             payload_json TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS shipment_receipts (
+            id TEXT PRIMARY KEY,
+            shipment_id TEXT NOT NULL REFERENCES shipment_orders(id),
+            receipt_date TEXT NOT NULL,
+            amount TEXT NOT NULL,
+            method TEXT NOT NULL,
+            reference TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','void')),
+            void_reason TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_receipts_shipment ON shipment_receipts(shipment_id,status,receipt_date);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_shipment_invoice_number
             ON shipment_invoices(invoice_number)
             WHERE invoice_number IS NOT NULL AND invoice_number != '';
