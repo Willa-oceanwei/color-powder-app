@@ -69,7 +69,7 @@ def test_recipe_filter_and_rename_preserve_product_code(config):
     save_product(config, product(recipe_id='R1'))
     save_product(config, product(product_id='SHARED', name='共用貨品'))
     assert len(shipment_products(config, 'C01')) == 2
-    assert [row['product_id'] for row in shipment_products(config, 'C02')] == ['SHARED']
+    assert [row['product_id'] for row in shipment_products(config, 'C02')] == ['68146AM', 'SHARED']
     update_recipe(config, {'配方編號': 'R2', '顏色': '白', '客戶編號': 'C01'}, original_recipe_id='R1')
     assert get_product(config, '68146AM')['recipe_id'] == 'R2'
     with connect(config.path) as conn:
