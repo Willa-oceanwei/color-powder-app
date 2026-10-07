@@ -8,12 +8,12 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from .product_repository import shipment_products, list_products
+from .shipment_catalog import shipment_choices, complete_items
 from .customer_repository import list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
     list_shipments, printable_shipment, save_shipment, void_shipment,
-    list_shipment_recipes, recent_shipment_price,
+    recent_shipment_price,
 )
 
 COLUMNS = {"code": "貨品編號", "name": "品名", "quantity": "數量", "unit": "單位",
@@ -175,9 +175,11 @@ def render_shipment_management(config):
         return
     if document.get("status") == "void":
         st.warning("已作廢：" + document.get("void_reason", ""))
+    prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
     print_controls = st.columns([1, 1, 3])
-    preview = print_controls[0].toggle("列印預覽", value=st.session_state.get("shipment_preview_preference", False), key="shipment_print_preview", disabled=editing, on_change=_remember_print_settings)
+    preview = print_controls[0].toggle("預覽／列印", value=st.session_state.get("shipment_preview_preference", False), key="shipment_print_preview", disabled=editing, on_change=_remember_print_settings)
     hide_prices = print_controls[1].toggle("隱藏單價與金額", value=st.session_state.get("shipment_hide_preference", False), key="shipment_hide_prices", disabled=editing, on_change=_remember_print_settings)
+    sync_products = print_controls[2].toggle("更新貨品標準售價（共用）", key=prefix + "sync_products", disabled=not editing)
     if preview and not editing:
         print_html = printable_shipment(document, show_prices=not hide_prices)
         print_controls[2].download_button("下載 A5 列印版", data=print_html,
@@ -246,18 +248,12 @@ def render_shipment_management(config):
     requested_item = None
     if editing:
         with st.expander("加入貨品／配方", expanded=False):
-            products = {row["product_id"]: row for row in shipment_products(config, document["customer_id"])}
-            master_codes = {row["product_id"] for row in list_products(config, include_inactive=True)}
-            choices = {row["recipe_id"]: dict(name=row["color"] or row["recipe_id"], sales_unit="",
-                                               standard_price=None, specification="")
-                       for row in list_shipment_recipes(config, document["customer_id"])
-                       if row["recipe_id"] not in master_codes}
-            choices.update(products)
+            choices = shipment_choices(config, document["customer_id"])
             picker, unit_col, quantity_col, add_col = st.columns([3, 1, 1, 1])
             picker_key = prefix + "recipe_picker_" + document["customer_id"]
             code = picker.selectbox("貨品／配方", [""] + list(choices),
                                     format_func=lambda key: f"{key} · {choices[key]['name']}" if key else "請選擇貨品或配方",
-                                    key=picker_key, on_change=_fill_product_unit, args=(prefix, products, picker_key))
+                                    key=picker_key, on_change=_fill_product_unit, args=(prefix, choices, picker_key))
             unit = unit_col.text_input("銷售單位", value="KG", key=prefix + "sale_unit").strip()
             quantity = quantity_col.number_input("加入數量", min_value=0.001, value=1.0, step=1.0, key=prefix + "add_quantity")
             previous = recent_shipment_price(config, document["customer_id"], code, unit,
@@ -268,7 +264,7 @@ def render_shipment_management(config):
             if previous:
                 price = str(previous["price"])
                 st.caption(f"前次單價：{price} / {unit} · {previous['shipment_date']} · {previous['shipment_number']}")
-            elif code in products:
+            elif code in choices:
                 if chosen["sales_unit"].upper() == unit.upper() and chosen["tax_mode"] == document["tax_mode"]:
                     price = chosen["standard_price"]
                     st.caption(f"標準售價：{price} / {unit}")
@@ -287,7 +283,12 @@ def render_shipment_management(config):
                                    "訂單編號": None,
                                    "數量": st.column_config.NumberColumn("數量", min_value=0.001, step=0.001, required=True),
                                    "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, required=True)})
-        document["items"] = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
+        raw_items = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
+        document["items"] = complete_items(config, document, raw_items, document["items"], choices=choices)
+        if document["items"] != raw_items:
+            st.session_state.shipment_editor_base = deepcopy(document["items"])
+            st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
+            st.rerun()
         if requested_item:
             # Preserve current grid edits before rebasing on the newly added item.
             document["items"].append(requested_item)
@@ -348,7 +349,7 @@ def render_shipment_management(config):
         st.markdown(f'<div class="shipment-lines">{lines}</div>', unsafe_allow_html=True)
     if save_clicked:
         try:
-            saved = save_shipment(config, document)
+            saved = save_shipment(config, document, sync_products=sync_products)
         except ShipmentError as error:
             st.error(str(error))
         except Exception:

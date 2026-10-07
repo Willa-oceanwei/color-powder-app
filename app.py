@@ -1057,14 +1057,18 @@ def apply_tab_persistence_fix():
 
 def render_sidebar():
     import streamlit as st
+    from utils.accounting_navigation import preserve_accounting_widgets, stash_shipment_grid
+    preserve_accounting_widgets(st.session_state)
 
     MENU_ITEMS = [
         {"group":"生產","key":"生產單管理","label":"生產單管理"},
         {"group":"生產","key":"配方管理","label":"配方管理"},
         {"group":"生產","key":"代工管理","label":"代工管理"},
         {"group":"會計","key":"出貨單","label":"出貨單"},
-        {"group":"會計","key":"貨品","label":"貨品"},
-        {"group":"明細","key":"應收帳款明細表","label":"應收帳款明細表"},
+        {"group":"會計","section":"應收帳款","key":"應收帳款明細表","label":"應收帳款"},
+        {"group":"會計","section":"各式明細","key":"客戶交易明細","label":"客戶交易明細"},
+        {"group":"會計","section":"各式明細","key":"客戶交易排行","label":"客戶交易排行"},
+        {"group":"會計","section":"設定選項","key":"貨品","label":"貨品資料"},
         {"group":"倉儲","key":"庫存區","label":"庫存區"},
         {"group":"倉儲","key":"洗車廠庫存","label":"洗車廠庫存"},
         {"group":"倉儲","key":"採購管理","label":"採購管理"},
@@ -1096,6 +1100,10 @@ def render_sidebar():
             section[data-testid="stSidebar"] div[data-testid="stExpander"] details summary {
                 padding: 0.35rem 0.15rem !important;
             }
+            section[data-testid="stSidebar"] .stButton button p {
+                font-size: 12px !important; white-space: normal !important;
+                line-height: 1.3 !important; overflow-wrap: anywhere; letter-spacing: 0;
+            }
             </style>
         """, unsafe_allow_html=True)
 
@@ -1108,9 +1116,9 @@ def render_sidebar():
                 if st.button(
                     item["label"], key=item["key"], use_container_width=True,
                     type="primary" if st.session_state.menu == item["key"] else "secondary",
-                    disabled=(bool(st.session_state.get("shipment_draft")) and item["key"] != "出貨單")
-                             or (bool(st.session_state.get("product_draft")) and item["key"] != "貨品"),
                 ):
+                    if st.session_state.menu == "出貨單" and item["key"] != "出貨單":
+                        stash_shipment_grid(st.session_state)
                     st.session_state.menu = item["key"]
                     st.rerun()
 
@@ -1122,7 +1130,16 @@ def render_sidebar():
             else:
                 is_current_group = any(item["key"] == st.session_state.menu for item in items)
                 with st.expander(group, expanded=is_current_group):
-                    render_items(items)
+                    if group == "會計":
+                        render_items([item for item in items if "section" not in item])
+                        for section in ("應收帳款", "各式明細", "設定選項"):
+                            if section == "應收帳款":
+                                render_items([item for item in items if item.get("section") == section])
+                            else:
+                                st.markdown(f"<div class='erp-group'>{section}</div>", unsafe_allow_html=True)
+                                render_items([item for item in items if item.get("section") == section])
+                    else:
+                        render_items(items)
 
         # Keep session actions visually separate from navigation. Placing logout
         # here avoids the previous floating button above the application title.
@@ -1482,7 +1499,9 @@ MENU_ITEMS = [
     {"key": "代工管理", "label": "代工管理", "group": "生產"},
     {"key": "出貨單", "label": "出貨單", "group": "會計"},
     {"key": "貨品", "label": "貨品", "group": "會計"},
-    {"key": "應收帳款明細表", "label": "應收帳款明細表", "group": "明細"},
+    {"key": "應收帳款明細表", "label": "應收帳款", "group": "會計"},
+    {"key": "客戶交易明細", "label": "客戶交易明細", "group": "會計"},
+    {"key": "客戶交易排行", "label": "客戶交易排行", "group": "會計"},
     {"key": "庫存區", "label": "庫存區", "group": "倉儲"},
     {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
     {"key": "採購管理", "label": "採購管理", "group": "倉儲"},
@@ -1505,7 +1524,9 @@ def render_erp_nav():
         {"key": "代工管理",   "label": "代工管理",   "group": "生產"},
         {"key": "出貨單", "label": "出貨單", "group": "會計"},
         {"key": "貨品", "label": "貨品", "group": "會計"},
-        {"key": "應收帳款明細表", "label": "應收帳款明細表", "group": "明細"},
+        {"key": "應收帳款明細表", "label": "應收帳款", "group": "會計"},
+        {"key": "客戶交易明細", "label": "客戶交易明細", "group": "會計"},
+        {"key": "客戶交易排行", "label": "客戶交易排行", "group": "會計"},
         {"key": "庫存區",     "label": "庫存區",     "group": "倉儲"},
         {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
         {"key": "採購管理",   "label": "採購管理",   "group": "倉儲"},
@@ -3157,8 +3178,11 @@ if menu == "出貨單":
     render_shipment_management(DATABASE_CONFIG)
 elif menu == "貨品":
     render_product_management(DATABASE_CONFIG)
-elif menu == "應收帳款明細表":
+elif menu in ("應收帳款明細表", "客戶交易明細"):
     render_receivable_statement(DATABASE_CONFIG)
+elif menu == "客戶交易排行":
+    from utils.receivable_ui import render_customer_ranking
+    render_customer_ranking(DATABASE_CONFIG)
 elif menu == "薪資管理":
     render_salary_management(DATABASE_CONFIG)
 elif menu == "人力查詢":

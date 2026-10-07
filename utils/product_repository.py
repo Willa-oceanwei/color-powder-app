@@ -1,6 +1,7 @@
 """Product specifications and initial prices, separate from recipe composition."""
 
 from copy import deepcopy
+from contextlib import nullcontext
 import json
 from decimal import Decimal
 
@@ -56,12 +57,22 @@ def list_products(config, *, query="", include_inactive=False):
 
 def product_references(config):
     with connect_from_config(config) as conn:
-        recipes = _mappings(conn.execute("SELECT recipe_id,color,customer_id,lifecycle_status FROM recipes ORDER BY recipe_id"))
+        recipes = _mappings(conn.execute("SELECT recipe_id,color,customer_id,measurement_unit,lifecycle_status FROM recipes ORDER BY recipe_id"))
         suppliers = _mappings(conn.execute("SELECT supplier_id,name,lifecycle_status FROM suppliers ORDER BY supplier_id"))
     return recipes, suppliers
 
 
-def save_product(config, document):
+def product_from_recipe(recipe):
+    data = blank_product()
+    unit = str(recipe.get("measurement_unit") or "").strip()
+    data.update(product_id=recipe["recipe_id"], recipe_id=recipe["recipe_id"],
+                name=recipe.get("color") or recipe["recipe_id"], specification=unit)
+    if unit.upper() in ("KG", "G", "公斤", "公克", "包", "桶", "袋", "箱", "支", "瓶", "個"):
+        data.update(base_unit=unit, sales_unit=unit)
+    return data
+
+
+def save_product(config, document, *, _connection=None):
     data = blank_product()
     data.update(deepcopy(document))
     for key in ("product_id", "name", "recipe_id", "supplier_id", "sales_unit") + TEXT_FIELDS:
@@ -83,7 +94,7 @@ def save_product(config, document):
             or not data["outer_unit"] and Decimal(data["outer_quantity"]) != 0):
         raise ProductError("包裝數量有值時，請填寫包裝單位")
     now = utc_now_iso()
-    with connect_from_config(config) as conn:
+    with (nullcontext(_connection) if _connection is not None else connect_from_config(config)) as conn:
         original_id = str(document.get("original_id") or data["product_id"])
         existing = _mapping(conn.execute("SELECT * FROM products WHERE product_id=?", (original_id,)))
         editing = bool(document.get("version"))

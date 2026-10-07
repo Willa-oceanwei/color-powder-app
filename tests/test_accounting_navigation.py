@@ -15,7 +15,9 @@ def test_accounting_between_production_and_warehouse_in_all_menus():
     assert len(menus) == 3
     for menu in menus:
         groups = list(dict.fromkeys(item["group"] for item in menu))
-        assert groups[:4] == ["生產", "會計", "明細", "倉儲"]
-        assert sum(item["key"] == "應收帳款明細表" and item["group"] == "明細" for item in menu) == 1
+        assert groups[:3] == ["生產", "會計", "倉儲"]
+        assert sum(item["key"] == "應收帳款明細表" and item["group"] == "會計" for item in menu) == 1
+        assert sum(item["key"] == "客戶交易明細" and item["group"] == "會計" for item in menu) == 1
+        assert sum(item["key"] == "客戶交易排行" and item["group"] == "會計" for item in menu) == 1
         assert sum(item["key"] == "出貨單" for item in menu) == 1
         assert sum(item["key"] == "貨品" and item["group"] == "會計" for item in menu) == 1

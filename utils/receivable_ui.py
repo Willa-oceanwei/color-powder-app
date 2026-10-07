@@ -12,6 +12,7 @@ from .receivable_report import build_statements, render_statement_print, stateme
 from .shipment_repository import ShipmentError, get_shipment, list_shipments
 from .receipt_repository import list_receipts, save_receipt, void_receipt
 from .shipment_ui import COMPACT_STYLE
+from .accounting_export import statement_excel, statement_pdf, ranking_excel, ranking_pdf, ranking_rows
 
 
 def render_receivable_statement(config):
@@ -62,7 +63,40 @@ def render_report(config):
     controls[4].write(f"{index + 1} / {len(pages)} · {pages[index]['statement']['customer_id']}")
     html = render_statement_print(pages, selected=index)
     controls[5].download_button("下載列印版", html, file_name="應收帳款明細表.html", mime="text/html", use_container_width=True)
+    statements = list({p["statement"]["customer_id"]: p["statement"] for p in pages}.values())
+    exports = st.columns([1, 1, 4])
+    exports[0].download_button("另存 PDF", statement_pdf(pages), file_name="應收帳款明細表.pdf", mime="application/pdf")
+    exports[1].download_button("匯出 Excel", statement_excel(statements), file_name="應收帳款明細表.xlsx",
+                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     components.html(render_statement_print(pages, selected=index, embedded=True), height=530, scrolling=True)
+
+
+def render_customer_ranking(config):
+    st.subheader("客戶交易排行")
+    with st.form("ranking_filters"):
+        cols = st.columns(4)
+        lower = cols[0].text_input("起始客戶編號")
+        upper = cols[1].text_input("結束客戶編號")
+        start = cols[2].date_input("起始帳款日期", value=date.today().replace(day=1))
+        end = cols[3].date_input("結束帳款日期", value=date.today())
+        if st.form_submit_button("查詢"):
+            try:
+                st.session_state.ranking_statements = build_statements(config, start, end, lower.strip(), upper.strip())
+            except ShipmentError as exc:
+                st.error(str(exc))
+                st.session_state.pop("ranking_statements", None)
+    statements = st.session_state.get("ranking_statements")
+    if statements is None:
+        return
+    if not statements:
+        st.info("此區間沒有交易")
+        return
+    rows = ranking_rows(statements)
+    st.dataframe([dict(zip(rows[0], row)) for row in rows[1:]], hide_index=True, use_container_width=True)
+    left, right, _ = st.columns([1, 1, 4])
+    left.download_button("另存 PDF", ranking_pdf(statements), file_name="客戶交易排行.pdf", mime="application/pdf")
+    right.download_button("匯出 Excel", ranking_excel(statements), file_name="客戶交易排行.xlsx",
+                          mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 def render_receipt_entry(config):
