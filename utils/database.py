@@ -22,9 +22,12 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 22
+SCHEMA_VERSION = 23
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
+    "shipment_orders",
+    "shipment_order_items",
+    "shipment_invoices",
     "color_powders",
     "suppliers",
     "supplier_aliases",
@@ -359,6 +362,39 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             version INTEGER PRIMARY KEY,
             applied_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS shipment_orders (
+            id TEXT PRIMARY KEY,
+            shipment_number TEXT NOT NULL UNIQUE,
+            shipment_date TEXT NOT NULL,
+            customer_id TEXT NOT NULL,
+            customer_name TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            net_amount TEXT NOT NULL,
+            tax_amount TEXT NOT NULL,
+            total_amount TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','void')),
+            void_reason TEXT,
+            version INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS shipment_order_items (
+            shipment_id TEXT NOT NULL REFERENCES shipment_orders(id),
+            line_number INTEGER NOT NULL,
+            payload_json TEXT NOT NULL,
+            PRIMARY KEY(shipment_id,line_number)
+        );
+        CREATE TABLE IF NOT EXISTS shipment_invoices (
+            shipment_id TEXT PRIMARY KEY REFERENCES shipment_orders(id),
+            invoice_number TEXT,
+            payload_json TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_shipment_invoice_number
+            ON shipment_invoices(invoice_number)
+            WHERE invoice_number IS NOT NULL AND invoice_number != '';
+        CREATE INDEX IF NOT EXISTS idx_shipments_date ON shipment_orders(shipment_date,shipment_number);
+        CREATE INDEX IF NOT EXISTS idx_shipments_customer ON shipment_orders(customer_id);
 
         CREATE TABLE IF NOT EXISTS color_powders (
             colorpowder_id TEXT PRIMARY KEY,

@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils import database as database_utils
 from utils.number_format import format_optional_decimals
+from utils.shipment_ui import render_shipment_management
 from utils.inventory_audit import (
     duplicate_initial_inventory_sync_ids,
     latest_initial_inventory_record,
@@ -1066,6 +1067,7 @@ def render_sidebar():
         {"group":"數據","key":"試色記錄分析","label":"試色記錄分析"},
         {"group":"人力","key":"薪資管理","label":"薪資管理"},
         {"group":"人力","key":"人力查詢","label":"人力查詢"},
+        {"group":"會計","key":"出貨單","label":"出貨單"},
         {"group":"設定","key":"客戶名單","label":"客戶名單"},
         {"group":"設定","key":"同步檢查","label":"同步檢查"},
         {"group":"設定","key":"外部連結","label":"外部連結"},
@@ -1101,7 +1103,8 @@ def render_sidebar():
             for item in items:
                 if st.button(
                     item["label"], key=item["key"], use_container_width=True,
-                    type="primary" if st.session_state.menu == item["key"] else "secondary"
+                    type="primary" if st.session_state.menu == item["key"] else "secondary",
+                    disabled=bool(st.session_state.get("shipment_draft")) and item["key"] != "出貨單",
                 ):
                     st.session_state.menu = item["key"]
                     st.rerun()
@@ -1479,6 +1482,7 @@ MENU_ITEMS = [
     {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
     {"key": "薪資管理", "label": "薪資管理", "group": "人力"},
     {"key": "人力查詢", "label": "人力查詢", "group": "人力"},
+    {"key": "出貨單", "label": "出貨單", "group": "會計"},
     {"key": "客戶名單", "label": "客戶名單", "group": "設定"},
     {"key": "同步檢查", "label": "同步檢查", "group": "設定"},
     {"key": "外部連結", "label": "外部連結", "group": "設定"},
@@ -1499,6 +1503,7 @@ def render_erp_nav():
         {"key": "試色記錄分析", "label": "試色記錄分析", "group": "數據"},
         {"key": "薪資管理", "label": "薪資管理", "group": "人力"},
         {"key": "人力查詢", "label": "人力查詢", "group": "人力"},
+        {"key": "出貨單", "label": "出貨單", "group": "會計"},
         {"key": "客戶名單",   "label": "客戶名單",   "group": "設定"},
         {"key": "同步檢查",   "label": "同步檢查",   "group": "設定"},
         {"key": "外部連結",   "label": "外部連結",   "group": "設定"},
@@ -3139,7 +3144,9 @@ menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 page_render_started_at = time.perf_counter()
 log_performance("menu_selected", page_render_started_at, menu=menu)
 
-if menu == "薪資管理":
+if menu == "出貨單":
+    render_shipment_management(DATABASE_CONFIG)
+elif menu == "薪資管理":
     render_salary_management(DATABASE_CONFIG)
 elif menu == "人力查詢":
     render_hr_query(DATABASE_CONFIG)
