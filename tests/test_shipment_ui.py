@@ -64,3 +64,18 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     created = get_shipment(config, app.session_state['shipment_selected'])
     assert created['items'][0]['amount'] == '560'
     assert created['notes'] == '新單'
+    app.toggle(key='shipment_print_preview').set_value(True).run()
+    assert not app.exception
+    app.toggle(key='shipment_hide_prices').set_value(True).run()
+    app.button(key='shipment_nav_首筆').click().run()
+    assert not app.exception
+    assert app.toggle(key='shipment_print_preview').value
+    assert app.toggle(key='shipment_hide_prices').value
+    assert app.session_state['shipment_selected'] == first['id']
+    app.toggle(key='shipment_print_preview').set_value(False).run()
+    app.button(key='shipment_edit').click().run()
+    next(widget for widget in app.selectbox if widget.label == '單號方式').set_value('自行輸入').run()
+    next(widget for widget in app.text_input if widget.label == '出貨單號').set_value('000123').run()
+    app.button(key='shipment_save').click().run()
+    assert not app.exception
+    assert get_shipment(config, first['id'])['shipment_number'] == '000123'

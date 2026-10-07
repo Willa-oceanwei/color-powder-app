@@ -22,9 +22,10 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 23
+SCHEMA_VERSION = 24
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
+    "shipment_number_sequences",
     "shipment_orders",
     "shipment_order_items",
     "shipment_invoices",
@@ -378,6 +379,10 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             version INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS shipment_number_sequences (
+            date_prefix TEXT PRIMARY KEY,
+            last_number INTEGER NOT NULL
         );
         CREATE TABLE IF NOT EXISTS shipment_order_items (
             shipment_id TEXT NOT NULL REFERENCES shipment_orders(id),
