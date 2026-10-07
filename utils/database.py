@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 26
+SCHEMA_VERSION = 27
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
     "shipment_receipts",
@@ -75,7 +75,7 @@ REQUIRED_TABLE_COLUMNS = {
     "recipes": {"oem_multiplier", "lifecycle_status", "deleted_at", "delete_reason"},
     "production_orders": {"cancelled_at", "cancel_reason"},
     "outsourcing_orders": {"lifecycle_status", "deleted_at", "delete_reason"},
-    "customers": {"lifecycle_status", "deleted_at", "delete_reason"},
+    "customers": {"lifecycle_status", "deleted_at", "delete_reason", "address", "phone", "fax", "contact", "tax_id"},
     "pantone_records": {"lifecycle_status", "deleted_at", "delete_reason"},
     "sample_records": {"lifecycle_status", "deleted_at", "delete_reason"},
     "customer_inventory_records": {"lifecycle_status", "deleted_at", "delete_reason"},
@@ -960,6 +960,8 @@ def _initialize_schema(conn: SqlExecutor) -> None:
     )
     # Lightweight migrations for databases created by schema version 1.
     _add_column_if_missing(conn, "suppliers", "sheet_row_key", "TEXT")
+    for column in ("address", "phone", "fax", "contact", "tax_id"):
+        _add_column_if_missing(conn, "customers", column, "TEXT NOT NULL DEFAULT ''")
     _add_column_if_missing(conn, "inventory_movements", "movement_key", "TEXT")
     _add_column_if_missing(conn, "inventory_movements", "sheet_name", "TEXT")
     _add_column_if_missing(conn, "inventory_movements", "sheet_row_key", "TEXT")

@@ -100,6 +100,6 @@ def test_schema_25_upgrade_keeps_recipe_and_shipment(config):
         conn.execute('DELETE FROM schema_migrations WHERE version=25')
         conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (24,'2026-10-07')")
     _, health = initialize_database_with_health(config)
-    assert health.schema_version == 26
+    assert health.schema_version == 27
     assert health.schema_compatible
     save_product(config, product(recipe_id='R1'))

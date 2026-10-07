@@ -7,6 +7,8 @@ from typing import Any
 
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
 
+CONTACT_FIELDS = {"address": "地址", "phone": "電話", "fax": "傳真", "contact": "聯絡人", "tax_id": "統一編號"}
+
 
 class CustomerError(RuntimeError):
     pass
@@ -25,10 +27,17 @@ class CustomerInput:
     customer_id: str
     name: str
     notes: str = ""
+    address: str | None = None
+    phone: str | None = None
+    fax: str | None = None
+    contact: str | None = None
+    tax_id: str | None = None
 
     def normalized(self) -> "CustomerInput":
         return CustomerInput(str(self.customer_id or "").strip(), str(self.name or "").strip(),
-                             str(self.notes or "").strip())
+                             str(self.notes or "").strip(),
+                             **{key: None if getattr(self, key) is None else str(getattr(self, key)).strip()
+                                for key in CONTACT_FIELDS})
 
 
 def _mapping(cursor) -> dict[str, Any] | None:
@@ -55,6 +64,7 @@ def customer_sheet_payload(entity: dict[str, Any]) -> dict[str, str]:
         "客戶編號": str(entity.get("customer_id") or ""),
         "客戶簡稱": str(entity.get("name") or ""),
         "備註": str(entity.get("notes") or ""),
+        **{label: str(entity.get(key) or "") for key, label in CONTACT_FIELDS.items()},
         "生命週期": str(entity.get("lifecycle_status") or "active"),
         "停用時間": str(entity.get("deleted_at") or ""),
         "停用原因": str(entity.get("delete_reason") or ""),
@@ -65,7 +75,7 @@ def list_customers(config: DatabaseConfig, *, include_inactive: bool = False) ->
     with connect_from_config(config) as conn:
         where = "" if include_inactive else "WHERE lifecycle_status='active'"
         return _mappings(conn.execute(
-            f"""SELECT customer_id, name, notes, lifecycle_status, deleted_at, delete_reason,
+            f"""SELECT customer_id, name, notes, address, phone, fax, contact, tax_id, lifecycle_status, deleted_at, delete_reason,
                        version, updated_at, last_synced_at FROM customers {where} ORDER BY customer_id"""
         ))
 
@@ -76,6 +86,9 @@ def _validate(data: CustomerInput) -> CustomerInput:
         raise CustomerError("請輸入客戶編號")
     if not data.name:
         raise CustomerError("請輸入客戶簡稱")
+    for key, label in CONTACT_FIELDS.items():
+        if len(getattr(data, key) or "") > (500 if key == "address" else 120):
+            raise CustomerError(f"{label}內容過長")
     return data
 
 
@@ -91,8 +104,9 @@ def create_customer(config: DatabaseConfig, data: CustomerInput) -> dict[str, An
         if _mapping(conn.execute("SELECT 1 FROM customers WHERE customer_id=?", (data.customer_id,))):
             raise CustomerAlreadyExists(f"客戶編號 {data.customer_id} 已存在")
         _ensure_alias(conn, data.name, data.customer_id)
-        conn.execute("""INSERT INTO customers(customer_id,name,notes,source,version,created_at,updated_at)
-                        VALUES (?,?,?,'app',1,?,?)""", (data.customer_id, data.name, data.notes, now, now))
+        conn.execute("""INSERT INTO customers(customer_id,name,notes,address,phone,fax,contact,tax_id,source,version,created_at,updated_at)
+                        VALUES (?,?,?,?,?,?,?,?,'app',1,?,?)""",
+                     (data.customer_id, data.name, data.notes, *(getattr(data, key) or "" for key in CONTACT_FIELDS), now, now))
         conn.execute("INSERT INTO customer_aliases(alias,customer_id,created_at) VALUES (?,?,?)",
                      (data.name, data.customer_id, now))
         entity = _mapping(conn.execute("SELECT * FROM customers WHERE customer_id=?", (data.customer_id,)))
@@ -111,8 +125,9 @@ def update_customer(config: DatabaseConfig, data: CustomerInput) -> dict[str, An
             raise CustomerError("已停用客戶不可修改")
         _ensure_alias(conn, data.name, data.customer_id)
         version = int(existing["version"]) + 1
-        conn.execute("UPDATE customers SET name=?,notes=?,source='app',version=?,updated_at=? WHERE customer_id=?",
-                     (data.name, data.notes, version, now, data.customer_id))
+        contact_values = [existing[key] if getattr(data, key) is None else getattr(data, key) for key in CONTACT_FIELDS]
+        conn.execute("UPDATE customers SET name=?,notes=?,address=?,phone=?,fax=?,contact=?,tax_id=?,source='app',version=?,updated_at=? WHERE customer_id=?",
+                     (data.name, data.notes, *contact_values, version, now, data.customer_id))
         conn.execute("INSERT OR IGNORE INTO customer_aliases(alias,customer_id,created_at) VALUES (?,?,?)",
                      (data.name, data.customer_id, now))
         entity = _mapping(conn.execute("SELECT * FROM customers WHERE customer_id=?", (data.customer_id,)))
