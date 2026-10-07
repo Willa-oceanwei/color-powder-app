@@ -137,7 +137,16 @@ def _validated(document):
     return header, items, invoice, amounts
 
 
-def list_shipments(config, *, query="", start=None, end=None, include_void=False):
+def list_shipments(config, *, query="", start=None, end=None, include_void=False, customer_start="", customer_end=""):
+    if start:
+        start = _valid_date(start, "起始出貨日期")
+    if end:
+        end = _valid_date(end, "結束出貨日期")
+    if start and end and start > end:
+        raise ShipmentError("起始日期不可晚於結束日期")
+    customer_start, customer_end = str(customer_start or "").strip(), str(customer_end or "").strip()
+    if customer_start and customer_end and customer_start > customer_end:
+        raise ShipmentError("起始客戶編號不可大於結束編號")
     clauses, args = [], []
     if not include_void:
         clauses.append("status='draft'")
@@ -150,6 +159,10 @@ def list_shipments(config, *, query="", start=None, end=None, include_void=False
         if value:
             clauses.append(f"shipment_date {operator} ?")
             args.append(str(value))
+    for value, operator in ((customer_start, ">="), (customer_end, "<=")):
+        if value:
+            clauses.append(f"customer_id {operator} ?")
+            args.append(value)
     where = "WHERE " + " AND ".join(clauses) if clauses else ""
     with connect_from_config(config) as conn:
         return _mappings(conn.execute(f"SELECT * FROM shipment_orders {where} ORDER BY shipment_date,shipment_number,id", tuple(args)))
@@ -195,6 +208,12 @@ def save_shipment(config, document):
             raise ShipmentError("已作廢出貨單不可修改")
         if existing and existing["version"] != document.get("version"):
             raise ShipmentError("單據已被其他人修改或作廢，請取消編輯後重新讀取")
+        if existing:
+            receipts = _mapping(conn.execute("SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) AS paid "
+                               "FROM shipment_receipts WHERE shipment_id=? AND status='active'", (shipment_id,)))
+            if receipts["paid"] and (header["customer_id"] != existing["customer_id"]
+                                     or Decimal(amounts["total_amount"]) < receipts["paid"]):
+                raise ShipmentError("已有收款，不可變更客戶或將總額減至已收款以下；請先作廢相關收款")
         if header["number_mode"] == "date":
             prior_mode = json.loads(existing["payload_json"]).get("number_mode", "manual") if existing else None
             if existing and prior_mode == "date" and header["shipment_date"] == existing["shipment_date"]:
@@ -250,10 +269,11 @@ def void_shipment(config, shipment_id, version, reason):
         raise ShipmentError("請填寫作廢原因")
     with connect_from_config(config) as conn:
         changed = _mapping(conn.execute("""UPDATE shipment_orders SET status='void',void_reason=?,
-                  version=version+1,updated_at=? WHERE id=? AND version=? AND status='draft' RETURNING id""",
+                  version=version+1,updated_at=? WHERE id=? AND version=? AND status='draft'
+                  AND NOT EXISTS (SELECT 1 FROM shipment_receipts r WHERE r.shipment_id=shipment_orders.id AND r.status='active') RETURNING id""",
                   (str(reason).strip(), utc_now_iso(), shipment_id, version)))
         if not changed:
-            raise ShipmentError("單據已修改或作廢，請重新讀取")
+            raise ShipmentError("單據已修改、作廢或有收款紀錄；請重新讀取，已有收款須先作廢收款")
 
 
 def printable_shipment(document, *, show_prices=True):

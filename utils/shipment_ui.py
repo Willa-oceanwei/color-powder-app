@@ -99,21 +99,51 @@ def render_shipment_management(config):
     editing = draft is not None
     with st.expander("查詢", expanded=False):
         with st.form("shipment_search"):
-            search = st.columns([3, 1, 1, 1])
+            search = st.columns([3, 1])
             query = search[0].text_input("出貨單號 / 客戶 / 貨品編號", value=st.session_state.get("shipment_query", ""), disabled=editing)
-            start = search[1].date_input("起始日期", value=st.session_state.get("shipment_start"), disabled=editing)
-            end = search[2].date_input("結束日期", value=st.session_state.get("shipment_end"), disabled=editing)
-            include_void = search[3].toggle("包含作廢單", value=st.session_state.get("shipment_include_void", False), disabled=editing)
+            include_void = search[1].toggle("包含作廢單", value=st.session_state.get("shipment_include_void", False), disabled=editing)
+            ranges = st.columns(4)
+            customer_start = ranges[0].text_input("起始客戶編號", value=st.session_state.get("shipment_customer_start", ""), disabled=editing).strip()
+            customer_end = ranges[1].text_input("結束客戶編號", value=st.session_state.get("shipment_customer_end", ""), disabled=editing).strip()
+            start = ranges[2].date_input("起始日期", value=st.session_state.get("shipment_start"), disabled=editing)
+            end = ranges[3].date_input("結束日期", value=st.session_state.get("shipment_end"), disabled=editing)
             if st.form_submit_button("查詢", disabled=editing):
                 if start and end and start > end:
                     st.error("起始日期不可晚於結束日期")
+                elif customer_start and customer_end and customer_start > customer_end:
+                    st.error("起始客戶編號不可大於結束編號")
                 else:
                     st.session_state.update(shipment_query=query, shipment_start=start, shipment_end=end,
-                                            shipment_include_void=include_void)
+                                            shipment_include_void=include_void, shipment_customer_start=customer_start,
+                                            shipment_customer_end=customer_end,
+                                            shipment_search_epoch=st.session_state.get("shipment_search_epoch", 0) + 1)
+                    st.session_state.pop("shipment_selected", None)
                     st.rerun()
     records = list_shipments(config, query=st.session_state.get("shipment_query", ""),
                              start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
-                             include_void=st.session_state.get("shipment_include_void", False))
+                             include_void=st.session_state.get("shipment_include_void", False),
+                             customer_start=st.session_state.get("shipment_customer_start", ""),
+                             customer_end=st.session_state.get("shipment_customer_end", ""))
+    if st.session_state.get("shipment_search_epoch"):
+        with st.expander(f"查詢結果 · {len(records)} 筆", expanded=False):
+            if records:
+                result = pd.DataFrame([{"出貨日期": r["shipment_date"], "出貨單號": r["shipment_number"],
+                          "客戶編號": r["customer_id"], "客戶名稱": r["customer_name"], "總計": int(r["total_amount"]),
+                          "狀態": "作廢" if r["status"] == "void" else "有效"} for r in records])
+                if editing:
+                    st.dataframe(result, height=160, hide_index=True, use_container_width=True)
+                else:
+                    epoch = st.session_state["shipment_search_epoch"]
+                    selection = st.dataframe(result, height=160, hide_index=True, use_container_width=True,
+                                             on_select="rerun", selection_mode="single-row", key=f"shipment_results_{epoch}")
+                    rows = selection.selection.rows
+                    event = (epoch, tuple(rows))
+                    if event != st.session_state.get("shipment_result_event"):
+                        st.session_state.shipment_result_event = event
+                        if rows and rows[0] < len(records):
+                            st.session_state.shipment_selected = records[rows[0]]["id"]
+            else:
+                st.info("沒有符合條件的出貨單")
     ids = [row["id"] for row in records]
     selected = st.session_state.get("shipment_selected")
     index = ids.index(selected) if selected in ids else 0
@@ -249,6 +279,7 @@ def render_shipment_management(config):
         grid_suffix = st.session_state.get("shipment_grid_epoch", 0)
         frame = st.data_editor(frame.drop(columns="金額"), key=prefix + "items" + (f"_{grid_suffix}" if grid_suffix else ""), num_rows="dynamic", height=185,
                                use_container_width=True, hide_index=True, column_config={
+                                   "訂單編號": None,
                                    "數量": st.column_config.NumberColumn("數量", min_value=0.001, step=0.001, required=True),
                                    "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, required=True)})
         document["items"] = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
@@ -259,17 +290,14 @@ def render_shipment_management(config):
             st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
             st.rerun()
     else:
-        st.dataframe(frame, height=185, hide_index=True, use_container_width=True)
-    details, summary = st.columns([4.7, 1.3])
+        st.dataframe(frame, height=185, hide_index=True, use_container_width=True, column_config={"訂單編號": None})
+    details, summary, clearance = st.columns([3.7, 1.3, 1])
     with details:
         transaction, invoice_tab, account, related = st.tabs(["交易明細", "發票資料", "帳款資料", "相關資料"])
         with transaction:
-            left, right = st.columns([3, 1])
-            notes = left.text_area("備註", value=document.get("notes", ""), height=68, key=prefix + "notes", disabled=not editing)
+            notes = st.text_area("備註", value=document.get("notes", ""), height=68, key=prefix + "notes", disabled=not editing)
             if editing:
                 document["notes"] = notes
-            with right:
-                text("訂單編號", "order_number")
         with invoice_tab:
             invoice = document["invoice"]
             row = st.columns(3)
@@ -322,7 +350,8 @@ def render_shipment_management(config):
             st.error("儲存失敗，請確認單號沒有重複及資料庫連線正常；修改內容已保留")
         else:
             st.session_state.shipment_selected = saved["id"]
-            st.session_state.update(shipment_query="", shipment_start=None, shipment_end=None, shipment_include_void=False)
+            st.session_state.update(shipment_query="", shipment_start=None, shipment_end=None, shipment_include_void=False,
+                                    shipment_customer_start="", shipment_customer_end="", shipment_search_epoch=0)
             _finish("已儲存出貨單 " + saved["shipment_number"])
     if not editing:
         download, lifecycle = st.columns([1, 3])

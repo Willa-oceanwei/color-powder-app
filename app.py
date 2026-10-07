@@ -22,6 +22,7 @@ from utils import database as database_utils
 from utils.number_format import format_optional_decimals
 from utils.shipment_ui import render_shipment_management
 from utils.product_ui import render_product_management
+from utils.receivable_ui import render_receivable_statement
 from utils.inventory_audit import (
     duplicate_initial_inventory_sync_ids,
     latest_initial_inventory_record,
@@ -1063,6 +1064,7 @@ def render_sidebar():
         {"group":"生產","key":"代工管理","label":"代工管理"},
         {"group":"會計","key":"出貨單","label":"出貨單"},
         {"group":"會計","key":"貨品","label":"貨品"},
+        {"group":"明細","key":"應收帳款明細表","label":"應收帳款明細表"},
         {"group":"倉儲","key":"庫存區","label":"庫存區"},
         {"group":"倉儲","key":"洗車廠庫存","label":"洗車廠庫存"},
         {"group":"倉儲","key":"採購管理","label":"採購管理"},
@@ -1480,6 +1482,7 @@ MENU_ITEMS = [
     {"key": "代工管理", "label": "代工管理", "group": "生產"},
     {"key": "出貨單", "label": "出貨單", "group": "會計"},
     {"key": "貨品", "label": "貨品", "group": "會計"},
+    {"key": "應收帳款明細表", "label": "應收帳款明細表", "group": "明細"},
     {"key": "庫存區", "label": "庫存區", "group": "倉儲"},
     {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
     {"key": "採購管理", "label": "採購管理", "group": "倉儲"},
@@ -1502,6 +1505,7 @@ def render_erp_nav():
         {"key": "代工管理",   "label": "代工管理",   "group": "生產"},
         {"key": "出貨單", "label": "出貨單", "group": "會計"},
         {"key": "貨品", "label": "貨品", "group": "會計"},
+        {"key": "應收帳款明細表", "label": "應收帳款明細表", "group": "明細"},
         {"key": "庫存區",     "label": "庫存區",     "group": "倉儲"},
         {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
         {"key": "採購管理",   "label": "採購管理",   "group": "倉儲"},
@@ -3153,6 +3157,8 @@ if menu == "出貨單":
     render_shipment_management(DATABASE_CONFIG)
 elif menu == "貨品":
     render_product_management(DATABASE_CONFIG)
+elif menu == "應收帳款明細表":
+    render_receivable_statement(DATABASE_CONFIG)
 elif menu == "薪資管理":
     render_salary_management(DATABASE_CONFIG)
 elif menu == "人力查詢":
