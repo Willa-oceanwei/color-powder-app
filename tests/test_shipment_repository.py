@@ -8,6 +8,7 @@ from utils.database import DatabaseConfig, connect, initialize_database, initial
 from utils.shipment_repository import (
     ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
     list_shipments, printable_shipment, save_shipment, void_shipment,
+    list_shipment_recipes, recent_shipment_price,
 )
 
 
@@ -27,6 +28,28 @@ def document():
     result['items'] = [dict(code='69570M', name='藍', quantity='50', unit='KG', price='260', order_number='O1', notes=''),
                        dict(code='69960M', name='白', quantity='100', unit='KG', price='241', order_number='O1', notes='')]
     return result
+
+
+def test_customer_recipe_unit_price_history(config):
+    from utils.recipe_repository import create_recipe
+    create_recipe(config, {"配方編號": "69570M", "顏色": "藍", "客戶編號": "C01"})
+    create_recipe(config, {"配方編號": "OTHER", "顏色": "白", "客戶編號": "C02"})
+    assert [row['recipe_id'] for row in list_shipment_recipes(config, 'C01')] == ['69570M']
+    first = save_shipment(config, document())
+    args = dict(shipment_date='2026-10-07', tax_mode='外加')
+    assert recent_shipment_price(config, 'C01', '69570m', 'kg', **args)['price'] == '260'
+    assert recent_shipment_price(config, 'C02', '69570M', 'KG', **args) is None
+    assert recent_shipment_price(config, 'C01', '69570M', '包', **args) is None
+    assert recent_shipment_price(config, 'C01', '69570M', 'KG', shipment_date='2026-09-30', tax_mode='外加') is None
+    assert recent_shipment_price(config, 'C01', '69570M', 'KG', shipment_date='2026-10-07', tax_mode='內含') is None
+    second_doc = document()
+    second_doc['shipment_date'] = '2026-10-02'
+    second_doc['items'][0]['price'] = '0'
+    second = save_shipment(config, second_doc)
+    assert recent_shipment_price(config, 'C01', '69570M', 'KG', **args)['price'] == '0'
+    assert recent_shipment_price(config, 'C01', '69570M', 'KG', exclude_id=second['id'], **args)['price'] == '260'
+    void_shipment(config, second['id'], second['version'], 'test')
+    assert recent_shipment_price(config, 'C01', '69570M', 'KG', **args)['shipment_number'] == first['shipment_number']
 
 
 def test_reference_totals_and_half_up():

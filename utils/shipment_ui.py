@@ -12,6 +12,7 @@ from .customer_repository import list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
     list_shipments, printable_shipment, save_shipment, void_shipment,
+    list_shipment_recipes, recent_shipment_price,
 )
 
 COLUMNS = {"code": "貨品編號", "name": "品名", "quantity": "數量", "unit": "單位",
@@ -63,6 +64,7 @@ def _begin(document):
     st.session_state.shipment_draft = deepcopy(document)
     st.session_state.shipment_original = deepcopy(document)
     st.session_state.shipment_editor_base = deepcopy(document["items"])
+    st.session_state.shipment_grid_epoch = 0
     st.session_state.shipment_epoch = st.session_state.get("shipment_epoch", 0) + 1
     st.rerun()
 
@@ -199,15 +201,43 @@ def render_shipment_management(config):
         with col:
             text(label, field)
     source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
+    requested_item = None
+    if editing:
+        with st.expander("加入配方品項", expanded=False):
+            recipes = list_shipment_recipes(config, document["customer_id"])
+            by_code = {row["recipe_id"]: row for row in recipes}
+            picker, unit_col, quantity_col, add_col = st.columns([3, 1, 1, 1])
+            recipe_code = picker.selectbox("配方", [""] + list(by_code),
+                                           format_func=lambda code: f"{code} · {by_code[code]['color']}" if code else "請選擇配方",
+                                           key=prefix + "recipe_picker_" + document["customer_id"])
+            sale_unit = unit_col.text_input("銷售單位", value="KG", key=prefix + "sale_unit").strip()
+            quantity = quantity_col.number_input("加入數量", min_value=0.001, value=1.0, step=1.0, key=prefix + "add_quantity")
+            previous = recent_shipment_price(config, document["customer_id"], recipe_code, sale_unit,
+                                             shipment_date=document["shipment_date"], tax_mode=document["tax_mode"],
+                                             exclude_id=document.get("id", ""))
+            if previous:
+                st.caption(f"前次單價：{previous['price']} / {sale_unit} · {previous['shipment_date']} · {previous['shipment_number']}")
+            if add_col.button("加入", key="shipment_add_recipe", disabled=not recipe_code or not sale_unit, use_container_width=True):
+                requested_item = dict(code=recipe_code, name=by_code[recipe_code]["color"] or recipe_code,
+                                              quantity=str(quantity), unit=sale_unit,
+                                              price=str(previous["price"]) if previous else "0",
+                                              order_number="", notes="")
     frame = pd.DataFrame(source_items, columns=list(COLUMNS)).rename(columns=COLUMNS)
     for column in ("數量", "單價"):
         frame[column] = pd.to_numeric(frame[column], errors="coerce").astype(float)
     if editing:
-        frame = st.data_editor(frame.drop(columns="金額"), key=prefix + "items", num_rows="dynamic", height=185,
+        grid_suffix = st.session_state.get("shipment_grid_epoch", 0)
+        frame = st.data_editor(frame.drop(columns="金額"), key=prefix + "items" + (f"_{grid_suffix}" if grid_suffix else ""), num_rows="dynamic", height=185,
                                use_container_width=True, hide_index=True, column_config={
                                    "數量": st.column_config.NumberColumn("數量", min_value=0.001, step=0.001, required=True),
                                    "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, required=True)})
         document["items"] = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
+        if requested_item:
+            # Preserve current grid edits before rebasing on the newly added item.
+            document["items"].append(requested_item)
+            st.session_state.shipment_editor_base = deepcopy(document["items"])
+            st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
+            st.rerun()
     else:
         st.dataframe(frame, height=185, hide_index=True, use_container_width=True)
     details, summary = st.columns([4.7, 1.3])
