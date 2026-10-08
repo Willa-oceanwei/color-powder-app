@@ -25,6 +25,11 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert not app.exception
     assert app.button(key='shipment_new').disabled and not app.button(key='shipment_save').disabled
     assert not any(widget.label in ('首筆', '尾筆') for widget in app.button)
+    layout = app.selectbox(key='shipment_print_orientation')
+    assert layout.proto.label_visibility.value == 2
+    assert layout.options == ['列印：橫式', '列印：直式']
+    layout.set_value('直式').run()
+    assert not app.exception and app.selectbox(key='shipment_print_orientation').value == '直式'
     epoch = app.session_state['shipment_epoch']
     next(w for w in app.text_area if w.label == '備註').set_value('保留草稿').run()
     assert not app.exception and app.session_state['shipment_epoch'] == epoch

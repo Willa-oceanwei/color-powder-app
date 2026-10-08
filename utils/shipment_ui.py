@@ -186,7 +186,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     document = draft or (get_shipment(config, ids[index]) if ids else None)
     if not editing and document:
         st.session_state.shipment_selected = document["id"]
-    tools = st.columns([1, 1, 1, 1, 1.1, 1, 1, .85])
+    tools = st.columns([1, 1, 1, 1, 1.1, 1, 1, .6, 1.6])
     with tools[0]:
         if st.button("新增", key="shipment_new", disabled=editing, use_container_width=True):
             _begin(blank_shipment())
@@ -203,6 +203,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.session_state.shipment_selected = ids[target]
             st.rerun()
     tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{index + 1 if ids else 0} / {len(ids)}</span>', unsafe_allow_html=True)
+    layout = tools[8].selectbox("列印方向", ("橫式", "直式"), key="shipment_print_orientation",
+                               format_func=lambda value: "列印：" + value, label_visibility="collapsed")
+    orientation = "portrait" if layout == "直式" else "landscape"
     if editing:
         st.caption("編輯中 · 尚未儲存")
     if not document:
@@ -211,16 +214,14 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     if document.get("status") == "void":
         st.warning("已作廢：" + document.get("void_reason", ""))
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
-    print_controls = st.columns([1, 1, 1, 2])
+    print_controls = st.columns([1, 1, 3])
     preview = print_controls[0].toggle("預覽／列印", value=widget_default("shipment_print_preview", st.session_state.get("shipment_preview_preference", False)), key="shipment_print_preview", disabled=editing, on_change=_remember_print_settings)
     hide_prices = print_controls[1].toggle("隱藏單價與金額", value=widget_default("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False)), key="shipment_hide_prices", disabled=editing, on_change=_remember_print_settings)
-    layout = print_controls[2].selectbox("列印方向", ("橫式", "直式"), key="shipment_print_orientation")
-    orientation = "portrait" if layout == "直式" else "landscape"
-    sync_products = print_controls[3].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
+    sync_products = print_controls[2].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
                                             help="成交價依客戶、貨品與單位保存於出貨紀錄，不覆蓋共用標準售價")
     if preview and not editing:
         print_html = printable_shipment(document, show_prices=not hide_prices, orientation=orientation)
-        print_controls[3].download_button("下載 A5 列印版", data=print_html,
+        print_controls[2].download_button("下載 A5 列印版", data=print_html,
                                           file_name=document["shipment_number"] + ("-無金額" if hide_prices else "") + ".html", mime="text/html")
         components.html(print_html, height=550, scrolling=True)
         return
