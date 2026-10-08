@@ -46,6 +46,9 @@ def test_recipe_defaults_direct_code_and_price_precedence(config):
     item = complete_items(config, shipment(), raw, [])[0]
     assert item["name"] == "藍" and item["unit"] == "包" and item["price"] == "0"
     assert item["notes"] == ""
+    code_only = complete_items(config, shipment(), [dict(code="R1", name="", unit="", quantity="", price="")], [])[0]
+    assert code_only["name"] == "藍" and code_only["unit"] == "包" and code_only["price"] == "0"
+    assert code_only["quantity"] == ""
     other_customer = complete_items(config, shipment(customer_id="C02"), raw, [])[0]
     assert other_customer["name"] == "藍" and other_customer["unit"] == "包"
     manual_notes = dict(raw[0], notes="客戶指定備註")
@@ -143,6 +146,31 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
 def test_display_price(value, expected):
     from utils.shipment_print import display_price
     assert display_price(value) == expected
+
+
+def test_grid_code_only_submission_and_save_validation(config):
+    import json
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0,{root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    app.button(key="shipment_new").click().run()
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
+    columns = json.loads(app.dataframe[0].proto.columns)
+    assert not columns["數量"].get("required", False)
+    assert not columns["單價"].get("required", False)
+    app.session_state[prefix + "items"] = {"edited_rows": {}, "deleted_rows": [], "added_rows": [{"貨品編號": "R1"}]}
+    app.run()
+    assert not app.exception
+    item = app.session_state["shipment_draft"]["items"][0]
+    assert item["name"] == "藍" and item["unit"] == "包" and item["quantity"] == ""
+    app.button(key="shipment_save").click().run()
+    assert not app.exception and app.error and not list_shipments(config)
 
 
 def test_tax_choices_sync_with_invoice_mode(config):

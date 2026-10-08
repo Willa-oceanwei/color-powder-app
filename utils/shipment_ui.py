@@ -339,8 +339,8 @@ def render_shipment_management(config):
         frame = st.data_editor(frame.drop(columns="金額"), key=prefix + "items" + (f"_{grid_suffix}" if grid_suffix else ""), num_rows="dynamic", height=185,
                                use_container_width=True, hide_index=True, column_config={
                                    "採購單號": st.column_config.TextColumn("採購單號", width="medium"),
-                                   "數量": st.column_config.NumberColumn("數量", min_value=0.001, step=0.001, format="%.15g", required=True),
-                                   "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, format="%.15g", required=True)})
+                                   "數量": st.column_config.NumberColumn("數量", min_value=0.001, step=0.001, format="%.15g"),
+                                   "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, format="%.15g")})
         raw_items = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
         document["items"] = complete_items(config, document, raw_items, document["items"], choices=all_choices, history=history)
         if document["items"] != raw_items:
