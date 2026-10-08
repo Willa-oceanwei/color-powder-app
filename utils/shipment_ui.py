@@ -51,6 +51,8 @@ COMPACT_STYLE = """
 .main:has(#shipment-page) .shipment-total:last-child {border-top:1px solid #84919d;font-weight:600;font-size:16px;margin-top:4px;padding-top:6px;}
 .main:has(#shipment-page) .shipment-lines {font-size:12px;white-space:nowrap;overflow-x:auto;max-width:100%;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] {width:min(960px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important;}
+body:has(#shipment-page) [data-testid="stPopoverBody"] [data-testid="stVerticalBlock"],
+body:has(#shipment-page) [data-testid="stPopoverBody"] .element-container {width:100%!important;max-width:100%!important;}
 .stApp:has(.erp-title) .main:has(#shipment-page) .block-container {padding-top:72px!important;}
 .stApp:has(.erp-title) .main:has(#shipment-page) h3,
 .stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stWidgetLabel"] p,
