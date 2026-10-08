@@ -165,7 +165,7 @@ def test_pagination_escape_totals_and_no_mutation(config):
     assert "size:A4 landscape" in html and "列印全部" in html
     assert html.count("截至期末已登錄收款") == 1
     assert html.count('class="sheet') == len(pages)
-    assert "佳味實業有限公司" in html and "帳面未收餘額" in html
+    assert "佳咊實業有限公司" in html and "帳面未收餘額" in html
     assert all(page["rows"][0][0] == "出貨" for page in pages)
     embedded = render_statement_print(pages, embedded=True)
     assert '>上一頁</button>' not in embedded and '列印全部' in embedded

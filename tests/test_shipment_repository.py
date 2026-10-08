@@ -202,10 +202,24 @@ def test_a5_price_free_print_and_pagination(config):
     saved = save_shipment(config, d)
     html = printable_shipment(saved, show_prices=False)
     assert 'size:A5 landscape' in html
-    assert '佳味實業有限公司' in html
+    assert '佳咊實業有限公司' in html
     assert '單價' not in html and '<span>合計' not in html and '<span>稅額' not in html
     assert '9876543' not in html
     assert saved['total_amount'] not in html
-    assert html.count('class="sheet"') == 3
+    assert html.count('class="sheet"') == 4
     assert html.count('69570M') == 12
     assert '簽收' in html and '採購單號' in html
+
+
+def test_print_black_font_fixed_columns_and_grouped_amounts(config):
+    d = document()
+    d['items'] = [dict(code='0863A', name='珍珠灰黑(115/07/02 220/包)', quantity='80',
+                       unit='包', price='220', order_number='CD2026100504', notes='')]
+    d['notes'] = '一\n二\n三\n四'
+    html = printable_shipment(save_shipment(config, d))
+    assert '佳咊實業有限公司' in html and '佳味' not in html
+    assert 'Microsoft JhengHei' in html and 'DFKai-SB' not in html
+    assert 'font-size:12pt' in html and '<colgroup>' in html
+    assert '17,600' in html and '18,480' in html
+    assert html.count('class="sheet"') == 2
+    assert '珍珠灰黑(115/07/02 220/包)' in html

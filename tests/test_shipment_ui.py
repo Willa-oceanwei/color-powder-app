@@ -92,12 +92,17 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     epoch = app.session_state['shipment_epoch']
     grid = app.session_state['shipment_grid_epoch']
     app.session_state[f'shipment_{epoch}_items_{grid}'] = {
-        'edited_rows': {0: {'單價': 299.0}}, 'added_rows': [], 'deleted_rows': []}
+        'edited_rows': {0: {'單價': 299.0, '品名': '手動調整品名'}}, 'added_rows': [], 'deleted_rows': []}
     app.button(key='shipment_add_recipe').click().run()
     assert not app.exception
     assert app.session_state['shipment_draft']['items'][0]['price'] == 299.0
+    assert app.session_state['shipment_draft']['items'][0]['name'] == '手動調整品名'
     assert len(app.session_state['shipment_draft']['items']) == 2
     app.button(key='shipment_save').click().run()
+    saved = get_shipment(config, app.session_state['shipment_selected'])
+    assert saved['items'][0]['name'] == '手動調整品名'
+    from utils.shipment_repository import printable_shipment
+    assert '手動調整品名' in printable_shipment(saved)
     assert not app.exception
     assert get_shipment(config, app.session_state['shipment_selected'])['items'][0]['price'] == '299.0'
     from utils.product_repository import blank_product, save_product
