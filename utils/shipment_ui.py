@@ -15,7 +15,7 @@ from .customer_repository import list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
     list_shipments, printable_shipment, save_shipment, void_shipment,
-    recent_shipment_price,
+    recent_shipment_price, shipment_price_history,
 )
 
 COLUMNS = {"code": "貨品編號", "name": "品名", "quantity": "數量", "unit": "單位",
@@ -64,6 +64,7 @@ COMPACT_STYLE = """
 
 
 def _begin(document):
+    st.session_state.pop("shipment_read_cache", None)
     st.session_state.shipment_draft = deepcopy(document)
     st.session_state.shipment_original = deepcopy(document)
     st.session_state.shipment_editor_base = deepcopy(document["items"])
@@ -73,6 +74,7 @@ def _begin(document):
 
 
 def _finish(message=""):
+    st.session_state.pop("shipment_read_cache", None)
     st.session_state.pop("shipment_draft", None)
     st.session_state.pop("shipment_original", None)
     st.session_state.pop("shipment_editor_base", None)
@@ -114,7 +116,19 @@ def render_shipment_management(config):
         st.caption(notice)
     draft = st.session_state.get("shipment_draft")
     editing = draft is not None
+    def read(key, loader):
+        if not editing:
+            return loader()
+        cache = st.session_state.setdefault("shipment_read_cache", {})
+        cache_key = (repr(config), key)
+        if cache_key not in cache:
+            cache[cache_key] = loader()
+        return cache[cache_key]
+
     with st.expander("查詢", expanded=False):
+        if editing and st.button("重讀資料", key="shipment_reload_data"):
+            st.session_state.pop("shipment_read_cache", None)
+            st.rerun()
         with st.form("shipment_search"):
             search = st.columns([3, 1])
             query = search[0].text_input("出貨單號 / 客戶 / 貨品編號", value=st.session_state.get("shipment_query", ""), disabled=editing)
@@ -136,11 +150,11 @@ def render_shipment_management(config):
                                             shipment_search_epoch=st.session_state.get("shipment_search_epoch", 0) + 1)
                     st.session_state.pop("shipment_selected", None)
                     st.rerun()
-    records = list_shipments(config, query=st.session_state.get("shipment_query", ""),
+    records = read("records", lambda: list_shipments(config, query=st.session_state.get("shipment_query", ""),
                              start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
                              include_void=st.session_state.get("shipment_include_void", False),
                              customer_start=st.session_state.get("shipment_customer_start", ""),
-                             customer_end=st.session_state.get("shipment_customer_end", ""))
+                             customer_end=st.session_state.get("shipment_customer_end", "")))
     if st.session_state.get("shipment_search_epoch"):
         with st.expander(f"查詢結果 · {len(records)} 筆", expanded=False):
             if records:
@@ -239,7 +253,7 @@ def render_shipment_management(config):
         if editing:
             invoice[field] = selected
 
-    customers = list_customers(config, include_inactive=True)
+    customers = read("customers", lambda: list_customers(config, include_inactive=True))
     header = st.columns([1.25, 1.35, 1.55, 2.8])
     with header[0]:
         date_field("出貨日期", "shipment_date")
@@ -285,8 +299,13 @@ def render_shipment_management(config):
     source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
     requested_item = None
     if editing:
+        history_key = ("history", document["customer_id"], document["shipment_date"], document.get("id", ""))
+        history = read(history_key, lambda: shipment_price_history(config, document["customer_id"],
+                       document["shipment_date"], document.get("id", "")))
+        all_choices = read(("all_choices", document["customer_id"]),
+                           lambda: shipment_choices(config, document["customer_id"], all_recipes=True))
         with st.expander("加入貨品／配方", expanded=False):
-            choices = shipment_choices(config, document["customer_id"])
+            choices = read(("choices", document["customer_id"]), lambda: shipment_choices(config, document["customer_id"]))
             picker, unit_col, quantity_col, add_col = st.columns([3, 1, 1, 1])
             picker_key = prefix + "recipe_picker_" + document["customer_id"]
             code = picker.selectbox("貨品／配方", [""] + list(choices),
@@ -297,7 +316,7 @@ def render_shipment_management(config):
             quantity = quantity_col.number_input("加入數量", min_value=0.001, value=widget_default(prefix + "add_quantity", 1.0), step=1.0, key=prefix + "add_quantity")
             previous = recent_shipment_price(config, document["customer_id"], code, unit,
                                              shipment_date=document["shipment_date"], tax_mode=document["tax_mode"],
-                                             exclude_id=document.get("id", ""))
+                                             exclude_id=document.get("id", ""), history=history)
             chosen = choices.get(code)
             price = "0"
             if previous:
@@ -320,10 +339,10 @@ def render_shipment_management(config):
         frame = st.data_editor(frame.drop(columns="金額"), key=prefix + "items" + (f"_{grid_suffix}" if grid_suffix else ""), num_rows="dynamic", height=185,
                                use_container_width=True, hide_index=True, column_config={
                                    "採購單號": st.column_config.TextColumn("採購單號", width="medium"),
-                                   "數量": st.column_config.NumberColumn("數量", min_value=0.001, step=0.001, required=True),
+                                   "數量": st.column_config.NumberColumn("數量", min_value=0.001, step=0.001, format="%.15g", required=True),
                                    "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, format="%.15g", required=True)})
         raw_items = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
-        document["items"] = complete_items(config, document, raw_items, document["items"])
+        document["items"] = complete_items(config, document, raw_items, document["items"], choices=all_choices, history=history)
         if document["items"] != raw_items:
             st.session_state.shipment_editor_base = deepcopy(document["items"])
             st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
@@ -336,7 +355,7 @@ def render_shipment_management(config):
             st.rerun()
     else:
         st.dataframe(frame, height=185, hide_index=True, use_container_width=True,
-                     column_config={"採購單號": st.column_config.TextColumn("採購單號", width="medium"), "單價": st.column_config.NumberColumn(format="%.15g")})
+                     column_config={"採購單號": st.column_config.TextColumn("採購單號", width="medium"), "數量": st.column_config.NumberColumn(format="%.15g"), "單價": st.column_config.NumberColumn(format="%.15g")})
     details, summary, clearance = st.columns([3.7, 1.3, 1])
     with details:
         transaction, invoice_tab, account, related = st.tabs(["交易明細", "發票資料", "帳款資料", "相關資料"])

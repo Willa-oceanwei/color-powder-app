@@ -162,10 +162,13 @@ def test_pagination_escape_totals_and_no_mutation(config):
     assert statements == original
     html = render_statement_print(pages)
     assert "<script>bad" not in html and "&lt;script&gt;" in html
-    assert "size:A4 landscape" in html and "列印全部" in html
-    assert html.count("截至期末已登錄收款") == 1
+    assert "size:A5 landscape" in html and "列印全部" in html
+    assert "截至期末已登錄收款" not in html and "帳面未收餘額" not in html and "收款狀態" not in html
     assert html.count('class="sheet') == len(pages)
-    assert "佳咊實業有限公司" in html and "帳面未收餘額" in html
+    assert "佳咊實業有限公司" in html
+    visible = render_statement_print(pages, show_receipts=True)
+    assert visible.count("截至期末已登錄收款") == 1 and "帳面未收餘額" in visible and "收款狀態" in visible
+    assert "符合寬度" in html and "整頁" in html and "overflow:auto" in html
     assert all(page["rows"][0][0] == "出貨" for page in pages)
     embedded = render_statement_print(pages, embedded=True)
     assert '>上一頁</button>' not in embedded and '列印全部' in embedded
@@ -180,6 +183,18 @@ def test_schema_26_upgrade_preserves_data(config):
     assert database_health_check(config).schema_version == 27
     assert get_shipment(config, d["id"])["total_amount"] == "210"
     assert not list_receipts(config, d["id"])
+
+
+def test_quantity_display_trims_zero_fraction_without_rounding(config):
+    d = shipment(config)
+    d["items"] = [dict(d["items"][0], quantity="6.000"), dict(d["items"][1], quantity="6.500")]
+    save_shipment(config, d)
+    statements = build_statements(config, "2026-10-01", "2026-10-31")
+    pages = statement_pages(statements)
+    assert [row[5] for row in pages[0]["rows"][1:]] == ["6", "6.5"]
+    html = render_statement_print(pages)
+    assert "數量合計：12.5 包" in html
+    assert statements[0]["quantities"] == {"包": "12.500"}
 
 
 def test_report_ui_navigation_optional_receipt_and_validation(config):

@@ -54,6 +54,7 @@ def render_report(config):
         st.info("此區間沒有符合條件的出貨資料")
         return
     index = min(st.session_state.get("receivable_page", 0), len(pages) - 1)
+    show_receipts = st.toggle("顯示收款資訊", key="receivable_show_receipts", value=False)
     def move(target):
         st.session_state.receivable_page = target
     controls = st.columns([1, 1, 1, 1, 2, 2])
@@ -61,14 +62,14 @@ def render_report(config):
         col.button(label, key="receivable_" + label, on_click=move, args=(target,),
                    disabled=target < 0 or target >= len(pages) or target == index, use_container_width=True)
     controls[4].write(f"{index + 1} / {len(pages)} · {pages[index]['statement']['customer_id']}")
-    html = render_statement_print(pages, selected=index)
-    controls[5].download_button("下載列印版", html, file_name="應收帳款明細表.html", mime="text/html", use_container_width=True)
+    html = render_statement_print(pages, selected=index, show_receipts=show_receipts)
+    controls[5].download_button("下載 A5 列印版", html, file_name="應收帳款明細表-A5.html", mime="text/html", use_container_width=True)
     statements = list({p["statement"]["customer_id"]: p["statement"] for p in pages}.values())
     exports = st.columns([1, 1, 4])
-    exports[0].download_button("另存 PDF", statement_pdf(pages), file_name="應收帳款明細表.pdf", mime="application/pdf")
-    exports[1].download_button("匯出 Excel", statement_excel(statements), file_name="應收帳款明細表.xlsx",
+    exports[0].download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts), file_name="應收帳款明細表-A5.pdf", mime="application/pdf")
+    exports[1].download_button("匯出 Excel", statement_excel(statements, show_receipts=show_receipts), file_name="應收帳款明細表.xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    components.html(render_statement_print(pages, selected=index, embedded=True), height=530, scrolling=True)
+    components.html(render_statement_print(pages, selected=index, embedded=True, show_receipts=show_receipts), height=560, scrolling=True)
 
 
 def render_customer_ranking(config):
