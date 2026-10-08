@@ -206,6 +206,10 @@ def render_shipment_management(config):
         return
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
 
+    if editing:
+        document["tax_mode"] = st.session_state.get(prefix + "tax_mode", document["tax_mode"])
+        document["tax_rate"] = str(st.session_state.get(prefix + "tax_rate", document["tax_rate"]))
+
     def text(label, key, *, target=None):
         data = document if target is None else target
         widget_key = prefix + ("invoice_" if target is not None else "") + key
