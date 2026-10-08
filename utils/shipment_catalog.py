@@ -10,10 +10,10 @@ from .product_repository import (
 from .shipment_repository import ShipmentError, list_shipment_recipes, recent_shipment_price
 
 
-def shipment_choices(config, customer_id):
+def shipment_choices(config, customer_id, *, all_recipes=False):
     products = {p["product_id"]: p for p in shipment_products(config, customer_id)}
     master_codes = {p["product_id"] for p in list_products(config, include_inactive=True)}
-    choices = {r["recipe_id"]: product_from_recipe(r) for r in list_shipment_recipes(config, customer_id)
+    choices = {r["recipe_id"]: product_from_recipe(r) for r in list_shipment_recipes(config, None if all_recipes else customer_id)
                if r["recipe_id"].upper() not in master_codes}
     choices.update(products)
     return choices
@@ -32,7 +32,7 @@ def item_price(config, document, code, unit, product):
 
 def complete_items(config, document, items, previous, *, choices=None):
     if choices is None:
-        choices = shipment_choices(config, document["customer_id"])
+        choices = shipment_choices(config, document["customer_id"], all_recipes=True)
     result = deepcopy(items)
     for index, item in enumerate(result):
         old = previous[index] if index < len(previous) else {}
@@ -40,7 +40,7 @@ def complete_items(config, document, items, previous, *, choices=None):
         match = next((p for c, p in choices.items() if c.upper() == code.upper()), None)
         if not match or code == old.get("code"):
             continue
-        for key, value in (("name", match["name"]), ("unit", match["sales_unit"]), ("notes", match["specification"])):
+        for key, value in (("name", match["name"]), ("unit", match["sales_unit"])):
             if not item.get(key) or item.get(key) == old.get(key):
                 item[key] = value
         same_price = item.get("price") == old.get("price")

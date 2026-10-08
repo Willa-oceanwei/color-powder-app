@@ -119,7 +119,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     app.button(key='shipment_add_recipe').click().run()
     assert not app.exception
     assert app.session_state['shipment_draft']['items'][0]['price'] == 99.0
-    assert app.session_state['shipment_draft']['items'][0]['notes'] == '25KG'
+    assert app.session_state['shipment_draft']['items'][0]['notes'] == ''
     app.button(key='shipment_save').click().run()
     saved_product['standard_price'] = '150'
     save_product(config, saved_product)
