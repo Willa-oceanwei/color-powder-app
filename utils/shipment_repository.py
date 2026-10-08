@@ -111,6 +111,25 @@ def shipment_price_history(config, customer_id, shipment_date, exclude_id=""):
             (customer_id, exclude_id or "", shipment_date)))
 
 
+def customer_purchase_history(config, customer_id, code=""):
+    """Saved non-void customer lines, across all dates and units."""
+    customer_id, code = str(customer_id or "").strip(), str(code or "").strip()
+    if not customer_id:
+        return []
+    condition = " AND UPPER(TRIM(json_extract(i.payload_json,'$.code')))=UPPER(?)" if code else ""
+    args = (customer_id, code) if code else (customer_id,)
+    with connect_from_config(config) as conn:
+        return _mappings(conn.execute(
+            "SELECT s.shipment_number,s.shipment_date,json_extract(i.payload_json,'$.code') AS code,"
+            "json_extract(i.payload_json,'$.name') AS name,json_extract(i.payload_json,'$.quantity') AS quantity,"
+            "json_extract(i.payload_json,'$.unit') AS unit,json_extract(i.payload_json,'$.price') AS price,"
+            "json_extract(i.payload_json,'$.amount') AS amount,json_extract(i.payload_json,'$.order_number') AS order_number,"
+            "CASE WHEN json_extract(i.payload_json,'$.tax_exempt')=1 THEN '免稅' ELSE json_extract(s.payload_json,'$.tax_mode') END AS tax_mode "
+            "FROM shipment_orders s JOIN shipment_order_items i ON i.shipment_id=s.id "
+            "WHERE s.status='draft' AND s.customer_id=?" + condition +
+            " ORDER BY s.shipment_date DESC,s.created_at DESC,s.shipment_number DESC,i.line_number", args))
+
+
 def recent_shipment_price(config, customer_id, code, unit, *, shipment_date, tax_mode, exclude_id="", history=None):
     """Use saved, non-void documents on or before the new shipment date."""
     if not all((customer_id, code, unit)):
@@ -204,15 +223,19 @@ def list_shipments(config, *, query="", start=None, end=None, include_void=False
 
 def get_shipment(config, shipment_id):
     with connect_from_config(config) as conn:
-        row = _mapping(conn.execute("SELECT * FROM shipment_orders WHERE id=?", (shipment_id,)))
-        if not row:
+        rows = _mappings(conn.execute(
+            "SELECT s.*,i.payload_json AS item_payload,v.payload_json AS invoice_payload "
+            "FROM shipment_orders s LEFT JOIN shipment_order_items i ON i.shipment_id=s.id "
+            "LEFT JOIN shipment_invoices v ON v.shipment_id=s.id WHERE s.id=? ORDER BY i.line_number", (shipment_id,)))
+        if not rows:
             raise ShipmentError("出貨單不存在")
+        row = dict(rows[0])
+        invoice = row.pop("invoice_payload")
+        row.pop("item_payload")
         result = json.loads(row.pop("payload_json"))
         result.update(row)
-        result["items"] = [json.loads(item["payload_json"]) for item in _mappings(conn.execute(
-            "SELECT payload_json FROM shipment_order_items WHERE shipment_id=? ORDER BY line_number", (shipment_id,)))]
-        invoice = _mapping(conn.execute("SELECT payload_json FROM shipment_invoices WHERE shipment_id=?", (shipment_id,)))
-        result["invoice"] = json.loads(invoice["payload_json"]) if invoice else blank_shipment()["invoice"]
+        result["items"] = [json.loads(item["item_payload"]) for item in rows if item["item_payload"] is not None]
+        result["invoice"] = json.loads(invoice) if invoice else blank_shipment()["invoice"]
         return result
 
 

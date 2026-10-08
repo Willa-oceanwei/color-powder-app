@@ -36,6 +36,50 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert app.session_state['shipment_draft']['notes'] == '保留草稿'
 
 
+def test_view_reads_are_cached_and_purchase_history_is_on_demand(tmp_path, monkeypatch):
+    import utils.shipment_ui as ui
+    import utils.shipment_history_ui as history_ui
+    config = DatabaseConfig(backend='sqlite', path=tmp_path / 'history-ui.db')
+    initialize_database(config.path)
+    create_customer(config, CustomerInput('C01', 'Customer'))
+    doc = blank_shipment()
+    doc.update(customer_id='C01', customer_name='Customer')
+    doc['items'] = [dict(code='P1', name='Blue', quantity='2', unit='KG', price='100', order_number='', notes='')]
+    save_shipment(config, doc)
+    calls = {'records': 0, 'document': 0, 'history': 0}
+    for name, key in [('list_shipments', 'records'), ('get_shipment', 'document')]:
+        original = getattr(ui, name)
+        def count(*args, _key=key, _original=original, **kwargs):
+            calls[_key] += 1
+            return _original(*args, **kwargs)
+        monkeypatch.setattr(ui, name, count)
+    original_history = history_ui.customer_purchase_history
+    def read_history(*args, **kwargs):
+        calls['history'] += 1
+        return original_history(*args, **kwargs)
+    monkeypatch.setattr(history_ui, 'customer_purchase_history', read_history)
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    assert not app.exception and calls == {'records': 1, 'document': 1, 'history': 0}
+    app.toggle(key='shipment_print_preview').set_value(True).run()
+    assert not app.exception and calls == {'records': 1, 'document': 1, 'history': 0}
+    app.text_input(key='shipment_purchase_history_code').set_value('P1')
+    next(b for b in app.button if b.label == '搜尋歷程').click().run()
+    assert not app.exception and calls['history'] == 1
+    assert app.session_state['shipment_purchase_history_result'][3][0]['amount'] == '200'
+    app.button(key='shipment_edit').click().run()
+    assert not app.exception and calls['records'] == 1 and calls['document'] == 1
+    app.button(key='shipment_cancel').click().run()
+    assert not app.exception and calls['records'] == 2 and calls['document'] == 2
+    assert 'shipment_purchase_history_result' not in app.session_state
+
+
 def test_shipment_editor_save_cancel_and_navigation(tmp_path):
     config = DatabaseConfig(backend='sqlite', path=tmp_path / 'ui.db')
     initialize_database(config.path)
