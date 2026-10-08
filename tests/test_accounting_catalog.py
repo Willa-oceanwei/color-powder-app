@@ -340,6 +340,9 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert not app.exception
     assert app.session_state["shipment_draft"]["items"][0]["name"] == "藍"
     assert app.session_state["shipment_draft"]["items"][0]["unit"] == "包"
+    import json
+    columns = json.loads(app.dataframe[0].proto.columns)
+    assert all(not columns[key].get('disabled', False) for key in ('貨品編號', '品名', '單位', '採購單號', '附註說明'))
     assert len(calls) == warm
     app.button(key="shipment_reload_data").click().run()
     assert len(calls) > warm and len(app.session_state["shipment_draft"]["items"]) == 2

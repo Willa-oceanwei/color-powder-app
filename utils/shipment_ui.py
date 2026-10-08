@@ -340,6 +340,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 requested_item = dict(code=code, name=defaults.get("name") or chosen["name"], quantity=str(quantity), unit=unit,
                                       price=price, tax_exempt=bool(defaults.get("tax_exempt", False)), order_number="", notes="")
     frame = pd.DataFrame(source_items, columns=list(COLUMNS)).rename(columns=COLUMNS)
+    # Pandas 3 infers Arrow large_string; older Streamlit editors make it read-only.
+    for column in ("貨品編號", "品名", "單位", "採購單號", "附註說明"):
+        frame[column] = frame[column].fillna("").astype(object)
     frame["免稅"] = frame["免稅"].fillna(False).astype(bool)
     for column in ("數量", "單價"):
         frame[column] = pd.to_numeric(frame[column], errors="coerce").astype(float)
@@ -347,6 +350,10 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         grid_suffix = st.session_state.get("shipment_grid_epoch", 0)
         frame = st.data_editor(frame.drop(columns="金額"), key=prefix + "items" + (f"_{grid_suffix}" if grid_suffix else ""), num_rows="dynamic", height=185,
                                use_container_width=True, hide_index=True, column_config={
+                                   "貨品編號": st.column_config.TextColumn("貨品編號"),
+                                   "品名": st.column_config.TextColumn("品名"),
+                                   "單位": st.column_config.TextColumn("單位"),
+                                   "附註說明": st.column_config.TextColumn("附註說明"),
                                    "免稅": st.column_config.CheckboxColumn("免稅", default=False, width="small"),
                                    "採購單號": st.column_config.TextColumn("採購單號", width="medium"),
                                    "數量": st.column_config.NumberColumn("數量", min_value=0.001, step=0.001, format="%.15g"),
