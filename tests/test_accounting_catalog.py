@@ -45,6 +45,11 @@ def test_recipe_defaults_direct_code_and_price_precedence(config):
     raw = [dict(code="R1", name="", unit="", quantity=2, price="", notes="")]
     item = complete_items(config, shipment(), raw, [])[0]
     assert item["name"] == "藍" and item["unit"] == "包" and item["price"] == "0"
+    assert item["notes"] == ""
+    other_customer = complete_items(config, shipment(customer_id="C02"), raw, [])[0]
+    assert other_customer["name"] == "藍" and other_customer["unit"] == "包"
+    manual_notes = dict(raw[0], notes="客戶指定備註")
+    assert complete_items(config, shipment(), [manual_notes], [])[0]["notes"] == "客戶指定備註"
     product = product_from_recipe(refs[0])
     product["standard_price"] = "200"
     saved = save_product(config, product)
@@ -57,6 +62,7 @@ def test_recipe_defaults_direct_code_and_price_precedence(config):
     assert complete_items(config, shipment(), [item], [item]) == [item]
     changed = dict(item, code="R2")
     assert complete_items(config, shipment(), [changed], [item])[0]["name"] == "白"
+    assert complete_items(config, shipment(), [changed], [item])[0]["notes"] == ""
 
 
 def test_optional_bidirectional_sync_and_atomic_rollback(config):
@@ -117,6 +123,52 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert not app.exception and app.session_state["shipment_draft"]["tax_rate"] == "5"
     app.selectbox(key=key + "tax_mode").set_value("免稅").run()
     assert not app.exception and app.session_state["shipment_draft"]["tax_rate"] == "0"
+
+
+def test_invoice_dropdowns_tax_autofill_and_manual_override(config):
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0,{root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    app.button(key="shipment_new").click().run()
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
+    app.session_state[prefix + "items"] = {"edited_rows": {}, "deleted_rows": [], "added_rows": [
+        {"貨品編號": "R1", "品名": "藍", "單位": "包", "數量": 1.0, "單價": 1000.0}]}
+    app.run()
+    assert not app.exception
+    assert app.text_input(key=prefix + "invoice_amount").value == "50"
+    assert app.selectbox(key=prefix + "invoice_method").value == "隨單開立"
+    assert app.selectbox(key=prefix + "invoice_type").value == "三聯式"
+    app.selectbox(key=prefix + "tax_rate").set_value(0).run()
+    assert app.text_input(key=prefix + "invoice_amount").value == "0"
+    app.selectbox(key=prefix + "tax_rate").set_value(5).run()
+    assert app.text_input(key=prefix + "invoice_amount").value == "50"
+    app.text_input(key=prefix + "invoice_amount").set_value("75").run()
+    app.selectbox(key=prefix + "invoice_method").set_value("月結開立").run()
+    app.selectbox(key=prefix + "invoice_type").set_value("收銀機").run()
+    epoch = app.session_state["shipment_grid_epoch"]
+    app.session_state[prefix + "items" + (f"_{epoch}" if epoch else "")] = {
+        "edited_rows": {0: {"單價": 2000.0}} if epoch else {}, "deleted_rows": [],
+        "added_rows": [] if epoch else [{"貨品編號": "R1", "品名": "藍", "單位": "包", "數量": 1.0, "單價": 2000.0}]}
+    app.run()
+    assert not app.exception and app.text_input(key=prefix + "invoice_amount").value == "75"
+    app.button(key="shipment_save").click().run()
+    app.run()
+    assert not app.exception
+    from utils.shipment_repository import get_shipment
+    saved = get_shipment(config, app.session_state["shipment_selected"])
+    assert saved["tax_amount"] == "100" and saved["total_amount"] == "2100"
+    assert saved["invoice"] == dict(date="", number="", method="月結開立", type="收銀機", amount="75")
+    app.button(key="shipment_edit").click().run()
+    assert not app.exception
+    assert "shipment_draft" in app.session_state
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    assert app.text_input(key=prefix + "invoice_amount").value == "75"
 
 
 def test_report_exports_keep_totals_and_text_safe(config):
@@ -208,4 +260,7 @@ if st.session_state.menu == "出貨單":
     assert next(w for w in app.date_input if w.label == "出貨日期").value == date(2026, 10, 3)
     assert not any("Session State API" in w.value for w in app.warning)
     assert app.session_state["shipment_draft"]["items"][0]["unit"] == "包"
+    next(w for w in app.date_input if w.label == "出貨日期").set_value(None).run()
+    assert not app.exception
+    assert any("請輸入出貨日期" in w.value for w in app.error)
     assert not list_shipments(config)

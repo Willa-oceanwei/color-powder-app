@@ -75,14 +75,14 @@ def copy_shipment(document):
     return result
 
 
-def list_shipment_recipes(config, customer_id):
+def list_shipment_recipes(config, customer_id=None):
     """Load sales-facing recipe fields without powder/component data."""
-    if not customer_id:
+    if customer_id == "":
         return []
     with connect_from_config(config) as conn:
         return _mappings(conn.execute(
             "SELECT recipe_id,color,measurement_unit FROM recipes WHERE lifecycle_status='active' "
-            "AND (customer_id=? OR COALESCE(customer_id,'')='') ORDER BY recipe_id", (customer_id,)))
+            "AND (? IS NULL OR customer_id=? OR COALESCE(customer_id,'')='') ORDER BY recipe_id", (customer_id, customer_id)))
 
 
 def recent_shipment_price(config, customer_id, code, unit, *, shipment_date, tax_mode, exclude_id=""):
