@@ -39,6 +39,17 @@ class _PrintBody(HTMLParser):
             self.parts.append(escape(data))
 
 
+def paper_preview_height(content, *, document=False):
+    if document:
+        parser = _PrintBody()
+        parser.feed(content)
+        text = "".join(parser.parts)
+        lines = text.count("<br>") + text.count("\n") + 4
+    else:
+        lines = len((content or "").splitlines()) + 2
+    return max(220, min(380, 100 + lines * 21))
+
+
 def build_paper_preview(content, *, title, document=False):
     if document:
         body = _PrintBody()
@@ -53,12 +64,12 @@ def build_paper_preview(content, *, title, document=False):
 <title>''' + escape(title) + '''預覽</title><style>
 *{box-sizing:border-box}body{margin:0;color:#000;background:#e5e7eb;letter-spacing:0;font:16px Arial,"Microsoft JhengHei",sans-serif}
 .toolbar{display:flex;align-items:center;gap:10px;padding:8px}.toolbar select{font:inherit;min-height:38px;min-width:140px;padding:5px 10px;border-radius:4px}
-.stage{overflow:auto;padding:12px;height:520px}.paper{background:#fff;color:#000;width:210mm;min-height:148mm;padding:10mm;margin:0 auto;zoom:var(--scale,1)}
-.title{text-align:center;font:24px Arial,"Microsoft JhengHei",sans-serif;margin-bottom:16px}.timestamp{text-align:center;font:20px Arial,sans-serif;margin-bottom:2px}
-pre{white-space:pre-wrap;overflow-wrap:anywhere;font:18px/1.5 "Courier New","Microsoft JhengHei",monospace;margin:0}b.num{font-weight:normal}
-.paper .timestamp+.title{margin-bottom:22px}
+.stage{overflow:auto;padding:8px;height:300px}.paper{background:#fff;color:#000;width:210mm;padding:16px 24px;margin:0 auto;zoom:var(--scale,1)}
+.title{text-align:center;font:18px Arial,"Microsoft JhengHei",sans-serif;margin-bottom:10px}.timestamp{text-align:center;font:12px Arial,sans-serif;margin-bottom:2px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 "Courier New","Microsoft JhengHei",monospace;margin:0}b.num{font-weight:normal}
+.paper div[style]{font-size:14px!important}.paper .timestamp+.title{margin-bottom:12px}
 </style></head><body><div class="toolbar"><label for="zoom">縮放</label><select id="zoom" onchange="resize()">
-<option value="width">符合寬度</option><option value="page">整頁</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></div>
+<option value="width">符合寬度</option><option value="page" selected>完整內容</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></div>
 <div class="stage"><section class="paper">''' + paper + '''</section></div><script>
 const stage=document.querySelector('.stage'),paper=document.querySelector('.paper');
 function resize(){stage.style.height=Math.max(160,innerHeight-document.querySelector('.toolbar').offsetHeight)+'px';

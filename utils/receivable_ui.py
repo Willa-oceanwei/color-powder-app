@@ -37,10 +37,12 @@ def render_report(config):
         start = cols[2].date_input("起始帳款日期", value=today.replace(day=1))
         end = cols[3].date_input("結束帳款日期", value=today)
         hide_empty = st.toggle("本期未交易者不顯示", value=True)
+        paper = st.selectbox("紙張尺寸", ("依內容自動選擇", "A5", "A4"))
         submitted = st.form_submit_button("預覽", type="primary")
     if submitted:
         try:
-            pages = statement_pages(build_statements(config, start, end, lower, upper, hide_empty))
+            pages = statement_pages(build_statements(config, start, end, lower, upper, hide_empty),
+                                    paper_size="auto" if paper == "依內容自動選擇" else paper)
         except ShipmentError as error:
             st.error(str(error))
             st.session_state.pop("receivable_pages", None)
@@ -63,10 +65,10 @@ def render_report(config):
                    disabled=target < 0 or target >= len(pages) or target == index, use_container_width=True)
     controls[4].write(f"{index + 1} / {len(pages)} · {pages[index]['statement']['customer_id']}")
     html = render_statement_print(pages, selected=index, show_receipts=show_receipts)
-    controls[5].download_button("下載 A5 列印版", html, file_name="應收帳款明細表-A5.html", mime="text/html", use_container_width=True)
+    controls[5].download_button("下載列印版（A5／A4）", html, file_name="應收帳款明細表.html", mime="text/html", use_container_width=True)
     statements = list({p["statement"]["customer_id"]: p["statement"] for p in pages}.values())
     exports = st.columns([1, 1, 4])
-    exports[0].download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts), file_name="應收帳款明細表-A5.pdf", mime="application/pdf")
+    exports[0].download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts), file_name="應收帳款明細表.pdf", mime="application/pdf")
     exports[1].download_button("匯出 Excel", statement_excel(statements, show_receipts=show_receipts), file_name="應收帳款明細表.xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     components.html(render_statement_print(pages, selected=index, embedded=True, show_receipts=show_receipts), height=560, scrolling=True)

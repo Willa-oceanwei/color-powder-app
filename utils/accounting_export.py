@@ -70,37 +70,58 @@ def _line(pdf, x, y, text, width=100, size=10):
 
 
 def statement_pdf(pages, *, show_receipts=False):
+    from reportlab.lib.pagesizes import A4, A5, landscape
     buffer, pdf = _canvas("應收帳款明細表", a5=True)
     labels = ("單別", "交易日期", "交易單號", "貨品編號", "品名", "數量", "單位", "單價", "金額", "備註說明")
-    positions = (22, 45, 103, 174, 231, 333, 373, 401, 441, 492)
+    widths = (5, 11, 14, 11, 23, 7, 5, 7, 9, 8)
+    positions = [22 + sum(widths[:i]) * 5.51 for i in range(10)]
     for page in pages:
+        size = A4 if page.get("paper_size", "A5") == "A4" else landscape(A5)
+        pdf.setPageSize(size)
+        top = size[1]
         s = page["statement"]
         pdf.setFont("CompanySansTC", 17)
-        pdf.drawCentredString(297.5, 387, COMPANY["name"])
+        pdf.drawCentredString(297.5, top - 32, COMPANY["name"])
         pdf.setFont("MSung-Light", 12)
-        pdf.drawCentredString(297.5, 369, "應收帳款明細表")
-        _line(pdf, 22, 349, f"客戶：{s['customer_id']}  {s['customer_name']}", width=50, size=9)
-        _line(pdf, 476, 349, f"頁數 {page['customer_page']} / {page['customer_pages']}", size=9)
-        _line(pdf, 22, 329, f"聯絡人：{s.get('contact','')}  統一編號：{s.get('tax_id','')}", width=60, size=8)
-        _line(pdf, 323, 329, f"帳款區間：{s['start']} ~ {s['end']}", size=8)
-        _line(pdf, 22, 313, f"電話：{s.get('phone','')}  傳真：{s.get('fax','')}", width=60, size=8)
+        pdf.drawCentredString(297.5, top - 50, "應收帳款明細表")
+        _line(pdf, 22, top - 70, f"客戶名稱：{s['customer_id']}  {s['customer_name']}", width=60, size=10)
+        _line(pdf, 476, top - 70, f"頁數 {page['customer_page']} / {page['customer_pages']}", size=9)
+        _line(pdf, 22, top - 88, f"聯絡人：{s.get('contact','')}", width=32, size=9)
+        _line(pdf, 194, top - 88, f"統一編號：{s.get('tax_id','')}", width=32, size=9)
+        _line(pdf, 22, top - 104, f"聯絡電話：{s.get('phone','')}", width=32, size=9)
+        _line(pdf, 194, top - 104, f"傳真號碼：{s.get('fax','')}", width=32, size=9)
+        _line(pdf, 367, top - 104, f"帳款區間：{s['start'].replace('-', '/')} ~ {s['end'].replace('-', '/')}", size=8)
         if show_receipts:
-            _line(pdf, 323, 313, "收款狀態：依已登錄紀錄", size=8)
-        pdf.line(22, 302, 573, 302)
+            _line(pdf, 367, top - 88, "收款狀態：依已登錄紀錄", size=8)
+        pdf.line(22, top - 117, 573, top - 117)
         for x, label in zip(positions, labels):
-            _line(pdf, x, 290, label, size=8)
-        pdf.line(22, 283, 573, 283)
+            _line(pdf, x, top - 129, label, size=8)
+        pdf.line(22, top - 136, 573, top - 136)
+        spacing = 14 if page.get("paper_size") == "A4" else 12
+        previous_date = None
         for index, row in enumerate(page["rows"]):
-            for x, value in zip(positions, row):
-                _line(pdf, x, 270 - index * 12, value, width=100, size=7.5)
+            y = top - 149 - index * spacing
+            if row[0] and row[1] != previous_date:
+                if index:
+                    pdf.setDash(1, 2)
+                    pdf.line(22, y + 10, 573, y + 10)
+                    pdf.setDash()
+                previous_date = row[1]
+            pdf.setFont("MSung-Light", 8.5)
+            for column, (x, value) in enumerate(zip(positions, row)):
+                if column in (5, 7, 8):
+                    pdf.drawRightString(x + widths[column] * 5.51 - 3, y, str(value))
+                else:
+                    pdf.drawString(x, y, str(value))
         if page["last"]:
-            y = 270 - len(page["rows"]) * 12
+            y = top - 149 - len(page["rows"]) * spacing
             pdf.line(22, y, 573, y)
             quantity = "  ".join(f"{display_price(amount)} {unit}" for unit, amount in s["quantities"].items())
             _line(pdf, 22, y - 15, "數量合計：" + quantity, width=60, size=9)
-            totals = [("本期未稅合計", "net"), ("營業稅", "tax"), ("本期出貨總額", "total")]
+            totals = [("本期合計", "net"), ("（加）營業稅", "tax")]
             if show_receipts:
                 totals += [("截至期末已登錄收款", "received"), ("帳面未收餘額", "balance")]
+            totals += [("本期總計", "total")]
             for index, (label, key) in enumerate(totals):
                 pdf.setFont("MSung-Light", 9)
                 pdf.drawRightString(573, y - 15 - index * 14, f"{label}：{int(s[key]):,}")

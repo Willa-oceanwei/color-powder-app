@@ -8,7 +8,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from .shipment_catalog import shipment_choices, complete_items
+from .shipment_catalog import shipment_choices, complete_items, recent_item_defaults
 from .shipment_print import display_price
 from .accounting_widgets import widget_default, widget_index
 from .customer_repository import list_customers
@@ -19,7 +19,7 @@ from .shipment_repository import (
 )
 
 COLUMNS = {"code": "貨品編號", "name": "品名", "quantity": "數量", "unit": "單位",
-           "price": "單價", "amount": "金額", "order_number": "採購單號", "notes": "附註說明"}
+           "price": "單價", "amount": "金額", "tax_exempt": "免稅", "order_number": "採購單號", "notes": "附註說明"}
 
 # Scope overrides to this page, including the existing ERP's global CSS.
 COMPACT_STYLE = """
@@ -87,10 +87,11 @@ def _remember_print_settings():
     st.session_state.shipment_hide_preference = st.session_state.get("shipment_hide_prices", False)
 
 
-def _fill_product_unit(prefix, products, picker_key):
+def _fill_product_unit(prefix, products, picker_key, history):
     selected = st.session_state.get(picker_key, "")
     if selected in products:
-        st.session_state[prefix + "sale_unit"] = products[selected]["sales_unit"]
+        recent = recent_item_defaults(history, selected) or {}
+        st.session_state[prefix + "sale_unit"] = recent.get("unit") or products[selected]["sales_unit"]
 
 
 def _tax_changed(prefix, source):
@@ -108,7 +109,11 @@ def _invoice_amount_changed(prefix):
     st.session_state[prefix + "invoice_amount_manual"] = True
 
 
-def render_shipment_management(config):
+def render_shipment_management(config, *, start_new_on_entry=False):
+    if start_new_on_entry and not st.session_state.get("shipment_entry_ready"):
+        st.session_state.shipment_entry_ready = True
+        if "shipment_draft" not in st.session_state:
+            _begin(blank_shipment())
     st.markdown(COMPACT_STYLE, unsafe_allow_html=True)
     st.subheader("出貨單")
     notice = st.session_state.pop("shipment_notice", "")
@@ -150,7 +155,7 @@ def render_shipment_management(config):
                                             shipment_search_epoch=st.session_state.get("shipment_search_epoch", 0) + 1)
                     st.session_state.pop("shipment_selected", None)
                     st.rerun()
-    records = read("records", lambda: list_shipments(config, query=st.session_state.get("shipment_query", ""),
+    records = [] if editing else read("records", lambda: list_shipments(config, query=st.session_state.get("shipment_query", ""),
                              start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
                              include_void=st.session_state.get("shipment_include_void", False),
                              customer_start=st.session_state.get("shipment_customer_start", ""),
@@ -181,7 +186,7 @@ def render_shipment_management(config):
     document = draft or (get_shipment(config, ids[index]) if ids else None)
     if not editing and document:
         st.session_state.shipment_selected = document["id"]
-    tools = st.columns([1, 1, 1, 1, 1.1, 1, 1, 1, 1, .85])
+    tools = st.columns([1, 1, 1, 1, 1.1, 1, 1, .85])
     with tools[0]:
         if st.button("新增", key="shipment_new", disabled=editing, use_container_width=True):
             _begin(blank_shipment())
@@ -192,13 +197,12 @@ def render_shipment_management(config):
     if tools[3].button("取消", key="shipment_cancel", disabled=not editing, use_container_width=True):
         _finish("已取消修改")
     save_clicked = tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing, use_container_width=True)
-    for col, label, target in ((tools[5], "首筆", 0), (tools[6], "上一筆", index - 1),
-                               (tools[7], "下一筆", index + 1), (tools[8], "尾筆", len(ids) - 1)):
+    for col, label, target in ((tools[5], "上一筆", index - 1), (tools[6], "下一筆", index + 1)):
         if col.button(label, key="shipment_nav_" + label,
                       disabled=editing or not ids or target < 0 or target >= len(ids) or target == index, use_container_width=True):
             st.session_state.shipment_selected = ids[target]
             st.rerun()
-    tools[9].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{index + 1 if ids else 0} / {len(ids)}</span>', unsafe_allow_html=True)
+    tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{index + 1 if ids else 0} / {len(ids)}</span>', unsafe_allow_html=True)
     if editing:
         st.caption("編輯中 · 尚未儲存")
     if not document:
@@ -207,14 +211,16 @@ def render_shipment_management(config):
     if document.get("status") == "void":
         st.warning("已作廢：" + document.get("void_reason", ""))
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
-    print_controls = st.columns([1, 1, 3])
+    print_controls = st.columns([1, 1, 1, 2])
     preview = print_controls[0].toggle("預覽／列印", value=widget_default("shipment_print_preview", st.session_state.get("shipment_preview_preference", False)), key="shipment_print_preview", disabled=editing, on_change=_remember_print_settings)
     hide_prices = print_controls[1].toggle("隱藏單價與金額", value=widget_default("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False)), key="shipment_hide_prices", disabled=editing, on_change=_remember_print_settings)
-    sync_products = print_controls[2].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
+    layout = print_controls[2].selectbox("列印方向", ("橫式", "直式"), key="shipment_print_orientation")
+    orientation = "portrait" if layout == "直式" else "landscape"
+    sync_products = print_controls[3].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
                                             help="成交價依客戶、貨品與單位保存於出貨紀錄，不覆蓋共用標準售價")
     if preview and not editing:
-        print_html = printable_shipment(document, show_prices=not hide_prices)
-        print_controls[2].download_button("下載 A5 列印版", data=print_html,
+        print_html = printable_shipment(document, show_prices=not hide_prices, orientation=orientation)
+        print_controls[3].download_button("下載 A5 列印版", data=print_html,
                                           file_name=document["shipment_number"] + ("-無金額" if hide_prices else "") + ".html", mime="text/html")
         components.html(print_html, height=550, scrolling=True)
         return
@@ -301,21 +307,23 @@ def render_shipment_management(config):
     if editing:
         history_key = ("history", document["customer_id"], document["shipment_date"], document.get("id", ""))
         history = read(history_key, lambda: shipment_price_history(config, document["customer_id"],
-                       document["shipment_date"], document.get("id", "")))
+                       document["shipment_date"], document.get("id", ""))) if document["customer_id"] else []
         all_choices = read(("all_choices", document["customer_id"]),
-                           lambda: shipment_choices(config, document["customer_id"], all_recipes=True))
+                           lambda: shipment_choices(config, document["customer_id"], all_recipes=True)) if document["customer_id"] else {}
         with st.expander("加入貨品／配方", expanded=False):
-            choices = read(("choices", document["customer_id"]), lambda: shipment_choices(config, document["customer_id"]))
+            choices = {code: item for code, item in all_choices.items()
+                       if item.get("_recipe_customer", "") in ("", document["customer_id"])}
             picker, unit_col, quantity_col, add_col = st.columns([3, 1, 1, 1])
             picker_key = prefix + "recipe_picker_" + document["customer_id"]
             code = picker.selectbox("貨品／配方", [""] + list(choices),
                                     index=widget_index(picker_key, ""),
                                     format_func=lambda key: f"{key} · {choices[key]['name']}" if key else "請選擇貨品或配方",
-                                    key=picker_key, on_change=_fill_product_unit, args=(prefix, choices, picker_key))
+                                    key=picker_key, on_change=_fill_product_unit, args=(prefix, choices, picker_key, history))
             unit = unit_col.text_input("銷售單位", value=widget_default(prefix + "sale_unit", "KG"), key=prefix + "sale_unit").strip()
             quantity = quantity_col.number_input("加入數量", min_value=0.001, value=widget_default(prefix + "add_quantity", 1.0), step=1.0, format="%.15g", key=prefix + "add_quantity")
+            defaults = recent_item_defaults(history, code) or {}
             previous = recent_shipment_price(config, document["customer_id"], code, unit,
-                                             shipment_date=document["shipment_date"], tax_mode=document["tax_mode"],
+                                             shipment_date=document["shipment_date"], tax_mode="免稅" if defaults.get("tax_exempt") else document["tax_mode"],
                                              exclude_id=document.get("id", ""), history=history)
             chosen = choices.get(code)
             price = "0"
@@ -329,18 +337,21 @@ def render_shipment_management(config):
                 else:
                     st.caption("無相符單位或課稅方式的單價，加入後請自行填價")
             if add_col.button("加入", key="shipment_add_recipe", disabled=not code or not unit, use_container_width=True):
-                requested_item = dict(code=code, name=chosen["name"], quantity=str(quantity), unit=unit,
-                                      price=price, order_number="", notes="")
+                requested_item = dict(code=code, name=defaults.get("name") or chosen["name"], quantity=str(quantity), unit=unit,
+                                      price=price, tax_exempt=bool(defaults.get("tax_exempt", False)), order_number="", notes="")
     frame = pd.DataFrame(source_items, columns=list(COLUMNS)).rename(columns=COLUMNS)
+    frame["免稅"] = frame["免稅"].fillna(False).astype(bool)
     for column in ("數量", "單價"):
         frame[column] = pd.to_numeric(frame[column], errors="coerce").astype(float)
     if editing:
         grid_suffix = st.session_state.get("shipment_grid_epoch", 0)
         frame = st.data_editor(frame.drop(columns="金額"), key=prefix + "items" + (f"_{grid_suffix}" if grid_suffix else ""), num_rows="dynamic", height=185,
                                use_container_width=True, hide_index=True, column_config={
+                                   "免稅": st.column_config.CheckboxColumn("免稅", default=False, width="small"),
                                    "採購單號": st.column_config.TextColumn("採購單號", width="medium"),
                                    "數量": st.column_config.NumberColumn("數量", min_value=0.001, step=0.001, format="%.15g"),
                                    "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, format="%.15g")})
+        frame["免稅"] = frame["免稅"].fillna(False).astype(bool)
         raw_items = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
         document["items"] = complete_items(config, document, raw_items, document["items"], choices=all_choices, history=history)
         if document["items"] != raw_items:
@@ -441,7 +452,7 @@ def render_shipment_management(config):
             _finish("已儲存出貨單 " + saved["shipment_number"])
     if not editing:
         download, lifecycle = st.columns([1, 3])
-        download.download_button("下載列印版", data=printable_shipment(document, show_prices=not hide_prices), file_name=document["shipment_number"] + ".html", mime="text/html")
+        download.download_button("下載列印版", data=printable_shipment(document, show_prices=not hide_prices, orientation=orientation), file_name=document["shipment_number"] + ".html", mime="text/html")
         if document["status"] == "draft":
             with lifecycle.expander("作廢出貨單"):
                 with st.form("shipment_void_" + document["id"]):

@@ -75,6 +75,43 @@ def test_reference_totals_and_half_up():
         assert calculate(d['items'], mode, '5')['tax_amount'] == '0'
 
 
+@pytest.mark.parametrize('mode,expected', [('外加', ('200', '5', '205')), ('內含', ('195', '5', '200')), ('免稅', ('200', '0', '200'))])
+def test_mixed_line_exemption(mode, expected):
+    items = [dict(quantity='1', price='100'), dict(quantity='1', price='100', tax_exempt=True)]
+    totals = calculate(items, mode, '5')
+    assert tuple(totals[key] for key in ('net_amount', 'tax_amount', 'total_amount')) == expected
+
+
+def test_line_exemption_roundtrip_history_and_copy(config):
+    from utils.shipment_repository import shipment_price_history
+    d = document()
+    d['items'][0]['tax_exempt'] = True
+    saved = save_shipment(config, d)
+    assert saved['tax_amount'] == '1205'
+    assert get_shipment(config, saved['id'])['items'][0]['tax_exempt'] is True
+    assert copy_shipment(saved)['items'][0]['tax_exempt'] is True
+    history = shipment_price_history(config, 'C01', '2026-10-01')
+    row = next(row for row in history if row['code'] == '69570M')
+    assert row['tax_mode'] == '免稅' and row['tax_exempt'] == 1
+    assert recent_shipment_price(config, 'C01', '69570M', 'KG', shipment_date='2026-10-01', tax_mode='免稅')['price'] == '260'
+
+
+def test_invalid_line_exemption_is_rejected():
+    with pytest.raises(ShipmentError, match='免稅'):
+        calculate([dict(quantity='1', price='10', tax_exempt='false')], '外加', '5')
+
+
+@pytest.mark.parametrize('orientation,dimensions', [('portrait', 'width:148mm;height:210mm'), ('landscape', 'width:210mm;height:148mm')])
+def test_print_orientation_and_shared_address_invoice_row(config, orientation, dimensions):
+    d = document()
+    d['invoice'].update(number='AB123', date='2026-10-01')
+    html = printable_shipment(save_shipment(config, d), orientation=orientation)
+    assert f'size:A5 {orientation}' in html and dimensions in html
+    assert 'font-size:19pt' in html
+    assert '<div class="delivery-row"><div>送貨地址：' in html
+    assert '</div><div class="invoice-number">發票號碼：AB123</div></div>' in html
+
+
 @pytest.mark.parametrize('quantity,price,rate', [('0', '1', '5'), ('NaN', '1', '5'),
                         ('1', '-1', '5'), ('1', '1', '101'), ('1.0001', '1', '5')])
 def test_reject_invalid_numbers(quantity, price, rate):

@@ -30,30 +30,36 @@ def display_price(value):
     return text.rstrip('0').rstrip('.') if '.' in text else text
 
 
-def render_shipment_print(document, *, show_prices=True):
+def render_shipment_print(document, *, show_prices=True, orientation="landscape"):
+    if orientation not in ("landscape", "portrait"):
+        raise ValueError("Invalid print orientation")
+    portrait = orientation == "portrait"
+    capacity = 14 if portrait else 7
     fields = [('code', '貨品編號', 16), ('name', '品名', 38), ('quantity', '數量', 10), ('unit', '單位', 6)]
     if show_prices:
         fields.extend([('price', '單價', 12), ('amount', '金額', 14)])
     fields.append(('order_number', '採購單號', 20 if show_prices else 30))
+    if portrait:
+        fields = [(key, label, max(6, int(width * .67))) for key, label, width in fields]
     pages, page_rows, used = [], [], 0
     for item in document['items']:
         cells = [_wrap(display_price(item[key]) if key in ('price', 'quantity') else
                        f"{int(item[key]):,}" if key == 'amount' else item.get(key, ''), width) for key, _, width in fields]
         if item.get('notes'):
-            cells[1].extend(_wrap(item['notes'], 38))
+            cells[1].extend(_wrap(item['notes'], fields[1][2]))
         height = max(map(len, cells))
         offset = 0
         while offset < height:
-            if used == 7:
+            if used == capacity:
                 pages.append(page_rows)
                 page_rows, used = [], 0
-            take = min(height - offset, 7 - used)
+            take = min(height - offset, capacity - used)
             page_rows.append([cell[offset:offset + take] for cell in cells])
             used += take
             offset += take
     if page_rows or not pages:
         pages.append(page_rows)
-    notes = _wrap(document.get('notes', ''), 65)
+    notes = _wrap(document.get('notes', ''), 40 if portrait else 65)
     note_pages = [notes[index:index + 3] for index in range(0, len(notes), 3)]
     while len(pages) < len(note_pages):
         pages.append([])
@@ -63,6 +69,8 @@ def render_shipment_print(document, *, show_prices=True):
         table_rows = ''.join('<tr>' + ''.join(f'<td class="{key}">' + '<br>'.join(_text(line) for line in cell) + '</td>' for (key, _, _), cell in zip(fields, row)) + '</tr>' for row in rows)
         headings = ''.join(f'<th class="{key}">{label}</th>' for key, label, _ in fields)
         widths = (13, 34, 7, 6, 10, 12, 18) if show_prices else (16, 43, 9, 8, 24)
+        if portrait:
+            widths = (16, 29, 9, 8, 10, 14, 14) if show_prices else (20, 39, 11, 10, 20)
         columns = ''.join(f'<col style="width:{width}%">' for width in widths)
         total = ''
         if show_prices and page_index == len(pages) - 1:
@@ -75,13 +83,13 @@ def render_shipment_print(document, *, show_prices=True):
 <div>客戶名稱：{_text(document['customer_id'])}　{_text(document['customer_name'])}</div>
 <div class="pair"><span>聯絡人：{_text(document.get('contact', ''))}</span><span>統一編號：{_text(document.get('tax_id', ''))}</span></div>
 <div class="pair"><span>聯絡電話：{_text(document.get('phone', ''))}</span><span>傳真號碼：{_text(document.get('fax', ''))}</span></div>
-<div>送貨地址：{_text(document.get('address', ''))}</div></div>
-<div><div>頁　次：{page_index + 1} / {len(pages)}</div><div>貨單日期：{_text(document['shipment_date'].replace('-', '/'))}</div><div>貨單編號：{_text(document['shipment_number'])}</div><div class="invoice-number">發票號碼：{_text(invoice.get('number', ''))}</div></div></div>
+</div><div><div>頁　次：{page_index + 1} / {len(pages)}</div><div>貨單日期：{_text(document['shipment_date'].replace('-', '/'))}</div><div>貨單編號：{_text(document['shipment_number'])}</div></div></div>
+<div class="delivery-row"><div>送貨地址：{_text(document.get('address', ''))}</div><div class="invoice-number">發票號碼：{_text(invoice.get('number', ''))}</div></div>
 <table><colgroup>{columns}</colgroup><thead><tr>{headings}</tr></thead><tbody>{table_rows}</tbody></table>
 <div class="end-marker">--------------以下空白--------------</div>
 <footer><div class="footer-top"><div class="notes">備註：{footer_note}</div>{total}</div><div class="signatures"><span>審核：</span><span>經辦：</span><strong>簽收：</strong></div></footer>
 </section>''')
-    return '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>出貨單</title>
+    html = '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>出貨單</title>
 <style>
 @page {size:A5 landscape;margin:0;}
 * {box-sizing:border-box;}
@@ -92,11 +100,11 @@ body {margin:0;background:#e5e7eb;color:#000;font-family:"Microsoft JhengHei","N
 .sheet:last-child {break-after:auto;page-break-after:auto;}
 header {display:grid;grid-template-columns:1fr 48mm;gap:4mm;min-height:18mm;line-height:5mm;}
 header h1,header h2 {font-family:"DFKai-SB","BiauKai","KaiTi",serif;}
-h1 {margin:0;font-size:18pt;font-weight:700;line-height:7mm;}
+h1 {margin:0;font-size:19pt;font-weight:700;line-height:7mm;}
 h2 {display:flex;justify-content:space-between;align-items:start;margin:3mm 2mm 0 0;font-size:19pt;font-weight:400;line-height:9mm;}
 .company-address {font-size:9pt;}
 .metadata {display:grid;grid-template-columns:1fr 48mm;gap:4mm;margin:2mm 0;line-height:5.5mm;overflow-wrap:anywhere;}
-.invoice-number {margin-top:5.5mm;}
+.delivery-row {display:grid;grid-template-columns:1fr 48mm;gap:4mm;line-height:5.5mm;margin-bottom:2mm;overflow-wrap:anywhere;}
 .pair {display:grid;grid-template-columns:1fr 1fr;gap:2mm;}
 table {width:100%;border-collapse:collapse;table-layout:fixed;line-height:5.5mm;font-variant-numeric:tabular-nums;}
 th {font-weight:400;text-align:left;border-top:.3mm solid #000;border-bottom:.3mm solid #000;}
@@ -111,3 +119,8 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
 @media screen {.sheet{zoom:.86;}}
 @media print {body{background:#fff;}.sheet{margin:0;zoom:1;}.print-toolbar{display:none;}}
 </style></head><body><div class="print-toolbar"><button onclick="window.print()">列印 A5</button></div>''' + ''.join(output) + '</body></html>'
+    if portrait:
+        html = html.replace("size:A5 landscape", "size:A5 portrait").replace("width:210mm;height:148mm", "width:148mm;height:210mm")
+        html = html.replace("font-size:12pt", "font-size:9pt").replace("1fr 48mm", "1fr 40mm")
+        html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:9pt;line-height:4.5mm}header{font-size:9pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
+    return html

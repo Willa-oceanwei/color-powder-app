@@ -23,7 +23,7 @@ from utils.number_format import format_optional_decimals
 from utils.shipment_ui import render_shipment_management
 from utils.product_ui import render_product_management
 from utils.receivable_ui import render_receivable_statement
-from utils.paper_preview import build_paper_preview
+from utils.paper_preview import build_paper_preview, paper_preview_height
 from utils.inventory_audit import (
     duplicate_initial_inventory_sync_ids,
     latest_initial_inventory_record,
@@ -3174,9 +3174,11 @@ if "menu" not in st.session_state:
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 page_render_started_at = time.perf_counter()
 log_performance("menu_selected", page_render_started_at, menu=menu)
+if menu != "出貨單":
+    st.session_state.pop("shipment_entry_ready", None)
 
 if menu == "出貨單":
-    render_shipment_management(DATABASE_CONFIG)
+    render_shipment_management(DATABASE_CONFIG, start_new_on_entry=True)
 elif menu == "貨品":
     render_product_management(DATABASE_CONFIG)
 elif menu in ("應收帳款明細表", "客戶交易明細"):
@@ -3971,7 +3973,7 @@ elif menu == "配方管理":
                         {"配方編號": recipe_row_preview.get("配方編號")},
                         recipe_row_preview
                     )
-                    components.html(build_paper_preview(preview_text_recipe, title="配方"), height=580, scrolling=False)
+                    components.html(build_paper_preview(preview_text_recipe, title="配方"), height=paper_preview_height(preview_text_recipe), scrolling=False)
 
                     col_left, col_right = st.columns(2)
                     with col_left:
@@ -6927,7 +6929,7 @@ elif menu == "生產單管理":
                     )
     
                 components.html(build_paper_preview(preview_a5_data.decode("utf-8"), title="生產單", document=True),
-                                height=580, scrolling=False)
+                                height=paper_preview_height(preview_a5_data.decode("utf-8"), document=True), scrolling=False)
 
             with manage_tab:
                 is_cancelled = order_dict.get("取消狀態", "有效") == "已取消"

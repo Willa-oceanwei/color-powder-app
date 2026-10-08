@@ -7,6 +7,30 @@ from utils.database import DatabaseConfig, initialize_database
 from utils.shipment_repository import blank_shipment, get_shipment, list_shipments, save_shipment
 
 
+def test_entry_defaults_new_without_reloading_saved_documents(tmp_path, monkeypatch):
+    import utils.shipment_ui as ui
+    config = DatabaseConfig(backend='sqlite', path=tmp_path / 'entry.db')
+    initialize_database(config.path)
+    def no_list(*args, **kwargs):
+        raise AssertionError('Draft editing must not read all shipment records')
+    monkeypatch.setattr(ui, 'list_shipments', no_list)
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})), start_new_on_entry=True)
+''').run(timeout=30)
+    assert not app.exception
+    assert app.button(key='shipment_new').disabled and not app.button(key='shipment_save').disabled
+    assert not any(widget.label in ('首筆', '尾筆') for widget in app.button)
+    epoch = app.session_state['shipment_epoch']
+    next(w for w in app.text_area if w.label == '備註').set_value('保留草稿').run()
+    assert not app.exception and app.session_state['shipment_epoch'] == epoch
+    assert app.session_state['shipment_draft']['notes'] == '保留草稿'
+
+
 def test_shipment_editor_save_cancel_and_navigation(tmp_path):
     config = DatabaseConfig(backend='sqlite', path=tmp_path / 'ui.db')
     initialize_database(config.path)
@@ -70,7 +94,8 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     app.toggle(key='shipment_print_preview').set_value(True).run()
     assert not app.exception
     app.toggle(key='shipment_hide_prices').set_value(True).run()
-    app.button(key='shipment_nav_首筆').click().run()
+    app.button(key='shipment_nav_上一筆').click().run()
+    app.button(key='shipment_nav_上一筆').click().run()
     assert not app.exception
     assert app.toggle(key='shipment_print_preview').value
     assert app.toggle(key='shipment_hide_prices').value
