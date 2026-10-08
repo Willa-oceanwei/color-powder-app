@@ -96,7 +96,7 @@ def test_optional_bidirectional_sync_and_atomic_rollback(config):
 
 
 def test_unit_change_refreshes_customer_history_price(config):
-    history = shipment("350")
+    history = shipment("350", tax_mode="免稅", tax_rate="0")
     history["items"][0]["unit"] = "桶"
     save_shipment(config, history)
     document = shipment(shipment_date="2026-10-02")
@@ -111,7 +111,7 @@ def test_unit_change_refreshes_customer_history_price(config):
 
 
 def test_add_recipe_with_manually_selected_sales_unit_uses_history(config):
-    history = shipment("350")
+    history = shipment("350", tax_mode="免稅", tax_rate="0")
     history["items"][0]["unit"] = "桶"
     save_shipment(config, history)
     root = str(Path(__file__).resolve().parents[1])
@@ -134,6 +134,9 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     item = app.session_state["shipment_draft"]["items"][0]
     assert item["unit"] == "桶" and str(item["price"]) in ("350", "350.0")
     assert item["notes"] == ""
+    app.selectbox(key=prefix + "tax_rate").set_value(0).run()
+    assert app.session_state["shipment_draft"]["tax_mode"] == "免稅"
+    assert str(app.session_state["shipment_draft"]["items"][0]["price"]) in ("350", "350.0")
 
 
 @pytest.mark.parametrize("value,expected", [("260.000", "260"), ("260.500", "260.5"), ("0.000", "0"), ("1000000.125", "1000000.125")])

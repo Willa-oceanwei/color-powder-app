@@ -89,6 +89,9 @@ def recent_shipment_price(config, customer_id, code, unit, *, shipment_date, tax
     """Use saved, non-void documents on or before the new shipment date."""
     if not all((customer_id, code, unit)):
         return None
+    # Exempt and externally taxed lines both store a tax-exclusive unit price.
+    compatible_modes = ("外加", "免稅", "零稅率") if tax_mode in ("外加", "免稅", "零稅率") else (tax_mode,)
+    placeholders = ",".join("?" for _ in compatible_modes)
     with connect_from_config(config) as conn:
         return _mapping(conn.execute(
             "SELECT json_extract(i.payload_json,'$.price') AS price,s.shipment_number,s.shipment_date "
@@ -96,9 +99,9 @@ def recent_shipment_price(config, customer_id, code, unit, *, shipment_date, tax
             "WHERE s.status='draft' AND s.customer_id=? AND s.id<>? AND s.shipment_date<=? "
             "AND UPPER(TRIM(json_extract(i.payload_json,'$.code')))=UPPER(TRIM(?)) "
             "AND UPPER(TRIM(json_extract(i.payload_json,'$.unit')))=UPPER(TRIM(?)) "
-            "AND json_extract(s.payload_json,'$.tax_mode')=? "
+            f"AND json_extract(s.payload_json,'$.tax_mode') IN ({placeholders}) "
             "ORDER BY s.shipment_date DESC,s.created_at DESC,s.shipment_number DESC,i.line_number DESC LIMIT 1",
-            (customer_id, exclude_id or "", shipment_date, code, unit, tax_mode)))
+            (customer_id, exclude_id or "", shipment_date, code, unit, *compatible_modes)))
 
 
 def _valid_date(value, label, optional=False):

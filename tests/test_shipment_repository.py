@@ -52,6 +52,20 @@ def test_customer_recipe_unit_price_history(config):
     assert recent_shipment_price(config, 'C01', '69570M', 'KG', **args)['shipment_number'] == first['shipment_number']
 
 
+@pytest.mark.parametrize("saved_mode", ["外加", "免稅", "零稅率", "內含"])
+@pytest.mark.parametrize("new_mode", ["外加", "免稅", "零稅率", "內含"])
+def test_history_price_respects_tax_price_basis(config, saved_mode, new_mode):
+    original = document()
+    original.update(tax_mode=saved_mode, tax_rate="0" if saved_mode in ("免稅", "零稅率") else "5")
+    save_shipment(config, original)
+    history = recent_shipment_price(config, "C01", "69570M", "KG",
+                                    shipment_date="2026-10-01", tax_mode=new_mode)
+    compatible = (saved_mode == "內含") == (new_mode == "內含")
+    assert bool(history) == compatible
+    if compatible:
+        assert history["price"] == "260"
+
+
 def test_reference_totals_and_half_up():
     d = document()
     assert calculate(d['items'], '外加', '5')['total_amount'] == '38955'
