@@ -155,7 +155,16 @@ render_product_management(DatabaseConfig(backend="sqlite",path=Path({str(config.
     assert not app.exception and get_product(config, "R1")["standard_price"] == "260.0"
 
 
-def test_navigation_retains_shipment_grid_and_inputs(config):
+def test_navigation_retains_shipment_grid_and_inputs(config, monkeypatch):
+    from streamlit.elements.lib import policies
+    check = policies.check_session_state_rules
+
+    def check_every_widget(*args, **kwargs):
+        # Streamlit normally shows this warning only once per process.
+        policies._shown_default_value_warning = False
+        return check(*args, **kwargs)
+
+    monkeypatch.setattr(policies, "check_session_state_rules", check_every_widget)
     root = Path(__file__).resolve().parents[1]
     tree = ast.parse((root / "app.py").read_text(encoding="utf-8"))
     sidebar = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "render_sidebar")
@@ -175,18 +184,28 @@ if st.session_state.menu == "出貨單":
     app.button(key="出貨單").click().run()
     app.button(key="shipment_new").click().run()
     next(w for w in app.selectbox if w.label == "客戶").set_value("C01").run()
+    date_widget_id = next(w for w in app.date_input if w.label == "出貨日期").proto.id
+    address_widget_id = next(w for w in app.text_input if w.label == "送貨地址").proto.id
     next(w for w in app.text_input if w.label == "送貨地址").set_value("草稿地址").run()
+    from datetime import date
+    next(w for w in app.date_input if w.label == "出貨日期").set_value(date(2026, 10, 3)).run()
+    assert next(w for w in app.date_input if w.label == "出貨日期").proto.id == date_widget_id
+    assert next(w for w in app.text_input if w.label == "送貨地址").proto.id == address_widget_id
+    assert not any("Session State API" in w.value for w in app.warning)
     epoch = app.session_state["shipment_epoch"]
     app.session_state[f"shipment_{epoch}_items"] = {"edited_rows": {}, "deleted_rows": [], "added_rows": [
         {"貨品編號": "R1", "數量": 1.0}]}
     app.run()
     assert not app.exception
     assert app.session_state["shipment_draft"]["items"][0]["name"] == "藍"
+    assert not any("Session State API" in w.value for w in app.warning)
     app.button(key="客戶名單").click().run()
     assert not app.exception and app.session_state["menu"] == "客戶名單"
     app.run()
     app.button(key="出貨單").click().run()
     assert not app.exception
     assert next(w for w in app.text_input if w.label == "送貨地址").value == "草稿地址"
+    assert next(w for w in app.date_input if w.label == "出貨日期").value == date(2026, 10, 3)
+    assert not any("Session State API" in w.value for w in app.warning)
     assert app.session_state["shipment_draft"]["items"][0]["unit"] == "包"
     assert not list_shipments(config)

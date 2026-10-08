@@ -51,7 +51,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     epoch = app.session_state['shipment_epoch']
     app.session_state[f'shipment_{epoch}_items'] = {
         'edited_rows': {}, 'added_rows': [{'貨品編號': 'P2', '品名': '白', '數量': 2.0,
-                                        '單位': '包', '單價': 280.0, '訂單編號': '', '附註說明': ''}],
+                                        '單位': '包', '單價': 280.0, '採購單號': 'PO-002', '附註說明': ''}],
         'deleted_rows': [],
     }
     app.run()
@@ -63,6 +63,9 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert len(list_shipments(config)) == 3
     created = get_shipment(config, app.session_state['shipment_selected'])
     assert created['items'][0]['amount'] == '560'
+    assert created['items'][0]['order_number'] == 'PO-002'
+    from utils.shipment_repository import printable_shipment
+    assert 'PO-002' in printable_shipment(created)
     assert created['notes'] == '新單'
     app.toggle(key='shipment_print_preview').set_value(True).run()
     assert not app.exception
