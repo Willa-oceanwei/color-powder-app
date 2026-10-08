@@ -224,10 +224,48 @@ def test_report_exports_keep_totals_and_text_safe(config):
     assert workbook["交易明細"]["F2"].value.startswith("=HYPERLINK")
     assert workbook["交易明細"]["F2"].data_type == "s"
     assert workbook["客戶合計"]["G2"].value == 263
+    assert workbook["客戶合計"].max_column == 7
+    assert load_workbook(BytesIO(statement_excel(statements, show_receipts=True)))["客戶合計"].max_column == 9
     pdf = statement_pdf(statement_pages(statements))
     assert pdf.startswith(b"%PDF") and b"/UniCNS-UCS2-H" in pdf
+    assert b"595.2756 419.5276" in pdf
     assert ranking_pdf(statements).startswith(b"%PDF")
     assert load_workbook(BytesIO(ranking_excel(statements))).active["E2"].value == 250
+
+
+def test_shipment_editing_reuses_reads_and_direct_grid_autofill(config, monkeypatch):
+    import utils.shipment_ui as ui
+    calls = []
+    for name in ("list_customers", "list_shipments", "shipment_choices", "shipment_price_history"):
+        original = getattr(ui, name)
+        def wrapped(*args, _name=name, _original=original, **kwargs):
+            calls.append(_name)
+            return _original(*args, **kwargs)
+        monkeypatch.setattr(ui, name, wrapped)
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0,{root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    app.button(key="shipment_new").click().run()
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
+    warm = len(calls)
+    app.text_input(key=prefix + "address").set_value("送貨地址").run()
+    app.text_area(key=prefix + "notes").set_value("備註").run()
+    app.selectbox(key=prefix + "tax_rate").set_value(0).run()
+    app.session_state[prefix + "items"] = {"edited_rows": {}, "deleted_rows": [], "added_rows": [
+        {"貨品編號": "R1", "數量": 2.0}, {"貨品編號": "R2", "數量": 1.0}]}
+    app.run()
+    assert not app.exception
+    assert app.session_state["shipment_draft"]["items"][0]["name"] == "藍"
+    assert app.session_state["shipment_draft"]["items"][0]["unit"] == "包"
+    assert len(calls) == warm
+    app.button(key="shipment_reload_data").click().run()
+    assert len(calls) > warm and len(app.session_state["shipment_draft"]["items"]) == 2
 
 
 def test_product_recipe_ui_and_hidden_old_fields(config):

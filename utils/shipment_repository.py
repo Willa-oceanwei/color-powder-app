@@ -85,12 +85,31 @@ def list_shipment_recipes(config, customer_id=None):
             "AND (? IS NULL OR customer_id=? OR COALESCE(customer_id,'')='') ORDER BY recipe_id", (customer_id, customer_id)))
 
 
-def recent_shipment_price(config, customer_id, code, unit, *, shipment_date, tax_mode, exclude_id=""):
+def shipment_price_history(config, customer_id, shipment_date, exclude_id=""):
+    """Load customer-scoped price rows once for an editing snapshot."""
+    if not customer_id or not shipment_date:
+        return []
+    with connect_from_config(config) as conn:
+        return _mappings(conn.execute(
+            "SELECT json_extract(i.payload_json,'$.code') AS code,"
+            "json_extract(i.payload_json,'$.unit') AS unit,json_extract(i.payload_json,'$.price') AS price,"
+            "json_extract(s.payload_json,'$.tax_mode') AS tax_mode,s.shipment_number,s.shipment_date "
+            "FROM shipment_orders s JOIN shipment_order_items i ON i.shipment_id=s.id "
+            "WHERE s.status='draft' AND s.customer_id=? AND s.id<>? AND s.shipment_date<=? "
+            "ORDER BY s.shipment_date DESC,s.created_at DESC,s.shipment_number DESC,i.line_number DESC",
+            (customer_id, exclude_id or "", shipment_date)))
+
+
+def recent_shipment_price(config, customer_id, code, unit, *, shipment_date, tax_mode, exclude_id="", history=None):
     """Use saved, non-void documents on or before the new shipment date."""
     if not all((customer_id, code, unit)):
         return None
     # Exempt and externally taxed lines both store a tax-exclusive unit price.
     compatible_modes = ("外加", "免稅", "零稅率") if tax_mode in ("外加", "免稅", "零稅率") else (tax_mode,)
+    if history is not None:
+        return next((row for row in history if str(row["code"]).strip().upper() == code.strip().upper()
+                     and str(row["unit"]).strip().upper() == unit.strip().upper()
+                     and row["tax_mode"] in compatible_modes), None)
     placeholders = ",".join("?" for _ in compatible_modes)
     with connect_from_config(config) as conn:
         return _mapping(conn.execute(

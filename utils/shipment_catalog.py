@@ -19,10 +19,10 @@ def shipment_choices(config, customer_id, *, all_recipes=False):
     return choices
 
 
-def item_price(config, document, code, unit, product):
+def item_price(config, document, code, unit, product, *, history=None):
     previous = recent_shipment_price(config, document["customer_id"], code, unit,
                                      shipment_date=document["shipment_date"], tax_mode=document["tax_mode"],
-                                     exclude_id=document.get("id", ""))
+                                     exclude_id=document.get("id", ""), history=history)
     if previous:
         return str(previous["price"])
     if product["sales_unit"].upper() == unit.upper() and product["tax_mode"] == document["tax_mode"]:
@@ -30,7 +30,7 @@ def item_price(config, document, code, unit, product):
     return "0"
 
 
-def complete_items(config, document, items, previous, *, choices=None):
+def complete_items(config, document, items, previous, *, choices=None, history=None):
     if choices is None:
         choices = shipment_choices(config, document["customer_id"], all_recipes=True)
     result = deepcopy(items)
@@ -52,7 +52,7 @@ def complete_items(config, document, items, previous, *, choices=None):
         except InvalidOperation:
             pass
         if item.get("price", "") == "" or same_price:
-            item["price"] = item_price(config, document, code, item["unit"], match)
+            item["price"] = item_price(config, document, code, item["unit"], match, history=history)
     return result
 
 
