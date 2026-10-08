@@ -91,6 +91,7 @@ body {margin:0;background:#e5e7eb;color:#000;font-family:"Microsoft JhengHei","N
 .sheet {width:210mm;height:148mm;padding:9mm 10mm;background:#fff;position:relative;margin:10px auto;break-after:page;page-break-after:always;}
 .sheet:last-child {break-after:auto;page-break-after:auto;}
 header {display:grid;grid-template-columns:1fr 48mm;gap:4mm;min-height:18mm;line-height:5mm;}
+header h1,header h2 {font-family:"DFKai-SB","BiauKai","KaiTi",serif;}
 h1 {margin:0;font-size:18pt;font-weight:700;line-height:7mm;}
 h2 {display:flex;justify-content:space-between;align-items:start;margin:3mm 2mm 0 0;font-size:19pt;font-weight:400;line-height:9mm;}
 .company-address {font-size:9pt;}
