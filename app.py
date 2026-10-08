@@ -123,7 +123,7 @@ from utils.trial_repository import (
 )
 from utils.recipe_page_data import (
     invalidate_recipe_powders, load_recipe_powders, recipe_powder_dataframe,
-    remember_recipe_powders,
+    remember_recipe_powders, recipe_preview_labels, begin_recipe_preview_edit,
 )
 from utils.recipe_repository import (
     RecipeAlreadyExists,
@@ -2133,9 +2133,13 @@ def calculate_shipment_display(order_row, recipe_df):
 
     unit = str(order_row.get("計量單位", "") or "").strip()
     category = str(order_row.get("色粉類別", "") or "").strip()
-    try:
-        recipe_records = recipe_df.to_dict("records")
-    except AttributeError:
+    if hasattr(recipe_df, "columns"):
+        # Convert only the matching recipe, not the entire master for every order.
+        matching = recipe_df[
+            recipe_df["配方編號"].fillna("").astype(str).str.strip() == formula_id
+        ] if "配方編號" in recipe_df.columns else recipe_df.iloc[:0]
+        recipe_records = [matching.iloc[0].to_dict()] if not matching.empty else []
+    else:
         recipe_records = recipe_df or []
     try:
         recipe = next(
@@ -3912,12 +3916,7 @@ elif menu == "配方管理":
                 st.session_state["last_selected_recipe_code_tab3"] = ""
 
             recipe_codes = [""] + sorted(df_recipe["配方編號"].dropna().unique().tolist())
-            code_label_map = {
-                code: "" if code == "" else " | ".join(
-                    df_recipe[df_recipe["配方編號"] == code][["配方編號", "顏色", "客戶名稱"]].iloc[0].astype(str)
-                )
-                for code in recipe_codes
-            }
+            code_label_map = recipe_preview_labels(df_recipe)
             recipe_filter_text = st.text_input(
                 " ",
                 value="",
@@ -3977,10 +3976,9 @@ elif menu == "配方管理":
 
                     col_left, col_right = st.columns(2)
                     with col_left:
-                        if st.button("✏️ 修改", key=f"edit_recipe_btn_tab3_{selected_code}"):
-                            st.session_state.show_edit_recipe_panel = True
-                            st.session_state.editing_recipe_code    = selected_code
-                            st.rerun()
+                        st.button("✏️ 修改", key=f"edit_recipe_btn_tab3_{selected_code}",
+                                  on_click=begin_recipe_preview_edit,
+                                  args=(st.session_state, selected_code))
                     with col_right:
                         is_active = recipe_row_preview.get("生命週期", "active") == "active"
                         if st.button("⏸️ 停用配方" if is_active else "▶️ 恢復配方", key=f"toggle_recipe_btn_tab3_{selected_code}"):
@@ -4472,14 +4470,7 @@ elif menu == "配方管理":
                 active_recipe_df["配方編號"].dropna().astype(str).unique().tolist()
             )
 
-            recipe_option_labels = {
-                code: " | ".join(
-                    df_recipe[df_recipe["配方編號"] == code][
-                        ["配方編號", "顏色", "客戶名稱"]
-                    ].iloc[0].astype(str)
-                )
-                for code in recipe_options
-            }
+            recipe_option_labels = recipe_preview_labels(df_recipe)
 
             # ---------------------------
             # SEARCH BOX ONLY
@@ -6804,9 +6795,6 @@ elif menu == "生產單管理":
             if not df_filtered_tab3.empty:
                 # 新增出貨數量欄位
                 df_display_tab3 = df_filtered_tab3.copy()
-                df_display_tab3["出貨數量"] = df_display_tab3.apply(
-                    lambda row: calculate_shipment_display(row, df_recipe), axis=1
-                )
     
                 # ===== 分頁資料（控制元件改放到表格右下角）=====
                 page_size = int(st.session_state.get("tab3_page_size", 10))
@@ -6822,7 +6810,10 @@ elif menu == "生產單管理":
                 # ===== 計算分頁索引，安全處理 =====
                 start_idx = min((page - 1) * page_size, len(df_display_tab3))
                 end_idx = min(start_idx + page_size, len(df_display_tab3))
-                df_page = df_display_tab3.iloc[start_idx:end_idx]
+                df_page = df_display_tab3.iloc[start_idx:end_idx].copy()
+                df_page["出貨數量"] = df_page.apply(
+                    lambda row: calculate_shipment_display(row, df_recipe), axis=1
+                )
                 
                 # ===== 顯示表格 =====
                 if not df_page.empty and existing_cols:

@@ -55,3 +55,18 @@ def recipe_powder_dataframe(rows, *, include_inactive=False):
 def invalidate_recipe_powders(state):
     state.pop("recipe_powder_reference", None)
     state["recipe_data_loaded"] = False
+
+
+def recipe_preview_labels(frame):
+    """Build dropdown labels in one pass, retaining the first row per code."""
+    labels = {"": ""}
+    for code, color, customer in frame[["配方編號", "顏色", "客戶名稱"]].itertuples(index=False, name=None):
+        code = str(code)
+        if code:
+            labels.setdefault(code, " | ".join((code, str(color), str(customer))))
+    return labels
+
+
+def begin_recipe_preview_edit(state, code):
+    state["show_edit_recipe_panel"] = True
+    state["editing_recipe_code"] = code
