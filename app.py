@@ -23,6 +23,7 @@ from utils.number_format import format_optional_decimals
 from utils.shipment_ui import render_shipment_management
 from utils.product_ui import render_product_management
 from utils.receivable_ui import render_receivable_statement
+from utils.paper_preview import build_paper_preview
 from utils.inventory_audit import (
     duplicate_initial_inventory_sync_ids,
     latest_initial_inventory_record,
@@ -3970,7 +3971,7 @@ elif menu == "配方管理":
                         {"配方編號": recipe_row_preview.get("配方編號")},
                         recipe_row_preview
                     )
-                    st.markdown(preview_text_recipe, unsafe_allow_html=True)
+                    components.html(build_paper_preview(preview_text_recipe, title="配方"), height=580, scrolling=False)
 
                     col_left, col_right = st.columns(2)
                     with col_left:
@@ -6925,12 +6926,8 @@ elif menu == "生產單管理":
                         use_container_width=True,
                     )
     
-                preview_text = generate_order_preview_text_tab3(
-                    order_dict,
-                    recipe_row,
-                    show_additional_ids=show_ids
-                )
-                st.markdown(preview_text, unsafe_allow_html=True)
+                components.html(build_paper_preview(preview_a5_data.decode("utf-8"), title="生產單", document=True),
+                                height=580, scrolling=False)
 
             with manage_tab:
                 is_cancelled = order_dict.get("取消狀態", "有效") == "已取消"
