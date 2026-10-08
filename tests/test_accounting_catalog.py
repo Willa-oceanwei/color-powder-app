@@ -95,6 +95,21 @@ def test_optional_bidirectional_sync_and_atomic_rollback(config):
     assert len(list_shipments(config)) == before
 
 
+def test_unit_change_refreshes_customer_history_price(config):
+    history = shipment("350")
+    history["items"][0]["unit"] = "桶"
+    save_shipment(config, history)
+    document = shipment(shipment_date="2026-10-02")
+    old = dict(code="R1", name="手動品名", unit="包", quantity="1", price="0", notes="手動附註")
+    changed = dict(old, unit="桶")
+    completed = complete_items(config, document, [changed], [old])[0]
+    assert completed["price"] == "350"
+    assert completed["name"] == "手動品名" and completed["notes"] == "手動附註"
+    override = dict(changed, price="400")
+    assert complete_items(config, document, [override], [old])[0]["price"] == "400"
+    assert complete_items(config, shipment(customer_id="C02"), [changed], [old])[0]["price"] == "0"
+
+
 @pytest.mark.parametrize("value,expected", [("260.000", "260"), ("260.500", "260.5"), ("0.000", "0"), ("1000000.125", "1000000.125")])
 def test_display_price(value, expected):
     from utils.shipment_print import display_price
