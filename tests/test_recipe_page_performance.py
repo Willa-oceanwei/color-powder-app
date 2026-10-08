@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import pandas as pd
 
 from utils import recipe_page_data as data
 from utils.color_powder_repository import (
@@ -92,3 +93,34 @@ def test_recipe_page_wires_shared_reads_and_write_invalidation():
     assert "powder_entities = list_color_powders" not in section
     # Reload, save, activation and replacement all invalidate only this page's cache.
     assert section.count("invalidate_recipe_powders(st.session_state)") == 4
+
+
+def test_preview_labels_preserve_first_match_and_blank_selection():
+    frame = pd.DataFrame([
+        {"配方編號": "B001", "顏色": "Blue", "客戶名稱": "Customer"},
+        {"配方編號": "B001", "顏色": "Other", "客戶名稱": "Other"},
+        {"配方編號": "", "顏色": "Ignored", "客戶名稱": "Ignored"},
+        {"配方編號": "A001", "顏色": "White", "客戶名稱": "Customer"},
+    ])
+    original = frame.copy(deep=True)
+    assert data.recipe_preview_labels(frame) == {
+        "": "", "B001": "B001 | Blue | Customer", "A001": "A001 | White | Customer",
+    }
+    pd.testing.assert_frame_equal(frame, original)
+
+
+def test_edit_callback_preserves_master_data_and_opens_selected_recipe():
+    state = {"df_recipe": object(), "recipe_data_loaded": True}
+    original = state["df_recipe"]
+    data.begin_recipe_preview_edit(state, "B001")
+    assert state["show_edit_recipe_panel"] is True
+    assert state["editing_recipe_code"] == "B001"
+    assert state["df_recipe"] is original
+    assert state["recipe_data_loaded"] is True
+
+
+def test_preview_edit_uses_callback_without_an_extra_rerun():
+    source = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
+    button = source.split('key=f"edit_recipe_btn_tab3_{selected_code}"', 1)[1].split("with col_right:", 1)[0]
+    assert "on_click=begin_recipe_preview_edit" in button
+    assert "st.rerun()" not in button

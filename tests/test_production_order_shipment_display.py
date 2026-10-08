@@ -1,5 +1,6 @@
 import ast
 from pathlib import Path
+import pandas as pd
 
 def _load_shipment_helpers():
     """Load pure formatting helpers without executing the Streamlit app."""
@@ -119,6 +120,25 @@ def test_colorant_can_use_actual_kg_for_stock_shipment():
     }
 
     assert calculate(order, recipes) == "1kg*1"
+
+
+def test_dataframe_display_does_not_convert_entire_recipe_master(monkeypatch):
+    calculate = _load_shipment_helpers()
+    frame = pd.DataFrame([
+        {"配方編號": "R001", "計量單位": "桶", "色粉類別": "配方"},
+        {"配方編號": "R001", "計量單位": "包", "色粉類別": "配方"},
+    ])
+    monkeypatch.setattr(pd.DataFrame, "to_dict", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("full master converted")))
+    order = {"配方編號": "R001", "包裝重量1": "0.25", "包裝份數1": "8"}
+    assert calculate(order, frame) == "25K*8"
+    assert calculate(order, pd.DataFrame()) == "0.25*8"
+
+
+def test_preview_result_quantities_are_calculated_after_paging():
+    source = Path("app.py").read_text(encoding="utf-8")
+    section = source.split("# Tab 3: 生產單預覽/修改/取消", 1)[1].split("# ====== 修改面板", 1)[0]
+    assert 'df_display_tab3["出貨數量"] = df_display_tab3.apply' not in section
+    assert section.index("df_display_tab3.iloc[start_idx:end_idx].copy()") < section.index('df_page["出貨數量"] = df_page.apply')
 
 
 def test_switching_recipe_clears_all_recipe_dependent_draft_widgets():
