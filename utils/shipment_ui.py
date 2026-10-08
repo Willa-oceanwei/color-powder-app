@@ -10,6 +10,7 @@ import streamlit.components.v1 as components
 
 from .shipment_catalog import shipment_choices, complete_items
 from .shipment_print import display_price
+from .accounting_widgets import widget_default
 from .customer_repository import list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
@@ -18,7 +19,7 @@ from .shipment_repository import (
 )
 
 COLUMNS = {"code": "貨品編號", "name": "品名", "quantity": "數量", "unit": "單位",
-           "price": "單價", "amount": "金額", "order_number": "訂單編號", "notes": "附註說明"}
+           "price": "單價", "amount": "金額", "order_number": "採購單號", "notes": "附註說明"}
 
 # Scope overrides to this page, including the existing ERP's global CSS.
 COMPACT_STYLE = """
@@ -189,8 +190,8 @@ def render_shipment_management(config):
         st.warning("已作廢：" + document.get("void_reason", ""))
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
     print_controls = st.columns([1, 1, 3])
-    preview = print_controls[0].toggle("預覽／列印", value=st.session_state.get("shipment_preview_preference", False), key="shipment_print_preview", disabled=editing, on_change=_remember_print_settings)
-    hide_prices = print_controls[1].toggle("隱藏單價與金額", value=st.session_state.get("shipment_hide_preference", False), key="shipment_hide_prices", disabled=editing, on_change=_remember_print_settings)
+    preview = print_controls[0].toggle("預覽／列印", value=widget_default("shipment_print_preview", st.session_state.get("shipment_preview_preference", False)), key="shipment_print_preview", disabled=editing, on_change=_remember_print_settings)
+    hide_prices = print_controls[1].toggle("隱藏單價與金額", value=widget_default("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False)), key="shipment_hide_prices", disabled=editing, on_change=_remember_print_settings)
     sync_products = print_controls[2].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
                                             help="成交價依客戶、貨品與單位保存於出貨紀錄，不覆蓋共用標準售價")
     if preview and not editing:
@@ -203,14 +204,16 @@ def render_shipment_management(config):
 
     def text(label, key, *, target=None):
         data = document if target is None else target
-        value = st.text_input(label, value=str(data.get(key) or ""), key=prefix + ("invoice_" if target is not None else "") + key, disabled=not editing)
+        widget_key = prefix + ("invoice_" if target is not None else "") + key
+        value = st.text_input(label, value=widget_default(widget_key, str(data.get(key) or "")), key=widget_key, disabled=not editing)
         if editing:
             data[key] = value
 
     def date_field(label, key, *, target=None, optional=False):
         data = document if target is None else target
         value = date.fromisoformat(data[key]) if data.get(key) else None if optional else date.today()
-        value = st.date_input(label, value=value, key=prefix + ("invoice_" if target is not None else "") + key, disabled=not editing)
+        widget_key = prefix + ("invoice_" if target is not None else "") + key
+        value = st.date_input(label, value=widget_default(widget_key, value), key=widget_key, disabled=not editing)
         if editing:
             data[key] = value.isoformat() if value else ""
 
@@ -220,7 +223,7 @@ def render_shipment_management(config):
         date_field("出貨日期", "shipment_date")
     with header[1]:
         mode = st.selectbox("單號方式", ("依日期生成", "自行輸入"),
-                            index=0 if document.get("number_mode") == "date" else 1,
+                            index=widget_default(prefix + "number_mode", "依日期生成" if document.get("number_mode") == "date" else "自行輸入"),
                             key=prefix + "number_mode", disabled=not editing)
         if editing:
             document["number_mode"] = "date" if mode == "依日期生成" else "manual"
@@ -242,7 +245,7 @@ def render_shipment_management(config):
                 available.setdefault(original["customer_id"], original["customer_name"])
             options = [""] + list(available)
             # Keep widget identity stable while the selected customer changes.
-            chosen = st.selectbox("客戶", options, index=options.index(original.get("customer_id", "")),
+            chosen = st.selectbox("客戶", options, index=widget_default(prefix + "customer_picker", original.get("customer_id", "")),
                                   format_func=lambda value: f"{value} · {available[value]}" if value else "請選擇客戶", key=prefix + "customer_picker")
             if chosen != document["customer_id"]:
                 document.update(customer_id=chosen, customer_name=available.get(chosen, ""), recipient_id=chosen, recipient_name=available.get(chosen, ""))
@@ -265,10 +268,11 @@ def render_shipment_management(config):
             picker, unit_col, quantity_col, add_col = st.columns([3, 1, 1, 1])
             picker_key = prefix + "recipe_picker_" + document["customer_id"]
             code = picker.selectbox("貨品／配方", [""] + list(choices),
+                                    index=widget_default(picker_key, ""),
                                     format_func=lambda key: f"{key} · {choices[key]['name']}" if key else "請選擇貨品或配方",
                                     key=picker_key, on_change=_fill_product_unit, args=(prefix, choices, picker_key))
-            unit = unit_col.text_input("銷售單位", value="KG", key=prefix + "sale_unit").strip()
-            quantity = quantity_col.number_input("加入數量", min_value=0.001, value=1.0, step=1.0, key=prefix + "add_quantity")
+            unit = unit_col.text_input("銷售單位", value=widget_default(prefix + "sale_unit", "KG"), key=prefix + "sale_unit").strip()
+            quantity = quantity_col.number_input("加入數量", min_value=0.001, value=widget_default(prefix + "add_quantity", 1.0), step=1.0, key=prefix + "add_quantity")
             previous = recent_shipment_price(config, document["customer_id"], code, unit,
                                              shipment_date=document["shipment_date"], tax_mode=document["tax_mode"],
                                              exclude_id=document.get("id", ""))
@@ -293,7 +297,7 @@ def render_shipment_management(config):
         grid_suffix = st.session_state.get("shipment_grid_epoch", 0)
         frame = st.data_editor(frame.drop(columns="金額"), key=prefix + "items" + (f"_{grid_suffix}" if grid_suffix else ""), num_rows="dynamic", height=185,
                                use_container_width=True, hide_index=True, column_config={
-                                   "訂單編號": None,
+                                   "採購單號": st.column_config.TextColumn("採購單號", width="medium"),
                                    "數量": st.column_config.NumberColumn("數量", min_value=0.001, step=0.001, required=True),
                                    "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, format="%.15g", required=True)})
         raw_items = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
@@ -310,19 +314,19 @@ def render_shipment_management(config):
             st.rerun()
     else:
         st.dataframe(frame, height=185, hide_index=True, use_container_width=True,
-                     column_config={"訂單編號": None, "單價": st.column_config.NumberColumn(format="%.15g")})
+                     column_config={"採購單號": st.column_config.TextColumn("採購單號", width="medium"), "單價": st.column_config.NumberColumn(format="%.15g")})
     details, summary, clearance = st.columns([3.7, 1.3, 1])
     with details:
         transaction, invoice_tab, account, related = st.tabs(["交易明細", "發票資料", "帳款資料", "相關資料"])
         with transaction:
-            notes = st.text_area("備註", value=document.get("notes", ""), height=68, key=prefix + "notes", disabled=not editing)
+            notes = st.text_area("備註", value=widget_default(prefix + "notes", document.get("notes", "")), height=68, key=prefix + "notes", disabled=not editing)
             if editing:
                 document["notes"] = notes
         with invoice_tab:
             invoice = document["invoice"]
             row = st.columns(3)
             with row[0]:
-                mode = st.selectbox("課稅類別", TAX_MODES, index=TAX_MODES.index(document["tax_mode"]), key=prefix + "tax_mode", disabled=not editing,
+                mode = st.selectbox("課稅類別", TAX_MODES, index=widget_default(prefix + "tax_mode", document["tax_mode"]), key=prefix + "tax_mode", disabled=not editing,
                                     on_change=_tax_changed, args=(prefix, "mode"))
                 if editing:
                     document["tax_mode"] = mode
@@ -349,7 +353,7 @@ def render_shipment_management(config):
                 st.caption("已作廢" if document["status"] == "void" else "草稿")
     with summary:
         if editing:
-            rate = st.selectbox("稅率", (0, 5), index=0 if document["tax_mode"] in ("免稅", "零稅率") or float(document["tax_rate"]) == 0 else 1,
+            rate = st.selectbox("稅率", (0, 5), index=widget_default(prefix + "tax_rate", 0 if document["tax_mode"] in ("免稅", "零稅率") or float(document["tax_rate"]) == 0 else 5),
                                 format_func=lambda value: "0%（免稅）" if value == 0 else "5%",
                                 key=prefix + "tax_rate", on_change=_tax_changed, args=(prefix, "rate"))
             document["tax_rate"] = str(rate)

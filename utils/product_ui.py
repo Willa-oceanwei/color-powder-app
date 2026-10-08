@@ -9,6 +9,7 @@ from .product_repository import (
 )
 from .shipment_repository import TAX_MODES
 from .shipment_ui import COMPACT_STYLE
+from .accounting_widgets import widget_default
 
 
 def _begin(document):
@@ -127,12 +128,12 @@ def render_product_management(config):
     prefix = f"product_{st.session_state.get('product_epoch', 0)}_" if editing else f"product_view_{document['product_id']}_{document['version']}_"
 
     def text(col, label, field, *, disabled=False):
-        value = col.text_input(label, value=str(document.get(field) or ""), key=prefix + field, disabled=not editing or disabled)
+        value = col.text_input(label, value=widget_default(prefix + field, str(document.get(field) or "")), key=prefix + field, disabled=not editing or disabled)
         if editing:
             document[field] = value
 
     def number(col, label, field):
-        value = col.number_input(label, min_value=0.0, max_value=1e12, value=float(document.get(field) or 0),
+        value = col.number_input(label, min_value=0.0, max_value=1e12, value=widget_default(prefix + field, float(document.get(field) or 0)),
                                  step=1.0, format="%.15g", key=prefix + field, disabled=not editing)
         if editing:
             document[field] = str(value)
@@ -143,7 +144,7 @@ def render_product_management(config):
     text(header[0], "貨品編號", "product_id", disabled=bool(document.get("version")))
     text(header[1], "貨品名稱", "name")
     recipe_id = header[2].selectbox("關聯配方", [""] + list(by_recipe),
-                                    index=([""] + list(by_recipe)).index(document["recipe_id"]),
+                                    index=widget_default(prefix + "recipe_id", document["recipe_id"]),
                                     format_func=lambda key: f"{key} · {by_recipe[key]['color']}" if key else "無關聯配方",
                                     key=prefix + "recipe_id", disabled=not editing, on_change=_fill_recipe, args=(prefix, by_recipe))
     if editing:
@@ -153,7 +154,7 @@ def render_product_management(config):
         row = st.columns(3)
         text(row[0], "類別編號 / 名稱", "category")
         supplier_options = [""] + list(by_supplier)
-        supplier_id = row[1].selectbox("供應商", supplier_options, index=supplier_options.index(document["supplier_id"]),
+        supplier_id = row[1].selectbox("供應商", supplier_options, index=widget_default(prefix + "supplier_id", document["supplier_id"]),
                                        format_func=lambda key: f"{key} · {by_supplier[key]['name']}" if key else "未指定",
                                        key=prefix + "supplier_id", disabled=not editing)
         if editing:
@@ -177,7 +178,7 @@ def render_product_management(config):
             for col, label, field in zip(row, labels, fields):
                 number(col, label, field)
         row = st.columns([1, 1, 2])
-        mode = row[0].selectbox("定價課稅方式", TAX_MODES, index=TAX_MODES.index(document["tax_mode"]), key=prefix + "tax_mode", disabled=not editing)
+        mode = row[0].selectbox("定價課稅方式", TAX_MODES, index=widget_default(prefix + "tax_mode", document["tax_mode"]), key=prefix + "tax_mode", disabled=not editing)
         if editing:
             document["tax_mode"] = mode
         row[1].text_input("幣別", value="TWD", disabled=True)
