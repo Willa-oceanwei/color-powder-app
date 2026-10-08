@@ -218,7 +218,8 @@ def test_print_black_font_fixed_columns_and_grouped_amounts(config):
     d['notes'] = '一\n二\n三\n四'
     html = printable_shipment(save_shipment(config, d))
     assert '佳咊實業有限公司' in html and '佳味' not in html
-    assert 'Microsoft JhengHei' in html and 'DFKai-SB' not in html
+    assert 'body {margin:0;background:#e5e7eb;color:#000;font-family:"Microsoft JhengHei"' in html
+    assert 'header h1,header h2 {font-family:"DFKai-SB","BiauKai","KaiTi",serif;}' in html
     assert 'font-size:12pt' in html and '<colgroup>' in html
     assert '17,600' in html and '18,480' in html
     assert html.count('class="sheet"') == 2
