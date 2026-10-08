@@ -95,6 +95,47 @@ def test_optional_bidirectional_sync_and_atomic_rollback(config):
     assert len(list_shipments(config)) == before
 
 
+def test_unit_change_refreshes_customer_history_price(config):
+    history = shipment("350")
+    history["items"][0]["unit"] = "桶"
+    save_shipment(config, history)
+    document = shipment(shipment_date="2026-10-02")
+    old = dict(code="R1", name="手動品名", unit="包", quantity="1", price="0", notes="手動附註")
+    changed = dict(old, unit="桶")
+    completed = complete_items(config, document, [changed], [old])[0]
+    assert completed["price"] == "350"
+    assert completed["name"] == "手動品名" and completed["notes"] == "手動附註"
+    override = dict(changed, price="400")
+    assert complete_items(config, document, [override], [old])[0]["price"] == "400"
+    assert complete_items(config, shipment(customer_id="C02"), [changed], [old])[0]["price"] == "0"
+
+
+def test_add_recipe_with_manually_selected_sales_unit_uses_history(config):
+    history = shipment("350")
+    history["items"][0]["unit"] = "桶"
+    save_shipment(config, history)
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0,{root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    app.button(key="shipment_new").click().run()
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
+    from datetime import date
+    app.date_input(key=prefix + "shipment_date").set_value(date(2026, 10, 2)).run()
+    app.selectbox(key=prefix + "recipe_picker_C01").set_value("R1").run()
+    app.text_input(key=prefix + "sale_unit").set_value("桶").run()
+    app.button(key="shipment_add_recipe").click().run()
+    assert not app.exception
+    item = app.session_state["shipment_draft"]["items"][0]
+    assert item["unit"] == "桶" and str(item["price"]) in ("350", "350.0")
+    assert item["notes"] == ""
+
+
 @pytest.mark.parametrize("value,expected", [("260.000", "260"), ("260.500", "260.5"), ("0.000", "0"), ("1000000.125", "1000000.125")])
 def test_display_price(value, expected):
     from utils.shipment_print import display_price

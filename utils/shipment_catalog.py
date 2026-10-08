@@ -38,11 +38,14 @@ def complete_items(config, document, items, previous, *, choices=None):
         old = previous[index] if index < len(previous) else {}
         code = str(item.get("code") or "").strip()
         match = next((p for c, p in choices.items() if c.upper() == code.upper()), None)
-        if not match or code == old.get("code"):
+        code_changed = code != old.get("code")
+        unit_changed = str(item.get("unit") or "").strip().upper() != str(old.get("unit") or "").strip().upper()
+        if not match or not (code_changed or unit_changed):
             continue
-        for key, value in (("name", match["name"]), ("unit", match["sales_unit"])):
-            if not item.get(key) or item.get(key) == old.get(key):
-                item[key] = value
+        if code_changed:
+            for key, value in (("name", match["name"]), ("unit", match["sales_unit"])):
+                if not item.get(key) or item.get(key) == old.get(key):
+                    item[key] = value
         same_price = item.get("price") == old.get("price")
         try:
             same_price = same_price or Decimal(str(item.get("price"))) == Decimal(str(old.get("price")))
