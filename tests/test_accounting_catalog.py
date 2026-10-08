@@ -113,6 +113,54 @@ def test_unit_change_refreshes_customer_history_price(config):
     assert complete_items(config, shipment(customer_id="C02"), [changed], [old])[0]["price"] == "0"
 
 
+def test_customer_sales_name_unit_and_price_do_not_change_recipe(config):
+    from utils.recipe_repository import list_recipes
+    from utils.shipment_repository import void_shipment
+    first = shipment('350')
+    first['items'][0].update(name='對外腮紅', unit='g')
+    save_shipment(config, first)
+    other = shipment('750', customer_id='C02', customer_name='其他客戶')
+    other['items'][0].update(name='其他名稱', unit='桶')
+    save_shipment(config, other)
+    raw = [dict(code='r1', name='', unit='', price='', quantity=1)]
+    item = complete_items(config, shipment(), raw, [])[0]
+    assert (item['name'], item['unit'], item['price']) == ('對外腮紅', 'g', '350')
+    item = complete_items(config, other, raw, [])[0]
+    assert (item['name'], item['unit'], item['price']) == ('其他名稱', '桶', '750')
+    recipe = next(row for row in list_recipes(config) if row['配方編號'] == 'R1')
+    assert recipe['顏色'] == '藍'
+    assert recipe['計量單位'] == '包'
+    future = shipment('900', shipment_date='2026-10-02')
+    future['items'][0].update(name='未來名稱', unit='桶')
+    saved = save_shipment(config, future)
+    assert complete_items(config, shipment(), raw, [])[0]['unit'] == 'g'
+    void_shipment(config, saved['id'], saved['version'], '誤建')
+    assert complete_items(config, shipment(shipment_date='2026-10-03'), raw, [])[0]['name'] == '對外腮紅'
+
+
+def test_color_powder_code_defaults_and_master_precedence(config):
+    from utils.color_powder_repository import ColorPowderInput, create_color_powder, set_color_powder_active
+    create_color_powder(config, ColorPowderInput('6771', name='色粉黃', package='25KG'))
+    raw = [dict(code='6771', name='', unit='', price='', quantity=1)]
+    item = complete_items(config, shipment(), raw, [])[0]
+    assert item['name'] == '色粉黃' and item['unit'] == 'KG' and item['price'] == '0'
+    first = shipment('6')
+    first['items'] = [dict(item, name='對外黃', unit='g', price='6')]
+    save_shipment(config, first)
+    assert complete_items(config, shipment(), raw, [])[0]['unit'] == 'g'
+    create_recipe(config, {'配方編號': '6771', '顏色': '配方黃', '計量單位': '包'})
+    assert shipment_choices(config, 'C01')['6771']['name'] == '配方黃'
+    master = blank_product()
+    master.update(product_id='6771', name='貨品黃')
+    saved = save_product(config, master)
+    assert shipment_choices(config, 'C01')['6771']['name'] == '貨品黃'
+    set_product_active(config, '6771', saved['version'], active=False, reason='test')
+    assert '6771' not in shipment_choices(config, 'C01')
+    create_color_powder(config, ColorPowderInput('DISABLED', name='不使用'))
+    set_color_powder_active(config, 'DISABLED', active=False, reason='test')
+    assert 'DISABLED' not in shipment_choices(config, 'C01')
+
+
 def test_add_recipe_with_manually_selected_sales_unit_uses_history(config):
     history = shipment("350", tax_mode="免稅", tax_rate="0")
     history["items"][0]["unit"] = "桶"
@@ -131,6 +179,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     from datetime import date
     app.date_input(key=prefix + "shipment_date").set_value(date(2026, 10, 2)).run()
     app.selectbox(key=prefix + "recipe_picker_C01").set_value("R1").run()
+    assert app.text_input(key=prefix + "sale_unit").value == "桶"
     app.text_input(key=prefix + "sale_unit").set_value("桶").run()
     app.button(key="shipment_add_recipe").click().run()
     assert not app.exception

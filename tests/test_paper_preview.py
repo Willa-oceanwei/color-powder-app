@@ -1,7 +1,7 @@
 import ast
 from pathlib import Path
 
-from utils.paper_preview import build_paper_preview
+from utils.paper_preview import build_paper_preview, paper_preview_height
 
 
 def test_recipe_content_is_preserved_and_escaped():
@@ -12,7 +12,7 @@ def test_recipe_content_is_preserved_and_escaped():
     assert "<script>alert(1)</script>" not in html
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
     assert "background:#fff;color:#000" in html
-    assert "符合寬度" in html and "整頁" in html and "200%" in html
+    assert "符合寬度" in html and "完整內容" in html and "200%" in html
     assert "overflow:auto" in html and "white-space:pre-wrap" in html
 
 
@@ -39,3 +39,13 @@ def test_document_drops_active_elements_and_event_handlers():
     html = build_paper_preview(source, title="生產單", document=True)
     assert "onload=" not in html and "onclick=" not in html and "evil()" not in html
     assert "<iframe" not in html and "<pre>x &amp; y</pre>" in html
+
+
+def test_content_sized_preview_keeps_short_documents_compact():
+    short = "```\nR1\n302 6\nMA 25\n```"
+    html = build_paper_preview(short, title="配方")
+    assert "min-height:148mm" not in html
+    assert 'value="page" selected' in html
+    assert 220 <= paper_preview_height(short) < 300
+    assert paper_preview_height("x\n" * 200) == 380
+    assert 220 <= paper_preview_height('<body><pre>302 6</pre></body>', document=True) <= 380

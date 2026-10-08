@@ -41,6 +41,15 @@ def money(value):
     return value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
+def item_exempt(item):
+    value = item.get("tax_exempt", False)
+    if value in (False, None, "", 0):
+        return False
+    if value in (True, 1):
+        return True
+    raise ShipmentError("品項免稅須為勾選或未勾選")
+
+
 def calculate(items, tax_mode, tax_rate):
     if tax_mode not in TAX_MODES:
         raise ShipmentError("請選擇課稅類別")
@@ -53,8 +62,9 @@ def calculate(items, tax_mode, tax_rate):
             raise ShipmentError("品項數量必須大於 0")
         lines.append(money(quantity * price))
     subtotal = sum(lines, Decimal(0))
-    net = money(subtotal / (1 + rate)) if tax_mode == "內含" else subtotal
-    tax = money(net * rate) if tax_mode == "外加" else subtotal - net if tax_mode == "內含" else Decimal(0)
+    taxable = sum((amount for item, amount in zip(items, lines) if not item_exempt(item)), Decimal(0))
+    tax = money(taxable * rate) if tax_mode == "外加" else taxable - money(taxable / (1 + rate)) if tax_mode == "內含" else Decimal(0)
+    net = subtotal - tax if tax_mode == "內含" else subtotal
     return {"line_amounts": [str(x) for x in lines], "net_amount": str(net),
             "tax_amount": str(tax), "total_amount": str(net + tax)}
 
@@ -93,7 +103,8 @@ def shipment_price_history(config, customer_id, shipment_date, exclude_id=""):
         return _mappings(conn.execute(
             "SELECT json_extract(i.payload_json,'$.code') AS code,"
             "json_extract(i.payload_json,'$.unit') AS unit,json_extract(i.payload_json,'$.price') AS price,"
-            "json_extract(s.payload_json,'$.tax_mode') AS tax_mode,s.shipment_number,s.shipment_date "
+            "json_extract(i.payload_json,'$.name') AS name,COALESCE(json_extract(i.payload_json,'$.tax_exempt'),0) AS tax_exempt,"
+            "CASE WHEN json_extract(i.payload_json,'$.tax_exempt')=1 THEN '免稅' ELSE json_extract(s.payload_json,'$.tax_mode') END AS tax_mode,s.shipment_number,s.shipment_date "
             "FROM shipment_orders s JOIN shipment_order_items i ON i.shipment_id=s.id "
             "WHERE s.status='draft' AND s.customer_id=? AND s.id<>? AND s.shipment_date<=? "
             "ORDER BY s.shipment_date DESC,s.created_at DESC,s.shipment_number DESC,i.line_number DESC",
@@ -118,7 +129,7 @@ def recent_shipment_price(config, customer_id, code, unit, *, shipment_date, tax
             "WHERE s.status='draft' AND s.customer_id=? AND s.id<>? AND s.shipment_date<=? "
             "AND UPPER(TRIM(json_extract(i.payload_json,'$.code')))=UPPER(TRIM(?)) "
             "AND UPPER(TRIM(json_extract(i.payload_json,'$.unit')))=UPPER(TRIM(?)) "
-            f"AND json_extract(s.payload_json,'$.tax_mode') IN ({placeholders}) "
+            f"AND (CASE WHEN json_extract(i.payload_json,'$.tax_exempt')=1 THEN '免稅' ELSE json_extract(s.payload_json,'$.tax_mode') END) IN ({placeholders}) "
             "ORDER BY s.shipment_date DESC,s.created_at DESC,s.shipment_number DESC,i.line_number DESC LIMIT 1",
             (customer_id, exclude_id or "", shipment_date, code, unit, *compatible_modes)))
 
@@ -144,6 +155,7 @@ def _validated(document):
     items = []
     for source in document.get("items", []):
         item = {key: str(source.get(key) if source.get(key) is not None else "").strip() for key in ITEM_FIELDS}
+        item["tax_exempt"] = item_exempt(source)
         if not all(item[key] for key in ("code", "name", "unit")):
             raise ShipmentError("每筆品項須填寫貨品編號、品名及單位")
         items.append(item)
@@ -301,6 +313,6 @@ def void_shipment(config, shipment_id, version, reason):
             raise ShipmentError("單據已修改、作廢或有收款紀錄；請重新讀取，已有收款須先作廢收款")
 
 
-def printable_shipment(document, *, show_prices=True):
+def printable_shipment(document, *, show_prices=True, orientation="landscape"):
     from .shipment_print import render_shipment_print
-    return render_shipment_print(document, show_prices=show_prices)
+    return render_shipment_print(document, show_prices=show_prices, orientation=orientation)

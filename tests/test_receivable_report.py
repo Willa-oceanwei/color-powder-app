@@ -158,7 +158,8 @@ def test_pagination_escape_totals_and_no_mutation(config):
     statements = build_statements(config, "2026-10-01", "2026-10-31")
     original = deepcopy(statements)
     pages = statement_pages(statements)
-    assert len(pages) >= 3 and all(len(p["rows"]) <= 15 for p in pages)
+    assert len(pages) >= 2 and all(len(p["rows"]) <= 32 for p in pages)
+    assert all(page["paper_size"] == "A4" for page in pages)
     assert statements == original
     html = render_statement_print(pages)
     assert "<script>bad" not in html and "&lt;script&gt;" in html
@@ -195,6 +196,30 @@ def test_quantity_display_trims_zero_fraction_without_rounding(config):
     html = render_statement_print(pages)
     assert "數量合計：12.5 包" in html
     assert statements[0]["quantities"] == {"包": "12.500"}
+
+
+def test_report_auto_and_manual_paper_sizes_match_pdf(config):
+    from utils.accounting_export import statement_pdf
+    shipment(config, count=1)
+    shipment(config, 'A02', count=20)
+    statements = build_statements(config, '2026-10-01', '2026-10-31')
+    pages = statement_pages(statements)
+    assert [page['paper_size'] for page in pages] == ['A5', 'A4']
+    pdf = statement_pdf(pages)
+    assert b'595.2756 419.5276' in pdf
+    assert b'595.2756 841.8898' in pdf
+    html = render_statement_print(pages)
+    assert '@page a4{size:A4 portrait' in html and 'class="sheet a4' in html
+    assert 'class="period"' in html and 'class="date-start"' in html
+    assert all(page['paper_size'] == 'A5' and len(page['rows']) <= 10 for page in statement_pages(statements, paper_size='A5'))
+    assert all(page['paper_size'] == 'A4' for page in statement_pages(statements, paper_size='A4'))
+
+
+def test_invalid_report_page_configuration():
+    with pytest.raises(ValueError):
+        statement_pages([], capacity=1)
+    with pytest.raises(ValueError):
+        statement_pages([], paper_size='A3')
 
 
 def test_report_ui_navigation_optional_receipt_and_validation(config):
