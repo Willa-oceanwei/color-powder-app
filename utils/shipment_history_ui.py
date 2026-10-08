@@ -7,9 +7,15 @@ from .shipment_repository import customer_purchase_history
 from .number_format import format_optional_decimals
 
 
-@st.fragment
 def render_purchase_history(config, customer_id, customer_name):
     with st.popover("採購歷程", use_container_width=True):
+        _render_history_contents(config, customer_id, customer_name)
+
+
+@st.fragment
+def _render_history_contents(config, customer_id, customer_name):
+    # Keep fragment updates inside their own block, separate from the popover portal.
+    with st.container():
         if not customer_id:
             st.caption("請先選擇出貨單客戶")
             return
