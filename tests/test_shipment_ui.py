@@ -73,6 +73,12 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     next(b for b in app.button if b.label == '搜尋歷程').click().run()
     assert not app.exception and calls['history'] == 1
     assert app.session_state['shipment_purchase_history_result'][3][0]['amount'] == '200'
+    assert app.text_input(key='shipment_purchase_history_code').value == 'P1'
+    app.text_input(key='shipment_purchase_history_code').set_value('NO-MATCH')
+    app.button(key='shipment_purchase_history_search').click().run()
+    assert not app.exception and calls['history'] == 2
+    assert app.session_state['shipment_purchase_history_result'][3] == []
+    assert app.text_input(key='shipment_purchase_history_code').value == 'NO-MATCH'
     app.button(key='shipment_edit').click().run()
     assert not app.exception and calls['records'] == 1 and calls['document'] == 1
     app.button(key='shipment_cancel').click().run()
