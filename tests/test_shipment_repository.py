@@ -30,6 +30,58 @@ def document():
     return result
 
 
+def test_customer_purchase_history_dates_units_customer_and_voids(config):
+    from utils.shipment_repository import customer_purchase_history
+    first = save_shipment(config, document())
+    later = document()
+    later["shipment_date"] = "2026-10-03"
+    later["items"][0].update(name="外部品名", unit="桶", quantity="2", price="300.5", tax_exempt=True)
+    second = save_shipment(config, later)
+    doomed = save_shipment(config, later)
+    void_shipment(config, doomed["id"], doomed["version"], "test")
+    create_customer(config, CustomerInput("OTHER", "Other customer"))
+    other = document()
+    other.update(customer_id="OTHER", customer_name="Other customer")
+    save_shipment(config, other)
+    rows = customer_purchase_history(config, "C01", " 69570m ")
+    assert len(rows) == 2
+    assert [r["shipment_number"] for r in rows] == [second["shipment_number"], first["shipment_number"]]
+    assert rows[0]["unit"] == "桶" and rows[0]["name"] == "外部品名"
+    assert rows[0]["price"] == "300.5" and rows[0]["amount"] == "601"
+    assert rows[0]["tax_mode"] == "免稅" and rows[0]["order_number"] == "O1"
+    assert rows[1]["shipment_date"] == "2026-10-01"
+    assert len(customer_purchase_history(config, "C01")) == 4
+    assert customer_purchase_history(config, "C01", "69570") == []
+    assert customer_purchase_history(config, "") == []
+    assert customer_purchase_history(config, "C01", "' OR 1=1 --") == []
+
+
+def test_document_header_items_and_invoice_use_one_read(config, monkeypatch):
+    from contextlib import contextmanager
+    from utils import shipment_repository as repo
+    doc = document()
+    doc["invoice"].update(number="AB12345678", date="2026-10-01")
+    saved = save_shipment(config, doc)
+    original = repo.connect_from_config
+    calls = []
+    @contextmanager
+    def spy(config):
+        with original(config) as connection:
+            class Spy:
+                def execute(self, sql, args=()):
+                    calls.append(sql)
+                    return connection.execute(sql, args)
+            yield Spy()
+    monkeypatch.setattr(repo, "connect_from_config", spy)
+    result = get_shipment(config, saved["id"])
+    assert len(calls) == 1
+    assert [r["code"] for r in result["items"]] == ["69570M", "69960M"]
+    assert result["invoice"]["number"] == "AB12345678"
+    assert "item_payload" not in result and "invoice_payload" not in result
+    with pytest.raises(ShipmentError, match="不存在"):
+        get_shipment(config, "missing")
+
+
 def test_customer_recipe_unit_price_history(config):
     from utils.recipe_repository import create_recipe
     create_recipe(config, {"配方編號": "69570M", "顏色": "藍", "客戶編號": "C01"})

@@ -11,6 +11,8 @@ import streamlit.components.v1 as components
 from .shipment_catalog import shipment_choices, complete_items, recent_item_defaults
 from .shipment_print import display_price
 from .paper_preview import theme_preview
+from .shipment_page_data import cached_read, clear_reads
+from .shipment_history_ui import render_purchase_history
 from .accounting_widgets import widget_default, widget_index
 from .customer_repository import list_customers
 from .shipment_repository import (
@@ -48,6 +50,7 @@ COMPACT_STYLE = """
 .main:has(#shipment-page) .shipment-total {display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px;font-variant-numeric:tabular-nums;}
 .main:has(#shipment-page) .shipment-total:last-child {border-top:1px solid #84919d;font-weight:600;font-size:16px;margin-top:4px;padding-top:6px;}
 .main:has(#shipment-page) .shipment-lines {font-size:12px;white-space:nowrap;overflow-x:auto;max-width:100%;}
+body:has(#shipment-page) [data-testid="stPopoverBody"] {width:min(960px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important;}
 .stApp:has(.erp-title) .main:has(#shipment-page) .block-container {padding-top:72px!important;}
 .stApp:has(.erp-title) .main:has(#shipment-page) h3,
 .stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stWidgetLabel"] p,
@@ -64,18 +67,24 @@ COMPACT_STYLE = """
 """
 
 
-def _begin(document):
+def _begin(document, *, rerun=True):
     st.session_state.pop("shipment_read_cache", None)
     st.session_state.shipment_draft = deepcopy(document)
     st.session_state.shipment_original = deepcopy(document)
     st.session_state.shipment_editor_base = deepcopy(document["items"])
     st.session_state.shipment_grid_epoch = 0
     st.session_state.shipment_epoch = st.session_state.get("shipment_epoch", 0) + 1
-    st.rerun()
+    if rerun:
+        st.rerun()
+
+
+def _copy_for_edit(document):
+    _begin(copy_shipment(document), rerun=False)
 
 
 def _finish(message=""):
-    st.session_state.pop("shipment_read_cache", None)
+    clear_reads(st.session_state)
+    st.session_state.pop("shipment_purchase_history_result", None)
     st.session_state.pop("shipment_draft", None)
     st.session_state.pop("shipment_original", None)
     st.session_state.pop("shipment_editor_base", None)
@@ -124,16 +133,18 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     editing = draft is not None
     def read(key, loader):
         if not editing:
-            return loader()
+            return cached_read(config, st.session_state, key, loader)
         cache = st.session_state.setdefault("shipment_read_cache", {})
         cache_key = (repr(config), key)
         if cache_key not in cache:
-            cache[cache_key] = loader()
+            # New editing snapshots must see current customer details and prices.
+            cache[cache_key] = loader() if key == "customers" or isinstance(key, tuple) and key[0] == "history" else cached_read(config, st.session_state, key, loader, ttl=60)
         return cache[cache_key]
 
     with st.expander("查詢", expanded=False):
-        if editing and st.button("重讀資料", key="shipment_reload_data"):
-            st.session_state.pop("shipment_read_cache", None)
+        if st.button("重讀資料", key="shipment_reload_data"):
+            clear_reads(st.session_state)
+            st.session_state.pop("shipment_purchase_history_result", None)
             st.rerun()
         with st.form("shipment_search"):
             search = st.columns([3, 1])
@@ -155,8 +166,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                             shipment_customer_end=customer_end,
                                             shipment_search_epoch=st.session_state.get("shipment_search_epoch", 0) + 1)
                     st.session_state.pop("shipment_selected", None)
+                    clear_reads(st.session_state)
                     st.rerun()
-    records = [] if editing else read("records", lambda: list_shipments(config, query=st.session_state.get("shipment_query", ""),
+    record_key = ("records", *(st.session_state.get(key) for key in ("shipment_query", "shipment_start", "shipment_end",
+                  "shipment_include_void", "shipment_customer_start", "shipment_customer_end")))
+    records = [] if editing else read(record_key, lambda: list_shipments(config, query=st.session_state.get("shipment_query", ""),
                              start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
                              include_void=st.session_state.get("shipment_include_void", False),
                              customer_start=st.session_state.get("shipment_customer_start", ""),
@@ -184,17 +198,17 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     ids = [row["id"] for row in records]
     selected = st.session_state.get("shipment_selected")
     index = ids.index(selected) if selected in ids else 0
-    document = draft or (get_shipment(config, ids[index]) if ids else None)
+    document = draft or (read(("document", ids[index]), lambda: get_shipment(config, ids[index])) if ids else None)
     if not editing and document:
         st.session_state.shipment_selected = document["id"]
     tools = st.columns([1, 1, 1, 1, 1.1, 1, 1, .6, 1.6])
     with tools[0]:
-        if st.button("新增", key="shipment_new", disabled=editing, use_container_width=True):
-            _begin(blank_shipment())
-    if tools[1].button("修改", key="shipment_edit", disabled=editing or not document or document.get("status") == "void", use_container_width=True):
-        _begin(document)
-    if tools[2].button("複製", key="shipment_copy", disabled=editing or not document, use_container_width=True):
-        _begin(copy_shipment(document))
+        st.button("新增", key="shipment_new", disabled=editing, use_container_width=True,
+                  on_click=_begin, args=(blank_shipment(),), kwargs={"rerun": False})
+    tools[1].button("修改", key="shipment_edit", disabled=editing or not document or document.get("status") == "void", use_container_width=True,
+                    on_click=_begin, args=(document,), kwargs={"rerun": False})
+    tools[2].button("複製", key="shipment_copy", disabled=editing or not document, use_container_width=True,
+                    on_click=_copy_for_edit, args=(document,))
     if tools[3].button("取消", key="shipment_cancel", disabled=not editing, use_container_width=True):
         _finish("已取消修改")
     save_clicked = tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing, use_container_width=True)
@@ -215,12 +229,14 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     if document.get("status") == "void":
         st.warning("已作廢：" + document.get("void_reason", ""))
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
-    print_controls = st.columns([1, 1, 3])
+    print_controls = st.columns([1, 1, 2, 1])
     preview = print_controls[0].toggle("預覽／列印", value=widget_default("shipment_print_preview", st.session_state.get("shipment_preview_preference", False)), key="shipment_print_preview", disabled=editing, on_change=_remember_print_settings)
     hide_prices = print_controls[1].toggle("隱藏單價與金額", value=widget_default("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False)), key="shipment_hide_prices", disabled=editing, on_change=_remember_print_settings)
     sync_products = print_controls[2].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
                                             help="成交價依客戶、貨品與單位保存於出貨紀錄，不覆蓋共用標準售價")
     if preview and not editing:
+        with print_controls[3]:
+            render_purchase_history(config, document["customer_id"], document["customer_name"])
         print_html = printable_shipment(document, show_prices=not hide_prices, orientation=orientation)
         print_controls[2].download_button("下載 A5 列印版", data=print_html,
                                           file_name=document["shipment_number"] + ("-無金額" if hide_prices else "") + ".html", mime="text/html")
@@ -261,7 +277,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         if editing:
             invoice[field] = selected
 
-    customers = read("customers", lambda: list_customers(config, include_inactive=True))
+    customers = read("customers", lambda: list_customers(config, include_inactive=True)) if editing else []
     header = st.columns([1.25, 1.35, 1.55, 2.8])
     with header[0]:
         date_field("出貨日期", "shipment_date")
@@ -304,13 +320,15 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     for col, label, field in zip(receiver, ("指送對象編號", "指送對象名稱", "送貨地址"), ("recipient_id", "recipient_name", "address")):
         with col:
             text(label, field)
+    with print_controls[3]:
+        render_purchase_history(config, document["customer_id"], document["customer_name"])
     source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
     requested_item = None
     if editing:
         history_key = ("history", document["customer_id"], document["shipment_date"], document.get("id", ""))
         history = read(history_key, lambda: shipment_price_history(config, document["customer_id"],
                        document["shipment_date"], document.get("id", ""))) if document["customer_id"] else []
-        all_choices = read(("all_choices", document["customer_id"]),
+        all_choices = read("all_choices",
                            lambda: shipment_choices(config, document["customer_id"], all_recipes=True)) if document["customer_id"] else {}
         with st.expander("加入貨品／配方", expanded=False):
             choices = {code: item for code, item in all_choices.items()
