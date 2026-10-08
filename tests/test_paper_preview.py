@@ -1,7 +1,7 @@
 import ast
 from pathlib import Path
 
-from utils.paper_preview import build_paper_preview, paper_preview_height
+from utils.paper_preview import build_paper_preview, paper_preview_height, theme_preview, PREVIEW_THEME
 
 
 def test_recipe_content_is_preserved_and_escaped():
@@ -49,3 +49,26 @@ def test_content_sized_preview_keeps_short_documents_compact():
     assert 220 <= paper_preview_height(short) < 300
     assert paper_preview_height("x\n" * 200) == 380
     assert 220 <= paper_preview_height('<body><pre>302 6</pre></body>', document=True) <= 380
+
+
+def test_shared_theme_changes_screen_chrome_only():
+    source = '<html><head><style>@page{size:A5}table{font-size:12pt}</style></head><body><div class="toolbar">Print</div><section class="sheet">Original content</section></body></html>'
+    themed = theme_preview(source)
+    assert themed.replace(PREVIEW_THEME, "") == source
+    assert themed.count('id="preview-theme"') == 1
+    assert "@media screen" in PREVIEW_THEME
+    assert "@media print" not in PREVIEW_THEME
+    assert "background:#101820" in themed and "border-bottom:2px solid #e66e32" in themed
+    assert ".paper,.sheet{background:#fff;color:#000" in themed
+    assert "width:" not in PREVIEW_THEME.replace("min-width:", "")
+
+
+def test_all_preview_adapters_use_theme_without_changing_downloads():
+    root = Path(__file__).parents[1]
+    shipments = (root / "utils/shipment_ui.py").read_text(encoding="utf-8")
+    statements = (root / "utils/receivable_ui.py").read_text(encoding="utf-8")
+    assert "components.html(theme_preview(print_html)" in shipments
+    assert "data=print_html" in shipments
+    assert "components.html(theme_preview(render_statement_print(" in statements
+    assert 'html = render_statement_print(pages, selected=index, show_receipts=show_receipts)' in statements
+    assert 'id="preview-theme"' in build_paper_preview("Recipe", title="配方")

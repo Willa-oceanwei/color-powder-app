@@ -4,6 +4,31 @@ from html import escape
 from html.parser import HTMLParser
 
 
+PREVIEW_THEME = '''<style id="preview-theme">
+@media screen {
+body{background:#101820;color:#e8eef4;color-scheme:dark;}
+.toolbar,.print-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+background:#193042;color:#e8eef4;border-bottom:2px solid #e66e32;padding:8px;
+font:16px "Microsoft JhengHei",Arial,sans-serif;}
+.toolbar label{color:#e8eef4;}
+.toolbar select,.toolbar button,.print-toolbar button{background:#264158;color:#fff;
+border:1px solid #527086;border-radius:4px;font:inherit;min-height:38px;padding:5px 10px;}
+.toolbar select{min-width:140px;}.toolbar select option{background:#193042;color:#fff;}
+.toolbar button:hover,.print-toolbar button:hover{background:#a9471c;border-color:#e66e32;}
+.toolbar select:focus-visible,.toolbar button:focus-visible,.print-toolbar button:focus-visible{
+outline:2px solid #e66e32;outline-offset:2px;}
+.stage,.preview-stage{background:#101820;scrollbar-color:#527086 #101820;}
+.paper,.sheet{background:#fff;color:#000;color-scheme:light;outline:1px solid #527086;
+box-shadow:0 2px 8px #0005;}
+}
+</style>'''
+
+
+def theme_preview(document):
+    """Apply screen-only chrome to embedded previews, not downloadable reports."""
+    return document.replace("</head>", PREVIEW_THEME + "</head>", 1)
+
+
 class _PrintBody(HTMLParser):
     allowed = {"div", "pre", "span", "b", "strong", "br", "p"}
     blocked = {"script", "style", "iframe", "object"}
@@ -60,7 +85,7 @@ def build_paper_preview(content, *, title, document=False):
         if lines and lines[0] == "```" and lines[-1] == "```":
             lines = lines[1:-1]
         paper = f'<div class="title">{escape(title)}</div><pre>{escape(chr(10).join(lines))}</pre>'
-    return '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
+    return theme_preview('''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
 <title>''' + escape(title) + '''預覽</title><style>
 *{box-sizing:border-box}body{margin:0;color:#000;background:#e5e7eb;letter-spacing:0;font:16px Arial,"Microsoft JhengHei",sans-serif}
 .toolbar{display:flex;align-items:center;gap:10px;padding:8px}.toolbar select{font:inherit;min-height:38px;min-width:140px;padding:5px 10px;border-radius:4px}
@@ -77,4 +102,4 @@ const mode=document.getElementById('zoom').value,width=(stage.clientWidth-24)/pa
 const scale=mode==='width'?width:mode==='page'?Math.min(width,(stage.clientHeight-24)/paper.offsetHeight):Number(mode);
 document.documentElement.style.setProperty('--scale',Math.max(.15,scale));}
 addEventListener('resize',resize);resize();
-</script></body></html>'''
+</script></body></html>''')
