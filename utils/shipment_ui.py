@@ -313,7 +313,7 @@ def render_shipment_management(config):
                                     format_func=lambda key: f"{key} · {choices[key]['name']}" if key else "請選擇貨品或配方",
                                     key=picker_key, on_change=_fill_product_unit, args=(prefix, choices, picker_key))
             unit = unit_col.text_input("銷售單位", value=widget_default(prefix + "sale_unit", "KG"), key=prefix + "sale_unit").strip()
-            quantity = quantity_col.number_input("加入數量", min_value=0.001, value=widget_default(prefix + "add_quantity", 1.0), step=1.0, key=prefix + "add_quantity")
+            quantity = quantity_col.number_input("加入數量", min_value=0.001, value=widget_default(prefix + "add_quantity", 1.0), step=1.0, format="%.15g", key=prefix + "add_quantity")
             previous = recent_shipment_price(config, document["customer_id"], code, unit,
                                              shipment_date=document["shipment_date"], tax_mode=document["tax_mode"],
                                              exclude_id=document.get("id", ""), history=history)
