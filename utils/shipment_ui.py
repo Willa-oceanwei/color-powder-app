@@ -10,6 +10,7 @@ import streamlit.components.v1 as components
 
 from .shipment_catalog import shipment_choices, complete_items, recent_item_defaults
 from .shipment_print import display_price
+from .paper_preview import theme_preview
 from .accounting_widgets import widget_default, widget_index
 from .customer_repository import list_customers
 from .shipment_repository import (
@@ -223,7 +224,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         print_html = printable_shipment(document, show_prices=not hide_prices, orientation=orientation)
         print_controls[2].download_button("下載 A5 列印版", data=print_html,
                                           file_name=document["shipment_number"] + ("-無金額" if hide_prices else "") + ".html", mime="text/html")
-        components.html(print_html, height=550, scrolling=True)
+        components.html(theme_preview(print_html), height=550, scrolling=True)
         return
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
 

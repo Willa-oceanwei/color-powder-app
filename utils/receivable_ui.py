@@ -9,6 +9,7 @@ import streamlit.components.v1 as components
 
 from .customer_repository import list_customers
 from .receivable_report import build_statements, render_statement_print, statement_pages
+from .paper_preview import theme_preview
 from .shipment_repository import ShipmentError, get_shipment, list_shipments
 from .receipt_repository import list_receipts, save_receipt, void_receipt
 from .shipment_ui import COMPACT_STYLE
@@ -71,7 +72,7 @@ def render_report(config):
     exports[0].download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts), file_name="應收帳款明細表.pdf", mime="application/pdf")
     exports[1].download_button("匯出 Excel", statement_excel(statements, show_receipts=show_receipts), file_name="應收帳款明細表.xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    components.html(render_statement_print(pages, selected=index, embedded=True, show_receipts=show_receipts), height=560, scrolling=True)
+    components.html(theme_preview(render_statement_print(pages, selected=index, embedded=True, show_receipts=show_receipts)), height=560, scrolling=True)
 
 
 def render_customer_ranking(config):
