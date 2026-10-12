@@ -72,9 +72,9 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
     return result
 
 
-FIELDS = (("kind", 6), ("date", 12), ("number", 16), ("code", 14), ("name", 16),
+FIELDS = (("kind", 6), ("date", 12), ("number", 16), ("code", 14), ("name", 12),
           ("quantity", 9), ("unit", 6), ("price", 8), ("amount", 12), ("order_number", 12))
-REPORT_WIDTHS = (5, 11, 13, 11, 17, 7, 5, 8, 11, 12)
+REPORT_WIDTHS = (5, 13, 14, 11, 14, 7, 5, 8, 11, 12)
 
 
 def statement_pages(statements, capacity=None, *, paper_size="auto"):
@@ -162,12 +162,12 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
         preview_style += stock_style(0, hole_margin, paginated=True, stock_height=280, offset=-10, a4_driver=True)
     preview_style += '''body{font-size:12pt}h1{font-size:19pt}h2{font-size:14pt}.metadata{line-height:5.5mm}.period{font-size:11pt}
 table{font-size:11pt}td,th{line-height:5.2mm}.sheet{padding:8mm}th:nth-child(6),th:nth-child(8),th:nth-child(9){text-align:right}th:nth-child(7){text-align:center}
-th:nth-child(1){width:5%}th:nth-child(2){width:11%}th:nth-child(3){width:13%}th:nth-child(4){width:11%}th:nth-child(5){width:17%}th:nth-child(6){width:7%}th:nth-child(7){width:5%}th:nth-child(8){width:8%}th:nth-child(9){width:11%}th:nth-child(10){width:12%}
+th:nth-child(1){width:5%}th:nth-child(2){width:13%}th:nth-child(3){width:14%}th:nth-child(4){width:11%}th:nth-child(5){width:14%}th:nth-child(6){width:7%}th:nth-child(7){width:5%}th:nth-child(8){width:8%}th:nth-child(9){width:11%}th:nth-child(10){width:12%}
 td:nth-child(6),td:nth-child(8),td:nth-child(9){white-space:nowrap;padding-right:.2mm}
 td:nth-child(1),td:nth-child(2),td:nth-child(3),td:nth-child(4),td:nth-child(7){white-space:nowrap}
 th:nth-child(9),td:nth-child(9){padding-right:1mm}th:nth-child(10),td:nth-child(10){padding-left:2mm}
-.summary{grid-template-columns:5% 11% 13% 11% 17% 7% 5% 8% 11% 12%;line-height:5.8mm}
-.quantity-summary{grid-column:1/8;grid-row:1;display:grid;grid-template-columns:5fr 11fr 13fr 11fr 17fr 7fr 5fr}
+.summary{grid-template-columns:5% 13% 14% 11% 14% 7% 5% 8% 11% 12%;line-height:5.8mm}
+.quantity-summary{grid-column:1/8;grid-row:1;display:grid;grid-template-columns:5fr 13fr 14fr 11fr 14fr 7fr 5fr}
 .quantity-label{grid-column:1/6;text-align:right}.quantity-value{grid-column:6;text-align:right;padding-right:.2mm}.quantity-unit{grid-column:7;text-align:center}
 .statement-totals{grid-column:6/10;grid-row:2;font-size:11pt}.statement-totals>div{grid-template-columns:20fr 11fr}
 .statement-totals span:last-child{padding-right:1mm}

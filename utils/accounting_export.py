@@ -58,7 +58,7 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
     sheet.page_setup.fitToHeight = 0
     sheet.sheet_properties.pageSetUpPr.fitToPage = True
     sheet.page_margins = PageMargins(left=0, right=0, top=0, bottom=0, header=0, footer=0)
-    for column, width in zip("ABCDEFGHIJ", (5, 12, 14, 13, 20, 9, 6, 10, 14, 15)):
+    for column, width in zip("ABCDEFGHIJ", (5, 14, 16, 13, 16, 9, 6, 10, 14, 15)):
         sheet.column_dimensions[column].width = width
 
     def put(row, column, value, *, end=None, size=12, bold=False, align="left"):
@@ -68,7 +68,7 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
         if isinstance(value, str):
             cell.data_type = "s"
         cell.font = Font(name="Microsoft JhengHei", size=size, bold=bold, color="000000")
-        cell.alignment = Alignment(horizontal=align, vertical="center", wrap_text=column not in (6, 8, 9))
+        cell.alignment = Alignment(horizontal=align, vertical="center", wrap_text=column not in (2, 3, 6, 7, 8, 9))
         if column in (6, 8, 9) and not isinstance(value, str):
             cell.number_format = '#,##0.##########'
         sheet.row_dimensions[row].height = max(sheet.row_dimensions[row].height or 0, size + 8)
