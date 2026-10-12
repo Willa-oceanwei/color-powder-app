@@ -5,6 +5,7 @@ from io import BytesIO
 from pathlib import Path
 
 from .shipment_print import COMPANY, _wrap, display_price
+from .shipment_codes import printed_code
 
 
 def _workbook(sheets):
@@ -40,7 +41,7 @@ def statement_excel(statements, *, show_receipts=False):
                        [int(s[k]) for k in (("net", "tax", "total", "received", "balance") if show_receipts else ("net", "tax", "total"))])
         for d in s["documents"]:
             for item in d["items"]:
-                details.append([s["customer_id"], s["customer_name"], d["date"], d["number"], item["code"], item["name"],
+                details.append([s["customer_id"], s["customer_name"], d["date"], d["number"], printed_code(item), item["name"],
                                 Decimal(item["quantity"]), item["unit"], Decimal(item["price"]), int(item["amount"]), item.get("notes", "")])
     return _workbook([("交易明細", details), ("客戶合計", summary)])
 

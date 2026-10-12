@@ -9,6 +9,7 @@ from .product_repository import (
     ProductError, _document, blank_product, product_from_recipe, save_product,
 )
 from .shipment_repository import ShipmentError, recent_shipment_price, shipment_price_history
+from .shipment_codes import display_code_options
 
 
 def shipment_choices(config, customer_id, *, all_recipes=False):
@@ -80,6 +81,8 @@ def complete_items(config, document, items, previous, *, choices=None, history=N
             if not str(items[index].get("code") or "").strip():
                 item["name"] = (recent_item_defaults(history, code) or {}).get("name") or match["name"]
         code_changed = code != old.get("code")
+        if item.get("display_code") and item["display_code"] not in display_code_options(code):
+            item["display_code"] = ""
         unit_changed = str(item.get("unit") or "").strip().upper() != str(old.get("unit") or "").strip().upper()
         if not match or not (code_changed or unit_changed):
             continue
