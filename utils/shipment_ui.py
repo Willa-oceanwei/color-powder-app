@@ -258,9 +258,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.rerun()
     tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{index + 1 if ids else 0} / {len(ids)}</span>', unsafe_allow_html=True)
     with tools[8].popover("列印／進紙", use_container_width=True):
+        stock = st.selectbox("紙張尺寸", ("三聯紙 240 × 140 mm", "A5"), key="shipment_paper_stock")
+        paper_stock = "triplicate" if stock.startswith("三聯紙") else "standard"
         layout = st.selectbox("列印方向", ("橫式", "直式"), key="shipment_print_orientation",
-                              format_func=lambda value: "列印：" + value, label_visibility="collapsed")
-        feed_rotation = st.selectbox("紙張進紙", (0, 90), format_func=lambda v: "原方向" if v == 0 else "旋轉90度進紙", key="shipment_feed_rotation")
+                              format_func=lambda value: "列印：" + value, label_visibility="collapsed", disabled=paper_stock == "triplicate")
+        feed_rotation = st.selectbox("紙張進紙", (0, 90), format_func=lambda v: ("240 mm 長邊先進（橫放）" if v == 0 else "140 mm 短邊先進（直放）") if paper_stock == "triplicate" else ("原方向" if v == 0 else "旋轉90度進紙"), key="shipment_feed_rotation")
         hole_margin = st.number_input("左右打洞留白（mm）", min_value=0.0, max_value=25.0, value=12.5, step=0.5, key="shipment_hole_margin")
     orientation = "portrait" if layout == "直式" else "landscape"
     if editing:
@@ -279,8 +281,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     if preview and not editing:
         with print_controls[3]:
             render_purchase_history(config, document["customer_id"], document["customer_name"])
-        print_html = printable_shipment(document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin)
-        print_controls[2].download_button("下載 A5 列印版", data=print_html,
+        print_html = printable_shipment(document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock)
+        print_controls[2].download_button("下載列印版（三聯紙）" if paper_stock == "triplicate" else "下載 A5 列印版", data=print_html,
                                           file_name=document["shipment_number"] + ("-無金額" if hide_prices else "") + ".html", mime="text/html")
         components.html(theme_preview(print_html), height=550, scrolling=True)
         return
@@ -550,7 +552,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             _finish("已儲存出貨單 " + saved["shipment_number"])
     if not editing:
         download, lifecycle = st.columns([1, 3])
-        download.download_button("下載列印版", data=printable_shipment(document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin), file_name=document["shipment_number"] + ".html", mime="text/html")
+        download.download_button("下載列印版", data=printable_shipment(document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock), file_name=document["shipment_number"] + ".html", mime="text/html")
         if document["status"] == "draft":
             with lifecycle.expander("作廢出貨單"):
                 with st.form("shipment_void_" + document["id"]):

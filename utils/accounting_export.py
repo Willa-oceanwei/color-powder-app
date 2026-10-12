@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .shipment_print import COMPANY, _wrap, display_price
 from .shipment_codes import printed_code
+from .print_stock import stock_geometry
 
 
 def _workbook(sheets):
@@ -70,8 +71,14 @@ def _line(pdf, x, y, text, width=100, size=10):
         pdf.drawString(x, y - index * (size + 2), line)
 
 
-def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表"):
+def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", paper_stock="standard", feed_rotation=0, hole_margin=12.5):
     from reportlab.lib.pagesizes import A4, A5, landscape
+    from reportlab.lib.units import mm
+    if paper_stock not in ("standard", "triplicate"):
+        raise ValueError("Invalid paper stock")
+    if paper_stock == "triplicate" and any(p.get("paper_size", "A5") != "A5" for p in pages):
+        raise ValueError("Triplicate stock requires A5 pagination")
+    geometry = stock_geometry(feed_rotation, hole_margin) if paper_stock == "triplicate" else None
     buffer, pdf = _canvas(title, a5=True)
     labels = ("單別", "交易日期", "交易單號", "貨品編號", "品名", "數量", "單位", "單價", "金額", "備註說明")
     widths = (5, 11, 14, 11, 23, 7, 5, 7, 9, 8)
@@ -79,6 +86,13 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表"):
     for page in pages:
         size = A4 if page.get("paper_size", "A5") == "A4" else landscape(A5)
         pdf.setPageSize(size)
+        if geometry:
+            width, height, x, y, scale = geometry
+            pdf.setPageSize((width * mm, height * mm))
+            pdf.saveState()
+            pdf.translate(x * mm, y * mm)
+            pdf.rotate(feed_rotation)
+            pdf.scale(scale, scale)
         top = size[1]
         s = page["statement"]
         pdf.setFont("CompanySansTC", 17)
@@ -129,6 +143,8 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表"):
                 pdf.drawRightString(positions[8] + widths[8] * 5.51 - 3, y - 15 - index * 14, f"{int(s[key]):,}")
         _line(pdf, 22, 33, COMPANY["address"], size=8)
         _line(pdf, 22, 21, f"Tel: {COMPANY['phone']}  Fax: {COMPANY['fax']}", size=8)
+        if geometry:
+            pdf.restoreState()
         pdf.showPage()
     pdf.save()
     return buffer.getvalue()
