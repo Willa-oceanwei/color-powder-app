@@ -159,7 +159,7 @@ def test_print_orientation_and_shared_address_invoice_row(config, orientation, d
     d['invoice'].update(number='AB123', date='2026-10-01')
     html = printable_shipment(save_shipment(config, d), orientation=orientation)
     assert f'size:A5 {orientation}' in html and dimensions in html
-    assert 'font-size:19pt' in html
+    assert 'font-size:21pt' in html
     assert '<div class="delivery-row"><div>送貨地址：' in html
     assert '</div><div class="invoice-number">發票號碼：AB123</div></div>' in html
 
@@ -324,7 +324,7 @@ def test_print_black_font_fixed_columns_and_grouped_amounts(config):
     assert '佳咊實業有限公司' in html and '佳味' not in html
     assert 'body {margin:0;background:#e5e7eb;color:#000;font-family:"Microsoft JhengHei"' in html
     assert 'header h1,header h2 {font-family:"DFKai-SB","BiauKai","KaiTi",serif;}' in html
-    assert 'font-size:12pt' in html and '<colgroup>' in html
+    assert 'font-size:14pt' in html and '<colgroup>' in html
     assert '17,600' in html and '18,480' in html
     assert html.count('class="sheet"') == 2
     assert '珍珠灰黑(115/07/02 220/包)' in html

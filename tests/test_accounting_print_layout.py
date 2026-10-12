@@ -6,6 +6,7 @@ from openpyxl import load_workbook
 from utils.accounting_export import statement_excel, statement_pdf
 from utils.receivable_report import statement_pages, render_statement_print
 from utils.shipment_print import render_shipment_print
+from utils.print_stock import stock_geometry
 
 
 def statement():
@@ -28,6 +29,10 @@ def test_a4_driver_shared_feed_preserves_data_and_blanks_prices():
     assert '<th class="price">單價</th>' in html and '<th class="amount">金額</th>' in html
     assert '<td class="price"></td>' in html and '<td class="amount"></td>' in html
     assert '<span>合計' not in html and doc == before
+    assert 'font-size:14pt' in html and 'font-size:21pt' in html
+    x = stock_geometry(0, 12.5, offset=-15)[2]
+    assert f'translate({x:.6f}mm' in html
+    assert stock_geometry(0, 12.5)[2] - x == 15
 
 
 def test_a4_statement_headers_alignment_company_and_purchase_order():
@@ -41,6 +46,8 @@ def test_a4_statement_headers_alignment_company_and_purchase_order():
     assert 'th:nth-child(6),th:nth-child(8),th:nth-child(9){text-align:right}' in html
     assert '<footer>' not in html and 'class="company-info"' in html
     assert '.company-info{margin-top:5.8mm' in html
+    assert '.statement-left{grid-column:1/6;grid-row:1' in html
+    assert '.statement-totals{grid-column:6/10;grid-row:1' in html
     pdf = statement_pdf(pages, paper_stock="a4_driver", title="客戶交易明細")
     assert b'595.2756 841.8898' in pdf
     assert s == before
@@ -57,7 +64,26 @@ def test_statement_excel_print_sheet_keeps_company_and_safe_text():
     assert sheet['J8'].value == "採購單號" and sheet['J10'].value == "PO-20261001"
     assert sheet['E10'].value.startswith('=HYPERLINK') and sheet['E10'].data_type == 's'
     assert sheet['A14'].value == "台南市永康區中正南路309號"
-    assert sheet['F12'].value == 2 and sheet['I13'].value == 200
+    assert sheet['C12'].value == 2 and sheet['I12'].value == 200
     assert str(sheet.page_setup.paperSize) == sheet.PAPERSIZE_A4
     assert sheet.page_setup.fitToWidth == 1
     assert book['交易明細']['L2'].value == 'PO-20261001'
+
+
+def test_twelve_digit_purchase_order_and_mixed_units_share_summary_height():
+    s = statement()
+    s['documents'][0]['items'][0]['order_number'] = '123456789012'
+    s['quantities']['KG'] = '3'
+    pages = statement_pages([s], paper_size='A4')
+    assert pages[0]['rows'][1][-1] == '123456789012'
+    assert len(pages[0]['rows']) == 2
+    html = render_statement_print(pages)
+    assert 'td:nth-child(10){font-size:8.5pt;white-space:nowrap' in html
+    assert '<div class="statement-left"><div class="quantity-summary">' in html
+    book = load_workbook(BytesIO(statement_excel([s])))
+    sheet = book['列印版']
+    assert sheet['J10'].value == '123456789012'
+    assert sheet['J10'].font.sz == 10 and not sheet['J10'].alignment.wrap_text
+    assert sheet['C11'].value == 2 and sheet['C12'].value == 3
+    assert sheet['I11'].value == 200 and sheet['I13'].value == 210
+    assert sheet['A14'].value == '台南市永康區中正南路309號'
