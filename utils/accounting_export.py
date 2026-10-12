@@ -69,9 +69,9 @@ def _line(pdf, x, y, text, width=100, size=10):
         pdf.drawString(x, y - index * (size + 2), line)
 
 
-def statement_pdf(pages, *, show_receipts=False):
+def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表"):
     from reportlab.lib.pagesizes import A4, A5, landscape
-    buffer, pdf = _canvas("應收帳款明細表", a5=True)
+    buffer, pdf = _canvas(title, a5=True)
     labels = ("單別", "交易日期", "交易單號", "貨品編號", "品名", "數量", "單位", "單價", "金額", "備註說明")
     widths = (5, 11, 14, 11, 23, 7, 5, 7, 9, 8)
     positions = [22 + sum(widths[:i]) * 5.51 for i in range(10)]
@@ -83,7 +83,7 @@ def statement_pdf(pages, *, show_receipts=False):
         pdf.setFont("CompanySansTC", 17)
         pdf.drawCentredString(297.5, top - 32, COMPANY["name"])
         pdf.setFont("MSung-Light", 12)
-        pdf.drawCentredString(297.5, top - 50, "應收帳款明細表")
+        pdf.drawCentredString(297.5, top - 50, title)
         _line(pdf, 22, top - 70, f"客戶名稱：{s['customer_id']}  {s['customer_name']}", width=60, size=10)
         _line(pdf, 476, top - 70, f"頁數 {page['customer_page']} / {page['customer_pages']}", size=9)
         _line(pdf, 22, top - 88, f"聯絡人：{s.get('contact','')}", width=32, size=9)
@@ -124,7 +124,8 @@ def statement_pdf(pages, *, show_receipts=False):
             totals += [("本期總計", "total")]
             for index, (label, key) in enumerate(totals):
                 pdf.setFont("MSung-Light", 9)
-                pdf.drawRightString(573, y - 15 - index * 14, f"{label}：{int(s[key]):,}")
+                pdf.drawRightString(positions[8] - 4, y - 15 - index * 14, f"{label}：")
+                pdf.drawRightString(positions[8] + widths[8] * 5.51 - 3, y - 15 - index * 14, f"{int(s[key]):,}")
         _line(pdf, 22, 33, COMPANY["address"], size=8)
         _line(pdf, 22, 21, f"Tel: {COMPANY['phone']}  Fax: {COMPANY['fax']}", size=8)
         pdf.showPage()
@@ -140,7 +141,9 @@ def ranking_rows(statements):
 
 
 def ranking_excel(statements):
-    return _workbook([("客戶交易排行", ranking_rows(statements))])
+    rows = ranking_rows(statements)
+    rows.append(["", "", "未稅金額總計", "", int(sum((Decimal(s["net"]) for s in statements), Decimal(0))), "", ""])
+    return _workbook([("客戶交易排行", rows)])
 
 
 def ranking_pdf(statements):
@@ -161,6 +164,8 @@ def ranking_pdf(statements):
             for x, value in zip(positions, row):
                 _line(pdf, x, 466 - index * 17, value, width=100, size=9)
         _line(pdf, 34, 39, f"頁數 {offset // 20 + 1} / {(len(rows) - 1) // 20 + 1}", size=9)
+        if offset + 20 >= len(rows):
+            _line(pdf, 500, 63, f"未稅金額總計：{int(sum((Decimal(s['net']) for s in statements), Decimal(0))):,}", size=10)
         pdf.showPage()
     pdf.save()
     return buffer.getvalue()

@@ -109,6 +109,7 @@ from utils.shipment_ui import render_shipment_management
 render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
 ''').run(timeout=30)
     app.button(key="shipment_new").click().run()
+    next(w for w in app.selectbox if w.label == "單號方式").set_value("依日期生成").run()
     next(w for w in app.selectbox if w.label == "客戶").set_value("C01").run()
     assert not app.exception
     assert next(w for w in app.text_input if w.label == "送貨地址").value == "台南市測試路1號"
