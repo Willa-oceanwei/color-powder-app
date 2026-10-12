@@ -56,6 +56,10 @@ body:has(#shipment-page) [data-testid="stPopoverBody"] {width:min(960px,calc(100
 body:has(#shipment-page) [data-testid="stPopoverBody"]:has(iframe) {max-height:calc(100vh - 32px)!important;overflow-y:auto;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] [data-testid="stVerticalBlock"],
 body:has(#shipment-page) [data-testid="stPopoverBody"] .element-container {width:100%!important;max-width:100%!important;}
+body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] {background:#101820!important;color:#d5e1ec!important;}
+body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] [data-testid="stWidgetLabel"] p,
+body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"] p {color:#d5e1ec!important;}
+body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] button {background:#193042!important;color:#fff!important;border-color:#527086!important;}
 .stApp:has(.erp-title) .main:has(#shipment-page) .block-container {padding-top:72px!important;}
 .stApp:has(.erp-title) .main:has(#shipment-page) h3,
 .stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stWidgetLabel"] p,
