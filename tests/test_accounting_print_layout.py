@@ -29,10 +29,10 @@ def test_a4_driver_shared_feed_preserves_data_and_blanks_prices():
     assert '<th class="price">單價</th>' in html and '<th class="amount">金額</th>' in html
     assert '<td class="price"></td>' in html and '<td class="amount"></td>' in html
     assert '<span>合計' not in html and doc == before
-    assert 'font-size:14pt' in html and 'font-size:21pt' in html
-    x = stock_geometry(0, 12.5, offset=-15)[2]
+    assert 'font-size:13pt' in html and 'font-size:20pt' in html
+    x = stock_geometry(0, 12.5, offset=-25, preserve_holes=False)[2]
     assert f'translate({x:.6f}mm' in html
-    assert stock_geometry(0, 12.5)[2] - x == 15
+    assert stock_geometry(0, 12.5)[2] - x == 25
 
 
 def test_a4_statement_headers_alignment_company_and_purchase_order():
@@ -42,7 +42,7 @@ def test_a4_statement_headers_alignment_company_and_purchase_order():
     html = render_statement_print(pages, paper_stock="a4_driver", title="客戶交易明細")
     assert 'width:240mm;height:280mm' in html and 'size:A4 portrait' in html
     assert '<th>採購單號</th>' in html and 'PO-20261001' in html and 'Not a purchase order' not in html
-    assert 'font-size:12pt' in html and 'table{font-size:11pt}' in html
+    assert 'font-size:13pt' in html and 'table{font-size:12pt}' in html
     assert 'th:nth-child(6),th:nth-child(8),th:nth-child(9){text-align:right}' in html
     assert '<footer>' not in html and 'class="company-info"' in html
     assert '.company-info{margin-top:5.8mm' in html
@@ -78,12 +78,24 @@ def test_twelve_digit_purchase_order_and_mixed_units_share_summary_height():
     assert pages[0]['rows'][1][-1] == '123456789012'
     assert len(pages[0]['rows']) == 2
     html = render_statement_print(pages)
-    assert 'td:nth-child(10){font-size:8.5pt;white-space:nowrap' in html
+    assert 'td:nth-child(10){font-size:9.5pt;white-space:nowrap' in html
     assert '<div class="statement-left"><div class="quantity-summary">' in html
     book = load_workbook(BytesIO(statement_excel([s])))
     sheet = book['列印版']
     assert sheet['J10'].value == '123456789012'
-    assert sheet['J10'].font.sz == 10 and not sheet['J10'].alignment.wrap_text
+    assert sheet['J10'].font.sz == 11 and not sheet['J10'].alignment.wrap_text
     assert sheet['C11'].value == 2 and sheet['C12'].value == 3
     assert sheet['I11'].value == 200 and sheet['I13'].value == 210
     assert sheet['A14'].value == '台南市永康區中正南路309號'
+
+
+def test_excel_separates_each_shipment_even_on_the_same_date():
+    s = statement()
+    second = deepcopy(s['documents'][0])
+    second['number'] = 'S2'
+    s['documents'].append(second)
+    sheet = load_workbook(BytesIO(statement_excel([s])))['列印版']
+    assert sheet['C11'].value == 'S2'
+    for column in range(1, 11):
+        assert sheet.cell(11, column).border.top.style == 'dotted'
+        assert sheet.cell(10, column).border.top.style is None

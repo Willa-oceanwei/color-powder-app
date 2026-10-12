@@ -7,6 +7,37 @@ from utils.database import DatabaseConfig, initialize_database
 from utils.shipment_repository import blank_shipment, get_shipment, list_shipments, save_shipment
 
 
+def test_exact_number_search_browses_following_numbers_not_only_search_hits(tmp_path):
+    config = DatabaseConfig(backend='sqlite', path=tmp_path / 'number-navigation.db')
+    initialize_database(config.path)
+    create_customer(config, CustomerInput('C01', 'Customer'))
+    saved = {}
+    for number, day in [('029541', '2026-10-02'), ('029542', '2026-10-01'), ('029543', '2026-10-03')]:
+        doc = blank_shipment()
+        doc.update(customer_id='C01', customer_name='Customer', shipment_number=number, shipment_date=day)
+        doc['items'] = [dict(code='P1', name='Blue', quantity='2', unit='KG', price='100', order_number='', notes='')]
+        saved[number] = save_shipment(config, doc)['id']
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    next(w for w in app.text_input if w.label == '出貨單號 / 客戶 / 貨品編號').set_value('029541')
+    next(b for b in app.button if b.label == '查詢').click().run()
+    assert not app.exception and app.session_state['shipment_selected'] == saved['029541']
+    app.button(key='shipment_nav_下一筆').click().run()
+    assert not app.exception and app.session_state['shipment_selected'] == saved['029542']
+    assert not app.button(key='shipment_edit').disabled and not app.button(key='shipment_copy').disabled
+    app.button(key='shipment_nav_下一筆').click().run()
+    assert not app.exception and app.session_state['shipment_selected'] == saved['029543']
+    assert app.button(key='shipment_nav_下一筆').disabled
+    app.button(key='shipment_nav_上一筆').click().run()
+    assert app.session_state['shipment_selected'] == saved['029542']
+
+
 def test_entry_defaults_new_without_reloading_saved_documents(tmp_path, monkeypatch):
     import utils.shipment_ui as ui
     config = DatabaseConfig(backend='sqlite', path=tmp_path / 'entry.db')
