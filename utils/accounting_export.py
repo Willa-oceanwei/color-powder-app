@@ -61,7 +61,7 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
     for column, width in zip("ABCDEFGHIJ", (5, 14, 16, 13, 16, 9, 6, 10, 14, 15)):
         sheet.column_dimensions[column].width = width
 
-    def put(row, column, value, *, end=None, size=12, bold=False, align="left"):
+    def put(row, column, value, *, end=None, size=13, bold=False, align="left"):
         if end:
             sheet.merge_cells(start_row=row, start_column=column, end_row=row, end_column=end)
         cell = sheet.cell(row, column, value)
@@ -77,22 +77,24 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
     base = 0
     for page in statement_pages(statements, paper_size="A4"):
         s = page["statement"]
-        put(base + 1, 1, COMPANY["name"], end=10, size=21, bold=True, align="center")
-        put(base + 2, 1, title, end=10, size=16, align="center")
+        put(base + 1, 1, COMPANY["name"], end=10, size=22, bold=True, align="center")
+        put(base + 2, 1, title, end=10, size=17, align="center")
         put(base + 4, 1, f"客戶名稱：{s['customer_id']}　{s['customer_name']}", end=8)
         put(base + 4, 9, f"頁數 {page['customer_page']} / {page['customer_pages']}", end=10, align="right")
         put(base + 5, 1, "聯絡人：" + s.get("contact", ""), end=4)
         put(base + 5, 5, "統一編號：" + s.get("tax_id", ""), end=7)
         put(base + 6, 1, "聯絡電話：" + s.get("phone", ""), end=4)
         put(base + 6, 5, "傳真號碼：" + s.get("fax", ""), end=7)
-        put(base + 6, 8, f"帳款區間：{s['start']} ～ {s['end']}", end=10, size=11)
+        put(base + 6, 8, f"帳款區間：{s['start']} ～ {s['end']}", end=10, size=12)
         for column, label in enumerate(("單別", "交易日期", "交易單號", "貨品編號", "品名", "數量", "單位", "單價", "金額", "採購單號"), 1):
             cell = put(base + 8, column, label, bold=True, align="right" if column in (6, 8, 9) else "center" if column == 7 else "left")
             cell.border = Border(top=Side(style="thin"), bottom=Side(style="thin"))
         for index, row in enumerate(page["rows"], base + 9):
             for column, value in enumerate(row, 1):
                 number = Decimal(value.replace(",", "")) if value and column in (6, 8, 9) else value
-                put(index, column, number, size=10 if column == 10 else 12, align="right" if column in (6, 8, 9) else "center" if column == 7 else "left")
+                cell = put(index, column, number, size=11 if column == 10 else 13, align="right" if column in (6, 8, 9) else "center" if column == 7 else "left")
+                if row[0] and index > base + 9:
+                    cell.border = Border(top=Side(style="dotted", color="000000"))
         end = base + 9 + len(page["rows"])
         if page["last"]:
             for index, (unit, amount) in enumerate(s["quantities"].items(), end):
@@ -154,7 +156,7 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
         raise ValueError("Triplicate stock requires A5 pagination")
     if paper_stock == "a4_driver" and any(p.get("paper_size", "A5") != "A4" for p in pages):
         raise ValueError("A4 feed requires A4 pagination")
-    geometry = stock_geometry(0, hole_margin, height=280, offset=-10) if paper_stock == "a4_driver" else stock_geometry(feed_rotation, hole_margin) if paper_stock == "triplicate" else None
+    geometry = stock_geometry(0, hole_margin, height=280, offset=-25, preserve_holes=False) if paper_stock == "a4_driver" else stock_geometry(feed_rotation, hole_margin) if paper_stock == "triplicate" else None
     buffer, pdf = _canvas(title, a5=True)
     from .receivable_report import REPORT_WIDTHS
     labels = ("單別", "交易日期", "交易單號", "貨品編號", "品名", "數量", "單位", "單價", "金額", "採購單號")
@@ -172,22 +174,22 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
             pdf.scale(scale, scale)
         top = size[1]
         s = page["statement"]
-        pdf.setFont("CompanySansTC", 19)
+        pdf.setFont("CompanySansTC", 20)
         pdf.drawCentredString(297.5, top - 32, COMPANY["name"])
-        pdf.setFont("MSung-Light", 14)
+        pdf.setFont("MSung-Light", 15)
         pdf.drawCentredString(297.5, top - 50, title)
-        _line(pdf, 22, top - 73, f"客戶名稱：{s['customer_id']}  {s['customer_name']}", width=60, size=12)
-        _line(pdf, 476, top - 73, f"頁數 {page['customer_page']} / {page['customer_pages']}", size=11)
-        _line(pdf, 22, top - 94, f"聯絡人：{s.get('contact','')}", width=32, size=11)
-        _line(pdf, 194, top - 94, f"統一編號：{s.get('tax_id','')}", width=32, size=11)
-        _line(pdf, 22, top - 115, f"聯絡電話：{s.get('phone','')}", width=32, size=11)
-        _line(pdf, 194, top - 115, f"傳真號碼：{s.get('fax','')}", width=32, size=11)
-        _line(pdf, 367, top - 115, f"帳款區間：{s['start'].replace('-', '/')} ~ {s['end'].replace('-', '/')}", size=10)
+        _line(pdf, 22, top - 73, f"客戶名稱：{s['customer_id']}  {s['customer_name']}", width=60, size=13)
+        _line(pdf, 476, top - 73, f"頁數 {page['customer_page']} / {page['customer_pages']}", size=12)
+        _line(pdf, 22, top - 94, f"聯絡人：{s.get('contact','')}", width=32, size=12)
+        _line(pdf, 194, top - 94, f"統一編號：{s.get('tax_id','')}", width=32, size=12)
+        _line(pdf, 22, top - 115, f"聯絡電話：{s.get('phone','')}", width=32, size=12)
+        _line(pdf, 194, top - 115, f"傳真號碼：{s.get('fax','')}", width=32, size=12)
+        _line(pdf, 367, top - 115, f"帳款區間：{s['start'].replace('-', '/')} ~ {s['end'].replace('-', '/')}", size=11)
         if show_receipts:
-            _line(pdf, 367, top - 94, "收款狀態：依已登錄紀錄", size=10)
+            _line(pdf, 367, top - 94, "收款狀態：依已登錄紀錄", size=11)
         pdf.line(22, top - 130, 573, top - 130)
         for column, (x, label) in enumerate(zip(positions, labels)):
-            pdf.setFont("MSung-Light", 10)
+            pdf.setFont("MSung-Light", 11)
             if column in (5, 7, 8):
                 pdf.drawRightString(x + widths[column] * 5.51 - 3, top - 144, label)
             elif column == 6:
@@ -205,9 +207,9 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
                     pdf.line(22, y + 10, 573, y + 10)
                     pdf.setDash()
                 previous_date = row[1]
-            pdf.setFont("MSung-Light", 10.5)
+            pdf.setFont("MSung-Light", 11.5)
             for column, (x, value) in enumerate(zip(positions, row)):
-                pdf.setFont("MSung-Light", 8.5 if column == 9 else 10.5)
+                pdf.setFont("MSung-Light", 9.5 if column == 9 else 11.5)
                 if column in (5, 7, 8):
                     pdf.drawRightString(x + widths[column] * 5.51 - 3, y, str(value))
                 elif column == 6:
@@ -218,7 +220,7 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
             y = top - 167 - len(page["rows"]) * spacing
             pdf.line(22, y, 573, y)
             for index, (unit, amount) in enumerate(s["quantities"].items()):
-                pdf.setFont("MSung-Light", 11)
+                pdf.setFont("MSung-Light", 12)
                 pdf.drawString(22, y - 17 - index * 17, "數量合計：")
                 pdf.drawRightString(150, y - 17 - index * 17, display_price(amount))
                 pdf.drawString(160, y - 17 - index * 17, unit)
@@ -228,14 +230,14 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
                 totals += [("截至期末已登錄收款", "received"), ("帳面未收餘額", "balance")]
             totals += [("本期總計", "total")]
             for index, (label, key) in enumerate(totals):
-                pdf.setFont("MSung-Light", 11)
+                pdf.setFont("MSung-Light", 12)
                 pdf.drawRightString(positions[8] - 4, summary_y - index * 17, f"{label}：")
                 pdf.drawRightString(positions[8] + widths[8] * 5.51 - 3, summary_y - index * 17, f"{int(s[key]):,}")
             company_y = summary_y - (len(s["quantities"]) + 1) * 17
         else:
             company_y = top - 167 - len(page["rows"]) * spacing - 17
-        _line(pdf, 22, company_y, COMPANY["address"], size=10)
-        _line(pdf, 22, company_y - 16, f"Tel: {COMPANY['phone']}  Fax: {COMPANY['fax']}", size=10)
+        _line(pdf, 22, company_y, COMPANY["address"], size=11)
+        _line(pdf, 22, company_y - 16, f"Tel: {COMPANY['phone']}  Fax: {COMPANY['fax']}", size=11)
         if geometry:
             pdf.restoreState()
         pdf.showPage()

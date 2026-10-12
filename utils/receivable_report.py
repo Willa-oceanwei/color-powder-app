@@ -72,9 +72,9 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
     return result
 
 
-FIELDS = (("kind", 6), ("date", 12), ("number", 16), ("code", 14), ("name", 12),
+FIELDS = (("kind", 6), ("date", 12), ("number", 16), ("code", 14), ("name", 10),
           ("quantity", 9), ("unit", 6), ("price", 8), ("amount", 12), ("order_number", 12))
-REPORT_WIDTHS = (5, 13, 14, 11, 14, 7, 5, 8, 11, 12)
+REPORT_WIDTHS = (5, 13, 14, 11, 12, 7, 5, 8, 11, 14)
 
 
 def statement_pages(statements, capacity=None, *, paper_size="auto"):
@@ -159,21 +159,21 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
     if paper_stock == "triplicate":
         preview_style += stock_style(feed_rotation, hole_margin, paginated=True)
     elif paper_stock == "a4_driver":
-        preview_style += stock_style(0, hole_margin, paginated=True, stock_height=280, offset=-10, a4_driver=True)
-    preview_style += '''body{font-size:12pt}h1{font-size:19pt}h2{font-size:14pt}.metadata{line-height:5.5mm}.period{font-size:11pt}
-table{font-size:11pt}td,th{line-height:5.2mm}.sheet{padding:8mm}th:nth-child(6),th:nth-child(8),th:nth-child(9){text-align:right}th:nth-child(7){text-align:center}
-th:nth-child(1){width:5%}th:nth-child(2){width:13%}th:nth-child(3){width:14%}th:nth-child(4){width:11%}th:nth-child(5){width:14%}th:nth-child(6){width:7%}th:nth-child(7){width:5%}th:nth-child(8){width:8%}th:nth-child(9){width:11%}th:nth-child(10){width:12%}
+        preview_style += stock_style(0, hole_margin, paginated=True, stock_height=280, offset=-25, a4_driver=True)
+    preview_style += '''body{font-size:13pt}h1{font-size:20pt}h2{font-size:15pt}.metadata{line-height:5.5mm}.period{font-size:12pt}
+table{font-size:12pt}td,th{line-height:5.2mm}.sheet{padding:8mm}th:nth-child(6),th:nth-child(8),th:nth-child(9){text-align:right}th:nth-child(7){text-align:center}
+th:nth-child(1){width:5%}th:nth-child(2){width:13%}th:nth-child(3){width:14%}th:nth-child(4){width:11%}th:nth-child(5){width:12%}th:nth-child(6){width:7%}th:nth-child(7){width:5%}th:nth-child(8){width:8%}th:nth-child(9){width:11%}th:nth-child(10){width:14%}
 td:nth-child(6),td:nth-child(8),td:nth-child(9){white-space:nowrap;padding-right:.2mm}
 td:nth-child(1),td:nth-child(2),td:nth-child(3),td:nth-child(4),td:nth-child(7){white-space:nowrap}
 th:nth-child(9),td:nth-child(9){padding-right:1mm}th:nth-child(10),td:nth-child(10){padding-left:2mm}
-td:nth-child(10){font-size:8.5pt;white-space:nowrap;overflow-wrap:normal}
-.summary{grid-template-columns:5% 13% 14% 11% 14% 7% 5% 8% 11% 12%;line-height:5.8mm}
+td:nth-child(10){font-size:9.5pt;white-space:nowrap;overflow-wrap:normal}
+.summary{grid-template-columns:5% 13% 14% 11% 12% 7% 5% 8% 11% 14%;line-height:5.8mm}
 .statement-left{grid-column:1/6;grid-row:1;align-self:start}
 .quantity-summary{display:grid;grid-template-columns:max-content 20mm max-content;column-gap:2mm}
 .quantity-label{grid-column:1}.quantity-value{grid-column:2;text-align:right}.quantity-unit{grid-column:3;text-align:left}
-.statement-totals{grid-column:6/10;grid-row:1;align-self:start;font-size:11pt}.statement-totals>div{grid-template-columns:20fr 11fr}
+.statement-totals{grid-column:6/10;grid-row:1;align-self:start;font-size:12pt}.statement-totals>div{grid-template-columns:20fr 11fr}
 .statement-totals span:last-child{padding-right:1mm}
-.company-info{margin-top:5.8mm;font-size:11pt;line-height:5.8mm}
+.company-info{margin-top:5.8mm;font-size:12pt;line-height:5.8mm}
 @media screen{.sheet.a4,.sheet.a5{height:auto}.stock-page>.sheet.a4{height:297mm}.stock-page>.sheet.a5{height:148mm}.stock-page{height:var(--statement-content-height)}}
 '''
     html = '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>應收帳款明細表</title><style>

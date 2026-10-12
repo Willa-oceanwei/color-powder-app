@@ -265,8 +265,22 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                             st.session_state.shipment_selected = records[rows[0]]["id"]
             else:
                 st.info("沒有符合條件的出貨單")
-    ids = [row["id"] for row in records]
+    query_number = st.session_state.get("shipment_query", "").strip()
+    exact_match = next((row for row in records if row["shipment_number"] == query_number), None)
+    navigation_records = records
+    if exact_match:
+        # A full number locates a document; it must not limit sequential browsing.
+        navigation_key = ("number-navigation", *record_key[2:])
+        navigation_records = cached_read(config, st.session_state, navigation_key, lambda: sorted(
+            list_shipments(config, start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
+                           include_void=st.session_state.get("shipment_include_void", False),
+                           customer_start=st.session_state.get("shipment_customer_start", ""),
+                           customer_end=st.session_state.get("shipment_customer_end", "")),
+            key=lambda row: (row["shipment_number"], row["id"])))
+    ids = [row["id"] for row in navigation_records]
     selected = st.session_state.get("shipment_selected")
+    if selected not in ids and exact_match:
+        selected = exact_match["id"]
     index = ids.index(selected) if selected in ids else 0
     document = draft or (read(("document", ids[index]), lambda: get_shipment(config, ids[index])) if ids else None)
     if not editing and document:
