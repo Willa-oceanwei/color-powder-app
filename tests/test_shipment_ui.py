@@ -121,14 +121,19 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     invoice_date = next(widget for widget in app.date_input if widget.label == '發票日期')
     from datetime import date
     invoice_date.set_value(date(2026, 10, 7)).run()
+    app.session_state['receivable_pages'] = ['old report']
+    app.session_state['ranking_statements'] = ['old ranking']
     app.button(key='shipment_save').click().run()
     assert not app.exception
+    assert 'receivable_pages' not in app.session_state and 'ranking_statements' not in app.session_state
     assert len(list_shipments(config)) == 2
     assert get_shipment(config, app.session_state['shipment_selected'])['invoice']['number'] == 'AB12345678'
     app.button(key='shipment_edit').click().run()
     next(widget for widget in app.text_area if widget.label == '備註').set_value('不要儲存').run()
+    app.session_state['receivable_pages'] = ['current report']
     app.button(key='shipment_cancel').click().run()
     assert not app.exception
+    assert app.session_state['receivable_pages'] == ['current report']
     assert next(widget for widget in app.text_area if widget.label == '備註').value == ''
     app.button(key='shipment_new').click().run()
     next(w for w in app.selectbox if w.label == '單號方式').set_value('依日期生成').run()

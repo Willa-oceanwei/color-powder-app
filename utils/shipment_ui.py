@@ -118,8 +118,11 @@ def _new_shipment():
     return dict(blank_shipment(), number_mode="manual")
 
 
-def _finish(message="", *, rerun=True):
+def _finish(message="", *, rerun=True, invalidate_reports=False):
     clear_reads(st.session_state)
+    if invalidate_reports:
+        st.session_state.pop("receivable_pages", None)
+        st.session_state.pop("ranking_statements", None)
     st.session_state.pop("shipment_purchase_history_result", None)
     st.session_state.pop("shipment_search_print_snapshot", None)
     st.session_state.pop("shipment_draft", None)
@@ -579,7 +582,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.session_state.shipment_selected = saved["id"]
             st.session_state.update(shipment_query="", shipment_start=None, shipment_end=None, shipment_include_void=False,
                                     shipment_customer_start="", shipment_customer_end="", shipment_search_epoch=0)
-            _finish("已儲存出貨單 " + saved["shipment_number"])
+            _finish("已儲存出貨單 " + saved["shipment_number"], invalidate_reports=True)
     if not editing:
         lifecycle = st.container()
         if document["status"] == "draft":
@@ -596,4 +599,4 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                             except ShipmentError as error:
                                 st.error(str(error))
                             else:
-                                _finish("出貨單已作廢，歷史資料保留")
+                                _finish("出貨單已作廢，歷史資料保留", invalidate_reports=True)
