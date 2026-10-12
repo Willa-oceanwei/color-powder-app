@@ -104,17 +104,17 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
 <style>
 @page {size:A5 landscape;margin:0;}
 * {box-sizing:border-box;}
-body {margin:0;background:#e5e7eb;color:#000;font-family:"Microsoft JhengHei","Noto Sans CJK TC","PingFang TC",sans-serif;font-size:12pt;letter-spacing:0;}
+body {margin:0;background:#e5e7eb;color:#000;font-family:"Microsoft JhengHei","Noto Sans CJK TC","PingFang TC",sans-serif;font-size:14pt;letter-spacing:0;}
 .print-toolbar {padding:8px;font-family:sans-serif;}
 .print-toolbar button {padding:6px 14px;}
 .sheet {width:210mm;height:148mm;padding:9mm 10mm;background:#fff;position:relative;margin:10px auto;break-after:page;page-break-after:always;}
 .sheet:last-child {break-after:auto;page-break-after:auto;}
 header {display:grid;grid-template-columns:1fr 48mm;gap:4mm;min-height:18mm;line-height:5mm;}
 header h1,header h2 {font-family:"DFKai-SB","BiauKai","KaiTi",serif;}
-h1 {margin:0;font-size:19pt;font-weight:700;line-height:7mm;}
-h2 {display:flex;justify-content:space-between;align-items:start;margin:3mm 2mm 0 0;font-size:19pt;font-weight:400;line-height:9mm;}
-.company-address {font-size:9pt;}
-.metadata {display:grid;grid-template-columns:1fr 48mm;gap:4mm;margin:2mm 0;line-height:5.5mm;overflow-wrap:anywhere;}
+h1 {margin:0;font-size:21pt;font-weight:700;line-height:8mm;}
+h2 {display:flex;justify-content:space-between;align-items:start;margin:3mm 2mm 0 0;font-size:21pt;font-weight:400;line-height:9mm;}
+.company-address {font-size:11pt;}
+.metadata {display:grid;grid-template-columns:1fr 56mm;gap:4mm;margin:2mm 0;line-height:5.5mm;overflow-wrap:anywhere;}
 .delivery-row {display:grid;grid-template-columns:1fr 48mm;gap:4mm;line-height:5.5mm;margin-bottom:2mm;overflow-wrap:anywhere;}
 .pair {display:grid;grid-template-columns:1fr 1fr;gap:2mm;}
 table {width:100%;border-collapse:collapse;table-layout:fixed;line-height:5.5mm;font-variant-numeric:tabular-nums;}
@@ -126,17 +126,17 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
 .footer-top {display:grid;grid-template-columns:1fr 48mm;gap:4mm;min-height:19mm;line-height:5.5mm;}
 .notes {overflow-wrap:anywhere;}.totals>div {display:flex;justify-content:space-between;}
 .signatures {display:grid;grid-template-columns:21% 25% 54%;padding:.5mm .7mm 0;line-height:6mm;}
-.signatures strong {font-size:14pt;}
+.signatures strong {font-size:16pt;}
 @media screen {.sheet{zoom:.86;}}
 @media print {body{background:#fff;}.sheet{margin:0;zoom:1;}.print-toolbar{display:none;}}
 </style></head><body><div class="print-toolbar"><button onclick="window.print()">列印 A5</button></div>''' + ''.join(output) + '</body></html>'
     if portrait:
         html = html.replace("size:A5 landscape", "size:A5 portrait").replace("width:210mm;height:148mm", "width:148mm;height:210mm")
-        html = html.replace("font-size:12pt", "font-size:9pt").replace("1fr 48mm", "1fr 40mm")
-        html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:9pt;line-height:4.5mm}header{font-size:9pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
+        html = html.replace("font-size:14pt", "font-size:11pt").replace("1fr 48mm", "1fr 40mm")
+        html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:11pt;line-height:4.5mm}header{font-size:11pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
     margin = max(10, hole_margin)
     if paper_stock in ("triplicate", "a4_driver"):
-        rules = stock_style(feed_rotation, hole_margin, offset=-10 if paper_stock == "a4_driver" else 0, a4_driver=paper_stock == "a4_driver")
+        rules = stock_style(feed_rotation, hole_margin, offset=-15 if paper_stock == "a4_driver" else 0, a4_driver=paper_stock == "a4_driver")
         html = html.replace("列印 A5", "列印三聯紙")
     elif feed_rotation:
         width, height = (210, 148) if portrait else (148, 210)

@@ -6,7 +6,7 @@ TRIPLICATE_LABEL = "三聯紙 240 × 140 mm"
 def stock_geometry(rotation=0, hole_margin=12.5, *, height=140, offset=0):
     if rotation not in (0, 90) or not 0 <= hole_margin <= 25:
         raise ValueError("Invalid feed settings")
-    if height not in (140, 280) or not -10 <= offset <= 10:
+    if height not in (140, 280) or not -25 <= offset <= 25:
         raise ValueError("Invalid stock dimensions")
     source_height = 148 if height == 140 else 297
     scale = min((240 - 2 * hole_margin) / 210, height / source_height)

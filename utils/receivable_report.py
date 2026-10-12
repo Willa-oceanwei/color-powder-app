@@ -142,7 +142,7 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
                 total_fields += [("截至期末已登錄收款", "received"), ("帳面未收餘額", "balance")]
             total_fields += [("本期總計", "total")]
             total_rows = ''.join(f'<div><span>{label}：</span><span>{int(Decimal(s[key])):,}</span></div>' for label, key in total_fields)
-            totals = f'<div class="summary"><div class="quantity-summary">{quantities}</div>{company_info}<div class="statement-totals">{total_rows}</div></div>'
+            totals = f'<div class="summary"><div class="statement-left"><div class="quantity-summary">{quantities}</div>{company_info}</div><div class="statement-totals">{total_rows}</div></div>'
         sheets.append(f'''<section class="sheet {page.get('paper_size', 'A5').lower()}{' active' if index == selected else ''}">
 <h1>{text(COMPANY['name'])}</h1><h2>{text(title)}</h2>
 <div class="metadata"><div class="customer">客戶名稱：{text(s['customer_id'])}　{text(s['customer_name'])}</div><div class="page-number">頁數 {page['customer_page']} / {page['customer_pages']}</div>
@@ -166,12 +166,14 @@ th:nth-child(1){width:5%}th:nth-child(2){width:13%}th:nth-child(3){width:14%}th:
 td:nth-child(6),td:nth-child(8),td:nth-child(9){white-space:nowrap;padding-right:.2mm}
 td:nth-child(1),td:nth-child(2),td:nth-child(3),td:nth-child(4),td:nth-child(7){white-space:nowrap}
 th:nth-child(9),td:nth-child(9){padding-right:1mm}th:nth-child(10),td:nth-child(10){padding-left:2mm}
+td:nth-child(10){font-size:8.5pt;white-space:nowrap;overflow-wrap:normal}
 .summary{grid-template-columns:5% 13% 14% 11% 14% 7% 5% 8% 11% 12%;line-height:5.8mm}
-.quantity-summary{grid-column:1/8;grid-row:1;display:grid;grid-template-columns:5fr 13fr 14fr 11fr 14fr 7fr 5fr}
-.quantity-label{grid-column:1/6;text-align:right}.quantity-value{grid-column:6;text-align:right;padding-right:.2mm}.quantity-unit{grid-column:7;text-align:center}
-.statement-totals{grid-column:6/10;grid-row:2;font-size:11pt}.statement-totals>div{grid-template-columns:20fr 11fr}
+.statement-left{grid-column:1/6;grid-row:1;align-self:start}
+.quantity-summary{display:grid;grid-template-columns:max-content 20mm max-content;column-gap:2mm}
+.quantity-label{grid-column:1}.quantity-value{grid-column:2;text-align:right}.quantity-unit{grid-column:3;text-align:left}
+.statement-totals{grid-column:6/10;grid-row:1;align-self:start;font-size:11pt}.statement-totals>div{grid-template-columns:20fr 11fr}
 .statement-totals span:last-child{padding-right:1mm}
-.company-info{margin-top:5.8mm;font-size:11pt;line-height:5.8mm}.summary>.company-info{grid-column:1/6;grid-row:2}
+.company-info{margin-top:5.8mm;font-size:11pt;line-height:5.8mm}
 @media screen{.sheet.a4,.sheet.a5{height:auto}.stock-page>.sheet.a4{height:297mm}.stock-page>.sheet.a5{height:148mm}.stock-page{height:var(--statement-content-height)}}
 '''
     html = '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>應收帳款明細表</title><style>

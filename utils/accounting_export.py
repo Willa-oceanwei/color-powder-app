@@ -68,7 +68,7 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
         if isinstance(value, str):
             cell.data_type = "s"
         cell.font = Font(name="Microsoft JhengHei", size=size, bold=bold, color="000000")
-        cell.alignment = Alignment(horizontal=align, vertical="center", wrap_text=column not in (2, 3, 6, 7, 8, 9))
+        cell.alignment = Alignment(horizontal=align, vertical="center", wrap_text=column not in (2, 3, 6, 7, 8, 9, 10))
         if column in (6, 8, 9) and not isinstance(value, str):
             cell.number_format = '#,##0.##########'
         sheet.row_dimensions[row].height = max(sheet.row_dimensions[row].height or 0, size + 8)
@@ -92,14 +92,14 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
         for index, row in enumerate(page["rows"], base + 9):
             for column, value in enumerate(row, 1):
                 number = Decimal(value.replace(",", "")) if value and column in (6, 8, 9) else value
-                put(index, column, number, align="right" if column in (6, 8, 9) else "center" if column == 7 else "left")
+                put(index, column, number, size=10 if column == 10 else 12, align="right" if column in (6, 8, 9) else "center" if column == 7 else "left")
         end = base + 9 + len(page["rows"])
         if page["last"]:
             for index, (unit, amount) in enumerate(s["quantities"].items(), end):
-                put(index, 1, "數量合計：", end=5, align="right")
-                put(index, 6, Decimal(amount), align="right")
-                put(index, 7, unit, align="center")
-            total_start = end + len(s["quantities"])
+                put(index, 1, "數量合計：", end=2)
+                put(index, 3, Decimal(amount), align="right")
+                put(index, 4, unit)
+            total_start = end
             fields = [("本期合計", "net"), ("（加）營業稅", "tax")]
             if show_receipts:
                 fields += [("截至期末已登錄收款", "received"), ("帳面未收餘額", "balance")]
@@ -107,7 +107,7 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
             for index, (label, key) in enumerate(fields, total_start):
                 put(index, 6, label + "：", end=8, align="right")
                 put(index, 9, int(s[key]), align="right")
-            company_row = total_start + 1
+            company_row = end + len(s["quantities"]) + 1
             end = total_start + len(fields)
         else:
             company_row = end + 1
@@ -207,6 +207,7 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
                 previous_date = row[1]
             pdf.setFont("MSung-Light", 10.5)
             for column, (x, value) in enumerate(zip(positions, row)):
+                pdf.setFont("MSung-Light", 8.5 if column == 9 else 10.5)
                 if column in (5, 7, 8):
                     pdf.drawRightString(x + widths[column] * 5.51 - 3, y, str(value))
                 elif column == 6:
@@ -218,10 +219,10 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
             pdf.line(22, y, 573, y)
             for index, (unit, amount) in enumerate(s["quantities"].items()):
                 pdf.setFont("MSung-Light", 11)
-                pdf.drawRightString(positions[5] - 4, y - 17 - index * 17, "數量合計：")
-                pdf.drawRightString(positions[5] + widths[5] * 5.51 - 3, y - 17 - index * 17, display_price(amount))
-                pdf.drawCentredString(positions[6] + widths[6] * 5.51 / 2, y - 17 - index * 17, unit)
-            summary_y = y - 17 - len(s["quantities"]) * 17
+                pdf.drawString(22, y - 17 - index * 17, "數量合計：")
+                pdf.drawRightString(150, y - 17 - index * 17, display_price(amount))
+                pdf.drawString(160, y - 17 - index * 17, unit)
+            summary_y = y - 17
             totals = [("本期合計", "net"), ("（加）營業稅", "tax")]
             if show_receipts:
                 totals += [("截至期末已登錄收款", "received"), ("帳面未收餘額", "balance")]
@@ -230,7 +231,7 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
                 pdf.setFont("MSung-Light", 11)
                 pdf.drawRightString(positions[8] - 4, summary_y - index * 17, f"{label}：")
                 pdf.drawRightString(positions[8] + widths[8] * 5.51 - 3, summary_y - index * 17, f"{int(s[key]):,}")
-            company_y = summary_y - 17
+            company_y = summary_y - (len(s["quantities"]) + 1) * 17
         else:
             company_y = top - 167 - len(page["rows"]) * spacing - 17
         _line(pdf, 22, company_y, COMPANY["address"], size=10)
