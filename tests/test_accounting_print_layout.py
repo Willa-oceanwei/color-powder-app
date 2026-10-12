@@ -30,9 +30,17 @@ def test_a4_driver_shared_feed_preserves_data_and_blanks_prices():
     assert '<td class="price"></td>' in html and '<td class="amount"></td>' in html
     assert '<span>合計' not in html and doc == before
     assert 'font-size:13pt' in html and 'font-size:20pt' in html
-    x = stock_geometry(0, 12.5, offset=-25, preserve_holes=False)[2]
+    x = stock_geometry(0, 12.5, offset=-15, preserve_holes=False)[2]
     assert f'translate({x:.6f}mm' in html
-    assert stock_geometry(0, 12.5)[2] - x == 25
+    assert stock_geometry(0, 12.5)[2] - x == 15
+    assert '.stock-page>.sheet{width:222mm}' in html
+    assert '.company-address {font-size:9pt;}' in html
+    assert '.company-contact {font-size:12pt;}' in html
+    assert '.metadata {display:grid;grid-template-columns:1fr 56mm' in html
+    assert '.delivery-row {display:grid;grid-template-columns:1fr 56mm' in html
+    # Enlarged content stays inside the logical A4 width used by the driver.
+    scale = stock_geometry(0, 12.5)[4]
+    assert x + (222 - 10) * scale < 210
 
 
 def test_a4_statement_headers_alignment_company_and_purchase_order():
