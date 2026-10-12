@@ -82,10 +82,15 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert app.selectbox(key=prefix + "number_mode").value == "自行輸入"
     app.selectbox(key=prefix + "customer_picker").set_value("C2").run()
     app.text_area(key=prefix + "notes").set_value("Keep draft").run()
+    app.session_state[prefix + "items"] = {"edited_rows": {}, "deleted_rows": [], "added_rows": [
+        {"貨品編號": "P1", "品名": "Manual name", "數量": 2.0, "單位": "g", "單價": 7.0}]}
+    app.run()
+    items = app.session_state["shipment_draft"]["items"].copy()
     next(b for b in app.button if b.label == "查詢").click().run()
     assert not app.exception
     assert app.session_state["shipment_draft"]["customer_id"] == "C2"
     assert app.session_state["shipment_draft"]["notes"] == "Keep draft"
+    assert app.session_state["shipment_draft"]["items"] == items
 
 
 def test_report_title_totals_and_ranking_export():

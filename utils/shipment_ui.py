@@ -180,6 +180,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                             shipment_search_epoch=st.session_state.get("shipment_search_epoch", 0) + 1)
                     st.session_state.pop("shipment_selected", None)
                     clear_reads(st.session_state)
+                    if editing:
+                        st.session_state.shipment_editor_base = deepcopy(draft["items"])
+                        st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
                     st.rerun()
     record_key = ("records", *(st.session_state.get(key) for key in ("shipment_query", "shipment_start", "shipment_end",
                   "shipment_include_void", "shipment_customer_start", "shipment_customer_end")))
