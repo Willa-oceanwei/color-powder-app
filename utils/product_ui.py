@@ -59,7 +59,6 @@ def _open_recipe(config, recipe):
 
 def render_product_management(config):
     st.markdown(COMPACT_STYLE.replace("shipment-page", "product-page").replace("shipment-toolbar", "product-toolbar"), unsafe_allow_html=True)
-    st.subheader("貨品")
     notice = st.session_state.pop("product_notice", "")
     if notice:
         st.caption(notice)

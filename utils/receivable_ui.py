@@ -16,17 +16,16 @@ from .shipment_ui import COMPACT_STYLE
 from .accounting_export import statement_excel, statement_pdf, ranking_excel, ranking_pdf, ranking_rows
 
 
-def render_receivable_statement(config):
+def render_receivable_statement(config, *, title="應收帳款明細表"):
     st.markdown(COMPACT_STYLE.replace("shipment-page", "receivable-page"), unsafe_allow_html=True)
-    st.markdown("### 應收帳款明細表")
     report_tab, receipt_tab = st.tabs(["明細表預覽", "收款登錄"])
     with receipt_tab:
         render_receipt_entry(config)
     with report_tab:
-        render_report(config)
+        render_report(config, title=title)
 
 
-def render_report(config):
+def render_report(config, *, title="應收帳款明細表"):
     customers = list_customers(config, include_inactive=True)
     names = {c["customer_id"]: c["name"] for c in customers}
     codes = [""] + list(names)
@@ -65,18 +64,18 @@ def render_report(config):
         col.button(label, key="receivable_" + label, on_click=move, args=(target,),
                    disabled=target < 0 or target >= len(pages) or target == index, use_container_width=True)
     controls[4].write(f"{index + 1} / {len(pages)} · {pages[index]['statement']['customer_id']}")
-    html = render_statement_print(pages, selected=index, show_receipts=show_receipts)
-    controls[5].download_button("下載列印版（A5／A4）", html, file_name="應收帳款明細表.html", mime="text/html", use_container_width=True)
+    html = render_statement_print(pages, selected=index, show_receipts=show_receipts, title=title)
+    controls[5].download_button("下載列印版（A5／A4）", html, file_name=title + ".html", mime="text/html", use_container_width=True)
     statements = list({p["statement"]["customer_id"]: p["statement"] for p in pages}.values())
     exports = st.columns([1, 1, 4])
-    exports[0].download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts), file_name="應收帳款明細表.pdf", mime="application/pdf")
-    exports[1].download_button("匯出 Excel", statement_excel(statements, show_receipts=show_receipts), file_name="應收帳款明細表.xlsx",
+    exports[0].download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts, title=title), file_name=title + ".pdf", mime="application/pdf")
+    exports[1].download_button("匯出 Excel", statement_excel(statements, show_receipts=show_receipts), file_name=title + ".xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    components.html(theme_preview(render_statement_print(pages, selected=index, embedded=True, show_receipts=show_receipts)), height=560, scrolling=True)
+    components.html(theme_preview(render_statement_print(pages, selected=index, embedded=True, show_receipts=show_receipts, title=title)), height=560, scrolling=True)
 
 
 def render_customer_ranking(config):
-    st.subheader("客戶交易排行")
+    st.markdown(COMPACT_STYLE.replace("shipment-page", "ranking-page"), unsafe_allow_html=True)
     with st.form("ranking_filters"):
         cols = st.columns(4)
         lower = cols[0].text_input("起始客戶編號")
@@ -97,6 +96,7 @@ def render_customer_ranking(config):
         return
     rows = ranking_rows(statements)
     st.dataframe([dict(zip(rows[0], row)) for row in rows[1:]], hide_index=True, use_container_width=True)
+    st.metric("未稅金額總計", f"{int(sum((Decimal(s['net']) for s in statements), Decimal(0))):,}")
     left, right, _ = st.columns([1, 1, 4])
     left.download_button("另存 PDF", ranking_pdf(statements), file_name="客戶交易排行.pdf", mime="application/pdf")
     right.download_button("匯出 Excel", ranking_excel(statements), file_name="客戶交易排行.xlsx",

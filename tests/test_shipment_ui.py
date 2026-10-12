@@ -34,6 +34,10 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     next(w for w in app.text_area if w.label == '備註').set_value('保留草稿').run()
     assert not app.exception and app.session_state['shipment_epoch'] == epoch
     assert app.session_state['shipment_draft']['notes'] == '保留草稿'
+    monkeypatch.setattr(ui, 'list_shipments', lambda *args, **kwargs: [])
+    next(b for b in app.button if b.label == '查詢').click().run()
+    assert not app.exception
+    assert app.session_state['shipment_draft']['notes'] == '保留草稿'
 
 
 def test_view_reads_are_cached_and_purchase_history_is_on_demand(tmp_path, monkeypatch):
@@ -124,6 +128,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert not app.exception
     assert next(widget for widget in app.text_area if widget.label == '備註').value == ''
     app.button(key='shipment_new').click().run()
+    next(w for w in app.selectbox if w.label == '單號方式').set_value('依日期生成').run()
     assert not app.exception
     picker = next(widget for widget in app.selectbox if widget.label == '客戶')
     picker.set_value('C01').run()
@@ -165,6 +170,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     from utils.recipe_repository import create_recipe
     create_recipe(config, {'配方編號': 'P1', '顏色': '藍', '客戶編號': 'C01'})
     app.button(key='shipment_new').click().run()
+    next(w for w in app.selectbox if w.label == '單號方式').set_value('依日期生成').run()
     next(widget for widget in app.selectbox if widget.label == '客戶').set_value('C01').run()
     next(widget for widget in app.selectbox if widget.label == '貨品／配方').set_value('P1').run()
     next(widget for widget in app.text_input if widget.label == '銷售單位').set_value('包').run()
@@ -193,6 +199,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     master.update(product_id='NEW', name='貨品白', sales_unit='包', standard_price='99', specification='25KG')
     saved_product = save_product(config, master)
     app.button(key='shipment_new').click().run()
+    next(w for w in app.selectbox if w.label == '單號方式').set_value('依日期生成').run()
     next(w for w in app.selectbox if w.label == '客戶').set_value('C01').run()
     next(w for w in app.selectbox if w.label == '貨品／配方').set_value('NEW').run()
     assert next(w for w in app.text_input if w.label == '銷售單位').value == '包'
@@ -204,6 +211,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     saved_product['standard_price'] = '150'
     save_product(config, saved_product)
     app.button(key='shipment_new').click().run()
+    next(w for w in app.selectbox if w.label == '單號方式').set_value('依日期生成').run()
     next(w for w in app.selectbox if w.label == '客戶').set_value('C01').run()
     next(w for w in app.selectbox if w.label == '貨品／配方').set_value('NEW').run()
     app.button(key='shipment_add_recipe').click().run()

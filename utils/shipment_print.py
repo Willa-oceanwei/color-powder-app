@@ -30,11 +30,13 @@ def display_price(value):
     return text.rstrip('0').rstrip('.') if '.' in text else text
 
 
-def render_shipment_print(document, *, show_prices=True, orientation="landscape"):
+def render_shipment_print(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0):
     if orientation not in ("landscape", "portrait"):
         raise ValueError("Invalid print orientation")
+    if feed_rotation not in (0, 90) or not 0 <= hole_margin <= 25:
+        raise ValueError("Invalid feed settings")
     portrait = orientation == "portrait"
-    capacity = 14 if portrait else 7
+    capacity = (12 if portrait else 6) if feed_rotation and hole_margin else (14 if portrait else 7)
     fields = [('code', '貨品編號', 16), ('name', '品名', 38), ('quantity', '數量', 10), ('unit', '單位', 6)]
     if show_prices:
         fields.extend([('price', '單價', 12), ('amount', '金額', 14)])
@@ -123,4 +125,15 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
         html = html.replace("size:A5 landscape", "size:A5 portrait").replace("width:210mm;height:148mm", "width:148mm;height:210mm")
         html = html.replace("font-size:12pt", "font-size:9pt").replace("1fr 48mm", "1fr 40mm")
         html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:9pt;line-height:4.5mm}header{font-size:9pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
-    return html
+    margin = max(10, hole_margin)
+    if feed_rotation:
+        width, height = (210, 148) if portrait else (148, 210)
+        html = html.replace(f"size:A5 {orientation}", f"size:A5 {'landscape' if portrait else 'portrait'}")
+        html = html.replace('<section class="sheet"', '<div class="feed-page"><section class="sheet"').replace('</section>', '</section></div>')
+        rules = f""".feed-page{{width:{width}mm;height:{height}mm;position:relative;margin:10px auto;overflow:hidden;break-after:page}}
+.feed-page .sheet{{margin:0;zoom:1;transform-origin:0 0;transform:translateX({width}mm) rotate(90deg);padding-top:{margin}mm;padding-bottom:{margin}mm;}}
+.feed-page footer{{bottom:{margin}mm;}}
+@media print{{.feed-page{{margin:0;page-break-after:always}}.feed-page:last-child{{page-break-after:auto;break-after:auto}}}}"""
+    else:
+        rules = f".sheet{{padding-right:{margin}mm;padding-left:{margin}mm}}footer{{right:{margin}mm;left:{margin}mm}}"
+    return html.replace("</style>", rules + "</style>")

@@ -107,7 +107,7 @@ def shipment_price_history(config, customer_id, shipment_date, exclude_id=""):
             "CASE WHEN json_extract(i.payload_json,'$.tax_exempt')=1 THEN '免稅' ELSE json_extract(s.payload_json,'$.tax_mode') END AS tax_mode,s.shipment_number,s.shipment_date "
             "FROM shipment_orders s JOIN shipment_order_items i ON i.shipment_id=s.id "
             "WHERE s.status='draft' AND s.customer_id=? AND s.id<>? AND s.shipment_date<=? "
-            "ORDER BY s.shipment_date DESC,s.created_at DESC,s.shipment_number DESC,i.line_number DESC",
+            "ORDER BY s.shipment_date DESC,s.updated_at DESC,s.created_at DESC,s.shipment_number DESC,i.line_number DESC",
             (customer_id, exclude_id or "", shipment_date)))
 
 
@@ -271,7 +271,7 @@ def save_shipment(config, document, *, sync_products=False):
             if receipts["paid"] and (header["customer_id"] != existing["customer_id"]
                                      or Decimal(amounts["total_amount"]) < receipts["paid"]):
                 raise ShipmentError("已有收款，不可變更客戶或將總額減至已收款以下；請先作廢相關收款")
-        if header["number_mode"] == "date":
+        if header["number_mode"] == "date" and not number:
             prior_mode = json.loads(existing["payload_json"]).get("number_mode", "manual") if existing else None
             if existing and prior_mode == "date" and header["shipment_date"] == existing["shipment_date"]:
                 number = existing["shipment_number"]
@@ -336,6 +336,6 @@ def void_shipment(config, shipment_id, version, reason):
             raise ShipmentError("單據已修改、作廢或有收款紀錄；請重新讀取，已有收款須先作廢收款")
 
 
-def printable_shipment(document, *, show_prices=True, orientation="landscape"):
+def printable_shipment(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0):
     from .shipment_print import render_shipment_print
-    return render_shipment_print(document, show_prices=show_prices, orientation=orientation)
+    return render_shipment_print(document, show_prices=show_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin)

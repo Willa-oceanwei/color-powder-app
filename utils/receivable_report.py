@@ -109,7 +109,7 @@ def statement_pages(statements, capacity=None, *, paper_size="auto"):
     return pages
 
 
-def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=False):
+def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=False, title="應收帳款明細表"):
     def text(value):
         return escape(str(value))
 
@@ -125,15 +125,16 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
             rows.append("".join(f"<td>{text(cell)}</td>" for cell in row) + "</tr>")
         rows = "".join(rows)
         totals = ""
-        receipt_totals = (f"<div>截至期末已登錄收款：{int(Decimal(s['received'])):,}</div>"
-                          f"<div>帳面未收餘額：{int(Decimal(s['balance'])):,}</div>") if show_receipts else ""
         if page["last"]:
             quantities = "　".join(f"{text(display_price(amount))} {text(unit)}" for unit, amount in s["quantities"].items())
-            totals = f'''<div class="summary"><div>數量合計：{quantities}</div><div>
-<div>本期合計：{int(Decimal(s['net'])):,}</div><div>（加）營業稅：{int(Decimal(s['tax'])):,}</div>
-{receipt_totals}<div>本期總計：{int(Decimal(s['total'])):,}</div></div></div>'''
+            total_fields = [("本期合計", "net"), ("（加）營業稅", "tax")]
+            if show_receipts:
+                total_fields += [("截至期末已登錄收款", "received"), ("帳面未收餘額", "balance")]
+            total_fields += [("本期總計", "total")]
+            total_rows = ''.join(f'<div><span>{label}：</span><span>{int(Decimal(s[key])):,}</span></div>' for label, key in total_fields)
+            totals = f'<div class="summary"><div class="quantity-summary">數量合計：{quantities}</div><div class="statement-totals">{total_rows}</div></div>'
         sheets.append(f'''<section class="sheet {page.get('paper_size', 'A5').lower()}{' active' if index == selected else ''}">
-<h1>{text(COMPANY['name'])}</h1><h2>應收帳款明細表</h2>
+<h1>{text(COMPANY['name'])}</h1><h2>{text(title)}</h2>
 <div class="metadata"><div class="customer">客戶名稱：{text(s['customer_id'])}　{text(s['customer_name'])}</div><div class="page-number">頁數 {page['customer_page']} / {page['customer_pages']}</div>
 <div>聯絡人：{text(s.get('contact',''))}</div><div>統一編號：{text(s.get('tax_id',''))}</div><div></div>
 <div>聯絡電話：{text(s.get('phone',''))}</div><div>傳真號碼：{text(s.get('fax',''))}</div><div class="period">帳款區間：{text(s['start'].replace('-', '/'))} ～ {text(s['end'].replace('-', '/'))}</div>
@@ -154,7 +155,7 @@ th:nth-child(1){width:5%}th:nth-child(2){width:11%}th:nth-child(3){width:14%}th:
 tr.date-start{border-top:1px dotted #000}
 td:nth-child(6),td:nth-child(8),td:nth-child(9){text-align:right;font-variant-numeric:tabular-nums}
 td:nth-child(6){padding-right:2mm}td:nth-child(7){text-align:center}
-.summary{display:flex;justify-content:space-between;border-top:1px dotted;padding-top:2mm;line-height:4.8mm}.summary>div:last-child{text-align:right}footer{position:absolute;bottom:7mm;left:8mm;line-height:4mm}
+.summary{display:grid;grid-template-columns:5% 11% 14% 11% 23% 7% 5% 7% 9% 8%;border-top:1px dotted;padding-top:2mm;line-height:4.8mm}.quantity-summary{grid-column:1/6}.statement-totals{grid-column:6/10;font-size:9pt}.statement-totals>div{display:grid;grid-template-columns:19fr 9fr}.statement-totals span:first-child{text-align:right}.statement-totals span:last-child{text-align:right;padding-right:.2mm;font-variant-numeric:tabular-nums}footer{position:absolute;bottom:7mm;left:8mm;line-height:4mm}
 @media print{body{background:white}.toolbar{display:none}.preview-stage{height:auto!important;overflow:visible;padding:0}.sheet{display:block!important;margin:0;zoom:1;page-break-after:always}.sheet:last-child{break-after:auto;page-break-after:auto}}
-''' + preview_style + '</style></head><body><div class="toolbar">' + toolbar + zoom + '</div><div class="preview-stage">' + "".join(sheets) + f'''
+'''.replace('<title>應收帳款明細表</title>', '<title>' + text(title) + '</title>') + preview_style + '</style></head><body><div class="toolbar">' + toolbar + zoom + '</div><div class="preview-stage">' + "".join(sheets) + f'''
 </div><script>let current={max(0, min(selected, len(pages)-1))};const sheets=Array.from(document.querySelectorAll('.sheet'));const stage=document.querySelector('.preview-stage');function move(delta){{current=Math.max(0,Math.min(sheets.length-1,current+delta));sheets.forEach((s,i)=>s.classList.toggle('active',i===current));const counter=document.getElementById('page');if(counter)counter.textContent=(sheets.length?current+1:0)+' / '+sheets.length;stage.scrollTo(0,0);resize();}}function resize(){{const value=document.getElementById('zoom').value;const height=Math.max(160,innerHeight-document.querySelector('.toolbar').offsetHeight);stage.style.height=height+'px';const paper=sheets[current];const widthScale=(stage.clientWidth-24)/(paper?paper.offsetWidth:794);const scale=value==='width'?widthScale:value==='page'?Math.min(widthScale,(height-24)/(paper?paper.offsetHeight:559)):Number(value);document.documentElement.style.setProperty('--preview-zoom',Math.max(.2,scale));}}addEventListener('resize',resize);move(0);</script></body></html>'''

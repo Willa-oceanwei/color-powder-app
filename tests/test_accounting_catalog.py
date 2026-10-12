@@ -256,6 +256,7 @@ from utils.shipment_ui import render_shipment_management
 render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
 ''').run(timeout=30)
     app.button(key="shipment_new").click().run()
+    next(w for w in app.selectbox if w.label == "單號方式").set_value("依日期生成").run()
     prefix = f"shipment_{app.session_state['shipment_epoch']}_"
     app.selectbox(key=prefix + "customer_picker").set_value("C01").run()
     app.session_state[prefix + "items"] = {"edited_rows": {}, "deleted_rows": [], "added_rows": [
@@ -264,7 +265,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert not app.exception
     assert app.text_input(key=prefix + "invoice_amount").value == "50"
     assert app.selectbox(key=prefix + "invoice_method").value == "隨單開立"
-    assert app.selectbox(key=prefix + "invoice_type").value == "三聯式"
+    assert app.selectbox(key=prefix + "invoice_type").value == "收銀機"
     app.selectbox(key=prefix + "tax_rate").set_value(0).run()
     assert app.text_input(key=prefix + "invoice_amount").value == "0"
     app.selectbox(key=prefix + "tax_rate").set_value(5).run()

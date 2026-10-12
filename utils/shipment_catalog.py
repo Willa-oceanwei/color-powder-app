@@ -30,6 +30,27 @@ def recent_item_defaults(history, code):
     return next((row for row in history if str(row["code"]).strip().upper() == code.strip().upper()), None)
 
 
+def matching_products(choices, value, *, by_name=False, history=()):
+    value = str(value or "").strip().upper()
+    if not value:
+        return []
+    if not by_name:
+        exact = [code for code in choices if code.upper() == value]
+        if exact:
+            return exact
+        aliases = [code for code in choices if code.upper().startswith("C") and code[1:].upper() == value]
+        if aliases:
+            return aliases
+        return [code for code in choices if value in code.upper()]
+    names = {code: {str(product["name"]).upper()} for code, product in choices.items()}
+    for row in history:
+        code = next((c for c in choices if c.upper() == str(row["code"]).upper()), None)
+        if code:
+            names[code].add(str(row.get("name") or "").upper())
+    exact = [code for code, values in names.items() if value in values]
+    return exact or [code for code, values in names.items() if any(value in name for name in values)]
+
+
 def item_price(config, document, code, unit, product, *, history=None):
     previous = recent_shipment_price(config, document["customer_id"], code, unit,
                                      shipment_date=document["shipment_date"], tax_mode=document["tax_mode"],
@@ -50,7 +71,14 @@ def complete_items(config, document, items, previous, *, choices=None, history=N
     for index, item in enumerate(result):
         old = previous[index] if index < len(previous) else {}
         code = str(item.get("code") or "").strip()
-        match = next((p for c, p in choices.items() if c.upper() == code.upper()), None)
+        candidates = matching_products(choices, code) if code else matching_products(choices, item.get("name"), by_name=True, history=history)
+        resolved = candidates[0] if len(candidates) == 1 else None
+        match = choices.get(resolved)
+        if match:
+            code = resolved
+            item["code"] = resolved
+            if not str(items[index].get("code") or "").strip():
+                item["name"] = (recent_item_defaults(history, code) or {}).get("name") or match["name"]
         code_changed = code != old.get("code")
         unit_changed = str(item.get("unit") or "").strip().upper() != str(old.get("unit") or "").strip().upper()
         if not match or not (code_changed or unit_changed):
