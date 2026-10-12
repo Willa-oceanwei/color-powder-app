@@ -94,11 +94,31 @@ def _copy_for_edit(document):
     _begin(copied, rerun=False)
 
 
+def _suspend_for_search():
+    draft = st.session_state.get("shipment_draft")
+    original = st.session_state.get("shipment_original", {})
+    fields = ("items", "customer_id", "shipment_number", "notes", "recipient_id", "recipient_name", "address", "payment_terms", "order_number")
+    has_content = draft and (any(draft.get(key) for key in fields)
+                            or any(draft.get(key) != original.get(key) for key in ("shipment_date", "account_date", "tax_mode", "tax_rate"))
+                            or draft.get("invoice", {}).get("number")
+                            or st.session_state.get(f"shipment_{st.session_state.get('shipment_epoch', 0)}_invoice_amount_manual"))
+    if has_content and draft != original:
+        st.session_state.setdefault("shipment_suspended_drafts", []).append(deepcopy(draft))
+    for key in ("shipment_draft", "shipment_original", "shipment_editor_base"):
+        st.session_state.pop(key, None)
+
+
+def _resume_search_draft():
+    drafts = st.session_state.get("shipment_suspended_drafts", [])
+    if drafts:
+        _begin(drafts.pop(), rerun=False)
+
+
 def _new_shipment():
     return dict(blank_shipment(), number_mode="manual")
 
 
-def _finish(message=""):
+def _finish(message="", *, rerun=True):
     clear_reads(st.session_state)
     st.session_state.pop("shipment_purchase_history_result", None)
     st.session_state.pop("shipment_search_print_snapshot", None)
@@ -106,12 +126,13 @@ def _finish(message=""):
     st.session_state.pop("shipment_original", None)
     st.session_state.pop("shipment_editor_base", None)
     st.session_state.shipment_notice = message
-    st.rerun()
+    if rerun:
+        st.rerun()
 
 
-def _remember_print_settings():
-    st.session_state.shipment_preview_preference = st.session_state.get("shipment_print_preview", False)
-    st.session_state.shipment_hide_preference = st.session_state.get("shipment_hide_prices", False)
+def _remember_print_settings(key):
+    preference = "shipment_preview_preference" if key == "shipment_print_preview" else "shipment_hide_preference"
+    st.session_state[preference] = st.session_state.get(key, False)
 
 
 def _fill_product_unit(prefix, products, picker_key, history):
@@ -147,6 +168,9 @@ def _set_code_display(index, code, key):
 
 
 def render_shipment_management(config, *, start_new_on_entry=False):
+    for key, preference in (("shipment_print_preview", "shipment_preview_preference"), ("shipment_hide_prices", "shipment_hide_preference")):
+        if preference in st.session_state:
+            st.session_state[key] = st.session_state[preference]
     if start_new_on_entry and not st.session_state.get("shipment_entry_ready"):
         st.session_state.shipment_entry_ready = True
         if "shipment_draft" not in st.session_state:
@@ -202,9 +226,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                     st.session_state.pop("shipment_search_print_snapshot", None)
                     clear_reads(st.session_state)
                     if editing:
-                        st.session_state.shipment_editor_base = deepcopy(draft["items"])
-                        st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
+                        _suspend_for_search()
                     st.rerun()
+    suspended = st.session_state.get("shipment_suspended_drafts", [])
+    if suspended:
+        resume = st.columns([3, 1])
+        resume[0].caption(f"暫存草稿 {len(suspended)} 筆")
+        resume[1].button("繼續草稿", key="shipment_resume_draft", disabled=editing, on_click=_resume_search_draft, use_container_width=True)
     record_key = ("records", *(st.session_state.get(key) for key in ("shipment_query", "shipment_start", "shipment_end",
                   "shipment_include_void", "shipment_customer_start", "shipment_customer_end")))
     records = [] if editing and not st.session_state.get("shipment_search_epoch") else cached_read(config, st.session_state, record_key, lambda: list_shipments(config, query=st.session_state.get("shipment_query", ""),
@@ -216,7 +244,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         with st.expander(f"查詢結果 · {len(records)} 筆", expanded=False):
             if records:
                 result = pd.DataFrame([{"出貨日期": r["shipment_date"], "出貨單號": r["shipment_number"],
-                          "客戶編號": r["customer_id"], "客戶名稱": r["customer_name"], "總計": int(r["total_amount"]),
+                          "客戶編號": r["customer_id"], "客戶名稱": r["customer_name"], "總計（未稅）": int(r["net_amount"]),
                           "狀態": "作廢" if r["status"] == "void" else "有效"} for r in records])
                 render_search_print(config, records, st.session_state["shipment_search_epoch"])
                 if editing:
@@ -248,8 +276,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                     on_click=_begin, args=(document,), kwargs={"rerun": False})
     tools[2].button("複製", key="shipment_copy", disabled=editing or not document, use_container_width=True,
                     on_click=_copy_for_edit, args=(document,))
-    if tools[3].button("取消", key="shipment_cancel", disabled=not editing, use_container_width=True):
-        _finish("已取消修改")
+    tools[3].button("取消", key="shipment_cancel", disabled=not editing, use_container_width=True,
+                    on_click=_finish, args=("已取消修改",), kwargs={"rerun": False})
     save_clicked = tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing, use_container_width=True)
     for col, label, target in ((tools[5], "上一筆", index - 1), (tools[6], "下一筆", index + 1)):
         if col.button(label, key="shipment_nav_" + label,
@@ -257,13 +285,18 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.session_state.shipment_selected = ids[target]
             st.rerun()
     tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{index + 1 if ids else 0} / {len(ids)}</span>', unsafe_allow_html=True)
-    with tools[8].popover("列印／進紙", use_container_width=True):
-        stock = st.selectbox("紙張尺寸", ("三聯紙 240 × 140 mm", "A5"), key="shipment_paper_stock")
-        paper_stock = "triplicate" if stock.startswith("三聯紙") else "standard"
+    hide_prices = st.session_state.get("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False))
+    with tools[8].popover("列印／匯出", use_container_width=True), st.container():
+        stock = st.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "A5"), key="shipment_paper_stock")
+        paper_stock = "a4_driver" if stock == "A4" else "triplicate" if stock.startswith("三聯紙") else "standard"
         layout = st.selectbox("列印方向", ("橫式", "直式"), key="shipment_print_orientation",
-                              format_func=lambda value: "列印：" + value, label_visibility="collapsed", disabled=paper_stock == "triplicate")
-        feed_rotation = st.selectbox("紙張進紙", (0, 90), format_func=lambda v: ("240 mm 長邊先進（橫放）" if v == 0 else "140 mm 短邊先進（直放）") if paper_stock == "triplicate" else ("原方向" if v == 0 else "旋轉90度進紙"), key="shipment_feed_rotation")
+                              format_func=lambda value: "列印：" + ("橫放進紙" if paper_stock == "a4_driver" else value), label_visibility="collapsed", disabled=paper_stock != "standard")
+        feed_rotation = st.selectbox("紙張進紙", (0, 90), format_func=lambda v: ("240 mm 長邊先進（橫放）" if v == 0 or paper_stock == "a4_driver" else "140 mm 短邊先進（直放）") if paper_stock != "standard" else ("原方向" if v == 0 else "旋轉90度進紙"), key="shipment_feed_rotation", disabled=paper_stock == "a4_driver")
         hole_margin = st.number_input("左右打洞留白（mm）", min_value=0.0, max_value=25.0, value=12.5, step=0.5, key="shipment_hole_margin")
+        orientation = "portrait" if layout == "直式" else "landscape"
+        print_html = printable_shipment(document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock) if document and not editing else None
+        if print_html:
+            st.download_button("下載列印版", data=print_html, file_name=document["shipment_number"] + ".html", mime="text/html", use_container_width=True)
     orientation = "portrait" if layout == "直式" else "landscape"
     if editing:
         st.caption("編輯中 · 尚未儲存")
@@ -274,16 +307,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         st.warning("已作廢：" + document.get("void_reason", ""))
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
     print_controls = st.columns([1, 1, 2, 1])
-    preview = print_controls[0].toggle("預覽／列印", value=widget_default("shipment_print_preview", st.session_state.get("shipment_preview_preference", False)), key="shipment_print_preview", disabled=editing, on_change=_remember_print_settings)
-    hide_prices = print_controls[1].toggle("隱藏單價與金額", value=widget_default("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False)), key="shipment_hide_prices", disabled=editing, on_change=_remember_print_settings)
+    preview = print_controls[0].toggle("預覽／列印", value=widget_default("shipment_print_preview", st.session_state.get("shipment_preview_preference", False)), key="shipment_print_preview", disabled=editing, on_change=_remember_print_settings, args=("shipment_print_preview",))
+    hide_prices = print_controls[1].toggle("隱藏單價與金額", value=widget_default("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False)), key="shipment_hide_prices", disabled=editing, on_change=_remember_print_settings, args=("shipment_hide_prices",))
     sync_products = print_controls[2].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
                                             help="成交價依客戶、貨品與單位保存於出貨紀錄，不覆蓋共用標準售價")
     if preview and not editing:
         with print_controls[3]:
             render_purchase_history(config, document["customer_id"], document["customer_name"])
-        print_html = printable_shipment(document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock)
-        print_controls[2].download_button("下載列印版（三聯紙）" if paper_stock == "triplicate" else "下載 A5 列印版", data=print_html,
-                                          file_name=document["shipment_number"] + ("-無金額" if hide_prices else "") + ".html", mime="text/html")
         components.html(theme_preview(print_html), height=550, scrolling=True)
         return
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
@@ -551,8 +581,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                     shipment_customer_start="", shipment_customer_end="", shipment_search_epoch=0)
             _finish("已儲存出貨單 " + saved["shipment_number"])
     if not editing:
-        download, lifecycle = st.columns([1, 3])
-        download.download_button("下載列印版", data=printable_shipment(document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock), file_name=document["shipment_number"] + ".html", mime="text/html")
+        lifecycle = st.container()
         if document["status"] == "draft":
             with lifecycle.expander("作廢出貨單"):
                 with st.form("shipment_void_" + document["id"]):

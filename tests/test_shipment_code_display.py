@@ -86,9 +86,11 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     next(w for w in app.text_area if w.label == "備註").set_value("Keep draft").run()
     next(b for b in app.button if b.label == "查詢").click().run()
     assert not app.exception
-    assert app.session_state["shipment_draft"]["notes"] == "Keep draft"
-    assert printed_code(app.session_state["shipment_draft"]["items"][0]) == "0757"
+    assert app.session_state["shipment_suspended_drafts"][-1]["notes"] == "Keep draft"
+    assert printed_code(app.session_state["shipment_suspended_drafts"][-1]["items"][0]) == "0757"
+    assert not app.button(key="shipment_edit").disabled and not app.button(key="shipment_copy").disabled
     app.button(key="shipment_search_print_generate").click().run()
     assert not app.exception
     assert app.session_state["shipment_search_print_snapshot"][1] == saved["id"]
+    app.button(key="shipment_resume_draft").click().run()
     assert app.session_state["shipment_draft"]["notes"] == "Keep draft"

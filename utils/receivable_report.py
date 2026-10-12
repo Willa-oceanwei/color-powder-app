@@ -72,8 +72,9 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
     return result
 
 
-FIELDS = (("kind", 6), ("date", 12), ("number", 16), ("code", 14), ("name", 18),
-          ("quantity", 9), ("unit", 6), ("price", 8), ("amount", 12), ("notes", 10))
+FIELDS = (("kind", 6), ("date", 12), ("number", 16), ("code", 14), ("name", 16),
+          ("quantity", 9), ("unit", 6), ("price", 8), ("amount", 12), ("order_number", 12))
+REPORT_WIDTHS = (5, 11, 13, 11, 17, 7, 5, 8, 11, 12)
 
 
 def statement_pages(statements, capacity=None, *, paper_size="auto"):
@@ -95,7 +96,7 @@ def statement_pages(statements, capacity=None, *, paper_size="auto"):
                     rows.append([cell[line] if line < len(cell) else "" for cell in cells])
                     context.append(header)
         size = ("A5" if len(rows) <= 10 else "A4") if paper_size == "auto" else paper_size
-        limit = capacity if capacity is not None else (10 if size == "A5" else 32)
+        limit = capacity if capacity is not None else (6 if size == "A5" else 26)
         chunks, offset = [], 0
         while offset < len(rows):
             continuation = [context[offset]] if not rows[offset][0] else []
@@ -112,12 +113,15 @@ def statement_pages(statements, capacity=None, *, paper_size="auto"):
 
 
 def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=False, title="應收帳款明細表", paper_stock="standard", feed_rotation=0, hole_margin=12.5):
-    if paper_stock not in ("standard", "triplicate"):
+    if paper_stock not in ("standard", "triplicate", "a4_driver"):
         raise ValueError("Invalid paper stock")
     if paper_stock == "triplicate" and any(p.get("paper_size", "A5") != "A5" for p in pages):
         raise ValueError("Triplicate stock requires A5 pagination")
+    if paper_stock == "a4_driver" and any(p.get("paper_size", "A5") != "A4" for p in pages):
+        raise ValueError("A4 feed requires A4 pagination")
     def text(value):
         return escape(str(value))
+    company_info = f'<div class="company-info">{text(COMPANY["address"])}<br>Tel：{text(COMPANY["phone"])}　Fax：{text(COMPANY["fax"])}</div>'
 
     sheets = []
     for index, page in enumerate(pages):
@@ -132,28 +136,44 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
         rows = "".join(rows)
         totals = ""
         if page["last"]:
-            quantities = "　".join(f"{text(display_price(amount))} {text(unit)}" for unit, amount in s["quantities"].items())
+            quantities = ''.join(f'<span class="quantity-label">數量合計：</span><span class="quantity-value">{text(display_price(amount))}</span><span class="quantity-unit">{text(unit)}</span>' for unit, amount in s["quantities"].items())
             total_fields = [("本期合計", "net"), ("（加）營業稅", "tax")]
             if show_receipts:
                 total_fields += [("截至期末已登錄收款", "received"), ("帳面未收餘額", "balance")]
             total_fields += [("本期總計", "total")]
             total_rows = ''.join(f'<div><span>{label}：</span><span>{int(Decimal(s[key])):,}</span></div>' for label, key in total_fields)
-            totals = f'<div class="summary"><div class="quantity-summary">數量合計：{quantities}</div><div class="statement-totals">{total_rows}</div></div>'
+            totals = f'<div class="summary"><div class="quantity-summary">{quantities}</div>{company_info}<div class="statement-totals">{total_rows}</div></div>'
         sheets.append(f'''<section class="sheet {page.get('paper_size', 'A5').lower()}{' active' if index == selected else ''}">
 <h1>{text(COMPANY['name'])}</h1><h2>{text(title)}</h2>
 <div class="metadata"><div class="customer">客戶名稱：{text(s['customer_id'])}　{text(s['customer_name'])}</div><div class="page-number">頁數 {page['customer_page']} / {page['customer_pages']}</div>
 <div>聯絡人：{text(s.get('contact',''))}</div><div>統一編號：{text(s.get('tax_id',''))}</div><div></div>
 <div>聯絡電話：{text(s.get('phone',''))}</div><div>傳真號碼：{text(s.get('fax',''))}</div><div class="period">帳款區間：{text(s['start'].replace('-', '/'))} ～ {text(s['end'].replace('-', '/'))}</div>
 {'<div class="customer">收款狀態：依已登錄紀錄</div>' if show_receipts else ''}</div>
-<table><thead><tr>{''.join('<th>'+label+'</th>' for label in ('單別','交易日期','交易單號','貨品編號','品名','數量','單位','單價','金額','備註說明'))}</tr></thead><tbody>{rows}</tbody></table>
-{totals}<footer>{text(COMPANY['address'])}<br>Tel：{text(COMPANY['phone'])}　Fax：{text(COMPANY['fax'])}</footer></section>''')
-    if paper_stock == "triplicate":
+<table><thead><tr>{''.join('<th>'+label+'</th>' for label in ('單別','交易日期','交易單號','貨品編號','品名','數量','單位','單價','金額','採購單號'))}</tr></thead><tbody>{rows}</tbody></table>
+{totals if page['last'] else company_info}</section>''')
+    if paper_stock in ("triplicate", "a4_driver"):
         sheets = [stock_sheet(sheet, active=index == selected) for index, sheet in enumerate(sheets)]
-    zoom = '<label for="zoom">縮放</label><select id="zoom" onchange="resize()"><option value="width">符合寬度</option><option value="page">整頁</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select>'
+    zoom = '<label for="zoom">縮放</label><select id="zoom" onchange="resize()"><option value="width">符合寬度</option><option value="page" selected>整頁</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select>'
     toolbar = '<button onclick="window.print()">列印全部</button>' if embedded else '<button onclick="move(-1)">上一頁</button><span id="page"></span><button onclick="move(1)">下一頁</button><button onclick="window.print()">列印全部</button>'
     preview_style = "@media screen{.sheet{zoom:var(--preview-zoom,.6)}}"
     if paper_stock == "triplicate":
         preview_style += stock_style(feed_rotation, hole_margin, paginated=True)
+    elif paper_stock == "a4_driver":
+        preview_style += stock_style(0, hole_margin, paginated=True, stock_height=280, offset=-10, a4_driver=True)
+    preview_style += '''body{font-size:12pt}h1{font-size:19pt}h2{font-size:14pt}.metadata{line-height:5.5mm}.period{font-size:11pt}
+table{font-size:11pt}td,th{line-height:5.2mm}.sheet{padding:8mm}th:nth-child(6),th:nth-child(8),th:nth-child(9){text-align:right}th:nth-child(7){text-align:center}
+th:nth-child(1){width:5%}th:nth-child(2){width:11%}th:nth-child(3){width:13%}th:nth-child(4){width:11%}th:nth-child(5){width:17%}th:nth-child(6){width:7%}th:nth-child(7){width:5%}th:nth-child(8){width:8%}th:nth-child(9){width:11%}th:nth-child(10){width:12%}
+td:nth-child(6),td:nth-child(8),td:nth-child(9){white-space:nowrap;padding-right:.2mm}
+td:nth-child(1),td:nth-child(2),td:nth-child(3),td:nth-child(4),td:nth-child(7){white-space:nowrap}
+th:nth-child(9),td:nth-child(9){padding-right:1mm}th:nth-child(10),td:nth-child(10){padding-left:2mm}
+.summary{grid-template-columns:5% 11% 13% 11% 17% 7% 5% 8% 11% 12%;line-height:5.8mm}
+.quantity-summary{grid-column:1/8;grid-row:1;display:grid;grid-template-columns:5fr 11fr 13fr 11fr 17fr 7fr 5fr}
+.quantity-label{grid-column:1/6;text-align:right}.quantity-value{grid-column:6;text-align:right;padding-right:.2mm}.quantity-unit{grid-column:7;text-align:center}
+.statement-totals{grid-column:6/10;grid-row:2;font-size:11pt}.statement-totals>div{grid-template-columns:20fr 11fr}
+.statement-totals span:last-child{padding-right:1mm}
+.company-info{margin-top:5.8mm;font-size:11pt;line-height:5.8mm}.summary>.company-info{grid-column:1/6;grid-row:2}
+@media screen{.sheet.a4,.sheet.a5{height:auto}.stock-page>.sheet.a4{height:297mm}.stock-page>.sheet.a5{height:148mm}.stock-page{height:var(--statement-content-height)}}
+'''
     html = '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>應收帳款明細表</title><style>
 @page{size:A5 landscape;margin:0}@page a5{size:A5 landscape;margin:0}@page a4{size:A4 portrait;margin:0}*{box-sizing:border-box}body{margin:0;background:#e5e7eb;color:#000;font:10pt "Microsoft JhengHei",sans-serif;letter-spacing:0}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px;font:16px "Microsoft JhengHei",sans-serif}.toolbar button,.toolbar select{font:inherit;min-height:38px;padding:5px 10px;border-radius:4px}.toolbar select{min-width:140px}.preview-stage{overflow:auto;padding:12px}.sheet{display:none;width:210mm;height:148mm;padding:8mm;background:white;margin:0 auto;position:relative;break-after:page}.sheet.active{display:block}
@@ -169,4 +189,9 @@ td:nth-child(6){padding-right:2mm}td:nth-child(7){text-align:center}
 @media print{body{background:white}.toolbar{display:none}.preview-stage{height:auto!important;overflow:visible;padding:0}.sheet{display:block!important;margin:0;zoom:1;page-break-after:always}.sheet:last-child{break-after:auto;page-break-after:auto}}
 '''.replace('<title>應收帳款明細表</title>', '<title>' + text(title) + '</title>') + preview_style + '</style></head><body><div class="toolbar">' + toolbar + zoom + '</div><div class="preview-stage">' + "".join(sheets) + f'''
 </div><script>let current={max(0, min(selected, len(pages)-1))};const sheets=Array.from(document.querySelectorAll('.sheet'));const stage=document.querySelector('.preview-stage');function move(delta){{current=Math.max(0,Math.min(sheets.length-1,current+delta));sheets.forEach((s,i)=>s.classList.toggle('active',i===current));const counter=document.getElementById('page');if(counter)counter.textContent=(sheets.length?current+1:0)+' / '+sheets.length;stage.scrollTo(0,0);resize();}}function resize(){{const value=document.getElementById('zoom').value;const height=Math.max(160,innerHeight-document.querySelector('.toolbar').offsetHeight);stage.style.height=height+'px';const paper=sheets[current];const widthScale=(stage.clientWidth-24)/(paper?paper.offsetWidth:794);const scale=value==='width'?widthScale:value==='page'?Math.min(widthScale,(height-24)/(paper?paper.offsetHeight:559)):Number(value);document.documentElement.style.setProperty('--preview-zoom',Math.max(.2,scale));}}addEventListener('resize',resize);move(0);</script></body></html>'''
-    return html.replace("querySelectorAll('.sheet')", "querySelectorAll('.stock-page')") if paper_stock == "triplicate" else html
+    if paper_stock in ("triplicate", "a4_driver"):
+        html = html.replace("querySelectorAll('.sheet')", "querySelectorAll('.stock-page')")
+        trim = '''function trimPages(){sheets.forEach(p=>{const sheet=p.querySelector('.sheet'),last=sheet.querySelector('.summary')||sheet.querySelector('.company-info');const m=new DOMMatrix(getComputedStyle(sheet).transform);if(last&&Math.abs(m.b)<.001){const end=last.offsetTop+last.offsetHeight+parseFloat(getComputedStyle(sheet).paddingBottom);p.style.setProperty('--statement-content-height',(end*m.a+m.f)+'px');}});}
+'''
+        html = html.replace("function resize(){", trim + "function resize(){trimPages();")
+    return html
