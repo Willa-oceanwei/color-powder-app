@@ -87,7 +87,7 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
                     (('合計', 'net_amount'), ('稅額', 'tax_amount'), ('總計', 'total_amount'))) + '</div>'
         footer_note = '<br>'.join(_text(line) for line in (note_pages[page_index] if page_index < len(note_pages) else []))
         output.append(f'''<section class="sheet" aria-label="出貨單第 {page_index + 1} 頁">
-<header><div><h1>{_text(COMPANY['name'])}</h1><div class="company-address">{_text(COMPANY['address'])}</div><div>Tel：{_text(COMPANY['phone'])}　Fax：{_text(COMPANY['fax'])}</div></div><h2><span>出</span><span>貨</span><span>單</span></h2></header>
+<header><div><h1>{_text(COMPANY['name'])}</h1><div class="company-address">{_text(COMPANY['address'])}</div><div class="company-contact">Tel：{_text(COMPANY['phone'])}　Fax：{_text(COMPANY['fax'])}</div></div><h2><span>出</span><span>貨</span><span>單</span></h2></header>
 <div class="metadata"><div>
 <div>客戶名稱：{_text(document['customer_id'])}　{_text(document['customer_name'])}</div>
 <div class="pair"><span>聯絡人：{_text(document.get('contact', ''))}</span><span>統一編號：{_text(document.get('tax_id', ''))}</span></div>
@@ -113,9 +113,10 @@ header {display:grid;grid-template-columns:1fr 48mm;gap:4mm;min-height:18mm;line
 header h1,header h2 {font-family:"DFKai-SB","BiauKai","KaiTi",serif;}
 h1 {margin:0;font-size:20pt;font-weight:700;line-height:8mm;}
 h2 {display:flex;justify-content:space-between;align-items:start;margin:3mm 2mm 0 0;font-size:20pt;font-weight:400;line-height:9mm;}
-.company-address {font-size:10pt;}
+.company-address {font-size:9pt;}
+.company-contact {font-size:12pt;}
 .metadata {display:grid;grid-template-columns:1fr 56mm;gap:4mm;margin:2mm 0;line-height:5.5mm;overflow-wrap:anywhere;}
-.delivery-row {display:grid;grid-template-columns:1fr 48mm;gap:4mm;line-height:5.5mm;margin-bottom:2mm;overflow-wrap:anywhere;}
+.delivery-row {display:grid;grid-template-columns:1fr 56mm;gap:4mm;line-height:5.5mm;margin-bottom:2mm;overflow-wrap:anywhere;}
 .pair {display:grid;grid-template-columns:1fr 1fr;gap:2mm;}
 table {width:100%;border-collapse:collapse;table-layout:fixed;line-height:5.5mm;font-variant-numeric:tabular-nums;}
 th {font-weight:400;text-align:left;border-top:.3mm solid #000;border-bottom:.3mm solid #000;}
@@ -133,10 +134,12 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
     if portrait:
         html = html.replace("size:A5 landscape", "size:A5 portrait").replace("width:210mm;height:148mm", "width:148mm;height:210mm")
         html = html.replace("font-size:13pt", "font-size:10pt").replace("1fr 48mm", "1fr 40mm").replace("1fr 56mm", "1fr 40mm")
-        html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:10pt;line-height:4.5mm}header{font-size:10pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
+        html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:10pt;line-height:4.5mm}header{font-size:10pt}.company-contact{font-size:9pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
     margin = max(10, hole_margin)
     if paper_stock in ("triplicate", "a4_driver"):
-        rules = stock_style(feed_rotation, hole_margin, offset=-25 if paper_stock == "a4_driver" else 0, a4_driver=paper_stock == "a4_driver")
+        rules = stock_style(feed_rotation, hole_margin, offset=-15 if paper_stock == "a4_driver" else 0, a4_driver=paper_stock == "a4_driver")
+        if paper_stock == "a4_driver":
+            rules += ".stock-page>.sheet{width:222mm}"
         html = html.replace("列印 A5", "列印三聯紙")
     elif feed_rotation:
         width, height = (210, 148) if portrait else (148, 210)
