@@ -342,6 +342,6 @@ def void_shipment(config, shipment_id, version, reason):
             raise ShipmentError("單據已修改、作廢或有收款紀錄；請重新讀取，已有收款須先作廢收款")
 
 
-def printable_shipment(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0, paper_stock="standard"):
+def printable_shipment(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0, paper_stock="standard", output_mode="print"):
     from .shipment_print import render_shipment_print
-    return render_shipment_print(document, show_prices=show_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock)
+    return render_shipment_print(document, show_prices=show_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock, output_mode=output_mode)

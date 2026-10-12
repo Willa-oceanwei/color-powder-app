@@ -113,6 +113,7 @@ def statement_pages(statements, capacity=None, *, paper_size="auto"):
 
 
 def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=False, title="應收帳款明細表", paper_stock="standard", feed_rotation=0, hole_margin=12.5):
+    receivable = title == "應收帳款明細表"
     if paper_stock not in ("standard", "triplicate", "a4_driver"):
         raise ValueError("Invalid paper stock")
     if paper_stock == "triplicate" and any(p.get("paper_size", "A5") != "A5" for p in pages):
@@ -159,7 +160,9 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
     if paper_stock == "triplicate":
         preview_style += stock_style(feed_rotation, hole_margin, paginated=True)
     elif paper_stock == "a4_driver":
-        preview_style += stock_style(0, hole_margin, paginated=True, stock_height=280, offset=-25, a4_driver=True)
+        preview_style += stock_style(0, hole_margin, paginated=True, stock_height=280, offset=-15 if receivable else -25, a4_driver=True)
+        if receivable:
+            preview_style += ".stock-page>.sheet.a4{width:222mm}"
     preview_style += '''body{font-size:13pt}h1{font-size:20pt}h2{font-size:15pt}.metadata{line-height:5.5mm}.period{font-size:12pt}
 table{font-size:12pt}td,th{line-height:5.2mm}.sheet{padding:8mm}th:nth-child(6),th:nth-child(8),th:nth-child(9){text-align:right}th:nth-child(7){text-align:center}
 th:nth-child(1){width:5%}th:nth-child(2){width:13%}th:nth-child(3){width:14%}th:nth-child(4){width:11%}th:nth-child(5){width:12%}th:nth-child(6){width:7%}th:nth-child(7){width:5%}th:nth-child(8){width:8%}th:nth-child(9){width:11%}th:nth-child(10){width:14%}
@@ -176,6 +179,8 @@ td:nth-child(10){font-size:9.5pt;white-space:nowrap;overflow-wrap:normal}
 .company-info{margin-top:5.8mm;font-size:12pt;line-height:5.8mm}
 @media screen{.sheet.a4,.sheet.a5{height:auto}.stock-page>.sheet.a4{height:297mm}.stock-page>.sheet.a5{height:148mm}.stock-page{height:var(--statement-content-height)}}
 '''
+    if receivable:
+        preview_style += ".quantity-summary{font-size:12pt}"
     html = '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>應收帳款明細表</title><style>
 @page{size:A5 landscape;margin:0}@page a5{size:A5 landscape;margin:0}@page a4{size:A4 portrait;margin:0}*{box-sizing:border-box}body{margin:0;background:#e5e7eb;color:#000;font:10pt "Microsoft JhengHei",sans-serif;letter-spacing:0}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px;font:16px "Microsoft JhengHei",sans-serif}.toolbar button,.toolbar select{font:inherit;min-height:38px;padding:5px 10px;border-radius:4px}.toolbar select{min-width:140px}.preview-stage{overflow:auto;padding:12px}.sheet{display:none;width:210mm;height:148mm;padding:8mm;background:white;margin:0 auto;position:relative;break-after:page}.sheet.active{display:block}
