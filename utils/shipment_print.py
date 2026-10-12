@@ -33,10 +33,12 @@ def display_price(value):
 
 
 def render_shipment_print(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0, paper_stock="standard"):
-    if paper_stock not in ("standard", "triplicate"):
+    if paper_stock not in ("standard", "triplicate", "a4_driver"):
         raise ValueError("Invalid paper stock")
-    if paper_stock == "triplicate":
+    if paper_stock in ("triplicate", "a4_driver"):
         orientation = "landscape"
+    if paper_stock == "a4_driver":
+        feed_rotation = 0
     if orientation not in ("landscape", "portrait"):
         raise ValueError("Invalid print orientation")
     if feed_rotation not in (0, 90) or not 0 <= hole_margin <= 25:
@@ -44,14 +46,13 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
     portrait = orientation == "portrait"
     capacity = (12 if portrait else 6) if feed_rotation and hole_margin else (14 if portrait else 7)
     fields = [('code', '貨品編號', 16), ('name', '品名', 38), ('quantity', '數量', 10), ('unit', '單位', 6)]
-    if show_prices:
-        fields.extend([('price', '單價', 12), ('amount', '金額', 14)])
-    fields.append(('order_number', '採購單號', 20 if show_prices else 30))
+    fields.extend([('price', '單價', 12), ('amount', '金額', 14)])
+    fields.append(('order_number', '採購單號', 20))
     if portrait:
         fields = [(key, label, max(6, int(width * .67))) for key, label, width in fields]
     pages, page_rows, used = [], [], 0
     for item in document['items']:
-        cells = [_wrap(display_price(item[key]) if key in ('price', 'quantity') else
+        cells = [_wrap('' if not show_prices and key in ('price', 'amount') else display_price(item[key]) if key in ('price', 'quantity') else
                        f"{int(item[key]):,}" if key == 'amount' else printed_code(item) if key == 'code' else item.get(key, ''), width) for key, _, width in fields]
         if item.get('notes'):
             cells[1].extend(_wrap(item['notes'], fields[1][2]))
@@ -76,9 +77,9 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
         invoice = document.get('invoice', {})
         table_rows = ''.join('<tr>' + ''.join(f'<td class="{key}">' + '<br>'.join(_text(line) for line in cell) + '</td>' for (key, _, _), cell in zip(fields, row)) + '</tr>' for row in rows)
         headings = ''.join(f'<th class="{key}">{label}</th>' for key, label, _ in fields)
-        widths = (13, 34, 7, 6, 10, 12, 18) if show_prices else (16, 43, 9, 8, 24)
+        widths = (13, 34, 7, 6, 10, 12, 18)
         if portrait:
-            widths = (16, 29, 9, 8, 10, 14, 14) if show_prices else (20, 39, 11, 10, 20)
+            widths = (16, 29, 9, 8, 10, 14, 14)
         columns = ''.join(f'<col style="width:{width}%">' for width in widths)
         total = ''
         if show_prices and page_index == len(pages) - 1:
@@ -97,7 +98,7 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
 <div class="end-marker">--------------以下空白--------------</div>
 <footer><div class="footer-top"><div class="notes">備註：{footer_note}</div>{total}</div><div class="signatures"><span>審核：</span><span>經辦：</span><strong>簽收：</strong></div></footer>
 </section>''')
-    if paper_stock == "triplicate":
+    if paper_stock in ("triplicate", "a4_driver"):
         output = [stock_sheet(sheet) for sheet in output]
     html = '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>出貨單</title>
 <style>
@@ -134,8 +135,8 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
         html = html.replace("font-size:12pt", "font-size:9pt").replace("1fr 48mm", "1fr 40mm")
         html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:9pt;line-height:4.5mm}header{font-size:9pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
     margin = max(10, hole_margin)
-    if paper_stock == "triplicate":
-        rules = stock_style(feed_rotation, hole_margin)
+    if paper_stock in ("triplicate", "a4_driver"):
+        rules = stock_style(feed_rotation, hole_margin, offset=-10 if paper_stock == "a4_driver" else 0, a4_driver=paper_stock == "a4_driver")
         html = html.replace("列印 A5", "列印三聯紙")
     elif feed_rotation:
         width, height = (210, 148) if portrait else (148, 210)

@@ -306,7 +306,8 @@ def test_a5_price_free_print_and_pagination(config):
     html = printable_shipment(saved, show_prices=False)
     assert 'size:A5 landscape' in html
     assert '佳咊實業有限公司' in html
-    assert '單價' not in html and '<span>合計' not in html and '<span>稅額' not in html
+    assert '單價' in html and '<span>合計' not in html and '<span>稅額' not in html
+    assert '<td class="price"></td>' in html and '<td class="amount"></td>' in html
     assert '9876543' not in html
     assert saved['total_amount'] not in html
     assert html.count('class="sheet"') == 4

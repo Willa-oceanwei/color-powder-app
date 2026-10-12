@@ -88,9 +88,45 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     items = app.session_state["shipment_draft"]["items"].copy()
     next(b for b in app.button if b.label == "查詢").click().run()
     assert not app.exception
+    parked = app.session_state["shipment_suspended_drafts"][-1]
+    assert (parked["customer_id"], parked["notes"], parked["items"]) == ("C2", "Keep draft", items)
+    assert "shipment_draft" not in app.session_state
+    app.button(key="shipment_resume_draft").click().run()
     assert app.session_state["shipment_draft"]["customer_id"] == "C2"
     assert app.session_state["shipment_draft"]["notes"] == "Keep draft"
     assert app.session_state["shipment_draft"]["items"] == items
+
+
+def test_search_exits_empty_entry_and_allows_edit_copy_with_net_total(tmp_path):
+    from streamlit.testing.v1 import AppTest
+    from utils.shipment_repository import list_shipments
+    config = DatabaseConfig(backend="sqlite", path=tmp_path / "search-actions.db")
+    initialize_database(config.path)
+    create_customer(config, CustomerInput("C1", "Customer"))
+    doc = dict(blank_shipment(), customer_id="C1", customer_name="Customer", shipment_date="2026-10-01")
+    doc["items"] = [dict(code="C0757", name="Blue", quantity="2", unit="桶", price="100")]
+    saved = save_shipment(config, doc)
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})), start_new_on_entry=True)
+''').run(timeout=30)
+    next(b for b in app.button if b.label == "查詢").click().run()
+    assert not app.exception and "shipment_draft" not in app.session_state
+    result = next(frame.value for frame in app.dataframe if "總計（未稅）" in frame.value.columns)
+    assert result.iloc[0]["總計（未稅）"] == 200 and saved["total_amount"] == "210"
+    assert not app.button(key="shipment_edit").disabled and not app.button(key="shipment_copy").disabled
+    app.button(key="shipment_edit").click().run()
+    assert not app.exception and app.session_state["shipment_draft"]["id"] == saved["id"]
+    app.button(key="shipment_cancel").click().run()
+    app.button(key="shipment_copy").click().run()
+    assert not app.exception and not app.session_state["shipment_draft"].get("id")
+    copied = app.session_state["shipment_draft"]["items"][0]
+    assert (copied["code"], copied["name"], copied["unit"], float(copied["quantity"]), float(copied["price"])) == ("C0757", "Blue", "桶", 2, 100)
+    assert len(list_shipments(config)) == 1
 
 
 def test_report_title_totals_and_ranking_export():

@@ -153,6 +153,7 @@ def test_receipt_conflicts_and_shipment_guards(config):
 def test_pagination_escape_totals_and_no_mutation(config):
     d = shipment(config, count=40)
     d["items"][0]["notes"] = "<script>bad</script>" + "測試" * 50
+    d["items"][0]["order_number"] = "<script>bad</script>"
     d = save_shipment(config, d)
     receipt(config, d)
     statements = build_statements(config, "2026-10-01", "2026-10-31")
@@ -194,7 +195,7 @@ def test_quantity_display_trims_zero_fraction_without_rounding(config):
     pages = statement_pages(statements)
     assert [row[5] for row in pages[0]["rows"][1:]] == ["6", "6.5"]
     html = render_statement_print(pages)
-    assert "數量合計：12.5 包" in html
+    assert 'class="quantity-value">12.5</span>' in html and 'class="quantity-unit">包</span>' in html
     assert statements[0]["quantities"] == {"包": "12.500"}
 
 

@@ -27,6 +27,9 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert not any(widget.label in ('首筆', '尾筆') for widget in app.button)
     layout = app.selectbox(key='shipment_print_orientation')
     assert layout.proto.label_visibility.value == 2
+    assert app.selectbox(key='shipment_paper_stock').value == 'A4'
+    app.selectbox(key='shipment_paper_stock').set_value('A5').run()
+    layout = app.selectbox(key='shipment_print_orientation')
     assert layout.options == ['列印：橫式', '列印：直式']
     layout.set_value('直式').run()
     assert not app.exception and app.selectbox(key='shipment_print_orientation').value == '直式'
@@ -37,7 +40,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     monkeypatch.setattr(ui, 'list_shipments', lambda *args, **kwargs: [])
     next(b for b in app.button if b.label == '查詢').click().run()
     assert not app.exception
-    assert app.session_state['shipment_draft']['notes'] == '保留草稿'
+    assert app.session_state['shipment_suspended_drafts'][-1]['notes'] == '保留草稿'
 
 
 def test_view_reads_are_cached_and_purchase_history_is_on_demand(tmp_path, monkeypatch):
@@ -153,7 +156,10 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert created['notes'] == '新單'
     app.toggle(key='shipment_print_preview').set_value(True).run()
     assert not app.exception
+    assert app.toggle(key='shipment_print_preview').value
+    assert app.session_state['shipment_preview_preference']
     app.toggle(key='shipment_hide_prices').set_value(True).run()
+    assert app.toggle(key='shipment_print_preview').value, {k: app.session_state[k] for k in ('shipment_print_preview', 'shipment_preview_preference', 'shipment_hide_prices', 'shipment_hide_preference')}
     app.button(key='shipment_nav_上一筆').click().run()
     app.button(key='shipment_nav_上一筆').click().run()
     assert not app.exception
