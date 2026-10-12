@@ -35,6 +35,7 @@ def test_display_persists_without_changing_price_identity(config):
     html = printable_shipment(saved)
     assert '<td class="code">0757</td>' in html
     assert '<td class="code">C0757</td>' not in html
+    assert "--shipment-preview-zoom" in html and "addEventListener('resize',fitShipment)" in html
     history = shipment_price_history(config, "C1", saved["shipment_date"])
     result = complete_items(config, saved, [dict(code="0757", name="", unit="", price="", quantity="1")], [], history=history)
     assert result[0]["code"] == "C0757" and result[0]["price"] == "10"

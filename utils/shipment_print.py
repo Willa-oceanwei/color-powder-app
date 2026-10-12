@@ -137,4 +137,9 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
 @media print{{.feed-page{{margin:0;page-break-after:always}}.feed-page:last-child{{page-break-after:auto;break-after:auto}}}}"""
     else:
         rules = f".sheet{{padding-right:{margin}mm;padding-left:{margin}mm}}footer{{right:{margin}mm;left:{margin}mm}}"
-    return html.replace("</style>", rules + "</style>")
+    rules += "@media screen{.sheet,.feed-page{zoom:var(--shipment-preview-zoom,.86)}.feed-page .sheet{zoom:1}}"
+    fit_script = '''<script id="shipment-preview-fit">function fitShipment(){const paper=document.querySelector('.feed-page')||document.querySelector('.sheet');
+const scale=Math.min(.86,Math.max(.2,(document.documentElement.clientWidth-16)/(paper?paper.offsetWidth:794)));
+document.documentElement.style.setProperty('--shipment-preview-zoom',scale);}
+addEventListener('resize',fitShipment);fitShipment();</script>'''
+    return html.replace("</style>", rules + "</style>").replace("</body>", fit_script + "</body>")
