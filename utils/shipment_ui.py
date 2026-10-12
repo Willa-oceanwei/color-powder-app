@@ -13,6 +13,8 @@ from .shipment_print import display_price
 from .paper_preview import theme_preview
 from .shipment_page_data import cached_read, clear_reads
 from .shipment_history_ui import render_purchase_history
+from .shipment_search_print import render_search_print
+from .shipment_codes import display_code_options, printed_code
 from .accounting_widgets import widget_default, widget_index
 from .customer_repository import list_customers
 from .shipment_repository import (
@@ -22,7 +24,7 @@ from .shipment_repository import (
 )
 
 COLUMNS = {"code": "貨品編號", "name": "品名", "quantity": "數量", "unit": "單位",
-           "price": "單價", "amount": "金額", "tax_exempt": "免稅", "order_number": "採購單號", "notes": "附註說明"}
+           "price": "單價", "amount": "金額", "tax_exempt": "免稅", "order_number": "採購單號", "notes": "附註說明", "display_code": "顯示編號"}
 
 # Scope overrides to this page, including the existing ERP's global CSS.
 COMPACT_STYLE = """
@@ -51,6 +53,7 @@ COMPACT_STYLE = """
 .main:has(#shipment-page) .shipment-total:last-child {border-top:1px solid #84919d;font-weight:600;font-size:16px;margin-top:4px;padding-top:6px;}
 .main:has(#shipment-page) .shipment-lines {font-size:12px;white-space:nowrap;overflow-x:auto;max-width:100%;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] {width:min(960px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important;}
+body:has(#shipment-page) [data-testid="stPopoverBody"]:has(iframe) {max-height:calc(100vh - 32px)!important;overflow-y:auto;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] [data-testid="stVerticalBlock"],
 body:has(#shipment-page) [data-testid="stPopoverBody"] .element-container {width:100%!important;max-width:100%!important;}
 .stApp:has(.erp-title) .main:has(#shipment-page) .block-container {padding-top:72px!important;}
@@ -93,6 +96,7 @@ def _new_shipment():
 def _finish(message=""):
     clear_reads(st.session_state)
     st.session_state.pop("shipment_purchase_history_result", None)
+    st.session_state.pop("shipment_search_print_snapshot", None)
     st.session_state.pop("shipment_draft", None)
     st.session_state.pop("shipment_original", None)
     st.session_state.pop("shipment_editor_base", None)
@@ -127,6 +131,16 @@ def _invoice_amount_changed(prefix):
     st.session_state[prefix + "invoice_amount_manual"] = True
 
 
+def _set_code_display(index, code, key):
+    document = st.session_state.get("shipment_draft")
+    if not document or index >= len(document["items"]) or document["items"][index]["code"] != code:
+        return
+    selected = st.session_state[key]
+    document["items"][index]["display_code"] = "" if selected == code else selected
+    st.session_state.shipment_editor_base = deepcopy(document["items"])
+    st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
+
+
 def render_shipment_management(config, *, start_new_on_entry=False):
     if start_new_on_entry and not st.session_state.get("shipment_entry_ready"):
         st.session_state.shipment_entry_ready = True
@@ -158,6 +172,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         if st.button("重讀資料", key="shipment_reload_data"):
             clear_reads(st.session_state)
             st.session_state.pop("shipment_purchase_history_result", None)
+            st.session_state.pop("shipment_search_print_snapshot", None)
             st.rerun()
         with st.form("shipment_search"):
             search = st.columns([3, 1])
@@ -179,6 +194,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                             shipment_customer_end=customer_end,
                                             shipment_search_epoch=st.session_state.get("shipment_search_epoch", 0) + 1)
                     st.session_state.pop("shipment_selected", None)
+                    st.session_state.pop("shipment_search_print_snapshot", None)
                     clear_reads(st.session_state)
                     if editing:
                         st.session_state.shipment_editor_base = deepcopy(draft["items"])
@@ -197,6 +213,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 result = pd.DataFrame([{"出貨日期": r["shipment_date"], "出貨單號": r["shipment_number"],
                           "客戶編號": r["customer_id"], "客戶名稱": r["customer_name"], "總計": int(r["total_amount"]),
                           "狀態": "作廢" if r["status"] == "void" else "有效"} for r in records])
+                render_search_print(config, records, st.session_state["shipment_search_epoch"])
                 if editing:
                     st.dataframe(result, height=160, hide_index=True, use_container_width=True)
                     st.caption("草稿已保留；儲存或取消後可開啟查詢結果。")
@@ -347,12 +364,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
     requested_item = None
     if editing:
+        item_tools = st.columns([1, 1, 2])
         history_key = ("history", document["customer_id"], document["shipment_date"], document.get("id", ""))
         history = read(history_key, lambda: shipment_price_history(config, document["customer_id"],
                        document["shipment_date"], document.get("id", ""))) if document["customer_id"] else []
         all_choices = read("all_choices",
                            lambda: shipment_choices(config, document["customer_id"], all_recipes=True)) if document["customer_id"] else {}
-        with st.popover("搜尋貨品", use_container_width=True):
+        with item_tools[0].popover("搜尋貨品", use_container_width=True):
             choices = {code: item for code, item in all_choices.items()
                        if item.get("_recipe_customer", "") in ("", document["customer_id"])}
             picker, unit_col, quantity_col, add_col = st.columns([3, 1, 1, 1])
@@ -383,7 +401,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                       price=price, tax_exempt=bool(defaults.get("tax_exempt", False)), order_number="", notes="")
     frame = pd.DataFrame(source_items, columns=list(COLUMNS)).rename(columns=COLUMNS)
     # Pandas 3 infers Arrow large_string; older Streamlit editors make it read-only.
-    for column in ("貨品編號", "品名", "單位", "採購單號", "附註說明"):
+    for column in ("貨品編號", "品名", "單位", "採購單號", "附註說明", "顯示編號"):
         frame[column] = frame[column].fillna("").astype(object)
     frame["免稅"] = frame["免稅"].fillna(False).astype(bool)
     for column in ("數量", "單價"):
@@ -393,6 +411,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         frame = st.data_editor(frame.drop(columns="金額"), key=prefix + "items" + (f"_{grid_suffix}" if grid_suffix else ""), num_rows="dynamic", height=185,
                                use_container_width=True, hide_index=True, column_config={
                                    "貨品編號": st.column_config.TextColumn("貨品編號"),
+                                   "顯示編號": None,
                                    "品名": st.column_config.TextColumn("品名"),
                                    "單位": st.column_config.TextColumn("單位"),
                                    "附註說明": st.column_config.TextColumn("附註說明"),
@@ -425,7 +444,18 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.session_state.shipment_editor_base = deepcopy(document["items"])
             st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
             st.rerun()
+        eligible = [(i, item) for i, item in enumerate(document["items"]) if len(display_code_options(item["code"])) > 1]
+        if eligible:
+            with item_tools[1].popover("編號顯示", use_container_width=True):
+                for i, item in eligible:
+                    code = item["code"]
+                    key = prefix + f"display_{st.session_state.get('shipment_grid_epoch', 0)}_{i}_{code}"
+                    st.selectbox(f"第 {i + 1} 項 · {item['name']}", display_code_options(code),
+                                 index=widget_index(key, printed_code(item)), key=key,
+                                 on_change=_set_code_display, args=(i, code, key))
     else:
+        frame["貨品編號"] = [printed_code(item) for item in document["items"]]
+        frame = frame.drop(columns="顯示編號")
         st.dataframe(frame, height=185, hide_index=True, use_container_width=True,
                      column_config={"採購單號": st.column_config.TextColumn("採購單號", width="medium"), "數量": st.column_config.NumberColumn(format="%.15g"), "單價": st.column_config.NumberColumn(format="%.15g")})
     details, summary, clearance = st.columns([3.7, 1.3, 1])

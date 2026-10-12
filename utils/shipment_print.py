@@ -3,6 +3,7 @@
 from html import escape
 from decimal import Decimal
 from unicodedata import east_asian_width
+from .shipment_codes import printed_code
 
 COMPANY = {"name": "佳咊實業有限公司", "address": "台南市永康區中正南路309號",
            "phone": "06-2536526", "fax": "06-2537869"}
@@ -46,7 +47,7 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
     pages, page_rows, used = [], [], 0
     for item in document['items']:
         cells = [_wrap(display_price(item[key]) if key in ('price', 'quantity') else
-                       f"{int(item[key]):,}" if key == 'amount' else item.get(key, ''), width) for key, _, width in fields]
+                       f"{int(item[key]):,}" if key == 'amount' else printed_code(item) if key == 'code' else item.get(key, ''), width) for key, _, width in fields]
         if item.get('notes'):
             cells[1].extend(_wrap(item['notes'], fields[1][2]))
         height = max(map(len, cells))

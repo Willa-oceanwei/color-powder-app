@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from .customer_repository import _mapping, _mappings
 from .database import connect_from_config, utc_now_iso
+from .shipment_codes import display_code_options
 
 TAX_MODES = ("外加", "內含", "免稅", "零稅率")
 HEADER_FIELDS = ("shipment_date", "customer_id", "customer_name", "recipient_id", "recipient_name",
@@ -175,6 +176,11 @@ def _validated(document):
     for source in document.get("items", []):
         item = {key: str(source.get(key) if source.get(key) is not None else "").strip() for key in ITEM_FIELDS}
         item["tax_exempt"] = item_exempt(source)
+        display_code = str(source.get("display_code") or "").strip()
+        if display_code and display_code not in display_code_options(item["code"]):
+            raise ShipmentError("顯示編號必須是貨品完整編號或省略 C 的同一編號")
+        if display_code and display_code != item["code"]:
+            item["display_code"] = display_code
         if not all(item[key] for key in ("code", "name", "unit")):
             raise ShipmentError("每筆品項須填寫貨品編號、品名及單位")
         items.append(item)
