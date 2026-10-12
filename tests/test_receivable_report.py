@@ -22,9 +22,9 @@ def config(tmp_path):
     return config
 
 
-def shipment(config, customer="A01", account_date="2026-10-01", count=2):
+def shipment(config, customer="A01", account_date="2026-10-01", count=2, shipment_date="2026-10-01"):
     d = blank_shipment()
-    d.update(customer_id=customer, customer_name="客戶 " + customer, shipment_date="2026-09-28", account_date=account_date)
+    d.update(customer_id=customer, customer_name="客戶 " + customer, shipment_date=shipment_date, account_date=account_date)
     d["items"] = [dict(code="P1", name="藍", quantity="1", unit="包", price="100", notes="", order_number="")] * count
     return save_shipment(config, d)
 
@@ -34,17 +34,17 @@ def receipt(config, d, amount=50, receipt_date="2026-10-02", token=None):
                         receipt_date=receipt_date, amount=amount, method="現金")
 
 
-def test_filter_account_date_customer_range_void_and_mixed_units(config):
+def test_filter_shipment_date_customer_range_void_and_mixed_units(config):
     first = shipment(config)
     second = shipment(config, "A02")
-    other = shipment(config, "A03", account_date="2026-09-01")
+    other = shipment(config, "A03", account_date="2026-09-01", shipment_date="2026-09-01")
     void_shipment(config, second["id"], second["version"], "取消")
     pages = build_statements(config, "2026-10-01", "2026-10-31", "A01", "A02")
     assert len(pages) == 1
     assert pages[0]["total"] == "210"  # Header counted once, not per line.
     assert pages[0]["net"] == "200" and pages[0]["tax"] == "10"
     assert len(build_statements(config, "2026-10-01", "2026-10-31", hide_empty=False)) == 3
-    assert pages[0]["documents"][0]["date"] == "2026-09-28"
+    assert pages[0]["documents"][0]["date"] == "2026-10-01"
     first["items"].append(dict(code="P2", name="白", quantity="3", unit="KG", price="20", notes="", order_number=""))
     save_shipment(config, first)
     summary = build_statements(config, "2026-10-01", "2026-10-31")[0]
@@ -59,9 +59,36 @@ def test_invalid_filters(config, start, end, lower, upper):
         build_statements(config, start, end, lower, upper)
 
 
+def test_changed_shipment_date_moves_statement_month_without_changing_account_date(config):
+    d = shipment(config)
+    assert build_statements(config, "2026-10-01", "2026-10-31")[0]["documents"][0]["id"] == d["id"]
+    d["shipment_date"] = "2026-09-30"
+    saved = save_shipment(config, d)
+    assert saved["account_date"] == "2026-10-01"
+    assert not build_statements(config, "2026-10-01", "2026-10-31")
+    september = build_statements(config, "2026-09-01", "2026-09-30")
+    assert september[0]["documents"][0]["date"] == "2026-09-30"
+    assert september[0]["total"] == saved["total_amount"]
+    saved["shipment_date"] = "2026-10-31"
+    saved = save_shipment(config, saved)
+    assert not build_statements(config, "2026-09-01", "2026-09-30")
+    assert build_statements(config, "2026-10-01", "2026-10-31")[0]["documents"][0]["date"] == "2026-10-31"
+    assert get_shipment(config, d["id"])["account_date"] == "2026-10-01"
+
+
+def test_shipment_period_boundaries_ignore_different_account_dates(config):
+    for day in ("2026-09-30", "2026-10-01", "2026-10-31", "2026-11-01"):
+        shipment(config, shipment_date=day, account_date="2026-09-01")
+    result = build_statements(config, "2026-10-01", "2026-10-31")
+    assert [d["date"] for d in result[0]["documents"]] == ["2026-10-01", "2026-10-31"]
+    assert result[0]["net"] == "400" and result[0]["tax"] == "20"
+    for d in result[0]["documents"]:
+        assert "2026-10-01" <= d["date"] <= "2026-10-31"
+
+
 def test_shipment_customer_date_ranges_and_intersection(config):
-    first = shipment(config)
-    second = shipment(config, "A02")
+    first = shipment(config, shipment_date="2026-09-28")
+    second = shipment(config, "A02", shipment_date="2026-09-28")
     third = shipment(config, "A03")
     third["shipment_date"] = "2026-10-02"
     save_shipment(config, third)

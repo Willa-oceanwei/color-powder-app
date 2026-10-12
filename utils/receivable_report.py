@@ -33,8 +33,8 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
             "(SELECT COALESCE(SUM(CAST(r.amount AS INTEGER)),0) FROM shipment_receipts r "
             "WHERE r.shipment_id=s.id AND r.status='active' AND r.receipt_date<=?) AS received "
             "FROM shipment_orders s JOIN shipment_order_items i ON i.shipment_id=s.id "
-            "WHERE s.status='draft' AND json_extract(s.payload_json,'$.account_date')>=? "
-            "AND json_extract(s.payload_json,'$.account_date')<=? "
+            "WHERE s.status='draft' AND s.shipment_date>=? "
+            "AND s.shipment_date<=? "
             + ("AND s.customer_id>=? " if customer_start else "")
             + ("AND s.customer_id<=? " if customer_end else "")
             + "ORDER BY s.customer_id,s.shipment_date,s.shipment_number,s.id,i.line_number",
