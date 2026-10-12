@@ -4,6 +4,7 @@ from html import escape
 from decimal import Decimal
 from unicodedata import east_asian_width
 from .shipment_codes import printed_code
+from .print_stock import stock_sheet, stock_style
 
 COMPANY = {"name": "佳咊實業有限公司", "address": "台南市永康區中正南路309號",
            "phone": "06-2536526", "fax": "06-2537869"}
@@ -31,7 +32,11 @@ def display_price(value):
     return text.rstrip('0').rstrip('.') if '.' in text else text
 
 
-def render_shipment_print(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0):
+def render_shipment_print(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0, paper_stock="standard"):
+    if paper_stock not in ("standard", "triplicate"):
+        raise ValueError("Invalid paper stock")
+    if paper_stock == "triplicate":
+        orientation = "landscape"
     if orientation not in ("landscape", "portrait"):
         raise ValueError("Invalid print orientation")
     if feed_rotation not in (0, 90) or not 0 <= hole_margin <= 25:
@@ -92,6 +97,8 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
 <div class="end-marker">--------------以下空白--------------</div>
 <footer><div class="footer-top"><div class="notes">備註：{footer_note}</div>{total}</div><div class="signatures"><span>審核：</span><span>經辦：</span><strong>簽收：</strong></div></footer>
 </section>''')
+    if paper_stock == "triplicate":
+        output = [stock_sheet(sheet) for sheet in output]
     html = '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>出貨單</title>
 <style>
 @page {size:A5 landscape;margin:0;}
@@ -127,7 +134,10 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
         html = html.replace("font-size:12pt", "font-size:9pt").replace("1fr 48mm", "1fr 40mm")
         html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:9pt;line-height:4.5mm}header{font-size:9pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
     margin = max(10, hole_margin)
-    if feed_rotation:
+    if paper_stock == "triplicate":
+        rules = stock_style(feed_rotation, hole_margin)
+        html = html.replace("列印 A5", "列印三聯紙")
+    elif feed_rotation:
         width, height = (210, 148) if portrait else (148, 210)
         html = html.replace(f"size:A5 {orientation}", f"size:A5 {'landscape' if portrait else 'portrait'}")
         html = html.replace('<section class="sheet"', '<div class="feed-page"><section class="sheet"').replace('</section>', '</section></div>')
@@ -138,7 +148,7 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
     else:
         rules = f".sheet{{padding-right:{margin}mm;padding-left:{margin}mm}}footer{{right:{margin}mm;left:{margin}mm}}"
     rules += "@media screen{.sheet,.feed-page{zoom:var(--shipment-preview-zoom,.86)}.feed-page .sheet{zoom:1}}"
-    fit_script = '''<script id="shipment-preview-fit">function fitShipment(){const paper=document.querySelector('.feed-page')||document.querySelector('.sheet');
+    fit_script = '''<script id="shipment-preview-fit">function fitShipment(){const paper=document.querySelector('.stock-page')||document.querySelector('.feed-page')||document.querySelector('.sheet');
 const scale=Math.min(.86,Math.max(.2,(document.documentElement.clientWidth-16)/(paper?paper.offsetWidth:794)));
 document.documentElement.style.setProperty('--shipment-preview-zoom',scale);}
 addEventListener('resize',fitShipment);fitShipment();</script>'''

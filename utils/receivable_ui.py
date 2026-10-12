@@ -37,18 +37,19 @@ def render_report(config, *, title="應收帳款明細表"):
         start = cols[2].date_input("起始帳款日期", value=today.replace(day=1))
         end = cols[3].date_input("結束帳款日期", value=today)
         hide_empty = st.toggle("本期未交易者不顯示", value=True)
-        paper = st.selectbox("紙張尺寸", ("依內容自動選擇", "A5", "A4"))
+        paper = st.selectbox("紙張尺寸", ("三聯紙 240 × 140 mm", "依內容自動選擇", "A5", "A4"))
         submitted = st.form_submit_button("預覽", type="primary")
     if submitted:
         try:
             pages = statement_pages(build_statements(config, start, end, lower, upper, hide_empty),
-                                    paper_size="auto" if paper == "依內容自動選擇" else paper)
+                                    paper_size="A5" if paper.startswith("三聯紙") else "auto" if paper == "依內容自動選擇" else paper)
         except ShipmentError as error:
             st.error(str(error))
             st.session_state.pop("receivable_pages", None)
         else:
             st.session_state.receivable_pages = pages
             st.session_state.receivable_page = 0
+            st.session_state.receivable_paper_stock = "triplicate" if paper.startswith("三聯紙") else "standard"
     pages = st.session_state.get("receivable_pages")
     if pages is None:
         return
@@ -57,21 +58,28 @@ def render_report(config, *, title="應收帳款明細表"):
         return
     index = min(st.session_state.get("receivable_page", 0), len(pages) - 1)
     show_receipts = st.toggle("顯示收款資訊", key="receivable_show_receipts", value=False)
+    paper_stock = st.session_state.get("receivable_paper_stock", "standard")
+    controls = st.columns([1, 1, 1, 1, 2, 2, 1.5])
+    with controls[6].popover("列印／進紙", use_container_width=True):
+        feed_rotation = st.selectbox("紙張進紙", (0, 90), key="receivable_feed_rotation",
+                                    format_func=lambda v: "240 mm 長邊先進（橫放）" if v == 0 else "140 mm 短邊先進（直放）", disabled=paper_stock != "triplicate")
+        hole_margin = st.number_input("左右打洞留白（mm）", min_value=0.0, max_value=25.0, value=12.5, step=0.5,
+                                      key="receivable_hole_margin", disabled=paper_stock != "triplicate")
     def move(target):
         st.session_state.receivable_page = target
-    controls = st.columns([1, 1, 1, 1, 2, 2])
     for col, label, target in zip(controls, ("首頁", "上一頁", "下一頁", "末頁"), (0, index - 1, index + 1, len(pages) - 1)):
         col.button(label, key="receivable_" + label, on_click=move, args=(target,),
                    disabled=target < 0 or target >= len(pages) or target == index, use_container_width=True)
     controls[4].write(f"{index + 1} / {len(pages)} · {pages[index]['statement']['customer_id']}")
-    html = render_statement_print(pages, selected=index, show_receipts=show_receipts, title=title)
-    controls[5].download_button("下載列印版（A5／A4）", html, file_name=title + ".html", mime="text/html", use_container_width=True)
+    print_settings = dict(paper_stock=paper_stock, feed_rotation=feed_rotation, hole_margin=hole_margin)
+    html = render_statement_print(pages, selected=index, show_receipts=show_receipts, title=title, **print_settings)
+    controls[5].download_button("下載列印版（三聯紙）" if paper_stock == "triplicate" else "下載列印版（A5／A4）", html, file_name=title + ".html", mime="text/html", use_container_width=True)
     statements = list({p["statement"]["customer_id"]: p["statement"] for p in pages}.values())
     exports = st.columns([1, 1, 4])
-    exports[0].download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts, title=title), file_name=title + ".pdf", mime="application/pdf")
+    exports[0].download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts, title=title, **print_settings), file_name=title + ".pdf", mime="application/pdf")
     exports[1].download_button("匯出 Excel", statement_excel(statements, show_receipts=show_receipts), file_name=title + ".xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    components.html(theme_preview(render_statement_print(pages, selected=index, embedded=True, show_receipts=show_receipts, title=title)), height=560, scrolling=True)
+    components.html(theme_preview(render_statement_print(pages, selected=index, embedded=True, show_receipts=show_receipts, title=title, **print_settings)), height=560, scrolling=True)
 
 
 def render_customer_ranking(config):

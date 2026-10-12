@@ -9,6 +9,7 @@ from .database import connect_from_config
 from .shipment_print import COMPANY, _wrap, display_price
 from .shipment_repository import ShipmentError, _valid_date
 from .shipment_codes import printed_code
+from .print_stock import stock_sheet, stock_style
 
 
 def build_statements(config, start, end, customer_start="", customer_end="", hide_empty=True):
@@ -110,7 +111,11 @@ def statement_pages(statements, capacity=None, *, paper_size="auto"):
     return pages
 
 
-def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=False, title="應收帳款明細表"):
+def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=False, title="應收帳款明細表", paper_stock="standard", feed_rotation=0, hole_margin=12.5):
+    if paper_stock not in ("standard", "triplicate"):
+        raise ValueError("Invalid paper stock")
+    if paper_stock == "triplicate" and any(p.get("paper_size", "A5") != "A5" for p in pages):
+        raise ValueError("Triplicate stock requires A5 pagination")
     def text(value):
         return escape(str(value))
 
@@ -142,10 +147,14 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
 {'<div class="customer">收款狀態：依已登錄紀錄</div>' if show_receipts else ''}</div>
 <table><thead><tr>{''.join('<th>'+label+'</th>' for label in ('單別','交易日期','交易單號','貨品編號','品名','數量','單位','單價','金額','備註說明'))}</tr></thead><tbody>{rows}</tbody></table>
 {totals}<footer>{text(COMPANY['address'])}<br>Tel：{text(COMPANY['phone'])}　Fax：{text(COMPANY['fax'])}</footer></section>''')
+    if paper_stock == "triplicate":
+        sheets = [stock_sheet(sheet, active=index == selected) for index, sheet in enumerate(sheets)]
     zoom = '<label for="zoom">縮放</label><select id="zoom" onchange="resize()"><option value="width">符合寬度</option><option value="page">整頁</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select>'
     toolbar = '<button onclick="window.print()">列印全部</button>' if embedded else '<button onclick="move(-1)">上一頁</button><span id="page"></span><button onclick="move(1)">下一頁</button><button onclick="window.print()">列印全部</button>'
     preview_style = "@media screen{.sheet{zoom:var(--preview-zoom,.6)}}"
-    return '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>應收帳款明細表</title><style>
+    if paper_stock == "triplicate":
+        preview_style += stock_style(feed_rotation, hole_margin, paginated=True)
+    html = '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>應收帳款明細表</title><style>
 @page{size:A5 landscape;margin:0}@page a5{size:A5 landscape;margin:0}@page a4{size:A4 portrait;margin:0}*{box-sizing:border-box}body{margin:0;background:#e5e7eb;color:#000;font:10pt "Microsoft JhengHei",sans-serif;letter-spacing:0}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px;font:16px "Microsoft JhengHei",sans-serif}.toolbar button,.toolbar select{font:inherit;min-height:38px;padding:5px 10px;border-radius:4px}.toolbar select{min-width:140px}.preview-stage{overflow:auto;padding:12px}.sheet{display:none;width:210mm;height:148mm;padding:8mm;background:white;margin:0 auto;position:relative;break-after:page}.sheet.active{display:block}
 h1{font-size:17pt;margin:0;text-align:center}h2{font-size:12pt;font-weight:400;margin:1mm 0 3mm;text-align:center}
@@ -160,3 +169,4 @@ td:nth-child(6){padding-right:2mm}td:nth-child(7){text-align:center}
 @media print{body{background:white}.toolbar{display:none}.preview-stage{height:auto!important;overflow:visible;padding:0}.sheet{display:block!important;margin:0;zoom:1;page-break-after:always}.sheet:last-child{break-after:auto;page-break-after:auto}}
 '''.replace('<title>應收帳款明細表</title>', '<title>' + text(title) + '</title>') + preview_style + '</style></head><body><div class="toolbar">' + toolbar + zoom + '</div><div class="preview-stage">' + "".join(sheets) + f'''
 </div><script>let current={max(0, min(selected, len(pages)-1))};const sheets=Array.from(document.querySelectorAll('.sheet'));const stage=document.querySelector('.preview-stage');function move(delta){{current=Math.max(0,Math.min(sheets.length-1,current+delta));sheets.forEach((s,i)=>s.classList.toggle('active',i===current));const counter=document.getElementById('page');if(counter)counter.textContent=(sheets.length?current+1:0)+' / '+sheets.length;stage.scrollTo(0,0);resize();}}function resize(){{const value=document.getElementById('zoom').value;const height=Math.max(160,innerHeight-document.querySelector('.toolbar').offsetHeight);stage.style.height=height+'px';const paper=sheets[current];const widthScale=(stage.clientWidth-24)/(paper?paper.offsetWidth:794);const scale=value==='width'?widthScale:value==='page'?Math.min(widthScale,(height-24)/(paper?paper.offsetHeight:559)):Number(value);document.documentElement.style.setProperty('--preview-zoom',Math.max(.2,scale));}}addEventListener('resize',resize);move(0);</script></body></html>'''
+    return html.replace("querySelectorAll('.sheet')", "querySelectorAll('.stock-page')") if paper_stock == "triplicate" else html
