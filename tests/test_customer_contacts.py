@@ -97,6 +97,47 @@ DATABASE_CONFIG=DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r}))
     assert not app.exception and list_customers(config)[0]["address"] == "高雄市新地址"
 
 
+def test_shipment_edit_fills_missing_contacts_once_without_extra_reads(config, monkeypatch):
+    import utils.shipment_ui as ui
+    create_customer(config, CustomerInput("C01", "Customer", address="Master address", phone="06-0012345",
+                                         fax="06-0023456", contact="Contact", tax_id="01234567"))
+    doc = dict(blank_shipment(), customer_id="C01", customer_name="Customer", address="Specified address",
+               phone="Saved phone", fax=" ", contact="", tax_id="")
+    doc["items"] = [dict(code="P1", name="Product", quantity="1", unit="KG", price="100", notes="", order_number="")]
+    saved = save_shipment(config, doc)
+    reads = []
+    original = ui.list_customers
+    def counted(*args, **kwargs):
+        reads.append(True)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(ui, "list_customers", counted)
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0,{root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    app.button(key="shipment_edit").click().run()
+    assert not app.exception
+    draft = app.session_state["shipment_draft"]
+    assert draft["address"] == "Specified address" and draft["phone"] == "Saved phone"
+    assert draft["fax"] == "06-0023456" and draft["contact"] == "Contact" and draft["tax_id"] == "01234567"
+    assert get_shipment(config, saved["id"])["contact"] == ""
+    next(w for w in app.text_input if w.label == "聯絡人").set_value("").run()
+    app.run()
+    assert app.session_state["shipment_draft"]["contact"] == "" and len(reads) == 1
+    app.button(key="shipment_cancel").click().run()
+    assert get_shipment(config, saved["id"])["fax"] == ""
+    app.button(key="shipment_edit").click().run()
+    app.button(key="shipment_save").click().run()
+    assert not app.exception
+    persisted = get_shipment(config, saved["id"])
+    assert persisted["fax"] == "06-0023456" and persisted["contact"] == "Contact"
+    assert persisted["address"] == "Specified address" and persisted["phone"] == "Saved phone"
+
+
 def test_shipment_customer_autofill_overrides_snapshot_and_switch(config):
     create_customer(config, CustomerInput("C01", "範例", address="台南市測試路1號", phone="06-0012345", fax="06-0023456", contact="林小姐", tax_id="01234567"))
     create_customer(config, CustomerInput("C02", "空資料客戶"))
@@ -138,3 +179,4 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert next(w for w in app.text_input if w.label == "送貨地址").value == "新版地址"
     app.button(key="shipment_cancel").click().run()
     assert get_shipment(config, saved["id"])["address"] == "本次指定地址"
+

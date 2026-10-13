@@ -16,7 +16,7 @@ from .shipment_history_ui import render_purchase_history
 from .shipment_search_print import render_search_print
 from .shipment_codes import display_code_options, printed_code
 from .accounting_widgets import widget_default, widget_index
-from .customer_repository import list_customers
+from .customer_repository import CONTACT_FIELDS, list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
     list_shipments, printable_shipment, save_shipment, void_shipment,
@@ -83,6 +83,7 @@ def _begin(document, *, rerun=True):
     st.session_state.shipment_original = deepcopy(document)
     st.session_state.shipment_editor_base = deepcopy(document["items"])
     st.session_state.shipment_grid_epoch = 0
+    st.session_state.shipment_contacts_pending = True
     st.session_state.shipment_epoch = st.session_state.get("shipment_epoch", 0) + 1
     if rerun:
         st.rerun()
@@ -386,6 +387,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             invoice[field] = selected
 
     customers = read("customers", lambda: list_customers(config, include_inactive=True)) if editing else []
+    if editing and st.session_state.pop("shipment_contacts_pending", False):
+        customer = next((row for row in customers if row["customer_id"] == document["customer_id"]), {})
+        for field in CONTACT_FIELDS:
+            if not str(document.get(field) or "").strip():
+                document[field] = customer.get(field) or ""
     header = st.columns([1.25, 1.35, 1.55, 2.8])
     with header[0]:
         date_field("出貨日期", "shipment_date")
@@ -647,3 +653,4 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                 st.error(str(error))
                             else:
                                 _finish("出貨單已作廢，歷史資料保留", invalidate_reports=True)
+
