@@ -58,6 +58,10 @@ COMPACT_STYLE = """
 .main:has(#shipment-page) label[data-baseweb="radio"]:has(input:checked)>div:first-child>div {background:#fff!important;}
 .main:has(#shipment-page) label[data-baseweb="radio"]:not(:has(input:checked))>div:first-child>div {background:transparent!important;}
 .main:has(#shipment-page) label[data-baseweb="radio"]:has(input:focus-visible)>div:first-child {outline:2px solid #ffb98d;outline-offset:3px;}
+.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stRadio"] p,
+.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stMetricLabel"],
+.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stMetricLabel"] p,
+.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stMetricValue"] {color:#d5e1ec!important;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] {width:min(960px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important;}
 body:has(#shipment-page) [data-testid="stPopoverBody"]:has(iframe) {max-height:calc(100vh - 32px)!important;overflow-y:auto;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] [data-testid="stVerticalBlock"],
