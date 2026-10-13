@@ -10,6 +10,28 @@ COMPANY = {"name": "佳咊實業有限公司", "address": "台南市永康區中
            "phone": "06-2536526", "fax": "06-2537869"}
 
 
+def purchase_order_text(value):
+    return ' '.join(str(value or '').splitlines())
+
+
+PURCHASE_ORDER_FIT = '''<script id="purchase-order-fit">
+function fitPurchaseOrders(){
+document.querySelectorAll('.sheet').forEach(sheet=>{
+const stock=sheet.closest('.stock-page'),oldSheet=sheet.style.display,oldStock=stock?stock.style.display:'';
+sheet.style.display='block';if(stock)stock.style.display='block';
+sheet.querySelectorAll('[data-purchase-order]').forEach(span=>{
+const cell=span.parentElement,style=getComputedStyle(cell);
+const available=cell.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)-1;
+span.style.fontSize='';const base=parseFloat(getComputedStyle(span).fontSize),width=span.scrollWidth;
+if(available>0&&width>available)span.style.fontSize=(base*available/width)+'px';
+});
+sheet.style.display=oldSheet;if(stock)stock.style.display=oldStock;
+});}
+addEventListener('resize',fitPurchaseOrders);addEventListener('beforeprint',fitPurchaseOrders);
+if(document.fonts)document.fonts.ready.then(fitPurchaseOrders);fitPurchaseOrders();
+</script>'''
+
+
 def _wrap(value, width):
     lines, line, used = [], '', 0
     for char in str(value if value is not None else ''):
@@ -56,6 +78,7 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
     for item in document['items']:
         cells = [_wrap('' if not show_prices and key in ('price', 'amount') else display_price(item[key]) if key in ('price', 'quantity') else
                        f"{int(item[key]):,}" if key == 'amount' else printed_code(item) if key == 'code' else item.get(key, ''), width) for key, _, width in fields]
+        cells[-1] = [purchase_order_text(item.get('order_number', ''))]
         if item.get('notes'):
             cells[1].extend(_wrap(item['notes'], fields[1][2]))
         height = max(map(len, cells))
@@ -77,7 +100,9 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
     output = []
     for page_index, rows in enumerate(pages):
         invoice = document.get('invoice', {})
-        table_rows = ''.join('<tr>' + ''.join(f'<td class="{key}">' + '<br>'.join(_text(line) for line in cell) + '</td>' for (key, _, _), cell in zip(fields, row)) + '</tr>' for row in rows)
+        table_rows = ''.join('<tr>' + ''.join(f'<td class="{key}">' +
+                            (f'<span data-purchase-order>{_text(cell[0]) if cell else ""}</span>' if key == 'order_number' else '<br>'.join(_text(line) for line in cell)) +
+                            '</td>' for (key, _, _), cell in zip(fields, row)) + '</tr>' for row in rows)
         headings = ''.join(f'<th class="{key}">{label}</th>' for key, label, _ in fields)
         widths = (13, 32, 7, 6, 10, 12, 20)
         if portrait:
@@ -126,6 +151,7 @@ th,td {padding:.3mm .7mm;vertical-align:top;overflow-wrap:anywhere;}
 th {padding-top:.65mm;padding-bottom:.65mm;}
 .quantity,.price,.amount {text-align:right;}.unit {text-align:center;}
 .order_number {padding-left:4mm;}
+[data-purchase-order] {display:inline-block;white-space:nowrap;overflow-wrap:normal;}
 .end-marker {margin:0 .7mm;line-height:5.5mm;}
 footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid #000;padding-top:1mm;}
 .footer-top {display:grid;grid-template-columns:1fr 48mm;gap:4mm;min-height:19mm;line-height:5.5mm;}
@@ -164,4 +190,5 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
 const scale=Math.min(.86,Math.max(.2,(document.documentElement.clientWidth-16)/(paper?paper.offsetWidth:794)));
 document.documentElement.style.setProperty('--shipment-preview-zoom',scale);}
 addEventListener('resize',fitShipment);fitShipment();</script>'''
-    return html.replace("</style>", rules + "</style>").replace("</body>", fit_script + "</body>")
+    return html.replace("</style>", rules + "</style>").replace("</body>", PURCHASE_ORDER_FIT + fit_script + "</body>")
+

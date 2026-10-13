@@ -6,7 +6,7 @@ from html import escape
 
 from .customer_repository import _mappings
 from .database import connect_from_config
-from .shipment_print import COMPANY, _wrap, display_price
+from .shipment_print import COMPANY, _wrap, display_price, purchase_order_text, PURCHASE_ORDER_FIT
 from .shipment_repository import ShipmentError, _valid_date
 from .shipment_codes import printed_code
 from .print_stock import stock_sheet, stock_style
@@ -92,6 +92,7 @@ def statement_pages(statements, capacity=None, *, paper_size="auto"):
             for item in document["items"]:
                 cells = [_wrap(display_price(item[key]) if key in ("price", "quantity") else
                                f"{int(item[key]):,}" if key == "amount" else printed_code(item) if key == "code" else item.get(key, ""), width) for key, width in FIELDS]
+                cells[-1] = [purchase_order_text(item.get("order_number", ""))]
                 for line in range(max(map(len, cells))):
                     rows.append([cell[line] if line < len(cell) else "" for cell in cells])
                     context.append(header)
@@ -133,7 +134,8 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
             if row[0]:
                 previous_date = row[1]
             rows.append('<tr class="date-start">' if new_date else '<tr>')
-            rows.append("".join(f"<td>{text(cell)}</td>" for cell in row) + "</tr>")
+            rows.append("".join(f'<td><span data-purchase-order>{text(cell)}</span></td>' if column == 9 else f"<td>{text(cell)}</td>"
+                                for column, cell in enumerate(row)) + "</tr>")
         rows = "".join(rows)
         totals = ""
         if page["last"]:
@@ -170,6 +172,7 @@ td:nth-child(6),td:nth-child(8),td:nth-child(9){white-space:nowrap;padding-right
 td:nth-child(1),td:nth-child(2),td:nth-child(3),td:nth-child(4),td:nth-child(7){white-space:nowrap}
 th:nth-child(9),td:nth-child(9){padding-right:1mm}th:nth-child(10),td:nth-child(10){padding-left:2mm}
 td:nth-child(10){font-size:9.5pt;white-space:nowrap;overflow-wrap:normal}
+[data-purchase-order]{display:inline-block;white-space:nowrap;overflow-wrap:normal}
 .summary{grid-template-columns:5% 13% 14% 11% 12% 7% 5% 8% 11% 14%;line-height:5.8mm}
 .statement-left{grid-column:1/6;grid-row:1;align-self:start}
 .quantity-summary{display:grid;grid-template-columns:max-content 20mm max-content;column-gap:2mm}
@@ -201,4 +204,5 @@ td:nth-child(6){padding-right:2mm}td:nth-child(7){text-align:center}
         trim = '''function trimPages(){sheets.forEach(p=>{const sheet=p.querySelector('.sheet'),last=sheet.querySelector('.summary')||sheet.querySelector('.company-info');const m=new DOMMatrix(getComputedStyle(sheet).transform);if(last&&Math.abs(m.b)<.001){const end=last.offsetTop+last.offsetHeight+parseFloat(getComputedStyle(sheet).paddingBottom);p.style.setProperty('--statement-content-height',(end*m.a+m.f)+'px');}});}
 '''
         html = html.replace("function resize(){", trim + "function resize(){trimPages();")
-    return html
+    return html.replace("</body>", PURCHASE_ORDER_FIT + "</body>")
+

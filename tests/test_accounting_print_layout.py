@@ -114,6 +114,36 @@ def test_excel_separates_each_shipment_even_on_the_same_date():
         assert sheet.cell(10, column).border.top.style is None
 
 
+def test_long_purchase_orders_stay_complete_on_one_row_and_fit_exports(monkeypatch):
+    import utils.accounting_export as export
+    long_order = 'P-2610-447-1-01-EXTRA-12345678901234567890'
+    s = statement()
+    s['documents'][0]['items'][0]['order_number'] = long_order
+    pages = statement_pages([s], paper_size='A4')
+    assert len(pages[0]['rows']) == 2 and pages[0]['rows'][1][-1] == long_order
+    html = render_statement_print(pages)
+    assert f'<span data-purchase-order>{long_order}</span>' in html
+    assert 'beforeprint' in html and 'span.scrollWidth' in html
+    doc = dict(customer_id=s['customer_id'], customer_name=s['customer_name'], shipment_number='S1',
+               shipment_date='2026-10-01', items=s['documents'][0]['items'], net_amount='200', tax_amount='10', total_amount='210')
+    for orientation in ('landscape', 'portrait'):
+        shipment = render_shipment_print(doc, orientation=orientation)
+        assert shipment.count('<tbody><tr>') == 1 and shipment.count('</tr></tbody>') == 1
+        assert f'<span data-purchase-order>{long_order}</span>' in shipment
+    sheet = load_workbook(BytesIO(statement_excel([s])))['列印版']
+    assert sheet['J10'].value == long_order and sheet['J10'].alignment.shrinkToFit
+    assert not sheet['J10'].alignment.wrap_text
+    pdf = MagicMock()
+    monkeypatch.setattr(export, '_canvas', lambda *args, **kwargs: (BytesIO(), pdf))
+    # Initialize the CID font used to measure actual PDF text widths.
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    pdfmetrics.registerFont(UnicodeCIDFont('MSung-Light'))
+    statement_pdf(pages)
+    assert any(call.args[0] == 'MSung-Light' and call.args[1] < 9.5 for call in pdf.setFont.call_args_list)
+    assert any(call.args[2] == long_order for call in pdf.drawString.call_args_list)
+
+
 def test_receivable_widening_and_smaller_quantity_totals_do_not_change_other_reports(monkeypatch):
     import utils.accounting_export as export
     pages = statement_pages([statement()], paper_size='A4')
@@ -200,3 +230,4 @@ def test_pdf_font_does_not_reuse_an_old_registered_subset():
     assert current is not pdfmetrics.getFont('CompanySansTC')
     assert all(ord(char) in current.face.charToGlyph for char in '加舜企業有限公司')
     assert pdf.startswith(b'%PDF')
+

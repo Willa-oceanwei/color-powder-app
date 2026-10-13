@@ -94,6 +94,8 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
             for column, value in enumerate(row, 1):
                 number = Decimal(value.replace(",", "")) if value and column in (6, 8, 9) else value
                 cell = put(index, column, number, size=11 if column == 10 else 13, align="right" if column in (6, 8, 9) else "center" if column == 7 else "left")
+                if column == 10:
+                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False, shrink_to_fit=True)
                 if row[0] and index > base + 9:
                     cell.border = Border(top=Side(style="dotted", color="000000"))
         end = base + 9 + len(page["rows"])
@@ -227,7 +229,14 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
                 previous_date = row[1]
             pdf.setFont("MSung-Light", 11.5)
             for column, (x, value) in enumerate(zip(positions, row)):
-                pdf.setFont("MSung-Light", 9.5 if column == 9 else 11.5)
+                size = 9.5 if column == 9 else 11.5
+                if column == 9 and value:
+                    from reportlab.pdfbase.pdfmetrics import stringWidth
+                    available = widths[column] * column_unit - 2 * mm - 3
+                    measured = stringWidth(str(value), "MSung-Light", size)
+                    if measured > available:
+                        size *= available / measured
+                pdf.setFont("MSung-Light", size)
                 if column in (5, 7, 8):
                     pdf.drawRightString(x + widths[column] * column_unit - 3, y, str(value))
                 elif column == 6:
@@ -299,3 +308,4 @@ def ranking_pdf(statements):
         pdf.showPage()
     pdf.save()
     return buffer.getvalue()
+
