@@ -32,7 +32,9 @@ def display_price(value):
     return text.rstrip('0').rstrip('.') if '.' in text else text
 
 
-def render_shipment_print(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0, paper_stock="standard"):
+def render_shipment_print(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0, paper_stock="standard", output_mode="print"):
+    if output_mode not in ("print", "pdf"):
+        raise ValueError("Invalid output mode")
     if paper_stock not in ("standard", "triplicate", "a4_driver"):
         raise ValueError("Invalid paper stock")
     if paper_stock in ("triplicate", "a4_driver"):
@@ -114,7 +116,7 @@ header h1,header h2 {font-family:"DFKai-SB","BiauKai","KaiTi",serif;}
 h1 {margin:0;font-size:20pt;font-weight:700;line-height:8mm;}
 h2 {display:flex;justify-content:space-between;align-items:start;margin:3mm 2mm 0 0;font-size:20pt;font-weight:400;line-height:9mm;}
 .company-address {font-size:9pt;}
-.company-contact {font-size:12pt;}
+.company-contact {font-size:11pt;}
 .metadata {display:grid;grid-template-columns:1fr 56mm;gap:4mm;margin:2mm 0;line-height:5.5mm;overflow-wrap:anywhere;}
 .delivery-row {display:grid;grid-template-columns:1fr 56mm;gap:4mm;line-height:5.5mm;margin-bottom:2mm;overflow-wrap:anywhere;}
 .pair {display:grid;grid-template-columns:1fr 1fr;gap:2mm;}
@@ -122,6 +124,7 @@ table {width:100%;border-collapse:collapse;table-layout:fixed;line-height:5.5mm;
 th {font-weight:400;text-align:left;border-top:.3mm solid #000;border-bottom:.3mm solid #000;}
 th,td {padding:.3mm .7mm;vertical-align:top;overflow-wrap:anywhere;}
 .quantity,.price,.amount {text-align:right;}.unit {text-align:center;}
+.order_number {padding-left:2.5mm;}
 .end-marker {margin:0 .7mm;line-height:5.5mm;}
 footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid #000;padding-top:1mm;}
 .footer-top {display:grid;grid-template-columns:1fr 48mm;gap:4mm;min-height:19mm;line-height:5.5mm;}
@@ -134,12 +137,14 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
     if portrait:
         html = html.replace("size:A5 landscape", "size:A5 portrait").replace("width:210mm;height:148mm", "width:148mm;height:210mm")
         html = html.replace("font-size:13pt", "font-size:10pt").replace("1fr 48mm", "1fr 40mm").replace("1fr 56mm", "1fr 40mm")
-        html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:10pt;line-height:4.5mm}header{font-size:10pt}.company-contact{font-size:9pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
+        html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:10pt;line-height:4.5mm}header{font-size:10pt}.company-contact{font-size:8pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
     margin = max(10, hole_margin)
     if paper_stock in ("triplicate", "a4_driver"):
-        rules = stock_style(feed_rotation, hole_margin, offset=-15 if paper_stock == "a4_driver" else 0, a4_driver=paper_stock == "a4_driver")
+        rules = stock_style(feed_rotation, hole_margin, offset=-25 if paper_stock == "a4_driver" and output_mode == "print" else 0, a4_driver=paper_stock == "a4_driver")
         if paper_stock == "a4_driver":
             rules += ".stock-page>.sheet{width:222mm}"
+            if output_mode == "pdf":
+                rules += f".stock-page{{width:210mm}}.stock-page>.sheet{{transform:translate(5mm,0mm) rotate(0deg) scale({200 / 222:.9f})}}"
         html = html.replace("列印 A5", "列印三聯紙")
     elif feed_rotation:
         width, height = (210, 148) if portrait else (148, 210)
@@ -152,6 +157,8 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
     else:
         rules = f".sheet{{padding-right:{margin}mm;padding-left:{margin}mm}}footer{{right:{margin}mm;left:{margin}mm}}"
     rules += "@media screen{.sheet,.feed-page{zoom:var(--shipment-preview-zoom,.86)}.feed-page .sheet{zoom:1}}"
+    if output_mode == "pdf":
+        html = html.replace("列印三聯紙", "另存 PDF").replace("列印 A5", "另存 PDF")
     fit_script = '''<script id="shipment-preview-fit">function fitShipment(){const paper=document.querySelector('.stock-page')||document.querySelector('.feed-page')||document.querySelector('.sheet');
 const scale=Math.min(.86,Math.max(.2,(document.documentElement.clientWidth-16)/(paper?paper.offsetWidth:794)));
 document.documentElement.style.setProperty('--shipment-preview-zoom',scale);}

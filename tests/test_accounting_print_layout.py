@@ -1,5 +1,6 @@
 from copy import deepcopy
 from io import BytesIO
+from unittest.mock import MagicMock
 
 from openpyxl import load_workbook
 
@@ -30,12 +31,13 @@ def test_a4_driver_shared_feed_preserves_data_and_blanks_prices():
     assert '<td class="price"></td>' in html and '<td class="amount"></td>' in html
     assert '<span>合計' not in html and doc == before
     assert 'font-size:13pt' in html and 'font-size:20pt' in html
-    x = stock_geometry(0, 12.5, offset=-15, preserve_holes=False)[2]
+    x = stock_geometry(0, 12.5, offset=-25, preserve_holes=False)[2]
     assert f'translate({x:.6f}mm' in html
-    assert stock_geometry(0, 12.5)[2] - x == 15
+    assert stock_geometry(0, 12.5)[2] - x == 25
     assert '.stock-page>.sheet{width:222mm}' in html
     assert '.company-address {font-size:9pt;}' in html
-    assert '.company-contact {font-size:12pt;}' in html
+    assert '.company-contact {font-size:11pt;}' in html
+    assert '.order_number {padding-left:2.5mm;}' in html
     assert '.metadata {display:grid;grid-template-columns:1fr 56mm' in html
     assert '.delivery-row {display:grid;grid-template-columns:1fr 56mm' in html
     # Enlarged content stays inside the logical A4 width used by the driver.
@@ -107,3 +109,60 @@ def test_excel_separates_each_shipment_even_on_the_same_date():
     for column in range(1, 11):
         assert sheet.cell(11, column).border.top.style == 'dotted'
         assert sheet.cell(10, column).border.top.style is None
+
+
+def test_receivable_widening_and_smaller_quantity_totals_do_not_change_other_reports(monkeypatch):
+    import utils.accounting_export as export
+    pages = statement_pages([statement()], paper_size='A4')
+    receivable = render_statement_print(pages, paper_stock='a4_driver')
+    other = render_statement_print(pages, paper_stock='a4_driver', title='客戶交易明細')
+    x = stock_geometry(0, 12.5, height=280, offset=-15, preserve_holes=False)[2]
+    assert f'translate({x:.6f}mm' in receivable
+    assert '.stock-page>.sheet.a4{width:222mm}' in receivable
+    assert '.quantity-summary{font-size:12pt}' in receivable
+    assert '.stock-page>.sheet.a4{width:222mm}' not in other
+    assert '.quantity-summary{font-size:12pt}' not in other
+    for title, size in [('應收帳款明細表', 12), ('客戶交易明細', 13)]:
+        sheet = load_workbook(BytesIO(statement_excel([statement()], title=title)))['列印版']
+        assert all(sheet[cell].font.sz == size for cell in ['A11', 'C11', 'D11'])
+        assert sheet['I11'].font.sz == 13
+
+    canvases = []
+    def canvas(title, *, a5=False):
+        pdf = MagicMock()
+        canvases.append(pdf)
+        return BytesIO(), pdf
+    monkeypatch.setattr(export, '_canvas', canvas)
+    statement_pdf(pages, paper_stock='a4_driver')
+    statement_pdf(pages, paper_stock='a4_driver', title='客戶交易明細')
+    report, comparison = canvases
+    assert abs(report.translate.call_args.args[0] - comparison.translate.call_args.args[0] - 10 * 72 / 25.4) < .001
+    # Monetary totals keep the same right edge as the item amount column.
+    amount_x = [call.args[0] for call in report.drawRightString.call_args_list if call.args[2] == '200']
+    assert len(amount_x) == 2 and amount_x[0] == amount_x[1]
+    assert report.line.call_args_list[0].args[2] > comparison.line.call_args_list[0].args[2]
+    statement_pdf(pages)
+    centered = canvases[-1]
+    assert not centered.translate.called and not centered.scale.called
+    assert centered.drawCentredString.call_args_list[0].args[0] == 297.5
+
+
+def test_shipment_pdf_mode_centers_without_changing_print_calibration_or_values():
+    s = statement()
+    doc = dict(customer_id=s['customer_id'], customer_name=s['customer_name'], shipment_number='S1',
+               shipment_date='2026-10-01', items=s['documents'][0]['items'], net_amount='200', tax_amount='10', total_amount='210')
+    before = deepcopy(doc)
+    physical = render_shipment_print(doc, paper_stock='a4_driver', hole_margin=12.5)
+    pdf = render_shipment_print(doc, paper_stock='a4_driver', hole_margin=12.5, output_mode='pdf')
+    assert 'transform:translate(5mm,0mm) rotate(0deg) scale(0.900900901)' in pdf
+    assert 'transform:translate(5mm,0mm)' not in physical
+    assert '<td class="amount">200</td>' in pdf and doc == before
+    hidden = render_shipment_print(doc, paper_stock='a4_driver', output_mode='pdf', show_prices=False)
+    assert '<td class="amount"></td>' in hidden and '<td class="price"></td>' in hidden
+
+
+def test_statement_pdf_download_does_not_apply_printer_alignment():
+    from pathlib import Path
+    source = (Path(__file__).resolve().parents[1] / 'utils/receivable_ui.py').read_text(encoding='utf-8')
+    assert 'statement_pdf(pages, show_receipts=show_receipts, title=title)' in source
+    assert 'statement_pdf(pages, show_receipts=show_receipts, title=title, **print_settings)' not in source

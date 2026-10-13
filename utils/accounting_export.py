@@ -97,10 +97,11 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
                     cell.border = Border(top=Side(style="dotted", color="000000"))
         end = base + 9 + len(page["rows"])
         if page["last"]:
+            quantity_size = 12 if title == "應收帳款明細表" else 13
             for index, (unit, amount) in enumerate(s["quantities"].items(), end):
-                put(index, 1, "數量合計：", end=2)
-                put(index, 3, Decimal(amount), align="right")
-                put(index, 4, unit)
+                put(index, 1, "數量合計：", end=2, size=quantity_size)
+                put(index, 3, Decimal(amount), align="right", size=quantity_size)
+                put(index, 4, unit, size=quantity_size)
             total_start = end
             fields = [("本期合計", "net"), ("（加）營業稅", "tax")]
             if show_receipts:
@@ -156,12 +157,16 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
         raise ValueError("Triplicate stock requires A5 pagination")
     if paper_stock == "a4_driver" and any(p.get("paper_size", "A5") != "A4" for p in pages):
         raise ValueError("A4 feed requires A4 pagination")
-    geometry = stock_geometry(0, hole_margin, height=280, offset=-25, preserve_holes=False) if paper_stock == "a4_driver" else stock_geometry(feed_rotation, hole_margin) if paper_stock == "triplicate" else None
+    receivable = title == "應收帳款明細表"
+    geometry = stock_geometry(0, hole_margin, height=280, offset=-15 if receivable else -25, preserve_holes=False) if paper_stock == "a4_driver" else stock_geometry(feed_rotation, hole_margin) if paper_stock == "triplicate" else None
     buffer, pdf = _canvas(title, a5=True)
     from .receivable_report import REPORT_WIDTHS
     labels = ("單別", "交易日期", "交易單號", "貨品編號", "品名", "數量", "單位", "單價", "金額", "採購單號")
     widths = REPORT_WIDTHS
-    positions = [22 + sum(widths[:i]) * 5.51 for i in range(10)]
+    extra_width = 12 * mm if receivable and paper_stock == "a4_driver" else 0
+    column_unit = (551 + extra_width) / 100
+    positions = [22 + sum(widths[:i]) * column_unit for i in range(10)]
+    right = 573 + extra_width
     for page in pages:
         size = A4 if page.get("paper_size", "A5") == "A4" else landscape(A5)
         pdf.setPageSize(size)
@@ -175,28 +180,28 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
         top = size[1]
         s = page["statement"]
         pdf.setFont("CompanySansTC", 20)
-        pdf.drawCentredString(297.5, top - 32, COMPANY["name"])
+        pdf.drawCentredString(297.5 + extra_width / 2, top - 32, COMPANY["name"])
         pdf.setFont("MSung-Light", 15)
-        pdf.drawCentredString(297.5, top - 50, title)
+        pdf.drawCentredString(297.5 + extra_width / 2, top - 50, title)
         _line(pdf, 22, top - 73, f"客戶名稱：{s['customer_id']}  {s['customer_name']}", width=60, size=13)
-        _line(pdf, 476, top - 73, f"頁數 {page['customer_page']} / {page['customer_pages']}", size=12)
+        _line(pdf, 476 + extra_width, top - 73, f"頁數 {page['customer_page']} / {page['customer_pages']}", size=12)
         _line(pdf, 22, top - 94, f"聯絡人：{s.get('contact','')}", width=32, size=12)
-        _line(pdf, 194, top - 94, f"統一編號：{s.get('tax_id','')}", width=32, size=12)
+        _line(pdf, 194 + extra_width * .3, top - 94, f"統一編號：{s.get('tax_id','')}", width=32, size=12)
         _line(pdf, 22, top - 115, f"聯絡電話：{s.get('phone','')}", width=32, size=12)
-        _line(pdf, 194, top - 115, f"傳真號碼：{s.get('fax','')}", width=32, size=12)
-        _line(pdf, 367, top - 115, f"帳款區間：{s['start'].replace('-', '/')} ~ {s['end'].replace('-', '/')}", size=11)
+        _line(pdf, 194 + extra_width * .3, top - 115, f"傳真號碼：{s.get('fax','')}", width=32, size=12)
+        _line(pdf, 367 + extra_width * .6, top - 115, f"帳款區間：{s['start'].replace('-', '/')} ~ {s['end'].replace('-', '/')}", size=11)
         if show_receipts:
-            _line(pdf, 367, top - 94, "收款狀態：依已登錄紀錄", size=11)
-        pdf.line(22, top - 130, 573, top - 130)
+            _line(pdf, 367 + extra_width * .6, top - 94, "收款狀態：依已登錄紀錄", size=11)
+        pdf.line(22, top - 130, right, top - 130)
         for column, (x, label) in enumerate(zip(positions, labels)):
             pdf.setFont("MSung-Light", 11)
             if column in (5, 7, 8):
-                pdf.drawRightString(x + widths[column] * 5.51 - 3, top - 144, label)
+                pdf.drawRightString(x + widths[column] * column_unit - 3, top - 144, label)
             elif column == 6:
-                pdf.drawCentredString(x + widths[column] * 5.51 / 2, top - 144, label)
+                pdf.drawCentredString(x + widths[column] * column_unit / 2, top - 144, label)
             else:
                 pdf.drawString(x + (2 * mm if column == 9 else 0), top - 144, label)
-        pdf.line(22, top - 151, 573, top - 151)
+        pdf.line(22, top - 151, right, top - 151)
         spacing = 18 if page.get("paper_size") == "A4" else 16
         previous_date = None
         for index, row in enumerate(page["rows"]):
@@ -204,23 +209,23 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
             if row[0] and row[1] != previous_date:
                 if index:
                     pdf.setDash(1, 2)
-                    pdf.line(22, y + 10, 573, y + 10)
+                    pdf.line(22, y + 10, right, y + 10)
                     pdf.setDash()
                 previous_date = row[1]
             pdf.setFont("MSung-Light", 11.5)
             for column, (x, value) in enumerate(zip(positions, row)):
                 pdf.setFont("MSung-Light", 9.5 if column == 9 else 11.5)
                 if column in (5, 7, 8):
-                    pdf.drawRightString(x + widths[column] * 5.51 - 3, y, str(value))
+                    pdf.drawRightString(x + widths[column] * column_unit - 3, y, str(value))
                 elif column == 6:
-                    pdf.drawCentredString(x + widths[column] * 5.51 / 2, y, str(value))
+                    pdf.drawCentredString(x + widths[column] * column_unit / 2, y, str(value))
                 else:
                     pdf.drawString(x + (2 * mm if column == 9 else 0), y, str(value))
         if page["last"]:
             y = top - 167 - len(page["rows"]) * spacing
-            pdf.line(22, y, 573, y)
+            pdf.line(22, y, right, y)
             for index, (unit, amount) in enumerate(s["quantities"].items()):
-                pdf.setFont("MSung-Light", 12)
+                pdf.setFont("MSung-Light", 11 if receivable else 12)
                 pdf.drawString(22, y - 17 - index * 17, "數量合計：")
                 pdf.drawRightString(150, y - 17 - index * 17, display_price(amount))
                 pdf.drawString(160, y - 17 - index * 17, unit)
@@ -232,7 +237,7 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
             for index, (label, key) in enumerate(totals):
                 pdf.setFont("MSung-Light", 12)
                 pdf.drawRightString(positions[8] - 4, summary_y - index * 17, f"{label}：")
-                pdf.drawRightString(positions[8] + widths[8] * 5.51 - 3, summary_y - index * 17, f"{int(s[key]):,}")
+                pdf.drawRightString(positions[8] + widths[8] * column_unit - 3, summary_y - index * 17, f"{int(s[key]):,}")
             company_y = summary_y - (len(s["quantities"]) + 1) * 17
         else:
             company_y = top - 167 - len(page["rows"]) * spacing - 17

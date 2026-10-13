@@ -69,7 +69,7 @@ def render_report(config, *, title="應收帳款明細表"):
         print_settings = dict(paper_stock=paper_stock, feed_rotation=feed_rotation, hole_margin=hole_margin)
         html = render_statement_print(pages, selected=index, show_receipts=show_receipts, title=title, **print_settings)
         st.download_button("下載列印版", html, file_name=title + ".html", mime="text/html", use_container_width=True)
-        st.download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts, title=title, **print_settings), file_name=title + ".pdf", mime="application/pdf", use_container_width=True)
+        st.download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts, title=title), file_name=title + ".pdf", mime="application/pdf", use_container_width=True)
         statements = list({p["statement"]["customer_id"]: p["statement"] for p in pages}.values())
         st.download_button("匯出 Excel", statement_excel(statements, show_receipts=show_receipts, title=title), file_name=title + ".xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)

@@ -40,6 +40,7 @@ def _contents(config, records, epoch):
                                   orientation="portrait" if st.session_state.get("shipment_print_orientation") == "直式" else "landscape",
                                   feed_rotation=st.session_state.get("shipment_feed_rotation", 0),
                                   hole_margin=st.session_state.get("shipment_hole_margin", 12.5),
-                                  paper_stock="a4_driver" if st.session_state.get("shipment_paper_stock", "A4") == "A4" else "triplicate" if st.session_state.get("shipment_paper_stock", "").startswith("三聯紙") else "standard")
+                                  paper_stock="a4_driver" if st.session_state.get("shipment_paper_stock", "A4") == "A4" else "triplicate" if st.session_state.get("shipment_paper_stock", "").startswith("三聯紙") else "standard",
+                                  output_mode="pdf" if st.session_state.get("shipment_output_mode", "實體列印").startswith("另存 PDF") else "print")
         st.download_button("下載列印版", html, file_name=document["shipment_number"] + ".html", mime="text/html", key="shipment_search_print_download")
         components.html(theme_preview(html), height=500, scrolling=True)

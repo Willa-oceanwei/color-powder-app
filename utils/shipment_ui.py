@@ -304,6 +304,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{index + 1 if ids else 0} / {len(ids)}</span>', unsafe_allow_html=True)
     hide_prices = st.session_state.get("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False))
     with tools[8].popover("列印／匯出", use_container_width=True), st.container():
+        output = st.selectbox("列印用途", ("實體列印", "另存 PDF（置中）"), key="shipment_output_mode")
+        output_mode = "pdf" if output.startswith("另存 PDF") else "print"
         stock = st.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "A5"), key="shipment_paper_stock")
         paper_stock = "a4_driver" if stock == "A4" else "triplicate" if stock.startswith("三聯紙") else "standard"
         layout = st.selectbox("列印方向", ("橫式", "直式"), key="shipment_print_orientation",
@@ -311,7 +313,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         feed_rotation = st.selectbox("紙張進紙", (0, 90), format_func=lambda v: ("240 mm 長邊先進（橫放）" if v == 0 or paper_stock == "a4_driver" else "140 mm 短邊先進（直放）") if paper_stock != "standard" else ("原方向" if v == 0 else "旋轉90度進紙"), key="shipment_feed_rotation", disabled=paper_stock == "a4_driver")
         hole_margin = st.number_input("左右打洞留白（mm）", min_value=0.0, max_value=25.0, value=12.5, step=0.5, key="shipment_hole_margin")
         orientation = "portrait" if layout == "直式" else "landscape"
-        print_html = printable_shipment(document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock) if document and not editing else None
+        print_html = printable_shipment(document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock, output_mode=output_mode) if document and not editing else None
         if print_html:
             st.download_button("下載列印版", data=print_html, file_name=document["shipment_number"] + ".html", mime="text/html", use_container_width=True)
     orientation = "portrait" if layout == "直式" else "landscape"
