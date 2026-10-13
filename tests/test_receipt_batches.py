@@ -8,7 +8,8 @@ from streamlit.testing.v1 import AppTest
 from test_receivable_report import config, shipment, receipt
 from utils.database import connect, initialize_database, database_health_check
 from utils.receipt_repository import (save_receipt_batch, list_receipt_batches, receipt_batch_details,
-                                      outstanding_shipments, apply_prepaid_batch, void_receipt_batch, void_receipt)
+                                      outstanding_shipments, apply_prepaid_batch, void_receipt_batch, void_receipt,
+                                      receipt_tracking_start)
 from utils.receivable_report import build_statements
 from utils.shipment_repository import ShipmentError, get_shipment
 
@@ -150,14 +151,15 @@ render_receipt_entry(DatabaseConfig(backend="sqlite",path=Path({str(config.path)
     next(w for w in app.date_input if w.label == '收款日期').set_value(date(2026, 10, 31)).run()
     next(w for w in app.radio if w.label == '結帳日').set_value('25 號').run()
     assert next(w for w in app.metric if w.label == '本期應收總額').value == '210'
-    assert not next(w for w in app.toggle if w.label == '包含期前未收').value
-    assert next(w for w in app.metric if w.label == '期前未收金額').value == '未納入'
+    assert not next(w for w in app.toggle if w.label == '包含前期未收').value
+    assert next(w for w in app.metric if w.label == '前期未收金額').value == '未納入'
     next(w for w in app.button if w.label == '全額收款').click().run()
     assert next(w for w in app.number_input if w.label == '本次收款金額').value == 210
-    next(w for w in app.toggle if w.label == '包含期前未收').set_value(True).run()
+    next(w for w in app.toggle if w.label == '包含前期未收').set_value(True).run()
     next(w for w in app.button if w.label == '全額收款').click().run()
-    assert next(w for w in app.number_input if w.label == '本次收款金額').value == 420
-    next(w for w in app.toggle if w.label == '包含期前未收').set_value(False).run()
+    assert next(w for w in app.number_input if w.label == '本次收款金額').value == 210
+    assert next(w for w in app.metric if w.label == '前期未收金額').value == '0'
+    next(w for w in app.toggle if w.label == '包含前期未收').set_value(False).run()
     next(w for w in app.button if w.label == '全額收款').click().run()
     assert next(w for w in app.number_input if w.label == '本次收款金額').value == 210
     next(w for w in app.radio if w.label == '結帳日').set_value('31 號／月底').run()
@@ -168,4 +170,44 @@ render_receipt_entry(DatabaseConfig(backend="sqlite",path=Path({str(config.path)
     next(w for w in app.date_input if w.label == '帳款迄日').set_value(date(2026, 10, 31)).run()
     assert not app.exception
     assert next(w for w in app.metric if w.label == '本期應收總額').value == '210'
+
+
+def test_tracking_starts_with_first_recorded_period_and_survives_void(config):
+    old = shipment(config, shipment_date='2026-09-30')
+    october = shipment(config, shipment_date='2026-10-01')
+    assert receipt_tracking_start(config, 'A01') is None
+    batch = save_receipt_batch(config, batch_id=str(uuid4()), customer_id='A01', receipt_date='2026-11-05',
+                               amount=50, allocations=[allocation(october, 50)], tracking_start='2026-10-01')
+    assert receipt_tracking_start(config, 'A01') == '2026-10-01'
+    with pytest.raises(ShipmentError, match='起算日'):
+        save_receipt_batch(config, batch_id=str(uuid4()), customer_id='A01', receipt_date='2026-11-05',
+                           amount=10, allocations=[allocation(old, 10)], tracking_start='2026-09-01')
+    void_receipt_batch(config, batch['id'], 'Cancelled')
+    assert receipt_tracking_start(config, 'A01') == '2026-10-01'
+    assert receipt_tracking_start(config, 'A02') is None
+
+
+def test_next_month_only_carries_unpaid_since_tracking_start(config):
+    shipment(config, shipment_date='2026-09-30')
+    october = shipment(config, shipment_date='2026-10-01')
+    save_receipt_batch(config, batch_id=str(uuid4()), customer_id='A01', receipt_date='2026-10-31',
+                       amount=50, allocations=[allocation(october, 50)], tracking_start='2026-10-01')
+    shipment(config, shipment_date='2026-11-01')
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0,{root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.receivable_ui import render_receipt_entry
+render_receipt_entry(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    app.radio(key='receipt_mode').set_value('月結／批次收款').run()
+    next(w for w in app.number_input if w.label == '年度').set_value(2026).run()
+    next(w for w in app.selectbox if w.label == '月份').set_value(11).run()
+    next(w for w in app.date_input if w.label == '收款日期').set_value(date(2026, 11, 30)).run()
+    next(w for w in app.toggle if w.label == '包含前期未收').set_value(True).run()
+    assert next(w for w in app.metric if w.label == '前期未收金額').value == '160'
+    next(w for w in app.button if w.label == '全額收款').click().run()
+    assert not app.exception
+    assert next(w for w in app.number_input if w.label == '本次收款金額').value == 370
 

@@ -16,7 +16,7 @@ from .paper_preview import theme_preview, dismiss_export_on_preview_click
 from .shipment_repository import ShipmentError, get_shipment, list_shipments
 from .receipt_repository import (list_receipts, save_receipt, void_receipt, outstanding_shipments,
                                  save_receipt_batch, list_receipt_batches, receipt_batch_details,
-                                 apply_prepaid_batch, void_receipt_batch)
+                                 apply_prepaid_batch, void_receipt_batch, receipt_tracking_start)
 from .shipment_page_data import clear_reads
 from .shipment_ui import COMPACT_STYLE
 from .accounting_export import statement_excel, statement_pdf, ranking_excel, ranking_pdf, ranking_rows
@@ -180,20 +180,22 @@ def render_batch_receipt(config, customer, records, *, prepaid=False):
             st.info('此客戶目前沒有預收餘額')
     if not prepaid or credit:
         start, end = _receipt_period_controls('batch_period_' + customer + '_', prefix + 'amount')
-        include_prior = st.toggle('包含期前未收', value=False, key='batch_period_' + customer + '_prior_opt_in',
+        include_prior = st.toggle('包含前期未收', value=False, key='batch_period_' + customer + '_prior_opt_in',
                                      on_change=_set_batch_amount, args=(prefix + 'amount', 0))
         valid_period = start <= end
         if not valid_period:
             st.error('帳款起日不可晚於迄日')
-        outstanding = outstanding_shipments(config, customer)
-        in_period = lambda d: start.isoformat() <= d['shipment_date'] <= end.isoformat()
+        tracking_start = receipt_tracking_start(config, customer) or start.isoformat()
+        st.caption('收款起算日：' + tracking_start.replace('-', '/'))
+        outstanding = [d for d in outstanding_shipments(config, customer) if d['shipment_date'] >= tracking_start]
+        in_period = lambda d: max(start.isoformat(), tracking_start) <= d['shipment_date'] <= end.isoformat()
         billed = sum(int(d['total_amount']) for d in records if d['customer_id'] == customer and in_period(d)) if valid_period else 0
         unpaid = sum(d['balance'] for d in outstanding if in_period(d)) if valid_period else 0
         prior_unpaid = sum(d['balance'] for d in outstanding if d['shipment_date'] < start.isoformat()) if valid_period and include_prior else 0
         totals = st.columns(3)
         totals[0].metric('本期應收總額', f'{billed:,}')
         totals[1].metric('本期未收金額', f'{unpaid:,}')
-        totals[2].metric('期前未收金額', f'{prior_unpaid:,}' if include_prior else '未納入')
+        totals[2].metric('前期未收金額', f'{prior_unpaid:,}' if include_prior else '未納入')
         cols = st.columns(3)
         received_date = cols[0].date_input('沖帳日期' if prepaid else '收款日期', value=date.today(), key=prefix + 'date')
         documents = [d for d in outstanding
@@ -256,7 +258,8 @@ def render_batch_receipt(config, customer, records, *, prepaid=False):
                                         allocation_date=received_date.isoformat(), allocations=allocations)
                 else:
                     save_receipt_batch(config, batch_id=token, customer_id=customer, receipt_date=received_date.isoformat(),
-                                       amount=amount, allocations=allocations, method=method, reference=reference, notes=notes)
+                                       amount=amount, allocations=allocations, method=method, reference=reference, notes=notes,
+                                       tracking_start=start.isoformat())
             except ShipmentError as error:
                 st.error(str(error))
             else:

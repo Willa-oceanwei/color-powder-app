@@ -68,6 +68,26 @@ def outstanding_shipments(config, customer_id):
             "ORDER BY s.shipment_date,s.shipment_number,s.id", (customer_id,)))
 
 
+def _tracking_start(conn, customer_id):
+    first = _mapping(conn.execute(
+        "SELECT start_date,request_json FROM ("
+        "SELECT substr(b.receipt_date,1,7)||'-01' AS start_date,b.request_json,b.created_at,b.id "
+        "FROM receipt_batches b WHERE b.customer_id=? UNION ALL "
+        "SELECT substr(s.shipment_date,1,7)||'-01' AS start_date,NULL AS request_json,r.created_at,r.id "
+        "FROM shipment_receipts r JOIN shipment_orders s ON s.id=r.shipment_id "
+        "WHERE s.customer_id=? AND NOT EXISTS(SELECT 1 FROM receipt_batch_allocations a WHERE a.receipt_id=r.id)"
+        ") ORDER BY created_at,id LIMIT 1", (customer_id, customer_id)))
+    if not first:
+        return None
+    request = json.loads(first['request_json']) if first['request_json'] else {}
+    return request.get('ledger_start') or request.get('tracking_start') or first['start_date']
+
+
+def receipt_tracking_start(config, customer_id):
+    with connect_from_config(config) as conn:
+        return _tracking_start(conn, customer_id)
+
+
 def _allocation_values(allocations):
     result, seen = [], set()
     for allocation in allocations:
@@ -84,17 +104,18 @@ def _allocation_values(allocations):
     return sorted(result, key=lambda row: row['shipment_id'])
 
 
-def _apply_batch_allocations(conn, batch, allocations, request_id, allocation_date):
+def _apply_batch_allocations(conn, batch, allocations, request_id, allocation_date, tracking_start=None):
     now = utc_now_iso()
+    tracking_start = tracking_start or _tracking_start(conn, batch['customer_id']) or allocation_date[:7] + '-01'
     for row in allocations:
         changed = _mapping(conn.execute(
             "UPDATE shipment_orders SET version=version+1,updated_at=? "
             "WHERE id=? AND customer_id=? AND version=? AND status='draft' "
-            "AND shipment_date<=? AND CAST(total_amount AS INTEGER)-(SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) "
+            "AND shipment_date>=? AND shipment_date<=? AND CAST(total_amount AS INTEGER)-(SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) "
             "FROM shipment_receipts WHERE shipment_id=? AND status='active')>=? RETURNING id",
-            (now, row['shipment_id'], batch['customer_id'], row['shipment_version'], allocation_date, row['shipment_id'], row['amount'])))
+            (now, row['shipment_id'], batch['customer_id'], row['shipment_version'], tracking_start, allocation_date, row['shipment_id'], row['amount'])))
         if not changed:
-            raise ShipmentError("出貨單已變更、作廢、日期晚於收款日期或沖抵超過未收金額，請重新讀取")
+            raise ShipmentError("出貨單已變更、作廢、早於收款起算日、晚於收款日期或沖抵超過未收金額，請重新讀取")
         receipt_id = str(uuid5(NAMESPACE_URL, json.dumps([batch['id'], request_id, row['shipment_id']])))
         conn.execute("INSERT INTO shipment_receipts(id,shipment_id,receipt_date,amount,method,reference,notes,created_at,updated_at) "
                      "VALUES (?,?,?,?,?,?,?,?,?)", (receipt_id, row['shipment_id'], allocation_date, str(row['amount']),
@@ -104,7 +125,7 @@ def _apply_batch_allocations(conn, batch, allocations, request_id, allocation_da
 
 
 def save_receipt_batch(config, *, batch_id, customer_id, receipt_date, amount, allocations,
-                       method='匯款', reference='', notes=''):
+                       method='匯款', reference='', notes='', tracking_start=None):
     receipt_date = _valid_date(receipt_date, '收款日期')
     amount = decimal_value(amount, '收款金額')
     if not amount or amount != amount.to_integral_value() or not batch_id or not str(method).strip():
@@ -114,20 +135,30 @@ def save_receipt_batch(config, *, batch_id, customer_id, receipt_date, amount, a
         raise ShipmentError("沖抵合計不可超過本次收款金額")
     values = dict(customer_id=customer_id, receipt_date=receipt_date, amount=str(int(amount)),
                   method=str(method).strip(), reference=str(reference).strip(), notes=str(notes).strip())
-    signature = json.dumps(dict(values, allocations=allocations), sort_keys=True, ensure_ascii=False)
+    request = dict(values, allocations=allocations)
+    if tracking_start is not None:
+        tracking_start = _valid_date(tracking_start, '收款起算日')
+        if tracking_start > receipt_date:
+            raise ShipmentError('收款日期不可早於帳款期間起日')
+        request['tracking_start'] = tracking_start
+    signature = json.dumps(request, sort_keys=True, ensure_ascii=False)
     with connect_from_config(config) as conn:
         previous = _mapping(conn.execute("SELECT * FROM receipt_batches WHERE id=?", (batch_id,)))
         if previous:
-            if previous['status'] != 'active' or previous['request_json'] != signature:
+            previous_request = json.loads(previous['request_json'])
+            previous_request.pop('ledger_start', None)
+            if previous['status'] != 'active' or json.dumps(previous_request, sort_keys=True, ensure_ascii=False) != signature:
                 raise ShipmentError("收款識別碼已使用，請重新開啟收款登錄")
             return previous
         if not _mapping(conn.execute("SELECT customer_id FROM customers WHERE customer_id=?", (customer_id,))):
             raise ShipmentError("請選擇有效客戶")
         now = utc_now_iso()
+        ledger_start = _tracking_start(conn, customer_id) or tracking_start or receipt_date[:7] + '-01'
+        stored_request = json.dumps(dict(request, ledger_start=ledger_start), sort_keys=True, ensure_ascii=False)
         conn.execute("INSERT INTO receipt_batches(id,customer_id,receipt_date,amount,method,reference,notes,request_json,created_at,updated_at) "
-                     "VALUES (?,?,?,?,?,?,?,?,?,?)", (batch_id, *values.values(), signature, now, now))
+                     "VALUES (?,?,?,?,?,?,?,?,?,?)", (batch_id, *values.values(), stored_request, now, now))
         batch = dict(values, id=batch_id)
-        _apply_batch_allocations(conn, batch, allocations, batch_id, receipt_date)
+        _apply_batch_allocations(conn, batch, allocations, batch_id, receipt_date, ledger_start)
         return _mapping(conn.execute("SELECT * FROM receipt_batches WHERE id=?", (batch_id,)))
 
 
