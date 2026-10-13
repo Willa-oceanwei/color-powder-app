@@ -180,7 +180,7 @@ def render_batch_receipt(config, customer, records, *, prepaid=False):
             st.info('此客戶目前沒有預收餘額')
     if not prepaid or credit:
         start, end = _receipt_period_controls('batch_period_' + customer + '_', prefix + 'amount')
-        include_prior = st.toggle('包含期前未收', value=True, key='batch_period_' + customer + '_prior',
+        include_prior = st.toggle('包含期前未收', value=False, key='batch_period_' + customer + '_prior_opt_in',
                                      on_change=_set_batch_amount, args=(prefix + 'amount', 0))
         valid_period = start <= end
         if not valid_period:
@@ -189,11 +189,11 @@ def render_batch_receipt(config, customer, records, *, prepaid=False):
         in_period = lambda d: start.isoformat() <= d['shipment_date'] <= end.isoformat()
         billed = sum(int(d['total_amount']) for d in records if d['customer_id'] == customer and in_period(d)) if valid_period else 0
         unpaid = sum(d['balance'] for d in outstanding if in_period(d)) if valid_period else 0
-        prior_unpaid = sum(d['balance'] for d in outstanding if d['shipment_date'] < start.isoformat()) if valid_period else 0
+        prior_unpaid = sum(d['balance'] for d in outstanding if d['shipment_date'] < start.isoformat()) if valid_period and include_prior else 0
         totals = st.columns(3)
         totals[0].metric('本期應收總額', f'{billed:,}')
         totals[1].metric('本期未收金額', f'{unpaid:,}')
-        totals[2].metric('期前未收金額', f'{prior_unpaid:,}')
+        totals[2].metric('期前未收金額', f'{prior_unpaid:,}' if include_prior else '未納入')
         cols = st.columns(3)
         received_date = cols[0].date_input('沖帳日期' if prepaid else '收款日期', value=date.today(), key=prefix + 'date')
         documents = [d for d in outstanding

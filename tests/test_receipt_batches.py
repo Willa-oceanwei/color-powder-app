@@ -150,6 +150,11 @@ render_receipt_entry(DatabaseConfig(backend="sqlite",path=Path({str(config.path)
     next(w for w in app.date_input if w.label == '收款日期').set_value(date(2026, 10, 31)).run()
     next(w for w in app.radio if w.label == '結帳日').set_value('25 號').run()
     assert next(w for w in app.metric if w.label == '本期應收總額').value == '210'
+    assert not next(w for w in app.toggle if w.label == '包含期前未收').value
+    assert next(w for w in app.metric if w.label == '期前未收金額').value == '未納入'
+    next(w for w in app.button if w.label == '全額收款').click().run()
+    assert next(w for w in app.number_input if w.label == '本次收款金額').value == 210
+    next(w for w in app.toggle if w.label == '包含期前未收').set_value(True).run()
     next(w for w in app.button if w.label == '全額收款').click().run()
     assert next(w for w in app.number_input if w.label == '本次收款金額').value == 420
     next(w for w in app.toggle if w.label == '包含期前未收').set_value(False).run()
