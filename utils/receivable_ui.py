@@ -14,6 +14,7 @@ from .shipment_repository import ShipmentError, get_shipment, list_shipments
 from .receipt_repository import list_receipts, save_receipt, void_receipt
 from .shipment_ui import COMPACT_STYLE
 from .accounting_export import statement_excel, statement_pdf, ranking_excel, ranking_pdf, ranking_rows
+from .shipment_print import COMPANY
 
 
 def render_receivable_statement(config, *, title="應收帳款明細表"):
@@ -61,17 +62,20 @@ def render_report(config, *, title="應收帳款明細表"):
     paper_stock = st.session_state.get("receivable_paper_stock", "standard")
     controls = st.columns([1, 1, 1, 1, 2, 2])
     with controls[5].popover("列印／匯出", use_container_width=True), st.container():
+        company_name = COMPANY["name"]
+        if title == "應收帳款明細表" and st.toggle("抬頭改為加舜企業有限公司", key="receivable_alternate_company", value=False):
+            company_name = "加舜企業有限公司"
         show_receipts = st.toggle("顯示收款資訊", key="receivable_show_receipts", value=False)
         feed_rotation = st.selectbox("紙張進紙", (0, 90), key="receivable_feed_rotation",
                                     format_func=lambda v: "240 mm 長邊先進（橫放）" if v == 0 or paper_stock == "a4_driver" else "140 mm 短邊先進（直放）", disabled=paper_stock != "triplicate")
         hole_margin = st.number_input("左右打洞留白（mm）", min_value=0.0, max_value=25.0, value=12.5, step=0.5,
                                       key="receivable_hole_margin", disabled=paper_stock == "standard")
-        print_settings = dict(paper_stock=paper_stock, feed_rotation=feed_rotation, hole_margin=hole_margin)
+        print_settings = dict(paper_stock=paper_stock, feed_rotation=feed_rotation, hole_margin=hole_margin, company_name=company_name)
         html = render_statement_print(pages, selected=index, show_receipts=show_receipts, title=title, **print_settings)
         st.download_button("下載列印版", html, file_name=title + ".html", mime="text/html", use_container_width=True)
-        st.download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts, title=title), file_name=title + ".pdf", mime="application/pdf", use_container_width=True)
+        st.download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts, title=title, company_name=company_name), file_name=title + ".pdf", mime="application/pdf", use_container_width=True)
         statements = list({p["statement"]["customer_id"]: p["statement"] for p in pages}.values())
-        st.download_button("匯出 Excel", statement_excel(statements, show_receipts=show_receipts, title=title), file_name=title + ".xlsx",
+        st.download_button("匯出 Excel", statement_excel(statements, show_receipts=show_receipts, title=title, company_name=company_name), file_name=title + ".xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
     def move(target):
         st.session_state.receivable_page = target

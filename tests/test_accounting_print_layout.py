@@ -37,7 +37,10 @@ def test_a4_driver_shared_feed_preserves_data_and_blanks_prices():
     assert '.stock-page>.sheet{width:222mm}' in html
     assert '.company-address {font-size:9pt;}' in html
     assert '.company-contact {font-size:11pt;}' in html
-    assert '.order_number {padding-left:2.5mm;}' in html
+    assert '.order_number {padding-left:4mm;}' in html
+    assert 'h1 {margin:0;font-size:21pt;' in html
+    assert 'margin:2mm 0 .7mm;' in html
+    assert 'th {padding-top:.65mm;padding-bottom:.65mm;}' in html
     assert '.metadata {display:grid;grid-template-columns:1fr 56mm' in html
     assert '.delivery-row {display:grid;grid-template-columns:1fr 56mm' in html
     # Enlarged content stays inside the logical A4 width used by the driver.
@@ -116,7 +119,7 @@ def test_receivable_widening_and_smaller_quantity_totals_do_not_change_other_rep
     pages = statement_pages([statement()], paper_size='A4')
     receivable = render_statement_print(pages, paper_stock='a4_driver')
     other = render_statement_print(pages, paper_stock='a4_driver', title='客戶交易明細')
-    x = stock_geometry(0, 12.5, height=280, offset=-15, preserve_holes=False)[2]
+    x = stock_geometry(0, 12.5, height=280, offset=-25, preserve_holes=False)[2]
     assert f'translate({x:.6f}mm' in receivable
     assert '.stock-page>.sheet.a4{width:222mm}' in receivable
     assert '.quantity-summary{font-size:12pt}' in receivable
@@ -136,7 +139,7 @@ def test_receivable_widening_and_smaller_quantity_totals_do_not_change_other_rep
     statement_pdf(pages, paper_stock='a4_driver')
     statement_pdf(pages, paper_stock='a4_driver', title='客戶交易明細')
     report, comparison = canvases
-    assert abs(report.translate.call_args.args[0] - comparison.translate.call_args.args[0] - 10 * 72 / 25.4) < .001
+    assert report.translate.call_args.args[0] == comparison.translate.call_args.args[0]
     # Monetary totals keep the same right edge as the item amount column.
     amount_x = [call.args[0] for call in report.drawRightString.call_args_list if call.args[2] == '200']
     assert len(amount_x) == 2 and amount_x[0] == amount_x[1]
@@ -164,5 +167,21 @@ def test_shipment_pdf_mode_centers_without_changing_print_calibration_or_values(
 def test_statement_pdf_download_does_not_apply_printer_alignment():
     from pathlib import Path
     source = (Path(__file__).resolve().parents[1] / 'utils/receivable_ui.py').read_text(encoding='utf-8')
-    assert 'statement_pdf(pages, show_receipts=show_receipts, title=title)' in source
+    assert 'statement_pdf(pages, show_receipts=show_receipts, title=title, company_name=company_name)' in source
     assert 'statement_pdf(pages, show_receipts=show_receipts, title=title, **print_settings)' not in source
+
+
+def test_selected_statement_company_matches_html_excel_and_embedded_pdf_font():
+    from reportlab.pdfbase import pdfmetrics
+    s = statement()
+    before = deepcopy(s)
+    pages = statement_pages([s], paper_size='A4')
+    assert '<h1>佳咊實業有限公司</h1>' in render_statement_print(pages)
+    for company in ['佳咊實業有限公司', '加舜企業有限公司']:
+        assert f'<h1>{company}</h1>' in render_statement_print(pages, company_name=company)
+        sheet = load_workbook(BytesIO(statement_excel([s], company_name=company)))['列印版']
+        assert sheet['A1'].value == company
+        pdf = statement_pdf(pages, company_name=company)
+        assert pdf.startswith(b'%PDF')
+        assert all(ord(char) in pdfmetrics.getFont('CompanySansTC').face.charToGlyph for char in company)
+    assert s == before

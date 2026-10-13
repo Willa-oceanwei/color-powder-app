@@ -33,7 +33,7 @@ def _workbook(sheets):
     return output.getvalue()
 
 
-def statement_excel(statements, *, show_receipts=False, title="應收帳款明細表"):
+def statement_excel(statements, *, show_receipts=False, title="應收帳款明細表", company_name=COMPANY["name"]):
     details = [["客戶編號", "客戶名稱", "交易日期", "出貨單號", "貨品編號", "品名", "數量", "單位", "單價", "金額", "備註", "採購單號"]]
     summary = [["客戶編號", "客戶名稱", "帳款起日", "帳款迄日", "未稅合計", "稅額", "出貨總額"] +
                (["截至期末已登錄收款", "帳面未收餘額"] if show_receipts else [])]
@@ -77,7 +77,7 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
     base = 0
     for page in statement_pages(statements, paper_size="A4"):
         s = page["statement"]
-        put(base + 1, 1, COMPANY["name"], end=10, size=22, bold=True, align="center")
+        put(base + 1, 1, company_name, end=10, size=22, bold=True, align="center")
         put(base + 2, 1, title, end=10, size=17, align="center")
         put(base + 4, 1, f"客戶名稱：{s['customer_id']}　{s['customer_name']}", end=8)
         put(base + 4, 9, f"頁數 {page['customer_page']} / {page['customer_pages']}", end=10, align="right")
@@ -148,7 +148,7 @@ def _line(pdf, x, y, text, width=100, size=10):
         pdf.drawString(x, y - index * (size + 2), line)
 
 
-def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", paper_stock="standard", feed_rotation=0, hole_margin=12.5):
+def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", paper_stock="standard", feed_rotation=0, hole_margin=12.5, company_name=COMPANY["name"]):
     from reportlab.lib.pagesizes import A4, A5, landscape
     from reportlab.lib.units import mm
     if paper_stock not in ("standard", "triplicate", "a4_driver"):
@@ -158,7 +158,7 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
     if paper_stock == "a4_driver" and any(p.get("paper_size", "A5") != "A4" for p in pages):
         raise ValueError("A4 feed requires A4 pagination")
     receivable = title == "應收帳款明細表"
-    geometry = stock_geometry(0, hole_margin, height=280, offset=-15 if receivable else -25, preserve_holes=False) if paper_stock == "a4_driver" else stock_geometry(feed_rotation, hole_margin) if paper_stock == "triplicate" else None
+    geometry = stock_geometry(0, hole_margin, height=280, offset=-25, preserve_holes=False) if paper_stock == "a4_driver" else stock_geometry(feed_rotation, hole_margin) if paper_stock == "triplicate" else None
     buffer, pdf = _canvas(title, a5=True)
     from .receivable_report import REPORT_WIDTHS
     labels = ("單別", "交易日期", "交易單號", "貨品編號", "品名", "數量", "單位", "單價", "金額", "採購單號")
@@ -180,7 +180,7 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
         top = size[1]
         s = page["statement"]
         pdf.setFont("CompanySansTC", 20)
-        pdf.drawCentredString(297.5 + extra_width / 2, top - 32, COMPANY["name"])
+        pdf.drawCentredString(297.5 + extra_width / 2, top - 32, company_name)
         pdf.setFont("MSung-Light", 15)
         pdf.drawCentredString(297.5 + extra_width / 2, top - 50, title)
         _line(pdf, 22, top - 73, f"客戶名稱：{s['customer_id']}  {s['customer_name']}", width=60, size=13)
