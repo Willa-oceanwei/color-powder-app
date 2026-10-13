@@ -1,7 +1,7 @@
 # Company PDF Heading Font
 
-`CompanySansTC.ttf` is a weight-400, eight-character subset of Noto Sans CJK TC
-for the company heading. It embeds the uncommon company-name glyph in PDFs
+`CompanySansTC.ttf` is a weight-400, eleven-character subset of Noto Sans CJK TC
+for both company headings. It embeds the uncommon company-name glyph in PDFs
 rather than relying on the viewer's built-in CID font coverage.
 
 Source: https://github.com/notofonts/noto-cjk/blob/main/Sans/Variable/TTF/NotoSansCJKtc-VF.ttf

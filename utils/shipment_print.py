@@ -79,7 +79,7 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
         invoice = document.get('invoice', {})
         table_rows = ''.join('<tr>' + ''.join(f'<td class="{key}">' + '<br>'.join(_text(line) for line in cell) + '</td>' for (key, _, _), cell in zip(fields, row)) + '</tr>' for row in rows)
         headings = ''.join(f'<th class="{key}">{label}</th>' for key, label, _ in fields)
-        widths = (13, 34, 7, 6, 10, 12, 18)
+        widths = (13, 32, 7, 6, 10, 12, 20)
         if portrait:
             widths = (16, 29, 9, 8, 10, 14, 14)
         columns = ''.join(f'<col style="width:{width}%">' for width in widths)
@@ -113,18 +113,19 @@ body {margin:0;background:#e5e7eb;color:#000;font-family:"Microsoft JhengHei","N
 .sheet:last-child {break-after:auto;page-break-after:auto;}
 header {display:grid;grid-template-columns:1fr 48mm;gap:4mm;min-height:18mm;line-height:5mm;}
 header h1,header h2 {font-family:"DFKai-SB","BiauKai","KaiTi",serif;}
-h1 {margin:0;font-size:20pt;font-weight:700;line-height:8mm;}
+h1 {margin:0;font-size:21pt;font-weight:700;line-height:8mm;}
 h2 {display:flex;justify-content:space-between;align-items:start;margin:3mm 2mm 0 0;font-size:20pt;font-weight:400;line-height:9mm;}
 .company-address {font-size:9pt;}
 .company-contact {font-size:11pt;}
-.metadata {display:grid;grid-template-columns:1fr 56mm;gap:4mm;margin:2mm 0;line-height:5.5mm;overflow-wrap:anywhere;}
+.metadata {display:grid;grid-template-columns:1fr 56mm;gap:4mm;margin:2mm 0 .7mm;line-height:5.5mm;overflow-wrap:anywhere;}
 .delivery-row {display:grid;grid-template-columns:1fr 56mm;gap:4mm;line-height:5.5mm;margin-bottom:2mm;overflow-wrap:anywhere;}
 .pair {display:grid;grid-template-columns:1fr 1fr;gap:2mm;}
 table {width:100%;border-collapse:collapse;table-layout:fixed;line-height:5.5mm;font-variant-numeric:tabular-nums;}
 th {font-weight:400;text-align:left;border-top:.3mm solid #000;border-bottom:.3mm solid #000;}
 th,td {padding:.3mm .7mm;vertical-align:top;overflow-wrap:anywhere;}
+th {padding-top:.65mm;padding-bottom:.65mm;}
 .quantity,.price,.amount {text-align:right;}.unit {text-align:center;}
-.order_number {padding-left:2.5mm;}
+.order_number {padding-left:4mm;}
 .end-marker {margin:0 .7mm;line-height:5.5mm;}
 footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid #000;padding-top:1mm;}
 .footer-top {display:grid;grid-template-columns:1fr 48mm;gap:4mm;min-height:19mm;line-height:5.5mm;}

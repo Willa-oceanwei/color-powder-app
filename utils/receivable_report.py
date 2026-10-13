@@ -112,7 +112,7 @@ def statement_pages(statements, capacity=None, *, paper_size="auto"):
     return pages
 
 
-def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=False, title="應收帳款明細表", paper_stock="standard", feed_rotation=0, hole_margin=12.5):
+def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=False, title="應收帳款明細表", paper_stock="standard", feed_rotation=0, hole_margin=12.5, company_name=COMPANY["name"]):
     receivable = title == "應收帳款明細表"
     if paper_stock not in ("standard", "triplicate", "a4_driver"):
         raise ValueError("Invalid paper stock")
@@ -145,7 +145,7 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
             total_rows = ''.join(f'<div><span>{label}：</span><span>{int(Decimal(s[key])):,}</span></div>' for label, key in total_fields)
             totals = f'<div class="summary"><div class="statement-left"><div class="quantity-summary">{quantities}</div>{company_info}</div><div class="statement-totals">{total_rows}</div></div>'
         sheets.append(f'''<section class="sheet {page.get('paper_size', 'A5').lower()}{' active' if index == selected else ''}">
-<h1>{text(COMPANY['name'])}</h1><h2>{text(title)}</h2>
+<h1>{text(company_name)}</h1><h2>{text(title)}</h2>
 <div class="metadata"><div class="customer">客戶名稱：{text(s['customer_id'])}　{text(s['customer_name'])}</div><div class="page-number">頁數 {page['customer_page']} / {page['customer_pages']}</div>
 <div>聯絡人：{text(s.get('contact',''))}</div><div>統一編號：{text(s.get('tax_id',''))}</div><div></div>
 <div>聯絡電話：{text(s.get('phone',''))}</div><div>傳真號碼：{text(s.get('fax',''))}</div><div class="period">帳款區間：{text(s['start'].replace('-', '/'))} ～ {text(s['end'].replace('-', '/'))}</div>
@@ -160,7 +160,7 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
     if paper_stock == "triplicate":
         preview_style += stock_style(feed_rotation, hole_margin, paginated=True)
     elif paper_stock == "a4_driver":
-        preview_style += stock_style(0, hole_margin, paginated=True, stock_height=280, offset=-15 if receivable else -25, a4_driver=True)
+        preview_style += stock_style(0, hole_margin, paginated=True, stock_height=280, offset=-25, a4_driver=True)
         if receivable:
             preview_style += ".stock-page>.sheet.a4{width:222mm}"
     preview_style += '''body{font-size:13pt}h1{font-size:20pt}h2{font-size:15pt}.metadata{line-height:5.5mm}.period{font-size:12pt}

@@ -250,7 +250,14 @@ def test_invalid_report_page_configuration():
         statement_pages([], paper_size='A3')
 
 
-def test_report_ui_navigation_optional_receipt_and_validation(config):
+def test_report_ui_navigation_optional_receipt_and_validation(config, monkeypatch):
+    import utils.receivable_ui as ui
+    headings = []
+    original = ui.render_statement_print
+    def capture(*args, **kwargs):
+        headings.append(kwargs.get('company_name'))
+        return original(*args, **kwargs)
+    monkeypatch.setattr(ui, 'render_statement_print', capture)
     d = shipment(config)
     shipment(config, "A02")
     root = str(Path(__file__).resolve().parents[1])
@@ -266,6 +273,12 @@ render_receivable_statement(DatabaseConfig(backend="sqlite",path=Path({str(confi
     next(w for w in app.date_input if w.label == "結束帳款日期").set_value(date(2026, 10, 31))
     next(w for w in app.button if w.label == "預覽").click().run()
     assert len(app.session_state["receivable_pages"]) == 2
+    assert not app.toggle(key='receivable_alternate_company').value
+    assert headings[-1] == '佳咊實業有限公司'
+    app.toggle(key='receivable_alternate_company').set_value(True).run()
+    assert not app.exception and headings[-1] == '加舜企業有限公司'
+    app.toggle(key='receivable_alternate_company').set_value(False).run()
+    assert not app.exception and headings[-1] == '佳咊實業有限公司'
     app.button(key="receivable_下一頁").click().run()
     assert app.session_state["receivable_page"] == 1
     app.button(key="receivable_首頁").click().run()
