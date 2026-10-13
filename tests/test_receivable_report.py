@@ -209,7 +209,7 @@ def test_schema_26_upgrade_preserves_data(config):
         conn.execute("DROP TABLE shipment_receipts")
         conn.execute("DELETE FROM schema_migrations WHERE version=26")
     initialize_database(config.path)
-    assert database_health_check(config).schema_version == 27
+    assert database_health_check(config).schema_version == 28
     assert get_shipment(config, d["id"])["total_amount"] == "210"
     assert not list_receipts(config, d["id"])
 
@@ -295,3 +295,4 @@ render_receivable_statement(DatabaseConfig(backend="sqlite",path=Path({str(confi
     next(w for w in app.button if w.label == "作廢收款").click().run()
     assert not app.exception
     assert list_receipts(config, d["id"])[0]["status"] == "void"
+

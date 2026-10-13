@@ -243,7 +243,7 @@ def test_upgrade_preserves_existing_data(config):
         conn.execute('DELETE FROM schema_migrations WHERE version=25')
         conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (22,'2026-10-01')")
     _, health = initialize_database_with_health(config)
-    assert health.schema_version == 27
+    assert health.schema_version == 28
     assert health.schema_compatible
     with connect(config.path) as conn:
         assert conn.execute("SELECT name FROM customers WHERE customer_id='C01'").fetchone()[0] == '範例客戶'
@@ -328,3 +328,4 @@ def test_print_black_font_fixed_columns_and_grouped_amounts(config):
     assert '17,600' in html and '18,480' in html
     assert html.count('class="sheet"') == 2
     assert '珍珠灰黑(115/07/02 220/包)' in html
+

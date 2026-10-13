@@ -22,9 +22,11 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 27
+SCHEMA_VERSION = 28
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
+    "receipt_batches",
+    "receipt_batch_allocations",
     "shipment_receipts",
     "products",
     "shipment_number_sequences",
@@ -426,6 +428,28 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             updated_at TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_receipts_shipment ON shipment_receipts(shipment_id,status,receipt_date);
+        CREATE TABLE IF NOT EXISTS receipt_batches (
+            id TEXT PRIMARY KEY,
+            customer_id TEXT NOT NULL REFERENCES customers(customer_id),
+            receipt_date TEXT NOT NULL,
+            amount TEXT NOT NULL,
+            method TEXT NOT NULL,
+            reference TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            request_json TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','void')),
+            void_reason TEXT,
+            version INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_receipt_batches_customer ON receipt_batches(customer_id,status,receipt_date);
+        CREATE TABLE IF NOT EXISTS receipt_batch_allocations (
+            receipt_id TEXT PRIMARY KEY REFERENCES shipment_receipts(id),
+            batch_id TEXT NOT NULL REFERENCES receipt_batches(id),
+            request_id TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_receipt_allocations_batch ON receipt_batch_allocations(batch_id);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_shipment_invoice_number
             ON shipment_invoices(invoice_number)
             WHERE invoice_number IS NOT NULL AND invoice_number != '';
@@ -1371,3 +1395,4 @@ def upsert_sheet_row(conn: sqlite3.Connection, sheet_name: str, row_key: str, pa
         (sheet_name, row_key, json.dumps(payload, ensure_ascii=False), row_hash,
          observed_at, sheet_updated_at or observed_at, sheet_updated_at, observed_at, observed_at),
     )
+

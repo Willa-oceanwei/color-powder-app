@@ -52,6 +52,7 @@ COMPACT_STYLE = """
 .main:has(#shipment-page) .shipment-total {display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px;font-variant-numeric:tabular-nums;}
 .main:has(#shipment-page) .shipment-total:last-child {border-top:1px solid #84919d;font-weight:600;font-size:16px;margin-top:4px;padding-top:6px;}
 .main:has(#shipment-page) .shipment-lines {font-size:12px;white-space:nowrap;overflow-x:auto;max-width:100%;}
+.main:has(#shipment-page) .shipment-number-help {font-size:10px;line-height:1.3;margin:0;overflow-wrap:anywhere;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] {width:min(960px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important;}
 body:has(#shipment-page) [data-testid="stPopoverBody"]:has(iframe) {max-height:calc(100vh - 32px)!important;overflow-y:auto;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] [data-testid="stVerticalBlock"],
@@ -405,7 +406,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         if editing:
             text("出貨單號", "shipment_number")
             if document["number_mode"] == "date":
-                st.caption("留白時依日期編號；填入則使用指定單號。")
+                st.markdown('<p class="shipment-number-help">留白自動編號；填入用指定單號。</p>', unsafe_allow_html=True)
         else:
             retained = document.get("shipment_number", "")
             original = st.session_state.get("shipment_original", {})

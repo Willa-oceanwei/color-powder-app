@@ -3,7 +3,10 @@
 from datetime import date
 from decimal import Decimal
 from uuid import uuid4
+from hashlib import sha256
+from calendar import monthrange
 
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -11,7 +14,10 @@ from .customer_repository import list_customers
 from .receivable_report import build_statements, render_statement_print, statement_pages
 from .paper_preview import theme_preview, dismiss_export_on_preview_click
 from .shipment_repository import ShipmentError, get_shipment, list_shipments
-from .receipt_repository import list_receipts, save_receipt, void_receipt
+from .receipt_repository import (list_receipts, save_receipt, void_receipt, outstanding_shipments,
+                                 save_receipt_batch, list_receipt_batches, receipt_batch_details,
+                                 apply_prepaid_batch, void_receipt_batch)
+from .shipment_page_data import clear_reads
 from .shipment_ui import COMPACT_STYLE
 from .accounting_export import statement_excel, statement_pdf, ranking_excel, ranking_pdf, ranking_rows
 from .shipment_print import COMPANY
@@ -115,13 +121,188 @@ def render_customer_ranking(config):
                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
+def _batch_receipt_saved(token_key, message):
+    st.session_state.pop(token_key, None)
+    st.session_state.pop("receivable_pages", None)
+    clear_reads(st.session_state)
+    st.session_state.receipt_notice = message
+    st.rerun()
+
+
+def month_receipt_period(year, month, closing_day):
+    last = min(closing_day, monthrange(year, month)[1])
+    return date(year, month, 1), date(year, month, last)
+
+
+def _receipt_period_controls(prefix, amount_key):
+    mode = st.radio('帳款期間', ['月份', '自訂日期'], horizontal=True, key=prefix + 'period_mode',
+                    on_change=_set_batch_amount, args=(amount_key, 0))
+    if mode == '月份':
+        cols = st.columns([1, 1, 2])
+        year = cols[0].number_input('年度', min_value=2000, max_value=2100, value=date.today().year, step=1, key=prefix + 'year',
+                                    on_change=_set_batch_amount, args=(amount_key, 0))
+        month = cols[1].selectbox('月份', list(range(1, 13)), index=date.today().month-1,
+                                  format_func=lambda m: f'{m} 月', key=prefix + 'month',
+                                  on_change=_set_batch_amount, args=(amount_key, 0))
+        closing = cols[2].radio('結帳日', ['25 號', '31 號／月底'], index=1, horizontal=True, key=prefix + 'closing',
+                                on_change=_set_batch_amount, args=(amount_key, 0))
+        start, end = month_receipt_period(year, month, 25 if closing == '25 號' else 31)
+        st.caption(f'帳款期間：{start:%Y/%m/%d} ～ {end:%Y/%m/%d}')
+    else:
+        cols = st.columns(2)
+        start = cols[0].date_input('帳款起日', value=date.today().replace(day=1), key=prefix + 'start',
+                                   on_change=_set_batch_amount, args=(amount_key, 0))
+        end = cols[1].date_input('帳款迄日', value=date.today(), key=prefix + 'end',
+                                 on_change=_set_batch_amount, args=(amount_key, 0))
+    return start, end
+
+
+def _set_batch_amount(key, amount):
+    st.session_state[key] = amount
+
+
+def render_batch_receipt(config, customer, records, *, prepaid=False):
+    notice = st.session_state.pop('receipt_notice', '')
+    if notice:
+        st.success(notice)
+    batches = list_receipt_batches(config, customer)
+    token_key = 'batch_receipt_token_' + customer + ('_prepaid' if prepaid else '')
+    token = st.session_state.setdefault(token_key, str(uuid4()))
+    prefix = 'batch_' + token + '_'
+    credit = None
+    if prepaid:
+        credits = {b['id']: b for b in batches if b['status'] == 'active' and int(b['amount']) > b['allocated']}
+        if credits:
+            credit_id = st.selectbox('預收款', list(credits), key=prefix + 'credit',
+                                    format_func=lambda i: f"{credits[i]['receipt_date']} · {credits[i]['reference']} · 餘額 {int(credits[i]['amount'])-credits[i]['allocated']:,}")
+            credit = credits[credit_id]
+        else:
+            st.info('此客戶目前沒有預收餘額')
+    if not prepaid or credit:
+        start, end = _receipt_period_controls('batch_period_' + customer + '_', prefix + 'amount')
+        include_prior = st.toggle('包含期前未收', value=True, key='batch_period_' + customer + '_prior',
+                                     on_change=_set_batch_amount, args=(prefix + 'amount', 0))
+        valid_period = start <= end
+        if not valid_period:
+            st.error('帳款起日不可晚於迄日')
+        outstanding = outstanding_shipments(config, customer)
+        in_period = lambda d: start.isoformat() <= d['shipment_date'] <= end.isoformat()
+        billed = sum(int(d['total_amount']) for d in records if d['customer_id'] == customer and in_period(d)) if valid_period else 0
+        unpaid = sum(d['balance'] for d in outstanding if in_period(d)) if valid_period else 0
+        prior_unpaid = sum(d['balance'] for d in outstanding if d['shipment_date'] < start.isoformat()) if valid_period else 0
+        totals = st.columns(3)
+        totals[0].metric('本期應收總額', f'{billed:,}')
+        totals[1].metric('本期未收金額', f'{unpaid:,}')
+        totals[2].metric('期前未收金額', f'{prior_unpaid:,}')
+        cols = st.columns(3)
+        received_date = cols[0].date_input('沖帳日期' if prepaid else '收款日期', value=date.today(), key=prefix + 'date')
+        documents = [d for d in outstanding
+                     if d['shipment_date'] <= min(end, received_date).isoformat()
+                     and (include_prior or d['shipment_date'] >= start.isoformat())] if valid_period else []
+        maximum = int(credit['amount'])-credit['allocated'] if credit else 1000000000000
+        st.session_state.setdefault(prefix + 'amount', 0)
+        if st.session_state[prefix + 'amount'] > maximum:
+            st.session_state[prefix + 'amount'] = 0
+        amount = cols[1].number_input('本次沖抵金額' if prepaid else '本次收款金額', min_value=0,
+                                     max_value=maximum, value=None, step=1, key=prefix + 'amount') or 0
+        methods = ['匯款', '現金', '支票', '其他']
+        method = cols[2].selectbox('收款方式', methods, index=methods.index(credit['method']) if credit and credit['method'] in methods else 0,
+                                  key=prefix + 'method' + (credit['id'] if credit else ''), disabled=prepaid)
+        cols = st.columns(2)
+        reference = cols[0].text_input('收款憑據／銀行末碼', value=credit['reference'] if credit else '',
+                                       key=prefix + 'reference' + (credit['id'] if credit else ''), disabled=prepaid)
+        notes = cols[1].text_input('收款備註', value=credit['notes'] if credit else '',
+                                   key=prefix + 'notes' + (credit['id'] if credit else ''), disabled=prepaid)
+        full_amount = sum(d['balance'] for d in documents)
+        if credit:
+            full_amount = min(full_amount, int(credit['amount'])-credit['allocated'])
+        st.button('全額沖抵' if prepaid else '全額收款', disabled=not full_amount, key=prefix + 'full',
+                  on_click=_set_batch_amount, args=(prefix + 'amount', full_amount))
+        remaining, rows = amount, []
+        for d in documents:
+            allocated = min(remaining, d['balance'])
+            remaining -= allocated
+            rows.append({'出貨日期': d['shipment_date'], '出貨單號': d['shipment_number'],
+                         '出貨總額': int(d['total_amount']), '未收金額': d['balance'], '本次沖抵': allocated})
+        allocations = []
+        if rows:
+            fingerprint = sha256(repr((amount, [(d['id'], d['version'], d['balance']) for d in documents])).encode()).hexdigest()[:16]
+            edited = st.data_editor(pd.DataFrame(rows), hide_index=True, use_container_width=True,
+                                    disabled=['出貨日期', '出貨單號', '出貨總額', '未收金額'],
+                                    column_config={'本次沖抵': st.column_config.NumberColumn('本次沖抵', min_value=0, step=1, required=True)},
+                                    key=prefix + 'allocations_' + fingerprint)
+            allocations = [dict(shipment_id=d['id'], shipment_version=d['version'], amount=edited.iloc[i]['本次沖抵'])
+                           for i, d in enumerate(documents)]
+        else:
+            st.info('所選期間沒有未收出貨單')
+        try:
+            total = sum(Decimal(str(a['amount'])) for a in allocations)
+            valid = total <= amount and all(0 <= Decimal(str(a['amount'])) <= d['balance'] and
+                                           Decimal(str(a['amount'])) == Decimal(str(a['amount'])).to_integral_value()
+                                           for a, d in zip(allocations, documents))
+        except Exception:
+            total, valid = Decimal(0), False
+        cols = st.columns(3)
+        cols[0].metric('本次沖抵合計', f'{total:,.0f}')
+        cols[1].metric('清單剩餘未收', f"{sum(d['balance'] for d in documents)-total:,.0f}")
+        cols[2].metric('預收剩餘' if prepaid else '轉入預收', f"{(int(credit['amount'])-credit['allocated'] if credit else amount)-total:,.0f}")
+        if not valid:
+            st.error('沖抵須為整數，且不得超過單據未收金額或本次金額')
+        if st.button('確認沖抵預收款' if prepaid else '登錄批次收款', type='primary',
+                     disabled=not valid or not valid_period or amount <= 0 or (prepaid and total <= 0), key=prefix + 'save'):
+            try:
+                if prepaid:
+                    apply_prepaid_batch(config, batch_id=credit['id'], batch_version=credit['version'], request_id=token,
+                                        allocation_date=received_date.isoformat(), allocations=allocations)
+                else:
+                    save_receipt_batch(config, batch_id=token, customer_id=customer, receipt_date=received_date.isoformat(),
+                                       amount=amount, allocations=allocations, method=method, reference=reference, notes=notes)
+            except ShipmentError as error:
+                st.error(str(error))
+            else:
+                _batch_receipt_saved(token_key, '預收款已沖抵' if prepaid else '批次收款已登錄')
+    if batches:
+        st.dataframe([{'收款日期': b['receipt_date'], '收款總額': int(b['amount']), '已沖抵': b['allocated'],
+                       '預收餘額': int(b['amount'])-b['allocated'] if b['status'] == 'active' else 0,
+                       '方式': b['method'], '憑據': b['reference'], '備註': b['notes'],
+                       '狀態': '有效' if b['status'] == 'active' else '作廢', '作廢原因': b['void_reason'] or ''}
+                      for b in batches], hide_index=True, use_container_width=True)
+        by_id = {b['id']: b for b in batches}
+        selected = st.selectbox('批次收款紀錄', list(by_id), key='batch_history_' + customer,
+                                format_func=lambda i: f"{by_id[i]['receipt_date']} · {int(by_id[i]['amount']):,} · {by_id[i]['reference']} · {i[:8]}")
+        details = receipt_batch_details(config, selected)
+        if details:
+            st.dataframe([{'出貨日期': r['shipment_date'], '出貨單號': r['shipment_number'],
+                           '沖帳日期': r['receipt_date'], '沖抵金額': int(r['amount'])} for r in details],
+                          hide_index=True, use_container_width=True)
+        if by_id[selected]['status'] == 'active':
+            with st.expander('作廢整批收款'):
+                with st.form('batch_void_' + selected):
+                    reason = st.text_input('收款作廢原因')
+                    confirmed = st.toggle('確認作廢整批收款及所有沖抵')
+                    if st.form_submit_button('作廢整批收款'):
+                        if not confirmed:
+                            st.error('請確認作廢')
+                        else:
+                            try:
+                                void_receipt_batch(config, selected, reason)
+                            except ShipmentError as error:
+                                st.error(str(error))
+                            else:
+                                _batch_receipt_saved(token_key, '整批收款已作廢')
+
+
 def render_receipt_entry(config):
+    mode = st.radio('收款模式', ['單筆收款', '月結／批次收款', '預收款沖帳'], horizontal=True, key='receipt_mode')
     records = list_shipments(config)
-    if not records:
+    customers = {r['customer_id']: r['name'] for r in list_customers(config, include_inactive=True)} if mode != '單筆收款' else {r['customer_id']: r['customer_name'] for r in records}
+    if not customers:
         st.info("目前沒有可登錄收款的出貨單")
         return
-    customers = {r["customer_id"]: r["customer_name"] for r in records}
     customer = st.selectbox("收款客戶", sorted(customers), format_func=lambda c: c + " · " + customers[c], key="receipt_customer")
+    if mode != '單筆收款':
+        render_batch_receipt(config, customer, records, prepaid=mode == '預收款沖帳')
+        return
     documents = {r["id"]: r for r in records if r["customer_id"] == customer}
     shipment_id = st.selectbox("收款出貨單", list(documents), format_func=lambda i: documents[i]["shipment_number"] + " · " + documents[i]["shipment_date"], key="receipt_shipment")
     document = get_shipment(config, shipment_id)
@@ -179,3 +360,4 @@ def render_receipt_entry(config):
                                 st.session_state.pop("receivable_pages", None)
                                 st.session_state.receipt_notice = "收款已作廢"
                                 st.rerun()
+
