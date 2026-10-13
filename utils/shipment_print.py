@@ -115,10 +115,10 @@ header {display:grid;grid-template-columns:1fr 48mm;gap:4mm;min-height:18mm;line
 header h1,header h2 {font-family:"DFKai-SB","BiauKai","KaiTi",serif;}
 h1 {margin:0;font-size:21pt;font-weight:700;line-height:8mm;}
 h2 {display:flex;justify-content:space-between;align-items:start;margin:3mm 2mm 0 0;font-size:20pt;font-weight:400;line-height:9mm;}
-.company-address {font-size:9pt;}
+.company-address {font-size:9pt;font-family:"DFKai-SB","BiauKai","KaiTi",serif;}
 .company-contact {font-size:11pt;}
-.metadata {display:grid;grid-template-columns:1fr 56mm;gap:4mm;margin:2mm 0 .7mm;line-height:5.5mm;overflow-wrap:anywhere;}
-.delivery-row {display:grid;grid-template-columns:1fr 56mm;gap:4mm;line-height:5.5mm;margin-bottom:2mm;overflow-wrap:anywhere;}
+.metadata {display:grid;grid-template-columns:1fr 56mm;gap:4mm;margin:2mm 0 .7mm;font-size:12pt;line-height:5.5mm;overflow-wrap:anywhere;}
+.delivery-row {display:grid;grid-template-columns:1fr 56mm;gap:4mm;font-size:12pt;line-height:5.5mm;margin-bottom:2mm;overflow-wrap:anywhere;}
 .pair {display:grid;grid-template-columns:1fr 1fr;gap:2mm;}
 table {width:100%;border-collapse:collapse;table-layout:fixed;line-height:5.5mm;font-variant-numeric:tabular-nums;}
 th {font-weight:400;text-align:left;border-top:.3mm solid #000;border-bottom:.3mm solid #000;}
@@ -138,7 +138,7 @@ footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid 
     if portrait:
         html = html.replace("size:A5 landscape", "size:A5 portrait").replace("width:210mm;height:148mm", "width:148mm;height:210mm")
         html = html.replace("font-size:13pt", "font-size:10pt").replace("1fr 48mm", "1fr 40mm").replace("1fr 56mm", "1fr 40mm")
-        html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:10pt;line-height:4.5mm}header{font-size:10pt}.company-contact{font-size:8pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
+        html = html.replace("</style>", "table,.metadata,.delivery-row,.footer-top{font-size:10pt;line-height:4.5mm}.metadata,.delivery-row{font-size:9pt}header{font-size:10pt}.company-contact{font-size:8pt}.pair{grid-template-columns:1fr;gap:0}th{white-space:nowrap}</style>")
     margin = max(10, hole_margin)
     if paper_stock in ("triplicate", "a4_driver"):
         rules = stock_style(feed_rotation, hole_margin, offset=-25 if paper_stock == "a4_driver" and output_mode == "print" else 0, a4_driver=paper_stock == "a4_driver")

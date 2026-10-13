@@ -29,6 +29,19 @@ def theme_preview(document):
     return document.replace("</head>", PREVIEW_THEME + "</head>", 1)
 
 
+def dismiss_export_on_preview_click(document):
+    script = '''<script id="dismiss-export-popover">
+document.addEventListener('pointerdown',()=>{try{
+const parentDoc=window.parent.document;
+if(!parentDoc.querySelector('[data-testid="stPopoverBody"]'))return;
+const trigger=Array.from(parentDoc.querySelectorAll('[data-testid="stPopover"] button'))
+.find(button=>button.textContent.trim()==='列印／匯出');
+if(trigger)trigger.click();
+}catch(error){}},true);
+</script>'''
+    return document.replace("</body>", script + "</body>", 1)
+
+
 class _PrintBody(HTMLParser):
     allowed = {"div", "pre", "span", "b", "strong", "br", "p"}
     blocked = {"script", "style", "iframe", "object"}

@@ -9,7 +9,7 @@ import streamlit.components.v1 as components
 
 from .customer_repository import list_customers
 from .receivable_report import build_statements, render_statement_print, statement_pages
-from .paper_preview import theme_preview
+from .paper_preview import theme_preview, dismiss_export_on_preview_click
 from .shipment_repository import ShipmentError, get_shipment, list_shipments
 from .receipt_repository import list_receipts, save_receipt, void_receipt
 from .shipment_ui import COMPACT_STYLE
@@ -83,7 +83,7 @@ def render_report(config, *, title="應收帳款明細表"):
         col.button(label, key="receivable_" + label, on_click=move, args=(target,),
                    disabled=target < 0 or target >= len(pages) or target == index, use_container_width=True)
     controls[4].write(f"{index + 1} / {len(pages)} · {pages[index]['statement']['customer_id']}")
-    components.html(theme_preview(render_statement_print(pages, selected=index, embedded=True, show_receipts=show_receipts, title=title, **print_settings)), height=480, scrolling=True)
+    components.html(dismiss_export_on_preview_click(theme_preview(render_statement_print(pages, selected=index, embedded=True, show_receipts=show_receipts, title=title, **print_settings))), height=480, scrolling=True)
 
 
 def render_customer_ranking(config):

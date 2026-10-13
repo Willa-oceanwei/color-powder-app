@@ -1,10 +1,50 @@
 from pathlib import Path
+from copy import deepcopy
 
 from streamlit.testing.v1 import AppTest
 
 from utils.customer_repository import CustomerInput, create_customer
 from utils.database import DatabaseConfig, initialize_database
 from utils.shipment_repository import blank_shipment, get_shipment, list_shipments, save_shipment
+
+
+def test_editing_preview_uses_current_grid_values_without_saving(tmp_path, monkeypatch):
+    import utils.shipment_ui as ui
+    config = DatabaseConfig(backend='sqlite', path=tmp_path / 'draft-preview.db')
+    initialize_database(config.path)
+    create_customer(config, CustomerInput('C01', 'Customer'))
+    doc = dict(blank_shipment(), customer_id='C01', customer_name='Customer')
+    doc['items'] = [dict(code='P1', name='Original', quantity='1', unit='KG', price='100', order_number='', notes='')]
+    saved = save_shipment(config, doc)
+    rendered = []
+    original = ui.components.html
+    def capture(html, **kwargs):
+        rendered.append(html)
+        return original(html, **kwargs)
+    monkeypatch.setattr(ui.components, 'html', capture)
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    app.button(key='shipment_edit').click().run()
+    assert not app.toggle(key='shipment_print_preview').disabled
+    assert not app.toggle(key='shipment_hide_prices').disabled
+    epoch = app.session_state['shipment_epoch']
+    app.session_state[f'shipment_{epoch}_items'] = {'edited_rows': {0: {'品名': 'Draft Name', '數量': 2, '單價': 150}}, 'added_rows': [], 'deleted_rows': []}
+    app.toggle(key='shipment_print_preview').set_value(True).run()
+    assert not app.exception
+    assert 'Draft Name' in rendered[-1] and '<td class="amount">300</td>' in rendered[-1]
+    app.toggle(key='shipment_hide_prices').set_value(True).run()
+    assert not app.exception and '<td class="amount"></td>' in rendered[-1]
+    assert app.session_state['shipment_draft']['items'][0]['name'] == 'Draft Name'
+    assert get_shipment(config, saved['id'])['items'][0]['name'] == 'Original'
+    snapshot_before = deepcopy(app.session_state['shipment_draft'])
+    ui._draft_print_document(app.session_state['shipment_draft'])
+    assert app.session_state['shipment_draft'] == snapshot_before
 
 
 def test_exact_number_search_browses_following_numbers_not_only_search_hits(tmp_path):

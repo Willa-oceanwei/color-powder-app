@@ -170,6 +170,19 @@ def _set_code_display(index, code, key):
     st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
 
 
+def _draft_print_document(document):
+    if not document.get("items"):
+        raise ShipmentError("請先輸入出貨品項")
+    if not document.get("shipment_date"):
+        raise ShipmentError("請先輸入出貨日期")
+    snapshot = deepcopy(document)
+    totals = calculate(snapshot["items"], snapshot["tax_mode"], snapshot["tax_rate"])
+    snapshot.update(totals)
+    for item, amount in zip(snapshot["items"], totals["line_amounts"]):
+        item["amount"] = str(amount)
+    return snapshot
+
+
 def render_shipment_management(config, *, start_new_on_entry=False):
     for key, preference in (("shipment_print_preview", "shipment_preview_preference"), ("shipment_hide_prices", "shipment_hide_preference")):
         if preference in st.session_state:
@@ -303,7 +316,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.rerun()
     tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{index + 1 if ids else 0} / {len(ids)}</span>', unsafe_allow_html=True)
     hide_prices = st.session_state.get("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False))
-    with tools[8].popover("列印／匯出", use_container_width=True), st.container():
+    export_panel = tools[8].popover("列印／匯出", use_container_width=True)
+    with export_panel, st.container():
         output = st.selectbox("列印用途", ("實體列印", "另存 PDF（置中）"), key="shipment_output_mode")
         output_mode = "pdf" if output.startswith("另存 PDF") else "print"
         stock = st.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "A5"), key="shipment_paper_stock")
@@ -326,8 +340,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         st.warning("已作廢：" + document.get("void_reason", ""))
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
     print_controls = st.columns([1, 1, 2, 1])
-    preview = print_controls[0].toggle("預覽／列印", value=widget_default("shipment_print_preview", st.session_state.get("shipment_preview_preference", False)), key="shipment_print_preview", disabled=editing, on_change=_remember_print_settings, args=("shipment_print_preview",))
-    hide_prices = print_controls[1].toggle("隱藏單價與金額", value=widget_default("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False)), key="shipment_hide_prices", disabled=editing, on_change=_remember_print_settings, args=("shipment_hide_prices",))
+    preview = print_controls[0].toggle("預覽／列印", value=widget_default("shipment_print_preview", st.session_state.get("shipment_preview_preference", False)), key="shipment_print_preview", on_change=_remember_print_settings, args=("shipment_print_preview",))
+    hide_prices = print_controls[1].toggle("隱藏單價與金額", value=widget_default("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False)), key="shipment_hide_prices", on_change=_remember_print_settings, args=("shipment_hide_prices",))
     sync_products = print_controls[2].toggle("同步建立缺少貨品", key=prefix + "sync_products", disabled=not editing,
                                             help="成交價依客戶、貨品與單位保存於出貨紀錄，不覆蓋共用標準售價")
     if preview and not editing:
@@ -335,6 +349,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             render_purchase_history(config, document["customer_id"], document["customer_name"])
         components.html(theme_preview(print_html), height=550, scrolling=True)
         return
+    draft_preview = st.empty() if editing and preview else None
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
 
     if editing:
@@ -585,6 +600,22 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     if editing and totals and document["items"]:
         lines = '　·　'.join(f'{escape(str(item.get("code", "")))}：{int(amount):,}' for item, amount in zip(document["items"], totals["line_amounts"]))
         st.markdown(f'<div class="shipment-lines">{lines}</div>', unsafe_allow_html=True)
+    if editing:
+        try:
+            snapshot = _draft_print_document(document)
+            draft_html = printable_shipment(snapshot, show_prices=not hide_prices, orientation=orientation,
+                                             feed_rotation=feed_rotation, hole_margin=hole_margin,
+                                             paper_stock=paper_stock, output_mode=output_mode)
+        except ShipmentError as error:
+            if draft_preview is not None:
+                draft_preview.info(str(error))
+        else:
+            with export_panel:
+                st.download_button("下載列印版", draft_html, file_name=(snapshot["shipment_number"] or "未儲存出貨單") + ".html",
+                                   mime="text/html", use_container_width=True)
+            if draft_preview is not None:
+                with draft_preview.container():
+                    components.html(theme_preview(draft_html), height=550, scrolling=True)
     if save_clicked:
         try:
             if any(len(matching_products(all_choices, item.get("code"))) > 1 for item in document["items"]):

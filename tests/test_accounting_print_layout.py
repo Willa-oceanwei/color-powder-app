@@ -35,7 +35,7 @@ def test_a4_driver_shared_feed_preserves_data_and_blanks_prices():
     assert f'translate({x:.6f}mm' in html
     assert stock_geometry(0, 12.5)[2] - x == 25
     assert '.stock-page>.sheet{width:222mm}' in html
-    assert '.company-address {font-size:9pt;}' in html
+    assert '.company-address {font-size:9pt;font-family:"DFKai-SB"' in html
     assert '.company-contact {font-size:11pt;}' in html
     assert '.order_number {padding-left:4mm;}' in html
     assert 'h1 {margin:0;font-size:21pt;' in html
@@ -183,5 +183,20 @@ def test_selected_statement_company_matches_html_excel_and_embedded_pdf_font():
         assert sheet['A1'].value == company
         pdf = statement_pdf(pages, company_name=company)
         assert pdf.startswith(b'%PDF')
-        assert all(ord(char) in pdfmetrics.getFont('CompanySansTC').face.charToGlyph for char in company)
+        from utils.accounting_export import _company_pdf_font
+        assert all(ord(char) in pdfmetrics.getFont(_company_pdf_font()).face.charToGlyph for char in company)
     assert s == before
+
+
+def test_pdf_font_does_not_reuse_an_old_registered_subset():
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from pathlib import Path
+    from utils.accounting_export import _company_pdf_font
+    old = TTFont('CompanySansTC', str(Path(__file__).resolve().parents[1] / 'assets/fonts/CompanySansTC.ttf'))
+    pdfmetrics.registerFont(old)
+    pdf = statement_pdf(statement_pages([statement()], paper_size='A4'), company_name='加舜企業有限公司')
+    current = pdfmetrics.getFont(_company_pdf_font())
+    assert current is not pdfmetrics.getFont('CompanySansTC')
+    assert all(ord(char) in current.face.charToGlyph for char in '加舜企業有限公司')
+    assert pdf.startswith(b'%PDF')

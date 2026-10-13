@@ -3,6 +3,7 @@
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
+from hashlib import sha256
 
 from .shipment_print import COMPANY, _wrap, display_price
 from .shipment_codes import printed_code
@@ -124,10 +125,22 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
     return output.getvalue()
 
 
+def _company_pdf_font():
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    data = (Path(__file__).resolve().parents[1] / "assets/fonts/CompanySansTC.ttf").read_bytes()
+    name = "CompanySansTC-" + sha256(data).hexdigest()[:16]
+    if name not in pdfmetrics.getRegisteredFontNames():
+        font = TTFont(name, BytesIO(data))
+        # ReportLab otherwise aliases a refreshed subset to the old cached face.
+        font.face.name = name.encode("ascii")
+        pdfmetrics.registerFont(font)
+    return name
+
+
 def _canvas(title, *, a5=False):
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.cidfonts import UnicodeCIDFont, CIDEncoding
-    from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import landscape, A4, A5
     font = UnicodeCIDFont("MSung-Light")
@@ -135,7 +148,7 @@ def _canvas(title, *, a5=False):
     font.encodingName = "UniCNS-UCS2-H"
     font.encoding = CIDEncoding(font.encodingName)
     pdfmetrics.registerFont(font)
-    pdfmetrics.registerFont(TTFont("CompanySansTC", str(Path(__file__).resolve().parents[1] / "assets/fonts/CompanySansTC.ttf")))
+    _company_pdf_font()
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=landscape(A5 if a5 else A4))
     pdf.setTitle(title)
@@ -179,7 +192,7 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
             pdf.scale(scale, scale)
         top = size[1]
         s = page["statement"]
-        pdf.setFont("CompanySansTC", 20)
+        pdf.setFont(_company_pdf_font(), 20)
         pdf.drawCentredString(297.5 + extra_width / 2, top - 32, company_name)
         pdf.setFont("MSung-Light", 15)
         pdf.drawCentredString(297.5 + extra_width / 2, top - 50, title)
