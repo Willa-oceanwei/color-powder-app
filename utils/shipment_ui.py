@@ -53,6 +53,11 @@ COMPACT_STYLE = """
 .main:has(#shipment-page) .shipment-total:last-child {border-top:1px solid #84919d;font-weight:600;font-size:16px;margin-top:4px;padding-top:6px;}
 .main:has(#shipment-page) .shipment-lines {font-size:12px;white-space:nowrap;overflow-x:auto;max-width:100%;}
 .main:has(#shipment-page) .shipment-number-help {font-size:10px;line-height:1.3;margin:0;overflow-wrap:anywhere;}
+.main:has(#shipment-page) label[data-baseweb="radio"]>div:first-child {background:transparent!important;border:1.5px solid #527086!important;box-sizing:border-box;}
+.main:has(#shipment-page) label[data-baseweb="radio"]:has(input:checked)>div:first-child {background:#ff8a57!important;border-color:#ff8a57!important;}
+.main:has(#shipment-page) label[data-baseweb="radio"]:has(input:checked)>div:first-child>div {background:#fff!important;}
+.main:has(#shipment-page) label[data-baseweb="radio"]:not(:has(input:checked))>div:first-child>div {background:transparent!important;}
+.main:has(#shipment-page) label[data-baseweb="radio"]:has(input:focus-visible)>div:first-child {outline:2px solid #ffb98d;outline-offset:3px;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] {width:min(960px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important;}
 body:has(#shipment-page) [data-testid="stPopoverBody"]:has(iframe) {max-height:calc(100vh - 32px)!important;overflow-y:auto;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] [data-testid="stVerticalBlock"],
