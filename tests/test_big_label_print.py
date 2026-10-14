@@ -59,8 +59,8 @@ def test_big_label_html_uses_physical_stock_dimensions_and_anchors():
     assert 'class="field left" style="left:-0.1cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:1.8cm;"' in result
-    assert 'class="field left" style="left:-0.1cm; top:2.7cm;"' in result
-    assert 'class="field right" style="left:1.4cm; top:2.7cm;"' in result
+    assert 'class="field left" style="left:-0.1cm; top:2.5cm;"' in result
+    assert 'class="field right" style="left:1.4cm; top:2.5cm;"' in result
     assert "width: 1.0cm;" in result
     assert "context.measureText(field.textContent)" in result
     assert "await document.fonts.ready;" in result
@@ -95,11 +95,11 @@ def test_a4_carrier_keeps_text_inside_page_and_compensates_right_fields():
     assert "overflow: hidden;" in result
     assert 'class="field left" style="left:-0.1cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:5.9cm; top:0.5cm;"' in result
-    assert 'class="field left" style="left:-0.1cm; top:2.7cm;"' in result
-    assert 'class="field right" style="left:5.9cm; top:2.7cm;"' in result
+    assert 'class="field left" style="left:-0.1cm; top:2.5cm;"' in result
+    assert 'class="field right" style="left:5.9cm; top:2.5cm;"' in result
     assert "width: 5.5cm;" in result
     assert 0.6 - 0.1 > 0
-    assert 24 + 2.7 + 18 * 2.54 / 72 < 29.7
+    assert 24 + 2.5 + 18 * 2.54 / 72 < 29.7
     assert result.count('class="sheet"') == 1
     assert result.count("10032") == 4
 
