@@ -3029,7 +3029,7 @@ def get_saved_label_order(saved_snapshot):
     return saved_order
 
 
-def generate_big_label_html(label_rows):
+def generate_big_label_html(label_rows, *, paper_stock="custom"):
     """把標籤資料排成大標 HTML：每張紙 12x32cm 直排 4 格，每格 10.8x7.8cm，
     下方 4.7cm 保留給預印公司資訊、不列印任何內容。超過 4 張自動分頁，
     列印時一張一張手動進紙。"""
@@ -3042,13 +3042,15 @@ def generate_big_label_html(label_rows):
     sheet_h_cm = 32.0
     side_margin_cm = 0.6
     slot_gap_cm = 0.2
+    a4_driver = paper_stock == "a4_driver"
+    carrier_offset_cm = (21.0 - sheet_w_cm) / 2 if a4_driver else 0.0
 
     # Apply the requested printer calibration to the original field anchors.
     text_shift_left_cm = 6.0
     text_shift_up_cm = 0.5
     extra_row_gap_cm = 1.5
     left_col_x_cm = -0.4
-    right_col_x_cm = round(8.0 - side_margin_cm - text_shift_left_cm, 3)
+    right_col_x_cm = round(8.0 - side_margin_cm - text_shift_left_cm + carrier_offset_cm, 3)
     left_text_width_cm = round(right_col_x_cm - left_col_x_cm - 0.5, 3)
 
     # 標籤上方僅 3.1cm 可列印（7.8cm − 4.7cm 預印公司資訊）。上下兩行
@@ -3089,19 +3091,24 @@ def generate_big_label_html(label_rows):
 
     sheets_joined = "\n".join(sheets_html)
 
+    page_size = "A4" if a4_driver else f"{sheet_w_cm}cm {sheet_h_cm}cm"
+    canvas_w_cm = 21.0 if a4_driver else sheet_w_cm
+    canvas_h_cm = 29.7 if a4_driver else sheet_h_cm
+    canvas_overflow = "hidden" if a4_driver else "visible"
     return f"""<html>
 <head>
 <meta charset="utf-8">
 <title>生產單大標列印</title>
 <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&display=swap" rel="stylesheet">
 <style>
-@page {{ size: {sheet_w_cm}cm {sheet_h_cm}cm; margin: 0; }}
+@page {{ size: {page_size}; margin: 0; }}
 * {{ box-sizing: border-box; }}
 body {{ margin: 0; padding: 0; }}
 .sheet {{
     position: relative;
-    width: {sheet_w_cm}cm;
-    height: {sheet_h_cm}cm;
+    width: {canvas_w_cm}cm;
+    height: {canvas_h_cm}cm;
+    overflow: {canvas_overflow};
     page-break-after: always;
     break-after: page;
     page-break-inside: avoid;
@@ -3192,6 +3199,8 @@ def render_big_label_editor(label_order, *, key_prefix):
     """, unsafe_allow_html=True)
     st.markdown("##### 大標籤內容")
     st.caption(f"生產單 {order_no_for_label} · 配方 {label_order.get('配方編號', '')}")
+    paper_choice = st.selectbox("列印紙張", ["A4／100%", "自訂 12×32 公分／100%"],
+                                key=f"{key_prefix}_label_paper_{order_no_for_label}")
     with st.container():
         with st.container():
             st.markdown('<span class="big-label-form-anchor"></span>', unsafe_allow_html=True)
@@ -3252,7 +3261,9 @@ def render_big_label_editor(label_order, *, key_prefix):
     if confirmed_rows:
         sheets_needed = -(-len(confirmed_rows) // 4)  # 無條件進位
         st.caption(f"標籤 {len(confirmed_rows)} 張 · 大標紙 {sheets_needed} 張")
-        big_label_html = generate_big_label_html(confirmed_rows)
+        big_label_html = generate_big_label_html(
+            confirmed_rows, paper_stock="a4_driver" if paper_choice == "A4／100%" else "custom"
+        )
         safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
 
         download_col.download_button(

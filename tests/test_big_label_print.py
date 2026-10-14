@@ -86,6 +86,23 @@ def test_big_label_html_escapes_user_content():
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in result
 
 
+def test_a4_carrier_keeps_text_inside_page_and_compensates_right_fields():
+    generate = _load_generate_big_label_html()
+    result = generate([{"編號": "10032", "名稱": "黑色母", "數量": "30KG"}] * 4,
+                      paper_stock="a4_driver")
+    assert "@page { size: A4; margin: 0; }" in result
+    assert "width: 21.0cm;" in result and "height: 29.7cm;" in result
+    assert "overflow: hidden;" in result
+    assert 'class="field left" style="left:-0.4cm; top:0.5cm;"' in result
+    assert 'class="field right" style="left:5.9cm; top:0.5cm;"' in result
+    assert 'class="field right" style="left:5.9cm; top:2.9cm;"' in result
+    assert "width: 5.8cm;" in result
+    assert 0.6 - 0.4 > 0
+    assert 24 + 2.9 + 18 * 2.54 / 72 < 29.7
+    assert result.count('class="sheet"') == 1
+    assert result.count("10032") == 4
+
+
 def test_quick_rows_expand_weights_and_ignore_zero_counts():
     helpers = _load_quick_label_helpers()
     labels = helpers["build_quick_labels"](

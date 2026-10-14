@@ -34,6 +34,7 @@ render_order_download_actions(order, b"A5", "P001.html")
     assert not app.dataframe
     app.button(key="open_labels_tab2_P001").click().run()
     assert not app.exception and len(app.dataframe) == 1
+    assert app.selectbox(key="tab2_label_paper_P001").value == "A4／100%"
     assert app.dataframe[0].value.iloc[0]["列印張數"] == 2
     app.session_state["tab2_big_label_editor_P001"] = {
         "edited_rows": {0: {"品名": "Edited red", "列印張數": 3}},
