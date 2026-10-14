@@ -3047,7 +3047,7 @@ def generate_big_label_html(label_rows):
     text_shift_left_cm = 6.0
     text_shift_up_cm = 0.5
     extra_row_gap_cm = 1.5
-    left_col_x_cm = -0.4
+    left_col_x_cm = -4.9
     right_col_x_cm = round(8.0 - side_margin_cm - text_shift_left_cm, 3)
     left_text_width_cm = round(right_col_x_cm - left_col_x_cm - 0.5, 3)
 

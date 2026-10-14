@@ -56,12 +56,12 @@ def test_big_label_html_uses_physical_stock_dimensions_and_anchors():
     assert "width: 10.8cm;" in result
     assert "height: 7.8cm;" in result
     assert 'style="top:0.0cm; left:0.6cm;"' in result
-    assert 'class="field left" style="left:-0.4cm; top:0.5cm;"' in result
+    assert 'class="field left" style="left:-4.9cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:1.8cm;"' in result
-    assert 'class="field left" style="left:-0.4cm; top:2.9cm;"' in result
+    assert 'class="field left" style="left:-4.9cm; top:2.9cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:2.9cm;"' in result
-    assert "width: 1.3cm;" in result
+    assert "width: 5.8cm;" in result
     assert "context.measureText(field.textContent)" in result
     assert "await document.fonts.ready;" in result
 
