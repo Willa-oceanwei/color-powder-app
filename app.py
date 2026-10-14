@@ -3049,6 +3049,7 @@ def generate_big_label_html(label_rows):
     extra_row_gap_cm = 1.5
     left_col_x_cm = -0.4
     right_col_x_cm = round(8.0 - side_margin_cm - text_shift_left_cm, 3)
+    left_text_width_cm = round(right_col_x_cm - left_col_x_cm - 0.35, 3)
 
     # 標籤上方僅 3.1cm 可列印（7.8cm − 4.7cm 預印公司資訊）。上下兩行
     # 分別距可列印區上、下緣 1cm；比例則置於兩行正中央。
@@ -3118,10 +3119,30 @@ body {{ margin: 0; padding: 0; }}
     white-space: nowrap;
     line-height: 1;
 }}
-.field.left {{ font-size: 18pt; }}
+.field.left {{ font-size: 18pt; width: {left_text_width_cm}cm; }}
 .field.right {{ font-size: 17pt; }}
 </style>
-<script>window.onload = function() {{ window.print(); }}</script>
+<script>
+function fitLabelText() {{
+    const context = document.createElement('canvas').getContext('2d');
+    document.querySelectorAll('.field.left').forEach(field => {{
+        const style = window.getComputedStyle(field);
+        const size = parseFloat(style.fontSize);
+        context.font = size + 'px ' + style.fontFamily;
+        const textWidth = context.measureText(field.textContent).width;
+        const available = Math.max(1, field.clientWidth - 1);
+        if (textWidth > available) {{
+            field.style.fontSize = (size * available / textWidth) + 'px';
+        }}
+    }});
+}}
+window.onload = async function() {{
+    await document.fonts.ready;
+    fitLabelText();
+    window.print();
+}};
+window.addEventListener('beforeprint', fitLabelText);
+</script>
 </head>
 <body>
 {sheets_joined}
@@ -3150,8 +3171,20 @@ def render_big_label_editor(label_order, *, key_prefix):
 
     st.markdown("""
         <style>
-        div[data-testid="stForm"]:has(.big-label-form-anchor) {
-            background: transparent; border: 0; border-radius: 0; padding: 8px 0;
+        div[data-testid="stVerticalBlock"]:has(> div.element-container .big-label-form-anchor)
+        :is(.stButton, .stDownloadButton) > button {
+            background: #0b2f4a !important; color: #ffffff !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            border-radius: 6px !important; font-weight: 600 !important;
+            min-height: 40px;
+        }
+        div[data-testid="stVerticalBlock"]:has(> div.element-container .big-label-form-anchor)
+        .stButton > button[kind="primary"] {
+            background: #1a5a84 !important;
+        }
+        div[data-testid="stVerticalBlock"]:has(> div.element-container .big-label-form-anchor)
+        :is(.stButton, .stDownloadButton) > button:hover {
+            background: #124466 !important;
         }
         .big-label-form-anchor { display: none; }
         </style>
@@ -3159,7 +3192,7 @@ def render_big_label_editor(label_order, *, key_prefix):
     st.markdown("##### 大標籤內容")
     st.caption(f"生產單 {order_no_for_label} · 配方 {label_order.get('配方編號', '')}")
     with st.container():
-        with st.form(f"{key_prefix}_big_label_form_{order_no_for_label}", border=False):
+        with st.container():
             st.markdown('<span class="big-label-form-anchor"></span>', unsafe_allow_html=True)
             edited_label_rows = st.data_editor(
                 pd.DataFrame(st.session_state[label_editor_defaults_key], columns=BIG_LABEL_EDITOR_COLUMNS),
@@ -3182,8 +3215,10 @@ def render_big_label_editor(label_order, *, key_prefix):
                 },
             )
 
-            save_col, count_col = st.columns([1, 2], vertical_alignment="center")
-            confirm_clicked = save_col.form_submit_button("儲存並更新標籤", type="primary")
+            save_col, download_col, count_col = st.columns([1, 1, 2], vertical_alignment="center")
+            confirm_clicked = save_col.button("儲存並更新標籤", type="primary",
+                                             key=f"{key_prefix}_save_labels_{order_no_for_label}",
+                                             use_container_width=True)
             draft_rows = normalize_big_label_editor_rows(edited_label_rows.to_dict(orient="records"))
             draft_count = sum(row["列印張數"] for row in draft_rows)
             count_col.caption(f"{len(draft_rows)} 種內容 · {draft_count} 張標籤")
@@ -3215,9 +3250,7 @@ def render_big_label_editor(label_order, *, key_prefix):
     confirmed_rows = st.session_state.get(label_confirmed_key)
     if confirmed_rows:
         sheets_needed = -(-len(confirmed_rows) // 4)  # 無條件進位
-        st.divider()
-        summary_col, download_col = st.columns([2, 1], vertical_alignment="center")
-        summary_col.markdown(f"**標籤 {len(confirmed_rows)} 張 · 大標紙 {sheets_needed} 張**")
+        st.caption(f"標籤 {len(confirmed_rows)} 張 · 大標紙 {sheets_needed} 張")
         big_label_html = generate_big_label_html(confirmed_rows)
         safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
 
@@ -3228,6 +3261,7 @@ def render_big_label_editor(label_order, *, key_prefix):
             mime="text/html",
             key=f"{key_prefix}_download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
             use_container_width=True,
+            disabled=draft_rows != st.session_state[label_editor_defaults_key],
         )
         with st.expander("分頁預覽", expanded=False):
             page_rows = [
@@ -3237,6 +3271,10 @@ def render_big_label_editor(label_order, *, key_prefix):
             ]
             st.dataframe(pd.DataFrame(page_rows), hide_index=True, width=800,
                          height=min(248, (len(page_rows) + 1) * 35 + 3))
+    else:
+        download_col.download_button("下載列印檔", data=b"", file_name="labels.html",
+                                     disabled=True, use_container_width=True,
+                                     key=f"{key_prefix}_download_big_label_pending_{order_no_for_label}")
 
 
 def render_order_download_actions(label_order, a5_data, a5_filename):

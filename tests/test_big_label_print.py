@@ -61,6 +61,9 @@ def test_big_label_html_uses_physical_stock_dimensions_and_anchors():
     assert 'class="field right" style="left:1.4cm; top:1.8cm;"' in result
     assert 'class="field left" style="left:-0.4cm; top:3.1cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:2.9cm;"' in result
+    assert "width: 1.45cm;" in result
+    assert "context.measureText(field.textContent)" in result
+    assert "await document.fonts.ready;" in result
 
 
 def test_big_label_html_uses_point_two_centimetre_gaps():
