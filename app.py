@@ -3047,9 +3047,9 @@ def generate_big_label_html(label_rows):
     text_shift_left_cm = 6.0
     text_shift_up_cm = 0.5
     extra_row_gap_cm = 1.5
-    left_col_x_cm = -0.4
+    left_col_x_cm = -3.4
     right_col_x_cm = round(8.0 - side_margin_cm - text_shift_left_cm, 3)
-    left_text_width_cm = round(right_col_x_cm - left_col_x_cm - 0.35, 3)
+    left_text_width_cm = 1.45
 
     # 標籤上方僅 3.1cm 可列印（7.8cm − 4.7cm 預印公司資訊）。上下兩行
     # 分別距可列印區上、下緣 1cm；比例則置於兩行正中央。
@@ -3060,6 +3060,7 @@ def generate_big_label_html(label_rows):
     row3_y_cm = round(ROW3_Y_CM - text_shift_up_cm + extra_row_gap_cm, 3)
     row2_y_cm = round((row1_y_cm + row3_y_cm) / 2, 3)
     quantity_y_cm = round(row3_y_cm - 0.2, 3)
+    name_y_cm = round(row3_y_cm - 0.2, 3)
 
     def esc(v):
         return html_escape.escape(str(v or ""))
@@ -3071,7 +3072,7 @@ def generate_big_label_html(label_rows):
 <div class="field left" style="left:{left_col_x_cm}cm; top:{row1_y_cm}cm;">{esc(entry.get('編號'))}</div>
 <div class="field right" style="left:{right_col_x_cm}cm; top:{row1_y_cm}cm;">{esc(entry.get('日期'))}</div>
 <div class="field right" style="left:{right_col_x_cm}cm; top:{row2_y_cm}cm;">{esc(entry.get('比例'))}</div>
-<div class="field left" style="left:{left_col_x_cm}cm; top:{row3_y_cm}cm;">{esc(entry.get('名稱'))}</div>
+<div class="field left" style="left:{left_col_x_cm}cm; top:{name_y_cm}cm;">{esc(entry.get('名稱'))}</div>
 <div class="field right" style="left:{right_col_x_cm}cm; top:{quantity_y_cm}cm;">{esc(entry.get('數量'))}</div>
 </div>"""
 
