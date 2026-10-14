@@ -3043,19 +3043,21 @@ def generate_big_label_html(label_rows):
     side_margin_cm = 0.6
     slot_gap_cm = 0.2
 
-    # 欄位定位以整張 12cm 紙的左緣為基準：2.5cm、8cm。label-slot 本身
-    # 已從紙張左緣內縮 0.6cm，因此換算成標籤內座標時要扣掉該留白。
-    left_col_x_cm = 2.5 - side_margin_cm
-    right_col_x_cm = 8.0 - side_margin_cm
+    # Apply the requested printer calibration to the original field anchors.
+    text_shift_left_cm = 6.0
+    text_shift_up_cm = 0.5
+    extra_row_gap_cm = 1.5
+    left_col_x_cm = round(2.5 - side_margin_cm - text_shift_left_cm, 3)
+    right_col_x_cm = round(8.0 - side_margin_cm - text_shift_left_cm, 3)
 
     # 標籤上方僅 3.1cm 可列印（7.8cm − 4.7cm 預印公司資訊）。上下兩行
     # 分別距可列印區上、下緣 1cm；比例則置於兩行正中央。
     PRINTABLE_H_CM = label_h_cm - 4.7
     ROW1_Y_CM = 1.0
     ROW3_Y_CM = round(PRINTABLE_H_CM - 1.0, 3)
-    row1_y_cm = ROW1_Y_CM
-    row2_y_cm = round((ROW1_Y_CM + ROW3_Y_CM) / 2, 3)  # 比例：置中在第一行與第三行之間
-    row3_y_cm = ROW3_Y_CM
+    row1_y_cm = round(ROW1_Y_CM - text_shift_up_cm, 3)
+    row3_y_cm = round(ROW3_Y_CM - text_shift_up_cm + extra_row_gap_cm, 3)
+    row2_y_cm = round((row1_y_cm + row3_y_cm) / 2, 3)
 
     def esc(v):
         return html_escape.escape(str(v or ""))
