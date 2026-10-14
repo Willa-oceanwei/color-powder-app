@@ -56,10 +56,11 @@ def test_big_label_html_uses_physical_stock_dimensions_and_anchors():
     assert "width: 10.8cm;" in result
     assert "height: 7.8cm;" in result
     assert 'style="top:0.0cm; left:0.6cm;"' in result
-    assert 'class="field left" style="left:-4.1cm; top:0.5cm;"' in result
+    assert 'class="field left" style="left:0.0cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:1.8cm;"' in result
-    assert 'class="field left" style="left:-4.1cm; top:3.1cm;"' in result
+    assert 'class="field left" style="left:0.0cm; top:3.1cm;"' in result
+    assert 'class="field right" style="left:1.4cm; top:2.9cm;"' in result
 
 
 def test_big_label_html_uses_point_two_centimetre_gaps():

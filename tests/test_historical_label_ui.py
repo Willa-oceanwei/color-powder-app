@@ -39,7 +39,7 @@ render_order_download_actions(order, b"A5", "P001.html")
         "edited_rows": {0: {"品名": "Edited red", "列印張數": 3}},
         "added_rows": [], "deleted_rows": [],
     }
-    next(button for button in app.button if "預覽並產生下載檔" in button.label).click().run()
+    next(button for button in app.button if button.label == "儲存並更新標籤").click().run()
     assert not app.exception
     labels = app.session_state["tab2_big_label_confirmed_P001"]
     assert len(labels) == 3 and labels[0]["名稱"] == "Edited red"
