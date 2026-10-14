@@ -295,7 +295,8 @@ def _annual_leave_records_from_editor(rows, default_year=None):
 def _employee_tab(config, all_employees=None):
     today = date.today()
     mode = st.radio("員工資料操作", ["新增員工", "修改員工"], horizontal=True)
-    search = st.text_input("搜尋員工編號／姓名", key="salary_employee_search") if mode == "修改員工" else ""
+    search_col, employee_col = st.columns(2) if mode == "修改員工" else (st, st)
+    search = search_col.text_input("搜尋員工編號／姓名", key="salary_employee_search") if mode == "修改員工" else ""
     if all_employees is None:
         all_employees = list_employees(config, include_inactive=True)
     normalized_search = search.strip().casefold()
@@ -310,7 +311,7 @@ def _employee_tab(config, all_employees=None):
         return
     current = {}
     if mode == "修改員工":
-        selected_id = st.selectbox("選擇要修改的員工", [x["employee_id"] for x in employees],
+        selected_id = employee_col.selectbox("選擇要修改的員工", [x["employee_id"] for x in employees],
                                    format_func=lambda value: next(f"{x['employee_id']}｜{x['name']} {'(停用)' if not x['active'] else ''}" for x in employees if x["employee_id"] == value))
         current = next(x for x in employees if x["employee_id"] == selected_id)
     current_leave_context = (
@@ -360,12 +361,12 @@ def _employee_tab(config, all_employees=None):
             )
         with defaults_tab:
             st.markdown("##### 每月預設彈性項目")
-            add_enabled = st.toggle("預設啟用特別加給", value=bool(current.get("special_addition_enabled", 0)), key=f"employee_special_enabled_{employee_key}")
-            ca, cn = st.columns([1, 2])
+            enabled_col, ca, cn = st.columns([1.2, 1, 2])
+            add_enabled = enabled_col.toggle("預設啟用特別加給", value=bool(current.get("special_addition_enabled", 0)), key=f"employee_special_enabled_{employee_key}")
             add_amount = ca.number_input("特別加給預設金額", min_value=0, value=int(current.get("special_addition_amount", 0)), key=f"employee_special_amount_{employee_key}")
             add_note = cn.text_input("特別加給預設說明", value=current.get("special_addition_note") or "", key=f"employee_special_note_{employee_key}")
-            deduct_enabled = st.toggle("預設啟用扣除額", value=bool(current.get("default_deduction_enabled", 0)), key=f"employee_deduct_enabled_{employee_key}")
-            da, dn = st.columns([1, 2])
+            enabled_col, da, dn = st.columns([1.2, 1, 2])
+            deduct_enabled = enabled_col.toggle("預設啟用扣除額", value=bool(current.get("default_deduction_enabled", 0)), key=f"employee_deduct_enabled_{employee_key}")
             deduct_amount = da.number_input("扣除額預設金額", min_value=0, value=int(current.get("default_deduction_amount", 0)), key=f"employee_deduct_amount_{employee_key}")
             deduct_note = dn.text_input("扣除額預設說明", value=current.get("default_deduction_note") or "", key=f"employee_deduct_note_{employee_key}")
             note = st.text_area("備註", value=current.get("note", ""), key=f"employee_note_{employee_key}")
@@ -863,11 +864,13 @@ def _history_tab(config, employees=None):
 def _rules_tab(config, rules=None, employees=None):
     rules = get_rules(config) if rules is None else rules
     with st.form("salary_rules"):
-        days = st.number_input("每月計薪天數", min_value=1.0, value=float(rules.get("monthly_days",30)))
-        hours = st.number_input("預設每日標準工時", min_value=0.5, value=float(rules.get("standard_hours",8)))
-        attendance = st.toggle("請假影響全勤", value=bool(rules.get("leave_affects_attendance")))
-        cooling = st.toggle("請假影響涼水", value=bool(rules.get("leave_affects_cooling")))
-        allowance = st.toggle("請假影響津貼", value=bool(rules.get("leave_affects_allowance")))
+        days_col, hours_col = st.columns(2)
+        days = days_col.number_input("每月計薪天數", min_value=1.0, value=float(rules.get("monthly_days",30)))
+        hours = hours_col.number_input("預設每日標準工時", min_value=0.5, value=float(rules.get("standard_hours",8)))
+        attendance_col, cooling_col, allowance_col = st.columns(3)
+        attendance = attendance_col.toggle("請假影響全勤", value=bool(rules.get("leave_affects_attendance")))
+        cooling = cooling_col.toggle("請假影響涼水", value=bool(rules.get("leave_affects_cooling")))
+        allowance = allowance_col.toggle("請假影響津貼", value=bool(rules.get("leave_affects_allowance")))
         if st.form_submit_button("儲存薪資規則", type="primary"):
             save_rules(config, {"monthly_days":days,"standard_hours":hours,"leave_affects_attendance":attendance,"leave_affects_cooling":cooling,"leave_affects_allowance":allowance})
             _invalidate_salary_reference_cache()
@@ -919,11 +922,12 @@ def _rules_tab(config, rules=None, employees=None):
         opening_month = c3.selectbox(
             "開始計算月份", range(1, 13), index=int(setting.get("opening_month", 1)) - 1
         )
-        company_cost_note = st.text_area(
+        company_note_col, leave_note_col = st.columns(2)
+        company_cost_note = company_note_col.text_area(
             "公司負擔說明", value=personal_note.get("company_cost_note") or "",
             help="例如：勞保2582+健保1428+勞退1770+職保62=5842。此文字不會自動計算。",
         )
-        leave_note = st.text_area(
+        leave_note = leave_note_col.text_area(
             "歷年制特休說明", value=personal_note.get("annual_leave_note") or setting.get("note") or "",
             help="例如：歷年制特休14日。此文字只屬於目前選擇的員工與年度。",
         )

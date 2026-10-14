@@ -22,9 +22,10 @@ from pathlib import Path
 from typing import Any, Protocol
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 29
+SCHEMA_VERSION = 30
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
+    "big_label_templates",
     "receipt_change_log",
     "receipt_batches",
     "receipt_batch_allocations",
@@ -782,6 +783,12 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             last_synced_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS big_label_templates (
+            label_key TEXT PRIMARY KEY,
+            rows_json TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS trial_settings (

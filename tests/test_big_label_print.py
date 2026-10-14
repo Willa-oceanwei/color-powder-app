@@ -61,14 +61,15 @@ def test_big_label_html_uses_physical_stock_dimensions_and_anchors():
     assert 'class="field left" style="left:1.9cm; top:2.1cm;"' in result
 
 
-def test_big_label_html_uses_point_three_centimetre_gaps():
+def test_big_label_html_uses_point_two_centimetre_gaps():
     generate = _load_generate_big_label_html()
     rows = [{"編號": str(number)} for number in range(4)]
 
     result = generate(rows)
 
-    for top in (0.0, 8.1, 16.2, 24.3):
+    for top in (0.0, 8.0, 16.0, 24.0):
         assert f'top:{top}cm; left:0.6cm;' in result
+    assert 24.0 + 7.8 <= 32.0
 
 
 def test_big_label_html_escapes_user_content():

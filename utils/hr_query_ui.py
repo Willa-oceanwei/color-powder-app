@@ -82,12 +82,12 @@ def _annual_leave_tab(config):
         st.warning(f"此特休紀錄已納入 {record['year']}/{int(record['month']):02d} 薪資，修改後請重新確認該月薪資。")
     with st.form(f"edit_leave_record_{record['id']}"):
         has_date = st.toggle("記錄特休日期", value=bool(record.get("date")), help="日期為非必要欄位。")
-        cols = st.columns(3)
+        cols = st.columns([1.5, 1, 1, 2])
         default_date = date.fromisoformat(record["date"][:10]) if record.get("date") else date(int(record["year"]), int(record["month"]), 1)
         leave_date = cols[0].date_input("日期（非必填）", value=default_date, disabled=not has_date)
         days = cols[1].number_input("日數", min_value=0.0, value=float(record["days"]))
         hours = cols[2].number_input("時數", min_value=0.0, value=float(record["hours"]))
-        note = st.text_input("備註", value=record.get("note") or "")
+        note = cols[3].text_input("備註", value=record.get("note") or "")
         if st.form_submit_button("儲存修改"):
             save_annual_leave_history_record(config, {**record, "date":leave_date.isoformat() if has_date else "", "days":days,
                                                        "hours":hours, "note":note,

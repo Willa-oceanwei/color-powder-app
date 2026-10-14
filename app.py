@@ -20,6 +20,10 @@ from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils import database as database_utils
 from utils.number_format import format_optional_decimals
+from utils.big_label_repository import (
+    BIG_LABEL_EDITOR_COLUMNS, build_big_label_editor_defaults,
+    normalize_big_label_editor_rows, remember_big_label_rows, expand_big_label_editor_rows,
+)
 from utils.shipment_ui import render_shipment_management
 from utils.product_ui import render_product_management
 from utils.receivable_ui import render_receivable_statement
@@ -2183,8 +2187,7 @@ def reset_production_order_draft_state(session_state, new_order_no, new_recipe_c
     """
     previous_order = session_state.get("new_order") or {}
     same_draft = (
-        not session_state.get("new_order_saved", False)
-        and str(previous_order.get("生產單號", "")).strip() == str(new_order_no).strip()
+        str(previous_order.get("生產單號", "")).strip() == str(new_order_no).strip()
         and str(previous_order.get("配方編號", "")).strip() == str(new_recipe_code).strip()
     )
     if same_draft:
@@ -3038,7 +3041,7 @@ def generate_big_label_html(label_rows):
     sheet_w_cm = 12.0
     sheet_h_cm = 32.0
     side_margin_cm = 0.6
-    slot_gap_cm = 0.3
+    slot_gap_cm = 0.2
 
     # 欄位定位以整張 12cm 紙的左緣為基準：2.5cm、8cm。label-slot 本身
     # 已從紙張左緣內縮 0.6cm，因此換算成標籤內座標時要扣掉該留白。
@@ -3376,15 +3379,16 @@ elif menu == "客戶名單":
             st.info("目前沒有符合的有效客戶。")
         else:
             st.dataframe(filtered[columns], use_container_width=True, hide_index=True)
-            selected_id = st.selectbox(
+            selection_col, reason_col = st.columns([3, 2])
+            selected_id = selection_col.selectbox(
                 "選擇客戶", filtered["客戶編號"].tolist(), key="customer_action_id",
                 format_func=lambda cid: f"{cid}｜{filtered.loc[filtered['客戶編號']==cid, '客戶簡稱'].iloc[0]}",
             )
+            archive_reason = reason_col.text_input("停用原因", key="customer_archive_reason")
             b1, b2 = st.columns(2)
             if b1.button("✏️ 編輯選取客戶", use_container_width=True):
                 st.session_state.editing_customer_id = selected_id
                 st.rerun()
-            archive_reason = st.text_input("停用原因", key="customer_archive_reason")
             if b2.button("🗄️ 停用選取客戶", use_container_width=True, disabled=not archive_reason.strip()):
                 try:
                     set_customer_active(DATABASE_CONFIG, selected_id, active=False, reason=archive_reason)
@@ -6249,14 +6253,16 @@ elif menu == "生產單管理":
 
                     try:
                         upsert_production_order(DATABASE_CONFIG, order)
-                        df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True)).fillna("").astype(str)
-                        df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
-                        st.session_state.df_order = df_order
                         st.session_state.new_order_saved = True
                         st.session_state["saved_label_snapshot"] = {
                             "order": dict(order),
                             "a5_downloaded": False,
                         }
+                        st.session_state[f"show_big_label_{order['生產單號']}"] = True
+                        st.session_state.last_saved_order_snapshot = current_snapshot
+                        df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True)).fillna("").astype(str)
+                        df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
+                        st.session_state.df_order = df_order
                         st.success(f"✅ 生產單 {order['生產單號']} 已存至 Turso，等待 Sheet PUSH！")
                         # ✅【防止重複儲存】只有真的寫入成功才記住
                         st.session_state.last_saved_order_snapshot = current_snapshot
@@ -6482,7 +6488,7 @@ elif menu == "生產單管理":
                 show_label_key = f"show_big_label_{order_no_for_label}"
                 label_version_key = f"big_label_version_{order_no_for_label}"
                 label_confirmed_key = f"big_label_confirmed_{order_no_for_label}"
-                quick_defaults_key = f"big_label_quick_defaults_{order_no_for_label}"
+                label_editor_defaults_key = f"big_label_editor_defaults_{order_no_for_label}"
 
                 a5_downloaded = snapshot.get("a5_downloaded", False)
 
@@ -6500,67 +6506,67 @@ elif menu == "生產單管理":
                 if show_label_section:
                     if not a5_downloaded:
                         st.caption("ℹ️ 尚未下載 A5 生產單；仍可直接編輯及列印標籤。")
-                    if quick_defaults_key not in st.session_state:
-                        st.session_state[quick_defaults_key] = build_quick_label_defaults(snapshot_order)
+                    if label_editor_defaults_key not in st.session_state:
+                        initial_labels = build_big_label_rows(snapshot_order) or [{
+                            "編號": snapshot_order.get("配方編號", ""),
+                            "名稱": snapshot_order.get("顏色", ""),
+                            "日期": to_roc_date(snapshot_order.get("生產日期", "")),
+                            "比例": format_label_ratio(snapshot_order), "數量": "",
+                        }]
+                        st.session_state[label_editor_defaults_key] = build_big_label_editor_defaults(
+                            DATABASE_CONFIG, snapshot_order, initial_labels
+                        )
                     if label_version_key not in st.session_state:
                         st.session_state[label_version_key] = 0
 
                     with st.container(border=True):
                         with st.form(f"big_label_form_{order_no_for_label}", border=False):
-                            label_content = st.text_input(
-                                "標籤內容",
-                                value=str(snapshot_order.get("顏色", "") or ""),
-                                key=f"big_label_content_{order_no_for_label}",
-                                help="預設帶入原本的顏色名稱，可在本次列印前修改。",
+                            edited_label_rows = st.data_editor(
+                                pd.DataFrame(st.session_state[label_editor_defaults_key], columns=BIG_LABEL_EDITOR_COLUMNS),
+                                column_order=BIG_LABEL_EDITOR_COLUMNS,
+                                hide_index=True,
+                                num_rows="dynamic",
+                                use_container_width=True,
+                                key=f"big_label_editor_{order_no_for_label}",
+                                column_config={
+                                    "編號": st.column_config.TextColumn("編號", width="medium"),
+                                    "品名": st.column_config.TextColumn("品名", width="large"),
+                                    "日期": st.column_config.TextColumn("日期", width="medium"),
+                                    "比例": st.column_config.TextColumn("比例", width="medium"),
+                                    "數量": st.column_config.TextColumn("數量", width="small"),
+                                    "列印張數": st.column_config.NumberColumn(
+                                        "列印張數", min_value=0, step=1, width="small"
+                                    ),
+                                },
                             )
-                            header_weight, header_qty = st.columns([3, 1])
-                            header_weight.markdown("**重量 / 數量**")
-                            header_qty.markdown("**列印張數**")
-                            quick_rows = []
-                            for row_index, default in enumerate(st.session_state[quick_defaults_key]):
-                                weight_col, qty_col = st.columns([3, 1])
-                                with weight_col:
-                                    weight = st.text_input(
-                                        f"第 {row_index + 1} 列重量 / 數量",
-                                        value=default["weight"],
-                                        key=f"big_label_weight_{order_no_for_label}_{row_index}",
-                                        label_visibility="collapsed",
-                                        placeholder="例如 25K、500g",
-                                    )
-                                with qty_col:
-                                    qty = st.number_input(
-                                        f"第 {row_index + 1} 列列印張數",
-                                        min_value=0,
-                                        value=int(default["qty"]),
-                                        step=1,
-                                        key=f"big_label_qty_{order_no_for_label}_{row_index}",
-                                        label_visibility="collapsed",
-                                    )
-                                quick_rows.append({"weight": weight, "qty": int(qty)})
 
                             confirm_clicked = st.form_submit_button(
                                 "✅ 預覽並產生下載檔", use_container_width=True
                             )
 
                         if confirm_clicked:
-                            missing_weights = [
-                                index + 1 for index, row in enumerate(quick_rows)
-                                if row["qty"] > 0 and not row["weight"].strip()
-                            ]
-                            total_qty = sum(row["qty"] for row in quick_rows)
-                            if missing_weights:
-                                st.error(
-                                    f"第 {', '.join(map(str, missing_weights))} 列已設定張數，請輸入重量 / 數量。"
-                                )
-                                st.session_state[label_confirmed_key] = None
-                            elif total_qty == 0:
+                            editor_rows = normalize_big_label_editor_rows(
+                                edited_label_rows.to_dict(orient="records")
+                                if hasattr(edited_label_rows, "to_dict")
+                                else edited_label_rows
+                            )
+                            total_qty = sum(row["列印張數"] for row in editor_rows)
+                            if total_qty == 0:
                                 st.warning("請至少設定一張標籤")
                                 st.session_state[label_confirmed_key] = None
                             else:
-                                labels = build_quick_labels(snapshot_order, label_content, quick_rows)
-                                st.session_state[label_confirmed_key] = labels
-                                st.session_state[label_version_key] += 1
-                                st.toast("預覽已更新，下載按鈕已產生", icon="✅")
+                                try:
+                                    remember_big_label_rows(DATABASE_CONFIG, snapshot_order, editor_rows)
+                                except Exception:
+                                    logging.exception("Could not save big label template")
+                                    st.error("標籤內容未能儲存，請稍後再試。")
+                                    st.session_state[label_confirmed_key] = None
+                                else:
+                                    st.session_state[label_editor_defaults_key] = editor_rows
+                                    labels = expand_big_label_editor_rows(editor_rows)
+                                    st.session_state[label_confirmed_key] = labels
+                                    st.session_state[label_version_key] += 1
+                                    st.toast("標籤內容已儲存，下載按鈕已產生", icon="✅")
 
                     confirmed_rows = st.session_state.get(label_confirmed_key)
                     if confirmed_rows:
@@ -8524,9 +8530,10 @@ if menu == "代工管理":
                 delivery_count = sum(str(item.get("代工單號", "")) == archive_id for item in all_deliveries)
                 return_count = sum(str(item.get("代工單號", "")) == archive_id for item in all_returns)
                 st.info(f"這張代工單包含 {delivery_count} 筆送達、{return_count} 筆載回歷程。")
-                archive_reason = st.text_input("封存原因", key="archive_oem_reason")
+                reason_col, confirmation_col = st.columns(2)
+                archive_reason = reason_col.text_input("封存原因", key="archive_oem_reason")
                 archive_phrase = f"ARCHIVE {archive_id}"
-                archive_confirmation = st.text_input(
+                archive_confirmation = confirmation_col.text_input(
                     f"請輸入 {archive_phrase}", key="archive_oem_confirmation"
                 )
                 if st.button(
@@ -8949,8 +8956,9 @@ elif menu == "採購管理":
                         c5, c6 = st.columns(2)
                         edit_supplier_id = c5.text_input("廠商編號", value=str(target_row.get("廠商編號", "")).strip())
                         edit_supplier_name = c6.text_input("廠商名稱", value=str(target_row.get("廠商名稱", "")).strip())
-                        edit_note = st.text_input("備註", value=str(target_row.get("備註", "")))
-                        reversal_reason = st.text_input(
+                        note_col, reason_col = st.columns(2)
+                        edit_note = note_col.text_input("備註", value=str(target_row.get("備註", "")))
+                        reversal_reason = reason_col.text_input(
                             "沖銷原因（執行沖銷時必填）",
                             placeholder="例如：進貨登錄錯誤、數量輸入錯誤",
                             disabled=is_reversed,
@@ -10475,9 +10483,10 @@ elif menu == "庫存區":
             ini_qty    = col2.number_input("數量", min_value=0.0, value=0.0, step=1.0, key="ini_qty")
             ini_unit   = col3.selectbox("單位", ["g", "kg"], key="ini_unit")
 
-            ini_date = st.date_input("設定日期", value=datetime.today(), key="ini_date")
+            date_col, note_col = st.columns([1, 2])
+            ini_date = date_col.date_input("設定日期", value=datetime.today(), key="ini_date")
 
-            ini_note  = st.text_input("備註", key="ini_note")
+            ini_note  = note_col.text_input("備註", key="ini_note")
             submit_t1 = st.form_submit_button("💾 儲存初始庫存")
 
         if submit_t1:

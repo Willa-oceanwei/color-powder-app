@@ -209,6 +209,18 @@ def test_same_unsaved_recipe_draft_keeps_widget_input_during_rerun():
     assert state["form_weight1_tab1"] == "0.25"
 
 
+def test_same_saved_order_keeps_label_snapshot_when_toggle_reruns():
+    reset_draft = _load_draft_reset_helper()
+    order = {"生產單號": "P001", "配方編號": "R001", "包裝重量1": "25", "包裝份數1": "2"}
+    snapshot = {"order": order.copy(), "a5_downloaded": False}
+    state = {"new_order": order, "new_order_saved": True, "show_confirm_panel": True,
+             "saved_label_snapshot": snapshot, "show_big_label_P001": True}
+    assert reset_draft(state, "P001", "R001") is False
+    assert state["saved_label_snapshot"] == snapshot
+    assert state["new_order_saved"] is True
+    assert state["show_confirm_panel"] is True
+
+
 def test_new_order_widgets_are_initialized_from_selected_recipe():
     initialize = _load_recipe_widget_initializer()
     state = {}

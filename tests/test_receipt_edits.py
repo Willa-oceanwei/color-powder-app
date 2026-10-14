@@ -73,3 +73,25 @@ def test_batch_edit_rejects_stale_and_single_child_edits(config):
                                      allocations=edits(details, [150, 50]), reason='Stale')
     assert list_receipt_batches(config, 'A01')[0]['version'] == 1
 
+
+def test_receipt_edit_history_renders_without_nested_expanders(config):
+    from pathlib import Path
+    from streamlit.testing.v1 import AppTest
+
+    document = shipment(config)
+    received = receipt(config, document, amount=50)
+    version = get_shipment(config, document['id'])['version']
+    update_receipt_amount(config, receipt_id=received['id'], shipment_version=version, amount=80, reason='Correction')
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.receivable_ui import render_receipt_entry
+render_receipt_entry(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    assert not app.exception
+    assert app.selectbox(key='receipt_customer').value == 'A01'
+    assert app.selectbox(key='receipt_shipment').value == document['id']
+    assert any(expander.label == '收款修改紀錄' for expander in app.expander)
+

@@ -293,12 +293,13 @@ def render_batch_receipt(config, customer, records, *, prepaid=False):
             batch = by_id[selected]
             with st.expander('修改批次收款'):
                 with st.form(f"batch_edit_{selected}_{batch['version']}"):
-                    corrected = st.number_input('修改收款總額', min_value=1, max_value=1000000000000, value=int(batch['amount']), step=1)
+                    amount_col, reason_col = st.columns([1, 2])
+                    corrected = amount_col.number_input('修改收款總額', min_value=1, max_value=1000000000000, value=int(batch['amount']), step=1)
+                    reason = reason_col.text_input('修改原因')
                     allocation_rows = [{'出貨單號': r['shipment_number'], '沖帳日期': r['receipt_date'], '沖抵金額': int(r['amount'])} for r in details]
                     revised = st.data_editor(pd.DataFrame(allocation_rows), hide_index=True, use_container_width=True,
                                              disabled=['出貨單號', '沖帳日期'],
                                              column_config={'沖抵金額': st.column_config.NumberColumn('沖抵金額', min_value=0, step=1, required=True)}) if details else None
-                    reason = st.text_input('修改原因')
                     if st.form_submit_button('儲存收款修改'):
                         try:
                             allocations = [dict(receipt_id=r['id'], shipment_version=r['shipment_version'], amount=revised.iloc[i]['沖抵金額'])
@@ -311,8 +312,9 @@ def render_batch_receipt(config, customer, records, *, prepaid=False):
                             _batch_receipt_saved(token_key, '批次收款已修改')
             with st.expander('作廢整批收款'):
                 with st.form('batch_void_' + selected):
-                    reason = st.text_input('收款作廢原因')
-                    confirmed = st.toggle('確認作廢整批收款及所有沖抵')
+                    reason_col, confirm_col = st.columns([2, 1])
+                    reason = reason_col.text_input('收款作廢原因')
+                    confirmed = confirm_col.toggle('確認作廢整批收款及所有沖抵')
                     if st.form_submit_button('作廢整批收款'):
                         if not confirmed:
                             st.error('請確認作廢')
@@ -333,12 +335,13 @@ def render_receipt_entry(config):
     if not customers:
         st.info("目前沒有可登錄收款的出貨單")
         return
-    customer = st.selectbox("收款客戶", sorted(customers), format_func=lambda c: c + " · " + customers[c], key="receipt_customer")
+    customer_col, shipment_col = st.columns(2)
+    customer = customer_col.selectbox("收款客戶", sorted(customers), format_func=lambda c: c + " · " + customers[c], key="receipt_customer")
     if mode != '單筆收款':
         render_batch_receipt(config, customer, records, prepaid=mode == '預收款沖帳')
         return
     documents = {r["id"]: r for r in records if r["customer_id"] == customer}
-    shipment_id = st.selectbox("收款出貨單", list(documents), format_func=lambda i: documents[i]["shipment_number"] + " · " + documents[i]["shipment_date"], key="receipt_shipment")
+    shipment_id = shipment_col.selectbox("收款出貨單", list(documents), format_func=lambda i: documents[i]["shipment_number"] + " · " + documents[i]["shipment_date"], key="receipt_shipment")
     document = get_shipment(config, shipment_id)
     receipts = list_receipts(config, shipment_id)
     paid = sum((Decimal(r["amount"]) for r in receipts if r["status"] == "active"), Decimal(0))
@@ -383,9 +386,10 @@ def render_receipt_entry(config):
                     selected = st.selectbox('修改哪筆收款', list(editable), key='receipt_edit_' + shipment_id,
                                              format_func=lambda i: editable[i]['receipt_date'] + ' · ' + editable[i]['amount'] + ' · ' + i[:8])
                     with st.form(f"receipt_edit_{selected}_{document['version']}"):
-                        corrected = st.number_input('修改收款金額', min_value=1, max_value=1000000000000,
+                        amount_col, reason_col = st.columns([1, 2])
+                        corrected = amount_col.number_input('修改收款金額', min_value=1, max_value=1000000000000,
                                                      value=int(editable[selected]['amount']), step=1)
-                        reason = st.text_input('修改原因')
+                        reason = reason_col.text_input('修改原因')
                         if st.form_submit_button('儲存收款修改'):
                             try:
                                 update_receipt_amount(config, receipt_id=selected, shipment_version=document['version'],
@@ -394,11 +398,12 @@ def render_receipt_entry(config):
                                 st.error(str(error))
                             else:
                                 _batch_receipt_saved(token_key, '收款已修改')
-                    _receipt_change_history(config, selected)
+                _receipt_change_history(config, selected)
             with st.expander("作廢收款紀錄"):
                 with st.form("receipt_void_" + shipment_id):
-                    receipt_id = st.selectbox("收款紀錄", list(active), format_func=lambda i: active[i]["receipt_date"] + " · " + active[i]["amount"] + " · " + active[i]["method"] + " · " + i[:8])
-                    reason = st.text_input("作廢收款原因")
+                    receipt_col, reason_col = st.columns([3, 2])
+                    receipt_id = receipt_col.selectbox("收款紀錄", list(active), format_func=lambda i: active[i]["receipt_date"] + " · " + active[i]["amount"] + " · " + active[i]["method"] + " · " + i[:8])
+                    reason = reason_col.text_input("作廢收款原因")
                     confirmed = st.toggle("確認作廢此收款")
                     if st.form_submit_button("作廢收款"):
                         if not confirmed:
@@ -412,4 +417,3 @@ def render_receipt_entry(config):
                                 st.session_state.pop("receivable_pages", None)
                                 st.session_state.receipt_notice = "收款已作廢"
                                 st.rerun()
-
