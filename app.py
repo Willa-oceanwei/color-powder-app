@@ -3072,9 +3072,8 @@ def generate_big_label_html(label_rows, *, paper_stock="custom"):
             return ""
         number_text = str(entry.get("編號", "") or "").strip()
         name_text = str(entry.get("名稱", "") or "").strip()
-        short_fields = number_text.isdigit() and len(number_text) < 6 and 0 < len(name_text) < 3
-        medium_fields = number_text.isdigit() and len(number_text) <= 6 and 0 < len(name_text) <= 3
-        extra_right_cm = 1.0 if short_fields else 0.3 if medium_fields else 0.0
+        short_fields = number_text.isdigit() and len(number_text) <= 6 and 0 < len(name_text) <= 3
+        extra_right_cm = 1.0 if short_fields else 0.0
         entry_left_cm = round(left_col_x_cm + extra_right_cm, 3)
         entry_width_cm = round(max(0.1, left_text_width_cm - extra_right_cm), 3)
         width_style = f" width:{entry_width_cm}cm;" if extra_right_cm else ""
