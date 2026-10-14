@@ -6258,7 +6258,7 @@ elif menu == "生產單管理":
                             "order": dict(order),
                             "a5_downloaded": False,
                         }
-                        st.session_state[f"show_big_label_{order['生產單號']}"] = True
+                        st.session_state.setdefault(f"show_big_label_{order['生產單號']}", False)
                         st.session_state.last_saved_order_snapshot = current_snapshot
                         df_order = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True)).fillna("").astype(str)
                         df_order.to_csv("data/order.csv", index=False, encoding="utf-8-sig")
@@ -6519,20 +6519,22 @@ elif menu == "生產單管理":
                     if label_version_key not in st.session_state:
                         st.session_state[label_version_key] = 0
 
-                    with st.container(border=True):
+                    with st.container():
                         with st.form(f"big_label_form_{order_no_for_label}", border=False):
                             edited_label_rows = st.data_editor(
                                 pd.DataFrame(st.session_state[label_editor_defaults_key], columns=BIG_LABEL_EDITOR_COLUMNS),
                                 column_order=BIG_LABEL_EDITOR_COLUMNS,
                                 hide_index=True,
                                 num_rows="dynamic",
-                                use_container_width=True,
+                                width=800,
+                                use_container_width=False,
+                                height=min(248, max(108, (len(st.session_state[label_editor_defaults_key]) + 2) * 35 + 3)),
                                 key=f"big_label_editor_{order_no_for_label}",
                                 column_config={
-                                    "編號": st.column_config.TextColumn("編號", width="medium"),
-                                    "品名": st.column_config.TextColumn("品名", width="large"),
+                                    "編號": st.column_config.TextColumn("編號", width="small"),
+                                    "品名": st.column_config.TextColumn("品名", width="medium"),
                                     "日期": st.column_config.TextColumn("日期", width="medium"),
-                                    "比例": st.column_config.TextColumn("比例", width="medium"),
+                                    "比例": st.column_config.TextColumn("比例", width="small"),
                                     "數量": st.column_config.TextColumn("數量", width="small"),
                                     "列印張數": st.column_config.NumberColumn(
                                         "列印張數", min_value=0, step=1, width="small"
@@ -6541,7 +6543,7 @@ elif menu == "生產單管理":
                             )
 
                             confirm_clicked = st.form_submit_button(
-                                "✅ 預覽並產生下載檔", use_container_width=True
+                                "✅ 預覽並產生下載檔"
                             )
 
                         if confirm_clicked:
