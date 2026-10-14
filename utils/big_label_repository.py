@@ -28,13 +28,14 @@ def normalize_big_label_editor_rows(rows):
     return normalized
 
 
-def _memory_key(order):
-    return _cell(order.get("配方編號") or order.get("生產單號"))
+def _memory_key(order, label_kind="big"):
+    key = _cell(order.get("配方編號") or order.get("生產單號"))
+    return json.dumps(["small", key], ensure_ascii=False) if label_kind == "small" and key else key
 
 
-def build_big_label_editor_defaults(config, order, labels):
+def build_big_label_editor_defaults(config, order, labels, *, label_kind="big"):
     with connect_from_config(config) as conn:
-        saved = conn.execute("SELECT rows_json FROM big_label_templates WHERE label_key=?", (_memory_key(order),)).fetchone()
+        saved = conn.execute("SELECT rows_json FROM big_label_templates WHERE label_key=?", (_memory_key(order, label_kind),)).fetchone()
     if saved:
         remembered = normalize_big_label_editor_rows(json.loads(saved[0]))
         if remembered:
@@ -49,8 +50,8 @@ def build_big_label_editor_defaults(config, order, labels):
     ] or [{"編號": _memory_key(order), "品名": _cell(order.get("顏色")), "日期": "", "比例": "", "數量": "", "列印張數": 1}]
 
 
-def remember_big_label_rows(config, order, rows):
-    key = _memory_key(order)
+def remember_big_label_rows(config, order, rows, *, label_kind="big"):
+    key = _memory_key(order, label_kind)
     if not key:
         raise ValueError("請先填寫標籤編號")
     payload = json.dumps(normalize_big_label_editor_rows(rows), ensure_ascii=False, allow_nan=False)

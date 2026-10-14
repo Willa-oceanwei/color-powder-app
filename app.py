@@ -28,6 +28,7 @@ from utils.shipment_ui import render_shipment_management
 from utils.product_ui import render_product_management
 from utils.receivable_ui import render_receivable_statement
 from utils.paper_preview import build_paper_preview, paper_preview_height
+from utils.small_label_print import generate_small_label_html
 from utils.inventory_audit import (
     duplicate_initial_inventory_sync_ids,
     latest_initial_inventory_record,
@@ -3168,6 +3169,12 @@ window.addEventListener('beforeprint', fitLabelText);
 def render_big_label_editor(label_order, *, key_prefix):
     """Edit and print labels from either a newly saved or historical order."""
     order_no_for_label = str(label_order.get("生產單號", ""))
+    label_kind = st.radio("標籤類型", ["大標籤", "小標籤"], horizontal=True,
+                         key=f"{key_prefix}_label_kind_{order_no_for_label}")
+    is_small = label_kind == "小標籤"
+    memory_options = {"label_kind": "small"} if is_small else {}
+    if is_small:
+        key_prefix = f"{key_prefix}_small"
     label_version_key = f"{key_prefix}_big_label_version_{order_no_for_label}"
     label_confirmed_key = f"{key_prefix}_big_label_confirmed_{order_no_for_label}"
     label_editor_defaults_key = f"{key_prefix}_big_label_defaults_{order_no_for_label}"
@@ -3179,7 +3186,7 @@ def render_big_label_editor(label_order, *, key_prefix):
             "比例": format_label_ratio(label_order), "數量": "",
         }]
         st.session_state[label_editor_defaults_key] = build_big_label_editor_defaults(
-            DATABASE_CONFIG, label_order, initial_labels
+            DATABASE_CONFIG, label_order, initial_labels, **memory_options
         )
     if label_version_key not in st.session_state:
         st.session_state[label_version_key] = 0
@@ -3204,16 +3211,18 @@ def render_big_label_editor(label_order, *, key_prefix):
         .big-label-form-anchor { display: none; }
         </style>
     """, unsafe_allow_html=True)
-    st.markdown("##### 大標籤內容")
+    st.markdown(f"##### {label_kind}內容")
     st.caption(f"生產單 {order_no_for_label} · 配方 {label_order.get('配方編號', '')}")
-    paper_choice = st.selectbox("列印紙張", ["A4／100%", "自訂 12×32 公分／100%"],
+    paper_options = ["自訂 14×23 公分／100%", "A4／100%"] if is_small else ["A4／100%", "自訂 12×32 公分／100%"]
+    paper_choice = st.selectbox("列印紙張", paper_options,
                                 key=f"{key_prefix}_label_paper_{order_no_for_label}")
+    editor_columns = [col for col in BIG_LABEL_EDITOR_COLUMNS if not is_small or col != "數量"]
     with st.container():
         with st.container():
             st.markdown('<span class="big-label-form-anchor"></span>', unsafe_allow_html=True)
             edited_label_rows = st.data_editor(
                 pd.DataFrame(st.session_state[label_editor_defaults_key], columns=BIG_LABEL_EDITOR_COLUMNS),
-                column_order=BIG_LABEL_EDITOR_COLUMNS,
+                column_order=editor_columns,
                 hide_index=True,
                 num_rows="dynamic",
                 width=800,
@@ -3224,8 +3233,8 @@ def render_big_label_editor(label_order, *, key_prefix):
                     "編號": st.column_config.TextColumn("編號", width="small"),
                     "品名": st.column_config.TextColumn("品名", width="medium"),
                     "日期": st.column_config.TextColumn("日期", width="medium"),
-                    "比例": st.column_config.TextColumn("比例", width="small"),
-                    "數量": st.column_config.TextColumn("數量", width="small"),
+                    "比例": st.column_config.TextColumn("g/kg" if is_small else "比例", width="small"),
+                    "數量": None if is_small else st.column_config.TextColumn("數量", width="small"),
                     "列印張數": st.column_config.NumberColumn(
                         "列印張數", min_value=0, step=1, width="small"
                     ),
@@ -3252,7 +3261,7 @@ def render_big_label_editor(label_order, *, key_prefix):
                 st.session_state[label_confirmed_key] = None
             else:
                 try:
-                    remember_big_label_rows(DATABASE_CONFIG, label_order, editor_rows)
+                    remember_big_label_rows(DATABASE_CONFIG, label_order, editor_rows, **memory_options)
                 except Exception:
                     logging.exception("Could not save big label template")
                     st.error("標籤內容未能儲存，請稍後再試。")
@@ -3266,9 +3275,12 @@ def render_big_label_editor(label_order, *, key_prefix):
 
     confirmed_rows = st.session_state.get(label_confirmed_key)
     if confirmed_rows:
-        sheets_needed = -(-len(confirmed_rows) // 4)  # 無條件進位
-        st.caption(f"標籤 {len(confirmed_rows)} 張 · 大標紙 {sheets_needed} 張")
-        big_label_html = generate_big_label_html(
+        page_size = 10 if is_small else 4
+        sheets_needed = -(-len(confirmed_rows) // page_size)
+        st.caption(f"標籤 {len(confirmed_rows)} 張 · {label_kind}紙 {sheets_needed} 張")
+        big_label_html = generate_small_label_html(
+            confirmed_rows, paper_stock="a4_driver" if paper_choice == "A4／100%" else "custom",
+        ) if is_small else generate_big_label_html(
             confirmed_rows, paper_stock="a4_driver" if paper_choice == "A4／100%" else "custom"
         )
         safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
@@ -3276,7 +3288,7 @@ def render_big_label_editor(label_order, *, key_prefix):
         download_col.download_button(
             label="下載列印檔",
             data=big_label_html.encode("utf-8"),
-            file_name=f"{safe_order_no}_大標.html",
+            file_name=f"{safe_order_no}_{'小標籤' if is_small else '大標'}.html",
             mime="text/html",
             key=f"{key_prefix}_download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
             use_container_width=True,
@@ -3286,7 +3298,7 @@ def render_big_label_editor(label_order, *, key_prefix):
             page_rows = [
                 {"頁次": page_number, "標籤張數": len(page),
                  "各張數量": "、".join(str(row.get("數量", "")) for row in page)}
-                for page_number, page in enumerate(chunk_label_pages(confirmed_rows), start=1)
+                for page_number, page in enumerate(chunk_label_pages(confirmed_rows, page_size), start=1)
             ]
             st.dataframe(pd.DataFrame(page_rows), hide_index=True, width=800,
                          height=min(248, (len(page_rows) + 1) * 35 + 3))
@@ -6662,7 +6674,7 @@ elif menu == "生產單管理":
             if snapshot_order is None:
                 st.markdown("""
                     <div class="label-print-card">
-                        <div class="lp-title">🏷️ 列印大標</div>
+                        <div class="lp-title">🏷️ 列印標籤</div>
                         <div class="lp-subtitle">請先儲存生產單，才能列印標籤。</div>
                     </div>
                 """, unsafe_allow_html=True)
@@ -6677,7 +6689,7 @@ elif menu == "生產單管理":
                 with header_col:
                     st.markdown(f"""
                         <div class="label-print-card">
-                            <div class="lp-title">🏷️ 列印大標</div>
+                            <div class="lp-title">🏷️ 列印標籤</div>
                             <div class="lp-subtitle">生產單 {order_no_for_label}，{'已下載 A5' if a5_downloaded else '尚未下載 A5'}</div>
                         </div>
                     """, unsafe_allow_html=True)

@@ -23,6 +23,7 @@ import pandas as pd
 import streamlit as st
 from utils.database import DatabaseConfig
 from utils.big_label_repository import *
+from utils.small_label_print import generate_small_label_html
 DATABASE_CONFIG = DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r}))
 {helpers}
 format_label_ratio = lambda order: "4g/kg"
@@ -46,5 +47,22 @@ render_order_download_actions(order, b"A5", "P001.html")
     assert len(labels) == 3 and labels[0]["名稱"] == "Edited red"
     saved = build_big_label_editor_defaults(config, {"配方編號": "R001"}, [])
     assert saved[0]["品名"] == "Edited red" and saved[0]["列印張數"] == 3
+    app.radio(key="tab2_label_kind_P001").set_value("小標籤").run()
+    assert not app.exception
+    assert app.selectbox(key="tab2_small_label_paper_P001").value == "自訂 14×23 公分／100%"
+    assert app.dataframe[0].value.iloc[0]["品名"] == "Red"
+    app.session_state["tab2_small_big_label_editor_P001"] = {
+        "edited_rows": {0: {"品名": "Small red", "比例": "5g/kg", "列印張數": 11}},
+        "added_rows": [], "deleted_rows": [],
+    }
+    next(button for button in app.button if button.label == "儲存並更新標籤").click().run()
+    assert not app.exception
+    assert len(app.session_state["tab2_small_big_label_confirmed_P001"]) == 11
+    small_saved = build_big_label_editor_defaults(config, {"配方編號": "R001"}, [], label_kind="small")
+    assert small_saved[0]["品名"] == "Small red"
+    assert build_big_label_editor_defaults(config, {"配方編號": "R001"}, []) == saved
+    app.radio(key="tab2_label_kind_P001").set_value("大標籤").run()
+    assert not app.exception
+    assert app.dataframe[0].value.iloc[0]["品名"] == "Edited red"
     app.button(key="open_labels_tab2_P001").click().run()
     assert not app.exception and not app.dataframe
