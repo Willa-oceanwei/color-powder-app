@@ -3049,7 +3049,7 @@ def generate_big_label_html(label_rows, *, paper_stock="custom"):
     text_shift_left_cm = 6.0
     text_shift_up_cm = 0.5
     extra_row_gap_cm = 1.5
-    left_col_x_cm = -0.4
+    left_col_x_cm = -0.1
     right_col_x_cm = round(8.0 - side_margin_cm - text_shift_left_cm + carrier_offset_cm, 3)
     left_text_width_cm = round(right_col_x_cm - left_col_x_cm - 0.5, 3)
 
@@ -3061,8 +3061,8 @@ def generate_big_label_html(label_rows, *, paper_stock="custom"):
     row1_y_cm = round(ROW1_Y_CM - text_shift_up_cm, 3)
     row3_y_cm = round(ROW3_Y_CM - text_shift_up_cm + extra_row_gap_cm, 3)
     row2_y_cm = round((row1_y_cm + row3_y_cm) / 2, 3)
-    quantity_y_cm = round(row3_y_cm - 0.2, 3)
-    name_y_cm = round(row3_y_cm - 0.2, 3)
+    quantity_y_cm = round(row3_y_cm - 0.4, 3)
+    name_y_cm = round(row3_y_cm - 0.4, 3)
 
     def esc(v):
         return html_escape.escape(str(v or ""))

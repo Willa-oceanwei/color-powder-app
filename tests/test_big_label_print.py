@@ -56,12 +56,12 @@ def test_big_label_html_uses_physical_stock_dimensions_and_anchors():
     assert "width: 10.8cm;" in result
     assert "height: 7.8cm;" in result
     assert 'style="top:0.0cm; left:0.6cm;"' in result
-    assert 'class="field left" style="left:-0.4cm; top:0.5cm;"' in result
+    assert 'class="field left" style="left:-0.1cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:1.8cm;"' in result
-    assert 'class="field left" style="left:-0.4cm; top:2.9cm;"' in result
-    assert 'class="field right" style="left:1.4cm; top:2.9cm;"' in result
-    assert "width: 1.3cm;" in result
+    assert 'class="field left" style="left:-0.1cm; top:2.7cm;"' in result
+    assert 'class="field right" style="left:1.4cm; top:2.7cm;"' in result
+    assert "width: 1.0cm;" in result
     assert "context.measureText(field.textContent)" in result
     assert "await document.fonts.ready;" in result
 
@@ -93,12 +93,13 @@ def test_a4_carrier_keeps_text_inside_page_and_compensates_right_fields():
     assert "@page { size: A4; margin: 0; }" in result
     assert "width: 21.0cm;" in result and "height: 29.7cm;" in result
     assert "overflow: hidden;" in result
-    assert 'class="field left" style="left:-0.4cm; top:0.5cm;"' in result
+    assert 'class="field left" style="left:-0.1cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:5.9cm; top:0.5cm;"' in result
-    assert 'class="field right" style="left:5.9cm; top:2.9cm;"' in result
-    assert "width: 5.8cm;" in result
-    assert 0.6 - 0.4 > 0
-    assert 24 + 2.9 + 18 * 2.54 / 72 < 29.7
+    assert 'class="field left" style="left:-0.1cm; top:2.7cm;"' in result
+    assert 'class="field right" style="left:5.9cm; top:2.7cm;"' in result
+    assert "width: 5.5cm;" in result
+    assert 0.6 - 0.1 > 0
+    assert 24 + 2.7 + 18 * 2.54 / 72 < 29.7
     assert result.count('class="sheet"') == 1
     assert result.count("10032") == 4
 
