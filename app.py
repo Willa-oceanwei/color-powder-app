@@ -5706,7 +5706,7 @@ elif menu == "生產單管理":
             mask = pd.Series(True, index=search_df.index)
         
             for kw in keywords:
-                mask &= search_df["_search_text"].str.contains(kw.lower(), na=False)
+                mask &= search_df["_search_text"].str.contains(kw.lower(), na=False, regex=False)
         
             filtered = search_df[mask].copy()
         
