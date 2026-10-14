@@ -138,6 +138,28 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert persisted["address"] == "Specified address" and persisted["phone"] == "Saved phone"
 
 
+def test_new_shipment_reads_current_contacts_when_customer_is_selected(config):
+    create_customer(config, CustomerInput('RD04', 'Customer'))
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0,{root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    app.button(key='shipment_new').click().run()
+    update_customer(config, CustomerInput('RD04', 'Customer', address='Current address', phone='06-1234567',
+                                          fax='06-7654321', contact='Contact', tax_id='12345678'))
+    next(w for w in app.selectbox if w.label == '客戶').set_value('RD04').run()
+    assert not app.exception
+    draft = app.session_state['shipment_draft']
+    assert draft['address'] == 'Current address'
+    assert draft['phone'] == '06-1234567' and draft['fax'] == '06-7654321'
+    assert draft['contact'] == 'Contact' and draft['tax_id'] == '12345678'
+    assert next(w for w in app.text_input if w.label == '送貨地址').value == 'Current address'
+
+
 def test_shipment_customer_autofill_overrides_snapshot_and_switch(config):
     create_customer(config, CustomerInput("C01", "範例", address="台南市測試路1號", phone="06-0012345", fax="06-0023456", contact="林小姐", tax_id="01234567"))
     create_customer(config, CustomerInput("C02", "空資料客戶"))

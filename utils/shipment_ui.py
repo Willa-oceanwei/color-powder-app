@@ -16,7 +16,7 @@ from .shipment_history_ui import render_purchase_history
 from .shipment_search_print import render_search_print
 from .shipment_codes import display_code_options, printed_code
 from .accounting_widgets import widget_default, widget_index
-from .customer_repository import CONTACT_FIELDS, list_customers
+from .customer_repository import CONTACT_FIELDS, CustomerError, get_customer, list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
     list_shipments, printable_shipment, save_shipment, void_shipment,
@@ -434,8 +434,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             chosen = st.selectbox("客戶", options, index=widget_index(prefix + "customer_picker", original.get("customer_id", "")),
                                   format_func=lambda value: f"{value} · {available[value]}" if value else "請選擇客戶", key=prefix + "customer_picker")
             if chosen != document["customer_id"]:
-                document.update(customer_id=chosen, customer_name=available.get(chosen, ""), recipient_id=chosen, recipient_name=available.get(chosen, ""))
-                customer = next((row for row in customers if row["customer_id"] == chosen), {})
+                try:
+                    customer = get_customer(config, chosen) if chosen else {}
+                except CustomerError as error:
+                    st.error(str(error))
+                    return
+                name = customer.get('name', '')
+                document.update(customer_id=chosen, customer_name=name, recipient_id=chosen, recipient_name=name)
                 for field in ("address", "phone", "fax", "contact", "tax_id"):
                     document[field] = customer.get(field) or ""
                 for field in ("recipient_id", "recipient_name", "address", "phone", "fax", "contact", "tax_id"):

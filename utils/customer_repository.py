@@ -71,6 +71,14 @@ def customer_sheet_payload(entity: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def get_customer(config: DatabaseConfig, customer_id: str) -> dict[str, Any]:
+    with connect_from_config(config) as conn:
+        customer = _mapping(conn.execute('SELECT * FROM customers WHERE customer_id=?', (customer_id,)))
+    if not customer:
+        raise CustomerNotFound(f'找不到客戶編號 {customer_id}')
+    return customer
+
+
 def list_customers(config: DatabaseConfig, *, include_inactive: bool = False) -> list[dict[str, Any]]:
     with connect_from_config(config) as conn:
         where = "" if include_inactive else "WHERE lifecycle_status='active'"
@@ -154,3 +162,4 @@ def set_customer_active(config: DatabaseConfig, customer_id: str, *, active: boo
                            payload=customer_sheet_payload(entity) if active else None,
                            entity_version=int(entity["version"]))
         return entity
+
