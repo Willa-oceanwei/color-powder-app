@@ -104,6 +104,24 @@ def test_a4_carrier_keeps_text_inside_page_and_compensates_right_fields():
     assert result.count("10032") == 4
 
 
+def test_short_number_and_name_shift_together_without_moving_date_or_weight():
+    generate = _load_generate_big_label_html()
+    short = generate([{"編號": "00123", "名稱": "紅色", "日期": "115/10/14", "數量": "25KG"}],
+                     paper_stock="a4_driver")
+    assert 'left:0.9cm; top:0.5cm; width:4.5cm;">00123' in short
+    assert 'left:0.9cm; top:2.5cm; width:4.5cm;">紅色' in short
+    assert 'left:5.9cm; top:0.5cm;">115/10/14' in short
+    assert 'left:5.9cm; top:2.5cm;">25KG' in short
+    for number, name in [("123456", "紅色"), ("12345", "黑色母"), ("A123", "紅色"), ("", "紅色"), ("12345", "")]:
+        normal = generate([{"編號": number, "名稱": name}], paper_stock="a4_driver")
+        assert 'left:-0.1cm; top:0.5cm;' in normal
+        assert 'left:-0.1cm; top:2.5cm;' in normal
+    mixed = generate([{"編號": "12345", "名稱": "紅色"}, {"編號": "12345", "名稱": "黑色母"}],
+                     paper_stock="a4_driver")
+    assert mixed.count('left:0.9cm;') == 2
+    assert mixed.count('left:-0.1cm;') == 2
+
+
 def test_quick_rows_expand_weights_and_ignore_zero_counts():
     helpers = _load_quick_label_helpers()
     labels = helpers["build_quick_labels"](
