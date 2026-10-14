@@ -3073,10 +3073,11 @@ def generate_big_label_html(label_rows, *, paper_stock="custom"):
         number_text = str(entry.get("編號", "") or "").strip()
         name_text = str(entry.get("名稱", "") or "").strip()
         short_fields = number_text.isdigit() and len(number_text) < 6 and 0 < len(name_text) < 3
-        extra_right_cm = 1.0 if short_fields else 0.0
+        medium_fields = number_text.isdigit() and len(number_text) <= 6 and 0 < len(name_text) <= 3
+        extra_right_cm = 1.0 if short_fields else 0.3 if medium_fields else 0.0
         entry_left_cm = round(left_col_x_cm + extra_right_cm, 3)
         entry_width_cm = round(max(0.1, left_text_width_cm - extra_right_cm), 3)
-        width_style = f" width:{entry_width_cm}cm;" if short_fields else ""
+        width_style = f" width:{entry_width_cm}cm;" if extra_right_cm else ""
         return f"""<div class="label">
 <div class="field left" style="left:{entry_left_cm}cm; top:{row1_y_cm}cm;{width_style}">{esc(entry.get('編號'))}</div>
 <div class="field right" style="left:{right_col_x_cm}cm; top:{row1_y_cm}cm;">{esc(entry.get('日期'))}</div>
