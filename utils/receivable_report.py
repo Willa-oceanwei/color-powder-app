@@ -72,6 +72,49 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
     return result
 
 
+def monthly_receipt_summary(config, start, end, as_of):
+    start, end, as_of = (_valid_date(value, label) for value, label in
+                         ((start, '帳款起日'), (end, '帳款迄日'), (as_of, '截至日期')))
+    if start > end:
+        raise ShipmentError('帳款起日不可晚於迄日')
+    with connect_from_config(config) as conn:
+        customers = _mappings(conn.execute('SELECT customer_id,name FROM customers ORDER BY customer_id'))
+        tracking_rows = _mappings(conn.execute(
+            "SELECT customer_id,start_date,request_json FROM ("
+            "SELECT b.customer_id,substr(b.receipt_date,1,7)||'-01' AS start_date,b.request_json,b.created_at,b.id "
+            "FROM receipt_batches b UNION ALL "
+            "SELECT s.customer_id,substr(s.shipment_date,1,7)||'-01',NULL,r.created_at,r.id "
+            "FROM shipment_receipts r JOIN shipment_orders s ON s.id=r.shipment_id "
+            "WHERE NOT EXISTS(SELECT 1 FROM receipt_batch_allocations a WHERE a.receipt_id=r.id)"
+            ") ORDER BY created_at,id"))
+        documents = _mappings(conn.execute(
+            "SELECT s.customer_id,s.shipment_date,s.total_amount,"
+            "(SELECT COALESCE(SUM(CAST(r.amount AS INTEGER)),0) FROM shipment_receipts r "
+            "WHERE r.shipment_id=s.id AND r.status='active' AND r.receipt_date<=?) AS received,"
+            "(SELECT MAX(r.receipt_date) FROM shipment_receipts r "
+            "WHERE r.shipment_id=s.id AND r.status='active' AND CAST(r.amount AS INTEGER)>0 AND r.receipt_date<=?) AS last_receipt "
+            "FROM shipment_orders s WHERE s.status='draft' AND s.shipment_date>=? AND s.shipment_date<=?",
+            (as_of, as_of, start, min(end, as_of))))
+    tracking = {}
+    for row in tracking_rows:
+        request = json.loads(row['request_json']) if row['request_json'] else {}
+        tracking.setdefault(row['customer_id'], request.get('ledger_start') or request.get('tracking_start') or row['start_date'])
+    summary = {c['customer_id']: dict(customer_id=c['customer_id'], customer_name=c['name'],
+               total=0, received=0, balance=0, last_receipt='', tracking_start=tracking.get(c['customer_id'], '')) for c in customers}
+    for document in documents:
+        row = summary[document['customer_id']]
+        if row['tracking_start'] and document['shipment_date'] < row['tracking_start']:
+            continue
+        row['total'] += int(document['total_amount'])
+        row['received'] += int(document['received'])
+        row['last_receipt'] = max(row['last_receipt'], document['last_receipt'] or '')
+    for row in summary.values():
+        row['balance'] = row['total'] - row['received']
+        row['status'] = ('本期無帳款' if not row['total'] else '尚未開始登錄' if not row['tracking_start'] else
+                         '已收齊' if not row['balance'] else '部分收款' if row['received'] else '未收款')
+    return list(summary.values())
+
+
 FIELDS = (("kind", 6), ("date", 12), ("number", 16), ("code", 14), ("name", 10),
           ("quantity", 9), ("unit", 6), ("price", 8), ("amount", 12), ("order_number", 12))
 REPORT_WIDTHS = (5, 13, 14, 11, 12, 7, 5, 8, 11, 14)

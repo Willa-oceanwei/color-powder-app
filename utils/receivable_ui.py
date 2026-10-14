@@ -12,7 +12,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from .customer_repository import list_customers
-from .receivable_report import build_statements, render_statement_print, statement_pages
+from .receivable_report import build_statements, render_statement_print, statement_pages, monthly_receipt_summary
 from .paper_preview import theme_preview, dismiss_export_on_preview_click
 from .shipment_repository import ShipmentError, get_shipment, list_shipments
 from .receipt_repository import (list_receipts, save_receipt, void_receipt, outstanding_shipments,
@@ -27,11 +27,45 @@ from .shipment_print import COMPANY
 
 def render_receivable_statement(config, *, title="應收帳款明細表"):
     st.markdown(COMPACT_STYLE.replace("shipment-page", "receivable-page"), unsafe_allow_html=True)
-    report_tab, receipt_tab = st.tabs(["明細表預覽", "收款登錄"])
+    tabs = st.tabs(["明細表預覽", "收款登錄"] + (["每月收款總覽"] if title == "應收帳款明細表" else []))
+    report_tab, receipt_tab = tabs[:2]
     with receipt_tab:
         render_receipt_entry(config)
     with report_tab:
         render_report(config, title=title)
+    if len(tabs) == 3:
+        with tabs[2]:
+            render_monthly_receipt_summary(config)
+
+
+def render_monthly_receipt_summary(config):
+    cols = st.columns([1, 1, 2, 2])
+    today = date.today()
+    year = cols[0].number_input('年度', min_value=2000, max_value=2100, value=today.year, step=1, key='receipt_summary_year')
+    month = cols[1].selectbox('月份', list(range(1, 13)), index=today.month-1,
+                              format_func=lambda m: f'{m} 月', key='receipt_summary_month')
+    closing = cols[2].radio('結帳日', ['25 號', '31 號／月底'], index=1, horizontal=True, key='receipt_summary_closing')
+    as_of = cols[3].date_input('截至日期', value=today, key='receipt_summary_as_of')
+    start, end = month_receipt_period(year, month, 25 if closing == '25 號' else 31)
+    st.caption(f'帳款期間：{start:%Y/%m/%d} ～ {end:%Y/%m/%d}　收款截至：{as_of:%Y/%m/%d}')
+    rows = monthly_receipt_summary(config, start.isoformat(), end.isoformat(), as_of.isoformat())
+    totals = st.columns(3)
+    for col, label, field in zip(totals, ['本期應收總額', '已收金額', '未收金額'], ['total', 'received', 'balance']):
+        col.metric(label, f"{sum(r[field] for r in rows):,}")
+    controls = st.columns([3, 1])
+    query = controls[0].text_input('搜尋客戶編號或名稱', key='receipt_summary_query').strip().casefold()
+    unpaid_only = controls[1].toggle('只顯示未收', key='receipt_summary_unpaid')
+    filtered = [r for r in rows if (not query or query in r['customer_id'].casefold() or query in r['customer_name'].casefold())
+                and (not unpaid_only or r['balance'] > 0)]
+    if not filtered:
+        st.info('沒有符合條件的客戶')
+        return
+    st.dataframe(pd.DataFrame([{'客戶編號': r['customer_id'], '客戶名稱': r['customer_name'], '本期應收': r['total'],
+                                '已收金額': r['received'], '未收金額': r['balance'], '收款狀態': r['status'],
+                                '最後收款日期': r['last_receipt'], '收款起算日': r['tracking_start'] or '尚未開始'}
+                               for r in filtered]), hide_index=True, use_container_width=True, height=500,
+                  column_config={field: st.column_config.NumberColumn(field, format='%d')
+                                 for field in ['本期應收', '已收金額', '未收金額']})
 
 
 def render_report(config, *, title="應收帳款明細表"):
@@ -417,3 +451,4 @@ def render_receipt_entry(config):
                                 st.session_state.pop("receivable_pages", None)
                                 st.session_state.receipt_notice = "收款已作廢"
                                 st.rerun()
+
