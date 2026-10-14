@@ -1,7 +1,7 @@
 """Optional shipment-linked receipts with atomic overpayment protection."""
 
 import json
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, uuid5, uuid4
 
 from .customer_repository import _mapping, _mappings
 from .database import connect_from_config, utc_now_iso
@@ -41,7 +41,8 @@ def save_receipt(config, *, receipt_id, shipment_id, shipment_version, receipt_d
 
 def list_receipts(config, shipment_id):
     with connect_from_config(config) as conn:
-        return _mappings(conn.execute("SELECT * FROM shipment_receipts WHERE shipment_id=? ORDER BY receipt_date,created_at,id", (shipment_id,)))
+        return _mappings(conn.execute("SELECT r.*,a.batch_id FROM shipment_receipts r LEFT JOIN receipt_batch_allocations a ON a.receipt_id=r.id "
+                                     "WHERE r.shipment_id=? ORDER BY r.receipt_date,r.created_at,r.id", (shipment_id,)))
 
 
 def void_receipt(config, receipt_id, reason):
@@ -174,7 +175,7 @@ def list_receipt_batches(config, customer_id):
 def receipt_batch_details(config, batch_id):
     with connect_from_config(config) as conn:
         return _mappings(conn.execute(
-            "SELECT r.*,s.shipment_number,s.shipment_date FROM receipt_batch_allocations a "
+            "SELECT r.*,s.shipment_number,s.shipment_date,s.version AS shipment_version FROM receipt_batch_allocations a "
             "JOIN shipment_receipts r ON r.id=a.receipt_id JOIN shipment_orders s ON s.id=r.shipment_id "
             "WHERE a.batch_id=? ORDER BY r.receipt_date,s.shipment_date,s.shipment_number", (batch_id,)))
 
@@ -223,4 +224,92 @@ def void_receipt_batch(config, batch_id, reason):
                      (now, batch_id))
         conn.execute("UPDATE shipment_receipts SET status='void',void_reason=?,updated_at=? WHERE id IN "
                      "(SELECT receipt_id FROM receipt_batch_allocations WHERE batch_id=?)", (str(reason).strip(), now, batch_id))
+
+
+def _edit_amount(value):
+    amount = decimal_value(value, '收款金額')
+    if not amount or amount != amount.to_integral_value():
+        raise ShipmentError('收款金額須為大於零的整數元')
+    return int(amount)
+
+
+def _log_receipt_edit(conn, entity_id, entity_type, before, after, reason):
+    if not str(reason).strip():
+        raise ShipmentError('請填寫修改原因')
+    conn.execute('INSERT INTO receipt_change_log VALUES (?,?,?,?,?,?,?)',
+                 (str(uuid4()), entity_id, entity_type, json.dumps(before, ensure_ascii=False),
+                  json.dumps(after, ensure_ascii=False), str(reason).strip(), utc_now_iso()))
+
+
+def receipt_changes(config, entity_id):
+    with connect_from_config(config) as conn:
+        return _mappings(conn.execute('SELECT * FROM receipt_change_log WHERE entity_id=? ORDER BY created_at,id', (entity_id,)))
+
+
+def update_receipt_amount(config, *, receipt_id, shipment_version, amount, reason):
+    amount = _edit_amount(amount)
+    with connect_from_config(config) as conn:
+        old = _mapping(conn.execute("SELECT * FROM shipment_receipts WHERE id=? AND status='active'", (receipt_id,)))
+        if not old:
+            raise ShipmentError('收款紀錄不存在或已作廢')
+        if _mapping(conn.execute('SELECT batch_id FROM receipt_batch_allocations WHERE receipt_id=?', (receipt_id,))):
+            raise ShipmentError('此筆屬於批次收款，請修改整批收款')
+        now = utc_now_iso()
+        changed = _mapping(conn.execute(
+            "UPDATE shipment_orders SET version=version+1,updated_at=? WHERE id=? AND version=? AND status='draft' "
+            "AND CAST(total_amount AS INTEGER)-(SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) FROM shipment_receipts "
+            "WHERE shipment_id=? AND status='active' AND id<>?)>=? RETURNING id",
+            (now, old['shipment_id'], shipment_version, old['shipment_id'], receipt_id, amount)))
+        if not changed:
+            raise ShipmentError('單據已變更或修改後收款超過出貨總額，請重新讀取')
+        conn.execute('UPDATE shipment_receipts SET amount=?,updated_at=? WHERE id=?', (str(amount), now, receipt_id))
+        _log_receipt_edit(conn, receipt_id, 'single', {'amount': old['amount']}, {'amount': str(amount)}, reason)
+
+
+def update_receipt_batch_amounts(config, *, batch_id, batch_version, amount, allocations, reason):
+    amount = _edit_amount(amount)
+    with connect_from_config(config) as conn:
+        batch = _mapping(conn.execute("SELECT * FROM receipt_batches WHERE id=? AND status='active'", (batch_id,)))
+        if not batch:
+            raise ShipmentError('批次收款不存在或已作廢')
+        old = _mappings(conn.execute(
+            'SELECT r.*,s.version AS shipment_version FROM receipt_batch_allocations a '
+            'JOIN shipment_receipts r ON r.id=a.receipt_id JOIN shipment_orders s ON s.id=r.shipment_id WHERE a.batch_id=?', (batch_id,)))
+        proposed = {}
+        for a in allocations:
+            value = decimal_value(a['amount'], '沖抵金額')
+            if value != value.to_integral_value() or a['receipt_id'] in proposed:
+                raise ShipmentError('沖抵金額須為整數，紀錄不可重複')
+            proposed[a['receipt_id']] = dict(amount=int(value), shipment_version=int(a['shipment_version']))
+        if set(proposed) != {r['id'] for r in old}:
+            raise ShipmentError('沖抵明細已變更，請重新讀取')
+        if sum(a['amount'] for a in proposed.values()) > amount:
+            raise ShipmentError('沖抵合計不可超過修改後的收款總額')
+        now = utc_now_iso()
+        changed = _mapping(conn.execute('UPDATE receipt_batches SET amount=?,version=version+1,updated_at=? '
+                                       "WHERE id=? AND version=? AND status='active' RETURNING id",
+                                       (str(amount), now, batch_id, batch_version)))
+        if not changed:
+            raise ShipmentError('批次收款已變更，請重新讀取')
+        shipments = {}
+        for r in old:
+            entry = proposed[r['id']]
+            if r['shipment_version'] != entry['shipment_version'] or r['status'] != 'active':
+                raise ShipmentError('出貨單或沖抵明細已變更，請重新讀取')
+            group = shipments.setdefault(r['shipment_id'], dict(amount=0, version=entry['shipment_version']))
+            group['amount'] += entry['amount']
+        for shipment_id, group in shipments.items():
+            changed = _mapping(conn.execute(
+                "UPDATE shipment_orders SET version=version+1,updated_at=? WHERE id=? AND version=? AND status='draft' "
+                "AND CAST(total_amount AS INTEGER)-(SELECT COALESCE(SUM(CAST(r.amount AS INTEGER)),0) FROM shipment_receipts r "
+                "WHERE r.shipment_id=? AND r.status='active' AND NOT EXISTS(SELECT 1 FROM receipt_batch_allocations a "
+                "WHERE a.receipt_id=r.id AND a.batch_id=?))>=? RETURNING id",
+                (now, shipment_id, group['version'], shipment_id, batch_id, group['amount'])))
+            if not changed:
+                raise ShipmentError('修改後的沖抵超過未收金額或出貨單已變更，請重新讀取')
+        for receipt_id, row in proposed.items():
+            conn.execute('UPDATE shipment_receipts SET amount=?,updated_at=? WHERE id=?', (str(row['amount']), now, receipt_id))
+        _log_receipt_edit(conn, batch_id, 'batch',
+                          dict(amount=batch['amount'], allocations={r['id']: r['amount'] for r in old}),
+                          dict(amount=str(amount), allocations={i: str(a['amount']) for i, a in proposed.items()}), reason)
 

@@ -56,7 +56,7 @@ def test_schema_27_adds_columns_to_existing_customer_table(config):
             conn.execute(f"ALTER TABLE customers DROP COLUMN {column}")
         conn.execute("DELETE FROM schema_migrations WHERE version=27")
     _, health = initialize_database_with_health(config)
-    assert health.schema_version == 28 and health.schema_compatible
+    assert health.schema_version == 29 and health.schema_compatible
     assert list_customers(config)[0]["name"] == "原客戶"
     assert list_customers(config)[0]["address"] == ""
 

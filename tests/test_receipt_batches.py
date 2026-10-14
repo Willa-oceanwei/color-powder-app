@@ -100,7 +100,7 @@ def test_schema_27_upgrade_preserves_single_receipts(config):
         conn.execute('DELETE FROM schema_migrations WHERE version=28')
         conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (27,'old')")
     initialize_database(config.path)
-    assert database_health_check(config).schema_version == 28
+    assert database_health_check(config).schema_version == 29
     assert outstanding_shipments(config, 'A01')[0]['balance'] == 160
 
 
@@ -123,6 +123,12 @@ render_receipt_entry(DatabaseConfig(backend="sqlite",path=Path({str(config.path)
     batches = list_receipt_batches(config, 'A01')
     assert len(batches) == 1 and batches[0]['allocated'] == 300
     assert next(w for w in app.number_input if w.label == '本次收款金額').value == 0
+    next(w for w in app.number_input if w.label == '修改收款總額').set_value(350)
+    next(w for w in app.text_input if w.label == '修改原因').set_value('Wrong total')
+    next(w for w in app.button if w.label == '儲存收款修改').click().run()
+    assert not app.exception, [e.message for e in app.exception]
+    updated = list_receipt_batches(config, 'A01')[0]
+    assert updated['amount'] == '350' and updated['allocated'] == 300
 
 
 @pytest.mark.parametrize('year,month,closing,last', [(2026, 10, 25, 25), (2026, 10, 31, 31),
