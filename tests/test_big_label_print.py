@@ -58,7 +58,7 @@ def test_big_label_html_uses_physical_stock_dimensions_and_anchors():
     assert 'style="top:0.0cm; left:0.6cm;"' in result
     assert 'class="field left" style="left:-0.1cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:0.5cm;"' in result
-    assert 'class="field right" style="left:1.4cm; top:1.8cm;"' in result
+    assert 'class="field right" style="left:1.4cm; top:1.5cm;"' in result
     assert 'class="field left" style="left:-0.1cm; top:2.5cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:2.5cm;"' in result
     assert "width: 1.0cm;" in result
@@ -95,6 +95,7 @@ def test_a4_carrier_keeps_text_inside_page_and_compensates_right_fields():
     assert "overflow: hidden;" in result
     assert 'class="field left" style="left:-0.1cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:5.9cm; top:0.5cm;"' in result
+    assert 'class="field right" style="left:5.9cm; top:1.5cm;"' in result
     assert 'class="field left" style="left:-0.1cm; top:2.5cm;"' in result
     assert 'class="field right" style="left:5.9cm; top:2.5cm;"' in result
     assert "width: 5.5cm;" in result
