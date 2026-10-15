@@ -3,7 +3,7 @@ from utils.small_label_print import generate_small_label_html
 
 def test_small_labels_paginate_in_two_columns_within_physical_sheet():
     rows = [{"編號": f"ID{i}", "名稱": "紅色", "日期": "115/10/14", "比例": "4g/kg", "數量": "25KG"} for i in range(11)]
-    result = generate_small_label_html(rows)
+    result = generate_small_label_html(rows, paper_stock="custom")
     assert "size: 14cm 23cm;" in result
     assert result.count('class="sheet"') == 2
     assert result.count('class="label-slot"') == 11
@@ -79,3 +79,19 @@ def test_invalid_positions_are_rejected():
     for positions in ([-1], [10], [1.5], [True]):
         with pytest.raises(ValueError):
             generate_small_label_html([{"編號": "1"}], selected_positions=positions)
+
+
+def test_default_a4_fourteen_labels_keep_same_origin_on_both_pages():
+    rows = [{"編號": "51066", "名稱": "灰白", "日期": "115/10/15", "比例": "2g/kg"}] * 14
+    result = generate_small_label_html(rows)
+    assert "@page { size: A4; margin: 0; }" in result
+    assert "width: 21cm; height: 29.7cm;" in result
+    assert "body { margin: 0; padding: 0; }" in result
+    assert "14cm 23cm" not in result
+    pages = result.split('<div class="sheet">')[1:]
+    assert len(pages) == 2
+    assert [page.count('class="label-slot"') for page in pages] == [10, 4]
+    for page in pages:
+        assert page.startswith('<div class="label-slot" style="left:0.6cm;top:0.25cm;width:6.3cm">')
+        assert 'left:0.15cm;top:0.3cm;width:2.45cm">51066' in page
+    assert generate_small_label_html(rows, paper_stock="a4_driver") == result

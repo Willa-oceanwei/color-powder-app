@@ -29,6 +29,7 @@ DATABASE_CONFIG = DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r
 format_label_ratio = lambda order: "4g/kg"
 to_roc_date = lambda value: "115/10/14"
 order = {{"生產單號": "P001", "配方編號": "R001", "顏色": "Red", "包裝重量1": "25", "包裝份數1": "2"}}
+st.session_state.setdefault("tab2_small_label_paper_P001", "自訂 14×23 公分／100%")
 render_order_download_actions(order, b"A5", "P001.html")
 ''').run(timeout=30)
     assert not app.exception
@@ -50,7 +51,7 @@ render_order_download_actions(order, b"A5", "P001.html")
     assert saved[0]["日期"] == "" and saved[0]["數量"] == ""
     app.radio(key="tab2_label_kind_P001").set_value("小標籤").run()
     assert not app.exception
-    assert app.selectbox(key="tab2_small_label_paper_P001").value == "自訂 14×23 公分／100%"
+    assert app.selectbox(key="tab2_small_label_paper_P001_a4_v2").value == "A4／100%"
     assert app.dataframe[0].value.iloc[0]["品名"] == "Red"
     assert app.toggle(key="tab2_small_choose_positions_P001").value is False
     assert len(app.checkbox) == 0

@@ -3,7 +3,7 @@
 from html import escape
 
 
-def generate_small_label_html(rows, *, paper_stock="custom", selected_positions=None):
+def generate_small_label_html(rows, *, paper_stock="a4_driver", selected_positions=None):
     if not rows:
         return ""
     margin = 0.6

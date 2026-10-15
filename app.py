@@ -3240,9 +3240,12 @@ def render_big_label_editor(label_order, *, key_prefix):
     """, unsafe_allow_html=True)
     st.markdown(f"##### {label_kind}內容")
     st.caption(f"生產單 {order_no_for_label} · 配方 {label_order.get('配方編號', '')}")
-    paper_options = ["自訂 14×23 公分／100%", "A4／100%"] if is_small else ["A4／100%", "自訂 12×32 公分／100%"]
+    paper_options = ["A4／100%", "自訂 14×23 公分／100%"] if is_small else ["A4／100%", "自訂 12×32 公分／100%"]
+    paper_key = f"{key_prefix}_label_paper_{order_no_for_label}"
+    if is_small:
+        paper_key += "_a4_v2"
     paper_choice = st.selectbox("列印紙張", paper_options,
-                                key=f"{key_prefix}_label_paper_{order_no_for_label}")
+                                key=paper_key)
     editor_columns = [col for col in BIG_LABEL_EDITOR_COLUMNS if not is_small or col != "數量"]
     selected_positions = None
     if is_small and st.toggle("指定列印位置", value=False,
