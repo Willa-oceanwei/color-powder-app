@@ -26,12 +26,13 @@ def generate_small_label_html(rows, *, paper_stock="custom", selected_positions=
                                       ("名稱", 1.15, 1.0, 4.8),
                                       ("比例", 2.2, 1.95, 1.45)):
                 y = round(y + (0, 0, 0.3, 0.5, 0.6)[index // 2], 3)
-                if key == "日期" and index % 2 == 1:
-                    x = round(x - 0.2, 3)
+                if key == "日期":
+                    x = round(x - (0.2 if index % 2 == 1 else 0.1), 3)
                 value = str(row.get(key) or "").strip()
                 if key == "比例" and value.lower().endswith("g/kg"):
                     value = value[:-4].strip()
-                fields.append(f'<div class="field" style="left:{x}cm;top:{y}cm;width:{width}cm">{escape(value)}</div>')
+                font_size = 12 if key in ("編號", "名稱") else 11
+                fields.append(f'<div class="field" data-size="{font_size}" style="left:{x}cm;top:{y}cm;width:{width}cm">{escape(value)}</div>')
             slots.append(f'<div class="label-slot" style="left:{left}cm;top:{top}cm;width:{label_width}cm">{"".join(fields)}</div>')
         sheets.append(f'<div class="sheet">{"".join(slots)}</div>')
     size = "A4" if paper_stock == "a4_driver" else "14cm 23cm"
@@ -47,10 +48,11 @@ overflow: hidden; break-after: page; page-break-after: always; break-inside: avo
 .label-slot {{ position: absolute; height: 4.5cm; }}
 .field {{ position: absolute; white-space: nowrap; line-height: 1;
 font: 11pt Arial, "Microsoft JhengHei", sans-serif; }}
+.field[data-size="12"] {{ font-size: 12pt; }}
 </style><script>
 function fitLabelText() {{
  document.querySelectorAll('.field').forEach(field => {{
-  field.style.fontSize = '11pt';
+  field.style.fontSize = field.dataset.size + 'pt';
   if (field.scrollWidth > field.clientWidth) {{
    const size = parseFloat(getComputedStyle(field).fontSize);
    field.style.fontSize = (size * field.clientWidth / field.scrollWidth) + 'px';

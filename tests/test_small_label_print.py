@@ -40,7 +40,7 @@ def test_small_label_calibration_moves_fields_and_only_last_three_rows_down():
             if attrs.get("class") == "label-slot":
                 self.slots.append([])
             elif attrs.get("class") == "field":
-                self.slots[-1].append(attrs["style"])
+                self.slots[-1].append((attrs["style"], attrs["data-size"]))
 
     for stock in ("custom", "a4_driver"):
         parser = Slots()
@@ -48,11 +48,12 @@ def test_small_label_calibration_moves_fields_and_only_last_three_rows_down():
         assert len(parser.slots) == 20
         for index, fields in enumerate(parser.slots):
             shift = (0, 0, 0.3, 0.5, 0.6)[index % 10 // 2]
-            for field, x, y, width in zip(fields, (0.15, 3.15, 1.15, 2.2),
-                                         (0.3, 0.3, 1.0, 1.95), (2.45, 1.35, 4.8, 1.45)):
-                if x == 3.15 and index % 2 == 1:
-                    x = 2.95
+            for (field, font_size), x, y, width, expected_size in zip(fields, (0.15, 3.15, 1.15, 2.2),
+                                         (0.3, 0.3, 1.0, 1.95), (2.45, 1.35, 4.8, 1.45), ("12", "11", "12", "11")):
+                if x == 3.15:
+                    x = 2.95 if index % 2 == 1 else 3.05
                 assert field == f"left:{x}cm;top:{round(y + shift, 3)}cm;width:{width}cm"
+                assert font_size == expected_size
 
 
 def test_selected_positions_keep_blank_slots_and_repeat_selection_on_next_page():
