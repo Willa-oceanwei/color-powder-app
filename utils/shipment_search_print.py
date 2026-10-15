@@ -1,28 +1,24 @@
 """Read-only print preview for query results, independent of an open draft."""
 
 import streamlit as st
-from .customer_display import CustomerDisplay
 import streamlit.components.v1 as components
 
-from .accounting_widgets import widget_index
 from .paper_preview import theme_preview
 from .shipment_repository import get_shipment, printable_shipment
 
 
 def render_search_print(config, records, epoch):
-    with st.popover("列印查詢結果", use_container_width=True):
+    with st.popover("列印出貨單"):
         _contents(config, records, epoch)
 
 
 @st.fragment
 def _contents(config, records, epoch):
     with st.container():
-        documents = {row["id"]: row for row in records}
-        picker_key = f"shipment_search_print_choice_{epoch}"
-        display = CustomerDisplay(config)
-        selected = st.selectbox("選擇出貨單", list(documents), index=widget_index(picker_key, next(iter(documents))),
-                                format_func=lambda i: f"{documents[i]['shipment_date']} · {documents[i]['shipment_number']} · {display.name(documents[i]['customer_name'], documents[i]['customer_id'])}",
-                                key=picker_key)
+        if not records:
+            return
+        selected = records[0]["id"]
+        st.caption("已選取 · " + records[0]["shipment_number"])
         hide = st.toggle("不列出單價與金額", key="shipment_search_print_hide_prices")
         if st.button("產生列印預覽", key="shipment_search_print_generate"):
             try:

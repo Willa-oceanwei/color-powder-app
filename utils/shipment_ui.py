@@ -17,6 +17,7 @@ from .shipment_search_print import render_search_print
 from .shipment_codes import display_code_options, printed_code
 from .accounting_widgets import widget_default, widget_index
 from .customer_display import CustomerDisplay
+from .list_ui import render_selection_table
 from .customer_repository import customer_display_name, CONTACT_FIELDS, CustomerError, get_customer, list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
@@ -269,26 +270,27 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                              customer_start=st.session_state.get("shipment_customer_start", ""),
                              customer_end=st.session_state.get("shipment_customer_end", "")))
     if st.session_state.get("shipment_search_epoch"):
-        with st.expander(f"查詢結果 · {len(records)} 筆", expanded=False):
+        with st.expander(f"查詢結果 · {len(records)} 筆", expanded=True):
             if records:
                 display = CustomerDisplay(config)
                 result = pd.DataFrame([{"出貨日期": r["shipment_date"], "出貨單號": r["shipment_number"],
                           "客戶編號": r["customer_id"], "客戶名稱": display.name(r["customer_name"], r["customer_id"]), "總計（未稅）": int(r["net_amount"]),
                           "狀態": "作廢" if r["status"] == "void" else "有效"} for r in records])
-                render_search_print(config, records, st.session_state["shipment_search_epoch"])
+                chosen = render_selection_table(result, records, key="shipment_results_" + str(st.session_state["shipment_search_epoch"]),
+                                                id_field="id", height=min(400, 38 * (len(records) + 1)), disabled=editing)
                 if editing:
-                    st.dataframe(result, height=160, hide_index=True, use_container_width=True)
                     st.caption("草稿已保留；儲存或取消後可開啟查詢結果。")
-                else:
-                    epoch = st.session_state["shipment_search_epoch"]
-                    selection = st.dataframe(result, height=160, hide_index=True, use_container_width=True,
-                                             on_select="rerun", selection_mode="single-row", key=f"shipment_results_{epoch}")
-                    rows = selection.selection.rows
-                    event = (epoch, tuple(rows))
+                elif chosen is not None:
+                    event = (st.session_state["shipment_search_epoch"], chosen["id"])
                     if event != st.session_state.get("shipment_result_event"):
                         st.session_state.shipment_result_event = event
-                        if rows and rows[0] < len(records):
-                            st.session_state.shipment_selected = records[rows[0]]["id"]
+                        st.session_state.shipment_selected = chosen["id"]
+                    summary, actions = st.columns([3, 1.4], vertical_alignment="center")
+                    summary.caption("已選取 · " + chosen["shipment_number"])
+                    with actions:
+                        render_search_print(config, [chosen], st.session_state["shipment_search_epoch"])
+                else:
+                    st.caption("勾選表格左側的資料列，即可查看內容或列印。")
             else:
                 st.info("沒有符合條件的出貨單")
     query_number = st.session_state.get("shipment_query", "").strip()
