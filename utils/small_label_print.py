@@ -23,9 +23,9 @@ def generate_small_label_html(rows, *, paper_stock="custom", selected_positions=
             # Leave the printed captions, unit, checkboxes, and company block clear.
             for key, x, y, width in (("編號", 0.15, 0.3, 2.45),
                                       ("日期", 3.15, 0.3, 1.35),
-                                      ("名稱", 1.15, 1.0, 4.8),
+                                      ("名稱", 0.65, 1.0, 4.8),
                                       ("比例", 2.2, 1.95, 1.45)):
-                y = round(y + (0, 0, 0.3, 0.5, 0.6)[index // 2], 3)
+                y = round(y + (0, 0.1, 0.3, 0.5, 0.6)[index // 2], 3)
                 if key == "日期":
                     x = round(x - (0.2 if index % 2 == 1 else 0.1), 3)
                 value = str(row.get(key) or "").strip()
