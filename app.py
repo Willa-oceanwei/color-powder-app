@@ -3526,6 +3526,40 @@ if menu == "色粉管理":
     
 # ======== 客戶名單 =========
 elif menu == "客戶名單":
+    st.markdown("""
+    <span class="customer-page-marker"></span>
+    <style>
+    /* Keep customer actions and field accents in the app's blue palette. */
+    .block-container:has(.customer-page-marker) .stFormSubmitButton > button[kind="primary"] {
+        background: #1a5a84 !important;
+        border: 1px solid #3487b6 !important;
+        color: #ffffff !important;
+    }
+    .block-container:has(.customer-page-marker) .stFormSubmitButton > button:hover,
+    .block-container:has(.customer-page-marker) .stFormSubmitButton > button:focus {
+        background: #124466 !important;
+        border-color: #65b5e2 !important;
+        color: #ffffff !important;
+    }
+    .block-container:has(.customer-page-marker) [data-testid="stTextInput"] input:not(:disabled) {
+        border-left-color: #3487b6 !important;
+    }
+    .block-container:has(.customer-page-marker) [data-testid="stTextInput"] input:not(:disabled):focus {
+        border-color: #65b5e2 !important;
+        box-shadow: 0 0 0 2px rgba(52, 135, 182, 0.25) !important;
+    }
+    .block-container:has(.customer-page-marker) [data-baseweb="input"]:focus-within,
+    .block-container:has(.customer-page-marker) [data-baseweb="select"]:focus-within > div {
+        border-color: #65b5e2 !important;
+    }
+    .block-container:has(.customer-page-marker) [data-baseweb="radio"]:has(input:checked) > div:first-child {
+        background-color: #3487b6 !important;
+    }
+    body:has(.customer-page-marker) [data-testid="stDecoration"] {
+        background: #3487b6 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     st.caption("搜尋並選取客戶即可編輯；新增客戶請切換至「新增客戶」。")
     columns = ["客戶編號", "客戶簡稱", "客戶名稱", "地址", "電話", "傳真", "聯絡人", "統一編號", "備註"]
     
