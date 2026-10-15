@@ -6866,7 +6866,7 @@ elif menu == "生產單管理":
         df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
         if "selectbox_order_limit_tab2" not in st.session_state:
-            st.session_state.selectbox_order_limit_tab2 = 20
+            st.session_state.selectbox_order_limit_tab2 = 5
         if "last_limit_order_tab2" not in st.session_state:
             st.session_state.last_limit_order_tab2 = st.session_state.selectbox_order_limit_tab2
         if st.session_state.last_limit_order_tab2 != st.session_state.selectbox_order_limit_tab2:
