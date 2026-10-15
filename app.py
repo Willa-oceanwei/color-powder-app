@@ -426,7 +426,7 @@ div[data-testid="stCheckbox"] input[type="checkbox"]:checked::after {
 }
 /* 藏起 Streamlit 原生控件的裝飾圖層，只留我們畫在 input 上的藍色滑塊。
    新版 Streamlit 會用 SVG 畫 checkbox 的紅色勾號，因此也要明確隱藏 SVG。 */
-div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
+div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > :is(div, span):first-child {
     display: none !important;
 }
 div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] svg {
