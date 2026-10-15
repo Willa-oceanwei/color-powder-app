@@ -3057,10 +3057,10 @@ def get_saved_label_order(saved_snapshot):
     return saved_order
 
 
-def generate_big_label_html(label_rows, *, paper_stock="custom"):
+def generate_big_label_html(label_rows, *, paper_stock="a4_driver"):
     """把標籤資料排成大標 HTML：每張紙 12x32cm 直排 4 格，每格 10.8x7.8cm，
     下方 4.7cm 保留給預印公司資訊、不列印任何內容。超過 4 張自動分頁，
-    列印時一張一張手動進紙。"""
+    預設使用已校準的 A4 列印檔，列印時一張一張手動進紙。"""
     if not label_rows:
         return ""
 

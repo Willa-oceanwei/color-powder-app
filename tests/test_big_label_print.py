@@ -50,7 +50,7 @@ def _load_get_saved_label_order():
 def test_big_label_html_uses_physical_stock_dimensions_and_anchors():
     generate = _load_generate_big_label_html()
 
-    result = generate([{"編號": "A-01", "日期": "115/08/26"}])
+    result = generate([{"編號": "A-01", "日期": "115/08/26"}], paper_stock="custom")
 
     assert "@page { size: 12.0cm 32.0cm; margin: 0; }" in result
     assert "width: 10.8cm;" in result
@@ -70,7 +70,7 @@ def test_big_label_html_uses_point_two_centimetre_gaps():
     generate = _load_generate_big_label_html()
     rows = [{"編號": str(number)} for number in range(4)]
 
-    result = generate(rows)
+    result = generate(rows, paper_stock="custom")
 
     for top in (0.0, 8.0, 16.0, 24.0):
         assert f'top:{top}cm; left:0.6cm;' in result
@@ -103,6 +103,23 @@ def test_a4_carrier_keeps_text_inside_page_and_compensates_right_fields():
     assert 24 + 2.5 + 18 * 2.54 / 72 < 29.7
     assert result.count('class="sheet"') == 1
     assert result.count("10032") == 4
+
+
+def test_default_big_labels_use_calibrated_a4_on_every_page():
+    generate = _load_generate_big_label_html()
+    rows = [{"編號": "51066", "名稱": "灰白", "日期": "115/10/15", "比例": "2g/kg", "數量": "25KG"}] * 14
+    result = generate(rows)
+    assert result == generate(rows, paper_stock="a4_driver")
+    assert "@page { size: A4; margin: 0; }" in result
+    assert "width: 21.0cm;" in result and "height: 29.7cm;" in result
+    assert "12.0cm 32.0cm" not in result
+    pages = result.split('<div class="sheet">')[1:]
+    assert [page.count('class="label"') for page in pages] == [4, 4, 4, 2]
+    for page in pages:
+        assert page.startswith('<div class="label-slot" style="top:0.0cm; left:0.6cm;">')
+        assert 'left:0.9cm; top:0.5cm; width:4.5cm;">51066' in page
+        assert 'left:5.9cm; top:0.5cm;">115/10/15' in page
+        assert 'left:5.9cm; top:2.5cm;">25KG' in page
 
 
 def test_short_number_and_name_shift_together_without_moving_date_or_weight():
