@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils import database as database_utils
 from utils.customer_display import CustomerDisplay
+from utils.list_ui import render_selection_table
 from utils.number_format import format_optional_decimals
 from utils.big_label_repository import (
     BIG_LABEL_EDITOR_COLUMNS, build_big_label_editor_defaults,
@@ -1927,7 +1928,7 @@ def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
         page_key=page_key,
         total_pages=total_pages,
         total_rows=total,
-        key_prefix=key_prefix
+        key_prefix=key_prefix, page_size=page_size
     )
 
 def render_search_summary(total_rows, extra=""):
@@ -1952,41 +1953,10 @@ def render_empty_state(message, hint=""):
     """, unsafe_allow_html=True)
 
 
-def render_pagination_bar(page_key, total_pages, total_rows, limit_key=None, limit_options=None, key_prefix=""):
-    """統一分頁列（首頁/上頁/下頁/跳頁/每頁筆數）。取代各頁籤各自實作的 🏠🔼🔽 emoji 按鈕列。
-    page_key / limit_key 沿用呼叫端既有的 session_state 變數名稱，不影響原本的資料邏輯。"""
-    key_prefix = key_prefix or page_key
-    current_page = st.session_state.get(page_key, 1)
-
-    cols = st.columns([1, 1, 1, 2, 1] if (limit_key and limit_options) else [1, 1, 1, 2])
-    with cols[0]:
-        if st.button("首頁", key=f"{key_prefix}_first_page", use_container_width=True):
-            st.session_state[page_key] = 1
-            st.rerun()
-    with cols[1]:
-        if st.button("◀ 上頁", key=f"{key_prefix}_prev_page", use_container_width=True) and current_page > 1:
-            st.session_state[page_key] = current_page - 1
-            st.rerun()
-    with cols[2]:
-        if st.button("下頁 ▶", key=f"{key_prefix}_next_page", use_container_width=True) and current_page < total_pages:
-            st.session_state[page_key] = current_page + 1
-            st.rerun()
-    with cols[3]:
-        jump_page = st.number_input("跳至頁碼", min_value=1, max_value=total_pages,
-            value=min(current_page, total_pages), key=f"{key_prefix}_jump_page", label_visibility="collapsed")
-        if jump_page != current_page:
-            st.session_state[page_key] = jump_page
-    if limit_key and limit_options:
-        with cols[4]:
-            st.selectbox("每頁筆數", options=limit_options,
-                index=limit_options.index(st.session_state.get(limit_key, limit_options[0])),
-                key=limit_key, label_visibility="collapsed")
-
-    st.markdown(
-        f"<div style='text-align:center;color:#9fb6cc;font-size:11.5px;margin-top:4px;'>"
-        f"第 {st.session_state.get(page_key, current_page)} / {total_pages} 頁　·　共 {total_rows} 筆</div>",
-        unsafe_allow_html=True
-    )
+def render_pagination_bar(page_key, total_pages, total_rows, limit_key=None, limit_options=None, key_prefix="", page_size=None):
+    """Compact shared navigation; advanced controls remain available in settings."""
+    from utils.list_ui import render_compact_pagination
+    render_compact_pagination(page_key, total_pages, total_rows, limit_key, limit_options, key_prefix, page_size)
 
 
 def set_form_style():
@@ -3359,12 +3329,20 @@ def render_big_label_editor(label_order, *, key_prefix):
 def render_order_download_actions(label_order, a5_data, a5_filename):
     order_no = str(label_order.get("生產單號", ""))
     open_key = f"history_labels_open_{order_no}"
-    a5_col, label_col = st.columns(2)
+    selection_col, a5_col, label_col = st.columns([3, 1.7, 1.2], vertical_alignment="center")
+    selection_col.markdown('''<span class="list-actions-marker"></span><style>
+    [data-testid="stHorizontalBlock"]:has(.list-actions-marker){gap:8px!important;flex-wrap:wrap!important;}
+    [data-testid="stHorizontalBlock"]:has(.list-actions-marker)>[data-testid="column"]{min-width:0!important;width:auto!important;flex:0 0 auto!important;}
+    [data-testid="stHorizontalBlock"]:has(.list-actions-marker)>[data-testid="column"]:first-child{flex:1 1 auto!important;}
+    @media(max-width:640px){[data-testid="stHorizontalBlock"]:has(.list-actions-marker)>[data-testid="column"]:first-child{flex-basis:100%!important;}}
+    </style>''', unsafe_allow_html=True)
+    selection_col.caption(f"已選取 · {order_no}")
     a5_col.download_button(
-        "📥 下載 A5（開啟後自動列印）", data=a5_data, file_name=a5_filename,
-        mime="text/html", key=f"download_a5_tab2_{order_no}", use_container_width=True,
+        "列印生產單", data=a5_data, file_name=a5_filename,
+        mime="text/html", key=f"download_a5_tab2_{order_no}", type="primary",
+        help="下載 A5 生產單，開啟檔案後會顯示列印視窗。",
     )
-    if label_col.button("下載標籤", key=f"open_labels_tab2_{order_no}", use_container_width=True):
+    if label_col.button("製作標籤", key=f"open_labels_tab2_{order_no}"):
         st.session_state[open_key] = not st.session_state.get(open_key, False)
     if st.session_state.get(open_key, False):
         render_big_label_editor(label_order, key_prefix="tab2")
@@ -6809,7 +6787,7 @@ elif menu == "生產單管理":
         df_filtered = df_filtered.sort_values(by="建立時間", ascending=False)
     
         if "selectbox_order_limit_tab2" not in st.session_state:
-            st.session_state.selectbox_order_limit_tab2 = 5
+            st.session_state.selectbox_order_limit_tab2 = 20
         if "last_limit_order_tab2" not in st.session_state:
             st.session_state.last_limit_order_tab2 = st.session_state.selectbox_order_limit_tab2
         if st.session_state.last_limit_order_tab2 != st.session_state.selectbox_order_limit_tab2:
@@ -6836,29 +6814,18 @@ elif menu == "生產單管理":
         existing_cols = [c for c in display_cols if c in page_data.columns]
     
         if not page_data.empty and existing_cols:
-            st.dataframe(
+            tab2_download_order = render_selection_table(
                 customer_display.frame(page_data[existing_cols].reset_index(drop=True)),
-                use_container_width=True,
-                hide_index=True
+                page_data.to_dict("records"), key="production_history", id_field="生產單號",
+                height=min(500, 38 * (len(page_data) + 1) + 3),
             )
-
-            st.markdown("**📥 下載這一頁的生產單**")
-            download_index = customer_display.selectbox(st,
-                "選擇要下載的生產單",
-                options=page_data.index,
-                format_func=lambda i: (
-                    f"{page_data.at[i, '生產單號']} | {page_data.at[i, '配方編號']} | "
-                    f"{page_data.at[i, '顏色']} | {page_data.at[i, '客戶名稱']}"
-                ),
-                key="download_order_select_tab2",
-            )
-            tab2_download_order = page_data.loc[download_index].to_dict()
-            tab2_a5_data, tab2_a5_filename = build_a5_production_order_download(
-                tab2_download_order, df_recipe, show_additional_ids=True
-            )
-            render_order_download_actions(
-                tab2_download_order, tab2_a5_data, tab2_a5_filename
-            )
+            if tab2_download_order is not None:
+                tab2_a5_data, tab2_a5_filename = build_a5_production_order_download(
+                    tab2_download_order, df_recipe, show_additional_ids=True
+                )
+                render_order_download_actions(tab2_download_order, tab2_a5_data, tab2_a5_filename)
+            else:
+                st.caption("勾選表格左側的資料列，即可列印或製作標籤。")
         else:
             render_empty_state("查無符合的生產單資料", hint="試試調整關鍵字或減少搜尋條件")
 
@@ -6980,6 +6947,7 @@ elif menu == "生產單管理":
             df_filtered_tab3 = df_filtered_tab3.sort_values(by="建立時間", ascending=False)
     
             # ===== 📊 顯示搜尋結果表格（新增回來）=====
+            selected_order = None
             if not df_filtered_tab3.empty:
                 # 新增出貨數量欄位
                 df_display_tab3 = df_filtered_tab3.copy()
@@ -7006,12 +6974,17 @@ elif menu == "生產單管理":
                 # ===== 顯示表格 =====
                 if not df_page.empty and existing_cols:
                     table_height = min(400, 38 * (len(df_page) + 1) + 3)
-                    st.dataframe(
+                    chosen_order = render_selection_table(
                         customer_display.frame(df_page[existing_cols].reset_index(drop=True)),
-                        use_container_width=True,
-                        hide_index=True,
-                        height=table_height
+                        df_page.to_dict("records"), key="production_manage", id_field="生產單號",
+                        height=table_height,
                     )
+                    if chosen_order is not None:
+                        selected_order = pd.Series(chosen_order)
+                        selected_code_edit = chosen_order["生產單號"]
+                        st.caption(f"已選取 · {selected_code_edit}")
+                    else:
+                        st.caption("勾選表格左側的資料列，即可預覽或修改。")
 
                     render_pagination_bar(
                         page_key="tab3_page_number",
@@ -7025,35 +6998,6 @@ elif menu == "生產單管理":
                     render_empty_state("沒有符合條件的生產單")
             else:
                 render_empty_state("查無符合的生產單", hint="請確認輸入的編號或篩選條件")
-    
-            # 📌 4. 下拉選單（只有一筆符合時直接自動選取，省去手動點下拉）
-            if not df_filtered_tab3.empty:
-                df_filtered_tab3['配方編號'] = df_filtered_tab3['配方編號'].fillna('').astype(str)
-
-                if len(df_filtered_tab3) == 1:
-                    selected_index = df_filtered_tab3.index[0]
-                    selected_order = df_filtered_tab3.loc[selected_index]
-                    selected_code_edit = selected_order["生產單號"]
-                    st.success(
-                        f"已自動選取：{selected_code_edit} | {selected_order['配方編號']} | "
-                        f"{selected_order['顏色']} | {selected_order['客戶名稱']}"
-                    )
-                else:
-                    st.markdown("---")  # 分隔線
-                    st.markdown("**🔽 選擇生產單進行預覽/修改/刪除**")
-
-                    selected_index = customer_display.selectbox(st,
-                        "選擇生產單",
-                        options=df_filtered_tab3.index,
-                        format_func=lambda i: f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
-                        key="select_order_code_tab3",
-                        index=0
-                    )
-
-                    selected_order = df_filtered_tab3.loc[selected_index]
-                    selected_code_edit = selected_order["生產單號"]
-            else:
-                selected_index, selected_order, selected_code_edit = None, None, None
     
         else:
             # st.info("💡 請輸入搜尋條件後按「🔍 搜尋」")
