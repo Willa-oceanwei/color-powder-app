@@ -3217,6 +3217,18 @@ def render_big_label_editor(label_order, *, key_prefix):
     paper_choice = st.selectbox("列印紙張", paper_options,
                                 key=f"{key_prefix}_label_paper_{order_no_for_label}")
     editor_columns = [col for col in BIG_LABEL_EDITOR_COLUMNS if not is_small or col != "數量"]
+    selected_positions = None
+    if is_small and st.toggle("指定列印位置", value=False,
+                              key=f"{key_prefix}_choose_positions_{order_no_for_label}"):
+        selected_positions = []
+        for row_index in range(5):
+            for column_index, column in enumerate(st.columns(2)):
+                position = row_index * 2 + column_index
+                if column.checkbox(f"{'左' if column_index == 0 else '右'}第 {row_index + 1} 排",
+                                   key=f"{key_prefix}_position_{order_no_for_label}_{position}"):
+                    selected_positions.append(position)
+        if not selected_positions:
+            st.warning("請勾選至少一個列印位置。")
     with st.container():
         with st.container():
             st.markdown('<span class="big-label-form-anchor"></span>', unsafe_allow_html=True)
@@ -3275,11 +3287,12 @@ def render_big_label_editor(label_order, *, key_prefix):
 
     confirmed_rows = st.session_state.get(label_confirmed_key)
     if confirmed_rows:
-        page_size = 10 if is_small else 4
-        sheets_needed = -(-len(confirmed_rows) // page_size)
+        page_size = max(1, len(selected_positions)) if selected_positions is not None else 10 if is_small else 4
+        sheets_needed = 0 if selected_positions == [] else -(-len(confirmed_rows) // page_size)
         st.caption(f"標籤 {len(confirmed_rows)} 張 · {label_kind}紙 {sheets_needed} 張")
         big_label_html = generate_small_label_html(
             confirmed_rows, paper_stock="a4_driver" if paper_choice == "A4／100%" else "custom",
+            selected_positions=selected_positions,
         ) if is_small else generate_big_label_html(
             confirmed_rows, paper_stock="a4_driver" if paper_choice == "A4／100%" else "custom"
         )
@@ -3292,7 +3305,7 @@ def render_big_label_editor(label_order, *, key_prefix):
             mime="text/html",
             key=f"{key_prefix}_download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
             use_container_width=True,
-            disabled=draft_rows != st.session_state[label_editor_defaults_key],
+            disabled=draft_rows != st.session_state[label_editor_defaults_key] or selected_positions == [],
         )
         with st.expander("分頁預覽", expanded=False):
             page_rows = [

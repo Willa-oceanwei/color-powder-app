@@ -47,7 +47,32 @@ def test_small_label_calibration_moves_fields_and_only_last_three_rows_down():
         parser.feed(generate_small_label_html([{"編號": "10032"}] * 20, paper_stock=stock))
         assert len(parser.slots) == 20
         for index, fields in enumerate(parser.slots):
-            shift = 0.3 if index % 10 >= 4 else 0
+            shift = (0, 0, 0.3, 0.5, 0.6)[index % 10 // 2]
             for field, x, y, width in zip(fields, (0.15, 3.15, 1.15, 2.2),
                                          (0.3, 0.3, 1.0, 1.95), (2.45, 1.35, 4.8, 1.45)):
+                if x == 3.15 and index % 2 == 1:
+                    x = 2.95
                 assert field == f"left:{x}cm;top:{round(y + shift, 3)}cm;width:{width}cm"
+
+
+def test_selected_positions_keep_blank_slots_and_repeat_selection_on_next_page():
+    rows = [{"編號": f"ORDER{i}"} for i in range(4)]
+    result = generate_small_label_html(rows, selected_positions=[8, 4, 6])
+    assert result.count('class="sheet"') == 2
+    assert result.count('class="label-slot"') == 4
+    for top in (9.25, 13.75, 18.25):
+        assert f'left:0.6cm;top:{top}cm;' in result
+    assert 'left:7.2cm;top:' not in result
+    assert result.count('left:0.6cm;top:9.25cm;') == 2
+    assert result.index("ORDER0") < result.index("ORDER1") < result.index("ORDER2") < result.index("ORDER3")
+    assert 'left:0.15cm;top:0.8cm;' in result
+    assert 'left:0.15cm;top:0.9cm;' in result
+    assert generate_small_label_html(rows, selected_positions=[]) == ""
+
+
+def test_invalid_positions_are_rejected():
+    import pytest
+
+    for positions in ([-1], [10], [1.5], [True]):
+        with pytest.raises(ValueError):
+            generate_small_label_html([{"編號": "1"}], selected_positions=positions)

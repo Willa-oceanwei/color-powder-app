@@ -51,6 +51,8 @@ render_order_download_actions(order, b"A5", "P001.html")
     assert not app.exception
     assert app.selectbox(key="tab2_small_label_paper_P001").value == "自訂 14×23 公分／100%"
     assert app.dataframe[0].value.iloc[0]["品名"] == "Red"
+    assert app.toggle(key="tab2_small_choose_positions_P001").value is False
+    assert len(app.checkbox) == 0
     app.session_state["tab2_small_big_label_editor_P001"] = {
         "edited_rows": {0: {"品名": "Small red", "比例": "5g/kg", "列印張數": 11}},
         "added_rows": [], "deleted_rows": [],
@@ -61,6 +63,20 @@ render_order_download_actions(order, b"A5", "P001.html")
     small_saved = build_big_label_editor_defaults(config, {"配方編號": "R001"}, [], label_kind="small")
     assert small_saved[0]["品名"] == "Small red"
     assert build_big_label_editor_defaults(config, {"配方編號": "R001"}, []) == saved
+    app.toggle(key="tab2_small_choose_positions_P001").set_value(True).run()
+    assert not app.exception and len(app.checkbox) == 10
+    assert any("請勾選至少一個" in warning.value for warning in app.warning)
+    download = next(item for item in app.get("download_button") if item.proto.label == "下載列印檔")
+    assert download.proto.disabled
+    for position in (4, 6, 8):
+        app.checkbox(key=f"tab2_small_position_P001_{position}").check().run()
+    assert not app.exception
+    assert any("小標籤紙 4 張" in caption.value for caption in app.caption)
+    download = next(item for item in app.get("download_button") if item.proto.label == "下載列印檔")
+    assert not download.proto.disabled
+    app.toggle(key="tab2_small_choose_positions_P001").set_value(False).run()
+    assert not app.exception and not app.checkbox
+    assert any("小標籤紙 2 張" in caption.value for caption in app.caption)
     app.radio(key="tab2_label_kind_P001").set_value("大標籤").run()
     assert not app.exception
     assert app.dataframe[0].value.iloc[0]["品名"] == "Edited red"

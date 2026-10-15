@@ -3,15 +3,20 @@
 from html import escape
 
 
-def generate_small_label_html(rows, *, paper_stock="custom"):
+def generate_small_label_html(rows, *, paper_stock="custom", selected_positions=None):
     if not rows:
         return ""
     margin = 0.6
     label_width = 6.3
+    positions = list(range(10)) if selected_positions is None else sorted(set(selected_positions))
+    if any(type(position) is not int or not 0 <= position < 10 for position in positions):
+        raise ValueError("Small label positions must be integers from 0 to 9")
+    if not positions:
+        return ""
     sheets = []
-    for start in range(0, len(rows), 10):
+    for start in range(0, len(rows), len(positions)):
         slots = []
-        for index, row in enumerate(rows[start:start + 10]):
+        for index, row in zip(positions, rows[start:start + len(positions)]):
             top = round(0.25 + (index // 2) * 4.5, 3)
             left = round(margin + (index % 2) * (label_width + 0.3), 3)
             fields = []
@@ -20,8 +25,9 @@ def generate_small_label_html(rows, *, paper_stock="custom"):
                                       ("日期", 3.15, 0.3, 1.35),
                                       ("名稱", 1.15, 1.0, 4.8),
                                       ("比例", 2.2, 1.95, 1.45)):
-                if index // 2 >= 2:
-                    y = round(y + 0.3, 3)
+                y = round(y + (0, 0, 0.3, 0.5, 0.6)[index // 2], 3)
+                if key == "日期" and index % 2 == 1:
+                    x = round(x - 0.2, 3)
                 value = str(row.get(key) or "").strip()
                 if key == "比例" and value.lower().endswith("g/kg"):
                     value = value[:-4].strip()
