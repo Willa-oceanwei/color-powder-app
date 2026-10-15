@@ -41,6 +41,13 @@ def generate_small_label_html(rows, *, paper_stock="a4_driver", selected_positio
     sheet_width, sheet_height = (21, 29.7) if paper_stock == "a4_driver" else (14, 23)
     return f'''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
 <title>生產單小標籤列印</title><style>
+@font-face {{
+    font-family: 'Arial Rounded MT Bold';
+    src: local('Arial Rounded MT Bold'), local('ArialRoundedMTBold');
+    font-style: normal;
+    font-weight: 400;
+}}
+
 @page {{ size: {size}; margin: 0; }}
 * {{ box-sizing: border-box; }}
 body {{ margin: 0; padding: 0; }}
@@ -49,9 +56,9 @@ overflow: hidden; break-after: page; page-break-after: always; break-inside: avo
 .sheet:last-child {{ break-after: auto; page-break-after: auto; }}
 .label-slot {{ position: absolute; height: 4.5cm; }}
 .field {{ position: absolute; white-space: nowrap; line-height: 1;
-font: 11pt Arial, "Microsoft JhengHei", sans-serif; }}
+font: 400 11pt "Arial Rounded MT Bold", Arial, "Microsoft JhengHei", sans-serif;
+font-synthesis: none; }}
 .field[data-size="12"] {{ font-size: 12pt; }}
-.field[data-field="編號"] {{ font-weight: 700; }}
 </style><script>
 function fitLabelText() {{
  document.querySelectorAll('.field').forEach(field => {{
