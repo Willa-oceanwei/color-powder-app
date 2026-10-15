@@ -1158,24 +1158,26 @@ def render_sidebar():
                     st.session_state.menu = item["key"]
                     st.rerun()
 
-        # 常用的生產、倉儲維持展開；其餘分類收合以縮短工作列。
+        # 出貨單固定顯示在會計分類內，其餘會計功能仍可收合。
         for group, items in groups.items():
-            if group in ("生產", "倉儲"):
+            if group in ("生產", "會計", "倉儲"):
                 st.markdown(f"<div class='erp-group'>{group}</div>", unsafe_allow_html=True)
-                render_items(items)
+                if group == "會計":
+                    render_items([item for item in items if "section" not in item])
+                    other_items = [item for item in items if "section" in item]
+                    with st.expander("其他會計功能", expanded=any(item["key"] == st.session_state.menu for item in other_items)):
+                        for section in ("應收帳款", "各式明細", "設定選項"):
+                            if section == "應收帳款":
+                                render_items([item for item in other_items if item.get("section") == section])
+                            else:
+                                st.markdown(f"<div class='erp-group'>{section}</div>", unsafe_allow_html=True)
+                                render_items([item for item in other_items if item.get("section") == section])
+                else:
+                    render_items(items)
             else:
                 is_current_group = any(item["key"] == st.session_state.menu for item in items)
                 with st.expander(group, expanded=is_current_group):
-                    if group == "會計":
-                        render_items([item for item in items if "section" not in item])
-                        for section in ("應收帳款", "各式明細", "設定選項"):
-                            if section == "應收帳款":
-                                render_items([item for item in items if item.get("section") == section])
-                            else:
-                                st.markdown(f"<div class='erp-group'>{section}</div>", unsafe_allow_html=True)
-                                render_items([item for item in items if item.get("section") == section])
-                    else:
-                        render_items(items)
+                    render_items(items)
 
         # Keep session actions visually separate from navigation. Placing logout
         # here avoids the previous floating button above the application title.
