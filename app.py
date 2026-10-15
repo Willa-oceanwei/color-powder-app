@@ -3530,7 +3530,7 @@ elif menu == "客戶名單":
     <span class="customer-page-marker"></span>
     <style>
     /* Keep customer actions and field accents in the app's blue palette. */
-    .block-container:has(.customer-page-marker) .stFormSubmitButton > button[kind="primary"] {
+    .block-container:has(.customer-page-marker) .stFormSubmitButton > button[kind="primaryFormSubmit"] {
         background: #1a5a84 !important;
         border: 1px solid #3487b6 !important;
         color: #ffffff !important;
