@@ -11,7 +11,8 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from .customer_repository import list_customers
+from .customer_display import CustomerDisplay
+from .customer_repository import list_customers, customer_display_name
 from .receivable_report import build_statements, render_statement_print, statement_pages, monthly_receipt_summary
 from .paper_preview import theme_preview, dismiss_export_on_preview_click
 from .shipment_repository import ShipmentError, get_shipment, list_shipments
@@ -39,38 +40,67 @@ def render_receivable_statement(config, *, title="應收帳款明細表"):
 
 
 def render_monthly_receipt_summary(config):
-    cols = st.columns([1, 1, 2, 2])
+    st.markdown("""<style>
+    .receivable-summary {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:8px 0 24px}
+    .receivable-card {border:1px solid #64748b55;border-radius:14px;padding:20px 22px;min-width:0;background:color-mix(in srgb,currentColor 3%,transparent)}
+    .receivable-card-label {font-size:14px;opacity:.75;margin-bottom:8px}
+    .receivable-card-value {font-size:clamp(23px,2.6vw,36px);font-weight:700;line-height:1.3;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+    .receivable-card-note {font-size:12px;opacity:.65;margin-top:8px}
+    .receivable-card.balance {border-top:3px solid #f59e0b}
+    .receivable-card.received {border-top:3px solid #38bdf8}
+    .receivable-card.total {border-top:3px solid #94a3b8}
+    .stApp:has(.erp-title) .receivable-summary {color:#d5e1ec}
+    .stApp:has(.erp-title) .main:has(#receivable-page) [data-testid="stMarkdownContainer"] {color:#d5e1ec}
+    @media(max-width:640px){.receivable-summary{grid-template-columns:1fr;gap:10px}.receivable-card{padding:14px 18px}.receivable-card-value{font-size:28px}}
+    </style>""", unsafe_allow_html=True)
+    st.subheader('每月收款總覽')
+    st.caption('選擇帳款月份，查看各客戶的應收、已收與未收款項。')
     today = date.today()
-    year = cols[0].number_input('年度', min_value=2000, max_value=2100, value=today.year, step=1, key='receipt_summary_year')
-    month = cols[1].selectbox('月份', list(range(1, 13)), index=today.month-1,
-                              format_func=lambda m: f'{m} 月', key='receipt_summary_month')
-    closing = cols[2].radio('結帳日', ['25 號', '31 號／月底'], index=1, horizontal=True, key='receipt_summary_closing')
-    as_of = cols[3].date_input('截至日期', value=today, key='receipt_summary_as_of')
-    start, end = month_receipt_period(year, month, 25 if closing == '25 號' else 31)
-    st.caption(f'帳款期間：{start:%Y/%m/%d} ～ {end:%Y/%m/%d}　收款截至：{as_of:%Y/%m/%d}')
+    with st.container(border=True):
+        year_col, month_col, closing_col, date_col = st.columns([1, 1, 1.6, 1.8])
+        year = year_col.number_input('年度', min_value=2000, max_value=2100, value=today.year, step=1, key='receipt_summary_year')
+        month = month_col.selectbox('月份', list(range(1, 13)), index=today.month-1,
+                                   format_func=lambda m: f'{m} 月', key='receipt_summary_month')
+        closing = closing_col.radio('結帳日', ['25 號', '31 號／月底'], index=1, horizontal=True, key='receipt_summary_closing')
+        as_of = date_col.date_input('收款截至日期', value=today, key='receipt_summary_as_of')
+        start, end = month_receipt_period(year, month, 25 if closing == '25 號' else 31)
+        st.caption(f'帳款期間　{start:%Y/%m/%d} ～ {end:%Y/%m/%d}　｜　收款截至　{as_of:%Y/%m/%d}')
     rows = monthly_receipt_summary(config, start.isoformat(), end.isoformat(), as_of.isoformat())
-    totals = st.columns(3)
-    for col, label, field in zip(totals, ['本期應收總額', '已收金額', '未收金額'], ['total', 'received', 'balance']):
-        col.metric(label, f"{sum(r[field] for r in rows):,}")
-    controls = st.columns([3, 1])
-    query = controls[0].text_input('搜尋客戶編號或名稱', key='receipt_summary_query').strip().casefold()
-    unpaid_only = controls[1].toggle('只顯示未收', key='receipt_summary_unpaid')
-    filtered = [r for r in rows if (not query or query in r['customer_id'].casefold() or query in r['customer_name'].casefold())
-                and (not unpaid_only or r['balance'] > 0)]
-    if not filtered:
-        st.info('沒有符合條件的客戶')
-        return
-    st.dataframe(pd.DataFrame([{'客戶編號': r['customer_id'], '客戶名稱': r['customer_name'], '本期應收': r['total'],
-                                '已收金額': r['received'], '未收金額': r['balance'], '收款狀態': r['status'],
-                                '最後收款日期': r['last_receipt'], '收款起算日': r['tracking_start'] or '尚未開始'}
-                               for r in filtered]), hide_index=True, use_container_width=True, height=500,
-                  column_config={field: st.column_config.NumberColumn(field, format='%d')
-                                 for field in ['本期應收', '已收金額', '未收金額']})
+    display = CustomerDisplay(config)
+    cards = []
+    for label, field, kind, note in [('本期應收總額', 'total', 'total', '所選帳款期間合計'),
+                                     ('已收金額', 'received', 'received', '截至指定日期已登錄收款'),
+                                     ('未收金額', 'balance', 'balance', '本期尚待收取款項')]:
+        amount = sum(r[field] for r in rows)
+        cards.append(f'<div class="receivable-card {kind}"><div class="receivable-card-label">{label}</div>'
+                     f'<div class="receivable-card-value">{amount:,}</div><div class="receivable-card-note">{note}</div></div>')
+    st.markdown('<div class="receivable-summary">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown('**客戶收款清單**')
+        controls = st.columns([3, 1])
+        query = controls[0].text_input('搜尋客戶', placeholder='輸入編號、簡稱或完整名稱', key='receipt_summary_query').strip().casefold()
+        with controls[1]:
+            st.caption('顯示範圍')
+            unpaid_only = st.toggle('只顯示未收', key='receipt_summary_unpaid')
+        filtered = [r for r in rows if (not query or any(query in str(value).casefold() for value in
+                    (r['customer_id'], r['customer_name'], display.name(r['customer_name'], r['customer_id']))))
+                    and (not unpaid_only or r['balance'] > 0)]
+        st.caption(f'顯示 {len(filtered)} / {len(rows)} 位客戶 · 上方金額為全部客戶合計')
+        if not filtered:
+            st.info('沒有符合條件的客戶，請調整搜尋或顯示範圍。')
+            return
+        st.dataframe(pd.DataFrame([{'客戶編號': r['customer_id'], '客戶簡稱': display.name(r['customer_name'], r['customer_id']),
+                                    '未收金額': r['balance'], '收款狀態': r['status'], '本期應收': r['total'],
+                                    '已收金額': r['received'], '最後收款日期': r['last_receipt'] or '—',
+                                    '收款起算日': r['tracking_start'] or '尚未開始'} for r in filtered]),
+                     hide_index=True, use_container_width=True, height=min(500, 38 * (len(filtered) + 1)),
+                     column_config={field: st.column_config.NumberColumn(field, format='%d')
+                                    for field in ['本期應收', '已收金額', '未收金額']})
 
 
 def render_report(config, *, title="應收帳款明細表"):
     customers = list_customers(config, include_inactive=True)
-    names = {c["customer_id"]: c["name"] for c in customers}
+    names = {c["customer_id"]: customer_display_name(c) for c in customers}
     codes = [""] + list(names)
     today = date.today()
     with st.form("receivable_filters"):
@@ -149,7 +179,7 @@ def render_customer_ranking(config):
         st.info("此區間沒有交易")
         return
     rows = ranking_rows(statements)
-    st.dataframe([dict(zip(rows[0], row)) for row in rows[1:]], hide_index=True, use_container_width=True)
+    st.dataframe(CustomerDisplay(config).frame([dict(zip(rows[0], row)) for row in rows[1:]]), hide_index=True, use_container_width=True)
     st.metric("未稅金額總計", f"{int(sum((Decimal(s['net']) for s in statements), Decimal(0))):,}")
     left, right, _ = st.columns([1, 1, 4])
     left.download_button("另存 PDF", ranking_pdf(statements), file_name="客戶交易排行.pdf", mime="application/pdf")
@@ -365,7 +395,8 @@ def render_batch_receipt(config, customer, records, *, prepaid=False):
 def render_receipt_entry(config):
     mode = st.radio('收款模式', ['單筆收款', '月結／批次收款', '預收款沖帳'], horizontal=True, key='receipt_mode')
     records = list_shipments(config)
-    customers = {r['customer_id']: r['name'] for r in list_customers(config, include_inactive=True)} if mode != '單筆收款' else {r['customer_id']: r['customer_name'] for r in records}
+    names = {r['customer_id']: customer_display_name(r) for r in list_customers(config, include_inactive=True)}
+    customers = names if mode != '單筆收款' else {r['customer_id']: names.get(r['customer_id'], r['customer_name']) for r in records}
     if not customers:
         st.info("目前沒有可登錄收款的出貨單")
         return

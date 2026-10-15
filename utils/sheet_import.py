@@ -580,7 +580,8 @@ def import_sheet_values(
 
             elif sheet_name == "客戶名單":
                 customer_id = row.get("客戶編號", "").strip()
-                name = (row.get("客戶簡稱") or row.get("客戶名稱") or "").strip()
+                name = (row.get("客戶名稱") or row.get("客戶簡稱") or "").strip()
+                short_name = row.get("客戶簡稱", "").strip() if "客戶名稱" in row and "客戶簡稱" in row else None
                 if not customer_id:
                     result.errors.append(f"row {index + 2}: missing 客戶編號")
                     continue
@@ -605,6 +606,21 @@ def import_sheet_values(
                 entity = _fetchone_mapping(conn.execute(
                     "SELECT * FROM customers WHERE customer_id=?", (customer_id,)
                 ))
+                if short_name is None:
+                    short_name = (entity.get("short_name") or "") if entity else ""
+                    # Legacy Sheets have one name column; keep an established legal name.
+                    if entity and entity.get("short_name") and "客戶名稱" not in row:
+                        name = entity["name"]
+                if short_name:
+                    prior = seen_customer_names.get(short_name)
+                    if prior and prior != customer_id:
+                        result.errors.append(f"row {index + 2}: 客戶簡稱 {short_name} 也由 {prior} 使用")
+                        continue
+                    seen_customer_names[short_name] = customer_id
+                    owner = _fetchone_mapping(conn.execute("SELECT customer_id FROM customer_aliases WHERE alias=?", (short_name,)))
+                    if owner and owner["customer_id"] != customer_id:
+                        result.errors.append(f"row {index + 2}: 客戶簡稱 {short_name} 已由 {owner['customer_id']} 使用")
+                        continue
                 if not existed and entity is not None:
                     result.conflicts += 1
                     if not dry_run:
@@ -619,13 +635,13 @@ def import_sheet_values(
                     synced_at = utc_now_iso()
                     upsert_sheet_row(conn, sheet_name, row_key, row, row_hash, _sheet_updated_at(row))
                     conn.execute(
-                        """INSERT INTO customers(customer_id,name,notes,address,phone,fax,contact,tax_id,source,created_at,updated_at,last_synced_at)
-                           VALUES (?,?,?,?,?,?,?,?,'google_sheets_import',?,?,?)
-                           ON CONFLICT(customer_id) DO UPDATE SET name=excluded.name,notes=excluded.notes,
+                        """INSERT INTO customers(customer_id,name,short_name,notes,address,phone,fax,contact,tax_id,source,created_at,updated_at,last_synced_at)
+                           VALUES (?,?,?,?,?,?,?,?,?,'google_sheets_import',?,?,?)
+                           ON CONFLICT(customer_id) DO UPDATE SET name=excluded.name,short_name=excluded.short_name,notes=excluded.notes,
                                address=excluded.address,phone=excluded.phone,fax=excluded.fax,contact=excluded.contact,tax_id=excluded.tax_id,
                                source=excluded.source,version=customers.version+1,
                                updated_at=excluded.updated_at,last_synced_at=excluded.last_synced_at""",
-                        (customer_id, name, row.get("備註", ""),
+                        (customer_id, name, short_name, row.get("備註", ""),
                          *(row[label].strip() if label in row else ((entity.get(key) or "") if entity else "")
                            for key, label in CONTACT_FIELDS.items()),
                          entity["created_at"] if entity else synced_at,
@@ -633,6 +649,9 @@ def import_sheet_values(
                     )
                     conn.execute("INSERT OR IGNORE INTO customer_aliases(alias,customer_id,created_at) VALUES (?,?,?)",
                                  (name, customer_id, synced_at))
+                    if short_name:
+                        conn.execute("INSERT OR IGNORE INTO customer_aliases(alias,customer_id,created_at) VALUES (?,?,?)",
+                                     (short_name, customer_id, synced_at))
                     result.inserted_or_updated += 1
 
             elif sheet_name == "配方管理":

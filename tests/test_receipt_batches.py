@@ -100,7 +100,7 @@ def test_schema_27_upgrade_preserves_single_receipts(config):
         conn.execute('DELETE FROM schema_migrations WHERE version=28')
         conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (27,'old')")
     initialize_database(config.path)
-    assert database_health_check(config).schema_version == 29
+    assert database_health_check(config).schema_version == 31
     assert outstanding_shipments(config, 'A01')[0]['balance'] == 160
 
 

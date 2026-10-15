@@ -32,10 +32,12 @@ class CustomerInput:
     fax: str | None = None
     contact: str | None = None
     tax_id: str | None = None
+    short_name: str | None = None
 
     def normalized(self) -> "CustomerInput":
         return CustomerInput(str(self.customer_id or "").strip(), str(self.name or "").strip(),
                              str(self.notes or "").strip(),
+                             short_name=None if self.short_name is None else str(self.short_name).strip(),
                              **{key: None if getattr(self, key) is None else str(getattr(self, key)).strip()
                                 for key in CONTACT_FIELDS})
 
@@ -62,7 +64,8 @@ def _mappings(cursor) -> list[dict[str, Any]]:
 def customer_sheet_payload(entity: dict[str, Any]) -> dict[str, str]:
     return {
         "客戶編號": str(entity.get("customer_id") or ""),
-        "客戶簡稱": str(entity.get("name") or ""),
+        "客戶名稱": str(entity.get("name") or ""),
+        "客戶簡稱": str(entity.get("short_name") or ""),
         "備註": str(entity.get("notes") or ""),
         **{label: str(entity.get(key) or "") for key, label in CONTACT_FIELDS.items()},
         "生命週期": str(entity.get("lifecycle_status") or "active"),
@@ -83,7 +86,7 @@ def list_customers(config: DatabaseConfig, *, include_inactive: bool = False) ->
     with connect_from_config(config) as conn:
         where = "" if include_inactive else "WHERE lifecycle_status='active'"
         return _mappings(conn.execute(
-            f"""SELECT customer_id, name, notes, address, phone, fax, contact, tax_id, lifecycle_status, deleted_at, delete_reason,
+            f"""SELECT customer_id, name, short_name, notes, address, phone, fax, contact, tax_id, lifecycle_status, deleted_at, delete_reason,
                        version, updated_at, last_synced_at FROM customers {where} ORDER BY customer_id"""
         ))
 
@@ -93,7 +96,9 @@ def _validate(data: CustomerInput) -> CustomerInput:
     if not data.customer_id:
         raise CustomerError("請輸入客戶編號")
     if not data.name:
-        raise CustomerError("請輸入客戶簡稱")
+        raise CustomerError("請輸入客戶完整名稱")
+    if len(data.short_name or "") > 120:
+        raise CustomerError("客戶簡稱內容過長")
     for key, label in CONTACT_FIELDS.items():
         if len(getattr(data, key) or "") > (500 if key == "address" else 120):
             raise CustomerError(f"{label}內容過長")
@@ -112,11 +117,16 @@ def create_customer(config: DatabaseConfig, data: CustomerInput) -> dict[str, An
         if _mapping(conn.execute("SELECT 1 FROM customers WHERE customer_id=?", (data.customer_id,))):
             raise CustomerAlreadyExists(f"客戶編號 {data.customer_id} 已存在")
         _ensure_alias(conn, data.name, data.customer_id)
-        conn.execute("""INSERT INTO customers(customer_id,name,notes,address,phone,fax,contact,tax_id,source,version,created_at,updated_at)
-                        VALUES (?,?,?,?,?,?,?,?,'app',1,?,?)""",
-                     (data.customer_id, data.name, data.notes, *(getattr(data, key) or "" for key in CONTACT_FIELDS), now, now))
+        if data.short_name:
+            _ensure_alias(conn, data.short_name, data.customer_id)
+        conn.execute("""INSERT INTO customers(customer_id,name,short_name,notes,address,phone,fax,contact,tax_id,source,version,created_at,updated_at)
+                        VALUES (?,?,?,?,?,?,?,?,?,'app',1,?,?)""",
+                     (data.customer_id, data.name, data.short_name or "", data.notes, *(getattr(data, key) or "" for key in CONTACT_FIELDS), now, now))
         conn.execute("INSERT INTO customer_aliases(alias,customer_id,created_at) VALUES (?,?,?)",
                      (data.name, data.customer_id, now))
+        if data.short_name:
+            conn.execute("INSERT OR IGNORE INTO customer_aliases(alias,customer_id,created_at) VALUES (?,?,?)",
+                         (data.short_name, data.customer_id, now))
         entity = _mapping(conn.execute("SELECT * FROM customers WHERE customer_id=?", (data.customer_id,)))
         enqueue_sheet_sync(conn, sheet_name="客戶名單", row_key=data.customer_id, operation="insert",
                            payload=customer_sheet_payload(entity), entity_version=1)
@@ -132,12 +142,17 @@ def update_customer(config: DatabaseConfig, data: CustomerInput) -> dict[str, An
         if existing["lifecycle_status"] != "active":
             raise CustomerError("已停用客戶不可修改")
         _ensure_alias(conn, data.name, data.customer_id)
+        if data.short_name:
+            _ensure_alias(conn, data.short_name, data.customer_id)
         version = int(existing["version"]) + 1
         contact_values = [existing[key] if getattr(data, key) is None else getattr(data, key) for key in CONTACT_FIELDS]
-        conn.execute("UPDATE customers SET name=?,notes=?,address=?,phone=?,fax=?,contact=?,tax_id=?,source='app',version=?,updated_at=? WHERE customer_id=?",
-                     (data.name, data.notes, *contact_values, version, now, data.customer_id))
+        conn.execute("UPDATE customers SET name=?,short_name=?,notes=?,address=?,phone=?,fax=?,contact=?,tax_id=?,source='app',version=?,updated_at=? WHERE customer_id=?",
+                     (data.name, existing["short_name"] if data.short_name is None else data.short_name, data.notes, *contact_values, version, now, data.customer_id))
         conn.execute("INSERT OR IGNORE INTO customer_aliases(alias,customer_id,created_at) VALUES (?,?,?)",
                      (data.name, data.customer_id, now))
+        if data.short_name:
+            conn.execute("INSERT OR IGNORE INTO customer_aliases(alias,customer_id,created_at) VALUES (?,?,?)",
+                         (data.short_name, data.customer_id, now))
         entity = _mapping(conn.execute("SELECT * FROM customers WHERE customer_id=?", (data.customer_id,)))
         enqueue_sheet_sync(conn, sheet_name="客戶名單", row_key=data.customer_id, operation="update",
                            payload=customer_sheet_payload(entity), entity_version=version)
@@ -163,3 +178,8 @@ def set_customer_active(config: DatabaseConfig, customer_id: str, *, active: boo
                            entity_version=int(entity["version"]))
         return entity
 
+
+
+def customer_display_name(customer):
+    """Internal label; full legal name remains in name for external documents."""
+    return str(customer.get("short_name") or customer.get("name") or "")

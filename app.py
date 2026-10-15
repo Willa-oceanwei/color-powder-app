@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils import database as database_utils
+from utils.customer_display import CustomerDisplay
 from utils.number_format import format_optional_decimals
 from utils.big_label_repository import (
     BIG_LABEL_EDITOR_COLUMNS, build_big_label_editor_defaults,
@@ -90,6 +91,7 @@ from utils.customer_repository import (
     CustomerAlreadyExists,
     CustomerError,
     CustomerInput,
+    customer_display_name,
     create_customer,
     list_customers,
     set_customer_active,
@@ -681,12 +683,13 @@ except Exception as exc:
 
 # Backward-compatible name for legacy code paths that still expect a local path.
 SQLITE_DB_PATH = DATABASE_INITIALIZED
+customer_display = CustomerDisplay(DATABASE_CONFIG)
 
 
 def customer_dataframe(*, include_inactive=False):
     """Return Turso customer data in the legacy UI column shape."""
     return pd.DataFrame([
-        {"客戶編號": item.get("customer_id", ""), "客戶簡稱": item.get("name", ""),
+        {"客戶編號": item.get("customer_id", ""), "客戶簡稱": customer_display_name(item),
          "客戶名稱": item.get("name", ""), "備註": item.get("notes", ""),
          "生命週期": item.get("lifecycle_status", "active")}
         for item in list_customers(DATABASE_CONFIG, include_inactive=include_inactive)
@@ -1423,7 +1426,7 @@ def show_trial_backfill_reference(df_trial=None):
     if ref_df.empty:
         st.caption("目前沒有試色登錄資料可供參考。")
     else:
-        st.dataframe(ref_df, use_container_width=True, height=180)
+        st.dataframe(customer_display.frame(ref_df), use_container_width=True, height=180)
 
 
 PANTONE_BACKFILL_SHEET_NAME = "Pantone色號表"
@@ -1518,7 +1521,7 @@ def show_pantone_backfill_reference(df_pantone_reference=None):
     if ref_df.empty:
         st.caption(f"目前沒有 {PANTONE_BACKFILL_SHEET_NAME} 資料可供參考。")
     else:
-        st.dataframe(ref_df, use_container_width=True, height=180)
+        st.dataframe(customer_display.frame(ref_df), use_container_width=True, height=180)
 
 
 # Turso 主檔採分頁延遲載入：登入與「外部連結」等不需要業務資料的頁面，
@@ -1916,7 +1919,7 @@ def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
 
     start = (st.session_state[page_key] - 1) * page_size
     end = start + page_size
-    st.dataframe(df.iloc[start:end], use_container_width=use_container_width)
+    st.dataframe(customer_display.frame(df.iloc[start:end]), use_container_width=use_container_width)
 
     render_pagination_bar(
         page_key=page_key,
@@ -3543,8 +3546,8 @@ if menu == "色粉管理":
     
 # ======== 客戶名單 =========
 elif menu == "客戶名單":
-    st.caption("Turso 是客戶主檔正式資料來源；Google Sheet 由 versioned outbox 同步。客戶編號建立後不可修改。")
-    columns = ["客戶編號", "客戶簡稱", "地址", "電話", "傳真", "聯絡人", "統一編號", "備註"]
+    st.caption("簡稱用於內部操作；完整名稱用於出貨單及對外帳款明細。客戶編號建立後不可修改。")
+    columns = ["客戶編號", "客戶簡稱", "客戶名稱", "地址", "電話", "傳真", "聯絡人", "統一編號", "備註"]
     
     try:
         customer_entities = list_customers(DATABASE_CONFIG, include_inactive=True)
@@ -3552,7 +3555,7 @@ elif menu == "客戶名單":
         st.error(f"無法從 Turso 載入客戶：{exc}")
         customer_entities = []
     customer_rows = [{
-        "客戶編號": item.get("customer_id", ""), "客戶簡稱": item.get("name", ""),
+        "客戶編號": item.get("customer_id", ""), "客戶簡稱": item.get("short_name", ""), "客戶名稱": item.get("name", ""),
         "備註": item.get("notes", ""), "生命週期": item.get("lifecycle_status", "active"),
         "地址": item.get("address", ""), "電話": item.get("phone", ""), "傳真": item.get("fax", ""),
         "聯絡人": item.get("contact", ""), "統一編號": item.get("tax_id", ""),
@@ -3575,9 +3578,10 @@ elif menu == "客戶名單":
         with st.form(f"customer_turso_form_{editing_id or 'new'}_{st.session_state.get('customer_form_epoch', 0)}"):
             c1, c2, c3 = st.columns(3)
             customer_id = c1.text_input("客戶編號", value=str(defaults.get("客戶編號", "")), disabled=bool(editing_id))
-            customer_name = c2.text_input("客戶簡稱", value=str(defaults.get("客戶簡稱", "")))
-            customer_contact = c3.text_input("聯絡人", value=str(defaults.get("聯絡人", "")))
-            c1, c2, c3 = st.columns(3)
+            customer_name = c2.text_input("客戶完整名稱", value=str(defaults.get("客戶名稱", "")))
+            customer_short_name = c3.text_input("客戶簡稱", value=str(defaults.get("客戶簡稱", "")), help="選填，尚未填寫時沿用完整名稱")
+            c1, c2, c3, c4 = st.columns(4)
+            customer_contact = c4.text_input("聯絡人", value=str(defaults.get("聯絡人", "")))
             customer_phone = c1.text_input("電話", value=str(defaults.get("電話", "")))
             customer_fax = c2.text_input("傳真", value=str(defaults.get("傳真", "")))
             customer_tax_id = c3.text_input("統一編號", value=str(defaults.get("統一編號", "")))
@@ -3588,7 +3592,7 @@ elif menu == "客戶名單":
         if save_customer:
             data = CustomerInput(editing_id or customer_id, customer_name, customer_notes,
                                  address=customer_address, phone=customer_phone, fax=customer_fax,
-                                 contact=customer_contact, tax_id=customer_tax_id)
+                                 contact=customer_contact, tax_id=customer_tax_id, short_name=customer_short_name)
             try:
                 if editing_id:
                     update_customer(DATABASE_CONFIG, data)
@@ -3607,21 +3611,22 @@ elif menu == "客戶名單":
             st.rerun()
 
     with edit_customer_tab:
-        keyword = st.text_input("搜尋客戶編號或簡稱", key="customer_search_turso").strip()
+        keyword = st.text_input("搜尋客戶編號、簡稱或完整名稱", key="customer_search_turso").strip()
         filtered = active_df
         if keyword and not filtered.empty:
             filtered = filtered[
                 filtered["客戶編號"].astype(str).str.contains(keyword, case=False, na=False, regex=False)
                 | filtered["客戶簡稱"].astype(str).str.contains(keyword, case=False, na=False, regex=False)
+                | filtered["客戶名稱"].astype(str).str.contains(keyword, case=False, na=False, regex=False)
             ]
         if filtered.empty:
             st.info("目前沒有符合的有效客戶。")
         else:
-            st.dataframe(filtered[columns], use_container_width=True, hide_index=True)
+            st.dataframe(filtered.assign(客戶簡稱=filtered["客戶簡稱"].where(filtered["客戶簡稱"].ne(""), filtered["客戶名稱"]))[[c for c in columns if c != "客戶名稱"]], use_container_width=True, hide_index=True)
             selection_col, reason_col = st.columns([3, 2])
             selected_id = selection_col.selectbox(
                 "選擇客戶", filtered["客戶編號"].tolist(), key="customer_action_id",
-                format_func=lambda cid: f"{cid}｜{filtered.loc[filtered['客戶編號']==cid, '客戶簡稱'].iloc[0]}",
+                format_func=lambda cid: cid + '｜' + (filtered.loc[filtered['客戶編號']==cid, '客戶簡稱'].iloc[0] or filtered.loc[filtered['客戶編號']==cid, '客戶名稱'].iloc[0]),
             )
             archive_reason = reason_col.text_input("停用原因", key="customer_archive_reason")
             b1, b2 = st.columns(2)
@@ -3641,7 +3646,7 @@ elif menu == "客戶名單":
             if inactive_df.empty:
                 st.info("目前沒有已停用客戶。")
             else:
-                st.dataframe(inactive_df[columns + ["停用時間", "停用原因"]], use_container_width=True, hide_index=True)
+                st.dataframe(inactive_df[[c for c in columns if c != "客戶名稱"] + ["停用時間", "停用原因"]], use_container_width=True, hide_index=True)
                 restore_id = st.selectbox("選擇要恢復的客戶", inactive_df["客戶編號"].tolist(), key="restore_customer_id")
                 if st.button("♻️ 恢復客戶", key="restore_customer"):
                     try:
@@ -3742,7 +3747,7 @@ elif menu == "配方管理":
     existing_powders_str = {str(x).strip().upper() for x in existing_powders if str(x).strip() != ""}
 
     customer_options = [
-        "{} - {}".format(row["客戶編號"], row["客戶簡稱"])
+        "{} - {}".format(row["客戶編號"], row.get("客戶名稱", row["客戶簡稱"]))
         for _, row in df_customers.iterrows()
         if "客戶編號" in df_customers.columns and "客戶簡稱" in df_customers.columns
     ]
@@ -3857,7 +3862,7 @@ elif menu == "配方管理":
                 options = [""] + customer_options
                 current = f"{fr.get('客戶編號','')} - {fr.get('客戶名稱','')}" if fr.get("客戶編號") else ""
                 index = options.index(current) if current in options else 0
-                selected = st.selectbox("客戶編號", options, index=index, key="form_recipe_selected_customer")
+                selected = customer_display.selectbox(st, "客戶編號", options, index=index, key="form_recipe_selected_customer")
                 if selected and " - " in selected:
                     c_no, c_name = selected.split(" - ",1)
                     fr["客戶編號"] = c_no.strip()
@@ -4123,7 +4128,7 @@ elif menu == "配方管理":
             existing_cols = [c for c in show_cols if c in page_data.columns]
 
             if not page_data.empty:
-                st.dataframe(page_data[existing_cols].reset_index(drop=True),
+                st.dataframe(customer_display.frame(page_data[existing_cols].reset_index(drop=True)),
                              use_container_width=True, hide_index=True)
             else:
                 if search_keywords:
@@ -4263,7 +4268,7 @@ elif menu == "配方管理":
                     
                         index_c = options.index(current) if current in options else 0
                     
-                        selected = st.selectbox(
+                        selected = customer_display.selectbox(st,
                             "客戶編號",
                             options,
                             index=index_c,
@@ -4647,7 +4652,7 @@ elif menu == "配方管理":
                 preview_rows = preview.get("rows", [])
                 st.info(f"找到 {len(preview_rows)} 個使用 {old_powder} 的配方")
                 if preview_rows:
-                    st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
+                    st.dataframe(customer_display.frame(pd.DataFrame(preview_rows)), use_container_width=True, hide_index=True)
                     if st.button("✅ 確認執行替代", key="confirm_powder_replacement", type="primary"):
                         try:
                             updated_rows = replace_color_powder_in_recipes(
@@ -4666,7 +4671,7 @@ elif menu == "配方管理":
                                 f"共更新 {len(updated_rows)} 個配方"
                             )
                             st.dataframe(
-                                pd.DataFrame(updated_rows), use_container_width=True, hide_index=True
+                                customer_display.frame(pd.DataFrame(updated_rows)), use_container_width=True, hide_index=True
                             )
             elif preview:
                 st.warning("⚠️ 輸入內容已變更，請重新檢查受影響配方。")
@@ -4819,7 +4824,7 @@ elif menu == "配方管理":
                 if preview_rows:
                     preview_df = pd.DataFrame(preview_rows, columns=["項目", "重量"])
                     st.dataframe(
-                        preview_df,
+                        customer_display.frame(preview_df),
                         use_container_width=False,
                         hide_index=True,
                         column_config={
@@ -5014,7 +5019,7 @@ elif menu == "配方管理":
 
                         calc_df = pd.DataFrame(calc_rows, columns=["色粉編號", "重量"])
                         st.dataframe(
-                            calc_df,
+                            customer_display.frame(calc_df),
                             use_container_width=False,
                             hide_index=True,
                             column_config={
@@ -5837,7 +5842,7 @@ elif menu == "生產單管理":
                 
         else:
         
-            selected_label = st.selectbox(
+            selected_label = customer_display.selectbox(st,
                 "選擇配方",
                 ["請選擇"] + list(option_map.keys()),
                 index=0,
@@ -6809,13 +6814,13 @@ elif menu == "生產單管理":
     
         if not page_data.empty and existing_cols:
             st.dataframe(
-                page_data[existing_cols].reset_index(drop=True),
+                customer_display.frame(page_data[existing_cols].reset_index(drop=True)),
                 use_container_width=True,
                 hide_index=True
             )
 
             st.markdown("**📥 下載這一頁的生產單**")
-            download_index = st.selectbox(
+            download_index = customer_display.selectbox(st,
                 "選擇要下載的生產單",
                 options=page_data.index,
                 format_func=lambda i: (
@@ -6979,7 +6984,7 @@ elif menu == "生產單管理":
                 if not df_page.empty and existing_cols:
                     table_height = min(400, 38 * (len(df_page) + 1) + 3)
                     st.dataframe(
-                        df_page[existing_cols].reset_index(drop=True),
+                        customer_display.frame(df_page[existing_cols].reset_index(drop=True)),
                         use_container_width=True,
                         hide_index=True,
                         height=table_height
@@ -7014,7 +7019,7 @@ elif menu == "生產單管理":
                     st.markdown("---")  # 分隔線
                     st.markdown("**🔽 選擇生產單進行預覽/修改/刪除**")
 
-                    selected_index = st.selectbox(
+                    selected_index = customer_display.selectbox(st,
                         "選擇生產單",
                         options=df_filtered_tab3.index,
                         format_func=lambda i: f"{df_filtered_tab3.at[i, '生產單號']} | {df_filtered_tab3.at[i, '配方編號']} | {df_filtered_tab3.at[i, '顏色']} | {df_filtered_tab3.at[i, '客戶名稱']}",
@@ -7724,7 +7729,7 @@ if menu == "代工管理":
             if not oem_options:
                 st.warning("⚠️ 目前沒有可編輯的代工單（全部已結案）")
             else:
-                selected_option = st.selectbox("選擇代工單號", [""] + oem_options, key="select_oem_edit")
+                selected_option = customer_display.selectbox(st, "選擇代工單號", [""] + oem_options, key="select_oem_edit")
 
                 if selected_option:
                     selected_oem = selected_option.split(" | ")[0].strip()
@@ -8007,7 +8012,7 @@ if menu == "代工管理":
                     st.info(f"✅ {empty_message}")
                 else:
                     oem_options = [_build_oem_dropdown_label(row) for _, row in df_oem_active.iterrows()]
-                    selected_option = st.selectbox(
+                    selected_option = customer_display.selectbox(st,
                         "選擇代工單號", [""] + oem_options,
                         key=f"select_oem_return_{'correction' if correction_mode else 'pending'}",
                     )
@@ -8037,7 +8042,7 @@ if menu == "代工管理":
 
                         if not df_this_return.empty:
                             st.dataframe(
-                                df_this_return.reindex(columns=["載回日期", "載回數量", "更正原因"]).dropna(axis=1, how="all"),
+                                customer_display.frame(df_this_return.reindex(columns=["載回日期", "載回數量", "更正原因"]).dropna(axis=1, how="all")),
                                 use_container_width=True, hide_index=True
                             )
 
@@ -8434,7 +8439,7 @@ if menu == "代工管理":
                     "代工數量", "目標載回", "差異", "送達日期及數量", "載回日期及數量", "建立時間", "已交貨", "交貨備註"
                 ]
                 st.dataframe(
-                    df_closed[closed_cols],
+                    customer_display.frame(df_closed[closed_cols]),
                     use_container_width=True,
                     hide_index=True,
                     column_config={
@@ -8487,7 +8492,7 @@ if menu == "代工管理":
                 if not closed_selector_options:
                     st.info("目前沒有符合條件的已結案代工單")
                 else:
-                    selected_closed_option = st.selectbox(
+                    selected_closed_option = customer_display.selectbox(st,
                         "選擇代工單",
                         closed_selector_options,
                         format_func=lambda x: x["label"],
@@ -8615,7 +8620,7 @@ if menu == "代工管理":
                 df_display = df_progress.drop(columns=["status_order"]).copy()
                 df_display["建立時間"] = df_display["建立時間"].dt.strftime("%Y-%m-%d").fillna("")
                 display_cols = [c for c in df_display.columns if c not in ["已交貨"]]
-                st.dataframe(df_display[display_cols].reset_index(drop=True), use_container_width=True)
+                st.dataframe(customer_display.frame(df_display[display_cols].reset_index(drop=True)), use_container_width=True)
 
     # ================================================================
     # Tab 6：已結案代工單受控封存／恢復
@@ -8663,7 +8668,7 @@ if menu == "代工管理":
             order_id = str(item.get("代工單號", "") or "").strip()
             recipe_id = str(item.get("配方編號", "") or "").strip()
             product_name = str(item.get("品名", "") or "").strip() or recipe_name_map.get(recipe_id, "")
-            customer_name = str(item.get("客戶名稱", "") or "").strip()
+            customer_name = customer_display.name(str(item.get("客戶名稱", "") or "").strip())
             return f"{order_id} ｜ 品名：{product_name or '-'} ｜ 客戶：{customer_name or '-'}"
 
         archive_tab, restore_tab = st.tabs(["封存已結案代工單", "恢復已封存代工單"])
@@ -8672,7 +8677,7 @@ if menu == "代工管理":
                 st.info("目前沒有可封存的已結案代工單。")
             else:
                 archive_by_id = {str(item.get("代工單號", "")): item for item in active_closed}
-                archive_id = st.selectbox(
+                archive_id = customer_display.selectbox(st,
                     "選擇已結案代工單", list(archive_by_id), key="archive_oem_id",
                     format_func=lambda value: archive_order_label(archive_by_id[value]),
                 )
@@ -8707,7 +8712,7 @@ if menu == "代工管理":
                 st.info("目前沒有已封存代工單。")
             else:
                 restore_by_id = {str(item.get("代工單號", "")): item for item in inactive_orders}
-                restore_id = st.selectbox(
+                restore_id = customer_display.selectbox(st,
                     "選擇已封存代工單", list(restore_by_id), key="restore_oem_id",
                     format_func=lambda value: archive_order_label(restore_by_id[value]),
                 )
@@ -9033,7 +9038,7 @@ elif menu == "採購管理":
                 df_display[["數量", "單位"]] = df_display.apply(format_quantity_unit, axis=1)
                 df_display["日期"] = df_display["日期"].dt.strftime("%Y/%m/%d")
             
-                st.dataframe(df_display, use_container_width=True, hide_index=True)
+                st.dataframe(customer_display.frame(df_display), use_container_width=True, hide_index=True)
             
             else:
                 st.info("ℹ️ 沒有符合條件的進貨資料")
@@ -9334,7 +9339,7 @@ elif menu == "採購管理":
                 render_empty_state("查無符合的資料")
 
             if not df_filtered.empty:
-                st.dataframe(df_filtered[columns], use_container_width=True, hide_index=True)
+                st.dataframe(customer_display.frame(df_filtered[columns]), use_container_width=True, hide_index=True)
                 st.markdown("<hr style='margin-top:10px;margin-bottom:10px;'>", unsafe_allow_html=True)
                 for i, row in df_filtered.iterrows():
                     c1, c2, c3 = st.columns([3, 1, 1])
@@ -9469,7 +9474,7 @@ elif menu == "查詢區":
                             lambda x: x.strftime("%Y-%m-%d") if pd.notnull(x) else ""
                         )
     
-                        st.dataframe(df_result, use_container_width=True)
+                        st.dataframe(customer_display.frame(df_result), use_container_width=True)
                         st.toast(f"查詢完成：找到 {len(df_result)} 筆配方", icon="✅")
 
     # ========== Tab 2：色粉用量查詢 ==========
@@ -9689,7 +9694,7 @@ elif menu == "查詢區":
                 ]
     
             styled = df_usage.style.apply(highlight_total_row, axis=1)
-            st.dataframe(styled, use_container_width=True, hide_index=True)
+            st.dataframe(customer_display.frame(styled), use_container_width=True, hide_index=True)
     
     # ========== Tab 3：Pantone色號表 ==========
     with tab3:
@@ -9755,7 +9760,7 @@ elif menu == "查詢區":
                 st.info("⚠️ 目前沒有資料")
                 return
             df_reset = pd.DataFrame(df).reset_index(drop=True).astype(str)
-            st.table(df_reset)
+            st.table(customer_display.frame(df_reset))
     
         with pantone_tab_search:
             c1, c2 = st.columns([2, 1])
@@ -9798,7 +9803,7 @@ elif menu == "查詢區":
                             unsafe_allow_html=True
                         )
                         st.dataframe(
-                            df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True),
+                            customer_display.frame(df_result_recipe[["配方編號", "顏色", "客戶名稱", "Pantone色號", "配方類別", "狀態"]].reset_index(drop=True)),
                             use_container_width=True,
                         )
 
@@ -10036,7 +10041,7 @@ elif menu == "查詢區":
                     render_empty_state("查無資料")
                 else:
                     st.dataframe(
-                        df_show[["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"]].reset_index(drop=True),
+                        customer_display.frame(df_show[["日期", "客戶名稱", "樣品編號", "樣品名稱", "樣品數量"]].reset_index(drop=True)),
                         use_container_width=True
                     )
     
@@ -10712,7 +10717,7 @@ elif menu == "庫存區":
                     duplicate_preview = df_stock[
                         df_stock["_sync_id"].astype(str).isin(duplicate_sync_ids)
                     ][["色粉編號", "日期", "數量", "單位", "備註"]].copy()
-                    st.dataframe(duplicate_preview, use_container_width=True, hide_index=True)
+                    st.dataframe(customer_display.frame(duplicate_preview), use_container_width=True, hide_index=True)
             confirm_duplicate_cleanup = st.toggle(
                 "我確認只清理完全相同的重複初始庫存",
                 value=False,
@@ -10835,7 +10840,7 @@ elif menu == "庫存區":
                     render_empty_state("查無符合條件的庫存資料")
                 else:
                     st.dataframe(
-                        df_result,
+                        customer_display.frame(df_result),
                         use_container_width=True,
                         hide_index=True,
                         column_config={
@@ -10920,12 +10925,12 @@ elif menu == "庫存區":
                     unsafe_allow_html=True,
                 )
                 st.dataframe(
-                    pd.DataFrame([
+                    customer_display.frame(pd.DataFrame([
                         {"儲位": "Ａ", "色粉": "432", "已分裝": "0K", "完整包裝": "", "盤點量": "0 kg"},
                         {"儲位": "Ａ", "色粉": "4353", "已分裝": "已分5K", "完整包裝": "未分4K", "盤點量": "9 kg"},
                         {"儲位": "Ａ", "色粉": "TBG", "已分裝": "樓上500g", "完整包裝": "樓下4K", "盤點量": "4.5 kg"},
                         {"儲位": "Ａ", "色粉": "4356", "已分裝": "16K", "完整包裝": "30K(10K*3袋)", "盤點量": "46 kg"},
-                    ]),
+                    ])),
                     use_container_width=True,
                     hide_index=True,
                     height=178,
@@ -11281,7 +11286,7 @@ elif menu == "庫存區":
             if not failed_df.empty:
                 st.markdown("#### 待人工確認")
                 st.dataframe(
-                    failed_df[["儲位", "色粉編號", "已分裝(流動，kg)", "桶／箱 / 袋 (完整)", "解析失敗原因"]],
+                    customer_display.frame(failed_df[["儲位", "色粉編號", "已分裝(流動，kg)", "桶／箱 / 袋 (完整)", "解析失敗原因"]]),
                     use_container_width=True,
                     hide_index=True,
                 )
@@ -11314,7 +11319,7 @@ elif menu == "庫存區":
             target_row = None
             if action_mode != "新增" and not df_customer_stock.empty:
                 record_options = [""] + df_customer_stock["_sync_id"].tolist()
-                selected_id = st.selectbox(
+                selected_id = customer_display.selectbox(st,
                     "選擇資料", record_options, key="cust_stock_edit_pick",
                     format_func=lambda rid: "（請先選擇一筆資料）" if not rid else (
                         lambda row: f"{row['客戶名稱']}｜{row['配方編號']}｜{row['顏色']}｜{row['數量']:g} {row['單位']}"
@@ -11370,7 +11375,7 @@ elif menu == "庫存區":
                     st.rerun()
 
             with st.form("customer_stock_form"):
-                customer_input = st.selectbox(
+                customer_input = customer_display.selectbox(st,
                     "客戶名稱", [""] + customer_choices,
                     index=([""] + customer_choices).index(str(target_row["客戶名稱"])) if target_row is not None and str(target_row["客戶名稱"]) in customer_choices else 0,
                 )
@@ -11441,7 +11446,7 @@ elif menu == "庫存區":
                 summary = (query_df.groupby(["客戶名稱", "配方編號", "顏色", "單位"], as_index=False)
                            .agg(數量=("數量", "sum"), 備註=("備註", lambda values: "，".join(v for v in map(str, values) if v.strip())),
                                 更新時間=("更新時間", "max")))
-                st.dataframe(summary, use_container_width=True, hide_index=True)
+                st.dataframe(customer_display.frame(summary), use_container_width=True, hide_index=True)
 
     # ====================================================================
     # Tab 6：色母庫存查詢（修復版）
@@ -11858,7 +11863,7 @@ elif menu == "庫存區":
 
         if df_rank is not None:
             if not df_rank.empty:
-                st.dataframe(df_rank, use_container_width=True, hide_index=True)
+                st.dataframe(customer_display.frame(df_rank), use_container_width=True, hide_index=True)
                 csv = pd.DataFrame(
                     list(pigment_usage.items()), columns=["色粉編號", "總用量(g)"]
                 ).to_csv(index=False, encoding="utf-8-sig")
@@ -12097,7 +12102,7 @@ elif menu == "庫存區":
                     ]
 
                 styled = df_usage.style.apply(highlight_total_row, axis=1)
-                st.dataframe(styled, use_container_width=True, hide_index=True)
+                st.dataframe(customer_display.frame(styled), use_container_width=True, hide_index=True)
 
 # ======== 洗車廠庫存分頁 =========
 elif menu == "洗車廠庫存":
@@ -12559,7 +12564,7 @@ elif menu == "洗車廠庫存":
                 }
 
                 st.dataframe(
-                    styled_result_df,
+                    customer_display.frame(styled_result_df),
                     use_container_width=True,
                     hide_index=True,
                     column_config=carwash_inventory_column_config,
@@ -12827,7 +12832,7 @@ if menu == "試色記錄分析":
                 cust_opts = [""]
                 cust_map = {}
                 if not cust_df_form.empty and "客戶編號" in cust_df_form.columns:
-                    name_col = "客戶簡稱" if "客戶簡稱" in cust_df_form.columns else ("客戶名稱" if "客戶名稱" in cust_df_form.columns else None)
+                    name_col = "客戶名稱" if "客戶名稱" in cust_df_form.columns else ("客戶簡稱" if "客戶簡稱" in cust_df_form.columns else None)
                     if name_col:
                         clean_cust = cust_df_form[["客戶編號", name_col]].copy().fillna("")
                         clean_cust["客戶編號"] = clean_cust["客戶編號"].astype(str).str.strip()
@@ -12841,7 +12846,7 @@ if menu == "試色記錄分析":
                             cust_opts.append(label)
                             cust_map[label] = {"id": cid, "name": cname}
 
-                selected_customer = c2.selectbox(
+                selected_customer = customer_display.selectbox(c2,
                     "客戶編號",
                     cust_opts,
                     index=0,
@@ -12933,7 +12938,7 @@ if menu == "試色記錄分析":
             with archive_col:
                 st.markdown("#### 封存有效記錄")
                 archive_options = [""] + active_trials["_sync_id"].tolist()
-                archive_id = st.selectbox(
+                archive_id = customer_display.selectbox(st,
                     "選擇要封存的試色記錄", archive_options, key="trial_archive_id",
                     format_func=lambda value: "（請選擇）" if not value else (
                         lambda row: f"{row['配方編號']}｜{row['客戶名稱']}｜{row['試色日期']}"
@@ -12954,7 +12959,7 @@ if menu == "試色記錄分析":
             with restore_col:
                 st.markdown("#### 恢復封存記錄")
                 restore_options = [""] + inactive_trials["_sync_id"].tolist()
-                restore_id = st.selectbox(
+                restore_id = customer_display.selectbox(st,
                     "選擇要恢復的試色記錄", restore_options, key="trial_restore_id",
                     format_func=lambda value: "（請選擇）" if not value else (
                         lambda row: f"{row['配方編號']}｜{row['客戶名稱']}｜{row['停用原因']}"
@@ -12978,14 +12983,14 @@ if menu == "試色記錄分析":
         cust_df_q = customer_dataframe()
         cust_opts_q = [""]
         if not cust_df_q.empty and "客戶編號" in cust_df_q.columns:
-            name_col_q = "客戶簡稱" if "客戶簡稱" in cust_df_q.columns else ("客戶名稱" if "客戶名稱" in cust_df_q.columns else None)
+            name_col_q = "客戶名稱" if "客戶名稱" in cust_df_q.columns else ("客戶簡稱" if "客戶簡稱" in cust_df_q.columns else None)
             if name_col_q:
                 qq = cust_df_q[["客戶編號", name_col_q]].fillna("")
                 for _, r in qq.iterrows():
                     cid = str(r["客戶編號"]).strip(); cn = str(r[name_col_q]).strip()
                     if cid or cn:
                         cust_opts_q.append(f"{cid} - {cn}" if cn else cid)
-        selected_q_customer = c1.selectbox("客戶（可輸入編號或名稱搜尋）", cust_opts_q, index=0, key="analysis_customer_select")
+        selected_q_customer = customer_display.selectbox(c1, "客戶（可輸入編號或名稱搜尋）", cust_opts_q, index=0, key="analysis_customer_select")
         keyword = selected_q_customer.split(" - ",1)[0].strip() if selected_q_customer else ""
         dfv_seed = df_trial.copy()
         if not dfv_seed.empty and "試色日期" in dfv_seed.columns:
@@ -14331,14 +14336,14 @@ if st.session_state.menu == "同步檢查":
                     set(sheet_category_counts) | set(database_category_counts)
                 )
                 st.dataframe(
-                    pd.DataFrame([
+                    customer_display.frame(pd.DataFrame([
                         {
                             "色粉類別": category,
                             "Sheet 筆數": sheet_category_counts.get(category, 0),
                             "Turso 啟用筆數": database_category_counts.get(category, 0),
                         }
                         for category in category_names
-                    ]),
+                    ])),
                     hide_index=True,
                     use_container_width=True,
                 )

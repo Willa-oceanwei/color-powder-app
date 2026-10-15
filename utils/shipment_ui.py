@@ -16,7 +16,8 @@ from .shipment_history_ui import render_purchase_history
 from .shipment_search_print import render_search_print
 from .shipment_codes import display_code_options, printed_code
 from .accounting_widgets import widget_default, widget_index
-from .customer_repository import CONTACT_FIELDS, CustomerError, get_customer, list_customers
+from .customer_display import CustomerDisplay
+from .customer_repository import customer_display_name, CONTACT_FIELDS, CustomerError, get_customer, list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
     list_shipments, printable_shipment, save_shipment, void_shipment,
@@ -270,8 +271,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     if st.session_state.get("shipment_search_epoch"):
         with st.expander(f"查詢結果 · {len(records)} 筆", expanded=False):
             if records:
+                display = CustomerDisplay(config)
                 result = pd.DataFrame([{"出貨日期": r["shipment_date"], "出貨單號": r["shipment_number"],
-                          "客戶編號": r["customer_id"], "客戶名稱": r["customer_name"], "總計（未稅）": int(r["net_amount"]),
+                          "客戶編號": r["customer_id"], "客戶名稱": display.name(r["customer_name"], r["customer_id"]), "總計（未稅）": int(r["net_amount"]),
                           "狀態": "作廢" if r["status"] == "void" else "有效"} for r in records])
                 render_search_print(config, records, st.session_state["shipment_search_epoch"])
                 if editing:
@@ -357,7 +359,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                             help="成交價依客戶、貨品與單位保存於出貨紀錄，不覆蓋共用標準售價")
     if preview and not editing:
         with print_controls[3]:
-            render_purchase_history(config, document["customer_id"], document["customer_name"])
+            render_purchase_history(config, document["customer_id"], CustomerDisplay(config).name(document["customer_name"], document["customer_id"]))
         components.html(theme_preview(print_html), height=550, scrolling=True)
         return
     draft_preview = st.empty() if editing and preview else None
@@ -425,7 +427,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.text_input("出貨單號", value=preview, disabled=True)
     with header[3]:
         if editing:
-            available = {row["customer_id"]: row["name"] for row in customers if row["lifecycle_status"] == "active"}
+            available = {row["customer_id"]: customer_display_name(row) for row in customers if row["lifecycle_status"] == "active"}
             original = st.session_state.get("shipment_original", document)
             if original.get("customer_id"):
                 available.setdefault(original["customer_id"], original["customer_name"])
@@ -446,13 +448,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 for field in ("recipient_id", "recipient_name", "address", "phone", "fax", "contact", "tax_id"):
                     st.session_state[prefix + field] = document[field]
         else:
-            st.text_input("客戶", value=f"{document['customer_id']} · {document['customer_name']}", disabled=True)
+            st.text_input("客戶", value=f"{document['customer_id']} · {CustomerDisplay(config).name(document['customer_name'], document['customer_id'])}", disabled=True)
     receiver = st.columns([1.2, 1.8, 4])
     for col, label, field in zip(receiver, ("指送對象編號", "指送對象名稱", "送貨地址"), ("recipient_id", "recipient_name", "address")):
         with col:
             text(label, field)
     with print_controls[3]:
-        render_purchase_history(config, document["customer_id"], document["customer_name"])
+        render_purchase_history(config, document["customer_id"], CustomerDisplay(config).name(document["customer_name"], document["customer_id"]))
     source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
     requested_item = None
     if editing:

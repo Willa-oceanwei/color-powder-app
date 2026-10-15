@@ -219,6 +219,15 @@ def _sync_outbox(
             result.queued -= 1
             continue
         payload = json.loads(entry["payload_json"] or "{}")
+        if sheet_name == "客戶名單" and entry['operation'] != 'delete':
+            # Older events and Sheets used 客戶簡稱 as the sole legal-name column.
+            if '客戶名稱' not in payload:
+                payload = dict(payload, 客戶名稱=payload.get('客戶簡稱', ''), 客戶簡稱='')
+            if '客戶名稱' not in headers:
+                payload['客戶簡稱'] = payload['客戶名稱']
+                warning = '客戶名單尚無「客戶名稱」欄：保留舊欄完整名稱；新增該欄後可同步獨立簡稱。'
+                if warning not in result.warnings:
+                    result.warnings.append(warning)
         desired = _normalized_payload(payload, headers)
         current_info = sheet_rows.get(row_key)
         action: str | None = None
