@@ -3526,7 +3526,41 @@ if menu == "色粉管理":
     
 # ======== 客戶名單 =========
 elif menu == "客戶名單":
-    st.caption("簡稱用於內部操作；完整名稱用於出貨單及對外帳款明細。客戶編號建立後不可修改。")
+    st.markdown("""
+    <span class="customer-page-marker"></span>
+    <style>
+    /* Keep customer actions and field accents in the app's blue palette. */
+    .block-container:has(.customer-page-marker) .stFormSubmitButton > button[kind="primaryFormSubmit"] {
+        background: #1a5a84 !important;
+        border: 1px solid #3487b6 !important;
+        color: #ffffff !important;
+    }
+    .block-container:has(.customer-page-marker) .stFormSubmitButton > button:hover,
+    .block-container:has(.customer-page-marker) .stFormSubmitButton > button:focus {
+        background: #124466 !important;
+        border-color: #65b5e2 !important;
+        color: #ffffff !important;
+    }
+    .block-container:has(.customer-page-marker) [data-testid="stTextInput"] input:not(:disabled) {
+        border-left-color: #3487b6 !important;
+    }
+    .block-container:has(.customer-page-marker) [data-testid="stTextInput"] input:not(:disabled):focus {
+        border-color: #65b5e2 !important;
+        box-shadow: 0 0 0 2px rgba(52, 135, 182, 0.25) !important;
+    }
+    .block-container:has(.customer-page-marker) [data-baseweb="input"]:focus-within,
+    .block-container:has(.customer-page-marker) [data-baseweb="select"]:focus-within > div {
+        border-color: #65b5e2 !important;
+    }
+    .block-container:has(.customer-page-marker) [data-baseweb="radio"]:has(input:checked) > div:first-child {
+        background-color: #3487b6 !important;
+    }
+    body:has(.customer-page-marker) [data-testid="stDecoration"] {
+        background: #3487b6 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    st.caption("搜尋並選取客戶即可編輯；新增客戶請切換至「新增客戶」。")
     columns = ["客戶編號", "客戶簡稱", "客戶名稱", "地址", "電話", "傳真", "聯絡人", "統一編號", "備註"]
     
     try:
@@ -3547,94 +3581,115 @@ elif menu == "客戶名單":
     st.session_state.setdefault("editing_customer_id", "")
     editing_id = st.session_state.editing_customer_id
     editing_row = active_df[active_df["客戶編號"] == editing_id]
+    if editing_id and editing_row.empty:
+        st.session_state.editing_customer_id = ""
+        st.session_state.customer_action_id = None
+        st.rerun()
     defaults = editing_row.iloc[0].to_dict() if not editing_row.empty else {col: "" for col in columns}
 
-    new_customer_tab, edit_customer_tab = st.tabs(["新增", "編輯"])
-    if editing_id:
-        new_customer_tab.caption("請先儲存或取消編輯，再新增客戶。")
-    else:
-        edit_customer_tab.caption("選擇客戶後可編輯資料。")
-    with edit_customer_tab if editing_id else new_customer_tab:
-        with st.form(f"customer_turso_form_{editing_id or 'new'}_{st.session_state.get('customer_form_epoch', 0)}"):
-            c1, c2, c3 = st.columns(3)
-            customer_id = c1.text_input("客戶編號", value=str(defaults.get("客戶編號", "")), disabled=bool(editing_id))
-            customer_name = c2.text_input("客戶完整名稱", value=str(defaults.get("客戶名稱", "")))
-            customer_short_name = c3.text_input("客戶簡稱", value=str(defaults.get("客戶簡稱", "")), help="選填，尚未填寫時沿用完整名稱")
-            c1, c2, c3, c4 = st.columns(4)
-            customer_contact = c4.text_input("聯絡人", value=str(defaults.get("聯絡人", "")))
-            customer_phone = c1.text_input("電話", value=str(defaults.get("電話", "")))
-            customer_fax = c2.text_input("傳真", value=str(defaults.get("傳真", "")))
-            customer_tax_id = c3.text_input("統一編號", value=str(defaults.get("統一編號", "")))
-            c1, c2 = st.columns([3, 1])
-            customer_address = c1.text_input("地址", value=str(defaults.get("地址", "")))
-            customer_notes = c2.text_input("備註", value=str(defaults.get("備註", "")))
-            save_customer = st.form_submit_button("💾 儲存至 Turso")
-        if save_customer:
-            data = CustomerInput(editing_id or customer_id, customer_name, customer_notes,
-                                 address=customer_address, phone=customer_phone, fax=customer_fax,
-                                 contact=customer_contact, tax_id=customer_tax_id, short_name=customer_short_name)
-            try:
-                if editing_id:
-                    update_customer(DATABASE_CONFIG, data)
-                    message = f"已更新客戶 {editing_id}"
-                else:
-                    create_customer(DATABASE_CONFIG, data)
-                    message = f"已新增客戶 {customer_id.strip()}"
-                st.session_state.editing_customer_id = ""
-                st.session_state.customer_form_epoch = st.session_state.get("customer_form_epoch", 0) + 1
-                st.toast(f"{message}；等待同步至 Sheet", icon="✅")
-                st.rerun()
-            except (CustomerError, CustomerAlreadyExists) as exc:
-                st.error(str(exc))
-        if editing_id and st.button("取消編輯", key="cancel_customer_edit"):
-            st.session_state.editing_customer_id = ""
-            st.rerun()
+    customer_mode = st.radio("客戶操作", ["編輯客戶", "新增客戶"], horizontal=True,
+                             key="customer_mode", disabled=bool(editing_id), label_visibility="collapsed")
 
-    with edit_customer_tab:
-        keyword = st.text_input("搜尋客戶編號、簡稱或完整名稱", key="customer_search_turso").strip()
-        filtered = active_df
-        if keyword and not filtered.empty:
-            filtered = filtered[
-                filtered["客戶編號"].astype(str).str.contains(keyword, case=False, na=False, regex=False)
-                | filtered["客戶簡稱"].astype(str).str.contains(keyword, case=False, na=False, regex=False)
-                | filtered["客戶名稱"].astype(str).str.contains(keyword, case=False, na=False, regex=False)
-            ]
-        if filtered.empty:
-            st.info("目前沒有符合的有效客戶。")
+    if customer_mode == "編輯客戶" and not editing_id:
+        if active_df.empty:
+            st.info("目前沒有有效客戶，請先新增客戶。")
         else:
-            st.dataframe(filtered.assign(客戶簡稱=filtered["客戶簡稱"].where(filtered["客戶簡稱"].ne(""), filtered["客戶名稱"]))[[c for c in columns if c != "客戶名稱"]], use_container_width=True, hide_index=True)
-            selection_col, reason_col = st.columns([3, 2])
-            selected_id = selection_col.selectbox(
-                "選擇客戶", filtered["客戶編號"].tolist(), key="customer_action_id",
-                format_func=lambda cid: cid + '｜' + (filtered.loc[filtered['客戶編號']==cid, '客戶簡稱'].iloc[0] or filtered.loc[filtered['客戶編號']==cid, '客戶名稱'].iloc[0]),
+            names = {row["客戶編號"]: " · ".join(dict.fromkeys(
+                str(row[field]) for field in ("客戶編號", "客戶簡稱", "客戶名稱") if row[field]
+            )) for row in active_df.to_dict("records")}
+            selected_id = st.selectbox(
+                "搜尋並選擇客戶", active_df["客戶編號"].tolist(), index=None,
+                placeholder="輸入客戶編號、簡稱或完整名稱", key="customer_action_id",
+                format_func=lambda cid: names[cid],
             )
-            archive_reason = reason_col.text_input("停用原因", key="customer_archive_reason")
-            b1, b2 = st.columns(2)
-            if b1.button("✏️ 編輯選取客戶", use_container_width=True):
+            if selected_id:
                 st.session_state.editing_customer_id = selected_id
+                st.session_state.customer_form_epoch = st.session_state.get("customer_form_epoch", 0) + 1
                 st.rerun()
-            if b2.button("🗄️ 停用選取客戶", use_container_width=True, disabled=not archive_reason.strip()):
-                try:
-                    set_customer_active(DATABASE_CONFIG, selected_id, active=False, reason=archive_reason)
-                    st.toast(f"已停用 {selected_id}；Turso 保留歷史，等待 Sheet tombstone", icon="🗄️")
-                    st.rerun()
-                except CustomerError as exc:
-                    st.error(str(exc))
+            with st.expander(f"瀏覽客戶名單（{len(active_df)}）"):
+                st.dataframe(active_df[columns], use_container_width=True, hide_index=True)
 
-        inactive_df = df[df["生命週期"] == "inactive"].copy() if not df.empty else df.copy()
-        with st.expander(f"已停用客戶（{len(inactive_df)}）"):
-            if inactive_df.empty:
-                st.info("目前沒有已停用客戶。")
-            else:
-                st.dataframe(inactive_df[[c for c in columns if c != "客戶名稱"] + ["停用時間", "停用原因"]], use_container_width=True, hide_index=True)
-                restore_id = st.selectbox("選擇要恢復的客戶", inactive_df["客戶編號"].tolist(), key="restore_customer_id")
-                if st.button("♻️ 恢復客戶", key="restore_customer"):
+    if editing_id or customer_mode == "新增客戶":
+        customer_editor = st.empty()
+        with customer_editor.container():
+            st.subheader(f"編輯客戶 · {editing_id}" if editing_id else "新增客戶")
+            with st.form(f"customer_turso_form_{editing_id or 'new'}_{st.session_state.get('customer_form_epoch', 0)}"):
+                st.markdown("**基本資料**")
+                c1, c2, c3 = st.columns(3)
+                customer_id = c1.text_input("客戶編號", value=str(defaults.get("客戶編號", "")), disabled=bool(editing_id), help="建立後不可修改")
+                customer_name = c2.text_input("客戶完整名稱", value=str(defaults.get("客戶名稱", "")))
+                customer_short_name = c3.text_input("客戶簡稱", value=str(defaults.get("客戶簡稱", "")), help="選填，尚未填寫時沿用完整名稱")
+                st.markdown("**聯絡與帳務**")
+                c1, c2 = st.columns(2)
+                customer_contact = c1.text_input("聯絡人", value=str(defaults.get("聯絡人", "")))
+                customer_phone = c2.text_input("電話", value=str(defaults.get("電話", "")))
+                customer_fax = c1.text_input("傳真", value=str(defaults.get("傳真", "")))
+                customer_tax_id = c2.text_input("統一編號", value=str(defaults.get("統一編號", "")))
+                c1, c2 = st.columns(2)
+                customer_address = c1.text_input("地址", value=str(defaults.get("地址", "")))
+                customer_notes = c2.text_input("備註", value=str(defaults.get("備註", "")))
+                save_col, cancel_col = st.columns(2)
+                save_customer = save_col.form_submit_button("儲存變更" if editing_id else "新增客戶", type="primary", use_container_width=True)
+                cancel_customer = cancel_col.form_submit_button("取消編輯", use_container_width=True) if editing_id else False
+            if cancel_customer:
+                st.session_state.editing_customer_id = ""
+                st.session_state.customer_action_id = None
+                st.session_state.customer_form_epoch = st.session_state.get("customer_form_epoch", 0) + 1
+                customer_editor.empty()
+                st.rerun()
+            if save_customer:
+                data = CustomerInput(editing_id or customer_id, customer_name, customer_notes,
+                                     address=customer_address, phone=customer_phone, fax=customer_fax,
+                                     contact=customer_contact, tax_id=customer_tax_id, short_name=customer_short_name)
+                try:
+                    if editing_id:
+                        update_customer(DATABASE_CONFIG, data)
+                        message = f"已更新客戶 {editing_id}"
+                    else:
+                        create_customer(DATABASE_CONFIG, data)
+                        message = f"已新增客戶 {customer_id.strip()}"
+                    st.session_state.editing_customer_id = ""
+                    st.session_state.customer_action_id = None
+                    st.session_state.customer_form_epoch = st.session_state.get("customer_form_epoch", 0) + 1
+                    st.toast(message, icon="✅")
+                    customer_editor.empty()
+                    st.rerun()
+                except (CustomerError, CustomerAlreadyExists) as exc:
+                    st.error(str(exc))
+            if editing_id:
+                with st.expander("停用此客戶"):
+                    st.caption(f"停用 {editing_id} 後將不再出現在一般客戶選單，歷史單據仍會保留。")
+                    archive_reason = st.text_input("停用原因", key=f"customer_archive_reason_{editing_id}_{st.session_state.get('customer_form_epoch', 0)}")
+                    archive_customer = st.button("確認停用客戶", disabled=not archive_reason.strip())
+                if archive_customer:
                     try:
-                        set_customer_active(DATABASE_CONFIG, restore_id, active=True)
-                        st.toast(f"已恢復 {restore_id}；等待同步至 Sheet", icon="♻️")
+                        set_customer_active(DATABASE_CONFIG, editing_id, active=False, reason=archive_reason)
+                        st.session_state.editing_customer_id = ""
+                        st.session_state.customer_action_id = None
+                        st.toast(f"已停用 {editing_id}", icon="🗄️")
+                        customer_editor.empty()
                         st.rerun()
                     except CustomerError as exc:
                         st.error(str(exc))
+
+    if customer_mode == "編輯客戶" and not editing_id:
+        inactive_df = df[df["生命週期"] == "inactive"].copy() if not df.empty else df.copy()
+        inactive_customers = st.empty()
+        with inactive_customers.container():
+            with st.expander(f"已停用客戶（{len(inactive_df)}）"):
+                if inactive_df.empty:
+                    st.info("目前沒有已停用客戶。")
+                else:
+                    st.dataframe(inactive_df[columns + ["停用時間", "停用原因"]], use_container_width=True, hide_index=True)
+                    restore_id = st.selectbox("選擇要恢復的客戶", inactive_df["客戶編號"].tolist(), key="restore_customer_id")
+                    if st.button("♻️ 恢復客戶", key="restore_customer"):
+                        try:
+                            set_customer_active(DATABASE_CONFIG, restore_id, active=True)
+                            st.toast(f"已恢復 {restore_id}", icon="♻️")
+                            inactive_customers.empty()
+                            st.rerun()
+                        except CustomerError as exc:
+                            st.error(str(exc))
 
 #==========================================================
 # ======== 配方管理分頁 =========
