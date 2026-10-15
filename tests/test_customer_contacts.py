@@ -82,7 +82,6 @@ DATABASE_CONFIG=DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r}))
 
 def test_customer_form_add_edit_cancel_and_clear(config):
     app = customer_app(config)
-    app.radio(key="customer_mode").set_value("新增客戶").run()
     assert not app.exception
     for label, value in (("客戶編號", "C01"), ("客戶完整名稱", "範例企業有限公司"), ("客戶簡稱", "範例"), ("地址", "台南市測試路1號"),
                          ("電話", "06-0012345"), ("傳真", "06-0023456"), ("聯絡人", "林小姐"), ("統一編號", "01234567")):
@@ -93,7 +92,6 @@ def test_customer_form_add_edit_cancel_and_clear(config):
     assert list_customers(config)[0]["name"] == "範例企業有限公司"
     assert list_customers(config)[0]["short_name"] == "範例"
     assert next(w for w in app.text_input if w.label == "地址").value == ""
-    app.radio(key="customer_mode").set_value("編輯客戶").run()
     app.selectbox(key="customer_action_id").set_value("C01").run()
     assert next(w for w in app.text_input if w.label == "地址").value == "台南市測試路1號"
     next(w for w in app.text_input if w.label == "地址").set_value("未儲存地址")
@@ -111,11 +109,11 @@ def test_customer_selection_identity_validation_and_cancel(config):
     create_customer(config, CustomerInput("C01", "範例完整名稱", short_name="範例", address="原地址"))
     create_customer(config, CustomerInput("C02", "另一家完整名稱", address="另一地址"))
     app = customer_app(config)
-    assert not app.exception and not app.text_input
+    assert not app.exception and not app.tabs[0].text_input
     assert app.selectbox(key="customer_action_id").value is None
     assert app.selectbox(key="customer_action_id").options == ["C01 · 範例 · 範例完整名稱", "C02 · 另一家完整名稱"]
     app.selectbox(key="customer_action_id").set_value("C01").run()
-    assert not app.exception and not app.selectbox and not app.dataframe
+    assert not app.exception and not app.tabs[0].selectbox and not app.tabs[0].dataframe
     assert next(w for w in app.text_input if w.label == "客戶編號").disabled
     next(w for w in app.text_input if w.label == "客戶完整名稱").set_value("")
     next(w for w in app.button if w.label == "儲存變更").click().run()
