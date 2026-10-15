@@ -22,7 +22,7 @@ from utils import database as database_utils
 from utils.number_format import format_optional_decimals
 from utils.big_label_repository import (
     BIG_LABEL_EDITOR_COLUMNS, build_big_label_editor_defaults,
-    normalize_big_label_editor_rows, remember_big_label_rows, expand_big_label_editor_rows,
+    normalize_big_label_editor_rows, remember_big_label_rows, expand_big_label_editor_rows, format_label_ratio_value,
 )
 from utils.shipment_ui import render_shipment_management
 from utils.product_ui import render_product_management
@@ -2926,11 +2926,11 @@ def to_roc_date(date_value):
 
 
 def format_label_ratio(order):
-    """標籤用比例顯示：優先用比例3（單一比例，顯示 Xg/kg），
+    """標籤用比例顯示：優先用比例3，比值直接顯示，數值加上 g/kg，
     沒有比例3才退回比例1:比例2，邏輯與色母換算模組一致。"""
     ratio3 = str(order.get("比例3", "") or "").strip()
     if ratio3:
-        return f"{ratio3}g/kg"
+        return format_label_ratio_value(ratio3, add_unit=True)
     r1 = str(order.get("比例1", "") or "").strip()
     r2 = str(order.get("比例2", "") or "").strip()
     if r1 and r2:

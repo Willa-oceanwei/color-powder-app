@@ -2,6 +2,7 @@
 
 import json
 import math
+import re
 
 from .database import connect_from_config, utc_now_iso
 
@@ -14,6 +15,15 @@ def _cell(value):
     return str(value).strip()
 
 
+def format_label_ratio_value(value, *, add_unit=False):
+    text = _cell(value)
+    ratio = re.sub(r"\s*g\s*/\s*kg\s*$", "", text, flags=re.IGNORECASE).strip()
+    if re.fullmatch(r"\d+(?:\.\d+)?(?:\s*[:：]\s*\d+(?:\.\d+)?)+", ratio):
+        return re.sub(r"\s*[:：]\s*", ":", ratio)
+    if add_unit and re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)", text):
+        return f"{text}g/kg"
+    return text
+
 def normalize_big_label_editor_rows(rows):
     normalized = []
     for row in rows:
@@ -22,6 +32,7 @@ def normalize_big_label_editor_rows(rows):
         except (TypeError, ValueError, OverflowError):
             count = 0
         clean = {field: _cell(row.get(field, "")) for field in BIG_LABEL_EDITOR_COLUMNS[:-1]}
+        clean["比例"] = format_label_ratio_value(clean["比例"])
         clean["列印張數"] = count
         if any(clean.values()):
             normalized.append(clean)
