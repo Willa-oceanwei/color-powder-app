@@ -54,10 +54,10 @@ COMPACT_STYLE = """
 .main:has(#shipment-page) .shipment-lines {font-size:12px;white-space:nowrap;overflow-x:auto;max-width:100%;}
 .main:has(#shipment-page) .shipment-number-help {font-size:10px;line-height:1.3;margin:0;overflow-wrap:anywhere;}
 .main:has(#shipment-page) label[data-baseweb="radio"]>div:first-child {background:transparent!important;border:1.5px solid #527086!important;box-sizing:border-box;}
-.main:has(#shipment-page) label[data-baseweb="radio"]:has(input:checked)>div:first-child {background:#ff8a57!important;border-color:#ff8a57!important;}
+.main:has(#shipment-page) label[data-baseweb="radio"]:has(input:checked)>div:first-child {background:#3487b6!important;border-color:#3487b6!important;}
 .main:has(#shipment-page) label[data-baseweb="radio"]:has(input:checked)>div:first-child>div {background:#fff!important;}
 .main:has(#shipment-page) label[data-baseweb="radio"]:not(:has(input:checked))>div:first-child>div {background:transparent!important;}
-.main:has(#shipment-page) label[data-baseweb="radio"]:has(input:focus-visible)>div:first-child {outline:2px solid #ffb98d;outline-offset:3px;}
+.main:has(#shipment-page) label[data-baseweb="radio"]:has(input:focus-visible)>div:first-child {outline:2px solid #8cc8ea;outline-offset:3px;}
 .stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stRadio"] p,
 .stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stMetricLabel"],
 .stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stMetricLabel"] p,

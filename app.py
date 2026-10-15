@@ -362,7 +362,30 @@ def _initialize_database_once(config, secret_presence, schema_version):
 # 只保留我們畫的這顆，避免兩顆滑塊疊在一起。
 st.markdown("""
 <style>
-/* ---- 開關滑塊上色：深藍底、橘色滑塊（涵蓋全站的 st.toggle） ---- */
+/* Shared selection colors for radio buttons and native inputs. */
+.stApp input:is([type="radio"], [type="checkbox"]) {
+    accent-color: #3487b6;
+}
+.stApp label[data-baseweb="radio"] > div:first-child {
+    background: transparent !important;
+    border: 1.5px solid #527086 !important;
+    box-sizing: border-box;
+}
+.stApp label[data-baseweb="radio"]:has(input:checked) > div:first-child {
+    background: #3487b6 !important;
+    border-color: #3487b6 !important;
+}
+.stApp label[data-baseweb="radio"]:has(input:checked) > div:first-child > div {
+    background: #ffffff !important;
+}
+.stApp label[data-baseweb="radio"]:not(:has(input:checked)) > div:first-child > div {
+    background: transparent !important;
+}
+.stApp label[data-baseweb="radio"]:has(input:focus-visible) > div:first-child {
+    outline: 2px solid #8cc8ea;
+    outline-offset: 3px;
+}
+/* ---- 開關滑塊上色：深藍底、藍色滑塊（涵蓋全站的 st.toggle） ---- */
 div[data-testid="stCheckbox"] input[type="checkbox"] {
     appearance: none !important;
     -webkit-appearance: none !important;
@@ -391,20 +414,24 @@ div[data-testid="stCheckbox"] input[type="checkbox"]::after {
     transition: left 0.18s ease, background 0.18s ease !important;
 }
 div[data-testid="stCheckbox"] input[type="checkbox"]:checked {
-    background: #ff8a57 !important;               /* 開啟：橘色實心底 */
-    border-color: #ff8a57 !important;
+    background: #3487b6 !important;               /* 開啟：藍色實心底 */
+    border-color: #3487b6 !important;
 }
 div[data-testid="stCheckbox"] input[type="checkbox"]:checked::after {
     left: 17px !important;
     background: #ffffff !important;               /* 開啟：白色圓點 */
 }
-/* 藏起 Streamlit 原生控件的裝飾圖層，只留我們畫在 input 上的橘色滑塊。
+/* 藏起 Streamlit 原生控件的裝飾圖層，只留我們畫在 input 上的藍色滑塊。
    新版 Streamlit 會用 SVG 畫 checkbox 的紅色勾號，因此也要明確隱藏 SVG。 */
 div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
     display: none !important;
 }
 div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] svg {
     display: none !important;
+}
+div[data-testid="stCheckbox"] input[type="checkbox"]:focus-visible {
+    outline: 2px solid #8cc8ea;
+    outline-offset: 3px;
 }
 /* ---- 開關文字：關閉時反白（淡化變灰），開啟時恢復清楚、加粗（涵蓋全站） ---- */
 div[data-testid="stCheckbox"] label:has(input:not(:checked)) div[data-testid="stMarkdownContainer"] p {
