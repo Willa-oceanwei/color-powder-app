@@ -10,7 +10,7 @@ def test_small_labels_paginate_in_two_columns_within_physical_sheet():
     for left in (0.6, 7.2):
         for top in (0.25, 4.75, 9.25, 13.75, 18.25):
             assert f'left:{left}cm;top:{top}cm;width:6.3cm' in result
-    assert 'left:3.2cm;top:1.95cm;width:1.45cm">4</div>' in result
+    assert 'left:2.2cm;top:1.95cm;width:1.45cm">4</div>' in result
     assert "25KG" not in result and "4g/kg" not in result
     assert 7.2 + 6.3 == 14 - 0.5
     assert 18.25 + 4.5 < 23
@@ -25,3 +25,29 @@ def test_small_labels_escape_fields_and_support_a4():
     assert 'left:7.2cm;top:0.25cm;width:6.3cm' in result
     assert "&lt;script&gt;bad&lt;/script&gt;" in result
     assert "<script>bad</script>" not in result
+
+
+def test_small_label_calibration_moves_fields_and_only_last_three_rows_down():
+    from html.parser import HTMLParser
+
+    class Slots(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.slots = []
+
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if attrs.get("class") == "label-slot":
+                self.slots.append([])
+            elif attrs.get("class") == "field":
+                self.slots[-1].append(attrs["style"])
+
+    for stock in ("custom", "a4_driver"):
+        parser = Slots()
+        parser.feed(generate_small_label_html([{"編號": "10032"}] * 20, paper_stock=stock))
+        assert len(parser.slots) == 20
+        for index, fields in enumerate(parser.slots):
+            shift = 0.3 if index % 10 >= 4 else 0
+            for field, x, y, width in zip(fields, (0.15, 3.15, 1.15, 2.2),
+                                         (0.3, 0.3, 1.0, 1.95), (2.45, 1.35, 4.8, 1.45)):
+                assert field == f"left:{x}cm;top:{round(y + shift, 3)}cm;width:{width}cm"

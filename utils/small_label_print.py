@@ -16,10 +16,12 @@ def generate_small_label_html(rows, *, paper_stock="custom"):
             left = round(margin + (index % 2) * (label_width + 0.3), 3)
             fields = []
             # Leave the printed captions, unit, checkboxes, and company block clear.
-            for key, x, y, width in (("編號", 1.15, 0.3, 2.45),
-                                      ("日期", 4.65, 0.3, 1.35),
+            for key, x, y, width in (("編號", 0.15, 0.3, 2.45),
+                                      ("日期", 3.15, 0.3, 1.35),
                                       ("名稱", 1.15, 1.0, 4.8),
-                                      ("比例", 3.2, 1.95, 1.45)):
+                                      ("比例", 2.2, 1.95, 1.45)):
+                if index // 2 >= 2:
+                    y = round(y + 0.3, 3)
                 value = str(row.get(key) or "").strip()
                 if key == "比例" and value.lower().endswith("g/kg"):
                     value = value[:-4].strip()
