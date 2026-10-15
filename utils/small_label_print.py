@@ -27,7 +27,9 @@ def generate_small_label_html(rows, *, paper_stock="custom", selected_positions=
                                       ("比例", 2.2, 1.95, 1.45)):
                 y = round(y + (0, 0.1, 0.3, 0.5, 0.6)[index // 2], 3)
                 if key == "日期":
-                    x = round(x - (0.2 if index % 2 == 1 else 0.1), 3)
+                    x = round(x - (0.3 if index % 2 == 1 else 0.2), 3)
+                if key == "名稱" and index // 2 == 4:
+                    y = round(y + 0.1, 3)
                 value = str(row.get(key) or "").strip()
                 if key == "比例" and value.lower().endswith("g/kg"):
                     value = value[:-4].strip()

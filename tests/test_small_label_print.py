@@ -51,7 +51,9 @@ def test_small_label_calibration_moves_fields_and_only_last_three_rows_down():
             for (field, font_size), x, y, width, expected_size in zip(fields, (0.15, 3.15, 0.65, 2.2),
                                          (0.3, 0.3, 1.0, 1.95), (2.45, 1.35, 4.8, 1.45), ("12", "11", "12", "11")):
                 if x == 3.15:
-                    x = 2.95 if index % 2 == 1 else 3.05
+                    x = 2.85 if index % 2 == 1 else 2.95
+                if x == 0.65 and index % 10 // 2 == 4:
+                    y += 0.1
                 assert field == f"left:{x}cm;top:{round(y + shift, 3)}cm;width:{width}cm"
                 assert font_size == expected_size
 
