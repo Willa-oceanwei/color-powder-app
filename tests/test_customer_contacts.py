@@ -56,7 +56,7 @@ def test_schema_27_adds_columns_to_existing_customer_table(config):
             conn.execute(f"ALTER TABLE customers DROP COLUMN {column}")
         conn.execute("DELETE FROM schema_migrations WHERE version=27")
     _, health = initialize_database_with_health(config)
-    assert health.schema_version == 29 and health.schema_compatible
+    assert health.schema_version == 31 and health.schema_compatible
     assert list_customers(config)[0]["name"] == "原客戶"
     assert list_customers(config)[0]["address"] == ""
 
@@ -79,12 +79,14 @@ DATABASE_CONFIG=DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r}))
 ''' + body
     app = AppTest.from_string(script).run(timeout=30)
     assert not app.exception
-    for label, value in (("客戶編號", "C01"), ("客戶簡稱", "範例"), ("地址", "台南市測試路1號"),
+    for label, value in (("客戶編號", "C01"), ("客戶完整名稱", "範例企業有限公司"), ("客戶簡稱", "範例"), ("地址", "台南市測試路1號"),
                          ("電話", "06-0012345"), ("傳真", "06-0023456"), ("聯絡人", "林小姐"), ("統一編號", "01234567")):
         next(w for w in app.text_input if w.label == label).set_value(value)
     next(w for w in app.button if "儲存至 Turso" in w.label).click().run()
     assert not app.exception
     assert list_customers(config)[0]["phone"] == "06-0012345"
+    assert list_customers(config)[0]["name"] == "範例企業有限公司"
+    assert list_customers(config)[0]["short_name"] == "範例"
     assert next(w for w in app.text_input if w.label == "地址").value == ""
     next(w for w in app.button if "編輯選取客戶" in w.label).click().run()
     assert next(w for w in app.text_input if w.label == "地址").value == "台南市測試路1號"

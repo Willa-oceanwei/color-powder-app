@@ -212,8 +212,9 @@ def list_shipments(config, *, query="", start=None, end=None, include_void=False
     if query:
         clauses.append("(shipment_number LIKE ? OR customer_id LIKE ? OR customer_name LIKE ? OR EXISTS "
                        "(SELECT 1 FROM shipment_order_items i WHERE i.shipment_id=shipment_orders.id "
-                       "AND json_extract(i.payload_json,'$.code') LIKE ?))")
-        args.extend([f"%{query}%"] * 4)
+                       "AND json_extract(i.payload_json,'$.code') LIKE ?) OR EXISTS "
+                       "(SELECT 1 FROM customer_aliases a WHERE a.customer_id=shipment_orders.customer_id AND a.alias LIKE ?))")
+        args.extend([f"%{query}%"] * 5)
     for value, operator in ((start, ">="), (end, "<=")):
         if value:
             clauses.append(f"shipment_date {operator} ?")
