@@ -765,8 +765,8 @@ def apply_modern_style():
 
 /* active */
 [data-testid="stSidebar"] div.stButton > button[kind="primary"]{
-    background:#1a5a84 !important;
-    border-left:3px solid #8cc8ea !important;
+    background:#c6582f !important;
+    border-left:3px solid #ffb199 !important;
 }
 
 /* ===================================================
@@ -815,12 +815,12 @@ div.block-container .stTabs [data-baseweb="tab-list"] > button:hover{
 /* active */
 div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="true"]{
 
-    background:#1a5a84 !important;
+    background:#c6582f !important;
     color:#ffffff !important;
 
     border-bottom:2px solid #0a0a0a !important;
 
-    box-shadow:0 -2px 10px rgba(52,135,182,0.25);
+    box-shadow:0 -2px 10px rgba(198,88,47,0.25);
 
 }
 
@@ -854,20 +854,20 @@ div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-ba
 
 /* hover */
 div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button:hover{
-    color:#65b5e2 !important;
+    color:#ff8a57 !important;
 }
 
 /* active */
 div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button[aria-selected="true"]{
 
-    color:#65b5e2 !important;
+    color:#ff8a57 !important;
 
-    border-bottom:2px solid #65b5e2 !important;
+    border-bottom:2px solid #ff8a57 !important;
 
     box-shadow:
-        0 2px 6px rgba(52,135,182,0.55),
-        0 0 14px rgba(52,135,182,0.45),
-        0 0 24px rgba(52,135,182,0.35);
+        0 2px 6px rgba(198,88,47,0.55),
+        0 0 14px rgba(198,88,47,0.45),
+        0 0 24px rgba(198,88,47,0.35);
 
 }
 
@@ -926,7 +926,9 @@ div.block-container :is(.stButton, .stDownloadButton, .stFormSubmitButton) > but
 [data-baseweb="select"]:focus-within > div {
     border-color: #65b5e2 !important;
 }
-.stTabs [data-baseweb="tab-highlight"],
+.stTabs [data-baseweb="tab-highlight"] {
+    background: #e58a55 !important;
+}
 [data-testid="stDecoration"] {
     background: #3487b6 !important;
 }
@@ -1667,9 +1669,9 @@ def render_erp_nav():
             border-left-color: #3a8fd4 !important;
         }
         section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-            background: #2a3f5a !important;
+            background: #c6582f !important;
             color: #ffffff !important;
-            border-left-color: #4fa3e0 !important;
+            border-left-color: #ffb199 !important;
             font-weight: 700 !important;
         }
         </style>
@@ -3588,12 +3590,12 @@ elif menu == "客戶名單":
         border-color: #65b5e2 !important;
     }
     .block-container:has(.customer-page-marker) .stTabs [data-baseweb="tab-list"] > button[aria-selected="true"] {
-        background: #1a5a84 !important;
-        border-bottom-color: #65b5e2 !important;
+        background: #c6582f !important;
+        border-bottom-color: #e58a55 !important;
         box-shadow: none !important;
     }
     .block-container:has(.customer-page-marker) .stTabs [data-baseweb="tab-highlight"] {
-        background-color: #65b5e2 !important;
+        background-color: #e58a55 !important;
     }
     body:has(.customer-page-marker) [data-testid="stDecoration"] {
         background: #3487b6 !important;
