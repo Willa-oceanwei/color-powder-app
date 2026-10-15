@@ -3552,8 +3552,13 @@ elif menu == "客戶名單":
     .block-container:has(.customer-page-marker) [data-baseweb="select"]:focus-within > div {
         border-color: #65b5e2 !important;
     }
-    .block-container:has(.customer-page-marker) [data-baseweb="radio"]:has(input:checked) > div:first-child {
-        background-color: #3487b6 !important;
+    .block-container:has(.customer-page-marker) .stTabs [data-baseweb="tab-list"] > button[aria-selected="true"] {
+        background: #1a5a84 !important;
+        border-bottom-color: #65b5e2 !important;
+        box-shadow: none !important;
+    }
+    .block-container:has(.customer-page-marker) .stTabs [data-baseweb="tab-highlight"] {
+        background-color: #65b5e2 !important;
     }
     body:has(.customer-page-marker) [data-testid="stDecoration"] {
         background: #3487b6 !important;
@@ -3587,32 +3592,9 @@ elif menu == "客戶名單":
         st.rerun()
     defaults = editing_row.iloc[0].to_dict() if not editing_row.empty else {col: "" for col in columns}
 
-    customer_mode = st.radio("客戶操作", ["編輯客戶", "新增客戶"], horizontal=True,
-                             key="customer_mode", disabled=bool(editing_id), label_visibility="collapsed")
-
-    if customer_mode == "編輯客戶" and not editing_id:
-        if active_df.empty:
-            st.info("目前沒有有效客戶，請先新增客戶。")
-        else:
-            names = {row["客戶編號"]: " · ".join(dict.fromkeys(
-                str(row[field]) for field in ("客戶編號", "客戶簡稱", "客戶名稱") if row[field]
-            )) for row in active_df.to_dict("records")}
-            selected_id = st.selectbox(
-                "搜尋並選擇客戶", active_df["客戶編號"].tolist(), index=None,
-                placeholder="輸入客戶編號、簡稱或完整名稱", key="customer_action_id",
-                format_func=lambda cid: names[cid],
-            )
-            if selected_id:
-                st.session_state.editing_customer_id = selected_id
-                st.session_state.customer_form_epoch = st.session_state.get("customer_form_epoch", 0) + 1
-                st.rerun()
-            with st.expander(f"瀏覽客戶名單（{len(active_df)}）"):
-                st.dataframe(active_df[columns], use_container_width=True, hide_index=True)
-
-    if editing_id or customer_mode == "新增客戶":
+    def render_customer_editor(editing_id, defaults):
         customer_editor = st.empty()
         with customer_editor.container():
-            st.subheader(f"編輯客戶 · {editing_id}" if editing_id else "新增客戶")
             with st.form(f"customer_turso_form_{editing_id or 'new'}_{st.session_state.get('customer_form_epoch', 0)}"):
                 st.markdown("**基本資料**")
                 c1, c2, c3 = st.columns(3)
@@ -3672,24 +3654,50 @@ elif menu == "客戶名單":
                     except CustomerError as exc:
                         st.error(str(exc))
 
-    if customer_mode == "編輯客戶" and not editing_id:
-        inactive_df = df[df["生命週期"] == "inactive"].copy() if not df.empty else df.copy()
-        inactive_customers = st.empty()
-        with inactive_customers.container():
-            with st.expander(f"已停用客戶（{len(inactive_df)}）"):
-                if inactive_df.empty:
-                    st.info("目前沒有已停用客戶。")
-                else:
-                    st.dataframe(inactive_df[columns + ["停用時間", "停用原因"]], use_container_width=True, hide_index=True)
-                    restore_id = st.selectbox("選擇要恢復的客戶", inactive_df["客戶編號"].tolist(), key="restore_customer_id")
-                    if st.button("♻️ 恢復客戶", key="restore_customer"):
-                        try:
-                            set_customer_active(DATABASE_CONFIG, restore_id, active=True)
-                            st.toast(f"已恢復 {restore_id}", icon="♻️")
-                            inactive_customers.empty()
-                            st.rerun()
-                        except CustomerError as exc:
-                            st.error(str(exc))
+    edit_customer_tab, new_customer_tab = st.tabs(["編輯客戶", "新增客戶"])
+    with edit_customer_tab:
+        if not editing_id:
+            if active_df.empty:
+                st.info("目前沒有有效客戶，請先新增客戶。")
+            else:
+                names = {row["客戶編號"]: " · ".join(dict.fromkeys(
+                    str(row[field]) for field in ("客戶編號", "客戶簡稱", "客戶名稱") if row[field]
+                )) for row in active_df.to_dict("records")}
+                selected_id = st.selectbox(
+                    "搜尋並選擇客戶", active_df["客戶編號"].tolist(), index=None,
+                    placeholder="輸入客戶編號、簡稱或完整名稱", key="customer_action_id",
+                    format_func=lambda cid: names[cid],
+                )
+                if selected_id:
+                    st.session_state.editing_customer_id = selected_id
+                    st.session_state.customer_form_epoch = st.session_state.get("customer_form_epoch", 0) + 1
+                    st.rerun()
+                with st.expander(f"瀏覽客戶名單（{len(active_df)}）"):
+                    st.dataframe(active_df[columns], use_container_width=True, hide_index=True)
+
+        if editing_id:
+            render_customer_editor(editing_id, defaults)
+        if not editing_id:
+            inactive_df = df[df["生命週期"] == "inactive"].copy() if not df.empty else df.copy()
+            inactive_customers = st.empty()
+            with inactive_customers.container():
+                with st.expander(f"已停用客戶（{len(inactive_df)}）"):
+                    if inactive_df.empty:
+                        st.info("目前沒有已停用客戶。")
+                    else:
+                        st.dataframe(inactive_df[columns + ["停用時間", "停用原因"]], use_container_width=True, hide_index=True)
+                        restore_id = st.selectbox("選擇要恢復的客戶", inactive_df["客戶編號"].tolist(), key="restore_customer_id")
+                        if st.button("♻️ 恢復客戶", key="restore_customer"):
+                            try:
+                                set_customer_active(DATABASE_CONFIG, restore_id, active=True)
+                                st.toast(f"已恢復 {restore_id}", icon="♻️")
+                                inactive_customers.empty()
+                                st.rerun()
+                            except CustomerError as exc:
+                                st.error(str(exc))
+
+    with new_customer_tab:
+        render_customer_editor("", {col: "" for col in columns})
 
 #==========================================================
 # ======== 配方管理分頁 =========
