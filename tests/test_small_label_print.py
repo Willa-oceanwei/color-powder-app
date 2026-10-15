@@ -10,7 +10,7 @@ def test_small_labels_paginate_in_two_columns_within_physical_sheet():
     for left in (0.6, 7.2):
         for top in (0.25, 4.75, 9.25, 13.75, 18.25):
             assert f'left:{left}cm;top:{top}cm;width:6.3cm' in result
-    assert 'width:1.45cm">4</div>' in result
+    assert 'left:3.2cm;top:1.95cm;width:1.45cm">4</div>' in result
     assert "25KG" not in result and "4g/kg" not in result
     assert 7.2 + 6.3 == 14 - 0.5
     assert 18.25 + 4.5 < 23
