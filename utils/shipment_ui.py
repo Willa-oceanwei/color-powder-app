@@ -11,7 +11,7 @@ import streamlit.components.v1 as components
 from .shipment_catalog import shipment_choices, complete_items, recent_item_defaults, matching_products
 from .shipment_print import display_price
 from .paper_preview import theme_preview
-from .shipment_page_data import cached_read, clear_reads
+from .shipment_page_data import cached_read, clear_reads, shipment_timing, timed_read
 from .shipment_history_ui import render_purchase_history
 from .shipment_search_print import render_search_print
 from .shipment_codes import display_code_options, printed_code
@@ -90,6 +90,8 @@ body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] button {b
 
 
 def _begin(document, *, rerun=True):
+    st.session_state.pop("shipment_saved_view", None)
+    st.session_state.pop("shipment_saved_nav_direction", None)
     st.session_state.pop("shipment_read_cache", None)
     st.session_state.shipment_draft = deepcopy(document)
     st.session_state.shipment_original = deepcopy(document)
@@ -131,7 +133,7 @@ def _new_shipment():
     return dict(blank_shipment(), number_mode="manual")
 
 
-def _finish(message="", *, rerun=True, invalidate_reports=False):
+def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None):
     clear_reads(st.session_state)
     if invalidate_reports:
         st.session_state.pop("receivable_pages", None)
@@ -141,6 +143,11 @@ def _finish(message="", *, rerun=True, invalidate_reports=False):
     st.session_state.pop("shipment_draft", None)
     st.session_state.pop("shipment_original", None)
     st.session_state.pop("shipment_editor_base", None)
+    st.session_state.pop("shipment_saved_nav_direction", None)
+    if saved_view is None:
+        st.session_state.pop("shipment_saved_view", None)
+    else:
+        st.session_state.shipment_saved_view = deepcopy(saved_view)
     st.session_state.shipment_notice = message
     if rerun:
         st.rerun()
@@ -196,6 +203,7 @@ def _draft_print_document(document):
     return snapshot
 
 
+@shipment_timing("shipment_render")
 def render_shipment_management(config, *, start_new_on_entry=False):
     for key, preference in (("shipment_print_preview", "shipment_preview_preference"), ("shipment_hide_prices", "shipment_hide_preference")):
         if preference in st.session_state:
@@ -223,12 +231,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         cache_key = (repr(config), key)
         if cache_key not in cache:
             # New editing snapshots must see current customer details and prices.
-            cache[cache_key] = loader() if key == "customers" or isinstance(key, tuple) and key[0] == "history" else cached_read(config, st.session_state, key, loader, ttl=60)
+            cache[cache_key] = timed_read(key, loader) if key == "customers" or isinstance(key, tuple) and key[0] == "history" else cached_read(config, st.session_state, key, loader, ttl=60)
         return cache[cache_key]
 
     with st.expander("查詢", expanded=False):
         if st.button("重讀資料", key="shipment_reload_data"):
             clear_reads(st.session_state)
+            st.session_state.pop("shipment_saved_view", None)
             st.session_state.pop("shipment_purchase_history_result", None)
             st.session_state.pop("shipment_search_print_snapshot", None)
             st.rerun()
@@ -252,6 +261,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                             shipment_customer_end=customer_end,
                                             shipment_search_epoch=st.session_state.get("shipment_search_epoch", 0) + 1)
                     st.session_state.pop("shipment_selected", None)
+                    st.session_state.pop("shipment_saved_view", None)
                     st.session_state.pop("shipment_search_print_snapshot", None)
                     clear_reads(st.session_state)
                     if editing:
@@ -264,11 +274,25 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         resume[1].button("繼續草稿", key="shipment_resume_draft", disabled=editing, on_click=_resume_search_draft, use_container_width=True)
     record_key = ("records", *(st.session_state.get(key) for key in ("shipment_query", "shipment_start", "shipment_end",
                   "shipment_include_void", "shipment_customer_start", "shipment_customer_end")))
-    records = [] if editing and not st.session_state.get("shipment_search_epoch") else cached_read(config, st.session_state, record_key, lambda: list_shipments(config, query=st.session_state.get("shipment_query", ""),
-                             start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
-                             include_void=st.session_state.get("shipment_include_void", False),
-                             customer_start=st.session_state.get("shipment_customer_start", ""),
-                             customer_end=st.session_state.get("shipment_customer_end", "")))
+    saved_view = st.session_state.get("shipment_saved_view", {})
+    saved_document = saved_view.get("document") if saved_view.get("config") == repr(config) else None
+    saved_direction = st.session_state.get("shipment_saved_nav_direction", 0)
+    showing_saved = bool(not editing and saved_document and not saved_direction
+                         and not st.session_state.get("shipment_search_epoch")
+                         and st.session_state.get("shipment_selected") == saved_document["id"])
+    # The committed document is already available. Load the full list only on
+    # an explicit search, refresh, or previous/next action.
+    if showing_saved:
+        records = [saved_document]
+    elif editing and not st.session_state.get("shipment_search_epoch"):
+        records = []
+    else:
+        records = cached_read(config, st.session_state, record_key, lambda: list_shipments(
+            config, query=st.session_state.get("shipment_query", ""),
+            start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
+            include_void=st.session_state.get("shipment_include_void", False),
+            customer_start=st.session_state.get("shipment_customer_start", ""),
+            customer_end=st.session_state.get("shipment_customer_end", "")))
     if st.session_state.get("shipment_search_epoch"):
         with st.expander(f"查詢結果 · {len(records)} 筆", expanded=True):
             if records:
@@ -296,7 +320,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     query_number = st.session_state.get("shipment_query", "").strip()
     exact_match = next((row for row in records if row["shipment_number"] == query_number), None)
     navigation_records = records
-    if exact_match:
+    if exact_match and not showing_saved:
         # A full number locates a document; it must not limit sequential browsing.
         navigation_key = ("number-navigation", *record_key[2:])
         navigation_records = cached_read(config, st.session_state, navigation_key, lambda: sorted(
@@ -310,7 +334,17 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     if selected not in ids and exact_match:
         selected = exact_match["id"]
     index = ids.index(selected) if selected in ids else 0
-    document = draft or (read(("document", ids[index]), lambda: get_shipment(config, ids[index])) if ids else None)
+    if saved_direction:
+        if selected in ids:
+            index = min(max(index + saved_direction, 0), len(ids) - 1)
+        st.session_state.pop("shipment_saved_nav_direction", None)
+        st.session_state.pop("shipment_saved_view", None)
+    if editing:
+        document = draft
+    elif showing_saved:
+        document = deepcopy(saved_document)
+    else:
+        document = read(("document", ids[index]), lambda: get_shipment(config, ids[index])) if ids else None
     if not editing and document:
         st.session_state.shipment_selected = document["id"]
     tools = st.columns([1, 1, 1, 1, 1.1, 1, 1, .6, 1.6])
@@ -326,10 +360,14 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     save_clicked = tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing, use_container_width=True)
     for col, label, target in ((tools[5], "上一筆", index - 1), (tools[6], "下一筆", index + 1)):
         if col.button(label, key="shipment_nav_" + label,
-                      disabled=editing or not ids or target < 0 or target >= len(ids) or target == index, use_container_width=True):
-            st.session_state.shipment_selected = ids[target]
+                      disabled=editing or (not showing_saved and (not ids or target < 0 or target >= len(ids) or target == index)), use_container_width=True):
+            if showing_saved:
+                st.session_state.shipment_saved_nav_direction = -1 if label == "上一筆" else 1
+            else:
+                st.session_state.shipment_selected = ids[target]
             st.rerun()
-    tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{index + 1 if ids else 0} / {len(ids)}</span>', unsafe_allow_html=True)
+    position = "已儲存" if showing_saved else f"{index + 1 if ids else 0} / {len(ids)}"
+    tools[7].markdown(f'<span id="shipment-toolbar" style="font-size:12px">{position}</span>', unsafe_allow_html=True)
     hide_prices = st.session_state.get("shipment_hide_prices", st.session_state.get("shipment_hide_preference", False))
     export_panel = tools[8].popover("列印／匯出", use_container_width=True)
     with export_panel, st.container():
@@ -351,6 +389,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     if not document:
         st.info("目前沒有出貨單")
         return
+    display = CustomerDisplay(config)
+    def current_customer_label():
+        if showing_saved:
+            return saved_view["customer_label"]
+        return display.name(document["customer_name"], document["customer_id"])
     if document.get("status") == "void":
         st.warning("已作廢：" + document.get("void_reason", ""))
     prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_" if editing else f"shipment_view_{document['id']}_{document['version']}_"
@@ -361,7 +404,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                             help="成交價依客戶、貨品與單位保存於出貨紀錄，不覆蓋共用標準售價")
     if preview and not editing:
         with print_controls[3]:
-            render_purchase_history(config, document["customer_id"], CustomerDisplay(config).name(document["customer_name"], document["customer_id"]))
+            render_purchase_history(config, document["customer_id"], current_customer_label())
         components.html(theme_preview(print_html), height=550, scrolling=True)
         return
     draft_preview = st.empty() if editing and preview else None
@@ -450,13 +493,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 for field in ("recipient_id", "recipient_name", "address", "phone", "fax", "contact", "tax_id"):
                     st.session_state[prefix + field] = document[field]
         else:
-            st.text_input("客戶", value=f"{document['customer_id']} · {CustomerDisplay(config).name(document['customer_name'], document['customer_id'])}", disabled=True)
+            st.text_input("客戶", value=f"{document['customer_id']} · {current_customer_label()}", disabled=True)
     receiver = st.columns([1.2, 1.8, 4])
     for col, label, field in zip(receiver, ("指送對象編號", "指送對象名稱", "送貨地址"), ("recipient_id", "recipient_name", "address")):
         with col:
             text(label, field)
     with print_controls[3]:
-        render_purchase_history(config, document["customer_id"], CustomerDisplay(config).name(document["customer_name"], document["customer_id"]))
+        render_purchase_history(config, document["customer_id"], current_customer_label())
     source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
     requested_item = None
     if editing:
@@ -645,7 +688,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         try:
             if any(len(matching_products(all_choices, item.get("code"))) > 1 for item in document["items"]):
                 raise ShipmentError("有多筆相符貨品，請先選擇並採用完整編號。")
-            saved = save_shipment(config, document, sync_products=sync_products)
+            with shipment_timing("shipment_save", item_count=len(document["items"])):
+                saved = save_shipment(config, document, sync_products=sync_products)
         except ShipmentError as error:
             st.error(str(error))
         except Exception:
@@ -654,7 +698,10 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.session_state.shipment_selected = saved["id"]
             st.session_state.update(shipment_query="", shipment_start=None, shipment_end=None, shipment_include_void=False,
                                     shipment_customer_start="", shipment_customer_end="", shipment_search_epoch=0)
-            _finish("已儲存出貨單 " + saved["shipment_number"], invalidate_reports=True)
+            customer = next((row for row in customers if row["customer_id"] == saved["customer_id"]), {})
+            _finish("已儲存出貨單 " + saved["shipment_number"], invalidate_reports=True,
+                    saved_view={"config": repr(config), "document": saved,
+                                "customer_label": customer_display_name(customer) or saved["customer_name"]})
     if not editing:
         lifecycle = st.container()
         if document["status"] == "draft":
