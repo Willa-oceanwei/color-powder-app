@@ -61,7 +61,7 @@ def test_schema_27_adds_columns_to_existing_customer_table(config):
     assert list_customers(config)[0]["address"] == ""
 
 
-def test_customer_form_add_edit_cancel_and_clear(config):
+def customer_app(config):
     root = Path(__file__).resolve().parents[1]
     tree = ast.parse((root / "app.py").read_text(encoding="utf-8"))
     branch = next(n for n in ast.walk(tree) if isinstance(n, ast.If) and isinstance(n.test, ast.Compare)
@@ -77,26 +77,68 @@ from utils.customer_repository import *
 from utils.database import DatabaseConfig
 DATABASE_CONFIG=DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r}))
 ''' + body
-    app = AppTest.from_string(script).run(timeout=30)
+    return AppTest.from_string(script).run(timeout=30)
+
+
+def test_customer_form_add_edit_cancel_and_clear(config):
+    app = customer_app(config)
+    app.radio(key="customer_mode").set_value("新增客戶").run()
     assert not app.exception
     for label, value in (("客戶編號", "C01"), ("客戶完整名稱", "範例企業有限公司"), ("客戶簡稱", "範例"), ("地址", "台南市測試路1號"),
                          ("電話", "06-0012345"), ("傳真", "06-0023456"), ("聯絡人", "林小姐"), ("統一編號", "01234567")):
         next(w for w in app.text_input if w.label == label).set_value(value)
-    next(w for w in app.button if "儲存至 Turso" in w.label).click().run()
+    next(w for w in app.button if w.label == "新增客戶").click().run()
     assert not app.exception
     assert list_customers(config)[0]["phone"] == "06-0012345"
     assert list_customers(config)[0]["name"] == "範例企業有限公司"
     assert list_customers(config)[0]["short_name"] == "範例"
     assert next(w for w in app.text_input if w.label == "地址").value == ""
-    next(w for w in app.button if "編輯選取客戶" in w.label).click().run()
+    app.radio(key="customer_mode").set_value("編輯客戶").run()
+    app.selectbox(key="customer_action_id").set_value("C01").run()
     assert next(w for w in app.text_input if w.label == "地址").value == "台南市測試路1號"
     next(w for w in app.text_input if w.label == "地址").set_value("未儲存地址")
-    app.button(key="cancel_customer_edit").click().run()
+    next(w for w in app.button if w.label == "取消編輯").click().run()
     assert list_customers(config)[0]["address"] == "台南市測試路1號"
-    next(w for w in app.button if "編輯選取客戶" in w.label).click().run()
+    assert app.selectbox(key="customer_action_id").value is None
+    app.selectbox(key="customer_action_id").set_value("C01").run()
     next(w for w in app.text_input if w.label == "地址").set_value("高雄市新地址")
-    next(w for w in app.button if "儲存至 Turso" in w.label).click().run()
+    next(w for w in app.button if w.label == "儲存變更").click().run()
     assert not app.exception and list_customers(config)[0]["address"] == "高雄市新地址"
+    assert app.selectbox(key="customer_action_id").value is None
+
+
+def test_customer_selection_identity_validation_and_cancel(config):
+    create_customer(config, CustomerInput("C01", "範例完整名稱", short_name="範例", address="原地址"))
+    create_customer(config, CustomerInput("C02", "另一家完整名稱", address="另一地址"))
+    app = customer_app(config)
+    assert not app.exception and not app.text_input
+    assert app.selectbox(key="customer_action_id").value is None
+    assert app.selectbox(key="customer_action_id").options == ["C01 · 範例 · 範例完整名稱", "C02 · 另一家完整名稱"]
+    app.selectbox(key="customer_action_id").set_value("C01").run()
+    assert not app.exception and not app.selectbox and not app.dataframe
+    assert next(w for w in app.text_input if w.label == "客戶編號").disabled
+    next(w for w in app.text_input if w.label == "客戶完整名稱").set_value("")
+    next(w for w in app.button if w.label == "儲存變更").click().run()
+    assert app.error and list_customers(config)[0]["name"] == "範例完整名稱"
+    next(w for w in app.button if w.label == "取消編輯").click().run()
+    assert not app.exception and not app.error
+    app.selectbox(key="customer_action_id").set_value("C02").run()
+    assert next(w for w in app.text_input if w.label == "地址").value == "另一地址"
+
+
+def test_customer_archive_and_restore_from_editor(config):
+    create_customer(config, CustomerInput("C01", "測試公司"))
+    app = customer_app(config)
+    app.selectbox(key="customer_action_id").set_value("C01").run()
+    assert next(w for w in app.button if w.label == "確認停用客戶").disabled
+    next(w for w in app.text_input if w.label == "停用原因").set_value("結束合作").run()
+    next(w for w in app.button if w.label == "確認停用客戶").click().run()
+    assert not app.exception and not list_customers(config)
+    assert list_customers(config, include_inactive=True)[0]["delete_reason"] == "結束合作"
+    app.button(key="restore_customer").click().run()
+    assert not app.exception and len(list_customers(config)) == 1
+    app.selectbox(key="customer_action_id").set_value("C01").run()
+    assert next(w for w in app.text_input if w.label == "停用原因").value == ""
 
 
 def test_shipment_edit_fills_missing_contacts_once_without_extra_reads(config, monkeypatch):
