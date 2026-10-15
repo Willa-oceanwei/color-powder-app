@@ -34,7 +34,7 @@ def generate_small_label_html(rows, *, paper_stock="a4_driver", selected_positio
                 if key == "比例" and value.lower().endswith("g/kg"):
                     value = value[:-4].strip()
                 font_size = 12 if key in ("編號", "名稱") else 11
-                fields.append(f'<div class="field" data-size="{font_size}" style="left:{x}cm;top:{y}cm;width:{width}cm">{escape(value)}</div>')
+                fields.append(f'<div class="field" data-field="{key}" data-size="{font_size}" style="left:{x}cm;top:{y}cm;width:{width}cm">{escape(value)}</div>')
             slots.append(f'<div class="label-slot" style="left:{left}cm;top:{top}cm;width:{label_width}cm">{"".join(fields)}</div>')
         sheets.append(f'<div class="sheet">{"".join(slots)}</div>')
     size = "A4" if paper_stock == "a4_driver" else "14cm 23cm"
@@ -51,6 +51,7 @@ overflow: hidden; break-after: page; page-break-after: always; break-inside: avo
 .field {{ position: absolute; white-space: nowrap; line-height: 1;
 font: 11pt Arial, "Microsoft JhengHei", sans-serif; }}
 .field[data-size="12"] {{ font-size: 12pt; }}
+.field[data-field="編號"] {{ font-weight: 700; }}
 </style><script>
 function fitLabelText() {{
  document.querySelectorAll('.field').forEach(field => {{

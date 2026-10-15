@@ -426,7 +426,7 @@ div[data-testid="stCheckbox"] input[type="checkbox"]:checked::after {
 }
 /* 藏起 Streamlit 原生控件的裝飾圖層，只留我們畫在 input 上的藍色滑塊。
    新版 Streamlit 會用 SVG 畫 checkbox 的紅色勾號，因此也要明確隱藏 SVG。 */
-div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > div:first-child {
+div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] > :is(div, span):first-child {
     display: none !important;
 }
 div[data-testid="stCheckbox"] label[data-baseweb="checkbox"] svg {
@@ -460,9 +460,9 @@ div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] {
     padding: 1px 4px !important;
     line-height: 1.3 !important;
     border-radius: 999px !important;
-    background: rgba(255,138,87,0.15) !important;
-    color: #ff8a57 !important;
-    border: 1px solid rgba(255,138,87,0.35) !important;
+    background: rgba(52,135,182,0.15) !important;
+    color: #65b5e2 !important;
+    border: 1px solid rgba(52,135,182,0.35) !important;
     box-shadow: none !important;
     gap: 2px !important;
     height: 24px !important;
@@ -472,9 +472,9 @@ div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] p {
     font-size: 14px !important;
 }
 div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"]:hover {
-    background: rgba(255,138,87,0.28) !important;
-    border-color: rgba(255,138,87,0.65) !important;
-    color: #ffb98d !important;
+    background: rgba(52,135,182,0.28) !important;
+    border-color: rgba(52,135,182,0.65) !important;
+    color: #b5dff5 !important;
 }
 /* 隱藏按鈕內建的展開箭頭圖示（確認過就是這顆按鈕內的 svg，直接藏起來） */
 div[aria-haspopup="true"] > button[data-testid="stBaseButton-secondary"] svg {
@@ -741,7 +741,7 @@ def apply_modern_style():
 /* group */
 [data-testid="stSidebar"] .erp-group{
     font-size:9.5px;
-    color:#e06b3a;
+    color:#8cc8ea;
     letter-spacing:1.2px;
     margin:10px 0 4px 0;
 }
@@ -765,8 +765,8 @@ def apply_modern_style():
 
 /* active */
 [data-testid="stSidebar"] div.stButton > button[kind="primary"]{
-    background:#c6582f !important;
-    border-left:3px solid #ffb199 !important;
+    background:#1a5a84 !important;
+    border-left:3px solid #8cc8ea !important;
 }
 
 /* ===================================================
@@ -815,12 +815,12 @@ div.block-container .stTabs [data-baseweb="tab-list"] > button:hover{
 /* active */
 div.block-container .stTabs [data-baseweb="tab-list"] > button[aria-selected="true"]{
 
-    background:#c6582f !important;
+    background:#1a5a84 !important;
     color:#ffffff !important;
 
     border-bottom:2px solid #0a0a0a !important;
 
-    box-shadow:0 -2px 10px rgba(198,88,47,0.25);
+    box-shadow:0 -2px 10px rgba(52,135,182,0.25);
 
 }
 
@@ -854,20 +854,20 @@ div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-ba
 
 /* hover */
 div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button:hover{
-    color:#ff8a57 !important;
+    color:#65b5e2 !important;
 }
 
 /* active */
 div.block-container div[data-testid="stTabs"] div[data-testid="stTabs"] [data-baseweb="tab-list"] > button[aria-selected="true"]{
 
-    color:#ff8a57 !important;
+    color:#65b5e2 !important;
 
-    border-bottom:2px solid #ff8a57 !important;
+    border-bottom:2px solid #65b5e2 !important;
 
     box-shadow:
-        0 2px 6px rgba(255,138,87,0.55),
-        0 0 14px rgba(255,138,87,0.45),
-        0 0 24px rgba(255,138,87,0.35);
+        0 2px 6px rgba(52,135,182,0.55),
+        0 0 14px rgba(52,135,182,0.45),
+        0 0 24px rgba(52,135,182,0.35);
 
 }
 
@@ -903,6 +903,34 @@ div.block-container .stButton > button[kind="primary"]{
     background:#1a5a84 !important;
 }
 
+/* Form, download and ordinary actions share the blue palette, including focus. */
+div.block-container :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button {
+    background: #0b2f4a !important;
+    color: #ffffff !important;
+    border: 1px solid #527086 !important;
+}
+div.block-container :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:is([kind="primary"], [kind="primaryFormSubmit"]) {
+    background: #1a5a84 !important;
+    border-color: #3487b6 !important;
+}
+div.block-container :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:not(:disabled):is(:hover, :focus) {
+    background: #124466 !important;
+    border-color: #65b5e2 !important;
+    color: #ffffff !important;
+}
+div.block-container :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:focus-visible {
+    outline: 2px solid #8cc8ea !important;
+    outline-offset: 2px;
+}
+[data-baseweb="input"]:focus-within,
+[data-baseweb="select"]:focus-within > div {
+    border-color: #65b5e2 !important;
+}
+.stTabs [data-baseweb="tab-highlight"],
+[data-testid="stDecoration"] {
+    background: #3487b6 !important;
+}
+
 /* ===================================================
    📊 TABLE (ERP CLEAN GRID)
 =================================================== */
@@ -932,7 +960,7 @@ ul[role="listbox"] li{
 }
 
 ul[role="listbox"] li:hover{
-    background:rgba(198,88,47,0.15) !important;
+    background:rgba(52,135,182,0.15) !important;
 }
 
 /* ===== 加進 apply_modern_style() 的 <style> 區塊裡 =====
@@ -946,7 +974,7 @@ div[data-testid="stTextArea"] textarea:not(:disabled),
 div[data-testid="stNumberInput"] input:not(:disabled) {
     background-color: #16283a !important;   /* 比頁面底色稍亮，明顯有「一塊」的感覺 */
     border: 1px solid rgba(255,255,255,0.22) !important;
-    border-left: 3px solid #c6582f !important;  /* 左側橘色細條，暗示「這裡可以動」 */
+    border-left: 3px solid #1a5a84 !important;  /* 左側藍色細條，暗示「這裡可以動」 */
     border-radius: 8px !important;
     color: #ffffff !important;
     padding: 8px 12px !important;
@@ -961,8 +989,8 @@ div[data-testid="stTextArea"] textarea:not(:disabled):hover {
 div[data-testid="stTextInput"] input:not(:disabled):focus,
 div[data-testid="stTextArea"] textarea:not(:disabled):focus,
 div[data-testid="stNumberInput"] input:not(:disabled):focus {
-    border-color: #c6582f !important;
-    box-shadow: 0 0 0 2px rgba(198,88,47,0.25) !important;
+    border-color: #1a5a84 !important;
+    box-shadow: 0 0 0 2px rgba(52,135,182,0.25) !important;
     outline: none !important;
 }
 
@@ -1740,7 +1768,7 @@ def safe_update_cell(ws, row, col, value):
 def render_metric_cards(items):
     accent_style = {
         "neutral": {"fg": "#ffffff", "sub": "#9fb6cc"},
-        "accent":  {"fg": "#ff8a57", "sub": "#e0a687"},
+        "accent":  {"fg": "#65b5e2", "sub": "#e0a687"},
         "warn":    {"fg": "#e6ab02", "sub": "#c9a24a"},
     }
     cols = st.columns(len(items))
@@ -1768,7 +1796,7 @@ def render_oem_status_cards(df, df_order=None, df_recipe=None, show_preview=Fals
     status_style = {
         "⏳ 未載回": {"bg": "rgba(230,171,2,0.15)",  "fg": "#e6ab02", "border": "rgba(230,171,2,0.35)"},
         "🏭 在廠內": {"bg": "rgba(58,141,214,0.15)", "fg": "#5aa9e6", "border": "rgba(58,141,214,0.35)"},
-        "🔄 進行中": {"bg": "rgba(198,88,47,0.18)",  "fg": "#ff8a57", "border": "rgba(198,88,47,0.40)"},
+        "🔄 進行中": {"bg": "rgba(52,135,182,0.18)",  "fg": "#65b5e2", "border": "rgba(52,135,182,0.40)"},
         "✅ 已結案": {"bg": "rgba(45,163,95,0.15)",  "fg": "#4fd17a", "border": "rgba(45,163,95,0.35)"},
     }
     default_style = {"bg": "rgba(255,255,255,0.06)", "fg": "#cfd8e3", "border": "rgba(255,255,255,0.15)"}
