@@ -1,11 +1,136 @@
 from pathlib import Path
 from copy import deepcopy
 
+import pytest
+
 from streamlit.testing.v1 import AppTest
 
 from utils.customer_repository import CustomerInput, create_customer
 from utils.database import DatabaseConfig, initialize_database
 from utils.shipment_repository import blank_shipment, get_shipment, list_shipments, save_shipment
+
+
+def test_saved_document_skips_reads_until_navigation_or_refresh_and_can_leave_page(tmp_path, monkeypatch):
+    import ast
+    import utils.shipment_ui as ui
+    config = DatabaseConfig(backend='sqlite', path=tmp_path / 'saved-view.db')
+    initialize_database(config.path)
+    create_customer(config, CustomerInput('C01', 'Customer legal name', short_name='Customer'))
+    for number in ('001', '003'):
+        doc = dict(blank_shipment(), customer_id='C01', customer_name='Customer legal name',
+                   number_mode='manual', shipment_number=number)
+        doc['items'] = [dict(code='P1', name='Blue', quantity='1', unit='KG', price='100')]
+        save_shipment(config, doc)
+    calls = []
+    for name in ('list_shipments', 'get_shipment'):
+        original = getattr(ui, name)
+        def counted(*args, _name=name, _original=original, **kwargs):
+            calls.append(_name)
+            return _original(*args, **kwargs)
+        monkeypatch.setattr(ui, name, counted)
+    root = Path(__file__).resolve().parents[1]
+    tree = ast.parse((root / 'app.py').read_text(encoding='utf-8'))
+    sidebar = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'render_sidebar')
+    script = f'''import sys
+sys.path.insert(0,{str(root)!r})
+from pathlib import Path
+import streamlit as st
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+def request_logout(): pass
+''' + ast.unparse(sidebar) + f'''
+render_sidebar()
+if st.session_state.menu == '出貨單':
+    render_shipment_management(DatabaseConfig(backend='sqlite',path=Path({str(config.path)!r})),start_new_on_entry=True)
+else:
+    st.session_state.pop('shipment_entry_ready',None)
+'''
+    app = AppTest.from_string(script).run(timeout=30)
+    app.button(key='出貨單').click().run()
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    app.selectbox(key=prefix + 'customer_picker').set_value('C01').run()
+    app.text_input(key=prefix + 'shipment_number').set_value('002')
+    app.session_state[prefix + 'items'] = {'edited_rows': {}, 'deleted_rows': [], 'added_rows': [
+        {'貨品編號': 'P1', '品名': 'Blue', '數量': 2.0, '單位': 'KG', '單價': 100.0}]}
+    app.run()
+    app.session_state['receivable_pages'] = ['stale report']
+    app.button(key='shipment_save').click().run()
+    assert not app.exception and not calls
+    assert 'shipment_draft' not in app.session_state and 'receivable_pages' not in app.session_state
+    saved_id = app.session_state['shipment_selected']
+    saved_view = app.session_state['shipment_saved_view']['document']
+    assert saved_view == get_shipment(config, saved_id)
+    assert saved_view['shipment_number'] == '002' and saved_view['items'][0]['amount'] == '200'
+    # Normal viewing and print settings must not re-query the list, document,
+    # or customer labels after a successful save.
+    original_name = ui.CustomerDisplay.name
+    monkeypatch.setattr(ui.CustomerDisplay, 'name', lambda *args, **kwargs: pytest.fail('saved customer label should be reused'))
+    app.toggle(key='shipment_print_preview').set_value(True).run()
+    app.toggle(key='shipment_hide_prices').set_value(True).run()
+    app.toggle(key='shipment_print_preview').set_value(False).run()
+    assert not app.exception and not calls
+    monkeypatch.setattr(ui.CustomerDisplay, 'name', original_name)
+    app.button(key='shipment_nav_上一筆').click().run()
+    assert not app.exception and calls == ['list_shipments', 'get_shipment']
+    assert next(w for w in app.text_input if w.label == '出貨單號').value == '001'
+    assert app.button(key='shipment_nav_上一筆').disabled
+    app.button(key='shipment_nav_下一筆').click().run()
+    assert next(w for w in app.text_input if w.label == '出貨單號').value == '002'
+    app.button(key='shipment_edit').click().run()
+    next(w for w in app.text_area if w.label == '備註').set_value('Updated')
+    calls.clear()
+    app.button(key='shipment_save').click().run()
+    assert not app.exception and not calls
+    assert app.session_state['shipment_saved_view']['document']['version'] == 2
+    # An explicit refresh must discard the saved snapshot and see outside edits.
+    external = get_shipment(config, saved_id)
+    external['notes'] = 'Changed elsewhere'
+    save_shipment(config, external)
+    app.button(key='shipment_reload_data').click().run()
+    assert not app.exception and calls == ['list_shipments', 'get_shipment']
+    assert next(w for w in app.text_area if w.label == '備註').value == 'Changed elsewhere'
+    app.button(key='shipment_edit').click().run()
+    app.button(key='shipment_save').click().run()
+    next(w for w in app.text_input if w.label == '出貨單號 / 客戶 / 貨品編號').set_value('003')
+    next(w for w in app.button if w.label == '查詢').click().run()
+    assert not app.exception and 'shipment_saved_view' not in app.session_state
+    assert next(w for w in app.text_input if w.label == '出貨單號').value == '003'
+    # Saving once more and leaving through the real sidebar needs no list read.
+    app.button(key='shipment_edit').click().run()
+    app.button(key='shipment_save').click().run()
+    calls.clear()
+    app.button(key='客戶名單').click().run()
+    assert not app.exception and app.session_state['menu'] == '客戶名單' and not calls
+
+
+def test_failed_save_keeps_editing_and_does_not_publish_a_saved_view(tmp_path, monkeypatch, caplog):
+    import utils.shipment_ui as ui
+    config = DatabaseConfig(backend='sqlite', path=tmp_path / 'failed-save.db')
+    initialize_database(config.path)
+    create_customer(config, CustomerInput('C01', 'Customer'))
+    doc = dict(blank_shipment(), customer_id='C01', customer_name='Customer')
+    doc['items'] = [dict(code='P1', name='Blue', quantity='1', unit='KG', price='100')]
+    saved = save_shipment(config, doc)
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0,{root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend='sqlite',path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    app.button(key='shipment_edit').click().run()
+    next(w for w in app.text_area if w.label == '備註').set_value('Keep unsaved notes')
+    def fail(*args, **kwargs):
+        raise ui.ShipmentError('暫時無法儲存')
+    monkeypatch.setattr(ui, 'save_shipment', fail)
+    app.button(key='shipment_save').click().run()
+    assert not app.exception and app.error
+    assert app.session_state['shipment_draft']['notes'] == 'Keep unsaved notes'
+    assert 'shipment_saved_view' not in app.session_state
+    assert get_shipment(config, saved['id'])['notes'] == ''
+    assert 'stage=shipment_save' in caplog.text and 'outcome=error' in caplog.text
+    assert 'Keep unsaved notes' not in caplog.text
 
 
 def test_editing_preview_uses_current_grid_values_without_saving(tmp_path, monkeypatch):
