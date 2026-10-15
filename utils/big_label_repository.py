@@ -24,6 +24,7 @@ def format_label_ratio_value(value, *, add_unit=False):
         return f"{text}g/kg"
     return text
 
+
 def normalize_big_label_editor_rows(rows):
     normalized = []
     for row in rows:
@@ -47,25 +48,33 @@ def _memory_key(order, label_kind="big"):
 def build_big_label_editor_defaults(config, order, labels, *, label_kind="big"):
     with connect_from_config(config) as conn:
         saved = conn.execute("SELECT rows_json FROM big_label_templates WHERE label_key=?", (_memory_key(order, label_kind),)).fetchone()
-    if saved:
-        remembered = normalize_big_label_editor_rows(json.loads(saved[0]))
-        if remembered:
-            return remembered
     grouped = {}
     for label in labels:
         key = tuple(_cell(label.get(field)) for field in ("編號", "名稱", "日期", "比例", "數量"))
         grouped[key] = grouped.get(key, 0) + 1
-    return [
+    defaults = [
         {"編號": no, "品名": name, "日期": date, "比例": ratio, "數量": qty + "KG" if qty else "", "列印張數": count}
         for (no, name, date, ratio, qty), count in grouped.items()
     ] or [{"編號": _memory_key(order), "品名": _cell(order.get("顏色")), "日期": "", "比例": "", "數量": "", "列印張數": 1}]
+    if saved:
+        remembered = normalize_big_label_editor_rows(json.loads(saved[0]))
+        if remembered:
+            for index, row in enumerate(defaults):
+                template = remembered[min(index, len(remembered) - 1)]
+                for field in ("編號", "品名", "比例"):
+                    row[field] = template[field]
+    return defaults
 
 
 def remember_big_label_rows(config, order, rows, *, label_kind="big"):
     key = _memory_key(order, label_kind)
     if not key:
         raise ValueError("請先填寫標籤編號")
-    payload = json.dumps(normalize_big_label_editor_rows(rows), ensure_ascii=False, allow_nan=False)
+    templates = [
+        {field: row[field] for field in ("編號", "品名", "比例")}
+        for row in normalize_big_label_editor_rows(rows)
+    ]
+    payload = json.dumps(templates, ensure_ascii=False, allow_nan=False)
     with connect_from_config(config) as conn:
         conn.execute(
             "INSERT INTO big_label_templates(label_key,rows_json,updated_at) VALUES (?,?,?) "

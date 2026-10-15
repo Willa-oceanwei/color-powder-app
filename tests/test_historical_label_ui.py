@@ -46,7 +46,8 @@ render_order_download_actions(order, b"A5", "P001.html")
     labels = app.session_state["tab2_big_label_confirmed_P001"]
     assert len(labels) == 3 and labels[0]["名稱"] == "Edited red"
     saved = build_big_label_editor_defaults(config, {"配方編號": "R001"}, [])
-    assert saved[0]["品名"] == "Edited red" and saved[0]["列印張數"] == 3
+    assert saved[0]["品名"] == "Edited red" and saved[0]["列印張數"] == 1
+    assert saved[0]["日期"] == "" and saved[0]["數量"] == ""
     app.radio(key="tab2_label_kind_P001").set_value("小標籤").run()
     assert not app.exception
     assert app.selectbox(key="tab2_small_label_paper_P001").value == "自訂 14×23 公分／100%"
