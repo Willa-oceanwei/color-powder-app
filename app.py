@@ -1223,6 +1223,7 @@ def render_sidebar():
         {"group":"會計","key":"出貨單","label":"出貨單"},
         {"group":"會計","section":"應收帳款","key":"應收帳款明細表","label":"應收帳款"},
         {"group":"會計","section":"各式明細","key":"客戶交易明細","label":"客戶交易明細"},
+        {"group":"會計","section":"各式明細","key":"貨品交易明細","label":"貨品交易明細"},
         {"group":"會計","section":"各式明細","key":"客戶交易排行","label":"客戶交易排行"},
         {"group":"會計","section":"設定選項","key":"貨品","label":"貨品資料"},
         {"group":"倉儲","key":"庫存區","label":"庫存區"},
@@ -1662,6 +1663,7 @@ MENU_ITEMS = [
     {"key": "貨品", "label": "貨品", "group": "會計"},
     {"key": "應收帳款明細表", "label": "應收帳款", "group": "會計"},
     {"key": "客戶交易明細", "label": "客戶交易明細", "group": "會計"},
+    {"key": "貨品交易明細", "label": "貨品交易明細", "group": "會計"},
     {"key": "客戶交易排行", "label": "客戶交易排行", "group": "會計"},
     {"key": "庫存區", "label": "庫存區", "group": "倉儲"},
     {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
@@ -1687,6 +1689,7 @@ def render_erp_nav():
         {"key": "貨品", "label": "貨品", "group": "會計"},
         {"key": "應收帳款明細表", "label": "應收帳款", "group": "會計"},
         {"key": "客戶交易明細", "label": "客戶交易明細", "group": "會計"},
+        {"key": "貨品交易明細", "label": "貨品交易明細", "group": "會計"},
         {"key": "客戶交易排行", "label": "客戶交易排行", "group": "會計"},
         {"key": "庫存區",     "label": "庫存區",     "group": "倉儲"},
         {"key": "洗車廠庫存", "label": "洗車廠庫存", "group": "倉儲"},
@@ -3574,6 +3577,9 @@ elif menu in ("應收帳款明細表", "客戶交易明細"):
 elif menu == "客戶交易排行":
     from utils.receivable_ui import render_customer_ranking
     render_customer_ranking(DATABASE_CONFIG)
+elif menu == "貨品交易明細":
+    from utils.product_transaction_ui import render_product_transactions
+    render_product_transactions(DATABASE_CONFIG)
 elif menu == "薪資管理":
     render_salary_management(DATABASE_CONFIG)
 elif menu == "人力查詢":
