@@ -32,9 +32,12 @@ def _finish(message=""):
 
 
 def _fill_recipe(prefix, recipes):
-    draft = st.session_state.product_draft
+    # Saved/cancelled editors can still deliver an older widget callback.
+    draft = st.session_state.get("product_draft")
+    if draft is None or prefix != f"product_{st.session_state.get('product_epoch', 0)}_":
+        return
     code = st.session_state.get(prefix + "recipe_id", "")
-    if not draft.get("version") and code:
+    if not draft.get("version") and code in recipes:
         if not st.session_state.get(prefix + "product_id", ""):
             st.session_state[prefix + "product_id"] = code
         if not st.session_state.get(prefix + "name", ""):
@@ -145,7 +148,8 @@ def render_product_management(config):
     recipe_id = header[2].selectbox("關聯配方", [""] + list(by_recipe),
                                     index=widget_index(prefix + "recipe_id", document["recipe_id"]),
                                     format_func=lambda key: f"{key} · {by_recipe[key]['color']}" if key else "無關聯配方",
-                                    key=prefix + "recipe_id", disabled=not editing, on_change=_fill_recipe, args=(prefix, by_recipe))
+                                    key=prefix + "recipe_id", disabled=not editing,
+                                    on_change=_fill_recipe if editing else None, args=(prefix, by_recipe))
     if editing:
         document["recipe_id"] = recipe_id
     basic, pricing = st.tabs(["基本資料與規格", "成本與定價"])

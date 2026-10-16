@@ -1,11 +1,57 @@
 from pathlib import Path
 
+import pytest
 from streamlit.testing.v1 import AppTest
 
 from utils.database import DatabaseConfig, initialize_database
 from utils.product_repository import list_products, save_product
 from utils.recipe_repository import create_recipe
 from tests.test_product_repository import product
+
+
+@pytest.mark.parametrize('state,prefix,recipes', [
+    ({'product_epoch': 1, 'product_1_recipe_id': 'R1'}, 'product_1_', {'R1': {'recipe_id': 'R1', 'color': '白'}}),
+    ({'product_epoch': 2, 'product_draft': {}, 'product_1_recipe_id': 'R1'}, 'product_1_', {'R1': {'recipe_id': 'R1', 'color': '白'}}),
+    ({'product_epoch': 2, 'product_draft': {}, 'product_view_P1_1_recipe_id': 'R1'}, 'product_view_P1_1_', {'R1': {'recipe_id': 'R1', 'color': '白'}}),
+    ({'product_epoch': 1, 'product_draft': {}, 'product_1_recipe_id': 'removed'}, 'product_1_', {}),
+])
+def test_recipe_callback_ignores_closed_or_stale_editors(monkeypatch, state, prefix, recipes):
+    from copy import deepcopy
+    import utils.product_ui as ui
+
+    class SessionState(dict):
+        def __getattr__(self, key):
+            if key not in self:
+                raise AttributeError(key)
+            return self[key]
+
+    state = SessionState(state)
+    before = deepcopy(state)
+    monkeypatch.setattr(ui.st, 'session_state', state)
+    ui._fill_recipe(prefix, recipes)
+    assert state == before
+
+
+def test_read_only_recipe_update_does_not_require_an_editing_draft(tmp_path):
+    config = DatabaseConfig(backend='sqlite', path=tmp_path / 'read-only.db')
+    initialize_database(config.path)
+    create_recipe(config, {'配方編號': 'R1', '顏色': '白'})
+    save_product(config, product(recipe_id='R1'))
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.product_ui import render_product_management
+render_product_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    picker = next(w for w in app.selectbox if w.label == '關聯配方')
+    assert picker.disabled and picker.value == 'R1'
+    # A delayed client value must not run editing callbacks on a saved record.
+    picker.set_value('').run()
+    assert not app.exception
+    assert 'product_draft' not in app.session_state
+    assert list_products(config)[0]['recipe_id'] == 'R1'
 
 
 def test_product_editor_create_modify_cancel_delete_restore(tmp_path):
