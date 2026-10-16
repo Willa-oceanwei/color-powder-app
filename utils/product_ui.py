@@ -12,8 +12,12 @@ from .shipment_ui import COMPACT_STYLE
 from .accounting_widgets import widget_default, widget_index
 
 
+PRODUCT_CATEGORIES = ("色粉", "添加劑", "加工附屬產品")
+
+
 def _begin(document):
     st.session_state.product_draft = deepcopy(document)
+    st.session_state.product_original_category = document.get("category") or ""
     if document.get("version"):
         st.session_state.product_draft["original_id"] = document["product_id"]
     st.session_state.product_epoch = st.session_state.get("product_epoch", 0) + 1
@@ -22,6 +26,7 @@ def _begin(document):
 
 def _cancel(message="已取消修改"):
     st.session_state.pop("product_draft", None)
+    st.session_state.pop("product_original_category", None)
     st.session_state.pop("product_delete_open", None)
     st.session_state.product_notice = message
 
@@ -155,7 +160,17 @@ def render_product_management(config):
     basic, pricing = st.tabs(["基本資料與規格", "成本與定價"])
     with basic:
         row = st.columns(3)
-        text(row[0], "類別編號 / 名稱", "category")
+        category_options = [""] + list(PRODUCT_CATEGORIES)
+        current_category = document.get("category") or ""
+        retained_category = st.session_state.get("product_original_category", current_category) if editing else current_category
+        if retained_category not in category_options:
+            category_options.append(retained_category)
+        category = row[0].selectbox("色粉類別", category_options,
+                                    index=widget_index(prefix + "category", current_category),
+                                    format_func=lambda value: value or "未指定",
+                                    key=prefix + "category", disabled=not editing)
+        if editing:
+            document["category"] = category
         supplier_options = [""] + list(by_supplier)
         supplier_id = row[1].selectbox("供應商", supplier_options, index=widget_index(prefix + "supplier_id", document["supplier_id"]),
                                        format_func=lambda key: f"{key} · {by_supplier[key]['name']}" if key else "未指定",
