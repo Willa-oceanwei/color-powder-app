@@ -7893,7 +7893,6 @@ if menu == "代工管理":
                     
                     new_remark = st.text_area(
                         "備註",
-                        value=oem_row.get("備註", ""),
                         key="oem_remark",
                         height=120
                     )
