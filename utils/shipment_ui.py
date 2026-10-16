@@ -54,7 +54,10 @@ COMPACT_STYLE = """
 .main:has(#shipment-page) [data-testid="stCaptionContainer"] p {margin:0!important;}
 .main:has(#shipment-page) .shipment-total {display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px;font-variant-numeric:tabular-nums;}
 .main:has(#shipment-page) .shipment-total:last-child {border-top:1px solid #84919d;font-weight:600;font-size:16px;margin-top:4px;padding-top:6px;}
-.main:has(#shipment-page) .shipment-section {font-size:13px;font-weight:700;letter-spacing:.04em;padding:5px 10px;margin:5px 0 3px;border-left:4px solid #59baff;border-radius:4px;background:#10293b;color:#c5e7ff;}
+/* Streamlit 1.38's Markdown wrapper has a negative bottom margin. Custom
+   HTML blocks must reserve their full height before the next control. */
+.main:has(#shipment-page) [data-testid="stMarkdownContainer"]:has(> :is(.shipment-section, .shipment-edit-status, .shipment-totals-card, .shipment-lines, .shipment-number-help, #shipment-toolbar)) {display:flow-root;margin:0!important;}
+.main:has(#shipment-page) .shipment-section {font-size:13px;line-height:1.6;font-weight:700;letter-spacing:.04em;padding:5px 10px;margin:0;border-left:4px solid #59baff;border-radius:4px;background:#10293b;color:#c5e7ff;}
 .main:has(#shipment-page) .shipment-section.delivery {border-color:#57d6b1;background:#102e2a;color:#b3f2dd;}
 .main:has(#shipment-page) .shipment-section.items {border-color:#b8a1ff;background:#28213a;color:#e1d5ff;}
 .main:has(#shipment-page) .shipment-section.amounts {border-color:#ffd084;background:#382c18;color:#ffe1ad;}
