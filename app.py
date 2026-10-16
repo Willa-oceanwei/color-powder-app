@@ -20,6 +20,8 @@ from zoneinfo import ZoneInfo
 import concurrent.futures
 from utils import database as database_utils
 from utils.customer_display import CustomerDisplay
+from utils.read_cache import invalidate_read_cache
+from utils.navigation_data import warm_navigation_reads
 from utils.list_ui import render_selection_table
 from utils.number_format import format_optional_decimals
 from utils.big_label_repository import (
@@ -187,7 +189,7 @@ from utils.persistent_auth import create_remember_token, validate_remember_token
 
 PERFORMANCE_LOGGER = logging.getLogger("color_powder.performance")
 PERFORMANCE_LOGGER.setLevel(logging.INFO)
-PERFORMANCE_DIAGNOSTICS_VERSION = "2026-09-outsourcing-v3"
+PERFORMANCE_DIAGNOSTICS_VERSION = "2026-10-navigation-v1"
 
 
 def log_performance(stage, started_at, **fields):
@@ -1241,7 +1243,7 @@ def render_sidebar():
     with st.sidebar:
 
         st.markdown("<div class='erp-title'>配方管理系統</div>", unsafe_allow_html=True)
-        st.markdown("<div class='erp-sub'>v2.1 · ERP Edition</div>", unsafe_allow_html=True)
+        st.markdown("<div class='erp-sub'>v2.2 · ERP Edition</div>", unsafe_allow_html=True)
         st.markdown("""
             <style>
             /* 收合分類沿用「生產／倉儲」分類字體，不使用 Streamlit 預設大字。 */
@@ -1771,7 +1773,7 @@ def render_erp_nav():
 
     with st.sidebar:
         st.markdown('<div class="erp-title">配方管理系統</div>', unsafe_allow_html=True)
-        st.markdown('<div class="erp-sub">v2.1 · ERP Edition</div>', unsafe_allow_html=True)
+        st.markdown('<div class="erp-sub">v2.2 · ERP Edition</div>', unsafe_allow_html=True)
 
         for group_name, items in groups.items():
             st.markdown(f'<div class="erp-group">{group_name}</div>', unsafe_allow_html=True)
@@ -3557,6 +3559,9 @@ if "menu" not in st.session_state:
 menu = st.session_state.menu  # 先從 session_state 取得目前選擇
 page_render_started_at = time.perf_counter()
 log_performance("menu_selected", page_render_started_at, menu=menu)
+
+warm_navigation_reads(DATABASE_CONFIG, st.session_state, menu, customer_display)
+
 if menu != "出貨單":
     st.session_state.pop("shipment_entry_ready", None)
 
@@ -3735,6 +3740,7 @@ elif menu == "客戶名單":
         """, unsafe_allow_html=True)
         st.caption("搜尋並選取客戶即可編輯；新增客戶請切換至「新增客戶」。")
         if st.button("重讀資料", key="customer_reload_data", disabled=bool(st.session_state.get("editing_customer_id"))):
+            invalidate_read_cache(DATABASE_CONFIG)
             st.session_state.pop("customer_workspace_snapshot", None)
             rerun_customer_workspace()
         columns = ["客戶編號", "客戶簡稱", "客戶名稱", "地址", "電話", "傳真", "聯絡人", "統一編號", "備註"]
@@ -4282,6 +4288,7 @@ elif menu == "配方管理":
 
         st.markdown("---")
         if st.button("📥 重新載入配方資料", key="reload_recipe_data_tab1", use_container_width=True):
+            invalidate_read_cache(DATABASE_CONFIG)
             try:
                 invalidate_recipe_powders(st.session_state)
                 latest_df = pd.DataFrame(list_recipes(DATABASE_CONFIG, include_inactive=True))
@@ -6968,6 +6975,7 @@ elif menu == "生產單管理":
                 render_saved_label_section(snapshot_order, a5_downloaded=snapshot.get("a5_downloaded", False))
  
             if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
+                invalidate_read_cache(DATABASE_CONFIG)
                 try:
                     latest_order_df = pd.DataFrame(list_production_orders(DATABASE_CONFIG, include_cancelled=True))
                     st.session_state.df_order = latest_order_df.copy()
@@ -7867,6 +7875,7 @@ if menu == "代工管理":
 
         st.markdown("---")
         if st.button("📥 重新載入代工資料", key="reload_oem_tab1_bottom", use_container_width=True):
+            invalidate_read_cache(DATABASE_CONFIG)
             try:
                 load_oem_data()
                 st.toast("已從 Turso 重新載入代工資料", icon="🔄")
@@ -9116,6 +9125,7 @@ elif menu == "採購管理":
                                
         st.markdown("---")
         if st.button("📥 重新載入庫存資料", key="reload_stock_tab1_bottom", use_container_width=True):
+            invalidate_read_cache(DATABASE_CONFIG)
             try:
                 latest_stock_df = pd.DataFrame(list_inventory_movements(DATABASE_CONFIG))
                 st.session_state.df_stock = latest_stock_df.copy()
@@ -11574,20 +11584,21 @@ elif menu == "庫存區":
                     st.rerun()
 
             with st.form("customer_stock_form"):
-                customer_input = customer_display.selectbox(st,
+                customer_col, recipe_col, color_col, qty_col, unit_col = st.columns([1.2, 1.2, 1, 1, 0.7])
+                customer_input = customer_display.selectbox(customer_col,
                     "客戶名稱", [""] + customer_choices,
                     index=([""] + customer_choices).index(str(target_row["客戶名稱"])) if target_row is not None and str(target_row["客戶名稱"]) in customer_choices else 0,
                 )
-                recipe_input = st.selectbox(
+                recipe_input = recipe_col.selectbox(
                     "配方編號", [""] + recipe_choices,
                     index=([""] + recipe_choices).index(str(target_row["配方編號"])) if target_row is not None and str(target_row["配方編號"]) in recipe_choices else 0,
                 )
-                color_input = st.text_input("顏色", value="" if target_row is None else str(target_row["顏色"]))
+                color_input = color_col.text_input("顏色", value="" if target_row is None else str(target_row["顏色"]))
 
-                qty_input = st.number_input("數量", min_value=0.0, value=0.0 if target_row is None else float(target_row["數量"]), step=1.0)
+                qty_input = qty_col.number_input("數量", min_value=0.0, value=0.0 if target_row is None else float(target_row["數量"]), step=1.0)
                 units = ["g", "kg", "桶", "罐", "箱", "包"]
                 current_unit = "g" if target_row is None else str(target_row["單位"])
-                unit_input = st.selectbox("單位", units, index=units.index(current_unit) if current_unit in units else 0)
+                unit_input = unit_col.selectbox("單位", units, index=units.index(current_unit) if current_unit in units else 0)
                 note_input = st.text_input("備註", value="" if target_row is None else str(target_row["備註"]))
                 submitted = st.form_submit_button(f"✅ {action_mode}")
 

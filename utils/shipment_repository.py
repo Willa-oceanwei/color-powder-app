@@ -8,6 +8,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from uuid import uuid4
 
+from .read_cache import cached_read
 from .customer_repository import _mapping, _mappings
 from .database import connect_from_config, utc_now_iso
 from .shipment_codes import display_code_options
@@ -86,6 +87,7 @@ def copy_shipment(document):
     return result
 
 
+@cached_read
 def list_shipment_recipes(config, customer_id=None):
     """Load sales-facing recipe fields without powder/component data."""
     if customer_id == "":
@@ -196,6 +198,7 @@ def _validated(document):
     return header, items, invoice, amounts
 
 
+@cached_read
 def list_shipments(config, *, query="", start=None, end=None, include_void=False, customer_start="", customer_end=""):
     if start:
         start = _valid_date(start, "起始出貨日期")

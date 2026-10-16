@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from .read_cache import cached_read
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
 from .outsourcing_repository import _mappings, _set_outsourcing_lifecycle
 
@@ -107,6 +108,7 @@ def _recipe_snapshot(conn, recipe_id: str) -> tuple[int | None, str | None]:
     return int(recipe["version"]), json.dumps(snapshot, ensure_ascii=False, default=str)
 
 
+@cached_read
 def list_production_orders(
     config: DatabaseConfig, *, include_cancelled: bool = False,
 ) -> list[dict[str, str]]:

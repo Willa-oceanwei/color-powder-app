@@ -5,6 +5,7 @@ from contextlib import nullcontext
 import json
 from decimal import Decimal
 
+from .read_cache import cached_read
 from .customer_repository import _mapping, _mappings
 from .database import connect_from_config, utc_now_iso
 from .shipment_repository import TAX_MODES, decimal_value
@@ -42,6 +43,7 @@ def get_product(config, product_id):
         return _document(_mapping(conn.execute("SELECT * FROM products WHERE product_id=?", (product_id,))))
 
 
+@cached_read
 def list_products(config, *, query="", include_inactive=False):
     clauses, args = [], []
     if not include_inactive:

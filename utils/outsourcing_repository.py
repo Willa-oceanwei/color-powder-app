@@ -6,6 +6,7 @@ import json
 from typing import Any
 from uuid import uuid4
 
+from .read_cache import cached_read
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
 
 
@@ -86,6 +87,7 @@ def _payload(row: dict[str, Any]) -> dict[str, str]:
     }
 
 
+@cached_read
 def list_outsourcing_orders(
     config: DatabaseConfig, *, include_inactive: bool = False
 ) -> list[dict[str, str]]:
@@ -107,6 +109,7 @@ def list_outsourcing_orders(
     return result
 
 
+@cached_read
 def list_outsourcing_events(config: DatabaseConfig, kind: str) -> list[dict[str, str]]:
     table = {"delivery": "outsourcing_deliveries", "return": "outsourcing_returns"}.get(kind)
     if table is None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .read_cache import cached_read
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
 from .sheet_export import color_powder_sheet_payload
 
@@ -60,6 +61,7 @@ def _mappings(cursor) -> list[dict[str, Any]]:
     return [dict(zip(columns, row)) for row in rows]
 
 
+@cached_read
 def list_color_powders(config: DatabaseConfig, *, include_inactive: bool = False) -> list[dict[str, Any]]:
     """Return canonical color powders from the configured source of truth."""
     with connect_from_config(config) as conn:

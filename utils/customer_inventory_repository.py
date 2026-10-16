@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from .read_cache import cached_read
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
 
 
@@ -45,6 +46,7 @@ def customer_inventory_sheet_payload(entity: dict[str, Any]) -> dict[str, str]:
     }
 
 
+@cached_read
 def list_customer_inventory_records(config: DatabaseConfig, *, include_inactive: bool = False):
     with connect_from_config(config) as conn:
         where = "" if include_inactive else "WHERE lifecycle_status='active'"

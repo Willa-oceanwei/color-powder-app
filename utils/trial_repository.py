@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from .read_cache import cached_read
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
 
 DEFAULT_TRIAL_SETTINGS = {"收費門檻百分比": "20", "最小樣本數": "10", "未採購追蹤天數": "30"}
@@ -51,6 +52,7 @@ def trial_sheet_payload(entity: dict[str, Any]) -> dict[str, str]:
     }
 
 
+@cached_read
 def list_trial_records(config: DatabaseConfig, *, include_inactive: bool = False):
     with connect_from_config(config) as conn:
         where = "" if include_inactive else "WHERE lifecycle_status='active'"
@@ -164,6 +166,7 @@ def restore_trial_record(config: DatabaseConfig, trial_id: str):
         return entity
 
 
+@cached_read
 def get_trial_settings(config: DatabaseConfig) -> dict[str, str]:
     with connect_from_config(config) as conn:
         stored = {row[0]: str(row[1]) for row in conn.execute(

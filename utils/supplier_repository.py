@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .read_cache import cached_read
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
 
 
@@ -64,6 +65,7 @@ def supplier_sheet_payload(entity: dict[str, Any]) -> dict[str, str]:
     }
 
 
+@cached_read
 def list_suppliers(config: DatabaseConfig, *, include_inactive: bool = False) -> list[dict[str, Any]]:
     with connect_from_config(config) as conn:
         where = "" if include_inactive else "WHERE lifecycle_status='active'"

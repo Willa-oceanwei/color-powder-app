@@ -3,6 +3,7 @@
 import json
 from uuid import NAMESPACE_URL, uuid5, uuid4
 
+from .read_cache import cached_read
 from .customer_repository import _mapping, _mappings
 from .database import connect_from_config, utc_now_iso
 from .shipment_repository import ShipmentError, _valid_date, decimal_value
@@ -39,6 +40,7 @@ def save_receipt(config, *, receipt_id, shipment_id, shipment_version, receipt_d
         return _mapping(conn.execute("SELECT * FROM shipment_receipts WHERE id=?", (receipt_id,)))
 
 
+@cached_read
 def list_receipts(config, shipment_id):
     with connect_from_config(config) as conn:
         return _mappings(conn.execute("SELECT r.*,a.batch_id FROM shipment_receipts r LEFT JOIN receipt_batch_allocations a ON a.receipt_id=r.id "
@@ -163,6 +165,7 @@ def save_receipt_batch(config, *, batch_id, customer_id, receipt_date, amount, a
         return _mapping(conn.execute("SELECT * FROM receipt_batches WHERE id=?", (batch_id,)))
 
 
+@cached_read
 def list_receipt_batches(config, customer_id):
     with connect_from_config(config) as conn:
         return _mappings(conn.execute(

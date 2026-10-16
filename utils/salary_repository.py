@@ -5,6 +5,7 @@ import json
 import uuid
 from typing import Mapping
 
+from .read_cache import cached_read
 from .database import connect_from_config, utc_now_iso
 
 
@@ -13,6 +14,7 @@ def _rows(cursor):
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
+@cached_read
 def list_employees(config, include_inactive=False, search=""):
     sql = "SELECT * FROM employee_master WHERE (? OR active=1) AND (employee_id LIKE ? OR name LIKE ?) ORDER BY active DESC, employee_id"
     pattern = f"%{search.strip()}%"
@@ -142,6 +144,7 @@ def settle_salary_month(config, year, month, salaries, monthly_extras):
     return salary_ids
 
 
+@cached_read
 def list_salaries(config, year=None, month=None, name="", employee_id=None):
     sql = "SELECT * FROM salary_monthly WHERE is_deleted=0 AND (? IS NULL OR year=?) AND (? IS NULL OR month=?) AND employee_name_snapshot LIKE ? AND (? IS NULL OR employee_id=?) ORDER BY year DESC,month DESC,employee_id"
     with connect_from_config(config) as conn:
@@ -446,6 +449,7 @@ def annual_leave_balance_before_month(config, employee_id, year, month):
     return opening_balance - float(row[0] or 0)
 
 
+@cached_read
 def list_annual_leave_history(config, employee_id, year):
     with connect_from_config(config) as conn:
         return _rows(conn.execute("""SELECT h.*, s.status AS salary_status, s.is_deleted AS salary_deleted
@@ -481,6 +485,7 @@ def delete_annual_leave_history_record(config, record_id):
         conn.execute("UPDATE annual_leave_history SET is_deleted=1,updated_at=? WHERE id=?", (utc_now_iso(), record_id))
 
 
+@cached_read
 def list_settled_salaries_in_range(config, employee_id, start_year, start_month, end_year, end_month):
     start_key, end_key = start_year * 100 + start_month, end_year * 100 + end_month
     rows = list_salaries(config, employee_id=employee_id)

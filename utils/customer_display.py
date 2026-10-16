@@ -7,6 +7,18 @@ from pandas.io.formats.style import Styler
 
 from .customer_repository import _mappings, customer_display_name
 from .database import connect_from_config
+from .read_cache import cached_read
+
+
+@cached_read
+def _customer_directory(config):
+    with connect_from_config(config) as conn:
+        customers = _mappings(conn.execute("SELECT customer_id,name,short_name FROM customers"))
+        aliases = _mappings(conn.execute("SELECT alias,customer_id FROM customer_aliases"))
+    codes = {c['customer_id']: customer_display_name(c) for c in customers}
+    names = {c['name']: codes[c['customer_id']] for c in customers}
+    names.update({a['alias']: codes[a['customer_id']] for a in aliases if a['customer_id'] in codes})
+    return codes, names
 
 
 class CustomerDisplay:
@@ -16,13 +28,7 @@ class CustomerDisplay:
 
     def _load(self):
         if self._names is None:
-            with connect_from_config(self.config) as conn:
-                customers = _mappings(conn.execute("SELECT customer_id,name,short_name FROM customers"))
-                aliases = _mappings(conn.execute("SELECT alias,customer_id FROM customer_aliases"))
-            self._codes = {c['customer_id']: customer_display_name(c) for c in customers}
-            self._names = {c['name']: self._codes[c['customer_id']] for c in customers}
-            self._names.update({a['alias']: self._codes[a['customer_id']] for a in aliases
-                                if a['customer_id'] in self._codes})
+            self._codes, self._names = _customer_directory(self.config)
 
     def name(self, value, customer_id=None):
         self._load()
@@ -47,8 +53,9 @@ class CustomerDisplay:
         result = frame.copy()
         code_field = next((c for c in ('客戶編號', 'customer_id') if c in result), None)
         for field in fields:
-            result[field] = [self.name(value, result.iloc[i][code_field] if code_field else None)
-                             for i, value in enumerate(result[field])]
+            customer_ids = result[code_field] if code_field else [None] * len(result)
+            result[field] = [self.name(value, customer_id)
+                             for value, customer_id in zip(result[field], customer_ids)]
         # Styler formatters keep all existing colors, number formats and alignment.
         if styled:
             return data.format({field: lambda value: self.name(value) for field in fields})

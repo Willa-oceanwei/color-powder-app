@@ -6,6 +6,7 @@ import math
 from datetime import date
 from typing import Any
 
+from .read_cache import cached_read
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
 from .sheet_export import color_powder_sheet_payload
 
@@ -225,6 +226,7 @@ def _recipe_sheet_payload(entity: dict[str, Any], components: list[dict[str, Any
     return row
 
 
+@cached_read
 def list_recipes(config: DatabaseConfig, *, include_inactive: bool = False) -> list[dict[str, str]]:
     with connect_from_config(config) as conn:
         where = "" if include_inactive else "WHERE lifecycle_status='active'"

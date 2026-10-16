@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
+from .read_cache import invalidate_read_cache
+
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
 SCHEMA_VERSION = 31
 LOGGER = logging.getLogger(__name__)
@@ -125,10 +127,17 @@ class _SafeParameterConnection:
 
     def __init__(self, connection: Any):
         self._connection = connection
+        self._mutated = False
 
     def execute(self, sql: str, parameters: tuple[Any, ...] = ()) -> Any:
         normalized = tuple(_normalize_sql_parameter(value) for value in parameters)
-        return self._connection.execute(sql, normalized)
+        result = self._connection.execute(sql, normalized)
+        # Treat unknown statements conservatively; SELECT/PRAGMA/EXPLAIN do
+        # not change business rows. All repository commands use execute().
+        command = sql.lstrip().split(None, 1)[0].upper() if sql.strip() else ''
+        if command not in {'SELECT', 'PRAGMA', 'EXPLAIN', 'BEGIN', 'COMMIT', 'ROLLBACK', ''}:
+            self._mutated = True
+        return result
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._connection, name)
@@ -332,6 +341,8 @@ def connect_from_config(config: DatabaseConfig):
         yield client
         if hasattr(client, "commit"):
             client.commit()
+        if client._mutated:
+            invalidate_read_cache(config)
     except Exception:
         if hasattr(client, "rollback"):
             client.rollback()

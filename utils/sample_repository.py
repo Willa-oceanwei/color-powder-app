@@ -1,6 +1,7 @@
 """Turso-first sample records with lifecycle-safe Sheet synchronization."""
 from __future__ import annotations
 from typing import Any
+from .read_cache import cached_read
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
 
 class SampleError(RuntimeError): pass
@@ -23,6 +24,7 @@ def sample_sheet_payload(e:dict[str,Any])->dict[str,str]:
             "樣品數量":str(e.get("quantity") or ""),"生命週期":str(e.get("lifecycle_status") or "active"),
             "停用時間":str(e.get("deleted_at") or ""),"停用原因":str(e.get("delete_reason") or "")}
 
+@cached_read
 def list_sample_records(config:DatabaseConfig,*,include_inactive=False):
     with connect_from_config(config) as conn:
         where="" if include_inactive else "WHERE lifecycle_status='active'"

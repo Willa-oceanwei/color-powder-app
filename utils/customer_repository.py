@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .read_cache import cached_read
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
 
 CONTACT_FIELDS = {"address": "地址", "phone": "電話", "fax": "傳真", "contact": "聯絡人", "tax_id": "統一編號"}
@@ -82,6 +83,7 @@ def get_customer(config: DatabaseConfig, customer_id: str) -> dict[str, Any]:
     return customer
 
 
+@cached_read
 def list_customers(config: DatabaseConfig, *, include_inactive: bool = False) -> list[dict[str, Any]]:
     with connect_from_config(config) as conn:
         where = "" if include_inactive else "WHERE lifecycle_status='active'"
