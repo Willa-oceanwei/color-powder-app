@@ -7837,6 +7837,8 @@ if menu == "代工管理":
                     VENDOR_OPTIONS = ["", "弘旭", "良輝"]
                     if st.session_state.get("oem_edit_selected_id") != selected_oem:
                         st.session_state.oem_edit_selected_id = selected_oem
+                        st.session_state.oem_recipe_id = str(oem_row.get("配方編號", "") or "")
+                        st.session_state.oem_customer_name = str(oem_row.get("客戶名稱", "") or "")
                         raw_vendor = str(oem_row.get("代工廠商", "")).strip()
                         st.session_state.oem_vendor = raw_vendor if raw_vendor in VENDOR_OPTIONS else ""
                         _status_options = ["", "⏳ 未載回", "🏭 在廠內", "🔄 進行中", "✅ 已結案"]
@@ -7853,9 +7855,14 @@ if menu == "代工管理":
                         st.session_state.pending_delivery_edit = False
 
                     col1, col2, col3 = st.columns(3)
-                    col1.text_input("配方編號", value=oem_row.get("配方編號", ""), disabled=True)
-                    col2.text_input("客戶名稱", value=oem_row.get("客戶名稱", ""), disabled=True)
+                    st.session_state.setdefault("oem_recipe_id", str(oem_row.get("配方編號", "") or ""))
+                    st.session_state.setdefault("oem_customer_name", str(oem_row.get("客戶名稱", "") or ""))
+                    new_recipe_id = col1.text_input("配方編號", key="oem_recipe_id").strip()
+                    new_customer_name = col2.text_input("客戶名稱", key="oem_customer_name").strip()
                     col3.text_input("代工數量 (kg)", value=oem_row.get("代工數量", ""), disabled=True)
+                    identity_valid = bool(new_recipe_id and new_customer_name)
+                    if not identity_valid:
+                        st.warning("請填寫配方編號與客戶名稱。")
 
                     col_target, col_ratio, col_vendor, col_status = st.columns([1, 1, 2, 1])
                     new_target_qty = col_target.number_input(
@@ -7921,9 +7928,12 @@ if menu == "代工管理":
                     def persist_oem_info(vendor, remark, status, target_qty, multiplier):
                         mask = st.session_state.df_oem["代工單號"] == selected_oem
                         payload = st.session_state.df_oem.loc[mask].iloc[0].to_dict()
-                        payload.update({"代工廠商": vendor, "備註": remark, "狀態": status,
+                        payload.update({"配方編號": new_recipe_id, "客戶名稱": new_customer_name,
+                                        "代工廠商": vendor, "備註": remark, "狀態": status,
                                         "目標載回數量": target_qty, "轉換倍率": multiplier})
                         update_outsourcing_order(DATABASE_CONFIG, payload)
+                        st.session_state.df_oem.loc[mask, "配方編號"] = new_recipe_id
+                        st.session_state.df_oem.loc[mask, "客戶名稱"] = new_customer_name
                         st.session_state.df_oem.loc[mask, "代工廠商"] = vendor
                         st.session_state.df_oem.loc[mask, "備註"] = remark
                         st.session_state.df_oem.loc[mask, "狀態"] = status
@@ -7933,7 +7943,7 @@ if menu == "代工管理":
                     b1, b2 = st.columns(2)
 
                     with b1:
-                        if st.button("💾 更新代工資訊", key="update_oem_info"):
+                        if st.button("💾 更新代工資訊", key="update_oem_info", disabled=not identity_valid):
                             if is_closed:
                                 st.error("❌ 已結案代工單不可修改")
                             elif new_target_qty <= 0:
@@ -7981,9 +7991,11 @@ if menu == "代工管理":
                         "送達數量 (kg)", min_value=0.0, value=0.0, step=1.0, key="delivery_qty"
                     )
 
-                    if st.button("➕ 新增送達", key="add_delivery"):
+                    if st.button("➕ 新增送達", key="add_delivery", disabled=not identity_valid):
                         vendor_changed = (
-                            str(new_vendor).strip() != str(oem_row.get("代工廠商", "")).strip()
+                            new_recipe_id != str(oem_row.get("配方編號", "")).strip()
+                            or new_customer_name != str(oem_row.get("客戶名稱", "")).strip()
+                            or str(new_vendor).strip() != str(oem_row.get("代工廠商", "")).strip()
                             or str(new_remark).strip() != str(oem_row.get("備註", "")).strip()
                             or str(new_status).strip() != str(oem_row.get("狀態", "")).strip()
                             or float(new_target_qty) != _safe_float(oem_row.get("目標載回數量", oem_row.get("代工數量", 0)), 0.0)
@@ -8069,7 +8081,7 @@ if menu == "代工管理":
                         st.warning("⚠️ 偵測到本單已有送達紀錄，且代工資訊有異動。是否確認修正後再執行「新增送達」？")
                         dc1, dc2 = st.columns(2)
                         with dc1:
-                            if st.button("確認資訊修正", key="confirm_delivery_edit"):
+                            if st.button("確認資訊修正", key="confirm_delivery_edit", disabled=not identity_valid):
                                 st.session_state.delivery_edit_confirmed = True
                                 st.session_state.pending_delivery_edit = False
                                 st.info("✅ 已確認資訊修正，請再按一次「新增送達」執行。")
