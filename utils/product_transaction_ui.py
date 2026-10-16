@@ -2,6 +2,7 @@
 
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from html import escape
 
 import pandas as pd
 import streamlit as st
@@ -23,11 +24,27 @@ def taiwan_timestamp(value):
     return timestamp.astimezone(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _query_help():
+    with st.popover("查詢說明", use_container_width=True):
+        st.write("以出貨明細保存的貨品／配方編號精確查詢，作廢單不列入。")
+        st.write("日期留白會查全部期間；登錄時間顯示台灣時間。")
+        st.write("右側客戶可複選，未勾選時顯示全部客戶。")
+
+
 def render_product_transactions(config):
     st.markdown(COMPACT_STYLE.replace("shipment-page", "product-history-page"), unsafe_allow_html=True)
     st.markdown('''<style>
     .main:has(#product-history-page) .block-container {margin-top:0!important;padding-top:60px!important;}
     .main:has(#product-history-page) :is([data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"]) {margin:0!important;display:flow-root;}
+    .history-tags {display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+    .history-tag {background:#152c3d;border:1px solid #36576d;border-radius:6px;padding:5px 10px;font-size:13px;line-height:1.4;color:#d7ebf8;}
+    .history-tag strong {color:#fff;margin-left:6px;}
+    .history-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:34rem;margin:2px 0 8px;}
+    .history-stat {padding:5px 10px;border:1px solid #36576d;border-radius:7px;background:#132b3b;}
+    .history-stat:nth-child(2) {background:#15322c;border-color:#387564;}
+    .history-stat:nth-child(3) {background:#2a2440;border-color:#655483;}
+    .history-stat strong {display:block;font-size:20px;line-height:1.2;color:#fff;}
+    .history-stat span {font-size:12px;line-height:1.4;color:#bed1df;}
     </style>''', unsafe_allow_html=True)
     st.subheader("貨品交易明細")
     with st.form("product_history_filters"):
@@ -36,7 +53,6 @@ def render_product_transactions(config):
         start = start_col.date_input("起始出貨日期（選填）", value=None, key="product_history_start")
         end = end_col.date_input("結束出貨日期（選填）", value=None, key="product_history_end")
         submitted = submit_col.form_submit_button("查詢", use_container_width=True)
-    st.caption("依出貨明細保存的編號精確查詢；日期留白即查全部期間。登錄時間為台灣時間，作廢單不列入。")
     if submitted:
         try:
             rows = product_transactions(config, code, start, end)
@@ -54,9 +70,25 @@ def render_product_transactions(config):
                 "rows": rows, "epoch": epoch}
     result = st.session_state.get("product_history_result")
     if not result or result["config"] != repr(config):
+        _, help_col = st.columns([5, 1])
+        with help_col:
+            _query_help()
         return
     rows = result["rows"]
-    st.caption(f"查詢：{result['code']} · {result['start'] or '不限起日'} ～ {result['end'] or '不限迄日'}")
+    if result["start"] and result["end"]:
+        period = f"{result['start']} ～ {result['end']}"
+    elif result["start"]:
+        period = f"{result['start']} 起"
+    elif result["end"]:
+        period = f"截至 {result['end']}"
+    else:
+        period = "全部期間"
+    scope_col, help_col = st.columns([5, 1], vertical_alignment="center")
+    with scope_col:
+        st.markdown(f'<div class="history-tags"><span class="history-tag">編號<strong>{escape(result["code"])}</strong></span>'
+                    f'<span class="history-tag">{escape(period)}</span></div>', unsafe_allow_html=True)
+    with help_col:
+        _query_help()
     if not rows:
         st.info("沒有符合條件的出貨記錄")
         return
@@ -79,7 +111,11 @@ def render_product_transactions(config):
         table_col = st.container()
     visible = [row for row in rows if not selected or row["customer_id"] in selected]
     with table_col:
-        st.caption(f"{len(visible)} 筆明細 · {len({r['shipment_id'] for r in visible})} 張出貨單 · {len({r['customer_id'] for r in visible})} 位客戶")
+        stats = ((len(visible), "筆明細"), (len({r['shipment_id'] for r in visible}), "張出貨單"),
+                 (len({r['customer_id'] for r in visible}), "位客戶"))
+        st.markdown('<div class="history-stats">' + ''.join(
+            f'<div class="history-stat"><strong>{count}</strong><span>{label}</span></div>'
+            for count, label in stats) + '</div>', unsafe_allow_html=True)
         labels = {"shipment_date": "出貨日期", "created_at": "登錄時間（台灣）", "shipment_number": "出貨單號",
                   "customer_id": "客戶編號", "customer_name": "客戶名稱", "code": "貨品／配方編號", "name": "品名",
                   "quantity": "數量", "unit": "單位", "price": "單價", "amount": "明細金額", "tax_mode": "課稅方式",
