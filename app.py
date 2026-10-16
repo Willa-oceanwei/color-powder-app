@@ -4739,35 +4739,35 @@ elif menu == "配方管理":
                 }
 
             with st.form("color_form_tab4"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    cid  = st.text_input("色粉編號",  st.session_state.form_color["色粉編號"])
-                    intl = st.text_input("國際色號",  st.session_state.form_color["國際色號"])
-                    name = st.text_input("名稱",       st.session_state.form_color["名稱"])
-                with col2:
-                    category_options = list(COLOR_POWDER_CATEGORIES)
-                    current_category = st.session_state.form_color["色粉類別"]
-                    ctype = st.selectbox(
-                        "色粉類別",
-                        category_options,
-                        index=(
-                            category_options.index(current_category)
-                            if current_category in category_options
-                            else 0
-                        ),
-                    )
-                    package_options = ["袋", "箱", "kg"]
-                    current_package = st.session_state.form_color.get("包裝", "袋")
-                    pack = st.selectbox(
-                        "包裝",
-                        package_options,
-                        index=(
-                            package_options.index(current_package)
-                            if current_package in package_options
-                            else 0
-                        ),
-                    )
-                    note  = st.text_input("備註", st.session_state.form_color["備註"])
+                col1, col2, col3 = st.columns(3)
+                cid = col1.text_input("色粉編號", st.session_state.form_color["色粉編號"])
+                intl = col2.text_input("國際色號", st.session_state.form_color["國際色號"])
+                name = col3.text_input("名稱", st.session_state.form_color["名稱"])
+
+                col4, col5, col6 = st.columns(3)
+                category_options = list(COLOR_POWDER_CATEGORIES)
+                current_category = st.session_state.form_color["色粉類別"]
+                ctype = col4.selectbox(
+                    "色粉類別",
+                    category_options,
+                    index=(
+                        category_options.index(current_category)
+                        if current_category in category_options
+                        else 0
+                    ),
+                )
+                package_options = ["袋", "箱", "kg"]
+                current_package = st.session_state.form_color.get("包裝", "袋")
+                pack = col5.selectbox(
+                    "包裝",
+                    package_options,
+                    index=(
+                        package_options.index(current_package)
+                        if current_package in package_options
+                        else 0
+                    ),
+                )
+                note = col6.text_input("備註", st.session_state.form_color["備註"])
                 submit_color = st.form_submit_button("💾 新增 / 修改")
 
             if submit_color:
@@ -12434,19 +12434,20 @@ elif menu == "洗車廠庫存":
         # 「同步轉廠內」checkbox 是否可以勾選/編輯，如果放在表單裡，
         # 選了「出庫」也要等表單送出才會生效，checkbox 會一直卡在舊的
         # disabled 狀態、看起來永遠點不動。
-        io_type = st.selectbox("出/入庫", ["入庫", "出庫"], key="cw_io_type")
+        type_col, in_date_col, out_date_col = st.columns(3)
+        io_type = type_col.selectbox("出/入庫", ["入庫", "出庫"], key="cw_io_type")
+        in_date = in_date_col.date_input("入庫日期", key="cw_in_date", disabled=(io_type == "出庫"))
+        out_date = out_date_col.date_input("出庫日期", key="cw_out_date", disabled=(io_type == "入庫"))
 
         with st.form("carwash_inout_form"):
             r1c1, r1c2, r1c3 = st.columns(3)
-            io_registrar = r1c1.selectbox("登記人", ["德", "Q"], key="cw_io_registrar")
-            in_date  = r1c2.date_input("入庫日期",  key="cw_in_date",  disabled=(io_type == "出庫"))
-            out_date = r1c3.date_input("出庫日期", key="cw_out_date", disabled=(io_type == "入庫"))
+            io_product_id = r1c1.text_input("貨品編號", key="cw_io_product_id")
+            io_qty = r1c2.number_input("數量", min_value=0.0, step=1.0, key="cw_io_qty")
+            io_unit = r1c3.selectbox("單位", ["KG", "包"], key="cw_io_unit")
 
-            r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-            io_product_id = r2c1.text_input("貨品編號", key="cw_io_product_id")
-            io_qty        = r2c2.number_input("數量", min_value=0.0, step=1.0, key="cw_io_qty")
-            io_unit       = r2c3.selectbox("單位", ["KG", "包"], key="cw_io_unit")
-            io_note       = r2c4.text_input("備註", key="cw_io_note")
+            registrar_col, note_col = st.columns([1, 2])
+            io_registrar = registrar_col.selectbox("登記人", ["德", "Q"], key="cw_io_registrar")
+            io_note = note_col.text_input("備註", key="cw_io_note")
 
             transfer_to_stock = st.toggle(
                 "🔁 出庫後同步轉入廠內色粉庫存區（自動新增一筆「進貨」記錄到【庫存區】）",
