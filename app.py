@@ -12248,17 +12248,15 @@ elif menu == "洗車廠庫存":
     # ── Tab C1：初始庫存 ──
     with tab_c1:
         with st.form("carwash_initial_form"):
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns([2, 1, 1])
             product_id = c1.text_input("貨品編號", key="cw_init_product_id").strip()
-            init_date  = c2.date_input("初始庫存日期", key="cw_init_date")
+            init_date = c2.date_input("初始庫存日期", key="cw_init_date")
+            registrar = c3.selectbox("登記人", ["德", "Q"], key="cw_init_registrar")
 
-            c3, c4 = st.columns(2)
-            init_qty  = c3.number_input("數量", min_value=0.0, step=1.0, key="cw_init_qty")
-            init_unit = c4.selectbox("單位", ["KG", "包"], key="cw_init_unit")
-
-            c5, c6 = st.columns(2)
-            registrar = c5.selectbox("登記人", ["德", "Q"], key="cw_init_registrar")
-            note      = c6.text_input("備註", key="cw_init_note")
+            c4, c5, c6 = st.columns([1, 1, 2])
+            init_qty = c4.number_input("數量", min_value=0.0, step=1.0, key="cw_init_qty")
+            init_unit = c5.selectbox("單位", ["KG", "包"], key="cw_init_unit")
+            note = c6.text_input("備註", key="cw_init_note")
 
             submit_init = st.form_submit_button("💾 儲存初始庫存")
 
@@ -12690,23 +12688,21 @@ elif menu == "洗車廠庫存":
                 selected_init_qty = _to_float(selected_init_row.get("初始數量", 0))
 
                 with st.form("cw_edit_initial_form"):
-                    c1, c2 = st.columns(2)
+                    c1, c2, c3 = st.columns([2, 1, 1])
                     edit_product_id = c1.text_input("貨品編號", value=str(selected_init_row.get("貨品編號", "")).strip())
                     edit_init_date = c2.date_input("初始庫存日期", value=selected_init_date)
-
-                    c3, c4 = st.columns(2)
-                    edit_init_qty = c3.number_input("數量", min_value=0.0, value=float(selected_init_qty), step=1.0)
-                    edit_init_unit = c4.selectbox(
-                        "單位",
-                        ["KG", "包"],
-                        index=0 if str(selected_init_row.get("單位", "KG")).strip() != "包" else 1
-                    )
-
-                    c5, c6 = st.columns(2)
-                    edit_registrar = c5.selectbox(
+                    edit_registrar = c3.selectbox(
                         "登記人",
                         ["德", "Q"],
                         index=0 if str(selected_init_row.get("登記人", "德")).strip() != "Q" else 1
+                    )
+
+                    c4, c5, c6 = st.columns([1, 1, 2])
+                    edit_init_qty = c4.number_input("數量", min_value=0.0, value=float(selected_init_qty), step=1.0)
+                    edit_init_unit = c5.selectbox(
+                        "單位",
+                        ["KG", "包"],
+                        index=0 if str(selected_init_row.get("單位", "KG")).strip() != "包" else 1
                     )
                     edit_note = c6.text_input("備註", value=str(selected_init_row.get("備註", "")).strip())
 
@@ -12814,7 +12810,6 @@ elif menu == "洗車廠庫存":
                         st.rerun()
 
                 st.divider()
-                st.markdown("#### 🗑️ 刪除重覆記錄")
                 st.caption("刪除後會同步移除該筆資料，庫存數量也會重新計算；請只刪除確認為重覆新增的記錄。")
                 confirm_delete_io = st.toggle(
                     "我確認這筆是重覆新增的資料",
