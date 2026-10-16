@@ -7884,15 +7884,18 @@ if menu == "代工管理":
                     total_delivered = df_this_delivery["送達數量"].astype(float).sum() \
                         if not df_this_delivery.empty else 0.0
                     oem_qty = float(oem_row.get("代工數量", 0))
-                    # 送達上限以「目標載回數量」為準，避免建立代工單時的預設代工數量（如 100kg）
-                    # 無法覆蓋實際送達數量（例如含管料/色粉後為 106.76kg）。
-                    delivery_limit = float(new_target_qty) if float(new_target_qty) > 0 else oem_qty
+                    # 載回量 = 送達量 × 轉換倍率；送達進度須以送達單位計算。
+                    delivery_multiplier = float(new_multiplier)
+                    delivery_limit = (
+                        float(new_target_qty) / delivery_multiplier
+                        if float(new_target_qty) > 0 else oem_qty
+                    )
                     remaining = delivery_limit - total_delivered
 
                     render_metric_cards([
                         ("已送達 (kg)", f"{total_delivered:g}", "neutral"),
                         ("尚餘 (kg)", f"{remaining:g}", "accent"),
-                        ("上限 (kg)", f"{delivery_limit:g}", "neutral"),
+                        ("送達上限 (kg)", f"{delivery_limit:g}", "neutral"),
                     ])
 
                     is_closed = oem_row.get("狀態") == "✅ 已結案"
@@ -7999,13 +8002,12 @@ if menu == "代工管理":
                             if is_closed:
                                 st.error("❌ 已結案代工單不可修改")
                             else:
-                                # 若單次送達超過目前上限，視為實際送達量調整，將目標載回數量自動擴充到可容納本次送達
-                                adjusted_target_qty = max(float(new_target_qty), total_delivered + delivery_qty)
-                                adjusted_multiplier = (
-                                    float(new_multiplier)
-                                    if oem_qty <= 0
-                                    else adjusted_target_qty / oem_qty
+                                # 以原倍率將送達總量換算成載回目標，保留使用者設定的倍率。
+                                adjusted_target_qty = max(
+                                    float(new_target_qty),
+                                    (total_delivered + delivery_qty) * delivery_multiplier,
                                 )
+                                adjusted_multiplier = delivery_multiplier
                                 persist_oem_info(
                                     new_vendor,
                                     new_remark,
