@@ -27,6 +27,32 @@ def product(**updates):
     return data
 
 
+def test_number_suggestion_uses_numeric_order_padding_and_deleted_codes(config):
+    from utils.product_repository import suggest_product_number
+    for code in ('A0008', 'A9', 'A0010AM', 'A999Z', 'B0099', 'A0050-EXTRA'):
+        saved = save_product(config, product(product_id=code))
+        if code == 'A9':
+            set_product_active(config, code, saved['version'], active=False, reason='停用')
+    assert suggest_product_number(config, ' a ') == {
+        'prefix': 'A', 'suffix': '', 'highest': 'A9', 'next': 'A0010', 'count': 2}
+    assert suggest_product_number(config, 'a', 'am')['next'] == 'A0011AM'
+    assert suggest_product_number(config, 'A', 'AM')['count'] == 1
+
+
+def test_number_suggestion_empty_series_pure_numbers_and_literal_prefix(config):
+    from utils.product_repository import suggest_product_number
+    assert suggest_product_number(config, 'NEW')['next'] == 'NEW0001'
+    assert suggest_product_number(config, 'NEW')['highest'] == ''
+    save_product(config, product(product_id='0009'))
+    save_product(config, product(product_id='AB0010'))
+    save_product(config, product(product_id='A.0002'))
+    assert suggest_product_number(config)['next'] == '0010'
+    assert suggest_product_number(config, 'A.')['next'] == 'A.0003'
+    assert suggest_product_number(config, 'A%')['count'] == 0
+    with pytest.raises(ProductError, match='40'):
+        suggest_product_number(config, 'X' * 40)
+
+
 def test_product_crud_prices_and_optimistic_lock(config):
     saved = save_product(config, product(product_id="68146am"))
     assert saved['product_id'] == '68146AM'

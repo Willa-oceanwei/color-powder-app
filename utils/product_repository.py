@@ -3,6 +3,7 @@
 from copy import deepcopy
 from contextlib import nullcontext
 import json
+import re
 from decimal import Decimal
 
 from .read_cache import cached_read
@@ -41,6 +42,28 @@ def _document(entity):
 def get_product(config, product_id):
     with connect_from_config(config) as conn:
         return _document(_mapping(conn.execute("SELECT * FROM products WHERE product_id=?", (product_id,))))
+
+
+def suggest_product_number(config, prefix="", suffix=""):
+    """Inspect an exact prefix + numeric sequence + suffix, including retired IDs."""
+    prefix, suffix = str(prefix or "").strip().upper(), str(suffix or "").strip().upper()
+    pattern = re.compile(re.escape(prefix) + r"([0-9]+)" + re.escape(suffix))
+    with connect_from_config(config) as conn:
+        codes = [row["product_id"] for row in _mappings(conn.execute("SELECT product_id FROM products"))]
+    matches = [(code, pattern.fullmatch(code.upper())) for code in codes]
+    matches = [(code, match.group(1)) for code, match in matches if match]
+    highest = max(matches, key=lambda row: (int(row[1]), len(row[1]), row[0]), default=None)
+    width = max((len(digits) for _, digits in matches), default=4)
+    next_value = int(highest[1]) + 1 if highest else 1
+    used = {code.upper() for code in codes}
+    candidate = prefix + str(next_value).zfill(width) + suffix
+    while candidate in used:
+        next_value += 1
+        candidate = prefix + str(next_value).zfill(width) + suffix
+    if len(candidate) > 40:
+        raise ProductError("下一個編號超過 40 字，請調整前綴或後綴")
+    return {"prefix": prefix, "suffix": suffix, "highest": highest[0] if highest else "",
+            "next": candidate, "count": len(matches)}
 
 
 @cached_read

@@ -6,6 +6,7 @@ import streamlit as st
 
 from .product_repository import (
     ProductError, blank_product, list_products, product_references, product_from_recipe, save_product, set_product_active,
+    suggest_product_number, get_product,
 )
 from .shipment_repository import TAX_MODES
 from .shipment_ui import COMPACT_STYLE
@@ -65,11 +66,52 @@ def _open_recipe(config, recipe):
         _begin(product_from_recipe(recipe))
 
 
+def _use_suggested_number(config, number_prefix, number_suffix):
+    draft = st.session_state.get("product_draft")
+    if draft is not None and draft.get("version"):
+        return
+    try:
+        result = suggest_product_number(config, number_prefix, number_suffix)
+    except ProductError as error:
+        st.session_state.product_number_error = str(error)
+        return
+    st.session_state.product_number_result = (repr(config), result)
+    if draft is None:
+        draft = blank_product()
+        draft["product_id"] = result["next"]
+        _begin(draft)
+    else:
+        draft["product_id"] = result["next"]
+        prefix = f"product_{st.session_state.get('product_epoch', 0)}_"
+        st.session_state[prefix + "product_id"] = result["next"]
+
+
+def _open_catalog_entry(config, product_id, recipe):
+    try:
+        if product_id:
+            existing = get_product(config, product_id)
+            st.session_state.product_selected = existing["product_id"]
+            st.session_state.product_search = ""
+            st.session_state.product_show_inactive = existing["lifecycle_status"] != "active"
+            if existing["lifecycle_status"] == "active":
+                _begin(existing)
+        elif recipe:
+            _open_recipe(config, recipe)
+    except ProductError as error:
+        st.session_state.product_open_error = str(error)
+
+
 def render_product_management(config):
     st.markdown(COMPACT_STYLE.replace("shipment-page", "product-page").replace("shipment-toolbar", "product-toolbar"), unsafe_allow_html=True)
     notice = st.session_state.pop("product_notice", "")
     if notice:
         st.caption(notice)
+    number_error = st.session_state.pop("product_number_error", "")
+    if number_error:
+        st.error(number_error)
+    open_error = st.session_state.pop("product_open_error", "")
+    if open_error:
+        st.error(open_error)
     draft = st.session_state.get("product_draft")
     editing = draft is not None
     recipes, suppliers = product_references(config)
@@ -77,13 +119,45 @@ def render_product_management(config):
         search, status = st.columns([4, 1])
         query = search.text_input("貨品編號 / 名稱 / 配方 / 規格", key="product_search", disabled=editing)
         include_inactive = status.toggle("包含已刪除", key="product_show_inactive", disabled=editing)
-        active_recipes = {r["recipe_id"]: r for r in recipes if r["lifecycle_status"] == "active"}
+        all_products = list_products(config, include_inactive=True)
+        master_codes = {row["product_id"].upper() for row in all_products}
+        catalog = {row["recipe_id"]: {"label": f"{row['recipe_id']} · {row['color']} · 配方待定價",
+                   "product_id": "", "recipe": row} for row in recipes
+                   if row["lifecycle_status"] == "active" and row["recipe_id"].upper() not in master_codes}
+        for row in all_products:
+            if row["lifecycle_status"] == "active" or include_inactive:
+                state = "貨品" if row["lifecycle_status"] == "active" else "已刪除貨品"
+                catalog[row["product_id"]] = {"label": f"{row['product_id']} · {row['name']} · {state}",
+                                               "product_id": row["product_id"], "recipe": None}
         picker, open_col = st.columns([4, 1])
-        code = picker.selectbox("查找現有配方編號", [""] + list(active_recipes),
-                                format_func=lambda c: f"{c} · {active_recipes[c]['color']}" if c else "選擇配方",
+        code = picker.selectbox("查找貨品／配方", [""] + sorted(catalog),
+                                format_func=lambda c: catalog[c]["label"] if c else "輸入編號或名稱查找",
                                 key="product_recipe_search", disabled=editing)
-        open_col.button("補上定價", key="product_recipe_open", disabled=editing or not code,
-                        on_click=_open_recipe, args=(config, active_recipes.get(code)))
+        entry = catalog.get(code, {})
+        open_col.button("開啟／補上定價", key="product_recipe_open", disabled=editing or not code,
+                        on_click=_open_catalog_entry, args=(config, entry.get("product_id"), entry.get("recipe")))
+    with st.expander("編號查詢", expanded=False):
+        with st.form("product_number_lookup"):
+            left, middle, right = st.columns([2, 2, 1])
+            number_prefix = left.text_input("編號前綴", key="product_number_prefix", placeholder="例如 A；純數字留白")
+            number_suffix = middle.text_input("編號後綴（選填）", key="product_number_suffix", placeholder="例如 AM；無後綴留白")
+            lookup = right.form_submit_button("查號", use_container_width=True)
+        if lookup:
+            try:
+                st.session_state.product_number_result = (repr(config), suggest_product_number(config, number_prefix, number_suffix))
+            except ProductError as error:
+                st.session_state.pop("product_number_result", None)
+                st.error(str(error))
+        cached_number = st.session_state.get("product_number_result")
+        if cached_number and cached_number[0] == repr(config):
+            result = cached_number[1]
+            highest_col, next_col, use_col = st.columns([2, 2, 1])
+            highest_col.text_input("最大已用編號", value=result["highest"] or "尚無編號", disabled=True)
+            next_col.text_input("下一個可用編號", value=result["next"], disabled=True)
+            use_col.button("帶入新增", key="product_number_use", use_container_width=True,
+                           disabled=editing and bool(draft.get("version")),
+                           on_click=_use_suggested_number, args=(config, result["prefix"], result["suffix"]))
+            st.caption(f"前綴「{result['prefix'] or '無'}」／後綴「{result['suffix'] or '無'}」· 已用 {result['count']} 筆（含已刪除）。帶入僅填寫編號，儲存時才建立貨品。")
     records = list_products(config, query=query, include_inactive=include_inactive)
     ids = [row["product_id"] for row in records]
     selected = st.session_state.get("product_selected")
