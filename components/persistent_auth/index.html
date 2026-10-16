@@ -55,7 +55,8 @@
           hasResponded = true;
           return;
         }
-        sendValue(readToken());
+        // A render follows every app rerun; report the initial token only once.
+        if (!hasResponded) sendValue(readToken());
       });
 
       window.parent.postMessage({

@@ -623,11 +623,11 @@ if not st.session_state.authenticated:
         if remember_token == BROWSER_TOKEN_LOADING:
             with st.expander("等待較久？改用密碼登入"):
                 st.caption("只有畫面沒有自動進入時，才需要在此輸入密碼。")
-                password_input = st.text_input("密碼：", type="password", key="login_password")
-        else:
+        with st.form("password_login"):
             password_input = st.text_input("密碼：", type="password", key="login_password")
+            login_submitted = st.form_submit_button("登入", type="primary", use_container_width=True)
 
-        if password_input == APP_PASSWORD:
+        if login_submitted and password_input == APP_PASSWORD:
             st.session_state["_pending_remember_token"] = create_remember_token(
                 APP_PASSWORD,
                 REMEMBER_LOGIN_SECONDS,
@@ -637,7 +637,7 @@ if not st.session_state.authenticated:
             # screen again while the component acknowledges the write.
             st.session_state.authenticated = True
             st.rerun()
-        elif password_input != "":
+        elif login_submitted:
             st.error("❌ 密碼錯誤，請再試一次。")
             st.stop()
 
@@ -663,24 +663,26 @@ try:
     DATABASE_SECRET_PRESENCE = secret_presence_from_secrets(st.secrets)
     DATABASE_CONFIG = database_config_from_secrets(st.secrets)
     DATABASE_BACKEND = DATABASE_CONFIG.backend
-    DATABASE_INITIALIZED, DATABASE_HEALTH = _initialize_database_once(
-        DATABASE_CONFIG,
-        DATABASE_SECRET_PRESENCE,
-        SCHEMA_VERSION,
-    )
+    with st.spinner("登入驗證已通過，正在連線至資料庫…"):
+        DATABASE_INITIALIZED, DATABASE_HEALTH = _initialize_database_once(
+            DATABASE_CONFIG,
+            DATABASE_SECRET_PRESENCE,
+            SCHEMA_VERSION,
+        )
     log_performance(
         "database_startup",
         database_started_at,
         backend=DATABASE_BACKEND,
     )
-except DatabaseStartupError as exc:
-    st.error(f"Database startup failed: {exc}")
-    st.exception(exc)
-    raise
 except Exception as exc:
-    st.error(f"Unexpected database startup failure: {type(exc).__name__}: {exc}")
-    st.exception(exc)
-    raise
+    PERFORMANCE_LOGGER.exception("Database startup failed: error_type=%s", type(exc).__name__)
+    st.error("登入驗證已通過，但資料庫目前無法連線或初始化。請稍後重試；系統不會切換至空白資料庫。")
+    st.caption(f"錯誤類型：{type(exc).__name__}")
+    retry_col, logout_col = st.columns(2)
+    if retry_col.button("重新連線", key="retry_database_startup", use_container_width=True):
+        st.rerun()
+    logout_col.button("登出", key="logout_database_startup", on_click=request_logout, use_container_width=True)
+    st.stop()
 
 # Backward-compatible name for legacy code paths that still expect a local path.
 SQLITE_DB_PATH = DATABASE_INITIALIZED
@@ -14773,5 +14775,3 @@ st.markdown(
 
 log_performance("page_render", page_render_started_at, menu=menu)
 log_performance("total_authenticated_run", APP_RUN_STARTED_AT, menu=menu)
-
-

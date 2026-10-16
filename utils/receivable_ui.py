@@ -6,6 +6,7 @@ from uuid import uuid4
 from hashlib import sha256
 from calendar import monthrange
 import json
+import logging
 
 import pandas as pd
 import streamlit as st
@@ -171,6 +172,10 @@ def render_customer_ranking(config):
                 st.session_state.ranking_statements = build_statements(config, start, end, lower.strip(), upper.strip())
             except ShipmentError as exc:
                 st.error(str(exc))
+                st.session_state.pop("ranking_statements", None)
+            except Exception as exc:
+                logging.getLogger(__name__).exception("Customer ranking read failed: error_type=%s", type(exc).__name__)
+                st.error("客戶排行資料讀取失敗，請稍後重新查詢。未變更任何資料。")
                 st.session_state.pop("ranking_statements", None)
     statements = st.session_state.get("ranking_statements")
     if statements is None:
@@ -482,4 +487,3 @@ def render_receipt_entry(config):
                                 st.session_state.pop("receivable_pages", None)
                                 st.session_state.receipt_notice = "收款已作廢"
                                 st.rerun()
-
