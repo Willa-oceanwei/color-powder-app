@@ -217,18 +217,28 @@ def archive_outsourcing_order(
     order_id, reason = str(order_id).strip(), str(reason).strip()
     if not reason:
         raise OutsourcingError("請輸入停用原因")
-    now = utc_now_iso()
     with connect_from_config(config) as conn:
-        row = _mapping(conn.execute("SELECT * FROM outsourcing_orders WHERE outsourcing_order_id=?", (order_id,)))
-        if not row or row["lifecycle_status"] != "active":
-            raise OutsourcingError("找不到有效代工單")
-        version = int(row["version"]) + 1
-        conn.execute("UPDATE outsourcing_orders SET lifecycle_status='inactive', deleted_at=?, delete_reason=?, version=?, updated_at=? WHERE outsourcing_order_id=?",
-                     (now, reason, version, now, order_id))
-        enqueue_sheet_sync(conn, sheet_name="代工管理", row_key=order_id,
-                           operation="delete", payload=None, entity_version=version)
-        counts = _queue_outsourcing_event_tombstones(conn, order_id, restore=False)
-    return counts
+        return _set_outsourcing_lifecycle(conn, order_id, restore=False, reason=reason)
+
+
+def _set_outsourcing_lifecycle(conn, order_id: str, *, restore: bool, reason: str = "") -> dict[str, int]:
+    """Share the caller's transaction for production-order lifecycle changes."""
+    now = utc_now_iso()
+    row = _mapping(conn.execute("SELECT * FROM outsourcing_orders WHERE outsourcing_order_id=?", (order_id,)))
+    expected = "inactive" if restore else "active"
+    if not row or row["lifecycle_status"] != expected:
+        raise OutsourcingError("找不到已封存代工單" if restore else "找不到有效代工單")
+    version = int(row["version"]) + 1
+    conn.execute(
+        "UPDATE outsourcing_orders SET lifecycle_status=?, deleted_at=?, delete_reason=?, version=?, updated_at=? WHERE outsourcing_order_id=?",
+        ("active" if restore else "inactive", None if restore else now,
+         None if restore else reason, version, now, order_id),
+    )
+    enqueue_sheet_sync(conn, sheet_name="代工管理", row_key=order_id,
+                       operation="insert" if restore else "delete",
+                       payload=json.loads(row["payload_json"]) if restore else None,
+                       entity_version=version)
+    return _queue_outsourcing_event_tombstones(conn, order_id, restore=restore)
 
 
 def deactivate_outsourcing_order(config: DatabaseConfig, order_id: str, *, reason: str) -> None:
@@ -239,26 +249,8 @@ def deactivate_outsourcing_order(config: DatabaseConfig, order_id: str, *, reaso
 def restore_outsourcing_order(config: DatabaseConfig, order_id: str) -> dict[str, int]:
     """Restore an archived order and requeue its original Sheet copies atomically."""
     order_id = str(order_id or "").strip()
-    now = utc_now_iso()
     with connect_from_config(config) as conn:
-        row = _mapping(conn.execute(
-            "SELECT * FROM outsourcing_orders WHERE outsourcing_order_id=?", (order_id,)
-        ))
-        if not row or row["lifecycle_status"] != "inactive":
-            raise OutsourcingError("找不到已封存代工單")
-        version = int(row["version"]) + 1
-        conn.execute(
-            """UPDATE outsourcing_orders
-               SET lifecycle_status='active', deleted_at=NULL, delete_reason=NULL,
-                   version=?, updated_at=? WHERE outsourcing_order_id=?""",
-            (version, now, order_id),
-        )
-        enqueue_sheet_sync(
-            conn, sheet_name="代工管理", row_key=order_id, operation="insert",
-            payload=json.loads(row["payload_json"]), entity_version=version,
-        )
-        counts = _queue_outsourcing_event_tombstones(conn, order_id, restore=True)
-    return counts
+        return _set_outsourcing_lifecycle(conn, order_id, restore=True)
 
 
 def _add_event(config: DatabaseConfig, order_id: str, date: str, quantity: float, *, kind: str) -> dict[str, str]:
@@ -343,3 +335,4 @@ def correct_outsourcing_return(
             operation="update", payload=payload, entity_version=version,
         )
     return payload
+

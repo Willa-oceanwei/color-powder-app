@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from .database import DatabaseConfig, connect_from_config, enqueue_sheet_sync, utc_now_iso
+from .outsourcing_repository import _mappings, _set_outsourcing_lifecycle
 
 
 class ProductionOrderError(RuntimeError):
@@ -259,6 +260,33 @@ def set_production_order_cancelled(
             raise ProductionOrderError("此生產單目前未取消")
 
         payload = json.loads(existing["payload_json"])
+        # Remember exact archive versions so restoration cannot undo later manual changes.
+        archive_key = "_cancelled_outsourcing_orders"
+        if cancelled:
+            linked = _mappings(conn.execute(
+                "SELECT outsourcing_order_id, version FROM outsourcing_orders "
+                "WHERE production_order_id=? AND lifecycle_status='active'",
+                (order_id,),
+            ))
+            archived = []
+            for order in linked:
+                oem_id = order["outsourcing_order_id"]
+                _set_outsourcing_lifecycle(
+                    conn, oem_id, restore=False,
+                    reason=f"生產單 {order_id} 取消：{reason}",
+                )
+                archived.append([oem_id, int(order["version"]) + 1])
+            payload[archive_key] = json.dumps(archived, ensure_ascii=False)
+        else:
+            for oem_id, archive_version in json.loads(payload.pop(archive_key, "[]")):
+                order = _mapping(conn.execute(
+                    "SELECT production_order_id, lifecycle_status, version FROM outsourcing_orders "
+                    "WHERE outsourcing_order_id=?", (oem_id,),
+                ))
+                if (order and order["production_order_id"] == order_id
+                        and order["lifecycle_status"] == "inactive"
+                        and int(order["version"]) == archive_version):
+                    _set_outsourcing_lifecycle(conn, oem_id, restore=True)
         payload.update({
             "取消狀態": "已取消" if cancelled else "有效",
             "取消時間": now if cancelled else "",
@@ -282,3 +310,4 @@ def set_production_order_cancelled(
             payload=None if cancelled else payload, entity_version=version,
         )
         return payload
+

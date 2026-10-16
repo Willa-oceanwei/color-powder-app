@@ -7207,8 +7207,8 @@ elif menu == "生產單管理":
 
                 if st.session_state.get("confirm_order_lifecycle_id") == current_order_no:
                     st.warning(
-                        "請再次確認恢復此生產單。" if is_cancelled
-                        else "取消後不會刪除歷史、配方快照或 Sheet 列；請填寫原因並再次確認。"
+                        "恢復生產單時，會一併恢復本次連動停用且未另行變更的代工單。" if is_cancelled
+                        else "取消後會連動停用對應代工單，並移除 Sheet 對應列；資料庫保留歷史、配方快照及送達／載回紀錄。請填寫原因並再次確認。"
                     )
                     cancel_reason = st.text_input(
                         "取消原因",
@@ -7234,6 +7234,9 @@ elif menu == "生產單管理":
                                     list_production_orders(DATABASE_CONFIG, include_cancelled=True)
                                 ).fillna("").astype(str)
                                 clear_production_merge_cache(order_dict.get("配方編號", ""))
+                                st.session_state["oem_data_loaded"] = False
+                                for cache_key in ("df_oem", "df_delivery", "df_return", "oem_all_lifecycle_orders"):
+                                    st.session_state.pop(cache_key, None)
                                 st.session_state.pop("confirm_order_lifecycle_id", None)
                                 st.session_state["show_edit_panel"] = False
                                 st.session_state["editing_order"] = None
@@ -14770,3 +14773,5 @@ st.markdown(
 
 log_performance("page_render", page_render_started_at, menu=menu)
 log_performance("total_authenticated_run", APP_RUN_STARTED_AT, menu=menu)
+
+
