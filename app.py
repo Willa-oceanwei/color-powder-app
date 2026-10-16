@@ -365,6 +365,125 @@ def _initialize_database_once(config, secret_presence, schema_version):
 # 只保留我們畫的這顆，避免兩顆滑塊疊在一起。
 st.markdown("""
 <style>
+/* Compact controls across the main app. Keep result tables and print previews full width. */
+:is(.stMain, section.main) [data-testid="stVerticalBlock"]:has(
+    > :is([data-testid="stElementContainer"], .element-container)
+    > :is([data-testid="stTextInput"], [data-testid="stNumberInput"],
+          [data-testid="stDateInput"], [data-testid="stTimeInput"],
+          [data-testid="stSelectbox"], [data-testid="stMultiSelect"])
+) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    align-items: start;
+    gap: 0.75rem 1rem;
+}
+:is(.stMain, section.main) [data-testid="stVerticalBlock"]:has(
+    > :is([data-testid="stElementContainer"], .element-container)
+    > :is([data-testid="stTextInput"], [data-testid="stNumberInput"],
+          [data-testid="stDateInput"], [data-testid="stTimeInput"],
+          [data-testid="stSelectbox"], [data-testid="stMultiSelect"])
+) > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+}
+:is(.stMain, section.main) [data-testid="stVerticalBlock"]
+    > :is([data-testid="stElementContainer"], .element-container):has(
+        > :is([data-testid="stTextInput"], [data-testid="stNumberInput"],
+              [data-testid="stDateInput"], [data-testid="stTimeInput"],
+              [data-testid="stSelectbox"], [data-testid="stMultiSelect"])
+    ) {
+    grid-column: auto;
+    width: 100% !important;
+    max-width: 16rem;
+}
+/* Existing explicit rows retain their order; short field columns stop stretching. */
+:is(.stMain, section.main) [data-testid="stHorizontalBlock"] {
+    flex-wrap: wrap;
+}
+:is(.stMain, section.main) :is([data-testid="stColumn"], [data-testid="column"]):has(
+    :is([data-testid="stTextInput"], [data-testid="stNumberInput"],
+        [data-testid="stDateInput"], [data-testid="stTimeInput"],
+        [data-testid="stSelectbox"], [data-testid="stMultiSelect"])
+):not(:has(
+    [data-testid="stHorizontalBlock"], [data-testid="stForm"], [data-testid="stTabs"],
+    [data-testid="stExpander"], [data-testid="stDataFrame"], [data-testid="stDataEditor"],
+    [data-testid="stPlotlyChart"], iframe
+)) {
+    flex-grow: 0 !important;
+    min-width: 0 !important;
+    max-width: 16rem;
+}
+
+/* Notes, addresses, and broad searches need room for meaningful text. */
+:is(.stMain, section.main) [data-testid="stVerticalBlock"]
+    > :is([data-testid="stElementContainer"], .element-container):has(
+        > [data-testid="stTextInput"] input:is(
+            [aria-label*="備註"], [aria-label*="地址"], [aria-label*="原因"],
+            [aria-label*="搜尋"], [aria-label*="重要提醒"]
+        )
+    ) {
+    grid-column: 1 / -1;
+    max-width: 100%;
+}
+:is(.stMain, section.main) :is([data-testid="stColumn"], [data-testid="column"]):has(
+    [data-testid="stTextInput"] input:is(
+        [aria-label*="備註"], [aria-label*="地址"], [aria-label*="原因"],
+        [aria-label*="搜尋"], [aria-label*="重要提醒"]
+    )
+):not(:has(
+    [data-testid="stHorizontalBlock"], [data-testid="stForm"], [data-testid="stTabs"],
+    [data-testid="stExpander"], [data-testid="stDataFrame"], [data-testid="stDataEditor"],
+    [data-testid="stPlotlyChart"], iframe
+)) {
+    flex: 1 1 20rem !important;
+    width: auto !important;
+}
+
+/* Ledger selectors contain IDs, names, dates, and quantities; allow readable labels. */
+:is(.stMain, section.main) [data-testid="stVerticalBlock"]
+    > :is([data-testid="stElementContainer"], .element-container):has(
+        > [data-testid="stSelectbox"] input:is(
+            [aria-label^="選擇"], [aria-label*=". 選擇"],
+            [aria-label="輸入配方"], [aria-label$=". 輸入配方"]
+        )
+    ) {
+    grid-column: 1 / -1;
+    max-width: 40rem;
+}
+
+/* On phones each control uses the available width. */
+@media (max-width: 680px) {
+    :is(.stMain, section.main) [data-testid="stVerticalBlock"]:has(
+        > :is([data-testid="stElementContainer"], .element-container)
+        > :is([data-testid="stTextInput"], [data-testid="stNumberInput"],
+              [data-testid="stDateInput"], [data-testid="stTimeInput"],
+              [data-testid="stSelectbox"], [data-testid="stMultiSelect"])
+    ) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    :is(.stMain, section.main) [data-testid="stVerticalBlock"]
+        > :is([data-testid="stElementContainer"], .element-container):has(
+            > :is([data-testid="stTextInput"], [data-testid="stNumberInput"],
+                  [data-testid="stDateInput"], [data-testid="stTimeInput"],
+                  [data-testid="stSelectbox"], [data-testid="stMultiSelect"])
+        ) {
+        max-width: 100%;
+    }
+    :is(.stMain, section.main) :is([data-testid="stColumn"], [data-testid="column"]) {
+        min-width: 100% !important;
+    }
+}
+/* Streamlit 1.38 assigns pixel widths to the widget itself as well as its wrapper. */
+:is(.stMain, section.main) :is(
+    [data-testid="stTextInput"], [data-testid="stNumberInput"],
+    [data-testid="stDateInput"], [data-testid="stTimeInput"],
+    [data-testid="stSelectbox"], [data-testid="stMultiSelect"]
+) {
+    width: 100% !important;
+    max-width: 100%;
+    min-width: 0;
+}
+
 /* Shared selection colors for radio buttons and native inputs. */
 .stApp input:is([type="radio"], [type="checkbox"]) {
     accent-color: #3487b6;
@@ -11455,23 +11574,21 @@ elif menu == "庫存區":
                     st.rerun()
 
             with st.form("customer_stock_form"):
-                c1, c2, c3 = st.columns([2, 2, 1])
-                customer_input = customer_display.selectbox(c1,
+                customer_input = customer_display.selectbox(st,
                     "客戶名稱", [""] + customer_choices,
                     index=([""] + customer_choices).index(str(target_row["客戶名稱"])) if target_row is not None and str(target_row["客戶名稱"]) in customer_choices else 0,
                 )
-                recipe_input = c2.selectbox(
+                recipe_input = st.selectbox(
                     "配方編號", [""] + recipe_choices,
                     index=([""] + recipe_choices).index(str(target_row["配方編號"])) if target_row is not None and str(target_row["配方編號"]) in recipe_choices else 0,
                 )
-                color_input = c3.text_input("顏色", value="" if target_row is None else str(target_row["顏色"]))
+                color_input = st.text_input("顏色", value="" if target_row is None else str(target_row["顏色"]))
 
-                c4, c5, c6 = st.columns([1, 1, 3])
-                qty_input = c4.number_input("數量", min_value=0.0, value=0.0 if target_row is None else float(target_row["數量"]), step=1.0)
+                qty_input = st.number_input("數量", min_value=0.0, value=0.0 if target_row is None else float(target_row["數量"]), step=1.0)
                 units = ["g", "kg", "桶", "罐", "箱", "包"]
                 current_unit = "g" if target_row is None else str(target_row["單位"])
-                unit_input = c5.selectbox("單位", units, index=units.index(current_unit) if current_unit in units else 0)
-                note_input = c6.text_input("備註", value="" if target_row is None else str(target_row["備註"]))
+                unit_input = st.selectbox("單位", units, index=units.index(current_unit) if current_unit in units else 0)
+                note_input = st.text_input("備註", value="" if target_row is None else str(target_row["備註"]))
                 submitted = st.form_submit_button(f"✅ {action_mode}")
 
             if submitted:
