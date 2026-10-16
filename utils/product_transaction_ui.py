@@ -34,7 +34,8 @@ def _query_help():
 def render_product_transactions(config):
     st.markdown(COMPACT_STYLE.replace("shipment-page", "product-history-page"), unsafe_allow_html=True)
     st.markdown('''<style>
-    .main:has(#product-history-page) .block-container {margin-top:0!important;padding-top:60px!important;}
+    .main:has(#product-history-page) .block-container,
+    .stApp:has(.erp-title) .main:has(#product-history-page) .block-container {margin-top:0!important;padding-top:28px!important;}
     .main:has(#product-history-page) :is([data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"]) {margin:0!important;display:flow-root;}
     .history-tags {display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
     .history-tag {background:#152c3d;border:1px solid #36576d;border-radius:6px;padding:5px 10px;font-size:13px;line-height:1.4;color:#d7ebf8;}
