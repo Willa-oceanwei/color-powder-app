@@ -7,14 +7,23 @@ from utils.big_label_repository import build_big_label_editor_defaults
 from utils.database import DatabaseConfig, initialize_database
 
 
+def label_ui_helpers_source():
+    source = Path("app.py").read_text(encoding="utf-8")
+    wanted = {"render_order_download_actions", "render_saved_label_section", "render_big_label_editor",
+              "build_big_label_rows", "generate_big_label_html", "chunk_label_pages"}
+    lines = source.splitlines()
+    return "\n\n".join(
+        "\n".join(lines[min([node.lineno] + [deco.lineno for deco in node.decorator_list]) - 1:node.end_lineno])
+        for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef) and node.name in wanted
+    )
+
+
 def test_saved_order_can_open_edit_save_and_generate_labels_without_new_order(tmp_path):
     config = DatabaseConfig(backend="sqlite", path=tmp_path / "history.db")
     initialize_database(config.path)
     root = str(Path(__file__).resolve().parents[1])
-    source = (Path(root) / "app.py").read_text(encoding="utf-8")
-    wanted = {"render_order_download_actions", "render_big_label_editor", "build_big_label_rows", "generate_big_label_html", "chunk_label_pages"}
-    helpers = "\n\n".join(ast.get_source_segment(source, node) for node in ast.parse(source).body
-                          if isinstance(node, ast.FunctionDef) and node.name in wanted)
+    helpers = label_ui_helpers_source()
     app = AppTest.from_string(f'''import sys, ast, logging, re
 sys.path.insert(0, {root!r})
 from pathlib import Path

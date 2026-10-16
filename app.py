@@ -3332,17 +3332,24 @@ def render_big_label_editor(label_order, *, key_prefix):
         page_size = max(1, len(selected_positions)) if selected_positions is not None else 10 if is_small else 4
         sheets_needed = 0 if selected_positions == [] else -(-len(confirmed_rows) // page_size)
         st.caption(f"標籤 {len(confirmed_rows)} 張 · {label_kind}紙 {sheets_needed} 張")
-        big_label_html = generate_small_label_html(
-            confirmed_rows, paper_stock="a4_driver" if paper_choice == "A4／100%" else "custom",
-            selected_positions=selected_positions,
-        ) if is_small else generate_big_label_html(
-            confirmed_rows, paper_stock="a4_driver" if paper_choice == "A4／100%" else "custom"
-        )
+        render_key = f"{key_prefix}_label_render_{order_no_for_label}"
+        render_signature = (st.session_state[label_version_key], paper_choice,
+                            None if selected_positions is None else tuple(selected_positions))
+        cached_render = st.session_state.get(render_key)
+        if cached_render is None or cached_render[0] != render_signature:
+            big_label_html = generate_small_label_html(
+                confirmed_rows, paper_stock="a4_driver" if paper_choice == "A4／100%" else "custom",
+                selected_positions=selected_positions,
+            ) if is_small else generate_big_label_html(
+                confirmed_rows, paper_stock="a4_driver" if paper_choice == "A4／100%" else "custom"
+            )
+            cached_render = (render_signature, big_label_html.encode("utf-8"))
+            st.session_state[render_key] = cached_render
         safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
 
         download_col.download_button(
             label="下載列印檔",
-            data=big_label_html.encode("utf-8"),
+            data=cached_render[1],
             file_name=f"{safe_order_no}_{'小標籤' if is_small else '大標'}.html",
             mime="text/html",
             key=f"{key_prefix}_download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
@@ -3363,6 +3370,7 @@ def render_big_label_editor(label_order, *, key_prefix):
                                      key=f"{key_prefix}_download_big_label_pending_{order_no_for_label}")
 
 
+@st.fragment
 def render_order_download_actions(label_order, a5_data, a5_filename):
     order_no = str(label_order.get("生產單號", ""))
     open_key = f"history_labels_open_{order_no}"
@@ -3383,6 +3391,25 @@ def render_order_download_actions(label_order, a5_data, a5_filename):
         st.session_state[open_key] = not st.session_state.get(open_key, False)
     if st.session_state.get(open_key, False):
         render_big_label_editor(label_order, key_prefix="tab2")
+
+
+@st.fragment
+def render_saved_label_section(snapshot_order, *, a5_downloaded):
+    order_no_for_label = snapshot_order.get("生產單號", "")
+    header_col, toggle_col = st.columns([5, 1])
+    with header_col:
+        st.markdown(f"""
+            <div class="label-print-card">
+                <div class="lp-title">🏷️ 列印標籤</div>
+                <div class="lp-subtitle">生產單 {order_no_for_label}，{'已下載 A5' if a5_downloaded else '尚未下載 A5'}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with toggle_col:
+        show_label_section = st.toggle("開啟標籤", key=f"show_big_label_{order_no_for_label}", value=False)
+    if show_label_section:
+        if not a5_downloaded:
+            st.caption("ℹ️ 尚未下載 A5 生產單；仍可直接編輯及列印標籤。")
+        render_big_label_editor(snapshot_order, key_prefix="tab1")
 
 
 # ======== 共用儲存函式 =========
@@ -6807,27 +6834,7 @@ elif menu == "生產單管理":
                     </div>
                 """, unsafe_allow_html=True)
             else:
-                order_no_for_label = snapshot_order.get("生產單號", "")
-
-                show_label_key = f"show_big_label_{order_no_for_label}"
-
-                a5_downloaded = snapshot.get("a5_downloaded", False)
-
-                header_col, toggle_col = st.columns([5, 1])
-                with header_col:
-                    st.markdown(f"""
-                        <div class="label-print-card">
-                            <div class="lp-title">🏷️ 列印標籤</div>
-                            <div class="lp-subtitle">生產單 {order_no_for_label}，{'已下載 A5' if a5_downloaded else '尚未下載 A5'}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                with toggle_col:
-                    show_label_section = st.toggle("開啟標籤", key=show_label_key, value=False)
-
-                if show_label_section:
-                    if not a5_downloaded:
-                        st.caption("ℹ️ 尚未下載 A5 生產單；仍可直接編輯及列印標籤。")
-                    render_big_label_editor(snapshot_order, key_prefix="tab1")
+                render_saved_label_section(snapshot_order, a5_downloaded=snapshot.get("a5_downloaded", False))
  
             if st.button("📥 重新載入生產單資料", key="reload_order_tab1_bottom", use_container_width=True):
                 try:
