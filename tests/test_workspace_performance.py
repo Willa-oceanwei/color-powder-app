@@ -125,6 +125,46 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert "shipment_draft" in app.session_state
 
 
+def test_select_customer_in_new_shipment_fragment(tmp_path, monkeypatch):
+    import utils.shipment_ui as ui
+
+    config = DatabaseConfig(backend="sqlite", path=tmp_path / "customer-selection.db")
+    initialize_database(config.path)
+    create_customer(config, CustomerInput("C01", "Customer", address="Delivery address"))
+    reads = []
+    for name in ("get_customer", "list_customers", "shipment_choices", "shipment_price_history"):
+        original = getattr(ui, name)
+
+        def counted(*args, _name=name, _original=original, **kwargs):
+            reads.append(_name)
+            return _original(*args, **kwargs)
+
+        monkeypatch.setattr(ui, name, counted)
+    queued = queue_updates(monkeypatch, [("shipment_1_customer_picker", 1),
+                                         ("shipment_1_notes", "Keep editing")])
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+import streamlit as st
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+st.session_state["main_runs"] = st.session_state.get("main_runs", 0) + 1
+render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})), start_new_on_entry=True)
+''').run(timeout=30)
+    assert not app.exception and len(queued) == 2
+    assert app.session_state["main_runs"] == 2
+    draft = app.session_state["shipment_draft"]
+    assert draft["customer_id"] == "C01"
+    assert draft["address"] == "Delivery address"
+    assert draft["notes"] == "Keep editing"
+    assert app.text_input(key="shipment_1_recipient_id").value == "C01"
+    assert app.text_input(key="shipment_1_address").value == "Delivery address"
+    assert app.dataframe
+    assert all(reads.count(name) == 1 for name in (
+        "get_customer", "list_customers", "shipment_choices", "shipment_price_history"))
+
+
 def test_customer_fragment_reuses_directory_and_refreshes_after_save(tmp_path, monkeypatch):
     import utils.customer_repository as repository
     from test_customer_contacts import customer_app

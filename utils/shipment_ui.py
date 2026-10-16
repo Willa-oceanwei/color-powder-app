@@ -518,6 +518,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                     document[field] = customer.get(field) or ""
                 for field in ("recipient_id", "recipient_name", "address", "phone", "fax", "contact", "tax_id"):
                     st.session_state[prefix + field] = document[field]
+                # Streamlit 1.38 can drop editor nodes during fragment updates.
+                # Rebuild once after a customer switch, retaining draft/read caches.
+                st.rerun(scope="app")
         else:
             st.text_input("客戶", value=f"{document['customer_id']} · {current_customer_label()}", disabled=True)
     receiver = st.columns([1.2, 1.8, 4])
