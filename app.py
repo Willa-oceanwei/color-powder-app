@@ -11378,7 +11378,6 @@ elif menu == "庫存區":
     # Tab 7：個別客戶庫存（Turso-first）
     # ====================================================================
     with tab7:
-        st.caption("ℹ️ Turso 是個別客戶庫存正式資料來源；Google Sheet 僅為同步副本。")
         customer_stock_cols = ["_sync_id", "客戶名稱", "配方編號", "顏色", "數量", "單位", "備註", "建立時間", "更新時間"]
         customer_stock_records = list_customer_inventory_records(DATABASE_CONFIG)
         df_customer_stock = pd.DataFrame([{
@@ -11393,7 +11392,7 @@ elif menu == "庫存區":
                                   | {str(v).strip() for v in df_customer_stock.get("客戶名稱", pd.Series(dtype=str)) if str(v).strip()})
         recipe_choices = sorted({str(v).strip() for v in st.session_state.get("df_recipe", pd.DataFrame()).get("配方編號", pd.Series(dtype=str)) if str(v).strip()}
                                 | {str(v).strip() for v in df_customer_stock.get("配方編號", pd.Series(dtype=str)) if str(v).strip()})
-        subtab_form, subtab_query = st.tabs(["☑️ 新增／修改／封存", "🔍 個別客戶庫存查詢"])
+        subtab_form, subtab_query = st.tabs(["庫存維護", "庫存查詢"])
 
         with subtab_form:
             action_mode = st.radio("作業模式", ["新增", "修改", "封存"], horizontal=True, key="cust_stock_action_mode")
@@ -11456,22 +11455,24 @@ elif menu == "庫存區":
                     st.rerun()
 
             with st.form("customer_stock_form"):
-                customer_input = customer_display.selectbox(st,
+                c1, c2, c3 = st.columns([2, 2, 1])
+                customer_input = customer_display.selectbox(c1,
                     "客戶名稱", [""] + customer_choices,
                     index=([""] + customer_choices).index(str(target_row["客戶名稱"])) if target_row is not None and str(target_row["客戶名稱"]) in customer_choices else 0,
                 )
-                c1, c2, c3, c4 = st.columns(4)
-                recipe_input = c1.selectbox(
+                recipe_input = c2.selectbox(
                     "配方編號", [""] + recipe_choices,
                     index=([""] + recipe_choices).index(str(target_row["配方編號"])) if target_row is not None and str(target_row["配方編號"]) in recipe_choices else 0,
                 )
-                color_input = c2.text_input("顏色", value="" if target_row is None else str(target_row["顏色"]))
-                qty_input = c3.number_input("數量", min_value=0.0, value=0.0 if target_row is None else float(target_row["數量"]), step=1.0)
+                color_input = c3.text_input("顏色", value="" if target_row is None else str(target_row["顏色"]))
+
+                c4, c5, c6 = st.columns([1, 1, 3])
+                qty_input = c4.number_input("數量", min_value=0.0, value=0.0 if target_row is None else float(target_row["數量"]), step=1.0)
                 units = ["g", "kg", "桶", "罐", "箱", "包"]
                 current_unit = "g" if target_row is None else str(target_row["單位"])
-                unit_input = c4.selectbox("單位", units, index=units.index(current_unit) if current_unit in units else 0)
-                note_input = st.text_input("備註", value="" if target_row is None else str(target_row["備註"]))
-                submitted = st.form_submit_button(f"✅ 執行{action_mode}")
+                unit_input = c5.selectbox("單位", units, index=units.index(current_unit) if current_unit in units else 0)
+                note_input = c6.text_input("備註", value="" if target_row is None else str(target_row["備註"]))
+                submitted = st.form_submit_button(f"✅ {action_mode}")
 
             if submitted:
                 try:
@@ -11481,7 +11482,7 @@ elif menu == "庫存區":
                         archive_customer_inventory_record(
                             DATABASE_CONFIG, target_row["_sync_id"], reason="使用者從個別客戶庫存封存",
                         )
-                        st.success("已封存；Turso 保留歷史，Sheet 副本將由 outbox 移除。")
+                        st.success("已封存客戶庫存。")
                     else:
                         if action_mode == "修改" and target_row is None:
                             raise CustomerInventoryError("請先選擇要修改的資料")
@@ -11504,7 +11505,7 @@ elif menu == "庫存區":
                         save_customer_inventory_record(
                             DATABASE_CONFIG, stock_row, create=action_mode == "新增"
                         )
-                        st.success(f"已{action_mode}個別客戶庫存，並排入 Sheet outbox。")
+                        st.success(f"已{action_mode}客戶庫存。")
                     st.rerun()
                 except CustomerInventoryError as exc:
                     st.error(str(exc))
