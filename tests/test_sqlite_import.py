@@ -1674,9 +1674,8 @@ def test_database_health_batches_required_column_checks(tmp_path):
     assert health.schema_compatible
     metadata_statements = [sql for sql in statements if "pragma_table_info" in sql]
     assert len(metadata_statements) == 1
-    assert metadata_statements[0].count("pragma_table_info") == len(
-        database_module.REQUIRED_TABLE_COLUMNS
-    )
+    assert metadata_statements[0].count("pragma_table_info") == 1
+    assert len(statements) == 1
 
 
 def test_initialize_database_with_health_retries_transient_turso_session_error(monkeypatch):

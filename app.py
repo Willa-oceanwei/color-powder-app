@@ -513,6 +513,19 @@ APP_PASSWORD = st.secrets["APP_PASSWORD"]
 REMEMBER_LOGIN_HOURS = int(st.secrets.get("REMEMBER_LOGIN_HOURS", 4))
 REMEMBER_LOGIN_SECONDS = max(1, REMEMBER_LOGIN_HOURS) * 60 * 60
 
+
+def submit_password_login():
+    if st.session_state.get("login_password", "") == APP_PASSWORD:
+        st.session_state["_pending_remember_token"] = create_remember_token(
+            APP_PASSWORD, REMEMBER_LOGIN_SECONDS,
+        )
+        st.session_state.authenticated = True
+        st.session_state["_login_loading"] = True
+        st.session_state.pop("_login_error", None)
+    else:
+        st.session_state["_login_error"] = True
+
+
 # The component reads same-browser storage. Its value is signed and expires
 # server-side too, so editing the stored value cannot bypass the password.
 pending_remember_token = st.session_state.get("_pending_remember_token")
@@ -554,94 +567,47 @@ elif not st.session_state.authenticated and validate_remember_token(remember_tok
 # admit the session normally.
 if not st.session_state.authenticated:
     st.markdown(
-        "<h3 style='text-align:center; color:#f0efa2;'>👻 配方管理系統 👻</h3>",
+        """<span id="login-page"></span>
+        <style>
+        .main:has(#login-page) .block-container {max-width:440px!important;padding-top:80px!important;}
+        .main:has(#login-page) h3 {font-size:24px!important;line-height:1.4!important;color:#d5e1ec!important;}
+        .main:has(#login-page) [data-testid="stForm"] {border:0!important;padding:0!important;}
+        .main:has(#login-page) [data-testid="stWidgetLabel"] p {font-size:14px!important;}
+        .main:has(#login-page) [data-testid="stTextInput"] input {font-size:16px!important;min-height:42px!important;}
+        .main:has(#login-page) [data-testid="stFormSubmitButton"] button {
+            background:#3487b6!important;border:1px solid #3487b6!important;color:#fff!important;
+            min-height:40px!important;border-radius:6px!important;}
+        .main:has(#login-page) [data-testid="stFormSubmitButton"] button p {font-size:15px!important;}
+        .main:has(#login-page) [data-testid="stFormSubmitButton"] button:hover {background:#28769f!important;}
+        </style><h3>配方管理系統</h3>""",
         unsafe_allow_html=True,
     )
 
 if remember_token == BROWSER_TOKEN_LOADING and not st.session_state.authenticated:
     log_performance("browser_token_wait", APP_RUN_STARTED_AT)
 
-    # Make a remembered-login check visually distinct from the ordinary login
-    # form.  The password fallback stays available in an expander because some
-    # mobile browsers can delay the hidden storage component indefinitely.
-    st.markdown(
-        """
-        <style>
-        .remember-login-status {
-            max-width: 520px;
-            margin: 1rem auto 1.25rem;
-            padding: 1.25rem 1.4rem;
-            border: 1px solid rgba(240, 239, 162, 0.5);
-            border-radius: 16px;
-            background: linear-gradient(135deg, rgba(240, 239, 162, 0.16), rgba(255, 255, 255, 0.05));
-            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
-            text-align: center;
-        }
-        .remember-login-status__spinner {
-            display: inline-block;
-            width: 28px;
-            height: 28px;
-            margin-bottom: 0.65rem;
-            border: 3px solid rgba(240, 239, 162, 0.28);
-            border-top-color: #f0efa2;
-            border-radius: 50%;
-            animation: remember-login-spin 0.85s linear infinite;
-        }
-        .remember-login-status__title {
-            margin-bottom: 0.35rem;
-            color: #f0efa2;
-            font-size: 1.08rem;
-            font-weight: 700;
-        }
-        .remember-login-status__message {
-            margin: 0;
-            color: rgba(255, 255, 255, 0.88);
-            line-height: 1.65;
-        }
-        @keyframes remember-login-spin { to { transform: rotate(360deg); } }
-        @media (prefers-reduced-motion: reduce) {
-            .remember-login-status__spinner { animation: none; }
-        }
-        </style>
-        <div class="remember-login-status" role="status" aria-live="polite">
-            <span class="remember-login-status__spinner" aria-hidden="true"></span>
-            <div class="remember-login-status__title">正在確認免登入狀態</div>
-            <p class="remember-login-status__message">
-                若您在免登入時間內，<strong>不需要再次輸入密碼</strong>，<br>
-                請稍候，確認完成後會自動進入系統。
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.caption("正在確認免登入狀態")
 
 # 尚未登入時，顯示登入介面
 if not st.session_state.authenticated:
     # ✅ 支援按 Enter 或按鈕登入
-    _, login_col, _ = st.columns([2, 3, 2])
+    login_col = st.container()
     with login_col:
-        if remember_token == BROWSER_TOKEN_LOADING:
-            with st.expander("等待較久？改用密碼登入"):
-                st.caption("只有畫面沒有自動進入時，才需要在此輸入密碼。")
-        with st.form("password_login"):
+        with st.form("password_login", border=False):
             password_input = st.text_input("密碼：", type="password", key="login_password")
-            login_submitted = st.form_submit_button("登入", type="primary", use_container_width=True)
+            st.form_submit_button("登入", type="primary", use_container_width=True,
+                                  on_click=submit_password_login)
 
-        if login_submitted and password_input == APP_PASSWORD:
-            st.session_state["_pending_remember_token"] = create_remember_token(
-                APP_PASSWORD,
-                REMEMBER_LOGIN_SECONDS,
-            )
-            # Admit this already-verified session immediately. The next render
-            # persists the signed token in the browser without showing the login
-            # screen again while the component acknowledges the write.
-            st.session_state.authenticated = True
-            st.rerun()
-        elif login_submitted:
+        if st.session_state.pop("_login_error", False):
             st.error("❌ 密碼錯誤，請再試一次。")
-            st.stop()
 
     st.stop()
+
+page_load_status = st.empty()
+if st.session_state.pop("_login_loading", False):
+    page_load_status.info("登入成功，正在載入系統…")
+elif st.session_state.pop("_workspace_loading", False):
+    page_load_status.info(f"正在開啟{st.session_state.get('menu', '')}…")
 
 def request_logout():
     """End the current session and remove its remembered browser token."""
@@ -1181,15 +1147,18 @@ def render_sidebar():
             groups.setdefault(item["group"], []).append(item)
 
         def render_items(items):
+            def select_workspace(target):
+                if st.session_state.menu == "出貨單" and target != "出貨單":
+                    stash_shipment_grid(st.session_state)
+                st.session_state.menu = target
+                st.session_state["_workspace_loading"] = True
+
             for item in items:
-                if st.button(
+                st.button(
                     item["label"], key=item["key"], use_container_width=True,
                     type="primary" if st.session_state.menu == item["key"] else "secondary",
-                ):
-                    if st.session_state.menu == "出貨單" and item["key"] != "出貨單":
-                        stash_shipment_grid(st.session_state)
-                    st.session_state.menu = item["key"]
-                    st.rerun()
+                    on_click=select_workspace, args=(item["key"],),
+                )
 
         # 出貨單固定顯示在會計分類內，其餘會計功能仍可收合。
         for group, items in groups.items():
@@ -14775,3 +14744,4 @@ st.markdown(
 
 log_performance("page_render", page_render_started_at, menu=menu)
 log_performance("total_authenticated_run", APP_RUN_STARTED_AT, menu=menu)
+page_load_status.empty()

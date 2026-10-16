@@ -165,6 +165,35 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
         "get_customer", "list_customers", "shipment_choices", "shipment_price_history"))
 
 
+def test_sidebar_switch_runs_once_and_retains_outgoing_shipment_grid():
+    import ast
+
+    root = Path(__file__).resolve().parents[1]
+    tree = ast.parse((root / "app.py").read_text(encoding="utf-8"))
+    sidebar = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "render_sidebar")
+    script = f'''import sys
+sys.path.insert(0, {str(root)!r})
+import streamlit as st
+def request_logout(): pass
+st.session_state["main_runs"] = st.session_state.get("main_runs", 0) + 1
+''' + ast.unparse(sidebar) + '\nrender_sidebar()\n'
+    app = AppTest.from_string(script)
+    app.session_state["menu"] = "出貨單"
+    app.session_state["shipment_draft"] = blank_shipment()
+    app.session_state["shipment_editor_base"] = [dict(code="P1", price="10")]
+    app.session_state["shipment_epoch"] = 1
+    app.session_state["shipment_1_items"] = {
+        "edited_rows": {0: {"單價": 12.0}}, "deleted_rows": [], "added_rows": [],
+    }
+    app.run(timeout=20)
+    app.button(key="客戶名單").click().run()
+    assert not app.exception
+    assert app.session_state["menu"] == "客戶名單"
+    assert app.session_state["main_runs"] == 2
+    assert app.session_state["shipment_editor_base"][0]["price"] == 12.0
+    assert app.session_state["_workspace_loading"]
+
+
 def test_customer_fragment_reuses_directory_and_refreshes_after_save(tmp_path, monkeypatch):
     import utils.customer_repository as repository
     from test_customer_contacts import customer_app

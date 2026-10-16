@@ -20,6 +20,7 @@ sys.path.insert(0, {str(ROOT)!r})
 import streamlit as st
 import time
 import logging
+st.session_state["main_runs"] = st.session_state.get("main_runs", 0) + 1
 from utils.persistent_auth import create_remember_token, validate_remember_token
 from utils.database import DatabaseStartupError, SCHEMA_VERSION
 APP_RUN_STARTED_AT = time.perf_counter()
@@ -55,6 +56,7 @@ def test_explicit_login_works_without_browser_storage(token):
     next(button for button in app.button if button.label == "登入").click().run()
     assert not app.exception and app.session_state["authenticated"]
     assert app.session_state["database_attempts"] == 1
+    assert app.session_state["main_runs"] == 3
     assert app.success[0].value == "Ready"
 
 

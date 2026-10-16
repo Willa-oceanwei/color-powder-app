@@ -1173,29 +1173,22 @@ def initialize_database_from_config(config: DatabaseConfig) -> str | Path:
 
 def _database_health_from_connection(config: DatabaseConfig, conn: SqlExecutor) -> DatabaseHealth:
     """Collect startup health information using an already-open connection."""
-    select_1_ok = bool(conn.execute("SELECT 1").fetchone()[0] == 1)
-    schema_row = conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()
-    schema_version = schema_row[0] if schema_row else None
-    table_rows = conn.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchall()
-    existing_tables = {row[0] for row in table_rows}
-    # Fetch all required column metadata in one statement.  With remote Turso,
-    # issuing one PRAGMA per table turns this health check into many sequential
-    # network round trips immediately after login.  SQLite's table-valued PRAGMA
-    # gives us the same validation while keeping startup to a single metadata
-    # round trip (in addition to the basic version/table checks above).
+    # Validate the schema and columns together, using one remote round trip.
+    required_tables = sorted(REQUIRED_TABLE_COLUMNS)
+    placeholders = ",".join("?" for _ in required_tables)
+    rows = conn.execute(
+        "SELECT 1,(SELECT MAX(version) FROM schema_migrations),s.name,p.name "
+        "FROM sqlite_schema s LEFT JOIN pragma_table_info(s.name) p "
+        f"ON s.name IN ({placeholders}) WHERE s.type='table'",
+        tuple(required_tables),
+    ).fetchall()
+    select_1_ok = bool(rows and rows[0][0] == 1)
+    schema_version = rows[0][1] if rows else None
+    existing_tables = {row[2] for row in rows}
     tables_to_check = sorted(REQUIRED_TABLE_COLUMNS.keys() & existing_tables)
     existing_columns_by_table = {table_name: set() for table_name in tables_to_check}
-    if tables_to_check:
-        column_query = " UNION ALL ".join(
-            "SELECT ? AS table_name, name FROM pragma_table_info(?)"
-            for _ in tables_to_check
-        )
-        parameters = tuple(
-            value
-            for table_name in tables_to_check
-            for value in (table_name, table_name)
-        )
-        for table_name, column_name in conn.execute(column_query, parameters).fetchall():
+    for _, _, table_name, column_name in rows:
+        if table_name in existing_columns_by_table and column_name is not None:
             existing_columns_by_table[table_name].add(column_name)
 
     missing_required_columns = {
@@ -1412,4 +1405,3 @@ def upsert_sheet_row(conn: sqlite3.Connection, sheet_name: str, row_key: str, pa
         (sheet_name, row_key, json.dumps(payload, ensure_ascii=False), row_hash,
          observed_at, sheet_updated_at or observed_at, sheet_updated_at, observed_at, observed_at),
     )
-

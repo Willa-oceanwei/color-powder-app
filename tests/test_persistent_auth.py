@@ -29,7 +29,8 @@ def test_app_defaults_to_four_hours_and_provides_logout():
     ).read_text()
 
     assert 'st.secrets.get("REMEMBER_LOGIN_HOURS", 4)' in app_source
-    assert "st.session_state.authenticated = True\n            st.rerun()" in app_source
+    assert "on_click=submit_password_login" in app_source
+    assert 'st.session_state["_login_loading"] = True' in app_source
     assert '"↪ 登出"' in app_source
     assert "on_click=request_logout" in app_source
     assert 'st.session_state["_clear_remember_token"] = True' in app_source
@@ -69,7 +70,7 @@ def test_browser_token_check_explains_auto_login_and_keeps_mobile_fallback():
     )[1].split("# 尚未登入時", 1)[0]
     assert "st.stop()" not in token_wait_section
     assert "正在確認免登入狀態" in token_wait_section
-    assert "不需要再次輸入密碼" in token_wait_section
-    assert "確認完成後會自動進入系統" in token_wait_section
-    assert 'with st.expander("等待較久？改用密碼登入")' in app_source
-    assert "只有畫面沒有自動進入時" in app_source
+    assert 'with st.form("password_login", border=False)' in app_source
+    assert 'on_click=submit_password_login' in app_source
+    assert 'background:#3487b6!important' in app_source
+    assert 'font-size:24px!important' in app_source
