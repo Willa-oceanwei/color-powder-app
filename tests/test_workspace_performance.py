@@ -153,7 +153,7 @@ st.session_state["main_runs"] = st.session_state.get("main_runs", 0) + 1
 render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})), start_new_on_entry=True)
 ''').run(timeout=30)
     assert not app.exception and len(queued) == 2
-    assert app.session_state["main_runs"] == 2
+    assert app.session_state["main_runs"] == 1
     draft = app.session_state["shipment_draft"]
     assert draft["customer_id"] == "C01"
     assert draft["address"] == "Delivery address"
