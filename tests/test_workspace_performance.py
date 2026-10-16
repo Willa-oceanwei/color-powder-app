@@ -12,7 +12,7 @@ from utils.database import DatabaseConfig, initialize_database
 from utils.shipment_repository import blank_shipment, get_shipment, save_shipment
 
 
-def queue_updates(monkeypatch, updates):
+def queue_updates(monkeypatch, updates, *, full_app=False):
     original_init = LocalScriptRunner.__init__
     queued = []
 
@@ -35,7 +35,7 @@ def queue_updates(monkeypatch, updates):
                     widget.int_value = value
                 else:
                     widget.string_value = value
-            fragment_id = next(iter(runner._fragment_storage._fragments))
+            fragment_id = None if full_app else next(iter(runner._fragment_storage._fragments))
             queued.append(fragment_id)
             assert runner.request_rerun(RerunData(fragment_id=fragment_id, widget_states=states))
 
@@ -46,7 +46,7 @@ def queue_updates(monkeypatch, updates):
 
 
 @pytest.mark.parametrize("editing", [False, True])
-def test_shipment_fragment_changes_preserve_draft_and_reuse_reads_and_prints(tmp_path, monkeypatch, editing):
+def test_shipment_page_changes_preserve_draft_and_reuse_reads_and_prints(tmp_path, monkeypatch, editing):
     import utils.customer_display as labels
     import utils.shipment_ui as ui
 
@@ -75,7 +75,7 @@ def test_shipment_fragment_changes_preserve_draft_and_reuse_reads_and_prints(tmp
 
     monkeypatch.setattr(ui, "printable_shipment", count_print)
     queued = queue_updates(monkeypatch, [("shipment_print_preview", True),
-                                         ("shipment_hide_prices", True), ("shipment_print_preview", False)])
+                                         ("shipment_hide_prices", True), ("shipment_print_preview", False)], full_app=True)
     root = str(Path(__file__).resolve().parents[1])
     app = AppTest.from_string(f'''import sys
 sys.path.insert(0, {root!r})
@@ -93,7 +93,8 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
         app.session_state["shipment_epoch"] = 1
     app.run(timeout=30)
     assert not app.exception and len(queued) == 3, queued
-    assert app.session_state["main_runs"] == 1
+    assert app.session_state["main_runs"] == 4
+    assert queued == [None, None, None]  # Normal app updates keep all editor nodes together.
     assert prints == [True, False]
     assert len(reads) == len(set(reads))
     if editing:
@@ -125,7 +126,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert "shipment_draft" in app.session_state
 
 
-def test_select_customer_in_new_shipment_fragment(tmp_path, monkeypatch):
+def test_select_customer_in_new_shipment_page(tmp_path, monkeypatch):
     import utils.shipment_ui as ui
 
     config = DatabaseConfig(backend="sqlite", path=tmp_path / "customer-selection.db")
@@ -141,7 +142,7 @@ def test_select_customer_in_new_shipment_fragment(tmp_path, monkeypatch):
 
         monkeypatch.setattr(ui, name, counted)
     queued = queue_updates(monkeypatch, [("shipment_1_customer_picker", 1),
-                                         ("shipment_1_notes", "Keep editing")])
+                                         ("shipment_1_notes", "Keep editing")], full_app=True)
     root = str(Path(__file__).resolve().parents[1])
     app = AppTest.from_string(f'''import sys
 sys.path.insert(0, {root!r})
@@ -153,7 +154,8 @@ st.session_state["main_runs"] = st.session_state.get("main_runs", 0) + 1
 render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})), start_new_on_entry=True)
 ''').run(timeout=30)
     assert not app.exception and len(queued) == 2
-    assert app.session_state["main_runs"] == 1
+    assert app.session_state["main_runs"] == 3
+    assert queued == [None, None]
     draft = app.session_state["shipment_draft"]
     assert draft["customer_id"] == "C01"
     assert draft["address"] == "Delivery address"

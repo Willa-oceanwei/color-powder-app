@@ -8,7 +8,6 @@ import json
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 from .shipment_catalog import shipment_choices, complete_items, recent_item_defaults, matching_products
 from .shipment_print import display_price
@@ -55,6 +54,15 @@ COMPACT_STYLE = """
 .main:has(#shipment-page) [data-testid="stCaptionContainer"] p {margin:0!important;}
 .main:has(#shipment-page) .shipment-total {display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px;font-variant-numeric:tabular-nums;}
 .main:has(#shipment-page) .shipment-total:last-child {border-top:1px solid #84919d;font-weight:600;font-size:16px;margin-top:4px;padding-top:6px;}
+.main:has(#shipment-page) .shipment-section {font-size:13px;font-weight:700;letter-spacing:.04em;padding:5px 10px;margin:5px 0 3px;border-left:4px solid #59baff;border-radius:4px;background:#10293b;color:#c5e7ff;}
+.main:has(#shipment-page) .shipment-section.delivery {border-color:#57d6b1;background:#102e2a;color:#b3f2dd;}
+.main:has(#shipment-page) .shipment-section.items {border-color:#b8a1ff;background:#28213a;color:#e1d5ff;}
+.main:has(#shipment-page) .shipment-section.amounts {border-color:#ffd084;background:#382c18;color:#ffe1ad;}
+.main:has(#shipment-page) .shipment-edit-status {display:inline-block;border:1px solid #8e6832;border-radius:5px;padding:3px 9px;background:#352918;color:#ffda9a;font-size:12px;font-weight:600;}
+.main:has(#shipment-page) .shipment-totals-card {background:#142b29;border:1px solid #387d6d;border-radius:8px;padding:8px 12px;margin-top:8px;}
+.main:has(#shipment-page) .shipment-totals-card .shipment-total {color:#d7eee8!important;}
+.main:has(#shipment-page) .shipment-totals-card .shipment-total:last-child {color:#8ff0cb!important;border-color:#387d6d;font-size:20px;}
+.main:has(#shipment-page) button[kind="primary"] {background:#166b55!important;border-color:#49b99c!important;color:#fff!important;}
 .main:has(#shipment-page) .shipment-lines {font-size:12px;white-space:nowrap;overflow-x:auto;max-width:100%;}
 .main:has(#shipment-page) .shipment-number-help {font-size:10px;line-height:1.3;margin:0;overflow-wrap:anywhere;}
 .main:has(#shipment-page) label[data-baseweb="radio"]>div:first-child {background:transparent!important;border:1.5px solid #527086!important;box-sizing:border-box;}
@@ -92,11 +100,7 @@ body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] button {b
 
 
 def _rerun_shipment():
-    context = get_script_run_ctx()
-    if context is not None and context.fragment_ids_this_run:
-        st.rerun(scope="fragment")
-    else:
-        st.rerun()
+    st.rerun()
 
 
 def _cached_print(config, document, **options):
@@ -201,7 +205,7 @@ def _invoice_amount_changed(prefix):
 
 
 def _select_customer(config, prefix):
-    """Apply customer defaults before the fragment emits any editor widgets."""
+    """Apply customer defaults before the page emits any editor widgets."""
     document = st.session_state.get("shipment_draft")
     if document is None:
         return
@@ -245,7 +249,8 @@ def _draft_print_document(document):
     return snapshot
 
 
-@st.fragment
+# Streamlit 1.38 can leave editor/tab nodes blank on fragment updates.
+# Render this page in the normal app run; session read/print caches stay in use.
 @shipment_timing("shipment_render")
 def render_shipment_management(config, *, start_new_on_entry=False):
     for key, preference in (("shipment_print_preview", "shipment_preview_preference"), ("shipment_hide_prices", "shipment_hide_preference")):
@@ -431,7 +436,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.download_button("下載列印版", data=print_html, file_name=document["shipment_number"] + ".html", mime="text/html", use_container_width=True)
     orientation = "portrait" if layout == "直式" else "landscape"
     if editing:
-        st.caption("編輯中 · 尚未儲存")
+        st.markdown('<span class="shipment-edit-status">編輯中 · 尚未儲存</span>', unsafe_allow_html=True)
     if not document:
         st.info("目前沒有出貨單")
         return
@@ -500,6 +505,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         for field in CONTACT_FIELDS:
             if not str(document.get(field) or "").strip():
                 document[field] = customer.get(field) or ""
+    st.markdown('<div class="shipment-section">出貨與客戶</div>', unsafe_allow_html=True)
     header = st.columns([1.25, 1.35, 1.55, 2.8])
     with header[0]:
         date_field("出貨日期", "shipment_date")
@@ -534,6 +540,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                          on_change=_select_customer, args=(config, prefix))
         else:
             st.text_input("客戶", value=f"{document['customer_id']} · {current_customer_label()}", disabled=True)
+    st.markdown('<div class="shipment-section delivery">送貨資訊</div>', unsafe_allow_html=True)
     receiver = st.columns([1.2, 1.8, 4])
     for col, label, field in zip(receiver, ("指送對象編號", "指送對象名稱", "送貨地址"), ("recipient_id", "recipient_name", "address")):
         with col:
@@ -541,6 +548,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     with print_controls[3]:
         render_purchase_history(config, document["customer_id"], current_customer_label())
     source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
+    st.markdown('<div class="shipment-section items">貨品明細</div>', unsafe_allow_html=True)
     requested_item = None
     if editing:
         item_tools = st.columns([1, 1, 2])
@@ -637,7 +645,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         frame = frame.drop(columns="顯示編號")
         st.dataframe(frame, height=185, hide_index=True, use_container_width=True,
                      column_config={"採購單號": st.column_config.TextColumn("採購單號", width="medium"), "數量": st.column_config.NumberColumn(format="%.15g"), "單價": st.column_config.NumberColumn(format="%.15g")})
-    details, summary, clearance = st.columns([3.7, 1.3, 1])
+    details, summary = st.columns([3, 1])
     with details:
         transaction, invoice_tab, account, related = st.tabs(["交易明細", "發票資料", "帳款資料", "相關資料"])
         with transaction:
@@ -691,6 +699,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 st.caption(f"建立：{document['created_at']}　更新：{document['updated_at']}")
                 st.caption("已作廢" if document["status"] == "void" else "草稿")
     with summary:
+        st.markdown('<div class="shipment-section amounts">金額摘要</div>', unsafe_allow_html=True)
         if editing:
             rate = st.selectbox("稅率", (0, 5), index=widget_index(prefix + "tax_rate", 0 if document["tax_mode"] in ("免稅", "零稅率") or float(document["tax_rate"]) == 0 else 5),
                                 format_func=lambda value: "0%（免稅）" if value == 0 else "5%",
@@ -700,8 +709,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.text_input("稅率", value=f"{float(document['tax_rate']):g}%", disabled=True)
         try:
             totals = calculate(document["items"], document["tax_mode"], document["tax_rate"]) if editing else document
-            st.markdown(''.join(f'<div class="shipment-total"><span>{label}</span><span>{int(totals[key]):,}</span></div>'
-                               for label, key in (("未稅合計", "net_amount"), ("稅額", "tax_amount"), ("總計 TWD", "total_amount"))), unsafe_allow_html=True)
+            st.markdown('<div class="shipment-totals-card">' + ''.join(f'<div class="shipment-total"><span>{label}</span><span>{int(totals[key]):,}</span></div>'
+                               for label, key in (("未稅合計", "net_amount"), ("稅額", "tax_amount"), ("總計 TWD", "total_amount"))) + '</div>', unsafe_allow_html=True)
         except ShipmentError as error:
             totals = None
             st.error(str(error))
