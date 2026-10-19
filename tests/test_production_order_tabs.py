@@ -55,7 +55,7 @@ def test_colorant_package_total_converts_hundred_kg_multipliers():
 
 def test_initial_production_queries_run_in_parallel_without_duplicate_recipe_load():
     source = APP_SOURCE.read_text(encoding="utf-8")
-    section = source.split('elif menu == "生產單管理":', 1)[1]
+    section = source.split('def render_production_order_workspace():', 1)[1]
     section = section.split("# ======== 代工管理分頁 =========", 1)[0]
 
     assert "ThreadPoolExecutor(max_workers=3)" in section

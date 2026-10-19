@@ -1133,6 +1133,7 @@ def apply_tab_persistence_fix():
           const STORAGE_KEY = "cp_tab_state_v1";
           const PAGE_MANAGED_TAB_LABELS = new Set([
             "🛸 生產單建立|📜 生產單記錄表|👀 生產單預覽/修改/取消",
+            "👀 預覽|🛠️ 修改 / 取消",
             "📦 初始|📊 查詢|📋 盤點|🏆 排行|🧮 用量|🧴 色母|👤 客戶",
             "👤 員工薪資設定|📅 每月薪資|📚 薪資歷史|⚙️ 薪資規則",
           ]);
@@ -3420,6 +3421,8 @@ def render_big_label_editor(label_order, *, key_prefix):
                     labels = expand_big_label_editor_rows(editor_rows)
                     st.session_state[label_confirmed_key] = labels
                     st.session_state[label_version_key] += 1
+                    if key_prefix in ("tab2", "tab2_small"):
+                        st.session_state["history_labels_pinned_order_id"] = order_no_for_label
                     st.toast("標籤內容已儲存，下載按鈕已產生", icon="✅")
 
     confirmed_rows = st.session_state.get(label_confirmed_key)
@@ -3477,13 +3480,26 @@ def render_order_download_actions(label_order, a5_data, a5_filename):
     @media(max-width:640px){[data-testid="stHorizontalBlock"]:has(.list-actions-marker)>[data-testid="column"]:first-child{flex-basis:100%!important;}}
     </style>''', unsafe_allow_html=True)
     selection_col.caption(f"已選取 · {order_no}")
+    a5_col.markdown("""<span class="production-print-action"></span><style>
+    [data-testid="column"]:has(.production-print-action) [data-testid="stDownloadButton"] button {
+        background:#1a5a84!important;border:1px solid #3487b6!important;color:#fff!important;
+    }
+    [data-testid="column"]:has(.production-print-action) [data-testid="stDownloadButton"] button:hover {
+        background:#124466!important;border-color:#65b5e2!important;
+    }
+    [data-testid="column"]:has(.production-print-action) [data-testid="stDownloadButton"] button:focus-visible {
+        outline:2px solid #8cc8ea!important;outline-offset:2px;
+    }
+    </style>""", unsafe_allow_html=True)
     a5_col.download_button(
         "列印生產單", data=a5_data, file_name=a5_filename,
-        mime="text/html", key=f"download_a5_tab2_{order_no}", type="primary",
+        mime="text/html", key=f"download_a5_tab2_{order_no}", type="secondary",
         help="下載 A5 生產單，開啟檔案後會顯示列印視窗。",
     )
     if label_col.button("製作標籤", key=f"open_labels_tab2_{order_no}"):
         st.session_state[open_key] = not st.session_state.get(open_key, False)
+        if not st.session_state[open_key]:
+            st.session_state.pop("history_labels_pinned_order_id", None)
     if st.session_state.get(open_key, False):
         render_big_label_editor(label_order, key_prefix="tab2")
 
@@ -5428,8 +5444,19 @@ pre {{
             st.info("⚠️ 目前沒有配方資料，請先至「配方建立」新增配方")
 
 # =============== Tab 架構結束 ===============                            
+def rerun_production_order_workspace():
+    """Refresh production tabs together; allow full runs in tests/initial rendering."""
+    from streamlit.errors import StreamlitAPIException
+    try:
+        st.rerun(scope="fragment")
+    except StreamlitAPIException:
+        st.rerun()
+
+
 # --- 生產單分頁 ----------------------------------------------------
-elif menu == "生產單管理":
+@st.fragment
+def render_production_order_workspace():
+    """Keep production edits and tab updates inside the mounted workspace."""
 
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
@@ -5899,7 +5926,11 @@ elif menu == "生產單管理":
           const storageKey = "order_mgmt_active_tab";
           const tabTexts = ["🛸 生產單建立", "📜 生產單記錄表", "👀 生產單預覽/修改/取消"];
 
-          function bindOrderTabs() {
+          const restored = new WeakSet();
+          const previousObserver = window.parent.__productionTabObserver;
+          if (previousObserver) previousObserver.disconnect();
+
+          function bindTabGroup(storageKey, tabTexts) {
             const doc = window.parent.document;
             const tablists = Array.from(doc.querySelectorAll('div[role="tablist"]'));
             const tablist = tablists.find(candidate => {
@@ -5907,15 +5938,16 @@ elif menu == "生產單管理":
                 .map(tab => tab.textContent.trim());
               return labels.length === tabTexts.length && tabTexts.every((label, idx) => labels[idx] === label);
             });
-            if (!tablist) return false;
-
+            if (!tablist) return;
             const tabs = Array.from(tablist.querySelectorAll('button[role="tab"]'));
-            const savedIndex = Number.parseInt(window.parent.sessionStorage.getItem(storageKey), 10);
-            if (Number.isInteger(savedIndex) && tabs[savedIndex]
-                && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
-              tabs[savedIndex].click();
+            if (!restored.has(tablist)) {
+              restored.add(tablist);
+              const savedIndex = Number.parseInt(window.parent.sessionStorage.getItem(storageKey), 10);
+              if (Number.isInteger(savedIndex) && tabs[savedIndex]
+                  && tabs[savedIndex].getAttribute('aria-selected') !== 'true') {
+                tabs[savedIndex].click();
+              }
             }
-
             tabs.forEach((tab, idx) => {
               if (tab.dataset.orderPersistBound === '1') return;
               tab.dataset.orderPersistBound = '1';
@@ -5923,15 +5955,15 @@ elif menu == "生產單管理":
                 window.parent.sessionStorage.setItem(storageKey, String(idx));
               });
             });
-            return true;
           }
-
-          if (!bindOrderTabs()) {
-            const observer = new MutationObserver(() => {
-              if (bindOrderTabs()) observer.disconnect();
-            });
-            observer.observe(window.parent.document.body, { childList: true, subtree: true });
+          function bindOrderTabs() {
+            bindTabGroup(storageKey, tabTexts);
+            bindTabGroup("order_mgmt_detail_tab", ["👀 預覽", "🛠️ 修改 / 取消"]);
           }
+          bindOrderTabs();
+          const observer = new MutationObserver(bindOrderTabs);
+          observer.observe(window.parent.document.body, { childList: true, subtree: true });
+          window.parent.__productionTabObserver = observer;
         })();
         </script>
         """,
@@ -6193,7 +6225,7 @@ elif menu == "生產單管理":
     
                     st.session_state["new_order"] = order
                     st.session_state["show_confirm_panel"] = True
-                    st.rerun()
+                    rerun_production_order_workspace()
 
         # ===== 顯示「新增後欄位填寫區塊」（必須在按鈕處理之外）=====
         order = st.session_state.get("new_order")
@@ -6941,7 +6973,7 @@ elif menu == "生產單管理":
                     st.session_state.new_order_saved = False
                     st.session_state.downloaded_html_tab1 = False
                     st.session_state.pop("recipe_init_done", None)
-                    st.rerun()
+                    rerun_production_order_workspace()
 
             # --------------- 新增：生產單大標列印 ---------------
             snapshot = st.session_state.get("saved_label_snapshot")
@@ -6988,7 +7020,7 @@ elif menu == "生產單管理":
                     st.toast("已從 Turso 重新載入生產單資料", icon="🔄")
                 except Exception as e:
                     st.toast(f"重新載入失敗：{e}", icon="❌")
-                st.rerun()
+                rerun_production_order_workspace()
 
         # ============================================================
     # Tab 2: 生產單記錄表（✅ 補上遺漏的預覽功能）
@@ -7050,6 +7082,12 @@ elif menu == "生產單管理":
                 page_data.to_dict("records"), key="production_history", id_field="生產單號",
                 height=min(500, 38 * (len(page_data) + 1) + 3),
             )
+            pinned_order_id = st.session_state.get("history_labels_pinned_order_id")
+            if tab2_download_order is None and pinned_order_id and st.session_state.get(f"history_labels_open_{pinned_order_id}"):
+                tab2_download_order = next((row for row in page_data.to_dict("records")
+                                           if str(row["生產單號"]) == pinned_order_id), None)
+            elif tab2_download_order is not None and str(tab2_download_order["生產單號"]) != pinned_order_id:
+                st.session_state.pop("history_labels_pinned_order_id", None)
             if tab2_download_order is not None:
                 tab2_a5_data, tab2_a5_filename = build_a5_production_order_download(
                     tab2_download_order, df_recipe, show_additional_ids=True
@@ -7210,6 +7248,12 @@ elif menu == "生產單管理":
                         df_page.to_dict("records"), key="production_manage", id_field="生產單號",
                         height=table_height,
                     )
+                    saved_order_id = st.session_state.get("production_manage_saved_order_id")
+                    if chosen_order is None and saved_order_id:
+                        chosen_order = next((row for row in df_page.to_dict("records")
+                                             if str(row["生產單號"]) == saved_order_id), None)
+                    elif chosen_order is not None and str(chosen_order["生產單號"]) != saved_order_id:
+                        st.session_state.pop("production_manage_saved_order_id", None)
                     if chosen_order is not None:
                         selected_order = pd.Series(chosen_order)
                         selected_code_edit = chosen_order["生產單號"]
@@ -7348,11 +7392,11 @@ elif menu == "生產單管理":
                                     f"已{'恢復' if is_cancelled else '取消'}生產單 {current_order_no}",
                                     icon="✅",
                                 )
-                                st.rerun()
+                                rerun_production_order_workspace()
                     with back_col:
                         if st.button("返回", key=f"cancel_order_lifecycle_{current_order_no}"):
                             st.session_state.pop("confirm_order_lifecycle_id", None)
-                            st.rerun()
+                            rerun_production_order_workspace()
            
         # ====== 修改面板（⚠️ 一定要在外層） ======
         if st.session_state.get("show_edit_panel") and st.session_state.get("editing_order"):
@@ -7473,6 +7517,7 @@ elif menu == "生產單管理":
                                 df_order.loc[mask, key] = val
 
                         st.session_state.df_order = df_order
+                        st.session_state["production_manage_saved_order_id"] = str(order_no)
                         if sync_oem_qty:
                             st.session_state["order_toast"] = {
                                 "msg": f"✅ 生產單 {order_no} 修改完成，並已同步代工單數量",
@@ -7505,8 +7550,10 @@ elif menu == "生產單管理":
                     old_oem_qty = calc_order_oem_qty_kg(order_dict)
                     new_oem_qty = calc_order_oem_qty_kg(updated_order_dict)
 
+                    qty_changed = abs(new_oem_qty - old_oem_qty) > 1e-9
                     try:
-                        df_oem_linked = pd.DataFrame(list_outsourcing_orders(DATABASE_CONFIG))
+                        df_oem_linked = (pd.DataFrame(list_outsourcing_orders(DATABASE_CONFIG))
+                                         if qty_changed else pd.DataFrame())
                         has_linked_oem = (
                             not df_oem_linked.empty
                             and "生產單號" in df_oem_linked.columns
@@ -7515,17 +7562,16 @@ elif menu == "生產單管理":
                     except Exception:
                         has_linked_oem = False
 
-                    qty_changed = abs(new_oem_qty - old_oem_qty) > 1e-9
                     if has_linked_oem and qty_changed:
                         st.session_state["pending_order_update_tab3"] = updated_order_dict
                         st.session_state["pending_oem_sync_qty_tab3"] = new_oem_qty
                         st.session_state["pending_oem_sync_old_qty_tab3"] = old_oem_qty
-                        st.rerun()
+                        rerun_production_order_workspace()
                     else:
                         save_order_edit(updated_order_dict, sync_oem_qty=False)
                         st.session_state.show_edit_panel = False
                         st.session_state.editing_order = None
-                        st.rerun()
+                        rerun_production_order_workspace()
 
             pending_order = st.session_state.get("pending_order_update_tab3")
             if pending_order and str(pending_order.get("生產單號", "")).strip() == str(order_no).strip():
@@ -7543,7 +7589,7 @@ elif menu == "生產單管理":
                         st.session_state.pop("pending_oem_sync_old_qty_tab3", None)
                         st.session_state.show_edit_panel = False
                         st.session_state.editing_order = None
-                        st.rerun()
+                        rerun_production_order_workspace()
                 with c_sync_no:
                     if st.button("略過同步（只改生產單）", key="confirm_sync_oem_no_tab3"):
                         save_order_edit(pending_order, sync_oem_qty=False)
@@ -7552,14 +7598,17 @@ elif menu == "生產單管理":
                         st.session_state.pop("pending_oem_sync_old_qty_tab3", None)
                         st.session_state.show_edit_panel = False
                         st.session_state.editing_order = None
-                        st.rerun()
+                        rerun_production_order_workspace()
         
             with cols_edit[1]:
                 if st.button("返回", key="return_button_tab3"):
                     st.session_state.show_edit_panel = False
                     st.session_state.editing_order = None
-                    st.rerun()
+                    rerun_production_order_workspace()
  
+if menu == "生產單管理":
+    render_production_order_workspace()
+
 # ======== 代工管理分頁 =========
 if menu == "代工管理":
 
