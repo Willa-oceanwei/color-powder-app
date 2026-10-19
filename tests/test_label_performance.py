@@ -52,10 +52,10 @@ prefix = "tab2" if {section!r} == "history" else "tab1"
 st.session_state.setdefault(f"{{prefix}}_big_label_confirmed_P001", [{{"編號": "R001", "名稱": "Red"}}] * 14)
 if {section!r} == "history":
     st.session_state.setdefault("history_labels_open_P001", True)
-    render_order_download_actions(order, b"A5", "P001.html")
+    st.fragment(render_order_download_actions)(order, b"A5", "P001.html")
 else:
     st.session_state.setdefault("show_big_label_P001", True)
-    render_saved_label_section(order, a5_downloaded=False)
+    st.fragment(render_saved_label_section)(order, a5_downloaded=False)
 ''')
 
 
@@ -97,11 +97,11 @@ def test_download_cache_updates_for_paper_positions_and_saved_content(tmp_path):
     app.session_state["tab2_big_label_editor_P001"] = {
         "edited_rows": {0: {"品名": "Changed"}}, "added_rows": [], "deleted_rows": [],
     }
-    app.button(key="tab2_save_labels_P001").click().run()
+    next(button for button in app.button if button.label == '儲存並更新標籤').click().run()
     assert not app.exception and app.session_state["html_generations"] == 3
     assert b"Changed" in app.session_state["tab2_label_render_P001"][1]
     app.radio(key="tab2_label_kind_P001").set_value("小標籤").run()
-    app.button(key="tab2_small_save_labels_P001").click().run()
+    next(button for button in app.button if button.label == '儲存並更新標籤').click().run()
     assert not app.exception and app.session_state["html_generations"] == 4
     app.toggle(key="tab2_small_choose_positions_P001").set_value(True).run()
     assert not app.exception and app.session_state["html_generations"] == 5
@@ -113,3 +113,22 @@ def test_download_cache_updates_for_paper_positions_and_saved_content(tmp_path):
     assert 'left:0.6cm;top:18.25cm;' in html
     app.run()
     assert not app.exception and app.session_state["html_generations"] == 6
+
+
+@pytest.mark.parametrize('section', ['saved', 'history'])
+def test_submitted_cell_edits_keep_editor_save_and_download_available(tmp_path, section):
+    app = performance_app(tmp_path, section).run(timeout=30)
+    prefix = 'tab2' if section == 'history' else 'tab1'
+    for name, count in [('First edit', 3), ('Second edit', 5)]:
+        app.session_state[f'{prefix}_big_label_editor_P001'] = {
+            'edited_rows': {0: {'品名': name, '列印張數': count}},
+            'added_rows': [], 'deleted_rows': [],
+        }
+        next(button for button in app.button if button.label == '儲存並更新標籤').click().run()
+        assert not app.exception
+        assert app.dataframe
+        assert next(button for button in app.button if button.label == '儲存並更新標籤')
+        download = next(item for item in app.get('download_button') if item.proto.label == '下載列印檔')
+        assert not download.proto.disabled
+        assert len(app.session_state[f'{prefix}_big_label_confirmed_P001']) == count
+        assert name.encode() in app.session_state[f'{prefix}_label_render_P001'][1]

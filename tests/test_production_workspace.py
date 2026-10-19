@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pytest
 from streamlit.testing.v1 import AppTest
+from streamlit.runtime.scriptrunner import ScriptRunnerEvent
+from streamlit.testing.v1.local_script_runner import LocalScriptRunner
 
 from utils.database import DatabaseConfig, initialize_database
 from utils.production_order_repository import create_production_order, list_production_orders
@@ -136,3 +138,26 @@ def test_saved_label_panel_survives_lost_table_selection(production_config, labe
     app.button(key='open_labels_tab2_P001').click().run()
     assert not app.exception
     assert 'history_labels_pinned_order_id' not in app.session_state
+
+
+def test_history_label_editor_and_workspace_have_one_render_owner(production_config, monkeypatch):
+    original_init = LocalScriptRunner.__init__
+    fragment_counts = []
+
+    def initialize_runner(runner, *args, **kwargs):
+        original_init(runner, *args, **kwargs)
+
+        def collect_fragments(sender, event, **kwargs):
+            if event == ScriptRunnerEvent.SCRIPT_STOPPED_WITH_SUCCESS:
+                fragment_counts.append(len(runner._fragment_storage._fragments))
+
+        runner.on_event.connect(collect_fragments, weak=False)
+
+    monkeypatch.setattr(LocalScriptRunner, '__init__', initialize_runner)
+    app = workspace_app(production_config)
+    app.session_state['history_labels_open_P001'] = True
+    app.run(timeout=30)
+    assert not app.exception
+    assert fragment_counts == [1]
+    assert any(button.label == '儲存並更新標籤' for button in app.button)
+    assert any(item.proto.label == '下載列印檔' for item in app.get('download_button'))

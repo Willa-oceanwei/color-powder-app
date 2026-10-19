@@ -3313,6 +3313,8 @@ def render_big_label_editor(label_order, *, key_prefix):
     label_version_key = f"{key_prefix}_big_label_version_{order_no_for_label}"
     label_confirmed_key = f"{key_prefix}_big_label_confirmed_{order_no_for_label}"
     label_editor_defaults_key = f"{key_prefix}_big_label_defaults_{order_no_for_label}"
+    label_saved_rows_key = f"{key_prefix}_big_label_saved_rows_{order_no_for_label}"
+    label_editor_key = f"{key_prefix}_big_label_editor_{order_no_for_label}"
     if label_editor_defaults_key not in st.session_state:
         initial_labels = build_big_label_rows(label_order) or [{
             "編號": label_order.get("配方編號", ""),
@@ -3323,6 +3325,8 @@ def render_big_label_editor(label_order, *, key_prefix):
         st.session_state[label_editor_defaults_key] = build_big_label_editor_defaults(
             DATABASE_CONFIG, label_order, initial_labels, **memory_options
         )
+    if label_editor_key not in st.session_state and label_saved_rows_key in st.session_state:
+        st.session_state[label_editor_defaults_key] = [dict(row) for row in st.session_state[label_saved_rows_key]]
     if label_version_key not in st.session_state:
         st.session_state[label_version_key] = 0
 
@@ -3378,7 +3382,7 @@ def render_big_label_editor(label_order, *, key_prefix):
                 width=800,
                 use_container_width=False,
                 height=min(248, max(108, (len(st.session_state[label_editor_defaults_key]) + 2) * 35 + 3)),
-                key=f"{key_prefix}_big_label_editor_{order_no_for_label}",
+                key=label_editor_key,
                 column_config={
                     "編號": st.column_config.TextColumn("編號", width="small"),
                     "品名": st.column_config.TextColumn("品名", width="medium"),
@@ -3417,7 +3421,9 @@ def render_big_label_editor(label_order, *, key_prefix):
                     st.error("標籤內容未能儲存，請稍後再試。")
                     st.session_state[label_confirmed_key] = None
                 else:
-                    st.session_state[label_editor_defaults_key] = editor_rows
+                    # Keep the editor base fixed while its edit deltas are active.
+                    # Downloads use a separate saved snapshot.
+                    st.session_state[label_saved_rows_key] = editor_rows
                     labels = expand_big_label_editor_rows(editor_rows)
                     st.session_state[label_confirmed_key] = labels
                     st.session_state[label_version_key] += 1
@@ -3452,7 +3458,7 @@ def render_big_label_editor(label_order, *, key_prefix):
             mime="text/html",
             key=f"{key_prefix}_download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
             use_container_width=True,
-            disabled=draft_rows != st.session_state[label_editor_defaults_key] or selected_positions == [],
+            disabled=draft_rows != st.session_state.get(label_saved_rows_key, st.session_state[label_editor_defaults_key]) or selected_positions == [],
         )
         with st.expander("分頁預覽", expanded=False):
             page_rows = [
@@ -3468,7 +3474,8 @@ def render_big_label_editor(label_order, *, key_prefix):
                                      key=f"{key_prefix}_download_big_label_pending_{order_no_for_label}")
 
 
-@st.fragment
+# The production workspace owns the complete label editor and download tree.
+# Nested fragments can remove descendant containers during overlapping reruns.
 def render_order_download_actions(label_order, a5_data, a5_filename):
     order_no = str(label_order.get("生產單號", ""))
     open_key = f"history_labels_open_{order_no}"
@@ -3504,7 +3511,6 @@ def render_order_download_actions(label_order, a5_data, a5_filename):
         render_big_label_editor(label_order, key_prefix="tab2")
 
 
-@st.fragment
 def render_saved_label_section(snapshot_order, *, a5_downloaded):
     order_no_for_label = snapshot_order.get("生產單號", "")
     header_col, toggle_col = st.columns([5, 1])
