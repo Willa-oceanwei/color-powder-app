@@ -3450,11 +3450,13 @@ def render_big_label_editor(label_order, *, key_prefix):
             cached_render = (render_signature, big_label_html.encode("utf-8"))
             st.session_state[render_key] = cached_render
         safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
+        safe_recipe_no = re.sub(r'[\\/:*?"<>|]', '-', str(label_order.get("配方編號", "") or "無配方"))
+        label_filename = f"{safe_order_no}_{safe_recipe_no}_小標籤.html" if is_small else f"{safe_order_no}_大標.html"
 
         download_col.download_button(
             label="下載列印檔",
             data=cached_render[1],
-            file_name=f"{safe_order_no}_{'小標籤' if is_small else '大標'}.html",
+            file_name=label_filename,
             mime="text/html",
             key=f"{key_prefix}_download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
             use_container_width=True,
