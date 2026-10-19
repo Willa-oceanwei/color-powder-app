@@ -69,6 +69,6 @@ def test_all_preview_adapters_use_theme_without_changing_downloads():
     statements = (root / "utils/receivable_ui.py").read_text(encoding="utf-8")
     assert "components.html(theme_preview(print_html)" in shipments
     assert "data=print_html" in shipments
-    assert "components.html(dismiss_export_on_preview_click(theme_preview(render_statement_print(" in statements
-    assert 'html = render_statement_print(pages, selected=index, show_receipts=show_receipts, title=title, **print_settings)' in statements
+    assert "components.html(dismiss_export_on_preview_click(theme_preview(html))" in statements
+    assert 'html = render_statement_print(pages, show_receipts=show_receipts, title=title, **print_settings)' in statements
     assert 'id="preview-theme"' in build_paper_preview("Recipe", title="配方")

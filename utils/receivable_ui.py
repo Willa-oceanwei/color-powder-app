@@ -99,6 +99,7 @@ def render_monthly_receipt_summary(config):
                                     for field in ['本期應收', '已收金額', '未收金額']})
 
 
+@st.fragment
 def render_report(config, *, title="應收帳款明細表"):
     customers = list_customers(config, include_inactive=True)
     names = {c["customer_id"]: customer_display_name(c) for c in customers}
@@ -115,6 +116,7 @@ def render_report(config, *, title="應收帳款明細表"):
         paper = options[1].selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"))
         submitted = options[2].form_submit_button("預覽", type="primary", use_container_width=True)
     if submitted:
+        st.session_state.pop("receivable_exports", None)
         try:
             pages = statement_pages(build_statements(config, start, end, lower, upper, hide_empty),
                                     paper_size="A5" if paper.startswith("三聯紙") else "auto" if paper == "依內容自動選擇" else paper)
@@ -131,10 +133,8 @@ def render_report(config, *, title="應收帳款明細表"):
     if not pages:
         st.info("此區間沒有符合條件的出貨資料")
         return
-    index = min(st.session_state.get("receivable_page", 0), len(pages) - 1)
     paper_stock = st.session_state.get("receivable_paper_stock", "standard")
-    controls = st.columns([1, 1, 1, 1, 2, 2])
-    with controls[5].popover("列印／匯出", use_container_width=True), st.container():
+    with st.popover("列印／匯出"), st.container():
         company_name = COMPANY["name"]
         if title == "應收帳款明細表" and st.toggle("抬頭改為加舜企業有限公司", key="receivable_alternate_company", value=False):
             company_name = "加舜企業有限公司"
@@ -144,19 +144,26 @@ def render_report(config, *, title="應收帳款明細表"):
         hole_margin = st.number_input("左右打洞留白（mm）", min_value=0.0, max_value=25.0, value=12.5, step=0.5,
                                       key="receivable_hole_margin", disabled=paper_stock == "standard")
         print_settings = dict(paper_stock=paper_stock, feed_rotation=feed_rotation, hole_margin=hole_margin, company_name=company_name)
-        html = render_statement_print(pages, selected=index, show_receipts=show_receipts, title=title, **print_settings)
+        html = render_statement_print(pages, show_receipts=show_receipts, title=title, **print_settings)
         st.download_button("下載列印版", html, file_name=title + ".html", mime="text/html", use_container_width=True)
-        st.download_button("另存 PDF", statement_pdf(pages, show_receipts=show_receipts, title=title, company_name=company_name), file_name=title + ".pdf", mime="application/pdf", use_container_width=True)
-        statements = list({p["statement"]["customer_id"]: p["statement"] for p in pages}.values())
-        st.download_button("匯出 Excel", statement_excel(statements, show_receipts=show_receipts, title=title, company_name=company_name), file_name=title + ".xlsx",
-                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-    def move(target):
-        st.session_state.receivable_page = target
-    for col, label, target in zip(controls, ("首頁", "上一頁", "下一頁", "末頁"), (0, index - 1, index + 1, len(pages) - 1)):
-        col.button(label, key="receivable_" + label, on_click=move, args=(target,),
-                   disabled=target < 0 or target >= len(pages) or target == index, use_container_width=True)
-    controls[4].write(f"{index + 1} / {len(pages)} · {pages[index]['statement']['customer_id']}")
-    components.html(dismiss_export_on_preview_click(theme_preview(render_statement_print(pages, selected=index, embedded=True, show_receipts=show_receipts, title=title, **print_settings))), height=480, scrolling=True)
+        # Keep generated files private to this session and the current report/settings.
+        signature = (title, company_name, show_receipts)
+        exports = st.session_state.get("receivable_exports")
+        if exports is None or exports["signature"] != signature:
+            exports = {"signature": signature}
+            st.session_state.receivable_exports = exports
+        if st.button("產生 PDF", key="receivable_prepare_pdf", use_container_width=True):
+            exports["pdf"] = statement_pdf(pages, show_receipts=show_receipts, title=title, company_name=company_name)
+        if "pdf" in exports:
+            st.download_button("另存 PDF", exports["pdf"], file_name=title + ".pdf", mime="application/pdf", use_container_width=True)
+        if st.button("產生 Excel", key="receivable_prepare_excel", use_container_width=True):
+            statements = list({p["statement"]["customer_id"]: p["statement"] for p in pages}.values())
+            exports["xlsx"] = statement_excel(statements, show_receipts=show_receipts, title=title, company_name=company_name)
+        if "xlsx" in exports:
+            st.download_button("匯出 Excel", exports["xlsx"], file_name=title + ".xlsx",
+                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+    # Navigation runs inside the iframe: no Streamlit rerun or report regeneration.
+    components.html(dismiss_export_on_preview_click(theme_preview(html)), height=480, scrolling=True)
 
 
 def render_customer_ranking(config):

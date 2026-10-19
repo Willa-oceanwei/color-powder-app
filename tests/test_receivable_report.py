@@ -253,6 +253,15 @@ def test_invalid_report_page_configuration():
 def test_report_ui_navigation_optional_receipt_and_validation(config, monkeypatch):
     import utils.receivable_ui as ui
     headings = []
+    export_calls = []
+    def pdf(*args, **kwargs):
+        export_calls.append(('pdf', kwargs))
+        return b'%PDF-test'
+    def excel(*args, **kwargs):
+        export_calls.append(('xlsx', kwargs))
+        return b'PK-test'
+    monkeypatch.setattr(ui, 'statement_pdf', pdf)
+    monkeypatch.setattr(ui, 'statement_excel', excel)
     original = ui.render_statement_print
     def capture(*args, **kwargs):
         headings.append(kwargs.get('company_name'))
@@ -279,10 +288,27 @@ render_receivable_statement(DatabaseConfig(backend="sqlite",path=Path({str(confi
     assert not app.exception and headings[-1] == '加舜企業有限公司'
     app.toggle(key='receivable_alternate_company').set_value(False).run()
     assert not app.exception and headings[-1] == '佳咊實業有限公司'
-    app.button(key="receivable_下一頁").click().run()
-    assert app.session_state["receivable_page"] == 1
-    app.button(key="receivable_首頁").click().run()
-    assert app.session_state["receivable_page"] == 0
+    # Navigation is local to the iframe and never calls a Streamlit widget.
+    assert not any(w.label in ('首頁', '上一頁', '下一頁', '末頁') for w in app.button)
+    assert export_calls == []
+    app.button(key='receivable_prepare_pdf').click().run()
+    app.button(key='receivable_prepare_excel').click().run()
+    assert not app.exception
+    assert [kind for kind, _ in export_calls] == ['pdf', 'xlsx']
+    assert set(app.session_state['receivable_exports']) == {'signature', 'pdf', 'xlsx'}
+    # A normal rerun reuses prepared bytes; changing output settings discards them.
+    app.run()
+    assert len(export_calls) == 2
+    app.toggle(key='receivable_show_receipts').set_value(True).run()
+    assert set(app.session_state['receivable_exports']) == {'signature'}
+    app.button(key='receivable_prepare_pdf').click().run()
+    assert export_calls[-1][1]['show_receipts'] is True
+    app.toggle(key='receivable_alternate_company').set_value(True).run()
+    assert set(app.session_state['receivable_exports']) == {'signature'}
+    app.button(key='receivable_prepare_excel').click().run()
+    assert export_calls[-1][1]['company_name'] == '加舜企業有限公司'
+    next(w for w in app.button if w.label == '預覽').click().run()
+    assert set(app.session_state['receivable_exports']) == {'signature'}
     next(w for w in app.number_input if w.label == "本次收款金額").set_value(50)
     next(w for w in app.button if w.label == "登錄收款").click().run()
     assert not app.exception
@@ -295,4 +321,19 @@ render_receivable_statement(DatabaseConfig(backend="sqlite",path=Path({str(confi
     next(w for w in app.button if w.label == "作廢收款").click().run()
     assert not app.exception
     assert list_receipts(config, d["id"])[0]["status"] == "void"
+
+
+def test_browser_navigation_preserves_full_print_snapshot(config):
+    shipment(config)
+    shipment(config, 'A02', count=30)
+    pages = statement_pages(build_statements(config, '2026-10-01', '2026-10-31'), paper_size='A4')
+    for stock in ('standard', 'a4_driver'):
+        html = render_statement_print(pages, paper_stock=stock)
+        assert html.count('data-customer-id=') == len(pages)
+        for label in ('首頁', '上一頁', '下一頁', '末頁', '列印全部'):
+            assert '>' + label + '</button>' in html
+        assert 'button.disabled=' in html
+        assert 'customer.dataset.customerId' in html
+        assert '.sheet{display:block!important' in html
+        assert 'fetch(' not in html and 'window.parent.postMessage' not in html
 
