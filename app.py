@@ -4110,6 +4110,17 @@ elif menu == "配方管理":
     # Tab 1：配方建立
     # ============================================================
     with tab1:
+
+        def clear_recipe_creation():
+            # A submit callback clears all submitted form values before rebuilding widgets.
+            for key in list(st.session_state.keys()):
+                if key.startswith("form_recipe_") or key in ("ratio1", "ratio2", "ratio3"):
+                    st.session_state.pop(key, None)
+            st.session_state.form_recipe = None
+            st.session_state.edit_recipe_index = None
+            st.session_state.num_powder_rows = 5
+            st.session_state.add_powder_clicked = False
+            st.session_state.pop("recipe_toast", None)
     
         # ===== 配方 toast 顯示（rerun 後觸發）=====
         if st.session_state.get("recipe_toast"):
@@ -4241,11 +4252,14 @@ elif menu == "配方管理":
                     st.write("合計差額: 計算錯誤")
     
             # ---------------- 按鈕區 ----------------
-            col1, col2 = st.columns([3,2])
+            col1, col2, clear_col, _ = st.columns([1.4, 1.6, 0.45, 4], vertical_alignment="center")
             with col1:
                 submitted  = st.form_submit_button("💾 儲存配方")
             with col2:
                 add_powder = st.form_submit_button("➕ 新增色粉列")
+            with clear_col:
+                st.form_submit_button("↺", on_click=clear_recipe_creation,
+                                      help="清空本次配方輸入並恢復預設值（已儲存配方會保留）")
     
             # ── 表單提交後處理 ──
             if submitted:
