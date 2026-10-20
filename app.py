@@ -2312,7 +2312,7 @@ def calculate_shipment_display(order_row, recipe_df):
             results.append(f"{fmt_num(show_weight, 2)}{label}*{fmt_num(count, 2)}")
     return " + ".join(results)
 
-def reset_production_order_draft_state(session_state, new_order_no, new_recipe_code):
+def reset_production_order_draft_state(session_state, new_order_no, new_recipe_code, *, force=False):
     """Clear recipe-dependent widgets when the production-order draft changes.
 
     A newly selected recipe can receive the same next order number as the previous
@@ -2324,7 +2324,7 @@ def reset_production_order_draft_state(session_state, new_order_no, new_recipe_c
         str(previous_order.get("生產單號", "")).strip() == str(new_order_no).strip()
         and str(previous_order.get("配方編號", "")).strip() == str(new_recipe_code).strip()
     )
-    if same_draft:
+    if same_draft and not force:
         return False
 
     recipe_widget_keys = (
@@ -6021,7 +6021,16 @@ def render_production_order_workspace():
         # ⚠️ 這裡故意不用 st.form：表單裡的欄位要等「送出」才會生效，
         # 之前搜尋框包在表單裡，換配方編號打完字後下面的結果不會馬上更新，
         # 一定要按 Enter/新增或重新整理才會生效，改成一般元件後打完就會立刻反應。
-        col1, col2 = st.columns([5, 1])
+        def clear_production_draft():
+            # Button callbacks run before widgets, so their state can be reset safely.
+            draft = st.session_state.get("new_order") or {}
+            clear_production_merge_cache(draft.get("配方編號", ""))
+            reset_production_order_draft_state(st.session_state, "", "", force=True)
+            st.session_state["search_text_tab1"] = ""
+            st.session_state["search_add_form_selected_recipe_tab1"] = "請選擇"
+            st.session_state["production_draft_cleared"] = True
+
+        col1, col2, clear_col, _ = st.columns([3, 1, 0.5, 8], vertical_alignment="center")
 
         with col1:
             search_text_tab1 = st.text_input(
@@ -6033,6 +6042,8 @@ def render_production_order_workspace():
 
         with col2:
             add_btn = st.button("➕ 新增", key="search_add_btn_tab1")
+        clear_col.button("↺", key="clear_production_draft_tab1", on_click=clear_production_draft,
+                         help="清空目前輸入與配方選取，開始下一張生產單（已儲存資料會保留）")
         
         # ===== 關鍵字拆分 =====
         keywords = split_search_keywords(search_text_tab1)
@@ -6083,7 +6094,7 @@ def render_production_order_workspace():
             selected_label = None
         
         
-        elif len(option_map) == 1:
+        elif len(option_map) == 1 and (keywords or not st.session_state.get("production_draft_cleared", False)):
         
             selected_label = list(option_map.keys())[0]
             selected_row = option_map[selected_label].copy()
