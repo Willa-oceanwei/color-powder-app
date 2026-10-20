@@ -3304,7 +3304,9 @@ window.addEventListener('beforeprint', fitLabelText);
 def render_big_label_editor(label_order, *, key_prefix):
     """Edit and print labels from either a newly saved or historical order."""
     order_no_for_label = str(label_order.get("生產單號", ""))
-    label_kind = st.radio("標籤類型", ["大標籤", "小標籤"], horizontal=True,
+    st.caption(f"生產單 {order_no_for_label} · 配方 {label_order.get('配方編號', '')}")
+    kind_col, paper_col, position_col = st.columns([1.2, 1.5, 1.3], vertical_alignment="center")
+    label_kind = kind_col.radio("標籤類型", ["大標籤", "小標籤"], horizontal=True,
                          key=f"{key_prefix}_label_kind_{order_no_for_label}")
     is_small = label_kind == "小標籤"
     memory_options = {"label_kind": "small"} if is_small else {}
@@ -3350,21 +3352,19 @@ def render_big_label_editor(label_order, *, key_prefix):
         .big-label-form-anchor { display: none; }
         </style>
     """, unsafe_allow_html=True)
-    st.markdown(f"##### {label_kind}內容")
-    st.caption(f"生產單 {order_no_for_label} · 配方 {label_order.get('配方編號', '')}")
     paper_options = ["A4／100%", "自訂 14×23 公分／100%"] if is_small else ["A4／100%", "自訂 12×32 公分／100%"]
     paper_key = f"{key_prefix}_label_paper_{order_no_for_label}"
     if is_small:
         paper_key += "_a4_v2"
-    paper_choice = st.selectbox("列印紙張", paper_options,
+    paper_choice = paper_col.selectbox("列印紙張", paper_options,
                                 key=paper_key)
     editor_columns = [col for col in BIG_LABEL_EDITOR_COLUMNS if not is_small or col != "數量"]
     selected_positions = None
-    if is_small and st.toggle("指定列印位置", value=False,
+    if is_small and position_col.toggle("指定列印位置", value=False,
                               key=f"{key_prefix}_choose_positions_{order_no_for_label}"):
         selected_positions = []
-        for row_index in range(5):
-            for column_index, column in enumerate(st.columns(2)):
+        for row_index, column in enumerate(st.columns(5)):
+            for column_index in range(2):
                 position = row_index * 2 + column_index
                 if column.checkbox(f"{'左' if column_index == 0 else '右'}第 {row_index + 1} 排",
                                    key=f"{key_prefix}_position_{order_no_for_label}_{position}"):
@@ -3401,7 +3401,8 @@ def render_big_label_editor(label_order, *, key_prefix):
                                              use_container_width=True)
             draft_rows = normalize_big_label_editor_rows(edited_label_rows.to_dict(orient="records"))
             draft_count = sum(row["列印張數"] for row in draft_rows)
-            count_col.caption(f"{len(draft_rows)} 種內容 · {draft_count} 張標籤")
+            count_status = count_col.empty()
+            count_status.caption(f"{len(draft_rows)} 種內容 · {draft_count} 張標籤")
 
         if confirm_clicked:
             editor_rows = normalize_big_label_editor_rows(
@@ -3435,7 +3436,7 @@ def render_big_label_editor(label_order, *, key_prefix):
     if confirmed_rows:
         page_size = max(1, len(selected_positions)) if selected_positions is not None else 10 if is_small else 4
         sheets_needed = 0 if selected_positions == [] else -(-len(confirmed_rows) // page_size)
-        st.caption(f"標籤 {len(confirmed_rows)} 張 · {label_kind}紙 {sheets_needed} 張")
+        count_status.caption(f"{len(draft_rows)} 種內容 · {draft_count} 張標籤 · {label_kind}紙 {sheets_needed} 張")
         render_key = f"{key_prefix}_label_render_{order_no_for_label}"
         render_signature = (st.session_state[label_version_key], paper_choice,
                             None if selected_positions is None else tuple(selected_positions))
