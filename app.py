@@ -1873,7 +1873,12 @@ def render_metric_cards(items):
     for col, (label, value, accent) in zip(cols, items):
         s = accent_style.get(accent, accent_style["neutral"])
         col.markdown(f"""
-        <div style="background:#0d1b2a;border:1px solid rgba(255,255,255,0.08);
+        <style>
+        [data-testid="stMarkdownContainer"]:has(> .summary-metric-card) {{
+            margin-bottom: 0;
+        }}
+        </style>
+        <div class="summary-metric-card" style="background:#0d1b2a;border:1px solid rgba(255,255,255,0.08);
                     border-radius:10px;padding:10px 14px;">
             <div style="font-size:11px;color:{s['sub']};margin-bottom:4px;">{label}</div>
             <div style="font-size:18px;font-weight:700;color:{s['fg']};">{value}</div>
@@ -8067,7 +8072,7 @@ if menu == "代工管理":
                     new_remark = st.text_area(
                         "備註",
                         key="oem_remark",
-                        height=120
+                        height=80
                     )
 
                     # 計算已送達 / 尚餘
@@ -8086,7 +8091,7 @@ if menu == "代工管理":
 
                     render_metric_cards([
                         ("已送達 (kg)", f"{total_delivered:g}", "neutral"),
-                        ("尚餘 (kg)", f"{remaining:g}", "accent"),
+                        ("尚可送達 (kg)", f"{remaining:g}", "accent"),
                         ("送達上限 (kg)", f"{delivery_limit:g}", "neutral"),
                     ])
 
@@ -8109,10 +8114,11 @@ if menu == "代工管理":
                         st.session_state.df_oem.loc[mask, "目標載回數量"] = target_qty
                         st.session_state.df_oem.loc[mask, "轉換倍率"] = multiplier
 
-                    b1, b2 = st.columns(2)
+                    b1, b2, _ = st.columns([1.3, 1.2, 3.5], vertical_alignment="center")
 
                     with b1:
-                        if st.button("💾 更新代工資訊", key="update_oem_info", disabled=not identity_valid):
+                        if st.button("💾 更新代工資訊", key="update_oem_info", disabled=not identity_valid,
+                                     use_container_width=True):
                             if is_closed:
                                 st.error("❌ 已結案代工單不可修改")
                             elif new_target_qty <= 0:
@@ -8123,7 +8129,7 @@ if menu == "代工管理":
                                 st.rerun()
 
                     with b2:
-                        if st.button("🗑️ 刪除代工單", key="delete_oem"):
+                        if st.button("🗑️ 刪除代工單", key="delete_oem", use_container_width=True):
                             if is_closed:
                                 st.error("❌ 已結案代工單不可刪除")
                             else:
