@@ -105,6 +105,22 @@ def test_customer_form_add_edit_cancel_and_clear(config):
     assert app.selectbox(key="customer_action_id").value is None
 
 
+def test_add_customers_when_customer_picker_is_already_rendered(config):
+    create_customer(config, CustomerInput("C01", "Existing customer"))
+    app = customer_app(config)
+    for customer_id in ("C02", "C03"):
+        app.tabs[1].text_input[0].set_value(customer_id)
+        app.tabs[1].text_input[1].set_value(f"Customer {customer_id}")
+        next(w for w in app.button if w.label == "新增客戶").click().run()
+        assert not app.exception
+        assert app.selectbox(key="customer_action_id").value is None
+        assert app.tabs[1].text_input[0].value == ""
+        assert app.session_state["editing_customer_id"] == ""
+    app.run()
+    assert not app.exception
+    assert {row["customer_id"] for row in list_customers(config)} == {"C01", "C02", "C03"}
+
+
 def test_customer_selection_identity_validation_and_cancel(config):
     create_customer(config, CustomerInput("C01", "範例完整名稱", short_name="範例", address="原地址"))
     create_customer(config, CustomerInput("C02", "另一家完整名稱", address="另一地址"))

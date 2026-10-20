@@ -3728,6 +3728,10 @@ elif menu == "客戶名單":
         from streamlit.runtime.scriptrunner import get_script_run_ctx
         from utils.customer_repository import get_customer
 
+        # Reset widget state before the picker is created, including fragment reruns.
+        if st.session_state.pop("customer_reset_selection", False):
+            st.session_state.customer_action_id = None
+
         def rerun_customer_workspace():
             context = get_script_run_ctx()
             if context is not None and context.fragment_ids_this_run:
@@ -3832,7 +3836,7 @@ elif menu == "客戶名單":
                     cancel_customer = cancel_col.form_submit_button("取消編輯", use_container_width=True) if editing_id else False
                 if cancel_customer:
                     st.session_state.editing_customer_id = ""
-                    st.session_state.customer_action_id = None
+                    st.session_state.customer_reset_selection = True
                     st.session_state.customer_form_epoch = st.session_state.get("customer_form_epoch", 0) + 1
                     customer_editor.empty()
                     rerun_customer_workspace()
@@ -3848,7 +3852,7 @@ elif menu == "客戶名單":
                             create_customer(DATABASE_CONFIG, data)
                             message = f"已新增客戶 {customer_id.strip()}"
                         st.session_state.editing_customer_id = ""
-                        st.session_state.customer_action_id = None
+                        st.session_state.customer_reset_selection = True
                         st.session_state.customer_form_epoch = st.session_state.get("customer_form_epoch", 0) + 1
                         st.session_state.pop("customer_workspace_snapshot", None)
                         st.session_state.pop("shipment_page_cache", None)
@@ -3870,7 +3874,7 @@ elif menu == "客戶名單":
                             st.session_state.pop("shipment_page_cache", None)
                             st.session_state.pop("shipment_read_cache", None)
                             st.session_state.editing_customer_id = ""
-                            st.session_state.customer_action_id = None
+                            st.session_state.customer_reset_selection = True
                             st.toast(f"已停用 {editing_id}", icon="🗄️")
                             customer_editor.empty()
                             rerun_customer_workspace()
