@@ -2968,6 +2968,7 @@ def generate_print_page_content(order, recipe_row, additional_recipe_rows=None, 
                 font-family: 'Courier New', Courier, monospace;
                 font-size: 22px;
                 line-height: 1.4;
+                transform: translateX(0.2cm);
             }
             .title {
                 text-align: center;
