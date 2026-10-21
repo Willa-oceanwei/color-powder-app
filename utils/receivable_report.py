@@ -200,7 +200,7 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
     if paper_stock in ("triplicate", "a4_driver"):
         sheets = [stock_sheet(sheet, active=index == selected) for index, sheet in enumerate(sheets)]
     zoom = '<label for="zoom">縮放</label><select id="zoom" onchange="resize()"><option value="width">符合寬度</option><option value="page" selected>整頁</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select>'
-    toolbar = '<button onclick="window.print()">列印全部</button>' if embedded else '''<button id="first" onclick="move(-sheets.length)">首頁</button><button id="previous" onclick="move(-1)">上一頁</button><span id="page" role="status" aria-live="polite"></span><button id="next" onclick="move(1)">下一頁</button><button id="last" onclick="move(sheets.length)">末頁</button><button onclick="window.print()">列印全部</button>'''
+    toolbar = '<button onclick="window.print()">列印全部</button>' if embedded else '''<button id="first" onclick="move(-sheets.length)">首頁</button><button id="previous" title="上一頁（Page Up）" onclick="move(-1)">上一頁</button><span id="page" role="status" aria-live="polite"></span><button id="next" title="下一頁（Page Down）" onclick="move(1)">下一頁</button><button id="last" onclick="move(sheets.length)">末頁</button><button onclick="window.print()">列印全部</button>'''
     preview_style = """@media screen{.sheet{zoom:var(--preview-zoom,.6)}
 .toolbar.toolbar{font-size:12px;gap:5px;padding:4px 6px}
 .toolbar.toolbar button,.toolbar.toolbar select{min-height:28px;padding:3px 7px}
@@ -245,6 +245,31 @@ td:nth-child(6){padding-right:2mm}td:nth-child(7){text-align:center}
 @media print{body{background:white}.toolbar{display:none}.preview-stage{height:auto!important;overflow:visible;padding:0}.sheet{display:block!important;margin:0;zoom:1;page-break-after:always}.sheet:last-child{break-after:auto;page-break-after:auto}}
 '''.replace('<title>應收帳款明細表</title>', '<title>' + text(title) + '</title>') + preview_style + '</style></head><body><div class="toolbar">' + toolbar + zoom + '</div><div class="preview-stage">' + "".join(sheets) + f'''
 </div><script>let current={max(0, min(selected, len(pages)-1))};const sheets=Array.from(document.querySelectorAll('.sheet'));const stage=document.querySelector('.preview-stage');function move(delta){{if(sheets[current])sheets[current].classList.remove('active');current=Math.max(0,Math.min(sheets.length-1,current+delta));if(sheets[current])sheets[current].classList.add('active');const counter=document.getElementById('page');const sheet=sheets[current];const customer=sheet&&(sheet.matches('[data-customer-id]')?sheet:sheet.querySelector('[data-customer-id]'));if(counter)counter.textContent=(sheets.length?current+1:0)+' / '+sheets.length+(customer?' · '+customer.dataset.customerId:'');for(const id of ['first','previous','next','last']){{const button=document.getElementById(id);if(button)button.disabled=!sheets.length||((id==='first'||id==='previous')?current===0:current===sheets.length-1);}}stage.scrollTo(0,0);resize();}}function resize(){{const value=document.getElementById('zoom').value;const height=Math.max(160,innerHeight-document.querySelector('.toolbar').offsetHeight);stage.style.height=height+'px';const paper=sheets[current];const widthScale=(stage.clientWidth-24)/(paper?paper.offsetWidth:794);const scale=value==='width'?widthScale:value==='page'?Math.min(widthScale,(height-24)/(paper?paper.offsetHeight:559)):Number(value);document.documentElement.style.setProperty('--preview-zoom',Math.max(.2,scale));}}addEventListener('resize',resize);move(0);</script></body></html>'''
+    keyboard_navigation = """<script id="statement-page-keys">
+const statementFrame=window.frameElement;
+function pageKey(event){
+if(event.defaultPrevented||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
+if(event.key!=='PageUp'&&event.key!=='PageDown')return;
+const target=event.target;
+if(target&&typeof target.closest==='function'&&target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="combobox"],[role="listbox"]'))return;
+if(statementFrame&&(!statementFrame.isConnected||!statementFrame.getClientRects().length))return;
+try{if(window.parent.document.querySelector('[data-testid="stPopoverBody"]'))return;}catch(error){}
+event.preventDefault();move(event.key==='PageDown'?1:-1);
+}
+document.addEventListener('keydown',pageKey);
+try{
+if(window.parent!==window){
+const parentWindow=window.parent;
+if(parentWindow.__statementPageKeys)parentWindow.__statementPageKeys();
+parentWindow.document.addEventListener('keydown',pageKey);
+const cleanup=()=>{parentWindow.document.removeEventListener('keydown',pageKey);
+if(parentWindow.__statementPageKeys===cleanup)delete parentWindow.__statementPageKeys;};
+parentWindow.__statementPageKeys=cleanup;
+window.addEventListener('pagehide',cleanup,{once:true});
+}
+}catch(error){}
+</script>"""
+    html = html.replace("</body>", keyboard_navigation + "</body>")
     if paper_stock in ("triplicate", "a4_driver"):
         html = html.replace("querySelectorAll('.sheet')", "querySelectorAll('.stock-page')")
         trim = '''function trimPages(){const p=sheets[current];if(!p)return;const sheet=p.querySelector('.sheet'),last=sheet.querySelector('.summary')||sheet.querySelector('.company-info');const m=new DOMMatrix(getComputedStyle(sheet).transform);if(last&&Math.abs(m.b)<.001){const end=last.offsetTop+last.offsetHeight+parseFloat(getComputedStyle(sheet).paddingBottom);p.style.setProperty('--statement-content-height',(end*m.a+m.f)+'px');}}
