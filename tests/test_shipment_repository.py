@@ -1,4 +1,5 @@
 from copy import deepcopy
+from contextlib import contextmanager
 from decimal import Decimal
 
 import pytest
@@ -28,6 +29,81 @@ def document():
     result['items'] = [dict(code='69570M', name='藍', quantity='50', unit='KG', price='260', order_number='O1', notes=''),
                        dict(code='69960M', name='白', quantity='100', unit='KG', price='241', order_number='O1', notes='')]
     return result
+
+
+@pytest.mark.parametrize("item_count", [1, 25, 201, 401])
+def test_save_batches_items_and_returns_committed_snapshot_without_reread(config, monkeypatch, item_count):
+    from utils import shipment_repository as repo
+    original = repo.connect_from_config
+    connections, inserts = [], []
+    @contextmanager
+    def spy(config):
+        connections.append(1)
+        with original(config) as conn:
+            class Spy:
+                def execute(self, sql, args=()):
+                    if sql.startswith("INSERT INTO shipment_order_items"):
+                        inserts.append(len(args))
+                    return conn.execute(sql, args)
+            yield Spy()
+    monkeypatch.setattr(repo, "connect_from_config", spy)
+    doc = document()
+    doc.update(number_mode="manual", shipment_number="BATCH")
+    doc["items"] = [dict(doc["items"][0], code=f"P{i:04}") for i in range(item_count)]
+    for version in (1, 2):
+        connections.clear()
+        inserts.clear()
+        saved = repo.save_shipment(config, doc)
+        assert len(connections) == 1
+        assert len(inserts) == (item_count + 199) // 200 and max(inserts) <= 600
+        assert saved["version"] == version
+        assert [r["code"] for r in saved["items"]] == [r["code"] for r in doc["items"]]
+        assert repo.get_shipment(config, saved["id"]) == saved
+        doc = deepcopy(saved)
+        doc["notes"] = "Updated"
+        doc["items"].reverse()
+
+
+def test_batched_edit_rolls_back_every_item_and_version_on_invoice_conflict(config):
+    first = document()
+    first["invoice"].update(number="INV-FIRST", date="2026-10-01")
+    saved = save_shipment(config, first)
+    second = document()
+    second["invoice"].update(number="INV-SECOND", date="2026-10-01")
+    save_shipment(config, second)
+    edit = deepcopy(saved)
+    edit["items"] = [dict(edit["items"][0], code=f"NEW{i}") for i in range(201)]
+    edit["invoice"]["number"] = "INV-SECOND"
+    with pytest.raises(ShipmentError, match="發票編號"):
+        save_shipment(config, edit)
+    assert get_shipment(config, saved["id"]) == saved
+
+
+def test_save_does_not_return_success_when_commit_fails(config, monkeypatch):
+    from utils import shipment_repository as repo
+    original = repo.connect_from_config
+    @contextmanager
+    def fail_at_commit(config):
+        with original(config) as conn:
+            yield conn
+            raise RuntimeError("commit failed")
+    monkeypatch.setattr(repo, "connect_from_config", fail_at_commit)
+    with pytest.raises(RuntimeError, match="commit failed"):
+        repo.save_shipment(config, document())
+    monkeypatch.setattr(repo, "connect_from_config", original)
+    assert list_shipments(config) == []
+
+
+@pytest.mark.parametrize("query", ["", "69570", "C01", "範例"])
+def test_summary_search_preserves_matches_without_shipping_full_payload(config, query):
+    doc = document()
+    doc["notes"] = "Long shipment notes " * 100
+    saved = save_shipment(config, doc)
+    full = list_shipments(config, query=query)
+    summary = list_shipments(config, query=query, summary=True)
+    assert len(full) == len(summary) == 1 and summary[0]["id"] == saved["id"]
+    assert "payload_json" not in summary[0]
+    assert summary == [{key: row[key] for key in summary[0]} for row in full]
 
 
 def test_customer_purchase_history_dates_units_customer_and_voids(config):

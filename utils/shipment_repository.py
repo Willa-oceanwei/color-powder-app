@@ -199,7 +199,7 @@ def _validated(document):
 
 
 @cached_read
-def list_shipments(config, *, query="", start=None, end=None, include_void=False, customer_start="", customer_end=""):
+def list_shipments(config, *, query="", start=None, end=None, include_void=False, customer_start="", customer_end="", summary=False):
     if start:
         start = _valid_date(start, "起始出貨日期")
     if end:
@@ -213,10 +213,9 @@ def list_shipments(config, *, query="", start=None, end=None, include_void=False
     if not include_void:
         clauses.append("status='draft'")
     if query:
-        clauses.append("(shipment_number LIKE ? OR customer_id LIKE ? OR customer_name LIKE ? OR EXISTS "
-                       "(SELECT 1 FROM shipment_order_items i WHERE i.shipment_id=shipment_orders.id "
-                       "AND json_extract(i.payload_json,'$.code') LIKE ?) OR EXISTS "
-                       "(SELECT 1 FROM customer_aliases a WHERE a.customer_id=shipment_orders.customer_id AND a.alias LIKE ?))")
+        clauses.append("(shipment_number LIKE ? OR customer_id LIKE ? OR customer_name LIKE ? OR id IN "
+                       "(SELECT i.shipment_id FROM shipment_order_items i WHERE json_extract(i.payload_json,'$.code') LIKE ?) "
+                       "OR customer_id IN (SELECT a.customer_id FROM customer_aliases a WHERE a.alias LIKE ?))")
         args.extend([f"%{query}%"] * 5)
     for value, operator in ((start, ">="), (end, "<=")):
         if value:
@@ -227,8 +226,9 @@ def list_shipments(config, *, query="", start=None, end=None, include_void=False
             clauses.append(f"customer_id {operator} ?")
             args.append(value)
     where = "WHERE " + " AND ".join(clauses) if clauses else ""
+    fields = "id,shipment_number,shipment_date,customer_id,customer_name,net_amount,status,version" if summary else "*"
     with connect_from_config(config) as conn:
-        return _mappings(conn.execute(f"SELECT * FROM shipment_orders {where} ORDER BY shipment_date,shipment_number,id", tuple(args)))
+        return _mappings(conn.execute(f"SELECT {fields} FROM shipment_orders {where} ORDER BY shipment_date,shipment_number,id", tuple(args)))
 
 
 def get_shipment(config, shipment_id):
@@ -242,11 +242,18 @@ def get_shipment(config, shipment_id):
         row = dict(rows[0])
         invoice = row.pop("invoice_payload")
         row.pop("item_payload")
-        result = json.loads(row.pop("payload_json"))
-        result.update(row)
-        result["items"] = [json.loads(item["item_payload"]) for item in rows if item["item_payload"] is not None]
-        result["invoice"] = json.loads(invoice) if invoice else blank_shipment()["invoice"]
-        return result
+        return _shipment_document(row,
+            [json.loads(item["item_payload"]) for item in rows if item["item_payload"] is not None],
+            json.loads(invoice) if invoice else blank_shipment()["invoice"])
+
+
+def _shipment_document(row, items, invoice):
+    row = dict(row)
+    result = json.loads(row.pop("payload_json"))
+    result.update(row)
+    result["items"] = items
+    result["invoice"] = invoice
+    return result
 
 
 def _next_number(conn, shipment_date):
@@ -305,22 +312,27 @@ def save_shipment(config, document, *, sync_products=False):
             changed = _mapping(conn.execute(
                 """UPDATE shipment_orders SET shipment_number=?,shipment_date=?,customer_id=?,customer_name=?,payload_json=?,
                    net_amount=?,tax_amount=?,total_amount=?,version=version+1,updated_at=?
-                   WHERE id=? AND version=? AND status='draft' RETURNING id""",
+                   WHERE id=? AND version=? AND status='draft' RETURNING *""",
                 (number, header["shipment_date"], header["customer_id"], header["customer_name"], json.dumps(header, ensure_ascii=False),
                  amounts["net_amount"], amounts["tax_amount"], amounts["total_amount"], now, shipment_id, document.get("version"))))
             if not changed:
                 raise ShipmentError("單據已被其他人修改，請取消編輯後重新讀取")
+            stored = changed
         else:
             if document.get("id"):
                 raise ShipmentError("原出貨單已不存在，不能另存為新單")
-            conn.execute("""INSERT INTO shipment_orders(id,shipment_number,shipment_date,customer_id,customer_name,
+            stored = _mapping(conn.execute("""INSERT INTO shipment_orders(id,shipment_number,shipment_date,customer_id,customer_name,
                          payload_json,net_amount,tax_amount,total_amount,created_at,updated_at)
-                         VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?) RETURNING *""",
                          (shipment_id, number, header["shipment_date"], header["customer_id"], header["customer_name"],
-                          json.dumps(header, ensure_ascii=False), amounts["net_amount"], amounts["tax_amount"], amounts["total_amount"], now, now))
+                          json.dumps(header, ensure_ascii=False), amounts["net_amount"], amounts["tax_amount"], amounts["total_amount"], now, now)))
         conn.execute("DELETE FROM shipment_order_items WHERE shipment_id=?", (shipment_id,))
-        for line, item in enumerate(items, 1):
-            conn.execute("INSERT INTO shipment_order_items VALUES (?,?,?)", (shipment_id, line, json.dumps(item, ensure_ascii=False)))
+        # One round trip per batch, with a conservative 600 SQL parameters at most.
+        for offset in range(0, len(items), 200):
+            batch = items[offset:offset + 200]
+            parameters = tuple(value for line, item in enumerate(batch, offset + 1)
+                               for value in (shipment_id, line, json.dumps(item, ensure_ascii=False)))
+            conn.execute("INSERT INTO shipment_order_items VALUES " + ",".join(["(?,?,?)"] * len(batch)), parameters)
         owner = _mapping(conn.execute("SELECT shipment_id FROM shipment_invoices WHERE invoice_number=? AND shipment_id!=?",
                                       (invoice["number"], shipment_id))) if invoice["number"] else None
         if owner:
@@ -331,7 +343,8 @@ def save_shipment(config, document, *, sync_products=False):
         if sync_products:
             from .shipment_catalog import sync_shipment_products
             sync_shipment_products(config, conn, items, header["tax_mode"])
-    return get_shipment(config, shipment_id)
+    # Return only after the context manager has committed successfully.
+    return _shipment_document(stored, items, invoice)
 
 
 def void_shipment(config, shipment_id, version, reason):

@@ -346,7 +346,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
             include_void=st.session_state.get("shipment_include_void", False),
             customer_start=st.session_state.get("shipment_customer_start", ""),
-            customer_end=st.session_state.get("shipment_customer_end", "")))
+            customer_end=st.session_state.get("shipment_customer_end", ""), summary=True))
     if st.session_state.get("shipment_search_epoch"):
         with st.expander(f"查詢結果 · {len(records)} 筆", expanded=True):
             if records:
@@ -381,7 +381,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             list_shipments(config, start=st.session_state.get("shipment_start"), end=st.session_state.get("shipment_end"),
                            include_void=st.session_state.get("shipment_include_void", False),
                            customer_start=st.session_state.get("shipment_customer_start", ""),
-                           customer_end=st.session_state.get("shipment_customer_end", "")),
+                           customer_end=st.session_state.get("shipment_customer_end", ""), summary=True),
             key=lambda row: (row["shipment_number"], row["id"])))
     ids = [row["id"] for row in navigation_records]
     selected = st.session_state.get("shipment_selected")
