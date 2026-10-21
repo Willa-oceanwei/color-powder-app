@@ -250,6 +250,33 @@ td:nth-child(6){padding-right:2mm}td:nth-child(7){text-align:center}
 @media print{body{background:white}.toolbar{display:none}.preview-stage{height:auto!important;overflow:visible;padding:0}.sheet{display:block!important;margin:0;zoom:1;page-break-after:always}.sheet:last-child{break-after:auto;page-break-after:auto}}
 '''.replace('<title>應收帳款明細表</title>', '<title>' + text(title) + '</title>') + preview_style + '</style></head><body><div class="toolbar">' + toolbar + zoom + '</div><div class="preview-stage">' + "".join(sheets) + f'''
 </div><script>let current={max(0, min(selected, len(pages)-1))};const sheets=Array.from(document.querySelectorAll('.sheet'));const stage=document.querySelector('.preview-stage');function move(delta){{if(sheets[current])sheets[current].classList.remove('active');current=Math.max(0,Math.min(sheets.length-1,current+delta));if(sheets[current])sheets[current].classList.add('active');const counter=document.getElementById('page');const sheet=sheets[current];const customer=sheet&&(sheet.matches('[data-customer-id]')?sheet:sheet.querySelector('[data-customer-id]'));if(counter)counter.textContent=(sheets.length?current+1:0)+' / '+sheets.length+(customer?' · '+customer.dataset.customerId:'');for(const id of ['first','previous','next','last']){{const button=document.getElementById(id);if(button)button.disabled=!sheets.length||((id==='first'||id==='previous')?current===0:current===sheets.length-1);}}stage.scrollTo(0,0);resize();}}function resize(){{const value=document.getElementById('zoom').value;const height=Math.max(160,innerHeight-document.querySelector('.toolbar').offsetHeight);stage.style.height=height+'px';const paper=sheets[current];const widthScale=(stage.clientWidth-24)/(paper?paper.offsetWidth:794);const scale=value==='width'?widthScale:value==='page'?Math.min(widthScale,(height-24)/(paper?paper.offsetHeight:559)):Number(value);document.documentElement.style.setProperty('--preview-zoom',Math.max(.2,scale));}}addEventListener('resize',resize);move(0);</script></body></html>'''
+    # Select whole customer statements, including continuation pages and stock wrappers.
+    html = html.replace('<button onclick="window.print()">列印全部</button>',
+                        '<button id="print-customer" onclick="printCustomer()" title="列印目前客戶的所有頁面">列印此客戶</button>'
+                        '<button onclick="printAll()">列印全部</button>')
+    html = html.replace('</style>', '@media print{.preview-stage>.print-omit{display:none!important}'
+                        '.preview-stage>.print-last{break-after:auto!important;page-break-after:auto!important}}</style>', 1)
+    customer_print = """<script id="statement-customer-print">
+function customerId(page){
+const customer=page&&(page.matches('[data-customer-id]')?page:page.querySelector('[data-customer-id]'));
+return customer?customer.dataset.customerId:null;
+}
+function clearPrintSelection(){
+sheets.forEach(page=>page.classList.remove('print-omit','print-last'));
+}
+function printCustomer(){
+clearPrintSelection();
+const id=customerId(sheets[current]);
+if(id===null)return;
+const selected=sheets.filter(page=>customerId(page)===id);
+sheets.forEach(page=>page.classList.toggle('print-omit',customerId(page)!==id));
+selected[selected.length-1].classList.add('print-last');
+try{window.print();}catch(error){clearPrintSelection();throw error;}
+}
+function printAll(){clearPrintSelection();window.print();}
+window.addEventListener('afterprint',clearPrintSelection);
+</script>"""
+    html = html.replace('</body>', customer_print + '</body>')
     keyboard_navigation = """<script id="statement-page-keys">
 const statementFrame=window.frameElement;
 function pageKey(event){

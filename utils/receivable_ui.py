@@ -159,33 +159,42 @@ def render_report(config, *, title="應收帳款明細表"):
         st.info("此區間沒有符合條件的出貨資料")
         return
     paper_stock = st.session_state.get("receivable_paper_stock", "standard")
+    st.markdown('''<style>
+    [data-testid="stPopoverBody"]:has(#receivable-export-panel){
+        width:min(620px,calc(100vw - 32px))!important;
+        max-width:calc(100vw - 32px)!important}
+    </style>''', unsafe_allow_html=True)
     with export_col.popover("列印／匯出", use_container_width=True), st.container():
+        st.markdown('<span id="receivable-export-panel"></span>', unsafe_allow_html=True)
+        heading_col, receipt_col = st.columns(2)
         company_name = COMPANY["name"]
-        if title == "應收帳款明細表" and st.toggle("抬頭改為加舜企業有限公司", key="receivable_alternate_company", value=False):
+        if title == "應收帳款明細表" and heading_col.toggle("抬頭改為加舜企業有限公司", key="receivable_alternate_company", value=False):
             company_name = "加舜企業有限公司"
-        show_receipts = st.toggle("顯示收款資訊", key="receivable_show_receipts", value=False)
-        feed_rotation = st.selectbox("紙張進紙", (0, 90), key="receivable_feed_rotation",
+        show_receipts = receipt_col.toggle("顯示收款資訊", key="receivable_show_receipts", value=False)
+        feed_col, margin_col = st.columns([2, 1])
+        feed_rotation = feed_col.selectbox("紙張進紙", (0, 90), key="receivable_feed_rotation",
                                     format_func=lambda v: "240 mm 長邊先進（橫放）" if v == 0 or paper_stock == "a4_driver" else "140 mm 短邊先進（直放）", disabled=paper_stock != "triplicate")
-        hole_margin = st.number_input("左右打洞留白（mm）", min_value=0.0, max_value=25.0, value=12.5, step=0.5,
+        hole_margin = margin_col.number_input("打洞留白（mm）", min_value=0.0, max_value=25.0, value=12.5, step=0.5,
                                       key="receivable_hole_margin", disabled=paper_stock == "standard")
         print_settings = dict(paper_stock=paper_stock, feed_rotation=feed_rotation, hole_margin=hole_margin, company_name=company_name)
         html = render_statement_print(pages, show_receipts=show_receipts, title=title, **print_settings)
-        st.download_button("下載列印版", html, file_name=title + ".html", mime="text/html", use_container_width=True)
+        html_col, pdf_col, excel_col = st.columns(3)
+        html_col.download_button("下載列印版", html, file_name=title + ".html", mime="text/html", use_container_width=True)
         # Keep generated files private to this session and the current report/settings.
         signature = (title, company_name, show_receipts)
         exports = st.session_state.get("receivable_exports")
         if exports is None or exports["signature"] != signature:
             exports = {"signature": signature}
             st.session_state.receivable_exports = exports
-        if st.button("產生 PDF", key="receivable_prepare_pdf", use_container_width=True):
+        if pdf_col.button("產生 PDF", key="receivable_prepare_pdf", use_container_width=True):
             exports["pdf"] = statement_pdf(pages, show_receipts=show_receipts, title=title, company_name=company_name)
         if "pdf" in exports:
-            st.download_button("另存 PDF", exports["pdf"], file_name=title + ".pdf", mime="application/pdf", use_container_width=True)
-        if st.button("產生 Excel", key="receivable_prepare_excel", use_container_width=True):
+            pdf_col.download_button("另存 PDF", exports["pdf"], file_name=title + ".pdf", mime="application/pdf", use_container_width=True)
+        if excel_col.button("產生 Excel", key="receivable_prepare_excel", use_container_width=True):
             statements = list({p["statement"]["customer_id"]: p["statement"] for p in pages}.values())
             exports["xlsx"] = statement_excel(statements, show_receipts=show_receipts, title=title, company_name=company_name)
         if "xlsx" in exports:
-            st.download_button("匯出 Excel", exports["xlsx"], file_name=title + ".xlsx",
+            excel_col.download_button("匯出 Excel", exports["xlsx"], file_name=title + ".xlsx",
                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
     # Navigation runs inside the iframe: no Streamlit rerun or report regeneration.
     components.html(dismiss_export_on_preview_click(theme_preview(html)), height=480, scrolling=True)
