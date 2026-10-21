@@ -2,6 +2,7 @@
 
 from html import escape
 from html.parser import HTMLParser
+import re
 
 
 PREVIEW_THEME = '''<style id="preview-theme">
@@ -88,7 +89,7 @@ def paper_preview_height(content, *, document=False):
     return max(220, min(380, 100 + lines * 21))
 
 
-def build_paper_preview(content, *, title, document=False):
+def build_paper_preview(content, *, title, document=False, align_recipe_rows=False):
     if document:
         body = _PrintBody()
         body.feed(content)
@@ -97,7 +98,16 @@ def build_paper_preview(content, *, title, document=False):
         lines = (content or "").splitlines()
         if lines and lines[0] == "```" and lines[-1] == "```":
             lines = lines[1:-1]
-        paper = f'<div class="title">{escape(title)}</div><pre>{escape(chr(10).join(lines))}</pre>'
+        rendered = []
+        for line in lines:
+            row = re.fullmatch(r"(\S+) {2,}(-?\d+(?:\.\d+)?)", line) if align_recipe_rows else None
+            if row:
+                label, number = row.groups()
+                rendered.append(f'<span class="recipe-label">{escape(label)}</span>'
+                                f'<span class="recipe-value">{escape(number)}</span>')
+            else:
+                rendered.append(escape(line))
+        paper = f'<div class="title">{escape(title)}</div><pre>{chr(10).join(rendered)}</pre>'
     return theme_preview('''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
 <title>''' + escape(title) + '''預覽</title><style>
 *{box-sizing:border-box}body{margin:0;color:#000;background:#e5e7eb;letter-spacing:0;font:16px Arial,"Microsoft JhengHei",sans-serif}
@@ -105,6 +115,8 @@ def build_paper_preview(content, *, title, document=False):
 .stage{overflow:auto;padding:8px;height:300px}.paper{background:#fff;color:#000;width:210mm;padding:16px 24px;margin:0 auto;zoom:var(--scale,1)}
 .title{text-align:center;font:18px Arial,"Microsoft JhengHei",sans-serif;margin-bottom:10px}.timestamp{text-align:center;font:12px Arial,sans-serif;margin-bottom:2px}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 "Courier New","Microsoft JhengHei",monospace;margin:0}b.num{font-weight:normal}
+.recipe-label{display:inline-block;width:12ch;font:inherit;vertical-align:baseline}
+.recipe-value{display:inline-block;min-width:8ch;text-align:right;font:inherit;vertical-align:baseline}
 .paper div[style]{font-size:14px!important}.paper .timestamp+.title{margin-bottom:12px}
 </style></head><body><div class="toolbar"><label for="zoom">縮放</label><select id="zoom" onchange="resize()">
 <option value="width">符合寬度</option><option value="page" selected>完整內容</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></div>

@@ -16,6 +16,20 @@ def test_recipe_content_is_preserved_and_escaped():
     assert "overflow:auto" in html and "white-space:pre-wrap" in html
 
 
+def test_recipe_numeric_columns_align_cjk_labels_without_changing_values():
+    source = "```\n編號：R001 顏色：銀\n302         1160\nCA          33540\n料           60000\n其他          1.25\n備註：<script>\n```"
+    html = build_paper_preview(source, title="配方", align_recipe_rows=True)
+    for label, value in [("302", "1160"), ("CA", "33540"), ("料", "60000"), ("其他", "1.25")]:
+        assert f'<span class="recipe-label">{label}</span><span class="recipe-value">{value}</span>' in html
+    assert "width:12ch;font:inherit" in html
+    assert "min-width:8ch;text-align:right;font:inherit" in html
+    assert "備註：&lt;script&gt;" in html
+    assert "編號：R001 顏色：銀" in html
+    # The original recipe text and existing callers retain their original content.
+    assert "料           60000" in source
+    assert "料           60000" in build_paper_preview(source, title="配方")
+
+
 def test_production_reuses_print_body_without_auto_print():
     module = ast.parse(Path("app.py").read_text(encoding="utf-8"))
     functions = [n for n in module.body if isinstance(n, ast.FunctionDef) and

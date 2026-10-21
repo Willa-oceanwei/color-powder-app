@@ -4523,7 +4523,7 @@ elif menu == "配方管理":
                         {"配方編號": recipe_row_preview.get("配方編號")},
                         recipe_row_preview
                     )
-                    components.html(build_paper_preview(preview_text_recipe, title="配方"), height=paper_preview_height(preview_text_recipe), scrolling=False)
+                    components.html(build_paper_preview(preview_text_recipe, title="配方", align_recipe_rows=True), height=paper_preview_height(preview_text_recipe), scrolling=False)
 
                     col_left, col_right = st.columns(2)
                     with col_left:
