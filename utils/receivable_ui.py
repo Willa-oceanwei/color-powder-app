@@ -107,6 +107,20 @@ def render_report(config, *, title="應收帳款明細表"):
     today = date.today()
     filter_col, export_col, scope_col = st.columns([1.2, 1.3, 5.5], vertical_alignment="center")
     with filter_col.popover("查詢條件", use_container_width=True):
+        components.html('''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">
+        <style>body{margin:0;text-align:right}button{font:14px "Microsoft JhengHei",sans-serif;
+        background:#0b2f4a;color:#fff;border:1px solid #527086;border-radius:5px;
+        padding:5px 12px;cursor:pointer}button:hover{background:#124466}
+        button:focus-visible{outline:2px solid #8cc8ea;outline-offset:1px}</style></head>
+        <body><button type="button" id="close-filters" aria-label="收合查詢條件">收合條件 ×</button>
+        <script>function closeFilters(){try{
+        const trigger=Array.from(window.parent.document.querySelectorAll('[data-testid="stPopover"] button'))
+        .find(button=>button.textContent.trim()==='查詢條件');
+        if(trigger){trigger.click();trigger.focus();}
+        }catch(error){}}
+        document.getElementById('close-filters').addEventListener('click',closeFilters);
+        document.addEventListener('keydown',event=>{if(event.key==='Escape')closeFilters();});
+        </script></body></html>''', height=34, scrolling=False)
         with st.form("receivable_filters"):
             cols = st.columns(2)
             lower = cols[0].selectbox("起始客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
