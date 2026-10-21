@@ -257,20 +257,58 @@ td:nth-child(6){padding-right:2mm}td:nth-child(7){text-align:center}
     html = html.replace('</style>', '@media print{.preview-stage>.print-omit{display:none!important}'
                         '.preview-stage>.print-customer-offset{position:relative;left:2mm}'
                         '.preview-stage>.print-last{break-after:auto!important;page-break-after:auto!important}}</style>', 1)
+    company_dialog = '''<style>
+    #company-print-dialog{width:360px;max-width:calc(100vw - 32px);padding:22px;border:1px solid #527086;
+    border-radius:10px;background:#101f2d;color:#fff;font:15px "Microsoft JhengHei",sans-serif}
+    #company-print-dialog::backdrop{background:#0008}
+    #company-print-dialog h3{margin:0 0 16px;font-size:18px}
+    #company-print-dialog label{display:flex;gap:9px;align-items:center;margin:14px 0}
+    #company-print-dialog .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+    #company-print-dialog button{background:#264158;color:#fff;border:1px solid #527086;
+    border-radius:5px;padding:8px 16px;font:inherit;cursor:pointer}
+    #company-print-dialog button.confirm{background:#1b5f86}
+    @media print{#company-print-dialog{display:none!important}}
+    </style><dialog id="company-print-dialog" aria-labelledby="company-print-title">
+    <h3 id="company-print-title">選擇列印公司抬頭</h3>
+    <label><input type="radio" name="print-company" value="佳咊實業有限公司">佳咊實業有限公司</label>
+    <label><input type="radio" name="print-company" value="加舜企業有限公司">加舜企業有限公司</label>
+    <div class="actions"><button type="button" onclick="document.getElementById('company-print-dialog').close()">取消</button>
+    <button type="button" class="confirm" onclick="confirmCustomerPrint()">確認列印</button></div></dialog>'''
+    html = html.replace('</body>', company_dialog + '</body>')
     customer_print = """<script id="statement-customer-print">
+const printHeadings=new Map();
 function customerId(page){
 const customer=page&&(page.matches('[data-customer-id]')?page:page.querySelector('[data-customer-id]'));
 return customer?customer.dataset.customerId:null;
 }
 function clearPrintSelection(){
 sheets.forEach(page=>page.classList.remove('print-omit','print-last','print-customer-offset'));
+printHeadings.forEach((name,heading)=>heading.textContent=name);
+printHeadings.clear();
 }
 function printCustomer(){
+const dialog=document.getElementById('company-print-dialog');
+const heading=sheets[current]&&sheets[current].querySelector('h1');
+if(!heading)return;
+dialog.querySelectorAll('input[name="print-company"]').forEach(input=>input.checked=input.value===heading.textContent);
+if(!dialog.querySelector('input:checked'))dialog.querySelector('input').checked=true;
+dialog.showModal();
+}
+function confirmCustomerPrint(){
+const dialog=document.getElementById('company-print-dialog');
+const input=dialog.querySelector('input:checked');
+if(!input)return;
+dialog.close();
+printSelectedCustomer(input.value);
+}
+function printSelectedCustomer(company){
 clearPrintSelection();
 const id=customerId(sheets[current]);
 if(id===null)return;
 const selected=sheets.filter(page=>customerId(page)===id);
 selected.forEach(page=>page.classList.add('print-customer-offset'));
+selected.forEach(page=>{const heading=page.querySelector('h1');
+if(heading){printHeadings.set(heading,heading.textContent);heading.textContent=company;}});
 sheets.forEach(page=>page.classList.toggle('print-omit',customerId(page)!==id));
 selected[selected.length-1].classList.add('print-last');
 try{window.print();}catch(error){clearPrintSelection();throw error;}
@@ -282,6 +320,7 @@ window.addEventListener('afterprint',clearPrintSelection);
     keyboard_navigation = """<script id="statement-page-keys">
 const statementFrame=window.frameElement;
 function pageKey(event){
+if(document.querySelector('dialog[open]'))return;
 if(event.defaultPrevented||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
 if(event.key!=='PageUp'&&event.key!=='PageDown')return;
 const target=event.target;
