@@ -105,17 +105,18 @@ def render_report(config, *, title="應收帳款明細表"):
     names = {c["customer_id"]: customer_display_name(c) for c in customers}
     codes = [""] + list(names)
     today = date.today()
-    filter_col, export_col = st.columns([8, 1], vertical_alignment="bottom")
-    with filter_col.form("receivable_filters"):
-        cols = st.columns([1, 1, 1, 1, 1.15])
-        lower = cols[0].selectbox("起始客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
-        upper = cols[1].selectbox("結束客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
-        start = cols[2].date_input("起始帳款日期", value=today.replace(day=1))
-        end = cols[3].date_input("結束帳款日期", value=today)
-        paper = cols[4].selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"))
-        options = st.columns([4, 1], vertical_alignment="center")
-        hide_empty = options[0].toggle("本期未交易者不顯示", value=True)
-        submitted = options[1].form_submit_button("預覽", type="primary", use_container_width=True)
+    filter_col, export_col, scope_col = st.columns([1.2, 1.3, 5.5], vertical_alignment="center")
+    with filter_col.popover("查詢條件", use_container_width=True):
+        with st.form("receivable_filters"):
+            cols = st.columns(2)
+            lower = cols[0].selectbox("起始客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
+            upper = cols[1].selectbox("結束客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
+            dates = st.columns(2)
+            start = dates[0].date_input("起始帳款日期", value=today.replace(day=1))
+            end = dates[1].date_input("結束帳款日期", value=today)
+            paper = st.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"))
+            hide_empty = st.toggle("本期未交易者不顯示", value=True)
+            submitted = st.form_submit_button("預覽", type="primary", use_container_width=True)
     if submitted:
         st.session_state.pop("receivable_exports", None)
         try:
@@ -124,11 +125,16 @@ def render_report(config, *, title="應收帳款明細表"):
         except ShipmentError as error:
             st.error(str(error))
             st.session_state.pop("receivable_pages", None)
+            st.session_state.pop("receivable_report_scope", None)
         else:
+            st.session_state.receivable_report_scope = f"{lower or '不限'} ～ {upper or '不限'} · {start:%Y/%m/%d} ～ {end:%Y/%m/%d} · {paper}"
             st.session_state.receivable_pages = pages
             st.session_state.receivable_page = 0
             st.session_state.receivable_paper_stock = "a4_driver" if paper == "A4" else "triplicate" if paper.startswith("三聯紙") else "standard"
+    scope_col.caption(st.session_state.get("receivable_report_scope", "請開啟查詢條件，選好範圍後按預覽。"))
     pages = st.session_state.get("receivable_pages")
+    if not pages:
+        export_col.button("列印／匯出", disabled=True, use_container_width=True)
     if pages is None:
         return
     if not pages:

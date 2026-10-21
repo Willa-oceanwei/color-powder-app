@@ -201,7 +201,10 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
         sheets = [stock_sheet(sheet, active=index == selected) for index, sheet in enumerate(sheets)]
     zoom = '<label for="zoom">縮放</label><select id="zoom" onchange="resize()"><option value="width">符合寬度</option><option value="page" selected>整頁</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select>'
     toolbar = '<button onclick="window.print()">列印全部</button>' if embedded else '''<button id="first" onclick="move(-sheets.length)">首頁</button><button id="previous" onclick="move(-1)">上一頁</button><span id="page" role="status" aria-live="polite"></span><button id="next" onclick="move(1)">下一頁</button><button id="last" onclick="move(sheets.length)">末頁</button><button onclick="window.print()">列印全部</button>'''
-    preview_style = "@media screen{.sheet{zoom:var(--preview-zoom,.6)}}"
+    preview_style = """@media screen{.sheet{zoom:var(--preview-zoom,.6)}
+.toolbar.toolbar{font-size:12px;gap:5px;padding:4px 6px}
+.toolbar.toolbar button,.toolbar.toolbar select{min-height:28px;padding:3px 7px}
+.toolbar.toolbar select{min-width:96px}}"""
     if paper_stock == "triplicate":
         preview_style += stock_style(feed_rotation, hole_margin, paginated=True)
     elif paper_stock == "a4_driver":

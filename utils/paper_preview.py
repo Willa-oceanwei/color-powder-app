@@ -34,8 +34,8 @@ def dismiss_export_on_preview_click(document):
 document.addEventListener('pointerdown',()=>{try{
 const parentDoc=window.parent.document;
 if(!parentDoc.querySelector('[data-testid="stPopoverBody"]'))return;
-const trigger=Array.from(parentDoc.querySelectorAll('[data-testid="stPopover"] button'))
-.find(button=>button.textContent.trim()==='列印／匯出');
+const trigger=Array.from(parentDoc.querySelectorAll('[data-testid="stPopover"] [aria-expanded="true"] > button'))
+.find(button=>['列印／匯出','查詢條件'].includes(button.textContent.trim()));
 if(trigger)trigger.click();
 }catch(error){}},true);
 </script>'''
