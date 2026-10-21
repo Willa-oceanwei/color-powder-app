@@ -2566,6 +2566,14 @@ def generate_production_order_print(
     number_col_width = 6
     column_offsets = [1, 5, 5, 5]
     total_offsets = [1.3, 5, 5, 5]
+
+    def total_label_html(value):
+        from html import escape
+        # Use the surrounding numeric font size for both the label and its width.
+        # CJK glyphs and space padding do not share the same character width.
+        return (f"<b class='production-total-label' style='display:inline-block; "
+                f"width:{powder_label_width}ch; font-size:inherit; line-height:inherit'>"
+                f"{escape(str(value))}</b>")
     
     packing_weights = [
         float(order.get(f"包裝重量{i}", 0)) if str(order.get(f"包裝重量{i}", "")).replace(".", "", 1).isdigit() else 0
@@ -2680,11 +2688,11 @@ def generate_production_order_print(
     # 合計列
     total_offsets = [1, 5, 5, 5]  # 第一欄前空 2、第二欄前空 4、依此類推
     if total_type == "" or total_type == "無":
-        total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
+        total_type_display = total_label_html("=")
     elif category == "色母":
-        total_type_display = f"<b><span style='font-size:22px; display:inline-block; width:{powder_label_width}ch'>料</span></b>"
+        total_type_display = total_label_html("料")
     else:
-        total_type_display = f"<b>{total_type.ljust(powder_label_width)}</b>"
+        total_type_display = total_label_html(total_type)
         
     total_line = total_type_display
         
@@ -2750,26 +2758,16 @@ def generate_production_order_print(
             sub_net_weight = float(sub.get("淨重", 0) or 0)
             
             if sub_total_type == "" or sub_total_type == "無":
-                sub_total_type_display = f"<b>{'='.ljust(powder_label_width)}</b>"
+                sub_total_type_display = total_label_html("=")
             
             elif category == "色母":
-                sub_total_type_display = (
-                    f"<b><span style='font-size:22px; display:inline-block; width:{powder_label_width}ch'>料</span></b>"
-                )
+                sub_total_type_display = total_label_html("料")
             
             elif sub_total_type == "其他":
-                sub_total_type_display = (
-                    f"<span style='"
-                    f"display:inline-block;"
-                    f"width:{powder_label_width}ch;"
-                    f"font-weight:bold;"
-                    f"transform:scale(0.7);"
-                    f"transform-origin:left center;"
-                    f"'>其他</span>"
-                )
+                sub_total_type_display = total_label_html("其他")
             
             else:
-                sub_total_type_display = f"<b>{sub_total_type.ljust(powder_label_width)}</b>"
+                sub_total_type_display = total_label_html(sub_total_type)
             
             sub_total_line = sub_total_type_display
             
