@@ -121,7 +121,9 @@ def render_report(config, *, title="應收帳款明細表"):
         document.getElementById('close-filters').addEventListener('click',closeFilters);
         document.addEventListener('keydown',event=>{if(event.key==='Escape')closeFilters();});
         </script></body></html>''', height=34, scrolling=False)
-        with st.form("receivable_filters"):
+        # Keep query controls independent of Streamlit's nested form lifecycle.
+        # Only the preview button below replaces the saved report.
+        with st.container():
             cols = st.columns(2)
             lower = cols[0].selectbox("起始客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
             upper = cols[1].selectbox("結束客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
@@ -131,7 +133,7 @@ def render_report(config, *, title="應收帳款明細表"):
             paper_col, hide_col = st.columns(2, vertical_alignment="center")
             paper = paper_col.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"))
             hide_empty = hide_col.toggle("本期未交易者不顯示", value=True)
-            submitted = st.form_submit_button("預覽", type="primary", use_container_width=True)
+            submitted = st.button("預覽", key="receivable_preview", type="primary", use_container_width=True)
     if submitted:
         st.session_state.pop("receivable_exports", None)
         try:

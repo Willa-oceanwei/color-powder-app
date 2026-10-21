@@ -34,6 +34,47 @@ def receipt(config, d, amount=50, receipt_date="2026-10-02", token=None):
                         receipt_date=receipt_date, amount=amount, method="現金")
 
 
+def test_preview_controls_only_refresh_report_when_requested(config, monkeypatch):
+    from utils import receivable_ui as ui
+
+    shipment(config)
+    shipment(config, "A02")
+    calls = []
+    original = ui.build_statements
+
+    def capture(*args, **kwargs):
+        calls.append(args[1:])
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ui, "build_statements", capture)
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.receivable_ui import render_report
+render_report(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    assert not app.exception
+    assert not app.get("form")
+    assert calls == []
+    next(w for w in app.date_input if w.label == "起始帳款日期").set_value(date(2026, 10, 1)).run()
+    next(w for w in app.date_input if w.label == "結束帳款日期").set_value(date(2026, 10, 31)).run()
+    assert calls == []
+    app.button(key="receivable_preview").click().run()
+    assert not app.exception and len(calls) == 1
+    assert len(app.session_state["receivable_pages"]) == 2
+    scope = app.session_state["receivable_report_scope"]
+    next(w for w in app.selectbox if w.label == "結束客戶編號").set_value("A01").run()
+    assert len(calls) == 1
+    assert len(app.session_state["receivable_pages"]) == 2
+    assert app.session_state["receivable_report_scope"] == scope
+    app.button(key="receivable_preview").click().run()
+    assert not app.exception and len(calls) == 2
+    assert len(app.session_state["receivable_pages"]) == 1
+    assert "A01" in app.session_state["receivable_report_scope"]
+
+
 def test_filter_shipment_date_customer_range_void_and_mixed_units(config):
     first = shipment(config)
     second = shipment(config, "A02")
