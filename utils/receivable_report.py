@@ -118,13 +118,15 @@ def monthly_receipt_summary(config, start, end, as_of):
 FIELDS = (("kind", 6), ("date", 12), ("number", 16), ("code", 14), ("name", 10),
           ("quantity", 9), ("unit", 6), ("price", 8), ("amount", 12), ("order_number", 12))
 REPORT_WIDTHS = (5, 13, 14, 11, 12, 7, 5, 8, 11, 14)
+RECEIVABLE_WIDTHS = (5, 12, 12, 11, 20, 7, 5, 8, 11, 9)
 
 
-def statement_pages(statements, capacity=None, *, paper_size="auto"):
+def statement_pages(statements, capacity=None, *, paper_size="auto", name_width=10):
     if paper_size not in ("auto", "A5", "A4"):
         raise ValueError("Invalid paper size")
     if capacity is not None and capacity < 2:
         raise ValueError("Page capacity must be at least two")
+    fields = [(key, name_width if key == "name" else width) for key, width in FIELDS]
     pages = []
     for statement in statements:
         rows, context = [], []
@@ -134,7 +136,7 @@ def statement_pages(statements, capacity=None, *, paper_size="auto"):
             context.append(header)
             for item in document["items"]:
                 cells = [_wrap(display_price(item[key]) if key in ("price", "quantity") else
-                               f"{int(item[key]):,}" if key == "amount" else printed_code(item) if key == "code" else item.get(key, ""), width) for key, width in FIELDS]
+                               f"{int(item[key]):,}" if key == "amount" else printed_code(item) if key == "code" else item.get(key, ""), width) for key, width in fields]
                 cells[-1] = [purchase_order_text(item.get("order_number", ""))]
                 for line in range(max(map(len, cells))):
                     rows.append([cell[line] if line < len(cell) else "" for cell in cells])
@@ -230,6 +232,9 @@ td:nth-child(10){font-size:9.5pt;white-space:nowrap;overflow-wrap:normal}
 '''
     if receivable:
         preview_style += ".quantity-summary{font-size:12pt}"
+        preview_style += "".join(f"th:nth-child({index}){{width:{width}%}}"
+                                 for index, width in enumerate(RECEIVABLE_WIDTHS, 1))
+        preview_style += ".summary{grid-template-columns:" + " ".join(f"{width}%" for width in RECEIVABLE_WIDTHS) + "}"
     html = '''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>應收帳款明細表</title><style>
 @page{size:A5 landscape;margin:0}@page a5{size:A5 landscape;margin:0}@page a4{size:A4 portrait;margin:0}*{box-sizing:border-box}body{margin:0;background:#e5e7eb;color:#000;font:10pt "Microsoft JhengHei",sans-serif;letter-spacing:0}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px;font:16px "Microsoft JhengHei",sans-serif}.toolbar button,.toolbar select{font:inherit;min-height:38px;padding:5px 10px;border-radius:4px}.toolbar select{min-width:140px}.preview-stage{overflow:auto;padding:12px}.sheet{display:none;width:210mm;height:148mm;padding:8mm;background:white;margin:0 auto;position:relative;break-after:page}.sheet.active{display:block}

@@ -59,7 +59,7 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
     sheet.page_setup.fitToHeight = 0
     sheet.sheet_properties.pageSetUpPr.fitToPage = True
     sheet.page_margins = PageMargins(left=0, right=0, top=0, bottom=0, header=0, footer=0)
-    for column, width in zip("ABCDEFGHIJ", (5, 14, 16, 13, 16, 9, 6, 10, 14, 15)):
+    for column, width in zip("ABCDEFGHIJ", (5, 13, 14, 13, 24, 9, 6, 10, 14, 10) if title == "應收帳款明細表" else (5, 14, 16, 13, 16, 9, 6, 10, 14, 15)):
         sheet.column_dimensions[column].width = width
 
     def put(row, column, value, *, end=None, size=13, bold=False, align="left"):
@@ -76,7 +76,7 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
         return cell
 
     base = 0
-    for page in statement_pages(statements, paper_size="A4"):
+    for page in statement_pages(statements, paper_size="A4", name_width=18 if title == "應收帳款明細表" else 10):
         s = page["statement"]
         put(base + 1, 1, company_name, end=10, size=22, bold=True, align="center")
         put(base + 2, 1, title, end=10, size=17, align="center")
@@ -175,9 +175,9 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
     receivable = title == "應收帳款明細表"
     geometry = stock_geometry(0, hole_margin, height=280, offset=-25, preserve_holes=False) if paper_stock == "a4_driver" else stock_geometry(feed_rotation, hole_margin) if paper_stock == "triplicate" else None
     buffer, pdf = _canvas(title, a5=True)
-    from .receivable_report import REPORT_WIDTHS
+    from .receivable_report import REPORT_WIDTHS, RECEIVABLE_WIDTHS
     labels = ("單別", "交易日期", "交易單號", "貨品編號", "品名", "數量", "單位", "單價", "金額", "採購單號")
-    widths = REPORT_WIDTHS
+    widths = RECEIVABLE_WIDTHS if receivable else REPORT_WIDTHS
     extra_width = 12 * mm if receivable and paper_stock == "a4_driver" else 0
     column_unit = (551 + extra_width) / 100
     positions = [22 + sum(widths[:i]) * column_unit for i in range(10)]

@@ -19,6 +19,32 @@ def statement():
                 documents=[dict(date="2026-10-01", number="S1", items=[item])])
 
 
+def test_receivable_name_with_closing_parenthesis_stays_on_one_row(monkeypatch):
+    import utils.accounting_export as export
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    pdfmetrics.registerFont(UnicodeCIDFont("MSung-Light"))
+    s = statement()
+    name = "深藍*(黑藍)"
+    s["documents"][0]["items"][0]["name"] = name
+    before = deepcopy(s)
+    pages = statement_pages([s], paper_size="A4", name_width=18)
+    assert len(pages[0]["rows"]) == 2
+    assert pages[0]["rows"][1][4] == name
+    assert pages[0]["rows"][1][8] == "200"
+    html = render_statement_print(pages, paper_stock="a4_driver")
+    assert f"<td>{name}</td>" in html
+    assert html.rindex("th:nth-child(5){width:20%}") > html.index("th:nth-child(5){width:12%}")
+    pdf = MagicMock()
+    monkeypatch.setattr(export, "_canvas", lambda *args, **kwargs: (BytesIO(), pdf))
+    statement_pdf(pages)
+    assert any(call.args[2] == name for call in pdf.drawString.call_args_list)
+    sheet = load_workbook(BytesIO(statement_excel([s])))["列印版"]
+    assert any(cell.value == name for row in sheet for cell in row)
+    assert sheet.column_dimensions["E"].width == 24
+    assert s == before
+
+
 def test_a4_driver_shared_feed_preserves_data_and_blanks_prices():
     s = statement()
     doc = dict(customer_id=s["customer_id"], customer_name=s["customer_name"], shipment_number="S1",
