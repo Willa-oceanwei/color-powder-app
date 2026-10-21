@@ -56,8 +56,10 @@ def test_clear_recipe_form_discards_pending_values_and_keeps_saved_recipes(tmp_p
     app.selectbox(key="form_recipe_色粉類別").set_value("色母")
     app.number_input(key="form_recipe_oem_multiplier").set_value(2.0)
     app.text_area(key="form_recipe_備註").set_value("Discard this draft")
+    old_id = app.text_input(key="form_recipe_配方編號").proto.id
     next(b for b in app.button if b.label == "↺").click().run()
     assert not app.exception
+    assert app.text_input(key="form_recipe_配方編號").proto.id != old_id
     assert app.session_state["num_powder_rows"] == 5
     assert app.text_input(key="form_recipe_配方編號").value == ""
     assert app.text_input(key="ratio1").value == ""
@@ -70,3 +72,30 @@ def test_clear_recipe_form_discards_pending_values_and_keeps_saved_recipes(tmp_p
     next(b for b in app.button if b.label == "💾 儲存配方").click().run()
     assert not app.exception
     assert {r["配方編號"] for r in list_recipes(config)} == {"EXISTING", "NEXT"}
+    assert app.text_input(key="form_recipe_配方編號").value == ""
+
+
+def test_repeated_clear_resets_all_powder_cells_and_pending_form_values(tmp_path):
+    config = DatabaseConfig(backend="sqlite", path=tmp_path / "repeat.db")
+    initialize_database(config.path)
+    app = recipe_creation_app(config)
+    for cycle in range(2):
+        for _ in range(3):
+            next(b for b in app.button if b.label == "➕ 新增色粉列").click().run()
+        assert app.session_state["num_powder_rows"] == 8
+        old_id = app.text_input(key="form_recipe_色粉編號1").proto.id
+        for i in range(1, 9):
+            app.text_input(key=f"form_recipe_色粉編號{i}").set_value(f"P{i}")
+            app.text_input(key=f"form_recipe_色粉重量{i}").set_value(str(i * 10))
+        app.text_input(key="form_recipe_配方編號").set_value("UNSAVED")
+        app.text_input(key="ratio1").set_value("123")
+        next(b for b in app.button if b.label == "↺").click().run()
+        assert not app.exception
+        assert app.session_state["num_powder_rows"] == 5
+        assert app.text_input(key="form_recipe_色粉編號1").proto.id != old_id
+        for i in range(1, 6):
+            assert app.text_input(key=f"form_recipe_色粉編號{i}").value == ""
+            assert app.text_input(key=f"form_recipe_色粉重量{i}").value == ""
+        assert app.text_input(key="form_recipe_配方編號").value == ""
+        assert app.text_input(key="ratio1").value == ""
+        assert list_recipes(config) == []

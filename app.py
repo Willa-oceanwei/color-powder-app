@@ -4119,6 +4119,7 @@ elif menu == "配方管理":
             st.session_state.edit_recipe_index = None
             st.session_state.num_powder_rows = 5
             st.session_state.add_powder_clicked = False
+            st.session_state.recipe_creation_epoch = st.session_state.get("recipe_creation_epoch", 0) + 1
             st.session_state.pop("recipe_toast", None)
     
         # ===== 配方 toast 顯示（rerun 後觸發）=====
@@ -4145,7 +4146,8 @@ elif menu == "配方管理":
     
         fr = st.session_state.form_recipe
 
-        with st.form("recipe_form"):
+        # A new form identity also clears values buffered in the browser.
+        with st.form(f"recipe_form_{st.session_state.get('recipe_creation_epoch', 0)}"):
             # ---------------- 基本資訊（第一橫排：5 欄） ----------------
             col1, col2, col3, col4, col5 = st.columns(5)
             with col1:
@@ -4325,6 +4327,7 @@ elif menu == "配方管理":
                     ] + [f"form_recipe_色粉編號{i}" for i in range(1, 9)] + [f"form_recipe_色粉重量{i}" for i in range(1, 9)]
                     for key in reset_keys:
                         st.session_state.pop(key, None)
+                    st.session_state.recipe_creation_epoch = st.session_state.get("recipe_creation_epoch", 0) + 1
                     st.rerun()
     
             # ── 新增色粉列 ──
