@@ -7,7 +7,7 @@ from html import escape
 import pandas as pd
 import streamlit as st
 
-from .product_transaction_report import product_transactions
+from .product_transaction_report import product_transactions, product_price_changes
 from .shipment_repository import ShipmentError
 from .shipment_ui import COMPACT_STYLE
 
@@ -29,6 +29,8 @@ def _query_help():
         st.write("以出貨明細保存的貨品／配方編號精確查詢，作廢單不列入。")
         st.write("日期留白會查全部期間；登錄時間顯示台灣時間。")
         st.write("右側客戶可複選，未勾選時顯示全部客戶。")
+        st.write("售價異動依同一客戶、單位、課稅方式比較成交單價；保留初始售價，相同價格不重複列出。")
+        st.write("日期範圍只篩選顯示結果，比價仍會參照較早的交易；這不是舊單修改前後的稽核紀錄。")
 
 
 def render_product_transactions(config):
@@ -56,7 +58,11 @@ def render_product_transactions(config):
         submitted = submit_col.form_submit_button("查詢", use_container_width=True)
     if submitted:
         try:
-            rows = product_transactions(config, code, start, end)
+            all_rows = product_transactions(config, code, start, end, include_prior=True)
+            in_period = lambda row: (not start or row["shipment_date"] >= start.isoformat()) and (
+                not end or row["shipment_date"] <= end.isoformat())
+            rows = [row for row in all_rows if in_period(row)]
+            prices = [row for row in product_price_changes(all_rows) if in_period(row)]
         except ShipmentError as error:
             st.session_state.pop("product_history_result", None)
             st.error(str(error))
@@ -68,7 +74,7 @@ def render_product_transactions(config):
             st.session_state.product_history_epoch = epoch
             st.session_state.product_history_result = {
                 "config": repr(config), "code": code.upper(), "start": start, "end": end,
-                "rows": rows, "epoch": epoch}
+                "rows": rows, "price_changes": prices, "epoch": epoch}
     result = st.session_state.get("product_history_result")
     if not result or result["config"] != repr(config):
         _, help_col = st.columns([5, 1])
@@ -121,7 +127,23 @@ def render_product_transactions(config):
                   "customer_id": "客戶編號", "customer_name": "客戶名稱", "code": "貨品／配方編號", "name": "品名",
                   "quantity": "數量", "unit": "單位", "price": "單價", "amount": "明細金額", "tax_mode": "課稅方式",
                   "order_number": "採購單號", "notes": "明細備註"}
-        frame = pd.DataFrame(visible, columns=list(labels))
-        frame["created_at"] = frame["created_at"].map(taiwan_timestamp)
-        st.dataframe(frame.rename(columns=labels), hide_index=True, use_container_width=True,
-                     height=min(550, max(150, 36 * (len(visible) + 1))))
+        detail_tab, price_tab = st.tabs(["交易明細", "售價異動"])
+        with detail_tab:
+            frame = pd.DataFrame(visible, columns=list(labels))
+            frame["created_at"] = frame["created_at"].map(taiwan_timestamp)
+            st.dataframe(frame.rename(columns=labels), hide_index=True, use_container_width=True,
+                         height=min(550, max(150, 36 * (len(visible) + 1))))
+        with price_tab:
+            st.caption("同一客戶、單位及課稅方式分別比較；第一筆註記初始售價，後續僅列變價記錄。")
+            changes = [row for row in result.get("price_changes", [])
+                       if not selected or row["customer_id"] in selected]
+            if not changes:
+                st.info("此期間沒有初始售價或售價異動記錄。")
+            else:
+                price_labels = {"shipment_date": "日期", "price_event": "異動類型",
+                                "customer_id": "客戶編號", "customer_name": "客戶名稱",
+                                "previous_price": "原單價", "price": "新單價", "price_change": "漲跌",
+                                "unit": "單位", "tax_mode": "課稅方式", "shipment_number": "出貨單號"}
+                st.dataframe(pd.DataFrame(changes, columns=list(price_labels)).rename(columns=price_labels),
+                             hide_index=True, use_container_width=True,
+                             height=min(550, max(150, 36 * (len(changes) + 1))))

@@ -6,7 +6,7 @@ from streamlit.testing.v1 import AppTest
 
 from utils.customer_repository import CustomerInput, create_customer
 from utils.database import DatabaseConfig, connect_from_config, initialize_database
-from utils.product_transaction_report import product_transactions
+from utils.product_transaction_report import product_transactions, product_price_changes
 from utils.product_transaction_ui import taiwan_timestamp
 from utils.shipment_repository import ShipmentError, blank_shipment, save_shipment, void_shipment
 
@@ -20,10 +20,11 @@ def config(tmp_path):
     return config
 
 
-def shipment(config, number, customer='C01', day='2026-10-01', code='P1', count=1):
+def shipment(config, number, customer='C01', day='2026-10-01', code='P1', count=1,
+             price='160', unit='包', tax_mode='外加'):
     doc = dict(blank_shipment(), shipment_number=number, number_mode='manual', customer_id=customer,
-               customer_name='客戶' + customer, shipment_date=day)
-    doc['items'] = [dict(code=code, name='歷史品名', quantity='1.125', unit='包', price='160',
+               customer_name='客戶' + customer, shipment_date=day, tax_mode=tax_mode)
+    doc['items'] = [dict(code=code, name='歷史品名', quantity='1.125', unit=unit, price=price,
                          notes='明細說明', order_number='PO001')] * count
     return save_shipment(config, doc)
 
@@ -137,3 +138,65 @@ def test_history_dates_single_customer_empty_and_invalid_clear_old_results(confi
     app.date_input(key='product_history_end').set_value(None)
     search(app, 'UNKNOWN')
     assert app.info and not app.checkbox and not app.dataframe
+
+
+def test_price_history_exact_comparisons_groups_reversals_and_void(config):
+    for number, price in [('01', '100'), ('02', '100.000'), ('03', '100.125'),
+                          ('04', '100.125'), ('05', '95'), ('06', '100')]:
+        shipment(config, number, day=f'2026-10-{number}', price=price)
+    shipment(config, '07', customer='C02', price='200')
+    shipment(config, '08', unit='kg', price='300')
+    shipment(config, '09', tax_mode='內含', price='400')
+    cancelled = shipment(config, '10', day='2026-10-10', price='900')
+    void_shipment(config, cancelled['id'], cancelled['version'], '取消')
+    rows = product_transactions(config, 'P1')
+    before = [dict(row) for row in rows]
+    changes = product_price_changes(rows)
+    base = [r for r in changes if r['customer_id'] == 'C01' and r['unit'] == '包' and r['tax_mode'] == '外加']
+    assert [r['shipment_number'] for r in base] == ['06', '05', '03', '01']
+    assert [r['price_event'] for r in base] == ['調漲', '調降', '調漲', '初始售價']
+    assert base[-1]['previous_price'] == base[-1]['price_change'] == '—'
+    assert base[2]['previous_price'] == '100' and base[2]['price_change'] == '+0.125'
+    assert base[1]['price_change'] == '-5.125'
+    assert len(changes) == 7 and sum(r['price_event'] == '初始售價' for r in changes) == 4
+    assert rows == before
+
+
+def test_price_history_same_day_line_order_is_deterministic(config):
+    row = product_transactions(config, 'P1')
+    assert product_price_changes(row) == []
+    shipment(config, '01')
+    row = product_transactions(config, 'P1')[0]
+    rows = [dict(row, line_number=i, price=p) for i, p in [(3, '11'), (1, '0'), (2, '11')]]
+    changes = product_price_changes(rows)
+    assert [(r['line_number'], r['price_event']) for r in changes] == [(2, '調漲'), (1, '初始售價')]
+    assert changes[0]['previous_price'] == '0'
+
+
+def test_price_tab_uses_earlier_baseline_and_shares_customer_filter(config, monkeypatch):
+    shipment(config, '01', day='2026-09-01', price='100')
+    shipment(config, '02', day='2026-10-01', price='100')
+    shipment(config, '03', day='2026-10-02', price='120')
+    shipment(config, '04', day='2026-10-03', price='120')
+    shipment(config, '05', customer='C02', day='2026-10-04', price='150')
+    import utils.product_transaction_ui as ui
+    calls = []
+    original = ui.product_transactions
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(ui, 'product_transactions', counted)
+    app = history_app(config)
+    app.date_input(key='product_history_start').set_value(date(2026, 10, 1))
+    search(app, 'P1')
+    assert not app.exception and [tab.label for tab in app.tabs] == ['交易明細', '售價異動']
+    prices = app.tabs[1].dataframe[0].value
+    assert prices['異動類型'].tolist() == ['初始售價', '調漲']
+    assert prices.iloc[1]['原單價'] == '100' and prices.iloc[1]['漲跌'] == '+20'
+    app.checkbox[0].check().run()
+    assert set(app.tabs[1].dataframe[0].value['客戶編號']) == {'C01'}
+    assert len(calls) == 1
+    app.checkbox[0].uncheck().run()
+    app.date_input(key='product_history_start').set_value(None)
+    search(app, 'P1')
+    assert sum(app.tabs[1].dataframe[0].value['異動類型'] == '初始售價') == 2

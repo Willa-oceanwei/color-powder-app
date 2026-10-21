@@ -105,16 +105,17 @@ def render_report(config, *, title="應收帳款明細表"):
     names = {c["customer_id"]: customer_display_name(c) for c in customers}
     codes = [""] + list(names)
     today = date.today()
-    with st.form("receivable_filters"):
-        cols = st.columns(4)
+    filter_col, export_col = st.columns([8, 1], vertical_alignment="bottom")
+    with filter_col.form("receivable_filters"):
+        cols = st.columns([1, 1, 1, 1, 1.15])
         lower = cols[0].selectbox("起始客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
         upper = cols[1].selectbox("結束客戶編號", codes, format_func=lambda c: c + " · " + names[c] if c else "不限")
         start = cols[2].date_input("起始帳款日期", value=today.replace(day=1))
         end = cols[3].date_input("結束帳款日期", value=today)
-        options = st.columns([2, 2, 1])
+        paper = cols[4].selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"))
+        options = st.columns([4, 1], vertical_alignment="center")
         hide_empty = options[0].toggle("本期未交易者不顯示", value=True)
-        paper = options[1].selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"))
-        submitted = options[2].form_submit_button("預覽", type="primary", use_container_width=True)
+        submitted = options[1].form_submit_button("預覽", type="primary", use_container_width=True)
     if submitted:
         st.session_state.pop("receivable_exports", None)
         try:
@@ -134,7 +135,7 @@ def render_report(config, *, title="應收帳款明細表"):
         st.info("此區間沒有符合條件的出貨資料")
         return
     paper_stock = st.session_state.get("receivable_paper_stock", "standard")
-    with st.popover("列印／匯出"), st.container():
+    with export_col.popover("列印／匯出", use_container_width=True), st.container():
         company_name = COMPANY["name"]
         if title == "應收帳款明細表" and st.toggle("抬頭改為加舜企業有限公司", key="receivable_alternate_company", value=False):
             company_name = "加舜企業有限公司"
