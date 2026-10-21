@@ -130,14 +130,16 @@ def render_report(config, *, title="應收帳款明細表"):
             dates = st.columns(2)
             start = dates[0].date_input("起始帳款日期", value=today.replace(day=1))
             end = dates[1].date_input("結束帳款日期", value=today)
-            paper_col, hide_col = st.columns(2, vertical_alignment="center")
+            paper_col, hide_col, paid_col = st.columns([1, 1.5, 1.5], vertical_alignment="center")
             paper = paper_col.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"))
             hide_empty = hide_col.toggle("本期未交易者不顯示", value=True)
+            hide_paid = paid_col.toggle("已付清者不顯示", value=True, key="receivable_hide_paid",
+                                       help="排除出貨單已勾選「已付清」的單據；同一客戶仍有其他單據時會繼續顯示。") if title == "應收帳款明細表" else False
             submitted = st.button("預覽", key="receivable_preview", type="primary", use_container_width=True)
     if submitted:
         st.session_state.pop("receivable_exports", None)
         try:
-            pages = statement_pages(build_statements(config, start, end, lower, upper, hide_empty),
+            pages = statement_pages(build_statements(config, start, end, lower, upper, hide_empty, hide_paid=hide_paid),
                                     paper_size="A5" if paper.startswith("三聯紙") else "auto" if paper == "依內容自動選擇" else paper,
                                     name_width=14 if title == "應收帳款明細表" else 10)
         except ShipmentError as error:
@@ -145,7 +147,7 @@ def render_report(config, *, title="應收帳款明細表"):
             st.session_state.pop("receivable_pages", None)
             st.session_state.pop("receivable_report_scope", None)
         else:
-            st.session_state.receivable_report_scope = f"{lower or '不限'} ～ {upper or '不限'} · {start:%Y/%m/%d} ～ {end:%Y/%m/%d} · {paper}"
+            st.session_state.receivable_report_scope = f"{lower or '不限'} ～ {upper or '不限'} · {start:%Y/%m/%d} ～ {end:%Y/%m/%d} · {paper}" + (" · 排除已付清" if hide_paid else "")
             st.session_state.receivable_pages = pages
             st.session_state.receivable_page = 0
             st.session_state.receivable_paper_stock = "a4_driver" if paper == "A4" else "triplicate" if paper.startswith("三聯紙") else "standard"
@@ -439,8 +441,12 @@ def render_batch_receipt(config, customer, records, *, prepaid=False):
 
 
 def render_receipt_entry(config):
-    mode = st.radio('收款模式', ['單筆收款', '月結／批次收款', '預收款沖帳'], horizontal=True, key='receipt_mode')
+    mode_col, paid_filter_col = st.columns([3, 1.3], vertical_alignment="center")
+    mode = mode_col.radio('收款模式', ['單筆收款', '月結／批次收款', '預收款沖帳'], horizontal=True, key='receipt_mode')
     records = list_shipments(config)
+    if mode == '單筆收款' and paid_filter_col.toggle('已付清者不顯示', value=True, key='receipt_hide_paid',
+                                      help='排除出貨單的已付清註記；關閉後可查看或修改既有收款紀錄。'):
+        records = [row for row in records if not row.get('paid_in_full')]
     names = {r['customer_id']: customer_display_name(r) for r in list_customers(config, include_inactive=True)}
     customers = names if mode != '單筆收款' else {r['customer_id']: names.get(r['customer_id'], r['customer_name']) for r in records}
     if not customers:
@@ -454,6 +460,8 @@ def render_receipt_entry(config):
     documents = {r["id"]: r for r in records if r["customer_id"] == customer}
     shipment_id = shipment_col.selectbox("收款出貨單", list(documents), format_func=lambda i: documents[i]["shipment_number"] + " · " + documents[i]["shipment_date"], key="receipt_shipment")
     document = get_shipment(config, shipment_id)
+    if document.get("paid_in_full"):
+        st.caption("已付清註記 · 僅供篩選，以下金額仍依實際收款紀錄計算。")
     receipts = list_receipts(config, shipment_id)
     paid = sum((Decimal(r["amount"]) for r in receipts if r["status"] == "active"), Decimal(0))
     balance = Decimal(document["total_amount"]) - paid

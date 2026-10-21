@@ -54,6 +54,7 @@ else:
         {'貨品編號': 'P1', '品名': 'Blue', '數量': 2.0, '單位': 'KG', '單價': 100.0}]}
     app.run()
     app.session_state['receivable_pages'] = ['stale report']
+    app.toggle(key=prefix + 'paid_in_full').set_value(True).run()
     app.button(key='shipment_save').click().run()
     assert not app.exception and not calls
     assert 'shipment_draft' not in app.session_state and 'receivable_pages' not in app.session_state
@@ -61,6 +62,7 @@ else:
     saved_view = app.session_state['shipment_saved_view']['document']
     assert saved_view == get_shipment(config, saved_id)
     assert saved_view['shipment_number'] == '002' and saved_view['items'][0]['amount'] == '200'
+    assert saved_view['paid_in_full'] is True
     # Normal viewing and print settings must not re-query the list, document,
     # or customer labels after a successful save.
     original_name = ui.CustomerDisplay.name

@@ -12,7 +12,7 @@ from .shipment_codes import printed_code
 from .print_stock import stock_sheet, stock_style
 
 
-def build_statements(config, start, end, customer_start="", customer_end="", hide_empty=True):
+def build_statements(config, start, end, customer_start="", customer_end="", hide_empty=True, *, hide_paid=False):
     start, end = _valid_date(start, "起始帳款日期"), _valid_date(end, "結束帳款日期")
     if start > end:
         raise ShipmentError("起始帳款日期不可晚於結束日期")
@@ -42,11 +42,18 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
     grouped = {c["customer_id"]: dict(customer_id=c["customer_id"], customer_name=c["name"],
                start=start, end=end, documents=[], contact="", phone="", fax="", tax_id="") for c in customers}
     documents = {}
+    excluded, paid_customers = set(), set()
     for row in records:
+        if row["id"] in excluded:
+            continue
+        header = json.loads(row["payload_json"]) if row["id"] not in documents else None
+        if hide_paid and header and header.get("paid_in_full") in (True, 1):
+            excluded.add(row["id"])
+            paid_customers.add(row["customer_id"])
+            continue
         statement = grouped.setdefault(row["customer_id"], dict(customer_id=row["customer_id"], customer_name=row["customer_name"],
                     start=start, end=end, documents=[]))
         if row["id"] not in documents:
-            header = json.loads(row["payload_json"])
             document = dict(id=row["id"], number=row["shipment_number"], date=row["shipment_date"], items=[],
                             net=row["net_amount"], tax=row["tax_amount"], total=row["total_amount"], received=str(row["received"]))
             documents[row["id"]] = document
@@ -57,7 +64,7 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
     result = []
     for code in sorted(grouped):
         statement = grouped[code]
-        if hide_empty and not statement["documents"]:
+        if not statement["documents"] and (hide_empty or code in paid_customers):
             continue
         for name in ("net", "tax", "total", "received"):
             statement[name] = str(sum((Decimal(d[name]) for d in statement["documents"]), Decimal(0)))

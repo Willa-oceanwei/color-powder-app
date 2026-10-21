@@ -16,7 +16,7 @@ from .shipment_codes import display_code_options
 TAX_MODES = ("外加", "內含", "免稅", "零稅率")
 HEADER_FIELDS = ("shipment_date", "customer_id", "customer_name", "recipient_id", "recipient_name",
                  "address", "tax_mode", "tax_rate", "account_date", "payment_terms", "notes", "order_number", "number_mode",
-                 "contact", "phone", "fax", "tax_id")
+                 "contact", "phone", "fax", "tax_id", "paid_in_full")
 ITEM_FIELDS = ("code", "name", "quantity", "unit", "price", "order_number", "notes")
 INVOICE_FIELDS = ("date", "number", "method", "type", "amount")
 
@@ -75,7 +75,7 @@ def blank_shipment():
     today = date.today().isoformat()
     return {"shipment_number": "", "number_mode": "date", "shipment_date": today, "customer_id": "", "customer_name": "",
             "recipient_id": "", "recipient_name": "", "address": "", "tax_mode": "外加", "tax_rate": "5",
-            "account_date": today, "payment_terms": "", "notes": "", "order_number": "", "items": [],
+            "account_date": today, "payment_terms": "", "notes": "", "order_number": "", "items": [], "paid_in_full": False,
             "invoice": {"date": "", "number": "", "method": "", "type": "", "amount": ""}}
 
 
@@ -84,6 +84,7 @@ def copy_shipment(document):
     result.update({key: deepcopy(document.get(key, result.get(key, ""))) for key in HEADER_FIELDS})
     result["items"] = deepcopy(document["items"])
     result["number_mode"] = "date"
+    result["paid_in_full"] = False
     return result
 
 
@@ -167,6 +168,7 @@ def _valid_date(value, label, optional=False):
 
 def _validated(document):
     header = {key: str(document.get(key) or "").strip() for key in HEADER_FIELDS}
+    header["paid_in_full"] = document.get("paid_in_full") in (True, 1)
     header["number_mode"] = document.get("number_mode") or ("manual" if document.get("shipment_number") else "date")
     if header["number_mode"] not in ("manual", "date"):
         raise ShipmentError("請選擇單號方式")
@@ -227,6 +229,7 @@ def list_shipments(config, *, query="", start=None, end=None, include_void=False
             args.append(value)
     where = "WHERE " + " AND ".join(clauses) if clauses else ""
     fields = "id,shipment_number,shipment_date,customer_id,customer_name,net_amount,status,version" if summary else "*"
+    fields += ",COALESCE(json_extract(payload_json,'$.paid_in_full'),0) AS paid_in_full"
     with connect_from_config(config) as conn:
         return _mappings(conn.execute(f"SELECT {fields} FROM shipment_orders {where} ORDER BY shipment_date,shipment_number,id", tuple(args)))
 
@@ -250,6 +253,7 @@ def get_shipment(config, shipment_id):
 def _shipment_document(row, items, invoice):
     row = dict(row)
     result = json.loads(row.pop("payload_json"))
+    result.setdefault("paid_in_full", False)
     result.update(row)
     result["items"] = items
     result["invoice"] = invoice

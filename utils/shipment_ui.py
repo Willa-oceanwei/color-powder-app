@@ -353,7 +353,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 display = CustomerDisplay(config)
                 result = pd.DataFrame([{"出貨日期": r["shipment_date"], "出貨單號": r["shipment_number"],
                           "客戶編號": r["customer_id"], "客戶名稱": display.name(r["customer_name"], r["customer_id"]), "總計（未稅）": int(r["net_amount"]),
-                          "狀態": "作廢" if r["status"] == "void" else "有效"} for r in records])
+                          "狀態": "作廢" if r["status"] == "void" else "有效",
+                          "收款註記": "已付清" if r.get("paid_in_full") else ""} for r in records])
                 chosen = render_selection_table(result, records, key="shipment_results_" + str(st.session_state["shipment_search_epoch"]),
                                                 id_field="id", height=min(400, 38 * (len(records) + 1)), disabled=editing)
                 if editing:
@@ -652,9 +653,14 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     with details:
         transaction, invoice_tab, account, related = st.tabs(["交易明細", "發票資料", "帳款資料", "相關資料"])
         with transaction:
-            notes = st.text_area("備註", value=widget_default(prefix + "notes", document.get("notes", "")), height=68, key=prefix + "notes", disabled=not editing)
+            notes_col, paid_col = st.columns([4, 1], vertical_alignment="center")
+            notes = notes_col.text_area("備註", value=widget_default(prefix + "notes", document.get("notes", "")), height=68, key=prefix + "notes", disabled=not editing)
+            paid_in_full = paid_col.toggle("已付清", value=widget_default(prefix + "paid_in_full", bool(document.get("paid_in_full", False))),
+                                           key=prefix + "paid_in_full", disabled=not editing,
+                                           help="供應收帳款明細表與單筆收款篩選；不會自動登錄收款或更動金額。")
             if editing:
                 document["notes"] = notes
+                document["paid_in_full"] = paid_in_full
         with invoice_tab:
             invoice = document["invoice"]
             row = st.columns(3)
