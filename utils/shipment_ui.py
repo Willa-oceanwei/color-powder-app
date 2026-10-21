@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from html import escape
 import json
 
@@ -117,6 +118,8 @@ def _cached_print(config, document, **options):
 
 
 def _begin(document, *, rerun=True):
+    for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export"):
+        st.session_state.pop(key, None)
     st.session_state.pop("shipment_saved_view", None)
     st.session_state.pop("shipment_saved_nav_direction", None)
     st.session_state.pop("shipment_read_cache", None)
@@ -161,6 +164,8 @@ def _new_shipment():
 
 
 def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None):
+    for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export"):
+        st.session_state.pop(key, None)
     clear_reads(st.session_state)
     if invalidate_reports:
         st.session_state.pop("receivable_pages", None)
@@ -250,6 +255,27 @@ def _draft_print_document(document):
     for item, amount in zip(snapshot["items"], totals["line_amounts"]):
         item["amount"] = str(amount)
     return snapshot
+
+
+def _editor_rebase_needed(raw_items, completed_items):
+    """Rebuild the grid only when automatic completion changes visible values."""
+    if len(raw_items) != len(completed_items):
+        return True
+    for raw, completed in zip(raw_items, completed_items):
+        for field in COLUMNS:
+            if field in ("amount", "display_code"):
+                continue
+            before, after = raw.get(field, ""), completed.get(field, "")
+            if before == after:
+                continue
+            if field in ("quantity", "price"):
+                try:
+                    if Decimal(str(before)) == Decimal(str(after)):
+                        continue
+                except InvalidOperation:
+                    pass
+            return True
+    return False
 
 
 # Streamlit 1.38 can leave editor/tab nodes blank on fragment updates.
@@ -412,7 +438,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                     on_click=_copy_for_edit, args=(document,))
     tools[3].button("取消", key="shipment_cancel", disabled=not editing, use_container_width=True,
                     on_click=_finish, args=("已取消修改",), kwargs={"rerun": False})
-    save_clicked = tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing, use_container_width=True)
+    pending_save = st.session_state.pop("shipment_pending_save", False)
+    save_clicked = tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing, use_container_width=True) or pending_save
     for col, label, target in ((tools[5], "上一筆", index - 1), (tools[6], "下一筆", index + 1)):
         if col.button(label, key="shipment_nav_" + label,
                       disabled=editing or (not showing_saved and (not ids or target < 0 or target >= len(ids) or target == index)), use_container_width=True):
@@ -438,6 +465,10 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         print_html = _cached_print(config, document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock, output_mode=output_mode) if document and not editing else None
         if print_html:
             st.download_button("下載列印版", data=print_html, file_name=document["shipment_number"] + ".html", mime="text/html", use_container_width=True)
+        prepare_draft_export = st.button("產生列印檔", key="shipment_prepare_draft_export", use_container_width=True,
+                                         disabled=not document.get("items")) if editing else False
+        pending_export = st.session_state.pop("shipment_pending_export", False)
+        prepare_draft_export = prepare_draft_export or pending_export
     orientation = "portrait" if layout == "直式" else "landscape"
     if editing:
         st.markdown('<span class="shipment-edit-status">編輯中 · 尚未儲存</span>', unsafe_allow_html=True)
@@ -613,7 +644,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         frame["免稅"] = frame["免稅"].fillna(False).astype(bool)
         raw_items = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
         document["items"] = complete_items(config, document, raw_items, document["items"], choices=all_choices, history=history)
-        if document["items"] != raw_items:
+        if _editor_rebase_needed(raw_items, document["items"]):
+            if save_clicked:
+                st.session_state.shipment_pending_save = True
+            if prepare_draft_export:
+                st.session_state.shipment_pending_export = True
             st.session_state.shipment_editor_base = deepcopy(document["items"])
             st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
             _rerun_shipment()
@@ -727,6 +762,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         lines = '　·　'.join(f'{escape(str(item.get("code", "")))}：{int(amount):,}' for item, amount in zip(document["items"], totals["line_amounts"]))
         st.markdown(f'<div class="shipment-lines">{lines}</div>', unsafe_allow_html=True)
     if editing:
+        export_signature = (repr(config), json.dumps(document, sort_keys=True, ensure_ascii=False, default=str),
+                            hide_prices, orientation, feed_rotation, hole_margin, paper_stock, output_mode)
+        prepared = st.session_state.get("shipment_draft_export")
+        if prepared and prepared["signature"] != export_signature:
+            st.session_state.pop("shipment_draft_export", None)
+            prepared = None
+    if editing and (preview or prepare_draft_export):
         try:
             snapshot = _draft_print_document(document)
             draft_html = _cached_print(config, snapshot, show_prices=not hide_prices, orientation=orientation,
@@ -736,12 +778,17 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             if draft_preview is not None:
                 draft_preview.info(str(error))
         else:
-            with export_panel:
-                st.download_button("下載列印版", draft_html, file_name=(snapshot["shipment_number"] or "未儲存出貨單") + ".html",
-                                   mime="text/html", use_container_width=True)
+            if prepare_draft_export:
+                prepared = {"signature": export_signature, "html": draft_html,
+                            "filename": (snapshot["shipment_number"] or "未儲存出貨單") + ".html"}
+                st.session_state.shipment_draft_export = prepared
             if draft_preview is not None:
                 with draft_preview.container():
                     components.html(theme_preview(draft_html), height=550, scrolling=True)
+    if editing and prepared:
+        with export_panel:
+            st.download_button("下載列印版", prepared["html"], file_name=prepared["filename"],
+                               mime="text/html", use_container_width=True)
     if save_clicked:
         try:
             if any(len(matching_products(all_choices, item.get("code"))) > 1 for item in document["items"]):
