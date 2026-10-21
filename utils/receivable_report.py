@@ -255,6 +255,7 @@ td:nth-child(6){padding-right:2mm}td:nth-child(7){text-align:center}
                         '<button id="print-customer" onclick="printCustomer()" title="列印目前客戶的所有頁面">列印此客戶</button>'
                         '<button onclick="printAll()">列印全部</button>')
     html = html.replace('</style>', '@media print{.preview-stage>.print-omit{display:none!important}'
+                        '.preview-stage>.print-customer-offset{position:relative;left:2mm}'
                         '.preview-stage>.print-last{break-after:auto!important;page-break-after:auto!important}}</style>', 1)
     customer_print = """<script id="statement-customer-print">
 function customerId(page){
@@ -262,13 +263,14 @@ const customer=page&&(page.matches('[data-customer-id]')?page:page.querySelector
 return customer?customer.dataset.customerId:null;
 }
 function clearPrintSelection(){
-sheets.forEach(page=>page.classList.remove('print-omit','print-last'));
+sheets.forEach(page=>page.classList.remove('print-omit','print-last','print-customer-offset'));
 }
 function printCustomer(){
 clearPrintSelection();
 const id=customerId(sheets[current]);
 if(id===null)return;
 const selected=sheets.filter(page=>customerId(page)===id);
+selected.forEach(page=>page.classList.add('print-customer-offset'));
 sheets.forEach(page=>page.classList.toggle('print-omit',customerId(page)!==id));
 selected[selected.length-1].classList.add('print-last');
 try{window.print();}catch(error){clearPrintSelection();throw error;}

@@ -16,6 +16,7 @@ def test_print_customer_selects_all_customer_pages_and_resets(stock):
     html = render_statement_print([], paper_stock=stock)
     assert 'id="print-customer"' in html
     assert '.preview-stage>.print-omit{display:none!important}' in html
+    assert '.preview-stage>.print-customer-offset{position:relative;left:2mm}' in html
     script = re.search(r'<script id="statement-customer-print">(.*?)</script>', html, re.S)[1]
     # Model the real top-level sheet elements, including stock wrappers.
     harness = '''
@@ -38,12 +39,14 @@ SCRIPT
 printCustomer();
 assert.deepEqual(printed.pop(),[true,false,true]);
 assert(sheets[2].classes.has('print-last'));
+assert.deepEqual(sheets.map(p=>p.classes.has('print-customer-offset')),[true,false,true]);
 listeners.afterprint();
 assert(sheets.every(p=>p.classes.size===0));
 current=1;
 printCustomer();
 assert.deepEqual(printed.pop(),[false,true,false]);
 assert(sheets[1].classes.has('print-last'));
+assert.deepEqual(sheets.map(p=>p.classes.has('print-customer-offset')),[false,true,false]);
 printAll();
 assert.deepEqual(printed.pop(),[true,true,true]);
 assert(sheets.every(p=>p.classes.size===0));
