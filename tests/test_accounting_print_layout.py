@@ -28,20 +28,23 @@ def test_receivable_name_with_closing_parenthesis_stays_on_one_row(monkeypatch):
     name = "深藍*(黑藍)"
     s["documents"][0]["items"][0]["name"] = name
     before = deepcopy(s)
-    pages = statement_pages([s], paper_size="A4", name_width=18)
+    pages = statement_pages([s], paper_size="A4", name_width=14)
     assert len(pages[0]["rows"]) == 2
     assert pages[0]["rows"][1][4] == name
     assert pages[0]["rows"][1][8] == "200"
     html = render_statement_print(pages, paper_stock="a4_driver")
     assert f"<td>{name}</td>" in html
-    assert html.rindex("th:nth-child(5){width:20%}") > html.index("th:nth-child(5){width:12%}")
+    assert html.rindex("th:nth-child(5){width:15%}") > html.index("th:nth-child(5){width:12%}")
+    assert "th:nth-child(10){width:14%}" in html
+    assert "td:nth-child(10){font-size:11pt}" in html
     pdf = MagicMock()
     monkeypatch.setattr(export, "_canvas", lambda *args, **kwargs: (BytesIO(), pdf))
     statement_pdf(pages)
     assert any(call.args[2] == name for call in pdf.drawString.call_args_list)
     sheet = load_workbook(BytesIO(statement_excel([s])))["列印版"]
     assert any(cell.value == name for row in sheet for cell in row)
-    assert sheet.column_dimensions["E"].width == 24
+    assert sheet.column_dimensions["E"].width == 19
+    assert sheet.column_dimensions["J"].width == 15
     assert s == before
 
 

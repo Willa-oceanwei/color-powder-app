@@ -59,7 +59,7 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
     sheet.page_setup.fitToHeight = 0
     sheet.sheet_properties.pageSetUpPr.fitToPage = True
     sheet.page_margins = PageMargins(left=0, right=0, top=0, bottom=0, header=0, footer=0)
-    for column, width in zip("ABCDEFGHIJ", (5, 13, 14, 13, 24, 9, 6, 10, 14, 10) if title == "應收帳款明細表" else (5, 14, 16, 13, 16, 9, 6, 10, 14, 15)):
+    for column, width in zip("ABCDEFGHIJ", (5, 13, 14, 13, 19, 9, 6, 10, 14, 15) if title == "應收帳款明細表" else (5, 14, 16, 13, 16, 9, 6, 10, 14, 15)):
         sheet.column_dimensions[column].width = width
 
     def put(row, column, value, *, end=None, size=13, bold=False, align="left"):
@@ -76,7 +76,7 @@ def statement_excel(statements, *, show_receipts=False, title="應收帳款明�
         return cell
 
     base = 0
-    for page in statement_pages(statements, paper_size="A4", name_width=18 if title == "應收帳款明細表" else 10):
+    for page in statement_pages(statements, paper_size="A4", name_width=14 if title == "應收帳款明細表" else 10):
         s = page["statement"]
         put(base + 1, 1, company_name, end=10, size=22, bold=True, align="center")
         put(base + 2, 1, title, end=10, size=17, align="center")
@@ -229,7 +229,7 @@ def statement_pdf(pages, *, show_receipts=False, title="應收帳款明細表", 
                 previous_date = row[1]
             pdf.setFont("MSung-Light", 11.5)
             for column, (x, value) in enumerate(zip(positions, row)):
-                size = 9.5 if column == 9 else 11.5
+                size = (11 if receivable else 9.5) if column == 9 else 11.5
                 if column == 9 and value:
                     from reportlab.pdfbase.pdfmetrics import stringWidth
                     available = widths[column] * column_unit - 2 * mm - 3

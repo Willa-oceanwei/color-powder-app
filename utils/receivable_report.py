@@ -118,7 +118,7 @@ def monthly_receipt_summary(config, start, end, as_of):
 FIELDS = (("kind", 6), ("date", 12), ("number", 16), ("code", 14), ("name", 10),
           ("quantity", 9), ("unit", 6), ("price", 8), ("amount", 12), ("order_number", 12))
 REPORT_WIDTHS = (5, 13, 14, 11, 12, 7, 5, 8, 11, 14)
-RECEIVABLE_WIDTHS = (5, 12, 12, 11, 20, 7, 5, 8, 11, 9)
+RECEIVABLE_WIDTHS = (5, 12, 12, 11, 15, 7, 5, 8, 11, 14)
 
 
 def statement_pages(statements, capacity=None, *, paper_size="auto", name_width=10):
@@ -232,6 +232,7 @@ td:nth-child(10){font-size:9.5pt;white-space:nowrap;overflow-wrap:normal}
 '''
     if receivable:
         preview_style += ".quantity-summary{font-size:12pt}"
+        preview_style += "td:nth-child(10){font-size:11pt}"
         preview_style += "".join(f"th:nth-child({index}){{width:{width}%}}"
                                  for index, width in enumerate(RECEIVABLE_WIDTHS, 1))
         preview_style += ".summary{grid-template-columns:" + " ".join(f"{width}%" for width in RECEIVABLE_WIDTHS) + "}"

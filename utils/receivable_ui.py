@@ -139,7 +139,7 @@ def render_report(config, *, title="應收帳款明細表"):
         try:
             pages = statement_pages(build_statements(config, start, end, lower, upper, hide_empty),
                                     paper_size="A5" if paper.startswith("三聯紙") else "auto" if paper == "依內容自動選擇" else paper,
-                                    name_width=18 if title == "應收帳款明細表" else 10)
+                                    name_width=14 if title == "應收帳款明細表" else 10)
         except ShipmentError as error:
             st.error(str(error))
             st.session_state.pop("receivable_pages", None)
