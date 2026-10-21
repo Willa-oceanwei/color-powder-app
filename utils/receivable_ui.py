@@ -128,8 +128,9 @@ def render_report(config, *, title="應收帳款明細表"):
             dates = st.columns(2)
             start = dates[0].date_input("起始帳款日期", value=today.replace(day=1))
             end = dates[1].date_input("結束帳款日期", value=today)
-            paper = st.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"))
-            hide_empty = st.toggle("本期未交易者不顯示", value=True)
+            paper_col, hide_col = st.columns(2, vertical_alignment="center")
+            paper = paper_col.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "依內容自動選擇", "A5"))
+            hide_empty = hide_col.toggle("本期未交易者不顯示", value=True)
             submitted = st.form_submit_button("預覽", type="primary", use_container_width=True)
     if submitted:
         st.session_state.pop("receivable_exports", None)
