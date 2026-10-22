@@ -26,7 +26,7 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
     where = "WHERE " + " AND ".join(clauses) if clauses else ""
     # One SELECT snapshots headers and lines, rather than a query per shipment.
     with connect_from_config(config) as conn:
-        customers = _mappings(conn.execute(f"SELECT customer_id,name FROM customers {where} ORDER BY customer_id", tuple(args)))
+        customers = _mappings(conn.execute(f"SELECT customer_id,name,contact,phone,fax,tax_id FROM customers {where} ORDER BY customer_id", tuple(args)))
         records = _mappings(conn.execute(
             "SELECT s.id,s.shipment_number,s.shipment_date,s.customer_id,s.customer_name,s.payload_json,"
             "s.net_amount,s.tax_amount,s.total_amount,i.line_number,i.payload_json AS item_json,"
@@ -40,7 +40,8 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
             + "ORDER BY s.customer_id,s.shipment_date,s.shipment_number,s.id,i.line_number",
             tuple([end, start, end] + ([customer_start] if customer_start else []) + ([customer_end] if customer_end else []))))
     grouped = {c["customer_id"]: dict(customer_id=c["customer_id"], customer_name=c["name"],
-               start=start, end=end, documents=[], contact="", phone="", fax="", tax_id="") for c in customers}
+               start=start, end=end, documents=[], **{key: c.get(key) or "" for key in ("contact", "phone", "fax", "tax_id")}) for c in customers}
+    master_ids = set(grouped)
     documents = {}
     excluded, paid_customers = set(), set()
     for row in records:
@@ -58,8 +59,9 @@ def build_statements(config, start, end, customer_start="", customer_end="", hid
                             net=row["net_amount"], tax=row["tax_amount"], total=row["total_amount"], received=str(row["received"]))
             documents[row["id"]] = document
             statement["documents"].append(document)
-            for key in ("contact", "phone", "fax", "tax_id"):
-                statement[key] = header.get(key, "")
+            if row["customer_id"] not in master_ids:
+                for key in ("contact", "phone", "fax", "tax_id"):
+                    statement[key] = header.get(key, "")
         documents[row["id"]]["items"].append(json.loads(row["item_json"]))
     result = []
     for code in sorted(grouped):

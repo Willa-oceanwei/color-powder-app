@@ -3860,6 +3860,8 @@ elif menu == "客戶名單":
                         st.session_state.pop("shipment_page_cache", None)
                         st.session_state.pop("shipment_read_cache", None)
                         st.toast(message, icon="✅")
+                        st.session_state.pop("receivable_pages", None)
+                        st.session_state.pop("receivable_exports", None)
                         customer_editor.empty()
                         rerun_customer_workspace()
                     except (CustomerError, CustomerAlreadyExists) as exc:

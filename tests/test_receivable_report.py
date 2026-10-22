@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from utils.customer_repository import CustomerInput, create_customer
+from utils.customer_repository import CustomerInput, create_customer, update_customer
 from utils.database import DatabaseConfig, connect, initialize_database, database_health_check
 from utils.receipt_repository import list_receipts, save_receipt, void_receipt
 from utils.receivable_report import build_statements, render_statement_print, statement_pages
@@ -32,6 +32,26 @@ def shipment(config, customer="A01", account_date="2026-10-01", count=2, shipmen
 def receipt(config, d, amount=50, receipt_date="2026-10-02", token=None):
     return save_receipt(config, receipt_id=token or str(uuid4()), shipment_id=d["id"], shipment_version=d["version"],
                         receipt_date=receipt_date, amount=amount, method="現金")
+
+
+def test_statement_uses_updated_customer_contacts_without_rewriting_shipments(config):
+    document = shipment(config)
+    document.update(contact="Old contact", phone="Old phone", fax="Old fax", tax_id="11111111")
+    saved = save_shipment(config, document)
+    update_customer(config, CustomerInput("A01", "新版公司", contact="New contact", phone="06-1234567",
+                                          fax="06-7654321", tax_id="22222222"))
+    rows = build_statements(config, "2026-10-01", "2026-10-31")
+    statement = rows[0]
+    assert statement["customer_name"] == "新版公司"
+    for key, value in (("contact", "New contact"), ("phone", "06-1234567"), ("fax", "06-7654321"), ("tax_id", "22222222")):
+        assert statement[key] == value
+        assert value in render_statement_print(statement_pages(rows))
+    assert get_shipment(config, saved["id"]) == saved
+    # Clearing a field in the master must not resurrect the historical value.
+    update_customer(config, CustomerInput("A01", "新版公司", contact="", phone="", fax="", tax_id=""))
+    cleared = build_statements(config, "2026-10-01", "2026-10-31")[0]
+    assert all(cleared[key] == "" for key in ("contact", "phone", "fax", "tax_id"))
+    assert get_shipment(config, saved["id"]) == saved
 
 
 def test_preview_controls_only_refresh_report_when_requested(config, monkeypatch):

@@ -100,9 +100,12 @@ def test_customer_form_add_edit_cancel_and_clear(config):
     assert app.selectbox(key="customer_action_id").value is None
     app.selectbox(key="customer_action_id").set_value("C01").run()
     next(w for w in app.text_input if w.label == "地址").set_value("高雄市新地址")
+    app.session_state["receivable_pages"] = ["old report"]
+    app.session_state["receivable_exports"] = {"pdf": b"old"}
     next(w for w in app.button if w.label == "儲存變更").click().run()
     assert not app.exception and list_customers(config)[0]["address"] == "高雄市新地址"
     assert app.selectbox(key="customer_action_id").value is None
+    assert "receivable_pages" not in app.session_state and "receivable_exports" not in app.session_state
 
 
 def test_add_customers_when_customer_picker_is_already_rendered(config):
