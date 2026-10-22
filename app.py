@@ -5521,7 +5521,8 @@ def render_production_order_workspace():
     # 已移除，直接沿用模組層級的版本即可，行為完全相同。
 
     production_data_started_at = time.perf_counter()
-    production_data_cached = st.session_state.get("production_data_loaded", False)
+    production_data_cached = (st.session_state.get("production_data_loaded", False)
+                              and st.session_state.get("production_recipe_ids_version") == 1)
     if not production_data_cached:
         # 生產單與配方互不相依，首次開頁時並行讀取；後續 widget rerun
         # 直接沿用 session_state，避免每次輸入或切 tab 都重打兩次 Turso。
@@ -5544,7 +5545,7 @@ def render_production_order_workspace():
             df_recipe.fillna("", inplace=True)
 
             if "配方編號" in df_recipe.columns:
-                df_recipe["配方編號"] = df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x)))
+                df_recipe["配方編號"] = df_recipe["配方編號"].map(clean_powder_id)
             if "客戶名稱" in df_recipe.columns:
                 df_recipe["客戶名稱"] = df_recipe["客戶名稱"].map(clean_powder_id)
             if "原始配方" in df_recipe.columns:
@@ -5565,6 +5566,7 @@ def render_production_order_workspace():
         st.session_state.df_recipe = df_recipe
         st.session_state["_initial_production_inventory"] = initial_inventory_movements
         st.session_state.production_data_loaded = True
+        st.session_state.production_recipe_ids_version = 1
     
     df_recipe = st.session_state.df_recipe
     df_order = st.session_state.df_order.copy()
@@ -6089,6 +6091,11 @@ def render_production_order_workspace():
         else:
             filtered = search_df.copy()        
         
+        # A complete recipe ID takes priority over substring matches (917 / 1917 / 917A).
+        exact = filtered[filtered["配方編號"].astype(str).str.strip().str.casefold() == search_text_tab1.strip().casefold()]
+        if search_text_tab1.strip() and not exact.empty:
+            filtered = exact.copy()
+
         # ===== 建立選單 =====
         if not filtered.empty:
         
@@ -6182,13 +6189,14 @@ def render_production_order_workspace():
             else:
                 selected_row = option_map.get(selected_label)
 
-        # 搜尋條件改變後，不可繼續顯示上一個配方的可編輯表單。多筆結果必須
-        # 重新按「新增」確認；查無結果或尚未選取時則直接收起舊資料區。
+        # Changing the selected recipe opens its draft; an unchanged selection
+        # preserves current inputs. No matches or no selection hide stale inputs.
         active_order = st.session_state.get("new_order") or {}
         active_recipe_code = str(active_order.get("配方編號", "")).strip()
         selected_recipe_code = str(
             (selected_row or {}).get("配方編號", "")
         ).strip()
+        selection_changed = bool(selected_recipe_code and selected_recipe_code != active_recipe_code)
         should_hide_stale_draft = (
             bool(active_recipe_code)
             and (
@@ -6202,7 +6210,7 @@ def render_production_order_workspace():
             st.session_state["show_confirm_panel"] = False
         
         # === 處理「新增」按鈕 ===
-        if add_btn:
+        if add_btn or selection_changed:
             if selected_label is None or selected_label == "請選擇":
                 st.warning("請先選擇有效配方")
             else:
@@ -6279,13 +6287,18 @@ def render_production_order_workspace():
         
         
         recipe_id_raw = order.get("配方編號", "").strip()
-        recipe_id = fix_leading_zero(clean_powder_id(recipe_id_raw))
+        recipe_id = clean_powder_id(recipe_id_raw)
         
-        matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(str(x)))) == recipe_id]
+        matched = df_recipe[df_recipe["配方編號"].map(clean_powder_id) == recipe_id]
+        if matched.empty and recipe_id:
+            # Keep older orders with padded recipe references readable, while
+            # always preferring the actual stored ID for new selections.
+            matched = df_recipe[df_recipe["配方編號"].map(lambda x: fix_leading_zero(clean_powder_id(x))) == fix_leading_zero(recipe_id)]
         
         if not matched.empty:
             recipe_row = matched.iloc[0].to_dict()
             recipe_row = {k.strip(): ("" if v is None or pd.isna(v) else str(v)) for k, v in recipe_row.items()}
+            recipe_id = clean_powder_id(recipe_row.get("配方編號", recipe_id))
             st.session_state["recipe_row_cache"] = recipe_row
         else:
             recipe_row = {}

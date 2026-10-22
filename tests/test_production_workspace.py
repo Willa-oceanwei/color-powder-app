@@ -171,6 +171,49 @@ def test_clear_creation_draft_preserves_saved_orders(production_config, saved):
     assert app.text_area(key='form_remark_tab1').value == ''
 
 
+def test_short_exact_recipe_search_prefers_full_id_and_keeps_draft_inputs(production_config):
+    for code in ('917', '0917', '1917', '917A'):
+        create_recipe(production_config, {'配方編號': code, '顏色': '螢光黃', '客戶名稱': 'Customer',
+                                         '色粉類別': '配方', '配方類別': '原始配方', '計量單位': 'kg'})
+    before = list_production_orders(production_config)
+    app = workspace_app(production_config).run(timeout=30)
+    app.text_input(key='search_text_tab1').set_value('917').run()
+    assert not app.exception and app.session_state['show_confirm_panel']
+    assert app.session_state['new_order']['配方編號'] == '917'
+    app.text_input(key='form_weight1_tab1').set_value('25').run()
+    assert not app.exception
+    assert app.text_input(key='form_weight1_tab1').value == '25'
+    assert app.session_state['new_order']['配方編號'] == '917'
+    assert app.session_state['recipe_row_cache']['配方編號'] == '917'
+    app.text_input(key='search_text_tab1').set_value('0917').run()
+    assert not app.exception and app.session_state['show_confirm_panel']
+    assert app.session_state['new_order']['配方編號'] == '0917'
+    assert app.session_state['recipe_row_cache']['配方編號'] == '0917'
+    assert list_production_orders(production_config) == before
+
+
+def test_manual_recipe_selection_opens_creation_without_another_add_click(production_config):
+    for code in ('917', '917A'):
+        create_recipe(production_config, {'配方編號': code, '顏色': '螢光黃', '客戶名稱': 'Customer',
+                                         '色粉類別': '配方', '配方類別': '原始配方', '計量單位': 'kg'})
+    before = list_production_orders(production_config)
+    app = workspace_app(production_config).run(timeout=30)
+    app.text_input(key='search_text_tab1').set_value('螢光黃').run()
+    picker = app.selectbox(key='search_add_form_selected_recipe_tab1')
+    label = next(option for option in picker.options if option.startswith('917 |'))
+    picker.set_value(label).run()
+    assert not app.exception and app.session_state['show_confirm_panel']
+    assert app.session_state['new_order']['配方編號'] == '917'
+    app.text_input(key='form_weight1_tab1').set_value('25').run()
+    picker = app.selectbox(key='search_add_form_selected_recipe_tab1')
+    label = next(option for option in picker.options if option.startswith('917A |'))
+    picker.set_value(label).run()
+    assert not app.exception and app.session_state['show_confirm_panel']
+    assert app.session_state['new_order']['配方編號'] == '917A'
+    assert app.text_input(key='form_weight1_tab1').value == ''
+    assert list_production_orders(production_config) == before
+
+
 def test_history_label_editor_and_workspace_have_one_render_owner(production_config, monkeypatch):
     original_init = LocalScriptRunner.__init__
     fragment_counts = []
