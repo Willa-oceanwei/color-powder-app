@@ -52,7 +52,13 @@ def matching_products(choices, value, *, by_name=False, history=()):
     return exact or [code for code, values in names.items() if any(value in name for name in values)]
 
 
-def item_price(config, document, code, unit, product, *, history=None):
+def item_price(config, document, code, unit, product, *, history=None, quotes=None):
+    from .advance_price_repository import applicable_price, list_advance_prices
+    if quotes is None:
+        quotes = list_advance_prices(config, document["customer_id"]) if config is not None else []
+    quote = applicable_price(quotes, document["customer_id"], code, unit, document["tax_mode"], document["shipment_date"])
+    if quote:
+        return quote["price"]
     previous = recent_shipment_price(config, document["customer_id"], code, unit,
                                      shipment_date=document["shipment_date"], tax_mode=document["tax_mode"],
                                      exclude_id=document.get("id", ""), history=history)
@@ -63,7 +69,10 @@ def item_price(config, document, code, unit, product, *, history=None):
     return "0"
 
 
-def complete_items(config, document, items, previous, *, choices=None, history=None):
+def complete_items(config, document, items, previous, *, choices=None, history=None, quotes=None):
+    from .advance_price_repository import list_advance_prices
+    if quotes is None:
+        quotes = list_advance_prices(config, document["customer_id"]) if config is not None else []
     if choices is None:
         choices = shipment_choices(config, document["customer_id"], all_recipes=True)
     if history is None:
@@ -84,7 +93,8 @@ def complete_items(config, document, items, previous, *, choices=None, history=N
         if item.get("display_code") and item["display_code"] not in display_code_options(code):
             item["display_code"] = ""
         unit_changed = str(item.get("unit") or "").strip().upper() != str(old.get("unit") or "").strip().upper()
-        if not match or not (code_changed or unit_changed):
+        tax_changed = bool(quotes) and bool(item.get("tax_exempt")) != bool(old.get("tax_exempt"))
+        if not match or not (code_changed or unit_changed or tax_changed):
             continue
         if code_changed:
             recent = recent_item_defaults(history, code) or {}
@@ -100,7 +110,7 @@ def complete_items(config, document, items, previous, *, choices=None, history=N
             pass
         if item.get("price", "") == "" or same_price:
             price_document = dict(document, tax_mode="免稅") if item.get("tax_exempt") else document
-            item["price"] = item_price(config, price_document, code, item["unit"], match, history=history)
+            item["price"] = item_price(config, price_document, code, item["unit"], match, history=history, quotes=quotes)
     return result
 
 

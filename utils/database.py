@@ -24,9 +24,10 @@ from typing import Any, Protocol
 from .read_cache import invalidate_read_cache
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 31
+SCHEMA_VERSION = 32
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
+    "advance_prices",
     "big_label_templates",
     "receipt_change_log",
     "receipt_batches",
@@ -73,6 +74,7 @@ MAIN_TABLES = {
     "salary_monthly_extras",
 }
 REQUIRED_TABLE_COLUMNS = {
+    "advance_prices": {"customer_id", "code", "unit", "tax_mode", "price", "effective_date", "version", "status"},
     "color_powders": {"lifecycle_status", "deleted_at", "delete_reason"},
     "suppliers": {"lifecycle_status", "deleted_at", "delete_reason"},
     "inventory_movements": {
@@ -381,6 +383,25 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             applied_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS advance_prices (
+            id TEXT PRIMARY KEY,
+            customer_id TEXT NOT NULL REFERENCES customers(customer_id),
+            code TEXT NOT NULL,
+            name TEXT NOT NULL,
+            unit TEXT NOT NULL,
+            tax_mode TEXT NOT NULL,
+            price TEXT NOT NULL,
+            effective_date TEXT NOT NULL,
+            notes TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','cancelled')),
+            cancel_reason TEXT NOT NULL DEFAULT '',
+            version INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_advance_prices_scope
+            ON advance_prices(customer_id,code,unit,tax_mode,effective_date) WHERE status='active';
+
         CREATE TABLE IF NOT EXISTS shipment_orders (
             id TEXT PRIMARY KEY,
             shipment_number TEXT NOT NULL UNIQUE,
@@ -422,6 +443,10 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             payload_json TEXT NOT NULL,
             PRIMARY KEY(shipment_id,line_number)
         );
+        CREATE INDEX IF NOT EXISTS idx_shipment_advance_price
+            ON shipment_order_items(json_extract(payload_json,'$.advance_price_id'));
+        CREATE INDEX IF NOT EXISTS idx_shipment_advance_price_override
+            ON shipment_order_items(json_extract(payload_json,'$.advance_price_override_id'));
         CREATE TABLE IF NOT EXISTS shipment_invoices (
             shipment_id TEXT PRIMARY KEY REFERENCES shipment_orders(id),
             invoice_number TEXT,
