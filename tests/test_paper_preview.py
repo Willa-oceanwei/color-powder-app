@@ -30,6 +30,16 @@ def test_recipe_numeric_columns_align_cjk_labels_without_changing_values():
     assert "料           60000" in build_paper_preview(source, title="配方")
 
 
+def test_recipe_blank_total_label_uses_same_numeric_column_as_powders():
+    for label in ("", "\u2002", "\u3000"):
+        source = "```\n編號：917 顏色：螢光黃\n971         1000\n" + "_" * 40 + "\n" + label.ljust(12) + "1000\n備註 : 保留文字  1000\n```"
+        html = build_paper_preview(source, title="配方", align_recipe_rows=True)
+        assert '<span class="recipe-label"></span><span class="recipe-value">1000</span>' in html
+        assert html.count('<span class="recipe-value">1000</span>') == 2
+        assert "_" * 40 in html
+        assert "備註 : 保留文字  1000" in html
+
+
 def test_production_reuses_print_body_without_auto_print():
     module = ast.parse(Path("app.py").read_text(encoding="utf-8"))
     functions = [n for n in module.body if isinstance(n, ast.FunctionDef) and

@@ -100,9 +100,11 @@ def build_paper_preview(content, *, title, document=False, align_recipe_rows=Fal
             lines = lines[1:-1]
         rendered = []
         for line in lines:
-            row = re.fullmatch(r"(\S+) {2,}(-?\d+(?:\.\d+)?)", line) if align_recipe_rows else None
+            row = re.fullmatch(r"(\S+|[^\S\r\n]*) {2,}(-?\d+(?:\.\d+)?)", line) if align_recipe_rows else None
             if row:
                 label, number = row.groups()
+                if not label.strip():
+                    label = ""
                 rendered.append(f'<span class="recipe-label">{escape(label)}</span>'
                                 f'<span class="recipe-value">{escape(number)}</span>')
             else:
