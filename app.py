@@ -3730,6 +3730,9 @@ elif menu == "客戶名單":
         # Reset widget state before the picker is created, including fragment reruns.
         if st.session_state.pop("customer_reset_selection", False):
             st.session_state.customer_action_id = None
+        for key in ("restore_customer_id", "customer_search_query"):
+            if key in st.session_state:
+                st.session_state[key] = st.session_state[key]
 
         def rerun_customer_workspace():
             context = get_script_run_ctx()
@@ -3882,57 +3885,74 @@ elif menu == "客戶名單":
 
         edit_customer_tab, new_customer_tab = st.tabs(["編輯客戶", "新增客戶"])
         with edit_customer_tab:
+            # Stable slots prevent picker/editor transitions from reusing stale fragment nodes.
+            picker_slot = st.empty()
+            editor_slot = st.empty()
+            inactive_slot = st.empty()
             if not editing_id:
-                if active_df.empty:
-                    st.info("目前沒有有效客戶，請先新增客戶。")
-                else:
-                    names = {row["客戶編號"]: " · ".join(dict.fromkeys(
-                        str(row[field]) for field in ("客戶編號", "客戶簡稱", "客戶名稱") if row[field]
-                    )) for row in active_df.to_dict("records")}
-                    selected_id = st.selectbox(
-                        "搜尋並選擇客戶", active_df["客戶編號"].tolist(), index=None,
-                        placeholder="輸入客戶編號、簡稱或完整名稱", key="customer_action_id",
-                        format_func=lambda cid: names[cid],
-                    )
-                    if selected_id:
-                        try:
-                            current_customer = get_customer(DATABASE_CONFIG, selected_id)
-                        except CustomerError as exc:
-                            st.error(str(exc))
-                        else:
-                            st.session_state.customer_workspace_snapshot = (repr(DATABASE_CONFIG), [
-                                current_customer if item["customer_id"] == selected_id else item
-                                for item in customer_entities
-                            ])
-                            st.session_state.editing_customer_id = selected_id
-                            st.session_state.customer_form_epoch = st.session_state.get("customer_form_epoch", 0) + 1
-                            rerun_customer_workspace()
-                    with st.expander(f"瀏覽客戶名單（{len(active_df)}）"):
-                        st.dataframe(active_df[columns], use_container_width=True, hide_index=True)
+                with picker_slot.container():
+                    if active_df.empty:
+                        st.info("目前沒有有效客戶，請先新增客戶。")
+                    else:
+                        names = {row["客戶編號"]: " · ".join(dict.fromkeys(
+                            str(row[field]) for field in ("客戶編號", "客戶簡稱", "客戶名稱") if row[field]
+                        )) for row in active_df.to_dict("records")}
+                        search_col, result_col = st.columns([2, 3])
+                        query = search_col.text_input("搜尋客戶", key="customer_search_query",
+                                                      placeholder="輸入編號、簡稱或名稱後按 Enter").strip().casefold()
+                        keywords = query.split()
+                        matches = [cid for cid in sorted(names, key=str.casefold)
+                                   if all(word in names[cid].casefold() for word in keywords)]
+                        exact_id = next((cid for cid in matches if cid.casefold() == query), None)
+                        if exact_id is not None:
+                            matches = [exact_id]
+                        selected_id = result_col.selectbox(
+                            "搜尋結果", matches, index=None,
+                            placeholder="從搜尋結果選擇客戶" if matches else "查無符合客戶", key="customer_action_id",
+                            disabled=not matches,
+                            format_func=lambda cid: names[cid],
+                        )
+                        if selected_id:
+                            try:
+                                current_customer = get_customer(DATABASE_CONFIG, selected_id)
+                            except CustomerError as exc:
+                                st.error(str(exc))
+                            else:
+                                st.session_state.customer_workspace_snapshot = (repr(DATABASE_CONFIG), [
+                                    current_customer if item["customer_id"] == selected_id else item
+                                    for item in customer_entities
+                                ])
+                                st.session_state.editing_customer_id = selected_id
+                                st.session_state.customer_form_epoch = st.session_state.get("customer_form_epoch", 0) + 1
+                                rerun_customer_workspace()
+                        with st.expander(f"瀏覽客戶名單（{len(active_df)}）"):
+                            st.dataframe(active_df[columns], use_container_width=True, hide_index=True)
 
             if editing_id:
-                render_customer_editor(editing_id, defaults)
+                with editor_slot.container():
+                    render_customer_editor(editing_id, defaults)
             if not editing_id:
-                inactive_df = df[df["生命週期"] == "inactive"].copy() if not df.empty else df.copy()
-                inactive_customers = st.empty()
-                with inactive_customers.container():
-                    with st.expander(f"已停用客戶（{len(inactive_df)}）"):
-                        if inactive_df.empty:
-                            st.info("目前沒有已停用客戶。")
-                        else:
-                            st.dataframe(inactive_df[columns + ["停用時間", "停用原因"]], use_container_width=True, hide_index=True)
-                            restore_id = st.selectbox("選擇要恢復的客戶", inactive_df["客戶編號"].tolist(), key="restore_customer_id")
-                            if st.button("♻️ 恢復客戶", key="restore_customer"):
-                                try:
-                                    set_customer_active(DATABASE_CONFIG, restore_id, active=True)
-                                    st.session_state.pop("customer_workspace_snapshot", None)
-                                    st.session_state.pop("shipment_page_cache", None)
-                                    st.session_state.pop("shipment_read_cache", None)
-                                    st.toast(f"已恢復 {restore_id}", icon="♻️")
-                                    inactive_customers.empty()
-                                    rerun_customer_workspace()
-                                except CustomerError as exc:
-                                    st.error(str(exc))
+                with inactive_slot.container():
+                    inactive_df = df[df["生命週期"] == "inactive"].copy() if not df.empty else df.copy()
+                    inactive_customers = st.empty()
+                    with inactive_customers.container():
+                        with st.expander(f"已停用客戶（{len(inactive_df)}）"):
+                            if inactive_df.empty:
+                                st.info("目前沒有已停用客戶。")
+                            else:
+                                st.dataframe(inactive_df[columns + ["停用時間", "停用原因"]], use_container_width=True, hide_index=True)
+                                restore_id = st.selectbox("選擇要恢復的客戶", inactive_df["客戶編號"].tolist(), key="restore_customer_id")
+                                if st.button("♻️ 恢復客戶", key="restore_customer"):
+                                    try:
+                                        set_customer_active(DATABASE_CONFIG, restore_id, active=True)
+                                        st.session_state.pop("customer_workspace_snapshot", None)
+                                        st.session_state.pop("shipment_page_cache", None)
+                                        st.session_state.pop("shipment_read_cache", None)
+                                        st.toast(f"已恢復 {restore_id}", icon="♻️")
+                                        inactive_slot.empty()
+                                        rerun_customer_workspace()
+                                    except CustomerError as exc:
+                                        st.error(str(exc))
 
         with new_customer_tab:
             render_customer_editor("", {col: "" for col in columns})

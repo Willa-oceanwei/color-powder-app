@@ -125,7 +125,7 @@ def test_customer_selection_identity_validation_and_cancel(config):
     create_customer(config, CustomerInput("C01", "範例完整名稱", short_name="範例", address="原地址"))
     create_customer(config, CustomerInput("C02", "另一家完整名稱", address="另一地址"))
     app = customer_app(config)
-    assert not app.exception and not app.tabs[0].text_input
+    assert not app.exception and [w.label for w in app.tabs[0].text_input] == ["搜尋客戶"]
     assert app.selectbox(key="customer_action_id").value is None
     assert app.selectbox(key="customer_action_id").options == ["C01 · 範例 · 範例完整名稱", "C02 · 另一家完整名稱"]
     app.selectbox(key="customer_action_id").set_value("C01").run()
@@ -153,6 +153,32 @@ def test_customer_archive_and_restore_from_editor(config):
     assert not app.exception and len(list_customers(config)) == 1
     app.selectbox(key="customer_action_id").set_value("C01").run()
     assert next(w for w in app.text_input if w.label == "停用原因").value == ""
+
+
+def test_customer_search_keeps_code_order_and_exact_match_without_auto_edit(config):
+    for code, name in (("RD09", "金偉"), ("RD06", "昇高"), ("RD03", "吉甲"), ("RD05", "良泰實業公司")):
+        create_customer(config, CustomerInput(code, name, short_name="良泰" if code == "RD05" else ""))
+    before = list_customers(config)
+    app = customer_app(config)
+    assert not app.exception
+    assert [option.split(" · ")[0] for option in app.selectbox(key="customer_action_id").options] == ["RD03", "RD05", "RD06", "RD09"]
+    for query, expected in (("rd", ["RD03", "RD05", "RD06", "RD09"]), ("rd05", ["RD05"]),
+                            ("良泰", ["RD05"]), ("RD 良泰", ["RD05"]), ("unknown", [])):
+        app.text_input(key="customer_search_query").set_value(query).run()
+        assert not app.exception
+        picker = app.selectbox(key="customer_action_id")
+        assert [option.split(" · ")[0] for option in picker.options] == expected
+        assert picker.value is None
+        assert app.session_state["editing_customer_id"] == ""
+    app.text_input(key="customer_search_query").set_value("RD05").run()
+    app.selectbox(key="customer_action_id").set_value("RD05").run()
+    assert not app.exception and app.session_state["editing_customer_id"] == "RD05"
+    assert next(w for w in app.text_input if w.label == "客戶編號").value == "RD05"
+    next(w for w in app.button if w.label == "取消編輯").click().run()
+    assert not app.exception
+    assert app.text_input(key="customer_search_query").value == "RD05"
+    assert app.selectbox(key="customer_action_id").value is None
+    assert list_customers(config) == before
 
 
 def test_shipment_edit_fills_missing_contacts_once_without_extra_reads(config, monkeypatch):
