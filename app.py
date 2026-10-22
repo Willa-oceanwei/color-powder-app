@@ -1212,7 +1212,7 @@ def apply_tab_persistence_fix():
     
 # ======== Sidebar Menu ========
 
-def render_sidebar():
+def render_sidebar(config=None):
     import streamlit as st
     from utils.accounting_navigation import preserve_accounting_widgets, stash_shipment_grid
     preserve_accounting_widgets(st.session_state)
@@ -1222,6 +1222,7 @@ def render_sidebar():
         {"group":"生產","key":"配方管理","label":"配方管理"},
         {"group":"生產","key":"代工管理","label":"代工管理"},
         {"group":"會計","key":"出貨單","label":"出貨單"},
+        {"group":"會計","key":"預告報價","label":"預告報價"},
         {"group":"會計","section":"應收帳款","key":"應收帳款明細表","label":"應收帳款"},
         {"group":"會計","section":"各式明細","key":"客戶交易明細","label":"客戶交易明細"},
         {"group":"會計","section":"各式明細","key":"貨品交易明細","label":"貨品交易明細"},
@@ -1289,6 +1290,9 @@ def render_sidebar():
                 st.markdown(f"<div class='erp-group'>{group}</div>", unsafe_allow_html=True)
                 if group == "會計":
                     render_items([item for item in items if "section" not in item])
+                    if config is not None:
+                        from utils.advance_price_ui import render_advance_price_reminders
+                        render_advance_price_reminders(config)
                     other_items = [item for item in items if "section" in item]
                     with st.expander("其他會計功能", expanded=any(item["key"] == st.session_state.menu for item in other_items)):
                         for section in ("應收帳款", "各式明細", "設定選項"):
@@ -1369,7 +1373,7 @@ shell_started_at = time.perf_counter()
 apply_modern_style()
 apply_tab_persistence_fix()
 apply_arrow_nav()
-render_sidebar()
+render_sidebar(DATABASE_CONFIG)
 log_performance("application_shell", shell_started_at)
 
 
@@ -3599,6 +3603,9 @@ if menu != "出貨單":
 
 if menu == "出貨單":
     render_shipment_management(DATABASE_CONFIG, start_new_on_entry=True)
+elif menu == "預告報價":
+    from utils.advance_price_ui import render_advance_price_management
+    render_advance_price_management(DATABASE_CONFIG)
 elif menu == "貨品":
     render_product_management(DATABASE_CONFIG)
 elif menu in ("應收帳款明細表", "客戶交易明細"):

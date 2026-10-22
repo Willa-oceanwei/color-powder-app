@@ -180,6 +180,8 @@ def _validated(document):
     for source in document.get("items", []):
         item = {key: str(source.get(key) if source.get(key) is not None else "").strip() for key in ITEM_FIELDS}
         item["tax_exempt"] = item_exempt(source)
+        if source.get("advance_price_override_reason"):
+            item["advance_price_override_reason"] = str(source["advance_price_override_reason"]).strip()
         display_code = str(source.get("display_code") or "").strip()
         if display_code and display_code not in display_code_options(item["code"]):
             raise ShipmentError("顯示編號必須是貨品完整編號或省略 C 的同一編號")
@@ -286,6 +288,8 @@ def save_shipment(config, document, *, sync_products=False):
             raise ShipmentError("已作廢出貨單不可修改")
         if existing and existing["version"] != document.get("version"):
             raise ShipmentError("單據已被其他人修改或作廢，請取消編輯後重新讀取")
+        from .advance_price_repository import guard_shipment_prices
+        guard_shipment_prices(conn, header, items, existing)
         if existing:
             receipts = _mapping(conn.execute("SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) AS paid "
                                "FROM shipment_receipts WHERE shipment_id=? AND status='active'", (shipment_id,)))

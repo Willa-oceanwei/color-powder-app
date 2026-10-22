@@ -15,6 +15,8 @@ from .shipment_print import display_price
 from .paper_preview import theme_preview
 from .shipment_page_data import cached_read, clear_reads, shipment_timing, timed_read
 from .shipment_history_ui import render_purchase_history
+from .advance_price_repository import list_advance_prices, item_quote, reprice_for_context
+from .advance_price_ui import render_customer_price_notice, render_shipment_price_checks
 from .shipment_search_print import render_search_print
 from .shipment_codes import display_code_options, printed_code
 from .accounting_widgets import widget_default, widget_index
@@ -592,6 +594,19 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                        document["shipment_date"], document.get("id", ""))) if document["customer_id"] else []
         all_choices = read("all_choices",
                            lambda: shipment_choices(config, document["customer_id"], all_recipes=True)) if document["customer_id"] else {}
+        quotes = list_advance_prices(config, document["customer_id"]) if document["customer_id"] else []
+        render_customer_price_notice(quotes, document)
+        context_key = prefix + "price_context"
+        context = (document["customer_id"], document["shipment_date"], document["tax_mode"])
+        repriced = reprice_for_context(config, document, document["items"], st.session_state.get(context_key), quotes, all_choices, history)
+        st.session_state[context_key] = context
+        if repriced != document["items"]:
+            document["items"] = repriced
+            st.session_state.shipment_editor_base = deepcopy(repriced)
+            st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
+            if save_clicked:
+                st.session_state.shipment_pending_save = True
+            _rerun_shipment()
         with item_tools[0].popover("搜尋貨品", use_container_width=True):
             choices = {code: item for code, item in all_choices.items()
                        if item.get("_recipe_customer", "") in ("", document["customer_id"])}
@@ -618,6 +633,10 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                     st.caption(f"標準售價：{display_price(price)} / {unit}")
                 else:
                     st.caption("無相符單位或課稅方式的單價，加入後請自行填價")
+            quote = item_quote(quotes, document, dict(code=code, unit=unit, tax_exempt=bool(defaults.get("tax_exempt", False))))
+            if quote:
+                price = quote["price"]
+                st.caption(f"適用預告單價：{display_price(price)} / {unit} · {quote['effective_date']} 生效")
             if add_col.button("加入", key="shipment_add_recipe", disabled=not code or not unit, use_container_width=True):
                 requested_item = dict(code=code, name=defaults.get("name") or chosen["name"], quantity=str(quantity), unit=unit,
                                       price=price, tax_exempt=bool(defaults.get("tax_exempt", False)), order_number="", notes="")
@@ -643,7 +662,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                    "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, format="%.15g")})
         frame["免稅"] = frame["免稅"].fillna(False).astype(bool)
         raw_items = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
-        document["items"] = complete_items(config, document, raw_items, document["items"], choices=all_choices, history=history)
+        document["items"] = complete_items(config, document, raw_items, document["items"], choices=all_choices, history=history, quotes=quotes)
         if _editor_rebase_needed(raw_items, document["items"]):
             if save_clicked:
                 st.session_state.shipment_pending_save = True
@@ -660,7 +679,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 if right.button("採用", key=prefix + f"apply_{row_index}"):
                     before = deepcopy(document["items"])
                     document["items"][row_index]["code"] = choice
-                    document["items"] = complete_items(config, document, document["items"], before, choices=all_choices, history=history)
+                    document["items"] = complete_items(config, document, document["items"], before, choices=all_choices, history=history, quotes=quotes)
                     st.session_state.shipment_editor_base = deepcopy(document["items"])
                     st.session_state.shipment_grid_epoch += 1
                     _rerun_shipment()
@@ -684,6 +703,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         frame = frame.drop(columns="顯示編號")
         st.dataframe(frame, height=185, hide_index=True, use_container_width=True,
                      column_config={"採購單號": st.column_config.TextColumn("採購單號", width="medium"), "數量": st.column_config.NumberColumn(format="%.15g"), "單價": st.column_config.NumberColumn(format="%.15g")})
+    if editing:
+        render_shipment_price_checks(quotes, document, original, prefix)
     details, summary = st.columns([3, 1])
     with details:
         transaction, invoice_tab, account, related = st.tabs(["交易明細", "發票資料", "帳款資料", "相關資料"])
@@ -742,6 +763,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             if document.get("id"):
                 st.caption(f"建立：{document['created_at']}　更新：{document['updated_at']}")
                 st.caption("已作廢" if document["status"] == "void" else "草稿")
+                for index, item in enumerate(document["items"]):
+                    if item.get("advance_price_override_reason"):
+                        st.caption(f"第 {index + 1} 項特殊議價原因：{item['advance_price_override_reason']}")
     with summary:
         st.markdown('<div class="shipment-section amounts">金額摘要</div>', unsafe_allow_html=True)
         if editing:
@@ -791,6 +815,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                mime="text/html", use_container_width=True)
     if save_clicked:
         try:
+            # Revalidate fresh prices in the repository transaction as well.
             if any(len(matching_products(all_choices, item.get("code"))) > 1 for item in document["items"]):
                 raise ShipmentError("有多筆相符貨品，請先選擇並採用完整編號。")
             with shipment_timing("shipment_save", item_count=len(document["items"])):
