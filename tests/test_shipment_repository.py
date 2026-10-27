@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 
 from utils.customer_repository import CustomerInput, create_customer, update_customer
-from utils.database import DatabaseConfig, connect, initialize_database, initialize_database_with_health
+from utils.database import DatabaseConfig, SCHEMA_VERSION, connect, initialize_database, initialize_database_with_health
 from utils.shipment_repository import (
     ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
     list_shipments, printable_shipment, save_shipment, void_shipment,
@@ -368,7 +368,7 @@ def test_upgrade_preserves_existing_data(config):
         conn.execute('DELETE FROM schema_migrations WHERE version=25')
         conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (22,'2026-10-01')")
     _, health = initialize_database_with_health(config)
-    assert health.schema_version == 31
+    assert health.schema_version == SCHEMA_VERSION
     assert health.schema_compatible
     with connect(config.path) as conn:
         assert conn.execute("SELECT name FROM customers WHERE customer_id='C01'").fetchone()[0] == '範例客戶'

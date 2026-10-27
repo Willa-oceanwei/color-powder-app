@@ -24,9 +24,10 @@ from typing import Any, Protocol
 from .read_cache import invalidate_read_cache
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 31
+SCHEMA_VERSION = 32
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
+    "scheduled_quotes",
     "big_label_templates",
     "receipt_change_log",
     "receipt_batches",
@@ -380,6 +381,23 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             version INTEGER PRIMARY KEY,
             applied_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS scheduled_quotes (
+            quote_id TEXT PRIMARY KEY,
+            customer_id TEXT NOT NULL REFERENCES customers(customer_id),
+            product_code TEXT NOT NULL,
+            price TEXT NOT NULL,
+            unit TEXT NOT NULL,
+            tax_mode TEXT NOT NULL,
+            effective_date TEXT NOT NULL,
+            notes TEXT NOT NULL DEFAULT '',
+            active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),
+            version INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_scheduled_quotes_customer
+            ON scheduled_quotes(customer_id,active,effective_date,product_code);
 
         CREATE TABLE IF NOT EXISTS shipment_orders (
             id TEXT PRIMARY KEY,
@@ -1416,3 +1434,4 @@ def upsert_sheet_row(conn: sqlite3.Connection, sheet_name: str, row_key: str, pa
         (sheet_name, row_key, json.dumps(payload, ensure_ascii=False), row_hash,
          observed_at, sheet_updated_at or observed_at, sheet_updated_at, observed_at, observed_at),
     )
+

@@ -16,6 +16,7 @@ from .shipment_print import display_price
 from .paper_preview import theme_preview
 from .shipment_page_data import cached_read, clear_reads, preload_edit_reads, shipment_timing, timed_read
 from .shipment_history_ui import render_purchase_history
+from .scheduled_quote_ui import render_shipment_quote_notices
 from .shipment_search_print import render_search_print
 from .shipment_codes import display_code_options, printed_code
 from .accounting_widgets import widget_default, widget_index
@@ -713,6 +714,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         frame = frame.drop(columns="顯示編號")
         st.dataframe(frame, height=185, hide_index=True, use_container_width=True,
                      column_config={"採購單號": st.column_config.TextColumn("採購單號", width="medium"), "數量": st.column_config.NumberColumn(format="%.15g"), "單價": st.column_config.NumberColumn(format="%.15g")})
+    if editing:
+        render_shipment_quote_notices(config, document)
     details, summary = st.columns([3, 1])
     with details:
         transaction, invoice_tab, account, related = st.tabs(["交易明細", "發票資料", "帳款資料", "相關資料"])
