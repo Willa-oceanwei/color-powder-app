@@ -9,7 +9,7 @@ from .database import connect_from_config
 from .shipment_print import COMPANY, _wrap, display_price, purchase_order_text, PURCHASE_ORDER_FIT
 from .shipment_repository import ShipmentError, _valid_date
 from .shipment_codes import printed_code
-from .print_stock import stock_sheet, stock_style
+from .print_stock import stock_geometry, stock_sheet, stock_style
 
 
 def build_statements(config, start, end, customer_start="", customer_end="", hide_empty=True, *, hide_paid=False):
@@ -222,6 +222,14 @@ def render_statement_print(pages, selected=0, *, embedded=False, show_receipts=F
         preview_style += stock_style(0, hole_margin, paginated=True, stock_height=280, offset=-25, a4_driver=True)
         if receivable:
             preview_style += ".stock-page>.sheet.a4{width:222mm}"
+            # Center the visible report; retain the calibrated feed offset in print.
+            width, _, _, y, scale = stock_geometry(
+                0, hole_margin, height=280, offset=-25, preserve_holes=False)
+            screen_x = (width - 222 * scale) / 2
+            preview_style += (
+                "@media screen{.stock-page>.sheet.a4{"
+                f"transform:translate({screen_x:.6f}mm,{y:.6f}mm) scale({scale:.9f})"
+                "}}")
     preview_style += '''body{font-size:13pt}h1{font-size:20pt}h2{font-size:15pt}.metadata{line-height:5.5mm}.period{font-size:12pt}
 table{font-size:12pt}td,th{line-height:5.2mm}.sheet{padding:8mm}th:nth-child(6),th:nth-child(8),th:nth-child(9){text-align:right}th:nth-child(7){text-align:center}
 th:nth-child(1){width:5%}th:nth-child(2){width:13%}th:nth-child(3){width:14%}th:nth-child(4){width:11%}th:nth-child(5){width:12%}th:nth-child(6){width:7%}th:nth-child(7){width:5%}th:nth-child(8){width:8%}th:nth-child(9){width:11%}th:nth-child(10){width:14%}
