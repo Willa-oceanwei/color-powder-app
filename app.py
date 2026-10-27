@@ -12881,7 +12881,15 @@ elif menu == "洗車廠庫存":
     
                 result_df = pd.DataFrame(result_rows).sort_values("產品編號")
     
-                if not show_zero_inventory:
+                # A manual product search must explicitly show a zero balance.
+                if q_pid:
+                    zero_rows = result_df[result_df["_目前庫存數值"] == 0]
+                    if not zero_rows.empty:
+                        st.session_state["cw_inventory_result_message"] = "查詢結果：" + "；".join(
+                            f"{row['產品編號']} 目前庫存：0 {row['單位']}"
+                            for _, row in zero_rows.iterrows()
+                        )
+                elif not show_zero_inventory:
                     result_df = result_df[result_df["_目前庫存數值"] != 0]
     
                 result_df = result_df.drop(columns=["_目前庫存數值"], errors="ignore")
@@ -12897,6 +12905,8 @@ elif menu == "洗車廠庫存":
                 render_empty_state(st.session_state.get("cw_inventory_result_message", "目前查無符合條件的資料"))
 
             else:
+                if st.session_state.get("cw_inventory_result_message"):
+                    st.info(st.session_state["cw_inventory_result_message"])
                 styled_result_df = (
                     result_df.style
                     .map(
