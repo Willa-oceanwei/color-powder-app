@@ -63,6 +63,12 @@ else:
     assert saved_view == get_shipment(config, saved_id)
     assert saved_view['shipment_number'] == '002' and saved_view['items'][0]['amount'] == '200'
     assert saved_view['paid_in_full'] is True
+    app.button(key='shipment_edit').click().run()
+    next(w for w in app.text_area if w.label == '備註').set_value('Discard this edit').run()
+    app.button(key='shipment_cancel').click().run()
+    assert not app.exception and not calls
+    assert app.session_state['shipment_saved_view']['document'] == saved_view
+    assert get_shipment(config, saved_id)['notes'] != 'Discard this edit'
     # Normal viewing and print settings must not re-query the list, document,
     # or customer labels after a successful save.
     original_name = ui.CustomerDisplay.name
@@ -286,9 +292,19 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert app.text_input(key='shipment_purchase_history_code').value == 'NO-MATCH'
     app.button(key='shipment_edit').click().run()
     assert not app.exception and calls['records'] == 1 and calls['document'] == 1
+    next(w for w in app.text_area if w.label == '備註').set_value('Discard this edit').run()
+    # Even after a long edit, cancellation restores the existing browse snapshot.
+    cache = app.session_state['shipment_page_cache']
+    for identity, entry in list(cache.items()):
+        cache[identity] = (entry[0] - 3600, entry[1])
     app.button(key='shipment_cancel').click().run()
-    assert not app.exception and calls['records'] == 2 and calls['document'] == 2
+    assert not app.exception and calls['records'] == 1 and calls['document'] == 1
     assert 'shipment_purchase_history_result' not in app.session_state
+    app.toggle(key='shipment_print_preview').set_value(False).run()
+    assert next(w for w in app.text_area if w.label == '備註').value == ''
+    assert get_shipment(config, list_shipments(config)[0]['id'])['notes'] == ''
+    app.button(key='shipment_reload_data').click().run()
+    assert not app.exception and calls['records'] == 2 and calls['document'] == 2
 
 
 def test_shipment_editor_save_cancel_and_navigation(tmp_path):
@@ -426,3 +442,4 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     app.button(key='shipment_add_recipe').click().run()
     assert not app.exception
     assert app.session_state['shipment_draft']['items'][0]['price'] == 99.0
+

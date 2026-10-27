@@ -5,6 +5,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from html import escape
 import json
+from time import monotonic
 
 import pandas as pd
 import streamlit as st
@@ -120,7 +121,9 @@ def _cached_print(config, document, **options):
 def _begin(document, *, rerun=True):
     for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export"):
         st.session_state.pop(key, None)
-    st.session_state.pop("shipment_saved_view", None)
+    saved_view = st.session_state.pop("shipment_saved_view", None)
+    st.session_state.shipment_cancel_view = (
+        saved_view if saved_view and saved_view["document"].get("id") == document.get("id") else None)
     st.session_state.pop("shipment_saved_nav_direction", None)
     st.session_state.pop("shipment_read_cache", None)
     st.session_state.shipment_draft = deepcopy(document)
@@ -163,10 +166,27 @@ def _new_shipment():
     return dict(blank_shipment(), number_mode="manual")
 
 
-def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None):
+def _cancel(config):
+    """Discard edits while retaining the original browsing snapshot."""
+    saved_view = st.session_state.get("shipment_cancel_view")
+    cache = st.session_state.get("shipment_page_cache", {})
+    now = monotonic()
+    for identity, entry in list(cache.items()):
+        database, key = identity
+        if database == repr(config) and isinstance(key, tuple) and key[0] in (
+                "records", "number-navigation", "document", "customer-label"):
+            cache[identity] = (now, entry[1])
+    _finish("已取消修改", rerun=False, saved_view=saved_view, clear_cache=False)
+
+
+def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None, clear_cache=True):
     for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export"):
         st.session_state.pop(key, None)
-    clear_reads(st.session_state)
+    st.session_state.pop("shipment_cancel_view", None)
+    if clear_cache:
+        clear_reads(st.session_state)
+    else:
+        st.session_state.pop("shipment_read_cache", None)
     if invalidate_reports:
         st.session_state.pop("receivable_pages", None)
         st.session_state.pop("ranking_statements", None)
@@ -317,6 +337,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     with st.expander("查詢", expanded=False):
         if st.button("重讀資料", key="shipment_reload_data"):
             clear_reads(st.session_state)
+            st.session_state.pop("shipment_cancel_view", None)
             st.session_state.pop("shipment_saved_view", None)
             st.session_state.pop("shipment_purchase_history_result", None)
             st.session_state.pop("shipment_search_print_snapshot", None)
@@ -437,7 +458,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     tools[2].button("複製", key="shipment_copy", disabled=editing or not document, use_container_width=True,
                     on_click=_copy_for_edit, args=(document,))
     tools[3].button("取消", key="shipment_cancel", disabled=not editing, use_container_width=True,
-                    on_click=_finish, args=("已取消修改",), kwargs={"rerun": False})
+                    on_click=_cancel, args=(config,))
     pending_save = st.session_state.pop("shipment_pending_save", False)
     save_clicked = tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing, use_container_width=True) or pending_save
     for col, label, target in ((tools[5], "上一筆", index - 1), (tools[6], "下一筆", index + 1)):
@@ -832,4 +853,5 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                 st.error(str(error))
                             else:
                                 _finish("出貨單已作廢，歷史資料保留", invalidate_reports=True)
+
 

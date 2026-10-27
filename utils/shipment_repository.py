@@ -100,18 +100,25 @@ def list_shipment_recipes(config, customer_id=None):
 
 
 def shipment_price_history(config, customer_id, shipment_date, exclude_id=""):
-    """Load customer-scoped price rows once for an editing snapshot."""
+    """Load latest price/default rows, retaining historical names for matching."""
     if not customer_id or not shipment_date:
         return []
     with connect_from_config(config) as conn:
         return _mappings(conn.execute(
-            "SELECT json_extract(i.payload_json,'$.code') AS code,"
+            "WITH history AS (SELECT json_extract(i.payload_json,'$.code') AS code,"
             "json_extract(i.payload_json,'$.unit') AS unit,json_extract(i.payload_json,'$.price') AS price,"
             "json_extract(i.payload_json,'$.name') AS name,COALESCE(json_extract(i.payload_json,'$.tax_exempt'),0) AS tax_exempt,"
-            "CASE WHEN json_extract(i.payload_json,'$.tax_exempt')=1 THEN '免稅' ELSE json_extract(s.payload_json,'$.tax_mode') END AS tax_mode,s.shipment_number,s.shipment_date "
+            "CASE WHEN json_extract(i.payload_json,'$.tax_exempt')=1 THEN '免稅' ELSE json_extract(s.payload_json,'$.tax_mode') END AS tax_mode,"
+            "s.shipment_number,s.shipment_date,s.updated_at,s.created_at,i.line_number "
             "FROM shipment_orders s JOIN shipment_order_items i ON i.shipment_id=s.id "
-            "WHERE s.status='draft' AND s.customer_id=? AND s.id<>? AND s.shipment_date<=? "
-            "ORDER BY s.shipment_date DESC,s.updated_at DESC,s.created_at DESC,s.shipment_number DESC,i.line_number DESC",
+            "WHERE s.status='draft' AND s.customer_id=? AND s.id<>? AND s.shipment_date<=?), "
+            "ranked AS (SELECT *,ROW_NUMBER() OVER ("
+            "PARTITION BY UPPER(TRIM(code)),UPPER(TRIM(unit)),tax_mode,UPPER(name) "
+            "ORDER BY shipment_date DESC,updated_at DESC,created_at DESC,shipment_number DESC,line_number DESC) AS price_rank "
+            "FROM history) "
+            "SELECT code,unit,price,name,tax_exempt,tax_mode,shipment_number,shipment_date FROM ranked "
+            "WHERE price_rank=1 "
+            "ORDER BY shipment_date DESC,updated_at DESC,created_at DESC,shipment_number DESC,line_number DESC",
             (customer_id, exclude_id or "", shipment_date)))
 
 
@@ -366,3 +373,4 @@ def void_shipment(config, shipment_id, version, reason):
 def printable_shipment(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0, paper_stock="standard", output_mode="print"):
     from .shipment_print import render_shipment_print
     return render_shipment_print(document, show_prices=show_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock, output_mode=output_mode)
+

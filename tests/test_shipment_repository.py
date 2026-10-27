@@ -31,6 +31,55 @@ def document():
     return result
 
 
+def test_compact_price_history_preserves_prices_defaults_and_old_names(config):
+    from utils.shipment_repository import shipment_price_history
+    from utils.shipment_catalog import matching_products, recent_item_defaults
+    from utils.database import connect_from_config
+    # Repeated transactions, changing names, units and tax bases must retain
+    # identical automatic prices/defaults and historical name matching.
+    saved = []
+    for index, mode in enumerate(("外加", "免稅", "零稅率", "內含", "外加", "外加")):
+        doc = document()
+        doc.update(number_mode="manual", shipment_number=f"H{index}", tax_mode=mode,
+                   shipment_date=f"2026-10-{index + 1:02}")
+        doc['items'] = [dict(doc['items'][0], code=code, unit=unit, name=name,
+                             tax_exempt=exempt, price=str(index * 100 + line))
+                        for line, (code, unit, name, exempt) in enumerate([
+                            ('69570M', 'KG', '舊藍' if index < 2 else '新藍', False),
+                            ('69570M', '包', '藍包', False),
+                            ('69960M', 'KG', '白', True),
+                            ('69570M', 'KG', '新藍', False)] * 10)]
+        saved.append(save_shipment(config, doc))
+    void_shipment(config, saved[-1]['id'], saved[-1]['version'], 'test')
+    for cutoff, exclude in [('2026-10-31', ''), ('2026-10-04', saved[3]['id']), ('2026-09-30', '')]:
+        with connect_from_config(config) as conn:
+            full = [dict(row) for row in conn.execute(
+                "SELECT json_extract(i.payload_json,'$.code') AS code,"
+                "json_extract(i.payload_json,'$.unit') AS unit,json_extract(i.payload_json,'$.price') AS price,"
+                "json_extract(i.payload_json,'$.name') AS name,COALESCE(json_extract(i.payload_json,'$.tax_exempt'),0) AS tax_exempt,"
+                "CASE WHEN json_extract(i.payload_json,'$.tax_exempt')=1 THEN '免稅' ELSE json_extract(s.payload_json,'$.tax_mode') END AS tax_mode,"
+                "s.shipment_number,s.shipment_date FROM shipment_orders s JOIN shipment_order_items i ON i.shipment_id=s.id "
+                "WHERE s.status='draft' AND s.customer_id=? AND s.id<>? AND s.shipment_date<=? "
+                "ORDER BY s.shipment_date DESC,s.updated_at DESC,s.created_at DESC,s.shipment_number DESC,i.line_number DESC",
+                ('C01', exclude, cutoff)).fetchall()]
+        compact = shipment_price_history(config, 'C01', cutoff, exclude)
+        assert len(compact) <= len(full)
+        if full:
+            assert len(compact) < len(full) / 5
+        for code in ('69570M', '69960M'):
+            assert recent_item_defaults(compact, code) == recent_item_defaults(full, code)
+            for unit in ('KG', '包', 'L'):
+                for mode in ('外加', '免稅', '零稅率', '內含'):
+                    args = dict(shipment_date=cutoff, tax_mode=mode, exclude_id=exclude)
+                    assert recent_shipment_price(config, 'C01', code, unit, history=compact, **args) == recent_shipment_price(
+                        config, 'C01', code, unit, history=full, **args)
+        choices = {'69570M': {'name': '新藍'}, '69960M': {'name': '白'}}
+        for name in ('舊藍', '新藍', '藍包', '白'):
+            assert matching_products(choices, name, by_name=True, history=compact) == matching_products(
+                choices, name, by_name=True, history=full)
+    assert shipment_price_history(config, 'C02', '2026-10-31') == []
+
+
 @pytest.mark.parametrize("item_count", [1, 25, 201, 401])
 def test_save_batches_items_and_returns_committed_snapshot_without_reread(config, monkeypatch, item_count):
     from utils import shipment_repository as repo
@@ -404,4 +453,5 @@ def test_print_black_font_fixed_columns_and_grouped_amounts(config):
     assert '17,600' in html and '18,480' in html
     assert html.count('class="sheet"') == 2
     assert '珍珠灰黑(115/07/02 220/包)' in html
+
 
