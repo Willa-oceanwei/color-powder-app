@@ -29,6 +29,7 @@ from utils.big_label_repository import (
     normalize_big_label_editor_rows, remember_big_label_rows, expand_big_label_editor_rows, format_label_ratio_value,
 )
 from utils.shipment_ui import render_shipment_management
+from utils.carwash_inventory_ui import show_carwash_save_notice
 from utils.product_ui import render_product_management
 from utils.receivable_ui import render_receivable_statement
 from utils.paper_preview import build_paper_preview, paper_preview_height
@@ -12472,6 +12473,7 @@ elif menu == "洗車廠庫存":
         )
         st.session_state.pop("carwash_toast", None)
 
+    carwash_movements = list_carwash_inventory_movements(DATABASE_CONFIG)
     df_carwash = pd.DataFrame([{
         "類型": item["movement_type"], "初始庫存日期": item["initial_date"] or "",
         "初始數量": item["initial_quantity"] if item["initial_quantity"] is not None else "",
@@ -12480,7 +12482,11 @@ elif menu == "洗車廠庫存":
         "數量": item["quantity"] if item["quantity"] is not None else "",
         "單位": item["unit"], "登記人": item["registrar"] or "",
         "備註": item["notes"] or "", "_sync_id": item["movement_id"],
-    } for item in list_carwash_inventory_movements(DATABASE_CONFIG)], columns=carwash_headers).fillna("")
+    } for item in carwash_movements], columns=carwash_headers).fillna("")
+
+    carwash_save_notice = st.session_state.pop("cw_save_notice", None)
+    if carwash_save_notice:
+        show_carwash_save_notice(carwash_save_notice, carwash_movements)
 
     def _to_date(s):
         return pd.to_datetime(s, errors="coerce").date() if str(s).strip() else None
@@ -12654,6 +12660,12 @@ elif menu == "洗車廠庫存":
                 st.session_state["carwash_toast"] = {
                     "msg": f"✅ 已登錄 {io_type}：{io_product_id} {io_qty} {io_unit}{transfer_note}",
                     "icon": "🧾"
+                }
+                st.session_state["cw_save_notice"] = {
+                    "product_id": io_product_id, "movement_type": io_type,
+                    "quantity": io_qty, "unit": io_unit,
+                    "movement_date": (in_date if io_type == "入庫" else out_date).isoformat(),
+                    "transfer_note": transfer_note,
                 }
                 st.rerun()
                 
