@@ -13,7 +13,7 @@ import streamlit.components.v1 as components
 from .shipment_catalog import shipment_choices, complete_items, recent_item_defaults, matching_products
 from .shipment_print import display_price
 from .paper_preview import theme_preview
-from .shipment_page_data import cached_read, clear_reads, shipment_timing, timed_read
+from .shipment_page_data import cached_read, clear_reads, preload_edit_reads, shipment_timing, timed_read
 from .shipment_history_ui import render_purchase_history
 from .shipment_search_print import render_search_print
 from .shipment_codes import display_code_options, printed_code
@@ -534,6 +534,14 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         if editing:
             invoice[field] = selected
 
+    if editing:
+        loaders = {"customers": lambda: list_customers(config, include_inactive=True)}
+        if document["customer_id"]:
+            history_key = ("history", document["customer_id"], document["shipment_date"], document.get("id", ""))
+            loaders[history_key] = lambda: shipment_price_history(
+                config, document["customer_id"], document["shipment_date"], document.get("id", ""))
+            loaders["all_choices"] = lambda: shipment_choices(config, document["customer_id"], all_recipes=True)
+        preload_edit_reads(config, st.session_state, loaders)
     customers = read("customers", lambda: list_customers(config, include_inactive=True)) if editing else []
     if editing and st.session_state.pop("shipment_contacts_pending", False):
         customer = next((row for row in customers if row["customer_id"] == document["customer_id"]), {})
@@ -824,3 +832,4 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                 st.error(str(error))
                             else:
                                 _finish("出貨單已作廢，歷史資料保留", invalidate_reports=True)
+
