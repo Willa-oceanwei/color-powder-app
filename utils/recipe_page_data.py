@@ -57,16 +57,27 @@ def invalidate_recipe_powders(state):
     state["recipe_data_loaded"] = False
 
 
+def recipe_is_inactive(row):
+    """Honor both lifecycle archiving and the recipe's legacy disabled status."""
+    return (str(row.get("生命週期", "active")).strip().lower() == "inactive"
+            or str(row.get("狀態", "")).strip() == "停用")
+
+
 def recipe_preview_labels(frame):
     """Build dropdown labels in one pass, retaining the first row per code."""
     labels = {"": ""}
-    for code, color, customer in frame[["配方編號", "顏色", "客戶名稱"]].itertuples(index=False, name=None):
-        code = str(code)
+    fields = [key for key in ("配方編號", "顏色", "客戶名稱", "生命週期", "狀態") if key in frame]
+    for row in frame[fields].to_dict("records"):
+        code = str(row.get("配方編號", ""))
         if code:
-            labels.setdefault(code, " | ".join((code, str(color), str(customer))))
+            label = " | ".join((code, str(row.get("顏色", "")), str(row.get("客戶名稱", ""))))
+            if recipe_is_inactive(row):
+                label += " | 【停用配方】"
+            labels.setdefault(code, label)
     return labels
 
 
 def begin_recipe_preview_edit(state, code):
     state["show_edit_recipe_panel"] = True
     state["editing_recipe_code"] = code
+

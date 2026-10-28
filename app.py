@@ -134,6 +134,7 @@ from utils.trial_repository import (
     save_trial_settings,
 )
 from utils.recipe_page_data import (
+    recipe_is_inactive,
     invalidate_recipe_powders, load_recipe_powders, recipe_powder_dataframe,
     remember_recipe_powders, recipe_preview_labels, begin_recipe_preview_edit,
 )
@@ -2467,9 +2468,10 @@ def begin_production_order_edit(session_state, order):
         )
 
 
-def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
+def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True, recipe_frame=None):
     """生成配方預覽文字（用於生產單）"""
-    html_text = ""
+    from utils.recipe_page_data import recipe_is_inactive
+    html_text = "⚠️ 停用配方\n\n" if recipe_is_inactive(recipe_row) else ""
     
     # 主配方基本資訊
     html_text += f"編號：{safe_str(recipe_row.get('配方編號'))}  "
@@ -2505,8 +2507,8 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
         html_text += f"備註 : {note}\n"
 
     # 附加配方
-    if "df_recipe" in st.session_state:
-        df_recipe = st.session_state.df_recipe
+    if recipe_frame is not None or "df_recipe" in st.session_state:
+        df_recipe = recipe_frame if recipe_frame is not None else st.session_state.df_recipe
         main_code = safe_str(order.get("配方編號",""))
         if main_code and not df_recipe.empty:
             additional_recipe_rows = df_recipe[
@@ -2523,6 +2525,8 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True):
                     html_text += f"附加配方 {idx}：{safe_str(sub.get('配方編號'))}\n"
                 else:
                     html_text += f"附加配方 {idx}\n"
+                if recipe_is_inactive(sub):
+                    html_text += "⚠️ 停用配方\n"
                 sub_colorant_weights = [safe_float(sub.get(f"色粉重量{i}",0)) for i in range(1,9)]
                 sub_powder_ids = [safe_str(sub.get(f"色粉編號{i}","")) for i in range(1,9)]
                 for pid, wgt in zip(sub_powder_ids, sub_colorant_weights):
@@ -4034,18 +4038,19 @@ elif menu == "配方管理":
             df_c = pd.DataFrame(columns=["客戶編號", "客戶簡稱"])
 
         st.session_state.df_recipe          = df_r
+        st.session_state.recipe_management_df = df_r
         st.session_state.df                 = df_r
         st.session_state.df_color           = df_p.astype(str)
         st.session_state._recipe_customers  = df_c
         st.session_state.recipe_data_loaded = True
 
     # ── 只有第一次進入、或寫入後重置旗標才重讀 ──
-    if not st.session_state.get("recipe_data_loaded", False):
+    if not st.session_state.get("recipe_data_loaded", False) or "recipe_management_df" not in st.session_state:
         load_recipe_section_data()
 
     # 取出 DataFrame（全程用 session_state，不重讀 Sheet）
-    df           = st.session_state.df
-    df_recipe    = st.session_state.df_recipe
+    df           = st.session_state.recipe_management_df
+    df_recipe    = st.session_state.recipe_management_df
     df_customers = st.session_state._recipe_customers
     try:
         recipe_powder_entities = load_recipe_powders(DATABASE_CONFIG, st.session_state)
@@ -4081,6 +4086,7 @@ elif menu == "配方管理":
         # 同步 session_state
         st.session_state.df        = df_to_save
         st.session_state.df_recipe = df_to_save
+        st.session_state.recipe_management_df = df_to_save
         return True
 
     # ================================================================
@@ -4379,6 +4385,7 @@ elif menu == "配方管理":
                 latest_df = pd.DataFrame(list_recipes(DATABASE_CONFIG, include_inactive=True))
                 st.session_state.df = latest_df.copy()
                 st.session_state.df_recipe = latest_df.copy()
+                st.session_state.recipe_management_df = latest_df.copy()
                 st.session_state.recipe_toast = {"msg": "已從 Google Sheet 重新載入配方資料", "icon": "🔄"}
             except Exception as e:
                 st.session_state.recipe_toast = {"msg": f"重新載入失敗：{e}", "icon": "❌"}
@@ -4458,7 +4465,12 @@ elif menu == "配方管理":
             existing_cols = [c for c in show_cols if c in page_data.columns]
 
             if not page_data.empty:
-                st.dataframe(customer_display.frame(page_data[existing_cols].reset_index(drop=True)),
+                display_rows = page_data[existing_cols].reset_index(drop=True).copy()
+                display_rows["狀態"] = [
+                    "停用" if recipe_is_inactive(row) else row.get("狀態", "啟用")
+                    for row in page_data.to_dict("records")
+                ]
+                st.dataframe(customer_display.frame(display_rows),
                              use_container_width=True, hide_index=True)
             else:
                 if search_keywords:
@@ -4551,9 +4563,12 @@ elif menu == "配方管理":
                 df_selected = df_recipe[df_recipe["配方編號"] == selected_code]
                 if not df_selected.empty:
                     recipe_row_preview  = df_selected.iloc[0].to_dict()
+                    if recipe_is_inactive(recipe_row_preview):
+                        st.warning("⚠️ 此為停用配方。")
                     preview_text_recipe = generate_recipe_preview_text(
                         {"配方編號": recipe_row_preview.get("配方編號")},
-                        recipe_row_preview
+                        recipe_row_preview,
+                        recipe_frame=df_recipe,
                     )
                     components.html(build_paper_preview(preview_text_recipe, title="配方", align_recipe_rows=True), height=paper_preview_height(preview_text_recipe), scrolling=False)
 
@@ -4750,6 +4765,7 @@ elif menu == "配方管理":
                                 original_recipe_id=code,
                             )
                             st.session_state.df_recipe = df_recipe
+                            st.session_state.recipe_management_df = df_recipe
                             st.session_state.df        = df_recipe
                             success_message = (
                                 f"配方編號已由 {original_recipe_code} 修改為 {new_recipe_code}，"
@@ -5496,6 +5512,7 @@ pre {{
                                             [df_recipe, pd.DataFrame([new_recipe])], ignore_index=True
                                         )
                                         st.session_state.df_recipe = df_recipe_new
+                                        st.session_state.recipe_management_df = df_recipe_new
                                         st.session_state.df        = df_recipe_new
                                         st.success(f"✅ 配方 {calc['new_code']} 已新增至 Turso，等待 Sheet PUSH！")
                                         st.balloons()
