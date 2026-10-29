@@ -109,6 +109,11 @@ def _rerun_shipment():
     st.rerun()
 
 
+def _request_shipment_save():
+    """Retain the click until a complete render can validate and save the draft."""
+    st.session_state.shipment_pending_save = True
+
+
 def _cached_print(config, document, **options):
     signature = (repr(config), json.dumps(document, sort_keys=True, ensure_ascii=False, default=str),
                  tuple(sorted(options.items())))
@@ -120,7 +125,7 @@ def _cached_print(config, document, **options):
 
 
 def _begin(document, *, rerun=True):
-    for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export"):
+    for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export", "shipment_action_error"):
         st.session_state.pop(key, None)
     saved_view = st.session_state.pop("shipment_saved_view", None)
     st.session_state.shipment_cancel_view = (
@@ -181,7 +186,7 @@ def _cancel(config):
 
 
 def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None, clear_cache=True):
-    for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export"):
+    for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export", "shipment_action_error"):
         st.session_state.pop(key, None)
     st.session_state.pop("shipment_cancel_view", None)
     if clear_cache:
@@ -313,7 +318,15 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     st.markdown(COMPACT_STYLE, unsafe_allow_html=True)
     notice = st.session_state.pop("shipment_notice", "")
     if notice:
-        st.caption(notice)
+        if notice.startswith("已儲存出貨單"):
+            st.success(notice)
+        else:
+            st.caption(notice)
+    # Fill this slot after validation so feedback stays above the toolbar.
+    action_feedback = st.empty()
+    action_error = st.session_state.pop("shipment_action_error", "")
+    if action_error:
+        action_feedback.error(action_error)
     customer_error = st.session_state.pop("shipment_customer_error", "")
     if customer_error:
         st.error(customer_error)
@@ -384,10 +397,12 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                          and st.session_state.get("shipment_selected") == saved_document["id"])
     # The committed document is already available. Load the full list only on
     # an explicit search, refresh, or previous/next action.
-    if showing_saved:
-        records = [saved_document]
-    elif editing and not st.session_state.get("shipment_search_epoch"):
+    if editing:
+        # Query results cannot be opened while editing. Avoid re-reading and
+        # rebuilding the list on every field change, even after its TTL expires.
         records = []
+    elif showing_saved:
+        records = [saved_document]
     else:
         records = cached_read(config, st.session_state, record_key, lambda: list_shipments(
             config, query=st.session_state.get("shipment_query", ""),
@@ -396,8 +411,10 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             customer_start=st.session_state.get("shipment_customer_start", ""),
             customer_end=st.session_state.get("shipment_customer_end", ""), summary=True))
     if st.session_state.get("shipment_search_epoch"):
-        with st.expander(f"查詢結果 · {len(records)} 筆", expanded=True):
-            if records:
+        with st.expander("查詢結果（編輯中暫停更新）" if editing else f"查詢結果 · {len(records)} 筆", expanded=True):
+            if editing:
+                st.caption("草稿已保留；儲存或取消後可開啟查詢結果。")
+            elif records:
                 display = CustomerDisplay(config)
                 result = pd.DataFrame([{"出貨日期": r["shipment_date"], "出貨單號": r["shipment_number"],
                           "客戶編號": r["customer_id"], "客戶名稱": display.name(r["customer_name"], r["customer_id"]), "總計（未稅）": int(r["net_amount"]),
@@ -460,8 +477,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                     on_click=_copy_for_edit, args=(document,))
     tools[3].button("取消", key="shipment_cancel", disabled=not editing, use_container_width=True,
                     on_click=_cancel, args=(config,))
-    pending_save = st.session_state.pop("shipment_pending_save", False)
-    save_clicked = tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing, use_container_width=True) or pending_save
+    tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing,
+                    on_click=_request_shipment_save, use_container_width=True)
+    save_clicked = editing and st.session_state.get("shipment_pending_save", False)
     for col, label, target in ((tools[5], "上一筆", index - 1), (tools[6], "下一筆", index + 1)):
         if col.button(label, key="shipment_nav_" + label,
                       disabled=editing or (not showing_saved and (not ids or target < 0 or target >= len(ids) or target == index)), use_container_width=True):
@@ -615,6 +633,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
     st.markdown('<div class="shipment-section items">貨品明細</div>', unsafe_allow_html=True)
     requested_item = None
+    editor_rebased = False
     if editing:
         item_tools = st.columns([1, 1, 2])
         history_key = ("history", document["customer_id"], document["shipment_date"], document.get("id", ""))
@@ -675,13 +694,17 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         raw_items = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
         document["items"] = complete_items(config, document, raw_items, document["items"], choices=all_choices, history=history)
         if _editor_rebase_needed(raw_items, document["items"]):
+            editor_rebased = True
             if save_clicked:
                 st.session_state.shipment_pending_save = True
             if prepare_draft_export:
                 st.session_state.shipment_pending_export = True
             st.session_state.shipment_editor_base = deepcopy(document["items"])
             st.session_state.shipment_grid_epoch = st.session_state.get("shipment_grid_epoch", 0) + 1
-            _rerun_shipment()
+            # Saving/exporting can use the completed values in this run. Do not
+            # interrupt before later header, invoice and note widgets are read.
+            if not save_clicked and not prepare_draft_export:
+                _rerun_shipment()
         for row_index, item in enumerate(document["items"]):
             candidates = matching_products(all_choices, item.get("code")) if item.get("code") else matching_products(all_choices, item.get("name"), by_name=True, history=history)
             if len(candidates) > 1:
@@ -821,16 +844,22 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         with export_panel:
             st.download_button("下載列印版", prepared["html"], file_name=prepared["filename"],
                                mime="text/html", use_container_width=True)
+    save_error = ""
     if save_clicked:
+        # Consume only after all widgets have supplied their current values.
+        # A failed validation requires an explicit retry; no background resaves.
+        st.session_state.pop("shipment_pending_save", None)
         try:
             if any(len(matching_products(all_choices, item.get("code"))) > 1 for item in document["items"]):
                 raise ShipmentError("有多筆相符貨品，請先選擇並採用完整編號。")
             with shipment_timing("shipment_save", item_count=len(document["items"])):
                 saved = save_shipment(config, document, sync_products=sync_products)
         except ShipmentError as error:
-            st.error(str(error))
+            save_error = str(error)
+            action_feedback.error(save_error)
         except Exception:
-            st.error("儲存失敗，請確認單號沒有重複及資料庫連線正常；修改內容已保留")
+            save_error = "儲存失敗，請確認單號沒有重複及資料庫連線正常；修改內容已保留"
+            action_feedback.error(save_error)
         else:
             st.session_state.shipment_selected = saved["id"]
             st.session_state.update(shipment_query="", shipment_start=None, shipment_end=None, shipment_include_void=False,
@@ -839,6 +868,12 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             _finish("已儲存出貨單 " + saved["shipment_number"], invalidate_reports=True,
                     saved_view={"config": repr(config), "document": saved,
                                 "customer_label": customer_display_name(customer) or saved["customer_name"]})
+    if editing and editor_rebased:
+        # If export or a failed save leaves the draft open, mount the completed
+        # grid before accepting another edit under its new widget key.
+        if save_error:
+            st.session_state.shipment_action_error = save_error
+        _rerun_shipment()
     if not editing:
         lifecycle = st.container()
         if document["status"] == "draft":

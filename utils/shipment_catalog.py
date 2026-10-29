@@ -44,8 +44,12 @@ def matching_products(choices, value, *, by_name=False, history=()):
             return aliases
         return [code for code in choices if value in code.upper()]
     names = {code: {str(product["name"]).upper()} for code, product in choices.items()}
+    # Resolve history codes once instead of scanning the full catalog per row.
+    codes_by_upper = {}
+    for code in choices:
+        codes_by_upper.setdefault(code.upper(), code)
     for row in history:
-        code = next((c for c in choices if c.upper() == str(row["code"]).upper()), None)
+        code = codes_by_upper.get(str(row["code"]).upper())
         if code:
             names[code].add(str(row.get("name") or "").upper())
     exact = [code for code, values in names.items() if value in values]
