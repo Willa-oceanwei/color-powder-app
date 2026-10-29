@@ -2561,10 +2561,7 @@ def generate_production_order_print(
     if recipe_row is None:
         recipe_row = {}
 
-    # Older saved orders may omit the category; use the recipe as a fallback.
-    category = str(order.get("色粉類別") or "").strip()
-    if not category:
-        category = str(recipe_row.get("色粉類別") or "").strip()
+    category = order.get("色粉類別", "").strip()  # 確保先賦值
     
     unit = recipe_row.get("計量單位", "kg")
     ratio = recipe_row.get("比例3", "")
@@ -2643,13 +2640,16 @@ def generate_production_order_print(
     lines.append(info_line)
     # lines.append("")
     
+    # Display-only fallback for older orders; keep calculation category unchanged.
+    package_category = category or str(recipe_row.get("色粉類別") or "").strip()
+
     # 包裝列
     pack_line = []
     for i in range(4):
         w = packing_weights[i]
         c = packing_counts[i]
         if w > 0 or c > 0:
-            if category == "色母":
+            if package_category == "色母":
                 if w == 1:
                     unit_str = "100K"
                 else:
@@ -2693,6 +2693,7 @@ def generate_production_order_print(
         lines.append(row)
         
     # 橫線：只有非色母類別才顯示
+    category = (order.get("色粉類別") or "").strip()
     if category != "色母":
         lines.append("＿" * 28)
                     
