@@ -3496,9 +3496,11 @@ def render_big_label_editor(label_order, *, key_prefix):
 # The production workspace owns the complete label editor and download tree.
 # Nested fragments can remove descendant containers during overlapping reruns.
 def render_order_download_actions(label_order, a5_data, a5_filename):
+    from utils.production_print_preview import build_production_order_preview
+
     order_no = str(label_order.get("生產單號", ""))
     open_key = f"history_labels_open_{order_no}"
-    selection_col, a5_col, label_col = st.columns([3, 1.7, 1.2], vertical_alignment="center")
+    selection_col, a5_col, online_col, label_col = st.columns([3, 1.7, 1.7, 1.2], vertical_alignment="center")
     selection_col.markdown('''<span class="list-actions-marker"></span><style>
     [data-testid="stHorizontalBlock"]:has(.list-actions-marker){gap:8px!important;flex-wrap:wrap!important;}
     [data-testid="stHorizontalBlock"]:has(.list-actions-marker)>[data-testid="column"]{min-width:0!important;width:auto!important;flex:0 0 auto!important;}
@@ -3507,6 +3509,9 @@ def render_order_download_actions(label_order, a5_data, a5_filename):
     </style>''', unsafe_allow_html=True)
     selection_col.caption(f"已選取 · {order_no}")
     a5_col.markdown("""<span class="production-print-action"></span><style>
+    body:has(.production-print-action) [data-testid="stPopoverBody"]:has(iframe) {
+        width:min(960px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important;
+    }
     [data-testid="column"]:has(.production-print-action) [data-testid="stDownloadButton"] button {
         background:#1a5a84!important;border:1px solid #3487b6!important;color:#fff!important;
     }
@@ -3518,10 +3523,13 @@ def render_order_download_actions(label_order, a5_data, a5_filename):
     }
     </style>""", unsafe_allow_html=True)
     a5_col.download_button(
-        "列印生產單", data=a5_data, file_name=a5_filename,
+        "下載 A5", data=a5_data, file_name=a5_filename,
         mime="text/html", key=f"download_a5_tab2_{order_no}", type="secondary",
         help="下載 A5 生產單，開啟檔案後會顯示列印視窗。",
     )
+    with online_col.popover("線上列印 A5", use_container_width=True):
+        st.caption("線上列印位置測試中；仍可使用原有 A5 下載。")
+        components.html(build_production_order_preview(a5_data.decode("utf-8")), height=430, scrolling=False)
     if label_col.button("製作標籤", key=f"open_labels_tab2_{order_no}"):
         st.session_state[open_key] = not st.session_state.get(open_key, False)
         if not st.session_state[open_key]:
@@ -5540,6 +5548,7 @@ def rerun_production_order_workspace():
 @st.fragment
 def render_production_order_workspace():
     """Keep production edits and tab updates inside the mounted workspace."""
+    from utils.production_print_preview import build_production_order_preview
 
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
@@ -7082,6 +7091,10 @@ def render_production_order_workspace():
                     st.session_state.pop("recipe_init_done", None)
                     rerun_production_order_workspace()
 
+            with st.expander("線上列印 A5（位置測試）", expanded=False):
+                st.caption("先測試紙張位置；原有 A5 下載功能保留。")
+                components.html(build_production_order_preview(print_html), height=430, scrolling=False)
+
             # --------------- 新增：生產單大標列印 ---------------
             snapshot = st.session_state.get("saved_label_snapshot")
             snapshot_order = get_saved_label_order(snapshot)
@@ -7433,8 +7446,9 @@ def render_production_order_workspace():
                         use_container_width=True,
                     )
     
-                components.html(build_paper_preview(preview_a5_data.decode("utf-8"), title="生產單", document=True),
-                                height=paper_preview_height(preview_a5_data.decode("utf-8"), document=True), scrolling=False)
+                st.caption("可直接按下方「列印 A5（位置測試）」；原有 A5 下載功能保留。")
+                components.html(build_production_order_preview(preview_a5_data.decode("utf-8")),
+                                height=430, scrolling=False)
 
             with manage_tab:
                 is_cancelled = order_dict.get("取消狀態", "有效") == "已取消"
