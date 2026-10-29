@@ -588,6 +588,25 @@ def import_sheet_values(
                 if not name:
                     result.errors.append(f"row {index + 2}: missing 客戶簡稱")
                     continue
+                entity = _fetchone_mapping(conn.execute(
+                    "SELECT * FROM customers WHERE customer_id=?", (customer_id,)
+                ))
+                latest_event = _fetchone_mapping(conn.execute(
+                    """SELECT operation,status FROM sync_outbox
+                       WHERE sheet_name='客戶名單' AND row_key=?
+                       ORDER BY entity_version DESC LIMIT 1""", (customer_id,)
+                ))
+                retired_code = entity is None and latest_event and latest_event["operation"] == "delete"
+                pending_edit = latest_event and latest_event["status"] in ("pending", "failed", "processing", "conflict")
+                if retired_code or pending_edit:
+                    result.conflicts += 1
+                    if not dry_run:
+                        record_sync_conflict(
+                            conn, entity_type="customer", entity_id=customer_id,
+                            sqlite_payload=dict(entity) if entity else None, sheet_payload=row,
+                            reason="Customer code was removed, renamed or edited in the app; stale Sheet row cannot overwrite it",
+                        )
+                    continue
                 prior_customer = seen_customer_names.get(name)
                 if prior_customer and prior_customer != customer_id:
                     result.errors.append(
@@ -603,9 +622,6 @@ def import_sheet_values(
                         f"row {index + 2}: 客戶簡稱 {name} 已由 {alias_owner['customer_id']} 使用"
                     )
                     continue
-                entity = _fetchone_mapping(conn.execute(
-                    "SELECT * FROM customers WHERE customer_id=?", (customer_id,)
-                ))
                 if short_name is None:
                     short_name = (entity.get("short_name") or "") if entity else ""
                     # Legacy Sheets have one name column; keep an established legal name.
