@@ -3496,6 +3496,7 @@ def render_big_label_editor(label_order, *, key_prefix):
 # The production workspace owns the complete label editor and download tree.
 # Nested fragments can remove descendant containers during overlapping reruns.
 def render_order_download_actions(label_order, a5_data, a5_filename):
+    import streamlit.components.v1 as components
     from utils.production_print_preview import build_production_order_preview
 
     order_no = str(label_order.get("生產單號", ""))
