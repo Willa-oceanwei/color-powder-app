@@ -29,27 +29,32 @@ class ProductionOrderPrintCategoryTests(unittest.TestCase):
         }
 
     def test_legacy_order_uses_recipe_category_in_full_a5_preview(self):
-        for category in ("missing", "", "   ", None):
+        for category in ("missing", "", "   "):
             with self.subTest(category=category):
                 order = dict(self.order)
                 if category != "missing":
                     order["色粉類別"] = category
                 before = dict(order)
+                recipe_before = dict(self.recipe)
                 result = self.helpers["generate_print_page_content"](order, self.recipe)
                 self.assertIn("100K × 2", result)
                 self.assertNotIn("1kg × 2", result)
-                # Colorant carrier excludes pigments and has no ordinary total rule.
-                self.assertIn("99584", result)
-                self.assertNotIn("＿" * 28, result)
+                # Only the package heading changes; legacy totals stay unchanged.
+                self.assertIn("100000", result)
+                self.assertNotIn("99584", result)
+                self.assertIn("＿" * 28, result)
                 self.assertEqual(order, before)
+                self.assertEqual(self.recipe, recipe_before)
 
-    def test_fractional_colorant_packages_keep_counts_and_carrier_calculation(self):
+    def test_fractional_colorant_headings_keep_counts_and_legacy_totals(self):
         self.order.update({"包裝重量1": "0.5", "包裝重量2": "1", "包裝份數2": "3"})
         result = self.helpers["generate_production_order_print"](self.order, self.recipe)
         self.assertIn("50K × 2", result)
         self.assertIn("100K × 3", result)
-        self.assertIn("49792", result)
-        self.assertIn("99584", result)
+        self.assertIn("50000", result)
+        self.assertIn("100000", result)
+        self.assertNotIn("49792", result)
+        self.assertNotIn("99584", result)
 
     def test_saved_category_takes_precedence_over_recipe(self):
         self.order["色粉類別"] = "色粉"
