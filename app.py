@@ -7093,7 +7093,10 @@ def render_production_order_workspace():
 
             with st.expander("線上列印 A5（位置測試）", expanded=False):
                 st.caption("先測試紙張位置；原有 A5 下載功能保留。")
-                components.html(build_production_order_preview(print_html), height=430, scrolling=False)
+                if st.session_state.get("new_order_saved", False):
+                    components.html(build_production_order_preview(print_html), height=430, scrolling=False)
+                else:
+                    st.info("請先儲存生產單，儲存成功後才能線上列印。")
 
             # --------------- 新增：生產單大標列印 ---------------
             snapshot = st.session_state.get("saved_label_snapshot")
