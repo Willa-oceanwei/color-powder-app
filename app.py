@@ -2561,7 +2561,10 @@ def generate_production_order_print(
     if recipe_row is None:
         recipe_row = {}
 
-    category = order.get("色粉類別", "").strip()  # 確保先賦值
+    # Older saved orders may omit the category; use the recipe as a fallback.
+    category = str(order.get("色粉類別") or "").strip()
+    if not category:
+        category = str(recipe_row.get("色粉類別") or "").strip()
     
     unit = recipe_row.get("計量單位", "kg")
     ratio = recipe_row.get("比例3", "")
@@ -2690,7 +2693,6 @@ def generate_production_order_print(
         lines.append(row)
         
     # 橫線：只有非色母類別才顯示
-    category = (order.get("色粉類別") or "").strip()
     if category != "色母":
         lines.append("＿" * 28)
                     
