@@ -141,3 +141,63 @@ def test_save_after_auto_completion_reads_later_fields_in_same_render(tmp_path, 
     assert document["items"][0]["unit"] == "KG"
     assert document["notes"] == "Notes from same click"
     assert document["version"] == 2
+
+
+def test_missing_number_and_save_success_are_shown_above_toolbar(tmp_path):
+    config, saved, app = _editing_app(tmp_path)
+    app.button(key="shipment_edit").click().run()
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    app.text_input(key=prefix + "shipment_number").set_value("")
+    app.button(key="shipment_save").click().run()
+    assert not app.exception
+    error = next(e for e in app.error if e.value == "請輸入出貨單號")
+    elements = list(app.main)
+    assert elements.index(error) < elements.index(app.button(key="shipment_save"))
+    assert get_shipment(config, saved["id"])["version"] == 1
+    assert "shipment_draft" in app.session_state
+    app.text_input(key=prefix + "shipment_number").set_value("002")
+    app.button(key="shipment_save").click().run()
+    assert not app.exception and not app.error
+    assert any("已儲存出貨單 002" in e.value for e in app.success)
+    assert get_shipment(config, saved["id"])["shipment_number"] == "002"
+
+
+def test_rebased_grid_is_mounted_after_failed_save_or_export(tmp_path):
+    from utils.recipe_repository import create_recipe
+    for action in ("shipment_save", "shipment_prepare_draft_export"):
+        directory = tmp_path / action
+        directory.mkdir()
+        config, saved, app = _editing_app(directory)
+        create_recipe(config, {"配方編號": "R1", "顏色": "White", "客戶編號": "C01", "計量單位": "KG"})
+        app.button(key="shipment_edit").click().run()
+        prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+        app.session_state[prefix + "items"] = {
+            "edited_rows": {0: {"貨品編號": "R1", "品名": "", "單位": "", "單價": 0.0}},
+            "added_rows": [], "deleted_rows": [],
+        }
+        if action == "shipment_save":
+            app.text_input(key=prefix + "shipment_number").set_value("")
+        next(w for w in app.text_area if w.label == "備註").set_value("Keep notes")
+        app.button(key=action).click().run()
+        assert not app.exception
+        grid_key = prefix + f"items_{app.session_state['shipment_grid_epoch']}"
+        assert grid_key in app.session_state
+        if action == "shipment_save":
+            error = next(e for e in app.error if e.value == "請輸入出貨單號")
+            elements = list(app.main)
+            assert elements.index(error) < elements.index(app.button(key="shipment_save"))
+        else:
+            assert "White" in app.session_state["shipment_draft_export"]["html"]
+        app.session_state[grid_key] = {
+            "edited_rows": {0: {"數量": 7.0}}, "added_rows": [], "deleted_rows": [],
+        }
+        app.run()
+        assert not app.exception
+        assert app.session_state["shipment_draft"]["items"][0]["quantity"] == 7.0
+        assert app.session_state["shipment_draft"]["notes"] == "Keep notes"
+        app.text_input(key=prefix + "shipment_number").set_value("002")
+        app.button(key="shipment_save").click().run()
+        assert not app.exception
+        document = get_shipment(config, saved["id"])
+        assert document["items"][0]["quantity"] == "7.0"
+        assert document["notes"] == "Keep notes"
