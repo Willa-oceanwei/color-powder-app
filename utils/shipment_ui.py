@@ -143,6 +143,8 @@ def _begin(document, *, rerun=True):
     st.session_state.pop("shipment_saved_nav_direction", None)
     st.session_state.pop("shipment_read_cache", None)
     st.session_state.shipment_draft = deepcopy(document)
+    if document.get("id") in st.session_state.get("shipment_note_drafts", {}):
+        st.session_state.shipment_draft["notes"] = st.session_state.shipment_note_drafts[document["id"]]
     st.session_state.shipment_original = deepcopy(document)
     st.session_state.shipment_editor_base = deepcopy(document["items"])
     st.session_state.shipment_grid_epoch = 0
@@ -212,6 +214,8 @@ def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None
     st.session_state.pop("shipment_original", None)
     st.session_state.pop("shipment_editor_base", None)
     st.session_state.pop("shipment_saved_nav_direction", None)
+    if saved_view is not None and message.startswith("已儲存出貨單"):
+        st.session_state.get("shipment_note_drafts", {}).pop(saved_view["document"]["id"], None)
     if saved_view is None:
         st.session_state.pop("shipment_saved_view", None)
     else:
@@ -224,6 +228,8 @@ def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None
 
 
 def _save_notes(config, document, key):
+    pending_notes = st.session_state.setdefault("shipment_note_drafts", {})
+    pending_notes[document["id"]] = st.session_state[key]
     draft = st.session_state.get("shipment_draft")
     if draft is not None and draft.get("id") == document["id"]:
         # A click on Modify can arrive with the textarea blur in one event.
@@ -239,6 +245,7 @@ def _save_notes(config, document, key):
             document["id"], "備註未儲存：請確認資料庫連線後重試；輸入內容已保留。")
     else:
         st.session_state.pop("shipment_notes_error", None)
+        pending_notes.pop(document["id"], None)
         if draft is None:
             _finish("備註已儲存", rerun=False)
         else:
@@ -817,7 +824,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             notes_options = {} if editing or document.get("status") == "void" else {
                 "on_change": _save_notes, "args": (config, deepcopy(document), prefix + "notes"),
                 "help": "可直接修改，離開欄位後自動儲存。"}
-            notes = notes_col.text_area("備註", value=widget_default(prefix + "notes", document.get("notes", "")), height=68,
+            note_default = document.get("notes", "") if editing else st.session_state.get("shipment_note_drafts", {}).get(document["id"], document.get("notes", ""))
+            notes = notes_col.text_area("備註", value=widget_default(prefix + "notes", note_default), height=68,
                                        key=prefix + "notes", disabled=document.get("status") == "void", **notes_options)
             note_error = st.session_state.get("shipment_notes_error")
             if not editing and note_error and note_error[0] == document["id"]:
