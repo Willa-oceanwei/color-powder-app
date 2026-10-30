@@ -141,6 +141,19 @@ def create_customer(config: DatabaseConfig, data: CustomerInput) -> dict[str, An
         return entity
 
 
+def require_current_customer_code(conn, customer_id: str) -> None:
+    """Reject a known retired code without rejecting legacy unknown references."""
+    code = str(customer_id or "").strip()
+    if not code or _mapping(conn.execute("SELECT 1 FROM customers WHERE customer_id=?", (code,))):
+        return
+    event = _mapping(conn.execute(
+        """SELECT operation FROM sync_outbox WHERE sheet_name='客戶名單' AND row_key=?
+           ORDER BY entity_version DESC LIMIT 1""", (code,)
+    ))
+    if event and event["operation"] == "delete":
+        raise CustomerError(f"客戶編號 {code} 已變更或移除，請重新讀取客戶資料後再儲存")
+
+
 def _rename_customer_links(conn, old_id: str, new_id: str, now: str) -> None:
     """Move current customer references; retain historical monetary/snapshot data."""
     from .recipe_repository import _recipe_sheet_payload

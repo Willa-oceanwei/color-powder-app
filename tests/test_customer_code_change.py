@@ -316,4 +316,53 @@ def test_second_rename_back_before_sync_keeps_outbox_versions_increasing(config)
     assert get_shipment(config, snapshot(config)["shipment_orders"][0]["id"])["customer_id"] == "001"
 
 
+def test_stale_recipe_payload_cannot_restore_deleted_customer_code(config):
+    from utils.recipe_repository import list_recipes, update_recipe, RecipeError
+    seed(config)
+    stale = next(r for r in list_recipes(config) if r["配方編號"] == "R1")
+    renamed(config)
+    before = snapshot(config)
+    stale["備註"] = "An unrelated edit from an old session"
+    with pytest.raises(RecipeError, match="已變更"):
+        update_recipe(config, stale)
+    assert snapshot(config) == before
+    current = next(r for r in list_recipes(config) if r["配方編號"] == "R1")
+    current["備註"] = "Current session"
+    update_recipe(config, current)
+    assert next(r for r in list_recipes(config) if r["配方編號"] == "R1")["客戶編號"] == "0009"
+
+
+def test_new_documents_and_sheet_rows_reject_retired_customer_code(config):
+    from utils.production_order_repository import ProductionOrderError
+    from utils.trial_repository import TrialError
+    from utils.recipe_repository import RecipeError
+    from utils.sheet_import import import_sheet_values
+    seed(config)
+    renamed(config)
+    before = snapshot(config)
+    with pytest.raises(RecipeError, match="已變更"):
+        create_recipe(config, {"配方編號": "R2", "客戶編號": "001"})
+    with pytest.raises(TrialError, match="已變更"):
+        create_trial_record(config, {"配方編號": "T2", "客戶編號": "001", "試色日期": "2026-10-30", "原料": "PP"})
+    with pytest.raises(ProductionOrderError, match="已變更"):
+        create_production_order(config, {"生產單號": "ORDER2", "配方編號": "R1", "客戶編號": "001"})
+    draft = dict(blank_shipment(), customer_id="OTHER", customer_name="Other Legal",
+                 number_mode="manual", shipment_number="003", recipient_id="001")
+    draft["items"] = [dict(code="R1", name="Blue", quantity="1", unit="KG", price="100")]
+    with pytest.raises(ShipmentError, match="已變更"):
+        save_shipment(config, draft)
+    assert snapshot(config) == before
+    for sheet, values in (
+        ("配方管理", [["配方編號", "客戶編號"], ["OLD-R", "001"]]),
+        ("試色登錄", [["_sync_id", "配方編號", "客戶編號", "試色日期", "原料"], ["OLD-T", "T3", "001", "2026-10-30", "PP"]]),
+        ("生產單", [["生產單號", "配方編號", "客戶編號"], ["OLD-O", "R1", "001"]]),
+    ):
+        result = import_sheet_values(sheet, values, db_config=config, initialize_schema=False)
+        assert result.errors and result.inserted_or_updated == 0
+    assert snapshot(config) == before
+    # Legacy records with an unknown code that was never renamed retain compatibility.
+    create_recipe(config, {"配方編號": "LEGACY", "客戶編號": "never-used-legacy-code"})
+
+
+
 

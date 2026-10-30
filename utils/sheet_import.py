@@ -465,6 +465,13 @@ def import_sheet_values(
             if not changed:
                 result.unchanged += 1
                 continue
+            if sheet_name in ("配方管理", "試色登錄", "生產單"):
+                from .customer_repository import CustomerError, require_current_customer_code
+                try:
+                    require_current_customer_code(conn, row.get("客戶編號", ""))
+                except CustomerError as error:
+                    result.errors.append(f"row {index + 2}: {error}")
+                    continue
             if sheet_name == "色粉管理" and color_powder_entity is None:
                 result.to_insert += 1
             elif existed:
@@ -1340,3 +1347,4 @@ def import_worksheets(
             )
         )
     return results
+

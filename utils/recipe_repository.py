@@ -64,7 +64,12 @@ def _number(value: Any, default: float = 0) -> float:
 
 
 def _validated_payload(conn, row: dict[str, Any]) -> tuple[dict[str, str], list[tuple[int, str, float]]]:
+    from .customer_repository import CustomerError, require_current_customer_code
     payload = {str(key): _text(row, str(key)) for key in row}
+    try:
+        require_current_customer_code(conn, payload.get("客戶編號", ""))
+    except CustomerError as error:
+        raise RecipeError(str(error)) from error
     recipe_id = payload.get("配方編號", "")
     if not recipe_id:
         raise RecipeError("請輸入配方編號")
@@ -420,3 +425,4 @@ def set_recipe_active(config: DatabaseConfig, recipe_id: str, *, active: bool, r
             entity_version=int(entity["version"]),
         )
         return entity
+

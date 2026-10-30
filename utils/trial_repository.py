@@ -60,6 +60,7 @@ def list_trial_records(config: DatabaseConfig, *, include_inactive: bool = False
 
 
 def create_trial_record(config: DatabaseConfig, row: dict[str, Any]):
+    from .customer_repository import CustomerError, require_current_customer_code
     formula_code = str(row.get("配方編號") or "").strip().upper()
     customer_id = str(row.get("客戶編號") or "").strip()
     trial_date = str(row.get("試色日期") or "").strip()
@@ -75,6 +76,10 @@ def create_trial_record(config: DatabaseConfig, row: dict[str, Any]):
         raise TrialError("已轉單記錄必須填寫轉單日期")
     now = utc_now_iso()
     with connect_from_config(config) as conn:
+        try:
+            require_current_customer_code(conn, customer_id)
+        except CustomerError as error:
+            raise TrialError(str(error)) from error
         if conn.execute("SELECT 1 FROM trial_records WHERE formula_code=?", (formula_code,)).fetchone():
             raise TrialError(f"配方編號 {formula_code} 已存在")
         conn.execute(
@@ -188,3 +193,4 @@ def save_trial_settings(config: DatabaseConfig, settings: dict[str, Any]) -> Non
                    updated_at=excluded.updated_at""",
                 (key, str(value), now),
             )
+
