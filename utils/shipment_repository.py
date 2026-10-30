@@ -367,6 +367,31 @@ def save_shipment(config, document, *, sync_products=False):
 
 
 
+
+def update_shipment_notes(config, shipment_id, version, notes):
+    """Change the document note without revalidating or rewriting other fields."""
+    if not isinstance(notes, str):
+        raise ShipmentError("備註資料無效")
+    with connect_from_config(config) as conn:
+        existing = _mapping(conn.execute("SELECT * FROM shipment_orders WHERE id=?", (shipment_id,)))
+        if not existing:
+            raise ShipmentError("出貨單不存在")
+        if existing["status"] != "draft":
+            raise ShipmentError("已作廢出貨單不可修改")
+        if existing["version"] != version:
+            raise ShipmentError("單據已被其他人修改或作廢，請重新讀取後再修改備註")
+        header = json.loads(existing["payload_json"])
+        if header.get("notes", "") == notes:
+            return
+        header["notes"] = notes
+        changed = _mapping(conn.execute(
+            "UPDATE shipment_orders SET payload_json=?,version=version+1,updated_at=? "
+            "WHERE id=? AND version=? AND status='draft' RETURNING id",
+            (json.dumps(header, ensure_ascii=False), utc_now_iso(), shipment_id, version)))
+        if not changed:
+            raise ShipmentError("單據已被其他人修改或作廢，請重新讀取後再修改備註")
+
+
 def update_shipment_item_notes(config, shipment_id, version, notes_by_row):
     """Update only item notes, with the same optimistic lock as a full edit."""
     with connect_from_config(config) as conn:
