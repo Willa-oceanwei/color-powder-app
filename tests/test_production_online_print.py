@@ -104,3 +104,17 @@ def test_standard_layout_font_and_print_size_are_not_overridden_online():
     assert '<label for="production-zoom">預覽縮放</label>' in preview
     assert '<option value="width" selected>符合寬度</option>' in preview
     assert "列印比例請在列印視窗調整" in preview
+
+def test_long_edge_feed_uses_the_same_a5_printable_area_without_rotation_or_scaling():
+    preview = build_production_order_preview(_source_document())
+    feed_css = re.search(r'<style id="production-feed-page">(.*?)</style>', preview, re.S).group(1)
+    assert "size:A4 portrait;margin:10mm 10mm 159mm 10mm" in feed_css
+    assert "body{page:production-output}" in feed_css
+    assert 210 - 10 - 10 == 190
+    assert 297 - 10 - 159 == 148 - 10 - 10 == 128
+    assert "font" not in feed_css and "transform" not in feed_css and "zoom" not in feed_css
+    assert '<option value="long" selected>A5 橫放進紙（21 公分長邊先進）</option>' in preview
+    assert '<option value="native">標準 A5 列印</option>' in preview
+    assert "@page production-output{size:A5 landscape;margin:10mm}" in preview
+    assert "addEventListener('beforeprint',applyProductionFeed)" in preview
+    assert "只調整本單據的進紙，不改印表機預設值" in preview
