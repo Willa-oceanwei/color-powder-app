@@ -177,9 +177,17 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     assert not any("private database details" in widget.value for widget in app.error)
     assert get_shipment(config, before["id"]) == saved_note
     monkeypatch.setattr(ui, "update_shipment_notes", original)
+    external = deepcopy(saved_note)
+    external["payment_terms"] = "其他人更新的條件"
+    refreshed = save_shipment(config, external)
     app.button(key=f"shipment_view_{before['id']}_{saved_note['version']}_retry_notes").click().run()
+    assert any("其他人" in widget.value for widget in app.error)
+    app.button(key="shipment_reload_data").click().run()
+    assert next(widget for widget in app.text_area if widget.label == "備註").value == "保留輸入"
+    app.button(key=f"shipment_view_{before['id']}_{refreshed['version']}_retry_notes").click().run()
     assert not app.exception
     assert get_shipment(config, before["id"])["notes"] == "保留輸入"
+    assert get_shipment(config, before["id"])["payment_terms"] == "其他人更新的條件"
     next(widget for widget in app.text_area if widget.label == "備註").set_value("直接接著按修改")
     app.button(key="shipment_edit").click().run()
     assert "shipment_draft" in app.session_state
