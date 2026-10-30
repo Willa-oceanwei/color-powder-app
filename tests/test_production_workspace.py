@@ -235,3 +235,25 @@ def test_history_label_editor_and_workspace_have_one_render_owner(production_con
     assert fragment_counts == [1]
     assert any(button.label == '儲存並更新標籤' for button in app.button)
     assert any(item.proto.label == '下載列印檔' for item in app.get('download_button'))
+
+
+@pytest.mark.parametrize("label_kind", ["大標籤", "小標籤"])
+def test_first_label_save_survives_selection_reset(production_config, label_kind):
+    app = workspace_app(production_config).run(timeout=30)
+    app.button(key="open_labels_tab2_P001").click().run()
+    if label_kind == "小標籤":
+        app.radio(key="tab2_label_kind_P001").set_value(label_kind).run()
+    prefix = "tab2_small" if label_kind == "小標籤" else "tab2"
+    app.session_state[f"{prefix}_big_label_editor_P001"] = {
+        "edited_rows": {0: {"品名": "First click", "列印張數": 3}},
+        "added_rows": [], "deleted_rows": [],
+    }
+    # The selection table can reset in the same rerun as a label save.
+    app.session_state["qa_drop_selection"] = True
+    app.button(key=f"{prefix}_save_labels_P001").click().run()
+    assert not app.exception
+    assert app.session_state["history_labels_pinned_order_id"] == "P001"
+    assert len(app.session_state[f"{prefix}_big_label_confirmed_P001"]) == 3
+    assert b"First click" in app.session_state[f"{prefix}_label_render_P001"][1]
+    download = next(item for item in app.get("download_button") if item.proto.label == "下載列印檔")
+    assert not download.proto.disabled
