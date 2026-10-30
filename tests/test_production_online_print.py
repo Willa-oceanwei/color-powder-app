@@ -1,12 +1,14 @@
 import ast
+from html.parser import HTMLParser
 from pathlib import Path
 import re
+
 import pytest
 
 from utils.production_print_preview import build_production_order_preview
 
 
-def _source_document():
+def _source_document(order_overrides=None):
     module = ast.parse(Path("app.py").read_text(encoding="utf-8"))
     functions = [n for n in module.body if isinstance(n, ast.FunctionDef) and n.name in
                  {"generate_production_order_print", "generate_print_page_content"}]
@@ -14,6 +16,7 @@ def _source_document():
     exec(compile(ast.Module(body=functions, type_ignores=[]), "app.py", "exec"), namespace)
     order = {"配方編號": "69939BM", "顏色": "綠", "建立時間": "2026-10-29 09:00",
              "包裝重量1": "1", "包裝份數1": "2", "備註": "保留原有 A5 下載"}
+    order.update(order_overrides or {})
     recipe = {"配方編號": "69939BM", "色粉類別": "色母", "合計類別": "料",
               "色粉編號1": "5012", "色粉重量1": "416", "淨重": "100000"}
     return namespace["generate_print_page_content"](order, recipe, [
@@ -33,21 +36,6 @@ def test_online_preview_has_manual_print_and_preserves_download_print_rules():
     for style in re.findall(r"<style[^>]*>.*?</style>", source, re.S):
         assert style in preview
     assert "size: A5 landscape" in preview and "margin: 10mm" in preview
-    # Keep the original text upright on A5 portrait paper. The download
-    # retains its original landscape page rule.
-    assert preview.rindex("@page{size:A5 portrait;margin:10mm}") > preview.index("size: A5 landscape")
-    assert "width:100%;min-height:190mm" in preview
-    assert "font-size:calc(22px * var(--production-print-scale,1))" in preview
-    assert "transform:scale(" not in preview and "fitPrintContent" not in preview
-    assert "paper.scrollWidth" not in preview and "paper.scrollHeight" not in preview
-    assert "rotate(" not in preview and "translateX(128mm)" not in preview
-    assert "transform:none;font-size:calc(" in preview
-    assert "body{margin:0!important;transform:none!important}" in preview
-    assert "width:128mm!important;height:auto!important" in preview
-    assert '.production-page{margin:0!important;zoom:1!important;break-inside:avoid}' not in preview
-    assert "文字正向、標題在上；紙張 A5 直向" in preview
-    assert "addEventListener('beforeprint',applyPrintScale)" in preview
-    assert "A5 portrait" not in source and "rotate(90deg)" not in source
     assert "font-size: 22px" in preview and "translateX(0.2cm)" in preview
     assert "zoom:1!important" in preview and ".toolbar{display:none!important}" in preview
     assert source.encode("utf-8") == before
@@ -55,14 +43,26 @@ def test_online_preview_has_manual_print_and_preserves_download_print_rules():
     assert "production-online-preview" not in source
 
 
-def test_production_content_values_notes_and_additional_recipes_are_identical():
-    source = _source_document()
+@pytest.mark.parametrize("order_overrides", [
+    {},
+    {"包裝重量2": "2", "包裝份數2": "3", "包裝重量3": "0.5", "包裝份數3": "4", "包裝重量4": "0.25", "包裝份數4": "5"},
+    {"包裝重量4": "0.25", "包裝份數4": "5"},
+])
+def test_production_content_values_notes_and_additional_recipes_are_identical(order_overrides):
+    class Text(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.parts = []
+        def handle_data(self, data):
+            self.parts.append(data)
+    source = _source_document(order_overrides)
     preview = build_production_order_preview(source)
+    original_body = re.search(r"<body>(.*?)</body>", source, re.S).group(1)
     online_body = re.search(r'<section class="production-paper paper">(.*?)</section>', preview, re.S).group(1)
-    # Online packaging groups replace space alignment with labelled cells.
-    assert '<td>5012</td><td>416</td>' in online_body
-    assert '<td>LA</td><td>26000</td>' in online_body
-    assert online_body.count('<th colspan="2">100K × 2</th>') == 2
+    a, b = Text(), Text()
+    a.feed(original_body)
+    b.feed(online_body)
+    assert a.parts == b.parts
     for value in ("69939BM", "100K × 2", "5012", "416", "100000", "ADD1", "26000", "保留原有 A5 下載"):
         assert value in online_body
 
@@ -72,7 +72,7 @@ def test_online_preview_filters_body_scripts_events_and_body_styles():
 <body onload="bad()"><pre onclick="evil()">x &amp; y</pre>
 <script>bad()</script><style>.paper{display:none}</style><iframe src="bad"></iframe></body></html>"""
     preview = build_production_order_preview(source)
-    assert '<div class="production-content">x &amp; y<br></div>' in preview
+    assert "<pre>x &amp; y</pre>" in preview
     assert "bad()" not in preview and "evil()" not in preview
     assert "onload=" not in preview and "<iframe" not in preview
     assert ".paper{display:none}" not in preview
@@ -90,47 +90,17 @@ def test_all_production_entry_points_keep_a5_download_and_add_online_print():
     assert 'build_production_order_preview(preview_a5_data.decode("utf-8"))' in source
     assert 'data=preview_a5_data' in source and 'key=f"download_a5_tab3_{current_order_no}"' in source
 
-
-def test_print_size_and_preview_zoom_are_separate_controls():
+def test_standard_layout_font_and_print_size_are_not_overridden_online():
     preview = build_production_order_preview(_source_document())
+    online_css = re.search(r'<style id="production-online-preview">(.*?)</style>', preview, re.S).group(1)
+    paper_rules = re.findall(r"\.production-paper\{([^}]+)\}", online_css)
+    assert paper_rules
+    for rules in paper_rules:
+        assert "font" not in rules and "white-space" not in rules and "transform" not in rules
+    assert "@page" not in online_css
+    assert "rotate(" not in preview and "transform:scale(" not in preview
+    assert "production-print-scale" not in preview and "fitPrintContent" not in preview
+    assert "<table" not in preview and "色粉編號／合計" not in preview
     assert '<label for="production-zoom">預覽縮放</label>' in preview
-    assert '<label for="production-print-scale">列印比例</label>' in preview
-    print_options = re.search(r'<select id="production-print-scale"[^>]*>(.*?)</select>', preview, re.S).group(1)
-    assert '<option value="1" selected>100%</option>' in print_options
-    assert '<option value="1.1">110%</option>' in print_options
-    assert '<option value="1.5">150%</option>' in print_options
-    print_handler = preview.split("function applyPrintScale(){", 1)[1].split("function fitProduction(){", 1)[0]
-    assert "document.getElementById('production-print-scale').value" in print_handler
-    assert "paper.style.setProperty('--production-print-scale',scale)" in print_handler
-    assert "Math.min" not in print_handler and "production-zoom" not in print_handler
     assert '<option value="width" selected>符合寬度</option>' in preview
-    assert "overflow-wrap:anywhere" in preview
-
-
-@pytest.mark.parametrize("headers", [
-    ["100K × 2", "50K × 3", "200K × 23", "25K × 4"],
-    ["100K × 2", "", "200K × 23", "25K × 4"],
-    ["", "50K × 3", "200K × 23", "25K × 4"],
-])
-def test_packaging_groups_preserve_each_original_column_including_gaps_and_long_values(headers):
-    from html import escape
-    header = " " * 14 + "".join(f"{value:<11}" for value in headers)
-    values = ["11.25", "", "1234567890123.75", "44"]
-    totals = ["100", "", "300", "400"]
-    numeric = lambda data: "".join(" " + f'<b class="num">{value:>6}</b>' for value in data)
-    row = '<b>R&amp;1        </b>' + numeric(values)
-    total = '<b class="production-total-label">料</b>' + numeric(totals)
-    additional = "LA          " + "".join(" " + f'<b>{value:>6}</b>' for value in values)
-    source = '<html><body><pre><b>' + header + '</b><br>' + row + '<br>' + "＿" * 28 + '<br>' + total + '<br>附加配方 ADD1<br>' + additional + '<br>備註：原資料保留</pre></body></html>'
-    preview = build_production_order_preview(source)
-    for index, header in enumerate(headers):
-        if not header:
-            assert f'data-pack-index="{index}"' not in preview
-            continue
-        groups = re.findall(rf'<table class="production-group" data-pack-index="{index}">(.*?)</table>', preview, re.S)
-        assert len(groups) == 2
-        assert f'<th colspan="2">{escape(headers[index])}</th>' in groups[0]
-        assert f'<td>R&amp;1</td><td>{values[index]}</td>' in groups[0]
-        assert f'<td>料</td><td>{totals[index]}</td>' in groups[0]
-        assert f'<td>LA</td><td>{values[index]}</td>' in groups[1]
-    assert "附加配方 ADD1" in preview and "備註：原資料保留" in preview
+    assert "列印比例請在列印視窗調整" in preview
