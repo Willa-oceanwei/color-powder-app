@@ -103,5 +103,5 @@ def test_standard_layout_font_and_print_size_are_not_overridden_online():
     assert "production-print-scale" not in preview and "fitPrintContent" not in preview
     assert "<table" not in preview and "色粉編號／合計" not in preview
     assert '<label for="production-zoom">預覽縮放</label>' in preview
-    assert '<option value="width" selected>符合寬度</option>' in preview
+    assert '<option value="page" selected>完整內容</option>' in preview
     assert "列印比例請在列印視窗調整" in preview
