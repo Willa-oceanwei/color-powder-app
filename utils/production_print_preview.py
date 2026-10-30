@@ -44,7 +44,7 @@ body{margin:0;transform:none;background:#101820}
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px}
 .toolbar button,.toolbar select{font:16px Arial,"Microsoft JhengHei",sans-serif;min-height:38px;padding:5px 10px}
 .toolbar .hint{font:13px "Microsoft JhengHei",sans-serif}
-.stage{height:340px;overflow:auto;padding:8px}
+.stage{box-sizing:border-box;width:100%;max-width:900px;height:340px;overflow:auto;padding:8px;margin:0 auto}
 .production-paper{box-sizing:border-box;width:190mm;min-height:128mm;margin:0 auto;padding:0;background:#fff;color:#000;zoom:var(--production-scale,1)}
 }
 @media print {
@@ -56,7 +56,7 @@ body{margin:0;transform:none;background:#101820}
 <div class="toolbar">
 <button type="button" id="production-print" onclick="window.print()">列印 A5（位置測試）</button>
 <label for="production-zoom">預覽縮放</label><select id="production-zoom" onchange="fitProduction()">
-<option value="page">完整內容</option><option value="width" selected>符合寬度</option>
+<option value="page" selected>完整內容</option><option value="width">符合寬度</option>
 <option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option>
 </select><span class="hint">標準原版面；列印比例請在列印視窗調整；原有 A5 下載仍可使用</span></div>
 <div class="stage"><section class="production-paper paper">''' + "".join(body.parts) + '''</section></div>
@@ -66,7 +66,7 @@ function fitProduction(){
 stage.style.height=Math.max(160,innerHeight-document.querySelector('.toolbar').offsetHeight)+'px';
 const mode=document.getElementById('production-zoom').value;
 const width=(stage.clientWidth-24)/paper.offsetWidth;
-const scale=mode==='width'?width:mode==='page'?Math.min(width,(stage.clientHeight-24)/paper.offsetHeight):Number(mode);
+const scale=mode==='width'?Math.min(1,width):mode==='page'?Math.min(1,width,(stage.clientHeight-24)/paper.offsetHeight):Number(mode);
 document.documentElement.style.setProperty('--production-scale',Math.max(.15,scale));
 }
 addEventListener('resize',fitProduction);fitProduction();
