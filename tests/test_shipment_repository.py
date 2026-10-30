@@ -111,6 +111,7 @@ def test_save_batches_items_and_returns_committed_snapshot_without_reread(config
         doc = deepcopy(saved)
         doc["notes"] = "Updated"
         doc["items"].reverse()
+        doc["items"][0]["name"] = "Changed batch"
 
 
 def test_batched_edit_rolls_back_every_item_and_version_on_invoice_conflict(config):
@@ -455,3 +456,37 @@ def test_print_black_font_fixed_columns_and_grouped_amounts(config):
     assert '珍珠灰黑(115/07/02 220/包)' in html
 
 
+
+
+@pytest.mark.parametrize("change, expected_calls", [("header", 2), ("item", 4), ("invoice", 3)])
+def test_edit_save_only_writes_changed_sections(config, monkeypatch, change, expected_calls):
+    from utils import shipment_repository as repo
+    doc = document()
+    doc["invoice"].update(number="INV-SPEED", date="2026-10-01")
+    saved = save_shipment(config, doc)
+    edit = deepcopy(saved)
+    if change == "header":
+        edit["notes"] = "New note"
+    elif change == "item":
+        edit["items"][0]["quantity"] = "51"
+    else:
+        edit["invoice"]["method"] = "月結開立"
+    original = repo.connect_from_config
+    statements = []
+    @contextmanager
+    def counted(config):
+        with original(config) as conn:
+            class Spy:
+                def execute(self, sql, args=()):
+                    statements.append(sql)
+                    return conn.execute(sql, args)
+            yield Spy()
+    monkeypatch.setattr(repo, "connect_from_config", counted)
+    updated = repo.save_shipment(config, edit)
+    assert len(statements) == expected_calls
+    monkeypatch.setattr(repo, "connect_from_config", original)
+    assert updated == get_shipment(config, saved["id"])
+    assert updated["version"] == saved["version"] + 1
+    assert updated["notes"] == edit["notes"]
+    assert updated["items"][0]["quantity"] == edit["items"][0]["quantity"]
+    assert updated["invoice"]["method"] == edit["invoice"]["method"]
