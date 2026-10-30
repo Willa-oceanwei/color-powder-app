@@ -85,7 +85,8 @@ def test_all_production_entry_points_keep_a5_download_and_add_online_print():
     assert 'online_col.popover("線上列印 A5"' in history
     assert 'data=a5_data, file_name=a5_filename' in history
     assert 'key=f"download_a5_tab2_{order_no}"' in history
-    assert 'with st.expander("線上列印 A5（位置測試）"' in source
+    assert 'with online_col.popover("線上列印 A5"' in source
+    assert 'actions = st.container(key="production_a5_create_actions")' in source
     assert 'data=print_html.encode("utf-8")' in source and 'key="download_html_tab1"' in source
     assert 'build_production_order_preview(preview_a5_data.decode("utf-8"))' in source
     assert 'data=preview_a5_data' in source and 'key=f"download_a5_tab3_{current_order_no}"' in source

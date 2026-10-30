@@ -5,6 +5,29 @@ import re
 from .paper_preview import _PrintBody, theme_preview
 
 
+PRODUCTION_A5_ACTION_STYLE = """<style>
+.stApp .st-key-production_a5_create_actions :is([data-testid="stButton"],[data-testid="stDownloadButton"],[data-testid="stPopover"]) button {
+background:#0b2f4a!important;color:#fff!important;border:1px solid #527086!important;border-radius:6px!important;
+min-height:38px!important;padding:.4rem .75rem!important;font-size:1rem!important;font-weight:600!important;white-space:nowrap;
+}
+.stApp .st-key-production_a5_create_actions :is([data-testid="stButton"],[data-testid="stDownloadButton"],[data-testid="stPopover"]) button p {font-size:1rem!important;font-weight:600!important;}
+.stApp .st-key-production_a5_create_actions :is([data-testid="stButton"],[data-testid="stDownloadButton"],[data-testid="stPopover"]) button:not(:disabled):is(:hover,:focus) {background:#124466!important;border-color:#65b5e2!important;color:#fff!important;}
+.stApp .st-key-production_a5_create_actions :is([data-testid="stButton"],[data-testid="stDownloadButton"],[data-testid="stPopover"]) button:focus-visible {outline:2px solid #8cc8ea!important;outline-offset:2px;}
+.stApp .st-key-production_a5_create_actions button:disabled {opacity:.45!important;}
+body:has(.st-key-production_a5_create_actions) [data-testid="stPopoverBody"]:has(iframe) {width:min(960px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important;}
+body:has(.st-key-production_a5_create_actions) [data-testid="stPopoverBody"]:has(iframe) :is([data-testid="stVerticalBlock"],[data-testid="stElementContainer"],.element-container) {width:100%!important;max-width:100%!important;}
+body:has(.st-key-production_a5_create_actions) [data-testid="stPopoverBody"]:has(iframe) iframe {width:100%!important;}
+@media(max-width:680px){
+.stApp .st-key-production_a5_create_actions [data-testid="stHorizontalBlock"] {flex-wrap:wrap!important;gap:8px!important;}
+.stApp .st-key-production_a5_create_actions [data-testid="stHorizontalBlock"]>:is([data-testid="stColumn"],[data-testid="column"]) {min-width:0!important;width:auto!important;}
+.stApp .st-key-production_a5_create_actions [data-testid="stHorizontalBlock"]>:is([data-testid="stColumn"],[data-testid="column"]):nth-child(-n+2) {flex:1 1 calc(50% - 4px)!important;}
+.stApp .st-key-production_a5_create_actions [data-testid="stHorizontalBlock"]>:is([data-testid="stColumn"],[data-testid="column"]):nth-child(3) {display:none!important;}
+.stApp .st-key-production_a5_create_actions [data-testid="stHorizontalBlock"]>:is([data-testid="stColumn"],[data-testid="column"]):nth-child(4) {flex:0 0 auto!important;margin-left:auto;}
+.stApp .st-key-production_a5_create_actions :is([data-testid="stDownloadButton"],[data-testid="stPopover"]) button p {font-size:.875rem!important;}
+}
+</style>"""
+
+
 def build_production_order_preview(document):
     """Reuse generated A5 styles and safe body without its automatic print script."""
     body = _PrintBody()

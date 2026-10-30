@@ -5563,7 +5563,7 @@ def rerun_production_order_workspace():
 @st.fragment
 def render_production_order_workspace():
     """Keep production edits and tab updates inside the mounted workspace."""
-    from utils.production_print_preview import build_production_order_preview
+    from utils.production_print_preview import build_production_order_preview, PRODUCTION_A5_ACTION_STYLE
 
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
@@ -7061,7 +7061,9 @@ def render_production_order_workspace():
                 if snap and str(snap.get("order", {}).get("生產單號", "")) == str(order.get("生產單號", "")):
                     snap["a5_downloaded"] = True
                 
-            col1, col2, col3 = st.columns([3,1,3])
+            st.html(PRODUCTION_A5_ACTION_STYLE)
+            actions = st.container(key="production_a5_create_actions")
+            col1, online_col, col2, col3 = actions.columns([2.3, 2.3, 3, 1.3], vertical_alignment="center")
             with col1:
                 # ---------- 產生安全檔名 ----------
                 raw_order_no = str(order.get("生產單號", "未命名")).strip()
@@ -7093,6 +7095,7 @@ def render_production_order_workspace():
                     file_name=file_name,
                     mime="text/html",
                     key="download_html_tab1",
+                    use_container_width=True,
                     disabled=not st.session_state.get("new_order_saved", False),
                     on_click=mark_html_downloaded
                 )
@@ -7106,7 +7109,8 @@ def render_production_order_workspace():
                     st.session_state.pop("recipe_init_done", None)
                     rerun_production_order_workspace()
 
-            with st.expander("線上列印 A5（位置測試）", expanded=False):
+            with online_col.popover("線上列印 A5", use_container_width=True,
+                                    disabled=not st.session_state.get("new_order_saved", False)):
                 st.caption("先測試紙張位置；原有 A5 下載功能保留。")
                 if st.session_state.get("new_order_saved", False):
                     components.html(build_production_order_preview(print_html), height=430, scrolling=False)
