@@ -54,7 +54,7 @@ body{margin:0;transform:none;background:#101820}
 }
 </style></head><body>
 <div class="toolbar">
-<button type="button" id="production-print" onclick="window.print()">列印 A5（位置測試）</button>
+<button type="button" id="production-print" onclick="window.print()">列印 A5</button>
 <label for="production-zoom">預覽縮放</label><select id="production-zoom" onchange="fitProduction()">
 <option value="page" selected>完整內容</option><option value="width">符合寬度</option>
 <option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option>
