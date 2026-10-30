@@ -123,7 +123,7 @@ def render_shipment_print(document, *, show_prices=True, orientation="landscape"
 <div class="delivery-row"><div>送貨地址：{_text(document.get('address', ''))}</div><div class="invoice-number">發票號碼：{_text(invoice.get('number', ''))}</div></div>
 <table><colgroup>{columns}</colgroup><thead><tr>{headings}</tr></thead><tbody>{table_rows}</tbody></table>
 <div class="end-marker">--------------以下空白--------------</div>
-<footer><div class="footer-top"><div class="notes">備註：{footer_note}</div>{total}</div><div class="signatures"><span>審核：</span><span>經辦：</span><strong>簽收：</strong></div></footer>
+<footer><div class="footer-top"><div class="notes"><span class="notes-label">備註：</span><span class="notes-content">{footer_note}</span></div>{total}</div><div class="signatures"><span>審核：</span><span>經辦：</span><strong>簽收：</strong></div></footer>
 </section>''')
     if paper_stock in ("triplicate", "a4_driver"):
         output = [stock_sheet(sheet) for sheet in output]
@@ -155,7 +155,7 @@ th {padding-top:.65mm;padding-bottom:.65mm;}
 .end-marker {margin:0 .7mm;line-height:5.5mm;}
 footer {position:absolute;bottom:6mm;left:10mm;right:10mm;border-top:.3mm solid #000;padding-top:1mm;}
 .footer-top {display:grid;grid-template-columns:1fr 48mm;gap:4mm;min-height:19mm;line-height:5.5mm;}
-.notes {overflow-wrap:anywhere;}.totals>div {display:flex;justify-content:space-between;}
+.notes {display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:start;overflow-wrap:anywhere;}.notes-label {white-space:nowrap;}.notes-content {min-width:0;}.totals>div {display:flex;justify-content:space-between;}
 .signatures {display:grid;grid-template-columns:21% 25% 54%;padding:.5mm .7mm 0;line-height:6mm;}
 .signatures strong {font-size:15pt;}
 @media screen {.sheet{zoom:.86;}}
