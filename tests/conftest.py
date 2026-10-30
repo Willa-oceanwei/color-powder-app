@@ -5,8 +5,6 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import json
-
 import pytest
 from streamlit.elements.widgets.data_editor import DataEditorSerde
 from streamlit.testing.v1 import AppTest
@@ -26,7 +24,7 @@ def include_data_editor_browser_state(monkeypatch):
                 if metadata is None or not isinstance(getattr(metadata.deserializer, '__self__', None), DataEditorSerde):
                     continue
                 widget = widget_state.widgets.add(id=widget_id)
-                widget.string_value = json.dumps(app.session_state[widget_id])
+                widget.string_value = metadata.serializer(app.session_state[widget_id])
         return original(app, widget_state, *args, **kwargs)
 
     monkeypatch.setattr(AppTest, '_run', run)
