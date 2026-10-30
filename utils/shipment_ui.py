@@ -25,7 +25,7 @@ from .list_ui import render_selection_table
 from .customer_repository import customer_display_name, CONTACT_FIELDS, CustomerError, get_customer, list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
-    list_shipments, printable_shipment, save_shipment, void_shipment, update_shipment_item_notes,
+    list_shipments, printable_shipment, save_shipment, void_shipment, update_shipment_item_notes, update_shipment_notes,
     recent_shipment_price, shipment_price_history,
 )
 
@@ -143,6 +143,8 @@ def _begin(document, *, rerun=True):
     st.session_state.pop("shipment_saved_nav_direction", None)
     st.session_state.pop("shipment_read_cache", None)
     st.session_state.shipment_draft = deepcopy(document)
+    if document.get("id") in st.session_state.get("shipment_note_drafts", {}):
+        st.session_state.shipment_draft["notes"] = st.session_state.shipment_note_drafts[document["id"]]
     st.session_state.shipment_original = deepcopy(document)
     st.session_state.shipment_editor_base = deepcopy(document["items"])
     st.session_state.shipment_grid_epoch = 0
@@ -212,6 +214,8 @@ def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None
     st.session_state.pop("shipment_original", None)
     st.session_state.pop("shipment_editor_base", None)
     st.session_state.pop("shipment_saved_nav_direction", None)
+    if saved_view is not None and message.startswith("已儲存出貨單"):
+        st.session_state.get("shipment_note_drafts", {}).pop(saved_view["document"]["id"], None)
     if saved_view is None:
         st.session_state.pop("shipment_saved_view", None)
     else:
@@ -220,6 +224,35 @@ def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None
     if rerun:
         _rerun_shipment()
 
+
+
+
+def _save_notes(config, document, key):
+    pending_notes = st.session_state.setdefault("shipment_note_drafts", {})
+    pending_notes[document["id"]] = st.session_state[key]
+    draft = st.session_state.get("shipment_draft")
+    if draft is not None and draft.get("id") == document["id"]:
+        # A click on Modify can arrive with the textarea blur in one event.
+        # Keep that edit and its new note together for the normal Save action.
+        draft["notes"] = st.session_state[key]
+        return
+    try:
+        update_shipment_notes(config, document["id"], document["version"], st.session_state[key])
+    except ShipmentError as error:
+        st.session_state.shipment_notes_error = (document["id"], "備註未儲存：" + str(error))
+    except Exception:
+        st.session_state.shipment_notes_error = (
+            document["id"], "備註未儲存：請確認資料庫連線後重試；輸入內容已保留。")
+    else:
+        st.session_state.pop("shipment_notes_error", None)
+        pending_notes.pop(document["id"], None)
+        if draft is None:
+            _finish("備註已儲存", rerun=False)
+        else:
+            # Saving the previous note must not cancel a simultaneous New/Copy.
+            clear_reads(st.session_state)
+            st.session_state.pop("shipment_saved_view", None)
+            st.session_state.shipment_notice = "備註已儲存"
 
 
 def _save_item_notes(config, document, key):
@@ -347,10 +380,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     st.html(COMPACT_STYLE)
     notice = st.session_state.pop("shipment_notice", "")
     if notice:
-        if notice.startswith("已儲存出貨單"):
-            st.success(notice)
-        else:
-            st.caption(notice)
+        st.toast(notice, icon="✅" if "已儲存" in notice or "已取消" in notice else "ℹ️")
     # Fill this slot after validation so feedback stays above the toolbar.
     action_feedback = st.empty()
     action_error = st.session_state.pop("shipment_action_error", "")
@@ -496,6 +526,9 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         document = read(("document", ids[index]), lambda: get_shipment(config, ids[index])) if ids else None
     if not editing and document:
         st.session_state.shipment_selected = document["id"]
+        note_error = st.session_state.get("shipment_notes_error")
+        if note_error and note_error[0] == document["id"]:
+            action_feedback.error(note_error[1])
     tools = st.columns([1, 1, 1, 1, 1.1, 1, 1, .6, 1.6])
     with tools[0]:
         st.button("新增", key="shipment_new", disabled=editing, use_container_width=True,
@@ -774,11 +807,10 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.error(note_error[1])
         notes_key = prefix + "item_notes"
         st.data_editor(frame, key=notes_key, height=185, hide_index=True, use_container_width=True,
-                       num_rows="fixed", disabled=True if document["status"] == "void" else [name for name in frame.columns if name != "附註說明"],
+                       num_rows="fixed", disabled=True if document.get("status") == "void" else [name for name in frame.columns if name != "附註說明"],
                        on_change=_save_item_notes, args=(config, deepcopy(document), notes_key),
-                       column_config={"採購單號": st.column_config.TextColumn("採購單號", width="medium"), "數量": st.column_config.NumberColumn(format="%.15g"), "單價": st.column_config.NumberColumn(format="%.15g")})
+                       column_config={"附註說明": st.column_config.TextColumn("附註說明", help="可直接修改，離開儲存格後自動儲存。"), "採購單號": st.column_config.TextColumn("採購單號", width="medium"), "數量": st.column_config.NumberColumn(format="%.15g"), "單價": st.column_config.NumberColumn(format="%.15g")})
         if document["status"] != "void":
-            st.caption("附註說明可直接修改，離開儲存格後自動儲存。")
             if note_error and note_error[0] == document["id"]:
                 st.button("重試儲存附註", key=notes_key + "_retry", on_click=_save_item_notes,
                           args=(config, deepcopy(document), notes_key))
@@ -789,7 +821,16 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         transaction, invoice_tab, account, related = st.tabs(["交易明細", "發票資料", "帳款資料", "相關資料"])
         with transaction:
             notes_col, paid_col = st.columns([4, 1], vertical_alignment="center")
-            notes = notes_col.text_area("備註", value=widget_default(prefix + "notes", document.get("notes", "")), height=68, key=prefix + "notes", disabled=not editing)
+            notes_options = {} if editing or document.get("status") == "void" else {
+                "on_change": _save_notes, "args": (config, deepcopy(document), prefix + "notes"),
+                "help": "可直接修改，離開欄位後自動儲存。"}
+            note_default = document.get("notes", "") if editing else st.session_state.get("shipment_note_drafts", {}).get(document["id"], document.get("notes", ""))
+            notes = notes_col.text_area("備註", value=widget_default(prefix + "notes", note_default), height=68,
+                                       key=prefix + "notes", disabled=document.get("status") == "void", **notes_options)
+            note_error = st.session_state.get("shipment_notes_error")
+            if not editing and note_error and note_error[0] == document["id"]:
+                notes_col.button("重試儲存備註", key=prefix + "retry_notes", on_click=_save_notes,
+                                 args=(config, deepcopy(document), prefix + "notes"))
             paid_in_full = paid_col.toggle("已付清", value=widget_default(prefix + "paid_in_full", bool(document.get("paid_in_full", False))),
                                            key=prefix + "paid_in_full", disabled=not editing,
                                            help="供應收帳款明細表與單筆收款篩選；不會自動登錄收款或更動金額。")
@@ -841,7 +882,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                         text(label, field)
             if document.get("id"):
                 st.caption(f"建立：{document['created_at']}　更新：{document['updated_at']}")
-                st.caption("已作廢" if document["status"] == "void" else "草稿")
+                st.caption("已作廢" if document.get("status") == "void" else "草稿")
     with summary:
         st.markdown('<div class="shipment-section amounts">金額摘要</div>', unsafe_allow_html=True)
         if editing:

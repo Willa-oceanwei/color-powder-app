@@ -158,7 +158,7 @@ def test_missing_number_and_save_success_are_shown_above_toolbar(tmp_path):
     app.text_input(key=prefix + "shipment_number").set_value("002")
     app.button(key="shipment_save").click().run()
     assert not app.exception and not app.error
-    assert any("已儲存出貨單 002" in e.value for e in app.success)
+    assert any("已儲存出貨單 002" in e.proto.body for e in app.get("toast"))
     assert get_shipment(config, saved["id"])["shipment_number"] == "002"
 
 
