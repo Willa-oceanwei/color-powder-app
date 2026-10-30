@@ -17,8 +17,13 @@ def build_production_order_preview(document):
 <title>生產單線上列印</title>''' + styles + '''
 <style id="production-online-preview">
 @page{size:A5 portrait;margin:10mm}
-.production-page{position:relative;box-sizing:border-box;width:128mm;height:190mm;background:#fff;color:#000}
-.production-paper{position:absolute;left:0;top:0;box-sizing:border-box;width:190mm;min-height:128mm;margin:0;padding:0;transform-origin:top left;transform:scale(var(--production-print-scale,1))}
+.production-page{position:relative;box-sizing:border-box;width:128mm;min-height:190mm;background:#fff;color:#000}
+.production-paper{position:relative;box-sizing:border-box;width:100%;min-height:190mm;margin:0;padding:0;transform:none;font-size:calc(22px * var(--production-print-scale,1));line-height:1.4}
+.production-paper .title{font-size:calc(24px * var(--production-print-scale,1))}
+.production-paper .timestamp{font-size:calc(20px * var(--production-print-scale,1))}
+.production-paper pre{margin-left:0;margin-right:0;font:inherit;white-space:pre-wrap;overflow-wrap:anywhere}
+.production-paper pre>div{flex-wrap:wrap;font-size:calc(20px * var(--production-print-scale,1))!important}
+.production-paper pre>div>div{flex:1 1 auto!important;overflow:visible!important;white-space:normal!important}
 @media screen {
 body{margin:0;transform:none;background:#101820}
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px}
@@ -30,28 +35,32 @@ body{margin:0;transform:none;background:#101820}
 @media print {
 body{margin:0!important;transform:none!important}
 .toolbar{display:none!important}
-.stage{position:relative;width:128mm!important;height:190mm!important;overflow:visible!important;padding:0!important}
-.production-page{margin:0!important;zoom:1!important;break-inside:avoid}
+.stage{position:relative;width:128mm!important;height:auto!important;overflow:visible!important;padding:0!important}
+.production-page{margin:0!important;zoom:1!important}
 .production-paper{outline:none!important;box-shadow:none!important}
 }
 </style></head><body>
 <div class="toolbar">
 <button type="button" id="production-print" onclick="window.print()">列印 A5（位置測試）</button>
-<label for="production-zoom">縮放</label><select id="production-zoom" onchange="fitProduction()">
-<option value="page" selected>完整內容</option><option value="width">符合寬度</option>
+<label for="production-zoom">預覽縮放</label><select id="production-zoom" onchange="fitProduction()">
+<option value="page">完整內容</option><option value="width" selected>符合寬度</option>
 <option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option>
-</select><span class="hint">文字正向、標題在上；紙張 A5 直向；原有 A5 下載仍可使用</span></div>
+</select>
+<label for="production-print-scale">列印比例</label><select id="production-print-scale" onchange="applyPrintScale();fitProduction()">
+<option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option>
+<option value="1.1">110%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option>
+</select><span class="hint">文字正向、標題在上；紙張 A5 直向；列印視窗選 100%。預覽縮放不影響列印；原有 A5 下載仍可使用</span></div>
 <div class="stage"><div class="production-page"><section class="production-paper paper">''' + "".join(body.parts) + '''</section></div></div>
 <script>
 const stage=document.querySelector('.stage'),page=document.querySelector('.production-page'),paper=document.querySelector('.production-paper');
-function fitPrintContent(){
-// Keep the original text upright and fit its full bounds within the
-// 128 x 190 mm A5 printable area without changing the source.
-const scale=Math.min(1,page.clientWidth/Math.max(paper.offsetWidth,paper.scrollWidth),page.clientHeight/Math.max(paper.offsetHeight,paper.scrollHeight));
+function applyPrintScale(){
+// Only the explicit print-size selection controls printed text size.
+// Long content flows onto additional pages instead of shrinking the whole order.
+const scale=Number(document.getElementById('production-print-scale').value);
 paper.style.setProperty('--production-print-scale',scale);
 }
 function fitProduction(){
-fitPrintContent();
+applyPrintScale();
 stage.style.height=Math.max(160,innerHeight-document.querySelector('.toolbar').offsetHeight)+'px';
 const mode=document.getElementById('production-zoom').value;
 const width=(stage.clientWidth-24)/page.offsetWidth;
@@ -59,7 +68,7 @@ const scale=mode==='width'?width:mode==='page'?Math.min(width,(stage.clientHeigh
 document.documentElement.style.setProperty('--production-scale',Math.max(.15,scale));
 }
 addEventListener('resize',fitProduction);fitProduction();
-addEventListener('beforeprint',fitPrintContent);
+addEventListener('beforeprint',applyPrintScale);
 if(document.fonts)document.fonts.ready.then(fitProduction);
 </script></body></html>''')
 
