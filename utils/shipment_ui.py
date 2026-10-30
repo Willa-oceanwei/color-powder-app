@@ -325,7 +325,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         st.session_state.shipment_entry_ready = True
         if "shipment_draft" not in st.session_state:
             _begin(_new_shipment(), rerun=False)
-    st.markdown(COMPACT_STYLE, unsafe_allow_html=True)
+    st.html(COMPACT_STYLE)
     notice = st.session_state.pop("shipment_notice", "")
     if notice:
         if notice.startswith("已儲存出貨單"):
