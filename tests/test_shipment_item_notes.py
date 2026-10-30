@@ -104,12 +104,13 @@ render_shipment_management(config)
     app.session_state[key] = {"edited_rows": {0: {"附註說明": "待重試"}}, "added_rows": [], "deleted_rows": []}
     original = ui.update_shipment_item_notes
     def fail(*args, **kwargs):
-        raise ShipmentError("暫時無法連線")
+        raise RuntimeError("private database details")
     monkeypatch.setattr(ui, "update_shipment_item_notes", fail)
     app.session_state["submit_notes"] = True
     app.run()
     assert not app.exception
     assert any("附註未儲存" in element.value for element in app.error)
+    assert not any("private database details" in element.value for element in app.error)
     assert get_shipment(config, before["id"]) == after
     monkeypatch.setattr(ui, "update_shipment_item_notes", original)
     app.button(key=key + "_retry").click().run()
