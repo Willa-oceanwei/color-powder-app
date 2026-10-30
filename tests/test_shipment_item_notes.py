@@ -180,6 +180,9 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     app.button(key=f"shipment_view_{before['id']}_{saved_note['version']}_retry_notes").click().run()
     assert not app.exception
     assert get_shipment(config, before["id"])["notes"] == "保留輸入"
+    next(widget for widget in app.text_area if widget.label == "備註").set_value("直接接著按修改")
     app.button(key="shipment_edit").click().run()
+    assert "shipment_draft" in app.session_state
+    assert app.session_state["shipment_draft"]["notes"] == "直接接著按修改"
     next(widget for widget in app.text_area if widget.label == "備註").set_value("完整修改尚未儲存").run()
     assert get_shipment(config, before["id"])["notes"] == "保留輸入"
