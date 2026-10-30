@@ -35,51 +35,52 @@ COLUMNS = {"code": "貨品編號", "name": "品名", "quantity": "數量", "unit
 # Scope overrides to this page, including the existing ERP's global CSS.
 COMPACT_STYLE = """
 <span id="shipment-page"></span><style>
-.main:has(#shipment-page) .block-container {padding-top:60px!important;padding-bottom:10px!important;}
-.main:has(#shipment-page) .stHeading [data-testid="stMarkdownContainer"] {margin-bottom:0!important;}
-.main:has(#shipment-page) [data-testid="stVerticalBlock"] {gap:6px!important;}
-.main:has(#shipment-page) [data-testid="stHorizontalBlock"] {gap:8px!important;}
-.main:has(#shipment-page) h3 {font-size:18px!important;margin:0!important;padding:0!important;}
-.main:has(#shipment-page) [data-testid="stWidgetLabel"] p {font-size:12px!important;margin-bottom:0!important;}
-.main:has(#shipment-page) [data-testid="stTextInput"] input,
-.main:has(#shipment-page) [data-testid="stDateInput"] input,
-.main:has(#shipment-page) [data-testid="stNumberInput"] input {font-size:13px!important;min-height:28px!important;padding-top:2px!important;padding-bottom:2px!important;}
-.main:has(#shipment-page) [data-baseweb="input"],
-.main:has(#shipment-page) [data-baseweb="select"]>div {min-height:30px!important;height:32px!important;}
-.main:has(#shipment-page) [data-testid="stSelectbox"] [data-baseweb="select"]>div {font-size:13px!important;padding-top:0!important;padding-bottom:0!important;}
-.main:has(#shipment-page) button {min-height:29px!important;padding:2px 7px!important;border-radius:4px!important;}
-.main:has(#shipment-page) button p {font-size:12px!important;white-space:nowrap;}
-.main:has(#shipment-page) [data-testid="stTextArea"] textarea {min-height:64px!important;font-size:13px!important;}
-.main:has(#shipment-page) [data-testid="stExpander"] details summary {padding:4px 8px!important;min-height:30px!important;}
-.main:has(#shipment-page) [data-testid="stTabs"] [role="tablist"] {gap:12px!important;}
-.main:has(#shipment-page) [data-testid="stTabs"] [role="tab"] {height:30px!important;}
-.main:has(#shipment-page) [data-testid="stTabs"] [role="tabpanel"] {padding-top:5px!important;}
-.main:has(#shipment-page) [data-testid="stCaptionContainer"] p {margin:0!important;}
-.main:has(#shipment-page) .shipment-total {display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px;font-variant-numeric:tabular-nums;}
-.main:has(#shipment-page) .shipment-total:last-child {border-top:1px solid #84919d;font-weight:600;font-size:16px;margin-top:4px;padding-top:6px;}
+:is(.stMain, section.main):has(#shipment-page) .block-container {padding-top:60px!important;padding-bottom:10px!important;}
+:is(.stMain, section.main):has(#shipment-page) .stHeading [data-testid="stMarkdownContainer"] {margin-bottom:0!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stVerticalBlock"] {gap:6px!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stHorizontalBlock"] {gap:8px!important;}
+:is(.stMain, section.main):has(#shipment-page) h3 {font-size:18px!important;margin:0!important;padding:0!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stWidgetLabel"] p {font-size:12px!important;margin-bottom:0!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stTextInput"] input,
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stDateInput"] input,
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stNumberInput"] input {font-size:13px!important;min-height:28px!important;padding-top:2px!important;padding-bottom:2px!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-baseweb="input"],
+:is(.stMain, section.main):has(#shipment-page) [data-baseweb="select"]>div {min-height:30px!important;height:32px!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stSelectbox"] [data-baseweb="select"]>div {font-size:13px!important;padding-top:0!important;padding-bottom:0!important;}
+:is(.stMain, section.main):has(#shipment-page) button {min-height:29px!important;padding:2px 7px!important;border-radius:4px!important;}
+:is(.stMain, section.main):has(#shipment-page) button p {font-size:12px!important;white-space:nowrap;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stTextArea"] textarea {min-height:64px!important;font-size:13px!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stExpander"] details summary {padding:4px 8px!important;min-height:30px!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stTabs"] [role="tablist"] {gap:12px!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stTabs"] [role="tab"] {height:30px!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stTabs"] [role="tabpanel"] {padding-top:5px!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stCaptionContainer"] p {margin:0!important;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-total {display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:baseline;gap:8px;padding:3px 0;font-size:13px;font-variant-numeric:tabular-nums;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-total>span:last-child {text-align:right;white-space:nowrap;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-total:last-child {border-top:1px solid #84919d;font-weight:600;font-size:16px;margin-top:4px;padding-top:6px;}
 /* Streamlit 1.38's Markdown wrapper has a negative bottom margin. Custom
    HTML blocks must reserve their full height before the next control. */
-.main:has(#shipment-page) [data-testid="stMarkdownContainer"]:has(> :is(.shipment-section, .shipment-edit-status, .shipment-totals-card, .shipment-lines, .shipment-number-help, #shipment-toolbar)) {display:flow-root;margin:0!important;}
-.main:has(#shipment-page) .shipment-section {font-size:13px;line-height:1.6;font-weight:700;letter-spacing:.04em;padding:5px 10px;margin:0;border-left:4px solid #59baff;border-radius:4px;background:#10293b;color:#c5e7ff;}
-.main:has(#shipment-page) .shipment-section.delivery {border-color:#57d6b1;background:#102e2a;color:#b3f2dd;}
-.main:has(#shipment-page) .shipment-section.items {border-color:#b8a1ff;background:#28213a;color:#e1d5ff;}
-.main:has(#shipment-page) .shipment-section.amounts {border-color:#ffd084;background:#382c18;color:#ffe1ad;}
-.main:has(#shipment-page) .shipment-edit-status {display:inline-block;border:1px solid #8e6832;border-radius:5px;padding:3px 9px;background:#352918;color:#ffda9a;font-size:12px;font-weight:600;}
-.main:has(#shipment-page) .shipment-totals-card {background:#142b29;border:1px solid #387d6d;border-radius:8px;padding:8px 12px;margin-top:8px;}
-.main:has(#shipment-page) .shipment-totals-card .shipment-total {color:#d7eee8!important;}
-.main:has(#shipment-page) .shipment-totals-card .shipment-total:last-child {color:#8ff0cb!important;border-color:#387d6d;font-size:20px;}
-.main:has(#shipment-page) button[kind="primary"] {background:#166b55!important;border-color:#49b99c!important;color:#fff!important;}
-.main:has(#shipment-page) .shipment-lines {font-size:12px;white-space:nowrap;overflow-x:auto;max-width:100%;}
-.main:has(#shipment-page) .shipment-number-help {font-size:10px;line-height:1.3;margin:0;overflow-wrap:anywhere;}
-.main:has(#shipment-page) label[data-baseweb="radio"]>div:first-child {background:transparent!important;border:1.5px solid #527086!important;box-sizing:border-box;}
-.main:has(#shipment-page) label[data-baseweb="radio"]:has(input:checked)>div:first-child {background:#3487b6!important;border-color:#3487b6!important;}
-.main:has(#shipment-page) label[data-baseweb="radio"]:has(input:checked)>div:first-child>div {background:#fff!important;}
-.main:has(#shipment-page) label[data-baseweb="radio"]:not(:has(input:checked))>div:first-child>div {background:transparent!important;}
-.main:has(#shipment-page) label[data-baseweb="radio"]:has(input:focus-visible)>div:first-child {outline:2px solid #8cc8ea;outline-offset:3px;}
-.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stRadio"] p,
-.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stMetricLabel"],
-.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stMetricLabel"] p,
-.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stMetricValue"] {color:#d5e1ec!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stMarkdownContainer"]:has(> :is(.shipment-section, .shipment-edit-status, .shipment-totals-card, .shipment-lines, .shipment-number-help, #shipment-toolbar)) {display:flow-root;margin:0!important;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-section {font-size:13px;line-height:1.6;font-weight:700;letter-spacing:.04em;padding:5px 10px;margin:0;border-left:4px solid #59baff;border-radius:4px;background:#10293b;color:#c5e7ff;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-section.delivery {border-color:#57d6b1;background:#102e2a;color:#b3f2dd;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-section.items {border-color:#b8a1ff;background:#28213a;color:#e1d5ff;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-section.amounts {border-color:#ffd084;background:#382c18;color:#ffe1ad;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-edit-status {display:inline-block;border:1px solid #8e6832;border-radius:5px;padding:3px 9px;background:#352918;color:#ffda9a;font-size:12px;font-weight:600;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-totals-card {background:#142b29;border:1px solid #387d6d;border-radius:8px;padding:8px 12px;margin-top:8px;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-totals-card .shipment-total {color:#d7eee8!important;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-totals-card .shipment-total:last-child {color:#8ff0cb!important;border-color:#387d6d;font-size:20px;}
+:is(.stMain, section.main):has(#shipment-page) button[kind="primary"] {background:#166b55!important;border-color:#49b99c!important;color:#fff!important;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-lines {font-size:12px;white-space:nowrap;overflow-x:auto;max-width:100%;}
+:is(.stMain, section.main):has(#shipment-page) .shipment-number-help {font-size:10px;line-height:1.3;margin:0;overflow-wrap:anywhere;}
+:is(.stMain, section.main):has(#shipment-page) label[data-baseweb="radio"]>div:first-child {background:transparent!important;border:1.5px solid #527086!important;box-sizing:border-box;}
+:is(.stMain, section.main):has(#shipment-page) label[data-baseweb="radio"]:has(input:checked)>div:first-child {background:#3487b6!important;border-color:#3487b6!important;}
+:is(.stMain, section.main):has(#shipment-page) label[data-baseweb="radio"]:has(input:checked)>div:first-child>div {background:#fff!important;}
+:is(.stMain, section.main):has(#shipment-page) label[data-baseweb="radio"]:not(:has(input:checked))>div:first-child>div {background:transparent!important;}
+:is(.stMain, section.main):has(#shipment-page) label[data-baseweb="radio"]:has(input:focus-visible)>div:first-child {outline:2px solid #8cc8ea;outline-offset:3px;}
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stRadio"] p,
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stMetricLabel"],
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stMetricLabel"] p,
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stMetricValue"] {color:#d5e1ec!important;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] {width:min(960px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important;}
 body:has(#shipment-page) [data-testid="stPopoverBody"]:has(iframe) {max-height:calc(100vh - 32px)!important;overflow-y:auto;}
 body:has(#shipment-page) [data-testid="stPopoverBody"] [data-testid="stVerticalBlock"],
@@ -89,17 +90,26 @@ body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"]>div {back
 body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] [data-testid="stWidgetLabel"] p,
 body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"] p {color:#d5e1ec!important;}
 body:has(.erp-title):has(#shipment-page) [data-testid="stPopoverBody"] button {background:#193042!important;color:#fff!important;border-color:#527086!important;}
-.stApp:has(.erp-title) .main:has(#shipment-page) .block-container {padding-top:72px!important;}
-.stApp:has(.erp-title) .main:has(#shipment-page) h3,
-.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stWidgetLabel"] p,
-.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stCaptionContainer"] p,
-.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stExpander"] summary p,
-.stApp:has(.erp-title) .main:has(#shipment-page) [data-testid="stCheckbox"] label span,
-.stApp:has(.erp-title) .main:has(#shipment-page) .shipment-total,
-.stApp:has(.erp-title) .main:has(#shipment-page) #shipment-toolbar {color:#d5e1ec!important;}
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) .block-container {padding-top:72px!important;}
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) h3,
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stWidgetLabel"] p,
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stCaptionContainer"] p,
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stExpander"] summary p,
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) [data-testid="stCheckbox"] label span,
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) .shipment-total,
+.stApp:has(.erp-title) :is(.stMain, section.main):has(#shipment-page) #shipment-toolbar {color:#d5e1ec!important;}
+/* Keep item actions beside their heading, including when global mobile
+   styles would otherwise stack every column at full width. */
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stHorizontalBlock"]:has(.shipment-item-heading) {flex-wrap:nowrap!important;align-items:center;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stHorizontalBlock"]:has(.shipment-item-heading)>:is([data-testid="column"],[data-testid="stColumn"]) {min-width:0!important;width:auto!important;}
+@media(max-width:520px){
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stHorizontalBlock"]:has(.shipment-item-heading) {flex-wrap:wrap!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stHorizontalBlock"]:has(.shipment-item-heading)>:is([data-testid="column"],[data-testid="stColumn"]):first-child {flex-basis:100%!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stHorizontalBlock"]:has(.shipment-item-heading)>:is([data-testid="column"],[data-testid="stColumn"]):not(:first-child) {flex:1 1 calc(50% - 4px)!important;}
+}
 @media(min-width:1000px){
-.main:has(#shipment-page) [data-testid="stHorizontalBlock"]:has(#shipment-toolbar) {flex-wrap:nowrap!important;}
-.main:has(#shipment-page) [data-testid="stHorizontalBlock"]:has(#shipment-toolbar)>[data-testid="column"] {min-width:0!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stHorizontalBlock"]:has(#shipment-toolbar) {flex-wrap:nowrap!important;}
+:is(.stMain, section.main):has(#shipment-page) [data-testid="stHorizontalBlock"]:has(#shipment-toolbar)>:is([data-testid="column"],[data-testid="stColumn"]) {min-width:0!important;}
 }
 </style>
 """
@@ -631,11 +641,16 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     with print_controls[3]:
         render_purchase_history(config, document["customer_id"], current_customer_label())
     source_items = st.session_state.get("shipment_editor_base", document["items"]) if editing else document["items"]
-    st.markdown('<div class="shipment-section items">貨品明細</div>', unsafe_allow_html=True)
+    if editing:
+        item_header = st.columns([3, 1.2, 1.2], vertical_alignment="center")
+        with item_header[0]:
+            st.markdown('<div class="shipment-section items shipment-item-heading">貨品明細</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="shipment-section items">貨品明細</div>', unsafe_allow_html=True)
     requested_item = None
     editor_rebased = False
     if editing:
-        item_tools = st.columns([1, 1, 2])
+        item_tools = item_header[1:]
         history_key = ("history", document["customer_id"], document["shipment_date"], document.get("id", ""))
         history = read(history_key, lambda: shipment_price_history(config, document["customer_id"],
                        document["shipment_date"], document.get("id", ""))) if document["customer_id"] else []
