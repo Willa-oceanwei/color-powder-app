@@ -366,6 +366,41 @@ def save_shipment(config, document, *, sync_products=False):
     return _shipment_document(stored, items, invoice)
 
 
+
+def update_shipment_item_notes(config, shipment_id, version, notes_by_row):
+    """Update only item notes, with the same optimistic lock as a full edit."""
+    with connect_from_config(config) as conn:
+        existing = _mapping(conn.execute("SELECT * FROM shipment_orders WHERE id=?", (shipment_id,)))
+        if not existing:
+            raise ShipmentError("出貨單不存在")
+        if existing["status"] != "draft":
+            raise ShipmentError("已作廢出貨單不可修改")
+        if existing["version"] != version:
+            raise ShipmentError("單據已被其他人修改或作廢，請重新讀取後再修改附註")
+        rows = _mappings(conn.execute(
+            "SELECT line_number,payload_json FROM shipment_order_items WHERE shipment_id=? ORDER BY line_number",
+            (shipment_id,)))
+        changes = []
+        for index, note in notes_by_row.items():
+            if type(index) is not int or not 0 <= index < len(rows) or not isinstance(note, str):
+                raise ShipmentError("附註資料無效，請重新讀取後再修改")
+            item = json.loads(rows[index]["payload_json"])
+            if item.get("notes", "") != note:
+                item["notes"] = note
+                changes.append((json.dumps(item, ensure_ascii=False), shipment_id, rows[index]["line_number"]))
+        if not changes:
+            return
+        changed = _mapping(conn.execute(
+            "UPDATE shipment_orders SET version=version+1,updated_at=? "
+            "WHERE id=? AND version=? AND status='draft' RETURNING id",
+            (utc_now_iso(), shipment_id, version)))
+        if not changed:
+            raise ShipmentError("單據已被其他人修改或作廢，請重新讀取後再修改附註")
+        for parameters in changes:
+            conn.execute("UPDATE shipment_order_items SET payload_json=? WHERE shipment_id=? AND line_number=?",
+                         parameters)
+
+
 def void_shipment(config, shipment_id, version, reason):
     if not str(reason).strip():
         raise ShipmentError("請填寫作廢原因")
