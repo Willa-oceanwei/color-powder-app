@@ -13,10 +13,9 @@ def test_shared_page_styles_use_html_without_visible_css(page, marker):
 sys.path.insert(0, {root!r})
 import utils.receivable_ui as ui
 # Exercise the page's real style entry point without querying report data.
-ui.render_receipt_entry = lambda config: None
-ui.render_report = lambda config, **kwargs: None
-ui.render_monthly_receipt_summary = lambda config: None
-ui.{page}(None)
+from unittest.mock import patch
+with patch.object(ui, "render_receipt_entry"), patch.object(ui, "render_report"), patch.object(ui, "render_monthly_receipt_summary"):
+    ui.{page}(None)
 ''').run(timeout=30)
     assert not app.exception
     assert any(f'id="{marker}"' in element.proto.body and "<style>" in element.proto.body
