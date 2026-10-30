@@ -229,9 +229,12 @@ def _save_item_notes(config, document, key):
         return
     try:
         update_shipment_item_notes(config, document["id"], document["version"], notes)
-    except Exception as error:
+    except ShipmentError as error:
         st.session_state.shipment_item_notes_error = (
             document["id"], "附註未儲存：" + str(error))
+    except Exception:
+        st.session_state.shipment_item_notes_error = (
+            document["id"], "附註未儲存：請確認資料庫連線後重試；輸入內容已保留。")
     else:
         st.session_state.pop("shipment_item_notes_error", None)
         _finish("附註說明已儲存", rerun=False)
