@@ -224,6 +224,12 @@ def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None
 
 
 def _save_notes(config, document, key):
+    draft = st.session_state.get("shipment_draft")
+    if draft is not None and draft.get("id") == document["id"]:
+        # A click on Modify can arrive with the textarea blur in one event.
+        # Keep that edit and its new note together for the normal Save action.
+        draft["notes"] = st.session_state[key]
+        return
     try:
         update_shipment_notes(config, document["id"], document["version"], st.session_state[key])
     except ShipmentError as error:
@@ -233,7 +239,13 @@ def _save_notes(config, document, key):
             document["id"], "備註未儲存：請確認資料庫連線後重試；輸入內容已保留。")
     else:
         st.session_state.pop("shipment_notes_error", None)
-        _finish("備註已儲存", rerun=False)
+        if draft is None:
+            _finish("備註已儲存", rerun=False)
+        else:
+            # Saving the previous note must not cancel a simultaneous New/Copy.
+            clear_reads(st.session_state)
+            st.session_state.pop("shipment_saved_view", None)
+            st.session_state.shipment_notice = "備註已儲存"
 
 
 def _save_item_notes(config, document, key):
