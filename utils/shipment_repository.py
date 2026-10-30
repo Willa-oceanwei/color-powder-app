@@ -282,6 +282,7 @@ def _next_number(conn, shipment_date):
 
 
 def save_shipment(config, document, *, sync_products=False):
+    from .customer_repository import CustomerError, require_current_customer_code
     header, items, invoice, amounts = _validated(document)
     shipment_id, now = document.get("id") or str(uuid4()), utc_now_iso()
     number = str(document.get("shipment_number") or "").strip()
@@ -293,6 +294,13 @@ def save_shipment(config, document, *, sync_products=False):
             raise ShipmentError("已作廢出貨單不可修改")
         if existing and existing["version"] != document.get("version"):
             raise ShipmentError("單據已被其他人修改或作廢，請取消編輯後重新讀取")
+        try:
+            if not existing or header["customer_id"] != existing["customer_id"]:
+                require_current_customer_code(conn, header["customer_id"])
+            if not existing or header.get("recipient_id", "") != json.loads(existing["payload_json"]).get("recipient_id", ""):
+                require_current_customer_code(conn, header.get("recipient_id", ""))
+        except CustomerError as error:
+            raise ShipmentError(str(error)) from error
         if existing:
             receipts = _mapping(conn.execute("SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) AS paid "
                                "FROM shipment_receipts WHERE shipment_id=? AND status='active'", (shipment_id,)))
@@ -373,4 +381,5 @@ def void_shipment(config, shipment_id, version, reason):
 def printable_shipment(document, *, show_prices=True, orientation="landscape", feed_rotation=0, hole_margin=0, paper_stock="standard", output_mode="print"):
     from .shipment_print import render_shipment_print
     return render_shipment_print(document, show_prices=show_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock, output_mode=output_mode)
+
 

@@ -28,11 +28,23 @@ def queue_updates(monkeypatch, updates, *, full_app=False):
             if key:
                 widget = next((widget for widget in states.widgets if widget.id.endswith("-" + key)), None)
                 if widget is None:
-                    widget = states.widgets.add(id=runner._session_state._state._key_id_mapping[key])
+                    widget = states.widgets.add(id=runner._session_state._state._get_widget_id(key))
+                value_type = runner._session_state._state._new_widget_state.widget_metadata[widget.id].value_type
                 if isinstance(value, bool):
-                    widget.bool_value = value
+                    if value_type == "trigger_value":
+                        widget.trigger_value = value
+                    else:
+                        widget.bool_value = value
                 elif isinstance(value, int):
-                    widget.int_value = value
+                    if value_type == "string_value":
+                        selectbox = next(message.delta.new_element.selectbox
+                                         for message in reversed(runner.forward_msgs())
+                                         if message.HasField("delta") and
+                                         message.delta.new_element.HasField("selectbox") and
+                                         message.delta.new_element.selectbox.id == widget.id)
+                        widget.string_value = selectbox.options[value]
+                    else:
+                        widget.int_value = value
                 else:
                     widget.string_value = value
             fragment_id = None if full_app else next(iter(runner._fragment_storage._fragments))
@@ -225,3 +237,4 @@ def test_customer_fragment_reuses_directory_and_refreshes_after_save(tmp_path, m
     assert repository.get_customer(config, "C01")["short_name"] == "New name"
     assert app.selectbox(key="customer_action_id").options == ["C01 · New name · Customer"]
     assert "shipment_page_cache" not in app.session_state and "shipment_read_cache" not in app.session_state
+
