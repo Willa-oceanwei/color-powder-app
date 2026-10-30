@@ -28,7 +28,7 @@ from .shipment_print import COMPANY
 
 
 def render_receivable_statement(config, *, title="應收帳款明細表"):
-    st.markdown(COMPACT_STYLE.replace("shipment-page", "receivable-page"), unsafe_allow_html=True)
+    st.html(COMPACT_STYLE.replace("shipment-page", "receivable-page"))
     tabs = st.tabs(["明細表預覽", "收款登錄"] + (["每月收款總覽"] if title == "應收帳款明細表" else []))
     report_tab, receipt_tab = tabs[:2]
     with receipt_tab:
@@ -203,7 +203,7 @@ def render_report(config, *, title="應收帳款明細表"):
 
 
 def render_customer_ranking(config):
-    st.markdown(COMPACT_STYLE.replace("shipment-page", "ranking-page"), unsafe_allow_html=True)
+    st.html(COMPACT_STYLE.replace("shipment-page", "ranking-page"))
     with st.form("ranking_filters"):
         cols = st.columns(4)
         lower = cols[0].text_input("起始客戶編號")
