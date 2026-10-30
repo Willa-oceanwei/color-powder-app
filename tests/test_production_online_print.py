@@ -29,7 +29,7 @@ def test_online_preview_has_manual_print_and_preserves_download_print_rules():
     before = source.encode("utf-8")
     preview = build_production_order_preview(source)
     assert 'onclick="window.print()"' in preview
-    assert "列印 A5（位置測試）" in preview and "原有 A5 下載仍可使用" in preview
+    assert "列印 A5" in preview and "原有 A5 下載仍可使用" in preview
     assert "window.onload" not in preview
     scripts = re.findall(r"<script[^>]*>(.*?)</script>", preview, re.S)
     assert not any("print(" in script for script in scripts)
