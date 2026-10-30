@@ -287,7 +287,17 @@ def save_shipment(config, document, *, sync_products=False):
     shipment_id, now = document.get("id") or str(uuid4()), utc_now_iso()
     number = str(document.get("shipment_number") or "").strip()
     with connect_from_config(config) as conn:
-        existing = _mapping(conn.execute("SELECT * FROM shipment_orders WHERE id=?", (shipment_id,)))
+        existing = _mapping(conn.execute(
+            """SELECT s.*,
+               (SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) FROM shipment_receipts
+                WHERE shipment_id=s.id AND status='active') AS saved_paid,
+               (SELECT json_group_array(payload_json) FROM
+                (SELECT payload_json FROM shipment_order_items WHERE shipment_id=s.id ORDER BY line_number)) AS saved_items,
+               (SELECT payload_json FROM shipment_invoices WHERE shipment_id=s.id) AS saved_invoice
+               FROM shipment_orders s WHERE s.id=?""", (shipment_id,))) if document.get("id") else None
+        paid = existing.pop("saved_paid") if existing else 0
+        old_items = [json.loads(value) for value in json.loads(existing.pop("saved_items"))] if existing else []
+        old_invoice = json.loads(existing.pop("saved_invoice") or "{}") if existing else {}
         if document.get("id") and not existing:
             raise ShipmentError("原出貨單已不存在，不能另存為新單")
         if existing and existing["status"] != "draft":
@@ -302,10 +312,8 @@ def save_shipment(config, document, *, sync_products=False):
         except CustomerError as error:
             raise ShipmentError(str(error)) from error
         if existing:
-            receipts = _mapping(conn.execute("SELECT COALESCE(SUM(CAST(amount AS INTEGER)),0) AS paid "
-                               "FROM shipment_receipts WHERE shipment_id=? AND status='active'", (shipment_id,)))
-            if receipts["paid"] and (header["customer_id"] != existing["customer_id"]
-                                     or Decimal(amounts["total_amount"]) < receipts["paid"]):
+            if paid and (header["customer_id"] != existing["customer_id"]
+                         or Decimal(amounts["total_amount"]) < paid):
                 raise ShipmentError("已有收款，不可變更客戶或將總額減至已收款以下；請先作廢相關收款")
         if header["number_mode"] == "date" and not number:
             prior_mode = json.loads(existing["payload_json"]).get("number_mode", "manual") if existing else None
@@ -317,9 +325,10 @@ def save_shipment(config, document, *, sync_products=False):
             raise ShipmentError("請輸入出貨單號")
         if len(number) > 40 or any(char in number for char in ('/', '\\', '\n', '\r')):
             raise ShipmentError("出貨單號最多 40 字，不能含斜線或換行")
-        duplicate = _mapping(conn.execute("SELECT id FROM shipment_orders WHERE shipment_number=? AND id!=?", (number, shipment_id)))
-        if duplicate:
-            raise ShipmentError("出貨單號已存在，請使用其他單號")
+        if not existing or number != existing["shipment_number"]:
+            duplicate = _mapping(conn.execute("SELECT id FROM shipment_orders WHERE shipment_number=? AND id!=?", (number, shipment_id)))
+            if duplicate:
+                raise ShipmentError("出貨單號已存在，請使用其他單號")
         if not existing or existing["customer_id"] != header["customer_id"]:
             customer = _mapping(conn.execute("SELECT name,lifecycle_status FROM customers WHERE customer_id=?", (header["customer_id"],)))
             if not customer or customer["lifecycle_status"] != "active":
@@ -345,20 +354,23 @@ def save_shipment(config, document, *, sync_products=False):
                          VALUES (?,?,?,?,?,?,?,?,?,?,?) RETURNING *""",
                          (shipment_id, number, header["shipment_date"], header["customer_id"], header["customer_name"],
                           json.dumps(header, ensure_ascii=False), amounts["net_amount"], amounts["tax_amount"], amounts["total_amount"], now, now)))
-        conn.execute("DELETE FROM shipment_order_items WHERE shipment_id=?", (shipment_id,))
-        # One round trip per batch, with a conservative 600 SQL parameters at most.
-        for offset in range(0, len(items), 200):
-            batch = items[offset:offset + 200]
-            parameters = tuple(value for line, item in enumerate(batch, offset + 1)
-                               for value in (shipment_id, line, json.dumps(item, ensure_ascii=False)))
-            conn.execute("INSERT INTO shipment_order_items VALUES " + ",".join(["(?,?,?)"] * len(batch)), parameters)
-        owner = _mapping(conn.execute("SELECT shipment_id FROM shipment_invoices WHERE invoice_number=? AND shipment_id!=?",
-                                      (invoice["number"], shipment_id))) if invoice["number"] else None
-        if owner:
-            raise ShipmentError("此發票編號已用於其他出貨單；第一版採一單一張發票")
-        conn.execute("""INSERT INTO shipment_invoices(shipment_id,invoice_number,payload_json) VALUES (?,?,?)
-                     ON CONFLICT(shipment_id) DO UPDATE SET invoice_number=excluded.invoice_number,payload_json=excluded.payload_json""",
-                     (shipment_id, invoice["number"] or None, json.dumps(invoice, ensure_ascii=False)))
+        if not existing or items != old_items:
+            if existing:
+                conn.execute("DELETE FROM shipment_order_items WHERE shipment_id=?", (shipment_id,))
+            # One round trip per batch, with a conservative 600 SQL parameters at most.
+            for offset in range(0, len(items), 200):
+                batch = items[offset:offset + 200]
+                parameters = tuple(value for line, item in enumerate(batch, offset + 1)
+                                   for value in (shipment_id, line, json.dumps(item, ensure_ascii=False)))
+                conn.execute("INSERT INTO shipment_order_items VALUES " + ",".join(["(?,?,?)"] * len(batch)), parameters)
+        if not existing or invoice != old_invoice:
+            owner = _mapping(conn.execute("SELECT shipment_id FROM shipment_invoices WHERE invoice_number=? AND shipment_id!=?",
+                                          (invoice["number"], shipment_id))) if invoice["number"] and invoice["number"] != old_invoice.get("number") else None
+            if owner:
+                raise ShipmentError("此發票編號已用於其他出貨單；第一版採一單一張發票")
+            conn.execute("""INSERT INTO shipment_invoices(shipment_id,invoice_number,payload_json) VALUES (?,?,?)
+                         ON CONFLICT(shipment_id) DO UPDATE SET invoice_number=excluded.invoice_number,payload_json=excluded.payload_json""",
+                         (shipment_id, invoice["number"] or None, json.dumps(invoice, ensure_ascii=False)))
         if sync_products:
             from .shipment_catalog import sync_shipment_products
             sync_shipment_products(config, conn, items, header["tax_mode"])
