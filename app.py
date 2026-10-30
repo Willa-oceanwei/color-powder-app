@@ -995,22 +995,22 @@ div.block-container .stButton > button[kind="primary"]{
     background:#1a5a84 !important;
 }
 
-/* Form, download and ordinary actions share the blue palette, including focus. */
-div.block-container :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button {
+/* Main content and portal-rendered dialogs share the blue button palette, including focus. */
+:is(div.block-container, div[data-testid="stDialog"]) :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button {
     background: #0b2f4a !important;
     color: #ffffff !important;
     border: 1px solid #527086 !important;
 }
-div.block-container :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:is([kind="primary"], [kind="primaryFormSubmit"]) {
+:is(div.block-container, div[data-testid="stDialog"]) :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:is([kind="primary"], [kind="primaryFormSubmit"]) {
     background: #1a5a84 !important;
     border-color: #3487b6 !important;
 }
-div.block-container :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:not(:disabled):is(:hover, :focus) {
+:is(div.block-container, div[data-testid="stDialog"]) :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:not(:disabled):is(:hover, :focus) {
     background: #124466 !important;
     border-color: #65b5e2 !important;
     color: #ffffff !important;
 }
-div.block-container :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:focus-visible {
+:is(div.block-container, div[data-testid="stDialog"]) :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:focus-visible {
     outline: 2px solid #8cc8ea !important;
     outline-offset: 2px;
 }
