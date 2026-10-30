@@ -33,15 +33,16 @@ def test_online_preview_has_manual_print_and_preserves_download_print_rules():
     for style in re.findall(r"<style[^>]*>.*?</style>", source, re.S):
         assert style in preview
     assert "size: A5 landscape" in preview and "margin: 10mm" in preview
-    # The online override rotates the unchanged landscape content onto A5
-    # portrait paper. The download keeps its original landscape page rule.
+    # Keep the original text upright on A5 portrait paper. The download
+    # retains its original landscape page rule.
     assert preview.rindex("@page{size:A5 portrait;margin:10mm}") > preview.index("size: A5 landscape")
-    assert "transform:translateX(128mm) rotate(90deg) scale(" in preview
+    assert "transform:scale(var(--production-print-scale,1))" in preview
+    assert "rotate(" not in preview and "translateX(128mm)" not in preview
     assert "transform-origin:top left" in preview
     assert "body{margin:0!important;transform:none!important}" in preview
     assert "width:128mm!important;height:190mm!important" in preview
-    assert "向右旋轉 90°；紙張 A5 直向" in preview
-    assert "addEventListener('beforeprint',fitRotation)" in preview
+    assert "文字正向、標題在上；紙張 A5 直向" in preview
+    assert "addEventListener('beforeprint',fitPrintContent)" in preview
     assert "A5 portrait" not in source and "rotate(90deg)" not in source
     assert "font-size: 22px" in preview and "translateX(0.2cm)" in preview
     assert "zoom:1!important" in preview and ".toolbar{display:none!important}" in preview
