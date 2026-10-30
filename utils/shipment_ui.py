@@ -25,7 +25,7 @@ from .list_ui import render_selection_table
 from .customer_repository import customer_display_name, CONTACT_FIELDS, CustomerError, get_customer, list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
-    list_shipments, printable_shipment, save_shipment, void_shipment,
+    list_shipments, printable_shipment, save_shipment, void_shipment, update_shipment_item_notes,
     recent_shipment_price, shipment_price_history,
 )
 
@@ -219,6 +219,25 @@ def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None
     st.session_state.shipment_notice = message
     if rerun:
         _rerun_shipment()
+
+
+
+def _save_item_notes(config, document, key):
+    changes = st.session_state.get(key, {}).get("edited_rows", {})
+    notes = {int(index): row["附註說明"] or "" for index, row in changes.items() if "附註說明" in row}
+    if not notes:
+        return
+    try:
+        update_shipment_item_notes(config, document["id"], document["version"], notes)
+    except ShipmentError as error:
+        st.session_state.shipment_item_notes_error = (
+            document["id"], "附註未儲存：" + str(error))
+    except Exception:
+        st.session_state.shipment_item_notes_error = (
+            document["id"], "附註未儲存：請確認資料庫連線後重試；輸入內容已保留。")
+    else:
+        st.session_state.pop("shipment_item_notes_error", None)
+        _finish("附註說明已儲存", rerun=False)
 
 
 def _remember_print_settings(key):
@@ -750,8 +769,19 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     else:
         frame["貨品編號"] = [printed_code(item) for item in document["items"]]
         frame = frame.drop(columns="顯示編號")
-        st.dataframe(frame, height=185, hide_index=True, use_container_width=True,
-                     column_config={"採購單號": st.column_config.TextColumn("採購單號", width="medium"), "數量": st.column_config.NumberColumn(format="%.15g"), "單價": st.column_config.NumberColumn(format="%.15g")})
+        note_error = st.session_state.get("shipment_item_notes_error")
+        if note_error and note_error[0] == document["id"]:
+            st.error(note_error[1])
+        notes_key = prefix + "item_notes"
+        st.data_editor(frame, key=notes_key, height=185, hide_index=True, use_container_width=True,
+                       num_rows="fixed", disabled=True if document["status"] == "void" else [name for name in frame.columns if name != "附註說明"],
+                       on_change=_save_item_notes, args=(config, deepcopy(document), notes_key),
+                       column_config={"採購單號": st.column_config.TextColumn("採購單號", width="medium"), "數量": st.column_config.NumberColumn(format="%.15g"), "單價": st.column_config.NumberColumn(format="%.15g")})
+        if document["status"] != "void":
+            st.caption("附註說明可直接修改，離開儲存格後自動儲存。")
+            if note_error and note_error[0] == document["id"]:
+                st.button("重試儲存附註", key=notes_key + "_retry", on_click=_save_item_notes,
+                          args=(config, deepcopy(document), notes_key))
     if editing:
         render_shipment_quote_notices(config, document)
     summary, details = st.columns([1, 3])
