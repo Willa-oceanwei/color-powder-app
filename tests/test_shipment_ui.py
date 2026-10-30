@@ -10,6 +10,25 @@ from utils.database import DatabaseConfig, initialize_database
 from utils.shipment_repository import blank_shipment, get_shipment, list_shipments, save_shipment
 
 
+def test_shipment_styles_are_html_not_visible_markdown(tmp_path):
+    config = DatabaseConfig(backend="sqlite", path=tmp_path / "style-delivery.db")
+    initialize_database(config.path)
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_ui import render_shipment_management
+render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r})))
+''').run(timeout=30)
+    assert not app.exception
+    styles = [element for element in app.get("html") if 'id="shipment-page"' in element.proto.body]
+    assert len(styles) == 1
+    assert "<style>" in styles[0].proto.body and "shipment-item-heading" in styles[0].proto.body
+    assert not any("Keep item actions" in element.value or "#shipment-page" in element.value
+                   for element in app.markdown)
+
+
 def test_saved_document_skips_reads_until_navigation_or_refresh_and_can_leave_page(tmp_path, monkeypatch):
     import ast
     import utils.shipment_ui as ui
