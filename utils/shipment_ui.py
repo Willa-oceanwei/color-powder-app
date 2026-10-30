@@ -498,8 +498,8 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         stock = st.selectbox("紙張尺寸", ("A4", "三聯紙 240 × 140 mm", "A5"), key="shipment_paper_stock")
         paper_stock = "a4_driver" if stock == "A4" else "triplicate" if stock.startswith("三聯紙") else "standard"
         layout = st.selectbox("列印方向", ("橫式", "直式"), key="shipment_print_orientation",
-                              format_func=lambda value: "列印：" + ("橫放進紙" if paper_stock == "a4_driver" else value), label_visibility="collapsed", disabled=paper_stock != "standard")
-        feed_rotation = st.selectbox("紙張進紙", (0, 90), format_func=lambda v: ("240 mm 長邊先進（橫放）" if v == 0 or paper_stock == "a4_driver" else "140 mm 短邊先進（直放）") if paper_stock != "standard" else ("原方向" if v == 0 else "旋轉90度進紙"), key="shipment_feed_rotation", disabled=paper_stock == "a4_driver")
+                              format_func=lambda value: "列印：" + ("橫放進紙" if paper_stock == "a4_driver" and value == "橫式" else value), label_visibility="collapsed", disabled=paper_stock != "standard")
+        feed_rotation = st.selectbox("紙張進紙", (0, 90), format_func=lambda v: ("240 mm 長邊先進（橫放）" if v == 0 else "140 mm 短邊先進（直放）") if paper_stock != "standard" else ("原方向" if v == 0 else "旋轉90度進紙"), key="shipment_feed_rotation", disabled=paper_stock == "a4_driver")
         hole_margin = st.number_input("左右打洞留白（mm）", min_value=0.0, max_value=25.0, value=12.5, step=0.5, key="shipment_hole_margin")
         orientation = "portrait" if layout == "直式" else "landscape"
         print_html = _cached_print(config, document, show_prices=not hide_prices, orientation=orientation, feed_rotation=feed_rotation, hole_margin=hole_margin, paper_stock=paper_stock, output_mode=output_mode) if document and not editing else None

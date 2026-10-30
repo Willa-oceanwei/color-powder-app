@@ -827,7 +827,7 @@ def _history_tab(config, employees=None):
             st.info("目前沒有員工資料。")
             return
         employee_id = st.selectbox("員工姓名", [item["employee_id"] for item in employees],
-                                   format_func=lambda value: next(item["name"] for item in employees if item["employee_id"] == value),
+                                   format_func=lambda value: next(f"{item['employee_id']}｜{item['name']}" for item in employees if item["employee_id"] == value),
                                    key="salary_history_employee")
         rows = list_salaries(config, employee_id=employee_id)
     rows = [row for row in rows if row["status"] == "settled"]
@@ -836,7 +836,7 @@ def _history_tab(config, employees=None):
         return
     display = pd.DataFrame([{ "年月":f"{x['year']}/{x['month']:02d}", "姓名":x["employee_name_snapshot"], "當月底薪":x["base_salary_snapshot"], "加給":x["total_additions"], "扣除":x["total_deductions"], "請假":x["leave_deduction"], "特休":f"{x['annual_leave_days']}日{x['annual_leave_hours']}時", "薪資總計":x["final_salary"], "說明":x["system_note"], "狀態":x["status"], "最後修改":x["updated_at"]} for x in rows])
     st.dataframe(display, use_container_width=True, hide_index=True)
-    chosen = st.selectbox("選擇薪資", range(len(rows)), format_func=lambda i:f"{rows[i]['year']}/{rows[i]['month']:02d} {rows[i]['employee_name_snapshot']}")
+    chosen = st.selectbox("選擇薪資", range(len(rows)), format_func=lambda i:f"{rows[i]['year']}/{rows[i]['month']:02d} {rows[i]['employee_name_snapshot']}｜{rows[i]['salary_id']}")
     selected_salary = rows[chosen]
     pending_id = st.session_state.get("salary_delete_pending")
     if pending_id != selected_salary["salary_id"]:

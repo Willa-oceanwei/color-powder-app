@@ -76,7 +76,7 @@ def _annual_leave_tab(config):
     _render_card_grid(leave_cards)
     st.markdown("#### 紀錄管理")
     selected = st.selectbox("選擇要修改／刪除的紀錄", range(len(records)),
-                            format_func=lambda index: f"{records[index]['date'] or '未填日期'}｜{records[index]['equivalent_days']:g}日")
+                            format_func=lambda index: f"{records[index]['date'] or '未填日期'}｜{records[index]['equivalent_days']:g}日｜紀錄 {records[index]['id']}")
     record = records[selected]
     if record.get("salary_status") == "settled":
         st.warning(f"此特休紀錄已納入 {record['year']}/{int(record['month']):02d} 薪資，修改後請重新確認該月薪資。")
