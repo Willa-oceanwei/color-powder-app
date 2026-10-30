@@ -133,7 +133,7 @@ def test_customer_selection_identity_validation_and_cancel(config):
     assert app.selectbox(key="customer_action_id").options == ["C01 · 範例 · 範例完整名稱", "C02 · 另一家完整名稱"]
     app.selectbox(key="customer_action_id").set_value("C01").run()
     assert not app.exception and not app.tabs[0].selectbox and not app.tabs[0].dataframe
-    assert next(w for w in app.text_input if w.label == "客戶編號").disabled
+    assert not next(w for w in app.text_input if w.label == "客戶編號").disabled
     next(w for w in app.text_input if w.label == "客戶完整名稱").set_value("")
     next(w for w in app.button if w.label == "儲存變更").click().run()
     assert app.error and list_customers(config)[0]["name"] == "範例完整名稱"
@@ -288,4 +288,5 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     assert next(w for w in app.text_input if w.label == "送貨地址").value == "新版地址"
     app.button(key="shipment_cancel").click().run()
     assert get_shipment(config, saved["id"])["address"] == "本次指定地址"
+
 

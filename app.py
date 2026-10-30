@@ -3835,7 +3835,7 @@ elif menu == "客戶名單":
                 with st.form(f"customer_turso_form_{editing_id or 'new'}_{st.session_state.get('customer_form_epoch', 0)}"):
                     st.markdown("**基本資料**")
                     c1, c2, c3 = st.columns(3)
-                    customer_id = c1.text_input("客戶編號", value=str(defaults.get("客戶編號", "")), disabled=bool(editing_id), help="建立後不可修改")
+                    customer_id = c1.text_input("客戶編號", value=str(defaults.get("客戶編號", "")), help="可修改為未使用的編號；儲存時一併更新相關資料的客戶關聯。")
                     customer_name = c2.text_input("客戶完整名稱", value=str(defaults.get("客戶名稱", "")))
                     customer_short_name = c3.text_input("客戶簡稱", value=str(defaults.get("客戶簡稱", "")), help="選填，尚未填寫時沿用完整名稱")
                     st.markdown("**聯絡與帳務**")
@@ -3857,13 +3857,27 @@ elif menu == "客戶名單":
                     customer_editor.empty()
                     rerun_customer_workspace()
                 if save_customer:
-                    data = CustomerInput(editing_id or customer_id, customer_name, customer_notes,
+                    data = CustomerInput(customer_id, customer_name, customer_notes,
                                          address=customer_address, phone=customer_phone, fax=customer_fax,
                                          contact=customer_contact, tax_id=customer_tax_id, short_name=customer_short_name)
                     try:
                         if editing_id:
-                            update_customer(DATABASE_CONFIG, data)
-                            message = f"已更新客戶 {editing_id}"
+                            current_version = next(item["version"] for item in customer_entities if item["customer_id"] == editing_id)
+                            update_customer(DATABASE_CONFIG, data, original_customer_id=editing_id,
+                                            expected_version=int(current_version))
+                            message = (f"已更改客戶編號 {editing_id} → {customer_id.strip()}"
+                                       if customer_id.strip() != editing_id else f"已更新客戶 {editing_id}")
+                            if customer_id.strip() != editing_id:
+                                # Discard derived master/report views; open document drafts keep
+                                # their versions so stale saves still receive a conflict.
+                                for cache_key in ("df_recipe", "recipe_management_df", "df",
+                                                  "shipment_saved_view", "shipment_cancel_view",
+                                                  "shipment_purchase_history_result", "shipment_search_print_snapshot",
+                                                  "ranking_statements", "stock_calc_time", "last_final_stock"):
+                                    st.session_state.pop(cache_key, None)
+                                st.session_state["recipe_data_loaded"] = False
+                                st.session_state["production_data_loaded"] = False
+                                st.session_state["trial_data_loaded"] = False
                         else:
                             create_customer(DATABASE_CONFIG, data)
                             message = f"已新增客戶 {customer_id.strip()}"
@@ -14498,7 +14512,7 @@ if st.session_state.menu == "同步檢查":
                 st.error(f"推送已安全停止：{type(exc).__name__}: {exc}")
 
     render_outsourcing_push_section(
-        "客戶名單", sync_customer_outbox, "客戶編號是永久 ID，停用只移除 Sheet 副本"
+        "客戶名單", sync_customer_outbox, "改號會新增新編號並排入舊編號刪除；停用只移除 Sheet 副本"
     )
     render_outsourcing_push_section(
         "Pantone色號表", sync_pantone_outbox, "配方編號是 Pantone 對照表永久 ID"

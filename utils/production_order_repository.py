@@ -132,6 +132,7 @@ def list_production_orders(
 
 
 def _save(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -> dict[str, str]:
+    from .customer_repository import CustomerError, require_current_customer_code
     payload = _payload(row)
     order_id = payload.get("生產單號", "")
     if not order_id:
@@ -139,6 +140,10 @@ def _save(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -> dict[
     recipe_id = payload.get("配方編號", "")
     now = utc_now_iso()
     with connect_from_config(config) as conn:
+        try:
+            require_current_customer_code(conn, payload.get("客戶編號", ""))
+        except CustomerError as error:
+            raise ProductionOrderError(str(error)) from error
         existing = _mapping(conn.execute(
             "SELECT * FROM production_orders WHERE production_order_id=?", (order_id,)
         ))
@@ -312,4 +317,5 @@ def set_production_order_cancelled(
             payload=None if cancelled else payload, entity_version=version,
         )
         return payload
+
 
