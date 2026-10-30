@@ -754,7 +754,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                      column_config={"採購單號": st.column_config.TextColumn("採購單號", width="medium"), "數量": st.column_config.NumberColumn(format="%.15g"), "單價": st.column_config.NumberColumn(format="%.15g")})
     if editing:
         render_shipment_quote_notices(config, document)
-    details, summary = st.columns([3, 1])
+    summary, details = st.columns([1, 3])
     with details:
         transaction, invoice_tab, account, related = st.tabs(["交易明細", "發票資料", "帳款資料", "相關資料"])
         with transaction:
