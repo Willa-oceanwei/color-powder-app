@@ -3412,15 +3412,26 @@ def render_big_label_editor(label_order, *, key_prefix):
             )
 
             save_col, download_col, count_col = st.columns([1, 1, 2], vertical_alignment="center")
-            confirm_clicked = save_col.button("儲存並更新標籤", type="primary",
-                                             key=f"{key_prefix}_save_labels_{order_no_for_label}",
-                                             use_container_width=True)
+            pending_save_key = f"{key_prefix}_big_label_save_pending_{order_no_for_label}"
+
+            def request_label_save():
+                # Capture the click before the workspace selection/editor reruns.
+                st.session_state[pending_save_key] = True
+                if key_prefix in ("tab2", "tab2_small"):
+                    st.session_state["history_labels_pinned_order_id"] = order_no_for_label
+
+            save_col.button("儲存並更新標籤", type="primary",
+                            key=f"{key_prefix}_save_labels_{order_no_for_label}",
+                            on_click=request_label_save, use_container_width=True)
+            confirm_clicked = st.session_state.get(pending_save_key, False)
             draft_rows = normalize_big_label_editor_rows(edited_label_rows.to_dict(orient="records"))
             draft_count = sum(row["列印張數"] for row in draft_rows)
             count_status = count_col.empty()
             count_status.caption(f"{len(draft_rows)} 種內容 · {draft_count} 張標籤")
 
         if confirm_clicked:
+            # Consume after the editor has supplied its current cell values.
+            st.session_state.pop(pending_save_key, None)
             editor_rows = normalize_big_label_editor_rows(
                 edited_label_rows.to_dict(orient="records")
                 if hasattr(edited_label_rows, "to_dict")
@@ -3529,7 +3540,7 @@ def render_order_download_actions(label_order, a5_data, a5_filename):
         help="下載 A5 生產單，開啟檔案後會顯示列印視窗。",
     )
     with online_col.popover("線上列印 A5", use_container_width=True):
-        st.caption("線上列印位置測試中；仍可使用原有 A5 下載。")
+        st.caption("可直接線上列印；仍可使用原有 A5 下載。")
         components.html(build_production_order_preview(a5_data.decode("utf-8")), height=430, scrolling=False)
     if label_col.button("製作標籤", key=f"open_labels_tab2_{order_no}"):
         st.session_state[open_key] = not st.session_state.get(open_key, False)
@@ -7468,7 +7479,7 @@ def render_production_order_workspace():
                         use_container_width=True,
                     )
     
-                st.caption("可直接按下方「列印 A5（位置測試）」；原有 A5 下載功能保留。")
+                st.caption("可直接按下方「列印 A5」；原有 A5 下載功能保留。")
                 components.html(build_production_order_preview(preview_a5_data.decode("utf-8")),
                                 height=430, scrolling=False)
 
