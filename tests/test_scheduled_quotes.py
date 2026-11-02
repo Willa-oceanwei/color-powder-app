@@ -6,7 +6,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from utils.customer_repository import CustomerInput, create_customer
-from utils.database import DatabaseConfig, connect_from_config, initialize_database
+from utils.database import SCHEMA_VERSION, DatabaseConfig, connect_from_config, initialize_database
 from utils.scheduled_quote_repository import (
     QuoteError, effective_quote_notices, list_scheduled_quotes, save_scheduled_quote,
 )
@@ -80,7 +80,7 @@ def test_schema_initialization_preserves_existing_quotes(config):
     initialize_database(config.path)
     assert list_scheduled_quotes(config)[0]['quote_id'] == saved['quote_id']
     with connect_from_config(config) as conn:
-        assert conn.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] == 32
+        assert conn.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] == SCHEMA_VERSION
 
 
 def test_quote_settings_create_edit_disable(config):
@@ -187,3 +187,4 @@ def test_remote_quote_writes_invalidate_cached_customer_quotes(config, monkeypat
     assert list_scheduled_quotes(remote, 'C01')[0]['quote_id'] == saved['quote_id']
     save_scheduled_quote(remote, dict(saved, active=False))
     assert list_scheduled_quotes(remote, 'C01') == []
+
