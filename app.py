@@ -11309,52 +11309,56 @@ elif menu == "庫存區":
 
             /* Keep the audit uploader compact and scoped to this card. */
             .st-key-stock_audit_upload_card {
-                padding:12px;border:1px solid #28465d;border-radius:14px;
+                padding:8px;border:1px solid #28465d;border-radius:10px;
                 background:linear-gradient(145deg,#102235,#0c1926);
-                box-shadow:0 4px 16px #00000018;
+                box-shadow:none;
             }
             .st-key-stock_audit_upload_card [data-testid="stWidgetLabel"] p {
-                color:#e5f3ff!important;font-weight:600;
+                color:#e5f3ff!important;font-size:13px!important;font-weight:500;
             }
             .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzone"] {
-                min-height:0;padding:14px 16px;gap:12px;border:1px dashed #4c82a8;
-                border-radius:10px;background:#122b40;transition:background .15s,border-color .15s;
+                min-height:0;padding:8px 10px;gap:8px;border:1px dashed #4c82a8;
+                border-radius:8px;background:#122b40;transition:background .15s,border-color .15s;
             }
             .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzone"]:hover,
             .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzone"]:focus-within {
                 border-color:#83caff;background:#16364f;
             }
             .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzoneInstructions"] {
-                min-width:0;gap:12px;color:#e5f3ff;
+                min-width:0;gap:8px;color:#e5f3ff;font-size:13px;line-height:1.35;
             }
-            .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzoneInstructions"] svg {color:#82caff;}
-            .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzoneInstructions"] small {color:#a4bdd0;}
+            .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzoneInstructions"] svg {color:#82caff;width:26px;height:26px;}
+            .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzoneInstructions"] small {color:#a4bdd0;font-size:12px;line-height:1.3;}
             .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzone"] button {
-                flex:0 0 auto;width:auto!important;min-height:38px;padding:7px 14px!important;
+                flex:0 0 auto;width:auto!important;min-height:30px!important;padding:5px 10px!important;
                 background:#1b6fa5!important;border:1px solid #5ca8d7!important;
-                border-radius:9px!important;color:#fff!important;font-weight:600;
+                border-radius:7px!important;color:#fff!important;font-size:13px!important;font-weight:500;
             }
             .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzone"] button:hover {background:#2482ba!important;}
             .st-key-stock_audit_upload_card button:focus-visible {outline:2px solid #a3dcff!important;outline-offset:3px;}
             .st-key-stock_audit_upload_card [data-testid="stFileUploaderFile"] {
-                padding:9px 12px;margin-top:8px;border:1px solid #31526b;border-radius:10px;
+                padding:6px 8px;margin-top:4px;border:1px solid #31526b;border-radius:8px;
                 background:#102535;color:#c9e4f6;
             }
-            .st-key-stock_audit_upload_card .stFileUploaderFileData {min-width:0;flex:1;}
-            .st-key-stock_audit_upload_card [data-testid="stFileUploaderFileName"] {color:#edf7ff;font-weight:600;}
-            .st-key-stock_audit_upload_card [data-testid="stFileUploaderFile"] small {color:#9fb7ca;}
+            .st-key-stock_audit_upload_card .stFileUploaderFileData {min-width:0;flex:1;line-height:1.35;}
+            .st-key-stock_audit_upload_card [data-testid="stFileUploaderFileName"] {color:#edf7ff;font-size:13px!important;font-weight:500;}
+            .st-key-stock_audit_upload_card [data-testid="stFileUploaderFile"] small {color:#9fb7ca;font-size:12px;}
             .st-key-stock_audit_upload_card [data-testid="stFileUploaderDeleteBtn"] button {
-                width:32px!important;min-width:32px!important;min-height:32px!important;padding:4px!important;
+                width:28px!important;min-width:28px!important;min-height:28px!important;padding:4px!important;
                 border:0!important;border-radius:8px!important;background:transparent!important;color:#b9d2e4!important;
             }
             .st-key-stock_audit_upload_card [data-testid="stFileUploaderDeleteBtn"] button:hover {
                 background:#492c38!important;color:#ffd4dd!important;
             }
             @media(max-width:640px) {
-                .st-key-stock_audit_upload_card {padding:10px;}
-                .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzone"] {flex-wrap:wrap;padding:12px;}
+                .st-key-stock_audit_upload_card {padding:8px;}
+                .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzone"] {flex-wrap:wrap;padding:8px 10px;}
                 .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzoneInstructions"] {flex-basis:100%;}
             }
+            .st-key-stock_audit_upload_card [data-testid="stFileUploaderDropzoneInstructions"] span,
+            .st-key-stock_audit_upload_card button p {font-size:13px!important;line-height:1.35!important;}
+            .st-key-stock_audit_upload_card [data-testid="stFileUploader"] div:has(> ul) {padding:4px 0 0;}
+            .st-key-stock_audit_upload_card [data-testid="stFileUploaderFile"] svg {width:20px;height:20px;}
             .stock-audit-note {
                 background: rgba(255, 193, 7, 0.10);
                 border-left: 4px solid rgba(255, 193, 7, 0.72);
