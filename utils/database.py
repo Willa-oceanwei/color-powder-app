@@ -24,9 +24,10 @@ from typing import Any, Protocol
 from .read_cache import invalidate_read_cache
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 32
+SCHEMA_VERSION = 33
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
+    "carwash_product_aliases", "carwash_product_merge_log", "carwash_product_catalog",
     "scheduled_quotes",
     "big_label_templates",
     "receipt_change_log",
@@ -74,6 +75,9 @@ MAIN_TABLES = {
     "salary_monthly_extras",
 }
 REQUIRED_TABLE_COLUMNS = {
+    "carwash_product_aliases": {"alias_key", "canonical_key", "canonical_name", "merge_id"},
+    "carwash_product_merge_log": {"merge_id", "snapshot_json"},
+    "carwash_product_catalog": {"singleton", "revision"},
     "color_powders": {"lifecycle_status", "deleted_at", "delete_reason"},
     "suppliers": {"lifecycle_status", "deleted_at", "delete_reason"},
     "inventory_movements": {
@@ -372,8 +376,43 @@ def _add_column_if_missing(conn: SqlExecutor, table_name: str, column_name: str,
         conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_sql}")
 
 
+
+CARWASH_MERGE_TABLES = {"carwash_product_aliases", "carwash_product_merge_log", "carwash_product_catalog"}
+CARWASH_MERGE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS carwash_product_catalog (
+    singleton INTEGER PRIMARY KEY CHECK(singleton=1), revision INTEGER NOT NULL DEFAULT 0
+);
+INSERT OR IGNORE INTO carwash_product_catalog(singleton,revision) VALUES (1,0);
+CREATE TABLE IF NOT EXISTS carwash_product_merge_log (
+    merge_id TEXT PRIMARY KEY, source_name TEXT NOT NULL, target_name TEXT NOT NULL,
+    members_json TEXT NOT NULL, snapshot_json TEXT NOT NULL, actor TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS carwash_product_aliases (
+    alias_key TEXT PRIMARY KEY, alias_name TEXT NOT NULL, canonical_key TEXT NOT NULL,
+    canonical_name TEXT NOT NULL, merge_id TEXT NOT NULL REFERENCES carwash_product_merge_log(merge_id),
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_carwash_alias_canonical ON carwash_product_aliases(canonical_key);
+"""
+
 def _initialize_schema(conn: SqlExecutor) -> None:
     """Create/validate the current schema on an open SQLite-compatible connection."""
+    # v33 adds naming metadata only; do not rerun legacy business-data rewrites.
+    try:
+        health = _database_health_from_connection(DatabaseConfig(backend="sqlite"), conn)
+    except Exception as exc:
+        if not _is_missing_schema_migrations_error(exc):
+            raise
+        health = None
+    if (health is not None and (health.schema_version == 32 or (health.schema_version == 33
+                 and not CARWASH_MERGE_TABLES.issubset(health.existing_tables)))
+            and (MAIN_TABLES - CARWASH_MERGE_TABLES).issubset(health.existing_tables)
+            and not {table: cols for table, cols in health.missing_required_columns.items()
+                     if table not in CARWASH_MERGE_TABLES}):
+        _execute_script(conn, CARWASH_MERGE_SCHEMA)
+        conn.execute("INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
+                     (SCHEMA_VERSION, utc_now_iso()))
+        return
     _execute_script(
         conn,
         """
@@ -1108,6 +1147,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
             (position,),
         )
     conn.execute("UPDATE sheet_rows SET last_seen_at = COALESCE(last_seen_at, updated_at, ?) WHERE last_seen_at IS NULL", (utc_now_iso(),))
+    _execute_script(conn, CARWASH_MERGE_SCHEMA)
     conn.execute(
         "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
         (SCHEMA_VERSION, utc_now_iso()),
