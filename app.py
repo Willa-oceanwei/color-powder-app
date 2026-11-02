@@ -214,21 +214,9 @@ _persistent_auth_storage = components.declare_component(
 
 
 def invalidate_inventory_caches():
-    """Discard every derived inventory view after an inventory movement changes."""
-    for key in (
-        "stock_calc_time",
-        "last_final_stock",
-        "stock_query_result",
-        "stock_query_signature",
-        "master_stock_query_result",
-        "stock_audit_result",
-    ):
-        st.session_state.pop(key, None)
-    st.session_state["stock_need_reload"] = True
-    st.session_state["stock_audit_editor_revision"] = (
-        st.session_state.get("stock_audit_editor_revision", 0) + 1
-    )
-
+    """Discard all production-derived inventory results after source changes."""
+    from utils.production_inventory import invalidate_inventory_results
+    invalidate_inventory_results(st.session_state)
 
 # Keep the inventory screen dependent only on the repository's long-standing public
 # API.  Streamlit Cloud can briefly run app.py with an older cached utils package
@@ -5765,7 +5753,8 @@ def render_production_order_workspace():
                 stock_dict[pid] += qty
         
         # === 步驟 3：扣除「起算點 ~ 今天」的生產單用量 ===
-        df_order_hist = st.session_state.get("df_order", pd.DataFrame()).copy()
+        from utils.production_inventory import active_production_orders
+        df_order_hist = active_production_orders(st.session_state.get("df_order", pd.DataFrame()))
         if df_order_hist.empty:
             return stock_dict
 
@@ -7535,6 +7524,7 @@ def render_production_order_workspace():
                                 st.session_state.df_order = pd.DataFrame(
                                     list_production_orders(DATABASE_CONFIG, include_cancelled=True)
                                 ).fillna("").astype(str)
+                                invalidate_inventory_caches()
                                 clear_production_merge_cache(order_dict.get("配方編號", ""))
                                 st.session_state["oem_data_loaded"] = False
                                 for cache_key in ("df_oem", "df_delivery", "df_return", "oem_all_lifecycle_orders"):
@@ -9798,7 +9788,8 @@ elif menu == "查詢區":
     import pandas as pd
 
     df_recipe = st.session_state.get("df_recipe", pd.DataFrame())
-    df_order = st.session_state.get("df_order", pd.DataFrame())
+    from utils.production_inventory import active_production_orders
+    df_order = active_production_orders(st.session_state.get("df_order", pd.DataFrame()))
 
     # ===== 標題 =====
     # st.markdown(
@@ -9925,7 +9916,8 @@ elif menu == "查詢區":
 
         if submit and powder_inputs:
             results = []
-            df_order_local = st.session_state.get("df_order", pd.DataFrame()).copy()
+            from utils.production_inventory import active_production_orders
+            df_order_local = active_production_orders(st.session_state.get("df_order", pd.DataFrame()))
             df_recipe_local = st.session_state.get("df_recipe", pd.DataFrame()).copy()
     
             # 確保欄位存在，避免 KeyError
@@ -10557,6 +10549,18 @@ elif menu == "庫存區":
         except Exception as exc:
             st.error(f"❌ 無法從 Turso 載入生產單資料：{exc}")
 
+    # Refresh lifecycle state even when this session already holds an order frame.
+    from utils.production_inventory import prepare_inventory_orders
+    try:
+        inventory_orders = pd.DataFrame(
+            list_production_orders(DATABASE_CONFIG, include_cancelled=True)
+        ).fillna("")
+        st.session_state.df_order = inventory_orders
+        df_order = prepare_inventory_orders(st.session_state, inventory_orders)
+    except Exception:
+        st.error("無法更新生產單狀態，暫停庫存計算；請稍後重新查詢。")
+        st.stop()
+
     # 庫存區可以從側邊欄直接進入，不能假設使用者曾先開啟「配方管理」。
     # 色粉／色母主檔的正式來源已是 Turso，因此在此頁自行載入並更新 session
     # 快取，避免仍依賴「配方管理」頁面才會建立的 df_color。
@@ -10633,7 +10637,8 @@ elif menu == "庫存區":
         合計類別用量 = (淨重 - 所有色粉重量合計) × 包裝總量
         """
         total_usage_g = 0.0
-        df_order_local = df_order.copy()
+        from utils.production_inventory import active_production_orders
+        df_order_local = active_production_orders(df_order)
 
         def normalize_recipe_id(raw_val):
             return fix_leading_zero(clean_powder_id(str(raw_val or "")))
@@ -11946,7 +11951,8 @@ elif menu == "庫存區":
                 st.warning(f"⚠️ 找不到符合「{powder_keyword}」的色母編號。")
 
             # ── Step 2: 生產單 ──
-            df_order_local = st.session_state.get("df_order", pd.DataFrame()).copy()
+            from utils.production_inventory import active_production_orders
+            df_order_local = active_production_orders(st.session_state.get("df_order", pd.DataFrame()))
 
             if not df_order_local.empty:
                 df_order_local["生產日期_dt"] = pd.to_datetime(

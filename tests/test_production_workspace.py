@@ -16,7 +16,7 @@ def workspace_source():
     source = Path('app.py').read_text(encoding='utf-8')
     lines = source.splitlines()
     wanted = {
-        'render_production_order_workspace', 'rerun_production_order_workspace',
+        'render_production_order_workspace', 'rerun_production_order_workspace', 'invalidate_inventory_caches',
         'clean_powder_id', 'fix_leading_zero', 'split_search_keywords', 'filter_df_by_keywords',
         'calculate_shipment_display', 'colorant_shipment_display_multiplier', 'fmt_num',
         'parse_pack_value', 'safe_float_convert', 'safe_int_convert', 'safe_str_convert',
@@ -257,3 +257,18 @@ def test_first_label_save_survives_selection_reset(production_config, label_kind
     assert b"First click" in app.session_state[f"{prefix}_label_render_P001"][1]
     download = next(item for item in app.get("download_button") if item.proto.label == "下載列印檔")
     assert not download.proto.disabled
+
+
+def test_cancelling_order_invalidates_inventory_query_and_usage(production_config):
+    from utils.production_order_repository import list_production_orders
+    app = workspace_app(production_config).run(timeout=30)
+    for key in ("stock_query_result", "stock_audit_result", "master_stock_query_result", "rank_result", "tab4_usage_result"):
+        app.session_state[key] = ["stale cancelled-order usage"]
+    app.button(key="toggle_order_cancel_btn_tab3").click().run()
+    app.text_input(key="cancel_order_reason_P001").set_value("取消測試")
+    app.button(key="confirm_order_lifecycle_P001").click().run()
+    assert not app.exception
+    assert list_production_orders(production_config) == []
+    assert list_production_orders(production_config, include_cancelled=True)[0]["取消狀態"] == "已取消"
+    for key in ("stock_query_result", "stock_audit_result", "master_stock_query_result", "rank_result", "tab4_usage_result"):
+        assert key not in app.session_state
