@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from utils.database import DatabaseConfig, connect_from_config, initialize_database, initialize_database_with_health
+from utils.database import SCHEMA_VERSION, DatabaseConfig, connect_from_config, initialize_database, initialize_database_with_health
 from utils.carwash_inventory_repository import (
     CarwashInventoryError, save_carwash_inventory_movement, list_carwash_inventory_movements,
     calculate_carwash_inventory_balances,
@@ -100,14 +100,15 @@ def test_upgrade_from_v32_does_not_rewrite_any_business_rows(config):
         conn.execute("INSERT INTO recipes(recipe_id,source,created_at,updated_at,oem_multiplier) VALUES ('UNCHANGED','google_sheets_import','2026-01-01','2026-01-01',7)")
         conn.execute("INSERT INTO sheet_rows(sheet_name,row_key,payload_json,row_hash,created_at,updated_at,last_seen_at) VALUES ('配方管理','UNCHANGED',?,'hash','2026-01-01','2026-01-01','2026-01-01')",
                      (json.dumps({"配方編號": "UNCHANGED", "代工倍率": 2}),))
-    before = {table: snapshot(config, table) for table in MAIN_TABLES - CARWASH_MERGE_TABLES}
+    metadata_tables = CARWASH_MERGE_TABLES | {"recipe_code_reviews"}
+    before = {table: snapshot(config, table) for table in MAIN_TABLES - metadata_tables}
     with connect_from_config(config) as conn:
-        for table in ("carwash_product_aliases", "carwash_product_merge_log", "carwash_product_catalog"):
+        for table in ("carwash_product_aliases", "carwash_product_merge_log", "carwash_product_catalog", "recipe_code_reviews"):
             conn.execute(f"DROP TABLE {table}")
-        conn.execute("DELETE FROM schema_migrations WHERE version=33")
+        conn.execute("DELETE FROM schema_migrations WHERE version>=33")
         conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (32,'2026-10-30')")
     _, health = initialize_database_with_health(config)
-    assert health.schema_version == 33 and health.schema_compatible
+    assert health.schema_version == SCHEMA_VERSION and health.schema_compatible
     assert all(snapshot(config, table) == values for table, values in before.items())
     assert list_carwash_aliases(config) == []
 
