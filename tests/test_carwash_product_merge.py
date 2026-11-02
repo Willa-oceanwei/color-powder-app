@@ -166,3 +166,76 @@ def test_later_unit_conflict_does_not_add_incompatible_balances(config):
     grouped = group_carwash_rows(raw, list_carwash_aliases(config))
     assert len(grouped) == 2
     assert grouped.set_index("產品編號")["目前庫存"].to_dict() == raw.set_index("產品編號")["目前庫存"].to_dict()
+
+
+def carwash_page(config):
+    import ast
+    root = str(Path(__file__).resolve().parents[1])
+    source = (Path(root) / "app.py").read_text(encoding="utf-8")
+    node = next(node for node in ast.walk(ast.parse(source))
+                if isinstance(node, ast.If) and isinstance(node.test, ast.Compare)
+                and isinstance(node.test.left, ast.Name) and node.test.left.id == "menu"
+                and any(isinstance(value, ast.Constant) and value.value == "洗車廠庫存" for value in node.test.comparators))
+    page = ast.unparse(ast.Module(body=node.body, type_ignores=[]))
+    return AppTest.from_string(f'''import sys, re, uuid
+sys.path.insert(0,{root!r})
+from datetime import datetime, date
+from pathlib import Path
+import pandas as pd
+import streamlit as st
+from utils.database import DatabaseConfig
+from utils.carwash_inventory_repository import *
+from utils.carwash_inventory_ui import show_carwash_save_notice
+from utils.inventory_repository import create_inventory_movement
+from utils.customer_display import CustomerDisplay
+DATABASE_CONFIG=DatabaseConfig(backend="sqlite",path=Path({str(config.path)!r}))
+customer_display=CustomerDisplay(DATABASE_CONFIG)
+def render_empty_state(message, **kwargs): st.info(message)
+def invalidate_inventory_caches(): pass
+{page}
+''').run(timeout=30)
+
+
+def test_page_preserves_original_query_and_offers_group_query_and_existing_picker(config):
+    app = carwash_page(config)
+    assert not app.exception
+    assert "編號合併" in [tab.label for tab in app.tabs]
+    next(button for button in app.button if button.label == "搜尋").click().run()
+    assert not app.exception
+    before = app.session_state["cw_inventory_result_df"]
+    assert before.set_index("產品編號")["目前庫存"].to_dict() == {"K1035": "8", "PPK1035": "20"}
+    commit(config)
+    app.run()
+    assert not app.exception
+    assert "cw_inventory_result_df" not in app.session_state
+    app.text_input(key="cw_query_pid").set_value("PPK1035")
+    next(button for button in app.button if button.label == "搜尋").click().run()
+    merged = app.session_state["cw_inventory_result_df"]
+    assert merged["產品編號"].tolist() == ["PPK1035"]
+    assert merged["目前庫存"].tolist() == ["28"]
+    app.selectbox(key="cw_query_view").set_value("原編號明細")
+    next(button for button in app.button if button.label == "搜尋").click().run()
+    assert app.session_state["cw_inventory_result_df"]["目前庫存"].tolist() == ["20"]
+    app.selectbox(key="cw_io_existing_name").set_value("PPK1035").run()
+    assert not app.exception and app.text_input(key="cw_io_product_id").value == "PPK1035"
+
+def test_merge_locks_movements_before_rechecking_preview(config, monkeypatch):
+    import sqlite3
+    from utils import carwash_product_repository as repo
+    preview = preview_carwash_merge(config, "K1035", "PPK1035")
+    original = repo._preview
+    attempted = []
+    def checked(conn, source, target):
+        # A second writer must be blocked before any validation SELECT runs.
+        other = sqlite3.connect(config.path, timeout=0)
+        try:
+            with pytest.raises(sqlite3.OperationalError, match="locked"):
+                other.execute("UPDATE carwash_inventory_movements SET unit='包' WHERE product_id='K1035'")
+            attempted.append(True)
+        finally:
+            other.close()
+        return original(conn, source, target)
+    monkeypatch.setattr(repo, "_preview", checked)
+    merge_carwash_names(config, "K1035", "PPK1035", preview["token"], actor="Q", confirm_initials=True)
+    assert attempted == [True]
+    assert {row["unit"] for row in list_carwash_inventory_movements(config)} == {"KG"}
