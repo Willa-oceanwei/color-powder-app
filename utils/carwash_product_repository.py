@@ -61,6 +61,9 @@ def merge_carwash_names(config, source, target, token, *, actor, confirm_initial
     if not actor:
         raise CarwashInventoryError("請填寫登記人")
     with connect_from_config(config) as conn:
+        # Start the write transaction before reading any validation snapshot.
+        # SQLite SELECTs alone do not prevent concurrent movement changes.
+        conn.execute("UPDATE carwash_product_catalog SET revision=revision WHERE singleton=1")
         preview = _preview(conn, source, target)
         if preview["token"] != token:
             raise CarwashInventoryError("紀錄或合併對應已變更，請重新預覽後確認")
