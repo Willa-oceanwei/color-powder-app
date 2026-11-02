@@ -5563,6 +5563,7 @@ def rerun_production_order_workspace():
 def render_production_order_workspace():
     """Keep production edits and tab updates inside the mounted workspace."""
     from utils.production_print_preview import build_production_order_preview, PRODUCTION_A5_ACTION_STYLE
+    from utils.recipe_code_review_ui import render_recipe_code_review
 
     # ===== 縮小整個頁面最上方空白 =====
     st.markdown("""
@@ -6195,6 +6196,45 @@ def render_production_order_workspace():
             selected_label = list(option_map.keys())[0]
             selected_row = option_map[selected_label].copy()
         
+        else:
+        
+            selected_label = customer_display.selectbox(st,
+                "選擇配方",
+                ["請選擇"] + list(option_map.keys()),
+                index=0,
+                key="search_add_form_selected_recipe_tab1"
+            )
+        
+            if selected_label == "請選擇":
+                selected_row = None
+            else:
+                selected_row = option_map.get(selected_label)
+
+        def renamed_recipe_for_new_order(code):
+            reset_production_order_draft_state(st.session_state, "", "", force=True)
+            st.session_state["search_text_tab1"] = code
+            st.session_state["search_add_form_selected_recipe_tab1"] = "請選擇"
+            st.session_state["production_data_loaded"] = False
+            st.session_state["recipe_data_loaded"] = False
+            invalidate_inventory_caches()
+            invalidate_read_cache(DATABASE_CONFIG)
+
+        for notice_key, notify in (("recipe_code_review_notice", st.success),
+                                   ("recipe_code_review_error", st.error)):
+            if st.session_state.get(notice_key):
+                notify(st.session_state.pop(notice_key))
+
+        if selected_row is not None:
+            # Saved orders and history never prompt or rename from this path.
+            saved_order = st.session_state.get("new_order") or {}
+            already_saved = (st.session_state.get("new_order_saved", False)
+                             and saved_order.get("配方編號") == selected_row.get("配方編號"))
+            if not already_saved and not render_recipe_code_review(
+                    DATABASE_CONFIG, selected_row["配方編號"], on_renamed=renamed_recipe_for_new_order):
+                selected_row = None
+                selected_label = None
+
+        if selected_row is not None and len(option_map) == 1:
             # 依當日最大流水號 +1 產生生產單號
             # ⚠️ 但如果這張單這次已經存檔成功、選的配方也還是同一個，
             # 就要沿用原本的單號，不能再重新算一次「下一號」。
@@ -6247,20 +6287,6 @@ def render_production_order_workspace():
                 display_label = selected_row["配方編號"]
         
             st.success(f"已自動選取：{display_label}")
-                
-        else:
-        
-            selected_label = customer_display.selectbox(st,
-                "選擇配方",
-                ["請選擇"] + list(option_map.keys()),
-                index=0,
-                key="search_add_form_selected_recipe_tab1"
-            )
-        
-            if selected_label == "請選擇":
-                selected_row = None
-            else:
-                selected_row = option_map.get(selected_label)
 
         # Changing the selected recipe opens its draft; an unchanged selection
         # preserves current inputs. No matches or no selection hide stale inputs.
