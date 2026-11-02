@@ -46,21 +46,18 @@ def test_saving_initial_stock_invalidates_previous_audit_snapshot():
 
 
 def test_inventory_cache_invalidator_clears_every_derived_stock_view():
-    helper_source = APP_SOURCE[
-        APP_SOURCE.index("def invalidate_inventory_caches():"):
-        APP_SOURCE.index("def _calculate_carwash_inventory_balances")
-    ]
-
-    for key in (
-        "stock_calc_time",
-        "last_final_stock",
-        "stock_query_result",
-        "stock_query_signature",
-        "master_stock_query_result",
-        "stock_audit_result",
-    ):
-        assert f'"{key}"' in helper_source
-    assert 'st.session_state["stock_need_reload"] = True' in helper_source
+    import ast
+    from types import SimpleNamespace
+    from utils.production_inventory import RESULT_KEYS
+    state = {key: ["stale"] for key in RESULT_KEYS}
+    node = next(node for node in ast.parse(APP_SOURCE).body
+                if isinstance(node, ast.FunctionDef) and node.name == "invalidate_inventory_caches")
+    namespace = {"st": SimpleNamespace(session_state=state)}
+    exec(compile(ast.Module(body=[node], type_ignores=[]), "inventory-invalidator", "exec"), namespace)
+    namespace["invalidate_inventory_caches"]()
+    assert all(key not in state for key in RESULT_KEYS)
+    assert state["stock_need_reload"] is True
+    assert state["stock_audit_editor_revision"] == 1
 
 
 def test_all_app_inventory_writes_invalidate_derived_stock_views():
