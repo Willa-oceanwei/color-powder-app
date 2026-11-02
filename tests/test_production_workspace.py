@@ -144,6 +144,8 @@ def test_saved_label_panel_survives_lost_table_selection(production_config, labe
 def test_clear_creation_draft_preserves_saved_orders(production_config, saved):
     app = workspace_app(production_config).run(timeout=30)
     app.text_input(key='search_text_tab1').set_value('R002').run()
+    if any(b.key == 'recipe_code_review_keep' for b in app.button):
+        app.button(key='recipe_code_review_keep').click().run()
     assert not app.exception and app.session_state['show_confirm_panel']
     app.session_state['form_weight1_tab1'] = '25'
     app.session_state['form_count1_tab1'] = '8'
@@ -165,6 +167,8 @@ def test_clear_creation_draft_preserves_saved_orders(production_config, saved):
     assert not any(b.label == '💾 僅儲存生產單' for b in app.button)
     assert list_production_orders(production_config) == before
     app.text_input(key='search_text_tab1').set_value('R002').run()
+    if any(b.key == 'recipe_code_review_keep' for b in app.button):
+        app.button(key='recipe_code_review_keep').click().run()
     assert not app.exception and app.session_state['show_confirm_panel']
     assert app.text_input(key='form_weight1_tab1').value == ''
     assert app.text_input(key='form_count1_tab1').value == ''
