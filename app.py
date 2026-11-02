@@ -11341,26 +11341,6 @@ elif menu == "庫存區":
             """,
             unsafe_allow_html=True,
         )
-        st.markdown('<div class="stock-audit-section-title">① 格式參考</div>', unsafe_allow_html=True)
-        guide_col, template_col = st.columns(2)
-        with guide_col:
-            with st.expander("支援格式範例", expanded=False):
-                st.markdown(
-                    '<div class="stock-audit-note">已分裝＋完整包裝會加總為盤點量；g 會自動換算為 kg。</div>',
-                    unsafe_allow_html=True,
-                )
-                st.dataframe(
-                    customer_display.frame(pd.DataFrame([
-                        {"儲位": "Ａ", "色粉": "432", "已分裝": "0K", "完整包裝": "", "盤點量": "0 kg"},
-                        {"儲位": "Ａ", "色粉": "4353", "已分裝": "已分5K", "完整包裝": "未分4K", "盤點量": "9 kg"},
-                        {"儲位": "Ａ", "色粉": "TBG", "已分裝": "樓上500g", "完整包裝": "樓下4K", "盤點量": "4.5 kg"},
-                        {"儲位": "Ａ", "色粉": "4356", "已分裝": "16K", "完整包裝": "30K(10K*3袋)", "盤點量": "46 kg"},
-                    ])),
-                    use_container_width=True,
-                    hide_index=True,
-                    height=178,
-                )
-
         AUDIT_NORMAL_LIMIT_KG = 0.5
         AUDIT_WARNING_LIMIT_KG = 2.0
         audit_record_path = Path("inventory_audit.csv")
@@ -11504,22 +11484,7 @@ elif menu == "庫存區":
                 return "🟡 注意"
             return "🔴 重盤"
 
-        with template_col:
-            with st.expander("下載空白參考表", expanded=False):
-                st.markdown(
-                    '<div class="stock-audit-note">純空白欄位格式，不會預先讀取或計算庫存資料。</div>',
-                    unsafe_allow_html=True,
-                )
-                template_df = build_audit_template()
-                st.download_button(
-                    "⬇️ 參考盤點表 CSV",
-                    data=template_df.to_csv(index=False).encode("utf-8-sig"),
-                    file_name=f"月底盤點表參考格式_{date.today().strftime('%Y%m%d')}.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                )
-
-        st.markdown('<div class="stock-audit-section-title">② 上傳並產生分析</div>', unsafe_allow_html=True)
+        st.markdown('<div class="stock-audit-section-title">① 上傳並產生分析</div>', unsafe_allow_html=True)
         with st.form("form_stock_audit_analysis"):
             audit_date = st.date_input("盤點日期", value=date.today(), key="stock_audit_date")
             upload_col, normal_col, warning_col = st.columns([3, 1, 1])
@@ -11637,7 +11602,7 @@ elif menu == "庫存區":
                 st.warning(f"無法讀取已儲存的盤點確認紀錄，已顯示完整分析：{exc}")
 
         if audit_result is not None and not audit_result.empty:
-            st.markdown('<div class="stock-audit-section-title">③ 分析結果</div>', unsafe_allow_html=True)
+            st.markdown('<div class="stock-audit-section-title">② 分析結果</div>', unsafe_allow_html=True)
             st.markdown(f"（{st.session_state.get('stock_audit_date_label', '')}）")
             total_count = len(audit_result)
             abnormal_mask = ~audit_result["狀態"].astype(str).str.startswith("🟢")
@@ -11717,6 +11682,42 @@ elif menu == "庫存區":
                 )
         elif hidden_confirmed_count:
             st.success(f"本次分析的 {hidden_confirmed_count} 筆品項皆已確認，24 小時內不再重複顯示。")
+
+        st.markdown('<div class="stock-audit-section-title">③ 格式參考</div>', unsafe_allow_html=True)
+        guide_col, template_col = st.columns(2)
+        with guide_col:
+            with st.expander("支援格式範例", expanded=False):
+                st.markdown(
+                    '<div class="stock-audit-note">已分裝＋完整包裝會加總為盤點量；g 會自動換算為 kg。</div>',
+                    unsafe_allow_html=True,
+                )
+                st.dataframe(
+                    customer_display.frame(pd.DataFrame([
+                        {"儲位": "Ａ", "色粉": "432", "已分裝": "0K", "完整包裝": "", "盤點量": "0 kg"},
+                        {"儲位": "Ａ", "色粉": "4353", "已分裝": "已分5K", "完整包裝": "未分4K", "盤點量": "9 kg"},
+                        {"儲位": "Ａ", "色粉": "TBG", "已分裝": "樓上500g", "完整包裝": "樓下4K", "盤點量": "4.5 kg"},
+                        {"儲位": "Ａ", "色粉": "4356", "已分裝": "16K", "完整包裝": "30K(10K*3袋)", "盤點量": "46 kg"},
+                    ])),
+                    use_container_width=True,
+                    hide_index=True,
+                    height=178,
+                )
+
+        with template_col:
+            with st.expander("下載空白參考表", expanded=False):
+                st.markdown(
+                    '<div class="stock-audit-note">純空白欄位格式，不會預先讀取或計算庫存資料。</div>',
+                    unsafe_allow_html=True,
+                )
+                template_df = build_audit_template()
+                st.download_button(
+                    "⬇️ 參考盤點表 CSV",
+                    data=template_df.to_csv(index=False).encode("utf-8-sig"),
+                    file_name=f"月底盤點表參考格式_{date.today().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+
 
     # ====================================================================
     # Tab 7：個別客戶庫存（Turso-first）
