@@ -200,3 +200,66 @@ def test_price_tab_uses_earlier_baseline_and_shares_customer_filter(config, monk
     app.date_input(key='product_history_start').set_value(None)
     search(app, 'P1')
     assert sum(app.tabs[1].dataframe[0].value['異動類型'] == '初始售價') == 2
+
+
+def test_related_suffix_codes_are_explicit_safe_and_exclude_void(config):
+    for number, code in [("001", "69960"), ("002", "69960A"), ("003", "69960M"),
+                         ("004", "699600"), ("005", "69960-1"), ("006", "69960_1")]:
+        shipment(config, number, code=code)
+    dead = shipment(config, "007", code="69960B")
+    void_shipment(config, dead["id"], dead["version"], "取消")
+    assert {r["code"] for r in product_transactions(config, "69960")} == {"69960"}
+    for query in ("69960", "69960a", "69960M"):
+        assert {r["code"] for r in product_transactions(config, query, include_related=True)} == {"69960", "69960A", "69960M"}
+    shipment(config, "008", code="MA")
+    shipment(config, "009", code="MAM")
+    assert {r["code"] for r in product_transactions(config, "MA", include_related=True)} == {"MA"}
+    assert not product_transactions(config, "69960%", include_related=True)
+    assert not product_transactions(config, "69960_", include_related=True)
+    assert not product_transactions(config, "69960' OR 1=1 --", include_related=True)
+
+
+def test_related_code_picker_all_customers_latest_and_price_groups(config, monkeypatch):
+    shipment(config, "001", code="69960", day="2026-10-01", price="100")
+    shipment(config, "002", code="69960A", day="2026-10-02", price="200")
+    shipment(config, "003", code="69960M", day="2026-11-01", price="300")
+    shipment(config, "004", customer="C02", code="69960A", day="2026-10-03", price="250")
+    shipment(config, "005", code="699600", day="2026-11-02")
+    import utils.product_transaction_ui as ui
+    calls = []
+    original = ui.product_transactions
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(ui, "product_transactions", counted)
+    app = history_app(config)
+    search(app, "69960")
+    assert not app.exception
+    picker = app.selectbox(key=f"product_history_variant_{app.session_state['product_history_epoch']}")
+    assert picker.value == "69960"
+    assert any("69960M" in notice.value and "2026-11-01" in notice.value for notice in app.info)
+    assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"69960"}
+    app.checkbox[0].check().run()
+    assert any("所選客戶最近一筆出貨：C01 · 69960M" in item.value for item in app.caption)
+    app.selectbox(key=picker.key).set_value("69960M").run()
+    assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"69960M"}
+    app.selectbox(key=picker.key).set_value("__all__").run()
+    assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"69960", "69960A", "69960M"}
+    prices = app.tabs[1].dataframe[0].value
+    assert set(prices["貨品／配方編號"]) == {"69960", "69960A", "69960M"}
+    assert set(prices["異動類型"]) == {"初始售價"}
+    app.checkbox[0].uncheck().run()
+    assert len(app.tabs[0].dataframe[0].value) == 4 and len(calls) == 1
+    search(app, "69960M")
+    assert app.selectbox(key=f"product_history_variant_{app.session_state['product_history_epoch']}").value == "69960M"
+    assert not any(checkbox.value for checkbox in app.checkbox)
+
+
+def test_single_suffix_match_shows_actual_code_in_details_and_prices(config):
+    shipment(config, "001", code="69960A", day="2026-11-01")
+    app = history_app(config)
+    search(app, "69960")
+    assert not app.exception
+    assert any("相近編號 69960A" in item.value for item in app.info)
+    assert set(app.tabs[0].dataframe[0].value["貨品／配方編號"]) == {"69960A"}
+    assert set(app.tabs[1].dataframe[0].value["貨品／配方編號"]) == {"69960A"}
