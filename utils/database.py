@@ -24,9 +24,10 @@ from typing import Any, Protocol
 from .read_cache import invalidate_read_cache
 
 DEFAULT_DB_PATH = Path("data/colorpowder.db")
-SCHEMA_VERSION = 33
+SCHEMA_VERSION = 34
 LOGGER = logging.getLogger(__name__)
 MAIN_TABLES = {
+    "recipe_code_reviews",
     "carwash_product_aliases", "carwash_product_merge_log", "carwash_product_catalog",
     "scheduled_quotes",
     "big_label_templates",
@@ -75,6 +76,7 @@ MAIN_TABLES = {
     "salary_monthly_extras",
 }
 REQUIRED_TABLE_COLUMNS = {
+    "recipe_code_reviews": {"source_code", "source_created_at", "target_code", "choice", "recipe_token", "reviewed_at"},
     "carwash_product_aliases": {"alias_key", "canonical_key", "canonical_name", "merge_id"},
     "carwash_product_merge_log": {"merge_id", "snapshot_json"},
     "carwash_product_catalog": {"singleton", "revision"},
@@ -395,21 +397,37 @@ CREATE TABLE IF NOT EXISTS carwash_product_aliases (
 CREATE INDEX IF NOT EXISTS idx_carwash_alias_canonical ON carwash_product_aliases(canonical_key);
 """
 
+RECIPE_CODE_REVIEW_SCHEMA = """
+CREATE TABLE IF NOT EXISTS recipe_code_reviews (
+    source_code TEXT PRIMARY KEY,
+    source_created_at TEXT NOT NULL,
+    target_code TEXT NOT NULL,
+    choice TEXT NOT NULL CHECK(choice IN ('rename','keep')),
+    recipe_token TEXT NOT NULL,
+    reviewed_at TEXT NOT NULL
+);
+"""
+
+
 def _initialize_schema(conn: SqlExecutor) -> None:
     """Create/validate the current schema on an open SQLite-compatible connection."""
-    # v33 adds naming metadata only; do not rerun legacy business-data rewrites.
+    # Metadata-only upgrades must not rerun old business-data backfills.
     try:
         health = _database_health_from_connection(DatabaseConfig(backend="sqlite"), conn)
     except Exception as exc:
         if not _is_missing_schema_migrations_error(exc):
             raise
         health = None
-    if (health is not None and (health.schema_version == 32 or (health.schema_version == 33
-                 and not CARWASH_MERGE_TABLES.issubset(health.existing_tables)))
-            and (MAIN_TABLES - CARWASH_MERGE_TABLES).issubset(health.existing_tables)
+    metadata_tables = CARWASH_MERGE_TABLES | {"recipe_code_reviews"}
+    if (health is not None
+            and (health.schema_version in (32, 33)
+                 or (health.schema_version == SCHEMA_VERSION
+                     and not metadata_tables.issubset(health.existing_tables)))
+            and (MAIN_TABLES - metadata_tables).issubset(health.existing_tables)
             and not {table: cols for table, cols in health.missing_required_columns.items()
-                     if table not in CARWASH_MERGE_TABLES}):
+                     if table not in metadata_tables}):
         _execute_script(conn, CARWASH_MERGE_SCHEMA)
+        _execute_script(conn, RECIPE_CODE_REVIEW_SCHEMA)
         conn.execute("INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
                      (SCHEMA_VERSION, utc_now_iso()))
         return
@@ -1148,6 +1166,7 @@ def _initialize_schema(conn: SqlExecutor) -> None:
         )
     conn.execute("UPDATE sheet_rows SET last_seen_at = COALESCE(last_seen_at, updated_at, ?) WHERE last_seen_at IS NULL", (utc_now_iso(),))
     _execute_script(conn, CARWASH_MERGE_SCHEMA)
+    _execute_script(conn, RECIPE_CODE_REVIEW_SCHEMA)
     conn.execute(
         "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
         (SCHEMA_VERSION, utc_now_iso()),
