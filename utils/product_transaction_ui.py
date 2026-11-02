@@ -34,8 +34,8 @@ def _query_help():
 
 
 def render_product_transactions(config):
-    st.markdown(COMPACT_STYLE.replace("shipment-page", "product-history-page"), unsafe_allow_html=True)
-    st.markdown('''<style>
+    st.html(COMPACT_STYLE.replace("shipment-page", "product-history-page"))
+    st.html('''<style>
     .main:has(#product-history-page) .block-container,
     .stApp:has(.erp-title) .main:has(#product-history-page) .block-container {margin-top:0!important;padding-top:28px!important;}
     .main:has(#product-history-page) :is([data-testid="stMarkdownContainer"], [data-testid="stCaptionContainer"]) {margin:0!important;display:flow-root;}
@@ -48,7 +48,7 @@ def render_product_transactions(config):
     .history-stat:nth-child(3) {background:#2a2440;border-color:#655483;}
     .history-stat strong {display:block;font-size:20px;line-height:1.2;color:#fff;}
     .history-stat span {font-size:12px;line-height:1.4;color:#bed1df;}
-    </style>''', unsafe_allow_html=True)
+    </style>''')
     st.subheader("貨品交易明細")
     with st.form("product_history_filters"):
         code_col, start_col, end_col, submit_col = st.columns([2, 1, 1, 0.7], vertical_alignment="bottom")
