@@ -48,6 +48,8 @@ def confirm_recipe_code(config, source, token, *, rename):
         if preview["token"] != token:
             raise RecipeError("配方在確認前已變更，請重新查看後確認")
         target = preview["target"]
+        if rename and preview["recipe"]["lifecycle_status"] != "active":
+            raise RecipeError("停用配方請先恢復，再確認是否改名")
         if rename and preview["target_exists"]:
             raise RecipeError(f"配方編號 {target} 已存在，不能覆蓋或自動合併")
         reviewed = _mapping(conn.execute(
@@ -71,23 +73,39 @@ def confirm_recipe_code(config, source, token, *, rename):
                     payload=_recipe_sheet_payload(recipe, components), entity_version=recipe["version"])
             enqueue_sheet_sync(conn, sheet_name="配方管理", row_key=source, operation="delete",
                                payload=None, entity_version=preview["recipe"]["version"]+1)
+            archived_versions = {
+                row["outsourcing_order_id"]: row["version"]
+                for row in _mappings(conn.execute(
+                    "SELECT outsourcing_order_id,version,payload_json FROM outsourcing_orders WHERE recipe_id=?",
+                    (source,)))
+                if json.loads(row["payload_json"]).get("配方編號") == source
+            }
             # Foreign keys have cascaded. Keep the corresponding display/Sheet payload
             # consistent without invoking save routines that rebuild packages or recalculate.
             for table, id_column, sheet in [
                 ("production_orders", "production_order_id", "生產單"),
                 ("outsourcing_orders", "outsourcing_order_id", "代工管理"),
             ]:
-                rows = _mappings(conn.execute(f"SELECT {id_column},payload_json,version FROM {table} WHERE recipe_id IN (?,?)", (source,target)))
+                rows = _mappings(conn.execute(f"SELECT * FROM {table} WHERE recipe_id IN (?,?)", (source,target)))
                 for row in rows:
                     payload = json.loads(row["payload_json"])
                     if payload.get("配方編號") != source:
                         continue
                     payload["配方編號"] = target
+                    # Preserve the cancellation guard when only the linked code changed.
+                    if table == "production_orders" and "_cancelled_outsourcing_orders" in payload:
+                        archived = json.loads(payload["_cancelled_outsourcing_orders"])
+                        payload["_cancelled_outsourcing_orders"] = json.dumps([
+                            [order_id, v+1 if archived_versions.get(order_id) == v else v]
+                            for order_id, v in archived
+                        ], ensure_ascii=False)
                     version = row["version"] + 1
                     conn.execute(f"UPDATE {table} SET recipe_id=?,payload_json=?,version=?,updated_at=? WHERE {id_column}=?",
                         (target, json.dumps(payload, ensure_ascii=False), version, now, row[id_column]))
-                    enqueue_sheet_sync(conn, sheet_name=sheet, row_key=row[id_column], operation="update",
-                                       payload=payload, entity_version=version)
+                    inactive = bool(row.get("cancelled_at")) if table == "production_orders" else row["lifecycle_status"] != "active"
+                    enqueue_sheet_sync(conn, sheet_name=sheet, row_key=row[id_column],
+                                       operation="delete" if inactive else "update",
+                                       payload=None if inactive else payload, entity_version=version)
         conn.execute("""INSERT INTO recipe_code_reviews(source_code,source_created_at,target_code,choice,recipe_token,reviewed_at)
             VALUES (?,?,?,?,?,?) ON CONFLICT(source_code) DO UPDATE SET
             source_created_at=excluded.source_created_at,target_code=excluded.target_code,
