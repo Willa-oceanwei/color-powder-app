@@ -6216,6 +6216,7 @@ def render_production_order_workspace():
             st.session_state["search_add_form_selected_recipe_tab1"] = "請選擇"
             st.session_state["production_data_loaded"] = False
             st.session_state["recipe_data_loaded"] = False
+            st.session_state["oem_data_loaded"] = False
             invalidate_inventory_caches()
             invalidate_read_cache(DATABASE_CONFIG)
 
