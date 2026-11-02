@@ -102,7 +102,7 @@ def _open_catalog_entry(config, product_id, recipe):
 
 
 def render_product_management(config):
-    st.markdown(COMPACT_STYLE.replace("shipment-page", "product-page").replace("shipment-toolbar", "product-toolbar"), unsafe_allow_html=True)
+    st.html(COMPACT_STYLE.replace("shipment-page", "product-page").replace("shipment-toolbar", "product-toolbar"))
     notice = st.session_state.pop("product_notice", "")
     if notice:
         st.caption(notice)
