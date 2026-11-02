@@ -174,3 +174,18 @@ def test_reused_source_code_has_to_be_confirmed_again(config):
     with connect_from_config(config) as conn:
         conn.execute("UPDATE recipes SET created_at='2099-01-01' WHERE recipe_id='C0541A'")
     assert reviewed_recipe_codes(config) == []
+
+def test_renaming_cancelled_order_does_not_restore_it_or_block_later_restore(config):
+    from utils.production_order_repository import set_production_order_cancelled
+    set_production_order_cancelled(config,"P001",cancelled=True,reason="暫停")
+    packages = records(config,"production_order_packages")
+    confirm(config)
+    assert list_production_orders(config) == []
+    assert list_outsourcing_orders(config) == []
+    for sheet,key in [("生產單","P001"),("代工管理","O001")]:
+        last = [r for r in records(config,"sync_outbox") if r["sheet_name"]==sheet and r["row_key"]==key][-1]
+        assert last["operation"] == "delete" and last["payload_json"] is None
+    set_production_order_cancelled(config,"P001",cancelled=False)
+    assert list_production_orders(config)[0]["配方編號"] == "0541"
+    assert list_outsourcing_orders(config)[0]["配方編號"] == "0541"
+    assert records(config,"production_order_packages") == packages
