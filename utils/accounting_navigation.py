@@ -4,13 +4,18 @@ import re
 from copy import deepcopy
 
 
+def is_accounting_action(key):
+    """Buttons are one-shot events, never editable draft values."""
+    return bool(re.search(r"_apply_\d+$", key))
+
+
 def preserve_accounting_widgets(state):
     # Streamlit otherwise deletes widget values when their page is not rendered.
     for key in list(state):
         active = any(state.get(module + "_draft") is not None and
                      key.startswith(f"{module}_{state.get(module + '_epoch', 0)}_")
                      for module in ("shipment", "product"))
-        if active and not re.search(r"_items(?:_\d+)?$", key):
+        if active and not is_accounting_action(key) and not re.search(r"_items(?:_\d+)?$", key):
             state[key] = state[key]
 
 
