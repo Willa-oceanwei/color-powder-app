@@ -539,9 +539,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                     on_click=_copy_for_edit, args=(document,))
     tools[3].button("取消", key="shipment_cancel", disabled=not editing, use_container_width=True,
                     on_click=_cancel, args=(config,))
-    tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing,
+    save_pressed = tools[4].button("儲存", key="shipment_save", type="primary", disabled=not editing,
                     on_click=_request_shipment_save, use_container_width=True)
-    save_clicked = editing and st.session_state.get("shipment_pending_save", False)
+    # Honor the button event itself as well as a request retained across reruns.
+    # A missing callback flag must never silently discard an explicit save click.
+    save_clicked = editing and (save_pressed or st.session_state.get("shipment_pending_save", False))
+    if save_clicked:
+        st.session_state.shipment_pending_save = True
     for col, label, target in ((tools[5], "上一筆", index - 1), (tools[6], "下一筆", index + 1)):
         if col.button(label, key="shipment_nav_" + label,
                       disabled=editing or (not showing_saved and (not ids or target < 0 or target >= len(ids) or target == index)), use_container_width=True):
@@ -944,9 +948,11 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         except ShipmentError as error:
             save_error = str(error)
             action_feedback.error(save_error)
+            st.session_state.shipment_action_error = save_error
         except Exception:
             save_error = "儲存失敗，請確認單號沒有重複及資料庫連線正常；修改內容已保留"
             action_feedback.error(save_error)
+            st.session_state.shipment_action_error = save_error
         else:
             st.session_state.shipment_selected = saved["id"]
             st.session_state.update(shipment_query="", shipment_start=None, shipment_end=None, shipment_include_void=False,

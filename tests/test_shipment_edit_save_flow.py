@@ -59,6 +59,19 @@ def test_save_click_survives_interrupted_render_without_second_click(tmp_path, m
     assert writes == [True]
 
 
+def test_explicit_save_does_not_depend_only_on_callback_flag(tmp_path, monkeypatch):
+    import utils.shipment_ui as ui
+    config, saved, app = _editing_app(tmp_path)
+    monkeypatch.setattr(ui, "_request_shipment_save", lambda: None)
+    app.button(key="shipment_edit").click().run()
+    app.session_state["shipment_search_epoch"] = 1
+    next(w for w in app.text_area if w.label == "備註").set_value("Save from paused query").run()
+    app.button(key="shipment_save").click().run()
+    assert not app.exception
+    assert "shipment_draft" not in app.session_state
+    assert get_shipment(config, saved["id"])["notes"] == "Save from paused query"
+
+
 def test_editing_skips_query_results_even_after_cache_expiry(tmp_path, monkeypatch):
     import utils.shipment_ui as ui
     import utils.shipment_page_data as data
