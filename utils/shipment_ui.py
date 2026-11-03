@@ -685,9 +685,13 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 available.setdefault(original["customer_id"], original["customer_name"])
             options = [""] + list(available)
             # Keep widget identity stable while the selected customer changes.
-            st.selectbox("客戶", options, index=widget_index(prefix + "customer_picker", original.get("customer_id", "")),
+            selected_customer = st.selectbox("客戶", options, index=widget_index(prefix + "customer_picker", original.get("customer_id", "")),
                          format_func=lambda value: f"{value} · {available[value]}" if value else "請選擇客戶", key=prefix + "customer_picker",
                          on_change=_select_customer, args=(config, prefix))
+            # A retained/preselected widget value does not emit on_change.
+            # Reconcile it before delivery widgets consume their initial values.
+            if selected_customer != document["customer_id"]:
+                _select_customer(config, prefix)
         else:
             st.text_input("客戶", value=f"{document['customer_id']} · {current_customer_label()}", disabled=True)
     st.markdown('<div class="shipment-section delivery">送貨資訊</div>', unsafe_allow_html=True)
