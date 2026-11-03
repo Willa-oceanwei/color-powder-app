@@ -75,6 +75,12 @@ def _validated_payload(conn, row: dict[str, Any]) -> tuple[dict[str, str], list[
         raise RecipeError("請輸入配方編號")
     if payload.get("配方類別") == "附加配方" and not payload.get("原始配方"):
         raise RecipeError("附加配方必須填寫原始配方")
+    requested = [payload.get(f"色粉編號{position}", "") for position in RECIPE_COMPONENT_POSITIONS]
+    requested = list(dict.fromkeys(code for code in requested if code))
+    known = {row["colorpowder_id"] for row in _mappings(conn.execute(
+        "SELECT colorpowder_id FROM color_powders WHERE colorpowder_id IN ("
+        + ",".join(["?"] * len(requested)) + ")", tuple(requested)
+    ))} if requested else set()
     components = []
     for position in RECIPE_COMPONENT_POSITIONS:
         powder_id = payload.get(f"色粉編號{position}", "")
@@ -83,9 +89,7 @@ def _validated_payload(conn, row: dict[str, Any]) -> tuple[dict[str, str], list[
             if _number(weight_text):
                 raise RecipeError(f"色粉重量{position}有值但色粉編號{position}空白")
             continue
-        if _mapping(conn.execute(
-            "SELECT colorpowder_id FROM color_powders WHERE colorpowder_id=?", (powder_id,)
-        )) is None:
+        if powder_id not in known:
             raise RecipeError(f"找不到色粉編號 {powder_id}")
         components.append((position, powder_id, _number(weight_text)))
     return payload, components
@@ -162,11 +166,14 @@ def _save_recipe(
             ),
         )
         conn.execute("DELETE FROM recipe_components WHERE recipe_id=?", (recipe_id,))
-        for position, powder_id, weight in components:
+        if components:
+            # Up to eight components: one remote execute instead of eight.
+            parameters = tuple(value for position, powder_id, weight in components
+                               for value in (recipe_id, position, powder_id, weight, now, now))
             conn.execute(
-                """INSERT INTO recipe_components(recipe_id, position, colorpowder_id, weight, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (recipe_id, position, powder_id, weight, now, now),
+                "INSERT INTO recipe_components(recipe_id, position, colorpowder_id, weight, created_at, updated_at) VALUES "
+                + ",".join(["(?,?,?,?,?,?)"] * len(components)),
+                parameters,
             )
         operation = "insert" if create or renaming else "update"
         enqueue_sheet_sync(
