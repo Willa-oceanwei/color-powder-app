@@ -186,16 +186,18 @@ def _save(config: DatabaseConfig, row: dict[str, Any], *, create: bool) -> dict[
             if cursor.rowcount != 1:
                 raise ProductionOrderError(f"找不到生產單號 {order_id}")
         conn.execute("DELETE FROM production_order_packages WHERE production_order_id=?", (order_id,))
+        packages = []
         for position in range(1, 5):
             weight = _number(payload.get(f"包裝重量{position}"))
             count = _number(payload.get(f"包裝份數{position}"))
             if not weight and not count:
                 continue
+            packages.append((order_id, position, weight, count, now, now))
+        if packages:
             conn.execute(
-                """INSERT INTO production_order_packages(
-                       production_order_id, position, package_weight, package_count, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (order_id, position, weight, count, now, now),
+                "INSERT INTO production_order_packages(production_order_id, position, package_weight, package_count, created_at, updated_at) VALUES "
+                + ",".join(["(?,?,?,?,?,?)"] * len(packages)),
+                tuple(value for package in packages for value in package),
             )
         enqueue_sheet_sync(
             conn, sheet_name="生產單", row_key=order_id,
