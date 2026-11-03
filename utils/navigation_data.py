@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from .read_cache import warm_reads
+from .read_cache import warm_reads, invalidate_read_cache
 from .color_powder_repository import list_color_powders
 from .customer_repository import list_customers
 from .customer_inventory_repository import list_customer_inventory_records
@@ -17,6 +17,14 @@ from .trial_repository import list_trial_records, get_trial_settings
 
 
 def warm_navigation_reads(config, state, menu, customer_display):
+    identity = (config, menu)
+    if state.get("_outsourcing_entry_identity") != identity:
+        state["_outsourcing_entry_identity"] = identity
+        if menu == "代工管理":
+            # Re-entering the workspace must not reuse a session snapshot from
+            # before another worker completed an order. Widget reruns reuse it.
+            state["oem_data_loaded"] = False
+            invalidate_read_cache(config)
     # First visits load the same data the selected page needs, concurrently. The
     # repositories' short-lived cache lets the normal loaders reuse these results.
     # No Streamlit calls are made in worker threads and no connection is shared.

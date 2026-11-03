@@ -7869,7 +7869,7 @@ if menu == "代工管理":
 
     def _safe_float(value, default=0.0):
         try:
-            return float(str(value).strip())
+            return float(str(value).replace(",", "").strip())
         except:
             return default
     def _norm_oem_no(value):
@@ -8464,9 +8464,14 @@ if menu == "代工管理":
                         if target_qty <= 0:
                             target_qty = total_qty
 
-                        df_this_return  = df_return[df_return["代工單號"] == selected_oem]
-                        total_returned  = df_this_return["載回數量"].astype(float).sum() \
-                            if not df_this_return.empty else 0.0
+                        # Use the same normalized ledger lookup as the pending
+                        # selector, including legacy whitespace/case differences.
+                        return_rows = returns_by_oem.get(_norm_oem_no(selected_oem), [])
+                        df_this_return = pd.DataFrame(return_rows)
+                        total_returned = sum(
+                            _safe_float(event.get("載回數量", 0))
+                            for event in return_rows
+                        )
                         remaining_qty   = target_qty - total_returned
 
                         render_metric_cards([
@@ -8617,6 +8622,11 @@ if menu == "代工管理":
             ])
 
             with pending_return_tab:
+                if st.button("重讀待載回清單", key="reload_oem_pending_returns"):
+                    invalidate_read_cache(DATABASE_CONFIG)
+                    load_oem_data()
+                    st.rerun()
+                st.caption("只列出未結案且尚有待載回數量的代工單；歷史已結案資料請至「更正載回紀錄」或「代工歷程查詢」。")
                 # 只開放已送達且仍有待載回數量的代工單；尚在廠內與已結案皆不列入。
                 pending_return_mask = df_oem.apply(
                     lambda row: has_pending_outsourcing_return(
