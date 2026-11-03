@@ -50,6 +50,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
     app.button(key="shipment_add_recipe").click().run()
     grid_epoch = app.session_state["shipment_grid_epoch"]
     grid_key = prefix + f"items_{grid_epoch}"
+    matcher = app.session_state["shipment_product_matcher"]
     edits = {}
     for field, value in (("單價", 100.0), ("數量", 2.5), ("品名", "Custom Blue"), ("採購單號", "PO-1")):
         edits[field] = value
@@ -57,6 +58,7 @@ render_shipment_management(DatabaseConfig(backend="sqlite",path=Path({str(config
         app.run()
         assert not app.exception
         assert app.session_state["shipment_grid_epoch"] == grid_epoch
+        assert app.session_state["shipment_product_matcher"] is matcher
     assert calls == []
     assert app.session_state["shipment_draft"]["items"][0]["quantity"] == 2.5
     app.button(key="shipment_prepare_draft_export").click().run()

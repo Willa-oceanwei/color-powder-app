@@ -63,10 +63,16 @@ def recipe_is_inactive(row):
             or str(row.get("狀態", "")).strip() == "停用")
 
 
-def recipe_preview_labels(frame):
+def recipe_preview_labels(frame, state=None):
     """Build dropdown labels in one pass, retaining the first row per code."""
     labels = {"": ""}
     fields = [key for key in ("配方編號", "顏色", "客戶名稱", "生命週期", "狀態") if key in frame]
+    if state is not None:
+        # Hash only label fields: catches in-place edits as well as new snapshots.
+        signature = (tuple(fields), pd.util.hash_pandas_object(frame[fields], index=True).values.tobytes())
+        cached = state.get("recipe_preview_label_cache")
+        if cached is not None and cached[0] == signature:
+            return dict(cached[1])
     for row in frame[fields].to_dict("records"):
         code = str(row.get("配方編號", ""))
         if code:
@@ -74,6 +80,9 @@ def recipe_preview_labels(frame):
             if recipe_is_inactive(row):
                 label += " | 【停用配方】"
             labels.setdefault(code, label)
+    if state is not None:
+        state["recipe_preview_label_cache"] = (signature, labels)
+        return dict(labels)
     return labels
 
 

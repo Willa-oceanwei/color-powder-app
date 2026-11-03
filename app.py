@@ -4536,7 +4536,7 @@ elif menu == "配方管理":
                 st.session_state["last_selected_recipe_code_tab3"] = ""
 
             recipe_codes = [""] + sorted(df_recipe["配方編號"].dropna().unique().tolist())
-            code_label_map = recipe_preview_labels(df_recipe)
+            code_label_map = recipe_preview_labels(df_recipe, st.session_state)
             recipe_filter_text = st.text_input(
                 " ",
                 value="",
@@ -5094,7 +5094,7 @@ elif menu == "配方管理":
                 active_recipe_df["配方編號"].dropna().astype(str).unique().tolist()
             )
 
-            recipe_option_labels = recipe_preview_labels(df_recipe)
+            recipe_option_labels = recipe_preview_labels(df_recipe, st.session_state)
 
             # ---------------------------
             # SEARCH BOX ONLY
@@ -6141,7 +6141,7 @@ def render_production_order_workspace():
         keywords = split_search_keywords(search_text_tab1)
                
         # ===== 建立搜尋 dataframe（不污染原始資料）=====
-        search_df = df_recipe.copy()
+        search_df = df_recipe[["配方編號", "客戶名稱", "顏色"]].copy()
              
         # ===== 建立高速搜尋欄位 =====
         if "_search_text" not in search_df.columns:
@@ -6160,10 +6160,10 @@ def render_production_order_workspace():
             for kw in keywords:
                 mask &= search_df["_search_text"].str.contains(kw.lower(), na=False, regex=False)
         
-            filtered = search_df[mask].copy()
+            filtered = df_recipe[mask]
         
         else:
-            filtered = search_df.copy()        
+            filtered = df_recipe
         
         # A complete recipe ID takes priority over substring matches (917 / 1917 / 917A).
         exact = filtered[filtered["配方編號"].astype(str).str.strip().str.casefold() == search_text_tab1.strip().casefold()]
@@ -6173,11 +6173,11 @@ def render_production_order_workspace():
         # ===== 建立選單 =====
         if not filtered.empty:
         
-            filtered["label"] = filtered.apply(format_option_with_status, axis=1)
-        
-            option_map = dict(
-                zip(filtered["label"], filtered.to_dict(orient="records"))
-            )
+            option_map = {}
+            for row in filtered.to_dict(orient="records"):
+                label = format_option_with_status(row)
+                row["label"] = label
+                option_map[label] = row
         
         else:
             option_map = {}       

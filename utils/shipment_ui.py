@@ -11,7 +11,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from .shipment_catalog import shipment_choices, complete_items, recent_item_defaults, matching_products
+from .shipment_catalog import shipment_choices, complete_items, recent_item_defaults, editing_product_matcher
 from .shipment_print import display_price
 from .paper_preview import theme_preview
 from .shipment_page_data import cached_read, clear_reads, preload_edit_reads, shipment_timing, timed_read
@@ -708,6 +708,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                        document["shipment_date"], document.get("id", ""))) if document["customer_id"] else []
         all_choices = read("all_choices",
                            lambda: shipment_choices(config, document["customer_id"], all_recipes=True)) if document["customer_id"] else {}
+        matcher = editing_product_matcher(st.session_state, all_choices)
         with item_tools[0].popover("搜尋貨品", use_container_width=True):
             choices = {code: item for code, item in all_choices.items()
                        if item.get("_recipe_customer", "") in ("", document["customer_id"])}
@@ -759,7 +760,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                                    "單價": st.column_config.NumberColumn("單價", min_value=0, step=0.001, format="%.15g")})
         frame["免稅"] = frame["免稅"].fillna(False).astype(bool)
         raw_items = frame.rename(columns={value: key for key, value in COLUMNS.items()}).fillna("").to_dict("records")
-        document["items"] = complete_items(config, document, raw_items, document["items"], choices=all_choices, history=history)
+        document["items"] = complete_items(config, document, raw_items, document["items"], choices=all_choices, history=history, matcher=matcher)
         if _editor_rebase_needed(raw_items, document["items"]):
             editor_rebased = True
             if save_clicked:
@@ -773,14 +774,14 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             if not save_clicked and not prepare_draft_export:
                 _rerun_shipment()
         for row_index, item in enumerate(document["items"]):
-            candidates = matching_products(all_choices, item.get("code")) if item.get("code") else matching_products(all_choices, item.get("name"), by_name=True, history=history)
+            candidates = matcher.match(item.get("code")) if item.get("code") else matcher.match(item.get("name"), by_name=True, history=history)
             if len(candidates) > 1:
                 left, right = st.columns([4, 1])
                 choice = left.selectbox(f"第 {row_index + 1} 項相符貨品", candidates, format_func=lambda c: f"{c} · {all_choices[c]['name']}", key=prefix + f"match_{row_index}")
                 if right.button("採用", key=prefix + f"apply_{row_index}"):
                     before = deepcopy(document["items"])
                     document["items"][row_index]["code"] = choice
-                    document["items"] = complete_items(config, document, document["items"], before, choices=all_choices, history=history)
+                    document["items"] = complete_items(config, document, document["items"], before, choices=all_choices, history=history, matcher=matcher)
                     st.session_state.shipment_editor_base = deepcopy(document["items"])
                     st.session_state.shipment_grid_epoch += 1
                     _rerun_shipment()
@@ -936,7 +937,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         # A failed validation requires an explicit retry; no background resaves.
         st.session_state.pop("shipment_pending_save", None)
         try:
-            if any(len(matching_products(all_choices, item.get("code"))) > 1 for item in document["items"]):
+            if any(len(matcher.match(item.get("code"))) > 1 for item in document["items"]):
                 raise ShipmentError("有多筆相符貨品，請先選擇並採用完整編號。")
             with shipment_timing("shipment_save", item_count=len(document["items"])):
                 saved = save_shipment(config, document, sync_products=sync_products)
