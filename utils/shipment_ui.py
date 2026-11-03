@@ -16,6 +16,7 @@ from .shipment_print import display_price
 from .paper_preview import theme_preview
 from .shipment_page_data import cached_read, clear_reads, preload_edit_reads, shipment_timing, timed_read
 from .shipment_history_ui import render_purchase_history
+from .shipment_customer_refresh import render_customer_refresh
 from .scheduled_quote_ui import render_shipment_quote_notices
 from .shipment_search_print import render_search_print
 from .shipment_codes import display_code_options, printed_code
@@ -135,6 +136,7 @@ def _cached_print(config, document, **options):
 
 
 def _begin(document, *, rerun=True):
+    st.session_state.pop("shipment_customer_refresh_preview", None)
     for key in ("shipment_pending_save", "shipment_pending_export", "shipment_draft_export", "shipment_action_error"):
         st.session_state.pop(key, None)
     saved_view = st.session_state.pop("shipment_saved_view", None)
@@ -683,6 +685,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
             st.selectbox("客戶", options, index=widget_index(prefix + "customer_picker", original.get("customer_id", "")),
                          format_func=lambda value: f"{value} · {available[value]}" if value else "請選擇客戶", key=prefix + "customer_picker",
                          on_change=_select_customer, args=(config, prefix))
+            render_customer_refresh(config, document, prefix)
         else:
             st.text_input("客戶", value=f"{document['customer_id']} · {current_customer_label()}", disabled=True)
     st.markdown('<div class="shipment-section delivery">送貨資訊</div>', unsafe_allow_html=True)
