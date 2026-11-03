@@ -32,28 +32,63 @@ def recent_item_defaults(history, code):
 
 
 def matching_products(choices, value, *, by_name=False, history=()):
-    value = str(value or "").strip().upper()
-    if not value:
-        return []
-    if not by_name:
-        exact = [code for code in choices if code.upper() == value]
-        if exact:
-            return exact
-        aliases = [code for code in choices if code.upper().startswith("C") and code[1:].upper() == value]
-        if aliases:
-            return aliases
-        return [code for code in choices if value in code.upper()]
-    names = {code: {str(product["name"]).upper()} for code, product in choices.items()}
-    # Resolve history codes once instead of scanning the full catalog per row.
-    codes_by_upper = {}
-    for code in choices:
-        codes_by_upper.setdefault(code.upper(), code)
-    for row in history:
-        code = codes_by_upper.get(str(row["code"]).upper())
-        if code:
-            names[code].add(str(row.get("name") or "").upper())
-    exact = [code for code, values in names.items() if value in values]
-    return exact or [code for code, values in names.items() if any(value in name for name in values)]
+    return ProductMatcher(choices).match(value, by_name=by_name, history=history)
+
+
+class ProductMatcher:
+    """Indexes for one immutable editing catalog; no database reads or writes."""
+
+    def __init__(self, choices):
+        self.choices = choices
+        self.codes = [(code, code.upper()) for code in choices]
+        self.exact = {}
+        self.aliases = {}
+        for code, upper in self.codes:
+            self.exact.setdefault(upper, []).append(code)
+            if upper.startswith("C"):
+                self.aliases.setdefault(upper[1:], []).append(code)
+        self.partial = {}
+        self.name_history = None
+        self.names = {}
+        self.name_exact = {}
+
+    def match(self, value, *, by_name=False, history=()):
+        value = str(value or "").strip().upper()
+        if not value:
+            return []
+        if not by_name:
+            if value in self.exact:
+                return list(self.exact[value])
+            if value in self.aliases:
+                return list(self.aliases[value])
+            if value not in self.partial:
+                if len(self.partial) >= 256:
+                    self.partial.clear()
+                self.partial[value] = [code for code, upper in self.codes if value in upper]
+            return list(self.partial[value])
+        if self.name_history is not history:
+            self.names = {code: {str(product["name"]).upper()} for code, product in self.choices.items()}
+            for row in history:
+                codes = self.exact.get(str(row["code"]).upper(), [])
+                if codes:
+                    self.names[codes[0]].add(str(row.get("name") or "").upper())
+            self.name_exact = {}
+            for code, names in self.names.items():
+                for name in names:
+                    self.name_exact.setdefault(name, []).append(code)
+            self.name_history = history
+        exact = self.name_exact.get(value)
+        return list(exact) if exact else [code for code, names in self.names.items()
+                                         if any(value in name for name in names)]
+
+
+def editing_product_matcher(state, choices):
+    """Discard derived indexes as soon as the draft's catalog snapshot changes."""
+    matcher = state.get("shipment_product_matcher")
+    if matcher is None or matcher.choices is not choices:
+        matcher = ProductMatcher(choices)
+        state["shipment_product_matcher"] = matcher
+    return matcher
 
 
 def item_price(config, document, code, unit, product, *, history=None):
@@ -67,16 +102,17 @@ def item_price(config, document, code, unit, product, *, history=None):
     return "0"
 
 
-def complete_items(config, document, items, previous, *, choices=None, history=None):
+def complete_items(config, document, items, previous, *, choices=None, history=None, matcher=None):
     if choices is None:
         choices = shipment_choices(config, document["customer_id"], all_recipes=True)
     if history is None:
         history = shipment_price_history(config, document["customer_id"], document["shipment_date"], document.get("id", ""))
+    matcher = matcher or ProductMatcher(choices)
     result = deepcopy(items)
     for index, item in enumerate(result):
         old = previous[index] if index < len(previous) else {}
         code = str(item.get("code") or "").strip()
-        candidates = matching_products(choices, code) if code else matching_products(choices, item.get("name"), by_name=True, history=history)
+        candidates = matcher.match(code) if code else matcher.match(item.get("name"), by_name=True, history=history)
         resolved = candidates[0] if len(candidates) == 1 else None
         match = choices.get(resolved)
         if match:
