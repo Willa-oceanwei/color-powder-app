@@ -26,6 +26,37 @@ render_shipment_management(DatabaseConfig(backend="sqlite", path=Path({str(confi
     return config, saved, app
 
 
+def test_ambiguous_match_button_survives_rerun_apply_and_save(tmp_path):
+    from utils.recipe_repository import create_recipe
+    config, saved, app = _editing_app(tmp_path)
+    for code in ("P1A", "P1B"):
+        create_recipe(config, {"配方編號": code, "顏色": "Blue", "客戶編號": "C01", "計量單位": "KG"})
+    app.button(key="shipment_edit").click().run()
+    assert not app.exception
+    prefix = f"shipment_{app.session_state['shipment_epoch']}_"
+    app.text_area(key=prefix + "notes").set_value("Preserve pending match").run()
+    assert not app.exception
+    app.button(key=prefix + "apply_0").click().run()
+    assert not app.exception
+    app.button(key="shipment_save").click().run()
+    assert not app.exception and "shipment_draft" not in app.session_state
+    result = get_shipment(config, saved["id"])
+    assert result["items"][0]["code"] == "P1A"
+    assert result["notes"] == "Preserve pending match"
+
+
+def test_sidebar_retains_fields_without_assigning_adopt_button_state():
+    from utils.accounting_navigation import preserve_accounting_widgets
+    class State(dict):
+        def __setitem__(self, key, value):
+            assert key != "shipment_1_apply_0"
+            super().__setitem__(key, value)
+    state = State(shipment_draft={"id": "S1"}, shipment_epoch=1,
+                  shipment_1_apply_0=False, shipment_1_notes="Keep notes")
+    preserve_accounting_widgets(state)
+    assert state["shipment_1_notes"] == "Keep notes"
+
+
 def test_save_click_survives_interrupted_render_without_second_click(tmp_path, monkeypatch):
     import utils.shipment_ui as ui
     import streamlit as st

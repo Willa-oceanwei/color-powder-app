@@ -20,6 +20,7 @@ from .scheduled_quote_ui import render_shipment_quote_notices
 from .shipment_search_print import render_search_print
 from .shipment_codes import display_code_options, printed_code
 from .accounting_widgets import widget_default, widget_index
+from .accounting_navigation import is_accounting_action
 from .customer_display import CustomerDisplay
 from .list_ui import render_selection_table
 from .customer_repository import customer_display_name, CONTACT_FIELDS, CustomerError, get_customer, list_customers
@@ -395,7 +396,7 @@ def render_shipment_management(config, *, start_new_on_entry=False):
         draft_prefix = f"shipment_{st.session_state.get('shipment_epoch', 0)}_"
         # Early search reruns must not clean up editor widgets not rendered yet.
         for key in list(st.session_state):
-            if key.startswith(draft_prefix) and not key.startswith(draft_prefix + "items"):
+            if key.startswith(draft_prefix) and not key.startswith(draft_prefix + "items") and not is_accounting_action(key):
                 st.session_state[key] = st.session_state[key]
     def read(key, loader):
         if not editing:
