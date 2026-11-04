@@ -56,6 +56,57 @@ def test_notes_reject_stale_versions_void_and_invalid_rows_atomically(saved):
     assert get_shipment(config, current["id"]) == voided
 
 
+def test_repeated_note_callbacks_advance_only_versions_saved_by_this_session(saved):
+    config, before = saved
+    root = str(Path(__file__).resolve().parents[1])
+    app = AppTest.from_string(f'''import sys
+sys.path.insert(0, {root!r})
+import streamlit as st
+from pathlib import Path
+from utils.database import DatabaseConfig
+from utils.shipment_repository import get_shipment
+from utils.shipment_ui import _save_item_notes, _save_notes
+config = DatabaseConfig(backend="sqlite", path=Path({str(config.path)!r}))
+st.session_state.setdefault("snapshot", get_shipment(config, {before["id"]!r}))
+st.button("附註", on_click=_save_item_notes,
+          args=(config, st.session_state.snapshot, "items"))
+st.button("備註", on_click=_save_notes,
+          args=(config, st.session_state.snapshot, "notes"))
+''').run()
+    for note in ("第一次", "第二次", ""):
+        app.session_state["items"] = {
+            "edited_rows": {0: {"附註說明": note}},
+            "added_rows": [], "deleted_rows": [],
+        }
+        app.button[0].click().run()
+        assert not app.exception
+        assert "shipment_item_notes_error" not in app.session_state
+        assert get_shipment(config, before["id"])["items"][0]["notes"] == note
+    for note in ("整單第一次", "整單第二次"):
+        app.session_state["notes"] = note
+        app.button[1].click().run()
+        assert not app.exception
+        assert "shipment_notes_error" not in app.session_state
+        assert get_shipment(config, before["id"])["notes"] == note
+    current = get_shipment(config, before["id"])
+    # A duplicate delivery must not advance the acknowledged version.
+    app.button[1].click().run()
+    assert get_shipment(config, before["id"]) == current
+    external = deepcopy(current)
+    external["payment_terms"] = "其他人修改"
+    saved_external = save_shipment(config, external)
+    app.session_state["items"] = {
+        "edited_rows": {1: {"附註說明": "過期修改"}}, "added_rows": [], "deleted_rows": [],
+    }
+    app.button[0].click().run()
+    assert "其他人" in app.session_state["shipment_item_notes_error"][1]
+    assert get_shipment(config, before["id"]) == saved_external
+    app.session_state["notes"] = "過期備註"
+    app.button[1].click().run()
+    assert "其他人" in app.session_state["shipment_notes_error"][1]
+    assert get_shipment(config, before["id"]) == saved_external
+
+
 def test_view_note_callback_commits_once_refreshes_snapshot_and_reports_failure(saved, monkeypatch):
     config, before = saved
     import utils.shipment_ui as ui

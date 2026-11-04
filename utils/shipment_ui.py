@@ -228,6 +228,24 @@ def _finish(message="", *, rerun=True, invalidate_reports=False, saved_view=None
 
 
 
+def _note_write_version(config, document):
+    # A queued blur event can still carry the snapshot from before our last save.
+    versions = st.session_state.get("shipment_note_versions", {})
+    version = document["version"]
+    while (repr(config), document["id"], version) in versions:
+        version = versions[(repr(config), document["id"], version)]
+    return version
+
+
+def _remember_note_write(config, document, version, saved_version):
+    if saved_version == version:
+        return
+    versions = st.session_state.setdefault("shipment_note_versions", {})
+    versions[(repr(config), document["id"], version)] = saved_version
+    while len(versions) > 64:
+        versions.pop(next(iter(versions)))
+
+
 def _save_notes(config, document, key):
     pending_notes = st.session_state.setdefault("shipment_note_drafts", {})
     pending_notes[document["id"]] = st.session_state[key]
@@ -238,13 +256,15 @@ def _save_notes(config, document, key):
         draft["notes"] = st.session_state[key]
         return
     try:
-        update_shipment_notes(config, document["id"], document["version"], st.session_state[key])
+        version = _note_write_version(config, document)
+        saved_version = update_shipment_notes(config, document["id"], version, st.session_state[key])
     except ShipmentError as error:
         st.session_state.shipment_notes_error = (document["id"], "備註未儲存：" + str(error))
     except Exception:
         st.session_state.shipment_notes_error = (
             document["id"], "備註未儲存：請確認資料庫連線後重試；輸入內容已保留。")
     else:
+        _remember_note_write(config, document, version, saved_version)
         st.session_state.pop("shipment_notes_error", None)
         pending_notes.pop(document["id"], None)
         if draft is None:
@@ -262,7 +282,8 @@ def _save_item_notes(config, document, key):
     if not notes:
         return
     try:
-        update_shipment_item_notes(config, document["id"], document["version"], notes)
+        version = _note_write_version(config, document)
+        saved_version = update_shipment_item_notes(config, document["id"], version, notes)
     except ShipmentError as error:
         st.session_state.shipment_item_notes_error = (
             document["id"], "附註未儲存：" + str(error))
@@ -270,6 +291,7 @@ def _save_item_notes(config, document, key):
         st.session_state.shipment_item_notes_error = (
             document["id"], "附註未儲存：請確認資料庫連線後重試；輸入內容已保留。")
     else:
+        _remember_note_write(config, document, version, saved_version)
         st.session_state.pop("shipment_item_notes_error", None)
         _finish("附註說明已儲存", rerun=False)
 

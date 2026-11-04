@@ -381,7 +381,7 @@ def save_shipment(config, document, *, sync_products=False):
 
 
 def update_shipment_notes(config, shipment_id, version, notes):
-    """Change the document note without revalidating or rewriting other fields."""
+    """Change only the document note and return its committed version."""
     if not isinstance(notes, str):
         raise ShipmentError("備註資料無效")
     with connect_from_config(config) as conn:
@@ -394,7 +394,7 @@ def update_shipment_notes(config, shipment_id, version, notes):
             raise ShipmentError("單據已被其他人修改或作廢，請重新讀取後再修改備註")
         header = json.loads(existing["payload_json"])
         if header.get("notes", "") == notes:
-            return
+            return version
         header["notes"] = notes
         changed = _mapping(conn.execute(
             "UPDATE shipment_orders SET payload_json=?,version=version+1,updated_at=? "
@@ -402,10 +402,11 @@ def update_shipment_notes(config, shipment_id, version, notes):
             (json.dumps(header, ensure_ascii=False), utc_now_iso(), shipment_id, version)))
         if not changed:
             raise ShipmentError("單據已被其他人修改或作廢，請重新讀取後再修改備註")
+    return version + 1
 
 
 def update_shipment_item_notes(config, shipment_id, version, notes_by_row):
-    """Update only item notes, with the same optimistic lock as a full edit."""
+    """Update only item notes under an optimistic lock, returning the committed version."""
     with connect_from_config(config) as conn:
         existing = _mapping(conn.execute("SELECT * FROM shipment_orders WHERE id=?", (shipment_id,)))
         if not existing:
@@ -426,7 +427,7 @@ def update_shipment_item_notes(config, shipment_id, version, notes_by_row):
                 item["notes"] = note
                 changes.append((json.dumps(item, ensure_ascii=False), shipment_id, rows[index]["line_number"]))
         if not changes:
-            return
+            return version
         changed = _mapping(conn.execute(
             "UPDATE shipment_orders SET version=version+1,updated_at=? "
             "WHERE id=? AND version=? AND status='draft' RETURNING id",
@@ -436,6 +437,7 @@ def update_shipment_item_notes(config, shipment_id, version, notes_by_row):
         for parameters in changes:
             conn.execute("UPDATE shipment_order_items SET payload_json=? WHERE shipment_id=? AND line_number=?",
                          parameters)
+    return version + 1
 
 
 def void_shipment(config, shipment_id, version, reason):
