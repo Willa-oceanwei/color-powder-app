@@ -580,7 +580,8 @@ def _monthly_tab(config, employees=None, rules=None):
                 else:
                     block["annual_leave_days"] = 0.0
                     block["annual_leave_hours"] = 0.0
-                before = max(0.0, float(block.get("annual_leave_balance_before", 0)))
+                before = calculate_annual_leave_balance(block.get("annual_leave_balance_before", 0), 0, 0)
+                block["annual_leave_balance_before"] = before
                 requested_annual_leave = bool(
                     block["annual_leave_days"] or block["annual_leave_hours"]
                 )

@@ -456,6 +456,20 @@ def test_annual_leave_balance_never_becomes_negative():
     })
 
 
+def test_annual_leave_float_residue_is_zero_in_calculations_and_notes():
+    assert calculate_annual_leave_balance(0.20000000000000015, 0.2, 0) == 0
+    assert calculate_annual_leave_balance(0.2, 0, 1.6, 8) == 0
+    assert calculate_annual_leave_balance(1.5e-16, 0, 0) == 0
+    assert calculate_annual_leave_balance(0.3125, 0, 0) == 0.3125
+    for used in (0, 0.2):
+        salary = {"annual_leave_days": used, "annual_leave_balance_after": 1.5e-16}
+        assert "餘0日" in generate_salary_note(salary)
+        assert "餘0日" in _payroll_leave_note(salary)
+    assert reclassify_annual_leave_when_exhausted(1.5e-16, 0, 0, 0.2, 0) == (
+        0.2, 0.0, 0.0, 0.0,
+    )
+
+
 def test_annual_leave_is_reclassified_as_leave_when_balance_is_zero():
     assert reclassify_annual_leave_when_exhausted(0, 0, 2.5, 1, 2.5) == (
         1.0, 5.0, 0.0, 0.0,

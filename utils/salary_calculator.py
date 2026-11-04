@@ -48,7 +48,9 @@ def calculate_annual_leave_balance(balance_before, leave_days, leave_hours, stan
     if hours_per_day <= 0:
         raise ValueError("每日標準工時必須大於 0")
     used = _d(leave_days) + _d(leave_hours) / hours_per_day
-    return float(max(Decimal("0"), _d(balance_before) - used))
+    # Discard binary-float residue carried by previously saved monthly balances.
+    remaining = max(Decimal("0"), _d(balance_before) - used)
+    return float(remaining.quantize(Decimal("0.000000001"), rounding=ROUND_HALF_UP))
 
 
 def reclassify_annual_leave_when_exhausted(
@@ -59,7 +61,7 @@ def reclassify_annual_leave_when_exhausted(
     Days and hours stay in their original units so the normal salary deduction
     calculation can process them without introducing rounding conversions.
     """
-    if _d(balance_before) > 0:
+    if calculate_annual_leave_balance(balance_before, 0, 0) > 0:
         return tuple(float(_d(value)) for value in (
             leave_days, leave_hours, annual_leave_days, annual_leave_hours,
         ))
@@ -103,12 +105,12 @@ def generate_salary_note(data: Mapping, additions: Iterable[Mapping] = (), deduc
                 if display_date not in leave_dates:
                     leave_dates.append(display_date)
         date_note = f"，日期{'、'.join(leave_dates)}" if leave_dates else ""
-        balance = max(Decimal("0"), _d(data.get("annual_leave_balance_after")))
+        balance = calculate_annual_leave_balance(data.get("annual_leave_balance_after"), 0, 0)
         parts.append(f"特休{data.get('annual_leave_days', 0):g}日{data.get('annual_leave_hours', 0):g}小時，共{used:g}日{date_note}，結餘{balance:g}日")
     else:
-        balance = max(Decimal("0"), _d(data.get(
+        balance = calculate_annual_leave_balance(data.get(
             "annual_leave_balance_after", data.get("annual_leave_balance_before")
-        )))
+        ), 0, 0)
         parts.append(f"本月特休0日，餘{balance:g}日")
     for item in additions:
         if money(item.get("amount")):
