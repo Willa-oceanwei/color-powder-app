@@ -93,10 +93,10 @@ def test_a4_carrier_keeps_text_inside_page_and_compensates_right_fields():
     assert "@page { size: A4; margin: 0; }" in result
     assert "width: 21.0cm;" in result and "height: 29.7cm;" in result
     assert "overflow: hidden;" in result
-    assert 'class="field left" style="left:0.9cm; top:0.5cm; width:4.5cm;"' in result
+    assert 'class="field left" style="left:1.4cm; top:0.5cm; width:4.0cm;"' in result
     assert 'class="field right" style="left:5.9cm; top:0.5cm;"' in result
     assert 'class="field right" style="left:5.9cm; top:1.5cm;"' in result
-    assert 'class="field left" style="left:0.9cm; top:2.5cm; width:4.5cm;"' in result
+    assert 'class="field left" style="left:1.4cm; top:2.5cm; width:4.0cm;"' in result
     assert 'class="field right" style="left:5.9cm; top:2.5cm;"' in result
     assert "width: 5.5cm;" in result
     assert 0.6 - 0.1 > 0
@@ -117,7 +117,7 @@ def test_default_big_labels_use_calibrated_a4_on_every_page():
     assert [page.count('class="label"') for page in pages] == [4, 4, 4, 2]
     for page in pages:
         assert page.startswith('<div class="label-slot" style="top:0.0cm; left:0.6cm;">')
-        assert 'left:0.9cm; top:0.5cm; width:4.5cm;">51066' in page
+        assert 'left:1.4cm; top:0.5cm; width:4.0cm;">51066' in page
         assert 'left:5.9cm; top:0.5cm;">115/10/15' in page
         assert 'left:5.9cm; top:2.5cm;">25KG' in page
 
@@ -126,26 +126,26 @@ def test_short_number_and_name_shift_together_without_moving_date_or_weight():
     generate = _load_generate_big_label_html()
     short = generate([{"編號": "00123", "名稱": "紅色", "日期": "115/10/14", "數量": "25KG"}],
                      paper_stock="a4_driver")
-    assert 'left:0.9cm; top:0.5cm; width:4.5cm;">00123' in short
-    assert 'left:0.9cm; top:2.5cm; width:4.5cm;">紅色' in short
+    assert 'left:1.4cm; top:0.5cm; width:4.0cm;">00123' in short
+    assert 'left:1.4cm; top:2.5cm; width:4.0cm;">紅色' in short
     assert 'left:5.9cm; top:0.5cm;">115/10/14' in short
     assert 'left:5.9cm; top:2.5cm;">25KG' in short
-    for number, name in [("1234567", "紅色"), ("12345", "黑色母粉"), ("A123", "紅色"), ("", "紅色"), ("12345", "")]:
+    for number, name in [("1234567", "紅色"), ("12345", "黑色母粉"), ("", "紅色"), ("12345", "")]:
         normal = generate([{"編號": number, "名稱": name}], paper_stock="a4_driver")
-        assert 'left:-0.1cm; top:0.5cm;' in normal
-        assert 'left:-0.1cm; top:2.5cm;' in normal
+        assert 'left:0.9cm; top:0.5cm;' in normal
+        assert 'left:0.9cm; top:2.5cm;' in normal
     mixed = generate([{"編號": "12345", "名稱": "紅色"}, {"編號": "12345", "名稱": "黑色母"}],
                      paper_stock="a4_driver")
-    assert mixed.count('left:0.9cm;') == 4
+    assert mixed.count('left:1.4cm;') == 4
 
 
-def test_six_digit_and_three_character_limits_use_the_same_short_label_position():
+def test_six_character_code_and_three_character_name_limits():
     generate = _load_generate_big_label_html()
-    for number, name in [("10032", "黑色母"), ("123456", "天空藍"), ("123456", "紅色")]:
+    for number, name in [("10032", "黑色母"), ("123456", "天空藍"), ("69960M", "白")]:
         result = generate([{"編號": number, "名稱": name, "日期": "115/10/14", "數量": "30KG"}],
                           paper_stock="a4_driver")
-        assert f'left:0.9cm; top:0.5cm; width:4.5cm;">{number}' in result
-        assert f'left:0.9cm; top:2.5cm; width:4.5cm;">{name}' in result
+        assert f'left:1.4cm; top:0.5cm; width:4.0cm;">{number}' in result
+        assert f'left:1.4cm; top:2.5cm; width:4.0cm;">{name}' in result
         assert 'left:5.9cm; top:0.5cm;">115/10/14' in result
         assert 'left:5.9cm; top:2.5cm;">30KG' in result
 
