@@ -150,7 +150,7 @@ def _annual_leave_editor_rows(records):
     columns = ["日期（可留空）", "日數", "時數", "備註"]
     rows = [{
         "日期（可留空）": record.get("date") or "",
-        "日數": float(record.get("days") or 0),
+        "日數": float(record.get("days")) if record.get("days") else None,
         # Keep zero hours blank in the editor, while allowing entered values to
         # retain two decimal places (for example, 1.25 hours).
         "時數": float(record.get("hours")) if record.get("hours") else None,
@@ -548,8 +548,8 @@ def _monthly_tab(config, employees=None, rules=None):
                             help="可直接輸入 08/07、0807 或 2026-08-07，不限制只能選薪資月份。",
                         ),
                         "日數": st.column_config.NumberColumn(
-                            "日數", min_value=0.0, step=0.0001, format="%.4f",
-                            help="可輸入至小數點後 4 位，例如 0.0875 日。",
+                            "日數", min_value=0.0, step=0.0001, format="%.15g",
+                            help="可輸入至小數點後 4 位；省略多餘的小數零，0 會保持空白。",
                         ),
                         "時數": st.column_config.NumberColumn(
                             "時數", min_value=0.0, step=0.01, format="%.2f",
