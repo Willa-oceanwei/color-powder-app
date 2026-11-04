@@ -3318,6 +3318,15 @@ function fitLabelText() {{
             field.style.fontSize = (size * available / textWidth) + 'px';
         }}
     }});
+    document.querySelectorAll('.label').forEach(label => {{
+        const [number, name] = label.querySelectorAll('.field.left');
+        const range = document.createRange();
+        range.selectNodeContents(number);
+        const numberWidth = range.getBoundingClientRect().width;
+        range.selectNodeContents(name);
+        const nameWidth = range.getBoundingClientRect().width;
+        name.style.transform = 'translateX(' + Math.max(0, (numberWidth - nameWidth) / 2) + 'px)';
+    }});
 }}
 window.onload = async function() {{
     await document.fonts.ready;
