@@ -617,6 +617,25 @@ div[data-testid="stPopoverBody"] p,
 div[data-baseweb="popover"] p {
     font-size: 11px !important;
 }
+
+/* 代工單預覽可顯示多欄包裝數量，窄螢幕可左右捲動。 */
+[data-testid="stPopoverBody"]:has(.oem-order-preview),
+[data-baseweb="popover"] [data-testid="stVerticalBlock"]:has(.oem-order-preview) {
+    width: min(720px, calc(100vw - 40px)) !important;
+    max-width: calc(100vw - 40px) !important;
+    box-sizing: border-box;
+}
+[data-testid="stPopoverBody"] pre.oem-order-preview,
+[data-baseweb="popover"] pre.oem-order-preview {
+    font-size: 0.875rem !important;
+    max-height: min(480px, 60vh) !important;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 12px !important;
+    background: var(--secondary-background-color);
+    border-radius: 8px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -2032,7 +2051,11 @@ def render_oem_status_cards(df, df_order=None, df_recipe=None, show_preview=Fals
                                     preview_text = generate_order_preview_text(
                                         order_dict, recipe_row, df_recipe, show_additional_ids=True
                                     )
-                                    st.markdown(preview_text, unsafe_allow_html=True)
+                                    preview_content = preview_text.removeprefix("```\n").removesuffix("\n```")
+                                    st.html(
+                                        '<pre class="oem-order-preview" tabindex="0" aria-label="生產單預覽">'
+                                        f'{html_escape.escape(preview_content)}</pre>'
+                                    )
     
 def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
     if df is None or df.empty:
@@ -2491,7 +2514,7 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True, re
 
     # 備註列
     note = safe_str(recipe_row.get("備註"))
-    if note:
+    if note and not is_colorant_base:
         html_text += f"備註 : {note}\n"
 
     # 附加配方
@@ -2535,6 +2558,8 @@ def generate_recipe_preview_text(order, recipe_row, show_additional_ids=True, re
             if total_colorant > 0:
                 category = safe_str(recipe_row.get("合計類別", "料"))
                 html_text += f"{category.ljust(8)}{fmt_num(total_colorant).rjust(8)}\n"
+            if note:
+                html_text += f"\n備註 : {note}\n"
     
         return "```\n" + html_text.strip() + "\n```"
 
