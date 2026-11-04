@@ -4684,6 +4684,44 @@ elif menu == "配方管理":
                 fr   = df_recipe.loc[idx].to_dict()
 
                 with st.form(f"edit_recipe_form_tab3_{code}"):
+                    st.html("""
+                    <span class="recipe-edit-compact"></span>
+                    <style>
+                    [data-testid="stForm"]:has(.recipe-edit-compact) {
+                        padding: 12px 14px !important;
+                    }
+                    [data-testid="stForm"]:has(.recipe-edit-compact) [data-testid="stVerticalBlock"] {
+                        gap: 8px !important;
+                    }
+                    [data-testid="stForm"]:has(.recipe-edit-compact) [data-testid="stWidgetLabel"] {
+                        margin-bottom: 3px !important;
+                        min-height: 0 !important;
+                    }
+                    [data-testid="stForm"]:has(.recipe-edit-compact) [data-testid="stWidgetLabel"] p {
+                        font-size: 13px !important;
+                        line-height: 1.25 !important;
+                    }
+                    [data-testid="stForm"]:has(.recipe-edit-compact) :is(input, textarea) {
+                        font-size: 15px !important;
+                    }
+                    [data-testid="stForm"]:has(.recipe-edit-compact) [data-baseweb="input"],
+                    [data-testid="stForm"]:has(.recipe-edit-compact) [data-baseweb="select"] > div {
+                        min-height: 36px !important;
+                        height: 36px !important;
+                        font-size: 15px !important;
+                    }
+                    [data-testid="stForm"]:has(.recipe-edit-compact) input {
+                        padding-top: 5px !important;
+                        padding-bottom: 5px !important;
+                    }
+                    [data-testid="stForm"]:has(.recipe-edit-compact) [data-baseweb="select"] span {
+                        font-size: 15px !important;
+                    }
+                    [data-testid="stElementContainer"]:has(> [data-testid="stHtml"] > .recipe-edit-compact) {
+                        display: none;
+                    }
+                    </style>
+                    """)
 
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
@@ -4738,19 +4776,19 @@ elif menu == "配方管理":
                         fr["計量單位"] = st.selectbox("計量單位", unit_options,
                             index=unit_options.index(cur_u), key=f"edit_recipe_unit_{code}")
 
-                    pantone_col, oem_ratio_col = st.columns(2)
+                    pantone_col, oem_ratio_col, col_net, col_net_unit = st.columns(4)
                     with pantone_col:
                         fr["Pantone色號"] = st.text_input("Pantone色號", fr.get("Pantone色號", ""), key=f"edit_recipe_pantone_{code}")
                     with oem_ratio_col:
                         fr["代工倍率"] = st.number_input(
-                            "代工轉換倍率（僅代工管理生效）",
+                            "代工轉換倍率",
+                            help="僅代工管理生效",
                             min_value=0.01,
                             value=float(fr.get("代工倍率", 1) or 1),
                             step=0.01,
                             key=f"edit_recipe_oem_multiplier_{code}"
                         )
 
-                    col_net, col_net_unit = st.columns(2)
                     with col_net:
                         fr["淨重"] = st.text_input("淨重", fr.get("淨重", ""), key=f"edit_recipe_net_weight_{code}")
                     with col_net_unit:
@@ -4770,7 +4808,7 @@ elif menu == "配方管理":
                     fr["比例3"] = cols_ratio[3].text_input("", fr.get("比例3", ""), key=f"edit_ratio3_{code}")
                     cols_ratio[4].markdown("g/kg", unsafe_allow_html=True)
 
-                    fr["備註"] = st.text_area("備註", fr.get("備註", ""), key=f"edit_recipe_remark_{code}")
+                    fr["備註"] = st.text_area("備註", fr.get("備註", ""), height=68, key=f"edit_recipe_remark_{code}")
 
                     st.markdown("#### 色粉設定")
                     existing_rows = max(5, sum(1 for i in range(1, 9) if fr.get(f"色粉編號{i}")))
