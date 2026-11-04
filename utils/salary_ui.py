@@ -18,7 +18,7 @@ from .salary_repository import (delete_salary, get_annual_leave_contexts,
                                 get_salary_monthly_extras, list_employees, list_salaries,
                                 move_salary_drafts,
                                 save_annual_leave_setting, save_employee, save_employee_salary_note,
-                                save_rules, save_salary, save_salary_monthly_extras,
+                                save_rules, save_salary, save_salaries, save_salary_monthly_extras,
                                 set_employee_active, settle_salary_month)
 
 
@@ -432,6 +432,7 @@ def _refresh_draft_leave_context(block, employee, leave_context):
     )
 
 
+@st.fragment
 def _monthly_tab(config, employees=None, rules=None):
     now = date.today()
     default_year, default_month = default_salary_period(now)
@@ -712,8 +713,11 @@ def _monthly_tab(config, employees=None, rules=None):
     c1, c2, c3 = st.columns(3)
     draft_blocks = [block for block in blocks if block.get("status") != "settled"]
     if c1.button("儲存草稿", disabled=not draft_blocks):
-        for block in draft_blocks:
-            save_salary(config, {**block,"year":year,"month":month}, block["adjustments"], annual_leave_records=block.get("annual_leave_records", []))
+        salary_ids = save_salaries(
+            config, [{**block, "year": year, "month": month} for block in draft_blocks],
+        )
+        for block, salary_id in zip(draft_blocks, salary_ids):
+            block["salary_id"] = salary_id
         st.toast("草稿已儲存")
         _invalidate_salary_reference_cache()
     if c2.button("結算薪資", type="primary", disabled=not blocks):

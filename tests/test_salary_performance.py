@@ -1,4 +1,5 @@
 from collections import Counter
+from contextlib import contextmanager
 from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
@@ -92,3 +93,59 @@ def test_salary_reruns_reuse_references_but_read_payroll_fresh(tmp_path, monkeyp
     assert calls["get_employee_salary_notes"] > first["get_employee_salary_notes"]
     download = next(item for item in app.get("download_button") if item.proto.label == "下載本月薪資表")
     assert not download.proto.disabled
+
+
+def test_draft_save_uses_one_transaction_for_all_employees(tmp_path, monkeypatch):
+    from utils import salary_repository
+
+    config = DatabaseConfig("sqlite", tmp_path / "draft-save.db")
+    initialize_database_with_health(config)
+    for employee_id in ("E1", "E2", "E3"):
+        save_employee(config, {"employee_id": employee_id, "name": employee_id, "base_salary": 32000})
+        salary = {
+            "employee_id": employee_id, "employee_name_snapshot": employee_id,
+            "year": 2026, "month": 9, "base_salary_snapshot": 32000,
+            "standard_hours_snapshot": 8,
+        }
+        salary.update(calculate_salary(salary))
+        save_salary(config, salary, settle=employee_id == "E3")
+    app = AppTest.from_string(
+        "from pathlib import Path\n"
+        "from utils.database import DatabaseConfig\n"
+        "from utils.salary_ui import render_salary_management\n"
+        f"render_salary_management(DatabaseConfig('sqlite', Path({str(config.path)!r})))\n"
+    )
+    app.session_state["salary_year"] = 2026
+    app.session_state["salary_month"] = 9
+    app.run()
+    assert not app.exception
+    for index in (0, 1):
+        app.number_input(key=f"base_salary_snapshot_2026-09_{index}").set_value(34000).run()
+    written_connections = []
+    original_connect = salary_repository.connect_from_config
+
+    class CountedConnection:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def execute(self, sql, parameters=()):
+            if sql.lstrip().startswith("INSERT INTO salary_monthly("):
+                written_connections.append(self)
+            return self.connection.execute(sql, parameters)
+
+    @contextmanager
+    def counted_connect(database):
+        with original_connect(database) as connection:
+            yield CountedConnection(connection)
+
+    monkeypatch.setattr(salary_repository, "connect_from_config", counted_connect)
+    next(button for button in app.button if button.label == "儲存草稿").click().run()
+    assert not app.exception
+    assert len(written_connections) == 2
+    assert written_connections[0] is written_connections[1]
+    persisted = {row["employee_id"]: row for row in salary_repository.get_month_salaries(config, 2026, 9)}
+    assert persisted["E1"]["base_salary_snapshot"] == persisted["E2"]["base_salary_snapshot"] == 34000
+    assert persisted["E3"]["status"] == "settled"
+    assert persisted["E3"]["base_salary_snapshot"] == 32000
+    assert all(block["salary_id"] == persisted[block["employee_id"]]["salary_id"]
+               for block in app.session_state["salary_blocks"])
