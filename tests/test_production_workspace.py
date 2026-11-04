@@ -126,7 +126,7 @@ def test_saved_label_panel_survives_lost_table_selection(production_config, labe
     if label_kind == '小標籤':
         app.radio(key='tab2_label_kind_P001').set_value(label_kind).run()
     prefix = 'tab2_small' if label_kind == '小標籤' else 'tab2'
-    app.button(key=f'{prefix}_save_labels_P001').click().run()
+    app.button(key=f'FormSubmitter:{prefix}_label_form_P001-儲存並更新標籤').click().run()
     assert not app.exception
     assert app.session_state['history_labels_pinned_order_id'] == 'P001'
     app.session_state['qa_drop_selection'] = True
@@ -254,7 +254,7 @@ def test_first_label_save_survives_selection_reset(production_config, label_kind
     }
     # The selection table can reset in the same rerun as a label save.
     app.session_state["qa_drop_selection"] = True
-    app.button(key=f"{prefix}_save_labels_P001").click().run()
+    app.button(key=f"FormSubmitter:{prefix}_label_form_P001-儲存並更新標籤").click().run()
     assert not app.exception
     assert app.session_state["history_labels_pinned_order_id"] == "P001"
     assert len(app.session_state[f"{prefix}_big_label_confirmed_P001"]) == 3

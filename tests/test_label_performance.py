@@ -119,6 +119,10 @@ def test_download_cache_updates_for_paper_positions_and_saved_content(tmp_path):
 def test_submitted_cell_edits_keep_editor_save_and_download_available(tmp_path, section):
     app = performance_app(tmp_path, section).run(timeout=30)
     prefix = 'tab2' if section == 'history' else 'tab1'
+    submit = next(button for button in app.button if button.label == '儲存並更新標籤')
+    # The pending cell edit and save click must reach the server together.
+    assert app.dataframe[0].proto.form_id
+    assert app.dataframe[0].proto.form_id == submit.proto.form_id
     for name, count in [('First edit', 3), ('Second edit', 5)]:
         app.session_state[f'{prefix}_big_label_editor_P001'] = {
             'edited_rows': {0: {'品名': name, '列印張數': count}},
@@ -130,5 +134,6 @@ def test_submitted_cell_edits_keep_editor_save_and_download_available(tmp_path, 
         assert next(button for button in app.button if button.label == '儲存並更新標籤')
         download = next(item for item in app.get('download_button') if item.proto.label == '下載列印檔')
         assert not download.proto.disabled
+        assert not download.proto.form_id
         assert len(app.session_state[f'{prefix}_big_label_confirmed_P001']) == count
         assert name.encode() in app.session_state[f'{prefix}_label_render_P001'][1]

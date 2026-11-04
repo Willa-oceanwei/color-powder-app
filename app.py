@@ -3404,7 +3404,8 @@ def render_big_label_editor(label_order, *, key_prefix):
         if not selected_positions:
             st.warning("請勾選至少一個列印位置。")
     with st.container():
-        with st.container():
+        # Submit the active cell edit and the save action in the same request.
+        with st.form(key=f"{key_prefix}_label_form_{order_no_for_label}", border=False):
             st.markdown('<span class="big-label-form-anchor"></span>', unsafe_allow_html=True)
             edited_label_rows = st.data_editor(
                 pd.DataFrame(st.session_state[label_editor_defaults_key], columns=BIG_LABEL_EDITOR_COLUMNS),
@@ -3427,7 +3428,6 @@ def render_big_label_editor(label_order, *, key_prefix):
                 },
             )
 
-            save_col, download_col, count_col = st.columns([1, 1, 2], vertical_alignment="center")
             pending_save_key = f"{key_prefix}_big_label_save_pending_{order_no_for_label}"
 
             def request_label_save():
@@ -3436,14 +3436,15 @@ def render_big_label_editor(label_order, *, key_prefix):
                 if key_prefix in ("tab2", "tab2_small"):
                     st.session_state["history_labels_pinned_order_id"] = order_no_for_label
 
-            save_col.button("儲存並更新標籤", type="primary",
-                            key=f"{key_prefix}_save_labels_{order_no_for_label}",
-                            on_click=request_label_save, use_container_width=True)
+            st.form_submit_button("儲存並更新標籤", type="primary",
+                                  on_click=request_label_save, use_container_width=True)
             confirm_clicked = st.session_state.get(pending_save_key, False)
             draft_rows = normalize_big_label_editor_rows(edited_label_rows.to_dict(orient="records"))
             draft_count = sum(row["列印張數"] for row in draft_rows)
-            count_status = count_col.empty()
-            count_status.caption(f"{len(draft_rows)} 種內容 · {draft_count} 張標籤")
+
+        download_col, count_col = st.columns([1, 3], vertical_alignment="center")
+        count_status = count_col.empty()
+        count_status.caption(f"{len(draft_rows)} 種內容 · {draft_count} 張標籤")
 
         if confirm_clicked:
             # Consume after the editor has supplied its current cell values.
