@@ -3412,7 +3412,25 @@ def render_big_label_editor(label_order, *, key_prefix):
                     selected_positions.append(position)
         if not selected_positions:
             st.warning("請勾選至少一個列印位置。")
-    with st.container():
+    st.html(f"""
+    <style>
+    .st-key-{key_prefix}_label_controls {{ position: relative; }}
+    .st-key-{key_prefix}_label_controls [data-testid="stForm"] {{
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+    }}
+    @media (min-width: 640px) {{
+        .st-key-{key_prefix}_label_actions {{
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: calc(75% - 0.25rem);
+        }}
+    }}
+    </style>
+    """)
+    with st.container(key=f"{key_prefix}_label_controls"):
         # Submit the active cell edit and the save action in the same request.
         with st.form(key=f"{key_prefix}_label_form_{order_no_for_label}", border=False):
             st.markdown('<span class="big-label-form-anchor"></span>', unsafe_allow_html=True)
@@ -3445,13 +3463,15 @@ def render_big_label_editor(label_order, *, key_prefix):
                 if key_prefix in ("tab2", "tab2_small"):
                     st.session_state["history_labels_pinned_order_id"] = order_no_for_label
 
-            st.form_submit_button("儲存並更新標籤", type="primary",
-                                  on_click=request_label_save, use_container_width=True)
-            confirm_clicked = st.session_state.get(pending_save_key, False)
-            draft_rows = normalize_big_label_editor_rows(edited_label_rows.to_dict(orient="records"))
-            draft_count = sum(row["列印張數"] for row in draft_rows)
-
-        download_col, count_col = st.columns([1, 3], vertical_alignment="center")
+            save_col, _ = st.columns([1, 3], vertical_alignment="center")
+            with save_col:
+                st.form_submit_button("儲存並更新標籤", type="primary",
+                                      on_click=request_label_save, use_container_width=True)
+        confirm_clicked = st.session_state.get(pending_save_key, False)
+        draft_rows = normalize_big_label_editor_rows(edited_label_rows.to_dict(orient="records"))
+        draft_count = sum(row["列印張數"] for row in draft_rows)
+        with st.container(key=f"{key_prefix}_label_actions"):
+            download_col, count_col = st.columns([1, 2], vertical_alignment="center")
         count_status = count_col.empty()
         count_status.caption(f"{len(draft_rows)} 種內容 · {draft_count} 張標籤")
 
