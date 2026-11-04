@@ -3414,7 +3414,10 @@ def render_big_label_editor(label_order, *, key_prefix):
             st.warning("請勾選至少一個列印位置。")
     st.html(f"""
     <style>
-    .st-key-{key_prefix}_label_controls {{ position: relative; }}
+    .st-key-{key_prefix}_label_controls {{
+        position: relative;
+        gap: 0 !important;
+    }}
     .st-key-{key_prefix}_label_controls [data-testid="stForm"] {{
         padding: 0 !important;
         border: 0 !important;
