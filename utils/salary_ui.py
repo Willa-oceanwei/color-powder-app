@@ -547,7 +547,10 @@ def _monthly_tab(config, employees=None, rules=None):
                             "日期（可留空）",
                             help="可直接輸入 08/07、0807 或 2026-08-07，不限制只能選薪資月份。",
                         ),
-                        "日數": st.column_config.NumberColumn("日數", min_value=0.0, step=0.5),
+                        "日數": st.column_config.NumberColumn(
+                            "日數", min_value=0.0, step=0.0001, format="%.4f",
+                            help="可輸入至小數點後 4 位，例如 0.0875 日。",
+                        ),
                         "時數": st.column_config.NumberColumn(
                             "時數", min_value=0.0, step=0.01, format="%.2f",
                             help="可輸入至小數點後 2 位；0 會保持空白。",
