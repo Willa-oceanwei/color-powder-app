@@ -12418,6 +12418,9 @@ elif menu == "庫存區":
         col1, col2 = st.columns(2)
         rank_start = col1.date_input("開始日期（排行榜）", key="rank_start_date")
         rank_end   = col2.date_input("結束日期（排行榜）", key="rank_end_date")
+        show_rank_suffixes = st.toggle(
+            "顯示尾數為 01／001 的色粉", value=True, key="rank_show_01_001",
+        )
 
         if st.button("生成排行榜", key="btn_powder_rank"):
 
@@ -12497,13 +12500,17 @@ elif menu == "庫存區":
         # ── 顯示（快取）──
         df_rank = st.session_state.get("rank_result")
         pigment_usage = st.session_state.get("rank_pigment", {})
+        if df_rank is not None and not df_rank.empty and not show_rank_suffixes:
+            df_rank = df_rank[
+                ~df_rank["色粉編號"].astype(str).str.strip().str.endswith(("01", "001"))
+            ]
 
         if df_rank is not None:
             if not df_rank.empty:
                 st.dataframe(customer_display.frame(df_rank), use_container_width=True, hide_index=True)
-                csv = pd.DataFrame(
-                    list(pigment_usage.items()), columns=["色粉編號", "總用量(g)"]
-                ).to_csv(index=False, encoding="utf-8-sig")
+                export_rank = df_rank[["色粉編號"]].copy()
+                export_rank["總用量(kg)"] = export_rank["色粉編號"].map(pigment_usage) / 1000
+                csv = export_rank.to_csv(index=False).encode("utf-8-sig")
                 st.download_button(
                     label="⬇️ 下載排行榜 CSV",
                     data=csv,
