@@ -3443,6 +3443,15 @@ def render_big_label_editor(label_order, *, key_prefix):
             width: calc(75% - 0.25rem);
         }}
     }}
+    .stApp .st-key-{key_prefix}_label_actions [data-testid="stPopover"] button:not(:disabled) {{
+        background: #c6582f !important;
+        border-color: #c6582f !important;
+        color: #fff !important;
+    }}
+    .stApp .st-key-{key_prefix}_label_actions [data-testid="stPopover"] button:not(:disabled):hover {{
+        background: #a94725 !important;
+        border-color: #a94725 !important;
+    }}
     [data-testid="stPopoverBody"]:has(.label-online-preview) {{
         width: min(960px, calc(100vw - 40px)) !important;
         max-width: calc(100vw - 40px) !important;
