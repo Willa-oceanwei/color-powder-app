@@ -12415,10 +12415,10 @@ elif menu == "庫存區":
     # ====================================================================
     with tab4:
 
-        col1, col2 = st.columns(2)
+        col1, col2, suffix_col = st.columns([1, 1, 1.2], vertical_alignment="bottom")
         rank_start = col1.date_input("開始日期（排行榜）", key="rank_start_date")
         rank_end   = col2.date_input("結束日期（排行榜）", key="rank_end_date")
-        show_rank_suffixes = st.toggle(
+        show_rank_suffixes = suffix_col.toggle(
             "顯示尾數為 01／001 的色粉", value=True, key="rank_show_01_001",
         )
 
