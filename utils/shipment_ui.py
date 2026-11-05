@@ -23,7 +23,7 @@ from .accounting_widgets import widget_default, widget_index
 from .accounting_navigation import is_accounting_action
 from .customer_display import CustomerDisplay
 from .list_ui import render_selection_table
-from .customer_repository import customer_display_name, CONTACT_FIELDS, CustomerError, get_customer, list_customers
+from .customer_repository import customer_display_name, CONTACT_FIELDS, list_customers
 from .shipment_repository import (
     TAX_MODES, ShipmentError, blank_shipment, calculate, copy_shipment, get_shipment,
     list_shipments, printable_shipment, save_shipment, void_shipment, update_shipment_item_notes, update_shipment_notes,
@@ -323,28 +323,6 @@ def _invoice_amount_changed(prefix):
     st.session_state[prefix + "invoice_amount_manual"] = True
 
 
-def _select_customer(config, prefix):
-    """Apply customer defaults before the page emits any editor widgets."""
-    document = st.session_state.get("shipment_draft")
-    if document is None:
-        return
-    chosen = st.session_state.get(prefix + "customer_picker", "")
-    if chosen == document["customer_id"]:
-        return
-    try:
-        customer = get_customer(config, chosen) if chosen else {}
-    except CustomerError as error:
-        st.session_state[prefix + "customer_picker"] = document["customer_id"]
-        st.session_state.shipment_customer_error = str(error)
-        return
-    name = customer.get("name", "")
-    document.update(customer_id=chosen, customer_name=name, recipient_id=chosen, recipient_name=name)
-    for field in ("address", "phone", "fax", "contact", "tax_id"):
-        document[field] = customer.get(field) or ""
-    for field in ("recipient_id", "recipient_name", "address", "phone", "fax", "contact", "tax_id"):
-        st.session_state[prefix + field] = document[field]
-
-
 def _set_code_display(index, code, key):
     document = st.session_state.get("shipment_draft")
     if not document or index >= len(document["items"]) or document["items"][index]["code"] != code:
@@ -409,9 +387,6 @@ def render_shipment_management(config, *, start_new_on_entry=False):
     action_error = st.session_state.pop("shipment_action_error", "")
     if action_error:
         action_feedback.error(action_error)
-    customer_error = st.session_state.pop("shipment_customer_error", "")
-    if customer_error:
-        st.error(customer_error)
     draft = st.session_state.get("shipment_draft")
     editing = draft is not None
     if editing:
@@ -707,13 +682,21 @@ def render_shipment_management(config, *, start_new_on_entry=False):
                 available.setdefault(original["customer_id"], original["customer_name"])
             options = [""] + list(available)
             # Keep widget identity stable while the selected customer changes.
-            selected_customer = st.selectbox("客戶", options, index=widget_index(prefix + "customer_picker", original.get("customer_id", "")),
-                         format_func=lambda value: f"{value} · {available[value]}" if value else "請選擇客戶", key=prefix + "customer_picker",
-                         on_change=_select_customer, args=(config, prefix))
-            # A retained/preselected widget value does not emit on_change.
-            # Reconcile it before delivery widgets consume their initial values.
+            selected_customer = st.selectbox(
+                "客戶", options, index=widget_index(prefix + "customer_picker", document["customer_id"]),
+                format_func=lambda value: f"{value} · {available[value]}" if value else "請選擇客戶",
+                key=prefix + "customer_picker",
+            )
             if selected_customer != document["customer_id"]:
-                _select_customer(config, prefix)
+                customer = next((row for row in customers if row["customer_id"] == selected_customer), {})
+                name = customer.get("name", "")
+                document.update(customer_id=selected_customer, customer_name=name,
+                                recipient_id=selected_customer, recipient_name=name)
+                for field in CONTACT_FIELDS:
+                    document[field] = customer.get(field) or ""
+                # Update delivery widgets before they are rendered in this run.
+                for field in ("recipient_id", "recipient_name", *CONTACT_FIELDS):
+                    st.session_state[prefix + field] = document[field]
         else:
             st.text_input("客戶", value=f"{document['customer_id']} · {current_customer_label()}", disabled=True)
     st.markdown('<div class="shipment-section delivery">送貨資訊</div>', unsafe_allow_html=True)

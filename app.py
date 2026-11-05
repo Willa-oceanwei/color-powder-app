@@ -1016,12 +1016,19 @@ div.block-container .stButton > button[kind="primary"]{
     background: #1a5a84 !important;
     border-color: #3487b6 !important;
 }
-:is(div.block-container, div[data-testid="stDialog"]) :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:not(:disabled):is(:hover, :focus) {
+:is(div.block-container, div[data-testid="stDialog"]) :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:not(:disabled):is(:hover, :focus, :active) {
     background: #124466 !important;
     border-color: #65b5e2 !important;
     color: #ffffff !important;
 }
-:is(div.block-container, div[data-testid="stDialog"]) :is(.stButton, .stDownloadButton, .stFormSubmitButton) > button:focus-visible {
+:is(.stButton, .stDownloadButton, .stFormSubmitButton, .stLinkButton, .stPopover) :is(button, a):not(:disabled):is(:hover, :focus, :active),
+button[data-testid^="stBaseButton-"]:not(:disabled):is(:hover, :focus, :active) {
+    border-color: #65b5e2 !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+:is(.stButton, .stDownloadButton, .stFormSubmitButton, .stLinkButton, .stPopover) :is(button, a):focus-visible,
+button[data-testid^="stBaseButton-"]:focus-visible {
     outline: 2px solid #8cc8ea !important;
     outline-offset: 2px;
 }
