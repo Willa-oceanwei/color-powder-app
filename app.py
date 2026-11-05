@@ -3304,7 +3304,7 @@ body {{ margin: 0; padding: 0; }}
 .label {{ position: relative; width: 100%; height: 100%; }}
 .field {{
     position: absolute;
-    font-family: 'Arial Rounded MT Bold', Arial, 'Times New Roman', 'PMingLiU', 'MingLiU', serif;
+    font-family: 'Arial Rounded MT Bold', Arial, 'Microsoft JhengHei', sans-serif;
     font-weight: 400;
     font-synthesis: none;
     white-space: nowrap;

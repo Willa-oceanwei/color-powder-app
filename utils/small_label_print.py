@@ -4,7 +4,8 @@ from html import escape
 import re
 
 
-LABEL_CHINESE_STYLE = ".label-chinese { font-weight: 700; font-synthesis: weight; }"
+LABEL_CHINESE_STYLE = """.label-chinese { font-weight: 700; font-synthesis: weight;
+font-family: "Microsoft JhengHei", sans-serif; }"""
 
 
 def format_label_text(value):
@@ -69,7 +70,7 @@ overflow: hidden; break-after: page; page-break-after: always; break-inside: avo
 .sheet:last-child {{ break-after: auto; page-break-after: auto; }}
 .label-slot {{ position: absolute; height: 4.5cm; }}
 .field {{ position: absolute; white-space: nowrap; line-height: 1;
-font: 400 11pt "Arial Rounded MT Bold", Arial, "Times New Roman", "PMingLiU", "MingLiU", serif;
+font: 400 11pt "Arial Rounded MT Bold", Arial, "Microsoft JhengHei", sans-serif;
 font-synthesis: none; }}
 .field[data-size="12"] {{ font-size: 12pt; }}
 {LABEL_CHINESE_STYLE}
