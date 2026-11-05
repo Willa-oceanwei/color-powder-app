@@ -636,6 +636,10 @@ div[data-baseweb="popover"] p {
     background: var(--secondary-background-color);
     border-radius: 8px;
 }
+.oem-order-preview .oem-total-label {
+    display: inline-block;
+    width: 1ch;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -2052,9 +2056,14 @@ def render_oem_status_cards(df, df_order=None, df_recipe=None, show_preview=Fals
                                         order_dict, recipe_row, df_recipe, show_additional_ids=True
                                     )
                                     preview_content = preview_text.removeprefix("```\n").removesuffix("\n```")
+                                    preview_content = re.sub(
+                                        r"(?m)^料(?= {2,}-?\d)",
+                                        '<span class="oem-total-label">料</span>',
+                                        html_escape.escape(preview_content),
+                                    )
                                     st.html(
                                         '<pre class="oem-order-preview" tabindex="0" aria-label="生產單預覽">'
-                                        f'{html_escape.escape(preview_content)}</pre>'
+                                        f'{preview_content}</pre>'
                                     )
     
 def render_paginated_df(df, key_prefix, page_size=5, use_container_width=True):
@@ -3268,6 +3277,12 @@ def generate_big_label_html(label_rows, *, paper_stock="a4_driver"):
 <meta charset="utf-8">
 <title>生產單大標列印</title>
 <style>
+@font-face {{
+    font-family: 'Arial Rounded MT Bold';
+    src: local('Arial Rounded MT Bold'), local('ArialRoundedMTBold');
+    font-style: normal;
+    font-weight: 400;
+}}
 @page {{ size: {page_size}; margin: 0; }}
 * {{ box-sizing: border-box; }}
 body {{ margin: 0; padding: 0; }}
@@ -3290,7 +3305,7 @@ body {{ margin: 0; padding: 0; }}
 .label {{ position: relative; width: 100%; height: 100%; }}
 .field {{
     position: absolute;
-    font-family: 'Times New Roman', 'PMingLiU', 'MingLiU', serif;
+    font-family: 'Arial Rounded MT Bold', Arial, 'Times New Roman', 'PMingLiU', 'MingLiU', serif;
     font-weight: 400;
     font-synthesis: none;
     white-space: nowrap;
