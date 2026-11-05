@@ -3268,12 +3268,6 @@ def generate_big_label_html(label_rows, *, paper_stock="a4_driver"):
 <meta charset="utf-8">
 <title>生產單大標列印</title>
 <style>
-@font-face {{
-    font-family: 'Arial Rounded MT Bold';
-    src: local('Arial Rounded MT Bold'), local('ArialRoundedMTBold');
-    font-style: normal;
-    font-weight: 400;
-}}
 @page {{ size: {page_size}; margin: 0; }}
 * {{ box-sizing: border-box; }}
 body {{ margin: 0; padding: 0; }}
@@ -3296,7 +3290,7 @@ body {{ margin: 0; padding: 0; }}
 .label {{ position: relative; width: 100%; height: 100%; }}
 .field {{
     position: absolute;
-    font-family: 'Arial Rounded MT Bold', Arial, 'Microsoft JhengHei', sans-serif;
+    font-family: 'Times New Roman', 'PMingLiU', 'MingLiU', serif;
     font-weight: 400;
     font-synthesis: none;
     white-space: nowrap;
