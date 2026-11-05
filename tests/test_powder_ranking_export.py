@@ -30,7 +30,7 @@ df_order = pd.DataFrame([{"配方編號": "R1", "生產日期": "2026-01-02"}])
 df_recipe = pd.DataFrame([{
     "配方編號": "R1", "色粉編號1": "B01", "色粉重量1": 3000,
     "色粉編號2": "A001", "色粉重量2": 2000,
-    "色粉編號3": "4353", "色粉重量3": 1000,
+    "色粉編號3": "4353", "色粉重量3": 1025,
     "色粉編號4": "0012", "色粉重量4": 0.5,
 }])
 download = st.download_button
@@ -51,7 +51,7 @@ st.download_button = capture_download
     result = exported()
     assert result.columns.tolist() == ["色粉編號", "總用量(kg)"]
     assert result["色粉編號"].tolist() == ["B01", "A001", "4353", "0012"]
-    assert result["總用量(kg)"].tolist() == [3, 2, 1, 0.0005]
+    assert result["總用量(kg)"].tolist() == [3, 2, 1.03, 0]
     app.toggle(key="rank_show_01_001").set_value(False).run()
     assert not app.exception
     assert exported()["色粉編號"].tolist() == ["4353", "0012"]

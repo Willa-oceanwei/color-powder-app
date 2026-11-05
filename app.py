@@ -12508,8 +12508,14 @@ elif menu == "庫存區":
         if df_rank is not None:
             if not df_rank.empty:
                 st.dataframe(customer_display.frame(df_rank), use_container_width=True, hide_index=True)
+                from decimal import Decimal, ROUND_HALF_UP
+
                 export_rank = df_rank[["色粉編號"]].copy()
-                export_rank["總用量(kg)"] = export_rank["色粉編號"].map(pigment_usage) / 1000
+                export_rank["總用量(kg)"] = export_rank["色粉編號"].map(
+                    lambda powder_id: (Decimal(str(pigment_usage[powder_id])) / 1000).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP,
+                    )
+                )
                 csv = export_rank.to_csv(index=False).encode("utf-8-sig")
                 st.download_button(
                     label="⬇️ 下載排行榜 CSV",
