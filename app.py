@@ -3344,6 +3344,9 @@ window.addEventListener('beforeprint', fitLabelText);
 
 def render_big_label_editor(label_order, *, key_prefix):
     """Edit and print labels from either a newly saved or historical order."""
+    import streamlit.components.v1 as components
+    from utils.label_print_preview import build_label_print_preview
+
     order_no_for_label = str(label_order.get("生產單號", ""))
     st.caption(f"生產單 {order_no_for_label} · 配方 {label_order.get('配方編號', '')}")
     kind_col, paper_col, position_col = st.columns([1.2, 1.5, 1.3], vertical_alignment="center")
@@ -3431,6 +3434,14 @@ def render_big_label_editor(label_order, *, key_prefix):
             width: calc(75% - 0.25rem);
         }}
     }}
+    [data-testid="stPopoverBody"]:has(.label-online-preview) {{
+        width: min(960px, calc(100vw - 40px)) !important;
+        max-width: calc(100vw - 40px) !important;
+    }}
+    [data-testid="stPopoverBody"]:has(.label-online-preview) [data-testid="stVerticalBlock"] {{
+        width: 100% !important;
+        max-width: 100% !important;
+    }}
     </style>
     """)
     with st.container(key=f"{key_prefix}_label_controls"):
@@ -3474,7 +3485,7 @@ def render_big_label_editor(label_order, *, key_prefix):
         draft_rows = normalize_big_label_editor_rows(edited_label_rows.to_dict(orient="records"))
         draft_count = sum(row["列印張數"] for row in draft_rows)
         with st.container(key=f"{key_prefix}_label_actions"):
-            download_col, count_col = st.columns([1, 2], vertical_alignment="center")
+            download_col, online_col, count_col = st.columns([1, 1, 2], vertical_alignment="center")
         count_status = count_col.empty()
         count_status.caption(f"{len(draft_rows)} 種內容 · {draft_count} 張標籤")
 
@@ -3529,6 +3540,9 @@ def render_big_label_editor(label_order, *, key_prefix):
         safe_order_no = re.sub(r'[\\/:*?"<>|]', '-', str(order_no_for_label or "未命名"))
         safe_recipe_no = re.sub(r'[\\/:*?"<>|]', '-', str(label_order.get("配方編號", "") or "無配方"))
         label_filename = f"{safe_order_no}_{safe_recipe_no}_小標籤.html" if is_small else f"{safe_order_no}_大標.html"
+        labels_ready = draft_rows == st.session_state.get(
+            label_saved_rows_key, st.session_state[label_editor_defaults_key]
+        ) and selected_positions != []
 
         download_col.download_button(
             label="下載列印檔",
@@ -3537,8 +3551,15 @@ def render_big_label_editor(label_order, *, key_prefix):
             mime="text/html",
             key=f"{key_prefix}_download_big_label_{order_no_for_label}_{st.session_state[label_version_key]}",
             use_container_width=True,
-            disabled=draft_rows != st.session_state.get(label_saved_rows_key, st.session_state[label_editor_defaults_key]) or selected_positions == [],
+            disabled=not labels_ready,
         )
+        with online_col.popover("線上列印", use_container_width=True, disabled=not labels_ready):
+            st.html('<span class="label-online-preview"></span>')
+            if labels_ready:
+                components.html(
+                    build_label_print_preview(cached_render[1].decode("utf-8")),
+                    height=440, scrolling=False,
+                )
         with st.expander("分頁預覽", expanded=False):
             page_rows = [
                 {"頁次": page_number, "標籤張數": len(page),
@@ -3551,6 +3572,7 @@ def render_big_label_editor(label_order, *, key_prefix):
         download_col.download_button("下載列印檔", data=b"", file_name="labels.html",
                                      disabled=True, use_container_width=True,
                                      key=f"{key_prefix}_download_big_label_pending_{order_no_for_label}")
+        online_col.popover("線上列印", use_container_width=True, disabled=True)
 
 
 # The production workspace owns the complete label editor and download tree.
