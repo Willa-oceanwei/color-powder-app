@@ -62,7 +62,7 @@ def test_big_label_html_uses_physical_stock_dimensions_and_anchors():
     assert 'class="field left" style="left:-0.1cm; top:2.5cm;"' in result
     assert 'class="field right" style="left:1.4cm; top:2.5cm;"' in result
     assert "width: 1.0cm;" in result
-    assert "context.measureText(field.textContent)" in result
+    assert "range.selectNodeContents(field)" in result
     assert "await document.fonts.ready;" in result
 
 
@@ -127,7 +127,7 @@ def test_short_number_and_name_shift_together_without_moving_date_or_weight():
     short = generate([{"編號": "00123", "名稱": "紅色", "日期": "115/10/14", "數量": "25KG"}],
                      paper_stock="a4_driver")
     assert 'left:1.4cm; top:0.5cm; width:4.0cm;">00123' in short
-    assert 'left:1.4cm; top:2.5cm; width:4.0cm;">紅色' in short
+    assert 'left:1.4cm; top:2.5cm; width:4.0cm;"><span class="label-chinese">紅色</span>' in short
     assert 'left:5.9cm; top:0.5cm;">115/10/14' in short
     assert 'left:5.9cm; top:2.5cm;">25KG' in short
     for number, name in [("1234567", "紅色"), ("12345", "黑色母粉"), ("", "紅色"), ("12345", "")]:
@@ -145,7 +145,7 @@ def test_six_character_code_and_three_character_name_limits():
         result = generate([{"編號": number, "名稱": name, "日期": "115/10/14", "數量": "30KG"}],
                           paper_stock="a4_driver")
         assert f'left:1.4cm; top:0.5cm; width:4.0cm;">{number}' in result
-        assert f'left:1.4cm; top:2.5cm; width:4.0cm;">{name}' in result
+        assert f'left:1.4cm; top:2.5cm; width:4.0cm;"><span class="label-chinese">{name}</span>' in result
         assert 'left:5.9cm; top:0.5cm;">115/10/14' in result
         assert 'left:5.9cm; top:2.5cm;">30KG' in result
 

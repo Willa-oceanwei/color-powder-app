@@ -1,6 +1,19 @@
 """Print variable fields on preprinted two-column small-label stock."""
 
 from html import escape
+import re
+
+
+LABEL_CHINESE_STYLE = ".label-chinese { font-weight: 700; font-synthesis: weight; }"
+
+
+def format_label_text(value):
+    """Escape label data and apply bold only to Chinese ideographs."""
+    return re.sub(
+        r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\U00020000-\U000323af]+",
+        r'<span class="label-chinese">\g<0></span>',
+        escape(str(value or "")),
+    )
 
 
 def generate_small_label_html(rows, *, paper_stock="a4_driver", selected_positions=None):
@@ -34,7 +47,7 @@ def generate_small_label_html(rows, *, paper_stock="a4_driver", selected_positio
                 if key == "比例" and value.lower().endswith("g/kg"):
                     value = value[:-4].strip()
                 font_size = 12 if key in ("編號", "名稱") else 11
-                fields.append(f'<div class="field" data-field="{key}" data-size="{font_size}" style="left:{x}cm;top:{y}cm;width:{width}cm">{escape(value)}</div>')
+                fields.append(f'<div class="field" data-field="{key}" data-size="{font_size}" style="left:{x}cm;top:{y}cm;width:{width}cm">{format_label_text(value)}</div>')
             slots.append(f'<div class="label-slot" style="left:{left}cm;top:{top}cm;width:{label_width}cm">{"".join(fields)}</div>')
         sheets.append(f'<div class="sheet">{"".join(slots)}</div>')
     size = "A4" if paper_stock == "a4_driver" else "14cm 23cm"
@@ -59,6 +72,7 @@ overflow: hidden; break-after: page; page-break-after: always; break-inside: avo
 font: 400 11pt "Arial Rounded MT Bold", Arial, "Times New Roman", "PMingLiU", "MingLiU", serif;
 font-synthesis: none; }}
 .field[data-size="12"] {{ font-size: 12pt; }}
+{LABEL_CHINESE_STYLE}
 </style><script>
 function fitLabelText() {{
  document.querySelectorAll('.field').forEach(field => {{

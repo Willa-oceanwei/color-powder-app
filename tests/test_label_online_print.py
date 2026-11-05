@@ -26,7 +26,9 @@ def test_online_labels_preserve_print_layout_and_require_manual_print(small, pap
     original_sheets = re.search(r"<body>(.*?)</body>", source, re.S).group(1)
     assert original_sheets in preview
     assert preview.count('class="sheet"') == (2 if small else 3)
-    assert "&lt;白&gt;" in preview
+    assert '&lt;<span class="label-chinese">白</span>&gt;' in preview
+    assert ".label-chinese { font-weight: 700;" in preview
+    assert '<span class="label-chinese">69783DM</span>' not in preview
     assert "zoom:1!important" in preview
     assert ".toolbar{display:none!important}" in preview
     assert "列印比例請選 100%" in preview

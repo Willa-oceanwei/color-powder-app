@@ -3200,6 +3200,8 @@ def generate_big_label_html(label_rows, *, paper_stock="a4_driver"):
     """把標籤資料排成大標 HTML：每張紙 12x32cm 直排 4 格，每格 10.8x7.8cm，
     下方 4.7cm 保留給預印公司資訊、不列印任何內容。超過 4 張自動分頁，
     預設使用已校準的 A4 列印檔，列印時一張一張手動進紙。"""
+    from utils.small_label_print import LABEL_CHINESE_STYLE, format_label_text
+
     if not label_rows:
         return ""
 
@@ -3231,9 +3233,6 @@ def generate_big_label_html(label_rows, *, paper_stock="a4_driver"):
     name_y_cm = round(row3_y_cm - 0.6, 3)
     row2_y_cm = round((row1_y_cm + quantity_y_cm) / 2, 3)
 
-    def esc(v):
-        return html_escape.escape(str(v or ""))
-
     def render_label(entry):
         if entry is None:
             return ""
@@ -3248,11 +3247,11 @@ def generate_big_label_html(label_rows, *, paper_stock="a4_driver"):
         entry_width_cm = round(max(0.1, left_text_width_cm - extra_right_cm), 3)
         width_style = f" width:{entry_width_cm}cm;" if extra_right_cm else ""
         return f"""<div class="label">
-<div class="field left" style="left:{entry_left_cm}cm; top:{row1_y_cm}cm;{width_style}">{esc(entry.get('編號'))}</div>
-<div class="field right" style="left:{right_col_x_cm}cm; top:{row1_y_cm}cm;">{esc(entry.get('日期'))}</div>
-<div class="field right" style="left:{right_col_x_cm}cm; top:{row2_y_cm}cm;">{esc(entry.get('比例'))}</div>
-<div class="field left" style="left:{entry_left_cm}cm; top:{name_y_cm}cm;{width_style}">{esc(entry.get('名稱'))}</div>
-<div class="field right" style="left:{right_col_x_cm}cm; top:{quantity_y_cm}cm;">{esc(entry.get('數量'))}</div>
+<div class="field left" style="left:{entry_left_cm}cm; top:{row1_y_cm}cm;{width_style}">{format_label_text(entry.get('編號'))}</div>
+<div class="field right" style="left:{right_col_x_cm}cm; top:{row1_y_cm}cm;">{format_label_text(entry.get('日期'))}</div>
+<div class="field right" style="left:{right_col_x_cm}cm; top:{row2_y_cm}cm;">{format_label_text(entry.get('比例'))}</div>
+<div class="field left" style="left:{entry_left_cm}cm; top:{name_y_cm}cm;{width_style}">{format_label_text(entry.get('名稱'))}</div>
+<div class="field right" style="left:{right_col_x_cm}cm; top:{quantity_y_cm}cm;">{format_label_text(entry.get('數量'))}</div>
 </div>"""
 
     sheets_html = []
@@ -3313,28 +3312,29 @@ body {{ margin: 0; padding: 0; }}
 }}
 .field.left {{ font-size: 18pt; width: {left_text_width_cm}cm; }}
 .field.right {{ font-size: 17pt; }}
+{LABEL_CHINESE_STYLE}
 </style>
 <script>
 function fitLabelText() {{
-    const context = document.createElement('canvas').getContext('2d');
+    const range = document.createRange();
     document.querySelectorAll('.field.left').forEach(field => {{
         const style = window.getComputedStyle(field);
         const size = parseFloat(style.fontSize);
-        context.font = size + 'px ' + style.fontFamily;
-        const textWidth = context.measureText(field.textContent).width;
-        const available = Math.max(1, field.clientWidth - 1);
+        range.selectNodeContents(field);
+        const textWidth = range.getBoundingClientRect().width;
+        const available = field.getBoundingClientRect().width;
         if (textWidth > available) {{
             field.style.fontSize = (size * available / textWidth) + 'px';
         }}
     }});
     document.querySelectorAll('.label').forEach(label => {{
         const [number, name] = label.querySelectorAll('.field.left');
-        const range = document.createRange();
         range.selectNodeContents(number);
         const numberWidth = range.getBoundingClientRect().width;
         range.selectNodeContents(name);
         const nameWidth = range.getBoundingClientRect().width;
-        name.style.transform = 'translateX(' + Math.max(0, (numberWidth - nameWidth) / 2) + 'px)';
+        const scale = number.getBoundingClientRect().width / number.offsetWidth || 1;
+        name.style.transform = 'translateX(' + Math.max(0, (numberWidth - nameWidth) / (2 * scale)) + 'px)';
     }});
 }}
 window.onload = async function() {{
@@ -3454,6 +3454,29 @@ def render_big_label_editor(label_order, *, key_prefix):
     </style>
     """)
     with st.container(key=f"{key_prefix}_label_controls"):
+        components.html("""
+        <script>
+        (() => {
+            const controls = window.frameElement?.closest('[class*="_label_controls"]');
+            if (!controls || controls.dataset.labelSubmitDelay) return;
+            controls.dataset.labelSubmitDelay = 'true';
+            let pending = false;
+            controls.addEventListener('click', event => {
+                const submit = event.target.closest?.('[data-testid="stFormSubmitButton"] button');
+                if (!submit || !event.isTrusted) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if (pending) return;
+                pending = true;
+                // Streamlit 1.45 debounces data-editor edits before updating form state.
+                window.parent.setTimeout(() => {
+                    pending = false;
+                    if (submit.isConnected && !submit.disabled) submit.click();
+                }, 250);
+            }, true);
+        })();
+        </script>
+        """, height=0)
         # Submit the active cell edit and the save action in the same request.
         with st.form(key=f"{key_prefix}_label_form_{order_no_for_label}", border=False):
             st.markdown('<span class="big-label-form-anchor"></span>', unsafe_allow_html=True)
@@ -3488,9 +3511,9 @@ def render_big_label_editor(label_order, *, key_prefix):
 
             save_col, _ = st.columns([1, 3], vertical_alignment="center")
             with save_col:
-                st.form_submit_button("儲存並更新標籤", type="primary",
-                                      on_click=request_label_save, use_container_width=True)
-        confirm_clicked = st.session_state.get(pending_save_key, False)
+                submitted = st.form_submit_button("儲存並更新標籤", type="primary",
+                                                  on_click=request_label_save, use_container_width=True)
+        confirm_clicked = submitted or st.session_state.get(pending_save_key, False)
         draft_rows = normalize_big_label_editor_rows(edited_label_rows.to_dict(orient="records"))
         draft_count = sum(row["列印張數"] for row in draft_rows)
         with st.container(key=f"{key_prefix}_label_actions"):
