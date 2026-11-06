@@ -128,7 +128,14 @@ def test_monthly_ui_settles_extras_and_blocks_outdated_download(tmp_path):
     download = next(item for item in app.get("download_button") if item.proto.label == "下載本月薪資表")
     assert download.proto.disabled
     assert any("重新按" in warning.value for warning in app.warning)
+    app.number_input(key="addition_amount_2026-09_0_E1").set_value(1900)
     app.text_area(key="manual_2026-09_0_E1").set_value("Corrected note")
+    next(button for button in app.button if button.label == "套用加扣／備註").click().run()
+    assert not app.exception
+    applied = app.session_state["salary_blocks"][0]
+    assert applied["manual_note"] == "Corrected note"
+    assert next(item["amount"] for item in applied["adjustments"] if item["type"] == "addition") == 1900
+    assert get_settled_month_salaries(config, 2026, 9)[0]["manual_note"] != "Corrected note"
     app.number_input(key="monthly_extra_employee_2026-09_E1").set_value(200.0)
     next(button for button in app.button if button.label == "結算薪資").click().run()
     assert not app.exception

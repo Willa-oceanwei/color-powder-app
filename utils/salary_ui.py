@@ -432,6 +432,27 @@ def _refresh_draft_leave_context(block, employee, leave_context):
     )
 
 
+_MONTHLY_ADJUSTMENT_TYPES = (("addition", "特別加給"), ("deduction", "扣除額"))
+
+
+def _apply_monthly_adjustments(state, block, key):
+    adjustments = block["adjustments"]
+    for kind, title in _MONTHLY_ADJUSTMENT_TYPES:
+        item = next((item for item in adjustments if item["type"] == kind), None)
+        if state[f"{kind}_enabled_{key}"]:
+            if item is None:
+                item = {"type": kind}
+                adjustments.append(item)
+            item.update(
+                item_name=title,
+                amount=state[f"{kind}_amount_{key}"],
+                note=state[f"{kind}_note_{key}"],
+            )
+        elif item is not None:
+            adjustments.remove(item)
+    block["manual_note"] = state[f"manual_{key}"]
+
+
 @st.fragment
 def _monthly_tab(config, employees=None, rules=None):
     now = date.today()
@@ -612,41 +633,46 @@ def _monthly_tab(config, employees=None, rules=None):
                     st.warning(f"本月特休使用 {used:g} 日已超過可用的 {before:g} 日，剩餘天數以 0 日計算。")
                 st.caption(f"年度核定 {entitlement:g} 日；本月使用 {used:g} 日；使用前 {before:g} 日，使用後 {block['annual_leave_balance_after']:g} 日")
             with adjustment_tab:
-                st.markdown("##### 當月彈性項目")
-                for kind, title, item_name in (("addition", "特別加給", "特別加給"), ("deduction", "扣除額", "扣除額")):
-                    adjustments = block.setdefault("adjustments", [])
-                    item = next((x for x in adjustments if x["type"] == kind), None)
-                    enabled = st.toggle(f"啟用{title}", value=item is not None, key=f"{kind}_enabled_{period}_{index}")
-                    if enabled:
-                        if item is None:
-                            item = {"type":kind, "item_name":item_name, "amount":0, "note":""}
-                            adjustments.append(item)
-                        amount_col, note_col = st.columns([1, 2])
-                        item["item_name"] = item_name
-                        item["amount"] = amount_col.number_input(f"{title}金額", min_value=0, value=int(item.get("amount", 0)), key=f"{kind}_amount_{period}_{index}")
-                        item["note"] = note_col.text_input(f"{title}說明", value=item.get("note") or "", key=f"{kind}_note_{period}_{index}", help="餐費、獎金或借支原因等內容統一填在此處，不再細分類別。")
-                    elif item is not None:
-                        adjustments.remove(item)
-                additions = [x for x in block["adjustments"] if x["type"] == "addition"]; deductions = [x for x in block["adjustments"] if x["type"] == "deduction"]
+                adjustment_key = f"{period}_{index}_{current_id}"
+                additions = [item for item in block["adjustments"] if item["type"] == "addition"]
+                deductions = [item for item in block["adjustments"] if item["type"] == "deduction"]
                 block.update(calculate_salary(block, additions, deductions, rules))
                 generated_note = generate_salary_note(block, additions, deductions)
-                system_note_key = f"system_note_{period}_{index}_{block.get('employee_id')}"
+                system_note_key = f"system_note_{adjustment_key}"
                 _sync_generated_note_state(
                     st.session_state, system_note_key, generated_note, block.get("system_note", ""),
                     force_refresh=current_id in refreshed_leave_employee_ids,
                     ensure_leave_summary=True,
                 )
-                block["manual_note"] = st.text_area(
-                    "人工備註", block.get("manual_note", ""),
-                    key=f"manual_{period}_{index}_{block.get('employee_id')}",
-                )
-                st.markdown("##### 儲存前備註預覽（可編輯）")
-                st.caption("特休明細請先按「套用特休明細」；下方就是會儲存的自動備註，可直接點入修改。")
-                block["system_note"] = st.text_area(
-                    "自動生成備註", key=system_note_key,
-                    placeholder="本月目前沒有自動生成的備註內容。",
-                    help="未修改時會隨薪資資料自動更新；手動修改後，系統會保留您的版本。",
-                )
+                block["system_note"] = st.session_state[system_note_key]
+                manual_note_key = f"manual_{adjustment_key}"
+                st.session_state.setdefault(manual_note_key, block.get("manual_note", ""))
+                with st.form(f"salary_adjustments_{adjustment_key}", enter_to_submit=False):
+                    st.markdown("##### 當月彈性項目")
+                    st.caption("勾選要使用的項目，填完後按「套用加扣／備註」，再儲存草稿或結算。")
+                    for kind, title in _MONTHLY_ADJUSTMENT_TYPES:
+                        item = next((item for item in block["adjustments"] if item["type"] == kind), None)
+                        enabled_key = f"{kind}_enabled_{adjustment_key}"
+                        amount_key = f"{kind}_amount_{adjustment_key}"
+                        note_key = f"{kind}_note_{adjustment_key}"
+                        st.session_state.setdefault(enabled_key, item is not None)
+                        st.session_state.setdefault(amount_key, int((item or {}).get("amount", 0)))
+                        st.session_state.setdefault(note_key, (item or {}).get("note") or "")
+                        st.toggle(f"啟用{title}", key=enabled_key)
+                        amount_col, note_col = st.columns([1, 2])
+                        amount_col.number_input(f"{title}金額", min_value=0, step=1, key=amount_key)
+                        note_col.text_input(f"{title}說明", key=note_key)
+                    st.text_area("人工備註", key=manual_note_key)
+                    st.text_area(
+                        "自動生成備註", key=system_note_key,
+                        placeholder="本月目前沒有自動生成的備註內容。",
+                        help="套用後會更新未手動修改的自動備註。",
+                    )
+                    st.form_submit_button(
+                        "套用加扣／備註", type="primary",
+                        on_click=_apply_monthly_adjustments,
+                        args=(st.session_state, block, adjustment_key),
+                    )
             if annual_leave_applied:
                 block["salary_id"] = save_salary(
                     config, {**block, "year": year, "month": month}, block["adjustments"],
