@@ -523,6 +523,7 @@ def _monthly_tab(config, employees=None, rules=None):
         blocks.append(new_block)
         st.toast("新增人員已自動儲存為草稿")
         st.rerun()
+    form_drafts = []
     for index, block in enumerate(list(blocks)):
         employee_label = block.get("employee_name_snapshot") or by_id.get(
             block.get("employee_id"), {"name": block.get("employee_id", "未指定員工")}
@@ -649,7 +650,7 @@ def _monthly_tab(config, employees=None, rules=None):
                 st.session_state.setdefault(manual_note_key, block.get("manual_note", ""))
                 with st.form(f"salary_adjustments_{adjustment_key}", enter_to_submit=False):
                     st.markdown("##### 當月彈性項目")
-                    st.caption("勾選要使用的項目，填完後按「套用加扣／備註」，再儲存草稿或結算。")
+                    st.caption("勾選要使用的項目，填完可直接儲存此人草稿，或先套用後查看薪資預覽。")
                     for kind, title in _MONTHLY_ADJUSTMENT_TYPES:
                         item = next((item for item in block["adjustments"] if item["type"] == kind), None)
                         enabled_key = f"{kind}_enabled_{adjustment_key}"
@@ -673,6 +674,13 @@ def _monthly_tab(config, employees=None, rules=None):
                         on_click=_apply_monthly_adjustments,
                         args=(st.session_state, block, adjustment_key),
                     )
+                    if st.form_submit_button(
+                        "套用並儲存此人草稿",
+                        disabled=block.get("status") == "settled",
+                        on_click=_apply_monthly_adjustments,
+                        args=(st.session_state, block, adjustment_key),
+                    ):
+                        form_drafts.append(block)
             if annual_leave_applied:
                 block["salary_id"] = save_salary(
                     config, {**block, "year": year, "month": month}, block["adjustments"],
@@ -739,17 +747,19 @@ def _monthly_tab(config, employees=None, rules=None):
         config, ("report_notes", year, report_employee_ids),
         lambda: get_employee_salary_notes(config, report_employee_ids, year),
     )
-    preview_rows, _ = _salary_report_rows(config, blocks, year, notes_by_employee)
     c1, c2, c3 = st.columns(3)
     draft_blocks = [block for block in blocks if block.get("status") != "settled"]
     if c1.button("儲存草稿", disabled=not draft_blocks):
+        form_drafts = draft_blocks
+    if form_drafts:
         salary_ids = save_salaries(
-            config, [{**block, "year": year, "month": month} for block in draft_blocks],
+            config, [{**block, "year": year, "month": month} for block in form_drafts],
         )
-        for block, salary_id in zip(draft_blocks, salary_ids):
+        for block, salary_id in zip(form_drafts, salary_ids):
             block["salary_id"] = salary_id
         st.toast("草稿已儲存")
         _invalidate_salary_reference_cache()
+    preview_rows, _ = _salary_report_rows(config, blocks, year, notes_by_employee)
     if c2.button("結算薪資", type="primary", disabled=not blocks):
         replaces_settlement = any(block.get("status") == "settled" for block in blocks)
         salary_ids = settle_salary_month(
@@ -776,7 +786,8 @@ def _monthly_tab(config, employees=None, rules=None):
             ),
             f"{year}年{month:02d}月薪資草稿預覽.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            help="直接使用目前畫面內容產生預覽，不必先儲存或結算。",
+            on_click="ignore",
+            help="使用已套用的畫面內容產生預覽，不必先結算。",
         )
     else:
         c3.button("草稿預覽（Excel）", disabled=True, help="請先新增薪資人員。")
