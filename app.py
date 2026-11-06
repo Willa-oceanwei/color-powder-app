@@ -3663,7 +3663,9 @@ def render_order_download_actions(label_order, a5_data, a5_filename):
         components.html(build_production_order_preview(a5_data.decode("utf-8")), height=430, scrolling=False)
     if label_col.button("製作標籤", key=f"open_labels_tab2_{order_no}"):
         st.session_state[open_key] = not st.session_state.get(open_key, False)
-        if not st.session_state[open_key]:
+        if st.session_state[open_key]:
+            st.session_state["history_labels_pinned_order_id"] = order_no
+        else:
             st.session_state.pop("history_labels_pinned_order_id", None)
     if st.session_state.get(open_key, False):
         render_big_label_editor(label_order, key_prefix="tab2")
@@ -3680,7 +3682,7 @@ def render_saved_label_section(snapshot_order, *, a5_downloaded):
             </div>
         """, unsafe_allow_html=True)
     with toggle_col:
-        show_label_section = st.toggle("開啟標籤", key=f"show_big_label_{order_no_for_label}", value=False)
+        show_label_section = st.toggle("製作標籤", key=f"show_big_label_{order_no_for_label}", value=False)
     if show_label_section:
         if not a5_downloaded:
             st.caption("ℹ️ 尚未下載 A5 生產單；仍可直接編輯及列印標籤。")
@@ -7664,6 +7666,10 @@ def render_production_order_workspace():
                         use_container_width=True,
                     )
     
+                    show_labels = st.toggle("製作標籤", key=f"show_labels_tab3_{current_order_no}")
+                if show_labels:
+                    render_big_label_editor(order_dict, key_prefix="tab3")
+
                 st.caption("可直接按下方「列印 A5」；原有 A5 下載功能保留。")
                 components.html(build_production_order_preview(preview_a5_data.decode("utf-8")),
                                 height=430, scrolling=False)
