@@ -3423,12 +3423,16 @@ def render_big_label_editor(label_order, *, key_prefix):
     if is_small and position_col.toggle("指定列印位置", value=False,
                               key=f"{key_prefix}_choose_positions_{order_no_for_label}"):
         selected_positions = []
-        for row_index, column in enumerate(st.columns(5)):
-            for column_index in range(2):
-                position = row_index * 2 + column_index
-                if column.checkbox(f"{'左' if column_index == 0 else '右'}第 {row_index + 1} 排",
-                                   key=f"{key_prefix}_position_{order_no_for_label}_{position}"):
-                    selected_positions.append(position)
+        with st.container(border=True):
+            left_header, right_header = st.columns(2)
+            left_header.markdown("**左欄**")
+            right_header.markdown("**右欄**")
+            for row_index in range(5):
+                for column_index, column in enumerate(st.columns(2)):
+                    position = row_index * 2 + column_index
+                    if column.checkbox(f"{'左' if column_index == 0 else '右'}第 {row_index + 1} 排",
+                                       key=f"{key_prefix}_position_{order_no_for_label}_{position}"):
+                        selected_positions.append(position)
         if not selected_positions:
             st.warning("請勾選至少一個列印位置。")
     st.html(f"""
