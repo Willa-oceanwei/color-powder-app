@@ -10371,7 +10371,7 @@ elif menu == "查詢區":
             st.table(customer_display.frame(df_reset))
     
         with pantone_tab_search:
-            c1, c2 = st.columns([2, 1])
+            c1, c2 = st.columns([2, 1], vertical_alignment="bottom")
             with c1:
                 search_code = st.text_input("輸入 Pantone 色號", key="search_pantone_tab")
             with c2:
