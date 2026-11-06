@@ -6719,6 +6719,23 @@ def render_production_order_workspace():
             elif not st.session_state.get("new_order_saved", False):
                 st.session_state[merge_decision_key] = "new"
 
+            from utils.customer_repository import list_customers
+
+            customer_id = str(recipe_row.get("客戶編號", "") or "").strip()
+            customer = next(
+                (item for item in list_customers(DATABASE_CONFIG, include_inactive=True)
+                 if item["customer_id"] == customer_id),
+                {},
+            ) if customer_id else {}
+            customer_fields = {
+                "客戶編號": customer_id,
+                "客戶名稱": customer.get("name") or order.get("客戶名稱", ""),
+                "客戶聯絡人": customer.get("contact") or "",
+                "客戶電話": customer.get("phone") or "",
+                "客戶地址": customer.get("address") or "",
+            }
+            order.update(customer_fields)
+
             with st.form("order_detail_form_tab1"):
                 st.markdown(f"""
                     <div style="display:flex;flex-wrap:wrap;gap:24px;padding:10px 4px 16px;
@@ -6728,10 +6745,18 @@ def render_production_order_workspace():
                         <div><span style="font-size:11px;color:#9fb6cc;">配方編號</span><br>
                              <span style="font-size:14px;color:#fff;font-weight:600;">{order.get('配方編號','')}</span></div>
                         <div><span style="font-size:11px;color:#9fb6cc;">客戶</span><br>
-                             <span style="font-size:14px;color:#fff;font-weight:600;">{recipe_row.get('客戶編號','')} · {order.get('客戶名稱','')}</span></div>
+                             <span style="font-size:14px;color:#fff;font-weight:600;">{html_escape.escape(customer_id)} · {html_escape.escape(order.get('客戶名稱',''))}</span></div>
                     </div>
                     """, unsafe_allow_html=True)
             
+                contact_details = [
+                    f"{field}：{customer_fields[field]}"
+                    for field in ("客戶聯絡人", "客戶電話", "客戶地址")
+                    if customer_fields[field]
+                ]
+                if contact_details:
+                    st.text("\n".join(contact_details))
+
                 c5, c6, c7, c8 = st.columns(4)
                 c5.text_input("計量單位", value=recipe_row.get("計量單位", "kg"), disabled=True, key="form_unit_tab1")
                 # These widget keys are seeded by
@@ -6873,6 +6898,7 @@ def render_production_order_workspace():
                     # 🔒 Step 1：建立本次儲存內容快照（防重複）
                     # =================================================
                     current_snapshot = {
+                        **customer_fields,
                         "顏色": order["顏色"],
                         "Pantone 色號": order["Pantone 色號"],
                         "原料": order["料"],
