@@ -9,7 +9,7 @@ from utils.database import DatabaseConfig, connect_from_config, initialize_datab
 from utils.salary_calculator import calculate_salary
 from utils.salary_excel import generate_salary_workbook, salary_report_signature
 from utils.salary_repository import (
-    get_salary_monthly_extras, get_settled_month_salaries, save_employee,
+    get_month_salaries, get_salary_monthly_extras, get_settled_month_salaries, save_employee,
     save_salary, settle_salary_month,
 )
 
@@ -115,6 +115,14 @@ def test_monthly_ui_settles_extras_and_blocks_outdated_download(tmp_path):
     app.session_state["salary_month"] = 9
     app.run()
     assert not app.exception
+    app.text_area(key="manual_2026-09_0_E1").set_value("Draft note saved once")
+    app.number_input(key="addition_amount_2026-09_0_E1").set_value(1850)
+    next(button for button in app.button if button.label == "套用並儲存此人草稿").click().run()
+    assert not app.exception
+    draft = get_month_salaries(config, 2026, 9)[0]
+    assert draft["manual_note"] == "Draft note saved once"
+    assert draft["total_additions"] == 1850
+    assert app.session_state["salary_blocks"][0]["total_additions"] == 1850
     app.number_input(key="monthly_extra_previous_2026-09").set_value(14028.0)
     app.number_input(key="monthly_extra_employee_2026-09_E1").set_value(125.0)
     next(button for button in app.button if button.label == "結算薪資").click().run()
@@ -128,7 +136,14 @@ def test_monthly_ui_settles_extras_and_blocks_outdated_download(tmp_path):
     download = next(item for item in app.get("download_button") if item.proto.label == "下載本月薪資表")
     assert download.proto.disabled
     assert any("重新按" in warning.value for warning in app.warning)
+    app.number_input(key="addition_amount_2026-09_0_E1").set_value(1900)
     app.text_area(key="manual_2026-09_0_E1").set_value("Corrected note")
+    next(button for button in app.button if button.label == "套用加扣／備註").click().run()
+    assert not app.exception
+    applied = app.session_state["salary_blocks"][0]
+    assert applied["manual_note"] == "Corrected note"
+    assert next(item["amount"] for item in applied["adjustments"] if item["type"] == "addition") == 1900
+    assert get_settled_month_salaries(config, 2026, 9)[0]["manual_note"] != "Corrected note"
     app.number_input(key="monthly_extra_employee_2026-09_E1").set_value(200.0)
     next(button for button in app.button if button.label == "結算薪資").click().run()
     assert not app.exception
