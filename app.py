@@ -704,16 +704,23 @@ if not st.session_state.authenticated:
     st.markdown(
         """<span id="login-page"></span>
         <style>
-        .main:has(#login-page) .block-container {max-width:440px!important;padding-top:80px!important;}
-        .main:has(#login-page) h3 {font-size:24px!important;line-height:1.4!important;color:#d5e1ec!important;}
-        .main:has(#login-page) [data-testid="stForm"] {border:0!important;padding:0!important;}
-        .main:has(#login-page) [data-testid="stWidgetLabel"] p {font-size:14px!important;}
-        .main:has(#login-page) [data-testid="stTextInput"] input {font-size:16px!important;min-height:42px!important;}
-        .main:has(#login-page) [data-testid="stFormSubmitButton"] button {
+        :is(.stMain, section.main):has(#login-page) :is([data-testid="stMainBlockContainer"], .block-container) {
+            max-width:440px!important;padding-top:80px!important;
+            padding-inline:clamp(1rem, 5vw, 2rem)!important;}
+        :is(.stMain, section.main):has(#login-page) [data-testid="stForm"] [data-testid="stVerticalBlock"] {
+            grid-template-columns:minmax(0, 1fr);}
+        :is(.stMain, section.main):has(#login-page) [data-testid="stForm"] [data-testid="stVerticalBlock"]
+            > :is([data-testid="stElementContainer"], .element-container) {
+            max-width:100%;}
+        :is(.stMain, section.main):has(#login-page) h3 {font-size:24px!important;line-height:1.4!important;}
+        :is(.stMain, section.main):has(#login-page) [data-testid="stForm"] {border:0!important;padding:0!important;}
+        :is(.stMain, section.main):has(#login-page) [data-testid="stWidgetLabel"] p {font-size:14px!important;}
+        :is(.stMain, section.main):has(#login-page) [data-testid="stTextInput"] input {font-size:16px!important;min-height:42px!important;}
+        :is(.stMain, section.main):has(#login-page) [data-testid="stFormSubmitButton"] button {
             background:#3487b6!important;border:1px solid #3487b6!important;color:#fff!important;
             min-height:40px!important;border-radius:6px!important;}
-        .main:has(#login-page) [data-testid="stFormSubmitButton"] button p {font-size:15px!important;}
-        .main:has(#login-page) [data-testid="stFormSubmitButton"] button:hover {background:#28769f!important;}
+        :is(.stMain, section.main):has(#login-page) [data-testid="stFormSubmitButton"] button p {font-size:15px!important;}
+        :is(.stMain, section.main):has(#login-page) [data-testid="stFormSubmitButton"] button:hover {background:#28769f!important;}
         </style><h3>配方管理系統</h3>""",
         unsafe_allow_html=True,
     )
