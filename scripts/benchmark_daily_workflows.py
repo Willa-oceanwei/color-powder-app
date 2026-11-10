@@ -69,7 +69,8 @@ def main():
 
     def production(source):
         workspace = source.split("def render_production_order_workspace():", 1)[1]
-        section = workspace[workspace.index("        search_df ="):workspace.index("        # ===== 顯示選擇結果")]
+        start = "        filtered = df_recipe" if "        label_fields =" in workspace else "        search_df ="
+        section = workspace[workspace.index(start):workspace.index("        # ===== 顯示選擇結果")]
         namespace = {"pd": pd, "df_recipe": frame, "keywords": [], "search_text_tab1": ""}
         function(source, "format_option", namespace)
         function(source, "format_option_with_status", namespace)
@@ -84,7 +85,10 @@ def main():
     before_options()
     after_options()
     assert {key: {field: value for field, value in row.items() if field != "_search_text"}
-            for key, row in before_state["option_map"].items()} == after_state["option_map"]
+            for key, row in before_state["option_map"].items()} == {
+                key: {**after_state["filtered"].iloc[position].to_dict(), "label": key}
+                for key, position in after_state["option_map"].items()
+            }
     results = [
         compare("shipment: 30 rows, three catalog-match passes",
                 lambda: [old_match(choices, code) for _ in range(3) for code in codes],

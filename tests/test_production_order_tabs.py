@@ -59,8 +59,9 @@ def test_initial_production_queries_run_in_parallel_without_duplicate_recipe_loa
     section = section.split("# ======== 代工管理分頁 =========", 1)[0]
 
     assert "ThreadPoolExecutor(max_workers=3)" in section
-    assert "inventory_future = executor.submit(list_inventory_movements" in section
-    assert 'st.session_state["_initial_production_inventory"]' in section
+    initial_load = section.split("production_data_started_at", 1)[1].split("# ===== 完整初始化庫存", 1)[0]
+    assert "executor.submit(customer_display._load)" in initial_load
+    assert "list_inventory_movements" not in initial_load
     assert "load_recipe(force_reload=False)" not in section
     assert '"production_initial_data"' in section
     assert '"production_stock_calculation"' in section
