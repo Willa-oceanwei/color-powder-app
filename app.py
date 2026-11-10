@@ -4157,6 +4157,17 @@ elif menu == "配方管理":
         width: auto;
         min-width: 0 !important;
     }
+    @media (max-width: 680px) {
+        .st-key-recipe_creation_actions [data-testid="stHorizontalBlock"] {
+            gap: 0.375rem;
+        }
+        .st-key-recipe_creation_actions .stFormSubmitButton button {
+            padding-inline: 0.25rem;
+        }
+        .st-key-recipe_creation_actions .stFormSubmitButton button p {
+            font-size: 0.8125rem;
+        }
+    }
     </style>
     """, unsafe_allow_html=True)
 
