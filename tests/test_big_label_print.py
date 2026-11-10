@@ -150,6 +150,18 @@ def test_six_character_code_and_three_character_name_limits():
         assert 'left:5.9cm; top:2.5cm;">30KG' in result
 
 
+def test_single_character_name_uses_only_its_own_print_offset():
+    generate = _load_generate_big_label_html()
+    for stock in ("a4_driver", "custom"):
+        result = generate([
+            {"編號": "69939CM", "名稱": "綠", "數量": "25KG"},
+            {"編號": "69939CM", "名稱": "淺綠", "數量": "25KG"},
+        ], paper_stock=stock)
+        fields = [line for line in result.splitlines() if 'class="field left single-character"' in line]
+        assert len(fields) == 1 and ">綠</span>" in fields[0]
+        assert ".field.single-character { margin-left: -1mm; }" in result
+
+
 def test_quick_rows_expand_weights_and_ignore_zero_counts():
     helpers = _load_quick_label_helpers()
     labels = helpers["build_quick_labels"](
