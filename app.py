@@ -6303,10 +6303,12 @@ def render_production_order_workspace():
         filtered = df_recipe
         if keywords:
             search_df = df_recipe[["配方編號", "客戶名稱", "顏色"]].astype(str)
-            search_text = (search_df["配方編號"] + " " + search_df["客戶名稱"] + " " + search_df["顏色"]).str.lower()
+            search_df["_search_text"] = (
+                search_df["配方編號"] + " " + search_df["客戶名稱"] + " " + search_df["顏色"]
+            ).str.lower()
             mask = pd.Series(True, index=search_df.index)
             for kw in keywords:
-                mask &= search_text.str.contains(kw.lower(), na=False, regex=False)
+                mask &= search_df["_search_text"].str.contains(kw.lower(), na=False, regex=False)
             filtered = df_recipe[mask]
 
         # A complete recipe ID takes priority over substring matches (917 / 1917 / 917A).
